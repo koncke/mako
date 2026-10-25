@@ -3277,7 +3277,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '00:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '21:16', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Ordenar» en el «⋯» de cada columna, y los ya traídos en gris',
     puntos: [
@@ -3313,7 +3313,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '01:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '21:57', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Las hojas con «Ver más», «A revisar» del CRM que miras, y el buscador de Instagram honesto',
     puntos: [
@@ -3333,6 +3333,139 @@ export const BITACORA: Hito[] = [
       'lib/a-revisar-filas.ts · app/api/datos-sin-marcar-count/route.ts — «A revisar» por CRM',
       'lib/instagram-buscar.ts · app/crm/new/InstagramBuscador.tsx — Meta conectada sin Instagram',
       'tests/ficha-ver-mas.test.ts · tests/a-revisar-por-crm.test.ts · tests/instagram-meta-sin-instagram.test.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los modales hijos vuelven al padre, y Scraper, Traer e Importar con una estética (puntos 19 y 20)',
+    pedido: '19. Si le doy a "Scraper" o algun boton asi, se me abre el modal nuevo, si me salgo haciendo click afuera debería tener abierto el modal anterior. Siempre todos los modales deben tener esa "navegación" interna. 20. Rediseña los modales de "scraper" y "de otro funnel", se ven muy feos, mira la captura la cantidad de botones que tienen, no se entiende nada... Y también rediseña el de "importar", que tiene una estetica MUY diferente, todos tienen que compartir estetica...',
+    puntos: [
+      'Tercera tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md).',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:46', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los modales de traer se abren encima, y los tres con la misma cara',
+    puntos: [
+      '«Traer de otro funnel», el Scraper e «Importar» se abren encima de «Nuevo lead». Si los cierras, vuelves al alta con lo que habías escrito.',
+      'Los tres tienen la misma forma, copiada del importador de Attio: de dónde arriba, a dónde abajo, cuántos entran en una línea, la lista, y abajo sólo «Atrás» y la acción.',
+      'En el Scraper, «Completar desde mi WhatsApp» y «Datos de empresa» pasaron a los «⋯» de arriba. «Parar» aparece abajo, al lado del avance.',
+      'El de importar ya no tiene su diseño aparte: tiene los pasos «Archivo» y «Revisar», y te dice cuántos se crean y cuántos se completan.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '002a8c31c', msg: 'CRM: «Traer», el Scraper e «Importar» se abren encima de «Nuevo lead» y comparten un molde copiado del importador de Attio', lineas: 825, archivos: 16 },
+    ],
+    archivos: [
+      'app/crm/MoldeTraer.tsx — la cara común de los tres',
+      'app/crm/CrmBoard.tsx — «Nuevo lead» y sus hijos, encima',
+      'app/crm/TraerDeGrupoWA.tsx · app/crm/TraerDeOtroProducto.tsx · app/crm/ImportarLeadsModal.tsx',
+      'tests/crm-modales-encima.test.ts · tests/crm-molde-traer.test.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El editor del CRM: MaKo flotante y todo editable (punto 12)',
+    pedido: 'En el editor del CRM no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese diseño. Y aún no hiciste que se pueda editar cada cosa, por ejemplo en el bloque de "Contacto" no puedo sacar EMPRESA, y en general debes revisas que todo sea editable...',
+    puntos: [
+      'Cuarta tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md).',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:53', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo flota en la ficha, y cada dato se saca desde su fila',
+    puntos: [
+      'El panel de MaKo de la ficha ya no es un cuadrado pegado al borde: es el bloque flotante del Dashboard, con aire y bordes redondeados.',
+      'Personalizando la ficha, al elegir un bloque cada dato lleva una ✕ al lado: la tocas y ese dato sale del bloque. Por ejemplo, «Empresa» del Contacto.',
+      '«Datos» de la barra del bloque ya hacía eso, pero no se encontraba: la fila no respondía.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '61f3ec828', msg: 'CRM · ficha: MaKo como bloque flotante, y sacar un dato desde su fila (la ✕ del bloque elegido)', lineas: 203, archivos: 10 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/Armador.tsx — la ✕ de cada fila del bloque elegido',
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx — el panel flotante',
+      'tests/ficha-editor-12.test.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los grupos de WhatsApp, más rápido (punto 18)',
+    pedido: 'La extracción en grupos de WhatsApp tarda bastante, no solo la extracción, sino también el cargar los grupos, tarda muchísimo. Hazlo más rapido, optimizalo.',
+    puntos: [
+      'Quinta tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md): la última.',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '23:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los grupos de WhatsApp abren al instante',
+    puntos: [
+      'Medí antes de tocar: pedirle a WhatsApp todos los grupos tarda 33 segundos (285 grupos). La pantalla esperaba 15 y terminaba mostrando sólo 61.',
+      'Ahora la lista aparece al instante (la de la última vez) y la completa llega sola por detrás, sin perder el grupo que elegiste.',
+      'Traer los contactos va de a cuatro a la vez.',
+      '«Datos de empresa» sigue despacio a propósito: cuida tu línea de un bloqueo.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: 'a31923008', msg: 'CRM · grupos de WhatsApp: la lista abre al instante y la completa llega por detrás; traer va de a cuatro', lineas: 240, archivos: 10 },
+    ],
+    archivos: [
+      'app/crm/grupo-wa-server.ts — la lista en dos tiempos, traer de a cuatro',
+      'lib/grupo-wa-reglas.ts — la lista guardada',
+      'app/crm/TraerDeGrupoWA.tsx — pide la completa por detrás',
+      'tests/grupo-wa-rapido.test.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '24 oct', hora: '23:53', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La ficha de un lead con un emoji en el nombre ya no se rompe',
+    puntos: [
+      'Ticket #10: «La pantalla «CRM» se rompió» al abrir un lead del Cliente de Prueba.',
+      'El lead se llama «🧪 Martín arnés…». El redondel de arriba armaba las iniciales cortando el emoji por la mitad: el servidor y el navegador escribían cosas distintas y la pantalla se caía. Arriba se leía «�M».',
+      'Ahora las iniciales salen de letras enteras: ese lead muestra «MA». Lo mismo en el buscador de Instagram del alta y en el historial de la ficha.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: 'b6a7ede22', msg: 'Ficha del lead: las iniciales cuentan letras enteras; medio emoji rompía la hidratación (ticket #10, React #418)', lineas: 101, archivos: 5 },
+    ],
+    archivos: [
+      'lib/iniciales.ts — las iniciales por letra entera',
+      'app/_components/Marca.tsx — el redondel de la cabecera',
+      'app/_ui/Avatar.tsx · app/crm/lead-view/AuditHistory.tsx',
+      'tests/iniciales-hidratacion.test.ts',
+    ],
+    revisar: '/crm/3445?ws=3',
+    tickets: [10],
+  },
+  {
+    fecha: '25 oct', hora: '00:11', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El CRM ya no puede romperse al mandarte a otra pantalla',
+    puntos: [
+      'Cuando el CRM te tiene que mandar a otro lado (terminar el onboarding, una tab que no está en tu plan, el lead de otro negocio), lo hacía mientras la pantalla todavía cargaba. A veces eso rompe la pantalla: ya pasó en General y en Web Generator.',
+      'Ahora decide antes de empezar a cargar. Son siete pantallas del CRM, no las tres que se habían visto: cuatro te mandaban a otro lado desde adentro de su control de acceso.',
+      'Quedan seis pantallas de otras tabs con lo mismo (Ads Writer, Automations, Calendario, Chats, Offer y el editor de landings): anotadas para sus chats.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '7c446209f', msg: 'CRM: /crm redirige en su layout, antes del loader (las siete páginas que redirigen, también por sus puertas)', lineas: 192, archivos: 6 },
+    ],
+    archivos: [
+      'app/crm/layout.tsx — decide antes del loader',
+      'app/crm/layout-reglas.ts — qué ruta pasa por qué control',
+      'tests/crm-redirige-antes-del-loader.test.ts',
     ],
     revisar: '/crm',
   },

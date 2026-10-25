@@ -259,11 +259,12 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   assert.doesNotMatch(gris, /type="checkbox"|onClick=/, 'el que ya está tiene casilla o se puede tildar');
   assert.match(gris, /color: 'var\(--faint\)'/, 'no va en gris');
   assert.match(gris, /`Ya están en tu CRM · \$\{miles\(yaEstan\)\} · no se traen`/);
-  // El pie: «Traigo 86 · 135 ya estaban».
-  assert.match(ui, /`Traigo \$\{miles\(sel\.size\)\}\$\{yaEstan \? ` · \$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'estaba \(abajo, en gris\)' : 'estaban \(abajo, en gris\)'\}` : ''\}\.`/);
+  // La línea de resumen del molde (24/10/2026): «86 para traer» · «135 ya están».
+  assert.match(ui, /texto: `\$\{miles\(sel\.size\)\} para traer`,/);
+  assert.match(ui, /\{ texto: `\$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'está' : 'están'\}`, tono: 'gris' as const \}/);
   // Y el server tampoco los vuelve a cargar (la API de MaKo trae «todos»): ni funnel ni etiqueta.
   const server = leer('app/crm/grupo-wa-server.ts');
-  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/);
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/);
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /\$\{ya \? ` \(\$\{ya\} ya son leads: no se vuelven a cargar\)` : ''\}/, 'la API todavía promete sumarlos');
   assert.match(run, /Traer \$\{p\.participantes\.length - ya\} contactos nuevos/);

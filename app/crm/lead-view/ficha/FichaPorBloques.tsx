@@ -659,12 +659,22 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const lugarActivo = hojaAbierta;
   const edicion = panel === 'editar' && lugarActivo ? { tab: lugarActivo, nombre: lugarDe(efectiva, lugarActivo).nombre } : null;
   const panelAnalyst = panel && typeof document !== 'undefined' ? createPortal(
-    <aside aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako"
-      style={{ position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 90, width: 'var(--fb-analyst-ancho)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', borderRight: '1px solid var(--border)', boxShadow: '12px 0 32px rgba(18,21,27,.18)' }}>
+    // ⚠️ UN BLOQUE FLOTANTE, NO UN CUADRADO PEGADO AL BORDE (24/10/2026). Martín: «En el editor del CRM no me gusta que MaKo
+    // sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese
+    // diseño». Es el marco del panel de MaKo del Dashboard (`.an`, app/dashboard/PanelAnalista.tsx): 12 px de aire con los
+    // bordes de la pantalla, bordes redondeados de 14, el filete de la casa y su sombra; sin la raya de color arriba. En el
+    // teléfono va a pantalla completa, sin aire ni bordes (como `.an` en ≤ 760).
+    <aside className="fb-mako-panel" aria-label={panel === 'editar' ? 'Editar la ficha con MaKo' : `AI Analyst de ${lead.nombre || 'este lead'}`} onClick={(e) => e.stopPropagation()} data-recorrido="fb-mako">
       {/* ⚠️ EL ANCHO SIGUE A LA PANTALLA (recorrido del 17/10/2026): con 420 fijos, a 1024 la ficha quedaba en ~560 px y
-          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. */}
-      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 20px)!important}[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}'}</style>
-      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', borderBottom: '1px solid var(--border)', borderTop: '3px solid var(--mako)' }}>
+          se cortaban los botones de la calificación. Un tercio de la pantalla, entre 320 y 420; en un teléfono, entero. La
+          ficha se corre lo que mide el panel MÁS su aire (12 a cada lado). */}
+      <style>{':root{--fb-analyst-ancho:min(420px, max(320px, 32vw))}@media (max-width:720px){:root{--fb-analyst-ancho:100vw}}'
+        + '.fb-mako-panel{position:fixed;top:12px;left:12px;bottom:12px;z-index:90;width:var(--fb-analyst-ancho);display:flex;flex-direction:column;overflow:hidden;'
+        + 'background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 44px rgba(18,21,27,.18)}'
+        + '@media (max-width:720px){.fb-mako-panel{top:0;left:0;bottom:0;border:none;border-radius:0;box-shadow:none}}'
+        + '[data-ficha-overlay]{padding-left:calc(var(--fb-analyst-ancho) + 32px)!important}[data-ficha-ruta]{padding-left:calc(var(--fb-analyst-ancho) + 24px)}'
+        + '@media (max-width:720px){[data-ficha-ruta]{padding-left:var(--fb-analyst-ancho)}}'}</style>
+      <header style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 10px 10px 16px', borderBottom: '1px solid var(--border)' }}>
         <IconoMenu nombre="mako" size={18} />
         <strong style={{ flex: 1, fontSize: 15, color: 'var(--ink)' }}>{panel === 'editar' ? 'Editar con MaKo' : 'AI Analyst'}</strong>
         <button type="button" onClick={() => setPanel(null)} title="Cerrar" aria-label="Cerrar el AI Analyst"

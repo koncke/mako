@@ -48,7 +48,9 @@ const gmail = (email: string) => `https://mail.google.com/mail/?view=cm&to=${enc
  * Los editores se abren desde su botón `[data-campo-abrir]` (teléfono, Instagram) o son el texto mismo (`.edin`), y marcan
  * `[data-campo-editando]` mientras están abiertos: por eso se sabe cuándo terminó.
  */
-function DatoEnChip({ editando, onEditar, onListo, chip, editor, nombre, marca }: {
+function DatoEnChip({ editando, onEditar, onListo, chip, editor, nombre, marca, dato }: {
+  /** Qué dato del bloque es este chip: personalizando, la ✕ para sacarlo (ver `Prop`). */
+  dato?: string;
   editando: boolean;
   onEditar: () => void;
   onListo: () => void;
@@ -80,9 +82,9 @@ function DatoEnChip({ editando, onEditar, onListo, chip, editor, nombre, marca }
       </span>
     );
   }
-  if (!chip) return <button type="button" className="fr-chip fr-chip--falta" onClick={onEditar} data-recorrido={marca}>+ {nombre}</button>;
+  if (!chip) return <button type="button" className="fr-chip fr-chip--falta" onClick={onEditar} data-recorrido={marca} data-dato={dato} data-dato-nombre={dato ? nombre : undefined}>+ {nombre}</button>;
   return (
-    <span className="fr-chip-dato">
+    <span className="fr-chip-dato" data-dato={dato} data-dato-nombre={dato ? nombre : undefined}>
       {chip}
       <button type="button" className="fr-lapiz" onClick={onEditar} title={`Editar ${nombre}`} aria-label={`Editar ${nombre}`}>
         <IconoMenu nombre="editar" size={13} />
@@ -122,7 +124,7 @@ export function Contacto({ ctx, puesto, def, titulo, diseno, epico }: PropsBloqu
     : hrefDeWeb((lead[x] as string | null | undefined)?.trim() || null));
   const filas = (
     <div className="fr-props">
-      {va.has('telefono') && <Prop k="Teléfono" editable marca={marcaDato('telefono')} acciones={tel ? (
+      {va.has('telefono') && <Prop k="Teléfono" dato="telefono" editable marca={marcaDato('telefono')} acciones={tel ? (
         <>
           <BotonIco titulo={copiado === 'tel' ? 'Copiado' : 'Copiar'} onClick={() => copiar(tel, 'tel')}><IcoCopiar /></BotonIco>
           <EnviarNoOficial leadId={lead.id} nombre={nombre} telefono={tel} />
@@ -130,7 +132,7 @@ export function Contacto({ ctx, puesto, def, titulo, diseno, epico }: PropsBloqu
       ) : null}>
         <TelefonoEditable valor={tel} onGuardar={guardar('telefono', lead.telefono)} />
       </Prop>}
-      {va.has('email') && <Prop k="Email" editable acciones={email ? (
+      {va.has('email') && <Prop k="Email" dato="email" editable acciones={email ? (
         <>
           <BotonIco titulo={copiado === 'email' ? 'Copiado' : 'Copiar'} onClick={() => copiar(email, 'email')}><IcoCopiar /></BotonIco>
           <BotonIco titulo="Escribir por Gmail" href={gmail(email)}><IcoEmail /></BotonIco>
@@ -138,11 +140,11 @@ export function Contacto({ ctx, puesto, def, titulo, diseno, epico }: PropsBloqu
       ) : null}>
         <EditableInline valor={email ?? ''} onGuardar={guardar('email', lead.email)} placeholder="—" titulo="Edita el email" maxLargo={200} />
       </Prop>}
-      {va.has('empresa') && <Prop k="Empresa" editable marca={marcaDato('empresa')}>
+      {va.has('empresa') && <Prop k="Empresa" dato="empresa" editable marca={marcaDato('empresa')}>
         <EditableInline valor={lead.empresa ?? ''} onGuardar={guardar('empresa', lead.empresa)} placeholder="—" titulo="Edita la empresa" maxLargo={120} />
       </Prop>}
       {extras.map((x) => (
-        <Prop key={x} k={NOMBRE_EXTRA[x]} editable acciones={hrefExtra(x) ? <BotonIco titulo={`Abrir ${NOMBRE_EXTRA[x]}`} href={hrefExtra(x)}><IcoAbrir /></BotonIco> : null}>
+        <Prop key={x} k={NOMBRE_EXTRA[x]} dato={x} editable acciones={hrefExtra(x) ? <BotonIco titulo={`Abrir ${NOMBRE_EXTRA[x]}`} href={hrefExtra(x)}><IcoAbrir /></BotonIco> : null}>
           {x === 'instagram'
             ? <InstagramEditable leadId={lead.id} valor={lead.instagram ?? null} />
             : <EditableInline valor={(lead[x] as string | null | undefined) ?? ''} onGuardar={guardar(x, (lead[x] as string | null | undefined) ?? null)} placeholder="—" titulo={`Edita ${NOMBRE_EXTRA[x]}`} maxLargo={300} />}
@@ -183,7 +185,7 @@ export function Contacto({ ctx, puesto, def, titulo, diseno, epico }: PropsBloqu
   if (diseno === 'renglon') {
     // Sin «Editar»: cada chip tiene su lápiz y lo que falta, su «+ Dato» (`DatoEnChip`, arriba).
     const dato = (k: string, nombre: string, chip: ReactNode | null, editor: ReactNode, marca?: string) => (
-      <DatoEnChip key={k} editando={editando === k} onEditar={() => setEditando(k)} onListo={() => setEditando((e) => (e === k ? null : e))}
+      <DatoEnChip key={k} dato={k} editando={editando === k} onEditar={() => setEditando(k)} onListo={() => setEditando((e) => (e === k ? null : e))}
         chip={chip} editor={editor} nombre={nombre} marca={marca} />
     );
     return (
@@ -242,7 +244,7 @@ export function RedesYWeb({ ctx, puesto, titulo, diseno, epico }: PropsBloque) {
   const filas = (
     <div className="fr-props">
       {redes.map((r) => (
-        <Prop key={r} k={NOMBRE_RED[r]} editable acciones={href(r) ? <BotonIco titulo={`Abrir ${NOMBRE_RED[r]}`} href={href(r)}><IcoAbrir /></BotonIco> : null}>
+        <Prop key={r} k={NOMBRE_RED[r]} dato={r} editable acciones={href(r) ? <BotonIco titulo={`Abrir ${NOMBRE_RED[r]}`} href={href(r)}><IcoAbrir /></BotonIco> : null}>
           {r === 'instagram'
             ? <InstagramEditable leadId={lead.id} valor={lead.instagram ?? null} />
             : <EditableInline valor={(lead[r] as string | null | undefined) ?? ''} onGuardar={guardar(r, (lead[r] as string | null | undefined) ?? null)} placeholder="—" titulo={`Edita ${NOMBRE_RED[r]}`} maxLargo={300} />}
@@ -261,7 +263,7 @@ export function RedesYWeb({ ctx, puesto, titulo, diseno, epico }: PropsBloque) {
       ? <a className="fr-chip" href={h} target="_blank" rel="noopener noreferrer" title={`Abrir ${NOMBRE_RED[r]}`}><IcoRed red={r} />{v}</a>
       : <span className="fr-chip"><IcoRed red={r} />{v}</span>;
     return (
-      <DatoEnChip key={r} editando={editando === r} onEditar={() => setEditando(r)} onListo={() => setEditando((e) => (e === r ? null : e))}
+      <DatoEnChip key={r} dato={r} editando={editando === r} onEditar={() => setEditando(r)} onListo={() => setEditando((e) => (e === r ? null : e))}
         chip={chip} nombre={NOMBRE_RED[r]} editor={r === 'instagram'
           ? <InstagramEditable leadId={lead.id} valor={lead.instagram ?? null} />
           : <EditableInline valor={(lead[r] as string | null | undefined) ?? ''} onGuardar={guardar(r, (lead[r] as string | null | undefined) ?? null)} placeholder="—" titulo={`Edita ${NOMBRE_RED[r]}`} maxLargo={300} />} />

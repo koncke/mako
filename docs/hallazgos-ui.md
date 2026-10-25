@@ -12,17 +12,31 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
-## Las iniciales de un avatar parten un emoji: «�M» (visto en producción el 24/10/2026, SIN arreglar)
+## Medio emoji en las iniciales tira la pantalla al hidratar: React #418 (ticket #10, 25/10/2026)
 
-**Síntoma:** la ficha de un lead cuyo nombre empieza con un emoji («🧪 Martín arnés…», los de prueba del ws3) muestra «�M»
-en el avatar. **Causa:** cada copia de «las iniciales» toma `w[0]`, la primera unidad UTF-16 de la palabra, y un emoji son
-dos: queda la mitad de un par sustituto. **Vive en, al menos:** `app/_ui/Avatar.tsx` (`iniciales`, la que se ve en la ficha),
-`app/crm/lead-view/AuditHistory.tsx` (`initials`), `app/_components/Sidebar.tsx` (dos), `app/_components/Marca.tsx`,
-`app/_components/NotificationsProvider.tsx`, `app/_comunidad/piezas.tsx`, `app/_cursos/ComentariosClase.tsx` y
-`app/admin/AdminView.tsx`. **La regla:** cortar texto por caracteres de verdad (`[...w][0]`, o lo de `lib/unicode-seguro.ts`,
-que ya existe para esto) y, mejor, saltear lo que no es letra: un nombre con un emoji adelante debería dar «MA». Son ocho
-copias de lo mismo, y se arregla con UNA pieza. *Visto por el chat Automations (claude5) al sacar la foto de la ficha en
-producción; no se tocó: cruza áreas.*
+**Vive en:** `inicialesPorLetra` (lib/iniciales.ts), que usan `Marca` (app/_components/Marca.tsx, la cabecera de toda
+`CabeceraDetalle`), `Avatar` (app/_ui/Avatar.tsx) y el historial de la ficha · tests/iniciales-hidratacion.test.ts.
+
+- **Síntoma:** «La pantalla «CRM» se rompió» al abrir /crm/3445 del Cliente de Prueba, React #418 con «text» (el texto del
+  servidor no coincide con el del navegador). En la cabecera de la ficha se leía «�M».
+- **El diagnóstico obvio era el equivocado.** Un #418 a las 22:29 de Argentina (01:29 UTC del día siguiente) pide buscar una
+  fecha formateada sin zona fija o un «hace X»: se revisaron todas las de la ficha y estaban bien. Lo destapó leer el TEXTO de
+  la pantalla en producción (`get_page_text`): «�M» arriba, y el nombre en la base, «🧪 Martín arnés contestó…».
+- **Causa:** `w[0]` es la primera unidad de UTF-16, y la de «🧪» (de cualquier emoji, o de una letra fuera del plano básico
+  como «𝒜») es MEDIO carácter, un surrogate suelto. El servidor escribe el HTML en UTF-8, que no puede escribir medio
+  carácter, y manda «�» (U+FFFD); el navegador hidrata con la mitad cruda. Dos textos distintos y React tira el árbol. No es
+  sólo de las iniciales: cualquier `[0]` o `slice` que corte un nombre con emoji y se dibuje en el primer render hace lo mismo.
+- **Regla:** un texto del primer render que sale de CORTAR un string corta por punto de código (`[...s]`, `Array.from`),
+  nunca por índice. La prueba que sirve no compara contra un valor esperado: pasa el resultado por `TextEncoder` y
+  `TextDecoder` (lo que hace el HTML) y exige que vuelva igual.
+- **Quedó SIN hacer (el mismo corte, en piezas de otras tabs):** `app/_components/Sidebar.tsx:85` y `:241` (las iniciales del
+  negocio y de la persona en la barra, que se dibuja en TODAS las pantallas), `app/components/Dropdown.tsx:44`,
+  `app/general/bloques/comun.tsx:203`, `app/general/Cobranza.tsx:41`, `app/automations/social-ui.tsx:108`,
+  `app/web-generator/editor/paneles/PanelComentarios.tsx:46`, `app/_components/ServicioVisual.tsx:94`. Un negocio o una
+  persona cuyo nombre empiece con un emoji rompe esas pantallas igual.
+- **Las otras copias que vio Automations el 24/10 (también SIN hacer):** `app/_components/NotificationsProvider.tsx`,
+  `app/_comunidad/piezas.tsx`, `app/_cursos/ComentariosClase.tsx` y `app/admin/AdminView.tsx`. Y `lib/unicode-seguro.ts` ya existía para cortar por
+  carácter: la próxima pieza usa una de las dos (`inicialesPorLetra` o esa), no una tercera.
 
 ## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
 

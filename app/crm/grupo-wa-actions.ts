@@ -45,11 +45,11 @@ export async function etapasDeFunnelAction(funnelId: number | null): Promise<Res
   } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
-/** Los grupos de una línea del negocio. */
-export async function gruposDeLineaAction(linea: string | null): Promise<Res<{ linea: string; grupos: GrupoWA[]; deLaBase: boolean }>> {
+/** Los grupos de una línea del negocio. `completo`: la lista entera de WhatsApp (tarda; se guarda). Ver `gruposDeLinea`. */
+export async function gruposDeLineaAction(linea: string | null, completo = false): Promise<Res<{ linea: string; grupos: GrupoWA[]; deLaBase: boolean; refrescar: boolean }>> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  try { return await gruposDeLinea(linea); } catch (e) { return { ok: false, error: msg(e) }; }
+  try { return await gruposDeLinea(linea, completo === true); } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
 /** Los participantes de un grupo, marcando los que ya son un lead del CRM. */

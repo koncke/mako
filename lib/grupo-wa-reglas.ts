@@ -37,6 +37,29 @@ export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: st
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
+/**
+ * ⚠️ LA LISTA COMPLETA TARDA MÁS QUE ESE TOPE (medido el 25/10/2026 en la línea de la plataforma, 285 grupos: `fetchAllGroups`
+ * contestó en 33 s, y `findChats` en 0,5 s con sólo 61). Martín: «el cargar los grupos, tarda muchísimo». Con el tope de 15 s
+ * la persona esperaba 15 s para terminar con 61 de 285. Ahora: al abrir, lo GUARDADO de la última vez (o, la primera vez, los
+ * de la base, al instante), y la lista completa se pide APARTE, con este tope, y se guarda para la próxima.
+ */
+export const TOPE_GRUPOS_COMPLETO_MS = 50_000;
+/** Pasado esto, la lista guardada se muestra igual pero se vuelve a pedir completa por detrás (un grupo nuevo aparece solo). */
+export const VIEJA_GRUPOS_MS = 10 * 60_000;
+
+/** La lista de grupos guardada de una línea (`app_settings`), leída como texto ajeno. null = no hay, o no se entiende. */
+export function gruposGuardados(raw: string | null): { at: number; grupos: GrupoWA[] } | null {
+  if (!raw) return null;
+  let o: unknown;
+  try { o = JSON.parse(raw); } catch { return null; }
+  if (!o || typeof o !== 'object') return null;
+  const x = o as { at?: unknown; grupos?: unknown };
+  const at = typeof x.at === 'number' ? x.at : Date.parse(String(x.at ?? ''));
+  if (!Number.isFinite(at) || !Array.isArray(x.grupos)) return null;
+  const grupos = x.grupos.filter((g): g is GrupoWA => !!g && typeof g === 'object' && esJidDeGrupo((g as GrupoWA).jid) && typeof (g as GrupoWA).nombre === 'string')
+    .map((g) => ({ jid: g.jid, nombre: g.nombre, tamano: typeof g.tamano === 'number' ? g.tamano : null }));
+  return grupos.length ? { at, grupos } : null;
+}
 /** El tope para los participantes de UN grupo (medido: 0,4 s). */
 export const TOPE_PARTICIPANTES_MS = 30_000;
 /** De a cuántos los trae la pantalla: cada lead son varias lecturas y escrituras, y una acción del server tiene 60 s. */

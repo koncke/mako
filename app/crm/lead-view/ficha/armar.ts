@@ -315,3 +315,12 @@ export function estiloDeFicha(e: EstiloFicha): { clases: string[]; vars: Record<
   if (e.densidad === 'amplia') clases.push('fb-dens-amplia');
   return { clases, vars };
 }
+
+/**
+ * Los datos de un bloque sin `dato`, o null si no se puede sacar: no está, o es el último (un bloque necesita uno; para no
+ * tenerlo, se quita el bloque). La ✕ de cada fila del bloque elegido (24/10/2026, `QuitarDeLaFila` en ./Armador.tsx).
+ */
+export function datosSinUno(hoy: readonly string[], dato: string): string[] | null {
+  if (hoy.length <= 1 || !hoy.includes(dato)) return null;
+  return hoy.filter((x) => x !== dato);
+}
