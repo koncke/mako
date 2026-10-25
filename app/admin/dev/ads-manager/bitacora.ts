@@ -443,4 +443,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '25 oct', hora: '14:55', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La prueba del anuncio en la cuenta de Mauricio: Meta la frenó igual, por el pago',
+    pedido: '«Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago...»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «esta cuenta sí tiene pago», y era el equivocado**: la «Cuenta 1» de Elévate figuraba con el pago ok y Meta igual frenó el anuncio de prueba por el método de pago. La única prueba es crear uno en pausa.',
+      'Conectarla costó tres clics: el inicio de sesión de Meta es de UN portfolio, y Zernio guarda una conexión de anuncios por perfil (otro login en el de MaKo la habría cambiado). Se hizo en un perfil aparte, y la vuelta de Zernio ya no se traga el error.',
+      'La cuenta quedó igual que antes, comparada campaña por campaña. Sólo quedó la imagen de prueba en su biblioteca (Zernio no la puede borrar). El perfil de prueba se borró, y la conexión de MaKo sigue en «Control total».',
+    ],
+    archivos: [
+      'scripts/media-buyer-medir-zernio.mts — --cuenta, foto/comparar y decisiones-anuncio',
+      'lib/zernio-redes.ts · app/_components/ConectarViaZernio.tsx — la vuelta con error',
+    ],
+    revisar: '/ads-manager',
+  },
 ];

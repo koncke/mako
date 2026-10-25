@@ -1717,8 +1717,11 @@ Zernio de la plataforma. Costó tres clics de Martín; esto es lo que no se ve e
   y nadie supo que no había conectado. Ahora un `error=` igual se dice, con el texto de MaKo y no el de la URL
   (`errorDeVueltaAjena`; un éxito ajeno sigue sin hacer nada). Para un link armado a mano, volver a una página que no toca
   la barra (la landing) deja leer `connected=metaads` o el `error=`.
-- **Saber qué cuenta tiene el pago al día sin leer el token del cliente:** `GET /v1/ads/accounts` trae `billingStatus`
-  (`ok` o `missing`), `accountStatus` y `minimumDailyBudget` de cada cuenta de la conexión. La de MaKo dice `missing`.
+- **El estado de pago de cada cuenta sin leer el token del cliente:** `GET /v1/ads/accounts` trae `billingStatus`
+  (`ok` o `missing`), `accountStatus` y `minimumDailyBudget`. La de MaKo dice `missing`. ⚠️ Pero `ok` no alcanza: la
+  «Cuenta 1» de Elévate decía `ok` y Meta igual frenó el anuncio por el método de pago (docs/hallazgos-ads.md).
+- **Borrar el perfil de prueba:** primero `DELETE /v1/accounts/{id}` (desconecta; Zernio da un período de gracia) y después
+  `DELETE /v1/profiles/{id}`. Verificado el 25/10: quedó sólo el Default, con la conexión de MaKo intacta.
 
 **Sin hacer:** el botón de conectar no deja elegir el perfil de Zernio (siempre el Default del negocio): conectar un
 segundo portfolio en un mismo negocio hoy se hace por script.

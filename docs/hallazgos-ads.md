@@ -4831,8 +4831,19 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   deshizo (estado `deshecha`) y se leyó 1 en vivo. La corrida entera en `soloProponer` dio `ok`, fuente Zernio, USD, 0
   propuestas (la cuenta no tiene entrega). La campaña de prueba se borró y se verificó que ya no está.
 
+- ⚠️ **`billingStatus: ok` de Zernio NO quiere decir que Meta deje crear un anuncio.** Segunda prueba, el mismo 25/10, en
+  la «Cuenta 1» de Elévate (Mauricio; Martín: «hazlo en la cuenta de Mauricio, que si tiene metodo de pago»): activa,
+  `billingStatus: ok`, y Meta igual frenó el anuncio con el mismo 1359188 («Update payment method»). La ventana de Facebook
+  ya lo avisaba con un botón «Añadir método de pago». **El diagnóstico obvio («esta cuenta sí tiene pago, ahí anda») era el
+  equivocado:** la única prueba de que una cuenta deja crear anuncios es crear uno (en pausa).
+- ⚠️ **Lo que Zernio deshace al fallar no incluye la imagen:** queda en la biblioteca de la cuenta («ad_image.jpg»), y
+  Zernio no tiene cómo borrar imágenes (`/ads/images` sólo lista y sube). En una cuenta de cliente hay que avisar para que
+  la quite a mano. Para probar sin dejar nada, comparar la cuenta antes y después (`foto` / `comparar` del script: el
+  interruptor y el presupuesto de cada campaña y conjunto, en vivo).
+
 **Sin hacer, con su archivo:** medir lo que escribe a nivel ANUNCIO (prender, pausar, variaciones de texto, hook y video)
-espera a que Martín cargue un método de pago en la cuenta de MaKo (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+espera una cuenta donde Meta deje crear anuncios: que Martín cargue un método de pago válido en la de MaKo, o que se
+actualice el de la «Cuenta 1» de Elévate (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
 (`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer

@@ -60,18 +60,21 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
    recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de
    MaKo»). El Media Buyer de MaKo (ws9) quedó **prendido en «propone»** con `act_1426493815659364` en Ajustes. Sin piloto.
-2. **Medir lo del ANUNCIO (prender, pausar, variaciones) — EN LA CUENTA DE MAURICIO, frenado por un permiso.** Martín,
+2. **Medir lo del ANUNCIO (prender, pausar, variaciones) — PROBADO EN LA CUENTA DE MAURICIO Y FRENADO POR META.** Martín,
    25/10 ~13:55: «Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago». La cuenta es
    «Cuenta 1» del portfolio Elévate, `act_185929215397361` (activa, pago ok, MXN, mínimo MXN 18,59/día), conectada a un
    perfil de Zernio APARTE de la plataforma (`6ade389b5bed5c321f2f42d8`, conexión `6ade3a22ef8ec89d32cced61`, «Administrar
    campañas»; la de MaKo no se tocó y sigue con «Control total»). Hecha la foto de la cuenta (18 campañas, 22 conjuntos).
-   ⚠️ **El clasificador de permisos frenó la creación de la campaña** («modificar recursos compartidos»): el permiso llegó por
-   el Cerebro y para escribir en la cuenta de un cliente Martín tiene que darlo EN ESTE CHAT. Con eso, en orden y con
-   `--cuenta=act_185929215397361`: `crear --si` → `decisiones-anuncio --si` → `borrar --si` → `comparar` (lo que no es de la
-   prueba tiene que estar igual) → borrar el perfil de Zernio (`DELETE /v1/profiles/6ade389b5bed5c321f2f42d8`). Si no se
-   sigue: borrar el perfil igual (la conexión con la cuenta de Mauricio se va con él).
-   Los pasos nuevos del script (la cuenta por argumento con lista cerrada, `foto`/`comparar`, `decisiones-anuncio`) están
-   SIN commitear en el worktree hasta que se resuelva esto.
+   Con el permiso de Martín escrito en este chat («Autorizo crear, probar y borrar una campaña [PRUEBA MaKo] pausada…»),
+   `crear --si` falló en Meta con el mismo 1359188 que la de MaKo, aunque Zernio decía `billingStatus: ok`. La cuenta quedó
+   IGUAL que en la foto (40 campañas y conjuntos, nada nuevo); sólo quedó la imagen de prueba («ad_image.jpg», 1200×630,
+   subida el 25/10 a las 14:51) en su biblioteca de medios: Zernio no la puede borrar, hay que quitarla a mano en el
+   Administrador de anuncios. El perfil de Zernio de la prueba se desconectó y se borró (verificado: queda sólo el Default
+   con la conexión de MaKo en «Control total»), y la cuenta salió de `CUENTAS_PERMITIDAS`.
+   **Para medir lo del anuncio hace falta una cuenta donde Meta deje crear anuncios**: un método de pago válido en la de
+   MaKo (lo más simple: nada de clientes), o el de la «Cuenta 1» actualizado. El script ya tiene todo: `--cuenta=`,
+   `foto`/`comparar` y `decisiones-anuncio --si` (prender y deshacer el anuncio, una variación y su deshacer, con el Media
+   Buyer de la plataforma en «propone», que vuelve a su cuenta al terminar).
    ⚠️ Prender o pausar una campaña SIN anuncios no se puede por Zernio (404; el endpoint no acepta `accountId`): con un
    anuncio adentro sí.
 2b. **La prueba gratis (Martín y el Cerebro, 25/10): sin piloto los 7 días.** `cupoDe` lee `estadoDePrueba(ws).enPrueba`
