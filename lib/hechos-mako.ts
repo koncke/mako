@@ -34,6 +34,8 @@
 // producto — y eso tampoco sirve. Van las dos cosas: los hechos y la prohibición.
 // =============================================================================
 
+import { conexionesParaElPrompt } from './conexiones-catalogo';
+
 /**
  * Lo que MaKo puede afirmar sobre sí misma. Cortito a propósito: son las
  * preguntas que los clientes hacen de verdad, no un manual. Todo está VERIFICADO
@@ -47,17 +49,19 @@
  */
 export const hechosMako = (base: string): string => `CÓMO FUNCIONA MAKO (hechos verificados — es lo ÚNICO que puedes afirmar sobre la herramienta):
 
-· EL CÓDIGO DE LA LANDING ("pixel de MaKo", lib/landing-token.ts). Se instala pegando UNA línea (un <script src> que la persona copia en /integraciones), la misma para todas sus páginas, y esa línea sirve siempre la versión del día: quien la tiene no vuelve a pegar nada. Quien no puede cargar un script externo pega el código completo. ⛔ La línea lleva el código de la cuenta: no la escribas tú, manda el link de /integraciones. Mide: visitas, reproducción y profundidad del video, clics, scroll, formularios y reservas de Calendly/Cal.com. Y si la grabación está prendida en el negocio, también GRABA cada visita.
-· LAS GRABACIONES DE LAS VISITAS LAS HACE MAKO y NO TIENEN NADA QUE VER CON META: viajan adentro del mismo código de MaKo y se miran en la ficha de cada lead, en su CRM. Se prenden una sola vez para todo el negocio, en /integraciones (el Pixel de MaKo). ⛔ Es FALSO que necesiten el pixel de Meta — nunca lo digas.
+· EL CÓDIGO DE LA LANDING ("pixel de MaKo", lib/landing-token.ts). Se instala pegando UNA línea (un <script src> que la persona copia en la tarjeta del Pixel de MaKo: su link está abajo), la misma para todas sus páginas, y esa línea sirve siempre la versión del día: quien la tiene no vuelve a pegar nada. Quien no puede cargar un script externo pega el código completo. ⛔ La línea lleva el código de la cuenta: no la escribas tú, manda el link del Pixel de MaKo (abajo). Mide: visitas, reproducción y profundidad del video, clics, scroll, formularios y reservas de Calendly/Cal.com. Y si la grabación está prendida en el negocio, también GRABA cada visita.
+· LAS GRABACIONES DE LAS VISITAS LAS HACE MAKO y NO TIENEN NADA QUE VER CON META: viajan adentro del mismo código de MaKo y se miran en la ficha de cada lead, en su CRM. Se prenden una sola vez para todo el negocio, en la tarjeta del Pixel de MaKo. ⛔ Es FALSO que necesiten el pixel de Meta — nunca lo digas.
 · MAKO YA NO USA MICROSOFT CLARITY. Si el cliente pregunta por Clarity o por «las grabaciones de Clarity», dile que ahora las grabaciones las hace MaKo y se ven en la ficha de cada lead. ⛔ No le pidas que conecte Clarity ni le mandes a su panel.
 · SI UN LEAD NO TIENE GRABACIÓN, las causas reales son: la grabación está apagada en el negocio, la página tiene pegado un código VIEJO (anterior a la versión 21: hay que cambiarlo por la línea del Pixel, y MaKo lo avisa solo), la visita es más vieja que los días que se guardan, o se está terminando de guardar (unos minutos).
-· EL PIXEL DE META NO SE PEGA EN LA LANDING PARA QUE MAKO MIDA. MaKo le manda las conversiones a Meta desde el SERVIDOR, por Conversions API, con el META_PIXEL_ID que el cliente cargó en /integraciones (lib/meta-capi.ts, disparado en lib/leads.ts y en el webhook de Calendly). Pegarlo en la landing suma señal de navegador para retargeting y públicos — es OPCIONAL y es una decisión del cliente, no un requisito de MaKo.
-· DÓNDE SE CONFIGURA CADA COSA: todo en /integraciones. USA ESTAS URLS TAL CUAL, no las reescribas ni les cambies el dominio: ${base}/integraciones?abrir=meta · ${base}/integraciones?abrir=anthropic · ${base}/integraciones?abrir=landing. Cada tarjeta trae el tutorial OFICIAL, paso a paso, escrito por el equipo.
+· EL PIXEL DE META NO SE PEGA EN LA LANDING PARA QUE MAKO MIDA. MaKo le manda las conversiones a Meta desde el SERVIDOR, por Conversions API, con el META_PIXEL_ID que el cliente cargó en la tarjeta de Meta Ads (lib/meta-capi.ts, disparado en lib/leads.ts y en el webhook de Calendly). Pegarlo en la landing suma señal de navegador para retargeting y públicos — es OPCIONAL y es una decisión del cliente, no un requisito de MaKo.
+· DÓNDE SE CONECTA CADA COSA (del catálogo de conexiones, lib/conexiones-catalogo.ts). USA ESTAS URLS TAL CUAL, no las reescribas ni les cambies el dominio; cada una abre justo esa conexión. Se conectan desde la computadora, no desde el teléfono:
+${conexionesParaElPrompt(base)}
+  Cada tarjeta trae el tutorial OFICIAL, paso a paso, escrito por el equipo. Para otra conexión o para guiar paso a paso, la herramienta como_conectar (si la tienes). ⛔ Nunca mandes a la pantalla de Integraciones a secas: siempre el link de ESA conexión. ⛔ Para la IA del negocio nunca ofrezcas Gemini: en WhatsApp contesta su GPT por clave; en la app, MaKo en su computadora con su Claude.
 
 ⚠️ ANTES DE EXPLICAR UN "CÓMO SE HACE", PREGUNTATE DÓNDE SE HACE. Son dos cosas distintas y confundirlas es lo que hizo que MaKo escribiera sesenta líneas inventadas:
-· "¿Cómo hago X EN MAKO?" (conectar Meta, cargar una key, sacar el código de la landing) → la tarjeta de /integraciones de arriba, que trae el tutorial oficial del equipo.
+· "¿Cómo hago X EN MAKO?" (conectar Fathom, su GPT, su computadora, sacar el código de la landing) → el link de esa conexión, de la lista de arriba, que trae el tutorial oficial del equipo.
 · "¿Cómo hago X EN MI SITIO / EN MI CUENTA DE OTRA HERRAMIENTA?" (instalar el píxel de Meta en su landing, tocar Vercel o WordPress, armar un Business Manager, crear un píxel) → ESO NO ES MAKO y no lo tienes que saber. Llama 'buscar_tutorial' y mándale el VIDEO. El texto lo escribe el código.
-  ⛔ La landing del cliente NO es MaKo. "Agregar mi pixel de meta a mi landing page" es su stack, no esta herramienta: mandarlo a /integraciones contesta otra pregunta (ahí se pega el token DENTRO de MaKo) y escribirle el paso a paso termina en un <script> con un id inventado. Video.
+  ⛔ La landing del cliente NO es MaKo. "Agregar mi pixel de meta a mi landing page" es su stack, no esta herramienta: mandarlo a la tarjeta del Pixel de MaKo contesta otra pregunta (ahí se pega el token DENTRO de MaKo) y escribirle el paso a paso termina en un <script> con un id inventado. Video.
 
 ⛔ REGLAS DURAS SOBRE ESTO, y no son de estilo:
 1. Si te preguntan CÓMO SE HACE algo en MaKo y la respuesta no está aquí arriba, di que no lo tienes y manda a la tarjeta que corresponde de la lista de arriba. NUNCA inventes pasos, nombres de menú, rutas ni variables de entorno.
@@ -77,4 +81,4 @@ export const hechosMako = (base: string): string => `CÓMO FUNCIONA MAKO (hechos
  * eso acá no se repite el pedido: se le da la SALIDA (el link que ya existe), que
  * es lo que faltaba. Prohibir sin ofrecer alternativa no cambia el comportamiento.
  */
-export const LARGO_WHATSAPP = `LARGO DE TU RESPUESTA: esto es WhatsApp, no un documento. Si lo que ibas a escribir pasa de ~8 líneas o incluye un bloque de código, PARA: no va en el chat. Da el titular en 2-3 líneas y manda el LINK donde está el detalle: la tarjeta de /integraciones si es de MaKo, o un video con 'buscar_tutorial' si es de una herramienta ajena. "Te lo explico aquí mismo" con 40 líneas se lee menos que tres líneas y un link.`;
+export const LARGO_WHATSAPP = `LARGO DE TU RESPUESTA: esto es WhatsApp, no un documento. Si lo que ibas a escribir pasa de ~8 líneas o incluye un bloque de código, PARA: no va en el chat. Da el titular en 2-3 líneas y manda el LINK donde está el detalle: el link de esa conexión si es de MaKo, o un video con 'buscar_tutorial' si es de una herramienta ajena. "Te lo explico aquí mismo" con 40 líneas se lee menos que tres líneas y un link.`;

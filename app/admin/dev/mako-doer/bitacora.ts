@@ -605,4 +605,19 @@ export const BITACORA: Hito[] = [
       'tests/doer-cartel-sin-ia.test.ts — 9 tests, 11 roturas con su fallo; y los que fijaban Gemini, a la regla nueva',
     ],
   },
+  {
+    fecha: '25 oct', hora: '16:20', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo sabe de cómo conectar cada cosa sale del catálogo único: el prompt, las capacidades, los DEEP_LINKS, la intención y los carteles',
+    puntos: [
+      'Tanda 3 de docs/conexiones-y-ayuda.md. El prompt tenía tres links a mano (meta, anthropic, landing) y le prohibía a MaKo dar otros: ahora da los de su GPT, su computadora, Fathom, Zernio y el resto que más se pide, y para lo demás `como_conectar`.',
+      '**La intención** trae las herramientas de conectar con «conectar», «mi Claude», «la app de escritorio», Zernio o una clave de IA, y ya no nombra el inbox retirado. ⚠️ El `\\b` de JavaScript es ASCII: tras «conecté» no hay borde.',
+      '**El contrato de los links** (`?abrir=<key>`, `?abrir=ia`, `/perfil/ia?computadora=1`, `/chats?conectar=whatsapp`) quedó en AGENTS.md, y una guarda barre que ningún texto mande a «/integraciones» a secas.',
+    ],
+    archivos: [
+      'lib/conexiones-catalogo.ts — `EN_EL_PROMPT` y `conexionesParaElPrompt`',
+      'lib/hechos-mako.ts, lib/mako-capacidades.ts, lib/mako-intencion.ts, lib/fallo-ia-texto.ts — del catálogo',
+      'tests/conexiones-un-solo-lugar.test.ts — 5 tests, 9 roturas con su fallo',
+    ],
+  },
 ];

@@ -1383,7 +1383,11 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El Image Editor (15/10/2026): «armame un diseño», «el flyer de la promo», «cambiá el texto del banner». «plantilla»
   // sola NO (es de WhatsApp y del Dashboard) y «miniatura» tampoco (es de YouTube, área contenido).
   imagen: /\b(dise[ñn]os?|image editor|editor de im[aá]gen(es)?|canva\b|flyers?|volantes?|banners?)/i,
-  integraciones: /\b(integraci[oó]n(es)?|conectad[oa]|calendly|chatwoot|resend|google calendar|salud de meta|keys? de ia)/i,
+  // 25/10/2026 (docs/conexiones-y-ayuda.md): «¿cómo conecto…?», «mi Claude», «la app de escritorio», Zernio o una clave de
+  // IA traen `como_conectar` y `ver_ia_del_negocio`. Antes no reconocía «conectar» y todavía nombraba el inbox oficial que se
+  // retiró el 09/10. «instagram» o «facebook» solos no: van en cada pedido de anuncios, y el presupuesto del registro es uno.
+  // ⚠️ Después de «conect…» va un lookahead y no `\b`: el `\b` de JavaScript es ASCII, y tras «conecté» no hay borde.
+  integraciones: /\b(integraci[oó]n(es)?|conect(ar|o|e|é|ado|ada|ados|adas|arlo|arla|arme|amos)(?![a-záéíóúñ])|conexi[oó]n(es)?|desconect|calendly|resend|google calendar|salud de meta|keys? de ia|claves? de (ia|api|openai|claude|gpt)|api key|zernio|chat ?gpt|\bgpt\b|mi claude|mako desktop|app de escritorio)/i,
   equipo: /\b(equipo|usuarios?|roles?\b|setters?|notificaci[oó]n(es)?|reportes? (diario|semanal)|zona horaria)/i,
   cs: /\b(customer success|cartera|programa|alumnos?|clientes? activos?)/i,
   // El área «curso» sale SÓLO por HTTP (lib/api-mako/areas/curso.def.ts): nombrarla no le suma

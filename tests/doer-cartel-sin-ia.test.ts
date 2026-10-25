@@ -30,8 +30,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   causaDelFallo, cartelDelFallo, textoFalloIA, textoSinRedPorDatos, linkKeysIA, rutaKeysIA, conexionesDelPedido, enlaceA,
-  motivoDelCartel, MOTIVO_CARTEL_MAX, type CausaFalloIA, type QueIntentaba,
+  motivoDelCartel, MOTIVO_CARTEL_MAX, RUTA_CONEXION, type CausaFalloIA, type QueIntentaba,
 } from '../lib/fallo-ia-texto';
+import { conexion } from '../lib/conexiones-catalogo';
 import { conWs } from '../lib/ws-tab';
 import { contarClavesCargadas } from '../lib/ia-keys';
 import { marcasDeVoseo } from '../lib/puestas-data';
@@ -66,7 +67,7 @@ test('2. «sin_keys» pide su GPT para WhatsApp y MaKo Desktop para la app, cada
     const t = textoFalloIA('sin_keys', link, que, 0);
     assert.match(t, new RegExp(`No puedo ${que}: tu negocio todavía no conectó su IA`));
     assert.match(t, /conecta tu GPT \(una clave de OpenAI\) 👇\nhttps:\/\/hola-mako\.com\/integraciones\?abrir=openai(\n|$)/, `su GPT sin su link:\n${t}`);
-    assert.match(t, /instala MaKo en tu computadora y conecta tu Claude 👇\nhttps:\/\/hola-mako\.com\/perfil\/instalar(\n|$)/, `MaKo Desktop sin su link:\n${t}`);
+    assert.match(t, /instala MaKo en tu computadora y conecta tu Claude 👇\nhttps:\/\/hola-mako\.com\/perfil\/ia\?computadora=1(\n|$)/, `MaKo Desktop sin su link:\n${t}`);
     assert.doesNotMatch(t, /gemini/i, `volvió a ofrecer Gemini (Martín, 25/10):\n${t}`);
     assert.doesNotMatch(t, /groq/i, 'volvió a mandar a cargar Groq, que desde IA16 sólo escucha');
     assert.doesNotMatch(t, /gratis/i, 'volvió a vender una IA gratis');
@@ -148,7 +149,7 @@ test('6. el caso del ws21: «Estas analizando mis fathom?», sin ninguna clave �
     `${BASE}/integraciones?abrir=openai`,
     '',
     'Y para escribirme en la app, instala MaKo en tu computadora y conecta tu Claude 👇',
-    `${BASE}/perfil/instalar`,
+    `${BASE}/perfil/ia?computadora=1`,
     '',
     'Y para leer tus llamadas, conecta tu Fathom 👇',
     `${BASE}/integraciones?abrir=fathom`,
@@ -156,7 +157,9 @@ test('6. el caso del ws21: «Estas analizando mis fathom?», sin ninguna clave �
   assert.doesNotMatch(t, /IA gratis de MaKo/, 'el porqué de la red que ya no existe');
   // El link de cada conexión conserva el `?ws=` del que recibió el cartel.
   assert.equal(enlaceA(`${BASE}/integraciones?abrir=openai&ws=21`, 'fathom'), `${BASE}/integraciones?abrir=fathom&ws=21`);
-  assert.equal(enlaceA(`${BASE}/integraciones?abrir=openai&ws=21`, 'pc'), `${BASE}/perfil/instalar?ws=21`);
+  assert.equal(enlaceA(`${BASE}/integraciones?abrir=openai&ws=21`, 'pc'), `${BASE}/perfil/ia?computadora=1&ws=21`);
+  // Las rutas de los carteles son las del catálogo único (tanda 3): no una lista aparte.
+  for (const k of ['openai', 'anthropic', 'fathom', 'pc'] as const) assert.equal(RUTA_CONEXION[k], conexion(k)?.ruta, `el cartel tiene su propia ruta para «${k}»`);
   // Un pedido que no es de llamadas no suma Fathom.
   assert.deepEqual(conexionesDelPedido(areasDelMensaje('qué tengo en el plan hoy')), []);
   // El 22/10 (antes de IA16) la red existía y la marca quedó: ése sí era el cartel cierto, y sigue existiendo para el ws9.
@@ -171,7 +174,7 @@ test('7. con la computadora conectada y sin clave, el cartel no dice que no tien
   assert.match(t, /tu Claude está en tu computadora, y desde ahí te contesto en la app, no en WhatsApp/);
   assert.ok(t.includes(`${BASE}/second-brain`), `no le da el link del chat de la app:\n${t}`);
   assert.ok(t.includes(GPT), `no le da el link de su GPT para el grupo:\n${t}`);
-  assert.doesNotMatch(t, /\/perfil\/instalar/, 'le pide instalar lo que ya tiene');
+  assert.doesNotMatch(t, /computadora=1/, 'le pide instalar lo que ya tiene');
   assert.doesNotMatch(t, /gemini|gratis/i);
   // El audio, con la computadora sola: Claude no escucha ni contesta aquí.
   const a = textoFalloIA('sin_keys', link, 'escuchar tu audio', 0, [], { conPc: true });

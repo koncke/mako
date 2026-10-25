@@ -391,7 +391,7 @@ export const RUNNERS: Runners = {
           categoria: f.category, estado: f.status, motivo: f.status === 'pendiente' ? 'venta sin transcript en Fathom' : recorta(f.error, 300),
           tiene_transcript: f.has_transcript, actualizada: f.updated_at,
         })),
-        nota: 'El próximo sync reintenta todas. Un error de saldo o de key de IA se repite hasta que se arregle la key en /integraciones.',
+        nota: 'El próximo sync reintenta todas. Un error de saldo o de key de IA se repite hasta que se arregle la clave del negocio en Integraciones (para el análisis, su Claude por clave).',
       });
     },
   },

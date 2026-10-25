@@ -98,7 +98,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'lib/api-mako/areas/whatsapp.run.ts': PROTEGIDO,
   'lib/api-mako/tipos.ts': PROTEGIDO,
   'lib/evolution-mensajes.ts': PROTEGIDO,
-  'lib/mako-intencion.ts': PROTEGIDO,
   'lib/nutricion.ts': PROTEGIDO,
   // Pendientes de la segunda tanda.
   'lib/meta-templates.ts': PLANTILLAS,

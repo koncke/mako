@@ -80,6 +80,28 @@ abajo) y abre `mako://conectar` solo; si vence o la persona dice «No», el mism
 (`Tutorial`) · `lib/ia-pc-reglas.ts` (`abreEnlacesMako`, `ICONO_APP_MAC`) · `scripts/ia-pc/mako-pc.mjs` (`dialogoMac`) ·
 `tests/ia-pc-marca.test.ts`, `tests/ia-pc-firma.test.ts` (5), `tests/ia-pc-instalador-040.test.ts` (1)
 
+## Lo que MaKo sabe de cómo conectar cada cosa, de un solo lugar: el prompt, las capacidades y la intención (25/10/2026)
+
+Tanda 3 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md). Vive en `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`, los
+`DEEP_LINKS` de `lib/mako-doer-in.ts` y `lib/mako-intencion.ts`; el catálogo es `lib/conexiones-catalogo.ts`. Lo fija
+`tests/conexiones-un-solo-lugar.test.ts`.
+
+- **El prompt le prohibía a MaKo dar el link que hacía falta.** `hechosMako` (va en TODOS los prompts) tenía tres links
+  escritos a mano —meta, anthropic, landing— y la regla «no te salgas de esta lista»: MaKo no podía darle a Florencia el de
+  Fathom, el de Zernio ni el de su computadora. Ahora la lista sale del catálogo (`EN_EL_PROMPT`, las once que más se piden:
+  todas no, porque viaja en cada turno) y para las demás está `como_conectar`.
+- ⚠️ **Trampa: el `\b` de JavaScript es ASCII.** La expresión nueva del área integraciones terminaba «conect(ar|o|é|…)\b», y
+  «ya conecté instagram?» no entraba: después de una «é» no hay borde de palabra para JavaScript (sin la bandera `u`, y aun con
+  ella `\b` sigue siendo ASCII). Tras una vocal con tilde va un lookahead (`(?![a-záéíóúñ])`), no `\b`.
+- **«instagram» o «facebook» solos no traen el área integraciones**: van en cada pedido de anuncios, y el presupuesto del
+  registro (12.000 caracteres) es uno solo; sumarle las herramientas de conectar a un turno de anuncios le saca otras. Entran por
+  «conectar instagram».
+- **Los textos del prompt que mandaban a «/integraciones» a secas** (dónde se pega el Pixel, dónde se cargó el píxel de Meta)
+  ahora nombran la tarjeta; la guarda (test 4) barre los runners de la API, los carteles y el prompt.
+
+**SIN hacer:** los textos de la app que nombran Gemini (lib/ia-mensajes.ts, lib/mako-turno-app-reglas.ts, lib/flujo-ia.ts y
+los de MaKo Desktop) y que la app (`turnoApp`) ponga `aFalta`.
+
 ## Ningún cartel le ofrece Gemini como «su IA» (25/10/2026; reemplaza lo del 22/10)
 
 Martín, 25/10/2026, por el audio de Florencia (ws21): «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos

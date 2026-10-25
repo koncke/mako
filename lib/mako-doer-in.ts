@@ -342,7 +342,8 @@ const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, 
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (lo que se está probando y lo que el dato ya confirmó): ${APP_URL}/dashboard · se piden con «Editar con MaKo» («probemos…»)
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
-- Salud de la cuenta de Meta: ${APP_URL}/integraciones
+- Salud de la cuenta de Meta: ${APP_URL}/integraciones?abrir=meta
+- Conectar algo (su GPT, Fathom, sus redes con Zernio, su computadora…): el link de esa conexión, de «DÓNDE SE CONECTA CADA COSA», o la herramienta como_conectar. Nunca la pantalla de Integraciones a secas.
 Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/dashboard?hoja=closing".`;
 
 /**

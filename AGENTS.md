@@ -1461,6 +1461,15 @@ archivos**, y se lee como una fuga entre clientes cuando es un destino que falta
   template literal con la URL pegada compila perfecto— y deja afuera, con su motivo escrito,
   el prompt que describe la forma de una URL y el archivo donde vive el helper.
 
+⚠️ **Y EL LINK A UNA CONEXIÓN ES CONTRATO (25/10/2026, docs/conexiones-y-ayuda.md).** `/integraciones?abrir=<key>` abre el
+modal de esa tarjeta, `/integraciones?abrir=ia` «Tus cuentas de IA», `/perfil/ia?computadora=1` «Conecta MaKo» y
+`/chats?conectar=whatsapp` el QR. Ya viajaron en mensajes de WhatsApp, avisos y prompts: **un rediseño los conserva** (o los
+redirige). Todo texto que manda a conectar algo usa el link de ESA conexión, sacado de `lib/conexiones-catalogo.ts` (el
+catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
+veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
+correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
+
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
 sin el `?ws=` → aterrizó en **su propio** onboarding, con el chrome de admin, sin barra de

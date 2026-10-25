@@ -173,6 +173,19 @@ export function buscarConexion(texto: string, o: { esPlataforma?: boolean } = {}
 }
 
 /**
+ * LAS QUE VAN EN EL PROMPT DE MaKo (lib/hechos-mako.ts), con su link: las que más se piden. Todas no: `hechosMako` viaja en
+ * cada turno de cada canal, y las otras se encuentran con `como_conectar` o `ver_integraciones`. Hasta el 25/10/2026 el prompt
+ * tenía tres links escritos a mano (meta, anthropic, landing) y le prohibía a MaKo dar otros: no sabía dar el de Fathom, el de
+ * Zernio ni el de su computadora.
+ */
+export const EN_EL_PROMPT = ['openai', 'pc', 'ia', 'fathom', 'zernio', 'meta', 'google', 'calendly', 'whatsapp', 'email', 'landing'] as const;
+
+/** Las líneas «· nombre: link» de `EN_EL_PROMPT`, con la base que pone el código (nunca el modelo). */
+export function conexionesParaElPrompt(base: string): string {
+  return EN_EL_PROMPT.map((k) => conexion(k)).filter((c): c is Conexion => !!c).map((c) => `  - ${c.nombre}: ${base}${c.ruta}`).join('\n');
+}
+
+/**
  * La línea que el CÓDIGO le agrega a la persona cuando le falta una conexión (`falta.servicio` de una operación, la API de
  * MaKo): qué falta y su link. Desde el teléfono no se conecta: lo dice.
  */

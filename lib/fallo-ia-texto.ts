@@ -24,6 +24,8 @@
 // se paga peor: manda a tocar algo que está bien.
 // =============================================================================
 
+import { conexion, rutaDeTarjeta } from './conexiones-catalogo';
+
 export type CausaFalloIA =
   /** No hay NINGUNA key cargada: sin eso MaKo no puede pensar. */
   | 'sin_keys'
@@ -229,16 +231,18 @@ const respaldosDe = (prov: string): string[] => CUBREN_EL_TURNO.filter((p) => p 
 
 /**
  * LAS CONEXIONES QUE NOMBRA UN CARTEL, cada una con SU link (25/10/2026: el aviso del 24/10 al ws21 nombraba «tu Claude, tu
- * GPT o tu Gemini, y también Fathom» con UN solo link, el de Claude). Las rutas son contrato: `/integraciones?abrir=<key>`
- * abre el modal de esa tarjeta (app/integraciones/IntegracionesBoard.tsx), `/perfil/instalar` baja MaKo Desktop y
- * `/second-brain` es el chat de la app (el Ops Center).
+ * GPT o tu Gemini, y también Fathom» con UN solo link, el de Claude). Las rutas salen del catálogo único
+ * (lib/conexiones-catalogo.ts), que son contrato: `/integraciones?abrir=<key>` abre el modal de esa tarjeta y la computadora
+ * va directo a «Conecta MaKo», que trae «Descargar MaKo» para quien no la tiene. `/second-brain`, el chat de la app (el Ops
+ * Center), no es una conexión: va aparte.
  */
 export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app';
+const delCatalogo = (key: string): string => conexion(key)?.ruta ?? rutaDeTarjeta(key);
 export const RUTA_CONEXION: Record<ConexionDelCartel, string> = {
-  openai: '/integraciones?abrir=openai',
-  anthropic: '/integraciones?abrir=anthropic',
-  fathom: '/integraciones?abrir=fathom',
-  pc: '/perfil/instalar',
+  openai: delCatalogo('openai'),
+  anthropic: delCatalogo('anthropic'),
+  fathom: delCatalogo('fathom'),
+  pc: delCatalogo('pc'),
   app: '/second-brain',
 };
 
