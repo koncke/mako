@@ -292,8 +292,10 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   // Rota: no mirar el código → este test falla (seguía «Esperando…» con una línea que ya no servía).
   assert.match(ui, /fetch\(`\/api\/ia-pc\/codigo\?codigo=\$\{encodeURIComponent\(codigo\)\}`/);
   assert.match(ui, /setDelCodigo\(c\.estado === 'cancelado' \? 'gastado' : c\.estado === 'eligiendo' \? 'eligiendo' : null\)/);
-  assert.match(ui, /Ese código ya se usó y la computadora no quedó conectada\./);
-  assert.ok((ui.match(/onClick=\{otroCodigo\}>Pedir otro código</g) ?? []).length >= 2, '«Pedir otro código» también mientras espera');
+  // Gastado sin conectar (dijo «No» o cerró la ventana): vuelve al botón con «No se conectó.», y «Conectar» pide otro. Mientras
+  // espera, a los segundos, «Probar de nuevo» (25/10/2026: el «Pedir otro código» de antes, sin hablar de códigos).
+  assert.match(ui, /\{!error && delCodigo === 'gastado' && <p className="tci-tutorial__aviso">No se conectó\.<\/p>\}/);
+  assert.match(ui, /¿No se abrió\? <button type="button" className="tci-tutorial__enlace" onClick=\{conectar\}>Probar de nuevo<\/button>/, '«Probar de nuevo» mientras espera');
   assert.match(ui, /setVenceAt\(Date\.now\(\) \+ \(Number\(r\.duraMs\) \|\| 10 \* 60_000\)\)/, 'con su reloj');
   assert.match(sinComentarios(leer('app/api/ia-pc/codigo/route.ts')), /duraMs: CODIGO_MS/);
   assert.match(ui, /listo=\{!!estado\}/, 'hasta saber qué PC ya estaban');

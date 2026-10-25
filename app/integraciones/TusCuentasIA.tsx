@@ -18,10 +18,12 @@ import { Modal } from '@/app/_ui/Modal';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, cuentasDeLaIA, lineaDeInstalacion, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, abreEnlacesMako, cuentasDeLaIA, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, DescargarElOtro, DescargarMaKo, NuevoDispositivo, avisoAlAbrir } from './CuentasYDispositivos';
 import { Icon } from '@/app/_components/icons';
+import { Criatura } from '@/app/_components/Criatura';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import './tus-cuentas-ia.css';
 
 type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: boolean; ultimoLatido: string | null; version: string | null; cuentas: CuentaPc[]; sinClaude?: boolean; conectadaAt?: string | null; sistema?: string | null; ubicacion?: string | null };
@@ -31,10 +33,7 @@ type Pc = { id: number; nombre: string; esMia: boolean; de?: string; enLinea: bo
  * acá (23/10/2026): el modelo se elige en cada chat, y la clave y el crédito no le sirven al cliente en este panel.
  */
 type Estado = { ok: boolean; esAdmin: boolean; modelo: string; pcs: Pc[]; grupos?: CuentasIA; /** A quien no es admin: el nombre del admin («Pídele a…»). */ admin?: string };
-const COMANDO_CLAUDE: Record<SistemaPc, string> = {
-  windows: 'irm https://claude.ai/install.ps1 | iex',
-  mac: 'curl -fsSL https://claude.ai/install.sh | bash',
-};
+/** Dónde se pega la línea de respaldo: SÓLO para una PC de la 0.3.x, que no abre mako:// (`abreEnlacesMako`). */
 const DONDE_PEGAR: Record<SistemaPc, string> = {
   windows: 'Abre «PowerShell» desde el menú Inicio, pega esto y aprieta Enter.',
   mac: 'Abre «Terminal» (Aplicaciones → Utilidades), pega esto y aprieta Enter.',
@@ -61,49 +60,59 @@ function Copiar({ texto }: { texto: string }) {
   );
 }
 
+/** Cuánto se espera a que la app conteste antes de ofrecer «Probar de nuevo» y la descarga (la página de Zoom hace lo mismo). */
+const PLAZO_AYUDA_MS = 6000;
+
 /**
- * El tutorial: un paso por pantalla. El último pide el código y espera a que la computadora aparezca. `ia` (la ola 3): con
- * qué IA va a contestar esa computadora; cambia el nombre, el programa (Claude Code o Codex) y el texto que se acepta. Los
- * respaldos con la terminal son sólo de Claude: el cliente no tiene Node para instalar Codex a mano.
+ * El tutorial (25/10/2026, Martín, con la captura del «Paso 3 de 3 · Conecta MaKo»: «rediseña eso, que se vea facil, mira la
+ * cantidad de texto»). Eran tres pasos con párrafos, «¿No funciona? Con la línea de comandos», un código que vencía y «Pedir
+ * otro código». Ahora son DOS pantallas, cada una con UN botón grande, y casi sin texto:
+ *   · 2, «Descarga MaKo» (sólo si viene de «Nuevo dispositivo» o de «¿Cómo la conectas?»; el sistema se detecta solo);
+ *   · 4, «Conecta esta computadora»: el botón ES el «acepto» (el texto que se acepta va abajo, chico) y abre la app con el
+ *     código. Lo demás pasa solo: el código no se ve, si vence se pide otro al volver a tocar, y si la persona dice «No» en la
+ *     ventana vuelve al botón. Mientras tanto la pantalla dice qué tocar, y si en unos segundos no pasa nada ofrece «Probar
+ *     de nuevo» y la descarga. Es la página con la que Zoom abre su app desde el navegador (un botón, el diálogo del navegador
+ *     y «¿No la tienes? Descárgala»).
+ * Los números de paso quedan porque el instalador vuelve al 4 (RUTA_TRAS_INSTALAR) y «Nuevo dispositivo» abre el 2.
+ * Nada de comandos: el respaldo con la terminal se fue del tutorial (lo ve sólo una PC de la 0.3.x, abajo, en las cuentas).
+ * En la Mac un enlace mako:// no le llega al programa: el botón deja el código en el portapapeles y la app lo toma de ahí.
+ * `ia` (la ola 3): con qué IA va a contestar esa computadora; cambia el nombre, el programa y el texto que se acepta.
  */
-function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude' }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number; ia?: ProveedorPc }) {
+function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 2, ia = 'claude' }: { onCerrar: () => void; pcsAntes: number[]; recargar: () => Promise<Estado | null>; pasoInicial?: number; ia?: ProveedorPc }) {
   const nombre = NOMBRE_IA[ia];
   const programa = PROGRAMA_IA_PC[ia];
   const conClaude = ia === 'claude';
-  const detectado: SistemaPc = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) ? 'mac' : 'windows';
-  const [sistema, setSistema] = useState<SistemaPc>(detectado);
-  const [paso, setPaso] = useState(pasoInicial);
+  const sistema: SistemaPc = typeof navigator !== 'undefined' && /Mac/i.test(navigator.platform || navigator.userAgent) ? 'mac' : 'windows';
+  const [paso, setPaso] = useState(pasoInicial >= 4 ? 4 : 2);
+  const [bajado, setBajado] = useState(false);
   const [codigo, setCodigo] = useState<string | null>(null);
   const [venceAt, setVenceAt] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lista, setLista] = useState(false);
-  // Se conectó pero su Claude no tiene la sesión iniciada: no es «¡Listo!», es volver al paso 3 (o al 2, sin Claude).
+  // Se conectó pero su Claude no tiene la sesión iniciada: no es «¡Listo!», es iniciarla (o instalar el programa, sin él).
   const [sinSesion, setSinSesion] = useState<'sesion' | 'claude' | null>(null);
   // Cómo quedó el código en MaKo: gastado sin conectar (dijo que no, o cerró la ventana) o esperando su «sí».
   const [delCodigo, setDelCodigo] = useState<'gastado' | 'eligiendo' | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
-  // El código se pide recién cuando la persona acepta con un toque cómo funciona (TEXTO_CONSENTIMIENTO).
+  // Tocó «Conectar»: con ese toque acepta el texto de abajo del botón (CONSENTIMIENTO_DE) y recién ahí se pide el código.
   const [acepto, setAcepto] = useState(false);
-  // TRES pasos y ninguno abre una terminal: en Windows (0.4.0) el instalador con asistente pone MaKo y Claude Code, y la
-  // sesión de Claude la inicia el programa en una página local (mako://iniciar-sesion); en la Mac (0.4.2) MaKo.app hace lo
-  // mismo y toma el código del portapapeles (en la Mac un enlace mako:// no le llega al programa). La terminal, plegada.
-  const pasos = [1, 2, 4];
-  const anterior = pasos[pasos.indexOf(paso) - 1];
-  const siguiente = pasos[pasos.indexOf(paso) + 1];
-  const pedirCodigo = useCallback(async () => {
+  const [abiertoAt, setAbiertoAt] = useState<number | null>(null);
+  // La Mac: si el código quedó en el portapapeles (null: todavía no se intentó).
+  const [copiado, setCopiado] = useState<boolean | null>(null);
+  const pedirCodigo = useCallback(async (): Promise<string | null> => {
     setError(null);
     const r = await fetch('/api/ia-pc/codigo', {
       method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ acepto: CONSENTIMIENTO_DE[ia].version }),
     }).then((x) => x.json()).catch(() => null);
     // Con SU reloj: la hora del servidor contra una PC adelantada hacía nacer «vencido» cada código (segunda revisión).
-    if (r?.ok && r.codigo) { setCodigo(r.codigo); setDelCodigo(null); setVenceAt(Date.now() + (Number(r.duraMs) || 10 * 60_000)); setAhora(Date.now()); }
-    else setError(r?.error ?? 'No pude crear el código. Intenta de nuevo.');
+    if (r?.ok && r.codigo) { setCodigo(r.codigo); setDelCodigo(null); setVenceAt(Date.now() + (Number(r.duraMs) || 10 * 60_000)); setAhora(Date.now()); return r.codigo as string; }
+    setError(r?.error ?? 'No pude preparar la conexión. Intenta de nuevo.');
+    return null;
   }, [ia]);
-  useEffect(() => { if (paso === 4 && acepto && !codigo) void pedirCodigo(); }, [paso, acepto, codigo, pedirCodigo]);
   // Con el código ya usado (esperando su «sí» en la ventana), la cuenta de 10 minutos no corre: el código no vence ahí.
   const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';
   // Espera a que aparezca una computadora nueva en línea, CON un Claude con sesión. Y mira el código: si se gastó sin
-  // conectar, no se queda «Esperando…» con una línea que ya no sirve (segunda revisión del Cerebro, 21/10/2026).
+  // conectar, no se queda «Esperando…» con un código que ya no sirve (segunda revisión del Cerebro, 21/10/2026).
   useEffect(() => {
     if (paso !== 4 || !codigo || lista) return;
     const t = setInterval(async () => {
@@ -117,163 +126,119 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 1, ia = 'claude'
     }, 3000);
     return () => clearInterval(t);
   }, [paso, codigo, lista, pcsAntes, recargar, ia, conClaude]);
-  // Otro código sin volver a aceptar: la persona ya aceptó en esta misma pantalla.
-  // Con un código en pantalla, alcanza con soltarlo: el efecto de arriba pide el nuevo. Pedirlo acá TAMBIÉN creaba dos, y
-  // el segundo anula al primero (lib/ia-pc.ts → crearCodigo), que podía quedar en pantalla.
-  const otroCodigo = () => { setDelCodigo(null); setSinSesion(null); if (codigo) { setCodigo(null); setVenceAt(null); } else void pedirCodigo(); };
+
+  /**
+   * La Mac: el código al portapapeles. En Safari la escritura tiene que salir DEL TOQUE, y el código llega después (un fetch):
+   * por eso va un ClipboardItem con la promesa adentro, que es lo que WebKit pide para esto. Sin eso, `writeText` al llegar.
+   */
+  const copiarEnLaMac = async (pedido: Promise<string | null>) => {
+    try {
+      if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+        await navigator.clipboard.write([new ClipboardItem({ 'text/plain': pedido.then((c) => { if (!c) throw new Error('sin código'); return new Blob([c], { type: 'text/plain' }); }) })]);
+      } else {
+        const c = await pedido;
+        if (!c) return;
+        await navigator.clipboard.writeText(c);
+      }
+      setCopiado(true);
+    } catch { setCopiado(false); }
+  };
+  /** El enlace que abre la app (Windows): el navegador pregunta «¿Abrir?», y la app, en su ventana, a qué negocio. */
+  const abrirEnWindows = (c: string) => { window.location.href = `mako://conectar?codigo=${c}`; };
+  /** «Conectar» y «Probar de nuevo»: con el código que sirve, lo abre de nuevo; si no (venció, o dijo que no), pide otro. */
+  const conectar = () => {
+    setAcepto(true); setSinSesion(null); setAbiertoAt(Date.now()); setAhora(Date.now());
+    if (codigo && !vencido && delCodigo !== 'gastado') {
+      if (sistema === 'windows') abrirEnWindows(codigo); else void copiarEnLaMac(Promise.resolve(codigo));
+      return;
+    }
+    // Uno nuevo: el de antes se suelta primero, para que la espera no mire uno que ya no sirve.
+    setCodigo(null); setVenceAt(null); setDelCodigo(null); setCopiado(null);
+    const pedido = pedirCodigo();
+    if (sistema === 'windows') void pedido.then((c) => { if (c) abrirEnWindows(c); });
+    else void copiarEnLaMac(pedido);
+  };
+  // Acaba de tocar «Conectar» y nada lo frenó: la pantalla dice qué tocar. Un «No» en la ventana, un error o el código
+  // vencido vuelven al botón.
+  const esperando = acepto && !error && delCodigo !== 'gastado' && !vencido;
+  const eligiendo = delCodigo === 'eligiendo';
+  const tarde = abiertoAt != null && ahora - abiertoAt >= PLAZO_AYUDA_MS && !eligiendo;
+  const descarga = `/api/ia-pc/descargar?os=${sistema}`;
 
   return (
-    <div className="tci-tutorial" role="dialog" aria-label="Conectar mi computadora">
-      <div className="tci-tutorial__cab">
-        <span className="tci-paso">{paso < 5 ? `Paso ${Math.max(1, pasos.indexOf(paso) + 1)} de ${pasos.length}` : '¡Listo!'}</span>
-        <button type="button" className="tci-cerrar" aria-label="Cerrar" onClick={onCerrar}>×</button>
-      </div>
-      {paso === 1 && (
+    <div className="tci-tutorial tci-tutorial--grande" role="dialog" aria-label="Conectar mi computadora">
+      <button type="button" className="tci-cerrar tci-tutorial__x" aria-label="Cerrar" onClick={onCerrar}>×</button>
+      {paso === 2 && (
         <>
-          <h3>¿Qué computadora usas?</h3>
-          <p>{`Tu Ops Center va a contestar con tu ${nombre}, en esa computadora. Tiene que quedar prendida.`}</p>
-          <div className="tci-opciones">
-            {(['windows', 'mac'] as const).map((s) => (
-              <button key={s} type="button" className={`tci-opcion${sistema === s ? ' is-on' : ''}`} onClick={() => setSistema(s)}>{s === 'windows' ? 'Windows' : 'Mac'}</button>
-            ))}
-          </div>
+          <span className="tci-instalar__icono" aria-hidden><Icon name="descargar" size={26} /></span>
+          <h3 className="tci-tutorial__titulo">Descarga MaKo</h3>
+          <a className="tci-instalar__boton" href={descarga} onClick={() => setBajado(true)}>
+            <Icon name="descargar" size={18} />{`Descargar para ${sistema === 'mac' ? 'Mac' : 'Windows'}`}
+          </a>
+          <p className="tci-tutorial__linea">{bajado ? (sistema === 'mac' ? AVISO_GATEKEEPER : AVISO_SMARTSCREEN) : `Instala MaKo y, si falta, ${programa}.`}</p>
+          <button type="button" className="tci-tutorial__enlace" onClick={() => setPaso(4)}>Ya lo instalé</button>
+          <DescargarElOtro className="tci-instalar__otro" />
         </>
       )}
-      {paso === 2 && sistema === 'windows' && (
+      {paso === 4 && sinSesion === 'claude' && (
         <>
-          <h3>Descarga MaKo</h3>
-          <p>{`Ábrelo y sigue el asistente: Siguiente › Instalar › Finalizar. Instala MaKo y, si no lo tienes, ${programa}.`}</p>
-          <a className="tci-boton" href="/api/ia-pc/descargar?os=windows">Descargar MaKo para Windows</a>
-          <p className="tci-nota">{AVISO_SMARTSCREEN}</p>
-          <p className="tci-nota">Si ya lo instalaste, sigue al próximo paso.</p>
+          <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={26} /></span>
+          <h3 className="tci-tutorial__titulo">{`Falta ${programa}`}</h3>
+          {sistema === 'windows'
+            ? <a className="tci-instalar__boton" href={descarga}><Icon name="descargar" size={18} />Descargar MaKo</a>
+            : null}
+          <p className="tci-tutorial__linea">{sistema === 'windows' ? `Ábrelo de nuevo: instala ${programa}.` : `Vuelve a abrir MaKo: instala ${programa}.`}</p>
         </>
       )}
-      {paso === 2 && sistema === 'mac' && (
+      {paso === 4 && sinSesion === 'sesion' && (
         <>
-          <h3>Descarga MaKo</h3>
-          <p>{`Abre el archivo y después MaKo: instala ${programa} si no lo tienes, sin Terminal.`}</p>
-          <a className="tci-boton" href="/api/ia-pc/descargar?os=mac">Descargar MaKo para Mac</a>
-          <p className="tci-nota">{AVISO_GATEKEEPER}</p>
-          <p className="tci-nota">Si ya la abriste, sigue al próximo paso.</p>
-          {conClaude && (
-            <details className="tci-respaldo">
-              <summary>¿No funciona? Con la Terminal</summary>
-              <p>{DONDE_PEGAR.mac} Es Claude Code, no la app de escritorio de Claude.</p>
-              <Copiar texto={COMANDO_CLAUDE.mac} />
-              <Copiar texto={LOGIN_CLAUDE.mac} />
-            </details>
+          <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={26} /></span>
+          <h3 className="tci-tutorial__titulo">{`Inicia sesión en ${nombre}`}</h3>
+          {sistema === 'windows' ? (
+            <>
+              <a className="tci-instalar__boton" href={conClaude ? 'mako://iniciar-sesion' : 'mako://iniciar-sesion?ia=chatgpt'}>Iniciar sesión</a>
+              {/* El login de Codex termina solo en el navegador; el de Claude muestra un código que se pega en la página de la PC. */}
+              <p className="tci-tutorial__linea">Se abre el navegador.</p>
+            </>
+          ) : <p className="tci-tutorial__linea">Vuelve a abrir MaKo: te ofrece iniciarla.</p>}
+        </>
+      )}
+      {paso === 4 && !sinSesion && esperando && (
+        <>
+          <span className="tci-tutorial__criatura" aria-hidden><Criatura nombre="MaKo" estrella size={44} /></span>
+          <h3 className="tci-tutorial__titulo" aria-live="polite">
+            {sistema === 'mac'
+              ? (eligiendo ? 'Contesta «Sí, conectar» en MaKo' : 'Abre MaKo')
+              : (eligiendo ? 'Contesta «Sí» en MaKo' : 'Toca «Abrir» y después «Sí»')}
+          </h3>
+          {sistema === 'mac' && !eligiendo && copiado && <p className="tci-tutorial__linea">Tu código ya está copiado: MaKo lo toma solo.</p>}
+          {sistema === 'mac' && copiado === false && codigo && <Copiar texto={codigo} />}
+          {tarde && (
+            <p className="tci-tutorial__linea">
+              {sistema === 'windows' ? <>¿No se abrió? <button type="button" className="tci-tutorial__enlace" onClick={conectar}>Probar de nuevo</button>{' · '}</> : '¿No la tienes? '}
+              <a className="tci-tutorial__enlace" href={descarga}>Descargar MaKo</a>
+            </p>
           )}
         </>
       )}
-      {paso === 4 && (
+      {paso === 4 && !sinSesion && !esperando && (
         <>
-          <h3>Conecta MaKo</h3>
-          {!acepto ? (
-            <>
-              <p className="tci-acepto">{CONSENTIMIENTO_DE[ia].texto}</p>
-              <button type="button" className="tci-boton" onClick={() => setAcepto(true)}>Acepto, conectar</button>
-            </>
-          ) : (
-            <>
-              {sistema === 'windows' ? (
-                <>
-                  <p>Toca «Conectar esta computadora»: MaKo te pregunta en una ventana a qué negocio se conecta. Después arranca cada vez que prendas la computadora.</p>
-                  {codigo && !vencido && delCodigo !== 'gastado'
-                    ? <a className="tci-boton" href={`mako://conectar?codigo=${codigo}`}>Conectar esta computadora</a>
-                    : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
-                  <p className="tci-nota">Si no pasa nada, primero instala MaKo (paso 2).</p>
-                  {/* La línea de comandos queda SÓLO de respaldo, plegada (el Cerebro, 22/10/2026). */}
-                  {codigo && !vencido && delCodigo !== 'gastado' && (
-                    <details className="tci-respaldo">
-                      <summary>¿No funciona? Con la línea de comandos</summary>
-                      <p>{DONDE_PEGAR.windows}</p>
-                      <Copiar texto={lineaDeInstalacion(window.location.origin, 'windows', codigo)} />
-                    </details>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p>Copia el código y abre MaKo: lo toma solo, te dice a qué negocio se conecta y te pregunta si es el tuyo. Después arranca cada vez que prendas la Mac.</p>
-                  {codigo && !vencido && delCodigo !== 'gastado' ? <Copiar texto={codigo} /> : !codigo && <p className="tci-nota">{error ?? 'Preparando tu código…'}</p>}
-                  <p className="tci-nota">Si no lo encuentra, te lo pide en una ventana: pégalo ahí.</p>
-                  {codigo && !vencido && delCodigo !== 'gastado' && (
-                    <details className="tci-respaldo">
-                      <summary>¿No funciona? Con la Terminal</summary>
-                      <p>{DONDE_PEGAR.mac}</p>
-                      <Copiar texto={lineaDeInstalacion(window.location.origin, 'mac', codigo)} />
-                    </details>
-                  )}
-                </>
-              )}
-            </>
-          )}
-          {(error || vencido || delCodigo === 'gastado') && (
-            <>
-              {delCodigo === 'gastado'
-                ? <p className="tci-nota">Ese código ya se usó y la computadora no quedó conectada.</p>
-                : vencido && <p className="tci-nota">El código venció.</p>}
-              <button type="button" className="tci-boton" onClick={otroCodigo}>Pedir otro código</button>
-            </>
-          )}
-          {codigo && !vencido && !sinSesion && delCodigo !== 'gastado' && (
-            <>
-              <p className="tci-espera">
-                <span className="tci-punto tci-punto--esperando" aria-hidden />{' '}
-                {delCodigo === 'eligiendo' ? 'Tu computadora te pregunta si es tu negocio: contesta en esa ventana.' : 'Esperando a tu computadora… (el código dura 10 minutos)'}
-              </p>
-              <button type="button" className="tci-boton tci-boton--suave" onClick={otroCodigo}>Pedir otro código</button>
-            </>
-          )}
-          {sinSesion === 'claude' && (
-            <>
-              <p className="tci-nota">{sistema === 'windows' ? `Tu computadora se conectó, pero no tiene ${programa}: vuelve a abrir el instalador de MaKo, que lo instala.` : `Tu Mac se conectó, pero no tiene ${programa}: vuelve a abrir MaKo, que lo instala.`}</p>
-              <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(2)}>{sistema === 'windows' ? 'Volver a instalar (paso 2)' : 'Volver al paso 2'}</button>
-            </>
-          )}
-          {sinSesion === 'sesion' && (
-            <>
-              <p className="tci-nota">{`Tu computadora se conectó, pero tu ${nombre} no tiene la sesión iniciada.`}</p>
-              {sistema === 'windows' ? (
-                <>
-                  <a className="tci-boton" href={conClaude ? 'mako://iniciar-sesion' : 'mako://iniciar-sesion?ia=chatgpt'}>{`Iniciar sesión en ${nombre}`}</a>
-                  {/* El login de Codex termina solo en el navegador: no hay código que pegar (docs/hallazgos-ia.md, la ola 3). */}
-                  <p className="tci-nota">{conClaude ? 'Se abre el navegador: entra con tu cuenta de Claude y pega el código que te muestra.' : 'Se abre el navegador: entra con tu cuenta de ChatGPT.'}</p>
-                  {/* Una PC instalada con la línea de comandos (la 0.3.2, como la del ws1) no abre mako://: ahí, la de siempre. */}
-                  {conClaude && (
-                    <details className="tci-respaldo">
-                      <summary>¿No funciona? Con la línea de comandos</summary>
-                      <p>{DONDE_PEGAR.windows}</p>
-                      <Copiar texto={LOGIN_CLAUDE.windows} />
-                    </details>
-                  )}
-                </>
-              ) : (
-                <>
-                  <p className="tci-nota">{`Vuelve a abrir MaKo: te ofrece iniciar la sesión de ${nombre} en el navegador.`}</p>
-                  {conClaude && (
-                    <details className="tci-respaldo">
-                      <summary>¿No funciona? Con la Terminal</summary>
-                      <p>{DONDE_PEGAR.mac}</p>
-                      <Copiar texto={LOGIN_CLAUDE.mac} />
-                    </details>
-                  )}
-                </>
-              )}
-            </>
-          )}
+          <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={26} /></span>
+          <h3 className="tci-tutorial__titulo">Conecta esta computadora</h3>
+          {error && <p className="tci-tutorial__aviso" role="alert">{error}<ReportarASoporte /></p>}
+          {!error && delCodigo === 'gastado' && <p className="tci-tutorial__aviso">No se conectó.</p>}
+          <button type="button" className="tci-instalar__boton" onClick={conectar}>Conectar</button>
+          <p className="tci-tutorial__linea">{CONSENTIMIENTO_DE[ia].texto}</p>
         </>
       )}
       {paso === 5 && (
         <>
-          <h3>Tu computadora está en línea</h3>
-          <p>{`Desde ahora tu Ops Center contesta con tu ${nombre}. Si la apagas, el chat te avisa hasta que la prendas.`}</p>
+          <span className="tci-instalar__icono tci-instalar__icono--bien" aria-hidden><Icon name="check" size={26} /></span>
+          <h3 className="tci-tutorial__titulo">Tu computadora está en línea</h3>
+          <p className="tci-tutorial__linea">{`Tu Ops Center ya contesta con tu ${nombre}.`}</p>
+          <button type="button" className="tci-instalar__boton" onClick={onCerrar}>Listo</button>
         </>
       )}
-      <div className="tci-tutorial__pie">
-        {paso > 1 && paso < 5 && anterior != null && <button type="button" className="tci-boton tci-boton--suave" onClick={() => setPaso(anterior)}>Atrás</button>}
-        {paso < 4 && siguiente != null && <button type="button" className="tci-boton" onClick={() => setPaso(siguiente)}>Siguiente</button>}
-        {paso === 5 && <button type="button" className="tci-boton" onClick={onCerrar}>Listo</button>}
-      </div>
     </div>
   );
 }
@@ -492,17 +457,21 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
           <CuentasYDispositivos grupos={grupos} ahora={ahora} onDesconectar={(d) => desconectar(d.id)}
             nuevoDispositivo={(c) => <NuevoDispositivo onAbrir={() => abrirTutorialEn(2, c.proveedor)} />}
             extraSinCuenta={(d) => (d.esMia && d.enLinea && !d.sinClaude
-              ? (
+              // En la Mac un mako:// no le llega al programa: MaKo.app, al abrirla, ofrece la sesión.
+              ? (d.sistema === 'Mac' ? <p className="tci-nota">Abre MaKo en esa Mac para iniciar sesión.</p> : (
                 <>
                   <a className="tci-boton tci-boton--suave" href="mako://iniciar-sesion">Iniciar sesión en Claude</a>
-                  {/* Una PC de la 0.3.2 (instalada con la línea de comandos) no abre mako://: ahí, la de siempre. */}
-                  <details className="tci-respaldo">
-                    <summary>¿No funciona? Con la línea de comandos</summary>
-                    <p>{DONDE_PEGAR.windows}</p>
-                    <Copiar texto={LOGIN_CLAUDE.windows} />
-                  </details>
+                  {/* SÓLO una PC de la 0.3.x (instalada con la línea de comandos, como la del ws1) no abre mako://: ahí, la
+                      de siempre, plegada. Con la app de hoy no se ve un comando (25/10/2026). */}
+                  {!abreEnlacesMako(d.version) && (
+                    <details className="tci-respaldo">
+                      <summary>¿No funciona? Con la línea de comandos</summary>
+                      <p>{DONDE_PEGAR.windows}</p>
+                      <Copiar texto={LOGIN_CLAUDE.windows} />
+                    </details>
+                  )}
                 </>
-              )
+              ))
               : null)} />
         </>
       )}

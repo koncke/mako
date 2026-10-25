@@ -25,6 +25,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 /** Las que hacen falta para firmar. SSL_COM_CREDENCIAL, sólo si la cuenta tiene más de un certificado. */
 export const VARIABLES_DE_FIRMA = ['CODESIGNTOOL', 'SSL_COM_USUARIO', 'SSL_COM_CLAVE', 'SSL_COM_TOTP'];
@@ -135,6 +136,28 @@ export function peConMarcaDeTiempo(exe) {
   return t != null && OID_MARCA_DE_TIEMPO.some((o) => Buffer.from(t.buffer, t.byteOffset, t.byteLength).includes(o));
 }
 
+/**
+ * La firma COMO LA VE WINDOWS (25/10/2026): `Get-AuthenticodeSignature`. `peFirmado` mira que haya una tabla de certificados;
+ * esto mira que Windows la acepte entera (la cadena hasta una raíz de confianza, el archivo sin tocar), que es lo que decide si
+ * SmartScreen dice «Editor: Martín Koncke» o «Editor desconocido». `editor` es el nombre del certificado (con un IV, el de la
+ * persona). La ruta va por el entorno: con comillas o espacios en la línea de comandos se rompía. `correr` es para los tests.
+ * @returns {{ valida: boolean; estado: string; editor: string | null; conMarca: boolean }}
+ */
+export function verificarFirmaWindows(archivo, { correr = spawnSync } = {}) {
+  const ps = [
+    '[Console]::OutputEncoding = [Text.Encoding]::UTF8',
+    '$s = Get-AuthenticodeSignature -LiteralPath $env:MAKO_ARCHIVO',
+    "$e = if ($s.SignerCertificate) { $s.SignerCertificate.GetNameInfo('SimpleName', $false) } else { $null }",
+    '[pscustomobject]@{ estado = [string]$s.Status; editor = $e; marca = [bool]$s.TimeStamperCertificate } | ConvertTo-Json -Compress',
+  ].join('; ');
+  const r = correr('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], {
+    encoding: 'utf8', env: { ...process.env, MAKO_ARCHIVO: archivo }, windowsHide: true, timeout: 60_000,
+  });
+  let j = null;
+  try { j = JSON.parse(String(r.stdout ?? '').trim()); } catch { /* sin respuesta */ }
+  return { valida: j?.estado === 'Valid', estado: j?.estado ?? 'sin respuesta', editor: j?.editor ?? null, conMarca: !!j?.marca };
+}
+
 /** Lo que conteste la herramienta, sin las claves (por si alguna versión las repite). */
 export function sinSecretos(texto, cfg) {
   let t = String(texto ?? '');
@@ -168,4 +191,15 @@ export function firmarExe(cfg, archivo, { correr = spawnSync, herramienta = busc
   } finally {
     rmSync(salida, { recursive: true, force: true });
   }
+}
+
+// A mano, sobre cualquier .exe (el que se bajó de MaKo, o el de publicar-binarios en seco con --probar-firma):
+//   node scripts/ia-pc/firmar-windows.mjs verificar <archivo.exe>
+// Dice si Windows acepta la firma, a nombre de quién, y si tiene marca de tiempo. Sale con 0 sólo si las dos están.
+if (process.argv[2] === 'verificar' && process.argv[3] && import.meta.url === pathToFileURL(path.resolve(process.argv[1] ?? '')).href) {
+  const v = verificarFirmaWindows(path.resolve(process.argv[3]));
+  console.log(v.valida
+    ? `✓ firmado por «${v.editor}»${v.conMarca ? ', con marca de tiempo' : ' ⛔ SIN marca de tiempo: vence con el certificado'}`
+    : `⛔ sin una firma que Windows acepte (${v.estado}): SmartScreen dice «Editor desconocido»`);
+  process.exitCode = v.valida && v.conMarca ? 0 : 1;
 }
