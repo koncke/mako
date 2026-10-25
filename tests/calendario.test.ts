@@ -422,3 +422,49 @@ test('el Calendario tiene la estrella de MaKo, le deja su lugar, y una llamada o
 //   · el Calendario sin la estrella                                                           -> 0 / 1
 //   · una reunión de Google con entidad (la agenda iría a la IA)                              -> 0 / 1
 //   · el calendario no se corre con el panel abierto                                           -> 0 / 1
+
+// ── «Llamadas»: las citas de venta del CRM como lista (24/10/2026, la llamada con Leandro, f07) ──────────────────────
+// «Se ve muy como calendario de Google»: al lado de la grilla, la lista de citas de HighLevel (Appointment List View) con lo
+// que ya existe en MaKo: las R1 y R2 del CRM con su estado, y las tareas del Plan con fecha.
+test('el estado de una llamada: lo marcado gana, la cancelada es cancelada, y sin marcar recién cuando terminó', async () => {
+  const { estadoDeLlamada, llamadasDeLaPestana, cuentaPorPestana } = await import('../lib/calendario-llamadas');
+  const ahora = '2026-10-25T15:00:00.000Z';
+  const l = (id: string, inicio: string, x: Partial<{ diaCompleto: boolean; asistio: boolean | null; cancelada: boolean }> = {}) =>
+    ({ id, leadId: 1, nombre: id, cual: 'R1' as const, inicio, diaCompleto: false, closer: null, asistio: null, cancelada: false, ...x });
+  assert.equal(estadoDeLlamada(l('a', '2026-10-25T18:00:00.000Z'), ahora), 'agendada');
+  assert.equal(estadoDeLlamada(l('b', '2026-10-25T12:00:00.000Z'), ahora), 'sin-marcar', 'ya pasó y nadie marcó');
+  assert.equal(estadoDeLlamada(l('c', '2026-10-25T18:00:00.000Z', { asistio: true }), ahora), 'asistio', 'lo marcado gana sobre la hora');
+  assert.equal(estadoDeLlamada(l('d', '2026-10-24T12:00:00.000Z', { asistio: false }), ahora), 'no-vino');
+  assert.equal(estadoDeLlamada(l('e', '2026-10-26T12:00:00.000Z', { cancelada: true, asistio: true }), ahora), 'cancelada');
+  assert.equal(estadoDeLlamada(l('f', '2026-10-25T03:00:00.000Z', { diaCompleto: true }), ahora), 'agendada', 'sólo con el día: es de hoy hasta que el día termina');
+  const lista = [l('p2', '2026-10-27T12:00:00.000Z'), l('p1', '2026-10-26T12:00:00.000Z'), l('v1', '2026-10-20T12:00:00.000Z'), l('v2', '2026-10-24T12:00:00.000Z'), l('x', '2026-10-26T12:00:00.000Z', { cancelada: true })];
+  assert.deepEqual(llamadasDeLaPestana(lista, 'proximas', ahora).map((x) => x.id), ['p1', 'p2'], 'la más cercana primero');
+  assert.deepEqual(llamadasDeLaPestana(lista, 'pasadas', ahora).map((x) => x.id), ['v2', 'v1'], 'la más reciente primero');
+  assert.deepEqual(llamadasDeLaPestana(lista, 'canceladas', ahora).map((x) => x.id), ['x']);
+  assert.deepEqual(cuentaPorPestana(lista, ahora), { proximas: 2, pasadas: 2, canceladas: 1 });
+});
+
+test('«Llamadas» lee el CRM y el Plan, con las canceladas y la asistencia, y nada de Google', () => {
+  const pagina = sinComentarios(leer('../app/calendario/page.tsx'));
+  const rama = pagina.slice(pagina.indexOf("if (sp?.vista === 'llamadas') {"), pagina.indexOf('const pedida = sp?.vista;'));
+  assert.match(rama, /leerLlamadasDeVenta\(sumarDias\(hoy, -DIAS_ATRAS_LLAMADAS\), sumarDias\(hoy, DIAS_ADELANTE_LLAMADAS\), tz\)/);
+  assert.match(rama, /leerTareasConFecha\(/);
+  assert.doesNotMatch(rama, /leerCalendario|Google|google/, 'la lista no lee la agenda de Google');
+  assert.match(rama, /<ListaLlamadas llamadas=\{llamadas\} tareas=\{tareas\} hoy=\{hoy\} tz=\{tz\} ahora=\{new Date\(\)\.toISOString\(\)\} fallos=\{fallos\} \/>/);
+  const lib = sinComentarios(leer('../lib/calendario.ts'));
+  const f = lib.slice(lib.indexOf('export async function leerLlamadasDeVenta'), lib.indexOf('export const leerTareasConFecha'));
+  assert.match(f, /asistio_j1, asistio_j2/, 'con la asistencia');
+  assert.match(f, /cancelada: !!iso && !\(cual === 'R1' \? l\.fecha_junta_1 : l\.fecha_junta_2\)/, 'cancelada = con hora y sin fecha, como la grilla');
+  assert.doesNotMatch(f.slice(0, f.indexOf('const out')), /not\('fecha_junta/, 'las canceladas se leen (la grilla las saltea; la lista las muestra)');
+  // La entrada, arriba a la derecha de las dos pantallas, y la estrella de MaKo también en la lista.
+  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha">\s*<PestanasCalendario activa="calendario" \/>/);
+  const lista = sinComentarios(leer('../app/calendario/ListaLlamadas.tsx'));
+  assert.match(lista, /<div className="gc-derecha"><PestanasCalendario activa="llamadas" \/><\/div>/);
+  assert.match(lista, /<MakoEnLaTab tab="Calendario" \/>/);
+  assert.match(lista, /href=\{`\/crm\/\$\{l\.leadId\}`\}/, 'cada llamada lleva a la ficha del lead');
+});
+// Roturas (24/10/2026, base 2 / 0 en estos dos), cada una restaurada (pasan / fallan):
+//   · `estadoDeLlamada` mira la hora antes que lo marcado                                     -> 1 / 1
+//   · las próximas ordenadas de la más lejana a la más cercana                                -> 1 / 1
+//   · la lista lee con `leerCalendario` (trae Google)                                          -> 1 / 1
+//   · `leerLlamadasDeVenta` sin las canceladas                                                 -> 1 / 1
