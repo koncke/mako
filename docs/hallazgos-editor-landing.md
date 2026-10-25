@@ -2784,3 +2784,40 @@ Offer y el análisis (`extraerLanding`), así que el 403 que vio Martín no sale
   `&ws=3`. No crea análisis ni filas en ningún negocio.
 - **La pestaña del editor se cuelga con la extensión** (dos veces el 24/10: `Runtime.evaluate` sin respuesta a los 45 s).
   Una página liviana del mismo dominio (`/api/auth/me`) sirve de base para medir rutas: responde enseguida.
+
+## La landing principal con lo que hace la competencia: dos portadas, precios vivos y nada prometido de más (25/10/2026, claude5)
+
+Martín (25/10): «investigues al 100% como lo venden otros». La investigación del Cerebro (80 productos, §6a) propone la landing
+sección por sección; `scripts/landings-mako-v2.mts` la arma como dos documentos de Web Generator (portada A «el equipo», slug
+`mako-equipo`; portada B «todo junto», `mako-todo-junto`), una sección por «Diseño editable». **El diseño es el de 100ads.ai**
+(abierto el 25/10: etiqueta chica, titular apretado con una línea en cursiva serif, tarjetas grises, franja oscura de precios,
+preguntas en dos columnas, el fundador con tres números), con la tinta, el azul y la estrella de MaKo, y Geist.
+
+- **Los precios, nunca escritos en el documento.** Una foto publicada se queda con el precio del día en que se publicó. La
+  landing MARCA (`data-mako-desde`, `data-mako-precio="pro"`) y deja el lugar de las columnas (`data-mako-planes`);
+  hola-mako.com los llena con los planes de hoy (`conPreciosEnHtml`, lib/editor-landing/precios-en-landing.ts, en
+  app/vsl/Landing.tsx). Lo de adentro es el respaldo del editor, y sale de lib/planes-mako.ts, no de un número tipeado.
+- **Planes ya ponía las columnas de precios del lado del cliente**, en el lugar de la agenda (`[data-calendly]`) o antes del
+  pie. Reusar `data-calendly` en un diseño nuevo hacía cargar Calendly en el editor y en hola-mako.site. El lugar propio gana.
+- ⚠️ **La garantía de 14 días está «decidida» (docs/ofertas-mako.md) pero /reembolsos dice que el mes pagado no se devuelve.**
+  La landing no la promete (`GARANTIA = null` en el script; un test la ata a /reembolsos). La escribe Planes.
+- ⚠️ **No hay demo por WhatsApp todavía.** «Escríbele a MaKo» como demo (Aurora, Skalex) necesita un número público y un
+  setter que atienda a desconocidos: el botón secundario es «Ver los planes». Tampoco hay un video corto de demo (el de
+  Mauricio es el caso real, no una demo de producto).
+- ⚠️ **WhatsApp se conecta sólo por QR**: la bandeja oficial (Cloud API) se borró el 09/10. Las preguntas frecuentes lo dicen.
+- **La voz es «tú», no voseo**, aunque la investigación recomienda voseo: la regla de Martín (español neutro, audiencia
+  México) la vigila `tests/puente-panel-copy.test.ts`, que barre también los scripts. Cambiarla es una decisión de Martín.
+- **La cuenta del ahorro se arma de la misma tabla que se muestra** (`AHORRO`, sin el media buyer: US$352 sin él), y «más de
+  US$350» se redondea hacia abajo para que sea cierto.
+- **Trampas de las herramientas:** un reset `.mkv p { margin: 0 }` le gana por especificidad a cada clase y se come sus
+  márgenes (va con `:where`); un `.mts` se importa con extensión `.mjs`; un módulo con `server-only` se importa adentro de la
+  función (y su prueba corre en un node aparte con `--conditions=react-server`); tsx compila a CommonJS un `.mts` importado
+  desde un test `.ts`, y ahí no hay `await` de primer nivel.
+
+Lo que quedó SIN hacer:
+- **Publicar.** `--subir` escribe en producción (ws 9) y el permiso se lo pide a Martín; la portada (`--principal`) recién
+  después de que se despliegue el cambio de app/vsl/Landing.tsx (antes, los precios saldrían dos veces).
+- La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
+  en la cuenta: con el media buyer en producción.
+- La garantía, la demo por WhatsApp y el video corto de demo.
+- Las landings por funcionalidad y por avatar con los ángulos de §6b (tanda 2).

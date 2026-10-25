@@ -38,7 +38,14 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
 - **Las puertas antes del loader (25/10 madrugada): en la rama `landings-2510-b`, que nace de `tren-j`** (no de
   `landings-2510`: el test era el mismo que reescribió Automations y el tren ya los tenía juntos). 25 carpetas, el guard
   que cuenta las puertas, y el layout de /web-generator con la puerta siempre. Detalle: docs/hallazgos-infra.md.
+- **La landing principal con lo que hace la competencia (25/10): armada, SIN publicar.** `scripts/landings-mako-v2.mts`
+  arma las portadas A (`mako-equipo`) y B (`mako-todo-junto`) con el diseño de 100ads; mirado a 1280 y 390 en Chrome sin
+  ventana. Publicar (`--subir`, escribe en producción) lo frenó el permiso: lo decide Martín. La raíz (`--principal`, con
+  `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
+  → «La landing principal con lo que hace la competencia».
 - **Sigue:**
+  - **Tanda 2 de la landing:** las de funcionalidad y avatar con los titulares y ángulos de la investigación (§6b), con las
+    piezas del script v2. Las de closing y cursos/comunidad son nuevas; la del media buyer se arma y no se publica.
   - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
     no tiene ninguna.
   - **Responder en los otros chats:** Automations, Offer, el chat general, la ficha del lead, Dashboard, Image Editor,

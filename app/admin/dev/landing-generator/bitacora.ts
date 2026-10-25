@@ -1198,4 +1198,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/offer',
   },
+  {
+    fecha: '25 oct', hora: '01:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing nueva de MaKo, armada como la venden los que más venden: lista para publicar',
+    pedido: '«Para las landing de MaKo, y en general la comunicación y la forma de vender, quiero que investigues al 100% como lo venden otros... tipo landing page, no saas super consolidados»',
+    puntos: [
+      'Dos portadas para probar con anuncios: «Tu media buyer, tu setter y tu diseñador. Ya contratados.» y «Todo lo que hoy pagas por separado, en un solo lugar.» El resto de la página es el mismo.',
+      'El diseño copia la estructura de 100ads, el competidor más parecido, con los colores de MaKo.',
+      'Las secciones: el caso de Mauricio, los problemas de siempre, el equipo, el circuito del anuncio a la venta, tu propia IA, lo que te ahorras, los precios, para quién no es, quién está detrás y las preguntas frecuentes.',
+      'Los precios siempre son los de hoy: salen de los planes, no están escritos en la página.',
+      'No promete nada que MaKo todavía no hace. La garantía de 14 días queda afuera hasta que la política de reembolsos la diga.',
+      'Falta publicarla: escribir en la página real de MaKo pide tu permiso. Y la portada principal se cambia cuando salga la actualización de la página.',
+    ],
+    archivos: [
+      'scripts/landings-mako-v2.mts — las dos portadas y sus secciones',
+      'lib/editor-landing/precios-en-landing.ts — los precios de hoy adentro de la landing',
+      'docs/hallazgos-editor-landing.md — lo que se decidió y lo que falta',
+    ],
+    revisar: '/web-generator',
+  },
 ];
