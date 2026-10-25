@@ -1670,4 +1670,65 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/_ui/Ajustes.tsx y ajustes.css — el molde', 'app/perfil/* · app/equipo/EquipoView.tsx · app/configuraciones/IdentidadesFiscalesPanel.tsx · plan/PlanPanel.tsx'],
   },
+  {
+    fecha: '24 oct', hora: '23:50', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un nombre con emoji ya no dibuja «�» en el avatar',
+    puntos: [
+      'Lo vio el chat de Automations: con un emoji adelante («🚀 Martín»), el avatar sin foto mostraba medio emoji. Cada pantalla sacaba las iniciales a su manera; ahora es una sola pieza para toda la app, que saltea emojis y símbolos.',
+    ],
+    archivos: ['lib/unicode-seguro.ts — iniciales', 'tests/iniciales-con-emoji.test.ts (barre app/)'],
+  },
+  {
+    fecha: '24 oct', hora: '23:55', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La app de escritorio: «MaKo» en el menú Inicio, y entrar con otra cuenta de Claude',
+    pedido: 'f03, la llamada con Leandro: «Ahí te debería dejar elegir otra cuenta, no solamente detectar la que ya está abierta».',
+    puntos: [
+      '**f02:** recién instalado no había nada que abrir. El instalador deja «MaKo» en el menú Inicio y en el escritorio: abre el Ops Center del negocio conectado, o conectar la computadora.',
+      '**f03:** la página para iniciar sesión ofrece entrar con otra cuenta de Claude (el mismo enlace, en una ventana de incógnito).',
+      '**Falta publicar:** el instalador nuevo (0.4.3) hay que compilarlo y subirlo antes de cambiar la versión que la web ofrece.',
+    ],
+    archivos: ['scripts/ia-pc/mako-pc.mjs — abrir, otraCuenta · installer/windows/mako.iss', 'tests/ia-pc-abrir.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '00:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los cursos se encuentran desde la barra: «Clients» dice que adentro están',
+    revisar: '/clients/classroom',
+    pedido: 'f31, la llamada con Leandro: «MaKo, no encuentro la sección de curso. (...) Yo pensé que Clients era algo más CRM. (...) Esto va a pasar mucho.»',
+    puntos: [
+      'La fila **Clients** lleva abajo «Clientes, cursos y comunidad».',
+      'El buscador (Ctrl K) encuentra **Classroom** con «curso», «cursos» o «clases», y **Community** con «comunidad». Antes no encontraba nada: esas dos pantallas no tienen fila y la barra no se las pasaba.',
+    ],
+    archivos: ['app/_components/nav.ts — bajada, adentro · Sidebar.tsx · lib/buscador-nav.ts', 'tests/cursos-en-la-barra.test.ts'],
+  },
+  {
+    fecha: '24 oct', hora: '20:41', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo no tiene que ser un cuadrado: unifica el diseño',
+    pedido: '«En el editor del CRM no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese diseño.»',
+    puntos: ['Punto 12 de los 24 de la noche. El CRM lo hizo en su ficha; aquí va el panel de la estrella, que es el mismo en todas las tabs.'],
+  },
+  {
+    fecha: '25 oct', hora: '00:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El panel de MaKo de cada tab flota, como el del Dashboard',
+    revisar: '/crm',
+    puntos: [
+      'La estrella de cada tab abre MaKo en un bloque flotante: aire con la barra y con los bordes, esquinas redondeadas y sombra, el mismo marco que el Dashboard.',
+      'En el teléfono va a pantalla completa, y la pantalla de atrás ya no se corre de costado.',
+      '**Sin mirar en producción**: dibujado con los estilos reales y datos de ejemplo, en la computadora y en un teléfono.',
+    ],
+    archivos: ['app/_chat/chat.css — .ch-tab-panel · MakoEnLaTab.tsx', 'tests/mako-en-la-tab-flota.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '00:05', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Ops Center, los Chats y el Ops Center del teléfono saltan antes de cargar',
+    puntos: [
+      'El error «Minified React error #310» de Web Generator y de /general (tickets #7 y #9) podía pasar también al abrir el Ops Center, los Chats del teléfono desde un aviso y la app del teléfono: las tres saltaban a otra pantalla mientras se dibujaba el cargando. Ahora saltan antes.',
+    ],
+    archivos: ['app/admin/operaciones/layout.tsx · app/m/chats/layout.tsx · app/m/second-brain/layout.tsx', 'lib/movil-desvio.ts — pedidoInterno · tests/redirige-antes-del-loader.test.ts'],
+  },
 ];

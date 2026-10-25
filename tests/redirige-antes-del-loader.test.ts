@@ -89,10 +89,11 @@ test('/web-generator: el layout redirige ANTES del loader en las tres rutas que 
  * LO QUE YA ESTABA ASÍ el 25/10/2026, de otras tabs: páginas que redirigen debajo de un loader sin el layout que redirige
  * antes. Cada una tiene el mismo riesgo del #310 (en una carga directa, la redirección va en el stream). No se tocaron en
  * el ticket #9 (son de otros chats); se anotaron en docs/hallazgos-infra.md. Una página NUEVA así hace fallar este test.
+ * El 25/10 salieron /admin/operaciones, /m/chats y /m/second-brain (chat «Ops Center»: el último test de este archivo).
  */
 const CONOCIDAS_SIN_LAYOUT = new Set([
-  'app/admin/operaciones/page.tsx', 'app/crm/revisar/page.tsx', 'app/crm/revisar/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx',
-  'app/dashboard/page.tsx', 'app/m/chats/page.tsx', 'app/m/dashboard/page.tsx', 'app/m/dashboard/[hoja]/page.tsx', 'app/m/second-brain/page.tsx',
+  'app/crm/revisar/page.tsx', 'app/crm/revisar/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx',
+  'app/dashboard/page.tsx', 'app/m/dashboard/page.tsx', 'app/m/dashboard/[hoja]/page.tsx',
 ]);
 
 test('ninguna página NUEVA redirige debajo de un loader sin que el layout de afuera del loader lo haga antes', async () => {
@@ -121,4 +122,55 @@ test('ninguna página NUEVA redirige debajo de un loader sin que el layout de af
     if (!ok && !CONOCIDAS_SIN_LAYOUT.has(p)) mal.push(`${p} (loader: ${afuera}/loading.tsx)`);
   }
   assert.deepEqual(mal, [], 'estas páginas redirigen adentro de un loader: React #310 en una carga directa (redirigí en el layout de esa carpeta)');
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 25/10/2026 (chat «Ops Center», claude5): /admin/operaciones, /m/chats y /m/second-brain redirigen en su layout.
+// PROBADO ROMPIÉNDOLO (base 9/0): `pedidoInterno` sin traducir la URL de escritorio → 1 rojo (la regla); el layout de /m/chats
+// mirando la ruta del navegador en vez de la de su página → 1 rojo (los layouts); el de /m/second-brain con otra condición que la
+// página → 1 rojo (los layouts); sin el layout de /admin/operaciones → 2 rojos (los layouts y el barrido).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('/m: el layout decide con la ruta y la query que recibe SU página (el proxy sirve la URL de escritorio con /m)', async () => {
+  const { pedidoInterno } = await import('../lib/movil-desvio');
+  assert.deepEqual(pedidoInterno('/chats', '?linea=2&chat=549@s.whatsapp.net&ws=3'), { ruta: '/m/chats', search: 'linea=2&chat=549%40s.whatsapp.net&ws=3' });
+  assert.deepEqual(pedidoInterno('/chats', '?c=ig:5'), { ruta: '/m/chats/ig%3A5', search: 'c=ig%3A5' }, 'un `?c=` es el chat, no la lista');
+  assert.deepEqual(pedidoInterno('/whatsapp', ''), { ruta: '/m/chats', search: '' });
+  assert.deepEqual(pedidoInterno('/second-brain', '?area=ventas&ws=3'), { ruta: '/m/second-brain', search: 'area=ventas&ws=3' });
+  assert.equal(pedidoInterno('/second-brain', '?panel=mapa')?.ruta, '/m/second-brain/mapa', 'el Mapa es su propia página');
+  assert.deepEqual(pedidoInterno('/m/second-brain', '?ws=3'), { ruta: '/m/second-brain', search: 'ws=3' }, 'una URL que ya es /m');
+  assert.equal(pedidoInterno('/login', ''), null);
+  assert.equal(pedidoInterno(null, ''), null, 'sin el header del proxy no se adivina');
+});
+
+test('/admin/operaciones, /m/chats y /m/second-brain: el layout redirige antes del loader, con la decisión de la página', () => {
+  const ops = sinComentarios(leer('app/admin/operaciones/layout.tsx'));
+  const opsPag = sinComentarios(leer('app/admin/operaciones/page.tsx'));
+  for (const pedazo of ["if (!admin) redirect('/inicio');", 'redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));']) {
+    assert.ok(ops.includes(pedazo), `el layout de /admin/operaciones no tiene «${pedazo}»`);
+    assert.ok(opsPag.includes(pedazo), `la página de /admin/operaciones no tiene «${pedazo}» (el layout la copia: cambiar los dos)`);
+  }
+  assert.match(ops, /if \(puedeOperar\(admin, propio\)\) \{/, 'a quien no opera la página le muestra el cartel: el layout no lo manda a ningún lado');
+
+  const chats = sinComentarios(leer('app/m/chats/layout.tsx'));
+  const chatsPag = sinComentarios(leer('app/m/chats/page.tsx'));
+  assert.match(chats, /if \(pedido\?\.ruta === RUTA_CHATS\) \{/, 'sólo la LISTA: el layout envuelve también a cada chat');
+  for (const pedazo of ['if (directo) redirect(await rutaConWs(directo));', 'if (chat) redirect(await rutaConWs(rutaHiloM(chat.clave)));']) {
+    assert.ok(chats.includes(pedazo), `el layout de /m/chats no tiene «${pedazo}»`);
+    assert.ok(chatsPag.includes(pedazo), `la página de /m/chats no tiene «${pedazo}»`);
+  }
+
+  const sb = sinComentarios(leer('app/m/second-brain/layout.tsx'));
+  const sbPag = sinComentarios(leer('app/m/second-brain/page.tsx'));
+  assert.match(sb, /if \(pedido\?\.ruta === RUTA_OPS_CENTER_M\) \{/, 'sólo el chat: el layout envuelve también al Mapa');
+  for (const pedazo of [
+    "if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {",
+    "for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }",
+    "redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));",
+    "if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));",
+  ]) {
+    assert.ok(sb.includes(pedazo), `el layout de /m/second-brain no tiene «${pedazo}»`);
+    assert.ok(sbPag.includes(pedazo), `la página de /m/second-brain no tiene «${pedazo}» (el layout la copia: cambiar los dos)`);
+  }
+  for (const lay of [chats, sb]) assert.match(lay, /const pedido = await pedidoMovilActual\(\);/, 'un layout de /m mira la ruta de SU página, no la del navegador');
 });

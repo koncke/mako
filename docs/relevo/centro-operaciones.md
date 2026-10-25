@@ -16,6 +16,9 @@ por defecto…», la regresión).
 | 2. El Uso con la cuenta 5, «Ananda» | `CUENTAS.claude5` lo trajo el tren (`d7b1f9849`); lo mío (`sinNota`: la nota de cuentas.tsv no es el nombre) va en la punta siguiente |
 | 11 + P4. Settings página por página | HECHO (punta siguiente): el molde a dos columnas y todo el ancho (Catalyst, Linear), Perfil, Notificaciones una vez, Instalar, Equipo, Identidades fiscales, Tu plan; el teléfono sin scroll de costado. Sin mirar en producción |
 | 24. La investigación financiera en una ruta | LO HIZO EL CEREBRO: /admin/docs?d=estrategia-financiera-mako |
+| Cola del Cerebro (25/10): las iniciales con emoji, f02, f03, f31 | HECHO (punta del 25/10): `iniciales` (lib/unicode-seguro.ts); «MaKo» en el menú Inicio y «¿Otra cuenta de Claude?» (mako-pc); Clients con «Clientes, cursos y comunidad» y el buscador que encuentra Classroom y Community. **f02/f03 sin publicar**: el instalador 0.4.3 hay que compilarlo y subirlo ANTES de subir `VERSION_PC` |
+| 12. «Unifica ese diseño» (el panel de la estrella) | HECHO: `.ch-tab-panel` con el marco de `.an`; en el teléfono la tab no se corre. Sin mirar en producción |
+| React #310 en /admin/operaciones, /m/chats, /m/second-brain | HECHO: su layout redirige antes del loader; salieron de CONOCIDAS_SIN_LAYOUT. Para eso la rama trae `e89fb2e8c` (Landings) por merge, con el conflicto de PanelAgente.tsx ya resuelto. Queda `requireMovil` redirigiendo debajo del loader en el resto de /m (docs/hallazgos-infra.md) |
 
 - **Sin mirar en pantalla:** el navegador de la app sigue sin la sesión de Martín. Lo que falta recorrer: una cuenta sin
   computadora en Automations, Offer, el Web Generator y el Dashboard («Instalar MaKo» en el lugar del micrófono), y la flecha de

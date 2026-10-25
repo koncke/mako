@@ -12,6 +12,44 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un alias del buscador que apunta a una key que la barra no le pasa no encuentra nada, sin error (25/10/2026, f31)
+
+Leandro (la llamada de Fathom, f31): «MaKo, no encuentro la sección de curso... Yo pensé que Clients era algo más CRM». Buscó
+en Web Generator y en Offer antes de dar con Clients.
+
+- **El diagnóstico obvio era «falta el alias»: estaba.** `lib/buscador-nav.ts` tenía `curso: 'cs-curso'` y `comunidad:
+  'cs-comunidad'` desde el 17/10. Pero `buscarDestinos` resuelve un alias contra la LISTA que recibe, y la barra
+  (Sidebar.tsx → `<BuscadorNav destinos=…>`) arma esa lista con las filas y sus `secciones`: Classroom y Community son
+  sub-tabs de Clients SIN fila (nav.ts → `SIN_FILA`), así que nunca estaban. El alias no encontraba nada y no se quejaba.
+- **La regla:** una pantalla de adentro de una tab sin barra de secciones se nombra en la fila con `adentro: [keys]`, y la
+  barra se las pasa al buscador (con `puedeVer`, como todo). Un alias nuevo se prueba contra la lista COMO LA ARMA LA BARRA
+  (tests/cursos-en-la-barra.test.ts), no contra `TODOS_LOS_ITEMS`.
+- **Cuando el nombre no dice lo que hay adentro**, la fila lleva `bajada` (una línea chica, «Clientes, cursos y comunidad»),
+  que el buscador también lee. Es una fila más alta: sólo donde la confusión ya pasó.
+
+**Vive en:** `app/_components/nav.ts` (`bajada`, `adentro`) · `app/_components/Sidebar.tsx` (`NavLink`, el `BuscadorNav`) ·
+`lib/buscador-nav.ts` · `app/_ui/ui.css` (`.mk-navrow__bajada`)
+
+## El panel de MaKo de cada tab flota, y en el teléfono la tab NO se corre: si no, el panel se estira con la página (25/10/2026)
+
+Martín (24/10, punto 12): «no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con
+cuadros un poco redondeados... Unifica ese diseño».
+
+- **El marco es UNO: el de `.an`** (el panel de MaKo del Dashboard, app/dashboard/PanelAnalista.tsx): 12 px de aire, bordes de
+  14, el filete y `0 18px 44px rgba(18,21,27,.18)`. Lo copiaron la ficha del CRM (`.fb-mako-panel`) y la estrella de cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css); tests/mako-en-la-tab-flota.test.ts compara el de la estrella con el de `.an`. Un panel
+  de MaKo nuevo copia ese marco, no inventa otro.
+- **Con aire, la tab tiene que dejarle el panel MÁS su aire** (`LUGAR_PANEL` = 440 + 2 × 12 en `--ancho-panel-mako`); si no, el
+  contenido queda 12 px debajo del panel.
+- **Trampa (medida, no supuesta): en el teléfono, `--ancho-panel-mako` corría la tab fuera de la pantalla.** La página pasaba a
+  scrollear de costado, y un `position: fixed` con `left: 0; right: 0` se estira con ese ancho: el panel medía 630 px en una
+  pantalla de 390. En el teléfono el panel tapa todo, así que la variable vale 0 ahí (`html { --ancho-panel-mako: 0px
+  !important; }`: el `!important` de una hoja le gana a una variable puesta en línea). Se mide con `scrollWidth` en un teléfono
+  emulado de verdad (CDP); el Edge sin ventana tiene un ancho mínimo de ~500 px y miente.
+
+**Vive en:** `app/_chat/chat.css` (`.ch-tab-panel`) · `app/_chat/MakoEnLaTab.tsx` (`AIRE_PANEL`, `LUGAR_PANEL`) ·
+`tests/mako-en-la-tab-flota.test.ts`
+
 ## Las iniciales de un avatar con medio emoji: diecisiete copias de `w[0]` (25/10/2026)
 
 - **Síntoma** (lo vio Automations): un nombre que empieza con un emoji («🚀 Martín») dibujaba «�M» en el avatar.
