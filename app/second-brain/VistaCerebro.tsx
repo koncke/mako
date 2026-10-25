@@ -58,7 +58,7 @@ export const SUBTITULO_SECOND_BRAIN = 'Todo lo que MaKo sabe de tu negocio.';
 /** Lo que se lee arriba del cerebro del super admin, que además trae la construcción de MaKo. */
 export const SUBTITULO_UNIDO = 'Tu negocio y cómo se construye MaKo.';
 
-export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false, alCerrar, alEditarArea, accionMovil }: {
+export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false, alCerrar, alEditarArea, accionMovil, aprendeSolo }: {
   /** UN cerebro: el del negocio o, para quien opera, el mismo con la construcción de MaKo adentro (con `capas`). */
   cerebro: Cerebro<string>;
   funnelPanel: ReactNode;
@@ -71,6 +71,8 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
   /** Sólo en el teléfono: lo que va al final de la barra del grafo, donde la computadora tiene «Exportar» (el «+» del
    *  Archivero, que hasta el 22/10/2026 vivía en la portada). */
   accionMovil?: ReactNode;
+  /** A la derecha de la cabecera: «Aprende solo», de qué fuentes aprende el Second Brain (./AprendeSolo.tsx, 25/10/2026). */
+  aprendeSolo?: ReactNode;
 }) {
   // ── EL GRAFO VIVO (punto 13, 17/10/2026) ──────────────────────────────────
   // El grafo llega del servidor y se vuelve a pedir cada 3 minutos mientras la pestaña está a la vista. Con la huella
@@ -155,6 +157,7 @@ export function VistaCerebro({ cerebro: delServidor, funnelPanel, movil = false,
             <h1 className="sb-cab__titulo">{TITULO_SECOND_BRAIN}</h1>
             <p className="sb-cab__sub">{conObra ? SUBTITULO_UNIDO : SUBTITULO_SECOND_BRAIN}{cerebro.cuenta?.total ? <span className="sb-cab__cuenta">{cuantoSabe(cerebro.cuenta)}</span> : null}</p>
           </div>
+          {aprendeSolo && <div style={{ marginLeft: 'auto', flex: 'none' }}>{aprendeSolo}</div>}
         </header>
       )}
       {/* UN solo `<Grafo>`: tests/second-brain-grafo-movil.test.ts falla si vuelve a haber dos. */}
