@@ -13,6 +13,7 @@ import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
 import { esEsencialDe } from '@/lib/plan-esencial';
 import { cupoDelPlan, type CupoMediaBuyer } from './plan';
+import { pideAutomatica, validarTacticas, type ConfigTacticas } from './tacticas';
 import {
   CONFIG_POR_DEFECTO, VENCE_HORAS,
   type ConfigMediaBuyer, type Decision, type EstadoDecision, type Propuesta,
@@ -59,6 +60,7 @@ export async function leerConfig(ws: number): Promise<ConfigGuardada> {
     metaVentasMes: num(data.meta_ventas_mes),
     metaGastoMes: num(data.meta_gasto_mes),
     cuentaPublicitaria: typeof data.cuenta_publicitaria === 'string' ? data.cuenta_publicitaria : null,
+    tacticas: (() => { const t = validarTacticas(data.tacticas ?? {}); return t.ok ? t.valor : {}; })(),
     ultimaCorrida: (data.ultima_corrida as string | null) ?? null,
     ultimaCorridaInfo: (data.ultima_corrida_info as Record<string, unknown> | null) ?? null,
     existeTabla: true,
@@ -94,6 +96,11 @@ export function validarCambio(c: CambioConfig): { ok: true; fila: Record<string,
     positivoONulo(c.metaGastoMes, 'La meta de gasto', 'meta_gasto_mes'),
   ].filter(Boolean);
   if (errs.length) return { ok: false, error: errs[0]! };
+  if (c.tacticas !== undefined) {
+    const t = validarTacticas(c.tacticas);
+    if (!t.ok) return { ok: false, error: t.error };
+    fila.tacticas = t.valor;
+  }
   if (c.cuentaPublicitaria !== undefined) {
     const v = c.cuentaPublicitaria == null ? null : String(c.cuentaPublicitaria).trim().replace(/^(\d)/, 'act_$1');
     if (v != null && v !== '' && !/^act_\d{5,25}$/.test(v)) return { ok: false, error: 'La cuenta publicitaria es act_ y los números.' };
@@ -110,8 +117,10 @@ export function validarCambio(c: CambioConfig): { ok: true; fila: Record<string,
 export async function guardarConfig(ws: number, cambio: CambioConfig, quien: string): Promise<ConfigGuardada> {
   const v = validarCambio(cambio);
   if (!v.ok) throw new Error(v.error);
-  // La ÚNICA puerta que prende el piloto (la pantalla, Ajustes y la API de MaKo pasan por acá).
-  if (v.fila.modo === 'piloto' && !(await cupoDe(ws)).piloto) throw new PlanSinPiloto();
+  // La ÚNICA puerta que prende el piloto (la pantalla, Ajustes, Automatizaciones y la API de MaKo pasan por acá): el modo
+  // general o una táctica automática.
+  const pidePiloto = v.fila.modo === 'piloto' || (v.fila.tacticas != null && pideAutomatica(v.fila.tacticas as ConfigTacticas));
+  if (pidePiloto && !(await cupoDe(ws)).piloto) throw new PlanSinPiloto();
   const { error } = await getSupabaseServer().from('media_buyer_config')
     .upsert({ workspace_id: ws, ...v.fila, updated_at: new Date().toISOString(), updated_by: quien.slice(0, 200) }, { onConflict: 'workspace_id' });
   if (error) {

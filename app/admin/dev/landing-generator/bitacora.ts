@@ -1218,4 +1218,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '11:08', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Doce landings nuevas de MaKo, una por cada cosa que hace y por cada tipo de cliente: listas para publicar',
+    puntos: [
+      'Una por cada cosa que hace MaKo: páginas de venta, setter de WhatsApp, tableros, creativos, análisis de llamadas y cursos con comunidad.',
+      'Y una por cada tipo de cliente: coaches, infoproductores, inmobiliarias y agencias.',
+      'Cada una con su titular y su argumento, tomados de cómo venden los que mejor lo hacen, y el mismo diseño de la principal.',
+      'Las del media buyer y la de avatares están armadas pero no salen: el media buyer todavía no está listo para clientes, y avatares sigue en pausa.',
+      'Son páginas nuevas: las ocho de antes siguen como estaban, por si tienen anuncios corriendo.',
+      'Falta publicarlas (pide tu permiso) y sumar la prueba gratis de 7 días cuando esté en los planes.',
+    ],
+    archivos: [
+      'scripts/landings-mako-v2-funnels.mts — las doce landings',
+      'lib/origen-cuenta.ts — de qué landing vino cada cuenta nueva',
+    ],
+    revisar: '/web-generator',
+  },
 ];

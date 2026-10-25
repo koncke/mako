@@ -83,7 +83,7 @@ function cargarPixelMeta(): Fbq {
  * Generator— van los precios (./PreciosLanding.tsx); sin agenda en el diseño, antes del pie. Al de Web Generator se le
  * saca `data-calendly` ANTES de que corra su script (SCRIPT_DISENO), así no carga Calendly. Idempotente.
  * EL LUGAR PROPIO (25/10/2026): una landing armada para mostrar los precios los pide con `data-mako-planes`
- * (lib/editor-landing/precios-en-landing.ts) y gana: lo de adentro es el respaldo del editor, y acá se reemplaza.
+ * (lib/editor-landing/precios-en-landing.ts) y gana: lo de adentro es el respaldo del editor, y aquí se reemplaza.
  */
 function montarPrecios(root: HTMLElement): HTMLElement {
   const previo = root.querySelector<HTMLElement>('.mk-precios-anfitrion');

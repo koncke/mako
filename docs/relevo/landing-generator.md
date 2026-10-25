@@ -44,8 +44,10 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
   → «La landing principal con lo que hace la competencia».
 - **Sigue:**
-  - **Tanda 2 de la landing:** las de funcionalidad y avatar con los titulares y ángulos de la investigación (§6b), con las
-    piezas del script v2. Las de closing y cursos/comunidad son nuevas; la del media buyer se arma y no se publica.
+  - **Tanda 2 de la landing: hecha, SIN publicar.** `scripts/landings-mako-v2-funnels.mts`: doce documentos `mako-…`
+    (media buyer y avatares en pausa). Publicar con `--subir`, que pide el permiso de Martín.
+  - **La prueba gratis de 7 días** (Martín, 25/10 ~10:20; reemplaza a la garantía): la línea bajo el botón, el botón y las
+    preguntas, leídos de lib/planes-mako.ts. Espera el nombre del export, que define Planes (se le preguntó el 25/10).
   - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
     no tiene ninguna.
   - **Responder en los otros chats:** Automations, Offer, el chat general, la ficha del lead, Dashboard, Image Editor,

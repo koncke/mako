@@ -10,15 +10,20 @@
 // PROBADO ROMPIÉNDOLO (25/10/2026, romper-landing.mjs del scratchpad; base 4 / 0, cada una 3 / 1): el precio de Pro tipeado
 // en la portada B · la garantía prometida · el media buyer que mueve el presupuesto · sin el lugar de las columnas · el botón
 // sin el origen · las marcas sin «desde» · Landing.tsx sin el lugar propio · Landing.tsx sin las marcas · un contador en 0.
+// Y las de funcionalidad y avatar (romper-funnels.mjs; base 6 / 0): sin el origen de mako-closing → 5 / 1 · el media buyer
+// sin pausa → 5 / 1 · un precio tipeado en una landing → 5 / 1 · el subir sin saltear las pausadas → 5 / 1 · una landing
+// sin el lugar de los precios → 4 / 2.
 // Correr: node --import tsx --test tests/landings-mako-v2.test.ts
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { conPreciosEnHtml, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
-import { AFUERA_REDONDO, AHORRO, GARANTIA, PORTADAS, TOTAL_AFUERA, seccionesDe, type Portada } from '../scripts/landings-mako-v2.mjs';
+import { AFUERA_REDONDO, AHORRO, GARANTIA, PORTADAS, PREGUNTAS, TOTAL_AFUERA, seccionesDe, type Portada } from '../scripts/landings-mako-v2.mjs';
+import { FUNNELS, seccionesDeFunnel } from '../scripts/landings-mako-v2-funnels.mjs';
+import { LANDINGS_MAKO } from '../lib/origen-cuenta';
 
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
@@ -26,6 +31,28 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 const PLANES = [{ id: 'esencial', precioUsd: 47 }, { id: 'pro', precioUsd: 97 }];
 const CUALES = Object.keys(PORTADAS) as Portada[];
 const textoDe = (cual: Portada) => seccionesDe(cual).map(([, h]) => h).join('\n');
+
+// El saneo lleva `server-only`: corre en un node aparte (tests/_landings-mako-v2-hijo.ts), UNA vez para todas las landings.
+type Conteo = Array<{ id: string; antes: Record<string, number>; despues: Record<string, number>; vacia: boolean }>;
+let saneadas: Record<string, Conteo> | null = null;
+const delHijo = (): Record<string, Conteo> => (saneadas ??= JSON.parse(execFileSync(process.execPath,
+  ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_landings-mako-v2-hijo.ts')], { cwd: RAIZ, encoding: 'utf8', timeout: 180_000 })));
+const sinPerderMarcas = (clave: string, n: number) => {
+  const h = delHijo()[clave];
+  assert.equal(h.length, n, `${clave}: otra cantidad de secciones`);
+  for (const s of h) {
+    assert.equal(s.vacia, false, `${clave}/${s.id} quedó vacía al sanear`);
+    assert.deepEqual(s.despues, s.antes, `${clave}/${s.id}: el saneo se comió una marca o un desplegable`);
+  }
+};
+/** Lo que no se dice todavía (ver la cabecera del script de la principal). */
+const sinPrometerDeMas = (nombre: string, t: string) => {
+  if (GARANTIA == null) assert.doesNotMatch(t, /garant/i, `${nombre}: una garantía que la política no da`);
+  assert.doesNotMatch(t, /mueve el presupuesto|presupuesto se mueve|mover el presupuesto|piloto autom/i, `${nombre}: el media buyer que mueve el presupuesto no está en producción`);
+  assert.doesNotMatch(t, /cupos|calendly/i, `${nombre}: ni cupos ni la agenda de Calendly (Martín, 24/10: las columnas de precios)`);
+  // Ningún contador en 0 (la investigación: resta credibilidad).
+  assert.doesNotMatch(t, />\s*\+?0\s*</, `${nombre}: un contador en 0`);
+};
 
 test('las marcas: «desde» es el plan más barato, cada precio el de su plan, y lo demás vuelve igual', () => {
   const html = '<p>Desde <span data-mako-desde="">US$1</span> · Pro <span data-mako-precio="pro">US$1</span> · <b>US$5</b></p>';
@@ -53,17 +80,8 @@ test('las portadas: los precios salen de los planes (nunca tipeados) y van a la 
     assert.equal((textoDe(cual).match(/data-mako-planes=/g) ?? []).length, 1, `${cual}: un solo lugar para las columnas de precios`);
     assert.match(portada, new RegExp(`href="https://hola-mako\\.com/planes\\?landing=${PORTADAS[cual].slug}"`), `${cual}: el botón lleva el origen`);
   }
-  // Cada sección pasa entera por el saneo del «Diseño editable» (las marcas y los desplegables incluidos). El saneo lleva
-  // `server-only`: corre en un node aparte (tests/_landings-mako-v2-hijo.ts), una sola vez para las dos portadas.
-  const hijo = JSON.parse(execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_landings-mako-v2-hijo.ts')],
-    { cwd: RAIZ, encoding: 'utf8', timeout: 120_000 })) as Record<string, Array<{ id: string; antes: Record<string, number>; despues: Record<string, number>; vacia: boolean }>>;
-  for (const cual of CUALES) {
-    assert.equal(hijo[cual].length, seccionesDe(cual).length);
-    for (const s of hijo[cual]) {
-      assert.equal(s.vacia, false, `${cual}/${s.id} quedó vacía al sanear`);
-      assert.deepEqual(s.despues, s.antes, `${cual}/${s.id}: el saneo se comió una marca o un desplegable`);
-    }
-  }
+  // Cada sección pasa entera por el saneo del «Diseño editable» (las marcas y los desplegables incluidos).
+  for (const cual of CUALES) sinPerderMarcas(cual, seccionesDe(cual).length);
   // La B dice el precio de Pro con su marca, y «más de US$…» redondeado HACIA ABAJO desde la misma tabla que se muestra.
   assert.match(seccionesDe('todo-junto').find(([id]) => id === 'inicio')![1], new RegExp(`más de US\\$${AFUERA_REDONDO} al mes, en MaKo Pro cuesta <span data-mako-precio="pro">`));
   assert.equal(TOTAL_AFUERA, AHORRO.reduce((s, f) => s + f.usd, 0));
@@ -77,11 +95,7 @@ test('nada inventado ni prometido de más: sin garantía mientras /reembolsos la
   }
   for (const cual of CUALES) {
     const t = textoDe(cual);
-    if (GARANTIA == null) assert.doesNotMatch(t, /garant/i, `${cual}: una garantía que la política no da`);
-    assert.doesNotMatch(t, /mueve el presupuesto|presupuesto se mueve|mover el presupuesto|piloto autom/i, `${cual}: el media buyer que mueve el presupuesto no está en producción`);
-    assert.doesNotMatch(t, /cupos|calendly/i, `${cual}: ni cupos ni la agenda de Calendly (Martín, 24/10: las columnas de precios)`);
-    // Ningún contador en 0 (la investigación: resta credibilidad).
-    assert.doesNotMatch(t, />\s*\+?0\s*</, `${cual}: un contador en 0`);
+    sinPrometerDeMas(cual, t);
     // El caso es el de Mauricio, el que ya contaba la landing; las cifras del fundador, las de sus testimonios.
     assert.match(t, /De menos de US\$10K a más de US\$70K al mes/);
   }
@@ -92,4 +106,34 @@ test('hola-mako.com: las columnas van donde la landing las pide, y el HTML pasa 
   assert.match(src, /const propio = root\.querySelector<HTMLElement>\(`\[\$\{ATRIBUTO_PLANES\}\]`\);/);
   assert.match(src, /if \(propio\) \{[\s\S]{0,260}propio\.replaceChildren\(\);[\s\S]{0,120}return propio;/, 'el lugar propio gana a la agenda, y lo de adentro (el respaldo) se reemplaza');
   assert.match(src, /__html: diseno \? conPreciosEnHtml\(diseno\.html, planes\) : LANDING_HTML/);
+});
+
+test('las landings por funcionalidad y avatar: su origen, el precio por marca, nada de más, y las que no salen, en pausa', () => {
+  const src = sinComentarios(leer('scripts/landings-mako-v2-funnels.mts'));
+  assert.doesNotMatch(src, /US\$(47|97|297)\b/, 'un precio de MaKo escrito a mano en el script');
+  const slugs = FUNNELS.map((f) => f.slug);
+  assert.equal(new Set(slugs).size, slugs.length, 'un slug repetido');
+  for (const f of FUNNELS) {
+    assert.ok(LANDINGS_MAKO[f.slug], `${f.slug} no está en LANDINGS_MAKO: el alta no sabría de dónde vino`);
+    assert.ok(!existsSync(join(RAIZ, 'app', 'vsl', f.slug)), `${f.slug}: una ruta fija de /vsl le ganaría al documento`);
+    const secciones = seccionesDeFunnel(f);
+    const t = secciones.map(([, h]) => h).join('\n');
+    assert.match(secciones.find(([id]) => id === 'inicio')![1], /<span data-mako-desde="">US\$\d+<\/span> al mes/, `${f.slug}: el «desde» en la portada`);
+    assert.equal((t.match(/data-mako-planes=/g) ?? []).length, 1, `${f.slug}: un solo lugar para las columnas`);
+    assert.ok(t.includes(`href="https://hola-mako.com/planes?landing=${f.slug}"`), `${f.slug}: el botón lleva el origen`);
+    if (!f.pausada) sinPrometerDeMas(f.slug, t);
+    sinPerderMarcas(f.slug, secciones.length);
+  }
+  // Las que se arman y NO se suben: el media buyer (no está en producción) y los avatares (en pausa desde el 23/10).
+  assert.deepEqual(FUNNELS.filter((f) => f.pausada).map((f) => f.slug).sort(), ['mako-avatares', 'mako-media-buyer']);
+  assert.ok(src.includes('if (f.pausada) { console.log(`${f.slug}: NO se sube (${f.pausada})`); continue; }'), 'el --subir tiene que saltear las pausadas');
+  // Las portadas A y B también tienen su origen.
+  for (const cual of CUALES) assert.ok(LANDINGS_MAKO[PORTADAS[cual].slug], `${PORTADAS[cual].slug} no está en LANDINGS_MAKO`);
+});
+
+test('el catálogo de preguntas está entero (lo comparten todas las landings)', () => {
+  for (const k of ['tecnologia', 'cierra', 'equivoca', 'numero', 'bloqueo', 'ia', 'equipo', 'permanencia', 'datos', 'chatgpt']) {
+    const qa = PREGUNTAS[k];
+    assert.ok(qa && qa[0].endsWith('?') && qa[1].length > 20, `la pregunta «${k}» está incompleta`);
+  }
 });

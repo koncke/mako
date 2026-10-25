@@ -63,10 +63,16 @@ export const CLAVE_PLANES = 'planes.mako';
 export const MESES_GRATIS_ANUAL = 2;
 
 /**
- * La garantía de los planes, en días desde el primer pago (25/10/2026, el Cerebro: «garantía de 14 días en lugar de prueba»,
- * y 30 en el anual, como DM Champ). La dicen las tarjetas y /reembolsos §1 de esta misma constante.
+ * LA PRUEBA GRATIS (25/10/2026, Martín: «quiero implementar la prueba gratuita de 7 días, y eliminar la garantia de
+ * devolución... para darte de alta en la prueba gratuita debes poner la tarjeta, tal cual como una suscripción, y se te
+ * cobra automático luego de esos 7 días»). Reemplaza a la garantía de 14/30 días, que se fue entera: después del primer
+ * cobro, lo pagado no se devuelve. La dicen las tarjetas, las preguntas y /reembolsos §1, de esta constante.
  */
-export const GARANTIA_DIAS = { mensual: 14, anual: 30 } as const;
+export const PRUEBA_DIAS = 7;
+
+/** Lo que va debajo del botón de un plan: cuánto se cobra después de la prueba y hasta cuándo se cancela sin pagar. */
+export const textoDespuesDeLaPrueba = (montoUsd: number, periodo: 'mes' | 'año'): string =>
+  `Después US$ ${montoUsd.toLocaleString('es-AR')}/${periodo}. Cancela cuando quieras antes del día ${PRUEBA_DIAS + 1}.`;
 
 /** El precio del plan en pesos argentinos, si el plan lo tiene: nunca se calcula con una tasa (`preciosLocales`). */
 export const precioEnPesos = (p: Pick<PlanMako, 'preciosLocales'>): number | null => {
