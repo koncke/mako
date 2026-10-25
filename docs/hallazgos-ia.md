@@ -4,6 +4,90 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «No es seguro», el instalador con la marca y «Conecta MaKo» sin texto (MaKo Desktop, 25/10/2026)
+
+Martín, 25/10 ~11:30: «me dice que no es seguro, que podemos hacer para que no salga eso? Y el instalador de MaKo debe estar
+personalizado con el diseño de mako... En "tus cuentas de IA" cuando le doy a conectar... rediseña eso, que se vea facil, mira
+la cantidad de texto».
+
+**La firma NO saca el aviso de un día para el otro (el diagnóstico obvio era el equivocado).** «Firmamos y listo» es falso:
+- SmartScreen («Windows protegió su PC») mira la reputación del ARCHIVO (su hash) y la del CERTIFICADO. Con la firma IV, el
+  cartel pasa a decir «Editor: Martín Koncke» en vez de «Editor desconocido», pero **sigue saliendo** hasta que el certificado
+  junta reputación. Microsoft no da un número: «varias semanas y cientos de instalaciones limpias»
+  (learn.microsoft.com/windows/apps/package-and-deploy/smartscreen-reputation). En un foro, un OV nuevo siguió bloqueado 7
+  semanas y se destrabó a los ~7 meses (forum.xojo.com, 2025-2026). Lo que ayuda: firmar TODAS las versiones con el mismo
+  certificado (las nuevas heredan la reputación), no tocar el archivo después de firmar, y mandar el instalador a
+  microsoft.com/wdsi/filesubmission como «Microsoft Defender SmartScreen» si el aviso es incorrecto.
+- **EV ya no sirve para esto:** desde 2024 un certificado EV dejó de dar reputación instantánea («all Code Signing certificates
+  will be treated equally», learn.microsoft.com/security/trusted-root/program-requirements). Comprar el EV caro no lo acelera.
+- **Azure Artifact Signing (ex Trusted Signing) no es para Martín:** a personas sólo en EE. UU. y Canadá.
+- **El aviso de Chrome es otro** («archivo sospechoso», Safe Browsing por reputación de descarga): Google no publica que un
+  certificado nuevo lo saque, ni hay formulario para un archivo «poco común» (el de Safe Browsing es para páginas).
+- **Smart App Control** (Windows 11 nuevo) BLOQUEA un .exe sin firma y sin reputación: ahí no hay «Ejecutar de todas formas».
+  Es la razón más fuerte para firmar aunque el aviso tarde en irse.
+- **Desde marzo de 2026 un certificado dura como máximo 460 días** (SSL.com: 458): hay renovación todos los años, y no está
+  documentado que la reputación pase al certificado renovado.
+- Lo que SÍ evita SmartScreen es publicar en la Microsoft Store (cuenta individual gratis desde el 10/09/2025, acepta un
+  .exe firmado, sin el cartel al instalar desde la Store); no cambia nada para quien baja de hola-mako.com. Sin hacer.
+- **Mac:** sin firmar ni notarizar, en Sequoia ya no anda «clic derecho › Abrir»: Ajustes › Privacidad y seguridad › «Abrir
+  igualmente» (support.apple.com/102445). Firmada con Developer ID y notarizada, un «¿Abrir?» común. Un .zip no se engrapa: se
+  engrapa la app y se zipea después (lo hace `publicar-binarios`); sin engrapar, la Mac busca el ticket en internet.
+
+**Verificar la firma es lo que dice WINDOWS, no que el .exe tenga una firma.** `peFirmado` sólo mira que haya una tabla de
+certificados; un certificado sin cadena, vencido o un archivo tocado después la tienen igual. `verificarFirmaWindows`
+(`Get-AuthenticodeSignature`) mira `Valid`, el editor y la marca de tiempo, y `publicar-binarios` no sube sin las tres. Medido
+en esta PC: el `ISCC.exe` de Inno da «Pyrsys B.V., con marca de tiempo»; nuestro instalador, `NotSigned`. Dos trampas: la ruta
+va por el entorno (con comillas o «Muñoz» en la línea se rompía) y PowerShell 5.1 escribe en la página de códigos OEM: sin
+`[Console]::OutputEncoding = UTF8`, «Martín» llega como «Mart¡n».
+
+**El asistente de Inno con la marca (Inno 6.7 en esta PC).** Se copió la estructura de VS Code (que también es Inno: la imagen
+grande en la bienvenida y el final, la chica arriba, en siete tamaños, y el ícono propio), con la criatura y el logo sacados del
+código de la marca (`scripts/ia-pc/marca.mjs`, sin dibujar nada a mano). Lo que no se ve en el código:
+- **`DisableReadyPage=yes` NO cambia «Siguiente» por «Instalar»** en la página anterior (lo dice la ayuda): hace falta el
+  `[Code]` de `CurPageChanged`. Sin eso, la bienvenida decía «Siguiente» y el toque instalaba.
+- **Inno 6 trae `DisableWelcomePage=yes` por defecto:** la página de la imagen grande no salía. Y el `Spanish.isl` de fábrica
+  habla de usted («Haga clic en Siguiente…», «en su sistema»): todo texto que se ve está pisado en `[Messages]`, también
+  `ClickNext`, que aparece en la bienvenida aunque no esté en la lista de lo que uno cambia.
+- ISCC lee el .iss en UTF-8 sin BOM (los «¡» y las tildes salen bien), y desde la 6.6 acepta PNG con transparencia.
+- **El instalador de verdad NO se corre en esta PC** (cierra `mako-pc.exe` del ws1 y toca el registro): `/DVista` arma las
+  mismas páginas sin archivos, registro, accesos ni programas, y `scripts/ia-pc/vista-instalador.ps1` las fotografía fuera de
+  la pantalla. Dos trampas de esa foto: PowerShell le pasa `""` (no null) a un string `$null` y `FindWindow` no encuentra nada
+  (`[NullString]::Value`), y sin `SetProcessDPIAware` la foto sale recortada con la pantalla al 125 %.
+
+**«Conecta MaKo» con un botón (la página de Zoom).** El código no se muestra: el botón «Conectar» ES el «acepto» (el texto va
+abajo) y abre `mako://conectar` solo; si vence o la persona dice «No», el mismo botón pide otro. Lo que costó:
+- Para mirar la pantalla sin `next dev` (la RAM no da), un esbuild de `TusCuentasIA` con la API simulada. **El `mako://` de esa
+  vista le llegaba a la app de ESTA PC** (la del ws1, que lo tiene registrado): la vista va en un `<iframe sandbox>` sin
+  `allow-popups` ni `allow-top-navigation`, y Chrome no deja salir un protocolo externo de ahí (medido: ningún `mako-pc` nuevo).
+  `ConectarIntegracion` arrastra server actions al bundle: en la vista se reemplaza.
+- **En la Mac el `mako://` no le llega al programa** (MaKo.app es un guion, no recibe el Apple Event): el botón deja el código
+  en el portapapeles. Safari exige que esa escritura salga DEL toque, y el código llega después de un fetch: va un
+  `ClipboardItem` con la promesa adentro. Sin permiso (el iframe de la vista), cae a mostrar el código con «Copiar».
+- Las ventanas de la Mac llevan el ícono de MaKo (`with icon (POSIX file …)`). **Sin probar en una Mac:** si el ícono hace
+  fallar la ventana por otra cosa que «Cancelar» (-128), se repite con el genérico; una ventana que no sale es un «No».
+
+**El grupo de WhatsApp del dueño a su computadora: la prueba es el TELÉFONO, y la hace la puerta** (rama `desktop-api-2510`,
+`encolarTurno` con `delGrupo`; docs/conexiones-y-ayuda.md, decisión 2). El doer corre en un after() del webhook, sin cookie,
+así que `laPersonaEstaAdentro` no sirve. La prueba: el teléfono que manda WhatsApp (nunca un @lid, un jid ni un «whatsapp:…»)
+es de UNA sola persona ACTIVA del negocio, comparado con `mismoContacto` (el 9 de Argentina y el 1 de México cambian la forma),
+y esa persona es la que conectó la PC. Dos del equipo con el mismo número no son nadie. Va ADENTRO de la puerta y no en el doer,
+por lo mismo que la cookie: la refutación de D6a mostró que una guarda en quien llama se saltea con un alias.
+`tests/ia-pc-puerta-grupo.test.ts`. Quien llama (el doer) es de «MaKo en WhatsApp».
+
+**Lo que quedó SIN hacer:**
+- Publicar la 0.4.3 (la marca, el ícono de la Mac y lo de la llamada con Leandro): `VERSION_PC` y `VERSION` juntos, y
+  `publicar-binarios --aplicar` ANTES de desplegar; los pasos en `docs/relevo/mako-desktop.md`.
+- El ícono del PROGRAMA (`mako-pc.exe`, el de Bun): los accesos y «Aplicaciones instaladas» usan `mako.ico`, pero el .exe trae
+  el genérico. `bun build --windows-icon` no se probó (el `--windows-hide-console` de Bun 1.2.21 no andaba).
+- Un `.dmg` con fondo («arrastra MaKo a Aplicaciones») no se arma en Windows; y que el `mako://` le llegue a MaKo.app pide un
+  ejecutable que reciba el Apple Event (`CFBundleURLTypes` solo no alcanza con un guion).
+- La Microsoft Store como segundo canal sin SmartScreen.
+
+**Vive en:** `installer/windows/mako.iss` · `installer/marca/` (de `scripts/ia-pc/marca.mjs`) · `scripts/ia-pc/vista-instalador.ps1`
+· `scripts/ia-pc/firmar-windows.mjs` (`verificarFirmaWindows`, `verificar <archivo>`) · `app/integraciones/TusCuentasIA.tsx`
+(`Tutorial`) · `lib/ia-pc-reglas.ts` (`abreEnlacesMako`, `ICONO_APP_MAC`) · `scripts/ia-pc/mako-pc.mjs` (`dialogoMac`) ·
+`tests/ia-pc-marca.test.ts`, `tests/ia-pc-firma.test.ts` (5), `tests/ia-pc-instalador-040.test.ts` (1)
+
 ## «¿Cómo abro MaKo?» y «quiero otra cuenta de Claude»: la app de escritorio, en la llamada con Leandro (25/10/2026)
 
 - **f02** (Leandro, recién instalado): «¿Cómo abro MaKo? (...) Se me descargó algo, pero en la computadora no lo puedo ver». No

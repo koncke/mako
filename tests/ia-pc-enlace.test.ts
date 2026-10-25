@@ -117,7 +117,12 @@ test('4. la ventana es del sistema (sin consola), y sin poder mostrarla es «no�
   const src = programa();
   const v = src.slice(src.indexOf('export async function ventana('), src.indexOf('export function arrancarConLaNueva('));
   assert.match(v, /dlopen\('user32\.dll', \{ MessageBoxW:/, 'en Windows, la ventana de user32');
-  assert.match(v, /spawnSync\('osascript', \['-e', `display dialog /, 'en la Mac, osascript');
+  assert.match(v, /dialogoMac\(`display dialog /, 'en la Mac, osascript');
+  // osascript con el ícono de MaKo (25/10/2026) y, si el ícono la hace fallar por otra cosa que «Cancelar» (-128), sin él.
+  const d = src.slice(src.indexOf('export function dialogoMac('), src.indexOf('export async function ventana('));
+  assert.match(d, /correr\('osascript', \['-e', `\$\{guion\} \$\{icono\}`\]/);
+  assert.match(d, /if \(r\.status === 0 \|\| icono === 'with icon note' \|\| \/-128\/\.test\(r\.stderr \?\? ''\)\) return r;/);
+  assert.match(d, /return correr\('osascript', \['-e', `\$\{guion\} with icon note`\]/);
   assert.doesNotMatch(v, /powershell|cmd\.exe|Read-Host/i, 'la ventana abre una consola');
   assert.match(v, /return r === 6; \/\/ IDYES/);
   // Enter contesta «No» (revisión del enlace): MB_DEFBUTTON2 en Windows, el botón 1 («No») en la Mac.

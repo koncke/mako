@@ -39,7 +39,7 @@ const APLICAR = process.argv.includes('--aplicar');
 // La FIRMA de Windows (SSL.com eSigner, scripts/ia-pc/firmar-windows.mjs). Las claves van en un archivo FUERA de OneDrive
 // (--firma <ruta>, si no %USERPROFILE%\.mako-firma.env): el .env.local del clon está en el Escritorio, que OneDrive sube.
 // Sin ese archivo se arma sin firmar, como hasta la 0.4.2; a medio cargar, o con las claves en el .env.local, no se arma.
-const { firmaDeEstaPc, firmarExe, peFirmado } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'firmar-windows.mjs')).href);
+const { firmaDeEstaPc, firmarExe, peFirmado, verificarFirmaWindows } = await import(pathToFileURL(path.join(REPO, 'scripts', 'ia-pc', 'firmar-windows.mjs')).href);
 const ARCHIVO_FIRMA = arg('--firma') ?? path.join(homedir(), '.mako-firma.env');
 let FIRMA: { herramienta: string } | null = null;
 try {
@@ -61,7 +61,9 @@ try {
 } catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
 const FIRMAR_MAC = FIRMA_MAC != null && (APLICAR || process.argv.includes('--probar-firma'));
 
-const { VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, infoPlistDeLaAppMac, lanzadorDeLaAppMac, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
+const { ICONO_APP_MAC, VERSION_PC, archivoDelInstalador, archivoDelInstaladorMac, archivoDelPrograma, faltanEnElBucket, infoPlistDeLaAppMac, lanzadorDeLaAppMac, marcarDeVentana, nombreDelInstalador, subsistemaPe } = await imp('lib/ia-pc-reglas.ts');
+/** El ícono de MaKo.app (installer/marca, de scripts/ia-pc/marca.mjs): el mismo con firma y sin ella. */
+const iconoMac = readFileSync(path.join(REPO, 'installer', 'marca', ICONO_APP_MAC));
 const programa = path.join(REPO, 'scripts', 'ia-pc', 'mako-pc.mjs');
 const vPrograma = /export const VERSION = '([^']+)'/.exec(readFileSync(programa, 'utf8'))?.[1];
 if (vPrograma !== VERSION_PC) { console.error(`⛔ el programa dice ${vPrograma} y lib/ia-pc-reglas.ts dice ${VERSION_PC}: tienen que ser iguales.`); process.exit(1); }
@@ -114,6 +116,15 @@ const setup = readFileSync(rutaDelSetup);
 if (subsistemaPe(setup) !== 2) { console.error('⛔ el instalador no es un ejecutable de Windows con ventana'); process.exit(1); }
 // Con firma, NINGÚN .exe sube sin ella (lo que se baja es esto, no lo que dijo la herramienta).
 if (FIRMAR && !(peFirmado(crudos['windows-x64']) && peFirmado(setup))) { console.error('⛔ con la firma cargada, un .exe quedó sin firmar'); process.exit(1); }
+// Y que WINDOWS la acepte (25/10/2026): la cadena hasta una raíz de confianza y la marca de tiempo. Es lo que decide si
+// SmartScreen dice el nombre de Martín o «Editor desconocido». Dice a nombre de quién quedó.
+if (FIRMAR) {
+  for (const archivo of [path.join(dir, 'mako-pc.exe'), rutaDelSetup]) {
+    const v = verificarFirmaWindows(archivo);
+    if (!v.valida || !v.conMarca) { console.error(`⛔ Windows no acepta la firma de ${path.basename(archivo)} (${v.estado}${v.conMarca ? '' : ', sin marca de tiempo'})`); process.exit(1); }
+    console.log(`  ${path.basename(archivo)}: Windows dice «${v.editor}», con marca de tiempo`);
+  }
+}
 console.log(`  ${archivoDelInstalador()}: ${Math.round(setup.length / 1e6)} MB (el instalador con asistente)`);
 if (setup.length > 50e6) { console.error(`⛔ ${archivoDelInstalador()} pasa los 50 MB de Supabase`); process.exit(1); }
 armados.push({ nombre: archivoDelInstalador(), datos: setup, tipo: 'application/octet-stream' });
@@ -128,6 +139,9 @@ if (FIRMAR_MAC) {
   mkdirSync(path.join(app, 'Contents', 'MacOS'), { recursive: true });
   writeFileSync(path.join(app, 'Contents', 'Info.plist'), infoPlistDeLaAppMac());
   writeFileSync(path.join(app, 'Contents', 'MacOS', 'MaKo'), machoUniversal([crudos['mac-x64'], crudos['mac-arm64']]));
+  // El ícono ANTES de firmar: la firma sella todo lo que está en Resources (tocarlo después la rompe).
+  mkdirSync(path.join(app, 'Contents', 'Resources'), { recursive: true });
+  writeFileSync(path.join(app, 'Contents', 'Resources', ICONO_APP_MAC), iconoMac);
   try { firmarAppMac(FIRMA_MAC, app); } catch (e) { console.error(`⛔ ${(e as Error).message}`); process.exit(1); }
   appMac = zipConPermisos(entradasDeLaApp(app));
   console.log('  Mac: MaKo.app firmada, notarizada y engrapada (Developer ID)');
@@ -139,6 +153,7 @@ if (FIRMAR_MAC) {
     { nombre: 'MaKo.app/Contents/MacOS', dir: true },
     { nombre: 'MaKo.app/Contents/MacOS/MaKo', datos: lanzadorDeLaAppMac(), modo: 0o755 },
     { nombre: 'MaKo.app/Contents/Resources', dir: true },
+    { nombre: `MaKo.app/Contents/Resources/${ICONO_APP_MAC}`, datos: iconoMac, modo: 0o644 },
     { nombre: 'MaKo.app/Contents/Resources/mako-pc-arm64', datos: crudos['mac-arm64'], modo: 0o755 },
     { nombre: 'MaKo.app/Contents/Resources/mako-pc-x64', datos: crudos['mac-x64'], modo: 0o755 },
   ]);

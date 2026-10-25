@@ -33,6 +33,55 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## «La app de escritorio entró a la cuenta de Mauricio sin login»: era el perfil de Chrome de Mauricio, no el emparejamiento (25/10/2026)
+
+Martín, 25/10 ~12:00: «la app de desktop jamás me pidió login, eso esta muy mal, entró directo a la cuenta de Mauricio cuando
+yo estaba en mi cuenta de super admin». La captura: una ventana «MaKo - Ops Center», con el avatar de Mauricio.
+
+**El diagnóstico obvio era el equivocado.** «El token del emparejamiento le da una sesión a la ventana» (la PC se había
+emparejado para la cuenta de Mauricio el 22/10) es falso, y se midió:
+- **La ventana no es nuestra app:** el «MaKo» del escritorio de Martín es una APP WEB DE CHROME (`chrome_proxy.exe
+  --profile-directory="Profile 9" --app-id=…`), instalada el **26/08/2026**, dos meses antes de que existiera el instalador
+  (0.4.0, 23/10). Y «Profile 9» es el perfil de Chrome **de la cuenta de trabajo de Mauricio**: el suyo en esa PC. Una app web
+  instalada usa las cookies del perfil que la instaló, así que abre con la sesión de MaKo que haya en ese perfil, sin preguntar.
+  Es lo mismo que abrir ese perfil de Chrome y entrar a hola-mako.com.
+- **El emparejamiento no puede dar una sesión:** el token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) son azar con prefijo,
+  no una sesión firmada (`verificarToken` los rechaza); ninguna ruta de `/api/ia-pc` toca una cookie; una sesión la arman SÓLO los
+  logins (Google, contraseña, el segundo paso y la seguridad del perfil, que importan `lib/sesion-cookies.ts`); y `lib/auth.ts`
+  lee la sesión sólo de la cookie firmada, no de un header. La cookie compartida vieja (`mako_auth`) ya no autentica nada.
+  Fijado en `tests/ia-pc-nunca-sesion.test.ts`.
+- **Cómo se mide en la PC** (sin leer cookies): el destino de un acceso directo con `WScript.Shell.CreateShortcut(...).TargetPath`
+  y sus argumentos, y a qué cuenta es cada perfil en `%LOCALAPPDATA%\Google\Chrome\User Data\Local State` →
+  `profile.info_cache.<perfil>.user_name`.
+
+**La regla que queda** (Martín, 25/10): la app de escritorio SIEMPRE pide el login de la persona, el mismo de la web. Emparejar
+la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no desconecta la IA.
+
+**Cómo se cumple en una app web instalada, que hereda la sesión de su perfil** (`lib/app-escritorio-reglas.ts`,
+`app/_components/PuertaDeLaApp.tsx`, `tests/app-escritorio-puerta.test.ts`):
+- Cada VENTANA NUEVA de la app (la instalada de la computadora, `display-mode: standalone`; o el acceso «MaKo» de `mako-pc`,
+  con `?app=1`) guarda en su `sessionStorage` la hora del SERVIDOR a la que empezó a esperar, y pasa sólo con una sesión
+  EMITIDA después. Para eso la sesión firma cuándo se entró (`iat`, `crearToken`); las de antes del 25/10 no lo traen y cuentan
+  como viejas. `/api/auth/entrada` da sólo esa hora y la del servidor (las dos del servidor: el reloj de la PC puede estar
+  corrido). No se desloguea el navegador: si la persona entra con su cuenta, la cookie del perfil pasa a ser la suya.
+- **Trampa 1, el bucle:** `/login` con sesión dibuja «Ya tienes la sesión abierta» y te lleva adentro solo en 1,2 s; la puerta
+  te devolvía al login. Con `app=1`, `/login` muestra el formulario aunque haya sesión.
+- **Trampa 2, el doble login:** una ventana que arranca SIN sesión la trae el proxy directo a `/login`, y ahí la puerta no
+  corría: después de entrar, «ventana nueva» → login otra vez. En lo público la puerta no manda a ningún lado, pero anota desde
+  cuándo espera.
+- **Trampa 3, el instante de la cuenta ajena:** la puerta decide después de hidratar, y mientras tanto se veía la cuenta del
+  perfil. Una tapa CSS (`puerta-app.css`) tapa la app instalada hasta decidir; sólo con `pointer: fine`, porque la TWA del
+  teléfono también corre «instalada» y no es esta regla (el teléfono queda fuera también en la decisión, por el user agent).
+- Sin red, la puerta no traba la app: si `/api/auth/entrada` no contesta, pasa (la sesión la sigue mirando el servidor).
+- **Trampa 4, el `app=1` adentro de `next`:** desde el 25/10 el proxy (`denegar`, rama de Zernio) manda a quien no tiene sesión
+  a `/login?next=<la dirección ENTERA>`. El acceso «MaKo» sin sesión llegaba al login con `next=%2Fsecond-brain%3Fapp%3D1` y
+  sin `app=1` arriba: el login no anotaba la ventana y, ya adentro, la puerta pedía entrar otra vez. `pideLaApp` lo busca en
+  los dos lugares. Y la ventana que ya empezó a esperar sigue siendo «de la app» aunque vuelva sin el parámetro (lo encontró la
+  prueba en el navegador: si no, quien escribía otra dirección pasaba con la sesión vieja).
+
+**Lo que quedó SIN hacer:** sacar esa app del perfil de Mauricio en la PC de Martín es de él (clic derecho en el ícono ›
+Desinstalar, o chrome://apps en ese perfil).
+
 ## ⛔ `/api/chart-insights` le pasa a closer y setter los montos del trimestre (16/10/2026, leído, SIN ARREGLAR)
 
 **Lo que se vio** (relevando los chats de MaKo para el diseño del chat único): `/api/chart-insights` llama a
@@ -568,6 +617,22 @@ chat de Automations (`docs/diseno-2fa-obligatorio.md` en su rama); la regla es d
 `app/api/perfil/seguridad/route.ts` · `lib/api-mako/areas/equipo.{def,run}.ts` (`exigir_2fa_desde`,
 `dejar_de_exigir_2fa`, `ver_exigencia_2fa`) · `supabase/migrations/0283_mfa_obligatorio.sql` ·
 `tests/mfa-obligatorio.test.ts` · *14/10/2026, chat «Ciberseguridad» con «Automations»*
+
+### El 2FA del login dijo «No coincide» con un código BUENO, y entró igual: no era un bypass (25/10/2026)
+
+Martín, 25/10 ~12:55: «me logee con SuperAdmin y me dijo "No coincide" el codigo de la app de verificacion y luego me dejo
+entrar igual». **El diagnóstico obvio («se saltea el 2FA») era el equivocado, y lo dijo `mfa_eventos`:** del usuario 1, ese día,
+sólo «intento OK login-totp» (12:51:00.810) y «login-totp OK» (12:51:01.138). Un solo intento, y bueno: el servidor nunca dijo
+que no coincidía.
+- **La causa** (`app/login/2fa/SegundoPaso.tsx`): el primer envío (el automático a los 6 dígitos, `CampoCodigo`) entraba y la
+  página empezaba a irse; `correr` volvía a habilitar «Entrar» y el Enter en su `finally`; un segundo envío llegaba sin el paso
+  intermedio (lo cierra `ponerSesion` al entrar), `/api/auth/2fa` contestaba 401 «vencido» sin registrar nada, y `pedir`
+  devolvía `{ ok: false }` SIN error, que la pantalla pintaba con su comodín `j.error ?? 'No coincide.'`. Después navegaba a
+  `/login?error=mfa-vencido`, y como la sesión ya estaba completa, entraba.
+- **La regla:** una pantalla que ya se está yendo queda trabada (el estado «entrando», con un ref para el doble toque antes del
+  próximo dibujo); un 401 del paso intermedio no pinta nada; y ningún comodín inventa un motivo: el texto del servidor (que ya
+  dice «Ese código no coincide.»), o «No se pudo. Vuelve a probar.» (`app/login/2fa/respuesta-2fa.ts`).
+- Fijado en `tests/login-2fa-entrando.test.ts` (probado rompiéndolo: el `finally` de antes y el comodín, 2 de 2).
 
 ### El 2FA obligatorio NO rige hasta que alguien corra la acción: el estado real al 21/10/2026 (leído en `main`, sin tocar producción)
 
