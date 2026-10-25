@@ -24,6 +24,7 @@ import { firmarAccesoCurso } from '@/lib/curso-acceso';
 import { firmaDeLaCookie } from '@/lib/alumno-acceso';
 import PortalAlumno from '@/app/compartido/curso/[token]/PortalAlumno';
 import { METADATA_PORTAL, cargarPortal, AvisoPortal } from './portal-comun';
+import { SIN_ACCESO_PORTAL } from '@/lib/curso-portal-aviso';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -39,7 +40,7 @@ export default async function MiCursoPage() {
   if (!token) redirect('/login');
 
   const r = await cargarPortal(token);
-  if (r === 'inactivo') return <AvisoPortal titulo="Tu acceso ya no está activo." />;
+  if (r === 'inactivo') return <AvisoPortal titulo={SIN_ACCESO_PORTAL} />;
   if (r === 'fallo') return <AvisoPortal titulo="No pudimos cargar tus clases." detalle="Intenta de nuevo en un rato." />;
   return <PortalAlumno token={token} vista={r.vista} />;
 }

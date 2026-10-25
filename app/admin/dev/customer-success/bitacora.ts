@@ -1117,5 +1117,26 @@ export const BITACORA: Hito[] = [
       'tests/mako-partners-landing.test.ts y tests/partners-para-clientes.test.ts — 18 roturas, cada una cae',
     ],
     revisar: '/partners',
+    fecha: '24 oct', hora: '23:40', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Sacar» en Members saca al alumno del curso y de la comunidad',
+    pedido: 'Voy a Fiesta Music, voy a Leandro Prueba y no me saca de ningún lado. Entonces claramente no me está pudiendo sacar de ninguno de los cursos. (...) No me saca del curso, pero me saca de la comunidad. Tu acceso a la comunidad no está activo. Reportar a soporte: No autenticado.',
+    puntos: [
+      'Sacar cerraba sólo la comunidad, a propósito: el alumno seguía entrando a sus clases. Martín lo dio por bug en la llamada con Leandro (Fathom del 24/10).',
+      'Ahora sacar le saca también el curso de ese programa, o le corta el acceso si era el único que tenía. «Volver a admitir» se lo devuelve.',
+      'El alumno ve una sola frase («Tu acceso ya no está activo.») y no ve «Reportar a Soporte», que sin sesión de MaKo contestaba «no autenticado».',
+      'Al alumno que Leandro ya sacó hay que volver a admitirlo y sacarlo otra vez: a los de antes del arreglo no se los tocó.',
+    ],
+    commits: [
+      { sha: '55cb01be', msg: 'Clients: «Sacar» en Members saca del curso y de la comunidad (f32/f33, llamada con Leandro)', lineas: 525, archivos: 23 },
+    ],
+    archivos: [
+      'lib/comunidad-moderacion.ts — sacar y admitir, con el curso',
+      'lib/curso-invitar-reglas.ts — accesoTrasSacar y accesoTrasAdmitir',
+      'lib/curso-datos.ts — sacarDelCurso y devolverElCurso',
+      'app/_comunidad/Miembros.tsx — el modal dice lo que pasa',
+      'tests/curso-sacar-del-programa.test.ts — 7 roturas, cada una cae',
+    ],
+    revisar: '/clients/members',
   },
 ];

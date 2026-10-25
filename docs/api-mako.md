@@ -16628,14 +16628,14 @@ curl -L \
 
 ### `PUT /api/v1/comunidad/comunidades/{productoId}/sacados/{leadId}` — Sacar a un alumno
 
-Saca a un alumno de la comunidad, con un motivo: deja de verla y de escribir, pero NO pierde el curso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.
+Saca a un alumno del curso de ese producto y de su comunidad, con un motivo: deja de ver las clases, de leer y de escribir. Si era el único curso que tenía, se le corta el acceso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/sacar_alumno_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** el baneo del alumno en la comunidad (comunidad_baneos) y, con borrarContenido, borra sus posts y comentarios de 7 días
+- **Escribe:** el baneo del alumno en la comunidad (comunidad_baneos), le saca ese curso a su acceso (curso_accesos.productos) o, si era el único, lo corta (revocado_at); con borrarContenido, borra sus posts y comentarios de 7 días
 - **Reversible:** no
 - **Costo:** gratis
 - **Requiere la tab:** customer-success
@@ -16658,14 +16658,14 @@ curl -L \
 
 ### `DELETE /api/v1/comunidad/comunidades/{productoId}/sacados/{leadId}` — Volver a admitir a un alumno
 
-Vuelve a dejar entrar a la comunidad a un alumno que se había sacado (lo que se borró al sacarlo no vuelve).
+Vuelve a dejar entrar a un alumno que se había sacado: la comunidad y el curso de ese producto (lo que se borró al sacarlo no vuelve). Si a su acceso lo cortó otra persona, sigue cortado y lo dice.
 
 - **Ruta por operación:** `POST /api/v1/comunidad/admitir_alumno_comunidad`
 - **Token detallado:** permiso `comunidad=write` (Lectura y escritura en «Comunidad»)
 - **Token clásico:** alcance mínimo proponer
 - **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
 - **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** levanta el baneo (comunidad_baneos.levantado_at); la fila se conserva con su fecha
+- **Escribe:** levanta el baneo (comunidad_baneos.levantado_at; la fila se conserva con su fecha) y le devuelve ese curso a su acceso (curso_accesos)
 - **Reversible:** sí
 - **Costo:** gratis
 - **Requiere la tab:** customer-success

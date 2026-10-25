@@ -20,7 +20,7 @@ import { firmarAccesoCurso, leerAccesoCurso, firmarAccesoLider, leerAccesoLider,
 import { saneaAlcance, type AlcanceCurso } from './curso-alcance';
 import {
   saneaProductos, productosTrasInvitar, productosTrasQuitar, saneaAMano, abrePorPermiso, aManoTrasDar, productosQueVe,
-  faltaColumnaAMano, type ProductosDelAcceso,
+  faltaColumnaAMano, accesoTrasSacar, accesoTrasAdmitir, type ProductosDelAcceso,
 } from './curso-invitar-reglas';
 import { saneaBloqueo, type Desbloqueo } from './curso-bloqueo';
 import {
@@ -709,6 +709,49 @@ export async function quitarCursoDelAcceso(leadId: number, productoId: number): 
 }
 
 /**
+ * Lo saca del curso de UN programa porque se lo sacó de ese programa en Members (f32/f33, 24/10/2026): la comunidad
+ * la cierra el baneo (lib/comunidad-moderacion.ts) y el curso, esto. La regla, con su porqué, en `accesoTrasSacar`:
+ * se le saca ése de la lista o, si era lo único que veía, se le corta el acceso. `cuando` es el instante del baneo:
+ * el corte se escribe con ése.
+ *
+ * ⚠️ LEE Y DESPUÉS ESCRIBE, como `quitarCursoDelAcceso`. Lo aprieta una persona; si una invitación se cruzara en el
+ * mismo instante, el alumno queda baneado de la comunidad igual y se lo vuelve a sacar.
+ */
+export async function sacarDelCurso(leadId: number, productoId: number, cuando: Date): Promise<'quitado' | 'cortado' | 'sin-curso'> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_accesos').select('id, productos, revocado_at').eq('lead_id', leadId).is('area', null).maybeSingle();
+  if (error) throw new Error(error.message);
+  const fila = data as { id: number; productos?: unknown; revocado_at: string | null } | null;
+  if (!fila || fila.revocado_at) return 'sin-curso';
+  const r = accesoTrasSacar(saneaProductos(fila.productos), await productosDelAlumno(leadId), productoId);
+  if (r.tipo === 'nada') return 'sin-curso';
+  if (r.tipo === 'cortar') { await revocarAcceso(leadId, null, cuando); return 'cortado'; }
+  const { error: e2 } = await db.from('curso_accesos').update({ productos: r.productos }).eq('id', fila.id);
+  if (e2) throw new Error(e2.message);
+  return 'quitado';
+}
+
+/**
+ * Le devuelve el curso de UN programa al volver a admitirlo en Members (`accesoTrasAdmitir`): se le suma a la lista y,
+ * si el corte lo hizo ese «sacar» (`sacadoAt`, el `created_at` de su baneo), se lo vuelve a habilitar — con un link
+ * NUEVO, como `reactivarAcceso`. `cortado` = a su acceso lo cortó otra persona: se habilita desde su ficha.
+ */
+export async function devolverElCurso(leadId: number, productoId: number, sacadoAt: string | null): Promise<'devuelto' | 'cortado' | 'sin-cambios'> {
+  const db = await getTenantDb();
+  const { data, error } = await db.from('curso_accesos').select('id, productos, revocado_at').eq('lead_id', leadId).is('area', null).maybeSingle();
+  if (error) throw new Error(error.message);
+  const fila = data as { id: number; productos?: unknown; revocado_at: string | null } | null;
+  if (!fila) return 'sin-cambios';
+  const r = accesoTrasAdmitir({ abre: saneaProductos(fila.productos), revocadoAt: fila.revocado_at, sacadoAt, productoId });
+  if (r.tipo === 'nada') return 'sin-cambios';
+  if (r.tipo === 'cortado') return 'cortado';
+  const { error: e2 } = await db.from('curso_accesos')
+    .update({ productos: r.productos, ...(r.reactivar ? { revocado_at: null } : {}) }).eq('id', fila.id);
+  if (e2) throw new Error(e2.message);
+  return 'devuelto';
+}
+
+/**
  * Deja escrito que la invitación SALIÓ: a qué dirección, cuándo y quién. Lo llama quien manda el
  * mail DESPUÉS de que el envío contestó bien — nunca antes, o «Invitado» mentiría sobre un mail que
  * no llegó (el falso éxito que tienen los avisos de aprobación de agencia).
@@ -887,12 +930,14 @@ export async function consumirLinkMagico(leadId: number, version: number, nonce:
  * cliente siga cortado los frenan otras dos puertas: `resolverAccesoPortal` (no abre el `c2.` de un
  * cliente cortado) y las actions de la ficha (no crean ni habilitan un líder de un cliente cortado).
  */
-export async function revocarAcceso(leadId: number, area: string | null = null): Promise<void> {
+export async function revocarAcceso(leadId: number, area: string | null = null, cuando: Date = new Date()): Promise<void> {
   const db = await getTenantDb();
   const filas = area == null
     ? [await filaDeAcceso(leadId, null), ...(await accesosDeLideres(leadId)).filter((l) => !l.revocado).map((l) => ({ id: l.id, version: l.version }))]
     : [await filaDeAcceso(leadId, area)];
-  const ahora = new Date().toISOString();
+  // `cuando`: el instante del corte. «Sacar» de un programa pasa el de su baneo, y así «Volver a admitir» reconoce el
+  // corte que hizo él (`accesoTrasAdmitir`).
+  const ahora = cuando.toISOString();
   for (const f of filas) {
     if (!f) continue;
     const { error } = await db.from('curso_accesos').update({ version: f.version + 1, revocado_at: ahora }).eq('id', f.id).eq('lead_id', leadId);

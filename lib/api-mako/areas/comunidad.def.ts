@@ -495,7 +495,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'sacar_alumno_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Sacar a un alumno',
-    descripcion: 'Saca a un alumno de la comunidad, con un motivo: deja de verla y de escribir, pero NO pierde el curso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.',
+    descripcion: 'Saca a un alumno del curso de ese producto y de su comunidad, con un motivo: deja de ver las clases, de leer y de escribir. Si era el único curso que tenía, se le corta el acceso. Con borrarContenido, además borra sus posts y comentarios de los últimos 7 días, sin vuelta atrás (los hilos de las clases no se borran enteros: sólo sus comentarios). Al equipo no se lo saca.',
     parametros: [
       productoId, fijo(leadId),
       { nombre: 'motivo', tipo: 'string', max: TOPE_MOTIVO_API, descripcion: `el motivo (hasta ${TOPE_MOTIVO_API} letras). Lo ve el equipo, no el alumno.` },
@@ -503,16 +503,16 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
-    escribe: 'el baneo del alumno en la comunidad (comunidad_baneos) y, con borrarContenido, borra sus posts y comentarios de 7 días',
+    escribe: 'el baneo del alumno en la comunidad (comunidad_baneos), le saca ese curso a su acceso (curso_accesos.productos) o, si era el único, lo corta (revocado_at); con borrarContenido, borra sus posts y comentarios de 7 días',
   },
   {
     id: 'admitir_alumno_comunidad', area: 'comunidad', tipo: 'accion',
     titulo: 'Volver a admitir a un alumno',
-    descripcion: 'Vuelve a dejar entrar a la comunidad a un alumno que se había sacado (lo que se borró al sacarlo no vuelve).',
+    descripcion: 'Vuelve a dejar entrar a un alumno que se había sacado: la comunidad y el curso de ese producto (lo que se borró al sacarlo no vuelve). Si a su acceso lo cortó otra persona, sigue cortado y lo dice.',
     parametros: [productoId, leadId],
     canales: HTTP, costo: 'gratis', gating: GATING,
     confirmacion: 'chat', reversible: true,
-    escribe: 'levanta el baneo (comunidad_baneos.levantado_at); la fila se conserva con su fecha',
+    escribe: 'levanta el baneo (comunidad_baneos.levantado_at; la fila se conserva con su fecha) y le devuelve ese curso a su acceso (curso_accesos)',
   },
 
   // ── El calendario ───────────────────────────────────────────────────────────────
