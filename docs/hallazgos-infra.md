@@ -82,6 +82,11 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
   El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
   propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+- **Y el acotado tampoco ve todo lo que ve el entero.** Ese mismo día, el «Completado» de Ops Center pasó tsc-acotado limpio
+  y el push lo frenó con TS2774 («This condition will always return true since this function is always defined») en
+  `responder ? preguntas.length : 0`, con `responder` obligatorio. Medido después: el acotado sobre esos dos archivos seguía sin
+  marcarlo. El acotado sirve para descartar lo obvio. El que manda es el entero (o sus tandas) del pre-push, y un rojo ahí no se
+  discute con «el acotado dio verde».
 
 ## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
 
