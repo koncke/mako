@@ -204,14 +204,18 @@ export async function reindexKnowledge(id: number): Promise<KnowledgeEntry | nul
 export const REEMBEBER_DE_A = 40;
 export async function reembeberLoQueFalta(limite = REEMBEBER_DE_A): Promise<number> {
   const sb = await getTenantDb();
-  let r = sinColumnaModelo ? null : await sb.from('mako_knowledge').select('id, cuerpo, fuente, estado, embedding, embedding_modelo').order('id');
-  if (!r || faltaLaColumna(r.error)) { if (r) sinColumnaModelo = true; r = await sb.from('mako_knowledge').select('id, cuerpo, fuente, estado, embedding').order('id'); }
+  type Fila = { id: number; cuerpo: string | null; fuente: string | null; estado: string | null; embedding: unknown; embedding_modelo?: unknown };
+  const leerFilas = async (conModelo: boolean) => {
+    const { data, error } = await sb.from('mako_knowledge').select(`id, cuerpo, fuente, estado, embedding${conModelo ? ', embedding_modelo' : ''}`).order('id');
+    return { data: data as unknown as Fila[] | null, error };
+  };
+  let r = sinColumnaModelo ? null : await leerFilas(true);
+  if (!r || faltaLaColumna(r.error)) { if (r) sinColumnaModelo = true; r = await leerFilas(false); }
   if (r.error) throw new Error(`reembeberLoQueFalta: ${r.error.message}`);
   const delNegocio = await embebedorDelNegocio().catch(() => null);
   let n = 0;
-  type Fila = { id: number; cuerpo: string | null; fuente: string | null; estado: string | null; embedding: unknown; embedding_modelo?: unknown };
   // Las que ya fallaron, al final: una que falla siempre no ocupa la tanda de las que sí se pueden embeber.
-  const filas = ((r.data ?? []) as Fila[]).sort((a, b) => Number(a.estado === 'error') - Number(b.estado === 'error'));
+  const filas = (r.data ?? []).sort((a, b) => Number(a.estado === 'error') - Number(b.estado === 'error'));
   for (const f of filas) {
     if (n >= limite) break;
     if (!(f.cuerpo ?? '').trim()) continue;
@@ -326,7 +330,7 @@ export async function searchKnowledge(
     // esto, un esquema cambiado se lee igual que «este workspace no cargó nada».
     if (r.error) { ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${r.error.message}` }; console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo); return []; }
     if (!r.data || r.data.length === 0) { ultimoFalloRag = null; return []; }
-    data = r.data as typeof data;
+    data = r.data as unknown as typeof data;
   } catch (e) {
     ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${e instanceof Error ? e.message : String(e)}` };
     console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo);
