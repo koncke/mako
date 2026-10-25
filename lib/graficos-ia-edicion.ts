@@ -172,7 +172,7 @@ function guiaExperimentosExistentes(lista: ReadonlyArray<{ id: number; titulo: s
  * el USER por lo mismo que los experimentos (el system se reemplaza desde /configuraciones), en el Dashboard y en General.
  * El código descarta los cambios que vengan con `analizar` (`aplicarEdicion`): la regla no depende de que el modelo la cumpla.
  */
-const GUIA_ANALIZAR = 'SI PIDE UN ANÁLISIS y no un cambio (qué pasa, por qué subió o bajó, cómo va, qué conviene hacer, una opinión del negocio): no cambies la hoja. Devuelve {"respuesta":"una frase: eso lo hace el modo Analizar","analizar":true} y nada más.';
+const GUIA_ANALIZAR = 'SI PIDE UN ANÁLISIS y no un cambio (qué pasa, por qué subió o bajó, cómo va, qué conviene hacer, una opinión del negocio): no cambies la hoja. Devuelve {"respuesta":"una frase: eso es un análisis y lo contesta MaKo desde la estrella de la tab","analizar":true} y nada más.';
 
 /** El mensaje user: el catálogo (con el alcance de la hoja), la hoja, lo último que se habló y el pedido, todo como dato. */
 export function userDeEdicion(p: { hoja: Hoja; pedido: string; historial?: readonly TurnoEdicion[]; alcance?: AlcanceIA }): string {
@@ -207,7 +207,7 @@ export type ResultadoEdicion = {
   errores: string[];
   /** Lo que se corrigió o descartó, pieza por pieza, con ids: para el log y el reintento. */
   correcciones: string[];
-  /** #862: pidió un ANÁLISIS, no un cambio: la hoja no se tocó y el panel ofrece pasar al modo «Analizar». */
+  /** #862: pidió un ANÁLISIS, no un cambio: la hoja no se tocó. Desde el 24/10/2026 (sin AI Analyst) lo contesta la estrella. */
   analizar: boolean;
 };
 
@@ -259,9 +259,9 @@ export function aplicarEdicion(hoja: Hoja, json: unknown, alcance: AlcanceIA = {
   const o = (json && typeof json === 'object' && !Array.isArray(json) ? json : {}) as Record<string, unknown>;
   const respuesta = texto(o.respuesta, 500);
   // #862: un ANÁLISIS pedido en «Editar» no cambia la hoja, AUNQUE el modelo mande cambios con él (lo que pasó con Joan el
-  // 16/10: pidió un análisis del funnel y MaKo le editó la hoja). El panel ofrece pasar a «Analizar».
+  // 16/10: pidió un análisis del funnel y MaKo le editó la hoja). Lo contesta la estrella de la tab, que ve la hoja (24/10/2026).
   if (o.analizar === true) {
-    return { hoja, respuesta: respuesta || 'Eso es un análisis: lo hace el modo Analizar.', cambios: [], avisos: [], errores: [], correcciones: [], analizar: true };
+    return { hoja, respuesta: respuesta || 'Eso es un análisis, no un cambio: la hoja no se tocó. Pregúntaselo a MaKo en la estrella de la tab.', cambios: [], avisos: [], errores: [], correcciones: [], analizar: true };
   }
   const cambios: string[] = [];
   const avisos: string[] = [];

@@ -47,7 +47,7 @@ test('la ruta pregunta ANTES de gastar un token, y contesta sin hoja', () => {
   assert.match(r, /if \(!permiso\.ok\) return NextResponse\.json\(\{ ok: false, error: permiso\.error, analizar: true \}, \{ status: 409 \}\);/);
 });
 
-test('el editor: mirando, no hay botón de MaKo en la barra (el AI Analyst va en el ⋮) y el panel que cambia la hoja no existe', () => {
+test('el editor: mirando, no hay botón de MaKo en la barra (ni AI Analyst: lo hace la estrella) y el panel que cambia la hoja no existe', () => {
   const ed = leer('app/dashboard/EditorInforme.tsx');
   assert.match(ed, /\{makoEditar && editando && guardable && !enBlanco && !compartido && \(\s*<PanelEditarMako editando=\{editando\}/,
     'el panel que cambia la hoja se monta mirando');
@@ -56,10 +56,11 @@ test('el editor: mirando, no hay botón de MaKo en la barra (el AI Analyst va en
   assert.match(ed, /\{guardable && !enBlanco && !compartido && editando && \(\s*<BotonMako lado=\{30\} title="Editar con MaKo" encendido=\{makoEditar\} onClick=\{alternarMakoEditar\} \/>\s*\)\}/,
     'el botón de MaKo de la barra no es sólo el de editar');
   assert.doesNotMatch(ed, /title="Analizar con MaKo"/, 'volvió «Analizar con MaKo» a la barra');
-  assert.match(ed, /const conModosMako = editando && /, 'mirando, la cabecera ofrece pasar a Editar');
+  // Y sin el AI Analyst (24/10/2026, «Sí, y que la criatura vea la hoja»): mirando, lo de MaKo es la estrella de la tab.
+  assert.doesNotMatch(ed, /<PanelAnalista |conModosMako/, 'volvió el AI Analyst o su «Analizar · Editar»');
   // Una respuesta que llega después de «Ver» no entra (el panel se desmonta, pero el guard no depende de eso).
   assert.match(ed, /const ponerHojaDeMako = useCallback\(\(h: Hoja\) => \{ if \(editandoRef\.current\) mutarHoja\(\(\) => h, h\.id\); \}, \[mutarHoja\]\);/);
-  assert.match(ed, /const alternarEdicion = \(\) => \{ if \(editando && makoEditar\) \{ setMakoEditar\(false\); setProbar\(''\); setAnalista\(true\); \}/,
+  assert.match(ed, /const alternarEdicion = \(\) => \{ if \(editando && makoEditar\) \{ setMakoEditar\(false\); setProbar\(''\); \}/,
     'al tocar «Ver», «Editar con MaKo» queda abierto');
 });
 
