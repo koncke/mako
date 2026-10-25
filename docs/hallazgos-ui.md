@@ -12,6 +12,26 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un `<aside>` que flota con aire: la regla de la barra le fuerza el alto, y con la alerta de la voz SOLA no lo baja (25/10/2026)
+
+**Vive en:** la regla `[data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar]` (app/globals.css) · el panel de MaKo
+de la ficha (`.fb-mako-panel`, app/crm/lead-view/ficha/FichaPorBloques.tsx) · tests/barra-inspeccion-alto.test.ts (4).
+
+- **Síntoma:** rojo del tren, «el panel del AI Analyst de la ficha dejó de ser `<aside>`». Seguía siéndolo: el test buscaba
+  la forma vieja (`style={{ position: 'fixed', top: 0, …`) y el panel había pasado a un bloque flotante con 12 px de aire.
+- **El diagnóstico obvio era el equivocado:** «es <aside>, la regla lo baja, alcanza con poner el test al día». MEDIDO en Edge
+  sin ventana (el CSS real de globals.css y del panel): con la barra de inspección la regla lo bajaba a 50 pero le forzaba
+  `height: calc(100vh - barra)` → pegado a la barra y al borde de abajo, sin aire. Y con la alerta de la voz caída SOLA
+  (64 px, la que ve un cliente) la regla sólo toca `aside[data-sidebar]`: el panel quedaba en top 12, TAPADO por la alerta.
+- **Regla:** algo `fixed` que flota con aire no se apoya en la regla de los `<aside>`: suma la barra él mismo
+  (`top: calc(12px + var(--barra-agencia, 0px))`, que vale 50, 64 o 114 según qué barra esté) y, si es `<aside>`, le gana a
+  la regla global en `top` y `height` con un selector más fuerte. Se mide con las tres barras, no sólo con la de inspección.
+- **Quedó SIN medir (por el CSS, el mismo caso):** todo `<aside>` `fixed`/`sticky` en `top: 0` que no sea la sidebar queda
+  debajo de la alerta de la voz cuando está sola. El test 4 da por buena la lateral del Web Generator (`.gp-lateral`,
+  sticky top 0) sólo con la barra de inspección.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
 ## Medio emoji en las iniciales tira la pantalla al hidratar: React #418 (ticket #10, 25/10/2026)
 
 **Vive en:** `inicialesPorLetra` (lib/iniciales.ts), que usan `Marca` (app/_components/Marca.tsx, la cabecera de toda

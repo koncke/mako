@@ -74,6 +74,9 @@ de otras tabs los hizo el Ops Center (lib/unicode-seguro.ts, `iniciales`): cuand
 helper (Marca, Avatar y el historial a esa; borrar lib/iniciales.ts; tests/iniciales-hidratacion apuntando a la que queda). **Pendiente de la extensión** (no de este chat):
 reponer mako-puente.js en las pestañas abiertas en `onInstalled`, para que f12 arranque sin recargar (hallazgos-crm).
 
+**El panel de MaKo y la barra (25/10, rojo del tren):** flota 12 px debajo de la barra de inspección y de la alerta de la voz
+(`f36918c92`); con la alerta sola quedaba tapado. Cosecha en hallazgos-ui.
+
 **Pendiente con Martín:** la comprobación del chip del @ de un lead con sólo Instagram en producción (el Cerebro: crear
 «Prueba @ solo» en el ws3, mirarlo en kanban, lista y ficha, probar el duplicado y borrarlo). En el ws3 no hay ninguno así
 (medido en la base el 25/10), y crear y borrar en producción pide su sí en el chat. El Chrome de Martín no respondía. Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
