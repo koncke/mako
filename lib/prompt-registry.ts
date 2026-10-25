@@ -62,6 +62,7 @@ import {
   TEXTO_SYSTEM_TEMPLATE as LANDING_EDITOR_TEXTO_SYSTEM, TEXTO_USER_TEMPLATE as LANDING_EDITOR_TEXTO_USER,
   DISENOS_SYSTEM_TEMPLATE as LANDING_EDITOR_DISENOS_SYSTEM, DISENOS_USER_TEMPLATE as LANDING_EDITOR_DISENOS_USER,
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
+  DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
@@ -895,6 +896,23 @@ export const REGISTRY: Group[] = [
         variables: [v('seccion', 'el texto de la sección')], scope: 'full', sensitive: false,
         default: LANDING_EDITOR_NOTAS_USER,
         context: 'Le pasa a MaKo el texto de la sección. Conserva el slot.',
+      },
+      {
+        key: 'landing_editor.discutir.system', source: 'override',
+        label: 'Discutir la landing (system)', kind: 'system', dynamic: true,
+        variables: [v('idioma', 'el idioma de la respuesta')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISCUTIR_SYSTEM,
+        context: 'El chat del editor en «Discutir»: MaKo contesta y sugiere SIN cambiar la página (para cambiarla está «Editar»). Conserva la regla de no tocar nada y la de no inventar datos.',
+      },
+      {
+        key: 'landing_editor.discutir.user', source: 'override',
+        label: 'Pregunta + secciones (user)', kind: 'user', dynamic: true,
+        variables: [
+          v('pregunta', 'lo que escribió la persona'), v('foco', 'la sección que está mirando, si la hay'), v('secciones', 'el texto de cada sección, numerada'),
+          v('charla', 'lo último del chat'), v('contexto', 'el negocio (marca, oferta, avatar)'),
+        ], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_DISCUTIR_USER,
+        context: 'Le pasa a MaKo lo que plantea la persona, la página y lo último de la charla. Conserva los slots.',
       },
     ],
   },

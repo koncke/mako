@@ -266,6 +266,13 @@ export const ACCIONES_TEXTO = ['mejorar', 'corregir', 'acortar', 'ampliar', 'sim
 export type AccionTexto = (typeof ACCIONES_TEXTO)[number];
 
 /**
+ * La falla de «editar» cuando la página entera no entra de una vez (ia.ts, `MAX_JSON_EDICION`). Compartida: el chat del
+ * editor la reconoce y, si hay una sección con el cursor, vuelve a pedir sólo ésa (24/10/2026: sin los chips de alcance,
+ * «Editar» manda la landing entera).
+ */
+export const MUCHO_PARA_EDITAR = 'Es mucho de una vez. Edita por sección.';
+
+/**
  * `esquema` en modo «importar» (tanda 6): `url` (se baja TAL CUAL, con su www y su query) o `lectura`
  * (la página ya leída en el navegador de la persona, lectura-tipos.ts: no se baja nada). Si la página
  * no se lee desde el server, la respuesta es `FallaEnNavegador` (HTTP 422).
@@ -274,7 +281,13 @@ export type PedidoIA =
   | { accion: 'esquema'; modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: Lectura; params: ParamsGeneracion }
   | { accion: 'secciones'; esquema: Esquema; indices: number[]; params: ParamsGeneracion; temaId: string }
   /** `adjuntos` (20/10/2026): los archivos del mensaje del chat, ya leídos (./adjuntos.ts); van al contexto como datos. */
-  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: { nombre: string; texto: string }[] }
+  /** `enFoco` (24/10/2026): la sección donde está el cursor, como PISTA para «toda la landing» («esta sección» es ésa). */
+  | { accion: 'editar'; instruccion: string; tarjetas: JsonNodo[]; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; enFoco?: string | null; adjuntos?: { nombre: string; texto: string }[] }
+  /**
+   * «Discutir» (24/10/2026, Martín: «pon los botones de "Discutir, editar"», como Automations): MaKo contesta y sugiere
+   * SIN tocar la landing. `charla`: lo último del chat, para que «como te dije» exista (la lección de Automations).
+   */
+  | { accion: 'discutir'; pregunta: string; tarjetas: JsonNodo[]; enFoco?: string | null; charla?: { de: 'yo' | 'mako'; texto: string }[]; adjuntos?: { nombre: string; texto: string }[] }
   | { accion: 'texto'; tipo: AccionTexto; texto: string; contexto?: string; tono?: string; idioma?: string }
   /** `params.formato` (tanda 6): en una presentación las alternativas son diapositivas, no secciones de página. */
   | { accion: 'disenos'; tarjeta: JsonNodo; params?: Partial<ParamsGeneracion> }
@@ -286,6 +299,8 @@ export type RespuestaIA =
   | { ok: true; texto: string }
   | { ok: true; opciones: JsonNodo[] }
   | { ok: true; notas: string }
+  /** «Discutir»: la respuesta de MaKo, texto plano. */
+  | { ok: true; respuesta: string }
   /** Tanda 6: «Importar» de una página que se arma en el navegador o que nos rechaza (`pegable`, `enNavegador`, `motivo`). */
   | FallaEnNavegador
   | Falla;

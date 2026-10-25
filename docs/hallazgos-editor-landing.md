@@ -2652,3 +2652,31 @@ Lo que quedó SIN hacer:
 - La columna en el teléfono y la tableta sigue ADENTRO (el marco recorta lo de afuera) y ahí todavía puede encimarse con
   el asa del primer bloque.
 - Sin mirar con clics (la RAM no dio para levantar el editor).
+
+## «Discutir | Editar» en el chat del editor (24/10/2026 noche, tanda 2b de claude5)
+
+La otra mitad del punto 10: «Tampoco pongas los botones de "toda la landing, sin titulo" pon los botones de "Discutir,
+editar"». **Vive en:** `app/_chat/SelectorIntencion.tsx` (el selector, compartido) · `app/web-generator/editor/paneles/PanelAgente.tsx`
+(`pedirDiscusion`, `pedirEdicion`) · `lib/editor-landing/ia.ts` (`discutir`, la pista en `editar`) ·
+`lib/editor-landing/ia-reglas.ts` (los prompts y lo puro) · `lib/prompt-registry.ts` · `app/api/landing-generator/ia/route.ts`.
+
+- **«Sin título» no era un bug de título: era el chip de la SECCIÓN con el cursor** (una sección sin encabezado se llama
+  «Sin título»). Los chips eran el alcance de la edición; sin ellos, el alcance se decide solo.
+- **Regla del alcance sin chips:** «Editar» manda la landing ENTERA y la sección del cursor viaja como PISTA (`enFoco` →
+  `focoParaEditar`, en el slot `alcance` que arma el código: el prompt editable no cambió): si la instrucción no dice
+  dónde («mejora la escritura»), es ésa; si nombra otra parte, la IA hace eso. Antes, con el chat abierto y una sección
+  tocada, se mandaba SÓLO esa sección por defecto. Si la página no entra de una vez (`MUCHO_PARA_EDITAR`, compartida en
+  api-tipos), se vuelve a pedir sólo la sección del cursor y la respuesta lo dice; sin cursor, pide tocar una.
+- **«Discutir» es una acción nueva de la IA (`accion: 'discutir'`), no «editar» con otra bandera:** lee el TEXTO de cada
+  sección (no el JSON), lo último de la charla (sin eso «como te dije» no existe: la lección de Automations, 22/10), los
+  archivos de la caja y el negocio; devuelve texto. Sus dos prompts están en el registro (/configuraciones), con el
+  mismo contrato que los demás del editor (lo fija tests/editor-landing-ia.test.ts).
+- **El selector es UNO para los chats** (`app/_chat/SelectorIntencion.tsx`, la misma clave `mako-chat-intencion`): quien
+  eligió «Discutir» en Automations lo encuentra igual acá. ⚠️ **Automations todavía dibuja su copia** (app/automations/ChatMako.tsx,
+  `SelectorIntencion`): no se tocó porque ese chat estaba trabajando en el archivo. Al migrarla, se borra la copia.
+- **No va a la API de MaKo, a propósito:** «Discutir» no configura nada; quien usa la API ya es una IA que lee la
+  página con `ver_secciones_landing` y opina sola. Lo que la API sí tiene es `editar_landing_con_ia`.
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics ni con la IA de verdad: el modelo de mentira fija lo que le llega y lo que vuelve, no la calidad de
+  lo que contesta.

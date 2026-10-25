@@ -1096,4 +1096,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '21:43', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del editor web tiene «Discutir» y «Editar», como Automations',
+    puntos: [
+      'Se fueron los botones «Toda la landing» y «Sin título» de arriba de la caja del chat. En su lugar están «Discutir» y «Editar», los mismos de Automations, y MaKo recuerda cuál elegiste.',
+      'En «Editar», MaKo cambia lo que le pides mirando la landing entera; si no dices dónde, cambia la sección donde tienes el cursor.',
+      'En «Discutir», MaKo te contesta y te sugiere qué cambiaría, sin tocar nada. Se acuerda de lo último que hablaron y lee los archivos que le adjuntes.',
+      'Lo que MaKo tiene que hacer al discutir se puede ajustar desde Configuraciones, como el resto de sus instrucciones del editor.',
+      'No se vio con clics ni con la IA de verdad: está probado con tests y con una IA de mentira, rompiendo cada pieza.',
+    ],
+    archivos: [
+      'app/web-generator/editor/paneles/PanelAgente.tsx — el chat del editor con Discutir y Editar',
+      'app/_chat/SelectorIntencion.tsx — el selector, para todos los chats',
+      'lib/editor-landing/ia.ts — lo que hace MaKo al discutir',
+    ],
+    revisar: '/web-generator',
+  },
 ];

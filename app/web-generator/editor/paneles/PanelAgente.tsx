@@ -76,7 +76,8 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing/adjuntos';
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
-import { esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
+import { MUCHO_PARA_EDITAR, esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
+import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import {
   PLAZO_PEDIDOS_MS, bajarDelArchivero, cortadoPorUsuario, leerArchivo, pedirDocs, pedirIA, pedirLoQueVendes, pedirPedidos, type DocDelArchivero,
@@ -563,15 +564,64 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
   }
   // T3: con una presentación, la IA edita diapositivas (ia.ts lee `params.formato` del pedido crudo).
   const conAdjuntos = adjuntos.length ? { adjuntos: [...adjuntos] } : {};
-  const r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: enviadas, alcance: activa ? 'seccion' : 'landing', ...conAdjuntos, params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
+  // TODA LA LANDING lleva la sección con el cursor como PISTA (24/10/2026: sin los chips «Toda la landing / <sección>», la IA
+  // decide qué toca y «esta sección» es ésa). Si la página entera no entra de una vez (`MUCHO_PARA_EDITAR`), se vuelve a
+  // pedir SÓLO la sección con el cursor, y la respuesta lo dice. Un solo lugar que llama a «editar».
+  const enFoco = activa ? null : todas.find((t) => idDe(t) === ctx.tarjetaActiva) ?? null;
+  let deUna: JsonNodo | null = activa;
+  let r: Awaited<ReturnType<typeof pedirIA>>;
+  for (;;) {
+    const mandadas = deUna ? [deUna] : enviadas;
+    r = await pedirIA({ accion: 'editar', instruccion: paraEditar, tarjetas: mandadas, alcance: deUna ? 'seccion' : 'landing', enFoco: deUna ? null : ctx.tarjetaActiva, ...conAdjuntos, params: { formato: formatoDe(ctx.config) } }, { signal: corte.signal });
+    if (!deUna && enFoco && !r.ok && r.error === MUCHO_PARA_EDITAR) { deUna = enFoco; continue; }
+    break;
+  }
+  const soloFoco = !activa && !!deUna;
+  const aviso = soloFoco ? 'La landing es muy larga para cambiarla entera de una vez: cambié la sección donde tienes el cursor. ' : '';
   let msg: Mensaje;
-  if (!r.ok) msg = { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) };
-  else if ('tarjetas' in r) {
+  if (!r.ok) {
+    msg = { id: ++ultimoId, de: 'mako', texto: r.error === MUCHO_PARA_EDITAR ? MUCHO_SIN_FOCO : r.error, error: !cortadoPorUsuario(r) };
+  } else if ('tarjetas' in r) {
     msg = r.tarjetas.length
-      ? { id: ++ultimoId, de: 'mako', texto: r.resumen || 'Listo.', estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas, tarjetas: r.tarjetas, anclaNuevas: activa ? idDe(activa) : null } }
-      : { id: ++ultimoId, de: 'mako', texto: r.resumen || 'Sin cambios.' };
+      ? { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Listo.'), estado: 'pendiente', propuesta: { paginaId: ctx.paginaActual, enviadas: deUna ? [deUna] : enviadas, tarjetas: r.tarjetas, anclaNuevas: deUna ? idDe(deUna) : null } }
+      : { id: ++ultimoId, de: 'mako', texto: aviso + (r.resumen || 'Sin cambios.') };
   } else msg = { id: ++ultimoId, de: 'mako', texto: 'Respuesta inválida', error: true };
   terminar(msg, ...burbujas);
+}
+
+/** La landing no entra de una vez y no hay una sección con el cursor para pedir sólo ésa. */
+const MUCHO_SIN_FOCO = 'La landing es muy larga para cambiarla entera de una vez: toca la sección que quieres cambiar y vuelve a pedírmelo.';
+
+/**
+ * «DISCUTIR» (24/10/2026, Martín: «pon los botones de "Discutir, editar"»; el par de Automations): MaKo contesta y sugiere
+ * SIN tocar la página. Viaja el texto de la página abierta, la sección con el cursor como pista, los archivos de la caja y
+ * lo último de la charla (sin eso, «como te dije» no existe: la lección de Automations). Vuelve una burbuja de texto, sin
+ * propuesta, y el turno se guarda en la base como cualquier otro.
+ */
+async function pedirDiscusion(ctx: CtxEditorLanding, pregunta: string, op: { adjuntos?: readonly AdjuntoEditar[] } = {}): Promise<void> {
+  const docId = ctx.docId;
+  const editor = ctx.editor;
+  const adjuntos = op.adjuntos ?? [];
+  const escrito = pregunta.trim();
+  if ((!escrito && !adjuntos.length) || !editor || editor.isDestroyed || (hilos.get(docId)?.corriendo)) return;
+  const charla = (hilos.get(docId)?.mensajes ?? [])
+    .flatMap((m) => ((m.de === 'yo' || m.de === 'mako') && m.texto.trim() ? [{ de: m.de, texto: m.texto }] : []))
+    .slice(-8);
+  const yo: Mensaje = { id: ++ultimoId, de: 'yo', texto: escrito, seccion: null, ...(adjuntos.length ? { adjuntos: adjuntos.map((a) => a.nombre) } : {}) };
+  cambiarHilo(docId, (h) => ({ corriendo: true, mensajes: [...h.mensajes, yo] }));
+  const corte = new AbortController();
+  cortes.set(docId, corte);
+  const titulo = ctx.titulo;
+  const r = await pedirIA({
+    accion: 'discutir', pregunta: escrito || 'Mira lo que te adjunto: ¿qué cambiarías de la landing con esto?',
+    tarjetas: tarjetasDelDoc(editor.getJSON()), enFoco: ctx.tarjetaActiva, charla, ...(adjuntos.length ? { adjuntos: [...adjuntos] } : {}),
+  }, { signal: corte.signal });
+  const msg: Mensaje = !r.ok
+    ? { id: ++ultimoId, de: 'mako', texto: r.error, error: !cortadoPorUsuario(r) }
+    : 'respuesta' in r ? { id: ++ultimoId, de: 'mako', texto: r.respuesta } : { id: ++ultimoId, de: 'mako', texto: 'Respuesta inválida', error: true };
+  cortes.delete(docId);
+  cambiarHilo(docId, (h) => ({ corriendo: false, mensajes: [...h.mensajes, msg] }));
+  void guardarEnHiloDeTab(claveDeLanding(docId), tituloDeLanding(titulo), filasDeAgente([yo, msg]));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -579,14 +629,21 @@ async function pedirEdicion(ctx: CtxEditorLanding, instruccion: string, alcance:
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Las sugerencias del panel (Gamma 5): el rótulo es lo que se ve; `instruccion`, lo que se pide. */
-type Sugerencia = { rotulo: string; instruccion?: string; alcance?: 'landing'; rellenar?: string; enfocar?: boolean };
+type Sugerencia = { rotulo: string; instruccion?: string; rellenar?: string; enfocar?: boolean };
 const SUGERENCIAS: Sugerencia[] = [
   { rotulo: 'Mejorar la escritura', instruccion: 'Mejora la escritura. Conserva lo que dice y la estructura.' },
   { rotulo: 'Acortar', instruccion: 'Acorta el texto a lo esencial, sin perder lo importante.' },
   { rotulo: 'Traducir…', rellenar: 'Traduce al ' },
   { rotulo: 'Hazlo más visual', instruccion: 'Hazlo más visual: usa diseños optimizados, íconos o imágenes donde ayuden. Conserva el texto.' },
-  { rotulo: 'Agregar una sección de preguntas frecuentes', alcance: 'landing', instruccion: 'Agrega una sección de preguntas frecuentes, con un desplegable por pregunta. Usa lo que la landing ya dice y no inventes datos.' },
-  { rotulo: 'Edita todas las secciones con IA', alcance: 'landing', enfocar: true },
+  { rotulo: 'Agregar una sección de preguntas frecuentes', instruccion: 'Agrega una sección de preguntas frecuentes, con un desplegable por pregunta. Usa lo que la landing ya dice y no inventes datos.' },
+  { rotulo: 'Edita todas las secciones con IA', enfocar: true },
+];
+
+/** En «Discutir» las sugerencias son PREGUNTAS (se mandan tal cual, por su rótulo): pensar la página, no cambiarla. */
+const SUGERENCIAS_DISCUTIR: Sugerencia[] = [
+  { rotulo: '¿Qué mejorarías de esta landing?' },
+  { rotulo: '¿Se entiende qué vendo y a quién?' },
+  { rotulo: '¿Qué le falta para que más personas agenden o compren?' },
 ];
 
 /**
@@ -664,20 +721,20 @@ export function PanelAgente() {
   const ctxRef = useRef(ctx);
   useLayoutEffect(() => { ctxRef.current = ctx; });
   const ctxVivo = useCallback(() => ctxRef.current, []);
-  const { docId, titulo, editor, tarjetaActiva, modoIA, setPanelIzq, avisar, setPanelDer } = ctx;
+  const { docId, titulo, editor, setPanelIzq, avisar, setPanelDer } = ctx;
   const router = useRouter();
   const ws = useWs();
   const hilo = useHilo(docId);
   // Recién recargada (u otra computadora): la charla guardada de esta landing.
   useEffect(() => { traerHilo(docId); }, [docId]);
-  const sugerencias = sugerenciasDe(ctx.config);
   const [texto, setTexto] = useState('');
-  // El alcance que eligió la persona, y para qué sección lo eligió.
-  const [eleccion, setEleccion] = useState<{ alcance: 'landing' | 'seccion'; tarjeta: string | null } | null>(null);
-  const setAlcance = (a: 'landing' | 'seccion') => setEleccion({ alcance: a, tarjeta: tarjetaActiva });
+  // «Discutir» o «Editar», recordado (el mismo de Automations: app/_chat/SelectorIntencion.tsx). Reemplaza a los chips
+  // «Toda la landing / <la sección>» (24/10/2026, Martín: «Tampoco pongas los botones de "toda la landing, sin titulo"»):
+  // «Editar» manda la landing entera con la sección del cursor como pista (`pedirEdicion`).
+  const [intencion, elegirIntencion] = useIntencion();
+  const sugerencias = intencion === 'discutir' ? SUGERENCIAS_DISCUTIR : sugerenciasDe(ctx.config);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hiloRef = useRef<HTMLDivElement>(null);
-  const seccionActiva = tituloVivo(editor, tarjetaActiva);
 
   // ── Los archivos de la caja (../adjuntos-agente.ts) ───────────────────────
   // `caja` es la verdad (se lee sincrónico al sumar y al mandar); el estado, lo que se dibuja. Es UN objeto que no
@@ -703,14 +760,8 @@ export function PanelAgente() {
     };
   }, []);
 
-  // Gamma 5: con «Edición con IA» prendida, tocar una sección la vuelve el chip del chat. Se
-  // CALCULA (no se dispara con un efecto): lo elegido vale para la sección en la que se eligió;
-  // en otra sección, con la IA prendida, manda la sección.
-  const alcance: 'landing' | 'seccion' = eleccion && eleccion.tarjeta === tarjetaActiva
-    ? eleccion.alcance
-    : modoIA && tarjetaActiva ? 'seccion' : eleccion?.alcance ?? 'landing';
-  // Sin sección activa no hay alcance de sección.
-  const alcanceReal: 'landing' | 'seccion' = alcance === 'seccion' && seccionActiva ? 'seccion' : 'landing';
+  // (Acá estaba el alcance de los chips: lo elegido para una sección, o la sección tocada con la IA prendida. Desde el
+  // 24/10/2026 «Editar» manda siempre la landing entera, con la sección del cursor como pista: `pedirEdicion`.)
 
   // El chat baja solo con cada mensaje nuevo.
   useEffect(() => {
@@ -718,9 +769,9 @@ export function PanelAgente() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [hilo.mensajes.length, hilo.corriendo]);
 
-  const enviar = (instruccion: string, alc: 'landing' | 'seccion' = alcanceReal, op: { interpretar?: boolean } = {}) => {
+  const enviar = (instruccion: string, op: { interpretar?: boolean } = {}) => {
     if (hilo.corriendo || !instruccion.trim()) return;
-    void pedirEdicion(ctxRef.current, instruccion, alc, op);
+    void pedirEdicion(ctxRef.current, instruccion, 'landing', op);
     setTexto('');
   };
 
@@ -775,15 +826,17 @@ export function PanelAgente() {
   const mandar = () => {
     const items = caja.current.items;
     if (hilo.corriendo || !editor || !puedeMandar(texto, items)) return;
-    void pedirEdicion(ctxRef.current, texto, alcanceReal, { adjuntos: paraEnviar(items) });
+    if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, texto, { adjuntos: paraEnviar(items) });
+    else void pedirEdicion(ctxRef.current, texto, 'landing', { adjuntos: paraEnviar(items) });
     setTexto('');
     soltarTodos();
   };
 
   const sugerir = (s: Sugerencia) => {
-    if (s.alcance) setAlcance(s.alcance);
+    // En «Discutir», una sugerencia es una PREGUNTA nuestra: se manda tal cual, sin tocar la página.
+    if (intencion === 'discutir') { if (!hilo.corriendo) void pedirDiscusion(ctxRef.current, s.rotulo); return; }
     // Una sugerencia es una edición escrita por nosotros: va directo a «editar», sin interpretarla.
-    if (s.instruccion) { enviar(s.instruccion, s.alcance ?? alcanceReal, { interpretar: false }); return; }
+    if (s.instruccion) { enviar(s.instruccion, { interpretar: false }); return; }
     if (s.rellenar) setTexto(s.rellenar);
     requestAnimationFrame(() => {
       const el = inputRef.current;
@@ -927,16 +980,9 @@ export function PanelAgente() {
           acciones: <span className="gma-ag-estado">{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>,
         }}
         caja={<div className="gma-ag-pie">
-        <div className="gma-ag-alcance" role="group" aria-label="Alcance">
-          <button type="button" className="gma-ag-chip" aria-pressed={alcanceReal === 'landing'} onClick={() => setAlcance('landing')}>
-            <Ico n="paginas" t={13} /> {esPresentacion(ctx.config) ? 'Toda la presentación' : 'Toda la landing'}
-          </button>
-          {seccionActiva && (
-            <button type="button" className="gma-ag-chip" aria-pressed={alcanceReal === 'seccion'} onClick={() => setAlcance('seccion')} title={seccionActiva}>
-              <Ico n="diseno" t={13} /> <span className="gma-ag-chip-txt">{seccionActiva}</span>
-            </button>
-          )}
-        </div>
+        {/* «Discutir | Editar», el de Automations (24/10/2026, Martín: «Tampoco pongas los botones de "toda la landing, sin
+            titulo" pon los botones de "Discutir, editar"»). «Sin título» era el chip de la sección con el cursor. */}
+        <SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={hilo.corriendo} />
         {doc && ofreceDoc(doc, adjuntos) && (
           <div className="gma-ag-docs">
             <button type="button" className="gma-ag-chip gma-ag-chip-doc" onClick={() => void traerDoc()} disabled={trayendo || !adj.puede} title={`Adjuntar ${doc.nombre}`}>
@@ -954,7 +1000,11 @@ export function PanelAgente() {
         </div>}>
           {hilo.mensajes.length === 0 && (
             <>
-              <div className="gma-ag-burbuja" data-de="mako">Pídeme que edite, cree o diseñe lo que quieras.</div>
+              <div className="gma-ag-burbuja" data-de="mako">
+                {intencion === 'discutir'
+                  ? 'Pregúntame lo que quieras de tu landing: te digo qué cambiaría, sin tocar nada.'
+                  : 'Pídeme que edite, cree o diseñe lo que quieras.'}
+              </div>
               <div className="gma-ag-pildoras">
                 {sugerencias.map((s) => (
                   <button key={s.rotulo} type="button" className="gma-ag-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !editor}>{s.rotulo}</button>
@@ -1006,10 +1056,8 @@ const CSS_AGENTE = `
 .gma-ag-pildora:hover:not(:disabled){background:var(--pb-celeste2)}
 .gma-ag-pildora:disabled{opacity:.5;cursor:default}
 .gma-ag-pie{display:grid;gap:8px;padding:8px 12px 12px}
-.gma-ag-alcance{display:flex;gap:6px;min-width:0}
 .gma-ag-chip{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--pb-borde);border-radius:999px;background:var(--pb-fondo);color:var(--pb-tenue);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
 .gma-ag-chip[aria-pressed="true"]{border-color:var(--pb-celeste2);background:var(--pb-celeste);color:var(--pb-tinta)}
-.gma-ag-chip-txt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .gma-ag-caja{display:grid;gap:4px;padding:10px 10px 8px 12px;border-radius:14px;background:var(--pb-fondo);box-shadow:0 0 0 1px var(--pb-borde),0 1px 2px rgba(0,0,0,.05);transition:box-shadow .15s ease}
 .gma-ag-caja:focus-within{box-shadow:0 0 0 1.5px var(--pb-vivo)}
 .gma-ag-caja[data-ocupada]{background:var(--pb-sup)}

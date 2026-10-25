@@ -13,9 +13,12 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   AFUERA en un margen de 40 px del lienzo (en una landing de escritorio); se fue ✨ «Editar con IA»; la tira de secciones
   es una vista de la tarjeta del chat con su botón en la barra; el chat no se pliega; el placeholder es «Escribe a MaKo».
   Detalle: docs/hallazgos-editor-landing.md → «Los botones amontonados en la esquina del lienzo…».
-- **Sigue, en este orden:** 2b, los chips «Discutir / Editar» del chat (la IA del editor necesita un modo que conteste
-  sin tocar la landing: hoy sólo edita); después 6 (placeholders tapados), 8 (el formato como botón que abre una segunda
-  barra) y 4 (las páginas de MaKo editables por sección). Después, de docs/pendientes.md: P6 (sanear
+- **Tanda 2b (el resto del 10): hecha, sin mirar con clics.** «Discutir | Editar» en lugar de los chips de alcance;
+  «Discutir» es una acción nueva de la IA (`accion: 'discutir'`, prompts en el registro); «Editar» manda la landing entera
+  con el cursor como pista. Detalle: docs/hallazgos-editor-landing.md → «"Discutir | Editar" en el chat del editor».
+  ⚠️ Automations sigue con su copia del selector (app/automations/ChatMako.tsx): migrarla a app/_chat/SelectorIntencion.tsx.
+- **Sigue, en este orden:** 6 (placeholders tapados), 8 (el formato como botón que abre una segunda barra) y 4 (las
+  páginas de MaKo editables por sección). Después, de docs/pendientes.md: P6 (sanear
   `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
   docs/diseno-editor-web-como-automations.md §5).
 
