@@ -4655,9 +4655,15 @@ tests/zernio-anuncios.test.ts
   no en el doble.
 - **«MaKo no ve gasto del ws1 desde el 15/10»: no era ceguera.** La cuenta la frenó Meta por saldo impago (la entrada de
   abajo).
-- ⚠️ **El ws4 «Cliente de Diseño» tiene el MISMO píxel y el mismo token que Mauricio**: un envío por CAPI desde el ws4 cae
-  en el píxel real de Mauricio. El diseño de qué manda MaKo a Meta, por funnel y por página, con el arreglo del Schedule:
-  docs/diseno-eventos-meta-por-funnel.md.
+- ~~El ws4 «Cliente de Diseño» tiene el MISMO píxel y el mismo token que Mauricio~~ **RESUELTO el 24/10/2026 a las 21:20**
+  (Martín: «"Cliente de Diseño", simplemente quitalos... No es dificil»). Eran 26 credenciales, TODAS copias de las de
+  Mauricio que hizo «datos-mau» el 16/08 (Meta con píxel y token de conversiones, Calendly, Fathom, Whop, YouTube, Resend y
+  las claves de IA): un envío por CAPI desde el ws4 caía en el píxel real de Mauricio, y sus crons gastaban las keys de él. Se
+  quitaron con `eliminarDatosDelDueno` de cada ámbito de credenciales (lib/datos-mau.ts), que borra exactamente lo copiado y
+  su fila de ruteo. Medido: el ws4 quedó con 0 credenciales y el ws1 con sus 38, idénticas. El ws4 NO se borró (sin usuarios,
+  sigue siendo el taller de temas de `app/admin/ui/Temas.tsx`, con sus 300 leads copiados); si alguna vez hace falta que tenga
+  integraciones, se vuelven a copiar desde su panel, sabiendo que copian las de un cliente. El diseño de qué manda MaKo a
+  Meta, por funnel y por página: docs/diseno-eventos-meta-por-funnel.md.
 
 ## Un día sin filas de Meta no es «sin sincronizar»: la cuenta del ws1 la frenó Meta por saldo impago (24/10/2026)
 

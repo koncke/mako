@@ -19,8 +19,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 
 | # | Qué | Dónde vive | Origen |
 |---|---|---|---|
-| P1 | **Quitar «Cliente de Diseño»**, que comparte píxel, token de Meta y token de Calendly con Mauricio | Integraciones | 20 puntos, #6 |
-| P2 | **Ejecutar los 6 pedidos trabados** en vez de pedirle que los reenvíe | Cerebro | 20 puntos, #7 |
+| P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
 | P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
 | P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
 | P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
