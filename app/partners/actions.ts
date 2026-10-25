@@ -6,33 +6,55 @@
 // ⚠️ SÓLO SE EXPORTAN FUNCIONES ASYNC: en un archivo 'use server' un `export const` tipa, pasa el typecheck y TIRA EL
 //    BUILD (AGENTS.md). Los tipos viven en lib/partners.ts.
 //
-// La primera línea de cada una es la PUERTA: quien abre una cuenta de un cliente es el ADMIN de una agencia
-// (`adminDeWorkspaceActual`; el super admin parado en la agencia también). Que la agencia sea del programa lo repregunta
-// el núcleo (`esAgencia`, lib/partners.ts). Esconder el botón no protege nada.
+// La primera línea de cada una es la PUERTA. Hacerse partner y cambiar dónde cobra: el ADMIN del negocio. «Marcar pagado»:
+// el super admin. Abrir la cuenta de un cliente (el panel de agencia, /agency): el ADMIN de una agencia
+// (`adminDeWorkspaceActual`; el super admin parado en la agencia también); que la agencia sea del programa lo repregunta el
+// núcleo (`esAgencia`, lib/partners.ts). Esconder el botón no protege nada.
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
-import { adminDeWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
-import { getUsuarioActual } from '@/lib/auth';
+import { adminDeWorkspaceActual, estaImpersonando } from '@/lib/workspace';
+import { getSesionAdmin, getUsuarioActual } from '@/lib/auth';
 import { abrirCuentaDePartner, leadParaPartners, type CuentaAbierta } from '@/lib/partners';
-import { codigoDe } from '@/lib/partners-programa';
-
-/** A dónde vuelve «Unirme»: el tablero de la computadora, o /partners (el teléfono lo abre como /m/partners). */
-const VUELTAS_DE_UNIRME = new Set(['/partners/referidos', '/partners']);
+import { cambiarCobroPartner, hacermePartner, registrarPagoAPartner, type ResultadoAlta } from '@/lib/partners-programa';
 
 /**
- * «Unirme a MaKo Partners» (24/10/2026): la landing de la tab se ve hasta que el negocio se une, y unirse es tener su
- * código (`codigoDe`, que lo crea la primera vez y devuelve el mismo después: dos clics no hacen dos). Sólo el ADMIN del
- * negocio, como el tablero; la plataforma nunca es partner. Un formulario sin JavaScript: termina en un redirect.
+ * «Hacerme partner» (25/10/2026): el último paso del onboarding corto de /partners (app/partners/AltaPartner.tsx). Guarda lo
+ * que contestó y devuelve su link (`hacermePartner`: dos veces no duplica nada). Sólo el ADMIN del negocio, como el panel;
+ * la plataforma nunca es partner.
  */
-export async function unirmeAPartnersAction(datos: FormData): Promise<void> {
-  const pedida = String(datos.get('volver') ?? '');
-  const volver = VUELTAS_DE_UNIRME.has(pedida) ? pedida : '/partners/referidos';
+export async function hacermePartnerAction(respuestas: unknown): Promise<ResultadoAlta> {
   const ws = await adminDeWorkspaceActual();
-  if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/partners'));
-  const codigo = await codigoDe(ws).catch((e) => { console.warn(`[partners] no pude unir al negocio ${ws}:`, e instanceof Error ? e.message : e); return null; });
-  revalidatePath('/partners/referidos');
-  redirect(await rutaConWs(codigo ? volver : `${volver}?unirme=error`));
+  if (ws == null) return { ok: false, error: 'Sólo el admin del negocio puede hacerlo partner.' };
+  const r = await hacermePartner(ws, respuestas);
+  if (r.ok) revalidatePath('/partners');
+  return r;
+}
+
+/** «Dónde te transferimos» del panel del partner: el alias, el CBU o el email de PayPal. */
+export async function cambiarCobroPartnerAction(cobro: string): Promise<{ ok: true; cobro: string | null } | { ok: false; error: string }> {
+  const ws = await adminDeWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'Sólo el admin del negocio puede cambiarlo.' };
+  const r = await cambiarCobroPartner(ws, cobro);
+  if (r.ok) revalidatePath('/partners');
+  return r;
+}
+
+/**
+ * «Marcar pagado» del panel del programa (25/10/2026): el super admin anota que le transfirió a un partner lo que tenía a
+ * cobrar. SÓLO el super admin y sin estar parado en un cliente (es el panel de la plataforma). No mueve plata: la
+ * transferencia se hace afuera; esto la anota en el libro y le avisa al partner.
+ */
+export async function marcarPagoPartnerAction(datos: { ws: number; montoUsd?: number | null; nota?: string | null }): Promise<
+  { ok: true; resumen: string } | { ok: false; error: string }
+> {
+  const sesion = await getSesionAdmin();
+  if (!sesion || (await estaImpersonando())) return { ok: false, error: 'Sólo el super admin, desde el panel del programa.' };
+  const ws = Number(datos?.ws);
+  if (!Number.isInteger(ws) || ws <= 0) return { ok: false, error: 'Falta el partner.' };
+  const monto = datos?.montoUsd == null ? null : Number(datos.montoUsd);
+  const r = await registrarPagoAPartner({ ws, montoUsd: monto, nota: datos?.nota ?? null, autor: sesion.nombre || sesion.email || 'MaKo' });
+  if (r.ok) revalidatePath('/partners');
+  return r.ok ? { ok: true, resumen: r.resumen } : r;
 }
 
 /**
@@ -52,7 +74,7 @@ export async function llevarAPartnersAction(datos: { leadId?: number | null; nom
       pagador,
     });
     if (r.ok) {
-      revalidatePath('/partners');
+      revalidatePath('/agency');
       // El lead pasó a tener cuenta: la ficha del CRM y la de Clients dicen «En MaKo Partners».
       if (datos?.leadId != null) { revalidatePath('/crm'); revalidatePath('/clients'); }
     }

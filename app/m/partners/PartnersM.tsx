@@ -97,7 +97,7 @@ export function PartnersM({ cuentas, usd }: { cuentas: CuentaPartner[]; usd: num
   return (
     <>
       {/* Sin fila en More todavía (la key `partners` la suma el chat Sidebar): el título y el «volver» los pone acá. */}
-      <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />
+      <CabeceraM titulo="Agency Dashboard" padre={{ href: RUTA_MAS, label: 'More' }} />
       <div className="m-partners-arriba">
         <Button variant="primary" size="lg" full onClick={abrirAlta}>Nuevo cliente</Button>
       </div>

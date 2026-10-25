@@ -1141,4 +1141,14 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/mako-partners',
   },
+  {
+    fecha: '25 oct', hora: '15:40', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo Partners entero: sólo dinero, el 100%, la landing para quien no es partner, el alta corta y el panel',
+    pedido: 'Revisa que la url es "https://hola-mako.com/partners/referidos" cuando solo basta "partners" sin el referido. Elimina lo de "gana meses de tu plan", que solo ganen direro y listo. En los clientes no se ve la pagina tipo de ventas de MaKo partners... si alguien no se hizo "Partner", no le debe saltar abajo nada de "Todavía no tienes referidos" o del dashboard... Solo los CTA para que se haga Partner, posterior a apretar eso, un pequeño onboarding... Y que ahí le de su link de referido. Y es importante que en la compra, en el carrito, esté la opción de poner código de referido... En SuperAdmin, directo ver el dashboard, y copia el dashboard de otras apps que usen referidos... No pongas al programa de 1500 en el programa de referidos... Hazlo más marketinero la landing, literalmente se llevan el 100% de lo que venden. La calculadora ponlo en dode hoy está "Si se suscribe". Y solo la parte azul. Elimina la sección de "Cómo funciona" y "Por ahora MaKo da de alta a mano". Revisa las preguntas frecuentes...',
+    puntos: [
+      'Puntos 1 a 8 de docs/feedback-25-10-tarde.md (el 9, Agency Dashboard, es del chat «Agencias y clientes»).',
+    ],
+    revisar: '/partners',
+  },
 ];

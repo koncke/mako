@@ -536,6 +536,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // La prueba gratis (25/10/2026): lo que dice el cartel «Versión de prueba», y «Empezar mi plan ya» (abre el pago desde hoy).
   ['GET', '/negocio/plan/prueba', 'ver_mi_prueba'],
   ['POST', '/negocio/plan/prueba/fin', 'empezar_mi_plan_ya'],
+  // MaKo Partners (25/10/2026): el panel del negocio, hacerse partner y dónde cobra (lo de la plataforma no sale por HTTP).
+  ['GET', '/negocio/partners', 'ver_mi_programa_partners'],
+  ['POST', '/negocio/partners', 'hacerme_partner'],
+  ['PUT', '/negocio/partners/cobro', 'cambiar_cobro_partners'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],

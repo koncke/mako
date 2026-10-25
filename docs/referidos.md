@@ -1,6 +1,28 @@
 # Referidos de MaKo — la propuesta (10/10/2026)
 
-> **23/10/2026: CONSTRUIDO lo automático** (pedido de Martín del 22/10: «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática»): el link /r/<código>, la acreditación al 2º mes pagado, el tablero /partners/referidos y la página /mako-partners. Esto reemplaza el «nunca antes de 20 referidos» de la §6. Falta APLICAR el crédito y el beneficio del que llega: docs/hallazgos-partners.md.
+> ## ⚠️ 25/10/2026: SÓLO PLATA — esto manda sobre TODO lo de abajo (incluido «El programa decidido» del 10/10)
+>
+> Martín, 25/10/2026 ~15:40 (docs/feedback-25-10-tarde.md, puntos 1 a 8): «Elimina lo de "gana meses de tu plan", que solo
+> ganen direro y listo... literalmente se llevan el 100% de lo que venden... No pongas al programa de 1500 en el programa de
+> referidos». Y el 9: «Ser Agencia es muy diferente a Partner. Las agencias no ganan dinero con MaKo». Lo vigente:
+>
+> | | Regla |
+> |---|---|
+> | **Qué gana el partner** | **El 100% del primer mes** de cada negocio NUEVO que entra con su link (o pone su código al pagar), **a precio de lista por mes** del plan que eligió: US$ 97 por MaKo Pro, US$ 47 por MaKo Esencial. Un anual deja el mes, no el año. **En dinero**, sin tope. Ya no hay meses de crédito, ni descuento en su plan, ni la diferencia «usuario común / revendedor». |
+> | **Cuándo** | Cuando el referido paga su **2º mes** (igual que antes: el que entra y se va no deja nada). Ahí pasa a «A cobrar». |
+> | **Cómo se cobra** | MaKo se lo **transfiere** a la cuenta que el partner dejó en su alta (alias, CBU o PayPal). El super admin lo anota con «Marcar pagado» en /partners (un renglón `uso` del libro `partner_creditos`). |
+> | **Quién es partner** | El que **terminó el alta** (el onboarding corto de /partners: a cuántos refiere, cómo, dónde cobra). Tener código no alcanza. |
+> | **El Acelerador (US$ 1.500)** | **No entra** en MaKo Partners. Su comisión del 20% de la tabla de abajo queda sin efecto. |
+> | **Agencias** | **Fuera de Partners**: su panel es el Agency Dashboard (/agency). Lo de «el plan agencia: cada workspace nuevo es un referido de la agencia» de abajo queda sin efecto. |
+> | **El código en el carrito** | El checkout de /planes tiene «¿Te recomendó alguien? Pon su código». Escrito gana sobre la cookie del link; si no, vale el PRIMER link (60 días). |
+> | **Sigue igual** | Sólo clientes nuevos, nadie se refiere a sí mismo, el origen que vale es el primero. **Ya no** se prohíbe pautar con la palabra «MaKo» (Martín: «Si pueden hacer ads que digan "mako", no aclares eso»). |
+>
+> ⚠️ **Lo que no está medido:** el techo de CAC de la §5 (US$ 81,50 por Pro) es con la IA pagada por MaKo. Desde el 22/10 cada
+> negocio paga SU IA (el plan nunca paga IA), así que la contribución por mes es otra y el 100% del primer mes (US$ 97) se
+> paga con ella; falta rehacer la cuenta con los costos de hoy. Dónde vive: lib/partners-reglas.ts · lib/partners-programa.ts ·
+> app/partners/ · docs/hallazgos-partners.md.
+
+> **23/10/2026: CONSTRUIDO lo automático** (pedido de Martín del 22/10: «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática»): el link /r/<código>, la acreditación al 2º mes pagado, el tablero (hoy /partners) y la página /mako-partners. Esto reemplaza el «nunca antes de 20 referidos» de la §6. Falta APLICAR el crédito y el beneficio del que llega: docs/hallazgos-partners.md.
 >
 > **Estado: DECIDIDO por Martín el 10/10/2026, sin aplicar todavía** (la sección «El programa
 > decidido», justo abajo, manda sobre el resto). Nada está prometido a nadie. El proyecto «Vender MaKo: Referidos» (P68) sigue

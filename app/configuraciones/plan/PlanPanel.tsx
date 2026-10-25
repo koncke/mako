@@ -96,8 +96,8 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         {!destacarEmpezar && filaEmpezar}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
-        {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y suma crédito (24/10: no «un mes»: nada lo consume todavía). */}
-        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma crédito." href="/partners/referidos" apilada />
+        {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
+        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
         {subir && puedeDarseDeBaja && (
           <FilaAjustes icono="subir" titulo={`Pasar a ${subir.nombre}`} detalle={`${subir.monto} por mes, sin topes. Lo tienes en el acto.`}
             onClick={corriendo ? undefined : () => setConfirmarSubida(true)} apilada />

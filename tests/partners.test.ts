@@ -1,6 +1,8 @@
 // =============================================================================
-// MaKo Partners: quién entra, qué se abre, y qué NO se promete (17/10/2026)
+// El panel de AGENCIA (antes «MaKo Partners»): quién entra, qué se abre, y qué NO se promete (17/10/2026)
 // =============================================================================
+// Desde el 25/10/2026 vive en /agency (app/agency/page.tsx) y en el teléfono en /m/agency: MaKo Partners es el programa de
+// referidos (tests/partners-para-clientes.test.ts), y una agencia no es un partner (Martín: «Ser Agencia es muy diferente»).
 // Martín: «diseña la tab de "MaKo Partners" con todo lo que habíamos dicho y planeado... Y ahí deberían vivir los
 // clientes de agencia, que no son los mismos que "client": podrían serlo como no... Eso se debe poder configurar en el
 // CRM». El diseño, en docs/diseno-clients.md (D7-D10). Lo que fija este archivo:
@@ -46,9 +48,9 @@ const cuerpo = (src: string, nombre: string) => {
 // ── 1. Quién entra ─────────────────────────────────────────────────────────────────
 
 test('la tab: el super admin sin cliente ve las agencias; el ADMIN de una agencia, su cartera; cualquier otro va a /clients', () => {
-  const page = leer('app/partners/page.tsx');
+  const page = leer('app/agency/page.tsx');
   assert.match(page, /await requireSesion\(\);/);
-  assert.match(page, /if \(esSuper && !\(await estaImpersonando\(\)\)\) \{[\s\S]*?<PartnersPlataforma/);
+  assert.match(page, /if \(esSuper && !\(await estaImpersonando\(\)\)\) \{[\s\S]*?<AgenciasDeLaPlataforma/);
   assert.match(page, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect\(await rutaConWs\('\/clients'\)\);/);
   // Los links de pago y la puerta a las cuentas: sólo el admin de la agencia (o el super admin), ANTES de leer nada.
   assert.match(page, /const admin = \(await adminDeWorkspaceActual\(\)\) != null;\s*if \(!admin && !esSuper\) redirect\(await rutaConWs\('\/clients'\)\);\s*[\s\S]*?await guardOnboarding\(\);[\s\S]*?cuentasDePartner/);
@@ -135,7 +137,7 @@ test('la API: ver y llevar, sin HTTP; llevar sólo el admin, confirmado por una 
 
 test('Program dice sólo lo que existe: el precio de la plataforma, el primer mes y la renovación; nada de premios', () => {
   const app = readFileSync(join(RAIZ, 'app/partners/PartnersApp.tsx'), 'utf8');
-  const programa = app.slice(app.indexOf('function Programa('), app.indexOf('export function PartnersPlataforma('));
+  const programa = app.slice(app.indexOf('function Programa('), app.indexOf('export function AgenciasDeLaPlataforma('));
   assert.match(programa, /const usd = precio\?\.usd \?\? 47;/, 'el precio sale de la plataforma (/admin/cobros), no del texto');
   // Los premios por referir (docs/referidos.md) están decididos y NO construidos: dibujarlos sería prometerlos (D7).
   assert.doesNotMatch(programa, /refer|gratis|saldo|comisi|descuento|ganas|premio/i);
@@ -153,16 +155,14 @@ test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no 
 
 // ── 6. El teléfono ───────────────────────────────────────────────────────────────
 test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la computadora', () => {
-  const pagina = leer('app/m/partners/page.tsx');
-  // Desde el 24/10/2026 la fila la ve el admin de cualquier negocio: quien no es agencia ve SU tablero de referidos
-  // (ReferidosM, los datos de `tableroDe` como /partners/referidos), no la cartera. Desde la noche del 24/10, recién
-  // después de unirse: antes, la landing (tests/partners-para-clientes.test.ts).
-  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const \[codigo, cobraEnLinea, plataforma\] = await Promise\.all\(\[\s*codigoSiExiste\(ws\)/, 'quien no es agencia: primero si se unió');
-  assert.match(pagina, /const tablero = await tableroDe\(ws\)\.catch\(\(\) => null\);\s*return \(\s*<PantallaM>\s*\{tablero \? <ReferidosM/, 'y después sus referidos');
-  assert.ok(pagina.indexOf('tableroDe(ws)') < pagina.indexOf('cuentasDePartner(ws)'), 'la cartera es sólo de la agencia');
-  assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?tableroDe/,
-    'sólo el admin, antes de leer los referidos o la cartera');
+  // Desde el 25/10/2026 la cartera de la agencia es /m/agency (app/m/agency/page.tsx), como /agency en la computadora;
+  // /m/partners es el programa de referidos de cualquier negocio (tests/partners-para-clientes.test.ts).
+  const pagina = leer('app/m/agency/page.tsx');
+  assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?cuentasDePartner/,
+    'sólo el admin, antes de leer la cartera');
+  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\.catch\(\(\) => false\)\)\) redirect\(await rutaConWs\('\/m\/partners'\)\);/, 'sólo una agencia del programa');
   assert.match(pagina, /cuentasDePartner\(ws\)/, 'la lista sale de lib/partners.ts, como en la computadora');
+  assert.doesNotMatch(leer('app/m/partners/page.tsx'), /cuentasDePartner|PartnersM/, 'la cartera salió de Partners');
   assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
   const app = leer('app/m/partners/PartnersM.tsx');
   assert.match(app, /llevarAPartnersAction\(/, 'abrir una cuenta es UNA implementación');
