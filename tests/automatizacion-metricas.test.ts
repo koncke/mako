@@ -130,7 +130,8 @@ test('7 · «Métricas» va al lado de la tuerca y reemplaza al lienzo; el edito
   for (const f of ['app/automations/SecuenciaPerfil.tsx', 'app/automations/MetricasAutomatizacion.tsx']) {
     assert.doesNotMatch(leer(f), /^import (?!type )[^\n]*from '@\/app\/dashboard\/EditorInforme'/m, `${f} importa el editor estático`);
   }
-  assert.match(leer('app/dashboard/EditorInforme.tsx'), /\{!compartido && !esAutomatizacion && <MakoEnLaTab /);
+  // (24/10/2026: la guarda se llama `conEstrella`; es la misma, y también decide si se arma lo que ve la estrella.)
+  assert.match(leer('app/dashboard/EditorInforme.tsx'), /const conEstrella = !compartido && !esAutomatizacion;[\s\S]*\{conEstrella && <MakoEnLaTab /);
 });
 
 test('8 · «Llevar al Dashboard» es la receta de `pegar_dashboard`: lo visible, una hoja nueva y compare-and-set', () => {

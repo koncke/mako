@@ -45,10 +45,18 @@
 // La ruta cuenta qué pasó con Meta (`EstadoMeta`) y `avisoSinResultados` lo pone en palabras: por nombre no se puede;
 // por @, Meta no muestra cuentas personales, o el negocio no tiene Meta conectado, o Meta no contestó.
 
-/** Qué pasó con Meta en una búsqueda: lo que la pantalla dice en vez de un «Sin resultados» que miente. */
-export type EstadoMeta = 'encontro' | 'no-esta' | 'sin-conexion' | 'sin-permiso' | 'no-pude';
+/**
+ * Qué pasó con Meta en una búsqueda: lo que la pantalla dice en vez de un «Sin resultados» que miente.
+ *
+ * ⚠️ `sin-instagram` (24/10/2026): EL NEGOCIO TIENE META CONECTADA, pero su página no devuelve una cuenta de Instagram
+ * profesional (no hay una vinculada, o el token no tiene `instagram_basic`: Meta no da error, omite el campo). Hasta acá eso
+ * era `sin-conexion`, y la pantalla pedía «Conectar Meta» a un negocio conectado. Martín, en la cuenta de Mauricio: «Me dice
+ * "conectar meta" cuando en la cuenta de mauricio ya lo tengo conectado, no tiene sentido». Medido ese día con su conexión
+ * (sólo lectura): token propio, la página «Mauricio Bustos Eguia», diez permisos y NINGUNO de Instagram.
+ */
+export type EstadoMeta = 'encontro' | 'no-esta' | 'sin-conexion' | 'sin-instagram' | 'sin-permiso' | 'no-pude';
 export const esEstadoMeta = (x: unknown): x is EstadoMeta =>
-  x === 'encontro' || x === 'no-esta' || x === 'sin-conexion' || x === 'sin-permiso' || x === 'no-pude';
+  x === 'encontro' || x === 'no-esta' || x === 'sin-conexion' || x === 'sin-instagram' || x === 'sin-permiso' || x === 'no-pude';
 
 /**
  * La frase de la lista cuando no hay resultados. `esUsuario` = lo escrito es un @ (sin espacios); `porNombre` = una
@@ -60,6 +68,7 @@ export function avisoSinResultados(p: { esUsuario: boolean; meta: EstadoMeta | n
   // 22/10/2026: la fila lleva al lado el botón «Conectar Meta» (`pideConectarMeta`): la frase dice POR QUÉ, no repite
   // la orden del botón. Antes decía «Conecta Meta para ver su cuenta» y no había con qué.
   if (p.meta === 'sin-conexion') return 'Su cuenta se busca con tu Meta';
+  if (p.meta === 'sin-instagram') return 'Tu Meta no tiene Instagram vinculado';
   if (p.meta === 'sin-permiso') return 'Meta no da permiso: revisa la conexión';
   if (p.meta === 'no-pude') return 'Meta no contestó';
   if (p.meta === 'no-esta') return 'Meta no la muestra: es personal o no existe';
@@ -74,18 +83,25 @@ export function avisoSinResultados(p: { esUsuario: boolean; meta: EstadoMeta | n
 // (AGENTS.md). La fila de la lista sin resultados lleva el mismo botón. «Usar @x» a mano sigue.
 
 /** Si el negocio puede buscar en Meta: lo que contesta `?estado=1` de la ruta, sin buscar ningún perfil. */
-export type ConexionMeta = 'conectado' | 'sin-conexion' | 'sin-permiso' | 'no-pude';
+export type ConexionMeta = 'conectado' | 'sin-conexion' | 'sin-instagram' | 'sin-permiso' | 'no-pude';
 export const esConexionMeta = (x: unknown): x is ConexionMeta =>
-  x === 'conectado' || x === 'sin-conexion' || x === 'sin-permiso' || x === 'no-pude';
+  x === 'conectado' || x === 'sin-conexion' || x === 'sin-instagram' || x === 'sin-permiso' || x === 'no-pude';
 
 /**
- * ¿Va «Conectar Meta»? Sólo sin conexión (el negocio sin token, o su página sin Instagram profesional): es lo que se
- * arregla conectando. Sin permiso o sin respuesta de Meta, ofrecer «Conectar» sería mandar a conectar lo conectado.
+ * ¿Va «Conectar Meta»? Sólo sin conexión (el negocio sin token): es lo que se arregla conectando. Con Meta conectada pero
+ * sin Instagram (`sin-instagram`), sin permiso o sin respuesta de Meta, ofrecer «Conectar» sería mandar a conectar lo
+ * conectado (24/10/2026: «Me dice "conectar meta" cuando en la cuenta de mauricio ya lo tengo conectado»).
  */
 export const pideConectarMeta = (estado: ConexionMeta | EstadoMeta | null): boolean => estado === 'sin-conexion';
 
 /** La línea de debajo del campo cuando el negocio no puede buscar en Meta: el porqué; el botón dice qué hacer. */
 export const AVISO_SIN_META = 'Las cuentas se buscan con tu Meta';
+/**
+ * La línea de debajo del campo con Meta conectada pero sin Instagram (24/10/2026): sin botón, porque no se arregla
+ * conectando (se arregla en Meta: vincular el Instagram a la página y darle al token el permiso de Instagram). El @ exacto
+ * se sigue pudiendo usar («Usar @x»).
+ */
+export const AVISO_SIN_INSTAGRAM = 'Tu Meta no tiene Instagram vinculado: escribe el @ exacto';
 
 // ── `fresco`: olvidar la caché de la conexión, con tope (23/10/2026, revisión de Integración) ──────────────────
 // `?estado=1&fresco=1` hace que la ruta le vuelva a preguntar a Meta por la cuenta de la página. Lo manda SÓLO el

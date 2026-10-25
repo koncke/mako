@@ -32,6 +32,7 @@ import type { EntradaMenuContextual, ItemMenuContextual } from '@/app/_ui/MenuCo
 import type { NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { ICONO_FUNNEL } from '@/app/_ui/icono-funnel';
 import { NOMBRE_TIPO_ETAPA, TIPOS_ETAPA, type TipoEtapa } from '@/lib/etapa-reunion';
+import { ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
 
 export type IdOpcionCrm =
   // un lead
@@ -47,10 +48,10 @@ export type IdOpcionCrm =
   // la selección (las de app/crm/AccionesLoteLeads.tsx)
   | 'lote_etapa' | 'lote_etiqueta' | 'lote_closer' | 'lote_setter' | 'lote_funnel' | 'lote_frenar' | 'lote_limpiar' | 'lote_eliminar'
   // una columna (las del «⋯» de su cabecera; «Nuevo lead» vive ahí desde el 21/10/2026)
-  | 'col_nuevo_lead' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
+  | 'col_nuevo_lead' | 'col_ordenar' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
   // el fondo (las del «⋯» de la barra)
-  | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
+  | 'nuevo_lead' | 'importar' | 'buscar_prospectos' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
 
 /** Dónde cayó el clic y qué se sabe ahí. Lo arma la pantalla; acá no se lee el DOM. */
 export type ContextoCrm =
@@ -119,27 +120,32 @@ function compactar(xs: ReadonlyArray<IdOpcionCrm | null>): Array<IdOpcionCrm | n
 /** Las opciones, en orden. `null` = un separador. Vacío = no hay menú propio (sale el del navegador). */
 export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
   if (c.sobre === 'fondo') {
-    return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
+    // El MISMO orden que el «⋯» de la barra (`AccionesHeader`): lo que trae leads, lo que los saca, y la configuración.
+    return compactar(['nuevo_lead', null, 'importar', 'buscar_prospectos', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
   }
   if (c.sobre === 'columna') {
     // ⚠️ POR SECCIONES (22/10/2026, Martín: «Ordena las opciones del desplegable de los 3 puntos... Ya no se entienden si
     // son tantas, ponlas en secciones»). Es el MISMO menú en el «⋯» y en el clic derecho: el «⋯» abre esta lista. Los
     // títulos los pone `SECCION_COLUMNA` (en `itemsCrm`), así que entre secciones no va `null`: la raya la pone el título.
-    //   · Columnas: las flechas PRIMERO («debería estar primero de todos ese botón», Martín, 30/09/2026), en UNA línea
-    //     (`EN_LINEA`), y «Agregar etapa», que también cambia las columnas.
-    //   · Leads: lo que entra a la columna.
+    // ⚠️ EL ORDEN ES EL DEL 24/10/2026. Martín, textual: «En los 3 puntos de cada columna, lo primero debe ser nuevo lead. Y
+    // el editor de columnas abajo del todo, claro que eliminar siempre por ultimo. Y que no diga "Cambiar EL nombre", solo
+    // "Cambiar nombre". Y ahí pon la opción de "ordenar"». Hasta ahí las flechas iban PRIMERO (30/09/2026: «debería estar
+    // primero de todos ese botón»); el pedido nuevo lo da vuelta.
+    //   · Leads: «Nuevo lead» primero, «Ordenar ›» (lo de esta columna, app/crm/orden-kanban.ts) y las campañas que entran.
     //   · Etapa: lo de ESTA etapa (su nombre, su tipo, su evento, su cobro, el curso al ganar).
+    //   · Columnas, abajo del todo: las flechas en UNA línea (`EN_LINEA`) y «Agregar etapa», que también cambia las columnas.
     //   · «Eliminar etapa», sola al final y en rojo.
     return compactar([
-      ...(c.mover ? ['col_izquierda', 'col_derecha'] as const : []),
-      'col_agregar',
       'col_nuevo_lead',
+      'col_ordenar',
       ...(c.entrada ? ['col_campanas' as const] : []),
       'col_renombrar',
       ...(c.tipo ? ['col_tipo' as const] : []),
       ...(c.reunion ? ['col_evento' as const] : []),
       ...(c.ganado ? ['col_cobro' as const] : []),
       ...(c.curso === null ? [] : [c.curso ? 'col_curso_apagar' as const : 'col_curso_prender' as const]),
+      ...(c.mover ? ['col_izquierda', 'col_derecha'] as const : []),
+      'col_agregar',
       null,
       ...(c.borrable ? ['col_eliminar' as const] : []),
     ]);
@@ -157,8 +163,10 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
       'lote_eliminar',
     ]);
   }
+  // «Seleccionar» va con abrir y mover (24/10/2026, Martín: «revisa el orden y los botones de los desplegables, tal vez sobran
+  // botones o estan desordenados»): solo entre dos rayas era un grupo de un renglón.
   return compactar([
-    'abrir', ...(c.queHacer ? ['que_hacer' as const] : []), 'mover_etapa',
+    'abrir', ...(c.queHacer ? ['que_hacer' as const] : []), 'mover_etapa', c.seleccionado ? 'quitar_seleccion' : 'seleccionar',
     null,
     ...(c.conWhatsapp ? ['whatsapp' as const] : []),
     ...(c.conTelefono ? ['copiar_telefono' as const] : []),
@@ -172,8 +180,6 @@ export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
     null,
     ...(c.enAutomatizacion ? ['frenar_automatizacion' as const] : []),
     null,
-    c.seleccionado ? 'quitar_seleccion' : 'seleccionar',
-    null,
     'eliminar',
   ]);
 }
@@ -184,12 +190,17 @@ export const AVISO_VINCULO = { evento: 'Sin evento vinculado', cobro: 'Sin cobro
 /** El título de la sección de cada opción de una columna (22/10/2026). «Eliminar etapa» no lleva: va sola, separada. */
 export const SECCION_COLUMNA: Partial<Record<IdOpcionCrm, string>> = {
   col_izquierda: 'Columnas', col_derecha: 'Columnas', col_agregar: 'Columnas',
-  col_nuevo_lead: 'Leads', col_campanas: 'Leads',
+  col_nuevo_lead: 'Leads', col_ordenar: 'Leads', col_campanas: 'Leads',
   col_renombrar: 'Etapa', col_tipo: 'Etapa', col_evento: 'Etapa', col_cobro: 'Etapa', col_curso_prender: 'Etapa', col_curso_apagar: 'Etapa',
 };
 
 /** El ícono de cada tipo de etapa (el submenú de «Tipo de etapa» y su pop-up). */
 export const ICONO_TIPO_ETAPA: Readonly<Record<TipoEtapa, NombreIconoMenu>> = { etapa: 'etapa', reunion: 'evento', nutricion: 'repetir' };
+
+/** El ícono de cada criterio de «Ordenar ›». */
+export const ICONO_ORDEN: Readonly<Record<OrdenKanban, NombreIconoMenu>> = {
+  manual: 'mover', llegada: 'arriba', antiguos: 'abajo', nombre: 'texto', respondio: 'check', monto: 'dinero', reunion: 'evento', vence: 'cronometro',
+};
 
 /** Las que van JUNTAS en una línea de botones sin rótulo (las flechas de la columna). */
 export const EN_LINEA: ReadonlyArray<readonly [IdOpcionCrm, IdOpcionCrm]> = [['col_izquierda', 'col_derecha']];
@@ -218,10 +229,11 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   lote_closer: { texto: 'Asignar closer', icono: 'persona' },
   lote_setter: { texto: 'Asignar setter', icono: 'persona' },
   lote_funnel: { texto: 'Agregar a un funnel', icono: ICONO_FUNNEL },
-  lote_limpiar: { texto: 'Quitar la selección', icono: 'quitar' },
+  lote_limpiar: { texto: 'Quitar selección', icono: 'quitar' },
   lote_frenar: { texto: 'Frenar automatización', icono: 'pausar', peligro: true },
   lote_eliminar: { texto: 'Eliminar', icono: 'borrar', peligro: true },
   col_nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
+  col_ordenar: { texto: 'Ordenar', icono: 'ordenar' },
   col_izquierda: { texto: 'Mover a la izquierda', icono: 'mover' },
   col_derecha: { texto: 'Mover a la derecha', icono: 'mover' },
   // «Asignar campañas» desde el 16/10/2026, como el «⋯» (que lleva el logo de Meta; acá van sólo los íconos de la casa).
@@ -232,13 +244,14 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_tipo: { texto: 'Tipo de etapa', icono: 'etapa' },
   col_curso_prender: { texto: 'Invitar al curso al ganar', icono: 'curso' },
   col_curso_apagar: { texto: 'Dejar de invitar al curso', icono: 'curso' },
-  col_renombrar: { texto: 'Cambiar el nombre', icono: 'renombrar' },
+  col_renombrar: { texto: 'Cambiar nombre', icono: 'renombrar' },
   col_agregar: { texto: 'Agregar etapa', icono: 'agregar' },
   col_eliminar: { texto: 'Eliminar etapa', icono: 'borrar', peligro: true },
   nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   importar: { texto: 'Importar leads', icono: 'subir' },
+  buscar_prospectos: { texto: 'Buscar prospectos', icono: 'buscar' },
   exportar: { texto: 'Exportar leads', icono: 'descargar' },
-  editar_etapas: { texto: 'Editar las etapas', icono: 'etapa' },
+  editar_etapas: { texto: 'Editar etapas', icono: 'etapa' },
   personalizar_tarjetas: { texto: 'Personalizar tarjetas', icono: 'configurar' },
 };
 
@@ -273,6 +286,8 @@ export type DatosMenuCrm = {
   logoMeta?: ReactElement;
   /** El tipo de la columna HOY (22/10/2026): «Tipo de etapa ›» abre los tres, con el actual tildado, y se cambia ahí. */
   tipoActual?: TipoEtapa | null;
+  /** «Ordenar ›» de la columna (24/10/2026): los criterios que tiene con qué (`ordenesDeColumna`) y el de hoy, tildado. */
+  orden?: { opciones: ReadonlyArray<OrdenKanban>; actual: OrdenKanban };
   /** Las flechas de la columna: hacia dónde se puede ir, y con qué dibujo (el mismo del «⋯»). */
   flechas?: { izquierda: boolean; derecha: boolean; iconoIzquierda?: ReactElement; iconoDerecha?: ReactElement };
 };
@@ -311,6 +326,10 @@ function conDatos(id: IdOpcionCrm, d: DatosMenuCrm): ItemMenuContextual {
         ...base,
         hijos: TIPOS_ETAPA.map((t) => ({ id: t, label: NOMBRE_TIPO_ETAPA[t], icono: ICONO_TIPO_ETAPA[t], marcado: t === d.tipoActual })),
       } : base;
+    case 'col_ordenar': {
+      const o = d.orden;
+      return o ? { ...base, hijos: o.opciones.map((x) => ({ id: x, label: ORDEN_KANBAN[x], icono: ICONO_ORDEN[x], marcado: x === o.actual })) } : base;
+    }
     case 'col_izquierda':
       return { ...base, ...(d.flechas?.iconoIzquierda ? { icono: d.flechas.iconoIzquierda } : {}), deshabilitado: d.flechas ? !d.flechas.izquierda : false };
     case 'col_derecha':

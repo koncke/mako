@@ -199,6 +199,12 @@ export async function insistirAlertasCriticas(
     if (!esCritico(inc)) continue;
     out.criticos += 1;
     if (cuentaTomada) continue;
+    // ⚠️ LA CUENTA QUEDA TOMADA AUNQUE A ESTE WORKSPACE NO LE TOQUE AVISAR TODAVÍA (24/10/2026). Se marcaba sólo en la vuelta
+    // en que éste emitía: en las otras cinco de la hora (el cron corre cada 10 min, la cadencia es de 60), el siguiente
+    // workspace de la misma cuenta la veía libre y avisaba con SU reloj. Medido en producción: Mauricio (ws1) y «Cliente de
+    // Diseño» (ws4), la misma cuenta impaga, emitían cada hora con media hora de diferencia. No llegaba doble sólo porque
+    // ws4 no tiene grupo.
+    if (cuentaId) yaAvisadas?.add(cuentaId);
     try {
       const key = keyInsistencia(inc.id);
       const raw = await getSetting(key).catch(() => null);
@@ -230,11 +236,8 @@ export async function insistirAlertasCriticas(
       const marca = marcaTrasEmitir(estado, inc.status_label, res, new Date().toISOString());
       if (marca) {
         await setSetting(key, JSON.stringify(marca)).catch(() => {});
-        // La cuenta queda tomada por ESTA corrida: el próximo workspace que
-        // apunte a la misma no vuelve a avisar. Se marca también cuando el aviso
-        // está apagado: que otro workspace lo grite por la misma cuenta es
-        // exactamente lo que se apagó.
-        if (cuentaId) yaAvisadas?.add(cuentaId);
+        // La cuenta ya quedó tomada arriba, también cuando el aviso está apagado o llegó al techo: que otro workspace lo
+        // grite por la misma cuenta es exactamente lo que se apagó.
         if (marca.veces > veces) out.avisados += 1;
       } else {
         out.errores += 1;

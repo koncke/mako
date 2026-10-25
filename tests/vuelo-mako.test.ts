@@ -13,6 +13,9 @@
 // ROTURAS (23/10/2026, una por vez y restaurada; base 6 / 0): el último cuadro sin fundirse → 5 / 1; `casaVisible` sin saltear
 // lo que está adentro del loader → 5 / 1; `motivoSinVuelo` sin el chequeo de movimiento reducido → 5 / 1; la copia sin
 // `pointer-events:none` → 5 / 1; EntradaOps con su propio `.animate(` → 5 / 1.
+// 24/10/2026 (claude5): el lugar del chat de Automations se mira en la cabecera única (el test seguía buscando la criatura en
+// ChatMako.tsx, de donde se fue con el chat único: rojo en main sin que nada se rompiera en pantalla). ROTURAS: la criatura
+// de ChatMako como «Mako» → 5 / 1; ChatMako pasándole `onMuneco` → 5 / 1; PanelChat sin `role="img"` → 5 / 1.
 // Correr: node --import tsx --test tests/vuelo-mako.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -93,7 +96,13 @@ test('los lugares de la lista existen donde viven (si uno se renombra, la criatu
   assert.match(leer('app/second-brain/EntradaOps.tsx'), /export const DESTINO_ENTRADA_OPS = '\.co-cab__muneco';/);
   assert.match(leer('app/_chat/MakoEnLaTab.tsx'), /<button type="button" className="ch-tab-mako"/);
   assert.match(leer('app/automations/SecuenciaPerfil.tsx'), /data-chat-sidebar=""/);
-  assert.match(leer('app/automations/ChatMako.tsx'), /<span role="img" aria-label="MaKo"[^>]*><Muneco titulo="MaKo"/);
+  // El chat de Automations: desde el chat único (d85c86611, 23/10/2026: «Tienes que UNIFICAR los chats con MaKo») la criatura
+  // no la dibuja ChatMako sino la cabecera única del Ops Center (PanelChat.tsx), adentro de `[data-chat-sidebar]`. ChatMako
+  // le pasa «MaKo» y NO le pasa `onMuneco`: con él sería el botón de «Cambiar la criatura», sin `role="img"` ni «MaKo».
+  const cabeceraAut = sinComentarios(leer('app/automations/ChatMako.tsx')).match(/const cabecera: CabeceraChat = \{[\s\S]*?\n  \};/)?.[0] ?? '';
+  assert.match(cabeceraAut, /criatura: 'MaKo'/);
+  assert.doesNotMatch(cabeceraAut, /onMuneco/);
+  assert.match(leer('app/admin/operaciones/PanelChat.tsx'), /: <span className="co-cab__muneco" role="img" aria-label=\{deCriatura\}>\{criatura\}<\/span>\}/);
   assert.match(leer('app/m/_ui/ShellM.tsx'), /const DESTINO_ENTRADA = 'data-mako-foto-barra';/);
 });
 

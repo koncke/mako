@@ -57,6 +57,19 @@ export async function codigoDe(ws: number): Promise<string | null> {
   return null;
 }
 
+/**
+ * ¿El negocio ya se unió a MaKo Partners? (24/10/2026, Martín: «La pagina de MaKo Partners DEBE ser siempre la landing al
+ * menos que el usuario ya se haya registrado como partner, solo cuando se registre ahi aparece el dashboard»). Unirse ES
+ * tener código: lo crea `codigoDe` cuando el admin toca «Unirme» (antes nacía con sólo abrir el tablero). Esto SÓLO lee:
+ * nunca crea. null = todavía no se unió; si no se puede leer, tira (la página muestra la landing, y unirse otra vez no
+ * duplica nada: `codigoDe` devuelve el que ya tiene).
+ */
+export async function codigoSiExiste(ws: number): Promise<string | null> {
+  const { data, error } = await getSupabaseServer().from('partner_codigos').select('codigo').eq('workspace_id', ws).maybeSingle();
+  if (error) throw new Error(`No pude leer el código del negocio ${ws}: ${error.message}`);
+  return data ? (data as { codigo: string }).codigo : null;
+}
+
 /** El negocio dueño de un código. */
 async function wsDelCodigo(codigo: string): Promise<number | null> {
   const { data } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();

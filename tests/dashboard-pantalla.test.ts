@@ -392,7 +392,7 @@ test('el panel de propiedades flota del lado opuesto a lo elegido, y el lado se 
   assert.match(escritorio, /\.lk-props\[data-lado="izq"\] \{[^}]*left: 12px/);
   assert.match(EDITOR, /<aside className="lk-props" data-lado=\{lado\.lado\}/);
   // El lado se recalcula sólo cuando cambia LO ELEGIDO (la clave), no cuando cambia su posición.
-  assert.match(EDITOR, /if \(lado\.clave !== claveSel\) setLado\(\{ clave: claveSel, lado: ladoDelPanel\(sel, analista\) \}\);/);
+  assert.match(EDITOR, /if \(lado\.clave !== claveSel\) setLado\(\{ clave: claveSel, lado: ladoDelPanel\(sel\) \}\);/);
   const clave = EDITOR.match(/const claveSel = [^\n]*/)?.[0] ?? '';
   assert.doesNotMatch(clave, /\.x\b|\.w\b/, 'la clave del lado mira la posición: el panel saltaría mientras se arrastra');
 });
@@ -457,26 +457,19 @@ test('las hojas: sin pestañas ni ícono, el menú de cada hoja también mirando
   assert.doesNotMatch(EDITOR, /router\.(replace|push)\(/);
 });
 
-test('el AI Analyst es un panel del costado: va en la fila del lienzo (no al final, como un modal) y mira la vista', () => {
-  // `PanelAnalista` dibuja un `aside` de alto completo y ancho fijo (app/dashboard/PanelAnalista.tsx):
-  // montado al final de la pantalla quedaba como una franja debajo del lienzo, sin un error.
+test('sin AI Analyst (24/10/2026): ni en la fila del lienzo ni en el ⋮; el marco `.an` sigue, es el de «Editar con MaKo»', () => {
+  // Martín, a «¿Sacamos también "Analizar con MaKo" del menú de los 3 puntos?»: «Sí, y que la criatura vea la hoja». Lo de
+  // analizar es de la estrella de la tab, con la hoja en pantalla (tests/dashboard-estrella-grafico.test.ts).
   const vuelta = EDITOR.slice(EDITOR.indexOf('return (\n    <div className={`lk lk-app'));
-  const iCuerpo = vuelta.indexOf('<div className="lk-cuerpo">');
-  const iPanel = vuelta.indexOf('<PanelAnalista ');
-  // El primero de los menús flotantes (el `aria-expanded` del botón de la barra dice lo mismo sin el `||`).
-  const iMenus = vuelta.indexOf("{menu?.tipo === 'graficos' || menu?.tipo === 'cambiarTipo'");
-  assert.ok(iCuerpo > 0 && iMenus > 0, 'no encuentro el cuerpo o los menús: ¿se movieron?');
-  assert.ok(iCuerpo < iPanel && iPanel < iMenus, 'el AI Analyst salió de la fila del lienzo');
-  assert.equal((vuelta.match(/<PanelAnalista /g) ?? []).length, 1);
-  assert.match(vuelta, /<PanelAnalista [^>]*vista=\{vista\}/, 'el análisis a mano miraría lo guardado y no lo que la persona eligió');
-  // Desde la tanda de la topbar (punto 4) se abre desde el ⋮, con el logo chico y el punto de «análisis
-  // nuevo» (que también va en el ⋮). Al closer y a un link, ni la opción ni la pregunta al server.
+  assert.ok(vuelta.includes('<div className="lk-cuerpo">'), 'no encuentro el cuerpo: ¿se movió?');
+  assert.doesNotMatch(vuelta, /<PanelAnalista /, 'volvió el AI Analyst a la fila del lienzo');
   const mas = bloque(vuelta, "{menu?.tipo === 'mas' && (", '</Flotante>');
-  assert.match(mas, /\{!soloMirar && \(\s*<>\s*<button type="button" role="menuitem" className="lk-opcion lk-opcion--mako"[^>]*onClick=\{alternarAnalista\}/);
-  assert.match(mas, /<LogoMako /);
-  assert.match(EDITOR, /const analisisNuevo = useAnalisisNuevo\(hoja\.id, analista, !soloMirar\);/);
-  // En la compu es una COLUMNA de esa fila (el lienzo se achica): fixed tapaba la cuarta columna de
-  // tarjetas (medido en Chrome el 11/10/2026). Fixed sólo en el celular, donde al lado no entra.
+  assert.ok(mas.length > 0, 'no encuentro el ⋮');
+  assert.doesNotMatch(mas, /AI Analyst|alternarAnalista/, 'volvió el AI Analyst al ⋮');
+  assert.doesNotMatch(EDITOR, /useAnalisisNuevo\(/, 'volvió el punto de «análisis nuevo» de un análisis que ya no se pide');
+  // El marco es el de «Editar con MaKo» (CSS_PANEL_LATERAL sigue en PanelAnalista.tsx). En la compu es una COLUMNA de esa
+  // fila (el lienzo se achica): fixed tapaba la cuarta columna de tarjetas (medido en Chrome el 11/10/2026). Fixed sólo en
+  // el celular, donde al lado no entra.
   const css = leer('app/dashboard/PanelAnalista.tsx');
   const reglaAn = css.match(/\n\.an \{[^}]*\}/)?.[0] ?? '';
   assert.ok(reglaAn, 'no encontré la regla .an');

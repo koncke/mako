@@ -388,7 +388,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '24 oct', hora: '02:05', chat: 'IA del cliente', cuenta: 'claude1',
+    fecha: '24 oct', hora: '02:05', chat: 'IA del cliente', sesion: 'local_c1822d8c-307c-4641-94cf-cc28c27b7896', cuenta: 'claude1',
     actor: 'claude', tipo: 'investigacion',
     titulo: 'Gemini en la PC no se puede con la cuenta del dueño, y la traba de GPT es su login',
     puntos: [
@@ -399,7 +399,7 @@ export const BITACORA: Hito[] = [
     archivos: ['docs/hallazgos-ia.md — «Gemini en la PC: no»'],
   },
   {
-    fecha: '24 oct', hora: '02:00', chat: 'IA del cliente', cuenta: 'claude1',
+    fecha: '24 oct', hora: '02:00', chat: 'IA del cliente', sesion: 'local_c1822d8c-307c-4641-94cf-cc28c27b7896', cuenta: 'claude1',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'La PC que no contesta deja tiempo para su clave',
     puntos: [

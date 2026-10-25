@@ -114,7 +114,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   textoInicial?: string;
   /**
    * #862: pasar al otro modo del MISMO MaKo (./ModosMako.tsx). Con esto la cabecera dice «Analizar · Editar» y un análisis
-   * pedido acá ofrece «Analizar la hoja». Sin esto (quien no tiene AI Analyst), la cabecera es el título de siempre.
+   * pedido acá ofrece «Analizar la hoja». Sin esto, la cabecera es el título de siempre. ⚠️ Desde el 24/10/2026 el Dashboard
+   * no lo pasa: el AI Analyst salió y lo de analizar es de la estrella de la tab (que ve la hoja).
    */
   onModo?: (m: ModoMako) => void;
 }) {

@@ -24,13 +24,15 @@ import { OPCION_FICHA, menuPropioEn, opcionesFicha, type IdOpcionFicha } from '.
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const todo = { conTelefono: true, conEmail: true, conHistorial: true, puedeEditar: true, partners: 'llevar' as const };
 
-test('qué ofrece el clic derecho de la ficha, según lo que el lead tiene', () => {
+// ⚠️ EN ESTE ORDEN DESDE EL 24/10/2026: el «⋯» de al lado de «Editar» abre este mismo menú (Martín: «ese desplegable de
+//    los 3 puntos tambien esta desordenado»), por secciones (tests/ficha-ver-mas.test.ts las dibuja).
+test('qué ofrece el clic derecho (y el «⋯») de la ficha, según lo que el lead tiene', () => {
   assert.deepEqual(opcionesFicha(todo), [
-    'whatsapp', 'copiar_telefono', 'copiar_email', 'copiar_link', null, 'analyst', null, 'exportar_csv', 'exportar_pdf',
-    null, 'historial', 'guia', null, 'partners_llevar',
+    'analyst', 'whatsapp', 'copiar_telefono', 'copiar_email', 'partners_llevar', 'copiar_link', 'exportar_csv', 'exportar_pdf',
+    'historial', 'guia',
   ]);
   const minimo = opcionesFicha({ conTelefono: false, conEmail: false, conHistorial: false, puedeEditar: false, partners: null });
-  assert.deepEqual(minimo, ['copiar_link', null, 'analyst', null, 'exportar_csv', 'exportar_pdf'], 'sin teléfono no hay WhatsApp, y sin separadores colgando');
+  assert.deepEqual(minimo, ['analyst', 'copiar_link', 'exportar_csv', 'exportar_pdf'], 'sin teléfono no hay WhatsApp, y sin separadores colgando');
   assert.ok(opcionesFicha({ ...todo, partners: 'ver' }).includes('partners_ver'));
 });
 

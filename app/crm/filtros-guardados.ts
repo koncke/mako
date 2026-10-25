@@ -15,7 +15,7 @@
 // elegida el tablero quedaría vacío sin ninguna casilla para destildarla).
 // =============================================================================
 
-export type OrdenGuardado = 'manual' | 'llegada';
+import { esOrdenKanban, type OrdenKanban } from './orden-kanban';
 
 /**
  * Las tres bandas del Kanban (Activo · Nutrición · Descartado), en el orden en que se dibujan.
@@ -30,8 +30,12 @@ export type FiltrosGuardados = {
   origenes: string[];
   campanas: string[];
   anuncios: string[];
-  /** El «Ordenar» que la persona eligió; null = el de base del embudo. */
-  orden: OrdenGuardado | null;
+  /**
+   * El «Ordenar» que la persona eligió en cada COLUMNA (etapa → criterio). Sin una etapa = la base de esa columna.
+   * Desde el 24/10/2026 vive en el «⋯» de cada columna (app/crm/orden-kanban.ts); hasta ahí era UNO para todo el embudo
+   * (`orden`), y lo guardado así se sigue leyendo: «Fecha de llegada» elegida vale para todas las columnas.
+   */
+  ordenes: Record<string, OrdenKanban>;
   /**
    * Las bandas del Kanban que la persona APAGÓ desde «Filtrar › Mostrar». Vacío = las tres a la
    * vista, que es el default.
@@ -50,7 +54,7 @@ export type FiltrosGuardados = {
   ocultas: BandaKanban[];
 };
 
-export const SIN_FILTROS: FiltrosGuardados = { etapas: [], origenes: [], campanas: [], anuncios: [], orden: null, ocultas: [] };
+export const SIN_FILTROS: FiltrosGuardados = { etapas: [], origenes: [], campanas: [], anuncios: [], ordenes: {}, ocultas: [] };
 
 /** Las bandas apagadas, saneadas: sólo las que existen, sin repetir, y nunca las tres (el tablero
  *  quedaría sin una columna y nada en pantalla diría por qué: con las tres, se prenden todas). */
@@ -79,9 +83,24 @@ export function leerFiltros(texto: string | null, etapasValidas: Set<string>): F
     origenes: textos(o.origenes),
     campanas: textos(o.campanas),
     anuncios: textos(o.anuncios),
-    orden: o.orden === 'manual' || o.orden === 'llegada' ? o.orden : null,
+    ordenes: ordenesGuardados(o.ordenes, o.orden, etapasValidas),
     ocultas: bandasOcultas(o.ocultas),
   };
+}
+
+/**
+ * Los órdenes por columna, saneados: sólo etapas que existen y criterios que existen. Sin `ordenes` (lo guardado antes del
+ * 24/10/2026) el `orden` viejo valía para todo el embudo: «Fecha de llegada» se lleva a cada columna; «Manual» era la
+ * base de un embudo con algo arrastrado, y la base ya es «Manual» en cada columna que lo tiene.
+ */
+function ordenesGuardados(v: unknown, viejo: unknown, etapasValidas: Set<string>): Record<string, OrdenKanban> {
+  const out: Record<string, OrdenKanban> = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const [k, o] of Object.entries(v as Record<string, unknown>)) if (etapasValidas.has(k) && esOrdenKanban(o)) out[k] = o;
+    return out;
+  }
+  if (viejo === 'llegada') for (const k of etapasValidas) out[k] = 'llegada';
+  return out;
 }
 
 export function escribirFiltros(f: FiltrosGuardados): string {

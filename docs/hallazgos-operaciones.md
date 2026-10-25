@@ -79,6 +79,31 @@ del código.
 `app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`
 (`appDeEscritorio`) · `tests/app-de-escritorio-todos-los-chats.test.ts`
 
+## La cuenta 5 («Ananda») arranca en 10 minutos, y lo que la otra dejó se verifica con git (24/10/2026)
+
+**Vive en:** `~/.claude/operaciones/cartero.mjs` (`cartero`, `carpeta`) · `C:/dev/cerebro-herramientas/listar.cjs` ·
+`app/admin/dev/_registro/tipos.ts` (`CUENTAS`) · docs/relevo/cerebro.md
+
+- **Una cuenta recién comprada NO tiene el modo bypass** («not enabled for this account in Settings»). El Runner no se
+  pudo abrir en bypass, y subir el Cerebro tampoco. Lo que no se ve: la sesión YA estaba en **auto** aunque `get_session`
+  dijera «default», y con `permission_mode: 'auto'` el Runner y los cinco chats arrancaron sin trabas. Prender el bypass es
+  un ajuste de Martín en los Settings de esa cuenta.
+- **El relevo para la cuenta nueva no estaba en main:** vivía en tres commits de docs de la rama `tren-j` de
+  `C:/dev/wt-push-q`, sin subir (el push del Cerebro de claude1 de las 20:10 no corrió el typecheck por RAM y nadie lo
+  volvió a intentar). Sin mirar ese worktree, la cuenta nueva habría arrancado con el relevo del 23/10.
+- **La verificación con git valió la pena:** 8 lectores (uno por chat de claude1 más el Cerebro) en 18 minutos encontraron
+  4 puntas listas y sin subir (docs del CRM, docs de Landings, el script del goteo y la guarda del Ops Center), 6 pedidos
+  de Martín que le habían llegado a un Cerebro CERRADO de la cuenta 2 y nadie ejecutó, una cosecha equivocada que el relevo
+  repetía (la de Vercel: docs/hallazgos-infra.md) y las 11 capturas de los 24 puntos, que sólo vivían en el transcript.
+- **El diagnóstico obvio era el equivocado:** un lector reportó «18.892 archivos borrados en el índice» en dos worktrees
+  nuevos y recomendó un `git reset`. Era una foto a mitad del `git worktree add` (el índice todavía vacío); un minuto
+  después estaban sanos. Antes de alarmar a un chat por su árbol, se vuelve a medir.
+- **Sumar una cuenta son cinco lugares:** el marcador y `cuentas.tsv`, el cartero (`cartero <cuenta> app ~/.claude` +
+  `carpeta <uuid> <cuenta>`), `listar.cjs`, `CUENTAS` de `/admin/dev` (sin la fila un hito firmado por ella rompe la
+  pantalla) y el panel Uso del Ops Center (quedó para el chat Ops Center).
+
+---
+
 ## El cartel de la app de escritorio, en el lugar de la caja (24/10/2026)
 
 - **Síntoma** (Martín): «te había pedido que si no se tiene descargado la app desktop no te deje enviar mensajes y salga el cartel

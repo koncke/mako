@@ -1084,4 +1084,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/customer-success',
   },
+  {
+    fecha: '24 oct', hora: '21:13', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo Partners: siempre la landing hasta registrarse, más marketinera y con calculadora',
+    pedido: 'La pagina de MaKo Partners DEBE ser siempre la landing al menos que el usuario ya se haya registrado como partner, solo cuando se registre ahi aparece el dashboard... Pero mejora ampliamente la pagina de partner, hazla mas marketinera, busca referencias de como lo hacen otras apps... No me da claridad en lo que ganan, esta todo muy amontonado, no se sabe si se ganan meses o dinero... Falta algo como "Calculadora" para que calculen cuanto podrían ganar si refieren a X personas, en fin, que este muy buena esa pagina, revisa como lo hacen otros...',
+    puntos: [
+      'Punto 1 de «Partners y Planes» de docs/feedback-24-10.md.',
+    ],
+    revisar: '/partners',
+  },
+  {
+    fecha: '24 oct', hora: '21:13', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo Partners: la landing hasta unirse, con la calculadora y claro que se gana crédito, no dinero',
+    puntos: [
+      'La tab de MaKo Partners muestra la landing hasta que el admin toca «Unirme a MaKo Partners»; ahí aparecen su link y su panel. En la computadora y en el teléfono.',
+      'Arriba, «Gana hasta US$ 97 de crédito por cada negocio que traigas» y una ficha que contesta lo que preguntaste: crédito para tu plan, no dinero en efectivo; cuánto por cada plan; cuándo se suma; sin tope.',
+      'La calculadora: mueves la barra (cuántos negocios traes) y eliges el plan que toman; el resultado grande en el bloque azul, con el botón para unirse. Copiada de LLM Pulse; la ficha, de systeme.io; el tono, de DigitalOcean.',
+      'Después, tres pasos y las preguntas frecuentes (la primera: «¿Gano dinero o meses?»). Nada que el sistema no haga: dice que el crédito todavía no se descuenta solo de tu plan.',
+      'La misma página es la pública (/mako-partners). Tú, como super admin, la ves sin el botón, arriba del panel del programa.',
+      'Ojo: quien abrió la tab el 23 o el 24/10 ya quedó unido sin tocar nada (el link nacía al abrirla): ese ve el panel.',
+    ],
+    commits: [
+      { sha: 'e9364e298', msg: 'MaKo Partners: la landing hasta que el negocio se une, con la calculadora y claro qué se gana', lineas: 976, archivos: 13 },
+    ],
+    archivos: [
+      'app/mako-partners/LandingPartners.tsx — la landing, pública y adentro de la app',
+      'app/mako-partners/Calculadora.tsx — la calculadora (negocios × el primer mes del plan)',
+      'app/partners/referidos/page.tsx y app/m/partners/page.tsx — la landing hasta unirse, el panel después',
+      'app/partners/actions.ts — «Unirme» (unirmeAPartnersAction)',
+      'tests/mako-partners-landing.test.ts y tests/partners-para-clientes.test.ts — 18 roturas, cada una cae',
+    ],
+    revisar: '/partners',
+  },
 ];

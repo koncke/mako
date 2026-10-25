@@ -155,8 +155,10 @@ test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no 
 test('el teléfono: la MISMA puerta, los MISMOS datos y la MISMA alta que la computadora', () => {
   const pagina = leer('app/m/partners/page.tsx');
   // Desde el 24/10/2026 la fila la ve el admin de cualquier negocio: quien no es agencia ve SU tablero de referidos
-  // (ReferidosM, los datos de `tableroDe` como /partners/referidos), no la cartera.
-  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const \[tablero, cobraEnLinea\] = await Promise\.all\(\[\s*tableroDe\(ws\)/, 'quien no es agencia ve sus referidos');
+  // (ReferidosM, los datos de `tableroDe` como /partners/referidos), no la cartera. Desde la noche del 24/10, recién
+  // después de unirse: antes, la landing (tests/partners-para-clientes.test.ts).
+  assert.match(pagina, /if \(!\(await esAgencia\(ws\)\)\) \{\s*const \[codigo, cobraEnLinea, plataforma\] = await Promise\.all\(\[\s*codigoSiExiste\(ws\)/, 'quien no es agencia: primero si se unió');
+  assert.match(pagina, /const tablero = await tableroDe\(ws\)\.catch\(\(\) => null\);\s*return \(\s*<PantallaM>\s*\{tablero \? <ReferidosM/, 'y después sus referidos');
   assert.ok(pagina.indexOf('tableroDe(ws)') < pagina.indexOf('cuentasDePartner(ws)'), 'la cartera es sólo de la agencia');
   assert.match(pagina, /if \(\(await adminDeWorkspaceActual\(\)\) == null && \(await getSesionAdmin\(\)\) == null\) redirect\([\s\S]*?tableroDe/,
     'sólo el admin, antes de leer los referidos o la cartera');

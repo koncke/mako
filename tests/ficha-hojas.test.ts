@@ -134,25 +134,23 @@ test('MaKo crea, borra y mueve hojas propias, y las ve', () => {
 });
 
 // ⚠️ 24/10/2026: con tabs de verdad, «＋ Nueva hoja» va AL FINAL de la fila (el «+» de las vistas de Notion), no primera en un
-//    desplegable. Lo demás no cambió: sólo para quien guarda, y las tabs a la altura del nombre del lead.
-test('la pantalla: «＋ Nueva hoja» al final de las tabs y sólo para quien guarda; las tabs a la altura del nombre del lead', () => {
+//    desplegable; sólo para quien guarda. Y la misma noche, las tabs dejaron de ir a la altura del nombre del lead: «que las
+//    paginas comiencen a la izquierda del todo, no alineado al nombre» (Martín).
+test('la pantalla: «＋ Nueva hoja» al final de las tabs y sólo para quien guarda; las tabs al borde del contenido', () => {
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
-  const iTabs = tabs.indexOf('{tabs.map((t) => {');
-  const iNueva = tabs.indexOf('className="lt-nueva-tab lt-accion"');
+  const iTabs = tabs.indexOf('{enFila.map((t) => {');
+  const iNueva = tabs.indexOf('<button type="button" className="lt-nueva-tab lt-accion"');
   assert.ok(iTabs > 0 && iNueva > iTabs, '«Nueva hoja» va después de las tabs');
-  assert.match(tabs, /\{onNueva && \(\n\s+<button type="button" className="lt-nueva-tab lt-accion" onClick=\{\(\) => \{ setMenu\(null\); onNueva\(\); \}\}>/);
-  // La sangría llega por variable: el texto de la primera tab a la altura del nombre (menos el padding de la tab); en el
-  // teléfono, al borde.
-  assert.match(tabs, /\['--lt-sangria' as string\]: sangria \?\? '0px',/);
-  assert.match(tabs, /\.lt-fila \{ --lt-pad: 11px; padding-left: max\(0px, calc\(var\(--lt-sangria\) - var\(--lt-pad\)\)\); \}/);
-  assert.match(tabs, /@media \(max-width: 720px\) \{ \.lt-fila \{ --lt-pad: 10px; padding-left: 0; \}/);
+  assert.match(tabs, /\{onNueva && reparto\.nuevaEnLinea && \(\n\s+<button type="button" className="lt-nueva-tab lt-accion" onClick=\{\(\) => \{ setMenu\(null\); onNueva\(\); \}\}>/);
+  // Sin sangría: el TEXTO de la primera tab en el borde del contenido (la lista se corre lo que mide el padding de la tab),
+  // en la computadora y en el teléfono.
+  assert.doesNotMatch(tabs, /sangria/, 'volvió la sangría del nombre del lead');
+  assert.match(tabs, /\.lt-tabs \{[^}]*margin-left: calc\(-1 \* var\(--lt-pad\)\); \}/);
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
   assert.match(ficha, /onNueva=\{puedeGuardar && efectiva\.hojas\.length < TOPE_HOJAS \? abrirNueva : undefined\}/);
   assert.match(ficha, /const puedeGuardar = puede && !!ff\.ficha;/);
-  // Las dos puertas pasan la sangría: el nombre del lead empieza en `SANGRIA_NOMBRE_LEAD` de su cabecera.
-  assert.match(sinComentarios(leer('app/crm/LeadSheet.tsx')), /sangria=\{`calc\(\$\{SANGRIA_NOMBRE_LEAD\}px - clamp\(16px,4vw,28px\)\)`\}/, 'el pop-up le resta su padding');
-  assert.match(sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx')), /sangria=\{`\$\{SANGRIA_NOMBRE_LEAD\}px`\}/);
-  assert.match(leer('app/crm/lead-view/CabeceraLead.tsx'), /export const SANGRIA_NOMBRE_LEAD = geometriaCabecera\(0, TAM_CARA_LEAD\)\.sangria;/);
+  // Ninguna de las dos puertas le pasa una sangría.
+  assert.doesNotMatch(sinComentarios(leer('app/crm/LeadSheet.tsx')) + sinComentarios(leer('app/crm/[id]/LeadDetailBody.tsx')), /sangria=/);
   // «Estilo de la hoja» recibe la hoja tal cual (17/10/2026): sin el puente que le hacía pasar una hoja propia por el
   // Resumen. Probado rompiéndolo: el panel leyendo `ef.epica[tab]` de vuelta, 5 / 1.
   assert.match(sinComentarios(leer('app/crm/lead-view/ficha/EstiloDeLaHoja.tsx')), /checked=\{lugarDe\(ef, tab\)\.epica\}/);

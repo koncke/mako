@@ -44,10 +44,12 @@ const BOARD = sinComentarios(leer('app/crm/CrmBoard.tsx'));
 const COL: ContextoCrm = { sobre: 'columna', mover: true, entrada: false, reunion: true, tipo: true, curso: null, borrable: true };
 const DATOS = { etapas: [], equipo: [], etiquetas: null, funnels: [] };
 
-test('1. el menú de la columna va por SECCIONES: Columnas · Leads · Etapa, y «Eliminar etapa» sola al final', () => {
+// ⚠️ EL ORDEN DE LAS SECCIONES ES EL DEL 24/10/2026 (Martín: «lo primero debe ser nuevo lead. Y el editor de columnas abajo
+// del todo, claro que eliminar siempre por ultimo»): Leads · Etapa · Columnas. Hasta ahí, Columnas iba primero.
+test('1. el menú de la columna va por SECCIONES: Leads · Etapa · Columnas, y «Eliminar etapa» sola al final', () => {
   const items = itemsCrm(opcionesCrm(COL), { ...DATOS, tipoActual: 'reunion' });
   const conTitulo = items.filter((x): x is ItemMenuContextual => !!x && !!x.seccion).map((x) => [x.seccion, x.id]);
-  assert.deepEqual(conTitulo, [['Columnas', 'col_izquierda+col_derecha'], ['Leads', 'col_nuevo_lead'], ['Etapa', 'col_renombrar']]);
+  assert.deepEqual(conTitulo, [['Leads', 'col_nuevo_lead'], ['Etapa', 'col_renombrar'], ['Columnas', 'col_izquierda+col_derecha']]);
   // «Eliminar etapa»: la última, en rojo, separada y sin título.
   const ult = items[items.length - 1];
   assert.equal(ult?.id, 'col_eliminar');
@@ -55,13 +57,13 @@ test('1. el menú de la columna va por SECCIONES: Columnas · Leads · Etapa, y 
   assert.equal(items[items.length - 2], null);
   // Una sección que quedó vacía no deja título: sin flechas, «Columnas» va en «Agregar etapa».
   const sinMover = itemsCrm(opcionesCrm({ ...COL, mover: false }), DATOS).filter((x) => x?.seccion);
-  assert.equal(sinMover[0]?.id, 'col_agregar');
+  assert.equal(sinMover.find((x) => x?.seccion === 'Columnas')?.id, 'col_agregar');
   // La pieza dibuja el título con su raya antes (si no es el primero) y el ✓ de lo tildado.
   const html = renderToStaticMarkup(createElement(ListaMenuContextual, { items, onElegir: () => {} }));
-  const i1 = html.indexOf('>Leads<');
+  const i1 = html.indexOf('>Etapa<');
   assert.ok(i1 > 0, 'no se dibujó el título de la sección');
   assert.match(html.slice(0, i1), /role="separator"[^>]*><\/div><div aria-hidden="true"[^>]*$/, 'sin la raya antes del título');
-  assert.ok(html.indexOf('>Columnas<') < html.indexOf('>Leads<') && html.indexOf('>Leads<') < html.indexOf('>Etapa<'));
+  assert.ok(html.indexOf('>Leads<') < html.indexOf('>Etapa<') && html.indexOf('>Etapa<') < html.indexOf('>Columnas<'));
 });
 
 test('2. «Tipo de etapa ›»: los tres tipos ahí mismo, el actual tildado; elegir lo cambia con su «Deshacer»', () => {

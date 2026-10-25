@@ -57,9 +57,10 @@ test('1 · «Llevar al Dashboard» va PRIMERO en el ⋮, y ya no es un botón su
   assert.doesNotMatch(MET, /<Button\b/, 'volvió el botón suelto');
 });
 
-test('3 · «Analizar con MaKo» ya no está en la barra; el AI Analyst sigue en el ⋮', () => {
+test('3 · «Analizar con MaKo» ya no está en la barra, y desde el 24/10/2026 tampoco el AI Analyst en el ⋮', () => {
   assert.doesNotMatch(ED, /title="Analizar con MaKo"/);
-  assert.match(ED, /className="lk-opcion lk-opcion--mako" data-abierto=\{analista \|\| undefined\} onClick=\{alternarAnalista\}/, 'se perdió el AI Analyst del ⋮');
+  // Martín, a «¿Sacamos también "Analizar con MaKo" del menú de los 3 puntos?»: «Sí, y que la criatura vea la hoja».
+  assert.doesNotMatch(ED, /lk-opcion--mako|alternarAnalista|<PanelAnalista /, 'volvió el AI Analyst');
 });
 
 test('4 · mirando las métricas no van «Probar» ni la tuerca: la cabecera es la izquierda de la barra del informe', () => {

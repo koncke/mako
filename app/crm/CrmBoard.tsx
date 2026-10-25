@@ -116,7 +116,7 @@ import {
 } from './CrmToolbar';
 import { arbolDeAnuncios, pasaFiltroAnuncio, SIN_ORIGEN_ADS } from '@/lib/campana-atribucion';
 import { antesDeQuien, columnaConInsercion, mismaLista } from '@/app/customer-success/orden-manual';
-import { ordenarKanbanManual, ORDEN_KANBAN, type OrdenKanban } from './orden-kanban';
+import { conOrdenDe, ordenarColumna, ordenarKanbanManual, ordenesDeColumna, ORDEN_KANBAN, type DatoParaOrdenar, type OrdenKanban } from './orden-kanban';
 import { ordenarColumnaCrmAction } from './orden-actions';
 import { moverEtapaEnProductoAction } from './lead-funnel-actions';
 import { cambiarCursoAlGanarAction } from './curso-al-ganar-actions';
@@ -133,6 +133,7 @@ import { BotonReuniones } from './ReunionesProximas';
 import { ReunionesParaPreparar, type ReunionParaPreparar } from './TarjetaReunion';
 import { AccionesLoteLeads, destinosDeLote, type ManijaLote } from './AccionesLoteLeads';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { FUNNEL_DEL_NEGOCIO, esLote, itemsCrm, opcionesCrm, tituloCrm, type ContextoCrm, type IdOpcionCrm } from './menu-contextual-crm';
 import { alternarColumna, estadoDeColumna, rotuloDeColumna } from './seleccion-columna';
 import { cuantasDibujar, TANDA_COLUMNA } from './columna-por-tandas';
@@ -1743,7 +1744,8 @@ export function CrmBoard({
     },
   ];
   const hayFiltros = stageFilter.size > 0 || originFilter.size > 0 || campanaFilter.size > 0 || creativoFilter.size > 0 || search.trim().length > 0;
-  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); setOrdenElegido(null); };
+  // Sin el orden (24/10/2026): «Ordenar» se fue de «Filtrar» al «⋯» de cada columna, y limpiar los filtros no lo toca.
+  const limpiarTodo = () => { setStageFilter(new Set()); setOriginFilter(new Set()); setCampanaFilter(new Set()); setCreativoFilter(new Set()); setSearch(''); };
 
   /**
    * EL ORDEN DE LA TABLA. Es lo que separa una tabla de una lista: el plan ordena por
@@ -2012,18 +2014,19 @@ export function CrmBoard({
   const [ordenMovs, setOrdenMovs] = useState<Record<string, number[]>>({});
   const claveCol = (etapa: string) => `${funnelActivo ?? 0}:${etapa}`;
   const listaManual = (etapa: string): number[] | undefined => ordenMovs[claveCol(etapa)] ?? ordenManual[etapa];
-  const hayOrdenManual = stages.some((s) => (listaManual(s.key)?.length ?? 0) > 0);
   /**
-   * «Ordenar». `null` = nadie eligió en este embudo, y manda la BASE: «Manual» si hay algo
-   * arrastrado, si no la fecha de llegada.
+   * «Ordenar» de CADA COLUMNA (24/10/2026: del «⋯» de la columna, ya no de «Filtrar»; app/crm/orden-kanban.ts). Lo que
+   * eligió la persona, por etapa; una etapa que no está manda su BASE: «Manual» si tiene algo arrastrado, si no la fecha
+   * de llegada.
    *
    * ⚠️ SE CALCULA, NO SE INICIALIZA. Arrancando en un `useState` fijo, el orden armado
    * arrastrando desaparecería en cada F5 (se leería como que no se guardó), y al cambiar de
-   * embudo quedaría el criterio del anterior. Y por la misma cuenta «Limpiar filtros» vuelve
-   * a lo arrastrado: es volver a la base.
+   * embudo quedaría el criterio del anterior.
    */
-  const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; valor: OrdenKanban } | null>(null);
-  const ordenBase: OrdenKanban = hayOrdenManual ? 'manual' : 'llegada';
+  const [ordenElegido, setOrdenElegido] = useState<{ funnel: number | null; porEtapa: Readonly<Record<string, OrdenKanban>> } | null>(null);
+  const ordenesDelFunnel: Readonly<Record<string, OrdenKanban>> = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.porEtapa : {};
+  const ordenBaseDe = (etapa: string): OrdenKanban => ((listaManual(etapa)?.length ?? 0) > 0 ? 'manual' : 'llegada');
+  const ordenDe = (etapa: string): OrdenKanban => ordenesDelFunnel[etapa] ?? ordenBaseDe(etapa);
 
   // ── Los filtros sobreviven a un F5 y a irse de la tab ──
   // «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros»
@@ -2043,29 +2046,53 @@ export function CrmBoard({
     setOriginFilter(new Set(f.origenes));
     setCampanaFilter(new Set(f.campanas));
     setCreativoFilter(new Set(f.anuncios));
-    setOrdenElegido(f.orden ? { funnel: funnelActivo, valor: f.orden } : null);
+    setOrdenElegido(Object.keys(f.ordenes).length ? { funnel: funnelActivo, porEtapa: f.ordenes } : null);
     setActiveBands(new Set(KANBAN_BANDS.filter((b) => !f.ocultas.includes(b))));
     recienRestaurado.current = true;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- se restaura al cambiar de cliente o de embudo, no en cada render
   }, [claveGuardado]);
   useEffect(() => {
     if (recienRestaurado.current) { recienRestaurado.current = false; return; }
-    const orden = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : null;
+    const ordenes = ordenElegido && ordenElegido.funnel === funnelActivo ? { ...ordenElegido.porEtapa } : {};
     try {
       window.localStorage.setItem(claveGuardado, escribirFiltros({
-        etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], orden,
+        etapas: [...stageFilter], origenes: [...originFilter], campanas: [...campanaFilter], anuncios: [...creativoFilter], ordenes,
         ocultas: BANDAS_KANBAN.filter((b) => !activeBands.has(b)),
       }));
     } catch { /* sin almacenamiento: los filtros duran lo que dure la pantalla */ }
   }, [claveGuardado, stageFilter, originFilter, campanaFilter, creativoFilter, ordenElegido, funnelActivo, activeBands]);
-  const ordenKanban: OrdenKanban = ordenElegido && ordenElegido.funnel === funnelActivo ? ordenElegido.valor : ordenBase;
-  const elegirOrden = (v: OrdenKanban) => setOrdenElegido(v === ordenBase ? null : { funnel: funnelActivo, valor: v });
-  /** «Ordenar» del menú, sólo en el kanban: la tabla se ordena por sus columnas. */
-  const ordenFiltro = vista === 'kanban'
-    ? { valor: ordenKanban, base: ordenBase, opciones: ORDEN_KANBAN, elegir: (v: string) => elegirOrden(v === 'manual' ? 'manual' : 'llegada') }
-    : undefined;
+  /** Elegir el orden de una columna. El de su base no se guarda: es lo que ya manda sin elegir nada. */
+  const elegirOrden = (etapa: string, v: OrdenKanban) => setOrdenElegido({
+    funnel: funnelActivo, porEtapa: conOrdenDe(ordenesDelFunnel, etapa, v === ordenBaseDe(etapa) ? null : v),
+  });
+  /**
+   * Lo de cada tarjeta que mira «Ordenar». `respondio` es el chip de la tarjeta (`chipDeAutomatizacion`): contestó a una
+   * automatización, está en una, o en ninguna. El monto es lo vendido y, si no hay, lo estimado.
+   */
+  const datoParaOrdenar = (l: CrmLead): DatoParaOrdenar => {
+    const auts = enAut.get(l.id);
+    return {
+      nombre: l.name, creado: l.createdISO,
+      respondio: auts?.some((a) => a.estado === 'respondio') ? 0 : auts?.length ? 1 : 2,
+      monto: l.monto > 0 ? l.monto : l.ingresoEstimado, reunion: l.fechaJ1, vence: l.nutriManualDeadline,
+    };
+  };
+  /** Qué criterios tiene con qué cada columna (los que no, no se ofrecen). */
+  const hayParaOrdenar = (etapa: string) => {
+    const ls = leads.filter((l) => effStage(l) === etapa);
+    return {
+      manual: (listaManual(etapa)?.length ?? 0) > 0,
+      respondio: ls.some((l) => enAut.has(l.id)),
+      monto: ls.some((l) => l.monto > 0 || (l.ingresoEstimado ?? 0) > 0),
+      reunion: ls.some((l) => !!l.fechaJ1),
+      vence: ls.some((l) => !!l.nutriManualDeadline),
+    };
+  };
   /** Una columna en el orden en que se dibuja con el criterio de ahora. */
-  const enOrden = (ls: CrmLead[]) => (ordenKanban === 'manual' ? ordenarKanbanManual(ls, (l) => l.id, effStage, listaManual) : ls);
+  const enOrden = (ls: CrmLead[], etapa: string) => {
+    const o = ordenDe(etapa);
+    return o === 'manual' ? ordenarKanbanManual(ls, (l) => l.id, effStage, listaManual) : ordenarColumna(ls, o, datoParaOrdenar);
+  };
 
   /**
    * Soltar en un lugar de una columna: guarda la columna ENTERA con la tarjeta ahí y deja
@@ -2082,7 +2109,7 @@ export function CrmBoard({
    * columna ofrece uno que devuelve la lista y el criterio de antes, y lo escribe en el server.
    */
   const reordenarColumna = (id: number, etapa: string, antesDe: number | null, mueve: boolean) => {
-    const columna = enOrden(leads.filter((l) => effStage(l) === etapa)).map((l) => l.id);
+    const columna = enOrden(leads.filter((l) => effStage(l) === etapa), etapa).map((l) => l.id);
     const nueva = columnaConInsercion(columna, [id], antesDe);
     if (!mueve && mismaLista(nueva, columna)) return;
     const clave = claveCol(etapa);
@@ -2090,7 +2117,8 @@ export function CrmBoard({
     const elegidoAntes = ordenElegido;
     const funnel = funnelActivo;
     setOrdenMovs((v) => ({ ...v, [clave]: nueva }));
-    setOrdenElegido(null);   // con algo arrastrado, la base pasa a ser «Manual»
+    // Con algo arrastrado, la base de ESTA columna pasa a ser «Manual» (las otras siguen con lo suyo).
+    setOrdenElegido({ funnel, porEtapa: conOrdenDe(ordenesDelFunnel, etapa, null) });
     startTransition(async () => {
       // ⚠️ UNA ACCIÓN QUE NO LLEGA (sin red) RECHAZA LA PROMESA, y adentro de una transición eso
       // tumba la pantalla entera. Se ataja como un error más (medido en Customer Success).
@@ -2657,6 +2685,8 @@ export function CrmBoard({
       case 'personalizar_tarjetas': setPersonalizando(true); return;
       // El «Nuevo lead» del «⋯» de esa columna, por el mismo camino (`altaPendiente`).
       case 'col_nuevo_lead': if (c) { setAltaPendiente(null); setNuevoLead({ etapa: c.key }); } return;
+      // Del submenú, el criterio elegido (`valor`).
+      case 'col_ordenar': if (c && valor && valor in ORDEN_KANBAN) elegirOrden(c.key, valor as OrdenKanban); return;
       case 'col_izquierda': if (c) moverCol(c.key, -1); return;
       case 'col_derecha': if (c) moverCol(c.key, 1); return;
       case 'col_campanas': setCampanasAbierto(true); return;
@@ -2671,6 +2701,8 @@ export function CrmBoard({
       case 'col_eliminar': if (c) void quitarColumna(c); return;
       case 'nuevo_lead': setNuevoLead({ etapa: null }); return;
       case 'importar': setImportar(true); return;
+      // La misma pantalla que el renglón del «⋯» de la barra, con el CRM que se mira (C6, 22/10/2026).
+      case 'buscar_prospectos': router.push(funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'); return;
       case 'exportar': setExportar(true); return;
       case 'editar_etapas': setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) }); return;
     }
@@ -2689,6 +2721,7 @@ export function CrmBoard({
       etiquetas, sinEtiquetas,
       funnels: destinosLote,
       tipoActual: c && columnaConTipo(c) ? tipoDeColumna(c) : null,
+      orden: c ? { opciones: ordenesDeColumna(hayParaOrdenar(c.key), ordenDe(c.key)), actual: ordenDe(c.key) } : undefined,
       // «Una etapa de tipo Reunión sin evento vinculado muestra un warning... Lo mismo una etapa Ganado sin cobro» (Martín, 22/10/2026).
       avisos: c ? avisosDeColumna(c) : undefined,
       logoMeta: <LogoMeta size={17} />,
@@ -2728,13 +2761,16 @@ export function CrmBoard({
   const renderColumn = (c: Stage) => {
     // Le falta su vínculo (22/10/2026): el «⋯» lleva el punto ámbar y su renglón, el aviso.
     const falta = faltaVincular(c, vinculados);
-    const cards = enOrden(filtered.filter((l) => effStage(l) === c.key));
+    const cards = enOrden(filtered.filter((l) => effStage(l) === c.key), c.key);
     // Las que se DIBUJAN (una tanda, y más al llegar al fondo). El conteo, la casilla de la columna, el lote y el orden al
     // soltar siguen mirando `cards`, la columna entera.
     const dibujadas = cards.slice(0, cuantasDibujar(cards.length, tandas[c.key]));
     // Lo que tilda la casilla del encabezado: lo que se VE en esta columna (con el filtro puesto, lo que el filtro dejó).
     const idsCol = cards.map((x) => x.id);
     const colSel = estadoDeColumna(idsCol, selLeads);
+    // Ordenada con otro criterio que su base (24/10/2026): la cabecera lo dice, para que un orden elegido no se olvide.
+    const ordenCol = ordenDe(c.key);
+    const ordenAparte = ordenCol !== ordenBaseDe(c.key);
     const total = totalesCol.get(c.key) ?? null;
     const bandC = CATEGORY[bandToCategory(c.band)].c;
     // Dónde está esta columna entre las reordenables, y si la marca de destino cae acá.
@@ -2858,6 +2894,14 @@ export function CrmBoard({
                   style={{ flex: '0 1 auto', minWidth: 0, textAlign: 'left', fontFamily: SANS, fontWeight: 600, fontSize: 14, color: 'var(--ink)', background: 'none', border: 'none', padding: 0, cursor: 'text', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}
                 >{c.label}</button>
                 <span style={{ flex: 'none', fontFamily: MONO, fontSize: 11.5, fontWeight: 600, color: 'var(--dim)', background: 'var(--surface-2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 999, fontVariantNumeric: 'tabular-nums' }}>{cards.length}</span>
+                {/* Ordenada con un criterio elegido (24/10/2026): el ícono de «Ordenar» en azul, y el criterio en su `title`.
+                    Sin esto, un «Nombre (A-Z)» elegido una vez se olvida y la columna parece desordenada. */}
+                {ordenAparte && (
+                  <span role="img" aria-label={`Ordenada: ${ORDEN_KANBAN[ordenCol]}`} title={`Ordenada: ${ORDEN_KANBAN[ordenCol]}`}
+                    style={{ flex: 'none', display: 'inline-flex', color: 'var(--primary)' }}>
+                    <IconoMenu nombre="ordenar" size={14} />
+                  </span>
+                )}
                 {/* ⚠️ EL HUECO VA DESPUÉS DEL CONTADOR, no entre el título y el contador: ahí
                     el `space-between` le empujaría el número al otro extremo, que es el layout
                     que Martín pidió cambiar. Y es por donde se agarra para arrastrar. */}
@@ -3167,9 +3211,9 @@ export function CrmBoard({
             etapas={stageFilter} setEtapas={setStageFilter}
             origenes={originOptions} origen={originFilter} setOrigen={setOriginFilter}
             listas={listasFiltro}
-            orden={ordenFiltro}
             // Las bandas son una propiedad del KANBAN (qué columnas se ven): sólo viajan en
-            // esa vista, como «Ordenar». Eran tres botones sueltos en esta fila (punto 25).
+            // esa vista. Eran tres botones sueltos en esta fila (punto 25). «Ordenar» se fue al «⋯» de cada columna
+            // (24/10/2026, Martín: «que no este ordenamientos en el botón de filtros»).
             bandas={vista === 'kanban' ? {
               activas: activeBands,
               alternar: toggleBand,

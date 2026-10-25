@@ -38,6 +38,8 @@ import { pasoBloqueadoPor } from '../lib/onboarding-orden';
 // (11) el lienzo abriendo el tutorial sin preguntar     → 1 rojo (el de la primera vez)
 // (12) con el insert del envío elegido por `estado,` (06/10/2026, #789): la (6) sigue en
 //      1 rojo, y un segundo insert que también guarde `estado,` → 1 rojo (el de «UN insert»)
+// (13) 24/10/2026: con la guarda del teléfono que también cierra `telefonoSinArreglo`, la IA escrita antes de
+//      ella → 1 rojo (el del orden). El test buscaba la guarda vieja y estaba rojo en main sin que nada se rompiera.
 // El resultado de cada una, en docs/hallazgos-comunicacion.md → «El paso en modo IA».
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -130,7 +132,9 @@ const RAMA_NO_OFICIAL = bloque(
 test('la IA se escribe DESPUÉS de cada guarda que corta el envío, y sólo en las dos ramas que mandan texto', () => {
   assert.equal(cuenta(RAMA_NO_OFICIAL, 'await escribirTexto()'), 2, 'son dos ramas: el envío automático y el borrador');
   const primera = RAMA_NO_OFICIAL.indexOf('await escribirTexto()');
-  for (const guarda of ['if (!lead?.telefono)', '} else if (!evoConectado)', 'await estaBloqueado(lead.telefono)']) {
+  // La guarda del teléfono cierra también el que no tiene arreglo (vacío o sin dígitos: `telefonoSinArreglo`, a0238078c,
+  // 23/10/2026): igual corta el envío, y la IA sigue yendo después.
+  for (const guarda of ['if (!lead?.telefono || telefonoSinArreglo(lead.telefono))', '} else if (!evoConectado)', 'await estaBloqueado(lead.telefono)']) {
     const g = RAMA_NO_OFICIAL.indexOf(guarda);
     assert.ok(g >= 0, `no encontré la guarda ${guarda}`);
     assert.ok(primera > g, `la IA se escribe antes de «${guarda}»: gastaría cuota en un mensaje que no sale`);

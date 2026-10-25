@@ -218,10 +218,11 @@ test('el panel: aplica por el editor sólo si la hoja no cambió, re-sanea lo qu
   assert.match(p, /if \(!m\.antes \|\| !m\.hojaId \|\| leerHoja\(m\.hojaId\) !== m\.aplicada\) return;/);
   const ed = leer('app', 'dashboard', 'EditorInforme.tsx');
   // 17/10/2026: y sólo editando (tests/dashboard-mako-vista.test.ts). Desde el 24/10/2026, mirando no hay botón en la barra
-  // (el AI Analyst va en el ⋮).
+  // (y el mismo día salió también el AI Analyst del ⋮: «Editar con MaKo» es el único panel de MaKo de la hoja).
   assert.match(ed, /const ponerHojaDeMako = useCallback\(\(h: Hoja\) => \{ if \(editandoRef\.current\) mutarHoja\(\(\) => h, h\.id\); \}, \[mutarHoja\]\);/, 'por mutar: deshacer y autoguardado');
   assert.match(ed, /\{guardable && !enBlanco && !compartido && editando && \(\s*<BotonMako lado=\{30\} title="Editar con MaKo"/);
-  assert.match(ed, /const alternarAnalista = useCallback\(\(\) => \{ setMenu\(null\); setMakoEditar\(false\);/, 'un panel cierra al otro');
+  assert.match(ed, /const alternarMakoEditar = useCallback\(\(\) => \{ setMenu\(null\); setProbar\(''\); setMakoEditar\(\(v\) => !v\); \}, \[\]\);/, 'abrir el panel no cierra el menú');
+  assert.doesNotMatch(ed, /alternarAnalista|<PanelAnalista /, 'volvió el AI Analyst');
 });
 
 test('«Pídeselo» y las plantillas en General: la galería dice de qué informe es, y las rutas pasan el alcance', () => {

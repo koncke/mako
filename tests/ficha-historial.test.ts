@@ -44,5 +44,6 @@ test('volver a como estaba: sólo el admin, por el mismo camino (`restaurar`), y
   const volver = acc.slice(acc.indexOf('export async function volverFichaAction('));
   assert.match(volver, /if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false/);
   assert.match(volver, /cambiarFichaDeFunnel\(h\.funnelId, \{ op: 'restaurar', ficha: e\.antes \}, \{ autor: quien \}\)/);
-  assert.match(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /else if \(v === 'historial'\) setHistorial\(true\);/);
+  // El «⋯» abre el menú de la ficha desde el 24/10/2026: «Historial de la ficha» es su `case 'historial'`.
+  assert.match(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /case 'historial': setHistorial\(true\); return;/);
 });

@@ -369,4 +369,39 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm?ws=3',
   },
+  {
+    fecha: '24 oct', hora: '21:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los planes tienen que VENDER: sin lenguaje interno, el acompañamiento diferencial y el personalizado con promesa',
+    pedido: 'La sección de planes no se entiende para nada... Lo hiciste con lenguaje interno, las personas no saben que es "Ops Center" y muchas otras cosas... Tienes que VENDER, Revisa como lo hacen otras paginas... Y sobre todo el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido. El personalizado tiene que tener un factor de PROMESA de resultados, ya no solo software.',
+    puntos: [
+      'Punto 2 de «Partners y Planes» de docs/feedback-24-10.md.',
+    ],
+    revisar: '/planes',
+  },
+  {
+    fecha: '24 oct', hora: '21:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Planes que venden: sin lenguaje interno, y el acompañamiento en un bloque distinto con todo lo que trae',
+    puntos: [
+      'La página de planes y la sección de precios de la landing muestran los MISMOS tres bloques, copiados de ClickFunnels y Kajabi.',
+      'Arriba de cada plan, cómo se trabaja: «Lo haces tú, con MaKo» (Esencial y Pro) o «Lo armamos contigo» (el Acelerador). Una frase dice para qué etapa es cada uno.',
+      'Ya no aparece «Ops Center», «Offer», «Closing Analyst», «funnel» ni «leads»: cada renglón dice lo que la persona consigue.',
+      'El Acelerador va en un bloque oscuro con «Con acompañamiento» y todo lo que trae: el embudo armado en la primera semana, la IA conectada, tu asesoría semanal, las grabaciones, las plantillas, el grupo y MaKo Pro.',
+      'Abajo, la comparación por grupos y las preguntas de siempre («¿qué plan me conviene?»).',
+      'Falta lo tuyo: «el personalizado» no existe en MaKo. Te pregunté por el Ops Center si es el 1 a 1 de US$4.000 y qué resultado promete; con tu respuesta se suma el bloque o la promesa.',
+      'No puse la «garantía de 14 días» del documento de ofertas: la política publicada dice que el mes pagado no se devuelve.',
+    ],
+    commits: [
+      { sha: '276b0f81b', msg: 'Planes que venden: sin lenguaje interno, el acompañamiento distinto y con todo lo que trae', lineas: 514, archivos: 7 },
+    ],
+    archivos: [
+      'app/planes/Tarjetas.tsx — los tres bloques, los mismos en /planes y en la landing',
+      'app/planes/Vitrina.tsx — /planes: arriba, los bloques, la comparación y las preguntas',
+      'lib/planes-mako.ts — lo que incluye cada plan, dicho para el cliente; la promesa del programa (vacía)',
+      'lib/planes-comparacion.ts — la comparación por grupos, sin nombres de tabs',
+      'tests/planes-tres-bloques.test.ts — la guarda del lenguaje interno; 10 roturas, cada una cae',
+    ],
+    revisar: '/planes',
+  },
 ];

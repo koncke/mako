@@ -15,6 +15,15 @@
 // =============================================================================
 
 import type { CapaId } from './capas';
+import { TOPES } from './topes-plan';
+
+// LO QUE SE LEE EN LA VITRINA (24/10/2026, Martín: «Lo hiciste con lenguaje interno, las personas no saben que es "Ops Center"
+// y muchas otras cosas... Tienes que VENDER»). `resumen` dice para quién es según la etapa del negocio (como Kajabi: «¿ya
+// vendes? escala») e `incluye`, lo que la persona CONSIGUE, sin nombres de tabs: ni «Ops Center», ni «Offer», ni «Closing
+// Analyst». QUÉ incluye cada plan no cambió (docs/ofertas-mako.md): cambió cómo se dice. Los números salen de los topes que
+// el código hace cumplir (lib/topes-plan.ts), nunca escritos a mano.
+const T = TOPES;
+const n = (v: number | null): string => (v == null ? 'sin tope' : v.toLocaleString('es-AR'));
 
 export type PlanMako = {
   /** El id público (va en la URL: /planes/<id>). */
@@ -56,8 +65,14 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 47,
     precioAnualUsd: 470,
     preciosLocales: {},
-    resumen: 'Para el que arranca solo y quiere vender con un embudo.',
-    incluye: ['Ops Center con MaKo y tu propia IA', 'CRM: 1 funnel, hasta 2.000 leads', '1 WhatsApp más Instagram', 'Hasta 3 automatizaciones y 3 landings', 'Calendar, Plan, Offer y Cobros'],
+    resumen: 'Para empezar a vender con un embudo, por tu cuenta.',
+    incluye: [
+      'MaKo, tu asistente con IA, trabajando en tu negocio',
+      `Tu CRM: ${n(T.completo['crm.funnels'])} embudo de ventas y hasta ${n(T.completo['crm.leads'])} contactos`,
+      `${n(T.completo['chats.lineas_whatsapp'])} WhatsApp más Instagram, en una sola bandeja`,
+      `Hasta ${n(T.completo['automations.activas'])} automatizaciones de mensajes y ${n(T.completo['web.landings_publicadas'])} páginas de venta`,
+      'Tu oferta armada con IA, tu agenda, tus tareas y tus cobros',
+    ],
     activo: true,
     retencion: { pausa: { meses: 1 } },
   },
@@ -68,8 +83,15 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 97,
     precioAnualUsd: 970,
     preciosLocales: {},
-    resumen: 'Para el que ya vende y quiere escalar con anuncios y equipo.',
-    incluye: ['Todo Esencial, sin topes', 'Ads Manager, Dashboard y Closing Analyst', 'Hasta 3 WhatsApp y 5 usuarios', 'Image Editor, Video Editor y AI Avatar', 'Los negocios de tus clientes (agencia)'],
+    resumen: '¿Ya vendes? Para escalar con anuncios, contenido y equipo.',
+    incluye: [
+      'Todo lo de Esencial, sin topes',
+      'Anuncios de Meta: crea campañas y mira cuáles venden',
+      'Análisis de tus llamadas de venta con IA',
+      'Imágenes, videos y avatares con IA',
+      `Hasta ${n(T.agencia['chats.lineas_whatsapp'])} WhatsApp y ${n(T.agencia['equipo.usuarios'])} personas de tu equipo`,
+      'Si eres agencia, los negocios de tus clientes en tu cuenta',
+    ],
     destacado: true,
     activo: true,
     retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'esencial' },
@@ -81,7 +103,7 @@ export const PLANES_MAKO_DEFAULT: readonly PlanMako[] = [
     precioUsd: 297,
     preciosLocales: {},
     resumen: 'MaKo Pro y la asesoría grupal de Martín, al terminar el Acelerador.',
-    incluye: ['MaKo Pro', 'La asesoría grupal de los jueves'],
+    incluye: ['MaKo Pro', 'La asesoría grupal en vivo de cada semana'],
     activo: false,
     retencion: { descuento: { pct: 50, meses: 2 }, bajarA: 'pro' },
   },
@@ -103,6 +125,12 @@ export type ProgramaMako = {
   incluye: string[];
   /** Lo que sigue al terminar, si quiere. */
   despues: { nombre: string; precioUsd: number };
+  /**
+   * La PROMESA de resultados (Martín, 24/10: «tiene que tener un factor de PROMESA de resultados, ya no solo software»).
+   * La decide Martín (es un compromiso con el cliente: se le preguntó por el cartero el 24/10). null = todavía no hay, y la
+   * vitrina no inventa una. /reembolsos dice que la garantía del programa es «la que acordamos contigo en la llamada».
+   */
+  promesa: string | null;
 };
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
@@ -110,15 +138,20 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   nombre: 'MaKo Acelerador',
   precioUsd: 1500,
   cuotas: 3,
-  resumen: 'Para el que quiere que lo acompañen a armar y vender, no sólo la herramienta.',
+  resumen: 'Para que te acompañemos a armar tu embudo y a vender, no sólo darte la herramienta.',
+  // Todo lo de docs/ofertas-mako.md §3, dicho entero: antes la tarjeta mostraba cinco renglones y se veía como «Pro más
+  // caro» (Martín, 24/10: «el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido»).
   incluye: [
-    'MaKo Pro por 3 meses',
-    'La asesoría grupal de Martín, una por semana',
-    'Tu funnel armado en la primera semana',
-    'Plantillas probadas: landings, prospección y guiones',
-    'El grupo de WhatsApp de tu cohorte',
+    'Tu embudo armado en la primera semana: página de venta, CRM, mensajes de apertura y seguimientos',
+    'Tu IA conectada y lista para trabajar desde el primer día',
+    'Asesoría grupal en vivo con Martín cada semana: revisamos tus embudos, tus anuncios y tus mensajes',
+    'Las grabaciones de cada asesoría',
+    'Plantillas probadas: páginas por tipo de cliente, mensajes de prospección y guiones de video y de llamada',
+    'Un grupo de WhatsApp con tu cohorte y respuestas de Martín',
+    'MaKo Pro incluido los 3 meses',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
+  promesa: null,
 };
 
 const CAPAS_DE_PLAN: ReadonlySet<string> = new Set(['pm', 'completo', 'agencia']);

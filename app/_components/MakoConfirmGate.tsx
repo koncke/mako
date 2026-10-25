@@ -46,7 +46,7 @@
 
 import { Suspense, useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import dynamic from 'next/dynamic';
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { esVistaSinChrome } from './PublicRouteGate';
 import { useVistaMovil } from './VistaMovil';
@@ -127,6 +127,10 @@ function CaraFila({ nombre, cara }: { nombre: string; cara?: Cara | null }) {
 
 function Tarjeta() {
   const pathname = usePathname();
+  // El CRM que dibuja el tablero (`/crm?funnel=7`; sin el parámetro, el del negocio). En el resto de /crm (la ruta de un
+  // lead, los prospectos) no hay un tablero: va el negocio entero.
+  const funnelUrl = useSearchParams()?.get('funnel') ?? null;
+  const crmDelTablero = pathname === '/crm' ? (funnelUrl && /^\d+$/.test(funnelUrl) ? funnelUrl : 'negocio') : null;
   const router = useRouter();
   // El resumen del lead vive bajo /crm pero se abre desde WhatsApp, en el
   // celular y con la reunión por empezar: no es lugar para esto. Ver esVistaSinChrome.
@@ -163,10 +167,11 @@ function Tarjeta() {
   useEffect(() => {
     if (!enCrm) return;
     let vivo = true;
-    // El contador NO se corta por producto: `getPendientesDeMarcar` es del workspace
-    // y la vista que abre tampoco filtra por embudo. Mostrarlo recortado acá diría un
-    // número que la pantalla de destino contradice al abrirse.
-    fetch('/api/datos-sin-marcar-count?lista=1')
+    // ⚠️ SE CORTA POR EL CRM QUE SE MIRA desde el 24/10/2026 (Martín: «El botón de "A revisar" no esta funcionando por
+    // CRM... No debo estar en un CRM y que me traigan las notificaciones de otro»). Hasta ahí no, porque abría una vista
+    // del negocio entero (`?pendientes=1`) que lo habría contradicho; esa vista se fue el 16/10 y «Revisar» abre la ficha
+    // en el lugar. El corte lo hace el server (lib/a-revisar-filas.ts, `delCrm`), con la regla del tablero: la casa.
+    fetch(`/api/datos-sin-marcar-count?lista=1${crmDelTablero ? `&funnel=${crmDelTablero}` : ''}`)
       .then((r) => r.json())
       .then((d) => {
         if (!vivo) return;
@@ -177,7 +182,7 @@ function Tarjeta() {
       })
       .catch(() => { /* sin contador no se dibuja la fila: no hay nada que afirmar */ });
     return () => { vivo = false; };
-  }, [enCrm, pathname, releer]);
+  }, [enCrm, pathname, releer, crmDelTablero]);
 
   // «Si toco otra cosa, se debería cerrar» (14/10/2026): un toque afuera o Escape la pliegan.
   //
