@@ -40,7 +40,7 @@ export const CSS_GC = `
 .gc-menu kbd{font:inherit;font-size:12px;color:var(--gc-gris)}
 .gc-menu-sep{height:1px;margin:8px 0;background:var(--gc-borde)}
 .gc-cuerpo{display:flex;flex:1;min-height:0}
-.gc-lado{width:256px;flex:none;padding:8px 0 16px;overflow-y:auto;display:flex;flex-direction:column}
+.gc-lado{width:256px;flex:none;padding:8px 0 88px;overflow-y:auto;display:flex;flex-direction:column}
 .gc-lado[hidden]{display:none}
 .gc-crear{display:inline-flex;align-items:center;gap:12px;height:56px;padding:0 20px 0 16px;margin:0 0 20px 8px;border-radius:16px;border:none;background:var(--gc-hoja);box-shadow:var(--gc-sombra);font-size:14px;font-weight:500;color:var(--gc-tinta);cursor:pointer;align-self:flex-start;transition:box-shadow .15s ease}
 .gc-crear:hover{box-shadow:0 1px 3px 0 rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15);background:color-mix(in srgb,var(--gc-azul) 4%,var(--gc-hoja))}

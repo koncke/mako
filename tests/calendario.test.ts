@@ -397,3 +397,28 @@ test('la tab lee Google con UN token y escribe sólo con permiso', () => {
   const rest = g.slice(g.indexOf('export async function restaurarEventoGoogle('));
   assert.match(rest, /method: 'PATCH', body: JSON\.stringify\(\{ status: 'confirmed' \}\)/);
 });
+
+// ── La estrella de MaKo en el Calendario (24/10/2026, la llamada con Leandro, f08) ───────────────────────────────────
+// «Que ahí aparezca el tema del chat de Maco, que ahí no aparece la estrellita (...) le tenés que poder decir che Maco,
+// movéme la reunión, agendame tal o tal». La pieza es la de las otras tabs; agendar y mover lo hacen las herramientas del
+// CRM y del Calendario de la API de MaKo. Lo de Google NO lleva entidad: la agenda no pasa por la IA.
+test('el Calendario tiene la estrella de MaKo, le deja su lugar, y una llamada o una tarea abierta es «de qué se habla»', async () => {
+  const app = sinComentarios(leer('../app/calendario/CalendarioApp.tsx'));
+  assert.match(app, /<MakoEnLaTab tab="Calendario" entidad=\{entidadDelItem\(abierto\?\.t === 'tarjeta' \? abierto\.item : null\)\} \/>/);
+  assert.match(app, /<div className="gc" data-calendario="" style=\{\{ paddingLeft: 'var\(--ancho-panel-mako, 0px\)' \}\}>/, 'abierta, el calendario se corre');
+  const { entidadDelItem } = await import('../app/calendario/comun');
+  const base = { inicio: '2026-10-24T13:00:00.000Z', fin: null, diaCompleto: false } as const;
+  assert.deepEqual(entidadDelItem({ ...base, id: 'crm:42:R1', fuente: 'crm', capa: 'llamadas', titulo: 'Ana' } as never), { tipo: 'lead', id: 42, titulo: 'Ana' });
+  assert.deepEqual(entidadDelItem({ ...base, id: 'plan:t:abc-1', fuente: 'plan', capa: 'plan', titulo: 'Grabar VSL' } as never), { tipo: 'tarea', id: 'abc-1', titulo: 'Grabar VSL' });
+  assert.deepEqual(entidadDelItem({ ...base, id: 'plan:p:p9', fuente: 'plan', capa: 'plan', titulo: '🚀 Lanzamiento' } as never), { tipo: 'proyecto', id: 'p9', titulo: '🚀 Lanzamiento' });
+  assert.equal(entidadDelItem({ ...base, id: 'g:x:1', fuente: 'google', capa: 'llamadas', titulo: 'Reunión' } as never), null, 'lo de Google no va a la IA');
+  assert.equal(entidadDelItem({ ...base, id: 'rec:t1:2026-10-24', fuente: 'plan', capa: 'recurrentes', titulo: 'Posteo' } as never), null, 'una próxima vez no es una tarea');
+  assert.equal(entidadDelItem(null), null);
+  // Lo que se le pide a MaKo («movéme la reunión») tiene con qué hacerse: las herramientas de reuniones del CRM.
+  const crm = sinComentarios(leer('../lib/api-mako/areas/crm.def.ts'));
+  for (const id of ['proponer_mover_reunion', 'proponer_agendar_reunion', 'horarios_libres_dia']) assert.match(crm, new RegExp(`id: '${id}'`), id);
+});
+// Roturas (24/10/2026; base 1 / 0 en este test), cada una restaurada (pasan / fallan):
+//   · el Calendario sin la estrella                                                           -> 0 / 1
+//   · una reunión de Google con entidad (la agenda iría a la IA)                              -> 0 / 1
+//   · el calendario no se corre con el panel abierto                                           -> 0 / 1
