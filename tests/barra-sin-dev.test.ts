@@ -29,7 +29,11 @@ const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g,
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^[ \t]*\/\/.*$/gm, '');
 
 test('1. el menú de la foto ya no tiene MaKo Context, AI Models ni Dev, y sus pantallas no existen', () => {
-  assert.deepEqual(SUPERADMIN_MENU.map((i) => i.label), ['Billing', 'Client Agents', 'Knowledge']);
+  // Sólo lo de este pedido: Billing y Client Agents se van con la vista nueva de clientes (/customers, el chat «Agencias y
+  // clientes»), y fijarlos acá haría chocar las dos ramas al integrar.
+  const etiquetas = SUPERADMIN_MENU.map((i) => i.label);
+  for (const fuera of ['MaKo Context', 'AI Models', 'Dev']) assert.ok(!etiquetas.includes(fuera), `${fuera} volvió al menú de la foto`);
+  assert.ok(etiquetas.includes('Knowledge'), 'Knowledge se queda en el menú de la foto');
   for (const r of ['app/contexto', 'app/m/contexto', 'app/modelos-ia', 'app/m/modelos-ia', 'app/conocimiento', 'app/admin/dev/page.tsx', 'app/admin/dev/[area]']) {
     assert.ok(!existsSync(join(RAIZ, r)), `${r} volvió`);
   }
