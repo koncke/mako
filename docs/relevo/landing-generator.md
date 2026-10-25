@@ -17,8 +17,10 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   «Discutir» es una acción nueva de la IA (`accion: 'discutir'`, prompts en el registro); «Editar» manda la landing entera
   con el cursor como pista. Detalle: docs/hallazgos-editor-landing.md → «"Discutir | Editar" en el chat del editor».
   ⚠️ Automations sigue con su copia del selector (app/automations/ChatMako.tsx): migrarla a app/_chat/SelectorIntencion.tsx.
-- **Sigue, en este orden:** 6 (placeholders tapados), 8 (el formato como botón que abre una segunda barra) y 4 (las
-  páginas de MaKo editables por sección). Después, de docs/pendientes.md: P6 (sanear
+- **Tanda 3 (puntos 6 y 8): hecha.** El placeholder de párrafos y títulos es un renglón con «…» (medido con la hoja
+  real en Chrome sin ventana: antes se derramaba en 3 renglones); el editor de texto es un botón «Texto» que abre una
+  segunda barra sin scroll. Detalle: docs/hallazgos-editor-landing.md → «Los placeholders que se iban debajo…».
+- **Sigue:** 4 (las páginas de MaKo editables por sección, sin romper su diseño); después P6 y P5 de docs/pendientes.md. Después, de docs/pendientes.md: P6 (sanear
   `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
   docs/diseno-editor-web-como-automations.md §5).
 

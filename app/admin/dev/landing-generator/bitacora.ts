@@ -1114,4 +1114,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '21:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los textos de ayuda ya no se esconden detrás de otras secciones, y el editor de texto se abre con un botón',
+    puntos: [
+      'Los textos grises de ayuda de un renglón vacío («Escribe o pulsa / para comandos», «Título de la sección») se partían en varias líneas cuando no entraban y quedaban tapados por la sección de abajo. Ahora ocupan un solo renglón, terminan en «…» si no entran, y en un título centrado se ven centrados.',
+      'El editor de texto ya no está metido en una tira chiquita con scroll en la barra de arriba: hay un botón «Texto» que abre una segunda barra debajo, con todas las opciones a la vista. MaKo recuerda si la dejaste abierta.',
+      'Se probó con capturas de antes y después usando los estilos reales del editor, y con tests que se rompen si vuelve lo de antes. Falta mirarlo en el editor con clics.',
+    ],
+    archivos: [
+      'app/web-generator/editor/extensiones/estilos-nodos.ts — cómo se dibujan los textos de ayuda',
+      'app/web-generator/editor/EditorLanding.tsx — el botón «Texto» y la segunda barra',
+    ],
+    revisar: '/web-generator',
+  },
 ];

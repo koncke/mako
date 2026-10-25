@@ -2680,3 +2680,27 @@ editar"». **Vive en:** `app/_chat/SelectorIntencion.tsx` (el selector, comparti
 Lo que quedó SIN hacer:
 - Sin mirar con clics ni con la IA de verdad: el modelo de mentira fija lo que le llega y lo que vuelve, no la calidad de
   lo que contesta.
+
+## Los placeholders que se iban debajo de otras secciones, y el editor de texto en una segunda barra (24/10/2026 noche, tanda 3 de claude5)
+
+Puntos 6 y 8 del 24/10. **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts` (el placeholder) ·
+`extensiones/esquema.ts` (`PLACEHOLDER_GENERAL`) · `EditorLanding.tsx` (el botón «Texto» y `.gma-formato`) · `gamma.css`.
+
+- **La causa (sin la captura de Martín, deducida del código y medida en Chrome sin ventana):** el placeholder de TipTap
+  es un `::before` que FLOTA con alto 0, para que el cursor quede al principio. Alto 0 = no ocupa lugar: si el texto no
+  entra en un renglón (una columna angosta, un título grande), los renglones de más se derraman hacia abajo, encima de lo
+  que sigue, y la sección siguiente lo tapa (cada sección es su capa, `isolation: isolate`, y pinta su fondo encima).
+  Medido con la hoja real (scratchpad, `ph-antes.png` / `ph-ahora.png`): en una columna de 150 px, «Escribe algo o
+  escribe «/» para ver los comandos» ocupaba 3 renglones en un párrafo de 1.
+- **Regla:** en un párrafo o un título, el placeholder es ABSOLUTO sobre su renglón (`left: 0; right: 0`), en UN renglón
+  y cortado con «…». No empuja al cursor y queda alineado como el texto (flotando, un título centrado lo mostraba a la
+  izquierda). ⚠️ **No vale «alto 0 + `overflow: hidden`»**: con alto 0, el recorte lo borra entero. Los demás nodos (el
+  botón, la pregunta de un desplegable) siguen flotando: tienen padding y no se derraman.
+- El texto general se acortó a «Escribe o pulsa «/» para comandos».
+- **El editor de texto es un botón «Texto» (Aa) que abre una SEGUNDA barra** debajo de la de herramientas, con todas las
+  opciones de `BarraFormato` y sin scroll (si no entran, se parten en renglones). Se recuerda en el navegador
+  (`gma.formato.abierto`). La barra flotante sobre la selección sigue igual. Con la segunda barra cerrada, Mod+K para un
+  enlace lo atiende la flotante (aparece con la selección).
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics en el editor de verdad (la medición fue con la hoja real en una página armada a mano).

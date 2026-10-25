@@ -151,6 +151,15 @@ export const CSS_NODOS = [
   // El aviso de una subida en curso (widget de ProseMirror)
   '.gmc-subiendo { display: inline-block; margin: 0 4px; padding: 2px 10px; border-radius: 999px; background: #f5f5f6; color: #66666b; font: 500 12px/1.6 system-ui, sans-serif; vertical-align: middle; }',
 
-  // El placeholder de una línea o un título vacío (Placeholder de TipTap: .is-empty + data-placeholder)
+  // El placeholder de una línea o un título vacío (Placeholder de TipTap: .is-empty + data-placeholder). Flota con alto 0
+  // para que el cursor quede al principio, y por eso NO ocupa lugar: si no entraba en un renglón (una columna angosta, un
+  // título grande), lo que sobraba se derramaba hacia abajo y quedaba DEBAJO de la sección siguiente, que pinta su fondo
+  // encima (cada sección es su propia capa: `isolation: isolate`). 24/10/2026, Martín: «Muchos placeholder como el de la
+  // captura se ponen por detras de otras secciones y no se llegan a leer». En un párrafo o un título (los que se derraman)
+  // ahora es ABSOLUTO sobre su renglón: UN renglón, cortado con «…» dentro de su caja, y alineado como el texto (un título
+  // centrado lo muestra centrado; flotando, iba siempre a la izquierda). El cursor no lo ve: un absoluto no empuja nada.
+  // (No vale «flotar con alto 0 + overflow: hidden»: con alto 0, el recorte lo borra entero.)
   '.ProseMirror .is-empty[data-placeholder]:not([data-placeholder=""])::before { content: attr(data-placeholder); float: left; height: 0; pointer-events: none; color: var(--gm-texto-tenue, #8b8b90); -webkit-text-fill-color: var(--gm-texto-tenue, #8b8b90); opacity: 0.75; }',
+  '.ProseMirror :is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""]) { position: relative; }',
+  '.ProseMirror :is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""])::before { float: none; height: auto; position: absolute; top: 0; left: 0; right: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }',
 ].join('\n');
