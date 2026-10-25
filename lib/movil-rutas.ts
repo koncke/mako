@@ -66,7 +66,7 @@ export type DestinoMovil = 'crm' | 'chats' | 'mako' | 'plan' | 'mas';
 /** Las secciones que viven en More. */
 export type IdSeccionMas =
   | 'calendario' | 'ads' | 'second-brain' | 'dashboard' | 'experimentos' | 'offer' | 'landing' | 'automations'
-  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'mako'
+  | 'video' | 'copywriting' | 'cs' | 'curso' | 'comunidad' | 'partners' | 'agency' | 'mako'
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
@@ -215,6 +215,9 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // MaKo Partners: del menú de la foto desde el 20/10/2026 (nav.ts → USER_NAV), así que su fila de More la arma el menú
   // (`masCompleto`) y acá va OCULTA, como Report a problem y Business settings.
   { id: 'partners', label: 'MaKo Partners', href: '/m/partners', icon: 'comunidad', navKey: 'partners', familia: null, oculta: true },
+  // Agency Dashboard (25/10/2026): del menú de la foto, como Partners; su fila la arma el menú. ⚠️ Planes escribió el mismo
+  // mapeo en planes-2510: en la integración queda UNA copia.
+  { id: 'agency', label: 'Agency Dashboard', href: '/m/agency', icon: 'users', navKey: 'agency', familia: null, oculta: true },
   // Marketing.
   { id: 'offer', label: 'Offer', href: '/m/offer', icon: 'tag', navKey: 'offer', familia: 'marketing' },
   { id: 'landing', label: 'Web Generator', href: '/m/landing', icon: 'web', navKey: 'landing-writer', familia: 'marketing' },
@@ -462,6 +465,9 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
   'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
+  // Customers (25/10/2026): sus pestañas Billing y Agents ya tienen pantalla (/m/cobros, /m/agente); la lista con los
+  // segmentos y el MRR, todavía no.
+  'admin-customers': 'Agencias y clientes',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
@@ -806,6 +812,7 @@ export function rutaMovil(href: string | null | undefined): string | null {
   // MaKo Partners (17/10/2026): la cartera de cuentas de los clientes de la agencia. La pantalla del teléfono pregunta el
   // programa (`esAgencia`) como la de escritorio.
   if (dentro(p, '/partners')) return '/m/partners';
+  if (dentro(p, '/agency')) return '/m/agency';
   if (dentro(p, RUTA_AUTOMATIONS) || dentro(p, '/setting') || RUTAS_VIEJAS_AUTOMATIONS.some((r) => dentro(p, r))) return '/m/automations';
   if (dentro(p, '/video-generator')) {
     const plan = q.get('plan') ?? '';
@@ -942,6 +949,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/comunidad') destino = '/classroom/community';
   else if (p === '/m/cs') destino = '/classroom/clients';
   else if (p === '/m/partners') destino = '/partners';
+  else if (p === '/m/agency') destino = '/agency';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';

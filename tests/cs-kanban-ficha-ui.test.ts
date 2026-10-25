@@ -85,8 +85,9 @@ test('page.tsx lee ?cliente= en el SERVER, sólo en la rama de la cartera, y lo 
   // Desde el 17/10/2026 es una PANTALLA que monta /classroom/clients (app/classroom/clients/page.tsx), no la página de la ruta.
   assert.match(PAGE, /export async function PantallaClientes\(\{ searchParams \}: \{ searchParams: Promise</);
   assert.match(PAGE, /const clienteInicial = leerClienteDeUrl\(\(await searchParams\)\[PARAM_CLIENTE\]\);/);
-  // Después del `return <AdminView`: la grilla del super admin es de WORKSPACES, no de leads.
-  assert.ok(PAGE.indexOf('leerClienteDeUrl(') > PAGE.indexOf('<AdminView'), 'el super admin sin impersonar no tiene fichas de leads');
+  // Después de mandar al super admin a /customers (25/10/2026): su grilla es de WORKSPACES, no de leads.
+  const aCustomers = PAGE.indexOf("redirect('/customers')");
+  assert.ok(aCustomers > 0 && PAGE.indexOf('leerClienteDeUrl(') > aCustomers, 'el super admin sin impersonar no tiene fichas de leads');
   const montaje = bloque(PAGE, '    <ClientesApp\n      clientes={clientesConFicha}', '/>');
   assert.match(montaje, /clienteInicial=\{clienteInicial\}/);
 });

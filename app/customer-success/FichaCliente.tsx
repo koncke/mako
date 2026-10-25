@@ -328,8 +328,8 @@ export function FichaCliente({ c, n, trabajo, user, clientes, entrega, tabInicia
             {/* SU CUENTA DE MaKo VIVE EN PARTNERS (17/10/2026): un cliente de la agencia no es un cliente de la
                 entrega, «podrían serlo como no». Si éste además tiene cuenta, la ficha lo dice y lleva ahí. */}
             {c.clienteWs != null && (
-              <Link className="fc-partners" href={`/partners?cuenta=${c.clienteWs}`} title="Ver su cuenta en MaKo Partners">
-                MaKo Partners →
+              <Link className="fc-partners" href={`/agency?cuenta=${c.clienteWs}`} title="Ver su cuenta en Agency Dashboard">
+                Agency Dashboard →
               </Link>
             )}
           </span>

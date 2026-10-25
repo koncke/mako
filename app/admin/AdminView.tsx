@@ -165,7 +165,15 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
  * sus leads ganados. Adentro de un cliente, el super admin ve los de ESE cliente,
  * que es lo correcto.
  */
-export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false }: {
+/**
+ * Lo que la vista Customers (app/customers, 25/10/2026) le pide a esta grilla: qué negocios mostrar (el segmento elegido,
+ * con o sin los clientes de las agencias) y las columnas de la plataforma (segmento y MRR, de lib/clientes-plataforma.ts).
+ * Sin esto, la grilla es la de siempre.
+ */
+export type SegmentoAdmin = { ws: ReadonlySet<number> | null; conDeAgencias: boolean };
+export type ExtraDeCliente = { segmentos: string[]; mrrUsd: number; sinDolares: number; prueba: boolean; riesgo: boolean; agencia: string | null };
+
+export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false, incrustado = false, segmento = null, extra = null }: {
   titulo?: string;
   icono?: string;
   /**
@@ -181,6 +189,10 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
   /** Si quien mira pasa la guarda del Centro (`puedeOperar`): sólo así la ficha dibuja las computadoras del cliente. Sin
    *  esto, otro super admin vería en cada ficha el error de la acción (revisión del 23/10/2026). */
   verComputadoras?: boolean;
+  /** Adentro de otra pantalla (Customers): sin su título ni su margen, que ya los pone la que la monta. */
+  incrustado?: boolean;
+  segmento?: SegmentoAdmin | null;
+  extra?: Record<number, ExtraDeCliente> | null;
 } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -216,10 +228,11 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
     </header>
   );
 
+  const marco = incrustado ? { flex: 1, minWidth: 0 } : { flex: 1, minWidth: 0, padding: '34px 44px 60px' };
   if (cargando) {
     return (
-      <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        {header}
+      <main style={marco}>
+        {!incrustado && header}
         {/* ⚠️ UN LOADER AL MEDIO, NO UNA CAJA CON TEXTO. «Al entrar a la tab aparece
             ese cuadro, no debería, en todo caso un loader grande en el medio de la
             tab» (28/09/2026). La caja se leía como CONTENIDO —un panel vacío que
@@ -235,8 +248,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
 
   if (errorCarga || !workspaces || !usuarios || !sesion) {
     return (
-      <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px' }}>
-        {header}
+      <main style={marco}>
+        {!incrustado && header}
         <div style={{ marginTop: 18, ...bannerError, maxWidth: 980, display: 'flex', alignItems: 'center', gap: 14, justifyContent: 'space-between' }}>
           <span>No se pudo cargar el panel de admin. {errorCarga ?? 'Sin datos.'}</span>
           <button style={{ ...btnDark, padding: '8px 14px', flex: 'none' }} onClick={() => { setCargando(true); cargar(); }}>Reintentar</button>
@@ -251,12 +264,12 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
     // 1180 porque son hasta treinta tarjetas y una medida de lectura ayuda; el
     // panel de la plataforma son nueve y el tope solo dejaba una franja muerta a
     // la derecha. Se redefine la variable en vez de tocar los tres archivos.
-    <main style={{ flex: 1, minWidth: 0, padding: '34px 44px 60px', ['--cartera-max' as string]: 'none' } as CSSProperties}>
-      {header}
+    <main style={{ ...marco, ['--cartera-max' as string]: 'none' } as CSSProperties}>
+      {!incrustado && header}
       {/* ⚠️ SIN TOPE ACA: el que manda es el de la grilla, y ponerle otro encima
           hacia que la pantalla se cortara antes sin que nada lo explicara. El
           `--cartera-max` de abajo es el unico lugar donde vive ese numero. */}
-      <div style={{ marginTop: 18 }}>
+      <div style={{ marginTop: incrustado ? 0 : 18 }}>
         {/* ⚠️ SIN SUB-TABS. Eran tres —Clientes, Super Admins, Copywriting— y las
             tres se fueron el 27/09/2026: «elimina la sub tab de super admin, que
             esté todo junto, y lo de copywriting ni siquiera debería estar allí».
@@ -264,7 +277,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
             barra; los super admins son una sección más de esta misma pantalla,
             que es lo que siempre fueron — un puñado de personas, no un área. */}
         <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
-          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras} />
+          trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras}
+          segmento={segmento} extra={extra} />
       </div>
     </main>
   );
@@ -334,7 +348,7 @@ function exportarWorkspaces(filas: Workspace[]) {
  * tarjetas/tabla, con el mismo criterio que la de Customer Success: la tarjeta es
  * para RECONOCER y la tabla para COMPARAR.
  */
-function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe, wsPlataforma }: {
+function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, accionando, caraDe, wsPlataforma, extra = null }: {
   filas: Workspace[];
   onAbrir: (id: number) => void;
   onNuevo: () => void;
@@ -344,6 +358,8 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
   elegirAccion: (w: Workspace, v: string) => void;
   accionando: boolean;
   caraDe: (w: Workspace) => string | null;
+  /** Las columnas de la vista Customers: segmento y MRR (de los cobros reales de la plataforma). */
+  extra?: Record<number, ExtraDeCliente> | null;
 }) {
   return (
     <>
@@ -357,7 +373,7 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
         <table className="adm-tabla">
           <thead>
             <tr>
-              <th>Cliente</th><th>Plan</th><th>Estado</th><th>Llegó por</th>
+              <th>Cliente</th>{extra && <th>Segmento</th>}<th>Plan</th><th>Estado</th>{extra && <th className="num">MRR</th>}<th>Llegó por</th>
               <th className="num">Miembros</th><th />
             </tr>
           </thead>
@@ -373,10 +389,16 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
                     <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{w.slug ?? '—'}</span>
                   </span>
                 </td>
+                {extra && <td><SegmentosCelda e={extra[w.id]} /></td>}
                 <td>{capaDef(w.capa).nombre}</td>
-                <td>{w.estado === 'activo'
+                <td>{extra?.[w.id]?.riesgo && w.estado === 'activo'
+                  ? <span style={chip('var(--warn-bg)', 'var(--warn)')}>en riesgo</span>
+                  : extra?.[w.id]?.prueba && w.estado === 'activo'
+                  ? <span style={chip('var(--primary-bg)', 'var(--primary)')}>en prueba</span>
+                  : w.estado === 'activo'
                   ? <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>
                   : <span style={chip('var(--surface-2)', 'var(--dim)')}>pausado</span>}</td>
+                {extra && <td className="num"><MrrCelda e={extra[w.id]} /></td>}
                 {/* Cómo llegó (la encuesta del onboarding, 17/10/2026); lo que quería resolver, al pasar el mouse. Si dijo que el PDF
                     de su oferta tenía algo mal, se marca y la nota se lee al pasar el mouse (quinta revisión, 21/10). */}
                 <td title={w.llegada?.interes ? `Quería: ${w.llegada.interes}` : undefined} style={{ color: w.llegada?.origen ? undefined : 'var(--faint)' }}>
@@ -406,6 +428,31 @@ function TablaWorkspaces({ filas, onAbrir, onNuevo, opcionesDe, elegirAccion, ac
   );
 }
 
+/** Los segmentos de un negocio en la vista Customers: Agency, Partner, Cliente, o «de <su agencia>». */
+function SegmentosCelda({ e }: { e: ExtraDeCliente | undefined }) {
+  if (!e) return <span style={{ color: 'var(--faint)' }}>—</span>;
+  const tono: Record<string, [string, string]> = {
+    agency: ['var(--primary-bg)', 'var(--primary)'], partner: ['var(--good-bg)', 'var(--good)'],
+    cliente: ['var(--surface-2)', 'var(--dim)'], 'de-agencia': ['var(--warn-bg)', 'var(--warn)'],
+  };
+  const rotulo: Record<string, string> = { agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': e.agencia ? `De ${e.agencia}` : 'De una agencia' };
+  return (
+    <span style={{ display: 'inline-flex', gap: 5, flexWrap: 'wrap' }}>
+      {e.segmentos.map((s) => <span key={s} style={chip(...(tono[s] ?? tono.cliente))}>{rotulo[s] ?? s}</span>)}
+    </span>
+  );
+}
+
+/** El MRR del negocio (sus suscripciones activas de la plataforma, en dólares). «—» si no factura nada. */
+function MrrCelda({ e }: { e: ExtraDeCliente | undefined }) {
+  if (!e || (e.mrrUsd <= 0 && e.sinDolares === 0)) return <span style={{ color: 'var(--faint)' }}>—</span>;
+  return (
+    <span title={e.sinDolares ? 'Alguna suscripción no tiene su valor en dólares: no se suma.' : undefined} style={{ fontWeight: 650 }}>
+      US$ {e.mrrUsd.toLocaleString('es-AR', { maximumFractionDigits: 2 })}{e.sinDolares ? ' +' : ''}
+    </span>
+  );
+}
+
 // Sin backticks acá adentro: cierran la cadena a la mitad.
 const CSS_TABLA = `
 .adm-tabla{ width:100%; border-collapse:collapse; font-size:13.5px; }
@@ -420,7 +467,7 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false }: {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false, segmento = null, extra = null }: {
   workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
   /**
    * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
@@ -435,6 +482,9 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
    * se usa en la ficha abierta, que vive acá. Sin esto, `verComputadoras` no existe en este alcance.
    */
   verComputadoras?: boolean;
+  /** El segmento de la vista Customers y sus columnas (ver `SegmentoAdmin`). */
+  segmento?: SegmentoAdmin | null;
+  extra?: Record<number, ExtraDeCliente> | null;
 }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
@@ -543,7 +593,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   // workspace no tiene «tareas abiertas» y un lead ganado no tiene «plan». La
   // barra es la misma pieza; lo que cambia son sus datos.
   const [q, setQ] = useState('');
-  const [tabla, setTabla] = useState(false);
+  const [tabla, setTabla] = useState(extra != null);
   const [filtro, setFiltro] = useState<string>('todos');
   const [orden, setOrden] = useState<string>('nombre');
   const [cuando, setCuando] = useState('siempre');
@@ -580,7 +630,11 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
    * después, el contador diría «9 de 9» sobre una grilla de 8 y el que busca al que
    * falta no tendría dónde mirar. Acá el total ya es el correcto.
    */
-  const deMaKo = useMemo(() => workspaces.filter((w) => !agenciaDe.has(w.id)), [workspaces, agenciaDe]);
+  // ⚠️ EN CUSTOMERS (25/10/2026) EL SEGMENTO «Clientes de agencias» LOS MUESTRA: es la pregunta de esa pestaña. El resto
+  // de los segmentos sigue sin ellos, por lo mismo de arriba.
+  const deMaKo = useMemo(() => workspaces.filter((w) =>
+    (segmento?.conDeAgencias || !agenciaDe.has(w.id)) && (!segmento?.ws || segmento.ws.has(w.id))),
+  [workspaces, agenciaDe, segmento]);
 
   const visibles = useMemo(() => {
     const t = q.trim().toLowerCase();
@@ -896,7 +950,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
       ) : tabla ? (
         <TablaWorkspaces filas={visibles} onAbrir={setAbierto} caraDe={caraDe}
           onNuevo={() => setAltaAbierta(true)} opcionesDe={opcionesDe} elegirAccion={elegirAccion}
-          accionando={accionando} wsPlataforma={wsPlataforma} />
+          accionando={accionando} wsPlataforma={wsPlataforma} extra={extra} />
       ) : (
         <GrillaTarjetas>
           <li><TarjetaNueva label="Nuevo cliente" onClick={() => setAltaAbierta(true)} /></li>

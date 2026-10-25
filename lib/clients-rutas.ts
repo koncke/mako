@@ -41,9 +41,18 @@ export const SECCION_METODOLOGIA = { id: 'methodology', label: 'Methodology', hr
 
 export type SeccionClients = (typeof SECCIONES_CLIENTS)[number]['id'] | typeof SECCION_METODOLOGIA.id;
 
-/** Las sub-tabs que ve quien mira: la metodología, sólo la plataforma (el super admin en su propio workspace). */
+/** Todas, para leer una ruta o armar un link (quién ve cuál lo dice `seccionesDe`). */
+const TODAS_LAS_SECCIONES: ReadonlyArray<{ id: SeccionClients; label: string; href: string }> = [...SECCIONES_CLIENTS, SECCION_METODOLOGIA];
+
+/**
+ * Las sub-tabs que ve quien mira. La plataforma (el super admin en su propio workspace) ve Methodology, y NO ve «Clients»:
+ * sus clientes son NEGOCIOS y su grilla es Customers (/customers, con Billing y Agents; la fila de la barra va justo debajo
+ * de Classroom). El kanban de leads ganados es de cada negocio. Una sola grilla de cada cosa y ningún link que salte de una
+ * tab a otra (25/10/2026, el Cerebro al juntar Classroom con Customers): /classroom/clients le redirige a /customers sólo
+ * por los links viejos (app/customer-success/pantalla.tsx).
+ */
 export function seccionesDe(plataforma: boolean): ReadonlyArray<{ id: SeccionClients; label: string; href: string }> {
-  return plataforma ? [...SECCIONES_CLIENTS, SECCION_METODOLOGIA] : SECCIONES_CLIENTS;
+  return plataforma ? [...SECCIONES_CLIENTS.filter((s) => s.id !== 'clients'), SECCION_METODOLOGIA] : SECCIONES_CLIENTS;
 }
 
 /**
@@ -87,7 +96,7 @@ export function seccionDeRuta(pathname: string | null | undefined): SeccionClien
   if (p === RUTA_CLASSROOM || p === RUTA_VISTA_PREVIA) return 'classroom';
   if (!p.startsWith(`${RUTA_CLASSROOM}/`)) return null;
   const tramo = p.slice(RUTA_CLASSROOM.length + 1).split('/')[0];
-  return tramo !== 'classroom' && seccionesDe(true).some((s) => s.id === tramo) ? (tramo as SeccionClients) : null;
+  return tramo !== 'classroom' && TODAS_LAS_SECCIONES.some((s) => s.id === tramo) ? (tramo as SeccionClients) : null;
 }
 
 export function esVistaPrevia(pathname: string | null | undefined): boolean {
@@ -104,7 +113,7 @@ const QUERY_QUE_VIAJA = ['producto', 'ws'] as const;
 
 /** El href de una sub-tab, con lo que viaja de la query actual. */
 export function hrefSeccion(id: SeccionClients, search: string | URLSearchParams | null | undefined): string {
-  const base = seccionesDe(true).find((s) => s.id === id)?.href ?? RUTA_CLASSROOM;
+  const base = TODAS_LAS_SECCIONES.find((s) => s.id === id)?.href ?? RUTA_CLASSROOM;
   const q = typeof search === 'string' || search == null ? new URLSearchParams(search ?? '') : search;
   const sale = new URLSearchParams();
   for (const k of QUERY_QUE_VIAJA) {

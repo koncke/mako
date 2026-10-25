@@ -271,4 +271,25 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['whatsapp', 'app'], costo: 'externo', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
+  // ── Customers del super admin (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12) ─────────────────────────
+  // La vista Customers (app/customers) por chat: los clientes de MaKo por segmento con su MRR, y en qué trabajan en su
+  // Claude Code (lo que era /admin/agente). Sólo la plataforma y su admin; sin HTTP: son datos de todos los negocios.
+  {
+    id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver los clientes de MaKo',
+    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados o con un cobro que falló). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR y desde cuándo. Con segmento, sólo ese.',
+    parametros: [
+      { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'ver_agentes_de_clientes', area: 'cobros', tipo: 'lectura',
+    titulo: 'Ver en qué trabajan los clientes',
+    descripcion: 'Sólo para la plataforma: las últimas sesiones que los clientes cerraron en SU Claude Code con el plugin de MaKo (la pestaña Agents de Customers): de cada una, el negocio, cuándo, el título y el resumen del acta, y cuántos mensajes escribió. Sirve para ver qué piden más y si usan bien Claude. Los mensajes textuales no vienen: están en Customers › Agents.',
+    parametros: [
+      { nombre: 'limite', rotulo: 'Cuántas', tipo: 'number', entero: true, minimo: 1, maximo: 50, descripcion: 'cuántas sesiones, las más nuevas primero. Sin esto, 20.' },
+    ],
+    salida: 'json', canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
 ];

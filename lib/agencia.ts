@@ -260,29 +260,73 @@ export const agenciaDeCliente = cache(async (clienteWs: number | null | undefine
  *
  * Fail-closed por partida doble: si no se puede leer, no es agencia; y si un valor
  * desconocido entrara a la columna, `capaDef` cae a 'completo', que tampoco lo es.
+ *
+ * ⚠️ 25/10/2026: VUELVEN LOS DOS EJES, y esta vez lo pidió el dueño. «Ser Agencia es
+ * muy diferente a Partner... que te puedas sumar como "Agency", solo para los que
+ * tengan su plan de 97 activo». La capa `agencia` es la del plan Pro (lo que compró);
+ * sumarse es una fila en `agencias` (la 0176, que ya existía y tenía al ws 13). Con
+ * sólo la capa, todo el que compraba Pro quedaba agencia sin pedirlo. Las dos, o no:
+ * quien baja de plan deja de abrir cuentas aunque su fila siga, y quien tiene la fila
+ * sin el plan no la usa. Medido en producción ese día: el único con la capa es el
+ * ws 13, y tiene su fila; nadie pierde nada.
  */
 export const esAgencia = cache(async (ws: number | null | undefined): Promise<boolean> => {
   if (!esWsValido(ws)) return false;
   try {
-    const { data, error } = await getSupabaseServer()
-      .from('workspaces').select('capa').eq('id', ws).maybeSingle();
-    if (error) throw error;
-    return (data as { capa?: string } | null)?.capa === 'agencia';
+    const db = getSupabaseServer();
+    const [w, a] = await Promise.all([
+      db.from('workspaces').select('capa').eq('id', ws).maybeSingle(),
+      db.from('agencias').select('ws').eq('ws', ws).maybeSingle(),
+    ]);
+    if (w.error) throw w.error;
+    if (a.error) throw a.error;
+    return (w.data as { capa?: string } | null)?.capa === 'agencia' && a.data != null;
   } catch {
     return false;
   }
 });
 
 /**
- * Las agencias, para que la pantalla pueda marcarlas. Salen del PLAN: desde el
- * 27/09/2026 ser agencia es la capa, no una fila en una tabla aparte.
+ * ¿Se sumó como Agency? Sólo la fila (sin mirar el plan): lo que distingue «nunca se sumó» de «se sumó y su plan ya no
+ * lo deja». Para PERMISOS se pregunta `esAgencia`. `null` = no se pudo leer (no es «no»).
+ */
+export async function seSumoComoAgency(ws: number): Promise<{ desde: string } | false | null> {
+  if (!esWsValido(ws)) return false;
+  try {
+    const { data, error } = await getSupabaseServer().from('agencias').select('habilitada_at').eq('ws', ws).maybeSingle();
+    if (error) throw error;
+    return data ? { desde: String((data as { habilitada_at: string }).habilitada_at) } : false;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Sumarse como Agency: la fila en `agencias`, firmada por quien apretó el botón. Idempotente (`on conflict do nothing`):
+ * dos clics o dos pestañas no hacen dos. El plan lo pregunta quien llama (lib/agency.ts), antes.
+ */
+export async function anotarAgency(ws: number, quien: string | null, nota: string): Promise<void> {
+  if (!esWsValido(ws)) throw new Error('Ese negocio no existe.');
+  const { error } = await getSupabaseServer().from('agencias')
+    .upsert({ ws, habilitada_por: quien, nota: nota.slice(0, 300) }, { onConflict: 'ws', ignoreDuplicates: true });
+  if (error) throw new Error(`No pude sumarte como Agency: ${error.message}`);
+}
+
+/**
+ * Las agencias, para que la pantalla pueda marcarlas: las que tienen el plan Pro Y se sumaron (lo mismo que
+ * `esAgencia`, en lote).
  */
 export async function agenciasHabilitadas(): Promise<{ ws: number }[]> {
   try {
-    const { data, error } = await getSupabaseServer()
-      .from('workspaces').select('id').eq('capa', 'agencia').order('id');
-    if (error) throw error;
-    return ((data ?? []) as { id: number }[]).map((w) => ({ ws: w.id }));
+    const db = getSupabaseServer();
+    const [w, a] = await Promise.all([
+      db.from('workspaces').select('id').eq('capa', 'agencia').order('id'),
+      db.from('agencias').select('ws'),
+    ]);
+    if (w.error) throw w.error;
+    if (a.error) throw a.error;
+    const sumadas = new Set(((a.data ?? []) as { ws: number }[]).map((f) => Number(f.ws)));
+    return ((w.data ?? []) as { id: number }[]).filter((x) => sumadas.has(Number(x.id))).map((x) => ({ ws: x.id }));
   } catch {
     return [];
   }

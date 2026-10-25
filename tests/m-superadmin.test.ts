@@ -105,7 +105,8 @@ test('Billing: lo que mueve plata queda en la computadora, y Client Agents lee c
   const cobros = leer('app/m/cobros/CobrosM.tsx');
   assert.doesNotMatch(cobros, /anularCobroMakoAction|reembolsarCobroMakoAction|crearCobro|venderPlan/i, 'una acción que mueve plata en el teléfono');
   assert.match(leer('app/m/cobros/page.tsx'), /cobrosDeMakoAction\(\)/);
-  for (const f of ['app/admin/agente/page.tsx', 'app/m/agente/page.tsx']) assert.match(leer(f), /leerSesionesAgente\(\)/, `${f}: otra lectura`);
-  assert.doesNotMatch(leer('app/admin/agente/page.tsx'), /from\('agente_sesiones'\)/, 'la lectura volvió a la página');
+  // La pantalla de escritorio es la pestaña Agents de Customers desde el 25/10/2026 (app/admin/agente/Contenido.tsx).
+  for (const f of ['app/admin/agente/Contenido.tsx', 'app/m/agente/page.tsx']) assert.match(leer(f), /leerSesionesAgente\(\)/, `${f}: otra lectura`);
+  assert.doesNotMatch(leer('app/admin/agente/Contenido.tsx'), /from\('agente_sesiones'\)/, 'la lectura volvió a la página');
 });
 

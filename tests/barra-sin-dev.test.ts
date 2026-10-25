@@ -55,6 +55,11 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   // El Conocimiento: una sub-tab de Classroom que ve sólo la plataforma, con la puerta de /contexto.
   assert.ok(seccionesDe(true).some((s) => s.id === 'methodology'), 'la plataforma no ve Methodology');
   assert.ok(!seccionesDe(false).some((s) => s.id === 'methodology'), 'un negocio ve Methodology');
+  // Una sola grilla: la de la plataforma es Customers (negocios); el kanban de leads es de cada negocio, y para ella sería un
+  // link que salta a /customers.
+  assert.ok(!seccionesDe(true).some((s) => s.id === 'clients'), 'la plataforma ve «Clients» en Classroom: dos grillas');
+  assert.ok(seccionesDe(false).some((s) => s.id === 'clients'), 'un negocio perdió su kanban');
+  assert.match(sinComentarios(leer('app/admin/page.tsx')), /redirect\('\/customers'\);/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
   assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView \/>;/);
   // Los prompts: una sección de Settings con la regla de Método, y la misma puerta.

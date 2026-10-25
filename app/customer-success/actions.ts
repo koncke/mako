@@ -326,7 +326,7 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
     const r = await abrirCuentaDePartner({ agenciaWs, nombre: cliente.nombre.trim() || `Cliente ${leadId}`, email, leadId, pagador });
     if (!r.ok) return { ok: false, error: r.error };
     revalidatePath('/classroom/clients');
-    revalidatePath('/partners');
+    revalidatePath('/agency');
     return { ok: true, clienteWs: r.clienteWs, estado: 'pendiente', link: r.link, sinLink: r.sinLink };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };

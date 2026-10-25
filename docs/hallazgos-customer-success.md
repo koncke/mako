@@ -51,6 +51,11 @@ Martín (punto 11 del feedback de la tarde): «La tab de "clients" pasa a llamar
 - **En el teléfono, la fila de More dice «Classroom» y abre /m/cs** (el kanban, con el trío arriba): /m/curso pide la
   llave `cs-curso` y la fila es `customer-success`, y el guardián de More exige que coincidan.
 - **Quedan con /clients:** app/partners (otro chat; el redirect los cubre).
+- ⚠️ **Al juntarlo con Customers (/customers, la vista del super admin): una sola grilla de cada cosa.** Para la plataforma
+  «mis clientes» son NEGOCIOS (su grilla es Customers, con Billing y Agents); el kanban de leads ganados es de cada negocio.
+  Si el super admin veía «Clients» en Classroom, era una segunda grilla o un link que saltaba a /customers (pantalla.tsx lo
+  redirige). Así que la plataforma ve Classroom SIN «Clients» y CON «Methodology» (`seccionesDe`), y entra por /customers
+  (app/admin, app/inicio). ⚠️ En el teléfono, /m/cs sigue mostrándole al super admin el kanban de leads: quedó sin tocar.
 
 **Vive en:** `lib/clients-rutas.ts` · `app/classroom/` · `next.config.ts` · `lib/movil-rutas.ts` · `tests/clients-rutas.test.ts`
 
