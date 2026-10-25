@@ -28,12 +28,12 @@ export async function claveZernioAnuncios(ws: number): Promise<string | null> {
   return credDelCliente('ZERNIO_API_KEY', ws);
 }
 
-async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }): Promise<T> {
+async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 90_000): Promise<T> {
   const res = await fetch(`${ZERNIO_BASE}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${clave}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
     // Crear un anuncio sube media y espera a Meta: más que los 20 s del canal.
-    signal: AbortSignal.timeout(90_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let body: unknown = null;
@@ -99,7 +99,11 @@ export async function urlConectarAnunciosZernio(ws: number, redirectUrl: string,
 }
 
 /** Crea UN anuncio (en pausa) con el cuerpo de `cuerpoAnuncioEnConjunto`. Devuelve el id de Meta. */
-export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string): Promise<{ adId: string; zernioId: string | null }> {
+/**
+ * `timeoutMs`: con un video por URL (`video.url`), Zernio lo baja, lo sube a Meta y espera que lo procese antes de contestar:
+ * puede pasar del minuto. Si el tiempo se corta, reintentar con la MISMA clave de idempotencia devuelve la respuesta original.
+ */
+export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string, timeoutMs = 90_000): Promise<{ adId: string; zernioId: string | null }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   const r = await zAds<unknown>(clave, '/ads/create', {
@@ -107,7 +111,7 @@ export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, u
     // Un reintento después de un corte no publica dos veces (Zernio acepta Idempotency-Key, tope 255).
     headers: { 'Idempotency-Key': idempotencia.slice(0, 255) },
     body: JSON.stringify(cuerpo),
-  });
+  }, timeoutMs);
   return idsDelAnuncioCreado(r);
 }
 
@@ -237,4 +241,26 @@ export async function leerAnuncioPorZernio(ws: number, adId: string): Promise<{ 
   const r = await zAds<{ ad?: { creative?: { body?: string | null; linkUrl?: string | null } } | null }>(clave, `/ads/${encodeURIComponent(adId)}`);
   const c = r.ad?.creative;
   return c ? { body: c.body ?? null, linkUrl: c.linkUrl ?? null } : null;
+}
+
+/**
+ * Crea una campaña ENTERA (campaña + conjunto + anuncio) con un creativo nuevo, por la Zernio del negocio: `POST /v1/ads/create`
+ * en la forma «legacy». `status: 'PAUSED'` pausa la campaña (lo de adentro queda prendido: un solo «prender» la larga).
+ * Devuelve los ids de Meta de las tres cosas.
+ */
+export async function crearCampanaPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string): Promise<{ campaignId: string | null; adSetId: string | null; adId: string }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const r = await zAds<{ ad?: { platformAdId?: string; platformCampaignId?: string; platformAdSetId?: string } }>(clave, '/ads/create', {
+    method: 'POST', headers: { 'Idempotency-Key': idempotencia.slice(0, 255) }, body: JSON.stringify(cuerpo),
+  }, 180_000);
+  const { adId } = idsDelAnuncioCreado(r);
+  return { campaignId: r.ad?.platformCampaignId ? String(r.ad.platformCampaignId) : null, adSetId: r.ad?.platformAdSetId ? String(r.ad.platformAdSetId) : null, adId };
+}
+
+/** Borra una campaña (con lo que tenga adentro) por la Zernio del negocio. `accountId` hace falta si quedó vacía. */
+export async function borrarCampanaPorZernio(ws: number, campaignId: string, accountId?: string): Promise<void> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  await zAds<unknown>(clave, `/ads/campaigns/${encodeURIComponent(campaignId)}`, { method: 'DELETE', body: JSON.stringify({ platform: 'facebook', ...(accountId ? { accountId } : {}) }) });
 }

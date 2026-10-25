@@ -22,6 +22,8 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { ConfigMediaBuyer, Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
+import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
+import { subirAlStaging } from './creativeUpload';
 import {
   ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, saludo, tonoDe, verboLanzar,
   type Pestana,
@@ -57,6 +59,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   const [abierta, setAbierta] = useState<string | null>(deLink?.id ?? null);
   const [ajustes, setAjustes] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
   const [confirmarPiloto, setConfirmarPiloto] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
@@ -251,6 +254,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
           </button>
         ))}
         <div className="mb-pestanas-der">
+          <Button size="sm" variant="secondary" disabled={!config.existeTabla} onClick={() => setSubiendo(true)}>Subir creativos</Button>
           <Button size="sm" variant="secondary" loading={analizando} disabled={!config.encendido || !config.existeTabla} onClick={() => void analizar()}>Analizar ahora</Button>
         </div>
       </nav>
@@ -276,6 +280,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
       </div>
 
       {ajustes && <AjustesModal config={config} zernio={zernio} onCerrar={() => setAjustes(false)} onGuardar={guardarConfig} onZernio={() => { void leerZernio(); void recargar(); }} />}
+      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setPestana('hechas'); void recargar(); }} />}
       {pidiendo && <PedidoModal onCerrar={() => setPidiendo(false)} onEnviar={(texto) => { setPedidoMako({ texto, vez: Date.now() }); setPidiendo(false); }} />}
       {confirmarPiloto && (
         <Modal titulo="¿Prender el piloto automático?" ancho={480} onCerrar={() => setConfirmarPiloto(false)}
@@ -538,6 +543,106 @@ function AjustesModal({ config, zernio, onCerrar, onGuardar, onZernio }: {
             </ConectarViaZernio>
           </div>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Subir creativos nuevos a un conjunto (lo que Meta rechaza con la app del cliente: va por su Zernio) ──
+// Un modal: el conjunto, los archivos (subidos al staging con su barra), los textos (los del mejor anuncio del conjunto,
+// editables) y publicar. Cada archivo es un anuncio nuevo en el conjunto; queda en «Hechas» con su «Deshacer».
+
+type ArchivoEnSubida = { clave: string; nombre: string; tipo: 'image' | 'video'; progreso: number; path: string | null; error: string | null };
+
+function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onListo: (msg: string) => void }) {
+  const [conjuntos, setConjuntos] = useState<ConjuntoParaSubir[] | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [adSetId, setAdSetId] = useState('');
+  const [textos, setTextos] = useState<TextosCreativo>({ textoPrincipal: '', titulo: '', cta: 'LEARN_MORE', link: null, formularioId: null });
+  const [deAnuncio, setDeAnuncio] = useState<string | null>(null);
+  const [archivos, setArchivos] = useState<ArchivoEnSubida[]>([]);
+  const [pausa, setPausa] = useState(false);
+  const [publicando, setPublicando] = useState(false);
+  useEffect(() => {
+    void api<{ conjuntos: ConjuntoParaSubir[]; conectado: boolean }>({ op: 'subir_preparar' }).then((r) => {
+      if (!r.ok) { setAviso(r.error ?? 'No pude leer la cuenta.'); setConjuntos([]); return; }
+      setConjuntos(r.conjuntos);
+      if (!r.conectado) setAviso('Para publicar creativos nuevos conecta tu cuenta por Zernio (Ajustes → Conectar con Facebook).');
+    });
+  }, []);
+  const elegir = (id: string) => {
+    setAdSetId(id);
+    setDeAnuncio(null);
+    void api<{ plantilla: { textos: TextosCreativo; deAnuncio: string | null } | null }>({ op: 'subir_preparar', adSetId: id }).then((r) => {
+      if (r.ok && r.plantilla) { setTextos(r.plantilla.textos); setDeAnuncio(r.plantilla.deAnuncio); }
+    });
+  };
+  const agregar = (files: FileList | null) => {
+    for (const f of Array.from(files ?? []).slice(0, 10)) {
+      const clave = `${f.name}-${f.size}-${Date.now()}`;
+      const tipo = f.type.startsWith('video') ? 'video' as const : 'image' as const;
+      setArchivos((xs) => [...xs, { clave, nombre: f.name, tipo, progreso: 0, path: null, error: null }]);
+      const cambiar = (c: Partial<ArchivoEnSubida>) => setArchivos((xs) => xs.map((x) => (x.clave === clave ? { ...x, ...c } : x)));
+      subirAlStaging(f, (p) => cambiar({ progreso: p })).then((r) => cambiar({ path: r.path, progreso: 100 }), (e) => cambiar({ error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+  const listos = archivos.filter((a) => a.path && !a.error);
+  const subiendoAun = archivos.some((a) => !a.path && !a.error);
+  const falta = !adSetId ? 'Elige el conjunto.' : !listos.length ? 'Sube al menos un archivo.' : errorDeTextos(textos);
+  const publicar = async () => {
+    setPublicando(true);
+    const r = await api<{ creados: string[]; errores: string[] }>({
+      op: 'subir_creativos', adSetId, textos, activo: !pausa,
+      archivos: listos.map((a) => ({ path: a.path, tipo: a.tipo, nombre: a.nombre })),
+    });
+    setPublicando(false);
+    if (r.ok) onListo(r.errores?.length ? `Se crearon ${r.creados.length} de ${listos.length}` : `${r.creados.length} ${r.creados.length === 1 ? 'anuncio creado' : 'anuncios creados'}`);
+    else setAviso(r.error ?? 'No se pudo publicar.');
+  };
+  return (
+    <Modal titulo="Subir creativos" ancho={680} alto="min(88vh, 760px)" onCerrar={onCerrar}
+      pie={<>
+        {falta && <span style={{ marginRight: 'auto', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{falta}</span>}
+        <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>
+        <Button loading={publicando} disabled={!!falta || subiendoAun} onClick={() => void publicar()}>
+          {listos.length ? `Publicar ${listos.length} ${listos.length === 1 ? 'anuncio' : 'anuncios'}` : 'Publicar'}
+        </Button>
+      </>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {aviso && <Alert tono="warn">{aviso}</Alert>}
+        <Select label="Conjunto" value={adSetId} onChange={elegir} placeholder={conjuntos ? 'Elige el conjunto' : 'Leyendo la cuenta…'}
+          options={(conjuntos ?? []).map((c) => ({ value: c.id, label: c.nombre, sub: `${c.campana ?? 'Sin campaña'} · ${c.prendido ? 'activo' : 'pausado'} · ${c.anuncios} ${c.anuncios === 1 ? 'anuncio' : 'anuncios'}` }))} />
+        <div>
+          <div className="mk-label" style={{ marginBottom: 8 }}>Archivos</div>
+          <label className="mb-soltar">
+            <input type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={(e) => { agregar(e.target.files); e.target.value = ''; }} />
+            <span>Elige imágenes o videos (hasta 10)</span>
+          </label>
+          {archivos.length > 0 && (
+            <ul className="mb-archivos">
+              {archivos.map((a) => (
+                <li key={a.clave}>
+                  <span aria-hidden>{a.tipo === 'video' ? '🎬' : '🖼️'}</span>
+                  <span className="mb-archivo-nombre">{a.nombre}</span>
+                  {a.error ? <em data-tono="mal">{a.error}</em> : a.path ? <em>Listo</em> : <div className="mb-barra" style={{ width: 120 }}><i style={{ width: `${a.progreso}%` }} /></div>}
+                  <button type="button" className="mb-quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => setArchivos((xs) => xs.filter((x) => x.clave !== a.clave))}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <TextField multiline label="Texto principal" value={textos.textoPrincipal} maxLength={2200}
+          hint={deAnuncio ? `Del mejor anuncio del conjunto: «${deAnuncio}».` : undefined}
+          onChange={(e) => setTextos((t) => ({ ...t, textoPrincipal: e.target.value }))} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14 }}>
+          <TextField label="Título" value={textos.titulo} maxLength={255} onChange={(e) => setTextos((t) => ({ ...t, titulo: e.target.value }))} />
+          <Select label="Botón" value={textos.cta} onChange={(v) => setTextos((t) => ({ ...t, cta: v as Cta }))}
+            options={CTAS.map((c) => ({ value: c, label: NOMBRE_CTA[c] }))} />
+        </div>
+        {textos.formularioId
+          ? <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Usa el formulario instantáneo del conjunto.</p>
+          : <TextField label="Link de destino" value={textos.link ?? ''} placeholder="https://" onChange={(e) => setTextos((t) => ({ ...t, link: e.target.value || null }))} />}
+        <Switch checked={pausa} onChange={setPausa} label="Dejarlos en pausa" hint="Si no, empiezan a entregar con el presupuesto del conjunto." />
       </div>
     </Modal>
   );

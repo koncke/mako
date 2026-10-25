@@ -44,8 +44,8 @@ create table if not exists media_buyer_decisiones (
   -- táctica:nivel:entidad:día — el motor puede correr dos veces el mismo día sin duplicar.
   clave           text not null check (char_length(clave) between 3 and 200),
   creada          timestamptz not null default now(),
-  tipo            text not null check (tipo in ('subir_presupuesto', 'bajar_presupuesto', 'pausar', 'activar', 'variaciones_texto', 'variaciones_hook')),
-  tactica         text not null check (tactica in ('surf', 'sunsetting', 'stop_loss', 'revive', 'calidad', 'ganador')),
+  tipo            text not null check (tipo in ('subir_presupuesto', 'bajar_presupuesto', 'pausar', 'activar', 'variaciones_texto', 'variaciones_hook', 'crear_anuncios')),
+  tactica         text not null check (tactica in ('surf', 'sunsetting', 'stop_loss', 'revive', 'calidad', 'ganador', 'manual')),
   nivel           text not null check (nivel in ('campaign', 'adset', 'ad')),
   entidad_id      text not null check (entidad_id ~ '^[0-9]{1,30}$'),
   entidad_nombre  text not null,

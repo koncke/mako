@@ -222,7 +222,7 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   if (!d) return { ok: false, error: 'Esa decisión no existe en este negocio.' };
   if (d.estado !== 'aplicada') return { ok: false, error: 'Sólo se deshace lo que está aplicado.' };
 
-  if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') {
+  if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios') {
     const tomada = await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString() });
     if (!tomada) return { ok: false, error: 'Otra persona ya la está deshaciendo.' };
     const errores: string[] = [];

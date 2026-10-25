@@ -5,6 +5,7 @@
 // POST → { op, … }:
 //   lanzar { id, presupuesto?, elegidas? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
+//   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
 // El botón de conectar Facebook NO está acá: es la pieza única `<ConectarViaZernio red="metaads">` (AGENTS.md).
 //
 // QUIÉN: el admin DEL negocio (o el super admin mirándolo), el mismo guard que tenían las escrituras del Ads Manager
@@ -18,13 +19,16 @@ import { getUsuarioActual } from '@/lib/auth';
 import { leerConfig, guardarConfig, leerDecisiones, reclamar, actualizar, MediaBuyerSinTabla } from '@/lib/media-buyer/store';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
-import { cuentaDelNegocio } from '@/lib/media-buyer/datos';
+import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
+import { conjuntosDe, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
+import { CTAS } from '@/lib/media-buyer/creativos';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { credWs } from '@/lib/credenciales';
 import { claveZernioAnuncios, conexionAnunciosZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+// 300: subir un video lo baja Zernio, lo sube a Meta y espera que lo procese antes de contestar.
+export const maxDuration = 300;
 
 const J = (x: unknown, status = 200) => Response.json(x, { status });
 const uuid = (x: unknown): string | null => (typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x) ? x : null);
@@ -106,11 +110,36 @@ export async function POST(req: NextRequest) {
         if (conexion || (await credWs('META_ACCESS_TOKEN', ws))) await marcarPasoTab('ads-manager', 'am_cuenta').catch(() => null);
         return J({ ok: true, tieneClave, cuenta: act, conectado: !!conexion });
       }
+      case 'subir_preparar': {
+        const datos = await leerDatosCuenta(ws);
+        const conjuntos = conjuntosDe(datos);
+        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
+        const plantilla = adSetId ? await plantillaDelConjunto(ws, datos, adSetId) : null;
+        return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion });
+      }
+      case 'subir_creativos': {
+        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
+        if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
+        const archivos = (Array.isArray(body.archivos) ? body.archivos : []).map((a) => {
+          const o = (a ?? {}) as Record<string, unknown>;
+          return { path: String(o.path ?? ''), tipo: o.tipo === 'video' ? 'video' as const : 'image' as const, nombre: String(o.nombre ?? 'creativo').slice(0, 120) };
+        });
+        const t = (body.textos ?? {}) as Record<string, unknown>;
+        const textos = {
+          textoPrincipal: String(t.textoPrincipal ?? ''), titulo: String(t.titulo ?? ''),
+          cta: (CTAS as readonly string[]).includes(String(t.cta)) ? (t.cta as (typeof CTAS)[number]) : 'LEARN_MORE',
+          link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
+          formularioId: typeof t.formularioId === 'string' && /^\d{1,30}$/.test(t.formularioId) ? t.formularioId : null,
+        };
+        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo: body.activo !== false }, quien);
+        return J(r, r.ok ? 200 : 409);
+      }
       default:
         return J({ ok: false, error: 'Operación desconocida.' }, 400);
     }
   } catch (e) {
     if (e instanceof MediaBuyerSinTabla) return J({ ok: false, error: e.message }, 503);
+    if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
     const z = leerErrorDeZernio(e);
     return J({ ok: false, error: z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e) }, 500);
   }
