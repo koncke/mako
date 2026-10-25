@@ -1825,4 +1825,24 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/admin/operaciones/BloqueCompletado.tsx · Avance.tsx · lib/centro-chats.ts — pedidoDelCompletado', 'tests/completado-arriba.test.ts · centro-ops7.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '12:05', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El menú de la foto: Platform en un desplegable, sin mi foto, y la tuerca',
+    pedido: '«No me gusta para nada que en el desplegable de super admin me aparezcan tantas cosas, de ultima engloba todas esas tabs extras en un solo desplegable que a su vez tenga otro desplegable... Y no me gusta que en general el desplegable del perfil, antes de "settings" tenga nuevamente mi foto de perfil, que esté solo settings. Y revisa el logo de settings de toda la app, siempre debe ser la tuerca, no ese...»',
+    puntos: ['Con la captura del menú abierto (la 26). El rediseño de las pantallas de Settings lo hace otro chat, «Settings».'],
+  },
+  {
+    fecha: '25 oct', hora: '14:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El menú de la foto más corto, y la tuerca en Settings',
+    revisar: '/perfil',
+    puntos: [
+      '**El menú de la foto** ya no repite tu foto y tu nombre: arriba va Settings.',
+      '**Platform** es un solo ítem: se abre ahí mismo con Billing, Client Agents, MaKo Context, AI Models, Knowledge y Dev, y adentro «Coming soon» se abre también.',
+      '**La tuerca** es el ícono de Settings en toda la app: tu cuenta, el negocio, el teléfono, las Configuraciones de una automatización y «Configurar» en los menús.',
+      '**Sin mirar en producción**: dibujado con las piezas reales.',
+    ],
+    archivos: ['app/_components/Sidebar.tsx — el menú de la foto · app/_ui/icono-tuerca.ts · icons.tsx · iconos-menu.tsx', 'tests/menu-perfil-tuerca.test.ts'],
+  },
 ];
