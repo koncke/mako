@@ -2840,3 +2840,32 @@ Lo que quedó SIN hacer:
   clave: un cambio en una respuesta llega a todas las landings.
 - **Pendiente: la prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía). La línea bajo el botón tiene que
   leerla de lib/planes-mako.ts, como los precios. Espera el nombre del export, que define Planes.
+
+## Los tooltips tapados, el «+ ⠿» encima del logo, Compartir con el ▾ redondo y los paneles que saltan (25/10/2026, claude5)
+
+Martín, 25/10 (~11:30 y ~11:40), con capturas de la landing principal (#32): «Los placeholder... se siguen ocultando detrás de
+otras secciones y no se leen», «Los botones... se siguen superponiendo», «El desplegable al lado de "compartir" no debe ser
+redondo», «"tira de imagenes" y "pagina" no deben cambiar el ancho de la sidebar del chat... con un botón de flecha para
+regresar... No la X» y «el botón de "texto" debe estar al principio de todo». **Vive en:** editor/TooltipsFlotantes.tsx (nuevo)
+· editor/AsaBloque.tsx · gamma.css · EditorLanding.tsx · PanelPaginas.tsx · TiraSecciones.tsx · layout.tsx.
+
+- **Lo que Martín llama «placeholders» eran los TOOLTIPS:** el «Editor de texto» debajo de la barra de formato y el «Volver al
+  ch…» cortado en el borde del panel. Eran `::after`/`::before` (`.gma-tip`, `.gmc-tip`): un pseudo-elemento vive adentro de
+  su botón, así que lo corta el `overflow` de cualquier ancestro y lo tapa la capa de al lado. **No hay z-index que lo arregle
+  para todos.** Ahora es UN tooltip en un portal en `body`, `position: fixed`, dado vuelta si no entra y corrido para quedar en
+  la ventana; montado en el layout de /web-generator, apaga los pseudo-elementos con `html[data-tips-flotantes]`.
+- **El ▾ redondo era un `:last-child`:** con cambios sin publicar, el último hijo de `.gma-partido` es el puntito azul, y la
+  regla del ▾ (`.gma-boton:last-child`) dejaba de aplicar: quedaba un botón suelto, redondo. **Regla:** las mitades de un botón
+  partido llevan su clase (`gma-partido-principal`, `gma-partido-flecha`), nunca una posición.
+- **El «+ ⠿» y el ⋮ se pisaban en el margen:** el asa va 52 px a la izquierda del bloque, y en una sección a sangre («Diseño
+  editable») eso caía encima del ⋮ (en el margen de 40 px) y del borde. Ahora el margen de una landing en escritorio es de 88 px
+  y el asa va a 84 px de la sección (`ASA_FUERA_DE_LA_SECCION`): [+ ⠿] [⋮] | sección. Un test hace la cuenta.
+- **«Páginas» medía 280 px y el chat 340:** el lienzo saltaba al abrirla. Ningún panel de la izquierda tiene ancho propio.
+  Para volver, la flecha del chat («←», arriba a la izquierda) en «Páginas» y en la tira; «Texto» es la primera herramienta.
+
+Lo que quedó SIN hacer:
+- **Que se pueda escribir en las secciones de las landings de MaKo (el punto 1 de Martín).** El código no muestra por qué no:
+  el iframe se hace `contentEditable` al cargar, nada en el CSS bloquea la selección, y en Chrome sin ventana se escribe. Falta
+  medirlo en el editor de verdad, con clics: el Chrome de Martín estaba ocupado y después desconectado, y con 2 GB libres no
+  entra un build local.
+- Mirarlo con clics a 1280 y 1440 (la barra, los paneles y los tooltips).

@@ -1236,4 +1236,23 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '11:35', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El editor web: las ayudas siempre se leen, los botones no se encima y Compartir es un solo botón',
+    pedido: '«Los placholder como en la captura, se siguen ocultando detras de otras secciones y no se leen. Los botones como en la captura se siguen superponiendo... El desplegable al lado de "compartir" no debe ser redondo... La "tira de imagenes" y "pagina" no deben cambiar el ancho de la sidebar del chat de mako, y siempre con un botón de flecha para regresar... Y el botón de "texto" debe estar al principio de todo, no al final.»',
+    puntos: [
+      'Las ayudas que aparecen al pasar el mouse por un botón ahora se ven siempre completas, encima de todo: antes quedaban tapadas por la barra de texto o cortadas en el borde.',
+      'Los botones «+» y de arrastrar de cada bloque ya no tapan el contenido: van en el margen, al lado del botón de opciones de la sección.',
+      'Compartir y su flecha son un solo botón, con la misma forma y el mismo color.',
+      'Páginas y la tira de secciones ocupan lo mismo que el chat, así que la página no salta al abrirlas, y se vuelve al chat con la flecha de arriba a la izquierda.',
+      'El botón «Texto» va primero en la barra.',
+      'Falta: que se pueda escribir en las secciones de las páginas de MaKo. Se está midiendo en el editor de verdad.',
+    ],
+    archivos: [
+      'app/web-generator/editor/TooltipsFlotantes.tsx — las ayudas, encima de todo',
+      'app/web-generator/gamma.css — el margen, Compartir y el ancho de los paneles',
+    ],
+    revisar: '/web-generator',
+  },
 ];

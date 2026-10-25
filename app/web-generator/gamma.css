@@ -299,10 +299,12 @@
 .gma-boton--chico.gma-boton--icono { width: 28px; padding: 0; }
 .gma-boton--peligro { color: var(--gma-rojo); }
 
-/* El botón partido de Publicar: [⤒ Publicar][▾], radios 24px 0 0 24px y 0 24px 24px 0. */
+/* El botón partido de Compartir: [Compartir][▾], UNA pastilla (radios 24px 0 0 24px y 0 24px 24px 0) con el divisor.
+   Con clases propias y no :first-child/:last-child (25/10/2026, Martín: «El desplegable al lado de "compartir" no debe ser
+   redondo»): con cambios sin publicar, el último hijo es el puntito azul, y el ▾ quedaba suelto, como un círculo aparte. */
 .gma-partido { display: inline-flex; align-items: stretch; position: relative; }
-.gma-partido > .gma-boton:first-child { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
-.gma-partido > .gma-boton:last-child {
+.gma-partido > .gma-partido-principal { border-radius: 24px 0 0 24px; padding: 0 12px 0 12px; }
+.gma-partido > .gma-partido-flecha {
   width: 32px;
   padding: 0;
   border-radius: 0 24px 24px 0;
@@ -364,7 +366,8 @@
   background: var(--gma-superficie);
   border-right: 0.8px solid var(--gma-borde-suave);
 }
-.gma-izq[data-panel="paginas"] { width: 280px; }
+/* «Páginas» y la tira miden LO MISMO que el chat (25/10/2026, Martín: «no deben cambiar el ancho de la sidebar del chat»):
+   antes «Páginas» iba a 280 y el lienzo saltaba al abrirla. Ningún panel de la izquierda tiene un ancho propio. */
 /* La tarjeta izquierda FLOTA, como la de Automations (24/10/2026, Martín: «el mismo sistema de "Automations" con el chat
    flotando»): con aire alrededor, el borde redondeado y la sombra de la barra de herramientas. */
 .gma-izq { margin: 8px 0 8px 8px; border-right: 0; border-radius: var(--gma-radio-xl); overflow: hidden;
@@ -406,6 +409,12 @@
   white-space: nowrap;
 }
 .gma-izq-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+/* La flecha para volver al chat, la misma del chat («← MaKo», PanelAgente.tsx, `.gma-pb-iconbtn`). */
+.gma-izq-volver {
+  display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; flex: none; padding: 0;
+  border: 0; border-radius: 6px; background: transparent; color: var(--gma-tenue); cursor: pointer; font-size: 16px; line-height: 1;
+}
+.gma-izq-volver:hover { background: var(--gma-hover); color: var(--gma-texto-fuerte); }
 
 .gma-der {
   flex: none;
@@ -720,7 +729,9 @@
    (estilos-nodos.ts, `.gmc-lado`), POR FUERA de la sección, como el asa de Notion. Antes iba adentro, arriba a la
    izquierda, y se encimaba con el asa del primer bloque y con el contenido (24/10/2026, Martín: «Los botones se siguen
    superponiendo, fijate la esquina superior izquierda en el lienzo»). Sólo en el editor: la publicada no lo tiene. */
-.gma-lienzo[data-dispositivo="escritorio"] > .gm-doc:not([data-formato="presentacion"]) { margin-left: 40px; }
+/* 88 px desde el 25/10: entran el «+ ⠿» del bloque y el ⋮ de la sección, uno al lado del otro (AsaBloque.tsx,
+   ASA_FUERA_DE_LA_SECCION). Con 40, el asa caía encima del ⋮ y del borde (Martín: «se siguen superponiendo»). */
+.gma-lienzo[data-dispositivo="escritorio"] > .gm-doc:not([data-formato="presentacion"]) { margin-left: 88px; }
 .gma-lienzo[data-dispositivo="tableta"] > .gm-doc,
 .gma-lienzo[data-dispositivo="movil"] > .gm-doc {
   align-self: center;
@@ -1099,6 +1110,22 @@
 .gma-tip:hover::after,
 .gma-tip:focus-visible::after { opacity: 1; visibility: visible; transition: opacity 0.12s ease 0.35s, visibility 0s linear 0.35s; }
 .gma-tip[aria-expanded="true"]::after { opacity: 0; visibility: hidden; }
+/* EL TOOLTIP FLOTANTE (25/10/2026, editor/TooltipsFlotantes.tsx): uno solo, en un portal en `body`, encima de todo y
+   adentro de la ventana. Con él montado, los pseudo-elementos de arriba (y el `.gmc-tip::before` de la columna de cada
+   sección) se apagan: un `::after` lo corta el `overflow` de su barra y lo tapa la capa de al lado. */
+html[data-tips-flotantes] .gma-tip::after,
+html[data-tips-flotantes] .gmc-tip::before { display: none !important; }
+.gma-tip-flotante {
+  position: fixed;
+  z-index: 2147483000;
+  padding: 2px 6px;
+  border-radius: 2px;
+  font: 600 12px/18px 'Instrument Sans', 'Geist', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+.gma-tip-flotante-atajo { margin-left: 10px; opacity: 0.65; font-weight: 500; }
 
 /* ── Estados: vacío, error, cargando ───────────────────────────────────────────── */
 .gma-vacio {

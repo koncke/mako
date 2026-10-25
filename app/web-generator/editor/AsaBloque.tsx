@@ -64,6 +64,16 @@ const CSS_ASA: string = [
   '.gmx-asa-arrastre:active{cursor:grabbing}',
 ].join('\n');
 
+/**
+ * EN EL MARGEN, AL LADO DEL ⋮ (25/10/2026, Martín: «Los botones como en la captura se siguen superponiendo», el «+ ⠿» encima
+ * del logo de MaKo). En una landing de escritorio la columna ⋮ de la sección vive en el margen del lienzo (gamma.css,
+ * `margin-left` de `.gm-doc`), y una sección a sangre (un «Diseño editable») empieza en el borde: el asa, 52 px a la
+ * izquierda del bloque, caía ENCIMA del ⋮ y del borde. Ahí va más a la izquierda, al lado del ⋮ y sin tocarlo:
+ * [+ ⠿] [⋮] | sección. Los números: el ⋮ mide 28 px + 6 de aire, el asa 46 px; el margen del lienzo, 88 px.
+ */
+export const ASA_FUERA_DE_LA_SECCION = 84;
+const ALCANCE_IZQ = ASA_FUERA_DE_LA_SECCION + 8;
+
 /** El bloque de primer nivel de una sección que está a la altura del puntero, o null. */
 function bloqueEnPunto(vista: EditorView, x: number, y: number): Bloque | null {
   let hallado: Bloque | null = null;
@@ -72,8 +82,8 @@ function bloqueEnPunto(vista: EditorView, x: number, y: number): Bloque | null {
     const domT = vista.nodeDOM(offTarjeta);
     if (!(domT instanceof HTMLElement)) return;
     const rt = domT.getBoundingClientRect();
-    // Un poco de margen a la izquierda: ahí vive el asa, afuera del texto del bloque.
-    if (y < rt.top || y > rt.bottom || x < rt.left - 80 || x > rt.right) return;
+    // Un poco de margen a la izquierda: ahí vive el asa, afuera del texto del bloque (y, en una landing, afuera de la sección).
+    if (y < rt.top || y > rt.bottom || x < rt.left - ALCANCE_IZQ || x > rt.right) return;
     tarjeta.forEach((hijo, offHijo) => {
       if (hallado) return;
       const pos = offTarjeta + 1 + offHijo;
@@ -116,7 +126,13 @@ export function AsaBloque({ editor: editorProp }: { editor?: Editor | null }) {
     if (!(d instanceof HTMLElement)) { setRect(null); return; }
     const r = d.getBoundingClientRect();
     const top = r.top + Math.min(r.height, 28) / 2 - 12;
-    setRect({ top, left: r.left - 52 });
+    let left = r.left - 52;
+    // En una landing de escritorio, nunca más adentro que el margen de la sección (ver ASA_FUERA_DE_LA_SECCION).
+    const tarjeta = b ? vista?.nodeDOM(b.tarjetaPos) : null;
+    if (tarjeta instanceof HTMLElement && d.closest('.gma-lienzo[data-dispositivo="escritorio"]') && !d.closest('.gm-doc[data-formato="presentacion"]')) {
+      left = Math.min(left, tarjeta.getBoundingClientRect().left - ASA_FUERA_DE_LA_SECCION);
+    }
+    setRect({ top, left });
   };
   const ubicarRef = useRef(ubicar);
   useEffect(() => { ubicarRef.current = ubicar; });
