@@ -245,7 +245,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const faltan = pedidosQueFaltan(c.pedidos, { has: (id) => pedidosRef.current.has(id) || pidiendo.current.has(id) });
     if (faltan.length) {
       faltan.forEach((id) => pidiendo.current.add(id));
-      void leerCentro<Awaited<ReturnType<typeof pedidosDelChatAction>>>('pedidos', { id: faltan })
+      void leerCentro<Awaited<ReturnType<typeof pedidosDelChatAction>>>('trabajos', { id: faltan })
         .then((r) => { if (r.ok && r.pedidos.length) setViejos((v) => [...v, ...r.pedidos.filter((p) => !pedidosRef.current.has(p.id))]); })
         .catch(() => { faltan.forEach((id) => pidiendo.current.delete(id)); });
     }
