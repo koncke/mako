@@ -16,7 +16,7 @@
 import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
-  { titulo: 'El Media Buyer reemplaza a la réplica de Meta Ads Manager', detalle: 'Pantalla copiada de Madgicx · AI Marketer (saludo, «Lo que hizo MaKo», «Metas del mes», Abiertas · Hechas · Descartadas, detalle en tres columnas) · la vista vieja borrada con sus tests · el teléfono (/m/ads) con deslizar para lanzar', estado: 'hecha' },
+  { titulo: 'El Media Buyer reemplaza a la réplica de Meta Ads Manager', detalle: 'La estructura, la limpieza y las funciones de Madgicx · AI Marketer con los colores de MaKo (25/10; la primera se rechazó por los botones y carteles encima): saludo, dos tarjetas, el chip «Todas las recomendaciones», filas con «Lanzar» y el detalle de Madgicx · la vista vieja borrada con sus tests · el teléfono (/m/ads) con deslizar para lanzar', estado: 'hecha' },
   { titulo: 'El agente: seis tácticas con su porqué', detalle: 'Surf, Sunsetting, Stop Loss y Revive (Madgicx) + Calidad de leads y Ganador (salen del CRM) · cada decisión con la tabla Condición · Valor · Por qué y el antes → después · 72 h sin tocar lo nuevo, un cambio de presupuesto por día', estado: 'hecha' },
   { titulo: 'Topes, modos y deshacer', detalle: 'Apagado por defecto · «propone» o «piloto automático» por negocio · subida máxima por día, presupuesto máximo de la cuenta e interruptor, mirados al escribir con la cuenta en vivo · deshacer sólo si nadie lo tocó después', estado: 'hecha' },
   { titulo: 'Zernio entero para Meta', detalle: 'Estado, presupuesto, duplicar con textos nuevos y borrar por la Zernio del negocio (OpenAPI v1.353.0) · el árbol de la cuenta por Zernio para la que no tiene token · falta la PRIMERA conexión real: el clic de Facebook lo hace Martín', estado: 'sigue' },
@@ -382,6 +382,25 @@ export const BITACORA: Hito[] = [
       'lib/zernio-ads.ts — lo que el agente escribe por Zernio',
       'supabase/migrations/0332_media_buyer.sql — config y registro de decisiones',
       'lib/api-mako/areas/ads.def.ts — las siete operaciones del Media Buyer',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '10:30', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La primera pantalla, rechazada: la estructura de Madgicx sin nada encima',
+    pedido: '«Realmente no creo que la interfaz de madgicx se vea así de fea, con tantos botones, no se entiende... Copiala tal cual a la interfaz de madgicx»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «faltan los colores de Madgicx», y era el equivocado**: se probó copiándolos y Martín lo corrigió el mismo día («no quiero copiar tal cual los colores, adaptarlos un poco a MaKo... Pero si quiero que tenga todas las funcionalidades»). Lo que hacía fea a la primera era lo nuestro ENCIMA de Madgicx (el piloto en la cabecera, dos banners, tres pestañas, dos botones más): ahora cada cosa va dentro de un lugar que Madgicx ya tiene (la tuerca, «Pedirle más a MaKo», su saludo con globos).',
+      'Las medidas se **tomaron de la captura con PIL** (2880×1800, 2×), no a ojo: márgenes 40, tarjetas de radio 14 con aire 20, filas de 96 con baldosa 60 y título 26, botones de 36. Los colores, todos tokens de la casa (mb-paleta.css): claro y oscuro andan solos.',
+      'Cuatro capturas nuevas de la versión oscura (cuadros de las animaciones de madgicx.com y el changelog): el detalle abierto, las filas con «Completed», el saludo con globos y el detalle de un cambio de presupuesto.',
+      'Mirado a 1280 y a 390 al lado de las capturas de Madgicx, en la computadora y en el teléfono.',
+    ],
+    archivos: [
+      'app/ads-manager/MediaBuyer.tsx · mb.css · mb-paleta.css — la pantalla',
+      'app/m/ads/MediaBuyerM.tsx · mb-m.css — el teléfono',
+      'docs/media-buyer/referencia.md · docs/media-buyer/referencias/madgicx/ — la fuente',
     ],
     revisar: '/ads-manager',
   },

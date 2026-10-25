@@ -1,7 +1,7 @@
 'use client';
 
 // =============================================================================
-// Media Buyer — la pantalla (/ads-manager), copiada TAL CUAL de Madgicx · AI Marketer (25/10/2026, segunda vuelta)
+// Media Buyer — la pantalla (/ads-manager), la estructura y las funciones de Madgicx · AI Marketer, los colores de MaKo (25/10/2026)
 // =============================================================================
 // Martín, 25/10/2026, sobre la primera versión en producción: «Realmente no creo que la interfaz de madgicx se vea así de
 // fea, con tantos botones, no se entiende... Copiala tal cual a la interfaz de madgicx». Las capturas reales están en
@@ -31,7 +31,6 @@ import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
 import { subirAlStaging } from './creativeUpload';
-import { FuenteMediaBuyer } from './fuente';
 import {
   ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, saludo, tonoDe, verboLanzar,
   type Pestana,
@@ -170,7 +169,6 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
 
   return (
     <div className="mb">
-      <FuenteMediaBuyer />
       <div className="mb-arriba">
         {/* ── 1. La cabecera: la mascota, el saludo, y sólo la tuerca y «Pedirle más a MaKo» ── */}
         <header className="mb-cab">

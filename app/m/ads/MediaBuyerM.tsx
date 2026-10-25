@@ -7,7 +7,7 @@
 // la tarjeta del saludo y debajo las recomendaciones en tarjetas (baldosa + título); las que sólo se resuelven en la
 // computadora quedan con «Only available on desktop». Nada más: ni interruptor ni pestañas. Lo que MaKo agrega y Madgicx
 // no tiene, dicho acá: «Lo que hizo MaKo» debajo (lo hecho, con su «Deshacer» en la hoja), y que el piloto automático, el
-// interruptor y los topes viven en la tuerca de la computadora. Los colores, los de Madgicx (app/ads-manager/mb-paleta.css).
+// interruptor y los topes viven en la tuerca de la computadora. Los colores, los de MaKo (app/ads-manager/mb-paleta.css).
 // Lo que escribe es lo de la computadora: POST /api/media-buyer (lib/media-buyer/ejecutar.ts, con sus topes).
 // =============================================================================
 

@@ -79,6 +79,16 @@ el mismo resumen «failing tests», con su `test at …`. El script los cuenta c
 **Antes de perseguir un rojo de esa lista, correr el archivo solo y mirar la salida:** si es 0, es un `todo`. Sin arreglar:
 filtrar en el script los `test at` que vienen después de una línea con `# …` de `todo`.
 
+## Chrome sin ventana no baja de ~500 px: una captura «a 390» con `--window-size=390,…` es de una pantalla más ancha recortada (25/10/2026)
+
+**Vive en:** cualquier captura con `chrome --headless=new --window-size=390,… --screenshot`.
+
+En el chat Media Buyer, las capturas a 390 salieron con textos cortados contra el borde derecho y parecía que la pantalla
+se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 (`resize_window`): `scrollWidth` = 390 y nada
+pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
+corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
+`--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
+
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use

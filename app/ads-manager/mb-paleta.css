@@ -1,70 +1,41 @@
 /* =============================================================================
-   Media Buyer — la paleta de Madgicx · AI Marketer, medida (ver el encabezado de mb.css), para la computadora (`.mb`) y el
-   teléfono (el marco entero de /m/ads, `.m-shell:has(.mbm)`, porque Madgicx en el teléfono también es oscuro arriba y abajo).
-   Además redefine los tokens de la casa: lo que va adentro (Button, TextField, Select, Switch, Modal, Toast, las piezas de
-   /m) toma estos colores solo. El Modal no usa portal: se dibuja dentro de `.mb` y los hereda.
+   Media Buyer — los colores: los de MaKo, sobre la estructura de Madgicx (25/10/2026)
+   =============================================================================
+   Martín, 25/10/2026, después de ver la copia con los colores de Madgicx: «no quiero copiar tal cual los colores,
+   adaptarlos un poco a MaKo... Pero si quiero que tenga todas las funcionalidades». De Madgicx · AI Marketer queda la
+   estructura, la jerarquía, el aire, las medidas y la limpieza (pocos botones); los colores son los tokens de la casa, así
+   que el tema claro y el oscuro andan solos. Cada `--mbx-*` (los nombres de mb.css) apunta a uno de la casa:
+     · azul (--primary) = lo que actúas tú: «Lanzar», el chip, las barras de las metas;
+     · dorado (--mako*) = MaKo: el número del saludo, «Pedirle más a MaKo», la tarjeta de saludo con globos;
+     · verde / rojo = bien / riesgo.
+   La paleta medida de Madgicx (por si se vuelve a necesitar) está en docs/media-buyer/referencia.md.
    ============================================================================= */
-.mb, .m-shell:has(.mbm) {
-  /* La paleta de Madgicx (medida, ver arriba). */
-  --mbx-fondo: #08061d;
-  --mbx-banda: #13102a;
-  --mbx-borde: #2f2d44;
-  --mbx-borde-fuerte: #3f3d54;
-  --mbx-baldosa: #18162b;
-  --mbx-tinta: #fdfdff;
-  --mbx-tinta-2: #e4e2f7;
-  --mbx-gris: #9291a7;
-  --mbx-gris-2: #68667d;
-  --mbx-violeta: #7462f9;
-  --mbx-violeta-hover: #8576fa;
-  --mbx-acento: #9586e8;
-  --mbx-chip: #171625;
-  --mbx-chip-texto: #a495fa;
-  --mbx-barra: #121025;
-  --mbx-barra-violeta: #9282ee;
-  --mbx-verde: #2ef8ae;
-  --mbx-verde-texto: #56f4bd;
-  --mbx-completado: #35bf19;
-  --mbx-rojo: #ff7b6b;
-  --mbx-tarjeta-saludo: #322d48;
-  --mbx-globo: #e3ebfd;
-  --mbx-globo-texto: #06051c;
+.mb, .mbm {
+  --mbx-fondo: var(--surface);
+  --mbx-banda: var(--bg);
+  --mbx-borde: var(--border);
+  --mbx-borde-fuerte: var(--border-strong);
+  --mbx-baldosa: var(--bg);
+  --mbx-tinta: var(--ink);
+  --mbx-tinta-2: var(--dim);
+  --mbx-gris: var(--faint);
+  --mbx-gris-2: var(--faint);
+  --mbx-violeta: var(--primary);
+  --mbx-violeta-hover: var(--primary-strong);
+  --mbx-sobre-violeta: var(--on-primary, #fff);
+  --mbx-acento: var(--mako-ink);
+  --mbx-chip: var(--bg);
+  --mbx-chip-texto: var(--primary);
+  --mbx-barra: var(--fondo-columna);
+  --mbx-barra-violeta: var(--primary);
+  --mbx-verde: var(--good);
+  --mbx-verde-texto: var(--good);
+  --mbx-completado: var(--good);
+  --mbx-rojo: var(--bad);
+  --mbx-tarjeta-saludo: var(--mako-bg);
+  --mbx-tarjeta-saludo-borde: var(--mako-border);
+  --mbx-globo: var(--surface);
+  --mbx-globo-texto: var(--ink);
   --mbx-titulo: 'Geist', system-ui, sans-serif;
-  --mbx-texto: 'Inter', 'Geist', system-ui, sans-serif;
-
-  /* Los tokens de la casa, con la paleta de Madgicx: lo que va adentro (Button, TextField, Select, Switch, Modal, Toast)
-     la toma solo. El Modal no usa portal: se dibuja dentro de `.mb` y hereda esto. */
-  --bg: var(--mbx-banda);
-  --surface: var(--mbx-fondo);
-  --surface-2: var(--mbx-baldosa);
-  --fondo-columna: var(--mbx-barra);
-  --border: var(--mbx-borde);
-  --border-strong: var(--mbx-borde-fuerte);
-  --ink: var(--mbx-tinta);
-  --on-ink: var(--mbx-fondo);
-  --dim: #c3c1d6;
-  --faint: var(--mbx-gris);
-  --primary: var(--mbx-violeta);
-  --primary-strong: var(--mbx-violeta-hover);
-  --primary-bg: #1d1842;
-  --primary-weak: #4b3fa3;
-  --on-primary: #ffffff;
-  /* `--mako` NO se toca: es el color de la criatura (lib/centro-munecos.ts, COLOR_MAKO), la marca de MaKo; queda dorada. */
-  --mako-ink: var(--mbx-acento);
-  --mako-bg: #1d1842;
-  --mako-border: #4b3fa3;
-  --good: var(--mbx-verde-texto);
-  --good-bg: #0f2a24;
-  --warn: #f5b04a;
-  --warn-bg: #2d210f;
-  --bad: var(--mbx-rojo);
-  --bad-bg: #2e1420;
-  --velo-hover: rgba(255, 255, 255, .06);
-  --focus-ring: 0 0 0 2px var(--mbx-fondo), 0 0 0 4px var(--mbx-violeta);
-  --r-sm: 4px;
-  --r-md: 4px;
-  --r-lg: 6px;
-  --r-xl: 14px;
-
+  --mbx-texto: 'Geist', system-ui, sans-serif;
 }
-.m-shell:has(.mbm) { background: var(--mbx-banda); color: var(--mbx-tinta); color-scheme: dark; }

@@ -4775,6 +4775,18 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   (lib/plan-esencial-reglas.ts) todavía tiene 'ads-manager', así que el Esencial de la pasarela rebota a
   /no-esta-en-tu-plan y nunca ve sus 2 recomendaciones. Es de Planes (avisado al Cerebro el 25/10).
 
+- **Para Martín, «copialo tal cual» es la ESTRUCTURA, la limpieza y TODAS las funciones; los colores son los de MaKo
+  (25/10, dos vueltas el mismo día).** La primera pantalla (estructura de Madgicx con lo nuestro encima: el piloto en la
+  cabecera, dos banners, tres pestañas, dos botones sueltos) la rechazó: «se vea así de fea, con tantos botones, no se
+  entiende... Copiala tal cual». La segunda copió también los colores de Madgicx y la corrigió: «no quiero copiar tal
+  cual los colores, adaptarlos un poco a MaKo... Pero si quiero que tenga todas las funcionalidades». O sea: lo que se
+  rechazó la primera vez no eran los colores sino el RUIDO; cada cosa nuestra va DENTRO de un lugar que la app copiada ya
+  tiene (su tuerca, su «Ask AI Marketer to Do More», su tarjeta de saludo), y las medidas se toman de la captura (PIL),
+  no a ojo. La regla de AGENTS.md (punto 3: estructura sí, colores de la casa) era la correcta.
+- **Las capturas de la landing no alcanzan para copiar FUNCIONES.** Muestran la pantalla principal y poco más; el
+  inventario de lo que hace la app (el detalle de cada recomendación, las tácticas, los reportes, los ajustes) sale de
+  recorrerla por dentro con una cuenta (Martín abrió la suya de Madgicx para eso, 25/10).
+
 **Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
 `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y

@@ -49,11 +49,14 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
 
 - **El puntaje contra «el promedio de Madgicx»**: MaKo no tiene un universo de cuentas comparable. Se muestra el
   porcentaje de la cuenta en piloto automático, sin comparación.
-- ~~Los colores y la tipografía: los de la casa~~ — **cambiado el 25/10/2026**: Martín vio la primera versión en producción y
-  la rechazó («Realmente no creo que la interfaz de madgicx se vea así de fea, con tantos botones, no se entiende...
-  Copiala tal cual a la interfaz de madgicx»). Desde entonces se copian TAMBIÉN los colores (medidos con PIL sobre las
-  capturas: el encabezado de `app/ads-manager/mb.css` los lista), las medidas y la letra (Inter; los títulos en Geist 500
-  porque Aeonik Pro es de pago), limitados a `.mb` como `.gh` en /api-mako. La criatura de MaKo sigue dorada: es la marca.
+- **Los colores y la letra: los de MaKo.** Hubo una vuelta en el medio (25/10/2026): Martín rechazó la primera versión
+  («se vea así de fea, con tantos botones, no se entiende... Copiala tal cual»), se copiaron también los colores de
+  Madgicx, y lo corrigió el mismo día: «no quiero copiar tal cual los colores, adaptarlos un poco a MaKo... Pero si quiero
+  que tenga todas las funcionalidades». Queda de Madgicx la estructura, la limpieza, las medidas y las funciones.
+  La paleta de Madgicx, medida con PIL sobre web-ai-marketer.png (por si se vuelve a necesitar): fondo #08061d, banda de la
+  lista #13102a, borde #2f2d44, baldosa #18162b, «Launch» #7462f9, texto de acento #9586e8, chip #171625 con texto #a495fa,
+  barra #121025 / #9282ee, verde #2ef8ae, «Completed» #35bf19, grises #9291a7 y #68667d. La letra: Aeonik Pro en los
+  títulos (500) e Inter en el resto.
 - **Lo que en Madgicx no se ve y no se inventó**: su estado vacío (se usa su tarjeta de saludo con globos), lo que abre
   «Ask AI Marketer to Do More» (en MaKo: mirar la cuenta ahora, subir creativos y el pedido libre al chat) y su tuerca
   completa (sólo se conoce el popup «Primary KPI»; en MaKo suma el modo, los topes, la cuenta y el interruptor).
