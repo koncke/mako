@@ -2648,4 +2648,33 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "24 oct", hora: "23:00", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "martin", tipo: "prompt",
+    titulo: "Un solo goteo y un solo tope por día, para todos los canales",
+    pedido: "«Uno solo: un solo interruptor de goteo (y uno de tope por día) que valga para todos los canales»",
+    puntos: [
+      "Contestó por el Ops Center lo que se preguntó en la llamada con Leandro, que se quejó de un botón por canal y de que Instagram no tenía goteo.",
+    ],
+  },
+  {
+    fecha: "25 oct", hora: "00:40", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Configuraciones tiene un solo goteo y un solo tope por día, y valen en Instagram",
+    puntos: [
+      "En Configuraciones de cada automatización hay un solo bloque, «Todos los canales», con Goteo y Tope por día. Vale para WhatsApp, email, Instagram y Messenger.",
+      "Cada canal cuenta lo suyo: «hasta 50 por día» son 50 WhatsApp y 50 mensajes de Instagram.",
+      "Ahora Instagram sí respeta el goteo. Y el del email no frenaba nunca: ya frena.",
+      "La campaña de Mauricio sigue igual: uno cada 11 minutos y hasta 65 por día. Ninguna automatización cambió su número.",
+    ],
+    archivos: [
+      "lib/goteo.ts — cada canal cuenta lo suyo, y el freno de un mensaje",
+      "lib/config-automatizacion.ts — un goteo; el del email de antes se lee como el de todos",
+      "app/automations/ConfigAutomatizacionPanel.tsx — el bloque «Todos los canales»",
+      "tests/goteo-un-interruptor.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

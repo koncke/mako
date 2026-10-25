@@ -27,6 +27,11 @@
 // goteo y tope por día... que el botón de "on-off" esté al lado de donde se configuran el resto de cosas no es muy
 // intuitivo». Quedan Goteo y Tope por día en cada canal, cada fila como en Ajustes de iOS (el interruptor en la fila del
 // nombre y el número debajo, sólo prendida: `FilaOpcion` con `debajo`).
+//
+// 24/10/2026 23:00 (Martín, f21 de la llamada con Leandro): «Uno solo: un solo interruptor de goteo (y uno de tope por día)
+// que valga para todos los canales»; f20: «no está en Instagram». Desde ese día, UN bloque «Todos los canales» con Goteo y
+// Tope por día, que valen para WhatsApp, email, Instagram y Messenger (cada canal cuenta lo suyo, lib/goteo.ts). Si vuelve a
+// aparecer un interruptor por canal, es una regresión.
 // =============================================================================
 
 import { useEffect, useRef, useState } from 'react';
@@ -37,7 +42,7 @@ import { Numero } from './LimitesEnvioPanel';
 import { FilaOpcion, GrupoOpciones, Unidad, TarjetaOpciones } from './FilasOpciones';
 import { HORARIO_SUGERIDO } from '@/lib/horario-envio';
 import { textoPrioridad } from '@/lib/nutricion-prioridad';
-import { RANGOS_GOTEO, RANGOS_GOTEO_EMAIL, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
+import { RANGOS_GOTEO, type ConfigAutomatizacion } from '@/lib/config-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
@@ -95,20 +100,21 @@ export function HorarioDeLaAutomatizacion({ secuenciaId, onSucio }: { secuenciaI
   return <HorarioEnvioPanel fuente={fuente} onSucio={onSucio} />;
 }
 
-/** Las partes del goteo, una por canal (lib/config-automatizacion.ts). */
-type ParteGoteo = 'goteo' | 'goteoEmail';
-/** Un cambio de esta automatización: por parte, los campos que cambian (`null` = se saca). */
-type CambioAntiban = Partial<Record<ParteGoteo, Record<string, number | null>>>;
+/** Un cambio del goteo de esta automatización: los campos que cambian (`null` = se saca). */
+type CambioGoteo = Record<string, number | null>;
+
+/** El ⓘ del bloque: para qué canales vale, y cómo cuenta (lib/goteo.ts). */
+export const INFO_TODOS_LOS_CANALES = 'Valen para WhatsApp, email, Instagram y Messenger: cada canal cuenta sus mensajes.';
 
 /**
- * LO DE ESTA AUTOMATIZACIÓN EN CADA CANAL (22/10/2026), como estado de la pantalla: el goteo de sus mensajes (lib/goteo.ts,
- * la llamada con Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro») y su tope por día (un SUB-tope adentro
- * del de la línea), en WhatsApp y —desde el 23/10/2026, Martín: «en Email también pon goteo y tope por día»— en Email.
+ * EL GOTEO DE ESTA AUTOMATIZACIÓN (22/10/2026), como estado de la pantalla: el de sus mensajes (lib/goteo.ts, la llamada con
+ * Mauricio: «envía uno, tal vez espera 4 minutos o 5, envía el otro») y su tope por día (un SUB-tope adentro del de la
+ * línea). UNO para todos los canales desde el 24/10/2026 (f21); hasta ese día había uno de WhatsApp y otro de Email.
  * Apagado = el campo AUSENTE (sin goteo / sin tope propio). Al prenderlo arranca con el número sugerido.
  * (Hasta el 23/10/2026 también estaban «Misma persona» y «Vista previa del link»: Martín, «elimina "Vista previa del link",
  * eso no se debe configurar en Configuraciones... Y elimina "Misma persona"». La vista previa se saca en el mensaje, con la X
  * de la tarjeta del link; «Misma persona» se fue también del motor.)
- * UN guardado para todo (`pendiente` lo junta en el respiro). Devuelve las filas, que la pantalla reparte por canal.
+ * UN guardado para todo (`pendiente` lo junta en el respiro). Devuelve las filas del bloque «Todos los canales».
  */
 export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: boolean) => void) {
   const { d, error, poner } = useConfig(secuenciaId);
@@ -122,14 +128,14 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
    * es lo que se ve hasta que el server contesta (null = sacado); `pendiente`, lo que sale al vencer el respiro.
    */
   const [local, setLocal] = useState<Record<string, number | null>>({});
-  const pendiente = useRef<CambioAntiban>({});
+  const pendiente = useRef<CambioGoteo>({});
   useEffect(() => () => { if (respiro.current) clearTimeout(respiro.current); }, []);
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
   const off = !d?.puedeEditar;
-  const guardar = (parte: ParteGoteo, cambio: Record<string, number | null>) => {
+  const guardar = (cambio: CambioGoteo) => {
     setAviso('');
-    pendiente.current = { ...pendiente.current, [parte]: { ...(pendiente.current[parte] ?? {}), ...cambio } };
-    setLocal((p) => ({ ...p, ...Object.fromEntries(Object.entries(cambio).map(([k, v]) => [`${parte}.${k}`, v])) }));
+    pendiente.current = { ...pendiente.current, ...cambio };
+    setLocal((p) => ({ ...p, ...cambio }));
     if (respiro.current) clearTimeout(respiro.current);
     setEnVuelo(true);
     respiro.current = setTimeout(() => {
@@ -138,38 +144,32 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
       // Lo que se mandó deja de ser «local» (si no se tocó otra vez mientras tanto): manda lo que contestó el server.
       const soltar = () => setLocal((p) => {
         const q = { ...p };
-        for (const [parteEnviada, campos] of Object.entries(envio)) for (const [k, v] of Object.entries(campos ?? {})) if (q[`${parteEnviada}.${k}`] === v) delete q[`${parteEnviada}.${k}`];
+        for (const [k, v] of Object.entries(envio)) if (q[k] === v) delete q[k];
         return q;
       });
-      void saveConfigAutomatizacionAction(secuenciaId, envio)
+      void saveConfigAutomatizacionAction(secuenciaId, { goteo: envio })
         .then((r) => { setEnVuelo(false); soltar(); if (!r.ok || !r.config) { setAviso(r.error || 'No se pudo guardar.'); return; } poner(r.config); })
         .catch(() => { setEnVuelo(false); soltar(); setAviso('No se pudo guardar.'); });
     }, 350);
   };
   /** Lo guardado de un campo, con lo tocado encima (undefined = ausente). */
-  const leido = (parte: ParteGoteo, campo: string): number | undefined => {
-    const k = `${parte}.${campo}`;
-    if (k in local) return local[k] ?? undefined;
-    return (d?.config[parte] as Record<string, number> | undefined)?.[campo];
-  };
+  const leido = (campo: 'minutos' | 'dia'): number | undefined => (campo in local ? local[campo] ?? undefined : d?.config.goteo?.[campo]);
   /**
    * UNA FILA COMO EN AJUSTES DE iOS (23/10/2026, Martín: «que el botón de "on-off" esté al lado de donde se configuran el
    * resto de cosas no es muy intuitivo»): el nombre con su interruptor en la fila, y el número en un renglón de abajo SÓLO
    * con la opción prendida («Uno cada [5] min»). Apagada no hay número que mirar.
    */
-  const filaGoteo = (parte: ParteGoteo, campo: 'minutos' | 'dia', nombre: string, objeto: string, antes: string, unidad: string, info: string, sugerido: number) => {
-    const rangos = parte === 'goteo' ? RANGOS_GOTEO : RANGOS_GOTEO_EMAIL;
-    const v = leido(parte, campo);
+  const filaGoteo = (campo: 'minutos' | 'dia', nombre: string, objeto: string, antes: string, unidad: string, info: string, sugerido: number) => {
+    const v = leido(campo);
     const on = v !== undefined;
-    const clave = `${parte}.${campo}`;
     return (
-      <FilaOpcion key={clave} nombre={nombre} info={info} error={invalido[clave]} datos={{ 'data-goteo-campo': campo, 'data-goteo-canal': parte === 'goteo' ? 'whatsapp' : 'email' }}
-        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar ${objeto}` : `Prender ${objeto}`} onCambio={(x) => guardar(parte, { [campo]: x ? sugerido : null })} />}
+      <FilaOpcion key={campo} nombre={nombre} info={info} error={invalido[campo]} datos={{ 'data-goteo-campo': campo }}
+        interruptor={<Interruptor on={on} disabled={off} etiqueta={on ? `Apagar ${objeto}` : `Prender ${objeto}`} onCambio={(x) => guardar({ [campo]: x ? sugerido : null })} />}
         debajo={on ? (
           <>
             <Unidad>{antes}</Unidad>
-            <Numero valor={v} min={rangos[campo][0]} max={rangos[campo][1]} disabled={off} etiqueta={`${nombre} · ${unidad}`}
-              onCambio={(n) => guardar(parte, { [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [clave]: e ?? '' }))} />
+            <Numero valor={v} min={RANGOS_GOTEO[campo][0]} max={RANGOS_GOTEO[campo][1]} disabled={off} etiqueta={`${nombre} · ${unidad}`}
+              onCambio={(n) => guardar({ [campo]: n })} onInvalido={(e) => setInvalido((p) => ({ ...p, [campo]: e ?? '' }))} />
             <Unidad>{unidad}</Unidad>
           </>
         ) : undefined} />
@@ -177,26 +177,21 @@ export function useAntibanDeLaAutomatizacion(secuenciaId: number, onSucio?: (s: 
   };
   return {
     listo: !!d, error, aviso,
-    /** El ⓘ del bloque WhatsApp: la regla que sigue frenando por dentro aunque la línea ya no se edite acá (nada se decide
-     *  por detrás: «Primero lo que entra» y lo que la campaña le deja, con los números del negocio). */
-    infoWhatsapp: d ? textoPrioridad(d.lineaWa) : undefined,
-    /** Las de WhatsApp: el goteo y el tope por día. */
-    whatsapp: d ? [
-      filaGoteo('goteo', 'minutos', 'Goteo', 'el goteo de los WhatsApp', 'Uno cada', 'min', 'Sus WhatsApp salen de a uno, con esta espera entre dos.', 5),
-      filaGoteo('goteo', 'dia', 'Tope por día', 'el tope por día de los WhatsApp', 'Hasta', 'por día', 'Cuántos WhatsApp de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
-    ] : [],
-    /** Las de Email: lo mismo, con sus rangos (23/10/2026). */
-    email: d ? [
-      filaGoteo('goteoEmail', 'minutos', 'Goteo', 'el goteo de los emails', 'Uno cada', 'min', 'Sus emails salen de a uno, con esta espera entre dos.', 5),
-      filaGoteo('goteoEmail', 'dia', 'Tope por día', 'el tope por día de los emails', 'Hasta', 'por día', 'Cuántos emails de esta automatización salen como mucho por día.', Math.min(100, d.lineaEmailDia)),
+    /** El ⓘ del bloque: para qué canales vale, y la regla de la línea de WhatsApp que sigue frenando por dentro aunque ya no se
+     *  edite acá (nada se decide por detrás: «Primero lo que entra» y lo que la campaña le deja, con los números del negocio). */
+    info: d ? `${INFO_TODOS_LOS_CANALES} ${textoPrioridad(d.lineaWa)}` : undefined,
+    /** El goteo y el tope por día, para todos los canales. */
+    filas: d ? [
+      filaGoteo('minutos', 'Goteo', 'el goteo', 'Uno cada', 'min', 'Los mensajes salen de a uno, con esta espera entre dos.', 5),
+      filaGoteo('dia', 'Tope por día', 'el tope por día', 'Hasta', 'por día', 'Cuántos mensajes de esta automatización salen como mucho por día.', Math.min(50, d.lineaWa.dia)),
     ] : [],
   };
 }
 
 /**
- * LA PANTALLA DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (23/10/2026): «Horario de oficina» y un bloque por canal, con lo de
- * ESTA automatización y nada más (nada «para todas»: ver la cabecera): Goteo y Tope por día en cada canal. `onSucio` por
- * parte: el modal no se cierra con un guardado en vuelo.
+ * LA PANTALLA DE CONFIGURACIONES DE UNA AUTOMATIZACIÓN (23/10/2026): «Horario de oficina» y, desde el 24/10/2026 (f21), UN
+ * bloque «Todos los canales» con Goteo y Tope por día, con lo de ESTA automatización y nada más (nada «para todas»: ver la
+ * cabecera). `onSucio` por parte: el modal no se cierra con un guardado en vuelo.
  */
 export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucioAntiban }: {
   secuenciaId: number; onSucioHorario?: (s: boolean) => void; onSucioAntiban?: (s: boolean) => void;
@@ -209,13 +204,9 @@ export function AjustesDeLaAutomatizacion({ secuenciaId, onSucioHorario, onSucio
         ? (auto.error ? <p role="alert" style={{ margin: 0, fontSize: 13.5, color: 'var(--bad)' }}>{auto.error}<ReportarASoporte /></p> : <Spinner />)
         : (
           <>
-            <TarjetaOpciones etiqueta="WhatsApp" datos={{ 'data-canal': 'whatsapp', 'data-goteo': secuenciaId }}>
-              <GrupoOpciones titulo="WhatsApp" info={auto.infoWhatsapp} primero />
-              {auto.whatsapp}
-            </TarjetaOpciones>
-            <TarjetaOpciones etiqueta="Email" datos={{ 'data-canal': 'email' }}>
-              <GrupoOpciones titulo="Email" primero />
-              {auto.email}
+            <TarjetaOpciones etiqueta="Todos los canales" datos={{ 'data-goteo': secuenciaId }}>
+              <GrupoOpciones titulo="Todos los canales" info={auto.info} primero />
+              {auto.filas}
             </TarjetaOpciones>
             {auto.aviso && <p role="alert" style={{ margin: 0, fontSize: 13, color: 'var(--bad)' }}>{auto.aviso}<ReportarASoporte /></p>}
           </>

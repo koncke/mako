@@ -35,7 +35,7 @@
 //
 // 23/10/2026 (Martín, por el Cerebro): «Todo vive en UNA sola pantalla, sin pestañas ni nombre de pestaña: sólo el título
 // "Configuraciones"». Eran dos pestañas (Horario y «Anti-ban», antes «Límites»). Ahora el cuerpo es
-// `AjustesDeLaAutomatizacion` (ConfigAutomatizacionPanel.tsx): «Horario de oficina» y un bloque por canal. El modal tiene
+// `AjustesDeLaAutomatizacion` (ConfigAutomatizacionPanel.tsx): «Horario de oficina» y «Todos los canales» (24/10). El modal tiene
 // ALTO FIJO y el cuerpo scrollea. Y desde ese mismo día, nada «para todas» (los límites de la línea ya no se ven acá).
 //
 // ⚠️ EL `onCerrar` DEL MODAL TIENE IDENTIDAD FIJA (`useCerrarEstable`, AGENTS.md: «Todo `<Modal>` recibe un
