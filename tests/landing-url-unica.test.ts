@@ -31,6 +31,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { normalizarUrl } from '../lib/landing-paginas';
+import { urlSinDatosPersonales } from '../lib/url-datos-personales';
 import { claveDeLanding, direccionParaBajar, urlTalCual } from '../lib/landing-url';
 import { filasDelPanel } from '../app/web-generator/panel-reglas';
 import { PARAM_LEER } from '../lib/editor-landing/lector';
@@ -106,11 +107,22 @@ const CORPUS = [
   '', '   ', 'no es una url', 'javascript:alert(1)//.xx', 'ftp://ejemplo.com/a', '//ejemplo.com/a', 'https://', 'http://a b.com',
 ];
 
+/**
+ * El ÚNICO cambio de forma a propósito de `normalizarUrl` (25/10/2026, P6): ya no deja pasar los datos de una persona
+ * (`?name=…&email=…` de la página de gracias de una agenda: lib/url-datos-personales.ts). Para el resto del corpus es
+ * la identidad. Medido antes de cambiarlo: ninguna llave guardada de un negocio (`app_settings`) los tenía.
+ */
+const viejaDelPixelSinDatos = (s: string): string | null => {
+  const r = viejaDelPixel(s);
+  return typeof r === 'string' ? urlSinDatosPersonales(r) : r;
+};
+
 test('1 · las dos devuelven exactamente lo de antes: cambiar la forma cambia las llaves guardadas', () => {
   for (const x of CORPUS) {
     assert.deepEqual(resultado(claveDeLanding, x), resultado(viejaDelAnalisis, x), `claveDeLanding(${JSON.stringify(x)}) cambió de forma`);
-    assert.deepEqual(resultado(normalizarUrl, x), resultado(viejaDelPixel, x), `normalizarUrl(${JSON.stringify(x)}) cambió de forma`);
+    assert.deepEqual(resultado(normalizarUrl, x), resultado(viejaDelPixelSinDatos, x), `normalizarUrl(${JSON.stringify(x)}) cambió de forma`);
   }
+  assert.equal(normalizarUrl('https://ejemplo.com/gracias?name=Codigo+Inmobiliario&email=a%40b.com'), 'https://ejemplo.com/gracias', 'los datos de la persona volvieron a la llave');
 });
 
 test('2 · las llaves ya guardadas siguen cruzando: se reproducen desde lo crudo y son un punto fijo', () => {

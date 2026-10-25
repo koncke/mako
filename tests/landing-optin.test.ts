@@ -719,7 +719,8 @@ test('los CLICKS se miden: el CTA y el link de WhatsApp son el embudo', () => {
   // La lista blanca pasó a ser un array: sumar un tipo nuevo es obligatorio, o
   // entra como 'desconocido' y se pierde con un nombre que no dice nada.
   assert.ok(/CONOCIDOS = \['play', 'exit', 'click'/.test(beacon), "sin la lista blanca, el click entra como 'desconocido'");
-  assert.ok(/detalle: texto\(payload\.detalle, 300\)/.test(beacon), 'el destino del click tiene que persistirse');
+  // (25/10/2026, P6: sin los datos de una persona que traiga el link, antes de cortar a 300.)
+  assert.ok(/detalle: texto\(typeof payload\.detalle === 'string' \? urlSinDatosPersonales\(payload\.detalle\) : payload\.detalle, 300\)/.test(beacon), 'el destino del click tiene que persistirse');
   // ⚠️ Columna propia, no reusar `vsl_titulo`: «cómo se llama el video» y «qué se
   // clickeó» son dos preguntas, y meterlas en un campo pierde una de las dos.
   const mig = leer('../supabase/migrations/0133_vsl_events_detalle.sql');
@@ -1367,10 +1368,11 @@ test('cada evento dice en CUÁL página pasó, no solo la visita', () => {
   // regex la vea. El test pasaba a ser una cadena literal que nunca matchea.
   assert.ok(new RegExp(`\\n\\s*${ver![1]}: '`).test(lib), 'sin entrada en NOVEDADES el aviso no puede decir qué se gana');
 
-  // El beacon la guarda, y en la tabla que tiene la columna (mig 0137).
+  // El beacon la guarda, y en la tabla que tiene la columna (mig 0137). Desde el 25/10/2026 (P6), sin los datos de una
+  // persona en la query (`urlGuardable`: lib/url-datos-personales.ts y su corte a 500).
   const ruta = leer('../app/api/track/vsl/route.ts');
   const iVsl = ruta.indexOf("from('vsl_events').insert(");
-  assert.ok(/^\s*landing_url: texto\(payload\.landing_url, 500\),/m.test(ruta.slice(iVsl, ruta.indexOf('});', iVsl))),
+  assert.ok(/^\s*landing_url: urlGuardable\(payload\.landing_url\),/m.test(ruta.slice(iVsl, ruta.indexOf('});', iVsl))),
     'el beacon recibe la página y la tira');
   const mig = leer('../supabase/migrations/0137_vsl_events_landing_url.sql');
   assert.ok(/alter table public\.vsl_events\s+add column if not exists landing_url text;/.test(mig), 'falta la columna');

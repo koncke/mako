@@ -475,4 +475,21 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — «Una sola copia por página, y por qué NO subió la versión»',
     ],
   },
+  {
+    fecha: '25 oct', hora: '22:41', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'MaKo ya no guarda el nombre y el email de quien agenda en las direcciones de las páginas',
+    puntos: [
+      'Cuando alguien agenda por Calendly, la página de gracias trae su nombre y su email en la dirección. El Pixel de MaKo guardaba esa dirección entera. Ahora, antes de guardarla, le saca esos datos (y los de teléfono o documento), en cualquier negocio.',
+      'Lo mismo con la página de donde venía la persona y con los enlaces que toca. Lo demás de la dirección (de qué campaña viene, por ejemplo) queda igual.',
+      'Lo que ya estaba guardado: unas 670 direcciones de Código Inmobiliario y de P2P Consulting. Está listo para limpiarlo, pero no se tocó todavía: espera la confirmación.',
+      'Se revisó con un segundo análisis que intentó colar datos por todos los lados posibles; lo que encontró quedó cubierto y probado.',
+    ],
+    archivos: [
+      'lib/url-datos-personales.ts — qué se saca de una dirección y qué se deja',
+      'app/api/track/vsl/route.ts — dónde se guarda lo que manda el Pixel',
+      'scripts/limpiar-datos-personales-urls.mts — la limpieza de lo ya guardado (espera el OK)',
+      'docs/hallazgos-landing.md — los números, lo que se coló y lo que falta',
+    ],
+  },
 ];
