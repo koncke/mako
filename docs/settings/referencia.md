@@ -71,17 +71,24 @@ Notification schedule), porque MaKo manda avisos al celular a toda hora.
 
 ### Seguridad (/perfil/seguridad) — tanda 2
 - ✅ Segundo paso (app, llaves de acceso, WhatsApp, email), contraseña, códigos de recuperación, dispositivos recordados.
-- ➕ Linear: la sesión actual arriba y «Cerrar las demás».
-- ➖ La tarjeta grande del escudo pasa a una fila de estado.
+- ➖ La tarjeta grande del escudo: el estado general sólo aparece si FALTA algo, como una fila con «Resolver».
+- ➖ Los párrafos de cada detalle: lo que se puede hacer es una fila con su botón.
+- ⏳ «Cerrar sesión en los demás dispositivos» (el «Revoke all» de Linear): la sesión es un JWT sin estado y no hay lista de
+  sesiones; pide una migración (docs/hallazgos-ajustes.md). Lo que sí se olvida son los dispositivos recordados del 2FA.
 
 ### Instalar la app (/perfil/instalar) — tanda 2
 - ✅ Teléfono (QR y pasos), computadora, extensión. ⏳ La app de escritorio y su descarga son del chat «MaKo Desktop».
 
 ### General (/configuraciones) — tanda 2
-- ✅ Nombre del negocio, moneda, horario de envío, criterio de reuniones, etiquetas, teléfonos, Google Calendar.
+- ✅ Horario de envío (prendido, horas, días, zona del negocio) y criterio de reuniones. Sólo la ve el super admin (decisión
+  pendiente de Martín, docs/hallazgos-ajustes.md). El nombre del negocio está en Perfil; la moneda, en Identidades fiscales.
+- ➕ El horario en filas de Linear; el criterio en su tarjeta, con «Guardar» (es el único dato de Settings que lo tiene: un
+  texto de hasta 24.000 caracteres no se guarda a cada salida del campo).
 
 ### Equipo (/equipo) — tanda 3
-- ✅ Invitar, rol, quitar. ➕ Linear: invitar en un modal, buscar, «Invitación pendiente» con reenviar.
+- ✅ Invitar, rol, suspender, reenviar el acceso, quitar. ➕ Como Members de Linear: «Invitar» arriba en un modal (con qué ve
+  cada rol al lado del rol), el estado sólo si no está activa («invitación enviada», «sin avisar», «suspendido»), «⋯» con lo
+  demás, y buscar con más de 5.
 
 ### Integraciones (/integraciones) — tanda 3
 - ⏳ Meta y CAPI pasan a Zernio (chat «Zernio y CAPI»). ⏳ «Tus cuentas de IA» y conectar la computadora (chat «MaKo Desktop»).
@@ -92,3 +99,29 @@ Notification schedule), porque MaKo manda avisos al celular a toda hora.
 
 ### Tu plan (/configuraciones/plan)
 - ⏳ Es del chat «Planes». Toma el molde nuevo solo.
+
+## La API (25/10/2026: «todo MaKo se debe poder utilizar por API»)
+
+Todo lo que Settings deja ver o cambiar, por pestaña. Lo nuevo de esta entrega va en **negrita** (área `equipo`,
+lib/api-mako/areas/equipo.*; test: tests/api-mako-settings.test.ts). Lo de la PERSONA sale sólo con su sesión (`app`): sin
+una sesión no hay de quién es.
+
+| Pestaña | Leer | Cambiar |
+|---|---|---|
+| Perfil | `ver_perfil`, `quien_soy` | **`editar_mi_perfil`** (nombre, cargo, teléfono, empresa, web, «sobre ti», zona), **`renombrar_negocio`** |
+| Notificaciones | `ver_notificaciones_inapp`, **`ver_avisos_celular`**, `ver_destinatarios_notificaciones`, `ver_preferencias_notificaciones` | **`configurar_notificaciones_inapp`**, **`configurar_aviso_celular`**, **`fijar_no_molestar`**, `agregar_/quitar_destinatario_notificaciones`, `configurar_aviso_whatsapp` |
+| Seguridad | **`ver_mi_seguridad`** | — (ver abajo) |
+| General | **`ver_horario_envio`**, **`ver_criterio_reuniones`**, `ver_zona_horaria_workspace` | **`configurar_horario_envio`**, **`guardar_criterio_reuniones`**, `fijar_zona_horaria_workspace` |
+| Equipo | `listar_equipo`, `buscar_miembro_equipo` | `invitar_miembro_equipo`, `cambiar_rol_miembro`, `suspender_miembro`, `reenviar_invitacion`, `eliminar_miembro` |
+| Identidades fiscales | `listar_identidades_fiscales`, `ver_moneda_negocio` | `guardar_/borrar_identidad_fiscal`, `hacer_default_identidad_fiscal`, `cambiar_moneda_negocio` |
+| Tu plan | `ver_mi_plan` | `dar_de_baja_mi_plan` (chat Planes) |
+| Integraciones | las del área `integraciones` | las del área `integraciones` (chats Zernio y MaKo Desktop) |
+
+**Lo que NO va por la API, y por qué:**
+- **Cambiar la seguridad** (activar o quitar el segundo paso, la contraseña, las llaves, los códigos, olvidar dispositivos): una
+  llave de la API, o MaKo por WhatsApp, no puede cambiar CÓMO se entra a la cuenta. Si una llave se filtra, lo primero que haría
+  quien la tiene es sacar el segundo paso. Se lee (`ver_mi_seguridad`) y se cambia en Settings, con la sesión de la persona.
+- **Las credenciales de Método**: una clave pegada en un chat queda en el historial del modelo, y un token nunca administra
+  credenciales (tests/api-mako-rest.test.ts, «UN TOKEN NUNCA ADMINISTRA TOKENS»). Su estado se lee por el área `integraciones`.
+- **La foto de perfil**: es un archivo; se sube en la pantalla. **El tema** (claro u oscuro): es de cada navegador, no se guarda
+  en la cuenta. **Instalar la app**: no configura nada, son links.
