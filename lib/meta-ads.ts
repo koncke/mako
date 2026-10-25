@@ -143,7 +143,7 @@ async function fetchPageWithBackoff(
 }
 
 /** Los campos de insights del cron diario: los mismos por Meta directo y por Zernio (que los pasa tal cual). */
-const CAMPOS_INSIGHTS: readonly string[] = [
+export const CAMPOS_INSIGHTS: readonly string[] = [
   // En qué moneda viene `spend`: la de la CUENTA, que no siempre es MXN (ws13, ws14 y
   // ws15 cobran en USD). Se guarda acá, en el mismo pedido de siempre, para que todo
   // gasto en la base tenga su moneda conocida (lib/moneda-meta.ts).

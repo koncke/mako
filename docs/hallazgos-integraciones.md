@@ -1761,9 +1761,18 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   vencido (se usó a los minutos) ni la cuenta de Zernio (plan por uso, pago, `hasAccess: true`: los anuncios vienen incluidos).
   **La sospecha, de la doc** (`GET /v1/connect/{platform}/ads`): con VARIAS páginas concedidas y sin `pageId`, una integración
   por API recibe un 400 («restart with pageId») y la conexión no se crea; sólo el panel de Zernio abre el selector de página. El
-  script ahora manda la página de MaKo. **Sin confirmar**: lo dice la dirección donde terminó el navegador (`error`,
-  `error_reason`, `stage`, `request_id`). ⚠️ Si se confirma, vale para los CLIENTES: el botón (`REDES.metaads`) tampoco manda
-  `pageId`, y un negocio con dos páginas no conectaría nunca.
+  script ahora manda la página de MaKo. **Confirmado por el segundo clic** (12:44, con `pageId` = «Hola MaKo»): volvió con
+  `connected=metaads&accountId=6ade25185b6c93612b7cc6a1&stage=callback` y la conexión quedó (ve `act_1426493815659364` y un
+  píxel). ⚠️ **Vale para los CLIENTES:** el botón (`REDES.metaads`, lib/zernio-redes.ts) tampoco manda `pageId`; un negocio con
+  más de una página no conecta nunca (el primer clic volvió sin conexión y sin nada que lo explicara). **SIN HACER**: que el
+  botón pase la página cuando el negocio ya la tiene (`META_PAGE_ID`) y, si no, un selector de página ANTES de abrir la
+  ventana; `GET /v1/connect/facebook/select-page` existe, pero para el inicio de sesión para empresas sólo lo documenta con el
+  `selectionToken` del panel de Zernio (sin medir por API).
+- **La prueba de lectura (25/10, 12:50) contestó con la forma esperada y sin errores**, pero sobre una cuenta que NUNCA
+  gastó: insights `data: []`, ningún conjunto, la cuenta activa y en verde (USD, Argentina) y las finanzas leídas (con `full`).
+  O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
+  guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
+  de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
 
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan

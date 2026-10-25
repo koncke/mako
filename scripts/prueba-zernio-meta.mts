@@ -13,8 +13,9 @@
 //      → el link de Facebook (permiso «Control total»: lo pide el píxel). Lo abre MARTÍN y acepta. Vence a los 30 min.
 //   … estado           las conexiones `metaads` de la Zernio de la plataforma, sus cuentas publicitarias y sus píxeles
 //   … guardar --si     guarda la conexión en el negocio de MaKo (META_ZERNIO_CUENTA, la cuenta y el píxel si hay uno)
-//   … leer [AAAA-MM-DD] los insights del día por Zernio (las filas de Meta), los conjuntos en vivo y la salud de la cuenta
+//   … leer [AAAA-MM-DD] los insights del día por Zernio (las filas de Meta), los creativos, los conjuntos en vivo y la salud
 //   … capi --si --codigo=TEST12345   un Lead de prueba por Zernio al píxel, con el código de «Probar eventos»
+//   `leer` y `capi` NO necesitan `guardar`: sin conexión guardada usan la que ve la cuenta, en memoria.
 // =============================================================================
 
 // Un módulo, no un script global: sólo usa `import()` dinámicos (scripts/modulos-ts.mjs).
@@ -45,6 +46,19 @@ async function conexionesDeMaKo(): Promise<string[]> {
     if (cuentas.some((c) => c.id === CUENTA)) out.push(a._id!);
   }
   return out;
+}
+
+/**
+ * El canal de la prueba. Si el negocio de MaKo ya tiene la conexión guardada, ése (`canalMeta`). Si no, la conexión que ve la
+ * cuenta, armada EN MEMORIA: así `leer` y `capi` prueban las mismas funciones sin escribir credenciales en producción mientras
+ * el código desplegado todavía es el de antes (con la cuenta guardada, los crons viejos leerían Meta con el token del botón).
+ */
+async function canalDePrueba(): Promise<Extract<Awaited<ReturnType<typeof via.canalMeta>>, { via: 'zernio' }> & { guardado: boolean }> {
+  const c = await via.canalMeta(ws);
+  if (c.via === 'zernio') return { ...c, guardado: true };
+  const ids = await conexionesDeMaKo();
+  if (ids.length !== 1) { console.error(`Hay ${ids.length} conexiones que ven ${CUENTA}: paso «conectar».`); process.exit(5); }
+  return { via: 'zernio', ws, clave: clave!, accountId: ids[0], adAccountId: CUENTA, respaldo: null, guardado: false };
 }
 
 if (paso === 'conectar') {
@@ -86,33 +100,44 @@ if (paso === 'conectar') {
 } else if (paso === 'leer') {
   const fecha = process.argv[3] && /^\d{4}-\d{2}-\d{2}$/.test(process.argv[3]) ? process.argv[3] : new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
   await runWithWorkspace(ws, async () => {
-    const canal = await via.canalMeta(ws);
-    linea('canal', canal.via === 'zernio' ? { via: canal.via, accountId: canal.accountId, adAccountId: canal.adAccountId, respaldo: !!canal.respaldo } : canal);
-    if (canal.via !== 'zernio') { console.error('El negocio de MaKo no habla con Meta por Zernio: paso «guardar».'); process.exit(5); }
-    const { fetchMetaInsights, parseInsightsToMetrics } = await import('../lib/meta-ads');
-    const filas = await fetchMetaInsights(fecha);
+    const canal = await canalDePrueba();
+    linea('canal', { via: canal.via, accountId: canal.accountId, adAccountId: canal.adAccountId, guardado: canal.guardado });
+    const { CAMPOS_INSIGHTS, parseInsightsToMetrics } = await import('../lib/meta-ads');
+    // Las MISMAS funciones del cron (`fetchMetaInsights`, `fetchAdCreatives`, `fetchAdsetBudgets`), con el canal en la mano.
+    const filas = await via.insightsPorZernio(canal, { level: 'ad', fields: CAMPOS_INSIGHTS, desde: fecha, hasta: fecha, actionBreakdowns: ['action_type'] });
     linea(`insights del ${fecha}: filas`, filas.length);
     if (filas[0]) linea('campos de la primera fila', Object.keys(filas[0]).sort());
     const m = parseInsightsToMetrics(filas, fecha);
     linea('filas para marketing_metrics_daily (NO se escriben)', m.length);
+    if (m[0]) linea('primera fila parseada', { ad: m[0].ad_id, gasto: m[0].spend_mxn ?? null, impresiones: m[0].impressions ?? null });
+    const desde30 = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
+    const mes = await via.insightsPorZernio(canal, { level: 'account', fields: ['spend', 'impressions', 'account_currency'], desde: desde30, hasta: fecha });
+    linea(`la cuenta en 30 días (${desde30} → ${fecha})`, mes);
+    const crea = await via.creativosPorZernio(canal, fecha);
+    linea('creativos del día', { cuantos: crea.size, primeros: [...crea.entries()].slice(0, 2) });
     const conj = await via.conjuntosVivosPorZernio(canal);
     linea('conjuntos en vivo', { cuantos: conj.filas.length, moneda: conj.moneda, primeros: conj.filas.slice(0, 3) });
-    const { getMetaAccountHealth } = await import('../lib/meta-health');
-    linea('salud de la cuenta', await getMetaAccountHealth());
+    const { computeAccountHealth } = await import('../lib/meta-health');
+    const cruda = await via.cuentaCrudaPorZernio(canal);
+    linea('cuenta cruda (forma de Meta)', cruda);
+    const salud = computeAccountHealth(cruda);
+    linea('salud de la cuenta', { estado: salud.statusLabel, severidad: salud.severidad, saldo: salud.balanceMxn, gastado: salud.amountSpentMxn, tope: salud.spendCapMxn, tarjeta: salud.fundingCard, moneda: salud.currency, zona: salud.timezoneName, pais: salud.country });
   });
 } else if (paso === 'capi') {
   exigirSi();
   const codigo = arg('codigo');
   if (!codigo) { console.error('Falta --codigo=TEST… (Administrador de eventos → tu píxel → «Probar eventos»).'); process.exit(2); }
   await runWithWorkspace(ws, async () => {
-    const canal = await via.canalMeta(ws);
-    if (canal.via !== 'zernio') { console.error('El negocio de MaKo no habla con Meta por Zernio: paso «guardar».'); process.exit(5); }
+    const canal = await canalDePrueba();
     const est = await cx.estadoMetaZernio(ws);
-    if (!est.pixel) { console.error('El negocio de MaKo no tiene píxel elegido.'); process.exit(6); }
+    const pixeles = await cx.pixelesPorZernio(clave!, canal.accountId);
+    const pixel = est.pixel ?? (pixeles.length === 1 ? pixeles[0].id : null);
+    if (!pixel) { console.error(`No hay UN píxel claro: ${JSON.stringify(pixeles)}.`); process.exit(6); }
+    linea('píxel', pixel);
     const { eventoParaZernio, resultadoConversionZernio } = await import('../lib/zernio-meta-cuerpo');
     const ev = eventoParaZernio({ eventName: 'Lead', segundos: Math.floor(Date.now() / 1000), eventId: `prueba-zernio:${Date.now()}`, email: 'prueba@hola-mako.com', phone: null, leadId: null });
     const body = await zFetch<unknown>(canal.clave, '/ads/conversions', {
-      method: 'POST', body: JSON.stringify({ accountId: canal.accountId, destinationId: est.pixel, testCode: codigo, events: [ev] }),
+      method: 'POST', body: JSON.stringify({ accountId: canal.accountId, destinationId: pixel, testCode: codigo, events: [ev] }),
     }, 30_000).catch((e) => ({ error: String(e) }));
     linea('respuesta de Zernio', body);
     linea('veredicto', resultadoConversionZernio(body));

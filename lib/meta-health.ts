@@ -195,7 +195,7 @@ function learningInfo(raw: unknown): NodoEstado['learning'] {
 // Cuenta (1 GET)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
+export function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
   const status = num(raw.account_status);
   const disableReason = num(raw.disable_reason);
   const currency = String(raw.currency ?? MONEDA_META_POR_DEFECTO);

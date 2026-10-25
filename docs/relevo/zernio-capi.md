@@ -26,6 +26,18 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
 - **Todo APAGADO detrás de la prueba:** `ZERNIO_META_PROBADO = false` (lib/zernio-meta-cuerpo.ts). Mientras tanto Zernio corre
   SÓLO en el negocio de la plataforma (el de MaKo). Ningún cliente cambia de camino.
 
+## La prueba en la cuenta de MaKo (25/10/2026)
+
+- **Clic 1 (12:38): sin conexión** (0 cuentas en la Zernio de la plataforma). **Clic 2 (12:44), con `pageId` fijo: conectada**
+  (`6ade25185b6c93612b7cc6a1`, ve `act_1426493815659364` «MaKo», USD, activa, y el píxel «MaKo (MaKo)» `1869323014511830`).
+  La causa: varias páginas sin `pageId`. El botón de los clientes tiene el mismo hueco (sin hacer, en hallazgos-integraciones).
+- **`leer` (sin guardar nada en producción): anda.** Insights, creativos, conjuntos en vivo, cuenta y finanzas contestan con la
+  forma esperada; la cuenta nunca gastó, así que no hay filas que comparar con Meta directo.
+- **`guardar --si` va DESPUÉS del deploy de esta rama:** con el código viejo, la cuenta guardada mete al negocio de MaKo en los
+  crons de Meta con el token del botón (sin `ads_read`) y arranca el barrido de leads de «Hola MaKo».
+- **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
+- **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
+
 ## Lo que es de Martín (en orden)
 
 1. **El clic de permisos en Facebook.** `node --env-file=<clon>/.env.local --conditions=react-server --import tsx
