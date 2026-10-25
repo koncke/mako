@@ -12,7 +12,7 @@ import { rutaConWs, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
 import { serviciosPara } from '@/lib/metodo-catalogo';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, TituloAjustes } from '../_ui/Ajustes';
+import { AjustesPagina } from '../_ui/Ajustes';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -31,8 +31,9 @@ export default async function MetodoPage() {
   const esPlataforma = ws != null && ws === (await wsSuperAdmin().catch(() => -1));
   // Desde el 15/10/2026 es la última sección de «Configuración del negocio» (sólo para la agencia).
   return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'metodo')} activa="metodo" amplio>
-      <TituloAjustes titulo="Método" bajada="Las credenciales de la plataforma, servicio por servicio." />
+    // La columna de lectura de Linear (sin `amplio`): una lista de servicios no necesita el ancho de un tablero. El título lo pone
+    // el wizard, que también dibuja el del detalle de cada servicio (25/10/2026).
+    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'metodo')} activa="metodo">
       <MetodoWizard servicios={serviciosPara(esPlataforma)} embebido />
     </AjustesPagina>
   );
