@@ -1756,6 +1756,15 @@ directo de insights devuelva las mismas filas que Meta directo; las finanzas con
 llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` que hace falta para eso. Hasta entonces
 `ZERNIO_META_PROBADO = false` y lo nuevo corre SÓLO en el negocio de la plataforma.
 
+- ⚠️ **El primer clic de Martín (25/10, link de las 12:38 con `permissionLevel=full`) NO dejó ninguna conexión**: la Zernio de la
+  plataforma quedó con 0 cuentas (con las ocultas también) y 0 registros, lo mismo que los dos links del 23/10. No era el link
+  vencido (se usó a los minutos) ni la cuenta de Zernio (plan por uso, pago, `hasAccess: true`: los anuncios vienen incluidos).
+  **La sospecha, de la doc** (`GET /v1/connect/{platform}/ads`): con VARIAS páginas concedidas y sin `pageId`, una integración
+  por API recibe un 400 («restart with pageId») y la conexión no se crea; sólo el panel de Zernio abre el selector de página. El
+  script ahora manda la página de MaKo. **Sin confirmar**: lo dice la dirección donde terminó el navegador (`error`,
+  `error_reason`, `stage`, `request_id`). ⚠️ Si se confirma, vale para los CLIENTES: el botón (`REDES.metaads`) tampoco manda
+  `pageId`, y un negocio con dos páginas no conectaría nunca.
+
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
 suave y quedan `parcial`); el reproductor del anuncio
