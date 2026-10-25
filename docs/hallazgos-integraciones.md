@@ -1812,7 +1812,7 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   `/{pixel}/stats` (por Zernio, `tracking-tags/{id}/stats`) mostró 2 «Lead» en la franja de las 20:00 UTC con la clave de match
   `email` y NADA más (ni cookies, ni `fbp`, ni navegador): son los de prueba (sólo llevaban `prueba@hola-mako.com`); uno de la
   landing trae cookies. O sea: **Zernio no reenvía el `testCode`** aunque su doc dice «Meta `test_event_code` passthrough». El
-  píxel de MaKo quedó con 2-3 Lead falsos (sin campañas corriendo: no movieron ninguna optimización; lo que entra por CAPI no se
+  píxel de MaKo quedó con 3 Lead falsos (los de las 20:35 y 20:36 en la franja de las 20:00 UTC, el de las 21:41 en la de las 21:00, los tres con match `email` y nada más) (sin campañas corriendo: no movieron ninguna optimización; lo que entra por CAPI no se
   borra). **La regla:** una prueba de CAPI nunca manda un evento que cuente (`EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo'`), y para ver
   si un evento llegó, `aggregation=match_keys` de las estadísticas del píxel dice QUÉ lo identificó (un evento de servidor con sólo
   email es el nuestro). El reclamo a Zernio, redactado para que Martín decida.
