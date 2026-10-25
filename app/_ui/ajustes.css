@@ -221,6 +221,7 @@ textarea.aj-en-linea { height: auto; min-height: 76px; padding: 8px 10px; line-h
   .aj-fila[data-campo] { flex-wrap: wrap; }
   .aj-fila[data-campo] .aj-fila-fin { flex: 1 1 100%; max-width: none; }
   .aj-fila[data-campo] .aj-en-linea { width: 100%; }
+  .aj-fila[data-campo] [role="group"] { justify-content: flex-start !important; }
   .aj-fila-fin { max-width: 55%; }
   .aj-grupo-cuerpo, .aj-grupo-pie, .aj-estado, .aj-perfil, .aj-plan, .aj-telefono { padding-left: 14px; padding-right: 14px; }
   .aj-dest__fila, .aj-dest__nuevo, .aj-dest__nota { padding-left: 14px; padding-right: 14px; }

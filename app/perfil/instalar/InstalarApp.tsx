@@ -8,6 +8,8 @@
 // POR SISTEMA con su botón («macOS · Download», «iOS · Scan QR · Open store»). Acá: Windows y Mac con su descarga, el teléfono
 // con el código para la cámara y los dos pasos, y Chrome con la extensión.
 // Sin estado: la monta la página (de servidor) con el QR ya armado, y el arnés de diseño la dibuja igual.
+// 25/10/2026 (Martín: «Pusiste textos previo a la configuración que están muy de sobra»): sin la bajada ni la frase de cada
+// sección; cada fila dice qué instala en una línea. Lo que pasa al abrir el instalador sigue en el `title` del botón.
 
 import type { ReactNode } from 'react';
 import { FilaAjustes, GrupoAjustes, TituloAjustes } from '@/app/_ui/Ajustes';
@@ -29,17 +31,17 @@ export function InstalarApp({ qr, url, extension }: {
   );
   return (
     <>
-      <TituloAjustes titulo="Instalar la app" bajada="MaKo en tu computadora, en tu teléfono y en tu navegador." />
+      <TituloAjustes titulo="Instalar la app" />
 
-      <GrupoAjustes titulo="En tu computadora" descripcion="Tus chats con MaKo contestan con tu Claude desde tu computadora. Sin la app, no escriben.">
+      <GrupoAjustes titulo="En tu computadora">
         {/* Corto, como Linear («macOS · Download»): lo que dice el sistema al abrirlo va en el `title` del botón. */}
-        <FilaAjustes apilada icono="computadora" titulo="Windows" detalle="El instalador, con su asistente: Siguiente › Instalar."
+        <FilaAjustes icono="computadora" titulo="Windows" detalle="Instalador .exe"
           fin={boton(DESCARGA_DE.windows, 'Descargar', { titulo: AVISO_SMARTSCREEN })} />
-        <FilaAjustes apilada icono="computadora" titulo="Mac" detalle="MaKo.app, en un .zip: se abre con doble clic."
+        <FilaAjustes icono="computadora" titulo="Mac" detalle="MaKo.app en un .zip"
           fin={boton(DESCARGA_DE.mac, 'Descargar', { titulo: AVISO_GATEKEEPER })} />
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu teléfono" descripcion="Tus chats y los avisos al instante. Escanea el código con la cámara del celular.">
+      <GrupoAjustes titulo="En tu teléfono">
         <div className="aj-telefono">
           {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
           {qr && <img className="aj-telefono__qr" src={qr} alt="Código QR para abrir MaKo en el celular" width={148} height={148} />}
@@ -51,10 +53,10 @@ export function InstalarApp({ qr, url, extension }: {
         </div>
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="En tu navegador" descripcion="La extensión de MaKo para Chrome: completa tus leads desde tu WhatsApp Web.">
-        <FilaAjustes apilada icono="web" titulo="Google Chrome" detalle={`Versión ${extension.version}`}
+      <GrupoAjustes titulo="En tu navegador">
+        <FilaAjustes icono="web" titulo="Extensión para Chrome" detalle={`Versión ${extension.version}`}
           fin={extension.enTienda ? boton(extension.tienda, 'Agregar a Chrome', { afuera: true }) : boton(extension.zip, 'Descargar', { descargar: true })} />
-        <FilaAjustes icono="pregunta" titulo="Cómo instalarla" detalle="El paso a paso, con capturas" href="/extension/instalar" />
+        <FilaAjustes icono="pregunta" titulo="Cómo instalarla" href="/extension/instalar" />
       </GrupoAjustes>
     </>
   );

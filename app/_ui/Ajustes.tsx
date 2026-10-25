@@ -166,7 +166,7 @@ export function PuntoEstado({ tono }: { tono: 'good' | 'off' | 'warn' }) {
  * Una fila de Linear: (ícono), el nombre y debajo una línea gris si suma; a la derecha, el control (`fin`) o el `valor` con la
  * flecha. La fila ENTERA es el botón si tiene `href` u `onClick`; sin ninguno de los dos es un dato quieto, sin flecha.
  */
-export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href, onClick, fin, peligro }: {
+export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href, onClick, fin, peligro, ancho }: {
   icono?: NombreIconoMenu;
   titulo: ReactNode;
   /** La línea gris debajo del nombre. */
@@ -184,6 +184,8 @@ export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href,
   fin?: ReactNode;
   /** El nombre en rojo (quitar, cerrar sesión). */
   peligro?: boolean;
+  /** El control es ancho (un select de zona, las horas, los días): en el teléfono baja debajo del nombre, a lo ancho. */
+  ancho?: boolean;
 }) {
   const quieta = !href && !onClick;
   const contenido = (
@@ -208,5 +210,5 @@ export function FilaAjustes({ icono, titulo, detalle, tono, estado, valor, href,
   );
   if (href) return <Link href={href} className="aj-fila">{contenido}</Link>;
   if (onClick) return <button type="button" className="aj-fila" onClick={onClick}>{contenido}</button>;
-  return <div className="aj-fila" data-quieta="true">{contenido}</div>;
+  return <div className="aj-fila" data-quieta="true" data-campo={ancho || undefined}>{contenido}</div>;
 }
