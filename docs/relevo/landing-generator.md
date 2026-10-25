@@ -17,7 +17,10 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   papelera), y la barra a 1280 y 1440. A 1280 la barra no entraba: arreglado en esta rama (el título cede hasta 160 px).
 - **Todo editable en las páginas de MaKo y el clic derecho (25/10 tarde):** hecho en la rama, con el inventario de la #32
   medido en producción (docs/hallazgos-editor-landing.md → «Todo editable…»). Falta probarlo con clics cuando despliegue.
-- **Sigue:** publicar las landings con el OK de Martín;
+- **La barra «Texto» sin «Editar con IA» (25/10 tarde):** hecho en la rama; la IA queda en el chat, en ⌘E y en la barra
+  que aparece sobre un texto elegido.
+- **Sigue:** el color de fondo de cada sección (menú ⋮, clic derecho y la API) y los íconos por la API (cola del Cerebro);
+  publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 
 ## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings»)

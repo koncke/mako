@@ -1382,4 +1382,16 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/36',
   },
+  {
+    fecha: '25 oct', hora: '17:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La barra «Texto» ya no tiene «Editar con IA»',
+    pedido: '«Y elimina el botón de "Editar con IA" que aparece arriba en el desplegable de "texto"»',
+    puntos: [
+      'Se sacó el botón «Editar con IA» de la barra que abre «Texto», arriba del lienzo.',
+      'La IA sigue en el chat de la izquierda, con ⌘E y en la barra chica que aparece al elegir un texto.',
+    ],
+    archivos: ['app/web-generator/editor/BarraFormato.tsx — la barra de «Texto»'],
+    revisar: '/web-generator/32',
+  },
 ];

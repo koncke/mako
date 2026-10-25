@@ -3040,3 +3040,12 @@ Lo que quedó SIN hacer:
 - Probarlo con clics en producción, a 1280 y 1440, cuando despliegue (sobre una copia).
 - En hola-mako.com la agenda de las 9 publicadas se ve como columnas de precios y en hola-mako.site como Calendly: dos cosas
   distintas para la misma página. Que diga lo mismo en las dos es una decisión de Martín (las 12 nuevas ya traen las columnas).
+
+## Una regla de CSS fijada por DOS tests: arreglar uno y correr sólo ese deja el otro roto (25/10/2026, claude5)
+
+El arreglo de la barra a 1280 (`8a1fb5af9`, el título de `flex: 0 0 auto` a `0 1 auto`) se probó con
+tests/editor-web-ui-25-10.test.ts, que lo pide. Pero tests/editor-web-como-automations.test.ts fijaba la regla vieja
+TEXTUAL y quedó rojo hasta el commit siguiente: nadie lo corrió porque «no era de la barra».
+
+**Regla:** antes de cambiar una regla de CSS o un trozo de JSX que un test lee como texto, buscar el texto viejo en
+`tests/` (`grep -rn "flex: 0 0 auto" tests`) y correr TODOS los que lo nombran, no sólo el del arreglo.

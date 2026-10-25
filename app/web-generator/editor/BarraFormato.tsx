@@ -1131,11 +1131,17 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
       <BotonBarra titulo="Etiqueta" activo={est.etiqueta !== null} expandido={panel?.tipo === 'etiqueta'} apagado={sinTexto || est.sinMarcas || !hayMarca('etiqueta')} onClick={(el) => abrir('etiqueta', el)}>
         <Icono nombre="etiqueta" />
       </BotonBarra>
-      <span className="gmx-bf-sep" />
-      <BotonBarra titulo="Editar con IA" clase="gmx-btn-ia" expandido={panel?.tipo === 'ia'} apagado={sinTexto || est.vacia || ia.cargando} onClick={(el) => abrir('ia', el)}>
-        {ia.cargando ? <span className="gmx-giro" aria-label="Editando" /> : <Icono nombre="destellos" />}
-        <span>Editar con IA</span>
-      </BotonBarra>
+      {/* «Editar con IA» NO va en la barra de «Texto» (25/10/2026, Martín: «elimina el botón de "Editar con IA" que
+          aparece arriba en el desplegable de "texto"»). Queda en la barra que aparece al elegir un texto, en ⌘E y en el chat. */}
+      {modo !== 'fija' && (
+        <>
+          <span className="gmx-bf-sep" />
+          <BotonBarra titulo="Editar con IA" clase="gmx-btn-ia" expandido={panel?.tipo === 'ia'} apagado={sinTexto || est.vacia || ia.cargando} onClick={(el) => abrir('ia', el)}>
+            {ia.cargando ? <span className="gmx-giro" aria-label="Editando" /> : <Icono nombre="destellos" />}
+            <span>Editar con IA</span>
+          </BotonBarra>
+        </>
+      )}
       {ia.error && <div className="gmx-bf-error" role="alert">{ia.error}<ReportarASoporte /></div>}
 
       {panel && (
