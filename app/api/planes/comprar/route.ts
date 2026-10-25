@@ -51,6 +51,6 @@ export async function POST(req: NextRequest) {
   }
   // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`.
   const r = await iniciarCompraDePlan({ ...pedido, ref }, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
-  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}) }, { status: r.status });
+  if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }

@@ -1478,3 +1478,45 @@ días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Pl
 - **Mercado Pago ya cobra con primer cobro diferido** (`start_date`, el `inicio_at` del cobro, en uso desde el 17/10 para los
   clientes de agencia: es el parámetro documentado al crear la suscripción). La prueba va sobre eso y no sobre `free_trial`,
   que en la documentación aparece en los planes asociados y no está dicho para una suscripción sin plan.
+- **Cómo es una prueba (tanda D2), sin tabla nueva:** un cobro de suscripción de la plataforma con alta, `creado_por =
+  planes:<plan>:prueba` y `inicio_at` a 7 días (lib/prueba-plan-reglas.ts, `esPruebaDePlan`). El alta se hace al AUTORIZAR
+  (`activarPruebaSiAutorizo`, lib/cobros.ts), que la llaman la página de vuelta del pago y el cron de conciliación (la persona
+  puede cerrar la pestaña). El aviso de autorizada de Mercado Pago se sigue ignorando en el webhook: el pago del día 8 llega en
+  su propia notificación, como siempre.
+- **`suscripcionDeMakoDe` y su copia en lib/plan-esencial.ts leen la PAGADA o la PRUEBA AUTORIZADA** con el mismo filtro
+  (`FILTRO_SUSCRIPCION_DE_MAKO`, en el módulo liviano porque plan-esencial no puede importar lib/cobros). Con eso, el negocio en
+  prueba tiene los topes de su plan, «Darme de baja» y su plan en «Tu plan». La baja en prueba cancela la suscripción en el
+  acto (el día 8 no cobra) y usa MaKo hasta ese día. La vigencia: al día hasta el cobro; cancelada, vence ese día, SIN la
+  gracia de 5 días de un plan pagado (la prueba ya fue gratis); sin el cobro del día 8, mora como una renovación fallida.
+- **Antiabuso, en dos momentos:** antes de abrir el pago, por EMAIL (una prueba que llegó a autorizarse) y por CUENTA (un
+  email que ya es usuario de MaKo es un negocio que existe: no hay prueba). Al autorizar, por HUELLA. **Trampa: Mercado Pago no
+  publica una huella de la tarjeta** como el `card.fingerprint` de Stripe. La suscripción devuelve la cuenta que paga
+  (`payer_id`, una por persona) y la tarjeta guardada de esa cuenta (`card_id`): la huella guarda las dos y cualquiera que
+  coincida es la misma persona. Una prueba repetida se CANCELA en la pasarela antes de anularse: si MP no la canceló, no se
+  anula nada y el cron reintenta (anularla primero dejaría un cobro el día 8 de una prueba que no dio de alta a nadie).
+- **El aviso de 2 días antes** es un cron diario (app/api/cron/aviso-fin-de-prueba, «0 13 * * *») con la marca
+  `prueba_aviso_at`. Sin la mig 0334 no hay marca: avisa a las que cobran entre 1 y 2 días después, y como corre una vez por
+  día, cada prueba cae en una sola vuelta.
+- **La prueba se ofrece SÓLO con Mercado Pago** (`PASARELAS_CON_PRUEBA`). Stripe no toma vendedores de Argentina; Paddle y
+  Creem, las del resto del mundo (docs/estrategia-financiera-mako.md), no están integradas. Lo averiguado el 25/10 para cuando
+  se integren:
+  - **Stripe:** Checkout con `subscription_data.trial_period_days` (o `trial_end`); por defecto junta la tarjeta, y
+    `customer.subscription.trial_will_end` llega unos días antes. Ojo con la factura de US$0 del inicio: se asentaría como un
+    pago. La huella es `payment_method.card.fingerprint` (docs.stripe.com/payments/checkout/free-trials,
+    support.stripe.com/questions/how-can-i-detect-duplicate-cards-or-bank-accounts).
+  - **Paddle Billing:** la prueba va en el PRECIO (`trial_period`), y con `requires_payment_method` pide la tarjeta en el
+    checkout; la prueba sin tarjeta es de acceso anticipado (developer.paddle.com/build/trials/create-trial).
+  - **Creem:** la prueba se prende por producto (días), con estado `trialing`; su documentación no dice explícitamente que pida
+    la tarjeta, aunque el checkout la junta (docs.creem.io/features/trials).
+- **Límite conocido:** el `start_date` se fija al CREAR el link (7 días desde ese momento). Quien abre el link y lo autoriza
+  días después tiene menos días de prueba. Mercado Pago no documenta mover la fecha de una suscripción ya autorizada.
+- **Rojo previo, no de esto:** tests/pago-link-anulado.test.ts «anular cierra el link también en Mercado Pago» recorta
+  `anularCobro` y la rama de MP vive en `cerrarLinkEnLaPasarela` desde antes: falla igual en el commit anterior.
+
+**Sin hacer (de la prueba):** los topes de la prueba en cada pantalla (videos, avatar, imágenes, landing, exportar) y el botón
+«empezar el plan ya» van en la tanda siguiente. La mig 0334 la aplica Martín (aditiva; el código anda sin ella, sin el freno
+por tarjeta). **Vive en:** lib/prueba-plan-reglas.ts · lib/prueba-plan.ts · lib/cobros.ts (`activarPruebaSiAutorizo`,
+`suscripcionDeMakoDe`, `darDeBajaMiPlan`, `reconciliarCobros`) · lib/compra-plan.ts (`puedeEmpezarPrueba`,
+`iniciarCompraDePlan`) · lib/plan-acceso-reglas.ts (`pruebaDelLugar`) · lib/plan-esencial.ts · app/pagar/[token]/listo ·
+app/planes/[plan]/CompraPlan.tsx · app/api/cron/aviso-fin-de-prueba · supabase/migrations/0334_prueba_de_plan.sql ·
+tests/prueba-plan.test.ts.

@@ -62,6 +62,7 @@ import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } fr
 import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
+import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA } from './prueba-plan-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -931,7 +932,9 @@ async function ganarEnSuCrm(c: Cobro, g: { crm: number; etapa: string }, autor: 
  * de 10 minutos es una corrida que se murió, y se puede volver a reclamar.
  */
 async function altaSiCorresponde(c: Cobro): Promise<void> {
-  if (!c.alta_capa || c.estado !== 'pagado') return;
+  // La PRUEBA GRATIS (25/10/2026) da de alta al AUTORIZARLA (la tarjeta quedó cargada): su primer pago llega el día 8.
+  const pruebaAutorizada = esPruebaDePlan(c) && c.estado === 'pendiente' && c.suscripcion_estado === 'activa';
+  if (!c.alta_capa || (c.estado !== 'pagado' && !pruebaAutorizada)) return;
   if (c.alta_estado === 'hecha' || c.alta_estado === 'ya_tenia_cuenta') return;
   const plataforma = await wsSuperAdmin();
   if (c.workspace_id !== plataforma) return;
@@ -956,7 +959,8 @@ async function altaSiCorresponde(c: Cobro): Promise<void> {
     invitadoPor: `pago:${c.proveedor}`,
   });
   if (r.ok) {
-    await asentarAlta(c, plataforma, r.workspace, r.invitacion.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${r.invitacion.error ?? 'sin detalle'}`);
+    await asentarAlta(c, plataforma, r.workspace, r.invitacion.enviado ? null : `${PREFIJO_MAIL_NO_SALIO}: ${r.invitacion.error ?? 'sin detalle'}`,
+      pruebaAutorizada ? 'Alta por la prueba gratis' : undefined);
   } else if (r.yaExiste) {
     // ⚠️ ¿LA CUENTA LA CREÓ ESTE MISMO COBRO, en un intento que se cortó? (revisión del 23/10/2026). Si la función murió entre
     // crear al usuario y anotar «hecha», el reintento encontraba el email y lo daba por «ya tenía cuenta»: el comprador nuevo
@@ -1390,6 +1394,76 @@ export async function anotarAutorizacionMp(c: Cobro): Promise<boolean> {
   }
 }
 
+/** El día del primer cobro de una prueba (`inicio_at`, mig 0308): no está en `COLS_COBRO`, así que se lee aparte. */
+export async function inicioDeLaPrueba(c: Pick<Cobro, 'id' | 'workspace_id'>): Promise<string | null> {
+  const { data, error } = await getSupabaseServer().from('cobros').select('inicio_at').eq('id', c.id).eq('workspace_id', c.workspace_id).maybeSingle();
+  if (error) throw new Error(`No pude leer el inicio del cobro ${c.id}: ${error.message}`);
+  return (data as { inicio_at?: string | null } | null)?.inicio_at ?? null;
+}
+
+/** ¿Otra prueba ya usó esta huella (la misma cuenta de MP o la misma tarjeta)? Sin la mig 0334, no se sabe: false, y al log. */
+async function huellaYaUsada(plataforma: number, cobroId: number, huella: string): Promise<boolean> {
+  const { cuenta, tarjeta } = partesDeHuella(huella);
+  const ors = [cuenta ? `prueba_huella.like.mp:${cuenta}|*` : null, tarjeta ? `prueba_huella.like.*|card:${tarjeta}` : null].filter(Boolean).join(',');
+  if (!ors) return false;
+  const { data, error } = await getSupabaseServer().from('cobros').select('id, prueba_huella')
+    .eq('workspace_id', plataforma).neq('id', cobroId).not('prueba_huella', 'is', null).or(ors).limit(5);
+  if (error) {
+    console.warn(`[cobros] no pude mirar si la huella de la prueba ${cobroId} ya se usó (¿falta la mig 0334?): ${error.message}`);
+    return false;
+  }
+  return (data ?? []).some((x) => compartenHuella((x as { prueba_huella: string | null }).prueba_huella, huella));
+}
+
+/**
+ * LA PRUEBA GRATIS, AL AUTORIZARLA (25/10/2026): la persona cargó la tarjeta en Mercado Pago y la suscripción quedó
+ * `authorized`, con el primer cobro el día 8 (`start_date`). Se anota la suscripción activa y su huella, y se da de alta la
+ * cuenta en ese momento. Si esa cuenta de MP o esa tarjeta ya usó una prueba, se CANCELA la suscripción en el acto (no se
+ * cobra nada) y el cobro queda anulado con el motivo. La llaman la página de vuelta del pago y el cron. Nunca tira.
+ */
+export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'rechazada' | null> {
+  if (!esPruebaDePlan(c) || c.estado !== 'pendiente' || c.suscripcion_estado || c.proveedor !== 'mercadopago' || !c.proveedor_ref) return null;
+  try {
+    const plataforma = await wsSuperAdmin();
+    if (c.workspace_id !== plataforma) return null;
+    const mp = await credMp(plataforma, await cuentaVivaDelCobro(plataforma, c));
+    if (!mp) return null;
+    const s = await leerSuscripcionMp(mp.token, c.proveedor_ref);
+    if (!s.ok || s.estado !== 'authorized' || s.cobradorId !== mp.userId || s.referencia !== c.token) return null;
+    const huella = huellaMp({ pagadorId: s.pagadorId, tarjetaId: s.tarjetaId });
+    if (huella && await huellaYaUsada(plataforma, c.id, huella)) {
+      // Primero se corta el cobro en la pasarela: si no se pudo, no se anula nada y el cron lo vuelve a intentar.
+      const corte = await cancelarSuscripcionMp(mp.token, s.id, idemBaja(c.id));
+      if (!corte.ok) {
+        console.error(`[cobros] prueba repetida ${c.id}: Mercado Pago no canceló la suscripción: ${corte.error}`);
+        return null;
+      }
+      await actualizar(plataforma, c.id, {
+        estado: 'anulado', suscripcion_estado: 'cancelada', proveedor_suscripcion_id: s.id,
+        motivo: `${PREFIJO_PRUEBA_RECHAZADA} esa cuenta de Mercado Pago o esa tarjeta ya usó su prueba gratis.`,
+      }, { estado: ['pendiente'] });
+      if (c.lead_id) await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Prueba gratis', 'Rechazada: esa cuenta de Mercado Pago o esa tarjeta ya había usado su prueba. No se le cobró nada.', 'Mercado Pago')).catch(() => {});
+      return 'rechazada';
+    }
+    const r = await actualizar(plataforma, c.id, { suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id }, { estado: ['pendiente'] });
+    if (!r) return null;
+    if (huella) {
+      const { error } = await getSupabaseServer().from('cobros').update({ prueba_huella: huella }).eq('id', c.id).eq('workspace_id', plataforma);
+      if (error) console.warn(`[cobros] no pude anotar la huella de la prueba ${c.id} (¿falta la mig 0334?): ${error.message}`);
+    }
+    await runWithWorkspace(plataforma, () => altaSiCorresponde(r));
+    const inicio = await inicioDeLaPrueba(c).catch(() => null);
+    if (c.lead_id) {
+      await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Prueba gratis',
+        `Empezó su prueba de ${c.concepto}: ${inicio ? `se le cobra ${formatoMonto(c.monto, c.moneda)} el ${diaDelCobro(inicio)}` : 'Mercado Pago le cobra al terminar'}.`, 'Mercado Pago')).catch(() => {});
+    }
+    return 'activada';
+  } catch (e) {
+    console.error(`[cobros] no pude activar la prueba del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 /** Cancela la suscripción en la pasarela EN EL ACTO (deja de cobrar). Irreversible en Mercado Pago. */
 export async function cancelarSuscripcionCobro(ws: number, id: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
   const c = await getCobro(ws, id);
@@ -1428,9 +1502,12 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
 export async function suscripcionDeMakoDe(ws: number): Promise<Cobro | null> {
   const plataforma = await wsSuperAdmin();
   if (ws === plataforma) return null;
+  // ⚠️ LA PRUEBA GRATIS TAMBIÉN (25/10/2026): un negocio en prueba no pagó todavía, y sin ella quedaba sin los topes de su plan
+  // (los miran todos por acá), sin «Darme de baja» y sin plan en «Tu plan». La pagada primero (`pagado_at` vacío al final).
+  // La MISMA condición (`FILTRO_SUSCRIPCION_DE_MAKO`) la usa lib/plan-esencial.ts; tests/prueba-plan.test.ts las ata.
   const { data, error } = await getSupabaseServer().from('cobros').select(COLS_COBRO)
-    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')
-    .order('pagado_at', { ascending: false }).limit(1).maybeSingle();
+    .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)
+    .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
   if (error) throw new Error(`No pude leer el plan de MaKo del negocio ${ws}: ${error.message}`);
   return data ? cobroDeFila(data as Record<string, unknown>) : null;
 }
@@ -1452,6 +1529,17 @@ export async function darDeBajaMiPlan(ws: number, autor: string): Promise<Result
   if (esBajaPedida(c.motivo)) return { ok: true, resumen: c.motivo ?? '', codigo, finAt: null };
   const pedida = new Date().toISOString();
   let finAt: string | null = null;
+  // EN LA PRUEBA (25/10/2026): se cancela la suscripción en el acto, así el día 8 no se cobra nada, y usa MaKo hasta ese día.
+  if (esPruebaDePlan(c) && c.estado === 'pendiente') {
+    const r = await cancelarSuscripcionCobro(c.workspace_id, c.id, autor);
+    if (!r.ok) return { ok: false, resumen: r.resumen };
+    const hasta = await inicioDeLaPrueba(c).catch(() => null);
+    const texto = textoBajaPedida({ codigo, pedida, finAt: hasta });
+    await actualizar(c.workspace_id, c.id, { motivo: texto });
+    if (c.lead_id) await runWithWorkspace(c.workspace_id, () => logLeadEvent(c.lead_id!, 'Baja del plan', `Dio de baja su prueba gratis: no se le cobra nada. ${texto} Pedida por ${autor}.`.slice(0, 300), autor));
+    const resumen = `Listo: diste de baja tu prueba y no se te cobra nada.${hasta ? ` Puedes usar MaKo hasta el ${diaDelCobro(hasta)}.` : ''} Código de baja: ${codigo}.`;
+    return { ok: true, resumen, codigo, finAt: hasta };
+  }
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(c.workspace_id, await cuentaVivaDelCobro(c.workspace_id, c));
     if (!stripe || !c.proveedor_suscripcion_id) return { ok: false, resumen: `No pudimos darte de baja. Escríbenos a ${EMAIL_MAKO}.` };
@@ -1542,6 +1630,11 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   }
 
   for (const c of pendientes) {
+    // La PRUEBA autorizada y no vista (la persona cerró la pestaña antes de volver): se activa acá. Sin pago que buscar.
+    if (esPruebaDePlan(c) && c.estado === 'pendiente' && !c.suscripcion_estado) {
+      if (await activarPruebaSiAutorizo(c)) cambiados++;
+      continue;
+    }
     try {
       const { stripe, mp } = await credsDe(c);
       const pago = await pagoDelLinkEnLaPasarela(c, stripe, mp);

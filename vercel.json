@@ -67,6 +67,10 @@
       "schedule": "35 * * * *"
     },
     {
+      "path": "/api/cron/aviso-fin-de-prueba",
+      "schedule": "0 13 * * *"
+    },
+    {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
     },
