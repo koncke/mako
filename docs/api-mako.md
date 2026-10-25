@@ -7399,7 +7399,7 @@ curl -L \
 
 ### `POST /api/v1/chatbot/secuencias` — Crear una automatización con IA
 
-PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto, evento, horario o quien), junto con el mismo pedido. Si el pedido dice cada cuánto sale («los martes a las 3»), MaKo arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta (el de ManyChat: «Obtener recurso» → ¿te sigue? → el link sólo en el sí; en el no, «Ya te sigo» vuelve a revisar). Escribe con la IA del negocio (la que conectó en MaKo) y tarda entre 10 y 40 segundos; por la API, si no le alcanza, contesta un error sin crear nada: vuelve a intentarlo o pídeselo en Automations.
+PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -7707,9 +7707,9 @@ curl -L \
   -d '{"pasos":[]}'
 ```
 
-### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}` — Texto y botones de un DM de Instagram
+### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}` — Botones de un DM de Instagram
 
-PROPONE cambiar el texto o los botones de UN mensaje de Instagram o Messenger de una automatización (hasta 3 botones, como los de ManyChat), aunque la automatización tenga ramas, y devuelve un link para revisarlo. Sin botones, los botones se quedan como están; sin texto, el texto. La lista de botones que pases REEMPLAZA a la actual; vacía ([]) los saca. El texto de un mensaje de varias partes se edita en el lienzo. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta de la MISMA automatización: al tocarlo, el lead sigue por ahí, aunque sea una tarjeta de antes) o «link» (una dirección https que se abre, sin mover el flujo). Un botón que ya estaba conserva su id si le pasas el mismo título. Un mensaje con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta (el de ManyChat): el primer mensaje con «Obtener recurso» que sigue en una condición «Sigue tu Instagram»; el link va SÓLO en el mensaje del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Con botones, Instagram corta el texto en 640 caracteres. Lee antes ficha_secuencia_mensajes: cada mensaje dice su id y sus botones.
+SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
 
 - **Ruta por operación:** `POST /api/v1/chatbot/cambiar_botones_mensaje`
 - **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
@@ -7725,12 +7725,12 @@ PROPONE cambiar el texto o los botones de UN mensaje de Instagram o Messenger de
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
-| `tarjeta` | string | sí | el id del mensaje (de ficha_secuencia_mensajes). |
-| `botones` | object[] | no | opcional: los botones, en orden: hasta 3; [] los saca; sin esto, se quedan los que hay. |
-| `botones.titulo` | string | sí | lo que dice el botón (hasta 20 letras). |
-| `botones.sigue` | string | no | el id de la tarjeta a la que lleva el toque (de ficha_secuencia_mensajes). |
-| `botones.link` | string | no | o la dirección web que abre (https://…). |
-| `texto` | string | no | opcional: el texto nuevo del mensaje (con botones, hasta 640 caracteres). Admite {{nombre}}. |
+| `tarjeta` | string | sí | el id del DM (de ficha_secuencia_mensajes). |
+| `botones` | object[] | no | opcional: hasta 3, en orden; [] los saca. |
+| `botones.titulo` | string | sí | lo que dice (hasta 20 letras). |
+| `botones.sigue` | string | no | el id de la tarjeta a la que lleva el toque. |
+| `botones.link` | string | no | o la dirección https que abre. |
+| `texto` | string | no | opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}. |
 
 ```bash
 curl -L \
