@@ -23,9 +23,11 @@
 
 import { esFoto, urlPortada, glifoDeIcono } from '@/lib/portadas';
 import { urlIcono, esIcono } from '@/lib/iconos-catalogo';
+import { inicialesPorLetra } from '@/lib/iniciales';
 
-const inicialesDe = (nombre: string) =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+// ⚠️ POR LETRA ENTERA (ticket #10, 25/10/2026): `w[0]` de «🧪 Martín» es medio emoji, el HTML del servidor lo manda
+// como «�» y la hidratación tiraba la ficha con React #418. El porqué, en lib/iniciales.ts.
+const inicialesDe = (nombre: string) => inicialesPorLetra(nombre);
 
 export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado = false, sinFondo = false, foto: fotoDirecta }: {
   /** La columna `icono` (mig 0174): una URL del bucket o `icon:<set>:<nombre>`. */
