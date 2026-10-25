@@ -1388,12 +1388,43 @@ tener un factor de PROMESA de resultados, ya no solo software». Chat «Planes»
   trae; nada nuevo inventado.
 - **«El personalizado» NO existe en el código.** La pista es la escalera de agosto: un 1 a 1 de US$4.000 al lado del grupal de
   1.500 (docs/embudo-y-high-ticket.md, área «GTM: Oferta y precios»), que nunca entró a /planes; docs/ofertas-mako.md (23/10)
-  no lo tiene. Precio, qué incluye y la promesa son de Martín: preguntado por el cartero el 24/10. El hueco ya está:
-  `PROGRAMA_ACELERADOR.promesa` (null = no se dibuja ninguna).
+  no lo tiene. **Resuelto el 25/10** (el Cerebro, con Martín pidiendo «no hagas preguntas»): el personalizado ES el
+  Acelerador, con promesa y garantía. Ver la entrada que sigue.
 - **La «garantía de 14 días en los planes» de docs/ofertas-mako.md contradice lo publicado:** /reembolsos dice que el mes
-  pagado no se devuelve, y la del programa es «la que acordamos contigo en la llamada». No se puso en la vitrina. Si Martín la
-  quiere, cambian /reembolsos y la vitrina juntas.
+  pagado no se devuelve, y la del programa es «la que acordamos contigo en la llamada». No se puso en la vitrina. Decidida el
+  25/10 (14 días el mensual, 30 el anual): cambian /reembolsos y la vitrina juntas.
 
-**Sin hacer:** el 4º bloque (o la promesa del Acelerador) cuando Martín conteste; «Tu plan» (app/configuraciones/plan) es del
+**Sin hacer:** «Tu plan» (app/configuraciones/plan) es del
 chat de Settings y no se tocó. **Vive en:** app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx · app/vsl/PreciosLanding.tsx ·
 lib/planes-mako.ts · lib/planes-comparacion.ts · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El Acelerador con promesa, garantía de entrega y el diagnóstico como puerta (25/10/2026)
+
+Decidido por el Cerebro sobre docs/como-venden-otros.md §6c (memoria `decisiones-venta-25-10`). Chat «Planes», cuenta 5.
+
+- **Una promesa no es una garantía, y la tarjeta tiene las dos por separado.** `PROGRAMA_ACELERADOR.promesa` es un resultado
+  con plazo («En 90 días, tu embudo andando…») y NO devuelve nada; `garantia` es sobre los ENTREGABLES de la semana 1 («si tu
+  embudo no está armado, te devolvemos la cuota»). Una garantía de resultado («si no vendes…») recién cuando haya datos para
+  medirla. La guarda lo lee en las dos frases: la promesa no puede decir devolver/garantía/plata, la garantía no puede decir
+  vender/facturar/llamadas.
+- **La garantía se escribe UNA vez.** La tarjeta y /reembolsos §2 leen la misma constante, y el test compara el render de las
+  dos. Antes /reembolsos decía «la que acordamos contigo en la llamada»: una frase suelta en cada página es cómo se terminan
+  contradiciendo.
+- **El tope de horas es un número de producto, no un dato.** `HORAS_SEMANA_1 = 10` sale del molde de Mercately (US$1.499 con
+  tope de 10 horas), no de Martín. Si él lo cambia, se cambia ahí y lo dicen la tarjeta y /reembolsos.
+- **La puerta reusa el diagnóstico de fase, no escribe otro** (`PREGUNTAS_DE_LA_PUERTA` = facturación, inversión y cuello de
+  lib/fase-diagnostico.ts): son los tramos con los que docs/embudo-y-high-ticket.md §6 califica la llamada. El test exige el
+  MISMO objeto, no una copia. Se guarda el TEXTO de la opción en el historial del lead y en el mail: un índice en el CRM no dice
+  nada, y si alguien reordena las opciones, el historial mentiría.
+- **Trampa: esos tramos dicen «$» y son dólares.** En Argentina «$3.000» se lee pesos. La puerta lo aclara arriba («con montos
+  en dólares»); el onboarding, que usa las mismas preguntas, sigue sin aclararlo (lib/fase-diagnostico.ts, área Onboarding).
+- **Un diagnóstico a medias no pierde el lead:** `diagnosticoLimpio` da null y el pedido entra igual. La puerta es para la
+  llamada, no un filtro que rebote a quien quiere comprar.
+- **El campo de WhatsApp del pedido no tenía estilo:** el CSS de /planes/<plan> cubría `type=text` y `type=email`, y el WhatsApp
+  es `type=tel`. Se veía distinto a los otros dos desde el 24/10.
+
+**Sin hacer:** la fase NO se calcula del pedido (el diagnóstico de fase pide 6 respuestas y la puerta trae 3), así que no hay
+compuerta automática «Fase 1 → no se le ofrece el programa»: la lectura es de quien hace la llamada. **Vive en:**
+lib/planes-mako.ts (`PROGRAMA_ACELERADOR`, `HORAS_SEMANA_1`) · app/planes/Tarjetas.tsx · app/reembolsos/page.tsx §2 ·
+lib/compra-plan-reglas.ts (`PREGUNTAS_DE_LA_PUERTA`, `diagnosticoLimpio`) · lib/compra-plan.ts (`pedirPlanSinPasarela`) ·
+app/planes/[plan]/QuieroPlan.tsx · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.

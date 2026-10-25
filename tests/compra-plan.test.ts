@@ -78,7 +78,8 @@ test('el pedido no trae precio ni capa; el campo trampa es un bot', () => {
   const r = leerPedidoCompra({ plan: 'pro', nombre: '  Ana  Gómez ', email: 'ANA@x.com', monto: 1, capa: 'superadmin', pasarela: 'paypal' });
   assert.ok(r.ok);
   if (r.ok) {
-    assert.deepEqual(Object.keys(r.pedido).sort(), ['email', 'nombre', 'origen', 'pasarela', 'plan', 'quiero', 'ref', 'whatsapp']);
+    assert.deepEqual(Object.keys(r.pedido).sort(), ['diagnostico', 'email', 'nombre', 'origen', 'pasarela', 'plan', 'quiero', 'ref', 'whatsapp']);
+    assert.equal(r.pedido.diagnostico, null, 'sin diagnóstico (sólo lo manda el Acelerador)');
     assert.equal(r.pedido.quiero, false, 'sin pedirlo, es una compra');
     assert.equal(r.pedido.email, 'ana@x.com');
     assert.equal(r.pedido.nombre, 'Ana Gómez');

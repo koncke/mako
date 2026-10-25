@@ -127,11 +127,26 @@ export type ProgramaMako = {
   despues: { nombre: string; precioUsd: number };
   /**
    * La PROMESA de resultados (Martín, 24/10: «tiene que tener un factor de PROMESA de resultados, ya no solo software»).
-   * La decide Martín (es un compromiso con el cliente: se le preguntó por el cartero el 24/10). null = todavía no hay, y la
-   * vitrina no inventa una. /reembolsos dice que la garantía del programa es «la que acordamos contigo en la llamada».
+   * Es un resultado con plazo, NO una garantía: lo que se devuelve está en `garantia`. null = no hay, y la vitrina no
+   * inventa una.
    */
   promesa: string | null;
+  /**
+   * La garantía, sobre los ENTREGABLES y no sobre el resultado (como Ropofy: docs/como-venden-otros.md §6c). Una de
+   * resultado recién cuando haya datos para medirla. El detalle (qué cuenta como «armado», qué se devuelve) está en
+   * /reembolsos §2, y los dos tienen que decir lo mismo: lo fija tests/planes-tres-bloques.test.ts.
+   */
+  garantia: string | null;
 };
+
+/**
+ * El tope de horas de la implementación de la semana 1 (25/10/2026, decidido por el Cerebro con docs/como-venden-otros.md
+ * §6c: «entregables escritos con tope de horas», el molde de Mercately, que cobra US$1.499 con tope de 10 horas). Si
+ * Martín lo cambia, se cambia acá y lo dicen la tarjeta y /reembolsos.
+ */
+export const HORAS_SEMANA_1 = 10;
+/** Cuántas asesorías grupales en vivo trae el programa: una por semana, los 3 meses (docs/ofertas-mako.md §3). */
+export const ASESORIAS_DEL_PROGRAMA = 12;
 
 export const PROGRAMA_ACELERADOR: ProgramaMako = {
   id: 'acelerador',
@@ -141,17 +156,21 @@ export const PROGRAMA_ACELERADOR: ProgramaMako = {
   resumen: 'Para que te acompañemos a armar tu embudo y a vender, no sólo darte la herramienta.',
   // Todo lo de docs/ofertas-mako.md §3, dicho entero: antes la tarjeta mostraba cinco renglones y se veía como «Pro más
   // caro» (Martín, 24/10: «el acompañamiento debe tener mas beneficios y verse diferencial, porque sino no tiene sentido»).
+  // Cada entregable con su tope (§6c: «entregables escritos con tope de horas»): lo que se promete se puede contar.
   incluye: [
-    'Tu embudo armado en la primera semana: página de venta, CRM, mensajes de apertura y seguimientos',
+    `Tu embudo armado en la primera semana, con hasta ${HORAS_SEMANA_1} horas de nuestro equipo: página de venta, CRM, mensajes de apertura y seguimientos`,
     'Tu IA conectada y lista para trabajar desde el primer día',
-    'Asesoría grupal en vivo con Martín cada semana: revisamos tus embudos, tus anuncios y tus mensajes',
+    `${ASESORIAS_DEL_PROGRAMA} asesorías grupales en vivo con Martín, una por semana: revisamos tus embudos, tus anuncios y tus mensajes`,
     'Las grabaciones de cada asesoría',
     'Plantillas probadas: páginas por tipo de cliente, mensajes de prospección y guiones de video y de llamada',
     'Un grupo de WhatsApp con tu cohorte y respuestas de Martín',
     'MaKo Pro incluido los 3 meses',
   ],
   despues: { nombre: 'Continuidad', precioUsd: 297 },
-  promesa: null,
+  // 25/10/2026, el Cerebro (Martín: «no hagas preguntas»), sobre la frase que propuso: un resultado con plazo, dicho en lo
+  // que el cliente ve en su cuenta. No dice «vas a vender X»: eso sería una garantía de resultado, y todavía no hay datos.
+  promesa: 'En 90 días, tu embudo andando en MaKo: tus anuncios, tu setter con IA y tu agenda, y tus primeras llamadas de venta agendadas desde ahí.',
+  garantia: 'Si al terminar la primera semana tu embudo no está armado, te devolvemos la cuota y no pagas las que siguen.',
 };
 
 const CAPAS_DE_PLAN: ReadonlySet<string> = new Set(['pm', 'completo', 'agencia']);

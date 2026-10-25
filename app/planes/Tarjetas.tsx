@@ -12,8 +12,8 @@
 //
 // Los datos: los planes (lib/planes-mako.ts, con si se cobran en línea: `ofertasDeLosPlanes` / `planesParaLanding`) y el
 // programa (`PROGRAMA_ACELERADOR`). El botón de cada plan, la regla de siempre (`botonDelPlan`: «Empezar» sólo con un cobro
-// detrás). El programa SIEMPRE se pide (nunca pasa por la pasarela). La promesa del programa la escribe Martín: sin ella, no
-// se dibuja ninguna. Sin hooks ni datos: la usan una página del servidor (/planes) y un portal del cliente (la landing).
+// detrás). El programa SIEMPRE se pide (nunca pasa por la pasarela). Su promesa (un resultado con plazo) va arriba del
+// botón, y su garantía (sobre los entregables) abajo, con el link a las condiciones: sin una, no se dibuja. Sin hooks ni datos: la usan una página del servidor (/planes) y un portal del cliente (la landing).
 // Las clases llevan `mkpl-`: adentro de una landing del Web Generator conviven con el CSS de ese diseño, y un nombre
 // genérico («card», «btn») se pisa con el suyo.
 // =============================================================================
@@ -57,6 +57,11 @@ export const CSS_TARJETAS = `
 .mkpl-promesa { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; background: rgba(245,196,81,.12); border: 1px solid rgba(245,196,81,.45);
   font-size: 14.5px; line-height: 1.45; }
 .mkpl-promesa b { color: #F5C451; }
+.mkpl-garantia { margin: -10px 0 20px; font-size: 13.5px; line-height: 1.45; color: #4A5260; }
+.mkpl-garantia b { color: #12151B; }
+.mkpl-garantia a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.mkpl-programa .mkpl-garantia { color: #C9D3EE; }
+.mkpl-programa .mkpl-garantia b { color: #F3F6FF; }
 .mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C9D3EE; }
 @media (max-width: 900px) {
   .mkpl-grilla { grid-template-columns: 1fr; gap: 26px; }
@@ -94,6 +99,7 @@ export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarj
         <div className="mkpl-cuotas">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</div>
         {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
         <a className="mkpl-btn" href={`/planes/${pr.id}${sufijo}`}>Quiero el Acelerador</a>
+        {pr.garantia && <p className="mkpl-garantia"><b>Garantía de entrega:</b> {pr.garantia} <a href="/reembolsos#grupal">Ver condiciones</a></p>}
         <ul className="mkpl-lista">{pr.incluye.map((x) => <li key={x}>{x}</li>)}</ul>
         <p className="mkpl-despues">Al terminar, si quieres seguir: {pr.despues.nombre}, US$ {precio(pr.despues.precioUsd)} por mes, con MaKo Pro y la asesoría de cada semana.</p>
       </section>
