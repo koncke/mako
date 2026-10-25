@@ -4765,6 +4765,16 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   cuenta de MaKo no está conectada). La ruta `creative-signurl` del Ads Manager viejo
   SIGUE en uso: es la subida al staging del Media Buyer.
 
+- **El Media Buyer en MaKo Esencial (el Cerebro, 25/10): 2 recomendaciones por día y sin piloto automático.** El número no
+  vive en el Media Buyer: es `ads.recomendaciones_dia` de la tabla de topes de Planes (`lib/topes-plan.ts`), y se aplica
+  SÓLO al Esencial que MaKo cobra por la pasarela (`esEsencialDe`). Tres cosas que no eran obvias: el cupo se mira ANTES de
+  escribir las variaciones (si no, la IA del negocio escribe textos de propuestas que no se van a guardar); el piloto se
+  niega en UNA puerta (`guardarConfig`) y la corrida lanza con el modo que VALE (`modoEfectivo`), porque un negocio que baja
+  de Pro a Esencial queda con `modo = 'piloto'` guardado; y con el cupo lleno entra primero lo que cuida la plata (Stop
+  Loss, Calidad, Sunsetting) y no lo que la sube. ⚠️ **El candado de la tab le gana al cupo:** `NAV_SOLO_PRO`
+  (lib/plan-esencial-reglas.ts) todavía tiene 'ads-manager', así que el Esencial de la pasarela rebota a
+  /no-esta-en-tu-plan y nunca ve sus 2 recomendaciones. Es de Planes (avisado al Cerebro el 25/10).
+
 **Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
 `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y

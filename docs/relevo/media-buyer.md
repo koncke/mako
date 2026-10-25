@@ -30,6 +30,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
 | Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
+| Lo que trae cada plan (Esencial: 2 por día, sin piloto) | `lib/media-buyer/plan.ts` (puro) · `cupoDe` en `store.ts` · el número en `lib/topes-plan.ts` (de Planes) |
 
 ## Estado (25/10/2026)
 
@@ -37,10 +38,13 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
   corrida y el cron, la pantalla copiada de Madgicx (escritorio y teléfono), el arranque de tres pasos, las variaciones de
   texto y de hook (texto), la API de MaKo, la bitácora de `/admin/dev` y la cosecha.
 - **Apagado por defecto en TODOS los negocios.** Nadie tiene el piloto automático: lo prende cada negocio.
+- **MaKo Esencial (el Cerebro, 25/10):** «propone», 2 recomendaciones por día, sin piloto. Pro, entero. Sólo al Esencial que
+  MaKo cobra por la pasarela. Lo fija `tests/media-buyer-plan.test.ts`. ⚠️ Hasta que Planes saque 'ads-manager' de
+  `NAV_SOLO_PRO`, ese Esencial ni entra a la tab.
 
 ## Lo que falta, en orden
 
-1. **La migración 0332** (número pedido al Cerebro): sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
+1. **La migración 0332** (número confirmado por el Cerebro; la revisa él antes de aplicarla): sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
    cliente de prueba borra de estas tablas. Hasta que esté, la pantalla dice que el registro no está y nada se lanza.
 2. **Conectar la cuenta publicitaria de MaKo a Zernio — ES DE MARTÍN (un clic de permisos en Facebook).** La Zernio de la
    plataforma tiene cero cuentas conectadas (medido el 25/10). El link se genera con la clave de la plataforma:
