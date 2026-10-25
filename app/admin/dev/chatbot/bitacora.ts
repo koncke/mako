@@ -2779,4 +2779,31 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "16:00", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "martin", tipo: "prompt",
+    titulo: "Pruebas A/B en Automations y en toda la app",
+    pedido: "«También quiero implementar pruebas A/B en muchas partes de la app... Lo mismo con Automations, podemos poner una tarjeta que sea \"Prueba A/B\"»",
+    puntos: [
+      "Llegó por el Cerebro, con el diseño decidido: un solo motor para toda la app, y la tarjeta «A/B TEST» en Automations.",
+    ],
+  },
+  {
+    fecha: "25 oct", hora: "17:10", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El motor de las pruebas A/B: reparte a la gente y decide quién ganó sin inventar ganadores",
+    puntos: [
+      "Reparte a cada persona siempre a la misma versión, y dos pruebas a la vez no se mezclan.",
+      "Antes de arrancar dice cuánta gente hace falta y en cuántos días llega, o que no llega.",
+      "Decide quién ganó una sola vez, cuando juntó la gente del plan: probado con miles de pruebas simuladas sin diferencia, se equivoca 2 de cada 100.",
+      "Falta: guardarlo en la base, la tarjeta en el lienzo y la primera prueba real en el Cliente de Prueba.",
+    ],
+    archivos: [
+      "lib/pruebas/ — el motor (asignar, juez, volumen, métricas)",
+      "tests/pruebas-juez-aa.test.ts — las pruebas simuladas, probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

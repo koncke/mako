@@ -44,6 +44,14 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
   un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
   llamada que era de Automations está hecha; nada se vio en pantalla.
+- **Pruebas A/B, tanda A1 hecha (25/10, el Cerebro; diseño en docs/diseno-pruebas-ab.md, manda la crítica):** el motor puro
+  lib/pruebas/ (asignar, estadistica, juez, volumen, metricas) y el test A/A con el calendario real (tests/pruebas-juez-aa,
+  ≤ 5 % de falsos ganadores, probado rompiéndolo). Sigue **A2**: la migración «pruebas_ab» SIN número (la numera el Cerebro y
+  se aplica con el sí de Martín), store con el cliente de servicio y el ws explícito (aguanta la tabla ausente, como
+  lib/media-buyer/store.ts), UN cron diario, `concluir` → `experimentos` y `fmtVal` con el prefijo `ab:` («A / B»). Después
+  **A3**: la clase `ab` con TODAS sus puertas en un commit (transparente para `condicionDeArriba`, `minutosAntesDeReunion` y
+  las reglas de forma; `esBifurcacion()` y la lista de los ~70 `=== 'condicion'`); la primera prueba real, en el Cliente de
+  Prueba. Landings usa el motor para la landing: le pasé las firmas (25/10) y espera A2 para el store.
 - **Los botones de Instagram, de punta a punta (25/10, Martín: «Que lo pide el cliente Leandro»):** Editar con IA,
   Probar, la ficha y la API, hechos y probados sin pantalla (docs/hallazgos-chatbot.md, «Los botones de Instagram, de punta
   a punta…»). **Falta el DM de verdad, y depende de Martín**: ningún negocio nuestro tiene Instagram conectado por Zernio

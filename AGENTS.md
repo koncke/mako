@@ -10429,3 +10429,13 @@ mirado («no pude leer» no es «vacío»); resume en HECHOS (nunca copia el ren
 procedencia va ESCRITA en el cuerpo de la entrada (el chat sólo recibe título y cuerpo); y la marca de su libro
 (`second_brain_recolectado`, con su `fuente`) avanza DESPUÉS de guardar. Nunca escribe hacia afuera. Fathom, además, con la
 cuenta de CADA negocio: nunca la de Martín. tests/second-brain-recolector*.test.ts.
+
+## Una prueba A/B la decide lib/pruebas/juez.ts, con horizonte fijo, y nadie más (25/10/2026)
+
+Toda superficie que reparta gente entre versiones (la tarjeta «A/B TEST», la landing, la portada, lo que venga) usa el motor
+de lib/pruebas/: `ramaParaServir` para servir (sin prueba corriendo, el control, y nunca un sorteo sin registro),
+`conteosPorRama` para contar (sólo las personas maduras; una lectura incompleta no es «0 éxitos») y `juzgar` para decidir.
+Ninguna pantalla, agente ni LLM declara un ganador mirando los números por su cuenta: mirar todos los días inventaba entre 10
+y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las ramas tienen el n que `planDePrueba` calculó ANTES
+de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
+puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.
