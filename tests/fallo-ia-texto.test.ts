@@ -49,9 +49,23 @@ test('Una sola key es «no tenés respaldo», no «se cayó el proveedor»', () 
   // Es Google sin capacidad para ese modelo: otra key de Gemini le pega al mismo Google. Se lo
   // mandó a un cliente esa noche, sobre una nota de voz perdida.
   assert.equal(causaDelFallo(['gemini/gemini-flash-latest: HTTP 503: This model is currently experiencing high demand.'], 1), 'proveedor_caido');
-  const t = textoFalloIA('sin_respaldo', LINK);
-  assert.match(t, /una sola/i, 'no explica que el problema es tener una sola key');
-  assert.ok(t.includes(LINK));
+  // ⚠️ 25/10/2026: decía «Tu proveedor de IA se cayó… Carga una segunda (son gratis)». No sabemos que se cayó, nada es
+  // gratis desde IA16, y una segunda del mismo proveedor no cubre su bache. Con su Gemini como única IA, lo cubre su GPT.
+  const t = textoFalloIA('sin_respaldo', LINK, 'contestar', 1, ['chatCheapTools(gemini): HTTP 500 internal']);
+  assert.match(t, /una sola/i, 'no explica que el problema es tener una sola IA');
+  assert.match(t, /también tu GPT/);
+  assert.ok(t.includes('https://hola-mako.com/integraciones?abrir=openai'));
+  // Nombra SU Gemini, que fue la que no contestó («Gemini, tu IA,»): eso no es ofrecérselo.
+  for (const x of [t, textoFalloIA('sin_respaldo', LINK)]) assert.doesNotMatch(x.replace('Gemini, tu IA,', ''), /se cayó|son gratis|gemini/i, x);
+  // Con su GPT como única IA no hay otra que ofrecerle (su Claude no corre turnos con herramientas); sin saber cuál fue,
+  // tampoco se adivina: se dice que lo mande de nuevo.
+  // Probado rompiéndolo (25/10/2026): sin la rama «no hay respaldo que ofrecer», con el respaldo fijo en su GPT o con su
+  // Gemini otra vez en `CUBREN_EL_TURNO`, este test cae (34 / 0 de base con tests/doer-timeout-gemini.test.ts).
+  for (const errs of [['chatCheapTools(openai): HTTP 500'], []]) {
+    const x = textoFalloIA('sin_respaldo', LINK, 'contestar', 1, errs);
+    assert.match(x, /no me contestó justo ahora/);
+    assert.ok(!x.includes('/integraciones'), `le pide conectar algo que no lo cubre: ${x}`);
+  }
 });
 
 test('Con varias keys en orden, NO se culpa al cliente', () => {
@@ -64,7 +78,8 @@ test('Con varias keys en orden, NO se culpa al cliente', () => {
 });
 
 test('El link abre la pantalla donde se cargan las keys', () => {
-  assert.equal(LINK, 'https://hola-mako.com/integraciones?abrir=anthropic', 'su Claude, no Gemini gratis (IA9)');
+  // Su GPT (25/10/2026): en el grupo su Claude no corre los turnos con herramientas ni escucha, y Gemini no se ofrece.
+  assert.equal(LINK, 'https://hola-mako.com/integraciones?abrir=openai', 'el link del grupo dejó de abrir su GPT');
   // `?abrir=` es el deep-link real del board (app/integraciones/IntegracionesBoard.tsx).
   assert.ok(leer('../app/integraciones/IntegracionesBoard.tsx').includes("searchParams.get('abrir')"),
     'se perdió el deep-link ?abrir=: el link del mensaje cae en la pantalla sin abrir nada');

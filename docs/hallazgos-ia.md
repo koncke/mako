@@ -4,6 +4,30 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## Ningún cartel le ofrece Gemini como «su IA» (25/10/2026; reemplaza lo del 22/10)
+
+Martín, 25/10/2026, por el audio de Florencia (ws21): «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos
+que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». El 22/10 (IA16) había sumado su Gemini
+como «su IA»; desde hoy ningún texto lo ofrece. El plan, en [conexiones-y-ayuda.md](conexiones-y-ayuda.md); el cartel del
+grupo, en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (misma fecha).
+
+- **Qué se ofrece y dónde:** en la app, su Claude con MaKo Desktop (el chat ya exige la computadora,
+  lib/chat-mako-reglas.ts); en WhatsApp y en lo que corre solo, su GPT por clave, que escucha audios y corre los turnos con
+  herramientas. Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo
+  a conectar uno.
+- **El cartel del grupo ya lo cumple** (lib/fallo-ia-texto.ts): el test 8 de tests/doer-cartel-sin-ia.test.ts recorre las
+  siete causas por cada pedido, claves, errores y contexto. **Los textos de la app todavía no** (tanda 2 del plan):
+  `CONECTA_TU_IA` y `FALTA_TU_IA` (lib/ia-mensajes.ts), `conSuIASinClave` y `CON_SU_IA_SIN_VISION` (lib/fallo-ia-texto.ts),
+  `AVISO_SIN_IA` (lib/mako-turno-app-reglas.ts), `SU_IA` (lib/flujo-ia.ts), lib/ai-cheap.ts:1116, lib/persona.ts:219 y las
+  bajadas de «Tus cuentas de IA» (lib/ia-pc-reglas.ts:890, TusCuentasIA.tsx, /perfil/ia: son de MaKo Desktop).
+- ⚠️ **La excepción que no se saca sin decidir: el conocimiento.** El buscador embebe con Gemini (lib/embeddings.ts): sin su
+  Gemini no hay búsqueda de conocimiento, ni siquiera del método de MaKo. O queda como única excepción, o se re-embebe con
+  OpenAI (1536 dimensiones contra 768).
+- ⚠️ **La marca «red gratis salteada» de lib/ai-cheap.ts (≈:891 y :896) se deja sin preguntar si había red**, también
+  cuando el negocio tiene su IA (`soloSuIA()`). `sinRedPorDatos` reconoce las dos, y por eso nutrición (lib/nutricion.ts)
+  y el simulador de setting le dicen `CONECTA_TU_CLAUDE` a negocios que ya la tienen. Es el arreglo que el doer tuvo el
+  24/10 (preguntar por la red ANTES de marcar), en otro módulo. SIN hacer.
+
 ## «¿Cómo abro MaKo?» y «quiero otra cuenta de Claude»: la app de escritorio, en la llamada con Leandro (25/10/2026)
 
 - **f02** (Leandro, recién instalado): «¿Cómo abro MaKo? (...) Se me descargó algo, pero en la computadora no lo puedo ver». No
