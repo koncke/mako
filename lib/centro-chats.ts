@@ -731,9 +731,15 @@ export function ultimoYaEsta(lineas: readonly LineaChat[]): number | null {
 /** El turno del último «Ya está» si todavía no tiene su ✓ (`visto`: el instante del ✓ de este chat): adonde va el hilo al abrir
  *  el chat (Conversacion.tsx). null = no hay, o ya lo vio. */
 export function yaEstaSinVer(lineas: readonly LineaChat[], visto: number | null | undefined): string | null {
-  let u: { instante: number; uuid: string } | null = null;
-  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (!u || l.instante > u.instante)) u = { instante: l.instante, uuid: l.turno.uuid };
-  return u && !tieneCheck(u.instante, visto) ? u.uuid : null;
+  return completadoSinVer(lineas, visto)?.uuid ?? null;
+}
+
+/** El turno del último «Ya está» si todavía no tiene su ✓: el que hace que la fila diga «Completado», y el que va en el bloque
+ *  de arriba de la caja (app/admin/operaciones/BloqueCompletado.tsx, 25/10/2026). null = no hay, o ya lo vio. */
+export function completadoSinVer(lineas: readonly LineaChat[], visto: number | null | undefined): TurnoChat | null {
+  let u: { instante: number; turno: TurnoChat } | null = null;
+  for (const l of lineas) if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && (!u || l.instante > u.instante)) u = { instante: l.instante, turno: l.turno };
+  return u && !tieneCheck(u.instante, visto) ? u.turno : null;
 }
 
 /**

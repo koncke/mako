@@ -7,6 +7,25 @@ del código.
 
 ---
 
+## El «Completado» se perdía en el scroll: va en un bloque arriba de la caja, como las preguntas (25/10/2026)
+
+- Martín (25/10, 09:32): «Hay muchos chats que dicen "completado", pero no veo el mensaje... Tal vez sería bueno hacerlo como
+  las preguntas, en bloque arriba del chat, sino se pierde en el scroll».
+- **Qué hace que un chat diga «Completado»:** SÓLO su último turno «Ya está» sin el ✓ (`esperaCheck(ultimoYaEsta(…))`). El
+  cierre de un trabajo del cartero (decidido, hecho, comprobado, sigue, prueba) se dibuja debajo de su pedido, pero no vuelve
+  «Completado» a un chat. Por eso el bloque lleva ese turno (`completadoSinVer`) y no el cierre: es justo el mensaje que la fila
+  anuncia. Ese turno suele traer adentro lo mismo, en Markdown, y su «Revisar» sale de la ruta que dejó.
+- **No es una tarjeta nueva:** es `YaEstaMensaje`, la del hilo, con `sinCabecera` (el bloque ya dice «Completado» y lleva el
+  «Visto»), adentro del marco del bloque de preguntas y con un tope de alto (`min(40dvh, 340px)`), para que uno largo no tape la
+  conversación. «Visto» es el ✓ de siempre: el chat deja de decir «Completado» y el bloque se va.
+- **La pregunta manda:** con una esperando, el «Completado» queda en su tira, arriba de ella, hasta que se lo abra. Plegarlo se
+  recuerda POR TURNO (`usePlegado`): un «Ya está» nuevo vuelve a abrirse.
+- **La tira es un renglón:** sin los asteriscos del Markdown (`sinMarkdown`, la regla de la lista). Se vio en la captura.
+
+**Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`) · `Avance.tsx`
+(`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·
+`tests/completado-arriba.test.ts`
+
 ## Una pregunta se guarda por SESIÓN y el chat es una CADENA: «Espera tu respuesta» para siempre (25/10/2026)
 
 - **Síntoma** (lo halló el Cerebro): una pregunta de AskUserQuestion de «Ventas de MaKo» decía «Espera tu respuesta» desde el

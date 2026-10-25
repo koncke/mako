@@ -1785,4 +1785,24 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/centro-preguntas-chat.ts · centro-preguntas-chat-db.ts · lib/operaciones.ts · scripts/operaciones/cartero.mjs (1.18.1)', 'tests/preguntas-cadena-y-ask.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '09:32', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El «Completado» en bloque arriba del chat, como las preguntas',
+    pedido: '«Hay muchos chats que dicen "completado", pero no veo el mensaje... Tal vez sería bueno hacerlo como las preguntas, en bloque arriba del chat, sino se pierde en el scroll»',
+    puntos: ['Lo pasó el Cerebro con lo que tenía que tener: plegarlo o darlo por visto, y la pregunta primero si están las dos.'],
+  },
+  {
+    fecha: '25 oct', hora: '10:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado» de cada chat, arriba de la caja',
+    revisar: '/admin/operaciones',
+    puntos: [
+      'Cuando un chat dice «Completado», su mensaje va fijo arriba de la caja, con el mismo marco que las preguntas: qué cambió, «Revisar» y «Responder sobre esto». En la computadora y en el teléfono.',
+      '**Visto** lo da por visto y el bloque se va; la flecha lo pliega a una tira de un renglón.',
+      '**Si además hay una pregunta**, la pregunta va primero y el «Completado» queda en su tira.',
+      '**Mirado con los estilos reales y un mensaje de ejemplo**, a 1280 y a 390 px; sin mirar en producción.',
+    ],
+    archivos: ['app/admin/operaciones/BloqueCompletado.tsx · Conversacion.tsx · ChatsMovil.tsx · lib/centro-chats.ts — completadoSinVer', 'tests/completado-arriba.test.ts'],
+  },
 ];
