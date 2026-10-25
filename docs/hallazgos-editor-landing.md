@@ -2621,3 +2621,34 @@ Lo que quedó SIN hacer:
   `next dev` pide 5-6 GB. Lo de la barra a 1280 sigue en «Sin verificar en pantalla» (docs/pendientes.md).
 - El clic derecho (P5), los botones amontonados del lienzo (5), la sidebar del chat que no se pliega (10), los
   placeholders tapados (6), la segunda barra de formato (8) y las páginas de MaKo editables por sección (4): tandas que siguen.
+
+## Los botones amontonados en la esquina del lienzo y el chat que no se pliega (24/10/2026 noche, tanda 2a de claude5)
+
+Puntos 5 y 10 del 24/10 (docs/feedback-24-10.md). **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts`
+(`.gmc-lado`) · `app/web-generator/gamma.css` (el margen del lienzo) · `nodos/TarjetaVista.tsx` · `EditorLanding.tsx`
+(`PanelIzq`, la barra) · `paneles/PanelAgente.tsx`.
+
+- **La causa del amontonamiento NO era el botón de la tira (que se movió igual): eran TRES piezas que caen en el mismo
+  punto.** En una landing toda sección va a sangre (css.ts, 15c), así que la columna ⋮ ✨ ▤ iba ADENTRO, a 12 px de la
+  esquina; el asa de cada bloque (AsaBloque) se ubica 52 px a la izquierda del bloque, que con el padding de 3,5em del
+  cuerpo y el lienzo de ~850 px (padding-inline de la sección en 0) es justo el borde de la sección; y el primer bloque
+  del header es el logo. **Regla:** en una landing de escritorio la columna va AFUERA, en un margen de 40 px que el
+  lienzo le deja a la página (sólo en el editor); adentro queda donde lo de afuera se recorta (el marco de teléfono o
+  tableta tiene `overflow: hidden`) y en una diapositiva a sangre.
+- **La columna en una landing es UN botón (⋮):** el ✨ «Editar con IA» se fue (el chat de la tarjeta está siempre) y las
+  notas del orador quedan sólo en una presentación (en una landing siguen en el ⋮).
+- **La tira de secciones es una vista de la TARJETA de la izquierda** (`PanelIzq = 'tira'`), con su botón en la barra,
+  como Páginas. Ya no es una columna entre la tarjeta y el lienzo: el lienzo ganó ~150 px, que a 1280 hacen falta.
+- **El chat no se pliega:** `PanelIzq` ya no admite `null` (el tipo lo impide), se fueron el «⇤» de la cabecera, «Abrir
+  MaKo» de la barra y el `agentePlegado`; Mod+E lleva al chat y le pone el cursor. Cerrar Páginas o la tira vuelve al chat.
+  El 12/10 Martín había pedido «de ultima que se pueda plegar»: lo del 24/10 es posterior y gana.
+- **El placeholder partido** («Envía un mensaje al / agente…») no cabía al lado del «+», los emojis y el micrófono: va
+  «Escribe a MaKo», el molde del Ops Center («Escribe a <quién>»), y el `::placeholder` no corta renglón.
+
+Lo que quedó SIN hacer:
+- **«Discutir / Editar» en lugar de «Toda la landing / Sin título»** (la otra mitad del punto 10): «Discutir» necesita que
+  la IA del editor conteste sin tocar la landing, y hoy sólo sabe editar (`accion: 'editar'`, lib/editor-landing/ia.ts).
+  Va en la tanda 2b, con su prompt y su lugar en la API de MaKo.
+- La columna en el teléfono y la tableta sigue ADENTRO (el marco recorta lo de afuera) y ahí todavía puede encimarse con
+  el asa del primer bloque.
+- Sin mirar con clics (la RAM no dio para levantar el editor).

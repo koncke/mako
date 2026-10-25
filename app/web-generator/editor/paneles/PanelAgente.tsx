@@ -657,8 +657,9 @@ function traerLoQueVendes(ws: number | null): Promise<DocDelArchivero | null> {
   return p;
 }
 
-/** `onCerrar`: quien lo monta puede cerrarlo a su manera; si no, el panel se colapsa por el contexto. */
-export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
+/** El chat de la tarjeta de la izquierda. No se cierra ni se pliega (24/10/2026, Martín: «La sidebar del chat de MaKo NO se
+ *  debe poder cerrar nunca. Elimina el boton de plegar»): su «←» lleva a la lista de landings, en la misma tarjeta. */
+export function PanelAgente() {
   const ctx = useEditorLanding();
   const ctxRef = useRef(ctx);
   useLayoutEffect(() => { ctxRef.current = ctx; });
@@ -922,14 +923,8 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
         cabecera={{
           clave: `agente:${docId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO, animo: hilo.corriendo ? 'trabajando' : 'despierto',
           antes: <button type="button" className="gma-pb-iconbtn gma-ag-volver" onClick={() => setPanelIzq('landings')} title="Ver tus landings" aria-label="Ver tus landings">←</button>,
-          acciones: (
-            <>
-              <span className="gma-ag-estado">{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>
-              <button type="button" className="gma-pb-iconbtn" style={{ marginLeft: 'auto' }} onClick={() => (onCerrar ? onCerrar() : setPanelIzq(null))} title="Cerrar el panel" aria-label="Cerrar el panel">
-                <Ico n="chevron-doble-izquierda" t={16} />
-              </button>
-            </>
-          ),
+          // Sin «Cerrar el panel» (el «⇤» de plegar): el chat no se cierra nunca.
+          acciones: <span className="gma-ag-estado">{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>,
         }}
         caja={<div className="gma-ag-pie">
         <div className="gma-ag-alcance" role="group" aria-label="Alcance">
@@ -949,9 +944,12 @@ export function PanelAgente({ onCerrar }: { onCerrar?: () => void } = {}) {
             </button>
           </div>
         )}
-        {/* La caja única (./ChatAgente.tsx): el «+», las miniaturas, pegar, los emojis y el micrófono que dicta. */}
+        {/* La caja única (./ChatAgente.tsx): el «+», las miniaturas, pegar, los emojis y el micrófono que dicta.
+            El placeholder entra en UN renglón (24/10/2026, Martín: «mira como se bugea el placeholder del chat con un salto de
+            linea»: «Envía un mensaje al / agente…» no cabía al lado del «+», los emojis y el micrófono). Es el del Ops Center,
+            «Escribe a <quién>». */}
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
-          apagado={!editor} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
+          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (
@@ -1017,6 +1015,7 @@ const CSS_AGENTE = `
 .gma-ag-caja[data-ocupada]{background:var(--pb-sup)}
 .gma-ag-input{width:100%;min-height:40px;max-height:160px;resize:none;border:0;outline:none;background:transparent;color:var(--pb-texto);font:inherit;font-size:13.5px;line-height:1.45;padding:0}
 .gma-ag-input::placeholder{color:var(--pb-suave)}
+.gma-ag .co-caja textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .gma-ag-caja-pie{display:flex;align-items:flex-end;justify-content:space-between;gap:8px}
 .gma-ag-caja-pie .ch-adjuntar{width:30px;height:30px}
 .gma-ag-caja>.co-miniaturas{margin:0 0 4px}

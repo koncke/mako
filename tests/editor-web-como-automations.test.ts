@@ -125,3 +125,38 @@ test('la columna del bloque no tapa sus propios botones: tooltip de la casa a la
   const css = leer('app/web-generator/editor/extensiones/estilos-nodos.ts');
   assert.match(css, /\.gmc-tip::before \{ content: attr\(data-tip\); position: absolute; left: calc\(100% \+ 6px\)/);
 });
+
+test('la columna de la sección es UN botón en una landing: sin «Editar con IA», y las notas sólo en una presentación', () => {
+  // Martín, 24/10/2026: «Hay un botón que dice "Editar con IA" eso eliminalo... Por defecto siempre esta el editor de IA».
+  const t = sinComentarios(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'));
+  const lado = t.slice(t.indexOf('className="gma gmc gmc-lado"'), t.indexOf('className="gma gmc gmc-entre"'));
+  assert.ok(lado.length > 200, 'no encontré la columna');
+  assert.doesNotMatch(lado, /data-tip="Editar con IA"|abrir\('agente', e\.currentTarget, 'editar'\)/, 'volvió ✨ «Editar con IA» a la columna');
+  assert.match(lado, /\{esPresentacion\(ctx\?\.config \?\? \{\}\) && \(\s*<button[^>]*data-tip="Notas del orador"/);
+});
+
+test('«Abrir tira de imágenes» es un botón de la barra y la tira se abre en la tarjeta del chat; nada flota en la esquina del lienzo', () => {
+  // Martín, 24/10/2026: «"Abrir tira de imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat».
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /gma-tira-abrir/, 'volvió el botón flotante de la tira');
+  const area = editor.slice(editor.indexOf('<div className="gma-area">'), editor.indexOf('ref={lienzoRef}'));
+  assert.doesNotMatch(area, /<TiraSecciones/, 'la tira volvió a ser una columna al lado del lienzo');
+  const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
+  assert.match(barra, /aria-label="Abrir tira de imágenes"\s*aria-pressed=\{panelIzq === 'tira'\} onClick=\{\(\) => \(panelIzq === 'tira' \? cerrarPaginas\(\) : setPanelIzqEstado\('tira'\)\)\}/);
+  assert.match(editor, /<section role="complementary" className="gma-izq" data-panel="tira" aria-label="Secciones">\s*<TiraSecciones revision=\{revision\} onCerrar=\{cerrarPaginas\} \/>/);
+});
+
+test('el chat de MaKo no se pliega nunca: sin botón de plegar, sin «Abrir MaKo», y la tarjeta nunca queda vacía', () => {
+  // Martín, 24/10/2026: «La sidebar del chat de MaKo NO se debe poder cerrar nunca. Elimina el boton de plegar».
+  const agente = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  assert.doesNotMatch(agente, /Cerrar el panel|setPanelIzq\(null\)|chevron-doble-izquierda/, 'volvió el botón de plegar el chat');
+  const ctx = sinComentarios(leer('app/web-generator/editor/contexto.ts'));
+  assert.match(ctx, /export type PanelIzq = 'agente' \| 'paginas' \| 'landings' \| 'tira';/, 'la tarjeta de la izquierda volvió a poder quedar en null');
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /data-tip="Abrir MaKo"|agentePlegado/);
+  // Mod+E lleva al chat; ya no lo cierra.
+  assert.match(editor, /\(e\.key === 'e' \|\| e\.key === 'E'\)\) \{\s*e\.preventDefault\(\);\s*setPanelIzqEstado\('agente'\);/);
+  // El placeholder entra en un renglón.
+  assert.match(agente, /placeholder="Escribe a MaKo"/);
+  assert.doesNotMatch(agente, /Envía un mensaje al agente/);
+});

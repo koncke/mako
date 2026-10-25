@@ -1076,4 +1076,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '21:15', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los botones ya no se amontonan en la esquina del lienzo, y el chat de MaKo no se cierra',
+    puntos: [
+      'Los botones de cada sección se encimaban arriba a la izquierda, sobre el logo. Ahora el de opciones de la sección queda afuera, en un margen a la izquierda de la página, y ya no se pisa con los del primer bloque.',
+      'Se fue el botón «Editar con IA» de cada sección: para eso está siempre el chat de MaKo. Las notas del orador quedan sólo en las presentaciones.',
+      '«Tira de imágenes» ahora es un botón de la barra de arriba y se abre donde está el chat de MaKo; con otro clic vuelves al chat.',
+      'El chat de MaKo ya no se puede plegar: se sacó su botón. Y su caja dice «Escribe a MaKo» en un solo renglón.',
+      'Falta la otra mitad del pedido del chat: cambiar «Toda la landing / Sin título» por «Discutir / Editar». Va en la próxima entrega.',
+      'No se vio con clics: la computadora no tenía memoria libre para levantar el editor. Está probado con tests, rompiendo cada arreglo.',
+    ],
+    archivos: [
+      'app/web-generator/editor/extensiones/estilos-nodos.ts — dónde va el botón de opciones de cada sección',
+      'app/web-generator/gamma.css — el margen de la página en el editor',
+      'app/web-generator/editor/EditorLanding.tsx — la tira en la tarjeta del chat y el chat que no se pliega',
+      'app/web-generator/editor/paneles/PanelAgente.tsx — el chat sin botón de plegar',
+    ],
+    revisar: '/web-generator',
+  },
 ];
