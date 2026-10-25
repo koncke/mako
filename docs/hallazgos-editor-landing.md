@@ -2820,4 +2820,23 @@ Lo que quedó SIN hacer:
 - La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
   en la cuenta: con el media buyer en producción.
 - La garantía, la demo por WhatsApp y el video corto de demo.
-- Las landings por funcionalidad y por avatar con los ángulos de §6b (tanda 2).
+- Las landings por funcionalidad y por avatar: hechas en la tanda 2 (abajo).
+
+**Tanda 2 (25/10, tarde): las landings por funcionalidad y por avatar** (`scripts/landings-mako-v2-funnels.mts`, §6b)
+- **Doce documentos NUEVOS, con slug `mako-…`:** páginas de venta, setter, tableros, creativos, avatares, media buyer, closing,
+  cursos, coaches, infoproductores, inmobiliarias y agencias. Las ocho del 23/10 (crear-landings, coaches…) pueden estar en
+  anuncios corriendo: no se pisan. Cada slug está en `LANDINGS_MAKO` (lib/origen-cuenta.ts), con `media-buyer`, `closing` y
+  `cursos` como funcionalidades nuevas y `agencias` como avatar nuevo. Nadie fuera de origen-cuenta usa esos tipos.
+- **Se arman y NO se suben (`pausada`, con su motivo):** la del media buyer (no está en producción) y la de avatares (en
+  pausa desde el 23/10). El `--subir` las saltea, y un test lo vigila.
+- **Lo que se verificó en el código antes de escribirlo:**
+  - El análisis de llamadas usa las grabaciones de Fathom y puntúa siete partes, del diagnóstico al cierre. Por eso el titular
+    dice «en qué parte se te cae», no «en qué objeción».
+  - No hay un resumen diario de números para el dueño. La landing de tableros dice «pregúntale a MaKo cómo va tu negocio».
+  - Esencial y Pro abren las mismas tabs (cambian los topes). Por eso «va en MaKo Pro» sólo donde lo dice el plan: el análisis
+    de llamadas y lo de agencia.
+- **Las piezas son las de la principal** (exportadas de landings-mako-v2.mts), más cinco bloques: tarjetas, pasos, una
+  conversación de ejemplo (sin cifras), una comparación en tabla y la tarjeta de prueba. Las preguntas salen de un catálogo con
+  clave: un cambio en una respuesta llega a todas las landings.
+- **Pendiente: la prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía). La línea bajo el botón tiene que
+  leerla de lib/planes-mako.ts, como los precios. Espera el nombre del export, que define Planes.
