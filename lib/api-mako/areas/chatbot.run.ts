@@ -24,7 +24,7 @@ import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPas
 import { detenerPruebaDeLaTarjeta, empezarPruebaDeLaTarjeta, estadoDeLaTarjeta } from '@/lib/pruebas/automatizacion';
 import { tarjetaABDe } from '@/lib/pruebas/tarjeta-ab';
 import { botonesDe } from '@/lib/botones-social';
-import { botonesParaGuardar, type BotonPedido } from '@/lib/botones-api';
+import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -676,7 +676,8 @@ export const RUNNERS: Runners = {
       const plazoMs = ctx.canal === 'http' ? PLAZO_CREAR_HTTP_MS : 170_000;
       const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs, respuestas: sanearRespuestas(payload.respuestas), via });
       // Algo cambió entre proponer y confirmar (o preguntó el modelo): la pregunta vuelve a la persona, numerada.
-      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta) };
+      // Por HTTP vuelve como `faltan` (lib/api-mako/flujo.ts, `aplicarEnElActo`): el parámetro que la contesta.
+      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta), datos: { faltan: [r.pregunta.sobre] } };
       if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
       // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
       // exacto). `/automations?sec=<id>&mako=1` abre el lienzo de esa automatización CON el chat de MaKo abierto (§2.5),
@@ -1381,8 +1382,35 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // El texto de un WhatsApp o un email en un flujo con ramas (25/10/2026; la def explica el porqué): la misma puerta que el DM.
+  cambiar_texto_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const texto = typeof input.texto === 'string' ? input.texto : undefined;
+      const asunto = typeof input.asunto === 'string' ? input.asunto : undefined;
+      if (texto === undefined && asunto === undefined) return { error: 'Pasa el texto, el asunto (en un email) o los dos.', faltan: ['texto'] };
+      const r = textoParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), String(s.nombre ?? ''), { texto, asunto });
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Mensaje de la automatización #${id} guardado.` };
+    },
+  },
+
   // LA PRUEBA A/B (tanda A3; la def explica el porqué). Lo que se puede saber sin escribir falla en `preparar()`.
-  prueba_ab_automatizacion: {
+  ver_prueba_ab: {
     leer: async (input, ctx) => {
       const id = num(input, 'secuenciaId');
       if (!(await secuenciaVigente(id))) return errorLectura(noExiste(id));

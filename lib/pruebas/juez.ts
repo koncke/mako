@@ -18,9 +18,10 @@
 // LOS NÚMEROS (los cambia una persona en código, con el porqué):
 //   · UMBRAL_GANA 0,98 por comparación con el control (Bonferroni: con k ramas, 1 − 0,02/(k − 1)). Por lado, 2 % de
 //     falsos «gana B» y 2 % de falsos «gana el control»: juntos ≤ 4 %, debajo del 5 % del Cerebro.
-//   · PERDIDA_MAX_REL 1 %: además, lo que se pierde en promedio por quedarse con B si A era mejor tiene que ser menos del
-//     1 % de la tasa del control (la regla doble de VWO). ⚠️ Con 98 % no ata nunca (medido: 0/6 contra 6/6 pierde 0,00115
-//     con un techo de 0,0033); queda por si el umbral baja. Donde SÍ decide es al tope (SERVIR_AL_TOPE).
+//   · PERDIDA_MAX_REL 1 %: SÓLO AL TOPE (SERVIR_AL_TOPE). Lo que se pierde en promedio por quedarse con B si A era mejor
+//     tiene que ser menos del 1 % de la tasa del control (la regla doble de VWO). En «gana» NO está: con 98 % no ataba
+//     nunca (medido: 0/6 contra 6/6 pierde 0,00115 con un techo de 0,0033), y una regla que nunca actúa es una regla
+//     mentirosa (el Cerebro, 25/10/2026). Si el umbral baja, se vuelve a medir antes de traerla.
 //   · UMBRAL_CORTE 0,995 y la mitad del n del plan: lo que exige la crítica para cortar antes del horizonte.
 //   · GUARDRAIL: B no gana si la métrica final (agendó, compró) empeora más que su tolerancia con 80 % de chance. Con
 //     menos de 5 eventos en total, el guardrail no tiene dato y no frena.
@@ -159,7 +160,7 @@ export function juzgar(l: Lectura, regla: Regla, opciones: { detalle?: boolean }
 
   // EL HORIZONTE: la única mirada que decide.
   const candidatas = variantes.map((v) => de(v.clave))
-    .filter((v) => (1 - (v.pPeor ?? 1)) >= umbral && (v.perdida ?? 1) < PERDIDA_MAX_REL * tasaC)
+    .filter((v) => (1 - (v.pPeor ?? 1)) >= umbral)
     .filter((v) => {
       for (const gr of l.guardrails ?? []) {
         const f = guardrailFrena(gr, v.clave);
@@ -172,7 +173,6 @@ export function juzgar(l: Lectura, regla: Regla, opciones: { detalle?: boolean }
   if (candidatas.length) {
     const v = candidatas[0];
     numeros.push({ condicion: `P(${v.clave} mejor que ${control.clave})`, valor: pct(1 - v.pPeor!), porQue: `≥ ${pct(umbral)} en el horizonte` });
-    numeros.push({ condicion: `pérdida esperada con ${v.clave}`, valor: pct(v.perdida!), porQue: `< ${pct(PERDIDA_MAX_REL)} de la tasa de ${control.clave}` });
     return { accion: 'concluir', veredicto: 'gana_variante', sirviendo: v.clave, esVerdad: true, ganadora: v.clave, ramas, numeros,
       porque: `${v.clave} ganó: ${pct(v.tasa)} contra ${pct(nc.tasa)} (${v.n} y ${nc.n} personas), con el lift entre ${pct(v.lift![0])} y ${pct(v.lift![1])}.` };
   }

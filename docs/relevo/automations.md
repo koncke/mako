@@ -46,13 +46,21 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   llamada que era de Automations está hecha; nada se vio en pantalla.
 - **Pruebas A/B, tanda A3 hecha (25/10): la tarjeta «A/B TEST»** con todas sus puertas (la lista revisada, en
   docs/hallazgos-chatbot.md), el editor (EditorPruebaAB: ramas, porcentajes, Empezar y Detener), «Probar» (un escenario por
-  rama), Crear y Editar con IA (`prueba_ab`, su regla sólo si el pedido la nombra), la API (`prueba_ab_automatizacion`,
-  `empezar_prueba_ab`, `detener_prueba_ab`), los medidores de Automations en el cron y una franja en Métricas. Falta la
-  migración aplicada (con el sí de Martín) y la primera prueba real en el Cliente de Prueba.
+  rama), Crear y Editar con IA (`prueba_ab`, su regla sólo si el pedido la nombra), la API (`ver_prueba_ab`,
+  `empezar_prueba_ab`, `detener_prueba_ab`), los medidores de Automations en el cron y una franja en Métricas. La migración
+  ya está aplicada (0335, 25/10 19:27); falta la primera prueba real en el Cliente de Prueba.
+- **El chat de MaKo perdía herramientas (25/10, arreglado):** `cambiar_botones_mensaje` y las tres de la prueba A/B le sacaban
+  el lugar a `editar_pasos_secuencia_mensajes` y a `cambiar_crons_secuencia` (tests/ops-center-clasificador-app). Una
+  operación nueva va AL FINAL del área y se mide con esas frases antes de entregar (AGENTS.md). Crear con IA por HTTP
+  devuelve la pregunta como 400 con `faltan`, y la pérdida esperada del juez quedó sólo al tope.
+- **El texto de un WhatsApp o email en un flujo CON ramas, por la API (25/10):** `cambiar_texto_mensaje` (PATCH
+  …/mensajes/{tarjeta}/texto), por `publicarPasos`, al final del área. Cambiar el texto suelta las variantes del viejo (el
+  guardado ahora respeta un `[]` explícito), también en el texto de un DM. Sin hacer: `editar_pasos_secuencia_mensajes` sigue
+  avisando «conserva N variantes» en vez de soltarlas.
 - **Pruebas A/B, tandas A1 y A2 hechas (25/10, el Cerebro; diseño en docs/diseno-pruebas-ab.md, manda la crítica):** A1, el
   motor puro lib/pruebas/ (asignar, estadistica, juez, volumen, metricas) y el test A/A con el calendario real
-  (tests/pruebas-juez-aa, ≤ 5 % de falsos ganadores). A2, la migración supabase/migrations/XXXX_pruebas_ab.sql SIN número (la
-  numera el Cerebro y se aplica con el sí de Martín), lib/pruebas/store.ts, el cron /api/cron/pruebas (6:15 UTC, sin
+  (tests/pruebas-juez-aa, ≤ 5 % de falsos ganadores). A2, la migración supabase/migrations/0335_pruebas_ab.sql (la
+  numeró el Cerebro y la APLICÓ en producción el 25/10 19:27, con el sí de Martín), lib/pruebas/store.ts, el cron /api/cron/pruebas (6:15 UTC, sin
   medidores todavía), concluir → `experimentos` y `fmtVal` con «ab:». Sigue **A3**: los medidores de Automations
   («respondio», «agendo», en el cron), y la clase `ab` con TODAS sus puertas en un commit (transparente para `condicionDeArriba`, `minutosAntesDeReunion` y
   las reglas de forma; `esBifurcacion()` y la lista de los ~70 `=== 'condicion'`); la primera prueba real, en el Cliente de

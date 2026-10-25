@@ -344,14 +344,37 @@ no traía `cambiar_crons_secuencia`. La que entraba en su lugar era la nueva, `c
   pedido»). A igual puntaje gana la declarada antes, y botones está antes en chatbot.def.ts. Con ella adelante, el CRON
   (4.114) no entraba. Achicar no alcanzaba: había que sacar el empate.
 - El commit señalado (3a443b08f) no fue el primero: su padre fallaba igual. Empezó con la operación misma (b3ef516f9).
+- Una hora después lo repitieron las tres de la prueba A/B (A3): `prueba_ab_automatizacion` llevaba «automatizacion» en el id
+  (2 puntos en cualquier pedido de automatizaciones) y las tres estaban declaradas antes que el CRON. Ahora son `ver_prueba_ab`,
+  `empezar_prueba_ab` y `detener_prueba_ab`, sin «automatización» en el título y AL FINAL del área: pierden los empates.
 
-**La regla.** Una operación nueva se mide con las frases de `tests/ops-center-clasificador-app` ANTES de entregar. Su
-descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los demás mensajes, con
-editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área («automatización», «flujo»,
-«WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se sube: es el techo de Groq.
+**La regla.** Una operación nueva va al FINAL de su área y se mide con las frases de `tests/ops-center-clasificador-app`
+ANTES de entregar. Su descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los
+demás mensajes, con editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área
+(«automatización», «flujo», «WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se
+sube: es el techo de Groq.
 
 **Vive en:** `lib/api-mako/registro.ts` (`ordenarPorRelevancia`: el empate lo decide el orden de declaración) ·
 `lib/relevancia-app.ts` (`registroParaLaApp`, el 75 %) · `lib/api-mako/areas/chatbot.def.ts` · `tests/api-mako-botones.test.ts`
+
+---
+
+## ⚠️ La escritura directa de /api/v1 perdía `faltan`: una pregunta llegaba como un 422 de texto (25/10/2026)
+
+**Síntoma.** Crear con IA por HTTP con un token detallado que escribe: cuando MaKo necesitaba un dato («¿Por dónde le
+escribo?»), la respuesta era un 422 con la pregunta como mensaje de error. Para quien llama, un fallo.
+
+**Causa.** Hay dos caminos. El que propone (`ejecutarOperacion`, lib/api-mako/ejecutar.ts) devuelve el 400 de `preparar()`
+con `faltan`. La escritura directa (`aplicarEnElActo`, lib/api-mako/flujo.ts) resume todo en `resumen`, porque la escribió
+un flujo, que sólo necesita una frase para el rastro. El `faltan` se perdía ahí, y la pregunta que hace el modelo AL EJECUTAR
+ni siquiera lo tenía.
+
+**La regla.** `ResultadoFlujo.faltan` lo lleva (el de `preparar()`, y el de `ejecutar()` en `datos.faltan`), y
+lib/api-mako/rutas-http.ts lo devuelve como 400 con `faltan` ANTES del 422. Una pregunta es un parámetro que falta: quien
+llama contesta en ese parámetro y vuelve a llamar.
+
+**Vive en:** `lib/api-mako/flujo.ts` (`aplicarEnElActo`) · `lib/api-mako/rutas-http.ts` ·
+`lib/api-mako/areas/chatbot.run.ts` (`crear_automatizacion_con_ia`) · `tests/api-mako-botones.test.ts`
 
 ---
 

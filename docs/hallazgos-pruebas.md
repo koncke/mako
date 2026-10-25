@@ -21,11 +21,12 @@ día, ventana de 7), 1,3 % «gana B» y 0,7 % «gana el control». Con 3 ramas, 
 «mirar todos los días» da 2 / 3, y con un juez mudo, 4 / 1: un juez que nunca decide también pasa el A/A, por eso el test
 mide la potencia.
 
-## La regla doble de VWO (pérdida < 1 %) no ata con 98 % (25/10/2026)
+## La regla doble de VWO (pérdida < 1 %) no ataba con 98 %: salió de «gana» (25/10/2026)
 
-El diseño la pedía junto al 95 %. Con el umbral en 98 % no frena nunca: el caso más extremo, 0/6 contra 6/6, pierde
-0,00115 con un techo de 0,0033. Su rotura queda verde a propósito, y el test lo dice. Se queda como guarda por si el
-umbral baja. Donde SÍ decide es al tope: 1/10 contra 4/10 da 85 % de ser la mejor, pero pierde 0,0102, y se queda A.
+El diseño la pedía junto al 95 %. Con el umbral en 98 % no frenaba nunca: el caso más extremo, 0/6 contra 6/6, pierde
+0,00115 con un techo de 0,0033, y su rotura quedaba verde. Una regla que nunca actúa es una regla mentirosa (el Cerebro):
+salió de «gana» y quedó sólo al tope, donde SÍ decide (1/10 contra 4/10 da 85 % de ser la mejor, pero pierde 0,0102, y se
+queda A). Si el umbral baja, se mide de nuevo antes de traerla.
 
 ## Integrar en vez de sortear, y la grilla que se agranda sola (25/10/2026)
 
@@ -54,7 +55,7 @@ ventana, y el éxito sólo dentro de ella. Si el medidor no devolvió a alguien 
 
 ## Dónde se guardan, y cómo concluyen en Experimentos (A2, 25/10/2026)
 
-**Las tablas** (`supabase/migrations/XXXX_pruebas_ab.sql`, sin número hasta que la numere el Cerebro) llevan
+**Las tablas** (`supabase/migrations/0335_pruebas_ab.sql`, aplicada en producción el 25/10/2026 19:27) llevan
 `workspace_id` SIN default, porque las viejas tienen DEFAULT 1 y el 1 es un cliente. Tienen RLS sin políticas y las lee
 `lib/pruebas/store.ts` con el cliente de servicio y el ws explícito, porque la página pública y el cron no tienen sesión.
 Sin la migración: crear tira `PruebasSinTabla`, servir da el CONTROL sin escribir y el cron no decide. El reset del
@@ -97,7 +98,7 @@ La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La 
 ## Sin hacer
 
 - **A3, lo que queda:** la dimensión «rama» en los gráficos del Dashboard (Métricas lo muestra en una franja fija), verla en
-  pantalla, y la primera prueba real en el Cliente de Prueba, que necesita la migración aplicada.
+  pantalla, y la primera prueba real en el Cliente de Prueba (la migración ya está aplicada).
 - **El plan de una prueba de «Agendó» usa la tasa de «Respondió»** (`historiaDe`, lib/pruebas/automatizacion.ts): el n del
   plan queda corto, y la prueba llega antes a su horizonte con menos potencia. El juez sigue mirando una sola vez (no
   inventa ganadores), pero ve menos. Falta leer la tasa de agenda de la automatización.

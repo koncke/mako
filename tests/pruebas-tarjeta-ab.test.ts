@@ -36,7 +36,7 @@ import { problemasDeForma } from '../lib/flujo-forma';
 import { iniciar, siguiente, escenariosDePrueba, elegirComoLead } from '../lib/simulador-grafo';
 import { opcionesDelMas, opcionesSueltas, insertarDesdeLienzo, quitarRamaAB, agregarRamaAB, repartirPcts, grafoDeSecuencia, ID_ENTRADA } from '../lib/flujo-conversacion';
 import { pegarTarjetas, copiaDeTarjetas } from '../lib/flujo-copia';
-import { aIA, deIA, userDeCrear, PRUEBA_AB_IA, disparadoresParaIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
+import { aIA, deIA, deIAEdicion, userDeCrear, PRUEBA_AB_IA, disparadoresParaIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
 import { opcionesCronIA } from '../lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '../lib/condiciones-catalogos';
 import { porId } from '../lib/api-mako/registro';
@@ -259,20 +259,24 @@ test('la IA: la lee, la arma, y su regla va sólo si el pedido habla de una prue
   assert.ok(userDeCrear(c, { perfil: 'Fiesta Music', voz: null, pedido: c.pedido! }).includes(PRUEBA_AB_IA));
   const normal = ctxIA('Cuando llega un lead, mandale un WhatsApp de bienvenida');
   assert.ok(!userDeCrear(normal, { perfil: 'Fiesta Music', voz: null, pedido: normal.pedido! }).includes(PRUEBA_AB_IA), 'la regla pesa en el presupuesto de Groq: sólo si se pide');
+  // Editar con IA: un mensaje no se vuelve prueba A/B (se quita y se agrega otra). Sin `prueba_ab` en CLASE_DE_TIPO (lib/flujo-ia.ts,
+  // lo cazó el tsc acotado el 25/10) el cambio se ignoraba en silencio.
+  const aMensaje = deIAEdicion({ cambiar: [{ id: 'm2a', tipo: 'prueba_ab' }] }, F, ctxIA('cambia el mensaje por una prueba A/B'), () => 0.5);
+  assert.ok(aMensaje.avisos.includes('Esa tarjeta no cambia de tipo: quítala y agrega otra'), JSON.stringify(aMensaje.avisos));
 });
 
 // ── La API y la firma de cada rama ───────────────────────────────────────────────────────────────────────────────────
 test('la API: ver, empezar (de pantalla) y detener, por HTTP, con su ruta; la ficha dice las ramas', () => {
-  const ver = porId('prueba_ab_automatizacion')!;
+  const ver = porId('ver_prueba_ab')!;
   const empezar = porId('empezar_prueba_ab')! as { confirmacion?: string; canales: readonly string[] };
   const detener = porId('detener_prueba_ab')! as { confirmacion?: string; canales: readonly string[] };
   assert.ok(ver.canales.includes('http') && empezar.canales.includes('http') && detener.canales.includes('http'));
   assert.equal(empezar.confirmacion, 'pantalla');
   assert.equal(detener.confirmacion, 'chat');
   const rest = leer('lib/api-mako/rest.ts');
-  for (const r of ["['GET', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'prueba_ab_automatizacion']", "['POST', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'empezar_prueba_ab']", "['DELETE', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'detener_prueba_ab']"]) assert.ok(rest.includes(r), r);
+  for (const r of ["['GET', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'ver_prueba_ab']", "['POST', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'empezar_prueba_ab']", "['DELETE', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'detener_prueba_ab']"]) assert.ok(rest.includes(r), r);
   const snap = leer('tests/api-mako-http.snapshot.txt').split('\n');
-  for (const id of ['prueba_ab_automatizacion', 'empezar_prueba_ab', 'detener_prueba_ab']) assert.ok(snap.includes(id), `${id} no está en el snapshot`);
+  for (const id of ['ver_prueba_ab', 'empezar_prueba_ab', 'detener_prueba_ab']) assert.ok(snap.includes(id), `${id} no está en el snapshot`);
   assert.match(leer('lib/api-mako/areas/chatbot.run.ts'), /\.\.\.\(p\.nodo === 'ab' \? \{ ramas_ab: \(p\.ramas_ab \?\? \[\]\)\.map\(\(r\) => \(\{ letra: r\.clave, pct: r\.pct, nombre: r\.nombre \?\? null, sigue: r\.siguiente \?\? null \}\)\) \} : \{\}\),/);
 });
 
@@ -306,7 +310,7 @@ test('el motor real: la rama se lee y se escribe al llegar a la tarjeta, y guard
   assert.match(auto, /\} catch \(e\) \{\n\s+console\.error\(`\[pruebas\] la rama A\/B[^\n]+\n\s+return RAMA_SIN_PRUEBA;/, 'ante un error, la A');
 });
 
-// ROTURAS (25/10/2026, harness del scratchpad `roturas-a3.cjs`, una por vez y restaurada; base 14 / 0). En rojo las 37:
+// ROTURAS (25/10/2026, harness del scratchpad `roturas-a3.cjs`, una por vez y restaurada; base 14 / 0). En rojo las 38:
 //   el modelo: claseDe sin «ab» (2 / 12) · siguienteDe sin ella · los puertos (9 / 5) · los cruces sin el contexto de la
 //   prueba · sin la suma · dos pruebas · una en «Si responde» · normalizar se lleva las ramas (10 / 4) · borrar no se queda
 //   con A · conectar sin la letra;
@@ -316,7 +320,8 @@ test('el motor real: la rama se lee y se escribe al llegar a la tarjeta, y guard
 //   «Probar»: sin la tarjeta · los escenarios sin ella · sin escenario no es la A;
 //   el lienzo: la B no copia lo que se prueba · el ＋ ofrece una segunda · quitar una rama con las raíces nuevas;
 //   copiar: sin rehacer las ramas · sin rehacer los botones · pegar una segunda;
-//   la IA: no la lee · no reparte los porcentajes · la regla va siempre;
+//   la IA: no la lee · no reparte los porcentajes · la regla va siempre · Editar con IA sin `prueba_ab` en CLASE_DE_TIPO
+//   (sumada el 25/10 cuando la cazó el tsc acotado: el cambio de tipo se ignoraba en silencio);
 //   la API sin http · la firma con lo compartido · sumar una rama no la detiene · el motor no pide la rama · guardar no revisa
 //   la prueba · sin prueba de ESA tarjeta no va a la A. Cada una 13 / 1 salvo las marcadas.
 // ⚠️ Las dos primeras corridas dejaron VERDES «los cruces» y «quitar con las raíces nuevas»: los casos no las ejercitaban

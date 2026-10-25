@@ -1,7 +1,7 @@
 // =============================================================================
 // pruebas/store — dónde se guardan las pruebas A/B: la prueba, sus ramas, quién vio qué, las lecturas y el porqué
 // =============================================================================
-// Tablas de la migración «pruebas_ab» (supabase/migrations/XXXX_pruebas_ab.sql, sin número hasta que la numere el Cerebro).
+// Tablas de la migración «pruebas_ab» (supabase/migrations/0335_pruebas_ab.sql, aplicada en producción el 25/10/2026).
 // TENANT-SAFETY: todo recibe `ws` EXPLÍCITO y filtra `.eq('workspace_id', ws)` con el cliente de servicio, como
 // lib/media-buyer/store.ts: lo llaman la página pública de una landing y el cron, que no tienen sesión. Las dos únicas
 // lecturas de TODOS los negocios son las del cron (`pruebasVivas`, `vencerPropuestas`), y cada fila trae su ws.

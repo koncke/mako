@@ -32,7 +32,7 @@ const sinComentarios = (s: string) => s.replace(/^\s*\/\/.*$/gm, '');
 const TABLAS = ['pruebas', 'prueba_variantes', 'prueba_asignaciones', 'prueba_lecturas', 'prueba_historial'];
 
 test('la migración: cinco tablas con workspace_id sin default, RLS y revoke, una viva por lugar, y en TABLAS_DE_INQUILINO', () => {
-  const sql = leer('supabase/migrations/XXXX_pruebas_ab.sql').replace(/--[^\n]*/g, '');
+  const sql = leer('supabase/migrations/0335_pruebas_ab.sql').replace(/--[^\n]*/g, '');
   for (const t of TABLAS) {
     const cuerpo = new RegExp(`create table if not exists ${t} \\(([\\s\\S]*?)\\n\\);`).exec(sql)?.[1];
     assert.ok(cuerpo, `falta la tabla ${t}`);

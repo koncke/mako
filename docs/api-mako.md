@@ -33,7 +33,7 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `descartar_decision_media_buyer` · `analizar_cuenta_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `prueba_ab_automatizacion` · `empezar_prueba_ab` · `detener_prueba_ab` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet` · `ver_prueba_ab` · `empezar_prueba_ab` · `detener_prueba_ab` · `cambiar_texto_mensaje`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
@@ -6678,7 +6678,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 16 lecturas · 17 acciones.
+Tab **Automations** (`/automations`). 16 lecturas · 18 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -7389,86 +7389,6 @@ curl -L \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/mensajes/TARJETA"
 ```
 
-### `GET /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — La prueba A/B de una automatización
-
-La prueba A/B de la tarjeta «A/B TEST» de una automatización: si corre, el día, cuánta gente entró a cada rama y cuántos lograron el objetivo, y cómo terminó («Ganó B», «Empate: quedó A», «Todavía no se sabe»). Mientras corre no hay ganador: la decide MaKo con un horizonte fijo, una sola vez, cuando junta la gente del plan. Sin prueba corriendo, todos los leads van a la rama A. Las ramas de la tarjeta (letra, porcentaje, a qué tarjeta sigue) están en ficha_secuencia_mensajes.
-
-- **Ruta por operación:** `GET /api/v1/chatbot/prueba_ab_automatizacion`
-- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
-- **Token clásico:** alcance mínimo lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Requiere la tab:** setting
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
-
-```bash
-curl -L \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
-```
-
-### `POST /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — Empezar la prueba A/B de una automatización
-
-PROPONE empezar la prueba de la tarjeta «A/B TEST» de una automatización y devuelve un link para revisarla. Corre sobre lo PUBLICADO: la tarjeta tiene que estar guardada, con sus ramas sumando 100 y cada una llevando a algo. Antes de empezar MaKo calcula cuánta gente hace falta por rama para ver el salto pedido (efecto: 0.8 = de 10 % a 18 %) y cuántos días tarda con el ritmo de los últimos 30; con poca gente lo dice («No llega en 60 días»). Mide «Respondió» (o «Agendó», si ése es el objetivo de la automatización) y cuida que no bajen las agendas.
-
-- **Ruta por operación:** `POST /api/v1/chatbot/empezar_prueba_ab`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
-- **Token clásico:** alcance mínimo proponer
-- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
-- **Escribe:** inserta la prueba en pruebas y sus ramas en prueba_variantes (corriendo); los leads que llegan a la tarjeta se reparten desde ahí
-- **Reversible:** sí
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** setting
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
-| `efecto` | number | no | opcional: el salto que quiere poder ver, relativo (0.8 = de 10 % a 18 %). Sin esto, 0.8. |
-
-```bash
-curl -L \
-  -X POST \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
-```
-
-### `DELETE /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — Detener la prueba A/B de una automatización
-
-PROPONE detener la prueba A/B que corre en una automatización: desde ahí todos los leads van a la rama A y no se declara ganador. Los que ya estaban en otra rama terminan su camino.
-
-- **Ruta por operación:** `POST /api/v1/chatbot/detener_prueba_ab`
-- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
-- **Token clásico:** alcance mínimo proponer
-- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** pasa la prueba a detenida en pruebas
-- **Reversible:** no
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-- **Requiere la tab:** setting
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
-
-```bash
-curl -L \
-  -X DELETE \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
-```
-
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
 
 PROPONE agregar a una secuencia un caso previsto (qué puede contestar el lead y cómo responderle) y devuelve un link para revisarlo. Un mensaje del lead que no encaja en ningún caso hace que MaKo no conteste y avise. Si ya hay un caso con el mismo título, lo reemplaza. Si la automatización tiene un AI Step, el caso entra ADENTRO como un escenario más de su objetivo (hasta 10): sale solo si contestaSolo y no habla de plata; si no, queda para aprobar; sin cómo responder, sólo te avisa. Si tiene la tarjeta «Si responde» de siempre, entra como una rama nueva con un «MaKo contesta» que usa tu guía (máximo 30); si no tiene ninguna, la secuencia tiene que tener estrategia guardada. Un caso que salió de un hand-off se enseña resolviendo ese hand-off (solo por WhatsApp o en la app).
@@ -7590,6 +7510,117 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/chatbot/lead-magnets" \
   -d '{"nombre":"NOMBRE","enlace":"ENLACE"}'
+```
+
+### `GET /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — Ver la prueba A/B
+
+La prueba de la tarjeta «A/B TEST»: si corre, el día, cuánta gente entró a cada rama y cuántos lograron el objetivo, y cómo terminó («Ganó B», «Empate: quedó A», «Todavía no se sabe»). Mientras corre no hay ganador: MaKo decide una sola vez, cuando junta la gente del plan. Sin prueba corriendo, todos van a la rama A. Las ramas (letra, porcentaje, a qué tarjeta sigue) están en ficha_secuencia_mensajes.
+
+- **Ruta por operación:** `GET /api/v1/chatbot/ver_prueba_ab`
+- **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
+```
+
+### `POST /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — Empezar la prueba A/B
+
+PROPONE empezar la prueba de la tarjeta «A/B TEST» y devuelve un link para revisarla. Corre sobre lo PUBLICADO: la tarjeta guardada, con sus ramas sumando 100 y cada una llevando a algo. Antes MaKo calcula cuánta gente hace falta por rama para ver el salto (efecto) y cuántos días tarda con el ritmo de los últimos 30; con poca gente lo dice («No llega en 60 días»). Mide «Respondió» (o «Agendó», si ése es el objetivo) y cuida que no bajen las agendas.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/empezar_prueba_ab`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** inserta la prueba en pruebas y sus ramas en prueba_variantes (corriendo); los leads que llegan a la tarjeta se reparten desde ahí
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `efecto` | number | no | opcional: el salto que quiere poder ver, relativo (0.8 = de 10 % a 18 %). Sin esto, 0.8. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
+```
+
+### `DELETE /api/v1/chatbot/secuencias/{secuenciaId}/prueba-ab` — Detener la prueba A/B
+
+PROPONE detener la prueba de la tarjeta «A/B TEST»: desde ahí todos van a la rama A y no se declara ganador. Los que ya estaban en otra rama terminan su camino.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/detener_prueba_ab`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** pasa la prueba a detenida en pruebas
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+
+```bash
+curl -L \
+  -X DELETE \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/prueba-ab"
+```
+
+### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}/texto` — Texto de una tarjeta con ramas
+
+PROPONE cambiar el texto (o el asunto de un email) de UNA tarjeta de WhatsApp o email, aunque haya ramas, y devuelve un link para revisarlo. Suelta las variantes del texto anterior. Una nota de voz, un archivo, uno de varias partes, el WhatsApp oficial o un email con diseño se cambian en el lienzo; un DM, con cambiar_botones_mensaje. El id de la tarjeta, en ficha_secuencia_mensajes.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/cambiar_texto_mensaje`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reemplaza el texto (o el asunto) de esa tarjeta en nutricion_secuencias.pasos y le quita las variantes del texto anterior (sin historial de versiones)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `tarjeta` | string | sí | el id de la tarjeta (de ficha_secuencia_mensajes). |
+| `texto` | string | no | opcional: el texto nuevo. Admite {{nombre}} y {{empresa}}. |
+| `asunto` | string | no | opcional, sólo email: el asunto nuevo. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/mensajes/TARJETA/texto"
 ```
 
 ## Dashboard y análisis — `metricas`

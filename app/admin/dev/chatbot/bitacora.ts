@@ -2843,4 +2843,25 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "18:50", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "correccion",
+    titulo: "MaKo vuelve a encontrar cómo cambiar un mensaje y el horario de una automatización",
+    puntos: [
+      "Con los botones de Instagram y la prueba A/B, el chat de MaKo dejaba de traer «editar los mensajes» y «cambiar el horario».",
+      "Ahora esas opciones nuevas no le quitan el lugar a las que la persona pidió.",
+      "Crear una automatización por la API: si MaKo necesita un dato, lo pregunta como dato que falta, no como un error.",
+      "La prueba A/B sólo usa la regla de «cuánto se pierde» al final, cuando no alcanzó la gente: antes no frenaba nunca.",
+      "Por la API ya se puede cambiar el texto de un WhatsApp o un email de una automatización con ramas.",
+      "Al cambiar el texto de un mensaje, se quitan las otras formas de decir el texto viejo: antes muchos recibían el viejo.",
+      "Las tablas de la prueba A/B ya están en la base: las aplicó el Cerebro con el sí de Martín (la migración 0335).",
+    ],
+    archivos: [
+      "lib/api-mako/areas/chatbot.def.ts — las descripciones y el orden",
+      "lib/api-mako/flujo.ts y lib/api-mako/rutas-http.ts — el dato que falta por la API",
+      "tests/ops-center-clasificador-app.test.ts y tests/api-mako-botones.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

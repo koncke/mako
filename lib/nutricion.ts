@@ -1129,10 +1129,13 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
         template_categoria: p.template_categoria,
         template_idioma: p.template_idioma ?? 'es_MX',
         template_param: p.template_param ?? 'nombre',
-        // Las variantes las manda el cliente solo si las está editando; si no,
-        // sobreviven las que ya había para ese nodo.
+        // Las variantes las manda el cliente solo si las está editando; si no (la clave AUSENTE),
+        // sobreviven las que ya había para ese nodo. ⚠️ Un `[]` EXPLÍCITO es «ya no tiene» (25/10/2026):
+        // lo mandan pasar a voz o a archivo (lib/guion-audio.ts, que ya lo daba por hecho), el editor al
+        // partir un mensaje, y la API al cambiar el texto (lib/botones-api.ts). Antes volvían las del texto
+        // VIEJO y el motor las sorteaba: a 4 de cada 5 leads les llegaba lo que ya no decía.
         ...(() => {
-          const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(idDe(flujo, i));
+          const vs = Array.isArray(p.variantes) ? p.variantes : variantesPrevias.get(idDe(flujo, i));
           return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),

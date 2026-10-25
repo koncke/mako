@@ -2096,6 +2096,7 @@ function claseEditable(p: PasoGrafo): ClaseEditable {
 }
 const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
   mensaje: 'mensaje', email: 'mensaje', esperar: 'esperar', condicion: 'condicion', etiqueta: 'etiqueta', accion: 'accion', ir_a: 'ir_a', si_responde: 'respuesta',
+  prueba_ab: 'ab',
 };
 // (Hasta el 23/10/2026 acá vivía `AVISO_MISMA_PERSONA`: una espera corta entre dos WhatsApp no se cumplía porque «Misma
 // persona» frenaba el segundo. «Misma persona» se fue del motor: la espera que se pide es la que se cumple.)
@@ -4062,10 +4063,13 @@ export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
  * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada), su GPT o su Gemini. Desde IA6 (lote 2 de IA,
  * 22/10/2026) un negocio con su IA corre la cascada con SU OpenAI y, desde IA16, también con SU Gemini (`PROVS_SU_IA`,
  * lib/solo-su-ia.ts; Martín: «Cada usuario debe poder pagar su token, su propia IA de gemini»). Lo cambió el chat de IA en
- * IA16, de acuerdo con Automations. tests/ia-aviso-sin-ia-propia.test.ts lo ata a `PROVS_SU_IA`.
+ * IA16, de acuerdo con Automations.
+ * ⚠️ LO QUE SE OFRECE NO ES LO QUE SE USA (Martín, 25/10/2026): ningún texto le ofrece Gemini a un negocio como «su IA»; se
+ * le ofrece su Claude o su GPT. Quien ya tiene su Gemini lo sigue usando (`PROVS_SU_IA` lo nombra): es sólo el texto.
+ * tests/ia-aviso-sin-ia-propia.test.ts lo fija.
  */
-export const SU_IA = 'tu Claude, tu GPT o tu Gemini';
-export const SU_CLAVE = 'tu clave de Claude, de OpenAI o de Gemini';
+export const SU_IA = 'tu Claude o tu GPT';
+export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
 
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;

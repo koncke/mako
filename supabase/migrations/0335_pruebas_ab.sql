@@ -1,15 +1,15 @@
 -- =============================================================================
--- XXXX · Pruebas A/B: el motor compartido de toda la app (25/10/2026)
+-- 0335 · Pruebas A/B: el motor compartido de toda la app (25/10/2026)
 -- =============================================================================
 -- Martín, 25/10/2026: «También quiero implementar pruebas A/B en muchas partes de la app... Lo mismo con Automations,
 -- podemos poner una tarjeta que sea "Prueba A/B"». El diseño: docs/diseno-pruebas-ab.md (2.2, con la crítica). El código:
 -- lib/pruebas/* (el juez, puro, y lib/pruebas/store.ts, que lee y escribe estas tablas).
 --
--- ⚠️ SIN NÚMERO A PROPÓSITO: lo pone el Cerebro (AGENTS.md), y se aplica con el sí de Martín.
+-- El número lo puso el Cerebro (AGENTS.md), y se aplicó con el sí de Martín.
 -- ORDEN: ANTES o JUNTO con el deploy. Sólo AGREGA cinco tablas nuevas que nadie leía. El código las aguanta ausentes
 -- (lib/pruebas/store.ts, `PruebasSinTabla`): sin tablas no se crea ninguna prueba, la tarjeta sirve el control y el cron
 -- no decide nada. El reset del Cliente de Prueba avisa «esa tabla no existe» y sigue (lib/reset-workspace.ts).
--- Aplicada a mano en producción el … (SIN APLICAR: completar al aplicarla); idempotente.
+-- Aplicada a mano en producción el 25/10/2026 19:27 (Cerebro); idempotente.
 --
 -- Reglas que valen para las cinco: `workspace_id` SIN default (las viejas tienen DEFAULT 1, y el 1 es un cliente);
 -- RLS prendido sin políticas y `revoke` a anon y authenticated (las lee el cliente de servicio con el ws explícito: la

@@ -17,6 +17,8 @@
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { grilla, lnBeta, lnGamma, perdidaEsperada, phi, phiInv, probMejor, probMenorQue, cuantilLift } from '../lib/pruebas/estadistica';
 import { asignar, problemasDeRamas, ramaParaServir, type RamaReparto } from '../lib/pruebas/asignar';
 import { juzgar, umbralGana, type ConteoRama, type Regla } from '../lib/pruebas/juez';
@@ -154,9 +156,14 @@ test('juez en el horizonte: gana B, gana el control con daño, «da lo mismo» c
   // B peor sin llegar al umbral: el intervalo no cruza el cero → no es un empate.
   const peorSinUmbral = juzgar({ dia: 30, ramas: ramas([300, 30], [300, 18]) }, REGLA);
   assert.ok(peorSinUmbral.accion === 'concluir' && peorSinUmbral.veredicto === 'no_concluyente', peorSinUmbral.accion === 'concluir' ? peorSinUmbral.veredicto : '');
-  // La crítica (A.3): 2/20 contra 8/20 da P alta, pero la pérdida pasa el 1 %: no gana.
+  // La crítica (A.3): 2/20 contra 8/20 da 96 % (medido), que no llega al 98 %: no gana.
   const critica = juzgar({ dia: 10, ramas: ramas([20, 2], [20, 8]) }, { ...REGLA, nPorRama: 20 });
   assert.ok(critica.accion === 'concluir' && critica.veredicto !== 'gana_variante', critica.accion === 'concluir' ? critica.veredicto : '');
+  // La pérdida esperada no decide «gana» (con 98 % no ataba nunca): sólo al tope. Si vuelve, que sea midiéndola.
+  const juez = readFileSync(join(__dirname, '..', 'lib/pruebas/juez.ts'), 'utf8').replace(/\r\n/g, '\n');
+  const enGana = juez.slice(juez.indexOf('const candidatas'), juez.indexOf('if (candidatas.length)'));
+  assert.ok(enGana.length > 0 && !/perdida|PERDIDA/.test(enGana), 'la pérdida esperada volvió a «gana»');
+  assert.ok(juez.includes('const sirve = adelante.pMejor >= SERVIR_AL_TOPE && (adelante.control || (adelante.perdida ?? 1) < PERDIDA_MAX_REL * tasaC)'), 'al tope sí decide');
   // Sin control no hay juicio.
   assert.throws(() => juzgar({ dia: 1, ramas: [{ clave: 'A', n: 1, x: 0 }] }, REGLA), /no tiene control/);
 });
@@ -247,6 +254,7 @@ test('métricas: el catálogo y lo que cada una pide al crear la prueba', () => 
 //   cuenta las no maduras · lo que ya estaba al asignar cuenta · lo incompleto es 0 · un éxito fuera de la ventana cuenta ·
 //   sin la tolerancia de 1 minuto · la grilla gruesa (2 puntos por desvío) · el volumen con otro umbral que el juez.
 //   Sin Bonferroni → 9 / 2.
-// ⚠️ QUEDA VERDE, A PROPÓSITO: sacar la pérdida esperada de «gana». Con 98 % no ata nunca: el caso más extremo (0/6 contra
-// 6/6) pierde 0,00115 con un techo de 0,0033 (medido). Se queda como guarda por si el umbral baja; donde sí decide es al
-// tope (arriba, 1/10 contra 4/10).
+// La pérdida esperada SALIÓ de «gana» (25/10/2026, el Cerebro: «Una regla que nunca actúa es una regla mentirosa»): su rotura
+// quedaba verde porque con 98 % no ata nunca (0/6 contra 6/6 pierde 0,00115 con un techo de 0,0033, medido). Queda al
+// tope (1/10 contra 4/10). Que no vuelva a «gana» lo fija el test del juez (base 11 / 0): vuelve → 10 / 1; al tope sin la
+// pérdida → 9 / 2 (el caso y la línea).

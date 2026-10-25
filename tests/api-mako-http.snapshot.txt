@@ -83,6 +83,7 @@ cambiar_like_post_comunidad
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
+cambiar_texto_mensaje
 cambiar_texto_video
 cambiar_textos_diseno_imagen
 cambiar_tipo_etapa
@@ -473,7 +474,6 @@ proponer_sincronizar_guiones
 proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
-prueba_ab_automatizacion
 publicar_creacion
 publicar_landing
 publicar_post_comunidad
@@ -618,6 +618,7 @@ ver_propuesta_accion
 ver_proximas_recurrentes
 ver_proyecto_plan
 ver_proyecto_video
+ver_prueba_ab
 ver_publico_conjunto_meta
 ver_puente_flow
 ver_ranking_comunidad

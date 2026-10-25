@@ -148,3 +148,18 @@ test('crear con IA sale por HTTP, con la IA del negocio dicha y 40 s para el mod
   assert.match(run, /const plazoMs = ctx\.canal === 'http' \? PLAZO_CREAR_HTTP_MS : 170_000;/);
   assert.ok(leer('tests/api-mako-http.snapshot.txt').split('\n').includes('crear_automatizacion_con_ia'), 'el snapshot de HTTP no la tiene');
 });
+
+test('crear con IA por HTTP: la pregunta vuelve como `faltan` (400), no como un texto de error (422)', () => {
+  // El Cerebro (25/10): «que vuelva como `faltan`, no como texto de error». La de `preparar()` (preguntaAntes) y la que hace
+  // el modelo al ejecutar, las dos con el parámetro que la contesta.
+  const run = leer('lib/api-mako/areas/chatbot.run.ts');
+  assert.match(run, /if \(!dado\) return \{ error: preguntaParaWhatsApp\(await conConteos\(p, contarCohorte\)\), faltan: \[p\.sobre\] \};/);
+  assert.match(run, /if \(!r\.ok && 'pregunta' in r\) return \{ ok: false, resumen: preguntaParaWhatsApp\(r\.pregunta\), datos: \{ faltan: \[r\.pregunta\.sobre\] \} \};/);
+  const flujo = leer('lib/api-mako/flujo.ts');
+  assert.match(flujo, /ok: r\.yaEstaba === true, resumen: r\.error, via: 'ninguna',\n[^\n]*\n\s+\.\.\.\(r\.faltan\?\.length \? \{ faltan: r\.faltan \} : \{\}\),/, 'aplicarEnElActo perdía el `faltan` de preparar()');
+  assert.match(flujo, /if \(faltanAlEjecutar\?\.length\) return \{ ok: false, resumen: c\.resumen, via: 'pendiente', faltan: faltanAlEjecutar \};/);
+  const http = leer('lib/api-mako/rutas-http.ts');
+  const con400 = http.indexOf('if (res.faltan?.length) return errorJson(400, res.resumen, { faltan: res.faltan }, conPermiso, def);');
+  assert.ok(con400 > 0, 'la escritura directa no devuelve `faltan`');
+  assert.ok(con400 < http.indexOf('return errorJson(422, res.resumen, {}, conPermiso, def);'), 'el 400 con `faltan` va antes del 422');
+});

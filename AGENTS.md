@@ -1140,6 +1140,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
   el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
   `restaurar_version_landing`; docs/hallazgos-api-mako.md).
+- **Una operación nueva va AL FINAL de su área, y su id, título y descripción no repiten las palabras de todas las del
+  área** («automatización», «flujo», «WhatsApp»). El chat las ordena por puntaje contra el pedido y, a igual puntaje, trae
+  la declarada antes hasta el presupuesto de 12.000 (el techo de Groq, que no se sube): la nueva le saca el lugar a la que
+  se pidió. Se mide con `tests/ops-center-clasificador-app` ANTES de entregar (25/10/2026, docs/hallazgos-api-mako.md).
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -9708,7 +9712,9 @@ veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 (`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
 `app/automations/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
 —que **reconstruye cada paso campo por campo y borra lo que no conoce**—. La quinta puerta
-ya costó las `variantes` borradas en silencio.
+ya costó las `variantes` borradas en silencio. Y al revés (25/10/2026): quien cambia el TEXTO de un
+mensaje manda `variantes: []` —son formas de decir el texto viejo, y el motor las sortea—; la clave
+ausente las conserva (docs/hallazgos-chatbot.md).
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa
