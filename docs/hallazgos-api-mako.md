@@ -14,6 +14,17 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «Regenerar los docs, el snapshot y el plugin»: qué cambia de verdad con una operación que no sale por HTTP (25/10/2026)
+
+Martín: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Cada entrega dice qué quedó
+declarado. Al sumar al área `operaciones` dos operaciones SÓLO de la plataforma y sin HTTP (ver y dar por visto un
+«Completado»):
+- **`docs/api-mako.md` y el snapshot no cambian, y está bien:** la referencia pública y `tests/api-mako-http.snapshot.txt` listan
+  sólo lo que sale por HTTP. «Ya estaba al día» no es que el generador no la vio. La prueba de que una operación así está
+  bien declarada es su test (que NO esté en el snapshot), no un diff en los docs.
+- ⚠️ **`node scripts/generar-plugin.mjs` revienta** con `ERR_MODULE_NOT_FOUND ... lib/detalle-contrato` (importa `.ts`), aunque
+  su cabecera diga ese comando. Se corre con `node --import tsx scripts/generar-plugin.mjs`, como `generar-api-doc.mjs`.
+
 ## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
 
 **Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a

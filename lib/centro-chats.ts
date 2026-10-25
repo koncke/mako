@@ -317,6 +317,44 @@ export function cadenasDeSesiones(carteros: ReadonlyArray<{ chats: readonly Chat
   return out;
 }
 
+/** Un chat del Ops Center que dice «Completado» (para la API de MaKo, 25/10/2026): su clave (la de su ✓), su nombre, su cuenta,
+ *  sus sesiones y el instante de su último «Ya está» sin ✓. */
+export type CompletadoDeChat = { clave: string; titulo: string; cuenta: string | null; locales: string[]; instante: number };
+
+/**
+ * Los chats que dicen «Completado», con LO MISMO que la lista del Ops Center: sus sesiones juntas por el nombre (la clave de
+ * `unirPorNombre`, que es la de su ✓), los últimos turnos de cada sesión (`leerUltimosTurnos`) y los ✓ (`leerYaVistosDe`). Lo usa
+ * la API de MaKo (lib/api-mako/areas/operaciones.run.ts, «Todo MaKo se debe poder utilizar por API», Martín, 25/10/2026). El más
+ * nuevo primero. Ni los Runners ni la nube (no son chats de Martín que cierran).
+ */
+export function completadosDeLasCuentas(
+  carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>,
+  ultimos: Readonly<Record<string, readonly TurnoChat[]>>,
+  vistos: Readonly<YaVistos>,
+): CompletadoDeChat[] {
+  const grupos = new Map<string, { titulo: string; cuenta: string | null; locales: string[]; actividad: number }>();
+  for (const k of carteros) {
+    for (const ch of k.chats) {
+      if (ch.esRunner || ch.nube) continue;
+      const g = grupoDeNombre(ch, ch.local);
+      const actividad = ch.actividad ? Date.parse(ch.actividad) || 0 : 0;
+      const ya = grupos.get(g);
+      if (!ya) { grupos.set(g, { titulo: g === 'cerebro' ? CEREBRO : ch.titulo, cuenta: k.cuenta, locales: [ch.local], actividad }); continue; }
+      ya.locales.push(ch.local);
+      // El nombre y la cuenta, los de la sesión más reciente (como la fila); el Cerebro se llama siempre «Cerebro».
+      if (actividad > ya.actividad) { if (g !== 'cerebro') ya.titulo = ch.titulo; ya.cuenta = k.cuenta; ya.actividad = actividad; }
+    }
+  }
+  const out: CompletadoDeChat[] = [];
+  for (const [g, x] of grupos) {
+    const clave = `nombre:${g}`;
+    const lineas: LineaChat[] = x.locales.flatMap((l) => (ultimos[l] ?? []).map((t) => ({ tipo: 'turno' as const, instante: Date.parse(t.at), turno: t })));
+    const t = completadoSinVer(lineas, vistos[clave]);
+    if (t) out.push({ clave, titulo: x.titulo, cuenta: x.cuenta, locales: [...new Set(x.locales)], instante: Date.parse(t.at) });
+  }
+  return out.sort((a, b) => b.instante - a.instante);
+}
+
 /**
  * Junta en UN chat todo lo que se llama igual (sin mayúsculas ni tildes): sus sesiones de las tres cuentas, lo que
  * trabajó cada una y lo anotado sin sesión con ese nombre. Martín (15/10/2026): «todos los chats de todas las cuentas

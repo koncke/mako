@@ -39,6 +39,10 @@ del código.
     - **Una vuelta con turnos enteros podía pasar el límite del cuerpo de Vercel (4,5 MB) y fallar ENTERA**, todas las vueltas
       de esa cuenta: el cartero reparte por un presupuesto de texto (`MAX_TEXTO_VUELTA`, 1,5 millones de caracteres), y lo que
       no entra sale en la siguiente (la marca de ese chat no avanza), igual que los 300 turnos. El primer chat entra siempre.
+    - **Y por la API de MaKo** (la regla del 25/10: «todo MaKo se debe poder utilizar por API»): `ver_completados_operaciones`
+      (la lista con el pedido de Martín y la respuesta entera) y `marcar_visto_operaciones` (el ✓, confirmado por chat), sólo la
+      plataforma y sin HTTP, como el resto del área. Salen con LO MISMO que la fila (`completadosDeLasCuentas`: las sesiones
+      juntas por el nombre, los últimos turnos y los ✓), así la API y la pantalla no pueden decir distinto.
     - **Un chat no puede pesar megas en cada lectura:** la base guarda sus turnos más nuevos que entren en `TEXTO_POR_CHAT`
       (600.000), además de los 60 de siempre; el último entra aunque solo lo pase.
 

@@ -1856,4 +1856,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/operaciones-reglas.ts — TOPE_TURNO, TEXTO_POR_CHAT · scripts/operaciones/cartero.mjs (1.19.0)', 'tests/turnos-enteros.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '16:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los «Completado», también por la API de MaKo',
+    pedido: '«Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API» (la regla para cada entrega, 25/10).',
+    puntos: [
+      '**Ver** los chats que dicen «Completado», con lo que pediste y la respuesta entera; y **darlo por visto**, confirmándolo por chat.',
+      '**Sólo para la plataforma** (es tu Ops Center): un negocio no las ve.',
+      '**El menú de la foto y la tuerca no van**: son cómo se navega la pantalla, no algo que se lee o se cambia.',
+    ],
+    archivos: ['lib/api-mako/areas/operaciones.def.ts · operaciones.run.ts · lib/centro-chats.ts — completadosDeLasCuentas', 'tests/api-mako-completados.test.ts'],
+  },
 ];
