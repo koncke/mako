@@ -17,6 +17,7 @@ import type { HiloMsg } from '../whatsapp/_shared/ChatHilo';
 import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, type CanalSocial } from '@/lib/canal-social';
 import { BurbujaSocial, ArchivoSocial, CabeceraSocial, LogoSocial } from './social-ui';
 import { ChipDelCaso } from './ChipDelCaso';
+import type { BotonSocial } from '@/lib/botones-social';
 
 const CSS = `
 @keyframes mk-social-entra { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
@@ -24,7 +25,7 @@ const CSS = `
 @media (prefers-reduced-motion: reduce) { .mk-social-msg { animation: none !important; } }
 `;
 
-export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negocio, placeholder = 'Responde como el lead…', soloLectura = false }: {
+export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negocio, placeholder = 'Responde como el lead…', soloLectura = false, botones, onTocar }: {
   canal: CanalSocial;
   mensajes: HiloMsg[];
   typing: { lado: 'left' | 'right'; autor?: string } | null;
@@ -38,6 +39,12 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
    */
   placeholder?: string;
   soloLectura?: boolean;
+  /**
+   * Los botones de cada DM, por el id de su globo (25/10/2026, lib/botones-social.ts): debajo del texto, como en Instagram, y
+   * quien prueba los toca (`onTocar`: PanelProbar sigue por la tarjeta del botón).
+   */
+  botones?: ReadonlyMap<string, { botones: readonly BotonSocial[] }>;
+  onTocar?: (msgId: string, boton: BotonSocial) => void;
 }) {
   const [texto, setTexto] = useState('');
   const fin = useRef<HTMLDivElement | null>(null);
@@ -76,6 +83,16 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
               {m.tipo === 'audio' && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Nota de voz: no sale por {NOMBRE_CANAL[canal]}</span>}
               {/* El pie de un archivo va como su propio mensaje: así llega por Instagram (lib/canal-zernio.ts). */}
               {m.texto && m.tipo !== 'audio' && <BurbujaSocial canal={canal} saliente={!delNegocio}>{m.texto}</BurbujaSocial>}
+              {delNegocio && botones?.get(m.id)?.botones.length ? (
+                <div data-botones-dm="" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', minWidth: 180 }}>
+                  {botones.get(m.id)!.botones.map((b) => (
+                    <button key={b.id} type="button" disabled={!onTocar} onClick={() => onTocar?.(m.id, b)} title={b.url ? `Abre ${b.url}` : 'Tócalo como el lead'}
+                      style={{ padding: '8px 12px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: canal === 'instagram' ? '#5B51D8' : '#0084FF', fontWeight: 600, fontSize: 13, cursor: onTocar ? 'pointer' : 'default', fontFamily: 'inherit' }}>
+                      {b.titulo}{b.url ? ' ↗' : ''}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </div>
           );
         })}

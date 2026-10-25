@@ -65,6 +65,7 @@ import {
 // Con el MEDIO de la prueba (TikTok fase 0): por Instagram se expande el AI Step de Instagram, como en el motor.
 const recorrido = <P extends PasoGrafo>(pasos: readonly P[], medio?: MedioAIStep): P[] => expandirPasoIA(pasos, { medio });
 import { legadoAGrafo, tieneLegado, type EstrategiaLegada } from './flujo-legado';
+import { botonesDeFlujo, puertoDeBoton } from './botones-social';
 import { TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA } from './nutricion-etapa';
 import { PIPELINE_KIND } from './pipeline';
 import { valoresVariablesLead, VARIABLES_LEAD } from './template-vars';
@@ -155,6 +156,12 @@ export type EstadoSim = {
    * Lo pone `iniciar` desde los hechos del lead de la prueba (`reunionMinDe`).
    */
   reunionMin?: number;
+  /**
+   * LOS BOTONES QUE SE PUEDEN TOCAR (25/10/2026, lib/botones-social.ts): los de flujo de cada DM que ya salió, por su tarjeta.
+   * Como en el motor (`tocarBoton`), tocar uno lleva a su tarjeta en cualquier momento, y un DM con botones y sin otra
+   * flecha deja la prueba ESPERANDO el toque (no dice «Fin»). Lo toca quien prueba, en el globo (`tocar`).
+   */
+  toques?: Array<{ nodo: string; opciones: OpcionRama[] }>;
 };
 
 /**
@@ -428,6 +435,28 @@ function fin<P extends PasoGrafo>(estado: EstadoSim, texto: string): Paso<P> {
   return { evento: { t: 'fin', texto }, estado: { ...estado, hilos: [], eligiendo: null, terminado: true } };
 }
 
+/** Sin nada que correr: con un botón por tocar, la prueba ESPERA el toque (sin «Fin»); si no, termina. */
+function sinHilos<P extends PasoGrafo>(estado: EstadoSim, texto: string): Paso<P> {
+  return estado.toques?.length ? { evento: null, estado: { ...estado, hilos: [] } } : fin(estado, texto);
+}
+
+/** ¿La prueba está esperando que toquen un botón? (el panel lo dice una vez: «Toca un botón para seguir»). */
+export function esperaUnToque(estado: EstadoSim): boolean {
+  return !estado.terminado && !estado.eligiendo && !estado.hilos.length && !!estado.toques?.length;
+}
+
+/**
+ * QUIEN PRUEBA TOCA UN BOTÓN del DM `nodo` (25/10/2026): abre un camino a la tarjeta del botón, con el reloj de ahora, como
+ * `tocarBoton` del motor. Un botón que no está (o sin tarjeta) no hace nada. El toque no es «Contestó».
+ */
+export function tocar(estado: EstadoSim, nodo: string, puerto: string): EstadoSim {
+  const t = estado.toques?.find((x) => x.nodo === nodo);
+  const o = t?.opciones.find((x) => x.puerto === puerto);
+  if (!t || !o?.destino || estado.terminado) return estado;
+  const hilos = estado.hilos.length < TOPE_HILOS ? [...estado.hilos, { cursor: o.destino, reloj: estado.ahora }] : estado.hilos;
+  return { ...estado, hilos, toques: (estado.toques ?? []).filter((x) => x.nodo !== nodo) };
+}
+
 /**
  * Las salidas de una tarjeta de UNA salida, leídas de sus PUERTOS (el modelo): la de siempre
  * (`sig`) y las flechas en paralelo (`par:<id>`).
@@ -462,7 +491,7 @@ function seguir(hilos: readonly HiloSim[], k: number, sig: string | null, parale
  */
 function cerrarHilo<P extends PasoGrafo>(estado: EstadoSim, k: number, texto: string): Paso<P> {
   const hilos = estado.hilos.filter((_, j) => j !== k);
-  if (!hilos.length) return fin(estado, texto);
+  if (!hilos.length) return sinHilos({ ...estado, hilos }, texto);
   return { evento: null, estado: { ...estado, hilos } };
 }
 
@@ -495,8 +524,14 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
     return hilos.length ? { evento: null, estado: { ...st, hilos } } : fin(st, 'Fin');
   }
   switch (claseDe(p)) {
-    case 'mensaje':
-      return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, hilos: avanzar(h.reloj) } };
+    case 'mensaje': {
+      // Sus botones de flujo quedan para tocar (cada vez que sale, los de ESA vez).
+      const bts = botonesDeFlujo(p);
+      const toques = bts.length
+        ? [...(st.toques ?? []).filter((x) => x.nodo !== id), { nodo: id, opciones: bts.map((b) => ({ puerto: puertoDeBoton(b.id), texto: b.titulo, destino: b.siguiente ?? null })) }]
+        : st.toques;
+      return { evento: { t: 'mensaje', nodo: id, paso: p, enRespuesta: st.rama === 'respuesta' }, estado: { ...base, ...(toques ? { toques } : {}), hilos: avanzar(h.reloj) } };
+    }
     case 'accion':
       // No se ejecuta: probar no puede mover un lead ni crear una tarea de verdad.
       return { evento: { t: 'accion', nodo: id, texto: `⚡ ${nombreAccion(p, nombres)}`, paso: p }, estado: { ...base, hilos: avanzar(h.reloj) } };
@@ -587,7 +622,7 @@ export function siguiente<P extends PasoGrafo>(
     if (!st.hilos.length) {
       // Terminó la respuesta y hay caminos de la salida que SIGUEN cuando el lead contesta: vuelven a correr.
       if (st.rama === 'respuesta' && st.salidaQueSigue?.length) { st = reanudarSalida(st); continue; }
-      return fin(st, st.rama === 'respuesta' ? 'Fin de la respuesta' : st.eventos === 0 ? 'Sin tarjetas' : 'Fin');
+      return sinHilos(st, st.rama === 'respuesta' ? 'Fin de la respuesta' : st.eventos === 0 ? 'Sin tarjetas' : 'Fin');
     }
     if (st.eventos >= TOPE_EVENTOS) return fin(st, 'Se repite: fin de la prueba');
     const r = correrHilo(pasos, st, proximoHilo(st.hilos), nombres);
