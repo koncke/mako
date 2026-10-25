@@ -3,7 +3,9 @@
 ## 24/10 noche (claude5 «Ananda», chat «Ops Center», `local_ea6ee0d2…`): las dos regresiones, el Uso, Settings y la investigación
 
 Encargo del Cerebro de la cuenta 5 con los puntos 11, 22, 23 y 24 de la noche (docs/feedback-24-10.md, TEXTUAL) y P4 de
-docs/pendientes.md. Rama `ops-2510` (worktree `C:/dev/wt-ops-2510`), sobre origin/main `59d228ea1`. Lo que costó:
+docs/pendientes.md. Rama `ops-2510-regresiones` (worktree `C:/dev/wt-ops-reg`), sobre origin/main `59d228ea1`, entregada al Cerebro en
+3 puntas: `0667e8175` (las regresiones), `1a07f3768` (#8, la caja al Cerebro abierto, tests/operaciones, el Uso) y `b45ecac47`
+(Settings). La rama `ops-2510` (C:/dev/wt-ops-2510) quedó VIEJA: su contenido pasó entero a la otra; no se entrega. Lo que costó:
 docs/hallazgos-operaciones.md («Sin la app, NINGÚN chat») y docs/hallazgos-ui.md («La sidebar plegada
 por defecto…», la regresión).
 
