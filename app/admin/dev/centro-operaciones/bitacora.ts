@@ -1756,4 +1756,33 @@ export const BITACORA: Hito[] = [
       'C:/dev/cerebro-herramientas/capturas-24-10/ — las 11 capturas de los 24 puntos (fuera del repo)',
     ],
   },
+  {
+    fecha: '24 oct', hora: '23:39', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los chats que esperan mi respuesta, arriba',
+    pedido: '«el tema de los chats de MaKo cuando tienen [...] un espera tu respuesta deberían posicionarse arriba porque había muchos que estaban abajo y yo no los veo»',
+    puntos: ['Y antes, el mismo día: «Si ya aparecen los puntitos en las preguntas, no hace falta "1 de 3"».'],
+  },
+  {
+    fecha: '25 oct', hora: '02:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los chats que esperan tu respuesta van primero, y las preguntas sin «1 de 3»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El orden de la lista:** primero los que dicen «Espera tu respuesta», después los que trabajan, después los «Completado» que no tildaste, y el resto. En la computadora y en el teléfono; un chat que espera sube con su grupo.',
+      '**Las preguntas:** sin «1 de 3» a la vista; quedan las flechas y un puntito por pregunta.',
+      '**Sin mirar en pantalla.**',
+    ],
+    archivos: ['lib/centro-chats.ts — prioridadEnLista · PiezasCentro.tsx · ChatsMovil.tsx · PreguntasDelChat.tsx', 'tests/chats-esperan-arriba.test.ts · ops-center-bloque-y-estado.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '02:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una pregunta ya no queda «Espera tu respuesta» para siempre cuando el chat sigue en otra cuenta',
+    puntos: [
+      '**Lo que pasó:** «Ventas de MaKo» te preguntó algo en la cuenta 2 el 23/10 y siguió en la cuenta 1; la pregunta quedó esperando hasta que el Cerebro la sacó a mano. Ahora la deja atrás lo que el chat escribe en cualquiera de sus cuentas.',
+      '**Y una que se podía perder:** cuando un chat pregunta por la app de Claude y por el Ops Center a la vez, ahora siempre queda la que contestas aquí.',
+    ],
+    archivos: ['lib/centro-preguntas-chat.ts · centro-preguntas-chat-db.ts · lib/operaciones.ts · scripts/operaciones/cartero.mjs (1.18.1)', 'tests/preguntas-cadena-y-ask.test.ts'],
+  },
 ];
