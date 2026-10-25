@@ -140,7 +140,7 @@ function TiraSugerencias({ n, onAbrir }: { n: number; onAbrir: () => void }) {
 }
 
 /** La flecha para plegar, arriba a la derecha de la tarjeta. */
-const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que?: string }) => (
+export const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que?: string }) => (
   <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label={`Ocultar ${que}`} title="Ocultar">
     <span aria-hidden>▾</span>
   </button>
