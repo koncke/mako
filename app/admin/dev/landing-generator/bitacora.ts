@@ -1444,4 +1444,21 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/editor-landing/fondo-de-diseno.ts — dónde va el color de cada sección'],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '23:55', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Insertar un video de tu cuenta de Panda, Vimeo, Wistia, Bunny o Cloudflare sin buscar el código',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... web generator... puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Al insertar un video en el editor de páginas, debajo del campo aparece «Tus videos»: los de las cuentas que conectaste.',
+      'Un clic en uno lo pone en la página, sin ir a buscar el código a cada plataforma.',
+      'También sirve para cambiar el video de una sección de las páginas de MaKo.',
+      'Falta verlo con clics cuando llegue a producción.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/InsertadoVista.tsx — el panel «Insertar»',
+      'app/api/landing-generator/imagenes/route.ts — de dónde salen tus videos',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];

@@ -361,7 +361,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       )}
       {video && (
         <Flotante ancla={video.ancla} onCerrar={() => setVideo(null)} etiqueta="Video" ancho={360}>
-          <PanelInsertar inicial={video.el.getAttribute('data-calendly') ?? video.el.getAttribute('src') ?? ''} onInsertar={(e) => {
+          <PanelInsertar inicial={video.el.getAttribute('data-calendly') ?? video.el.getAttribute('src') ?? ''} conVideos={!video.el.hasAttribute('data-calendly')} onInsertar={(e) => {
             const el = video.el;
             if (el.isConnected && el.hasAttribute('data-calendly')) {
               const url = enlaceDeCalendly(e.src);

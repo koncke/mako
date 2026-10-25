@@ -4654,6 +4654,12 @@ clave). Por eso lo parejo por persona es el Pixel, y el catálogo sirve para nom
 (`videosDetectados` y `listar_videos_alojados`). **Las formas están probadas contra la documentación, no contra una
 cuenta de verdad:** hace falta la clave de una cuenta real de cada alojador.
 
+**Elegir un video del catálogo en el editor (tanda 4).** El panel «Insertar» (y el control «Video» de una sección de
+diseño) muestra «Tus videos», los de todos los alojadores conectados. Un clic inserta su reproductor, y sólo si
+`embedDe` lo sabe insertar. Lo pide a la ruta del editor (`videosAlojados` en /api/landing-generator/imagenes), con la
+misma puerta y con el negocio explícito (`runWithWorkspace`). Sin alojadores conectados no se dibuja nada, y la agenda de
+un diseño no ofrece videos. No se pudo ver con clics acá: hay que mirarlo cuando despliegue.
+
 Lo que quedó SIN hacer (con su archivo en el relevo): las tarjetas de Integraciones para pegar cada clave (esperan la
-respuesta de Settings, que está rediseñando Integraciones), elegir un video del catálogo desde el editor y los números
-por día de Wistia y Bunny en `marketing_metrics_daily` (su CHECK de `plataforma` sólo acepta meta, youtube y panda).
+respuesta de Settings, que está rediseñando Integraciones) y los números por día de Wistia y Bunny en
+`marketing_metrics_daily` (su CHECK de `plataforma` sólo acepta meta, youtube y panda).

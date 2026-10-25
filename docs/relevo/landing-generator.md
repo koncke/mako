@@ -59,7 +59,7 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
     clases miden Wistia, Bunny y Cloudflare (`VideoAlojado`), y `listar_videos_alojados` en la API.
 - **Sigue (alojadores):** las tarjetas de Integraciones para esas claves (lib/integraciones-catalogo.ts y
   lib/metodo-catalogo.ts, con su «Probar conexión» en lib/metodo-verificar.ts; se le preguntó a Settings, que está
-  rediseñando Integraciones); elegir un video del catálogo desde el panel «Insertar» del editor; los números por día de
+  rediseñando Integraciones); mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
   Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
   `panda`); probar el catálogo con una cuenta real de cada uno.
 - **Sigue:**

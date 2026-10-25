@@ -26,6 +26,8 @@ import { EstilosG2, Flotante, Icono, eliminarBloqueConDeshacer, noRobaFoco } fro
 import { specInsertado } from '@/lib/editor-landing/especificacion';
 import { htmlDeArbol } from '@/lib/editor-landing/grafico-svg';
 import { ALTO_EMBED_MAX, ALTO_EMBED_MIN, ALTO_EMBED_PASO, altoValido, claseDeProveedor, embedDe, nombreDeProveedor, porQueNoSeInserta } from '@/lib/embeds';
+import { pedirImagenes } from '../../cliente';
+import type { VideoAlojadoVista } from '@/lib/editor-landing/api-tipos';
 
 /**
  * Lo que dice el hueco vacío según su PISTA (14/10/2026): el VSL de un diseño pide «tu video» y se ve
@@ -126,17 +128,34 @@ export function InsertadoVista(props: ReactNodeViewProps) {
 
 export default InsertadoVista;
 
-export function PanelInsertar({ inicial, onInsertar, onQuitar }: {
+/** Los nombres de los alojadores, para la lista «Tus videos». */
+const NOMBRE_ALOJADOR: Record<string, string> = { panda: 'Panda', vimeo: 'Vimeo', wistia: 'Wistia', bunny: 'Bunny', cloudflare: 'Cloudflare' };
+const minutos = (s: number | null) => (s && s > 0 ? `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}` : null);
+
+export function PanelInsertar({ inicial, onInsertar, onQuitar, conVideos = true }: {
   inicial: string;
   onInsertar: (e: { src: string; proveedor: string; alto?: number }) => void;
   onQuitar?: () => void;
+  /** «Tus videos»: los de los alojadores conectados (no va cuando lo que se cambia es una agenda). */
+  conVideos?: boolean;
 }) {
   const [texto, setTexto] = useState(inicial);
+  const [videos, setVideos] = useState<VideoAlojadoVista[]>([]);
   const campo = useRef<HTMLTextAreaElement | null>(null);
   useEffect(() => {
     const id = requestAnimationFrame(() => campo.current?.focus());
     return () => cancelAnimationFrame(id);
   }, []);
+  // ⚠️ «Tus videos» (25/10/2026, Martín: «que los lugares donde consume eso... web generator... puedan traer datos de
+  // tus videos de esas herramientas conectadas»): los de Panda, Vimeo, Wistia, Bunny y Cloudflare, para no tener que ir a
+  // buscar el código a cada plataforma. Sin alojadores conectados no se dibuja nada.
+  useEffect(() => {
+    if (!conVideos) return;
+    const corte = new AbortController();
+    void pedirImagenes<{ ok: true; videos: VideoAlojadoVista[] }>({ accion: 'videosAlojados' }, { signal: corte.signal })
+      .then((r) => { if ('videos' in r && Array.isArray(r.videos)) setVideos(r.videos); });
+    return () => corte.abort();
+  }, [conVideos]);
   const e = embedDe(texto);
   const motivo = texto.trim() && !e ? porQueNoSeInserta(texto) : null;
   return (
@@ -154,6 +173,25 @@ export function PanelInsertar({ inicial, onInsertar, onQuitar }: {
       />
       {motivo && <span className="gmx-error">{motivo}</span>}
       {e && <span className="gmx-nota">{nombreDeProveedor(e.proveedor) ?? 'Listo'}: se puede insertar.</span>}
+      {videos.length > 0 && (
+        <>
+          <span className="gmx-rotulo" style={{ marginTop: 4 }}>Tus videos</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2, maxHeight: 220, overflowY: 'auto' }} role="list" aria-label="Tus videos">
+            {videos.map((v) => {
+              const listo = embedDe(v.player);
+              const meta = [NOMBRE_ALOJADOR[v.alojador] ?? v.alojador, minutos(v.duracion)].filter(Boolean).join(' · ');
+              return (
+                <button key={v.id} type="button" role="listitem" className="gmx-chip" disabled={!listo} title={v.titulo}
+                  style={{ justifyContent: 'space-between', width: '100%', textAlign: 'left' }}
+                  onMouseDown={(ev) => ev.preventDefault()} onClick={() => { if (listo) onInsertar(listo); }}>
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }}>{v.titulo}</span>
+                  <span style={{ flex: 'none', opacity: 0.7, fontSize: 12 }}>{meta}</span>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
         {onQuitar && (
           <button type="button" className="gmx-chip" onMouseDown={(ev) => ev.preventDefault()} onClick={onQuitar} style={{ color: 'var(--gmx-peligro)' }}>

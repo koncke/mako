@@ -90,3 +90,18 @@ test('la API: listar_videos_alojados lee el catálogo de todos los conectados, c
   assert.ok(run.includes('await Promise.all([catalogoDeVideos(), alojadoresConectados(), pandaConectado()])'));
   assert.ok(run.includes('...(fallas.length ? { no_se_pudo_leer: fallas } : {}),'), 'lo que no se pudo leer se dice');
 });
+
+test('el editor: «Tus videos» en el panel «Insertar», y un clic inserta el reproductor', async () => {
+  const { readFileSync } = await import('node:fs');
+  const leer = (rel: string) => readFileSync(new URL(`../${rel}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  const ruta = leer('app/api/landing-generator/imagenes/route.ts');
+  assert.ok(ruta.includes("case 'videosAlojados': {"), 'la ruta del editor no atiende el pedido');
+  assert.ok(ruta.includes('await runWithWorkspace(ws, () => catalogoDeVideos())'), 'con el negocio de la puerta');
+  const panel = leer('app/web-generator/editor/nodos/InsertadoVista.tsx');
+  assert.ok(panel.includes("pedirImagenes<{ ok: true; videos: VideoAlojadoVista[] }>({ accion: 'videosAlojados' }, { signal: corte.signal })"));
+  assert.ok(panel.includes('const listo = embedDe(v.player);'), 'sólo se inserta lo que el editor sabe insertar');
+  assert.ok(panel.includes('onClick={() => { if (listo) onInsertar(listo); }}'));
+  assert.ok(panel.includes('{videos.length > 0 && ('), 'sin alojadores conectados no se dibuja nada');
+  // La agenda de un diseño no ofrece videos.
+  assert.ok(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx').includes("conVideos={!video.el.hasAttribute('data-calendly')}"));
+});
