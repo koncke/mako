@@ -1785,6 +1785,13 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
   y CAPI (falta el código de «Probar eventos»).
 
+- **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
+  que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
+  conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el
+  negocio, y el link del aviso abre la tarjeta de Zernio. Ahora la guarda la pieza común (`conectada-meta`), venga del botón que
+  venga. ⚠️ **El logo de Zernio no era el suyo:** iba una «Z» sobre violeta #6D4AFF; su ícono oficial es la marca blanca sobre
+  #EB3514 (zernio.com/icon.svg).
+
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
 suave y quedan `parcial`); el reproductor del anuncio

@@ -24,7 +24,8 @@ import { zFetch } from './zernio';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { aUnidadMeta } from './presupuesto-cambio';
 import {
-  ENV_CUENTA_ZERNIO, ZERNIO_META_PROBADO, cuentaCrudaDesdeZernio, cuentasDeZernio, paginaDeConjuntos, paginaDeInsights, queryInsightsZernio, viaDeMeta,
+  CORTE_TOKEN_META, ENV_CUENTA_ZERNIO, ZERNIO_META_PROBADO, avisoTokenVencido, cuentaCrudaDesdeZernio, cuentasDeZernio, hoyEnArgentina,
+  paginaDeConjuntos, paginaDeInsights, queryInsightsZernio, tokenMetaVencido, viaDeMeta,
   type ConjuntoVivo,
 } from './zernio-meta-cuerpo';
 import type { MetaInsightRaw } from './types';
@@ -180,4 +181,15 @@ export async function accesoDeMeta(ws?: number | null): Promise<{ metaToken?: st
   if (c.via === 'zernio') return { zernioClave: c.clave, ...(c.respaldo ? { metaToken: c.respaldo } : {}) };
   if (c.via === 'token') return { metaToken: c.token };
   return null;
+}
+
+/**
+ * Pasado el corte (`CORTE_TOKEN_META`), una escritura con el token de Meta de un negocio que no conectó Zernio se frena: devuelve
+ * el mensaje para la persona, o null si puede seguir. La llaman las puertas de escritura con el token (`escribirEnMeta`,
+ * lib/meta-write.ts; `graphPost` y las subidas, lib/meta-ads-create.ts). Leer no pasa por acá.
+ */
+export async function frenoDelTokenMeta(ws: number): Promise<string | null> {
+  if (!CORTE_TOKEN_META) return null;
+  const c = await canalMeta(ws);
+  return tokenMetaVencido({ corte: CORTE_TOKEN_META, hoy: hoyEnArgentina(), viaZernio: c.via === 'zernio' }) ? avisoTokenVencido(CORTE_TOKEN_META) : null;
 }

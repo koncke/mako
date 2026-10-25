@@ -64,6 +64,10 @@ async function escribirEnMeta(body: MetaWriteBody, ws: number): Promise<MetaWrit
   // Meta. El texto dice dónde se arregla.
   if (!ver) return { ok: false, message: 'Meta no configurado', status: 500 };
   if (!token) return { ok: false, message: 'Este espacio de trabajo no tiene Meta conectado. Conéctalo en Integraciones.', status: 409 };
+  // El corte del token para administrar anuncios (lib/zernio-meta-cuerpo.ts → `CORTE_TOKEN_META`): pasado, sin Zernio no se escribe.
+  const { frenoDelTokenMeta } = await import('./meta-via');
+  const freno = await frenoDelTokenMeta(ws);
+  if (freno) return { ok: false, message: freno, status: 409 };
 
   if (!body || typeof body.id !== 'string' || !/^\d+$/.test(body.id)) {
     return { ok: false, message: 'id inválido (debe ser el id numérico de Meta)', status: 400 };

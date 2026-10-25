@@ -40,6 +40,24 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
 - **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
 
+## La deprecación del token de Meta (pedido de Martín, 25/10 ~15:40)
+
+«manda un aviso a todos los clientes que conecten Zernio y si no conectan dentro de 1 semana ya no podrán administrar anuncios en
+MaKo». El orden lo decidió el Cerebro: (1) medir quién usa el token, (2) prender Meta por Zernio para clientes con CAPI y el nivel
+anuncio probados, (3) recién ahí el aviso, (4) el nombre y el logo.
+
+- **(1) Medido** (sólo lectura): 5 negocios usan el token hoy, 4 lo tienen sin uso. Lista y texto del aviso: en la carpeta de
+  notas del Cerebro (`zernio-aviso-token-meta-25-10.md`), con los montos; acá no van.
+- **El corte, listo y apagado:** `CORTE_TOKEN_META` (lib/zernio-meta-cuerpo.ts, hoy `null`). Con una fecha, pasado ese día un
+  negocio SIN la conexión de Zernio no escribe con el token (`escribirEnMeta` y las puertas de `meta-ads-create`: crear, subir,
+  formulario, borrar) y ve «Desde el DD/MM MaKo administra tus anuncios sólo con tu conexión de Zernio…». Leer métricas sigue.
+  Se fija el día que sale el aviso: una semana después.
+- **La conexión se guarda venga del botón que venga** (`conectada-meta` en la pieza común): conectar «Anuncios de Meta» desde la
+  tarjeta de Zernio (el link del aviso, `?abrir=zernio`) o desde el Media Buyer ahora deja la conexión guardada en el negocio.
+  Antes sólo lo hacía el modal de Meta.
+- **(4) Hecho:** la tarjeta se llama «Zernio» y lleva su logo oficial (la marca blanca de zernio.com/icon.svg sobre #EB3514; el
+  violeta de antes no era el suyo). La revisión de los demás logos la hace Settings.
+
 ## En la API de MaKo (área integraciones)
 
 | Operación | Tipo | Ruta | Qué |

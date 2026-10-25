@@ -414,3 +414,30 @@ export function unirPaginas(...listas: ReadonlyArray<readonly PaginaFacebook[]>)
   }
   return [...por.values()];
 }
+
+// ── El corte del token de Meta para ADMINISTRAR anuncios (25/10/2026) ───────
+
+/**
+ * Martín, 25/10: «manda un aviso a todos los clientes que conecten Zernio y si no conectan dentro de 1 semana ya no podrán
+ * administrar anuncios en MaKo». Desde este día (AAAA-MM-DD, hora de Argentina) el token de Meta deja de servir para ESCRIBIR
+ * (crear, editar, pausar, presupuesto, borrar); leer métricas sigue. null = sin corte. Lo fija el Cerebro el día que sale el
+ * aviso: una semana después de ese día.
+ */
+export const CORTE_TOKEN_META: string | null = null;
+
+/** ¿Este negocio ya no puede administrar anuncios con el token? Sólo pasado el corte y sin la conexión de Zernio. */
+export function tokenMetaVencido(p: { corte: string | null; hoy: string; viaZernio: boolean }): boolean {
+  if (!p.corte || !/^\d{4}-\d{2}-\d{2}$/.test(p.corte) || p.viaZernio) return false;
+  return p.hoy >= p.corte;
+}
+
+/** Lo que lee la persona cuando una escritura se frena por el corte: qué pasó y dónde se arregla. */
+export function avisoTokenVencido(corte: string): string {
+  const [a, m, d] = corte.split('-');
+  return `Desde el ${d}/${m}/${a} MaKo administra tus anuncios sólo con tu conexión de Zernio. Conéctala en Integraciones → Zernio y vuelve a intentarlo.`;
+}
+
+/** Hoy en Argentina (AAAA-MM-DD): el corte es un día del calendario de Martín, no de UTC. */
+export function hoyEnArgentina(ahora = new Date()): string {
+  return new Date(ahora.getTime() - 3 * 3_600_000).toISOString().slice(0, 10);
+}
