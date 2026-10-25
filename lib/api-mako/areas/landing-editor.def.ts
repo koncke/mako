@@ -73,9 +73,16 @@ const CON_DIRECCION = (EFECTOS as readonly DefEfecto[]).filter((d) => d.direccio
 export const DEFS_EDITOR: readonly OperacionDef[] = [
   // ── Lecturas ────────────────────────────────────────────────────────────────
   {
+    id: 'ver_iconos_landing', area: 'landing', tipo: 'lectura',
+    titulo: 'Íconos de la biblioteca del editor',
+    descripcion: 'Los íconos que se pueden poner en una landing del editor del Web Generator (los del selector de íconos del editor), buscados por nombre o por lo que muestran, en español y sin acentos («cohete», «dinero», «grafico»). Devuelve el nombre de cada uno (lo que pide cambiar_icono_landing) y sus etiquetas. Sin búsqueda, los primeros 60.',
+    parametros: [{ nombre: 'buscar', rotulo: 'Buscar', tipo: 'string', max: 60, descripcion: 'Una o más palabras: cada una tiene que estar en el nombre o en las etiquetas.' }],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
+  },
+  {
     id: 'ver_secciones_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Secciones y bloques de una landing',
-    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
+    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Cada sección trae sus íconos (n, el nombre en la biblioteca o null si es uno que trajo el diseño, y el texto junto a él). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
     parametros: [P_ID, { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'El id de una página: sólo ésa. Sin él, todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -364,6 +371,19 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'actual', rotulo: 'Imagen de hoy', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección de hoy de la imagen, un pedazo que la distinga, o su texto alternativo.' },
       { ...P_IMAGEN('La imagen nueva'), obligatorio: true },
       { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), si la misma imagen está en más de una.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'cambiar_icono_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar un ícono de una landing',
+    descripcion: `Cambia UN ícono de una sección de una landing del editor del Web Generator por otro de la biblioteca del editor (ver_iconos_landing): uno de un «diseño editable» (las páginas de MaKo) o el de un ítem de un «diseño optimizado» que muestra íconos. Se nombra por la sección y su número (n, de ver_secciones_landing → iconos) o por el de hoy (su nombre o el texto junto a él). Conserva el tamaño y el color del que estaba. ${VERSION}`,
+    parametros: [
+      P_ID, P_SECCION,
+      { nombre: 'icono', rotulo: 'Ícono nuevo', tipo: 'string', obligatorio: true, max: 48, descripcion: 'El nombre del ícono en la biblioteca (de ver_iconos_landing), por ejemplo «cohete».' },
+      { nombre: 'n', rotulo: 'Número', tipo: 'number', entero: true, minimo: 1, descripcion: 'El número del ícono en la sección (ver_secciones_landing → iconos).' },
+      { nombre: 'actual', rotulo: 'Ícono de hoy', tipo: 'string', max: 120, descripcion: 'En vez del número: el nombre del ícono de hoy o el texto junto a él.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',

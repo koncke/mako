@@ -47,7 +47,7 @@ import {
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
-  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planQuitarCobro,
+  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
@@ -197,6 +197,8 @@ function edicion(op: Edicion): AccionRun {
 
 export const RUNNERS_EDITOR: Runners = {
   // ── Lecturas ──
+  // La biblioteca de íconos del editor (25/10/2026): los nombres que pide cambiar_icono_landing.
+  ver_iconos_landing: { leer: async (input) => json(iconosDeBibliotecaParaApi(str(input, 'buscar'))) },
   ver_secciones_landing: {
     leer: async (input) => {
       const id = num(input, 'id') ?? 0;
@@ -464,6 +466,7 @@ export const RUNNERS_EDITOR: Runners = {
     que: 'cambiar la imagen', imagenes: ['imagen'],
     planear: (i, d, x) => planCambiarImagen(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen') }),
   }) },
+  cambiar_icono_landing: { ...edicion({ que: 'cambiar el ícono', planear: (i, d) => planCambiarIcono(d.contenido, i) }) },
   quitar_cobro_landing: { ...edicion({ que: 'quitar el cobro', planear: (i, d) => planQuitarCobro(d.contenido, i) }) },
   acomodar_pagina_landing: { ...edicion({ que: 'acomodar la página', planear: (i, d) => planAcomodarPagina(d.contenido, i) }) },
 

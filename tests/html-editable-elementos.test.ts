@@ -90,3 +90,26 @@ test('los atributos: comillas dobles, simples o ninguna, y la etiqueta que se ci
   assert.equal(conAtributo('<img src="a" />', 'alt', 'Hola'), '<img src="a" alt="Hola" />');
   assert.equal(conAtributo('<a href=\'#x\' class="b">', 'href', null), '<a class="b">');
 });
+
+test('los íconos: cada <svg> con su tamaño y el texto junto; cambiar uno conserva su tamaño, clase y color', async () => {
+  // Martín (25/10): «Los íconos también por la API». Lo mismo que el control «Ícono» del editor (HtmlEditableVista).
+  const { iconosDeHtmlEditable, conIconoDeDiseno } = await import('../lib/editor-landing/html-editable-elementos');
+  const { svgIcono } = await import('../lib/editor-landing/iconos');
+  const lucide = (w: number, color: string) => `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:${color}"><path d="M20 6 9 17l-5-5"/><circle cx="12" cy="12" r="3"/></svg>`;
+  const html = `<section><a href="#beta">${lucide(18, '#fff')}<span>Agenda tu llamada</span></a><div class="card">${lucide(24, '#2F6FED')}<h3>Arma tu embudo</h3></div>${svgIcono('cohete', 20)}<p>Despega</p></section>`;
+  const ic = iconosDeHtmlEditable(html);
+  assert.deepEqual(ic, [
+    { n: 1, nombre: null, tam: 18, junto: 'Agenda tu llamada' },
+    { n: 2, nombre: null, tam: 24, junto: 'Arma tu embudo' },
+    { n: 3, nombre: 'cohete', tam: 20, junto: 'Despega' },
+  ], 'el de la biblioteca se reconoce por su trazo; el de otra familia, no');
+  const r = conIconoDeDiseno(html, 2, 'dinero');
+  assert.equal(typeof r, 'string');
+  const nuevo = (r as string).match(/<svg[^>]*>/g)![1];
+  assert.match(nuevo, /viewBox="0 0 256 256" width="24" height="24" fill="currentColor"/);
+  assert.match(nuevo, /style="color:#2F6FED"/, 'el color del que estaba (su style)');
+  assert.equal(iconosDeHtmlEditable(r as string)[1].nombre, 'dinero');
+  assert.equal((r as string).replace(/<svg[\s\S]*?<\/svg>/g, ''), html.replace(/<svg[\s\S]*?<\/svg>/g, ''), 'lo demás, byte por byte');
+  assert.match((conIconoDeDiseno(html, 1, 'no-existe') as { error: string }).error, /No hay un ícono/);
+  assert.match((conIconoDeDiseno(html, 9, 'dinero') as { error: string }).error, /ya no está/);
+});

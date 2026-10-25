@@ -165,3 +165,40 @@ test('configurar_seccion_landing: el fondo de una sección de diseño, en su HTM
   assert.match(falla(planConfigurarSeccion(c, { seccion: 'tPara', fondo: 'acento' }, { css }) as Plan).error, /acento/);
   assert.match(falla(planConfigurarSeccion(c, { seccion: 'tPara', color: 'rojo' }, { css }) as Plan).error, /#rrggbb/);
 });
+
+test('cambiar_icono_landing y ver_secciones_landing: los íconos de un diseño y los de un «Diseño optimizado», por número o por el texto junto', async () => {
+  // Martín (25/10): «Los íconos también por la API». En la #32 hay 75 `<svg>` (de otra familia: sin nombre) y ninguno se
+  // leía ni se cambiaba por la API.
+  const { planCambiarIcono, estructuraParaApi, iconosDeBibliotecaParaApi } = await import('../lib/api-mako/areas/landing-contenido.helpers');
+  const svg = (color: string) => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color:${color}"><path d="M20 6 9 17l-5-5"/></svg>`;
+  const DISENO = `<section><div>${svg('#1E9E57')}<h3>Trato preferencial</h3></div><div>${svg('#2F6FED')}<h3>Precio de fundador</h3></div></section>`;
+  const item = (icono: string | null, texto: string): JsonNodo => ({ type: NODO.optimizadoItem, attrs: { icono }, content: [{ type: 'paragraph', content: [{ type: 'text', text: texto }] }] });
+  const optimizado = (mostrarIconos: boolean, variante: string): JsonNodo => ({ type: NODO.optimizado, attrs: { variante, mostrarIconos }, content: [item('check', 'Rápido'), item(null, 'Barato')] });
+  const c = { v: 1, paginas: [{ id: 'p1', titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: [
+    seccion('tBeta', DISENO),
+    { type: NODO.tarjeta, attrs: { id: 'tLista' }, content: [optimizado(true, 'vinetas-grandes'), optimizado(false, 'vinetas-grandes')] },
+  ] } }] } as LandingContenido;
+  // Leer: cada sección con sus íconos; los de un optimizado con los íconos apagados no se ofrecen (no se verían).
+  const e = estructuraParaApi(7, c) as { paginas: Array<{ secciones: Array<{ iconos?: Array<{ n: number; icono: string | null; junto_a?: string }> }> }> };
+  assert.deepEqual(e.paginas[0].secciones[0].iconos, [{ n: 1, icono: null, junto_a: 'Trato preferencial' }, { n: 2, icono: null, junto_a: 'Precio de fundador' }]);
+  assert.deepEqual(e.paginas[0].secciones[1].iconos, [{ n: 1, icono: 'check', junto_a: 'Rápido' }, { n: 2, icono: null, junto_a: 'Barato' }]);
+  // Cambiar en el diseño: por el texto junto, con su tamaño y su color.
+  const r = ok(planCambiarIcono(c, { seccion: 'tBeta', actual: 'precio de fundador', icono: 'cohete' }) as Plan);
+  const html = htmlDe(r.contenido, 0);
+  assert.match(html, /<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 256 256" width="22" height="22" fill="currentColor" aria-hidden="true" focusable="false" style="color:#2F6FED">/);
+  assert.equal(html.split('<svg').length, 3, 'el otro ícono no se toca');
+  assert.match(r.resumen, /ícono 2 .*junto a «Precio de fundador».*el del diseño → cohete/);
+  assert.equal((estructuraParaApi(7, r.contenido) as typeof e).paginas[0].secciones[0].iconos![1].icono, 'cohete', 'se lee de vuelta por su nombre');
+  // Cambiar en un optimizado: por número; el atributo del ítem.
+  const r2 = ok(planCambiarIcono(c, { seccion: 'tLista', n: 2, icono: 'dinero' }) as Plan);
+  assert.equal(r2.contenido.paginas[0].doc.content![1].content![0].content![1].attrs!.icono, 'dinero');
+  // Lo que no se puede, con por qué.
+  assert.match(falla(planCambiarIcono(c, { seccion: 'tBeta', n: 1, icono: 'inventado' }) as Plan).error, /No hay un ícono «inventado»/);
+  assert.match(falla(planCambiarIcono(c, { seccion: 'tBeta', n: 3, icono: 'cohete' }) as Plan).error, /n va de 1 a 2/);
+  assert.match(falla(planCambiarIcono(c, { seccion: 'tBeta', icono: 'cohete' }) as Plan).error, /Falta cuál ícono/);
+  assert.equal((falla(planCambiarIcono(c, { seccion: 'tLista', actual: 'rápido', icono: 'check' }) as Plan) as { yaEstaba?: boolean }).yaEstaba, true);
+  // La biblioteca: por nombre o etiqueta, sin acentos.
+  assert.ok(iconosDeBibliotecaParaApi('cohete').iconos.some((x) => x.nombre === 'cohete'));
+  assert.ok(iconosDeBibliotecaParaApi('dinero').iconos.length >= 2);
+  assert.match(String(iconosDeBibliotecaParaApi('zzzz').nota), /Ningún ícono/);
+});

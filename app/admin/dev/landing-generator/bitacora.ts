@@ -1413,4 +1413,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '19:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los íconos de las landings también se cambian desde la API',
+    pedido: '«Todo, todo siempre tiene que ir a la API» (los íconos, en la cola del Cerebro)',
+    puntos: [
+      'La API ahora dice qué íconos tiene cada sección y qué texto tienen al lado («Trato preferencial», «Agenda tu llamada»).',
+      'Se puede cambiar un ícono por otro de la biblioteca del editor, eligiéndolo por su número o por el texto que tiene al lado. Conserva su tamaño y su color.',
+      'También se puede buscar en la biblioteca, por ejemplo «cohete» o «dinero».',
+      'Sirve para las páginas de MaKo y para las secciones con listas de íconos.',
+    ],
+    archivos: [
+      'lib/editor-landing/html-editable-elementos.ts — los íconos de una sección de diseño',
+      'lib/api-mako/areas/landing-contenido.helpers.ts — cambiar_icono_landing y ver_iconos_landing',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];

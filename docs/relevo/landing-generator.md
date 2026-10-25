@@ -21,7 +21,9 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   que aparece sobre un texto elegido.
 - **El color de fondo de cada sección de las páginas de MaKo (25/10 tarde):** hecho en la rama: menú ⋮, clic derecho y la API
   (docs/hallazgos-editor-landing.md → «El color de fondo…»). Falta probarlo con clics cuando despliegue.
-- **Sigue:** los íconos por la API (cola del Cerebro);
+- **Los íconos por la API (25/10 tarde):** hecho en la rama (cambiar_icono_landing, ver_iconos_landing, y los `iconos` de cada
+  sección en ver_secciones_landing; docs/hallazgos-api-mako.md → «Los íconos por la API»).
+- **Sigue:** probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
   publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 

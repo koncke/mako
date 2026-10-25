@@ -13,6 +13,7 @@
 // =============================================================================
 
 import { conTextos, decodificar, textosDeHtmlEditable } from './html-editable-textos';
+import { ICONOS, existeIcono, svgIcono } from './iconos';
 
 /** Un atributo entre comillas dobles o simples, o sin comillas: lo que puede traer una etiqueta. */
 const ATTR = `(?:[^>"']|"[^"]*"|'[^']*')*`;
@@ -21,6 +22,8 @@ const IMAGEN = new RegExp(`<img\\b${ATTR}>`, 'gi');
 const REPRODUCTOR = new RegExp(`<iframe\\b${ATTR}>`, 'gi');
 const VIDEO = new RegExp(`<video\\b${ATTR}>([\\s\\S]*?)<\\/video\\s*>`, 'gi');
 const FUENTE = new RegExp(`<source\\b${ATTR}>`, 'gi');
+const ICONO = new RegExp(`<svg\\b${ATTR}>([\\s\\S]*?)<\\/svg\\s*>`, 'gi');
+const TRAZO = new RegExp(`<path\\b${ATTR}>`, 'gi');
 
 const escAttr = (v: string) => v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -143,5 +146,78 @@ export function conVideoDeDiseno(html: string, n: number, src: string, esReprodu
   return enLaEnesima(html, VIDEO, k, (completo, m) => {
     const tag = conAtributo(apertura(completo), 'src', src);
     return rearmar(completo, m[1], tag, m[1].replace(FUENTE, ''));
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los íconos (25/10/2026): cada `<svg>` del diseño, como el control «Ícono» del editor (HtmlEditableVista, ponerIcono)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un ícono del diseño: su lugar (`n` desde 1), el nombre en la biblioteca si es uno de MaKo, su tamaño y el texto junto. */
+export type IconoDeDiseno = { n: number; nombre: string | null; tam: number; junto: string };
+
+let porTrazo: Map<string, string> | null = null;
+/**
+ * El nombre del ícono de la biblioteca (iconos.ts) que dibuja este `<svg>`, o null. Uno puesto por MaKo (el editor o la
+ * API) es UN path con el `d` de la biblioteca; los que trajo el diseño (en la #32, de otra familia) no tienen nombre.
+ */
+function nombreDeIcono(interior: string): string | null {
+  const trazos = [...interior.matchAll(TRAZO)];
+  if (trazos.length !== 1) return null;
+  porTrazo ??= new Map(Object.entries(ICONOS).map(([k, v]) => [v.d, k]));
+  return porTrazo.get(atributoDe(trazos[0][0], 'd') ?? '') ?? null;
+}
+
+const tamDeIcono = (tag: string): number => {
+  const v = Number.parseFloat(atributoDe(tag, 'width') ?? atributoDe(tag, 'height') ?? '');
+  return Number.isFinite(v) && v > 0 ? Math.round(v) : 24;
+};
+
+const corto = (t: string, max = 50): string => (t.length <= max ? t : `${t.slice(0, max).replace(/\s+\S*$/, '')}…`);
+
+/** Lo que dice junto al ícono: el texto del botón que lo tiene, o el que le sigue (el título de una tarjeta, un renglón). */
+function textoJunto(html: string, desde: number, hasta: number): string {
+  for (const m of html.matchAll(ENLACE)) {
+    const i = m.index ?? 0;
+    if (i <= desde && i + m[0].length >= hasta) {
+      const t = textoVisible(m[1]);
+      if (t) return corto(t);
+    }
+  }
+  // El PRIMER texto que sigue (el que sigue al siguiente ya es de otra tarjeta), o el último de antes. Un tramo cortado a
+  // mitad de una etiqueta la leería como texto: se corta en el último `>`, o desde el primer `<`.
+  const piezas = (tramo: string) => textosDeHtmlEditable(tramo).map((t) => t.replace(/\s+/g, ' ').trim()).filter(Boolean);
+  const despues = html.slice(hasta, hasta + 1500);
+  const sigue = piezas(despues.slice(0, despues.lastIndexOf('>') + 1));
+  if (sigue.length) return corto(sigue[0].length < 12 && sigue[1] ? `${sigue[0]} ${sigue[1]}` : sigue[0]);
+  const antes = html.slice(Math.max(0, desde - 1500), desde);
+  const previo = piezas(antes.slice(Math.max(0, antes.indexOf('<')))).at(-1) ?? '';
+  return previo.length <= 50 ? previo : `…${previo.slice(-50).replace(/^\S*\s+/, '')}`;
+}
+
+/** Los íconos del diseño, en el orden del HTML (el mismo en que el editor los encuentra). */
+export function iconosDeHtmlEditable(html: string): IconoDeDiseno[] {
+  return [...html.matchAll(ICONO)].map((m, i) => {
+    const desde = m.index ?? 0;
+    return { n: i + 1, nombre: nombreDeIcono(m[1]), tam: tamDeIcono(apertura(m[0])), junto: textoJunto(html, desde, desde + m[0].length) };
+  });
+}
+
+/**
+ * El HTML con el ícono `n` cambiado por `nombre` de la biblioteca: el `<svg>` de la casa, con el tamaño, la clase, el
+ * `style` (ahí suele estar su color: `color:#2F6FED` con `currentColor`) y lo de accesibilidad del que estaba. Lo mismo
+ * que hace el control «Ícono» del editor.
+ */
+export function conIconoDeDiseno(html: string, n: number, nombre: string): string | Falla {
+  if (!existeIcono(nombre)) return { error: `No hay un ícono «${nombre}» en la biblioteca.` };
+  return enLaEnesima(html, ICONO, n, (completo) => {
+    const viejo = apertura(completo);
+    const nuevo = svgIcono(nombre, tamDeIcono(viejo), atributoDe(viejo, 'class') ?? undefined);
+    let tag = apertura(nuevo);
+    for (const at of ['style', 'width', 'height', 'aria-hidden', 'aria-label', 'role']) {
+      const v = atributoDe(viejo, at);
+      if (v !== null) tag = conAtributo(tag, at, v);
+    }
+    return tag + nuevo.slice(apertura(nuevo).length);
   });
 }

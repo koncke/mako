@@ -37,15 +37,18 @@ import {
 import { conTextos, textosDeHtmlEditable } from '@/lib/editor-landing/html-editable-textos';
 // Puro (sin DOM): sus botones, imágenes y videos (configurar_boton_landing, poner_enlace_landing, cambiar_imagen_landing).
 import {
-  conEnlaceDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable,
+  conEnlaceDeDiseno, conIconoDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable, iconosDeHtmlEditable,
   type EnlaceDeDiseno, type ImagenDeDiseno, type VideoDeDiseno,
 } from '@/lib/editor-landing/html-editable-elementos';
+// La biblioteca de íconos del editor (la del selector) y los diseños que siempre los muestran (cambiar_icono_landing).
+import { ICONOS, buscarIconos, existeIcono } from '@/lib/editor-landing/iconos';
+import { CON_ICONOS } from '@/lib/editor-landing/css';
 // Puro: el color de fondo de una sección de diseño, en su HTML (configurar_seccion_landing, ver_secciones_landing).
 import { conFondoDeDiseno, fondoPuestoDe, fondoVisibleDe, valorDeFondo, type FondoDeDiseno } from '@/lib/editor-landing/fondo-de-diseno';
 import { esTarjetaEditable } from '@/lib/editor-landing/html-editable';
 import { videoDirecto } from '@/lib/embeds';
 import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
-import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
+import { attrsInsertado, attrsOptimizado, attrsOptimizadoItem, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
 import { TEMAS, TEMA_DEFAULT_ID, FUENTES, REDONDECES, esOscuro, sanearTemaPropio } from '@/lib/editor-landing/temas';
 import { TOPE_TEMAS } from '@/lib/editor-landing/server-reglas';
@@ -319,6 +322,7 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         oculta: a.oculta === true,
         imagen_de_acento: a.diseno && a.diseno !== 'sin' ? String(a.diseno) : null,
         ...fondoDeSeccionParaApi(t, css),
+        ...iconosParaApi(t),
         bloques,
         ...(hijos.length > bloques.length ? { bloques_afuera: hijos.length - bloques.length } : {}),
       };
@@ -954,6 +958,135 @@ export function planCambiarImagen(c: LandingContenido, e: { imagen?: unknown; ac
   const frena = frenaElSaneo(r.antes, r.despues);
   if (frena) return frena;
   return { contenido: r.contenido, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde}. ${NOTA_VERSION}`, datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los íconos (25/10/2026): los `<svg>` de un diseño y los de los ítems de un «Diseño optimizado»
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un ícono de una sección: su número en ella, su nombre en la biblioteca (null: uno que trajo el diseño) y el texto junto. */
+type IconoDeSeccion = { n: number; nombre: string | null; junto: string };
+
+/** ¿Un «Diseño optimizado» muestra los íconos de sus ítems? Apagados, cambiar uno no se vería: no se ofrece. */
+const muestraIconos = (n: JsonNodo): boolean => {
+  const a = attrsOptimizado(n.attrs);
+  return a.mostrarIconos || CON_ICONOS.includes(a.variante);
+};
+
+/**
+ * Los íconos de una sección en el orden en que se ven: los `<svg>` de sus «Diseño editable» (las páginas de MaKo) y los de
+ * los ítems de sus «Diseño optimizado» que muestran íconos (también los que todavía no tienen uno).
+ */
+function iconosDeSeccion(t: JsonNodo): IconoDeSeccion[] {
+  const out: IconoDeSeccion[] = [];
+  const recorrer = (nodo: JsonNodo, muestra: boolean) => {
+    const html = htmlDeDiseno(nodo);
+    if (html !== null) {
+      for (const i of iconosDeHtmlEditable(html)) out.push({ n: out.length + 1, nombre: i.nombre, junto: i.junto });
+      return;
+    }
+    if (nodo.type === NODO.optimizadoItem) {
+      if (muestra) out.push({ n: out.length + 1, nombre: attrsOptimizadoItem(nodo.attrs).icono, junto: corto(textoDe(nodo, ' ').replace(/\s+/g, ' ').trim(), 50) });
+      return;
+    }
+    const m = nodo.type === NODO.optimizado ? muestraIconos(nodo) : muestra;
+    (nodo.content ?? []).forEach((h) => recorrer(h, m));
+  };
+  recorrer(t, false);
+  return out;
+}
+
+/** La sección con su ícono `n` (el de iconosDeSeccion) cambiado por `nombre` de la biblioteca. */
+function conIconoDeSeccion(t: JsonNodo, n: number, nombre: string): JsonNodo | FallaPlan {
+  let i = 0;
+  let falla: FallaPlan | null = null;
+  const mapear = (nodo: JsonNodo, muestra: boolean): JsonNodo => {
+    if (falla) return nodo;
+    const html = htmlDeDiseno(nodo);
+    if (html !== null) {
+      const cuantos = iconosDeHtmlEditable(html).length;
+      const k = n - i;
+      i += cuantos;
+      if (k < 1 || k > cuantos) return nodo;
+      const r = conIconoDeDiseno(html, k, nombre);
+      if (typeof r !== 'string') { falla = r; return nodo; }
+      return { ...nodo, attrs: { ...nodo.attrs, html: r } };
+    }
+    if (nodo.type === NODO.optimizadoItem) {
+      if (!muestra) return nodo;
+      i++;
+      return i === n ? { ...nodo, attrs: { ...nodo.attrs, icono: nombre } } : nodo;
+    }
+    const m = nodo.type === NODO.optimizado ? muestraIconos(nodo) : muestra;
+    return nodo.content ? { ...nodo, content: nodo.content.map((h) => mapear(h, m)) } : nodo;
+  };
+  const nueva = mapear(t, false);
+  return falla ?? nueva;
+}
+
+/** Los íconos de una sección para ver_secciones_landing (con tope). */
+function iconosParaApi(t: JsonNodo) {
+  const iconos = iconosDeSeccion(t);
+  if (!iconos.length) return {};
+  return {
+    iconos: iconos.slice(0, 40).map((x) => ({ n: x.n, icono: x.nombre, ...(x.junto ? { junto_a: x.junto } : {}) })),
+    ...(iconos.length > 40 ? { iconos_afuera: iconos.length - 40 } : {}),
+  };
+}
+
+/** `ver_iconos_landing`: los íconos de la biblioteca (los del selector del editor), buscados por nombre o etiqueta. */
+export function iconosDeBibliotecaParaApi(buscar: unknown) {
+  const consulta = typeof buscar === 'string' ? buscar.trim().slice(0, 60) : '';
+  const nombres = buscarIconos(consulta, 60);
+  return {
+    iconos: nombres.map((n) => ({ nombre: n, etiquetas: (ICONOS[n]?.tags ?? []).slice(0, 6) })),
+    ...(nombres.length ? {} : { nota: `Ningún ícono con «${consulta}»: prueba otra palabra (en español, sin acentos).` }),
+  };
+}
+
+/**
+ * `cambiar_icono_landing`: UN ícono de una sección por otro de la biblioteca, nombrado por su número (`n`, de
+ * ver_secciones_landing → iconos) o por el de hoy (`actual`: su nombre o el texto junto a él). En un diseño, el `<svg>` de
+ * la casa con el tamaño, la clase y el `style` (el color) del que estaba: lo mismo que el control «Ícono» del editor.
+ */
+export function planCambiarIcono(c: LandingContenido, e: { seccion?: unknown; icono?: unknown; n?: unknown; actual?: unknown }): PlanContenido | FallaPlan {
+  const nombre = typeof e.icono === 'string' ? e.icono.trim().toLowerCase() : '';
+  if (!nombre) return { error: 'Falta el ícono nuevo: su nombre en la biblioteca (ver_iconos_landing).', faltan: ['icono'] };
+  if (!existeIcono(nombre)) return { error: `No hay un ícono «${nombre}» en la biblioteca (búscalo con ver_iconos_landing).`, disponibles: buscarIconos(nombre, 12) };
+  const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
+  if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
+  const u = ubicarSeccion(c, id);
+  if (!u) return noEstaSeccion(c, id);
+  const iconos = iconosDeSeccion(u.tarjeta);
+  if (!iconos.length) return { error: `La sección «${tituloSeccion(u.tarjeta)}» no tiene íconos que se vean.` };
+  const lista = () => iconos.slice(0, 30).map((x) => `${x.n}: ${x.nombre ?? 'del diseño'}${x.junto ? ` — ${x.junto}` : ''}`);
+  let n: number;
+  if (e.n !== undefined) {
+    n = Number(e.n);
+    if (!Number.isInteger(n) || n < 1 || n > iconos.length) return { error: `Esa sección tiene ${iconos.length} íconos: n va de 1 a ${iconos.length}.`, disponibles: lista() };
+  } else if (typeof e.actual === 'string' && e.actual.trim()) {
+    const act = e.actual.trim().toLowerCase();
+    const hallados = iconos.filter((x) => x.nombre === act || (!!x.junto && x.junto.toLowerCase().includes(act)));
+    if (hallados.length !== 1) {
+      return { error: hallados.length ? `Hay ${hallados.length} íconos «${e.actual.trim()}» en esa sección: pasa su número (n).` : `No encontré el ícono «${e.actual.trim()}» en esa sección.`, disponibles: lista() };
+    }
+    n = hallados[0].n;
+  } else return { error: 'Falta cuál ícono: su número (n, de ver_secciones_landing) o el de hoy (actual: su nombre o el texto junto a él).', faltan: ['n'] };
+  const viejo = iconos[n - 1];
+  if (viejo.nombre === nombre) return { error: `Ese ícono ya es «${nombre}».`, yaEstaba: true };
+  const nueva = conIconoDeSeccion(u.tarjeta, n, nombre);
+  if ('error' in nueva) return nueva;
+  if ((nueva.content ?? []).some((h) => String(h.attrs?.html ?? '').length > TOPES.htmlEditable)) {
+    return { error: 'La sección es demasiado grande para cambiarle un ícono: achícala en «Código», en el editor.' };
+  }
+  const frena = frenaElSaneo([u.tarjeta], [nueva]);
+  if (frena) return frena;
+  const junto = viejo.junto ? ` (junto a «${viejo.junto}»)` : '';
+  return {
+    contenido: conSeccion(c, u, nueva),
+    resumen: `Cambiar el ícono ${n} de la sección «${corto(tituloSeccion(u.tarjeta))}»${junto}: ${viejo.nombre ?? 'el del diseño'} → ${nombre}. ${NOTA_VERSION}`,
+    datos: { seccion: id, n, icono: nombre },
+  };
 }
 
 export type CampoApi = { tipo?: unknown; etiqueta?: unknown; requerido?: unknown; opciones?: unknown };

@@ -77,6 +77,7 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_icono_landing
 cambiar_imagen_landing
 cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
@@ -590,6 +591,7 @@ ver_ficha_guion
 ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
+ver_iconos_landing
 ver_integracion
 ver_integraciones
 ver_landing_creada
