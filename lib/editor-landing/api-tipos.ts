@@ -187,8 +187,13 @@ export type Analitica = {
   visitantes30: number;
   leads30: number;
   porDia: { dia: string; visitas: number }[];
-  /** % de visitantes que llegó a cada sección (por scroll), si el Pixel lo midió. null = no medido, NUNCA 0. */
-  alcancePorSeccion: { tarjetaId: string; pct: number | null }[] | null;
+  /**
+   * % de los visitantes de su página que VIO cada sección (Pixel v26, evento `secciones`; lib/editor-landing/alcance-secciones.ts),
+   * con el título de la foto publicada. null = no medido, NUNCA 0.
+   */
+  alcancePorSeccion: { tarjetaId: string; titulo?: string; pct: number | null }[] | null;
+  /** Desde cuándo se mide el alcance (el primer evento `secciones`) y sobre cuántos visitantes. null = no medido. */
+  alcanceMedido?: { desde: string; visitantes: number } | null;
   enAnalyst: boolean;                // si el Landing Analyst ya la tiene declarada
   /**
    * Los pedidos del Botón de pago que se rechazaron en los mismos días (Paquete 3 de la tanda 6, mig 0282;

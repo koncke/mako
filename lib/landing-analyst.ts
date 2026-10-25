@@ -40,6 +40,7 @@ import { getSetting, setSetting } from './settings';
 // así que el dato crudo son los segundos y el % se deriva). Su regla, que este
 // módulo hereda: sin avance positivo el resultado es "no medido", JAMÁS 0%.
 import { avancePorPersona, type EventoVsl } from './vsl-retencion';
+import { textoDeAlcanceSecciones, type AlcanceParaTexto } from './editor-landing/alcance-secciones';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Vocabularios cerrados + tipos
@@ -91,6 +92,12 @@ export type LandingComportamiento = {
   hay_datos: boolean;
   /** true = estos visitantes también entraron a otras landings del workspace. */
   visitantes_compartidos: boolean;
+  /**
+   * Qué porcentaje de los visitantes VIO cada sección (Pixel v26, últimos 30 días; lib/editor-landing/alcance-secciones.ts).
+   * Sólo en las páginas del Web Generator del negocio. null = no se mide (una página de afuera, o todavía sin datos):
+   * nunca 0. Opcional: las filas guardadas antes del 25/10/2026 no lo traen.
+   */
+  alcance_secciones?: AlcanceParaTexto | null;
 };
 
 /** Fila persistida en landing_analyses. */
@@ -174,10 +181,10 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
   const refs = new Map<string, number>();
   for (const v of mias) { const k = refCorto(v.referrer); refs.set(k, (refs.get(k) ?? 0) + 1); }
 
-  // ¿Esta gente también entró a OTRAS landings del workspace? (`compartidos`, arriba) `vsl_events` no
-  // guarda a qué página pertenece el evento, así que la profundidad se atribuye
-  // por visitante; si el visitante vio dos landings, la atribución es ambigua y
-  // hay que DECIRLO en vez de presentar el número como limpio.
+  // ¿Esta gente también entró a OTRAS landings del workspace? (`compartidos`, arriba) La profundidad del video se
+  // atribuye por VISITANTE: si vio dos landings, la atribución es ambigua y hay que DECIRLO en vez de presentar el número
+  // como limpio. (`vsl_events` sí guarda la página desde la mig 0137 —`landing_url`, Pixel v12—; el comentario de antes
+  // decía que no. Atribuir el video por página queda pendiente: los eventos de un Pixel anterior a la v12 no la traen.)
 
   let plays = 0, medidos = 0;
   let mitad: number | null = null, final: number | null = null;
@@ -216,10 +223,20 @@ export async function getComportamiento(url: string): Promise<LandingComportamie
     }
   } catch { /* el cruce con leads es un extra, no un requisito */ }
 
+  // El alcance por sección (Pixel v26): sólo si la URL es una landing publicada del Web Generator de este negocio. Si
+  // la lectura falla, null («no se mide»), nunca un cero. Import dinámico: el server del editor importa de acá.
+  let alcance_secciones: LandingComportamiento['alcance_secciones'] = null;
+  try {
+    const { alcanceDeLandingPorUrl } = await import('./editor-landing/server');
+    const a = await alcanceDeLandingPorUrl(url);
+    alcance_secciones = a ? { desde: a.desde, visitantes: a.visitantes, secciones: a.porSeccion.map((x) => ({ titulo: x.titulo, pct: x.pct })) } : null;
+  } catch { alcance_secciones = null; }
+
   return {
     visitas: mias.length,
     visitantes: visitantes.size,
     plays, medidos, llegaron_al_50: mitad, llegaron_al_final: final, agendas,
+    alcance_secciones,
     primer_evento: fechas[0] ?? null,
     ultimo_evento: fechas[fechas.length - 1] ?? null,
     top_referrers: [...refs.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([ref, n]) => ({ ref, n })),
@@ -340,6 +357,7 @@ function comportamientoTexto(c: LandingComportamiento): string {
     l.push('Video: no hay eventos de reproducción para estos visitantes (o la página no tiene video).');
   }
   l.push(`Agendaron una reunión: ${c.agendas} (${pct(c.agendas, c.visitantes)} de los visitantes)`);
+  l.push(...textoDeAlcanceSecciones(c.alcance_secciones));
   if (c.visitantes_compartidos) {
     l.push('OJO: parte de estos visitantes también entró a otras páginas del negocio, así que los datos del video pueden venir de cualquiera de ellas. Trata la profundidad como aproximada.');
   }
