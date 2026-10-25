@@ -5,7 +5,11 @@
 > ya tenemos la transcripción de Fathom, de la data de métricas de Meta... De los mensajes de WhatsApp, de
 > absolutamente todo. Porque eso sí será un "Second Brain". **Esto para todos los ws**».
 
-**Estado:** diseño, sin dueño asignado todavía. Lo escribió el Cerebro la noche del 23 al 24/10 para que el
+**Estado (25/10/2026):** el primer paso (§8, WhatsApp) está hecho: lib/recolector.ts, el cron
+`second-brain-recolector` (cada hora), la migración 0333 y «Aprende solo» en el Mapa del Second Brain. Lo que se aprendió al
+hacerlo, en docs/hallazgos-second-brain.md («El recolector»). Meta y Fathom siguen sin hacer.
+
+**Estado original:** diseño, sin dueño asignado todavía. Lo escribió el Cerebro la noche del 23 al 24/10 para que el
 pedido no se pierda mientras el lanzamiento del 25 ocupa a todos los chats. **No empezar a construir sin
 leer la sección «Lo que puede salir muy mal».**
 

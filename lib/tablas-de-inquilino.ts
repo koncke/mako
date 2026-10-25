@@ -97,6 +97,8 @@ export const TABLAS_DE_INQUILINO = [
   // Los avisos de Stripe y Mercado Pago (mig 0255): `workspace_id` admite null, como email_entrantes.
   // No va en TENANT_TABLES: nadie la lee con getTenantDb. `cobros` sí está en las dos.
   'pasarela_eventos',
+  // El libro del recolector del Second Brain (mig 0333): vaciar o borrar el negocio se lleva lo que ya leyó.
+  'second_brain_recolectado',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
   // Las reuniones de Fathom que el cron descartó por tipo, con su motivo (mig 0300, 16/10/2026), y
   // los trabajos de «Re-priorizar todo» (mig 0301, el mismo día).

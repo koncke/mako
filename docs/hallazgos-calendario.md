@@ -221,10 +221,12 @@ Maco, movéme la reunión, agendame tal o tal». Chat «Planes», cuenta 5, a pe
   vistas (Día · Agenda · Llamadas). La asistencia se marca en la ficha (un desplegable en una fila de 44 px no se toca bien).
   El número azul va sólo en lo que espera algo (las pasadas sin marcar), como pide la guía del teléfono.
 - **Debajo de 1100 px las tareas bajan** debajo de la tabla y la columna entera scrollea (antes se escondían).
-- **f09, la recarga:** el feedback tiene una sola frase y el transcript entero está en el scratchpad del Cerebro. El peor
-  caso medido en el código: leer Google hace el refresco del token (8 s), la lista de calendarios (10 s) y tandas de 4
-  calendarios con 10 s cada una, en serie: con 9 calendarios, ~48 s antes de dibujar. Si fue eso, la salida es un
-  presupuesto TOTAL para Google (lo que no llegue, a `fallaron`, que ya se muestra). No se cambió sin ver qué pasó.
+- **f09, la recarga: SIN SÍNTOMA, no se arregla a ciegas.** El Cerebro leyó el tramo entero de la llamada (11:04-15:11):
+  Martín dice «ahí darle a recargar porque algo está...» y en el acto pasa a otra cosa; nadie dice qué se veía mal ni qué
+  cambió al recargar (docs/feedback-24-10.md: «no es un bug: no hay síntoma»). Queda medido, por si vuelve con un síntoma:
+  leer Google hace el refresco del token (8 s), la lista de calendarios (10 s) y tandas de 4 calendarios con 10 s cada una,
+  en serie: con 9 calendarios, ~48 s antes de dibujar. Si el síntoma es ése, la salida es un presupuesto TOTAL para Google
+  (lo que no llegue, a `fallaron`, que ya se muestra).
 
 **Sin hacer:** «Se ve muy como Google» en la GRILLA sigue a propósito (Martín, 25/10: «lo tengo que personalizar»). **Vive
 en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx · app/calendario/comun.ts (`entidadDelItem`) ·

@@ -404,4 +404,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/planes',
   },
+  {
+    fecha: '25 oct', hora: '06:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Acelerador con promesa, garantía de entrega y un diagnóstico de 2 minutos antes de la llamada',
+    puntos: [
+      'Lo pediste el 24/10: «El personalizado tiene que tener un factor de PROMESA de resultados». El Cerebro decidió que el personalizado es el Acelerador.',
+      'La tarjeta dice la promesa arriba del botón: en 90 días, tu embudo andando en MaKo, con tus primeras llamadas agendadas desde ahí.',
+      'Abajo del botón, la garantía de entrega: si en la primera semana el embudo no está armado, se devuelve la cuota y no se pagan las que siguen. Es sobre lo que armamos, no sobre lo que vende.',
+      'Cada entregable lleva su tope: hasta 10 horas de nuestro equipo en la semana 1 y 12 asesorías grupales. Las 10 horas salen de Mercately; si quieres otro número, es una línea.',
+      'La página de reembolsos dice la misma garantía, qué cuenta como «armado» y cómo se pide.',
+      'Antes de dejar sus datos, quien pide el Acelerador contesta 3 preguntas, una por pantalla: cuánto factura, cuánto invierte y qué lo traba. Las respuestas te llegan en el mail del pedido y quedan en su ficha.',
+    ],
+    commits: [
+      { sha: '34b09f6b2', msg: 'Planes › el Acelerador con promesa, garantía de entrega y el diagnóstico como puerta', lineas: 330, archivos: 14 },
+    ],
+    archivos: [
+      'lib/planes-mako.ts — la promesa, la garantía y los topes del programa',
+      'app/planes/Tarjetas.tsx — la promesa arriba del botón y la garantía abajo',
+      'app/reembolsos/page.tsx — §2, la garantía de entrega',
+      'app/planes/[plan]/QuieroPlan.tsx — el diagnóstico, una pregunta por pantalla',
+      'lib/compra-plan-reglas.ts y lib/compra-plan.ts — las respuestas, al historial del lead y al mail',
+      'tests/planes-tres-bloques.test.ts y tests/planes-sin-pasarela.test.ts — 11 roturas, cada una cae',
+    ],
+    revisar: '/planes/acelerador',
+  },
 ];

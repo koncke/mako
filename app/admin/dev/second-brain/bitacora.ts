@@ -596,4 +596,38 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?panel=mapa',
   },
+  {
+    fecha: '25 oct', hora: '01:08', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El recolector del Second Brain: data de todos lados, para todos los negocios',
+    pedido: 'Quiero que implementes en el Second Brain un "recolector de información" de TODOS lados... Quiero data de todo en el Second Brain... De las llamadas que ya tenemos la transcripción de Fathom, de la data de métricas de Meta... De los mensajes de WhatsApp, de absolutamente todo. Porque eso sí será un "Second Brain". Esto para todos los ws',
+    puntos: [
+      'Del 24/10 ~03:00; el diseño, en docs/diseno-second-brain-recolector.md. Lo pasó el Cerebro el 25/10 («implementalo de punta a punta»).',
+    ],
+    revisar: '/second-brain?panel=mapa',
+  },
+  {
+    fecha: '25 oct', hora: '01:08', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Second Brain aprende solo de tu WhatsApp, y te dice de qué aprendió',
+    puntos: [
+      'Cada hora, MaKo lee las conversaciones de WhatsApp con los leads de cada negocio que lo prendió, anota los hechos importantes de cada una (qué quiere, qué objetó, qué se acordó) y los suma a su Second Brain. Al responder, el chat los usa y dice de qué conversación salieron.',
+      'Para tus clientes arranca APAGADO (gasta su IA: lo prende cada uno en «Aprende solo»); en tu negocio, prendido. Usa la IA de cada negocio: el que no conectó la suya no corre. Sólo lee: nunca manda ni contesta nada. No lee grupos ni chats sin un lead (tu WhatsApp personal no entra).',
+      'En el Mapa del Second Brain, arriba a la derecha, «Aprende solo»: de qué fuente aprende, cuándo fue la última vez, cuánto entró, lo último que aprendió y un botón para apagarlo.',
+      'Antes de subirlo hay que aplicar la migración 0333 en producción (la aplica el Cerebro). Sin ella el recolector no corre ni gasta nada.',
+      'Lo que sigue del diseño: las métricas de Meta y las llamadas de Fathom (con la cuenta de cada negocio).',
+    ],
+    commits: [
+      { sha: 'c00e56f27', msg: 'Second Brain: el recolector aprende solo del WhatsApp de cada negocio, con su IA y su procedencia', lineas: 1108, archivos: 15 },
+    ],
+    archivos: [
+      'lib/recolector.ts — la vuelta por negocio: qué lee, qué guarda y la marca',
+      'lib/recolector-reglas.ts — qué conversaciones, el pedido a la IA, la respuesta y la procedencia',
+      'app/api/cron/second-brain-recolector/route.ts — el cron, cada hora',
+      'app/second-brain/AprendeSolo.tsx — «Aprende solo» en el Mapa',
+      'supabase/migrations/0333_second_brain_recolectado.sql — el libro (ANTES del deploy)',
+      'tests/second-brain-recolector*.test.ts — las reglas y la vuelta simulada; 10 roturas, cada una cae',
+    ],
+    revisar: '/second-brain?panel=mapa',
+  },
 ];

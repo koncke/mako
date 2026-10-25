@@ -63,6 +63,10 @@
       "schedule": "20 * * * *"
     },
     {
+      "path": "/api/cron/second-brain-recolector",
+      "schedule": "35 * * * *"
+    },
+    {
       "path": "/api/cron/transcribe-ads",
       "schedule": "0 14 * * *"
     },

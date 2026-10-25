@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
-import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { HORAS_SEMANA_1, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -152,15 +152,38 @@ test('el acompañamiento se ve DISTINTO y con más: su bloque oscuro, su insigni
   for (const r of PROGRAMA_ACELERADOR.incluye) assert.ok(t.includes(r), r);
 });
 
-test('la PROMESA del programa la escribe Martín: sin ella no se dibuja ninguna; con ella, arriba del botón', async () => {
-  assert.equal(PROGRAMA_ACELERADOR.promesa, null, 'hasta que Martín la decida (se le preguntó el 24/10)');
-  assert.doesNotMatch(await vitrina(), /Nuestra promesa|garant/i, 'ni una promesa ni una garantía inventadas');
+test('la PROMESA del programa (25/10): un resultado con plazo, arriba del botón, y que no promete plata', async () => {
+  const { promesa } = PROGRAMA_ACELERADOR;
+  assert.ok(promesa, 'el personalizado lleva promesa (Martín, 24/10)');
+  assert.match(promesa!, /^En \d+ días,/, 'con plazo');
+  assert.doesNotMatch(promesa!, /devolv|reembols|garant|vas a (vender|facturar|ganar)|US\$|\d+ ventas/i, 'una promesa no es una garantía de resultado');
+  const t = await vitrina();
+  assert.ok(t.indexOf(`Nuestra promesa: ${promesa}`) > 0 && t.indexOf('Nuestra promesa') < t.indexOf('Quiero el Acelerador'));
   const antes = PROGRAMA_ACELERADOR.promesa;
-  (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = 'una promesa de prueba';
+  (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = null;
   try {
-    const t = await vitrina();
-    assert.ok(t.indexOf('Nuestra promesa: una promesa de prueba') > 0 && t.indexOf('Nuestra promesa') < t.indexOf('Quiero el Acelerador'));
+    assert.doesNotMatch(await vitrina(), /Nuestra promesa/, 'sin promesa, no se inventa una');
   } finally { (PROGRAMA_ACELERADOR as { promesa: string | null }).promesa = antes; }
+});
+
+test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo del botón, y /reembolsos dice la misma', async () => {
+  const { garantia } = PROGRAMA_ACELERADOR;
+  assert.ok(garantia);
+  assert.match(garantia!, /primera semana/);
+  assert.match(garantia!, /embudo no está armado/);
+  assert.doesNotMatch(garantia!, /vend|factur|llamadas|clientes/i, 'no es una garantía de resultado (§6c: recién con datos)');
+  assert.ok(PROGRAMA_ACELERADOR.incluye.some((x) => x.includes(`hasta ${HORAS_SEMANA_1} horas`)), 'el entregable, escrito con su tope de horas');
+  const t = await vitrina();
+  const boton = t.indexOf('Quiero el Acelerador');
+  assert.ok(t.indexOf(`Garantía de entrega: ${garantia}`) > boton, 'la garantía, abajo del botón');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /<a href="\/reembolsos#grupal">Ver condiciones<\/a>/);
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { default: Reembolsos } = await import('../app/reembolsos/page');
+  const reembolsos = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
+  assert.ok(reembolsos.includes(`Garantía de entrega: ${garantia}`), '/reembolsos con la frase de la tarjeta');
+  assert.ok(reembolsos.includes(`hasta ${HORAS_SEMANA_1} horas`));
+  assert.doesNotMatch(reembolsos, /acordamos contigo en la llamada/, 'la garantía ya no se acuerda en la llamada');
 });
 
 // Roturas (24/10/2026; base 8 / 0 con planes-tres-bloques y partners-para-clientes juntos), cada una restaurada (pasan / fallan):

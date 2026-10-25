@@ -143,6 +143,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // nadie usa es una que nadie revisa, y es la forma exacta del «default que cobra en
   // silencio»: el día que alguien las prenda, pagan Opus sin que nadie lo haya decidido.
   // Para devolverlas a Claude hace falta una fila en CLAUDE_PERMITIDO con su fecha.
+  { feature: 'second-brain-recolector', label: 'Second Brain: lo que MaKo aprende de tu WhatsApp', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'El recolector (lib/recolector.ts): resume cada conversación de WhatsApp en hechos para el Second Brain, cada hora y sólo lo nuevo. Extraer hechos de un chat no pide juicio fino → Gemini Flash, con la IA del negocio (sin la suya, no corre).' },
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'Síntesis multi-fuente sobre PII. Bajó a Gemini con el veto: no corría desde julio y su permiso pago no lo revisaba nadie.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
   // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que

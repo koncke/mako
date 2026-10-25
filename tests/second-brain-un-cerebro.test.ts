@@ -153,7 +153,8 @@ test('las puertas: el servidor manda UN cerebro (pantalla, teléfono y grafo viv
   const op = leer('lib/second-brain-opera.ts');
   assert.match(op, /^import 'server-only';/m);
   assert.match(op, /\? cerebroUnido\(negocio, construccionDeMako\(\)\) : negocio;/, 'a quien no opera, sólo su negocio');
-  assert.match(sinComentarios(leer('app/second-brain/pagina.tsx')), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(\{ chatsMako \}\), opera\);\s*return <VistaCerebro cerebro=\{cerebro\} funnelPanel=\{funnelPanel\} \/>;/);
+  // (25/10/2026: con «Aprende solo», el recolector, en la cabecera; sigue siendo UN cerebro.)
+  assert.match(sinComentarios(leer('app/second-brain/pagina.tsx')), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(\{ chatsMako \}\), opera\);\s*return <VistaCerebro cerebro=\{cerebro\} funnelPanel=\{funnelPanel\}(?: aprendeSolo=\{<AprendeSolo [^\n]*\/>\})? \/>;/);
   assert.match(leer('app/api/second-brain/cerebro/route.ts'), /const cerebro = await cerebroQueSeDibuja\(await construirCerebro\(/, 'el grafo vivo trae lo mismo: si no, a los 3 minutos la construcción se iría');
   assert.match(leer('app/m/second-brain/mapa/page.tsx'), /grafo = await cerebroQueSeDibuja\(cerebro\);/);
   const v = sinComentarios(leer('app/second-brain/VistaCerebro.tsx'));
