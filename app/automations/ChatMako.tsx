@@ -71,7 +71,7 @@ import { CajaPedido, ChipCaja, CSS_CAJA_PEDIDO, CSS_TOKENS_CASA, TITULO_CAJA } f
 import { Ico } from '@/app/web-generator/Ico';
 import { GRAMATICA } from '@/lib/mako-gramatica';
 import { sanearChat, type MensajeChatMako, type PreguntaMako, type RespuestaMako } from '@/lib/automatizacion-chat';
-import type { IntencionChat } from '@/lib/flujo-ia-intencion';
+import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import { ordenarAvisos, rondaAbierta, respuestaMako, textoDeCreada, lineaDeListo, CIERRE_EDICION, ELIGE_TU, OTRA_COSA, type EleccionMako, type RondaMako } from '@/lib/flujo-ia-cliente';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
 import { useStreamIA, RUTA_IA, TOPE_CLIENTE_MS, TEXTO_FASE, ORDEN_FASES, type EstadoIA, type ListoStreamIA } from './stream-ia';
@@ -246,12 +246,10 @@ export function ChatMako(p: ChatMakoProps) {
    * «DISCUTIR» O «EDITAR» (22/10/2026, la llamada con Mauricio: «como Lovable: un botón de discutir y otro de editar»).
    * Editar hace lo pedido al pie de la letra; Discutir contesta y sugiere sin tocar el lienzo. La regla vive en
    * lib/flujo-ia-intencion.ts. Arranca en Editar (Mauricio: «que obedezca»), y se recuerda por persona en el navegador.
+   * Desde el 24/10/2026 el selector y su memoria son los compartidos (app/_chat/SelectorIntencion.tsx): el mismo del
+   * editor web, con la misma clave guardada.
    */
-  const [intencion, setIntencion] = useState<IntencionChat>('editar');
-  // Lo guardado se lee DESPUÉS de montar: leído en el primer render, el server (sin `localStorage`) y el navegador
-  // dibujarían distinto.
-  useEffect(() => { setIntencion(leerIntencion()); }, []);
-  const elegirIntencion = (i: IntencionChat) => { setIntencion(i); guardarIntencion(i); };
+  const [intencion, elegirIntencion] = useIntencion();
   /** Lo que vuelve a la barra cuando un pedido que no nació en ella no salió (`ChatHilo.ponerBorrador`). */
   const [devolver, setDevolver] = useState<{ texto: string; vez: number } | null>(null);
   /** Lo que se hace con un turno que terminó y que largó OTRA instancia (se fue y volvió): se arma más abajo. */
@@ -1151,45 +1149,3 @@ const S: Record<string, CSSProperties> = {
   cancelar: { flex: 'none', border: 'none', background: 'none', padding: '4px 2px', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },
 };
-
-// ── «Discutir» / «Editar» (22/10/2026, lib/flujo-ia-intencion.ts) ───────────────────────────────────────────────
-
-const CLAVE_INTENCION = 'mako-chat-intencion';
-/** Lo que eligió esta persona la última vez (en ESTE navegador). Sin poder leer, Editar. */
-function leerIntencion(): IntencionChat {
-  try { return localStorage.getItem(CLAVE_INTENCION) === 'discutir' ? 'discutir' : 'editar'; } catch { return 'editar'; }
-}
-function guardarIntencion(i: IntencionChat): void {
-  try { localStorage.setItem(CLAVE_INTENCION, i); } catch { /* sin almacenamiento: vale para esta pantalla */ }
-}
-
-/**
- * Lo que hace cada opción. 22/10/2026, Martín: «Elimina los textos innecesarios, como "Hace lo que pides, tal cual." o "Te
- * contesta y sugiere, sin tocar el lienzo."»: ya no se dibuja al lado del segmento; queda sólo al pasar el cursor (`title`).
- */
-export const AYUDA_INTENCION: Readonly<Record<IntencionChat, string>> = {
-  editar: 'Hace lo que pides, tal cual.',
-  discutir: 'Te contesta y sugiere, sin tocar el lienzo.',
-};
-
-/** Las dos opciones, como un interruptor de dos lados, encima de la barra. */
-function SelectorIntencion({ valor, onCambio, deshabilitado }: { valor: IntencionChat; onCambio: (i: IntencionChat) => void; deshabilitado: boolean }) {
-  const opciones: Array<{ id: IntencionChat; rotulo: string }> = [{ id: 'discutir', rotulo: 'Discutir' }, { id: 'editar', rotulo: 'Editar' }];
-  return (
-    <div data-intencion={valor} style={{ display: 'flex', alignItems: 'center', gap: 8, paddingBottom: 8, flexWrap: 'wrap' }}>
-      <div role="radiogroup" aria-label="Qué hace MaKo con lo que escribes" style={{ display: 'inline-flex', padding: 2, borderRadius: 999, background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-        {opciones.map((o) => (
-          <button key={o.id} type="button" role="radio" aria-checked={valor === o.id} disabled={deshabilitado}
-            title={AYUDA_INTENCION[o.id]} onClick={() => onCambio(o.id)}
-            style={{
-              border: 'none', borderRadius: 999, padding: '4px 12px', fontSize: 12.5, fontWeight: 600, cursor: deshabilitado ? 'default' : 'pointer',
-              background: valor === o.id ? 'var(--surface)' : 'transparent', color: valor === o.id ? 'var(--ink)' : 'var(--dim)',
-              boxShadow: valor === o.id ? '0 1px 2px rgba(18,21,27,.10)' : 'none',
-            }}>
-            {o.rotulo}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
