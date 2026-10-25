@@ -24,7 +24,7 @@ import { porId } from '../lib/api-mako/registro';
 
 const leer = (rel: string): string => readFileSync(join(import.meta.dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 
-test('la acción está en el registro y en el lienzo, en «Cliente» (Customer Success)', () => {
+test('la acción está en el registro y en el lienzo, en «Cliente» (Clients)', () => {
   const def = porId('invitar_cliente_curso_cs');
   assert.ok(def && def.tipo === 'accion', 'falta en el registro');
   assert.equal(def.reversible, false);
@@ -32,7 +32,7 @@ test('la acción está en el registro y en el lienzo, en «Cliente» (Customer S
   const a = accionDelFlujo('invitar_cliente_curso_cs');
   assert.ok(a, 'el lienzo no la ofrece');
   assert.equal(a!.grupo, 'Cliente');
-  assert.equal(AREA_DE_GRUPO[a!.grupo], 'Customer Success');
+  assert.equal(AREA_DE_GRUPO[a!.grupo], 'Clients');
 });
 
 test('el curso se elige: el `productoId` de una acción de curso es el control `curso`; el de un cobro, no', () => {

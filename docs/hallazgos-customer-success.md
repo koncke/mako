@@ -5902,6 +5902,12 @@ curso sin nombre dice `SIN_NOMBRE_ALUMNO_EN_LISTA` («Programa sin nombre»); so
 - **Siete tests fijaban el lugar viejo** (curso-apariencia, curso-estilo, curso-nuevo-producto, curso-comentarios-clase,
   cursos-ugc, curso-guardado-manual, curso-recorridos). Se reescribieron para fijar el lugar nuevo con la misma intención
   (que el deshacer escriba en el server, que se pregunte por la lección sin guardar), no se borraron.
+- **Un menú que se abre desde el título, aunque sea con el clic DERECHO, es un desplegable.** La tanda 3 le había puesto
+  al título de la barra negra el clic derecho del programa (Renombrar, Eliminar), con el argumento de que «no lo vuelve
+  clickeable». Martín, al leerlo (25/10): «recuerda que en la sidebar negra de classroom el título de arriba de la
+  sidebar no debe ser un desplegable». Se sacó: el título es TEXTO (un `div`, sin botón, menú, flecha ni clic derecho), y
+  el menú del programa vive sólo en la cabecera de Clients. tests/clients-un-selector.test.ts lo fija. ⚠️ El clic
+  derecho en módulos y clases SÍ queda: ahí abre su «…», que ya existía.
 
 **Quedó SIN hacer, y dónde:**
 - Si f29 era otra cosa (Leandro entró con su Google de MaKo y vio su propia cuenta), el arreglo no la toca: lo de arriba
@@ -5928,8 +5934,8 @@ descripciones de la API (`AREA_INFO`, los `.def.ts`), que seguían con el nombre
 ⚠️ **El diagnóstico obvio era el equivocado**: «hay que construir eliminar». Ya estaba hecho, con la decisión del CRM
 (archivar los embudos, y si no hay ninguno, la baja). Lo que faltaba era el lugar, la cuenta de alumnos y el «Deshacer».
 
-**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (y el nombre del curso en la barra del
-Classroom, su clic derecho): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
+**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (el título de la barra negra del Classroom NO:
+es texto, ver «Dos selectores de programa», arriba): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
 pregunta sólo con alumnos o clases, con la cuenta (`preguntaAlEliminar`), archiva por la MISMA action (que ahora devuelve
 QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «…». MaKo y los avisos de la tab dicen
 «Clients»; las claves (`cs`, `customer-success`) no se tocaron.
@@ -5950,13 +5956,16 @@ QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «�
   títulos no cambian (son la clave del área)» estaba mal y se corrigió.
 
 **Quedó SIN hacer, y dónde:**
-- **Duplicar** (un programa, un módulo o una clase): no existe en el server. Para una clase sería copiar su fila de
-  `curso_clases` con sus campos; para un programa, la cadena producto → oferta → embudo más el curso entero.
+- ~~**Duplicar**~~ el programa entero: hecho el 25/10 (ver «Duplicar un programa», abajo). Un módulo o una clase
+  sueltos, todavía no.
 - El principal no se elimina (lo frena `archivarFunnel`): si el «Curso sin nombre» de Leandro es su producto principal,
   su menú sólo ofrece Renombrar. No se pudo medir: leer su negocio está bloqueado desde esta sesión.
-- «Customer Success» sigue en textos de OTRAS áreas: las acciones del editor de Automations (`lib/editor-acciones.ts`),
-  el catálogo de gráficos (`lib/graficos-*.ts`), el de modelos de IA (`lib/model-catalogo.ts`) y los prompts que dicen
-  «asistente de Customer Success» (`lib/curso-propuesta.ts`, `lib/closing-entrega-contrato.ts`: es el oficio, no la tab).
+- ~~«Customer Success» en OTRAS áreas~~: el 25/10 pasaron a «Clients» el selector de acciones de Automations
+  (`lib/editor-acciones.ts`), las áreas de los gráficos (`lib/graficos-*.ts`, `app/dashboard/Propiedades.tsx`), el
+  catálogo de modelos (`lib/model-catalogo.ts`), el grupo del registro de prompts y lo que dice unificar dos leads: son
+  rótulos, ningún flujo ni tablero guarda el nombre del área. Quedan, a propósito: los prompts que dicen «asistente de
+  Customer Success» (es el oficio, no la tab), el «CS Analyst» (su nombre), el catálogo de proyectos del Plan (los nombres
+  son las filas de la base), la ficha del lead del CRM (`'Customer Success': 'cs-resumen'`, de otro chat) y la VSL.
 - Nada se miró en el navegador.
 
 **Vive en:** `app/customer-success/eliminar-programa.ts` · `app/customer-success/actions.ts` (`eliminarServicioAction`,
@@ -5965,3 +5974,44 @@ QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «�
 `tests/clients-eliminar-programa.test.ts` (10 roturas) y `tests/clients-nombre-en-mako.test.ts` (3 roturas)
 
 *25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*
+
+## Duplicar un programa: qué se copia, qué no, y los archivos que el alumno no vería (25/10/2026)
+
+**Pedido** (Martín por el Cerebro, después de la llamada con Leandro): duplicar un programa «de punta a punta (...) curso,
+módulos, clases y su configuración; nunca los alumnos ni su progreso», en el «…», el clic derecho y la API de MaKo.
+
+**Lo que no se ve leyendo el código:**
+- **Copiar las filas no alcanza: los archivos son de UN producto.** Un adjunto se le sirve al alumno sólo si es del mismo
+  producto que la clase (`decidirAdjuntoAlumno`), y un video subido, sólo si su ruta es `<ws>/<producto>/…`
+  (`pathEsDelProducto`, también al GUARDAR la clase). Con la ruta del original, las imágenes de la copia le darían 404 al
+  alumno y la clase no se podría volver a guardar. Se copian los archivos a rutas del producto nuevo (`storage.copy`, del
+  lado del server) y se reescribe `mako-adjunto:<id>` en la descripción y en cada tarea.
+  ⚠️ **El diagnóstico obvio era el equivocado**: aflojar esos dos chequeos para que la copia comparta el archivo. Son
+  guardas de seguridad escritas a propósito (y con test): el que ve un archivo es el alumno de ESE producto.
+- **Los videos subidos pesan, y el Storage es UNO para toda la plataforma** (5 GiB). Se copian sólo si entre todos no
+  pasan 300 MB (`TOPE_VIDEOS_COPIA`); si no, esas clases quedan sin video y el aviso lo dice. Todos o ninguno: una copia
+  con la mitad de los videos se lee como rota. Un video cuyo peso no se pudo leer cuenta como que no entra.
+- **Los ids de las clases cambian, las claves de los módulos no.** Un candado «al terminar la tarea de la clase N» y las
+  claves `portada:clase:N` / `comentarios:clase:N` del estilo apuntan al id viejo: se traducen con el mapa viejo → nuevo, y
+  por eso los candados se escriben DESPUÉS de insertar todas las clases. Las claves de los módulos son las de las etapas
+  de la entrega, que se copian igual.
+- **Una tarea de la comunidad no se lleva el post ni la categoría**: son de la comunidad del original. Sin ellos caen a
+  su default (el último fijado, la primera categoría donde puede publicar), que es lo que tendrá la comunidad nueva.
+- **No es una transacción.** Si algo falla a mitad, la copia se ARCHIVA y se devuelve el error: una copia a medias no
+  queda a la vista pareciendo entera.
+- **Eliminar y restaurar se sacaron de la action a `app/customer-success/programa-datos.ts`**: las usan la pantalla y la
+  API de MaKo, y la puerta (el admin, el gating) es de cada una.
+
+**Quedó SIN hacer, y dónde:**
+- No se copian, a propósito: la comunidad (categorías, About, niveles), las notas del equipo de cada clase
+  (`curso_clase_notas`), las automatizaciones de la entrega, el embudo de ventas con sus etapas del CRM (nace con la
+  plantilla, como «+ Nuevo producto») y el precio del producto. Si Martín quiere alguno, va en `lib/curso-duplicar.ts`.
+- Duplicar un módulo o una clase sueltos (no el programa entero) no existe.
+- No se probó contra la base ni en pantalla (sin RAM para `next dev`; leer producción está bloqueado desde esta sesión).
+
+**Vive en:** `lib/curso-duplicar.ts` · `lib/curso-duplicar-reglas.ts` · `app/customer-success/programa-datos.ts` ·
+`app/customer-success/actions.ts` (`duplicarServicioAction`) · `app/clients/ClientsShell.tsx` (`duplicar`, `NOTA_DESHACER`) ·
+`lib/api-mako/areas/curso.def.ts` y `.run.ts` (`duplicar_curso`, `renombrar_curso`, `eliminar_curso`, `restaurar_curso`) ·
+`tests/clients-duplicar-programa.test.ts` (10 roturas, cada una cae)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*

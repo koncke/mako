@@ -8,7 +8,8 @@
 // Molde: app/crm/menu-contextual-crm.ts. Acá se decide sólo QUÉ sale y en qué orden (`opcionesPrograma`) y cómo se
 // arma cada renglón (`itemsPrograma`). CÓMO se abre es de la pieza de la casa (app/_ui/MenuContextual.tsx) y QUÉ HACE
 // cada opción es de la cabecera (`elegirEnPrograma`, app/clients/ClientsShell.tsx). Lo abren el «…» de cada programa
-// de la lista de la cabecera, su clic derecho, y el clic derecho en el nombre del curso de la barra del Classroom.
+// de la lista de la cabecera y su clic derecho. ⚠️ NO el título de la barra negra del Classroom: es texto (Martín,
+// 25/10/2026: «no debe ser un desplegable»).
 //
 // ⚠️ LO QUE NO SE PUEDE, NO SALE: «si no se puede eliminar, no pongas directamente esa opción, no la dejes en gris»
 //    (Martín, 29/09/2026). El principal no se elimina (`archivarFunnel` lo frena). «Eliminar» va al final, separado y
@@ -22,12 +23,13 @@
 // =============================================================================
 import type { EntradaMenuContextual } from '@/app/_ui/MenuContextual';
 
-export type IdOpcionPrograma = 'renombrar' | 'eliminar';
+export type IdOpcionPrograma = 'renombrar' | 'duplicar' | 'eliminar';
 
 /** Las opciones del menú de un programa, en orden. `null` = separador. Vacío = no hay menú. */
 export function opcionesPrograma(p: { admin: boolean; principal: boolean }): Array<IdOpcionPrograma | null> {
   if (!p.admin) return [];
-  return p.principal ? ['renombrar'] : ['renombrar', null, 'eliminar'];
+  // Duplicar (25/10/2026) va con Renombrar: no destruye nada. El principal también se duplica (la copia no lo es).
+  return p.principal ? ['renombrar', 'duplicar'] : ['renombrar', 'duplicar', null, 'eliminar'];
 }
 
 /** Los renglones del menú. */
@@ -35,9 +37,10 @@ export function itemsPrograma(ids: ReadonlyArray<IdOpcionPrograma | null>): Entr
   return ids.map((id) => {
     if (id === null) return null;
     if (id === 'renombrar') return { id, label: 'Renombrar', icono: 'renombrar' };
+    if (id === 'duplicar') return { id, label: 'Duplicar', icono: 'duplicar' };
     return { id, label: 'Eliminar', icono: 'borrar', peligro: true };
   });
 }
 
 /** ¿Este id es una opción del menú? (`onElegir` recibe un texto). */
-export const esOpcionPrograma = (id: string): id is IdOpcionPrograma => id === 'renombrar' || id === 'eliminar';
+export const esOpcionPrograma = (id: string): id is IdOpcionPrograma => id === 'renombrar' || id === 'duplicar' || id === 'eliminar';

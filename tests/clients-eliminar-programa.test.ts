@@ -56,23 +56,29 @@ test('preguntaAlEliminar: sin alumnos ni clases no se pregunta; con, la cuenta y
 
 test('el menú de un programa: un admin; el principal sin «Eliminar»; «Eliminar» al final, separado y en rojo', () => {
   assert.deepEqual(opcionesPrograma({ admin: false, principal: false }), [], 'sin nada que ofrecer no hay menú');
-  assert.deepEqual(opcionesPrograma({ admin: true, principal: true }), ['renombrar']);
+  assert.deepEqual(opcionesPrograma({ admin: true, principal: true }), ['renombrar', 'duplicar']);
   const ids = opcionesPrograma({ admin: true, principal: false });
-  assert.deepEqual(ids, ['renombrar', null, 'eliminar']);
+  assert.deepEqual(ids, ['renombrar', 'duplicar', null, 'eliminar']);
   const items = itemsPrograma(ids);
-  assert.equal(items[1], null);
-  assert.deepEqual(items[2], { id: 'eliminar', label: 'Eliminar', icono: 'borrar', peligro: true });
+  assert.equal(items[2], null);
+  assert.deepEqual(items[3], { id: 'eliminar', label: 'Eliminar', icono: 'borrar', peligro: true });
 });
 
+// Desde el 25/10/2026 lo que escribe vive en app/customer-success/programa-datos.ts (lo usan la action y la API de MaKo);
+// la action es la puerta: el admin antes que nada.
 test('la action decide con la regla y devuelve el «Deshacer»; restaurar valida los embudos ANTES de escribir', () => {
   const acc = sinComentarios(leer('app/customer-success/actions.ts'));
   const elim = tramo(acc, 'export async function eliminarServicioAction(', 'export async function previaEliminarServicioAction(');
-  assert.match(elim, /const paso = pasoParaEliminar\(await embudosDelProducto\(productoId\)\);/);
-  assert.match(elim, /deshacer = \{ tipo: 'embudos', ids: paso\.ids \};/);
-  assert.match(elim, /return \{ ok: true, deshacer \};/);
+  assert.ok(antes(elim, 'if (!(await adminDeWorkspaceActual()))', 'eliminarPrograma(productoId)'), 'elimina sin ser admin');
+  assert.match(elim, /return \{ ok: true, deshacer: r\.deshacer \};/);
   const rest = tramo(acc, 'export async function restaurarServicioAction(', '\n}\n');
-  assert.ok(antes(rest, 'if (!(await adminDeWorkspaceActual()))', 'restaurarFunnel('), 'restaura sin ser admin');
-  assert.ok(antes(rest, 'deshacerValido(deshacer, await embudosDelProducto(productoId))', 'restaurarFunnel('), 'restaura un embudo sin mirar de quién es');
+  assert.ok(antes(rest, 'if (!(await adminDeWorkspaceActual()))', 'restaurarPrograma(productoId, deshacer)'), 'restaura sin ser admin');
+  const datos = sinComentarios(leer('app/customer-success/programa-datos.ts'));
+  const e = tramo(datos, 'export async function eliminarPrograma(', 'export async function restaurarPrograma(');
+  assert.match(e, /const paso = pasoParaEliminar\(await embudosDelProducto\(productoId\)\);/);
+  assert.match(e, /return \{ ok: true, deshacer: \{ tipo: 'embudos', ids: paso\.ids \} \};/);
+  const r = tramo(datos, 'export async function restaurarPrograma(', 'export async function restaurarProgramaEliminado(');
+  assert.ok(antes(r, 'deshacerValido(deshacer, await embudosDelProducto(productoId))', 'restaurarFunnel('), 'restaura un embudo sin mirar de quién es');
   const previa = tramo(acc, 'export async function previaEliminarServicioAction(', 'export async function restaurarServicioAction(');
   assert.match(previa, /miembrosDeLaComunidad\(ws, productoId\)/, 'los alumnos se cuentan con la regla del portal');
   assert.match(sinComentarios(leer('app/customer-success/entrega.ts')), /principal: principales\.has\(p\.id\), conEmbudo: conEmbudo\.has\(p\.id\)/);
@@ -83,12 +89,13 @@ test('la cabecera: pregunta con la cuenta, navega DURO con el ?ws= y el «Deshac
   const elim = tramo(shell, 'const eliminar = async (p: ProgramaClients) => {', 'const elegirEnPrograma = ');
   assert.ok(antes(elim, 'previaEliminarServicioAction(p.id)', 'eliminarServicioAction(p.id)'), 'elimina sin contar a los alumnos');
   assert.match(elim, /if \(q && !\(await confirm\(q\.texto, \{ title: q\.titulo, confirmLabel: 'Eliminar' \}\)\)\) return;/);
-  assert.match(elim, /window\.sessionStorage\.setItem\(NOTA_DESHACER, JSON\.stringify\(nota\)\)/);
+  assert.match(elim, /if \(r\.deshacer\) anotarDeshacer\(`«\$\{p\.nombre\}» eliminado`, \{ tipo: 'restaurar', id: p\.id, deshacer: r\.deshacer \}\);/);
+  assert.match(shell, /window\.sessionStorage\.setItem\(NOTA_DESHACER, JSON\.stringify\(\{ texto, accion, hasta: Date\.now\(\) \+ 12_000 \} satisfies NotaDeshacer\)\)/);
   assert.match(elim, /window\.location\.href = conWs\(/, 'cambió QUÉ EXISTE: un refresh llega un paso atrás');
   // Al montar: se lee, se BORRA (una sola vez) y sólo dentro de su plazo.
-  const efecto = tramo(shell, 'window.sessionStorage.getItem(NOTA_DESHACER)', '}, [show, deshacerEliminar]);');
+  const efecto = tramo(shell, 'window.sessionStorage.getItem(NOTA_DESHACER)', '}, [show, deshacerNota]);');
   assert.match(efecto, /window\.sessionStorage\.removeItem\(NOTA_DESHACER\);/);
-  assert.match(efecto, /nota\.hasta < Date\.now\(\)\) return;/);
+  assert.match(efecto, /nota\.hasta < Date\.now\(\) \|\| !nota\.accion/);
   assert.match(shell, /\{menu && programaDelMenu && itemsDelMenu\.length > 0 && \(\s*<MenuContextual /);
   // El diálogo de Renombrar: el foco no salta con cada letra (app/customer-success/curso/dialogo-foco.ts).
   const ren = tramo(shell, 'function RenombrarPrograma(', 'function Personalizar(');

@@ -21,9 +21,9 @@
 //     Es EL ÚNICO lugar donde se eligen desde el 24/10/2026 (f27 de la llamada con Leandro: «que toda la
 //     configuración de diseño se vaya al botón de personalizar»): el menú de la marca del Classroom se fue. Es el
 //     ajuste que ve el alumno en su portal (`guardarEstiloCursoAction`, `curso_estilo`): uno por programa.
-//   · EL MENÚ DE CADA PROGRAMA (f25 y f26, 24/10/2026): su «…» en la lista y su clic derecho —y el clic derecho en el
-//     nombre del curso de la barra del Classroom, por `useMenuPrograma`—: Renombrar y Eliminar (./menu-contextual-
-//     clients.ts, puro y con test). Eliminar ARCHIVA (como el CRM: app/customer-success/eliminar-programa.ts), pregunta
+//   · EL MENÚ DE CADA PROGRAMA (f25 y f26, 24/10/2026): su «…» en la lista y su clic derecho (también el del programa
+//     que se mira): Renombrar y Eliminar (./menu-contextual-clients.ts, puro y con test). ⚠️ SÓLO ACÁ: el título de la
+//     barra negra del Classroom es TEXTO, sin clic derecho (Martín, 25/10/2026: «no debe ser un desplegable»). Eliminar ARCHIVA (como el CRM: app/customer-success/eliminar-programa.ts), pregunta
 //     sólo si hay alumnos o clases, con la cuenta, y navega DURO (cambió QUÉ EXISTE, AGENTS.md); el «Deshacer» cruza
 //     la recarga en `sessionStorage` (`NOTA_DESHACER`).
 //   · ⚠️ UN SOLO SELECTOR DE PROGRAMA, ÉSTE (f28: «me cambian los dos al mismo tiempo»; un curso es un producto). Con
@@ -50,8 +50,10 @@ import { SelectorFuente, useHojasDeFuentes } from '@/app/_cursos/SelectorFuente'
 import { guardarEstiloCursoAction } from '@/app/customer-success/curso/actions';
 import { NuevoProducto } from '@/app/customer-success/curso/NuevoProducto';
 import { useCerrarEstable, useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
-import { eliminarServicioAction, previaEliminarServicioAction, restaurarServicioAction } from '@/app/customer-success/actions';
-import { preguntaAlEliminar, type DeshacerEliminar } from '@/app/customer-success/eliminar-programa';
+import {
+  duplicarServicioAction, eliminarServicioAction, previaEliminarServicioAction, restaurarServicioAction,
+} from '@/app/customer-success/actions';
+import { avisoDeCopia, preguntaAlEliminar, type DeshacerEliminar } from '@/app/customer-success/eliminar-programa';
 import { esOpcionPrograma, itemsPrograma, opcionesPrograma } from './menu-contextual-clients';
 import {
   SECCIONES_CLIENTS, esSeccionComunidad, esVistaPrevia, hrefConPrograma, hrefSeccion, seccionDeRuta,
@@ -75,18 +77,23 @@ export type ProgramaClients = {
   conEmbudo: boolean;
 };
 
-/** Abre el menú de un programa en un punto de la ventana. Lo usa la barra del Classroom (clic derecho en su nombre). */
+/** Abre el menú de un programa en un punto de la ventana: el «…» de su fila y el clic derecho en la cabecera. */
 type AbrirMenuPrograma = (productoId: number, punto: { x: number; y: number }) => void;
-const MenuProgramaCtx = createContext<AbrirMenuPrograma | null>(null);
-/** El menú del programa (Renombrar, Eliminar), o `null` si no hay (sin cabecera, o sin nada que ofrecer: no es admin). */
-export const useMenuPrograma = () => useContext(MenuProgramaCtx);
 
 /**
  * El «Deshacer» de Eliminar CRUZA LA RECARGA: eliminar navega duro (cambió qué existe), y el aviso con su botón se
  * perdería con la página. Se anota acá y la cabecera nueva lo muestra al montar, si no pasaron 12 segundos.
  */
 const NOTA_DESHACER = 'clients:deshacer-eliminar';
-type NotaDeshacer = { id: number; nombre: string; deshacer: DeshacerEliminar; hasta: number };
+/**
+ * Lo que se deshace: un programa eliminado vuelve (`restaurar`), o una copia recién hecha se va (`quitarCopia`, y se
+ * vuelve al original). Duplicar también navega duro: lo que cambió es qué existe.
+ */
+type NotaDeshacer = {
+  texto: string;
+  accion: { tipo: 'restaurar'; id: number; deshacer: DeshacerEliminar } | { tipo: 'quitarCopia'; id: number; volverA: number };
+  hasta: number;
+};
 
 /** Lo que «Personalizar» guarda: el color o la fuente del programa. */
 type AjusteVisual = { tipo: 'acento' } | { tipo: 'fuente' };
@@ -150,12 +157,20 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
   const cerrarRenombrar = useCallback(() => setRenombrando(null), []);
   const abrirMenu = useCallback<AbrirMenuPrograma>((id, punto) => setMenu({ id, punto }), []);
 
-  /** Vuelve a dejar el programa como estaba y lo abre (navega duro: cambió qué existe). */
-  const deshacerEliminar = useCallback(async (n: NotaDeshacer) => {
-    const r = await restaurarServicioAction(n.id, n.deshacer).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+  /** Deshace lo de la nota y abre el programa que corresponde (navega duro: cambió qué existe). */
+  const deshacerNota = useCallback(async (n: NotaDeshacer) => {
+    const a = n.accion;
+    const r = await (a.tipo === 'restaurar' ? restaurarServicioAction(a.id, a.deshacer) : eliminarServicioAction(a.id))
+      .catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
-    window.location.href = conWs(hrefConPrograma(window.location.pathname, window.location.search.slice(1), n.id), ws);
+    const destino = a.tipo === 'restaurar' ? a.id : a.volverA;
+    window.location.href = conWs(hrefConPrograma(window.location.pathname, window.location.search.slice(1), destino), ws);
   }, [show, ws]);
+  /** Anota el «Deshacer» para después de la recarga (ver `NOTA_DESHACER`). Sin `sessionStorage`, no hay: se dice igual. */
+  const anotarDeshacer = (texto: string, accion: NotaDeshacer['accion']) => {
+    try { window.sessionStorage.setItem(NOTA_DESHACER, JSON.stringify({ texto, accion, hasta: Date.now() + 12_000 } satisfies NotaDeshacer)); }
+    catch { /* sin «Deshacer»: lo eliminado vuelve desde el CRM, y una copia se elimina desde su menú */ }
+  };
 
   // El «Deshacer» de un Eliminar de antes de la recarga (ver `NOTA_DESHACER`). Se lee y se borra: una sola vez.
   useEffect(() => {
@@ -164,10 +179,10 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
       nota = JSON.parse(window.sessionStorage.getItem(NOTA_DESHACER) ?? 'null') as NotaDeshacer | null;
       window.sessionStorage.removeItem(NOTA_DESHACER);
     } catch { nota = null; }
-    if (!nota || typeof nota.hasta !== 'number' || nota.hasta < Date.now()) return;
+    if (!nota || typeof nota.hasta !== 'number' || nota.hasta < Date.now() || !nota.accion || typeof nota.texto !== 'string') return;
     const n = nota;
-    show(`«${n.nombre}» eliminado`, () => { void deshacerEliminar(n); });
-  }, [show, deshacerEliminar]);
+    show(n.texto, () => { void deshacerNota(n); });
+  }, [show, deshacerNota]);
 
   if (esVistaPrevia(pathname) || !seccion) return <>{children}</>;
 
@@ -215,13 +230,22 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
     if (q && !(await confirm(q.texto, { title: q.titulo, confirmLabel: 'Eliminar' }))) return;
     const r = await eliminarServicioAction(p.id).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
     if (!r.ok) { show(r.error, undefined, 'bad'); return; }
-    if (r.deshacer) {
-      const nota: NotaDeshacer = { id: p.id, nombre: p.nombre, deshacer: r.deshacer, hasta: Date.now() + 12_000 };
-      try { window.sessionStorage.setItem(NOTA_DESHACER, JSON.stringify(nota)); } catch { /* sin «Deshacer»: vuelve desde el CRM */ }
-    }
+    if (r.deshacer) anotarDeshacer(`«${p.nombre}» eliminado`, { tipo: 'restaurar', id: p.id, deshacer: r.deshacer });
     const q2 = new URLSearchParams(search);
     for (const k of ['producto', 'cliente', 'post']) q2.delete(k);
     window.location.href = conWs(`${pathname}${q2.toString() ? `?${q2.toString()}` : ''}`, ws);
+  };
+
+  /**
+   * Duplicar un programa (25/10/2026): la copia con su curso entero y sin alumnos (lib/curso-duplicar.ts). Navega DURO a
+   * la copia, en la misma sub-tab; su «Deshacer» la elimina y vuelve al original. Mientras copia, lo dice: puede tardar.
+   */
+  const duplicar = async (p: ProgramaClients) => {
+    show(`Duplicando «${p.nombre}»…`);
+    const r = await duplicarServicioAction(p.id).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    anotarDeshacer(avisoDeCopia(r.copia), { tipo: 'quitarCopia', id: r.copia.productoId, volverA: p.id });
+    window.location.href = conWs(hrefConPrograma(pathname, search, r.copia.productoId), ws);
   };
 
   const elegirEnPrograma = (id: string) => {
@@ -229,6 +253,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
     setMenu(null);
     if (!p || !esOpcionPrograma(id)) return;
     if (id === 'renombrar') setRenombrando(p);
+    else if (id === 'duplicar') void duplicar(p);
     else void eliminar(p);
   };
   const programaDelMenu = menu ? programas.find((x) => x.id === menu.id) ?? null : null;
@@ -281,9 +306,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
           })}
         </nav>
       </header>
-      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>
-        <MenuProgramaCtx.Provider value={conMenu ? abrirMenu : null}>{children}</MenuProgramaCtx.Provider>
-      </div>
+      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>{children}</div>
       {/* El nombre se pide afuera de todo (la hoja del curso le saca la piel a los botones de un diálogo). */}
       {creando && <NuevoProducto onCerrar={cerrarCreando} />}
       {menu && programaDelMenu && itemsDelMenu.length > 0 && (

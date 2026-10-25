@@ -52,7 +52,7 @@ import { IDENTIDADES } from '@/lib/graficos-identidad';
 
 const ICONO_AREA: Record<Area, NombreIconoMenu> = {
   Negocio: 'dinero', Marketing: 'anuncio', 'CRM y ventas': 'persona', 'Comunicación': 'whatsapp', Automations: 'repetir',
-  Plan: 'plan', 'Customer Success': 'cliente', 'Second Brain': 'archivo', Onboarding: 'check', 'IA y contenido': 'mako',
+  Plan: 'plan', Clients: 'cliente', 'Second Brain': 'archivo', Onboarding: 'check', 'IA y contenido': 'mako',
 };
 const iconoFuente = (id: string) => ICONO_AREA[fuenteDe(id)?.area ?? 'Negocio'];
 const norm = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();

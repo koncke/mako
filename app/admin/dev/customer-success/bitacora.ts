@@ -1187,4 +1187,45 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients/classroom',
   },
+  {
+    fecha: '25 oct', hora: '01:23', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Duplicar un programa entero, sin alumnos, y «Clients» en las demás áreas',
+    pedido: 'Implementa todos los feedback y todo lo que hacia falta end to end, no hagas preguntas.',
+    puntos: [
+      'Cada programa de Clients tiene «Duplicar» en su «…» y su clic derecho: crea «X (copia)» con el curso entero, sus módulos, clases, tareas, candados, etapas, estilo y archivos.',
+      'Nunca copia a los alumnos ni su avance, ni la comunidad. Los videos subidos se copian si entre todos pesan menos de 300 MB; si no, se avisa cuántos quedaron afuera.',
+      'La copia tiene «Deshacer», y la API de MaKo ya puede duplicar, renombrar, eliminar y restaurar un curso.',
+      'El selector de acciones de Automations, las áreas de los gráficos y el catálogo de modelos dicen «Clients» en vez de «Customer Success».',
+    ],
+    commits: [
+      { sha: '17061588', msg: 'Clients: duplicar un programa de punta a punta, y el programa entero en la API de MaKo', lineas: 969, archivos: 15 },
+      { sha: 'c00e59ac', msg: '«Clients» y no «Customer Success» en los rótulos de Automations, gráficos y el catálogo de modelos', lineas: 109, archivos: 13 },
+    ],
+    archivos: [
+      'lib/curso-duplicar.ts — la copia, en orden, y el archivado si falla a mitad',
+      'lib/curso-duplicar-reglas.ts — los ids nuevos, las tareas sin la otra comunidad y el tope de los videos',
+      'app/clients/ClientsShell.tsx — «Duplicar» en el menú del programa, con su «Deshacer»',
+      'lib/api-mako/areas/curso.def.ts — duplicar, renombrar, eliminar y restaurar un curso',
+      'tests/clients-duplicar-programa.test.ts — 10 roturas, cada una cae',
+    ],
+    revisar: '/clients/classroom',
+  },
+  {
+    fecha: '25 oct', hora: '01:34', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El título de la barra negra del Classroom es texto, también con el clic derecho',
+    pedido: 'recuerda que en la sidebar negra de classroom el título de arriba de la sidebar no debe ser un desplegable',
+    puntos: [
+      'La tanda anterior le había puesto al título el clic derecho con Renombrar y Eliminar: se sacó.',
+      'El título es sólo texto: sin flecha, sin botón y sin nada que se abra. Renombrar y Eliminar están en el «…» y el clic derecho de la cabecera de Clients.',
+      'El clic derecho en los módulos y las clases sigue: abre su «…».',
+    ],
+    archivos: [
+      'app/_cursos/CursoUgc.tsx — el título, un div sin clic derecho',
+      'app/customer-success/curso/CursoApp.tsx — le pasa sólo el texto',
+      'tests/clients-un-selector.test.ts — 3 roturas más, cada una cae',
+    ],
+    revisar: '/clients/classroom',
+  },
 ];

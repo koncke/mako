@@ -320,8 +320,7 @@ export default function CursoUgc(props: CursoUgcProps) {
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </button>
             ) : (
-              <div className="ugc-side-brand" data-recorrido="marca"
-                onContextMenu={marca.onMenuContextual ? (e) => { e.preventDefault(); marca.onMenuContextual!({ x: e.clientX, y: e.clientY }); } : undefined}>
+              <div className="ugc-side-brand" data-recorrido="marca">
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </div>
             )}

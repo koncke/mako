@@ -56,8 +56,10 @@ import { quitarClienteDeProducto, volverClienteAProducto } from '@/lib/cs-quitar
 import { crearClienteGanado } from '@/lib/cs-crear-cliente';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
-import { renombrarProducto, archivarFunnel, restaurarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
-import { pasoParaEliminar, deshacerValido, type DeshacerEliminar } from './eliminar-programa';
+import { renombrarProducto, getPipelineStagesDeLead } from '@/lib/funnels';
+import type { DeshacerEliminar } from './eliminar-programa';
+import { eliminarPrograma, restaurarPrograma } from './programa-datos';
+import { duplicarPrograma, type ProgramaDuplicado } from '@/lib/curso-duplicar';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 import { anotarFichaAbierta } from './onboarding-clientes-sync';
 
@@ -608,19 +610,6 @@ export async function crearServicioAction(nombre: string): Promise<
   }
 }
 
-/** Los embudos atados a un producto (vía `v_funnel_productos`), con su estado. */
-async function embudosDelProducto(productoId: number): Promise<Array<{ id: number; activo: boolean; esDefault: boolean }>> {
-  const db = await getTenantDb();
-  const { data: vp, error } = await db.from('v_funnel_productos').select('funnel_id').eq('producto_id', productoId);
-  if (error) throw new Error(`No pude leer los embudos del producto: ${error.message}`);
-  const fids = [...new Set(((vp ?? []) as Array<{ funnel_id: number }>).map((r) => Number(r.funnel_id)))];
-  if (!fids.length) return [];
-  const { data: fs, error: e2 } = await db.from('funnels').select('id, activo, es_default').in('id', fids);
-  if (e2) throw new Error(`No pude leer los embudos del producto: ${e2.message}`);
-  return ((fs ?? []) as Array<{ id: number; activo: boolean; es_default: boolean }>)
-    .map((f) => ({ id: Number(f.id), activo: f.activo !== false, esDefault: f.es_default === true }));
-}
-
 /**
  * Renombra un PRODUCTO desde el editor de etapas.
  *
@@ -667,24 +656,14 @@ export async function eliminarServicioAction(productoId: number): Promise<
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede eliminar un producto.' };
-    // La decisión (archivar sus embudos, darlo de baja, o nada), pura y con test: ./eliminar-programa.ts.
-    const paso = pasoParaEliminar(await embudosDelProducto(productoId));
-    if (paso.tipo === 'no') return { ok: false, error: paso.error };
-    let deshacer: DeshacerEliminar | null = null;
-    if (paso.tipo === 'archivar') {
-      for (const id of paso.ids) await archivarFunnel(id);
-      deshacer = { tipo: 'embudos', ids: paso.ids };
-    } else if (paso.tipo === 'baja') {
-      const db = await getTenantDb();
-      const { data: tocadas, error } = await db.from('productos').update({ activo: false }).eq('id', productoId).select('id');
-      if (error) return { ok: false, error: `No se pudo eliminar: ${error.message}` };
-      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
-      deshacer = { tipo: 'baja' };
-    }
+    // La decisión (archivar sus embudos, darlo de baja, o nada) y su escritura: ./programa-datos.ts (la usa también la
+    // API de MaKo), con la regla pura en ./eliminar-programa.ts.
+    const r = await eliminarPrograma(productoId);
+    if (!r.ok) return r;
     revalidatePath('/clients');
     revalidatePath('/crm');
     // `deshacer`: lo que se hizo, para el «Deshacer» de la cabecera de Clients (`restaurarServicioAction`).
-    return { ok: true, deshacer };
+    return { ok: true, deshacer: r.deshacer };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo eliminar.' };
   }
@@ -721,21 +700,36 @@ export async function restaurarServicioAction(productoId: number, deshacer: Desh
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede restaurar un producto.' };
-    if (!deshacer || (deshacer.tipo !== 'baja' && deshacer.tipo !== 'embudos')) return { ok: false, error: 'No sé qué deshacer.' };
-    if (!deshacerValido(deshacer, await embudosDelProducto(productoId))) return { ok: false, error: 'Ese producto no es de este workspace.' };
-    if (deshacer.tipo === 'embudos') {
-      for (const id of deshacer.ids) await restaurarFunnel(id);
-    } else {
-      const db = await getTenantDb();
-      const { data: tocadas, error } = await db.from('productos').update({ activo: true }).eq('id', productoId).select('id');
-      if (error) return { ok: false, error: `No se pudo restaurar: ${error.message}` };
-      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
-    }
+    const r = await restaurarPrograma(productoId, deshacer);
+    if (!r.ok) return r;
     revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo restaurar.' };
+  }
+}
+
+/**
+ * DUPLICAR un programa (25/10/2026, Martín por el Cerebro: «curso, módulos, clases y su configuración; nunca los alumnos
+ * ni su progreso»). Lo hace lib/curso-duplicar.ts; acá, la puerta (un admin) y el «Deshacer»: `deshacer` es lo que
+ * archiva la copia (`eliminarServicioAction` sobre el producto nuevo), como cualquier programa.
+ */
+export async function duplicarServicioAction(productoId: number): Promise<
+  { ok: true; copia: ProgramaDuplicado } | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const ws = await adminDeWorkspaceActual();
+    if (!ws) return { ok: false, error: 'Sólo un administrador puede duplicar un producto.' };
+    const sesion = await getUsuarioActual();
+    const r = await duplicarPrograma(ws, productoId, sesion?.nombre || sesion?.email || null);
+    if (!r.ok) return r;
+    revalidatePath('/clients');
+    revalidatePath('/crm');
+    return r;
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo duplicar.' };
   }
 }
 

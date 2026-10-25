@@ -41,6 +41,18 @@ export function deshacerValido(d: DeshacerEliminar, embudos: readonly EmbudoDelP
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
 /**
+ * El aviso de una copia recién hecha (lo dice el cartel con su «Deshacer», después de la recarga). Corto, y con lo
+ * que NO se copió: un video subido que no entró en el tope, un adjunto que falló. Sin eso, la copia se leería entera.
+ */
+export function avisoDeCopia(c: { nombre: string; videos: { sinCopiar: number }; adjuntos: { fallidos: number } }): string {
+  const faltan = [
+    c.videos.sinCopiar > 0 ? `${plural(c.videos.sinCopiar, 'video subido quedó', 'videos subidos quedaron')} afuera: súbelos de nuevo` : null,
+    c.adjuntos.fallidos > 0 ? `${plural(c.adjuntos.fallidos, 'archivo no se copió', 'archivos no se copiaron')}` : null,
+  ].filter(Boolean);
+  return `«${c.nombre}» creado${faltan.length ? `. ${faltan.join('. ')}.` : ''}`;
+}
+
+/**
  * Lo que se dice antes de eliminar. `null` = no se pregunta (sin alumnos ni clases). El texto es corto y dice la
  * consecuencia antes del clic: cuántos alumnos dejan de verlo, y de dónde vuelve.
  */
