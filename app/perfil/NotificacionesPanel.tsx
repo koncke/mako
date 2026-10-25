@@ -30,170 +30,69 @@
 // la app). Lo que DICE cada mensaje de MaKo ya no se edita acá (11/10/2026): son
 // automatizaciones de la tab Automations, sección «MaKo en WhatsApp».
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { NOTIF_IN_APP, inAppActivo, type NotifInApp, type NotifInAppDef } from '@/lib/notif-catalogo';
 import { EVENTO_PREFS_IN_APP } from '../_components/NotificationsProvider';
 import { Icon } from '../_components/icons';
 import { CanalToggle } from '../_components/CanalToggle';
 import { type Destinatarios } from './DestinatariosLista';
 import { DestinatariosCanal } from './DestinatariosCanal';
-
-const MONO = "'Geist Mono', monospace";
-const SANS = "'Geist', sans-serif";
-
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
-const btnDark: CSSProperties = { padding: '10px 18px', borderRadius: 10, border: 'none', background: '#171511', color: '#F3F0E7', fontFamily: SANS, fontSize: 13.5, fontWeight: 600, cursor: 'pointer' };
-// Sin `alignItems`, o sea ESTIRADOS: los tres miden lo mismo siempre, que es lo que
-// pidió el dueño. Lo que lo hace posible es que ya no haya nada que se abra y cierre
-// adentro —la configuración de destinatarios se ve siempre—, así que el alto de la
-// fila no salta al tocar un botón. El pie de cada tile se alinea con `marginTop:auto`.
-const grilla: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 12 };
+import { CuerpoGrupo, GrupoAjustes } from '../_ui/Ajustes';
+import { ReportarASoporte } from '../_ui/ReportarASoporte';
 
 // ── Piezas ────────────────────────────────────────────────────────────────────
-
-/**
- * La caja de un tile, COMPARTIDA por los tres.
- *
- * Los tres viven en la misma fila y tienen la misma anatomía —ícono, nombre, una
- * línea de detalle y lo que se pueda hacer—, así que son la misma pieza: dos cajas
- * con los mismos números escritos a mano divergen en el primer ajuste.
- */
-function Tile({ icono, color, borde, sombra, titulo, detalle, children }: {
-  icono: string; color: string; borde?: string; sombra?: string;
-  /** A dónde llega. OPCIONAL: lo de la app no va a ningún lado, así que no lo lleva. */
-  titulo: string; detalle?: string; children?: ReactNode;
-}) {
-  return (
-    // `height: 100%` para llenar la celda que la grilla ya estiró, y flex en columna
-    // para que el pie pueda irse abajo. Sin el 100%, el tile mide su contenido y el
-    // borde queda flotando a media celda.
-    <div style={{
-      // ⚠️ SIN alignItems: con flex-start el hijo NO estira, se encoge al contenido,
-      // y entonces el marginTop:auto del pie no tiene sobrante que empujar — el botón
-      // del tile más corto quedaba flotando a media celda. El ícono se abstiene solo,
-      // con su alignSelf.
-      display: 'flex', gap: 11, padding: '13px 15px', height: '100%',
-      boxSizing: 'border-box',
-      borderRadius: 12, background: sombra ? 'var(--surface)' : 'var(--surface-2)',
-      border: `1px solid ${borde ?? 'var(--border)'}`,
-      boxShadow: sombra ?? 'none',
-    }}>
-      <span style={{ display: 'flex', color, flex: 'none', alignSelf: 'flex-start', marginTop: 1 }}><Icon name={icono} size={19} /></span>
-      <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ fontSize: 13.5, fontWeight: 600, color: 'var(--ink)' }}>{titulo}</div>
-        {detalle && <div style={{ fontSize: 12, color: 'var(--dim)', marginTop: 2, lineHeight: 1.45, wordBreak: 'break-word' }}>{detalle}</div>}
-        {children}
-      </div>
-    </div>
-  );
-}
-
-/**
- * Tile de un canal: qué es y a quién le llega, con su editor SIEMPRE a la vista.
- *
- * ⚠️ NO ABRE NI CIERRA NADA. El editor de destinatarios ya era «siempre abierto» por
- * pedido del dueño («la configuración de número e email, siempre abierta»), y el
- * 04/10/2026 se cayó también el botón que abría los MENSAJES del canal debajo de la
- * fila: «no quiero que se abra más con el "Gestionar notificaciones", elimina eso,
- * que esté abierto siempre». Los mensajes se dibujan solos más abajo.
- *
- * Y con el botón se fue el par `abierto`/`onToggle`: sin un canal elegido, el borde
- * azul y el halo no tenían qué marcar. Queda el borde de `alerta`, que sigue
- * contestando otra cosa — que ese canal no tiene a nadie.
- */
-function TileCanal({ icono, color, nombre, detalle, alerta, editor }: {
-  icono: string; color: string; nombre: string; detalle?: string;
-  alerta?: boolean; editor: ReactNode;
-}) {
-  return (
-    <Tile
-      icono={icono} color={color} titulo={nombre}
-      detalle={detalle}
-      borde={alerta ? 'var(--warn)' : undefined}
-    >
-      {editor}
-    </Tile>
-  );
-}
+// EN EL MOLDE DE SETTINGS (25/10/2026, Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones..."... Fijate pagina
+// por pagina como lo hacen otras apps»). Eran tres «tiles» en una grilla adentro de una tarjeta, con el editor de cada canal
+// apretado en un tercio del ancho. Ahora cada cosa es una SECCIÓN de Settings (su título a la izquierda, la tarjeta a la
+// derecha), como las notificaciones de GitHub y de shadcn/ui: «En la app» con una fila por aviso y sus dos interruptores, y
+// «Por WhatsApp» y «Por email» con su editor a todo el ancho. Lo que se decidió antes sigue: lo de la app no se dibuja como un
+// canal (son interruptores, no mandan nada), el editor de destinatarios va siempre abierto, y la explicación larga del catálogo
+// queda en el `title`.
 
 /** Íconos por id. El fallback es `bell`, que EXISTE: uno inventado dibuja un punto. */
 const ICONO_IN_APP: Record<string, string> = { 'wa-mensaje': 'chats', 'wa-plantilla': 'check' };
 
 /**
- * Una notificación de la app, adentro del tile: su ícono, su nombre y sus dos
- * interruptores en la misma fila.
- *
- * El ícono volvió por pedido del dueño («me gustaban los emojis»), y no es sólo
- * gusto: son dos filas seguidas de texto del mismo peso, y el ícono es lo que
- * permite distinguirlas sin leerlas.
+ * Una notificación de la app: su ícono, su nombre y sus dos interruptores. Son CUATRO CELDAS de una grilla compartida
+ * (`.aj-notif-app`), no una fila propia: el rótulo del interruptor cambia de PESO al prenderse, y en un flex por fila la fila
+ * se corría sola al tocarla; con la grilla, las columnas quedan quietas y alineadas entre filas.
  */
 function AvisoEnLaApp({ def, prefs, onChange }: {
   def: NotifInAppDef; prefs: NotifInApp; onChange: (canal: 'popup' | 'sonido', v: boolean) => void;
 }) {
-  // Cuatro CELDAS sueltas, no una fila propia: las columnas las alinea la grilla del
-  // padre (ver `TileEnLaApp`). La explicación larga del catálogo va en el `title` y no
-  // dibujada — son tres renglones de 12px que nadie lee y que empujan los controles
-  // fuera de la vista.
   return (
-    <>
-      <span title={def.sub} style={{ display: 'flex', alignItems: 'center', color: 'var(--dim)' }}>
-        <Icon name={ICONO_IN_APP[def.id] ?? 'bell'} size={15} />
+    // La fila es `display: contents` en la computadora (sus celdas van a la grilla compartida) y una fila que baja los
+    // interruptores debajo del nombre en el teléfono (ajustes.css): en 390 px los dos no entran al lado del nombre.
+    <div className="aj-notif-app__fila">
+      <span className="aj-notif-app__icono" title={def.sub}><Icon name={ICONO_IN_APP[def.id] ?? 'bell'} size={17} /></span>
+      <span className="aj-notif-app__nombre" title={def.sub}>{def.titulo}</span>
+      {/* ⚠️ EL MISMO CHIP QUE EL RESTO DE LA TAB, no uno propio: lo que distingue a éstos de los de un mensaje es el COLOR. */}
+      <span className="aj-notif-app__control">
+        <CanalToggle icono="bell" label="Pop-up" fila={def.titulo} estado={inAppActivo(prefs, def.id, 'popup') ? 'on' : 'off'}
+          onChange={(v) => onChange('popup', v)} />
       </span>
-      <span title={def.sub} style={{ fontSize: 12.5, color: 'var(--ink)', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', alignSelf: 'center' }}>
-        {def.titulo}
+      <span className="aj-notif-app__control">
+        <CanalToggle icono="sonido" label="Sonido" fila={def.titulo}
+          estado={def.sonido ? (inAppActivo(prefs, def.id, 'sonido') ? 'on' : 'off') : 'na'} onChange={(v) => onChange('sonido', v)} />
       </span>
-      {/* ⚠️ EL MISMO CHIP QUE EL RESTO DE LA TAB, no uno propio. Vivieron un rato como
-          texto con un punto, por el pedido de que no se vieran igual que los tiles de
-          WhatsApp y Email — y lo que los distingue no es la forma sino el COLOR del
-          canal: éstos son dorados y los de un mensaje, verdes y azules. Con la forma
-          compartida, el que mira aprende UNA vez qué es un interruptor acá adentro. */}
-      <CanalToggle
-        icono="bell" label="Pop-up" fila={def.titulo}
-        estado={inAppActivo(prefs, def.id, 'popup') ? 'on' : 'off'}
-        onChange={(v) => onChange('popup', v)}
-      />
-      <CanalToggle
-        icono="sonido" label="Sonido" fila={def.titulo}
-        estado={def.sonido ? (inAppActivo(prefs, def.id, 'sonido') ? 'on' : 'off') : 'na'}
-        onChange={(v) => onChange('sonido', v)}
-      />
-    </>
+    </div>
   );
 }
 
-/**
- * El tile de lo que pasa en ESTE navegador. Va PRIMERO y adentro del mismo
- * recuadro que los canales, por pedido del dueño: «ponelo como un chip más al
- * principio, antes de WhatsApp, que estén ambas notificaciones dentro».
- *
- * No tiene «Gestionar» y es correcto que no lo tenga: los otros dos ABREN algo —a
- * quién le llega y qué dice— y esto no manda nada a ningún lado, así que sus dos
- * interruptores son todo lo que hay. Un botón que no abre nada sería un control
- * que no hace nada, sólo para que los tres se vean iguales.
- */
-function TileEnLaApp({ prefs, onChange, flash }: {
-  prefs: NotifInApp; onChange: (id: string, canal: 'popup' | 'sonido', v: boolean) => void; flash: string | null;
-}) {
+/** Mientras lee, o si no pudo: en la MISMA sección, para que la pantalla no salte al llegar los datos. */
+function SeccionLeyendo({ titulo, descripcion, error, onReintentar }: { titulo: string; descripcion: string; error: string | null; onReintentar: () => void }) {
   return (
-    <Tile icono="bell" color="var(--primary)" titulo="Dentro de la app">
-      {/* ⚠️ UNA SOLA GRILLA PARA LAS DOS FILAS, no un flex por fila. Con flex, cada
-          renglón reparte su sobrante por su cuenta y las columnas salen desparejas —
-          y peor: el rótulo cambia de PESO al prenderse, así que la fila se corría
-          sola al tocarla. Las columnas de una tabla se alinean con una grilla
-          compartida, que además no necesita ningún ancho escrito a mano: la última
-          se estira sola hasta el contenido más largo de las dos. */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'auto minmax(0, 1fr) auto auto',
-        columnGap: 10, rowGap: 4, alignItems: 'center', marginTop: 8,
-      }}>
-        {NOTIF_IN_APP.map((n) => (
-          <AvisoEnLaApp key={n.id} def={n} prefs={prefs} onChange={(c, v) => onChange(n.id, c, v)} />
-        ))}
-      </div>
-      {flash && (
-        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: flash.includes('✓') ? 'var(--good)' : 'var(--bad)' }}>{flash}</div>
-      )}
-    </Tile>
+    <GrupoAjustes titulo={titulo} descripcion={descripcion}>
+      <CuerpoGrupo>
+        {error ? (
+          <div className="aj-error" role="alert" style={{ margin: 0 }}>
+            No se pudieron cargar tus preferencias: {error}
+            <button type="button" className="aj-boton" data-variante="texto" onClick={onReintentar}>Reintentar</button>
+            <ReportarASoporte />
+          </div>
+        ) : <p className="aj-texto" style={{ margin: 0 }}>Cargando…</p>}
+      </CuerpoGrupo>
+    </GrupoAjustes>
   );
 }
 
@@ -283,28 +182,24 @@ export function NotificacionesPanel({ parte }: { parte: 'persona' | 'negocio' })
     }
   };
 
-  if (errorCarga) {
-    return (
-      <div style={{ ...card, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 14, flexWrap: 'wrap' }}>
-        <div>
-          <div style={{ fontSize: 14.5, fontWeight: 600, color: 'var(--ink)' }}>No se pudieron cargar tus preferencias</div>
-          <div style={{ fontSize: 12.5, color: 'var(--dim)', marginTop: 3 }}>{errorCarga}</div>
-        </div>
-        <button type="button" onClick={() => void cargar()} style={btnDark}>Reintentar</button>
-      </div>
-    );
-  }
-
-  const cargando = <div style={{ ...card, color: 'var(--faint)', fontFamily: MONO, fontSize: 13 }}>Cargando…</div>;
   if (parte === 'persona') {
-    if (!inApp) return cargando;
+    const titulo = 'En la app';
+    const descripcion = 'El aviso que salta y su sonido, en este navegador. Es sólo tuyo: no cambia nada para tu equipo.';
+    if (!inApp) return <SeccionLeyendo titulo={titulo} descripcion={descripcion} error={errorCarga} onReintentar={() => void cargar()} />;
     return (
-      <div style={{ ...card, padding: 16, maxWidth: 520 }}>
-        <TileEnLaApp prefs={inApp} onChange={(id, c, v) => void setItem(id, c, v)} flash={flash} />
-      </div>
+      <GrupoAjustes titulo={titulo} descripcion={descripcion}>
+        <div className="aj-notif-app">
+          {NOTIF_IN_APP.map((n) => (
+            <AvisoEnLaApp key={n.id} def={n} prefs={inApp} onChange={(c, v) => void setItem(n.id, c, v)} />
+          ))}
+        </div>
+        {flash && <p className="aj-notif-app__flash" role="status" data-ok={flash.includes('✓') || undefined}>{flash}</p>}
+      </GrupoAjustes>
     );
   }
-  if (!dest) return cargando;
+  if (!dest) {
+    return <SeccionLeyendo titulo="Por WhatsApp" descripcion="A quién le avisa MaKo lo del negocio." error={errorCarga} onReintentar={() => void cargar()} />;
+  }
 
   // El `key` de cada editor es su canal: cambiar de canal lo REMONTA. Siembra su
   // estado de props con useState, y sin eso sobreviven el borrador, el aviso de quién
@@ -315,37 +210,23 @@ export function NotificacionesPanel({ parte }: { parte: 'persona' | 'negocio' })
   const hayWa = dest.telefonos.length > 0;
   const hayMail = dest.emails.length > 0;
 
+  // Cada canal, su sección: a quién le llega (o que no le llega a nadie, en ámbar) y su editor SIEMPRE a la vista.
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 26 }}>
-
-      {/* ── Los tres, en UN recuadro ───────────────────────────────────────── */}
-      {/* El editor de destinatarios vive ADENTRO de esta caja, debajo del tile que
-          lo abrió: era una sección aparte con su propio rótulo y su propio marco, y
-          el dueño lo cortó — «que no sea una sección diferente». Y es lo correcto:
-          el tile dice a quién le llega y el editor cambia eso mismo; separarlos
-          obligaba a leer cuál de los dos canales estabas editando. */}
-      <div style={{ ...card, padding: 16 }}>
-        <div style={grilla}>
-          {/* Lo de la app (el pop-up y el sonido) vive en «Tu cuenta» › Notificaciones: es
-              de la persona, no del negocio. */}
-          {/* El detalle ya NO repite la lista: con los destinatarios a la vista, decir
-              «1 número» o la dirección debajo del título era el mismo dato dos veces.
-              Queda lo que la lista no cuenta — que WhatsApp va al grupo— y el aviso
-              cuando no hay nadie, que es cuando la lista está vacía y no dice nada. */}
-          <TileCanal
-            icono="whatsapp" color={hayWa ? 'var(--wa)' : 'var(--warn)'} nombre="WhatsApp"
-            alerta={!hayWa}
-            detalle={hayWa ? (tieneGrupo ? 'Al grupo de MaKo' : undefined) : 'Sin conectar — MaKo no puede avisar por aquí'}
-            editor={<DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />}
-          />
-          <TileCanal
-            icono="email" color={hayMail ? 'var(--primary)' : 'var(--warn)'} nombre="Email"
-            alerta={!hayMail}
-            detalle={hayMail ? undefined : 'Sin conectar — falta una dirección'}
-            editor={<DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />}
-          />
-        </div>
-      </div>
+    <>
+      <GrupoAjustes titulo="Por WhatsApp" descripcion={hayWa
+        ? (tieneGrupo ? 'Los avisos del negocio llegan al grupo de MaKo, con estos números adentro.' : 'Los avisos del negocio llegan a estos números.')
+        : <span style={{ color: 'var(--warn)' }}>Sin un número, MaKo no puede avisar por aquí.</span>}>
+        <CuerpoGrupo>
+          <DestinatariosCanal key="whatsapp" canal="whatsapp" inicial={dest} onGuardado={guardarDest} />
+        </CuerpoGrupo>
+      </GrupoAjustes>
+      <GrupoAjustes titulo="Por email" descripcion={hayMail
+        ? 'Los reportes y los avisos del negocio llegan a estas direcciones.'
+        : <span style={{ color: 'var(--warn)' }}>Sin una dirección, MaKo no puede avisar por aquí.</span>}>
+        <CuerpoGrupo>
+          <DestinatariosCanal key="email" canal="email" inicial={dest} onGuardado={guardarDest} />
+        </CuerpoGrupo>
+      </GrupoAjustes>
 
       {/* ⛔ ACÁ IBA LA LISTA DE «LOS MENSAJES» (`PlantillasView` con el endpoint del cliente: qué dice cada
           mensaje de MaKo y por dónde sale). Se fue el 11/10/2026: Martín, «Esto pasa porque "MaKo en WhatsApp"
@@ -354,6 +235,6 @@ export function NotificacionesPanel({ parte }: { parte: 'persona' | 'negocio' })
           Automations (sección «MaKo en WhatsApp», docs/diseno-mako-en-whatsapp-unificado.md): de esta lista no
           quedaban más que los mensajes PROPIOS del negocio (`AVISOS_DEL_CLIENTE = []`), que siguen en /mensajes.
           Esta pantalla contesta sólo A QUIÉN le llega. */}
-    </div>
+    </>
   );
 }

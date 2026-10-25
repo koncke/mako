@@ -12,7 +12,7 @@ por defecto…», la regresión).
 | 22. «En ningún chat» se escribe sin la app | HECHO: `useAppDeEscritorio` en cada caja de MaKo (chats y cajas de pedido), la plataforma ya no queda afuera, y el inventario en tests/app-de-escritorio-todos-los-chats.test.ts. Fuera a propósito: Chats, Ticketera, Ops Center del super admin, teléfono, onboarding |
 | 23. La flecha no deja la sidebar desplegada | HECHO: `barraFija` y `loQueGuardaLaFlecha` (Sidebar.tsx); desplegarla se guarda siempre |
 | 2. El Uso con la cuenta 5, «Ananda» | `CUENTAS.claude5` lo trajo el tren (`d7b1f9849`); lo mío (`sinNota`: la nota de cuentas.tsv no es el nombre) va en la punta siguiente |
-| 11 + P4. Settings página por página | SIN EMPEZAR (sigue en esta tanda) |
+| 11 + P4. Settings página por página | HECHO (punta siguiente): el molde a dos columnas y todo el ancho (Catalyst, Linear), Perfil, Notificaciones una vez, Instalar, Equipo, Identidades fiscales, Tu plan; el teléfono sin scroll de costado. Sin mirar en producción |
 | 24. La investigación financiera en una ruta | LO HIZO EL CEREBRO: /admin/docs?d=estrategia-financiera-mako |
 
 - **Sin mirar en pantalla:** el navegador de la app sigue sin la sesión de Martín. Lo que falta recorrer: una cuenta sin

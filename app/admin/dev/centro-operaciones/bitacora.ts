@@ -1649,4 +1649,25 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/centro-cuentas.ts — sesionAutomatica · lib/centro-titulares.ts — sinNota', 'tests/centro-cuentas.test.ts · tests/centro-cuentas-titulares.test.ts'],
   },
+  {
+    fecha: '24 oct', hora: '20:41', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Settings: no me gusta nada, página por página, y no llega al ancho',
+    pedido: '«En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales, Tu plan", basicamente no me gusta nada de lo que hiciste... Fijate pagina por pagina como lo hacen otras apps y esfuerzate en el diseño de cada una. En mobile tampoco se ven bien... Y en desktop es como que esta cortado a la mitad, no llega al final del ancho...»',
+    puntos: ['Punto 11 de los 24 de la noche (docs/feedback-24-10.md). «Notificaciones» aparecía dos veces en el índice.'],
+  },
+  {
+    fecha: '24 oct', hora: '23:40', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Settings a todo el ancho, en dos columnas, con «Notificaciones» una sola vez',
+    revisar: '/perfil',
+    puntos: [
+      '**Copiado de Catalyst (los ajustes de Tailwind) y de la página de descargas de Linear**: cada sección con su título a la izquierda y la tarjeta a la derecha, hasta el borde de la pantalla.',
+      '**Perfil**: tu foto grande con tu nombre y tu correo arriba. **Instalar la app**: Windows y Mac con su botón, el código para el teléfono, y Chrome. **Equipo**: invitar en una línea y una fila por persona. **Identidades fiscales**: una fila por identidad con sus acciones. **Tu plan**: el plan arriba, grande, y la baja en su propia sección al final.',
+      '**Notificaciones**: una sola, con lo tuyo arriba y lo del negocio abajo.',
+      '**En el teléfono**: cada fila medía 300 px de alto y la página scrolleaba de costado; las seis entran en 390 px.',
+      '**Sin mirar en producción**: dibujado con las piezas reales y datos de ejemplo.',
+    ],
+    archivos: ['app/_ui/Ajustes.tsx y ajustes.css — el molde', 'app/perfil/* · app/equipo/EquipoView.tsx · app/configuraciones/IdentidadesFiscalesPanel.tsx · plan/PlanPanel.tsx'],
+  },
 ];

@@ -18,7 +18,7 @@ import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { Dropdown } from '../components/Dropdown';
 import { TelefonoConPais } from '../_components/TelefonoConPais';
-import { CuerpoGrupo, FilaAjustes, GrupoAjustes, TituloAjustes } from '../_ui/Ajustes';
+import { FilaAjustes, GrupoAjustes, TituloAjustes } from '../_ui/Ajustes';
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
 import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
@@ -128,7 +128,8 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
     finally { setSubiendo(false); }
   };
 
-  const titulo = vista.deOtro ? `Perfil de ${vista.cuenta || 'esta cuenta'}` : 'Información personal';
+  // «Perfil», como en el índice (24/10/2026, Martín: «"Perfil" primero en lugar de "Información personal"»).
+  const titulo = vista.deOtro ? `Perfil de ${vista.cuenta || 'esta cuenta'}` : 'Perfil';
   const bajada = vista.deOtro ? 'Los datos de esta cuenta, no los tuyos.' : 'Tus datos y cómo te contactan. Los ve tu equipo.';
 
   if (vista.deOtro && (vista.sinNadie || vista.sinLeer)) {
@@ -180,19 +181,32 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
       {sinTitulo && vista.deOtro && <p className="aj-texto">{titulo}</p>}
       {error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>}
 
-      <GrupoAjustes titulo="Información básica" descripcion={vista.deOtro ? undefined : 'Tu nombre y tu foto aparecen en los chats, el tablero y los avisos.'}>
+      {/* LA FOTO, CON QUIÉN ERES (25/10/2026, Martín: «Fijate pagina por pagina como lo hacen otras apps»). Era una fila más
+          («Foto · Toca para cambiarla») y el «Quitar la foto» suelto al pie de la tarjeta. Ahora es la cabecera del perfil, como
+          la tarjeta de avatar de Vercel y Catalyst: la foto grande, tu nombre y tu correo, y los dos botones al lado. */}
+      <GrupoAjustes titulo="Tu foto" descripcion={vista.deOtro ? undefined : 'Aparece en los chats, el tablero y los avisos, para que tu equipo te reconozca.'}>
         <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
-        <FilaAjustes
-          titulo="Foto"
-          detalle={subiendo ? 'Subiendo…' : perfil.avatarUrl ? 'Toca para cambiarla' : 'Agrega una foto para que tu equipo te reconozca'}
-          onClick={() => { if (!subiendo) fileRef.current?.click(); }}
-          fin={
-            <span style={{ width: 52, height: 52, borderRadius: '50%', background: 'var(--primary-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 22, overflow: 'hidden' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : letra}
-            </span>
-          }
-        />
+        <div className="aj-perfil">
+          <span className="aj-perfil__foto">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" /> : letra}
+          </span>
+          <span className="aj-perfil__quien">
+            <span className="aj-perfil__nombre">{perfil.nombre || 'Sin nombre'}</span>
+            <span className="aj-perfil__correo">{perfil.email}</span>
+          </span>
+          <span className="aj-perfil__acciones">
+            <button type="button" className="aj-boton" data-variante="borde" disabled={subiendo} onClick={() => fileRef.current?.click()}>
+              {subiendo ? 'Subiendo…' : perfil.avatarUrl ? 'Cambiar foto' : 'Subir una foto'}
+            </button>
+            {perfil.avatarUrl && !subiendo && (
+              <button type="button" className="aj-boton" data-variante="texto" onClick={() => void persistir({ ...perfil, avatarUrl: '' })}>Quitar</button>
+            )}
+          </span>
+        </div>
+      </GrupoAjustes>
+
+      <GrupoAjustes titulo="Información básica" descripcion={vista.deOtro ? undefined : 'Tu nombre y tu cargo: tu equipo los ve en los chats y en el tablero.'}>
         {fila('nombre', perfil.nombre)}
         {fila('cargo', perfil.cargo)}
         {/* El nombre del NEGOCIO, para quien lo puede cambiar. «Empresa» queda como está (pendiente: lib/nombre-negocio.ts). */}
@@ -200,21 +214,15 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
         {fila('empresa', perfil.empresa)}
         {fila('web', perfil.web)}
         {fila('bio', perfil.bio)}
-        {perfil.avatarUrl && editando === null && !subiendo && (
-          <CuerpoGrupo>
-            <button type="button" className="aj-boton" data-variante="texto" style={{ marginTop: 10, marginLeft: -12 }}
-              onClick={() => void persistir({ ...perfil, avatarUrl: '' })}>Quitar la foto</button>
-          </CuerpoGrupo>
-        )}
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="Contacto">
+      <GrupoAjustes titulo="Contacto" descripcion={vista.deOtro ? undefined : 'Por dónde te escriben tu equipo y MaKo.'}>
         {/* El correo es el del acceso: no se edita acá (es la cuenta de Google con la que entras). */}
         <FilaAjustes titulo="Correo" detalle={perfil.email || '—'} />
         {fila('telefono', perfil.telefono)}
       </GrupoAjustes>
 
-      <GrupoAjustes titulo="Preferencias">
+      <GrupoAjustes titulo="Preferencias" descripcion={vista.deOtro ? undefined : 'Las horas de tus avisos y del tablero salen de aquí.'}>
         {fila('timezone', zona)}
       </GrupoAjustes>
     </>

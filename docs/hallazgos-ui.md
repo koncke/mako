@@ -12,6 +12,39 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)
+
+Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales,
+Tu plan"... Fijate pagina por pagina como lo hacen otras apps... En mobile tampoco se ven bien... Y en desktop es como que esta
+cortado a la mitad, no llega al final del ancho».
+
+- **Copiado de dos referencias abiertas y miradas ese día:** los ajustes de Catalyst (Tailwind, catalyst-demo.tailwindui.com/settings)
+  y la página de descargas de Linear (linear.app/download). Las dos usan secciones de DOS COLUMNAS: su título y para qué sirve a la
+  izquierda, la tarjeta a la derecha, separadas por una línea. Así el ancho entero trabaja. El de shadcn/ui (forms) se descartó:
+  también corta el formulario a 2/3, que es lo que Martín marcó.
+- **El cambio es del molde, no de cada página:** `.aj-cuerpo` sin el `max-width: 720px` y `GrupoAjustes` con la tarjeta adentro de
+  `.aj-grupo-caja` (dos columnas desde 1100 px; abajo, una debajo de la otra). Una lista con columnas (los miembros del equipo) va
+  `ancha`: el título arriba y la tarjeta entera. Lo que dibujaba su propia caja con estilos sueltos (Equipo, Identidades fiscales,
+  Notificaciones) pasó a usar las piezas del molde: si no, quedaba a todo el ancho y fuera de la grilla.
+- **«Notificaciones» estaba DOS veces en el índice**, una por grupo, y las dos se marcaban a la vez (las dos con `activa=
+  "notificaciones"`). Ahora es una, en «Tu cuenta», con lo del negocio abajo para quien lo administra (`#negocio`), y
+  /configuraciones/notificaciones redirige ahí. Un test exige que ningún nombre ni clave se repita en el índice.
+- **Trampa 1 (el teléfono «no se ve bien»): `flex: 1 1 220px` en una fila que pasa a COLUMNA es su ALTO.** El detalle de cada fila
+  medía 220 px de alto en el teléfono: «Nombre» arriba, un hueco, y el valor 200 px más abajo. Era de antes. En columna, `flex: none`.
+- **Trampa 2: el índice de chips ensanchaba la página.** `.aj` tenía `align-items: flex-start` también en el teléfono: el índice
+  (que se desliza) tomaba su ancho entero, 1215 px, y toda la página scrolleaba de costado con el texto cortado. Con `stretch` mide
+  la pantalla y se desliza adentro. Se MIDE así: `scrollWidth === clientWidth` en un teléfono emulado de verdad (CDP, la receta de
+  «Una captura de teléfono»), las seis páginas a 390 px.
+- **Trampa 3: dos interruptores al lado de un nombre no entran en 390 px.** En la computadora, una grilla compartida (las columnas
+  quietas); en el teléfono, la fila es flex y los interruptores bajan debajo del nombre. La fila es `display: contents` arriba de
+  1100 px para que sus celdas sigan en la grilla.
+- **Sin mirar en producción:** se dibujó con las piezas reales y datos de ejemplo (el arnés de esbuild de «Ver una pantalla de
+  cliente sin levantar la app»). Falta recorrerlo con la sesión de Martín.
+
+**Vive en:** `app/_ui/Ajustes.tsx` (`GrupoAjustes`, `ApartadoAjustes`) · `app/_ui/ajustes.css` · `app/perfil/InformacionPersonal.tsx` ·
+`app/perfil/NotificacionesPanel.tsx` · `app/perfil/instalar/InstalarApp.tsx` · `app/equipo/EquipoView.tsx` ·
+`app/configuraciones/IdentidadesFiscalesPanel.tsx` · `app/configuraciones/plan/PlanPanel.tsx` · `tests/ajustes-cuenta-negocio.test.ts`
+
 ## El `Dropdown` en dos columnas: lo que los tests no ven, y cómo se MIDE que las otras 96 pantallas no cambiaron (24/10/2026)
 
 **Vive en:** `dosColumnas` / `alPie` (app/components/Dropdown.tsx), `columnasDeSeccion` (app/components/dropdown-reglas.ts),
