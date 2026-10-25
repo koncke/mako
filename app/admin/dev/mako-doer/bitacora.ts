@@ -573,4 +573,18 @@ export const BITACORA: Hito[] = [
       'tests/confirmacion-terceros.test.ts — 8 tests, 10 roturas con su fallo',
     ],
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Medido: Vercel SÍ encuentra el despliegue por commit, con el sha ENTERO; el aviso «ya quedó arreglado» va con el arreglo del Ops Center (b2aa04e1c)',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era el equivocado, dos veces:** la cosecha del 24/10 decía que el despliegue «no guarda el commit» y que la guarda no podía dar verde nunca. Medido el 24/10 a las 21:00: `vercel ls --environment production --meta githubCommitSha=<sha de 40>` devuelve el despliegue de producción en Ready; con el sha corto, «No deployments found».',
+      '**Se descartó un arreglo propio** que pedía una frase servida por una página pública: andaba (verde contra producción, «no» con motivo en tres casos), pero no cubría los arreglos que sólo se ven con sesión, que son casi todos. El del Ops Center de claude1 (`b2aa04e1c`, que estaba sin subir) pregunta qué despliegue sirve hola-mako.com y de qué commit es: cubre todo.',
+      '**Al probarlo se vio:** en Git Bash un argumento que empieza con «/» llega como carpeta de Windows (`/crm` → `C:/Program Files/Git/crm`).',
+    ],
+    archivos: [
+      'scripts/avisar-arreglo-al-grupo.mts y lib/vercel-salida.ts — la guarda (b2aa04e1c, del Ops Center)',
+      'docs/hallazgos-infra.md — la cosecha corregida',
+    ],
+  },
 ];

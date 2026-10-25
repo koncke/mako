@@ -27,7 +27,6 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario | Ventas (apagado) | 6 puntos, #2 |
 | P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
 | P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
-| P9 | **Cambiar `pruebaDeProduccion`** de `avisar-arreglo-al-grupo.mts` para que verifique sirviendo | `docs/hallazgos-infra.md` | cosecha 24/10 |
 | P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
