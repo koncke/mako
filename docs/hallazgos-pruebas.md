@@ -52,10 +52,29 @@ El diseño (2.5) contaba también a las que todavía no cumplieron la ventana pe
 de la rama que convierte más RÁPIDO aunque no convierta más. `metricas.ts` cuenta sólo a las que ya cumplieron la
 ventana, y el éxito sólo dentro de ella. Si el medidor no devolvió a alguien maduro, la lectura falla: no cuenta como 0.
 
+## Dónde se guardan, y cómo concluyen en Experimentos (A2, 25/10/2026)
+
+**Las tablas** (`supabase/migrations/XXXX_pruebas_ab.sql`, sin número hasta que la numere el Cerebro) llevan
+`workspace_id` SIN default, porque las viejas tienen DEFAULT 1 y el 1 es un cliente. Tienen RLS sin políticas y las lee
+`lib/pruebas/store.ts` con el cliente de servicio y el ws explícito, porque la página pública y el cron no tienen sesión.
+Sin la migración: crear tira `PruebasSinTabla`, servir da el CONTROL sin escribir y el cron no decide. El reset del
+Cliente de Prueba avisa «esa tabla no existe» y sigue (`lib/reset-workspace.ts`), así que la migración puede ir junto con
+el deploy.
+
+**El veredicto va a `experimentos` así:** `gana_variante` → validada; `gana_control` → refutada, y sólo porque el juez
+la da con daño demostrado en el horizonte; `da_lo_mismo` y `no_concluyente` → no_concluyente. «No se vio una diferencia
+mayor a X» no es «probado que no funciona». MaKo cita «PROBADO QUE NO FUNCIONA» sólo de las refutadas que traen
+`config.prueba_id`: un antes/después refutado medía la cuenta contra sí misma (`lib/experimentos-verdades.ts`).
+
+**⚠️ `fmtVal` dibujaba mal una métrica de prueba (lo había confirmado la crítica):** «ab:…» no estaba en `METRICA_FMT`, caía
+en 'num', y `Math.round(0,09)` da 0. Ahora el prefijo `ab:` formatea en % y la tarjeta del Dashboard rotula «A» y la
+letra de la rama (con 3 ramas, la que se cuenta puede no ser B: va en `config.variante`). El catálogo de
+`lib/experimentos-catalogo.ts` NO se tocó: lo lee la IA que propone experimentos, y con «ab» adentro empezaría a proponerlos.
+
+**El cron** (`/api/cron/pruebas`, 6:15 UTC) todavía no tiene medidores: los suman A3 (Automations) y Landings. Sin medidor,
+la lectura de esa prueba queda fallida y no decide. Una lectura que falla nunca cuenta como «0 éxitos».
+
 ## Sin hacer
 
-- **A2:** las tablas (`pruebas`, `prueba_variantes`, `prueba_asignaciones`, `prueba_lecturas`, `prueba_historial`), el
-  store, un cron diario, `concluir` hacia `experimentos` y el formato `ab:` en `fmtVal`. Falta decidir a qué estado de
-  `experimentos` va `da_lo_mismo`: la crítica dice «refutada sólo con daño demostrado», así que no va como refutada.
 - **A3:** la clase `ab` con todas sus puertas, la tarjeta, Probar, Métricas, Crear/Editar con IA y la API.
 - **Landings** espera las firmas de `asignar` y del store para servir la landing. `ramaParaServir` ya está.

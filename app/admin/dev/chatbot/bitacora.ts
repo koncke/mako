@@ -2806,4 +2806,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "18:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Las pruebas A/B se guardan, se miran una vez por día y su resultado queda en Experimentos",
+    puntos: [
+      "Cada prueba guarda sus versiones, a quién le tocó cuál y los números de cada día.",
+      "Una vez por día MaKo mira cada prueba; cuando termina, el resultado queda en el Dashboard, en «Experimento», como A contra B.",
+      "MaKo sólo dice «probado que no funciona» cuando una prueba lo demostró.",
+      "Falta: aplicar las tablas en la base (con el sí de Martín) y la tarjeta en el lienzo.",
+    ],
+    archivos: [
+      "supabase/migrations/XXXX_pruebas_ab.sql — las tablas, sin aplicar",
+      "lib/pruebas/store.ts — dónde se guardan",
+      "tests/pruebas-guardar.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/dashboard",
+  },
 ];
