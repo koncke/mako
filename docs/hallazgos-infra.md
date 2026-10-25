@@ -61,6 +61,28 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
     MEGA, reiniciar, y habilitar la nube de Anthropic en una cuenta.
 
+## «docs/api-mako.md no está en git»: la referencia pasó 1 MB y el chequeo no la podía leer (25/10/2026)
+
+**Vive en:** `scripts/generar-api-doc.mjs` (el `--check` del pre-push).
+
+- **Síntoma:** el pre-push frenaba con «✖ docs/api-mako.md no está en git.», con el archivo commiteado y al día.
+- **El diagnóstico obvio era el equivocado.** Parecía un archivo sin agregar, o la referencia vieja después de juntar dos ramas.
+  Regenerarla no cambiaba nada.
+- **Causa:** la referencia mide 1.076.071 B desde el 25/10, y `execFileSync('git', ['show', 'HEAD:…'])` tiene un tope de salida
+  de 1 MB por defecto. Tiraba ENOBUFS, y el `catch` lo tomaba por «no existe».
+- **Regla:** toda lectura de git o de un proceso con `execFileSync`/`spawnSync` que pueda crecer lleva un `maxBuffer` explícito.
+  Ahí quedó en 64 MB.
+
+## El chequeo de tipos ENTERO ya no entra en su tope de 5 GB, y el acotado dijo «igual en main» de un error que no lo era (25/10/2026)
+
+- **Medido en el push del 25/10:** con 6,1 GB libres, el tsc entero murió por heap («Ineffective mark-compacts near heap limit»,
+  tope 5120 MB). El pre-push cayó a las 3 tandas, y pasaron. Si se repite con RAM de sobra, el tope es corto para el repo y hay
+  que subirlo (`CAP_HEAP_MB`, scripts/typecheck-lock.mjs). Mejor todavía, las opciones de docs/ram-de-la-pc.md.
+- **Las tandas encontraron dos errores reales:** `app/admin/operaciones/mandar.ts:133` (un `Uint8Array` pelado de TypeScript
+  5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
+  El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
+  propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+
 ## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
 
 **Vive en:** el armado del tren (`C:/dev/wt-push-q`) · `app/admin/dev/*/bitacora.ts`.

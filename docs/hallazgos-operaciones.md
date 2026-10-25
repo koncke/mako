@@ -158,8 +158,13 @@ del código.
 - **Trampa de orden, medida:** el `tool_use` ya está escrito en el transcript 3 ms después de que arranca el PreToolUse, y
   el archivo de `preguntar` aparece 0,4 a 1 s después. El Runner puede subir sola la copia «ask», que no se contesta, y
   `unirPreguntas` descartaba después la de `preguntar` por ser igual. La pregunta se perdía un 2-5% de las veces.
-- **Sin hacer:** el hook NO está instalado en `~/.claude/settings.json`. Se instala cuando esté desplegado el arreglo de MaKo,
-  que hace Ops Center: en `unirPreguntas`, la de `preguntar` reemplaza a la «ask» igual. Después hay que probarlo en vivo.
+- **Instalado el 25/10 a las ~09:40** en `~/.claude/settings.json` (PreToolUse `AskUserQuestion`, timeout 30; la copia en
+  `scripts/claude-hooks/settings-hooks.json`). Se instaló recién con el arreglo de MaKo en producción (44def1637, desplegado a las
+  09:19: `unirPreguntas` deja que la de `preguntar` reemplace a la «ask» igual), y con el cartero 1.18.1.
+- **Trampa: Claude Code toma una foto de los hooks al ARRANCAR la sesión.** Un hook agregado a mano en settings.json lo toman
+  los chats que se abren después; los que ya estaban abiertos, al reabrirse. Por eso no se probó en vivo en el chat que lo
+  instaló: si no lo tomaba, ese turno quedaba trabado con una pregunta que no se contesta desde el teléfono.
+- **Sin hacer:** verlo actuar en un chat de verdad. Cada vez que corre deja una línea `[sin-ask]` en `~/.claude/guardia/guardia.log`.
 
 *25/10/2026, el Cerebro (claude5).*
 
