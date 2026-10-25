@@ -2875,8 +2875,44 @@ regresar... No la X» y «el botón de "texto" debe estar al principio de todo»
   Para volver, la flecha del chat («←», arriba a la izquierda) en «Páginas» y en la tira; «Texto» es la primera herramienta.
 
 Lo que quedó SIN hacer:
-- **Que se pueda escribir en las secciones de las landings de MaKo (el punto 1 de Martín).** El código no muestra por qué no:
-  el iframe se hace `contentEditable` al cargar, nada en el CSS bloquea la selección, y en Chrome sin ventana se escribe. Falta
-  medirlo en el editor de verdad, con clics: el Chrome de Martín estaba ocupado y después desconectado, y con 2 GB libres no
-  entra un build local.
-- Mirarlo con clics a 1280 y 1440 (la barra, los paneles y los tooltips).
+- ~~Que se pueda escribir en las secciones de las landings de MaKo (el punto 1 de Martín).~~ Hecho: la sección de abajo.
+- Mirarlo con clics a 1280 y 1440 (la barra, los paneles y los tooltips): cuando despliegue el tren con esta rama.
+
+## Las secciones de las landings de MaKo no dejaban escribir: el clic NUNCA llegaba al iframe (25/10/2026, claude5)
+
+Martín, 25/10 ~11:30: «Las landing de MaKo NO son editables, no puedo ni cambiar un título de lo que ya esta, cada bloque debe
+ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar las secciones»), que se dio por arreglado.
+
+- **La causa:** una regla del 11/10 en BarraFormato (`CSS_G2`), `.gmx-nv:not([data-activo="si"]) iframe{pointer-events:none}`,
+  para que un video o un embed no se trague el clic que elige su bloque. El «Diseño editable» (23/10) es un iframe dentro de
+  un `.gmx-nv`, y su sección se activa con el `mousedown` de ADENTRO del iframe. Era un círculo: sin activar no recibe el
+  clic, y sin el clic no se activa. Ni cursor, ni sección activa, ni barra. **El arreglo:** una regla en `CSS_EDITABLE`
+  (HtmlEditableVista.tsx) que le devuelve el clic a ese iframe y gana por ESPECIFICIDAD (0,3,1 contra 0,2,1), no por orden: las
+  dos hojas son `<style>` distintos y su orden de carga no está garantizado.
+- **El diagnóstico obvio era el equivocado, dos veces.** El 24/10 se leyó como «el clic pasa en el iframe y ProseMirror no lo
+  ve», y se sumó `marcarSeccion()` al `mousedown` del iframe. Ese `mousedown` nunca llegaba, así que el arreglo no podía
+  andar. «Escribir ya andaba, medido por CDP» se había medido en un iframe SUELTO. El 25/10, con las 9 secciones reales de la
+  #32 y su CSS, también se escribía en Chrome sin ventana, aun dentro de un padre `contenteditable`. **Lo que faltaba era la
+  hoja del editor.** **Regla:** un «en Chrome anda» sobre una maqueta no cierra un «no puedo hacer clic» del editor. Lo que
+  lo cierra es `document.elementFromPoint(x, y)` en el editor REAL, en el punto exacto del clic. Si devuelve otra cosa que el
+  elemento que debería recibirlo, la causa está en el CSS de la página (`pointer-events`, una capa encima), no en el
+  componente. Así salió en un minuto: el clic caía en `div.gmx-nv-marco.gmx-editable-vivo`.
+- **Cómo se midió, sin tocar la publicada:**
+  - En la #32, sólo clics y lectura: hoy no hay foco, ni cursor, ni barra. Con la regla apagada nada más que en la pestaña,
+    el cursor entra al H1 y aparece la barra de la sección.
+  - En una COPIA (#41, «Duplicar landing»): con la regla apagada se escribió, guardó solo y siguió ahí al recargar. El
+    guardado nunca estuvo roto. La copia quedó en la papelera.
+  - **Trampa:** «Duplicar» vuelve a guardar lo pendiente del original, y la fecha de edición de la #32 se movió sin que
+    nada cambiara. Se comprobó comparando las 9 secciones y el CSS con el borrador bajado antes.
+- **El test** (tests/editor-web-diseno-editable-clic.test.ts) no busca un texto. Arma el camino del DOM que dibuja la vista
+  (`.gmx-nv` sin activar > marco > iframe), junta todas las reglas de `pointer-events` de las dos hojas y decide la ganadora
+  por especificidad; un empate cuenta como falla. También vigila que los embeds sigan sin tragarse el clic. Se probó
+  rompiéndolo (5 roturas, cada una cae). Además, en Chrome sin ventana con las dos hojas reales en los dos órdenes, el clic
+  cae en el iframe y escribe; sin la regla nueva, cae en el envoltorio (como en producción).
+
+Lo que quedó SIN hacer:
+- Probarlo con clics en producción cuando despliegue (un título de una copia, no de la publicada).
+- `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor
+  cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
+  editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como
+  TarjetaVista.

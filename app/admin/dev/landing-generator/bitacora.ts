@@ -1273,4 +1273,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '12:14', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Ya se puede escribir en las secciones de las páginas de MaKo',
+    pedido: '«Las landing de MaKo NO son editables, no puedo ni cambiar un título de lo que ya esta, cada bloque debe ser editable»',
+    puntos: [
+      'El clic en una sección de las páginas de MaKo no llegaba a la sección: una regla pensada para videos y contenidos insertados lo bloqueaba, y la sección necesitaba justo ese clic para activarse.',
+      'Ahora el clic entra: aparece el cursor en el título, la barra de la sección y se escribe.',
+      'Probado en tu editor con clics sobre una copia de la página principal: lo escrito se guarda solo y sigue ahí al recargar. La copia quedó en la papelera y la página publicada no se tocó.',
+      'Falta: probarlo de nuevo cuando esto llegue a producción.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — la sección recibe el clic',
+      'tests/editor-web-diseno-editable-clic.test.ts — que no vuelva a pasar',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];
