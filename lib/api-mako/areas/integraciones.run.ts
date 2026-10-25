@@ -42,8 +42,8 @@ import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
 import { susClaves, type SuClaveGuardada } from '@/lib/ia-del-negocio';
 import { listarPcDelNegocio } from '@/lib/ia-pc';
-import { getInstanciaRow } from '@/lib/evolution';
-import { buscarConexion, CONEXIONES, conexion, type Conexion } from '@/lib/conexiones-catalogo';
+import { buscarConexion, CONEXIONES, conexion } from '@/lib/conexiones-catalogo';
+import { conectadaSinProbar } from '@/lib/conexion-estado';
 
 const J = (o: unknown): string => JSON.stringify(o);
 const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
@@ -62,16 +62,6 @@ const ESTADO_CLAVE: Record<SuClaveGuardada['es'], string> = {
   ilegible: 'guardada pero ya no se puede leer: hay que volver a pegarla',
 };
 
-/** ¿Está conectada esa cosa? null = no se sabe (o no tiene cómo medirse acá). Nunca tira. */
-async function estaConectada(c: Conexion, ws: number): Promise<boolean | null> {
-  try {
-    if (c.key === 'pc') return (await listarPcDelNegocio(ws)).length > 0;
-    if (c.key === 'whatsapp') return (await getInstanciaRow())?.estado === 'conectado';
-    if (c.key === 'google') return await googleCalendarConectado();
-    if (c.verifica === 'probar_conexion') return await integracionConectada(c.key, ws);
-    return null;
-  } catch { return null; }
-}
 
 export const RUNNERS: Runners = {
   ver_integraciones: {
@@ -195,7 +185,8 @@ export const RUNNERS: Runners = {
       const tarjeta = await servicioDelWs(c.key, ctx.ws);
       return J({
         key: c.key, nombre: c.nombre, para_que: c.destraba,
-        conectada: await estaConectada(c, ctx.ws),
+        // Lo guardado, sin tocar al proveedor (lib/conexion-estado.ts): la guía de WhatsApp es la que prueba al «listo».
+        conectada: await conectadaSinProbar(c, ctx.ws),
         quien: c.quien === 'admin' ? 'La conecta quien administra el negocio.' : 'Cada persona conecta la suya.',
         donde: 'Se conecta desde la computadora: en el teléfono no se puede.',
         pasos: tarjeta?.tutorial.pasos ?? c.pasos ?? [],

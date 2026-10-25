@@ -620,4 +620,21 @@ export const BITACORA: Hito[] = [
       'tests/conexiones-un-solo-lugar.test.ts — 5 tests, 9 roturas con su fallo',
     ],
   },
+  {
+    fecha: '25 oct', hora: '17:30', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» por WhatsApp, atendidos por el código y sin IA',
+    puntos: [
+      'Martín, 25/10: «que le ofrezca ayuda, que le de el link y que le pregunte si quiere que le ayude con eso» y «que le proponga levantar un ticket... tiene que ser fácil». Tanda 5 de docs/conexiones-y-ayuda.md.',
+      '⚠️ **Sin su IA, ningún «sí» confirmaba nada** (la confirmación pasa por el modelo): la oferta, la guía paso a paso y el ticket los atiende el código antes de la IA, con el estado 30 minutos en app_settings.',
+      '⚠️ **Proponer y confirmar el ticket con el mismo «sí» rebotaba** (`confirmarPendiente` no confirma lo del mismo turno): se propone al ofrecerlo y el «sí» siguiente lo confirma.',
+      '**El «listo» prueba la conexión de verdad** (la clave contra el proveedor, la computadora en línea); si no anda, el link de nuevo y el ticket con el motivo.',
+    ],
+    archivos: [
+      'lib/doer-ayuda.ts — el estado, las respuestas, los pasos y los textos (puro)',
+      'lib/conexion-estado.ts — `conectadaSinProbar` y `conectadaProbando`',
+      'lib/mako-doer-in.ts — `atenderAyuda`, `proponerTicket` y la oferta en los carteles',
+      'tests/doer-ayuda.test.ts — 7 tests, 11 roturas con su fallo',
+    ],
+  },
 ];

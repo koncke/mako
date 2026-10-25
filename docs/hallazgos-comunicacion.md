@@ -48,6 +48,33 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» por WhatsApp, sin IA (25/10/2026)
+
+Tanda 5 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md) (decisiones 6 y 7). Vive en `lib/doer-ayuda.ts` (puro),
+`lib/conexion-estado.ts` y `atenderAyuda` / `proponerTicket` de `lib/mako-doer-in.ts`; lo fija `tests/doer-ayuda.test.ts`.
+
+- ⚠️ **Sin su IA, ningún «sí» por WhatsApp confirma nada.** La confirmación de una pendiente pasa por el modelo
+  (`confirmar_accion`, forzada por la intención `confirmar`): a un negocio sin IA, el «sí» le devolvía el cartel de nuevo. Por
+  eso la oferta, la guía paso a paso y el ticket los atiende el CÓDIGO, antes de rutear a la IA (`atenderAyuda`), con el estado
+  en app_settings (`mako.doer.ayuda.<jid>`, 30 minutos): el cartel no entra al historial y sin esto el «sí» no sabría a qué
+  contesta. Lo que no contesta la oferta la cierra (un «sí» posterior a otra pregunta no es para esto).
+- ⚠️ **El obvio —proponer el ticket y confirmarlo al recibir el «sí»— rebotaba.** `confirmarPendiente` no confirma una pendiente
+  que nació en el mismo turno: es la guarda contra un modelo que se contesta su propio «sí». El ticket se propone AL OFRECERLO
+  (`proponerTicket`) y el «sí» del mensaje siguiente lo confirma; si la propuesta no entró, no se ofrece un «sí» que no confirma
+  nada (manda a «Reportar problema»).
+- **«No me sale» empieza con «no»**: el problema se mira antes que el «ahora no».
+- **El «listo» prueba la conexión de verdad** (`conectadaProbando`: la credencial contra el proveedor, la computadora EN LÍNEA),
+  no sólo que haya algo guardado; si no anda, el link de nuevo y el ticket con el motivo. `como_conectar` mira sólo lo guardado
+  (`conectadaSinProbar`): las dos preguntas son distintas.
+- **La guía no entra al historial** (la guarda de tests/doer-aviso-no-es-turno.test.ts: lo del sistema no es un turno de MaKo);
+  deja una fila `ayuda-doer` para contar cuántas guías y tickets salieron.
+
+**SIN hacer:** los tickets de cualquier otra cosa por WhatsApp siguen pasando por el modelo (`levantar_ticket`): sin IA, sólo
+el de una conexión que no anda. Y la guía de la computadora se ofrece sólo si una herramienta dice que falta (en el grupo, su
+computadora todavía no contesta: tanda 4).
+
+---
+
 ## «Conecta tu Gemini»: lo que le llegó a Florencia y por qué, medido (25/10/2026)
 
 **Vive en:** `lib/mako-doer-in.ts`, `lib/fallo-ia-texto.ts`, `lib/mako-doer-buffer.ts`, `lib/ia-del-negocio.ts`.

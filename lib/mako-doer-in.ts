@@ -21,6 +21,9 @@ import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
 import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
+import { claveAyuda, leerEstadoAyuda, respuestaAyuda, ofertaDeAyuda, guiaEn, ticketOfrecido, textoDelPaso, despuesDeVerificar, ticketPorProblema, conTicket, ticketMandado, OFERTA_AYUDA, NO_AHORA, ENTIENDO, TICKET_NO_SALIO, type EstadoAyuda, type TicketAOfrecer } from '@/lib/doer-ayuda';
+import { conectadaProbando } from '@/lib/conexion-estado';
+import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
@@ -35,13 +38,13 @@ import { registrarError } from '@/lib/errores-app';
 import { identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
 import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, soloElTurno, SIN_DATOS_DE_CLIENTES } from '@/lib/doer-herramientas';
-import { listarPendientes } from '@/lib/api-mako/acciones';
+import { listarPendientes, confirmarPendiente } from '@/lib/api-mako/acciones';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
 import { linksConWs } from '@/lib/links-con-ws';
-import { clasificarIntencion, areasDelMensaje, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
+import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
@@ -362,6 +365,84 @@ Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes 
  */
 async function contarKeysIA(uso: 'texto' | 'audio'): Promise<number> {
   return cuantasClavesDeIA(uso === 'audio' ? CASCADA_STT : ['anthropic', ...PROVS_SU_IA]);
+}
+
+/**
+ * LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» Y A «¿LEVANTO UN TICKET?», ATENDIDA POR EL CÓDIGO (25/10/2026, lib/doer-ayuda.ts).
+ * Va ANTES de rutear a la IA: a quien le falta su IA no le contesta ningún modelo, y es justo a quien se le ofrece. Devuelve lo
+ * que hay que contestarle, o null si el mensaje no contesta la oferta (y entonces sigue su camino de siempre, y la oferta se
+ * cierra: un «sí» de dentro de diez minutos a OTRA pregunta de MaKo no es para esto).
+ */
+async function atenderAyuda(ws: number, jid: string, texto: string, actor: string | undefined): Promise<string | null> {
+  const clave = claveAyuda(jid);
+  const ahora = Date.now();
+  const estado = leerEstadoAyuda(await getSetting(clave).catch(() => null), ahora);
+  if (!estado) return null;
+  const r = respuestaAyuda(texto);
+  const guardar = (e: EstadoAyuda | null) => setSetting(clave, e ? JSON.stringify(e) : '').catch(() => {});
+  if (r === 'otra') { await guardar(null); return null; }
+  if (r === 'no') { await guardar(null); return NO_AHORA; }
+  if (estado.tipo === 'ticket') {
+    await guardar(null);
+    if (r !== 'si') return null;
+    // El ticket ya quedó propuesto al ofrecerlo (`proponerTicket`): el «sí» de la persona, en este mensaje, lo confirma.
+    const ctxAyuda = ctxDeLaAyuda(ws, jid, texto, actor);
+    const c = await confirmarPendiente(ctxAyuda, estado.pendienteId).catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
+    if ('error' in c || !c.ok) {
+      console.warn(`[mako-doer-in] ws=${ws} el ticket de la ayuda no se mandó: ${'error' in c ? c.error : c.resumen}`);
+      return TICKET_NO_SALIO;
+    }
+    return ticketMandado(c.resumen);
+  }
+  const c = conexion(estado.servicios[0]);
+  if (!c) { await guardar(null); return null; }
+  const pasos = servicioMetodo(c.key)?.tutorial.pasos ?? c.pasos ?? [];
+  const link = linkApp(c.ruta, ws);
+  if (r === 'problema') {
+    const t = ticketPorProblema(c, estado.tipo === 'guia' ? estado.paso : 0, texto);
+    const id = await proponerTicket(ws, jid, texto, actor, t);
+    await guardar(id ? ticketOfrecido(id, ahora) : null);
+    return conTicket(ENTIENDO, !!id);
+  }
+  // La oferta: «sí» arranca la guía; «listo» (ya lo hizo) va directo a verificar. En la guía, «sí» o «listo» es el siguiente.
+  if (estado.tipo === 'oferta' && r === 'si') {
+    await guardar(guiaEn(estado.servicios, 0, ahora));
+    return textoDelPaso(c, pasos, 0, link);
+  }
+  const paso = estado.tipo === 'oferta' ? pasos.length : estado.paso + 1;
+  if (paso < pasos.length) {
+    await guardar(guiaEn(estado.servicios, paso, ahora));
+    return textoDelPaso(c, pasos, paso, link);
+  }
+  const v = await conectadaProbando(c, ws);
+  const d = despuesDeVerificar(c, v.conectada, estado.servicios, link, ahora, v.motivo);
+  if (!d.ticket) { await guardar(d.siguiente); return d.texto; }
+  const id = await proponerTicket(ws, jid, texto, actor, d.ticket);
+  await guardar(id ? ticketOfrecido(id, ahora) : null);
+  return conTicket(d.texto, !!id);
+}
+
+/** El contexto de la API para la ayuda: el mismo canal y la misma persona que el turno (`ctxApi`), sin el turno. */
+function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | undefined): CtxApi {
+  return {
+    ws, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto, actor,
+    contextoTicket: () => ({ pedido: texto }),
+  };
+}
+
+/**
+ * Propone el ticket por el registro (`levantar_ticket`), para que el «sí» del mensaje siguiente lo confirme. Devuelve el id
+ * de la pendiente, o null si no entró (sin identidad, la base no contestó): entonces no se ofrece un «sí» que no confirma nada.
+ */
+async function proponerTicket(ws: number, jid: string, texto: string, actor: string | undefined, t: TicketAOfrecer): Promise<number | null> {
+  try {
+    const runRegistro = runnerDelRegistro(ctxDeLaAyuda(ws, jid, texto, actor));
+    const out = await runWithWorkspace(ws, () => runRegistro(LEVANTAR_TICKET, { tipo: 'bug', titulo: t.titulo, descripcion: t.descripcion }));
+    return propuestaDeLaSalida(out)?.id ?? null;
+  } catch (e) {
+    console.warn(`[mako-doer-in] ws=${ws} no pude proponer el ticket de la ayuda: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
 }
 
 export type ResultadoDoer = { engaged: boolean; reply?: string; skip?: string };
@@ -796,7 +877,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         const conPcAudio = causaAudio === 'sin_keys' && (await negocioConSuIA(wsData)).conPc;
         const suClaudeAudio = causaAudio === 'sin_keys' && (await cuantasClavesDeIA(['anthropic']).catch(() => 0)) > 0;
         // El link con su `?ws=`: este aviso sale directo, sin el `linksConWs` de la respuesta de texto (24/10/2026).
-        const aviso = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
+        const avisoBase = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
           causaAudio,
           linkApp(rutaKeysIA(), wsData),
           'escuchar tu audio',
@@ -804,6 +885,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           delNegocio,
           { conPc: conPcAudio, suClaude: suClaudeAudio },
         )}`;
+        // Sin nada que escuche, la guía para conectar su GPT (lib/doer-ayuda.ts): el «sí» lo atiende el código, sin IA.
+        const aviso = causaAudio === 'sin_keys' ? `${avisoBase}\n\n${OFERTA_AYUDA}` : avisoBase;
+        if (causaAudio === 'sin_keys') await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai'], Date.now()))).catch(() => {});
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         // El cartel del audio también deja su fila, con el texto que le llegó: no dejaba ninguna, y el vigía no lo veía.
@@ -815,6 +899,20 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
         return { engaged: true, reply: aviso };
+      }
+    }
+
+    // ── LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» / «¿LEVANTO UN TICKET?» (25/10/2026, lib/doer-ayuda.ts) ──────────────
+    // La atiende el CÓDIGO y va ANTES de rutear a la IA: a quien le falta su IA no le contesta ningún modelo, y es justo a
+    // quien se le ofrece. Como un cartel, no entra al historial (es del sistema, no un turno de MaKo: tests/doer-aviso-no-es-
+    // turno.test.ts); deja su fila `ayuda-doer` para contar cuántas guías y tickets salieron.
+    if (texto && !adjunto) {
+      const ayuda = await atenderAyuda(wsData, jid, sinPrefijoDeLote(texto), actorDeWhatsApp(key?.participant, data.pushName));
+      if (ayuda) {
+        const env = await enviarAGrupoJid(jid, ayuda);
+        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
+        void recordUsage('ayuda-doer', 'ayuda', {}, `ws${wsData} · «${texto.slice(0, 40)}» → ${ayuda.split('\n')[0].slice(0, 120)}`, 'mako', 1).catch(() => {});
+        return { engaged: true, reply: ayuda };
       }
     }
 
@@ -975,6 +1073,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     const erroresDelTurno: ErrorDelTurno[] = [];
     let ticketPropuesto = false;
+    /** Las conexiones que una herramienta dijo que faltan (`aFalta`): al final del turno, la oferta de ayuda (lib/doer-ayuda.ts). */
+    const faltasDelTurno: string[] = [];
     const ctxApi: CtxApi = {
       ws: wsData, canal: 'whatsapp', canalKey: jid, alcance: 'ejecutar', rol: 'admin', turnStart: Date.now(), mensajeUsuario: texto,
       // Quién escribe, para el ticket: el doer no sabe su email (lib/doer-ticket.ts).
@@ -996,6 +1096,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         const c = conexion(f.servicio);
         const x = c ? lineaParaConectar(c, linkApp(c.ruta, wsData)) : null;
         if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
+        if (c && !faltasDelTurno.includes(c.key)) faltasDelTurno.push(c.key);
       },
     };
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
@@ -1840,6 +1941,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA, { conPc: iaDelNegocio.conPc, faltan });
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
+          // Sin su IA: «¿Quieres que te ayude a conectarlo?» (lib/doer-ayuda.ts). Su GPT primero —es lo que lo destraba aquí— y
+          // después lo que el pedido necesita. El «sí» lo atiende el código, antes de la IA.
+          if (cartel === 'sin_keys') {
+            respuesta = `${respuesta}\n\n${OFERTA_AYUDA}`;
+            await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai', ...faltan], Date.now()))).catch(() => {});
+          }
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
           if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
           // ⚠️ Y EL CARTEL QUEDA REGISTRADO. Desde el 30/09 no entra al historial del grupo
@@ -2042,6 +2149,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (avisoDeSistema && respuesta && propuestasDelTurno.size) {
       respuesta = conLoQueQuedoPropuesto(respuesta, [...propuestasDelTurno.values()]);
       console.warn(`[mako-doer-in] ws=${wsData} el cartel dice ${propuestasDelTurno.size} pendiente(s) que el turno dejó antes de caerse: #${[...propuestasDelTurno.keys()].join(', #')}`);
+    }
+    // Lo que una herramienta dijo que falta conectar: después de sus links, la oferta de guiarlo (lib/doer-ayuda.ts).
+    if (faltasDelTurno.length) {
+      paraLaPersona.push(OFERTA_AYUDA);
+      await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(faltasDelTurno, Date.now()))).catch(() => {});
     }
     if (respuesta || paraLaPersona.length) {
       // Mensajes SEPARADOS (punto 10): MaKo separa con una línea de "---"; mandamos
