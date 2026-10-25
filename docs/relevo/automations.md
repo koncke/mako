@@ -38,10 +38,9 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   pantalla (docs/hallazgos-chatbot.md, «MaKo no tiene botones…»). **Sigue:** «Editar con IA» (`deIAEdicion`), «Probar»,
   y probarlo con un DM de verdad en el Cliente de Prueba con una cuenta de Instagram conectada. El trabajo lo cierra el
   Cerebro cuando estén las tres partes.
-- **Lo que pidió el Cerebro y quedó en cola:** el `redirect()` dentro de las páginas del Dashboard con `loading.tsx` encima
-  (React #310): app/dashboard/page.tsx, app/m/dashboard/page.tsx y app/m/dashboard/[hoja]/page.tsx. El molde es
-  app/web-generator/layout.tsx + `redireccionDelLayout` (landings-2510 @ e89fb2e8c). Al arreglarlas, sacarlas de la lista de
-  conocidas de tests/redirige-antes-del-loader.test.ts.
+- **Lo que pidió el Cerebro (hecho el 25/10):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
+  (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
+  (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.
 
 ## El pedido, con el texto entero
 

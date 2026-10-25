@@ -149,14 +149,45 @@ página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carp
 páginas conservan su redirect para cuando se llega navegando.
 
 ⚠️ **Lo que quedó así, de otras tabs (el test las tiene en una lista de conocidas):** app/admin/operaciones/page.tsx,
-app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/dashboard/page.tsx,
-app/m/chats/page.tsx, app/m/dashboard/page.tsx, app/m/dashboard/[hoja]/page.tsx y app/m/second-brain/page.tsx redirigen
-debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin permiso); cada una se revisa en su chat y, si
-redirige en una carga normal, pasa la redirección a su layout y sale de la lista.
+app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/m/chats/page.tsx y
+app/m/second-brain/page.tsx redirigen debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin
+permiso); cada una se revisa en su chat y, si redirige en una carga normal, pasa la redirección a su layout y sale de la
+lista. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista (si no, una regresión
+suya pasaría callada). Los tres dashboards salieron el 25/10 (la entrada de abajo).
 
 **No se midió en producción:** la pestaña del Chrome de Martín no respondió (25/10). Para medirlo:
 `fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
 con el arreglo.
+
+## Los dashboards redirigen en su layout, y el de /m recibe la ruta de ESCRITORIO (25/10/2026)
+
+**Qué se hizo:** /dashboard, /m/dashboard y /m/dashboard/[hoja] salieron de la lista de conocidas: redirigen en
+`app/dashboard/layout.tsx` y `app/m/dashboard/layout.tsx` (un solo layout para las dos del teléfono: el loader de
+`app/m/dashboard/loading.tsx` envuelve a las dos). La decisión es UNA, la de las páginas: `sinSuHoja`
+(app/dashboard/redireccion.ts: el closer o el setter cuyo negocio no compró la capa de su hoja) y `hojaPropiaDe`
+(app/m/dashboard/datos.ts: una hoja que no se abre en el teléfono vuelve al Dashboard).
+
+**La trampa (el diagnóstico obvio era el equivocado):** el layout de /m/dashboard preguntando `ruta === '/m/dashboard'`
+no se dispara NUNCA. En el teléfono la URL es la de escritorio («las rutas deben ser las mismas»): el proxy REESCRIBE
+`/dashboard?hoja=…`, `/marketing`, `/comercial` o `/graficos` a /m/dashboard, y el header de la ruta lleva la URL pedida
+(`headersSeguros`, proxy.ts). Una /m pedida directo, en cambio, redirige a la de escritorio. Y el layout no recibe el
+`[hoja]` (es de la hija). Por eso `paginaDelPedido` (app/m/dashboard/redireccion.ts) traduce la ruta con `rutaMovil`, la
+MISMA tabla del proxy, y el test compara las dos con `decidirDesvio`.
+
+**Las otras dos reglas que quedan:**
+- **La puerta de la tab, sólo si se va a redirigir.** `requireRolWs` / `requireMovil` preguntan el onboarding y el negocio
+  pausado SIN cache por pedido: correrlas siempre en el layout duplicaba esas consultas en cada carga del Dashboard. Como
+  en /web-generator, el layout decide con lo cacheado (`getRolWsEfectivo`, `getCapaActual`, `contextoMovil`) y llama a la
+  puerta sólo antes de su redirect.
+- **Lo que el layout lee, la página lo reusa.** Para decidir una hoja propia hace falta el informe: `tableroDelPedido`
+  (`cache(leerTablero)`, app/m/dashboard/datos.ts) lo lee una vez por pedido para el layout y la página.
+
+**Sin hacer:** no se midió en producción ni en el teléfono (es un 307 en vez de un 200 con el redirect en el stream; se
+mide con el `fetch(..., { redirect: 'manual' })` de arriba, con un closer en un negocio sin Closing). Las seis conocidas de
+otras tabs siguen en la lista. Vive en: app/dashboard/layout.tsx · app/dashboard/redireccion.ts ·
+app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-antes-del-loader.test.ts.
+
+*25/10/2026, chat «Automations» (claude5).*
 
 *25/10/2026, chat «Landings» (claude5).*
 

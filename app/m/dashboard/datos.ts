@@ -27,15 +27,17 @@
 // =============================================================================
 
 import 'server-only';
+import { cache } from 'react';
 import { datosDeGraficos } from '@/lib/graficos-datos';
+import { leerTablero } from '@/lib/graficos-tablero';
 import { leerComercial } from '@/lib/datos-comercial-server';
 import { getRevenuePeriod } from '@/lib/queries';
 import {
   agruparAuto, esGrafico, fuenteDe, metricaDe, rangoDe, tipoDe, tituloDe, tonoDe,
-  type Formato, type Grafico, type Hoja, type Preset, type VistaValores,
+  type Formato, type Grafico, type Hoja, type Preset, type Tablero, type VistaValores,
 } from '@/lib/graficos-catalogo';
 import { claveTiempo, clavesDelRango, fmtValor, periodoAnterior, type Resultado } from '@/lib/graficos-agregar';
-import { firmaDe } from '@/lib/graficos-plantillas';
+import { firmaDe, hojaDestino } from '@/lib/graficos-plantillas';
 import { pedidosDeHoja } from '@/app/dashboard/exportar';
 import {
   ERROR_LECTURA, PERIODO_DEFAULT, cobroDeFila, deltaDe, etiquetaBarra, periodoDe,
@@ -228,6 +230,21 @@ export const entraEnTelefono = (h: Hoja) => {
   const p = piezasDeHoja(h);
   return p.numeros.length > 0 || p.serie != null;
 };
+
+/**
+ * La hoja propia `id` que abre el teléfono (./[hoja]), o null si se vuelve al Dashboard. El id exacto, o el nombre de una
+ * plantilla (`closing`, `landing`…) como lo resuelve escritorio con `?hoja=` (hojaDestino): los links de escritorio llegan
+ * así por rutaMovil. Si escritorio tendría que AGREGAR la hoja, el teléfono no la agrega (eso escribe el informe): vuelve.
+ * La MISMA cuenta en la página y en el layout (./layout.tsx), que redirige antes del loader.
+ */
+export function hojaPropiaDe(t: Tablero, id: string): Hoja | null {
+  const destino = hojaDestino(t, id);
+  const h = destino.agregar ? undefined : t.hojas.find((x) => x.id === destino.hojaId);
+  return h && !esHojaInicial(h) && entraEnTelefono(h) ? h : null;
+}
+
+/** El informe de la persona, leído UNA vez por pedido: lo piden el layout (para decidir si vuelve) y la página de la hoja. */
+export const tableroDelPedido = cache(leerTablero);
 
 /** El período de entrada de una hoja propia (su control de período), o null si no tiene. */
 export function periodoPropio(h: Hoja): Preset | null {

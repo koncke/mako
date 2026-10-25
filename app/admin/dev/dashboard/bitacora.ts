@@ -767,4 +767,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/dashboard',
   },
+  {
+    fecha: '25 oct', hora: '02:50', chat: 'Dashboard', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Dashboard ya no puede romperse al abrirlo cuando te manda a otra pantalla',
+    pedido: 'El Cerebro: «sacar el redirect() de las páginas con loading.tsx encima (React #310) en app/dashboard/page.tsx, app/m/dashboard/page.tsx y app/m/dashboard/[hoja]/page.tsx, a un layout»',
+    puntos: [
+      'Es el mismo error de «La pantalla se rompió» que tuvieron Web Generator y General: cuando el Dashboard tenía que mandarte a otra pantalla mientras cargaba, a veces se caía.',
+      'Pasa en la computadora con el closer o el setter de un negocio que no tiene su hoja, y en el teléfono también con una hoja que no se abre ahí. Ahora te manda antes de empezar a cargar.',
+      'En el teléfono la dirección es la de la computadora (/dashboard): se mira con la misma tabla que usa MaKo para decidir qué pantalla del teléfono mostrar.',
+    ],
+    archivos: [
+      'app/dashboard/layout.tsx y app/m/dashboard/layout.tsx — redirigen antes del loader',
+      'app/dashboard/redireccion.ts y app/m/dashboard/redireccion.ts — la decisión, la misma de las páginas',
+      'tests/redirige-antes-del-loader.test.ts — probado rompiéndolo (6 roturas)',
+    ],
+    revisar: '/dashboard',
+  },
 ];

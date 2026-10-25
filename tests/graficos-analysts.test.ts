@@ -546,7 +546,9 @@ test('el modo de un rol está enchufado: la página, la ruta y la pantalla (leye
   const pagina = sinComentarios(leer('app/dashboard/page.tsx'));
   assert.match(pagina, /requireRolWs\(\['closer', 'setter'\], \{ nav: 'graphics' \}\)/, 'el closer o el setter no entran al Dashboard');
   assert.match(pagina, /const unica = hojaDeRol\(rol\);/);
-  assert.match(pagina, /if \(!tabEnCapa\(unica\.capa, capa\)\) redirect\(/, 'un rol sin la capa de su hoja la vería');
+  // `sinSuHoja` (app/dashboard/redireccion.ts, 25/10/2026): la misma decisión en la página y en el layout, que redirige antes
+  // del loader (tests/redirige-antes-del-loader.test.ts fija lo que decide).
+  assert.match(pagina, /if \(sinSuHoja\(rol, capa\)\) redirect\(/, 'un rol sin la capa de su hoja la vería');
   assert.match(pagina, /const enMemoria = informeDeRol\(rol\);/, 'el rol no recibe el informe en memoria');
   assert.match(pagina, /soloLectura=\{!!unica\}/);
   assert.match(pagina, /hojaDestino\(tablero, pedida\)/, '?hoja= dejó de pasar por hojaDestino');
