@@ -2824,4 +2824,23 @@ FEEDBACK PROBAR:
     ],
     revisar: "/dashboard",
   },
+  {
+    fecha: "25 oct", hora: "22:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "La tarjeta «Prueba A/B» en Automations",
+    puntos: [
+      "En el lienzo, «＋ Prueba A/B» parte el camino: A es lo de siempre y B nace como copia de lo que quieres probar.",
+      "Cada rama lleva su porcentaje; «Empezar la prueba» dice cuánta gente hace falta y en cuántos días llega.",
+      "Mientras no haya una prueba corriendo, todos van a A. Los recordatorios siguen cuidando que la reunión esté en pie.",
+      "Se puede probar con «Probar» (una conversación por rama), pedírsela a MaKo, verla en Métricas y manejarla por la API.",
+      "Falta: aplicar las tablas en la base (con el sí de Martín) y la primera prueba real en el Cliente de Prueba.",
+    ],
+    archivos: [
+      "lib/flujo-grafo.ts y lib/nutricion-grafo-motor.ts — la tarjeta en el modelo y en el motor",
+      "app/automations/EditorPruebaAB.tsx — su editor",
+      "tests/pruebas-tarjeta-ab.test.ts — probado rompiéndolo (37 roturas)",
+    ],
+    revisar: "/automations",
+  },
 ];

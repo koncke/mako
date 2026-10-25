@@ -206,7 +206,7 @@ test('métricas: sólo las maduras, el éxito dentro de su ventana, lo que ya es
   const asig: Asignacion[] = [
     { unidad: '1', rama: 'A', asignadaAt: dia(10) },              // madura, logró
     { unidad: '2', rama: 'A', asignadaAt: dia(10) },              // madura, logró FUERA de la ventana
-    { unidad: '3', rama: 'B', asignadaAt: dia(9), previo: true }, // madura, ya había agendado
+    { unidad: '3', rama: 'B', asignadaAt: dia(9), previo: { agendo: true } }, // madura, ya había agendado
     { unidad: '4', rama: 'B', asignadaAt: dia(8) },               // madura, no logró
     { unidad: '5', rama: 'B', asignadaAt: dia(3) },               // NO madura (ventana de 7): no cuenta
     { unidad: '6', rama: 'B', asignadaAt: dia(9) },               // madura, logró 30 s ANTES de la asignación (tolerancia)
@@ -216,19 +216,19 @@ test('métricas: sólo las maduras, el éxito dentro de su ventana, lo que ya es
     ['1', { logro: true, at: dia(8) }], ['2', { logro: true, at: dia(1) }], ['3', { logro: true, at: dia(8) }],
     ['4', { logro: false }], ['5', { logro: true, at: dia(2) }], ['6', { logro: true, at: new Date(Date.parse(dia(9)) - 30_000).toISOString() }],
   ]);
-  const c = conteosPorRama(asig, res, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA });
+  const c = conteosPorRama(asig, res, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA, metrica: 'agendo' });
   assert.ok(c.ok, c.ok ? '' : c.error);
   assert.deepEqual(c.ok && c.ramas.map((r) => [r.clave, r.n, r.x]), [['A', 2, 1], ['B', 3, 1]]);
   assert.deepEqual(c.ok && c.asignados, { A: 2, B: 4 });
   // El medidor no devolvió a una madura: la lectura falla, no cuenta como 0.
   const sin4 = new Map(res);
   sin4.delete('4');
-  const mal = conteosPorRama(asig, sin4, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA });
+  const mal = conteosPorRama(asig, sin4, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA, metrica: 'agendo' });
   assert.ok(!mal.ok && /no devolvió a 1 persona/.test(mal.error));
   // A la no madura no hace falta medirla.
   const sin5 = new Map(res);
   sin5.delete('5');
-  assert.ok(conteosPorRama(asig, sin5, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA }).ok);
+  assert.ok(conteosPorRama(asig, sin5, { ramas: RAMAS_M, ventanaDias: 7, hasta: HASTA, metrica: 'agendo' }).ok);
 });
 
 test('métricas: el catálogo y lo que cada una pide al crear la prueba', () => {

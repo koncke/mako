@@ -63,14 +63,20 @@ export function problemasDeMetrica(clave: string, superficie: Superficie, def: D
   return err;
 }
 
-/** Una asignación, como sale de `prueba_asignaciones`. `previo`: el estado de la métrica al asignar (congelado). */
-export type Asignacion = { unidad: string; rama: string; asignadaAt: string; previo?: boolean };
+/**
+ * Una asignación, como sale de `prueba_asignaciones`. `previo`: el estado de cada métrica de ESTADO al asignar
+ * (congelado), por clave: {agendo: true}. La que decide y un guardrail pueden ser las dos de estado.
+ */
+export type Asignacion = { unidad: string; rama: string; asignadaAt: string; previo?: Readonly<Record<string, boolean>> };
 /** Lo que el medidor dice de una unidad: si logró la métrica y cuándo (la PRIMERA vez). */
 export type Resultado = { logro: boolean; at?: string | null };
 
 /** Un medidor: lee la base de la superficie y devuelve el resultado de CADA unidad que se le pidió. */
 export type Medidor = (p: {
   ws: number; pruebaId: number; metrica: string; definicion: DefinicionMetrica;
+  /** Dónde vive la prueba (`pruebas.lugar`): la automatización y su tarjeta, o la landing. */
+  lugar: Readonly<Record<string, unknown>>;
+  /** TODAS las de la época (no sólo las maduras): el medidor congela el primer resultado el día que pasa. */
   asignaciones: readonly Asignacion[];
   /** Hasta cuándo se mira: el fin de AYER (las lecturas no miran el día que corre). */
   hasta: string;
@@ -87,7 +93,7 @@ const DIA_MS = 86_400_000;
 export function conteosPorRama(
   asignaciones: readonly Asignacion[],
   resultados: ReadonlyMap<string, Resultado>,
-  o: { ramas: ReadonlyArray<{ clave: string; control?: boolean; activa?: boolean }>; ventanaDias: number; hasta: string },
+  o: { ramas: ReadonlyArray<{ clave: string; control?: boolean; activa?: boolean }>; ventanaDias: number; hasta: string; metrica: string },
 ): { ok: true; ramas: ConteoRama[]; asignados: Record<string, number> } | { ok: false; error: string } {
   const hasta = Date.parse(o.hasta);
   if (!Number.isFinite(hasta)) return { ok: false, error: `«${o.hasta}» no es una fecha` };
@@ -105,7 +111,7 @@ export function conteosPorRama(
     const r = resultados.get(a.unidad);
     if (!r) { faltan.push(a.unidad); continue; }
     c.n++;
-    if (!r.logro || a.previo) continue;
+    if (!r.logro || a.previo?.[o.metrica] === true) continue;
     const at = r.at ? Date.parse(r.at) : NaN;
     if (Number.isFinite(at) && (at < desde - TOLERANCIA_ASIGNACION_MS || at > fin)) continue;
     c.x++;

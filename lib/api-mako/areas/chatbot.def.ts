@@ -572,6 +572,35 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: true, escribe: 'reemplaza el texto o los botones de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
+  // LA PRUEBA A/B DE UNA AUTOMATIZACIÓN (tanda A3, lib/pruebas/automatizacion.ts; Martín: «Todo, todo siempre tiene que ir
+  // a la API»). Ver, empezar y detener. La tarjeta «A/B TEST» se arma en el lienzo (sus ramas y porcentajes); lo que gana lo
+  // decide el juez en código (lib/pruebas/juez.ts), nunca quien llama.
+  {
+    id: 'prueba_ab_automatizacion', area: 'chatbot', tipo: 'lectura',
+    titulo: 'La prueba A/B de una automatización',
+    descripcion: 'La prueba A/B de la tarjeta «A/B TEST» de una automatización: si corre, el día, cuánta gente entró a cada rama y cuántos lograron el objetivo, y cómo terminó («Ganó B», «Empate: quedó A», «Todavía no se sabe»). Mientras corre no hay ganador: la decide MaKo con un horizonte fijo, una sola vez, cuando junta la gente del plan. Sin prueba corriendo, todos los leads van a la rama A. Las ramas de la tarjeta (letra, porcentaje, a qué tarjeta sigue) están en ficha_secuencia_mensajes.',
+    parametros: [pSecuenciaId],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
+  },
+  {
+    id: 'empezar_prueba_ab', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
+    titulo: 'Empezar la prueba A/B de una automatización',
+    descripcion: 'PROPONE empezar la prueba de la tarjeta «A/B TEST» de una automatización y devuelve un link para revisarla. Corre sobre lo PUBLICADO: la tarjeta tiene que estar guardada, con sus ramas sumando 100 y cada una llevando a algo. Antes de empezar MaKo calcula cuánta gente hace falta por rama para ver el salto pedido (efecto: 0.8 = de 10 % a 18 %) y cuántos días tarda con el ritmo de los últimos 30; con poca gente lo dice («No llega en 60 días»). Mide «Respondió» (o «Agendó», si ése es el objetivo de la automatización) y cuida que no bajen las agendas.',
+    parametros: [
+      pSecuenciaId,
+      { nombre: 'efecto', tipo: 'number', minimo: 0.1, maximo: 5, descripcion: 'opcional: el salto que quiere poder ver, relativo (0.8 = de 10 % a 18 %). Sin esto, 0.8.' },
+    ],
+    reversible: true, escribe: 'inserta la prueba en pruebas y sus ramas en prueba_variantes (corriendo); los leads que llegan a la tarjeta se reparten desde ahí',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
+  {
+    id: 'detener_prueba_ab', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
+    titulo: 'Detener la prueba A/B de una automatización',
+    descripcion: 'PROPONE detener la prueba A/B que corre en una automatización: desde ahí todos los leads van a la rama A y no se declara ganador. Los que ya estaban en otra rama terminan su camino.',
+    parametros: [pSecuenciaId],
+    reversible: false, escribe: 'pasa la prueba a detenida en pruebas',
+    canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+  },
   // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los
   // LEÍA (`ficha_secuencia_mensajes` trae `disparadores`) y no había cómo cambiarlos sin la pantalla.
   // De PANTALLA y no de chat: cambiar qué la dispara cambia A QUIÉN le escribe, y en una activa la

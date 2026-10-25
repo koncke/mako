@@ -98,6 +98,37 @@ export async function pruebaVivaDe(ws: number, claveLugar: string): Promise<Prue
   return data ? leerPrueba(ws, Number((data as Fila).id)) : null;
 }
 
+/** La ÚLTIMA prueba de un lugar, viva o no (lo que dice la tarjeta al terminar: «Ganó B»), o null. */
+export async function ultimaPruebaDe(ws: number, claveLugar: string): Promise<PruebaGuardada | null> {
+  const { data, error } = await db().from('pruebas').select('id').eq('workspace_id', ws).eq('clave_lugar', claveLugar).order('id', { ascending: false }).limit(1).maybeSingle();
+  if (error) { if (tablaFalta(error)) return null; return falla('ultimaPruebaDe', error); }
+  return data ? leerPrueba(ws, Number((data as Fila).id)) : null;
+}
+
+/** Los números de la ÚLTIMA lectura de una prueba (una fila por rama), o vacío si todavía no se leyó. */
+export async function ultimaLectura(ws: number, pruebaId: number): Promise<Array<{
+  variante: string; fecha: string; dia: number; n: number; nMaduros: number; x: number; pMejor: number | null; pPeor: number | null;
+}>> {
+  const { data: u, error } = await db().from('prueba_lecturas').select('fecha').eq('workspace_id', ws).eq('prueba_id', pruebaId).order('fecha', { ascending: false }).limit(1).maybeSingle();
+  if (error) return falla('ultimaLectura', error);
+  if (!u) return [];
+  const { data, error: e2 } = await db().from('prueba_lecturas').select('*').eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('fecha', (u as Fila).fecha as string);
+  if (e2) return falla('ultimaLectura (filas)', e2);
+  return ((data ?? []) as Fila[]).map((f) => ({
+    variante: String(f.variante), fecha: String(f.fecha), dia: Number(f.dia) || 0, n: Number(f.n) || 0, nMaduros: Number(f.n_maduros) || 0,
+    x: Number(f.x) || 0, pMejor: n(f.p_mejor), pPeor: n(f.p_peor),
+  }));
+}
+
+/** Los pesos y las firmas nuevas de las ramas (al abrir una época por un cambio del dueño). */
+export async function actualizarRamas(ws: number, pruebaId: number, ramas: ReadonlyArray<{ clave: string; peso: number; firma: string; contenido?: Record<string, unknown> }>): Promise<void> {
+  for (const r of ramas) {
+    const { error } = await db().from('prueba_variantes').update({ peso: r.peso, firma: r.firma, ...(r.contenido ? { contenido: r.contenido } : {}) })
+      .eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('clave', r.clave);
+    if (error) falla('actualizarRamas', error);
+  }
+}
+
 // ── Crear y cambiar de estado ───────────────────────────────────────────────
 
 export { problemasDeNuevaPrueba, VENCE_PROPUESTA_HORAS, type NuevaPrueba };
@@ -179,7 +210,7 @@ export async function reiniciarEpoca(ws: number, id: number, epocaLeida: number,
  * si otro pedido la escribió primero, gana ésa). `at` es la hora del PEDIDO (crítica 9). `previo` congela el estado de la
  * métrica al asignar («ya había agendado»). Si escribir falla, el CONTROL: nunca una rama que no quedó registrada.
  */
-export async function servirRama(ws: number, p: PruebaGuardada | null, unidad: string | null | undefined, o: { at?: string; previo?: boolean } = {}): Promise<string> {
+export async function servirRama(ws: number, p: PruebaGuardada | null, unidad: string | null | undefined, o: { at?: string; previo?: Readonly<Record<string, boolean>> } = {}): Promise<string> {
   const control = p?.ramas.find((r) => r.control)?.clave ?? 'A';
   if (!p || !unidad) return ramaParaServir(p, unidad).clave;
   const leer = async (): Promise<string | null | 'error'> => {
@@ -208,16 +239,37 @@ export async function asignacionesDe(ws: number, pruebaId: number, epoca: number
       .eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('epoca', epoca).order('unidad').range(desde, desde + 999);
     if (error) return falla('asignacionesDe', error);
     for (const f of (data ?? []) as Fila[]) {
-      out.push({ unidad: String(f.unidad), rama: String(f.variante), asignadaAt: String(f.asignada_at), ...(f.previo != null ? { previo: f.previo === true } : {}) });
+      out.push({ unidad: String(f.unidad), rama: String(f.variante), asignadaAt: String(f.asignada_at), ...(f.previo && typeof f.previo === 'object' ? { previo: f.previo as Record<string, boolean> } : {}) });
     }
     if ((data ?? []).length < 1000) return out;
   }
 }
 
-/** Congela el PRIMER resultado de una unidad (sólo si todavía no tiene: «respondió» se reescribe al volver a entrar). */
-export async function congelarResultado(ws: number, pruebaId: number, unidad: string, logro: boolean, at: string | null): Promise<void> {
-  const { error } = await db().from('prueba_asignaciones').update({ resultado: logro, resultado_at: at })
-    .eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('unidad', unidad).is('resultado', null);
+/** Los «sí» ya congelados de cada unidad, POR MÉTRICA: unidad → { respondio: { at } }. De a 1.000. */
+export type Congelados = Map<string, Record<string, { at: string | null }>>;
+export async function resultadosCongelados(ws: number, pruebaId: number, epoca: number): Promise<Congelados> {
+  const out: Congelados = new Map();
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await db().from('prueba_asignaciones').select('unidad, resultados')
+      .eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('epoca', epoca).order('unidad').range(desde, desde + 999);
+    if (error) return falla('resultadosCongelados', error);
+    for (const f of (data ?? []) as Fila[]) {
+      const r = f.resultados && typeof f.resultados === 'object' && !Array.isArray(f.resultados) ? f.resultados as Record<string, { at?: unknown }> : {};
+      // Sin filtrar en la base (comparar un jsonb por PostgREST es frágil): las que no tienen nada no se guardan.
+      if (Object.keys(r).length) out.set(String(f.unidad), Object.fromEntries(Object.entries(r).map(([k, v]) => [k, { at: s(v?.at) }])));
+    }
+    if ((data ?? []).length < 1000) return out;
+  }
+}
+
+/**
+ * Congela el PRIMER «sí» de una métrica para una unidad, sumándolo a los que ya tiene (`previos`, los que se leyeron con
+ * `resultadosCongelados`): una sola corrida por día escribe esto (el cron), así que leer-y-sumar alcanza.
+ */
+export async function congelarResultado(ws: number, pruebaId: number, unidad: string, metrica: string, at: string | null, previos: Record<string, { at: string | null }> = {}): Promise<void> {
+  if (previos[metrica]) return;
+  const { error } = await db().from('prueba_asignaciones').update({ resultados: { ...previos, [metrica]: { at } } })
+    .eq('workspace_id', ws).eq('prueba_id', pruebaId).eq('unidad', unidad);
   if (error) falla('congelarResultado', error);
 }
 

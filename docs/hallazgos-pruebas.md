@@ -74,7 +74,31 @@ letra de la rama (con 3 ramas, la que se cuenta puede no ser B: va en `config.va
 **El cron** (`/api/cron/pruebas`, 6:15 UTC) todavía no tiene medidores: los suman A3 (Automations) y Landings. Sin medidor,
 la lectura de esa prueba queda fallida y no decide. Una lectura que falla nunca cuenta como «0 éxitos».
 
+## La tarjeta de Automations y lo que mide (A3, 25/10/2026)
+
+La tarjeta «A/B TEST» y sus puertas están en docs/hallazgos-chatbot.md («La tarjeta «A/B TEST»…»). Del motor de las pruebas:
+- **Los medidores van por SUPERFICIE y por métrica** (`Medidores`, lib/pruebas/corrida.ts): «agendó» de una automatización
+  no se mide como el de una landing. Los de Automations están en lib/pruebas/medidores-automatizacion.ts.
+- **Al medidor le llegan TODAS las asignaciones**, no sólo las maduras. «Agendó» no tiene hora propia (`junta_1_at` es la de
+  la reunión), así que su hora es la de la lectura que lo vio por primera vez. Si sólo se le pasan las maduras, no hay
+  forma de saber si pasó dentro de la ventana. El primer resultado se congela (`resultado` y `resultado_at` en la
+  asignación). Nunca se congela un «no»: puede volverse «sí» mañana.
+- **⚠️ Lo congelado también va POR MÉTRICA** (`prueba_asignaciones.resultados`, jsonb `{respondio: {at}}`). Con una sola
+  columna `resultado`, el «sí» de «respondió» (la que decide) se leía después como el «sí» de «agendó» (el guardrail): un
+  guardrail que nunca frena. Lo encontró la relectura, no un test.
+- **`previo` es un mapa por métrica** (`{agendo: true}`, jsonb): la que decide y un guardrail pueden ser las dos de estado.
+  Sin previo, un estado no cuenta (no se sabe si ya estaba).
+- **La rama se escribe cuando el lead LLEGA a la tarjeta** (`falta_rama_ab`, como `faltan_hechos`), no antes. Desde ahí
+  corre su ventana. Sin prueba corriendo de ESA tarjeta, o ante un error, va a la A.
+- **Editar mientras corre:** guardar el flujo compara la firma de cada rama (SÓLO sus tarjetas, no lo compartido después
+  de que se juntan). Si cambió algo, abre una época nueva. Si se borró la tarjeta o cambiaron las ramas, la detiene
+  (`revisarLaPruebaAlGuardar`, que nunca frena el guardado).
+
 ## Sin hacer
 
-- **A3:** la clase `ab` con todas sus puertas, la tarjeta, Probar, Métricas, Crear/Editar con IA y la API.
-- **Landings** espera las firmas de `asignar` y del store para servir la landing. `ramaParaServir` ya está.
+- **A3, lo que queda:** la dimensión «rama» en los gráficos del Dashboard (Métricas lo muestra en una franja fija), verla en
+  pantalla, y la primera prueba real en el Cliente de Prueba, que necesita la migración aplicada.
+- **El plan de una prueba de «Agendó» usa la tasa de «Respondió»** (`historiaDe`, lib/pruebas/automatizacion.ts): el n del
+  plan queda corto, y la prueba llega antes a su horizonte con menos potencia. El juez sigue mirando una sola vez (no
+  inventa ganadores), pero ve menos. Falta leer la tasa de agenda de la automatización.
+- **Landings** tiene las firmas y el store (25/10): sus medidores van en `MEDIDORES.landing` del cron.

@@ -3,43 +3,45 @@
 // =============================================================================
 // La llama UN cron por día (app/api/cron/pruebas). Por cada prueba corriendo, adentro de SU negocio (`runWithWorkspace`:
 // un medidor puede leer con getTenantDb):
-//   1. las asignaciones de la época y, de ésas, las que ya maduraron (las ventanas terminan ayer);
-//   2. el MEDIDOR de su métrica (y los de sus guardrails) devuelve el resultado de cada una;
-//   3. `conteosPorRama` → `juzgar` → se guardan los números del día → se corta o se concluye.
+//   1. las asignaciones de la época;
+//   2. el MEDIDOR de su métrica (y los de sus guardrails) devuelve el resultado de cada una. Se le pasan TODAS, no sólo las
+//      maduras: así congela el PRIMER resultado el día que pasa («agendó» no tiene hora propia: la hora es la de la lectura
+//      que lo vio, y una lectura por día la deja a menos de un día del hecho);
+//   3. `conteosPorRama` (que cuenta sólo las maduras) → `juzgar` → se guardan los números del día → se corta o se concluye.
 // ⚠️ UNA LECTURA QUE FALLA NO DECIDE: sin medidor, con un medidor que tira o que no devolvió a alguien, la prueba queda con
 // su `ultima_lectura_error` y el juez no corre (el Analyst se traga los errores a propósito; acá las lecturas son estrictas).
-// Los medidores los pone quien llama, por clave de métrica: Automations los suyos, Landings los de la landing. Así el
-// motor no depende de nutrición ni de las landings.
+// Los medidores los pone quien llama, POR SUPERFICIE Y MÉTRICA («agendó» de una automatización no se mide como el de una
+// landing): Automations los suyos, Landings los de la landing. Así el motor no depende de nutrición ni de las landings.
 // =============================================================================
 
 import 'server-only';
 import { runWithWorkspace } from '@/lib/workspace';
 import { juzgar } from './juez';
-import { diaDeLaPrueba, finDeAyer, maduras } from './lectura';
-import { conteosPorRama, type Medidor } from './metricas';
+import { diaDeLaPrueba, finDeAyer } from './lectura';
+import { conteosPorRama, type Medidor, type Superficie } from './metricas';
 import {
   asignacionesDe, concluirPrueba, cortarRamas, guardarLectura, leerPrueba, marcarLecturaFallida, pruebasVivas, vencerPropuestas,
   type PruebaGuardada,
 } from './store';
 
-export type Medidores = Readonly<Partial<Record<string, Medidor>>>;
+/** Los medidores de cada superficie, por clave de métrica. */
+export type Medidores = Readonly<Partial<Record<Superficie, Readonly<Partial<Record<string, Medidor>>>>>>;
 export type ResultadoLectura =
   | { id: number; ws: number; hecho: 'seguir' | 'cortar' | 'concluir'; detalle: string }
   | { id: number; ws: number; hecho: 'fallida' | 'salteada'; detalle: string };
 
-/** Mide una métrica de la prueba sobre sus asignaciones maduras; null + motivo si no se pudo. */
+/** Mide una métrica de la prueba; el error en palabras si no se pudo. */
 async function medir(p: PruebaGuardada, metrica: string, medidores: Medidores, hasta: string) {
-  const medidor = medidores[metrica];
+  const medidor = medidores[p.superficie]?.[metrica];
   if (!medidor) return { error: `No hay medidor para «${metrica}» en ${p.superficie}: la lectura no cuenta.` } as const;
   const asignaciones = await asignacionesDe(p.ws, p.id, p.epoca);
-  const pedir = maduras(asignaciones, p.ventanaDias, hasta);
   let resultados;
   try {
-    resultados = await medidor({ ws: p.ws, pruebaId: p.id, metrica, definicion: metrica === p.metrica ? p.metricaDef : {}, asignaciones: pedir, hasta });
+    resultados = await medidor({ ws: p.ws, pruebaId: p.id, metrica, definicion: metrica === p.metrica ? p.metricaDef : {}, lugar: p.lugar, asignaciones, hasta });
   } catch (e) {
     return { error: `El medidor de «${metrica}» falló: ${e instanceof Error ? e.message : String(e)}` } as const;
   }
-  const c = conteosPorRama(asignaciones, resultados, { ramas: p.ramas, ventanaDias: p.ventanaDias, hasta });
+  const c = conteosPorRama(asignaciones, resultados, { ramas: p.ramas, ventanaDias: p.ventanaDias, hasta, metrica });
   if (!c.ok) return { error: `«${metrica}»: ${c.error}` } as const;
   return c;
 }

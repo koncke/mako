@@ -95,11 +95,12 @@ create table if not exists prueba_asignaciones (
   epoca         integer not null,
   -- La hora del PEDIDO (no la del insert): el pageview puede llegar antes que la fila (crítica, punto 9).
   asignada_at   timestamptz not null,
-  -- El estado de la métrica al asignar («ya había agendado»): sólo cuenta pasar de no a sí (crítica, punto 5).
-  previo        boolean,
-  -- El PRIMER resultado y su hora, congelados cuando se conocen («respondió» se reescribe al volver a entrar).
-  resultado     boolean,
-  resultado_at  timestamptz,
+  -- El estado de cada métrica de ESTADO al asignar, {"agendo": true, "pago": false}: sólo cuenta pasar de no a sí
+  -- (crítica, punto 5). Por métrica, porque la que decide y un guardrail pueden ser las dos de estado.
+  previo        jsonb,
+  -- El PRIMER «sí» de cada métrica y su hora, congelados cuando se conocen: {"respondio": {"at": "…"}}. Por métrica, porque la
+  -- que decide y un guardrail se miden a la vez («respondió» se reescribe al volver a entrar; «agendó» no tiene hora propia).
+  resultados    jsonb not null default '{}'::jsonb,
   primary key (prueba_id, unidad)
 );
 create index if not exists prueba_asignaciones_epoca_idx on prueba_asignaciones (prueba_id, epoca);

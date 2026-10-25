@@ -7,19 +7,23 @@
 // tiene horizonte fijo: correr el cron dos veces el mismo día no decide dos veces (las lecturas son por fecha y concluir
 // reclama la prueba).
 //
-// LOS MEDIDORES, por clave de métrica, los pone cada superficie: Automations («respondio», «agendo»: tanda A3) y Landings
-// («clic_conversion», «optin», «play_manual»). Sin medidor, la lectura de esa prueba queda fallida y no decide nada.
+// LOS MEDIDORES, por superficie y por métrica, los pone cada una: Automations («respondio», «agendo», «pago»:
+// lib/pruebas/medidores-automatizacion.ts) y Landings («clic_conversion», «optin», «play_manual»). Sin medidor, la lectura
+// de esa prueba queda fallida y no decide nada.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { correrPruebas, type Medidores } from '@/lib/pruebas/corrida';
+import { MEDIDORES_AUTOMATIZACION } from '@/lib/pruebas/medidores-automatizacion';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
-/** Los medidores de cada superficie. Vacío hasta que Automations (A3) y Landings sumen los suyos. */
-const MEDIDORES: Medidores = {};
+/** Los medidores de cada superficie, por clave de métrica. Landings suma los de la landing (`landing`, `portada_mako`). */
+const MEDIDORES: Medidores = {
+  automatizacion: MEDIDORES_AUTOMATIZACION,
+};
 
 export async function GET(request: NextRequest) {
   const authFail = checkCronAuth(request);

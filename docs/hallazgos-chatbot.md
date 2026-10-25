@@ -7242,3 +7242,55 @@ sin `faltan` (`aplicarEnElActo` lo resume en una frase). No se vio en pantalla.
 Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
 lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
 tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
+
+## La tarjeta «A/B TEST»: una clase nueva con todas sus puertas (tanda A3 de las pruebas A/B, 25/10/2026)
+
+**El pedido:** Martín, 25/10: «Lo mismo con Automations, podemos poner una tarjeta que sea "Prueba A/B"». El diseño está en
+docs/diseno-pruebas-ab.md (3.1, con la crítica D). El motor de las pruebas vive en lib/pruebas/ (docs/hallazgos-pruebas.md).
+
+**⚠️ El diseño obvio era el equivocado:** una condición del catálogo. No se puede pegar a otra condición, tiene «Si no»,
+elige la primera fila que se cumple y el motor la vuelve a mirar antes de mandar. Es una clase nueva, `nodo: 'ab'`, con
+`ramas_ab` (letra, porcentaje, salida). Se usó un campo aparte y no `ramas` con `pct`: así lo de la condición (sus filas,
+el «Si no») no la ve, y lo que tiene que verla tiene que nombrarla.
+
+**⚠️ La trampa más peligrosa:** `claseDe` devuelve `'mensaje'` para lo que no conoce. Antes de que la clase existiera en
+todas partes, la tarjeta se guardaba y se mandaba como un WhatsApp vacío. Por eso entró todo en un commit.
+
+**⚠️ La TRANSPARENCIA es lo que cuida a los clientes:** «Su reunión sigue en pie» → A/B → «Mañana es tu reunión». Si
+`condicionDeArriba` mira sólo el padre directo, la condición no se vuelve a evaluar, y sale el recordatorio de una reunión
+cancelada. Suben por la tarjeta: `condicionDeArriba` y `condicionSigueLlevando`, `minutosAntesDeReunion`, el carril
+(`esHiloDelCarril`), `mensajeAnteriorDe`, `esperaAntesDe` (la ventana de Meta) y la forma: CONDITION → A/B → CONDITION
+son dos pegadas.
+
+**⚠️ Encontrado de paso, de los botones de Instagram (24/10):** al pegar una copia o llevarla a otro negocio, `conDestinos`
+(lib/flujo-copia.ts) no rehacía las flechas de los botones. Quedaban apuntando a las tarjetas del ORIGINAL. Ahora sí, y las
+ramas de la prueba también.
+
+**Las puertas, revisadas una por una** (barrido de los ~84 `=== 'condicion'` / `!== 'condicion'` / `case 'condicion'`, más
+los switch y las listas de clases). Qué se hizo en cada una:
+- **Tratan la prueba como una bifurcación** (sus ramas se excluyen): `puertosDe`, `siguienteDe`, `contarParalelos`,
+  `cruces` (con el contexto: dos ramas que se juntan no chocan), `insertarNodo` / `sinSalida` (la A toma lo que seguía),
+  `borrarNodo` (borrarla es quedarse con A), `conectarPuerto` (el puerto es la letra), `necesitaHechos`,
+  `ramaDeQuienContesto`, `destinoAlContestar` (por la A), `ultimoMensajeDelCamino` y `haySeguimiento` (por la A),
+  `esMulti` y la tarjeta del lienzo (`grafoDeSecuencia`), `textosParaElGrupo`, y en «Probar» `correrHilo` (evento
+  `ab`), `elegirComoLead` (sin escenario, la A) y `escenariosDePrueba` (uno por rama).
+- **La atraviesan:** las siete del párrafo de la transparencia.
+- **La rechazan:** `pasosDelEvento` (un evento de MaKo no reparte leads), `responderConGrafo` (no corre en «Si
+  responde»), `validarGrafo` (una por automatización, nunca en «Si responde»), `duplicar`, `crearSuelta`, `pegarTarjetas`
+  (una por automatización), `opcionesDelMas` / `opcionesSueltas` (el ＋ no ofrece una segunda) y «Duplicar» del lienzo.
+- **La nombran (listas y tipos):** `ClaseNodo`, `claseDe`, `PasoGrafo.nodo`, `NODOS`, `CamposFlujo` / `camposDelFlujo`
+  (la quinta puerta), `normalizar`, `esControl`, `esLineal`, `esFlujoExplicito` (sin ella, el armado de audios del
+  onboarding pisaba el flujo), `NOMBRE_CONTROL`, `TITULO`, `tituloDeTarjeta`, `trozoDe`, `QueAgregar`, `MENU_MAS`,
+  `ICONOS_MAS`, `nodoNuevo`, `TipoNodo`, `filaALaDerecha`, `ALTO_EDITOR_CONTROL`, `tinteDeControl`, `EditorDeNodo`, la
+  ficha de la API, la descripción de la tarjeta para el lead (`automatizaciones-del-lead-reglas`), y en la IA
+  `ClaseEditable`, `aIA`, `TipoTarjeta`, `TIPOS`, `NodoIA`, `nodoDe` y el armado.
+- **Revisadas y sin cambio** (son SÓLO de la condición: filas, «Si no», hechos, el catálogo): `esResultadoDe`,
+  `resultadosDe`, `todosLosParalelos`, `elegirSalida`, `antiguedadDeEntrada`, `conectarParalelo`,
+  `promoverResultados`, `condicionARespuesta`, `filasDelFlujo`, `sanearRama`, `usaContesto`, `preguntaContesto`,
+  `miraLaReunion` (ya subía por todo lo que no es espera), `filasConParalelo`, `agregarRama` / `quitarRama` (la prueba
+  tiene las suyas), `quitarPuerto`, `conectar`, `repartosDe`, `equipo-contesto`, `rasgosDelFlujo`, `preferirEsperas`,
+  `seguimientosConNoContesto`, `seguimientoQueFalta`, `agregarTramos`, `validarIA`, `legadoAGrafo`, el motor de los
+  eventos (lib/flujo-pasos.ts, lib/flujos.ts: nunca le llega) y los scripts de una vez.
+
+**Sin hacer:** la dimensión «rama» en los gráficos del Dashboard. Métricas muestra la prueba en una franja fija arriba de la
+hoja, como el aviso de Closing, y el gráfico por rama es del área del Dashboard. Tampoco se probó la tarjeta en pantalla.

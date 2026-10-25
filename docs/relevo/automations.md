@@ -44,6 +44,11 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
   un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
   llamada que era de Automations está hecha; nada se vio en pantalla.
+- **Pruebas A/B, tanda A3 hecha (25/10): la tarjeta «A/B TEST»** con todas sus puertas (la lista revisada, en
+  docs/hallazgos-chatbot.md), el editor (EditorPruebaAB: ramas, porcentajes, Empezar y Detener), «Probar» (un escenario por
+  rama), Crear y Editar con IA (`prueba_ab`, su regla sólo si el pedido la nombra), la API (`prueba_ab_automatizacion`,
+  `empezar_prueba_ab`, `detener_prueba_ab`), los medidores de Automations en el cron y una franja en Métricas. Falta la
+  migración aplicada (con el sí de Martín) y la primera prueba real en el Cliente de Prueba.
 - **Pruebas A/B, tandas A1 y A2 hechas (25/10, el Cerebro; diseño en docs/diseno-pruebas-ab.md, manda la crítica):** A1, el
   motor puro lib/pruebas/ (asignar, estadistica, juez, volumen, metricas) y el test A/A con el calendario real
   (tests/pruebas-juez-aa, ≤ 5 % de falsos ganadores). A2, la migración supabase/migrations/XXXX_pruebas_ab.sql SIN número (la

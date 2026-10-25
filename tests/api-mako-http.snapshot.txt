@@ -176,6 +176,7 @@ desvincular_cobro_etapa
 desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
+detener_prueba_ab
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
@@ -215,6 +216,7 @@ eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
+empezar_prueba_ab
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -471,6 +473,7 @@ proponer_sincronizar_guiones
 proponer_tareas_plan
 proponer_toggle_nutricion
 propuestas_lead_pendientes
+prueba_ab_automatizacion
 publicar_creacion
 publicar_landing
 publicar_post_comunidad
