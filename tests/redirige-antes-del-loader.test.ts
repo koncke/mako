@@ -155,6 +155,8 @@ test('/admin/operaciones, /m/chats y /m/second-brain: el layout redirige antes d
   const chats = sinComentarios(leer('app/m/chats/layout.tsx'));
   const chatsPag = sinComentarios(leer('app/m/chats/page.tsx'));
   assert.match(chats, /if \(pedido\?\.ruta === RUTA_CHATS\) \{/, 'sólo la LISTA: el layout envuelve también a cada chat');
+  assert.match(chats, /\{ children: ReactNode \}\) \{\s*await requireMovil\(\{ navKey: 'chats' \}\);\s*const pedido = await pedidoMovilActual\(\);/,
+    'la puerta, primero y para las dos (la lista y cada chat)');
   for (const pedazo of ['if (directo) redirect(await rutaConWs(directo));', 'if (chat) redirect(await rutaConWs(rutaHiloM(chat.clave)));']) {
     assert.ok(chats.includes(pedazo), `el layout de /m/chats no tiene «${pedazo}»`);
     assert.ok(chatsPag.includes(pedazo), `la página de /m/chats no tiene «${pedazo}»`);
@@ -173,4 +175,5 @@ test('/admin/operaciones, /m/chats y /m/second-brain: el layout redirige antes d
     assert.ok(sbPag.includes(pedazo), `la página de /m/second-brain no tiene «${pedazo}» (el layout la copia: cambiar los dos)`);
   }
   for (const lay of [chats, sb]) assert.match(lay, /const pedido = await pedidoMovilActual\(\);/, 'un layout de /m mira la ruta de SU página, no la del navegador');
+  assert.match(sb, /if \(pedido\?\.ruta === `\$\{RUTA_OPS_CENTER_M\}\/mapa`\) await requireMovil\(\{ navKey: 'second-brain' \}\);/, 'el Mapa pasa por otra puerta');
 });

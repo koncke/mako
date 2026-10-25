@@ -198,6 +198,10 @@ app/m/second-brain/layout.tsx (el Mapa, y el super admin a su Centro; sólo en e
 **Ojo, sin arreglar:** `requireMovil` también redirige (login, onboarding, la tab que no le toca) y lo llama cada página de /m
 debajo de su loader. El barrido no lo ve porque busca `redirect(` en el archivo de la página. Los dos layouts nuevos lo llaman
 primero, así que ahí sale antes del loader; en el resto de /m sigue igual (lib/movil-guard.ts).
+**La puerta va para TODA la carpeta del loader, no sólo para la ruta que redirige** (lo vio Landings, cuyo guard cuenta las
+puertas): el loader de /m/chats envuelve también a cada chat, así que `requireMovil({ navKey: 'chats' })` va primero y sin
+mirar la ruta; y el Mapa, debajo del loader de /m/second-brain, pasa por OTRA puerta (`second-brain`, no `mako`), que su
+layout repite en esa ruta.
 
 **Sin medir en producción** (la receta, en la entrada de arriba).
 

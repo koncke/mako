@@ -8,6 +8,9 @@
 // /second-brain con /m/second-brain: `pedidoMovilActual`). Las condiciones y los destinos son LOS DE LA PÁGINA, copiados: un
 // test exige que estén iguales en los dos (tests/redirige-antes-del-loader.test.ts). La página conserva los suyos para cuando se
 // llega navegando.
+// EL MAPA, CON SU PUERTA (25/10/2026, chat «Landings»): `requireMovil` también redirige por dentro (sin sesión, al onboarding
+// pendiente, sin la tab), y el Mapa pasa por OTRA (`second-brain`, no `mako`): se repite en su ruta, antes del loader
+// (tests/redirige-antes-del-loader.test.ts cuenta las puertas de cada página).
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -33,5 +36,6 @@ export default async function SecondBrainMLayout({ children }: { children: React
     }
     if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));
   }
+  if (pedido?.ruta === `${RUTA_OPS_CENTER_M}/mapa`) await requireMovil({ navKey: 'second-brain' });
   return children;
 }

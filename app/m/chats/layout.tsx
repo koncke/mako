@@ -8,6 +8,9 @@
 // (307), con la ruta y la query que recibe la página (el proxy sirve /chats con /m/chats: `pedidoMovilActual`). La página
 // conserva sus redirect para cuando se llega navegando. Si el link no está en la lista, la página la vuelve a leer: es el caso
 // raro, y se queda en la lista.
+// LA PUERTA, PARA LAS DOS (25/10/2026, chat «Landings»): `requireMovil` también redirige por dentro (sin sesión, al onboarding
+// pendiente). La lista y cada chat (`/m/chats/<clave>`) pasan por la misma: va primero y sin mirar la ruta, así el chat que
+// se abre directo desde un aviso tampoco redirige adentro del loader (tests/redirige-antes-del-loader.test.ts).
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -23,9 +26,9 @@ import { hiloDelLink, rutaHiloM } from './modelo';
 const uno = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
 export default async function ChatsMLayout({ children }: { children: ReactNode }) {
+  await requireMovil({ navKey: 'chats' });
   const pedido = await pedidoMovilActual();
   if (pedido?.ruta === RUTA_CHATS) {
-    await requireMovil({ navKey: 'chats' });
     const sp = pedido.query;
     const link = leerLinkProfundo((k) => uno(sp[k]) ?? null);
     const directo = hiloDelLink(link);
