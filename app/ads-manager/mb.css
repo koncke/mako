@@ -89,7 +89,7 @@
 
 .mb-editar-meta {
   height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--mbx-acento); border-radius: var(--r-sm);
-  background: transparent; color: var(--mbx-acento); font: 500 15px var(--mbx-texto); cursor: pointer;
+  background: transparent; color: var(--mbx-acento); font: 500 15px var(--mbx-texto); cursor: pointer; text-decoration: none;
 }
 
 /* El chip «Todas las recomendaciones 4 ×», con su filete abajo */
