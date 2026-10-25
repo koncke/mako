@@ -58,6 +58,8 @@ import { BurbujaSocial, ArchivoSocial, LogoSocial } from './social-ui';
 // cuenta, en el modal de la tab (antes se abría una pestaña nueva y el editor no se enteraba de la vuelta).
 import { ConectarMedio, useAlConectarMedio, leerZernio, type CuentaZernio, type EstadoZernio, type RespuestaZernio } from './ConectarMedio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { botonesDe } from '@/lib/botones-social';
+import { BotonesSocial } from './BotonesSocial';
 
 export type EditorMensajeSocialProps = {
   paso: PasoSecuenciaDto;
@@ -345,7 +347,15 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
       )}
       <div data-chat style={{ flex: '1 1 auto', minHeight: 110, padding: 12, display: panelMako && mako ? 'none' : 'flex', flexDirection: 'column', overflowY: 'auto', background: 'var(--surface)' }}>
         {/* `marginTop: auto` y no `justify-content: flex-end`: con flex-end y scroll, lo que desborda por arriba no se alcanza. */}
-        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>{vista}</div>
+        <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          {vista}
+          {/* LOS BOTONES (24/10/2026, como ManyChat): debajo del último mensaje, como los ve la persona. Con algo escrito: los
+              botones van debajo de un texto. */}
+          {partes.length > 0 && (
+            <BotonesSocial botones={botonesDe(paso)} deshabilitado={ocupado}
+              onCambio={(b) => onChange({ botones: b.length ? b : undefined })} />
+          )}
+        </div>
       </div>
       {editando != null && (
         <div style={{ flex: 'none', padding: '6px 12px', borderTop: '1px solid var(--border)', fontSize: 12.5, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: 7 }}>

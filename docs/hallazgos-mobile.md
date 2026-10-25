@@ -7,6 +7,18 @@ Corridas del 11/10/2026: la v1 (relevo de 7 agentes + 11 de implementación + 1 
 el diseño v2 a la tarde, y a la noche la implementación v2 (12 agentes + la integración) con el desvío
 de teléfonos PRENDIDO. Lo de la v2 está en su propia sección, más abajo.
 
+## «En mobile aparecen 2 dashboards»: la fila de las hojas quedó de antes del Dashboard unido (24/10/2026)
+
+**Síntoma** (Martín, Android, captura de More › Today): «Dashboard» y «Dashboard sheets», uno abajo del otro. **Causa:**
+«Dashboard sheets» (/m/dashboard, las hojas) se sumó el 17/10, cuando la portada todavía no las tenía adentro, con ese
+nombre «para no repetir el de la barra». El mismo día el Dashboard se UNIÓ (lib/dashboard-focus.ts): /m/hoy trae Focus y
+las hojas del Dashboard en el mismo segmentado. La fila quedó repitiendo lo que la portada ya mostraba. **Regla:** un solo
+«Dashboard» en More, el mismo que en la computadora (`masCompleto`, lib/movil-rutas.ts). Quien ve General lo abre en
+/m/hoy. El closer y el setter, que no ven General, tienen como Dashboard SU hoja (/m/dashboard), y la portada Today no
+sale en More: lo suyo vive en Calendar, el Inbox y el Plan, y /m/hoy sigue siendo adonde rebota una puerta. **Trampa:**
+dos tests fijaban las DOS filas (tests/sidebar-nueva.test.ts y tests/movil-mas-secciones.test.ts). Pasaban en verde con
+el duplicado porque describían lo que había, no lo que tenía que haber. *24/10/2026, chat «Automations» (claude5).*
+
 ## Un lead sin email ni teléfono en el teléfono: el @ cuando es su único canal (23/10/2026)
 
 El escritorio ya dibujaba el @ de un lead que entró sólo con él (docs/hallazgos-crm.md, «Un lead puede entrar con sólo su @»); el

@@ -87,6 +87,15 @@ export async function pausarRespuestaSocial(leadId: number, canal: CanalSocial, 
   return pausarPorRespuesta(leadId, { origen: canal, texto: extra.texto ?? undefined, cuenta: extra.cuenta ?? null });
 }
 
+/**
+ * EL TOQUE DE UN BOTÓN de un mensaje de MaKo (24/10/2026, lib/botones-social.ts): lo mueve el motor (`tocarBoton`). 'no_es' =
+ * no es un botón de MaKo (y el texto no es el título de uno que esperaba): quien llama sigue con lo de siempre.
+ */
+export async function tocarBotonSocial(leadId: number, t: { payload?: string | null; texto?: string | null }): Promise<string> {
+  const { tocarBoton } = await import('./nutricion');
+  return tocarBoton(leadId, t);
+}
+
 type Fila = { id: number; lead_id: number | null };
 
 /** Lo que un evento le escribe a la persona: su cuenta, su usuario y, según el evento, la ventana o el comentario. */

@@ -45,6 +45,8 @@ import { leerFunnels } from './funnels';
 import { destinoDelAlta, type ProductoParaAlta } from './lead-funnel-reglas';
 import { formatoDeAdjunto } from './chats-reglas';
 import type { FormatoMsg, MensajeChat } from './chats-tipos';
+import { getSetting, setSetting } from './settings';
+import { aBotonesZernio, esRechazoDeBotones, invitacionPorTexto, type BotonSocial } from './botones-social';
 
 export type ResultadoSocial = {
   ok: boolean;
@@ -60,7 +62,29 @@ export type ResultadoSocial = {
   backoffHoras?: number;
   /** Algo salió distinto de lo escrito (una respuesta privada lleva sólo texto). */
   nota?: string;
+  /**
+   * Los botones de la tarjeta (24/10/2026): 'botones' = salieron como botones; 'texto' = no podían (la cuenta ya los
+   * rechazó en una respuesta privada) y salió la línea «Escríbeme «…»». Ausente = la tarjeta no tiene.
+   */
+  botones?: 'botones' | 'texto';
 };
+
+/** La marca de una cuenta de Instagram que ya rechazó botones en una respuesta privada (lib/botones-social.ts). */
+const keyRechazaBotones = (cuentaId: string) => `zernio.botones_rechazados.${cuentaId}`;
+
+/**
+ * ¿ESTA CUENTA YA RECHAZÓ BOTONES en la respuesta privada a un comentario? Zernio: «sólo los rechazos de esa cuenta
+ * dicen si está afectada». Si no se puede leer, se asume que SÍ: mandar botones a una cuenta afectada gasta la única
+ * respuesta de ese comentario, y mandar texto le llega igual.
+ */
+async function cuentaRechazaBotones(cuentaId: string): Promise<boolean> {
+  try { return !!(await getSetting(keyRechazaBotones(cuentaId))); } catch { return true; }
+}
+
+async function anotarRechazoDeBotones(cuentaId: string): Promise<void> {
+  try { await setSetting(keyRechazaBotones(cuentaId), new Date().toISOString()); }
+  catch (e) { console.error(`[canal-zernio] no pude anotar que la cuenta ${cuentaId} rechaza botones: ${msg(e)}`); }
+}
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -162,8 +186,14 @@ export async function enviarPasoSocial(input: {
    * el lead no le escribió, falla con su motivo y no cae a otra. Sin ella, la conversación que cuenta.
    */
   cuenta?: string | null;
+  /**
+   * Los BOTONES de la tarjeta (24/10/2026, lib/botones-social.ts), con la inscripción y la tarjeta que van en el
+   * `payload` de cada uno. Van en la burbuja del ÚLTIMO texto: Meta los dibuja debajo de ese texto.
+   */
+  botones?: { lista: readonly BotonSocial[]; inscripcionId: number; nodoId: string };
 }): Promise<ResultadoSocial> {
   const { ws, leadId, canal, partes, vars, idempotencia } = input;
+  const botones = input.botones?.lista.length ? aBotonesZernio(input.botones.lista, input.botones.inscripcionId, input.botones.nodoId) : [];
   const desde = Math.max(0, Math.min(partes.length, input.desde ?? 0));
   const nombre = NOMBRE_CANAL[canal];
   const cuenta = input.cuenta?.trim() || null;
@@ -183,13 +213,24 @@ export async function enviarPasoSocial(input: {
     const texto = textos.join('\n\n');
     if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'a un comentario se le contesta con texto, y este mensaje no tiene', backoffHoras: 24 };
     const dejaAfuera = partes.some((p) => p.tipo !== 'texto');
+    // Los botones de la tarjeta, salvo en una cuenta que ya los rechazó: ahí la línea «Escríbeme «…»», y escribir el
+    // título cuenta como tocarlo (`botonPorTexto`).
+    const comoTexto = botones.length > 0 && await cuentaRechazaBotones(salida.cuentaId);
+    const invitacion = comoTexto ? invitacionPorTexto(input.botones!.lista) : '';
+    const final = invitacion ? `${texto}\n\n${invitacion}` : texto;
     try {
-      await responderComentario(ws, { accountId: salida.cuentaId, postId: salida.postId, commentId: salida.comentarioId, texto, idempotencyKey: `${idempotencia}#privada` });
+      await responderComentario(ws, {
+        accountId: salida.cuentaId, postId: salida.postId, commentId: salida.comentarioId, texto: final, idempotencyKey: `${idempotencia}#privada`,
+        ...(botones.length && !comoTexto ? { botones } : {}),
+      });
       await marcarComentarioRespondido(fila!.id);
-      return { ok: true, salieron: partes.length, textos: [texto], destino, ...(dejaAfuera ? { nota: 'respuesta privada: sólo el texto' } : {}) };
+      const notas = [dejaAfuera ? 'respuesta privada: sólo el texto' : null, comoTexto ? 'la cuenta rechaza botones: salieron como texto' : null].filter(Boolean);
+      return { ok: true, salieron: partes.length, textos: [final], destino, ...(notas.length ? { nota: notas.join('; ') } : {}), ...(botones.length ? { botones: comoTexto ? 'texto' as const : 'botones' as const } : {}) };
     } catch (e) {
+      // Meta rechazó los BOTONES porque no sigue la cuenta (1545133): la cuenta queda anotada y la próxima sale en texto.
+      if (botones.length && !comoTexto && esRechazoDeBotones(e)) await anotarRechazoDeBotones(salida.cuentaId);
       // Gastada o rechazada por Meta: la respuesta privada de ESE comentario ya no existe.
-      if (esLimiteDeMeta(e)) { await marcarComentarioRespondido(fila!.id); return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true }; }
+      if (esLimiteDeMeta(e) || esRechazoDeBotones(e)) { await marcarComentarioRespondido(fila!.id); return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true }; }
       return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
     }
   }
@@ -197,13 +238,17 @@ export async function enviarPasoSocial(input: {
   // ── Un DM, parte por parte ──
   const textos: string[] = [];
   let salieron = desde;
+  // Los botones van en la burbuja de la ÚLTIMA parte, y sólo si es texto (un adjunto no lleva botones).
+  const ultima = partes.length - 1;
+  const conBotones = botones.length > 0 && partes[ultima]?.tipo === 'texto';
   for (let k = desde; k < partes.length; k++) {
     const p = partes[k];
     try {
       if (k > desde) await dormir(PAUSA_ENTRE_PARTES_MS);
       if (p.tipo === 'texto') {
         const t = aplicarVariables(p.cuerpo, vars).trim();
-        if (t) { await enviarDm(ws, salida.conversacionId, { accountId: salida.cuentaId, texto: t, idempotencyKey: `${idempotencia}#${k}` }); textos.push(t); }
+        const aca = conBotones && k === ultima;
+        if (t) { await enviarDm(ws, salida.conversacionId, { accountId: salida.cuentaId, texto: t, idempotencyKey: `${idempotencia}#${k}`, ...(aca ? { botones } : {}) }); textos.push(t); }
       } else if (p.tipo === 'media') {
         const adj = await getAdjunto(p.media_id);
         if (!adj) return { ok: false, salieron, textos, destino, error: 'el archivo del paso ya no existe', backoffHoras: 24 };
@@ -226,7 +271,7 @@ export async function enviarPasoSocial(input: {
       return { ok: false, salieron, textos, destino, error: msg(e), backoffHoras: reintento };
     }
   }
-  return { ok: true, salieron, textos, destino };
+  return { ok: true, salieron, textos, destino, ...(conBotones ? { botones: 'botones' as const } : botones.length ? { nota: 'los botones no salieron: el mensaje termina en un archivo' } : {}) };
 }
 
 /** La respuesta privada se usó (o Meta la dio por gastada): no se vuelve a intentar con ese comentario. */

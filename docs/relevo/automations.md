@@ -32,6 +32,16 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   (`--enviar`) lo frenó el permiso de la sesión: lo autoriza Martín. No se le pide a otro chat.
 - **Dashboard (trabajo 0786cbfe, «Sí, y que la criatura vea la hoja»):** salió el AI Analyst y la estrella ve la hoja
   (eb71fa238; docs/hallazgos-graficos.md). Sin verlo en pantalla.
+- **Trabajo 49ff20a3 (Martín, firmado):** (1) un solo «Dashboard» en More del teléfono (0427d58be;
+  docs/hallazgos-mobile.md). (2) **Botones en los DM de Instagram y Messenger, como ManyChat**: fase A (el motor, el
+  webhook y el lienzo) y fase B (la IA de MaKo los arma al crear, con el gate que no regala el link) hechas y probadas sin
+  pantalla (docs/hallazgos-chatbot.md, «MaKo no tiene botones…»). **Sigue:** «Editar con IA» (`deIAEdicion`), «Probar»,
+  y probarlo con un DM de verdad en el Cliente de Prueba con una cuenta de Instagram conectada. El trabajo lo cierra el
+  Cerebro cuando estén las tres partes.
+- **Lo que pidió el Cerebro y quedó en cola:** el `redirect()` dentro de las páginas del Dashboard con `loading.tsx` encima
+  (React #310): app/dashboard/page.tsx, app/m/dashboard/page.tsx y app/m/dashboard/[hoja]/page.tsx. El molde es
+  app/web-generator/layout.tsx + `redireccionDelLayout` (landings-2510 @ e89fb2e8c). Al arreglarlas, sacarlas de la lista de
+  conocidas de tests/redirige-antes-del-loader.test.ts.
 
 ## El pedido, con el texto entero
 

@@ -199,4 +199,23 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/movil-dispositivo.ts', 'proxy.ts', 'lib/movil-guard.ts', 'app/_components/VueltaAlTelefono.tsx', 'app/m/_ui/EnComputadoraM.tsx', 'tests/movil-vuelta-telefono.test.ts'],
     revisar: '/configuraciones',
   },
+  {
+    fecha: '24 oct', hora: '22:23', chat: 'Automations', sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49", cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo Dashboard en el teléfono',
+    pedido: '«En mobile aparecen 2 dashboards...»',
+    puntos: [
+      'Llegó firmado por el Ops Center (trabajo 49ff20a3) con la captura de More › Today: «Dashboard» y «Dashboard sheets».',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:40', chat: 'Automations', sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49", cuenta: 'claude5', actor: 'claude', tipo: 'correccion',
+    titulo: 'More tiene un solo «Dashboard»',
+    puntos: [
+      'Si ves General, «Dashboard» abre Focus con todas tus hojas arriba, como en la computadora.',
+      'El closer y el setter ven como Dashboard su hoja, también como en la computadora.',
+      '«Dashboard sheets» ya no aparece: repetía lo que el Dashboard ya mostraba.',
+    ],
+    archivos: ['lib/movil-rutas.ts — masCompleto: una fila de Dashboard por rol', 'tests/sidebar-nueva.test.ts — probado rompiéndolo'],
+    revisar: '/m/mas',
+  },
 ];

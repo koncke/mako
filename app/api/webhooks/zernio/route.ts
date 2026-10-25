@@ -49,7 +49,7 @@ import { responderFalloDeRuteo } from '@/lib/webhook-fallo-ruteo';
 import { getSupabaseServer } from '@/lib/supabase';
 import { runWithWorkspace } from '@/lib/workspace';
 import { eventoSocialDe } from '@/lib/canal-social';
-import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial } from '@/lib/zernio-entrante';
+import { procesarEventoSocial, dispararEventoSocial, pausarRespuestaSocial, tocarBotonSocial } from '@/lib/zernio-entrante';
 import { RUTEO_CUENTA, RUTEO_PERFIL, EVENTO_LEADS, EVENTOS_ESCUCHADOS, usaCuentaPropia, cuentasConectadas } from '@/lib/zernio';
 import { leerLeadDeZernio } from '@/lib/zernio-lead';
 import { cargarLeadDeZernio, alNacerLeadDeZernio } from '@/lib/zernio-leads';
@@ -224,6 +224,16 @@ export async function POST(req: NextRequest) {
         // ⚠️ LA PAUSA PRIMERO, Y DESPUÉS EL DISPARO: el mismo DM puede arrancar una automatización de
         // «Te envía un mensaje», y pausar después pausaría la que este mensaje acaba de arrancar.
         after(async () => {
+          // EL TOQUE DE UN BOTÓN VA PRIMERO, Y NO ES UNA RESPUESTA (24/10/2026, lib/botones-social.ts): «Obtener recurso» mueve la
+          // automatización a la rama del botón y no pasa por «Contestó» ni arranca un «Te envía un mensaje». Lo mismo con un
+          // texto que ES el título de un botón que esperaba (el botón no se vio). Lo demás, lo de siempre.
+          const { postback, texto } = ev.evento;
+          let toque = 'no_es';
+          if (postback || (r.pausar && texto)) {
+            try { toque = await runWithWorkspace(wsFinal, () => tocarBotonSocial(leadId, postback ? { payload: postback } : { texto })); }
+            catch (e) { console.error(`[webhook:zernio] botón ${canal} lead ${leadId}: ${msg(e)}`); }
+            if (toque !== 'no_es') { console.log(`[webhook:zernio] ${canal} lead ${leadId} ws=${wsFinal}: botón (${toque})`); return; }
+          }
           if (r.pausar) {
             try {
               // Con lo que escribió y la cuenta que lo recibió: el AI Step de ese medio le contesta por ahí.
