@@ -125,7 +125,9 @@ async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adju
   try {
     const propios: { nombre: string; mime: MimeAdjunto; bytes: number; sha256: string }[] = [];
     for (const f of archivos) {
-      let b: Uint8Array;
+      // `<ArrayBuffer>`: crypto.subtle.digest pide un BufferSource respaldado por un ArrayBuffer, y el `Uint8Array` pelado de
+      // TypeScript 5.7+ es `<ArrayBufferLike>` (podría ser un SharedArrayBuffer): el chequeo de tipos entero lo frenaba.
+      let b: Uint8Array<ArrayBuffer>;
       try { b = new Uint8Array(await f.arrayBuffer()); } catch { return { ok: false, error: ERROR_SUBIDA.leer(f.name) }; }
       const mime = mimeDeArchivoCentro(b, f.name);
       if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' };

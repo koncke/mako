@@ -72,6 +72,7 @@ test('la cuenta 5, «Ananda»: la nota entre paréntesis de cuentas.tsv no es el
   // Lo que sube la PC hoy (cartero.mjs, sin el arreglo): cortado a 40 y sin el «)». MaKo lo sanea al guardarlo y al leerlo.
   const { titularDe } = await import('../scripts/operaciones/cartero.mjs');
   const subido = titularDe('claude5', `claude5\t${RENGLON}\n`);
+  assert.ok(subido, 'el cartero no leyó el renglón de la cuenta 5');
   assert.equal(subido.nombre, 'Ananda (asi la llamo Martin el 24/10/202');
   assert.deepEqual(sanearCuentasConNombre({ claude5: { ...subido, alias: null } }), { claude5: { nombre: 'Ananda', email: null, alias: null } });
   assert.equal(titularDeRenglon('Leandro Tejado 2 <leandro@ejemplo.com>').nombre, 'Leandro Tejado 2', 'un nombre sin nota, igual');
