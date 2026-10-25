@@ -2768,3 +2768,19 @@ Lo que quedó SIN hacer:
 - Responder en los demás chats que dibujan con `HiloMako` (Automations, Offer, el onboarding, Dashboard…): hoy traen
   Copiar; cada pantalla suma Responder pasándole `onCitar` y la cita a su caja (`arriba` de CajaChat).
 - Sin mirar con clics en el editor de verdad.
+
+## La página de Mauricio ya no da 403 en producción, y cómo medirlo sin escribir nada (24/10/2026 noche, claude5)
+
+Medido en producción (el despliegue de las ~19 h, con c3af56f7b) desde el Chrome de Martín, en el Cliente de Prueba: la
+vista aislada del Diagnóstico (`GET /api/landing-generator/diagnostico/pagina?url=https://sprint.mauriciobustos.com`)
+bajó la página y avisó «listo». Usa `paginaParaVer` → `bajarHtml`, el MISMO camino (con el reintento ante un 403) que
+Offer y el análisis (`extraerLanding`), así que el 403 que vio Martín no sale más.
+
+- ⚠️ **Esa ruta responde 200 también cuando NO pudo leer la página:** el error va ADENTRO, como un documento que avisa
+  por `postMessage({ gmDg: 1, tipo: 'error', mensaje })` (`documentoErrorDiagnostico`). El código de estado no dice nada;
+  para medirla desde afuera hay que escuchar el mensaje: `tipo: 'listo'` = la bajó, `tipo: 'error'` = no.
+- **Medirla sin escribir:** es un GET de sólo lectura, pero sólo se sirve a un iframe (`Sec-Fetch-Dest: iframe`). Se
+  arma con un `<iframe sandbox="allow-scripts">` desde cualquier página de hola-mako.com con la sesión del admin, y
+  `&ws=3`. No crea análisis ni filas en ningún negocio.
+- **La pestaña del editor se cuelga con la extensión** (dos veces el 24/10: `Runtime.evaluate` sin respuesta a los 45 s).
+  Una página liviana del mismo dominio (`/api/auth/me`) sirve de base para medir rutas: responde enseguida.

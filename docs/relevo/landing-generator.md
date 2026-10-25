@@ -34,8 +34,15 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   Responder en el del editor web, con la cita arriba de la caja) y, en el lienzo, el menú del ⋮ en el punto del clic.
   Falta Responder en los otros chats (cada pantalla pasa `onCitar`). Detalle: docs/hallazgos-editor-landing.md → «El
   clic derecho en los chats embebidos y en el lienzo».
-- **Sigue:** mirar todo con clics a 1280 px en el editor desplegado (la barra única, y que el análisis de la página de
-  Mauricio no dé 403); el OK para limpiar lo guardado de P6.
+- **La página de Mauricio ya no da 403 en producción** (medido el 24/10 noche, sin escribir nada): docs/hallazgos-editor-landing.md.
+- **Sigue:**
+  - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
+    no tiene ninguna.
+  - **Responder en los otros chats:** Automations, Offer, el chat general, la ficha del lead, Dashboard, Image Editor,
+    Video Editor y el Advisor de WhatsApp. Se hace cuando entren `ops-2510-regresiones` y `aut-2510`, que tocan la
+    función de mandar de esos mismos archivos.
+    - Soporte no: su conversación nueva arma el ticket con reglas y la cita ensuciaría lo que le llega al equipo.
+  - **La limpieza de P6:** la corre el Cerebro, ya aprobada por Martín.
 
 ## Estado al 24/10/2026 madrugada (cuenta claude1)
 

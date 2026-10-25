@@ -1182,4 +1182,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '23:11', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Verificado: MaKo ya puede leer la página de Mauricio',
+    pedido: '«La página respondió 403: está bloqueando la lectura automática... eso es un error nuestro... Y pasa en muchos lugares, como en Offer.»',
+    puntos: [
+      'Se probó en MaKo, ya publicado, con la página de venta del Sprint de Mauricio: MaKo la abrió sin el error 403.',
+      'Es el mismo camino que usan Offer y el análisis de una página, así que en esos lugares tampoco debería salir más.',
+      'Se probó en la cuenta de prueba, sin crear nada en la de ningún cliente.',
+    ],
+    archivos: [
+      'lib/landing-fetch.ts — cómo MaKo abre una página de afuera',
+      'docs/hallazgos-editor-landing.md — cómo se midió',
+    ],
+    revisar: '/offer',
+  },
 ];
