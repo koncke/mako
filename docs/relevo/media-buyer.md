@@ -44,7 +44,8 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 
 ## Lo que falta, en orden
 
-1. **La migración 0332** (número confirmado por el Cerebro; la revisa él antes de aplicarla): sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
+1. **La migración 0332** — revisada y aprobada por el Cerebro el 25/10; **la aplica él, no este chat**, cuando Martín diga que
+   sí (se la llevó junto con la 0333). Sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
    cliente de prueba borra de estas tablas. Hasta que esté, la pantalla dice que el registro no está y nada se lanza.
 2. **Conectar la cuenta publicitaria de MaKo a Zernio — ES DE MARTÍN (un clic de permisos en Facebook).** La Zernio de la
    plataforma tiene cero cuentas conectadas (medido el 25/10). El link se genera con la clave de la plataforma:
