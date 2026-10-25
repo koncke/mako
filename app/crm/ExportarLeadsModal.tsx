@@ -22,7 +22,8 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { BAND_LABEL, type StageBand } from '@/lib/pipeline';
 import { WizardShell } from '../_components/WizardShell';
 import { descargar, nombreArchivo } from '../plan/board/exportar';
-import { contarLeadsExportAction, exportLeadsAction, getOpcionesExportAction, type OpcionesExport } from './actions';
+import { contarLeadsExportAction, exportLeadsAction, getOpcionesExportAction, topeDeExportarAction, type OpcionesExport } from './actions';
+import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 import {
   ACOTARES, BANDAS, CAMPOS_FECHA, CAMPOS_LEAD, CAMPOS_LEAD_HABITUALES, DINEROS,
   FILTROS_INICIALES, ORDENES, PERIODOS, RECETAS, SIN_ASIGNAR,
@@ -195,7 +196,12 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
   const bajar = () => {
     setBajando(true);
     setErr(null);
-    exportLeadsAction(f)
+    // En la prueba gratis, exportar en masa espera al primer cobro (el texto, con el botón para empezar el plan).
+    topeDeExportarAction()
+      .then((tope) => {
+        if (tope) throw new Error(tope);
+        return exportLeadsAction(f);
+      })
       .then((contenido) => {
         const ext = f.formato === 'md' ? 'md' : 'csv';
         descargar(
@@ -382,6 +388,8 @@ export function ExportarLeadsModal({ onClose }: { onClose: () => void }) {
       onClose={onClose}
       extraFooter={(
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          {/* En la prueba gratis: el botón para empezar el plan, al lado del «Disponible al terminar tu prueba». */}
+          <EmpezarPlanYa texto={err} />
           <span style={{ fontFamily: MONO, fontSize: 11, color: 'var(--faint)' }}>{resumen}</span>
           <span aria-hidden style={{ color: 'var(--border-strong)' }}>·</span>
           {/* El formato, acá y no en una pantalla propia. Dos opciones no son una

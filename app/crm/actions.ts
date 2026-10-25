@@ -15,6 +15,7 @@ import { revalidatePath, updateTag } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { TAG } from '@/lib/cache';
 import { exigirSesion } from '@/lib/sesion-accion';
+import { frenoDePrueba } from '@/lib/prueba-uso';
 import { listProductos } from '@/lib/productos';
 import { guardarFotoDeInstagram } from '@/lib/foto-instagram';
 import { esFotoDeInstagram } from '@/lib/foto-instagram-reglas';
@@ -1934,8 +1935,22 @@ function comparadorDoc(orden: OrdenLeads): (a: LeadDoc, b: LeadDoc) => number {
   }
 }
 
+/**
+ * LA PRUEBA GRATIS (25/10/2026, el Cerebro): exportar en masa se habilita con el primer cobro. El modal lo pregunta ANTES de
+ * armar el archivo (un error tirado por una acción llega sin su texto en producción); `exportLeadsAction` lo vuelve a frenar.
+ */
+export async function topeDeExportarAction(): Promise<string | null> {
+  await exigirSesion();
+  const ws = await getWorkspaceActual();
+  if (ws == null) return null;
+  const r = await frenoDePrueba(ws, 'prueba.exportar', { usadas: 0 });
+  return r.ok ? null : r.texto;
+}
+
 export async function exportLeadsAction(f: FiltrosLeads): Promise<string> {
   await exigirSesion();
+  const tope = await topeDeExportarAction();
+  if (tope) throw new Error(tope);
   // id y nombre van SIEMPRE; el resto según los grupos elegidos.
   const columnas: Array<[string, string]> = [['id', 'ID'], ['nombre', 'Nombre']];
   for (const c of CAMPOS_LEAD.map((x) => x.id)) {

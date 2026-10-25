@@ -37,7 +37,8 @@ test('1. Esencial = el Esencial vendido por la pasarela y la capa de hoy; nunca 
   assert.match(lectura, /catch \(e\) \{\n\s*console\.warn\([\s\S]*?\);\n\s*return false;/, 'un error de lectura tiene que dar «no es Esencial»');
   // La suscripción se lee con los MISMOS filtros que `suscripcionDeMakoDe`, sin importar lib/cobros (alcanza una IA, y esto lo
   // importa /api/auth/me: tests/d6b-rutas.test.ts).
-  const filtros = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')";
+  // Con la prueba gratis (25/10/2026): la pagada o la prueba autorizada, con el MISMO filtro (lib/prueba-plan-reglas.ts).
+  const filtros = ".eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)";
   assert.ok(leer('lib/cobros.ts').includes(filtros), 'cambió la lectura de suscripcionDeMakoDe: actualizar lib/plan-esencial.ts');
   assert.ok(lectura.includes(filtros), 'lib/plan-esencial.ts no lee la suscripción como suscripcionDeMakoDe');
   assert.doesNotMatch(lectura, /from '\.\/cobros'|import\('\.\/cobros'\)/);

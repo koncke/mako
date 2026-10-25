@@ -96,7 +96,8 @@ test('el código de baja: uno por cobro, en un texto que se reconoce, y que moti
 test('el plan del negocio: el cobro de la PLATAFORMA cuya alta creó ESTE workspace', () => {
   const f = cuerpo(fuente('lib/cobros.ts'), 'suscripcionDeMakoDe');
   assert.match(f, /if \(ws === plataforma\) return null;/);
-  assert.match(f, /\.eq\('workspace_id', plataforma\)\.eq\('alta_ws', ws\)\.eq\('tipo', 'suscripcion'\)\.eq\('estado', 'pagado'\)/,
+  // Con la prueba gratis (25/10/2026): la pagada o la prueba autorizada (FILTRO_SUSCRIPCION_DE_MAKO, tests/prueba-plan.test.ts).
+  assert.match(f, /\.eq\('workspace_id', plataforma\)\.eq\('alta_ws', ws\)\.eq\('tipo', 'suscripcion'\)\.or\(FILTRO_SUSCRIPCION_DE_MAKO\)/,
     'sin `alta_ws = ws`, un negocio daría de baja el plan de otro');
 });
 

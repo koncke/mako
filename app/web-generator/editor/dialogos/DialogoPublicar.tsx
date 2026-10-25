@@ -67,10 +67,12 @@ import { avisoDeCobro, productosDePago } from '@/lib/editor-landing/pago-landing
 import { useCobroLanding } from '../nodos/CobroBoton';
 import { useEditorLanding } from '../contexto';
 import Link from '@/app/_ui/Link';
-import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { esTopeDePrueba, RUTA_CAMBIAR_PLAN, RUTA_EMPEZAR_PLAN } from '@/lib/topes-plan';
 
 /** El tope del plan al publicar o conectar un dominio (lib/editor-landing/tope-landings.ts): el cartel lleva «Pasar a Pro». */
 function PasarAPro({ error }: { error: string }) {
+  // En la PRUEBA GRATIS (25/10/2026): «Disponible al terminar tu prueba», con el botón para empezar el plan ya.
+  if (esTopeDePrueba(error)) return <> <Link href={RUTA_EMPEZAR_PLAN} style={{ fontWeight: 600 }}>Empezar mi plan ya</Link></>;
   if (!error.startsWith('Llegaste al tope de tu plan')) return null;
   return <> <Link href={RUTA_CAMBIAR_PLAN} style={{ fontWeight: 600 }}>Pasar a Pro</Link></>;
 }

@@ -35,6 +35,7 @@
 // =============================================================================
 
 import { esBajaPedida } from './cobros-reglas';
+import { esPruebaDePlan } from './prueba-plan-reglas';
 import { PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
 
 /** ¿La pasarela avisó que la renovación de esta suscripción FALLÓ? (el motivo que deja `aplicarPagoFallido` y borra la renovación que entra). */
@@ -77,6 +78,9 @@ export type CobroDelLugar = {
   monto_usd?: number | null;
   /** Para saber si la baja ya está pedida (la suscripción sigue «activa» hasta el fin del período en Stripe). */
   motivo?: string | null;
+  /** Para reconocer la PRUEBA GRATIS (lib/prueba-plan-reglas.ts, `esPruebaDePlan`). */
+  creado_por?: string | null;
+  alta_capa?: string | null;
 };
 
 /** Una cuota cobrada de ese cobro (las renovaciones son una cuota por mes, con `cobro_id`). */
@@ -203,6 +207,11 @@ export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readon
     return { estado: 'vencido', cobroId: cobrando.id, hasta: desde, motivo: 'impago', deuda };
   }
 
+  // LA PRUEBA GRATIS (25/10/2026): sin nada cobrado todavía, la prueba autorizada cubre hasta el día de su primer cobro.
+  // Sin esto, un negocio en prueba era «sin pasarela» (nunca se corta): cancelaba y seguía para siempre.
+  const prueba = cubierto ? null : pruebaDelLugar(cobros);
+  if (prueba) return vigenciaDeLaPrueba(prueba, ahoraMs);
+
   // Nadie cobra: lo pagado llega hasta donde llega. Sin nada cobrado, un plan devuelto corta desde la devolución.
   let fin: { hasta: string; cobroId: number; motivo: MotivoCorte } | null = cubierto ? { ...cubierto, motivo: 'baja' } : null;
   if (!fin) {
@@ -224,6 +233,29 @@ export function vigenciaDelLugar(cobros: readonly CobroDelLugar[], pagos: readon
     return ahoraMs >= masDias(fin.hasta, DIAS_PARA_SUSPENDER) ? { estado: 'vencido', cobroId: ultimaSus.id, hasta: fin.hasta, motivo: 'impago', deuda } : { estado: 'mora', cobroId: ultimaSus.id, hasta: fin.hasta, deuda };
   }
   return ahoraMs >= masDias(fin.hasta, GRACIA_DIAS) ? { estado: 'vencido', ...fin } : { estado: 'cubierto', ...fin };
+}
+
+/** La prueba gratis del lugar que la persona AUTORIZÓ y que todavía no se cobró (la última, si hubiera más). */
+export function pruebaDelLugar(cobros: readonly CobroDelLugar[]): (CobroDelLugar & { inicio_at: string }) | null {
+  const vivas = cobros.filter((c): c is CobroDelLugar & { inicio_at: string } =>
+    esPruebaDePlan(c) && c.estado === 'pendiente' && c.suscripcion_estado != null && !!c.inicio_at && !!dia(c.inicio_at));
+  return vivas.sort((a, b) => b.id - a.id)[0] ?? null;
+}
+
+/**
+ * La vigencia de un lugar en prueba. Autorizada: al día hasta el día del cobro; si ese día pasó y Mercado Pago no cobró, se
+ * debe el primer período (mora y después vencido, como una renovación que no entró). Cancelada desde «Tu plan»: cubierta hasta
+ * el día del cobro y vencida desde ese día, sin la gracia de un plan pagado (la prueba ya fue gratis).
+ */
+function vigenciaDeLaPrueba(p: CobroDelLugar & { inicio_at: string }, ahoraMs: number): Vigencia {
+  const hasta = dia(p.inicio_at)!;
+  if (p.suscripcion_estado === 'cancelada') {
+    return ahoraMs >= ms(hasta) ? { estado: 'vencido', cobroId: p.id, hasta, motivo: 'baja' } : { estado: 'cubierto', cobroId: p.id, hasta, motivo: 'baja' };
+  }
+  if (ahoraMs < ms(hasta)) return { estado: 'al-dia', cobroId: p.id, hasta };
+  const monto = Number(p.monto), usd = Number(p.monto_usd);
+  const deuda: Deuda = { cobroId: p.id, ciclos: 1, desde: hasta, monto: monto > 0 ? monto : null, moneda: p.moneda ?? null, montoUsd: usd > 0 ? usd : null };
+  return ahoraMs >= masDias(hasta, DIAS_PARA_SUSPENDER) ? { estado: 'vencido', cobroId: p.id, hasta, motivo: 'impago', deuda } : { estado: 'mora', cobroId: p.id, hasta, deuda };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
