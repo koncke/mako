@@ -57,6 +57,13 @@ if (paso === 'conectar') {
     profileId: perfil._id, loginMode: 'business', permissionLevel: 'full', adAccountId: CUENTA,
     redirect_url: 'https://hola-mako.com/integraciones?abrir=meta',
   });
+  // ⚠️ La página, explícita (25/10/2026, el primer clic de Martín no dejó ninguna conexión): la doc de Zernio dice que con
+  // VARIAS páginas concedidas y sin `pageId`, una integración por API recibe un 400 y la conexión no se crea («restart with
+  // pageId»). La de MaKo es la del negocio de la plataforma (`META_PAGE_ID`, «Hola MaKo»).
+  const { credWs } = await import('../lib/credenciales');
+  const pagina = await runWithWorkspace(ws, () => credWs('META_PAGE_ID', ws));
+  if (pagina && /^\d+$/.test(pagina)) q.set('pageId', pagina);
+  linea('página', pagina ?? '(sin META_PAGE_ID: Zernio usa la única concedida, o pide elegir)');
   const r = await zFetch<{ authUrl?: string; alreadyConnected?: boolean }>(clave, `/connect/facebook/ads?${q.toString()}`);
   if (r.alreadyConnected) linea('ya está conectada');
   else console.log(`Abrí este link y aceptá los permisos (Facebook → el negocio de MaKo → la cuenta ${CUENTA}):\n${r.authUrl}`);
