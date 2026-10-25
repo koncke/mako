@@ -70,6 +70,13 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
   - como mucho 2 workflows a la vez;
   - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **El tren no conseguía RAM nunca (25/10, ~18:20 a 19:10):** con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una
+  hora, y cada tanda del chequeo de tipos del pre-push pide 5,3. Subirlo igual, a las 18:14, trabó la PC. Esperar no alcanza:
+  cada chat que termina un pesado arranca otro.
+  - **Regla:** el que sube el tren pone `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`). Mientras esté,
+    la guardia hace esperar lo pesado y los workflows de las OTRAS sesiones; lo liviano pasa. No se corta a nadie: la RAM
+    se libera sola a medida que terminan los de antes. Vence sola en `hasta`, así un script caído no traba a nadie.
+  - El script que sube la pone, espera 5,5 GB, empuja y la saca al salir (`trap`).
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;

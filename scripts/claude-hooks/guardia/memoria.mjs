@@ -135,6 +135,21 @@ function marcarAdmision(tipo) {
   try { fs.mkdirSync(DIR, { recursive: true }); fs.writeFileSync(marcaPath(tipo), String(process.pid)); } catch {}
 }
 
+// RESERVA DEL TREN (25/10/2026 ~19:10, el Cerebro, cuenta 5): con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una hora
+// y el tren esperó los 5,3 GB que pide cada tanda del chequeo de tipos del pre-push; cuando subió igual (18:14), la PC se trabó.
+// Mientras exista `reserva-tren` (JSON {sesion, hasta, motivo}), lo PESADO y los WORKFLOWS de las OTRAS sesiones esperan: no se
+// corta a nadie, sólo no arranca nada nuevo, y la RAM se libera sola a medida que terminan los de antes. Vence sola en `hasta`
+// (un script caído no traba a nadie más de eso). La pone y la saca el script que sube el tren.
+const RESERVA = path.join(DIR, 'reserva-tren');
+function reservaVigente(ent) {
+  try {
+    const r = JSON.parse(fs.readFileSync(RESERVA, 'utf8'));
+    if (!r || !(Number(r.hasta) > Date.now())) return null;
+    if (r.sesion && String(ent.session_id || '').startsWith(String(r.sesion))) return null;
+    return r;
+  } catch { return null; }
+}
+
 function negar(razon) {
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: razon },
@@ -167,6 +182,14 @@ async function main() {
       cupoOk = vivos.length < MAX_WORKFLOWS;
       if (!cupoOk) motivo = `hay ${vivos.length} workflows corriendo en la máquina (tope ${MAX_WORKFLOWS})`;
     }
+    const reserva = tipo === 'pesado' || tipo === 'workflow' ? reservaVigente(ent) : null;
+    if (reserva) {
+      const hh = new Date(Number(reserva.hasta)).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+      motivo = `${reserva.motivo || 'el Cerebro está subiendo el tren a main'} y reservó la RAM hasta las ${hh} (o hasta que termine)`;
+      if (Date.now() >= hasta) break;
+      await dormir(SONDEO_MS);
+      continue;
+    }
     if (libre >= regla.minGb && !enfriando && cupoOk) {
       if (regla.enfriamientoS) marcarAdmision(tipo);
       const espero = Math.round((Date.now() - inicio) / 1000);
@@ -184,7 +207,7 @@ async function main() {
   log(`${tipo} NEGADO: ${motivo} sesion=${sesion}`);
   const consejo = {
     workflow: 'No lances el workflow ahora. Esperá unos minutos y reintentá, o hacé el trabajo directo / con menos agentes en paralelo.',
-    pesado: 'No lo corras ahora. Reintentá en un par de minutos (no es un error del código).',
+    pesado: 'No lo corras ahora. Reintentá en un par de minutos (no es un error del código). Mientras tanto, seguí con lo que no pide RAM.',
     agente: 'Esperá un minuto y reintentá, o hacelo directo sin subagente.',
   }[tipo];
   negar(`Guardia de RAM: ${motivo}. Con la RAM agotada se cuelga la app de Claude y se caen TODOS los chats abiertos (pasó el 11/10). ${consejo}`);
