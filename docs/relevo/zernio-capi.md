@@ -34,8 +34,9 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
   pregunta si hay varias, y si la ventana vuelve sin conexión pide la página y reintenta (`paginaParaConectar`).
 - **`leer` (sin guardar nada en producción): anda.** Insights, creativos, conjuntos en vivo, cuenta y finanzas contestan con la
   forma esperada; la cuenta nunca gastó, así que no hay filas que comparar con Meta directo.
-- **`guardar --si` va DESPUÉS del deploy de esta rama:** con el código viejo, la cuenta guardada mete al negocio de MaKo en los
-  crons de Meta con el token del botón (sin `ads_read`) y arranca el barrido de leads de «Hola MaKo».
+- **`guardar --si`: HECHO después del deploy** (main 9c684f88c, 14:54). El negocio de MaKo quedó con la conexión, la cuenta
+  `act_1426493815659364` y el píxel `1869323014511830`; los crons de Meta ya corren para él por Zernio (medido con las funciones
+  reales: Meta conectada, lecturas sin errores, salud en verde, CAPI por la conexión de Facebook).
 - **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
 

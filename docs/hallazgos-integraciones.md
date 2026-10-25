@@ -1778,6 +1778,12 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
   guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
   de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
+- **Con el deploy (main 9c684f88c, 25/10 14:54) se guardó la conexión en el negocio de MaKo** (`META_ZERNIO_CUENTA`, la cuenta,
+  el píxel; la página «Hola MaKo» ya estaba). Medido con las funciones REALES de producción, sin el script: `integracionConectada`
+  da Meta conectada, `fetchMetaInsights` y `fetchAdsetBudgets` leen por Zernio (cero filas, cero errores), la salud da activa y
+  en verde, CAPI sale por la conexión de Facebook al píxel, y `ver_conexion_meta` de la API lo devuelve todo sin tokens. Desde
+  ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
+  y CAPI (falta el código de «Probar eventos»).
 
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
