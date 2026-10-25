@@ -25,7 +25,7 @@
 // =============================================================================
 
 import 'server-only';
-import type { Runners, SalidaLectura } from '../tipos';
+import { quienChatea, type Ctx, type Ejecutado, type Preparado, type Runners, type SalidaLectura } from '../tipos';
 import { TEXTO_ALCANCE } from '../alcance';
 import { servicioDelWs, keysServiciosDelWs, tarjetasDelWs, esWsPlataforma } from './integraciones.helpers';
 import { getIntegraciones } from '@/lib/integraciones';
@@ -41,7 +41,8 @@ import { tokenAgenteVisible } from '@/lib/agente-token';
 import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
 import { susClaves, type SuClaveGuardada } from '@/lib/ia-del-negocio';
-import { listarPcDelNegocio } from '@/lib/ia-pc';
+import { desconectar, listarPcDelNegocio, puedeDesconectar } from '@/lib/ia-pc';
+import { actorDeSesion } from '@/lib/ia-pc-reglas';
 import { buscarConexion, CONEXIONES, conexion } from '@/lib/conexiones-catalogo';
 import { conectadaSinProbar } from '@/lib/conexion-estado';
 
@@ -54,6 +55,10 @@ const r4 = (n: number): number => Math.round(n * 10000) / 10000;
 const linkIntegracion = (key: string): string => linkPantalla(`/integraciones?abrir=${encodeURIComponent(key)}`);
 /** El link de una conexión del catálogo (lib/conexiones-catalogo.ts): su modal, «Conecta MaKo» o el QR, con el `?ws=`. */
 const linkConexion = (key: string): string | null => { const c = conexion(key); return c ? linkPantalla(c.ruta) : null; };
+/** Quién pide, como lo guarda la computadora (`persona`, `actorDeSesion`): sólo en la app hay una persona; WhatsApp es el admin. */
+const personaDelCtx = (ctx: Ctx): string | null => actorDeSesion(quienChatea(ctx));
+/** La computadora de otro, sólo para el admin (lo mismo que /perfil/ia y `puedeDesconectar`). */
+const puedeVerLaPc = (persona: string, yo: string | null, ctx: Ctx): boolean => ctx.rol === 'admin' || (yo != null && persona === yo);
 
 /** Cómo está cada clave de IA en la fila del negocio, en palabras (`susClaves`, lib/ia-del-negocio.ts). */
 const ESTADO_CLAVE: Record<SuClaveGuardada['es'], string> = {
@@ -169,6 +174,56 @@ export const RUNNERS: Runners = {
           'Para que te conteste en WhatsApp, ofrécele su GPT por clave; para el chat de la app, MaKo en su computadora con su Claude. No le ofrezcas Gemini.',
         ],
       });
+    },
+  },
+
+  /**
+   * LAS COMPUTADORAS CON MAKO DESKTOP (25/10/2026, MaKo Desktop): cuáles hay y desconectar una. Lo mismo que /perfil/ia
+   * («Tus cuentas de IA»): el admin ve y desconecta todas; un miembro, sólo las suyas (`puedeDesconectar`, lib/ia-pc.ts). Ni
+   * la ubicación ni el email de su cuenta de Claude: no hacen falta para elegir cuál desconectar.
+   */
+  ver_computadoras: {
+    leer: async (_input, ctx) => {
+      const pcs = await listarPcDelNegocio(ctx.ws).catch(() => null);
+      if (!pcs) return fallo('No pude leer las computadoras. Prueba de nuevo en un momento.');
+      const yo = personaDelCtx(ctx);
+      const visibles = pcs.filter((p) => puedeVerLaPc(p.persona, yo, ctx));
+      return J({
+        computadoras: visibles.map((p) => ({
+          id: p.id, nombre: p.nombre, de: p.persona, es_mia: yo != null && p.persona === yo, en_linea: p.enLinea,
+          ultima_vez: p.ultimoLatido, conectada_desde: p.conectadaAt, sistema: p.sistema, version: p.version, ia_con_sesion: p.conClaude,
+        })),
+        ...(visibles.length ? {} : { nota: 'No hay computadoras conectadas. Se conecta desde esa computadora, en «Tus cuentas de IA».', link: linkConexion('pc') }),
+      });
+    },
+  },
+
+  desconectar_computadora: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const id = Number(input.id);
+      const pcs = await listarPcDelNegocio(ctx.ws).catch(() => null);
+      if (!pcs) return { error: 'No pude leer las computadoras. Prueba de nuevo en un momento.' };
+      const yo = personaDelCtx(ctx);
+      const suyas = pcs.filter((p) => puedeVerLaPc(p.persona, yo, ctx));
+      const pc = suyas.find((p) => p.id === id);
+      if (!pc) return { error: `No hay una computadora ${id} en tu cuenta.`, faltan: ['id'], disponibles: suyas.map((p) => ({ id: p.id, nombre: p.nombre, de: p.persona })) };
+      return {
+        payload: { id: pc.id },
+        resumen: `Desconectar «${pc.nombre}»${pc.persona !== yo ? ` (de ${pc.persona})` : ''}: deja de contestar con su IA. Para volver a usarla, se conecta de nuevo desde esa computadora.`,
+      };
+    },
+    // Al confirmar se vuelve a mirar con la base: entre la propuesta y el «sí» la pudieron desconectar o reconectar.
+    ejecutar: async (payload, ctx): Promise<Ejecutado> => {
+      const id = Number(payload.id);
+      try {
+        if (!(await puedeDesconectar(ctx.ws, id, personaDelCtx(ctx) ?? '', ctx.rol === 'admin'))) {
+          return { ok: false, resumen: 'Esa computadora ya no está conectada a tu cuenta.' };
+        }
+        await desconectar(ctx.ws, id);
+      } catch (e) {
+        return { ok: false, resumen: `No pude desconectarla (${e instanceof Error ? e.message : 'error'}).` };
+      }
+      return { ok: true, resumen: 'Computadora desconectada: ya no contesta con su IA.' };
     },
   },
 
