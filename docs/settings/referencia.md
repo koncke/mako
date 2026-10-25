@@ -32,7 +32,7 @@ Capturas en `docs/settings/referencias/` (de linear.app/docs, 25/10/2026):
 | **Se guarda al instante**, sin botón «Guardar»; un aviso chico confirma | Perfil (al salir del campo o con Enter), Notificaciones, Preferencias. |
 | Notifications: canales con su estado y su punto verde/gris → detalle por canal | En la app · Celular · WhatsApp · Email. |
 | El detalle de un canal: interruptor del canal, **«Enviar prueba»**, un interruptor por aviso | Los cuatro canales. |
-| Security: la sesión actual arriba, las otras en lista con «Cerrar todas» | Seguridad › Dispositivos (tanda 2). |
+| Security: la lista con «Revoke all» arriba | Seguridad › Dispositivos recordados, con «Olvidar todos» en su detalle (tanda 2). Las sesiones: pendiente, pide migración. |
 | Members: invitar arriba, una fila por persona con su rol en un select | Equipo (tanda 3). |
 
 Lo que **no** se copia: el modo oscuro propio de Linear (MaKo usa sus tokens, claro y oscuro salen solos), su tipografía (Geist

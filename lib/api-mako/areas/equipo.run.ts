@@ -882,8 +882,8 @@ export const RUNNERS: Runners = {
         no_molestar: silencio ? { desde: horaTexto(silencio.desde), hasta: horaTexto(silencio.hasta), zona } : null,
         telefonos_con_avisos: telefonos,
         nota: telefonos === 0
-          ? 'Ningún teléfono suyo recibe avisos: hace falta instalar MaKo en el celular y prender los avisos ahí. Lo de acá vale para todos sus teléfonos.'
-          : 'Lo de acá vale para todos sus teléfonos. prendido ya incluye el interruptor general.',
+          ? 'Ningún teléfono suyo recibe avisos: hace falta instalar MaKo en el celular y prender los avisos ahí. Lo que se elige aquí vale para todos sus teléfonos.'
+          : 'Lo que se elige aquí vale para todos sus teléfonos. prendido ya incluye el interruptor general.',
       });
     },
   },
