@@ -780,6 +780,21 @@ export function completadoSinVer(lineas: readonly LineaChat[], visto: number | n
   return u && !tieneCheck(u.instante, visto) ? u.turno : null;
 }
 
+/** Cuántos «Completado» sin ver muestra el bloque, como mucho (los más nuevos). Los de antes no se pierden: el ✓ es «hasta
+ *  éste», así que darle el ✓ al primero que se ve también se lo pone a ellos. */
+export const MAX_COMPLETADOS_EN_BLOQUE = 8;
+
+/** Los «Ya está» del chat que esperan el ✓, del más viejo al más nuevo (los últimos `max`): el bloque de arriba de la caja los
+ *  muestra de a uno, con las flechas de las preguntas (25/10/2026, Martín: «si tengo varios "completados" pendientes, para eso
+ *  ya tenemos la opción de "espera tu respuesta" tipo modular... con las flechitas»). El último es `completadoSinVer`. */
+export function completadosSinVer(lineas: readonly LineaChat[], visto: number | null | undefined, max = MAX_COMPLETADOS_EN_BLOQUE): TurnoChat[] {
+  const out: { instante: number; turno: TurnoChat }[] = [];
+  for (const l of lineas) {
+    if (l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto) && !tieneCheck(l.instante, visto)) out.push({ instante: l.instante, turno: l.turno });
+  }
+  return out.sort((a, b) => a.instante - b.instante).slice(-max).map((x) => x.turno);
+}
+
 /**
  * Cuántos de los últimos mensajes dibujar para que entre ese turno (el «Ya está» sin su ✓), con `margen` de antes como contexto;
  * null si no está. Sobre la conversación que dibuja el hilo (`lineasDeConversacion`). Antes se dibujaba TODO el historial para
@@ -1355,9 +1370,10 @@ export const TITULO_YA_ESTA = 110;
 export const CUERPO_PLEGABLE = 1500;
 /** Cuánto detalle tiene que haber antes de la cola para que valga la pena plegarlo. */
 const DETALLE_PLEGABLE = 600;
-/** Arriba de la caja (BloqueCompletado.tsx) el «Completado» va más corto: desde acá se pliega a su resumen, con «Ver todo»
- *  (25/10/2026, Martín: «achica el mensaje y hazlo más claro»). */
+/** Arriba de la caja (BloqueCompletado.tsx) el «Completado» va más corto: desde acá se pliega a su resumen y se abre tocándolo
+ *  (25/10/2026, Martín: «achica el mensaje y hazlo más claro»), con su cola a la vista desde `DETALLE_PLEGABLE_EN_BLOQUE`. */
 export const CUERPO_PLEGABLE_EN_BLOQUE = 500;
+export const DETALLE_PLEGABLE_EN_BLOQUE = 200;
 
 /**
  * El «Completado» partido para dibujarlo ENTERO (17/10/2026, Martín: «tienen 3 puntos al final y no llego a leer todo, esos
@@ -1387,8 +1403,8 @@ const ABRE_LA_PRUEBA = /^[\s>*_#\-•·]*(?:\d+[.)]\s*)?[*_`]*pr[uú]eba(?:lo|la
  * «Falta» o «Prueba» (fuera de un bloque de código); sin esa marca, es el último párrafo. `null` = no se puede plegar sin
  * esconder algo (corto, sin cola, o casi todo es cola): se dibuja entero.
  */
-export function partirPendiente(cuerpo: string): { detalle: string; cola: string } | null {
-  if (cuerpo.length <= CUERPO_PLEGABLE) return null;
+export function partirPendiente(cuerpo: string, desde = CUERPO_PLEGABLE, detalleMinimo = DETALLE_PLEGABLE): { detalle: string; cola: string } | null {
+  if (cuerpo.length <= desde) return null;
   const lineas = cuerpo.split('\n');
   let dentro = false;
   let corte = -1;
@@ -1404,7 +1420,7 @@ export function partirPendiente(cuerpo: string): { detalle: string; cola: string
   if (corte <= 0) return null;
   const detalle = lineas.slice(0, corte).join('\n').trim();
   const cola = lineas.slice(corte).join('\n').trim();
-  if (detalle.length < DETALLE_PLEGABLE || !cola) return null;
+  if (detalle.length < detalleMinimo || !cola) return null;
   return { detalle, cola };
 }
 

@@ -1880,4 +1880,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/operaciones-reglas.ts — turnosDeLaConversacion · lib/centro-turnos-db.ts · lib/centro-chats.ts — pedidoDelCompletado · BloqueCompletado.tsx', 'tests/completado-arriba.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '16:20', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado», rediseñado: un botón, y de a uno con flechas',
+    pedido: '«Rediseña bien la tarjeta de "completado"... Mira la cantidad de botones juntos... Y si tengo varios "completados" pendientes, para eso ya tenemos la opción de "espera tu respuesta" tipo modular con varias preguntas con las flechitas para la siguiente o anterior»',
+    puntos: [
+      '**Un solo botón, «Ya lo vi»**, y al lado «Revisar» si dejó una página. Sin «Ver todo»: el texto se abre tocándolo. Para responder, escribes en la caja de abajo.',
+      '**Varios sin ver, de a uno**, con las mismas flechas y puntitos de las preguntas. Empieza por el más viejo: «Ya lo vi» pasa al siguiente.',
+      '**Arriba, lo que respondía**: lo tuyo con tu foto; lo del Cerebro u otro chat, con su nombre. Si no hay, no queda el hueco.',
+    ],
+    archivos: ['app/admin/operaciones/BloqueCompletado.tsx · PreguntasDelChat.tsx (Pasos) · centro.css · lib/centro-chats.ts — completadosSinVer', 'tests/completado-arriba.test.ts'],
+  },
 ];

@@ -63,10 +63,25 @@ del código.
   - **El nombre del otro chat llega con espacios** («Cerebro   Integración»: el «›» del sub-chat, convertido). `nombreDeOtroChat`.
   - **El título sin el «Ya está:» empezaba en minúscula** («traer de un grupo…») y se leía cortado: `conMayuscula`, sólo si
     empieza con una letra (un `código` de adelante queda igual).
+- **La cuarta vuelta, el rediseño (25/10, ~15:20)**, Martín: «Mira la cantidad de botones juntos... Y si tengo varios
+  "completados" pendientes... las flechitas para la siguiente o anterior». Eran seis controles; quedó UNA acción («Ya lo vi»)
+  y una secundaria («Revisar»), como la bandeja de Linear y las notificaciones de GitHub. El texto se abre tocándolo, y la tarea
+  del Plan y «Responder sobre esto» quedan en la tarjeta del hilo. Lo que no se ve:
+  - ⚠️ **El ✓ es UN instante por chat («hasta éste»), no uno por mensaje.** Con varios sin ver, «Ya lo vi» en el tercero da por
+    vistos el primero y el segundo. Por eso el bloque abre en el MÁS VIEJO: abriendo en el más nuevo, el toque obvio escondía
+    los otros sin que se leyeran. Cambiarlo a un ✓ por mensaje es cambiar `operaciones.ya-vistos` y la fila de la lista.
+  - ⚠️ **`.co-preg__pie` se esconde en las pantallas táctiles** (es la ayuda del teclado de las preguntas): el pie del bloque usa
+    su propia clase (`.co-preg__ya-pie`), o «Ya lo vi» desaparecía en el teléfono sin ningún error.
+  - **`partirPendiente` sólo partía desde 1.500 caracteres** (el umbral del hilo): arriba de la caja (500) un cuerpo mediano se
+    plegaba entero y escondía «Pruébalo en…». Ahora recibe el umbral y el mínimo de detalle.
+  - **Se abre tocándolo, pero no siempre:** tocar un link adentro lo abre sin desplegar, seleccionar texto tampoco, y abierto
+    queda abierto (en el teléfono, un toque al leer lo volvía a cerrar).
+  - **La API dice lo mismo que las flechas:** `ver_completados_operaciones` trae `anteriores` (los de antes sin ver), y
+    `marcar_visto_operaciones` dice que da por vistos también ésos.
 
 **Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`, `pedidoDelCompletado`) ·
-`lib/operaciones-reglas.ts` (`turnosDeLaConversacion`) · `lib/centro-turnos-db.ts` (`leerTurnos`) · `Avance.tsx`
-(`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·
+`lib/operaciones-reglas.ts` (`turnosDeLaConversacion`) · `lib/centro-turnos-db.ts` (`leerTurnos`) · `PreguntasDelChat.tsx`
+(`Pasos`, las flechas) · `lib/centro-chats.ts` (`completadosSinVer`, `partirPendiente`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·
 `tests/completado-arriba.test.ts`
 
 ## Una pregunta se guarda por SESIÓN y el chat es una CADENA: «Espera tu respuesta» para siempre (25/10/2026)
