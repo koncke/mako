@@ -73,6 +73,11 @@ la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no d
   perfil. Una tapa CSS (`puerta-app.css`) tapa la app instalada hasta decidir; sólo con `pointer: fine`, porque la TWA del
   teléfono también corre «instalada» y no es esta regla (el teléfono queda fuera también en la decisión, por el user agent).
 - Sin red, la puerta no traba la app: si `/api/auth/entrada` no contesta, pasa (la sesión la sigue mirando el servidor).
+- **Trampa 4, el `app=1` adentro de `next`:** desde el 25/10 el proxy (`denegar`, rama de Zernio) manda a quien no tiene sesión
+  a `/login?next=<la dirección ENTERA>`. El acceso «MaKo» sin sesión llegaba al login con `next=%2Fsecond-brain%3Fapp%3D1` y
+  sin `app=1` arriba: el login no anotaba la ventana y, ya adentro, la puerta pedía entrar otra vez. `pideLaApp` lo busca en
+  los dos lugares. Y la ventana que ya empezó a esperar sigue siendo «de la app» aunque vuelva sin el parámetro (lo encontró la
+  prueba en el navegador: si no, quien escribía otra dirección pasaba con la sesión vieja).
 
 **Lo que quedó SIN hacer:** sacar esa app del perfil de Mauricio en la PC de Martín es de él (clic derecho en el ícono ›
 Desinstalar, o chrome://apps en ese perfil).

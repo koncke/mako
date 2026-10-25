@@ -52,7 +52,8 @@ test('qué integración nombra un link, y cuáles no se abren sueltas', () => {
   assert.equal(servicioDeLink('/integraciones?abrir=../x'), null);
   assert.equal(servicioDeLink(null), null);
   for (const k of SIN_MODAL_SUELTO) assert.equal(servicioDeLink(`/integraciones?abrir=${k}`), null, `la ${k} no se abre suelta`);
-  assert.deepEqual([...SIN_MODAL_SUELTO], ['landing', 'agente']);
+  // 'ia' (25/10/2026): «Tus cuentas de IA» la abre su tarjeta en /integraciones (`?abrir=ia`), no es una integración suelta.
+  assert.deepEqual([...SIN_MODAL_SUELTO], ['landing', 'agente', 'ia']);
 });
 
 test('a dónde vuelve un OAuth: la tab con su query, sin el ws ni el resultado anterior', () => {

@@ -13,12 +13,14 @@
 // =============================================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { useRouter } from '@/app/_ui/Link';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { Modal } from '@/app/_ui/Modal';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
-import { AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, abreEnlacesMako, cuentasDeLaIA, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
+import { ABRIR_IA, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, abreEnlacesMako, cuentasDeLaIA, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
 import { CuentasYDispositivos, DescargarElOtro, DescargarMaKo, NuevoDispositivo, avisoAlAbrir } from './CuentasYDispositivos';
 import { Icon } from '@/app/_components/icons';
@@ -517,6 +519,18 @@ export function TarjetaTusCuentasIA() {
     if (e?.ok) setEstado(e);
   }, []);
   useEffect(() => { void leer(); }, [leer]);
+  // `?abrir=ia` (25/10/2026, tanda 3d de docs/conexiones-y-ayuda.md): el link de «Tus cuentas de IA» abre este modal, como
+  // `?abrir=<key>` abre el de una integración (IntegracionesBoard). Se limpia después: un F5 no lo vuelve a abrir.
+  const params = useSearchParams();
+  const router = useRouter();
+  const pedida = params?.get('abrir') === ABRIR_IA;
+  useEffect(() => {
+    if (!pedida) return;
+    setAbierto(true);
+    const q = new URLSearchParams(params?.toString() ?? '');
+    q.delete('abrir');
+    router.replace(`/integraciones${q.size ? `?${q}` : ''}`, { scroll: false });
+  }, [pedida, params, router]);
   const { linea, tono } = resumenDeCuentas(estado, leido);
   return (
     <>

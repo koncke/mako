@@ -422,6 +422,14 @@ export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
 export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
 
 /**
+ * «Tus cuentas de IA» tiene link propio (25/10/2026, docs/conexiones-y-ayuda.md, tanda 3d): `/integraciones?abrir=ia` abre su
+ * modal (lo abre `TarjetaTusCuentasIA`, no el tablero: no es una integración con credenciales), y `/perfil/ia` es su página para
+ * todos los roles. Los dos son contrato: un rediseño los conserva.
+ */
+export const ABRIR_IA = 'ia';
+export const LINK_TUS_CUENTAS_IA = `/integraciones?abrir=${ABRIR_IA}`;
+
+/**
  * ¿Esa PC abre los enlaces mako://? Las del instalador con asistente (0.4.0 en adelante) sí; las que se instalaron pegando la línea
  * de comandos (0.3.x, como la del ws1) no, y sólo a ésas se les ofrece la línea plegada (25/10/2026, Martín: «mira la cantidad de
  * texto»: un cliente con la app de hoy no ve un comando). Sin versión, se la toma por nueva. `version`: «0.4.2» o «0.4.2+mac».

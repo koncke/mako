@@ -35,6 +35,21 @@ export function esVentanaDeApp(p: { instalada: boolean; conParam: boolean; marca
   return (p.instalada || p.conParam || !!p.marcada) && !esTelefono(p.ua);
 }
 
+/**
+ * ¿La dirección pide la app (`app=1`)? Arriba o ADENTRO de `next`: desde el 25/10/2026 el proxy (`denegar`, rama de Zernio) manda
+ * a quien no tiene sesión a `/login?next=<la dirección ENTERA>`, así que el acceso «MaKo» sin sesión llega al login con
+ * `next=%2Fsecond-brain%3Fapp%3D1` y sin `app=1` arriba. Sin mirar adentro, el login no anotaba la ventana y, ya adentro, la
+ * puerta pedía el login otra vez.
+ */
+export function pideLaApp(search: string): boolean {
+  const q = new URLSearchParams(search);
+  if (q.get(PARAM_APP) === '1') return true;
+  const next = q.get('next');
+  if (!next) return false;
+  const i = next.indexOf('?');
+  return i >= 0 && new URLSearchParams(next.slice(i + 1)).get(PARAM_APP) === '1';
+}
+
 /** Lo que la ventana tiene guardado: desde cuándo (segundos del servidor) espera el login, o que ya entró. */
 export type Puerta = { desde: number } | 'adentro' | null;
 

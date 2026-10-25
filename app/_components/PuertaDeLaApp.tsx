@@ -17,7 +17,7 @@ import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import { esPublica } from '@/lib/rutas-publicas';
 import {
-  CLAVE_PUERTA, PARAM_APP, decidirPuerta, destinoTrasLogin, escribirPuerta, esVentanaDeApp, leerPuerta, loginDeLaApp,
+  CLAVE_PUERTA, decidirPuerta, destinoTrasLogin, escribirPuerta, esVentanaDeApp, leerPuerta, loginDeLaApp, pideLaApp,
 } from '@/lib/app-escritorio-reglas';
 import './puerta-app.css';
 
@@ -33,7 +33,8 @@ export function PuertaDeLaApp() {
   const [abierta, setAbierta] = useState(false);
   useEffect(() => {
     const instalada = MODOS_DE_APP.some((m) => window.matchMedia(`(display-mode: ${m})`).matches);
-    const conParam = new URLSearchParams(window.location.search).get(PARAM_APP) === '1';
+    // `app=1` arriba, o adentro del `next` con el que el proxy manda al login a quien no tiene sesión.
+    const conParam = pideLaApp(window.location.search);
     const puerta = leerPuerta(leerGuardado());
     if (!esVentanaDeApp({ instalada, conParam, marcada: puerta != null, ua: navigator.userAgent })) { setAbierta(true); return; }
     if (puerta === 'adentro') { setAbierta(true); return; }

@@ -34,6 +34,18 @@ conectar, una vez instalado, rediseña eso, que se vea facil, mira la cantidad d
 - **De Martín:** desinstalar esa app del perfil de Mauricio (clic derecho en el ícono › Desinstalar) o, si la quiere, entrar con
   su cuenta cuando la app la pida.
 
+## Tanda 3d de docs/conexiones-y-ayuda.md (25/10, con «MaKo en WhatsApp: conexiones»)
+
+- **Hecho:** `?abrir=ia` abre «Tus cuentas de IA» (`TarjetaTusCuentasIA`; `ABRIR_IA`, `LINK_TUS_CUENTAS_IA`; 'ia' en
+  `SIN_MODAL_SUELTO`). `/perfil/ia` sigue igual. `app=1` sobrevive al login nuevo (`pideLaApp`).
+- **La API de MaKo** (regla de Martín del 25/10: leer Y cambiar):
+  - leer el estado de la computadora va en `ver_ia_del_negocio`, que declara «MaKo en WhatsApp» (tanda 2);
+  - `desconectar_computadora` (confirmación `chat`; el admin o el dueño de esa PC) queda para declarar encima de esa tanda, para
+    no pisar `integraciones.def/run`, la referencia y el snapshot. Coordinado por mensaje, sin respuesta todavía;
+  - conectar NO va por la API: pide a la persona frente a su PC y que acepte el texto. El login, el 2FA, el instalador y la firma
+    tampoco: son entrar y armar el programa, no algo que el negocio hace.
+- **Sin hacer:** la puerta de la PC para el grupo de WhatsApp del dueño (punto 2, `encolarTurno`), cuando escriba ese chat.
+
 ## Lo de Martín: qué comprar y qué hacer para que no salga «no es seguro»
 
 Lo hace él (nosotros nunca cargamos tarjetas, documentos ni claves). Los pasos exactos, en el plan: «Firmar: lo que hace Martín»

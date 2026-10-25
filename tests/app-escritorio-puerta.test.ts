@@ -20,8 +20,10 @@ process.env.AUTH_SECRET = 'secreto-de-prueba-de-la-puerta-de-la-app-0123456789';
 
 import { crearToken, verificarToken } from '../lib/auth-session';
 import { esPublica } from '../lib/rutas-publicas';
+import { LINK_TUS_CUENTAS_IA } from '../lib/ia-pc-reglas';
+import { servicioDeLink } from '../lib/integracion-en-tab';
 import {
-  CLAVE_PUERTA, MARGEN_PUERTA_S, decidirPuerta, destinoTrasLogin, escribirPuerta, esTelefono, esVentanaDeApp, leerPuerta, loginDeLaApp,
+  CLAVE_PUERTA, MARGEN_PUERTA_S, decidirPuerta, destinoTrasLogin, escribirPuerta, esTelefono, esVentanaDeApp, leerPuerta, loginDeLaApp, pideLaApp,
 } from '../lib/app-escritorio-reglas';
 
 const RAIZ = path.join(import.meta.dirname, '..');
@@ -63,6 +65,13 @@ test('1. qué es la app, y la puerta: pasa sólo quien entró en ESA ventana', (
   assert.equal(destinoTrasLogin('/perfil/ia', '?computadora=1&app=1'), '/perfil/ia?computadora=1');
   assert.equal(loginDeLaApp('/perfil/ia?computadora=1'), '/login?app=1&next=%2Fperfil%2Fia%3Fcomputadora%3D1');
   assert.equal(CLAVE_PUERTA, 'mako-app-entrada');
+  // `app=1` arriba, o adentro del `next` (el login nuevo de Zernio: `denegar` manda la dirección ENTERA en `next`).
+  assert.equal(pideLaApp('?app=1'), true);
+  assert.equal(pideLaApp('?next=%2Fsecond-brain%3Fapp%3D1'), true, 'el acceso «MaKo» sin sesión, pasado por el proxy');
+  assert.equal(pideLaApp('?next=%2Fperfil%2Fia%3Fcomputadora%3D1%26app%3D1'), true);
+  assert.equal(pideLaApp('?next=%2Fsecond-brain'), false);
+  assert.equal(pideLaApp('?next=%2Fx%3Fapp%3D0'), false);
+  assert.equal(pideLaApp(''), false);
 });
 
 test('2. la sesión trae cuándo se entró, y /api/auth/entrada da eso y la hora del servidor, nada más', () => {
@@ -102,4 +111,16 @@ test('3. las piezas: el layout la monta, /login con app=1 pide entrar, la tapa, 
   assert.match(pc, /return `\$\{servidor\}\/second-brain\?app=1`;/);
   // Cerrar sesión no desconecta la IA: el logout no toca la PC.
   assert.doesNotMatch(sinComentarios(leer('app/api/auth/logout/route.ts')), /ia_pc|ia-pc|desconectar|revocar/i);
+});
+
+test('4. «Tus cuentas de IA» tiene link propio: /integraciones?abrir=ia abre su modal, y desde otra tab va hasta ahí', () => {
+  assert.equal(LINK_TUS_CUENTAS_IA, '/integraciones?abrir=ia');
+  const t = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
+  const tarjeta = t.slice(t.indexOf('export function TarjetaTusCuentasIA('));
+  assert.match(tarjeta, /const pedida = params\?\.get\('abrir'\) === ABRIR_IA;/);
+  assert.match(tarjeta, /if \(!pedida\) return;\s*setAbierto\(true\);/);
+  assert.match(tarjeta, /q\.delete\('abrir'\);\s*router\.replace\(/, 'queda pegado: un F5 lo vuelve a abrir');
+  // Un link desde un chat de otra tab no intenta abrir en el lugar una «integración ia» que no existe: va a /integraciones.
+  assert.equal(servicioDeLink(LINK_TUS_CUENTAS_IA), null);
+  assert.equal(servicioDeLink('/integraciones?abrir=fathom'), 'fathom', 'el resto sigue abriéndose en el lugar');
 });
