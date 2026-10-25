@@ -213,6 +213,7 @@ eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
+empezar_mi_plan_ya
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -596,6 +597,7 @@ ver_landing_creada
 ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan
+ver_mi_prueba
 ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio

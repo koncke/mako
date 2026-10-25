@@ -61,7 +61,8 @@ export default async function PlanPage({ searchParams }: { searchParams?: Promis
     : null;
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'plan')} activa="plan">
-      <TituloAjustes titulo="Tu plan" bajada="Tu plan de MaKo y cómo darte de baja." />
+      {/* Sin bajada (25/10/2026, el molde nuevo de Settings: Martín, «textos previo a la configuración que están muy de sobra»). */}
+      <TituloAjustes titulo="Tu plan" />
       <PlanPanel plan={capaDef(capa).nombre} suscripcion={suscripcion} emailMako={EMAIL_MAKO} oferta={enPrueba ? null : oferta} retencion={retencion} subir={subir} porLlamada={porLlamada}
         destacarEmpezar={destacarEmpezar} />
     </AjustesPagina>

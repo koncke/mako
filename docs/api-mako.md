@@ -38,7 +38,7 @@
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
@@ -11832,7 +11832,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 18 lecturas · 17 acciones.
+Tab **Second Brain** (`/second-brain`). 19 lecturas · 18 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -11963,7 +11963,7 @@ curl -L \
 
 ### `GET /api/v1/negocio/plan` — Plan de MaKo del negocio
 
-El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, con la baja pedida o dado de baja), o acordado a mano. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).
+El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, en su prueba gratis, con la baja pedida o dado de baja), o acordado a mano. En la prueba gratis, el detalle (días que quedan, topes usados) es ver_mi_prueba. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).
 
 - **Ruta por operación:** `GET /api/v1/negocio/ver_mi_plan`
 - **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -11984,7 +11984,7 @@ curl -L \
 
 ### `POST /api/v1/negocio/plan/bajas` — Dar de baja el plan de MaKo
 
-PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.
+PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. En la PRUEBA GRATIS no se cobra nada: se cancela en el acto y se sigue usando hasta el día que iba a cobrarse. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.
 
 - **Ruta por operación:** `POST /api/v1/negocio/dar_de_baja_mi_plan`
 - **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -12005,6 +12005,52 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/negocio/plan/bajas"
+```
+
+### `GET /api/v1/negocio/plan/prueba` — Prueba gratis del negocio
+
+Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba (videos armados, tomas, videos con avatar de IA, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.
+
+- **Ruta por operación:** `GET /api/v1/negocio/ver_mi_prueba`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan/prueba"
+```
+
+### `POST /api/v1/negocio/plan/prueba/fin` — Empezar el plan antes de terminar la prueba
+
+PROPONE terminar la prueba gratis antes y pagar el plan desde hoy: abre el pago y devuelve el link para que el dueño lo pague. La prueba se cancela recién cuando ese pago entra, así abrir el link no le quita la prueba. Se confirma en una pantalla, nunca por el chat. Se rechaza si el negocio no está en prueba o si el primer cobro es en menos de un día (Mercado Pago cobra solo). Revisa antes ver_mi_prueba.
+
+- **Ruta por operación:** `POST /api/v1/negocio/empezar_mi_plan_ya`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** abre un cobro del plan de MaKo atado a este negocio, con el historial del lead en el CRM de MaKo; al pagarse, cancela la prueba
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan/prueba/fin"
 ```
 
 ### `GET /api/v1/negocio/onboarding/tabs-pendientes` — Tabs que faltan configurar

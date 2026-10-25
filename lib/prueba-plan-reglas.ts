@@ -86,6 +86,30 @@ export function tocaAvisarFinDePrueba(p: { inicioAt: string | null; ahoraMs: num
   return Number.isFinite(cobro) && p.ahoraMs < cobro && cobro - p.ahoraMs <= DIAS_AVISO_FIN_DE_PRUEBA * DIA_MS;
 }
 
+/** Cuántos días le quedan a la prueba (0 = termina hoy). Redondea para arriba: «quedan 7» el día que empieza. */
+export function diasQueQuedan(hastaIso: string | null | undefined, ahoraMs: number): number | null {
+  const fin = hastaIso ? Date.parse(hastaIso) : NaN;
+  if (!Number.isFinite(fin)) return null;
+  return Math.max(0, Math.ceil((fin - ahoraMs) / DIA_MS));
+}
+
+/**
+ * EL CARTEL DE LA VERSIÓN DE PRUEBA (25/10/2026, Martín: «Me gusta el cartel de "limited version" de 7 días de madgicx»;
+ * docs/media-buyer/referencias/madgicx/prueba-limitada/LEEME.md). Madgicx dice «Limited version | 7 days left», una línea con
+ * lo que se cobra después y «Upgrade Now». Acá, corto y en tú: el título con los días, el precio de después y el botón.
+ */
+export function textoCartelPrueba(p: { dias: number | null; plan: string; despues: string | null }): { titulo: string; linea: string; boton: string } {
+  const quedan = p.dias == null ? '' : p.dias <= 0 ? ' · termina hoy' : p.dias === 1 ? ' · queda 1 día' : ` · quedan ${p.dias} días`;
+  return {
+    titulo: `Versión de prueba${quedan}`,
+    linea: p.despues ? `Al terminar, sigues con ${p.plan} por ${p.despues}.` : `Al terminar, sigues con ${p.plan}.`,
+    boton: 'Pasar al plan ya',
+  };
+}
+
+/** «Tu plan» del teléfono, con «Empezar mi plan ya» (el de la computadora es `RUTA_EMPEZAR_PLAN`, lib/topes-plan.ts). */
+export const RUTA_EMPEZAR_PLAN_M = '/m/configuraciones/plan?empezar=1';
+
 /** «el lunes 3 de noviembre»: el día del cobro, como lo lee una persona (en la hora de Argentina, la de MaKo). */
 export function diaDelCobro(iso: string): string {
   return new Date(iso).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'America/Argentina/Buenos_Aires' });
