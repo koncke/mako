@@ -62,6 +62,7 @@ import Reproductor from './Reproductor';
 import TareaAlumno from './TareaAlumno';
 import { VistaPreviaCtx, useVistaPrevia } from './vista-previa';
 import { SinSoporteCtx } from '@/app/_ui/ReportarASoporte';
+import { SIN_NOMBRE_ALUMNO, SIN_NOMBRE_ALUMNO_EN_LISTA } from '@/lib/curso-nombre';
 import { CSS_PORTAL } from './estilos';
 import {
   ENTRADA_COMUNIDAD, TEXTOS_PORTAL, agendaVigente, avanceDelCurso, chipCerrada, chipsDeClase, claseDeArranque, clasesDelPortal,
@@ -277,7 +278,8 @@ function Producto({ token, vista, producto, vistaPrevia, urlsAdjuntos, onProduct
       {vista.productos.map((p) => (
         <ItemMenuUgc key={p.productoId} activo={p.productoId === producto.productoId}
           onClick={() => { cerrar(); if (p.productoId !== producto.productoId) onProducto(p.productoId); }}>
-          {tituloDe(p)}
+          {/* En la lista, uno sin nombre no dice «Tu programa»: al lado de otro se leía como «crear el tuyo» (f29). */}
+          {p.estilo?.titulo ?? (p.nombre === SIN_NOMBRE_ALUMNO ? SIN_NOMBRE_ALUMNO_EN_LISTA : p.nombre)}
         </ItemMenuUgc>
       ))}
     </>

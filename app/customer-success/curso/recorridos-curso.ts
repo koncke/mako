@@ -40,9 +40,9 @@ const PASO_AYUDA: PasoRecorrido = { objetivo: 'ayuda', titulo: 'Vuelve a verla',
  * arriba, la portada, los módulos, la barra de módulos y, adentro de uno, sus clases).
  */
 export const PASOS_RECORRIDO: PasoRecorrido[] = [
-  // Desde el audio del 08/10/2026 el menú de la marca también crea un producto (item 17) y prende los
-  // comentarios de las clases (item 13): se nombran acá, que es el único paso que apunta a ese menú.
-  { objetivo: 'marca', titulo: 'Tu curso', texto: 'Cambia de curso o crea otro, su color, su fuente y los comentarios.', lado: 'derecha' },
+  // Desde el 24/10/2026 (f27/f28) la marca es un RÓTULO: el curso se elige y se crea arriba, en el programa de la
+  // cabecera de Clients, y el color y la fuente van en «Personalizar». El paso dice dónde quedó cada cosa.
+  { objetivo: 'marca', titulo: 'Tu curso', texto: 'Se elige arriba, en el programa. Color y fuente, en Personalizar.', lado: 'derecha' },
   { objetivo: 'vista-alumno', titulo: 'Vista del alumno', texto: 'Mira el curso como lo ve tu cliente.' },
   { objetivo: 'invitar', titulo: 'Invita alumnos', texto: 'Tus clientes o alguien nuevo.' },
   { objetivo: 'titulo', titulo: 'El nombre del curso', texto: 'Haz clic para cambiarlo.' },

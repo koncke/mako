@@ -5872,3 +5872,45 @@ del alumno (`SinSoporteCtx`, que pone PortalAlumno; la vista previa del equipo s
 `tests/comunidad-moderacion.test.ts` (7 roturas, cada una cae)
 
 *24/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*
+
+## Dos selectores de programa en Clients: la barra del Classroom era el segundo (24-25/10/2026, f27, f28 y f29)
+
+**Síntoma** (llamada con Leandro, @38:46 y @52:00-54:33): «me cambian los dos al mismo tiempo»: el programa de la
+cabecera de Clients y el desplegable de la barra oscura del Classroom elegían lo mismo, y Leandro creyó estar en
+Fiesta Music estando en «Curso sin nombre» (por eso sacó al alumno del programa equivocado, f32). Y entrando como
+alumno: «me aparece tu programa como que también me deja crear mi propio programa».
+
+**Causa.** El desplegable de la marca del Classroom (`menuMarca`, CursoApp.tsx) venía de antes de la cabecera de
+Clients (07/10): cambiar de curso, «+ Nuevo producto», el color y la fuente. Cuando el 17/10 nació la cabecera con su
+programa y «Personalizar», nadie lo sacó: quedaron dos lugares para la misma pregunta. Lo del alumno: un curso sin
+nombre se llama «Tu programa» en el portal (`SIN_NOMBRE_ALUMNO`), y en la LISTA «Tus programas», al lado de otro
+nombre, se lee como una acción («crear el tuyo»).
+
+**Arreglo.** La marca es un rótulo (sin `menu` ni `onClick`, CursoUgc la dibuja como `div`). UN selector, el de la
+cabecera, con «+ Nuevo producto» al final para un admin (con un solo programa también hay desplegable si se puede
+crear). Todo el diseño en «Personalizar», con «Otro color» y «Deshacer» que se mudaron con él. En la lista del alumno, un
+curso sin nombre dice `SIN_NOMBRE_ALUMNO_EN_LISTA` («Programa sin nombre»); solo, sigue siendo «Tu programa».
+
+**Las reglas que quedan:**
+- **Cambiar de pantalla desde un menú va por un LINK, no por `router.push` en un botón.** La guarda de la lección a
+  medio guardar del Classroom (`useLeccionAbierta`) ataja los `<a href>` del documento en captura; el botón de la
+  cabecera navegaba con `router.push` y se la saltaba (la del Classroom sí preguntaba, y era la que se iba).
+- **Mudar una pieza es mudar también lo que traía de regalo.** El «Otro color» con su espera de 450 ms y el «Deshacer»
+  del color vivían sólo en el menú que se fue: «Personalizar» no los tenía.
+- **El teléfono repite rótulos de escritorio POR ARCHIVO** (tests/m-curso.test.ts, la tabla `ORIGEN`): sacar «Cursos»
+  de CursoApp.tsx rompió ese test, que no nombra el Classroom. La lista del teléfono pasó a «Programas», como la cabecera.
+- **Siete tests fijaban el lugar viejo** (curso-apariencia, curso-estilo, curso-nuevo-producto, curso-comentarios-clase,
+  cursos-ugc, curso-guardado-manual, curso-recorridos). Se reescribieron para fijar el lugar nuevo con la misma intención
+  (que el deshacer escriba en el server, que se pregunte por la lección sin guardar), no se borraron.
+
+**Quedó SIN hacer, y dónde:**
+- Si f29 era otra cosa (Leandro entró con su Google de MaKo y vio su propia cuenta), el arreglo no la toca: lo de arriba
+  es la lectura de Martín en la llamada («que ahí solamente diga Fiesta Music y que no se puedan crear varios cursos»).
+- Un alumno con dos programas sigue eligiendo en el desplegable de SU barra (PortalAlumno.tsx): no tiene cabecera.
+- Nada se miró en el navegador.
+
+**Vive en:** `app/clients/ClientsShell.tsx` (`Programa`, `Personalizar`) · `app/customer-success/curso/CursoApp.tsx` ·
+`app/compartido/curso/[token]/PortalAlumno.tsx` · `lib/curso-nombre.ts` · `app/m/curso/modelo.ts` ·
+`tests/clients-un-selector.test.ts` (6 roturas, cada una cae)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*
