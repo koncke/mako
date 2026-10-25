@@ -1025,37 +1025,50 @@ export type SeccionChats = { clave: string; titulo: string | null; chats: ChatCe
 
 export const SECCION_CEREBRO = 'cerebro';
 
-/** Cuántas cosas esperan a Martín en un chat (sus preguntas sin contestar): lo que lo sube en la lista. */
+/** Cuántas cosas esperan a Martín en un chat (sus preguntas sin contestar y un «Completado» sin ✓): lo que lo sube en la lista. */
 export type AvisosDe = (c: ChatCentro) => number;
+/** Cuántas preguntas suyas esperan a Martín en un chat, SIN el «Completado»: lo que dice «Espera tu respuesta» y va PRIMERO. */
+export type EsperasDe = (c: ChatCentro) => number;
 
 /**
- * El lugar de un chat en la lista (Martín, 17/10/2026: «que los chats trabajando siempre estén arriba... Y los que tienen
- * notificaciones también»): 0 = trabajando AHORA (no una foto vieja), 1 = espera algo de Martín, 2 = el resto.
+ * El lugar de un chat en la lista. Martín, 17/10/2026: «que los chats trabajando siempre estén arriba... Y los que tienen
+ * notificaciones también». Y el 24/10/2026, 23:39: «el tema de los chats de MaKo cuando tienen [...] un espera tu respuesta
+ * deberían posicionarse arriba porque había muchos que estaban abajo y yo no los veo». Así: 0 = espera su respuesta (una
+ * pregunta abierta), 1 = trabaja AHORA (no una foto vieja), 2 = un «Completado» sin ✓, 3 = el resto. Sin `esperas` (quien no
+ * las distingue de un «Completado») no hay 0: lo de antes.
  */
-export function prioridadEnLista(c: ChatCentro, avisos?: AvisosDe): 0 | 1 | 2 {
-  if (c.estado === 'trabajando' && !c.viejo) return 0;
-  return avisos && avisos(c) > 0 ? 1 : 2;
+export function prioridadEnLista(c: ChatCentro, avisos?: AvisosDe, esperas?: EsperasDe): 0 | 1 | 2 | 3 {
+  if (esperas && esperas(c) > 0) return 0;
+  if (c.estado === 'trabajando' && !c.viejo) return 1;
+  return avisos && avisos(c) > 0 ? 2 : 3;
 }
 /** Lo que trabaja o espera a Martín nunca queda escondido detrás de «Mostrar más». */
-export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe) => prioridadEnLista(c, avisos) < 2;
+export const esPrioritario = (c: ChatCentro, avisos?: AvisosDe, esperas?: EsperasDe) => prioridadEnLista(c, avisos, esperas) < 3;
+
+/** Una lista en el orden de `prioridadEnLista`: lo que espera su respuesta y el resto, de lo más reciente a lo más viejo; lo que
+ *  trabaja y los «Completado», en el orden en que llegan. */
+function enOrdenDeLista(chats: readonly ChatCentro[], avisos?: AvisosDe, esperas?: EsperasDe): ChatCentro[] {
+  const porActividad = (p: number) => p === 0 || p === 3;
+  return chats
+    .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos, esperas) }))
+    .sort((a, b) => a.p - b.p || (porActividad(a.p) ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
+    .map((x) => x.c);
+}
 
 /**
  * Las secciones de la barra: el Cerebro arriba y fijo, y UNA lista con los demás (17/10/2026, Martín: «No entiendo el
- * desplegable de "Sin asignar", no tiene sentido, elimínalo»). Adentro, primero los que trabajan, después los que
- * esperan a Martín, después el resto por actividad; los sub-chats van con su jefe (`porJefe`), que sube con ellos.
+ * desplegable de "Sin asignar", no tiene sentido, elimínalo»). Adentro, primero los que esperan su respuesta, después los que
+ * trabajan, después los «Completado» y el resto por actividad (`prioridadEnLista`); los sub-chats van con su jefe (`porJefe`),
+ * que sube con el primero de los suyos. Los del Cerebro, con el mismo orden debajo de él.
  * ⚠️ Un chat que no se llama como una tab ya no va aparte: está en la lista, y renombrándolo pasa a su jefe.
  */
-export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe): SeccionChats[] {
+export function seccionesDeChats(chats: readonly ChatCentro[], avisos?: AvisosDe, esperas?: EsperasDe): SeccionChats[] {
   // ⚠️ LOS SUB-CHATS DEL CEREBRO VAN CON ÉL (23/10/2026, Martín: «a veces cambian los chats»). «Cerebro › Integración» no se llama
   // «Cerebro»: quedaba en la otra lista, donde `porJefe` le armaba un grupo SIN su fila jefe y el teléfono lo dibujaba suelto
   // («↳ Integración») debajo de lo que tocara arriba, que esa vez era «Integraciones». El Cerebro primero, sus sub-chats debajo.
   const delCerebro = (c: ChatCentro) => esCerebro(partesDelNombre(c.titulo).jefe);
-  const cerebro = chats.filter((c) => esCerebro(c.titulo)).concat(chats.filter((c) => delCerebro(c) && !esCerebro(c.titulo)));
-  const resto = chats
-    .filter((c) => !delCerebro(c))
-    .map((c, i) => ({ c, i, p: prioridadEnLista(c, avisos) }))
-    .sort((a, b) => a.p - b.p || (a.p === 2 ? (b.c.actividad ?? 0) - (a.c.actividad ?? 0) : 0) || a.i - b.i)
-    .map((x) => x.c);
+  const cerebro = chats.filter((c) => esCerebro(c.titulo)).concat(enOrdenDeLista(chats.filter((c) => delCerebro(c) && !esCerebro(c.titulo)), avisos, esperas));
+  const resto = enOrdenDeLista(chats.filter((c) => !delCerebro(c)), avisos, esperas);
   const out: SeccionChats[] = [];
   if (cerebro.length) out.push({ clave: SECCION_CEREBRO, titulo: null, chats: cerebro });
   if (resto.length) out.push({ clave: SECCION_CHATS, titulo: null, chats: resto });
