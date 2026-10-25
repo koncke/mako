@@ -208,7 +208,9 @@ test('MaKo Analyst (ex «Análisis») va pegado a Historial, en las DOS fichas',
   // 17/10/2026: el panel tiene dos modos («analizar» y «editar»); el link viejo abre el de analizar.
   assert.match(ficha, /const \[panel, setPanel\] = useState<null \| 'analizar' \| 'editar'>\(initialTab === 'insights' \? 'analizar' : null\);/);
   assert.match(ficha, /irATab: \(clave\) => \{ if \(clave === 'insights'\) \{ setPanel\('analizar'\); return; \}/);
-  assert.match(ficha, /\{ value: 'analyst', label: 'AI Analyst', icono: 'mako' \}/, 'el «⋯» perdió el AI Analyst');
+  // Desde el 24/10/2026 el «⋯» abre el menú de la ficha (./menu-contextual-ficha.ts): el AI Analyst va primero ahí.
+  assert.match(leer('../app/crm/lead-view/ficha/menu-contextual-ficha.ts'), /analyst: \{ texto: 'AI Analyst', icono: 'mako' \}/, 'el «⋯» perdió el AI Analyst');
+  assert.match(ficha, /case 'analyst': setPanel\('analizar'\); return;/);
 });
 
 test('las DOS fichas hablan el mismo idioma y muestran lo mismo', () => {

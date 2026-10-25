@@ -65,7 +65,8 @@ test('las dos puertas abren la MISMA ventana, «Ver en…» lleva a su cuenta, y
   const ficha = leer('app/crm/lead-view/ficha/FichaPorBloques.tsx');
   assert.match(ficha, /import \{ ModalLlevarAPartners \} from '@\/app\/partners\/LlevarAPartners';/);
   assert.match(ficha, /<ModalLlevarAPartners leadId=\{lead\.id\}/);
-  assert.match(ficha, /\.\.\.\(data\.partners \? \[lead\.cliente_ws != null/);
+  // El «⋯» de la ficha abre su menú desde el 24/10/2026 (./menu-contextual-ficha.ts): «Llevar» o «Ver», según la cuenta.
+  assert.match(ficha, /partners: data\.partners \? \(lead\.cliente_ws != null \? 'ver' : 'llevar'\) : null,/);
   assert.match(ficha, /router\.push\(`\/partners\?cuenta=\$\{lead\.cliente_ws\}`\)/);
   assert.match(leer('app/crm/crm-map.ts'), /cuentaPartners: l\.cliente_ws == null \? null : Number\(l\.cliente_ws\),/);
   assert.match(leer('lib/leads.ts'), /'cliente_ws, ' \+/, 'el tablero no trae la cuenta: «Ver en…» no saldría nunca');

@@ -66,8 +66,10 @@ test('C5: el lápiz del selector de CRMs cierra el desplegable al abrir el pop-u
 test('C7: todas las hojas de la ficha a la vista, como tabs del mismo rango (también en el teléfono)', () => {
   const t = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
   assert.match(t, /<div ref=\{lista\} role="tablist" aria-label="Hojas de la ficha"/);
-  assert.match(t, /\{tabs\.map\(\(t\) => \{/, 'cada hoja es una tab, la abierta también');
-  assert.match(t, /const elegir = \(key: string\) => \{ setMenu\(null\); ir\(key\); onChange\?\.\(key\); \};/);
+  // Las que no entran van a «Ver más» desde el 24/10/2026 (tests/ficha-ver-mas.test.ts): siguen siendo tabs, a un clic.
+  assert.match(t, /\{enFila\.map\(\(t\) => \{/, 'cada hoja es una tab, la abierta también');
+  assert.match(t, /\{enVerMas\.map\(\(t\) => \(/, 'las que no entran, en «Ver más»');
+  assert.match(t, /const elegir = \(key: string\) => \{ setMenu\(null\); setVerMas\(null\); ir\(key\); onChange\?\.\(key\); \};/);
   assert.match(t, /onClick=\{\(\) => elegir\(t\.key\)\}/, 'una tab va por el camino de siempre');
   assert.doesNotMatch(t, /MenuHojasFicha|lt-atajos|lt-tit-btn/, 'volvió el título con desplegable');
   assert.match(t, /@media \(max-width: 720px\) \{[^\n]*\.lt-accion \{ display: none; \} \}/, 'en el teléfono se esconde sólo lo de personalizar');

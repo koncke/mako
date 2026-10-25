@@ -113,7 +113,8 @@ test('ruta: ?estado=1 contesta después de la sesión y sin buscar a nadie', () 
   assert.ok(i401 > 0 && iEstado > i401 && iQ > iEstado, 'la rama del estado va después de la sesión y antes de leer lo que se busca');
   const fn = cuerpo(RUTA, 'async function conexionDeMeta(');
   // Lee lo MISMO que la búsqueda: el token del negocio de la sesión y la cuenta de Instagram de su página (con caché).
-  assert.match(fn, /const token = await credWs\('META_ACCESS_TOKEN', ws\);\s*const ig = token \? await igDelNegocio\(ws, token\) : null;\s*return token && ig \? 'conectado' : 'sin-conexion';/);
+  // Con token y sin la cuenta de Instagram de la página es `sin-instagram` desde el 24/10/2026: Meta ESTÁ conectada.
+  assert.match(fn, /const token = await credWs\('META_ACCESS_TOKEN', ws\);\s*const ig = token \? await igDelNegocio\(ws, token\) : null;[\s\S]{0,160}return token && ig \? 'conectado' : token \? 'sin-instagram' : 'sin-conexion';/);
   // Y no gasta nada: ni Business Discovery, ni Google, ni Apify, ni escribe en la caché por su cuenta.
   assert.doesNotMatch(fn, /buscarEnMeta|buscarEnGoogle|leerPerfilInstagram|business_discovery|guardarCache/);
   // Lo que no se pudo leer no es «sin conexión».
@@ -172,12 +173,14 @@ test('buscador: pregunta al enfocarse, una vez, y sin conexión ofrece «Conecta
   assert.match(COMP, /onFocus=\{\(\) => \{\s*setAbierto\(true\);\s*if \(!preguntada\.current\) \{ preguntada\.current = true; void preguntarConexion\(false\); \}/);
   // La línea va AFUERA de la caja del campo (la lista se ubica contra el campo) y antes del modal.
   const iCaja = COMP.indexOf('<div ref={cajaRef}');
-  const iLinea = COMP.indexOf('{pideConectarMeta(conexion) && (');
+  const iLinea = COMP.indexOf("{(pideConectarMeta(conexion) || conexion === 'sin-instagram') && (");
   assert.ok(iCaja > 0 && iLinea > iCaja, 'falta la línea de debajo del campo');
   assert.ok(COMP.slice(iCaja, iLinea).includes('document.body,'), 'la línea quedó adentro de la caja del campo');
-  assert.match(COMP.slice(iLinea, iLinea + 400), /<span>\{AVISO_SIN_META\}<\/span>\s*\{botonConectar\}/);
+  // Con Meta conectada pero sin Instagram (24/10/2026), la línea dice eso y SIN el botón.
+  assert.match(COMP.slice(iLinea, iLinea + 700), /<span>\{conexion === 'sin-instagram' \? AVISO_SIN_INSTAGRAM : AVISO_SIN_META\}<\/span>\s*\{pideConectarMeta\(conexion\) && botonConectar\}/);
   // La fila de la lista sin resultados: la frase y, sin conexión, el botón.
-  assert.match(COMP, /<span>\{avisoSinResultados\(\{[\s\S]*?\}\)\}<\/span>\s*\{pideConectarMeta\(metaDeLaBusqueda\) && botonConectar\}/);
+  // ⚠️ UNA VEZ (24/10/2026, Martín vio «Conectar Meta» DOS veces): si la línea de debajo del campo ya lo ofrece, la fila no.
+  assert.match(COMP, /<span>\{avisoSinResultados\(\{[\s\S]*?\}\)\}<\/span>\s*\{pideConectarMeta\(metaDeLaBusqueda\) && !pideConectarMeta\(conexion\) && botonConectar\}/);
 });
 
 test('buscador: el modal de la casa sin salir de la tab, y sin perder el campo al abrirlo', () => {

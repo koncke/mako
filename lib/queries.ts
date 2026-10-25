@@ -2258,6 +2258,12 @@ export type TipoPendiente = 'A' | 'B' | 'C' | 'M' | 'R';
 export type PendienteItem = {
   lead_id: number;
   lead_nombre: string;
+  /**
+   * La CASA del lead (`leads.funnel_id`; null = el CRM del negocio). «A revisar» corta por el CRM que se mira (24/10/2026,
+   * Martín: «No debo estar en un CRM y que me traigan las notificaciones de otro»): app/api/datos-sin-marcar-count.
+   * Opcional: lo arma sólo `getPendientesDeMarcar`.
+   */
+  funnel_id?: number | null;
   tipo: TipoPendiente;
   mensaje: string;
   fecha: string;       // la fecha relevante (J1 para A/B, J2 para C)
@@ -2303,7 +2309,7 @@ export type Pendientes = {
    * avisan ni cuentan, pero se tienen que poder ver para dejar de ignorarlos. Topeado: es una
    * lista para mirar, no una cola.
    */
-  ignorados?: Array<{ lead_id: number; lead_nombre: string; paso: Step }>;
+  ignorados?: Array<{ lead_id: number; lead_nombre: string; funnel_id?: number | null; paso: Step }>;
 };
 
 /**
@@ -2478,6 +2484,7 @@ async function _getPendientesDeMarcar(
         items.push({
           lead_id: l.id,
           lead_nombre: l.nombre,
+          funnel_id: l.funnel_id ?? null,
           tipo: 'M',
           mensaje: `Venció hace ${diasVencida} día${diasVencida === 1 ? '' : 's'} (${fmtFechaPendiente(l.nutricion_manual_deadline)}) sin resolverse`,
           fecha: l.nutricion_manual_deadline,
@@ -2531,7 +2538,7 @@ async function _getPendientesDeMarcar(
     if (!l.pendientes_ignorados && l.datos_ignorados?.length && ignorados.length < TOPE_IGNORADOS) {
       for (const f of faltanSinEmpresa) {
         if (ignorados.length >= TOPE_IGNORADOS) break;
-        if (!NO_IGNORABLES.has(f.id) && (l.datos_ignorados ?? []).includes(f.id)) ignorados.push({ lead_id: l.id, lead_nombre: l.nombre, paso: f });
+        if (!NO_IGNORABLES.has(f.id) && (l.datos_ignorados ?? []).includes(f.id)) ignorados.push({ lead_id: l.id, lead_nombre: l.nombre, funnel_id: l.funnel_id ?? null, paso: f });
       }
     }
 
@@ -2551,6 +2558,7 @@ async function _getPendientesDeMarcar(
         items.push({
           lead_id: l.id,
           lead_nombre: l.nombre,
+          funnel_id: l.funnel_id ?? null,
           tipo: 'R',
           mensaje: `La Reunión ${slot.numero} del ${fmtFechaPendiente(fechaReu)} ya pasó y todavía no se marcó cómo salió${detalle}`,
           fecha: fechaReu,
@@ -2571,6 +2579,7 @@ async function _getPendientesDeMarcar(
     items.push({
       lead_id: l.id,
       lead_nombre: l.nombre,
+      funnel_id: l.funnel_id ?? null,
       tipo: 'A',
       mensaje: `Faltan: ${faltan.map((f) => f.label).join(' · ')}`,
       fecha,

@@ -80,13 +80,16 @@ test('la ruta arma UNA fila por lead, con todos sus datos adentro (se EJECUTA, 1
   ], 50);
   assert.deepEqual(ocultos.map((o) => [o.lead_id, o.pasos.map((p) => p.id)]), [[7, ['telefono', 'empresa']], [8, ['empresa']]]);
   assert.equal(ocultosPorLead(Array.from({ length: 60 }, (_, i) => ({ lead_id: i + 1, lead_nombre: 'x', paso: { id: 'telefono', label: 'T' } })), 50).length, 50);
-  assert.match(ruta, /const filas: FilaLead\[\] = filasPorLead\(items \?\? \[\], TOPE_LISTA\);/);
-  assert.match(ruta, /const ocultos: FilaLead\[\] = ocultosPorLead\(ignorados \?\? \[\], TOPE_OCULTOS\);/);
+  // `items` e `ignorados` ya vienen cortados por el CRM que se mira (24/10/2026, tests/a-revisar-por-crm.test.ts).
+  assert.match(ruta, /const filas: FilaLead\[\] = filasPorLead\(items, TOPE_LISTA\);/);
+  assert.match(ruta, /const ocultos: FilaLead\[\] = ocultosPorLead\(ignorados, TOPE_OCULTOS\);/);
 });
 
 test('el número de arriba cuenta LEADS, lo mismo que las filas', () => {
   // `total` es el del worklist, que tiene un item por lead: el panel no lo recalcula.
-  assert.match(ruta, /const \{ total, items, ignorados \} = await getPendientesDeMarcar\(/);
+  // Sin CRM, el del worklist; con el CRM del tablero, los leads que quedan en ese CRM (24/10/2026).
+  assert.match(ruta, /const todo = await getPendientesDeMarcar\(/);
+  assert.match(ruta, /const total = crm \? items\.length : todo\.total;/);
   assert.match(ruta, /return Response\.json\(\{ total, items: filas, ignorados: ocultos \}\);/);
   const worklist = tramo(queries, 'async function _getPendientesDeMarcar', '\nexport ');
   assert.match(worklist, /total: items\.length,/, 'el total dejó de ser la cantidad de leads');
