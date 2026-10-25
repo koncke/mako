@@ -596,6 +596,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Meta por Zernio (25/10/2026): la conexión de «Conectar con Facebook» es UN recurso (`meta`); elegir cuenta, píxel o
+  // página es reemplazar ese dato (PUT), y la prueba de CAPI es una lectura con el código de «Probar eventos».
+  ['GET', '/integraciones/meta/conexion', 'ver_conexion_meta'],
+  ['PUT', '/integraciones/meta/cuenta', 'elegir_cuenta_meta'],
+  ['PUT', '/integraciones/meta/pixel', 'elegir_pixel_meta'],
+  ['PUT', '/integraciones/meta/pagina', 'elegir_pagina_meta'],
+  ['GET', '/integraciones/meta/prueba-capi', 'probar_capi_meta'],
   // ── equipo ────────────────────────────────────────────────────────────────
   ['GET', '/equipo/negocio', 'ver_workspace'],
   ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],

@@ -2441,3 +2441,21 @@ Las otras cuatro, más chicas:
 
 *23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
 medido con un script; arreglos probados rompiéndolos.*
+
+## Meta por Zernio en la API: elegir es un PUT, y «le manda» en una descripción se lee como un envío a una persona (25/10/2026)
+
+**Vive en:** `lib/api-mako/areas/integraciones.def.ts` / `.run.ts` (`ver_conexion_meta`, `elegir_cuenta_meta`,
+`elegir_pixel_meta`, `elegir_pagina_meta`, `probar_capi_meta`) · `lib/api-mako/rest.ts` · `tests/zernio-meta.test.ts`
+
+- **El área Integraciones era «sólo estado» por diseño** (guardar o elegir iba por el link a la pantalla). Martín, 25/10: «todo
+  MaKo se debe poder utilizar por API». La excepción es acotada: se eligen ids que la conexión de Facebook YA ve (cuenta,
+  píxel, página), con su «sí»; nunca se pega un secreto. Conectar sigue siendo un clic de una persona: eso es el link.
+- **Una descripción que dice «le manda MaKo las conversiones» hizo caer `tests/confirmacion-terceros.test.ts`**: el guard lee
+  «le manda» como algo que le llega a OTRA persona (y exige `aTerceros`). No era un envío a nadie: se reescribió («el píxel
+  donde quedan registradas las conversiones»). Una acción que de verdad no le escribe a nadie no lleva esos verbos.
+- **Cada operación que sale por HTTP necesita su ruta en `RUTAS_REST`** (y el recurso sale del segundo tramo: `meta`); elegir
+  es reemplazar un dato (PUT), y la prueba de CAPI es una lectura (GET con el código de «Probar eventos», que Meta muestra en
+  esa pestaña y no cuenta en el píxel).
+- Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

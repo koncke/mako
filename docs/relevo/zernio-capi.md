@@ -39,6 +39,18 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
 - **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
 
+## En la API de MaKo (área integraciones)
+
+| Operación | Tipo | Ruta | Qué |
+|---|---|---|---|
+| `ver_conexion_meta` | lectura | GET /integraciones/meta/conexion | la vía, las cuentas, los píxeles, la página y por dónde sale CAPI (sin tokens) |
+| `elegir_cuenta_meta` | acción con «sí» | PUT /integraciones/meta/cuenta | la cuenta publicitaria, entre las que ve la conexión |
+| `elegir_pixel_meta` | acción con «sí» | PUT /integraciones/meta/pixel | el píxel de las conversiones |
+| `elegir_pagina_meta` | acción con «sí» | PUT /integraciones/meta/pagina | la página de los anuncios (antes de conectar, o en la conexión) |
+| `probar_capi_meta` | lectura | GET /integraciones/meta/prueba-capi | un Lead de prueba con el código de «Probar eventos» |
+
+Conectar en sí («Conectar con Facebook») es un clic de una persona: por la API sale el link.
+
 ## Lo que es de Martín (en orden)
 
 1. **El clic de permisos en Facebook.** `node --env-file=<clon>/.env.local --conditions=react-server --import tsx
