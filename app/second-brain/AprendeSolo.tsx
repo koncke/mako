@@ -20,7 +20,6 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { textoDeLaVuelta, type ResumenRecolector } from '@/lib/recolector-reglas';
 import { cambiarRecolectorAction } from './recolector-actions';
-import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 
 const CSS = `
 .as-boton{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--border);
