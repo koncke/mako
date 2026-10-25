@@ -1,28 +1,19 @@
 // =============================================================================
-// /ads-manager/<ad_id> — el Ads Manager con UN anuncio abierto
+// /ads-manager/<ad_id> — el link viejo a un anuncio: lleva a /anuncio/<ad_id>
 // =============================================================================
-// El deep link a un anuncio. El id es el ad_id de META (el mismo que usa la Graph
-// API y el que ya viaja en senales.ad_id), y no un id interno: así el link se
-// puede cruzar contra Meta y sobrevive a cualquier resync.
-//
-// Es la MISMA pantalla que /ads-manager, con el detalle del anuncio abierto: el
-// browser ya trae el árbol entero, así que no hace falta una vista aparte ni una
-// consulta distinta. Si el anuncio no está en el rango de fechas o no existe, el
-// browser lo dice y te deja en la tabla (no rompe).
+// Hasta el 25/10/2026 abría la réplica de Meta Ads Manager con ese anuncio abierto. La réplica se reemplazó por el Media
+// Buyer (app/ads-manager/page.tsx), que no tiene tabla de anuncios, y los links que ya se mandaron (avisos, CRM, MaKo)
+// siguen apuntando acá: van a la página del anuncio solo, que muestra lo mismo. Con el `?ws=` (rutaConWs): un link viejo
+// abierto mirando a un cliente no puede sacar del cliente.
 // =============================================================================
 
-import { AdsManagerView } from '../AdsManagerView';
+import { redirect } from 'next/navigation';
+import { rutaConWs } from '@/lib/workspace';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
-export default async function AdsManagerAdPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ adId: string }>;
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
-}) {
+export default async function AnuncioViejoPage({ params }: { params: Promise<{ adId: string }> }) {
   const { adId } = await params;
-  return <AdsManagerView searchParams={searchParams} adInicial={adId} />;
+  const id = /^\d{1,30}$/.test(adId) ? adId : '';
+  redirect(await rutaConWs(id ? `/anuncio/${id}` : '/ads-manager'));
 }

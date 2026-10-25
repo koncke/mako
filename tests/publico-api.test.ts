@@ -92,13 +92,6 @@ test('el pin sale de coordenadas o del link LARGO de Maps; el corto no trae el p
   assert.equal(esLinkSinCoordenadas('19.43, -99.13'), false);
 });
 
-test('el editor del navegador usa la MISMA superposición que el server', () => {
-  const m = leer('app/ads-manager/EditarPublicoModal.tsx');
-  assert.match(m, /const targeting = aplicarCambiosDePublico\(base, \{/);
-  assert.doesNotMatch(m, /t\.custom_audiences = /, 'volvió la superposición a mano');
-  assert.match(leer('lib/meta-ads-create.ts'), /const targeting = aplicarCambiosDePublico\(actual\.targeting, cambiosDesdeEntrada\(actual\.targeting, entrada\)\);/);
-});
-
 test('la API lo expone con confirmación en PANTALLA, rol admin y el conjunto fijo al revisar', () => {
   const d = REGISTRO.find((x) => x.id === 'proponer_editar_publico_conjunto');
   assert.ok(d, 'falta la operación');
@@ -106,10 +99,4 @@ test('la API lo expone con confirmación en PANTALLA, rol admin y el conjunto fi
   assert.equal(d.tipo === 'accion' ? d.confirmacion : null, 'pantalla');
   assert.equal(d.gating?.rolMinimo, 'admin');
   assert.equal(d.parametros.find((p) => p.nombre === 'adsetId')?.fijoAlRevisar, true);
-});
-
-test('el selector de lugares ofrece el punto pegado y no ofrece un link como calle', () => {
-  const p = leer('app/ads-manager/LugarPicker.tsx');
-  assert.match(p, /const ofrecerDireccion = !pinPegado && !linkSinCoordenadas && pareceDireccion\(textoBusqueda\);/);
-  assert.match(p, /onClick=\{\(\) => sumar\(pinPegado\)\}/);
 });

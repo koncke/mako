@@ -60,7 +60,6 @@ function contexto(src: string, desde: string): { dentro: string; fuera: string }
 }
 
 const RUTA = 'app/api/ads-manager/creative-upload/route.ts';
-const MODALES = ['app/ads-manager/AgregarAnuncioModal.tsx', 'app/ads-manager/AgregarConjuntoModal.tsx', 'app/ads-manager/NuevaCampanaModal.tsx'];
 
 test('creative-upload: la rama de MaKo recibe SÓLO `mako`, y va antes de exigir `path`', () => {
   const src = codigo(RUTA);
@@ -134,53 +133,6 @@ test('«no pude leer» no es «no tienes videos»', () => {
   for (const c of cols.split(',').map((s) => s.trim())) assert.doesNotMatch(c, /^(pedido|resultado)$/, `columna entera: ${c}`);
 });
 
-test('la miniatura es una data: hecha en el navegador: la url del video sólo entra a makeThumbDeUrl', () => {
-  for (const ruta of MODALES) {
-    const src = codigo(ruta);
-    const usos = [...src.matchAll(/\bmako\.url\b/g)];
-    assert.ok(usos.length > 0, `${ruta}: no encontré el uso de la url del video`);
-    for (const u of usos) {
-      const antes = src.slice(Math.max(0, (u.index ?? 0) - 'makeThumbDeUrl(f.'.length), u.index);
-      assert.equal(antes, 'makeThumbDeUrl(f.', `${ruta}: la url del video se usa fuera de makeThumbDeUrl`);
-    }
-    assert.doesNotMatch(src, /thumbnail_url: [^,}\n]*\.url\b/, `${ruta}: una url de video no va a thumbnail_url`);
-  }
-  const sub = codigo('app/ads-manager/creativeUpload.ts');
-  const thumb = cuerpo(sub, 'export function makeThumbDeUrl(');
-  assert.match(thumb, /resolve\(dt && dt\.startsWith\('data:'\) \? dt : null\)/, 'devuelve una data: o null');
-  assert.match(thumb, /v\.crossOrigin = 'anonymous'/, 'sin crossOrigin el canvas queda tainted');
-});
-
-test('las tres puertas tienen call site: el componente, el elegir y la prop de CreativosPicker', () => {
-  for (const ruta of MODALES) {
-    const src = codigo(ruta);
-    assert.match(src, /import \{ MisCreativosMako \} from '\.\/MisCreativosMako';/, `${ruta}: no importa MisCreativosMako`);
-    assert.match(src, /<MisCreativosMako (key=\{\w+\} )?onElegir=/, `${ruta}: no dibuja MisCreativosMako`);
-    assert.match(src, /subir\(\{ mako: c \}\)/, `${ruta}: elegir no pasa por la misma subida`);
-    assert.match(src, /await usarCreativoMako\(f\.mako\.ref\)/, `${ruta}: no usa el video elegido`);
-  }
-  const nueva = codigo('app/ads-manager/NuevaCampanaModal.tsx');
-  const montaje = nueva.slice(nueva.indexOf('<CreativosPicker '), nueva.indexOf('/>', nueva.indexOf('<CreativosPicker ')));
-  assert.match(montaje, /onMako=\{\(c\) => subir\(\{ mako: c \}\)\}/, 'la prop está cableada en el montaje de CreativosPicker');
-  const picker = cuerpo(nueva, 'function CreativosPicker(');
-  assert.match(picker, /<MisCreativosMako [^>]*onElegir=\{onMako\} elegidos=\{makoElegidos\} \/>/);
-  // El mismo video no entra dos veces a la bandeja (dos videos en la biblioteca de Meta).
-  assert.match(cuerpo(nueva, 'export function NuevaCampanaModal('), /if \('mako' in f && tray\.some\(\(t\) => t\.mako_ref === f\.mako\.ref\)\) return;/);
-});
-
-test('Nueva campaña: un video de MaKo que falla vuelve a pedir la lista', () => {
-  // Acá el panel queda abierto: sin volver a montarlo, la tarjeta sigue con la ref del
-  // clip viejo y «Esa toma cambió. Vuelve a elegirla.» da el mismo 409 para siempre.
-  const nueva = codigo('app/ads-manager/NuevaCampanaModal.tsx');
-  const subir = nueva.slice(nueva.indexOf('async function subir('), nueva.indexOf('function seguirProcesando('));
-  assert.ok(subir.length > 200 && subir.length < 6000, `el recorte de subir mide ${subir.length}`);
-  const enCatch = subir.slice(subir.lastIndexOf('} catch (e) {'));
-  assert.match(enCatch, /if \('mako' in f\) setVueltaMako\(\(n\) => n \+ 1\);/, 'el fallo de un video de MaKo sube la vuelta');
-  const montaje = nueva.slice(nueva.indexOf('<CreativosPicker '), nueva.indexOf('/>', nueva.indexOf('<CreativosPicker ')));
-  assert.match(montaje, /vueltaMako=\{vueltaMako\}/, 'la vuelta llega al picker');
-  assert.match(cuerpo(nueva, 'function CreativosPicker('), /<MisCreativosMako key=\{vueltaMako\} /, 'y es la key del panel: lo vuelve a montar');
-});
-
 test("'use client' sólo importa TIPOS de lib/creativo-mako", () => {
   const dir = join(process.cwd(), 'app/ads-manager');
   for (const f of readdirSync(dir).filter((x) => /\.tsx?$/.test(x))) {
@@ -191,15 +143,6 @@ test("'use client' sólo importa TIPOS de lib/creativo-mako", () => {
     }
     assert.doesNotMatch(src, /from '@\/lib\/creativo-mako-fuentes'/, `app/ads-manager/${f}: importa el módulo del server`);
   }
-});
-
-test('Nueva campaña: el análisis de cada creativo se busca por SU miniatura, no por posición', () => {
-  const nueva = codigo('app/ads-manager/NuevaCampanaModal.tsx');
-  const de = nueva.slice(nueva.indexOf('function analisisDe('), nueva.indexOf('function promptDeRespuestas('));
-  assert.match(de, /const k = conVer\.indexOf\(t\);/);
-  const resp = nueva.slice(nueva.indexOf('function promptDeRespuestas('), nueva.indexOf('function promptExistente('));
-  assert.match(resp, /const a = analisisDe\(t, an\);/, 'promptDeRespuestas usa analisisDe');
-  assert.doesNotMatch(resp, /an\[i\]/, 'an[i] sobre usables() corre las descripciones al anuncio equivocado');
 });
 
 //   ROTO A PROPÓSITO (07/10/2026), de a una y restaurando de memoria; re-contadas en la
