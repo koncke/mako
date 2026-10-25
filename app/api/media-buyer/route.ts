@@ -132,6 +132,14 @@ export async function POST(req: NextRequest) {
         const plantilla = adSetId ? await plantillaDelConjunto(ws, datos, adSetId) : null;
         return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion });
       }
+      case 'campanas': {
+        // Las campañas de la cuenta, para elegir qué cubre cada táctica (Automatizaciones: el «Applies to» de Madgicx).
+        const datos = await leerDatosCuenta(ws);
+        const campanas = datos.arbol.filter((n) => n.nivel === 'campaign')
+          .map((n) => ({ id: n.id, nombre: n.nombre, prendida: n.configurado === 'ACTIVE' }))
+          .sort((x, y) => Number(y.prendida) - Number(x.prendida) || x.nombre.localeCompare(y.nombre));
+        return J({ ok: true, campanas });
+      }
       case 'subir_creativos': {
         const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
         if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);

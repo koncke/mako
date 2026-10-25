@@ -13,6 +13,16 @@
 //   … crear --si        campaña + conjunto + anuncio EN PAUSA (US$1/día), con la imagen OG de MaKo
 //   … editar --si       presupuesto 1 → 2, el anuncio pausado y prendido (la campaña sigue en pausa), una variación de texto
 //   … borrar --si       borra la variación y la campaña entera
+//
+// ⚠️ MEDIDO EL 25/10/2026: la cuenta de MaKo no tiene método de pago y Meta NO deja crear un anuncio, ni en pausa (code 100,
+// subcode 1359188, en la etapa `ad`; Zernio borra solo lo que había creado y deja la imagen). Para medir igual lo que el
+// Media Buyer escribe, sin anuncio:
+//   … campana --si          una campaña VACÍA en pausa, con presupuesto de campaña (US$1/día)
+//   … datos                 lo que ve el Media Buyer de la cuenta (la fuente, la campaña, su interruptor y su presupuesto)
+//   … editar-campana --si   presupuesto 1 → 2 y vuelta, prender y pausar la campaña (sin conjuntos no entrega nada)
+//   … analizar              una corrida entera del agente, sólo proponiendo
+//   … decision --si         el Media Buyer del negocio de MaKo en «propone»: una decisión real (subir el presupuesto) se
+//                           guarda, se LANZA con los topes y la lectura en vivo, y se DESHACE; cada paso, leído en Meta
 // El estado (los ids que creó) queda en C:/dev/cerebro-herramientas/media-buyer-prueba.json.
 // =============================================================================
 
@@ -61,6 +71,70 @@ if (paso === 'conectar') {
   }, `mb-prueba:${CUENTA}:crear`);
   linea('creado', r);
   guardar({ ...r, pasos: [`crear ${new Date().toISOString()}`] });
+} else if (paso === 'campana') {
+  exigirSi();
+  const c = await conexion();
+  const r = await z.crearCampanaVaciaPorZernio(ws, { accountId: c.accountId, adAccountId: c.adAccountId, nombre: NOMBRE, presupuestoDia: 1 }, `mb-prueba:${CUENTA}:campana`);
+  linea('campaña vacía creada (en pausa, US$1/día)', r);
+  guardar({ campaignId: r.campaignId, adSetId: null, adId: '', pasos: [`campana ${new Date().toISOString()}`] });
+} else if (paso === 'datos') {
+  const { leerDatosCuenta } = await import('../lib/media-buyer/datos');
+  const d = await leerDatosCuenta(ws);
+  const e = existsSync(ESTADO) ? leer() : null;
+  linea('fuente', d.fuente);
+  linea('moneda', d.moneda);
+  linea('avisos', d.avisos);
+  linea('nodos', d.arbol.length);
+  if (e?.campaignId) linea('la campaña de prueba', d.arbol.find((n) => n.id === e.campaignId) ?? 'NO ESTÁ en el árbol');
+} else if (paso === 'editar-campana') {
+  exigirSi();
+  const e = leer();
+  const c = await conexion();
+  const id = e.campaignId!;
+  const vivo = async () => (await z.enVivoPorZernio(ws, c)).campanas.find((x) => x.id === id) ?? null;
+  linea('antes', await vivo());
+  linea('presupuesto 1 → 2', await z.cambiarPresupuestoPorZernio(ws, 'campaign', id, 2, c.accountId));
+  linea('leído en vivo', await vivo());
+  linea('presupuesto 2 → 1', await z.cambiarPresupuestoPorZernio(ws, 'campaign', id, 1, c.accountId));
+  // El estado de una campaña VACÍA no se puede cambiar por Zernio (404: la busca en su copia, que sale de los anuncios).
+  try { linea('prender', await z.cambiarEstadoPorZernio(ws, 'campaign', id, 'ACTIVE')); linea('leído en vivo', await vivo()); }
+  catch (err) { linea('prender falló (esperado en una campaña vacía)', String(err).slice(0, 300)); }
+  linea('leído en vivo', await vivo());
+  guardar({ ...e, pasos: [...e.pasos, `editar-campana ${new Date().toISOString()}`] });
+} else if (paso === 'decision') {
+  exigirSi();
+  const e = leer();
+  const c = await conexion();
+  const id = e.campaignId!;
+  const store = await import('../lib/media-buyer/store');
+  const { lanzar, deshacer } = await import('../lib/media-buyer/ejecutar');
+  const vivo = async () => (await z.enVivoPorZernio(ws, c)).campanas.find((x) => x.id === id) ?? null;
+  // El negocio de MaKo, en «propone» (nunca piloto) y con su cuenta: es la única que este script toca.
+  const cfg = await store.guardarConfig(ws, { encendido: true, modo: 'propone', cuentaPublicitaria: CUENTA }, 'Prueba del Media Buyer (claude5)');
+  linea('config', { encendido: cfg.encendido, modo: cfg.modo, cuenta: cfg.cuentaPublicitaria });
+  const antes = (await vivo())?.presupuestoDia ?? 1;
+  const hoy = new Date().toISOString().slice(0, 10);
+  const [d] = await store.guardarPropuestas(ws, [{
+    clave: `manual:campaign:${id}:${hoy}:prueba`, tipo: 'subir_presupuesto', tactica: 'manual', nivel: 'campaign',
+    entidadId: id, entidadNombre: NOMBRE, campanaNombre: null,
+    titulo: `Prueba: subir el presupuesto de «${NOMBRE}»`, titular: 'Prueba del Media Buyer en la cuenta de MaKo (no entrega: sin conjuntos)',
+    porque: ['Medición del 25/10/2026: lanzar y deshacer una decisión real por Zernio.'],
+    numeros: [{ condicion: 'Presupuesto diario', valor: `US$ ${antes}`, porQue: 'El de la campaña de prueba' }],
+    antes: { presupuesto: antes }, despues: { presupuesto: antes + 1 },
+  }], 'USD');
+  if (!d) { console.error('No se guardó la decisión (¿ya existía la clave?).'); process.exit(4); }
+  linea('decisión guardada (abierta)', { id: d.id, antes: d.antes, despues: d.despues });
+  const l = await lanzar(ws, d.id, { nombre: 'Prueba del Media Buyer (claude5)', origen: 'persona' });
+  linea('lanzar', l.ok ? { ok: true, despues: l.decision.despues, canal: l.decision.canal, ajuste: l.ajuste } : l);
+  linea('leído en vivo después de lanzar', await vivo());
+  const u = await deshacer(ws, d.id, 'Prueba del Media Buyer (claude5)');
+  linea('deshacer', u.ok ? { ok: true, estado: u.decision.estado } : u);
+  linea('leído en vivo después de deshacer', await vivo());
+  guardar({ ...e, pasos: [...e.pasos, `decision ${d.id} ${new Date().toISOString()}`] });
+} else if (paso === 'analizar') {
+  // Una corrida entera del agente sobre la cuenta de MaKo, SÓLO proponiendo (aunque hubiera piloto, no lanza nada).
+  const { analizarCuenta } = await import('../lib/media-buyer/corrida');
+  linea('corrida', await analizarCuenta(ws, { quien: 'Prueba del Media Buyer (claude5)', soloProponer: true }));
 } else if (paso === 'editar') {
   exigirSi();
   const e = leer();
@@ -82,6 +156,6 @@ if (paso === 'conectar') {
   if (e.campaignId) { await z.borrarCampanaPorZernio(ws, e.campaignId, c.accountId); linea('campaña borrada', e.campaignId); }
   guardar({ ...e, pasos: [...e.pasos, `borrar ${new Date().toISOString()}`] });
 } else {
-  console.error('Pasos: conectar · estado · crear --si · editar --si · borrar --si');
+  console.error('Pasos: conectar · estado · crear --si · editar --si · campana --si · datos · editar-campana --si · decision --si · borrar --si');
   process.exit(1);
 }

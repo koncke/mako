@@ -4729,10 +4729,12 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   (`GET /connect/facebook/ads?loginMode=business&permissionLevel=advertise&adAccountId=…`, contesta la ventana de
   Facebook de la app 712341431446535): lo que falta es el clic de Martín en esa ventana. `permissionLevel=advertise`
   (Administrar campañas) alcanza para campañas, conjuntos, creativos y anuncios; `full` sólo hace falta para píxeles.
-- ⚠️ **El árbol de Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega (la campaña
-  trae `effective_status`; el conjunto, un estado derivado de sus anuncios). `arbolDesdeZernio` toma la entrega como
-  interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado y el agente no lo toca. Errar para
-  el lado de no tocar.
+- ⚠️ **El árbol de Zernio (`/ads/tree`) no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega
+  (la campaña trae `effective_status`; el conjunto, un estado derivado de sus anuncios). Lo trae otro endpoint: `GET
+  /ads/accounts/live` (OpenAPI v1.356+, `configuredStatus`, más el presupuesto de hoy, una llamada a Meta por pedido; el
+  dato lo pasó el chat «Zernio y CAPI»). `conInterruptorEnVivo` (lib/media-buyer/senales.ts) lo pone sobre el árbol; si
+  no contesta, queda la entrega como interruptor —un conjunto que no entrega se trata como apagado: errar para el lado de
+  no tocar— y va un aviso.
 - ⚠️ **Un padre que no vino en la lectura es «no sé», y «no sé» es «no está prendido».** La primera versión de
   `prendido()` cortaba el recorrido al no encontrar al padre y devolvía `true`: con la página de campañas caída
   (`parcial`), el motor habría subido el presupuesto de conjuntos cuya campaña podía estar apagada. Lo fija un test.
@@ -4783,12 +4785,47 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   rechazó la primera vez no eran los colores sino el RUIDO; cada cosa nuestra va DENTRO de un lugar que la app copiada ya
   tiene (su tuerca, su «Ask AI Marketer to Do More», su tarjeta de saludo), y las medidas se toman de la captura (PIL),
   no a ojo. La regla de AGENTS.md (punto 3: estructura sí, colores de la casa) era la correcta.
+- ⚠️ **La imagen de la landing de Madgicx NO es su app (medido el 25/10 entrando con la cuenta de Martín).** La landing
+  muestra un AI Marketer oscuro con UN chip «All recommendations» y «Launch» en cada fila; la app por dentro es clara, con
+  el saludo en un globo, una franja con la mascota («2 recommendations are waiting for you»), las pestañas Open · Completed ·
+  Dismissed, «See details» en cada fila (el botón que lanza va en el pie del detalle) y los ajustes en una PÁGINA
+  («AI Marketer settings»). Dos versiones del Media Buyer se armaron sobre la imagen de la landing y las dos hubo que
+  rehacerlas. **Regla: se copia la app con una sesión adentro** (capturas `vivo-*.jpg`); la landing sirve para el tono, no
+  para la estructura. Si no se puede entrar, se dice que la fuente es la landing.
 - **Las capturas de la landing no alcanzan para copiar FUNCIONES.** Muestran la pantalla principal y poco más; el
   inventario de lo que hace la app (el detalle de cada recomendación, las tácticas, los reportes, los ajustes) sale de
   recorrerla por dentro con una cuenta (Martín abrió la suya de Madgicx para eso, 25/10).
 
-**Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
-`docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+### La medición que escribe, en la cuenta de MaKo (25/10/2026)
+
+En `act_1426493815659364`, por la Zernio del negocio de MaKo y con el Media Buyer en «propone» (nunca piloto). El
+script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--si`; el estado queda fuera del repo).
+
+- ⚠️ **Sin método de pago, Meta no deja crear un anuncio, ni en pausa** (code 100, subcode 1359188 «No hay ningún método
+  de pago», en la etapa `ad` de `POST /ads/create`). Zernio deshace solo lo que había creado (campaña, conjunto,
+  creativo) y deja la imagen subida. **El diagnóstico obvio era el equivocado:** parecía un permiso de la conexión de
+  Zernio, y es la cuenta publicitaria. Lo que sí se puede crear sin pago es una campaña VACÍA (`POST /ads/campaigns`).
+- ⚠️ **El árbol de Zernio (`/ads/tree`) se arma desde los ANUNCIOS:** una campaña o un conjunto sin anuncios no aparece,
+  y `lanzar` no la encontraba («ya no está en la cuenta»). `GET /ads/accounts/live` sí la trae (con nombre, interruptor y
+  presupuesto): `conInterruptorEnVivo` ahora suma al árbol lo que sólo vino en vivo. Lo fija un test.
+- ⚠️ **A una campaña vacía, `PUT /ads/campaigns/{id}` le da 404 «Campaign not found» si no va `accountId`** (la OpenAPI
+  lo pide «sólo para una campaña vacía»). Con `accountId`, el presupuesto 1 → 2 → 1 se leyó en vivo cada vez. El de
+  conjuntos no lo declara: se manda sólo en el de campañas.
+- ⚠️ **`PUT …/status` también da 404 en una campaña vacía, y ese endpoint NO acepta `accountId`** (sólo `status` y
+  `platform`): prender o pausar una campaña sin anuncios no se puede por Zernio. Con anuncios anda. No hay arreglo
+  nuestro: queda anotado en `cambiarEstadoPorZernio`.
+- **La moneda de una cuenta sin anuncios no viene en el árbol**, y sin moneda la corrida se abstiene (`moneda_sin_tasa`).
+  La trae `/ads/accounts/live` (`currency`): `leerDatosCuenta` la toma de ahí si falta.
+- **Un token de Meta sin `META_AD_ACCOUNT_ID` no es una cuenta para operar.** El negocio de MaKo tiene el token del
+  dueño pero su cuenta sólo en los Ajustes del Media Buyer: `leerDatosCuenta` tiraba `SinCuentaParaOperar` en vez de
+  ir por Zernio. Ahora el token se usa sólo si está la cuenta en Integraciones.
+- **Lo que se midió de punta a punta:** una decisión real (`subir_presupuesto`, de la táctica manual) se guardó, se lanzó
+  por Zernio y **los topes la recortaron** de 2 a 1,2 («Recortado a 20% por día, tu tope.»), se leyó 1,2 en vivo, se
+  deshizo (estado `deshecha`) y se leyó 1 en vivo. La corrida entera en `soloProponer` dio `ok`, fuente Zernio, USD, 0
+  propuestas (la cuenta no tiene entrega). La campaña de prueba se borró y se verificó que ya no está.
+
+**Sin hacer, con su archivo:** medir lo que escribe a nivel ANUNCIO (prender, pausar, variaciones de texto, hook y video)
+espera a que Martín cargue un método de pago en la cuenta de MaKo (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y
 «hooks al video»; `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
