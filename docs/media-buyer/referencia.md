@@ -30,6 +30,22 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
   recupera, comparando 3 y 7 días contra el promedio).
 - bir.ch / Revealbot: reglas «si el costo por resultado está por debajo del objetivo, subir 20% con un techo».
 
+## La app por dentro (25/10/2026, con la cuenta de Martín): `vivo-*.jpg`
+
+Recorrida con Claude in Chrome, sólo mirando (la cuenta de Madgicx de Martín conectada a la cuenta publicitaria de MaKo,
+sin campañas). **La app NO es la imagen de la landing**: es clara, y el AI Marketer tiene el saludo en un globo, la franja
+con la mascota, las dos tarjetas, las pestañas Open · Completed · Dismissed y «See details» en cada fila. Lo que se copió:
+
+| Pantalla de Madgicx | Captura | En MaKo |
+|---|---|---|
+| AI Marketer | `vivo-ai-marketer.jpg`, `vivo-ai-marketer-filas.jpg` | `/ads-manager` |
+| El detalle de una recomendación (Hide details, el porqué, la tarjeta de color, los pasos, el botón al pie) | `vivo-ai-marketer-detalle.jpg` | el detalle de cada fila |
+| AI Marketer settings (página, «Back», «Optimization KPIs»: Primary KPI y Target value) | `vivo-ai-marketer-ajustes.jpg` | `/ads-manager/ajustes` |
+| Ask AI Marketer to Do More («Still have tedious manual tasks?») | `vivo-pedir-mas.jpg` | «Pedirle más a MaKo» |
+| Automation Overview (Start · Pause · Increase · Decrease, total, el gráfico, la tabla de tácticas) | `vivo-automatizaciones-resumen.jpg`, `vivo-automatizaciones-tabla.jpg` | `/ads-manager/automatizaciones` |
+| Choose Automation Tactic y las Automation Strategies | `vivo-automatizaciones-elegir.jpg`, `vivo-automatizaciones-estrategias.jpg` | las seis tácticas fijas de MaKo (no se crean tácticas nuevas) |
+| Ads Manager 2.0, 360° Meta Audit, One-Click Report | `vivo-ads-manager.jpg`, `vivo-meta-360.jpg`, `vivo-one-click.jpg` | fuera del Media Buyer (Ads Analyst, Dashboard) |
+
 ## Inventario de funciones (25/10/2026): Madgicx por dentro, contra MaKo
 
 Pedido de Martín (25/10): «si quiero que tenga todas las funcionalidades... podrias ver otras imagenes que encuentres

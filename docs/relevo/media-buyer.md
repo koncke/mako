@@ -11,6 +11,8 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 (lo prende cada negocio). Reemplaza a la réplica de Meta Ads Manager, que se borró con sus tests.
 
 - **La referencia** es Madgicx · AI Marketer. Capturas y mapa pantalla por pantalla: `docs/media-buyer/referencia.md`.
+  ⚠️ **Copiar de la app por dentro (`referencias/madgicx/vivo-*.jpg`), NO de la imagen de la landing**: son pantallas
+  distintas (la app es clara, con pestañas y «Ver detalles»).
   **Desde el 25/10:** la estructura, la limpieza, las medidas (tomadas de la captura) y TODAS las funciones de Madgicx;
   los colores, los de MaKo (`app/ads-manager/mb-paleta.css`, todo token de la casa). Antes de tocar la pantalla, mirar la
   captura de Madgicx: lo que MaKo suma va dentro de un lugar que Madgicx ya tiene (la tuerca, «Pedirle más a MaKo», el
@@ -34,6 +36,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
 | Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
+| Los Ajustes (la página «AI Marketer settings») | `app/ads-manager/Ajustes.tsx` (`/ads-manager/ajustes`) |
 | Las tácticas como automatizaciones (estado, umbrales, campañas) — puro, con test | `lib/media-buyer/tacticas.ts` · la pantalla `app/ads-manager/Automatizaciones.tsx` (`/ads-manager/automatizaciones`) |
 | Lo que trae cada plan (Esencial: 2 por día, sin piloto) | `lib/media-buyer/plan.ts` (puro) · `cupoDe` en `store.ts` · el número en `lib/topes-plan.ts` (de Planes) |
 

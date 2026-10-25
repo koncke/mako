@@ -4785,6 +4785,13 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   rechazó la primera vez no eran los colores sino el RUIDO; cada cosa nuestra va DENTRO de un lugar que la app copiada ya
   tiene (su tuerca, su «Ask AI Marketer to Do More», su tarjeta de saludo), y las medidas se toman de la captura (PIL),
   no a ojo. La regla de AGENTS.md (punto 3: estructura sí, colores de la casa) era la correcta.
+- ⚠️ **La imagen de la landing de Madgicx NO es su app (medido el 25/10 entrando con la cuenta de Martín).** La landing
+  muestra un AI Marketer oscuro con UN chip «All recommendations» y «Launch» en cada fila; la app por dentro es clara, con
+  el saludo en un globo, una franja con la mascota («2 recommendations are waiting for you»), las pestañas Open · Completed ·
+  Dismissed, «See details» en cada fila (el botón que lanza va en el pie del detalle) y los ajustes en una PÁGINA
+  («AI Marketer settings»). Dos versiones del Media Buyer se armaron sobre la imagen de la landing y las dos hubo que
+  rehacerlas. **Regla: se copia la app con una sesión adentro** (capturas `vivo-*.jpg`); la landing sirve para el tono, no
+  para la estructura. Si no se puede entrar, se dice que la fuente es la landing.
 - **Las capturas de la landing no alcanzan para copiar FUNCIONES.** Muestran la pantalla principal y poco más; el
   inventario de lo que hace la app (el detalle de cada recomendación, las tácticas, los reportes, los ajustes) sale de
   recorrerla por dentro con una cuenta (Martín abrió la suya de Madgicx para eso, 25/10).
