@@ -7190,3 +7190,43 @@ otros chats (Ops Center) no tienen esta guarda de lugares. No se vio en pantalla
 
 Vive en: lib/flujo-ia-intencion.ts (`lugarInventado`, `LO_QUE_NO_ES_TARJETA`) · app/api/chat-agent/secuencias/ia/route.ts ·
 app/automations/ChatMako.tsx (`TuercaEnElGlobo`) · app/automations/SecuenciaPerfil.tsx · tests/chat-mako-tuerca-y-lugares.test.ts.
+
+## Los botones de Instagram, de punta a punta: Editar, Probar, la ficha y la API (25/10/2026)
+
+**El pedido:** Martín, 25/10 ~13:15: «Ya esta el tema de los botones de Instagram para Automations? Que lo pide el cliente
+Leandro». El Cerebro: que queden terminados de punta a punta (la API, «Probar», «Editar con IA», la ficha y un DM de verdad).
+
+**Qué quedó:**
+- **Editar con IA** (lib/flujo-ia.ts): el modelo los lee en el flujo (`aIA`), los cambia con "botones" en "cambiar"
+  (`botonesDelParche`) y cuelga tarjetas de uno con "salida": "btn:<id>". Las reglas van sólo si el flujo ya tiene botones
+  o el pedido habla de ellos o del gate. Con «Cambia WhatsApp por Instagram» y el CRON pasaba el techo de Groq.
+- **Probar** (lib/simulador-grafo.ts, PanelProbar, SimuladorSocial): quien prueba toca los botones en el DM. Un DM con
+  botones y nada más que correr deja la prueba esperando, sin «Fin». `tocar` es el `tocarBoton` del motor.
+- **La ficha** (`botonesQueEspera`): «Espera que toque «Obtener recurso»», no «En curso».
+- **La API**: `cambiar_botones_mensaje`, por HTTP, que es lo que usa el Claude de Leandro, y de pantalla. La ficha dice
+  los botones; `inscripciones_lead`, `espera_toque`.
+
+**⚠️ Las trampas:**
+- **Un botón nuevo tomaba el id de su lugar** («b1») y le robaba el suyo a uno que se quedó en otro lugar. Lo que colgaba
+  del puerto `btn:b1` se iba con el nuevo. Ahora uno que se queda conserva su id, y uno nuevo toma uno libre (en Editar y
+  en la API). La primera rotura del test salió VERDE: en el mismo lugar el id coincide igual. Se le sumó el caso reordenado.
+- **Sacarle el único botón a «Obtener recurso» deja la condición suelta.** La API lo rechaza porque mira sólo los errores
+  NUEVOS de `validarGrafo`. Uno que el flujo ya tenía no frena cambiar un botón.
+- **Una prueba sin `siguiente: null` explícito sigue por el ORDEN de la lista** (lo de antes, lineal). Un flujo del lienzo
+  siempre lo tiene; un fixture escrito a mano, no.
+
+**⚠️ La prueba con un DM de verdad NO se pudo hacer**, y no es por el código. Medido el 25/10 14:10 ART
+(`scripts/medir-instagram-de-mako.mts`, sólo lectura):
+- el negocio de la plataforma (Martin Koncke) no tiene Zernio: ni key, ni fila, ni automatizaciones de Instagram;
+- el Cliente de Prueba tiene fila de Zernio con profile, pero sin key y con el webhook sin entregar;
+- ningún negocio nuestro tiene Instagram conectado.
+Para hacerla, Martín tiene que conectar en su negocio la key de Zernio de MaKo y el Instagram de MaKo (Integraciones ›
+Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de Instagram. Los pasos están en el relevo.
+
+**Sin hacer:** el DM de verdad (arriba). «Probar» no simula el texto de respaldo («Escríbeme «…»») de una cuenta que rechaza
+los botones. La API no tiene cómo armar el gate entero por HTTP (`crear_automatizacion_con_ia` lo arma, pero no sale por
+HTTP: exponerla es una decisión del snapshot). No se vio en pantalla.
+
+Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
+lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
+tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
