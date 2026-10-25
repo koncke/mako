@@ -1128,4 +1128,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients/classroom',
   },
+  {
+    fecha: '25 oct', hora: '00:42', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Eliminar un programa, el clic derecho en Classroom y MaKo diciendo «Clients»',
+    pedido: 'El curso sin nombre lo quiero eliminar. (...) ¿Existe todavía la opción de eliminar? (...) Tengo que implementar el click derecho en toda la app (...) En este caso en particular, Leandro lo estaba usando en Classroom, en la sección de curso, y no funciona. (...) Los cursos están en Customer Success. Bueno, eso está mal porque tiene el nombre de la tab vieja.',
+    puntos: [
+      'Eliminar un producto existía, escondido en el editor de etapas del kanban: ahora cada programa de Clients tiene su «…» y su clic derecho con Renombrar y Eliminar.',
+      'Eliminar pregunta sólo si el programa tiene alumnos o clases, con la cuenta, y deja un «Deshacer». Se archiva como en el CRM: vuelve desde Productos eliminados.',
+      'En el Classroom, el clic derecho en un módulo o una clase abre su menú «…».',
+      'MaKo y los avisos de la tab ya dicen «Clients» en vez de «Customer Success».',
+      'Falta Duplicar (programa, módulo o clase): no existe todavía.',
+    ],
+    commits: [
+      { sha: '1b327d24', msg: 'Clients: eliminar un programa desde su menú, y el clic derecho en el Classroom (f25, f26)', lineas: 578, archivos: 16 },
+      { sha: '550fa4f7', msg: 'MaKo dice «Clients» y no «Customer Success» (f30, llamada con Leandro)', lineas: 145, archivos: 14 },
+    ],
+    archivos: [
+      'app/clients/ClientsShell.tsx — el menú de cada programa, Renombrar y Eliminar con su «Deshacer»',
+      'app/customer-success/eliminar-programa.ts — qué hace Eliminar y cuándo pregunta',
+      'app/_cursos/CursoUgc.tsx — el clic derecho de un módulo o una clase',
+      'lib/api-mako/tipos.ts — el área cs se llama Clients',
+      'tests/clients-eliminar-programa.test.ts y tests/clients-nombre-en-mako.test.ts — 13 roturas, cada una cae',
+    ],
+    revisar: '/clients/classroom',
+  },
 ];
