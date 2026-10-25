@@ -38,6 +38,53 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
+`~/.claude/guardia/vigia.ps1` · el informe entero, con opciones y costos: [ram-de-la-pc.md](ram-de-la-pc.md).
+
+- **Medido el 24/10 (23:59 a 00:06), con 8 chats y Chrome cerrado:**
+  - quedan ~5,6 GB libres;
+  - la reserva de Windows ocupa 3,6 a 4,3 GB, cada chat ~0,25 GB y la app ~1,2 GB;
+  - el chequeo de tipos entero pide 6,3 GB y ya son 7.723 archivos y 76,5 MB (no los 4.300 de la memoria vieja);
+  - los tests son `node --test` (1.683 archivos), no vitest.
+- **Causa de las muertes:** la guardia admitía un pesado con 1,5 GB libres, y cada uno pide 2 a 2,5 GB. Lo dejaba arrancar y
+  el vigía lo mataba: 81 el 24/10, 70 el 23/10, 886 desde el 11/10. Además, nada frenaba una tanda de `node --test` sin
+  `--test-concurrency`, que arranca un proceso por núcleo (11 en esta PC).
+- **Lo que se cambió esa noche** (Martín: «Cuida la ram para que no se crashee claude por la noche»):
+  - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
+  - como mucho 2 workflows a la vez;
+  - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **Sin hacer:**
+  - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
+  - `--test-concurrency=2` en `npm test`;
+  - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
+    MEGA, reiniciar, y habilitar la nube de Anthropic en una cuenta.
+
+## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
+
+**Vive en:** el armado del tren (`C:/dev/wt-push-q`) · `app/admin/dev/*/bitacora.ts`.
+
+- **Síntoma:** Landings avisó que el tren no pasaba tipos: TS1117 ×12 en `app/admin/dev/customer-success/bitacora.ts`.
+- **Causa:** el bloque del conflicto se cortaba en el MEDIO de un hito. «HEAD y después el otro» dejó `revisar: '/partners',`
+  pegado a `fecha: '24 oct', hora: '23:40'`, sin `},{` en el medio. El chequeo que se corrió (`esbuild`) da verde, porque en
+  JavaScript una clave repetida no es error de sintaxis.
+- **Regla:** después de unir un conflicto en un arreglo de objetos, se buscan CLAVES REPETIDAS con el parser de TypeScript
+  (`ts.createSourceFile`, recorriendo cada `ObjectLiteralExpression`), no con esbuild. Pasado sobre las 58 bitácoras: 0.
+- **Y el índice:** `scripts/unir-indice-hallazgos.py` no sabe juntar una fila nueva de un área que main todavía no tiene (falla
+  con «no hay en main una fila del área»). Se resuelve a mano, quedándose con la fila que CONTIENE a la otra.
+
+## Las barredoras de tests-afectados se pasan de los 25 minutos con poca RAM, y el reintento son 796 procesos (25/10/2026)
+
+- **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
+  proceso». Eso son horas.
+- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
+  un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
+  `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
 
 **Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.

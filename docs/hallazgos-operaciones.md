@@ -7,6 +7,41 @@ del código.
 
 ---
 
+## Un AskUserQuestion traba al chat y el Ops Center no lo puede contestar: la red es un hook, y la revisión le encontró la falla grande (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/sin-ask.mjs` (hook PreToolUse, matcher `AskUserQuestion`; copia en
+`scripts/claude-hooks/guardia/sin-ask.mjs`, con su prueba `sin-ask-prueba.mjs`) · `cartero.mjs` (`preguntasDeAsk`,
+`preguntar`, `retirar`) · `lib/centro-preguntas-chat.ts` (`unirPreguntas`, `superarPreguntas`).
+
+- **Síntoma:** Martín, frente a «Ventas de MaKo» en «Espera tu respuesta»: «¿Por qué no puedo contestar desde la app?». Era un
+  AskUserQuestion de la cuenta 2 del 23/10 a las 19:20. La conversación siguió en la cuenta 1 y nunca se dio por superada.
+- **Dos causas.**
+  1. Un AskUserQuestion se contesta sólo en la app de Claude de la computadora, en la cuenta del chat. Mientras espera, no le
+     entra ningún mensaje.
+  2. `superarPreguntas` sólo mira turnos del MISMO `local`: si el chat sigue en otra cuenta, la pregunta de la anterior queda
+     abierta para siempre.
+
+  Se retiró a mano (`cartero retirar b0ca26c3 --chat local_1ec074ab…`). El arreglo de la cadena entre cuentas es de Ops Center.
+- **La regla no alcanzó:** AGENTS.md lo prohíbe desde el 22/10, y el Cerebro preguntó así 8 veces en dos días. La red es el
+  hook:
+  - guarda cada pregunta con `cartero preguntar`, que la saca a la conversación del chat en el Ops Center;
+  - NIEGA la herramienta, con un motivo que le dice al modelo que termine el turno;
+  - decide por la carpeta del PROYECTO (`CLAUDE_PROJECT_DIR`), no por la carpeta actual;
+  - si la pregunta es repetida, devuelve el mismo id, y tiene un presupuesto de 15 s;
+  - ante un error deja pasar la herramienta y lo anota en guardia.log.
+- **El diagnóstico obvio era el equivocado: «10 casos en verde» no era «anda».** Cuatro revisores, con un refutador cada uno,
+  encontraron que con el cartero REAL el hook decía SIEMPRE «no salió». `cartero preguntar` imprime el JSON con sangría, en
+  varias líneas, y el hook leía sólo la última («}»). La prueba no lo vio porque su cartero falso imprimía en una línea.
+  **Regla: un falso de prueba imprime igual que el programa real, y el camino feliz se prueba con el real aislado
+  (`CARTERO_DIR` en una carpeta temporal).**
+- **Trampa de orden, medida:** el `tool_use` ya está escrito en el transcript 3 ms después de que arranca el PreToolUse, y
+  el archivo de `preguntar` aparece 0,4 a 1 s después. El Runner puede subir sola la copia «ask», que no se contesta, y
+  `unirPreguntas` descartaba después la de `preguntar` por ser igual. La pregunta se perdía un 2-5% de las veces.
+- **Sin hacer:** el hook NO está instalado en `~/.claude/settings.json`. Se instala cuando esté desplegado el arreglo de MaKo,
+  que hace Ops Center: en `unirPreguntas`, la de `preguntar` reemplaza a la «ask» igual. Después hay que probarlo en vivo.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La cuenta 5 («Ananda») arranca en 10 minutos, y lo que la otra dejó se verifica con git (24/10/2026)
 
 **Vive en:** `~/.claude/operaciones/cartero.mjs` (`cartero`, `carpeta`) · `C:/dev/cerebro-herramientas/listar.cjs` ·
