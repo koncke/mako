@@ -44,7 +44,11 @@ async function pedir(init?: RequestInit): Promise<{ estado?: EstadoMetaZernio; e
   }
 }
 
-export default function ConectarMetaZernio({ onEstado }: { onEstado?: (e: { activo: boolean; conectada: boolean }) => void }) {
+export default function ConectarMetaZernio({ onEstado, onGuardado }: {
+  onEstado?: (e: { activo: boolean; conectada: boolean }) => void;
+  /** Se guardó algo (la conexión, la cuenta o el píxel): el formulario de abajo vuelve a leer sus campos. */
+  onGuardado?: () => void;
+}) {
   const [estado, setEstado] = useState<EstadoMetaZernio | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
@@ -53,6 +57,10 @@ export default function ConectarMetaZernio({ onEstado }: { onEstado?: (e: { acti
     if (r.estado) setEstado(r.estado);
     setError(r.error ?? r.estado?.error ?? null);
   }, []);
+  const guardado = useCallback((r: { estado?: EstadoMetaZernio; error?: string }) => {
+    aplicar(r);
+    if (r.estado) onGuardado?.();
+  }, [aplicar, onGuardado]);
 
   const leer = useCallback(async () => aplicar(await pedir()), [aplicar]);
   useEffect(() => { void leer(); }, [leer]);
@@ -66,14 +74,14 @@ export default function ConectarMetaZernio({ onEstado }: { onEstado?: (e: { acti
     onConectado: (_conexiones, nueva) => {
       setGuardando(true);
       void pedir({ method: 'POST', body: JSON.stringify({ action: 'guardar', accountId: nueva.accountId }) })
-        .then(aplicar).finally(() => setGuardando(false));
+        .then(guardado).finally(() => setGuardando(false));
     },
   });
 
   const elegir = async (campo: 'cuenta' | 'pixel', valor: string) => {
     if (!valor) return;
     setGuardando(true);
-    aplicar(await pedir({ method: 'POST', body: JSON.stringify({ action: 'elegir', [campo]: valor }) }));
+    guardado(await pedir({ method: 'POST', body: JSON.stringify({ action: 'elegir', [campo]: valor }) }));
     setGuardando(false);
   };
 

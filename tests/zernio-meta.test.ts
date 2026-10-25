@@ -246,3 +246,20 @@ test('transcribir: con la clave de Zernio y sin token NUNCA cae al token del ent
     assert.match(src, /transcribeAd\(adId, \{[^}]*\.\.\.acceso \}\)/, `${f}: transcribeAd sin el acceso del negocio`);
   }
 });
+
+test('la pantalla de Meta: con Zernio activo el token no se pide, y la pieza no dibuja nada para quien no lo tiene activo', () => {
+  const form = leer('../app/integraciones/ServicioConfigForm.tsx');
+  // El token sólo se ve si el negocio lo tenía Y abrió «la conexión anterior».
+  assert.match(form, /!\(servicio\.key === 'meta' && metaZernio\.activo && c\.env === 'META_ACCESS_TOKEN' && !\(c\.configurado && verTokenMeta\)\)/);
+  // El botón de la app propia de MaKo («Conectar con Meta») no compite con «Conectar con Facebook».
+  assert.match(form, /servicio\.key === 'meta' && conectarMeta && !metaZernio\.activo &&/);
+  // Al guardar la conexión, el formulario vuelve a leer sus campos.
+  assert.match(form, /<ConectarMetaZernio onEstado=\{onEstadoMetaZernio\} onGuardado=\{\(\) => \{ cargar\(\); onGuardado\?\.\(\); \}\} \/>/);
+  const pieza = leer('../app/integraciones/ConectarMetaZernio.tsx');
+  // Apagado (todo cliente antes de la prueba): no dibuja nada. Y todos los hooks van ANTES de ese return.
+  const corte = pieza.indexOf('if (!estado?.activo) return null;');
+  assert.ok(corte > 0);
+  assert.ok(pieza.indexOf('useConectarViaZernio(') < corte, 'un hook después del return condicional rompe React');
+  // Un error se dice con «Reportar a Soporte».
+  assert.match(pieza, /\{error\}<ReportarASoporte \/>/);
+});

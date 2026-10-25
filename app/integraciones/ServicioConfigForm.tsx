@@ -749,7 +749,7 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
     <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       {/* ── Meta por Zernio (25/10/2026): «Conectar con Facebook», el camino principal. Sin Zernio activo para el negocio
           (todo cliente antes de la prueba) la pieza no dibuja nada y queda lo de siempre. */}
-      {servicio.key === 'meta' && <ConectarMetaZernio onEstado={onEstadoMetaZernio} />}
+      {servicio.key === 'meta' && <ConectarMetaZernio onEstado={onEstadoMetaZernio} onGuardado={() => { cargar(); onGuardado?.(); }} />}
 
       {/* El token de Meta, deprecado: sólo para el negocio que ya lo tenía, plegado. */}
       {servicio.key === 'meta' && metaZernio.activo && servicio.campos.some((c) => c.env === 'META_ACCESS_TOKEN' && c.configurado) && (
