@@ -1153,4 +1153,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients/classroom',
   },
+  {
+    fecha: '25 oct', hora: '01:34', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El título de la barra negra del Classroom es texto, también con el clic derecho',
+    pedido: 'recuerda que en la sidebar negra de classroom el título de arriba de la sidebar no debe ser un desplegable',
+    puntos: [
+      'La tanda anterior le había puesto al título el clic derecho con Renombrar y Eliminar: se sacó.',
+      'El título es sólo texto: sin flecha, sin botón y sin nada que se abra. Renombrar y Eliminar están en el «…» y el clic derecho de la cabecera de Clients.',
+      'El clic derecho en los módulos y las clases sigue: abre su «…».',
+    ],
+    archivos: [
+      'app/_cursos/CursoUgc.tsx — el título, un div sin clic derecho',
+      'app/customer-success/curso/CursoApp.tsx — le pasa sólo el texto',
+      'tests/clients-un-selector.test.ts — 3 roturas más, cada una cae',
+    ],
+    revisar: '/clients/classroom',
+  },
 ];

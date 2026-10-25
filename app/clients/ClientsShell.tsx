@@ -21,9 +21,9 @@
 //     Es EL ÚNICO lugar donde se eligen desde el 24/10/2026 (f27 de la llamada con Leandro: «que toda la
 //     configuración de diseño se vaya al botón de personalizar»): el menú de la marca del Classroom se fue. Es el
 //     ajuste que ve el alumno en su portal (`guardarEstiloCursoAction`, `curso_estilo`): uno por programa.
-//   · EL MENÚ DE CADA PROGRAMA (f25 y f26, 24/10/2026): su «…» en la lista y su clic derecho —y el clic derecho en el
-//     nombre del curso de la barra del Classroom, por `useMenuPrograma`—: Renombrar y Eliminar (./menu-contextual-
-//     clients.ts, puro y con test). Eliminar ARCHIVA (como el CRM: app/customer-success/eliminar-programa.ts), pregunta
+//   · EL MENÚ DE CADA PROGRAMA (f25 y f26, 24/10/2026): su «…» en la lista y su clic derecho (también el del programa
+//     que se mira): Renombrar y Eliminar (./menu-contextual-clients.ts, puro y con test). ⚠️ SÓLO ACÁ: el título de la
+//     barra negra del Classroom es TEXTO, sin clic derecho (Martín, 25/10/2026: «no debe ser un desplegable»). Eliminar ARCHIVA (como el CRM: app/customer-success/eliminar-programa.ts), pregunta
 //     sólo si hay alumnos o clases, con la cuenta, y navega DURO (cambió QUÉ EXISTE, AGENTS.md); el «Deshacer» cruza
 //     la recarga en `sessionStorage` (`NOTA_DESHACER`).
 //   · ⚠️ UN SOLO SELECTOR DE PROGRAMA, ÉSTE (f28: «me cambian los dos al mismo tiempo»; un curso es un producto). Con
@@ -75,11 +75,8 @@ export type ProgramaClients = {
   conEmbudo: boolean;
 };
 
-/** Abre el menú de un programa en un punto de la ventana. Lo usa la barra del Classroom (clic derecho en su nombre). */
+/** Abre el menú de un programa en un punto de la ventana: el «…» de su fila y el clic derecho en la cabecera. */
 type AbrirMenuPrograma = (productoId: number, punto: { x: number; y: number }) => void;
-const MenuProgramaCtx = createContext<AbrirMenuPrograma | null>(null);
-/** El menú del programa (Renombrar, Eliminar), o `null` si no hay (sin cabecera, o sin nada que ofrecer: no es admin). */
-export const useMenuPrograma = () => useContext(MenuProgramaCtx);
 
 /**
  * El «Deshacer» de Eliminar CRUZA LA RECARGA: eliminar navega duro (cambió qué existe), y el aviso con su botón se
@@ -281,9 +278,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
           })}
         </nav>
       </header>
-      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>
-        <MenuProgramaCtx.Provider value={conMenu ? abrirMenu : null}>{children}</MenuProgramaCtx.Provider>
-      </div>
+      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>{children}</div>
       {/* El nombre se pide afuera de todo (la hoja del curso le saca la piel a los botones de un diálogo). */}
       {creando && <NuevoProducto onCerrar={cerrarCreando} />}
       {menu && programaDelMenu && itemsDelMenu.length > 0 && (

@@ -5902,6 +5902,12 @@ curso sin nombre dice `SIN_NOMBRE_ALUMNO_EN_LISTA` («Programa sin nombre»); so
 - **Siete tests fijaban el lugar viejo** (curso-apariencia, curso-estilo, curso-nuevo-producto, curso-comentarios-clase,
   cursos-ugc, curso-guardado-manual, curso-recorridos). Se reescribieron para fijar el lugar nuevo con la misma intención
   (que el deshacer escriba en el server, que se pregunte por la lección sin guardar), no se borraron.
+- **Un menú que se abre desde el título, aunque sea con el clic DERECHO, es un desplegable.** La tanda 3 le había puesto
+  al título de la barra negra el clic derecho del programa (Renombrar, Eliminar), con el argumento de que «no lo vuelve
+  clickeable». Martín, al leerlo (25/10): «recuerda que en la sidebar negra de classroom el título de arriba de la
+  sidebar no debe ser un desplegable». Se sacó: el título es TEXTO (un `div`, sin botón, menú, flecha ni clic derecho), y
+  el menú del programa vive sólo en la cabecera de Clients. tests/clients-un-selector.test.ts lo fija. ⚠️ El clic
+  derecho en módulos y clases SÍ queda: ahí abre su «…», que ya existía.
 
 **Quedó SIN hacer, y dónde:**
 - Si f29 era otra cosa (Leandro entró con su Google de MaKo y vio su propia cuenta), el arreglo no la toca: lo de arriba
@@ -5928,8 +5934,8 @@ descripciones de la API (`AREA_INFO`, los `.def.ts`), que seguían con el nombre
 ⚠️ **El diagnóstico obvio era el equivocado**: «hay que construir eliminar». Ya estaba hecho, con la decisión del CRM
 (archivar los embudos, y si no hay ninguno, la baja). Lo que faltaba era el lugar, la cuenta de alumnos y el «Deshacer».
 
-**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (y el nombre del curso en la barra del
-Classroom, su clic derecho): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
+**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (el título de la barra negra del Classroom NO:
+es texto, ver «Dos selectores de programa», arriba): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
 pregunta sólo con alumnos o clases, con la cuenta (`preguntaAlEliminar`), archiva por la MISMA action (que ahora devuelve
 QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «…». MaKo y los avisos de la tab dicen
 «Clients»; las claves (`cs`, `customer-success`) no se tocaron.

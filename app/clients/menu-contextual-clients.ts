@@ -8,7 +8,8 @@
 // Molde: app/crm/menu-contextual-crm.ts. Acá se decide sólo QUÉ sale y en qué orden (`opcionesPrograma`) y cómo se
 // arma cada renglón (`itemsPrograma`). CÓMO se abre es de la pieza de la casa (app/_ui/MenuContextual.tsx) y QUÉ HACE
 // cada opción es de la cabecera (`elegirEnPrograma`, app/clients/ClientsShell.tsx). Lo abren el «…» de cada programa
-// de la lista de la cabecera, su clic derecho, y el clic derecho en el nombre del curso de la barra del Classroom.
+// de la lista de la cabecera y su clic derecho. ⚠️ NO el título de la barra negra del Classroom: es texto (Martín,
+// 25/10/2026: «no debe ser un desplegable»).
 //
 // ⚠️ LO QUE NO SE PUEDE, NO SALE: «si no se puede eliminar, no pongas directamente esa opción, no la dejes en gris»
 //    (Martín, 29/09/2026). El principal no se elimina (`archivarFunnel` lo frena). «Eliminar» va al final, separado y

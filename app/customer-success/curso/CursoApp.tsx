@@ -108,7 +108,6 @@ import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 import { PASOS_RECORRIDO, PASOS_RECORRIDO_LECCION, RECORRIDO_CURSO, RECORRIDO_LECCION } from './recorridos-curso';
 // El programa de la cabecera de Clients y el de esta pantalla son el mismo (17/10/2026).
 import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
-import { useMenuPrograma } from '@/app/clients/ClientsShell';
 
 /**
  * Un servicio con su curso. `etapas` = las columnas del KANBAN (las de la tabla Avance, con su color);
@@ -171,8 +170,6 @@ export function CursoApp({
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
   );
   useProgramaEnUrl(productoId, servicios[0]?.productoId ?? null);
-  /** El menú del programa de la cabecera de Clients (f26): el clic derecho en el nombre del curso de la barra. */
-  const menuPrograma = useMenuPrograma();
   // Ver la cabecera: la lista local se pisa cuando llega otra desde el server.
   const [base, setBase] = useState(clasesProp);
   const [clases, setClases] = useState(clasesProp);
@@ -1045,9 +1042,10 @@ export function CursoApp({
         // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16). Con una lección abierta, la
         // de su BORRADOR (se cambia en la lección y se guarda con «Guardar»).
         disposicion={leccionAbierta.borrador?.disposicion ?? disposicionDe(estilo)}
-        // Un RÓTULO (f27): sin `menu` ni `onClick`, CursoUgc lo dibuja sin botón. El curso se cambia en la cabecera.
-        // Su clic derecho (f26) es el menú del programa de la cabecera (Renombrar, Eliminar), si quien mira puede.
-        marca={{ ...marcaDelProducto(tituloDe(servicio)), onMenuContextual: menuPrograma ? (pt) => menuPrograma(servicio.productoId, pt) : undefined }}
+        // TEXTO (f27, y Martín otra vez el 25/10: «el título de arriba de la sidebar no debe ser un desplegable»): sin
+        // `menu`, sin `onClick` y sin clic derecho, CursoUgc lo dibuja como un `div`. El curso se cambia, se renombra y se
+        // elimina en la cabecera de Clients.
+        marca={marcaDelProducto(tituloDe(servicio))}
         acento={estilo.acento}
         // La fuente del curso (item 3): la misma que ve el alumno en su portal.
         fuente={estilo.fuente}
