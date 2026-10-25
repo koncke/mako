@@ -196,10 +196,11 @@ export const TITULO_INBOX = 'Avisos';
  * MOVIL_ACTIVO prendido). Sin app/m/<carpeta>/page.tsx, todo eso es un 404 (el mismo test lo nombra).
  */
 export const SECCIONES_MAS: readonly DefSeccionMas[] = [
-  // Lo diario (Plan, Chats y el Dashboard están en la barra; adentro de Chats se configuran WhatsApp y Email). Las HOJAS
-  // del Dashboard (/m/dashboard) quedan como fila de More mientras la portada no las tenga adentro (en escritorio son
-  // pestañas al lado de Focus): «Dashboard sheets», para no repetir el nombre del lugar de la barra.
-  { id: 'dashboard', label: 'Dashboard sheets', titulo: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'diario' },
+  // Lo diario (Plan y Chats están en la barra; adentro de Chats se configuran WhatsApp y Email). Las HOJAS del Dashboard
+  // (/m/dashboard). ⚠️ UN SOLO «Dashboard» en More (24/10/2026, Martín: «En mobile aparecen 2 dashboards»): quien tiene el
+  // Dashboard unido (ve General) lo abre en /m/hoy, con estas hojas en su segmentado, y esta fila no sale; quien no (el closer,
+  // el setter) tiene ésta, su hoja, como su Dashboard, igual que en la computadora (`masCompleto`).
+  { id: 'dashboard', label: 'Dashboard', href: '/m/dashboard', icon: 'graphics', navKey: 'graphics', familia: 'diario' },
   // Sales (CRM está en la barra).
   { id: 'calendario', label: 'Calendar', href: '/m/calendario', icon: 'calendario', navKey: 'calendario', familia: 'sales' },
   { id: 'automations', label: 'Automations', href: '/m/automations', icon: 'flujo', navKey: 'setting', familia: 'sales' },
@@ -531,10 +532,18 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
     const usadas = new Set<IdSeccionMas>();
     const filas: FilaMas[] = [];
     // El Dashboard (la portada de antes, /m/hoy) encabeza lo diario desde que el Ops Center tomó su lugar en la barra
-    // (20/10/2026). Lo ve todo rol con sesión, como cuando estaba en la barra; no es una sección (no tiene key propia).
-    if (familia.id === 'diario' && rol && !barra.has(HOME_MOVIL)) {
+    // (20/10/2026); no es una sección (no tiene key propia).
+    // ⚠️ UNO SOLO (24/10/2026, Martín: «En mobile aparecen 2 dashboards», salían «Dashboard» y «Dashboard sheets»). Quien ve
+    // General tiene el Dashboard UNIDO en /m/hoy: Focus y las hojas del Dashboard en el mismo segmentado (lib/dashboard-focus.ts),
+    // así que la fila de las hojas sobra. Quien no lo ve (el closer, el setter) tiene como Dashboard SU hoja (/m/dashboard), como
+    // en la computadora, y la portada no sale (lo de su Today vive en Calendar, el Inbox y el Plan; sigue siendo adonde rebota
+    // una puerta). Sin ninguna de las dos, la portada.
+    const unido = familia.id === 'diario' && puedeVerKey('general', rol, capa);
+    const conHojas = familia.id === 'diario' && deFamilia.some((s) => s.id === 'dashboard');
+    if (familia.id === 'diario' && rol && !barra.has(HOME_MOVIL) && (unido || !conHojas)) {
       filas.push({ tipo: 'pantalla', key: 'hoy', label: TITULO_HOME_MOVIL, icon: 'graphics', href: HOME_MOVIL, seccion: null });
     }
+    if (unido) for (const s of deFamilia) if (s.id === 'dashboard') usadas.add(s.id);
     for (const t of f.bloques.flat()) {
       const visible = resolverTab(t, vista);
       if (!visible) continue;
@@ -543,6 +552,7 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       const destino = rutaMovil(visible.href);
       if (destino && barra.has(destino.split('?')[0])) continue;
       const s = deFamilia.find((x) => keys.includes(x.navKey));
+      if (s && unido && s.id === 'dashboard') continue;
       if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
       // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.
       if (SECCIONES_MAS.some((x) => keys.includes(x.navKey))) continue;

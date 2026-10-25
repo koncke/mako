@@ -233,8 +233,13 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
   // More: las familias por su KEY (con cuatro, cruzarlas por posición perdía Create).
   const mas = masCompleto('admin', 'completo', false);
   assert.deepEqual(mas.filter((g) => FAMILIAS_MAS.some((f) => f.id === g.id)).map((g) => g.titulo), ['Today', 'Sales', 'Marketing', 'Create']);
-  // El Dashboard (la portada de antes, /m/hoy) encabeza lo diario, y detrás sus hojas.
-  assert.deepEqual(mas.find((g) => g.id === 'diario')!.filas.map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]), [['Dashboard', '/m/hoy'], ['Dashboard sheets', '/m/dashboard']]);
+  // UN solo Dashboard (24/10/2026, Martín: «En mobile aparecen 2 dashboards»): quien ve General lo abre unido en /m/hoy, con
+  // las hojas en su segmentado; la fila de las hojas sobra. El closer tiene como Dashboard SU hoja, como en la computadora.
+  const diario = (rol: 'admin' | 'closer') => masCompleto(rol, 'completo', false).find((g) => g.id === 'diario')!.filas
+    .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
+  assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
+  assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label)).length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });
