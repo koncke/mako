@@ -18,8 +18,8 @@ import { zFetch, ZernioError } from './zernio';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
 import { canalMeta, zernioMetaActivo } from './meta-via';
 import {
-  ENV_CUENTA_ZERNIO, cuentasDeZernio, eleccionInicial, pixelesDeZernio,
-  type CuentaPublicitariaZernio, type PixelZernio,
+  ENV_CUENTA_ZERNIO, cuentasDeZernio, eleccionInicial, paginaParaConectar, paginasDeZernio, pixelesDeZernio, unirPaginas,
+  type CuentaPublicitariaZernio, type PaginaFacebook, type PixelZernio,
 } from './zernio-meta-cuerpo';
 
 const ID_ZERNIO = /^[A-Za-z0-9_-]{6,64}$/;
@@ -50,8 +50,40 @@ export async function pixelesPorZernio(clave: string, accountId: string): Promis
   return pixeles;
 }
 
+/**
+ * Las páginas de Facebook que MaKo conoce del negocio ANTES de abrir la ventana, para mandar `pageId` (con varias concedidas
+ * y sin él, Zernio no crea la conexión: lib/zernio-meta-cuerpo.ts → `paginaParaConectar`). Salen de tres lados: la que ya
+ * tenía de la conexión vieja (`META_PAGE_ID`), las de su Facebook en Zernio (la conexión `facebook` de los mensajes) y las de
+ * una conexión de anuncios que ya exista (al volver a conectar). Nunca tira: una fuente que falla no aporta.
+ */
+export async function paginasCandidatas(ws: number, clave: string | null, conexion: string | null): Promise<{ paginas: PaginaFacebook[]; delNegocio: string | null; sugeridaDeZernio: string | null }> {
+  const delNegocio = await credWs('META_PAGE_ID', ws).catch(() => null);
+  const listas: PaginaFacebook[][] = [];
+  let sugeridaDeZernio: string | null = null;
+  if (clave) {
+    const ids = new Set<string>(conexion ? [conexion] : []);
+    try {
+      const r = await zFetch<{ accounts?: Array<{ _id?: string; platform?: string }> }>(clave, '/accounts?platform=facebook');
+      for (const a of r.accounts ?? []) if (a._id && a.platform === 'facebook') ids.add(a._id);
+    } catch { /* sin Facebook en Zernio: no aporta */ }
+    for (const id of [...ids].slice(0, 5)) {
+      const body = await zFetch<unknown>(clave, `/accounts/${encodeURIComponent(id)}/facebook-page`, undefined, 20_000).catch(() => null);
+      const p = paginasDeZernio(body);
+      if (!p) continue;
+      listas.push(p.paginas);
+      sugeridaDeZernio = sugeridaDeZernio ?? p.elegida;
+    }
+  }
+  const conNombre = unirPaginas(...listas);
+  const paginas = delNegocio && !conNombre.some((p) => p.id === delNegocio) ? [...conNombre, { id: delNegocio, nombre: null }] : conNombre;
+  return { paginas, delNegocio, sugeridaDeZernio };
+}
+
 export type EstadoMetaZernio = {
   activo: boolean;
+  /** Las páginas que MaKo conoce y la decisión de con cuál abrir la ventana (`paginaParaConectar`). */
+  paginas: PaginaFacebook[];
+  pagina: { pageId: string | null; preguntar: boolean; sugerida: string | null };
   /** El `_id` guardado de la conexión, o null. */
   conexion: string | null;
   cuentas: CuentaPublicitariaZernio[];
@@ -66,15 +98,22 @@ export type EstadoMetaZernio = {
 export async function estadoMetaZernio(ws: number): Promise<EstadoMetaZernio> {
   const activo = await zernioMetaActivo(ws);
   const [conexion, cuenta, pixel] = await Promise.all([credWs(ENV_CUENTA_ZERNIO, ws), credWs('META_AD_ACCOUNT_ID', ws), credWs('META_PIXEL_ID', ws)]);
-  const base: EstadoMetaZernio = { activo, conexion, cuentas: [], pixeles: [], cuenta: cuenta ? normalizarCuentaMeta(cuenta) : null, pixel, error: null };
-  if (!activo || !conexion) return base;
+  const sinPagina = { pageId: null, preguntar: false, sugerida: null };
+  const base: EstadoMetaZernio = { activo, paginas: [], pagina: sinPagina, conexion, cuentas: [], pixeles: [], cuenta: cuenta ? normalizarCuentaMeta(cuenta) : null, pixel, error: null };
+  if (!activo) return base;
   const clave = await claveZernioAnuncios(ws);
-  if (!clave) return { ...base, error: 'Falta tu clave de Zernio.' };
+  const cand = await paginasCandidatas(ws, clave, conexion);
+  const conPaginas: EstadoMetaZernio = {
+    ...base, paginas: cand.paginas,
+    pagina: paginaParaConectar({ elegida: null, delNegocio: cand.delNegocio, candidatas: cand.paginas, sugeridaDeZernio: cand.sugeridaDeZernio }),
+  };
+  if (!conexion) return conPaginas;
+  if (!clave) return { ...conPaginas, error: 'Falta tu clave de Zernio.' };
   try {
     const [cuentas, pixeles] = await Promise.all([cuentasPorZernio(clave, conexion), pixelesPorZernio(clave, conexion).catch(() => [] as PixelZernio[])]);
-    return { ...base, cuentas, pixeles };
+    return { ...conPaginas, cuentas, pixeles };
   } catch (e) {
-    return { ...base, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : e instanceof Error ? e.message : String(e) };
+    return { ...conPaginas, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : e instanceof Error ? e.message : String(e) };
   }
 }
 
@@ -196,4 +235,19 @@ export async function pingMetaPorZernio(v: Record<string, string>): Promise<
     detalle: avisos.length ? `Cuenta "${cuenta.nombre ?? cuenta.id}" conectada por Zernio, pero ${avisos.join(' y ')}.` : `Cuenta "${cuenta.nombre ?? cuenta.id}" conectada por Zernio.`,
     facts,
   };
+}
+
+/**
+ * La página que se manda sola al abrir la ventana de anuncios cuando nadie eligió una (`urlConectarViaZernio`, lib/zernio-conectar.ts):
+ * SÓLO si MaKo conoce una única página del negocio. Con varias o ninguna, null (con varias, la elige la persona en el modal de Meta).
+ * Así el botón del Media Buyer y el de Integraciones no abren sin página a un negocio cuya página ya se sabe. Nunca tira.
+ */
+export async function paginaDeducida(ws: number, clave: string): Promise<string | null> {
+  try {
+    const cand = await paginasCandidatas(ws, clave, null);
+    const d = paginaParaConectar({ elegida: null, delNegocio: cand.delNegocio, candidatas: cand.paginas, sugeridaDeZernio: cand.sugeridaDeZernio });
+    return d.preguntar ? null : d.pageId;
+  } catch {
+    return null;
+  }
 }

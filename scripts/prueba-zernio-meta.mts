@@ -109,7 +109,7 @@ if (paso === 'conectar') {
     if (filas[0]) linea('campos de la primera fila', Object.keys(filas[0]).sort());
     const m = parseInsightsToMetrics(filas, fecha);
     linea('filas para marketing_metrics_daily (NO se escriben)', m.length);
-    if (m[0]) linea('primera fila parseada', { ad: m[0].ad_id, gasto: m[0].spend_mxn ?? null, impresiones: m[0].impressions ?? null });
+    if (m[0]) linea('primera fila parseada', { ad: m[0].ad_id, gasto: m[0].spend ?? null, impresiones: m[0].impressions ?? null });
     const desde30 = new Date(Date.now() - 30 * 86_400_000).toISOString().slice(0, 10);
     const mes = await via.insightsPorZernio(canal, { level: 'account', fields: ['spend', 'impressions', 'account_currency'], desde: desde30, hasta: fecha });
     linea(`la cuenta en 30 días (${desde30} → ${fecha})`, mes);

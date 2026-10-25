@@ -359,3 +359,56 @@ export function mediaDeAnuncio(body: unknown): MediaDeAnuncio | null {
   }
   return { video, imagen };
 }
+
+// ── La página de los anuncios: sin ella, con varias, la conexión no se crea ──
+
+/** Un id de página de Facebook: sólo dígitos. */
+export const ID_PAGINA = /^\d{5,20}$/;
+
+export type PaginaFacebook = { id: string; nombre: string | null };
+
+/** Las páginas de `GET /v1/accounts/{id}/facebook-page` (de una conexión `facebook` o `metaads`) y la elegida ahí. null si no trae lista. */
+export function paginasDeZernio(body: unknown): { paginas: PaginaFacebook[]; elegida: string | null } | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as { pages?: unknown; selectedPageId?: unknown };
+  if (!Array.isArray(b.pages)) return null;
+  const paginas: PaginaFacebook[] = [];
+  for (const raw of b.pages) {
+    if (!raw || typeof raw !== 'object') continue;
+    const p = raw as { id?: unknown; name?: unknown };
+    const id = typeof p.id === 'string' ? p.id.trim() : typeof p.id === 'number' ? String(p.id) : '';
+    if (ID_PAGINA.test(id)) paginas.push({ id, nombre: typeof p.name === 'string' ? p.name : null });
+  }
+  const elegida = typeof b.selectedPageId === 'string' && ID_PAGINA.test(b.selectedPageId) ? b.selectedPageId : null;
+  return { paginas, elegida };
+}
+
+/**
+ * Con qué página se abre «Conectar con Facebook». Medido el 25/10/2026 con la cuenta de MaKo: con VARIAS páginas concedidas y
+ * sin `pageId`, Zernio NO crea la conexión (el primer clic volvió sin nada; el segundo, con la página fija, conectó). Zernio
+ * lo dice en su doc: «Multiple Pages without a selection return 400… restart with pageId», y su propia app muestra un selector.
+ *   · La que eligió la persona, primero.
+ *   · Si MaKo conoce UNA sola (la que el negocio ya tenía, o la de su Facebook en Zernio), ésa: se deduce, no se pregunta.
+ *   · Con varias, se pregunta, con la sugerida marcada (la elegida en su Facebook de Zernio, o la que ya tenía).
+ *   · Sin ninguna conocida, se abre sin página: si el negocio tiene una sola, Zernio usa ésa; si vuelve sin conexión, se pregunta.
+ */
+export function paginaParaConectar(p: {
+  elegida: string | null; delNegocio: string | null; candidatas: readonly PaginaFacebook[]; sugeridaDeZernio: string | null;
+}): { pageId: string | null; preguntar: boolean; sugerida: string | null } {
+  if (p.elegida && ID_PAGINA.test(p.elegida)) return { pageId: p.elegida, preguntar: false, sugerida: p.elegida };
+  const ids = [...new Set([...p.candidatas.map((c) => c.id), ...(p.delNegocio && ID_PAGINA.test(p.delNegocio) ? [p.delNegocio] : [])])];
+  if (ids.length === 1) return { pageId: ids[0], preguntar: false, sugerida: ids[0] };
+  if (ids.length === 0) return { pageId: null, preguntar: false, sugerida: null };
+  const sugerida = [p.sugeridaDeZernio, p.delNegocio].find((x): x is string => !!x && ids.includes(x)) ?? null;
+  return { pageId: null, preguntar: true, sugerida };
+}
+
+/** Las páginas conocidas, sin repetir, con su nombre si alguna fuente lo trae (el `META_PAGE_ID` solo no lo trae). */
+export function unirPaginas(...listas: ReadonlyArray<readonly PaginaFacebook[]>): PaginaFacebook[] {
+  const por = new Map<string, PaginaFacebook>();
+  for (const l of listas) for (const p of l) {
+    const ya = por.get(p.id);
+    if (!ya || (!ya.nombre && p.nombre)) por.set(p.id, p);
+  }
+  return [...por.values()];
+}

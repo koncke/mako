@@ -1764,10 +1764,15 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   script ahora manda la página de MaKo. **Confirmado por el segundo clic** (12:44, con `pageId` = «Hola MaKo»): volvió con
   `connected=metaads&accountId=6ade25185b6c93612b7cc6a1&stage=callback` y la conexión quedó (ve `act_1426493815659364` y un
   píxel). ⚠️ **Vale para los CLIENTES:** el botón (`REDES.metaads`, lib/zernio-redes.ts) tampoco manda `pageId`; un negocio con
-  más de una página no conecta nunca (el primer clic volvió sin conexión y sin nada que lo explicara). **SIN HACER**: que el
-  botón pase la página cuando el negocio ya la tiene (`META_PAGE_ID`) y, si no, un selector de página ANTES de abrir la
-  ventana; `GET /v1/connect/facebook/select-page` existe, pero para el inicio de sesión para empresas sólo lo documenta con el
-  `selectionToken` del panel de Zernio (sin medir por API).
+  más de una página no conectaba nunca (el primer clic volvió sin conexión y sin nada que lo explicara). **HECHO el mismo día**,
+  copiado de lo que hace Zernio en su app (un selector de página): MaKo junta las páginas que conoce del negocio (la de la
+  conexión vieja, `META_PAGE_ID`; las de su Facebook en Zernio, `GET /v1/accounts/{id}/facebook-page`; las de una conexión de
+  anuncios que ya exista) y decide con `paginaParaConectar`: UNA conocida se manda sola (también desde el botón del Media
+  Buyer: la deduce el server en `urlConectarViaZernio`), con VARIAS se pregunta antes de abrir la ventana, y si la ventana
+  vuelve sin conexión habiendo abierto sin página, el modal de Meta pide la página (de la lista o su ID) y reintenta con ella.
+  ⚠️ **No se lee el error de Zernio para decidirlo**: la forma exacta de esa vuelta («400 with available Page IDs») no está
+  medida, y un texto de un tercero no es un contrato. `GET /v1/connect/facebook/select-page` existe, pero para el inicio de
+  sesión para empresas la doc sólo lo describe con el `selectionToken` del panel de Zernio.
 - **La prueba de lectura (25/10, 12:50) contestó con la forma esperada y sin errores**, pero sobre una cuenta que NUNCA
   gastó: insights `data: []`, ningún conjunto, la cuenta activa y en verde (USD, Argentina) y las finanzas leídas (con `full`).
   O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN

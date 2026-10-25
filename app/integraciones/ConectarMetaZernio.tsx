@@ -8,12 +8,17 @@
 // el Media Buyer, Automations y Chats) y MaKo guarda la conexión, la cuenta publicitaria y el píxel (lib/meta-conexion-zernio.ts).
 // Con varias cuentas o píxeles, la persona elige acá.
 //
+// ⚠️ LA PÁGINA (25/10/2026): con VARIAS páginas concedidas y sin `pageId`, Zernio no crea la conexión (el primer clic de Martín
+// volvió sin nada; el segundo, con la página fija, conectó). Copiado de lo que hace Zernio en su app: si MaKo conoce UNA página
+// del negocio la manda sola; con varias pregunta ANTES de abrir la ventana; y si la ventana vuelve sin conexión habiendo abierto
+// sin página, pide la página (de la lista, o su ID) y se reintenta con ella (`paginaParaConectar`, lib/zernio-meta-cuerpo.ts).
+//
 // Va arriba del formulario de Meta (ServicioConfigForm) y SÓLO con Zernio activo para el negocio (`estado.activo`): antes de
 // la prueba en la cuenta de MaKo, sólo el negocio de la plataforma lo ve. Le avisa al formulario (`onEstado`) para que esconda
 // el token de Meta cuando no hace falta.
 // Se carga A DEMANDA (`next/dynamic`): los demás servicios no la traen.
 
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Button } from '@/app/_ui';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { EstadoConexion, useConectarViaZernio } from '@/app/_components/ConectarViaZernio';
@@ -27,9 +32,15 @@ const select: CSSProperties = {
 
 type Cuenta = { id: string; nombre: string | null; estado: number | null };
 type Pixel = { id: string; nombre: string | null; activo: boolean };
+type Pagina = { id: string; nombre: string | null };
 export type EstadoMetaZernio = {
   activo: boolean; conexion: string | null; cuentas: Cuenta[]; pixeles: Pixel[]; cuenta: string | null; pixel: string | null; error: string | null;
+  paginas: Pagina[]; pagina: { pageId: string | null; preguntar: boolean; sugerida: string | null };
 };
+
+const ID_PAGINA = /^\d{5,20}$/;
+/** El valor del selector para «escribir el ID a mano». */
+const OTRA = 'otra';
 
 async function pedir(init?: RequestInit): Promise<{ estado?: EstadoMetaZernio; error?: string }> {
   try {
@@ -52,6 +63,11 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
   const [estado, setEstado] = useState<EstadoMetaZernio | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [guardando, setGuardando] = useState(false);
+  // La página con la que se abre la ventana: la que MaKo dedujo o la sugerida, y la que elige la persona.
+  const [pagina, setPagina] = useState('');
+  const [paginaManual, setPaginaManual] = useState('');
+  const [pedirPagina, setPedirPagina] = useState(false);
+  const abrioSinPagina = useRef(false);
 
   const aplicar = useCallback((r: { estado?: EstadoMetaZernio; error?: string }) => {
     if (r.estado) setEstado(r.estado);
@@ -67,6 +83,9 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
   useEffect(() => {
     if (estado) onEstado?.({ activo: estado.activo, conectada: !!estado.conexion && !!estado.cuenta });
   }, [estado, onEstado]);
+  // La primera lectura propone la página (la deducida o la sugerida); después manda lo que eligió la persona.
+  const propuesta = estado?.pagina.pageId ?? estado?.pagina.sugerida ?? '';
+  useEffect(() => { setPagina((p) => p || propuesta); }, [propuesta]);
 
   // Quedó conectada la ventana: MaKo guarda la conexión y lo que se puede elegir solo.
   const z = useConectarViaZernio({
@@ -77,6 +96,21 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
         .then(guardado).finally(() => setGuardando(false));
     },
   });
+
+  // La ventana volvió sin conexión y se había abierto sin página: lo más probable es que falte elegirla (con varias concedidas,
+  // Zernio no crea nada). Se pide y se reintenta con ella.
+  useEffect(() => {
+    if (z.fase === 'error' && abrioSinPagina.current) setPedirPagina(true);
+  }, [z.fase]);
+
+  const pageIdElegido = pagina === OTRA ? paginaManual.trim() : pagina;
+  const hayQueElegir = !!estado && !estado.conexion && (estado.pagina.preguntar || pedirPagina);
+  const paginaLista = ID_PAGINA.test(pageIdElegido);
+  const conectar = () => {
+    const pageId = paginaLista ? pageIdElegido : null;
+    abrioSinPagina.current = !pageId;
+    z.conectar('metaads', { reconectarId: estado?.conexion ?? null, pageId });
+  };
 
   const elegir = async (campo: 'cuenta' | 'pixel', valor: string) => {
     if (!valor) return;
@@ -101,11 +135,37 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
             {conectada ? 'Métricas, leads, anuncios y conversiones, con tu Zernio.' : 'Un clic, sin pegar tokens: se abre la ventana de Facebook.'}
           </span>
         </span>
-        <Button size="sm" variant={conectada ? 'secondary' : 'primary'} loading={z.fase === 'abriendo' || guardando} disabled={z.fase === 'abriendo' || guardando}
-          data-conectar-zernio="metaads" onClick={() => z.conectar('metaads', { reconectarId: conectada ? estado.conexion : null })}>
-          {conectada ? 'Volver a conectar' : 'Conectar con Facebook'}
+        <Button size="sm" variant={conectada ? 'secondary' : 'primary'} loading={z.fase === 'abriendo' || guardando}
+          disabled={z.fase === 'abriendo' || guardando || (hayQueElegir && !paginaLista)}
+          data-conectar-zernio="metaads" onClick={conectar}>
+          {conectada ? 'Volver a conectar' : pedirPagina ? 'Conectar con esta página' : 'Conectar con Facebook'}
         </Button>
       </div>
+
+      {hayQueElegir && (
+        <div data-elegir-pagina style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {pedirPagina && (
+            <span style={{ fontSize: 12.5, lineHeight: 1.4, color: 'var(--dim)' }}>
+              Facebook no dejó conectar sin saber la página. Elige con qué página publicas tus anuncios y vuelve a conectar.
+            </span>
+          )}
+          <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12.5, color: 'var(--dim)' }}>
+            Página de tus anuncios
+            <select style={select} value={pagina || (estado.paginas.length ? '' : OTRA)} onChange={(e) => setPagina(e.target.value)}>
+              {!pagina && estado.paginas.length > 0 && <option value="">Elige una página…</option>}
+              {estado.paginas.map((p) => <option key={p.id} value={p.id}>{p.nombre ? `${p.nombre} (${p.id})` : `Página ${p.id}`}</option>)}
+              <option value={OTRA}>Otra: escribir su ID</option>
+            </select>
+          </label>
+          {(pagina === OTRA || estado.paginas.length === 0) && (
+            <>
+              <input style={select} inputMode="numeric" placeholder="ID de la página, por ejemplo 1315098941694049" value={paginaManual}
+                onChange={(e) => { setPaginaManual(e.target.value.replace(/\D/g, '')); if (pagina !== OTRA) setPagina(OTRA); }} />
+              <span style={{ fontSize: 12, color: 'var(--faint)' }}>Está en tu página de Facebook → «Información» → «Transparencia de la página».</span>
+            </>
+          )}
+        </div>
+      )}
 
       {conectada && estado.cuentas.length > 1 && (
         <label style={{ display: 'flex', flexDirection: 'column', gap: 5, fontSize: 12.5, color: 'var(--dim)' }}>

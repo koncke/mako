@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import {
   ZERNIO_META_PROBADO, ENV_CUENTA_ZERNIO, viaDeMeta, metaConectadaConCampos, queryInsightsZernio, paginaDeInsights,
   paginaDeConjuntos, fuenteZernio, eventoParaZernio, resultadoConversionZernio, esFalloDePermiso, cuentasDeZernio,
-  pixelesDeZernio, eleccionInicial, cuentaCrudaDesdeZernio, mediaDeAnuncio,
+  pixelesDeZernio, eleccionInicial, cuentaCrudaDesdeZernio, mediaDeAnuncio, paginasDeZernio, paginaParaConectar, unirPaginas,
 } from '../lib/zernio-meta-cuerpo';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
@@ -262,4 +262,42 @@ test('la pantalla de Meta: con Zernio activo el token no se pide, y la pieza no 
   assert.ok(pieza.indexOf('useConectarViaZernio(') < corte, 'un hook después del return condicional rompe React');
   // Un error se dice con «Reportar a Soporte».
   assert.match(pieza, /\{error\}<ReportarASoporte \/>/);
+});
+
+test('la página de los anuncios: una conocida se manda sola, varias se preguntan, ninguna abre sin página', () => {
+  const p = (id: string, nombre: string | null = null) => ({ id, nombre });
+  // La que eligió la persona gana siempre.
+  assert.deepEqual(paginaParaConectar({ elegida: '222222', delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: null }), { pageId: '222222', preguntar: false, sugerida: '222222' });
+  // Una sola conocida (la de la conexión vieja, o la de su Facebook en Zernio): se deduce.
+  assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: '1315098941694049', candidatas: [], sugeridaDeZernio: null }), { pageId: '1315098941694049', preguntar: false, sugerida: '1315098941694049' });
+  assert.equal(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111', 'Hola MaKo')], sugeridaDeZernio: null }).pageId, '111111');
+  // Varias: se pregunta, con la sugerida de su Facebook en Zernio (o la que ya tenía).
+  assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: '333333' }), { pageId: null, preguntar: true, sugerida: '333333' });
+  assert.equal(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: null }).sugerida, '111111');
+  // Ninguna: sin página (si tiene una sola, Zernio usa ésa; si vuelve sin conexión, la pantalla pregunta).
+  assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: null, candidatas: [], sugeridaDeZernio: null }), { pageId: null, preguntar: false, sugerida: null });
+  // Un id que no es de página no cuenta.
+  assert.equal(paginaParaConectar({ elegida: 'abc', delNegocio: 'PENDING', candidatas: [], sugeridaDeZernio: null }).pageId, null);
+  // Las páginas de Zernio y la del negocio, sin repetir y con nombre si alguna lo trae.
+  const z = paginasDeZernio({ pages: [{ id: '111111', name: 'Hola MaKo' }, { id: 'x' }, { id: 333333, name: 'Otra' }], selectedPageId: '111111' })!;
+  assert.deepEqual(z, { paginas: [p('111111', 'Hola MaKo'), p('333333', 'Otra')], elegida: '111111' });
+  assert.equal(paginasDeZernio({ data: [] }), null);
+  assert.deepEqual(unirPaginas([p('111111')], [p('111111', 'Hola MaKo'), p('222222')]), [p('111111', 'Hola MaKo'), p('222222')]);
+});
+
+test('la página viaja hasta Zernio sólo para los anuncios, el servidor la deduce, y la pantalla la pide si la ventana vuelve sin nada', () => {
+  assert.match(leer('../app/_components/ConectarViaZernio.tsx'), /export type ExtraZernio = \{[^}]*pageId\?: string \| null[^}]*\}/);
+  assert.match(leer('../app/api/zernio/route.ts'), /pageId: typeof body\.pageId === 'string' \? body\.pageId : null/);
+  const cx = leer('../lib/zernio-conectar.ts');
+  assert.match(cx, /if \(def\.anuncios && opc\.pageId && ID_PAGINA\.test\(opc\.pageId\)\) q\.set\('pageId', opc\.pageId\);/);
+  // Sin página elegida, la deducida (una sola conocida), y sólo para los anuncios.
+  assert.match(cx, /if \(def\.anuncios && !q\.has\('pageId'\)\) \{[\s\S]{0,200}paginaDeducida\(ws, c\.apiKey\)/);
+  assert.match(leer('../lib/meta-conexion-zernio.ts'), /return d\.preguntar \? null : d\.pageId;/);
+  const ui = leer('../app/integraciones/ConectarMetaZernio.tsx');
+  // Abrir sin página queda anotado, y si la ventana vuelve con error, se pide la página.
+  assert.match(ui, /abrioSinPagina\.current = !pageId;/);
+  assert.match(ui, /if \(z\.fase === 'error' && abrioSinPagina\.current\) setPedirPagina\(true\);/);
+  assert.match(ui, /z\.conectar\('metaads', \{ reconectarId: estado\?\.conexion \?\? null, pageId \}\)/);
+  // Con varias páginas, no se puede abrir la ventana sin elegir una.
+  assert.match(ui, /disabled=\{z\.fase === 'abriendo' \|\| guardando \|\| \(hayQueElegir && !paginaLista\)\}/);
 });
