@@ -42,7 +42,8 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
 - **f17, f18 y f23 de la misma llamada, hechos:** el audio al instante en el chat del lienzo («La nota de voz del chat del
   lienzo…»), la pregunta dictada en «Editar» y «Pedírselo al equipo» para lo que no está («Una pregunta en «Editar»…»),
   los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
-  un ícono…»). Sigue: f34 (la criatura detrás de la sidebar).
+  un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
+  llamada que era de Automations está hecha; nada se vio en pantalla.
 - **Lo que pidió el Cerebro (hecho el 24/10 a las 23:55):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
   (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
   (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.

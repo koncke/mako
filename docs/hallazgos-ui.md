@@ -4660,3 +4660,26 @@ impidas que se vuelva a desplegar».
   abierta y la plegaba al montar. Va `useState(false)`; el salto queda sólo para quien la fijó abierta.
 - **Sin hacer:** mirar en producción cada tab con la barra plegada. El navegador de la app no tiene sesión y el Chrome no
   estaba conectado; el rail es el mismo que ya veía quien la plegaba, y a 934 y 1027 px (21/10) daba 0 desbordes.
+
+## La criatura «se escondía detrás» de la barra desplegada (24/10/2026, f34)
+
+**El síntoma (la llamada con Leandro, 59:33):** «la animación del muñequito de Mako... cuando se va para abajo y se pone en su
+chat, y si está la sidebar desplegada, es como que se oculta detrás y no se entiende a dónde se fue».
+
+**⚠️ El diagnóstico obvio era el equivocado.** No era la copia que vuela: va en `body` con el z-index más alto
+(app/_ui/VueloDeCarga.tsx), por delante de la barra. Lo que quedaba debajo era su DESTINO: la estrella de abajo
+(`.ch-tab-mako`, z 55) se ponía al lado del `<aside>` de la barra (`useBordeDeLaBarra`, app/_chat/MakoEnLaTab.tsx). Ese
+`<aside>` mide lo del riel y no cambia cuando su panel se despliega ENCIMA al pasar el cursor (z 60). La copia aterrizaba
+bien y la estrella real estaba tapada.
+
+**Qué quedó:** la estrella se mide con el panel, lo que se ve (`panelDeLaBarra`, app/_chat/borde-barra.ts). Con la barra
+desplegada se corre y no queda debajo. El panel del Cerebro sigue con el borde del `<aside>`: si se corriera, saltaría
+440 px cada vez que el cursor pasa por la barra.
+
+**Regla:** un elemento fijo que se pone al lado de la barra se mide con lo que se VE de ella (su panel), no con su caja de
+layout.
+
+**Sin hacer:** no se vio en pantalla. Si la barra se pliega a mitad del vuelo, la copia aterriza donde estaba la estrella
+(son 0,2 s).
+
+Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.

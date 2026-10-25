@@ -57,7 +57,8 @@ test('2. la estrella lo marca al abrir, y lo desmarca al cerrar o al salir de la
     'salir de la tab con el panel abierto dejaba la barra plegada en las demás');
   // El panel se pega al borde MEDIDO de la barra: plegada, se corre con ella, y la tab sigue dejándole lo que mide el panel.
   assert.match(tab, /const borde = useBordeDeLaBarra\(\);/);
-  assert.match(tab, /ro\?\.observe\(barra\)/, 'el borde no sigue a la barra cuando se pliega');
+  // (24/10/2026, f34: se observa lo que se mide, la barra o, para la estrella, su panel.)
+  assert.match(tab, /const medida = visible \? panelDeLaBarra\(barra\) : barra;[\s\S]{0,300}ro\?\.observe\(medida\)/, 'el borde no sigue a la barra cuando se pliega');
   assert.match(tab, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{ANCHO_PANEL\}px` : '0px'\);/);
 });
 
