@@ -1255,4 +1255,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '11:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las páginas de MaKo ofrecen 7 días gratis en lugar de la garantía de devolución',
+    pedido: '«fuera la garantía de devolución de 14 y 30 días; entra una prueba gratis de 7 días con tarjeta y cobro automático el día 8»',
+    puntos: [
+      'El botón dice «Empieza tus 7 días gratis» y debajo va «7 días gratis · Cancela cuando quieras · Usas tu propia IA».',
+      'El cierre y la pregunta de cómo cancelar dicen lo mismo que la página de planes: no se cobra nada hasta el día 8, y la baja se hace desde «Tu plan».',
+      'Los días salen del mismo lugar que la página de planes: si cambian ahí, cambian en las landings publicadas sin volver a publicarlas.',
+      'Ninguna landing nueva habla de garantía de devolución.',
+      'Falta: publicarlas (espera tu OK).',
+    ],
+    archivos: [
+      'lib/editor-landing/precios-en-landing.ts — el botón, la línea y los días de la prueba',
+      'scripts/landings-mako-v2.mts — el cierre y la pregunta de la prueba',
+    ],
+    revisar: '/web-generator',
+  },
 ];

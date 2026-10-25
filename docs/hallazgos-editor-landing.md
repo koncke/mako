@@ -2819,7 +2819,7 @@ Lo que quedó SIN hacer:
   después de que se despliegue el cambio de app/vsl/Landing.tsx (antes, los precios saldrían dos veces).
 - La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
   en la cuenta: con el media buyer en producción.
-- La garantía, la demo por WhatsApp y el video corto de demo.
+- La demo por WhatsApp y el video corto de demo. (La garantía ya no va: la reemplaza la prueba gratis, abajo.)
 - Las landings por funcionalidad y por avatar: hechas en la tanda 2 (abajo).
 
 **Tanda 2 (25/10, tarde): las landings por funcionalidad y por avatar** (`scripts/landings-mako-v2-funnels.mts`, §6b)
@@ -2838,8 +2838,19 @@ Lo que quedó SIN hacer:
 - **Las piezas son las de la principal** (exportadas de landings-mako-v2.mts), más cinco bloques: tarjetas, pasos, una
   conversación de ejemplo (sin cifras), una comparación en tabla y la tarjeta de prueba. Las preguntas salen de un catálogo con
   clave: un cambio en una respuesta llega a todas las landings.
-- **Pendiente: la prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía). La línea bajo el botón tiene que
-  leerla de lib/planes-mako.ts, como los precios. Espera el nombre del export, que define Planes.
+- **La prueba gratis de 7 días** (Martín, 25/10 ~10:20, en lugar de la garantía de devolución). La fuente es UN número,
+  `PRUEBA_DIAS` (lib/planes-mako.ts, de Planes). El botón («Empieza tus 7 días gratis») y la línea corta («7 días gratis ·
+  Cancela cuando quieras · Usas tu propia IA») se arman con ese número en `botonDePrueba`/`lineaDePrueba`
+  (precios-en-landing.ts). El cierre y la pregunta de cómo cancelar dicen lo mismo que /planes (app/planes/Vitrina.tsx): el
+  día del cobro es `PRUEBA_DIAS + 1` y la baja se hace desde «Tu plan». Lo que va bajo el botón de CADA plan («Después US$
+  97/mes…», `textoDespuesDeLaPrueba`) ya lo pone la columna, porque las columnas de la landing son las de /planes.
+  Los textos que se ven llevan la marca `data-mako-prueba` (linea, boton, dias, cobro). hola-mako.com los llena con
+  `PRUEBA_DIAS`, como los precios. Un test frena un «7 días gratis» escrito a mano en un script, días que no son (0,
+  negativos, con coma) y cualquier «garantía» o «te devolvemos» de vuelta. El pie sí enlaza a /reembolsos, la política legal.
+  - **La trampa: un nombre adelantado para no esperar CAMBIA.** Para no frenar, el Cerebro fijó un objeto `PRUEBA_GRATIS`
+    (días, línea, botón, «se cobra sola»), y se programó contra un sustituto local. Planes exportó otra cosa: un número y una
+    función con monto y período. Cuando la fuente es de otro chat, se depende de lo MÍNIMO (aquí, los días) y las frases se
+    arman de este lado. Así un cambio de forma toca un import, no cuatro archivos.
 
 ## Los tooltips tapados, el «+ ⠿» encima del logo, Compartir con el ▾ redondo y los paneles que saltan (25/10/2026, claude5)
 

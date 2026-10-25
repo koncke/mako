@@ -13,6 +13,8 @@
 // Y las de funcionalidad y avatar (romper-funnels.mjs; base 6 / 0): sin el origen de mako-closing → 5 / 1 · el media buyer
 // sin pausa → 5 / 1 · un precio tipeado en una landing → 5 / 1 · el subir sin saltear las pausadas → 5 / 1 · una landing
 // sin el lugar de los precios → 4 / 2.
+// Y la prueba gratis (romper-prueba.mjs; base 6 / 0): Landing.tsx sin la prueba → 5 / 1 · el botón sin su marca → 4 / 2 ·
+// la línea escrita a mano → 5 / 1 · una garantía de vuelta en el cierre → 4 / 2 · las marcas sin la prueba → 5 / 1.
 // Correr: node --import tsx --test tests/landings-mako-v2.test.ts
 // =============================================================================
 import { test } from 'node:test';
@@ -20,8 +22,9 @@ import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { conPreciosEnHtml, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
-import { AFUERA_REDONDO, AHORRO, GARANTIA, PORTADAS, PREGUNTAS, TOTAL_AFUERA, seccionesDe, type Portada } from '../scripts/landings-mako-v2.mjs';
+import { botonDePrueba, conPreciosEnHtml, lineaDePrueba, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
+import { AFUERA_REDONDO, AHORRO, COMO_FUNCIONA_LA_PRUEBA, PORTADAS, PREGUNTAS, TOTAL_AFUERA, seccionesDe, type Portada } from '../scripts/landings-mako-v2.mjs';
+import { PRUEBA_DIAS } from '../lib/planes-mako';
 import { FUNNELS, seccionesDeFunnel } from '../scripts/landings-mako-v2-funnels.mjs';
 import { LANDINGS_MAKO } from '../lib/origen-cuenta';
 
@@ -47,7 +50,13 @@ const sinPerderMarcas = (clave: string, n: number) => {
 };
 /** Lo que no se dice todavía (ver la cabecera del script de la principal). */
 const sinPrometerDeMas = (nombre: string, t: string) => {
-  if (GARANTIA == null) assert.doesNotMatch(t, /garant/i, `${nombre}: una garantía que la política no da`);
+  // Sin garantía de devolución (Martín, 25/10: entra la prueba gratis en su lugar).
+  // (El pie enlaza a /reembolsos, la política legal: eso sí va.)
+  assert.doesNotMatch(t, /garant|te devolvemos/i, `${nombre}: una garantía de devolución que ya no existe`);
+  // La prueba: el botón y la línea de abajo, con su marca y el texto de la fuente (nunca escrito en el script).
+  assert.ok(t.includes(`<span data-mako-prueba="boton">Empieza tus ${PRUEBA_DIAS} días gratis</span>`), `${nombre}: el botón de la prueba, de la fuente`);
+  assert.ok(t.includes(`<span data-mako-prueba="linea">${PRUEBA_DIAS} días gratis · Cancela cuando quieras · Usas tu propia IA</span>`), `${nombre}: la línea de la prueba, de la fuente`);
+  assert.ok(t.includes(COMO_FUNCIONA_LA_PRUEBA), `${nombre}: la pregunta de cómo funciona la prueba`);
   assert.doesNotMatch(t, /mueve el presupuesto|presupuesto se mueve|mover el presupuesto|piloto autom/i, `${nombre}: el media buyer que mueve el presupuesto no está en producción`);
   assert.doesNotMatch(t, /cupos|calendly/i, `${nombre}: ni cupos ni la agenda de Calendly (Martín, 24/10: las columnas de precios)`);
   // Ningún contador en 0 (la investigación: resta credibilidad).
@@ -66,6 +75,15 @@ test('las marcas: «desde» es el plan más barato, cada precio el de su plan, y
   assert.equal(precioUsd(1500), 'US$1.500');
   assert.equal(precioUsd(62.3), 'US$62,30');
   assert.equal(precioDesde([]), null);
+  // La prueba gratis: los cuatro textos, de los días que se pasen; sin días (o con días que no son), quedan los de respaldo.
+  const conPrueba = '<a><span data-mako-prueba="boton">x</span></a><p><span data-mako-prueba="linea">y</span> · <i data-mako-prueba="dias">z</i> días, el <b data-mako-prueba="cobro">w</b></p>';
+  assert.equal(conPreciosEnHtml(conPrueba, [], 10),
+    '<a><span data-mako-prueba="boton">Empieza tus 10 días gratis</span></a><p><span data-mako-prueba="linea">10 días gratis · Cancela cuando quieras · Usas tu propia IA</span> · <i data-mako-prueba="dias">10</i> días, el <b data-mako-prueba="cobro">11</b></p>');
+  assert.equal(conPreciosEnHtml(conPrueba, []), conPrueba);
+  for (const mal of [0, -3, 2.5, Number.NaN]) assert.equal(conPreciosEnHtml(conPrueba, [], mal), conPrueba, `días ${mal}`);
+  // La línea corta del Cerebro (25/10), armada con los días.
+  assert.equal(lineaDePrueba(7), '7 días gratis · Cancela cuando quieras · Usas tu propia IA');
+  assert.equal(botonDePrueba(7), 'Empieza tus 7 días gratis');
 });
 
 test('las portadas: los precios salen de los planes (nunca tipeados) y van a la vista desde la portada', () => {
@@ -88,10 +106,10 @@ test('las portadas: los precios salen de los planes (nunca tipeados) y van a la 
   assert.ok(AFUERA_REDONDO <= TOTAL_AFUERA && TOTAL_AFUERA - AFUERA_REDONDO < 50);
 });
 
-test('nada inventado ni prometido de más: sin garantía mientras /reembolsos la niegue, sin el media buyer que mueve la plata', () => {
-  const reembolsos = leer('app/reembolsos/page.tsx');
-  if (/El mes ya pagado no se reembolsa/.test(reembolsos)) {
-    assert.equal(GARANTIA, null, '/reembolsos dice que el mes pagado no se devuelve: la landing no puede prometer una garantía');
+test('nada inventado ni prometido de más: sin garantía de devolución, la prueba de la fuente, sin el media buyer que mueve la plata', () => {
+  // Los días de la prueba salen de PRUEBA_DIAS (lib/planes-mako.ts) y sus frases de precios-en-landing: ningún script las escribe a mano.
+  for (const rel of ['scripts/landings-mako-v2.mts', 'scripts/landings-mako-v2-funnels.mts']) {
+    assert.doesNotMatch(sinComentarios(leer(rel)), /\b\d+ días gratis|Empieza tus|Cancela cuando quieras/, `${rel}: la prueba gratis escrita a mano`);
   }
   for (const cual of CUALES) {
     const t = textoDe(cual);
@@ -105,7 +123,8 @@ test('hola-mako.com: las columnas van donde la landing las pide, y el HTML pasa 
   const src = sinComentarios(leer('app/vsl/Landing.tsx'));
   assert.match(src, /const propio = root\.querySelector<HTMLElement>\(`\[\$\{ATRIBUTO_PLANES\}\]`\);/);
   assert.match(src, /if \(propio\) \{[\s\S]{0,260}propio\.replaceChildren\(\);[\s\S]{0,120}return propio;/, 'el lugar propio gana a la agenda, y lo de adentro (el respaldo) se reemplaza');
-  assert.match(src, /__html: diseno \? conPreciosEnHtml\(diseno\.html, planes\) : LANDING_HTML/);
+  assert.match(src, /__html: diseno \? conPreciosEnHtml\(diseno\.html, planes, PRUEBA_DIAS\) : LANDING_HTML/, 'los precios y la prueba de hoy, de la fuente');
+  assert.match(src, /import \{ PRUEBA_DIAS \} from '@\/lib\/planes-mako';/);
 });
 
 test('las landings por funcionalidad y avatar: su origen, el precio por marca, nada de más, y las que no salen, en pausa', () => {
