@@ -38,6 +38,80 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
+`~/.claude/guardia/vigia.ps1` · el informe entero, con opciones y costos: [ram-de-la-pc.md](ram-de-la-pc.md).
+
+- **Medido el 24/10 (23:59 a 00:06), con 8 chats y Chrome cerrado:**
+  - quedan ~5,6 GB libres;
+  - la reserva de Windows ocupa 3,6 a 4,3 GB, cada chat ~0,25 GB y la app ~1,2 GB;
+  - el chequeo de tipos entero pide 6,3 GB y ya son 7.723 archivos y 76,5 MB (no los 4.300 de la memoria vieja);
+  - los tests son `node --test` (1.683 archivos), no vitest.
+- **Causa de las muertes:** la guardia admitía un pesado con 1,5 GB libres, y cada uno pide 2 a 2,5 GB. Lo dejaba arrancar y
+  el vigía lo mataba: 81 el 24/10, 70 el 23/10, 886 desde el 11/10. Además, nada frenaba una tanda de `node --test` sin
+  `--test-concurrency`, que arranca un proceso por núcleo (11 en esta PC).
+- **Lo que se cambió esa noche** (Martín: «Cuida la ram para que no se crashee claude por la noche»):
+  - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
+  - como mucho 2 workflows a la vez;
+  - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **Sin hacer:**
+  - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
+  - `--test-concurrency=2` en `npm test`;
+  - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
+    MEGA, reiniciar, y habilitar la nube de Anthropic en una cuenta.
+
+## «docs/api-mako.md no está en git»: la referencia pasó 1 MB y el chequeo no la podía leer (25/10/2026)
+
+**Vive en:** `scripts/generar-api-doc.mjs` (el `--check` del pre-push).
+
+- **Síntoma:** el pre-push frenaba con «✖ docs/api-mako.md no está en git.», con el archivo commiteado y al día.
+- **El diagnóstico obvio era el equivocado.** Parecía un archivo sin agregar, o la referencia vieja después de juntar dos ramas.
+  Regenerarla no cambiaba nada.
+- **Causa:** la referencia mide 1.076.071 B desde el 25/10, y `execFileSync('git', ['show', 'HEAD:…'])` tiene un tope de salida
+  de 1 MB por defecto. Tiraba ENOBUFS, y el `catch` lo tomaba por «no existe».
+- **Regla:** toda lectura de git o de un proceso con `execFileSync`/`spawnSync` que pueda crecer lleva un `maxBuffer` explícito.
+  Ahí quedó en 64 MB.
+
+## El chequeo de tipos ENTERO ya no entra en su tope de 5 GB, y el acotado dijo «igual en main» de un error que no lo era (25/10/2026)
+
+- **Medido en el push del 25/10:** con 6,1 GB libres, el tsc entero murió por heap («Ineffective mark-compacts near heap limit»,
+  tope 5120 MB). El pre-push cayó a las 3 tandas, y pasaron. Si se repite con RAM de sobra, el tope es corto para el repo y hay
+  que subirlo (`CAP_HEAP_MB`, scripts/typecheck-lock.mjs). Mejor todavía, las opciones de docs/ram-de-la-pc.md.
+- **Las tandas encontraron dos errores reales:** `app/admin/operaciones/mandar.ts:133` (un `Uint8Array` pelado de TypeScript
+  5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
+  El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
+  propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+- **Y el acotado tampoco ve todo lo que ve el entero.** Ese mismo día, el «Completado» de Ops Center pasó tsc-acotado limpio
+  y el push lo frenó con TS2774 («This condition will always return true since this function is always defined») en
+  `responder ? preguntas.length : 0`, con `responder` obligatorio. Medido después: el acotado sobre esos dos archivos seguía sin
+  marcarlo. El acotado sirve para descartar lo obvio. El que manda es el entero (o sus tandas) del pre-push, y un rojo ahí no se
+  discute con «el acotado dio verde».
+
+## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
+
+**Vive en:** el armado del tren (`C:/dev/wt-push-q`) · `app/admin/dev/*/bitacora.ts`.
+
+- **Síntoma:** Landings avisó que el tren no pasaba tipos: TS1117 ×12 en `app/admin/dev/customer-success/bitacora.ts`.
+- **Causa:** el bloque del conflicto se cortaba en el MEDIO de un hito. «HEAD y después el otro» dejó `revisar: '/partners',`
+  pegado a `fecha: '24 oct', hora: '23:40'`, sin `},{` en el medio. El chequeo que se corrió (`esbuild`) da verde, porque en
+  JavaScript una clave repetida no es error de sintaxis.
+- **Regla:** después de unir un conflicto en un arreglo de objetos, se buscan CLAVES REPETIDAS con el parser de TypeScript
+  (`ts.createSourceFile`, recorriendo cada `ObjectLiteralExpression`), no con esbuild. Pasado sobre las 58 bitácoras: 0.
+- **Y el índice:** `scripts/unir-indice-hallazgos.py` no sabe juntar una fila nueva de un área que main todavía no tiene (falla
+  con «no hay en main una fila del área»). Se resuelve a mano, quedándose con la fila que CONTIENE a la otra.
+
+## Las barredoras de tests-afectados se pasan de los 25 minutos con poca RAM, y el reintento son 796 procesos (25/10/2026)
+
+- **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
+  proceso». Eso son horas.
+- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
+  un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
+  `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
 
 **Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.
@@ -80,6 +154,26 @@ y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq
 `tail` antes de `git push` la misma noche. Un hallazgo escrito no se aplica solo. Cuando una trampa es de la forma del
 comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
 arriba va textual, para copiarla.
+
+## `tests-afectados` lista como ROJO un test `todo` que falla, aunque su archivo salga con 0 (25/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (los «Rojos:» salen de las líneas `test at …` del resumen de fallas).
+
+En el chat Media Buyer la corrida terminó con «Rojos: …, tests/chats-mako-envio.test.ts, …». Ese archivo, corrido solo, sale
+con **0**: su único fallo es un `test(…, { todo: 'depende de la 1.2 (rama mako-wa)…' })`, y Node pone los `todo` que fallan en
+el mismo resumen «failing tests», con su `test at …`. El script los cuenta como rojos de archivo (el `fail` del total, no).
+**Antes de perseguir un rojo de esa lista, correr el archivo solo y mirar la salida:** si es 0, es un `todo`. Sin arreglar:
+filtrar en el script los `test at` que vienen después de una línea con `# …` de `todo`.
+
+## Chrome sin ventana no baja de ~500 px: una captura «a 390» con `--window-size=390,…` es de una pantalla más ancha recortada (25/10/2026)
+
+**Vive en:** cualquier captura con `chrome --headless=new --window-size=390,… --screenshot`.
+
+En el chat Media Buyer, las capturas a 390 salieron con textos cortados contra el borde derecho y parecía que la pantalla
+se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 (`resize_window`): `scrollWidth` = 390 y nada
+pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
+corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
+`--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
@@ -178,12 +272,11 @@ página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carp
 **El arreglo:** `app/web-generator/layout.tsx` redirige las tres (`redireccionDelLayout`, panel-reglas.ts, con test); las
 páginas conservan su redirect para cuando se llega navegando.
 
-⚠️ **Lo que quedó así, de otras tabs (el test las tiene en una lista de conocidas):** app/admin/operaciones/page.tsx,
-app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/m/chats/page.tsx y
-app/m/second-brain/page.tsx redirigen debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin
-permiso); cada una se revisa en su chat y, si redirige en una carga normal, pasa la redirección a su layout y sale de la
-lista. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista (si no, una regresión
-suya pasaría callada). Los tres dashboards salieron el 25/10 (la entrada de abajo).
+⚠️ **La lista de conocidas quedó VACÍA (25/10):** las páginas de otras tabs que redirigían debajo de un loader pasaron la
+redirección (y su puerta) a su layout: los tres dashboards (la entrada de abajo), /admin/operaciones, /m/chats y
+/m/second-brain (la entrada que sigue: en /m hay una trampa) y las del CRM; las que deciden por ruta están en
+`DECIDEN_POR_RUTA` con su test. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista
+(si no, una regresión suya pasaría callada).
 
 **No se midió en producción:** la pestaña del Chrome de Martín no respondió (24/10). Para medirlo:
 `fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
@@ -220,6 +313,35 @@ app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-a
 *25/10/2026, chat «Automations» (claude5).*
 
 *24/10/2026, chat «Landings» (claude5).*
+
+## En /m, la ruta del header es la del NAVEGADOR: un layout de /m no puede compararla con `/m/…` (25/10/2026, #310)
+
+**Por qué importaba:** /admin/operaciones, /m/chats y /m/second-brain estaban en la lista de conocidas del barrido de arriba.
+/m/second-brain es por donde ENTRA la app del teléfono, y a /m/chats llegan los avisos y MaKo por WhatsApp con un link
+profundo: cargas directas, justo las que se rompen.
+
+**La trampa:** `pedidoActual` (el molde) da la ruta que pidió el NAVEGADOR (`HEADER_RUTA` es `req.nextUrl.pathname`). En un
+teléfono el proxy sirve `/chats` con la página de `/m/chats` (un rewrite), así que el header dice `/chats`: un layout que
+compara con `/m/chats` no redirige NUNCA, y no da ningún error. La query tampoco es la de la página: el rewrite le suma la
+suya (`urlReescrita`), y `/chats?c=ig:5` no es la lista sino el chat `/m/chats/ig%3A5`. Un layout de /m usa
+`pedidoMovilActual` (lib/pedido-actual.ts), que traduce como el proxy (`pedidoInterno`, lib/movil-desvio.ts, con test).
+
+**El arreglo:** el layout de la carpeta de cada loader, con las condiciones COPIADAS de la página (el test exige que estén
+iguales en los dos): app/admin/operaciones/layout.tsx (sin sesión de admin, o con el `?ws=` de un cliente),
+app/m/chats/layout.tsx (los links profundos, sólo en la lista: el layout envuelve también a cada chat) y
+app/m/second-brain/layout.tsx (el Mapa, y el super admin a su Centro; sólo en el chat: envuelve también al Mapa).
+
+**Ojo, sin arreglar:** `requireMovil` también redirige (login, onboarding, la tab que no le toca) y lo llama cada página de /m
+debajo de su loader. El barrido no lo ve porque busca `redirect(` en el archivo de la página. Los dos layouts nuevos lo llaman
+primero, así que ahí sale antes del loader; en el resto de /m sigue igual (lib/movil-guard.ts).
+**La puerta va para TODA la carpeta del loader, no sólo para la ruta que redirige** (lo vio Landings, cuyo guard cuenta las
+puertas): el loader de /m/chats envuelve también a cada chat, así que `requireMovil({ navKey: 'chats' })` va primero y sin
+mirar la ruta; y el Mapa, debajo del loader de /m/second-brain, pasa por OTRA puerta (`second-brain`, no `mako`), que su
+layout repite en esa ruta.
+
+**Sin medir en producción** (la receta, en la entrada de arriba).
+
+*25/10/2026, chat «Ops Center» (claude5).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 

@@ -12,11 +12,9 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
 - **El goteo de la #289, medido en producción** (`scripts/medir-goteo-tras-deploy.mts`, sólo lectura, cada negocio en SU
   base): «Contestó» corta (4 de 4). Desde el deploy (~18:06 ART) no salió ningún M1 nuevo; para ver el ritmo de 11 min y la
   condición sin turno hacen falta M1 NUEVOS (que Mauricio mueva leads a «Prospección activa»). Volver a correrlo entonces.
-- **Lo agendado antes del deploy sigue con el reloj viejo** (20 activas, M2 de 24 min a 14,7 h tarde).
-  `scripts/recalcular-esperas-viejas.mts --ws=1 --sec=289` lo pone en «último mensaje + la espera»; simulado, no aplicado:
-  el permiso frenó escribir en la base de Mauricio y se le preguntó a Martín por el cartero (pregunta 33b2217e). Con su sí:
-  el mismo comando con `--aplicar` (las horas viejas quedan impresas). Después de las 13:00 ART del 25/10 ya no sirve: los 7
-  atrasados habrán salido.
+- **Lo agendado antes del deploy con el reloj viejo: HECHO.** Martín lo aprobó y el Cerebro corrió
+  `scripts/recalcular-esperas-viejas.mts --ws=1 --sec=289 --aplicar` el 24/10: cambió 12 (los otros 8 ya habían salido);
+  releído, ninguno con el reloj viejo. La pregunta 33b2217e del Ops Center la retiró él.
 - **P11, el aviso de la cuenta frenada** (`scripts/medir-aviso-cuenta-frenada.mts`): llegó al grupo de Mauricio 26 veces el
   15 y 16/10 y calla desde el 16/10 por el techo de 3 (la cuenta sigue impaga). Si vuelve a avisar un incidente de días es
   decisión de Martín (docs/hallazgos-comunicacion.md, «Una alerta con el techo agotado…»). La cuenta compartida ws1/ws4
@@ -27,9 +25,8 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   app/admin/dev/ai-runtime-cascada/bitacora.ts (chat «IA del cliente»). Y el hito de esta tanda firma `claude5`, que en
   `CUENTAS` (app/admin/dev/_registro/tipos.ts) entra con d7b1f9849 del tren (`tren-j`).
 - **El arreglo del goteo, visto andar (22:00 ART):** los M2 de las 21:34, 21:46 y 21:58 dejaron la espera siguiente a
-  48,00 h exactas. El aviso de arreglo al grupo de Mauricio está probado en seco (`scripts/avisar-arreglo-al-grupo.mts
-  --ws 1 --clave goteo-espera:289:2410 --commit cdadbc30f --ws1-seguro`, el texto en docs/hallazgos-chatbot.md). Mandarlo
-  (`--enviar`) lo frenó el permiso de la sesión: lo autoriza Martín. No se le pide a otro chat.
+  48,00 h exactas. El aviso de arreglo al grupo de Mauricio SALIÓ el 24/10 (lo aprobó Martín y lo mandó el Cerebro, con la
+  clave goteo-espera:289:2410).
 - **Dashboard (trabajo 0786cbfe, «Sí, y que la criatura vea la hoja»):** salió el AI Analyst y la estrella ve la hoja
   (eb71fa238; docs/hallazgos-graficos.md). Sin verlo en pantalla.
 - **Trabajo 49ff20a3 (Martín, firmado):** (1) un solo «Dashboard» en More del teléfono (0427d58be;
@@ -38,7 +35,16 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   pantalla (docs/hallazgos-chatbot.md, «MaKo no tiene botones…»). **Sigue:** «Editar con IA» (`deIAEdicion`), «Probar»,
   y probarlo con un DM de verdad en el Cliente de Prueba con una cuenta de Instagram conectada. El trabajo lo cierra el
   Cerebro cuando estén las tres partes.
-- **Lo que pidió el Cerebro (hecho el 25/10):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
+- **f20 y f21 de la llamada con Leandro (docs/feedback-24-10.md): UN goteo y UN tope por día para todos los canales.**
+  Martín, 24/10 23:00: «Uno solo... que valga para todos los canales». Hecho: un bloque «Todos los canales» en
+  Configuraciones, que vale para WhatsApp, email, Instagram y Messenger (cada canal cuenta lo suyo), y de paso el goteo del
+  email, que no frenaba (docs/hallazgos-chatbot.md, «Un goteo para todos los canales…»).
+- **f17, f18 y f23 de la misma llamada, hechos:** el audio al instante en el chat del lienzo («La nota de voz del chat del
+  lienzo…»), la pregunta dictada en «Editar» y «Pedírselo al equipo» para lo que no está («Una pregunta en «Editar»…»),
+  los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
+  un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
+  llamada que era de Automations está hecha; nada se vio en pantalla.
+- **Lo que pidió el Cerebro (hecho el 24/10 a las 23:55):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
   (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
   (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.
 

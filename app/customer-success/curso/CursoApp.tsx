@@ -1042,7 +1042,9 @@ export function CursoApp({
         // Dónde va el texto de la lección: lo mismo que ve el alumno (item 16). Con una lección abierta, la
         // de su BORRADOR (se cambia en la lección y se guarda con «Guardar»).
         disposicion={leccionAbierta.borrador?.disposicion ?? disposicionDe(estilo)}
-        // Un RÓTULO (f27): sin `menu` ni `onClick`, CursoUgc lo dibuja sin botón. El curso se cambia en la cabecera.
+        // TEXTO (f27, y Martín otra vez el 25/10: «el título de arriba de la sidebar no debe ser un desplegable»): sin
+        // `menu`, sin `onClick` y sin clic derecho, CursoUgc lo dibuja como un `div`. El curso se cambia, se renombra y se
+        // elimina en la cabecera de Clients.
         marca={marcaDelProducto(tituloDe(servicio))}
         acento={estilo.acento}
         // La fuente del curso (item 3): la misma que ve el alumno en su portal.

@@ -1,3 +1,6 @@
+> ⚠️ **Desde el 25/10/2026 la tab `/ads-manager` es el Media Buyer** y la vista que describe este relevo se borró. El relevo
+> vigente es [media-buyer.md](media-buyer.md); éste queda como historia de la conexión con Meta.
+
 # Relevo — Ads Manager, Meta e Instagram
 
 **Reescrito el 10/10/2026 para una cuenta de Claude que arranca SIN historial.** Ventana que

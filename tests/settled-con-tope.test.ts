@@ -61,10 +61,3 @@ test('vacío devuelve vacío, y un tope inválido corre de a uno', async () => {
   assert.equal(maximo, 1);
   assert.ok(TOPE_LOTE_META >= 1 && TOPE_LOTE_META <= 8, 'el tope es chico y positivo');
 });
-
-test('los cuatro lotes de escritura del Ads Manager pasan por el tope', () => {
-  const src = sinComentarios(leer('../app/ads-manager/CampanasBrowser.tsx'));
-  assert.doesNotMatch(src, /Promise\.allSettled\(/, 'un lote volvió a mandar todo junto');
-  assert.equal((src.match(/allSettledConTope\([^\n]*TOPE_LOTE_META, \([a-z]+\) => write(OneStatus|Budget)\(/g) ?? []).length, 4,
-    'activar en cascada, pausar, activar en lote y el presupuesto');
-});

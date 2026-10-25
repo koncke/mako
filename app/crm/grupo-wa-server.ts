@@ -36,7 +36,7 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_COMPLETO_MS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_CORRIDA, VIEJA_GRUPOS_MS,
+  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_COMPLETO_MS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_DIA, VIEJA_GRUPOS_MS,
   conNombresConocidos, gruposGuardados,
   cuantosEstaCorrida, cupoDeHoy, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo, fichaLimpia,
   gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe,
@@ -225,7 +225,7 @@ export type ResultadoPerfiles = {
   /** true = cortó por TIEMPO y a esta corrida le quedan: la pantalla vuelve a llamar sumando `hechas`. */
   sigue: boolean;
   /** Por qué no siguió con los que faltan: el tope del día o el de la corrida (se dice). null = terminó, o sigue. */
-  corte: 'dia' | 'corrida' | null;
+  corte: 'dia' | null;
   /** Desde el tablero: el nombre de la línea que se usa (el cupo es suyo) y los que no se consultan por no tener código de país. */
   lineaNombre?: string; sinPais?: number;
 } | { ok: false; error: string };
@@ -274,8 +274,9 @@ async function reservarPerfil(linea: string, hoy: string): Promise<boolean> {
  * ⚠️ CADA CONSULTA ES TRÁFICO EN LA RED DE LA LÍNEA (el Cerebro, 24/10: «tope duro por corrida y por día; la cuenta real y el
  * tiempo antes de arrancar»):
  *   · de a UNO y despacio (`ESPERA_PERFIL_MS`);
- *   · a lo sumo `TOPE_PERFILES_CORRIDA` por corrida (la pantalla suma `hechas` entre llamadas) y `TOPE_PERFILES_DIA` por día y
- *     por línea, reservado ANTES de cada consulta (`reservarPerfil`): el del día lo hace cumplir el server, no la pantalla;
+ *   · a lo sumo `TOPE_PERFILES_DIA` por día y por línea, reservado ANTES de cada consulta (`reservarPerfil`): lo hace cumplir
+ *     el server, no la pantalla. Sin tope por corrida desde el 25/10/2026 (f14: «debería extraerte todo»): un toque sigue
+ *     llamando hasta terminar o llegar al del día;
  *   · el que ya contestó no se vuelve a consultar (`perfiles_wa.vistos.<línea>`): la corrida de mañana sigue con los que faltan.
  *     El que no contestó es «no sé», no «no»: no queda como consultado (pero gastó cupo: fue tráfico igual).
  *   · `soloContar`: la cuenta de la pregunta (cuántos faltan, cuántos hace esta corrida, cuántos quedan hoy), sin consultar.
@@ -307,11 +308,10 @@ export async function completarPerfiles(p: {
   const [rawVistos, rawCupo] = await Promise.all([getSettingEstricto(claveVistos(p.linea)), getSettingEstricto(claveCupo(p.linea))]);
   const vistos = vistosDe(rawVistos);
   const faltan = conLead.filter((x) => !vistos.has(x.telefono.slice(-10)));
-  const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_CORRIDA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
+  const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_DIA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
   const ahora = faltan.filter((x) => !saltear.has(x.telefono.slice(-10)));
-  const hechas = Math.max(0, Math.floor(Number(p.hechas) || 0));
   const quedan = quedanHoy(cupoDeHoy(rawCupo, hoy));
-  const estaCorrida = cuantosEstaCorrida({ pendientes: ahora.length, quedanHoy: quedan, hechas });
+  const estaCorrida = cuantosEstaCorrida({ pendientes: ahora.length, quedanHoy: quedan });
   const cuenta = { total: conLead.length, pendientes: faltan.length, quedanHoy: quedan, estaCorrida };
   if (p.soloContar) return { ok: true, ...cuenta, revisados: 0, empresas: 0, completados: 0, campos: 0, errores: 0, sinRespuesta: [], sigue: false, corte: null };
 
@@ -319,7 +319,7 @@ export async function completarPerfiles(p: {
   if (!candado) return { ok: false, error: 'Ya hay una consulta de perfiles corriendo en esta línea (en otra pestaña o de otra persona del equipo): espera a que termine y vuelve a tocar.' };
   const db = await getTenantDb();
   let revisados = 0, empresas = 0, completados = 0, campos = 0, errores = 0;
-  let sigue = false, corte: 'dia' | 'corrida' | null = null;
+  let sigue = false, corte: 'dia' | null = null;
   const nuevos: string[] = [];
   const sinRespuesta: string[] = [];
   try {
@@ -361,10 +361,8 @@ export async function completarPerfiles(p: {
     }
     await soltarCandado(p.linea, candado);
   }
-  // Terminó lo de esta llamada sin cortar por tiempo, y quedan: ¿por qué no siguió? Se dice.
-  if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) {
-    corte = hechas + revisados >= TOPE_PERFILES_CORRIDA ? 'corrida' : 'dia';
-  }
+  // Terminó lo de esta llamada sin cortar por tiempo, y quedan: sin tope por corrida, es el del día. Se dice.
+  if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) corte = 'dia';
   return { ok: true, ...cuenta, revisados, empresas, completados, campos, errores, sinRespuesta, sigue, corte };
 }
 

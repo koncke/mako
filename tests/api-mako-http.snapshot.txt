@@ -24,6 +24,7 @@ agregar_texto_video
 ajustar_color_video
 ajustar_comunidad
 analisis_negocio
+analizar_cuenta_media_buyer
 analizar_hoja_dashboard
 analizar_llamadas_lead
 anticipacion_agenda
@@ -163,6 +164,7 @@ dar_estrella
 declarar_entradas_funnel
 desarchivar_secuencia
 descartar_borrador_plan
+descartar_decision_media_buyer
 descartar_experimento
 descartar_item_plan_retro
 deshacer_item_plan_retro
@@ -175,6 +177,7 @@ detectar_piezas_landing
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
+duplicar_curso
 duplicar_diseno_imagen
 duplicar_hoja_dashboard
 duplicar_landing
@@ -206,6 +209,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_formato_creativo_anuncio
 eliminar_broadcast
+eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
@@ -490,6 +494,7 @@ registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_curso
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
@@ -499,6 +504,7 @@ resolver_confirmacion_crm
 responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
+restaurar_curso
 restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo
@@ -586,6 +592,7 @@ ver_grabaciones_prueba
 ver_integracion
 ver_integraciones
 ver_landing_creada
+ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan
 ver_miembro_comunidad

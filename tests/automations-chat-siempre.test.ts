@@ -112,9 +112,9 @@ test('3: sin nada propio, la del negocio; con horario propio (o «sin horario»)
   // «Sin horario» propio: manda a cualquier hora aunque el negocio tenga uno.
   assert.equal(horarioDeLaAutomatizacion({ horario: { ...PROPIO_10_A_12, activo: false } }, NEGOCIO_9_A_21), null);
   assert.equal(horarioDeLaAutomatizacion({ horario: null }, NEGOCIO_9_A_21), null);
-  // Lo propio que cuenta: el horario y el goteo de cada canal. «Misma persona» se fue (23/10/2026): una clave vieja no cuenta.
+  // Lo propio que cuenta: el horario y el goteo (uno solo para todos los canales desde el 24/10/2026). «Misma persona» se
+  // fue (23/10/2026): una clave vieja no cuenta.
   assert.equal(tieneConfigPropia(vacia), false);
-  assert.equal(tieneConfigPropia({ goteoEmail: { minutos: 30 } }), true);
   assert.equal(tieneConfigPropia({ goteo: { dia: 40 } }), true);
   assert.equal(tieneConfigPropia({ personaHoras: { email: 30 } } as ConfigAutomatizacion), false);
   assert.equal(textoDeHorario(NEGOCIO_9_A_21), 'de 09:00 a 21:00 · todos los días');
@@ -124,7 +124,8 @@ test('3: sin nada propio, la del negocio; con horario propio (o «sin horario»)
 
 test('3: lo guardado se sanea y un cambio con `null` vuelve a lo del negocio; fuera de rango, un error', () => {
   assert.deepEqual(sanearConfigAutomatizacion('basura'), {});
-  assert.deepEqual(sanearConfigAutomatizacion(JSON.stringify({ horario: PROPIO_10_A_12, goteo: { minutos: 4, dia: 99999 }, goteoEmail: { minutos: 5, dia: 40 } })), { horario: PROPIO_10_A_12, goteo: { minutos: 4 }, goteoEmail: { minutos: 5, dia: 40 } });
+  // El `goteoEmail` de antes del 24/10/2026 no se lee si hay un `goteo`: es UNO para todos (tests/goteo-un-interruptor.test.ts).
+  assert.deepEqual(sanearConfigAutomatizacion(JSON.stringify({ horario: PROPIO_10_A_12, goteo: { minutos: 4, dia: 99999 }, goteoEmail: { minutos: 5, dia: 40 } })), { horario: PROPIO_10_A_12, goteo: { minutos: 4 } });
   const r = configParaGuardar({ horario: PROPIO_10_A_12, goteo: { minutos: 4 } }, { horario: null });
   assert.ok(r.ok);
   assert.deepEqual(r.ok && r.config, { goteo: { minutos: 4 } });

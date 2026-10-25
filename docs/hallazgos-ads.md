@@ -4700,3 +4700,98 @@ de ese cliente sirve».
   docs/hallazgos-comunicacion.md, misma fecha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*
+
+## El Media Buyer reemplaza al Ads Manager: lo que se midió antes de dejar que un agente mueva plata (25/10/2026)
+
+**Vive en:** `lib/media-buyer/*` (motor, topes, datos, ejecutar, corrida, variaciones) · `lib/zernio-ads.ts` ·
+`app/ads-manager/MediaBuyer.tsx` · `app/m/ads/MediaBuyerM.tsx` · `supabase/migrations/0332_media_buyer.sql` ·
+`lib/api-mako/areas/ads.def.ts` (las siete del Media Buyer) · `docs/media-buyer/referencia.md`
+
+Martín, 25/10: borrar la réplica de Meta Ads Manager y que la tab sea «una app de IA, como un media buyer de MaKo»,
+copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (capturas reales en
+`docs/media-buyer/referencias/madgicx/`). Esto es lo que sirve después, no el changelog.
+
+- **El diagnóstico obvio era el equivocado: «hay que diseñar el agente».** Ya estaba diseñado: el Autopilot del 13-14/10
+  (`docs/diseno-ads-autopilot.md`, nunca implementado) con su encuadre validado por Martín. Se tomaron sus trampas
+  (apagado por defecto, abstenerse con datos viejos, con la lectura de Meta `parcial` o con una moneda sin tasa, deshacer
+  sólo si nadie lo tocó después, una cuenta compartida por dos negocios se maneja una vez) y se descartó su pantalla (un
+  modal dentro de la tabla): el pedido nuevo es que la tab ENTERA sea el media buyer. Antes de diseñar algo que «nadie
+  hizo», buscar `docs/diseno-*` del área.
+- **Zernio cubre todo lo que el agente escribe, medido en su OpenAPI v1.353.0 (25/10):** prender/pausar campaña, conjunto
+  y anuncio (`PUT …/status`, leen el interruptor EN VIVO y si ya estaba así contestan `skipped: 1` sin escribir),
+  presupuesto diario (`PUT /ads/campaigns/{id}` para CBO —en ABO da 409— y `PUT /ads/ad-sets/{id}` para ABO), duplicar
+  un anuncio en pausa y cambiarle el creativo por parche (conserva la media y el `url_tags`), borrar, y el árbol con
+  métricas y desglose diario por anuncio (`/ads/tree?timeIncrement=1&dailyLevel=ad`). ⚠️ **El presupuesto de Zernio va
+  en UNIDADES de la moneda de la cuenta, no en centavos** como el `daily_budget` de Meta (`aUnidadMeta`): mezclarlos
+  multiplica por 100.
+- **La cuenta de Zernio de la plataforma tiene CERO cuentas conectadas** (GET /accounts, 25/10): ningún anuncio de MaKo
+  pasó nunca por Zernio. El link para conectar la cuenta publicitaria de MaKo (`act_1426493815659364`) se genera bien
+  (`GET /connect/facebook/ads?loginMode=business&permissionLevel=advertise&adAccountId=…`, contesta la ventana de
+  Facebook de la app 712341431446535): lo que falta es el clic de Martín en esa ventana. `permissionLevel=advertise`
+  (Administrar campañas) alcanza para campañas, conjuntos, creativos y anuncios; `full` sólo hace falta para píxeles.
+- ⚠️ **El árbol de Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega (la campaña
+  trae `effective_status`; el conjunto, un estado derivado de sus anuncios). `arbolDesdeZernio` toma la entrega como
+  interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado y el agente no lo toca. Errar para
+  el lado de no tocar.
+- ⚠️ **Un padre que no vino en la lectura es «no sé», y «no sé» es «no está prendido».** La primera versión de
+  `prendido()` cortaba el recorrido al no encontrar al padre y devolvía `true`: con la página de campañas caída
+  (`parcial`), el motor habría subido el presupuesto de conjuntos cuya campaña podía estar apagada. Lo fija un test.
+- **El anuncio de un lead no es sólo `meta_ad_id`**: los de landing lo traen en `utm_content` (id o nombre). El agente
+  atribuye con `adIdDeLead` (lib/atribucion-url.ts), la misma regla del resto de MaKo; sin eso el Stop Loss apagaba el
+  anuncio que trae las reuniones (ya medido el 14/10: 9 de 114 agendados del ws1 tenían `meta_ad_id`).
+- **El CRM se cuenta por COHORTE** (los leads que entraron en la ventana, y de ésos cuántos agendaron o compraron), no con
+  `bajadaCrmPorAnuncio`, que suma las ventas de TODOS los leads del anuncio de cualquier fecha: contra el gasto de 3 días,
+  eso hace parecer barato a un anuncio que vendió hace un año.
+- **Las palabras de una descripción de la API roban pedidos de OTRA área.** La primera versión de `topes_media_buyer`
+  decía «lead, agenda o venta» y «dólares»: «editá la venta de Juan: 1500 dólares» dejó de traer `editar_venta_lead`
+  (tests/ops-center-clasificador-app.test.ts). Se reescribió sin esas raíces. Ya estaba en AGENTS.md para los ids; vale
+  igual para la descripción.
+- **Las dos tablas nuevas van en `TABLAS_DE_INQUILINO` y la 0332 tiene que estar ANTES del deploy**: el reset del cliente
+  de prueba borra de cada tabla de esa lista y una que no existe da error. Hasta que se aplique, el código las tolera
+  (PGRST205) y la pantalla dice que el registro no está.
+
+- ⚠️ **El botón de conectar no sirve para la cuenta de MaKo.** `<ConectarViaZernio>` arma el link con la clave de Zernio
+  DEL NEGOCIO, y el negocio de la plataforma (ws9) no tiene una propia: la de la plataforma no se puede guardar como suya
+  (`KeyDePlataformaError`). El link de MaKo sale por `scripts/media-buyer-medir-zernio.mts conectar`, que también mide
+  crear · editar · borrar en pausa. Y la cuenta de MaKo no tiene `META_AD_ACCOUNT_ID`: el Media Buyer la toma de su
+  Ajuste «Cuenta publicitaria» (`media_buyer_config.cuenta_publicitaria`).
+- **Filmar un hook NO es del servidor.** El Video Generator filma con la extensión y una pestaña de Flow en el navegador
+  del cliente. Lo que el Media Buyer sí hace: cada hook elegido, pegado al cuerpo del video ganador (su transcripción
+  menos la primera frase), entra como guion con los rótulos GANCHO / HISTORIA —el contrato que la app usa para cortarlo
+  en tomas— en la celda «Hooks del Media Buyer» (`lib/media-buyer/hooks-video.ts`), sin duplicar por `huellaGuion`.
+- **Subir un video por Zernio tarda** (`POST /ads/create` con `video.url` espera a que Meta lo procese): con el timeout
+  de 90 s de las otras llamadas, cortar no deshace lo creado y MaKo no se entera. Para video van 240 s y una
+  `Idempotency-Key` por archivo, para que un reintento no publique dos veces. Sin medir todavía con un video real (la
+  cuenta de MaKo no está conectada). La ruta `creative-signurl` del Ads Manager viejo
+  SIGUE en uso: es la subida al staging del Media Buyer.
+
+- **El Media Buyer en MaKo Esencial (el Cerebro, 25/10): 2 recomendaciones por día y sin piloto automático.** El número no
+  vive en el Media Buyer: es `ads.recomendaciones_dia` de la tabla de topes de Planes (`lib/topes-plan.ts`), y se aplica
+  SÓLO al Esencial que MaKo cobra por la pasarela (`esEsencialDe`). Tres cosas que no eran obvias: el cupo se mira ANTES de
+  escribir las variaciones (si no, la IA del negocio escribe textos de propuestas que no se van a guardar); el piloto se
+  niega en UNA puerta (`guardarConfig`) y la corrida lanza con el modo que VALE (`modoEfectivo`), porque un negocio que baja
+  de Pro a Esencial queda con `modo = 'piloto'` guardado; y con el cupo lleno entra primero lo que cuida la plata (Stop
+  Loss, Calidad, Sunsetting) y no lo que la sube. ⚠️ **El candado de la tab le gana al cupo:** `NAV_SOLO_PRO`
+  (lib/plan-esencial-reglas.ts) todavía tiene 'ads-manager', así que el Esencial de la pasarela rebota a
+  /no-esta-en-tu-plan y nunca ve sus 2 recomendaciones. Es de Planes (avisado al Cerebro el 25/10).
+
+- **Para Martín, «copialo tal cual» es la ESTRUCTURA, la limpieza y TODAS las funciones; los colores son los de MaKo
+  (25/10, dos vueltas el mismo día).** La primera pantalla (estructura de Madgicx con lo nuestro encima: el piloto en la
+  cabecera, dos banners, tres pestañas, dos botones sueltos) la rechazó: «se vea así de fea, con tantos botones, no se
+  entiende... Copiala tal cual». La segunda copió también los colores de Madgicx y la corrigió: «no quiero copiar tal
+  cual los colores, adaptarlos un poco a MaKo... Pero si quiero que tenga todas las funcionalidades». O sea: lo que se
+  rechazó la primera vez no eran los colores sino el RUIDO; cada cosa nuestra va DENTRO de un lugar que la app copiada ya
+  tiene (su tuerca, su «Ask AI Marketer to Do More», su tarjeta de saludo), y las medidas se toman de la captura (PIL),
+  no a ojo. La regla de AGENTS.md (punto 3: estructura sí, colores de la casa) era la correcta.
+- **Las capturas de la landing no alcanzan para copiar FUNCIONES.** Muestran la pantalla principal y poco más; el
+  inventario de lo que hace la app (el detalle de cada recomendación, las tácticas, los reportes, los ajustes) sale de
+  recorrerla por dentro con una cuenta (Martín abrió la suya de Madgicx para eso, 25/10).
+
+**Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
+`docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y
+«hooks al video»; `validate_only` antes de
+escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
+cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*

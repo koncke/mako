@@ -47,14 +47,18 @@ test('2. letras enteras: sólo letras y números, de las dos primeras palabras q
   assert.equal(inicialesPorLetra(null, '·'), '·');
 });
 
+// Desde el 25/10/2026 la regla es UNA (`iniciales`, lib/unicode-seguro.ts, que además barre toda app/:
+// tests/iniciales-con-emoji.test.ts): `inicialesPorLetra` la llama, y las tres pantallas usan esa pieza.
 test('3. la marca de la ficha, el avatar y el historial usan la misma regla; ninguno corta con `w[0]`', () => {
+  assert.match(leer('lib/iniciales.ts'), /export const inicialesPorLetra = \(nombre: string \| null \| undefined, vacio = '\?'\): string => iniciales\(nombre, 2, vacio\);/,
+    'una sola pieza: inicialesPorLetra llama a la de lib/unicode-seguro.ts');
   for (const [archivo, uso] of [
-    ['app/_components/Marca.tsx', 'const inicialesDe = (nombre: string) => inicialesPorLetra(nombre);'],
-    ['app/_ui/Avatar.tsx', 'const iniciales = (nombre: string) => inicialesPorLetra(nombre);'],
-    ['app/crm/lead-view/AuditHistory.tsx', 'const initials = (name: string) => inicialesPorLetra(name);'],
+    ['app/_components/Marca.tsx', 'const inicialesDe = (nombre: string) => iniciales(nombre);'],
+    ['app/_ui/Avatar.tsx', "import { iniciales } from '@/lib/unicode-seguro';"],
+    ['app/crm/lead-view/AuditHistory.tsx', 'const initials = (name: string) => iniciales(name);'],
   ] as const) {
     const s = leer(archivo);
-    assert.ok(s.includes(uso), `${archivo} no usa inicialesPorLetra`);
+    assert.ok(s.includes(uso), `${archivo} no usa la pieza de las iniciales (lib/unicode-seguro.ts)`);
     assert.doesNotMatch(s, /\(w\) => w\[0\]/, `${archivo} vuelve a cortar la primera unidad de UTF-16`);
   }
 });

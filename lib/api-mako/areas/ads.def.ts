@@ -59,6 +59,10 @@ const G_META_ADMIN: Gating = { tab: 'ads-manager', integracion: 'meta', rolMinim
 
 // `fijoAlRevisar` (15/10/2026): en /mako/revisar el título es el resumen de la campaña, el conjunto o el anuncio de CUANDO SE
 // PROPUSO; cambiar el id ahí movía la plata (o borraba) en otro bajo el título del primero (docs/hallazgos-api-mako.md).
+/** El Media Buyer (25/10/2026): el admin del negocio, con la tab. Sin `integracion: 'meta'`: se opera también sólo con Zernio. */
+const G_MEDIA_BUYER: Gating = { tab: 'ads-manager', rolMinimo: 'admin' };
+const P_DECISION: Parametro = { nombre: 'decisionId', tipo: 'string', obligatorio: true, max: 40, fijoAlRevisar: true, descripcion: 'id de la decisión del Media Buyer (de ver_media_buyer).' };
+
 const P_CAMPAIGN: Parametro = { nombre: 'campaignId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico de la campaña en Meta (de listar_campanas_meta o ver_estado_meta).' };
 const P_ADSET: Parametro = { nombre: 'adsetId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico del conjunto de anuncios en Meta (de listar_conjuntos_meta).' };
 const P_AD: Parametro = { nombre: 'adId', tipo: 'string', obligatorio: true, max: 30, fijoAlRevisar: true, descripcion: 'id numérico del anuncio en Meta (de listar_anuncios_meta o ver_rendimiento_anuncios).' };
@@ -677,5 +681,75 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'reescribe app_settings.script_avatares sin ese avatar',
     parametros: [{ nombre: 'key', tipo: 'string', obligatorio: true, max: 60, descripcion: 'clave del avatar a quitar (de listar_avatares_guion).' }],
     canales: TODOS, costo: 'gratis', gating: G_ANALYST,
+  },
+
+  // ═══════════════════════════ El Media Buyer (25/10/2026) ═══════════════════════
+  // La tab /ads-manager es el Media Buyer (lib/media-buyer/*): MaKo mira la cuenta una vez por día y deja DECISIONES (subir o
+  // bajar presupuesto, pausar, prender, variaciones del ganador), cada una con su porqué y su deshacer. Por acá MaKo, el chat,
+  // las lee, las lanza, las descarta y las deshace. Lo que mueve plata (lanzar, deshacer, el piloto, los topes) es `pantalla` +
+  // `dinero` + admin y NO corre en un flujo (NO_EN_FLUJOS, lib/api-mako/flujo.ts): lo confirma una persona o el piloto
+  // automático que el propio negocio prendió. Sin `integracion: 'meta'`: un negocio puede operar sólo con su Zernio.
+  {
+    id: 'ver_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver el Media Buyer',
+    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, la última vez que miró la cuenta, y las decisiones abiertas (id, qué propone, por qué y los números) y las aplicadas de los últimos 7 días. Úsala antes de lanzar, descartar o deshacer una decisión.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'lanzar_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Lanzar una decisión del Media Buyer',
+    descripcion: 'PROPONE lanzar una decisión ABIERTA del Media Buyer (de ver_media_buyer): subir o bajar un presupuesto, pausar, prender, o crear las variaciones del ganador. Se confirma en una pantalla. Al lanzar se relee la cuenta en vivo y se miran los topes del negocio (subida máxima por día, presupuesto máximo de la cuenta, el interruptor): si no pasa, queda frenada con el motivo. Se deshace con deshacer_decision_media_buyer.',
+    escribe: 'escribe en Meta (por la Zernio del negocio o su token) y marca la decisión como aplicada en media_buyer_decisiones',
+    parametros: [P_DECISION],
+    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'deshacer_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false, plata: true,
+    titulo: 'Deshacer una decisión del Media Buyer',
+    descripcion: 'PROPONE deshacer una decisión APLICADA del Media Buyer: devuelve el presupuesto o el estado de antes, o borra los anuncios que creó una variación. Se niega si alguien cambió eso a mano después. Se confirma en una pantalla.',
+    escribe: 'escribe el estado anterior en Meta y marca la decisión como deshecha',
+    parametros: [P_DECISION],
+    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'descartar_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Descartar una decisión del Media Buyer',
+    descripcion: 'PROPONE descartar una decisión abierta del Media Buyer (no se lanza; queda en Descartadas y se puede volver a abrir desde la pantalla). No toca la cuenta de Meta.',
+    escribe: 'marca la decisión como descartada en media_buyer_decisiones',
+    parametros: [
+      { nombre: 'decisionId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'id de la decisión del Media Buyer (de ver_media_buyer).' },
+      { nombre: 'motivo', tipo: 'string', max: 300, descripcion: 'por qué no se lanza, en las palabras de la persona.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'analizar_cuenta_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Analizar la cuenta con el Media Buyer',
+    descripcion: 'PROPONE que el Media Buyer mire la cuenta ahora (lo hace solo una vez por día) y deje sus decisiones del día. Pedido por esta vía NUNCA lanza nada, aunque el negocio tenga el piloto automático: sólo propone. Las variaciones del ganador las escribe la IA del negocio.',
+    escribe: 'agrega decisiones abiertas en media_buyer_decisiones (no escribe en Meta)',
+    parametros: [],
+    canales: TODOS, costo: 'ia', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'modo_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Modo del Media Buyer',
+    descripcion: 'PROPONE el modo del Media Buyer: `piloto` (lanza solo sus decisiones, dentro de los topes del negocio), `propone` (cada decisión espera a una persona) o `apagado` (no analiza ni lanza nada). Se confirma en una pantalla: el piloto mueve dinero.',
+    escribe: 'cambia modo y encendido en media_buyer_config',
+    parametros: [{ nombre: 'modo', tipo: 'string', obligatorio: true, enum: ['piloto', 'propone', 'apagado'], descripcion: 'piloto, propone o apagado.' }],
+    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'topes_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Topes y objetivo del Media Buyer',
+    descripcion: 'PROPONE los topes y el objetivo del Media Buyer: cuánto puede subir un presupuesto en un día (%), el presupuesto diario máximo de toda la cuenta (US$), el resultado que optimiza y el costo objetivo por resultado (US$; vacío = lo recomienda MaKo). Sólo cambia lo que se pasa. Se confirma en una pantalla.',
+    escribe: 'cambia los topes y el objetivo en media_buyer_config',
+    parametros: [
+      { nombre: 'subidaMaxPctDia', tipo: 'number', minimo: 0, maximo: 100, descripcion: 'cuánto puede subir un presupuesto en un día, en %.' },
+      { nombre: 'presupuestoMaxDia', tipo: 'number', minimo: 1, descripcion: 'presupuesto diario máximo de la cuenta, en US$.' },
+      { nombre: 'kpi', tipo: 'string', enum: ['lead', 'agenda', 'venta'], descripcion: 'el resultado que busca.' },
+      { nombre: 'objetivo', tipo: 'number', minimo: 0.01, descripcion: 'costo objetivo por resultado, en US$.' },
+    ],
+    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
 ];

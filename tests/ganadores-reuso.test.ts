@@ -44,15 +44,3 @@ test('a Meta se le preguntan los MEJORES, no los primeros que vengan', () => {
   assert.deepEqual(bloqueadosDe({ a: { puede: false }, b: { puede: true } }), { a: MOTIVO_OTRA_PAGINA });
   assert.deepEqual(bloqueadosDe(undefined), {});
 });
-
-test('los tres modales que ofrecen «Usar un ganador» usan el mismo orden y apagan los de otra página', () => {
-  for (const ruta of ['app/ads-manager/NuevaCampanaModal.tsx', 'app/ads-manager/AgregarConjuntoModal.tsx', 'app/ads-manager/AgregarAnuncioModal.tsx']) {
-    const src = sinComentarios(leer(ruta));
-    assert.match(src, /ganadoresParaReusar\(senales, /, `${ruta}: el orden sale de la función compartida`);
-    assert.match(src, /useGanadoresBloqueados\(senales\)/, `${ruta}: pregunta a Meta cuáles no se pueden`);
-    assert.doesNotMatch(src, /\[\.\.\.senales\]\.filter\(\(s\) => s\.ad_thumbnail_url\)\.sort/, `${ruta}: no queda un orden escrito a mano`);
-    assert.match(src, /disabled=\{!!bloqueados?\w*\[s\.ad_id\]\}|disabled=\{!!\w*[bB]loqueados\w*\??\.?\[s\.ad_id\]\}/, `${ruta}: el botón de un ganador bloqueado está apagado`);
-  }
-  //   ROTO A PROPÓSITO (2026-09-16): sacando el `disabled` de AgregarAnuncioModal,
-  //   pass 3 / fail 1. Antes de este cambio, dos de los tres modales estaban así.
-});

@@ -40,7 +40,7 @@ import {
 import { VACIAR } from './comunidad.helpers';
 
 const HTTP = ['http'] as const;
-/** La tab vive en Customer Success: la misma capa que pide la página (`requireCapa('customer-success')`). */
+/** La tab vive en Clients: la misma capa que pide la página (`requireCapa('customer-success')`, la clave de siempre). */
 const GATING = { tab: 'customer-success' } as const;
 /** Configurar la comunidad (categorías, niveles, ajustes) es de un admin: `puedeConfigurar`. */
 const GATING_ADMIN = { tab: 'customer-success', rolMinimo: 'admin' } as const;
@@ -156,7 +156,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_comunidades', area: 'comunidad', tipo: 'lectura',
     titulo: 'Listar las comunidades',
-    descripcion: 'Los productos de Customer Success de este negocio (los mismos del selector de la tab Comunidad), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.',
+    descripcion: 'Los programas de Clients de este negocio (los mismos del selector de la cabecera de Clients), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.',
     parametros: [],
     salida: 'json', canales: HTTP, costo: 'gratis', gating: GATING,
   },

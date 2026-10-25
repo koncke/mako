@@ -40,8 +40,10 @@ export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
 const estadoDe = (x: TareaDelChat) => (x.ya && x.estado === 'creada' ? 'Marcándola hecha' : ROTULO_TAREA[x.estado]);
 
 /** El «Ya está» de un chat, en su conversación: qué cambió, dónde revisarlo, su tarea del Plan y responder sobre esto. */
-export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto }: {
+export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto, sinCabecera = false }: {
   t: TurnoChat; chat?: ChatDelYaEsta; tareas?: readonly TareaDelChat[];
+  /** Adentro del bloque de arriba de la caja (BloqueCompletado.tsx), que ya dice «Completado» y lleva su «Visto». */
+  sinCabecera?: boolean;
   /** El ✓ (18/10/2026, Martín: «no desaparecer hasta que yo le dé un check al mensaje de completado»): hasta qué «Ya está»
    *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
@@ -65,7 +67,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
   const visto = tieneCheck(instante, yaVisto);
   return (
     <article className="co-ya" aria-label={`Completado: ${titulo}`}>
-      <header className="co-ya__cab">
+      {!sinCabecera && <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
         {/* Hasta que lo toca, el chat dice «Espera tu respuesta» en la lista (lib/centro-chats.ts → esperaCheck). */}
@@ -75,7 +77,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
             <Icon name="check" size={15} />{visto ? 'Visto' : null}
           </button>
         )}
-      </header>
+      </header>}
       {/* Con el formato aplicado (17/10/2026): el título de un chat puede traer **negrita**, `código` o un link. */}
       {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}
       {plegable ? (

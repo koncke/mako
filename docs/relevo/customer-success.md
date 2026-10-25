@@ -137,9 +137,20 @@ y lo que quedó sin hacer, en docs/hallazgos-customer-success.md («"Sacar" en M
 de Clients, con «+ Nuevo producto» para un admin); todo el diseño en «Personalizar» («Otro color» y «Deshacer»
 incluidos); el alumno ve «Programa sin nombre» en su lista. Porqué y trampas: «Dos selectores de programa en Clients».
 
-**Lo que sigue:** f25 (eliminar un programa desde su menú en la cabecera, con la cuenta de alumnos y «Deshacer»), f26
-(clic derecho: el programa con `app/_ui/MenuContextual.tsx`; un módulo o una clase abren su «…») y f30 («Customer
-Success» → «Clients» en lo que MaKo lee y dice; las claves internas no se tocan).
+**Tanda 3 (f25 + f26 + f30), hecha:** cada programa de la cabecera tiene su «…» y su clic derecho con Renombrar y
+Eliminar (el título de la barra negra del Classroom NO: es texto, sin clic derecho — Martín, 25/10: «no debe ser un
+desplegable»); Eliminar pregunta sólo con alumnos o clases, con la cuenta,
+archiva como el CRM y su «Deshacer» cruza la recarga. Un módulo o una clase, con clic derecho, abren su «…». MaKo dice
+«Clients» (el título del área `cs`, las descripciones de la API y los avisos de la tab). Porqué y trampas: «Eliminar un
+programa, el clic derecho del Classroom, y MaKo diciendo "Customer Success"».
+
+**Tanda 4 (25/10, «implementa todos los feedback... end to end», Martín por el Cerebro), hecha:** Duplicar un programa
+de punta a punta (el curso entero con sus archivos, sin alumnos; en el «…», el clic derecho, con «Deshacer», y en la API
+de MaKo junto con renombrar, eliminar y restaurar un curso), y «Clients» en los rótulos de Automations, los gráficos y el
+catálogo de modelos. Porqué y trampas: «Duplicar un programa: qué se copia, qué no…».
+
+**Lo que queda para Clients:** duplicar un módulo o una clase sueltos; mirar todo en pantalla (sacar, el selector, el
+menú del programa, duplicar) con un alumno de prueba del ws3. f31 es de Ops Center.
 
 ## 0-Ω. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes de CS y Cursos
 

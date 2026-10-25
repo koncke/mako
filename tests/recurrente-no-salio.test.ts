@@ -133,7 +133,8 @@ test('(6) al ACTIVARLA el chat dice por qué quedan para aprobar (sólo si queda
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Revisión del 20/10/2026, noche (tests/automations-aviso-todos-caminos.test.ts): con lo PUBLICADO: Activar prende la fila, no el borrador.
   assert.match(perfil, /if \(!activa && dejaBorradores\(abiertoPublicado, est\?\.envio_automatico === true\)\) \{\n\s+setNotaChat\(\{ id: `mako-aprobar-\$\{Date\.now\(\)\.toString\(36\)\}`, texto: `\$\{POR_QUE_SE_APRUEBAN\}\. Se aprueban en Chats › Borradores\.` \}\);/);
-  assert.match(perfil, /onListaCambio=\{onListaCambio\} nota=\{notaChat\}\n?\s*(?:alTerminarSinVer=\{guardarSinVer\} )?\/>/);
+  // 25/10: después de alTerminarSinVer va la tuerca del título (f19, onAbrirConfiguraciones), con su comentario: la nota sigue yendo una vez.
+  assert.match(perfil, /onListaCambio=\{onListaCambio\} nota=\{notaChat\}\n?\s*(?:alTerminarSinVer=\{guardarSinVer\}\s*)?(?:\/\/[^\n]*\n\s*)?(?:onAbrirConfiguraciones=\{[^}]*\}[^\n]*\s*)?\/>/);
   const chat = sinComentarios(leer('app/automations/ChatMako.tsx'));
   assert.match(chat, /if \(!nota \|\| notaDicha\.current === nota\.id\) return;\n\s+notaDicha\.current = nota\.id;\n\s+setMensajes\(\(ms\) => \[\.\.\.ms, \{ id: nota\.id, de: 'mako', texto: nota\.texto,/);
 });

@@ -7,10 +7,7 @@
 // miembros del equipo no tienen foto, así que el caso «sin foto» es el normal,
 // no la excepción. Sin esto cada pantalla dibuja su propio círculo gris.
 
-import { inicialesPorLetra } from '@/lib/iniciales';
-
-// Por letra entera, no `w[0]`: un nombre que empieza con emoji rompía la hidratación (ticket #10, lib/iniciales.ts).
-const iniciales = (nombre: string) => inicialesPorLetra(nombre);
+import { iniciales } from '@/lib/unicode-seguro';
 
 export function Avatar({ name, url, size = 32, cuadrado = false, color }: {
   name: string;

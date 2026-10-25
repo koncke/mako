@@ -1901,6 +1901,7 @@ function FunnelIcon({ color = 'currentColor', size = 17 }: { color?: string; siz
 // ⚠️ IMPORT **Y** EXPORT, no un `export … from`: ese no crea binding local y este
 // mismo archivo la usa mas abajo. Es la trampa que AGENTS.md ya tiene escrita.
 import { BarraAcciones } from '@/app/_components/BarraAcciones';
+import { iniciales } from '@/lib/unicode-seguro';
 export { BarraAcciones };
 export type { AccionPlegable } from '@/app/_components/BarraAcciones';
 
@@ -2981,7 +2982,7 @@ function ActorAvatar({ actor, nombre, avatarUrl, size = 24 }: { actor: Actor; no
   if (actor === 'code') return <span title="Claude Code" style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border-strong)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontFamily: MONO, fontWeight: 700, flex: 'none' }}>╱</span>;
   if (avatarUrl) /* eslint-disable-next-line @next/next/no-img-element */
     return <img src={avatarUrl} alt="" style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', flex: 'none' }} />;
-  const ini = (nombre || 'U').trim().slice(0, 1).toUpperCase();
+  const ini = iniciales(nombre, 1, 'U');
   return <span style={{ width: size, height: size, borderRadius: '50%', background: 'var(--surface-2)', border: '1px solid var(--border)', color: 'var(--dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.45, fontWeight: 700, flex: 'none' }}>{ini}</span>;
 }
 

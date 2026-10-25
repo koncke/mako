@@ -6748,7 +6748,7 @@ Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops 
 tocó las opciones y no pasó nada, escribió la respuesta a mano y ese mensaje quedó en «escrito» porque el turno estaba trabado:
 «Intenté responder esa pregunta en mobile y no funcionó... Está fallando». Desde el teléfono una pregunta así NO tiene respuesta
 posible: la app de Claude está en la computadora.
-Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
+Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una: un puntito por pregunta y las flechas ‹ › (sin «1 de 3» a la vista desde el 24/10/2026).
 Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
 
 ```json
@@ -10420,3 +10420,12 @@ revisión de «Completar» en lote. Para una corrida larga con avance y «Parar�
 puesto ANTES del primer `await`, como `correrWhatsapp` y `correrEmpresa` en app/crm/AccionesLoteLeads.tsx (el test lo
 vigila: ninguna de esas funciones llama a `start(`). `useTransition` sigue sirviendo para lo corto, donde da igual que el
 estado intermedio no se vea.
+
+# Una fuente nueva del Second Brain se suma con el molde del recolector (25/10/2026)
+
+El recolector (lib/recolector.ts, docs/diseno-second-brain-recolector.md) es el molde para Meta, Fathom y lo que venga: una
+vuelta por negocio adentro de SU `runWithWorkspace` y de «sólo su IA» (un cliente sin su IA no corre); lee con cada `error`
+mirado («no pude leer» no es «vacío»); resume en HECHOS (nunca copia el renglón crudo, y si no hay nada, no guarda); la
+procedencia va ESCRITA en el cuerpo de la entrada (el chat sólo recibe título y cuerpo); y la marca de su libro
+(`second_brain_recolectado`, con su `fuente`) avanza DESPUÉS de guardar. Nunca escribe hacia afuera. Fathom, además, con la
+cuenta de CADA negocio: nunca la de Martín. tests/second-brain-recolector*.test.ts.

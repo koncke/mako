@@ -34,6 +34,7 @@ import { TemplateDetalleModal, type PlantillaVista } from '../agencia/TemplateDe
 import { renderEmailHtml } from '@/lib/email-html';
 import { canalesDeMensaje, guardarCanalDeMensaje } from '@/lib/mensaje-canales';
 import { REMITENTE_MAKO } from '@/lib/app-url';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -146,7 +147,7 @@ export function BandejaEmail({ emails, endpoint }: { emails: string[]; endpoint:
           const llega = llegaPorMail(p);
           return (
             <button key={p.id} type="button" onClick={() => { setSel(p.id); setEditando(null); }} style={fila(p.id === abierto.id, !llega)}>
-              <Avatar letra={de.nombre.charAt(0).toUpperCase()} />
+              <Avatar letra={iniciales(de.nombre, 1)} />
               <span style={{ minWidth: 0, flex: 1 }}>
                 <span style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 }}>
                   <span style={{ fontSize: 13, fontWeight: llega ? 700 : 500, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -189,7 +190,7 @@ export function BandejaEmail({ emails, endpoint }: { emails: string[]; endpoint:
               </button>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
-              <Avatar letra={de.nombre.charAt(0).toUpperCase()} tam={34} />
+              <Avatar letra={iniciales(de.nombre, 1)} tam={34} />
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, color: 'var(--ink)', wordBreak: 'break-word' }}>
                   <strong style={{ fontWeight: 600 }}>{de.nombre}</strong>

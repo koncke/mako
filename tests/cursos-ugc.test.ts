@@ -439,6 +439,7 @@ test('invitar desde el editor: un modal, que abre el botón de arriba a la derec
   assert.match(app, /<button type="button" className="ugc-btn" data-recorrido="invitar" onClick=\{\(\) => setInvitando\(true\)\}>Invitar alumnos<\/button>/);
   // La marca es un rótulo desde el 24/10/2026 (f27): ni invitar, ni la vista del alumno, ni nada más ahí.
   assert.match(app, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/, 'la marca volvió a tener menú');
+  assert.doesNotMatch(app, /marca=\{\{[^}]*menu: /, 'la marca volvió a tener menú');
   assert.match(app, /\{invitando && \(\s*<ModalInvitarAlumnos productoId=\{servicio\.productoId\}/);
   assert.match(app, /acciones=\{barraDeArriba\}/);
   // La lista se prellena con el email del CRM.

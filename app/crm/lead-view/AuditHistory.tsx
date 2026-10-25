@@ -15,7 +15,7 @@ import { normalizar as normTxt } from '@/lib/buscar-texto';
 import { getLeadAuditAction, revertMoveAction, type LeadAuditRowFull } from '../actions';
 import { ConfirmDialog } from '../../components/ConfirmDialog';
 import { useTzWorkspace } from './useTzWorkspace';
-import { inicialesPorLetra } from '@/lib/iniciales';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -43,8 +43,7 @@ const sysColor = (a: string) => SYS_COLOR.get(a) ?? '#8A6D3B';
 /** Campos que cuentan como cambio de STATUS (el resto es INFORMACIÓN). */
 const STATUS_FIELDS = new Set(['Etapa', 'Estado', 'Nutrición manual', 'Auditoría']);
 
-// Por letra entera, no `w[0]`: medio emoji es «�» en el HTML del servidor (ticket #10, lib/iniciales.ts).
-const initials = (name: string) => inicialesPorLetra(name);
+const initials = (name: string) => iniciales(name);
 
 
 // Chip de etapa/estado: el punto lleva el color del funnel, así el recorrido se lee

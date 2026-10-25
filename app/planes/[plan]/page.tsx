@@ -14,8 +14,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
-import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
+import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
@@ -37,13 +37,13 @@ export default async function PlanPage({ params, searchParams }: {
   const origen = origenLimpio(Object.fromEntries(['landing', 'avatar', 'funcionalidad', 'utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'fbclid'].map((k) => [k, uno(k)])));
   const ref = codigoRefLimpio(uno('ref'));
   // El Acelerador NUNCA pasa por la pasarela (docs/estrategia-financiera-mako.md §1.7: con llamadas, un merchant of record
-  // no lo toma): siempre se pide, y se cobra aparte.
+  // no lo toma): siempre se pide, y se cobra aparte. Con el diagnóstico de 2 minutos como puerta (25/10/2026, el molde de
+  // Ropofy): tres preguntas, una por pantalla, y después los datos. La llamada arranca sabiendo dónde está su negocio.
   if (id === PROGRAMA_ACELERADOR.id) {
     const pr = PROGRAMA_ACELERADOR;
     return (
       <Ficha titulo={pr.nombre} precio={`US$ ${pr.precioUsd.toLocaleString('es-AR')} en ${pr.cuotas} cuotas de US$ ${Math.round(pr.precioUsd / pr.cuotas).toLocaleString('es-AR')}`}>
-        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para contarte cómo arranca tu cohorte.</p>
-        <QuieroPlan plan={pr.id} nombrePlan={pr.nombre} origen={origen} refCodigo={ref} />
+        <QuieroPlan plan={pr.id} nombrePlan={pr.nombre} origen={origen} refCodigo={ref} preguntas={PREGUNTAS_DE_LA_PUERTA} />
       </Ficha>
     );
   }
@@ -51,6 +51,16 @@ export default async function PlanPage({ params, searchParams }: {
   const oferta = await ofertaDelPlan(id, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
   if (!oferta) notFound();
   const { plan, pasarelas } = oferta;
+  // EL ANUAL (25/10/2026) se pide siempre, aunque haya pasarela: el checkout cobra por mes, y nunca se cobra un mes en lugar
+  // del año. Sin precio anual, la página del plan es la de siempre.
+  if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
+    return (
+      <Ficha titulo={`${plan.nombre}, anual`} precio={`US$ ${plan.precioAnualUsd.toLocaleString('es-AR')} por año: ${MESES_GRATIS_ANUAL} meses gratis`}>
+        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta. Empiezas con {PRUEBA_DIAS} días gratis.</p>
+        <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
+      </Ficha>
+    );
+  }
   const precio = pasarelas.map((x) => `${formatoMonto(x.monto, x.moneda)} por mes`).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || `US$ ${plan.precioUsd} por mes`;
   return (
     <Ficha titulo={plan.nombre} precio={precio}>

@@ -1,71 +1,36 @@
 // =============================================================================
-// /m/ads — «Ads Manager» en el teléfono: el período, el resumen y las campañas
+// /m/ads — el Media Buyer en el teléfono (25/10/2026)
 // =============================================================================
-// docs/diseno-mako-mobile-v2.md, «Ads Manager», y el prototipo (`data-ir="ads"`): segmentado de
-// período, el resumen en tres filas (Importe gastado, Resultados, Coste por resultado), las
-// campañas con su interruptor (prender / pausar con Deshacer), «Con problemas · N», y el sheet de
-// una campaña con el presupuesto diario (+/−) y por qué no entrega. Crear y subir, en la computadora.
+// El teléfono de Madgicx · AI Marketer (docs/media-buyer/referencias/madgicx/academy-11.png y academy-12.png): la tarjeta del
+// saludo con la mascota y el número de decisiones, las decisiones en una lista, y al tocar una, lo que cambia, los
+// números y el porqué, con «Descartar» y el botón de lanzar abajo («Swipe to Launch» → deslizar la fila a la derecha).
+// Reemplaza al Ads Manager del teléfono (período, resumen y campañas), que se borró con el de la computadora.
 //
-// Quién: la regla del Sidebar para `ads-manager` (sólo el admin del negocio). Quién ESCRIBE: el
-// guard de las escrituras de escritorio (`wsDeAdsManager`, lib/ads-guard.ts), mirado aquí también
-// para no ofrecer un interruptor que /api/meta-write va a rechazar. Y sólo si el workspace con el
-// que escribiría es el MISMO que se está mirando: si no, el interruptor movería otra cuenta.
-//
-// ⚠️ El período sale de `?periodo=` (validado contra los tres); el workspace NUNCA de la URL.
-// ⚠️ maxDuration 60: el rendimiento es una lectura paginada (getSenalesRecon) y el árbol de Meta
-//    son varias páginas de la Graph API cuando la caché venció.
+// Quién: la regla del Sidebar para `ads-manager` (el admin del negocio). Quién LANZA: el mismo guard de escritorio
+// (`wsDeAdsManager`), y sólo si el negocio con el que escribiría es el que se está mirando.
 // =============================================================================
 
 import { requireMovil } from '@/lib/movil-guard';
 import { wsDeAdsManager } from '@/lib/ads-guard';
-import { hoyEnTijuana } from '@/lib/date-utils';
-import { ComputadoraM, ErrorM, PantallaM, VacioM } from '@/app/m/_ui';
-import { AdsM } from './AdsM';
-import { leerAds } from './datos';
-import { periodoAdsDeParam } from './modelo';
-import './ads.css';
+import { PantallaM, VacioM } from '@/app/m/_ui';
+import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
+import { modoEfectivo } from '@/lib/media-buyer/plan';
+import { MediaBuyerM } from './MediaBuyerM';
+import '@/app/ads-manager/mb-paleta.css';
+import './mb-m.css';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 60;
 
-export default async function AdsPagina({ searchParams }: { searchParams: Promise<{ periodo?: string | string[] }> }) {
+export default async function MediaBuyerMovil() {
   const ctx = await requireMovil({ navKey: 'ads-manager' });
-  const p = await searchParams;
-  const periodo = periodoAdsDeParam(p.periodo);
-  // El «hoy» de escritorio (AdsManagerView): los períodos terminan ayer, ver ./modelo.ts.
-  const [lectura, op] = await Promise.all([leerAds(periodo.id, hoyEnTijuana()), wsDeAdsManager()]);
+  if (ctx.ws == null) return <PantallaM><VacioM frase="Elige un negocio para ver su Media Buyer." /></PantallaM>;
+  const [op, guardada, dec, cupo] = await Promise.all([wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws)]);
+  const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const puedeOperar = typeof op === 'number' && op === ctx.ws;
-
-  if (lectura.estado === 'sin_meta') {
-    return (
-      <PantallaM>
-        <VacioM frase="Meta no está conectado en este negocio." />
-        <ComputadoraM que="Conectar Meta en Integraciones" />
-      </PantallaM>
-    );
-  }
-  if (lectura.estado === 'token') {
-    // Reintentar no lo arregla: la conexión se rehace en Integraciones.
-    return (
-      <PantallaM>
-        <VacioM frase="La conexión con Meta venció." />
-        <ComputadoraM que="Reconectar Meta en Integraciones" />
-      </PantallaM>
-    );
-  }
-  if (lectura.estado === 'error') {
-    return (
-      <PantallaM>
-        <ErrorM frase="Meta no contestó. Vuelve a intentarlo en un momento." />
-        <ComputadoraM que="Crear campañas y subir anuncios" />
-      </PantallaM>
-    );
-  }
-
+  const nombre = (ctx.sesion.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
   return (
     <PantallaM>
-      <AdsM periodo={periodo.id} lectura={lectura} puedeOperar={puedeOperar} />
-      <ComputadoraM que="Crear campañas y subir anuncios" />
+      <MediaBuyerM nombre={nombre} config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} />
     </PantallaM>
   );
 }

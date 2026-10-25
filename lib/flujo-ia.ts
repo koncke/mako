@@ -116,7 +116,7 @@ import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './pl
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
 import type { PreguntaMako, ExtrasEdicionIA } from './automatizacion-chat';
 import type { CronAviso } from './cron-aviso';
-import { respuestaDelModelo } from './flujo-ia-consulta';
+import { faltaDelModelo, respuestaDelModelo } from './flujo-ia-consulta';
 import { OP_MOVER_ETAPA } from './flujo-legado';
 import { sinCitas, citasQueFaltan, minutosDelPedido } from './flujo-ia-intencion';
 
@@ -366,6 +366,8 @@ export type ResultadoEdicion = Omit<ResultadoIA, 'disparador'> & {
    * `pasos` son el borrador tal cual.
    */
   respuesta?: string;
+  /** Con la respuesta: lo que pidió y no está en MaKo (24/10/2026, f23). El globo ofrece pasárselo al equipo. */
+  falta?: string;
   /**
    * LO PEDIDO QUE NO SE HIZO (22/10/2026): lo que el modelo armó y no se pudo poner, y lo que el dueño pegó y no quedó en el
    * lienzo (`faltantesDelPedido`, la ruta). Va en ROJO; `avisos` son reparaciones, en gris. Con algo acá, MaKo no dice «Listo».
@@ -2630,9 +2632,11 @@ export function deIAEdicion(json: unknown, base: readonly PasoGrafo[], ctx: CtxI
   // terminaba en «Cambié 1» con el texto del video reescrito.
   const respuesta = respuestaDelModelo(o);
   if (respuesta) {
+    // Y si dijo que lo pedido no está en MaKo, lo que falta (f23, 24/10/2026): el globo ofrece pasárselo al equipo.
+    const falta = faltaDelModelo(o);
     return {
       pasos: base.map((p) => p as PasoIA), etiquetasNuevas: [], avisos: [], nombre: null,
-      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta,
+      agregadas: [], cambiadas: [], quitadas: [], resumen: respuesta, respuesta, ...(falta ? { falta } : {}),
     };
   }
   let pasos = base.map((p, i) => ({ ...(p as PasoIA), id: idDe(p, i) })) as PasoIA[];

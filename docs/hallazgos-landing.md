@@ -42,6 +42,28 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Cómo venden con landing los productos parecidos a MaKo, y la trampa del voseo (25/10/2026)
+
+**Vive en:** [como-venden-otros.md](como-venden-otros.md) (80 productos con landing, precios y frases verificados el 25/10, y
+la propuesta para la landing y los planes) · memoria `decisiones-venta-25-10`.
+
+- **Pedido de Martín:** «investigues al 100% como lo venden otros... tipo landing page, no saas super consolidados». Los SaaS
+  grandes van marcados como contraste.
+- **Lo que más se repite:**
+  - vender un EQUIPO (el media buyer, el setter, el diseñador) y compararlo con lo que cuesta contratarlo;
+  - la pila de herramientas que se reemplaza, con la cuenta hecha;
+  - el control (límites, aprobar, deshacer) en todo lo que toca plata.
+- **Los huecos que MaKo puede ocupar:**
+  - nadie vende un media buyer en español para pymes de LATAM por menos de US$100;
+  - ninguno decide por llamadas agendadas del CRM;
+  - nadie usa «tu IA, al costo» como argumento;
+  - nadie cobra la suscripción con Mercado Pago.
+- **La trampa:** los titulares de la investigación vienen en voseo, y la interfaz va en español NEUTRO, con tú: «El producto se
+  usa en México» (`tests/puente-panel-copy.test.ts`). Hay que traducirlos antes de ponerlos. El Cerebro mismo lo pidió mal en
+  el primer mensaje a Landings, y lo corrigió.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La landing y el sistema de diseño
 
 ### ⚠️ La landing no comparte NI UN token con la app: un rebrand no la toca

@@ -70,8 +70,8 @@ test('1. la pregunta de un wrap_up queda superada cuando el chat siguió sin el 
   assert.equal(sanearPreguntas([{ ...w, superada: yo.at }])[0].superada, undefined, 'lo que sube la PC nunca viene superado');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /const n = ps\.filter\(estaAbierta\)\.length;/, 'el globito no la cuenta');
   assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /if \(p\.superada\) return \{ ok: false, error: 'Ya no espera tu respuesta: el chat siguió\.', yaContestada: true \};/, 'no se contesta');
-  assert.match(sinComentarios(leer('lib/centro-turnos-db.ts')), /await superarConTurnos\(turnos\)/, 'guardar los turnos la supera');
-  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(superarPreguntas\(antes, turnos\), nuevas\), turnos\)/, 'y guardar la pregunta también, si el turno llegó antes (y antes de unir)');
+  assert.match(sinComentarios(leer('lib/centro-turnos-db.ts')), /await superarConTurnos\(turnos, cadena\)/, 'guardar los turnos la supera (con la cadena del chat: tests/preguntas-cadena-y-ask.test.ts)');
+  assert.match(sinComentarios(leer('lib/centro-preguntas-chat-db.ts')), /superarPreguntas\(unirPreguntas\(superarPreguntas\(antes, turnos, cadena\), nuevas\), turnos, cadena\)/, 'y guardar la pregunta también, si el turno llegó antes (y antes de unir)');
   assert.match(sinComentarios(leer('app/admin/operaciones/PreguntaChat.tsx')), /const abierta = !r && !p\.superada && !enviada && !!onResponder;/, 'el formulario no se toca');
 });
 
@@ -152,5 +152,5 @@ test('5. la respuesta con el message, el pegado de Word, y la vuelta que no pudo
   assert.match(textoDeRespuesta(w, [0], null), /\n1\. Commit: Commiteá lo de hoy$/, 'lo que el mismo clic en la app le manda');
   assert.match(textoDeRespuesta({ ...w, origen: undefined }, [0], null), /\n1\. Commit$/, 'en una de `preguntar`, el título como siempre');
   assert.match(leer('app/second-brain/useChatCliente.ts'), /if \(e\.clipboardData\.files\.length && !Array\.from\(e\.clipboardData\.types\)\.includes\('text\/plain'\)\) return;/, 'un pegado con texto sigue siendo documento');
-  assert.match(leer('lib/operaciones.ts'), /try \{ preguntasIds = await guardarPreguntas\(preguntas\); \} catch \(err\) \{ turnosOk = false;/, 'sin guardarlas, la marca no avanza');
+  assert.match(leer('lib/operaciones.ts'), /try \{ preguntasIds = await guardarPreguntas\(preguntas, cadena\); \} catch \(err\) \{ turnosOk = false;/, 'sin guardarlas, la marca no avanza');
 });

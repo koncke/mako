@@ -255,6 +255,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/ads/guiones/{ad_id}/transcripcion', 'ver_transcript_anuncio'],
   ['GET', '/ads/identidades', 'listar_identidades_meta'],
   ['GET', '/ads/incidentes', 'listar_incidentes_meta'],
+  // El Media Buyer (25/10/2026): verlo, pedirle que mire la cuenta y descartar una decisión. Lanzar, deshacer, el modo y los
+  // topes no salen por HTTP (mueven plata: se confirman en la pantalla).
+  ['GET', '/ads/media-buyer', 'ver_media_buyer'],
+  ['POST', '/ads/media-buyer/analisis', 'analizar_cuenta_media_buyer'],
+  ['POST', '/ads/media-buyer/decisiones/{decisionId}/descarte', 'descartar_decision_media_buyer'],
   ['GET', '/ads/motivos-venta-llamada', 'listar_motivos_venta_llamada'],
   ['GET', '/ads/pixeles', 'listar_pixeles_meta'],
   ['GET', '/ads/pixeles/{pixel}/eventos', 'listar_eventos_pixel_meta'],
@@ -606,6 +611,12 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── curso (08/10/2026: migrar un curso con Claude) ─────────────────────────
   ['GET', '/curso/cursos', 'listar_cursos'],
   ['GET', '/curso/cursos/{productoId}', 'ver_curso'],
+  // El programa entero (25/10/2026): como un repo de GitHub. POST a /copias es el «Create a fork»; PATCH lo renombra;
+  // DELETE lo archiva (vuelve: no es un borrado) y la restauración lo devuelve, como la de una clase.
+  ['PATCH', '/curso/cursos/{productoId}', 'renombrar_curso'],
+  ['DELETE', '/curso/cursos/{productoId}', 'eliminar_curso'],
+  ['POST', '/curso/cursos/{productoId}/copias', 'duplicar_curso'],
+  ['PUT', '/curso/cursos/{productoId}/restauracion', 'restaurar_curso'],
   ['POST', '/curso/cursos/{productoId}/modulos', 'crear_modulo_curso'],
   ['PUT', '/curso/cursos/{productoId}/modulos', 'ordenar_modulos_curso'],
   ['PATCH', '/curso/cursos/{productoId}/modulos/{clave}', 'renombrar_modulo_curso'],

@@ -15,6 +15,7 @@ import { puedeApagar, rotuloDeVarios } from './dropdown-varios';
 import { altoMaximoDelMenu, lugarDelMenu, CAJA_MENU, SEPARACION_MENU } from './dropdown-lugar';
 import { conBuscador, estiloDeVariante, anchoPorDefecto, columnasDeSeccion, type VarianteDropdown } from './dropdown-reglas';
 import { IconoMenu, esIconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const SANS = "'Geist', sans-serif";
 
@@ -41,7 +42,7 @@ export function IconoOpcion({ icono, size = 18 }: { icono: IconoDeOpcion; size?:
 
 // Avatar de una opción-persona: foto de perfil o iniciales. Se muestra cuando la
 // opción trae la prop `avatar` (string = foto · null = persona sin foto → iniciales).
-const optIniciales = (name: string) => name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+const optIniciales = (name: string) => iniciales(name);
 // `cuadrado` = imagen rectangular con esquinas apenas redondeadas (banderas de
 // país): una bandera recortada en círculo pierde la mitad del diseño.
 function OptAvatar({ url, name, size = 22, cuadrado = false }: { url: string | null | undefined; name: string; size?: number; cuadrado?: boolean }) {

@@ -12,6 +12,7 @@ import 'server-only';
 import { headers } from 'next/headers';
 import { HEADER_QUERY, HEADER_RUTA } from './api-tab';
 import { queryComoSearchParams, type QueryDelPedido } from './pedido-actual-reglas';
+import { pedidoInterno } from './movil-desvio';
 
 export { queryComoSearchParams, type QueryDelPedido };
 
@@ -20,4 +21,15 @@ export { queryComoSearchParams, type QueryDelPedido };
 export async function pedidoActual(): Promise<{ ruta: string | null; query: QueryDelPedido }> {
   const h = await headers();
   return { ruta: h.get(HEADER_RUTA), query: queryComoSearchParams(h.get(HEADER_QUERY) ?? '') };
+}
+
+/**
+ * Lo mismo para un layout de /m (25/10/2026): la ruta y la query que recibe SU página. En un teléfono el proxy sirve /chats con
+ * la página de /m/chats, y los headers dicen /chats: `pedidoInterno` (lib/movil-desvio.ts) lo traduce como el proxy. null = el
+ * pedido no es de una pantalla de /m.
+ */
+export async function pedidoMovilActual(): Promise<{ ruta: string; query: QueryDelPedido } | null> {
+  const h = await headers();
+  const p = pedidoInterno(h.get(HEADER_RUTA), h.get(HEADER_QUERY) ?? '');
+  return p ? { ruta: p.ruta, query: queryComoSearchParams(p.search) } : null;
 }

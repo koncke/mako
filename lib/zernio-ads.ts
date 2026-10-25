@@ -28,12 +28,12 @@ export async function claveZernioAnuncios(ws: number): Promise<string | null> {
   return credDelCliente('ZERNIO_API_KEY', ws);
 }
 
-async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }): Promise<T> {
+async function zAds<T>(clave: string, path: string, init?: RequestInit & { headers?: Record<string, string> }, timeoutMs = 90_000): Promise<T> {
   const res = await fetch(`${ZERNIO_BASE}${path}`, {
     ...init,
     headers: { authorization: `Bearer ${clave}`, 'content-type': 'application/json', ...(init?.headers ?? {}) },
     // Crear un anuncio sube media y espera a Meta: más que los 20 s del canal.
-    signal: AbortSignal.timeout(90_000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   const text = await res.text();
   let body: unknown = null;
@@ -80,19 +80,30 @@ export async function conexionAnunciosZernio(ws: number, adAccountId: string | n
  * de Meta, `loginMode=business`: crea una conexión `metaads` aparte). La ventana de Facebook dice
  * «Zernio», no MaKo. El profile es el Default de SU cuenta de Zernio.
  */
-export async function urlConectarAnunciosZernio(ws: number, redirectUrl: string): Promise<string> {
+export async function urlConectarAnunciosZernio(ws: number, redirectUrl: string, adAccountId?: string | null): Promise<{ url: string } | { yaConectado: true }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   const p = await zAds<{ profiles?: Array<{ _id: string; isDefault?: boolean }> }>(clave, '/profiles');
   const perfil = (p.profiles ?? []).find((x) => x.isDefault) ?? p.profiles?.[0];
   if (!perfil) throw new ZernioError('Zernio: la cuenta no tiene ningún profile para conectar', 0, null);
-  const q = new URLSearchParams({ profileId: perfil._id, loginMode: 'business', redirect_url: redirectUrl });
-  const r = await zAds<{ authUrl: string }>(clave, `/connect/facebook/ads?${q.toString()}`);
-  return r.authUrl;
+  // `advertise` (Administrar campañas) alcanza para campañas, conjuntos, creativos, anuncios y reportes, y es lo que
+  // un dueño le da a una integración sin darle la facturación. Con la cuenta publicitaria se acota lo que Zernio
+  // sincroniza a ESA cuenta (medido el 25/10/2026 con la de MaKo: devuelve la ventana de Facebook).
+  const q = new URLSearchParams({ profileId: perfil._id, loginMode: 'business', permissionLevel: 'advertise', redirect_url: redirectUrl });
+  const act = adAccountId ? normalizarCuentaMeta(adAccountId) : null;
+  if (act) q.set('adAccountId', act);
+  const r = await zAds<{ authUrl?: string; alreadyConnected?: boolean }>(clave, `/connect/facebook/ads?${q.toString()}`);
+  if (r.alreadyConnected) return { yaConectado: true };
+  if (!r.authUrl) throw new ZernioError('Zernio no devolvió el link para conectar', 0, null);
+  return { url: r.authUrl };
 }
 
 /** Crea UN anuncio (en pausa) con el cuerpo de `cuerpoAnuncioEnConjunto`. Devuelve el id de Meta. */
-export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string): Promise<{ adId: string; zernioId: string | null }> {
+/**
+ * `timeoutMs`: con un video por URL (`video.url`), Zernio lo baja, lo sube a Meta y espera que lo procese antes de contestar:
+ * puede pasar del minuto. Si el tiempo se corta, reintentar con la MISMA clave de idempotencia devuelve la respuesta original.
+ */
+export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string, timeoutMs = 90_000): Promise<{ adId: string; zernioId: string | null }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   const r = await zAds<unknown>(clave, '/ads/create', {
@@ -100,7 +111,7 @@ export async function crearAnuncioPorZernio(ws: number, cuerpo: Record<string, u
     // Un reintento después de un corte no publica dos veces (Zernio acepta Idempotency-Key, tope 255).
     headers: { 'Idempotency-Key': idempotencia.slice(0, 255) },
     body: JSON.stringify(cuerpo),
-  });
+  }, timeoutMs);
   return idsDelAnuncioCreado(r);
 }
 
@@ -122,4 +133,134 @@ export async function cambiarTextosPorZernio(
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   await zAds<unknown>(clave, `/ads/${encodeURIComponent(adId)}`, { method: 'PUT', body: JSON.stringify(cuerpoCambiarTextos(edited)) });
+}
+
+// =============================================================================
+// El Media Buyer opera la cuenta por Zernio (25/10/2026)
+// =============================================================================
+// Martín, 25/10: «que ya funcione el tema de Zernio para que funcione completamente el tema de Meta». Lo que el
+// agente necesita, leído en el OpenAPI de Zernio v1.353.0 (zernio.com/openapi.json, 25/10/2026):
+//   · prender o pausar: PUT /v1/ads/campaigns/{id}/status · /ad-sets/{id}/status · /ads/{id}/status. Leen el
+//     interruptor EN VIVO antes de escribir y, si ya estaba así, no escriben (`skipped: 1`).
+//   · presupuesto diario: PUT /v1/ads/campaigns/{id} (CBO; en ABO contesta 409) o PUT /v1/ads/ad-sets/{id} (ABO), con
+//     `budget: { amount, type: 'daily' }` en la MONEDA de la cuenta, en unidades (no centavos).
+//   · variar un anuncio: POST /v1/ads/{id}/duplicate (en pausa, mismo conjunto) y PUT /v1/ads/{copia} con el
+//     `creative` nuevo (Zernio crea el creativo, como Meta: son inmutables).
+//   · leer: GET /v1/ads/tree (campañas → conjuntos → anuncios con métricas y presupuestos).
+// `platform: 'facebook'` es obligatorio en campañas y conjuntos: los ids de plataforma no son únicos entre redes.
+// =============================================================================
+
+export type EstadoMeta = 'ACTIVE' | 'PAUSED';
+
+/** Prende o pausa una campaña, un conjunto o un anuncio. Devuelve el interruptor leído DESPUÉS (o null si Zernio no lo pudo leer). */
+export async function cambiarEstadoPorZernio(ws: number, nivel: 'campaign' | 'adset' | 'ad', id: string, estado: EstadoMeta): Promise<{ leido: string | null; escribio: boolean }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const status = estado === 'ACTIVE' ? 'active' : 'paused';
+  const ruta = nivel === 'campaign' ? `/ads/campaigns/${encodeURIComponent(id)}/status`
+    : nivel === 'adset' ? `/ads/ad-sets/${encodeURIComponent(id)}/status` : `/ads/${encodeURIComponent(id)}/status`;
+  const body = nivel === 'ad' ? { status } : { status, platform: 'facebook' };
+  const r = await zAds<{ updated?: number; skipped?: number; platformCampaignStatus?: string | null; platformAdSetStatus?: string | null; configuredStatus?: string | null }>(clave, ruta, { method: 'PUT', body: JSON.stringify(body) });
+  const leido = nivel === 'campaign' ? r.platformCampaignStatus ?? null : nivel === 'adset' ? r.platformAdSetStatus ?? null : r.configuredStatus ?? null;
+  return { leido, escribio: r.updated === 1 };
+}
+
+/** Cambia el presupuesto DIARIO (moneda de la cuenta, en unidades) de una campaña CBO o de un conjunto ABO. */
+export async function cambiarPresupuestoPorZernio(ws: number, nivel: 'campaign' | 'adset', id: string, monto: number): Promise<{ monto: number | null }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  if (!(monto > 0)) throw new ZernioError('Presupuesto inválido', 0, null);
+  const ruta = nivel === 'campaign' ? `/ads/campaigns/${encodeURIComponent(id)}` : `/ads/ad-sets/${encodeURIComponent(id)}`;
+  const r = await zAds<{ budget?: { amount?: number } }>(clave, ruta, {
+    method: 'PUT', body: JSON.stringify({ platform: 'facebook', budget: { amount: Math.round(monto * 100) / 100, type: 'daily' } }),
+  });
+  return { monto: r.budget?.amount ?? null };
+}
+
+/**
+ * Una variación de un anuncio que ya existe: lo duplica EN PAUSA en su mismo conjunto y le cambia los textos.
+ * Conserva todo lo demás del original (la media, el botón, el formulario o el link, la página y el Instagram).
+ * Si cambiar los textos falla, la copia se BORRA: un anuncio igual al original no es una variación.
+ */
+export async function variacionPorZernio(
+  ws: number,
+  adId: string,
+  textos: { primary_text?: string; headline?: string },
+  opts: { nombre: string; idempotencia: string },
+): Promise<{ adId: string }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const dup = await zAds<{ copiedAdId?: string }>(clave, `/ads/${encodeURIComponent(adId)}/duplicate`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': opts.idempotencia.slice(0, 255) },
+    body: JSON.stringify({ statusOption: 'PAUSED', renameStrategy: 'DEEP_RENAME', renameSuffix: ` · ${opts.nombre}`.slice(0, 60) }),
+  });
+  const copia = dup.copiedAdId ? String(dup.copiedAdId) : '';
+  if (!/^\d+$/.test(copia)) throw new ZernioError('Zernio no devolvió el id de la copia del anuncio', 0, null);
+  try {
+    await zAds<unknown>(clave, `/ads/${encodeURIComponent(copia)}`, { method: 'PUT', body: JSON.stringify(cuerpoCambiarTextos(textos)) });
+  } catch (e) {
+    await zAds<unknown>(clave, `/ads/${encodeURIComponent(copia)}`, { method: 'DELETE' }).catch(() => null);
+    throw e;
+  }
+  return { adId: copia };
+}
+
+/** Borra un anuncio que creó MaKo (deshacer una variación). Zernio lo deja como `cancelled` en su árbol. */
+export async function borrarAnuncioPorZernio(ws: number, adId: string): Promise<void> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  await zAds<unknown>(clave, `/ads/${encodeURIComponent(adId)}`, { method: 'DELETE' });
+}
+
+type ZBudget = { amount?: number; type?: string } | null | undefined;
+type ZAd = { platformAdId?: string; name?: string; status?: string; configuredStatus?: string | null; platformCreatedAt?: string | null; creativeType?: string | null; metrics?: { spend?: number; impressions?: number; conversions?: number; reach?: number }; creative?: { thumbnailUrl?: string | null; imageUrl?: string | null } };
+type ZAdSet = { platformAdSetId?: string; adSetName?: string; status?: string; createdTime?: string | null; adSetBudget?: ZBudget; ads?: ZAd[]; metrics?: { spend?: number } };
+type ZCampaign = { platformCampaignId?: string; campaignName?: string; status?: string; platformCampaignStatus?: string | null; createdTime?: string | null; campaignBudget?: ZBudget; budgetLevel?: 'campaign' | 'adset' | null; currency?: string; adSets?: ZAdSet[] };
+
+/**
+ * El árbol de la cuenta por Zernio, con las métricas del rango. Para la cuenta que NO tiene token propio de Meta con
+ * permisos de anuncios (la de MaKo: su token es el del botón, sin `ads_read`). Hasta 50 campañas, de la más nueva, con
+ * el desglose DIARIO por anuncio (`timeIncrement=1&dailyLevel=ad`): de ahí salen las ventanas de 3, 7 y 14 días.
+ */
+export async function arbolPorZernio(ws: number, conexion: ConexionAnunciosZernio, desde: string, hasta: string): Promise<{ campanas: ZCampaign[]; moneda: string | null }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const q = new URLSearchParams({ accountId: conexion.accountId, adAccountId: conexion.adAccountId, platform: 'facebook', fromDate: desde, toDate: hasta, limit: '50', source: 'all', timeIncrement: '1', dailyLevel: 'ad' });
+  const r = await zAds<{ campaigns?: ZCampaign[] }>(clave, `/ads/tree?${q.toString()}`);
+  const campanas = r.campaigns ?? [];
+  return { campanas, moneda: campanas.find((c) => c.currency)?.currency ?? null };
+}
+
+export type { ZCampaign, ZAdSet, ZAd };
+
+/** Los textos de un anuncio leídos por Zernio (para cuando el negocio no tiene token propio de Meta). */
+export async function leerAnuncioPorZernio(ws: number, adId: string): Promise<{ body: string | null; linkUrl: string | null } | null> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) return null;
+  const r = await zAds<{ ad?: { creative?: { body?: string | null; linkUrl?: string | null } } | null }>(clave, `/ads/${encodeURIComponent(adId)}`);
+  const c = r.ad?.creative;
+  return c ? { body: c.body ?? null, linkUrl: c.linkUrl ?? null } : null;
+}
+
+/**
+ * Crea una campaña ENTERA (campaña + conjunto + anuncio) con un creativo nuevo, por la Zernio del negocio: `POST /v1/ads/create`
+ * en la forma «legacy». `status: 'PAUSED'` pausa la campaña (lo de adentro queda prendido: un solo «prender» la larga).
+ * Devuelve los ids de Meta de las tres cosas.
+ */
+export async function crearCampanaPorZernio(ws: number, cuerpo: Record<string, unknown>, idempotencia: string): Promise<{ campaignId: string | null; adSetId: string | null; adId: string }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const r = await zAds<{ ad?: { platformAdId?: string; platformCampaignId?: string; platformAdSetId?: string } }>(clave, '/ads/create', {
+    method: 'POST', headers: { 'Idempotency-Key': idempotencia.slice(0, 255) }, body: JSON.stringify(cuerpo),
+  }, 180_000);
+  const { adId } = idsDelAnuncioCreado(r);
+  return { campaignId: r.ad?.platformCampaignId ? String(r.ad.platformCampaignId) : null, adSetId: r.ad?.platformAdSetId ? String(r.ad.platformAdSetId) : null, adId };
+}
+
+/** Borra una campaña (con lo que tenga adentro) por la Zernio del negocio. `accountId` hace falta si quedó vacía. */
+export async function borrarCampanaPorZernio(ws: number, campaignId: string, accountId?: string): Promise<void> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  await zAds<unknown>(clave, `/ads/campaigns/${encodeURIComponent(campaignId)}`, { method: 'DELETE', body: JSON.stringify({ platform: 'facebook', ...(accountId ? { accountId } : {}) }) });
 }

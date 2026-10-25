@@ -56,6 +56,7 @@ import { ComputadorasDelNegocio } from './ComputadorasDelNegocio';
 import { desconectarComputadoraAction } from './operaciones/acciones';
 import { leerCentro } from './operaciones/lectura-centro';
 import type { LecturaComputadoras } from '@/lib/ia-pc-reglas';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * Las computadoras de UN cliente, para su ficha (23/10/2026: salieron de «Tus cuentas de IA» del super admin, donde se
@@ -100,10 +101,7 @@ const fmtLogin = (iso: string | null) => {
   return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
 };
 
-const inicialesTxt = (base: string) => {
-  const partes = (base || '?').trim().split(/\s+/).filter(Boolean);
-  return (partes.length >= 2 ? `${partes[0][0]}${partes[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
-};
+const inicialesTxt = (base: string) => iniciales(base);
 
 /**
  * El girador de la espera.

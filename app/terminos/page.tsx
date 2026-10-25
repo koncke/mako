@@ -14,6 +14,7 @@
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
+import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
 export const dynamic = 'force-dynamic';
@@ -171,6 +172,10 @@ export default function Page() {
         <li>
           <strong>Los planes mensuales son una suscripción</strong>: se cobran por adelantado y se
           renuevan solos cada mes, con el mismo medio de pago, hasta que los canceles.
+        </li>
+        <li>
+          <strong>Empiezan con {PRUEBA_DIAS} días gratis</strong>, con tu tarjeta cargada: si te das de baja antes
+          del día {PRUEBA_DIAS + 1}, no se te cobra nada; si no, ese día se cobra solo el primer período.
         </li>
         <li>
           <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}

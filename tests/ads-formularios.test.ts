@@ -37,13 +37,3 @@ test('listLeadForms lee con el token de la página, no con el de usuario', () =>
   //   ROTO A PROPÓSITO (2026-09-11): volviendo a pedir con cred('META_ACCESS_TOKEN'),
   //   pass 1 / fail 1 — «listLeadForms tiene que pedir con tokenDePagina()».
 });
-
-test('un error al leer los formularios no se pinta como «no tienes formularios»', () => {
-  const src = sinComentarios(leer('app/ads-manager/NuevaCampanaModal.tsx').replace(/\r/g, ''));
-  assert.doesNotMatch(src, /setLeadForms\(it \?\? \[\]\)/, 'eso convierte un rechazo de Meta en lista vacía');
-  assert.match(src, /setLeadFormsError\(/);
-  // El texto de «no hay» sólo sale cuando NO hubo error.
-  assert.match(src, /leadForms\.length === 0 && !leadFormsError/);
-  //   ROTO A PROPÓSITO (2026-09-11): sacando `&& !leadFormsError` del JSX, pass 1 / fail 1 —
-  //   el «No hay formularios instantáneos» volvía a salir debajo del error real.
-});

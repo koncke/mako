@@ -4,6 +4,23 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «¿Cómo abro MaKo?» y «quiero otra cuenta de Claude»: la app de escritorio, en la llamada con Leandro (25/10/2026)
+
+- **f02** (Leandro, recién instalado): «¿Cómo abro MaKo? (...) Se me descargó algo, pero en la computadora no lo puedo ver». No
+  era que no se instaló: `mako-pc` corre ESCONDIDO a propósito (contesta los turnos y arranca con Windows), y el instalador no
+  creaba ningún acceso. Ahora deja «MaKo» en el menú Inicio y en el escritorio (`installer/windows/mako.iss`, `[Icons]`), que
+  corre `mako-pc abrir`: el Ops Center del negocio conectado en el navegador, o «Tus cuentas de IA» para conectarla si no lo está.
+- **f03:** «Ahí te debería dejar elegir otra cuenta, no solamente detectar la que ya está abierta». La autorización de Claude se
+  abre en el navegador de siempre y Claude la da con la cuenta que ya está abierta ahí, sin preguntar. La página local de
+  `mako-pc` ofrece «¿Otra cuenta de Claude?»: el MISMO enlace para abrir en una ventana de incógnito; el código se pega igual.
+- **⚠️ NO llega sola a nadie:** hace falta armar y publicar la 0.4.3 (Inno Setup en esta PC, `scripts/ia-pc/publicar-binarios.mts`)
+  y recién ahí subir `VERSION_PC` (lib/ia-pc-reglas.ts) y la de `mako-pc.mjs`. Subir la versión ANTES rompe «Descargar MaKo»
+  (el nombre del archivo sale de `VERSION_PC`), y armar con 0.4.2 pisaría el binario publicado. La Mac (MaKo.app) no tiene
+  accesos que crear: abrirla desde Finder ya hace lo suyo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (`destinoDeAbrir`, `abrirMaKo`, `otraCuenta`) · `installer/windows/mako.iss` ·
+`tests/ia-pc-abrir.test.ts`
+
 **Lo que más muerde acá:**
 
 - El prompt que leés en el archivo **no es** el que recibe el modelo: `brandSystem` le

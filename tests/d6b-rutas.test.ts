@@ -94,6 +94,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // El interruptor de «Aprende solo» (P8, 25/10/2026): guarda el setting second-brain.recolector; la vuelta que le pide a la IA es el cron, adentro de conSuIADelNegocio.
+  { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector del negocio (un setting): no le pide nada a una IA; la que lee es la vuelta del cron, con la IA del negocio' },
   // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
   { unidad: 'app/plan/board/tarjeta-actions.ts#guardarTarjetaPlanAction', usa: ['exigirSesion', 'getRolWsEfectivo', 'setTarjetaPlan'], porque: 'guarda cómo se ve la tarjeta de quien mira (usuarios.perfil): no le pide nada a una IA' },
   // El chat: abrir y listar las conversaciones (el turno, el POST, prende).

@@ -3469,4 +3469,84 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '20:55', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La llamada con Leandro: WhatsApp, «Completar nombres» y el texto largo',
+    pedido: '«Eso es un error, ahí si apretás el botón de WhatsApp debería llevarte al chat dentro de Maco.» · «En completar nombres, si no tenés instalada la extensión de Maco (...) eso es un bug (...) ese botón te debería decir instala la extensión de Maco y que ahí directamente comience.» · «Es otro feedback, el texto muy largo. No me gustan textos largos.» · Leandro, sobre completar los datos: «Ah, no lo vi eso, a ver, vamos a verlo.»',
+    puntos: [
+      'De la llamada de Fathom con Leandro (docs/feedback-24-10.md, «La llamada con Leandro»): f15, f12, f13 y f11. Los pasó el Cerebro.',
+      'f14 (una sola pasada en «Datos de empresa») lo decide Martín: choca con el tope del día puesto a propósito.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '00:39', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'WhatsApp abre el chat de MaKo, y «Completar nombres» pide la extensión',
+    puntos: [
+      'El botón de WhatsApp abre la conversación del lead en Chats, adentro de MaKo: en la tarjeta, la lista, el clic derecho y el «⋯» de la ficha. También para un lead que todavía no tiene mensajes.',
+      '«Completar nombres» sin la extensión ya no completa a medias sin decir por qué: dice «Instala la extensión de MaKo» con el botón para instalarla, y empieza sola cuando la extensión aparece.',
+      'Ojo: en la pestaña que ya estaba abierta, Chrome recién ve la extensión al recargar. La pantalla lo dice. Para que arranque sin recargar falta un cambio en la extensión (anotado).',
+      'La pregunta de «Datos de empresa» queda en una línea: «40 de los 221 que faltan, unos 2 min. No les llega nada.»',
+      '«Completar nombres» aparece abajo, sin abrir el «⋯», después de traer un grupo.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '83f243abe', msg: 'CRM: «WhatsApp» abre el chat de MaKo y «Completar nombres» pide la extensión y arranca sola (llamada con Leandro, f15 f12 f13 f11)', lineas: 285, archivos: 11 },
+    ],
+    archivos: [
+      'app/crm/CrmBoard.tsx · app/crm/lead-view/ficha/FichaPorBloques.tsx — WhatsApp a Chats',
+      'app/crm/TraerDeGrupoWA.tsx · app/crm/usar-extension-fichas.ts — completar por la extensión',
+      'app/crm/enriquecer-cliente.ts — la pregunta corta',
+      'tests/crm-whatsapp-en-mako.test.ts · tests/crm-completar-con-extension.test.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '25 oct', hora: '00:56', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«Datos de empresa» de una sola vez',
+    pedido: '«Eso funciona mal, yo ahora lo voy a arreglar porque no debería volver a tocar nada, o sea, debería extraerte todo.» (la llamada con Leandro, 24/10) · «implementa todos los feedback... no hagas preguntas» (25/10, por el Cerebro)',
+    puntos: [
+      'f14 de la llamada con Leandro. El Cerebro decidió sacar el tope, creyendo que venía del costo de Apify.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '00:56', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Datos de empresa» consulta todo de un toque',
+    puntos: [
+      'Antes consultaba de a 40 y había que volver a tocar. Ahora un toque consulta todo lo que falta.',
+      'El tope de 120 por día queda: no era por el costo de Apify, era para que WhatsApp no bloquee tu línea por consultar muchos perfiles. Cuando llega, lo dice en una línea: «Faltan 182: tócalo mañana».',
+      '«Completar desde mi WhatsApp» (la extensión) ya leía todo de una vez: no se tocó.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '5b7a9d85f', msg: 'CRM · «Datos de empresa» en una sola pasada: sin tope por corrida; el del día queda porque cuida la línea (f14)', lineas: 116, archivos: 8 },
+    ],
+    archivos: [
+      'lib/grupo-wa-reglas.ts — sin tope por corrida; el del día queda',
+      'app/crm/enriquecer-cliente.ts — el aviso al cortar, en una línea',
+      'app/crm/grupo-wa-server.ts',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '25 oct', hora: '01:43', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El panel de MaKo de la ficha ya no queda tapado por la barra de arriba',
+    puntos: [
+      'Cuando arriba de MaKo aparece una barra (la de «Estás viendo el negocio de…», o el aviso de que la voz se cayó), el panel de MaKo de la ficha queda debajo de ella, con su aire.',
+      'Con el aviso de la voz caída, que también ve un cliente, el panel quedaba tapado, con el botón de cerrar adentro.',
+      'Medido en un navegador con las tres barras. Sin ver en producción todavía.',
+    ],
+    commits: [
+      { sha: 'f36918c92', msg: 'CRM · ficha: el panel flotante de MaKo flota debajo de la barra de inspección y de la alerta de la voz', lineas: 25, archivos: 3 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx — el panel suma la barra',
+      'tests/barra-inspeccion-alto.test.ts (4)',
+    ],
+    revisar: '/crm',
+  },
 ];

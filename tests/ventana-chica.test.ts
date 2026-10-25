@@ -40,8 +40,9 @@ test('debajo de 1200 px la barra principal arranca plegada a íconos (y la flech
   // La misma regla que el Ops Center: plegada por defecto, la flecha la fija abierta SIN tocar la preferencia guardada.
   // (Y desde el 22/10/2026 también con el panel de MaKo abierto: tests/sidebar-mako-abierto.test.ts.)
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
-  assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
-  assert.match(sb, /if \(plegadaAca\) \{ setAbiertaAca\(v\); if \(!v\) setExpanded\(false\); return; \}/);
+  // Lo que hace la flecha ahí (y que se recuerde al desplegarla), con su recorrido: tests/sidebar-plegada-por-defecto.test.ts.
+  assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
+  assert.match(sb, /if \(plegadaAca\) setAbiertaAca\(v\);/);
 });
 
 test('el molde de ajustes y el modal de un servicio se angostan en el MISMO corte que la barra', () => {

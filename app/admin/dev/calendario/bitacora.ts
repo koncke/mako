@@ -147,4 +147,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/calendario?vista=llamadas',
   },
+  {
+    fecha: '25 oct', hora: '00:32', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Implementar todo el feedback de punta a punta, sin preguntas',
+    pedido: 'implementa todos los feedback y todo lo que hacia falta end to end, no hagas preguntas... mañana yo vere los avances. Cuida la ram',
+    puntos: [
+      'Lo pasó el Cerebro. Para el Calendario: lo que quedó sin hacer de «Llamadas».',
+    ],
+    revisar: '/calendario?vista=llamadas',
+  },
+  {
+    fecha: '25 oct', hora: '00:32', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Llamadas»: marcar si asistió en la misma fila, y la lista en el teléfono',
+    puntos: [
+      'En una llamada que ya empezó, el estado es un desplegable: Sin marcar, Asistió o No vino. Guarda igual que la ficha del lead (con su historial y su «Deshacer»).',
+      'Si marcar que no vino a la R1 le borra el calificado al lead, te lo pregunta antes.',
+      'En pantallas más chicas, las tareas con fecha bajan debajo de la lista en vez de desaparecer.',
+      'En el teléfono, el Calendario tiene «Día · Agenda · Llamadas»: la misma lista, y tocar una llamada abre la ficha.',
+      'La recarga que se vio en la llamada con Leandro (f09) quedó sin cambiar: le pedí al Cerebro el tramo de la grabación para ver qué pasó antes de tocarlo.',
+    ],
+    commits: [
+      { sha: '55cfb3263', msg: 'Calendario › Llamadas: marcar la asistencia en la fila, y las tareas que ya no se esconden', lineas: 159, archivos: 4 },
+      { sha: 'c489d7275', msg: 'Calendario › Llamadas en el teléfono, y la cosecha de la segunda tanda', lineas: 196, archivos: 7 },
+    ],
+    archivos: [
+      'app/calendario/ListaLlamadas.tsx — el desplegable de asistencia y la confirmación',
+      'app/m/calendario/LlamadasM.tsx — «Llamadas» en el teléfono',
+      'lib/calendario-llamadas.ts — cuándo se puede marcar y qué avisar',
+      'tests/calendario.test.ts — 7 roturas más, cada una cae',
+    ],
+    revisar: '/calendario?vista=llamadas',
+  },
 ];

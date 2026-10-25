@@ -247,8 +247,8 @@ export async function enviarPasoSocial(input: {
       if (k > desde) await dormir(PAUSA_ENTRE_PARTES_MS);
       if (p.tipo === 'texto') {
         const t = aplicarVariables(p.cuerpo, vars).trim();
-        const aca = conBotones && k === ultima;
-        if (t) { await enviarDm(ws, salida.conversacionId, { accountId: salida.cuentaId, texto: t, idempotencyKey: `${idempotencia}#${k}`, ...(aca ? { botones } : {}) }); textos.push(t); }
+        const conLosBotones = conBotones && k === ultima;
+        if (t) { await enviarDm(ws, salida.conversacionId, { accountId: salida.cuentaId, texto: t, idempotencyKey: `${idempotencia}#${k}`, ...(conLosBotones ? { botones } : {}) }); textos.push(t); }
       } else if (p.tipo === 'media') {
         const adj = await getAdjunto(p.media_id);
         if (!adj) return { ok: false, salieron, textos, destino, error: 'el archivo del paso ya no existe', backoffHoras: 24 };

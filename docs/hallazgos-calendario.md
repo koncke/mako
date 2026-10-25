@@ -210,11 +210,27 @@ Maco, movéme la reunión, agendame tal o tal». Chat «Planes», cuenta 5, a pe
 - **`.gc-pestanas` ya existía** en app/calendario/gc-css.ts (otra pieza): el selector nuevo va con `.gc-que-ver`. Antes de
   nombrar una clase en una hoja de 170 reglas, `grep`.
 
-**Sin hacer:** marcar la asistencia desde la lista (el «Status» de HighLevel es un desplegable): hoy se marca en la ficha o
-pidiéndoselo a MaKo, porque cambia la etapa y lo que se le manda a Meta. Debajo de 1100 px las tareas se esconden. El
-teléfono (app/m/calendario) no tiene «Llamadas». «Se ve muy como Google» en la GRILLA sigue: lo pidió así Martín el 14/10
-(«copia fiel»); rehacerla es su decisión. **Vive en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx ·
-app/calendario/comun.ts (`entidadDelItem`) · lib/calendario-llamadas.ts · lib/calendario.ts (`leerLlamadasDeVenta`,
+**25/10, la segunda tanda (Martín: «implementa todos los feedback... no hagas preguntas»):**
+- **Marcar la asistencia en la fila no es un camino nuevo de escritura:** es `guardarCampoLeadAction(lead, 'asistio_j1')`,
+  el MISMO de la ficha (historial, etapa derivada, Meta, «Deshacer» con `deshacerCampoLeadAction`). Escribir `asistio_jX`
+  con un update suelto saltaba todo eso. **La trampa:** en la R1, todo lo que no sea «asistió» BORRA el calificado
+  (`updateLead`: `asistio_j1 !== true` → calificado = null), también DESMARCAR. Por eso la lectura trae el calificado y la
+  lista pregunta antes (`avisoAlMarcar`). Sólo se marca una reunión que ya empezó (`sePuedeMarcar`).
+- **«Llamadas» en el teléfono** (app/m/calendario/LlamadasM.tsx) usa las MISMAS funciones puras que la computadora (el
+  estado, las pestañas, `rotuloDelDia`, `TONO_ESTADO_LLAMADA`, en lib/calendario-llamadas.ts) y se entra por el selector de
+  vistas (Día · Agenda · Llamadas). La asistencia se marca en la ficha (un desplegable en una fila de 44 px no se toca bien).
+  El número azul va sólo en lo que espera algo (las pasadas sin marcar), como pide la guía del teléfono.
+- **Debajo de 1100 px las tareas bajan** debajo de la tabla y la columna entera scrollea (antes se escondían).
+- **f09, la recarga: SIN SÍNTOMA, no se arregla a ciegas.** El Cerebro leyó el tramo entero de la llamada (11:04-15:11):
+  Martín dice «ahí darle a recargar porque algo está...» y en el acto pasa a otra cosa; nadie dice qué se veía mal ni qué
+  cambió al recargar (docs/feedback-24-10.md: «no es un bug: no hay síntoma»). Queda medido, por si vuelve con un síntoma:
+  leer Google hace el refresco del token (8 s), la lista de calendarios (10 s) y tandas de 4 calendarios con 10 s cada una,
+  en serie: con 9 calendarios, ~48 s antes de dibujar. Si el síntoma es ése, la salida es un presupuesto TOTAL para Google
+  (lo que no llegue, a `fallaron`, que ya se muestra).
+
+**Sin hacer:** «Se ve muy como Google» en la GRILLA sigue a propósito (Martín, 25/10: «lo tengo que personalizar»). **Vive
+en:** app/calendario/ListaLlamadas.tsx · app/calendario/Pestanas.tsx · app/calendario/comun.ts (`entidadDelItem`) ·
+app/m/calendario/LlamadasM.tsx · lib/calendario-llamadas.ts · lib/calendario.ts (`leerLlamadasDeVenta`,
 `leerTareasConFecha`) · tests/calendario.test.ts.
 
 ## Lo que quedó SIN hacer

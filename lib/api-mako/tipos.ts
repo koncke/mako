@@ -71,9 +71,11 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
   equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
-  // Los TÍTULOS no cambian (son la clave del área). La tab sí: desde el 17/10/2026 Clientes, Curso y Comunidad son UNA
-  // tab, Clients, con sub-tabs (docs/diseno-clients.md); las rutas viejas redirigen.
-  cs: { titulo: 'Customer Success', tab: 'Clients', ruta: '/clients' },
+  // La CLAVE del área (`cs`) no cambia: la usan los tokens y los permisos. El título sí, porque es lo que MaKo lee y
+  // dice (el prompt de los pedidos, la referencia, el permiso de un token): desde el 17/10/2026 Clientes, Curso y
+  // Comunidad son UNA tab, Clients (docs/diseno-clients.md), y el 24/10 MaKo le mandó a Leandro a buscar los cursos en
+  // «Customer Success», una tab que ya no existe (f30 de la llamada).
+  cs: { titulo: 'Clients (la cartera y su entrega)', tab: 'Clients', ruta: '/clients' },
   curso: { titulo: 'Curso (módulos y clases)', tab: 'Clients › Classroom', ruta: '/clients/classroom' },
   // La comunidad de cada producto (posts, comentarios, eventos), 17/10/2026: sale SÓLO por HTTP, como `curso`.
   comunidad: { titulo: 'Comunidad', tab: 'Clients › Community', ruta: '/clients/community' },

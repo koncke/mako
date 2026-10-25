@@ -26,6 +26,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { VistaConPie } from '@/app/_ui/VistaConPie';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -126,6 +127,8 @@ export function MoldeTraer({ arriba, pasos, fuente, destino, resumen, mas = [], 
               {estado.accion.texto}
             </button>
           )}
+          {/* Sólo se dibuja si es un error (lee el `role` de este span): todo aviso de error lo lleva (tests/reportar-a-soporte). */}
+          <ReportarASoporte />
         </span>
       )}
       <span style={{ flex: 1 }} />

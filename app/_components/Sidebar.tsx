@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
@@ -42,6 +42,7 @@ import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -82,7 +83,7 @@ type Tema = 'oscuro' | 'claro';
  * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
  */
 /** Las iniciales de un nombre (la foto cuando no hay foto). */
-const inicialesDe = (nombre: string) => nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || '·';
+const inicialesDe = (nombre: string) => iniciales(nombre, 2, '·');
 /** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
 const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
 
@@ -144,6 +145,26 @@ function useVentanaAngosta(): boolean {
     () => window.matchMedia(MQ_ANGOSTA).matches,
     () => false,
   );
+}
+/**
+ * ¿La barra va abierta y fija? (25/10/2026, la regresión del 24/10). Donde se pliega SOLA (`plegadaAca`: el Ops Center,
+ * Automations, la ventana chica, MaKo abierto) manda lo que la flecha hizo EN ESA VISITA; en el resto, lo guardado.
+ * ⚠️ Era `guardada && (!plegadaAca || abiertaAca)`: cuando la guardada era «si» por defecto andaba, pero desde que la barra
+ *    arranca plegada (`mk-nav-fija-v2`, 24/10) la guardada es «no» para casi todos, y la flecha en esas pantallas abría la
+ *    barra en `abiertaAca` sin que `fija` se enterara: se desplegaba con el cursor encima y se volvía a plegar al salir.
+ *    Martín: «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada».
+ */
+export function barraFija(guardada: boolean, plegadaAca: boolean, abiertaAca: boolean): boolean {
+  return plegadaAca ? abiertaAca : guardada;
+}
+/**
+ * Qué guarda la flecha (`null`: nada). DESPLEGARLA SE RECUERDA SIEMPRE, también donde la barra se pliega sola: así la
+ * próxima tab la encuentra abierta. Plegarla en una de esas pantallas es de ese rato y no se guarda (22/10: «si antes la tenía
+ * desplegada y fija, al cerrar MaKo debe volver a su lugar»).
+ */
+export function loQueGuardaLaFlecha(v: boolean, plegadaAca: boolean): boolean | null {
+  if (v) return true;
+  return plegadaAca ? null : false;
 }
 function guardarFija(v: boolean) {
   try { window.localStorage.setItem(FIJA, v ? 'si' : 'no'); } catch { /* sin almacenamiento */ }
@@ -238,7 +259,7 @@ export function identidadStyle(open: boolean, activo: boolean): CSSProperties {
 export function Identidad({ open, nombre, avatar, subrotulo }: {
   open: boolean; nombre: string; avatar?: string; subrotulo: string;
 }) {
-  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
+  const ini = iniciales(nombre, 2, '');
   return (
     <>
       {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de perfil
@@ -247,7 +268,7 @@ export function Identidad({ open, nombre, avatar, subrotulo }: {
         {avatar
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : iniciales}
+          : ini}
       </div>
       {open && (
         <>
@@ -284,7 +305,13 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
         <ItemIcon item={item} size={size} />
         {!expanded && <Contador n={badge} compacto />}
       </span>
-      {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && !item.bajada && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && item.bajada && (
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+          <span className="mk-navrow__bajada">{item.bajada}</span>
+        </span>
+      )}
       {expanded && <Contador n={badge} />}
       {expanded && pro && <Candado />}
       {expanded && item.comingSoon && (
@@ -292,7 +319,8 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
       )}
     </>
   );
-  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : item.label, ...(pro ? { 'data-pro': '' } : {}) };
+  const nombre = item.bajada ? `${item.label} · ${item.bajada}` : item.label;
+  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : nombre, ...(pro ? { 'data-pro': '' } : {}) };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -497,10 +525,12 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const plegadaAca = enOpsCenter || angosta || makoAbierto;
   const [abiertaAca, setAbiertaAca] = useState(false);
   useEffect(() => { setAbiertaAca(false); }, [plegadaAca]);
-  const fija = fijaGuardada && (!plegadaAca || abiertaAca);
+  const fija = barraFija(fijaGuardada, plegadaAca, abiertaAca);
   const setFija = (v: boolean) => {
-    if (plegadaAca) { setAbiertaAca(v); if (!v) setExpanded(false); return; }
-    setFijaEstado(v); guardarFija(v); if (!v) setExpanded(false);
+    const guardar = loQueGuardaLaFlecha(v, plegadaAca);
+    if (guardar != null) { setFijaEstado(guardar); guardarFija(guardar); }
+    if (plegadaAca) setAbiertaAca(v);
+    if (!v) setExpanded(false);
   };
   const open = fija || expanded || userOpen || !!flyout;
 
@@ -883,6 +913,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
                 { item: t, donde: f.sinRotulo ? null : f.label },
                 ...(t.secciones ? seccionesVisibles(t, vistaNav).filter((x) => x.href !== t.href).map((item) => ({ item, donde: t.label })) : []),
+                ...(t.adentro ?? []).map((k) => SIN_FILA.find((x) => x.key === k)).filter((x): x is NavItem => !!x && puedeVer(x)).map((item) => ({ item, donde: t.label })),
               ])),
               ...USER_NAV.filter((it) => (!it.adminOnly || adminShell) && puedeVer(it)).map((item): Destino => ({ item, donde: 'Settings' })),
               ...(adminShell ? [...SUPERADMIN_MENU, ...PRONTO].map((item): Destino => ({ item, donde: 'Platform' })) : []),

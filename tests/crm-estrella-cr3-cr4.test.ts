@@ -75,7 +75,8 @@ test('la estrella y el panel encima de un modal: más arriba que su contenido, y
   assert.equal(zEncimaDeModales(1), 133);
   assert.ok(zEncimaDeModales(2) > 130 + 2 * 1 + 1, 'arriba del segundo modal y su caja');
   const pieza = sinComentarios(leer('app/_chat/MakoEnLaTab.tsx'));
-  assert.match(pieza, /style=\{\{ left: borde \+ 16, \.\.\.\(encimaDeModales && prof > 0 \? \{ zIndex: zEncimaDeModales\(prof\) \} : \{\}\) \}\}/);
+  // (24/10/2026, f34: al lado de lo que SE VE de la barra: tests/estrella-al-lado-de-la-barra.test.ts.)
+  assert.match(pieza, /style=\{\{ left: bordeVisible \+ 16, \.\.\.\(encimaDeModales && prof > 0 \? \{ zIndex: zEncimaDeModales\(prof\) \} : \{\}\) \}\}/);
   assert.match(pieza, /const capa = useCapaModal\(sobre, \{ anidada: true \}\);/, 'el panel entra a la pila sin tapar la tarjeta');
   assert.match(pieza, /if \(e\.key === 'Escape' && !menuWA && !infoWA && !conectando && \(!sobre \|\| capa\.esElDeArriba\(\)\)\) onCerrar\(\);/);
   // Sin el prop (el CRM, cuya ficha ya tiene a MaKo a la izquierda), lo de siempre.

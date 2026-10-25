@@ -1,30 +1,20 @@
 // =============================================================================
-// /configuraciones/notificaciones — «Configuración del negocio» › Notificaciones (15/10/2026)
+// /configuraciones/notificaciones — redirige a Settings › Notificaciones, a la parte del negocio (25/10/2026)
 // =============================================================================
-// A quién le avisa MaKo lo del NEGOCIO (los reportes, los avisos por WhatsApp y por correo): la mitad
-// `negocio` de NotificacionesPanel. Lo de la persona (el pop-up y el sonido de su navegador) vive en
-// «Tu cuenta» › Notificaciones. Acá aterrizan los 49 avisos que dicen `/configuraciones?tab=notif`.
+// Hasta el 25/10/2026 era su propia página («Configuración del negocio» › Notificaciones: a quién le avisa MaKo lo del negocio),
+// y el índice de Settings mostraba «Notificaciones» DOS veces (Martín lo marcó). Ahora las dos partes viven en
+// /perfil/notificaciones; ésta queda porque acá caen los 49 avisos que dicen `/configuraciones?tab=notif` (lib/ajustes-secciones.ts
+// → rutaDeTabVieja) y los links ya mandados. Con el mismo guard del negocio de antes, y el resto de la query (el `?ws=` del
+// cliente que se mira).
 
+import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
-import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, FilaAjustes, GrupoAjustes, TituloAjustes } from '../../_ui/Ajustes';
-import { NotificacionesPanel } from '../../perfil/NotificacionesPanel';
+import { conLaQuery } from '@/lib/ajustes-secciones';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-export default async function NotificacionesNegocioPage() {
+export default async function NotificacionesNegocioPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireRolWs([], { nav: 'configuraciones' });
-  return (
-    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'notificaciones')} activa="notificaciones">
-      <TituloAjustes titulo="Notificaciones" bajada="A quién le avisa MaKo lo del negocio. Qué dice cada aviso se arma en Automations." />
-      <div style={{ marginBottom: 20 }}>
-        <NotificacionesPanel parte="negocio" />
-      </div>
-      <GrupoAjustes>
-        <FilaAjustes icono="avisar" titulo="Tus avisos en la app" detalle="El pop-up y el sonido son tuyos: viven en Tu cuenta" href="/perfil/notificaciones" />
-      </GrupoAjustes>
-    </AjustesPagina>
-  );
+  redirect(`${conLaQuery('/perfil/notificaciones', await searchParams)}#negocio`);
 }

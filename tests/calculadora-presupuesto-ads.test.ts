@@ -199,17 +199,3 @@ test('a MaKo le llegan las entradas y el plan, no sólo la pregunta', () => {
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (p: string) => readFileSync(join(RAIZ, p), 'utf8').replace(/\r\n/g, '\n');
-
-test('el Ads Manager abre la calculadora y monta la estrella con el pedido', () => {
-  const b = fuente('app/ads-manager/CampanasBrowser.tsx');
-  assert.match(b, /label: 'Calcular presupuesto', icono: '[a-z]+', onClick: \(\) => setCalcOpen\(true\)/);
-  // Desde el 24/10 lleva además lo medido de los anuncios (tests/calculadora-sin-cuenta.test.ts).
-  assert.match(b, /<CalculadoraPresupuesto [^>]*onCerrar=\{\(\) => setCalcOpen\(false\)\} onPreguntarMako=\{\(texto\) => setPedidoMako/);
-  assert.match(b, /<MakoEnLaTab tab="Ads Manager" modo="analizar" pedido=\{pedidoMako\} encimaDeModales \/>/);
-  // La pantalla NO hace la cuenta: la importa.
-  const c = fuente('app/ads-manager/CalculadoraPresupuesto.tsx');
-  assert.match(c, /calcularPresupuestoAds\(entrada\)/);
-  assert.doesNotMatch(c, /RESULTADOS_PARA_DECIDIR \* |\/ DIAS_RONDA/);
-  // Y la API de MaKo usa la misma función.
-  assert.match(fuente('lib/api-mako/areas/ads.run.ts'), /calcular_presupuesto_anuncios: \{[\s\S]{0,200}calcularPresupuestoAds\(/);
-});

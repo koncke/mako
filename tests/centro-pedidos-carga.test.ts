@@ -52,12 +52,12 @@ test('3. las páginas mandan la carga liviana, la lista se arma con todos, y el 
   }
   const motor = sinComentarios(leer('app/admin/operaciones/useCentro.ts'));
   assert.match(motor, /const faltan = pedidosQueFaltan\(c\.pedidos,/, 'al abrir un chat (mirar)');
-  assert.match(motor, /leerCentro<.*?>\('pedidos', \{ id: faltan \}\)/, 'por GET, que no hace cola');
+  assert.match(motor, /leerCentro<.*?>\('trabajos', \{ id: faltan \}\)/, 'por GET, que no hace cola');
   const acc = sinComentarios(leer('app/admin/operaciones/acciones.ts'));
   const cuerpo = acc.slice(acc.indexOf('export async function pedidosDelChatAction('), acc.indexOf('export async function pushesCentroAction('));
   assert.match(cuerpo, /if \(!puedeOperar\(admin, await wsSuperAdmin\(\)\)\) return \{ ok: false, error: NO_PUEDE \};/, 'sólo quien opera');
   assert.match(cuerpo, /\.slice\(0, TOPE_PEDIDOS_POR_LECTURA\)/, 'con tope');
-  assert.match(sinComentarios(leer('app/api/operaciones/lectura/route.ts')), /pedidos: \(req\) => pedidosDelChatAction\(req\.nextUrl\.searchParams\.getAll\('id'\)\),/);
+  assert.match(sinComentarios(leer('app/api/operaciones/lectura/route.ts')), /trabajos: \(req\) => pedidosDelChatAction\(req\.nextUrl\.searchParams\.getAll\('id'\)\),/);
 });
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, base 3/0):

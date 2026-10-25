@@ -30,8 +30,16 @@ const tramo = (src: string, desde: string, hasta: string) => {
   return src.slice(i, j);
 };
 
-test('f27: la marca del Classroom es un RÓTULO (sin menú ni clic): CursoUgc la dibuja sin botón', () => {
-  assert.match(APP, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/);
+// Martín, 25/10/2026 (al leer que la tanda 3 le había puesto clic derecho): «recuerda que en la sidebar negra de classroom
+// el título de arriba de la sidebar no debe ser un desplegable». TEXTO: sin botón, sin menú, sin flecha, sin clic derecho.
+test('f27: el título de la barra negra del Classroom es TEXTO: sin botón, ni menú, ni flecha, ni clic derecho', () => {
+  assert.match(APP, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/, 'el Classroom le pasa algo más que el texto a la marca');
+  assert.doesNotMatch(APP, /useMenuPrograma|onMenuContextual/, 'el título volvió a abrir el menú del programa');
+  const ugc0 = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
+  const rotulo = tramo(ugc0, '<div className="ugc-side-brand" data-recorrido="marca"', '</div>');
+  assert.doesNotMatch(rotulo, /onContextMenu|onClick|<button|ugc-side-brand-chev|aria-expanded|role=/, 'el rótulo se comporta como un botón');
+  assert.match(ugc0, /<div className="ugc-side-brand" data-recorrido="marca">\s*<span className="ugc-side-name">/);
+  assert.doesNotMatch(sinComentarios(leer('app/_cursos/tipos.ts')), /onMenuContextual/, 'volvió la puerta para un menú en la marca');
   assert.doesNotMatch(APP, /menu: menuMarca|const menuMarca|ItemMenuUgc|TituloMenuUgc/, 'volvió el desplegable de la barra');
   const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
   assert.match(ugc, /\) : \(\s*<div className="ugc-side-brand" data-recorrido="marca">/, 'sin menú ni onClick la marca tiene que ser un div');
@@ -39,7 +47,7 @@ test('f27: la marca del Classroom es un RÓTULO (sin menú ni clic): CursoUgc la
 
 test('f28: UN selector, el de la cabecera; cada programa es un link (la guarda de la lección lo ataja)', () => {
   const prog = tramo(SHELL, 'function Programa(', 'function Personalizar(');
-  assert.match(prog, /<Link key=\{p\.id\} href=\{hrefDe\(p\.id\)\}/);
+  assert.match(prog, /<Link href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
   assert.match(SHELL, /hrefDe=\{\(id\) => hrefConPrograma\(pathname, search, id\)\}/);
   assert.doesNotMatch(SHELL, /router\.push\(/);
   // La guarda que lo ataja: los links del documento, en captura (app/customer-success/curso/LeccionEditable.tsx).
@@ -69,3 +77,5 @@ test('f29: el alumno no ve «Tu programa» en una LISTA de programas (se leía c
 //   la marca con un menú otra vez → 1 / 44 · los programas como botones y no links → 2 / 43 (éste y «salir con
 //   cambios pregunta») · «+ Nuevo producto» sin la puerta del admin → 1 / 44 · el aviso del color sin «Deshacer» →
 //   1 / 44 · sin «Otro color» → 1 / 44 · el alumno con «Tu programa» en la lista → 1 / 44.
+// Y el título de la barra negra como TEXTO (25/10/2026, romper-titulo.mjs): un `onContextMenu` en el rótulo · una flecha
+// (`ugc-side-brand-chev`) adentro · un `onClick` en la marca desde el Classroom → cada una, 1 fallo y 3 pases (4 tests).

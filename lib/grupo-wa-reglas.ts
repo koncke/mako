@@ -322,17 +322,19 @@ export function lineaDeGrupos(grupos: readonly string[]): string | null {
 /** De a cuántas fichas manda la pantalla: cada una son unas pocas escrituras (~0,3 s), lejos de los 60 s de una acción. */
 export const TANDA_FICHAS = 40;
 
-// ── «Datos de empresa» con TOPE (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo antes
-// de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────────
+// ── «Datos de empresa» con TOPE POR DÍA (24/10/2026, el Cerebro: «tope duro por corrida y por día; la cuenta real y el tiempo
+// antes de arrancar») ─────────────────────────────────────────────────────────────────────────────────────────────────────
 // Cada consulta de perfil es tráfico en la RED de una línea no oficial (riesgo de baneo, docs/hallazgos-comunicacion.md).
 // El cupo del día y los teléfonos ya consultados viven en `app_settings`, por línea (app/crm/grupo-wa-server.ts).
+// ⚠️ SIN TOPE POR CORRIDA desde el 25/10/2026. Martín en la llamada con Leandro (24/10, f14): «no debería volver a tocar nada,
+// o sea, debería extraerte todo». El de 40 por corrida sólo partía el trabajo en toques: lo que cuida la línea es la espera
+// entre consultas (`ESPERA_PERFIL_MS`) y el tope del DÍA, que siguen. NO era por el costo de Apify (eso fue otra cosa, que se
+// revirtió el 24/10): era por el baneo. Un toque consulta todo lo que falta hasta el tope del día.
 
 /** Cuántos leads toma un lote de «Completar» del tablero: lo mismo que la extensión lee de una vez (extension/wa-fichas.js). */
 export const TOPE_LOTE_COMPLETAR = 5000;
 
-/** Cuántos perfiles consulta UNA corrida (un toque del botón). */
-export const TOPE_PERFILES_CORRIDA = 40;
-/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. */
+/** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. Cuida la línea de un baneo. */
 export const TOPE_PERFILES_DIA = 120;
 /** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */
 export const SEGUNDOS_POR_PERFIL = 2.6;
@@ -369,9 +371,9 @@ export function vistosConNuevos(raw: string | null, nuevos: readonly string[]): 
   return JSON.stringify(todos.slice(-TOPE_VISTOS));
 }
 
-/** Cuántos consulta ESTA corrida: lo que falta, lo que queda hoy y lo que le queda a la corrida (`hechas` ya consultados). */
-export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number; hechas: number }): number {
-  return Math.max(0, Math.min(p.pendientes, p.quedanHoy, TOPE_PERFILES_CORRIDA - Math.max(0, p.hechas)));
+/** Cuántos consulta ESTA corrida: todo lo que falta, hasta lo que queda hoy (sin tope por corrida desde el 25/10, f14). */
+export function cuantosEstaCorrida(p: { pendientes: number; quedanHoy: number }): number {
+  return Math.max(0, Math.min(p.pendientes, p.quedanHoy));
 }
 
 /** Los minutos que se le dicen a la persona antes de arrancar (redondeado para arriba: mejor que sobre a que falte). */

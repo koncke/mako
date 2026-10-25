@@ -7,14 +7,14 @@
 // manda en el HTML como «�» (UTF-8 no tiene cómo escribir medio emoji); el navegador, al hidratar, tiene la mitad cruda.
 // Son dos textos distintos y React tira la pantalla.
 //
-// Por eso se cuenta por LETRA ENTERA (`[...w]`, por punto de código) y sólo letras y números: un emoji, un paréntesis o
-// un @ no son iniciales («Juan (ventas)» daba «J(»). Lo que sale tiene que volver igual después de pasar por UTF-8.
-// Lo fija tests/iniciales-hidratacion.test.ts.
+// Por eso se cuenta por LETRA ENTERA y sólo letras y números: un emoji, un paréntesis o un @ no son iniciales («Juan
+// (ventas)» daba «J(»). Lo que sale tiene que volver igual después de pasar por UTF-8. Lo fija tests/iniciales-hidratacion.test.ts.
+//
+// ⚠️ UNA SOLA PIEZA (25/10/2026, al juntar las ramas): el mismo día el Ops Center hizo `iniciales` en lib/unicode-seguro.ts
+// para las diecisiete copias de `w[0]` de la app (lo había visto Automations), con la misma regla. Quedó ésa; este nombre
+// sigue para quien ya lo usa y la llama.
+
+import { iniciales } from './unicode-seguro';
 
 /** «Ana Gómez» → «AG»; «🧪 Martín arnés» → «MA»; «Juan (ventas)» → «JV». Sin ninguna letra, `vacio`. */
-export function inicialesPorLetra(nombre: string | null | undefined, vacio = '?'): string {
-  const letras = String(nombre ?? '').trim().split(/\s+/)
-    .map((w) => [...w.replace(/[^\p{L}\p{N}]/gu, '')][0])
-    .filter((c): c is string => Boolean(c));
-  return letras.slice(0, 2).join('').toUpperCase() || vacio;
-}
+export const inicialesPorLetra = (nombre: string | null | undefined, vacio = '?'): string => iniciales(nombre, 2, vacio);

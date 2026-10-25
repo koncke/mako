@@ -58,10 +58,6 @@ test('las dos pantallas usan las acciones del CRM y no escriben el setting a man
   assert.match(celda, /hayQuePreguntar\(previa\.aTraer, null\)/, 'la regla sale de la función compartida');
   assert.match(celda, /pide\.sumar \? preguntaSumar\(pide\) : preguntaAsignar\(pide\)/);
 
-  assert.match(sinComentarios(leer('app/ads-manager/CampanasBrowser.tsx')), /<ProductoCelda/, 'la tabla ofrece la celda');
-
-  // Una campaña recién creada no tiene leads: asignarla NO puede traer nada.
-  const modal = sinComentarios(leer('app/ads-manager/NuevaCampanaModal.tsx'));
-  assert.match(modal, /asignarCampanaAction\(funnelDeValor\(producto\), \{[^}]*\}, false\)/);
-  //   ROTO A PROPÓSITO (2026-10-05): con `true`, pass 3 / fail 1.
+  // Hasta el 25/10/2026 la tabla del Ads Manager ofrecía la celda y «Nueva campaña» asignaba sin traer leads. Las dos se
+  // borraron con la réplica de Meta Ads Manager (la reemplazó el Media Buyer): la celda vive sólo en el CRM.
 });

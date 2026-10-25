@@ -27,7 +27,7 @@ const LEER: Record<LecturaCentro, (req: NextRequest) => Promise<unknown>> = {
   // Los chats (`l`, repetido) y la dirección del chat (`dir`) para su borrador y sus marcas.
   turnos: (req) => turnosCentroAction(req.nextUrl.searchParams.getAll('l'), req.nextUrl.searchParams.get('dir') ?? undefined),
   // Los pedidos terminados viejos de un chat (`id`, repetido), al abrirlo.
-  pedidos: (req) => pedidosDelChatAction(req.nextUrl.searchParams.getAll('id')),
+  trabajos: (req) => pedidosDelChatAction(req.nextUrl.searchParams.getAll('id')),
 };
 
 export async function GET(req: NextRequest) {

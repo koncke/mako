@@ -11,10 +11,21 @@
 // Los datos salen del CRM, como la capa «Llamadas» de la grilla (lib/calendario.ts, `leerLlamadasDeVenta`): la R1 y la R2
 // de cada lead con su hora (`junta_X_at`) o sólo su día (`fecha_junta_X`), y la asistencia (`asistio_jX`). Una reunión
 // CANCELADA conserva su hora y pierde la fecha (docs/hallazgos-calendario.md). Acá, sin base ni red: el estado y las
-// pestañas, con test.
+// pestañas, con test. Lo usan la computadora (app/calendario/ListaLlamadas.tsx) y el teléfono (app/m/calendario/LlamadasM.tsx).
 // =============================================================================
 
+import { fechaLarga, sumarDias } from './calendario-modelo';
+
 export type CualReunion = 'R1' | 'R2';
+
+/** «Hoy», «Mañana», «Ayer» o la fecha larga con mayúscula: lo primero que se lee en una agenda de ventas. */
+export function rotuloDelDia(dia: string, hoy: string): string {
+  if (dia === hoy) return 'Hoy';
+  if (dia === sumarDias(hoy, 1)) return 'Mañana';
+  if (dia === sumarDias(hoy, -1)) return 'Ayer';
+  const f = fechaLarga(dia);
+  return f.charAt(0).toUpperCase() + f.slice(1);
+}
 
 export type LlamadaDeVenta = {
   /** `crm:<lead>:R1`: el mismo id que la capa «Llamadas» de la grilla. */
@@ -31,6 +42,8 @@ export type LlamadaDeVenta = {
   asistio: boolean | null;
   /** Conserva la hora y perdió la fecha. */
   cancelada: boolean;
+  /** El calificado del lead: marcar que no vino a la R1 (o desmarcarla) lo borra, y se le dice antes. */
+  calificado?: boolean | null;
 };
 
 export type EstadoLlamada = 'agendada' | 'asistio' | 'no-vino' | 'sin-marcar' | 'cancelada';
@@ -41,6 +54,15 @@ export const TEXTO_ESTADO_LLAMADA: Readonly<Record<EstadoLlamada, string>> = {
   'no-vino': 'No vino',
   'sin-marcar': 'Sin marcar',
   cancelada: 'Cancelada',
+};
+
+/** El tono de la pastilla del teléfono (`PildoraM`) para cada estado: los colores de la computadora. */
+export const TONO_ESTADO_LLAMADA: Readonly<Record<EstadoLlamada, 'info' | 'good' | 'bad' | 'warn' | 'neutro'>> = {
+  agendada: 'info',
+  asistio: 'good',
+  'no-vino': 'bad',
+  'sin-marcar': 'warn',
+  cancelada: 'neutro',
 };
 
 export const PESTANAS_LLAMADAS = [
@@ -77,6 +99,25 @@ export function llamadasDeLaPestana(lista: readonly LlamadaDeVenta[], pestana: P
   return pestana === 'proximas'
     ? vivas.filter((l) => finDe(l) > ahora).sort(asc)
     : vivas.filter((l) => finDe(l) <= ahora).sort((a, b) => asc(b, a));
+}
+
+// ── Marcar la asistencia desde la lista (25/10/2026: el «Status» de HighLevel es un desplegable en la fila) ───────────
+// Escribe por el MISMO camino que la ficha del lead (`guardarCampoLeadAction` con `asistio_j1`/`asistio_j2`): la etapa
+// derivada, el historial, el «Deshacer» y lo que se le manda a Meta salen de ahí, no de acá.
+
+/** Sólo una reunión que no se canceló y que ya empezó: marcar que «asistió» a una de la semana que viene no es un dato. */
+export const sePuedeMarcar = (l: Pick<LlamadaDeVenta, 'inicio' | 'cancelada'>, ahoraIso: string): boolean =>
+  !l.cancelada && Date.parse(l.inicio) <= Date.parse(ahoraIso);
+
+export const campoDeAsistencia = (cual: CualReunion): 'asistio_j1' | 'asistio_j2' => (cual === 'R2' ? 'asistio_j2' : 'asistio_j1');
+
+/**
+ * Lo que hay que decir ANTES de marcar: en la R1, todo lo que no sea «asistió» borra el calificado del lead (`updateLead`:
+ * `asistio_j1 !== true` → calificado = null), y eso se le resta a Meta. null = nada que avisar.
+ */
+export function avisoAlMarcar(l: Pick<LlamadaDeVenta, 'cual' | 'calificado'>, asistio: boolean | null): string | null {
+  if (l.cual !== 'R1' || asistio === true || l.calificado == null) return null;
+  return `Tenía cargado «${l.calificado ? 'calificado' : 'no calificado'}». Si no asistió a la R1, ese dato se borra.`;
 }
 
 /** Cuántas hay en cada pestaña (el número al lado de su nombre). */

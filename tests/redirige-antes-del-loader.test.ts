@@ -175,6 +175,13 @@ const DECIDEN_POR_RUTA: Record<string, { test: string; paginas: string[] }> = {
   },
   'app/dashboard': { test: 'tests/redirige-antes-del-loader.test.ts', paginas: ['app/dashboard/page.tsx'] },
   'app/m/dashboard': { test: 'tests/redirige-antes-del-loader.test.ts', paginas: ['app/m/dashboard/page.tsx', 'app/m/dashboard/[hoja]/page.tsx'] },
+  // Las tres del Ops Center (25/10/2026): el test de abajo, «/admin/operaciones, /m/chats y /m/second-brain».
+  'app/admin/operaciones': { test: 'tests/redirige-antes-del-loader.test.ts', paginas: ['app/admin/operaciones/page.tsx'] },
+  'app/m/chats': { test: 'tests/redirige-antes-del-loader.test.ts', paginas: ['app/m/chats/page.tsx'] },
+  'app/m/second-brain': {
+    test: 'tests/redirige-antes-del-loader.test.ts',
+    paginas: ['app/m/second-brain/page.tsx', 'app/m/second-brain/mapa/page.tsx'],
+  },
 };
 
 /**
@@ -182,11 +189,9 @@ const DECIDEN_POR_RUTA: Record<string, { test: string; paginas: string[] }> = {
  * tiene el mismo riesgo del #310 (en una carga directa, la redirección va en el stream); se anotaron en
  * docs/hallazgos-infra.md. Una página NUEVA así hace fallar el test, y una de éstas que ya cumple también: sale de acá.
  */
-// Las dos de /m/second-brain van juntas: cada una tiene OTRA puerta (`mako` y `second-brain`), y su layout tendría que saber
-// cuál es con la URL de escritorio que reescribe el proxy (como app/m/dashboard/redireccion.ts).
-const CONOCIDAS_SIN_LAYOUT = new Set([
-  'app/admin/operaciones/page.tsx', 'app/m/chats/page.tsx', 'app/m/second-brain/page.tsx', 'app/m/second-brain/mapa/page.tsx',
-]);
+// Vacía desde el 25/10/2026: las tres últimas (/admin/operaciones, /m/chats y /m/second-brain) las resolvió el Ops Center con su
+// layout por ruta. Se deja la lista (y el test que obliga a sacar las que ya cumplen) por si una tab necesita entrar con su motivo.
+const CONOCIDAS_SIN_LAYOUT = new Set<string>([]);
 
 function paginasDeApp(): string[] {
   const paginas: string[] = [];
@@ -358,4 +363,58 @@ test('/m/dashboard y su hoja: el layout sabe qué página es con la URL de escri
   assert.match(hoja, /const h = hojaPropiaDe\(lectura\.tablero, id\);\s*if \(!h\) redirect\(await rutaConWs\(VOLVER_AL_DASHBOARD\)\);/);
   assert.match(hoja, /tableroDelPedido\(\)\]\);/, 'la página vuelve a leer el informe en vez de reusar el del layout');
   assert.match(sinComentarios(leer('app/m/dashboard/datos.ts')), /export const tableroDelPedido = cache\(leerTablero\);/);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 25/10/2026 (chat «Ops Center», claude5): /admin/operaciones, /m/chats y /m/second-brain redirigen en su layout.
+// PROBADO ROMPIÉNDOLO (base 9/0): `pedidoInterno` sin traducir la URL de escritorio → 1 rojo (la regla); el layout de /m/chats
+// mirando la ruta del navegador en vez de la de su página → 1 rojo (los layouts); el de /m/second-brain con otra condición que la
+// página → 1 rojo (los layouts); sin el layout de /admin/operaciones → 2 rojos (los layouts y el barrido).
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('/m: el layout decide con la ruta y la query que recibe SU página (el proxy sirve la URL de escritorio con /m)', async () => {
+  const { pedidoInterno } = await import('../lib/movil-desvio');
+  assert.deepEqual(pedidoInterno('/chats', '?linea=2&chat=549@s.whatsapp.net&ws=3'), { ruta: '/m/chats', search: 'linea=2&chat=549%40s.whatsapp.net&ws=3' });
+  assert.deepEqual(pedidoInterno('/chats', '?c=ig:5'), { ruta: '/m/chats/ig%3A5', search: 'c=ig%3A5' }, 'un `?c=` es el chat, no la lista');
+  assert.deepEqual(pedidoInterno('/whatsapp', ''), { ruta: '/m/chats', search: '' });
+  assert.deepEqual(pedidoInterno('/second-brain', '?area=ventas&ws=3'), { ruta: '/m/second-brain', search: 'area=ventas&ws=3' });
+  assert.equal(pedidoInterno('/second-brain', '?panel=mapa')?.ruta, '/m/second-brain/mapa', 'el Mapa es su propia página');
+  assert.deepEqual(pedidoInterno('/m/second-brain', '?ws=3'), { ruta: '/m/second-brain', search: 'ws=3' }, 'una URL que ya es /m');
+  assert.equal(pedidoInterno('/login', ''), null);
+  assert.equal(pedidoInterno(null, ''), null, 'sin el header del proxy no se adivina');
+});
+
+test('/admin/operaciones, /m/chats y /m/second-brain: el layout redirige antes del loader, con la decisión de la página', () => {
+  const ops = sinComentarios(leer('app/admin/operaciones/layout.tsx'));
+  const opsPag = sinComentarios(leer('app/admin/operaciones/page.tsx'));
+  for (const pedazo of ["if (!admin) redirect('/inicio');", 'redirect(await rutaConWs(RUTA_OPS_CENTER_NEGOCIO));']) {
+    assert.ok(ops.includes(pedazo), `el layout de /admin/operaciones no tiene «${pedazo}»`);
+    assert.ok(opsPag.includes(pedazo), `la página de /admin/operaciones no tiene «${pedazo}» (el layout la copia: cambiar los dos)`);
+  }
+  assert.match(ops, /if \(puedeOperar\(admin, propio\)\) \{/, 'a quien no opera la página le muestra el cartel: el layout no lo manda a ningún lado');
+
+  const chats = sinComentarios(leer('app/m/chats/layout.tsx'));
+  const chatsPag = sinComentarios(leer('app/m/chats/page.tsx'));
+  assert.match(chats, /if \(pedido\?\.ruta === RUTA_CHATS\) \{/, 'sólo la LISTA: el layout envuelve también a cada chat');
+  assert.match(chats, /\{ children: ReactNode \}\) \{\s*await requireMovil\(\{ navKey: 'chats' \}\);\s*const pedido = await pedidoMovilActual\(\);/,
+    'la puerta, primero y para las dos (la lista y cada chat)');
+  for (const pedazo of ['if (directo) redirect(await rutaConWs(directo));', 'if (chat) redirect(await rutaConWs(rutaHiloM(chat.clave)));']) {
+    assert.ok(chats.includes(pedazo), `el layout de /m/chats no tiene «${pedazo}»`);
+    assert.ok(chatsPag.includes(pedazo), `la página de /m/chats no tiene «${pedazo}»`);
+  }
+
+  const sb = sinComentarios(leer('app/m/second-brain/layout.tsx'));
+  const sbPag = sinComentarios(leer('app/m/second-brain/page.tsx'));
+  assert.match(sb, /if \(pedido\?\.ruta === RUTA_OPS_CENTER_M\) \{/, 'sólo el chat: el layout envuelve también al Mapa');
+  for (const pedazo of [
+    "if (veMapa && (uno(sp.panel) === 'mapa' || uno(sp.area))) {",
+    "for (const k of ['area', 'vista'] as const) { const v = uno(sp[k]); if (v) q.set(k, v); }",
+    "redirect(await rutaConWs(`/m/second-brain/mapa${q.size ? `?${q}` : ''}`));",
+    "if (ctx.sesion.rol === 'admin' && !ctx.impersonando) redirect(await rutaConWs(RUTA_CENTRO_M));",
+  ]) {
+    assert.ok(sb.includes(pedazo), `el layout de /m/second-brain no tiene «${pedazo}»`);
+    assert.ok(sbPag.includes(pedazo), `la página de /m/second-brain no tiene «${pedazo}» (el layout la copia: cambiar los dos)`);
+  }
+  for (const lay of [chats, sb]) assert.match(lay, /const pedido = await pedidoMovilActual\(\);/, 'un layout de /m mira la ruta de SU página, no la del navegador');
+  assert.match(sb, /if \(pedido\?\.ruta === `\$\{RUTA_OPS_CENTER_M\}\/mapa`\) await requireMovil\(\{ navKey: 'second-brain' \}\);/, 'el Mapa pasa por otra puerta');
 });

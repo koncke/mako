@@ -212,8 +212,9 @@ export function CalendarioM({ vistaInicial, fecha, hoy, tz, rango, items, fallos
       <CabeceraM accion={accion} />
 
       <div className="m-calendario-seg">
-        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={(v) => { setVista(v); setMesAbierto(false); }}
-          opciones={VISTAS_M.map((v) => ({ id: v.id, label: v.label }))} />
+        {/* «Llamadas» (25/10/2026): la lista de citas de venta, en su propia pantalla (./LlamadasM.tsx), por el link. */}
+        <SegmentadoM<VistaM | 'llamadas'> etiqueta="Vista" valor={vista} onCambio={(v) => { if (v !== 'llamadas') { setVista(v); setMesAbierto(false); } }}
+          opciones={[...VISTAS_M.map((v) => ({ id: v.id, label: v.label })), { id: 'llamadas' as const, label: 'Llamadas', href: '/calendario?vista=llamadas' }]} />
       </div>
 
       <div className="m-calendario-mes">

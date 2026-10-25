@@ -122,7 +122,6 @@ test('lo que se convirtió el 14/10/2026 abre el modal y no navega', () => {
     ['app/crm/CampanasModal.tsx', /<BotonIntegracion servicio="meta" /],
     ['app/crm/CrmBoard.tsx', /<BotonIntegracion servicio="google" /],
     ['app/crm/[id]/CobrarConLink.tsx', /<BotonIntegracion servicio="stripe" /],
-    ['app/ads-manager/OnboardingAdsManager.tsx', /onClick=\{\(\) => abrir\('meta'\)\}/],
     ['app/automations/VozAIStep.tsx', /<BotonIntegracion servicio="elevenlabs" /],
     ['app/automations/EditorDisparadores.tsx', /<BotonIntegracion servicio="mercadopago" /],
     ['app/automations/ChatMako.tsx', /<LinkIntegracion href=\{link\}/],

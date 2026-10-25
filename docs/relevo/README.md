@@ -56,7 +56,8 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Strategy / Pricing MaKo (tab Strategy, runway y referidos) | `Leé docs/relevo/vender-mako-estrategia.md y docs/relevo/super-admin.md y seguimos desde ahí.` |
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
-| Ads Manager | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
+| Media Buyer (la tab /ads-manager desde el 25/10) | `Leé docs/relevo/media-buyer.md y seguimos desde ahí.` |
+| Ads Manager (historia: la vista que reemplazó el Media Buyer) | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Ciberseguridad | `Leé docs/relevo/ciberseguridad.md y docs/relevo/seguridad-aislamiento.md y seguimos desde ahí.` |
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |
 | IA del cliente («Tu ChatGPT», su Claude en su PC, la ola 3 con Codex) | `Leé docs/relevo/ia-del-cliente.md y seguimos desde ahí.` |

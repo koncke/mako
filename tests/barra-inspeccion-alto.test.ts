@@ -82,7 +82,16 @@ test('4. el panel de la ficha del CRM y la lateral del Web Generator bajan con l
   const css = sinComentariosCss(leer('app/globals.css'));
   assert.match(css, /\[data-barra-agencia\] aside, \[data-alerta-voz\] aside\[data-sidebar\] \{\s*top: var\(--barra-agencia\) !important;/);
   const ficha = leer('app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.match(ficha, /<aside aria-label=\{panel === 'editar'[^\n]*\n\s*style=\{\{ position: 'fixed', top: 0,/, 'el panel del AI Analyst de la ficha dejó de ser <aside>');
+  assert.match(ficha, /<aside className="fb-mako-panel" aria-label=\{panel === 'editar'/, 'el panel del AI Analyst de la ficha dejó de ser <aside>');
+  // ⚠️ DESDE EL 24/10/2026 ES UN BLOQUE FLOTANTE (12 px de aire, 61f3ec828): siendo <aside> la regla global lo baja, pero le
+  // fuerza el alto y quedaba pegado a la barra y al borde de abajo; y con la alerta de la voz caída SOLA (64 px, la ve un
+  // cliente) la regla no toca a los <aside> comunes y el panel quedaba TAPADO. MEDIDO en Edge sin ventana el 25/10 (scratchpad
+  // medir-panel, el CSS real de globals.css y del panel, ventana de 707): antes, con la barra top 50 / abajo 0, con la voz sola
+  // top 12 (debajo de la alerta); ahora 62 / 12, la voz sola 76 / 12, las dos 126 / 12; angosto (≤ 720), pegado debajo: 50 / 0.
+  // Roturas (25/10, base 8 / 0, restaurando de una copia): top 12 fijo → 7 / 1 · sin ganarle a la regla → 7 / 1 · <div> → 7 / 1.
+  assert.match(ficha, /'\.fb-mako-panel\{position:fixed;top:calc\(12px \+ var\(--barra-agencia,0px\)\);/, 'el panel no flota debajo de la barra');
+  assert.match(ficha, /'\[data-barra-agencia\] aside\.fb-mako-panel\{top:calc\(12px \+ var\(--barra-agencia\)\)!important;height:auto!important\}'/, 'la regla de los <aside> lo pega a la barra y al borde de abajo');
+  assert.match(ficha, /@media \(max-width:720px\)\{\.fb-mako-panel\{top:var\(--barra-agencia,0px\);/, 'en el teléfono queda debajo de la alerta de la voz');
   const wg = leer('app/web-generator/Inicio.tsx');
   assert.match(wg, /<aside className="gp-lateral"/, 'la lateral del Web Generator dejó de ser <aside>');
   assert.match(wg, /\.gp \.gp-lateral \{ position: sticky; top: 0;/);
