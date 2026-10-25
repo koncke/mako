@@ -2449,8 +2449,9 @@ function botonesDelParche(v: unknown, antes: readonly BotonSocial[], existentes:
   for (const c of crudos) {
     if (c.id) continue;
     while (usados.has(`b${n}`)) n++;
-    c.id = `b${n}`;
-    usados.add(c.id);
+    const libre = `b${n}`;
+    c.id = libre;
+    usados.add(libre);
   }
   return botonesDe({ botones: crudos }, existentes);
 }
