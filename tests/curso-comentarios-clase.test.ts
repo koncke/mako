@@ -277,9 +277,9 @@ test('el editor: los comentarios debajo de la lección con el ajuste de ESA clas
   assert.match(app, /linkComunidad=\{\(postId\) => conWs\(`\/clients\/community\?producto=\$\{c\.productoId\}&post=\$\{postId\}`, wsPestana\)\}/);
   // El interruptor: YA NO en el menú de la marca (14/10/2026), sino en el «…» de cada clase, con su
   // Deshacer por el mismo camino que la portada, y sólo con el estilo leído.
-  const marca = app.slice(app.indexOf('const menuMarca = '), app.indexOf('if (!servicio) {', app.indexOf('const menuMarca = ')));
-  assert.ok(marca.length > 500 && marca.length < 9000, `el recorte del menú mide ${marca.length}`);
-  assert.doesNotMatch(marca, /comentarios/i, 'los comentarios volvieron al menú de la marca');
+  // Desde el 24/10/2026 la marca es un rótulo (f27): no hay menú de la marca al que volver.
+  assert.match(app, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/, 'la marca volvió a tener menú');
+  assert.doesNotMatch(app, /const menuMarca = /, 'volvió el menú de la marca');
   const menuClase = app.slice(app.indexOf('const menuClase = '), app.indexOf('const cambiarObligatoria = '));
   assert.ok(menuClase.length > 500 && menuClase.length < 6000, `el recorte del menú de la clase mide ${menuClase.length}`);
   assert.match(menuClase, /comentarios=\{estiloError \? undefined : \{\s*prendidos: comentariosDeClase\(estilo, c\.id\),/);

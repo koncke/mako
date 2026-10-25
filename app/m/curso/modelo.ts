@@ -28,8 +28,8 @@ import { porEtapas } from '@/app/customer-success/curso/reglas';
 export const R = {
   /** El título de la página de escritorio (`<PageHeader titulo="Curso" />`). */
   curso: 'Curso',
-  /** El menú de la marca de escritorio: la lista de los cursos. */
-  cursos: 'Cursos',
+  /** La lista de programas de la cabecera de Clients en escritorio (desde el 24/10/2026, f28: un solo selector). */
+  cursos: 'Programas',
   /** El selector Público | Privado del menú «…» de una clase. */
   acceso: 'Acceso',
   publico: 'Público',

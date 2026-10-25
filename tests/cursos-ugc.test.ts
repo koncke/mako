@@ -437,7 +437,8 @@ test('el Avance de los clientes SE FUE del curso a Clientes, y el link viejo red
 test('invitar desde el editor: un modal, que abre el botón de arriba a la derecha (items 9 y 14)', () => {
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.match(app, /<button type="button" className="ugc-btn" data-recorrido="invitar" onClick=\{\(\) => setInvitando\(true\)\}>Invitar alumnos<\/button>/);
-  assert.doesNotMatch(bloque(app, 'const menuMarca = ', 'if (!servicio)'), /Invitar alumnos|Vista del alumno/, 'volvieron al menú de la marca');
+  // La marca es un rótulo desde el 24/10/2026 (f27): ni invitar, ni la vista del alumno, ni nada más ahí.
+  assert.match(app, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/, 'la marca volvió a tener menú');
   assert.match(app, /\{invitando && \(\s*<ModalInvitarAlumnos productoId=\{servicio\.productoId\}/);
   assert.match(app, /acciones=\{barraDeArriba\}/);
   // La lista se prellena con el email del CRM.
