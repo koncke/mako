@@ -37,6 +37,17 @@ a.tci-boton { display: inline-flex; align-items: center; justify-content: center
    y sus dispositivos; «Nuevo dispositivo» punteado, para que no se confunda con «Nueva cuenta». */
 .tci-bloque { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
 .tci-bloque__titulo { margin: 0; font-size: var(--fs-card); font-weight: 600; line-height: 1.3; }
+/* Las claves de API (25/10/2026): una fila por IA, con su logo, su nombre real y su estado; toda la fila abre su modal. */
+.tci-claves { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); gap: 6px; }
+.tci-clave { display: flex !important; align-items: center; gap: 9px; min-height: 40px; padding: 8px 10px !important; border: 1px solid var(--border) !important; border-radius: var(--r-md); background: var(--surface) !important; color: var(--text); font: inherit; text-align: left !important; cursor: pointer; }
+div.tci-clave { cursor: default; }
+button.tci-clave:hover { border-color: var(--border-strong) !important; }
+.tci-clave__nombre { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 600; }
+.tci-clave__estado { flex: none; font-size: var(--fs-meta); color: var(--faint); }
+.tci-clave__estado[data-conectada] { color: var(--good); }
+/* El «?» de «Mi computadora»: chico, en la esquina; la explicación en su title. */
+.tci-grande { position: relative; }
+.tci-ayuda { position: absolute; top: 8px; right: 10px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--dim); cursor: help; }
 .tci-bloque__sub { margin: 4px 0 0; color: var(--dim); font-size: var(--fs-meta); font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 /* «Nueva cuenta» en una fila (24/10/2026): el título y, al lado, Claude y ChatGPT como botones chicos. Las tarjetas grandes
    (.tci-grandes), sólo sin nada conectado. */
