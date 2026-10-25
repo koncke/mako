@@ -138,23 +138,16 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
     partes.push(`horario propio, ${textoDeHorario(horario)}`);
   }
   // (Hasta el 23/10/2026 había «Misma persona»: horasWhatsapp, horasEmail y personaNegocio. Se fue de la pantalla y del motor.)
-  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea.
+  // EL GOTEO (22/10/2026, lib/goteo.ts): uno cada N minutos y hasta M por día, adentro del tope de la línea. UNO SOLO para
+  // todos los canales desde el 24/10/2026 (Martín, f21): hasta ese día había otro del email (goteoEmail…), que ya no existe.
   if (input.sinGoteo === true) { cambio.goteo = null; partes.push('sin goteo'); }
   else {
     const g: Record<string, number> = {};
     if (input.goteoMinutos != null) { g.minutos = num(input, 'goteoMinutos'); partes.push(`uno cada ${g.minutos} min`); }
-    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} WhatsApp por día`); }
+    if (input.goteoPorDia != null) { g.dia = num(input, 'goteoPorDia'); partes.push(`hasta ${g.dia} por día en cada canal`); }
     if (Object.keys(g).length) cambio.goteo = g;
   }
-  // EL GOTEO DEL EMAIL (23/10/2026, Martín: «en Email también pon goteo y tope por día»).
-  if (input.sinGoteoEmail === true) { cambio.goteoEmail = null; partes.push('sin goteo de emails'); }
-  else {
-    const g: Record<string, number> = {};
-    if (input.goteoEmailMinutos != null) { g.minutos = num(input, 'goteoEmailMinutos'); partes.push(`un email cada ${g.minutos} min`); }
-    if (input.goteoEmailPorDia != null) { g.dia = num(input, 'goteoEmailPorDia'); partes.push(`hasta ${g.dia} emails por día`); }
-    if (Object.keys(g).length) cambio.goteoEmail = g;
-  }
-  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario), el goteo de WhatsApp (goteoMinutos, goteoPorDia) o el de email (goteoEmailMinutos, goteoEmailPorDia).' };
+  if (!partes.length) return { error: 'No dice qué cambiar: el horario (horario) o el goteo (goteoMinutos, goteoPorDia), que vale para todos los canales.' };
   const prueba = configParaGuardar({}, cambio);
   if (!prueba.ok) return { error: prueba.error };
   return { cambio, resumen: partes.join(' · ') };
@@ -869,8 +862,7 @@ export const RUNNERS: Runners = {
       return json({
         secuencia: { id, nombre: s.nombre },
         horario: { vale: vale ? textoDeHorario(vale) : 'sin horario: manda a cualquier hora', de: config.horario === undefined ? 'negocio' : 'propio' },
-        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null },
-        goteo_email: { vale: textoDeGoteo(config.goteoEmail), minutos: config.goteoEmail?.minutos ?? null, por_dia: config.goteoEmail?.dia ?? null },
+        goteo: { vale: textoDeGoteo(config.goteo), minutos: config.goteo?.minutos ?? null, por_dia: config.goteo?.dia ?? null, canales: 'todos: WhatsApp, email, Instagram y Messenger, cada uno con su cuenta' },
         linea: { por_dia: lim.wa.dia, por_hora: lim.wa.hora },
         nota: 'Los topes por día y por hora de la LÍNEA son de todas las automatizaciones; el goteo es un sub-tope adentro de esos, de ésta sola.',
       });

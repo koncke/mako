@@ -7072,3 +7072,45 @@ Instagram conectada en el Cliente de Prueba.
 (`tocarBoton`, `avanceDesde`) · lib/canal-social.ts (`postback`) · app/api/webhooks/zernio/route.ts ·
 lib/flujo-conversacion.ts · app/automations/BotonesSocial.tsx · tests/botones-instagram.test.ts.
 *24/10/2026, chat «Automations» (claude5).*
+
+## Un goteo para todos los canales, y el goteo del email que no frenaba (24/10/2026, f20 y f21)
+
+**El pedido:** la llamada con Leandro (24/10, docs/feedback-24-10.md): «solamente está el goteo en WhatsApp y en email, pero
+no está en Instagram» (f20) y «que sea un solo botón para todos y listo» (f21). Martín, 24/10 23:00: «Uno solo: un solo
+interruptor de goteo (y uno de tope por día) que valga para todos los canales».
+
+**Qué quedó:** UN `goteo` por automatización (lib/config-automatizacion.ts) y UN bloque «Todos los canales» en Configuraciones
+(app/automations/ConfigAutomatizacionPanel.tsx), que vale para WhatsApp, email, Instagram y Messenger. **Cada canal cuenta
+lo suyo** (lib/goteo.ts, `canalDelGoteo`, `claveDeGoteo`): «hasta 50 por día» son 50 WhatsApp y 50 DMs. Lo decidió
+Automations, porque el riesgo es de cada canal (el baneo de un número no tiene nada que ver con el tope de Meta) y porque
+el 23/10 ya se había decidido que el goteo del WhatsApp no frenara al email. Si Martín lo quiere sumado entre todos, es
+cambiar `claveDeGoteo` por una sola clave.
+
+**Lo que estaba roto y no se veía:**
+- **El goteo del email no frenaba nunca** (desde 629500245, 24/10). La puerta de los mensajes (`sigueSinCupo`) dejaba pasar
+  un email mientras quedara cupo de email, para que no lo frenara el cupo de WhatsApp. Pero el freno que esquivaba
+  también incluía SU goteo. Ahora el freno de un email es sólo su goteo (`sinLugarDelMensaje`) y `noGastaTurno` no deja
+  pasar ningún mensaje. No le pegó a nadie: ninguna automatización tenía goteo de email (medido).
+- **Instagram «tenía» goteo sin tenerlo:** un DM pasaba por el goteo de WhatsApp, pero sus envíos nunca se contaban.
+  Lo frenaba lo que salía por WhatsApp, nunca lo suyo.
+
+**Lo guardado:** medido en producción antes de juntarlos (`scripts/medir-goteo-un-interruptor.mts`, sólo lectura): dos
+automatizaciones con goteo, la #289 de Mauricio (prendida: 11 min, 65 por día) y la #568 de Martín (apagada), las dos sólo
+de WhatsApp. Al leer, el `goteo` de antes pasa a ser el de todos y, si no hay, el `goteoEmail`. No se escribió nada en
+producción, y a ninguna le cambió el número. Guardar un `goteoEmail` da error. El tope por día llega a 500 (el más alto
+de las líneas); los WhatsApp los sigue cortando su línea.
+
+**Regla:** un interruptor por canal en Configuraciones es una regresión (memoria `goteo-un-interruptor`). Lo que MaKo dice
+de esa pantalla (`LO_QUE_NO_ES_TARJETA`, `LUGARES_REALES` en lib/flujo-ia-intencion.ts) se cambia junto con la pantalla:
+decía «un bloque por canal (WhatsApp, Email)», y a Leandro le nombró uno de Instagram que no existía (f22).
+
+**Sin hacer:**
+- Un DM de Instagram sigue gastando el cupo de la LÍNEA de WhatsApp (`waEnCorrida` cuenta todo lo que no es email), lo que
+  ya pasaba antes. No es lo que pidió f20, y cambiarlo saca a Instagram del único tope de línea que tiene.
+- Aprobar un borrador de email mira el goteo con lo aprobado por WhatsApp (`frenoDelGoteoAlAprobar`,
+  lib/borrador-camino.ts).
+- No se vio en pantalla.
+
+Vive en: lib/goteo.ts · lib/config-automatizacion.ts · lib/nutricion.ts (`usoDelGoteo`, `sinLugar`, `quedaFrenada`) ·
+app/automations/ConfigAutomatizacionPanel.tsx · lib/api-mako/areas/chatbot.def.ts y .run.ts · lib/flujo-ia-intencion.ts ·
+tests/goteo-un-interruptor.test.ts.

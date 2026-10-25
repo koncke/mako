@@ -198,7 +198,7 @@ test('(d) sin ANTI-BAN y (e) sin TOPES: el «15 min antes» sale 45 minutos desp
   assert.match(PROC, /&& cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{ if \(paso\.canal === 'email'\) emailsEnCorrida \+= 1; else waEnCorrida \+= 1; \}/);
   // (Desde el 22/10/2026 el WhatsApp que cuenta también suma al goteo de su automatización, y el carril tampoco:
   // tests/goteo-automatizacion.test.ts.)
-  assert.match(PROC, /if \(paso\.canal === 'whatsapp' && cuentaParaElCupo\(\{ carril: carril != null \}\)\) \{/);
+  assert.match(PROC, /if \(cuentaParaElCupo\(\{ carril: carril != null \}\) && cuentaParaElGoteo\(estado\) && goteos\.has\(insc\.secuencia_id\)\) \{/);
   // Con el cupo lleno, el carril sigue (como las acciones).
   assert.match(PROC, /const sinTopeWa = \[\.\.\.new Set\(\[\.\.\.conAcciones, \.\.\.conCarril,/);
   assert.match(PROC, /\(sigueSinCupoWa\(pasos\[idx\]\) \|\| esHiloDelCarril\(pasos, idx\)\)/);

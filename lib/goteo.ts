@@ -1,5 +1,5 @@
 // =============================================================================
-// goteo — los WhatsApp de UNA automatización, de a uno y con tope (puro)
+// goteo — los mensajes de UNA automatización, de a uno y con tope, en cada canal (puro)
 // =============================================================================
 // La llamada con Mauricio del 22/10/2026 (01:51-02:16): «al pasar 50 leads a "Prospección activa", que no salgan
 // juntos: envía uno, tal vez espera 4 minutos o 5, envía el otro». Configurable por automatización: minutos entre
@@ -18,11 +18,40 @@
 // `VENTANA_FRESCA_MIN` (lib/espera-duracion.ts). Si los 49 que esperan quedaran con la hora vieja, sólo los vería la
 // corrida de cada HORA: el goteo de 5 minutos saldría de a uno por hora. Cada fila frenada pasa a su turno
 // (`turnoDeGoteo`): el siguiente lugar libre más `minutos` por cada una que ya está delante en esta corrida.
+//
+// ⚠️ UNO SOLO PARA TODOS LOS CANALES (24/10/2026 23:00, Martín, f21 de la llamada con Leandro: «Uno solo: un solo interruptor
+// de goteo (y uno de tope por día) que valga para todos los canales»; f20: «no está en Instagram»). Un goteo por automatización
+// que vale para WhatsApp, email, Instagram y Messenger, y CADA CANAL CUENTA LO SUYO (`canalDelGoteo`): «hasta 50 por día» son
+// 50 WhatsApp y 50 DMs, no 50 entre todos. Así lo había decidido el 23/10 (el goteo del WhatsApp no frena al email): el freno
+// es de cada canal porque el riesgo lo es (el baneo de un número no tiene que ver con el tope de Meta).
 // =============================================================================
 
 export type Goteo = { minutos?: number; dia?: number };
 
-/** Lo que salió de esta automatización por WhatsApp en las últimas 24 h. */
+/** Los canales con goteo. Cada uno cuenta sus mensajes; los dos de Meta van aparte (son cuentas distintas). */
+export const CANALES_DEL_GOTEO = ['whatsapp', 'email', 'instagram', 'messenger'] as const;
+export type CanalDelGoteo = (typeof CANALES_DEL_GOTEO)[number];
+
+/** El canal con el que cuenta el goteo un mensaje: el suyo; sin canal (o con uno que no es de éstos), WhatsApp. */
+export function canalDelGoteo(canal: string | null | undefined): CanalDelGoteo {
+  return (CANALES_DEL_GOTEO as readonly string[]).includes(canal ?? '') ? canal as CanalDelGoteo : 'whatsapp';
+}
+
+/** La clave del uso (y de las frenadas) de UNA automatización en UN canal: el motor los guarda así. */
+export const claveDeGoteo = (canal: CanalDelGoteo, secuenciaId: number): string => `${canal}:${secuenciaId}`;
+
+/**
+ * ¿UN MENSAJE se queda sin lugar en esta corrida? El goteo de SU canal y, salvo el email, el cupo de la línea de WhatsApp (el
+ * email tiene su propio tope de línea, que el motor mira aparte: «tope diario de email»).
+ * ⚠️ Hasta el 24/10/2026 el email entraba igual: `sigueSinCupo` lo dejaba pasar mientras quedara cupo de email (para que el
+ * cupo de WhatsApp no lo frenara), y con eso también se salteaba SU goteo. Nunca frenó desde 629500245.
+ */
+export function sinLugarDelMensaje(canal: string | null | undefined, lineaLlena: boolean, goteoFrena: (c: CanalDelGoteo) => boolean): boolean {
+  const c = canalDelGoteo(canal);
+  return (c !== 'email' && lineaLlena) || goteoFrena(c);
+}
+
+/** Lo que salió de esta automatización por UN canal en las últimas 24 h. */
 export type UsoGoteo = { enviados: number; ultimoMs: number | null; primeroMs: number | null };
 
 export const SIN_USO: UsoGoteo = { enviados: 0, ultimoMs: null, primeroMs: null };
@@ -62,10 +91,13 @@ export function conEnvio(uso: UsoGoteo, ahoraMs: number): UsoGoteo {
  * las acciones y los emails: la condición «Contestó» que sigue a cada M1 (y una espera, un «Ir a») quedaba frenada y tomaba
  * su turno de 11 min sin mandar nada, así que el mensaje siguiente salía en el turno de después. Lo que no es un MENSAJE no
  * manda nada: corre en el acto, y el mensaje al que lleva pasa por el freno ahí (la segunda mirada de `procesarEnvios`,
- * sobre el destino). Un email, mientras quede su tope.
+ * sobre el destino).
+ * ⚠️ UN MENSAJE NUNCA, tampoco un email (24/10/2026): hasta ese día un email pasaba «mientras quede su tope», y como el
+ * freno mira también el goteo, el email se salteaba el suyo. Desde f21 el freno de un email es sólo su goteo
+ * (`sinLugarDelMensaje`: el cupo de WhatsApp no lo toca), así que no hace falta dejarlo pasar.
  */
-export function noGastaTurnoDeWhatsapp(clase: string, canal: string | null | undefined, emailLleno: boolean): boolean {
-  return clase !== 'mensaje' || (canal === 'email' && !emailLleno);
+export function noGastaTurno(clase: string): boolean {
+  return clase !== 'mensaje';
 }
 
 /** Los estados de `nutricion_envios` que cuentan para el goteo: lo que salió y lo que quedó para aprobar. */

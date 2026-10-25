@@ -43,9 +43,9 @@ export const REGLAS_EDITAR = [
  * configuración del envío de la campaña»), decía que no se podía o metía esperas en el flujo. Va en editar Y en explicar.
  */
 export const LO_QUE_NO_ES_TARJETA = [
-  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
+  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y el bloque «Todos los canales» (vale para WhatsApp, email e Instagram). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
   '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
-  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, en WhatsApp o en Email, «Goteo» y «Tope por día».',
+  '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, «Todos los canales», «Goteo» y «Tope por día».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
 ].join('\n');
 
@@ -63,9 +63,11 @@ export const ERROR_EDITAR_SIN_CAMBIOS = 'En modo EDITAR no se contesta con "resp
  * Las pestañas de Configuraciones de una automatización (app/automations/ConfiguracionesBoton.tsx, `PESTANAS_CONFIGURACIONES`).
  * Desde el 23/10/2026 es UNA pantalla, sin pestañas (Martín: «sin pestañas ni nombre de pestaña»): lo que vale después de
  * «Configuraciones ›» es un bloque o una fila de ella. «Límites» y «Anti-ban» (las pestañas de antes) ya no existen, y desde el
- * mismo día tampoco lo de la línea («Línea por día», «MaKo contesta sola»: nada «para todas»).
+ * mismo día tampoco lo de la línea («Línea por día», «MaKo contesta sola»: nada «para todas»). Y desde el 24/10/2026 (Martín,
+ * f21) no hay un bloque por canal: el goteo es UNO para todos, en «Todos los canales». «Configuraciones › Instagram» fue lo
+ * que MaKo le dijo a Leandro y no existía (f22).
  */
-const LUGARES_REALES = ['Horario', 'WhatsApp', 'Email', 'Goteo', 'Tope'];
+const LUGARES_REALES = ['Horario', 'Todos', 'Goteo', 'Tope'];
 
 /**
  * ¿VALE UNA «RESPUESTA» EN EDITAR? null = vale; si no, el error para el reintento. (22/10/2026, las corridas del arnés del
@@ -81,8 +83,8 @@ export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: {
   // Con el guion: «Anti-ban» (sin él, leía «Anti» y lo daba por inventado).
   const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
   const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
-  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y un bloque por canal (WhatsApp, Email). Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
-  // «en Configuraciones, WhatsApp, «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
+  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y el bloque «Todos los canales» («Goteo» y «Tope por día»). Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
+  // «en Configuraciones, «Todos los canales», «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
   if (lugares.length || /Configuraciones/.test(respuesta) || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
   if (/\bno (se puede|puedo|existe|está|hay)\b/i.test(respuesta) && !delega) return null;
