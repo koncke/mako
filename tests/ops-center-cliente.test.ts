@@ -228,8 +228,9 @@ test('9. MaKo en cada tab (la estrella, a la izquierda, al Cerebro) y las criatu
   // Lo que pidió el CRM: lo suyo arriba del hilo, su número en la estrella, y que la tab le deje el lugar.
   assert.match(t, /arriba=\{<><TrabajosTerminados trabajos=\{trabajos\} \/>\{arriba\}<BarraFijados /);
   assert.match(t, /<Muneco titulo=\{JEFE_SECOND_BRAIN\} animo="despierto" size=\{40\} espera=\{espera\} \/>/);
-  assert.match(t, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{ANCHO_PANEL\}px` : '0px'\);/);
-  assert.match(leer('app/_chat/chat.css'), /\.ch-tab-panel \{\s*position: fixed; top: 0; bottom: 0;/);
+  assert.match(t, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{LUGAR_PANEL\}px` : '0px'\);/);
+  // Flota desde el 25/10/2026 (el marco del Dashboard): tests/mako-en-la-tab-flota.test.ts.
+  assert.match(leer('app/_chat/chat.css'), /\.ch-tab-panel \{\s*position: fixed; top: calc\(var\(--barra-agencia, 0px\) \+ 12px\); bottom: 12px;/);
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { createElement } = await import('react');
   const { Muneco } = await import('../app/admin/operaciones/Muneco');

@@ -58,7 +58,7 @@ test('2. la estrella lo marca al abrir, y lo desmarca al cerrar o al salir de la
   // El panel se pega al borde MEDIDO de la barra: plegada, se corre con ella, y la tab sigue dejándole lo que mide el panel.
   assert.match(tab, /const borde = useBordeDeLaBarra\(\);/);
   assert.match(tab, /ro\?\.observe\(barra\)/, 'el borde no sigue a la barra cuando se pliega');
-  assert.match(tab, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{ANCHO_PANEL\}px` : '0px'\);/);
+  assert.match(tab, /raiz\.setProperty\('--ancho-panel-mako', abierto \? `\$\{LUGAR_PANEL\}px` : '0px'\);/);
 });
 
 test('3. la barra se pliega mientras MaKo está abierto, sin pisar lo guardado, y vuelve sola al cerrar', () => {

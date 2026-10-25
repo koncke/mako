@@ -13,7 +13,8 @@
 // Es la conversación del Ops Center del cliente, con SUS piezas: el motor (app/second-brain/useChatCliente.ts), el panel
 // (PanelChat.tsx), el hilo y la caja (app/second-brain/PiezasCliente.tsx). Cada tab la monta con `<MakoEnLaTab tab="CRM" />`.
 // ⚠️ EL PANEL VA PEGADO A LA BARRA DE LA APP (app/_components/Sidebar.tsx, `[data-sidebar]`, 68 o 244 px), no al borde de la
-//    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta).
+//    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta). Desde el 25/10/2026 FLOTA, con
+//    el marco del Dashboard (12 px de aire, bordes de 14, sombra; punto 12, «Unifica ese diseño»): ./chat.css.
 // ⚠️ ABRIRLO PLIEGA LA BARRA (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar
 //    espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): ./mako-abierto.ts. Es un pliegue
 //    temporal, como el del Ops Center: no pisa lo que la persona guardó.
@@ -48,8 +49,12 @@ import type { TrabajoTerminado } from '@/lib/mako-trabajos';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
-/** El ancho del panel abierto (el de .ch-tab-panel, app/_chat/chat.css): lo que la tab le deja. */
+/** El ancho del panel abierto (el de .ch-tab-panel, app/_chat/chat.css). */
 const ANCHO_PANEL = 440;
+/** Su aire con la barra y con la tab (el `margin-left` de .ch-tab-panel; 25/10/2026, el marco flotante del Dashboard). */
+const AIRE_PANEL = 12;
+/** Lo que la tab le deja: el panel y su aire a los dos lados. */
+const LUGAR_PANEL = ANCHO_PANEL + 2 * AIRE_PANEL;
 
 /** Dónde empieza el contenido: el borde derecho de la barra de la app, medido; cambia cuando la barra se fija o se suelta. */
 function useBordeDeLaBarra(): number {
@@ -114,7 +119,7 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
   // corriéndose lo que mide el panel. Al cerrar, o al salir de la tab con el panel abierto, la barra vuelve a como estaba.
   useEffect(() => {
     const raiz = document.documentElement.style;
-    raiz.setProperty('--ancho-panel-mako', abierto ? `${ANCHO_PANEL}px` : '0px');
+    raiz.setProperty('--ancho-panel-mako', abierto ? `${LUGAR_PANEL}px` : '0px');
     marcarMakoAbierto(abierto);
     return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
