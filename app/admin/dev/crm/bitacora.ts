@@ -3367,4 +3367,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El editor del CRM: MaKo flotante y todo editable (punto 12)',
+    pedido: 'En el editor del CRM no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese diseño. Y aún no hiciste que se pueda editar cada cosa, por ejemplo en el bloque de "Contacto" no puedo sacar EMPRESA, y en general debes revisas que todo sea editable...',
+    puntos: [
+      'Cuarta tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md).',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '04:10', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo flota en la ficha, y cada dato se saca desde su fila',
+    puntos: [
+      'El panel de MaKo de la ficha ya no es un cuadrado pegado al borde: es el bloque flotante del Dashboard, con aire y bordes redondeados.',
+      'Personalizando la ficha, al elegir un bloque cada dato lleva una ✕ al lado: la tocas y ese dato sale del bloque. Por ejemplo, «Empresa» del Contacto.',
+      '«Datos» de la barra del bloque ya hacía eso, pero no se encontraba: la fila no respondía.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '61f3ec828', msg: 'CRM · ficha: MaKo como bloque flotante, y sacar un dato desde su fila (la ✕ del bloque elegido)', lineas: 203, archivos: 10 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/Armador.tsx — la ✕ de cada fila del bloque elegido',
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx — el panel flotante',
+      'tests/ficha-editor-12.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
