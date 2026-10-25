@@ -553,11 +553,11 @@ export const BITACORA: Hito[] = [
       'Si tu video de ventas está en Wistia o en Bunny Stream, MaKo trae cada mañana cuántas veces lo reprodujeron el día anterior, como ya hacía con Panda.',
       'Esos números entran al embudo, a la serie del video de ventas y al Dashboard.',
       'Sólo cuenta el video que marcaste como tu video de ventas: las clases de un curso no se mezclan.',
-      'Falta: un cambio en la base de datos que se aplica con tu aprobación, y probarlo con una cuenta real.',
+      'El cambio en la base de datos ya está aplicado (con tu aprobación). Falta probarlo con una cuenta real.',
     ],
     archivos: [
       'app/api/cron/videos-daily/route.ts — lo que corre cada mañana',
-      'supabase/migrations/0336_alojadores_video_plataforma.sql — el cambio en la base (se aplica con el sí de Martín)',
+      'supabase/migrations/0336_alojadores_video_plataforma.sql — el cambio en la base (aplicado el 25/10, con tu aprobación)',
       'docs/hallazgos-landing.md — lo que no era obvio',
     ],
   },

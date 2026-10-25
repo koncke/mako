@@ -8,6 +8,8 @@
 -- Vimeo y Cloudflare entran ya en la lista (su API no da reproducciones por día fuera de Enterprise / da minutos), para
 -- que el día que se sumen no haga falta otra migración.
 -- Idempotente: se puede correr dos veces.
+-- Aplicada en producción el 25/10/2026 19:27, con el sí de Martín (la corrió el Cerebro). Verificado: el CHECK acepta las
+-- siete plataformas y las 6.614 filas que había siguen igual.
 -- =============================================================================
 
 BEGIN;
