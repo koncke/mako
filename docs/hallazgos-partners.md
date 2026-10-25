@@ -200,3 +200,35 @@ al closer). Segundo mes, el crédito a precio de lista y el aviso. Otra corrida,
 nunca. Y el tablero y el panel del super admin cuentan lo mismo. Así, cuando Martín conecte la pasarela, no se descubre ahí que
 no acredita. **Lo que NO prueba:** la pasarela misma (que el webhook deje `alta_estado = 'hecha'` y las cuotas en `pagos`), que
 se prueba con la compra de humo.
+
+## La landing hasta que el negocio se une, y «¿meses o dinero?» contestado en una mirada (24/10/2026, noche)
+
+Martín: «La pagina de MaKo Partners DEBE ser siempre la landing al menos que el usuario ya se haya registrado como partner,
+solo cuando se registre ahi aparece el dashboard... No me da claridad en lo que ganan, esta todo muy amontonado, no se sabe si
+se ganan meses o dinero... Falta algo como "Calculadora"». Chat «Planes», cuenta 5.
+
+- **«Registrado como partner» ES tener código** (`partner_codigos`): no hay otra marca, y una segunda sería otra respuesta a la
+  misma pregunta. **La trampa:** `tableroDe` llama a `codigoDe`, que CREA el código si no hay. Hasta hoy el código nacía con
+  sólo abrir el tablero, así que todo admin que abrió la tab el 23-24/10 ya figura unido sin haber tocado nada (ve el panel, no
+  la landing). Para preguntar si se unió está `codigoSiExiste` (sólo lee); nunca `tableroDe` ni `codigoDe`. «Unirme» es
+  `unirmeAPartnersAction` (app/partners/actions.ts): admin del negocio, nunca la plataforma, vuelta de una lista blanca.
+- **La respuesta honesta a «¿meses o dinero?» es «crédito para tu plan, no dinero en efectivo»**, dicha en la ficha del hero y
+  primera en las preguntas. Lo decidido el 10/10 (docs/referidos.md) es descuento para el usuario común y plata del sobrante
+  para la agencia, pero NADA consume el crédito todavía: «no es dinero» es verdad hoy para todos. El día que se le pague a una
+  agencia, la ficha cambia junto con la regla. La calculadora suma en dólares y NO dice a cuántos meses equivale: el Cerebro ya
+  había frenado «= 5 meses de MaKo Pro» como promesa (el test lo sigue frenando).
+- **La landing pública escondía la barra de la app** (`body:has(.mp-root) aside { display: none }`): montarla adentro de la tab
+  dejaba la app sin su barra. Ahora sólo con `.mp-publica`, y el modo `app` toma los tokens de la app (`--primary`, nunca
+  `--accent`, que es el dorado). Una pieza pública que se reusa adentro: buscar primero qué le hace al `body`.
+- **Copiada de:** LLM Pulse (llmpulse.ai/affiliate: la calculadora con la barra y el plan a la izquierda y el resultado en el
+  bloque azul), systeme.io (la ficha «qué, cuánto, cuándo»), DigitalOcean («earn free credits»: crédito, sin vueltas) y Kit (la
+  cuenta con un ejemplo). GoHighLevel, Hostinger y Beehiiv no tienen calculadora: buscarla en programas chicos de SaaS.
+- **Mirar un componente de cliente sin levantar la app:** el render estático no hidrata, así que la calculadora se probó
+  empaquetando SÓLO ella con el esbuild del clon (`node node_modules/esbuild/bin/esbuild entrada.tsx --bundle --jsx=automatic
+  --tsconfig=../tsconfig.json`, que resuelve el `@/`) y montándola con `createRoot` en lugar de la estática, sobre el HTML de
+  `renderToStaticMarkup`; Playwright de Python con `channel='chrome'` movió la barra y leyó «US$ 564» (12 × 47).
+
+**Sin hacer:** el super admin ve la landing entera arriba del programa (lo pidió así el 24/10 a la tarde; si molesta, va
+plegada). Aplicar el crédito sigue pendiente (docs/relevo/suscripcion.md, punto 5). **Vive en:** app/mako-partners/LandingPartners.tsx ·
+app/mako-partners/Calculadora.tsx · app/partners/referidos/page.tsx · app/m/partners/page.tsx · app/partners/actions.ts ·
+lib/partners-programa.ts (`codigoSiExiste`) · tests/mako-partners-landing.test.ts · tests/partners-para-clientes.test.ts.

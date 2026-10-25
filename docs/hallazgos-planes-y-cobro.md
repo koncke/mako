@@ -1365,3 +1365,35 @@ faltaba era DÓNDE hacer clic: los tres precios en la página de venta, con un b
 
 **Vive en:** app/vsl/PreciosLanding.tsx · app/vsl/Landing.tsx · app/planes/[plan]/QuieroPlan.tsx · lib/compra-plan.ts
 (`pedirPlanSinPasarela`, `planesParaLanding`) · lib/compra-plan-reglas.ts · tests/planes-sin-pasarela.test.ts.
+
+## Planes que venden: el lenguaje interno estaba en los DATOS, y dos ofertas que el código no tiene (24/10/2026, noche)
+
+Martín: «La sección de planes no se entiende para nada... Lo hiciste con lenguaje interno, las personas no saben que es "Ops
+Center"... Tienes que VENDER... el acompañamiento debe tener mas beneficios y verse diferencial... El personalizado tiene que
+tener un factor de PROMESA de resultados, ya no solo software». Chat «Planes», cuenta 5.
+
+- **La jerga no estaba en la pantalla: estaba en los datos** (`incluye` y `resumen` de `PLANES_MAKO_DEFAULT`, y los nombres
+  de las filas de lib/planes-comparacion.ts). Se dibujan en /planes, en la landing de venta y en /planes/<plan>; cambiar sólo la
+  vitrina dejaba la landing igual. Ahora lo que incluye dice lo que la persona CONSIGUE, con los números de `TOPES`, y la guarda
+  (`INTERNO`, tests/planes-tres-bloques.test.ts) lee el render de las dos pantallas y los datos. **Ojo:** el setting
+  `planes.mako` de la plataforma pisa los planes enteros; medido el 24/10, en producción NO hay fila. Si alguien lo carga con el
+  texto viejo, la jerga vuelve sin que ningún test lo vea (la guarda mira los de hoy).
+- **Una guarda de palabras tiene que distinguir la tab de la palabra común:** «Cobros» (la tab) no va; «tus cobros» sí. Las
+  tabs que también son palabras van con mayúscula y sin `i` (`TAB_CON_MAYUSCULA`).
+- **/planes y la landing eran dos dibujos de los mismos planes** (Vitrina.tsx y PreciosLanding.tsx, cada uno con su CSS):
+  ahora son UNA pieza (app/planes/Tarjetas.tsx). Sus clases llevan `mkpl-`: adentro de una landing del Web Generator conviven
+  con el CSS del diseño, y un nombre genérico se pisa.
+- **«El acompañamiento» es el Acelerador, y se veía como «Pro más caro»** porque la tarjeta mostraba 5 de los 9 renglones de
+  docs/ofertas-mako.md §3. Ahora va en un bloque oscuro con «Con acompañamiento» (el «Dominate» de ClickFunnels) y todo lo que
+  trae; nada nuevo inventado.
+- **«El personalizado» NO existe en el código.** La pista es la escalera de agosto: un 1 a 1 de US$4.000 al lado del grupal de
+  1.500 (docs/embudo-y-high-ticket.md, área «GTM: Oferta y precios»), que nunca entró a /planes; docs/ofertas-mako.md (23/10)
+  no lo tiene. Precio, qué incluye y la promesa son de Martín: preguntado por el cartero el 24/10. El hueco ya está:
+  `PROGRAMA_ACELERADOR.promesa` (null = no se dibuja ninguna).
+- **La «garantía de 14 días en los planes» de docs/ofertas-mako.md contradice lo publicado:** /reembolsos dice que el mes
+  pagado no se devuelve, y la del programa es «la que acordamos contigo en la llamada». No se puso en la vitrina. Si Martín la
+  quiere, cambian /reembolsos y la vitrina juntas.
+
+**Sin hacer:** el 4º bloque (o la promesa del Acelerador) cuando Martín conteste; «Tu plan» (app/configuraciones/plan) es del
+chat de Settings y no se tocó. **Vive en:** app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx · app/vsl/PreciosLanding.tsx ·
+lib/planes-mako.ts · lib/planes-comparacion.ts · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.

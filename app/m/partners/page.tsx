@@ -8,24 +8,28 @@
 // ⚠️ La puerta: la key `partners` de la fila de More (desde el 24/10/2026, el admin de CUALQUIER negocio, la misma regla
 //    que la barra) y el rol (admin), que se pregunta acá igual que en la página de escritorio. Después reparte el
 //    PROGRAMA (`esAgencia`): la agencia ve su cartera; el resto, su tablero de referidos (ReferidosM.tsx).
+//    Desde la noche del 24/10, el tablero recién después de unirse: antes, la landing de MaKo Partners con «Unirme».
 
 import './partners.css';
 import { redirect } from 'next/navigation';
 import { requireMovil } from '@/lib/movil-guard';
-import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
 import { cuentasDePartner } from '@/lib/partners';
-import { ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
+import { CabeceraM, ComputadoraM, ErrorM, PantallaM } from '@/app/m/_ui';
 import { PartnersM } from './PartnersM';
 import { ReferidosM } from './ReferidosM';
-import { tableroDe } from '@/lib/partners-programa';
+import { codigoSiExiste, tableroDe } from '@/lib/partners-programa';
+import { RUTA_MAS } from '@/lib/movil-rutas';
+import { LandingPartners } from '@/app/mako-partners/LandingPartners';
+import { unirmeAPartnersAction } from '@/app/partners/actions';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { EMAIL_MAKO } from '@/lib/app-url';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PartnersPagina() {
+export default async function PartnersPagina({ searchParams }: { searchParams: Promise<{ unirme?: string }> }) {
   // La key de la fila de More (17/10/2026, jefe «Sidebar»): el admin de un workspace agencia, la misma regla que la barra.
   await requireMovil({ navKey: 'partners' });
   const ws = await getWorkspaceActual();
@@ -35,10 +39,24 @@ export default async function PartnersPagina() {
   // El negocio que NO es agencia (24/10/2026: la fila la ve el admin de cualquier negocio): su tablero de referidos,
   // como /partners/referidos en la computadora. La agencia sigue con su cartera.
   if (!(await esAgencia(ws))) {
-    const [tablero, cobraEnLinea] = await Promise.all([
-      tableroDe(ws).catch(() => null),
+    const [codigo, cobraEnLinea, plataforma] = await Promise.all([
+      codigoSiExiste(ws).catch(() => null),
       ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
+      wsSuperAdmin().then((p) => p === ws).catch(() => false),
     ]);
+    // La landing hasta que se une (24/10/2026, la regla de /partners/referidos): la MISMA de la computadora, que en el
+    // teléfono se apila. «Unirme» vuelve a /partners, que el teléfono abre acá. La plataforma la ve sin el botón.
+    if (!codigo) {
+      const sp = await searchParams;
+      return (
+        <PantallaM>
+          <CabeceraM titulo="MaKo Partners" padre={{ href: RUTA_MAS, label: 'More' }} />
+          <LandingPartners modo="app" cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO}
+            unirme={plataforma ? undefined : unirmeAPartnersAction} volver="/partners" error={sp.unirme === 'error'} />
+        </PantallaM>
+      );
+    }
+    const tablero = await tableroDe(ws).catch(() => null);
     return (
       <PantallaM>
         {tablero ? <ReferidosM tablero={tablero} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} /> : <ErrorM frase="No pudimos leer tu tablero. No es nada tuyo." />}

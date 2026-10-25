@@ -24,7 +24,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
 test('SIN AGENDA (24/10, Martín: «No voy a usar Calendly»): ningún botón ni página lleva a Calendly', () => {
-  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx']) {
+  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx', 'app/planes/Tarjetas.tsx']) {
     assert.doesNotMatch(fuente(rel), /calendly\.com|AGENDA_MAKO|agendaConOrigen|initInlineWidget/, rel);
   }
 });
@@ -61,8 +61,10 @@ test('«Pasar a Pro» por pedido: sólo desde Esencial y sólo sin la subida en 
 
 test('/planes arma el botón con la regla y decide por plan con la misma cuenta que el checkout', () => {
   const pagina = fuente('app/planes/page.tsx');
-  const vitrina = fuente('app/planes/Vitrina.tsx');
-  assert.match(vitrina, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable, sufijo \}\);/);
+  // Los bloques de /planes y de la landing son UNA pieza (24/10, noche): el botón se arma ahí.
+  const tarjetas = fuente('app/planes/Tarjetas.tsx');
+  assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/);
   assert.match(pagina, /ofertasDeLosPlanes\(\)/);
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
@@ -109,9 +111,9 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   // El efecto que monta los precios va ANTES que el del diseño (que corre su script, el que cargaría Calendly).
   assert.ok(landing.indexOf('setDestinoPrecios(montarPrecios(root));') < landing.indexOf("sc.id = 'gm-diseno-js';"));
   const precios = fuente('app/vsl/PreciosLanding.tsx');
-  assert.match(precios, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/, 'el mismo botón que /planes');
-  assert.match(precios, /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
-  assert.doesNotMatch(precios, /precioAnualUsd|por año/, 'sin el anual');
+  assert.match(precios, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
+  for (const rel of ['app/vsl/PreciosLanding.tsx', 'app/planes/Tarjetas.tsx']) assert.doesNotMatch(fuente(rel), /precioAnualUsd|por año/, `${rel}: sin el anual`);
   for (const rel of ['app/page.tsx', 'app/vsl/[slug]/page.tsx']) assert.match(fuente(rel), /planesParaLanding\(\)/, rel);
 });
 
