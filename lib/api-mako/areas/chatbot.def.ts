@@ -56,7 +56,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ficha_secuencia_mensajes', area: 'chatbot', tipo: 'lectura',
     titulo: 'Ficha de una secuencia',
-    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque— o «link»; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
+    descripcion: 'Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque, por el puerto «btn:<id>»— o «link»; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.',
     parametros: [pSecuenciaId],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { tab: TAB },
   },
@@ -239,12 +239,15 @@ export const DEFS: readonly OperacionDef[] = [
   // haga llamando justamente a esta función» y «cada automatización nueva, debe tener una URL que se pueda abrir». La MISMA
   // función que la caja del modal (`crearFlujoConIA`, lib/flujo-ia-crear.ts).
   //   · `chat` y no `pantalla`: crea algo PAUSADO y gratis; la automatización misma es la pantalla editable.
-  //   · SIN `http`: tarda minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3), y gasta la IA del negocio.
+  //   · CON `http` (25/10/2026, el Cerebro: «todo MaKo se debe poder utilizar por API», y Leandro arma con su Claude). Era
+  //     SIN: tardaba minutos y /api/v1 corta a 60 s (AGENTS.md, regla 3). Hoy cada intento se acota al plazo (`hastaMs`):
+  //     por HTTP el modelo tiene 40 s (`PLAZO_CREAR_HTTP_MS`) y, si no le alcanza, vuelve un error sin escribir nada.
+  //   · `costo: 'ia'`: escribe con la IA del negocio.
   //   · Un flujo NO la corre (`preparar` lo rechaza y `accionesParaFlujo` la saca del lienzo).
   {
     id: 'crear_automatizacion_con_ia', area: 'chatbot', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Crear una automatización con IA',
-    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto, evento, horario o quien), junto con el mismo pedido. Si el pedido dice cada cuánto sale («los martes a las 3»), MaKo arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta (el de ManyChat: «Obtener recurso» → ¿te sigue? → el link sólo en el sí; en el no, «Ya te sigo» vuelve a revisar).',
+    descripcion: 'PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual en el grupo y vuelve a llamar con lo que conteste en el parámetro que dice faltan (canal, producto, evento, horario o quien), junto con el mismo pedido. Si el pedido dice cada cuánto sale («los martes a las 3»), MaKo arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta (el de ManyChat: «Obtener recurso» → ¿te sigue? → el link sólo en el sí; en el no, «Ya te sigo» vuelve a revisar). Escribe con la IA del negocio (la que conectó en MaKo) y tarda entre 10 y 40 segundos; por la API, si no le alcanza, contesta un error sin crear nada: vuelve a intentarlo o pídeselo en Automations.',
     parametros: [
       { nombre: 'pedido', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'qué tiene que hacer, con las palabras de la persona.' },
       // DUODÉCIMA TANDA (§2.4): las respuestas a las preguntas de MaKo (`preguntaAntes`). El código las resuelve contra
@@ -257,7 +260,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'quien', tipo: 'string', max: 500, descripcion: 'opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»).' },
     ],
     reversible: true, escribe: 'inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre); si es un Recurrente, con «Cada vez que vuelve a entrar»',
-    canales: SIN_HTTP, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
+    canales: TODOS, costo: 'ia', lenta: true, gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // Crear desde la GALERÍA (undécima tanda): la MISMA función que «＋ Nueva» (`crearDesdePlantilla`, lib/plantilla-crear.ts),
   // con las puertas de siempre. `chat`: crea algo PAUSADO y gratis, y la automatización misma es la pantalla editable.
@@ -545,27 +548,28 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'reemplaza nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
-  // LOS BOTONES DE UN DM (25/10/2026, lib/botones-social.ts). Leandro configura con su Claude por la API (memoria
+  // EL TEXTO Y LOS BOTONES DE UN DM (25/10/2026, lib/botones-social.ts; el texto, lib/botones-api.ts). Leandro configura con su Claude por la API (memoria
   // api-mako-con-cada-feature: ya le pasó con Instagram), y los botones sólo existían en el lienzo. De PANTALLA como
   // editar_pasos: cambia lo que le llega al lead y por dónde sigue el flujo. CON http: es lo que usa el Claude de un cliente.
   // Se guarda por la misma puerta (`publicarPasos`, con `camposDelFlujo`), y nunca deja algo que no se podría publicar.
   {
     id: 'cambiar_botones_mensaje', area: 'chatbot', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
-    titulo: 'Botones de un DM de Instagram',
-    descripcion: 'PROPONE poner, cambiar o sacar los botones de UN mensaje de Instagram o Messenger de una automatización (hasta 3, como los de ManyChat) y devuelve un link para revisarlo. La lista que pases REEMPLAZA a la actual; vacía ([]) los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta de la MISMA automatización: al tocarlo, el lead sigue por ahí, aunque sea una tarjeta de antes) o «link» (una dirección https que se abre, sin mover el flujo). Un botón que ya estaba conserva su id si le pasas el mismo título. Un mensaje con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta (el de ManyChat): el primer mensaje con «Obtener recurso» que sigue en una condición «Sigue tu Instagram»; el link va SÓLO en el mensaje del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Con botones, Instagram corta el texto en 640 caracteres. Lee antes ficha_secuencia_mensajes: cada mensaje dice su id y sus botones.',
+    titulo: 'Texto y botones de un DM de Instagram',
+    descripcion: 'PROPONE cambiar el texto o los botones de UN mensaje de Instagram o Messenger de una automatización (hasta 3 botones, como los de ManyChat), aunque la automatización tenga ramas, y devuelve un link para revisarlo. Sin botones, los botones se quedan como están; sin texto, el texto. La lista de botones que pases REEMPLAZA a la actual; vacía ([]) los saca. El texto de un mensaje de varias partes se edita en el lienzo. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta de la MISMA automatización: al tocarlo, el lead sigue por ahí, aunque sea una tarjeta de antes) o «link» (una dirección https que se abre, sin mover el flujo). Un botón que ya estaba conserva su id si le pasas el mismo título. Un mensaje con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta (el de ManyChat): el primer mensaje con «Obtener recurso» que sigue en una condición «Sigue tu Instagram»; el link va SÓLO en el mensaje del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Con botones, Instagram corta el texto en 640 caracteres. Lee antes ficha_secuencia_mensajes: cada mensaje dice su id y sus botones.',
     parametros: [
       pSecuenciaId,
       { nombre: 'tarjeta', tipo: 'string', obligatorio: true, max: 80, descripcion: 'el id del mensaje (de ficha_secuencia_mensajes).' },
       {
-        nombre: 'botones', tipo: 'object[]', vaciaEsValor: true, max: 3, descripcion: 'los botones, en orden: hasta 3; [] los saca.',
+        nombre: 'botones', tipo: 'object[]', vaciaEsValor: true, max: 3, descripcion: 'opcional: los botones, en orden: hasta 3; [] los saca; sin esto, se quedan los que hay.',
         campos: [
           { nombre: 'titulo', tipo: 'string', obligatorio: true, max: 20, descripcion: 'lo que dice el botón (hasta 20 letras).' },
           { nombre: 'sigue', tipo: 'string', max: 80, descripcion: 'el id de la tarjeta a la que lleva el toque (de ficha_secuencia_mensajes).' },
           { nombre: 'link', tipo: 'string', max: 500, descripcion: 'o la dirección web que abre (https://…).' },
         ],
       },
+      { nombre: 'texto', tipo: 'string', max: 1000, descripcion: 'opcional: el texto nuevo del mensaje (con botones, hasta 640 caracteres). Admite {{nombre}}.' },
     ],
-    reversible: true, escribe: 'reemplaza los botones de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
+    reversible: true, escribe: 'reemplaza el texto o los botones de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)',
     canales: TODOS, costo: 'gratis', gating: { tab: TAB, rolMinimo: 'admin' },
   },
   // LOS CRON DE UNA AUTOMATIZACIÓN (sexta tanda, segunda pasada, 09/10/2026): hasta acá la API los

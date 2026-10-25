@@ -1,5 +1,5 @@
 // =============================================================================
-// La API de MaKo declara los botones de un DM de Instagram (25/10/2026)
+// La API de MaKo declara el texto y los botones de un DM de Instagram, y crea con IA por HTTP (25/10/2026)
 // =============================================================================
 // El Cerebro (25/10, con el pedido de Leandro): «La API de MaKo no los declara. Leandro configura con su Claude por la API, y ya
 // le pasó con Instagram» (memoria api-mako-con-cada-feature). Fija:
@@ -8,11 +8,17 @@
 //   · lo que decide sin escribir (`botonesParaGuardar`, lib/botones-api.ts): sólo un DM de Instagram o Messenger, hasta 3, un
 //     título de hasta 20, UNA cosa por botón, «sigue» a otra tarjeta de la misma automatización, un link web; el id de un
 //     botón que se queda; y nada que no se pueda publicar (sólo los errores NUEVOS);
-//   · la ficha y las inscripciones del lead dicen los botones y si espera un toque; crear con IA dice que los arma.
+//   · la ficha y las inscripciones del lead dicen los botones (con su puerto) y si espera un toque; crear con IA dice que los arma;
+//   · el TEXTO de un DM por la misma operación (el Cerebro, 25/10: «editarlos (texto del mensaje, títulos y destino de cada
+//     botón)»): sin «botones» se quedan, sin «texto» también; uno de varias partes, al lienzo; con botones, hasta 640;
+//   · crear con IA por HTTP (el Cerebro, 25/10: «SÍ, abre `crear_automatizacion_con_ia` por HTTP»): con la IA del negocio,
+//     dicho, y 40 s para el modelo por HTTP (la ruta corta a 60).
 // Correr: node --import tsx --test tests/api-mako-botones.test.ts
 // ROTURAS (25/10/2026, una por vez y restaurada; base 5 / 0): la operación sin http → 4 / 1; «sigue» a la misma tarjeta
 // aceptado → 4 / 1; el id de antes perdido → 4 / 1; un error que el flujo ya tenía frena el cambio → 4 / 1; la ficha sin
-// los botones → 4 / 1.
+// los botones → 4 / 1. Y el texto y crear por HTTP (25/10/2026, base 7 / 0): el texto solo no se guarda, el texto con
+// botones no se guarda, un texto vacío aceptado, uno de varias partes aceptado, crear sin http, crear sin el plazo de
+// HTTP, la ficha sin el puerto → 6 / 1 cada una.
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -62,8 +68,8 @@ test('cambiar los botones: el id de antes se queda, uno nuevo toma uno libre, y 
 test('lo que no se puede, dicho: otra tarjeta, otro canal, de más, a la misma, sin decidir, una dirección mala', () => {
   const err = (t: string, l: unknown[]) => { const r = botonesParaGuardar(GATE, t, l as never, 'Recurso'); return r.ok ? '' : r.error; };
   assert.match(err('zz', []), /no tiene una tarjeta «zz»/);
-  assert.match(err('w1', [{ titulo: 'A', sigue: 'c1' }]), /de un mensaje de Instagram o Messenger/);
-  assert.match(err('c1', [{ titulo: 'A', sigue: 'm2' }]), /de un mensaje de Instagram o Messenger/);
+  assert.match(err('w1', [{ titulo: 'A', sigue: 'c1' }]), /un mensaje de Instagram o Messenger: esa tarjeta no lo es/);
+  assert.match(err('c1', [{ titulo: 'A', sigue: 'm2' }]), /un mensaje de Instagram o Messenger: esa tarjeta no lo es/);
   assert.match(err('m1', [1, 2, 3, 4].map((k) => ({ titulo: `B${k}`, sigue: 'c1' }))), /hasta 3 botones/);
   assert.match(err('m1', [{ titulo: 'Un título larguísimo de más', sigue: 'c1' }]), /pasa de 20 letras/);
   assert.match(err('m1', [{ titulo: 'A' }]), /hace UNA cosa/);
@@ -85,10 +91,53 @@ test('un error que el flujo ya tenía no frena; uno NUEVO, sí', () => {
 
 test('la ficha dice los botones; las inscripciones, si espera un toque; crear con IA, que los arma', () => {
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
-  assert.match(run, /\.\.\.\(botonesDe\(p\)\.length \? \{ botones: botonesDe\(p\)\.map\(\(b\) => \(b\.url \? \{ id: b\.id, titulo: b\.titulo, link: b\.url \} : \{ id: b\.id, titulo: b\.titulo, sigue: b\.siguiente \?\? null \}\)\) \} : \{\}\),/);
+  assert.match(run, /\.\.\.\(botonesDe\(p\)\.length \? \{ botones: botonesDe\(p\)\.map\(\(b\) => \(b\.url \? \{ id: b\.id, titulo: b\.titulo, link: b\.url \} : \{ id: b\.id, titulo: b\.titulo, puerto: `btn:\$\{b\.id\}`, sigue: b\.siguiente \?\? null \}\)\) \} : \{\}\),/);
   assert.match(run, /espera_toque: vivas\.get\(Number\(f\.secuencia_id\)\)!\.esperaToque/);
   const def = leer('lib/api-mako/areas/chatbot.def.ts');
-  assert.match(def, /un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue»/);
+  assert.match(def, /un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque, por el puerto «btn:<id>»—/);
   assert.match(def, /Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta/);
   assert.match(def, /espera_toque: está parado en un DM con botones/);
+});
+
+test('el texto de un DM: solo, con botones, y lo que no se puede', () => {
+  // Sólo el texto: los botones se quedan como estaban (los ids y lo que cuelga de ellos).
+  const solo = botonesParaGuardar(GATE, 'm1', null, 'Recurso', '  ¡Hola {{nombre}}! Aquí va:  ');
+  assert.ok(solo.ok, solo.ok ? '' : solo.error);
+  const m1 = solo.ok ? solo.pasos.find((p) => p.id === 'm1')! : null;
+  assert.equal(m1?.cuerpo, '¡Hola {{nombre}}! Aquí va:');
+  assert.deepEqual(botonesDe(m1!).map((b) => [b.id, b.titulo, b.siguiente]), [['b1', 'Obtener recurso', 'c1']]);
+  assert.match(solo.ok ? solo.resumen : '', /^Texto del mensaje m1 de «Recurso»: «¡Hola \{\{nombre\}\}! Aquí va:»$/);
+  // Texto y botones juntos.
+  const los2 = botonesParaGuardar(GATE, 'm3', [{ titulo: 'Ya te sigo', sigue: 'c1' }], 'Recurso', 'Síguenos y vuelve a tocar.');
+  assert.ok(los2.ok && los2.pasos.find((p) => p.id === 'm3')!.cuerpo === 'Síguenos y vuelve a tocar.', los2.ok ? '' : los2.error);
+  assert.match(los2.ok ? los2.resumen : '', /^Texto \(«Síguenos y vuelve a tocar\.»\) y botones del mensaje m3/);
+  const err = (t: string, l: unknown[] | null, x?: string, pasos = GATE) => { const r = botonesParaGuardar(pasos, t, l as never, 'Recurso', x); return r.ok ? '' : r.error; };
+  assert.match(err('m1', null), /Pasa los botones, el texto o los dos/);
+  assert.match(err('m1', null, '   '), /no puede quedar vacío/);
+  assert.match(err('w1', null, 'Hola'), /un mensaje de Instagram o Messenger/, 'el texto de WhatsApp va por editar_pasos');
+  // Con botones, Instagram corta en 640: un texto más largo no se publica.
+  assert.match(err('m1', null, 'x'.repeat(700)), /Así no se puede publicar/);
+  // Un mensaje de varias partes: al lienzo.
+  const conPartes = GATE.map((p) => (p.id === 'm2' ? { ...p, partes: [{ tipo: 'texto', cuerpo: 'Uno' }, { tipo: 'texto', cuerpo: 'Dos' }] } : p)) as PasoGrafo[];
+  assert.match(err('m2', null, 'Nuevo', conPartes), /varios mensajes seguidos/);
+  // La operación lo declara, y sin «botones» no se pide la lista.
+  const d = porId('cambiar_botones_mensaje')!;
+  const t = d.parametros.find((p) => p.nombre === 'texto');
+  assert.ok(t && !t.obligatorio && t.tipo === 'string');
+  assert.match(d.descripcion, /Sin botones, los botones se quedan como están; sin texto, el texto/);
+  const run = leer('lib/api-mako/areas/chatbot.run.ts');
+  assert.match(run, /const lista = Array\.isArray\(input\.botones\) \? \(input\.botones as BotonPedido\[\]\) : null;/);
+});
+
+test('crear con IA sale por HTTP, con la IA del negocio dicha y 40 s para el modelo', () => {
+  const d = porId('crear_automatizacion_con_ia')!;
+  assert.ok(d.canales.includes('http'));
+  assert.equal(d.costo, 'ia');
+  assert.equal((d as { lenta?: boolean }).lenta, true);
+  assert.match(d.descripcion, /Escribe con la IA del negocio \(la que conectó en MaKo\)/);
+  assert.match(d.descripcion, /por la API, si no le alcanza, contesta un error sin crear nada/);
+  const run = leer('lib/api-mako/areas/chatbot.run.ts');
+  assert.match(run, /const PLAZO_CREAR_HTTP_MS = 40_000;/);
+  assert.match(run, /const plazoMs = ctx\.canal === 'http' \? PLAZO_CREAR_HTTP_MS : 170_000;/);
+  assert.ok(leer('tests/api-mako-http.snapshot.txt').split('\n').includes('crear_automatizacion_con_ia'), 'el snapshot de HTTP no la tiene');
 });

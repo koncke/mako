@@ -2762,4 +2762,21 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "15:40", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El Claude de un cliente crea automatizaciones con IA y cambia el texto de un DM de Instagram",
+    puntos: [
+      "Crear una automatización con IA ya se puede por la API, con la IA del negocio.",
+      "Por la API se cambia también el texto de un DM de Instagram, no sólo sus botones.",
+      "La ficha de la automatización dice por dónde sigue cada botón.",
+    ],
+    archivos: [
+      "lib/botones-api.ts — el texto y los botones antes de guardar",
+      "lib/api-mako/areas/chatbot.def.ts — crear con IA por HTTP",
+      "tests/api-mako-botones.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

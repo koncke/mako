@@ -135,6 +135,7 @@ cortar_frase_video
 cortar_recordatorio_cuota
 cortar_tramo_video
 crear_alumno_curso
+crear_automatizacion_con_ia
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_categoria_comunidad

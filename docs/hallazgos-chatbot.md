@@ -7203,8 +7203,11 @@ Leandro». El Cerebro: que queden terminados de punta a punta (la API, «Probar�
 - **Probar** (lib/simulador-grafo.ts, PanelProbar, SimuladorSocial): quien prueba toca los botones en el DM. Un DM con
   botones y nada más que correr deja la prueba esperando, sin «Fin». `tocar` es el `tocarBoton` del motor.
 - **La ficha** (`botonesQueEspera`): «Espera que toque «Obtener recurso»», no «En curso».
-- **La API**: `cambiar_botones_mensaje`, por HTTP, que es lo que usa el Claude de Leandro, y de pantalla. La ficha dice
-  los botones; `inscripciones_lead`, `espera_toque`.
+- **La API**: `cambiar_botones_mensaje`, por HTTP, que es lo que usa el Claude de Leandro, y de pantalla. Cambia los
+  botones y también el TEXTO del DM (`editar_pasos_secuencia_mensajes` es sólo WhatsApp y email, y sin ramas: un DM con
+  botones vive en un flujo con ramas). La ficha dice los botones con su puerto (`btn:<id>`); `inscripciones_lead`,
+  `espera_toque`. Y `crear_automatizacion_con_ia` sale por HTTP (el Cerebro, 25/10: «todo MaKo se debe poder utilizar por
+  API»), con `costo: 'ia'`.
 
 **⚠️ Las trampas:**
 - **Un botón nuevo tomaba el id de su lugar** («b1») y le robaba el suyo a uno que se quedó en otro lugar. Lo que colgaba
@@ -7223,9 +7226,18 @@ Leandro». El Cerebro: que queden terminados de punta a punta (la API, «Probar�
 Para hacerla, Martín tiene que conectar en su negocio la key de Zernio de MaKo y el Instagram de MaKo (Integraciones ›
 Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de Instagram. Los pasos están en el relevo.
 
+- **⚠️ Por qué crear con IA no salía por HTTP, y por qué ahora sí.** La def decía «tarda minutos y /api/v1 corta a 60 s».
+  Ya no es así: cada intento se acota al plazo del que llama (`hastaMs` en `chatCheapCascade`), y desde el 17/10 un intento
+  dura 45 s como mucho. Por HTTP el modelo tiene 40 s (`PLAZO_CREAR_HTTP_MS`) y el resto queda para escribir. Si no le
+  alcanza, vuelve un error SIN haber escrito nada, porque la fila nace después del modelo. Un token clásico sólo propone, y el
+  «sí» corre en la app con sus 170 s.
+- **⚠️ La primera medición del Cerebro decía que la API no tenía botones**: medía main, y lo de esta tanda vivía sólo en
+  aut-2510. Una medición de la API se hace sobre la rama que se va a subir.
+
 **Sin hacer:** el DM de verdad (arriba). «Probar» no simula el texto de respaldo («Escríbeme «…»») de una cuenta que rechaza
-los botones. La API no tiene cómo armar el gate entero por HTTP (`crear_automatizacion_con_ia` lo arma, pero no sale por
-HTTP: exponerla es una decisión del snapshot). No se vio en pantalla.
+los botones. Por la API, el texto de un mensaje de WhatsApp o email en un flujo CON ramas no se puede cambiar
+(`editar_pasos_secuencia_mensajes` lo rechaza). Por HTTP directo, la pregunta de crear con IA llega como el texto del error,
+sin `faltan` (`aplicarEnElActo` lo resume en una frase). No se vio en pantalla.
 
 Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
 lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
