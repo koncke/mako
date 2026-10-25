@@ -8,8 +8,12 @@
 //      que MaKo trabaje solo; la carga el admin). A quien no es admin: «Pídele a <admin> que conecte la IA del negocio».
 //
 // Las dos vías no son lo mismo y la pantalla lo dice en una línea: la suscripción corre en SU computadora (D6a) y sólo
-// contesta lo que la persona pide; lo que MaKo hace solo (contestar leads, Hola MaKo, análisis) va con la clave de API,
-// porque Anthropic no deja que otra app use los tokens de la suscripción. Claude Max trae crédito de API.
+// contesta lo que la persona pide —el chat de la app y, desde el 25/10/2026, su grupo de MaKo en WhatsApp cuando escribe
+// ella—; lo que MaKo hace solo (contestar leads, Automations, nutrición, análisis de fondo) va con la clave de API, porque
+// Anthropic no deja que otra app use los tokens de la suscripción. Claude Max trae crédito de API.
+// Martín, 25/10/2026: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». El grupo
+// del DUEÑO es él escribiéndole a su MaKo, como el chat: la puerta prueba que quien escribe es quien conectó la computadora
+// (`encolarTurno` con `delGrupo`, lib/ia-pc.ts; docs/conexiones-y-ayuda.md, decisión 2).
 //
 // GEMINI (IA16, 22/10/2026). Martín, textual: «Cada usuario debe poder pagar su token, su propia IA de gemini». Va sólo por
 // clave (la de AI Studio: no hay suscripción que corra en la PC, medido el 24/10/2026 — ver `iaDeLaPcPara`) y la pantalla dice dónde sacarla en una línea. Y SIEMPRE el

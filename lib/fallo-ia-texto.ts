@@ -223,7 +223,8 @@ const NOMBRE_IA: Record<string, string> = { gemini: 'Gemini', openai: 'GPT', ant
  *     después de dos), así que ofrecérselo para el grupo es prometer un respaldo que justo cuando hace falta no está. Y
  *     Claude no escucha (`CASCADA_STT`, lib/ai-cheap.ts);
  *   · en la app, su Claude con MaKo en su computadora (MaKo Desktop): el chat de la app ya exige la computadora
- *     (lib/chat-mako-reglas.ts). El grupo todavía no pasa por ella (D6a).
+ *     (lib/chat-mako-reglas.ts). Y desde el 25/10 (tanda 4) también el grupo, cuando escribe quien la conectó: con ella
+ *     encendida, el grupo ni llega al cartel.
  * Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo a conectar uno.
  */
 const CUBREN_EL_TURNO = ['openai'] as const;
@@ -268,8 +269,13 @@ export function enlaceA(link: string, conexion: ConexionDelCartel): string {
 
 /** Lo que el cartel sabe del negocio además de las claves (25/10/2026). */
 export type ContextoCartel = {
-  /** Alguien del negocio conectó su computadora: su Claude está, pero desde ahí contesta en la app, no en WhatsApp. */
+  /** Alguien del negocio conectó su computadora (MaKo Desktop). En el grupo contesta sólo a quien la conectó (decisión 2). */
   conPc?: boolean;
+  /**
+   * Lo que pasó con la computadora de QUIEN ESCRIBE, si es la persona que la conectó (el doer, `pcDeQuienEscribe`): apagada o
+   * sin internet, o no contestó a tiempo. Sin esto y con `conPc`, quien escribe no es quien la conectó.
+   */
+  laPcDelQueEscribe?: 'apagada' | 'no-contesto';
   /** Tiene su Claude por clave: para una nota de voz, «tu Claude no escucha» en vez de «no conectaste una IA». */
   suClaude?: boolean;
   /** Lo que el pedido necesita además de la IA y no está conectado (`conexionesDelPedido`, filtrado por el doer). */
@@ -343,20 +349,9 @@ export function textoFalloIA(
       // escucha notas de voz. Desde el 25/10, sin Gemini (ver `CUBREN_EL_TURNO`) y con un link por cada cosa que falta.
       // ⚠️ CON LA COMPUTADORA CONECTADA, «NO TIENE SU IA» ES FALSO (25/10/2026). `negocioConSuIA` da `suIA` a todo negocio
       // con MaKo Desktop, y como la computadora no cuenta claves, la causa salía `sin_keys` y el grupo le decía «tu negocio
-      // todavía no tiene su IA conectada» a quien la tenía. Lo cierto: su Claude contesta en la app, no aquí.
+      // todavía no tiene su IA conectada» a quien la tenía.
       if (que === 'escuchar tu audio') {
         // Una nota de voz no la escucha su Claude, ni por clave ni en su computadora: la escucha su GPT.
-        if (ctx.conPc && !ctx.suClaude) {
-          return [
-            '⚠️ No puedo escuchar tu audio: tu Claude está en tu computadora, y desde ahí no escucha notas de voz ni te contesta en WhatsApp.',
-            '',
-            'Para que te escuche y te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
-            gpt,
-            '',
-            'O escríbeme en la app 👇',
-            enlaceA(link, 'app'),
-          ].join('\n');
-        }
         if (ctx.conPc || ctx.suClaude) {
           return [
             '⚠️ No puedo escuchar tu audio: tu Claude no escucha notas de voz.',
@@ -372,15 +367,35 @@ export function textoFalloIA(
           gpt,
         ].join('\n');
       }
+      // ⚠️ DESDE LA TANDA 4 (25/10/2026), EL GRUPO DEL DUEÑO CONTESTA CON SU COMPUTADORA: «aquí no, en la app» dejó de ser cierto
+      // para quien la conectó. Lo cierto depende de qué pasó con la computadora de QUIEN ESCRIBE (`laPcDelQueEscribe`).
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'apagada') {
+        return [
+          `⚠️ No puedo ${que}: tu computadora con MaKo está apagada o sin internet, y aquí te contesto desde ella.`,
+          '',
+          'Préndela y mándamelo de nuevo. Para que te conteste aunque esté apagada, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'no-contesto') {
+        return [
+          `⚠️ No pude ${que}: tu computadora con MaKo no me contestó a tiempo.`,
+          '',
+          'Mándamelo de nuevo en un rato. Para que te conteste aunque tu computadora no responda, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
       if (ctx.conPc) {
         return [
-          `⚠️ Aquí no puedo ${que}: tu Claude está en tu computadora, y desde ahí te contesto en la app, no en WhatsApp.`,
+          `⚠️ Aquí no puedo ${que}: la IA de tu negocio está en una computadora con MaKo, y en WhatsApp contesta sólo a quien la conectó, desde su número.`,
           '',
-          'Escríbeme en la app 👇',
-          enlaceA(link, 'app'),
-          '',
-          'Para que también te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
+          'Para que te conteste a ti aquí, conecta tu GPT (una clave de OpenAI) 👇',
           gpt,
+          '',
+          'Si la conectaste tú, revisa que tu número de WhatsApp esté en tu perfil de MaKo. Y en la app te contesto con MaKo en tu computadora 👇',
+          enlaceA(link, 'app'),
           ...lineasDeLoQueFalta(link, ctx.faltan),
         ].join('\n');
       }
@@ -390,7 +405,7 @@ export function textoFalloIA(
         'Para que te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
         gpt,
         '',
-        'Y para escribirme en la app, instala MaKo en tu computadora y conecta tu Claude 👇',
+        'O instala MaKo en tu computadora y conecta tu Claude: te contesto aquí y en la app 👇',
         enlaceA(link, 'pc'),
         ...lineasDeLoQueFalta(link, ctx.faltan),
       ].join('\n');

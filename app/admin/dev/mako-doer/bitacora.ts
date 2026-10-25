@@ -637,4 +637,21 @@ export const BITACORA: Hito[] = [
       'tests/doer-ayuda.test.ts — 7 tests, 11 roturas con su fallo',
     ],
   },
+  {
+    fecha: '25 oct', hora: '18:40', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo de MaKo del dueño contesta con su computadora, cuando escribe quien la conectó',
+    puntos: [
+      'Martín, 25/10: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Tanda 4 de docs/conexiones-y-ayuda.md, sobre la puerta de la computadora que hizo MaKo Desktop (`delGrupo`).',
+      '⚠️ **«Como el turno del chat de la app» no encajaba:** el doer conserva su turno (pendientes, agenda, memoria) y sólo la llamada al modelo va a la PC, con sus mismas herramientas.',
+      '**La identidad es el teléfono que manda WhatsApp**, probado en la puerta contra el perfil y contra quien conectó la PC; un lote de varias personas no va. Sin su número en el perfil, su computadora no contesta el grupo, y el cartel lo dice.',
+      '**Leads, Automations, nutrición y crons siguen sin llegar a la PC** (D6a entera para todo eso). AGENTS.md, lib/conectar-ia-reglas.ts y docs/ia-del-cliente.md con la cita.',
+    ],
+    archivos: [
+      'lib/mako-doer-in.ts — `pcDeQuienEscribe`, el turno a la PC y `loteDeVarios`',
+      'lib/doer-ticket.ts — `telefonoDelParticipante`',
+      'lib/fallo-ia-texto.ts — el cartel según qué pasó con SU computadora',
+      'tests/ia-pc-nunca-a-leads.test.ts (7, 5 roturas) y tests/doer-cartel-sin-ia.test.ts (7, 3 roturas)',
+    ],
+  },
 ];

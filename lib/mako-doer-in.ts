@@ -33,7 +33,9 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
-import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
+import { actorDeWhatsApp, telefonoDelParticipante, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
+import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
+import { armarPrompt, esperaDelTurno, pcUsable, RESERVA_RESPALDO_MS } from '@/lib/ia-pc-reglas';
 import { registrarError } from '@/lib/errores-app';
 import { identidadDelActor } from '@/lib/tickets-db';
 import { runnerDelRegistro, vistaDe } from '@/lib/api-mako/ejecutar';
@@ -170,7 +172,8 @@ async function abrirVentana(ws: number, jid: string): Promise<void> {
 }
 
 // ── parseo del mensaje entrante ───────────────────────────────────────────────
-type MsgIn = { key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string };
+/** `loteDeVarios`: el lote junta mensajes de MÁS de una persona (o de alguien sin teléfono): nunca va a la computadora del dueño. */
+type MsgIn = { key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean };
 
 function textoDe(m: MsgIn): string {
   const msg = m.message ?? {};
@@ -421,6 +424,30 @@ async function atenderAyuda(ws: number, jid: string, texto: string, actor: strin
   await guardar(id ? ticketOfrecido(id, ahora) : null);
   return conTicket(d.texto, !!id);
 }
+
+/**
+ * EL GRUPO DEL DUEÑO, A SU COMPUTADORA (25/10/2026, docs/conexiones-y-ayuda.md, decisión 2): la computadora de quien escribe,
+ * si el lote entero lo escribió UNA persona con teléfono y ese teléfono es de UNA persona del negocio que conectó una. Es sólo
+ * para decidir si vale la pena pedirlo: la PRUEBA la hace la puerta (`encolarTurno` con `delGrupo`, lib/ia-pc.ts), que vuelve a
+ * mirar el teléfono contra el perfil y contra quien conectó esa PC. null = no va a la computadora. Nunca tira.
+ */
+async function pcDeQuienEscribe(ws: number, data: MsgIn): Promise<{ pc: NonNullable<Awaited<ReturnType<typeof pcDe>>>; telefono: string } | null> {
+  if (data.loteDeVarios) return null;
+  const telefono = telefonoDelParticipante(data.key?.participant);
+  if (!telefono) return null;
+  try {
+    const quien = await identidadDelActor(ws, `whatsapp:+${telefono}`);
+    // Sin un usuario (el teléfono no está en ningún perfil, o en dos), no hay persona: `identidadDelActor` devuelve el teléfono.
+    if (!quien?.usuarioId || !quien.email || quien.email.startsWith('whatsapp:')) return null;
+    const pc = await pcDe(ws, quien.email);
+    return pc ? { pc, telefono } : null;
+  } catch { return null; }
+}
+
+/** El turno del grupo no tiene una sesión de chat: `sesion_id` (NOT NULL en `ia_pc_turnos`, mig 0320) va en 0. Nadie la lee. */
+const SESION_DEL_GRUPO = 0;
+/** Lo que le queda a la invocación del webhook (`maxDuration` 420 s, app/api/webhooks/evolution/route.ts), con margen. */
+const PLAZO_DOER_MS = 400_000;
 
 /** El contexto de la API para la ayuda: el mismo canal y la misma persona que el turno (`ctxApi`), sin el turno. */
 function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | undefined): CtxApi {
@@ -690,11 +717,15 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
     const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? data;
+    // ¿Lo escribió UNA sola persona? El sintético lleva el `participant` del último: con dos autores, ése no prueba quién pidió
+    // lo de arriba, y la computadora del dueño no lo atiende (docs/conexiones-y-ayuda.md, decisión 2).
+    const autores = new Set(cola.map((m) => ((m.payload as MsgIn) ?? {}).key?.participant ?? ''));
     const sintetico: MsgIn = {
       // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
       key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
       pushName: ultimo.pushName,
       message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
+      ...(autores.size !== 1 || autores.has('') ? { loteDeVarios: true } : {}),
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
     const r = await procesarDoer(wsData, instance, sintetico, { acuse });
@@ -1433,6 +1464,33 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       }
     }
 
+    // ── EL GRUPO DEL DUEÑO, A SU COMPUTADORA (25/10/2026, docs/conexiones-y-ayuda.md, decisión 2) ──────────────────────
+    // Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Igual que el chat de la app:
+    // sólo si el lote entero lo escribió UNA persona con teléfono, ésa es la que conectó la computadora y la computadora está
+    // en línea; la prueba la hace la puerta (`encolarTurno` con `delGrupo`). Leads, crons, webhooks hacia un lead y Automations
+    // NO pasan por acá: no son el dueño escribiendo en su grupo (D6a, AGENTS.md). Si la computadora no contesta, sigue el camino
+    // de siempre (su clave, o el cartel, que dice qué pasó con su computadora).
+    let laPcDelQueEscribe: 'apagada' | 'no-contesto' | undefined;
+    if (!respuesta && !mediaBlocks) {
+      const delGrupo = await pcDeQuienEscribe(wsData, data);
+      if (delGrupo && !pcUsable(delGrupo.pc)) laPcDelQueEscribe = 'apagada';
+      else if (delGrupo) {
+        try {
+          // Con una clave suya, la espera le deja tiempo a la clave (el mismo criterio que la app, `RESERVA_RESPALDO_MS`).
+          const conClave = (await contarKeysIA('texto').catch(() => 0)) > 0;
+          const espera = esperaDelTurno(PLAZO_DOER_MS, Date.now() - (ctxApi.turnStart ?? Date.now()), conClave ? RESERVA_RESPALDO_MS : 0);
+          const turnoPc = await encolarTurno(delGrupo.pc, SESION_DEL_GRUPO, { system, prompt: armarPrompt(historial, texto), tools }, espera, { delGrupo: { telefono: delGrupo.telefono } });
+          const r = await esperarALaPc(turnoPc, wsData, delGrupo.pc.id, runTool as Ejecutor, espera);
+          if (r && 'texto' in r && r.texto.trim()) respuesta = r.texto.trim();
+          else laPcDelQueEscribe = r && ('apagada' in r || 'desconectada' in r) ? 'apagada' : 'no-contesto';
+        } catch (e) {
+          // `SinLaPersona`: la puerta no aceptó que quien escribe sea quien conectó esa PC. No es un fallo: es la regla.
+          if (!(e instanceof SinLaPersona)) laPcDelQueEscribe = 'no-contesto';
+          console.warn(`[mako-doer-in] ws=${wsData} el grupo no fue a la computadora: ${e instanceof TopeDeTurnos ? 'tope de turnos' : e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+    }
+
     if (!respuesta) {
       // El loop de tool-use corre bajo wsData (procesarDoer ya está dentro de
       // runWithWorkspace(wsData)) → getTenantDb scopea al cliente dueño del grupo.
@@ -1939,7 +1997,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             ? textoSinRedPorDatos(linkApp(rutaKeysIA(), wsData), eraDePlan ? 'armar el borrador' : 'contestar')
             : cartel === 'proveedor_caido'
             ? avisoNoPude(eraDePlan)
-            : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA, { conPc: iaDelNegocio.conPc, faltan });
+            : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA, { conPc: iaDelNegocio.conPc, laPcDelQueEscribe, faltan });
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
           // Sin su IA: «¿Quieres que te ayude a conectarlo?» (lib/doer-ayuda.ts). Su GPT primero —es lo que lo destraba aquí— y
           // después lo que el pedido necesita. El «sí» lo atiende el código, antes de la IA.

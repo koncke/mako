@@ -67,7 +67,7 @@ test('2. «sin_keys» pide su GPT para WhatsApp y MaKo Desktop para la app, cada
     const t = textoFalloIA('sin_keys', link, que, 0);
     assert.match(t, new RegExp(`No puedo ${que}: tu negocio todavía no conectó su IA`));
     assert.match(t, /conecta tu GPT \(una clave de OpenAI\) 👇\nhttps:\/\/hola-mako\.com\/integraciones\?abrir=openai(\n|$)/, `su GPT sin su link:\n${t}`);
-    assert.match(t, /instala MaKo en tu computadora y conecta tu Claude 👇\nhttps:\/\/hola-mako\.com\/perfil\/ia\?computadora=1(\n|$)/, `MaKo Desktop sin su link:\n${t}`);
+    assert.match(t, /instala MaKo en tu computadora y conecta tu Claude: te contesto aquí y en la app 👇\nhttps:\/\/hola-mako\.com\/perfil\/ia\?computadora=1(\n|$)/, `MaKo Desktop sin su link:\n${t}`);
     assert.doesNotMatch(t, /gemini/i, `volvió a ofrecer Gemini (Martín, 25/10):\n${t}`);
     assert.doesNotMatch(t, /groq/i, 'volvió a mandar a cargar Groq, que desde IA16 sólo escucha');
     assert.doesNotMatch(t, /gratis/i, 'volvió a vender una IA gratis');
@@ -122,7 +122,7 @@ test('5. el doer cuenta su IA entera, pasa `conPc` a los dos caminos y anota el 
   assert.match(doer, /const nKeys = await contarKeysIA\('texto'\)/);
   assert.match(doer, /const cartel = cartelDelFallo\(causa, errsPlat\);/);
   assert.match(doer, /respuesta = cartel === 'sin_red_por_datos'\s*\?\s*textoSinRedPorDatos\(/);
-  assert.match(doer, /:\s*textoFalloIA\(cartel, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA, \{ conPc: iaDelNegocio\.conPc, faltan \}\)/,
+  assert.match(doer, /:\s*textoFalloIA\(cartel, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA, \{ conPc: iaDelNegocio\.conPc, laPcDelQueEscribe, faltan \}\)/,
     'el cartel de texto no mira la computadora ni lo que falta');
   assert.match(doer, /for \(const c of conexionesDelPedido\(areasDelMensaje\(texto\)\)\) \{\s*if \(!\(await integracionConectada\(c, wsData\)\.catch\(\(\) => true\)\)\) faltan\.push\(c\);/,
     'lo que falta se afirma sin poder leerlo, o no se busca');
@@ -148,7 +148,7 @@ test('6. el caso del ws21: «Estas analizando mis fathom?», sin ninguna clave �
     'Para que te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
     `${BASE}/integraciones?abrir=openai`,
     '',
-    'Y para escribirme en la app, instala MaKo en tu computadora y conecta tu Claude 👇',
+    'O instala MaKo en tu computadora y conecta tu Claude: te contesto aquí y en la app 👇',
     `${BASE}/perfil/ia?computadora=1`,
     '',
     'Y para leer tus llamadas, conecta tu Fathom 👇',
@@ -167,21 +167,30 @@ test('6. el caso del ws21: «Estas analizando mis fathom?», sin ninguna clave �
   assert.match(textoSinRedPorDatos(`${BASE}/integraciones?abrir=openai&ws=9`), /IA gratis de MaKo/);
 });
 
-test('7. con la computadora conectada y sin clave, el cartel no dice que no tiene su IA', () => {
+test('7. con la computadora conectada y sin clave, el cartel no dice que no tiene su IA, y dice qué pasó con ELLA', () => {
   const link = linkKeysIA(BASE);
-  const t = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true });
-  assert.doesNotMatch(t, /no (tiene|conectó) su IA/, `le dice que no tiene su IA a quien la tiene en su computadora:\n${t}`);
-  assert.match(t, /tu Claude está en tu computadora, y desde ahí te contesto en la app, no en WhatsApp/);
-  assert.ok(t.includes(`${BASE}/second-brain`), `no le da el link del chat de la app:\n${t}`);
-  assert.ok(t.includes(GPT), `no le da el link de su GPT para el grupo:\n${t}`);
-  assert.doesNotMatch(t, /computadora=1/, 'le pide instalar lo que ya tiene');
-  assert.doesNotMatch(t, /gemini|gratis/i);
-  // El audio, con la computadora sola: Claude no escucha ni contesta aquí.
+  // Desde la tanda 4 el grupo del dueño contesta con su computadora: si llegó al cartel, es que escribe otra persona, o la suya
+  // está apagada, o no contestó. Cada caso, su verdad.
+  const otro = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true });
+  assert.doesNotMatch(otro, /no (tiene|conectó) su IA/, `le dice que no tiene su IA a quien la tiene en una computadora:\n${otro}`);
+  assert.match(otro, /en WhatsApp contesta sólo a quien la conectó, desde su número/);
+  assert.match(otro, /revisa que tu número de WhatsApp esté en tu perfil de MaKo/, 'no le dice por qué su computadora no lo reconoce');
+  assert.ok(otro.includes(GPT) && otro.includes(`${BASE}/second-brain`), `faltan los links de su GPT o de la app:\n${otro}`);
+  assert.doesNotMatch(otro, /computadora=1/, 'le pide instalar lo que el negocio ya tiene');
+  const apagada = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true, laPcDelQueEscribe: 'apagada' });
+  assert.match(apagada, /tu computadora con MaKo está apagada o sin internet/);
+  assert.match(apagada, /Préndela y mándamelo de nuevo/);
+  assert.ok(apagada.includes(GPT));
+  const tarde = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true, laPcDelQueEscribe: 'no-contesto' });
+  assert.match(tarde, /tu computadora con MaKo no me contestó a tiempo/);
+  assert.doesNotMatch(tarde, /apagada/, 'una computadora que no contestó a tiempo no está apagada');
+  for (const t of [otro, apagada, tarde]) assert.doesNotMatch(t, /gemini|gratis|no en WhatsApp/i, t);
+  // El audio, con la computadora: Claude no escucha (y ya no se dice que la computadora no contesta aquí).
   const a = textoFalloIA('sin_keys', link, 'escuchar tu audio', 0, [], { conPc: true });
-  assert.doesNotMatch(a, /no conectó una IA/, `al de la computadora le dice que no tiene IA:\n${a}`);
-  assert.match(a, /tu Claude está en tu computadora/);
-  assert.ok(a.includes(GPT) && a.includes(`${BASE}/second-brain`));
-  assert.deepEqual(marcasDeVoseo(`${t}\n${a}`), []);
+  assert.doesNotMatch(a, /no conectó una IA|ni te contesta en WhatsApp/, `al de la computadora le dice algo falso:\n${a}`);
+  assert.match(a, /tu Claude no escucha notas de voz/);
+  assert.ok(a.includes(GPT));
+  assert.deepEqual(marcasDeVoseo([otro, apagada, tarde, a].join('\n')), []);
 });
 
 test('8. ningún cartel, en ninguna causa, ofrece Gemini ni «gratis», ni manda a /integraciones sin abrir un modal', () => {
@@ -190,7 +199,8 @@ test('8. ningún cartel, en ninguna causa, ofrece Gemini ni «gratis», ni manda
   // Los errores de cada proveedor: con su Gemini como única IA es justo cuando se le ofrecía «otro Gemini».
   const errores = [[], ['chatCheapTools(gemini): The operation was aborted due to timeout'], ['chatCheapTools(openai): HTTP 500'],
     ['gemini: HTTP 429 RESOURCE_EXHAUSTED'], ['anthropic/claude: HTTP 500']];
-  const ctxs = [{}, { conPc: true }, { suClaude: true }, { faltan: ['fathom' as const] }];
+  const ctxs = [{}, { conPc: true }, { suClaude: true }, { faltan: ['fathom' as const] },
+    { conPc: true, laPcDelQueEscribe: 'apagada' as const }, { conPc: true, laPcDelQueEscribe: 'no-contesto' as const }];
   let vistos = 0;
   for (const causa of causas) for (const que of ques) for (const keys of [0, 1, 3]) for (const errs of errores) for (const ctx of ctxs) {
     const t = textoFalloIA(causa, linkKeysIA(BASE), que, keys, errs, ctx);
@@ -202,10 +212,11 @@ test('8. ningún cartel, en ninguna causa, ofrece Gemini ni «gratis», ni manda
     assert.doesNotMatch(t, /\/integraciones(?!\?abrir=)/, `manda a /integraciones sin abrir el modal (${donde}):\n${t}`);
     assert.deepEqual(marcasDeVoseo(t), [], `voseo (${donde})`);
     // Con su GPT como la IA que falló, no hay otra que ofrecerle: ni su Gemini ni «también tu GPT».
-    if (errs.length && errs.every((e) => /openai/.test(e))) assert.doesNotMatch(t, /también tu GPT/, `le ofrece su GPT a quien ya lo tiene (${donde}):\n${t}`);
+    // (`sin_keys` es justo no tener ninguna: ahí ofrecer su GPT es lo que corresponde.)
+    if (causa !== 'sin_keys' && errs.length && errs.every((e) => /openai/.test(e))) assert.doesNotMatch(t, /también tu GPT/, `le ofrece su GPT a quien ya lo tiene (${donde}):\n${t}`);
     vistos++;
   }
-  assert.equal(vistos, 7 * 3 * 3 * 5 * 4);
+  assert.equal(vistos, 7 * 3 * 3 * 5 * 6);
 });
 
 test('9. la fila del vigía lleva el texto, en una línea, con el ws primero y sin pasarse', () => {
@@ -235,3 +246,6 @@ test('9. la fila del vigía lleva el texto, en una línea, con el ws primero y s
 //   R20. `motivoDelCartel` deja los saltos de línea                                                   → 1 falla  (9)
 //   R21. `recordUsage` vuelve a cortar todo motivo a 200                                              → 1 falla  (5)
 //   R22. el audio con su Claude por clave dice «no conectó una IA que escuche»                        → 1 falla  (3)
+// 25/10/2026, tanda 4 (el grupo del dueño a su computadora): el 7 pasó a fijar los tres casos de la computadora (otra persona,
+// apagada, no contestó) y el 8 los recorre. Rotas, una por vez: el cartel con la computadora vuelve a «te contesto en la app,
+// no en WhatsApp» → cae el 7; «no contestó» dice «apagada» → cae el 7; el doer no le pasa `laPcDelQueEscribe` → cae el 5.

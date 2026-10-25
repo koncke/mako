@@ -80,6 +80,29 @@ abajo) y abre `mako://conectar` solo; si vence o la persona dice «No», el mism
 (`Tutorial`) · `lib/ia-pc-reglas.ts` (`abreEnlacesMako`, `ICONO_APP_MAC`) · `scripts/ia-pc/mako-pc.mjs` (`dialogoMac`) ·
 `tests/ia-pc-marca.test.ts`, `tests/ia-pc-firma.test.ts` (5), `tests/ia-pc-instalador-040.test.ts` (1)
 
+## El grupo de MaKo del dueño, a su computadora: la otra prueba de identidad (25/10/2026)
+
+Martín, 25/10/2026: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Decisión 2
+de [conexiones-y-ayuda.md](conexiones-y-ayuda.md): el grupo de MaKo del DUEÑO es él escribiéndole a su MaKo, como el chat de
+la app, y contesta con su computadora. La puerta la hizo MaKo Desktop (`encolarTurno` con `delGrupo`, lib/ia-pc.ts,
+lib/ia-pc-grupo-reglas.ts); el que la pide, «MaKo en WhatsApp» (`pcDeQuienEscribe`, lib/mako-doer-in.ts). Lo fijan
+tests/ia-pc-nunca-a-leads.test.ts (7), tests/ia-pc-puerta-grupo.test.ts y tests/doer-cartel-sin-ia.test.ts (7).
+
+- ⚠️ **El diseño decía «el turno va como `turnoApp`», y no encaja.** `turnoApp` es un turno de chat de la app (su sesión, su
+  historial, sus herramientas); el doer tiene pendientes, borrador, agenda y su memoria. El doer conserva su turno y sólo la
+  llamada al modelo va a la PC, por la misma puerta y con las mismas herramientas (`runTool` como `Ejecutor`).
+- **La identidad no es la cookie: es el teléfono que manda WhatsApp** (`participant`, nunca lo que dice el mensaje), de UNA sola
+  persona activa del negocio, y ésa es quien conectó la PC. Lo prueba la PUERTA, no el doer. ⚠️ Consecuencia: si el dueño no
+  tiene su número en su perfil de MaKo, su computadora nunca contesta el grupo; el cartel se lo dice.
+- **Un lote de varias personas no va a la PC.** El mensaje sintético del lote lleva el `participant` del ÚLTIMO: con dos
+  autores, ése no prueba quién pidió lo de arriba (`loteDeVarios`).
+- `sesion_id` de `ia_pc_turnos` es NOT NULL (mig 0320) y nadie lo lee: el grupo va con 0, sin migración.
+- Con la PC apagada o sin contestar, el camino de siempre (su clave, si tiene); sin clave, el cartel dice qué pasó con SU
+  computadora («préndela», «no me contestó a tiempo»). «Aquí no, en la app» quedó sólo para quien no la conectó.
+
+**SIN hacer:** medirlo con una computadora de verdad (no se probó en vivo); que «Tus cuentas de IA» diga que la computadora
+también contesta el grupo (es de MaKo Desktop); las notas de voz siguen necesitando su GPT (Claude no escucha).
+
 ## Lo que MaKo sabe de cómo conectar cada cosa, de un solo lugar: el prompt, las capacidades y la intención (25/10/2026)
 
 Tanda 3 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md). Vive en `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`, los
