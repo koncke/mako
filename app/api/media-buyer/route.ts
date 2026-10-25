@@ -17,7 +17,9 @@
 import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { getUsuarioActual } from '@/lib/auth';
-import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla } from '@/lib/media-buyer/store';
+import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla, PlanSinPiloto, cupoDe } from '@/lib/media-buyer/store';
+import { modoEfectivo } from '@/lib/media-buyer/plan';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
@@ -39,8 +41,9 @@ export async function GET() {
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return ws;
   try {
-    const [config, { decisiones, existeTabla }] = await Promise.all([leerConfig(ws), leerDecisiones(ws, 30)]);
-    return J({ ok: true, config, decisiones, existeTabla });
+    const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfig(ws), leerDecisiones(ws, 30), cupoDe(ws)]);
+    // El modo que VALE: con un plan sin piloto, la pantalla nunca lo muestra prendido (plan.ts → modoEfectivo).
+    return J({ ok: true, config: { ...config, modo: modoEfectivo(config.modo, cupo) }, cupo, decisiones, existeTabla });
   } catch (e) {
     return J({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
   }
@@ -151,6 +154,7 @@ export async function POST(req: NextRequest) {
     }
   } catch (e) {
     if (e instanceof MediaBuyerSinTabla) return J({ ok: false, error: e.message }, 503);
+    if (e instanceof PlanSinPiloto) return J({ ok: false, error: e.message, tope: true, link: RUTA_CAMBIAR_PLAN }, 403);
     if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
     const z = leerErrorDeZernio(e);
     return J({ ok: false, error: z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e) }, 500);

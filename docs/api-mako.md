@@ -5582,7 +5582,7 @@ curl -L \
 
 ### `POST /api/v1/ads/media-buyer/analisis` — Analizar la cuenta con el Media Buyer
 
-PROPONE que el Media Buyer mire la cuenta ahora (lo hace solo una vez por día) y deje sus decisiones del día. Por acá NUNCA lanza nada, aunque el negocio tenga el piloto automático: sólo propone. Las variaciones del ganador las escribe la IA del negocio.
+PROPONE que el Media Buyer mire la cuenta ahora (lo hace solo una vez por día) y deje sus decisiones del día. Pedido por esta vía NUNCA lanza nada, aunque el negocio tenga el piloto automático: sólo propone. Las variaciones del ganador las escribe la IA del negocio.
 
 - **Ruta por operación:** `POST /api/v1/ads/analizar_cuenta_media_buyer`
 - **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)

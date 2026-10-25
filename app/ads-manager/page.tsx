@@ -16,7 +16,8 @@ import { getUsuarioActual } from '@/lib/auth';
 import { credWs } from '@/lib/credenciales';
 import { Pagina } from '@/app/_ui/Pagina';
 import { EmptyState, PermissionState } from '@/app/_ui/Estados';
-import { leerConfig, leerDecisiones } from '@/lib/media-buyer/store';
+import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
+import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { metasDelMes } from '@/lib/media-buyer/datos';
 import { MediaBuyer } from './MediaBuyer';
 
@@ -40,19 +41,22 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return <Pagina><PermissionState motivo="rol" /></Pagina>;
 
-  const [yo, config, dec, metas, token] = await Promise.all([
+  const [yo, guardada, dec, metas, token, cupo] = await Promise.all([
     getUsuarioActual().catch(() => null),
     leerConfig(ws),
     leerDecisiones(ws, 30),
     metasDelMes(ws).catch(() => null),
     credWs('META_ACCESS_TOKEN', ws).catch(() => null),
+    cupoDe(ws),
   ]);
+  // El modo que VALE: un negocio en Esencial nunca ve el piloto prendido (lib/media-buyer/plan.ts → modoEfectivo).
+  const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const nombre = (yo?.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
   const sp = await searchParams;
 
   return (
     <Pagina style={MARGEN_MAKO}>
-      <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla }} metas={metas} tieneMeta={!!token}
+      <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla, cupo }} metas={metas} tieneMeta={!!token}
         decisionInicial={typeof sp.decision === 'string' && /^[0-9a-f-]{36}$/i.test(sp.decision) ? sp.decision : null} />
     </Pagina>
   );

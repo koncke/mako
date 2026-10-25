@@ -13,7 +13,8 @@
 import { requireMovil } from '@/lib/movil-guard';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { PantallaM, VacioM } from '@/app/m/_ui';
-import { leerConfig, leerDecisiones } from '@/lib/media-buyer/store';
+import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
+import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { MediaBuyerM } from './MediaBuyerM';
 import './mb-m.css';
 
@@ -22,12 +23,13 @@ export const dynamic = 'force-dynamic';
 export default async function MediaBuyerMovil() {
   const ctx = await requireMovil({ navKey: 'ads-manager' });
   if (ctx.ws == null) return <PantallaM><VacioM frase="Elige un negocio para ver su Media Buyer." /></PantallaM>;
-  const [op, config, dec] = await Promise.all([wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30)]);
+  const [op, guardada, dec, cupo] = await Promise.all([wsDeAdsManager(), leerConfig(ctx.ws), leerDecisiones(ctx.ws, 30), cupoDe(ctx.ws)]);
+  const config = { ...guardada, modo: modoEfectivo(guardada.modo, cupo) };
   const puedeOperar = typeof op === 'number' && op === ctx.ws;
   const nombre = (ctx.sesion.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
   return (
     <PantallaM>
-      <MediaBuyerM nombre={nombre} config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} />
+      <MediaBuyerM nombre={nombre} config={config} cupo={cupo} decisiones={dec.decisiones} puedeOperar={puedeOperar} />
     </PantallaM>
   );
 }
