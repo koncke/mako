@@ -8,8 +8,9 @@
 // toca lo ya cobrado. La cambia sólo el admin (la acción lo corta igual: esto sólo no ofrece lo que no puede).
 
 import { useEffect, useState, useTransition } from 'react';
-import { Select } from '@/app/_ui/Select';
-import { GrupoAjustes, CuerpoGrupo } from '@/app/_ui/Ajustes';
+import { Dropdown } from '@/app/components/Dropdown';
+import { FilaAjustes, GrupoAjustes, SELECT_AJUSTES } from '@/app/_ui/Ajustes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { guardarMonedaNegocioAction, monedaDelNegocioAction } from '@/app/crm/[id]/pagos-campo-actions';
 
 /** Las monedas de los países donde vende MaKo, y las dos de referencia. Otra, por MaKo. */
@@ -51,14 +52,16 @@ export function MonedaNegocioPanel() {
     });
   };
 
+  // Una fila de Linear (25/10/2026): el nombre a la izquierda y el select a la derecha, guarda al elegir. La línea gris dice lo
+  // único que hay que saber: que lo ya cobrado no cambia.
   return (
-    <GrupoAjustes titulo="Moneda del negocio" descripcion="La que se propone al registrar un pago. Lo ya cobrado no cambia.">
-      <CuerpoGrupo>
-        <Select ariaLabel="Moneda del negocio" value={moneda ?? ''} onChange={cambiar} options={[...opciones]}
-          placeholder="Cargando…" disabled={moneda == null || !puedeEditar || pending} width={320} search />
-        {!puedeEditar && moneda != null && <p className="aj-texto" style={{ margin: '8px 0 0' }}>La cambia quien administra el negocio.</p>}
-        {aviso && <p className="aj-texto" role="status" style={{ margin: '8px 0 0', color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
-      </CuerpoGrupo>
+    <GrupoAjustes titulo="Moneda">
+      <FilaAjustes titulo="Moneda del negocio" ancho
+        detalle={!puedeEditar && moneda != null ? 'La cambia quien administra el negocio' : 'Lo ya cobrado no cambia'}
+        fin={<Dropdown ariaLabel="Moneda del negocio" value={moneda ?? ''} onChange={cambiar} options={[...opciones]}
+          placeholder="Cargando…" disabled={moneda == null || !puedeEditar || pending} width={280} search buttonStyle={SELECT_AJUSTES} />} />
+      {aviso && aviso.ok && <div className="aj-dest__nota" role="status" style={{ color: 'var(--good)', fontWeight: 600 }}>{aviso.texto}</div>}
+      {aviso && !aviso.ok && <div className="aj-dest__nota" role="alert" style={{ color: 'var(--bad)' }}>{aviso.texto}<ReportarASoporte /></div>}
     </GrupoAjustes>
   );
 }

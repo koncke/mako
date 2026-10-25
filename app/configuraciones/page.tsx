@@ -15,7 +15,7 @@ import { redirect } from 'next/navigation';
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO, conLaQuery, rutaDeTabVieja, seccionesNegocio } from '@/lib/ajustes-secciones';
 import { disponiblesNegocio, gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, SubtituloAjustes, TituloAjustes } from '../_ui/Ajustes';
+import { AjustesPagina, GrupoAjustes, TituloAjustes } from '../_ui/Ajustes';
 import { CriterioPanel } from './CriterioPanel';
 import { HorarioEnvioPanel } from './HorarioEnvioPanel';
 
@@ -37,16 +37,20 @@ export default async function ConfiguracionesPage({ searchParams }: { searchPara
 
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'general')} activa="general">
-      <TituloAjustes titulo="General" bajada="A qué hora escribe MaKo y qué entra al tablero." />
+      {/* En el molde de Linear desde el 25/10/2026 (docs/settings/referencia.md): el título y las dos secciones como tarjetas
+          con filas, sin la bajada que explicaba la página. */}
+      <TituloAjustes titulo="General" />
       {/* El horario en que las automatizaciones le escriben a alguien (sexta tanda, 09/10/2026): por
           defecto, cualquier hora. Lo cambia sólo un admin (horario-actions.ts); lib/horario-envio.ts
           tiene el porqué. */}
-      <SubtituloAjustes titulo="Horario" />
-      <div style={{ marginBottom: 34 }}><HorarioEnvioPanel /></div>
+      <GrupoAjustes titulo="Horario de envío">
+        <HorarioEnvioPanel filas />
+      </GrupoAjustes>
       {/* El criterio gobierna QUÉ ENTRA al tablero de todo el workspace: un closer que lo cambie decide
           qué compromisos existen para su jefe (criterio-actions.ts). */}
-      <SubtituloAjustes titulo="Criterio de reuniones" />
-      <CriterioPanel />
+      <GrupoAjustes titulo="Criterio de reuniones" descripcion="Qué de cada reunión es un compromiso y qué es ruido">
+        <CriterioPanel />
+      </GrupoAjustes>
     </AjustesPagina>
   );
 }

@@ -613,6 +613,12 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/equipo/negocio', 'ver_workspace'],
   ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],
   ['PUT', '/equipo/negocio/zona-horaria', 'fijar_zona_horaria_workspace'],
+  // Settings por la API (25/10/2026): el nombre, el horario de oficina y el criterio de las reuniones del negocio.
+  ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
+  ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
+  ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
+  ['GET', '/equipo/negocio/criterio-reuniones', 'ver_criterio_reuniones'],
+  ['PUT', '/equipo/negocio/criterio-reuniones', 'guardar_criterio_reuniones'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],
