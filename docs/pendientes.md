@@ -25,6 +25,7 @@ Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](fee
 | P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
 | P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
 | P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
+| P12 | **Fathom en MaKo + Closing Script en vivo.** Martín, 25/10: «Depreca Fathom... Replica esa app en MaKo. Si ya tenemos la extensión, la app desktop y todo, estoy seguro que existe un repo o algo que reemplace... Esto nos va a permitir implementar lo que teniamos pensado de "Closing Script" que MaKo te acompañe en tus llamadas de venta, transcriba en tiempo real y te de recomendaciones de closing... (Todo esto de farhom y closing, dejalo anotado para mas tarde, seguro lo haga con otra cuenta)». Grabar y transcribir las llamadas con la extensión o MaKo Desktop (buscar un repo abierto que haga lo de Fathom), y sobre eso el acompañamiento en vivo. Fathom queda hasta que esto ande | sin dueño: lo arranca Martín con otra cuenta | docs/feedback-25-10-tarde.md |
 
 ## Sin verificar en pantalla (está en producción, nadie lo miró)
 

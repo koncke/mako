@@ -341,6 +341,31 @@ título o descripción nombran palabras del mensaje. Es un orden, no un filtro.
 
 ---
 
+## ⚠️ Una operación nueva le saca el lugar a otra por un EMPATE de palabras, no sólo por su tamaño (25/10/2026)
+
+**Síntoma.** `tests/ops-center-clasificador-app` en rojo: «Cambiá el segundo mensaje de la automatización de bienvenida…» ya
+no traía `editar_pasos_secuencia_mensajes`, y «Hacé que la automatización de reactivación salga todos los martes a las 15»
+no traía `cambiar_crons_secuencia`. La que entraba en su lugar era la nueva, `cambiar_botones_mensaje`.
+
+**El diagnóstico obvio («achicar lo que creció») arreglaba una sola.** Medido con una sonda en `toolsDelRegistro`:
+- En la primera, la app busca en todo (`registroParaLaApp`) y las áreas nombradas tienen el 75 %, 9.000. Botones, CRON y
+  editar_pasos sumaban 9.016: faltaban 16 caracteres.
+- En la segunda (una pasada de 12.000), botones EMPATABA en 2 puntos con `cambiar_crons_secuencia` por dos palabras sueltas
+  de su descripción: «automatización» y «flujo» (esta, de la pista del clasificador «crear automatizacion con ia flujo
+  pedido»). A igual puntaje gana la declarada antes, y botones está antes en chatbot.def.ts. Con ella adelante, el CRON
+  (4.114) no entraba. Achicar no alcanzaba: había que sacar el empate.
+- El commit señalado (3a443b08f) no fue el primero: su padre fallaba igual. Empezó con la operación misma (b3ef516f9).
+
+**La regla.** Una operación nueva se mide con las frases de `tests/ops-center-clasificador-app` ANTES de entregar. Su
+descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los demás mensajes, con
+editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área («automatización», «flujo»,
+«WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se sube: es el techo de Groq.
+
+**Vive en:** `lib/api-mako/registro.ts` (`ordenarPorRelevancia`: el empate lo decide el orden de declaración) ·
+`lib/relevancia-app.ts` (`registroParaLaApp`, el 75 %) · `lib/api-mako/areas/chatbot.def.ts` · `tests/api-mako-botones.test.ts`
+
+---
+
 ## ⚠️ Un aviso de «la lib corta en 1000» se vuelve mentira —o candado— el día que la lib pagina
 
 **El caso (17/09/2026):** la API de MaKo no podía arreglar los truncados de las libs, así que
