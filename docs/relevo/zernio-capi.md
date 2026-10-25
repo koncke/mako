@@ -37,6 +37,8 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
 - **`guardar --si`: HECHO después del deploy** (main 9c684f88c, 14:54). El negocio de MaKo quedó con la conexión, la cuenta
   `act_1426493815659364` y el píxel `1869323014511830`; los crons de Meta ya corren para él por Zernio (medido con las funciones
   reales: Meta conectada, lecturas sin errores, salud en verde, CAPI por la conexión de Facebook).
+- **El nivel anuncio, medido con la tarjeta (25/10):** sobre la campaña de prueba del Media Buyer (en pausa), Zernio da el
+  conjunto con presupuesto 1 USD en unidades, el anuncio con imagen, miniatura y post, y las finanzas con la tarjeta.
 - **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
 
