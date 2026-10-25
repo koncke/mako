@@ -137,10 +137,13 @@ grupo, en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (misma fecha).
   herramientas. Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo
   a conectar uno.
 - **El cartel del grupo ya lo cumple** (lib/fallo-ia-texto.ts): el test 8 de tests/doer-cartel-sin-ia.test.ts recorre las
-  siete causas por cada pedido, claves, errores y contexto. **Los textos de la app todavía no** (tanda 2 del plan):
-  `CONECTA_TU_IA` y `FALTA_TU_IA` (lib/ia-mensajes.ts), `conSuIASinClave` y `CON_SU_IA_SIN_VISION` (lib/fallo-ia-texto.ts),
-  `AVISO_SIN_IA` (lib/mako-turno-app-reglas.ts), `SU_IA` (lib/flujo-ia.ts), lib/ai-cheap.ts:1116, lib/persona.ts:219 y las
-  bajadas de «Tus cuentas de IA» (lib/ia-pc-reglas.ts:890, TusCuentasIA.tsx, /perfil/ia: son de MaKo Desktop).
+  siete causas por cada pedido, claves, errores y contexto. **Y los textos de la app de «MaKo en WhatsApp» también** (tanda
+  6): `CONECTA_TU_IA`, `FALTA_TU_IA` y el «activa la facturación de tu Gemini» (lib/ia-mensajes.ts), `conSuIASinClave` y
+  `CON_SU_IA_SIN_VISION` (lib/fallo-ia-texto.ts), `AVISO_SIN_IA`, `AVISO_NO_LEI_SU_IA` y `AVISO_SIN_ARCHIVERO`
+  (lib/mako-turno-app-reglas.ts). **Quedan, de otros dueños:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts, Automations),
+  lib/ai-cheap.ts:1116, lib/persona.ts:219 y las bajadas de «Tus cuentas de IA» (lib/ia-pc-reglas.ts:890, TusCuentasIA.tsx,
+  /perfil/ia: MaKo Desktop). ⚠️ `conSuIASinClave` también lo dice la búsqueda del Second Brain: si esa búsqueda embebe con
+  Gemini (lib/embeddings.ts), ahí su GPT no alcanza, y es la excepción sin decidir de abajo.
 - ⚠️ **La excepción que no se saca sin decidir: el conocimiento.** El buscador embebe con Gemini (lib/embeddings.ts): sin su
   Gemini no hay búsqueda de conocimiento, ni siquiera del método de MaKo. O queda como única excepción, o se re-embebe con
   OpenAI (1536 dimensiones contra 768).

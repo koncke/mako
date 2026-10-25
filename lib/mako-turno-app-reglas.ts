@@ -516,7 +516,8 @@ export type RespuestaTurno = {
 /** Lo que dice MaKo, corto y en palabras de la persona. Su mensaje quedó guardado, pero el turno no corrió: hay que mandarlo de
  *  nuevo. Nombra las tres IA que puede conectar (el Cerebro, 22/10/2026: «Para contestarte necesito tu IA: conectá tu Claude, GPT
  *  o Gemini»): su Gemini por clave de AI Studio también le contesta. */
-export const AVISO_SIN_IA = 'Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.';
+// 25/10/2026: sin Gemini (Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT»).
+export const AVISO_SIN_IA = 'Para contestarte necesito tu IA: conecta tu Claude o tu GPT y mándamelo de nuevo.';
 /** El modal que abre el botón (app/m/mako/chat-ui.ts → `botonConectar`): el de las keys de IA, el mismo que manda WhatsApp
  *  (`linkKeysIA`, lib/fallo-ia-texto.ts). */
 // IA9 (22/10/2026): su Claude (antes, Gemini gratis). Desde el modal se llega también a su GPT.
@@ -612,9 +613,9 @@ export const avisoSinElModelo = (nombre: string, admin: boolean): string => admi
 /** A quien no conectó su computadora, en un negocio que corre con su propio Claude (D6b): dónde conectar la suya. */
 export const AVISO_CONECTA_TU_PC = 'Tu negocio contesta con su propio Claude. Para que te conteste a ti, conecta tu computadora en Tu cuenta → Tus cuentas de IA.';
 /** Con su propio Claude, una foto o un PDF escaneado se leen con SU OpenAI o SU Gemini (D6b): nunca con el de la plataforma. */
-export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini. Escríbeme lo que dice.`;
+export const AVISO_NO_LEI_SU_IA = (nombre: string) => `No pude leer «${nombre}»: con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI. Escríbeme lo que dice.`;
 /** Con su propio Claude y sin una clave que lea (su Claude, su OpenAI o su Gemini por clave), El Archivero no corre: se dice. */
-export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude, de OpenAI o de Gemini.';
+export const AVISO_SIN_ARCHIVERO = 'Lo dejé en el chat, pero no en El Archivero: con tu propio Claude, para archivarlo necesito tu clave de Claude o de OpenAI.';
 /** Tiene su clave de Claude, pero la plataforma la pausó por un rato: no se le pide «tu clave», que ya la tiene. */
 export const AVISO_ARCHIVERO_EN_PAUSA = 'Lo dejé en el chat, pero no en El Archivero: tu Claude está en pausa por un rato en MaKo. Mándamelo de nuevo más tarde.';
 
