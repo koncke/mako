@@ -586,6 +586,15 @@ export function expirarArbolMeta(ws: number): void {
   try { revalidateTag(tagArbolMeta(ws), { expire: 0 }); } catch { /* vence sola por TTL */ }
 }
 
+/**
+ * El árbol de Meta de UN negocio, SIN caché y con el `ws` explícito. Lo lee el Media Buyer antes de decidir y antes de
+ * escribir (lib/media-buyer/datos.ts): corre en un cron, sin sesión, y no puede decidir sobre un presupuesto de hace
+ * dos minutos. Tampoco puede pasar por `unstable_cache` desde un script de medición.
+ */
+export async function leerArbolMetaEnVivo(ws: number): Promise<MetaHealth> {
+  return runWithWorkspace(ws, () => _getMetaHealth());
+}
+
 async function _getMetaHealth(): Promise<MetaHealth> {
   // ANTES del primer pedido: la tabla del Ads Manager decide con esto si una lectura ya
   // ve un presupuesto recién escrito (presupuestosVigentes). `fetchedAtISO`, que se pone
