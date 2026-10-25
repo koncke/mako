@@ -7,6 +7,21 @@ del código.
 
 ---
 
+## Una foto del teléfono que ya no se puede leer al mandar (25/10/2026, ticket #8)
+
+- **Síntoma** (Martín, desde su Android, con «Reportar a Soporte»): «No pude subir los adjuntos: vuelve a mandarlo» al «Firmar y
+  mandar» del Ops Center.
+- **Causa (la más probable; no se vio pasar):** en Chrome de Android un archivo de la galería o de la cámara es una referencia a un
+  `content://`. Si la app pasa a segundo plano o pasa un rato, leerlo tira `NotReadableError`, y la caja lo leía recién al mandar
+  (`subirAdjuntos` / `subirDirecto`). Ese error, y cualquier corte de red, caían en el mismo `catch` con el mensaje genérico: el
+  aviso no decía qué había pasado, y el ticket llegó sin un dato para diagnosticar.
+- **Regla:** un adjunto se copia a memoria AL ELEGIRLO (`enMemoria`, app/admin/operaciones/leer-adjunto.ts), y cada paso de la
+  subida dice su falla (`ERROR_SUBIDA`: leer, la red, la respuesta con su código). El genérico queda para lo inesperado.
+- **Lo que queda:** si vuelve a pasar, el aviso nuevo dice cuál de las tres fue; con eso se sigue.
+
+**Vive en:** `app/admin/operaciones/leer-adjunto.ts` · `useCentro.ts` (`sumarAdjuntos`) · `mandar.ts` ·
+`tests/centro-adjuntos-android.test.ts`
+
 ## Sin la app, NINGÚN chat: el bloqueo vivía en una caja y había quince (25/10/2026)
 
 - **Síntoma** (Martín): «Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me

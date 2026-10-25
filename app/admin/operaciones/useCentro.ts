@@ -25,6 +25,7 @@ import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { idLocal } from '@/app/m/mako/chat-ui';
 import { achicarImagen } from '@/app/m/mako/achicar-imagen';
+import { ERROR_SUBIDA, enMemoria } from './leer-adjunto';
 import {
   claveParaUrl, comoSale, completarChats, enQueTrabaja, estadoDeApertura, esperasPorChat, hayEnCamino, historialDelChat, nombreValido, primerMensajeNuevo, textoDeEnvio, textoDeRenombre, vistaPrevia,
   type ChatCentro, type DecisionEspera, type Envio, type LineaChat, type TrabajoP, type VistaPrevia,
@@ -509,7 +510,11 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
       // Lo que la PC acepta tal cual no se toca; lo demás (un HEIC, una foto enorme con un Runner de antes) se achica.
       const tipoOk = /^image\/(png|jpeg|webp|gif)$|^application\/pdf$/.test(f.type);
       const talCual = tipoOk && (grandes || f.size <= TAL_CUAL_BYTES);
-      try { listos.push(talCual ? f : await achicarImagen(f)); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); }
+      let listo: File;
+      try { listo = talCual ? f : await achicarImagen(f); } catch (e) { avisar(e instanceof Error ? e.message : 'No pude leer esa imagen.', 'bad'); continue; }
+      // LEÍDO YA, no al mandar (ticket #8, 25/10/2026): en Android, un archivo de la galería o de la cámara deja de poder
+      // leerse si la app pasa a segundo plano, y al «Firmar y mandar» salía «No pude subir los adjuntos» (./leer-adjunto.ts).
+      try { listos.push(await enMemoria(listo)); } catch { avisar(ERROR_SUBIDA.leer(f.name), 'bad'); }
     }
     if (!listos.length) return;
     const antes = adjuntosRef.current[clave] ?? [];

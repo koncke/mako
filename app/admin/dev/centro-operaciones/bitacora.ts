@@ -1625,4 +1625,17 @@ export const BITACORA: Hito[] = [
       'tests/app-de-escritorio-todos-los-chats.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (3 roturas)',
     ],
   },
+  {
+    fecha: '24 oct', hora: '22:35', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las fotos del teléfono se leen al elegirlas, y si algo falla al mandar el aviso dice qué',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El ticket #8** («No pude subir los adjuntos: vuelve a mandarlo», desde tu Android): en el teléfono, una foto de la galería o de la cámara deja de poder leerse si la app pasa a segundo plano, y la caja recién la leía al «Firmar y mandar». Ahora la lee en el momento de elegirla.',
+      'Si igual algo falla, el aviso dice qué: «No pude leer “foto.jpg”», que se cortó la conexión, o qué contestó MaKo.',
+      '**Sin mirar en tu teléfono**: es la causa más probable por lo que dice el ticket (Android, al mandar), no la vi pasar.',
+    ],
+    archivos: ['app/admin/operaciones/leer-adjunto.ts · useCentro.ts (sumarAdjuntos) · mandar.ts', 'tests/centro-adjuntos-android.test.ts (3 roturas)'],
+    tickets: [8],
+  },
 ];
