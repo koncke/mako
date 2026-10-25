@@ -264,7 +264,7 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   assert.match(ui, /\{ texto: `\$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'está' : 'están'\}`, tono: 'gris' as const \}/);
   // Y el server tampoco los vuelve a cargar (la API de MaKo trae «todos»): ni funnel ni etiqueta.
   const server = leer('app/crm/grupo-wa-server.ts');
-  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; continue; \}/);
+  assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/);
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /\$\{ya \? ` \(\$\{ya\} ya son leads: no se vuelven a cargar\)` : ''\}/, 'la API todavía promete sumarlos');
   assert.match(run, /Traer \$\{p\.participantes\.length - ya\} contactos nuevos/);

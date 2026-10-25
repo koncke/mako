@@ -98,14 +98,22 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   }, [funnel]);
 
   // Los grupos de la línea elegida. Cambiar de línea limpia todo lo de abajo.
+  // ⚠️ EN DOS TIEMPOS (25/10/2026, «el cargar los grupos, tarda muchísimo»; medido: la lista completa de WhatsApp, 33 s con 285
+  // grupos): primero lo guardado de la última vez (o los de la base, al instante) y, si hace falta, la completa por detrás. Al
+  // llegar reemplaza la lista sin tocar el grupo elegido.
+  const [buscandoTodos, setBuscandoTodos] = useState(false);
   useEffect(() => {
     if (!linea) return;
     let vivo = true;
-    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null);
+    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null); setBuscandoTodos(false);
     void gruposDeLineaAction(linea).then((r) => {
       if (!vivo) return;
       if (!r.ok) { setErr(r.error); setGrupos([]); return; }
       setGrupos(r.grupos);
+      if (!r.refrescar) return;
+      setBuscandoTodos(true);
+      void gruposDeLineaAction(linea, true).then((c) => { if (vivo && c.ok) setGrupos(c.grupos); })
+        .catch(() => {}).finally(() => { if (vivo) setBuscandoTodos(false); });
     }).catch(() => { if (vivo) { setErr('WhatsApp no contestó.'); setGrupos([]); } });
     return () => { vivo = false; };
   }, [linea]);
@@ -324,6 +332,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     : avance ? { texto: avance, tono: 'neutro' as const, ...(parar ? { accion: parar } : {}) }
     : hecho ? { texto: hecho, tono: 'ok' as const }
     : extWa === 'vieja' && yaEstan > 0 ? { texto: 'Actualiza la extensión de MaKo para completar desde tu WhatsApp', tono: 'neutro' as const }
+    : buscandoTodos ? { texto: 'Buscando el resto de tus grupos…', tono: 'neutro' as const }
     : null;
 
   return (

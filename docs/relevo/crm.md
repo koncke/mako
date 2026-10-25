@@ -47,7 +47,19 @@ escondía el «NO SE PUDO CHEQUEAR»). La pregunta de Instagram se rehízo sin A
 **Tanda 4 — punto 12:** el panel de MaKo de la ficha flota (el marco `.an` del Dashboard), y con un bloque elegido cada
 fila de dato lleva su ✕ para sacarla (la captura c06 mostraba que «Datos ▾» existía y no se encontraba: el cuerpo es inerte).
 
-**Lo que sigue:** 18 (los grupos de WhatsApp, más rápido: medir antes de tocar). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
+**Tanda 5 — punto 18:** medido antes de tocar (hallazgos-crm, «Los grupos de WhatsApp tardan muchísimo»): la lista de
+grupos abre al instante (guardada, o la base) y la completa (33 s en la línea de la plataforma) llega por detrás y se
+guarda; traer va de a cuatro.
+
+**Martín contestó la pregunta de Instagram** (25/10, por el Ops Center): sí vincular el Instagram de MaKo, y preguntó si hay
+otra forma gratis. Se le contestó: no espera la verificación (cuenta propia, acceso estándar) y la forma gratis es la
+extensión de MaKo leyendo Instagram con su sesión (como folk). **Pendiente:** los clics de Martín en Meta for Developers (el
+caso de uso de Instagram en la app MaKo, vincular el Instagram a «Hola MaKo», token con instagram_basic) y, si dice que sí,
+la lectura por la extensión.
+
+**Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
+Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). Después: las cuotas (`c7ff7d7fc`) esperan
+revisión adversarial; `crm-b5-2310` (punta real `b1c4924fd`) no sube antes del 26/10. Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
 `crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos

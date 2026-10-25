@@ -20,6 +20,27 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Los grupos de WhatsApp «tardan muchísimo»: el tope de 15 s cortaba una lista que tarda 33 (25/10/2026)
+
+**Vive en:** app/crm/grupo-wa-server.ts (`gruposDeLinea` en dos tiempos, `participantesDelGrupo` con memoria, `traerDelGrupo`
+de a cuatro) · lib/grupo-wa-reglas.ts (`TOPE_GRUPOS_COMPLETO_MS`, `gruposGuardados`) · app/crm/TraerDeGrupoWA.tsx · la API
+(lib/api-mako/areas/crm.run.ts, `grupoPedido`) · tests: grupo-wa-rapido (3 roturas cazadas).
+
+- **Medido antes de tocar** (sonda de sólo lectura, la línea de la plataforma): `fetchAllGroups` contestó en **33 s** con 285
+  grupos; `findChats` (la base de Evolution) en 0,5 s pero con sólo **61** (los grupos con los que la línea habló); leer un
+  grupo de 1.493 miembros, 0,5 s; la agenda de la línea, 0,4 s (2.350 contactos, 800 KB). El código cortaba WhatsApp a los
+  15 s: la persona esperaba 15 s **para terminar viendo 61 de 285**. Ése era el «tarda muchísimo».
+- **La extracción se midió con lo que ya pasó**, sin crear leads de prueba en producción: los eventos «Traído de un grupo de
+  WhatsApp» de `lead_audit` dan ~135 ms por lead, uno detrás del otro (221 en 37 s), sin pausas largas entre tandas.
+- **Lo que quedó:** al abrir, la lista GUARDADA de la última vez (`app_settings`, `grupos_wa.lista.<línea>`) o, la primera
+  vez, la de la base al instante; la completa se pide aparte (tope 50 s), reemplaza la lista sin perder el grupo elegido y
+  se guarda (vieja a los 10 minutos). Traer va de a cuatro altas a la vez (sin contador compartido; el duplicado se ataja por
+  teléfono) y los participantes quedan 2 minutos en memoria entre tandas; «Completar nombres» lee fresco.
+- **La API de MaKo** contesta una sola vez: si el grupo pedido no está en la lista rápida, pide la completa antes de decir
+  «no lo encontré» (si no, perdía grupos que antes encontraba).
+- **No se aceleró a propósito:** «Datos de empresa» espera 2 s entre perfil y perfil (`ESPERA_PERFIL_MS`): es tráfico en la
+  red de una línea no oficial, la que se expone a un baneo.
+
 ## «No puedo sacar Empresa»: «Datos ▾» ya existía; el cuerpo del bloque es `inert` y la persona busca la fila (25/10/2026)
 
 **Vive en:** app/crm/lead-view/ficha/Armador.tsx (`QuitarDeLaFila`) · ./armar.ts (`datosSinUno`) · las filas marcadas con
