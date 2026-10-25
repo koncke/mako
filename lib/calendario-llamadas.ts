@@ -31,6 +31,8 @@ export type LlamadaDeVenta = {
   asistio: boolean | null;
   /** Conserva la hora y perdió la fecha. */
   cancelada: boolean;
+  /** El calificado del lead: marcar que no vino a la R1 (o desmarcarla) lo borra, y se le dice antes. */
+  calificado?: boolean | null;
 };
 
 export type EstadoLlamada = 'agendada' | 'asistio' | 'no-vino' | 'sin-marcar' | 'cancelada';
@@ -77,6 +79,25 @@ export function llamadasDeLaPestana(lista: readonly LlamadaDeVenta[], pestana: P
   return pestana === 'proximas'
     ? vivas.filter((l) => finDe(l) > ahora).sort(asc)
     : vivas.filter((l) => finDe(l) <= ahora).sort((a, b) => asc(b, a));
+}
+
+// ── Marcar la asistencia desde la lista (25/10/2026: el «Status» de HighLevel es un desplegable en la fila) ───────────
+// Escribe por el MISMO camino que la ficha del lead (`guardarCampoLeadAction` con `asistio_j1`/`asistio_j2`): la etapa
+// derivada, el historial, el «Deshacer» y lo que se le manda a Meta salen de ahí, no de acá.
+
+/** Sólo una reunión que no se canceló y que ya empezó: marcar que «asistió» a una de la semana que viene no es un dato. */
+export const sePuedeMarcar = (l: Pick<LlamadaDeVenta, 'inicio' | 'cancelada'>, ahoraIso: string): boolean =>
+  !l.cancelada && Date.parse(l.inicio) <= Date.parse(ahoraIso);
+
+export const campoDeAsistencia = (cual: CualReunion): 'asistio_j1' | 'asistio_j2' => (cual === 'R2' ? 'asistio_j2' : 'asistio_j1');
+
+/**
+ * Lo que hay que decir ANTES de marcar: en la R1, todo lo que no sea «asistió» borra el calificado del lead (`updateLead`:
+ * `asistio_j1 !== true` → calificado = null), y eso se le resta a Meta. null = nada que avisar.
+ */
+export function avisoAlMarcar(l: Pick<LlamadaDeVenta, 'cual' | 'calificado'>, asistio: boolean | null): string | null {
+  if (l.cual !== 'R1' || asistio === true || l.calificado == null) return null;
+  return `Tenía cargado «${l.calificado ? 'calificado' : 'no calificado'}». Si no asistió a la R1, ese dato se borra.`;
 }
 
 /** Cuántas hay en cada pestaña (el número al lado de su nombre). */

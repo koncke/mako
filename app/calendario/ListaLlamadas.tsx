@@ -10,16 +10,24 @@
 // A la derecha, las tareas del Plan con fecha, que en HighLevel no existen y en MaKo sí.
 //
 // El estado y las pestañas salen de lib/calendario-llamadas.ts (puro, con test); los datos, de `leerLlamadasDeVenta` y
-// `leerTareasConFecha` (lib/calendario.ts), lo mismo que dibujan las capas «Llamadas» y «Plan» de la grilla. Marcar la
-// asistencia se hace en la ficha del lead (cambia la etapa y lo que se le manda a Meta) o pidiéndoselo a MaKo.
+// `leerTareasConFecha` (lib/calendario.ts), lo mismo que dibujan las capas «Llamadas» y «Plan» de la grilla.
+//
+// MARCAR LA ASISTENCIA EN LA FILA (25/10/2026, como el «Status» de HighLevel): en una reunión que ya empezó el estado es un
+// desplegable (Sin marcar · Asistió · No vino). Escribe por el MISMO camino que la ficha del lead (`guardarCampoLeadAction`
+// con `asistio_j1`/`asistio_j2`): la etapa derivada, el historial y lo que se le manda a Meta salen de ahí. Si borra el
+// calificado (la R1 que no fue), lo dice ANTES (`avisoAlMarcar`); después, «Deshacer» como en la ficha.
 // =============================================================================
 
 import { useMemo, useState } from 'react';
-import Link from '@/app/_ui/Link';
+import Link, { useRouter } from '@/app/_ui/Link';
+import { Toast, useToast } from '@/app/_ui';
+import { Modal } from '@/app/_ui/Modal';
+import { Button } from '@/app/_ui/Button';
+import { deshacerCampoLeadAction, guardarCampoLeadAction } from '@/app/crm/actions';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { diaDe, fechaLarga, horaDe, horaGoogle, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import {
-  PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana,
+  PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana, sePuedeMarcar,
   type EstadoLlamada, type LlamadaDeVenta, type PestanaLlamadas,
 } from '@/lib/calendario-llamadas';
 import { CSS_GC } from './gc-css';
@@ -53,6 +61,14 @@ const CSS_LISTA = `
 .gl-estado.no-vino{color:#c5221f;background:#fce8e6}
 .gl-estado.sin-marcar{color:#9a6700;background:#fef7e0}
 .gl-estado.cancelada{color:#5f6368;background:#f1f3f4}
+.gl-marcar{appearance:none;-webkit-appearance:none;font:inherit;font-size:13px;font-weight:600;border:0;cursor:pointer;padding:5px 26px 5px 12px;border-radius:999px}
+.gl-marcar-caja{position:relative;display:inline-block}
+.gl-marcar-caja::after{content:"▾";position:absolute;right:10px;top:50%;transform:translateY(-52%);font-size:11px;pointer-events:none;color:inherit}
+.gl-marcar:disabled{opacity:.6;cursor:progress}
+.gl-marcar-caja.agendada{color:#1a73e8}.gl-marcar.agendada{color:#1a73e8;background-color:#e8f0fe}
+.gl-marcar-caja.asistio{color:#137333}.gl-marcar.asistio{color:#137333;background-color:#e6f4ea}
+.gl-marcar-caja.no-vino{color:#c5221f}.gl-marcar.no-vino{color:#c5221f;background-color:#fce8e6}
+.gl-marcar-caja.sin-marcar{color:#9a6700}.gl-marcar.sin-marcar{color:#9a6700;background-color:#fef7e0}
 .gl-abrir{color:var(--gc-azul);font-weight:600;text-decoration:none;white-space:nowrap}
 .gl-oculto{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .gl-vacio{padding:48px 24px;text-align:center;color:var(--gc-gris)}
@@ -67,7 +83,14 @@ const CSS_LISTA = `
 .gl-tarea b{display:block;font-size:14px;font-weight:600}
 .gl-tarea span{font-size:12.5px;color:var(--gc-gris)}
 .gl-tarea .gl-vence{color:#c5221f;font-weight:600}
-@media (max-width:1100px){.gl-tareas{display:none}}
+/* Debajo de 1100 px las tareas van ABAJO de la tabla (antes se escondían): la columna entera scrollea. */
+@media (max-width:1100px){
+  .gl-cuerpo{flex-direction:column;overflow:auto;padding-bottom:88px}
+  .gl-hoja{flex:none;border-radius:24px;overflow:visible}
+  .gl-scroll{overflow:visible;flex:none}
+  .gl-tareas{width:auto;flex:none;border-radius:24px}
+  .gl-tareas ul{overflow:visible;padding-bottom:8px}
+}
 @media (max-width:700px){.gl-col-closer,.gl-col-abrir{display:none}.gl-tabla td,.gl-tabla th{padding:10px 8px}}
 `;
 
@@ -89,14 +112,51 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
   ahora: string;
   fallos: { llamadas?: boolean; tareas?: boolean };
 }) {
+  const router = useRouter();
+  const { toast, show, clear } = useToast();
   const [pestana, setPestana] = useState<PestanaLlamadas>('proximas');
-  const cuentas = useMemo(() => cuentaPorPestana(llamadas, ahora), [llamadas, ahora]);
-  const filas = useMemo(() => llamadasDeLaPestana(llamadas, pestana, ahora), [llamadas, pestana, ahora]);
+  // Lo recién marcado se ve en el acto, hasta que llega la lectura nueva (`router.refresh`).
+  const [marcadas, setMarcadas] = useState<Record<string, boolean | null>>({});
+  const [guardando, setGuardando] = useState<string | null>(null);
+  const [porConfirmar, setPorConfirmar] = useState<{ l: LlamadaDeVenta; asistio: boolean | null; aviso: string } | null>(null);
+  const vistas = useMemo(() => llamadas.map((l) => (l.id in marcadas ? { ...l, asistio: marcadas[l.id] } : l)), [llamadas, marcadas]);
+  const cuentas = useMemo(() => cuentaPorPestana(vistas, ahora), [vistas, ahora]);
+  const filas = useMemo(() => llamadasDeLaPestana(vistas, pestana, ahora), [vistas, pestana, ahora]);
   const proximasTareas = useMemo(() => [...tareas].sort((a, b) => a.inicio.localeCompare(b.inicio)), [tareas]);
+  const guardar = async (l: LlamadaDeVenta, asistio: boolean | null) => {
+    const campo = campoDeAsistencia(l.cual);
+    const antes = l.asistio;
+    setPorConfirmar(null);
+    setGuardando(l.id);
+    setMarcadas((m) => ({ ...m, [l.id]: asistio }));
+    try {
+      await guardarCampoLeadAction(l.leadId, campo, asistio);
+      const texto = asistio === true ? 'asistió' : asistio === false ? 'no vino' : 'sin marcar';
+      show(`${l.nombre}: ${l.cual}, ${texto}`, () => {
+        setMarcadas((m) => ({ ...m, [l.id]: antes }));
+        deshacerCampoLeadAction(l.leadId, campo, antes, asistio)
+          .then((r) => { if (r.ok) router.refresh(); else { setMarcadas((m) => ({ ...m, [l.id]: asistio })); show(r.error, undefined, 'bad'); } })
+          .catch(() => show('No se pudo deshacer', undefined, 'bad'));
+      });
+      router.refresh();
+    } catch {
+      setMarcadas((m) => ({ ...m, [l.id]: antes }));
+      show('No se pudo guardar. Prueba otra vez o márcalo en la ficha.', undefined, 'bad');
+    } finally {
+      setGuardando(null);
+    }
+  };
+  const elegir = (l: LlamadaDeVenta, valor: string) => {
+    const asistio = valor === 'si' ? true : valor === 'no' ? false : null;
+    if (asistio === l.asistio) return;
+    const aviso = avisoAlMarcar(l, asistio);
+    if (aviso) setPorConfirmar({ l, asistio, aviso }); else void guardar(l, asistio);
+  };
   return (
     <div className="gc" data-calendario="" style={{ paddingLeft: 'var(--ancho-panel-mako, 0px)' }}>
       <style>{CSS_GC + CSS_LISTA}</style>
       <MakoEnLaTab tab="Calendario" />
+      {toast && <Toast state={toast} onClose={clear} />}
       <header className="gc-barra">
         <span className="gc-logo">
           <span className="gc-logo-dia" aria-hidden>{Number(hoy.slice(8))}</span>
@@ -108,7 +168,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
       <div className="gl-cuerpo">
         <main className="gl-hoja" aria-labelledby="gl-titulo">
           <div className="gl-cabeza">
-            <p>Las reuniones de tus leads del CRM. Toca una para abrir su ficha y marcar si asistió.</p>
+            <p>Las reuniones de tus leads del CRM. Cuando una ya empezó, marca ahí mismo si asistió.</p>
             <div className="gl-tabs" role="tablist" aria-label="Qué llamadas">
               {PESTANAS_LLAMADAS.map((p) => (
                 <button key={p.id} type="button" role="tab" className="gl-tab" aria-selected={pestana === p.id} onClick={() => setPestana(p.id)}>
@@ -136,7 +196,20 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
                           <td><span className="gl-reunion">{l.cual}</span></td>
                           <td className="gl-cuando"><b>{rotuloDia(dia, hoy)}</b><span>{l.diaCompleto ? 'Sin hora' : horaGoogle(horaDe(l.inicio, tz))}</span></td>
                           <td className="gl-col-closer">{l.closer ?? '—'}</td>
-                          <td><span className={`gl-estado ${estado}`}>{TEXTO_ESTADO_LLAMADA[estado]}</span></td>
+                          <td>
+                            {sePuedeMarcar(l, ahora)
+                              ? (
+                                <span className={`gl-marcar-caja ${estado}`}>
+                                  <select className={`gl-marcar ${estado}`} aria-label={`Asistencia de ${l.nombre} a la ${l.cual}`} disabled={guardando === l.id}
+                                    value={l.asistio === true ? 'si' : l.asistio === false ? 'no' : 'nada'} onChange={(e) => elegir(l, e.currentTarget.value)}>
+                                    <option value="nada">{TEXTO_ESTADO_LLAMADA[estado === 'agendada' ? 'agendada' : 'sin-marcar']}</option>
+                                    <option value="si">{TEXTO_ESTADO_LLAMADA.asistio}</option>
+                                    <option value="no">{TEXTO_ESTADO_LLAMADA['no-vino']}</option>
+                                  </select>
+                                </span>
+                              )
+                              : <span className={`gl-estado ${estado}`}>{TEXTO_ESTADO_LLAMADA[estado]}</span>}
+                          </td>
                           <td className="gl-col-abrir"><Link className="gl-abrir" href={`/crm/${l.leadId}`}>Abrir ficha →</Link></td>
                         </tr>
                       );
@@ -169,6 +242,15 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
             )}
         </aside>
       </div>
+      {porConfirmar && (
+        <Modal titulo="¿Marcar la asistencia?" ancho={440} onCerrar={() => setPorConfirmar(null)}
+          pie={<>
+            <Button variant="secondary" onClick={() => setPorConfirmar(null)}>Cancelar</Button>
+            <Button variant="primary" onClick={() => void guardar(porConfirmar.l, porConfirmar.asistio)}>Marcar</Button>
+          </>}>
+          <p style={{ margin: 0 }}>{porConfirmar.aviso}</p>
+        </Modal>
+      )}
     </div>
   );
 }
