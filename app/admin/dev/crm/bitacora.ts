@@ -3267,4 +3267,40 @@ export const BITACORA: Hito[] = [
       'tests/enriquecer-por-nombre.test.ts',
     ],
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El «⋯» de cada columna, «Asignar campañas» y «Traer de otro funnel» (puntos 13, 15 y 17)',
+    pedido: '13. En los 3 puntos de cada columna, lo primero debe ser nuevo lead. Y el editor de columnas abajo del todo, claro que eliminar siempre por ultimo. Y que no diga "Cambiar EL nombre", solo "Cambiar nombre". Y ahí pon la opción de "ordenar", y la sacas de filtros, que no este ordenamientos en el botón de filtros, sino que se pueda ordenar dentro de esos 3 puntos, y en este caso si pusiste un chip de "Respondió" se debe poder ordenar por eso... Aunque revisa porque estoy seguro que existen muchos otros posibles ordenamientos... Y en general tambien revisa el orden y los botones de los desplegables, tal vez sobran botones o estan desordenados y causan confusión. 15. En el editor de CRM, elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna... 17. En "traer de otro funnel" te habia pedido que si ya lo trajo, no aparezca. Mejor que sea como en los grupos de whatsapp, que aparezca todo, pero en gris.',
+    puntos: [
+      'Llegó por el Cerebro, con los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md). Ésta es la primera tanda: 13, 15 y 17.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '00:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Ordenar» en el «⋯» de cada columna, y los ya traídos en gris',
+    puntos: [
+      'El «⋯» de una columna arranca con «Nuevo lead» y «Ordenar». Abajo, las flechas y «Agregar etapa»; «Eliminar etapa», última. Dice «Cambiar nombre».',
+      '«Ordenar» es de cada columna: manual, más nuevos, más viejos, nombre, respondió primero, mayor monto, fecha de reunión y vence primero. Lo que la columna no tiene, no se ofrece.',
+      'Una columna ordenada aparte lleva el ícono de ordenar en azul junto al número. «Filtrar» ya no ordena.',
+      'El «⋯» de la barra y el clic derecho del fondo van en el mismo orden: lo que trae leads, lo que los saca, y la configuración.',
+      '«Asignar campañas» se fue del editor de etapas: se asignan desde el «⋯» de la columna de entrada.',
+      '«Traer de otro funnel» muestra a los que ya están, abajo y en gris, sin quitarles lugar a los nuevos.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: 'bd0da135e', msg: 'CRM: «Ordenar» en el ⋯ de cada columna, el ⋯ en el orden que pidió Martín, sin «Asignar campañas» en el editor, y los ya traídos en gris', lineas: 749, archivos: 25 },
+    ],
+    archivos: [
+      'app/crm/orden-kanban.ts — los criterios de «Ordenar» (puro)',
+      'app/crm/menu-contextual-crm.ts — el orden del «⋯» de la columna y del fondo',
+      'app/crm/CrmBoard.tsx — el orden de cada columna y su ícono',
+      'app/crm/filtros-guardados.ts — el orden guardado por columna',
+      'app/crm/EtapasModal.tsx — sin el paso de las campañas',
+      'app/crm/traer-seleccion.ts · app/crm/TraerDeOtroProducto.tsx — los que ya están, en gris',
+      'tests/crm-orden-columna.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
