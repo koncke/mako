@@ -19,6 +19,10 @@
 // los botones → 4 / 1. Y el texto y crear por HTTP (25/10/2026, base 7 / 0): el texto solo no se guarda, el texto con
 // botones no se guarda, un texto vacío aceptado, uno de varias partes aceptado, crear sin http, crear sin el plazo de
 // HTTP, la ficha sin el puerto → 6 / 1 cada una.
+// LE QUITABA HERRAMIENTAS AL CHAT (25/10/2026, con tests/ops-center-clasificador-app; base 55 / 0): las descripciones de
+// 3a443b08f → 52 / 3 (sin editar_pasos_secuencia_mensajes ni cambiar_crons_secuencia); vuelven «automatización» y «flujo» →
+// 54 / 1 (sin cambiar_crons_secuencia: empata y está declarada antes); nombra «WhatsApp» → 54 / 1. 60 caracteres más queda
+// VERDE a propósito: ya no va antes que editar_pasos, así que si crece, la que sale del presupuesto es ella.
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -124,7 +128,11 @@ test('el texto de un DM: solo, con botones, y lo que no se puede', () => {
   const d = porId('cambiar_botones_mensaje')!;
   const t = d.parametros.find((p) => p.nombre === 'texto');
   assert.ok(t && !t.obligatorio && t.tipo === 'string');
-  assert.match(d.descripcion, /Sin botones, los botones se quedan como están; sin texto, el texto/);
+  assert.match(d.descripcion, /Sin botones, se quedan; sin texto, también/);
+  // El 25/10 le quitaba el lugar a editar_pasos_secuencia_mensajes en el chat de MaKo (tests/ops-center-clasificador-app): dice
+  // de entrada que es SÓLO para un DM, y no nombra «WhatsApp» (sumaría puntos en un pedido de WhatsApp).
+  assert.match(d.descripcion, /^SÓLO para un DM de Instagram o Messenger \(los demás mensajes, con editar_pasos_secuencia_mensajes\)/);
+  assert.doesNotMatch(`${d.titulo} ${d.descripcion}`, /whatsapp|texto y botones/i);
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   assert.match(run, /const lista = Array\.isArray\(input\.botones\) \? \(input\.botones as BotonPedido\[\]\) : null;/);
 });
@@ -134,8 +142,7 @@ test('crear con IA sale por HTTP, con la IA del negocio dicha y 40 s para el mod
   assert.ok(d.canales.includes('http'));
   assert.equal(d.costo, 'ia');
   assert.equal((d as { lenta?: boolean }).lenta, true);
-  assert.match(d.descripcion, /Escribe con la IA del negocio \(la que conectó en MaKo\)/);
-  assert.match(d.descripcion, /por la API, si no le alcanza, contesta un error sin crear nada/);
+  assert.match(d.descripcion, /Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada\./);
   const run = leer('lib/api-mako/areas/chatbot.run.ts');
   assert.match(run, /const PLAZO_CREAR_HTTP_MS = 40_000;/);
   assert.match(run, /const plazoMs = ctx\.canal === 'http' \? PLAZO_CREAR_HTTP_MS : 170_000;/);
