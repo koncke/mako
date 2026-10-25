@@ -107,7 +107,7 @@ import {
   type OperadorCondicion, type CatalogosCondicion, type AmbitoDisparo, type DefCondicion, type CatalogoValor,
 } from './condiciones-catalogo';
 import { TOPE_TEXTO_SOCIAL, VENTANA_META_MS, esCanalSocial, NOMBRE_CANAL, problemaDeAdjunto, type CanalSocial } from './canal-social';
-import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON } from './botones-social';
+import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON, botonesDe, type BotonSocial } from './botones-social';
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
@@ -2343,7 +2343,7 @@ function quitarTarjeta(pasos: PasoIA[], id: string, est: Estado, aviso?: string)
  * re-limpiarlo lo borraría); un canal nuevo vuelve a pasar el audio, el archivo y la IA por `nodoDe`, que los saca con su
  * aviso donde no van. null = el cambio la dejaba incompleta.
  */
-function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): PasoIA | null {
+function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, existentes?: ReadonlySet<string>): PasoIA | null {
   const toca = (...ks: string[]) => ks.some((k) => x[k] !== undefined);
   const antes = canalDePaso(p);
   const tipoX = normNombre(x.tipo);
@@ -2402,7 +2402,57 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado): Paso
     delete q.partes;
     est.avisos.push(`Por ${social ? NOMBRE_CANAL[social] : 'email'} va un solo mensaje: dejé el primero`);
   }
+  // LOS BOTONES (25/10/2026, lib/botones-social.ts): sólo por Instagram y Messenger. Sin nombrarlos, quedan como estaban;
+  // "botones" es la lista NUEVA entera (`botonesDelParche`). Si el mensaje pasa a otro canal, se van (con su porqué).
+  if (!social) {
+    if (botonesDe(q).length) { delete q.botones; est.avisos.push('Los botones son de Instagram y Messenger: los saqué'); }
+  } else if (toca('botones')) {
+    const bs = botonesDelParche(x.botones, botonesDe(p), existentes, est);
+    if (bs.length) q.botones = bs; else delete q.botones;
+    if (bs.length && String(q.cuerpo ?? '').length > TOPE_TEXTO_CON_BOTONES) {
+      q.cuerpo = String(q.cuerpo).slice(0, TOPE_TEXTO_CON_BOTONES).trim();
+      est.avisos.push(`Con botones, Instagram corta el texto en ${TOPE_TEXTO_CON_BOTONES} caracteres: lo acorté`);
+    }
+  }
   return q;
+}
+
+/**
+ * LOS BOTONES QUE PIDIÓ EL MODELO AL EDITAR (25/10/2026): hasta 3, cada uno {titulo, sigue: id} o {titulo, link}. «sigue» va a
+ * una tarjeta que YA está (las nuevas se cuelgan de "btn:<id>" con "agregar"); «link» es uno guardado (LINKS) o el que ese
+ * botón ya tenía, nunca uno inventado. Un botón que ya estaba conserva su id (lo que cuelga de su puerto sigue colgado).
+ */
+function botonesDelParche(v: unknown, antes: readonly BotonSocial[], existentes: ReadonlySet<string> | undefined, est: Estado): BotonSocial[] {
+  const lista = Array.isArray(v) ? v : [];
+  if (lista.length > TOPE_BOTONES) est.avisos.push(`Instagram muestra hasta ${TOPE_BOTONES} botones: dejé los primeros`);
+  const crudos: Array<Record<string, unknown>> = [];
+  for (const b of lista.slice(0, TOPE_BOTONES)) {
+    const o = b && typeof b === 'object' && !Array.isArray(b) ? (b as Record<string, unknown>) : null;
+    const titulo = str(o?.titulo ?? o?.texto).trim().slice(0, TOPE_TITULO_BOTON);
+    if (!o || !titulo) continue;
+    const previo = antes.find((a) => a.id === str(o.id).trim()) ?? antes.find((a) => normNombre(a.titulo) === normNombre(titulo));
+    const id = previo?.id ?? null;
+    if (o.link != null && o.link !== '') {
+      const k = claveDeLink(o.link, est.ctx);
+      const url = k ? est.ctx.links[k].url : previo?.url && str(o.link).trim() === previo.url ? previo.url : null;
+      if (url) crudos.push({ ...(id ? { id } : {}), titulo, url });
+      else est.avisos.push(`No tengo guardado el link «${str(o.link)}»: saqué el botón «${titulo}»`);
+      continue;
+    }
+    const sig = refs(o.sigue)[0] ?? null;
+    if (sig && existentes && !existentes.has(sig)) est.avisos.push(`El botón «${titulo}» iba a una tarjeta que no está: conéctalo en el lienzo`);
+    crudos.push({ ...(id ? { id } : {}), titulo, siguiente: sig });
+  }
+  // Uno nuevo toma un id libre: con el de su lugar («b1») podía chocar con uno que se quedó en otro lugar y se renombraba.
+  const usados = new Set(crudos.map((c) => c.id).filter((x): x is string => typeof x === 'string'));
+  let n = 1;
+  for (const c of crudos) {
+    if (c.id) continue;
+    while (usados.has(`b${n}`)) n++;
+    c.id = `b${n}`;
+    usados.add(c.id);
+  }
+  return botonesDe({ botones: crudos }, existentes);
 }
 
 /** EL PARCHE DE UNA ESPERA: horas, días y «antes de la reunión»; lo que no nombra, como estaba. */
@@ -2569,7 +2619,7 @@ function cambiarTarjeta(pasos: PasoIA[], x: Record<string, unknown>, ed: Edicion
   }
   let q: PasoIA | null;
   switch (clase) {
-    case 'mensaje': q = parcheMensaje(p, x, est); break;
+    case 'mensaje': q = parcheMensaje(p, x, est, new Set(pasos.map((y) => y.id!).filter(Boolean))); break;
     case 'esperar': q = parcheEspera(p, x, est); break;
     case 'etiqueta': q = parcheEtiqueta(p, x, est); break;
     case 'accion': q = parcheAccion(p, x, est); break;
@@ -3364,6 +3414,10 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         if (p.tipo === 'ia') t.ia = true;
         if (p.tipo === 'audio') t.audio = p.audio_id;
         if (p.tipo === 'media') t.archivo = p.media_id;
+        // LOS BOTONES (25/10/2026, «Editar con IA» los conoce): con su id (para colgar de "btn:<id>"), a qué tarjeta sigue
+        // cada uno o qué link abre. Sin esto el modelo no los veía, y un pedido sobre ellos no tenía de dónde agarrarse.
+        const bs = botonesDe(p);
+        if (bs.length) t.botones = bs.map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, sigue: b.siguiente ?? null }));
         t.sigue = sigue();
         tarjetas.push(t);
         return;
@@ -3559,6 +3613,12 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido, o: { cron?: false | ((x: 
  * es el flujo de ManyChat que pidió Martín (trabajo 36c79085), y va dicho porque el borrador de antes le regalaba el link a
  * quien no seguía: lo ponía en el primer DM y en el de «no te sigue».
  */
+/** ¿El pedido habla de botones, o de que la persona siga la cuenta (el gate)? Entonces el modelo necesita las reglas. */
+const RX_PIDE_BOTONES = /\bbot[oó]n(es)?\b|\b(me|nos|te|lo|la) sigue\b|\bsiga(n)? (la cuenta|a)\b|\bseguidor/i;
+
+/** Al EDITAR (25/10/2026): cambiar los botones de un mensaje y colgar tarjetas nuevas de uno. */
+export const BOTONES_AL_EDITAR = 'Para cambiar los botones de un mensaje: en "cambiar", su id con "botones" (la lista NUEVA entera; cada "sigue" a una tarjeta que ya está). Para colgar tarjetas nuevas de un botón: en "agregar", "despues_de": el id del mensaje y "salida": "btn:<id del botón>".';
+
 export const BOTONES_SOCIAL = 'BOTONES: un "mensaje" puede llevar "botones": hasta 3, {"titulo" (hasta 20 letras), "sigue": id} (tocarlo sigue por ahí y puede volver a una tarjeta de antes) o {"titulo", "link"}. Un recurso a cambio de seguir la cuenta: el primer mensaje con un botón («Obtener recurso») que sigue en una "condicion" con "sigue_instagram"; el link va SÓLO en el mensaje del sí, y el del no lleva un botón («Ya te sigo») que vuelve a esa condición.';
 
 export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
@@ -3680,8 +3740,12 @@ export function userDeEditar(ctx: CtxIA, d: DatosPedido, pasos: readonly PasoGra
   const social = socialDelPedido(d.pedido);
   const cron = pideCron(d.pedido) ? undefined : social ? (x: DisparadorIA) => canalDeValor(x.value) === social || x.value === ctx.disparadorActual : false;
   const k = cron !== false && ctx.disparadorActual ? ctx.disparadores.findIndex((x) => x.value === ctx.disparadorActual) : -1;
+  // LOS BOTONES (25/10/2026), sólo si el flujo ya los tiene o el pedido habla de ellos (o de que lo sigan): pesan ~250 tokens y
+  // «cambia WhatsApp por Instagram» con el CRON pasaba el techo de Groq (tests/editar-ia-cambiar-quitar.test.ts).
+  const conRedes = pasos.some((p) => botonesDe(p).length > 0) || RX_PIDE_BOTONES.test(d.pedido);
   return [
     ...bloquesDeContexto(ctx, d, { cron }),
+    ...(conRedes ? [BOTONES_SOCIAL, BOTONES_AL_EDITAR] : []),
     ...(k >= 0 ? [`CRON ACTUAL: ${claveDisparo(k)}`] : []),
     `EL FLUJO ACTUAL (ids reales):\n${JSON.stringify(aIA(pasos, ctx))}`,
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,

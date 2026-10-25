@@ -38,6 +38,7 @@ asignar_campana_funnels
 asignar_closer_setter
 asignar_oferta_lead
 audios_requeridos
+automatizacion_media_buyer
 avisar_al_equipo
 baja_del_cliente
 borrar_analisis_landing
@@ -69,7 +70,9 @@ buscar_leads
 buscar_lugares_meta
 buscar_tareas_plan
 buscar_tutorial
+calificar_decision_media_buyer
 cambiar_animacion_landing
+cambiar_botones_mensaje
 cambiar_curso_al_ganar
 cambiar_duracion_video
 cambiar_espera_paso
@@ -115,6 +118,7 @@ configurar_aviso_whatsapp
 configurar_bloque_general
 configurar_boton_landing
 configurar_formulario_landing
+configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
 configurar_reporte
@@ -136,6 +140,7 @@ cortar_frase_video
 cortar_recordatorio_cuota
 cortar_tramo_video
 crear_alumno_curso
+crear_automatizacion_con_ia
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_categoria_comunidad
@@ -159,6 +164,7 @@ crear_oferta_lead
 crear_pagina_reserva
 crear_presentacion_desde_plantilla
 crear_secuencia_email
+cuenta_media_buyer
 cuentas_cobro_etapa
 dar_acceso_curso
 dar_de_baja_mi_plan
@@ -169,6 +175,7 @@ descartar_borrador_plan
 descartar_decision_media_buyer
 descartar_experimento
 descartar_item_plan_retro
+deshacer_decision_media_buyer
 deshacer_item_plan_retro
 despublicar_landing
 destacados_periodo_retro
@@ -209,12 +216,16 @@ editar_plantilla_meta
 editar_post_comunidad
 editar_texto_guion_anuncio
 editar_venta_lead
+elegir_cuenta_meta
 elegir_formato_creativo_anuncio
+elegir_pagina_meta
+elegir_pixel_meta
 eliminar_broadcast
 eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
+empezar_mi_plan_ya
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -258,6 +269,7 @@ generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
+guardar_criterio_reuniones
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -274,6 +286,7 @@ guardar_tema_landing
 guardar_termino_glosario
 guardar_version_landing
 habilitar_acceso_curso
+hooks_al_video_media_buyer
 huecos_secuencias
 ignorar_datos_sin_marcar
 importar_borrador_landing
@@ -283,6 +296,7 @@ inscripciones_lead
 insertar_elemento_dashboard
 journey_lead
 kpis_email
+lanzar_decision_media_buyer
 lead_insiste_con_lo_mismo
 lead_tiene_llamada
 leer_analisis_dashboard
@@ -399,11 +413,13 @@ marcar_reunion_manual
 medicion_experimento
 medir_fuente_kpi
 medir_tramo_r1_r2
+metas_media_buyer
 metricas_automatizacion
 metricas_chatbot
 metricas_closers
 metricas_negocio
 mis_creaciones
+modo_media_buyer
 mover_a_nutricion_manual
 mover_clase_curso
 mover_componente_dashboard
@@ -435,6 +451,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
 programar_broadcast
@@ -482,6 +499,7 @@ quitar_dependencia_plan
 quitar_estrella
 quitar_filtro_dashboard
 r2_sin_lead
+reabrir_decision_media_buyer
 reabrir_onboarding_chatbot
 reactivar_datos_sin_marcar
 reconciliar_plantillas
@@ -500,6 +518,7 @@ renombrar_curso
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
+renombrar_negocio
 requisitos_para_mover
 resaltar_palabras_video
 resolver_confirmacion_crm
@@ -528,6 +547,7 @@ sugerir_kpis
 sugerir_productos
 tendencia_score
 tipos_de_crm
+topes_media_buyer
 tracking_lead
 transformar_elemento_video
 transiciones_desde_etapa
@@ -540,6 +560,7 @@ ver_analitica_landing
 ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
+ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
 ver_base_formulario_meta
@@ -551,6 +572,7 @@ ver_cac_mensual
 ver_calendario_comunidad
 ver_cambios_landing
 ver_campanas_funnels
+ver_campanas_media_buyer
 ver_capacidad_instalada
 ver_catalogo_dashboard
 ver_ciclo_venta
@@ -562,9 +584,11 @@ ver_codigo_pixel
 ver_comentarios_clase_comunidad
 ver_comportamiento_landing
 ver_comunidad
+ver_conexion_meta
 ver_configuracion_landing
 ver_contexto_video
 ver_creacion
+ver_criterio_reuniones
 ver_cuadrante_retencion
 ver_cuenta_meta
 ver_cuotas_ia
@@ -591,6 +615,7 @@ ver_ficha_guion
 ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
+ver_horario_envio
 ver_iconos_landing
 ver_integracion
 ver_integraciones
@@ -598,6 +623,7 @@ ver_landing_creada
 ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan
+ver_mi_prueba
 ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio

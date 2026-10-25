@@ -27,6 +27,29 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## La prueba A/B como CONDICIÓN era el diseño obvio y el equivocado; y lo que una bifurcación nueva rompe en silencio (25/10/2026)
+
+**Vive en:** `lib/flujo-grafo.ts`, `lib/flujo-forma.ts`, `lib/nutricion-grafo-motor.ts`, `lib/nutricion.ts`.
+
+- **Lo obvio era agregar «Prueba A/B» al catálogo de condiciones.** No sirve: una condición pegada a otra no se puede guardar
+  (`condicion_pegada`, `lib/flujo-forma.ts`), tiene «Si no» y elige la primera fila que se cumple (rompe los porcentajes), y el
+  motor la RE-EVALÚA antes de mandar (`condicionDeArriba`). La tarjeta es una clase nueva (`ab`), como manda AGENTS.md para un nodo
+  que «hace otra cosa».
+- **Una bifurcación nueva apaga sin aviso la guarda de los recordatorios.** `condicionDeArriba` sólo reconoce como guarda a un
+  padre directo de clase `condicion`, y `minutosAntesDeReunion` sólo sube por padres `condicion`. Con una tarjeta en el medio,
+  «Su reunión sigue en pie» deja de re-evaluarse y puede salir «Mañana es tu reunión» para una reunión cancelada. Regla: toda clase
+  que bifurca es TRANSPARENTE para esas dos funciones y para las reglas de forma, con test probado rompiéndolo.
+- **`=== 'condicion'` aparece ~70 veces en 20 archivos**, no 20: se usa un helper (`esBifurcacion()`) y se lista lo revisado.
+- **El insert principal de `nutricion_envios` ignora su error, y el presupuesto anti-ban de 24 h CUENTA esas filas.** Una columna
+  nueva que falte en producción deja de guardar la fila sin que nadie se entere: el mensaje sale sin contarse y la línea pasa su
+  tope. No se agregan columnas a ese insert sin antes revisar su error.
+- **`generarVariantes` no tiene llamador** (`action:'variantes'` en app/api/chat-agent/secuencias no lo usa nadie): hoy nadie
+  regenera las variantes anti-ban.
+- **El AI Step no se puede probar con una tarjeta A/B**: es un «Si responde» con `paso_ia`, no corre en la salida y hay uno por
+  medio. Probar el setter es otro diseño (sortear al momento de la respuesta).
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Lo que más muerde
 
 - **Un flujo nunca pasa por `legadoAGrafo`, y tener ids no lo hace un flujo.** El conversor arma la
@@ -7190,3 +7213,55 @@ otros chats (Ops Center) no tienen esta guarda de lugares. No se vio en pantalla
 
 Vive en: lib/flujo-ia-intencion.ts (`lugarInventado`, `LO_QUE_NO_ES_TARJETA`) · app/api/chat-agent/secuencias/ia/route.ts ·
 app/automations/ChatMako.tsx (`TuercaEnElGlobo`) · app/automations/SecuenciaPerfil.tsx · tests/chat-mako-tuerca-y-lugares.test.ts.
+
+## Los botones de Instagram, de punta a punta: Editar, Probar, la ficha y la API (25/10/2026)
+
+**El pedido:** Martín, 25/10 ~13:15: «Ya esta el tema de los botones de Instagram para Automations? Que lo pide el cliente
+Leandro». El Cerebro: que queden terminados de punta a punta (la API, «Probar», «Editar con IA», la ficha y un DM de verdad).
+
+**Qué quedó:**
+- **Editar con IA** (lib/flujo-ia.ts): el modelo los lee en el flujo (`aIA`), los cambia con "botones" en "cambiar"
+  (`botonesDelParche`) y cuelga tarjetas de uno con "salida": "btn:<id>". Las reglas van sólo si el flujo ya tiene botones
+  o el pedido habla de ellos o del gate. Con «Cambia WhatsApp por Instagram» y el CRON pasaba el techo de Groq.
+- **Probar** (lib/simulador-grafo.ts, PanelProbar, SimuladorSocial): quien prueba toca los botones en el DM. Un DM con
+  botones y nada más que correr deja la prueba esperando, sin «Fin». `tocar` es el `tocarBoton` del motor.
+- **La ficha** (`botonesQueEspera`): «Espera que toque «Obtener recurso»», no «En curso».
+- **La API**: `cambiar_botones_mensaje`, por HTTP, que es lo que usa el Claude de Leandro, y de pantalla. Cambia los
+  botones y también el TEXTO del DM (`editar_pasos_secuencia_mensajes` es sólo WhatsApp y email, y sin ramas: un DM con
+  botones vive en un flujo con ramas). La ficha dice los botones con su puerto (`btn:<id>`); `inscripciones_lead`,
+  `espera_toque`. Y `crear_automatizacion_con_ia` sale por HTTP (el Cerebro, 25/10: «todo MaKo se debe poder utilizar por
+  API»), con `costo: 'ia'`.
+
+**⚠️ Las trampas:**
+- **Un botón nuevo tomaba el id de su lugar** («b1») y le robaba el suyo a uno que se quedó en otro lugar. Lo que colgaba
+  del puerto `btn:b1` se iba con el nuevo. Ahora uno que se queda conserva su id, y uno nuevo toma uno libre (en Editar y
+  en la API). La primera rotura del test salió VERDE: en el mismo lugar el id coincide igual. Se le sumó el caso reordenado.
+- **Sacarle el único botón a «Obtener recurso» deja la condición suelta.** La API lo rechaza porque mira sólo los errores
+  NUEVOS de `validarGrafo`. Uno que el flujo ya tenía no frena cambiar un botón.
+- **Una prueba sin `siguiente: null` explícito sigue por el ORDEN de la lista** (lo de antes, lineal). Un flujo del lienzo
+  siempre lo tiene; un fixture escrito a mano, no.
+
+**⚠️ La prueba con un DM de verdad NO se pudo hacer**, y no es por el código. Medido el 25/10 14:10 ART
+(`scripts/medir-instagram-de-mako.mts`, sólo lectura):
+- el negocio de la plataforma (Martin Koncke) no tiene Zernio: ni key, ni fila, ni automatizaciones de Instagram;
+- el Cliente de Prueba tiene fila de Zernio con profile, pero sin key y con el webhook sin entregar;
+- ningún negocio nuestro tiene Instagram conectado.
+Para hacerla, Martín tiene que conectar en su negocio la key de Zernio de MaKo y el Instagram de MaKo (Integraciones ›
+Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de Instagram. Los pasos están en el relevo.
+
+- **⚠️ Por qué crear con IA no salía por HTTP, y por qué ahora sí.** La def decía «tarda minutos y /api/v1 corta a 60 s».
+  Ya no es así: cada intento se acota al plazo del que llama (`hastaMs` en `chatCheapCascade`), y desde el 17/10 un intento
+  dura 45 s como mucho. Por HTTP el modelo tiene 40 s (`PLAZO_CREAR_HTTP_MS`) y el resto queda para escribir. Si no le
+  alcanza, vuelve un error SIN haber escrito nada, porque la fila nace después del modelo. Un token clásico sólo propone, y el
+  «sí» corre en la app con sus 170 s.
+- **⚠️ La primera medición del Cerebro decía que la API no tenía botones**: medía main, y lo de esta tanda vivía sólo en
+  aut-2510. Una medición de la API se hace sobre la rama que se va a subir.
+
+**Sin hacer:** el DM de verdad (arriba). «Probar» no simula el texto de respaldo («Escríbeme «…»») de una cuenta que rechaza
+los botones. Por la API, el texto de un mensaje de WhatsApp o email en un flujo CON ramas no se puede cambiar
+(`editar_pasos_secuencia_mensajes` lo rechaza). Por HTTP directo, la pregunta de crear con IA llega como el texto del error,
+sin `faltan` (`aplicarEnElActo` lo resume en una frase). No se vio en pantalla.
+
+Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
+lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
+tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.

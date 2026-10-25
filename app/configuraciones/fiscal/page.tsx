@@ -7,7 +7,7 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
 import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina, TituloAjustes } from '../../_ui/Ajustes';
+import { AjustesPagina } from '../../_ui/Ajustes';
 import { IdentidadesFiscalesPanel } from '../IdentidadesFiscalesPanel';
 import { MonedaNegocioPanel } from '../MonedaNegocioPanel';
 
@@ -18,10 +18,9 @@ export default async function FiscalPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'fiscal')} activa="fiscal">
-      <TituloAjustes titulo="Identidades fiscales" bajada="Los datos con los que facturas." />
-      {/* La moneda en que cobra el negocio (17/10/2026): antes sólo se cambiaba pidiéndoselo a MaKo. */}
-      <MonedaNegocioPanel />
-      <IdentidadesFiscalesPanel />
+      {/* El título (con «Agregar»), la moneda en que cobra el negocio (17/10/2026: antes sólo se cambiaba pidiéndoselo a MaKo)
+          y las razones sociales los pone el panel, en el molde de Linear (25/10/2026). */}
+      <IdentidadesFiscalesPanel moneda={<MonedaNegocioPanel />} />
     </AjustesPagina>
   );
 }

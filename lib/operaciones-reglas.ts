@@ -587,10 +587,21 @@ export function sanearAdjuntosTurno(x: unknown, local: string, uuid: string): Ad
   }
   return out;
 }
-/** Lo más largo de un turno que se guarda (la PC ya lo corta). */
-export const TOPE_TURNO = 4000;
-/** Lo que escribió Martín (rol «yo») no se corta como lo demás: puede ser largo, y es suyo (18/10/2026). */
-export const TOPE_TURNO_YO = MAX_TEXTO_LARGO;
+/**
+ * Lo más largo de un turno que se guarda. ⚠️ ES UN TOPE TÉCNICO, NO UN CORTE (25/10/2026, Martín: «que no haya nunca un limite
+ * de caracteres, en todo caso achica el mensaje y hazlo más claro»): hasta ese día eran 4000, la PC cortaba ahí y el «Completado»
+ * decía «Cortado a los 4000 caracteres». Ahora el texto llega entero; esto sólo frena un abuso, y lo largo se ve plegado con
+ * «Ver todo» (app/admin/operaciones/Avance.tsx). El cartero tiene su copia (scripts/operaciones/cartero.mjs, desde la 1.19.0).
+ * El servidor acepta lo largo ANTES de que llegue un cartero que lo mande: uno viejo sigue mandando 4000 y no se rompe nada.
+ */
+export const TOPE_TURNO = 200_000;
+/** Lo que cortaba un cartero de antes de la 1.19.0: un texto de justo este largo llegó cortado (`cortadoPorLaPC`). */
+export const TOPE_TURNO_VIEJO = 4000;
+/** Lo que escribió Martín (rol «yo»): entero también, con el mismo tope técnico (hasta el 25/10/2026, `MAX_TEXTO_LARGO`). */
+export const TOPE_TURNO_YO = TOPE_TURNO;
+/** Cuánto texto se guarda por chat, sumando sus turnos (25/10/2026). Con turnos enteros, los `TURNOS_POR_CHAT` de un chat podían
+ *  pesar megas en cada lectura: se quedan los más nuevos que entren, y el último entra siempre, aunque solo lo pase. */
+export const TEXTO_POR_CHAT = 600_000;
 /** Cuántos turnos sube una vuelta, como mucho (la primera de un chat largo trae su historia). */
 export const MAX_TURNOS_VUELTA = 300;
 /** Cuántos turnos se guardan por chat (los últimos). */
@@ -623,11 +634,15 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
 }
 
 /** Une lo que había con lo nuevo: sin repetir (por `uuid`: dos Runners pueden subir lo mismo), por hora, y sólo los
- *  últimos `TURNOS_POR_CHAT`. */
+ *  últimos `TURNOS_POR_CHAT` que entren en `TEXTO_POR_CHAT` (el último, siempre). */
 export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoChat[]): TurnoChat[] {
   const porId = new Map<string, TurnoChat>();
   for (const t of [...antes, ...nuevos]) porId.set(t.uuid, t);
-  return [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
+  const ultimos = [...porId.values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)).slice(-TURNOS_POR_CHAT);
+  let total = ultimos.reduce((n, t) => n + t.texto.length, 0);
+  let desde = 0;
+  while (total > TEXTO_POR_CHAT && desde < ultimos.length - 1) total -= ultimos[desde++].texto.length;
+  return desde ? ultimos.slice(desde) : ultimos;
 }
 
 // ── Lo último de CADA chat, para su fila de la lista (17/10/2026, el aviso del «Completado» que no salía) ─────────────────

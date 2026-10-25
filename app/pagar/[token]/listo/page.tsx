@@ -21,7 +21,8 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { notFound } from 'next/navigation';
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { getCobroPorToken } from '@/lib/cobros';
+import { activarPruebaSiAutorizo, getCobroPorToken, inicioDeLaPrueba } from '@/lib/cobros';
+import { diaDelCobro, esPruebaDePlan, esPruebaRechazada, TEXTO_PRUEBA_USADA_TARJETA } from '@/lib/prueba-plan-reglas';
 import { emailEnmascarado, mailDeAccesoNoSalio } from '@/lib/cobros-reglas';
 import { esTokenCobro, NOMBRE_PASARELA, type Cobro } from '@/lib/cobros-tipos';
 import { formatoMonto } from '@/lib/pasarela-moneda';
@@ -103,7 +104,12 @@ export default async function PagoListo({ params, searchParams }: Params) {
     );
   }
   if (!leido) notFound();
-  const c = leido;
+  // LA PRUEBA GRATIS (25/10/2026): la persona vuelve de autorizarla en Mercado Pago. Se activa acá (y el alta con ella), sin
+  // esperar al cron: lo que sigue se dibuja con el cobro ya activado (o rechazado, si esa tarjeta ya usó su prueba).
+  let c = leido;
+  if (esPruebaDePlan(c) && c.estado === 'pendiente' && !c.suscripcion_estado && !cancelado) {
+    if (await activarPruebaSiAutorizo(c)) c = (await getCobroPorToken(token).catch(() => null)) ?? c;
+  }
 
   const negocio = await nombreDelNegocio(c.workspace_id);
   const pasarela = NOMBRE_PASARELA[c.proveedor];
@@ -121,6 +127,31 @@ export default async function PagoListo({ params, searchParams }: Params) {
         {detalle}
         <p>{pasarela} confirmó tu pago.{c.tipo === 'suscripcion' ? ' Se renueva cada mes hasta que lo canceles.' : ''}</p>
         {c.alta_capa && <AltaDeMako c={c} />}
+      </Tarjeta>
+    );
+  }
+
+  // La prueba autorizada: empezó, con su alta. El cobro sigue pendiente hasta el día 8 (no es un pago todavía).
+  if (esPruebaDePlan(c) && c.estado === 'pendiente' && c.suscripcion_estado === 'activa') {
+    const inicio = await inicioDeLaPrueba(c).catch(() => null);
+    return (
+      <Tarjeta negocio={negocio} titulo="Tu prueba gratis empezó" refrescar={!!c.alta_capa && (c.alta_estado == null || c.alta_estado === 'pendiente')}>
+        {detalle}
+        <p>
+          No se te cobró nada.{inicio ? ` El ${diaDelCobro(inicio)} ${pasarela} cobra ${formatoMonto(c.monto, c.moneda)} con tu tarjeta, y te avisamos dos días antes.` : ''}{' '}
+          Si te das de baja antes desde «Tu plan», no se te cobra nada.
+        </p>
+        {c.alta_capa && <AltaDeMako c={c} />}
+      </Tarjeta>
+    );
+  }
+  // La prueba que esa tarjeta (o esa cuenta de MP) ya había usado: se canceló en el acto, sin cobrar.
+  if (esPruebaDePlan(c) && c.estado === 'anulado' && esPruebaRechazada(c.motivo)) {
+    const plan = /^planes:([a-z0-9-]{1,32}):prueba$/.exec(c.creado_por ?? '')?.[1];
+    return (
+      <Tarjeta negocio={negocio} titulo="Ya usaste tu prueba gratis">
+        <p>{TEXTO_PRUEBA_USADA_TARJETA}</p>
+        {plan && <a className="pagar-btn" href={`/planes/${plan}?sinPrueba=1`}>Empezar sin prueba</a>}
       </Tarjeta>
     );
   }
@@ -172,7 +203,7 @@ export default async function PagoListo({ params, searchParams }: Params) {
   );
 }
 
-/** La venta de un plan de MaKo: en qué quedó la cuenta. Sólo con el cobro PAGADO. */
+/** La venta de un plan de MaKo: en qué quedó la cuenta. Con el cobro PAGADO, o con la prueba gratis autorizada. */
 async function AltaDeMako({ c }: { c: Cobro }) {
   if (c.alta_estado === 'hecha') {
     const u = await usuarioDelAlta(c).catch((e: unknown) => {
@@ -208,7 +239,7 @@ async function AltaDeMako({ c }: { c: Cobro }) {
   if (c.alta_estado === 'error') {
     return (
       <div className="pagar-acceso">
-        <p>Tu pago entró, pero todavía no pudimos crear tu cuenta de MaKo. Lo volvemos a intentar solos; si en un rato no te llega el acceso, escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.</p>
+        <p>{c.estado === 'pagado' ? 'Tu pago entró, pero todavía' : 'Todavía'} no pudimos crear tu cuenta de MaKo. Lo volvemos a intentar solos; si en un rato no te llega el acceso, escríbenos a <a href={`mailto:${EMAIL_MAKO}`}>{EMAIL_MAKO}</a>.</p>
       </div>
     );
   }

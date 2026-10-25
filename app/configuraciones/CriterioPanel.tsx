@@ -8,15 +8,17 @@
 //
 // El texto que se dibuja es corto a propósito. El porqué de cada regla vive en el
 // criterio mismo, que es justamente lo que se edita acá.
+//
+// En el molde de Settings desde el 25/10/2026 (copiado de Linear, docs/settings/referencia.md): el panel es el CUERPO de la
+// tarjeta «Criterio de reuniones» de la página General (que pone el título); se fue el párrafo que explicaba la pantalla. Es
+// el único dato de Settings con «Guardar»: un texto de hasta 24.000 caracteres no se guarda a cada salida del campo.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getCriterioAction, saveCriterioAction } from './criterio-actions';
+import { CuerpoGrupo } from '@/app/_ui/Ajustes';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
-
-const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 };
-const primaryBtn: CSSProperties = { padding: '9px 16px', borderRadius: 10, border: 'none', background: 'var(--primary)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', fontFamily: SANS };
 
 export function CriterioPanel() {
   const [texto, setTexto] = useState('');
@@ -49,37 +51,29 @@ export function CriterioPanel() {
     setAviso('Guardado');
   }
 
-  if (cargando) return <p style={{ fontSize: 13.5, color: 'var(--dim)', fontFamily: SANS }}>Cargando…</p>;
+  if (cargando) return <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Cargando…</p></CuerpoGrupo>;
 
   return (
-    <div style={{ maxWidth: 860 }}>
-      <p style={{ fontSize: 14, color: 'var(--dim)', margin: '0 0 18px', fontFamily: SANS }}>
-        Con esto MaKo decide qué de cada reunión es un compromiso tuyo y qué es ruido. Sin criterio, carga todo lo que parezca una tarea.
-      </p>
-
-      <div style={card}>
-        <textarea
-          value={texto}
-          onChange={(e) => { setTexto(e.target.value); setAviso(''); }}
-          spellCheck={false}
-          placeholder="Qué cuenta como compromiso, qué no, y con qué reglas."
-          style={{
-            width: '100%', minHeight: 420, resize: 'vertical', boxSizing: 'border-box',
-            padding: 14, borderRadius: 11, border: '1px solid var(--border-strong)',
-            background: 'var(--surface-2)', color: 'var(--ink)',
-            fontFamily: MONO, fontSize: 12.5, lineHeight: 1.6,
-          }}
-        />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
-          <button type="button" onClick={guardar} disabled={guardando || !sucio} style={{ ...primaryBtn, opacity: guardando || !sucio ? 0.45 : 1, cursor: guardando || !sucio ? 'default' : 'pointer' }}>
-            {guardando ? 'Guardando…' : 'Guardar criterio'}
-          </button>
-          <span style={{ fontSize: 12, color: texto.length > tope ? 'var(--bad)' : 'var(--faint)', fontFamily: MONO }}>
-            {texto.length.toLocaleString('es')} / {tope.toLocaleString('es')}
-          </span>
-          {aviso && <span style={{ fontSize: 13, color: aviso === 'Guardado' ? 'var(--good)' : 'var(--bad)', fontFamily: SANS }}>{aviso}</span>}
-        </div>
+    <CuerpoGrupo>
+      <textarea
+        value={texto}
+        onChange={(e) => { setTexto(e.target.value); setAviso(''); }}
+        spellCheck={false}
+        aria-label="Criterio de reuniones"
+        placeholder="Qué cuenta como compromiso, qué no, y con qué reglas."
+        className="aj-campo"
+        style={{ height: 'auto', minHeight: 360, resize: 'vertical', padding: 12, background: 'var(--surface-2)', fontFamily: MONO, fontSize: 12.5, lineHeight: 1.6 }}
+      />
+      <div className="aj-acciones" style={{ marginTop: 12 }}>
+        <button type="button" className="aj-boton" onClick={guardar} disabled={guardando || !sucio}>
+          {guardando ? 'Guardando…' : 'Guardar'}
+        </button>
+        <span style={{ fontSize: 12, color: texto.length > tope ? 'var(--bad)' : 'var(--faint)', fontFamily: MONO }}>
+          {texto.length.toLocaleString('es')} / {tope.toLocaleString('es')}
+        </span>
+        {aviso === 'Guardado' && <span role="status" style={{ fontSize: 13, color: 'var(--good)', fontWeight: 600 }}>Guardado</span>}
+        {aviso && aviso !== 'Guardado' && <span role="alert" style={{ fontSize: 13, color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></span>}
       </div>
-    </div>
+    </CuerpoGrupo>
   );
 }

@@ -67,7 +67,7 @@ export default async function PlanPage({ params, searchParams }: {
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1'} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

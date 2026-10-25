@@ -16,6 +16,7 @@ import { leerTodo } from './supabase-paginado';
 import { saldoOpenRouter } from './openrouter-saldo';
 import { esDelCreditoDeLaPlataforma } from './veto-claude';
 import { tokensDeSalida } from './ai-cheap-techo';
+import { MOTIVO_CARTEL_MAX } from './fallo-ia-texto';
 
 // A QUÉ workspace pertenece el saldo/gasto de un proveedor. La regla real no es
 // "qué proveedor es" sino **de quién es la key que lo pagó**:
@@ -206,8 +207,11 @@ export async function recordUsage(feature: string, model: string, rawUsage: unkn
   // siendo lo de siempre (lo cacheado va APARTE de input_tokens).
   const cacheadoCompat = Number((u.prompt_tokens_details as Record<string, unknown> | undefined)?.cached_tokens ?? 0) || 0;
   const costUsd = costFor(model, { input, output, cacheCreation, cacheRead }, provider);
+  // El cartel de «no pude» del grupo lleva en el motivo el TEXTO que le llegó a la persona (lib/fallo-ia-texto.ts,
+  // `motivoDelCartel`, 25/10/2026): cortado a 200 se perdía justo eso. El resto sigue corto, que es lo que dibuja el Saldo de IA.
+  const largo = feature === 'cartel-ia' ? MOTIVO_CARTEL_MAX : 200;
   const escrita = await insertUsage({
-    feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, 200) : null, model, provider,
+    feature: feature || 'otros', motivo: motivo?.trim() ? motivo.trim().slice(0, largo) : null, model, provider,
     // CUÁL de las keys del proveedor atendió (mig 0132). Sin esto la cuota solo se
     // puede medir sumada, y esa suma miente cuando el uso se apila en una cuenta.
     cuenta: cuenta && cuenta > 1 ? cuenta : 1,

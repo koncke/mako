@@ -43,6 +43,7 @@ import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
 import { iniciales } from '@/lib/unicode-seguro';
+import { CartelPrueba } from './CartelPrueba';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -82,10 +83,6 @@ type Tema = 'oscuro' | 'claro';
  * Las familias que el usuario plegó, en el navegador (17/10/2026). Es una comodidad de esta persona en esta
  * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
  */
-/** Las iniciales de un nombre (la foto cuando no hay foto). */
-const inicialesDe = (nombre: string) => iniciales(nombre, 2, '·');
-/** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
-const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
 
 /**
  * Lo plegado se recuerda en el navegador. La clave cambió el 20/10/2026 (feedback del 18/10, pt 10; Martín: «quiero que
@@ -483,8 +480,9 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   const [perfilNombre, setPerfilNombre] = useState(inicial?.nombre ?? '');
   const [perfilAvatar, setPerfilAvatar] = useState('');
   const [rol, setRol] = useState<string>(inicial?.rol ?? '');
-  const [email, setEmail] = useState<string>('');
   const [verPronto, setVerPronto] = useState(false);
+  // «Platform» del menú de la foto, plegado: un ítem, y adentro lo de la plataforma (25/10/2026).
+  const [verPlataforma, setVerPlataforma] = useState(false);
   const [rolWs, setRolWs] = useState<string>('');
   const [capa, setCapa] = useState<string>('');
   // MaKo Esencial por la pasarela (/api/auth/me): las tabs de Pro con candado (23/10/2026).
@@ -588,7 +586,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
       .then((j) => {
         if (!alive || !j?.ok || !j.autenticado) return;
         setRol((j.rol as string) || '');
-        setEmail((j.email as string) || '');
         setRolWs((j.rolWs as string) || '');
         setCapa((j.capa as string) || '');
         setPlanEsencial(j.planEsencial === true);
@@ -839,6 +836,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   }, [userOpen]);
 
   /** Una fila del menú de la foto. */
+  const FILA_QUE_ABRE: CSSProperties = { width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: 500, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' };
   const filaMenu = (it: NavItem) => {
     const on = it.match(pathname);
     return (
@@ -949,6 +947,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
+          <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
@@ -1008,45 +1008,36 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               </>
             )}
 
-            {/* LA CARA (17/10/2026 noche, prototipo de coherencia): la foto real, el nombre y el @usuario, igual que el
-                More del teléfono. Lleva a My Profile (la clave `perfil`); por eso esa fila no se repite abajo. */}
-            {(() => {
-              const perfil = USER_NAV.find((it) => it.key === 'perfil');
-              if (!perfil || !puedeVer(perfil)) return null;
-              return (
-                <Link href={perfil.href + dateQuery} onClick={() => setUserOpen(false)} className="mk-navrow mk-navrow--claro"
-                  style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, textDecoration: 'none' }}>
-                  <span style={{ width: 38, height: 38, flex: 'none', borderRadius: 10, overflow: 'hidden', background: 'var(--primary)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700 }}>
-                    {avatarVisible
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={avatarVisible} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      : inicialesDe(nombreVisible)}
-                  </span>
-                  <span style={{ minWidth: 0 }}>
-                    <span style={{ display: 'block', fontWeight: 600, fontSize: 'var(--fs-md)', color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nombreVisible}</span>
-                    {usuarioDe(impersonando ? '' : email) && <span style={{ display: 'block', fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{usuarioDe(email)}</span>}
-                  </span>
-                </Link>
-              );
-            })()}
-            <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-            {/* «Settings» PRIMERO (24/10/2026): es la key `perfil`, que va primera en USER_NAV. La cara de arriba también lleva ahí. */}
+            {/* SIN LA CARA (25/10/2026, Martín: «no me gusta que en general el desplegable del perfil, antes de "settings" tenga
+                nuevamente mi foto de perfil, que esté solo settings»): la foto y el nombre ya están en el botón que abre este menú.
+                Hasta ese día iban acá arriba (17/10, la cara del prototipo), y la fila llevaba a Settings dos veces. */}
+            {/* «Settings» PRIMERO (24/10/2026), con la TUERCA (25/10/2026): es la key `perfil`, que va primera en USER_NAV. */}
             {USER_NAV.filter((it) => !it.soloSeccion && (!it.adminOnly || (rol === 'admin' && !impersonando)) && puedeVer(it)).map(filaMenu)}
-            {/* PLATFORM (17/10/2026): lo que era la familia Admin y es de la plataforma, y las «pronto» (prototipo: «lo
-                poco usado detrás de More»). Sólo el super admin sin mirar un cliente. «Coming soon» se abre ACÁ, en el
-                mismo menú: nada de modales. */}
+            {/* PLATFORM, UN ÍTEM (25/10/2026, Martín: «No me gusta para nada que en el desplegable de super admin me aparezcan tantas
+                cosas, de ultima engloba todas esas tabs extras en un solo desplegable que a su vez tenga otro desplegable»): lo de la
+                plataforma (lo que era la familia Admin) se abre ACÁ, en el mismo menú, y adentro «Coming soon» se abre igual. Sólo el
+                super admin sin mirar un cliente. Nada de modales ni de un menú al costado. */}
             {adminShell && (
               <>
                 <div style={{ height: 1, background: 'var(--border)', margin: '5px 0' }} />
-                <div style={{ fontFamily: MONO, fontSize: 9.5, letterSpacing: '.14em', textTransform: 'uppercase', color: 'var(--faint)', padding: '4px 15px 2px' }}>Platform</div>
-                {SUPERADMIN_MENU.map(filaMenu)}
-                <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPronto} onClick={() => setVerPronto((v) => !v)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 11, padding: '9px 15px', borderRadius: 0, fontSize: 'var(--fs-md)', fontWeight: 500, border: 'none', cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left' }}>
-                  <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="reloj" size={17} /></span>
-                  <span style={{ flex: 1 }}>Coming soon</span>
-                  <span style={{ fontSize: 10, transform: verPronto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPlataforma} onClick={() => setVerPlataforma((v) => !v)}
+                  style={FILA_QUE_ABRE}>
+                  <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="admin" size={17} /></span>
+                  <span style={{ flex: 1 }}>Platform</span>
+                  <span style={{ fontSize: 10, transform: verPlataforma ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
                 </button>
-                {verPronto && PRONTO.map(filaMenu)}
+                {verPlataforma && (
+                  <div role="group" aria-label="Platform" style={{ paddingLeft: 14 }}>
+                    {SUPERADMIN_MENU.map(filaMenu)}
+                    <button type="button" className="mk-navrow mk-navrow--claro" aria-expanded={verPronto} onClick={() => setVerPronto((v) => !v)}
+                      style={FILA_QUE_ABRE}>
+                      <span style={{ display: 'flex', color: 'var(--faint)' }}><Icon name="reloj" size={17} /></span>
+                      <span style={{ flex: 1 }}>Coming soon</span>
+                      <span style={{ fontSize: 10, transform: verPronto ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>›</span>
+                    </button>
+                    {verPronto && <div role="group" aria-label="Coming soon" style={{ paddingLeft: 14 }}>{PRONTO.map(filaMenu)}</div>}
+                  </div>
+                )}
               </>
             )}
             <div style={{ height: 1, background: 'var(--border)', margin: '5px 0 0' }} />

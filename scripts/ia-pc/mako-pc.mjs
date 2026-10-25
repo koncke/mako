@@ -397,6 +397,28 @@ const aUtf16 = (s) => Buffer.from(`${s}\0`, 'utf16le');
 const comillasAs = (s) => `"${String(s).replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 
 /**
+ * El ícono de las ventanas de la Mac: el de MaKo (MaKo.icns, de installer/marca) en vez del genérico «note» (25/10/2026, el
+ * instalador con el diseño de MaKo). La app firmada corre DENTRO del paquete (…/Contents/MacOS/MaKo → ../Resources); la sin
+ * firmar corre desde ~/.mako-pc/bin, y su guion lo deja en ~/.mako-pc (lib/ia-pc-reglas.ts → lanzadorDeLaAppMac). Sin el
+ * archivo (una 0.4.2), el de siempre.
+ */
+export function iconoDeDialogo({ ejecutable = process.execPath, casa = homedir(), existe = existsSync } = {}) {
+  const f = [join(dirname(ejecutable), '..', 'Resources', 'MaKo.icns'), join(casa, '.mako-pc', 'MaKo.icns')].find((c) => existe(c));
+  return f ? `with icon (POSIX file ${comillasAs(f)})` : 'with icon note';
+}
+
+/**
+ * `osascript` con el ícono de MaKo. ⚠️ SIN PROBAR EN UNA MAC (25/10/2026): si el ícono hace fallar la ventana por otra cosa que
+ * «Cancelar» (el -128 de AppleScript), se repite con el genérico. Una ventana que no sale es un «no»: nunca puede trabar el
+ * conectar por un ícono. `correr` es para los tests.
+ */
+export function dialogoMac(guion, { correr = spawnSync, icono = iconoDeDialogo() } = {}) {
+  const r = correr('osascript', ['-e', `${guion} ${icono}`], { encoding: 'utf8' });
+  if (r.status === 0 || icono === 'with icon note' || /-128/.test(r.stderr ?? '')) return r;
+  return correr('osascript', ['-e', `${guion} with icon note`], { encoding: 'utf8' });
+}
+
+/**
  * Una ventana del SISTEMA, sin consola. `botones`: 'si-no' devuelve true con «Sí»; 'ok' sólo avisa. En Windows, `MessageBoxW`
  * de user32 (con `bun:ffi`, dentro del ejecutable); en la Mac, `osascript`. Sin poder mostrarla, false: nunca se conecta sin
  * que la persona diga que sí. `MAKO_PC_SI=1` contesta «sí» sin ventana: sólo para la prueba de punta a punta.
@@ -417,7 +439,7 @@ export async function ventana(titulo, texto, botones = 'si-no') {
     }
     if (process.platform === 'darwin') {
       const b = botones === 'si-no' ? '{"No", "Sí, conectar"} default button 1 cancel button 1' : '{"Listo"} default button 1';
-      const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b} with icon note`], { encoding: 'utf8' });
+      const r = dialogoMac(`display dialog ${comillasAs(texto)} with title ${comillasAs(titulo)} buttons ${b}`);
       return botones === 'si-no' ? r.status === 0 && /Sí, conectar/.test(r.stdout ?? '') : r.status === 0;
     }
   } catch (e) {
@@ -687,7 +709,7 @@ export function portapapeles() {
 export async function pedirTexto(titulo, texto, inicial = '') {
   if (process.platform !== 'darwin') return null;
   try {
-    const r = spawnSync('osascript', ['-e', `display dialog ${comillasAs(texto)} default answer ${comillasAs(inicial)} with title ${comillasAs(titulo)} buttons {"Cancelar", "Conectar"} default button 2 cancel button 1 with icon note`], { encoding: 'utf8' });
+    const r = dialogoMac(`display dialog ${comillasAs(texto)} default answer ${comillasAs(inicial)} with title ${comillasAs(titulo)} buttons {"Cancelar", "Conectar"} default button 2 cancel button 1`);
     if (r.status !== 0) return null;
     const m = /text returned:(.*)$/m.exec(r.stdout ?? '');
     return m ? m[1].trim() : null;
@@ -996,11 +1018,16 @@ async function correrSiempre() {
 // `mako-pc abrir`: MaKo en el navegador, en el Ops Center si esta computadora ya está conectada, o en «Tus cuentas de IA» para
 // conectarla si no. (MaKo entero en una ventana propia es otra cosa, decidida por Martín y sin código todavía: f04.)
 
-/** A dónde lleva el acceso «MaKo»: el Ops Center del negocio conectado; sin conexión, a conectarla. */
+/**
+ * A dónde lleva el acceso «MaKo»: el Ops Center del negocio conectado; sin conexión, a conectarla. Con `app=1` (25/10/2026,
+ * Martín: «la app de desktop jamás me pidió login... entró directo a la cuenta de Mauricio»): esa ventana pide el login de la
+ * persona aunque el navegador tenga una sesión abierta, que puede ser de otro (lib/app-escritorio-reglas.ts). Estar conectada
+ * para la IA nunca abre una cuenta: la conexión de la PC no viaja en el enlace.
+ */
 export function destinoDeAbrir(c) {
-  if (!c?.token) return `${SERVIDOR_DEFAULT}/perfil/ia?computadora=1`;
+  if (!c?.token) return `${SERVIDOR_DEFAULT}/perfil/ia?computadora=1&app=1`;
   const servidor = typeof c.servidor === 'string' && /^https:\/\/[^/\s]+$/.test(c.servidor) ? c.servidor : SERVIDOR_DEFAULT;
-  return `${servidor}/second-brain`;
+  return `${servidor}/second-brain?app=1`;
 }
 
 /** El acceso «MaKo»: abre el destino en el navegador. 0 = se abrió. `p` es para los tests. */

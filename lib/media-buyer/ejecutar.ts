@@ -57,7 +57,8 @@ async function escribir(ws: number, datos: DatosCuenta, nivel: NivelMeta, id: st
       if (cambio.estado) await cambiarEstadoPorZernio(ws, nivel, id, cambio.estado);
       if (cambio.presupuesto != null) {
         if (nivel === 'ad') throw new Error('Un anuncio no tiene presupuesto propio.');
-        await cambiarPresupuestoPorZernio(ws, nivel, id, cambio.presupuesto);
+        // Con la cuenta de Zernio: una campaña sin anuncios en Zernio da 404 sin ella (lib/zernio-ads.ts).
+        await cambiarPresupuestoPorZernio(ws, nivel, id, cambio.presupuesto, datos.conexion.accountId);
       }
       return 'zernio';
     } catch (e) {

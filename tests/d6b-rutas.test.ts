@@ -94,6 +94,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // Cuántos teléfonos de la persona reciben avisos (Settings › Notificaciones › Celular, 25/10/2026): lee push_suscripciones.
+  { unidad: 'app/api/push/suscripcion/route.ts#GET', usa: ['getSupabaseServer', 'getUsuarioActual', 'usuarioPropio'], porque: 'cuenta los teléfonos de la persona con avisos (push_suscripciones): no le pide nada a una IA' },
   // El interruptor de «Aprende solo» (P8, 25/10/2026): guarda el setting second-brain.recolector; la vuelta que le pide a la IA es el cron, adentro de conSuIADelNegocio.
   { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector del negocio (un setting): no le pide nada a una IA; la que lee es la vuelta del cron, con la IA del negocio' },
   // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
@@ -112,6 +114,9 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   // El Second Brain: leer el mapa, El Archivero sin leer documentos, y las áreas sin generar (sus POST prenden).
   { unidad: 'app/api/second-brain/cerebro/route.ts#GET', usa: ['cerebroQueSeDibuja', 'chatsMakoDeQuienMira', 'construirCerebro', 'soloAdminDeTab'], porque: 'arma el mapa con lecturas (lib/cerebro-grafo.ts)' },
   { unidad: 'app/api/second-brain/exportar/route.ts#POST', usa: ['AREAS', 'construirCerebro', 'construirVault', 'requireRolWs'], porque: 'exporta el mapa que ya está armado' },
+  // «Aprende solo» (25/10/2026, el recolector): el interruptor guarda un setting del negocio; la vuelta que lee y resume corre en el
+  // cron, adentro de `conSuIADelNegocio` (app/api/cron/second-brain-recolector).
+  { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector (un setting del negocio): no le pide nada a una IA' },
   { unidad: 'app/api/onboarding/archivero/route.ts#GET', usa: ['buildEstado', 'resolverWsAdmin', 'runWithWorkspace'], porque: 'lee el estado de El Archivero' },
   { unidad: 'app/api/onboarding/archivero/route.ts#DELETE', usa: ['borrarBinario', 'buildEstado', 'deleteFileRow', 'getFile', 'listFiles', 'resolverWsAdmin', 'runWithWorkspace', 'setPanorama'], porque: 'borra un documento y recalcula sin IA' },
   { unidad: 'app/api/onboarding/archivero/download/route.ts#GET', usa: ['getFile', 'resolverWsAdmin', 'runWithWorkspace', 'urlDescarga', 'urlPreview'], porque: 'firma el link de un archivo guardado' },

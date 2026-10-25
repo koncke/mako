@@ -168,8 +168,8 @@ test('«en línea» es una PC con un Claude CON sesión, y el tutorial no dice �
   // Rota: «En la misma ventana escribe claude» → este test falla (no está en el PATH de esa ventana: «no se reconoce»).
   assert.match(ui, /windows: '& "\$env:USERPROFILE\\\\\.local\\\\bin\\\\claude\.exe" auth login'/);
   assert.match(ui, /mac: '~\/\.local\/bin\/claude auth login'/);
-  // Desde la 0.4.2 la línea del login va sólo en los respaldos plegados, con la ruta completa (Windows y Mac).
-  assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.mac\} \/>/);
+  // Desde el 25/10/2026 la línea del login va SÓLO en el respaldo plegado de una PC de la 0.3.x (Windows), con la ruta
+  // completa: la de hoy la inicia con mako://iniciar-sesion, y la Mac al abrir MaKo.app.
   assert.match(ui, /<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
   assert.doesNotMatch(ui, /escribe <code>claude<\/code>/);
   // Con una cuenta de ESA IA (la ola 3: el tutorial de su ChatGPT no dice «¡Listo!» con su Claude).
@@ -371,10 +371,12 @@ test('los topes y la limpieza: por negocio, el del código, y los turnos (con da
   const inst = sinComentarios(leer('app/api/ia-pc/instalar/route.ts'));
   assert.match(inst, /if \(!\(await codigoVivo\(codigo\)\.catch\(\(\) => true\)\)\) return aviso\(/);
   assert.doesNotMatch(inst, /, 4\d\d\)|, 5\d\d\)/, 'los avisos van con 200: `irm` y `curl -f` no muestran el cuerpo de un error');
-  // La pantalla: el código que vence ofrece otro, sin volver a aceptar.
+  // La pantalla: el código que vence (o falla, o se gasta con un «No») vuelve al botón «Conectar», que pide otro sin decir
+  // nada de códigos (25/10/2026): el código ya no se ve.
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
   assert.match(ui, /const vencido = !!codigo && venceAt != null && ahora >= venceAt && delCodigo !== 'eligiendo';/);
-  assert.match(ui, /\{\(error \|\| vencido \|\| delCodigo === 'gastado'\) && \(/);
+  assert.match(ui, /const esperando = acepto && !error && delCodigo !== 'gastado' && !vencido;/);
+  assert.match(ui, /if \(codigo && !vencido && delCodigo !== 'gastado'\) \{[\s\S]{0,200}?return;\s*\}\s*setCodigo\(null\); setVenceAt\(null\); setDelCodigo\(null\); setCopiado\(null\);\s*const pedido = pedirCodigo\(\);/);
   assert.match(ui, /esAdmin=\{!!estado\?\.esAdmin\}/, 'la clave de API es del negocio: sólo el admin (IA4: lib/conectar-ia-reglas.ts)');
   assert.match(sinComentarios(leer('lib/conectar-ia-reglas.ts')), /quien\.esAdmin\s*\?\s*\{ que: 'clave'/);
 });

@@ -1,6 +1,8 @@
 // =============================================================================
 // /api/push/suscripcion — registrar o dar de baja ESTE teléfono para los Web Push
 // =============================================================================
+// GET                                          → { dispositivos: [{ plataforma }] }: los teléfonos de la PERSONA con avisos
+//                                                (Settings › Notificaciones › Celular, 25/10/2026: «En 2 teléfonos»).
 // POST   { suscripcion: PushSubscriptionJSON } → upsert por `endpoint`, atado a la PERSONA.
 // DELETE { endpoint }                          → borra la de ESTE teléfono, sólo si es suya.
 //
@@ -32,6 +34,20 @@ type Cuerpo = { suscripcion?: { endpoint?: unknown; keys?: { p256dh?: unknown; a
 
 // La tabla que falta (no una columna): el código nuevo puede llegar antes que la mig 0249.
 const sinTabla = (e: { code?: string } | null) => !!e && (e.code === 'PGRST205' || e.code === '42P01');
+
+export async function GET() {
+  if (!(await getUsuarioActual())) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });
+  const u = await usuarioPropio();
+  // Sin fila propia no hay teléfonos que contar: es «ninguno», no un error.
+  if (!u) return Response.json({ ok: true, dispositivos: [] });
+  const { data, error } = await getSupabaseServer().from('push_suscripciones').select('plataforma').eq('usuario_id', u.id);
+  if (error) {
+    if (sinTabla(error)) return Response.json({ ok: true, dispositivos: [] });
+    console.error('[push] no pude leer las suscripciones:', error.message);
+    return Response.json({ ok: false, error: 'No se pudieron leer tus teléfonos.' }, { status: 500 });
+  }
+  return Response.json({ ok: true, dispositivos: (data ?? []).map((d) => ({ plataforma: (d as { plataforma: string | null }).plataforma ?? null })) });
+}
 
 export async function POST(req: NextRequest) {
   if (!(await getUsuarioActual())) return Response.json({ ok: false, error: 'no autenticado' }, { status: 401 });

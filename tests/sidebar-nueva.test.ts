@@ -214,10 +214,12 @@ test('el buscador (Ctrl K): «home» y «general» llevan al Dashboard, y encuen
   assert.match(sinComentarios(leer('app/_components/Sidebar.tsx')), /<BuscadorNav /);
 });
 
-test('la cara: la foto real, el nombre y el @usuario, en el menú de la foto y en el More del teléfono', () => {
+test('la cara: la foto real en el botón de la barra y en el More del teléfono (el menú de la foto ya no la repite)', () => {
   const sb = sinComentarios(leer('app/_components/Sidebar.tsx'));
-  assert.match(sb, /usuarioDe\(email\)/, 'el menú de la foto no dice el @usuario');
-  assert.match(sb, /\{avatarVisible\s*\?\s*<img src=\{avatarVisible\}/, 'el menú de la foto no dibuja la foto');
+  // Desde el 25/10/2026 (Martín: «no me gusta que... el desplegable del perfil, antes de "settings" tenga nuevamente mi foto de
+  // perfil, que esté solo settings»): la foto y el nombre están en el botón que abre el menú, no adentro (tests/menu-perfil-tuerca).
+  assert.doesNotMatch(sb, /usuarioDe\(/, 'el menú de la foto volvió a repetir la cara');
+  assert.match(sb, /<Identidad open=\{open\} nombre=\{nombreVisible\} avatar=\{avatarVisible\}/, 'el botón de la barra no lleva la foto');
   const piezas = sinComentarios(leer('app/m/_ui/Piezas.tsx'));
   assert.match(piezas, /if \(foto\?\.trim\(\)\) return <img className=\{`m-avatar m-avatar--\$\{tam\} m-avatar--foto`\}/, 'AvatarM no dibuja la foto');
   const mas = sinComentarios(leer('app/m/mas/page.tsx'));

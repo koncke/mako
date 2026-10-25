@@ -92,7 +92,11 @@ import { spawnSync } from 'node:child_process';
 //         servidor, y un archivo de pregunta malformado no tumba la vuelta.
 // 1.18.1: «la ÚLTIMA de cada chat» vale sólo para las de wrap_up (25/10/2026): una de AskUserQuestion más nueva tapaba a la
 //         de wrap_up del mismo chat, y las 'ask' de un chat se pisaban entre ellas (`preguntasParaSubir`).
-export const VERSION = '1.18.1';
+// 1.19.0: los turnos suben ENTEROS (25/10/2026, Martín: «que no haya nunca un limite de caracteres»): el corte a 4000 pasa a
+//         un tope técnico de 200.000 (`TOPE_TURNO`, la copia del servidor), y la vuelta tiene un presupuesto de texto
+//         (`MAX_TEXTO_VUELTA`) para no pasar el límite del cuerpo: lo que no entra sale en la siguiente. Se instala DESPUÉS
+//         de desplegar el servidor que los acepta (lib/operaciones-reglas.ts): al revés, el servidor viejo los cortaba igual.
+export const VERSION = '1.19.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -588,9 +592,14 @@ export function quienFirmo(texto, firmaB64, spkis) {
 // (`<carpeta>/projects/<cwd con «-»>/<sesión>.jsonl`), leído desde donde quedó la vuelta anterior (`turnos/<local>.json`),
 // y se sube sólo lo nuevo. Del transcript NO sale nada más: ni las herramientas, ni lo que pensó, ni los recordatorios.
 const TURNOS = path.join(DIR, 'turnos');
-const TOPE_TURNO = 4000;
-/** Lo que escribió Martín (rol «yo») no se corta: puede ser largo, y es suyo (1.15.8; copia de TOPE_TURNO_YO). */
-const TOPE_TURNO_YO = 40_000;
+/** El tope TÉCNICO de un turno, no un corte (1.19.0; copia de TOPE_TURNO de lib/operaciones-reglas.ts): hasta la 1.18 eran 4000
+ *  y el «Completado» decía «Cortado a los 4000 caracteres». */
+export const TOPE_TURNO = 200_000;
+/** Lo que escribió Martín (rol «yo»), igual (copia de TOPE_TURNO_YO). */
+const TOPE_TURNO_YO = TOPE_TURNO;
+/** Cuánto texto de turnos sube una vuelta, como mucho (1.19.0): con turnos enteros, una vuelta podía pasar el límite del cuerpo
+ *  de Vercel (4,5 MB) y fallar ENTERA, todas las vueltas. Lo que no entra sale en la siguiente: la marca de ese chat no avanza. */
+export const MAX_TEXTO_VUELTA = 1_500_000;
 /** La primera vez que se lee un chat, sólo su cola: la historia entera puede pesar decenas de MB. */
 const COLA_PRIMERA_VEZ = 2 * 1024 * 1024;
 /** Lo que se lee de un chat por vuelta, como mucho (el resto, en la siguiente). */
@@ -945,11 +954,38 @@ function turnosNuevos(c) {
   };
 }
 
+/** El texto de unos turnos (para el presupuesto de la vuelta). */
+const largoDeTurnos = (ts) => ts.reduce((n, t) => n + (typeof t?.texto === 'string' ? t.texto.length : 0), 0);
+
+/**
+ * ¿Entran los turnos de un chat más en la vuelta? Por cantidad (`MAX_TURNOS_VUELTA`) y por texto (`MAX_TEXTO_VUELTA`). El
+ * PRIMER chat de la vuelta entra siempre (si no, uno solo muy largo no saldría nunca): se le toman sus turnos más nuevos que
+ * entren (`ultimosQueEntran`).
+ */
+export function entraEnLaVuelta(yaTurnos, yaTexto, suyos) {
+  if (!yaTurnos) return true;
+  return yaTurnos + suyos.length <= MAX_TURNOS_VUELTA && yaTexto + largoDeTurnos(suyos) <= MAX_TEXTO_VUELTA;
+}
+
+/** Los turnos más nuevos de un chat que entran en el presupuesto de texto (el último, siempre). */
+export function ultimosQueEntran(ts, presupuesto = MAX_TEXTO_VUELTA) {
+  const out = [];
+  let total = 0;
+  for (let i = ts.length - 1; i >= 0; i--) {
+    const largo = largoDeTurnos([ts[i]]);
+    if (out.length && total + largo > presupuesto) break;
+    out.unshift(ts[i]);
+    total += largo;
+  }
+  return out;
+}
+
 /** Lo nuevo de todos los chats de la vuelta, con un tope (lo que no entra sale en la siguiente: su marca no avanza). */
 export function turnosDeLaVuelta(chats) {
   const turnos = [];
   const marcas = [];
   const preguntas = [];
+  let texto = 0;
   for (const c of chats) {
     // Los chats cerrados hace días no cambian: no se leen (la app guarda cientos).
     const t = c.actividad ? Date.parse(c.actividad) : NaN;
@@ -957,8 +993,10 @@ export function turnosDeLaVuelta(chats) {
     let n;
     try { n = turnosNuevos(c); } catch { n = null; }
     if (!n) continue;
-    if (turnos.length + n.turnos.length > MAX_TURNOS_VUELTA && turnos.length) break;
-    turnos.push(...n.turnos.slice(-MAX_TURNOS_VUELTA));
+    if (!entraEnLaVuelta(turnos.length, texto, n.turnos)) break;
+    const suyos = ultimosQueEntran(n.turnos.slice(-MAX_TURNOS_VUELTA));
+    turnos.push(...suyos);
+    texto += largoDeTurnos(suyos);
     marcas.push(n.marca);
     preguntas.push(...(n.preguntas ?? []));
   }

@@ -16,9 +16,12 @@
 // =============================================================================
 
 import 'server-only';
-import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, PlanSinPiloto } from '@/lib/media-buyer/store';
+import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, actualizar as actualizarMB, PlanSinPiloto } from '@/lib/media-buyer/store';
 import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
+import { ORDEN_TACTICAS, TACTICAS, resolverTacticas, validarTacticas, type TacticaAuto } from '@/lib/media-buyer/tacticas';
 import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
+import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
+import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
 import { after } from 'next/server';
@@ -958,12 +961,14 @@ export const RUNNERS: Runners = {
   // (topes, lectura en vivo, reclamo antes de escribir): estos runners no escriben en Meta por su cuenta.
   ver_media_buyer: {
     leer: async (_input, ctx) => {
-      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 7), cupoMB(ctx.ws)]);
+      // Las mismas tres pestañas y los mismos 30 días que la pantalla (app/api/media-buyer/route.ts → GET).
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws)]);
       if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
       const corta = (d: DecisionMB) => ({
         id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
         titulo: d.titulo, titular: d.titular, porque: d.porque, numeros: d.numeros, antes: d.antes, despues: d.despues, moneda: d.moneda,
         creada: d.creada, aplicada: d.aplicadaAt, por: d.origen === 'piloto' ? 'piloto automático' : d.aplicadaPor, error: d.error,
+        estrellas: d.estrellas, motivoDescarte: d.motivoDescarte,
         variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
       });
       return J({
@@ -971,9 +976,12 @@ export const RUNNERS: Runners = {
         // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
         plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
+        metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
+        cuentaPublicitaria: config.cuentaPublicitaria,
         ultimaCorrida: config.ultimaCorrida,
         abiertas: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado)).map(corta),
-        aplicadas: decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha').slice(0, 20).map(corta),
+        hechas: decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha').slice(0, 30).map(corta),
+        descartadas: decisiones.filter((d) => d.estado === 'descartada' || d.estado === 'vencida').slice(0, 30).map(corta),
       });
     },
   },
@@ -983,11 +991,22 @@ export const RUNNERS: Runners = {
       const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
       if (!d) return { error: `No encuentro la decisión ${id} en este negocio (míralas con ver_media_buyer).` };
       if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
-      return { payload: { decisionId: id }, resumen: `Lanzar: ${d.titulo}. ${d.titular}.` };
+      const presupuesto = num(input, 'presupuesto');
+      if (presupuesto != null && d.despues?.presupuesto == null) return { error: 'Esa decisión no cambia un presupuesto: no lleva monto.' };
+      const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
+      if (variaciones && !d.variaciones?.length) return { error: 'Esa decisión no tiene variaciones para elegir.' };
+      if (variaciones) {
+        const ids = new Set(d.variaciones!.map((v) => v.id));
+        const ajenas = variaciones.filter((v) => !ids.has(v));
+        if (ajenas.length || !variaciones.length) return { error: `Esas variaciones no son de la decisión (las suyas: ${[...ids].join(', ')}).` };
+      }
+      const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, variaciones ? `${variaciones.length} variaciones` : null].filter(Boolean).join(', ');
+      return { payload: { decisionId: id, presupuesto, variaciones }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.` };
     },
     ejecutar: async (payload, ctx) => {
       const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
-      const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' });
+      const opts = { presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto), elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined };
+      const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' }, opts);
       return r.ok ? { ok: true, resumen: `Lanzada: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
     },
   },
@@ -1016,6 +1035,56 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       const d = await reclamarMB(ctx.ws, String(payload.decisionId), ['abierta', 'fallida', 'bloqueada'], { estado: 'descartada', motivo_descarte: (payload.motivo as string | null) ?? null });
       return d ? { ok: true, resumen: `Descartada: ${d.titulo}.` } : { ok: false, resumen: 'Esa decisión ya no estaba abierta.' };
+    },
+  },
+  reabrir_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'descartada' && d.estado !== 'vencida') return { error: 'Sólo se vuelve a abrir una descartada o vencida.' };
+      return { payload: { decisionId: id }, resumen: `Reabrir: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      // Lo mismo que el botón de la pantalla (route.ts → reabrir): vuelve a correr sus 48 h desde ahora.
+      const d = await reclamarMB(ctx.ws, String(payload.decisionId), ['descartada', 'vencida'], { estado: 'abierta', motivo_descarte: null, creada: new Date().toISOString() });
+      return d ? { ok: true, resumen: `Abierta de nuevo: ${d.titulo}.` } : { ok: false, resumen: 'Esa decisión ya no estaba descartada.' };
+    },
+  },
+  calificar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const n = num(input, 'estrellas');
+      if (n == null || !Number.isInteger(n) || n < 1 || n > 5) return { error: 'estrellas va de 1 a 5, entero.', faltan: ['estrellas'] };
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'aplicada' && d.estado !== 'deshecha') return { error: 'Sólo se califica una decisión hecha.' };
+      return { payload: { decisionId: id, estrellas: n }, resumen: `${n} ${n === 1 ? 'estrella' : 'estrellas'} a: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await actualizarMB(ctx.ws, String(payload.decisionId), { estrellas: Number(payload.estrellas) });
+      return { ok: true, resumen: 'Calificación guardada.' };
+    },
+  },
+  hooks_al_video_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.tipo !== 'variaciones_hook') return { error: 'Sólo las variaciones de hook de un video van al Video Generator.' };
+      const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
+      const ids = new Set((d.variaciones ?? []).map((v) => v.id));
+      if (variaciones && (!variaciones.length || variaciones.some((v) => !ids.has(v)))) return { error: `Esos hooks no son de la decisión (los suyos: ${[...ids].join(', ')}).` };
+      const cuantos = variaciones ? variaciones.length : (d.variaciones ?? []).filter((v) => v.elegida).length;
+      return { payload: { decisionId: id, variaciones }, resumen: `Llevar ${cuantos} ${cuantos === 1 ? 'hook' : 'hooks'} de «${d.entidadNombre}» al Video Generator, como guiones.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const d = await leerDecisionMB(ctx.ws, String(payload.decisionId));
+      if (!d) return { ok: false, resumen: 'Esa decisión ya no está.' };
+      // Lo mismo que el botón de la pantalla (route.ts → hooks_a_video): las elegidas pisan la marca guardada.
+      const elegidas = Array.isArray(payload.variaciones) ? new Set(payload.variaciones as string[]) : null;
+      const r = await llevarHooksAlVideoMB(ctx.ws, elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d);
+      return r.ok ? { ok: true, resumen: `En el Video Generator: ${r.cargados} ${r.cargados === 1 ? 'guion nuevo' : 'guiones nuevos'}${r.salteados ? ` (${r.salteados} ya estaban)` : ''}.` } : { ok: false, resumen: r.error };
     },
   },
   analizar_cuenta_media_buyer: {
@@ -1067,6 +1136,105 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
       return { ok: true, resumen: 'Topes del Media Buyer guardados.' };
+    },
+  },
+  metas_media_buyer: {
+    preparar: async (input) => {
+      const cambio: Record<string, number | null> = {};
+      for (const k of ['metaVentasMes', 'metaGastoMes'] as const) { const v = num(input, k); if (v != null) cambio[k] = v > 0 ? v : null; }
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['metaVentasMes', 'metaGastoMes'] };
+      const v = validarCambioMB(cambio);
+      if (!v.ok) return { error: v.error };
+      const de = (x: number | null) => (x == null ? 'sin meta' : `US$ ${x}`);
+      const partes = [
+        'metaVentasMes' in cambio ? `caja del mes: ${de(cambio.metaVentasMes)}` : null,
+        'metaGastoMes' in cambio ? `gasto del mes: ${de(cambio.metaGastoMes)}` : null,
+      ].filter(Boolean);
+      return { payload: cambio, resumen: `Metas del Media Buyer: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Metas del mes guardadas.' };
+    },
+  },
+  cuenta_media_buyer: {
+    preparar: async (input) => {
+      const cuenta = str(input, 'cuentaPublicitaria');
+      const v = validarCambioMB({ cuentaPublicitaria: cuenta || null });
+      if (!v.ok) return { error: v.error };
+      const act = (v.fila.cuenta_publicitaria as string | null) ?? null;
+      return { payload: { cuentaPublicitaria: act }, resumen: act ? `El Media Buyer trabaja en la cuenta ${act}.` : 'El Media Buyer usa la cuenta de Integraciones.' };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { cuentaPublicitaria: (payload.cuentaPublicitaria as string | null) ?? null }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Cuenta del Media Buyer guardada.' };
+    },
+  },
+  ver_automatizaciones_media_buyer: {
+    leer: async (_input, ctx) => {
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const r = resolverTacticas(config.tacticas, { piloto: modoEfectivoMB(config.modo, cupo) === 'piloto', pilotoPermitido: cupo.piloto });
+      return J({
+        pilotoEnElPlan: cupo.piloto,
+        tacticas: ORDEN_TACTICAS.map((t) => {
+          const ds = decisiones.filter((d) => d.tactica === t);
+          return {
+            tactica: t, nombre: TACTICAS[t].nombre, que: TACTICAS[t].que, estado: r[t].estado,
+            umbrales: TACTICAS[t].parametros.map((p) => ({ id: p.id, nombre: p.nombre, valor: r[t].p[p.id], recomendado: p.recomendado, minimo: p.min, maximo: p.max })),
+            campanas: r[t].campanas ? [...r[t].campanas] : 'toda la cuenta',
+            recomendaciones30d: ds.length, hechas30d: ds.filter((d) => d.estado === 'aplicada').length,
+            ultima: ds.map((d) => d.creada).sort().pop() ?? null,
+          };
+        }),
+      });
+    },
+  },
+  ver_campanas_media_buyer: {
+    leer: async (_input, ctx) => {
+      // Lo mismo que leen la pantalla (route.ts → campanas, subir_preparar, estado_zernio) y el agente: leerDatosCuenta.
+      let d: Awaited<ReturnType<typeof leerDatosCuentaMB>>;
+      try { d = await leerDatosCuentaMB(ctx.ws); } catch (e) {
+        if (e instanceof SinCuentaMB) return J({ conectada: false, nota: e.message });
+        throw e;
+      }
+      // `prendido` es el interruptor PROPIO (lo que se elige en una táctica), como la lista de la pantalla.
+      const fila = (n: (typeof d.arbol)[number]) => ({ id: n.id, nombre: n.nombre, prendido: n.configurado === 'ACTIVE', presupuestoDia: n.presupuestoDia });
+      return J({
+        conectada: true, fuente: d.fuente, cuenta: d.adAccountId, moneda: d.moneda, avisos: d.avisos,
+        campanas: d.arbol.filter((n) => n.nivel === 'campaign').map((c) => ({
+          ...fila(c),
+          conjuntos: d.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id).map(fila),
+        })),
+      });
+    },
+  },
+  automatizacion_media_buyer: {
+    preparar: async (input, ctx) => {
+      const t = str(input, 'tactica') as TacticaAuto;
+      if (!(ORDEN_TACTICAS as string[]).includes(t)) return { error: 'tactica tiene que ser una de las de ver_automatizaciones_media_buyer.', faltan: ['tactica'] };
+      const cambio: Record<string, unknown> = {};
+      const estado = str(input, 'estado');
+      if (estado) cambio.estado = estado;
+      if (input.umbrales != null) cambio.parametros = input.umbrales;
+      if (Array.isArray(input.campanas)) cambio.campanas = input.campanas.length ? input.campanas : null;
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['estado', 'umbrales', 'campanas'] };
+      const config = await leerConfigMB(ctx.ws);
+      const actual = config.tacticas[t] ?? {};
+      const tacticas = { ...config.tacticas, [t]: { ...actual, ...cambio, parametros: { ...(actual.parametros ?? {}), ...((cambio.parametros as Record<string, number>) ?? {}) } } };
+      const v = validarTacticas(tacticas);
+      if (!v.ok) return { error: v.error };
+      if (v.valor[t]?.estado === 'automatica' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const partes = [
+        estado ? `queda ${estado === 'automatica' ? 'automática' : estado}` : null,
+        cambio.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
+        'campanas' in cambio ? (cambio.campanas ? `cubre ${(cambio.campanas as string[]).length} campañas` : 'cubre toda la cuenta') : null,
+      ].filter(Boolean);
+      return { payload: { tacticas: v.valor }, resumen: `${TACTICAS[t].nombre}: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Táctica del Media Buyer guardada.' };
     },
   },
 };

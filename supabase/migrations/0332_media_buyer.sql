@@ -11,7 +11,7 @@
 -- ausentes (lib/media-buyer/store.ts, «FALTA LA MIG 0332»): la pantalla dice que el registro todavía no está y el
 -- cron no lanza nada, porque sin registro no se puede deshacer.
 -- Número confirmado por el Cerebro el 25/10/2026. Se aplica después de su revisión (AGENTS.md).
--- Aplicada a mano en producción el … (SIN APLICAR: completar al aplicarla); idempotente.
+-- Aplicada a mano en producción el 25/10/2026 (la aplicó el Cerebro, con la columna `tacticas`); idempotente.
 -- =============================================================================
 
 begin;

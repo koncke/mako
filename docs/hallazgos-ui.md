@@ -12,6 +12,28 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## La tuerca es Settings en toda la app, y el menú de la foto: sin la cara y con Platform en un ítem (25/10/2026)
+
+Martín (25/10, ~12:00), con la captura del menú: «No me gusta para nada que en el desplegable de super admin me aparezcan
+tantas cosas, de ultima engloba todas esas tabs extras en un solo desplegable que a su vez tenga otro desplegable... Y no me
+gusta que en general el desplegable del perfil, antes de "settings" tenga nuevamente mi foto de perfil, que esté solo settings.
+Y revisa el logo de settings de toda la app, siempre debe ser la tuerca, no ese...».
+
+- **«Ese» era `config`, los controles deslizantes**, y se usaba para Settings y para cosas que no son ajustes (Dev, Uso, los
+  registros de /admin/dev). Cambiar el dibujo de `config` habría puesto tuercas donde no van: se sumó `tuerca` y pasó a lo
+  que ES Settings (la cuenta, el negocio, en la compu y en el teléfono, y las Configuraciones de una automatización), y
+  «Configurar» de los desplegables (`iconos-menu`) es la misma tuerca. `config` queda para lo demás.
+- ⚠️ **Los dos sets de íconos se importan entre sí** (`icons.tsx` toma `TRAZOS_BORRAR` de `iconos-menu.tsx`). Definida en uno y
+  usada en el otro, la tuerca reventaba al cargar («Cannot access 'TUERCA' before initialization»): lo que se comparte entre
+  ellos vive en un módulo aparte (`app/_ui/icono-tuerca.ts`, como `icono-funnel.ts`).
+- **El menú de la foto:** sin la cara arriba (la foto y el nombre ya están en el botón que lo abre; la fila llevaba a Settings
+  dos veces). Lo de la plataforma es UN ítem, «Platform», que se abre en el mismo menú, y adentro «Coming soon» se abre igual:
+  un acordeón, no un menú al costado (nada que se cierre al mover el mouse). El saldo de IA sigue arriba de todo.
+- **Sin mirar en producción:** la tuerca y el menú se vieron dibujados con las piezas reales, no en la app.
+
+**Vive en:** `app/_ui/icono-tuerca.ts` · `app/_components/icons.tsx` (`tuerca`) · `app/_ui/iconos-menu.tsx` (`configurar`) ·
+`app/_components/Sidebar.tsx` (el menú de la foto) · `app/_components/nav.ts` · `lib/movil-rutas.ts` · `tests/menu-perfil-tuerca.test.ts`
+
 ## Un alias del buscador que apunta a una key que la barra no le pasa no encuentra nada, sin error (25/10/2026, f31)
 
 Leandro (la llamada de Fathom, f31): «MaKo, no encuentro la sección de curso... Yo pensé que Clients era algo más CRM». Buscó
@@ -4819,3 +4841,14 @@ layout.
 (son 0,2 s).
 
 Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.
+
+**Capturas ANTES y DESPUÉS de una pantalla sin levantar la app, con los mismos datos (25/10/2026, Settings).** El banco de
+la ficha (24/10, docs/hallazgos-crm.md) arma los componentes REALES con esbuild y APIs simuladas. Para el «antes» no hace
+falta otro worktree: un plugin `onLoad` de esbuild que, para cada archivo que cambió la rama (`git diff --name-only <base>
+HEAD`), devuelve `git show <base>:<ruta>` en vez del archivo del disco, y el MISMO mock de `fetch`. Así el antes y el después
+muestran los mismos datos, y la diferencia es sólo la pantalla. Trampas: (1) un módulo de `lib/` que lee `process.env` deja
+la página EN BLANCO sin un error a la vista (en la consola: «process is not defined»); un `window.process = { env: {} }`
+antes del bundle lo destraba; (2) el CSS viejo también va por `git show` (si no, el antes sale con el CSS nuevo); (3) las
+acciones `'use server'` se cambian por stubs por nombre de archivo (`negocio-actions`, `horario-actions`…), porque el bundle
+del navegador no puede importarlas; (4) un `python` dentro de un heredoc de Bash pierde las barras invertidas (`\r?\n` llega
+como un salto de línea de verdad): el script va a un archivo con la herramienta de escribir y se corre desde ahí.

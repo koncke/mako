@@ -52,7 +52,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_perfil', area: 'equipo', tipo: 'lectura',
     titulo: 'Perfil de la persona',
-    descripcion: 'El perfil de la persona que está usando la app: nombre, email de login, teléfono personal, cargo, empresa, web, bio, zona horaria personal y foto. Úsala cuando pregunten qué datos tiene cargados; para cambiarlos, la persona entra a su perfil en la app. Ese teléfono NO es el de los reportes ni el del grupo de WhatsApp, y la zona horaria personal no gobierna ningún horario del negocio. Un administrador de agencia viendo un negocio ajeno recibe el perfil del admin de ese negocio.',
+    descripcion: 'El perfil de la persona que está usando la app: nombre, email de login, teléfono personal, cargo, empresa, web, bio, zona horaria personal y foto. Úsala cuando pregunten qué datos tiene cargados; para cambiarlos, editar_mi_perfil. Ese teléfono NO es el de los reportes ni el del grupo de WhatsApp, y la zona horaria personal no gobierna ningún horario del negocio (sólo su «No molestar» en el celular). Un administrador de agencia viendo un negocio ajeno recibe el perfil del admin de ese negocio.',
     parametros: [],
     salida: 'json', canales: SOLO_APP, costo: 'gratis',
   },
@@ -129,7 +129,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_notificaciones_inapp', area: 'equipo', tipo: 'lectura',
     titulo: 'Pop-up y sonido de la persona',
-    descripcion: 'Las preferencias de la persona logueada dentro de la app: interruptores generales de pop-up y de sonido, y el estado de cada notificación (mensaje de WhatsApp, WhatsApp de la empresa, plantilla resuelta, uso de IA). Son de quien está frente a la pantalla, no del negocio. Úsala para explicar por qué no le suena o no le aparece un aviso; se cambian en su perfil dentro de la app.',
+    descripcion: 'Las preferencias de la persona logueada dentro de la app: interruptores generales de pop-up y de sonido, y el estado de cada notificación (mensaje de WhatsApp, WhatsApp de la empresa, plantilla resuelta, uso de IA). Son de quien está frente a la pantalla, no del negocio. Úsala para explicar por qué no le suena o no le aparece un aviso; se cambian con configurar_notificaciones_inapp.',
     parametros: [],
     salida: 'json', canales: SOLO_APP, costo: 'gratis',
   },
@@ -353,5 +353,123 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'whatsapp_template_drafts y la plantilla en la cuenta de WhatsApp Business del negocio en Meta',
     parametros: [],
     canales: TODOS, costo: 'externo', gating: { integracion: 'chatwoot', rolMinimo: 'admin' },
+  },
+  // ── Settings por la API (25/10/2026) ──────────────────────────────────────────
+  // Martín, 25/10: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Lo que Settings deja ver
+  // o cambiar y no tenía operación: el perfil propio (escribir), el nombre del negocio, los avisos al celular con «No molestar»,
+  // el pop-up y el sonido (escribir), el horario de envío, el criterio de reuniones y el estado de la seguridad (leer). Lo de la
+  // PERSONA es SOLO_APP, como ver_perfil y ver_notificaciones_inapp: sin una sesión no hay de quién es. Lo que NO va, y por qué,
+  // en docs/settings/referencia.md («La API»).
+  {
+    id: 'ver_avisos_celular', area: 'equipo', tipo: 'lectura',
+    titulo: 'Avisos al celular de la persona',
+    descripcion: 'Qué avisos le llegan al celular a la persona logueada (los push de MaKo instalada en el teléfono): el interruptor general, cada aviso prendido o apagado, el horario de «No molestar» (en la zona horaria de su perfil) y cuántos teléfonos suyos reciben avisos. Son de quien está frente a la pantalla, no del negocio. Úsala antes de cambiar uno o para explicar «¿por qué no me llegó al celular?».',
+    parametros: [],
+    salida: 'json', canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'ver_mi_seguridad', area: 'equipo', tipo: 'lectura',
+    titulo: 'Cómo entra la persona a MaKo',
+    descripcion: 'El estado de la seguridad de la persona logueada: si tiene la verificación en 2 pasos con la app, cuántas llaves de acceso, si creó su contraseña, el código por WhatsApp o el correo de respaldo, cuántos códigos de recuperación le quedan y cuántos dispositivos recordados. Sólo lee: nada de esto se cambia por la API (se cambia en Settings › Seguridad, con la sesión de la persona). Úsala para «¿tengo el 2FA prendido?».',
+    parametros: [],
+    salida: 'json', canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'ver_horario_envio', area: 'equipo', tipo: 'lectura',
+    titulo: 'Horario de oficina del negocio',
+    descripcion: 'El horario en que las automatizaciones le escriben a los contactos del negocio (Settings › General): si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'ver_criterio_reuniones', area: 'equipo', tipo: 'lectura',
+    titulo: 'Criterio de compromisos de las reuniones',
+    descripcion: 'El texto con el que MaKo decide qué de cada reunión es un compromiso (va al Plan) y qué es ruido (Settings › General). Vacío = carga todo lo que parezca una tarea. Úsala antes de cambiarlo o para explicar por qué una tarea de una reunión entró o no.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'editar_mi_perfil', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar datos del perfil',
+    descripcion: 'PROPONE cambiar datos del perfil de la persona logueada (queda pendiente hasta el «sí»): nombre, cargo, teléfono personal, empresa, sitio web, «sobre ti» o su zona horaria personal (la que mide su «No molestar»). Pasa sólo lo que cambia; «-» vacía un campo. El correo no se cambia (es el del acceso) y la foto se sube en Settings › Perfil. Revisa antes ver_perfil. Mirando a un cliente, es el perfil del cliente, como en la pantalla.',
+    escribe: 'usuarios.nombre y usuarios.perfil (teléfono, cargo, empresa, web, bio, zona) de la persona',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', max: 80, descripcion: 'nombre y apellido.' },
+      { nombre: 'cargo', tipo: 'string', max: 80, descripcion: 'cargo, por ejemplo Fundadora. «-» lo vacía.' },
+      { nombre: 'telefono', tipo: 'string', max: 25, descripcion: 'teléfono personal CON código de país (+52…). «-» lo vacía.' },
+      { nombre: 'empresa', tipo: 'string', max: 120, descripcion: 'empresa (dato personal; el nombre del negocio se cambia con renombrar_negocio). «-» lo vacía.' },
+      { nombre: 'web', tipo: 'string', max: 200, descripcion: 'sitio web. «-» lo vacía.' },
+      { nombre: 'bio', tipo: 'string', max: 1000, descripcion: '«sobre ti», a qué se dedica. «-» lo vacía.' },
+      { nombre: 'timezone', tipo: 'string', max: 60, descripcion: 'zona horaria personal IANA, por ejemplo America/Monterrey.' },
+    ],
+    canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'renombrar_negocio', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar el nombre del negocio',
+    descripcion: 'PROPONE cambiar el nombre del negocio, el que se ve en toda la app (queda pendiente hasta el «sí»). Es el mismo que se cambia en Settings › Perfil › Nombre del negocio. Revisa antes quien_soy (dice el nombre actual).',
+    escribe: 'workspaces.nombre del negocio',
+    parametros: [
+      { nombre: 'nombre', tipo: 'string', max: 80, obligatorio: true, descripcion: 'el nombre nuevo del negocio.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'configurar_aviso_celular', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Prender o apagar un aviso al celular',
+    descripcion: 'PROPONE prender o apagar los avisos al celular de la persona logueada (queda pendiente hasta el «sí»): sin `aviso`, el interruptor general; con `aviso`, uno solo (sus ids salen de ver_avisos_celular). No toca los avisos al grupo de WhatsApp del negocio (eso es configurar_aviso_whatsapp). Revisa antes ver_avisos_celular.',
+    escribe: 'usuarios.perfil.notifPush de la persona',
+    parametros: [
+      { nombre: 'aviso', tipo: 'string', max: 80, descripcion: 'id de un aviso (de ver_avisos_celular). Sin esto, todos los avisos al celular.' },
+      { nombre: 'valor', tipo: 'boolean', obligatorio: true, descripcion: 'true le llega, false no.' },
+    ],
+    canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'fijar_no_molestar', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'No molestar en el celular',
+    descripcion: 'PROPONE el horario de «No molestar» de la persona logueada: entre `desde` y `hasta` (en la zona horaria de su perfil) no le llegan avisos al celular, y lo que cae adentro no se manda después. `desde` mayor que `hasta` cruza la medianoche (22 a 8). Con `apagar: true` lo saca. Queda pendiente hasta el «sí». Revisa antes ver_avisos_celular.',
+    escribe: 'usuarios.perfil.notifPush.silencio de la persona',
+    parametros: [
+      { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'hora en que empieza, en medias horas (22 = 22:00, 22.5 = 22:30).' },
+      { nombre: 'hasta', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'hora en que termina, en medias horas (8 = 08:00).' },
+      { nombre: 'apagar', tipo: 'boolean', descripcion: 'true saca el «No molestar».' },
+    ],
+    canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'configurar_notificaciones_inapp', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Pop-up y sonido de la persona',
+    descripcion: 'PROPONE prender o apagar el pop-up o el sonido de la persona logueada dentro de la app (queda pendiente hasta el «sí»): sin `notificacion`, el interruptor general; con ella, uno solo (ids de ver_notificaciones_inapp). Apagar el sonido general apaga el de cada una. Revisa antes ver_notificaciones_inapp.',
+    escribe: 'usuarios.perfil.notifInApp de la persona',
+    parametros: [
+      { nombre: 'campo', tipo: 'string', enum: ['popup', 'sonido'], obligatorio: true, descripcion: 'popup = el aviso que salta; sonido = su sonido.' },
+      { nombre: 'valor', tipo: 'boolean', obligatorio: true, descripcion: 'true prende, false apaga.' },
+      { nombre: 'notificacion', tipo: 'string', max: 40, descripcion: 'id de una notificación (de ver_notificaciones_inapp). Sin esto, el interruptor general.' },
+    ],
+    canales: SOLO_APP, costo: 'gratis',
+  },
+  {
+    id: 'configurar_horario_envio', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar el horario de oficina',
+    descripcion: 'PROPONE el horario en que las automatizaciones le escriben a los contactos del negocio (queda pendiente hasta el «sí»). `activo: false` = a cualquier hora. Pasa sólo lo que cambia; lo demás queda como está. La zona es la del negocio (fijar_zona_horaria_workspace). Revisa antes ver_horario_envio.',
+    escribe: 'app_settings del horario de envío del negocio',
+    parametros: [
+      { nombre: 'activo', tipo: 'boolean', descripcion: 'true = sólo en el horario; false = a cualquier hora.' },
+      { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'hora en que abre, en medias horas (9 = 09:00).' },
+      { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'hora en que cierra, en medias horas (21 = 21:00).' },
+      { nombre: 'dias', tipo: 'string[]', enum: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'], descripcion: 'los días en que escribe. Reemplaza los de antes.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: ADMIN,
+  },
+  {
+    id: 'guardar_criterio_reuniones', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Cambiar el criterio de las reuniones',
+    descripcion: 'PROPONE reemplazar ENTERO el criterio con el que MaKo decide qué de cada reunión es un compromiso (queda pendiente hasta el «sí»). Lee antes ver_criterio_reuniones y manda el texto completo nuevo: lo de antes no se guarda en ningún lado. Vacío (o «-») = carga todo lo que parezca una tarea.',
+    escribe: 'el criterio de compromisos del negocio (lib/plan-criterio.ts)',
+    parametros: [
+      { nombre: 'texto', tipo: 'string', max: 24000, obligatorio: true, descripcion: 'el criterio completo nuevo. «-» lo vacía.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: ADMIN,
   },
 ];

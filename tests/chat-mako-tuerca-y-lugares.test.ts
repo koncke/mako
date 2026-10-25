@@ -67,6 +67,7 @@ test('f19: el lienzo le pasa al chat cómo abrir su Configuraciones, y es el mis
   const perfil = leer('app/automations/SecuenciaPerfil.tsx');
   assert.match(perfil, /onAbrirConfiguraciones=\{Configuraciones \? \(\) => setConfigAbierta\(true\) : undefined\}/);
   const boton = perfil.slice(perfil.indexOf('export function BotonTuerca('), perfil.indexOf('export function BotonTuerca(') + 700);
-  assert.match(boton, /<Icon name="config" size=\{18\} \/>/);
-  assert.match(leer('app/automations/ChatMako.tsx'), /function TuercaEnElGlobo[\s\S]{0,400}<Icon name="config" size=\{15\} \/>/);
+  // La tuerca DE VERDAD desde el 25/10/2026 (Martín: «siempre debe ser la tuerca»): `tuerca`, no los deslizantes de `config`.
+  assert.match(boton, /<Icon name="tuerca" size=\{18\} \/>/);
+  assert.match(leer('app/automations/ChatMako.tsx'), /function TuercaEnElGlobo[\s\S]{0,400}<Icon name="tuerca" size=\{15\} \/>/);
 });

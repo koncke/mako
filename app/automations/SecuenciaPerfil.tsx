@@ -185,7 +185,7 @@ export function BotonTuerca({ onClick, lado }: { onClick: () => void; lado: numb
         ...tarjetaChrome, flex: 'none', width: lado, height: lado, padding: 0, cursor: 'pointer', color: 'var(--dim)',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box',
       }}>
-      <Icon name="config" size={18} />
+      <Icon name="tuerca" size={18} />
     </button>
   );
 }

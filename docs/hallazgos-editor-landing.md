@@ -6,6 +6,26 @@ el diseño y los contratos, en [diseno-editor-landing.md](diseno-editor-landing.
 saber ANTES de tocarlo. Lo que se hizo está en el commit. Corrida del 11/10/2026 (relevo de 6
 agentes, construcción de 12 paquetes en paralelo, integración).
 
+## Servir otra versión de una página publicada: lo que lee la foto de A y lo que publica el borrador (25/10/2026)
+
+**Vive en:** `lib/editor-landing/pagina-publica.ts`, `lib/editor-landing/publicar.ts`, `lib/editor-landing/pago-landing.ts`,
+`app/l/html/[docId]/[bloque]/route.ts`.
+
+- **Las rutas laterales leen la foto PUBLICADA, no la que se sirvió.** `/l/html/[docId]/[bloque]` lee `publicado.htmlLibre` y el
+  pago valida contra `publicado.pagos`. Una versión B con otros pagos, formularios o `htmlLibre` rompe en esas rutas: B tiene que
+  tener los mismos, o se rechaza.
+- **`publicar` publica el contenido ACTUAL de la fila.** Si el dueño tiene cambios sin publicar, salen junto con lo que se quiso
+  publicar. Algo que publica solo (un agente) sólo puede hacerlo si `version == publicado_version`.
+- **`lib/texto-critico.ts` no está conectado ni al editor ni al Media Buyer**, y sólo cuida placeholders, links y números (no
+  oferta, garantía, formularios ni Pixel).
+- **Una versión distinta por User-Agent para bots es cloaking** (Google) y con Meta el anuncio se aprueba mirando otra página.
+  Sólo el lector de MaKo, la vigilancia y la vista previa van fijos a la versión de siempre.
+- **Una variante como otro `landing_doc` cuenta para el tope del plan** (`frenoDeTope`) y respondería 402: va como foto aparte.
+- **hola-mako.com (la raíz y `/vsl/<slug>`) es ISR de 5 minutos más `unstable_cache`**: ahí no se puede servir una versión por
+  persona sin volverla dinámica.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Cómo está armado, en una tabla
 
 | Pieza | Vive en | Qué decide |

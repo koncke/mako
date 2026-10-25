@@ -14,6 +14,17 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «Regenerar los docs, el snapshot y el plugin»: qué cambia de verdad con una operación que no sale por HTTP (25/10/2026)
+
+Martín: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Cada entrega dice qué quedó
+declarado. Al sumar al área `operaciones` dos operaciones SÓLO de la plataforma y sin HTTP (ver y dar por visto un
+«Completado»):
+- **`docs/api-mako.md` y el snapshot no cambian, y está bien:** la referencia pública y `tests/api-mako-http.snapshot.txt` listan
+  sólo lo que sale por HTTP. «Ya estaba al día» no es que el generador no la vio. La prueba de que una operación así está
+  bien declarada es su test (que NO esté en el snapshot), no un diff en los docs.
+- ⚠️ **`node scripts/generar-plugin.mjs` revienta** con `ERR_MODULE_NOT_FOUND ... lib/detalle-contrato` (importa `.ts`), aunque
+  su cabecera diga ese comando. Se corre con `node --import tsx scripts/generar-plugin.mjs`, como `generar-api-doc.mjs`.
+
 ## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
 
 **Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a
@@ -2498,3 +2509,33 @@ Martín, 25/10: «Los íconos también por la API». La API no leía ni cambiaba
 
 Lo que quedó SIN hacer: el enlace de la agenda (`[data-calendly]`) por la API. En el editor ya se cambia desde el control
 «Video».
+
+## La guarda de la doc decía «no está en git» con la doc al día: el MEGA de `execFileSync` (25/10/2026)
+
+- **Síntoma:** `node --import tsx scripts/generar-api-doc.mjs --check` (corre en el pre-push y en Actions) dijo
+  «✖ docs/api-mako.md no está en git» con el archivo commiteado y al día.
+- **Causa:** el chequeo lee la versión de HEAD con `execFileSync('git', ['show', 'HEAD:docs/api-mako.md'])`, y el `maxBuffer` por
+  defecto de Node es **1 MB**. La doc pasó 1 MB (1.050.185 bytes) al sumar dos operaciones: `git show` cortó con ENOBUFS, y el
+  `catch` lo leyó como «no está». **El diagnóstico obvio era el equivocado:** no faltaba commitear nada.
+- **La regla:** todo `execFileSync`/`execSync` que lea un archivo generado grande lleva `maxBuffer` explícito (64 MB en este).
+  Cualquier artefacto que crece con el registro (la doc, el snapshot, el plugin) va a cruzar el límite un día, sin aviso.
+
+**Vive en:** scripts/generar-api-doc.mjs. *25/10/2026 · chat «Planes» (claude5), al sumar ver_mi_prueba y empezar_mi_plan_ya.*
+
+## Meta por Zernio en la API: elegir es un PUT, y «le manda» en una descripción se lee como un envío a una persona (25/10/2026)
+
+**Vive en:** `lib/api-mako/areas/integraciones.def.ts` / `.run.ts` (`ver_conexion_meta`, `elegir_cuenta_meta`,
+`elegir_pixel_meta`, `elegir_pagina_meta`, `probar_capi_meta`) · `lib/api-mako/rest.ts` · `tests/zernio-meta.test.ts`
+
+- **El área Integraciones era «sólo estado» por diseño** (guardar o elegir iba por el link a la pantalla). Martín, 25/10: «todo
+  MaKo se debe poder utilizar por API». La excepción es acotada: se eligen ids que la conexión de Facebook YA ve (cuenta,
+  píxel, página), con su «sí»; nunca se pega un secreto. Conectar sigue siendo un clic de una persona: eso es el link.
+- **Una descripción que dice «le manda MaKo las conversiones» hizo caer `tests/confirmacion-terceros.test.ts`**: el guard lee
+  «le manda» como algo que le llega a OTRA persona (y exige `aTerceros`). No era un envío a nadie: se reescribió («el píxel
+  donde quedan registradas las conversiones»). Una acción que de verdad no le escribe a nadie no lleva esos verbos.
+- **Cada operación que sale por HTTP necesita su ruta en `RUTAS_REST`** (y el recurso sale del segundo tramo: `meta`); elegir
+  es reemplazar un dato (PUT), y la prueba de CAPI es una lectura (GET con el código de «Probar eventos», que Meta muestra en
+  esa pestaña y no cuenta en el píxel).
+- Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

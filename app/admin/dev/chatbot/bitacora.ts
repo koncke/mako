@@ -2732,4 +2732,51 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "13:15", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "martin", tipo: "prompt",
+    titulo: "Los botones de Instagram, terminados para Leandro",
+    pedido: "«Ya esta el tema de los botones de Instagram para Automations? Que lo pide el cliente Leandro»",
+    puntos: [
+      "Llegó por el Cerebro, que pidió terminarlos de punta a punta: la API, Probar, Editar con MaKo, la ficha y un DM de verdad.",
+    ],
+  },
+  {
+    fecha: "25 oct", hora: "14:20", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Los botones de Instagram funcionan en Probar, al editar con MaKo, en la ficha y por la API",
+    puntos: [
+      "En Probar, los botones aparecen en el mensaje y se tocan como en Instagram: la prueba sigue por donde lleva cada uno.",
+      "Al editar con MaKo, MaKo ve los botones y los puede cambiar sin perder lo que cuelga de cada uno.",
+      "La ficha del lead dice «Espera que toque «Obtener recurso»» mientras espera.",
+      "El Claude de un cliente puede leer y cambiar los botones por la API (lo confirma una persona en MaKo).",
+      "Falta: probarlo con un mensaje de verdad. Ningún negocio nuestro tiene Instagram conectado: Martín tiene que conectar el de MaKo.",
+    ],
+    archivos: [
+      "lib/simulador-grafo.ts — el toque en Probar",
+      "lib/flujo-ia.ts — los botones al editar con MaKo",
+      "lib/botones-api.ts — lo que decide la API antes de guardar",
+      "tests/probar-botones.test.ts, editar-ia-botones, ficha-espera-toque, api-mako-botones — probados rompiéndolos",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "25 oct", hora: "15:40", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "El Claude de un cliente crea automatizaciones con IA y cambia el texto de un DM de Instagram",
+    puntos: [
+      "Crear una automatización con IA ya se puede por la API, con la IA del negocio.",
+      "Por la API se cambia también el texto de un DM de Instagram, no sólo sus botones.",
+      "La ficha de la automatización dice por dónde sigue cada botón.",
+    ],
+    archivos: [
+      "lib/botones-api.ts — el texto y los botones antes de guardar",
+      "lib/api-mako/areas/chatbot.def.ts — crear con IA por HTTP",
+      "tests/api-mako-botones.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];
