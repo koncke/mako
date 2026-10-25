@@ -53,6 +53,17 @@ test('«Automático»: primero la que recibe ya, después la de más cuota libre
   assert.equal(sesionAutomatica({ sesiones: [] }, carteros, AHORA), null);
 });
 
+test('«Automático» sin ninguna lista: una abierta antes que una cerrada, aunque la cerrada tenga más cuota (25/10/2026)', () => {
+  // El Cerebro con tres sesiones: la de la cuenta 2 CERRADA y con mucha cuota, la de la 5 abierta pero sin Runner en su
+  // carpeta (todavía no recibe) y con menos. Antes ganaba la cerrada por la cuota: los pedidos iban a un Cerebro cerrado.
+  const carteros = [cartero('claude2', cuota(5, 5)), cartero('claude5', cuota(40, 40)), cartero('claude1', cuota(99, 99))];
+  const cerebro = { sesiones: [ses('claude2', 2, { estado: 'cerrado' }), ses('claude5', 5, { sinRunner: true }), ses('claude1', 1, { estado: 'cerrado' })] };
+  assert.equal(sesionAutomatica(cerebro, carteros, AHORA)?.cuenta, 'claude5', 'ganó una cerrada por tener más cuota libre');
+  // Si la abierta además recibe, gana igual; y entre dos cerradas sigue mandando la cuota.
+  assert.equal(sesionAutomatica({ sesiones: [ses('claude2', 2, { estado: 'cerrado' }), ses('claude5', 5)] }, carteros, AHORA)?.cuenta, 'claude5');
+  assert.equal(sesionAutomatica({ sesiones: [ses('claude1', 1, { estado: 'cerrado' }), ses('claude2', 2, { estado: 'cerrado' })] }, carteros, AHORA)?.cuenta, 'claude2');
+});
+
 test('la cuenta elegida se respeta; «Automático» elige; sin sesiones, el chat tal cual', () => {
   const carteros = [cartero('claude1', cuota(10, 10)), cartero('claude2', cuota(90, 90))];
   const chat = { sesion: ses('claude1', 1).sesion, cuenta: 'claude1', estado: 'abierto' as const, sesiones: [ses('claude1', 1), ses('claude2', 2)] };

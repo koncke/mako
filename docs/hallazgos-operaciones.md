@@ -7,6 +7,30 @@ del código.
 
 ---
 
+## La caja le escribía al Cerebro CERRADO: con ninguna sesión lista, desempataba la cuota (25/10/2026)
+
+- **Síntoma** (el Cerebro de la cuenta 5): los seis pedidos de Martín del 24/10 fueron a parar al Cerebro de claude2, que estaba
+  cerrado, y no al abierto.
+- **Causa:** un chat es un NOMBRE con una sesión por cuenta, y «Automático» (lib/centro-cuentas.ts → `sesionAutomatica`) elegía
+  primero la que recibe YA y después la de más cuota libre. Con la sesión nueva del Cerebro (cuenta 5) todavía sin Runner en su
+  carpeta, NINGUNA recibía ya, y la cuota decidía: la de la cuenta 2, cerrada pero con la semana libre, ganaba. La lista
+  (`unirPorNombre`) ya ponía las abiertas antes que las cerradas (`pesoSesion`); el destino no.
+- **Regla:** el destino y la lista ordenan igual: recibe ya > abierta (aunque sin Runner o con la foto vieja) > cerrada; la cuota
+  recién después. Una cerrada sólo gana si no hay ninguna abierta.
+
+**Vive en:** `lib/centro-cuentas.ts` (`sesionAutomatica`) · `lib/centro-chats.ts` (`pesoSesion`) · `tests/centro-cuentas.test.ts`
+
+## La cuenta 5 en el Uso: una nota de cuentas.tsv no es el nombre (25/10/2026)
+
+- **Lo que no se ve hasta que el Runner sube:** el renglón de la 5 en `~/.claude/cuentas.tsv` es «Ananda (asi la llamo Martin el
+  24/10/2026; gmail de la suscripcion sin declarar)». El cartero toma todo lo que no es `<email>` como nombre y lo corta a 40
+  letras: el Uso habría dicho «Ananda (asi la llamo Martin el 24/10/202».
+- **Regla:** MaKo saca la nota entre paréntesis del final del nombre (`sinNota`, lib/centro-titulares.ts), también cortada y sin
+  el «)», al guardar y al leer. No se tocó cartero.mjs: la PC corre su copia instalada y el arreglo del servidor alcanza.
+- `CUENTAS.claude5` (lo que el Uso dibuja siempre) lo trajo el tren del Cerebro (`d7b1f9849`).
+
+**Vive en:** `lib/centro-titulares.ts` (`sinNota`) · `tests/centro-cuentas-titulares.test.ts`
+
 ## Una foto del teléfono que ya no se puede leer al mandar (25/10/2026, ticket #8)
 
 - **Síntoma** (Martín, desde su Android, con «Reportar a Soporte»): «No pude subir los adjuntos: vuelve a mandarlo» al «Firmar y

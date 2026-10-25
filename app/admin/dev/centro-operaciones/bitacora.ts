@@ -1638,4 +1638,15 @@ export const BITACORA: Hito[] = [
     archivos: ['app/admin/operaciones/leer-adjunto.ts · useCentro.ts (sumarAdjuntos) · mandar.ts', 'tests/centro-adjuntos-android.test.ts (3 roturas)'],
     tickets: [8],
   },
+  {
+    fecha: '24 oct', hora: '22:55', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La caja le escribe al Cerebro abierto, y el Uso dice «Ananda»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El Cerebro abierto:** con un chat abierto en varias cuentas y ninguna lista para recibir, ganaba el de más cuota libre aunque estuviera cerrado (así tus seis pedidos del 24/10 fueron al Cerebro de la cuenta 2). Ahora va al abierto.',
+      '**El Uso:** la cuenta 5 se llama «Ananda», sin la nota que traía su renglón de cuentas.tsv.',
+    ],
+    archivos: ['lib/centro-cuentas.ts — sesionAutomatica · lib/centro-titulares.ts — sinNota', 'tests/centro-cuentas.test.ts · tests/centro-cuentas-titulares.test.ts'],
+  },
 ];
