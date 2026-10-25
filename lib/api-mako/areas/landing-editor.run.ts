@@ -204,7 +204,7 @@ export const RUNNERS_EDITOR: Runners = {
       if (!r.ok) { siFallaNuestra(r); return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`); }
       const pagina = str(input, 'pagina');
       if (pagina && ubicarPagina(r.doc.contenido, pagina) == null) return errorLectura(`No hay una página «${pagina}» en esa landing.`);
-      return json(estructuraParaApi(id, r.doc.contenido, pagina));
+      return json(estructuraParaApi(id, r.doc.contenido, pagina, r.doc.config?.diseno?.css));
     },
   },
 
@@ -450,7 +450,7 @@ export const RUNNERS_EDITOR: Runners = {
   acomodar_seccion_landing: { ...edicion({ que: 'acomodar la sección', planear: (i, d) => planAcomodarSeccion(d.contenido, i) }) },
   configurar_seccion_landing: { ...edicion({
     que: 'cambiar el estilo de la sección', imagenes: ['imagen'],
-    planear: (i, d, x) => planConfigurarSeccion(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen') }),
+    planear: (i, d, x) => planConfigurarSeccion(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen'), css: d.config?.diseno?.css }),
   }) },
   agregar_bloque_landing: { ...edicion({
     que: 'agregar el bloque', imagenes: ['imagen'],

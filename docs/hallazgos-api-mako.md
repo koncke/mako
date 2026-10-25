@@ -2461,3 +2461,18 @@ escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambi
   descripción lo dice, `docs/api-mako.md` está regenerado y el snapshot HTTP queda igual (no se expuso nada nuevo).
   De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
 - Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).
+
+## configurar_seccion_landing contestaba «listo» en una sección de diseño y no cambiaba nada (25/10/2026, claude5)
+
+En una sección de «Diseño editable» (las páginas de MaKo), el estilo de la sección (fondo, ancho, acento, alto) se guardaba
+en los atributos de la tarjeta, que lo publicado de esas secciones no lee (render.ts las publica a sangre, su HTML tal cual).
+**La API decía que lo había cambiado, quedaba una versión nueva en el historial, y en la página no cambiaba nada.**
+
+Ahora, en una sección de diseño, configurar_seccion_landing cambia SÓLO el fondo, y lo hace en su HTML
+(lib/editor-landing/fondo-de-diseno.ts):
+- un color, un degradado, o fondo "tema" (o restablecer) para volver exacto al del diseño;
+- lo demás contesta un error que dice que es parte del diseño.
+ver_secciones_landing trae el `fondo` que se ve (leído del `style` y de las reglas simples de la hoja) y `fondo_cambiado`.
+
+**Regla:** una operación de la API sobre un dato que lo publicado no lee tiene que fallar diciendo por qué. Nunca debe
+contestar «listo». Antes de exponer un atributo, mirar que el render de ESE tipo de sección lo use.

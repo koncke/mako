@@ -1394,4 +1394,23 @@ export const BITACORA: Hito[] = [
     archivos: ['app/web-generator/editor/BarraFormato.tsx — la barra de «Texto»'],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '18:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las secciones de las páginas de MaKo ya cambian de color de fondo',
+    pedido: '«Y tampoco puedo editar el color del bg de cada sección»',
+    puntos: [
+      'En el menú de la sección (los tres puntos o el clic derecho), «Cambiar el color de fondo» abre «Color de sección» con los mismos colores del editor: los del tema, los degradados y un color a elección.',
+      'Antes ese botón estaba pero no cambiaba nada en estas secciones. Ahora el color se ve en el editor y en la página publicada.',
+      'Las secciones angostas (el comienzo, «¿Qué es MaKo?», «Cómo funciona») se pintan de borde a borde. El encabezado sigue pegado arriba al bajar.',
+      '«Del diseño» y «Restablecer estilo» la vuelven al color que tenía.',
+      'Por la API: se cambia el fondo de una sección y se lee el color que tiene.',
+      'Falta: verlo con clics cuando llegue a producción.',
+    ],
+    archivos: [
+      'lib/editor-landing/fondo-de-diseno.ts — dónde va el color en cada sección',
+      'app/web-generator/editor/paneles/EstiloSeccion.tsx — el panel «Color de sección»',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];

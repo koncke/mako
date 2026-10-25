@@ -3049,3 +3049,33 @@ TEXTUAL y quedó rojo hasta el commit siguiente: nadie lo corrió porque «no er
 
 **Regla:** antes de cambiar una regla de CSS o un trozo de JSX que un test lee como texto, buscar el texto viejo en
 `tests/` (`grep -rn "flex: 0 0 auto" tests`) y correr TODOS los que lo nombran, no sólo el del arreglo.
+
+## El color de fondo de una sección de las páginas de MaKo: el menú lo ofrecía y no hacía nada (25/10/2026, claude5)
+
+Martín, 25/10: «tampoco puedo editar el color del bg de cada sección». El menú de la sección (⋮ y clic derecho) ya decía
+«Cambiar el color de fondo»: abría el panel de estilo y guardaba `fondo`/`fondoColor` en la TARJETA. **En una sección de
+«Diseño editable» eso no llega a ningún lado:** se publica a sangre, su HTML tal cual (render.ts), y en el editor el iframe
+tapa el fondo de la tarjeta. No daba error: no cambiaba nada.
+
+**De dónde sale el fondo que se ve (medido en la #32 y en las 14 nuevas):** del `style` de la raíz
+(`<section style="background:#F5F7FA">`); de una clase de la hoja (`.mkv-sec-gris`); de una regla con `!important`
+(`.gm-libre #beta`, que le gana al `style` de la raíz); o de nada, porque la raíz es una columna de 1080-1120 px centrada y se
+ve el fondo de la página (el hero, «¿Qué es MaKo?» y «Cómo funciona» de la #32).
+
+**El arreglo (lib/editor-landing/fondo-de-diseno.ts), en el HTML, que es lo que se publica:**
+- Si la raíz ocupa todo el ancho, se suma `background:<color> !important` AL FINAL de su `style`, con la marca
+  `data-gm-fondo`. Un `style` con `!important` gana también a la regla `!important` de la hoja. Lo que traía queda escrito,
+  así que «Del diseño» vuelve byte por byte.
+- Si la raíz es una columna angosta, va una envoltura de ancho completo
+  (`<div data-gm-fondo data-gm-envoltura style="background:…">`). **El encabezado pegajoso nunca se envuelve:** adentro de
+  una caja de su mismo alto deja de pegarse.
+- Medido en Chrome sin ventana, a 1280 y 1440 y en el editor: las 9 secciones de la #32 toman el color, la columna pinta de
+  borde a borde, «beta» cambia y el encabezado sigue pegado al bajar 2500 px.
+
+**Regla:** en una sección de diseño, todo lo que se cambie tiene que ir a su HTML. Un atributo de la tarjeta (ancho,
+acento, alto, fondo) no llega a lo publicado: el panel ahora es sólo «Color de sección», y la API dice que lo demás no aplica.
+
+Lo que quedó SIN hacer:
+- El `margin-top` de una sección del diseño (96 px en «historia» de la #32) no es de ninguna de las dos secciones: queda del
+  fondo de la página. Pintado el hero, se ve como un hueco blanco. Es del diseño y se cambia en «Código».
+- Probarlo con clics en producción cuando despliegue, sobre una copia.

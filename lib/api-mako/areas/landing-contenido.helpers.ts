@@ -40,6 +40,9 @@ import {
   conEnlaceDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable,
   type EnlaceDeDiseno, type ImagenDeDiseno, type VideoDeDiseno,
 } from '@/lib/editor-landing/html-editable-elementos';
+// Puro: el color de fondo de una sección de diseño, en su HTML (configurar_seccion_landing, ver_secciones_landing).
+import { conFondoDeDiseno, fondoPuestoDe, fondoVisibleDe, valorDeFondo, type FondoDeDiseno } from '@/lib/editor-landing/fondo-de-diseno';
+import { esTarjetaEditable } from '@/lib/editor-landing/html-editable';
 import { videoDirecto } from '@/lib/embeds';
 import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
 import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
@@ -281,8 +284,18 @@ function elementosParaApi(html: string) {
   };
 }
 
-/** Las páginas con sus secciones (también las ocultas) y los bloques de cada una, con topes. */
-export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: string | null) {
+/**
+ * El fondo de una sección de diseño (las páginas de MaKo) como lo ve el visitante: el valor CSS (null: no tiene uno
+ * propio, se ve el de la página) y si lo cambió MaKo (configurar_seccion_landing; fondo:"tema" lo vuelve al del diseño).
+ */
+function fondoDeSeccionParaApi(t: JsonNodo, css: string) {
+  const html = htmlDeDiseno((t.content ?? [])[0] ?? { type: '' });
+  if (!esTarjetaEditable(t) || html === null) return {};
+  return { fondo: fondoVisibleDe(html, css), ...(fondoPuestoDe(html) ? { fondo_cambiado: true } : {}) };
+}
+
+/** Las páginas con sus secciones (también las ocultas) y los bloques de cada una, con topes. `css`: la hoja del diseño. */
+export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: string | null, css = '') {
   let usado = 0;
   let sinTexto = 0;
   const paginas = c.paginas.filter((p) => !paginaId || p.id === paginaId).map((p) => ({
@@ -305,6 +318,7 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         titulo: tituloDeTarjeta(t),
         oculta: a.oculta === true,
         imagen_de_acento: a.diseno && a.diseno !== 'sin' ? String(a.diseno) : null,
+        ...fondoDeSeccionParaApi(t, css),
         bloques,
         ...(hijos.length > bloques.length ? { bloques_afuera: hijos.length - bloques.length } : {}),
       };
@@ -427,21 +441,67 @@ const NOMBRE_ATTR: Readonly<Record<string, string>> = {
 };
 const valorAttr = (v: unknown): string => (v == null || v === '' ? 'nada' : typeof v === 'string' ? corto(v, 40) : String(v));
 
+type EntradaEstiloSeccion = { seccion?: unknown; diseno?: unknown; imagen?: unknown; ancho?: unknown; alineacion?: unknown; alto?: unknown; fondo?: unknown; color?: unknown; degradado?: unknown; notas?: unknown; restablecer?: unknown };
+
+/**
+ * `configurar_seccion_landing` sobre una sección de «Diseño editable» (las páginas de MaKo, 25/10/2026): SÓLO el fondo, en
+ * su HTML (lib/editor-landing/fondo-de-diseno.ts), que es lo que se publica. El estilo de la sección (acento, ancho, alto)
+ * no llega a lo publicado: se dice, en vez de guardarlo en vano. `fondo: "tema"` o `restablecer` vuelven al del diseño.
+ */
+function planFondoDeSeccionDeDiseno(c: LandingContenido, u: SeccionUbicada, e: EntradaEstiloSeccion, css: string): PlanContenido | FallaPlan {
+  const otros = (['diseno', 'imagen', 'ancho', 'alineacion', 'alto', 'notas'] as const).filter((k) => e[k] !== undefined);
+  if (otros.length) return { error: `En una sección de diseño (las páginas de MaKo) sólo se cambia el fondo; ${otros.join(', ')} es parte del diseño y se cambia en «Código», en el editor.` };
+  const color = typeof e.color === 'string' ? e.color.trim().toLowerCase() : null;
+  if (color !== null && !esHex(color)) return { error: 'El color va como #rrggbb (por ejemplo, #1f6feb).' };
+  const degradado = typeof e.degradado === 'string' ? e.degradado : null;
+  if (degradado !== null && !Object.prototype.hasOwnProperty.call(DEGRADADOS, degradado)) return { error: `El degradado va: ${Object.keys(DEGRADADOS).join(', ')}.` };
+  const pedido = e.restablecer === true ? 'tema' : e.fondo === undefined ? (color ? 'color' : degradado ? 'degradado' : undefined) : e.fondo;
+  if (pedido === undefined) return { error: 'Falta el fondo: un color (#rrggbb), un degradado, o fondo "tema" para volver al del diseño.', faltan: ['color'] };
+  if (pedido === 'acento') return { error: 'Una sección de diseño no toma el color de acento del tema: pasa un color (#rrggbb) o un degradado.' };
+  if (!enLista(FONDOS_TARJETA, pedido)) return { error: `El fondo va: ${FONDOS_TARJETA.join(', ')}.` };
+  let fondo: FondoDeDiseno | null = null;
+  if (pedido === 'color') {
+    if (!color) return { error: 'Un fondo de color necesita el color (#rrggbb).', faltan: ['color'] };
+    fondo = { color };
+  } else if (pedido === 'degradado') {
+    if (!degradado) return { error: 'Un fondo degradado necesita cuál.', faltan: ['degradado'] };
+    fondo = { degradado: degradado as keyof typeof DEGRADADOS };
+  }
+  const ds = disenosDe(c, u);
+  const antes = ds[0] ? fondoVisibleDe(ds[0].html, css) : null;
+  const r = conDisenos(c, ds.map((d) => ({ d, cambio: (html: string) => conFondoDeDiseno(html, fondo, css) })));
+  if ('error' in r) return r;
+  if (JSON.stringify(r.contenido) === JSON.stringify(c)) return { error: `La sección «${tituloSeccion(u.tarjeta)}» ya tiene ese fondo.`, yaEstaba: true };
+  if (r.despues.some((t) => (t.content ?? []).some((h) => String(h.attrs?.html ?? '').length > TOPES.htmlEditable))) {
+    return { error: 'La sección es demasiado grande para ponerle un fondo: achícala en «Código», en el editor.' };
+  }
+  const frena = frenaElSaneo(r.antes, r.despues);
+  if (frena) return frena;
+  const nuevo = !fondo ? 'el del diseño' : 'degradado' in fondo ? `degradado ${fondo.degradado}` : valorDeFondo(fondo);
+  return {
+    contenido: r.contenido,
+    resumen: `Cambiar el fondo de la sección de diseño «${corto(tituloSeccion(u.tarjeta))}»: ${antes ?? 'el de la página'} → ${nuevo}. ${NOTA_VERSION}`,
+    datos: { seccion: String(attrsDe(u.tarjeta).id ?? '') },
+  };
+}
+
 /**
  * `configurar_seccion_landing`: el estilo de una sección (el panel «Estilo» del editor): la imagen de acento y
  * dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las
  * notas del orador y «Restablecer estilo». `imagen`: la URL ya en la biblioteca de la landing; '' la quita.
  * `imagenPendiente`: preparar() con una imagen de afuera que se copia al confirmar (todavía no hay URL nuestra).
+ * Una sección de «Diseño editable» va por planFondoDeSeccionDeDiseno (`css`: la hoja del diseño).
  */
 export function planConfigurarSeccion(
   c: LandingContenido,
-  e: { seccion?: unknown; diseno?: unknown; imagen?: unknown; ancho?: unknown; alineacion?: unknown; alto?: unknown; fondo?: unknown; color?: unknown; degradado?: unknown; notas?: unknown; restablecer?: unknown },
-  op: { imagenPendiente?: boolean } = {},
+  e: EntradaEstiloSeccion,
+  op: { imagenPendiente?: boolean; css?: string } = {},
 ): PlanContenido | FallaPlan {
   const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
   if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
   const u = ubicarSeccion(c, id);
   if (!u) return noEstaSeccion(c, id);
+  if (esTarjetaEditable(u.tarjeta)) return planFondoDeSeccionDeDiseno(c, u, e, op.css ?? '');
   // Con los valores de fábrica debajo: lo guardado antes de un atributo nuevo no lo trae, y «ya está así» se mide igual.
   const a: Record<string, unknown> = { ...ATTRS_TARJETA_DEFAULT, ...attrsDe(u.tarjeta) };
   const patch: Record<string, unknown> = {};

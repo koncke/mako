@@ -19,7 +19,9 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   medido en producción (docs/hallazgos-editor-landing.md → «Todo editable…»). Falta probarlo con clics cuando despliegue.
 - **La barra «Texto» sin «Editar con IA» (25/10 tarde):** hecho en la rama; la IA queda en el chat, en ⌘E y en la barra
   que aparece sobre un texto elegido.
-- **Sigue:** el color de fondo de cada sección (menú ⋮, clic derecho y la API) y los íconos por la API (cola del Cerebro);
+- **El color de fondo de cada sección de las páginas de MaKo (25/10 tarde):** hecho en la rama: menú ⋮, clic derecho y la API
+  (docs/hallazgos-editor-landing.md → «El color de fondo…»). Falta probarlo con clics cuando despliegue.
+- **Sigue:** los íconos por la API (cola del Cerebro);
   publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 

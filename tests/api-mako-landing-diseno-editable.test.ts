@@ -139,3 +139,29 @@ test('ver_secciones_landing: un diseño trae sus botones, imágenes y videos', a
   assert.equal(b.elementos?.imagenes.length, 2);
   assert.deepEqual(b.elementos?.videos, [{ video: 'https://player-vz-1.tv.pandavideo.com/embed/?v=abc', tipo: 'reproductor' }, { video: 'https://hola-mako.com/vsl-assets/testi.mp4', tipo: 'archivo' }]);
 });
+
+test('configurar_seccion_landing: el fondo de una sección de diseño, en su HTML; lo demás del estilo se dice que no aplica', async () => {
+  // Martín (25/10): «tampoco puedo editar el color del bg de cada sección». El estilo de la sección (attrs de la tarjeta)
+  // no llega a lo publicado de una sección de diseño: el fondo va al HTML (lib/editor-landing/fondo-de-diseno.ts).
+  const { planConfigurarSeccion, estructuraParaApi } = await import('../lib/api-mako/areas/landing-contenido.helpers');
+  const css = '.para { background: #F5F7FA; }';
+  const c = contenido();
+  const r = ok(planConfigurarSeccion(c, { seccion: 'tPara', color: '#112233' }, { css }) as Plan);
+  assert.equal(htmlDe(r.contenido, 1), PARA.replace('<section class="para">', '<section class="para" style="background:#112233 !important" data-gm-fondo="#112233">'));
+  assert.match(r.resumen, /#F5F7FA → #112233/);
+  assert.deepEqual(r.contenido.paginas[0].doc.content![1].attrs, { id: 'tPara' }, 'la tarjeta no se toca: lo publicado es el HTML');
+  // Leer: el fondo que se ve, y que lo cambió MaKo.
+  const e = estructuraParaApi(7, r.contenido, null, css) as { paginas: Array<{ secciones: Array<{ fondo?: string | null; fondo_cambiado?: boolean }> }> };
+  assert.equal(e.paginas[0].secciones[1].fondo, '#112233');
+  assert.equal(e.paginas[0].secciones[1].fondo_cambiado, true);
+  assert.equal((estructuraParaApi(7, c, null, css) as typeof e).paginas[0].secciones[1].fondo, '#F5F7FA');
+  // Un degradado, y «tema» o restablecer vuelven EXACTO al del diseño.
+  assert.match(htmlDe(ok(planConfigurarSeccion(r.contenido, { seccion: 'tPara', degradado: 'noche' }, { css }) as Plan).contenido, 1), /data-gm-fondo="linear-gradient\(160deg/);
+  assert.equal(htmlDe(ok(planConfigurarSeccion(r.contenido, { seccion: 'tPara', fondo: 'tema' }, { css }) as Plan).contenido, 1), PARA);
+  assert.equal(htmlDe(ok(planConfigurarSeccion(r.contenido, { seccion: 'tPara', restablecer: true }, { css }) as Plan).contenido, 1), PARA);
+  assert.equal((falla(planConfigurarSeccion(c, { seccion: 'tPara', fondo: 'tema' }, { css }) as Plan) as { yaEstaba?: boolean }).yaEstaba, true);
+  // Lo que no llega a lo publicado se dice, no se guarda en vano.
+  assert.match(falla(planConfigurarSeccion(c, { seccion: 'tPara', ancho: 'amplio', color: '#112233' }, { css }) as Plan).error, /sólo se cambia el fondo; ancho/);
+  assert.match(falla(planConfigurarSeccion(c, { seccion: 'tPara', fondo: 'acento' }, { css }) as Plan).error, /acento/);
+  assert.match(falla(planConfigurarSeccion(c, { seccion: 'tPara', color: 'rojo' }, { css }) as Plan).error, /#rrggbb/);
+});

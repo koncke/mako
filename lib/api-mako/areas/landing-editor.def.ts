@@ -75,7 +75,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'ver_secciones_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Secciones y bloques de una landing',
-    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
+    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
     parametros: [P_ID, { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'El id de una página: sólo ésa. Sin él, todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -253,7 +253,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_seccion_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el estilo de una sección',
-    descripcion: `El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. ${VERSION}`,
+    descripcion: `El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». En una sección de «diseño editable» (las páginas de MaKo) sólo el fondo: un color, un degradado, o fondo "tema" (o restablecer) para volver al del diseño. Sólo cambia lo que se pasa. ${VERSION}`,
     parametros: [
       P_ID, P_SECCION,
       { nombre: 'diseno', rotulo: 'Imagen de acento', tipo: 'string', enum: DISENOS_TARJETA, descripcion: 'Dónde va la imagen: sin, arriba, izquierda, derecha o fondo.' },

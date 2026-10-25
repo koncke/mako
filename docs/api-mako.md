@@ -10559,7 +10559,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/secciones` — Secciones y bloques de una landing
 
-El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.
+El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_secciones_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -10910,7 +10910,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/secciones/{seccion}` — Cambiar el estilo de una sección
 
-El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+El estilo de una sección de una landing del editor del Web Generator (el panel «Estilo»): la imagen de acento y dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las notas del orador de una presentación, o «Restablecer estilo». En una sección de «diseño editable» (las páginas de MaKo) sólo el fondo: un color, un degradado, o fondo "tema" (o restablecer) para volver al del diseño. Sólo cambia lo que se pasa. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_seccion_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
