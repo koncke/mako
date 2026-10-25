@@ -40,8 +40,9 @@ conectar, una vez instalado, rediseña eso, que se vea facil, mira la cantidad d
   `SIN_MODAL_SUELTO`). `/perfil/ia` sigue igual. `app=1` sobrevive al login nuevo (`pideLaApp`).
 - **La API de MaKo** (regla de Martín del 25/10: leer Y cambiar):
   - leer el estado de la computadora va en `ver_ia_del_negocio`, que declara «MaKo en WhatsApp» (tanda 2);
-  - `desconectar_computadora` (confirmación `chat`; el admin o el dueño de esa PC) queda para declarar encima de esa tanda, para
-    no pisar `integraciones.def/run`, la referencia y el snapshot. Coordinado por mensaje, sin respuesta todavía;
+  - `ver_computadoras` y `desconectar_computadora` (confirmación `chat`; el admin todas, un miembro las suyas; sin HTTP):
+    declaradas en la rama `desktop-api-2510` (64b46370c), ENCIMA de `conex-2510` (7eb723740), que trae `ver_ia_del_negocio`.
+    Se integra después de esa rama. `tests/ia-pc-api.test.ts`;
   - conectar NO va por la API: pide a la persona frente a su PC y que acepte el texto. El login, el 2FA, el instalador y la firma
     tampoco: son entrar y armar el programa, no algo que el negocio hace.
 - **Sin hacer:** la puerta de la PC para el grupo de WhatsApp del dueño (punto 2, `encolarTurno`), cuando escriba ese chat.
