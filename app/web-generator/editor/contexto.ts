@@ -17,7 +17,12 @@ import type { ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { Tema } from '@/lib/editor-landing/temas';
 
 // 'landings' = la lista de la tarjeta izquierda (la otra vista del chat, como en Automations: 24/10/2026).
-export type PanelIzq = 'agente' | 'paginas' | 'landings' | null;
+/**
+ * La TARJETA de la izquierda: siempre está (24/10/2026, Martín: «La sidebar del chat de MaKo NO se debe poder cerrar nunca.
+ * Elimina el boton de plegar»). Cambia de vista: el chat, las páginas, tus landings o la tira de secciones («"Abrir tira de
+ * imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat de mako»).
+ */
+export type PanelIzq = 'agente' | 'paginas' | 'landings' | 'tira';
 /** `animacion` = el panel «Animar» (paneles/PanelAnimacion.tsx). */
 export type PanelDer = 'tema' | 'comentarios' | 'historial' | 'animacion' | null;
 /** Las dos vistas del panel «Animar» (el «Elemento | Página» del Image Editor). */
@@ -64,6 +69,12 @@ export type CtxEditorLanding = {
   /** Sección (tarjeta) donde está el cursor, o la última tocada. */
   tarjetaActiva: string | null;
   irATarjeta: (id: string) => void;
+  /**
+   * La sección pasa a ser la activa SIN mover el cursor ni el scroll (24/10/2026): un clic adentro de un «Diseño
+   * editable» pasa en su iframe y ProseMirror no lo ve, así que la sección no se activaba («clickeo y no se pueden editar
+   * las secciones», Martín).
+   */
+  marcarActiva: (id: string) => void;
 
   /** Lo de MaKo (Edición con IA). */
   modoIA: boolean;
@@ -71,6 +82,12 @@ export type CtxEditorLanding = {
 
   panelIzq: PanelIzq;
   setPanelIzq: (p: PanelIzq) => void;
+  /**
+   * «Nueva landing» abierta: «¿Qué vas a crear hoy?» ocupa el lugar de la barra y el lienzo, SIN navegar y sin cambiar la
+   * tarjeta de la izquierda (24/10/2026, Martín). `setNueva(false)` vuelve a la landing abierta tal como estaba.
+   */
+  nueva: boolean;
+  setNueva: (v: boolean) => void;
   panelDer: PanelDer;
   setPanelDer: (p: PanelDer) => void;
   /**

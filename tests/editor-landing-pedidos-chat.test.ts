@@ -411,7 +411,7 @@ function cuerpoDe(src: string, firma: string, siguiente: string): string {
 }
 
 test('enviar: la interpretación ANTES de «editar», que lleva sólo lo actual y no corre sin nada actual', () => {
-  const pedir = cuerpoDe(PANEL, 'async function pedirEdicion(', 'type Sugerencia =');
+  const pedir = cuerpoDe(PANEL, 'async function pedirEdicion(', 'const MUCHO_SIN_FOCO');
   assert.ok(pedir.length < 5000, `el recorte de pedirEdicion mide ${pedir.length}: está mirando otra cosa`);
   const interpretar = pedir.indexOf('await pedirPedidos(cuerpoPedidos(texto, docId, ctx.titulo), { ms: PLAZO_PEDIDOS_MS, signal: corte.signal })');
   const editar = pedir.indexOf("pedirIA({ accion: 'editar', instruccion: paraEditar,");
@@ -427,9 +427,10 @@ test('enviar: la interpretación ANTES de «editar», que lleva sólo lo actual 
   // (20/10/2026: con archivos y nada escrito, la instrucción es la nuestra y no se interpreta: `&& escrito`.)
   assert.match(pedir, /if \(op\.interpretar !== false && escrito\) \{/);
   // Las sugerencias son ediciones NUESTRAS: no se interpretan. Lo escrito, sí.
-  assert.match(PANEL, /if \(s\.instruccion\) \{ enviar\(s\.instruccion, s\.alcance \?\? alcanceReal, \{ interpretar: false \}\); return; \}/);
+  // (24/10/2026: sin los chips de alcance, «Editar» manda la landing entera con la sección del cursor como pista.)
+  assert.match(PANEL, /if \(s\.instruccion\) \{ enviar\(s\.instruccion, \{ interpretar: false \}\); return; \}/);
   // (20/10/2026: lo escrito sale por `mandar`, con los archivos de la caja, y se sigue interpretando.)
-  assert.match(PANEL, /void pedirEdicion\(ctxRef\.current, texto, alcanceReal, \{ adjuntos: paraEnviar\(items\) \}\);/);
+  assert.match(PANEL, /else void pedirEdicion\(ctxRef\.current, texto, 'landing', \{ adjuntos: paraEnviar\(items\) \}\);/);
   assert.doesNotMatch(PANEL, /pedirEdicion\(ctxRef\.current, texto, [^)]*interpretar: false/);
 });
 
