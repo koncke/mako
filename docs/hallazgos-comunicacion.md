@@ -65,7 +65,24 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 - **Claude no escucha notas de voz** (la cascada de transcripción es gemini, groq, openai) y en WhatsApp entra sólo en turnos sin
   herramientas: no sirve de respaldo en el grupo. El plan quedó en docs/conexiones-y-ayuda.md.
 
+**Lo que quedó (tanda 1, «MaKo en WhatsApp: conexiones», 25/10/2026)** — `lib/fallo-ia-texto.ts`, `lib/mako-doer-in.ts`;
+lo fija `tests/doer-cartel-sin-ia.test.ts`:
+- ⚠️ **El arreglo obvio —«que instale MaKo Desktop y listo»— no alcanzaba:** el grupo no pasa por la computadora (D6a). Con la
+  computadora y sin clave, el cartel ahora dice lo cierto: «tu Claude está en tu computadora y te contesta en la app»
+  (`/second-brain`), y para el grupo, su GPT. `conPc` llega a los dos caminos (texto y audio).
+- **En el grupo se ofrece su GPT por clave** (`?abrir=openai`, texto y audio): ni Gemini ni su Claude por clave
+  (`CUBREN_EL_TURNO`). Si la que falló ES su GPT, no se le ofrece nada.
+- **Un link por cada cosa que falta** (`enlaceA`, que conserva el `?ws=`). Lo que el pedido necesita además de la IA sale del
+  área (`conexionesDelPedido`: closing → Fathom), y si la integración no se pudo leer, NO se afirma que falta.
+- ⚠️ **Trampa: `recordUsage` corta el motivo a 200 caracteres sin avisar** (lib/anthropic-usage.ts): por eso el texto no
+  quedaba. Ahora va en el motivo de la fila `cartel-ia` (`motivoDelCartel`, hasta 1500 sólo para esa feature), en una línea y
+  con el `ws` primero (de ahí lo saca el vigía). El cartel del AUDIO no dejaba ninguna fila: ahora deja la suya.
+- **SIN hacer:** «¿Quieres que te ayude?» y «¿Levanto un ticket?» con un «sí» (tanda 5); el vigía muestra los primeros 400
+  caracteres del motivo (`recorte`, lib/vigia-mako-grupos.ts).
+
 *25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
+---
 
 ## «La línea de MaKo está muerta, no sale ningún aviso»: el grupo no sale por el ws9 (23/10/2026)
 
