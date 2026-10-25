@@ -4483,10 +4483,22 @@ la visita, el referrer y el detalle) · `optin/route.ts` · `replay/route.ts` ·
   `URLSearchParams` no abre.
 - **No rompe:** gracias → Ganado compara por la ruta (`paginaDeGracias`); el probador usa el campo `prueba`; la clave del
   Pixel por página es host + ruta; nadie lee `email`/`name` de esas URL (grep).
+- **Quién lee la query de lo guardado, y con qué se une la visita al lead** (lo preguntó el Cerebro antes de pedirle a
+  Martín la limpieza; revisado el 24/10 noche, y el Cerebro llegó a lo mismo por su lado): **nadie usa el nombre ni el
+  email de la URL para unir.** La visita se une al lead por el `visitor_id`: llega como `utm_term` en la agenda de
+  Calendly (el webhook lo guarda en `leads.visitor_id`) o por `?l=` (el `meta_lead_id` del link de WhatsApp,
+  app/api/track/vsl/route.ts, «Camino 1»). Los dos parámetros quedan (`utm_term` y `l` no son de una persona). La
+  atribución lee sólo `utm_*` y `fbclid` (lib/atribucion-url.ts, `origenDe` en lib/origen-cuenta.ts, el `ORIGEN` del
+  Pixel); el opt-in identifica por sus campos `email`/`telefono`, no por la URL; el «agendó» viene del webhook de
+  Calendly (con el email del payload) y de la RUTA de /gracias; la CAPI del server no manda `event_source_url` (ningún
+  llamador lo pasa). ⚠️ Si un día se une por el email de la URL, esa unión pierde el dato: que use el `visitor_id`.
 
 Lo que quedó SIN hacer:
-- **La limpieza de lo ya guardado**, escrita y sin correr: espera el OK del Cerebro (son datos de clientes reales). Saca
-  sólo esos parámetros; no borra filas (la visita a /gracias es la prueba del agendado).
+- **La limpieza de lo ya guardado**, escrita y sin correr: Martín la aprobó el 24/10 («sin borrar las visitas») y la
+  corre el Cerebro cuando el saneo al guardar esté en producción (antes, las visitas nuevas seguirían guardando los
+  datos). Saca sólo esos parámetros; no borra filas (la visita a /gracias es la prueba del agendado).
+- El opt-in guarda la página CRUDA en la propuesta del lead (`propuestas.datos.pagina`, app/api/track/optin/route.ts):
+  son los datos de la MISMA persona en su propia ficha, no en una tabla de eventos; se dejó así.
 - **La grabación lleva la URL adentro del lote** (`replay_lotes.cuerpo`: el evento Meta de rrweb con `href`, y los `<a>` de
   las fotos del DOM): llega comprimida y no se puede sanear en el server; va en el envoltorio de `public/replay/2/r.js`.
 - `leads.pagina_registro` viejos y los settings (`landing.paginas`…) se re-normalizan al leerse, pero lo guardado sigue
