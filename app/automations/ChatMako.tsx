@@ -92,7 +92,6 @@ import {
 // Los POST de los pedidos sueltos viven aparte: este chat no hace POST propios (el stream lo lee sólo ./stream-ia.ts).
 import { pedirPedidos, pedirALaLista } from './pedidos-cliente';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useAppBloqueada } from '@/app/_chat/app-de-escritorio';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /**
@@ -250,9 +249,10 @@ export function ChatMako(p: ChatMakoProps) {
    * lib/flujo-ia-intencion.ts. Arranca en Editar (Mauricio: «que obedezca»), y se recuerda por persona en el navegador.
    */
   const [intencion, setIntencion] = useState<IntencionChat>('editar');
-  // Sin la app de escritorio no sale nada (25/10/2026, «En ningun chat, no solo en Ops Center»): la caja lo dibuja
-  // (ChatMakoVista.tsx) y acá se corta también lo que no pasa por ella (el pedido que llega de la galería, un botón).
-  const sinApp = useAppBloqueada();
+  // Sin la app de escritorio no sale nada (25/10/2026, «En ningun chat, no solo en Ops Center»): la caja lo dibuja (`bloqueo`,
+  // que viaja en `caja` a ChatMakoVista) y acá se corta también lo que no pasa por ella (el pedido que llega de la galería).
+  const appEscritorio = useAppDeEscritorio();
+  const sinApp = appEscritorio.bloqueada;
   // Lo guardado se lee DESPUÉS de montar: leído en el primer render, el server (sin `localStorage`) y el navegador
   // dibujarían distinto.
   useEffect(() => { setIntencion(leerIntencion()); }, []);
@@ -733,6 +733,7 @@ export function ChatMako(p: ChatMakoProps) {
           ocupado: trabajando || interpretando, apagado: !!p.deshabilitado, placeholder, enterManda: true, tituloMandar: 'Enviar',
           adjuntos: adjuntosCaja,
           voz: { onAudio: (b) => { void enviarAudio(b); }, onError: (m) => setError({ texto: m }), rotuloEnviar: 'Enviar audio' },
+          bloqueo: appEscritorio.bloqueo,
         }}
       />
     </div>

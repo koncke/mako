@@ -32,7 +32,6 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 /** Las cajas con el bloqueo adentro: la pantalla llama al hook y le pasa `bloqueo` a su caja. */
 const CON_EL_BLOQUEO: readonly string[] = [
   'app/_components/MakoChat.tsx', // el chat de un gráfico (ChartIA, el Analista del Dashboard, el diagnóstico del Web Generator)
-  'app/automations/ChatMakoVista.tsx', // el chat del lienzo de Automations
   'app/automations/ChatMako.tsx', // la caja de pedido de la galería de Automations («Crear con IA»)
   'app/crm/lead-view/MakoAnalystLead.tsx', // MaKo en la ficha del lead
   'app/crm/lead-view/ficha/GaleriaTab.tsx', // la hoja nueva de la ficha
@@ -46,6 +45,7 @@ const CON_EL_BLOQUEO: readonly string[] = [
 
 /** Cajas que dibujan lo que les arma su MOTOR (las props llegan armadas): el bloqueo vive en el motor. */
 const DE_SU_MOTOR: Readonly<Record<string, string>> = {
+  'app/automations/ChatMakoVista.tsx': 'app/automations/ChatMako.tsx', // el chat del lienzo de Automations
   'app/offer/ChatOffer.tsx': 'app/offer/OfferApp.tsx',
   'app/web-generator/editor/paneles/ChatAgente.tsx': 'app/web-generator/editor/paneles/PanelAgente.tsx',
 };
@@ -109,8 +109,8 @@ test('2. cada una corta también lo que no pasa por la caja (una sugerencia, un 
     'app/web-generator/editor/paneles/PanelAgente.tsx': /if \(hilo\.corriendo \|\| !instruccion\.trim\(\) \|\| appEscritorio\.bloqueada\) return;/,
   };
   for (const [f, re] of Object.entries(cortes)) assert.match(sinComentarios(leer(f)), re, `${f}: manda aunque falte la app`);
-  // Automations: el motor (que cargan los tests) usa la mitad sin CSS.
-  assert.match(sinComentarios(leer('app/automations/ChatMako.tsx')), /const sinApp = useAppBloqueada\(\);/);
+  // Automations: el motor (que cargan los tests en node) usa el hook, que no trae CSS.
+  assert.match(sinComentarios(leer('app/automations/ChatMako.tsx')), /const sinApp = appEscritorio\.bloqueada;/);
   // Offer: el ONBOARDING no (es lo primero de un cliente nuevo y corre con el crédito de MaKo); la tab sí.
   const offer = sinComentarios(leer('app/offer/OfferApp.tsx'));
   assert.match(offer, /const sinApp = !arranque && appEscritorio\.bloqueada;/);

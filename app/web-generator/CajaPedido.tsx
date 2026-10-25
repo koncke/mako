@@ -132,7 +132,10 @@ export function seMueveElEjemplo(animar: boolean, foco: boolean, valor: string):
   return animar && !foco && !valor;
 }
 
-export function CajaPedido(p: PropsCajaPedido) {
+export function CajaPedido(propias: PropsCajaPedido) {
+  // Sin la app de escritorio (25/10/2026): la misma caja, quieta y apagada, con la frase en el campo (`bloqueo`).
+  const bloqueo = propias.bloqueo;
+  const p: PropsCajaPedido = bloqueo ? { ...propias, animar: false, placeholderQuieto: bloqueo.frase, deshabilitado: true } : propias;
   const tope = p.tope ?? TOPE_PEDIDO;
   /** ¿La caja tiene el foco? (el campo, el micrófono o el «+»: `focusin`/`focusout` de React burbujean). */
   const [foco, setFoco] = useState(false);
@@ -142,9 +145,7 @@ export function CajaPedido(p: PropsCajaPedido) {
    */
   const [arrastre, setArrastre] = useState(false);
   const capas = useRef(0);
-  const bloqueo = p.bloqueo;
-  const deshabilitado = p.deshabilitado || !!bloqueo;
-  const puedeEnviar = !deshabilitado && (p.listo ?? !!p.valor.trim());
+  const puedeEnviar = !p.deshabilitado && (p.listo ?? !!p.valor.trim());
   const Titulo = p.titulo?.nivel === 1 ? 'h1' : 'h2';
   const soltar = p.onSoltar;
   const sePuede = (d: DataTransfer) => aceptaArrastre(Array.from(d.types));
@@ -153,11 +154,11 @@ export function CajaPedido(p: PropsCajaPedido) {
       key={p.reinicio ?? ''}
       ejemplos={p.ejemplos}
       valor={p.valor}
-      mover={!bloqueo && seMueveElEjemplo(p.animar, foco, p.valor)}
+      mover={seMueveElEjemplo(p.animar, foco, p.valor)}
       tope={tope}
-      placeholderQuieto={bloqueo ? bloqueo.frase : p.placeholderQuieto}
+      placeholderQuieto={p.placeholderQuieto}
       etiqueta={p.etiqueta}
-      deshabilitado={deshabilitado}
+      deshabilitado={p.deshabilitado}
       onValor={p.onValor}
       onEnviar={() => { if (puedeEnviar) p.onEnviar(); }}
       refExterno={p.refCampo}
