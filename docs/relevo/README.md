@@ -57,6 +57,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
 | Media Buyer (la tab /ads-manager desde el 25/10) | `Leé docs/relevo/media-buyer.md y seguimos desde ahí.` |
+| Zernio y CAPI (Meta por la Zernio del negocio, el token de Meta deprecado, desde el 25/10) | `Leé docs/relevo/zernio-capi.md y seguimos desde ahí.` |
 | Ads Manager (historia: la vista que reemplazó el Media Buyer) | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Ciberseguridad | `Leé docs/relevo/ciberseguridad.md y docs/relevo/seguridad-aislamiento.md y seguimos desde ahí.` |
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |

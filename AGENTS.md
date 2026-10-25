@@ -3641,6 +3641,23 @@ puntuarles») son UN mecanismo: `lib/creaciones.ts`, la galería `/creaciones`, 
 - **Las tablas son de todos** (`workspace_origen`, cliente crudo, workspace explícito) y a otro negocio nunca sale el
   workspace de origen ni el email de quien publicó. El detalle, en [docs/hallazgos-creaciones.md](docs/hallazgos-creaciones.md).
 
+# Meta se habla por `canalMeta` (lib/meta-via.ts): Zernio primero, el token de Meta de respaldo
+
+Desde el 25/10/2026 (Martín: «implementa zernio y depreca la conexión con API de Meta») el camino principal de Meta es la
+conexión de anuncios de Zernio de cada negocio («Conectar con Facebook»). El `META_ACCESS_TOKEN` queda DEPRECADO: no se pide, y
+sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o escriba Meta con lo del negocio:
+
+- **Pregunta la vía con `canalMeta(ws)`** y no lee `META_ACCESS_TOKEN` por su cuenta. `via: 'zernio'` → las lecturas con la
+  forma de Meta (`insightsPorZernio`, `conjuntosVivosPorZernio`, `cuentaCrudaPorZernio`, `creativosPorZernio`); `via: 'token'` →
+  la Graph API como siempre. Un fallo de Zernio se reintenta por el token SÓLO para LEER y sólo si el negocio lo conserva
+  (`canal.respaldo`).
+- **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
+- **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
+- **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.
+- **Apagado detrás de la prueba:** `ZERNIO_META_PROBADO = false` hasta que la cuenta de MaKo pase `scripts/prueba-zernio-meta.mts`;
+  hasta entonces Zernio corre sólo en el negocio de la plataforma. Lo medido: docs/hallazgos-integraciones.md → «Meta entero por
+  la Zernio del negocio».
+
 # Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
 
 La pasarela de pagos (Stripe y Mercado Pago, 11/10/2026) tiene UN escritor de lo que importa: `lib/cobros.ts`

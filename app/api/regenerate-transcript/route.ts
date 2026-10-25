@@ -12,7 +12,7 @@ import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/tr
 import { getPromptText } from '@/lib/prompt-render';
 import { esWorkspaceDueno, getRolWsEfectivo } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
-import { credWs } from '@/lib/credenciales';
+import { accesoDeMeta } from '@/lib/meta-via';
 
 /** Resuelve los prompts editables de transcripción (override o default). */
 async function resolveTranscribePrompts() {
@@ -61,9 +61,10 @@ export async function POST(req: NextRequest) {
     .maybeSingle();
 
   const prompts = await resolveTranscribePrompts();
-  const metaToken = await credWs('META_ACCESS_TOKEN');
-  if (!metaToken) return Response.json({ error: 'META_ACCESS_TOKEN no configurado' }, { status: 500 });
-  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion, prompts, metaToken });
+  // Zernio si el negocio conectó Meta por ahí (lib/meta-via.ts), o su token. Sin ninguno, no se transcribe con uno ajeno.
+  const acceso = await accesoDeMeta();
+  if (!acceso) return Response.json({ error: 'Meta no está conectado en este negocio' }, { status: 500 });
+  const res = await transcribeAd(adId, { imageUrl: th?.ad_thumbnail_url ?? undefined, instruccion, prompts, ...acceso });
 
   const { error: upErr } = await supabase.from('ad_transcripts').upsert({
     ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
