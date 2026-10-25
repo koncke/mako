@@ -60,12 +60,28 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
    recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de
    MaKo»). El Media Buyer de MaKo (ws9) quedó **prendido en «propone»** con `act_1426493815659364` en Ajustes. Sin piloto.
-2. **Medir lo del ANUNCIO — ES DE MARTÍN: cargar un método de pago en la cuenta de MaKo.** Sin él Meta no deja crear un
-   anuncio, ni en pausa (subcode 1359188). Con el pago cargado: `crear --si` (todo en pausa), `editar --si` (prender, pausar
-   y una variación de texto), `borrar --si`, con `scripts/media-buyer-medir-zernio.mts`. El script pide `--si` en cada
-   escritura y guarda su estado fuera del repo (`C:/dev/cerebro-herramientas/media-buyer-prueba.json`).
+2. **Medir lo del ANUNCIO (prender, pausar, variaciones) — EN LA CUENTA DE MAURICIO, frenado por un permiso.** Martín,
+   25/10 ~13:55: «Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago». La cuenta es
+   «Cuenta 1» del portfolio Elévate, `act_185929215397361` (activa, pago ok, MXN, mínimo MXN 18,59/día), conectada a un
+   perfil de Zernio APARTE de la plataforma (`6ade389b5bed5c321f2f42d8`, conexión `6ade3a22ef8ec89d32cced61`, «Administrar
+   campañas»; la de MaKo no se tocó y sigue con «Control total»). Hecha la foto de la cuenta (18 campañas, 22 conjuntos).
+   ⚠️ **El clasificador de permisos frenó la creación de la campaña** («modificar recursos compartidos»): el permiso llegó por
+   el Cerebro y para escribir en la cuenta de un cliente Martín tiene que darlo EN ESTE CHAT. Con eso, en orden y con
+   `--cuenta=act_185929215397361`: `crear --si` → `decisiones-anuncio --si` → `borrar --si` → `comparar` (lo que no es de la
+   prueba tiene que estar igual) → borrar el perfil de Zernio (`DELETE /v1/profiles/6ade389b5bed5c321f2f42d8`). Si no se
+   sigue: borrar el perfil igual (la conexión con la cuenta de Mauricio se va con él).
+   Los pasos nuevos del script (la cuenta por argumento con lista cerrada, `foto`/`comparar`, `decisiones-anuncio`) están
+   SIN commitear en el worktree hasta que se resuelva esto.
    ⚠️ Prender o pausar una campaña SIN anuncios no se puede por Zernio (404; el endpoint no acepta `accountId`): con un
    anuncio adentro sí.
+2b. **La prueba gratis (Martín y el Cerebro, 25/10): sin piloto los 7 días.** `cupoDe` lee `estadoDePrueba(ws).enPrueba`
+   (`lib/prueba-uso.ts`, rama planes-2510) y `PlanSinPiloto` dice «Disponible al terminar tu prueba». Espera a que
+   planes-2510 entre a main (mergearla acá choca en 4 archivos de otros chats). Sólo del lado del servidor: la pantalla está
+   en pausa (abajo). El script del cambio quedó en las notas compartidas del Cerebro (`media-buyer-prueba-gratis.py`): SIN
+   las partes de pantalla (Ajustes, Automatizaciones) mientras dure la pausa.
+2c. **LA PANTALLA ESTÁ EN PAUSA (el Cerebro, 25/10 ~14:10).** Martín: «Esto de aca no se entiende nada... Rediseñala
+   completamente... dame opciones antes de lanzar a producción». El Cerebro arma tres opciones; no sumar texto ni botones a
+   la pantalla actual hasta que llegue la elegida. Tampoco la `<FranjaPrueba>` de Planes.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
@@ -78,4 +94,6 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 
 `tests/zernio-sin-respaldo.test.ts` (la clave de la plataforma para el ws de la plataforma en `lib/zernio-ads.ts`, que ya
 estaba en main) y dos de `tests/operaciones.test.ts` (Ops Center). Medidos el 25/10 con la rama; las líneas que marcan
-son de main.
+son de main. Más tarde, el mismo 25/10: `tests/ops-center-estrella-desde.test.ts` y `tests/ops-sin-silencio.test.ts` (Ops
+Center), y en `tests/zernio-conectar-redes.test.ts` la aserción de `errorDeVentana` (espera una línea que ningún archivo
+tiene, también en main).
