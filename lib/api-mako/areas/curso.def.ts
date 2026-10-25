@@ -79,7 +79,7 @@ const moduloClave: Parametro = {
 };
 const videoUrl: Parametro = {
   nombre: 'videoUrl', tipo: 'string', max: 5000,
-  descripcion: 'el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny y los mismos de antes). Vacío ("") saca el video.',
+  descripcion: 'el video: un link (YouTube, Vimeo, Loom, Google Drive, un archivo .mp4/.webm) o el CÓDIGO para insertar que da la plataforma, el `<iframe …>` entero (Panda, Wistia, Bunny Stream, Cloudflare Stream y los mismos de antes; el link del reproductor de listar_videos_alojados también sirve). Vacío ("") saca el video.',
   ejemplo: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
 };
 const tareas: Parametro = {

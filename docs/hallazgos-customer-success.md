@@ -6015,3 +6015,20 @@ módulos, clases y su configuración; nunca los alumnos ni su progreso», en el 
 `tests/clients-duplicar-programa.test.ts` (10 roturas, cada una cae)
 
 *25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*
+
+## Las clases con video de Wistia, Bunny Stream o Cloudflare Stream ya miden cuánto vio el alumno (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro, «otros alojadores de video»): que los cursos traigan los datos de los videos de esas
+herramientas. Hasta acá Wistia y Bunny se veían adentro de la clase pero «sin medir», como Drive, y Cloudflare no se
+reconocía (caía «afuera», un botón que abre otra pestaña).
+
+**Lo que no era obvio:** los tres reproductores SÍ dicen el tiempo por postMessage, cada uno a su modo. Wistia avisa solo
+(`_trigger` con `timechange` y la duración en `transmit-stats`). Bunny habla player.js y NO dice nada hasta que se lo
+suscribe, así que hay que suscribirlo al cargar el iframe y otra vez en su saludo (`ready`), por si llegó antes. Cloudflare
+manda todo solo (`propertyChange` de `duration` y `currentTime`). Lo lee `lecturaDeAlojador` (lib/embeds.ts), con el
+mismo contrato que `lecturaDePanda`, y lo usa `VideoAlojado` (app/compartido/curso/[token]/Reproductor.tsx) con la misma
+guarda de ventana y origen.
+
+**Medido con el reproductor REAL de cada uno** (el lector compilado, en Chrome sin ventana, clic para reproducir y para
+pausar): Wistia dio 77 s de duración, 33 avances y la pausa; Bunny, 22,7 s, 39 avances, el saludo y la pausa; Cloudflare,
+29,9 s, 32 avances y la pausa. La columna `video_tipo` no cambia: van como `url` (su CHECK, mig 0202).

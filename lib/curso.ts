@@ -311,12 +311,12 @@ export type VideoReconocido = {
    */
   medible: boolean;
   /**
-   * Un video de Panda, Wistia o Bunny (lib/embeds.ts): de quién es y el `src` de su reproductor, que
+   * Un video de Panda, Wistia, Bunny o Cloudflare Stream (lib/embeds.ts): de quién es y el `src` de su reproductor, que
    * arma lib/embeds.ts. Van con `tipo: 'url'` y su `url` ES ese `src` (la columna `video_tipo` tiene
    * un CHECK con siete valores, mig 0202: un tipo nuevo rebotaría el guardado). Lo que decide cómo se
    * dibuja es esto, no la columna.
    */
-  proveedor?: 'panda' | 'wistia' | 'bunny';
+  proveedor?: 'panda' | 'wistia' | 'bunny' | 'cloudflare';
   embed?: string;
 };
 
@@ -349,12 +349,15 @@ export function videoDeLink(raw: string | null | undefined): VideoReconocido | n
       case 'vimeo': return { tipo: 'vimeo', id: r.id, hash: r.hash, url: limpia, medible: Boolean(r.id) };
       case 'loom': return { tipo: 'loom', id: r.id, url: limpia, medible: false };
       case 'drive': return { tipo: 'drive', id: r.id, url: limpia, medible: false };
-      case 'panda': case 'wistia': case 'bunny':
+      case 'panda': case 'wistia': case 'bunny': case 'cloudflare':
         // Sin `src` (un link del reproductor sin el `?v=`) no hay qué mostrar: no es un video.
         // ⚠️ PANDA SE MIDE: su reproductor publica `panda_timeupdate` (los segundos) y `panda_allData`
         //    (la duración) por postMessage — medido el 08/10/2026 en Chrome contra un video real
-        //    (Reproductor.tsx, `VideoPanda`). Wistia y Bunny van «sin medir», como Drive.
-        return r.src ? { tipo: 'url', id: null, url: r.src, medible: r.proveedor === 'panda', proveedor: r.proveedor, embed: r.src } : null;
+        //    (Reproductor.tsx, `VideoPanda`).
+        // ⚠️ Y DESDE EL 25/10/2026 TAMBIÉN WISTIA, BUNNY Y CLOUDFLARE («otros alojadores de video», Martín): hasta acá
+        //    iban «sin medir», como Drive. Medidos ese día con un video real de cada uno (`lecturaDeAlojador`,
+        //    lib/embeds.ts; Reproductor.tsx, `VideoAlojado`).
+        return r.src ? { tipo: 'url', id: null, url: r.src, medible: true, proveedor: r.proveedor, embed: r.src } : null;
     }
   }
   // El panel de Panda (`dashboard.pandavideo.com.br/…`) no trae la biblioteca del reproductor: no es
@@ -405,7 +408,8 @@ export const PCT_VISTO = 90;
  *   · `youtube`  → IFrame API. Se mide.
  *   · `vimeo`    → Player API. Se mide.
  *   · `panda`    → el reproductor de Panda; se mide por sus mensajes (`panda_timeupdate`/`panda_allData`).
- *   · `iframe`   → Loom, Drive, Wistia o Bunny: se ve, pero no expone el tiempo. «Sin medir».
+ *   · `alojado`  → Wistia, Bunny Stream o Cloudflare Stream; se mide por sus mensajes (`lecturaDeAlojador`).
+ *   · `iframe`   → Loom o Drive: se ve, pero no expone el tiempo. «Sin medir».
  *   · `afuera`   → un link que no es ninguna de las anteriores: se abre en otra pestaña. «Sin medir».
  */
 export type VideoVista =
@@ -414,6 +418,7 @@ export type VideoVista =
   | { tipo: 'youtube'; id: string }
   | { tipo: 'vimeo'; embed: string }
   | { tipo: 'panda'; embed: string }
+  | { tipo: 'alojado'; proveedor: 'wistia' | 'bunny' | 'cloudflare'; embed: string }
   | { tipo: 'iframe'; embed: string }
   | { tipo: 'afuera'; url: string };
 
@@ -432,8 +437,13 @@ export function reproductorDeClase(c: Pick<Clase, 'videoTipo' | 'videoUrl' | 'vi
   const v = videoDeLink(c.videoUrl);
   if (!v) return { video: null, medible: false };
   if (v.tipo === 'youtube') return v.id ? { video: { tipo: 'youtube', id: v.id }, medible: true } : { video: { tipo: 'afuera', url: v.url }, medible: false };
-  // Panda, Wistia y Bunny (item 14): adentro, en su reproductor. Antes caían en «afuera».
-  if (v.tipo === 'url' && v.embed) return v.proveedor === 'panda' ? { video: { tipo: 'panda', embed: v.embed }, medible: true } : { video: { tipo: 'iframe', embed: v.embed }, medible: false };
+  // Panda, Wistia, Bunny y Cloudflare (item 14 y 25/10/2026): adentro, en su reproductor, y medidos. Antes caían en
+  // «afuera», y después Wistia y Bunny iban «sin medir».
+  if (v.tipo === 'url' && v.embed) {
+    if (v.proveedor === 'panda') return { video: { tipo: 'panda', embed: v.embed }, medible: true };
+    if (v.proveedor) return { video: { tipo: 'alojado', proveedor: v.proveedor, embed: v.embed }, medible: true };
+    return { video: { tipo: 'iframe', embed: v.embed }, medible: false };
+  }
   if (v.tipo === 'url') return v.medible ? { video: { tipo: 'directo', url: v.url }, medible: true } : { video: { tipo: 'afuera', url: v.url }, medible: false };
   const embed = embedDe(v);
   if (!embed) return { video: { tipo: 'afuera', url: v.url }, medible: false };

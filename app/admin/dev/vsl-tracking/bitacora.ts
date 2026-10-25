@@ -526,4 +526,22 @@ export const BITACORA: Hito[] = [
       'lib/leads.ts — de dónde sale la duración de cada video',
     ],
   },
+  {
+    fecha: '25 oct', hora: '23:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tus videos de Vimeo, Wistia, Bunny y Cloudflare en MaKo, y las clases que los usan se miden',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... el Pixel de MaKo, web generator, cursos, etc, puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'MaKo ya sabe leer la lista de tus videos de Vimeo, Wistia, Bunny Stream y Cloudflare Stream: el nombre, cuánto duran y su reproductor. Falta la tarjeta en Integraciones para conectar cada cuenta.',
+      'En «Nombrar videos», un video de esos alojadores aparece con su nombre de verdad.',
+      'En los cursos, una clase con un video de Wistia, Bunny o Cloudflare ahora mide cuánto vio el alumno (antes decía «sin medir»). Probado con el video real de cada uno.',
+      'En el editor de páginas se puede insertar un video de Cloudflare Stream.',
+      'Por la API: una consulta nueva con los videos de todos los alojadores conectados.',
+    ],
+    archivos: [
+      'lib/alojadores-video.ts — lo que dice la lista de cada alojador',
+      'app/compartido/curso/[token]/Reproductor.tsx — cómo se mide la clase',
+      'docs/hallazgos-customer-success.md — los cursos con esos videos',
+    ],
+  },
 ];

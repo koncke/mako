@@ -4646,5 +4646,14 @@ mediana y no el promedio: una posición rara no la corre.
   sin respaldo, y su retención volvía a «—». **Regla:** «la única» es la única DE PANDA (un id sin alojador), en los dos
   resolvedores (lib/leads.ts y lib/graficos-datos-extra.ts, que es una copia).
 
-Lo que quedó SIN hacer (otras tandas, con su archivo en el relevo): los números de cada alojador por su API, las
-integraciones con su clave, el bloque «Video» del Web Generator, los cursos y la API de MaKo.
+**El catálogo de cada alojador (tanda 3, el mismo día).** Lo que da la API de cada uno, leído en su documentación, decide
+qué se puede prometer: **las estadísticas por día de Vimeo son sólo de Enterprise** (se piden a soporte); Cloudflare da
+MINUTOS vistos (GraphQL), no reproducciones; Wistia y Bunny dan reproducciones y tiempo por día. Lo que TODOS dan es el
+catálogo: título, reproductor, portada y duración (lib/alojadores-video.ts, puro, y lib/alojadores-video-api.ts con la
+clave). Por eso lo parejo por persona es el Pixel, y el catálogo sirve para nombrar y elegir videos
+(`videosDetectados` y `listar_videos_alojados`). **Las formas están probadas contra la documentación, no contra una
+cuenta de verdad:** hace falta la clave de una cuenta real de cada alojador.
+
+Lo que quedó SIN hacer (con su archivo en el relevo): las tarjetas de Integraciones para pegar cada clave (esperan la
+respuesta de Settings, que está rediseñando Integraciones), elegir un video del catálogo desde el editor y los números
+por día de Wistia y Bunny en `marketing_metrics_daily` (su CHECK de `plataforma` sólo acepta meta, youtube y panda).

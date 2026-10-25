@@ -400,6 +400,7 @@ listar_temas_landing
 listar_trabajos_flow
 listar_triggers_email
 listar_versiones_landing
+listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda

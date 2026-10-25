@@ -464,6 +464,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
   ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],
   ['GET', '/landing/panda/videos', 'listar_videos_panda'],
+  // Los de todos los alojadores conectados (25/10/2026).
+  ['GET', '/landing/videos-alojados', 'listar_videos_alojados'],
   ['GET', '/landing/panda/videos/{videoId}/metricas', 'ver_metricas_video_panda'],
   ['GET', '/landing/pixel/codigo', 'ver_codigo_pixel'],
   ['GET', '/landing/pixel/estado', 'ver_estado_pixel'],

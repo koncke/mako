@@ -31,6 +31,7 @@ import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos } from './landing-videos';
 import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { catalogoPanda } from './panda';
+import { catalogoDeVideos } from './alojadores-video-api';
 import { esEventoDeVideo } from './vsl-retencion';
 import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
@@ -539,6 +540,18 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       v.url = p.player;
       v.titulo = p.titulo;
       v.redirigeA = p.redirigeA?.titulo ?? null;
+    }
+    // Y lo mismo con los OTROS alojadores conectados (25/10/2026: Vimeo, Wistia, Bunny Stream y Cloudflare Stream), por
+    // el id que manda el Pixel. Nunca rompe: sin claves, el catálogo viene vacío.
+    const otros = await catalogoDeVideos().then((c) => c.videos.filter((x) => x.alojador !== 'panda')).catch(() => []);
+    if (otros.length) {
+      const porId = new Map(otros.map((x) => [x.id, x]));
+      for (const v of out.values()) {
+        const x = porId.get(v.id);
+        if (!x) continue;
+        v.url = x.player;
+        v.titulo = x.titulo;
+      }
     }
 
     // Lo que no vino en las filas de la vuelta en que el video apareció (la URL
