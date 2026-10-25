@@ -105,3 +105,19 @@ test('el editor: «Tus videos» en el panel «Insertar», y un clic inserta el r
   // La agenda de un diseño no ofrece videos.
   assert.ok(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx').includes("conVideos={!video.el.hasAttribute('data-calendly')}"));
 });
+
+test('las claves que pide la tarjeta de cada alojador son las MISMAS que lee el catálogo', async () => {
+  // Si se separan, conectar la tarjeta no trae ni un video (y nada lo dice): lib/alojadores-video-api.ts lee
+  // CLAVES_ALOJADOR, la tarjeta guarda sus `envs`.
+  const { DEFS_TEST } = await import('../lib/integraciones-catalogo');
+  const { readFileSync } = await import('node:fs');
+  const api = readFileSync(new URL('../lib/alojadores-video-api.ts', import.meta.url), 'utf8');
+  const bloque = api.slice(api.indexOf('export const CLAVES_ALOJADOR'), api.indexOf('} as const'));
+  for (const key of ['vimeo', 'wistia', 'bunny', 'cloudflare']) {
+    const fila = bloque.split('\n').find((l) => l.trim().startsWith(`${key}: [`)) ?? '';
+    const claves = [...fila.matchAll(/'([A-Z_]+)'/g)].map((m) => m[1]);
+    const def = DEFS_TEST.find((d) => d.key === key);
+    assert.ok(def, `no hay tarjeta para ${key}`);
+    assert.deepEqual([...def.envs], claves, key);
+  }
+});

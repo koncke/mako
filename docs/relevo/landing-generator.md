@@ -57,9 +57,11 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
     `VIMEO_TOKEN`, `WISTIA_TOKEN`, `BUNNY_STREAM_KEY` + `BUNNY_STREAM_LIBRARY`, `CLOUDFLARE_STREAM_TOKEN` +
     `CLOUDFLARE_ACCOUNT_ID`), «Nombrar videos» con los títulos de todos, Cloudflare en el editor (lib/embeds.ts), las
     clases miden Wistia, Bunny y Cloudflare (`VideoAlojado`), y `listar_videos_alojados` en la API.
-- **Sigue (alojadores):** las tarjetas de Integraciones para esas claves (lib/integraciones-catalogo.ts y
-  lib/metodo-catalogo.ts, con su «Probar conexión» en lib/metodo-verificar.ts; se le preguntó a Settings, que está
-  rediseñando Integraciones); mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
+  - **Las tarjetas de Integraciones**, hechas en los cuatro registros (claves en CLAVES_ALOJADOR = sus `envs`).
+  - **Los números por día de Wistia y Bunny**, hechos: cron `app/api/cron/videos-daily` (35 13 * * *, sólo el VSL marcado),
+    las lecturas del VSL de todos los alojadores (`PLATAFORMAS_VIDEO`) y la migración SIN NÚMERO
+    `supabase/migrations/XXXX_alojadores_video_plataforma.sql` (la numera el Cerebro; se aplica con el sí de Martín).
+- **Sigue (alojadores):** mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
   Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
   `panda`); probar el catálogo con una cuenta real de cada uno.
 - **Sigue:**

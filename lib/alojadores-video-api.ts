@@ -14,7 +14,7 @@ import 'server-only';
 import { credWs } from './credenciales';
 import { wsObligatorio } from './workspace';
 import { catalogoPanda } from './panda';
-import { videosDeBunny, videosDeCloudflare, videosDeVimeo, videosDeWistia, type Alojador, type VideoAlojado } from './alojadores-video';
+import { numerosDeBunny, numerosDeWistia, videosDeBunny, videosDeCloudflare, videosDeVimeo, videosDeWistia, type Alojador, type NumerosDelDia, type VideoAlojado } from './alojadores-video';
 
 /** Las claves de cada alojador en `credenciales` (las que pide su tarjeta en Integraciones). */
 export const CLAVES_ALOJADOR = {
@@ -109,4 +109,26 @@ export async function catalogoDeVideos(): Promise<{ videos: VideoAlojado[]; fall
   }
   _cache.set(ws, { videos, fallas, ts: Date.now() });
   return { videos, fallas };
+}
+
+/**
+ * Los números de UN video en UN día (YYYY-MM-DD, en UTC como los dan los dos), de Wistia o de Bunny, con la clave del
+ * negocio. `videoId` es el del Pixel (`w:…`, `bunny:…`). null = ese día no tiene fila (el alojador no lo reporta).
+ * A diferencia del catálogo, ACÁ SÍ se tira: lo llama el cron, que dice qué falló por negocio.
+ */
+export async function numerosDelDia(alojador: 'wistia' | 'bunny', videoId: string, fecha: string): Promise<NumerosDelDia | null> {
+  if (alojador === 'wistia') {
+    const id = /^w:([a-z0-9]{6,20})$/i.exec(videoId)?.[1];
+    if (!id) throw new Error(`${videoId} no es un video de Wistia`);
+    const token = await credWs('WISTIA_TOKEN');
+    if (!token) throw new Error('falta WISTIA_TOKEN');
+    const j = await pedir(`https://api.wistia.com/modern/stats/medias/${id}/by_date?start_date=${fecha}&end_date=${fecha}`, { Authorization: `Bearer ${token}`, 'X-Wistia-API-Version': '2026-09' });
+    return numerosDeWistia(j, fecha);
+  }
+  const guid = /^bunny:([0-9a-f-]{36})$/i.exec(videoId)?.[1];
+  if (!guid) throw new Error(`${videoId} no es un video de Bunny`);
+  const [clave, biblioteca] = await Promise.all([credWs('BUNNY_STREAM_KEY'), credWs('BUNNY_STREAM_LIBRARY')]);
+  if (!clave || !biblioteca) throw new Error('faltan BUNNY_STREAM_KEY o BUNNY_STREAM_LIBRARY');
+  const j = await pedir(`https://video.bunnycdn.com/library/${encodeURIComponent(biblioteca.trim())}/statistics?dateFrom=${fecha}T00:00:00Z&dateTo=${fecha}T23:59:59Z&videoGuid=${guid}`, { AccessKey: clave });
+  return numerosDeBunny(j, fecha);
 }

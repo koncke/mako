@@ -1167,4 +1167,21 @@ export const BITACORA: Hito[] = [
       'lib/webhook-routing.ts · lib/ruteo-hash.ts · lib/webhook-ruteo-huella.ts — el ruteo, sin el servicio',
     ],
   },
+  {
+    fecha: '26 oct', hora: '00:20', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Se pueden conectar Vimeo, Wistia, Bunny Stream y Cloudflare Stream',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate de que funcionen bien»',
+    puntos: [
+      'Cuatro tarjetas nuevas en Integraciones, cada una con su logo, sus pasos para sacar la clave y su «Probar conexión».',
+      'Con la clave conectada, tus videos de esa cuenta aparecen en el editor de páginas y en los cursos, con su nombre.',
+      '«Probar conexión» dice qué está mal si la clave no sirve (por ejemplo, en Bunny, si pegaste la clave de la cuenta en vez de la de la biblioteca).',
+      'Falta probarlo con una cuenta real de cada uno.',
+    ],
+    archivos: [
+      'lib/metodo-catalogo.ts — lo que pide cada tarjeta y sus pasos',
+      'lib/metodo-verificar.ts — «Probar conexión»',
+      'docs/hallazgos-integraciones.md — lo que no era obvio',
+    ],
+  },
 ];

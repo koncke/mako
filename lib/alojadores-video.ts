@@ -113,3 +113,42 @@ export function videosDeCloudflare(respuesta: unknown): VideoAlojado[] {
   }
   return out;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los números por día (Wistia y Bunny: los únicos que los dan por API sin ser Enterprise)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Los números de UN video en UN día: las reproducciones y, si el alojador lo da, el tiempo medio visto. */
+export type NumerosDelDia = { plays: number; promedioSeg: number | null; crudo: Record<string, unknown> };
+
+/**
+ * Wistia, GET /modern/stats/medias/{id}/by_date: un arreglo de `{ date, load_count, play_count, hours_watched }`. El tiempo
+ * medio sale de las horas vistas sobre las reproducciones (null sin reproducciones: no es cero, es que no hubo).
+ */
+export function numerosDeWistia(respuesta: unknown, fecha: string): NumerosDelDia | null {
+  const fila = (Array.isArray(respuesta) ? respuesta : []).map(obj).find((o) => txt(o.date).slice(0, 10) === fecha);
+  if (!fila) return null;
+  const plays = Math.max(0, Math.round(Number(fila.play_count) || 0));
+  const horas = Number(fila.hours_watched);
+  return {
+    plays,
+    promedioSeg: plays > 0 && Number.isFinite(horas) && horas >= 0 ? Math.round((horas * 3600) / plays) : null,
+    crudo: { source: 'wistia', load_count: fila.load_count ?? null, play_count: fila.play_count ?? null, hours_watched: fila.hours_watched ?? null },
+  };
+}
+
+/**
+ * Bunny Stream, GET /library/{biblioteca}/statistics?videoGuid=…: `viewsChart` es un mapa de día (en UTC) a reproducciones.
+ * ⚠️ `watchTimeChart` NO dice en qué unidad viene (la documentación dice «total watch time»): se guarda tal cual en
+ * `crudo` y el tiempo medio queda en null, en vez de inventar segundos o minutos.
+ */
+export function numerosDeBunny(respuesta: unknown, fecha: string): NumerosDelDia | null {
+  const o = obj(respuesta);
+  const vistas = obj(o.viewsChart);
+  const clave = Object.keys(vistas).find((k) => k.slice(0, 10) === fecha);
+  if (clave === undefined) return null;
+  const plays = Math.max(0, Math.round(Number(vistas[clave]) || 0));
+  const tiempo = obj(o.watchTimeChart);
+  const clt = Object.keys(tiempo).find((k) => k.slice(0, 10) === fecha);
+  return { plays, promedioSeg: null, crudo: { source: 'bunny', views: vistas[clave] ?? null, watch_time: clt !== undefined ? tiempo[clt] : null } };
+}

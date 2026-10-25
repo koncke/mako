@@ -355,6 +355,50 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     };
   },
 
+  // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts): leer UN video de la lista con la clave.
+  async vimeo(v) {
+    const { status, body } = await fetchJson('https://api.vimeo.com/me/videos?per_page=1&fields=name', {
+      headers: { Authorization: `bearer ${v.VIMEO_TOKEN}`, Accept: 'application/vnd.vimeo.*+json;version=3.4' },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso para ver tus videos ("Private").' };
+    if (status >= 400 || !Array.isArray(body.data)) return { ok: false, error: `Vimeo respondió ${status}.` };
+    const v0 = (body.data as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: v0?.name ? [{ k: 'Tu último video', v: v0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async wistia(v) {
+    const { status, body } = await fetchJson('https://api.wistia.com/v1/medias.json?per_page=1', { headers: { Authorization: `Bearer ${v.WISTIA_TOKEN}` } });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso de leer ("Read all data").' };
+    const lista = body as unknown;
+    if (status >= 400 || !Array.isArray(lista)) return { ok: false, error: `Wistia respondió ${status}.` };
+    const m0 = (lista as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: m0?.name ? [{ k: 'Tu último video', v: m0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async bunny(v) {
+    const lib = (v.BUNNY_STREAM_LIBRARY ?? '').trim();
+    if (!/^\d{1,12}$/.test(lib)) return { ok: false, error: 'El Library ID es un número (está en "API", en tu biblioteca).' };
+    const { status, body } = await fetchJson(`https://video.bunnycdn.com/library/${lib}/videos?page=1&itemsPerPage=1`, { headers: { AccessKey: v.BUNNY_STREAM_KEY } });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida: va la de la BIBLIOTECA, no la de tu cuenta.' };
+    if (status === 404) return { ok: false, error: 'No hay una biblioteca con ese Library ID.' };
+    if (status >= 400 || !Array.isArray(body.items)) return { ok: false, error: `Bunny respondió ${status}.` };
+    const i0 = (body.items as Array<{ title?: string }>)[0];
+    return { ok: true, detalle: 'Clave válida.', facts: i0?.title ? [{ k: 'Tu último video', v: i0.title, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Biblioteca vacía todavía', c: 'var(--warn)' }] };
+  },
+
+  async cloudflare(v) {
+    const cuenta = (v.CLOUDFLARE_ACCOUNT_ID ?? '').trim();
+    if (!/^[0-9a-f]{32}$/i.test(cuenta)) return { ok: false, error: 'El Account ID son 32 letras y números (está en "Stream", a la derecha).' };
+    const { status, body } = await fetchJson(`https://api.cloudflare.com/client/v4/accounts/${cuenta}/stream?limit=1`, { headers: { Authorization: `Bearer ${v.CLOUDFLARE_STREAM_TOKEN}` } });
+    // ⚠️ Un token con forma rara NO da 401: da 400 con el código 9106 «Authentication failed» (medido el 25/10/2026). Uno
+    // con buena forma pero inexistente da 401 (10000). Los dos son «el token no sirve».
+    const codigos = Array.isArray(body.errors) ? (body.errors as Array<{ code?: number }>).map((e) => e.code) : [];
+    if (status === 401 || status === 403 || codigos.includes(9106) || codigos.includes(10000)) return { ok: false, error: 'Token inválido, o sin el permiso "Stream" → "Read" en esa cuenta.' };
+    if (status >= 400 || body.success !== true || !Array.isArray(body.result)) return { ok: false, error: `Cloudflare respondió ${status}.` };
+    const r0 = (body.result as Array<{ meta?: { name?: string } }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: r0?.meta?.name ? [{ k: 'Tu último video', v: r0.meta.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
   async youtube(v) {
     const id = v.YOUTUBE_VSL_VIDEO_ID || 'dQw4w9WgXcQ'; // cualquier video público valida la key
     const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(v.YOUTUBE_API_KEY)}`;

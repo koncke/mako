@@ -1807,3 +1807,25 @@ Instagram (`lib/instagram-perfil-server.ts`, `app/api/crm/instagram-buscar/route
 ws9 no tiene Zernio propia: su conexión sale por el script).
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Vimeo, Wistia, Bunny Stream y Cloudflare Stream como integraciones (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro, «otros alojadores de video»). Las cuatro van en los cuatro registros de siempre:
+la tarjeta (lib/integraciones-catalogo.ts), los campos y el tutorial (lib/metodo-catalogo.ts), el ping
+(lib/metodo-verificar.ts) y el logo (app/_components/ServicioVisual.tsx). Van pegadas a Panda, que es la zona que Settings
+no tocó en su rama.
+
+**Lo que no era obvio:**
+- **Las claves de la tarjeta y las que lee el catálogo tienen que ser las mismas** (`envs` contra `CLAVES_ALOJADOR` en
+  lib/alojadores-video-api.ts). Si se separan, conectar la tarjeta no trae ni un video y nada lo dice.
+  tests/alojadores-video-catalogo.test.ts las compara.
+- **Cloudflare no contesta 401 a un token mal formado: contesta 400 con el código 9106** («Authentication failed»). Uno con
+  buena forma pero inexistente sí da 401 (código 10000). Los dos son «el token no sirve». Sin mirar el código del error, el
+  ping decía «Cloudflare respondió 400», que no le dice nada a quien lo pegó.
+- **Bunny tiene dos claves**: la de la cuenta y la de cada BIBLIOTECA. La que sirve para leer videos es la de la biblioteca,
+  y además va el Library ID. El ping lo dice si pegan la otra.
+- **Bunny no está en simple-icons** (404 en la 13.21.0), así que va con su inicial sobre el naranja de bunny.net
+  (#FD8D32, el de su página). Vimeo, Wistia y Cloudflare llevan el mark oficial.
+
+**Probado:** los cuatro pings contra las APIs REALES con claves inventadas contestan «inválido» con el motivo. Un ping que
+diga «válido» necesita una cuenta real de cada uno: queda para cuando Martín conecte una.

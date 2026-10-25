@@ -544,4 +544,21 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-customer-success.md — los cursos con esos videos',
     ],
   },
+  {
+    fecha: '26 oct', hora: '00:45', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las reproducciones por día del VSL también si está en Wistia o en Bunny',
+    pedido: '«Implementa otros alojadores de video, no solo panda... y que los lugares donde consume eso... puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Si tu video de ventas está en Wistia o en Bunny Stream, MaKo trae cada mañana cuántas veces lo reprodujeron el día anterior, como ya hacía con Panda.',
+      'Esos números entran al embudo, a la serie del video de ventas y al Dashboard.',
+      'Sólo cuenta el video que marcaste como tu video de ventas: las clases de un curso no se mezclan.',
+      'Falta: un cambio en la base de datos que se aplica con tu aprobación, y probarlo con una cuenta real.',
+    ],
+    archivos: [
+      'app/api/cron/videos-daily/route.ts — lo que corre cada mañana',
+      'supabase/migrations/XXXX_alojadores_video_plataforma.sql — el cambio en la base (sin número todavía)',
+      'docs/hallazgos-landing.md — lo que no era obvio',
+    ],
+  },
 ];

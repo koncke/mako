@@ -504,6 +504,85 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts). Cada clave alcanza para LEER la lista de videos:
+  // ninguna pide permiso de escribir.
+  {
+    key: 'vimeo',
+    nombre: 'Vimeo',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Vimeo, para elegirlos en tus páginas y tus cursos.',
+    campos: [
+      { env: 'VIMEO_TOKEN', label: 'Token de acceso', secreto: true, placeholder: 'abc123…', nota: 'En developer.vimeo.com/apps → tu app → "Generate an access token", con "Public" y "Private".' },
+    ],
+    tutorial: {
+      url: 'https://developer.vimeo.com/apps',
+      urlLabel: 'Vimeo → Developer → My Apps',
+      pasos: [
+        'En developer.vimeo.com/apps toca "Create an app" (un nombre y una descripción cualquiera alcanzan).',
+        'Adentro de la app, en "Generate an access token", elige "Authenticated (you)".',
+        'Marca "Public" y "Private" (así se ven también tus videos no listados) y toca "Generate".',
+        'Copia el token y pégalo en "Token de acceso". Vimeo lo muestra UNA vez.',
+      ],
+    },
+  },
+  {
+    key: 'wistia',
+    nombre: 'Wistia',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Wistia y cuántas veces los reproducen por día.',
+    campos: [
+      { env: 'WISTIA_TOKEN', label: 'Token de API', secreto: true, placeholder: 'abc123…', nota: 'En Wistia → "Account" → "Settings" → "API Access" → "Create a new token", con "Read all data".' },
+    ],
+    tutorial: {
+      url: 'https://account.wistia.com/account/api',
+      urlLabel: 'Wistia → Settings → API Access',
+      pasos: [
+        'En Wistia abre "Account" → "Settings" → "API Access".',
+        'Toca "Create a new token" y marca "Read all data" (y "Read detailed stats", para los números por día).',
+        'Copia el token y pégalo en "Token de API".',
+      ],
+    },
+  },
+  {
+    key: 'bunny',
+    nombre: 'Bunny Stream',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.',
+    campos: [
+      { env: 'BUNNY_STREAM_KEY', label: 'API key de la biblioteca', secreto: true, placeholder: 'xxxxxxxx-xxxx-…', nota: 'En dash.bunny.net → "Stream" → tu biblioteca → "API". Es la de la BIBLIOTECA, no la de tu cuenta.' },
+      { env: 'BUNNY_STREAM_LIBRARY', label: 'Library ID', placeholder: '123456', nota: 'El número de tu biblioteca, en la misma pantalla "API" (también va en el link de cada video: /embed/<Library ID>/…).' },
+    ],
+    tutorial: {
+      url: 'https://dash.bunny.net/stream',
+      urlLabel: 'Bunny → Stream → tu biblioteca → API',
+      pasos: [
+        'En dash.bunny.net abre "Stream" y entra a la biblioteca donde están tus videos.',
+        'En el menú de la biblioteca toca "API".',
+        'Copia "API Key" y pégala en "API key de la biblioteca".',
+        'Copia "Video Library ID" y pégalo en "Library ID".',
+      ],
+    },
+  },
+  {
+    key: 'cloudflare',
+    nombre: 'Cloudflare Stream',
+    categoria: 'Datos',
+    paraQue: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.',
+    campos: [
+      { env: 'CLOUDFLARE_STREAM_TOKEN', label: 'Token de API', secreto: true, placeholder: 'abc123…', nota: 'En dash.cloudflare.com → "My Profile" → "API Tokens" → "Create Token", con el permiso "Account" → "Stream" → "Read".' },
+      { env: 'CLOUDFLARE_ACCOUNT_ID', label: 'Account ID', placeholder: '32 letras y números', nota: 'En el panel de Cloudflare, en "Stream": la columna de la derecha dice "Account ID".' },
+    ],
+    tutorial: {
+      url: 'https://dash.cloudflare.com/profile/api-tokens',
+      urlLabel: 'Cloudflare → My Profile → API Tokens',
+      pasos: [
+        'En dash.cloudflare.com abre "My Profile" → "API Tokens" → "Create Token" → "Create Custom Token".',
+        'En "Permissions" elige "Account" → "Stream" → "Read", y toca "Continue to summary" → "Create Token".',
+        'Copia el token y pégalo en "Token de API". Cloudflare lo muestra UNA vez.',
+        'En el panel, entra a "Stream": copia el "Account ID" de la columna de la derecha y pégalo en "Account ID".',
+      ],
+    },
+  },
   {
     key: 'youtube',
     nombre: 'YouTube',

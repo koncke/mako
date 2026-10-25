@@ -4660,6 +4660,21 @@ diseño) muestra «Tus videos», los de todos los alojadores conectados. Un clic
 misma puerta y con el negocio explícito (`runWithWorkspace`). Sin alojadores conectados no se dibuja nada, y la agenda de
 un diseño no ofrece videos. No se pudo ver con clics acá: hay que mirarlo cuando despliegue.
 
-Lo que quedó SIN hacer (con su archivo en el relevo): las tarjetas de Integraciones para pegar cada clave (esperan la
-respuesta de Settings, que está rediseñando Integraciones) y los números por día de Wistia y Bunny en
-`marketing_metrics_daily` (su CHECK de `plataforma` sólo acepta meta, youtube y panda).
+Las tarjetas de Integraciones para cada clave quedaron hechas (docs/hallazgos-integraciones.md → «Vimeo, Wistia, Bunny
+Stream y Cloudflare Stream como integraciones»).
+
+**Los números por día de Wistia y Bunny (tanda 6, decidido por el Cerebro).** El cron `app/api/cron/videos-daily` escribe
+una fila por día con la forma de Panda (`video_*`). Lo leen el funnel, la serie del VSL, sus fuentes y el Dashboard, que
+pasaron de «sólo Panda» a todas las plataformas de video (`PLATAFORMAS_VIDEO`, lib/types.ts).
+- **Sólo el VSL que el negocio marcó, no toda la cuenta.** Panda escribe sólo los ids que se le configuraron. Leer todos los
+  videos de Wistia o Bunny habría metido las clases de un curso en el paso «vio el VSL» del funnel. Sin VSL de ese
+  alojador, el negocio se omite: no es un error.
+- **Bunny no dice en qué unidad viene su tiempo visto** («total watch time»). Se guarda crudo en `raw_payload` y el tiempo
+  medio queda en null, en vez de inventar segundos o minutos. Wistia sí: horas vistas sobre reproducciones.
+- **La base no los aceptaba:** el CHECK de `marketing_metrics_daily.plataforma` sólo admitía meta, youtube y panda.
+  La migración va sin número (`supabase/migrations/XXXX_alojadores_video_plataforma.sql`): la numera el Cerebro y se aplica
+  con el sí de Martín. Hasta entonces el insert rebota, y el cron lo dice en su respuesta.
+- Los tests del funnel, /general, los gráficos y los crons pasan con las lecturas nuevas.
+
+Lo que quedó SIN hacer: probar el catálogo, los pings y los números con una cuenta real de cada alojador (cuando Martín
+conecte una); aplicar la migración; mirar con clics «Tus videos» del editor cuando despliegue.
