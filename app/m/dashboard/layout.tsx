@@ -10,11 +10,14 @@
 //   · una hoja propia: el closer o el setter (no tienen otras), o una hoja que no se abre en el teléfono → el Dashboard
 //     (`hojaPropiaDe`, con el informe de `tableroDelPedido`: la página lo reusa y no se lee dos veces).
 // Qué página es lo dice la ruta de la URL, que en el teléfono es la de escritorio (`paginaDelPedido`, ./redireccion.ts).
+// LA PUERTA, SIEMPRE (25/10/2026, chat «Landings»): `requireMovil` también redirige por dentro (al onboarding pendiente, a
+// lo de Esencial, sin sesión). Pasarla sólo cuando se iba a redirigir dejaba esos casos yendo desde ADENTRO del loader: el
+// mismo #310. Las dos páginas de la carpeta tienen la misma: va primero, como en ellas, y su contexto es el que decide.
 // =============================================================================
 
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
-import { contextoMovil, requireMovil } from '@/lib/movil-guard';
+import { requireMovil } from '@/lib/movil-guard';
 import { HOME_MOVIL, puedeVerKey } from '@/lib/movil-rutas';
 import { rutaConWs } from '@/lib/workspace';
 import { hojaDeRol } from '@/lib/graficos-plantillas';
@@ -24,12 +27,11 @@ import { hojaPropiaDe, tableroDelPedido } from './datos';
 import { VOLVER_AL_DASHBOARD, paginaDelPedido } from './redireccion';
 
 export default async function DashboardMovilLayout({ children }: { children: ReactNode }) {
+  // La puerta de la tab, la misma de las dos páginas y antes que nada: el destino no se calcula para quien no la tiene.
+  const ctx = await requireMovil({ navKey: 'graphics' });
   const { ruta, query } = await pedidoActual();
   const cual = paginaDelPedido(ruta, query);
-  // Cacheado por request (lib/movil-guard.ts): la página lo vuelve a pedir sin otra consulta. Sin sesión es null y la puerta
-  // la hace la página, como siempre.
-  const ctx = cual ? await contextoMovil() : null;
-  if (cual && ctx) {
+  if (cual) {
     let destino: string | null = null;
     if (cual.pagina === 'dashboard') {
       if (sinSuHoja(ctx.rol, ctx.capa)) destino = HOME_MOVIL;
@@ -39,12 +41,7 @@ export default async function DashboardMovilLayout({ children }: { children: Rea
       // El informe se lee sólo para quien tiene la tab: el destino no se calcula para quien no la tiene.
       destino = VOLVER_AL_DASHBOARD;
     }
-    if (destino) {
-      // La puerta de la tab, la misma de las páginas. Sólo cuando se va a redirigir: el onboarding y lo de Esencial no están
-      // todos cacheados, y la página ya los pregunta.
-      await requireMovil({ navKey: 'graphics' });
-      redirect(await rutaConWs(destino));
-    }
+    if (destino) redirect(await rutaConWs(destino));
   }
   return children;
 }

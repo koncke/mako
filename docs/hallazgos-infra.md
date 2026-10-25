@@ -8479,3 +8479,44 @@ que las tiene repite en su layout la misma puerta de cada página, en el mismo o
 **Vive en:** lib/tab-access.ts · tests/redirige-antes-del-loader.test.ts · app/crm/layout.tsx + layout-reglas.ts
 
 *25/10/2026, chat «CRM» (`claude5`).*
+
+**Lo que se hizo con eso (25/10/2026, chat «Landings»), y lo que el «seis» no veía:**
+
+- **Eran 25 carpetas, no seis.** La lista de seis se midió con las puertas de `lib/tab-access.ts`. Pero hay más funciones
+  que redirigen por dentro:
+  - `requireMovil`, la puerta de todo el teléfono;
+  - `requireEditorImagen` y `requireEditorVideo`;
+  - `requireAiAvatar` y `requireAiAvatarM`.
+
+  Contándolas, aparecieron además **13 carpetas de `/m`** y los dos editores. Además, `plan`, `second-brain` y los dos
+  Dashboards (el de la computadora y el del teléfono) tenían layout, pero no repetían su puerta en cada ruta. Ahora el test
+  busca las puertas solo: toda `export async function require…/guard…` de `lib/` o `app/` que llama a `redirect(` o a otra
+  puerta tiene que estar en `PUERTAS`.
+- ⚠️ **«Pasar la puerta sólo cuando se va a redirigir» no alcanza.** Los dos layouts de Dashboard la llamaban únicamente
+  antes de su propio salto. La razón escrita era ahorrar las consultas del onboarding y del negocio pausado, que no están
+  en caché. Pero la puerta de la PÁGINA también redirige, así que un cliente con el onboarding pendiente iba a /onboarding
+  desde adentro del loader: el mismo #310. Ahora la puerta va primero y siempre.
+  - Lo que cuesta: esas consultas, una vez más por carga.
+  - Lo que no cuesta: tiempo de la página. El layout y la página se dibujan en paralelo; el loader sí sale después de la
+    puerta del layout.
+- **La regla del guard (tests/redirige-antes-del-loader.test.ts), para cada página debajo de un loader:**
+  - **Las puertas del layout.** Están en el layout de la carpeta del loader de más afuera, escritas igual que en la página
+    y en el mismo orden.
+  - **Que la cubran.** O van A LA VISTA (al primer nivel de la función del layout, sin un `if`, y valen para toda ruta), o
+    la carpeta está en `DECIDEN_POR_RUTA`. Esa tabla lista las páginas de la carpeta y nombra el test que lo prueba ruta por
+    ruta (crm, plan, second-brain, web-generator y los dos dashboards).
+  - **Lo que ya no pasa.** Un layout con «algún» `redirect(` ya no cubre a todas las rutas: así pasaba /web-generator/<id>.
+- **El molde de una carpeta con una sola puerta para todas sus páginas** (las 20 nuevas): el layout llama a esa puerta, a
+  la vista, y devuelve `children`. La página conserva la suya.
+- **Quedan conocidas, con su motivo, en `CONOCIDAS_SIN_LAYOUT`:**
+  - `/admin/operaciones`.
+  - Los saltos a la vista de `/m/chats`; su puerta ya está en el layout.
+  - Las dos de `/m/second-brain`: cada una tiene otra puerta (`mako` y `second-brain`), y su layout tendría que saber cuál
+    es con la URL de escritorio que reescribe el proxy, como `app/m/dashboard/redireccion.ts`.
+
+**Vive en:** tests/redirige-antes-del-loader.test.ts (`PUERTAS`, `DECIDEN_POR_RUTA`, `CONOCIDAS_SIN_LAYOUT`) · los
+`layout.tsx` de ads-writer, automations, calendario, chats, offer, image-editor, video-editor y de m/ads, m/automations,
+m/calendario, m/chats, m/crm, m/cs, m/curso, m/hoy, m/inbox, m/landing, m/mas, m/plan, m/video · y la puerta en los de
+web-generator, plan, second-brain, dashboard y m/dashboard.
+
+*25/10/2026, chat «Landings» (`claude5`).*
