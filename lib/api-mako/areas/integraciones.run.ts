@@ -71,6 +71,8 @@ export const RUNNERS: Runners = {
           '«conectada» significa que las credenciales están cargadas, no que funcionen: pruébala con probar_conexion_integracion.',
           'Google Calendar figura conectada si hay un permiso guardado, aunque Google ya lo haya rechazado: confirma con ver_estado_google_calendar.',
           'Pixel de MaKo figura conectada solo si llegaron eventos recientes de la landing.',
+          // 25/10/2026: sin tarjeta en la grilla. Que MaKo no mande a buscar una tarjeta que no está.
+          'Anthropic API, OpenAI API, Gemini API y Groq API no tienen tarjeta: se conectan en «Tus cuentas de IA», arriba de Integraciones. Google Calendar tampoco: se conecta desde Calendario. Para las dos, link_configurar_integracion abre su formulario igual.',
         ],
       });
     },

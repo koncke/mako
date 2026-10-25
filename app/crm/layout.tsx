@@ -28,7 +28,6 @@ export default async function CrmLayout({ children }: { children: ReactNode }) {
     await requireCapa('crm');
     await guardOnboarding();
   }
-  if (r?.tipo === 'prospectos') await requireRolWs(['closer', 'setter'], { nav: 'crm' });
   if (r?.tipo === 'pide-sesion' && !(await getUsuarioActual())) redirect(await rutaConWs('/inicio'));
   if (r?.tipo === 'resumen') {
     // La puerta de la página primero: el negocio del lead no se busca para quien no tiene el CRM.

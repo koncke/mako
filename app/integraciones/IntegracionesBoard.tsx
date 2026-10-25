@@ -31,7 +31,6 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
 import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
 import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
@@ -426,7 +425,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
   // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
-  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
+  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) && sevOf(i) !== 'good')
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).

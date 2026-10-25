@@ -21,6 +21,8 @@ export type Def = { key: string; nombre: string; categoria: string; descripcion:
 // correctamente» → el NOMBRE REAL de cada producto («Anthropic API», «OpenAI API», «Resend»). Y «elimina las IA dentro de las
 // integraciones, para eso tenemos el bloque que dice "Tus cuentas de IA" arriba del todo»: las cuatro IA van `oculto` (no son
 // tarjetas de la grilla; se conectan desde «Tus cuentas de IA», con el MISMO modal: `getIntegracion` no mira `oculto`).
+// «Depreca Hotmart, Skool... Elimina Apify» (mismo día): salieron, con su ruta y su API. «Elimina la de Google Calendar»:
+// `oculto`, porque la agenda sigue (ver su entrada).
 export const DEFS: Def[] = [
   { key: 'meta', nombre: 'Meta Ads', categoria: 'Publicidad', descripcion: 'Campañas, insights y estado de la cuenta publicitaria.', envs: ['META_ACCESS_TOKEN', 'META_AD_ACCOUNT_ID'], tieneDetalle: true },
   // WhatsApp (Chatwoot) salió el 09/10/2026: ver tests/sin-chatwoot.test.ts.
@@ -76,19 +78,18 @@ export const DEFS: Def[] = [
   // (app/integraciones/IntegracionesBoard.tsx).
   { key: 'stripe', nombre: 'Stripe', categoria: 'Pagos', descripcion: 'Cobra con un link de pago y cada pago entra solo a tu CRM.', envs: ['STRIPE_SECRET_KEY', 'STRIPE_ACCOUNT_ID', 'STRIPE_WEBHOOK_SECRET'] },
   { key: 'mercadopago', nombre: 'Mercado Pago', categoria: 'Pagos', descripcion: 'Cobra en tu moneda con un link de Mercado Pago y cada pago entra solo a tu CRM.', envs: ['MERCADOPAGO_ACCESS_TOKEN', 'MERCADOPAGO_USER_ID'] },
-  // Las FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md): el propio
-  // público del negocio entra solo al CRM. Opcionales como las pasarelas (`esFuenteQueAvisa`,
-  // lib/fuentes-leads-catalogo.ts): sin configurar no bajan el medidor de nadie.
-  { key: 'hotmart', nombre: 'Hotmart', categoria: 'Pagos', descripcion: 'Cada compra y cada carrito abandonado de Hotmart entran solos a tu CRM.', envs: ['HOTMART_HOTTOK'] },
-  { key: 'skool', nombre: 'Skool', categoria: 'Contenido', descripcion: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas.', envs: ['SKOOL_WEBHOOK_CLAVE'] },
-  // Donde corren las búsquedas de prospectos del Leads Scraper (15/10/2026, decisión 5): la cuenta de
-  // Apify de cada negocio, que paga lo que encuentra. Opcional como las de arriba.
-  { key: 'apify', nombre: 'Apify', categoria: 'Datos', descripcion: 'Busca prospectos en Google Maps e Instagram con tu cuenta de Apify.', envs: ['APIFY_TOKEN'] },
+  // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper del 14/10/2026): se fueron el 25/10/2026, Martín: «Depreca
+  // Hotmart, Skool... Elimina Apify». Medido antes, en producción: 0 claves, 0 ruteos, 0 leads y 0 búsquedas.
+  // Ver tests/leads-scraper-retirado.test.ts.
   // Google Calendar: no se mide por env — GOOGLE_CLIENT_ID/SECRET son la app
   // OAuth de la agencia (siempre puesta), así que chequearlos diría "conectada"
   // para todos sin que nadie haya autorizado su agenda. Se mide por señal REAL
   // (ver estadoGoogleCalendar), como la landing.
-  { key: 'google', nombre: 'Google Calendar', categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
+  // `oculto` desde el 25/10/2026 (Martín: «Elimina la de Google Calendar, entiendo que cuando se registran con Google ya le
+  // podríamos preguntar esos permisos»): la agenda se conecta donde se usa (Calendario, el CRM) y, con la app de Google
+  // verificada, al entrar con Google (`GOOGLE_LOGIN_CON_AGENDA`, app/api/auth/google/route.ts). Las agendas ya conectadas
+  // siguen: el estado, el modal suelto (`getIntegracion` no mira `oculto`) y `?abrir=google` andan igual.
+  { key: 'google', nombre: 'Google Calendar', oculto: true, categoria: 'Reuniones', descripcion: 'Cruza las reuniones de tu agenda para detectar juntas automáticamente.', envs: [] },
   // ⚠️ ACÁ ESTABA LA PLATAFORMA DE CURSOS DE TERCEROS, y se fue el 06/10/2026
   // («que utilicemos directamente MaKo»). El curso vive en MaKo: las clases, los
   // videos (link o subido al bucket `curso-videos`), cuánto vio cada cliente y sus

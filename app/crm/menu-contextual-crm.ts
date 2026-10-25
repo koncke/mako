@@ -51,7 +51,7 @@ export type IdOpcionCrm =
   | 'col_nuevo_lead' | 'col_ordenar' | 'col_izquierda' | 'col_derecha' | 'col_campanas' | 'col_evento' | 'col_cobro' | 'col_tipo' | 'col_curso_prender' | 'col_curso_apagar'
   | 'col_renombrar' | 'col_agregar' | 'col_eliminar'
   // el fondo (las del «⋯» de la barra)
-  | 'nuevo_lead' | 'importar' | 'buscar_prospectos' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
+  | 'nuevo_lead' | 'importar' | 'exportar' | 'editar_etapas' | 'personalizar_tarjetas';
 
 /** Dónde cayó el clic y qué se sabe ahí. Lo arma la pantalla; acá no se lee el DOM. */
 export type ContextoCrm =
@@ -121,7 +121,7 @@ function compactar(xs: ReadonlyArray<IdOpcionCrm | null>): Array<IdOpcionCrm | n
 export function opcionesCrm(c: ContextoCrm): Array<IdOpcionCrm | null> {
   if (c.sobre === 'fondo') {
     // El MISMO orden que el «⋯» de la barra (`AccionesHeader`): lo que trae leads, lo que los saca, y la configuración.
-    return compactar(['nuevo_lead', null, 'importar', 'buscar_prospectos', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
+    return compactar(['nuevo_lead', null, 'importar', 'exportar', null, 'editar_etapas', 'personalizar_tarjetas', null, ...(c.seleccionados > 0 ? ['lote_limpiar' as const] : [])]);
   }
   if (c.sobre === 'columna') {
     // ⚠️ POR SECCIONES (22/10/2026, Martín: «Ordena las opciones del desplegable de los 3 puntos... Ya no se entienden si
@@ -249,7 +249,6 @@ export const OPCION_CRM: Readonly<Record<IdOpcionCrm, { texto: string; icono: No
   col_eliminar: { texto: 'Eliminar etapa', icono: 'borrar', peligro: true },
   nuevo_lead: { texto: 'Nuevo lead', icono: 'persona-mas' },
   importar: { texto: 'Importar leads', icono: 'subir' },
-  buscar_prospectos: { texto: 'Buscar prospectos', icono: 'buscar' },
   exportar: { texto: 'Exportar leads', icono: 'descargar' },
   editar_etapas: { texto: 'Editar etapas', icono: 'etapa' },
   personalizar_tarjetas: { texto: 'Personalizar tarjetas', icono: 'configurar' },

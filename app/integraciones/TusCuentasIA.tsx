@@ -12,7 +12,7 @@
 // aparece en la consola web). El último paso espera solo a que la computadora aparezca «En línea».
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
@@ -268,6 +268,7 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
 }) {
   const [ia, setIa] = useState<IaDelCliente | null>(iaInicial ?? null);
   const [conectada, setConectada] = useState(false);
+  const idAyuda = useId();
   const donde = ia ? dondeSacarLaClave(ia) : null;
   return (
     <div className="tci-tutorial" role="dialog" aria-label="Conectar tu IA">
@@ -312,11 +313,13 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
               if (o.que === 'pedir') return <div key={o.que} className="tci-grande tci-grande--pedir" role="note">{contenido}</div>;
               const anda = o.habilitada && (o.que !== 'pc' || puedeComputadora);
               return (
-                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? () => onComputadora(ia) : undefined}>
+                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? () => onComputadora(ia) : undefined}
+                  aria-describedby={o.que === 'pc' ? idAyuda : undefined}>
                   {contenido}
                   {/* «Y ACLARA QUE NO ES LO MISMO, EN ALGÚN LUGAR SUTIL, TAL VEZ EN "?"» (Martín, 25/10/2026): la clave atiende lo que
-                      MaKo hace solo; la computadora, lo que le pides tú. En el `title` y en el nombre accesible, sin otro párrafo. */}
-                  {o.que === 'pc' && <span className="tci-ayuda" title={NO_ES_LO_MISMO} aria-label={NO_ES_LO_MISMO}>?</span>}
+                      MaKo hace solo; la computadora, lo que le pides tú. A la vista, el `title` del «?»; al lector, la DESCRIPCIÓN del
+                      botón (`aria-describedby`), no su nombre: en el nombre se leía la oración entera en cada opción (MaKo Desktop). */}
+                  {o.que === 'pc' && <><span className="tci-ayuda" title={NO_ES_LO_MISMO} aria-hidden>?</span><span id={idAyuda} hidden>{NO_ES_LO_MISMO}</span></>}
                 </button>
               );
             })}

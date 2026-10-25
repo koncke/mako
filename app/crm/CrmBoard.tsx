@@ -2711,8 +2711,6 @@ export function CrmBoard({
       case 'col_eliminar': if (c) void quitarColumna(c); return;
       case 'nuevo_lead': setNuevoLead({ etapa: null }); return;
       case 'importar': setImportar(true); return;
-      // La misma pantalla que el renglón del «⋯» de la barra, con el CRM que se mira (C6, 22/10/2026).
-      case 'buscar_prospectos': router.push(funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'); return;
       case 'exportar': setExportar(true); return;
       case 'editar_etapas': setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) }); return;
     }
