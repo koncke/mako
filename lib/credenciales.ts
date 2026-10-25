@@ -29,6 +29,7 @@ import { ROUTING_CREDS, upsertRouting, borrarRoutingDeWs, soltarIdentificador, n
 import { CUENTA_PRINCIPAL, baseDeClave, cuentaDeClave } from './cuentas-integracion';
 import { identificadorDeRuteo } from './ruteo-hash';
 import { esClaveDeCuenta, esClaveDeIA } from './ia-keys';
+import { metaConectadaConCampos } from './zernio-meta-cuerpo';
 import { problemaDeRemitenteGuardado } from './email-remitente';
 
 export type CredencialMeta = {
@@ -293,6 +294,11 @@ export async function integracionConectada(servicioKey: string, ws?: number): Pr
   const objetivo = requeridos.length ? requeridos : s.campos;
   const vals = await Promise.all(objetivo.map((c) => credWs(c.env, w)));
   const principal = requeridos.length ? vals.every(esValorReal) : vals.some(esValorReal);
+  // Meta por Zernio (25/10/2026): la conexión de Zernio reemplaza al token (lib/zernio-meta-cuerpo.ts).
+  if (servicioKey === 'meta' && !principal) {
+    const tiene = new Map(await Promise.all(['META_AD_ACCOUNT_ID', 'META_ACCESS_TOKEN', 'META_ZERNIO_CUENTA'].map(async (e) => [e, esValorReal(await credWs(e, w))] as const)));
+    return metaConectadaConCampos((e) => tiene.get(e) === true);
+  }
   if (principal || (servicioKey !== 'stripe' && servicioKey !== 'mercadopago')) return principal;
   // Una pasarela con sólo una cuenta de más (la principal desconectada) también cobra (22/10/2026): sus claves con sufijo.
   const nombres = await clavesGuardadasConBase(w, objetivo.map((c) => c.env)).catch(() => [] as string[]);

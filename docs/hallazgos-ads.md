@@ -4783,3 +4783,43 @@ escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss 
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
+
+## Las lecturas de Meta del cron, de la salud y del modal del anuncio, por Zernio; y CAPI por la misma conexión (25/10/2026)
+
+**Vive en:** `lib/meta-ads.ts` (`fetchMetaInsights`, `fetchAdCreatives`, `fetchAdsetBudgets`) · `lib/meta-health.ts`
+(`fetchAccountRaw`) · `lib/meta-desgloses.ts` · `app/api/ad-insights/route.ts` · `lib/meta-capi.ts` · la vía, en
+`lib/meta-via.ts`. El contexto entero (por qué, lo medido, lo que falta): `docs/hallazgos-integraciones.md` → «Meta entero por
+la Zernio del negocio».
+
+- **El camino es UNO para todas las lecturas: `canalMeta()`.** Zernio primero si el negocio tiene su conexión (y Zernio está
+  activo para él); el token de Meta de siempre, de respaldo. Una lectura que falla por Zernio vuelve a intentar por el token SÓLO
+  si el negocio lo conserva (`canal.respaldo`); nunca para escribir. Código nuevo que lea Meta con el token del negocio pasa por
+  `canalMeta` (AGENTS.md).
+- **El paso directo de insights hace que no haga falta otro parser**: las filas son las de Meta, con los mismos campos
+  (`CAMPOS_INSIGHTS`, compartidos por las dos ramas del cron). Lo que cambia son los NOMBRES de la query (`actionBreakdowns`,
+  `fromDate`/`toDate`, cursor `after`) y el tope: 500 filas por página.
+- ⚠️ **Presupuesto y saldo vienen en UNIDADES por Zernio, en la unidad mínima por Meta.** El cron guarda el de Zernio tal cual
+  (sin `desdeUnidadMeta`); la salud lo vuelve a la mínima (`aUnidadMeta`) porque `computeAccountHealth` divide.
+- **El creativo por Zernio sale de UN árbol del día** (`/ads/tree?hasDelivery=true`), no de un pedido por anuncio, y trae el
+  permalink (`instagramPermalinkUrl` primero, si no `effectiveObjectStoryId`): la misma regla que con el token.
+- **Para el Media Buyer (avisado):** `GET /v1/ads/accounts/live` trae el interruptor PROPIO de campañas y conjuntos
+  (`configuredStatus`) además de la entrega (`platformCampaignStatus` / `platformAdSetStatus`). Es lo que la entrada del Media
+  Buyer anotó que el árbol no tiene (`arbolDesdeZernio` toma la entrega como interruptor).
+- **CAPI:** sale primero por Zernio (`POST /v1/ads/conversions`, la identidad EN CLARO, `eventId` obligatorio); si Zernio no
+  tiene permiso sobre el píxel, por la Graph API con el token del píxel (`META_CAPI_TOKEN`); el `META_ACCESS_TOKEN` de antes,
+  último. El `custom_data` (los campos de CRM del conjunto de datos, `hecho_en`) es el MISMO en los dos caminos: va por
+  `platformData`, que Zernio mezcla en `custom_data`. Los cuatro eventos y sus `event_id` no cambian (entrada «Por CAPI salen
+  sólo cuatro cosas», arriba). Tutorial para el cliente: `docs/tutorial-capi-pixel.md`.
+
+- **La transcripción por Zernio** (`lib/transcribe.ts`): el video y la imagen salen de `GET /v1/ads/{adId}/media`, los links
+  directos que Zernio lee en vivo de Meta. Es la salida a «Meta dejó de devolver `source`» (arriba), SIN MEDIR con un video
+  real. ⚠️ Con la clave de Zernio y sin token, un fallo NO cae al `META_ACCESS_TOKEN` del entorno (sería el de otro negocio):
+  los tres llamadores piden `accesoDeMeta` y cortan sin acceso. Los links vencen (imagen ~24 h, video ~12 días): se bajan en
+  el momento.
+
+**Sin hacer:** el árbol de `_getMetaHealth` por Zernio (`/v1/ads/accounts/live` + `/v1/ads/tree`), el
+reproductor del anuncio, `campanasYConjuntos` del selector del CRM, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de
+insights, `account_currency`, o de la cuenta), y las escrituras de `lib/meta-write.ts` / `lib/meta-ads-create.ts` fuera del
+Media Buyer.
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

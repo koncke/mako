@@ -1,0 +1,199 @@
+// =============================================================================
+// meta-conexion-zernio — la conexión de Meta de un negocio POR ZERNIO: guardarla, mirarla y probarla (25/10/2026)
+// =============================================================================
+// El gemelo de lib/meta-conexion.ts (que guarda lo que sale de un token pegado). Acá la conexión es la de anuncios de Zernio
+// (`metaads`) que el negocio hizo con «Conectar con Facebook» (la ventana de Zernio, `<ConectarViaZernio red="metaads">`):
+// se guarda su `_id` (`META_ZERNIO_CUENTA`) y lo inequívoco que se lee por ella (la cuenta publicitaria y el píxel si hay
+// UNO solo). Con varios, elige la persona en el modal de Meta.
+//
+// ⚠️ Lee y escribe sólo con Zernio ACTIVO para el negocio (`zernioMetaActivo`: con la prueba pasada, todos; antes, sólo
+// el de la plataforma). Apagado, no escribe nada: un cliente no queda a medio pasar a un camino sin probar.
+// ⚠️ La conexión tiene que ser de la Zernio DEL NEGOCIO: se busca su `_id` entre las cuentas que lista SU clave. Una tipeada
+// o la de otro negocio no se guarda (por eso el campo es `derivado`: ningún «guardar» de la pantalla lo acepta).
+
+import 'server-only';
+import { auditarCredencial, credWs, guardarCredencial, IdentificadorOcupadoError } from './credenciales';
+import { claveZernioAnuncios } from './zernio-ads';
+import { zFetch, ZernioError } from './zernio';
+import { normalizarCuentaMeta } from './meta-cuenta-id';
+import { canalMeta, zernioMetaActivo } from './meta-via';
+import {
+  ENV_CUENTA_ZERNIO, cuentasDeZernio, eleccionInicial, pixelesDeZernio,
+  type CuentaPublicitariaZernio, type PixelZernio,
+} from './zernio-meta-cuerpo';
+
+const ID_ZERNIO = /^[A-Za-z0-9_-]{6,64}$/;
+
+export class MetaZernioError extends Error {
+  constructor(mensaje: string) { super(mensaje); this.name = 'MetaZernioError'; }
+}
+
+/** ¿El `_id` es una conexión `metaads` de la Zernio de ESTE negocio? */
+async function esConexionDelNegocio(clave: string, accountId: string): Promise<boolean> {
+  const r = await zFetch<{ accounts?: Array<{ _id?: string; platform?: string }> }>(clave, '/accounts?platform=metaads');
+  return (r.accounts ?? []).some((a) => a._id === accountId && a.platform === 'metaads');
+}
+
+/** Las cuentas publicitarias que ve la conexión. Tira si Zernio falla o contesta sin lista. */
+export async function cuentasPorZernio(clave: string, accountId: string): Promise<CuentaPublicitariaZernio[]> {
+  const body = await zFetch<unknown>(clave, `/ads/accounts?${new URLSearchParams({ accountId }).toString()}`, undefined, 30_000);
+  const cuentas = cuentasDeZernio(body);
+  if (!cuentas) throw new MetaZernioError('Zernio contestó sin la lista de cuentas publicitarias.');
+  return cuentas;
+}
+
+/** Los píxeles que ve la conexión (los destinos de la Conversions API). Tira si Zernio falla o contesta sin lista. */
+export async function pixelesPorZernio(clave: string, accountId: string): Promise<PixelZernio[]> {
+  const body = await zFetch<unknown>(clave, `/accounts/${encodeURIComponent(accountId)}/conversion-destinations`, undefined, 30_000);
+  const pixeles = pixelesDeZernio(body);
+  if (!pixeles) throw new MetaZernioError('Zernio contestó sin la lista de píxeles.');
+  return pixeles;
+}
+
+export type EstadoMetaZernio = {
+  activo: boolean;
+  /** El `_id` guardado de la conexión, o null. */
+  conexion: string | null;
+  cuentas: CuentaPublicitariaZernio[];
+  pixeles: PixelZernio[];
+  cuenta: string | null;
+  pixel: string | null;
+  /** Lo que no se pudo leer (Zernio caído, la conexión vencida): la pantalla lo dice, no lo esconde. */
+  error: string | null;
+};
+
+/** Lo que muestra el modal de Meta: si está activo, la conexión guardada, las cuentas y los píxeles que ve, y los elegidos. */
+export async function estadoMetaZernio(ws: number): Promise<EstadoMetaZernio> {
+  const activo = await zernioMetaActivo(ws);
+  const [conexion, cuenta, pixel] = await Promise.all([credWs(ENV_CUENTA_ZERNIO, ws), credWs('META_AD_ACCOUNT_ID', ws), credWs('META_PIXEL_ID', ws)]);
+  const base: EstadoMetaZernio = { activo, conexion, cuentas: [], pixeles: [], cuenta: cuenta ? normalizarCuentaMeta(cuenta) : null, pixel, error: null };
+  if (!activo || !conexion) return base;
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) return { ...base, error: 'Falta tu clave de Zernio.' };
+  try {
+    const [cuentas, pixeles] = await Promise.all([cuentasPorZernio(clave, conexion), pixelesPorZernio(clave, conexion).catch(() => [] as PixelZernio[])]);
+    return { ...base, cuentas, pixeles };
+  } catch (e) {
+    return { ...base, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : e instanceof Error ? e.message : String(e) };
+  }
+}
+
+async function guardar(ws: number, env: string, valor: string, autor: string | null, conflictos: string[], guardadas: string[]): Promise<void> {
+  try {
+    await guardarCredencial(ws, env, valor, 'meta', autor);
+    await auditarCredencial(ws, env, 'guardar', autor);
+    guardadas.push(env);
+  } catch (e) {
+    if (e instanceof IdentificadorOcupadoError) {
+      await auditarCredencial(ws, env, 'guardar', autor, { permitido: false, motivo: 'identificador ya reclamado por otro workspace' });
+      conflictos.push(e.message);
+      return;
+    }
+    throw e;
+  }
+}
+
+/**
+ * Al quedar conectada la ventana de Zernio: guarda la conexión y lo inequívoco. Nunca escribe en Meta. Tira
+ * `MetaZernioError` con un mensaje para la pantalla si no está activo o la conexión no es del negocio.
+ */
+export async function guardarConexionMetaPorZernio(ws: number, accountId: string, autor: string | null): Promise<{ guardadas: string[]; conflictos: string[]; estado: EstadoMetaZernio }> {
+  if (!(await zernioMetaActivo(ws))) throw new MetaZernioError('Conectar Meta por Zernio todavía no está abierto.');
+  const id = accountId.trim();
+  if (!ID_ZERNIO.test(id)) throw new MetaZernioError('Esa conexión no vale.');
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new MetaZernioError('Falta tu clave de Zernio.');
+  if (!(await esConexionDelNegocio(clave, id))) throw new MetaZernioError('Esa conexión no es de tu cuenta de Zernio.');
+
+  const [cuentas, pixeles, cuentaActual, pixelActual] = await Promise.all([
+    cuentasPorZernio(clave, id),
+    pixelesPorZernio(clave, id).catch(() => [] as PixelZernio[]),
+    credWs('META_AD_ACCOUNT_ID', ws),
+    credWs('META_PIXEL_ID', ws),
+  ]);
+  const elegido = eleccionInicial({ cuentas, pixeles, cuentaActual: cuentaActual ? normalizarCuentaMeta(cuentaActual) : null, pixelActual });
+
+  const guardadas: string[] = [];
+  const conflictos: string[] = [];
+  await guardar(ws, ENV_CUENTA_ZERNIO, id, autor, conflictos, guardadas);
+  if (elegido.cuenta && elegido.cuenta !== cuentaActual) await guardar(ws, 'META_AD_ACCOUNT_ID', elegido.cuenta, autor, conflictos, guardadas);
+  if (elegido.pixel && elegido.pixel !== pixelActual) await guardar(ws, 'META_PIXEL_ID', elegido.pixel, autor, conflictos, guardadas);
+
+  // Con Meta conectado arranca el histórico de métricas, una sola vez y en segundo plano (lo mismo que con el token).
+  if (elegido.cuenta) {
+    const { arrancarHistoricoEnSegundoPlano } = await import('./onboarding-extract');
+    await arrancarHistoricoEnSegundoPlano(ws, 'meta');
+  }
+  return { guardadas, conflictos, estado: await estadoMetaZernio(ws) };
+}
+
+/**
+ * La persona elige la cuenta publicitaria o el píxel entre los que ve SU conexión (nunca uno tipeado que no esté en la lista).
+ */
+export async function elegirMetaPorZernio(ws: number, p: { cuenta?: string | null; pixel?: string | null }, autor: string | null): Promise<EstadoMetaZernio> {
+  const est = await estadoMetaZernio(ws);
+  if (!est.activo || !est.conexion) throw new MetaZernioError('Primero conecta con Facebook.');
+  if (est.error) throw new MetaZernioError(est.error);
+  const guardadas: string[] = [];
+  const conflictos: string[] = [];
+  if (p.cuenta) {
+    const act = normalizarCuentaMeta(p.cuenta);
+    if (!est.cuentas.some((c) => c.id === act)) throw new MetaZernioError('Esa cuenta publicitaria no está en tu conexión.');
+    await guardar(ws, 'META_AD_ACCOUNT_ID', act, autor, conflictos, guardadas);
+  }
+  if (p.pixel) {
+    if (!est.pixeles.some((x) => x.id === p.pixel)) throw new MetaZernioError('Ese píxel no está en tu conexión.');
+    await guardar(ws, 'META_PIXEL_ID', p.pixel, autor, conflictos, guardadas);
+  }
+  if (conflictos.length) throw new MetaZernioError(conflictos.join(' '));
+  if (guardadas.includes('META_AD_ACCOUNT_ID')) {
+    const { arrancarHistoricoEnSegundoPlano } = await import('./onboarding-extract');
+    await arrancarHistoricoEnSegundoPlano(ws, 'meta');
+  }
+  return estadoMetaZernio(ws);
+}
+
+/**
+ * El «Probar» de Meta para un negocio conectado por Zernio (lo llama `PINGS.meta`, lib/metodo-verificar.ts, cuando no hay
+ * token y sí conexión). La misma forma que el ping por token: la cuenta y su estado, y el píxel con el token del píxel si
+ * el negocio lo pegó (ése es el que CAPI usa si Zernio no alcanza).
+ */
+export async function pingMetaPorZernio(v: Record<string, string>): Promise<
+  { ok: true; detalle: string; facts: Array<{ k: string; v: string; c?: string }> } | { ok: false; error: string }
+> {
+  const canal = await canalMeta();
+  if (canal.via !== 'zernio') return { ok: false, error: 'MaKo no encuentra tu conexión de Facebook por Zernio. Vuelve a conectar con Facebook.' };
+  let cuentas: CuentaPublicitariaZernio[];
+  try { cuentas = await cuentasPorZernio(canal.clave, canal.accountId); } catch (e) {
+    return { ok: false, error: e instanceof ZernioError ? `Zernio no contestó (${e.status}). Vuelve a conectar con Facebook.` : 'Zernio no contestó.' };
+  }
+  const cuenta = cuentas.find((c) => c.id === canal.adAccountId);
+  if (!cuenta) return { ok: false, error: `Tu conexión de Facebook no ve la cuenta publicitaria ${canal.adAccountId}. Elige otra o vuelve a conectar.` };
+  const activa = cuenta.estado === 1;
+  const facts: Array<{ k: string; v: string; c?: string }> = [
+    { k: 'Tu cuenta de ads', v: cuenta.nombre ?? cuenta.id },
+    { k: 'Estado', v: activa ? 'Activa' : 'Con restricción', c: activa ? 'var(--good)' : 'var(--warn)' },
+    { k: 'Conectada por', v: 'Zernio' },
+  ];
+  const avisos: string[] = [];
+  if (v.META_PIXEL_ID) {
+    const pixeles = await pixelesPorZernio(canal.clave, canal.accountId).catch(() => null);
+    const px = pixeles?.find((x) => x.id === v.META_PIXEL_ID);
+    if (px) facts.push({ k: 'Tu píxel', v: px.nombre ?? px.id });
+    else if (pixeles) avisos.push(`tu conexión de Facebook no ve el píxel ${v.META_PIXEL_ID}: los eventos salen con el token del píxel, si lo pegaste`);
+    if (v.META_CAPI_TOKEN) {
+      const ver = process.env.META_API_VERSION || 'v24.0';
+      const u = new URL(`https://graph.facebook.com/${ver}/${v.META_PIXEL_ID}`);
+      u.searchParams.set('fields', 'name');
+      u.searchParams.set('access_token', v.META_CAPI_TOKEN);
+      const r = await fetch(u.toString(), { signal: AbortSignal.timeout(15_000) }).then((x) => x.json()).catch(() => null) as { error?: { message?: string } } | null;
+      if (!r || r.error) avisos.push(`el token del píxel no llega a tu píxel${r?.error?.message ? ` (${r.error.message})` : ''}`);
+      else facts.push({ k: 'Token del píxel', v: 'Llega a tu píxel', c: 'var(--good)' });
+    }
+  }
+  return {
+    ok: true,
+    detalle: avisos.length ? `Cuenta "${cuenta.nombre ?? cuenta.id}" conectada por Zernio, pero ${avisos.join(' y ')}.` : `Cuenta "${cuenta.nombre ?? cuenta.id}" conectada por Zernio.`,
+    facts,
+  };
+}
