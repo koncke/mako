@@ -302,8 +302,11 @@ test('el tutorial: el código gastado sin conectar ofrece otro, cuenta con SU re
   assert.match(ui, /const anda = o\.habilitada && \(o\.que !== 'pc' \|\| puedeComputadora\);/, '«Mi computadora» espera al estado (IA4)');
   // «Falta Claude Code» es sólo del tutorial de Claude (la ola 3).
   assert.match(ui, /setSinSesion\(conClaude && nueva\.sinClaude \? 'claude' : 'sesion'\)/);
-  assert.match(ui, /onClick=\{\(\) => setPaso\(2\)\}>\{sistema === 'windows' \? 'Volver a instalar \(paso 2\)' : 'Volver al paso 2'\}</);
-  assert.match(ui, /no la app de escritorio/);
+  // Sin Claude Code (25/10/2026): en Windows, bajar MaKo de nuevo (el instalador lo instala); en la Mac, volver a abrirla.
+  const falta = ui.slice(ui.indexOf("{paso === 4 && sinSesion === 'claude' && ("), ui.indexOf("{paso === 4 && sinSesion === 'sesion' && ("));
+  assert.match(falta, /\{`Falta \$\{programa\}`\}/);
+  assert.match(falta, /<a className="tci-instalar__boton" href=\{descarga\}>/);
+  assert.match(falta, /`Vuelve a abrir MaKo: instala \$\{programa\}\.`/);
   // /perfil/ia ya tiene su título: el componente va sin cabecera.
   assert.match(leer('app/perfil/ia/page.tsx'), /<TusCuentasIA sinCabecera computadora=\{\(await searchParams\)\.computadora === '1'\} \/>/);
   assert.match(sinComentarios(leer('app/m/cuenta/ia/ia-ui.ts')), /Pick<PcIA, 'enLinea' \| 'ultimoLatido' \| 'cuentas' \| 'sinClaude'>/);

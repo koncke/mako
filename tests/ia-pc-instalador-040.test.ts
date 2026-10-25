@@ -29,30 +29,30 @@ test('1. conectar sin terminal ni código a la vista: dos pantallas, un botón c
   const tut = ui.slice(ui.indexOf('function Tutorial('), ui.indexOf('const LogoIA'));
   assert.ok(tut.length > 1000, 'no encontré el tutorial');
   // Dos pantallas: 2 (descargar) y 4 (conectar). El instalador vuelve al 4; «Nuevo dispositivo» abre el 2.
-  assert.match(tut, /const [paso, setPaso] = useState(pasoInicial >= 4 ? 4 : 2);/);
-  assert.doesNotMatch(tut, /Paso ${/, 'volvió el «Paso 3 de 3»');
+  assert.match(tut, /const \[paso, setPaso\] = useState\(pasoInicial >= 4 \? 4 : 2\);/);
+  assert.doesNotMatch(tut, /Paso \$\{/, 'volvió el «Paso 3 de 3»');
   // Paso 2: descargar el de esta computadora, con la UNA línea del aviso recién después de tocar.
-  assert.match(tut, /<a className="tci-instalar__boton" href={descarga} onClick={() => setBajado(true)}>/);
+  assert.match(tut, /<a className="tci-instalar__boton" href=\{descarga\} onClick=\{\(\) => setBajado\(true\)\}>/);
   assert.equal((tut.match(/AVISO_SMARTSCREEN/g) ?? []).length, 1);
   // Paso 4: UN botón, «Conectar», que acepta y abre la app con el código (el enlace sale solo, no es otro botón).
-  assert.match(tut, /className="tci-instalar__boton" onClick={conectar}>Conectar</button>/);
-  assert.match(tut, /const abrirEnWindows = (c: string) => { window.location.href = `mako://conectar?codigo=${c}`; };/);
+  assert.match(tut, /className="tci-instalar__boton" onClick=\{conectar\}>Conectar<\/button>/);
+  assert.match(tut, /const abrirEnWindows = \(c: string\) => \{ window\.location\.href = `mako:\/\/conectar\?codigo=\$\{c\}`; \};/);
   // Cada pantalla, un solo botón grande.
-  for (const bloque of tut.split(/{paso === /).slice(1)) {
+  for (const bloque of tut.split(/\{paso === /).slice(1)) {
     assert.ok((bloque.match(/className="tci-instalar__boton"/g) ?? []).length <= 1, `dos botones grandes en una pantalla: ${bloque.slice(0, 60)}`);
   }
   // Nada de terminal en el tutorial: ni la línea de PowerShell, ni la de la Terminal, ni el login, ni un respaldo plegado.
   assert.doesNotMatch(tut, /DONDE_PEGAR|lineaDeInstalacion|COMANDO_CLAUDE|LOGIN_CLAUDE|<details/, 'el tutorial muestra un comando');
   // El código no se ve en Windows: sólo en la Mac, y sólo si no se pudo copiar solo.
-  assert.equal((tut.match(/<Copiar texto={codigo} />/g) ?? []).length, 1);
-  assert.match(tut, /{sistema === 'mac' && copiado === false && codigo && <Copiar texto={codigo} />}/);
+  assert.equal((tut.match(/<Copiar texto=\{codigo\} \/>/g) ?? []).length, 1);
+  assert.match(tut, /\{sistema === 'mac' && copiado === false && codigo && <Copiar texto=\{codigo\} \/>\}/);
   // Sin la sesión de Claude: en Windows, el enlace que la inicia sin terminal.
-  assert.match(tut, /<a className="tci-instalar__boton" href={conClaude ? 'mako://iniciar-sesion' : 'mako://iniciar-sesion?ia=chatgpt'}>Iniciar sesión</a>/);
+  assert.match(tut, /<a className="tci-instalar__boton" href=\{conClaude \? 'mako:\/\/iniciar-sesion' : 'mako:\/\/iniciar-sesion\?ia=chatgpt'\}>Iniciar sesión<\/a>/);
   // El aviso del chat sin la sesión de Claude no manda a un paso: en Windows el «paso 3» ya no existe (revisión de la 0.4.0).
-  assert.doesNotMatch(AVISO_PC_SIN_SESION, /paso d/, 'el aviso manda a un paso que no existe');
+  assert.doesNotMatch(AVISO_PC_SIN_SESION, /paso \d/, 'el aviso manda a un paso que no existe');
   // SÓLO una PC de la 0.3.x (instalada con la línea de comandos, como la del ws1) no abre mako://: ésa, y nadie más, ve la
   // línea plegada, en su fila de las cuentas.
-  assert.match(ui, /{!abreEnlacesMako(d.version) && (s*<details className="tci-respaldo">s*<summary>¿No funciona? Con la línea de comandos</summary>s*<p>{DONDE_PEGAR.windows}</p>s*<Copiar texto={LOGIN_CLAUDE.windows} />/);
+  assert.match(ui, /\{!abreEnlacesMako\(d\.version\) && \(\s*<details className="tci-respaldo">\s*<summary>¿No funciona\? Con la línea de comandos<\/summary>\s*<p>\{DONDE_PEGAR\.windows\}<\/p>\s*<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
   for (const [v, abre] of [['0.3.2', false], ['0.3.2+windows', false], ['0.4.0', true], ['0.4.2+mac', true], ['1.0.0', true], [null, true]] as const) {
     assert.equal(abreEnlacesMako(v), abre, `abreEnlacesMako(${v})`);
   }

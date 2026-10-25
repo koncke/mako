@@ -136,4 +136,7 @@ async function escribir() {
   console.log(`✓ ${TAMANOS_GRANDE.length + TAMANOS_CHICA.length + 2} archivos en ${dir}`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) await escribir();
+// Sin `await` suelto: los tests importan este archivo con tsx, que lo pasa a CommonJS y ahí no hay await de primer nivel.
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  escribir().catch((e) => { console.error(`⛔ ${e instanceof Error ? e.message : String(e)}`); process.exitCode = 1; });
+}

@@ -33,6 +33,34 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## «La app de escritorio entró a la cuenta de Mauricio sin login»: era el perfil de Chrome de Mauricio, no el emparejamiento (25/10/2026)
+
+Martín, 25/10 ~12:00: «la app de desktop jamás me pidió login, eso esta muy mal, entró directo a la cuenta de Mauricio cuando
+yo estaba en mi cuenta de super admin». La captura: una ventana «MaKo - Ops Center», con el avatar de Mauricio.
+
+**El diagnóstico obvio era el equivocado.** «El token del emparejamiento le da una sesión a la ventana» (la PC se había
+emparejado para la cuenta de Mauricio el 22/10) es falso, y se midió:
+- **La ventana no es nuestra app:** el «MaKo» del escritorio de Martín es una APP WEB DE CHROME (`chrome_proxy.exe
+  --profile-directory="Profile 9" --app-id=…`), instalada el **26/08/2026**, dos meses antes de que existiera el instalador
+  (0.4.0, 23/10). Y «Profile 9» es el perfil de Chrome **mbustos@elevate.com.mx**: el de Mauricio en esa PC. Una app web
+  instalada usa las cookies del perfil que la instaló, así que abre con la sesión de MaKo que haya en ese perfil, sin preguntar.
+  Es lo mismo que abrir ese perfil de Chrome y entrar a hola-mako.com.
+- **El emparejamiento no puede dar una sesión:** el token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) son azar con prefijo,
+  no una sesión firmada (`verificarToken` los rechaza); ninguna ruta de `/api/ia-pc` toca una cookie; una sesión la arman SÓLO los
+  logins (Google, contraseña, el segundo paso y la seguridad del perfil, que importan `lib/sesion-cookies.ts`); y `lib/auth.ts`
+  lee la sesión sólo de la cookie firmada, no de un header. La cookie compartida vieja (`mako_auth`) ya no autentica nada.
+  Fijado en `tests/ia-pc-nunca-sesion.test.ts`.
+- **Cómo se mide en la PC** (sin leer cookies): el destino de un acceso directo con `WScript.Shell.CreateShortcut(...).TargetPath`
+  y sus argumentos, y a qué cuenta es cada perfil en `%LOCALAPPDATA%\Google\Chrome\User Data\Local State` →
+  `profile.info_cache.<perfil>.user_name`.
+
+**La regla que queda** (Martín, 25/10): la app de escritorio SIEMPRE pide el login de la persona, el mismo de la web. Emparejar
+la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no desconecta la IA. Lo que hace cumplir eso en una
+app web instalada (que hereda la sesión de su perfil) está en «La app pide el login» (abajo, cuando entre la tanda 2).
+
+**Lo que quedó SIN hacer:** sacar esa app del perfil de Mauricio en la PC de Martín es de él (clic derecho en el ícono ›
+Desinstalar, o chrome://apps en ese perfil).
+
 ## ⛔ `/api/chart-insights` le pasa a closer y setter los montos del trimestre (16/10/2026, leído, SIN ARREGLAR)
 
 **Lo que se vio** (relevando los chats de MaKo para el diseño del chat único): `/api/chart-insights` llama a
