@@ -17,6 +17,9 @@
 //   … capi --si --codigo=TEST12345   un Lead de prueba por Zernio al píxel, con el código de «Probar eventos»
 // =============================================================================
 
+// Un módulo, no un script global: sólo usa `import()` dinámicos (scripts/modulos-ts.mjs).
+export {};
+
 const CUENTA = 'act_1426493815659364';
 const paso = process.argv[2];
 const si = process.argv.includes('--si');
