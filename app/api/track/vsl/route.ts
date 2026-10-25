@@ -452,7 +452,10 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // tiene uno» y «alguien lo tocó». Faltaban acá desde la v16 y se guardaban como 'desconocido' —1.731 filas en un
   // workspace en 30 días, medido el 24/10/2026—, que el probador lee como «Pixel desactualizado o modificado» sobre el
   // Pixel del día. Son de la PÁGINA: `esEventoDeVideo` es lista blanca y no los cuenta en la retención.
-  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre', 'video_ajeno', 'toque_video'];
+  // 'secciones' (snippet v26, 25/10/2026) es de la PÁGINA: los ids de las secciones que la persona vio, acumulados, en
+  // `detalle`. Lo lee el alcance por sección (lib/editor-landing/alcance-secciones.ts). No entra a la retención (no
+  // calza con `esEventoDeVideo`) ni a la ficha del lead (`getTrackingEvents`): ahí se lee con tope antes de filtrar.
+  const CONOCIDOS = ['play', 'exit', 'click', 'clic_vacio', 'scroll', 'secciones', 'pausa', 'retoma', 'fin', 'agendo', 'salio', 'volvio', 'cierre', 'video_ajeno', 'toque_video'];
   if (!CONOCIDOS.includes(tipoEvento) && !milestoneMatch && !segundoMatch) {
     // Antes esto caía a 'play' en silencio, y así un tipo desconocido inflaba
     // los plays sin dejar rastro. Se guarda como lo que es y se avisa: un

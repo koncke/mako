@@ -57,10 +57,12 @@ import { textoDeClic, destinoCorto } from '../app/crm/lead-view/clic-detalle';
 type Fila = Record<string, unknown>;
 const FILAS: Record<string, Fila[]> = {};
 const SELECTS: Record<string, string> = {};
+const OR: Record<string, string> = {};
 
 type Consulta = {
   select: (cols: string) => Consulta;
   eq: (...a: unknown[]) => Consulta;
+  or: (filtro: string) => Consulta;
   order: (...a: unknown[]) => Consulta;
   limit: (n: number) => Promise<{ data: Fila[]; error: null }>;
 };
@@ -69,8 +71,10 @@ function tabla(nombre: string): Consulta {
   const q: Consulta = {
     select: (cols: string) => { SELECTS[nombre] = cols; return q; },
     eq: () => q,
+    // El único `or` del lector (Pixel v26): las filas de `secciones` se sacan EN LA BASE, antes del `limit`.
+    or: (filtro: string) => { OR[nombre] = filtro; return q; },
     order: () => q,
-    limit: (n: number) => Promise.resolve({ data: (FILAS[nombre] ?? []).slice(0, n), error: null }),
+    limit: (n: number) => Promise.resolve({ data: (FILAS[nombre] ?? []).filter((f) => !(OR[nombre] === 'tipo_evento.is.null,tipo_evento.neq.secciones' && f.tipo_evento === 'secciones')).slice(0, n), error: null }),
   };
   return q;
 }

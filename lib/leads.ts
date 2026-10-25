@@ -2807,6 +2807,10 @@ export async function getTrackingEvents(visitorId: string | null, limit = 120): 
       supabase.from('vsl_events')
         .select('created_at, tipo_evento, porcentaje, event, video_id, vsl_titulo, detalle')
         .eq('visitor_id', visitorId)
+        // ⚠️ El evento `secciones` del Pixel v26 (25/10/2026) se saca EN LA BASE, no abajo: el `.limit` corta antes del
+        // filtro de JS, y cada fila suya le quitaba el lugar a un clic o a un play de la ficha. Con `or` y no con `neq`:
+        // un `neq` también tira las filas viejas sin `tipo_evento` (NULL <> 'x' no es verdadero en SQL).
+        .or('tipo_evento.is.null,tipo_evento.neq.secciones')
         .order('created_at', { ascending: false })
         .limit(limit),
     ]);

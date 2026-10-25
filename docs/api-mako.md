@@ -9799,7 +9799,7 @@ curl -L \
 
 ### `GET /api/v1/landing/landings/comportamiento` — Comportamiento medido de una landing
 
-Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar) y de dónde vinieron. Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.
+Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar), de dónde vinieron y, en una página del Web Generator del negocio, qué porcentaje vio cada sección en los últimos 30 días (null = no se mide). Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_comportamiento_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -9920,7 +9920,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/analitica` — Visitas y leads de una landing creada
 
-Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead y las visitas de cada día. Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.
+Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead, las visitas de cada día y qué porcentaje de los visitantes vio cada sección (desde que el Pixel lo mide). Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_analitica_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
