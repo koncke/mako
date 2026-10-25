@@ -429,4 +429,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/planes/acelerador',
   },
+  {
+    fecha: '25 oct', hora: '08:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El plan anual con 2 meses gratis, garantía de 14 y 30 días, pago en pesos y el media buyer en Esencial',
+    puntos: [
+      'Arriba de los planes, el selector Mensual / Anual: el anual son 2 meses gratis (US$470 Esencial, US$970 Pro). Está en /planes y en la landing.',
+      'El anual se pide siempre (el cobro en línea es por mes): deja el pedido en el CRM diciendo «anual», y se da de alta a mano.',
+      'Debajo de cada botón, la garantía: 14 días en el mensual y 30 en el anual. La página de reembolsos dice lo mismo; antes decía que el mes pagado no se devolvía.',
+      'Abajo: «Desde Argentina pagas en pesos, con Mercado Pago». El precio en pesos aparece cuando le cargues uno al plan: no se calcula con ningún cambio.',
+      'Esencial suma tu media buyer con IA: 2 recomendaciones por día para los anuncios, y el negocio decide si las aplica. Está en la comparación.',
+      'Sin plan Agencia aparte, como decidiste el 10/10.',
+      'Ojo: la garantía vale para el primer pago de cada negocio, una vez. Eso lo agregué yo; si no lo quieres, es una frase.',
+    ],
+    commits: [
+      { sha: 'a64dfcb67', msg: 'Planes › el anual con 2 meses gratis, la garantía de 14 y 30 días, los pesos y el media buyer de Esencial', lineas: 353, archivos: 18 },
+    ],
+    archivos: [
+      'app/planes/Tarjetas.tsx — el selector, la garantía de cada período y la línea de los pagos',
+      'app/planes/[plan]/page.tsx — el anual, siempre por pedido',
+      'app/reembolsos/page.tsx — §1, la garantía de 14 y 30 días',
+      'lib/topes-plan.ts — las 2 recomendaciones por día del media buyer de Esencial',
+      'tests/planes-tres-bloques.test.ts — 17 roturas, cada una cae',
+    ],
+    revisar: '/planes',
+  },
 ];
