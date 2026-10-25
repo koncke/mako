@@ -52,7 +52,8 @@ const linkIntegracion = (key: string): string => linkPantalla(`/integraciones?ab
 export const RUNNERS: Runners = {
   ver_integraciones: {
     leer: async () => {
-      const lista = await getIntegraciones();
+      // Con las IA (que en la pantalla viven en «Tus cuentas de IA», no en la grilla): su estado se sigue leyendo por acá.
+      const lista = await getIntegraciones({ conOcultas: true });
       const integraciones = lista.map((i) => {
         // `detalle` trae nombres de variables de entorno («Falta configurar: META_ACCESS_TOKEN»):
         // es copy técnico. Se traduce a las etiquetas que la persona ve en el formulario.

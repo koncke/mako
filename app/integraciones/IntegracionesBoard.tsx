@@ -177,7 +177,7 @@ const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
 const SYNTHETIC: Record<string, Integracion> = {
-  groq: { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
+  groq: { key: 'groq', nombre: 'Groq API', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
 };
 
 // Duración legible de un incidente (inicio → fin).
@@ -494,7 +494,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     const motivo = motivoDe(i);
     const sev = motivo ? sevOf(i) : 'good';
     return (
-      <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" onClick={() => setModal({ t: 'svc', key: i.key })}>
+      // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
+      <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
+        onClick={() => setModal({ t: 'svc', key: i.key })}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
           <span className="int-pildora">{i.categoria}</span>

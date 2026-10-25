@@ -270,7 +270,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'email',
-    nombre: 'Email (Resend)',
+    nombre: 'Resend',
     categoria: 'Mensajería',
     paraQue: 'Envío de emails de nutrición, broadcasts y reportes.',
     campos: [
@@ -291,7 +291,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'anthropic',
-    nombre: 'MaKo IA (Anthropic)',
+    nombre: 'Anthropic API',
     categoria: 'Inteligencia',
     core: true,
     // ⚠️ DECÍA «El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», y era
@@ -321,7 +321,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'openai',
-    nombre: 'OpenAI',
+    nombre: 'OpenAI API',
     categoria: 'Inteligencia',
     paraQue: 'Transcripción de audios/videos (Whisper) y tareas simples de extracción.',
     campos: [
@@ -340,7 +340,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'groq',
-    nombre: 'Groq',
+    nombre: 'Groq API',
     categoria: 'Inteligencia',
     paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
     campos: [
@@ -361,7 +361,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'gemini',
-    nombre: 'Google Gemini',
+    nombre: 'Gemini API',
     categoria: 'Inteligencia',
     paraQue: 'Tu Gemini: con tu clave, MaKo trabaja solo con tu cuenta. El plan gratis no cobra, pero Google puede usar tus datos para mejorar sus modelos (con revisión humana). Activa la facturación en AI Studio y no los usa.',
     campos: [

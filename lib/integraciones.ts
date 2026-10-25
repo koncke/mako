@@ -122,7 +122,12 @@ function delMetodo(key: string): { soloServidor?: boolean; paraQue?: string } {
   return s ? { soloServidor: !!s.soloServidor, paraQue: s.paraQue } : {};
 }
 
-export async function getIntegraciones(): Promise<Integracion[]> {
+/**
+ * Las integraciones que ve este negocio. `conOcultas`: también las que no son tarjetas de la grilla porque se conectan dentro de
+ * otra (las cuatro IA, en «Tus cuentas de IA», 25/10/2026). La API las pide (ver_integraciones: leer su estado sigue siendo
+ * leer una integración); la grilla y el teléfono no.
+ */
+export async function getIntegraciones(opts: { conOcultas?: boolean } = {}): Promise<Integracion[]> {
   // La CAPA decide qué categorías ve este workspace: al super-admin no le sirve
   // Publicidad/Mensajería/Datos (no corre ads ni mide su propio VSL) y mostrárselas
   // es una lista de rojos de un negocio que no tiene. null = ve todas.
@@ -161,7 +166,7 @@ export async function getIntegraciones(): Promise<Integracion[]> {
   const wsActual = await getWorkspaceActual().catch(() => null);
   const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
 
-  const defs = defsVisibles(DEFS, { cats, ocultas, esSuper });
+  const defs = defsVisibles(opts.conOcultas ? DEFS.map((d) => ({ ...d, oculto: false })) : DEFS, { cats, ocultas, esSuper });
   // ⛔ El WhatsApp OFICIAL (Cloud API de Meta, vía Chatwoot) salió del producto en dos pasos:
   // el 05/10/2026 se escondió la tarjeta (Martín: «ahora Meta te cobra por la app de
   // oficial… directamente voy a sacar el tema de oficial»), salvo para quien ya lo tenía, y
@@ -182,7 +187,9 @@ export async function getIntegracion(key: string): Promise<Integracion | null> {
   if (!d) return null;
   const wsActual = await getWorkspaceActual().catch(() => null);
   const esSuper = wsActual != null && wsActual === (await wsSuperAdmin().catch(() => -1));
-  if (!defsVisibles([d], { cats: null, ocultas: new Set(), esSuper }).length) return null;
+  // `oculto` no la esconde ACÁ: es «no es una tarjeta de la grilla», no «no se configura» (las IA abren este modal desde
+  // «Tus cuentas de IA», 25/10/2026). Lo único que corta es la regla de la plataforma.
+  if (!defsVisibles([{ ...d, oculto: false }], { cats: null, ocultas: new Set(), esSuper }).length) return null;
   return integracionDeDef(d);
 }
 
