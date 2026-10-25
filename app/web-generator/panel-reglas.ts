@@ -552,6 +552,25 @@ export function landingMasReciente(docs: readonly LandingResumen[]): LandingResu
 /** El Panel con el cuadro de crear: `?panel=1` hace que `/web-generator` no salte a la última landing. */
 export const RUTA_NUEVA_LANDING = '/web-generator?panel=1';
 
+/** `/web-generator` sin nada en la URL (o sólo el `?ws=` de la pestaña): la que salta a la última landing tocada. */
+export function esPanelPelado(query: Query): boolean {
+  return Object.keys(query).every((k) => k === 'ws');
+}
+
+/**
+ * Qué rutas de la tab REDIRIGEN, para que lo haga su layout ANTES del loader (25/10/2026, ticket #9: «La pantalla «Web
+ * Generator» se rompió», React #310 en producción). `app/web-generator/loading.tsx` es un Suspense que envuelve a la página
+ * Y a las subrutas: un `redirect()` de ahí adentro va en el stream (200 + meta refresh, no 307) y queda en carrera con la
+ * hidratación del router (el mismo #310 del ticket #7, docs/hallazgos-infra.md). Las tres que redirigen: la pelada (a la
+ * última landing, desde el 24/10), `/analizar` y `/crear` (los links viejos). null = no redirige: el layout no hace nada.
+ */
+export function redireccionDelLayout(ruta: string | null, query: Query): 'ultima' | 'analizar' | 'crear' | null {
+  if (ruta === '/web-generator') return esPanelPelado(query) ? 'ultima' : null;
+  if (ruta === '/web-generator/analizar') return 'analizar';
+  if (ruta === '/web-generator/crear') return 'crear';
+  return null;
+}
+
 /** Las que se muestran: sin la papelera, la más tocada primero, filtradas por lo que se busca. */
 export function landingsDeLaLista(docs: readonly LandingResumen[], busca: string): LandingResumen[] {
   const q = busca.trim().toLowerCase();

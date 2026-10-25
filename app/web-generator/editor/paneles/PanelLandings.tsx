@@ -30,6 +30,7 @@ import { landingsDeLaLista, RUTA_NUEVA_LANDING } from '../../panel-reglas';
 export { RUTA_NUEVA_LANDING };
 import { useEditorLanding } from '../contexto';
 import { Ico } from '../../Ico';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const CSS = `
 .gma-ls { flex: 1; min-height: 0; display: flex; flex-direction: column; }
@@ -87,7 +88,7 @@ export function PanelLandings() {
           <Ico n="mas" t={14} /><span>Nueva landing</span>
         </button>
         {error ? (
-          <p className="gma-ls-aviso" role="alert">No pude leer tus landings. <button type="button" className="gma-boton gma-boton--chico" onClick={() => { void cargar(); }}>Reintentar</button></p>
+          <p className="gma-ls-aviso" role="alert">No pude leer tus landings. <button type="button" className="gma-boton gma-boton--chico" onClick={() => { void cargar(); }}>Reintentar</button><ReportarASoporte /></p>
         ) : docs === null ? (
           <p className="gma-ls-aviso">Cargando…</p>
         ) : visibles.length === 0 ? (

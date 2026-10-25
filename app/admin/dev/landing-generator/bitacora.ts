@@ -1146,4 +1146,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '22:19', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el Web Generator ya no se rompe al abrirlo',
+    puntos: [
+      'Al entrar al Web Generator, a veces la pantalla se rompía con un error. Pasaba porque te lleva directo a tu última landing, y ese salto chocaba con la pantalla de «cargando».',
+      'Ahora el salto pasa antes de que aparezca el «cargando», así que ya no choca. Lo mismo para los enlaces viejos de «Analizar» y «Crear» del Web Generator.',
+      'Y quedó un control que revisa toda la app: si otra pantalla nueva repite este error, se avisa antes de salir.',
+    ],
+    archivos: [
+      'app/web-generator/layout.tsx — el salto a tu última landing, antes del «cargando»',
+      'tests/redirige-antes-del-loader.test.ts — el control que revisa toda la app',
+      'docs/hallazgos-infra.md — qué pasó y las otras pantallas que quedan por revisar',
+    ],
+    revisar: '/web-generator',
+    tickets: [9],
+  },
 ];
