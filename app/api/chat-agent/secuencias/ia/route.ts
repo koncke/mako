@@ -62,7 +62,7 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta, lugarInventado } from '@/lib/flujo-ia-intencion';
 import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
@@ -304,7 +304,13 @@ export async function POST(req: NextRequest) {
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
           const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
           send({ t: 'fase', fase: 'respuesta' });
-          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: deIARespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
+          // Y un lugar de Configuraciones que no existe es un error, como en Editar (24/10/2026, f22: `lugarInventado`).
+          const traducirRespuesta = (obj: Record<string, unknown>) => {
+            const x = deIARespuesta(obj);
+            const falso = x.r.respuesta ? lugarInventado(x.r.respuesta) : null;
+            return falso ? { ...x, errores: [...x.errores, falso] } : x;
+          };
+          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: traducirRespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
           if ('error' in g) {
             await anotar([mensajeChat('mako', g.error, 'app')]);
             send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });

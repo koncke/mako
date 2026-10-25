@@ -60,6 +60,7 @@ import type { CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
 import { PedirAlEquipo } from './PedirAlEquipo';
+import { Icon } from '@/app/_components/icons';
 import type { HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ArchivoHilo, ItemHilo } from '@/app/m/mako/chat-ui';
@@ -149,6 +150,11 @@ export type ChatMakoProps = {
   onCrearOtra?: (pedido: string) => Promise<boolean>;
   /** Se eliminó o volvió OTRA automatización desde una burbuja: la lista se vuelve a leer. */
   onListaCambio?: () => void;
+  /**
+   * Abre Configuraciones de ESTA automatización (la tuerca del título, SecuenciaPerfil). Con esto, un globo de MaKo que habla
+   * de Configuraciones lleva esa misma tuerca, que la abre (24/10/2026, f19: «el ícono de configuraciones no es el correcto»).
+   */
+  onAbrirConfiguraciones?: () => void;
   /**
    * LO QUE LA PANTALLA LE HACE DECIR A MaKo (20/10/2026): al activarla, por qué sus mensajes quedan para que los apruebes
    * (`POR_QUE_SE_APRUEBAN`, lib/mensajes-por-aprobar.ts). Una vez por `id`; no se guarda en el hilo: lo sigue diciendo la
@@ -736,7 +742,7 @@ export function ChatMako(p: ChatMakoProps) {
 
   const { items, enGlobo } = hiloUnico({
     hilo, porId, extraPorId, total: mensajes.length, preguntaViva, ultimoMako, deshabilitado: !!p.deshabilitado, trabajando,
-    elegir, tocarBurbuja, voces: voces.current, secuenciaId: p.secuenciaId,
+    elegir, tocarBurbuja, voces: voces.current, secuenciaId: p.secuenciaId, abrirConfiguraciones: p.onAbrirConfiguraciones,
   });
 
   return (
@@ -783,6 +789,8 @@ export function hiloUnico(o: {
   voces?: ReadonlyMap<string, { url: string; secs: number }>;
   /** De qué automatización es el chat: el botón de lo que falta (f23) se lo pasa al equipo desde ésta. */
   secuenciaId?: number;
+  /** Abre Configuraciones (f19): el globo que la nombra lleva la tuerca de verdad. */
+  abrirConfiguraciones?: () => void;
 }): { items: ItemHilo[]; enGlobo: Map<string, EnMensaje> } {
   const { hilo, porId, extraPorId, preguntaViva } = o;
   const enGlobo = new Map<string, EnMensaje>();
@@ -816,7 +824,7 @@ export function hiloUnico(o: {
       continue;
     }
     const viva = x.i === o.total - 1 && preguntaViva && x.m.pregunta?.id === preguntaViva.id ? preguntaViva : null;
-    const pm = parteDeMako(x.m, viva, x.i === o.ultimoMako, o.elegir, o.trabajando || o.deshabilitado, o.secuenciaId);
+    const pm = parteDeMako(x.m, viva, x.i === o.ultimoMako, o.elegir, o.trabajando || o.deshabilitado, o.secuenciaId, o.abrirConfiguraciones);
     items.push({ k: 'msg', id, role: 'assistant', texto: pm.texto, at: x.m.at });
     enGlobo.set(id, pm.en);
   }
@@ -836,7 +844,7 @@ function archivosDe(nombres: readonly string[]): ArchivoHilo[] {
  * turno que cambió el lienzo sin nada pedido afuera: «✓ Listo» y lo que quedó en UNA línea; el detalle tarjeta por tarjeta y
  * lo que MaKo acomodó solo, plegados y en gris. En rojo, SÓLO lo pedido que no se hizo (`noHecho`).
  */
-function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: boolean, onElegir: (e: EleccionMako) => void, deshabilitado: boolean, secuenciaId?: number): { texto: string; en: EnMensaje } {
+function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: boolean, onElegir: (e: EleccionMako) => void, deshabilitado: boolean, secuenciaId?: number, abrirConfiguraciones?: () => void): { texto: string; en: EnMensaje } {
   const preguntaAparte = m.pregunta && m.pregunta.texto.trim() !== m.texto.trim() ? m.pregunta.texto : null;
   const listo = lineaDeListo(m);
   const texto = listo ?? [m.texto, preguntaAparte].filter((t) => t && t.trim()).join('\n\n');
@@ -862,10 +870,29 @@ function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: bool
           ) : null}
           {viva && <TarjetaPregunta pregunta={viva} onElegir={onElegir} deshabilitado={deshabilitado} />}
           {m.falta && secuenciaId != null && <PedirAlEquipo secuenciaId={secuenciaId} falta={m.falta} />}
+          {abrirConfiguraciones && nombraConfiguraciones(m.texto) && <TuercaEnElGlobo onClick={abrirConfiguraciones} />}
         </>
       ),
     },
   };
+}
+
+/** ¿El mensaje de MaKo manda a Configuraciones? Entonces lleva la tuerca (f19). */
+export const nombraConfiguraciones = (texto: string): boolean => /\bConfiguraciones\b/.test(texto);
+
+/**
+ * LA TUERCA DE VERDAD EN EL GLOBO (24/10/2026, f19 de la llamada con Leandro: «Maco debería poder enviar íconos... el ícono de
+ * configuraciones no es el correcto... Fíjate dónde está»): el mismo ícono del botón del título (`BotonTuerca`,
+ * ./SecuenciaPerfil.tsx, `Icon name="config"`) con su nombre, y abre Configuraciones. Así lo que dice MaKo y lo que se ve son
+ * lo mismo, y no hay que buscarlo.
+ */
+function TuercaEnElGlobo({ onClick }: { onClick: () => void }) {
+  return (
+    <button type="button" data-tuerca-mako="" onClick={onClick} title="Abrir Configuraciones de esta automatización" style={S.tuercaGlobo}>
+      <Icon name="config" size={15} />
+      <span>Configuraciones</span>
+    </button>
+  );
 }
 
 /**
@@ -1182,6 +1209,7 @@ const S: Record<string, CSSProperties> = {
   error: { margin: '0 0 8px', fontSize: 13, lineHeight: 1.4, color: 'var(--bad)' },
   fallido: { display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, margin: '2px 4px 6px', fontSize: 12, color: 'var(--bad)' },
   reintentar: { border: 'none', background: 'none', padding: 0, font: 'inherit', fontWeight: 600, color: 'var(--primary)', cursor: 'pointer' },
+  tuercaGlobo: { alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 6, padding: '5px 11px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer', fontFamily: 'inherit' },
   botonArreglo: { alignSelf: 'flex-start', padding: '6px 12px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', fontSize: 12.5, fontWeight: 600, color: 'var(--primary)', textDecoration: 'none' },
   cancelar: { flex: 'none', border: 'none', background: 'none', padding: '4px 2px', font: 'inherit', fontSize: 12.5, fontWeight: 600, color: 'var(--dim)', cursor: 'pointer' },
   link: { color: 'var(--primary)', fontWeight: 600, textDecoration: 'underline' },

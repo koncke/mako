@@ -7164,3 +7164,29 @@ de verdad (sólo la lectura de su JSON): falta ver que Groq ponga `falta` cuando
 Vive en: lib/flujo-ia-consulta.ts (`esPreguntaDictada`, `faltaDelModelo`) · lib/flujo-ia-intencion.ts ·
 lib/automatizacion-chat.ts (`falta`) · app/api/chat-agent/secuencias/ia/route.ts y …/ia/falta/route.ts ·
 app/automations/PedirAlEquipo.tsx · tests/chat-mako-falta-y-pregunta-dictada.test.ts.
+
+## MaKo nombraba un ícono y un lugar que no estaban (24/10/2026, f19 y f22)
+
+**El síntoma (la llamada con Leandro, 31:29 y 36:01):** «el ícono de configuraciones no es el correcto... Fíjate dónde está»,
+y «un bloque para Instagram donde puedes configurar el tope máximo de comentarios», que no existía.
+
+**La causa:** a MaKo se le decía que Configuraciones está «en el «⋯» de esta automatización». Ese es el menú de la FILA, en la
+lista. En el lienzo, donde se chatea con MaKo, Configuraciones se abre con la tuerca del título (`BotonTuerca`,
+app/automations/SecuenciaPerfil.tsx). Y la guarda de un lugar inventado (`errorDeRespuestaEnEditar`) era sólo de Editar,
+pero la respuesta de Leandro salió de explicar.
+
+**Qué quedó:**
+- El prompt dice «la tuerca al lado del nombre de esta automatización» (`LO_QUE_NO_ES_TARJETA`).
+- El globo de MaKo que nombra Configuraciones lleva esa misma tuerca (`Icon name="config"`, `TuercaEnElGlobo`,
+  ChatMako.tsx), que la abre. Así lo que dice MaKo y lo que se ve son lo mismo.
+- `lugarInventado` (lib/flujo-ia-intencion.ts) la usan Editar y explicar: «Configuraciones › X» con una X que no está, o un
+  bloque, sección o pestaña de un canal, vuelve al modelo como error.
+
+**Regla:** lo que el prompt dice de una pantalla se cambia con la pantalla, y lo que MaKo puede mostrar (un ícono, un botón)
+sale del componente de verdad, no de una descripción.
+
+**Sin hacer:** la tuerca del globo sólo está en el chat del lienzo (el modal «Pídeselo a MaKo» no abre Configuraciones). Los
+otros chats (Ops Center) no tienen esta guarda de lugares. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-intencion.ts (`lugarInventado`, `LO_QUE_NO_ES_TARJETA`) · app/api/chat-agent/secuencias/ia/route.ts ·
+app/automations/ChatMako.tsx (`TuercaEnElGlobo`) · app/automations/SecuenciaPerfil.tsx · tests/chat-mako-tuerca-y-lugares.test.ts.

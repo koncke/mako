@@ -2714,4 +2714,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "03:00", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Cuando MaKo te manda a Configuraciones, te muestra el botón de verdad",
+    puntos: [
+      "Lo marcaron Martín y Leandro en su llamada del 24/10: MaKo nombraba un ícono equivocado y un bloque de Instagram que no existía.",
+      "MaKo dice dónde está de verdad: la tuerca al lado del nombre de la automatización.",
+      "Su mensaje trae esa misma tuerca: un toque y se abre Configuraciones.",
+      "Si nombra un lugar que no existe, se corrige antes de que te llegue.",
+    ],
+    archivos: [
+      "lib/flujo-ia-intencion.ts — lugarInventado y lo que se le dice de la pantalla",
+      "app/automations/ChatMako.tsx — la tuerca en el globo",
+      "tests/chat-mako-tuerca-y-lugares.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];
