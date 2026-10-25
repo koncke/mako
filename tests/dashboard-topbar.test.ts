@@ -156,7 +156,8 @@ test('el link compartido no guarda, ni edita, ni comparte, ni abre el detalle de
   assert.match(mas, /\{guardable && !esGeneral && !esAutomatizacion && \(\s*<>\s*<RenglonCompartir onClick=\{abrirCompartir\} \/>/, 'Compartir no está en el ⋮ (o sin la guarda)');
   assert.doesNotMatch(mas, /<BotonCompartir/, 'el modal adentro del menú se desmonta al cerrarlo');
   assert.match(EDITOR, /const capaAbierta = [^;]*\bcompartir\b/, 'con el modal abierto, Suprimir borraría la tarjeta de atrás');
-  assert.match(mas, /\{!soloMirar && \(\s*<>\s*<button[^>]*lk-opcion--mako/, 'el AI Analyst sin la guarda');
+  // Sin AI Analyst desde el 24/10/2026 («Sí, y que la criatura vea la hoja»): no está para nadie, tampoco en un link.
+  assert.doesNotMatch(mas, /lk-opcion--mako|AI Analyst/, 'volvió el AI Analyst al ⋮');
   assert.match(mas, /\{conGuia && \(/, 'la guía sin la guarda');
   assert.match(mas, /onClick=\{exportarCsv\}[\s\S]*onClick=\{exportarPdf\}/, 'Exportar se fue del ⋮');
   // «Nueva hoja» y las acciones de una hoja cuelgan de poder guardar; la ficha de una llamada, de no ser un link.

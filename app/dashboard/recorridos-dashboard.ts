@@ -37,8 +37,8 @@ import type { PasoRecorrido } from '@/lib/recorridos';
 export const RECORRIDO_DASHBOARD = 'dashboard';
 export const RECORRIDO_DASHBOARD_EDICION = 'dashboard-edicion';
 
-/** El último paso de los dos: el ⋮, donde están el AI Analyst, Exportar y cómo volver a ver esta guía. */
-const PASO_AYUDA: PasoRecorrido = { objetivo: 'dash-ayuda', titulo: 'Más opciones', texto: 'AI Analyst, Exportar y esta guía, siempre aquí.' };
+/** El último paso de los dos: el ⋮, donde están Exportar y cómo volver a ver esta guía (el AI Analyst salió el 24/10/2026). */
+const PASO_AYUDA: PasoRecorrido = { objetivo: 'dash-ayuda', titulo: 'Más opciones', texto: 'Exportar y esta guía, siempre aquí.' };
 
 /** EL DE MIRAR: la topbar de izquierda a derecha, un gráfico y lo que se hace con él. */
 export const PASOS_DASHBOARD: PasoRecorrido[] = [

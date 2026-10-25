@@ -66,7 +66,7 @@ function useBordeDeLaBarra(): number {
   return borde;
 }
 
-export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, encimaDeModales = false }: {
+export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, pedido = null, entidad = null, modo = null, onModo, pantalla = null, encimaDeModales = false }: {
   /** El nombre de la tab («CRM», «Automations»): el `aria-label` y desde dónde va lo que se escribe al Cerebro, que reparte. */
   tab: string;
   /** Lo que la pantalla tiene abierto (OC6, lib/chat-desde.ts): el lead de la ficha, la automatización del lienzo. El turno lo
@@ -76,6 +76,9 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
   modo?: ModoChat | null;
   /** Si la pantalla deja cambiar de modo sin salir: «Analizar · Editar» arriba del hilo (el slot de Discutir/Editar). */
   onModo?: (m: ModoChat) => void;
+  /** Lo que la tab tiene dibujado, en texto (24/10/2026, «que la criatura vea la hoja»): viaja con cada mensaje y el turno lo
+   *  lee como datos (`Desde.pantalla`, lib/chat-desde.ts). En el Dashboard, los gráficos de la hoja abierta con su vista. */
+  pantalla?: string | null;
   /** Lo de la tab arriba del hilo que NO es una pregunta (el «Calladas» del CRM, un aviso de que no se pudo leer). */
   arriba?: ReactNode;
   /** Lo que la tab le pregunta a la persona (las sugerencias del CRM, con «Hacerlo» y «Ahora no»): va en el MISMO bloque de
@@ -119,7 +122,7 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
     return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
   return abierto
-    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} onCerrar={cerrar} sobre={sobre} />
+    ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} />
     : (
       <button type="button" className="ch-tab-mako" style={{ left: borde + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
         title="MaKo" onClick={abrir}>
@@ -129,10 +132,10 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
 }
 
 /** El panel abierto: la conversación «Cerebro» de la persona, con el motor del Ops Center. */
-function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, onCerrar, sobre }: {
+function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, onMandado, entidad, modo, onModo, pantalla, onCerrar, sobre }: {
   tab: string; izquierda: number; arriba: ReactNode; trabajos: readonly TrabajoTerminado[]; preguntas: readonly PreguntaDeLaTab[] | null;
   pedido: { texto: string; vez: number } | null; onMandado: () => void;
-  entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; onCerrar: () => void;
+  entidad: EntidadChat | null; modo: ModoChat | null; onModo?: (m: ModoChat) => void; pantalla: string | null; onCerrar: () => void;
   /** Abierto encima de un modal de la tab: es una capa más de la pila (anidada: la de abajo se sigue viendo). */
   sobre: boolean;
 }) {
@@ -140,9 +143,10 @@ function PanelDelCerebro({ tab, izquierda, arriba, trabajos, preguntas, pedido, 
   const [elegido, setElegido] = useState<ElegidoChat | null>(null);
   const hilo = useRef<HTMLDivElement>(null);
   const caja = useRef<HTMLTextAreaElement>(null);
-  // Desde dónde va lo que se escribe (OC6): la tab, lo que tiene abierto y el modo. El mismo objeto mientras no cambien.
+  // Desde dónde va lo que se escribe (OC6): la tab, lo que tiene abierto, el modo y lo que tiene dibujado. El mismo objeto
+  // mientras no cambien (`useChatCliente` lo lee recién al mandar).
   const idEntidad = entidad?.id ?? null;
-  const desde = useMemo<Desde>(() => ({ tab, entidad, modo }), [tab, entidad?.tipo, idEntidad, entidad?.titulo, modo]); // eslint-disable-line react-hooks/exhaustive-deps
+  const desde = useMemo<Desde>(() => ({ tab, entidad, modo, ...(pantalla ? { pantalla } : {}) }), [tab, entidad?.tipo, idEntidad, entidad?.titulo, modo, pantalla]); // eslint-disable-line react-hooks/exhaustive-deps
   // Siempre el Cerebro: al llegar la lista lo elige solo (`entrarAlCerebro`).
   const k = useChatCliente({ elegido, setElegido, activo: true, entrarAlCerebro: true, chatInicial: null, opcionArmar: '', busca: '', caja, desde });
   // El pedido de la tab sale al Cerebro (no a otro chat) y cuando el hilo está listo y libre: `enviar` dice si salió.
