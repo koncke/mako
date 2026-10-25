@@ -2736,3 +2736,51 @@ Lo que quedó SIN hacer:
   testimonio o una cifra que la IA escriba en una página de MaKo no se vacía sola.
 - El ⋮ de una sección de diseño ofrece cosas de Gamma que no le aplican (color de fondo, estilo, «Probar nuevo diseño»).
 - Sin mirar con clics en el editor de verdad.
+
+## El clic derecho en los chats embebidos y en el lienzo (24/10/2026 noche, P5 de claude5)
+
+Martín, 24/10: «en Automations o Web Generator, si le doy click derecho, no hace nada» y «en el lienzo de Web tambien
+debería funcionar el click derecho, como en otros editores». Plan en [diseno-editor-web-como-automations.md](diseno-editor-web-como-automations.md) §5.
+**Vive en:** `app/_chat/HiloMako.tsx` (`MenuDelMensaje`) · `app/web-generator/editor/paneles/PanelAgente.tsx` y
+`ChatAgente.tsx` (la cita) · `app/web-generator/editor/nodos/TarjetaVista.tsx` (el lienzo) · `extensiones/piezas.tsx`
+(`Flotante` con un punto).
+
+- **La causa:** el menú de un mensaje vive en `MensajeWA` y se prende con `ContextoWA`; sólo lo daban el Ops Center, el
+  teléfono y el Second Brain. **Regla:** `HiloMako` pone uno MÍNIMO si quien lo monta no trae el suyo (Copiar siempre;
+  Responder si la pantalla le pasa `onCitar`). Si viene uno de afuera, gana el de afuera. Así lo heredan los chats que
+  dibujan con `HiloMako` sin tocar cada pantalla; **Responder sólo aparece donde la pantalla sabe poner la cita en su caja**
+  (hoy, el editor web). En la caja va `CitaCaja` del Ops Center y lo escrito sale con `armarConCita`, igual que allá.
+- **Con el dedo no se abre:** en Android el `contextmenu` que llega después del mantener apretado cierra el menú en el mismo
+  gesto (MensajeWA.tsx, «POR QUÉ SE CERRABA SOLO»). Los embebidos son de la computadora; el teléfono trae su ContextoWA.
+- **El lienzo de Automations no se pisa:** su `onContextMenu` (app/_components/Lienzo.tsx) mira si el clic fue ADENTRO de
+  su caja por el DOM (`caja.current.contains`), no por el árbol de React, así que un chat en un portal no le abre el menú.
+- **El lienzo del editor web:** el clic derecho sobre una sección abre el MISMO menú del ⋮, en el punto del clic (no una
+  lista nueva: lo que crece en el ⋮ crece acá). Lo que se abre desde ahí (estilo, notas, diseños) se sigue anclando al ⋮.
+  Quedan con el menú del navegador: Shift + clic derecho, y el clic derecho con texto elegido (copiar, el corrector).
+- ⚠️ **Trampa para quien sume otro clic derecho adentro de una sección:** el de la sección es un listener NATIVO en su
+  elemento, y React escucha en la raíz: el nativo corre ANTES que cualquier `onContextMenu` de React de un bloque de
+  adentro, así que `e.preventDefault()` en React llega tarde. Un bloque que quiera su propio menú se escucha también con un
+  listener nativo (en su elemento) y hace `preventDefault`: el de la sección respeta `defaultPrevented`.
+- **Un `Diseño editable` (iframe) no lo dispara:** el `contextmenu` adentro del iframe no sale del iframe. Ahí queda el del
+  navegador (que es el que sirve para copiar y pegar texto del diseño).
+
+Lo que quedó SIN hacer:
+- Responder en los demás chats que dibujan con `HiloMako` (Automations, Offer, el onboarding, Dashboard…): hoy traen
+  Copiar; cada pantalla suma Responder pasándole `onCitar` y la cita a su caja (`arriba` de CajaChat).
+- Sin mirar con clics en el editor de verdad.
+
+## La página de Mauricio ya no da 403 en producción, y cómo medirlo sin escribir nada (24/10/2026 noche, claude5)
+
+Medido en producción (el despliegue de las ~19 h, con c3af56f7b) desde el Chrome de Martín, en el Cliente de Prueba: la
+vista aislada del Diagnóstico (`GET /api/landing-generator/diagnostico/pagina?url=https://sprint.mauriciobustos.com`)
+bajó la página y avisó «listo». Usa `paginaParaVer` → `bajarHtml`, el MISMO camino (con el reintento ante un 403) que
+Offer y el análisis (`extraerLanding`), así que el 403 que vio Martín no sale más.
+
+- ⚠️ **Esa ruta responde 200 también cuando NO pudo leer la página:** el error va ADENTRO, como un documento que avisa
+  por `postMessage({ gmDg: 1, tipo: 'error', mensaje })` (`documentoErrorDiagnostico`). El código de estado no dice nada;
+  para medirla desde afuera hay que escuchar el mensaje: `tipo: 'listo'` = la bajó, `tipo: 'error'` = no.
+- **Medirla sin escribir:** es un GET de sólo lectura, pero sólo se sirve a un iframe (`Sec-Fetch-Dest: iframe`). Se
+  arma con un `<iframe sandbox="allow-scripts">` desde cualquier página de hola-mako.com con la sesión del admin, y
+  `&ws=3`. No crea análisis ni filas en ningún negocio.
+- **La pestaña del editor se cuelga con la extensión** (dos veces el 24/10: `Runtime.evaluate` sin respuesta a los 45 s).
+  Una página liviana del mismo dominio (`/api/auth/me`) sirve de base para medir rutas: responde enseguida.

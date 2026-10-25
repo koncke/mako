@@ -43,7 +43,7 @@ test('pantalla: «Discutir | Editar» en el lugar de los chips de alcance, con l
   assert.match(panel, /<SelectorIntencion valor=\{intencion\} onCambio=\{elegirIntencion\} deshabilitado=\{hilo\.corriendo\} \/>/);
   assert.match(panel, /const \[intencion, elegirIntencion\] = useIntencion\(\);/);
   // Lo escrito: Discutir por su lado (sin tocar la página), Editar como siempre.
-  assert.match(panel, /if \(intencion === 'discutir'\) void pedirDiscusion\(ctxRef\.current, texto, \{ adjuntos: paraEnviar\(items\) \}\);\s*else void pedirEdicion\(ctxRef\.current, texto, 'landing',/);
+  assert.match(panel, /if \(intencion === 'discutir'\) void pedirDiscusion\(ctxRef\.current, conCita, \{ adjuntos: paraEnviar\(items\) \}\);\s*else void pedirEdicion\(ctxRef\.current, conCita, 'landing',/);
   // «Discutir» no llama a «editar» ni arma una propuesta: una burbuja de texto.
   const discusion = panel.slice(panel.indexOf('async function pedirDiscusion('), panel.indexOf('type Sugerencia ='));
   assert.ok(discusion.length > 300, 'no encontré pedirDiscusion');

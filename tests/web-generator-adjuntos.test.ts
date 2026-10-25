@@ -149,7 +149,7 @@ test('las piezas son las del Ops Center (un solo chat en toda la app): el «+»,
   assert.doesNotMatch(src, /type="file"|<input/, 'un ⊕ propio: la regla es UN chat con sus piezas');
   // Cada archivo se lee al entrar, con la ruta de Importar, y lo que viaja a «editar» es su texto.
   assert.match(src, /void leerArchivo\(n\.file, ac\.signal\)\.then\(\(r\) => \{[\s\S]{0,160}poner\(\(xs\) => conLectura\(xs, n\.id, r\)\);/);
-  assert.match(src, /else void pedirEdicion\(ctxRef\.current, texto, 'landing', \{ adjuntos: paraEnviar\(items\) \}\);/);
+  assert.match(src, /else void pedirEdicion\(ctxRef\.current, conCita, 'landing', \{ adjuntos: paraEnviar\(items\) \}\);/);
   // (24/10/2026: «editar» se llama en un lazo que, si la landing no entra de una vez, vuelve a pedir sólo la sección del cursor.)
   assert.match(src, /const conAdjuntos = adjuntos\.length \? \{ adjuntos: \[\.\.\.adjuntos\] \} : \{\};[\s\S]{0,1200}?r = await pedirIA\(\{ accion: 'editar', [^\n]*\.\.\.conAdjuntos, params:/);
   // La decisión del 11/10 se dio vuelta: la cabecera ya no dice que no se adjunta.

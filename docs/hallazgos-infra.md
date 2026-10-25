@@ -148,7 +148,7 @@ sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave 
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 
-## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (25/10/2026, ticket #9)
+## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (24/10/2026, ticket #9)
 
 **Síntoma:** «La pantalla «Web Generator» se rompió» (ticket #9, ws 10, 24/10 21:43 ART, Chrome en Windows), «Minified
 React error #310» al abrir `/web-generator`.
@@ -173,7 +173,7 @@ permiso); cada una se revisa en su chat y, si redirige en una carga normal, pasa
 lista. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista (si no, una regresión
 suya pasaría callada). Los tres dashboards salieron el 25/10 (la entrada de abajo).
 
-**No se midió en producción:** la pestaña del Chrome de Martín no respondió (25/10). Para medirlo:
+**No se midió en producción:** la pestaña del Chrome de Martín no respondió (24/10). Para medirlo:
 `fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
 con el arreglo.
 
@@ -207,7 +207,7 @@ app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-a
 
 *25/10/2026, chat «Automations» (claude5).*
 
-*25/10/2026, chat «Landings» (claude5).*
+*24/10/2026, chat «Landings» (claude5).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
