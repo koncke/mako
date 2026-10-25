@@ -13,6 +13,7 @@ import { getSesionAdmin } from '@/lib/auth';
 import { eliminarCredencial, estadoCampo, guardarCredencial, RemitenteNoPropioError } from '@/lib/credenciales';
 import { wsObligatorio } from '@/lib/workspace';
 import { ENVS_METODO, SERVICIOS_METODO, servicioMetodo } from '@/lib/metodo-catalogo';
+import { metaConectadaConCampos } from '@/lib/zernio-meta-cuerpo';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,9 +27,11 @@ async function estadoServicios(ws: number) {
       return { env: c.env, ...est };
     }));
     const requeridos = s.campos.filter((c) => !c.opcional).map((c) => c.env);
-    const conectada = requeridos.length > 0
+    const porCampos = requeridos.length > 0
       ? campos.filter((c) => requeridos.includes(c.env)).every((c) => c.configurado)
       : campos.some((c) => c.configurado);
+    // Meta por Zernio: la conexión reemplaza al token (la misma regla que `integracionConectada`).
+    const conectada = porCampos || (s.key === 'meta' && metaConectadaConCampos((e) => campos.some((c) => c.env === e && c.configurado)));
     servicios.push({ key: s.key, conectada, campos });
   }
   return servicios;

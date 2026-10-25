@@ -2393,3 +2393,23 @@ hacia afuera. Las comillas no lo frenan: Excel evalúa una celda entre comillas 
   (app/api/graficos/exportar/route.ts). Lo vio el chat «Onboarding» y no le toca a esa área.
 
 *21/10/2026, chat «Onboarding» (claude4).*
+
+## Sin sesión, el login perdía la query del destino: la vuelta de Facebook terminaba en una página pelada (25/10/2026)
+
+**Vive en:** `proxy.ts` (`denegar`) · `tests/login-next-con-query.test.ts`
+
+- **Síntoma** (Martín, conectando la cuenta de MaKo por Zernio): Facebook lo devolvió a
+  `/integraciones?abrir=meta&connected=metaads&accountId=…` en una pestaña SIN sesión. El proxy lo mandó a
+  `/login?abrir=meta&connected=…&next=%2Fintegraciones` y, después del login, quedó en /integraciones sin el modal y sin el
+  aviso de «conectado».
+- **Causa:** `denegar` clonaba la URL (la query original quedaba colgada en /login) y ponía en `next` sólo el `pathname`.
+  De rebote, un `error=` de un tercero (Zernio vuelve con `error=reconnect_required`, `error=invalid_field_value`) quedaba en
+  la URL de /login, que lee `?error=` como un error de SU login.
+- **No era sólo el script:** la vuelta «de página entera» de `<ConectarViaZernio>` (teléfono, navegador interno de Instagram, que
+  tiene sus propias cookies) vuelve a `volver` con `?zernio=<red>`; sin sesión, la marca se perdía igual y la pantalla nunca
+  medía la conexión.
+- **La regla:** el destino de `next` es la dirección ENTERA (pathname + query) y /login queda sólo con `next`. Los dos lectores
+  (`destinoSeguro` en el server, `destinoInterno` en el formulario) ya aceptaban un destino con query: sólo exigen una `/` y no
+  dos, y rechazan los caracteres de control. El `oauth_next` va en una cookie: Next la codifica al escribirla.
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

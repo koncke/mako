@@ -18,6 +18,8 @@
 
 // Relativo y no `@/`, a propósito: lo importan scripts además de las rutas.
 import { salidaDegenerada } from './stt-degenerado';
+import { zFetch } from './zernio';
+import { mediaDeAnuncio, type MediaDeAnuncio } from './zernio-meta-cuerpo';
 
 const GRAPH = 'https://graph.facebook.com';
 const MAX_BYTES = 25 * 1024 * 1024; // lo que escucha Whisper; Gemini topea antes (14 MB inline)
@@ -224,6 +226,10 @@ export async function transcribeAd(
     /** Token de Meta del WORKSPACE (resolver con credWs en el caller server). Sin
      *  él cae al env global (dueño / scripts CLI) — NUNCA omitir para un cliente. */
     metaToken?: string;
+    /** La clave de Zernio del negocio, si conectó Meta por ahí (`accesoDeMeta`, lib/meta-via.ts, 25/10/2026). Con ella el
+     *  video y la imagen salen de `GET /v1/ads/{adId}/media`; si Zernio falla, sigue por `metaToken` si lo hay. Con clave
+     *  y sin token NUNCA cae al token del entorno: sería el de otro negocio. */
+    zernioClave?: string;
   },
 ): Promise<TranscribeResult> {
   const instruccion = opts?.instruccion?.trim() || undefined;
@@ -233,8 +239,22 @@ export async function transcribeAd(
   const whisperHint = instruccion || (pr?.whisperGlossary?.trim() || undefined);
   const base: TranscribeResult = { ad_id: adId, video_id: null, tipo: null, status: 'ok', transcript: null, secciones: null, idioma: null, duracion_s: null, model: null, error: null };
   try {
-    const ver = env('META_API_VERSION'), token = opts?.metaToken ?? env('META_ACCESS_TOKEN');
-    const video = await getAdVideo(adId, ver, token);
+    // Por Zernio (25/10/2026): los links directos del video y la imagen. Si falla y hay token, por la Graph API.
+    let porZernio: MediaDeAnuncio | null = null;
+    if (opts?.zernioClave) {
+      try {
+        porZernio = mediaDeAnuncio(await zFetch<unknown>(opts.zernioClave, `/ads/${encodeURIComponent(adId)}/media`, undefined, 30_000));
+        if (!porZernio) throw new Error('Zernio contestó el creativo sin la lista `media`');
+      } catch (e) {
+        if (!opts.metaToken) throw e;
+        console.error(`[transcribe] creativo de ${adId} por Zernio falló, sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+        porZernio = null;
+      }
+    }
+    const token = porZernio ? null : (opts?.metaToken ?? env('META_ACCESS_TOKEN'));
+    const video = porZernio
+      ? (porZernio.video ? { video_id: porZernio.video.videoId ?? '', source: porZernio.video.url } : null)
+      : await getAdVideo(adId, env('META_API_VERSION'), token!);
 
     if (video) {
       base.video_id = video.video_id;
@@ -252,8 +272,8 @@ export async function transcribeAd(
 
     // Sin video → imagen. Preferir la imagen de ALTA resolución del creativo/post
     // (getAdImage); el thumbnail guardado es respaldo (puede ser minúsculo).
-    let img: string | null = null;
-    try { img = await getAdImage(adId, opts?.metaToken); } catch { /* no fatal */ }
+    let img: string | null = porZernio ? porZernio.imagen : null;
+    if (!porZernio) { try { img = await getAdImage(adId, opts?.metaToken); } catch { /* no fatal */ } }
     img = img ?? opts?.imageUrl ?? null;
     if (!img) return { ...base, status: 'sin_video' };
     try {

@@ -18,6 +18,7 @@ import { mandarCodigoDeBaja } from '@/lib/invitaciones';
 import { aplicarRetencion, type OpcionRetencion } from '@/lib/retencion-plan';
 import { subirAPro, type ResultadoSubida } from '@/lib/subir-plan';
 import { guardarDeudaAntesDeLaBaja } from '@/lib/plan-deuda';
+import { empezarPlanAhora, type ResultadoEmpezar } from '@/lib/empezar-plan';
 
 export async function darmeDeBajaAction(): Promise<ResultadoBaja> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
@@ -51,6 +52,18 @@ export async function aceptarRetencionAction(opcion: OpcionRetencion = 'descuent
  * «Pasar a Pro» (23/10/2026): adonde llevan los carteles de tope. Sólo el admin. Stripe cobra la diferencia ahora y, si no
  * pasa, no cambia nada; Mercado Pago sube desde el próximo cobro, con Pro en el acto (lib/subir-plan.ts).
  */
+/**
+ * «Empezar mi plan ya» (25/10/2026): a donde lleva el botón de los topes de la PRUEBA GRATIS. Sólo el dueño (quien mira otro
+ * negocio no le abre un cobro a su tarjeta). Devuelve el link del pago; la prueba se cancela cuando ese pago entra.
+ */
+export async function empezarPlanYaAction(): Promise<ResultadoEmpezar> {
+  const ws = await adminDeWorkspaceActual().catch(() => null);
+  if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede empezar su plan.' };
+  if (await estaImpersonando().catch(() => true)) return { ok: false, resumen: 'El plan lo empieza el dueño del negocio desde su cuenta.' };
+  const sesion = await getUsuarioActual();
+  return empezarPlanAhora(ws, sesion?.nombre || sesion?.email || 'el negocio');
+}
+
 export async function pasarAProAction(): Promise<ResultadoSubida> {
   const ws = await adminDeWorkspaceActual().catch(() => null);
   if (ws == null) return { ok: false, resumen: 'Sólo quien administra el negocio puede cambiar su plan.' };

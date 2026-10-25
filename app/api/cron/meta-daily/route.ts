@@ -48,6 +48,7 @@ export async function GET(request: NextRequest) {
       try {
         const creatives = await fetchAdCreatives(
           metrics.map((m) => m.ad_id).filter((v): v is string => !!v),
+          fecha,
         );
         applyCreatives(metrics, creatives);
       } catch (err) {

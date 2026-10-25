@@ -30,6 +30,22 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
   recupera, comparando 3 y 7 días contra el promedio).
 - bir.ch / Revealbot: reglas «si el costo por resultado está por debajo del objetivo, subir 20% con un techo».
 
+## La app por dentro (25/10/2026, con la cuenta de Martín): `vivo-*.jpg`
+
+Recorrida con Claude in Chrome, sólo mirando (la cuenta de Madgicx de Martín conectada a la cuenta publicitaria de MaKo,
+sin campañas). **La app NO es la imagen de la landing**: es clara, y el AI Marketer tiene el saludo en un globo, la franja
+con la mascota, las dos tarjetas, las pestañas Open · Completed · Dismissed y «See details» en cada fila. Lo que se copió:
+
+| Pantalla de Madgicx | Captura | En MaKo |
+|---|---|---|
+| AI Marketer | `vivo-ai-marketer.jpg`, `vivo-ai-marketer-filas.jpg` | `/ads-manager` |
+| El detalle de una recomendación (Hide details, el porqué, la tarjeta de color, los pasos, el botón al pie) | `vivo-ai-marketer-detalle.jpg` | el detalle de cada fila |
+| AI Marketer settings (página, «Back», «Optimization KPIs»: Primary KPI y Target value) | `vivo-ai-marketer-ajustes.jpg` | `/ads-manager/ajustes` |
+| Ask AI Marketer to Do More («Still have tedious manual tasks?») | `vivo-pedir-mas.jpg` | «Pedirle más a MaKo» |
+| Automation Overview (Start · Pause · Increase · Decrease, total, el gráfico, la tabla de tácticas) | `vivo-automatizaciones-resumen.jpg`, `vivo-automatizaciones-tabla.jpg` | `/ads-manager/automatizaciones` |
+| Choose Automation Tactic y las Automation Strategies | `vivo-automatizaciones-elegir.jpg`, `vivo-automatizaciones-estrategias.jpg` | las seis tácticas fijas de MaKo (no se crean tácticas nuevas) |
+| Ads Manager 2.0, 360° Meta Audit, One-Click Report | `vivo-ads-manager.jpg`, `vivo-meta-360.jpg`, `vivo-one-click.jpg` | fuera del Media Buyer (Ads Analyst, Dashboard) |
+
 ## Inventario de funciones (25/10/2026): Madgicx por dentro, contra MaKo
 
 Pedido de Martín (25/10): «si quiero que tenga todas las funcionalidades... podrias ver otras imagenes que encuentres
@@ -63,13 +79,13 @@ how-madgicx-custom-automation-works, how-to-use-madgicx-automation-strategies):
 
 | Función de Madgicx | Captura | MaKo hoy | Qué falta / cómo |
 |---|---|---|---|
-| Elegir táctica: Surf, Stop Loss, Revive, Sunsetting (por conjunto, anuncio o campaña) | `automatizaciones-elegir-tactica.png` | ⚠️ las seis tácticas corren siempre, juntas | prender y apagar cada una; nivel por táctica |
+| Elegir táctica: Surf, Stop Loss, Revive, Sunsetting (por conjunto, anuncio o campaña) | `automatizaciones-elegir-tactica.png` | ✅ `/ads-manager/automatizaciones`: cada una apagada / propone / automática | — |
 | Elegir el evento que optimiza (Purchase, Lead, Add to cart…) | `automatizaciones-evento.png` | ⚠️ uno por negocio (lead / agenda / venta, y los dos últimos salen del CRM) | sigue por negocio: el CRM es lo que MaKo agrega |
-| Condiciones con el valor recomendado, fijo o dinámico (contra el promedio de la cuenta) | `automatizaciones-condiciones.png`, `automatizaciones-valor-dinamico.png` | ⚠️ umbrales fijos en lib/media-buyer/motor.ts | los umbrales de cada táctica, editables, con el recomendado al lado |
-| A qué aplica (todos los de adquisición, o elegidos; los nuevos entran solos) | `automatizaciones-aplica-a.png` | ❌ aplica a toda la cuenta | lista de campañas con casillas (el árbol de Zernio/Meta que ya se lee) |
-| «Automation Overview»: Start / Pause / Increase / Decrease, total, en el tiempo | `automatizaciones-resumen.png` | ❌ | sale de `media_buyer_decisiones` (lo aplicado por tipo y por día) |
-| Lista de tácticas: interruptor, autor, activos, frecuencia, última vez | `automatizaciones-lista.png` | ❌ | idem |
-| Historial de una táctica | `automatizaciones-historial.png` | ⚠️ «Hechas» mezcla todas | filtrar Hechas por táctica |
+| Condiciones con el valor recomendado, fijo o dinámico (contra el promedio de la cuenta) | `automatizaciones-condiciones.png`, `automatizaciones-valor-dinamico.png` | ✅ fijo, editable, con el recomendado al lado | el valor dinámico, no |
+| A qué aplica (todos los de adquisición, o elegidos; los nuevos entran solos) | `automatizaciones-aplica-a.png` | ✅ toda la cuenta o las campañas elegidas | por conjunto, no |
+| «Automation Overview»: Start / Pause / Increase / Decrease, total, en el tiempo | `automatizaciones-resumen.png` | ✅ Prendió · Pausó · Subió · Bajó · Total, 7 o 30 días, por día | — |
+| Lista de tácticas: interruptor, autor, activos, frecuencia, última vez | `automatizaciones-lista.png` | ✅ interruptor, qué cubre, frecuencia de 14 días, última vez, modo y «⋯» | el autor, no (las tácticas son de MaKo) |
+| Historial de una táctica | `automatizaciones-historial.png` | ✅ «⋯ → Historial» | — |
 | Reglas propias con Y/O, métricas, ventanas y horarios | `automatizaciones-regla-propia.png` | ❌ | después de lo de arriba: un motor de reglas es otra pieza |
 
 **Lo de alrededor** (otras pantallas de Madgicx, y dónde vive eso en MaKo):

@@ -89,7 +89,7 @@
 
 .mb-editar-meta {
   height: 26px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid var(--mbx-acento); border-radius: var(--r-sm);
-  background: transparent; color: var(--mbx-acento); font: 500 15px var(--mbx-texto); cursor: pointer;
+  background: transparent; color: var(--mbx-acento); font: 500 15px var(--mbx-texto); cursor: pointer; text-decoration: none;
 }
 
 /* El chip «Todas las recomendaciones 4 ×», con su filete abajo */
@@ -265,4 +265,97 @@
   .mb-globo { font-size: 15px; }
   .mb-globo:nth-child(2) { margin-left: 0; }
   .mb-pedir-ops { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Automatizaciones (/ads-manager/automatizaciones): el «Automation Overview» de Madgicx ── */
+.mba-volver { display: inline-block; margin-bottom: 4px; font-size: 14px; color: var(--mbx-gris); text-decoration: none; }
+.mba-volver:hover { color: var(--mbx-tinta); }
+.mba-resumen { margin-top: 22px; min-height: 0; }
+.mba-contadores { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.mba-contador { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: var(--r-md); background: var(--mbx-banda); }
+.mba-contador span { font-size: 16px; }
+.mba-contador b { font-size: 26px; font-weight: 600; line-height: 1.1; }
+.mba-contador em { font-style: normal; font-size: 13px; color: var(--mbx-gris); }
+.mba-contador[data-total="1"] { background: var(--primary-bg); }
+.mba-contador[data-total="1"] b { color: var(--primary-strong); }
+.mba-barras { display: flex; align-items: flex-end; gap: 4px; height: 72px; }
+.mba-barras i { flex: 1; min-height: 3px; border-radius: 3px 3px 0 0; background: var(--mbx-barra-violeta); opacity: .8; }
+.mba-barras i[data-cero="1"] { background: var(--mbx-borde); opacity: 1; }
+.mba-tactica[data-apagada="1"] .mb-baldosa, .mba-tactica[data-apagada="1"] .mb-dec-cuerpo { opacity: .5; }
+.mba-titulo { font-size: 20px; }
+.mba-que { color: var(--mbx-gris); font-size: 13.5px; }
+.mba-frec { display: flex; align-items: flex-end; gap: 2px; height: 32px; width: 98px; flex: none; }
+.mba-frec i { flex: 1; border-radius: 2px; background: var(--mbx-barra-violeta); }
+.mba-frec i[data-cero="1"] { background: var(--mbx-borde); height: 8% !important; }
+.mba-ultima { display: flex; flex-direction: column; align-items: flex-end; min-width: 84px; flex: none; }
+.mba-ultima b { font-size: 18px; font-weight: 600; }
+.mba-ultima span { font-size: 12.5px; color: var(--mbx-gris); white-space: nowrap; }
+.mba-modo[data-modo="automatica"] { background: var(--primary-bg); color: var(--primary-strong); }
+.mba-modo[data-modo="apagada"] { color: var(--mbx-gris); }
+.mba-mas { position: relative; flex: none; }
+.mba-menu { left: auto; right: 0; min-width: 180px; }
+.mba-reco { appearance: none; border: 0; background: none; padding: 0; color: var(--primary); font: inherit; cursor: pointer; text-decoration: underline dotted; }
+.mba-campanas { display: flex; flex-direction: column; gap: 8px; max-height: 260px; overflow-y: auto; }
+.mb-auto-link { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 16px; margin-top: auto; border-radius: var(--r-md); }
+.mb-auto-link:hover .mb-fila-dato > span { color: var(--primary); }
+@media (max-width: 1180px) {
+  .mba-frec, .mba-que { display: none; }
+}
+@media (max-width: 820px) {
+  .mba-contadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  /* La fila de una táctica en dos renglones: arriba el interruptor, el ícono y la táctica; abajo la última vez, el modo y «⋯». */
+  .mba-tactica .mb-dec-fila { flex-wrap: wrap; gap: 12px; }
+  .mba-tactica .mb-dec-cuerpo { flex: 1 1 calc(100% - 140px); }
+  .mba-tactica .mb-dec-meta .mb-etq { max-width: 100%; }
+  .mba-ultima { flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
+  .mba-modo { margin-left: auto; }
+}
+
+/* ── La app por dentro (vivo-ai-marketer.jpg): el saludo en su globo, la franja con la mascota, las pestañas y «Ver detalles» ── */
+.mb-globo-saludo {
+  position: relative; flex: 1; margin: 0; width: fit-content; max-width: max-content; padding: 10px 34px 10px 16px; border-radius: var(--r-md);
+  background: var(--mbx-banda); font: 500 15px var(--mbx-texto); color: var(--mbx-tinta);
+}
+.mb-globo-saludo span { position: absolute; top: -8px; right: 6px; font-size: 16px; }
+.mb-cab:has(.mb-globo-saludo) { justify-content: space-between; min-height: 48px; }
+.mb-franja {
+  margin-top: 18px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 22px 20px 20px;
+  border-radius: var(--r-md); background: var(--mbx-tarjeta-saludo); border: 1px solid var(--mbx-tarjeta-saludo-borde);
+}
+.mb-franja-cara { width: 64px; height: 64px; display: grid; place-items: center; border-radius: 12px; background: var(--mbx-fondo); border: 2px solid var(--mbx-tarjeta-saludo-borde); }
+.mb-franja h2 { margin: 6px 0 0; font-family: var(--mbx-titulo); font-size: 24px; line-height: 1.25; font-weight: 600; max-width: 520px; }
+.mb-franja h2 b { color: var(--mbx-acento); }
+.mb-franja p { margin: 0; font-size: 13px; color: var(--mbx-gris); }
+.mb-franja .mb-hola-acciones { justify-content: center; }
+.mb-pestanas { display: flex; gap: 6px; margin-top: 18px; border-bottom: 1px solid var(--mbx-borde); }
+.mb-pestana {
+  appearance: none; border: 0; background: none; cursor: pointer; padding: 10px 20px 12px; margin-bottom: -1px; font: 500 15px var(--mbx-texto);
+  color: var(--mbx-violeta); border-bottom: 2px solid transparent; opacity: .85;
+}
+.mb-pestana[aria-selected="true"] { border-bottom-color: var(--mbx-violeta); font-weight: 600; opacity: 1; }
+.mb-pestana:hover { opacity: 1; }
+.mb-ver {
+  height: 36px; min-width: 120px; padding: 0 20px; border: 1px solid var(--mbx-violeta); border-radius: var(--r-md); background: var(--mbx-fondo);
+  color: var(--mbx-violeta); font: 500 15px var(--mbx-texto); cursor: pointer; white-space: nowrap;
+}
+.mb-ver:hover:not(:disabled) { background: var(--primary-bg); }
+.mb-ver:disabled { opacity: .5; cursor: not-allowed; }
+.mb-dec[data-abierta="1"] > .mb-dec-fila { background: var(--mbx-banda); }
+
+/* ── Ajustes (/ads-manager/ajustes): la página «AI Marketer settings» (vivo-ai-marketer-ajustes.jpg) ── */
+.mba-ajustes { width: 100%; max-width: 1160px; margin: 20px auto 48px; padding: 0 40px 0 calc(40px + var(--ancho-panel-mako, 0px)); display: flex; flex-direction: column; gap: 16px; }
+.mba-ajustes-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; background: var(--mbx-fondo); border: 1px solid var(--mbx-borde); border-radius: var(--r-md); }
+.mba-ajustes-cab h1 { margin: 0; font-family: var(--mbx-titulo); font-size: 22px; font-weight: 500; display: flex; gap: 10px; align-items: center; }
+.mba-volver-btn { display: inline-flex; align-items: center; text-decoration: none; }
+.mba-card { background: var(--mbx-fondo); border: 1px solid var(--mbx-borde); border-radius: var(--r-md); padding: 20px; display: flex; flex-direction: column; gap: 16px; }
+.mba-card h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.mba-card-cuenta { display: flex; align-items: center; gap: 10px; padding-bottom: 14px; border-bottom: 1px solid var(--mbx-borde); font-weight: 600; }
+.mba-grilla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+@media (max-width: 820px) {
+  .mb-globo-saludo { font-size: 14px; }
+  .mb-franja h2 { font-size: 20px; }
+  .mb-pestana { padding: 10px 12px 12px; font-size: 14px; }
+  .mba-ajustes { padding: 0 16px; margin-top: 12px; }
+  .mba-ajustes-cab { flex-wrap: wrap; }
+  .mba-grilla { grid-template-columns: minmax(0, 1fr); }
 }

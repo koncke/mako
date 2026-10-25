@@ -25,6 +25,7 @@ import { EditorAnuncio } from './EditorAnuncio';
 import { BotonEditarEnEditor } from './editor-video';
 import type { Plan } from './plan-montaje';
 import { MOTIVO_VENCIDO, textoEspera } from '@/lib/montaje/cola';
+import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 
 /** `70.04` → `1:10`. Sin decimales: nadie lee un anuncio en centésimas. */
 function reloj(seg: number): string {
@@ -240,6 +241,7 @@ export function PasoMontaje({ planId, titulo, clips, segundosPorToma }: {
       )}
 
       {error && <Alert tono="bad">{error}</Alert>}
+      <EmpezarPlanYa texto={error || null} />
     </div>
   );
 }

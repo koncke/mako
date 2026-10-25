@@ -5,7 +5,7 @@
 // editor de las tarjetas INSTAGRAM y MESSENGER (app/automations/EditorMensajeSocial.tsx) para decir desde qué cuenta sale el
 // mensaje. Sólo el admin del workspace. SIEMPRE con la key de Zernio DEL NEGOCIO (23/10/2026: sin respaldo de la plataforma).
 //
-//   POST { action: 'conectar', plataforma, volver, modo?, reconectarId?, adAccountId? } → RespuestaConectar (lib/zernio-redes.ts)
+//   POST { action: 'conectar', plataforma, volver, modo?, reconectarId?, adAccountId?, pageId? } → RespuestaConectar (lib/zernio-redes.ts)
 //        { ok: true, tipo: 'url', url } | { ok: true, tipo: 'ya-conectada', conexiones } | { ok: false, motivo, error, pagoUrl? }
 //   POST { action: 'conexiones', plataforma? } → { ok: true, conexiones, total } | { ok: false, motivo, error, pagoUrl? }   (SOLO lectura)
 //   POST { action: 'conectada' }               → { ok: true, ruteo, webhook }   (arma la recepción: ruteo de las cuentas y webhook)
@@ -45,7 +45,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ZERNIO_KEY_MALA = 'Tu key de Zernio no sirve';
 const ZERNIO_PAUSADA = 'Tu cuenta de Zernio está pausada';
 
-type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; flujo?: unknown };
+type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; pageId?: unknown; flujo?: unknown };
 
 export async function POST(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
           modo: body.modo === 'pagina' ? 'pagina' : 'ventana',
           reconectarId: typeof body.reconectarId === 'string' ? body.reconectarId : null,
           adAccountId: typeof body.adAccountId === 'string' ? body.adAccountId : null,
+          pageId: typeof body.pageId === 'string' ? body.pageId : null,
           flujo: typeof body.flujo === 'string' ? body.flujo : null,
         });
         return Response.json(r);

@@ -7,6 +7,7 @@
 
 import type { ReactNode } from 'react';
 import { TRAZOS_BORRAR } from '../_ui/iconos-menu';
+import { TUERCA } from '../_ui/icono-tuerca';
 
 const PATHS: Record<string, ReactNode> = {
   general: (<><path d="M4 15a8 8 0 0 1 16 0" /><path d="M12 15l4.2-3.4" /><circle cx="12" cy="15" r="1.1" /><path d="M4.2 15H5.6M18.4 15h1.4M12 7.2V5.6" /></>),
@@ -45,6 +46,10 @@ const PATHS: Record<string, ReactNode> = {
   admin: (<><path d="M12 3 5 6v5c0 4.6 3 8 7 9.4 4-1.4 7-4.8 7-9.4V6l-7-3Z" /><path d="m9.2 12 2 2 3.6-4" /></>),
   integraciones: (<><path d="M9 2v5M15 2v5" /><path d="M7 7h10v3.5a5 5 0 0 1-10 0V7Z" /><path d="M12 15.5V22" /></>),
   contexto: (<><path d="M5 4.5A2 2 0 0 1 7 3h11v14H7a2 2 0 0 0-2 2V4.5Z" /><path d="M5 19a2 2 0 0 0 2 2h11" /></>),
+  // ⚠️ LA TUERCA ES SETTINGS, EN TODA LA APP (25/10/2026, Martín: «revisa el logo de settings de toda la app, siempre debe ser
+  //    la tuerca, no ese...»: «ese» es `config`, los controles deslizantes). Settings, Business settings y todo «Configurar» van
+  //    con ésta; `config` queda para lo que no es un ajuste (Dev, Uso). La dibuja `TUERCA` (app/_ui/icono-tuerca.ts).
+  tuerca: (<><path d={TUERCA} /><circle cx="12" cy="12" r="3" /></>),
   config: (<><path d="M4 7h9M17 7h3" /><circle cx="15" cy="7" r="2" /><path d="M4 12h3M11 12h9" /><circle cx="9" cy="12" r="2" /><path d="M4 17h9M17 17h3" /><circle cx="15" cy="17" r="2" /></>),
   logout: (<><path d="M15 5H7a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8" /><path d="M17 15l3-3-3-3" /><path d="M20 12H9" /></>),
   bell: (<><path d="M6 9a6 6 0 0 1 12 0c0 4.5 1.8 5.6 2 5.9H4c.2-.3 2-1.4 2-5.9Z" /><path d="M10 20a2 2 0 0 0 4 0" /></>),

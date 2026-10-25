@@ -21,6 +21,7 @@ import { LANDING_HTML } from './landing-html';
 import { CSS_CAPA, CSS_LANDING, aplicarContenidoLanding } from './landing-contenido';
 import { PreciosLanding, sufijoDesdeUrl, type PlanEnLanding } from './PreciosLanding';
 import { ATRIBUTO_PLANES, conPreciosEnHtml } from '@/lib/editor-landing/precios-en-landing';
+import { PRUEBA_DIAS } from '@/lib/planes-mako';
 
 /**
  * La landing hecha en Web Generator (23/10/2026, lib/editor-landing/landing-mako.ts): el HTML de la página
@@ -362,9 +363,9 @@ export default function Landing({ diseno, planes = [], landing = null }: {
   // re-renders (abrir/cerrar el modal) NO re-aplican el innerHTML y no pisan las
   // mutaciones imperativas del efecto (cards, secciones, subtítulos).
   const injectedHtml = useMemo(
-    // Los precios de hoy en las marcas de la landing («desde US$…», el de un plan): la foto publicada trae los del día que se
-    // publicó (lib/editor-landing/precios-en-landing.ts). Mismos planes que las columnas.
-    () => <div dangerouslySetInnerHTML={{ __html: diseno ? conPreciosEnHtml(diseno.html, planes) : LANDING_HTML }} />,
+    // Los precios de hoy y la prueba gratis en las marcas de la landing («desde US$…», el de un plan, «7 días gratis»): la foto
+    // publicada trae los del día que se publicó (lib/editor-landing/precios-en-landing.ts). Mismos planes que las columnas.
+    () => <div dangerouslySetInnerHTML={{ __html: diseno ? conPreciosEnHtml(diseno.html, planes, PRUEBA_DIAS) : LANDING_HTML }} />,
     [], // eslint-disable-line react-hooks/exhaustive-deps
   );
 

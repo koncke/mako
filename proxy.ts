@@ -462,13 +462,19 @@ function sinSecretoEnLocal(pathname: string) {
 
 // Niega una ruta protegida: 401 JSON para las APIs, redirect a /login para las
 // páginas (preservando el destino en ?next).
+// ⚠️ El destino es la dirección ENTERA, con su query (25/10/2026). Hasta ese día `next` llevaba sólo el pathname y la query
+// quedaba colgada en /login: la vuelta de Facebook por Zernio a una pestaña sin sesión
+// (`/integraciones?abrir=meta&connected=metaads&accountId=…`) terminaba en /integraciones sin el modal ni la conexión, y
+// un `error=` de Zernio se leía como error del LOGIN. `destinoSeguro` / `destinoInterno` ya aceptan un destino con query.
 function denegar(req: NextRequest, pathname: string) {
   if (pathname.startsWith('/api/')) {
     return NextResponse.json({ ok: false, error: 'no autenticado' }, { status: 401 });
   }
   const url = req.nextUrl.clone();
+  const destino = `${pathname}${req.nextUrl.search}`;
   url.pathname = '/login';
-  url.searchParams.set('next', pathname);
+  url.search = '';
+  url.searchParams.set('next', destino);
   return NextResponse.redirect(url);
 }
 

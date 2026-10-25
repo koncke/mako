@@ -38,6 +38,8 @@ import { CLAVE_PLANES, conceptoDelPlan, planesDeSetting, PLANES_MAKO_DEFAULT, pr
 import { avisarDePlataforma } from './invitaciones';
 import { EMAIL_MAKO, linkApp } from './app-url';
 import { diagnosticoEnTexto, pasarelaDeLaCompra, TEXTO_SIN_PASARELA, type PedidoCompra } from './compra-plan-reglas';
+import { creadoPorPrueba, finDeLaPrueba, PASARELAS_CON_PRUEBA, TEXTO_PRUEBA_USADA_CUENTA, TEXTO_PRUEBA_USADA_EMAIL } from './prueba-plan-reglas';
+import { listarUsuarios } from './usuarios';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
@@ -61,6 +63,9 @@ async function monedasDeLaPlataforma(ws: number): Promise<Array<{ pasarela: Pasa
   const conectadas = await pasarelasConectadas(ws);
   const out: Array<{ pasarela: Pasarela; moneda: string; prueba: boolean }> = [];
   for (const p of conectadas) {
+    // Sólo una pasarela que arma la PRUEBA GRATIS con tarjeta (25/10/2026, lib/prueba-plan-reglas.ts): la vitrina promete
+    // 7 días gratis, y un plan que se cobrara desde el primer día sin avisarlo sería otro precio. Con otra, el plan se pide.
+    if (!PASARELAS_CON_PRUEBA.includes(p)) continue;
     if (p === 'stripe') {
       out.push({ pasarela: 'stripe', moneda: 'USD', prueba: modoDeClaveStripe(await credDelCliente('STRIPE_SECRET_KEY', ws)) === 'prueba' });
       continue;
@@ -229,7 +234,26 @@ export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true 
 
 export type ResultadoCompra =
   | { ok: true; link: string }
-  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }> };
+  | { ok: false; status: number; error: string; elegir?: Array<{ pasarela: Pasarela; moneda: string; monto: number }>; sinPrueba?: true };
+
+/**
+ * ¿Este email puede empezar una PRUEBA GRATIS? (25/10/2026, el Cerebro: «una prueba por negocio Y por tarjeta y por email»).
+ * No, si ya tiene una cuenta de MaKo (es un negocio que ya existe: su plan va por «Tu plan»), o si alguna prueba con ese email
+ * llegó a autorizarse (con la tarjeta cargada). La tarjeta se mira al autorizar (lib/cobros.ts, `activarPruebaSiAutorizo`).
+ * Sin poder leer, deja pasar: el freno por tarjeta sigue en pie, y un comprador no se queda afuera por una base caída.
+ */
+async function puedeEmpezarPrueba(email: string, plataforma: number): Promise<{ ok: true } | { ok: false; motivo: 'cuenta' | 'email' }> {
+  try {
+    if ((await listarUsuarios()).some((u) => u.email === email)) return { ok: false, motivo: 'cuenta' };
+    const { data, error } = await getSupabaseServer().from('cobros').select('id')
+      .eq('workspace_id', plataforma).eq('email', email).like('creado_por', 'planes:%:prueba').not('suscripcion_estado', 'is', null).limit(1);
+    if (error) throw new Error(error.message);
+    return (data ?? []).length ? { ok: false, motivo: 'email' } : { ok: true };
+  } catch (e) {
+    console.warn(`[compra-plan] no pude mirar si ${email.replace(/^(.).*@/, '$1…@')} ya usó su prueba; la dejo empezar:`, msg(e));
+    return { ok: true };
+  }
+}
 
 /** El checkout de un plan. Ver el orden arriba. `conPrueba`: quien compra es el super admin (ver `ofertaDelPlan`). */
 export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: boolean } = {}): Promise<ResultadoCompra> {
@@ -243,6 +267,17 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
   }
   const via = pasarelas.find((x) => x.pasarela === eleccion.pasarela)!;
   const ws = await wsSuperAdmin();
+  // LA PRUEBA GRATIS (25/10/2026): toda compra en línea empieza con 7 días gratis, salvo que pida empezar sin ella (quien ya la
+  // usó). Una segunda prueba se rechaza con un texto claro ANTES de abrir el pago.
+  const conPrueba = !p.sinPrueba;
+  if (conPrueba) {
+    const puede = await puedeEmpezarPrueba(p.email, ws);
+    if (!puede.ok) {
+      return puede.motivo === 'cuenta'
+        ? { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_CUENTA }
+        : { ok: false, status: 409, error: TEXTO_PRUEBA_USADA_EMAIL, sinPrueba: true };
+    }
+  }
 
   return runWithWorkspace(ws, async () => {
     let lead: { leadId: number; nuevo: boolean };
@@ -259,7 +294,9 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     const r = await crearCobro(ws, {
       leadId: lead.leadId, pasarela: via.pasarela, tipo: 'suscripcion', concepto: conceptoDelPlan(plan),
       monto: via.monto, moneda: via.moneda, montoUsd: plan.precioUsd, email: p.email, nombre: p.nombre,
-      altaCapa: plan.capa, creadoPor: `planes:${plan.id}`,
+      altaCapa: plan.capa, creadoPor: conPrueba ? creadoPorPrueba(plan.id) : `planes:${plan.id}`,
+      // El primer cobro, 7 días después: el `start_date` de Mercado Pago. La persona carga la tarjeta ahora.
+      inicioAt: conPrueba ? finDeLaPrueba(Date.now()) : null,
     });
     if (!r.ok) {
       console.error(`[compra-plan] crearCobro (${plan.id}, ${via.pasarela}): ${r.error}`);
@@ -274,7 +311,7 @@ export async function iniciarCompraDePlan(p: PedidoCompra, opts: { conPrueba?: b
     if (lead.nuevo || !r.yaEstaba) {
       const de = p.origen?.landing ? ` desde la landing «${p.origen.landing}»` : '';
       const ref = p.ref ? ` (referido por ${p.ref})` : '';
-      await logLeadEvent(lead.leadId, 'Compra de plan', `Abrió el pago de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
+      await logLeadEvent(lead.leadId, 'Compra de plan', `${conPrueba ? 'Abrió su prueba gratis' : 'Abrió el pago'} de ${plan.nombre}${de}${ref}.`, 'Checkout de MaKo').catch(() => {});
     }
     return { ok: true, link: r.link };
   });

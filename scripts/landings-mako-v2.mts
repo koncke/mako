@@ -21,8 +21,9 @@
 //   · Español neutro, con «tú» (AGENTS.md y tests/puente-panel-copy.test.ts: el voseo no pasa, ni en un script).
 //   · Sólo lo que MaKo hace HOY. El media buyer que mueve el presupuesto todavía no está en producción: la portada C («del
 //     anuncio a la llamada») y el control de los límites esperan (docs/hallazgos-editor-landing.md).
-//   · La garantía de 14 días está decidida (docs/ofertas-mako.md), pero /reembolsos dice que el mes pagado no se devuelve:
-//     hasta que Planes la escriba ahí, la landing no la promete (`GARANTIA`).
+//   · NO hay garantía de devolución (Martín, 25/10 ~10:20: fuera la de 14 y 30 días). Hay una prueba GRATIS de 7 días con
+//     tarjeta y cobro el día 8: el botón, la línea de abajo, el cierre y la pregunta de la cancelación salen de
+//     `PRUEBA_DIAS` (lib/planes-mako.ts, de Planes), y los que van a la vista llevan su marca (`data-mako-prueba`).
 //
 // Uso (desde la raíz del repo; `--conditions=react-server` por los módulos server-only del publicador):
 //   node --conditions=react-server --import tsx scripts/landings-mako-v2.mts --salida <carpeta>      → los JSON, sin subir
@@ -36,13 +37,11 @@ import { join } from 'node:path';
 import { CONFIG_DEFAULT, type ConfigLanding } from '../lib/editor-landing/api-tipos';
 import { NODO, ATTRS_TARJETA_DEFAULT, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 import { PIXEL_META_MAKO } from '../lib/meta-pixel-mako';
-import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
-import { precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
+import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS } from '../lib/planes-mako';
+import { botonDePrueba, lineaDePrueba, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
 
 const APP = 'https://hola-mako.com';
 
-/** La garantía va en la landing cuando /reembolsos la diga (hoy: el mes pagado no se devuelve). */
-export const GARANTIA: string | null = null;
 
 /** Las dos portadas que salen hoy. La C («del anuncio a la llamada») sale con el media buyer en producción. */
 export const PORTADAS = {
@@ -109,10 +108,17 @@ export const encabezado = (etiqueta: string, titulo: string, bajada?: string, se
 
 export const botones = (slug: string) => `
       <div class="mkv-botones">
-        <a class="mkv-btn" href="${planes(slug)}">Empezar con MaKo</a>
+        <a class="mkv-btn" href="${planes(slug)}"><span data-mako-prueba="boton">${esc(botonDePrueba(PRUEBA_DIAS))}</span></a>
         <a class="mkv-btn mkv-btn-borde" href="#planes">Ver los planes</a>
       </div>
-      <p class="mkv-antiriesgo">Desde ${desde()} al mes · ${GARANTIA ? `${esc(GARANTIA)} · ` : ''}Sin permanencia · Usas tu propia IA</p>`;
+      <p class="mkv-antiriesgo">Desde ${desde()} al mes · <span data-mako-prueba="linea">${esc(lineaDePrueba(PRUEBA_DIAS))}</span></p>`;
+
+/** Los días de la prueba y el día del primer cobro, marcados (hola-mako.com los pone de la fuente). */
+const diasPrueba = () => `<span data-mako-prueba="dias">${PRUEBA_DIAS}</span>`;
+const diaDelCobro = () => `<span data-mako-prueba="cobro">${PRUEBA_DIAS + 1}</span>`;
+
+/** Cómo funciona la prueba: lo mismo que dice /planes (app/planes/Vitrina.tsx), de la misma fuente. */
+export const COMO_FUNCIONA_LA_PRUEBA = `Tienes ${PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las secciones (en el orden de la investigación, §6a)
@@ -317,7 +323,7 @@ export const PREGUNTAS: Record<string, [string, string]> = Object.fromEntries(([
     ['¿Me pueden bloquear el WhatsApp?', 'La conexión por QR no es la oficial de WhatsApp: si mandas mensajes masivos a gente que no te escribió, WhatsApp puede bloquear el número. Úsala para contestar y hacer seguimiento, no para mandar en masa.'],
     ['¿Cuánto me sale la IA?', 'Lo que consuma tu clave de Claude, ChatGPT o Gemini, pagado directo a tu proveedor. MaKo no le pone recargo. Con Gemini puedes empezar gratis, con un tope por día.'],
     ['¿Reemplaza a mi equipo o a mi agencia?', 'Hace lo repetido: contestar, hacer seguimiento, armar piezas y ordenar tareas. Tu equipo entra con su propio usuario.'],
-    ['¿Tengo permanencia? ¿Cómo cancelo?', 'No hay permanencia. Te das de baja cuando quieras desde tu cuenta, en Configuración del negocio, y no se te cobra el mes siguiente.'],
+    ['¿Cómo funciona la prueba? ¿Cómo cancelo?', `${COMO_FUNCIONA_LA_PRUEBA} No hay permanencia: pasas a otro plan o te das de baja cuando quieras.`],
     ['¿Mis datos entrenan a la IA?', 'MaKo no entrena modelos con tus datos. La IA es la tuya: lo que pide pasa por tu propia cuenta de Claude, ChatGPT o Gemini.'],
     ['¿En qué se diferencia de ChatGPT?', 'ChatGPT conversa contigo. MaKo trabaja dentro de tu negocio: tu CRM, tu WhatsApp, tus anuncios y tu agenda, con tu propia IA.'],
 ] as Array<[string, string]>).map((qa, i) => [CLAVES_PREGUNTAS[i], qa]));
@@ -339,7 +345,7 @@ export function preguntasCon(qa: ReadonlyArray<[string, string]>): string {
 export function cierre(slug: string): string {
   return `<section class="mkv mkv-cierre" id="empezar"><div class="mkv-in mkv-centro">
     <h2 class="mkv-h1 mkv-h1-chico">Tú cierras.<br><em class="mkv-serif">Del resto se encarga MaKo.</em></h2>
-    <p class="mkv-portada-bajada">${GARANTIA ? `${esc(GARANTIA)}. ` : ''}Empieza hoy. Si no te sirve, te das de baja desde tu cuenta, cuando quieras.</p>
+    <p class="mkv-portada-bajada">Empieza con ${diasPrueba()} días gratis. Si no te sirve, te das de baja antes del día ${diaDelCobro()} y no se te cobra nada.</p>
     ${botones(slug)}
   </div></section>`;
 }

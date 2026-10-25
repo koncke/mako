@@ -89,6 +89,13 @@ const CANAL: Record<string, string> = {
   // publicar y editar anuncios (lo único que la app en desarrollo del cliente no deja: el 1885183). NO es el canal
   // de Instagram: usa la clave del NEGOCIO (nunca la de la plataforma para un cliente) y la API de anuncios.
   'lib/zernio-ads.ts': 'publicar y editar anuncios de Meta por la Zernio del negocio (docs/hallazgos-ads.md, «Publicar por Zernio»)',
+  // 25/10/2026, Martín: «implementa zernio y depreca la conexión con API de Meta». Meta ENTERO por la conexión de anuncios de
+  // Zernio del negocio (no es el canal de Instagram): leer métricas, la salud de la cuenta y mandar las conversiones al píxel.
+  // Usan el cliente de lib/zernio.ts (`zFetch`) con la clave del negocio (`claveZernioAnuncios`).
+  'lib/meta-via.ts': '¿por dónde habla MaKo con Meta? Zernio primero, el token de respaldo; las lecturas con la forma de Meta',
+  'lib/meta-conexion-zernio.ts': 'guardar, mirar y probar la conexión de Meta por Zernio (cuentas publicitarias y píxeles)',
+  'lib/meta-capi.ts': 'las conversiones al píxel por la Zernio del negocio (`POST /v1/ads/conversions`), antes que por el token',
+  'lib/transcribe.ts': 'el video y la imagen de un anuncio por la Zernio del negocio (`GET /v1/ads/{adId}/media`), para transcribirlo',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

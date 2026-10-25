@@ -25,6 +25,7 @@ import { rutaConWs } from '@/lib/workspace';
 import { pedidoActual } from '@/lib/pedido-actual';
 import { listar } from '@/lib/editor-landing/server';
 import { destinoAnalizar, destinoCrear, landingMasReciente, redireccionDelLayout } from './panel-reglas';
+import { TooltipsFlotantes } from './editor/TooltipsFlotantes';
 
 export default async function WebGeneratorLayout({ children }: { children: ReactNode }) {
   // La puerta de la tab, la misma de las páginas y antes que nada: el destino no se calcula para quien no la tiene.
@@ -39,5 +40,6 @@ export default async function WebGeneratorLayout({ children }: { children: React
     const ultima = r?.ok ? landingMasReciente(r.docs) : null;
     if (ultima) redirect(await rutaConWs(`/web-generator/${ultima.id}`));
   }
-  return children;
+  // Los tooltips de toda la tab, encima de todo (editor/TooltipsFlotantes.tsx).
+  return <>{children}<TooltipsFlotantes /></>;
 }

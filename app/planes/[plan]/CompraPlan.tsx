@@ -2,10 +2,16 @@
 
 // El formulario del checkout de un plan: nombre, email, con qué pagar (si hay dos pasarelas) y a la pasarela. Postea a
 // /api/planes/comprar (nunca una server action: la página es pública) y redirige al link /pagar/<token> que devuelve.
+//
+// LA PRUEBA GRATIS (25/10/2026): se empieza con 7 días gratis y la tarjeta cargada; el primer cobro es el día 8. Quien ya la
+// usó con ese email recibe el texto claro de la ruta y, si quiere, «Empezar sin prueba» (se cobra desde hoy). `sinPrueba`
+// llega en `true` desde la página de vuelta de una prueba rechazada por la tarjeta.
 
 import { useState } from 'react';
 import type { Pasarela } from '@/lib/cobros-tipos';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
+import { PRUEBA_DIAS } from '@/lib/planes-mako';
+import { DIAS_AVISO_FIN_DE_PRUEBA } from '@/lib/prueba-plan-reglas';
 
 const NOMBRE: Record<Pasarela, string> = { stripe: 'Tarjeta (Stripe)', mercadopago: 'Mercado Pago' };
 
@@ -14,7 +20,10 @@ export function CompraPlan(p: {
   pasarelas: Array<{ pasarela: Pasarela; moneda: string; monto: number }>;
   origen: OrigenCompra | null;
   refCodigo: string | null;
+  sinPrueba?: boolean;
 }) {
+  const [sinPrueba, setSinPrueba] = useState(!!p.sinPrueba);
+  const [ofrecerSinPrueba, setOfrecerSinPrueba] = useState(false);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [web, setWeb] = useState('');
@@ -22,7 +31,7 @@ export function CompraPlan(p: {
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function enviar(e: React.FormEvent) {
+  async function enviar(e: React.FormEvent, sin = sinPrueba) {
     e.preventDefault();
     if (enviando) return;
     if (p.pasarelas.length > 1 && !pasarela) { setError('Elige con qué quieres pagar.'); return; }
@@ -32,11 +41,12 @@ export function CompraPlan(p: {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, web }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, web, sinPrueba: sin }),
       });
-      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean };
       if (r.ok && j.link) { window.location.href = j.link; return; }
       setError(j.error ?? 'No pudimos abrir el pago. Prueba otra vez.');
+      setOfrecerSinPrueba(!!j.sinPrueba);
     } catch {
       setError('No pudimos conectarnos. Revisa tu internet y prueba otra vez.');
     }
@@ -64,10 +74,20 @@ export function CompraPlan(p: {
           ))}
         </>
       )}
-      <button className="planes-btn" type="submit" disabled={enviando}>{enviando ? 'Abriendo el pago…' : 'Ir a pagar'}</button>
+      <button className="planes-btn" type="submit" disabled={enviando}>
+        {enviando ? 'Abriendo…' : sinPrueba ? 'Ir a pagar' : `Empezar mis ${PRUEBA_DIAS} días gratis`}
+      </button>
       {/* role="status" y no "alert": /planes es pública y sin sesión, así que «Reportar a soporte» no serviría acá. */}
       {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}
-      <p className="planes-nota">Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago.</p>
+      {ofrecerSinPrueba && !sinPrueba && (
+        <button className="planes-btn planes-btn-borde" type="button" disabled={enviando}
+          onClick={(e) => { setSinPrueba(true); void enviar(e, true); }}>Empezar sin prueba</button>
+      )}
+      <p className="planes-nota">
+        {sinPrueba
+          ? 'Con ese email entras a MaKo: te llega el acceso apenas se confirme el pago.'
+          : `Cargas tu tarjeta y no se te cobra nada hoy: el primer cobro es el día ${PRUEBA_DIAS + 1}, y te avisamos ${DIAS_AVISO_FIN_DE_PRUEBA} días antes. Con ese email entras a MaKo.`}
+      </p>
       {/* La suscripción de Mercado Pago va a nombre de ESE email (payer_email): con otro, MP no deja autorizarla (revisión del 23/10/2026). */}
       {pasarela === 'mercadopago' && <p className="planes-nota">Con Mercado Pago, usa el email de tu cuenta de Mercado Pago.</p>}
     </form>

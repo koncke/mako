@@ -890,6 +890,15 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg__ya-cuerpo > .co-ya { max-width: none; padding: 0 2px 4px; box-shadow: none; background: none; }
 .co-preg__ya-tira { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .co-preg__ya-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Lo que pidió Martín, arriba de la respuesta (25/10/2026): su globo con su foto, a la derecha, como en el hilo; achicado a 4
+   renglones si es largo, con su «Ver todo». Y la respuesta, con su rótulo y su detalle plegado más corto que en el hilo. */
+.co-preg__ya-pedido { display: flex; justify-content: flex-end; margin: 2px 0 10px; }
+.co-preg__ya-pedido .co-yo { max-width: min(85%, 560px); }
+.co-preg__ya-pedido-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.co-preg__ya-pedido-texto--corto { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.co-preg__ya-pedido-mas { margin-top: 6px; }
+.co-preg__ya-de { margin: 0 2px 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
+.co-preg__ya-cuerpo .co-ya__detalle--plegado { max-height: 7.5em; }
 /* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el
    mismo nombre arriba. Nunca se confunden con una pregunta de un chat. */
 .co-preg__sug { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
@@ -1259,7 +1268,6 @@ summary.co-uso__api-cab:focus-visible { outline: 2px solid var(--primary); outli
 .co-ya__detalle--plegado { max-height: 15em; overflow: hidden; -webkit-mask-image: linear-gradient(#000 72%, transparent); mask-image: linear-gradient(#000 72%, transparent); }
 .co-ya__mas { align-self: flex-start; min-height: 36px; }
 .co-ya__cola { color: var(--ink); }
-.co-ya__corte { margin: 0; font-size: var(--fs-meta); color: var(--warn); }
 /* Tocar una tarea vinculada trae su mensaje y lo marca un rato. */
 .co-el--visto > .co-el__cuerpo { animation: co-visto 1.6s ease; border-radius: var(--r-xl); }
 @keyframes co-visto { 0%, 40% { background: var(--primary-bg); } 100% { background: transparent; } }

@@ -5,6 +5,24 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Los links a cada conexión: `?abrir=` y `?servicio=` abren el modal, y el login perdía la query (25/10/2026)
+
+**Vive en:** `app/integraciones/IntegracionesBoard.tsx`, `proxy.ts` (`denegar`), `lib/integraciones-catalogo.ts`,
+`lib/metodo-catalogo.ts`, `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`.
+
+- **`/integraciones?abrir=<key>` abre el modal de esa integración, y `?servicio=` también.** Una entrada más abajo dice que
+  `?servicio=` no lo abre: está vieja. «Tus cuentas de IA» no tiene link propio, y una key desconocida se ignora en silencio.
+- **Un link así abierto SIN sesión terminaba en integraciones sin el modal:** `denegar` ponía en `next` sólo el pathname y la
+  query quedaba colgada en /login. Lo arregló Zernio (0024e38ce, `tests/login-next-con-query.test.ts`); se vio con la vuelta de
+  Facebook de la conexión de Meta por Zernio.
+- **Lo que MaKo sabe de cómo conectar cada cosa está escrito en ocho lugares que ya se contradicen**: los dos catálogos,
+  `servicio-slides` (todavía vende «IA gratis»), `tab-activacion`, `hechos-mako` (sólo meta, anthropic y landing), `mako-capacidades`,
+  los `DEEP_LINKS` del doer y la expresión de intención (todavía dice «chatwoot»). Fathom, Zernio y MaKo Desktop no estaban.
+- **Zernio no crea la conexión de Meta si en la ventana de Facebook se marcan varias páginas y no se le pasa `pageId`**: vuelve
+  sin error visible. El primer clic de Martín (25/10) no dejó nada; el segundo, con la página fija, sí.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Pasar una integración de PLATAFORMA a BYOK son seis piezas, y cinco fallan calladas
 
 **Vive en:** `lib/integraciones-catalogo.ts` · `lib/metodo-catalogo.ts` ·
@@ -1696,3 +1714,96 @@ hacerlo o investiga como lo hacen otras apps». La referencia es vercel.com/mark
   el permiso de Google, el Pixel viejo, Calendly). Esa diferencia ya existía.
 - `tests/zernio-conectar-redes.test.ts` falla en main: espera un `errorDeVentana` que no está en ningún archivo. Es de Zernio, no de
   este trabajo.
+
+## Meta entero por la Zernio del negocio: el token de Meta deprecado, y CAPI NO necesita una integración aparte (25/10/2026)
+
+**El pedido** (Martín, 25/10): «implementa zernio y depreca la conexión con API de Meta... Y también revisa el tema de CAPI y
+alimentar al pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requiera una integración aparte».
+
+**Vive en:** `lib/meta-via.ts` (la vía y las lecturas) · `lib/zernio-meta-cuerpo.ts` (lo puro, con `ZERNIO_META_PROBADO`) ·
+`lib/meta-conexion-zernio.ts` (guardar, mirar y probar la conexión) · `app/api/integraciones/meta-zernio/route.ts` ·
+`app/integraciones/ConectarMetaZernio.tsx` · `lib/meta-capi.ts` · `scripts/prueba-zernio-meta.mts` · `docs/tutorial-capi-pixel.md` ·
+`tests/zernio-meta.test.ts` · el relevo con el inventario entero: `docs/relevo/zernio-capi.md`.
+
+- **El diagnóstico obvio era el equivocado: «Zernio no hace CAPI, hace falta una integración aparte».** Lo decía la memoria del
+  25/10 («lo probable que NO cubre es CAPI») y el pedido. La OpenAPI de Zernio (v1.356.1, `docs.zernio.com/api/openapi`) tiene
+  `POST /v1/ads/conversions` (la Conversions API de Meta, «Platform is inferred from the provided `accountId`») y su guía de Meta
+  dice «There is no pixel-scoped access token to paste. Zernio uses the ads connection you already have». O sea: con la MISMA
+  conexión `metaads` con la que MaKo lee y publica, salen Lead, calificado y Schedule. El token del píxel (el botón «Generar
+  token de acceso» de Events Manager) queda como SALIDA DE RESPALDO, no como camino, con su tutorial.
+- **Lo que no dice la doc, y decide la prueba:** si una conexión con «Administrar campañas» (`permissionLevel=advertise`) puede
+  mandar eventos al píxel. Zernio pide «Control total» (`full`) para CREAR píxeles; para mandarles eventos no dice nada. Por eso
+  `lib/meta-capi.ts` cae al token del píxel sólo ante un fallo de PERMISO (`esFalloDePermiso`) y si el negocio lo pegó.
+- ⚠️ **Dos pantallas piden permisos distintos para la MISMA conexión.** El botón de MaKo (`REDES.metaads`, lib/zernio-redes.ts)
+  no manda `permissionLevel`, así que Zernio pide su default, `full`; el script del Media Buyer (`urlConectarAnunciosZernio`,
+  lib/zernio-ads.ts) pide `advertise`. Se dejó así a propósito: `full` cubre el píxel. Si la prueba muestra que `advertise`
+  alcanza para CAPI, conviene bajar el botón a `advertise` (una ventana que pide «Control total» asusta al dueño).
+- **Lo que cubre Zernio, medido en la OpenAPI (lectura, no prueba):** insights como PASO DIRECTO (`GET /v1/ads/insights`:
+  manda `fields`, `level`, `breakdowns` y `actionBreakdowns` a Meta y devuelve sus filas «verbatim»: el mismo parser de siempre);
+  la cuenta con su estado (`GET /v1/ads/accounts`: `accountStatus`, `disableReason`, `currency`, `timezoneName`) y sus finanzas
+  (`/v1/ads/accounts/finance`); campañas y conjuntos EN VIVO con presupuesto e interruptor propio (`/v1/ads/accounts/live`:
+  `configuredStatus`); el árbol con el creativo y su permalink (`/v1/ads/tree`: `effectiveObjectStoryId`,
+  `instagramPermalinkUrl`); los píxeles que ve la conexión (`/v1/accounts/{id}/conversion-destinations`, y `tracking-tags` con
+  `stats`); leads (`lead.received` y `GET /v1/ads/leads?since=`); la calidad del match (`/v1/ads/conversions/quality`); y
+  los links directos de los videos e imágenes de un anuncio (`GET /v1/ads/{adId}/media`), que es la salida al `source` que Meta
+  dejó de devolver (docs/hallazgos-ads.md). Lo que NO cubre: Business Discovery de Instagram y las recomendaciones de Meta
+  (`/v1/ads/recommendations` es sólo de Google).
+- ⚠️ **Las UNIDADES cambian según el endpoint, y mezclarlas multiplica o divide por 100.** Meta da presupuestos y saldos en la
+  unidad MÍNIMA (centavos, salvo COP, CLP, JPY…); Zernio, en UNIDADES de la moneda (`dailyBudget`, `balance`, `amountSpent`).
+  El cron guarda el presupuesto de Zernio sin `desdeUnidadMeta`, y la salud de la cuenta lo vuelve a la mínima con
+  `aUnidadMeta` para que `computeAccountHealth` (que divide) juzgue igual. Lo fija un test.
+- ⚠️ **CAPI por Zernio: la identidad va EN CLARO y el `eventId` es OBLIGATORIO.** Zernio hashea email, teléfono, nombres y
+  `externalId`: mandarlos hasheados (como hace MaKo con la Graph API) los hashea dos veces y no cruzan con nada. Sin un `eventId`
+  Zernio rechaza; sin uno del llamador, MaKo arma uno ESTABLE (nombre, hora e identidad), así un reintento no cuenta doble.
+- ⚠️ **Un rechazo de Meta por Zernio viene en un 200** (`eventsFailed`, `failures[]`), como con Meta directo. Y un 200 sin
+  eventos recibidos tampoco es un éxito (`resultadoConversionZernio`).
+- ⚠️ **Una página de insights sin `data` NO es «no hubo entrega».** El cron de Meta BORRA el día antes de insertar: tomar una
+  forma desconocida por vacía borraría el día. `paginaDeInsights` devuelve null y la lectura tira.
+- **«Conectada» la leen TRES lectores** (`integracionConectada`, `verificarServicio`, `/api/metodo`) y el token es obligatorio
+  en el catálogo. No se lo marcó opcional (una cuenta publicitaria pegada sola quedaba «conectada» sin nada con qué leerla): la
+  regla es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta) y la usan los tres. La conexión se guarda
+  como `META_ZERNIO_CUENTA`, `derivado` (ningún «guardar» la acepta tipeada: la de otro negocio no entra). Sin esto, un negocio
+  conectado por Zernio no podía ni guardar su píxel: el tilde decía «Falta completar: Access token».
+- **El onboarding ya no pedía Meta** (desde el 16/10 es el chat de arranque, que posterga el paso con `integracionConectada`):
+  lo que había que cambiar era esa regla, no una pantalla.
+- `tests/sin-instagram.test.ts` lista en `CANAL` los únicos archivos que pueden importar el cliente de Zernio, y lee
+  `git ls-files`: un archivo NUEVO no existe para el guard hasta `git add -N`.
+
+**Sin medir (lo decide la prueba, scripts/prueba-zernio-meta.mts, sobre la cuenta de MaKo `act_1426493815659364`):** que el paso
+directo de insights devuelva las mismas filas que Meta directo; las finanzas con `advertise` y con `full`; que CAPI por Zernio
+llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` que hace falta para eso. Hasta entonces
+`ZERNIO_META_PROBADO = false` y lo nuevo corre SÓLO en el negocio de la plataforma.
+
+- ⚠️ **El primer clic de Martín (25/10, link de las 12:38 con `permissionLevel=full`) NO dejó ninguna conexión**: la Zernio de la
+  plataforma quedó con 0 cuentas (con las ocultas también) y 0 registros, lo mismo que los dos links del 23/10. No era el link
+  vencido (se usó a los minutos) ni la cuenta de Zernio (plan por uso, pago, `hasAccess: true`: los anuncios vienen incluidos).
+  **La sospecha, de la doc** (`GET /v1/connect/{platform}/ads`): con VARIAS páginas concedidas y sin `pageId`, una integración
+  por API recibe un 400 («restart with pageId») y la conexión no se crea; sólo el panel de Zernio abre el selector de página. El
+  script ahora manda la página de MaKo. **Confirmado por el segundo clic** (12:44, con `pageId` = «Hola MaKo»): volvió con
+  `connected=metaads&accountId=6ade25185b6c93612b7cc6a1&stage=callback` y la conexión quedó (ve `act_1426493815659364` y un
+  píxel). ⚠️ **Vale para los CLIENTES:** el botón (`REDES.metaads`, lib/zernio-redes.ts) tampoco manda `pageId`; un negocio con
+  más de una página no conectaba nunca (el primer clic volvió sin conexión y sin nada que lo explicara). **HECHO el mismo día**,
+  copiado de lo que hace Zernio en su app (un selector de página): MaKo junta las páginas que conoce del negocio (la de la
+  conexión vieja, `META_PAGE_ID`; las de su Facebook en Zernio, `GET /v1/accounts/{id}/facebook-page`; las de una conexión de
+  anuncios que ya exista) y decide con `paginaParaConectar`: UNA conocida se manda sola (también desde el botón del Media
+  Buyer: la deduce el server en `urlConectarViaZernio`), con VARIAS se pregunta antes de abrir la ventana, y si la ventana
+  vuelve sin conexión habiendo abierto sin página, el modal de Meta pide la página (de la lista o su ID) y reintenta con ella.
+  ⚠️ **No se lee el error de Zernio para decidirlo**: la forma exacta de esa vuelta («400 with available Page IDs») no está
+  medida, y un texto de un tercero no es un contrato. `GET /v1/connect/facebook/select-page` existe, pero para el inicio de
+  sesión para empresas la doc sólo lo describe con el `selectionToken` del panel de Zernio.
+- **La prueba de lectura (25/10, 12:50) contestó con la forma esperada y sin errores**, pero sobre una cuenta que NUNCA
+  gastó: insights `data: []`, ningún conjunto, la cuenta activa y en verde (USD, Argentina) y las finanzas leídas (con `full`).
+  O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
+  guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
+  de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
+
+**Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
+`/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
+suave y quedan `parcial`); el reproductor del anuncio
+(`app/api/anuncios/video/route.ts`); las escrituras de la API de MaKo y del doer (`lib/meta-write.ts`; el Media Buyer ya
+escribe por Zernio); los formularios de leads y el barrido de leads (`lib/meta-ads-create.ts`, `lib/meta-leads.ts`; existe
+`GET /v1/ads/leads?since=`); los píxeles y eventos del selector de campañas (`listPixels`, `listPixelEvents`); el perfil de
+Instagram (`lib/instagram-perfil-server.ts`, `app/api/crm/instagram-buscar/route.ts`); y el botón para la cuenta de MaKo (el
+ws9 no tiene Zernio propia: su conexión sale por el script).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

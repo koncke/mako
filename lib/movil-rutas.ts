@@ -245,7 +245,7 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // y nunca sube a la barra de un rol.
   { id: 'tickets', label: 'Report a problem', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
   // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
-  { id: 'configuraciones', label: 'Business settings', href: '/m/configuraciones', icon: 'config', navKey: 'configuraciones', familia: null, oculta: true },
+  { id: 'configuraciones', label: 'Business settings', href: '/m/configuraciones', icon: 'tuerca', navKey: 'configuraciones', familia: null, oculta: true },
   // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
   // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
   { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },

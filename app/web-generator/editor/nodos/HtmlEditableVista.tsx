@@ -40,9 +40,18 @@ import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editab
 const RESPIRO_MS = 500;
 const SONDEO_MS = 800;
 
-const CSS_EDITABLE: string = [
+/**
+ * El iframe del diseño SIEMPRE recibe el clic (25/10/2026, Martín: «Las landing de MaKo NO son editables, no puedo ni
+ * cambiar un título»). BarraFormato apaga los iframes de un bloque que no está activo (`.gmx-nv:not([data-activo="si"])
+ * iframe{pointer-events:none}`, del 11/10: que un video o un embed no se trague el clic que elige el bloque). Pero esta
+ * sección se activa con el `mousedown` de ADENTRO del iframe, y con esa regla el clic nunca llegaba: ni cursor, ni
+ * sección activa, ni barra. Medido con clics en el editor real (#32): el clic caía en el envoltorio. Esta regla le gana
+ * por especificidad, no por orden (las dos van en `<style>` distintos): lo vigila tests/editor-web-diseno-editable-clic.test.ts.
+ */
+export const CSS_EDITABLE: string = [
   '.gmx-editable-vivo{position:relative}',
   '.gmx-editable-vivo iframe{display:block;width:100%;border:0;background:transparent}',
+  '.gmx-nv .gmx-nv-marco.gmx-editable-vivo>iframe{pointer-events:auto}',
   '.gmx-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace!important;font-size:12.5px!important;line-height:1.5!important;min-height:420px!important;white-space:pre;tab-size:2;overflow:auto;resize:vertical;width:100%}',
 ].join('\n');
 

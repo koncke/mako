@@ -9,16 +9,22 @@
 // escribió después. Ahora el MISMO mensaje (YaEstaMensaje: qué cambió, «Revisar», su tarea del Plan y «Responder sobre esto»)
 // va fijo arriba de la caja, con el marco del bloque de preguntas (PreguntasDelChat.tsx), en la computadora (Conversacion.tsx)
 // y en el teléfono (ChatsMovil.tsx):
-//   · «Visto» le pone el ✓: el chat deja de decir «Completado» y el bloque se va (queda en el hilo, como siempre);
+//   · arriba, lo que pidió Martín (`pedidoDelCompletado`), como un mensaje suyo con su foto; abajo, la respuesta, más corta
+//     que en el hilo y con «Ver todo» (25/10/2026, la segunda vuelta: «achica el mensaje y hazlo más claro»);
+//   · «Ya lo vi» le pone el ✓: el chat deja de decir «Completado» y el bloque se va (queda en el hilo, como siempre);
 //   · la flecha lo pliega a su tira; un «Ya está» NUEVO lo vuelve a abrir (`usePlegado` recuerda por el turno);
 //   · con una pregunta esperando, la pregunta manda: el «Completado» queda en su tira, arriba de ella, hasta que se lo abra.
 
 import { useState } from 'react';
 import { Icon } from '@/app/_components/icons';
-import { completadoSinVer, sinMarkdown, yaEstaDelChat, type LineaChat } from '@/lib/centro-chats';
+import { completadoSinVer, pedidoDelCompletado, sinMarkdown, yaEstaDelChat, type LineaChat } from '@/lib/centro-chats';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { YaEstaMensaje, type ChatDelYaEsta } from './Avance';
+import { MiFoto } from './MiFoto';
 import { Plegar, usePlegado } from './PreguntasDelChat';
+
+/** Desde cuántos caracteres el pedido de Martín se achica a 4 renglones, con «Ver todo». */
+const PEDIDO_LARGO = 280;
 
 export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, tareas, onFeedback, hayPreguntas }: {
   chat: ChatDelYaEsta;
@@ -36,11 +42,13 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, tareas, onF
   const [plegado, setPlegado] = usePlegado(`ya:${chat.clave}`, t ? [{ id: t.uuid }] : []);
   // Abierto a mano con una pregunta esperando (se abre el de ESTE «Ya está»; uno nuevo vuelve a su tira).
   const [abiertoConPreguntas, setAbiertoConPreguntas] = useState<string | null>(null);
+  const [pedidoEntero, setPedidoEntero] = useState(false);
   if (!t) return null;
   const instante = Date.parse(t.at);
   const [n] = yaEstaDelChat([{ tipo: 'turno', instante, turno: t }]);
   // La tira es de un renglón y no dibuja formato: sin los asteriscos del Markdown (la regla de la lista, `sinMarkdown`).
   const titulo = n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado';
+  const pedido = pedidoDelCompletado(lineas, t);
   if (plegado || (hayPreguntas && abiertoConPreguntas !== t.uuid)) {
     return (
       <button type="button" className="co-preg co-preg--arriba co-preg--plegada co-preg--completado" aria-expanded={false}
@@ -58,16 +66,35 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, tareas, onF
       <div className="co-preg__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
-        {/* El ✓ de siempre (18/10/2026): hasta que se toca, la fila del chat dice «Completado». */}
+        {/* El ✓ de siempre (18/10/2026): hasta que se toca, la fila del chat dice «Completado». «Ya lo vi» dice qué hace. */}
         {onYaVisto && Number.isFinite(instante) && (
-          <button type="button" className="co-ya__check" aria-label="Marcar como visto" title="Marcar como visto" onClick={() => onYaVisto(instante)}>
-            <Icon name="check" size={15} />Visto
+          <button type="button" className="co-ya__check" aria-label="Ya lo vi: marcarlo como visto" title="Marcarlo como visto" onClick={() => onYaVisto(instante)}>
+            <Icon name="check" size={15} />Ya lo vi
           </button>
         )}
         <Plegar onPlegar={() => { setPlegado(true); setAbiertoConPreguntas(null); }} que="el completado" />
       </div>
       <div className="co-preg__ya-cuerpo">
-        <YaEstaMensaje t={t} chat={chat} tareas={tareas} onFeedback={onFeedback} sinCabecera />
+        {/* LO QUE PEDISTE, ARRIBA (25/10/2026, Martín: «si no pones antes cual fue mi prompt no se entiende... Podrias ponerlo
+            con mi foto de perfil allí para que se entienda que fue mio y ahí la respuesta»): como un mensaje suyo, con su foto. */}
+        {pedido && (
+          <div className="co-preg__ya-pedido">
+            <div className="co-yo">
+              <div className="co-burbuja">
+                <p className={`co-preg__ya-pedido-texto${pedidoEntero ? '' : ' co-preg__ya-pedido-texto--corto'}`}>{pedido}</p>
+                {/* Uno largo (pegado, con contexto) se achica a 4 renglones, y se lee entero acá mismo: nada se pierde. */}
+                {pedido.length > PEDIDO_LARGO && (
+                  <button type="button" className="co-chip co-preg__ya-pedido-mas" aria-expanded={pedidoEntero} onClick={() => setPedidoEntero((v) => !v)}>
+                    {pedidoEntero ? 'Ver menos' : 'Ver todo'}
+                  </button>
+                )}
+              </div>
+              <MiFoto />
+            </div>
+          </div>
+        )}
+        <p className="co-preg__ya-de">{`Respuesta de ${chat.titulo}`}</p>
+        <YaEstaMensaje t={t} chat={chat} tareas={tareas} onFeedback={onFeedback} enBloque />
       </div>
     </div>
   );

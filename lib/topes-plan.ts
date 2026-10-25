@@ -42,11 +42,54 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 // cupo (ads.recomendaciones_dia), no la tab.
 export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
 
-/** El tope de esa cosa para esa capa. null = sin tope (también para una capa que no es un plan: pm, superadmin). */
-export function topeDe(capa: CapaId | string, tope: Tope): number | null {
-  const t = (TOPES as Record<string, Record<Tope, number | null>>)[capa];
-  return t ? t[tope] : null;
+// ── LA PRUEBA GRATIS (25/10/2026, el Cerebro) ─────────────────────────────────────────────────────────────────────
+// Martín: «hay que evaluar que funciones le damos acceso en esos 7 días, porque de pronto se vienen y generan un montón de
+// videos o cosas así y se dan de baja antes». Vale el plan elegido, con un tope en lo que alguien se puede LLEVAR y después
+// irse. El resto del motor (CRM, automatizaciones, chats, Plan) anda entero: es lo que los hace quedarse. Lo hace cumplir
+// cada pantalla con `frenoDePrueba` (lib/prueba-uso.ts), que dice `textoTopePrueba` con el botón a `RUTA_EMPEZAR_PLAN`.
+//   · Los videos y las imágenes se generan con el Google Flow del CLIENTE (su cuenta, sus créditos): a MaKo casi no le
+//     cuestan. El tope no es por costo: es por lo que se lleva sin pagar.
+//   · «3 videos» son 3 ANUNCIOS armados (el montaje del Video Generator), y las tomas sueltas van aparte con 30 (unas 10
+//     por anuncio): una toma se puede descargar sin armar el anuncio. Decidido acá sobre el pedido del Cerebro (que puso 3).
+
+/** La marca de la prueba, como una capa más para `topeDe`. */
+export const CAPA_PRUEBA = 'prueba';
+export type TopePrueba = 'prueba.videos' | 'prueba.tomas' | 'prueba.avatares' | 'prueba.imagenes' | 'web.landings_publicadas' | 'prueba.exportar';
+export const TOPES_PRUEBA: Readonly<Record<TopePrueba, number>> = {
+  'prueba.videos': 3,
+  'prueba.tomas': 30,
+  'prueba.avatares': 1,
+  'prueba.imagenes': 20,
+  'web.landings_publicadas': 1,
+  // Exportar o descargar en masa (el CSV de los leads): sólo después del primer cobro.
+  'prueba.exportar': 0,
+};
+
+/** El tope de esa cosa para esa capa (o para la prueba, `CAPA_PRUEBA`). null = sin tope (también una capa que no es un plan). */
+export function topeDe(capa: CapaId | string, tope: Tope | TopePrueba): number | null {
+  if (capa === CAPA_PRUEBA) return (TOPES_PRUEBA as Record<string, number>)[tope] ?? null;
+  const t = (TOPES as Record<string, Record<string, number | null>>)[capa];
+  return t ? t[tope] ?? null : null;
 }
+
+/** El tope de un negocio EN PRUEBA: el menor entre el de su plan y el de la prueba. */
+export function topeEnPrueba(capa: CapaId | string, tope: Tope | TopePrueba): number | null {
+  const plan = topeDe(capa, tope), prueba = topeDe(CAPA_PRUEBA, tope);
+  return plan == null ? prueba : prueba == null ? plan : Math.min(plan, prueba);
+}
+
+/** Lo que dice cada pantalla al llegar al tope de la prueba. Lo reconoce `esTopeDePrueba` para dibujar el botón. */
+export const PREFIJO_TOPE_PRUEBA = 'Disponible al terminar tu prueba';
+const QUE_TOPA: Readonly<Record<TopePrueba, (n: number) => string>> = {
+  'prueba.videos': (n) => `en la prueba gratis van hasta ${n} ${n === 1 ? 'video armado' : 'videos armados'}`,
+  'prueba.tomas': (n) => `en la prueba gratis van hasta ${n} tomas generadas`,
+  'prueba.avatares': (n) => `en la prueba gratis va${n === 1 ? '' : 'n hasta'} ${n} ${n === 1 ? 'video' : 'videos'} con avatar de IA`,
+  'prueba.imagenes': (n) => `en la prueba gratis van hasta ${n} imágenes generadas`,
+  'web.landings_publicadas': (n) => `en la prueba gratis va${n === 1 ? '' : 'n hasta'} ${n} ${n === 1 ? 'página publicada' : 'páginas publicadas'}`,
+  'prueba.exportar': () => 'exportar y descargar en masa se habilita con tu primer cobro',
+};
+export const textoTopePrueba = (tope: TopePrueba, n: number): string => `${PREFIJO_TOPE_PRUEBA}: ${QUE_TOPA[tope](n)}. Si quieres seguir ya, empieza tu plan.`;
+export const esTopeDePrueba = (texto: string | null | undefined): boolean => typeof texto === 'string' && texto.startsWith(PREFIJO_TOPE_PRUEBA);
 
 /** ¿Puede crear una más? `usadas` es lo que ya tiene. */
 export const cabeOtra = (capa: CapaId | string, tope: Tope, usadas: number): boolean => {
@@ -59,5 +102,8 @@ export const cabeOtra = (capa: CapaId | string, tope: Tope, usadas: number): boo
  * (app/configuraciones/plan), donde el negocio ve y cambia su plan.
  */
 export const RUTA_CAMBIAR_PLAN = '/configuraciones/plan';
+
+/** A dónde lleva el botón de un tope de la PRUEBA: «Tu plan», con «Empezar mi plan ya» a la vista. */
+export const RUTA_EMPEZAR_PLAN = `${RUTA_CAMBIAR_PLAN}?empezar=1`;
 
 export const textoTope = (t: number): string => `Llegaste al tope de tu plan (${t}). Pasa a MaKo Pro para tener más.`;

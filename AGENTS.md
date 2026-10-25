@@ -1096,6 +1096,14 @@ vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha un
 
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
+> **Martín, 25/10/2026, textual: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API».**
+> Lo dijo al ver que los botones de Instagram de Automations estaban en producción y Leandro, que configura con su Claude, no
+> los podía leer ni editar por la API. Por eso:
+> - **Toda entrega al Cerebro dice qué quedó declarado en la API** (operación por operación) o por qué no corresponde. Sin esa
+>   línea, la punta vuelve al chat para el tren siguiente.
+> - **Leer Y cambiar:** no alcanza con que la API pueda crear algo; lo que la pantalla deja leer o editar, la API también.
+> - **Lo que ya está en producción sin API es un hueco abierto**, no una decisión: se cierra en el área que corresponde.
+
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
 la skill de Claude del cliente, cualquier integración con un bearer— vive en UN registro:
 `lib/api-mako/areas/<área>.def.ts` (qué es, parámetros, por qué canales sale, cómo se
@@ -3647,6 +3655,23 @@ puntuarles») son UN mecanismo: `lib/creaciones.ts`, la galería `/creaciones`, 
   `lib/creaciones-automatizacion.ts`.
 - **Las tablas son de todos** (`workspace_origen`, cliente crudo, workspace explícito) y a otro negocio nunca sale el
   workspace de origen ni el email de quien publicó. El detalle, en [docs/hallazgos-creaciones.md](docs/hallazgos-creaciones.md).
+
+# Meta se habla por `canalMeta` (lib/meta-via.ts): Zernio primero, el token de Meta de respaldo
+
+Desde el 25/10/2026 (Martín: «implementa zernio y depreca la conexión con API de Meta») el camino principal de Meta es la
+conexión de anuncios de Zernio de cada negocio («Conectar con Facebook»). El `META_ACCESS_TOKEN` queda DEPRECADO: no se pide, y
+sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o escriba Meta con lo del negocio:
+
+- **Pregunta la vía con `canalMeta(ws)`** y no lee `META_ACCESS_TOKEN` por su cuenta. `via: 'zernio'` → las lecturas con la
+  forma de Meta (`insightsPorZernio`, `conjuntosVivosPorZernio`, `cuentaCrudaPorZernio`, `creativosPorZernio`); `via: 'token'` →
+  la Graph API como siempre. Un fallo de Zernio se reintenta por el token SÓLO para LEER y sólo si el negocio lo conserva
+  (`canal.respaldo`).
+- **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
+- **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
+- **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.
+- **Apagado detrás de la prueba:** `ZERNIO_META_PROBADO = false` hasta que la cuenta de MaKo pase `scripts/prueba-zernio-meta.mts`;
+  hasta entonces Zernio corre sólo en el negocio de la plataforma. Lo medido: docs/hallazgos-integraciones.md → «Meta entero por
+  la Zernio del negocio».
 
 # Un cobro pasa por `lib/cobros.ts`, y la clave de una pasarela se lee con `credDelCliente`
 

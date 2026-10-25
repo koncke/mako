@@ -174,14 +174,13 @@ export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
   return (
     <>
       <div className="gma-izq-cabeza">
+        {/* Vuelve al chat con la flecha de arriba a la izquierda, la del chat («← MaKo»), y no con una X a la derecha
+            (25/10/2026, Martín: «siempre con un botón de flecha para regresar... No la X que tiene ahora»). */}
+        <button type="button" className="gma-izq-volver gma-tip" data-tip="Volver al chat" aria-label="Volver al chat" onClick={onCerrar}>←</button>
         <span className="gma-izq-titulo">Páginas</span>
         <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Añadir página" aria-label="Añadir página"
           disabled={paginas.length >= TOPES.paginas} onClick={agregar}>
           <Ico n="mas" t={16} />
-        </button>
-        {/* Vuelve al chat (la tarjeta no se pliega desde el 24/10/2026: las páginas son una vista de ella). */}
-        <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Volver al chat" aria-label="Volver al chat" onClick={onCerrar}>
-          <Ico n="x" t={16} />
         </button>
       </div>
       <div ref={contRef} className="gma-paginas" {...handlers}>

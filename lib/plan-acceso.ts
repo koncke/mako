@@ -44,7 +44,8 @@ export type FilaCobroLugar = CobroDelLugar & {
   proveedor_suscripcion_id: string | null; proveedor_ref: string | null; token: string; lead_id: number | null;
 };
 
-const COLS = 'id, tipo, estado, suscripcion_estado, pagado_at, reembolsado_at, created_at, alta_ws, monto, moneda, monto_usd, motivo, proveedor, proveedor_suscripcion_id, proveedor_ref, token, lead_id';
+// `creado_por` y `alta_capa`: para reconocer la prueba gratis (25/10/2026, lib/prueba-plan-reglas.ts).
+const COLS = 'id, tipo, estado, suscripcion_estado, pagado_at, reembolsado_at, created_at, alta_ws, monto, moneda, monto_usd, motivo, proveedor, proveedor_suscripcion_id, proveedor_ref, token, lead_id, creado_por, alta_capa';
 
 /** Los cobros de la plataforma que pagan el lugar de un negocio. Tolera una base sin la 0308 o sin la 0330. */
 export async function cobrosDeLugares(plataforma: number, soloWs?: number): Promise<FilaCobroLugar[]> {
