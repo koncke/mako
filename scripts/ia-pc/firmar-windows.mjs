@@ -141,6 +141,8 @@ export function peConMarcaDeTiempo(exe) {
  * esto mira que Windows la acepte entera (la cadena hasta una raíz de confianza, el archivo sin tocar), que es lo que decide si
  * SmartScreen dice «Editor: Martín Koncke» o «Editor desconocido». `editor` es el nombre del certificado (con un IV, el de la
  * persona). La ruta va por el entorno: con comillas o espacios en la línea de comandos se rompía. `correr` es para los tests.
+ * @param {string} archivo
+ * @param {{ correr?: (comando: string, args: string[], opts: Record<string, any>) => { stdout?: string | null; stderr?: string | null; status: number | null } }} [opciones]
  * @returns {{ valida: boolean; estado: string; editor: string | null; conMarca: boolean }}
  */
 export function verificarFirmaWindows(archivo, { correr = spawnSync } = {}) {

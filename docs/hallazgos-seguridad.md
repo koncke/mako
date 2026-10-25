@@ -55,8 +55,24 @@ emparejado para la cuenta de Mauricio el 22/10) es falso, y se midió:
   `profile.info_cache.<perfil>.user_name`.
 
 **La regla que queda** (Martín, 25/10): la app de escritorio SIEMPRE pide el login de la persona, el mismo de la web. Emparejar
-la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no desconecta la IA. Lo que hace cumplir eso en una
-app web instalada (que hereda la sesión de su perfil) está en «La app pide el login» (abajo, cuando entre la tanda 2).
+la computadora para la IA nunca abre una cuenta, y cerrar sesión en la app no desconecta la IA.
+
+**Cómo se cumple en una app web instalada, que hereda la sesión de su perfil** (`lib/app-escritorio-reglas.ts`,
+`app/_components/PuertaDeLaApp.tsx`, `tests/app-escritorio-puerta.test.ts`):
+- Cada VENTANA NUEVA de la app (la instalada de la computadora, `display-mode: standalone`; o el acceso «MaKo» de `mako-pc`,
+  con `?app=1`) guarda en su `sessionStorage` la hora del SERVIDOR a la que empezó a esperar, y pasa sólo con una sesión
+  EMITIDA después. Para eso la sesión firma cuándo se entró (`iat`, `crearToken`); las de antes del 25/10 no lo traen y cuentan
+  como viejas. `/api/auth/entrada` da sólo esa hora y la del servidor (las dos del servidor: el reloj de la PC puede estar
+  corrido). No se desloguea el navegador: si la persona entra con su cuenta, la cookie del perfil pasa a ser la suya.
+- **Trampa 1, el bucle:** `/login` con sesión dibuja «Ya tienes la sesión abierta» y te lleva adentro solo en 1,2 s; la puerta
+  te devolvía al login. Con `app=1`, `/login` muestra el formulario aunque haya sesión.
+- **Trampa 2, el doble login:** una ventana que arranca SIN sesión la trae el proxy directo a `/login`, y ahí la puerta no
+  corría: después de entrar, «ventana nueva» → login otra vez. En lo público la puerta no manda a ningún lado, pero anota desde
+  cuándo espera.
+- **Trampa 3, el instante de la cuenta ajena:** la puerta decide después de hidratar, y mientras tanto se veía la cuenta del
+  perfil. Una tapa CSS (`puerta-app.css`) tapa la app instalada hasta decidir; sólo con `pointer: fine`, porque la TWA del
+  teléfono también corre «instalada» y no es esta regla (el teléfono queda fuera también en la decisión, por el user agent).
+- Sin red, la puerta no traba la app: si `/api/auth/entrada` no contesta, pasa (la sesión la sigue mirando el servidor).
 
 **Lo que quedó SIN hacer:** sacar esa app del perfil de Mauricio en la PC de Martín es de él (clic derecho en el ícono ›
 Desinstalar, o chrome://apps en ese perfil).

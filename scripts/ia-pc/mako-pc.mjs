@@ -1018,11 +1018,16 @@ async function correrSiempre() {
 // `mako-pc abrir`: MaKo en el navegador, en el Ops Center si esta computadora ya está conectada, o en «Tus cuentas de IA» para
 // conectarla si no. (MaKo entero en una ventana propia es otra cosa, decidida por Martín y sin código todavía: f04.)
 
-/** A dónde lleva el acceso «MaKo»: el Ops Center del negocio conectado; sin conexión, a conectarla. */
+/**
+ * A dónde lleva el acceso «MaKo»: el Ops Center del negocio conectado; sin conexión, a conectarla. Con `app=1` (25/10/2026,
+ * Martín: «la app de desktop jamás me pidió login... entró directo a la cuenta de Mauricio»): esa ventana pide el login de la
+ * persona aunque el navegador tenga una sesión abierta, que puede ser de otro (lib/app-escritorio-reglas.ts). Estar conectada
+ * para la IA nunca abre una cuenta: la conexión de la PC no viaja en el enlace.
+ */
 export function destinoDeAbrir(c) {
-  if (!c?.token) return `${SERVIDOR_DEFAULT}/perfil/ia?computadora=1`;
+  if (!c?.token) return `${SERVIDOR_DEFAULT}/perfil/ia?computadora=1&app=1`;
   const servidor = typeof c.servidor === 'string' && /^https:\/\/[^/\s]+$/.test(c.servidor) ? c.servidor : SERVIDOR_DEFAULT;
-  return `${servidor}/second-brain`;
+  return `${servidor}/second-brain?app=1`;
 }
 
 /** El acceso «MaKo»: abre el destino en el navegador. 0 = se abrió. `p` es para los tests. */

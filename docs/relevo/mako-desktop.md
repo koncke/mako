@@ -24,6 +24,16 @@ conectar, una vez instalado, rediseña eso, que se vea facil, mira la cantidad d
 - **«No es seguro»:** las fuentes y la tabla de qué cambia con la firma, en el plan. `verificarFirmaWindows`: `publicar-binarios`
   no sube un .exe que Windows no acepte, y `node scripts/ia-pc/firmar-windows.mjs verificar <archivo>` lo mira a mano.
 
+## «La app de desktop jamás me pidió login» (25/10 ~12:00, urgente)
+
+- **Medido:** el «MaKo» del escritorio de Martín es una app web de Chrome instalada el 26/08 en el perfil de Chrome de Mauricio
+  («Profile 9», mbustos@elevate.com.mx), con la sesión de ese perfil. No es `mako-pc` ni el emparejamiento: el token de la PC no
+  es una sesión (`tests/ia-pc-nunca-sesion.test.ts`). Detalle: docs/hallazgos-seguridad.md.
+- **Arreglado (tanda 2):** cada ventana nueva de la app pide el login de la persona (`PuertaDeLaApp`, `/login?app=1`, la sesión con
+  `iat`). Le llega a lo ya instalado con el deploy de la web, sin reinstalar nada, y cerrar sesión no toca la PC conectada.
+- **De Martín:** desinstalar esa app del perfil de Mauricio (clic derecho en el ícono › Desinstalar) o, si la quiere, entrar con
+  su cuenta cuando la app la pida.
+
 ## Lo de Martín: qué comprar y qué hacer para que no salga «no es seguro»
 
 Lo hace él (nosotros nunca cargamos tarjetas, documentos ni claves). Los pasos exactos, en el plan: «Firmar: lo que hace Martín»
