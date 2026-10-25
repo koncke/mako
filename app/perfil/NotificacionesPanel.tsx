@@ -192,8 +192,9 @@ export function NotificacionesPanel({ canal, admin, zona }: {
           <>
             <GrupoAjustes>
               <FilaAjustes titulo="Pop-up" fin={<Switch checked={p.popup} onChange={(v) => void guardarApp({ ...p, popup: v })} />} />
-              {/* El sonido de toda la app, y el de cada aviso con él: un aviso apagado aparte quedaría mudo sin decirlo. */}
-              <FilaAjustes titulo="Sonido" fin={<Switch checked={p.sonido} disabled={!p.popup}
+              {/* El sonido de toda la app, y el de cada aviso con él: un aviso apagado aparte quedaría mudo sin decirlo. No depende
+                  del pop-up (NotificationsProvider: `dejaSonar` y `dejaVer` son independientes). */}
+              <FilaAjustes titulo="Sonido" fin={<Switch checked={p.sonido}
                 onChange={(v) => void guardarApp({ ...p, sonido: v, items: Object.fromEntries(Object.entries(p.items).map(([k, it]) => [k, { ...it, sonido: v }])) })} />} />
               <FilaAjustes titulo="Probar" fin={(
                 <button type="button" className="aj-boton" data-variante="borde" onClick={() => window.dispatchEvent(new Event(EVENTO_PRUEBA_IN_APP))}>Enviar prueba</button>

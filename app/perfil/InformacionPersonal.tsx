@@ -65,17 +65,19 @@ function CampoEnLinea({ valor, onGuardar, placeholder, maxLength, largo, etiquet
   disabled?: boolean;
 }) {
   const [borrador, setBorrador] = useState(valor);
-  const guardando = useRef(false);
-  // Lo guardado cambió por afuera (otro campo releyó el perfil): el campo lo sigue, salvo que se esté escribiendo en él.
+  // Lo guardado cambió por afuera (otro campo releyó el perfil): el campo lo sigue, salvo que se esté escribiendo en él o
+  // guardando. ⚠️ Sin el «guardando», al salir del campo volvía un instante el valor VIEJO (el efecto corría con el foco ya
+  // afuera y lo guardado todavía sin llegar) y después el nuevo: un parpadeo que se lee como «no se guardó».
   const [enFoco, setEnFoco] = useState(false);
-  useEffect(() => { if (!enFoco) setBorrador(valor); }, [valor, enFoco]);
+  const [guardando, setGuardando] = useState(false);
+  useEffect(() => { if (!enFoco && !guardando) setBorrador(valor); }, [valor, enFoco, guardando]);
 
   const confirmar = async () => {
     const v = borrador.trim() === valor.trim() ? valor : borrador;
-    if (v === valor || guardando.current) return;
-    guardando.current = true;
+    if (v === valor || guardando) return;
+    setGuardando(true);
     const ok = await onGuardar(v.trim());
-    guardando.current = false;
+    setGuardando(false);
     if (!ok) setBorrador(valor);
   };
   const comun = {
