@@ -578,7 +578,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   // borde derecho (la pieza lo corre si no entra).
   const menu = (
     <button type="button" aria-label="Más opciones de la ficha" aria-haspopup="menu" aria-expanded={!!menuFicha}
-      onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuFicha((m) => (m ? null : { x: r.right, y: r.bottom + 6, n: (m?.n ?? 0) + 1 })); }}
+      onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuFicha((m) => (m ? null : { x: r.right, y: r.bottom + 6, n: Date.now() })); }}
       style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 32, height: 32, padding: 0, border: '1px solid var(--border-strong)', borderRadius: 999, background: menuFicha ? 'var(--surface-2)' : 'var(--surface)', color: 'var(--dim)', fontSize: 16, lineHeight: 1, cursor: 'pointer', fontFamily: 'inherit' }}>
       ⋯
     </button>
@@ -617,7 +617,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
         return;
       }
       case 'hoja_volver': if (hojaAbierta && esTabFicha(hojaAbierta)) cambiar({ op: 'volver', tab: hojaAbierta }); return;
-      case 'hoja_eliminar': if (hojaAbierta) borrarHoja(hojaAbierta); return;
+      case 'hoja_eliminar': if (hojaAbierta && esIdHoja(hojaAbierta)) borrarHoja(hojaAbierta); return;
     }
   };
   const alClicDerechoFicha = (e: { target: EventTarget | null; clientX: number; clientY: number; preventDefault: () => void }) => {
