@@ -64,7 +64,9 @@ let sucio = 0;
 for (const [destino, generado] of SALIDAS) {
   if (check) {
     let enGit = null;
-    try { enGit = execFileSync('git', ['show', `HEAD:${destino}`], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { enGit = null; }
+    // ⚠️ `maxBuffer` (25/10/2026): el de Node es 1 MB, y docs/api-mako.md pasó 1 MB ese día. Sin esto, `git show` cortaba con
+    // ENOBUFS, el catch lo leía como «no está en git» y la guarda del push frenaba con la doc al día.
+    try { enGit = execFileSync('git', ['show', `HEAD:${destino}`], { cwd: RAIZ, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], maxBuffer: 64 * 1024 * 1024 }); } catch { enGit = null; }
     if (enGit === null) { console.error(`  ✖ ${destino} no está en git.`); sucio++; continue; }
     if (sinCR(enGit) !== sinCR(generado)) { console.error(`  ✖ ${destino} quedó viejo respecto del registro (lib/api-mako/areas/*.def.ts).`); sucio++; continue; }
     console.log(`  ✓ ${destino} al día.`);

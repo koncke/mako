@@ -2441,3 +2441,15 @@ Las otras cuatro, más chicas:
 
 *23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
 medido con un script; arreglos probados rompiéndolos.*
+
+## La guarda de la doc decía «no está en git» con la doc al día: el MEGA de `execFileSync` (25/10/2026)
+
+- **Síntoma:** `node --import tsx scripts/generar-api-doc.mjs --check` (corre en el pre-push y en Actions) dijo
+  «✖ docs/api-mako.md no está en git» con el archivo commiteado y al día.
+- **Causa:** el chequeo lee la versión de HEAD con `execFileSync('git', ['show', 'HEAD:docs/api-mako.md'])`, y el `maxBuffer` por
+  defecto de Node es **1 MB**. La doc pasó 1 MB (1.050.185 bytes) al sumar dos operaciones: `git show` cortó con ENOBUFS, y el
+  `catch` lo leyó como «no está». **El diagnóstico obvio era el equivocado:** no faltaba commitear nada.
+- **La regla:** todo `execFileSync`/`execSync` que lea un archivo generado grande lleva `maxBuffer` explícito (64 MB en este).
+  Cualquier artefacto que crece con el registro (la doc, el snapshot, el plugin) va a cruzar el límite un día, sin aviso.
+
+**Vive en:** scripts/generar-api-doc.mjs. *25/10/2026 · chat «Planes» (claude5), al sumar ver_mi_prueba y empezar_mi_plan_ya.*

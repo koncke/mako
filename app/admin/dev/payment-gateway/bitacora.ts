@@ -489,4 +489,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/planes',
   },
+  {
+    fecha: '25 oct', hora: '15:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El cartel de «versión limitada» de Madgicx, para la prueba gratis de MaKo',
+    pedido: 'Me gusta el cartel de "limited version" de 7 días de madgicx para implementar en la prueba gratuita de MaKo',
+    puntos: ['Lo trajo el Cerebro con las capturas de Media Buyer, y la regla del mismo día: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API».'],
+    revisar: '/planes',
+  },
+  {
+    fecha: '25 oct', hora: '15:30', chat: 'Planes', sesion: 'local_fbd605d7-daed-4eae-9368-02bd8708764c', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El cartel de la versión de prueba, la franja de cada tope, y la prueba en la API',
+    puntos: [
+      'Al pie de la barra lateral, en todas las pantallas: «Versión de prueba · quedan 5 días», lo que se cobra después y «Pasar al plan ya». Con los colores de MaKo, claro y oscuro.',
+      'Arriba de Video Generator, AI Avatar y Web Generator: «Usaste 1 de 3 videos armados de la prueba», con su botón. Como en Madgicx, la prueba limita cantidades, no pantallas.',
+      'En el teléfono: el cartel en «Más», un aviso corto arriba de cada pantalla y «Empezar mi plan ya» en «Tu plan».',
+      'Por la API de MaKo: ver la prueba (días, qué se cobra, topes usados), empezar el plan ya (se confirma en pantalla) y cancelarla sin cobro.',
+      'De paso: la guarda de la doc de la API frenaba el push con la doc al día (pasó 1 MB). Ya no.',
+    ],
+    commits: [
+      { sha: '2be1805b9', msg: 'Planes › el cartel de la versión de prueba (como Madgicx) y la prueba en la API', lineas: 645, archivos: 26 },
+    ],
+    archivos: [
+      'app/_components/CartelPrueba.tsx — el cartel de la barra lateral',
+      'app/_ui/FranjaPrueba.tsx — la franja de cada pantalla con tope',
+      'app/m/_prueba/PruebaM.tsx — el cartel y el aviso del teléfono',
+      'lib/api-mako/areas/negocio.def.ts y .run.ts — ver_mi_prueba y empezar_mi_plan_ya',
+      'tests/prueba-cartel.test.ts — 17 roturas, cada una cae',
+    ],
+    revisar: '/video-generator',
+  },
 ];
