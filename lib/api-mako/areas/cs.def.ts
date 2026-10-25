@@ -94,7 +94,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_pagos_clientes_agencia', area: 'cs', tipo: 'lectura',
     titulo: 'Ver los pagos de clientes',
-    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Los links NO vienen aquí: están en MaKo Partners, en la cuenta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
+    descripcion: 'Sólo para una AGENCIA: por cada cliente suyo con cuenta de MaKo, lo que falta pagar. «primer_mes_sin_pagar»: al abrirle la cuenta se creó el link de Mercado Pago de su primer mes, y pagarlo lo habilita solo. «renovacion»: terminó el onboarding, su mes ya corre, y la suscripción mensual (que empieza a cobrar en `desde`) espera que la agencia la autorice; `activada: true` es que ya la autorizó. Si la cuenta la paga el cliente, el pago lo ve él al terminar su onboarding. Los links NO vienen aquí: están en Agency Dashboard, en la cuenta de cada cliente («Pagar su mes» o «Activar renovación»). Un cliente que no aparece no tiene nada pendiente.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
@@ -102,8 +102,8 @@ export const DEFS: readonly OperacionDef[] = [
     // MaKo Partners (17/10/2026, docs/diseno-clients.md D7-D10): las cuentas de MaKo de los clientes de una agencia viven
     // en la tab /partners. Sin HTTP: son negocios de terceros.
     id: 'ver_clientes_partners', area: 'cs', tipo: 'lectura',
-    titulo: 'Ver los clientes de MaKo Partners',
-    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): las cuentas de MaKo de sus clientes, que viven en la tab MaKo Partners y NO son los clientes de la entrega (ver_cartera_cs). De cada una: nombre, estado de la cuenta (pendiente: espera que se pague su primer mes o que MaKo la habilite; aprobado: activa; revocado), desde cuándo, su plan y cuántas personas entran (sólo las activas), si falta pagar su primer mes o activar la renovación, y el lead del CRM del que salió (puede no haber). Los links de pago no vienen: están en MaKo Partners.',
+    titulo: 'Ver los clientes de la agencia',
+    descripcion: 'Sólo para una AGENCY (un negocio con el plan Pro que se sumó como Agency): las cuentas de MaKo de sus clientes, que viven en la tab Agency Dashboard y NO son los clientes de la entrega (ver_cartera_cs). De cada una: nombre, estado de la cuenta (pendiente: espera que se pague su primer mes o que MaKo la habilite; aprobado: activa; revocado), desde cuándo, su plan, quién la paga (agencia o cliente), cuántas personas entran (sólo las activas), si falta pagar su primer mes o activar la renovación, y el lead del CRM del que salió (puede no haber). Los links de pago no vienen: están en Agency Dashboard.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: CS,
   },
@@ -144,14 +144,50 @@ export const DEFS: readonly OperacionDef[] = [
     // del CRM: `abrirCuentaDePartner` (lib/partners.ts). Crea una cuenta de la plataforma: lo confirma una persona, y
     // sólo el admin.
     id: 'llevar_a_partners', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
-    titulo: 'Llevar un lead a MaKo Partners',
-    descripcion: 'Sólo para una AGENCIA (un negocio del programa MaKo Partners): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia. La cuenta nace esperando: se habilita al pagar su primer mes (el link queda en MaKo Partners y se le pasa a la persona aparte) y su mes corre desde que termina el onboarding. A quien la va a usar le llega su acceso cuando quede habilitada. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
-    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin (sin avisarle todavía), lo liga al lead (leads.cliente_ws) y crea el link de pago de su primer mes',
+    titulo: 'Abrirle su cuenta a un lead',
+    descripcion: 'Sólo para una AGENCY (un negocio con el plan Pro que se sumó como Agency): le abre a un lead de su CRM (de cualquier etapa: no hace falta que sea cliente) su propia cuenta de MaKo, como cliente de la agencia, en Agency Dashboard. Se elige quién la paga: la agencia (default: el link de su primer mes queda en Agency Dashboard y pagarlo la habilita; a quien la va a usar le llega su acceso al quedar habilitada) o el cliente (le llega su acceso ya, hace su onboarding y al terminarlo le aparece el pago). Su mes corre desde que termina el onboarding. Necesita un email: sin email usa el del CRM. Si el lead ya tiene cuenta, no abre otra.',
+    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin, lo liga al lead (leads.cliente_ws), anota quién paga y crea el link de pago de su primer mes; si paga el cliente, le manda su acceso',
     parametros: [
       { nombre: 'leadId', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'id del lead del CRM (cualquier etapa).' },
       { nombre: 'email', tipo: 'string', max: 200, descripcion: 'el email de quien va a usar la cuenta. Sin esto, el del CRM.' },
+      { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
     ],
     canales: SIN_HTTP, costo: 'gratis', gating: { tab: 'customer-success', rolMinimo: 'admin' },
+  },
+  // ── Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9) ────────────────────────────────────────
+  // Sumarse como Agency, ver cómo está y abrir la cuenta de un cliente que no está en el CRM. El núcleo, en lib/agency.ts
+  // y lib/partners.ts (el MISMO de la tab). Sólo el admin: se crean cuentas de la plataforma. Sin HTTP: son negocios de
+  // terceros. Sin `tab`: Agency es del plan, no de una tab de la capa.
+  {
+    id: 'ver_agency', area: 'cs', tipo: 'lectura',
+    titulo: 'Ver el estado de Agency',
+    descripcion: 'Si este negocio es Agency (tiene el plan MaKo Pro activo y se sumó desde Agency Dashboard), si puede sumarse y, si no, por qué (plan: Agency es parte de MaKo Pro; pausado: su cuenta está pausada), lo que contó al sumarse (cuántos clientes maneja, su rubro, quién paga hoy las herramientas de sus clientes) y cuántas cuentas de clientes tiene por estado. Una agencia NO gana dinero con MaKo: sus clientes son suyos, y MaKo no les hace promociones ni les ofrece otros planes.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'sumarse_como_agency', area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Sumarse como Agency',
+    descripcion: 'Suma este negocio como Agency: desde ahí abre las cuentas de MaKo de sus clientes, entra a cada una con controles de admin y elige si cada cuenta la paga la agencia o el cliente. Sólo con el plan MaKo Pro activo (si no, dice por qué). Antes de proponerlo conviene preguntar las tres cosas del alta: cuántos clientes maneja, a qué se dedican y quién paga hoy sus herramientas. Si ya es Agency, no hace nada.',
+    escribe: 'anota que el negocio se sumó como Agency (agencias) y lo que contó (app_settings agency.perfil)',
+    parametros: [
+      { nombre: 'clientes', rotulo: 'Cuántos clientes', tipo: 'string', enum: ['1-5', '6-20', '21-50', '50+'], descripcion: 'cuántos clientes maneja hoy.' },
+      { nombre: 'rubro', rotulo: 'Rubro', tipo: 'string', max: 120, descripcion: 'a qué se dedican sus clientes, en pocas palabras.' },
+      { nombre: 'pagaHoy', rotulo: 'Quién paga hoy', tipo: 'string', enum: ['yo', 'clientes', 'depende'], descripcion: 'quién paga hoy las herramientas de sus clientes: yo (la agencia), clientes o depende. Es lo que el alta de un cliente propone primero.' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'abrir_cuenta_cliente_agency', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Abrir la cuenta de un cliente',
+    descripcion: 'Sólo para una AGENCY: le abre su cuenta de MaKo a un cliente que NO está en el CRM (si está, usar llevar_a_partners con su leadId), con su nombre y su email. Se elige quién la paga: la agencia (default: el link de su primer mes queda en Agency Dashboard; pagarlo la habilita y ahí le llega su acceso) o el cliente (le llega su acceso ya; al terminar su onboarding le aparece el pago, y hasta que pague la agencia no entra a su cuenta). Su mes corre desde que termina el onboarding. Si el email ya tiene cuenta de MaKo, no abre otra.',
+    escribe: 'crea la cuenta de MaKo del cliente (un workspace nuevo de la plataforma, pendiente), su usuario admin, anota quién paga y crea el link de pago de su primer mes; si paga el cliente, le manda su acceso',
+    parametros: [
+      { nombre: 'nombre', rotulo: 'Nombre', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del negocio (o de la persona) del cliente.' },
+      { nombre: 'email', rotulo: 'Email', tipo: 'string', obligatorio: true, max: 200, descripcion: 'el email de quien va a usar la cuenta: por ahí le llega el acceso.' },
+      { nombre: 'paga', rotulo: 'Quién paga', tipo: 'string', enum: ['agencia', 'cliente'], descripcion: 'quién paga su cuenta: agencia (default, con su tarjeta) o cliente (al terminar su onboarding).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
   {
     // LA TARJETA DE UN CLIENTE, PERSONALIZADA (21/10/2026, Martín: «la personalización de las tarjetas en clientes, plan,

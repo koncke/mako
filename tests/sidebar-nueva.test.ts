@@ -241,7 +241,8 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
     .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
   assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
   assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
-  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label)).length, 1, 'More vuelve a tener dos «Dashboard»');
+  // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });
@@ -283,8 +284,9 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
-    '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  // /admin/cobros y /admin/agente salieron el 25/10/2026: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
+  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/estrategia',
+    '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');

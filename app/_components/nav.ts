@@ -340,6 +340,9 @@ export const FAMILIAS: NavFamilia[] = [
           ],
         },
         { key: 'customer-success', label: 'Clients', bajada: 'Clientes, cursos y comunidad', adentro: ['cs-curso', 'cs-comunidad'], href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
+        // Customers (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12): los clientes de MaKo para el super admin
+        // (Partners, Agencies y el resto), con Billing (era /admin/cobros) y Agents (era /admin/agente) adentro.
+        { key: 'admin-customers', label: 'Customers', href: '/customers', icon: 'cs', adminOnly: true, match: (p) => starts('/customers')(p) || starts('/admin/cobros')(p) || starts('/admin/agente')(p) },
       ],
     ],
   },
@@ -518,7 +521,8 @@ export function arribaDe(adminShell: boolean, puedeVer: (it: NavItem) => boolean
  * «Configuración del negocio». Ver docs/diseno-sidebar.md, «Admin: dónde fue cada una».
  */
 export const SUPERADMIN_MENU: NavItem[] = [
-  HERRAMIENTAS.cobros, HERRAMIENTAS.agente,
+  // Billing y Client Agents salieron el 25/10/2026: viven en Customers (las pestañas Billing y Agents). Sus entradas de
+  // HERRAMIENTAS quedan (el teléfono las abre por key, lib/movil-rutas.ts) y sus rutas redirigen.
   HERRAMIENTAS.contexto, HERRAMIENTAS.modelosIa, HERRAMIENTAS.conocimientos, HERRAMIENTAS.dev,
 ];
 
@@ -731,6 +735,10 @@ export const USER_NAV: NavItem[] = [
   // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
   // referidos (app/partners/page.tsx).
   { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', match: starts('/partners') },
+  // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
+  // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
+  // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).
+  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', match: starts('/agency') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

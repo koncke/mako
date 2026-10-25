@@ -73,5 +73,6 @@ test('/api/auth/me y el layout leen al cliente de UN solo lugar', () => {
   assert.match(lib, /^import 'server-only';$/m);
   assert.match(lib, /if \(!sesion \|\| !\(await estaImpersonando\(\)\)\) return null;/);
   assert.match(lib, /const agencia = esSuperAdmin \? await agenciaDeCliente\(clienteWs\) : null;/);
-  assert.match(lib, /salida: agencia \? `\/partners?\?\$\{WS_PARAM\}=\$\{agencia\.ws\}` : rutaDeSalida\(esSuperAdmin\)/);
+  // Desde el 25/10/2026 el cliente de una agencia vuelve al Agency Dashboard de su agencia (/agency).
+  assert.match(lib, /salida: agencia \? `\/agency\?\$\{WS_PARAM\}=\$\{agencia\.ws\}` : rutaDeSalida\(esSuperAdmin\)/);
 });

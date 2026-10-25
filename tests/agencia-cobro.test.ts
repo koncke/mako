@@ -110,9 +110,10 @@ test('abrir la cuenta crea el link del primer mes y, sin link, la cuenta queda c
   // (lib/partners.ts); la acción de Clients la envuelve (docs/diseno-clients.md, D8).
   const a = fuente('lib/partners.ts');
   const i = a.indexOf('await crearUsuario({');
-  const j = a.indexOf('const cobro = await linkPrimerMes({ agenciaWs: p.agenciaWs, clienteWs: ws.id');
+  // Desde el 25/10/2026 la llamada ocupa varias líneas (quién paga cambia el email): se busca su comienzo.
+  const j = a.indexOf('const cobro = await linkPrimerMes({');
   assert.ok(i > 0 && j > i, 'el link sale después de crear la cuenta y su usuario');
-  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo \};/);
+  assert.match(a, /return \{ ok: true, clienteWs: ws\.id, link: cobro\.ok \? cobro\.link : null, sinLink: cobro\.ok \? null : cobro\.motivo, paga, acceso \};/);
   assert.match(fuente('app/customer-success/actions.ts'), /const r = await abrirCuentaDePartner\(\{ agenciaWs,/, 'la de Clients es un envoltorio');
 });
 

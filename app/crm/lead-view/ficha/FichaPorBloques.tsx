@@ -91,7 +91,7 @@ import { rutaChatsDeLead } from '@/lib/chats-links';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { itemsFicha, menuPropioEn, opcionesFicha, type HojaDelMenu, type IdOpcionFicha } from './menu-contextual-ficha';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from '../../iconos';
-import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { ModalNuevoCliente as ModalLlevarAPartners } from '@/app/agency/NuevoCliente';
 import { HistorialFicha } from './HistorialFicha';
 import { Armador } from './Armador';
 import { AgregarBloque } from './AgregarBloque';
@@ -606,7 +606,7 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
       case 'historial': setHistorial(true); return;
       case 'guia': if (!enEdicion) alternarEdicion(true); guia.reabrir(); return;
       case 'partners_llevar': setAPartners(true); return;
-      case 'partners_ver': if (lead.cliente_ws != null) router.push(`/partners?cuenta=${lead.cliente_ws}`); return;
+      case 'partners_ver': if (lead.cliente_ws != null) router.push(`/agency?cuenta=${lead.cliente_ws}`); return;
       // La hoja abierta: lo mismo que el menú de su tab (`opcionesDe`).
       case 'hoja_renombrar': setPedidoNombre((p) => ({ key: activa, n: (p?.n ?? 0) + 1 })); return;
       case 'hoja_templates': if (hojaAbierta) abrirTemplates(hojaAbierta); return;

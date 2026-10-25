@@ -28,6 +28,10 @@ import { cobrosDeClientesDeAgencia, linkPrimerMes, precioClienteDeAgencia } from
 import type { PrecioClienteAgencia } from './agencia-cobro-reglas';
 import { capaDef } from './capas';
 import { caraDeUsuario } from './gravatar';
+import { guardarQuienPaga, quienPagaDeClientes } from './agency';
+import { quienPagaDe, type QuienPaga } from './agency-reglas';
+import { invitarPorEmail } from './invitaciones';
+import type { ResultadoInvitacion } from './invitacion-aviso';
 
 /** Una persona del equipo de una cuenta, como la dibuja la ficha. */
 export type MiembroCuenta = { id: number; nombre: string; email: string; rol: string; foto: string | null };
@@ -51,6 +55,8 @@ export type CuentaPartner = {
   cobro: CobroCuenta | null;
   /** El lead del CRM de la agencia del que salió (`leads.cliente_ws`). Puede no haber: «podrían serlo como no». */
   lead: { id: number; nombre: string } | null;
+  /** Quién paga su cuenta (Agency Dashboard, 25/10/2026): la agencia con su tarjeta, o el cliente al terminar su onboarding. */
+  paga: QuienPaga;
 };
 
 export type CarteraPartner =
@@ -77,7 +83,7 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
   const aprobados = new Set(clientesAprobados(agenciaWs, cartera));
   const todos = new Set(cartera.map((f) => Number(f.cliente_ws)));
 
-  const [wss, usuarios, altas, cobros, leads, precio] = await Promise.all([
+  const [wss, usuarios, altas, cobros, leads, precio, pagan] = await Promise.all([
     listarWorkspaces().catch(() => []),
     // `null` = no se pudo leer, que no es «nadie» (ver abajo).
     aprobados.size ? listarUsuarios().catch(() => null) : Promise.resolve([]),
@@ -85,6 +91,7 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
     cobrosDeClientesDeAgencia(agenciaWs).catch(() => ({} as Record<number, CobroCuenta>)),
     leadsConCuenta(),
     precioClienteDeAgencia().catch(() => ({ usd: 47, mp: null }) as PrecioClienteAgencia),
+    quienPagaDeClientes([...todos]),
   ]);
   const nombreWs = new Map(wss.filter((w) => todos.has(w.id)).map((w) => [w.id, w]));
   const equipoPorWs = new Map<number, MiembroCuenta[]>();
@@ -119,6 +126,7 @@ export async function cuentasDePartner(agenciaWs: number): Promise<CarteraPartne
       altas: altasPorWs.get(ws) ?? [],
       cobro: (cobros as Record<number, CobroCuenta>)[ws] ?? null,
       lead: leads.get(ws) ?? null,
+      paga: pagan.get(ws) ?? 'agencia',
     };
   });
   // Lo que espera algo de la agencia primero (pagar, autorizar), después las aprobadas por nombre.
@@ -154,9 +162,13 @@ export async function leadParaPartners(leadId: number): Promise<{ id: number; no
   return { id: Number(l.id), nombre: (l.nombre ?? '').trim(), email: l.email?.trim() || null, clienteWs: l.cliente_ws ?? null };
 }
 
-export type AbrirCuenta = { agenciaWs: number; nombre: string; email: string; leadId?: number | null; pagador: string | null };
+export type AbrirCuenta = {
+  agenciaWs: number; nombre: string; email: string; leadId?: number | null; pagador: string | null;
+  /** Quién paga su cuenta (25/10/2026). Sin esto, la agencia: lo que pasaba antes de que se pudiera elegir. */
+  paga?: QuienPaga | null;
+};
 export type CuentaAbierta =
-  | { ok: true; clienteWs: number; link: string | null; sinLink: string | null }
+  | { ok: true; clienteWs: number; link: string | null; sinLink: string | null; paga: QuienPaga; acceso?: ResultadoInvitacion }
   | { ok: false; error: string; yaTiene?: number };
 
 /**
@@ -203,17 +215,45 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
     if (!lead.email) await db.from('leads').update({ email: correo }).eq('id', lead.id);
   }
 
-  // Su admin, creado ya pero SIN AVISARLE: el acceso se lo manda la habilitación (el pago o la firma).
+  // Su admin, creado ya. Si paga la agencia, SIN AVISARLE: el acceso se lo manda la habilitación (el pago o la firma).
+  // Si paga el cliente, se le avisa más abajo.
   try {
     await crearUsuario({ email: correo, nombre, rol: 'usuario', workspace_id: ws.id, rol_ws: 'admin' });
   } catch (e) {
     return { ok: false, error: `La cuenta quedó creada (workspace ${ws.id}) pero sin su usuario: ${e instanceof Error ? e.message : String(e)}` };
   }
 
-  // El primer mes, en el acto (#866): pagarlo la habilita. Su mes corre desde que termina el onboarding (#867).
-  const cobro = await linkPrimerMes({ agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre, email: p.pagador, creadoPor: p.pagador ?? 'agencia' });
+  // QUIÉN PAGA (Agency Dashboard, 25/10/2026: «puedes elegir si el cobro se realiza ahí mismo con tu tarjeta, o si
+  // quieres que lo pague tu cliente, y en dicho caso, al finalizar el onboarding de ese cliente debe saltar el cartel de
+  // pago»). Se guarda en la cuenta del CLIENTE, que es quien lo lee para su cartel (lib/agency.ts). Si no se pudo
+  // guardar, se dice y se sigue como si pagara la agencia: el link es el mismo, sólo cambia quién lo ve.
+  let paga: QuienPaga = quienPagaDe(p.paga);
+  if (paga === 'cliente') {
+    try { await guardarQuienPaga(ws.id, 'cliente'); } catch (e) {
+      console.warn(`[partners] cuenta ${ws.id}: no pude anotar que paga el cliente; queda pagando la agencia:`, e instanceof Error ? e.message : e);
+      paga = 'agencia';
+    }
+  }
+
+  // El primer mes, en el acto (#866): pagarlo la habilita. Su mes corre desde que termina el onboarding (#867). Si paga el
+  // cliente, el link sale a SU email (la renovación del mes siguiente se la pide a él) y él lo ve en su cartel.
+  const cobro = await linkPrimerMes({
+    agenciaWs: p.agenciaWs, clienteWs: ws.id, nombreCliente: nombre,
+    email: paga === 'cliente' ? correo : p.pagador, creadoPor: paga === 'cliente' ? `agencia para ${correo}` : (p.pagador ?? 'agencia'),
+  });
   if (!cobro.ok) console.warn(`[partners] cuenta ${ws.id} de la agencia ${p.agenciaWs} sin link del primer mes: ${cobro.motivo}`);
-  return { ok: true, clienteWs: ws.id, link: cobro.ok ? cobro.link : null, sinLink: cobro.ok ? null : cobro.motivo };
+
+  // ⚠️ SI PAGA EL CLIENTE, SU ACCESO SALE YA: tiene que entrar para hacer su onboarding, que es cuando le aparece el pago.
+  // La agencia sigue sin entrar a su cuenta hasta que se pague (la cartera queda 'pendiente'): abrir cuentas sin pagar no
+  // le da una cuenta gratis. Si paga la agencia, el acceso sale con la habilitación, como siempre (lib/agencia-habilitar.ts).
+  // ⚠️ `invitarPorEmail` devuelve SIEMPRE un objeto, también si el mail no salió: lo que se mira es `enviado` (el aviso de
+  // la pantalla lo arma `avisoInvitacion`).
+  let acceso: ResultadoInvitacion | undefined;
+  if (paga === 'cliente') {
+    acceso = await invitarPorEmail({ email: correo, nombre, workspace: nombre, rolWs: 'admin' })
+      .catch((e) => ({ enviado: false, error: e instanceof Error ? e.message : String(e), enlace: '' }));
+  }
+  return { ok: true, clienteWs: ws.id, link: cobro.ok ? cobro.link : null, sinLink: cobro.ok ? null : cobro.motivo, paga, acceso };
 }
 
 /** Para el super admin sin cliente: las agencias del programa y cuántas cuentas tiene cada una, por estado. */
