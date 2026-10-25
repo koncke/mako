@@ -1290,4 +1290,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '12:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las páginas de MaKo también se leen y se cambian por la API',
+    pedido: '«Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API»',
+    puntos: [
+      'Por la API, las páginas de MaKo se veían vacías y sus textos no se podían cambiar: pasaba lo mismo que en la pantalla.',
+      'Ahora la lectura de una landing trae el texto de cada sección, y cambiar un texto funciona en esas páginas sin tocar su diseño.',
+      'De paso, el diagnóstico de una página de MaKo tiene texto para analizar.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-contenido.helpers.ts — cambiar un texto en el diseño',
+      'lib/editor-landing/diagnostico.ts — leer el texto del diseño',
+      'tests/api-mako-landing-diseno-editable.test.ts — que no vuelva a pasar',
+    ],
+    revisar: '/api-mako',
+  },
 ];

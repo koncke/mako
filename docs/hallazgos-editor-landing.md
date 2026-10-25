@@ -2910,6 +2910,10 @@ ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar la
   rompiéndolo (5 roturas, cada una cae). Además, en Chrome sin ventana con las dos hojas reales en los dos órdenes, el clic
   cae en el iframe y escribe; sin la regla nueva, cae en el envoltorio (como en producción).
 
+- **Por la API pasaba lo mismo:** `ver_landing_creada` no veía ni una palabra de estas páginas y `cambiar_texto_landing` no
+  las encontraba. Arreglado el mismo día: docs/hallazgos-api-mako.md, «Las páginas de MaKo no se leían ni se cambiaban por
+  la API».
+
 Lo que quedó SIN hacer:
 - Probarlo con clics en producción cuando despliegue (un título de una copia, no de la publicada).
 - `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor

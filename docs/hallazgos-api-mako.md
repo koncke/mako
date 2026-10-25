@@ -2441,3 +2441,23 @@ Las otras cuatro, más chicas:
 
 *23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
 medido con un script; arreglos probados rompiéndolos.*
+
+## Las páginas de MaKo no se leían ni se cambiaban por la API: su texto vive en un ATRIBUTO (25/10/2026, claude5)
+
+Martín, 25/10: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Ese día se arregló
+en la pantalla que se pudiera escribir en las secciones de las landings de MaKo (docs/hallazgos-editor-landing.md, «Las
+secciones de las landings de MaKo no dejaban escribir»). Por la API pasaba lo mismo. Medido sobre la #32 en memoria, sin
+escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambiar_texto_landing` contestaba «No encontré…».
+
+- **La causa:** todas las secciones de esas páginas son «Diseño editable» (`htmlEditable`), y su texto vive en el HTML de
+  `attrs.html`, no en nodos hijos. `textoDe` (doc.ts) ya lo miraba, pero el lector de la API usa `textoVisible`
+  (diagnostico.ts, vía `bloquesDeTexto`), que no. `planCambiarTexto` sólo recorría nodos `text`.
+- **La regla:** todo código que lee o cambia el texto de una landing tiene que mirar los nodos cuyo texto vive en un
+  atributo (`htmlEditable`, el `boton` de un formulario, el `titulo` de un gráfico). Para cambiarlo se usa
+  html-editable-textos.ts (`textosDeHtmlEditable`/`conTextos`): cada pedazo vuelve a su lugar exacto, se escapa lo que se
+  escribe, y el esqueleto del HTML queda igual byte por byte. Nunca un `split/join` sobre el HTML crudo: no encuentra
+  `&amp;` y deja pasar `<b>`.
+- **Lo declarado:** `ver_landing_creada` (leer) y `cambiar_texto_landing` (cambiar) cubren el «Diseño editable». Su
+  descripción lo dice, `docs/api-mako.md` está regenerado y el snapshot HTTP queda igual (no se expuso nada nuevo).
+  De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
+- Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).
