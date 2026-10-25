@@ -91,10 +91,19 @@ test('ningún código de app ni lib lee la key de Zernio de la plataforma para u
   const archivos = salida.split(/\r?\n/).map((f) => f.trim()).filter((f) => EXT.test(f));
   assert.ok(archivos.length >= 3, `git grep devolvió ${archivos.length} archivos que nombren la key: el barrido no está mirando`);
   const SALVO = [/^app\/admin\/dev\//];
+  // LA ÚNICA LECTURA PERMITIDA, en positivo (24/10/2026): publicar anuncios por Zernio (lib/zernio-ads.ts, 001b3184b) usa la
+  // key de la plataforma SÓLO para el negocio de la PLATAFORMA (`wsSuperAdmin`, el de MaKo), donde esa key ES la suya; a un
+  // cliente le lee su fila (`credDelCliente`). El barrido de antes marcaba esa línea sin mirar la guarda y dejó rojo main.
+  // Se quita SÓLO esa línea, exacta y dentro de `claveZernioAnuncios`: cualquier otra lectura, o ésa sin la guarda, cae.
+  const PERMITIDA = { archivo: 'lib/zernio-ads.ts', linea: "  if (ws === (await wsSuperAdmin().catch(() => null))) return envCred('ZERNIO_API_KEY');" };
+  const clave = funcion(sinComentarios(leer(PERMITIDA.archivo)), 'export async function claveZernioAnuncios(ws: number)', 400);
+  assert.equal(clave.split(PERMITIDA.linea).length, 2, 'la key de la plataforma en los anuncios dejó de estar detrás de wsSuperAdmin');
+  assert.match(clave, /\n  return credDelCliente\('ZERNIO_API_KEY', ws\);$/, 'un cliente dejó de leer SU key en los anuncios');
   const culpables: string[] = [];
   for (const f of archivos) {
     if (SALVO.some((r) => r.test(f))) continue;
-    const src = sinComentarios(leer(f));
+    let src = sinComentarios(leer(f));
+    if (f === PERMITIDA.archivo) src = src.replace(PERMITIDA.linea, '');
     if (/(envCred|credWs)\(\s*['"`]ZERNIO_API_KEY['"`]|process\.env(\.ZERNIO_API_KEY|\[\s*['"`]ZERNIO_API_KEY)/.test(src)) culpables.push(f);
   }
   assert.deepEqual(culpables, [], `leen la key de la plataforma: ${culpables.join(', ')}`);
@@ -127,6 +136,8 @@ test('la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dicen', 
 //   B3   cfg vuelve a credWs                                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
 //   B4   keyDeSeguimiento vuelve al respaldo                                                          → 2/2 · cfg y la key de «¿te sigue?» leen la key PROPIA: sin credWs, sin envCr…
 //   B5   otro archivo lee la key de la plataforma                                                     → 3/1 · ningún código de app ni lib lee la key de Zernio de la plataforma para…
+//   B11  (24/10) los anuncios leen la key de la plataforma sin la guarda de wsSuperAdmin                 → 4/1 · ningún código de app ni lib…
+//   B12  (24/10) un cliente lee la key de la plataforma en los anuncios (credWs, no credDelCliente)      → 4/1 · ningún código de app ni lib…
 //   B6   la key vuelve a ser opcional                                                                 → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
 //   B7   el ping contesta anda sin key                                                                → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
 //   B8   la nota pierde la línea del cobro                                                            → 3/1 · la key de Zernio es OBLIGATORIA: la tarjeta, el ping y la nota lo dice…
