@@ -1047,4 +1047,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '20:45', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Ocho arreglos del editor web, dos de ellos ya entregados que no cumplían',
+    pedido: '3. «Cuando le doy a "Nueva landing" NO me debe redireccionar a otra ruta... Y la sidebar no debe cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con los templates en lugar de la topbar de edición y el lienzo...» 4. «Todas las paginas de MaKo no son editables, clickeo y no se pueden editar las secciones... Eso esta mal. Deben serlo. Y eso no implica romper el diseño, en todo caso agregar funcionalidades al editor web.» 5. «Los botones se siguen superponiendo, fijate la esquina superior izquierda en el linezo... Ya de por si "Abrir tira de imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat de mako. Hay un botón que dice "Editar con IA" eso eliminalo... Por defecto siempre esta el editor de IA.» 6. «Muchos placeholder como el de la captura se ponen por detras de otras secciones y no se llegan a leer...» 7. «Te pedí que "Compartir" y "publicar" sean un solo botón, azul y que diga "compartir"... Con el desplegable de la vista previa y las otras opciones, claro... Y mejora el diseño del pop-up de "Compartir y exportar" fijate como lo hacen otras apps, porque hay mucho texto y botones juntos, no se entiende...» 8. «El editor de texto quedó en un scroll muy chiquito, lo que te propongo es que sea un botón el editor de texto y se abra otra topbar tipo edición de texto con todas las opciones.» 9. «Elimina "Guardado", ya que no deja ver bien el título de la pagina... Y extiende mas la sección del titulo para que se lea, ahora que ya no esta guardado...» 10. «La sidebar del chat de MaKo NO se debe poder cerrar nunca. Elimina el boton de plegar. Y mira como se bugea el placeholder del chat con un salto de linea... Tampoco pongas los botones de "toda la landing, sin titulo" pon los botones de "Discutir, editar".»',
+    puntos: [
+      'Lo trajo el Cerebro desde el mensaje de Martín del 24/10 a la noche, con capturas. El 3 y el 7 se habían entregado esa misma tarde y no cumplían.',
+      'Se hace de a tandas chicas: primero el 3, el 7 y el 9 (la barra de arriba), después el 5 y el 10, después el 6, el 8 y el 4.',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '21:10', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Nueva landing» se abre ahí mismo, y Compartir es un solo botón azul',
+    puntos: [
+      'Al tocar «Nueva landing» ya no se va a otra pantalla: la lista de tus landings queda igual a la izquierda y donde estaba la landing aparece «¿Qué vas a crear hoy?» con las plantillas. Tocando tu landing en la lista vuelves a ella tal como estaba.',
+      'Compartir y Publicar son ahora un solo botón azul que dice «Compartir». Su flechita trae Publicar, Vista previa, ver la página publicada, Descargar y Presentar.',
+      'El cuadro de Compartir se rehízo copiando el de Canva: se abre debajo del botón, con el enlace y un botón grande para copiarlo (o «Publicar» si todavía no está publicada) y abajo cuatro atajos: Descargar, Vista previa, Enlace privado y Presentar. Sin pestañas ni textos largos.',
+      'Se fue «Guardado» de al lado del título, y el título tiene más lugar para leerse. Si algo no se guarda, el aviso sigue apareciendo con «Reintentar».',
+      'No se vio con clics todavía: la computadora no tenía memoria libre para levantar el editor. Está probado con tests, rompiendo cada arreglo.',
+    ],
+    archivos: [
+      'app/web-generator/editor/EditorLanding.tsx — la barra (Compartir, el título) y «Nueva landing» en lugar del lienzo',
+      'app/web-generator/editor/paneles/PanelLandings.tsx — «Nueva landing» ya no navega',
+      'app/web-generator/editor/dialogos/DialogoCompartir.tsx — el cuadro de Compartir nuevo',
+      'docs/hallazgos-editor-landing.md — lo aprendido y lo que falta',
+    ],
+    revisar: '/web-generator',
+  },
 ];

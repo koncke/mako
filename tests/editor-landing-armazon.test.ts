@@ -224,9 +224,11 @@ test('las piezas de los otros paquetes se montan con el contrato del diseño', (
   // nueva por render (AGENTS.md: el campo del diálogo perdería el foco en cada tecla). Eso vale para
   // los de I1, que reciben `onCerrar`; los de I2 se cierran solos por el contexto, y Presentar avisa
   // con `onSalir`.
-  for (const pieza of ['DialogoCompartir', 'DialogoPublicar', 'DialogoExportar', 'DialogoConfiguracion']) {
+  for (const pieza of ['DialogoPublicar', 'DialogoExportar', 'DialogoConfiguracion']) {
     assert.match(ARMAZON, new RegExp(`<${pieza} onCerrar=\\{cerrarDialogo\\} />`), `${pieza} no se monta con cerrarDialogo`);
   }
+  // Compartir se abre debajo del botón azul (24/10/2026): lleva además su ancla y la vista previa.
+  assert.match(ARMAZON, /<DialogoCompartir onCerrar=\{cerrarDialogo\} ancla=\{anclaCompartir\} onVistaPrevia=\{vistaPrevia\} \/>/, 'DialogoCompartir no se monta con cerrarDialogo');
   assert.match(ARMAZON, /<PanelTema onCerrar=\{cerrarPanelDer\} \/>/, 'PanelTema no se monta con cerrarPanelDer');
   assert.match(ARMAZON, /<Presentar onSalir=\{cerrarDialogo\} \/>/, 'Presentar no se monta con cerrarDialogo');
   for (const pieza of ['DialogoAnalitica', 'DialogoAtajos', 'PanelComentarios', 'PanelHistorial', 'PanelAgente']) {

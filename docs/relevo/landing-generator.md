@@ -1,6 +1,22 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-## Estado al 24/10/2026 madrugada (cuenta claude1) — leer primero
+## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings») — leer primero
+
+**La tanda de Martín del 24/10 noche** (docs/feedback-24-10.md, «Editor web → chat Landings», puntos 3 a 10) se hace de a
+tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), y la sube el Cerebro por el tren.
+
+- **Tanda 1 (puntos 3, 7 y 9): hecha, sin mirar con clics.** «Nueva landing» se abre adentro del editor (el Panel en modo
+  `embebido` en lugar de la barra y el lienzo, sin navegar); Compartir es UN botón azul con su ▾; el panel Compartir se
+  copió de Canva; «Guardado» se fue. Detalle y trampas: docs/hallazgos-editor-landing.md → «"Nueva landing" adentro del
+  editor…». **Falta mirarla a 1280 px** (la RAM no dio para levantar el editor).
+- **Sigue, en este orden:** 5 (los botones ⋮ ✨ 📋 amontonados en la esquina del lienzo; «Abrir tira de imágenes» a la
+  barra y abriéndose donde está el chat; sacar «Editar con IA») y 10 (la tarjeta del chat no se pliega nunca; el
+  placeholder en un renglón; chips «Discutir / Editar»); después 6 (placeholders tapados), 8 (el formato como botón que
+  abre una segunda barra) y 4 (las páginas de MaKo editables por sección). Después, de docs/pendientes.md: P6 (sanear
+  `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
+  docs/diseno-editor-web-como-automations.md §5).
+
+## Estado al 24/10/2026 madrugada (cuenta claude1)
 
 **Las ocho landings por funnel ya no muestran el VSL de la principal en el hero** (documentos #33 a #40, v2, subidos a las
 02:33-02:35): el hero queda con la promesa del ángulo y su botón, centrado, y el VSL baja debajo con «Así funciona MaKo».
