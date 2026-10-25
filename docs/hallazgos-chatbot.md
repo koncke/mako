@@ -7114,3 +7114,22 @@ decía «un bloque por canal (WhatsApp, Email)», y a Leandro le nombró uno de 
 Vive en: lib/goteo.ts · lib/config-automatizacion.ts · lib/nutricion.ts (`usoDelGoteo`, `sinLugar`, `quedaFrenada`) ·
 app/automations/ConfigAutomatizacionPanel.tsx · lib/api-mako/areas/chatbot.def.ts y .run.ts · lib/flujo-ia-intencion.ts ·
 tests/goteo-un-interruptor.test.ts.
+
+## La nota de voz del chat del lienzo: sale ya y se escucha (24/10/2026, f17)
+
+**El síntoma (la llamada con Leandro, 29:49):** «se envió tipo transcripto cuando ahí en el chat mismo se debería poder
+escuchar el audio... cuando le das a enviar audio se tiene que enviar automáticamente, no esperar a transcribirlo».
+
+**La causa:** `enviarAudio` (app/automations/ChatMako.tsx) transcribía PRIMERO y recién ahí mandaba el texto. No se veía
+nada mientras tanto, y el audio no quedaba en ningún lado. El hilo compartido (`HiloMako`) ya sabía dibujar una nota de
+voz (`voz` del item, con `AudioPlay`); el chat del lienzo nunca le pasaba una.
+
+**Qué quedó:** el globo con el audio entra al hilo en el acto («enviando» mientras se transcribe), y lo entendido sale como
+el mensaje, con su audio (`voces`, por id). Si no se entiende, queda con su error y «Reintentar» lo vuelve a transcribir.
+El molde es el chat del lead (app/crm/lead-view/MakoAnalystLead.tsx).
+
+**Sin hacer:** el audio es de esta sesión de la pantalla. Al recargar queda lo entendido, sin el audio. Guardarlo es subirlo
+como hace el Ops Center (`subirNotaDeVozDelChat`, lib/chat-mako-adjuntos.ts) desde la ruta del chat
+(/api/chat-agent/secuencias/ia). No se vio en pantalla.
+
+Vive en: app/automations/ChatMako.tsx (`enviarAudio`, `reintentar`, `hiloUnico`) · tests/chat-mako-nota-de-voz.test.ts.

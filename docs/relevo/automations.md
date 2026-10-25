@@ -38,8 +38,8 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
 - **f20 y f21 de la llamada con Leandro (docs/feedback-24-10.md): UN goteo y UN tope por día para todos los canales.**
   Martín, 24/10 23:00: «Uno solo... que valga para todos los canales». Hecho: un bloque «Todos los canales» en
   Configuraciones, que vale para WhatsApp, email, Instagram y Messenger (cada canal cuenta lo suyo), y de paso el goteo del
-  email, que no frenaba (docs/hallazgos-chatbot.md, «Un goteo para todos los canales…»). Sigue la tanda de la llamada:
-  f17 (el audio al instante en el chat del lienzo), f18 y f23 (una pregunta en Editar se contesta; lo que no existe, un
+  email, que no frenaba (docs/hallazgos-chatbot.md, «Un goteo para todos los canales…»). f17 (el audio al instante en el chat
+  del lienzo) hecho (docs/hallazgos-chatbot.md, «La nota de voz del chat del lienzo…»). Sigue la tanda de la llamada: f18 y f23 (una pregunta en Editar se contesta; lo que no existe, un
   ticket), f19/f22 (íconos y lugares que no existen) y f34 (la criatura detrás de la sidebar).
 - **Lo que pidió el Cerebro (hecho el 24/10 a las 23:55):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
   (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas

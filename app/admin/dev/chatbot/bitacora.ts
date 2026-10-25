@@ -2677,4 +2677,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "01:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Un audio en el chat de MaKo del lienzo se manda al instante y se escucha",
+    pedido: "Leandro, en la llamada con Martín: «se envió tipo transcripto cuando ahí en el chat mismo se debería poder escuchar el audio... cuando le das a enviar audio se tiene que enviar automáticamente, no esperar a transcribirlo»",
+    puntos: [
+      "Al mandar un audio, su globo aparece en el chat en el acto, y se puede escuchar.",
+      "Debajo aparece lo que MaKo entendió, y recién ahí MaKo trabaja.",
+      "Si no se entiende, el audio queda con «Reintentar».",
+      "Falta: que el audio siga ahí al recargar la página (hoy queda lo que se entendió).",
+    ],
+    archivos: [
+      "app/automations/ChatMako.tsx — la nota de voz sale antes de transcribirse",
+      "tests/chat-mako-nota-de-voz.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];
