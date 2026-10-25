@@ -2920,3 +2920,25 @@ Lo que quedó SIN hacer:
   cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
   editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como
   TarjetaVista.
+
+## Servir una prueba A/B de una landing: las reglas que no dependen del motor (Landing AI, L2; 25/10/2026, claude5)
+
+docs/diseno-pruebas-ab.md, L2; manda la crítica (Anexo 2 §E). El motor (`lib/pruebas/`: `asignar`, el store, la foto de B en
+`prueba_variantes.contenido`) lo arma Automations en A1/A2, y al 25/10 todavía no existe. Lo que sí quedó, puro y probado,
+en lib/editor-landing/prueba-landing.ts:
+
+- **B tiene la MISMA estructura que A, o no se sirve.** Las rutas laterales leen la foto de A (el iframe de `htmlLibre`, el pago
+  contra `publicado.pagos`), y el Landing AI nunca toca precio, oferta, links, formularios, pagos ni Pixel. Se compara lo que
+  la foto guarda (config, pagos, htmlLibre, título y descripción de cada página) y lo que el HTML lleva (destinos, formularios,
+  iframes, scripts, marcas de precio) **como multiconjunto**: subir una sección cambia el orden, no qué hay. Probado contra la
+  foto real de la #32: otro hook con dos secciones intercambiadas pasa; un botón a otro lado, no.
+- **Fijo a A va sólo lo de MaKo**: el lector (`?mako_leer`) y el análisis y la vigilancia (User-Agent `MaKoPixel/`). Nunca un bot
+  de terceros por su User-Agent: con Google es cloaking, y con Meta el anuncio se aprueba mirando A.
+- **La rama vive en `mko_ab_<prueba>`, HttpOnly y del servidor**, que se renueva en cada respuesta: la cookie del visitante la
+  reescribe el Pixel por JavaScript, y Safari corta esas a los 7 días. Una rama apagada no se respeta (se asigna de nuevo).
+- **Con prueba, la respuesta es `private, no-cache` + `Vary: Cookie`** (hoy `public`).
+
+Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
+- Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
+  visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
+  prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).

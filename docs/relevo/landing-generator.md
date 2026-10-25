@@ -10,8 +10,9 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   escribir»).
 - **El Landing AI (pruebas A/B que corre solo), docs/diseno-pruebas-ab.md:** L1 hecha (qué sección se ve: Pixel v26, el
   alcance por sección en «Análisis», la API y el Analyst; docs/hallazgos-landing.md → «Qué sección se ve»). Falta aceptarla
-  con datos de producción cuando despliegue. Siguen L2 (servir el A/B desde `responderPublico`, con el motor `lib/pruebas/`
-  de Automations: coordinar con ese chat antes de tocarlo) y L3 (el agente; el ws9 queda en «propone» hasta el sí de Martín).
+  con datos de producción cuando despliegue. L2: hechas las reglas puras (lib/editor-landing/prueba-landing.ts: la guarda de estructura,
+  quién va fijo a A, la cookie y las cabeceras). Conectarlo a `responderPublico` espera a A1/A2 de Automations (`lib/pruebas/`,
+  rama aut-2510; al 25/10 todavía no existe, avisa con las firmas) y L3 (el agente; el ws9 queda en «propone» hasta el sí de Martín).
 - **Sigue:** mirar todo eso con clics a 1280 y 1440 cuando despliegue; publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 
