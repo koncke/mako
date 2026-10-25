@@ -174,9 +174,11 @@ export function resumenDeAccion(descripcion: string): string {
  * «Faltan muchas acciones posibles que podríamos agregar, siempre con el arbol...»). Se abre el área y
  * adentro están sus acciones; buscar aplana (el `Dropdown` de la casa, `secciones`).
  */
-export const AREAS_ACCION = ['CRM', 'Customer Success', 'WhatsApp'] as const;
+// «Clients» y no «Customer Success» desde el 25/10/2026 (f30 de la llamada con Leandro: la tab se llama Clients desde el
+// 17/10). Es un RÓTULO del selector: ningún flujo guarda el área, guarda el id de la acción.
+export const AREAS_ACCION = ['CRM', 'Clients', 'WhatsApp'] as const;
 export type AreaAccion = (typeof AREAS_ACCION)[number];
-export const ICONO_AREA: Readonly<Record<AreaAccion, NombreIconoMenu>> = { CRM: 'equipo', 'Customer Success': 'cliente', WhatsApp: 'whatsapp' };
+export const ICONO_AREA: Readonly<Record<AreaAccion, NombreIconoMenu>> = { CRM: 'equipo', Clients: 'cliente', WhatsApp: 'whatsapp' };
 
 /**
  * Los BLOQUES de un área: adentro de un área se separan con una línea, no con otro clic. Tres niveles
@@ -187,7 +189,7 @@ export type GrupoAccion = (typeof GRUPOS_ACCION)[number];
 /** El área de cada bloque. `Automatizaciones` sólo tiene las que el selector no ofrece (`FUERA_DEL_SELECTOR`). */
 export const AREA_DE_GRUPO: Readonly<Record<GrupoAccion, AreaAccion>> = {
   'Etapa y funnels': 'CRM', Etiquetas: 'CRM', Ficha: 'CRM', Agenda: 'CRM', Equipo: 'CRM', Automatizaciones: 'CRM',
-  Cliente: 'Customer Success', Chat: 'WhatsApp',
+  Cliente: 'Clients', Chat: 'WhatsApp',
 };
 
 /** Una acción que el lienzo ofrece: su id del registro y cómo se presenta en un flujo. */

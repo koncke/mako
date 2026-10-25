@@ -283,7 +283,7 @@ export const FUENTES_EXTRA: readonly Fuente[] = [
   {
     // La cartera de MaKo (`cartera()`, lib/cs-cartera.ts, la que lee la API de Customer Success): una fila
     // por cliente ganado con su señal, su estado y lo que debe. `cliente` es una PERSONA.
-    id: 'cartera', nombre: 'Cartera de clientes', area: 'Customer Success',
+    id: 'cartera', nombre: 'Cartera de clientes', area: 'Clients',
     descripcion: 'Cada cliente que compró: cómo va, si necesita atención, qué debe y hace cuánto no hablan.',
     fechas: [{ id: 'actual', nombre: 'Hoy', sinRango: true }],
     dimensiones: [

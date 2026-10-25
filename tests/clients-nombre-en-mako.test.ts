@@ -20,6 +20,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { REGISTRO } from '../lib/api-mako/registro';
 import { AREA_INFO } from '../lib/api-mako/tipos';
+import { AREAS_ACCION } from '../lib/editor-acciones';
+import { AREAS as AREAS_GRAFICOS } from '../lib/graficos-constructores';
 
 const leer = (p: string) => readFileSync(join(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -44,5 +46,18 @@ test('lo que Clients le dice al equipo o a MaKo cuando una cuenta no tiene la ta
   ]) {
     const textos = [...sinComentarios(leer(p)).matchAll(/'([^'\n]*)'|`([^`]*)`/g)].map((m) => m[1] ?? m[2]).join('\n');
     assert.doesNotMatch(textos, VIEJO, `${p} todavía dice «Customer Success» en un texto`);
+  }
+});
+
+// 25/10/2026 (el Cerebro, con el «implementa todos los feedback» de Martín): los rótulos de OTRAS áreas que nombraban la
+// tab vieja —el selector de acciones de Automations, las áreas de los gráficos, el catálogo de modelos— también dicen
+// Clients. Son rótulos: ningún flujo ni tablero guarda el nombre del área (guardan el id de la acción o de la fuente).
+test('los rótulos de las otras áreas: el selector de acciones, los gráficos y el catálogo de modelos dicen Clients', () => {
+  assert.ok((AREAS_ACCION as readonly string[]).includes('Clients'));
+  assert.ok((AREAS_GRAFICOS as readonly string[]).includes('Clients'));
+  for (const a of [...AREAS_ACCION, ...AREAS_GRAFICOS]) assert.doesNotMatch(a, VIEJO);
+  for (const p of ['lib/model-catalogo.ts', 'lib/graficos-catalogo.ts', 'lib/graficos-fuentes-extra.ts', 'app/dashboard/Propiedades.tsx', 'lib/leads-unificar-reglas.ts']) {
+    const textos = [...sinComentarios(leer(p)).matchAll(/'([^'\n]*)'/g)].map((m) => m[1]).join('\n');
+    assert.doesNotMatch(textos, VIEJO, `${p} todavía dice «Customer Success» en un rótulo`);
   }
 });
