@@ -212,6 +212,9 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
 
   // ── Copywriting / voz de marca → Sonnet por default (bajó de Opus) ──────────
   { feature: 'campaign-suggest', label: 'Estructurar campaña de Meta', grupo: 'Copywriting', def: GEMINI(), nota: 'Estrategia + voz de marca. Sonnet.' },
+  // El Media Buyer (25/10/2026, lib/media-buyer/variaciones.ts): las variaciones de texto y de hook del anuncio que más
+  // resultados trajo. Corre con la IA DEL NEGOCIO (su Claude, su GPT o su Gemini): sin la suya no hay variaciones.
+  { feature: 'media-buyer-variaciones', label: 'Variaciones del anuncio ganador (Media Buyer)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe cuatro variaciones de texto o de gancho del ganador, en la voz del negocio y en español neutro. Sin PII: textos de un anuncio publicado y el perfil del negocio.' },
   { feature: 'landing-writer', label: 'Escribir la landing (Web Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el Diagnóstico de esa página. Voz de marca sin PII.' },
   // El editor copiado de Gamma (lib/editor-landing/ia.ts, docs/diseno-editor-landing.md D5).
   // Dos features y no una: generar (esquema + secciones, lo más voluminoso) y editar (texto,

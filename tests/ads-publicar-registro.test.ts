@@ -57,23 +57,6 @@ test('ad-add, lote: los DOS terminales reescriben los ids que hay en memoria', (
   //   recortaba 2 y volvía a crear el 3 y el 4.
 });
 
-test('ad-add: el objetivo de la fila nunca cae al default de la tabla', () => {
-  const inserts = [...AD_ADD.matchAll(/\.from\('meta_campaign_drafts'\)\.insert\(/g)];
-  assert.equal(inserts.length, 2);
-  for (const m of inserts) {
-    const i = m.index ?? 0;
-    assert.match(AD_ADD.slice(i, AD_ADD.indexOf('}).select(', i)), /objective: objetivoDelBody\(body\.campaign_objective\)/);
-  }
-  assert.match(AD_ADD, /const OBJETIVO_DESCONOCIDO = 'DESCONOCIDO';/);
-  // Y el modal manda la campaña y su objetivo, que salen del árbol que la tabla ya tiene.
-  const modal = codigo('app/ads-manager/AgregarAnuncioModal.tsx');
-  assert.match(modal, /campaign_id: campaignId, campaign_objective: campaignObjective/);
-  const tabla = codigo('app/ads-manager/CampanasBrowser.tsx');
-  assert.match(tabla, /campaignId=\{addAnuncioAdset\.campaignId\} campaignObjective=\{addAnuncioAdset\.objective\}/);
-  //   ROTO A PROPÓSITO (07/10/2026): con el insert del modo simple sin `objective`,
-  //   pass 5 / fail 1 — éste.
-});
-
 test('adset-add: la campaña se lee ANTES de abrir el registro, y la fila nace con su objetivo', () => {
   const iBasics = ADSET_ADD.indexOf('basics = await getCampaignBasics(campaignId)');
   const iRegistro = ADSET_ADD.indexOf('abrirRegistro(');

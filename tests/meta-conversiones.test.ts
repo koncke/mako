@@ -79,13 +79,3 @@ test('el aviso sale en ws13 tal como está, y se abstiene cuando no hay con qué
   // Sin motivos, tampoco: no se le dice a un carrito que le faltan agendas.
   assert.equal(avisoAgendaSinMedir([], EVENTOS_PIXEL_WS13), null);
 });
-
-test('ninguna conversión vuelve a salir con un «que ya mides» que nadie midió', () => {
-  const codigo = readFileSync(join(process.cwd(), 'app/ads-manager/NuevaCampanaModal.tsx'), 'utf8')
-    .replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  assert.doesNotMatch(codigo, /que ya mides/i);
-  // El rótulo de una conversión personalizada sale del estado que contestó Meta.
-  assert.match(codigo, /c\.estado === 'activa'/);
-  //   ROTO SIN QUERER, antes de arreglar: corrido sobre el modal todavía sin editar,
-  //   falló en el primer assert — el «Conversión que ya mides» fijo seguía vivo.
-});

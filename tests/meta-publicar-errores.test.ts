@@ -48,16 +48,12 @@ test('cada rechazo nombra a Meta primero, dice que no es de MaKo y da la salida'
   assert.equal(explicarRechazoPublicacion(undefined), null);
 });
 
-test('publicar usa la traducción, y el wizard no deja llegar a los rechazos que puede ver', () => {
+test('publicar usa la traducción de los rechazos', () => {
   const ruta = sinComentarios(leer('app/api/ads-manager/campaign-create/route.ts'));
   assert.match(ruta, /explicarRechazoPublicacion\(/);
 
-  const modal = sinComentarios(leer('app/ads-manager/NuevaCampanaModal.tsx'));
-  // Formulario + ganador reusado no avanza (1487888 medido).
-  assert.match(modal, /pideForm && usables\(\)\.some\(\(t\) => t\.kind === 'existing'\)\) return false/);
-  //   ROTO A PROPÓSITO (2026-09-11): sacando la guarda del paso de destino, pass 1 / fail 1.
-  // Los ganadores de páginas donde la conexión no es anunciante no se pueden agregar (1885499).
-  assert.match(modal, /if \(ganadoresBloqueados\?\.\[s\.ad_id\]\) return;/);
+  // El wizard de «Nueva campaña» (que no dejaba llegar a 1487888 ni a 1885499) se borró el 25/10/2026 con la réplica de
+  // Meta Ads Manager: publicar ahora es del Media Buyer, por Zernio.
 
   // Meta v25 exige este campo al crear una campaña SIN presupuesto de campaña (medido).
   assert.match(sinComentarios(leer('lib/meta-ads-create.ts')), /is_adset_budget_sharing_enabled/);

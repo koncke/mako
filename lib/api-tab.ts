@@ -36,6 +36,7 @@ export const HEADER_QUERY = 'x-mako-query';
 /** Prefijo de app/api → key de nav (la que pasa la página de esa tab a `requireRolWs`/`requireCapa`). */
 export const TAB_DE_API: ReadonlyArray<readonly [string, string]> = [
   ['/api/ads-manager', 'ads-manager'],
+  ['/api/media-buyer', 'ads-manager'],
   ['/api/meta-write', 'ads-manager'],
   ['/api/meta-health', 'ads-manager'],
   ['/api/meta-recommendations', 'ads-manager'],

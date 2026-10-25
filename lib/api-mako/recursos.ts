@@ -36,6 +36,7 @@ const TITULOS: Record<string, string> = {
   'dominio-envio': 'Dominio de envío',
   'google-calendar': 'Google Calendar',
   'limites-instagram': 'Límites de Instagram',
+  'media-buyer': 'Media Buyer',
   'motivos-venta-llamada': 'Motivos de venta por llamada',
   'personalidad-voz': 'Personalidad y voz',
   'scores-mensuales': 'Scores mensuales',
