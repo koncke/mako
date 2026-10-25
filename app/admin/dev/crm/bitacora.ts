@@ -3502,4 +3502,33 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '25 oct', hora: '00:56', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«Datos de empresa» de una sola vez',
+    pedido: '«Eso funciona mal, yo ahora lo voy a arreglar porque no debería volver a tocar nada, o sea, debería extraerte todo.» (la llamada con Leandro, 24/10) · «implementa todos los feedback... no hagas preguntas» (25/10, por el Cerebro)',
+    puntos: [
+      'f14 de la llamada con Leandro. El Cerebro decidió sacar el tope, creyendo que venía del costo de Apify.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '00:56', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Datos de empresa» consulta todo de un toque',
+    puntos: [
+      'Antes consultaba de a 40 y había que volver a tocar. Ahora un toque consulta todo lo que falta.',
+      'El tope de 120 por día queda: no era por el costo de Apify, era para que WhatsApp no bloquee tu línea por consultar muchos perfiles. Cuando llega, lo dice en una línea: «Faltan 182: tócalo mañana».',
+      '«Completar desde mi WhatsApp» (la extensión) ya leía todo de una vez: no se tocó.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '5b7a9d85f', msg: 'CRM · «Datos de empresa» en una sola pasada: sin tope por corrida; el del día queda porque cuida la línea (f14)', lineas: 116, archivos: 8 },
+    ],
+    archivos: [
+      'lib/grupo-wa-reglas.ts — sin tope por corrida; el del día queda',
+      'app/crm/enriquecer-cliente.ts — el aviso al cortar, en una línea',
+      'app/crm/grupo-wa-server.ts',
+    ],
+    revisar: '/crm',
+  },
 ];

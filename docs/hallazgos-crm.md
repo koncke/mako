@@ -11354,7 +11354,13 @@ crm-completar-con-extension, enriquecer-lote (6).
   nada. **Regla:** el cupo del día se dice cuando CORTA (`resumenDePerfiles`), no antes de empezar; el título pregunta y el
   botón dice «Consultar N». El test pone un tope de palabras.
 - **f11, que «Completar» se descubra solo:** el pie del molde lo ofrece después de traer y cuando hay gente que ya está.
-- **f14 (una sola pasada, sin «vuelve a tocar») NO se tocó:** choca con el tope de 40 por corrida y 120 por día puesto a
-  propósito (lib/grupo-wa-reglas.ts); lo decide Martín con el Cerebro.
+- **f14, una sola pasada en «Datos de empresa» — el diagnóstico obvio era el equivocado:** el Cerebro lo decidió creyendo
+  que el tope de 40 por corrida y 120 por día venía del costo de Apify. No: lo puso él mismo el 24/10 (0553eda9e) porque
+  cada consulta de perfil es tráfico en la red de una línea de WhatsApp NO oficial, que se expone a un baneo; Apify era otra
+  función, revertida. Sacar el tope entero habría expuesto la línea del cliente. Lo que se sacó es el de 40 POR CORRIDA,
+  que sólo partía el trabajo en toques: un toque consulta todo hasta el tope del día. **Regla:** antes de sacar un tope,
+  leer en el código (y en `git log -S`) para qué está; el del día y la espera entre consultas (`ESPERA_PERFIL_MS`) cuidan la
+  línea y no se mueven sin medir. Cuando corta, una línea («tócalo mañana»): mañana no sigue solo, MaKo no hace nada por
+  detrás.
 
 *25/10/2026, chat «CRM» (`claude5`).*

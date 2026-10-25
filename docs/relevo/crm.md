@@ -68,7 +68,10 @@ Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`.
 
 **La llamada con Leandro (25/10):** f15 (WhatsApp abre el chat de MaKo, en las cuatro puertas), f12 («Completar nombres»
 por la extensión: pide instalarla y arranca sola), f13 (la pregunta de «Datos de empresa» en una línea) y f11 («Completar
-nombres» en el pie). f14 no se tocó: lo decide Martín con el Cerebro. **Pendiente de la extensión** (no de este chat):
+nombres» en el pie). f14 (decidido por el Cerebro): «Datos de empresa» en una sola pasada, sin el tope de 40 por corrida; el de 120 por día
+queda, porque cuida la línea de un baneo (no era por Apify, como creía el Cerebro: hallazgos-crm). **Los cortes de emoji**
+de otras tabs los hizo el Ops Center (lib/unicode-seguro.ts, `iniciales`): cuando su rama entre al tren, dejar UN solo
+helper (Marca, Avatar y el historial a esa; borrar lib/iniciales.ts; tests/iniciales-hidratacion apuntando a la que queda). **Pendiente de la extensión** (no de este chat):
 reponer mako-puente.js en las pestañas abiertas en `onInstalled`, para que f12 arranque sin recargar (hallazgos-crm).
 
 **Pendiente con Martín:** la comprobación del chip del @ de un lead con sólo Instagram en producción (el Cerebro: crear
