@@ -14,6 +14,8 @@ import type { Pregunta } from '@/lib/fase-diagnostico';
 
 export function QuieroPlan(p: {
   plan: string; nombrePlan: string; origen: OrigenCompra | null; refCodigo: string | null; preguntas?: readonly Pregunta[];
+  /** El anual (25/10/2026): siempre se pide, y el pedido lo dice. */
+  periodo?: 'anual';
 }) {
   const preguntas = p.preguntas ?? [];
   const [paso, setPaso] = useState(0);
@@ -43,7 +45,7 @@ export function QuieroPlan(p: {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp, quiero: true, origen: p.origen, ref: p.refCodigo, web, diagnostico }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp, quiero: true, origen: p.origen, ref: p.refCodigo, web, diagnostico, periodo: p.periodo }),
       });
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (r.ok && j.ok) { setListo(true); setEnviando(false); return; }

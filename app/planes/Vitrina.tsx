@@ -15,10 +15,10 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { bajadaDePlanes } from '@/lib/compra-plan-reglas';
-import { PROGRAMA_ACELERADOR, type PlanMako } from '@/lib/planes-mako';
+import { GARANTIA_DIAS, PROGRAMA_ACELERADOR, type PlanMako } from '@/lib/planes-mako';
 import { filasDeComparacion, type Celda, type FilaComparacion } from '@/lib/planes-comparacion';
 import { CSS_PLANES } from './estilo';
-import { CSS_TARJETAS, TarjetasPlanes } from './Tarjetas';
+import { CSS_TARJETAS, TEXTO_PAGOS, TarjetasPlanes } from './Tarjetas';
 
 const CSS_VITRINA = `
 .planes-cabeza { text-align: center; max-width: 720px; margin: 0 auto 30px; }
@@ -57,14 +57,17 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
 }) {
   // LOS TRES BLOQUES (24/10/2026, Martín: «quiero ver los 3 bloques de pricing típicos que tiene toda app»): los dos planes
   // de software y, a la derecha, el programa con Martín, que nunca pasa por la pasarela: se pide, como el «hablar con
-  // ventas» de cualquier SaaS (lib/planes-mako.ts, `PROGRAMA_ACELERADOR`). El ANUAL no se muestra: el checkout cobra por mes, y la vitrina no
-  // dice un precio que no se puede comprar (lo que se ve, se compra así).
+  // ventas» de cualquier SaaS (lib/planes-mako.ts, `PROGRAMA_ACELERADOR`). El ANUAL se muestra desde el 25/10 (el Cerebro) y
+  // se PIDE, como el programa: el checkout cobra por mes, así que su botón deja el pedido (./Tarjetas.tsx).
   const programa = PROGRAMA_ACELERADOR;
   const filas = filasDeComparacion();
   const desde = Math.min(...ofertas.map((o) => o.plan.precioUsd));
   const barato = ofertas.find((o) => o.plan.precioUsd === desde)?.plan;
   const recomendado = ofertas.find((o) => o.plan.destacado)?.plan;
-  const planes = ofertas.map(({ plan: p, cobrable }) => ({ id: p.id, nombre: p.nombre, precioUsd: p.precioUsd, resumen: p.resumen, incluye: p.incluye, destacado: p.destacado, cobrable }));
+  const planes = ofertas.map(({ plan: p, cobrable }) => ({
+    id: p.id, nombre: p.nombre, precioUsd: p.precioUsd, resumen: p.resumen, incluye: p.incluye, destacado: p.destacado,
+    precioAnualUsd: p.precioAnualUsd ?? null, preciosLocales: p.preciosLocales, cobrable,
+  }));
   const columnas = ofertas.length + 2;
   return (
     <main className="planes-root">
@@ -125,6 +128,17 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
           <details>
             <summary>¿Puedo cambiar de plan o darme de baja?</summary>
             <p>Sí. Pasas a otro plan o te das de baja cuando quieras, desde «Tu plan», adentro de MaKo.</p>
+          </details>
+          <details>
+            <summary>¿Y si no me sirve?</summary>
+            <p>
+              Tienes {GARANTIA_DIAS.mensual} días de garantía en el plan mensual y {GARANTIA_DIAS.anual} en el anual: si no te sirve,
+              te devolvemos tu pago. <Link href="/reembolsos">Las condiciones</Link>.
+            </p>
+          </details>
+          <details>
+            <summary>¿Puedo pagar en pesos?</summary>
+            <p>{TEXTO_PAGOS} Desde otro país, en dólares.</p>
           </details>
           <details>
             <summary>¿Cómo se paga el {programa.nombre.replace(/^MaKo\s+/, '')}?</summary>

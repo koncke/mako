@@ -194,10 +194,13 @@ async function leadDelComprador(p: PedidoCompra): Promise<{ leadId: number; nuev
  * alta a mano (el alta del super admin), y un referido se reconstruye con el renglón «referido por».
  */
 export async function pedirPlanSinPasarela(p: PedidoCompra): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
-  const nombrePlan = p.plan === PROGRAMA_ACELERADOR.id
-    ? PROGRAMA_ACELERADOR.nombre
-    : (await planesMako()).find((x) => x.id === p.plan && x.activo)?.nombre ?? null;
-  if (!nombrePlan) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  const elegido = p.plan === PROGRAMA_ACELERADOR.id ? null : (await planesMako()).find((x) => x.id === p.plan && x.activo) ?? null;
+  const nombre = p.plan === PROGRAMA_ACELERADOR.id ? PROGRAMA_ACELERADOR.nombre : elegido?.nombre ?? null;
+  if (!nombre) return { ok: false, status: 404, error: 'Ese plan no existe.' };
+  // El anual (25/10/2026) sólo de un plan que lo tiene: el equipo lo da de alta con el precio del año.
+  const anual = p.periodo === 'anual' ? elegido?.precioAnualUsd ?? null : null;
+  if (p.periodo === 'anual' && !anual) return { ok: false, status: 404, error: 'Ese plan no tiene pago anual.' };
+  const nombrePlan = anual ? `${nombre} anual (US$ ${anual.toLocaleString('es-AR')} por año)` : nombre;
   const ws = await wsSuperAdmin();
   return runWithWorkspace(ws, async () => {
     let lead: { leadId: number; nuevo: boolean };
@@ -334,9 +337,10 @@ export async function reactivarPlan(ws: number, p: { email: string; nombre: stri
  * si se cobran en línea (la misma cuenta que /planes). Si no se pudo leer, los de hoy y sin cobro en línea: el botón dice
  * «Quiero …» y se pide (nunca «Empezar» sin un cobro detrás), y la landing no se queda sin precios.
  */
-export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado'> & { cobrable: boolean }>> {
+export async function planesParaLanding(): Promise<Array<Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean }>> {
   const ofertas = await ofertasDeLosPlanes().catch(() => PLANES_MAKO_DEFAULT.filter((p) => p.activo).map((plan) => ({ plan, cobrable: false })));
   return ofertas.map(({ plan, cobrable }) => ({
-    id: plan.id, nombre: plan.nombre, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado, cobrable,
+    id: plan.id, nombre: plan.nombre, precioUsd: plan.precioUsd, resumen: plan.resumen, incluye: plan.incluye, destacado: !!plan.destacado,
+    precioAnualUsd: plan.precioAnualUsd ?? null, preciosLocales: plan.preciosLocales, cobrable,
   }));
 }

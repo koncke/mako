@@ -18,7 +18,8 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
-import { HORAS_SEMANA_1, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
+import { GARANTIA_DIAS, HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, precioEnPesos } from '../lib/planes-mako';
+import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -66,7 +67,7 @@ test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un pl
   assert.equal(PLANES_MAKO_DEFAULT.find((p) => p.id === 'continuidad')?.activo, false, 'la Continuidad no va en la vitrina');
 });
 
-test('/planes: tres bloques, el programa se pide, la comparación, sin anual, y el link a MaKo Partners', () => {
+test('/planes: tres bloques, el programa se pide, la comparación, y el link a MaKo Partners', () => {
   const p = fuente('app/planes/Vitrina.tsx');
   assert.match(fuente('app/planes/page.tsx'), /return <VitrinaPlanes ofertas=\{ofertas\} sufijo=\{sufijo\} \/>;/, 'la página lee y la vitrina dibuja');
   assert.match(p, /^\s*const programa = PROGRAMA_ACELERADOR;/m);
@@ -76,7 +77,6 @@ test('/planes: tres bloques, el programa se pide, la comparación, sin anual, y 
   assert.match(t, /\{p\.destacado && <span className="mkpl-insignia">Recomendado<\/span>\}/);
   assert.match(p, /^\s*const filas = filasDeComparacion\(\);/m);
   assert.match(p, /<h2 id="planes-compara-titulo">Compara los planes<\/h2>/);
-  for (const f of [p, t]) assert.doesNotMatch(f, /precioAnualUsd|por año|\/ año/, 'el anual no se muestra mientras el checkout cobre por mes');
   // La columna de cada plan sale de su CAPA (los topes son de la capa): un plan del setting con otro id no queda vacío.
   assert.match(p, /<CeldaPlan v=\{celdaDe\(f, p\.capa\)\} \/>/);
   assert.match(p, /return capa === 'completo' \? f\.esencial : capa === 'agencia' \? f\.pro : null;/);
@@ -105,14 +105,15 @@ const TAB_CON_MAYUSCULA = /\bCobros\b|\bCalendar\b/;
 
 const sinMarcas = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
 
-async function vitrina(): Promise<string> {
+async function vitrinaHtml(planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo), sufijo = ''): Promise<string> {
   const React = await import('react');
   (globalThis as unknown as { React: unknown }).React = React;
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { VitrinaPlanes } = await import('../app/planes/Vitrina');
-  const ofertas = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((plan) => ({ plan, cobrable: false }));
-  return sinMarcas(renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo: '' })));
+  const ofertas = planes.map((plan) => ({ plan, cobrable: false }));
+  return renderToStaticMarkup(React.createElement(VitrinaPlanes, { ofertas, sufijo }));
 }
+const vitrina = async (): Promise<string> => sinMarcas(await vitrinaHtml());
 
 test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada plan nombran una tab o la jerga', async () => {
   const v = await vitrina();
@@ -121,7 +122,7 @@ test('sin lenguaje interno: ni la vitrina, ni la landing, ni lo que incluye cada
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
-  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, cobrable: true }));
+  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ id: x.id, nombre: x.nombre, precioUsd: x.precioUsd, resumen: x.resumen, incluye: x.incluye, destacado: !!x.destacado, precioAnualUsd: x.precioAnualUsd, preciosLocales: x.preciosLocales, cobrable: true }));
   assert.doesNotMatch(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))), INTERNO, 'la landing de venta');
   for (const x of [...PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR]) {
     for (const r of [x.resumen, ...x.incluye]) assert.doesNotMatch(r, INTERNO, `${x.nombre}: «${r}»`);
@@ -186,6 +187,84 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo d
   assert.doesNotMatch(reembolsos, /acordamos contigo en la llamada/, 'la garantía ya no se acuerda en la llamada');
 });
 
+// ── Lo decidido el 25/10/2026 (el Cerebro, memoria decisiones-venta-25-10) ─────────────────────────────────────────
+
+test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout cobra por mes)', async () => {
+  for (const pl of PLANES_MAKO_DEFAULT.filter((x) => x.activo)) {
+    assert.equal(pl.precioAnualUsd, pl.precioUsd * (12 - MESES_GRATIS_ANUAL), `${pl.nombre}: el año son 10 meses`);
+  }
+  const t = await vitrina();
+  assert.ok(t.includes(`Mensual Anual ${MESES_GRATIS_ANUAL} meses gratis`), 'el selector, arriba');
+  assert.ok(t.includes('US$ 970 / año Pagas una vez al año: 2 meses gratis. Quiero el anual'));
+  const html = await vitrinaHtml();
+  assert.match(html, /<input type="radio" id="mkpl-p-mes" name="mkpl-periodo" checked=""\/>/, 'arranca en mensual');
+  assert.ok(html.includes('href="/planes/pro?periodo=anual"'));
+  assert.equal(botonAnualDelPlan({ id: 'pro', sufijo: '?ref=estudio-sol' }).href, '/planes/pro?ref=estudio-sol&periodo=anual', 'con el origen y el partner');
+  const tj = fuente('app/planes/Tarjetas.tsx');
+  assert.match(tj, /\.mkpl-bloques:has\(#mkpl-p-mes:checked\) \.mkpl-anual \{ display: none; \}/);
+  assert.match(tj, /\.mkpl-bloques:has\(#mkpl-p-anual:checked\) \.mkpl-mes \{ display: none; \}/);
+  // Un plan sin anual: no hay selector (al elegir «Anual», esa tarjeta quedaría sin precio).
+  const sinAnual = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x, i) => (i === 0 ? { ...x, precioAnualUsd: null } : x));
+  assert.doesNotMatch(sinMarcas(await vitrinaHtml(sinAnual)), /Mensual Anual|\/ año/);
+  // Se pide: sin «quiero» no hay checkout anual, y la página del plan lo manda al pedido antes que al pago.
+  const base = { plan: 'pro', nombre: 'Ana', email: 'a@x.com', whatsapp: '+54 9 11 1234 5678', periodo: 'anual' };
+  assert.deepEqual(leerPedidoCompra(base), { ok: false, error: TEXTO_ANUAL_SE_PIDE });
+  const pedido = leerPedidoCompra({ ...base, quiero: true });
+  assert.ok(pedido.ok && pedido.pedido.periodo === 'anual');
+  const pagina = fuente('app/planes/[plan]/page.tsx');
+  assert.ok(pagina.indexOf("uno('periodo') === 'anual' && plan.precioAnualUsd") > 0);
+  assert.ok(pagina.indexOf("uno('periodo') === 'anual'") < pagina.indexOf('<CompraPlan'), 'el anual nunca llega al checkout mensual');
+  assert.match(pagina, /<QuieroPlan plan=\{plan\.id\} nombrePlan=\{`\$\{plan\.nombre\} anual`\} origen=\{origen\} refCodigo=\{ref\} periodo="anual" \/>/);
+  assert.match(fuente('lib/compra-plan.ts'), /const nombrePlan = anual \? `\$\{nombre\} anual \(US\$ \$\{anual\.toLocaleString\('es-AR'\)\} por año\)` : nombre;/, 'el pedido dice que es el anual');
+});
+
+test('la GARANTÍA de los planes: 14 días el mensual y 30 el anual, en las tarjetas y en /reembolsos, de una constante', async () => {
+  assert.deepEqual({ ...GARANTIA_DIAS }, { mensual: 14, anual: 30 });
+  const { textoGarantia } = await import('../app/planes/Tarjetas');
+  const t = await vitrina();
+  assert.ok(t.includes(`Quiero MaKo Pro ${textoGarantia('mensual')}`), 'abajo del botón del mensual');
+  assert.ok(t.includes(`Quiero el anual ${textoGarantia('anual')}`), 'abajo del botón del anual');
+  assert.ok(t.includes('Garantía de 14 días en el plan mensual y de 30 en el anual.'));
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { default: Reembolsos } = await import('../app/reembolsos/page');
+  const r = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
+  assert.ok(r.includes('Garantía de 14 días en el plan mensual y de 30 en el anual.'), '/reembolsos dice lo mismo');
+  assert.doesNotMatch(r, /El mes ya pagado no se reembolsa/, 'ya no dice que el primer mes no se devuelve');
+  assert.match(fuente('app/reembolsos/page.tsx'), /Garantía de \{GARANTIA_DIAS\.mensual\} días en el plan mensual y de \{GARANTIA_DIAS\.anual\} en el anual\./);
+});
+
+test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {
+  const { TEXTO_PAGOS } = await import('../app/planes/Tarjetas');
+  assert.match(TEXTO_PAGOS, /en pesos, con Mercado Pago/);
+  assert.ok((await vitrina()).includes(TEXTO_PAGOS), '/planes');
+  const React = await import('react');
+  const { renderToStaticMarkup } = await import('react-dom/server');
+  const { PreciosLanding } = await import('../app/vsl/PreciosLanding');
+  const planes = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => ({ ...x, cobrable: false }));
+  assert.ok(sinMarcas(renderToStaticMarkup(React.createElement(PreciosLanding, { planes, sufijo: '' }))).includes(TEXTO_PAGOS), 'la landing de venta');
+  assert.doesNotMatch(await vitrina(), /\$ [\d.]+ ARS/, 'sin precio en pesos cargado, ningún número en pesos');
+  assert.equal(precioEnPesos({ preciosLocales: {} }), null);
+  const conPesos = PLANES_MAKO_DEFAULT.filter((x) => x.activo).map((x) => (x.id === 'pro' ? { ...x, preciosLocales: { ARS: 97000 } } : x));
+  assert.ok(sinMarcas(await vitrinaHtml(conPesos)).includes('US$ 97 / mes o $ 97.000 ARS por mes'), 'con el precio del plan en pesos, se dice');
+});
+
+test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope del plan', () => {
+  assert.equal(TOPES.completo['ads.recomendaciones_dia'], 2);
+  assert.equal(TOPES.agencia['ads.recomendaciones_dia'], null);
+  const f = filasDeComparacion().find((x) => /media buyer/.test(x.que));
+  assert.ok(f, 'la fila en la comparación');
+  assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Anuncios y contenido', '2', 'Sin tope', 'Sin tope']);
+  const esencial = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!;
+  assert.ok(esencial.incluye.some((x) => x.includes(`${TOPES.completo['ads.recomendaciones_dia']} recomendaciones por día`) && /tú decides si las aplicas/.test(x)),
+    'en lo que incluye Esencial, y que no aplica solo');
+});
+
+test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pro', async () => {
+  assert.ok(!PLANES_MAKO_DEFAULT.some((x) => x.activo && /agencia/i.test(`${x.id} ${x.nombre}`)));
+  assert.doesNotMatch(await vitrina(), /Plan Agencia|MaKo Agencia/);
+});
+
 // Roturas (24/10/2026; base 8 / 0 con planes-tres-bloques y partners-para-clientes juntos), cada una restaurada (pasan / fallan):
 //   · la fila de automatizaciones escrita a mano con 5                                        -> 7 / 1
 //   · Ads Manager también en Esencial                                                         -> 7 / 1
@@ -207,3 +286,22 @@ test('la GARANTÍA del programa es sobre los entregables de la semana 1, abajo d
 //   · /planes sin los bloques compartidos                                                      -> 14 / 4
 //   · la fila de automatizaciones escrita a mano con 5                                         -> 17 / 1
 //   · el Acelerador sin la insignia «Con acompañamiento»                                       -> 17 / 1
+// Roturas del 25/10/2026 (el anual, la garantía 14/30, los pesos y el media buyer; base 40 / 0 con planes-sin-pasarela,
+// compra-plan y topes-plan), cada una restaurada (pasan / fallan):
+//   · el anual con 1 mes gratis (US$ 1.067)                                                 -> 39 / 1
+//   · el anual sale con el botón del checkout mensual                                       -> 38 / 2
+//   · el anual pierde el origen y el partner                                                -> 39 / 1
+//   · se puede comprar el anual sin pedirlo                                                 -> 39 / 1
+//   · la página del plan manda el anual al checkout                                         -> 39 / 1
+//   · el selector arranca en anual                                                          -> 39 / 1
+//   · el selector aunque un plan no tenga anual                                             -> 39 / 1
+//   · la garantía del mensual a 7 días                                                      -> 39 / 1
+//   · /reembolsos con los días a mano                                                       -> 39 / 1
+//   · /reembolsos vuelve a «El mes ya pagado no se reembolsa»                               -> 39 / 1
+//   · la tarjeta sin la garantía abajo del botón                                            -> 39 / 1
+//   · un precio en pesos inventado con una tasa                                             -> 39 / 1
+//   · sin la línea de Mercado Pago                                                          -> 39 / 1
+//   · el media buyer de Esencial con 5 por día                                              -> 38 / 2
+//   · la fila del media buyer escrita a mano                                                -> 39 / 1
+//   · el media buyer de Esencial aplica solo                                                -> 39 / 1
+//   · el pedido no dice que es anual                                                        -> 39 / 1

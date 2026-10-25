@@ -95,7 +95,12 @@ export type PedidoCompra = {
   quiero: boolean;
   /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
   diagnostico: RespuestaDePuerta[] | null;
+  /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
+  periodo: 'mensual' | 'anual';
 };
+
+/** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
+export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
 
 /**
  * El pedido del formulario, validado. Lo que NUNCA sale de acá: el precio, la moneda y la capa (los pone el plan). El
@@ -114,9 +119,14 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   const quiero = b.quiero === true;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
+  const periodo = b.periodo === 'anual' ? 'anual' : 'mensual';
+  if (periodo === 'anual' && !quiero) return { ok: false, error: TEXTO_ANUAL_SE_PIDE };
   return {
     ok: true,
-    pedido: { plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero, diagnostico: diagnosticoLimpio(b.diagnostico) },
+    pedido: {
+      plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      diagnostico: diagnosticoLimpio(b.diagnostico), periodo,
+    },
   };
 }
 
@@ -152,6 +162,12 @@ export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus 
 /** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
 export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
   return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
+}
+
+/** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */
+export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: string; texto: string } {
+  const sufijo = p.sufijo.startsWith('?') ? `${p.sufijo}&periodo=anual` : '?periodo=anual';
+  return { href: `/planes/${p.id}${sufijo}`, texto: 'Quiero el anual' };
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
