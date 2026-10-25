@@ -1096,6 +1096,14 @@ vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha un
 
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
+> **Martín, 25/10/2026, textual: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API».**
+> Lo dijo al ver que los botones de Instagram de Automations estaban en producción y Leandro, que configura con su Claude, no
+> los podía leer ni editar por la API. Por eso:
+> - **Toda entrega al Cerebro dice qué quedó declarado en la API** (operación por operación) o por qué no corresponde. Sin esa
+>   línea, la punta vuelve al chat para el tren siguiente.
+> - **Leer Y cambiar:** no alcanza con que la API pueda crear algo; lo que la pantalla deja leer o editar, la API también.
+> - **Lo que ya está en producción sin API es un hueco abierto**, no una decisión: se cierra en el área que corresponde.
+
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
 la skill de Claude del cliente, cualquier integración con un bearer— vive en UN registro:
 `lib/api-mako/areas/<área>.def.ts` (qué es, parámetros, por qué canales sale, cómo se

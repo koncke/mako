@@ -5,6 +5,24 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Los links a cada conexión: `?abrir=` y `?servicio=` abren el modal, y el login perdía la query (25/10/2026)
+
+**Vive en:** `app/integraciones/IntegracionesBoard.tsx`, `proxy.ts` (`denegar`), `lib/integraciones-catalogo.ts`,
+`lib/metodo-catalogo.ts`, `lib/hechos-mako.ts`, `lib/mako-capacidades.ts`.
+
+- **`/integraciones?abrir=<key>` abre el modal de esa integración, y `?servicio=` también.** Una entrada más abajo dice que
+  `?servicio=` no lo abre: está vieja. «Tus cuentas de IA» no tiene link propio, y una key desconocida se ignora en silencio.
+- **Un link así abierto SIN sesión terminaba en integraciones sin el modal:** `denegar` ponía en `next` sólo el pathname y la
+  query quedaba colgada en /login. Lo arregló Zernio (0024e38ce, `tests/login-next-con-query.test.ts`); se vio con la vuelta de
+  Facebook de la conexión de Meta por Zernio.
+- **Lo que MaKo sabe de cómo conectar cada cosa está escrito en ocho lugares que ya se contradicen**: los dos catálogos,
+  `servicio-slides` (todavía vende «IA gratis»), `tab-activacion`, `hechos-mako` (sólo meta, anthropic y landing), `mako-capacidades`,
+  los `DEEP_LINKS` del doer y la expresión de intención (todavía dice «chatwoot»). Fathom, Zernio y MaKo Desktop no estaban.
+- **Zernio no crea la conexión de Meta si en la ventana de Facebook se marcan varias páginas y no se le pasa `pageId`**: vuelve
+  sin error visible. El primer clic de Martín (25/10) no dejó nada; el segundo, con la página fija, sí.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Pasar una integración de PLATAFORMA a BYOK son seis piezas, y cinco fallan calladas
 
 **Vive en:** `lib/integraciones-catalogo.ts` · `lib/metodo-catalogo.ts` ·
