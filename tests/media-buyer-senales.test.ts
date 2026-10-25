@@ -100,3 +100,17 @@ test('el interruptor EN VIVO de Zernio reemplaza a la entrega: un conjunto prend
   assert.equal(vivo.find((n) => n.id === 'c1')?.configurado, 'PAUSED', 'la campaña apagada a mano, aunque entregue');
   assert.equal(vivo.find((n) => n.id === 'a1')?.configurado, arbol.find((n) => n.id === 'a1')?.configurado, 'los anuncios no se tocan');
 });
+
+test('lo que sólo trae la lectura en vivo (una campaña sin anuncios) se SUMA al árbol, con su presupuesto: el Media Buyer la puede operar', () => {
+  // Medido el 25/10/2026: el árbol de Zernio sale de los anuncios, y una campaña vacía no estaba; `lanzar` no la encontraba.
+  const vivo = conInterruptorEnVivo([], {
+    campanas: [{ id: 'c9', nombre: 'Vacía', configurado: 'PAUSED', presupuestoDia: 1 }],
+    conjuntos: [{ id: 's9', nombre: 'Conjunto suelto', campanaId: 'c9', configurado: 'ACTIVE', presupuestoDia: null }],
+  });
+  const c = vivo.find((n) => n.id === 'c9');
+  assert.equal(c?.nivel, 'campaign');
+  assert.equal(c?.presupuestoDia, 1);
+  assert.equal(c?.nivelPresupuesto, 'campaign', 'con presupuesto propio es CBO');
+  assert.equal(vivo.find((n) => n.id === 's9')?.parentId, 'c9');
+  assert.equal(vivo.find((n) => n.id === 's9')?.nivelPresupuesto, 'campaign', 'el conjunto hereda el nivel de su campaña');
+});

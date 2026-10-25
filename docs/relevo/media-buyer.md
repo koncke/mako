@@ -56,29 +56,22 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 
 ## Lo que falta, en orden
 
-1. **La migración 0332** — revisada y aprobada por el Cerebro el 25/10; **la aplica él, no este chat**, cuando Martín diga que
-   sí (se la llevó junto con la 0333). Sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
-   cliente de prueba borra de estas tablas. Hasta que esté, la pantalla dice que el registro no está y nada se lanza.
-2. **Conectar la cuenta publicitaria de MaKo a Zernio — ES DE MARTÍN (un clic de permisos en Facebook).** La Zernio de la
-   plataforma tiene cero cuentas conectadas (medido el 25/10). El link se genera con la clave de la plataforma:
-   `GET https://zernio.com/api/v1/connect/facebook/ads?profileId=6a7fdeaab2a8a0408e6c9942&loginMode=business&permissionLevel=advertise&adAccountId=act_1426493815659364&redirect_url=…`
-   (contesta la ventana de Facebook). Con eso, en el Media Buyer de MaKo (ws9) poner la cuenta `act_1426493815659364` en
-   Ajustes → Cuenta publicitaria (no tiene `META_AD_ACCOUNT_ID`).
-   ⚠️ La pieza única de conectar (`<ConectarViaZernio>`) usa la clave DEL NEGOCIO: el ws9 no tiene una propia (la de la
-   plataforma no se puede guardar como suya, `KeyDePlataformaError`), así que para la cuenta de MaKo el link sale por
-   script, no por el botón.
-3. **La medición de Zernio, ya escrita:** `scripts/media-buyer-medir-zernio.mts` (conectar · estado · crear --si · editar --si ·
-   borrar --si), sólo sobre la cuenta de MaKo. `conectar` imprime el link de Facebook (vence a los 30 min: pedirlo con Martín
-   enfrente).
-4. **La prueba real, en la cuenta de MaKo:** prender el Media Buyer en «propone», «Analizar ahora», lanzar UNA decisión de
-   estado sobre un anuncio en pausa de prueba, ver que Meta la refleja, deshacerla. Después, una variación de texto. La
-   cuenta de MaKo no tiene medio de pago: crear anuncios en pausa se puede; que entreguen, no.
-5. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
+1. **Hecho el 25/10/2026:** la 0332 aplicada en producción (el Cerebro, con `tacticas`); la cuenta de MaKo conectada a
+   Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
+   recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de
+   MaKo»). El Media Buyer de MaKo (ws9) quedó **prendido en «propone»** con `act_1426493815659364` en Ajustes. Sin piloto.
+2. **Medir lo del ANUNCIO — ES DE MARTÍN: cargar un método de pago en la cuenta de MaKo.** Sin él Meta no deja crear un
+   anuncio, ni en pausa (subcode 1359188). Con el pago cargado: `crear --si` (todo en pausa), `editar --si` (prender, pausar
+   y una variación de texto), `borrar --si`, con `scripts/media-buyer-medir-zernio.mts`. El script pide `--si` en cada
+   escritura y guarda su estado fuera del repo (`C:/dev/cerebro-herramientas/media-buyer-prueba.json`).
+   ⚠️ Prender o pausar una campaña SIN anuncios no se puede por Zernio (404; el endpoint no acepta `accountId`): con un
+   anuncio adentro sí.
+3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
    y «hooks al video» (piden archivos o la pantalla); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
    vista borrada (`creative-signurl` SÍ se usa: la subida del Media Buyer).
-6. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
+4. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
    Buyer», se lo pide el Cerebro a ese chat.
 
 ## Rojos de main que no son de esta rama

@@ -25,7 +25,7 @@ export const PARTES: Parte[] = [
   { titulo: 'MaKo Esencial: 2 recomendaciones por día, sin piloto', detalle: 'Decisión del Cerebro (25/10, el cupo de entrada de AdAmigo) · el número sale de la tabla de topes de Planes · sólo al Esencial que paga por la pasarela · lo que no entra no gasta IA y entra primero lo que cuida la plata · espera que Planes saque la tab del candado de Pro', estado: 'sigue' },
   { titulo: 'Automatizaciones: cada táctica por su cuenta', detalle: 'El «Automation Overview» de Madgicx en /ads-manager/automatizaciones: qué hizo (prendió, pausó, subió, bajó) en 7 o 30 días, y cada táctica apagada / propone / automática con sus umbrales (el recomendado al lado) y las campañas que cubre · el piloto lanza sólo las automáticas · también por la API · faltan las reglas propias con Y/O', estado: 'sigue' },
   { titulo: 'MaKo opera el Media Buyer', detalle: 'ver_media_buyer, lanzar, deshacer, descartar, analizar, modo y topes en la API de MaKo · lo que mueve plata se confirma en pantalla y no corre en un flujo', estado: 'hecha' },
-  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Espera la migración 0332 (la aplica el Cerebro) y la conexión de Zernio de la cuenta act_1426493815659364 (el clic de Martín) · después: una decisión real en pausa, lanzada y deshecha', estado: 'cola' },
+  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: una decisión real lanzada (recortada por el tope), leída en Meta y deshecha · lo del ANUNCIO (prender, pausar, variaciones) espera un método de pago en la cuenta (Martín)', estado: 'sigue' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -402,6 +402,25 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/MediaBuyer.tsx · mb.css · mb-paleta.css — la pantalla',
       'app/m/ads/MediaBuyerM.tsx · mb-m.css — el teléfono',
       'docs/media-buyer/referencia.md · docs/media-buyer/referencias/madgicx/ — la fuente',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '13:25', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'La medición que escribe, en la cuenta de MaKo: una decisión real lanzada y deshecha por Zernio',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «le falta un permiso a la conexión de Zernio», y era el equivocado**: crear el anuncio de prueba falla porque la cuenta de MaKo no tiene método de pago (Meta, subcode 1359188, ni en pausa). Zernio deshace solo lo que había creado. Se midió con una campaña VACÍA, que sí se puede crear.',
+      'La decisión (subir el presupuesto, de la táctica manual) se guardó, se lanzó y **el tope la recortó** a 1,2 («Recortado a 20% por día, tu tope.»); se leyó 1,2 en Meta, se deshizo y se leyó 1. La corrida entera en «propone» dio ok, en USD. La campaña se borró.',
+      'Tres trampas de Zernio con una campaña sin anuncios: no está en el árbol (sólo en la lectura en vivo, que ahora se suma), el presupuesto da 404 sin `accountId`, y el interruptor no se puede tocar (404, y ese endpoint no acepta `accountId`).',
+      'El negocio de MaKo quedó con el Media Buyer prendido en «propone» y su cuenta en Ajustes. Sin piloto, y ningún cliente tocado.',
+    ],
+    archivos: [
+      'scripts/media-buyer-medir-zernio.mts — la medición, paso por paso (cada escritura pide --si)',
+      'lib/zernio-ads.ts — la campaña vacía, el accountId y la moneda en vivo',
+      'lib/media-buyer/senales.ts — lo que sólo trae la lectura en vivo se suma al árbol',
+      'lib/media-buyer/datos.ts — sin META_AD_ACCOUNT_ID se va por Zernio',
     ],
     revisar: '/ads-manager',
   },

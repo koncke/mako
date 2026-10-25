@@ -101,7 +101,9 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   let moneda: string | null = null;
   let metricasZernio: FilaMetrica[] | null = null;
   let parcial = false;
-  const token = await credWs('META_ACCESS_TOKEN', ws);
+  // El token de Meta sirve si el negocio tiene su cuenta en Integraciones (META_AD_ACCOUNT_ID). Si la cuenta sólo está en los
+  // Ajustes del Media Buyer (el negocio de MaKo: el token del dueño, sin cuenta propia), se va directo por Zernio.
+  const token = (await credWs('META_AD_ACCOUNT_ID', ws)) ? await credWs('META_ACCESS_TOKEN', ws) : null;
   let errMeta: string | null = null;
   if (token) {
     try {
@@ -119,6 +121,7 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     try {
       const vivo = await enVivoPorZernio(ws, conexion);
       arbol = conInterruptorEnVivo(arbol, vivo);
+      if (!moneda) moneda = vivo.moneda;
       if (!vivo.completo) avisos.push('La cuenta tiene más de 500 campañas o conjuntos: lo que no entró se lee por su entrega.');
     } catch (e) {
       avisos.push(`Zernio no dio el estado en vivo (${(e instanceof Error ? e.message : String(e)).slice(0, 120)}): se usó la entrega.`);

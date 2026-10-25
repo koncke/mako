@@ -152,7 +152,11 @@ export async function cambiarTextosPorZernio(
 
 export type EstadoMeta = 'ACTIVE' | 'PAUSED';
 
-/** Prende o pausa una campaña, un conjunto o un anuncio. Devuelve el interruptor leído DESPUÉS (o null si Zernio no lo pudo leer). */
+/**
+ * Prende o pausa una campaña, un conjunto o un anuncio. Devuelve el interruptor leído DESPUÉS (o null si Zernio no lo pudo leer).
+ * ⚠️ Medido el 25/10/2026: a una campaña que en Zernio no tiene anuncios (recién creada, o con el anuncio rechazado por Meta)
+ * este endpoint le contesta 404 «Campaign not found», y no acepta `accountId` (sólo `status` y `platform`). Con anuncios anda.
+ */
 export async function cambiarEstadoPorZernio(ws: number, nivel: 'campaign' | 'adset' | 'ad', id: string, estado: EstadoMeta): Promise<{ leido: string | null; escribio: boolean }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
@@ -165,14 +169,18 @@ export async function cambiarEstadoPorZernio(ws: number, nivel: 'campaign' | 'ad
   return { leido, escribio: r.updated === 1 };
 }
 
-/** Cambia el presupuesto DIARIO (moneda de la cuenta, en unidades) de una campaña CBO o de un conjunto ABO. */
-export async function cambiarPresupuestoPorZernio(ws: number, nivel: 'campaign' | 'adset', id: string, monto: number): Promise<{ monto: number | null }> {
+/**
+ * Cambia el presupuesto DIARIO (moneda de la cuenta, en unidades) de una campaña CBO o de un conjunto ABO.
+ * `accountId` (la cuenta de Zernio): sin él, una campaña VACÍA en Zernio da 404 (medido el 25/10/2026; la OpenAPI lo pide
+ * «sólo para una campaña vacía»). Sólo lo acepta el de campañas: el de conjuntos no lo declara y no se manda.
+ */
+export async function cambiarPresupuestoPorZernio(ws: number, nivel: 'campaign' | 'adset', id: string, monto: number, accountId?: string): Promise<{ monto: number | null }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
   if (!(monto > 0)) throw new ZernioError('Presupuesto inválido', 0, null);
   const ruta = nivel === 'campaign' ? `/ads/campaigns/${encodeURIComponent(id)}` : `/ads/ad-sets/${encodeURIComponent(id)}`;
   const r = await zAds<{ budget?: { amount?: number } }>(clave, ruta, {
-    method: 'PUT', body: JSON.stringify({ platform: 'facebook', budget: { amount: Math.round(monto * 100) / 100, type: 'daily' } }),
+    method: 'PUT', body: JSON.stringify({ platform: 'facebook', budget: { amount: Math.round(monto * 100) / 100, type: 'daily' }, ...(accountId && nivel === 'campaign' ? { accountId } : {}) }),
   });
   return { monto: r.budget?.amount ?? null };
 }
@@ -235,26 +243,28 @@ export async function arbolPorZernio(ws: number, conexion: ConexionAnunciosZerni
 export type { ZCampaign, ZAdSet, ZAd };
 
 /** Una campaña o un conjunto leído EN VIVO de Meta (GET /ads/accounts/live): su interruptor propio y su presupuesto de hoy. */
-export type EnVivoZernio = { id: string; configurado: string | null; entrega: string | null; presupuestoDia: number | null };
+export type EnVivoZernio = { id: string; nombre: string | null; campanaId: string | null; configurado: string | null; entrega: string | null; presupuestoDia: number | null };
 
 /**
  * Las campañas y los conjuntos de la cuenta, leídos en vivo por Zernio (OpenAPI v1.356+: `GET /ads/accounts/live`, una
  * llamada a Meta por pedido). Trae lo que el árbol sincronizado no tiene: `configuredStatus`, el interruptor PROPIO (el
  * dato lo pasó el chat «Zernio y CAPI», 25/10/2026). `completo` es false si quedó otra página sin leer.
  */
-export async function enVivoPorZernio(ws: number, conexion: ConexionAnunciosZernio): Promise<{ campanas: EnVivoZernio[]; conjuntos: EnVivoZernio[]; completo: boolean }> {
+export async function enVivoPorZernio(ws: number, conexion: ConexionAnunciosZernio): Promise<{ campanas: EnVivoZernio[]; conjuntos: EnVivoZernio[]; completo: boolean; moneda: string | null }> {
   const clave = await claveZernioAnuncios(ws);
   if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
-  type Fila = { platformCampaignId?: string; platformAdSetId?: string; configuredStatus?: string | null; platformCampaignStatus?: string | null; platformAdSetStatus?: string | null; dailyBudget?: number | null };
+  type Fila = { platformCampaignId?: string; platformAdSetId?: string; campaignName?: string | null; adSetName?: string | null; configuredStatus?: string | null; platformCampaignStatus?: string | null; platformAdSetStatus?: string | null; dailyBudget?: number | null };
   const q = new URLSearchParams({ accountId: conexion.accountId, adAccountId: conexion.adAccountId, limit: '500' });
-  const r = await zAds<{ campaigns?: Fila[]; adSets?: Fila[]; paging?: { campaigns?: { after?: string | null }; adSets?: { after?: string | null } } }>(clave, `/ads/accounts/live?${q.toString()}`);
-  const fila = (id: string | undefined, f: Fila, entrega: string | null | undefined): EnVivoZernio | null => (id
-    ? { id, configurado: f.configuredStatus ? f.configuredStatus.toUpperCase() : null, entrega: entrega ? entrega.toUpperCase() : null, presupuestoDia: typeof f.dailyBudget === 'number' ? f.dailyBudget : null }
+  const r = await zAds<{ currency?: string | null; campaigns?: Fila[]; adSets?: Fila[]; paging?: { campaigns?: { after?: string | null }; adSets?: { after?: string | null } } }>(clave, `/ads/accounts/live?${q.toString()}`);
+  const fila = (id: string | undefined, f: Fila, entrega: string | null | undefined, nombre: string | null | undefined, campanaId: string | null): EnVivoZernio | null => (id
+    ? { id, nombre: nombre ?? null, campanaId, configurado: f.configuredStatus ? f.configuredStatus.toUpperCase() : null, entrega: entrega ? entrega.toUpperCase() : null, presupuestoDia: typeof f.dailyBudget === 'number' ? f.dailyBudget : null }
     : null);
   return {
-    campanas: (r.campaigns ?? []).map((f) => fila(f.platformCampaignId, f, f.platformCampaignStatus)).filter((x): x is EnVivoZernio => !!x),
-    conjuntos: (r.adSets ?? []).map((f) => fila(f.platformAdSetId, f, f.platformAdSetStatus)).filter((x): x is EnVivoZernio => !!x),
+    campanas: (r.campaigns ?? []).map((f) => fila(f.platformCampaignId, f, f.platformCampaignStatus, f.campaignName, null)).filter((x): x is EnVivoZernio => !!x),
+    conjuntos: (r.adSets ?? []).map((f) => fila(f.platformAdSetId, f, f.platformAdSetStatus, f.adSetName, f.platformCampaignId ?? null)).filter((x): x is EnVivoZernio => !!x),
     completo: !r.paging?.campaigns?.after && !r.paging?.adSets?.after,
+    // La moneda de la cuenta: el árbol de una cuenta SIN anuncios no la trae, y sin ella la corrida se abstiene (moneda_sin_tasa).
+    moneda: r.currency ?? null,
   };
 }
 
@@ -280,6 +290,22 @@ export async function crearCampanaPorZernio(ws: number, cuerpo: Record<string, u
   }, 180_000);
   const { adId } = idsDelAnuncioCreado(r);
   return { campaignId: r.ad?.platformCampaignId ? String(r.ad.platformCampaignId) : null, adSetId: r.ad?.platformAdSetId ? String(r.ad.platformAdSetId) : null, adId };
+}
+
+/**
+ * Crea una campaña VACÍA (sin conjuntos ni anuncios), en pausa: `POST /ads/campaigns` (OpenAPI v1.357). En Meta el
+ * presupuesto de acá es de la campaña (CBO). Sirve para medir las escrituras del Media Buyer en una cuenta sin método de
+ * pago, donde Meta no deja crear anuncios (subcode 1359188).
+ */
+export async function crearCampanaVaciaPorZernio(ws: number, c: { accountId: string; adAccountId: string; nombre: string; presupuestoDia: number }, idempotencia: string): Promise<{ campaignId: string }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const r = await zAds<{ campaignId?: string }>(clave, '/ads/campaigns', {
+    method: 'POST', headers: { 'Idempotency-Key': idempotencia.slice(0, 255) },
+    body: JSON.stringify({ accountId: c.accountId, adAccountId: c.adAccountId, name: c.nombre, goal: 'traffic', status: 'PAUSED', budgetAmount: c.presupuestoDia, budgetType: 'daily', specialAdCategories: [] }),
+  });
+  if (!r.campaignId) throw new ZernioError('Zernio no devolvió el id de la campaña', 0, null);
+  return { campaignId: String(r.campaignId) };
 }
 
 /** Borra una campaña (con lo que tenga adentro) por la Zernio del negocio. `accountId` hace falta si quedó vacía. */
