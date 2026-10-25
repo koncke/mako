@@ -16,6 +16,8 @@ import { useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 import { textoDeLaVuelta, type ResumenRecolector } from '@/lib/recolector-reglas';
 import { cambiarRecolectorAction } from './recolector-actions';
 
@@ -116,12 +118,12 @@ export function AprendeSolo({ resumen, soloCuentas }: { resumen: ResumenRecolect
                     <span><b>{resumen.conversaciones}</b>{resumen.conversaciones === 1 ? 'conversación leída' : 'conversaciones leídas'}</span>
                     <span><b>{resumen.conEntrada}</b>con algo aprendido</span>
                   </div>
-                  {error && <p role="alert" style={{ color: 'var(--bad, #c5221f)' }}>{error}</p>}
+                  {error && <p role="alert" style={{ color: 'var(--bad, #c5221f)' }}>{error}<ReportarASoporte /></p>}
                 </section>
                 {resumen.sinIndice > 0 && (
                   <p className="as-aviso">
                     {resumen.sinIndice} {resumen.sinIndice === 1 ? 'conversación todavía no la usa' : 'conversaciones todavía no las usa'} al
-                    responder: conecta tu Gemini en <a href="/integraciones">Integraciones</a>.
+                    responder: conecta tu Gemini en <BotonIntegracion servicio="gemini" style={{ fontWeight: 600, textDecoration: 'underline' }}>Integraciones</BotonIntegracion>.
                   </p>
                 )}
                 {soloCuentas
