@@ -6105,6 +6105,10 @@ inscripciones y los envíos del ws1 viven en SU base. Un script que mide un nego
 (`ultimo_paso_at` + los minutos de la espera, sólo si adelanta, compare-and-set sobre estado, tarjeta y vencimiento;
 sin `--aplicar` sólo dice lo que haría). Para la #289 adelanta 13 por ~24 min y 7 por 12 a 15 h. **Sin aplicar:** es
 escribir en la base de un cliente real y quedó para que lo decida Martín.
+**Y el arreglo, visto andar (22:00 ART):** los tres M2 que salieron después del deploy (21:34, 21:46 y 21:58) dejaron la
+espera de 2 días agendada a **48,00 h exactas** del mensaje. Antes daba 48,20. Falta la otra mitad (el ritmo de 11 min de
+los M1 y la condición sin turno), que necesita M1 nuevos. El aviso de arreglo al grupo de Mauricio quedó probado en seco
+(`avisar-arreglo-al-grupo.mts`, prueba de producción en verde); mandarlo lo frenó el permiso de la sesión.
 
 ## Lo de la llamada que seguía a medias, con el arnés contra producción (22/10/2026, AU2 del plan del Cerebro)
 
