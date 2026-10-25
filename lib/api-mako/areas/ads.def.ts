@@ -692,7 +692,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Ver el Media Buyer',
-    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, la última vez que miró la cuenta, y las decisiones abiertas (id, qué propone, por qué y los números) y las aplicadas de los últimos 7 días. Úsala antes de lanzar, descartar o deshacer una decisión.',
+    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
@@ -701,8 +701,12 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Lanzar una decisión del Media Buyer',
     descripcion: 'PROPONE lanzar una decisión ABIERTA del Media Buyer (de ver_media_buyer): subir o bajar un presupuesto, pausar, prender, o crear las variaciones del ganador. Se confirma en una pantalla. Al lanzar se relee la cuenta en vivo y se miran los topes del negocio (subida máxima por día, presupuesto máximo de la cuenta, el interruptor): si no pasa, queda frenada con el motivo. Se deshace con deshacer_decision_media_buyer.',
     escribe: 'escribe en Meta (por la Zernio del negocio o su token) y marca la decisión como aplicada en media_buyer_decisiones',
-    parametros: [P_DECISION],
-    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+    parametros: [
+      P_DECISION,
+      { nombre: 'presupuesto', tipo: 'number', minimo: 0.01, descripcion: 'sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar.' },
+      { nombre: 'variaciones', tipo: 'string[]', max: 20, descripcion: 'sólo en una decisión de variaciones: los ids de las que se publican (de ver_media_buyer). Sin esto, las que estaban elegidas.' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
   {
     id: 'deshacer_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false, plata: true,
@@ -710,7 +714,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE deshacer una decisión APLICADA del Media Buyer: devuelve el presupuesto o el estado de antes, o borra los anuncios que creó una variación. Se niega si alguien cambió eso a mano después. Se confirma en una pantalla.',
     escribe: 'escribe el estado anterior en Meta y marca la decisión como deshecha',
     parametros: [P_DECISION],
-    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
   {
     id: 'descartar_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
@@ -720,6 +724,36 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [
       { nombre: 'decisionId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'id de la decisión del Media Buyer (de ver_media_buyer).' },
       { nombre: 'motivo', tipo: 'string', max: 300, descripcion: 'por qué no se lanza, en las palabras de la persona.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'reabrir_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Reabrir una decisión del Media Buyer',
+    descripcion: 'PROPONE volver a abrir una decisión DESCARTADA o vencida del Media Buyer (de ver_media_buyer): vuelve a Abiertas para lanzarla o descartarla de nuevo. No toca la cuenta de Meta.',
+    escribe: 'vuelve a abrir la decisión en media_buyer_decisiones',
+    parametros: [P_DECISION],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'calificar_decision_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Calificar una decisión del Media Buyer',
+    descripcion: 'PROPONE ponerle de 1 a 5 estrellas a una decisión HECHA del Media Buyer (de ver_media_buyer, en hechas): cuánto sirvió. Es la calificación de la pestaña Hechas. No toca la cuenta de Meta.',
+    escribe: 'guarda las estrellas de la decisión en media_buyer_decisiones',
+    parametros: [
+      P_DECISION,
+      { nombre: 'estrellas', tipo: 'number', obligatorio: true, minimo: 1, maximo: 5, descripcion: 'de 1 a 5.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'hooks_al_video_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Hooks del Media Buyer al video',
+    descripcion: 'PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.',
+    escribe: 'agrega guiones en la celda «Hooks del Media Buyer» del Video Generator',
+    parametros: [
+      P_DECISION,
+      { nombre: 'variaciones', tipo: 'string[]', max: 20, descripcion: 'los ids de los hooks a llevar (de ver_media_buyer). Sin esto, los que estaban elegidos.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
@@ -737,7 +771,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE el modo del Media Buyer: `piloto` (lanza solo sus decisiones, dentro de los topes del negocio), `propone` (cada decisión espera a una persona) o `apagado` (no analiza ni lanza nada). Se confirma en una pantalla: el piloto mueve dinero.',
     escribe: 'cambia modo y encendido en media_buyer_config',
     parametros: [{ nombre: 'modo', tipo: 'string', obligatorio: true, enum: ['piloto', 'propone', 'apagado'], descripcion: 'piloto, propone o apagado.' }],
-    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
   {
     id: 'topes_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
@@ -750,7 +784,26 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'kpi', tipo: 'string', enum: ['lead', 'agenda', 'venta'], descripcion: 'el resultado que busca.' },
       { nombre: 'objetivo', tipo: 'number', minimo: 0.01, descripcion: 'costo objetivo por resultado, en US$.' },
     ],
-    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'metas_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Metas del mes del Media Buyer',
+    descripcion: 'PROPONE las metas del mes del Media Buyer (las «Monthly goals» de sus Ajustes): la caja que se busca en el mes (lo cobrado en el CRM) y el gasto en anuncios previsto del mes, en US$. 0 borra esa meta. Sólo cambia lo que se pasa. No toca la cuenta de Meta.',
+    escribe: 'cambia las metas del mes en media_buyer_config',
+    parametros: [
+      { nombre: 'metaVentasMes', tipo: 'number', minimo: 0, descripcion: 'la caja del mes que se busca, en US$ (0 = sin meta).' },
+      { nombre: 'metaGastoMes', tipo: 'number', minimo: 0, descripcion: 'el gasto en anuncios previsto del mes, en US$ (0 = sin meta).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'cuenta_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Cuenta publicitaria del Media Buyer',
+    descripcion: 'PROPONE la cuenta publicitaria (act_ y los números) en la que trabaja el Media Buyer, para un negocio que no la tiene en Integraciones (la de Integraciones manda). Vacío = usar la de Integraciones. Se confirma en una pantalla: es la cuenta donde el Media Buyer mueve presupuestos.',
+    escribe: 'cambia la cuenta publicitaria en media_buyer_config',
+    parametros: [{ nombre: 'cuentaPublicitaria', tipo: 'string', obligatorio: true, max: 40, vaciaEsValor: true, descripcion: 'act_ y los números; vacío = la de Integraciones.' }],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
   // Las tácticas como automatizaciones (25/10/2026, las «Automation Tactics» de Madgicx; lib/media-buyer/tacticas.ts): lo que
   // muestra /ads-manager/automatizaciones, por la API.
@@ -760,6 +813,13 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Las tácticas del Media Buyer como automatizaciones (Stop Loss, Calidad de leads, Sunsetting, Surf, Revive, Ganador): de cada una, su estado (apagada, propone o automática), sus umbrales con el valor recomendado, las campañas que cubre, cuántas recomendaciones hizo en 30 días y la última vez. Úsala antes de automatizacion_media_buyer.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'ver_campanas_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Campañas que ve el Media Buyer',
+    descripcion: 'Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, y sus campañas y conjuntos (id, nombre, prendido, presupuesto diario). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: G_MEDIA_BUYER,
   },
   {
     id: 'automatizacion_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
@@ -785,8 +845,8 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'costoVeces', tipo: 'number', descripcion: 'Revive: prender si cuesta, en veces el objetivo, hasta.' },
         ],
       },
-      { nombre: 'campanas', tipo: 'string[]', max: 300, vaciaEsValor: true, descripcion: 'ids de las campañas que cubre; [] = toda la cuenta.' },
+      { nombre: 'campanas', tipo: 'string[]', max: 300, vaciaEsValor: true, descripcion: 'ids de las campañas que cubre (de ver_campanas_media_buyer); [] = toda la cuenta.' },
     ],
-    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
 ];

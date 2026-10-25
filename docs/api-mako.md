@@ -30,7 +30,7 @@
 - **General** (`general`): `leer_resumen_objetivos` · `ver_trimestre_actual` · `listar_objetivos` · `ver_objetivo_principal` · `ver_tablero_kpis` · `listar_kpis` · `sugerir_kpis` · `listar_fuentes_kpi` · `medir_fuente_kpi` · `ver_capacidad_instalada` · `medir_tramo_r1_r2` · `listar_pendientes_arranque` · `registrar_valor_kpi` · `cerrar_objetivo` · `apagar_kpi` · `guardar_capacidad` · `guardar_objetivo` · `guardar_kpi` · `sembrar_kpis_sugeridos` · `listar_hojas_general` · `crear_hoja_general` · `editar_hoja_general_con_ia` · `agregar_bloque_general` · `configurar_bloque_general`
 - **Plan** (`plan`): `ver_plan` · `listar_tareas_plan` · `ver_tarea_plan` · `ver_proyecto_plan` · `listar_proyectos_plan` · `ver_prioridades_plan` · `ver_repriorizacion_plan` · `listar_tareas_vencidas` · `listar_tareas_paradas` · `listar_tareas_sin_datos` · `buscar_tareas_plan` · `listar_dependencias_plan` · `listar_borradores_plan` · `ver_borrador_plan` · `ver_estado_borrador` · `ver_borrador_de_reunion` · `listar_proyectos_vacios` · `ver_senales_negocio` · `descartar_borrador_plan` · `actualizar_avance_tarea` · `cambiar_fecha_tarea_plan` · `mover_tarea_plan` · `agregar_dependencia_plan` · `quitar_dependencia_plan` · `guardar_termino_glosario` · `proponer_tareas_plan` · `proponer_cierre_tareas` · `cerrar_tareas_plan` · `proponer_ampliar_tareas`
 - **CRM** (`crm`): `buscar_leads` · `ficha_lead` · `reuniones_recientes` · `ver_funnel` · `listar_horarios_reunion` · `listar_leads` · `contar_leads_por_etapa` · `transiciones_desde_etapa` · `requisitos_para_mover` · `faltantes_del_lead` · `reuniones_proximas` · `cobranza_lead` · `tracking_lead` · `journey_lead` · `duplicados_lead` · `propuestas_lead_pendientes` · `confirmaciones_crm_automatico` · `estado_crm_automatico` · `evaluar_crm_automatico` · `link_agenda_calendly` · `link_resumen_lead` · `r2_sin_lead` · `listar_productos` · `listar_etiquetas` · `etiquetas_lead` · `sugerencias_crm` · `volver_a_mostrar_sugerencia` · `ver_ficha_funnel` · `cambiar_ficha_funnel` · `listar_eventos_agenda` · `vincular_evento_etapa` · `desvincular_evento_etapa` · `ver_campanas_funnels` · `asignar_campana_funnels` · `proponer_cambio_etapa` · `proponer_agendar_reunion` · `proponer_lead` · `marcar_asistencia_reunion` · `marcar_calificado` · `agregar_nota_lead` · `asignar_closer_setter` · `mover_a_nutricion_manual` · `marcar_pago_cobrado` · `registrar_pago_suelto` · `ignorar_datos_sin_marcar` · `reactivar_datos_sin_marcar` · `resolver_confirmacion_crm` · `declarar_entradas_funnel` · `tipos_de_crm` · `crear_crm` · `crear_etiqueta` · `editar_etiqueta` · `archivar_etiqueta` · `poner_etiqueta_lead` · `sacar_etiqueta_lead` · `oferta_del_lead` · `asignar_oferta_lead` · `crear_oferta_lead` · `editar_contacto_lead` · `agregar_link_fathom` · `marcar_reunion_manual` · `guardar_plan_pagos` · `guardar_cuotas` · `guardar_deal_details` · `activar_crm_automatico` · `guardar_producto` · `proponer_leads` · `crear_pagina_reserva` · `editar_pagina_reserva` · `cambiar_tipo_etapa` · `renombrar_etapa` · `agregar_etapa` · `eliminar_etapa` · `ordenar_etapas` · `plazo_etapa` · `columna_nutricion_crm` · `ver_curso_al_ganar` · `cambiar_curso_al_ganar` · `ver_cobro_etapa` · `vincular_cobro_etapa` · `cuentas_cobro_etapa` · `desvincular_cobro_etapa` · `armar_tab_ficha`
-- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `descartar_decision_media_buyer` · `analizar_cuenta_media_buyer` · `ver_automatizaciones_media_buyer`
+- **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
 - **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
@@ -3890,7 +3890,7 @@ curl -L \
 
 ## Ads (Manager y Analyst) — `ads`
 
-Tab **Ads Manager** (`/ads-manager`). 38 lecturas · 26 acciones.
+Tab **Ads Manager** (`/ads-manager`). 39 lecturas · 36 acciones.
 
 ### `GET /api/v1/ads/campanas` — Campañas con gasto en 30 días
 
@@ -5534,7 +5534,7 @@ curl -L \
 
 ### `GET /api/v1/ads/media-buyer` — Ver el Media Buyer
 
-El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, la última vez que miró la cuenta, y las decisiones abiertas (id, qué propone, por qué y los números) y las aplicadas de los últimos 7 días. Úsala antes de lanzar, descartar o deshacer una decisión.
+El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.
 
 - **Ruta por operación:** `GET /api/v1/ads/ver_media_buyer`
 - **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
@@ -5552,6 +5552,64 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/ads/media-buyer"
+```
+
+### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/lanzamiento` — Lanzar una decisión del Media Buyer
+
+PROPONE lanzar una decisión ABIERTA del Media Buyer (de ver_media_buyer): subir o bajar un presupuesto, pausar, prender, o crear las variaciones del ganador. Se confirma en una pantalla. Al lanzar se relee la cuenta en vivo y se miran los topes del negocio (subida máxima por día, presupuesto máximo de la cuenta, el interruptor): si no pasa, queda frenada con el motivo. Se deshace con deshacer_decision_media_buyer.
+
+- **Ruta por operación:** `POST /api/v1/ads/lanzar_decision_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** escribe en Meta (por la Zernio del negocio o su token) y marca la decisión como aplicada en media_buyer_decisiones
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
+| `presupuesto` | number | no | sólo en un cambio de presupuesto: el monto diario a poner en vez del que propuso (moneda de la cuenta). Los topes lo pueden recortar. |
+| `variaciones` | string[] | no | sólo en una decisión de variaciones: los ids de las que se publican (de ver_media_buyer). Sin esto, las que estaban elegidas. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/lanzamiento"
+```
+
+### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/reversion` — Deshacer una decisión del Media Buyer
+
+PROPONE deshacer una decisión APLICADA del Media Buyer: devuelve el presupuesto o el estado de antes, o borra los anuncios que creó una variación. Se niega si alguien cambió eso a mano después. Se confirma en una pantalla.
+
+- **Ruta por operación:** `POST /api/v1/ads/deshacer_decision_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** escribe el estado anterior en Meta y marca la decisión como deshecha
+- **Reversible:** no
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/reversion"
 ```
 
 ### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/descarte` — Descartar una decisión del Media Buyer
@@ -5583,6 +5641,94 @@ curl -L \
   "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/descarte"
 ```
 
+### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/reapertura` — Reabrir una decisión del Media Buyer
+
+PROPONE volver a abrir una decisión DESCARTADA o vencida del Media Buyer (de ver_media_buyer): vuelve a Abiertas para lanzarla o descartarla de nuevo. No toca la cuenta de Meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/reabrir_decision_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** vuelve a abrir la decisión en media_buyer_decisiones
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/reapertura"
+```
+
+### `PUT /api/v1/ads/media-buyer/decisiones/{decisionId}/estrellas` — Calificar una decisión del Media Buyer
+
+PROPONE ponerle de 1 a 5 estrellas a una decisión HECHA del Media Buyer (de ver_media_buyer, en hechas): cuánto sirvió. Es la calificación de la pestaña Hechas. No toca la cuenta de Meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/calificar_decision_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** guarda las estrellas de la decisión en media_buyer_decisiones
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
+| `estrellas` | number | sí | de 1 a 5. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/estrellas" \
+  -d '{"estrellas":1}'
+```
+
+### `POST /api/v1/ads/media-buyer/decisiones/{decisionId}/hooks-video` — Hooks del Media Buyer al video
+
+PROPONE llevar los hooks nuevos de una decisión de variaciones de hook del Media Buyer (de un video ganador) al Video Generator, como guiones para filmar sólo el gancho: cada hook con el cuerpo del ganador, en la celda «Hooks del Media Buyer». No publica nada en Meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/hooks_al_video_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** agrega guiones en la celda «Hooks del Media Buyer» del Video Generator
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `decisionId` | string | sí | id de la decisión del Media Buyer (de ver_media_buyer). |
+| `variaciones` | string[] | no | los ids de los hooks a llevar (de ver_media_buyer). Sin esto, los que estaban elegidos. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/decisiones/DECISION_ID/hooks-video"
+```
+
 ### `POST /api/v1/ads/media-buyer/analisis` — Analizar la cuenta con el Media Buyer
 
 PROPONE que el Media Buyer mire la cuenta ahora (lo hace solo una vez por día) y deje sus decisiones del día. Pedido por esta vía NUNCA lanza nada, aunque el negocio tenga el piloto automático: sólo propone. Las variaciones del ganador las escribe la IA del negocio.
@@ -5609,6 +5755,126 @@ curl -L \
   "https://hola-mako.com/api/v1/ads/media-buyer/analisis"
 ```
 
+### `PUT /api/v1/ads/media-buyer/modo` — Modo del Media Buyer
+
+PROPONE el modo del Media Buyer: `piloto` (lanza solo sus decisiones, dentro de los topes del negocio), `propone` (cada decisión espera a una persona) o `apagado` (no analiza ni lanza nada). Se confirma en una pantalla: el piloto mueve dinero.
+
+- **Ruta por operación:** `POST /api/v1/ads/modo_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia modo y encendido en media_buyer_config
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `modo` | string (piloto \\| propone \\| apagado) | sí | piloto, propone o apagado. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/modo" \
+  -d '{"modo":"piloto"}'
+```
+
+### `PATCH /api/v1/ads/media-buyer/topes` — Topes y objetivo del Media Buyer
+
+PROPONE los topes y el objetivo del Media Buyer: cuánto puede subir un presupuesto en un día (%), el presupuesto diario máximo de toda la cuenta (US$), el resultado que optimiza y el costo objetivo por resultado (US$; vacío = lo recomienda MaKo). Sólo cambia lo que se pasa. Se confirma en una pantalla.
+
+- **Ruta por operación:** `POST /api/v1/ads/topes_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia los topes y el objetivo en media_buyer_config
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `subidaMaxPctDia` | number | no | cuánto puede subir un presupuesto en un día, en %. |
+| `presupuestoMaxDia` | number | no | presupuesto diario máximo de la cuenta, en US$. |
+| `kpi` | string (lead \\| agenda \\| venta) | no | el resultado que busca. |
+| `objetivo` | number | no | costo objetivo por resultado, en US$. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/topes"
+```
+
+### `PATCH /api/v1/ads/media-buyer/metas` — Metas del mes del Media Buyer
+
+PROPONE las metas del mes del Media Buyer (las «Monthly goals» de sus Ajustes): la caja que se busca en el mes (lo cobrado en el CRM) y el gasto en anuncios previsto del mes, en US$. 0 borra esa meta. Sólo cambia lo que se pasa. No toca la cuenta de Meta.
+
+- **Ruta por operación:** `POST /api/v1/ads/metas_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** cambia las metas del mes en media_buyer_config
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `metaVentasMes` | number | no | la caja del mes que se busca, en US$ (0 = sin meta). |
+| `metaGastoMes` | number | no | el gasto en anuncios previsto del mes, en US$ (0 = sin meta). |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/metas"
+```
+
+### `PUT /api/v1/ads/media-buyer/cuenta` — Cuenta publicitaria del Media Buyer
+
+PROPONE la cuenta publicitaria (act_ y los números) en la que trabaja el Media Buyer, para un negocio que no la tiene en Integraciones (la de Integraciones manda). Vacío = usar la de Integraciones. Se confirma en una pantalla: es la cuenta donde el Media Buyer mueve presupuestos.
+
+- **Ruta por operación:** `POST /api/v1/ads/cuenta_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia la cuenta publicitaria en media_buyer_config
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cuentaPublicitaria` | string | sí | act_ y los números; vacío = la de Integraciones. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/cuenta" \
+  -d '{"cuentaPublicitaria":"CUENTA_PUBLICITARIA"}'
+```
+
 ### `GET /api/v1/ads/media-buyer/automatizaciones` — Ver las automatizaciones del Media Buyer
 
 Las tácticas del Media Buyer como automatizaciones (Stop Loss, Calidad de leads, Sunsetting, Surf, Revive, Ganador): de cada una, su estado (apagada, propone o automática), sus umbrales con el valor recomendado, las campañas que cubre, cuántas recomendaciones hizo en 30 días y la última vez. Úsala antes de automatizacion_media_buyer.
@@ -5629,6 +5895,70 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/ads/media-buyer/automatizaciones"
+```
+
+### `GET /api/v1/ads/media-buyer/campanas` — Campañas que ve el Media Buyer
+
+Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, y sus campañas y conjuntos (id, nombre, prendido, presupuesto diario). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.
+
+- **Ruta por operación:** `GET /api/v1/ads/ver_campanas_media_buyer`
+- **Token detallado:** permiso `ads=read` (Solo lectura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/campanas"
+```
+
+### `PATCH /api/v1/ads/media-buyer/automatizaciones/{tactica}` — Ajustar una táctica del Media Buyer
+
+PROPONE cambiar UNA táctica del Media Buyer (de ver_automatizaciones_media_buyer): su estado (`apagada`, `propone` o `automatica`), sus umbrales (los ids que lista ver_automatizaciones_media_buyer) o las campañas que cubre ([] = toda la cuenta). Sólo cambia lo que se pasa. Automática lanza sin esperar a una persona: se confirma en una pantalla.
+
+- **Ruta por operación:** `POST /api/v1/ads/automatizacion_media_buyer`
+- **Token detallado:** permiso `ads=write` (Lectura y escritura en «Ads (Manager y Analyst)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** cambia la táctica en media_buyer_config.tacticas
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** ads-manager
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `tactica` | string (stop_loss \\| calidad \\| sunsetting \\| surf \\| revive \\| ganador) | sí | la táctica. |
+| `estado` | string (apagada \\| propone \\| automatica) | no | apagada, propone o automatica. |
+| `umbrales` | object | no | umbrales a cambiar (sólo los de esa táctica; sus mínimos y máximos, de ver_automatizaciones_media_buyer). |
+| `umbrales.gastoVeces` | number | no | Stop Loss: gastó sin resultados, en veces el objetivo. |
+| `umbrales.dias` | number | no | Stop Loss: días corriendo como mínimo. |
+| `umbrales.leads` | number | no | Calidad de leads: leads en el CRM como mínimo. |
+| `umbrales.tasaCuentaPct` | number | no | Calidad de leads: agenda de toda la cuenta como mínimo, en %. |
+| `umbrales.bajarVeces` | number | no | Sunsetting: bajar si cuesta, en veces el objetivo. |
+| `umbrales.bajarPct` | number | no | Sunsetting: cuánto bajar, en %. |
+| `umbrales.apagarVeces` | number | no | Sunsetting: pausar si cuesta, en veces el objetivo. |
+| `umbrales.costoPct` | number | no | Surf: subir si cuesta menos de este % del objetivo. |
+| `umbrales.resultados` | number | no | Surf (3 días) o Ganador (7 días): resultados como mínimo. |
+| `umbrales.subidaPct` | number | no | Surf: cuánto subir, en %. |
+| `umbrales.costoVeces` | number | no | Revive: prender si cuesta, en veces el objetivo, hasta. |
+| `campanas` | string[] | no | ids de las campañas que cubre (de ver_campanas_media_buyer); [] = toda la cuenta. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/ads/media-buyer/automatizaciones/TACTICA"
 ```
 
 ## WhatsApp — `whatsapp`
