@@ -2716,3 +2716,39 @@ destructuring EN LA MISMA POSICIÓN: si se saca una sola, todo lo que sigue reci
 **Vive en:** `lib/cerebro-grafo.ts` (bloque «Formatos: solo los que ESTE negocio usa») · `lib/angulos-data.ts`
 
 *23/10/2026 · chat «Offer» (cuenta claude1) · medido en prod con un SELECT; no se miró en el navegador.*
+
+## El recolector: lo que el negocio vivió en WhatsApp, a su Second Brain, y por qué la procedencia va en el TEXTO (25/10/2026)
+
+Martín (24/10): «Quiero que implementes en el Second Brain un "recolector de información" de TODOS lados... De los mensajes
+de WhatsApp... Esto para todos los ws». El diseño: docs/diseno-second-brain-recolector.md; hecho el primer paso (§8:
+WhatsApp, de punta a punta). Chat «Planes», cuenta 5, a pedido del Cerebro.
+
+- **No hay una tabla del Second Brain.** El mapa se calcula en cada pedido (`construirCerebro`, ~21 fuentes) y lo que el
+  CHAT consulta es `mako_knowledge`, por coseno (`searchKnowledge`, que entra al system por `buildSystemPrompt`). Así que lo
+  recolectado va ahí (fuente `whatsapp`, área `general`, categoría «WhatsApp»), una entrada por contacto.
+- **El chat sólo recibe título y cuerpo** (`searchKnowledge` devuelve `{titulo, categoria, cuerpo, score}`, sin `fuente` ni
+  fecha). Para que pueda decir de dónde salió un dato (§4), la procedencia está ESCRITA al final del cuerpo («Fuente: la
+  conversación de WhatsApp con Ana, mensajes del … al …. Lo recolectó MaKo el …»). Una columna nueva no la vería nadie.
+- **Sin el Gemini del negocio, lo recolectado no se usa al responder:** el embedding va con SU Gemini (`SIN_SU_GEMINI` deja la
+  fila en `estado='error'`) y `searchKnowledge` sólo lee lo que tiene embedding. La pantalla lo cuenta («todavía no la usa
+  al responder: conecta tu Gemini»).
+- **La línea de MaKo es el WhatsApp PERSONAL de Martín.** Leer «las conversaciones» sin filtro habría resumido su familia en
+  el Second Brain del negocio. Se lee sólo lo que tiene un lead del CRM (algún mensaje con `lead_id`), nunca un grupo.
+- **Los lectores de lib/evolution-mensajes.ts ignoran el error** (`data ?? []`): «no pude leer» se ve como «vacío». Un
+  guardia que avanza una marca no los puede usar; el recolector lee `wa_mensajes` directo y mira cada `error`.
+- **La plataforma no «tiene su IA»** (`negocioConSuIA` da false para el ws de la plataforma, a propósito). La regla
+  «sin su IA no corre» es para los CLIENTES (`claveDeIAPropia`); el espacio de MaKo corre con la de la plataforma, que es la
+  suya.
+- **El libro (mig 0332, `second_brain_recolectado`) es la marca y la llave:** una fila por conversación con hasta dónde leyó;
+  se escribe DESPUÉS de guardar lo aprendido, así que una IA caída deja la conversación para la vuelta siguiente. Sin la
+  migración, el cron lo dice en su respuesta y no gasta IA.
+- **Ejercitado sin la app:** tests/second-brain-recolector-simulado.test.ts corre `recolectarWhatsApp` de verdad con la base,
+  el setting, la IA y el conocimiento simulados (`mock.module` en un proceso hijo, el molde de partners-credito-simulado).
+
+**Sin hacer:** las otras fuentes del diseño (métricas de Meta; Fathom, que pide la cuenta de cada negocio, §5), el teléfono, y
+borrar una entrada desde «Aprende solo» (hoy se apaga entero). El bloque del system donde entran estas entradas se llama
+«TU METODOLOGÍA» (lib/mako-context.ts): los hechos de un cliente no son método; si confunde al modelo, va en su propia
+sección. Interruptores: env `RECOLECTOR_SECOND_BRAIN` (`off`/`seco`) y el de cada negocio en el Mapa. **Vive en:**
+lib/recolector.ts · lib/recolector-reglas.ts · app/api/cron/second-brain-recolector/route.ts · app/second-brain/AprendeSolo.tsx
+· app/second-brain/recolector-actions.ts · supabase/migrations/0332_second_brain_recolectado.sql ·
+tests/second-brain-recolector.test.ts · tests/second-brain-recolector-simulado.test.ts.
