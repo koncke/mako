@@ -1816,6 +1816,11 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   borra). **La regla:** una prueba de CAPI nunca manda un evento que cuente (`EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo'`), y para ver
   si un evento llegó, `aggregation=match_keys` de las estadísticas del píxel dice QUÉ lo identificó (un evento de servidor con sólo
   email es el nuestro). El reclamo a Zernio, redactado para que Martín decida.
+  **Verificado en la pantalla de Meta** (el Cerebro, en el Administrador de eventos del píxel): «Información general» → «Cliente
+  potencial · Activo · API de conversiones · 2», y nada en «Probar eventos». **Para la próxima:** la API de Zernio no tiene otro
+  campo para el código de prueba (sólo `testCode`; `platformData` va únicamente a `custom_data`, no a la raíz del evento), así que
+  una prueba de CAPI por Zernio va contra un PÍXEL DE PRUEBA, nunca contra uno con anuncios que optimizan por Lead; y si se prueba
+  en un píxel real, con un evento propio (`PruebaMaKo`), nunca con uno estándar.
 - **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
   que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
   conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el
