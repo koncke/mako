@@ -22,6 +22,13 @@ con filas (`FilaAjustes`: nombre a la izquierda, control a la derecha; `ancho` b
 | Método | tanda 3 | La lista de servicios con su estado y un detalle por servicio, en vez del asistente de 20 pasos |
 | Integraciones | tanda 3 | Sólo el marco (sin bajada). El tablero, Meta y CAPI son de otros chats |
 
+## La API
+
+Todo lo que Settings deja ver o cambiar está en la API de MaKo (área `equipo`), con la tabla pestaña por pestaña y lo que NO
+va (cambiar la seguridad, las credenciales de Método, la foto, el tema) en docs/settings/referencia.md, «La API». Once
+operaciones nuevas; test: tests/api-mako-settings.test.ts. La tuerca del índice es `IconoMenu configurar` (la dibuja la rama
+del Ops Center).
+
 ## Cómo se miró
 
 Un banco con los componentes reales (esbuild) y las APIs simuladas, en Chrome headless, a 1280 y 390, con clics (guardar en
