@@ -3303,4 +3303,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '21:40', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Las hojas de la ficha, «A revisar» por CRM y el buscador de Instagram (puntos 14, 16 y 21)',
+    pedido: '14. En el detail del lead, que las paginas comiencen a la izquierda del todo, no alineado al nombre. Y no pongas la flechita con esas opciones, para eso ya tenemos los 3 puntos al lado de "editar", que ese desplegable de los 3 puntos tambien esta desordenado... Y llegará un punto donde "nueva hoja" ya no se vea bien, ahí si deberías poner la ultima hoja con un desplegable, algo como "Ver más" o algo así y que ahí salte el desplegable con el resto de hojas y que el botón de "nueva hoja" se meta allí. 16. El botón de "A revisar" no esta funcionando por CRM, cuando si debería... No debo estar en un CRM y que me traigan las notificaciones de otro. 21. Aún no funciona el buscador de Instagram... Mira que puse el usuario exacto y no me da la vista previa con la foto de perfil... Me dice "conectar meta" cuando en la cuenta de mauricio ya lo tengo conectado, no tiene sentido...',
+    puntos: [
+      'Segunda tanda de los puntos 12 a 21 del 24/10 (docs/feedback-24-10.md).',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '01:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las hojas con «Ver más», «A revisar» del CRM que miras, y el buscador de Instagram honesto',
+    puntos: [
+      'Las hojas de la ficha arrancan a la izquierda, sin la flechita. Las que no entran van a «Ver más», con «Nueva hoja» adentro. La abierta se ve siempre.',
+      'El «⋯» de al lado de «Editar» es el menú de la ficha, ordenado: AI Analyst, el lead, compartir, esta hoja, la ficha, y «Eliminar hoja» al final.',
+      '«A revisar» trae sólo lo del CRM que miras: los leads cuya casa es ese CRM.',
+      'Instagram: medí la cuenta de Mauricio. Su Meta está conectada, pero sin permiso de Instagram y su página sin Instagram vinculado. Ya no pide «Conectar Meta» ahí, y el botón sale una vez.',
+      'La foto todavía no llega: ninguna fuente puede leer Instagram en esa cuenta. Te lo pregunté en el Ops Center.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '5cf31a180', msg: 'CRM: las hojas de la ficha al borde y con «Ver más», el ⋯ de la ficha ordenado, «A revisar» por CRM, y el buscador de Instagram que no pide conectar lo conectado', lineas: 1023, archivos: 31 },
+    ],
+    archivos: [
+      'app/crm/lead-view/LeadTabs.tsx · app/crm/lead-view/tabs-que-entran.ts — las hojas y «Ver más»',
+      'app/crm/lead-view/ficha/menu-contextual-ficha.ts — el «⋯» de la ficha, por secciones',
+      'lib/a-revisar-filas.ts · app/api/datos-sin-marcar-count/route.ts — «A revisar» por CRM',
+      'lib/instagram-buscar.ts · app/crm/new/InstagramBuscador.tsx — Meta conectada sin Instagram',
+      'tests/ficha-ver-mas.test.ts · tests/a-revisar-por-crm.test.ts · tests/instagram-meta-sin-instagram.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
