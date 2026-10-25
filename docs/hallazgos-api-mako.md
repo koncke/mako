@@ -25,6 +25,41 @@ declarado. Al sumar al área `operaciones` dos operaciones SÓLO de la plataform
 - ⚠️ **`node scripts/generar-plugin.mjs` revienta** con `ERR_MODULE_NOT_FOUND ... lib/detalle-contrato` (importa `.ts`), aunque
   su cabecera diga ese comando. Se corre con `node --import tsx scripts/generar-plugin.mjs`, como `generar-api-doc.mjs`.
 
+## Lo que falta conectar viaja como DATO (`falta: { servicio }`), y el link lo pone el código (25/10/2026)
+
+Florencia (ws21) le preguntó al grupo «Estas analizando mis fathom?». Con su IA conectada, el runner del Closing habría
+contestado «Fathom no está conectado en este negocio: se conecta en /integraciones»: un texto suelto, con el que ni el
+código podía armar el link al modal de Fathom ni ofrecer ayuda. Plan: [conexiones-y-ayuda.md](conexiones-y-ayuda.md).
+Vive en `lib/api-mako/tipos.ts` (`Falta`, `ctx.aFalta`), `lib/api-mako/ejecutar.ts` (`faltaParaElModelo`) y los runners;
+lo fija `tests/conexiones-api.test.ts`.
+
+- **El servicio va como dato en tres lugares a la vez:** la salida del runner (`SalidaLectura.falta`, el error de
+  `Preparado`), el `Resultado` (y por HTTP, en el cuerpo del error) y el canal del código, `ctx.aFalta`, que corre salga
+  bien o mal la lectura. Una lectura que NO es un error también puede llevarla: `panorama_closing` sin Fathom contesta sus
+  contadores Y `falta`, porque unos contadores en cero se leen como «no tuviste llamadas».
+- ⚠️ **El link lo pone UNO solo.** Si el canal agrega la línea por código (el doer de WhatsApp, `aFalta` →
+  `lineaParaConectar`), el modelo recibe `falta` SIN link y con «no escribas ningún link»: si también se lo diéramos, lo
+  escribiría él y saldría dos veces. Sin `aFalta` (la app, HTTP), va el link exacto del catálogo para que lo pase tal cual.
+- ⚠️ **El análisis de llamadas no es «su IA»: es su Claude por clave.** Lo obvio era que `exigirIa` aceptara su GPT (IA16:
+  «cada negocio paga su IA»). Pero el análisis corre sólo con Claude (`conClaveDelNegocio` en lib/closing.ts, Sonnet a
+  propósito en lib/model-catalogo.ts): con su GPT la operación arrancaría y fallaría igual. Pide `falta: anthropic`.
+- **«Se vincula en la tab WhatsApp» mandaba a una tab que ya no existe**: el QR vive en Chats (`/chats?conectar=whatsapp`).
+- **`ver_ia_del_negocio`** dice con qué IA contesta cada cosa (la app, el grupo, los audios, el análisis) según las reglas del
+  código, no una opinión, y **`como_conectar`** da los pasos y el link de una cosa por cómo la nombra la gente. Leen
+  `listarPcDelNegocio` (lib/ia-pc.ts) sólo para contar: su comentario dice «para el super admin» porque devuelve nombres y
+  ubicaciones; acá salen sólo cuántas y cuántas en línea, del propio negocio.
+
+**SIN hacer:**
+- Meta (`SIN_META`, lib/api-mako/areas/ads.helpers.ts) sin `falta`: si es `meta` o `zernio` lo decide el chat de Zernio
+  (Zernio reemplaza el token de Meta, detrás de `ZERNIO_META_PROBADO`).
+- `crear_borrador_whatsapp_empresa` (un `proponer`: `Propuesto` no tiene `falta`), el remitente del email (no es una
+  conexión que falte: es el dominio en /email) y `conPasarelaConectada` de cobros (al confirmar).
+- El chat de la app (`turnoApp`) no pone `aFalta`: el link le llega al modelo en el JSON y lo escribe él.
+- `como_conectar` llega al turno sólo si el mensaje nombra el área integraciones, y su expresión no reconoce «conectar» ni
+  Fathom, Zernio, Instagram o «mi Claude» (lib/mako-intencion.ts): tanda 3.
+
+---
+
 ## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
 
 **Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a

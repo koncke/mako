@@ -381,6 +381,10 @@ export type Ctx = {
    *  (WhatsApp, HTTP) se descarta. El camino es de Pagos (20/10/2026, la 2.27); las propuestas, 21/10.
    *  Devuelve `false` si NO lo dibujó (el tope de bloques del mensaje): así el `siSeDibuja` de una lectura no se dice. */
   aDibujar?: (b: Bloque) => boolean | void;
+  /** Por dónde el CÓDIGO le dice a la persona qué conexión le falta (`Falta`, 25/10/2026): el doer de WhatsApp agrega la línea
+   *  con su link (lib/conexiones-catalogo.ts, `lineaParaConectar`) sin que la escriba el modelo. Sin esto, el link viaja en el
+   *  JSON que lee el modelo (`runnerDelRegistro`). */
+  aFalta?: (f: Falta) => void;
   /** Sólo en la app: los archivos que la persona adjuntó en el mensaje de ESTE turno, ya guardados (su `ref` es la de
    *  /api/mako/chat?adjunto=). El estado de cuenta del lead toma el comprobante de acá (la 2.28). */
   adjuntos?: readonly { ref: string; nombre: string; tipo: 'image' | 'document' }[];
@@ -409,13 +413,21 @@ export const quienChatea = (ctx: Pick<Ctx, 'canal' | 'quien'>): { sub: string; e
 
 // ── Lo que devuelven los runners ─────────────────────────────────────────────
 
+/**
+ * LO QUE LE FALTA CONECTAR AL NEGOCIO, COMO DATO (25/10/2026, docs/conexiones-y-ayuda.md). Los runners decían «Fathom no está
+ * conectado en este negocio: se conecta en /integraciones», un texto suelto: con eso el código no podía armar el link directo
+ * al modal ni ofrecer ayuda, y el modelo mandaba a la pantalla general. `servicio` es una key de lib/conexiones-catalogo.ts
+ * (la de la tarjeta de /integraciones, o 'pc', 'ia', 'whatsapp').
+ */
+export type Falta = { servicio: string };
+
 /** Igual que el `ToolRunner` de lib/anthropic.ts: texto, o «esto salió mal por
  *  adentro de un resultado válido». Para `formatos`, además el tipo y cabeceras.
  *  `siSeDibuja`: lo que el modelo lee además de `content` SÓLO si el `bloque` se dibujó de verdad («la persona ya lo ve:
  *  no repitas la tabla»). Dicho siempre, con el bloque descartado, el modelo callaba algo que nadie veía (21/10). */
 export type SalidaLectura =
   | string
-  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque; siSeDibuja?: string };
+  | { content: string; isError?: boolean; formato?: Formato; headers?: Record<string, string>; paraLaPersona?: string; bloque?: Bloque; siSeDibuja?: string; falta?: Falta };
 
 /** Lo que una acción `chat` deja listo ANTES del «sí»: el payload saneado (lo que
  *  se va a ejecutar, con ids resueltos) y el resumen que lee la persona. `faltan`
@@ -428,6 +440,8 @@ export type Preparado =
   | { payload: Record<string, unknown>; resumen: string; paraLaPersona?: string }
   | {
       error: string; faltan?: string[]; disponibles?: unknown; paraLaPersona?: string;
+      /** La conexión que hace falta para esto (`Falta`). */
+      falta?: Falta;
       /** «Ya está así»: lo pedido YA es el estado actual (el lead ya está en esa secuencia, en
        *  ese producto, ya está marcado). Para un canal con persona es un rechazo como cualquier
        *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
@@ -494,4 +508,4 @@ export type Resultado =
   | { ok: true; tipo: 'control'; resultado: string }
   /** `motivo`: lo que contestó la base cuando la pendiente no entró (va al rastro de un flujo, nunca a una persona ni por
    *  HTTP). `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no existe): un flujo lo puede reintentar sin repetir. */
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true };
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta };

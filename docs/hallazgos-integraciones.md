@@ -21,6 +21,21 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 - **Zernio no crea la conexión de Meta si en la ventana de Facebook se marcan varias páginas y no se le pasa `pageId`**: vuelve
   sin error visible. El primer clic de Martín (25/10) no dejó nada; el segundo, con la página fija, sí.
 
+**Lo que quedó (tanda 2, «MaKo en WhatsApp: conexiones», 25/10/2026): un solo catálogo, `lib/conexiones-catalogo.ts`**, puro;
+lo fija `tests/conexiones-api.test.ts`:
+- ⚠️ **El plan decía «montado sobre `DEFS` de metodo-catalogo», y `DEFS` no vive ahí.** Las tarjetas son `DEFS` de
+  `lib/integraciones-catalogo.ts` (puro); `lib/metodo-catalogo.ts` es `server-only` (`SERVICIOS_METODO`, los tutoriales). Por
+  eso el catálogo NO trae los pasos de una tarjeta: los lee el runner, en el servidor (`como_conectar`, `ver_integracion`).
+  Trae sólo los de lo que no es tarjeta (la computadora), con los rótulos reales de «Conecta MaKo»: el test los busca en la
+  pantalla, porque un paso con un botón que no existe es peor que ninguno.
+- **Una tarjeta nueva entra sola** (se deriva de `DEFS` y el test exige que estén todas). Aparte: la computadora
+  (`/perfil/ia?computadora=1`), «Tus cuentas de IA» (`?abrir=ia`, de MaKo Desktop) y el QR (`/chats?conectar=whatsapp`).
+- **Gemini y Groq están pero no se ofrecen** (`noSeOfrece`): quien ya los tiene los usa; no se manda a conectarlos.
+- `buscarConexion` gana con la frase MÁS LARGA que aparece como palabra: «google calendar» le gana a «google», y «el pixel de
+  meta» va a Meta (ahí se carga el ID del píxel), nunca al Pixel de MaKo.
+- **SIN hacer:** que lo consuman `hechos-mako`, `mako-capacidades`, los `DEEP_LINKS`, la expresión de intención y los carteles
+  (lib/fallo-ia-texto.ts tiene su propio `RUTA_CONEXION`): tanda 3. Y la key desconocida en `?abrir=` sigue sin aviso.
+
 *25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
 
 ## Pasar una integración de PLATAFORMA a BYOK son seis piezas, y cinco fallan calladas
@@ -439,8 +454,9 @@ preguntá qué probó.
 
 ### El modal se abre con `?abrir=<key>`, y un key que no está no abre nada
 
-El inventario de la API decía `/integraciones?servicio=<key>`. Ese link abre la página y
-ningún modal, sin error: `IntegracionesBoard` lee `searchParams.get('abrir')` (`:195`) y
+⚠️ **Corregido el 25/10/2026: `?servicio=<key>` SÍ abre el modal** (el efecto de `servicio` del board; ver «Los links
+a cada conexión», arriba). Lo que sigue vale para `?abrir=`, que es el contrato. El inventario de la API decía
+`/integraciones?servicio=<key>`. Se creyó que ese link abría la página y ningún modal, sin error: `IntegracionesBoard` lee `searchParams.get('abrir')` (`:195`) y
 además **ignora en silencio** todo key que no esté entre sus integraciones visibles ni en
 `SYNTHETIC` (`:199`). Un link bien formado a un servicio que ese workspace no ve —por capa, o
 por `soloPlataforma`— aterriza igual frente a la grilla.

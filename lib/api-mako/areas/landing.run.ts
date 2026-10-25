@@ -438,7 +438,8 @@ export const RUNNERS: Runners = {
 
   listar_videos_panda: {
     leer: async (input) => {
-      if (!(await pandaConectado())) return json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' });
+      // `falta` (25/10/2026): el link al modal de Panda lo pone el código.
+      if (!(await pandaConectado())) return { content: json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' }), falta: { servicio: 'panda' } };
       const limite = num(input, 'limite') ?? 50;
       const todos = [...(await catalogoPanda()).entries()];
       return json({
@@ -456,7 +457,7 @@ export const RUNNERS: Runners = {
       const desde = str(input, 'desde') ?? '';
       const hasta = str(input, 'hasta');
       if (!fechaValida(desde) || (hasta && !fechaValida(hasta))) return errorLectura('Las fechas van en formato AAAA-MM-DD.');
-      if (!(await pandaConectado())) return errorLectura('Panda Video no está conectado en este negocio.');
+      if (!(await pandaConectado())) return { content: 'Panda Video no está conectado en este negocio.', isError: true, falta: { servicio: 'panda' } };
       try {
         if (!hasta || hasta === desde) {
           const s = await fetchPandaDailyStat(videoId, desde);

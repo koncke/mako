@@ -27,7 +27,7 @@
 import 'server-only';
 import type { Runners, SalidaLectura } from '../tipos';
 import { TEXTO_ALCANCE } from '../alcance';
-import { servicioDelWs, keysServiciosDelWs, tarjetasDelWs } from './integraciones.helpers';
+import { servicioDelWs, keysServiciosDelWs, tarjetasDelWs, esWsPlataforma } from './integraciones.helpers';
 import { getIntegraciones } from '@/lib/integraciones';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
 import { estadoCampo, integracionConectada, credDelCliente } from '@/lib/credenciales';
@@ -40,6 +40,10 @@ import { tabActivacion, TABS_ACTIVACION } from '@/lib/tab-activacion';
 import { tokenAgenteVisible } from '@/lib/agente-token';
 import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
+import { susClaves, type SuClaveGuardada } from '@/lib/ia-del-negocio';
+import { listarPcDelNegocio } from '@/lib/ia-pc';
+import { getInstanciaRow } from '@/lib/evolution';
+import { buscarConexion, CONEXIONES, conexion, type Conexion } from '@/lib/conexiones-catalogo';
 
 const J = (o: unknown): string => JSON.stringify(o);
 const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
@@ -48,6 +52,26 @@ const str = (input: Record<string, unknown>, k: string): string =>
   (typeof input[k] === 'string' ? (input[k] as string).trim().toLowerCase() : '');
 const r4 = (n: number): number => Math.round(n * 10000) / 10000;
 const linkIntegracion = (key: string): string => linkPantalla(`/integraciones?abrir=${encodeURIComponent(key)}`);
+/** El link de una conexión del catálogo (lib/conexiones-catalogo.ts): su modal, «Conecta MaKo» o el QR, con el `?ws=`. */
+const linkConexion = (key: string): string | null => { const c = conexion(key); return c ? linkPantalla(c.ruta) : null; };
+
+/** Cómo está cada clave de IA en la fila del negocio, en palabras (`susClaves`, lib/ia-del-negocio.ts). */
+const ESTADO_CLAVE: Record<SuClaveGuardada['es'], string> = {
+  propia: 'propia',
+  copia: 'copia de la de MaKo: no es su IA',
+  ilegible: 'guardada pero ya no se puede leer: hay que volver a pegarla',
+};
+
+/** ¿Está conectada esa cosa? null = no se sabe (o no tiene cómo medirse acá). Nunca tira. */
+async function estaConectada(c: Conexion, ws: number): Promise<boolean | null> {
+  try {
+    if (c.key === 'pc') return (await listarPcDelNegocio(ws)).length > 0;
+    if (c.key === 'whatsapp') return (await getInstanciaRow())?.estado === 'conectado';
+    if (c.key === 'google') return await googleCalendarConectado();
+    if (c.verifica === 'probar_conexion') return await integracionConectada(c.key, ws);
+    return null;
+  } catch { return null; }
+}
 
 export const RUNNERS: Runners = {
   ver_integraciones: {
@@ -99,9 +123,87 @@ export const RUNNERS: Runners = {
           lo_completa_mako: !!c.auto,
         })),
         ...(extras.length ? { cuentas_extra_cargadas: extras.filter(({ e }) => e?.configurado).length, cuentas_extra_max: extras.length } : {}),
+        // Los pasos del tutorial oficial (lib/metodo-catalogo.ts), para guiar sin inventar (25/10/2026).
+        pasos: s.tutorial.pasos,
+        url_del_proveedor: s.tutorial.url ?? null,
         paso_externo: s.pasoExterno ? { titulo: s.pasoExterno.titulo, porque: s.pasoExterno.porque, valor: s.pasoExterno.valor, donde: s.pasoExterno.donde, ojo: s.pasoExterno.ojo ?? [] } : null,
         ilegible_significa: 'la credencial está guardada pero ya no se puede leer: hay que volver a pegarla.',
         link: linkIntegracion(s.key),
+      });
+    },
+  },
+
+  /**
+   * CON QUÉ IA TRABAJA EL NEGOCIO, Y QUÉ CONTESTA CADA COSA (25/10/2026). Florencia (ws21) le preguntó al grupo «Estas
+   * analizando mis fathom?» y el cartel le pidió «una API key» de Gemini: MaKo no tenía cómo saber qué IA tenía el negocio ni
+   * qué le faltaba para cada cosa. Lo que contesta cada canal sale de las reglas del código, no de una opinión:
+   *   · la app, con su Claude en SU computadora (lib/chat-mako-reglas.ts: sin la computadora, el chat no escribe);
+   *   · WhatsApp, con su GPT o su Gemini por clave (`PROVS_SU_IA`); su Claude por clave sólo en un pedido sin herramientas (WA1);
+   *   · las notas de voz, su GPT o su Gemini (`CASCADA_STT`: Claude no escucha);
+   *   · el análisis de llamadas, su Claude por clave (lib/closing.ts, `conClaveDelNegocio`).
+   * Nunca una clave ni un nombre de computadora: sólo presencia y cuántas.
+   */
+  ver_ia_del_negocio: {
+    leer: async (_input, ctx) => {
+      if (await esWsPlataforma(ctx.ws)) {
+        return J({ plataforma: true, nota: 'Es el negocio de la plataforma: trabaja con las claves de MaKo, no con «su IA».' });
+      }
+      const [claves, pcs] = await Promise.all([susClaves(ctx.ws).catch(() => null), listarPcDelNegocio(ctx.ws).catch(() => null)]);
+      const de = (clave: SuClaveGuardada['clave']): string | null => {
+        if (!claves) return null;
+        const c = claves.find((x) => x.clave === clave);
+        return c ? ESTADO_CLAVE[c.es] : 'no';
+      };
+      const tiene = (clave: SuClaveGuardada['clave']): boolean => !!claves?.some((x) => x.clave === clave && x.es !== 'copia');
+      const [claude, gpt, gemini] = [tiene('ANTHROPIC_API_KEY'), tiene('OPENAI_API_KEY'), tiene('GEMINI_API_KEY')];
+      const enLinea = pcs ? pcs.filter((p) => p.enLinea).length : null;
+      return J({
+        claves: { claude: de('ANTHROPIC_API_KEY'), gpt: de('OPENAI_API_KEY'), gemini: de('GEMINI_API_KEY') },
+        computadoras: pcs ? { conectadas: pcs.length, en_linea: enLinea, con_claude: pcs.filter((p) => p.conClaude).length } : null,
+        que_contesta: {
+          chat_de_la_app: !pcs ? null
+            : enLinea ? 'su Claude, en su computadora'
+            : pcs.length ? 'nada por ahora: su computadora con MaKo está apagada o sin internet'
+            : 'nada: el chat de la app necesita MaKo en su computadora con su Claude',
+          grupo_de_whatsapp: !claves ? null
+            : gpt ? 'su GPT por clave' : gemini ? 'su Gemini por clave'
+            : claude ? 'su Claude por clave, sólo en los pedidos que no usan herramientas (y no escucha audios)'
+            : 'nada: necesita su GPT por clave',
+          notas_de_voz: !claves ? null : gpt ? 'su GPT' : gemini ? 'su Gemini' : 'nadie: Claude no escucha; necesita su GPT por clave',
+          analisis_de_llamadas: !claves ? null : claude ? 'su Claude por clave' : 'nada: corre con su Claude por clave',
+        },
+        links: { gpt: linkConexion('openai'), claude_por_clave: linkConexion('anthropic'), computadora: linkConexion('pc'), tus_cuentas_de_ia: linkConexion('ia') },
+        notas: [
+          'null = no se pudo leer: dilo así, no lo tomes como «no tiene».',
+          '«copia de la de MaKo» no es su IA: no cuenta para contestar.',
+          'Para que te conteste en WhatsApp, ofrécele su GPT por clave; para el chat de la app, MaKo en su computadora con su Claude. No le ofrezcas Gemini.',
+        ],
+      });
+    },
+  },
+
+  /**
+   * CÓMO SE CONECTA ALGO (25/10/2026), del catálogo único (lib/conexiones-catalogo.ts). Los pasos de una tarjeta son su
+   * tutorial oficial (lib/metodo-catalogo.ts, server-only: por eso se leen acá y no en el catálogo); los de lo que no es una
+   * tarjeta (la computadora), los del catálogo, con los rótulos reales de la pantalla.
+   */
+  como_conectar: {
+    leer: async (input, ctx) => {
+      const que = typeof input.que === 'string' ? input.que : '';
+      const c = buscarConexion(que, { esPlataforma: await esWsPlataforma(ctx.ws) });
+      if (!c) return fallo(`No sé qué conexión es «${que.trim().slice(0, 80)}».`, CONEXIONES.filter((x) => !x.soloPlataforma && !x.noSeOfrece).map((x) => x.key));
+      const tarjeta = await servicioDelWs(c.key, ctx.ws);
+      return J({
+        key: c.key, nombre: c.nombre, para_que: c.destraba,
+        conectada: await estaConectada(c, ctx.ws),
+        quien: c.quien === 'admin' ? 'La conecta quien administra el negocio.' : 'Cada persona conecta la suya.',
+        donde: 'Se conecta desde la computadora: en el teléfono no se puede.',
+        pasos: tarjeta?.tutorial.pasos ?? c.pasos ?? [],
+        url_del_proveedor: tarjeta?.tutorial.url ?? null,
+        paso_externo: tarjeta?.pasoExterno ? { titulo: tarjeta.pasoExterno.titulo, donde: tarjeta.pasoExterno.donde } : null,
+        link: linkPantalla(c.ruta),
+        ...(c.noSeOfrece ? { ojo: 'No se ofrece para la IA del negocio: para que MaKo conteste, su GPT por clave (WhatsApp) o MaKo en su computadora con su Claude (la app).' } : {}),
+        instruccion: 'Pásale el link TAL CUAL y los pasos de a uno, en mensajes cortos. Nunca le pidas una clave por el chat: la pega él en el link. Cuando diga que listo, confírmalo con probar_conexion_integracion (o ver_ia_del_negocio si era la computadora).',
       });
     },
   },

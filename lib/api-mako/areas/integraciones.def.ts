@@ -53,7 +53,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_integracion', area: 'integraciones', tipo: 'lectura',
     titulo: 'Detalle de una integración',
-    descripcion: 'Para UNA integración: para qué sirve, si está conectada, qué campos pide (cuáles son obligatorios, cuáles ya están cargados, cuáles quedaron ilegibles y hay que volver a pegar, cuáles completa MaKo sola) y el paso que hay que hacer del otro lado (por ejemplo, la URL de webhook que se pega en Fathom). Nunca devuelve los valores. Úsala ante «¿qué me falta para conectar X?».',
+    descripcion: 'Para UNA integración: para qué sirve, si está conectada, qué campos pide (cuáles son obligatorios, cuáles ya están cargados, cuáles quedaron ilegibles y hay que volver a pegar, cuáles completa MaKo sola), los pasos del tutorial oficial para sacar la credencial y el paso que hay que hacer del otro lado (por ejemplo, la URL de webhook que se pega en Fathom). Nunca devuelve los valores. Úsala ante «¿qué me falta para conectar X?».',
     parametros: [
       { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
     ],
@@ -104,6 +104,23 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Si el negocio ya generó el token para conectar Claude (la skill de MaKo) y con qué alcance: solo leer, leer y proponer, o además ejecutar. Nunca devuelve el token: sólo su pista (el prefijo y los últimos 4 caracteres) para reconocerlo. Úsala ante «¿tengo Claude conectado?» o para explicar por qué Claude no puede confirmar una acción. No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
+  // ── Conectar: qué IA tiene el negocio y cómo se conecta cada cosa (25/10/2026, docs/conexiones-y-ayuda.md) ──
+  {
+    id: 'ver_ia_del_negocio', area: 'integraciones', tipo: 'lectura',
+    titulo: 'Con qué IA trabaja el negocio',
+    descripcion: 'Con qué IA trabaja este negocio y qué contesta cada cosa: si tiene su Claude, su GPT o su Gemini por clave (propia, copia de la de MaKo o guardada e ilegible), cuántas computadoras con MaKo Desktop tiene conectadas y cuántas en línea, y con eso qué contesta el chat de la app, el grupo de WhatsApp, las notas de voz y el análisis de llamadas. Trae el link de cada conexión. Nunca devuelve una clave. Úsala ante «¿por qué no me contestas?», «¿tengo mi IA conectada?» o «¿con qué IA trabajas?».',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  {
+    id: 'como_conectar', area: 'integraciones', tipo: 'lectura',
+    titulo: 'Cómo se conecta algo',
+    descripcion: 'Cómo se conecta UNA cosa, para guiar a la persona: qué destraba, si ya está conectada, quién la conecta, que se hace desde la computadora, los pasos oficiales y el link que abre justo esa conexión. Sirve para las tarjetas de Integraciones (Fathom, Zernio, Calendly, su GPT…) y para lo que no es una tarjeta: MaKo en su computadora (MaKo Desktop), «Tus cuentas de IA» y su número de WhatsApp. Úsala ante «¿cómo conecto X?», «ayúdame a conectar…» o cuando una herramienta devolvió `falta`. Pasa los pasos de a uno y nunca pidas una clave por el chat.',
+    parametros: [
+      { nombre: 'que', tipo: 'string', obligatorio: true, max: 80, descripcion: 'lo que quiere conectar, con la key de ver_integraciones o con sus palabras: «fathom», «mi claude», «instagram», «la app de escritorio», «whatsapp».', ejemplo: 'fathom' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
   },
   {
     id: 'link_configurar_integracion', area: 'integraciones', tipo: 'lectura',

@@ -20,6 +20,7 @@ import { validarRespuestaDoer, esRutaPlan, mensajeBorrador, EJEMPLO_BORRADOR, AV
 import { recetasDelTurno } from '@/lib/doer-recetas';
 import { evaluarPermiso } from '@/lib/veto-claude';
 import { causaDelFallo, cartelDelFallo, textoFalloIA, linkKeysIA, rutaKeysIA, textoSinRedPorDatos, conexionesDelPedido, motivoDelCartel, type ConexionDelCartel } from '@/lib/fallo-ia-texto';
+import { conexion, lineaParaConectar } from '@/lib/conexiones-catalogo';
 import { PLAZO_REINTENTOS_TURNO_MS, hayTiempoParaOtroIntento } from '@/lib/ia-rotacion-modelo';
 import { LARGO_WHATSAPP } from '@/lib/hechos-mako';
 import { reaccionPara, esSoloEmoji, EMOJI_RECIBIDO } from '@/lib/reaccion-emoji';
@@ -985,6 +986,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       }),
       aPersona: (t) => {
         const x = paraWhatsApp(t);
+        if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
+      },
+      // LO QUE LE FALTA CONECTAR, CON SU LINK, LO ESCRIBE EL CÓDIGO (25/10/2026): una herramienta devolvió `falta` («Fathom no
+      // está conectado»). El modelo dice qué falta sin escribir link (`faltaParaElModelo`); acá va el link directo a ESA
+      // conexión, una vez por conexión, como un mensaje más del turno (con su `?ws=`, `linksConWs`).
+      aFalta: (f) => {
+        const c = conexion(f.servicio);
+        const x = c ? lineaParaConectar(c, linkApp(c.ruta, wsData)) : null;
         if (x && !paraLaPersona.includes(x)) paraLaPersona.push(x);
       },
     };

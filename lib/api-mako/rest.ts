@@ -597,6 +597,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Con qué IA trabaja el negocio y cómo se conecta cada cosa (25/10/2026, docs/conexiones-y-ayuda.md). `que` va en la query:
+  // es texto libre («mi claude»).
+  ['GET', '/integraciones/ia-del-negocio', 'ver_ia_del_negocio'],
+  ['GET', '/integraciones/conexiones', 'como_conectar'],
   // ── equipo ────────────────────────────────────────────────────────────────
   ['GET', '/equipo/negocio', 'ver_workspace'],
   ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],
