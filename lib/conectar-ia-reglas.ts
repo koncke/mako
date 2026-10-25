@@ -24,7 +24,13 @@
 // =============================================================================
 
 export type IaDelCliente = 'claude' | 'chatgpt' | 'gemini';
-export const IAS_DEL_CLIENTE: readonly IaDelCliente[] = ['claude', 'chatgpt', 'gemini'];
+/**
+ * Las que se OFRECEN para conectar («Nueva cuenta» en «Tus cuentas de IA»). Sin Gemini desde el 25/10/2026 (Martín: «le sigue
+ * diciendo que debe conectar su IA de Gemini, cuando dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a
+ * su claude o GPT»). Su clave sigue teniendo dónde pegarse (su tarjeta de /integraciones, `?abrir=gemini`, y «Claves de API»), y
+ * quien ya la tiene la usa: lo que no se hace es ofrecerla. Las reglas de abajo siguen sabiendo de Gemini por eso.
+ */
+export const IAS_DEL_CLIENTE: readonly IaDelCliente[] = ['claude', 'chatgpt'];
 
 /** La integración de /integraciones que guarda la clave de cada IA (lib/integraciones-catalogo.ts). */
 export const SERVICIO_DE_CLAVE: Record<IaDelCliente, 'anthropic' | 'openai' | 'gemini'> = { claude: 'anthropic', chatgpt: 'openai', gemini: 'gemini' };

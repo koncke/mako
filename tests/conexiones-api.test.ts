@@ -39,6 +39,9 @@ test('1. el catálogo tiene toda tarjeta y lo que no es tarjeta, con rutas de co
   assert.equal(conexion('pc')?.ruta, '/perfil/ia?computadora=1', 'la computadora no abre «Conecta MaKo»');
   assert.equal(conexion('ia')?.ruta, '/integraciones?abrir=ia', '«Tus cuentas de IA» perdió su link');
   assert.equal(conexion('whatsapp')?.ruta, '/chats?conectar=whatsapp', 'el QR perdió su link');
+  // Las rutas de Settings (25/10/2026): instalar la app y el perfil, donde va el número que la computadora reconoce en el grupo.
+  assert.equal(conexion('instalar')?.ruta, '/perfil/instalar');
+  assert.equal(conexion('perfil')?.ruta, '/perfil');
   assert.equal(new Set(CONEXIONES.map((c) => c.key)).size, CONEXIONES.length, 'una key repetida en el catálogo');
   assert.equal(conexion('gemini')?.noSeOfrece, true, 'el catálogo vuelve a ofrecer Gemini (Martín, 25/10)');
   assert.equal(conexion('groq')?.noSeOfrece, true);

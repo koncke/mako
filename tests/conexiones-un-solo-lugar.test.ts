@@ -91,7 +91,8 @@ test('4. ningún texto de estos módulos manda a «/integraciones» a secas', ()
 test('5. el contrato de los links está escrito en AGENTS.md', () => {
   const agents = leer('AGENTS.md');
   assert.match(agents, /EL LINK A UNA CONEXIÓN ES CONTRATO/);
-  for (const ruta of ['/integraciones?abrir=<key>', '/integraciones?abrir=ia', '/perfil/ia?computadora=1', '/chats?conectar=whatsapp']) {
+  for (const ruta of ['/integraciones?abrir=<key>', '/integraciones?abrir=ia', '/perfil/ia?computadora=1', '/chats?conectar=whatsapp',
+    '/perfil/instalar', '/perfil/seguridad?ver=', '/perfil/notificaciones?canal=', '/configuraciones/fiscal', '/metodo']) {
     assert.ok(agents.includes(ruta), `AGENTS.md no nombra ${ruta}`);
   }
   assert.ok(agents.includes('lib/conexiones-catalogo.ts'));

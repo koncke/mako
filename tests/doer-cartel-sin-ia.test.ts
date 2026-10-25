@@ -174,7 +174,7 @@ test('7. con la computadora conectada y sin clave, el cartel no dice que no tien
   const otro = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true });
   assert.doesNotMatch(otro, /no (tiene|conectó) su IA/, `le dice que no tiene su IA a quien la tiene en una computadora:\n${otro}`);
   assert.match(otro, /en WhatsApp contesta sólo a quien la conectó, desde su número/);
-  assert.match(otro, /revisa que tu número de WhatsApp esté en tu perfil de MaKo/, 'no le dice por qué su computadora no lo reconoce');
+  assert.match(otro, /revisa que tu número de WhatsApp esté en tu perfil de MaKo 👇\nhttps:\/\/hola-mako\.com\/perfil(\n|$)/, 'no le dice por qué su computadora no lo reconoce, o sin el link a su perfil');
   assert.ok(otro.includes(GPT) && otro.includes(`${BASE}/second-brain`), `faltan los links de su GPT o de la app:\n${otro}`);
   assert.doesNotMatch(otro, /computadora=1/, 'le pide instalar lo que el negocio ya tiene');
   const apagada = textoFalloIA('sin_keys', link, 'contestar', 0, [], { conPc: true, laPcDelQueEscribe: 'apagada' });

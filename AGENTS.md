@@ -1463,8 +1463,11 @@ archivos**, y se lee como una fuga entre clientes cuando es un destino que falta
 
 ⚠️ **Y EL LINK A UNA CONEXIÓN ES CONTRATO (25/10/2026, docs/conexiones-y-ayuda.md).** `/integraciones?abrir=<key>` abre el
 modal de esa tarjeta, `/integraciones?abrir=ia` «Tus cuentas de IA», `/perfil/ia?computadora=1` «Conecta MaKo» y
-`/chats?conectar=whatsapp` el QR. Ya viajaron en mensajes de WhatsApp, avisos y prompts: **un rediseño los conserva** (o los
-redirige). Todo texto que manda a conectar algo usa el link de ESA conexión, sacado de `lib/conexiones-catalogo.ts` (el
+`/chats?conectar=whatsapp` el QR. Y las de Settings (su rediseño del 25/10/2026: cada pestaña es su ruta y el detalle va por
+query): `/perfil`, `/perfil/seguridad?ver=<app|llaves|contrasena|codigos|whatsapp|email|dispositivos|dispositivo-N>`,
+`/perfil/notificaciones?canal=<app|celular|whatsapp|email>`, `/perfil/instalar`, `/configuraciones`, `/equipo`,
+`/configuraciones/fiscal` y `/metodo`. Ya viajaron en mensajes de WhatsApp, avisos y prompts: **un rediseño los conserva** (o
+los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión, sacado de `lib/conexiones-catalogo.ts` (el
 catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
 veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
 correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:

@@ -238,13 +238,14 @@ const respaldosDe = (prov: string): string[] => CUBREN_EL_TURNO.filter((p) => p 
  * va directo a «Conecta MaKo», que trae «Descargar MaKo» para quien no la tiene. `/second-brain`, el chat de la app (el Ops
  * Center), no es una conexión: va aparte.
  */
-export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app';
+export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app' | 'perfil';
 const delCatalogo = (key: string): string => conexion(key)?.ruta ?? rutaDeTarjeta(key);
 export const RUTA_CONEXION: Record<ConexionDelCartel, string> = {
   openai: delCatalogo('openai'),
   anthropic: delCatalogo('anthropic'),
   fathom: delCatalogo('fathom'),
   pc: delCatalogo('pc'),
+  perfil: delCatalogo('perfil'),
   app: '/second-brain',
 };
 
@@ -395,7 +396,10 @@ export function textoFalloIA(
           'Para que te conteste a ti aquí, conecta tu GPT (una clave de OpenAI) 👇',
           gpt,
           '',
-          'Si la conectaste tú, revisa que tu número de WhatsApp esté en tu perfil de MaKo. Y en la app te contesto con MaKo en tu computadora 👇',
+          'Si la conectaste tú, revisa que tu número de WhatsApp esté en tu perfil de MaKo 👇',
+          enlaceA(link, 'perfil'),
+          '',
+          'Y en la app te contesto con MaKo en tu computadora 👇',
           enlaceA(link, 'app'),
           ...lineasDeLoQueFalta(link, ctx.faltan),
         ].join('\n');

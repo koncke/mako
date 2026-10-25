@@ -80,6 +80,8 @@ const SINONIMOS: Record<string, readonly string[]> = {
   elevenlabs: ['elevenlabs', 'eleven labs', 'mi voz'],
   pc: ['mako desktop', 'app de escritorio', 'computadora', 'mi compu', 'mi pc', 'mi claude', 'suscripcion de claude', 'claude pro', 'claude max'],
   ia: ['tus cuentas de ia', 'mi ia', 'mis cuentas de ia'],
+  instalar: ['instalar la app', 'instalar mako', 'bajar la app', 'descargar mako', 'la app del telefono', 'la extension'],
+  perfil: ['mi perfil', 'mi numero en el perfil', 'mis datos'],
   whatsapp: ['whatsapp', 'mi numero', 'qr', 'numero de empresa'],
 };
 
@@ -128,6 +130,20 @@ const FUERA_DE_LAS_TARJETAS: readonly Conexion[] = [
     // `?abrir=ia` lo abre la rama de MaKo Desktop (lib/ia-pc-reglas.ts, `LINK_TUS_CUENTAS_IA`, 25/10/2026).
     ruta: rutaDeTarjeta('ia'),
     destraba: 'Ver con qué IA trabaja tu negocio: tu computadora y tus claves.',
+    donde: 'computadora', quien: 'cualquiera', verifica: null,
+  },
+  {
+    // Las rutas de Settings (su rediseño, 25/10/2026): cada pestaña es su ruta y el detalle va por query (AGENTS.md, el contrato).
+    key: 'instalar', nombre: 'Instalar la app', sinonimos: SINONIMOS.instalar,
+    ruta: '/perfil/instalar',
+    destraba: 'MaKo en tu computadora, en tu teléfono y la extensión de Chrome.',
+    donde: 'computadora', quien: 'cualquiera', verifica: null,
+  },
+  {
+    key: 'perfil', nombre: 'Tu perfil', sinonimos: SINONIMOS.perfil,
+    // Tu número de WhatsApp vive ahí: es lo que la computadora mira para contestarte en el grupo (`delGrupo`, lib/ia-pc.ts).
+    ruta: '/perfil',
+    destraba: 'Tu número de WhatsApp: con él tu computadora te reconoce en el grupo de MaKo.',
     donde: 'computadora', quien: 'cualquiera', verifica: null,
   },
   {
