@@ -21,6 +21,11 @@
 //     Es EL ÚNICO lugar donde se eligen desde el 24/10/2026 (f27 de la llamada con Leandro: «que toda la
 //     configuración de diseño se vaya al botón de personalizar»): el menú de la marca del Classroom se fue. Es el
 //     ajuste que ve el alumno en su portal (`guardarEstiloCursoAction`, `curso_estilo`): uno por programa.
+//   · EL MENÚ DE CADA PROGRAMA (f25 y f26, 24/10/2026): su «…» en la lista y su clic derecho —y el clic derecho en el
+//     nombre del curso de la barra del Classroom, por `useMenuPrograma`—: Renombrar y Eliminar (./menu-contextual-
+//     clients.ts, puro y con test). Eliminar ARCHIVA (como el CRM: app/customer-success/eliminar-programa.ts), pregunta
+//     sólo si hay alumnos o clases, con la cuenta, y navega DURO (cambió QUÉ EXISTE, AGENTS.md); el «Deshacer» cruza
+//     la recarga en `sessionStorage` (`NOTA_DESHACER`).
 //   · ⚠️ UN SOLO SELECTOR DE PROGRAMA, ÉSTE (f28: «me cambian los dos al mismo tiempo»; un curso es un producto). Con
 //     «+ Nuevo producto» al final de la lista (sólo un admin), que también se mudó del Classroom. Cada programa es un
 //     LINK y no un botón: la guarda de la lección a medio guardar del Classroom (`useLeccionAbierta`) ataja los links
@@ -29,17 +34,25 @@
 // ⚠️ LA VISTA PREVIA DEL ALUMNO (/clients/classroom/preview) VA SIN CABECERA: tiene su propia barra y es lo que ve
 //    un cliente, que no tiene sub-tabs de nadie.
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useSearchParams } from 'next/navigation';
-import Link, { useRouter } from '@/app/_ui/Link';
-import { Toast, useToast } from '@/app/_ui';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { Button, Field, Input, Modal, Toast, useConfirm, useToast } from '@/app/_ui';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { conWs } from '@/lib/ws-tab';
 import { useCapaModal } from '@/app/_components/pila-modales';
-import { ACENTOS, ACENTO_DEFAULT, hexValido, tapaDe, varsDeAcento } from '@/lib/curso-estilo';
+import { ACENTOS, ACENTO_DEFAULT, TOPE_TITULO_CURSO, hexValido, tapaDe, varsDeAcento } from '@/lib/curso-estilo';
+import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import { varsDeFuente } from '@/app/_cursos/fuentes';
 import { SelectorFuente, useHojasDeFuentes } from '@/app/_cursos/SelectorFuente';
 import { guardarEstiloCursoAction } from '@/app/customer-success/curso/actions';
 import { NuevoProducto } from '@/app/customer-success/curso/NuevoProducto';
+import { useCerrarEstable, useFocoInicial } from '@/app/customer-success/curso/dialogo-foco';
+import { eliminarServicioAction, previaEliminarServicioAction, restaurarServicioAction } from '@/app/customer-success/actions';
+import { preguntaAlEliminar, type DeshacerEliminar } from '@/app/customer-success/eliminar-programa';
+import { esOpcionPrograma, itemsPrograma, opcionesPrograma } from './menu-contextual-clients';
 import {
   SECCIONES_CLIENTS, esSeccionComunidad, esVistaPrevia, hrefConPrograma, hrefSeccion, seccionDeRuta,
 } from '@/lib/clients-rutas';
@@ -54,7 +67,26 @@ export type ProgramaClients = {
   fuente: string | null;
   /** La portada del curso (lib/portadas.ts), para el sello. */
   portada: string | null;
+  /** El título puesto a mano (`curso_estilo`), si hay: lo de antes del «Deshacer» de Renombrar. */
+  titulo: string | null;
+  /** El producto del embudo principal: no se elimina, y su menú no lo ofrece. */
+  principal: boolean;
+  /** Tiene un embudo vivo: eliminarlo lo archiva y vuelve desde «Productos eliminados» del CRM. */
+  conEmbudo: boolean;
 };
+
+/** Abre el menú de un programa en un punto de la ventana. Lo usa la barra del Classroom (clic derecho en su nombre). */
+type AbrirMenuPrograma = (productoId: number, punto: { x: number; y: number }) => void;
+const MenuProgramaCtx = createContext<AbrirMenuPrograma | null>(null);
+/** El menú del programa (Renombrar, Eliminar), o `null` si no hay (sin cabecera, o sin nada que ofrecer: no es admin). */
+export const useMenuPrograma = () => useContext(MenuProgramaCtx);
+
+/**
+ * El «Deshacer» de Eliminar CRUZA LA RECARGA: eliminar navega duro (cambió qué existe), y el aviso con su botón se
+ * perdería con la página. Se anota acá y la cabecera nueva lo muestra al montar, si no pasaron 12 segundos.
+ */
+const NOTA_DESHACER = 'clients:deshacer-eliminar';
+type NotaDeshacer = { id: number; nombre: string; deshacer: DeshacerEliminar; hasta: number };
 
 /** Lo que «Personalizar» guarda: el color o la fuente del programa. */
 type AjusteVisual = { tipo: 'acento' } | { tipo: 'fuente' };
@@ -110,6 +142,32 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
   /** «+ Nuevo producto»: el diálogo del nombre (`NuevoProducto` navega DURO al curso nuevo al crearlo). */
   const [creando, setCreando] = useState(false);
   const cerrarCreando = useCallback(() => setCreando(false), []);
+  const ws = useWs();
+  const { confirm, confirmNode } = useConfirm();
+  /** El menú de un programa (f25/f26), abierto en un punto; y el programa que se está renombrando. */
+  const [menu, setMenu] = useState<{ id: number; punto: { x: number; y: number } } | null>(null);
+  const [renombrando, setRenombrando] = useState<ProgramaClients | null>(null);
+  const cerrarRenombrar = useCallback(() => setRenombrando(null), []);
+  const abrirMenu = useCallback<AbrirMenuPrograma>((id, punto) => setMenu({ id, punto }), []);
+
+  /** Vuelve a dejar el programa como estaba y lo abre (navega duro: cambió qué existe). */
+  const deshacerEliminar = useCallback(async (n: NotaDeshacer) => {
+    const r = await restaurarServicioAction(n.id, n.deshacer).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    window.location.href = conWs(hrefConPrograma(window.location.pathname, window.location.search.slice(1), n.id), ws);
+  }, [show, ws]);
+
+  // El «Deshacer» de un Eliminar de antes de la recarga (ver `NOTA_DESHACER`). Se lee y se borra: una sola vez.
+  useEffect(() => {
+    let nota: NotaDeshacer | null = null;
+    try {
+      nota = JSON.parse(window.sessionStorage.getItem(NOTA_DESHACER) ?? 'null') as NotaDeshacer | null;
+      window.sessionStorage.removeItem(NOTA_DESHACER);
+    } catch { nota = null; }
+    if (!nota || typeof nota.hasta !== 'number' || nota.hasta < Date.now()) return;
+    const n = nota;
+    show(`«${n.nombre}» eliminado`, () => { void deshacerEliminar(n); });
+  }, [show, deshacerEliminar]);
 
   if (esVistaPrevia(pathname) || !seccion) return <>{children}</>;
 
@@ -146,8 +204,56 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
     router.refresh();
   };
 
+  /**
+   * Eliminar un programa (f25): pregunta sólo si tiene alumnos o clases (con la cuenta), archiva como el CRM y navega
+   * DURO a la misma sub-tab sin `?producto=` (el que se miraba puede ser el que se fue). El «Deshacer», en `NOTA_DESHACER`.
+   */
+  const eliminar = async (p: ProgramaClients) => {
+    const previa = await previaEliminarServicioAction(p.id).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    if (!previa.ok) { show(previa.error, undefined, 'bad'); return; }
+    const q = preguntaAlEliminar({ nombre: p.nombre, alumnos: previa.alumnos, clases: previa.clases, conEmbudo: p.conEmbudo });
+    if (q && !(await confirm(q.texto, { title: q.titulo, confirmLabel: 'Eliminar' }))) return;
+    const r = await eliminarServicioAction(p.id).catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+    if (r.deshacer) {
+      const nota: NotaDeshacer = { id: p.id, nombre: p.nombre, deshacer: r.deshacer, hasta: Date.now() + 12_000 };
+      try { window.sessionStorage.setItem(NOTA_DESHACER, JSON.stringify(nota)); } catch { /* sin «Deshacer»: vuelve desde el CRM */ }
+    }
+    const q2 = new URLSearchParams(search);
+    for (const k of ['producto', 'cliente', 'post']) q2.delete(k);
+    window.location.href = conWs(`${pathname}${q2.toString() ? `?${q2.toString()}` : ''}`, ws);
+  };
+
+  const elegirEnPrograma = (id: string) => {
+    const p = programas.find((x) => x.id === menu?.id);
+    setMenu(null);
+    if (!p || !esOpcionPrograma(id)) return;
+    if (id === 'renombrar') setRenombrando(p);
+    else void eliminar(p);
+  };
+  const programaDelMenu = menu ? programas.find((x) => x.id === menu.id) ?? null : null;
+  const itemsDelMenu = programaDelMenu ? itemsPrograma(opcionesPrograma({ admin: puedePersonalizar, principal: programaDelMenu.principal })) : [];
+
+  /** Renombrado: se ve en el acto, con su «Deshacer» por el MISMO camino; las pantallas de abajo lo leen del server. */
+  const renombrado = async (p: ProgramaClients, titulo: string | null) => {
+    setRenombrando(null);
+    if (titulo != null) setProgramas((ps) => ps.map((x) => (x.id === p.id ? { ...x, nombre: titulo, titulo } : x)));
+    if ((p.titulo ?? null) !== titulo) {
+      show('Nombre cambiado', () => {
+        void guardarEstiloCursoAction(p.id, { tipo: 'titulo' }, p.titulo).then((r) => {
+          if (!r.ok) { show(r.error, undefined, 'bad'); return; }
+          setProgramas((ps) => ps.map((x) => (x.id === p.id ? { ...x, nombre: p.nombre, titulo: p.titulo } : x)));
+          router.refresh();
+        });
+      });
+    }
+    router.refresh();
+  };
+
   const alto = seccion === 'classroom';
   const papel = esSeccionComunidad(seccion);
+  /** Sin nada que ofrecer (no es admin) no hay menú: el clic derecho es el del navegador. */
+  const conMenu = puedePersonalizar;
 
   return (
     <VarsCtx.Provider value={vars}>
@@ -156,7 +262,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
       <header className="cls-cab">
         <div className="cls-fila">
           <Programa programas={programas} actual={programa} hrefDe={(id) => hrefConPrograma(pathname, search, id)}
-            onNuevo={puedePersonalizar ? () => setCreando(true) : null} />
+            onNuevo={puedePersonalizar ? () => setCreando(true) : null} onMenu={conMenu ? abrirMenu : null} />
           {puedePersonalizar && programa && (
             <div className="cls-der">
               <Personalizar programa={programa} onProbar={probar} onGuardar={guardar} />
@@ -175,9 +281,19 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
           })}
         </nav>
       </header>
-      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>{children}</div>
+      <div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>
+        <MenuProgramaCtx.Provider value={conMenu ? abrirMenu : null}>{children}</MenuProgramaCtx.Provider>
+      </div>
       {/* El nombre se pide afuera de todo (la hoja del curso le saca la piel a los botones de un diálogo). */}
       {creando && <NuevoProducto onCerrar={cerrarCreando} />}
+      {menu && programaDelMenu && itemsDelMenu.length > 0 && (
+        <MenuContextual punto={menu.punto} items={itemsDelMenu} etiqueta={`Opciones de ${programaDelMenu.nombre}`}
+          titulo={programaDelMenu.nombre} onElegir={elegirEnPrograma} onCerrar={() => setMenu(null)} />
+      )}
+      {renombrando && (
+        <RenombrarPrograma programa={renombrando} onCerrar={cerrarRenombrar} onListo={(t) => void renombrado(renombrando, t)} />
+      )}
+      {confirmNode}
       <Toast state={toast} onClose={clear} />
     </div>
     </VarsCtx.Provider>
@@ -196,25 +312,29 @@ function Sello({ p }: { p: ProgramaClients }) {
   );
 }
 
-function Programa({ programas, actual, hrefDe, onNuevo }: {
+function Programa({ programas, actual, hrefDe, onNuevo, onMenu }: {
   programas: ProgramaClients[];
   actual: ProgramaClients | null;
   /** El link de cada programa: la MISMA sub-tab con otro `?producto=`. */
   hrefDe: (id: number) => string;
   /** «+ Nuevo producto» (un admin); `null` = no se ofrece. */
   onNuevo: (() => void) | null;
+  /** El menú de un programa (su «…» y su clic derecho); `null` = sin menú. */
+  onMenu: AbrirMenuPrograma | null;
 }) {
   const [abierto, setAbierto] = useState(false);
   const ancla = useRef<HTMLButtonElement>(null);
   if (!actual) return <span className="cls-prog"><span className="cls-nombre">Clients</span></span>;
+  // El clic derecho en el programa que se mira abre SU menú (el mismo del «…» de su fila).
+  const clicDerecho = onMenu ? (e: MouseEvent<HTMLElement>) => { e.preventDefault(); onMenu(actual.id, { x: e.clientX, y: e.clientY }); } : undefined;
   // Con UN programa y nada que crear no hay desplegable: un botón que abre una lista de uno promete otra cosa.
   if (programas.length < 2 && !onNuevo) {
-    return <span className="cls-prog"><Sello p={actual} /><span className="cls-nombre">{actual.nombre}</span></span>;
+    return <span className="cls-prog" onContextMenu={clicDerecho}><Sello p={actual} /><span className="cls-nombre">{actual.nombre}</span></span>;
   }
   return (
     <>
       <button ref={ancla} type="button" className="cls-prog" aria-haspopup="menu" aria-expanded={abierto}
-        aria-label={`${actual.nombre}: cambiar de programa`} onClick={() => setAbierto((a) => !a)}>
+        aria-label={`${actual.nombre}: cambiar de programa`} onClick={() => setAbierto((a) => !a)} onContextMenu={clicDerecho}>
         <Sello p={actual} />
         <span className="cls-nombre">{actual.nombre}</span>
         <svg className="cls-flecha" width="14" height="14" viewBox="0 0 16 16" aria-hidden>
@@ -225,11 +345,22 @@ function Programa({ programas, actual, hrefDe, onNuevo }: {
         <Pop ancla={ancla.current} onCerrar={() => setAbierto(false)} etiqueta="Programas">
           <p className="cls-pop-tit">Programas</p>
           {programas.map((p) => (
-            <Link key={p.id} href={hrefDe(p.id)} scroll={false} role="menuitem" className="cls-opcion"
-              aria-current={p.id === actual.id ? 'page' : undefined} onClick={() => setAbierto(false)}>
-              <Sello p={p} />
-              <span>{p.nombre}</span>
-            </Link>
+            // La fila: el link y, para un admin, su «…» (un botón adentro de un link no es HTML válido). El clic
+            // derecho en cualquier parte de la fila abre el mismo menú, en el punto del cursor.
+            <div key={p.id} className="cls-fila-prog"
+              onContextMenu={onMenu ? (e) => { e.preventDefault(); onMenu(p.id, { x: e.clientX, y: e.clientY }); } : undefined}>
+              <Link href={hrefDe(p.id)} scroll={false} role="menuitem" className="cls-opcion"
+                aria-current={p.id === actual.id ? 'page' : undefined} onClick={() => setAbierto(false)}>
+                <Sello p={p} />
+                <span>{p.nombre}</span>
+              </Link>
+              {onMenu && (
+                <button type="button" className="cls-mas" aria-label={`Opciones de ${p.nombre}`} title="Opciones"
+                  onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); onMenu(p.id, { x: r.left, y: r.bottom + 4 }); }}>
+                  &hellip;
+                </button>
+              )}
+            </div>
           ))}
           {onNuevo && (
             <>
@@ -242,6 +373,50 @@ function Programa({ programas, actual, hrefDe, onNuevo }: {
         </Pop>
       )}
     </>
+  );
+}
+
+/**
+ * «Renombrar» un programa desde su menú: el NOMBRE DEL CURSO (el título puesto a mano, `curso_estilo`), el mismo que
+ * se cambia con un clic en la portada del Classroom. Nunca el producto del CRM (lib/curso-nombre.ts: el producto no
+ * nombra un curso). Vacío = vuelve al de su oferta.
+ */
+function RenombrarPrograma({ programa, onCerrar, onListo }: {
+  programa: ProgramaClients;
+  onCerrar: () => void;
+  onListo: (nombre: string | null) => void;
+}) {
+  const id = useId();
+  const [nombre, setNombre] = useState(programa.nombre === SIN_NOMBRE_EQUIPO ? '' : programa.nombre);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState('');
+  const cerrar = useCerrarEstable(onCerrar, guardando);
+  useFocoInicial(id);
+  const guardar = async () => {
+    if (guardando) return;
+    setGuardando(true);
+    setError('');
+    const r = await guardarEstiloCursoAction(programa.id, { tipo: 'titulo' }, nombre.trim() || null)
+      .catch(() => ({ ok: false as const, error: 'Sin conexión.' }));
+    setGuardando(false);
+    if (!r.ok) { setError(r.error); return; }
+    onListo(r.valor);
+  };
+  return (
+    <Modal titulo="Renombrar" ancho={440} onCerrar={cerrar}
+      pie={(
+        <>
+          <Button variant="secondary" disabled={guardando} onClick={onCerrar}>No cambiar</Button>
+          <Button variant="primary" loading={guardando} onClick={() => void guardar()}>Guardar nombre</Button>
+        </>
+      )}>
+      <Field label="Nombre del curso" htmlFor={id} hint="Lo ven tus alumnos. Vacío, vuelve al de su oferta.">
+        <Input id={id} value={nombre} placeholder={SIN_NOMBRE_EQUIPO} disabled={guardando} maxLength={TOPE_TITULO_CURSO}
+          onChange={(e) => { setNombre(e.target.value); setError(''); }}
+          onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void guardar(); } }} />
+      </Field>
+      {error && <p style={{ margin: '10px 0 0', color: 'var(--bad)', fontSize: 13 }} role="alert">{error}<ReportarASoporte /></p>}
+    </Modal>
   );
 }
 

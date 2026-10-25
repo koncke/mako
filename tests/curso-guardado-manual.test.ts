@@ -235,7 +235,7 @@ test('item 1 y 3: salir con cambios pregunta — el hash del curso, un link de l
   // de los links de arriba lo ataje (un `router.push` desde un botón se la saltaba).
   const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
   const prog = entre(shell, 'function Programa(', 'function Personalizar(');
-  assert.match(prog, /<Link key=\{p\.id\} href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
+  assert.match(prog, /<Link href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
   assert.doesNotMatch(shell, /router\.push\(/, 'cambiar de programa con un push se salta la pregunta de la lección sin guardar');
   assert.match(entre(app, 'const borrar = async (c: Clase) => {', 'show(\'Clase borrada\''), /leccionAbierta\.soltar\(c\.id\);\s*if \(pos\.clase === c\.id\) navegar/);
   assert.match(app, /\{leccionAbierta\.dialogo\}/);
