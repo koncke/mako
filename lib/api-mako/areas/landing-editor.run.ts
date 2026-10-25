@@ -47,7 +47,7 @@ import {
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
-  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planQuitarCobro,
+  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planQuitarCobro,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
@@ -460,6 +460,10 @@ export const RUNNERS_EDITOR: Runners = {
   poner_enlace_landing: { ...edicion({ que: 'poner el enlace', planear: (i, d) => planPonerEnlace(d.contenido, i) }) },
   configurar_formulario_landing: { ...edicion({ que: 'cambiar el formulario', planear: (i, d) => planConfigurarFormulario(d.contenido, i) }) },
   configurar_boton_landing: { ...edicion({ que: 'cambiar el botón', planear: (i, d) => planConfigurarBoton(d.contenido, i) }) },
+  cambiar_imagen_landing: { ...edicion({
+    que: 'cambiar la imagen', imagenes: ['imagen'],
+    planear: (i, d, x) => planCambiarImagen(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen') }),
+  }) },
   quitar_cobro_landing: { ...edicion({ que: 'quitar el cobro', planear: (i, d) => planQuitarCobro(d.contenido, i) }) },
   acomodar_pagina_landing: { ...edicion({ que: 'acomodar la página', planear: (i, d) => planAcomodarPagina(d.contenido, i) }) },
 

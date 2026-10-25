@@ -75,7 +75,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'ver_secciones_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Secciones y bloques de una landing',
-    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen…— y su texto corto). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
+    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos. Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.',
     parametros: [P_ID, { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'El id de una página: sólo ésa. Sin él, todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -307,7 +307,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'poner_enlace_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Poner el enlace del VSL o la agenda',
-    descripcion: `Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. ${VERSION}`,
+    descripcion: `Pone el enlace del video (el VSL: YouTube, Vimeo, Panda, Loom, Wistia) o de la agenda (Calendly, Cal.com) en su lugar en una landing del editor del Web Generator: completa el hueco vacío que traen los diseños, o reemplaza el que había. También el video de una sección de «Diseño editable» (las páginas de MaKo): un reproductor con el enlace de otro, y un video de archivo con otro archivo (.mp4, .webm). Si hay dos lugares posibles pide la sección. Úsala después de crear_landing_desde_diseno, que deja el VSL y la agenda vacíos. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'enlace', rotulo: 'Enlace', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El enlace del video o de la agenda.' },
@@ -341,7 +341,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_boton_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar un botón de una landing',
-    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
+    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. También los botones y enlaces de una sección de «Diseño editable» (las páginas de MaKo): su texto, a dónde llevan (también un ancla del diseño, #nombre) y la pestaña; su estilo es parte del diseño. Con varios botones iguales, «seccion» o todos:true. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'boton', rotulo: 'Botón', tipo: 'string', obligatorio: true, max: 120, descripcion: 'El texto de hoy del botón (de ver_secciones_landing o ver_cobro_landing).' },
@@ -349,6 +349,21 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
       { nombre: 'destino', rotulo: 'Destino', tipo: 'string', max: 2000, descripcion: 'A dónde lleva: https://…, #t-<id de sección>, mailto: o tel: ("" = a ningún lado).' },
       { nombre: 'estilo', rotulo: 'Estilo', tipo: 'string', enum: VARIANTES_BOTON, descripcion: 'primario, secundario o contorno.' },
       { nombre: 'nuevaPestana', rotulo: 'Otra pestaña', tipo: 'boolean', descripcion: 'true abre el destino en otra pestaña.' },
+      { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), cuando el mismo botón está en más de una.' },
+      { nombre: 'todos', rotulo: 'Todos', tipo: 'boolean', descripcion: 'true cambia todos los botones de una sección de diseño con ese texto (por ejemplo, cinco «Agenda tu llamada»).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
+    id: 'cambiar_imagen_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar una imagen de una landing',
+    descripcion: `Cambia UNA imagen de una sección de «Diseño editable» de una landing del editor del Web Generator (las páginas de MaKo), nombrada por su dirección de hoy (o el final de ella, como «caso-martin.jpg») o por su texto alternativo (de ver_secciones_landing). La imagen nueva se copia a la biblioteca de la landing al confirmar. Para la imagen de acento de una sección está configurar_seccion_landing. ${VERSION}`,
+    parametros: [
+      P_ID,
+      { nombre: 'actual', rotulo: 'Imagen de hoy', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección de hoy de la imagen, un pedazo que la distinga, o su texto alternativo.' },
+      { ...P_IMAGEN('La imagen nueva'), obligatorio: true },
+      { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), si la misma imagen está en más de una.' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',

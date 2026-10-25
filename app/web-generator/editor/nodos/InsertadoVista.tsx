@@ -126,7 +126,7 @@ export function InsertadoVista(props: ReactNodeViewProps) {
 
 export default InsertadoVista;
 
-function PanelInsertar({ inicial, onInsertar, onQuitar }: {
+export function PanelInsertar({ inicial, onInsertar, onQuitar }: {
   inicial: string;
   onInsertar: (e: { src: string; proveedor: string; alto?: number }) => void;
   onQuitar?: () => void;

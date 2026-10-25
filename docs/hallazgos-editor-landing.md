@@ -2960,3 +2960,51 @@ Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
 - Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
   visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
   prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).
+
+## Todo editable en las páginas de MaKo (cada botón, video, imagen e ícono) y el clic derecho (25/10/2026, claude5)
+
+Martín, 25/10 ~15:10: «en las landing de MaKo, quiero que TODO sea editable, cada botón, cada video, cada cosa que hay...
+Para eso ya tenemos casi todo construido de funcionalidades dentro del editor... Y no funciona aún el click derecho en el
+editor web».
+
+**El hecho: qué tenía la #32 y qué se podía editar, medido en producción el 25/10 (copia #43; todas las secciones son de
+«Diseño editable»):**
+
+| Elemento | En la #32 | Antes (producción) | Ahora (esta rama), con el control que ya existía |
+|---|---|---|---|
+| Títulos y textos | 8 títulos, 25 párrafos | se escribían (desde el arreglo del clic) | igual; negrita y cursiva en la barrita |
+| Texto de los botones | 29 botones (5 «Agenda tu llamada», 23 tarjetas a hola-mako.com/vsl/…, 1 del encabezado) | se escribía | igual |
+| A dónde lleva un botón o enlace | 29 + 3 enlaces | un campo de texto suelto, después de tocarlo | **SelectorDestino**, el del botón de un bloque: secciones, páginas, enlace, pestaña nueva |
+| Imágenes | 10 | «Imagen», después de tocarla | igual (el selector de imágenes); el botón se marca al elegirla |
+| Video del VSL (Panda, `iframe`) | 1 | sólo por «Código» | **el panel «Pegar una URL» del bloque Insertar** |
+| Videos de archivo (`<video>`) | 3 | sólo por «Código» | **el selector en modo video**, el del bloque Video |
+| Íconos (`svg`) | 75 | sólo por «Código» | **SelectorIcono**, con el tamaño y la clase del que estaba |
+| Fondos con imagen, precios, formularios, listas | 0 | — | — |
+| Clic derecho | — | no abría nada (el evento quedaba en el iframe) | **el menú de la sección**, en el punto |
+
+**Lo que costó, y la regla de cada uno:**
+- **Un clic derecho adentro de un iframe NO sube a la página.** La sección (TarjetaVista) escuchaba `contextmenu` en su elemento y
+  nunca se enteraba: se medía con `window.__ctx` adentro del iframe (llegaba) y ningún menú del editor abría. Se reenvía al
+  marco con el punto pasado a la página (`r.left + e.clientX`). Quedan con el menú del navegador lo mismo que en un bloque: con
+  Shift y con texto elegido. Probado en Chrome: la sección recibe el punto exacto, y con Shift o texto elegido, nada.
+- **Un video del diseño se tragaba el clic que lo elige**: un `iframe` o `video` adentro del iframe del diseño se lleva el
+  mouse. Adentro del editor van con `pointer-events: none` (esa hoja no se guarda) y se eligen por su CAJA.
+- **«Una sección» como destino (`#t-<id>`) no existía en una sección de diseño**: SelectorDestino escribe `#t-<id>`, y el
+  `div.gm-libre-seccion` no puede llevar el id (con `display: contents` no tiene caja, y un ancla sin caja no hace scroll). El
+  render le pone adelante un `span#t-<id>` de alto 0, con el mismo `scroll-margin-top` que una de bloques. Sin esto, un botón
+  apuntado a una sección de diseño no iba a ningún lado, sin un error.
+- **La barrita de la sección chocaba con el «+ ✦ ⌄» de entre secciones** y le tapaba el tacho (captura del 25/10). Ahora va
+  con íconos y el nombre en el tooltip (el portal de los tooltips): ~280 px, lejos del centro.
+- **Por la API, lo mismo** (lib/editor-landing/html-editable-elementos.ts, sin DOM). Se toca SÓLO lo pedido, el resto vuelve
+  byte por byte, y lo nuevo se escapa. `configurar_boton_landing` cambia los botones de un diseño (con `seccion` o `todos` para
+  los cinco iguales; un ancla del diseño, `#beta`, vale como destino; el estilo es parte del diseño). `poner_enlace_landing`
+  cambia el reproductor de un diseño (y un `<video>` con un .mp4). `cambiar_imagen_landing` es NUEVA: una imagen de un diseño
+  por un pedazo de su dirección o su alt, copiada a la biblioteca al confirmar. `ver_secciones_landing` trae los elementos de
+  cada diseño. Un botón con título y bajada (las tarjetas) no se cambia de un golpe: cada texto, con cambiar_texto_landing.
+
+Lo que quedó SIN hacer:
+- **Probarlo con clics en producción, a 1280 y 1440, cuando despliegue** (en una copia). Mirar también que la barrita ya no
+  choque con el «+ ✦ ⌄».
+- Los íconos por la API (sólo en la pantalla); borrar o duplicar un elemento adentro de un diseño (hoy, por «Código»).
+- Fondos con imagen, precios, formularios y listas adentro de un diseño: la #32 no tiene ninguno; cuando una página los traiga,
+  medir de nuevo.

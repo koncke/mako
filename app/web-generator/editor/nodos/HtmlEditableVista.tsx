@@ -19,8 +19,16 @@
 //     (lib/editor-landing/html-editable-textos.ts): las páginas de MaKo se editan desde el chat sin tocar la forma.
 //   · Texto: clic y escribir. Enter es un salto de línea (no parte la caja del diseño en dos). Negrita y cursiva sobre
 //     lo elegido, desde la barrita.
-//   · Imagen: clic en la imagen y «Imagen» la reemplaza (el selector de siempre: subir, buscar, biblioteca).
-//   · Enlace: clic en el texto de un enlace o botón y «Enlace» cambia a dónde lleva.
+//   · CADA ELEMENTO con el control que el editor ya tiene para su tipo (25/10/2026, Martín: «quiero que TODO sea editable,
+//     cada botón, cada video, cada cosa que hay»; lib/editor-landing/diseno-elementos.ts): clic en el elemento y su botón
+//     de la barrita, que se marca:
+//       - imagen → «Imagen», el selector de siempre (subir, buscar, biblioteca);
+//       - botón o enlace → «Enlace», el MISMO selector de destino del botón de un bloque (secciones, páginas, WhatsApp,
+//         correo, pestaña nueva), no un campo suelto;
+//       - video → «Video»: un `<video>`, el selector en modo video (el del bloque Video); un reproductor (Panda,
+//         YouTube…), el panel «Pegar una URL» del bloque Insertar;
+//       - ícono → «Ícono», el selector de íconos, con el tamaño y la clase del que estaba.
+//   · Clic derecho: el MISMO menú de la sección, en el punto (el evento pasa en el iframe y se reenvía a la sección).
 //   · «Código»: el HTML de la sección, para lo que no se toca a la vista.
 //
 // ⚠️ Lo que escribe esta vista NO recarga el iframe (se perdería el cursor): el documento se rearma sólo cuando
@@ -29,13 +37,18 @@
 //    con un sondeo liviano, porque las fuentes y los videos cambian el alto sin avisar.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from '../contexto';
-import { EstilosG2, Flotante, Icono, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
+import { EstilosG2, Flotante, Icono, SelectorDestino, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
+import { SelectorIcono } from '../SelectorIcono';
+import { PanelInsertar } from './InsertadoVista';
 import { NODO, TOPES } from '@/lib/editor-landing/doc';
 import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editable';
+import { srcVideo } from '@/lib/editor-landing/especificacion';
+import { svgIcono } from '@/lib/editor-landing/iconos';
+import { PIDE_ELEGIR, elementoEnPunto, tipoDeElemento, type TipoElemento } from '@/lib/editor-landing/diseno-elementos';
 
 const RESPIRO_MS = 500;
 const SONDEO_MS = 800;
@@ -56,7 +69,9 @@ export const CSS_EDITABLE: string = [
 ].join('\n');
 
 /** Lo que se marca adentro del documento mientras se edita y NO va al `html` guardado. */
-const CSS_DENTRO = 'body[contenteditable]{outline:none;caret-color:#2F6FED}[data-gmx-sel]{outline:2px solid #2F6FED!important;outline-offset:2px}';
+// `iframe` y `video` sin clic ADENTRO del editor: si no, el reproductor se traga el clic que los elige
+// (diseno-elementos.ts los elige por su caja). En la página publicada se reproducen: esta hoja no se guarda.
+const CSS_DENTRO = 'body[contenteditable]{outline:none;caret-color:#2F6FED}[data-gmx-sel]{outline:2px solid #2F6FED!important;outline-offset:2px}iframe,video{pointer-events:none}';
 
 export function HtmlEditableVista(props: ReactNodeViewProps) {
   const { node, editor, getPos, updateAttributes } = props;
@@ -70,6 +85,10 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const [activo, setActivo] = useState(false);
   const [codigo, setCodigo] = useState<{ ancla: HTMLElement } | null>(null);
   const [enlace, setEnlace] = useState<{ ancla: HTMLElement; a: HTMLAnchorElement } | null>(null);
+  const [video, setVideo] = useState<{ ancla: HTMLElement; el: HTMLIFrameElement } | null>(null);
+  const [icono, setIcono] = useState<{ ancla: HTMLElement; el: SVGElement } | null>(null);
+  /** El tipo del elemento elegido: su botón de la barrita se marca. */
+  const [tipo, setTipo] = useState<TipoElemento | null>(null);
   const elegido = useRef<Element | null>(null);
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editable = editor.isEditable;
@@ -149,10 +168,24 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     d.addEventListener('mousedown', (e) => {
       setActivo(true);
       marcarSeccion();
-      const t = e.target as Element | null;
       if (elegido.current) elegido.current.removeAttribute('data-gmx-sel');
-      elegido.current = t?.closest?.('img, a') ?? null;
+      elegido.current = elementoEnPunto(d, e.target as Element | null, e.clientX, e.clientY) as Element | null;
       if (elegido.current) elegido.current.setAttribute('data-gmx-sel', '');
+      setTipo(tipoDeElemento(elegido.current));
+    });
+    // EL CLIC DERECHO (25/10/2026, Martín: «no funciona aún el click derecho en el editor web»). Medido en producción: el
+    // evento llegaba al documento del iframe y no subía a la página, donde la sección (TarjetaVista) lo escucha. Se reenvía
+    // al marco con el punto pasado a la página: abre el MISMO menú de la sección. Quedan con el menú del navegador lo
+    // mismo que en un bloque: con Shift, y con texto elegido (copiar, pegar, el corrector).
+    d.addEventListener('contextmenu', (e) => {
+      if (e.shiftKey) return;
+      const sel = d.getSelection();
+      if (sel && !sel.isCollapsed) return;
+      const m = marco.current;
+      if (!m) return;
+      const r = m.getBoundingClientRect();
+      e.preventDefault();
+      m.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: r.left + e.clientX, clientY: r.top + e.clientY }));
     });
     // Un enlace en un contentEditable no navega; sin editar, tampoco: esto es el editor.
     d.addEventListener('click', (e) => { if ((e.target as Element | null)?.closest?.('a')) e.preventDefault(); });
@@ -166,9 +199,16 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     return () => clearInterval(id);
   }, [medir]);
 
+  /** El elemento elegido si es de ese tipo; si no, el aviso de qué elegir y null. */
+  const elegidoDe = (t: TipoElemento): Element | null => {
+    const el = elegido.current;
+    if (el && el.isConnected && tipoDeElemento(el) === t) return el;
+    ctx.avisar(PIDE_ELEGIR[t]);
+    return null;
+  };
   const cambiarImagen = async () => {
-    const img = elegido.current?.closest('img') as HTMLImageElement | null;
-    if (!img) { ctx.avisar('Elige una imagen'); return; }
+    const img = elegidoDe('imagen') as HTMLImageElement | null;
+    if (!img) return;
     const url = await ctx.elegirImagen();
     if (!url) return;
     img.removeAttribute('srcset');
@@ -190,44 +230,87 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     guardar();
   };
   const abrirEnlace = (ancla: HTMLElement) => {
-    const a = elegido.current?.closest('a') as HTMLAnchorElement | null;
-    if (!a) { ctx.avisar('Elige un enlace'); return; }
-    setEnlace({ ancla, a });
+    const a = elegidoDe('enlace') as HTMLAnchorElement | null;
+    if (a) setEnlace({ ancla, a });
+  };
+  /** A dónde lleva un botón o enlace, con el selector del botón de un bloque (pestaña nueva incluida). */
+  const ponerDestino = (a: HTMLAnchorElement, href: string | null, nueva: boolean) => {
+    if (href) a.setAttribute('href', href); else a.removeAttribute('href');
+    if (href && nueva) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); }
+    else { a.removeAttribute('target'); a.removeAttribute('rel'); }
+    setEnlace(null);
+    guardar();
+  };
+  /**
+   * El video elegido: un `<video>` se cambia con el selector en modo video (subir o la biblioteca, como el bloque Video);
+   * un reproductor (`iframe` de Panda, YouTube…), con el panel del bloque Insertar (pegar el enlace).
+   */
+  const cambiarVideo = async (ancla: HTMLElement) => {
+    const el = elegidoDe('video');
+    if (!el) return;
+    if (el.tagName.toLowerCase() === 'iframe') { setVideo({ ancla, el: el as HTMLIFrameElement }); return; }
+    const url = await ctx.elegirImagen({ modo: 'video' });
+    if (!url) return;
+    if (!srcVideo(url)) { ctx.avisar('Video no válido'); return; }
+    el.querySelectorAll('source').forEach((x) => x.remove());
+    el.setAttribute('src', url);
+    guardar();
+    medir();
+  };
+  const abrirIcono = (ancla: HTMLElement) => {
+    const el = elegidoDe('icono') as SVGElement | null;
+    if (el) setIcono({ ancla, el });
+  };
+  /** El ícono nuevo en el lugar del que estaba, con su tamaño, su clase y su estilo (el color sale de `currentColor`). */
+  const ponerIcono = (svg: SVGElement, nombre: string) => {
+    const d = documento();
+    if (!d || !svg.isConnected) { setIcono(null); return; }
+    const caja = svg.getBoundingClientRect();
+    const plantilla = d.createElement('template');
+    plantilla.innerHTML = svgIcono(nombre, Math.round(caja.width) || 24, svg.getAttribute('class') ?? undefined);
+    const nuevo = plantilla.content.firstElementChild;
+    if (!nuevo) return;
+    for (const at of ['style', 'width', 'height', 'aria-hidden', 'aria-label', 'role']) {
+      const v = svg.getAttribute(at);
+      if (v !== null) nuevo.setAttribute(at, v);
+    }
+    svg.replaceWith(nuevo);
+    elegido.current = nuevo;
+    nuevo.setAttribute('data-gmx-sel', '');
+    setIcono(null);
+    guardar();
   };
   const eliminar = () => {
     const pos = getPos();
     if (typeof pos === 'number') eliminarBloqueConDeshacer(editor, pos, ctx.avisar);
   };
 
-  const mostrarBarra = editable && (activo || !!codigo || !!enlace);
+  const abierto = !!codigo || !!enlace || !!video || !!icono;
+  const mostrarBarra = editable && (activo || abierto);
+  /** Un botón de la barrita: sólo el ícono (la barra cabe entre los controles de la sección) y su nombre en el tooltip. */
+  const boton = (nombre: string, ico: ReactNode, alClic: (ancla: HTMLElement) => void, marcado?: boolean) => (
+    <button type="button" className="gmx-btn gma-tip" data-tip={nombre} aria-label={nombre} aria-pressed={marcado === undefined ? undefined : marcado}
+      onMouseDown={(e) => e.preventDefault()} onClick={(e) => alClic(e.currentTarget)}>
+      {ico}
+    </button>
+  );
   return (
     <NodeViewWrapper className="gmx-nv" data-activo={mostrarBarra ? 'si' : undefined}
-      onMouseLeave={() => { if (!codigo && !enlace) setActivo(false); }}>
+      onMouseLeave={() => { if (!abierto) setActivo(false); }}>
       <EstilosG2 />
       <style href="gmx-editable" precedence="medium">{CSS_EDITABLE}</style>
       {mostrarBarra && (
         <div className="gmx gmx-nv-barra" contentEditable={false} onMouseDown={noRobaFoco}>
-          <button type="button" className="gmx-btn" title="Negrita" aria-label="Negrita" onMouseDown={(e) => e.preventDefault()} onClick={() => formato('bold')}>
-            <Icono nombre="negrita" />
-          </button>
-          <button type="button" className="gmx-btn" title="Cursiva" aria-label="Cursiva" onMouseDown={(e) => e.preventDefault()} onClick={() => formato('italic')}>
-            <Icono nombre="cursiva" />
-          </button>
+          {boton('Negrita', <Icono nombre="negrita" />, () => formato('bold'))}
+          {boton('Cursiva', <Icono nombre="cursiva" />, () => formato('italic'))}
           <span className="gmx-nv-sep" />
-          <button type="button" className="gmx-btn" title="Cambiar la imagen elegida" onMouseDown={(e) => e.preventDefault()} onClick={() => void cambiarImagen()}>
-            <Icono nombre="imagen" /><span>Imagen</span>
-          </button>
-          <button type="button" className="gmx-btn" title="Cambiar a dónde lleva el enlace elegido" onMouseDown={(e) => e.preventDefault()} onClick={(e) => abrirEnlace(e.currentTarget)}>
-            <Icono nombre="enlace" /><span>Enlace</span>
-          </button>
-          <button type="button" className="gmx-btn" title="Código" aria-expanded={!!codigo} onMouseDown={(e) => e.preventDefault()}
-            onClick={(e) => { guardar(); const el = e.currentTarget; setCodigo((p) => (p ? null : { ancla: el })); }}>
-            <Icono nombre="codigo" /><span>Código</span>
-          </button>
+          {boton('Imagen', <Icono nombre="imagen" />, () => void cambiarImagen(), tipo === 'imagen')}
+          {boton('Enlace', <Icono nombre="enlace" />, abrirEnlace, tipo === 'enlace')}
+          {boton('Video', <Icono nombre="video" />, (a) => void cambiarVideo(a), tipo === 'video')}
+          {boton('Ícono', <Icono nombre="estrella" />, abrirIcono, tipo === 'icono')}
           <span className="gmx-nv-sep" />
-          <button type="button" className="gmx-btn" title="Eliminar" aria-label="Eliminar sección" onMouseDown={(e) => e.preventDefault()} onClick={eliminar}>
-            <IconoBorrar size={16} />
-          </button>
+          {boton('Código', <Icono nombre="codigo" />, (el) => { guardar(); setCodigo((p) => (p ? null : { ancla: el })); })}
+          {boton('Eliminar sección', <IconoBorrar size={16} />, eliminar)}
         </div>
       )}
       <div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable={false}>
@@ -241,13 +324,24 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
         </Flotante>
       )}
       {enlace && (
-        <Flotante ancla={enlace.ancla} onCerrar={() => setEnlace(null)} etiqueta="Enlace" ancho={360}>
-          <CampoEnlace inicial={enlace.a.getAttribute('href') ?? ''} onListo={(v) => {
-            if (v) enlace.a.setAttribute('href', v); else enlace.a.removeAttribute('href');
-            setEnlace(null);
+        <Flotante ancla={enlace.ancla} onCerrar={() => setEnlace(null)} etiqueta="Enlace" ancho={340}>
+          <SelectorDestino valor={enlace.a.getAttribute('href')} nuevaPestana={enlace.a.getAttribute('target') === '_blank'}
+            onElegir={(href, nueva) => ponerDestino(enlace.a, href, nueva)}
+            onQuitar={enlace.a.getAttribute('href') ? () => ponerDestino(enlace.a, null, false) : undefined} />
+        </Flotante>
+      )}
+      {video && (
+        <Flotante ancla={video.ancla} onCerrar={() => setVideo(null)} etiqueta="Video" ancho={360}>
+          <PanelInsertar inicial={video.el.getAttribute('src') ?? ''} onInsertar={(e) => {
+            if (video.el.isConnected) video.el.setAttribute('src', e.src);
+            setVideo(null);
             guardar();
+            medir();
           }} />
         </Flotante>
+      )}
+      {icono && (
+        <SelectorIcono ancla={icono.ancla} valor={null} onElegir={(n) => ponerIcono(icono.el, n)} onCerrar={() => setIcono(null)} />
       )}
     </NodeViewWrapper>
   );
@@ -266,15 +360,5 @@ function CodigoSeccion({ inicial, onListo }: { inicial: string; onListo: (html: 
         <button type="button" className="gmx-primario" onMouseDown={(e) => e.preventDefault()} onClick={() => onListo(texto)}>Listo</button>
       </div>
     </div>
-  );
-}
-
-function CampoEnlace({ inicial, onListo }: { inicial: string; onListo: (href: string) => void }) {
-  const [v, setV] = useState(inicial);
-  return (
-    <form style={{ display: 'flex', gap: 6, padding: 4 }} onSubmit={(e) => { e.preventDefault(); onListo(v.trim()); }}>
-      <input className="gmx-campo" style={{ flex: 1 }} value={v} placeholder="https://… o #seccion" aria-label="A dónde lleva" autoFocus onChange={(e) => setV(e.target.value)} />
-      <button type="submit" className="gmx-primario">Listo</button>
-    </form>
   );
 }

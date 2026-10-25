@@ -15,6 +15,8 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   rama aut-2510; al 25/10 todavía no existe, avisa con las firmas) y L3 (el agente; el ws9 queda en «propone» hasta el sí de Martín).
 - **Verificado en producción (25/10 tarde, main 9c684f88c):** escribir en una sección de diseño (copia #42, ya en la
   papelera), y la barra a 1280 y 1440. A 1280 la barra no entraba: arreglado en esta rama (el título cede hasta 160 px).
+- **Todo editable en las páginas de MaKo y el clic derecho (25/10 tarde):** hecho en la rama, con el inventario de la #32
+  medido en producción (docs/hallazgos-editor-landing.md → «Todo editable…»). Falta probarlo con clics cuando despliegue.
 - **Sigue:** publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 

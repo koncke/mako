@@ -474,6 +474,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
   ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
+  ['PATCH', '/landing/documentos/{id}/imagenes', 'cambiar_imagen_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
   ['PATCH', '/landing/documentos/{id}/configuracion', 'configurar_landing'],

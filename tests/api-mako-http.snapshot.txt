@@ -77,6 +77,7 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_imagen_landing
 cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
 cambiar_moneda_negocio

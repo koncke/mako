@@ -1342,4 +1342,26 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '25 oct', hora: '16:10', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'En las páginas de MaKo se edita todo: botones, videos, imágenes e íconos, y anda el clic derecho',
+    pedido: '«en las landing de MaKo, quiero que TODO sea editable, cada botón, cada video, cada cosa que hay... Y no funciona aún el click derecho en el editor web»',
+    puntos: [
+      'Tocas un botón y eliges a dónde lleva con el mismo panel que un botón normal: una sección, otra página, un enlace o abrir en otra pestaña.',
+      'Tocas el video y lo cambias: el de Panda o YouTube pegando su enlace, y uno subido eligiendo otro.',
+      'Tocas un ícono y eliges otro de la lista, del mismo tamaño.',
+      'Las imágenes se cambian como antes, y el botón de la barrita se marca según lo que tocaste.',
+      'El clic derecho abre el menú de la sección donde hiciste clic.',
+      'La barrita de la sección ahora es de íconos y ya no tapa los botones de entre secciones.',
+      'Todo esto también se puede hacer por la API de MaKo.',
+      'Falta: probarlo con clics cuando llegue a producción.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — cada elemento con su control, y el clic derecho',
+      'lib/editor-landing/html-editable-elementos.ts — lo mismo por la API',
+      'lib/editor-landing/render.ts — una sección de diseño se puede usar como destino de un botón',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];
