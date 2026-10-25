@@ -11,6 +11,8 @@
 // ni las integraciones de la plataforma para un workspace cliente. Guardar, borrar,
 // desconectar o elegir cuenta NO están: la salida honesta es el link de
 // link_configurar_integracion, donde una persona lo hace en /integraciones.
+// La excepción es una COMPUTADORA con MaKo Desktop (desconectar_computadora, 25/10/2026): no
+// es una credencial que se pega en un formulario, y desconectarla se confirma con un «sí».
 //
 // La salud en vivo de Meta y sus incidentes ya viven en el área `ads`
 // (ver_salud_cuenta_meta, ver_estado_meta, listar_incidentes_meta): no se duplican.
@@ -112,6 +114,27 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'Con qué IA trabaja este negocio y qué contesta cada cosa: si tiene su Claude, su GPT o su Gemini por clave (propia, copia de la de MaKo o guardada e ilegible), cuántas computadoras con MaKo Desktop tiene conectadas y cuántas en línea, y con eso qué contesta el chat de la app, el grupo de WhatsApp, las notas de voz y el análisis de llamadas. Trae el link de cada conexión. Nunca devuelve una clave. Úsala ante «¿por qué no me contestas?», «¿tengo mi IA conectada?» o «¿con qué IA trabajas?».',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  // LAS COMPUTADORAS CON MAKO DESKTOP (25/10/2026, Martín: «todo MaKo se debe poder utilizar por API», leer Y cambiar). Leer
+  // cuáles hay y desconectar una; CONECTAR no está, a propósito: pide a la persona frente a su computadora, que acepte el texto
+  // de su IA y diga «sí» en la ventana del programa (lib/ia-pc-reglas.ts → CONSENTIMIENTO_DE). Sin HTTP: son las máquinas y
+  // los correos del equipo, no del que escribe. Un miembro (closer, setter) ve y desconecta sólo las suyas, como en /perfil/ia.
+  {
+    id: 'ver_computadoras', area: 'integraciones', tipo: 'lectura',
+    titulo: 'Computadoras con MaKo Desktop',
+    descripcion: 'Las computadoras conectadas a este negocio con MaKo Desktop (la app de escritorio que contesta el chat con el Claude o el ChatGPT de la persona): su número (id), su nombre, de quién es, si está en línea ahora, cuándo se la vio por última vez, el sistema, la versión del programa y si su IA tiene la sesión iniciada. A quien no es admin, sólo las suyas. Úsala antes de desconectar_computadora, o ante «¿está prendida mi computadora?» o «¿qué computadoras tengo conectadas?». Para el resumen (cuántas y qué contesta cada cosa), ver_ia_del_negocio.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: G_TAB,
+  },
+  {
+    id: 'desconectar_computadora', area: 'integraciones', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Desconectar una computadora',
+    descripcion: 'PROPONE desconectar UNA computadora con MaKo Desktop de este negocio (queda pendiente hasta el «sí»): deja de contestar con la IA de esa persona, se le cortan los turnos en curso y el programa de esa computadora se apaga solo. Para volver a usarla hay que conectarla de nuevo DESDE esa computadora (no se deshace por aquí). La suya, siempre; la de otro, sólo el admin. El número sale de ver_computadoras.',
+    escribe: 'revoca la computadora en ia_pc_dispositivos, borra su ubicación y sus cuentas, y vence sus turnos en curso',
+    parametros: [
+      { nombre: 'id', tipo: 'number', obligatorio: true, entero: true, minimo: 1, descripcion: 'el número de la computadora, tal como sale en ver_computadoras.', ejemplo: 12 },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: G_TAB,
   },
   {
     id: 'como_conectar', area: 'integraciones', tipo: 'lectura',
