@@ -23,6 +23,7 @@ import Link, { useRouter } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { deshacerCampoLeadAction, guardarCampoLeadAction } from '@/app/crm/actions';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { diaDe, horaDe, horaGoogle, type ItemCalendario } from '@/lib/calendario-modelo';
@@ -168,7 +169,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
               ))}
             </div>
           </div>
-          {fallos.llamadas && <p className="gl-error" role="alert">No pudimos leer las llamadas del CRM. Prueba otra vez en un minuto.</p>}
+          {fallos.llamadas && <p className="gl-error" role="alert">No pudimos leer las llamadas del CRM. Prueba otra vez en un minuto. <ReportarASoporte /></p>}
           <div className="gl-scroll">
             {filas.length === 0
               ? <Vacio pestana={pestana} />
@@ -213,7 +214,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
         <aside className="gl-tareas" aria-labelledby="gl-tareas-titulo">
           <h3 id="gl-tareas-titulo">Tareas con fecha</h3>
           <p className="gl-sub">Del Plan, las que vencen pronto.</p>
-          {fallos.tareas && <p className="gl-error" role="alert">No pudimos leer el Plan.</p>}
+          {fallos.tareas && <p className="gl-error" role="alert">No pudimos leer el Plan. <ReportarASoporte /></p>}
           {proximasTareas.length === 0
             ? <div className="gl-vacio"><b>Nada por vencer</b>Las tareas del Plan con fecha aparecen aquí.</div>
             : (
