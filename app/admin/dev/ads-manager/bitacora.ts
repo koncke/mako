@@ -25,7 +25,7 @@ export const PARTES: Parte[] = [
   { titulo: 'MaKo Esencial: 2 recomendaciones por día, sin piloto', detalle: 'Decisión del Cerebro (25/10, el cupo de entrada de AdAmigo) · el número sale de la tabla de topes de Planes · sólo al Esencial que paga por la pasarela · lo que no entra no gasta IA y entra primero lo que cuida la plata · espera que Planes saque la tab del candado de Pro', estado: 'sigue' },
   { titulo: 'Automatizaciones: cada táctica por su cuenta', detalle: 'El «Automation Overview» de Madgicx en /ads-manager/automatizaciones: qué hizo (prendió, pausó, subió, bajó) en 7 o 30 días, y cada táctica apagada / propone / automática con sus umbrales (el recomendado al lado) y las campañas que cubre · el piloto lanza sólo las automáticas · también por la API · faltan las reglas propias con Y/O', estado: 'sigue' },
   { titulo: 'MaKo opera el Media Buyer', detalle: 'Todo lo que hace la pantalla, por la API de MaKo y por HTTP (25/10): ver las tres pestañas, lanzar con monto y variaciones, deshacer, descartar, reabrir, calificar, los hooks al video, el modo, los topes, las metas, la cuenta y cada táctica · lo que mueve plata se confirma en pantalla y no corre en un flujo · falta subir creativos (archivos)', estado: 'sigue' },
-  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: una decisión real lanzada (recortada por el tope), leída en Meta y deshecha · lo del ANUNCIO (prender, pausar, variaciones) espera un método de pago en la cuenta (Martín)', estado: 'sigue' },
+  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: presupuesto (recortado por el tope), prender y pausar un anuncio, variaciones de texto y de hook, cada una leída en Meta y deshecha · todo en pausa, gasto 0', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -457,6 +457,26 @@ export const BITACORA: Hito[] = [
     archivos: [
       'scripts/media-buyer-medir-zernio.mts — --cuenta, foto/comparar y decisiones-anuncio',
       'lib/zernio-redes.ts · app/_components/ConectarViaZernio.tsx — la vuelta con error',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '16:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Con la tarjeta en la cuenta de MaKo: el anuncio medido de punta a punta, y un atraso de Zernio',
+    pedido: '«Ya agregue la tarjeta»',
+    puntos: [
+      'Se midió todo lo que faltaba, en pausa y sin gastar: prender, pausar y deshacer un anuncio, y las variaciones de texto y de hook con su deshacer (Meta las muestra borradas). La campaña se borró; gasto 0.',
+      '⚠️ **El diagnóstico obvio era «el anuncio ya estaba prendido», y era el equivocado**: Zernio guarda el interruptor de los anuncios con hasta una hora de atraso. Ahora el Media Buyer relee el anuncio en Meta antes de prenderlo, pausarlo o deshacerlo.',
+      'Crear «en pausa» por Zernio pausa sólo la campaña: el conjunto y el anuncio nacen prendidos (no entregan, pero hay que pausarlos aparte para dejar todo quieto).',
+      'Un anuncio borrado vuelve de Zernio como «prendido» (lo vio el chat de Zernio): ahora queda como borrado, ni prendido ni pausado, para que ninguna táctica lo toque.',
+    ],
+    archivos: [
+      'lib/media-buyer/ejecutar.ts — conAnuncioEnVivo antes de decidir',
+      'lib/zernio-ads.ts — anuncioEnVivoPorZernio (live=true)',
+      'lib/media-buyer/senales.ts — lo borrado queda DELETED (estaBorrado)',
+      'scripts/media-buyer-medir-zernio.mts — interruptor-anuncio y las variaciones de hook',
     ],
     revisar: '/ads-manager',
   },

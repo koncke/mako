@@ -60,7 +60,10 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
    recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de
    MaKo»). El Media Buyer de MaKo (ws9) quedó **prendido en «propone»** con `act_1426493815659364` en Ajustes. Sin piloto.
-2. **Medir lo del ANUNCIO (prender, pausar, variaciones) — PROBADO EN LA CUENTA DE MAURICIO Y FRENADO POR META.** Martín,
+2. **Lo del ANUNCIO, MEDIDO el 25/10 en la cuenta de MaKo** (Martín: «Ya agregue la tarjeta»): crear en pausa, prender,
+   pausar y deshacer por el Media Buyer, variaciones de texto y de hook con su deshacer, borrar; gasto 0
+   (`docs/hallazgos-ads.md` → «La medición que escribe»). Para repetirlo: `foto` → `crear --si` → `decisiones-anuncio --si`
+   → `interruptor-anuncio --si` → `borrar --si` → `comparar`. Antes, el mismo día, se probó en la cuenta de Mauricio. Martín,
    25/10 ~13:55: «Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago». La cuenta es
    «Cuenta 1» del portfolio Elévate, `act_185929215397361` (activa, pago ok, MXN, mínimo MXN 18,59/día), conectada a un
    perfil de Zernio APARTE de la plataforma (`6ade389b5bed5c321f2f42d8`, conexión `6ade3a22ef8ec89d32cced61`, «Administrar

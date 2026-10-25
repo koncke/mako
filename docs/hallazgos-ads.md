@@ -4841,9 +4841,28 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   la quite a mano. Para probar sin dejar nada, comparar la cuenta antes y después (`foto` / `comparar` del script: el
   interruptor y el presupuesto de cada campaña y conjunto, en vivo).
 
-**Sin hacer, con su archivo:** medir lo que escribe a nivel ANUNCIO (prender, pausar, variaciones de texto, hook y video)
-espera una cuenta donde Meta deje crear anuncios: que Martín cargue un método de pago válido en la de MaKo, o que se
-actualice el de la «Cuenta 1» de Elévate (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+- **A nivel ANUNCIO, medido de punta a punta en la cuenta de MaKo** (Martín cargó la tarjeta el 25/10): el anuncio de prueba
+  se creó en pausa; el Media Buyer lo prendió, lo pausó y deshizo, cada paso leído en Meta; las variaciones de texto y de
+  hook se lanzaron (una de dos elegida) y su deshacer las borró (`DELETED` en Meta). La campaña se borró y la cuenta quedó
+  como en la foto de antes. Gasto 0 e impresiones 0: el árbol de Zernio guarda lo borrado con sus métricas, y eso lo prueba.
+- ⚠️ **El árbol de Zernio tiene el interruptor de los ANUNCIOS con hasta una hora de atraso.** Recién pausado por el Media
+  Buyer, el árbol seguía diciendo «prendido», y «prender» se frenó con «Ya estaba prendido en Meta» (y la decisión quedó
+  vencida). **El diagnóstico obvio («ya estaba prendido») era el equivocado:** Meta decía pausado. Zernio lo documenta («los
+  estados son los que guardó; se refrescan en 15 a 60 minutos; quien actúa sobre un interruptor pase `live=true`»). Ahora
+  `lanzar` y `deshacer` releen el anuncio con `GET /ads/{adId}?live=true` antes de decidir (`conAnuncioEnVivo`, con test);
+  campañas y conjuntos ya venían en vivo. Lo que el motor PROPONE sobre un anuncio sigue saliendo del árbol: puede proponer
+  algo que ya se hizo, y al lanzar se ve y queda vencida.
+- ⚠️ **`POST /ads/create` con `status: PAUSED` pausa sólo la CAMPAÑA:** el conjunto y el anuncio nacen prendidos. No entrega
+  (la campaña manda), pero para dejar todo en pausa hay que pausar el conjunto aparte.
+- **`billingStatus` tampoco se actualiza al cargar la tarjeta:** siguió diciendo `missing` con la tarjeta ya cargada y Meta
+  dejando crear. Es un dato guardado, no una lectura: no sirve para decidir en ningún sentido.
+- ⚠️ **Un anuncio BORRADO trae `configuredStatus: ACTIVE`** (lo vio el chat «Zernio y CAPI» en los de esta prueba): lo borrado
+  se queda en el árbol (`status: cancelled`) y, leyendo sólo el interruptor, contaba como PRENDIDO (Stop Loss o Ganador lo
+  podían tomar). Marcarlo «pausado» tampoco sirve: Revive propondría prenderlo. Ahora `arbolDesdeZernio` lo deja como
+  `DELETED` (ni prendido ni pausado, y sigue en el árbol para que su gasto de antes sume), y la lectura en vivo del anuncio
+  mira `status` y la entrega antes que el interruptor. Con test, roto a propósito.
+
+**Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
 (`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer

@@ -16,12 +16,13 @@
 
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
-import { cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
+import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 import { aplicarTopes } from './topes';
 import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
 import { leerDatosCuenta, fmtUnidad, type DatosCuenta } from './datos';
 import type { Decision, EstadoEntidad, NivelMeta } from './tipos';
 import type { NodoMB } from './motor';
+import { BORRADO, estaBorrado } from './senales';
 
 export type Quien = { nombre: string; origen: 'piloto' | 'persona' };
 export type ResultadoLanzar = { ok: true; decision: Decision; ajuste: string | null } | { ok: false; error: string };
@@ -37,6 +38,18 @@ function estadoVivo(n: NodoMB): EstadoEntidad {
   if (n.configurado === 'ACTIVE' || n.configurado === 'PAUSED') e.estado = n.configurado;
   if (n.presupuestoDia != null) e.presupuesto = n.presupuestoDia;
   return e;
+}
+
+/**
+ * El interruptor de un ANUNCIO se relee en Meta antes de decidir: por Zernio, el árbol trae el de los anuncios con hasta una
+ * hora de atraso (lib/zernio-ads.ts → anuncioEnVivoPorZernio). Las campañas y los conjuntos ya vienen en vivo
+ * (`conInterruptorEnVivo`); por el token de Meta, todo el árbol es en vivo. Si no contesta, queda lo del árbol.
+ */
+async function conAnuncioEnVivo(ws: number, datos: DatosCuenta, nodo: NodoMB): Promise<void> {
+  if (nodo.nivel !== 'ad' || datos.fuente !== 'zernio') return;
+  const v = await anuncioEnVivoPorZernio(ws, nodo.id).catch(() => null);
+  if (v && estaBorrado(v.estado, v.entrega)) nodo.configurado = BORRADO;
+  else if (v?.configurado === 'ACTIVE' || v?.configurado === 'PAUSED') nodo.configurado = v.configurado;
 }
 
 /** El presupuesto con el que la entidad empezó HOY: el `antes` de la primera subida aplicada hoy (Tijuana ≈ UTC-7). */
@@ -100,6 +113,7 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
     await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: 'Ya no está en la cuenta (se borró o se archivó).' });
     return { ok: false, error: 'Eso ya no está en la cuenta de Meta.' };
   }
+  await conAnuncioEnVivo(ws, datos, nodo);
   const actual = estadoVivo(nodo);
 
   // ¿Ya está como la decisión lo quería? Entonces no hay nada que lanzar: alguien lo hizo a mano.
@@ -237,6 +251,7 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   const datos = await leerDatosCuenta(ws);
   const nodo = datos.arbol.find((n) => n.id === d.entidadId);
   if (!nodo) return { ok: false, error: 'Eso ya no está en la cuenta de Meta.' };
+  await conAnuncioEnVivo(ws, datos, nodo);
   const actual = estadoVivo(nodo);
   // ⚠️ SÓLO SI NADIE LO TOCÓ DESPUÉS. Si una persona cambió el presupuesto o lo prendió a mano desde que MaKo lo aplicó,
   // «deshacer» pisaría ESE cambio con el de hace días (docs/diseno-ads-autopilot.md, «Deshacer»). Se compara con lo que

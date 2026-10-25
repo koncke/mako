@@ -194,25 +194,86 @@ if (paso === 'conectar') {
     linea('deshacer', u1.ok ? { ok: true, estado: u1.decision.estado } : u1);
     linea('el anuncio, después de deshacer', await nodo(e.adId));
 
-    const [vars] = await store.guardarPropuestas(ws, [{
-      clave: `ganador:ad:${e.adId}:${hoy}:prueba-variaciones`, tipo: 'variaciones_texto', tactica: 'manual', nivel: 'ad', entidadId: e.adId, entidadNombre: NOMBRE, campanaNombre: NOMBRE,
-      titulo: `Prueba: variaciones de texto de «${NOMBRE}»`, titular: 'Prueba del Media Buyer: las copias quedan en un conjunto en pausa (no entregan)',
-      porque: ['Medición del 25/10/2026: crear una variación por Zernio y borrarla con su deshacer.'], numeros: [],
-      antes: {}, despues: {}, anuncioBase: { id: e.adId, esVideo: false, miniatura: null },
-      variaciones: [
-        { id: 'v1', textoPrincipal: '[PRUEBA MaKo] Variación 1. No se publica.', titulo: 'Prueba MaKo v1', elegida: true },
-        { id: 'v2', textoPrincipal: '[PRUEBA MaKo] Variación 2. No se publica.', titulo: 'Prueba MaKo v2', elegida: false },
-      ],
-    }], null);
-    if (!vars) { console.error('No se guardó la decisión de variaciones.'); process.exit(4); }
-    const l2 = await lanzar(ws, vars.id, quien, { elegidas: ['v1'] });
-    linea('lanzar «variaciones» (sólo la v1)', l2.ok ? { ok: true, canal: l2.decision.canal } : l2);
-    const creados = (await store.leerDecision(ws, vars.id))?.creados ?? [];
-    for (const ad of creados) linea(`la variación ${ad}`, await nodo(ad));
-    const u2 = await deshacer(ws, vars.id, quien.nombre);
-    linea('deshacer (borra las variaciones)', u2.ok ? { ok: true, estado: u2.decision.estado, ajuste: u2.ajuste } : u2);
-    for (const ad of creados) linea(`la variación ${ad}, después de deshacer`, await nodo(ad));
-    guardar({ ...e, pasos: [...e.pasos, `decisiones-anuncio ${prender.id} ${vars.id} ${new Date().toISOString()}`] });
+    // Las variaciones de TEXTO y de HOOK: cada una se lanza con UNA elegida (de dos) y se deshace (borra las copias).
+    const ids: string[] = [prender.id];
+    for (const tipo of ['variaciones_texto', 'variaciones_hook'] as const) {
+      const que = tipo === 'variaciones_texto' ? 'texto' : 'hook';
+      const [vars] = await store.guardarPropuestas(ws, [{
+        clave: `ganador:ad:${e.adId}:${hoy}:prueba-${que}`, tipo, tactica: 'manual', nivel: 'ad', entidadId: e.adId, entidadNombre: NOMBRE, campanaNombre: NOMBRE,
+        titulo: `Prueba: variaciones de ${que} de «${NOMBRE}»`, titular: 'Prueba del Media Buyer: las copias quedan en un conjunto en pausa (no entregan)',
+        porque: [`Medición del 25/10/2026: crear una variación de ${que} por Zernio y borrarla con su deshacer.`], numeros: [],
+        antes: {}, despues: {}, anuncioBase: { id: e.adId, esVideo: false, miniatura: null },
+        variaciones: [
+          { id: 'v1', textoPrincipal: `[PRUEBA MaKo] Variación de ${que} 1. No se publica.`, titulo: `Prueba MaKo ${que} v1`, ...(que === 'hook' ? { gancho: '[PRUEBA MaKo] Gancho 1' } : {}), elegida: true },
+          { id: 'v2', textoPrincipal: `[PRUEBA MaKo] Variación de ${que} 2. No se publica.`, titulo: `Prueba MaKo ${que} v2`, ...(que === 'hook' ? { gancho: '[PRUEBA MaKo] Gancho 2' } : {}), elegida: false },
+        ],
+      }], null);
+      if (!vars) { console.error(`No se guardó la decisión de variaciones de ${que}.`); process.exit(4); }
+      ids.push(vars.id);
+      const l2 = await lanzar(ws, vars.id, quien, { elegidas: ['v1'] });
+      linea(`lanzar «variaciones de ${que}» (sólo la v1)`, l2.ok ? { ok: true, canal: l2.decision.canal } : l2);
+      const creados = (await store.leerDecision(ws, vars.id))?.creados ?? [];
+      for (const ad of creados) linea(`la variación ${ad}`, await nodo(ad));
+      const u2 = await deshacer(ws, vars.id, quien.nombre);
+      linea(`deshacer las de ${que} (borra las copias)`, u2.ok ? { ok: true, estado: u2.decision.estado, ajuste: u2.ajuste } : u2);
+      for (const ad of creados) linea(`la variación ${ad}, después de deshacer`, await nodo(ad));
+    }
+    guardar({ ...e, pasos: [...e.pasos, `decisiones-anuncio ${ids.join(' ')} ${new Date().toISOString()}`] });
+  } finally {
+    await store.guardarConfig(ws, { encendido: previa.encendido, modo: previa.modo, cuentaPublicitaria: previa.cuentaPublicitaria }, quien.nombre);
+    linea('el Media Buyer de la plataforma, de vuelta', { cuenta: previa.cuentaPublicitaria, modo: previa.modo, encendido: previa.encendido });
+  }
+} else if (paso === 'interruptor-anuncio') {
+  // El interruptor del ANUNCIO por el Media Buyer: pausar, prender y deshacer, con la campaña y el conjunto en pausa (no
+  // entrega). ⚠️ Medido el 25/10/2026: `POST /ads/create` con `status: PAUSED` pausa sólo la CAMPAÑA; el conjunto y el anuncio
+  // nacen prendidos. Por eso acá primero se pausa el conjunto.
+  exigirSi();
+  const e = leer();
+  if (!e.adId || !e.adSetId) { console.error('Primero `crear --si`.'); process.exit(4); }
+  await conexion();
+  const store = await import('../lib/media-buyer/store');
+  const { lanzar, deshacer } = await import('../lib/media-buyer/ejecutar');
+  const quien = { nombre: 'Prueba del Media Buyer (claude5)', origen: 'persona' as const };
+  const clave = await z.claveZernioAnuncios(ws);
+  const vivo = async (id: string) => {
+    const j = await (await fetch(`https://zernio.com/api/v1/ads/${id}`, { headers: { Authorization: `Bearer ${clave}` } })).json() as any;
+    const a = j?.ad ?? j;
+    return { interruptor: a?.configuredStatus ?? a?.platformConfiguredStatus ?? null, entrega: a?.platformStatus ?? a?.effectiveStatus ?? null };
+  };
+  linea('pausar el conjunto de prueba', await z.cambiarEstadoPorZernio(ws, 'adset', e.adSetId, 'PAUSED'));
+  linea('el anuncio, antes (en vivo)', await vivo(e.adId));
+  const previa = await store.leerConfig(ws);
+  await store.guardarConfig(ws, { encendido: true, modo: 'propone', cuentaPublicitaria: CUENTA }, quien.nombre);
+  try {
+    const hoy = new Date().toISOString().slice(0, 10);
+    const decision = async (tipo: 'pausar' | 'activar', antes: 'ACTIVE' | 'PAUSED', despues: 'ACTIVE' | 'PAUSED') => {
+      const [d] = await store.guardarPropuestas(ws, [{
+        clave: `manual:ad:${e.adId}:${hoy}:prueba-${tipo}-${Date.now()}`, tipo, tactica: 'manual', nivel: 'ad', entidadId: e.adId, entidadNombre: NOMBRE, campanaNombre: NOMBRE,
+        titulo: `Prueba: ${tipo === 'pausar' ? 'pausar' : 'prender'} el anuncio «${NOMBRE}»`, titular: 'Prueba del Media Buyer: la campaña y el conjunto siguen en pausa (no entrega)',
+        porque: ['Medición del 25/10/2026: el interruptor de un anuncio por Zernio, con su deshacer.'], numeros: [],
+        antes: { estado: antes }, despues: { estado: despues },
+      }], null);
+      if (!d) { console.error(`No se guardó la decisión de ${tipo} (¿ya existía la clave?).`); process.exit(4); }
+      return d;
+    };
+    // Dos cambios seguidos (el segundo es el que el árbol atrasado frenaba) y el deshacer del segundo, desde como esté.
+    const s0 = (await vivo(e.adId)).interruptor === 'PAUSED' ? 'PAUSED' as const : 'ACTIVE' as const;
+    const s1 = s0 === 'ACTIVE' ? 'PAUSED' as const : 'ACTIVE' as const;
+    const tipoDe = (a: 'ACTIVE' | 'PAUSED') => (a === 'PAUSED' ? 'pausar' as const : 'activar' as const);
+    const d1 = await decision(tipoDe(s1), s0, s1);
+    const l1 = await lanzar(ws, d1.id, quien);
+    linea(`lanzar «${d1.tipo}»`, l1.ok ? { ok: true, canal: l1.decision.canal } : l1);
+    linea('el anuncio (en vivo)', await vivo(e.adId));
+    const d2 = await decision(tipoDe(s0), s1, s0);
+    const l2 = await lanzar(ws, d2.id, quien);
+    linea(`lanzar «${d2.tipo}» (el árbol de Zernio todavía no lo sabe)`, l2.ok ? { ok: true, canal: l2.decision.canal } : l2);
+    linea('el anuncio (en vivo)', await vivo(e.adId));
+    const u = await deshacer(ws, d2.id, quien.nombre);
+    linea(`deshacer «${d2.tipo}»`, u.ok ? { ok: true, estado: u.decision.estado } : u);
+    linea('el anuncio (en vivo)', await vivo(e.adId));
+    if ((await vivo(e.adId)).interruptor !== 'PAUSED') linea('el anuncio queda en pausa', await z.cambiarEstadoPorZernio(ws, 'ad', e.adId, 'PAUSED'));
+    linea('el anuncio, al final (en vivo)', await vivo(e.adId));
+    guardar({ ...e, pasos: [...e.pasos, `interruptor-anuncio ${d1.id} ${d2.id} ${new Date().toISOString()}`] });
   } finally {
     await store.guardarConfig(ws, { encendido: previa.encendido, modo: previa.modo, cuentaPublicitaria: previa.cuentaPublicitaria }, quien.nombre);
     linea('el Media Buyer de la plataforma, de vuelta', { cuenta: previa.cuentaPublicitaria, modo: previa.modo, encendido: previa.encendido });
