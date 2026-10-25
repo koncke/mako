@@ -430,8 +430,8 @@ test('enviar: la interpretación ANTES de «editar», que lleva sólo lo actual 
   // (24/10/2026: sin los chips de alcance, «Editar» manda la landing entera con la sección del cursor como pista.)
   assert.match(PANEL, /if \(s\.instruccion\) \{ enviar\(s\.instruccion, \{ interpretar: false \}\); return; \}/);
   // (20/10/2026: lo escrito sale por `mandar`, con los archivos de la caja, y se sigue interpretando.)
-  assert.match(PANEL, /else void pedirEdicion\(ctxRef\.current, texto, 'landing', \{ adjuntos: paraEnviar\(items\) \}\);/);
-  assert.doesNotMatch(PANEL, /pedirEdicion\(ctxRef\.current, texto, [^)]*interpretar: false/);
+  assert.match(PANEL, /else void pedirEdicion\(ctxRef\.current, conCita, 'landing', \{ adjuntos: paraEnviar\(items\) \}\);/);
+  assert.doesNotMatch(PANEL, /pedirEdicion\(ctxRef\.current, conCita, [^)]*interpretar: false/);
 });
 
 test('el «Sí» de borrar es la Papelera del Panel (`accion: \'papelera\'`), nunca la abierta y nunca para siempre', () => {

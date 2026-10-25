@@ -177,6 +177,7 @@ detectar_piezas_landing
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
+duplicar_curso
 duplicar_diseno_imagen
 duplicar_hoja_dashboard
 duplicar_landing
@@ -208,6 +209,7 @@ editar_texto_guion_anuncio
 editar_venta_lead
 elegir_formato_creativo_anuncio
 eliminar_broadcast
+eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
@@ -492,6 +494,7 @@ registrar_pago_suelto
 registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
+renombrar_curso
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
@@ -501,6 +504,7 @@ resolver_confirmacion_crm
 responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
+restaurar_curso
 restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo

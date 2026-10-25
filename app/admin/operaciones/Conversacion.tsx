@@ -33,6 +33,7 @@ import { Hilo, TANDA_HILO } from './Hilo';
 import type { Responder } from './PreguntaChat';
 import type { PreguntaChat as PreguntaChatT } from '@/lib/centro-preguntas-chat';
 import { BloqueDePreguntas } from './PreguntasDelChat';
+import { BloqueCompletado } from './BloqueCompletado';
 import { AvisoClave } from '@/app/_chat/AvisoClave';
 import { hayClave } from '@/lib/claves-en-el-chat';
 import type { AdjuntosDeCaja } from './AdjuntosCaja';
@@ -222,7 +223,10 @@ export function Conversacion({
       caja={<>
         {/* TODO lo que espera a Martín, arriba de la caja y en UN bloque (PreguntasDelChat.tsx → BloqueDePreguntas, 22/10/2026):
             las decisiones de la Ticketera, lo que pregunta el chat (`cartero preguntar` y los botones del cierre) y lo de
-            AskUserQuestion, que se contesta en la app de Claude. Lo contestado se va de acá y queda en la conversación. */}
+            AskUserQuestion, que se contesta en la app de Claude. Lo contestado se va de acá y queda en la conversación.
+            Y su último «Completado» sin ✓, en el mismo marco (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
+        <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
+          tareas={tareas} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
           delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}

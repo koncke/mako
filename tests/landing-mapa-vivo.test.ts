@@ -258,7 +258,9 @@ test('⚠️ la visita del mapa pide el PUENTE y no el grabador, y no gana a nad
   const iGrabador = bloque.indexOf('grabaA(cfg, visitorId)');
   assert.ok(iPuente > 0 && iGrabador > iPuente, 'a la visita del mapa se le serviría el grabador (o ni el puente)');
   assert.match(bloque, /const pruebaDelMapa = esPruebaDelMapa\(payload\.prueba\);/);
-  assert.match(bloque, /const pagina = pruebaDelMapa \? null : texto\(payload\.landing_url, 500\);/, 'la visita del mapa ganaría a alguien en una página de gracias');
+  // La URL que se guarda va saneada desde el 24/10/2026 (P6, `urlGuardable`: sin los datos de una persona, cortada a 500;
+  // tests/url-datos-personales.test.ts). Lo que protege esta línea no cambió: la visita del mapa no tiene página.
+  assert.match(bloque, /const pagina = pruebaDelMapa \? null : urlGuardable\(payload\.landing_url\);/, 'la visita del mapa ganaría a alguien en una página de gracias');
   // Y el archivo que se anuncia existe, registrado en el generador (que el pre-push revisa).
   assert.ok(existsSync(new URL(`public/replay/${PUENTE_MAPA_VERSION}/r.js`, raiz)));
   const libs = leer('scripts/replay-libs.mjs');

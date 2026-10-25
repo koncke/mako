@@ -121,6 +121,17 @@ export type NavItem = {
    * mandaba el «Revisar» de los chats «Ops Center» a /second-brain y el jefe «Second Brain» se quedaba sin tab.
    */
   jefe?: string;
+  /**
+   * Una línea chica debajo del nombre, con la barra abierta: lo que hay ADENTRO cuando el nombre no lo dice (25/10/2026, la
+   * llamada con Leandro, f31: «no encuentro la sección de curso... Yo pensé que Clients era algo más CRM»). El buscador
+   * también la lee.
+   */
+  bajada?: string;
+  /**
+   * Las keys de SIN_FILA que son pantallas de adentro de esta tab sin barra de secciones (Classroom y Community, sub-tabs de
+   * Clients): el buscador las encuentra con el nombre de la tab al lado.
+   */
+  adentro?: readonly string[];
 };
 
 /** Una colección dentro de una familia. Abre un desplegable al costado. */
@@ -328,7 +339,7 @@ export const FAMILIAS: NavFamilia[] = [
             HERRAMIENTAS.mensajes,
           ],
         },
-        { key: 'customer-success', label: 'Clients', href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
+        { key: 'customer-success', label: 'Clients', bajada: 'Clientes, cursos y comunidad', adentro: ['cs-curso', 'cs-comunidad'], href: '/clients', icon: 'users', match: (p) => starts('/clients')(p) || starts('/customer-success')(p) },
       ],
     ],
   },

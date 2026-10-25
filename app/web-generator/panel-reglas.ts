@@ -558,7 +558,7 @@ export function esPanelPelado(query: Query): boolean {
 }
 
 /**
- * Qué rutas de la tab REDIRIGEN, para que lo haga su layout ANTES del loader (25/10/2026, ticket #9: «La pantalla «Web
+ * Qué rutas de la tab REDIRIGEN, para que lo haga su layout ANTES del loader (24/10/2026, ticket #9: «La pantalla «Web
  * Generator» se rompió», React #310 en producción). `app/web-generator/loading.tsx` es un Suspense que envuelve a la página
  * Y a las subrutas: un `redirect()` de ahí adentro va en el stream (200 + meta refresh, no 307) y queda en carrera con la
  * hidratación del router (el mismo #310 del ticket #7, docs/hallazgos-infra.md). Las tres que redirigen: la pelada (a la

@@ -231,7 +231,12 @@ test('item 1 y 3: salir con cambios pregunta — el hash del curso, un link de l
   // La tab: la vista del alumno marcada y sin prefetch, cambiar de curso y borrar la clase abierta.
   const app = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
   assert.match(app, /<Link className="ugc-btn" href=\{hrefVistaPrevia\(productoId\)\} prefetch=\{false\} data-recorrido="vista-alumno" data-guardar-y-ver>/);
-  assert.match(entre(app, 'const cambiarProducto = (id: number) => {', '};'), /leccionAbierta\.pedirSalida\(\(\) => \{/);
+  // Cambiar de curso: desde el 24/10/2026 (f28) es la cabecera de Clients, y cada programa es un LINK para que la guarda
+  // de los links de arriba lo ataje (un `router.push` desde un botón se la saltaba).
+  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const prog = entre(shell, 'function Programa(', 'function Personalizar(');
+  assert.match(prog, /<Link href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
+  assert.doesNotMatch(shell, /router\.push\(/, 'cambiar de programa con un push se salta la pregunta de la lección sin guardar');
   assert.match(entre(app, 'const borrar = async (c: Clase) => {', 'show(\'Clase borrada\''), /leccionAbierta\.soltar\(c\.id\);\s*if \(pos\.clase === c\.id\) navegar/);
   assert.match(app, /\{leccionAbierta\.dialogo\}/);
   // El título y la disposición de la lección abierta van al borrador.

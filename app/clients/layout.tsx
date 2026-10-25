@@ -31,7 +31,10 @@ async function programasDeClients(): Promise<ProgramaClients[]> {
     ]);
     return lista.map((p) => {
       const e = estilos.get(p.id);
-      return { id: p.id, nombre: nombres.get(p.id) ?? SIN_NOMBRE_EQUIPO, acento: e?.acento ?? null, fuente: e?.fuente ?? null, portada: e?.portada ?? null };
+      return {
+        id: p.id, nombre: nombres.get(p.id) ?? SIN_NOMBRE_EQUIPO, acento: e?.acento ?? null, fuente: e?.fuente ?? null, portada: e?.portada ?? null,
+        titulo: e?.titulo ?? null, principal: p.principal, conEmbudo: p.conEmbudo,
+      };
     });
   } catch (e) {
     console.warn('[clients] no pude leer los programas para la cabecera:', e instanceof Error ? e.message : e);

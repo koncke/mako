@@ -5817,3 +5817,201 @@ perdieron. La consulta para contarlos está en el plan del arreglo (`C:/dev/plan
 
 *23/10/2026 · chat «API de MaKo» (claude2), por encargo del Cerebro · el plan salió de un panel de tres propuestas;
 tests y roturas medidos, sin probar contra la base todavía.*
+
+## «Sacar» en Members sacaba sólo de la comunidad: el curso seguía abierto (24/10/2026, f32 y f33)
+
+**Síntoma** (llamada de Fathom con Leandro, 24/10, @50:36-56:01): Leandro sacó a su alumno de prueba en Members y
+«no me saca de ningún lado». Con la cuenta del alumno, el curso le seguía abriendo y la comunidad decía «Tu acceso a la
+comunidad no está activo»; al tocar «Reportar a Soporte», «No autenticado».
+
+**Causa: eran tres cosas, y ninguna era un fallo del baneo.**
+1. **Sacar cerraba SÓLO la comunidad, a propósito.** `sacarAlumno` (lib/comunidad-moderacion.ts) escribía el baneo en
+   `comunidad_baneos` y no tocaba `curso_accesos`; su cabecera decía «SACAR NO CORTA EL CURSO» y
+   tests/comunidad-moderacion.test.ts fijaba que el archivo no nombrara `curso_accesos` ni `revocarAcceso`. Martín lo
+   dio por bug en la llamada: sacar es del programa entero. Ese test se dio vuelta.
+2. **«Reportar a Soporte» no sirve sin sesión de MaKo**: /api/soporte/reportar pide la sesión, y el proxy contesta
+   `no autenticado` (401) antes de que corra la ruta. El botón mostraba ese texto crudo al lado del aviso del alumno.
+3. **Los dos selectores del Classroom cambian de producto a la vez** (f28): Leandro creyó estar en Fiesta Music y lo
+   sacó de «Curso sin nombre». Eso es de la tanda de la barra del Classroom, no de esta.
+
+⚠️ **El diagnóstico obvio era el equivocado**: «el baneo no se aplica». El baneo andaba (el directorio ya excluía a los
+baneados, `miembrosDeLaComunidad`): lo que faltaba era que sacar fuera también del curso.
+
+**Arreglo.** Sacar = el baneo + `sacarDelCurso` (lib/curso-datos.ts) con la regla pura `accesoTrasSacar`: se le saca
+ese curso a su lista o, si era lo único que veía (`productosDelAlumno`, la misma puerta del portal), se le corta el
+acceso y el portal le dice en la entrada `SIN_ACCESO_PORTAL`. «Volver a admitir» le devuelve el curso
+(`accesoTrasAdmitir`). Las dos tablas de Avance no listan a un sacado (`sacadosPorProducto`). Una sola frase para «no
+entra» en el link, /mi-curso y la comunidad del alumno (lib/curso-portal-aviso.ts); si la comunidad la contesta con el
+portal abierto, el portal se vuelve a mirar UNA vez (`router.refresh`). «Reportar a Soporte» no se dibuja en el portal
+del alumno (`SinSoporteCtx`, que pone PortalAlumno; la vista previa del equipo sí lo tiene).
+
+**Las reglas que quedan:**
+- **Un corte se marca con el MISMO instante que lo que lo causó, para poder deshacer SÓLO ése.** Sacar escribe
+  `revocado_at` = `created_at` del baneo (`revocarAcceso(..., cuando)`); admitir habilita únicamente si coinciden. Si no,
+  a ese acceso lo cortó otra persona («Cortar acceso») y admitirlo en una comunidad no puede deshacer esa decisión. Sin
+  migración: el instante ya estaba en las dos filas. Se comparan con `mismoInstante` (PostgREST y JS lo escriben distinto).
+- **Un acceso que no abre ningún curso no es «acotado»: es un corte.** Una lista vacía dejaría pasar a un portal vacío.
+- **Un botón que llama a una ruta con sesión no va donde no hay sesión.** El portal del alumno es el único lugar de la
+  app sin sesión de MaKo que dibuja piezas de la app (la comunidad, los comentarios de clase).
+
+**Quedó SIN hacer, y dónde:**
+- **Los sacados de ANTES de este arreglo** siguen con el curso abierto (el baneo está, el corte no). Sin backfill: es
+  escribir en clientes reales. Para el alumno de prueba de Leandro: Members → «Fuera» → «Volver a admitir» y «Sacar» otra
+  vez. Para contarlos: `comunidad_baneos` con `levantado_at` null cruzado con `curso_accesos` sin `revocado_at`.
+- **Volver a invitar a un sacado** (la tarjeta del kanban, la ficha, el buscador) le reabre el curso con el baneo puesto:
+  curso sí, comunidad no, lo mismo que f33. La guarda iría en `invitarAlCurso` (lib/curso-invitar.ts) con un motivo propio
+  («lo sacaron de este programa»), y cada pantalla que dibuja los motivos tendría que decirlo.
+- La API de MaKo (`sacar_alumno_comunidad`) ya corta el curso, pero su `preparar` sigue sin poder sacar a alguien que ya
+  está fuera: los sacados de antes se arreglan desde la pantalla.
+- Nada se miró en el navegador (sin RAM para `next dev`, y probarlo pide sacar a un alumno de verdad).
+
+**Vive en:** `lib/comunidad-moderacion.ts` (`sacarAlumno`, `admitirAlumno`, `sacadosPorProducto`) · `lib/curso-datos.ts`
+(`sacarDelCurso`, `devolverElCurso`, `revocarAcceso`) · `lib/curso-invitar-reglas.ts` (`accesoTrasSacar`,
+`accesoTrasAdmitir`) · `lib/curso-portal-aviso.ts` · `app/_ui/ReportarASoporte.tsx` (`SinSoporteCtx`) ·
+`app/_comunidad/ComunidadAlumno.tsx` · `app/_comunidad/Miembros.tsx` · `tests/curso-sacar-del-programa.test.ts` y
+`tests/comunidad-moderacion.test.ts` (7 roturas, cada una cae)
+
+*24/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*
+
+## Dos selectores de programa en Clients: la barra del Classroom era el segundo (24-25/10/2026, f27, f28 y f29)
+
+**Síntoma** (llamada con Leandro, @38:46 y @52:00-54:33): «me cambian los dos al mismo tiempo»: el programa de la
+cabecera de Clients y el desplegable de la barra oscura del Classroom elegían lo mismo, y Leandro creyó estar en
+Fiesta Music estando en «Curso sin nombre» (por eso sacó al alumno del programa equivocado, f32). Y entrando como
+alumno: «me aparece tu programa como que también me deja crear mi propio programa».
+
+**Causa.** El desplegable de la marca del Classroom (`menuMarca`, CursoApp.tsx) venía de antes de la cabecera de
+Clients (07/10): cambiar de curso, «+ Nuevo producto», el color y la fuente. Cuando el 17/10 nació la cabecera con su
+programa y «Personalizar», nadie lo sacó: quedaron dos lugares para la misma pregunta. Lo del alumno: un curso sin
+nombre se llama «Tu programa» en el portal (`SIN_NOMBRE_ALUMNO`), y en la LISTA «Tus programas», al lado de otro
+nombre, se lee como una acción («crear el tuyo»).
+
+**Arreglo.** La marca es un rótulo (sin `menu` ni `onClick`, CursoUgc la dibuja como `div`). UN selector, el de la
+cabecera, con «+ Nuevo producto» al final para un admin (con un solo programa también hay desplegable si se puede
+crear). Todo el diseño en «Personalizar», con «Otro color» y «Deshacer» que se mudaron con él. En la lista del alumno, un
+curso sin nombre dice `SIN_NOMBRE_ALUMNO_EN_LISTA` («Programa sin nombre»); solo, sigue siendo «Tu programa».
+
+**Las reglas que quedan:**
+- **Cambiar de pantalla desde un menú va por un LINK, no por `router.push` en un botón.** La guarda de la lección a
+  medio guardar del Classroom (`useLeccionAbierta`) ataja los `<a href>` del documento en captura; el botón de la
+  cabecera navegaba con `router.push` y se la saltaba (la del Classroom sí preguntaba, y era la que se iba).
+- **Mudar una pieza es mudar también lo que traía de regalo.** El «Otro color» con su espera de 450 ms y el «Deshacer»
+  del color vivían sólo en el menú que se fue: «Personalizar» no los tenía.
+- **El teléfono repite rótulos de escritorio POR ARCHIVO** (tests/m-curso.test.ts, la tabla `ORIGEN`): sacar «Cursos»
+  de CursoApp.tsx rompió ese test, que no nombra el Classroom. La lista del teléfono pasó a «Programas», como la cabecera.
+- **Siete tests fijaban el lugar viejo** (curso-apariencia, curso-estilo, curso-nuevo-producto, curso-comentarios-clase,
+  cursos-ugc, curso-guardado-manual, curso-recorridos). Se reescribieron para fijar el lugar nuevo con la misma intención
+  (que el deshacer escriba en el server, que se pregunte por la lección sin guardar), no se borraron.
+- **Un menú que se abre desde el título, aunque sea con el clic DERECHO, es un desplegable.** La tanda 3 le había puesto
+  al título de la barra negra el clic derecho del programa (Renombrar, Eliminar), con el argumento de que «no lo vuelve
+  clickeable». Martín, al leerlo (25/10): «recuerda que en la sidebar negra de classroom el título de arriba de la
+  sidebar no debe ser un desplegable». Se sacó: el título es TEXTO (un `div`, sin botón, menú, flecha ni clic derecho), y
+  el menú del programa vive sólo en la cabecera de Clients. tests/clients-un-selector.test.ts lo fija. ⚠️ El clic
+  derecho en módulos y clases SÍ queda: ahí abre su «…», que ya existía.
+
+**Quedó SIN hacer, y dónde:**
+- Si f29 era otra cosa (Leandro entró con su Google de MaKo y vio su propia cuenta), el arreglo no la toca: lo de arriba
+  es la lectura de Martín en la llamada («que ahí solamente diga Fiesta Music y que no se puedan crear varios cursos»).
+- Un alumno con dos programas sigue eligiendo en el desplegable de SU barra (PortalAlumno.tsx): no tiene cabecera.
+- Nada se miró en el navegador.
+
+**Vive en:** `app/clients/ClientsShell.tsx` (`Programa`, `Personalizar`) · `app/customer-success/curso/CursoApp.tsx` ·
+`app/compartido/curso/[token]/PortalAlumno.tsx` · `lib/curso-nombre.ts` · `app/m/curso/modelo.ts` ·
+`tests/clients-un-selector.test.ts` (6 roturas, cada una cae)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*
+
+## Eliminar un programa, el clic derecho del Classroom, y MaKo diciendo «Customer Success» (25/10/2026, f25, f26 y f30)
+
+**Síntomas** (llamada con Leandro): «El curso sin nombre lo quiero eliminar. ¿Existe todavía la opción de eliminar?»
+(@49:10); «el click derecho (...) Leandro lo estaba usando en Classroom (...) y no funciona» (@38:00); y MaKo le dijo
+que los cursos estaban «en Customer Success», una tab que ya no existe (@48:04).
+
+**Causa.** Eliminar un producto SÍ existía, pero escondido en el editor de etapas del kanban (`eliminarServicioAction`):
+desde el curso no había camino. El clic derecho no existía en Clients. Y MaKo lee el título del área `cs` y las
+descripciones de la API (`AREA_INFO`, los `.def.ts`), que seguían con el nombre de antes del 17/10.
+
+⚠️ **El diagnóstico obvio era el equivocado**: «hay que construir eliminar». Ya estaba hecho, con la decisión del CRM
+(archivar los embudos, y si no hay ninguno, la baja). Lo que faltaba era el lugar, la cuenta de alumnos y el «Deshacer».
+
+**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (el título de la barra negra del Classroom NO:
+es texto, ver «Dos selectores de programa», arriba): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
+pregunta sólo con alumnos o clases, con la cuenta (`preguntaAlEliminar`), archiva por la MISMA action (que ahora devuelve
+QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «…». MaKo y los avisos de la tab dicen
+«Clients»; las claves (`cs`, `customer-success`) no se tocaron.
+
+**Las reglas que quedan:**
+- **Un «Deshacer» que tiene que cruzar una recarga va en `sessionStorage`, con plazo y leído UNA vez.** Eliminar cambia
+  QUÉ EXISTE y por eso navega duro (AGENTS.md: un refresh llega un paso atrás); el aviso con su botón se perdía con la
+  página. La cabecera nueva lo lee al montar, lo borra y sólo lo muestra dentro de los 12 segundos (`NOTA_DESHACER`).
+- **Una action que hace una de dos cosas devuelve CUÁL hizo**, para que deshacer sea lo inverso exacto y no una
+  adivinanza (`DeshacerEliminar`: los embudos archivados, o la baja). Y lo que vuelve del navegador se valida contra la
+  base antes de escribir (`deshacerValido`: un embudo ajeno no se restaura).
+- **Un menú que navega con `router.push` se salta la guarda de la lección sin guardar**: el menú del programa no tiene
+  «Abrir» (abrir es el link de la fila).
+- **El clic derecho de algo que ya tiene «…» abre ESE «…»**, no una segunda lista: renombrar, mover y eliminar un módulo
+  o una clase ya estaban ahí, con sus preguntas y sus «Deshacer». Sobre un texto que se está editando queda el del
+  navegador (copiar, pegar).
+- **El título de un área de la API es texto que MaKo lee**, no una clave: la clave es `cs`. El comentario que decía «los
+  títulos no cambian (son la clave del área)» estaba mal y se corrigió.
+
+**Quedó SIN hacer, y dónde:**
+- ~~**Duplicar**~~ el programa entero: hecho el 25/10 (ver «Duplicar un programa», abajo). Un módulo o una clase
+  sueltos, todavía no.
+- El principal no se elimina (lo frena `archivarFunnel`): si el «Curso sin nombre» de Leandro es su producto principal,
+  su menú sólo ofrece Renombrar. No se pudo medir: leer su negocio está bloqueado desde esta sesión.
+- ~~«Customer Success» en OTRAS áreas~~: el 25/10 pasaron a «Clients» el selector de acciones de Automations
+  (`lib/editor-acciones.ts`), las áreas de los gráficos (`lib/graficos-*.ts`, `app/dashboard/Propiedades.tsx`), el
+  catálogo de modelos (`lib/model-catalogo.ts`), el grupo del registro de prompts y lo que dice unificar dos leads: son
+  rótulos, ningún flujo ni tablero guarda el nombre del área. Quedan, a propósito: los prompts que dicen «asistente de
+  Customer Success» (es el oficio, no la tab), el «CS Analyst» (su nombre), el catálogo de proyectos del Plan (los nombres
+  son las filas de la base), la ficha del lead del CRM (`'Customer Success': 'cs-resumen'`, de otro chat) y la VSL.
+- Nada se miró en el navegador.
+
+**Vive en:** `app/customer-success/eliminar-programa.ts` · `app/customer-success/actions.ts` (`eliminarServicioAction`,
+`previaEliminarServicioAction`, `restaurarServicioAction`) · `app/clients/menu-contextual-clients.ts` ·
+`app/clients/ClientsShell.tsx` · `app/_cursos/CursoUgc.tsx` (`clicDerechoAlMenu`) · `lib/api-mako/tipos.ts` ·
+`tests/clients-eliminar-programa.test.ts` (10 roturas) y `tests/clients-nombre-en-mako.test.ts` (3 roturas)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*
+
+## Duplicar un programa: qué se copia, qué no, y los archivos que el alumno no vería (25/10/2026)
+
+**Pedido** (Martín por el Cerebro, después de la llamada con Leandro): duplicar un programa «de punta a punta (...) curso,
+módulos, clases y su configuración; nunca los alumnos ni su progreso», en el «…», el clic derecho y la API de MaKo.
+
+**Lo que no se ve leyendo el código:**
+- **Copiar las filas no alcanza: los archivos son de UN producto.** Un adjunto se le sirve al alumno sólo si es del mismo
+  producto que la clase (`decidirAdjuntoAlumno`), y un video subido, sólo si su ruta es `<ws>/<producto>/…`
+  (`pathEsDelProducto`, también al GUARDAR la clase). Con la ruta del original, las imágenes de la copia le darían 404 al
+  alumno y la clase no se podría volver a guardar. Se copian los archivos a rutas del producto nuevo (`storage.copy`, del
+  lado del server) y se reescribe `mako-adjunto:<id>` en la descripción y en cada tarea.
+  ⚠️ **El diagnóstico obvio era el equivocado**: aflojar esos dos chequeos para que la copia comparta el archivo. Son
+  guardas de seguridad escritas a propósito (y con test): el que ve un archivo es el alumno de ESE producto.
+- **Los videos subidos pesan, y el Storage es UNO para toda la plataforma** (5 GiB). Se copian sólo si entre todos no
+  pasan 300 MB (`TOPE_VIDEOS_COPIA`); si no, esas clases quedan sin video y el aviso lo dice. Todos o ninguno: una copia
+  con la mitad de los videos se lee como rota. Un video cuyo peso no se pudo leer cuenta como que no entra.
+- **Los ids de las clases cambian, las claves de los módulos no.** Un candado «al terminar la tarea de la clase N» y las
+  claves `portada:clase:N` / `comentarios:clase:N` del estilo apuntan al id viejo: se traducen con el mapa viejo → nuevo, y
+  por eso los candados se escriben DESPUÉS de insertar todas las clases. Las claves de los módulos son las de las etapas
+  de la entrega, que se copian igual.
+- **Una tarea de la comunidad no se lleva el post ni la categoría**: son de la comunidad del original. Sin ellos caen a
+  su default (el último fijado, la primera categoría donde puede publicar), que es lo que tendrá la comunidad nueva.
+- **No es una transacción.** Si algo falla a mitad, la copia se ARCHIVA y se devuelve el error: una copia a medias no
+  queda a la vista pareciendo entera.
+- **Eliminar y restaurar se sacaron de la action a `app/customer-success/programa-datos.ts`**: las usan la pantalla y la
+  API de MaKo, y la puerta (el admin, el gating) es de cada una.
+
+**Quedó SIN hacer, y dónde:**
+- No se copian, a propósito: la comunidad (categorías, About, niveles), las notas del equipo de cada clase
+  (`curso_clase_notas`), las automatizaciones de la entrega, el embudo de ventas con sus etapas del CRM (nace con la
+  plantilla, como «+ Nuevo producto») y el precio del producto. Si Martín quiere alguno, va en `lib/curso-duplicar.ts`.
+- Duplicar un módulo o una clase sueltos (no el programa entero) no existe.
+- No se probó contra la base ni en pantalla (sin RAM para `next dev`; leer producción está bloqueado desde esta sesión).
+
+**Vive en:** `lib/curso-duplicar.ts` · `lib/curso-duplicar-reglas.ts` · `app/customer-success/programa-datos.ts` ·
+`app/customer-success/actions.ts` (`duplicarServicioAction`) · `app/clients/ClientsShell.tsx` (`duplicar`, `NOTA_DESHACER`) ·
+`lib/api-mako/areas/curso.def.ts` y `.run.ts` (`duplicar_curso`, `renombrar_curso`, `eliminar_curso`, `restaurar_curso`) ·
+`tests/clients-duplicar-programa.test.ts` (10 roturas, cada una cae)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*

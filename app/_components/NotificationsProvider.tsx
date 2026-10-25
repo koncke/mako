@@ -22,6 +22,7 @@ import { useTelefono } from './VistaMovil';
 import { inAppActivo, type NotifInApp } from '@/lib/notif-catalogo';
 import { rutaChatsDeWhatsapp } from '@/lib/chats-links';
 import { esperarPausa, useDeslizarParaCerrar } from '@/app/_ui/descartar';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * Aviso de que alguien acaba de guardar sus preferencias en Configuraciones ›
@@ -102,10 +103,7 @@ function playChord(notas: Array<[number, number]>, tipo: OscillatorType = 'trian
 function playApproval() { playChord([[660, 0], [880, 0.12], [1175, 0.24]]); }
 function playRejected() { playChord([[440, 0], [311, 0.18]], 'sine'); }
 
-function initials(name: string): string {
-  const p = (name || '').trim().split(/\s+/);
-  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '·';
-}
+const initials = (name: string): string => iniciales(name, 2, '·');
 
 // ── Estado de "leído" propio ──────────────────────────────────────────────────
 // Por cada chat guardamos hasta qué fecha ya leímos. Un chat está SIN LEER si su último

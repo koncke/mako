@@ -52,6 +52,7 @@
 import { htmlEmailVacio } from './email-html-seguro';
 // Instagram y Messenger (sexta tanda, parte «canales»): sus tarjetas, su ＋ y su «Probar». Puro.
 import { esCanalSocial, logoSocialSvg, VENTANA_META_MS, type CanalSocial } from './canal-social';
+import { botonesDeFlujo, puertoDeBoton } from './botones-social';
 // Puro: cuántas etiquetas lleva una tarjeta TAG y cómo se dice («Agregar Cualificado y 2 más»). El
 // verbo vive en UN lugar, `VERBO_ETIQUETA` (sexta tanda, TAG 1 y 2).
 import { etiquetasDelPaso, textoDeEtiquetas } from './editor-acciones';
@@ -1107,10 +1108,14 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
         // Un DM de Instagram o Messenger después de una espera de más de 24 h: Meta no deja escribirle
         // y el motor lo cierra sin mandar (`decidirSalida`, lib/canal-social.ts). Se avisa en la tarjeta.
         const fueraDeVentana = social != null && esperaAntesDe(pasos, id) > VENTANA_META_MS / 60_000;
+        // LOS BOTONES (24/10/2026, lib/botones-social.ts): cada uno de flujo es una FILA de la tarjeta, arriba de «Entonces»,
+        // con su círculo y su ＋, como una fila de una condición: «Obtener recurso» lleva a lo que pasa cuando lo tocan.
+        const filasBotones: PuertoNodo[] = social ? botonesDeFlujo(p).map((b) => ({ id: puertoDeBoton(b.id), rotulo: b.titulo, tono: 'buena' as const, vacio: !b.siguiente })) : [];
+        const botonSinDestino = filasBotones.find((b) => b.vacio);
         t = {
           ...base, tipo: 'mensaje', familia: 'contenido', titulo, icono, canal: social ?? (email ? 'email' : 'whatsapp'),
-          puertos, ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO,
-          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : {}),
+          puertos: [...filasBotones, ...puertos], ...pie, alto: altoDeMensaje(p, audio) + ALTO_PUERTO * (1 + filasBotones.length),
+          ...(vacio ? { advertencia: 'Sin escribir' } : fueraDeVentana ? { advertencia: AVISO_VENTANA_META } : botonSinDestino ? { advertencia: `El botón «${botonSinDestino.rotulo}» no lleva a ninguna tarjeta` } : {}),
         };
       }
     }

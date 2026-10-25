@@ -189,7 +189,8 @@ test('cada turno re-POSTea el pedido ORIGINAL con las respuestas acumuladas (y l
   assert.equal(turnoDelUsuario(PEDIDO, [opcion.respuesta], conCron, 'app')?.texto, 'Comenta un post', 'el turno se guarda con el rótulo');
   assert.equal(turnoDelUsuario(PEDIDO, [opcion.respuesta], [...conCron, yo('y3', 'Comenta un post')], 'app'), null, 'con el turno al final, no se guarda');
   // Lo escrito con una pregunta abierta ES «Otra cosa».
-  assert.match(CHAT, /if \(ronda\) \{ const r = respuestaMako\(ronda\.pregunta, \{ texto: t \}\); return turno\(r\.texto, r\.respuesta, origen, undefined, adj\); \}/);
+  // (24/10/2026, f17: y la nota de voz del mensaje, que se escucha en su globo.)
+  assert.match(CHAT, /if \(ronda\) \{ const r = respuestaMako\(ronda\.pregunta, \{ texto: t \}\); return turno\(r\.texto, r\.respuesta, origen, undefined, adj, voz\); \}/);
 });
 
 // ── 3. El lector ─────────────────────────────────────────────────────────────────────────────────

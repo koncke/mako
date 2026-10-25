@@ -62,7 +62,7 @@ import { disparadorDeValorIA, valorIADeDisparador, type Disparador } from '@/lib
 import { disparadoresDeSecuencia } from '@/lib/disparadores-canales';
 import { armarContexto, crearNuevas, generar, crearFlujoConIA } from '@/lib/flujo-ia-crear';
 import { esConsulta, deIARespuesta, userDeExplicar, EXPLICAR_IA_SYSTEM_TEMPLATE } from '@/lib/flujo-ia-consulta';
-import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta } from '@/lib/flujo-ia-intencion';
+import { intencionDe, extrasDelUser, vaAExplicar, esPreguntaDirecta, lugarInventado } from '@/lib/flujo-ia-intencion';
 import { revisarEdicion, etapaQueNoExiste, textoEtapaQueNoExiste } from '@/lib/flujo-ia-revision-editar';
 import {
   sanearRespuestas, aplicarRespuestas, turnoDelUsuario, mensajeChat, mensajeDePregunta, respuestaDelCron,
@@ -280,12 +280,13 @@ export async function POST(req: NextRequest) {
         const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
-        const contestar = async (respuesta: string) => {
+        // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo; el globo ofrece pasárselo al equipo (./falta/route.ts).
+        const contestar = async (respuesta: string, falta?: string) => {
           if (req.signal.aborted) return;
-          await anotar([mensajeChat('mako', respuesta, 'app')]);
+          await anotar([mensajeChat('mako', respuesta, 'app', falta ? { falta } : {})]);
           send({
             t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
-            resumen: respuesta, cambiadas: [], quitadas: [],
+            resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}),
           });
         };
         // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
@@ -303,13 +304,19 @@ export async function POST(req: NextRequest) {
           const cron = ctx.disparadores.find((x) => x.value === disparadorActual)?.label ?? null;
           const user = [userDeExplicar({ cron, flujo: JSON.stringify(aIA(base, ctx)), pregunta: pedido }), ...extras].join('\n\n');
           send({ t: 'fase', fase: 'respuesta' });
-          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: deIARespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
+          // Y un lugar de Configuraciones que no existe es un error, como en Editar (24/10/2026, f22: `lugarInventado`).
+          const traducirRespuesta = (obj: Record<string, unknown>) => {
+            const x = deIARespuesta(obj);
+            const falso = x.r.respuesta ? lugarInventado(x.r.respuesta) : null;
+            return falso ? { ...x, errores: [...x.errores, falso] } : x;
+          };
+          const g = await generar({ system, user, hastaMs: inicio + PLAZO_MODELO_MS, traducir: traducirRespuesta, motivo: 'Contestar una pregunta sobre una automatización' });
           if ('error' in g) {
             await anotar([mensajeChat('mako', g.error, 'app')]);
             send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
             return;
           }
-          await contestar(g.r.respuesta);
+          await contestar(g.r.respuesta, g.r.falta);
           return;
         }
 
@@ -337,7 +344,7 @@ export async function POST(req: NextRequest) {
         }
         const r = g.r;
         // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
-        if (r.respuesta) { await contestar(r.respuesta); return; }
+        if (r.respuesta) { await contestar(r.respuesta, r.falta); return; }
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.

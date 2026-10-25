@@ -117,10 +117,9 @@ test('cada fila de More es la de la sidebar: el nombre, el ícono, la familia y 
     assert.equal(familia, fila.familia, `${s.id}: en More va en «${familia}» y en la sidebar en «${fila.familia}»`);
     // Clients: en el teléfono cada sección es su fila, con el nombre y el ícono de la sección.
     const deLaSidebar = fila.item.key === 'clients' && fila.seccion ? fila.seccion : fila.item;
-    // Salvo las hojas del Dashboard (17/10/2026 noche): el nombre «Dashboard» lo lleva el lugar del medio de la barra, y su
-    // fila de More dice «Dashboard sheets» para no repetirlo; la PANTALLA se sigue titulando Dashboard (`titulo`).
-    const rotulo = s.id === 'dashboard' ? s.titulo : s.label;
-    assert.equal(rotulo, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
+    // (Las hojas del Dashboard dijeron «Dashboard sheets» del 17 al 24/10/2026; desde que hay UN solo Dashboard en More, la
+    // fila que sale dice lo que dice la sidebar, como todas.)
+    assert.equal(s.label, deLaSidebar.label, `${s.id}: la fila no dice lo que dice la sidebar`);
     assert.equal(s.icon, deLaSidebar.icon, `${s.id}: el ícono no es el de la sidebar`);
     if (s.familia === null) continue;
     assert.ok(fila.orden > anterior, `${s.id}: fuera del orden de la sidebar`);

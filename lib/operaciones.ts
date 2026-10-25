@@ -42,6 +42,7 @@ import { guardarPasos } from './centro-pasos-db';
 import { after } from 'next/server';
 import { anotarTurnosDelPlan, aplicarPlanDeLosChats } from './centro-plan-auto';
 import { guardarPreguntas } from './centro-preguntas-chat-db';
+import { cadenasDeSesiones } from './centro-chats';
 import { sanearPreguntas } from './centro-preguntas-chat';
 import { AVISOS_POR_VUELTA, destinoDeDecision, filaAviso, mismoInstante, necesitaAviso } from './decisiones-aviso';
 import { borrarAdjuntosDe } from './operaciones-adjuntos';
@@ -330,6 +331,14 @@ export async function tokenDelCarteroValido(token: string): Promise<boolean> {
   return !!tok;
 }
 
+/** Las sesiones de cada chat en todas las cuentas (lib/centro-chats.ts → cadenasDeSesiones), de lo que subió cada cartero. Si no
+ *  se pueden leer, ninguna: cada pregunta se supera sólo con los turnos de su sesión, como antes del 25/10/2026. */
+async function cadenaDeLasCuentas(): Promise<Map<string, string[]> | undefined> {
+  const { data, error } = await getSupabaseServer().from(T_CARTEROS).select('chats');
+  if (error) { console.error('[operaciones] la cadena de los chats:', error.message); return undefined; }
+  return cadenasDeSesiones((data ?? []).map((f) => ({ chats: sanearChats(f.chats) })));
+}
+
 export async function cicloCartero(token: string, entrada: unknown): Promise<SalidaCiclo | null> {
   if (!(await tokenDelCarteroValido(token))) return null;
   const db = getSupabaseServer();
@@ -364,17 +373,21 @@ export async function cicloCartero(token: string, entrada: unknown): Promise<Sal
   // pudo guardar, la vuelta sigue: la PC no avanza su marca hasta que MaKo diga que entró (`turnosOk`).
   let turnosOk = true;
   const turnos = sanearTurnos(e.turnos);
+  const preguntas = sanearPreguntas(e.preguntas);
+  // LA CADENA de cada chat (25/10/2026): sus sesiones en TODAS las cuentas, las que el Ops Center junta por el nombre. Un turno
+  // de la cuenta 1 supera la pregunta que el mismo chat hizo en la cuenta 2 («Ventas de MaKo», 23/10). Sin poder leerla, se
+  // supera como antes, por sesión (`cadenaDeLasCuentas`).
+  const cadena = turnos.length || preguntas.length ? await cadenaDeLasCuentas() : undefined;
   if (turnos.length) {
-    try { await guardarTurnos(turnos); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
+    try { await guardarTurnos(turnos, cadena); } catch (err) { turnosOk = false; console.error('[operaciones] turnos:', err instanceof Error ? err.message : err); }
   }
   // Las preguntas de los chats (17/10/2026, Martín: «en lugar de darme las opciones tipo multiple select»): el formulario de
   // su conversación (lib/centro-preguntas-chat.ts). Si no se pudieron guardar, la PC las vuelve a subir en la vuelta siguiente.
   let preguntasIds: string[] = [];
-  const preguntas = sanearPreguntas(e.preguntas);
   if (preguntas.length) {
     // Si no se pudieron guardar, la vuelta NO avanza las marcas (`turnosOk`): una pregunta de wrap_up sale de una línea del
     // transcript, y con la marca adelante nadie la volvía a leer (la revisión de caja-voz, 20/10/2026).
-    try { preguntasIds = await guardarPreguntas(preguntas); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
+    try { preguntasIds = await guardarPreguntas(preguntas, cadena); } catch (err) { turnosOk = false; console.error('[operaciones] preguntas:', err instanceof Error ? err.message : err); }
   }
   // El Plan de cada chat se arma solo (17/10/2026, la D): «Voy a trabajar en…» crea su tarea y «Ya está» la marca hecha.
   // Anotarlo es rápido; aplicarlo en el Plan pasa por el Perro (hasta un minuto por paso) y va DESPUÉS de contestarle al

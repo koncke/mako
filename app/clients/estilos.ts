@@ -105,13 +105,27 @@ button.cls-prog:hover{ background: var(--cl-acento-suave); }
   cursor: pointer;
 }
 .cls-opcion:hover{ background: var(--cl-acento-suave); }
-.cls-opcion[aria-current="true"]{ background: var(--cl-acento-suave); font-weight: 800; }
+.cls-opcion[aria-current="page"]{ background: var(--cl-acento-suave); font-weight: 800; }
 .cls-opcion .cls-sello{ width: 28px; height: 28px; font-size: 13px; border-radius: 8px; box-shadow: none; }
 .cls-colores{ display: flex; flex-wrap: wrap; gap: 8px; padding: 2px 6px 10px; }
 .cls-color{
   width: 30px; height: 30px; border-radius: 999px; border: 2px solid var(--cl-tinta); cursor: pointer; padding: 0;
 }
-.cls-color[aria-pressed="true"]{ box-shadow: 0 0 0 3px var(--cl-card), 0 0 0 5px var(--cl-tinta); }
+.cls-color[aria-pressed="true"], .cls-color--otro[data-on="true"]{ box-shadow: 0 0 0 3px var(--cl-card), 0 0 0 5px var(--cl-tinta); }
+.cls-color--otro{ position: relative; overflow: hidden; display: inline-block;
+  background: conic-gradient(#ff6b6b, #ffd43b, #69db7c, #4dabf7, #b197fc, #ff6b6b); }
+.cls-color--otro input{ position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); opacity: 0;
+  cursor: pointer; border: 0; padding: 0; }
+a.cls-opcion{ text-decoration: none; box-sizing: border-box; }
+.cls-fila-prog{ display: flex; align-items: center; gap: 4px; }
+.cls-fila-prog > .cls-opcion{ flex: 1; min-width: 0; }
+.cls-mas{ flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--cl-dim);
+  font: 800 16px/1 var(--cl-letra); cursor: pointer; opacity: 0; }
+.cls-fila-prog:hover .cls-mas, .cls-mas:focus-visible{ opacity: 1; }
+.cls-mas:hover{ background: var(--cl-acento-suave); color: var(--cl-tinta); }
+@media (hover: none){ .cls-mas{ opacity: 1; } }
+.cls-opcion--nuevo{ font-weight: 700; color: var(--cl-dim); }
+.cls-opcion--nuevo:hover{ color: var(--cl-tinta); }
 .cls-sep{ height: 1px; background: var(--cl-linea); margin: 4px 6px 10px; }
 .cls-nota{ margin: 0 6px 8px; font-size: 12.5px; color: var(--cl-dim); }
 `;

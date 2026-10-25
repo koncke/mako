@@ -64,6 +64,7 @@ function contactoDe(p: Propuesta): string {
 
 export default async function BandejaPropuestasPage() {
   const sesion = await getUsuarioActual();
+  // En una carga directa ya redirigió app/crm/layout.tsx, antes del loader; esto queda para cuando se llega navegando.
   if (!sesion) redirect(await rutaConWs('/inicio'));
 
   // Degrada a lista vacía en vez de romper: una bandeja caída no puede tumbar la

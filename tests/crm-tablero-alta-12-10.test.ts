@@ -192,7 +192,8 @@ test('sin «Cancelar»; arriba el bloque de traer (otro funnel, un grupo, un arc
   const pie = nf.slice(nf.lastIndexOf('<div', iCrear), iCrear);
   assert.doesNotMatch(pie, /onTraer|onTraerGrupo|onImportar|vaciar/, 'el pie volvió a juntar cosas de distinto rango');
   // «Importar» abre la importación de siempre (cierra el alta antes).
-  assert.match(codigo('app/crm/CrmBoard.tsx'), /onImportar: \(\) => \{ setNuevoLead\(null\); setImportar\(true\); \},/, 'el tablero no conecta «Importar»');
+  // Desde el 24/10/2026 «Importar» se abre ENCIMA del alta, sin cerrarla (tests/crm-modales-encima.test.ts).
+  assert.match(codigo('app/crm/CrmBoard.tsx'), /onImportar: \(\) => setImportar\(true\),/, 'el tablero no conecta «Importar»');
 });
 
 test('el server guarda el Instagram del alta con la regla de la ficha, y sin la mig 0258 un alta sin él entra igual', () => {

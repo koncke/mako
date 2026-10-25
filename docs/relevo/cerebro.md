@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 24/10/2026 ~21:30, cuenta 5 «Ananda» (claude5)
+## ⏩ LEER PRIMERO — 25/10/2026 ~09:50, cuenta 5 «Ananda» (claude5)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta, la voy a llamar X. Continúa con todo» y con eso
 alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
@@ -26,23 +26,26 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 5. **`/admin/dev`:** sumá la cuenta a `CUENTAS` (`app/admin/dev/_registro/tipos.ts`): sin la fila, un hito firmado por
    ella rompe la pantalla.
 
-## Estado al escribir (24/10 ~21:30)
+## Estado al escribir (25/10 ~09:50)
 
-- **`main` = `59d228ea1`, en producción. El tren (`C:/dev/wt-push-q`, rama `tren-j`) tiene ~18 commits encima, SIN
-  subir:** el feedback textual y el relevo de claude1, la guarda del aviso «ya quedó arreglado» del Ops Center
-  (`b2aa04e1c`), el script que mide el goteo (`0af3213d9`), docs de CRM y Landings, la cuenta 5 en `/admin/dev`, las
-  negritas del índice, el rojo de las sesiones de los hitos y P1. Sale con las primeras puntas de los chats: UN typecheck.
-- **Chats de la cuenta 5:** Cerebro, Runner, CRM (puntos 12-21), Landings (3-10, después P6 y P5), Ops Center (22 y 23,
-  el Uso con la cuenta 5, Settings, el 24, el ticket #8, la caja que le escribe al Cerebro cerrado, las opciones que no se
-  tocan en el teléfono), Planes (1 y 2), Automations (medir el goteo, los 3 rojos de main, P11, «Analizar con MaKo» fuera y
-  la criatura con la hoja abierta).
-- **Las capturas de los 24 puntos:** `C:/dev/cerebro-herramientas/capturas-24-10/` (c01-c11 y el texto).
-- **Hecho por el Cerebro:** P1 (el negocio de prueba de diseño, sin las 26 credenciales copiadas de Mauricio; las 38 de
-  él, intactas), P2 (los 6 pedidos: los 2 del dictado cerrados, 2 repartidos, los tickets #5 y #6 en verificación), P9
-  (la guarda del Ops Center, mergeada y medida contra producción) y P10.
-- **Sin repartir todavía:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 y P8 (registrados), el cobro
-  (Paddle/Creem + Mercado Pago, cuando Martín aplique), avisarle a Código Inmobiliario lo de su `/gracias` (cuando Landings
-  cierre P6) y M5 de Mauricio (el redirect del Payment Link y el píxel de su página de venta).
+- **`main` = `75b367235`, subido con tipos en verde.** Producción servía `44def1637` (desplegado a las 09:19); el despliegue de
+  `75b367235` (la tanda 2 del Media Buyer) quedó en marcha. La noche del 24 al 25 subieron cuatro trenes: lo de la llamada con
+  Leandro (CRM, Clients, Automations, Calendario), los botones de Instagram, el Media Buyer (`/ads-manager`, copiado de Madgicx,
+  apagado), la landing nueva SIN publicar, el recolector del Second Brain, Ops Center (los que esperan arriba, sin «1 de 3»,
+  `unirPreguntas`) y Planes (Acelerador con promesa y garantía, Partners meses + US$300, anual, garantía 14/30, pesos).
+- **Chats de la cuenta 5, todos sin nada en cola salvo Ops Center:** Ops Center hace el «Completado» como bloque arriba de la
+  caja (pedido de Martín del 25/10 09:32). Media Buyer espera a Martín (abajo). Landings tiene la tanda 2 de landings por
+  funcionalidad y avatar (§6b de docs/como-venden-otros.md) sin empezar.
+- **Instalado por el Cerebro:** el hook `sin-ask.mjs` (un AskUserQuestion se vuelve `cartero preguntar`; lo toman los chats que
+  se abren desde ahora), el cartero 1.18.1, y la guardia de RAM más estricta (`memoria.mjs`, respaldo `.antes-25-10`).
+- **Decisiones de venta del 25/10:** memoria `decisiones-venta-25-10`. Media Buyer reemplaza al Ads Manager: memoria
+  `media-buyer-ia-reemplaza-ads-manager`.
+- **Los informes:** docs/ram-de-la-pc.md (lo que más rinde: 32 GB) y docs/como-venden-otros.md (80 productos con landing).
+- **Sin repartir:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 (el cartero como servicio), el cobro
+  (Paddle/Creem + Mercado Pago, cuando Martín aplique), la extensión que no inyecta mako-puente.js en una pestaña ya abierta
+  (lo vio CRM), y si el portal del ALUMNO también saca el desplegable de «Tus programas» (pregunta para Martín).
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
 
 ## Lo que NO se vuelve a discutir
 
@@ -65,11 +68,15 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 ## Trabado esperando a Martín
 
-1. **La sesión de MaKo en el navegador de la app** (ya está abierto en la pantalla de entrada: «Continuar con Google»).
-   Sin eso no se verifica nada en pantalla.
-2. ~~El QR del WhatsApp de MaKo~~ **Era un dato viejo:** medido el 24/10 a las 21:50, la línea del negocio de Martín está conectada (termina en 3479).
-3. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
-4. ~~Apagar el registro abierto de Supabase~~ **HECHO el 24/10 ~22:10** por el Cerebro en el Chrome de Martín (él confirmó el segundo factor de GitHub); `/auth/v1/settings` da `disable_signup: true`.
+1. **Las migraciones 0332 (Media Buyer) y 0333 (recolector):** revisadas por el Cerebro, aditivas y por negocio. Aplicarlas en
+   producción lo frena el clasificador de permisos en los chats; espera el sí de Martín en ESTE chat. El código las tolera.
+2. **Conectar la cuenta publicitaria de MaKo a Zernio:** un clic de permisos de Facebook. Sin eso el Media Buyer no decide
+   sobre ninguna cuenta real.
+3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
+4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+5. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+6. **La RAM a 32 GB** (2 SODIMM DDR4-3200 de 16 GB, ~USD 290), sacar del inicio Copilot/NVIDIA/MEGA y reiniciar.
 
 ## Fechas
 

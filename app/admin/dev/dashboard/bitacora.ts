@@ -741,4 +741,46 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/api-mako/areas/dashboard-bloques.ts', 'lib/api-mako/areas/dashboard.run.ts', 'lib/chat-bloques-dashboard.ts', 'app/_chat/bloques/GraficoHilo.tsx', 'tests/dashboard-bloques-chat.test.ts y tests/dashboard-bloque-grafico.test.ts — probados rompiéndolos'],
     revisar: '/second-brain',
   },
+  {
+    fecha: '24 oct', hora: '15:22', chat: 'Dashboard', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
+    titulo: 'Sacar el AI Analyst también del menú, y que la criatura vea la hoja',
+    pedido: '¿Sacamos también "Analizar con MaKo" del menú de los 3 puntos? → «Sí, y que la criatura vea la hoja»',
+    puntos: [
+      'Llegó por el Ops Center como respuesta a una pregunta; lo hizo el chat Automations de la cuenta 5 la noche del 24/10.',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:10', chat: 'Dashboard', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El AI Analyst salió del Dashboard, y la estrella de MaKo ve la hoja que tienes abierta',
+    puntos: [
+      'La estrella de abajo recibe cada gráfico de la hoja abierta con el período, los filtros y los números que tienes en pantalla. Preguntarle «¿qué ves?» contesta con esas cifras.',
+      'Las personas van con un alias, el mismo en toda la hoja.',
+      'Ya no aparece «AI Analyst» en los 3 puntos ni en el clic derecho, en el Dashboard, en General ni en las Métricas de una automatización.',
+      'Antes de sacarlo se midió que ninguna hoja lo tenía programado: no se pierde nada.',
+      'Si en «Editar con MaKo» pides un análisis, la hoja no se toca y te manda a la estrella.',
+    ],
+    archivos: [
+      'app/dashboard/exportar.ts — pantallaDeHoja: lo que ve la estrella',
+      'lib/chat-desde.ts — Desde.pantalla, y la hoja abierta en las herramientas',
+      'app/dashboard/EditorInforme.tsx — sin el analista; la estrella con la pantalla',
+      'tests/estrella-ve-la-hoja.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/dashboard',
+  },
+  {
+    fecha: '24 oct', hora: '23:55', chat: 'Dashboard', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Dashboard ya no puede romperse al abrirlo cuando te manda a otra pantalla',
+    pedido: 'El Cerebro: «sacar el redirect() de las páginas con loading.tsx encima (React #310) en app/dashboard/page.tsx, app/m/dashboard/page.tsx y app/m/dashboard/[hoja]/page.tsx, a un layout»',
+    puntos: [
+      'Es el mismo error de «La pantalla se rompió» que tuvieron Web Generator y General: cuando el Dashboard tenía que mandarte a otra pantalla mientras cargaba, a veces se caía.',
+      'Pasa en la computadora con el closer o el setter de un negocio que no tiene su hoja, y en el teléfono también con una hoja que no se abre ahí. Ahora te manda antes de empezar a cargar.',
+      'En el teléfono la dirección es la de la computadora (/dashboard): se mira con la misma tabla que usa MaKo para decidir qué pantalla del teléfono mostrar.',
+    ],
+    archivos: [
+      'app/dashboard/layout.tsx y app/m/dashboard/layout.tsx — redirigen antes del loader',
+      'app/dashboard/redireccion.ts y app/m/dashboard/redireccion.ts — la decisión, la misma de las páginas',
+      'tests/redirige-antes-del-loader.test.ts — probado rompiéndolo (6 roturas)',
+    ],
+    revisar: '/dashboard',
+  },
 ];

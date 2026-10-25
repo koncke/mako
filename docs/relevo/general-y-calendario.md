@@ -140,3 +140,12 @@ Bitácoras: `/admin/dev/general`, `/admin/dev/crm`, `/admin/dev/calendario`.
 Ver la sección «Lo que quedó sin hacer» de cada hallazgo. Lo más grande: los bloques de General no obedecen los filtros
 de la hoja, sólo los gráficos (`app/general/piezas.tsx`); el Today del teléfono no mira el informe de General
 (`app/m/hoy`); y el Calendario no tiene la entrega de servicio de CS ni las sesiones de la comunidad (`lib/calendario.ts`).
+
+## 24/10/2026, noche — la estrella y «Llamadas» (chat «Planes», cuenta 5, rama `planes-2510`)
+
+La llamada con Leandro (f07 y f08 de docs/feedback-24-10.md): el Calendario tiene la estrella de MaKo (agenda y mueve con las
+herramientas de reuniones del CRM) y, arriba a la derecha, «Calendario | Llamadas»: la lista de citas de venta del CRM con su
+estado y las tareas del Plan con fecha. Lo aprendido, en docs/hallazgos-calendario.md («La estrella de MaKo y "Llamadas"»).
+Lo que sigue: marcar la asistencia desde la lista, «Llamadas» en el teléfono, y si la grilla deja de ser la copia de Google
+(decisión de Martín).
+

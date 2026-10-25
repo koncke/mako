@@ -85,7 +85,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_avance_curso_cs', area: 'cs', tipo: 'lectura',
     titulo: 'Ver el avance en el curso',
-    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Customer Success › Curso): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
+    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Clients › Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del cliente (de ver_cartera_cs). Sin él, el resumen de toda la cartera.' },
     ],
@@ -188,7 +188,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'mover_cliente_entrega', aTerceros: true, area: 'cs', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mover un cliente en la entrega',
-    descripcion: 'PROPONE pasar a un cliente a otra etapa de la entrega de un servicio, el kanban de Customer Success (queda pendiente hasta el «sí»). Entrar a la etapa arranca sus automatizaciones de entrega, que le pueden escribir al cliente. Sin etapa, la primera. Si ese servicio no era suyo, lo suma a esa entrega. Para deshacer, el mismo pedido con la etapa anterior.',
+    descripcion: 'PROPONE pasar a un cliente a otra etapa de la entrega de un servicio, el kanban de Clients (queda pendiente hasta el «sí»). Entrar a la etapa arranca sus automatizaciones de entrega, que le pueden escribir al cliente. Sin etapa, la primera. Si ese servicio no era suyo, lo suma a esa entrega. Para deshacer, el mismo pedido con la etapa anterior.',
     escribe: 'la etapa del cliente en la entrega de ese servicio (cliente_entrega), con su línea de historial, y lo enrola en las automatizaciones de esa etapa',
     parametros: [
       leadId,

@@ -46,6 +46,24 @@ con `loQueSeVeDe` o `contextoDeGrafico` y la vista, que la ruta sume al contexto
 
 Test: tests/metricas-una-barra.test.ts y tests/dashboard-mako-vista.test.ts.
 
+**Martín decidió (24/10/2026, trabajo 0786cbfe): «Sí, y que la criatura vea la hoja».** Hecho esa noche (claude5, rama
+`aut-2510`), en el orden que pedía la lección de arriba: primero darle a la criatura lo que hay en pantalla, después
+borrar. **Antes de borrar se midió lo que se perdía:** 0 filas en `dashboard_analisis` (base principal, la del ws1 y la del
+ws13): nadie lo había programado ni usado nunca, así que el análisis programado y su punto de «nuevo» se fueron sin
+dejarle nada a nadie.
+- **Lo que ve la criatura:** `pantallaDeHoja` (app/dashboard/exportar.ts) arma cada gráfico de la hoja abierta con
+  `contextoDeGrafico` (período, filtros y números, sin personas) y UN alias para toda la hoja: con un alias por gráfico,
+  «Cliente 1» era una persona distinta en cada uno. Viaja en `Desde.pantalla` (lib/chat-desde.ts) con cada mensaje de la
+  estrella, saneado y con tope (12.000), y `contextoDesde` lo pone en el system como DATOS. No se guarda en el mensaje.
+- **La trampa de `hojaId`, arreglada:** `ENTIDADES.hoja.param` pasó a `hoja`, el nombre que usan las herramientas.
+- **Salió todo lo del analista:** el ⋮, el clic derecho del lienzo (`MenuContextual`, que también lo ofrecía), el panel,
+  el «Analizar · Editar» de «Editar con MaKo» y la guía del ⋮ que lo nombraba. Un pedido de análisis en «Editar con MaKo»
+  ahora manda a la estrella (`GUIA_ANALIZAR` y la respuesta de `aplicarEdicion`): antes decía «lo hace el modo Analizar»,
+  que ya no existe. El evento `analisis_listo` y la plantilla «El AI Analyst Terminó» siguen en el catálogo, sin nadie que
+  los dispare desde la pantalla. **Sin hacer:** sacarlos del catálogo de Automations, y ver en pantalla la respuesta de la
+  estrella con una hoja de verdad (no se levantó `next dev`: la PC tenía 2 GB libres).
+Test: tests/estrella-ve-la-hoja.test.ts.
+
 **Dos defectos que salieron de la misma medición (arreglados el 24/10, tests/metricas-analisis-programado.test.ts):**
 - **El análisis programado de una hoja de Métricas se borraba solo.** La hoja de Métricas era `am-hoja` en TODAS las
   automatizaciones, y el AI Analyst guarda lo suyo por persona y hoja (`dashboard_analisis.hoja_id`). El cron la buscaba

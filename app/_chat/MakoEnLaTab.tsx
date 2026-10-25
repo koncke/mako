@@ -13,7 +13,8 @@
 // Es la conversación del Ops Center del cliente, con SUS piezas: el motor (app/second-brain/useChatCliente.ts), el panel
 // (PanelChat.tsx), el hilo y la caja (app/second-brain/PiezasCliente.tsx). Cada tab la monta con `<MakoEnLaTab tab="CRM" />`.
 // ⚠️ EL PANEL VA PEGADO A LA BARRA DE LA APP (app/_components/Sidebar.tsx, `[data-sidebar]`, 68 o 244 px), no al borde de la
-//    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta).
+//    pantalla: se mide al montar y cada vez que la barra cambia de ancho (se fija o se suelta). Desde el 25/10/2026 FLOTA, con
+//    el marco del Dashboard (12 px de aire, bordes de 14, sombra; punto 12, «Unifica ese diseño»): ./chat.css.
 // ⚠️ ABRIRLO PLIEGA LA BARRA (22/10/2026, Martín: «si abro a MaKo, se debería plegar la sidebar principal, para optimizar
 //    espacios. Si antes la tenía desplegada y fija, al cerrar MaKo debe volver a su lugar»): ./mako-abierto.ts. Es un pliegue
 //    temporal, como el del Ops Center: no pisa lo que la persona guardó.
@@ -43,26 +44,37 @@ import { etiquetaDesde, type Desde, type EntidadChat, type ModoChat } from '@/li
 import { ModosMako } from '@/app/dashboard/ModosMako';
 import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 import { marcarMakoAbierto } from './mako-abierto';
+import { panelDeLaBarra } from './borde-barra';
 import { TrabajosTerminados, useTrabajosSinVer } from './TrabajosDeMako';
 import type { TrabajoTerminado } from '@/lib/mako-trabajos';
 
 /** El ancho de la barra de la app plegada: lo que se usa hasta medirla (y en el server). */
 const BARRA_PLEGADA = 68;
-/** El ancho del panel abierto (el de .ch-tab-panel, app/_chat/chat.css): lo que la tab le deja. */
+/** El ancho del panel abierto (el de .ch-tab-panel, app/_chat/chat.css). */
 const ANCHO_PANEL = 440;
+/** Su aire con la barra y con la tab (el `margin-left` de .ch-tab-panel; 25/10/2026, el marco flotante del Dashboard). */
+const AIRE_PANEL = 12;
+/** Lo que la tab le deja: el panel y su aire a los dos lados. */
+const LUGAR_PANEL = ANCHO_PANEL + 2 * AIRE_PANEL;
 
-/** Dónde empieza el contenido: el borde derecho de la barra de la app, medido; cambia cuando la barra se fija o se suelta. */
-function useBordeDeLaBarra(): number {
+/**
+ * Dónde empieza el contenido: el borde derecho de la barra de la app, medido; cambia cuando la barra se fija o se suelta.
+ * `visible` (24/10/2026, f34): el borde de lo que SE VE, el panel de adentro, que se despliega ENCIMA al pasar el cursor sin
+ * que la barra cambie de ancho (app/_components/Sidebar.tsx). Lo usa la estrella: medida con la barra quedaba debajo del panel
+ * desplegado, y la criatura que volaba a ella se «escondía detrás» (Martín, la llamada con Leandro, 59:33).
+ */
+function useBordeDeLaBarra(visible = false): number {
   const [borde, setBorde] = useState(BARRA_PLEGADA);
   useLayoutEffect(() => {
     const barra = document.querySelector('[data-sidebar]');
-    const medir = () => setBorde(Math.round(barra?.getBoundingClientRect().right ?? 0));
+    const medida = visible ? panelDeLaBarra(barra) : barra;
+    const medir = () => setBorde(Math.round(medida?.getBoundingClientRect().right ?? 0));
     medir();
-    const ro = barra && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
-    if (barra) ro?.observe(barra);
+    const ro = medida && typeof ResizeObserver !== 'undefined' ? new ResizeObserver(medir) : null;
+    if (medida) ro?.observe(medida);
     window.addEventListener('resize', medir);
     return () => { ro?.disconnect(); window.removeEventListener('resize', medir); };
-  }, []);
+  }, [visible]);
   return borde;
 }
 
@@ -99,6 +111,8 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
   const abrir = useCallback(() => { setSobre(encimaDeModales && profundidadModales() > 0); setAbierto(true); }, [encimaDeModales]);
   const prof = useProfundidadModales();
   const borde = useBordeDeLaBarra();
+  // La estrella, al lado de lo que SE VE de la barra (f34): con la barra desplegada encima, se corre y no queda debajo.
+  const bordeVisible = useBordeDeLaBarra(true);
   // Lo que MaKo terminó en otra tab sin que nadie lo mirara: suma al globito.
   const trabajos = useTrabajosSinVer();
   const espera = aviso + trabajos.length;
@@ -117,14 +131,14 @@ export function MakoEnLaTab({ tab, arriba = null, preguntas = null, aviso = 0, p
   // corriéndose lo que mide el panel. Al cerrar, o al salir de la tab con el panel abierto, la barra vuelve a como estaba.
   useEffect(() => {
     const raiz = document.documentElement.style;
-    raiz.setProperty('--ancho-panel-mako', abierto ? `${ANCHO_PANEL}px` : '0px');
+    raiz.setProperty('--ancho-panel-mako', abierto ? `${LUGAR_PANEL}px` : '0px');
     marcarMakoAbierto(abierto);
     return () => { raiz.removeProperty('--ancho-panel-mako'); marcarMakoAbierto(false); };
   }, [abierto]);
   return abierto
     ? <PanelDelCerebro tab={tab} izquierda={borde} arriba={arriba} trabajos={trabajos} preguntas={preguntas} pedido={porMandar} onMandado={() => setPorMandar(null)} entidad={entidad} modo={modo} onModo={onModo} pantalla={pantalla} onCerrar={cerrar} sobre={sobre} />
     : (
-      <button type="button" className="ch-tab-mako" style={{ left: borde + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
+      <button type="button" className="ch-tab-mako" style={{ left: bordeVisible + 16, ...(encimaDeModales && prof > 0 ? { zIndex: zEncimaDeModales(prof) } : {}) }} aria-label={espera > 0 ? `Escríbele a MaKo desde ${tab} (${espera} para ver)` : `Escríbele a MaKo desde ${tab}`}
         title="MaKo" onClick={abrir}>
         <Muneco titulo={JEFE_SECOND_BRAIN} animo="despierto" size={40} espera={espera} />
       </button>

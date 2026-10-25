@@ -6,8 +6,12 @@
 // y /terminos (sección 8) remite acá. Está escrita de MÍNIMA a propósito: no promete nada que el
 // producto no haga hoy. Lo que estaba sin decidir (15/10/2026):
 //   · el plazo de respuesta: DECIDIDO, 5 días hábiles, lo común en SaaS (lo decidió Estrategia);
-//   · la garantía del programa grupal, que hoy se acuerda en la llamada: en la Ticketera de Martín
-//     (`garantia-grupal`; la recomendada, 100% después de la primera sesión);
+//   · la garantía del programa grupal: DECIDIDA el 25/10/2026 por el Cerebro (Martín: «no hagas preguntas»), sobre los
+//     ENTREGABLES de la semana 1, no sobre el resultado (docs/como-venden-otros.md §6c). La frase es la de la tarjeta
+//     (`PROGRAMA_ACELERADOR.garantia`, lib/planes-mako.ts): una sola, para que /planes y esta página no se contradigan;
+//   · la garantía de los planes: DECIDIDA el 25/10/2026 por el Cerebro, 14 días en el mensual y 30 en el anual, en lugar de
+//     una prueba gratis (docs/como-venden-otros.md §6c). Antes decía «el mes ya pagado no se reembolsa». Los días salen de
+//     `GARANTIA_DIAS` (lib/planes-mako.ts), los mismos que dicen las tarjetas de /planes;
 //   · darse de baja sin escribir: DECIDIDO (Estrategia, 15/10) y HECHO el mismo día: el botón «Darme de baja» de
 //     «Configuración del negocio → Tu plan» (app/configuraciones/plan), propio de MaKo para cubrir Stripe y Mercado Pago.
 //
@@ -16,6 +20,7 @@
 // así), y la razón social va en el HTML del servidor (tests/razon-social-sitio.test.ts).
 
 import { EMAIL_MAKO } from '@/lib/app-url';
+import { GARANTIA_DIAS, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -26,7 +31,7 @@ export const metadata = {
   description: 'Cómo cancelar un plan de MaKo, cuándo devolvemos un pago y cómo pedirlo.',
 };
 
-const ACTUALIZADO = '15 de octubre de 2026';
+const ACTUALIZADO = '25 de octubre de 2026';
 
 // El mismo responsable que en /terminos y /privacidad, de la misma constante (lib/titular-mako.ts).
 const RESPONSABLE = `${RAZON_SOCIAL_MAKO} (MaKo)`;
@@ -43,31 +48,53 @@ export default function Page() {
         queda claro, escríbenos a {mail} antes de pagar.
       </>}
     >
-      <H id="mensuales">1. Planes mensuales</H>
+      <H id="mensuales">1. Planes de MaKo (Esencial y Pro)</H>
       <ul>
         <li>
-          Se pagan <strong>por adelantado</strong> y se renuevan solos cada mes, con el mismo medio de
-          pago, hasta que los canceles.
+          <strong>Garantía de {GARANTIA_DIAS.mensual} días en el plan mensual y de {GARANTIA_DIAS.anual} en el anual.</strong>{' '}
+          Si en esos días, contados desde tu primer pago, MaKo no te sirve, te devolvemos ese pago entero. La pides
+          escribiéndonos a {mail}. Vale para el primer pago de cada negocio, una vez.
+        </li>
+        <li>
+          El plan mensual se paga <strong>por adelantado</strong> y se renueva solo cada mes, con el mismo medio de pago,
+          hasta que lo canceles. El anual se paga una vez por los 12 meses.
         </li>
         <li>
           <strong>Puedes darte de baja cuando quieras</strong>, tú mismo con el botón «Darme de baja» de{' '}
-          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el mes siguiente, y te
+          <strong>Configuración del negocio → Tu plan</strong>. Al darte de baja, no se te cobra el período siguiente, y te
           llega un código de baja por email.
         </li>
         <li>
-          <strong>El mes ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos
-          de la sección 3.
+          Pasada la garantía, <strong>lo ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos de la
+          sección 3. Si te das de baja, sigues usando MaKo hasta que termina lo que pagaste.
         </li>
       </ul>
 
-      <H id="grupal">2. Programa grupal</H>
+      <H id="grupal">2. {PROGRAMA_ACELERADOR.nombre}, el programa con acompañamiento</H>
       <p>
-        El programa grupal tiene la <strong>garantía que acordamos contigo en la llamada</strong>, y
-        se aplica tal como quedó acordada. Si no la tienes por escrito, escríbenos a {mail} y te la
-        confirmamos antes de que pagues.
+        <strong>Garantía de entrega:</strong> {PROGRAMA_ACELERADOR.garantia}
       </p>
+      <ul>
+        <li>
+          <strong>«Armado» quiere decir:</strong> tu página de venta publicada, tu CRM con tu embudo, tus mensajes de
+          apertura y de seguimiento cargados, y tu IA conectada. Para eso ponemos hasta {HORAS_SEMANA_1} horas de nuestro
+          equipo en la primera semana.
+        </li>
+        <li>
+          La semana empieza a correr cuando nos das lo que te pedimos al arrancar: tus accesos (tu WhatsApp y tu IA) y los
+          datos de tu oferta.
+        </li>
+        <li>
+          La pides escribiéndonos a {mail}. Te devolvemos la primera cuota entera y no se te cobran las siguientes.
+        </li>
+        <li>
+          Es una garantía sobre lo que armamos, no sobre lo que vendas: lo que vendas depende también de tu oferta y de
+          lo que inviertas en anuncios.
+        </li>
+      </ul>
       <p>
-        Fuera de esa garantía, valen los mismos casos de la sección 3.
+        Pasada la primera semana con tu embudo armado, las cuotas ya pagadas no se reembolsan, salvo en los casos de la
+        sección 3.
       </p>
 
       <H id="errores">3. Cuándo devolvemos un pago</H>

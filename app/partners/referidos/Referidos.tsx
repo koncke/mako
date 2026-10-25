@@ -11,7 +11,8 @@
 import { useState } from 'react';
 import Link from '@/app/_ui/Link';
 import { Pagina, PageHeader, EmptyState, ErrorState, Tabs } from '@/app/_ui';
-import { CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, textoSinReferidos } from '@/lib/partners-reglas';
+import { COMISION_GRUPAL, COMISION_HOY, CREDITO_HOY, TEXTO_ESTADO_REFERIDO, PAGOS_PARA_ACREDITAR, comisionDelAcelerador, textoSinReferidos } from '@/lib/partners-reglas';
+import { PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
 import type { Tablero } from '@/lib/partners-programa';
 
 const CSS = `
@@ -114,8 +115,12 @@ export function Referidos({ tablero, agencia, cobraEnLinea = true, emailMako }: 
         )}
       <h3 className="pr-titulo" style={{ marginTop: 26 }}>Lo que hay que saber</h3>
       <ol className="pr-reglas">
-        <li>Cada negocio nuevo que entra con tu link y paga su <b>{mes} mes</b> te suma su <b>primer mes</b>, a precio de lista, como crédito. No es dinero en efectivo.</li>
-        <li>{CREDITO_HOY}</li>
+        <li>Cada negocio nuevo que se suscribe con tu link y paga su <b>{mes} mes</b> te suma su <b>primer mes</b>, a precio de lista, como crédito para tu plan. {CREDITO_HOY}</li>
+        {/* Meses Y dinero, según qué se refiere (25/10/2026): el Acelerador deja su comisión en efectivo (docs/referidos.md). */}
+        <li>
+          Cada negocio que entra al {PROGRAMA_ACELERADOR.nombre} con tu link te deja <b>{usd(comisionDelAcelerador(PROGRAMA_ACELERADOR.precioUsd))} en
+          efectivo</b>: el {Math.round(COMISION_GRUPAL * 100)}% de cada cuota que paga. {COMISION_HOY}
+        </li>
       </ol>
     </Pagina>
   );

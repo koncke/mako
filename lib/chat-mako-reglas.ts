@@ -318,13 +318,15 @@ export const ORIGEN_PREGUNTALE = 'Pregúntale a MaKo';
 //   · sólo los CHATS con MaKo: las automatizaciones y lo que corre solo siguen igual (la PC del cliente nunca atiende leads);
 //   · en el teléfono no se puede instalar: ahí NO se bloquea, se avisa «Descarga MaKo en tu computadora» (`en-la-computadora`);
 //   · en cuanto la computadora se conecta, el chat se destraba solo (useChatCliente.ts relee mientras está bloqueado).
-// El negocio de la plataforma no la necesita (contesta su IA).
+// EL NEGOCIO DE LA PLATAFORMA TAMBIÉN (25/10/2026). Hasta ese día quedaba afuera porque contesta su IA, y Martín lo vio desde su
+// cuenta: «Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me sigue dejando
+// enviar mensajes... No debería. En ningun chat, no solo en Ops Center». Sin computadora, bloquea en cualquier negocio.
 
 /** Qué hace el chat con la app de escritorio: nada (`tiene`), la descarga en lugar del chat (`bloquea`), o en el teléfono, el
  *  aviso de descargarla en la computadora sin tapar nada (`en-la-computadora`). */
 export type AppDeEscritorio = 'tiene' | 'bloquea' | 'en-la-computadora';
-export function appDeEscritorio(p: { plataforma: boolean; conComputadora: boolean; telefono: boolean }): AppDeEscritorio {
-  if (p.plataforma || p.conComputadora) return 'tiene';
+export function appDeEscritorio(p: { conComputadora: boolean; telefono: boolean }): AppDeEscritorio {
+  if (p.conComputadora) return 'tiene';
   return p.telefono ? 'en-la-computadora' : 'bloquea';
 }
 

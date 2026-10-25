@@ -55,11 +55,16 @@ export function Bloque({ titulo, epico, derecha, marca, children, tono }: {
  * entera abre el campo de adentro (`CajaCampo`: el punto 7 del 12/10/2026, «si le doy click a la tarjeta debería ya
  * saltarme el cuadro de texto»). `marca` es lo que busca «Solucionar».
  */
-export function Prop({ k, children, acciones, editable = false, marca }: {
+export function Prop({ k, children, acciones, editable = false, marca, dato }: {
   k: string; children: ReactNode; acciones?: ReactNode; editable?: boolean; marca?: string;
+  /**
+   * Qué dato del bloque es esta fila (24/10/2026): personalizando la ficha, el bloque elegido dibuja una ✕ al lado de cada
+   * fila marcada para sacarla (`QuitarDeLaFila`, ../Armador.tsx). Sólo en los bloques que eligen sus datos o sus redes.
+   */
+  dato?: string;
 }) {
   const fila = (
-    <div className="fr-prop">
+    <div className="fr-prop" data-dato={dato} data-dato-nombre={dato ? k : undefined}>
       <span className="fr-k">{k}</span>
       <span className="fr-v">{children}</span>
       <span className="fr-acc">{acciones}</span>

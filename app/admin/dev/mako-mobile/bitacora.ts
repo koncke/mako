@@ -199,4 +199,39 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/movil-dispositivo.ts', 'proxy.ts', 'lib/movil-guard.ts', 'app/_components/VueltaAlTelefono.tsx', 'app/m/_ui/EnComputadoraM.tsx', 'tests/movil-vuelta-telefono.test.ts'],
     revisar: '/configuraciones',
   },
+  {
+    fecha: '24 oct', hora: '22:23', chat: 'Automations', sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49", cuenta: 'claude5', actor: 'martin', tipo: 'prompt',
+    titulo: 'Un solo Dashboard en el teléfono',
+    pedido: '«En mobile aparecen 2 dashboards...»',
+    puntos: [
+      'Llegó firmado por el Ops Center (trabajo 49ff20a3) con la captura de More › Today: «Dashboard» y «Dashboard sheets».',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:40', chat: 'Automations', sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49", cuenta: 'claude5', actor: 'claude', tipo: 'correccion',
+    titulo: 'More tiene un solo «Dashboard»',
+    puntos: [
+      'Si ves General, «Dashboard» abre Focus con todas tus hojas arriba, como en la computadora.',
+      'El closer y el setter ven como Dashboard su hoja, también como en la computadora.',
+      '«Dashboard sheets» ya no aparece: repetía lo que el Dashboard ya mostraba.',
+    ],
+    archivos: ['lib/movil-rutas.ts — masCompleto: una fila de Dashboard por rol', 'tests/sidebar-nueva.test.ts — probado rompiéndolo'],
+    revisar: '/m/mas',
+  },
+  {
+    fecha: '25 oct', hora: '00:39', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las pantallas que te mandan a otra parte ya no pueden romperse al abrirlas',
+    puntos: [
+      'Cuando una pantalla te tiene que mandar a otro lado (porque falta terminar el arranque, porque no está en tu plan o porque no iniciaste sesión), a veces se rompía con un error en vez de llevarte. Es el mismo error de la pantalla rota del Web Generator.',
+      'Ahora ese salto pasa antes de que aparezca el «cargando», así que ya no choca. Quedó en 25 secciones: casi todas las del teléfono (CRM, Chats, Calendario, Automations, Plan, Hoy y las demás), y en la computadora Ads Writer, Automations, Calendario, Chats, Offer, Image Editor, Video Editor, Plan, Second Brain, Dashboard y el Web Generator.',
+      'Quedó un control que revisa toda la app: si una pantalla nueva vuelve a saltar adentro del «cargando», se avisa antes de salir.',
+      'Faltan tres, anotadas: el Ops Center y, en el teléfono, la lista de Chats y Second Brain.',
+    ],
+    archivos: [
+      'tests/redirige-antes-del-loader.test.ts — el control que revisa toda la app',
+      'docs/hallazgos-infra.md — por qué eran 25 y no 6, y las que faltan',
+    ],
+    revisar: '/m/hoy',
+  },
 ];

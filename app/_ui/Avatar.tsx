@@ -7,8 +7,7 @@
 // miembros del equipo no tienen foto, así que el caso «sin foto» es el normal,
 // no la excepción. Sin esto cada pantalla dibuja su propio círculo gris.
 
-const iniciales = (nombre: string) =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+import { iniciales } from '@/lib/unicode-seguro';
 
 export function Avatar({ name, url, size = 32, cuadrado = false, color }: {
   name: string;

@@ -267,7 +267,8 @@ test('9. la pantalla: la dispara la persona, con avance y «Parar», y lo que el
   assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm\)/, 'pide fichas de gente que no está en el CRM');
   // El corte va ADENTRO del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía (la revisión del 24/10).
   assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}`\);/, 'un corte callado');
-  assert.match(ui, /\{leyendoWa \? 'Parar'/);
+  // «Parar» va en el pie del molde, al lado del avance (24/10/2026): el mismo llamado que lo arrancó lo para.
+  assert.match(ui, /const parar = leyendoWa \? \{ texto: 'Parar', onClick: \(\) => void leerDeWhatsappWeb\(\) \}/);
   assert.doesNotMatch(cuerpo, /useEffect|setInterval/, 'corre solo');
 });
 

@@ -103,8 +103,8 @@ test('el del curso explica lo que hay: la marca, la barra de arriba, los módulo
   for (const x of ['marca', 'vista-alumno', 'invitar', 'titulo', 'portada', 'nuevo-modulo', 'modulo', 'menu-modulo', 'barra-modulos', 'nueva-clase', 'menu-clase', 'ayuda']) {
     assert.ok(o.includes(x), `al recorrido del curso le falta «${x}»`);
   }
-  // La marca cuenta el color Y la fuente (item 3: se eligen ahí).
-  assert.match(PASOS_RECORRIDO.find((p) => p.objetivo === 'marca')!.texto, /color.*fuente/);
+  // La marca dice DÓNDE quedaron el color y la fuente: en «Personalizar» (24/10/2026, f27; antes se elegían ahí).
+  assert.match(PASOS_RECORRIDO.find((p) => p.objetivo === 'marca')!.texto, /color.*fuente.*Personalizar/i);
 });
 
 test('el de la clase explica la clase: título, video, disposición, descripción y su barra, la tarea y sus campos', () => {

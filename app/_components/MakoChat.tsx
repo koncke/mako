@@ -22,6 +22,7 @@ import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -70,6 +71,8 @@ export function MakoChat({
   // Mientras MaKo piensa, los segundos (el «Trabajando…» del hilo los usa para avisar que puede tardar).
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   useEffect(() => {
     if (!pensando) { setDesde(null); return; }
     setDesde(Date.now());
@@ -143,7 +146,7 @@ export function MakoChat({
 
   const enviar = async (texto?: string) => {
     const txt = (texto ?? input).trim();
-    if (!txt || pensando || !sessionId) return;
+    if (!txt || pensando || !sessionId || appEscritorio.bloqueada) return;
     setInput('');
     setMessages((m) => [...m, { role: 'user', content: txt }]);
     setPensando(true); setErr(null);
@@ -204,7 +207,7 @@ export function MakoChat({
         )}
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
-            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda />
+            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
         </div>
       </>}
       estado="">

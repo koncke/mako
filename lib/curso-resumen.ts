@@ -130,7 +130,7 @@ export function accesoParaMako(a: AccesoLeido | null): {
  * defensa contra un 0 leído como un hecho (el mismo criterio que `NOTAS_CARTERA`).
  */
 export const NOTAS_CURSO: readonly string[] = [
-  'La etapa es la de la ENTREGA del servicio (las columnas del kanban de Customer Success). Un cliente que nadie movió está en la PRIMERA etapa: no es «sin etapa».',
+  'La etapa es la de la ENTREGA del servicio (las columnas del kanban de Clients). Un cliente que nadie movió está en la PRIMERA etapa: no es «sin etapa».',
   'etapa_completa es la regla que mueve al cliente de etapa: envió TODAS las tareas obligatorias. Una etapa sin obligatorias no se completa sola: la mueve el equipo a mano.',
   'pct_visto null = la etapa no tiene videos que se puedan medir. No es 0.',
   'Los videos de Drive o Loom cuentan en sin_medir: esas plataformas no dicen cuánto se reprodujo. Nunca digas que no los vio.',
@@ -138,5 +138,5 @@ export const NOTAS_CURSO: readonly string[] = [
   'acceso null = no se pudo leer. No es «nunca entró».',
   'etapa_huerfana = la etapa guardada del cliente ya no existe en la entrega (alguien borró esa columna): hay que moverlo a mano.',
   'modulos_sueltos = módulos del curso que NO son etapas del kanban: el alumno los ve y los cursa, pero completarlos no lo mueve de etapa.',
-  'Esta lectura no crea el acceso ni le manda nada al cliente. El link se manda desde su ficha en Customer Success.',
+  'Esta lectura no crea el acceso ni le manda nada al cliente. El link se manda desde su ficha en Clients.',
 ];

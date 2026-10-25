@@ -38,7 +38,9 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
 };
 
 /** Las tabs que son SÓLO del Pro (docs/ofertas-mako.md): una capa «esencial» que las esconda es del área de capas. */
-export const TABS_SOLO_PRO = ['ads-manager', 'closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
+// 25/10/2026: 'ads-manager' salió de acá: el Media Buyer es de los dos planes y lo que separa a Pro es el piloto automático y el
+// cupo (ads.recomendaciones_dia), no la tab.
+export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
 
 /** El tope de esa cosa para esa capa. null = sin tope (también para una capa que no es un plan: pm, superadmin). */
 export function topeDe(capa: CapaId | string, tope: Tope): number | null {

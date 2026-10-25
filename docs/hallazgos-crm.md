@@ -20,6 +20,66 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Los grupos de WhatsApp «tardan muchísimo»: el tope de 15 s cortaba una lista que tarda 33 (25/10/2026)
+
+**Vive en:** app/crm/grupo-wa-server.ts (`gruposDeLinea` en dos tiempos, `participantesDelGrupo` con memoria, `traerDelGrupo`
+de a cuatro) · lib/grupo-wa-reglas.ts (`TOPE_GRUPOS_COMPLETO_MS`, `gruposGuardados`) · app/crm/TraerDeGrupoWA.tsx · la API
+(lib/api-mako/areas/crm.run.ts, `grupoPedido`) · tests: grupo-wa-rapido (3 roturas cazadas).
+
+- **Medido antes de tocar** (sonda de sólo lectura, la línea de la plataforma): `fetchAllGroups` contestó en **33 s** con 285
+  grupos; `findChats` (la base de Evolution) en 0,5 s pero con sólo **61** (los grupos con los que la línea habló); leer un
+  grupo de 1.493 miembros, 0,5 s; la agenda de la línea, 0,4 s (2.350 contactos, 800 KB). El código cortaba WhatsApp a los
+  15 s: la persona esperaba 15 s **para terminar viendo 61 de 285**. Ése era el «tarda muchísimo».
+- **La extracción se midió con lo que ya pasó**, sin crear leads de prueba en producción: los eventos «Traído de un grupo de
+  WhatsApp» de `lead_audit` dan ~135 ms por lead, uno detrás del otro (221 en 37 s), sin pausas largas entre tandas.
+- **Lo que quedó:** al abrir, la lista GUARDADA de la última vez (`app_settings`, `grupos_wa.lista.<línea>`) o, la primera
+  vez, la de la base al instante; la completa se pide aparte (tope 50 s), reemplaza la lista sin perder el grupo elegido y
+  se guarda (vieja a los 10 minutos). Traer va de a cuatro altas a la vez (sin contador compartido; el duplicado se ataja por
+  teléfono) y los participantes quedan 2 minutos en memoria entre tandas; «Completar nombres» lee fresco.
+- **La API de MaKo** contesta una sola vez: si el grupo pedido no está en la lista rápida, pide la completa antes de decir
+  «no lo encontré» (si no, perdía grupos que antes encontraba).
+- **No se aceleró a propósito:** «Datos de empresa» espera 2 s entre perfil y perfil (`ESPERA_PERFIL_MS`): es tráfico en la
+  red de una línea no oficial, la que se expone a un baneo.
+
+## «No puedo sacar Empresa»: «Datos ▾» ya existía; el cuerpo del bloque es `inert` y la persona busca la fila (25/10/2026)
+
+**Vive en:** app/crm/lead-view/ficha/Armador.tsx (`QuitarDeLaFila`) · ./armar.ts (`datosSinUno`) · las filas marcadas con
+`data-dato` (resumen/piezas.tsx `Prop`, resumen/contacto.tsx, resumen/datos.tsx) · el panel `.fb-mako-panel` de
+FichaPorBloques.tsx · tests: ficha-editor-12 (3 roturas cazadas).
+
+- **El diagnóstico obvio («falta poder sacar datos») era el equivocado.** Sacar un dato del Contacto existe desde el 23/10
+  (`7484a5720`, en producción): «Datos ▾» en la barra del bloque elegido. La captura de Martín (c06) lo muestra en pantalla
+  y aun así dice «no puedo sacar EMPRESA». Personalizando, el cuerpo del bloque es `inert` (para que elegir el bloque no abra
+  el campo de adentro), así que la fila «Empresa» no responde a nada: la persona la toca y no pasa nada. **Regla:** lo que se
+  saca, se saca DONDE se ve. Cada fila de un bloque que elige sus datos o sus redes lleva `data-dato`, y con el bloque elegido
+  el Armador mide esas filas y dibuja una ✕ encima (la misma operación que «Datos ▾»; el último dato no se saca).
+- **La ✕ no puede vivir adentro de la fila** (el cuerpo es inerte): se dibuja en la caja del bloque, con la posición medida
+  (`getBoundingClientRect`) y un `ResizeObserver`. Un bloque nuevo que elija datos sólo tiene que marcar sus filas.
+- **El panel de MaKo de la ficha («Editar con MaKo» y el AI Analyst) es el bloque flotante del Dashboard** (`.an`: 12 px de
+  aire, bordes de 14, sombra, sin la raya de color). Sin hacer: el panel de la estrella de MaKo en cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css) sigue siendo el cuadrado de borde a borde; es de la pieza compartida del chat.
+- **Sin hacer:** las reuniones, las cuotas y los datos fiscales muestran varios datos y no eligen cuáles (no tienen `datos`
+  en el catálogo): ahí sólo se puede pedir u ocultar el bloque entero.
+
+## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx (`volverAlAlta`, `cerrarImportar`) · app/_components/pila-modales.ts · app/crm/MoldeTraer.tsx
+· tests: crm-modales-encima, crm-molde-traer (5 roturas cazadas entre los dos).
+
+- **El pedido «cerrar un modal hijo vuelve al padre» ya estaba resuelto en la casa** (pila-modales: un modal sobre otro
+  esconde al de abajo con `display:none`, sin desmontarlo, y al cerrar el de arriba vuelve igual). «Nuevo lead» no lo usaba de
+  dos formas: «Traer» y el Scraper REEMPLAZABAN el contenido del mismo `Modal` (dos vistas, dos tamaños), e «Importar»
+  CERRABA el alta para abrirse. En los dos casos el clic afuera no tenía «anterior» al que volver. **Regla:** lo que se abre
+  desde un modal es OTRO `Modal` montado encima (el de abajo queda montado); nunca un cambio de contenido del mismo, ni un
+  cerrar-y-abrir. `onCerrar` del hijo vuelve al padre y tiene identidad fija (`useCallback`).
+- **Las tres vistas de traer comparten un molde** copiado de la pantalla «Preview import» de Attio (documentación oficial):
+  de dónde arriba con un «⋯» para lo secundario, «Entran a» abajo, una línea de resumen con chips de números, la lista
+  (`VistaConPie`) y el pie con sólo «Atrás» y la acción; lo que corre muestra su «Parar» al lado del avance. El importador dejó
+  `WizardShell` (era «una estetica MUY diferente») y pasó al `Modal` de la casa con los pasos «Archivo · Revisar» del molde.
+- **Sin hacer:** «en todos lados» va más allá del CRM. Fuera de app/crm no se barrió qué modales reemplazan su contenido o
+  cierran para abrir otro; el patrón a buscar es `setX(null); setY(true)` en un `onClick` y un `Modal` con el título que
+  depende de una vista.
+
 ## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
 
 **Vive en:** lib/instagram-buscar.ts (`sin-instagram`, `pideConectarMeta`) · app/api/crm/instagram-buscar/route.ts ·
@@ -459,7 +519,13 @@ entera (con el chat de CRM, que rehacía las tabs). Hubo tres propuestas y un ju
 - **El teléfono (/m)** dice la que hay que mirar primero, cuándo le sale lo próximo o su estado en dos palabras, y un
   punto del color del sello («Sprint · apertura · mañana 09:00 · +1»).
 
-**Sin hacer:** la foto de la FICHA ENTERA en producción, en escritorio y teléfono, cuando haya una sesión en el navegador.
+**La foto en ESCRITORIO, hecha (24/10/2026 ~22:30 ART, claude5, en el Chrome de Martín, sólo mirando):** `/crm/3445?ws=3`, un lead
+de prueba del Cliente de Prueba con una automatización en pausa. La tarjeta sale entre «Posibles duplicados» y «Calificación»: el sello
+de pausa, el nombre, «Automatización en pausa», «Le salió» con su hora, «En pausa» con lo que sigue punteado, «Frenar» en rojo abajo a la
+izquierda y «Ver todas» arriba a la derecha. **Sin hacer: la del TELÉFONO.** `/m/crm/<id>` en un navegador de escritorio devuelve la
+ficha de escritorio: la vista del teléfono la decide el servidor por el navegador o la cookie de vista (`prefiereMovil`, proxy.ts). En el
+Chrome de Martín eso es cambiarle la cookie o la ventana, y no se hizo: va con su teléfono o con Playwright en modo móvil. **De paso:**
+el avatar de ese lead dice «�M» (docs/hallazgos-ui.md, «Las iniciales de un avatar parten un emoji»).
 
 **Vive en:** app/crm/automatizacion-lead.ts (la vista, pura: `estadoDeTarjeta`, `rielDeTarjeta`, `ordenarTarjetas`,
 `tipoDeFreno`, `fechaCorta`, `diaCorto`, las preguntas) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx (el bloque) ·
@@ -11249,3 +11315,58 @@ ve en su WhatsApp Web (lo lleva el chat del CRM). Lo que se aprendió y sirve pa
   línea no oficial. Una búsqueda afuera, si vuelve, va en goteo y a ritmo humano desde su navegador, y frena ante un captcha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*
+
+## /crm redirige en su layout, antes del loader: las páginas y sus puertas (25/10/2026)
+
+**Vive en:** `redireccionDelLayoutCrm` y `destinoDelResumen` (app/crm/layout-reglas.ts), app/crm/layout.tsx ·
+tests/crm-redirige-antes-del-loader.test.ts.
+
+- **Por qué un layout en /crm:** `app/crm/loading.tsx` envuelve a TODAS las rutas de /crm, y un redirect de adentro va en el
+  stream (el #310 de los tickets #7 y #9, hallazgos-infra). El único layout que queda afuera es el de la carpeta del
+  loader: uno en `app/crm/revisar/` no habría servido.
+- **No eran tres, eran siete.** El pedido nombraba las tres con `redirect(` a la vista (las dos de «Revisar» y el resumen);
+  /crm, /crm/new, la ficha y prospectos redirigen por sus PUERTAS (`requireCapa`, `guardOnboarding`, `requireRolWs`). El
+  layout repite la puerta de cada una, igual y en el mismo orden. El resumen va SIN `guardOnboarding` a propósito: se
+  abre desde un WhatsApp con la reunión encima.
+- **Regla:** cambiar la puerta de una página de /crm es cambiar también `app/crm/layout.tsx` (el test compara las dos), y
+  una página nueva que redirige o tiene puerta entra a `redireccionDelLayoutCrm` y a `CUBIERTAS`, o el test falla. Las
+  páginas conservan su puerta: navegando entre rutas de /crm el layout no se vuelve a dibujar.
+- **Costo:** una lectura chica más (el estado del onboarding) al ENTRAR a /crm, no entre sus rutas.
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+## La llamada con Leandro: WhatsApp adentro de MaKo, «Completar nombres» por la extensión, y el texto corto (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx y ficha/FichaPorBloques.tsx (`rutaChatsDeLead`), app/crm/TraerDeGrupoWA.tsx +
+app/crm/usar-extension-fichas.ts, `preguntaDePerfiles` (app/crm/enriquecer-cliente.ts) · tests/crm-whatsapp-en-mako,
+crm-completar-con-extension, enriquecer-lote (6).
+
+- **f15, «WhatsApp» abre el chat de MaKo:** eran CUATRO puertas a wa.me (el clic derecho, el botón de la fila, la vista
+  rápida de la tarjeta y el «⋯» de la ficha), no tres. `/chats?lead=<id>` sirve también para un lead SIN mensajes: si la
+  lista no lo trae, Chats pide esa conversación sola (`claveDelLink`). Lo que no hay que hacer es armar el link con el
+  teléfono: un número de dos leads abriría el de otro.
+- **f12, «Completar nombres» sin la extensión — el arreglo obvio era el equivocado:** el camino del server (pedirle a
+  WhatsApp el nombre que conozca) existía y ERA el problema: completaba «algunos o ninguno» sin decir por qué. Martín quiere
+  que el botón diga «instala la extensión» y arranque solo. La pantalla mira la extensión EN VIVO (`useExtensionFichas`:
+  MutationObserver sobre el atributo de mako-puente.js, y al volver a la pestaña) y arranca con `useEffectEvent` cuando
+  aparece. `completarNombresDeGrupoAction` quedó sin uso en la pantalla; `completarNombresDelGrupo` sigue para la API.
+- **⚠️ Chrome NO inyecta el content script en una pestaña que ya estaba abierta al instalar la extensión**, y
+  extension/background.js no lo repone en `onInstalled` (sólo al emparejar, `pedirEmparejar`). O sea: en la pestaña donde
+  se tocó «Completar nombres», la extensión aparece recién al recargar, y el modal se pierde. Por eso el texto dice «Si no
+  arranca, recarga esta pestaña» y no promete lo que no pasa. **Quedó SIN hacer (de la extensión):** en `onInstalled`,
+  `chrome.scripting.executeScript` de mako-puente.js en las pestañas de hola-mako.com abiertas; con eso arranca sin recargar.
+- **f13, el texto de «Datos de empresa»:** tenía unas 40 palabras (cuántos faltan, cuántos ahora, el cupo del día de la
+  línea, «sólo se completa lo vacío»). Queda en una línea: cuántos ahora de cuántos faltan, cuánto tarda y que no les llega
+  nada. **Regla:** el cupo del día se dice cuando CORTA (`resumenDePerfiles`), no antes de empezar; el título pregunta y el
+  botón dice «Consultar N». El test pone un tope de palabras.
+- **f11, que «Completar» se descubra solo:** el pie del molde lo ofrece después de traer y cuando hay gente que ya está.
+- **f14, una sola pasada en «Datos de empresa» — el diagnóstico obvio era el equivocado:** el Cerebro lo decidió creyendo
+  que el tope de 40 por corrida y 120 por día venía del costo de Apify. No: lo puso él mismo el 24/10 (0553eda9e) porque
+  cada consulta de perfil es tráfico en la red de una línea de WhatsApp NO oficial, que se expone a un baneo; Apify era otra
+  función, revertida. Sacar el tope entero habría expuesto la línea del cliente. Lo que se sacó es el de 40 POR CORRIDA,
+  que sólo partía el trabajo en toques: un toque consulta todo hasta el tope del día. **Regla:** antes de sacar un tope,
+  leer en el código (y en `git log -S`) para qué está; el del día y la espera entre consultas (`ESPERA_PERFIL_MS`) cuidan la
+  línea y no se mueven sin medir. Cuando corta, una línea («tócalo mañana»): mañana no sigue solo, MaKo no hace nada por
+  detrás.
+
+*25/10/2026, chat «CRM» (`claude5`).*

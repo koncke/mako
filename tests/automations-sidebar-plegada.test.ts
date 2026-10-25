@@ -26,8 +26,9 @@ test('Automations arranca con la sidebar principal plegada (y sólo ella, no una
   // Es «por defecto», no forzada: la flecha la vuelve a abrir (la misma lógica de plegadaAca/abiertaAca de siempre).
   const sb = leer('app/_components/Sidebar.tsx');
   assert.match(sb, /const plegadaAca = enOpsCenter \|\| angosta \|\| makoAbierto;/);
-  assert.match(sb, /const fija = fijaGuardada && \(!plegadaAca \|\| abiertaAca\);/);
-  assert.match(sb, /if \(plegadaAca\) \{ setAbiertaAca\(v\);/, 'plegada por defecto: la flecha la abre sin tocar lo guardado');
+  assert.match(sb, /const fija = barraFija\(fijaGuardada, plegadaAca, abiertaAca\);/);
+  // Plegada por defecto: la flecha la abre en la visita (y desplegarla se recuerda, 25/10: tests/sidebar-plegada-por-defecto).
+  assert.match(sb, /if \(plegadaAca\) setAbiertaAca\(v\);/, 'plegada por defecto: la flecha no la abre');
 });
 
 test('el panel de Automations (lista y chat con MaKo) es más grueso, y los insets del lienzo salen del mismo número', () => {

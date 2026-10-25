@@ -179,6 +179,7 @@ import { segundosDeMinutos, textoDuracion } from './espera-duracion';
 import type { ParteMensaje } from './mensaje-partes';
 // La LIBERTAD de un escenario del AI Step (undécima tanda). Puro: de acá importa sólo tipos (sin ciclo en runtime).
 import { contestaElCaso, avisaElCaso, libertadDeCaso, libertadesPermitidas, conLibertad } from './ai-step-libertad';
+import { botonDePuerto, botonesDe, botonesDeFlujo, problemasDeBotones, puertoDeBoton, PREFIJO_PUERTO_BOTON, type BotonSocial } from './botones-social';
 // `contestaElCaso` vivía acá: se re-exporta para los que ya la importaban de este módulo.
 export { contestaElCaso };
 
@@ -452,6 +453,12 @@ export type PasoGrafo = {
    * más. Ausente = el mensaje de siempre. Qué significa y cómo se guarda, en lib/mensaje-partes.ts.
    */
   partes?: ParteMensaje[];
+  /**
+   * Sólo un mensaje de Instagram o Messenger (24/10/2026, lib/botones-social.ts): hasta 3 BOTONES debajo del último texto.
+   * Uno sin `url` es una SALIDA (`btn:<id>`, como una fila de una condición): tocarlo lleva la inscripción a su
+   * `siguiente`. Uno con `url` abre la página. Ausente = el mensaje de siempre.
+   */
+  botones?: BotonSocial[];
   // ── Lo de siempre, que el conversor y el motor leen ──
   orden?: number;
   canal?: string;
@@ -736,6 +743,8 @@ export function puertosDe(pasos: readonly PasoGrafo[], i: number): Puerto[] {
       return [
         { puerto: 'sig', destino: siguienteDe(pasos, i) },
         ...paralelosDe(p).map((d) => ({ puerto: `par:${d}`, destino: d })),
+        // Los BOTONES de un mensaje social (24/10/2026): cada uno de flujo es una salida, como una fila de una condición.
+        ...(claseDe(p) === 'mensaje' ? botonesDeFlujo(p).map((b) => ({ puerto: puertoDeBoton(b.id), destino: b.siguiente ?? null })) : []),
       ];
   }
 }
@@ -1040,6 +1049,15 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
     par = par.filter((d) => d !== out.siguiente);
     if (par.length) out.paralelos = par;
     else delete out.paralelos;
+    // Los BOTONES (24/10/2026): sólo en un mensaje, saneados, y la flecha de uno de flujo a una tarjeta que existe (y no a
+    // sí misma). Vacío = sin el campo, como las flechas en paralelo.
+    if (c === 'mensaje' && Array.isArray(p.botones)) {
+      const bs = botonesDe(p, existe).map((b) => (b.siguiente === ids[i] ? { ...b, siguiente: null } : b));
+      if (bs.length) out.botones = bs;
+      else delete out.botones;
+    } else {
+      delete out.botones;
+    }
     // «Si contesta» por camino del CRON (14/10/2026, a la mañana) se fue esa misma tarde: lo dice la CONDITION «No
     // contestó desde que entró» (`contesto`, lib/condiciones-catalogo.ts). La clave vieja se borra al normalizar.
     delete (out as Record<string, unknown>).si_contesta;
@@ -1111,6 +1129,17 @@ export const TOPE_CASOS = 30;
  * Con esto pasa el BORRADOR de lib/secuencia-borrador.ts: una automatización con tarjetas sueltas o
  * a medio armar SOBREVIVE sin publicarse. Lo que falta para publicar lo dice `validarGrafo`.
  */
+/**
+ * EL TEXTO DE LA ÚLTIMA PARTE de un mensaje: la burbuja que lleva los botones. null si termina en un archivo o un audio.
+ * La forma de lib/mensaje-partes.ts (`partesDe`), leída acá para no importar sus valores (este módulo es puro).
+ */
+function textoFinalDe(p: PasoGrafo): string | null {
+  const partes = Array.isArray(p.partes) && p.partes.length ? p.partes : null;
+  if (partes) { const u = partes[partes.length - 1]; return u?.tipo === 'texto' ? String(u.cuerpo ?? '') : null; }
+  if (p.tipo === 'media' || p.tipo === 'audio' || p.media_id != null || p.audio_id != null) return null;
+  return String(p.cuerpo ?? '');
+}
+
 export function validarParaGuardar(pasos: readonly PasoGrafo[]): string[] {
   return erroresDeForma(pasos, false);
 }
@@ -1173,6 +1202,8 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
     // tarjeta por su id para que Publicar la abra (`tarjetaDelError`) y el caso por su nombre.
     if (c === 'respuesta' && esPasoIA(p)) err.push(...erroresDelPasoIA(p, ids[i], publicar));
     else if (publicar && c === 'respuesta') for (const x of p.casos ?? []) if (!x.titulo?.trim() || !x.cuando?.trim()) err.push('un caso de «Si responde» no tiene nombre o descripción');
+    // Los BOTONES (24/10/2026): sólo Instagram y Messenger, hasta 3, cada uno con a dónde lleva, debajo de un texto de hasta 640.
+    if (publicar && c === 'mensaje') err.push(...problemasDeBotones(p, textoFinalDe(p), `la tarjeta ${ids[i]}`));
     if (publicar && c === 'esperar') {
       const m = Number(p.espera?.minutos);
       if (!p.espera || !(m > 0)) err.push(`la espera ${ids[i]} no dice cuánto`);
@@ -1268,7 +1299,9 @@ export function ciclosSinEspera(pasos: readonly PasoGrafo[]): Set<string> {
   const espera = (i: number) => claseDe(pasos[i]) === 'esperar';
   const ejec = pasos.map((p, i) => {
     if (espera(i)) return [] as string[];
-    const out = puertosDe(pasos, i).map((pt) => pt.destino).filter((d): d is string => !!d);
+    // La flecha de un BOTÓN no cuenta (24/10/2026): la corre el toque de la persona, no el motor en la misma corrida.
+    // «Ya te sigo» → «¿Te sigue?» vuelve atrás, y es el flujo de ManyChat.
+    const out = puertosDe(pasos, i).filter((pt) => !pt.puerto.startsWith(PREFIJO_PUERTO_BOTON)).map((pt) => pt.destino).filter((d): d is string => !!d);
     if (claseDe(p) === 'ir_a' && p.destino && 'nodo' in p.destino) out.push(p.destino.nodo);
     return out.filter((d) => { const k = indice.get(d); return k !== undefined && !espera(k); });
   });
@@ -1799,6 +1832,10 @@ export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: str
     if (pp) return conectarParalelo(p, pp, destino);
     if (puerto === 'sig') return { ...p, siguiente: destino };
     if (puerto === 'si_no') return { ...p, si_no: destino };
+    const boton = botonDePuerto(puerto);
+    if (boton != null && Array.isArray(p.botones)) {
+      return { ...p, botones: botonesDe(p).map((b) => (b.id === boton && !b.url ? { ...b, siguiente: destino } : b)) };
+    }
     if (p.ramas?.some((r) => r.id === puerto)) return { ...p, ramas: p.ramas.map((r) => (r.id === puerto ? { ...r, siguiente: destino } : r)) };
     if (p.casos?.some((c) => c.id === puerto)) return { ...p, casos: p.casos.map((c) => (c.id === puerto ? { ...c, siguiente: destino } : c)) };
     return p;

@@ -1353,6 +1353,16 @@ cuando Ads Manager termine; hasta entonces `cfg` lo deja en su modo de siempre (
 
 _23/10/2026 — pedido del Cerebro a Integraciones (cuenta 2), con el contrato cerrado con Ads Manager. Investigación: cuatro lectores en paralelo (API de conexión, cuentas y cobro, apps de referencia, mapa del código)._
 
+**Y el rojo que dejó en main el mismo día (medido el 24/10/2026, claude5, chat Automations).** `tests/zernio-sin-respaldo.test.ts`
+(«ningún código lee la key de Zernio de la plataforma para un negocio») acusaba a `lib/zernio-ads.ts` (publicar anuncios por Zernio,
+001b3184b, apagado hasta la prueba). **El diagnóstico obvio («un negocio publica con la cuenta de MaKo: plata nuestra») era el
+equivocado.** `claveZernioAnuncios` lee `envCred('ZERNIO_API_KEY')` SÓLO si el negocio es el de la plataforma (`wsSuperAdmin`, el de
+MaKo), donde esa key es la suya. A todo cliente le lee su fila con `credDelCliente`, sin respaldo, incluido el ws1, que para
+`credWs` sí cae al entorno. El barrido buscaba el texto `envCred('ZERNIO_API_KEY'` sin mirar la guarda. **Regla:** la excepción va en
+POSITIVO y exacta: el test saca esa única línea, dentro de `claveZernioAnuncios`, y exige que la función termine en
+`credDelCliente`. Sin la guarda, o con `credWs`, cae (B11, B12). No se excluye el archivo entero: así cualquier otra lectura
+nueva en él vuelve a caer.
+
 ## Los leads de los formularios de Meta por Zernio (`lead.received`): la misma puerta que Meta, y lo que la doc NO dice (23/10/2026)
 
 **El pedido** (Martín, vía el Cerebro, 23/10/2026): el puente de Make o Zapier se retiró («ya resolvimos todo con Zernio») y los leads de los formularios

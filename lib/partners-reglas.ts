@@ -72,6 +72,21 @@ export const CREDITO_HOY = 'El crédito queda registrado en tu panel. Todavía n
 /** Lo que vale un referido: el PRIMER MES de su plan, a precio de lista (docs/referidos.md: «un dólar, un peso»). */
 export const creditoDelReferido = (precioListaUsd: number): number => Math.round(Math.max(0, precioListaUsd) * 100) / 100;
 
+/**
+ * Lo que gana EN EFECTIVO quien trae un Acelerador: el 20% de cada cuota cobrada, US$300 de US$1.500 (docs/referidos.md,
+ * decidido el 10/10). Desde el 25/10/2026 la landing lo dice al lado del crédito (el Cerebro: «meses Y plata, según qué se
+ * refiere»; la página no puede decir «no es dinero» a secas).
+ */
+export const comisionDelAcelerador = (precioUsd: number): number => Math.round(Math.max(0, precioUsd) * COMISION_GRUPAL * 100) / 100;
+
+/**
+ * Lo que pasa HOY con esa comisión, dicho igual en la landing, el panel y el teléfono. El Acelerador se vende por llamada y
+ * se cobra aparte de la pasarela, así que nada la registra sola: el pedido llega con el código del partner
+ * (lib/compra-plan.ts, `pedirPlanSinPasarela`) y el equipo la anota y la transfiere. El día que el libro la registre,
+ * cambia esta frase junto con eso, no antes.
+ */
+export const COMISION_HOY = 'La comisión todavía no aparece en tu panel: la anotamos nosotros y te la transferimos a medida que se cobra cada cuota.';
+
 export type Resumen = { acumuladoUsd: number; usadoUsd: number; saldoUsd: number; mesesGratis: number; aCobrarUsd: number };
 
 /**

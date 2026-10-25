@@ -12,17 +12,29 @@
 //
 // Los datos: los planes (lib/planes-mako.ts, con si se cobran en línea: `ofertasDeLosPlanes` / `planesParaLanding`) y el
 // programa (`PROGRAMA_ACELERADOR`). El botón de cada plan, la regla de siempre (`botonDelPlan`: «Empezar» sólo con un cobro
-// detrás). El programa SIEMPRE se pide (nunca pasa por la pasarela). La promesa del programa la escribe Martín: sin ella, no
-// se dibuja ninguna. Sin hooks ni datos: la usan una página del servidor (/planes) y un portal del cliente (la landing).
+// detrás). El programa SIEMPRE se pide (nunca pasa por la pasarela). Su promesa (un resultado con plazo) va arriba del
+// botón, y su garantía (sobre los entregables) abajo, con el link a las condiciones: sin una, no se dibuja. Sin hooks ni datos: la usan una página del servidor (/planes) y un portal del cliente (la landing).
 // Las clases llevan `mkpl-`: adentro de una landing del Web Generator conviven con el CSS de ese diseño, y un nombre
 // genérico («card», «btn») se pisa con el suyo.
+//
+// MENSUAL O ANUAL (25/10/2026, el Cerebro: «el anual son 2 meses gratis»): el selector de arriba, como el de toda página de
+// precios, hecho con dos radios y `:has()` (sin JavaScript: anda igual en /planes, que es del servidor, y en el portal de la
+// landing). El anual SIEMPRE se pide (`botonAnualDelPlan`): el checkout cobra por mes. Debajo de cada botón, la garantía de
+// ese período (`GARANTIA_DIAS`, la misma de /reembolsos §1), y abajo de todo, que desde Argentina se paga en pesos con
+// Mercado Pago. Un precio en pesos sólo si el plan lo tiene (`precioEnPesos`): nunca con una tasa.
 // =============================================================================
 
-import { PROGRAMA_ACELERADOR, type PlanMako } from '@/lib/planes-mako';
-import { botonDelPlan } from '@/lib/compra-plan-reglas';
+import { GARANTIA_DIAS, MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, precioEnPesos, type PlanMako } from '@/lib/planes-mako';
+import { botonAnualDelPlan, botonDelPlan } from '@/lib/compra-plan-reglas';
+import { formatoMonto } from '@/lib/pasarela-moneda';
 
 /** Un plan como lo dibujan las tarjetas, con si se cobra en línea. */
-export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado'> & { cobrable: boolean };
+export type PlanEnTarjeta = Pick<PlanMako, 'id' | 'nombre' | 'precioUsd' | 'resumen' | 'incluye' | 'destacado' | 'precioAnualUsd' | 'preciosLocales'> & { cobrable: boolean };
+
+/** Lo que dice la garantía de cada período (también la lee el test contra /reembolsos). */
+export const textoGarantia = (periodo: keyof typeof GARANTIA_DIAS): string =>
+  `${GARANTIA_DIAS[periodo]} días de garantía: si no te sirve, te devolvemos tu pago.`;
+export const TEXTO_PAGOS = 'Desde Argentina pagas en pesos, con Mercado Pago.';
 
 export const CEJA_SOFTWARE = 'Lo haces tú, con MaKo';
 export const CEJA_PROGRAMA = 'Lo armamos contigo';
@@ -57,6 +69,24 @@ export const CSS_TARJETAS = `
 .mkpl-promesa { margin: 18px 0 0; padding: 14px 16px; border-radius: 14px; background: rgba(245,196,81,.12); border: 1px solid rgba(245,196,81,.45);
   font-size: 14.5px; line-height: 1.45; }
 .mkpl-promesa b { color: #F5C451; }
+.mkpl-garantia { margin: -10px 0 20px; font-size: 13.5px; line-height: 1.45; color: #4A5260; }
+.mkpl-garantia b { color: #12151B; }
+.mkpl-garantia a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.mkpl-programa .mkpl-garantia { color: #C9D3EE; }
+.mkpl-programa .mkpl-garantia b { color: #F3F6FF; }
+/* Mensual o anual: dos radios (escondidos) y sus etiquetas como un selector; :has() muestra los precios del que está
+   elegido. Sin :has(), se ven los dos: nunca queda una tarjeta sin precio. */
+.mkpl-periodo { display: flex; justify-content: center; margin: 0 0 22px; }
+.mkpl-periodo-caja { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: #E9EDF5; }
+.mkpl-periodo input { position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none; }
+.mkpl-periodo label { cursor: pointer; padding: 9px 18px; border-radius: 999px; font-size: 14.5px; font-weight: 700; color: #4A5260; }
+.mkpl-periodo label b { margin-left: 6px; padding: 2px 8px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D; font-size: 12px; }
+.mkpl-periodo input:checked + label { background: #FFFFFF; color: #12151B; box-shadow: 0 1px 3px rgba(18,21,27,.14); }
+.mkpl-periodo input:focus-visible + label { outline: 2px solid #2F6FED; outline-offset: 2px; }
+.mkpl-bloques:has(#mkpl-p-anual:checked) .mkpl-mes { display: none; }
+.mkpl-bloques:has(#mkpl-p-mes:checked) .mkpl-anual { display: none; }
+.mkpl-pagos { margin: 22px 0 0; text-align: center; color: #4A5260; font-size: 14.5px; }
+.mkpl-pagos b { color: #12151B; }
 .mkpl-despues { margin: 18px 0 0; padding-top: 14px; border-top: 1px solid rgba(255,255,255,.14); font-size: 13.5px; color: #C9D3EE; }
 @media (max-width: 900px) {
   .mkpl-grilla { grid-template-columns: 1fr; gap: 26px; }
@@ -68,19 +98,46 @@ const precio = (n: number) => n.toLocaleString('es-AR');
 
 export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarjeta[]; sufijo: string }) {
   const pr = PROGRAMA_ACELERADOR;
+  // El selector, sólo si TODOS los planes tienen anual: uno sin anual quedaría sin precio al elegirlo.
+  const conAnual = planes.length > 0 && planes.every((p) => !!p.precioAnualUsd);
   return (
-    <div className="mkpl-grilla">
+    <div className="mkpl-bloques">
+      {conAnual && (
+        <div className="mkpl-periodo">
+          <div className="mkpl-periodo-caja" role="radiogroup" aria-label="Cómo pagas">
+            <input type="radio" name="mkpl-periodo" id="mkpl-p-mes" defaultChecked />
+            <label htmlFor="mkpl-p-mes">Mensual</label>
+            <input type="radio" name="mkpl-periodo" id="mkpl-p-anual" />
+            <label htmlFor="mkpl-p-anual">Anual<b>{MESES_GRATIS_ANUAL} meses gratis</b></label>
+          </div>
+        </div>
+      )}
+      <div className="mkpl-grilla">
       {planes.map((p) => {
         // El mismo botón en /planes y en la landing: «Empezar» sólo con un cobro detrás; sin pasarela, «Quiero …» y se pide.
         const boton = botonDelPlan({ id: p.id, nombre: p.nombre, cobrable: p.cobrable, sufijo });
+        const borde = `mkpl-btn${p.destacado ? '' : ' borde'}`;
+        const pesos = precioEnPesos(p);
         return (
           <section key={p.id} className={`mkpl-card${p.destacado ? ' destacado' : ''}`}>
             {p.destacado && <span className="mkpl-insignia">Recomendado</span>}
             <div className="mkpl-ceja">{CEJA_SOFTWARE}</div>
             <h3>{p.nombre}</h3>
             {p.resumen && <p className="mkpl-resumen">{p.resumen}</p>}
-            <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
-            <a className={`mkpl-btn${p.destacado ? '' : ' borde'}`} href={boton.href}>{boton.texto}</a>
+            <div className="mkpl-mes">
+              <div className="mkpl-precio">US$ {precio(p.precioUsd)} <small>/ mes</small></div>
+              {pesos && <div className="mkpl-cuotas">o {formatoMonto(pesos, 'ARS')} por mes</div>}
+              <a className={borde} href={boton.href}>{boton.texto}</a>
+              <p className="mkpl-garantia">{textoGarantia('mensual')}</p>
+            </div>
+            {conAnual && p.precioAnualUsd && (
+              <div className="mkpl-anual">
+                <div className="mkpl-precio">US$ {precio(p.precioAnualUsd)} <small>/ año</small></div>
+                <div className="mkpl-cuotas">Pagas una vez al año: {MESES_GRATIS_ANUAL} meses gratis.</div>
+                <a className={borde} href={botonAnualDelPlan({ id: p.id, sufijo }).href}>{botonAnualDelPlan({ id: p.id, sufijo }).texto}</a>
+                <p className="mkpl-garantia">{textoGarantia('anual')}</p>
+              </div>
+            )}
             {p.incluye.length > 0 && <ul className="mkpl-lista">{p.incluye.map((x) => <li key={x}>{x}</li>)}</ul>}
           </section>
         );
@@ -94,9 +151,12 @@ export function TarjetasPlanes({ planes, sufijo }: { planes: readonly PlanEnTarj
         <div className="mkpl-cuotas">en {pr.cuotas} cuotas de US$ {precio(Math.round(pr.precioUsd / pr.cuotas))}</div>
         {pr.promesa && <p className="mkpl-promesa"><b>Nuestra promesa:</b> {pr.promesa}</p>}
         <a className="mkpl-btn" href={`/planes/${pr.id}${sufijo}`}>Quiero el Acelerador</a>
+        {pr.garantia && <p className="mkpl-garantia"><b>Garantía de entrega:</b> {pr.garantia} <a href="/reembolsos#grupal">Ver condiciones</a></p>}
         <ul className="mkpl-lista">{pr.incluye.map((x) => <li key={x}>{x}</li>)}</ul>
         <p className="mkpl-despues">Al terminar, si quieres seguir: {pr.despues.nombre}, US$ {precio(pr.despues.precioUsd)} por mes, con MaKo Pro y la asesoría de cada semana.</p>
       </section>
+      </div>
+      <p className="mkpl-pagos"><b>{TEXTO_PAGOS}</b> Garantía de {GARANTIA_DIAS.mensual} días en el plan mensual y de {GARANTIA_DIAS.anual} en el anual. <a href="/reembolsos">Ver condiciones</a></p>
     </div>
   );
 }

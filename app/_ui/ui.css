@@ -492,6 +492,9 @@ aside[data-sidebar][data-fija="no"] .mk-scroll-oscuro::-webkit-scrollbar {
 /* Un grupo con su desplegable abierto se marca, pero SIN el indicador lateral:
    no estás en él, lo estás mirando. */
 .mk-navrow.is-abierto { background: var(--sidebar-2); color: var(--on-sidebar); }
+/* La línea de abajo del nombre (`bajada` en nav.ts): lo que hay adentro cuando el nombre no lo dice. Con el color de la fila,
+   más chica y más tenue, así sigue el hover y el activo sin reglas propias. */
+.mk-navrow__bajada { font-size: 11px; font-weight: 400; opacity: .6; overflow: hidden; text-overflow: ellipsis; }
 
 /* El rótulo de una SECCIÓN. A propósito NO tiene fondo, ni en reposo ni al
    pasar el cursor: una franja clara con texto es exactamente lo que hace una

@@ -47,6 +47,7 @@ import { Pagina } from '@/app/_ui';
 import { homeDeCapa, requireRolWs } from '@/lib/tab-access';
 import { getCapaActual, getRolWsEfectivo, rutaConWs } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
+import { sinSuHoja } from './redireccion';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerInformeGeneral, leerTablero, type LecturaTablero } from '@/lib/graficos-tablero';
 import { hojaDeRol, hojaDestino, informeDeRol, llamadaDeUrl } from '@/lib/graficos-plantillas';
@@ -79,10 +80,10 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   const unica = hojaDeRol(rol);
   // Cacheada por request, como el rol.
   const capa = await getCapaActual();
-  if (unica) {
-    // Lo único que el closer (o el setter) ve acá es SU hoja: si su negocio no compró esa capa, esto no es para él.
-    if (!tabEnCapa(unica.capa, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
-  }
+  // Lo único que el closer (o el setter) ve acá es SU hoja: si su negocio no compró esa capa, esto no es para él.
+  // ⚠️ Lo hace ANTES el layout (./layout.tsx: en una carga directa, un redirect debajo de ./loading.tsx va en el stream,
+  //    React #310); éste queda para cuando se llega navegando. La MISMA decisión (`sinSuHoja`, ./redireccion.ts).
+  if (sinSuHoja(rol, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   // Focus: quien veía /general (`requireRolWs([], { nav: 'general' })`: el admin, con la capa que lo incluye).
   const conFocus = rol === 'admin' && tabEnCapa('general', capa);
 

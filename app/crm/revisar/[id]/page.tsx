@@ -46,6 +46,7 @@ async function nombresDeProductos(productos: Array<number | null>): Promise<stri
 
 export default async function RevisarLeadPage({ params }: { params: Promise<{ id: string }> }) {
   const sesion = await getUsuarioActual();
+  // En una carga directa ya redirigió app/crm/layout.tsx, antes del loader; esto queda para cuando se llega navegando.
   if (!sesion) redirect(await rutaConWs('/inicio'));
 
   const { id } = await params;

@@ -2736,3 +2736,88 @@ Lo que quedó SIN hacer:
   testimonio o una cifra que la IA escriba en una página de MaKo no se vacía sola.
 - El ⋮ de una sección de diseño ofrece cosas de Gamma que no le aplican (color de fondo, estilo, «Probar nuevo diseño»).
 - Sin mirar con clics en el editor de verdad.
+
+## El clic derecho en los chats embebidos y en el lienzo (24/10/2026 noche, P5 de claude5)
+
+Martín, 24/10: «en Automations o Web Generator, si le doy click derecho, no hace nada» y «en el lienzo de Web tambien
+debería funcionar el click derecho, como en otros editores». Plan en [diseno-editor-web-como-automations.md](diseno-editor-web-como-automations.md) §5.
+**Vive en:** `app/_chat/HiloMako.tsx` (`MenuDelMensaje`) · `app/web-generator/editor/paneles/PanelAgente.tsx` y
+`ChatAgente.tsx` (la cita) · `app/web-generator/editor/nodos/TarjetaVista.tsx` (el lienzo) · `extensiones/piezas.tsx`
+(`Flotante` con un punto).
+
+- **La causa:** el menú de un mensaje vive en `MensajeWA` y se prende con `ContextoWA`; sólo lo daban el Ops Center, el
+  teléfono y el Second Brain. **Regla:** `HiloMako` pone uno MÍNIMO si quien lo monta no trae el suyo (Copiar siempre;
+  Responder si la pantalla le pasa `onCitar`). Si viene uno de afuera, gana el de afuera. Así lo heredan los chats que
+  dibujan con `HiloMako` sin tocar cada pantalla; **Responder sólo aparece donde la pantalla sabe poner la cita en su caja**
+  (hoy, el editor web). En la caja va `CitaCaja` del Ops Center y lo escrito sale con `armarConCita`, igual que allá.
+- **Con el dedo no se abre:** en Android el `contextmenu` que llega después del mantener apretado cierra el menú en el mismo
+  gesto (MensajeWA.tsx, «POR QUÉ SE CERRABA SOLO»). Los embebidos son de la computadora; el teléfono trae su ContextoWA.
+- **El lienzo de Automations no se pisa:** su `onContextMenu` (app/_components/Lienzo.tsx) mira si el clic fue ADENTRO de
+  su caja por el DOM (`caja.current.contains`), no por el árbol de React, así que un chat en un portal no le abre el menú.
+- **El lienzo del editor web:** el clic derecho sobre una sección abre el MISMO menú del ⋮, en el punto del clic (no una
+  lista nueva: lo que crece en el ⋮ crece acá). Lo que se abre desde ahí (estilo, notas, diseños) se sigue anclando al ⋮.
+  Quedan con el menú del navegador: Shift + clic derecho, y el clic derecho con texto elegido (copiar, el corrector).
+- ⚠️ **Trampa para quien sume otro clic derecho adentro de una sección:** el de la sección es un listener NATIVO en su
+  elemento, y React escucha en la raíz: el nativo corre ANTES que cualquier `onContextMenu` de React de un bloque de
+  adentro, así que `e.preventDefault()` en React llega tarde. Un bloque que quiera su propio menú se escucha también con un
+  listener nativo (en su elemento) y hace `preventDefault`: el de la sección respeta `defaultPrevented`.
+- **Un `Diseño editable` (iframe) no lo dispara:** el `contextmenu` adentro del iframe no sale del iframe. Ahí queda el del
+  navegador (que es el que sirve para copiar y pegar texto del diseño).
+
+Lo que quedó SIN hacer:
+- Responder en los demás chats que dibujan con `HiloMako` (Automations, Offer, el onboarding, Dashboard…): hoy traen
+  Copiar; cada pantalla suma Responder pasándole `onCitar` y la cita a su caja (`arriba` de CajaChat).
+- Sin mirar con clics en el editor de verdad.
+
+## La página de Mauricio ya no da 403 en producción, y cómo medirlo sin escribir nada (24/10/2026 noche, claude5)
+
+Medido en producción (el despliegue de las ~19 h, con c3af56f7b) desde el Chrome de Martín, en el Cliente de Prueba: la
+vista aislada del Diagnóstico (`GET /api/landing-generator/diagnostico/pagina?url=https://sprint.mauriciobustos.com`)
+bajó la página y avisó «listo». Usa `paginaParaVer` → `bajarHtml`, el MISMO camino (con el reintento ante un 403) que
+Offer y el análisis (`extraerLanding`), así que el 403 que vio Martín no sale más.
+
+- ⚠️ **Esa ruta responde 200 también cuando NO pudo leer la página:** el error va ADENTRO, como un documento que avisa
+  por `postMessage({ gmDg: 1, tipo: 'error', mensaje })` (`documentoErrorDiagnostico`). El código de estado no dice nada;
+  para medirla desde afuera hay que escuchar el mensaje: `tipo: 'listo'` = la bajó, `tipo: 'error'` = no.
+- **Medirla sin escribir:** es un GET de sólo lectura, pero sólo se sirve a un iframe (`Sec-Fetch-Dest: iframe`). Se
+  arma con un `<iframe sandbox="allow-scripts">` desde cualquier página de hola-mako.com con la sesión del admin, y
+  `&ws=3`. No crea análisis ni filas en ningún negocio.
+- **La pestaña del editor se cuelga con la extensión** (dos veces el 24/10: `Runtime.evaluate` sin respuesta a los 45 s).
+  Una página liviana del mismo dominio (`/api/auth/me`) sirve de base para medir rutas: responde enseguida.
+
+## La landing principal con lo que hace la competencia: dos portadas, precios vivos y nada prometido de más (25/10/2026, claude5)
+
+Martín (25/10): «investigues al 100% como lo venden otros». La investigación del Cerebro (80 productos, §6a) propone la landing
+sección por sección; `scripts/landings-mako-v2.mts` la arma como dos documentos de Web Generator (portada A «el equipo», slug
+`mako-equipo`; portada B «todo junto», `mako-todo-junto`), una sección por «Diseño editable». **El diseño es el de 100ads.ai**
+(abierto el 25/10: etiqueta chica, titular apretado con una línea en cursiva serif, tarjetas grises, franja oscura de precios,
+preguntas en dos columnas, el fundador con tres números), con la tinta, el azul y la estrella de MaKo, y Geist.
+
+- **Los precios, nunca escritos en el documento.** Una foto publicada se queda con el precio del día en que se publicó. La
+  landing MARCA (`data-mako-desde`, `data-mako-precio="pro"`) y deja el lugar de las columnas (`data-mako-planes`);
+  hola-mako.com los llena con los planes de hoy (`conPreciosEnHtml`, lib/editor-landing/precios-en-landing.ts, en
+  app/vsl/Landing.tsx). Lo de adentro es el respaldo del editor, y sale de lib/planes-mako.ts, no de un número tipeado.
+- **Planes ya ponía las columnas de precios del lado del cliente**, en el lugar de la agenda (`[data-calendly]`) o antes del
+  pie. Reusar `data-calendly` en un diseño nuevo hacía cargar Calendly en el editor y en hola-mako.site. El lugar propio gana.
+- ⚠️ **La garantía de 14 días está «decidida» (docs/ofertas-mako.md) pero /reembolsos dice que el mes pagado no se devuelve.**
+  La landing no la promete (`GARANTIA = null` en el script; un test la ata a /reembolsos). La escribe Planes.
+- ⚠️ **No hay demo por WhatsApp todavía.** «Escríbele a MaKo» como demo (Aurora, Skalex) necesita un número público y un
+  setter que atienda a desconocidos: el botón secundario es «Ver los planes». Tampoco hay un video corto de demo (el de
+  Mauricio es el caso real, no una demo de producto).
+- ⚠️ **WhatsApp se conecta sólo por QR**: la bandeja oficial (Cloud API) se borró el 09/10. Las preguntas frecuentes lo dicen.
+- **La voz es «tú», no voseo**, aunque la investigación recomienda voseo: la regla de Martín (español neutro, audiencia
+  México) la vigila `tests/puente-panel-copy.test.ts`, que barre también los scripts. Cambiarla es una decisión de Martín.
+- **La cuenta del ahorro se arma de la misma tabla que se muestra** (`AHORRO`, sin el media buyer: US$352 sin él), y «más de
+  US$350» se redondea hacia abajo para que sea cierto.
+- **Trampas de las herramientas:** un reset `.mkv p { margin: 0 }` le gana por especificidad a cada clase y se come sus
+  márgenes (va con `:where`); un `.mts` se importa con extensión `.mjs`; un módulo con `server-only` se importa adentro de la
+  función (y su prueba corre en un node aparte con `--conditions=react-server`); tsx compila a CommonJS un `.mts` importado
+  desde un test `.ts`, y ahí no hay `await` de primer nivel.
+
+Lo que quedó SIN hacer:
+- **Publicar.** `--subir` escribe en producción (ws 9) y el permiso se lo pide a Martín; la portada (`--principal`) recién
+  después de que se despliegue el cambio de app/vsl/Landing.tsx (antes, los precios saldrían dos veces).
+- La portada C («del anuncio a la llamada»), la sección del control (los límites del media buyer) y la fila del media buyer
+  en la cuenta: con el media buyer en producción.
+- La garantía, la demo por WhatsApp y el video corto de demo.
+- Las landings por funcionalidad y por avatar con los ángulos de §6b (tanda 2).

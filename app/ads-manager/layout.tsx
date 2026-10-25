@@ -12,10 +12,15 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
 import { pedidoActual } from '@/lib/pedido-actual';
+import { requireRolWs } from '@/lib/tab-access';
 
 export default async function MediaBuyerLayout({ children }: { children: ReactNode }) {
   const { ruta } = await pedidoActual();
   const m = /^\/ads-manager\/(\d{1,30})\/?$/.exec(ruta ?? '');
   if (m) redirect(await rutaConWs(`/anuncio/${m[1]}`));
+  // Después del link viejo de un anuncio (que va a /anuncio/<id> sin pedir el Media Buyer, como antes), la puerta de la página,
+  // a la vista y en el mismo orden (25/10/2026: redirige-antes-del-loader cuenta las PUERTAS, no sólo un redirect suelto):
+  // sin esto, «no está en tu plan» o el onboarding salen debajo del loader (#310).
+  await requireRolWs([], { nav: 'ads-manager' });
   return children;
 }

@@ -190,8 +190,9 @@ test('punto 6 → AU4: el chat de MaKo es el hilo y la caja únicos, con la estr
   // El «+» (lo adjuntado se lee a texto al sumarlo) y la nota de voz (se transcribe y viaja como texto).
   assert.match(CHAT, /adjuntos: adjuntosCaja,/);
   assert.match(CHAT, /void leerArchivoParaPedido\(a\.file\)\.then\(/);
-  assert.match(CHAT, /voz: \{ onAudio: \(b\) => \{ void enviarAudio\(b\); \}/);
-  assert.match(tramo(CHAT, 'const enviarAudio = async (blob: Blob)', '\n  };', 700), /const r = await transcribirNota\(blob\);/);
+  // (24/10/2026, f17: con su duración, para el globo que se escucha: tests/chat-mako-nota-de-voz.test.ts.)
+  assert.match(CHAT, /voz: \{ onAudio: \(b, segs\) => \{ void enviarAudio\(b, segs\); \}/);
+  assert.match(tramo(CHAT, 'const enviarAudio = async (blob: Blob, secs: number)', '\n  };', 1600), /const r = await transcribirNota\(blob\);/);
   void COLORES_MAKO;
 });
 

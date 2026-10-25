@@ -29,7 +29,9 @@ test('1. con varias, ‹ y › solas, con su rótulo, y apagadas en las puntas',
   const flechas = [...html.matchAll(/<button type="button" class="co-chip co-preg__flechita"([^>]*)>([^<]*)<\/button>/g)].map((m) => [m[2], /disabled=""/.test(m[1]), /aria-label="([^"]+)"/.exec(m[1])?.[1]]);
   assert.deepEqual(flechas, [['‹', true, 'Anterior'], ['›', false, 'Siguiente']], 'en la primera, la de atrás apagada');
   assert.doesNotMatch(html, /‹ Anterior|Siguiente ›/, 'sin el texto');
-  assert.match(html, />1 de 2</);
+  // «1 de 2» ya no se ve (24/10/2026: «Si ya aparecen los puntitos...»): lo dice el rótulo de los puntos.
+  assert.match(html, /class="co-preg__puntos" role="group" aria-label="1 de 2"/);
+  assert.doesNotMatch(html, />\s*1 de 2\s*</);
 });
 
 test('2. sin la ayuda debajo; el pie, sólo con el error o el botón', () => {

@@ -38,6 +38,75 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
+`~/.claude/guardia/vigia.ps1` · el informe entero, con opciones y costos: [ram-de-la-pc.md](ram-de-la-pc.md).
+
+- **Medido el 24/10 (23:59 a 00:06), con 8 chats y Chrome cerrado:**
+  - quedan ~5,6 GB libres;
+  - la reserva de Windows ocupa 3,6 a 4,3 GB, cada chat ~0,25 GB y la app ~1,2 GB;
+  - el chequeo de tipos entero pide 6,3 GB y ya son 7.723 archivos y 76,5 MB (no los 4.300 de la memoria vieja);
+  - los tests son `node --test` (1.683 archivos), no vitest.
+- **Causa de las muertes:** la guardia admitía un pesado con 1,5 GB libres, y cada uno pide 2 a 2,5 GB. Lo dejaba arrancar y
+  el vigía lo mataba: 81 el 24/10, 70 el 23/10, 886 desde el 11/10. Además, nada frenaba una tanda de `node --test` sin
+  `--test-concurrency`, que arranca un proceso por núcleo (11 en esta PC).
+- **Lo que se cambió esa noche** (Martín: «Cuida la ram para que no se crashee claude por la noche»):
+  - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
+  - como mucho 2 workflows a la vez;
+  - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **Sin hacer:**
+  - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
+  - `--test-concurrency=2` en `npm test`;
+  - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
+    MEGA, reiniciar, y habilitar la nube de Anthropic en una cuenta.
+
+## «docs/api-mako.md no está en git»: la referencia pasó 1 MB y el chequeo no la podía leer (25/10/2026)
+
+**Vive en:** `scripts/generar-api-doc.mjs` (el `--check` del pre-push).
+
+- **Síntoma:** el pre-push frenaba con «✖ docs/api-mako.md no está en git.», con el archivo commiteado y al día.
+- **El diagnóstico obvio era el equivocado.** Parecía un archivo sin agregar, o la referencia vieja después de juntar dos ramas.
+  Regenerarla no cambiaba nada.
+- **Causa:** la referencia mide 1.076.071 B desde el 25/10, y `execFileSync('git', ['show', 'HEAD:…'])` tiene un tope de salida
+  de 1 MB por defecto. Tiraba ENOBUFS, y el `catch` lo tomaba por «no existe».
+- **Regla:** toda lectura de git o de un proceso con `execFileSync`/`spawnSync` que pueda crecer lleva un `maxBuffer` explícito.
+  Ahí quedó en 64 MB.
+
+## El chequeo de tipos ENTERO ya no entra en su tope de 5 GB, y el acotado dijo «igual en main» de un error que no lo era (25/10/2026)
+
+- **Medido en el push del 25/10:** con 6,1 GB libres, el tsc entero murió por heap («Ineffective mark-compacts near heap limit»,
+  tope 5120 MB). El pre-push cayó a las 3 tandas, y pasaron. Si se repite con RAM de sobra, el tope es corto para el repo y hay
+  que subirlo (`CAP_HEAP_MB`, scripts/typecheck-lock.mjs). Mejor todavía, las opciones de docs/ram-de-la-pc.md.
+- **Las tandas encontraron dos errores reales:** `app/admin/operaciones/mandar.ts:133` (un `Uint8Array` pelado de TypeScript
+  5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
+  El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
+  propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+
+## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
+
+**Vive en:** el armado del tren (`C:/dev/wt-push-q`) · `app/admin/dev/*/bitacora.ts`.
+
+- **Síntoma:** Landings avisó que el tren no pasaba tipos: TS1117 ×12 en `app/admin/dev/customer-success/bitacora.ts`.
+- **Causa:** el bloque del conflicto se cortaba en el MEDIO de un hito. «HEAD y después el otro» dejó `revisar: '/partners',`
+  pegado a `fecha: '24 oct', hora: '23:40'`, sin `},{` en el medio. El chequeo que se corrió (`esbuild`) da verde, porque en
+  JavaScript una clave repetida no es error de sintaxis.
+- **Regla:** después de unir un conflicto en un arreglo de objetos, se buscan CLAVES REPETIDAS con el parser de TypeScript
+  (`ts.createSourceFile`, recorriendo cada `ObjectLiteralExpression`), no con esbuild. Pasado sobre las 58 bitácoras: 0.
+- **Y el índice:** `scripts/unir-indice-hallazgos.py` no sabe juntar una fila nueva de un área que main todavía no tiene (falla
+  con «no hay en main una fila del área»). Se resuelve a mano, quedándose con la fila que CONTIENE a la otra.
+
+## Las barredoras de tests-afectados se pasan de los 25 minutos con poca RAM, y el reintento son 796 procesos (25/10/2026)
+
+- **Síntoma:** «grupo compartido 1/1 · 796 archivos · 0 tests · ROJO · 25 min», seguido de «los repito AISLADOS, uno por
+  proceso». Eso son horas.
+- **Causa:** con 1 a 3 GB libres, el proceso compartido pagina y llega al tope (`TOPE_COMPARTIDO_MS`). No es un rojo del código.
+- **Qué hacer:** cortar la corrida y volver a correrla con más RAM libre. Los rojos de verdad se separan corriendo esos tests en
+  un main limpio (`git worktree add --detach … origin/main` más una junction a `node_modules`) y comparando las dos listas de
+  `✖`. El 25/10, de 12 rojos, 4 eran del tren y 8 ya estaban en main.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## Probar un test rompiéndolo: se restaura de una COPIA, nunca con `git checkout --` (25/10/2026)
 
 **Vive en:** cualquier ronda de «probado rompiéndolo» sobre archivos que todavía no están commiteados.
@@ -47,6 +116,18 @@ anteriores se habían deshecho copiando un respaldo. **El checkout no vuelve a �
 archivo tenía media hora de trabajo sin commitear. El `git diff --stat` vacío después fue lo único que lo delató (se rehízo
 desde el script de reemplazos, que seguía en el scratchpad). **Regla:** antes de romper, `cp <archivo> <scratchpad>/x.bak`, y
 se restaura con `cp` de vuelta; `git checkout --` sólo sobre un archivo que está igual a HEAD.
+
+## `tsc-acotado | grep "error TS"` esconde el «NO SE PUDO CHEQUEAR»: dos verdes falsos y una tanda con errores (25/10/2026)
+
+**Vive en:** scripts/tsc-acotado.mjs (salida 0 = limpio, 1 = errores, **99 = no chequeó**) y cualquier filtro de su salida.
+
+El chat CRM corría `node scripts/tsc-acotado.mjs … | grep "error TS" | grep -v _opencut; echo fin` para no ver los 14 errores
+ajenos de `_opencut`. Dos corridas terminaron con «fin» y nada más, y se leyeron como limpias: **las había matado el vigía de
+RAM** (código 99, «NO SE PUDO CHEQUEAR», en stderr y sin «error TS», así que el grep lo tiraba). Una tanda salió al tren con
+dos errores de tipos (TS2339 y TS2345 en FichaPorBloques.tsx) que se encontraron recién en la corrida siguiente. Es la misma
+trampa que la del `&&` de abajo, del otro lado: el filtro decide qué se ve, y lo que no matchea parece que no pasó.
+**Regla:** la salida entera a un archivo, `echo "codigo=$?"` después, y recién ahí filtrar el archivo. Con 99 no hay veredicto:
+se espera RAM o se parte la lista (el tablero del CRM solo ya pide ~2,5 GB).
 
 ## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
 
@@ -168,7 +249,7 @@ sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave 
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 
-## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (25/10/2026, ticket #9)
+## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (24/10/2026, ticket #9)
 
 **Síntoma:** «La pantalla «Web Generator» se rompió» (ticket #9, ws 10, 24/10 21:43 ART, Chrome en Windows), «Minified
 React error #310» al abrir `/web-generator`.
@@ -186,17 +267,76 @@ página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carp
 **El arreglo:** `app/web-generator/layout.tsx` redirige las tres (`redireccionDelLayout`, panel-reglas.ts, con test); las
 páginas conservan su redirect para cuando se llega navegando.
 
-⚠️ **Lo que quedó así, de otras tabs (el test las tiene en una lista de conocidas):** app/admin/operaciones/page.tsx,
-app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/dashboard/page.tsx,
-app/m/chats/page.tsx, app/m/dashboard/page.tsx, app/m/dashboard/[hoja]/page.tsx y app/m/second-brain/page.tsx redirigen
-debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin permiso); cada una se revisa en su chat y, si
-redirige en una carga normal, pasa la redirección a su layout y sale de la lista.
+⚠️ **La lista de conocidas quedó VACÍA (25/10):** las páginas de otras tabs que redirigían debajo de un loader pasaron la
+redirección (y su puerta) a su layout: los tres dashboards (la entrada de abajo), /admin/operaciones, /m/chats y
+/m/second-brain (la entrada que sigue: en /m hay una trampa) y las del CRM; las que deciden por ruta están en
+`DECIDEN_POR_RUTA` con su test. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista
+(si no, una regresión suya pasaría callada).
 
-**No se midió en producción:** la pestaña del Chrome de Martín no respondió (25/10). Para medirlo:
+**No se midió en producción:** la pestaña del Chrome de Martín no respondió (24/10). Para medirlo:
 `fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
 con el arreglo.
 
-*25/10/2026, chat «Landings» (claude5).*
+## Los dashboards redirigen en su layout, y el de /m recibe la ruta de ESCRITORIO (25/10/2026)
+
+**Qué se hizo:** /dashboard, /m/dashboard y /m/dashboard/[hoja] salieron de la lista de conocidas: redirigen en
+`app/dashboard/layout.tsx` y `app/m/dashboard/layout.tsx` (un solo layout para las dos del teléfono: el loader de
+`app/m/dashboard/loading.tsx` envuelve a las dos). La decisión es UNA, la de las páginas: `sinSuHoja`
+(app/dashboard/redireccion.ts: el closer o el setter cuyo negocio no compró la capa de su hoja) y `hojaPropiaDe`
+(app/m/dashboard/datos.ts: una hoja que no se abre en el teléfono vuelve al Dashboard).
+
+**La trampa (el diagnóstico obvio era el equivocado):** el layout de /m/dashboard preguntando `ruta === '/m/dashboard'`
+no se dispara NUNCA. En el teléfono la URL es la de escritorio («las rutas deben ser las mismas»): el proxy REESCRIBE
+`/dashboard?hoja=…`, `/marketing`, `/comercial` o `/graficos` a /m/dashboard, y el header de la ruta lleva la URL pedida
+(`headersSeguros`, proxy.ts). Una /m pedida directo, en cambio, redirige a la de escritorio. Y el layout no recibe el
+`[hoja]` (es de la hija). Por eso `paginaDelPedido` (app/m/dashboard/redireccion.ts) traduce la ruta con `rutaMovil`, la
+MISMA tabla del proxy, y el test compara las dos con `decidirDesvio`.
+
+**Las otras dos reglas que quedan:**
+- **La puerta de la tab, sólo si se va a redirigir.** `requireRolWs` / `requireMovil` preguntan el onboarding y el negocio
+  pausado SIN cache por pedido: correrlas siempre en el layout duplicaba esas consultas en cada carga del Dashboard. Como
+  en /web-generator, el layout decide con lo cacheado (`getRolWsEfectivo`, `getCapaActual`, `contextoMovil`) y llama a la
+  puerta sólo antes de su redirect.
+- **Lo que el layout lee, la página lo reusa.** Para decidir una hoja propia hace falta el informe: `tableroDelPedido`
+  (`cache(leerTablero)`, app/m/dashboard/datos.ts) lo lee una vez por pedido para el layout y la página.
+
+**Sin hacer:** no se midió en producción ni en el teléfono (es un 307 en vez de un 200 con el redirect en el stream; se
+mide con el `fetch(..., { redirect: 'manual' })` de arriba, con un closer en un negocio sin Closing). Las seis conocidas de
+otras tabs siguen en la lista. Vive en: app/dashboard/layout.tsx · app/dashboard/redireccion.ts ·
+app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-antes-del-loader.test.ts.
+
+*25/10/2026, chat «Automations» (claude5).*
+
+*24/10/2026, chat «Landings» (claude5).*
+
+## En /m, la ruta del header es la del NAVEGADOR: un layout de /m no puede compararla con `/m/…` (25/10/2026, #310)
+
+**Por qué importaba:** /admin/operaciones, /m/chats y /m/second-brain estaban en la lista de conocidas del barrido de arriba.
+/m/second-brain es por donde ENTRA la app del teléfono, y a /m/chats llegan los avisos y MaKo por WhatsApp con un link
+profundo: cargas directas, justo las que se rompen.
+
+**La trampa:** `pedidoActual` (el molde) da la ruta que pidió el NAVEGADOR (`HEADER_RUTA` es `req.nextUrl.pathname`). En un
+teléfono el proxy sirve `/chats` con la página de `/m/chats` (un rewrite), así que el header dice `/chats`: un layout que
+compara con `/m/chats` no redirige NUNCA, y no da ningún error. La query tampoco es la de la página: el rewrite le suma la
+suya (`urlReescrita`), y `/chats?c=ig:5` no es la lista sino el chat `/m/chats/ig%3A5`. Un layout de /m usa
+`pedidoMovilActual` (lib/pedido-actual.ts), que traduce como el proxy (`pedidoInterno`, lib/movil-desvio.ts, con test).
+
+**El arreglo:** el layout de la carpeta de cada loader, con las condiciones COPIADAS de la página (el test exige que estén
+iguales en los dos): app/admin/operaciones/layout.tsx (sin sesión de admin, o con el `?ws=` de un cliente),
+app/m/chats/layout.tsx (los links profundos, sólo en la lista: el layout envuelve también a cada chat) y
+app/m/second-brain/layout.tsx (el Mapa, y el super admin a su Centro; sólo en el chat: envuelve también al Mapa).
+
+**Ojo, sin arreglar:** `requireMovil` también redirige (login, onboarding, la tab que no le toca) y lo llama cada página de /m
+debajo de su loader. El barrido no lo ve porque busca `redirect(` en el archivo de la página. Los dos layouts nuevos lo llaman
+primero, así que ahí sale antes del loader; en el resto de /m sigue igual (lib/movil-guard.ts).
+**La puerta va para TODA la carpeta del loader, no sólo para la ruta que redirige** (lo vio Landings, cuyo guard cuenta las
+puertas): el loader de /m/chats envuelve también a cada chat, así que `requireMovil({ navKey: 'chats' })` va primero y sin
+mirar la ruta; y el Mapa, debajo del loader de /m/second-brain, pasa por OTRA puerta (`second-brain`, no `mako`), que su
+layout repite en esa ruta.
+
+**Sin medir en producción** (la receta, en la entrada de arriba).
+
+*25/10/2026, chat «Ops Center» (claude5).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
@@ -8435,3 +8575,65 @@ resolvedor sí acertaba en sacar repetidos. Lo que rompía era la forma.
   En las cuatro puntas sanas que se midieron eso no aparece ni una vez. Así que no toca nada que no esté roto.
 
 **Vive en:** `scripts/unir-indice-hallazgos.py` · docs/hallazgos.md
+
+## Las PUERTAS también redirigen debajo del loader, y el guard de #9 no las ve (25/10/2026)
+
+**Síntoma:** ninguno todavía; es el riesgo de los tickets #7 y #9 con otra cara. Arreglando las tres páginas del CRM que el
+guard (`tests/redirige-antes-del-loader.test.ts`) tenía como conocidas, apareció que /crm, /crm/new, la ficha y
+/crm/prospectos redirigían igual adentro de `app/crm/loading.tsx`, sin un solo `redirect(` en su archivo.
+
+**La causa:** las puertas de `lib/tab-access.ts` redirigen por dentro: `requireCapa` (a «no está en tu plan»),
+`guardOnboarding` (a /onboarding: un cliente nuevo que abre una tab con el onboarding pendiente, lo de todos los días),
+`requireRolWs` y `requireSesion`. El guard busca `redirect(` en la página, así que no las cuenta.
+
+**Lo que queda (medido el 25/10 con la lógica del guard, contando las puertas):** seis páginas de otras tabs redirigen SÓLO
+por sus puertas debajo de un loader, sin layout que lo haga antes: app/ads-writer, app/automations, app/calendario,
+app/chats, app/offer y app/web-generator/[id]. La última, además, el guard la daría por buena cuando entre el layout de
+/web-generator, porque mira si el layout tiene ALGÚN `redirect(`, no si cubre esa ruta. **Regla:** el guard tiene que contar
+las puertas como redirecciones (`/\b(requireCapa|guardOnboarding|requireRolWs|requireSesion|requireRol)\(/`), y una tab
+que las tiene repite en su layout la misma puerta de cada página, en el mismo orden (el molde: `app/crm/layout.tsx`).
+
+**Vive en:** lib/tab-access.ts · tests/redirige-antes-del-loader.test.ts · app/crm/layout.tsx + layout-reglas.ts
+
+*25/10/2026, chat «CRM» (`claude5`).*
+
+**Lo que se hizo con eso (25/10/2026, chat «Landings»), y lo que el «seis» no veía:**
+
+- **Eran 25 carpetas, no seis.** La lista de seis se midió con las puertas de `lib/tab-access.ts`. Pero hay más funciones
+  que redirigen por dentro:
+  - `requireMovil`, la puerta de todo el teléfono;
+  - `requireEditorImagen` y `requireEditorVideo`;
+  - `requireAiAvatar` y `requireAiAvatarM`.
+
+  Contándolas, aparecieron además **13 carpetas de `/m`** y los dos editores. Además, `plan`, `second-brain` y los dos
+  Dashboards (el de la computadora y el del teléfono) tenían layout, pero no repetían su puerta en cada ruta. Ahora el test
+  busca las puertas solo: toda `export async function require…/guard…` de `lib/` o `app/` que llama a `redirect(` o a otra
+  puerta tiene que estar en `PUERTAS`.
+- ⚠️ **«Pasar la puerta sólo cuando se va a redirigir» no alcanza.** Los dos layouts de Dashboard la llamaban únicamente
+  antes de su propio salto. La razón escrita era ahorrar las consultas del onboarding y del negocio pausado, que no están
+  en caché. Pero la puerta de la PÁGINA también redirige, así que un cliente con el onboarding pendiente iba a /onboarding
+  desde adentro del loader: el mismo #310. Ahora la puerta va primero y siempre.
+  - Lo que cuesta: esas consultas, una vez más por carga.
+  - Lo que no cuesta: tiempo de la página. El layout y la página se dibujan en paralelo; el loader sí sale después de la
+    puerta del layout.
+- **La regla del guard (tests/redirige-antes-del-loader.test.ts), para cada página debajo de un loader:**
+  - **Las puertas del layout.** Están en el layout de la carpeta del loader de más afuera, escritas igual que en la página
+    y en el mismo orden.
+  - **Que la cubran.** O van A LA VISTA (al primer nivel de la función del layout, sin un `if`, y valen para toda ruta), o
+    la carpeta está en `DECIDEN_POR_RUTA`. Esa tabla lista las páginas de la carpeta y nombra el test que lo prueba ruta por
+    ruta (crm, plan, second-brain, web-generator y los dos dashboards).
+  - **Lo que ya no pasa.** Un layout con «algún» `redirect(` ya no cubre a todas las rutas: así pasaba /web-generator/<id>.
+- **El molde de una carpeta con una sola puerta para todas sus páginas** (las 20 nuevas): el layout llama a esa puerta, a
+  la vista, y devuelve `children`. La página conserva la suya.
+- **Quedan conocidas, con su motivo, en `CONOCIDAS_SIN_LAYOUT`:**
+  - `/admin/operaciones`.
+  - Los saltos a la vista de `/m/chats`; su puerta ya está en el layout.
+  - Las dos de `/m/second-brain`: cada una tiene otra puerta (`mako` y `second-brain`), y su layout tendría que saber cuál
+    es con la URL de escritorio que reescribe el proxy, como `app/m/dashboard/redireccion.ts`.
+
+**Vive en:** tests/redirige-antes-del-loader.test.ts (`PUERTAS`, `DECIDEN_POR_RUTA`, `CONOCIDAS_SIN_LAYOUT`) · los
+`layout.tsx` de ads-writer, automations, calendario, chats, offer, image-editor, video-editor y de m/ads, m/automations,
+m/calendario, m/chats, m/crm, m/cs, m/curso, m/hoy, m/inbox, m/landing, m/mas, m/plan, m/video · y la puerta en los de
+web-generator, plan, second-brain, dashboard y m/dashboard.
+
+*25/10/2026, chat «Landings» (`claude5`).*

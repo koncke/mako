@@ -301,4 +301,14 @@ export const BITACORA: Hito[] = [
     archivos: ['app/plan/layout.tsx', 'app/second-brain/layout.tsx', 'lib/pedido-actual.ts', 'proxy.ts', 'tests/redirige-antes-del-loader.test.ts'],
     revisar: '/plan',
   },
+  {
+    fecha: '25 oct', hora: '03:30', chat: 'Automations', sesion: 'local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49', cuenta: 'claude5', actor: 'claude', tipo: 'correccion',
+    titulo: 'La criatura de MaKo ya no se esconde detrás de la barra desplegada',
+    puntos: [
+      'Lo marcó Martín en su llamada con Leandro del 24/10: con la barra de la izquierda abierta, la criatura volaba a su lugar y desaparecía.',
+      'Con la barra abierta, la estrella de abajo se corre al lado y la criatura se ve llegar.',
+    ],
+    archivos: ['app/_chat/MakoEnLaTab.tsx', 'app/_chat/borde-barra.ts', 'tests/estrella-al-lado-de-la-barra.test.ts'],
+    revisar: '/crm',
+  },
 ];

@@ -34,10 +34,53 @@ el ícono azul de una columna ordenada, y «Traer de otro funnel» con los grise
   leer Instagram en esa cuenta. Fue al Ops Center la pregunta a Martín (el Instagram de MaKo + permiso, gratis; o Apify, pago).
   Sin ver en pantalla, igual que la tanda 1.
 
-**Lo que sigue, en orden** (el pedido del Cerebro): 12 («Editar con MaKo» como bloque flotante, y todo editable), 19 (cerrar
-un modal hijo vuelve al padre), 20 (Scraper, Traer e Importar con una estética), 18 (los grupos de WhatsApp, más rápido:
-medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
-`crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
+**Tanda 2, arreglo:** `b38cfd930` (dos errores de tipos de la ficha que se colaron: ver hallazgos-infra, el filtro que
+escondía el «NO SE PUDO CHEQUEAR»). La pregunta de Instagram se rehízo sin Apify (Martín lo descartó el 24/10).
+
+**Tanda 3 — puntos 19 y 20:**
+- 19: «Traer», el Scraper e «Importar» se abren ENCIMA de «Nuevo lead» (la pila de la casa): cerrarlos vuelve al alta con lo
+  escrito.
+- 20: los tres con un molde (app/crm/MoldeTraer.tsx), **copiado del «Preview import» de Attio** (su documentación oficial,
+  captura del 25/10 en el scratchpad de la sesión): de dónde arriba con un «⋯», «Entran a», el resumen con chips, la lista, y
+  abajo sólo «Atrás» y la acción. El importador dejó `WizardShell`.
+
+**Tanda 4 — punto 12:** el panel de MaKo de la ficha flota (el marco `.an` del Dashboard), y con un bloque elegido cada
+fila de dato lleva su ✕ para sacarla (la captura c06 mostraba que «Datos ▾» existía y no se encontraba: el cuerpo es inerte).
+
+**Tanda 5 — punto 18:** medido antes de tocar (hallazgos-crm, «Los grupos de WhatsApp tardan muchísimo»): la lista de
+grupos abre al instante (guardada, o la base) y la completa (33 s en la línea de la plataforma) llega por detrás y se
+guarda; traer va de a cuatro.
+
+**Martín contestó la pregunta de Instagram** (25/10, por el Ops Center): sí vincular el Instagram de MaKo, y preguntó si hay
+otra forma gratis. Se le contestó: no espera la verificación (cuenta propia, acceso estándar) y la forma gratis es la
+extensión de MaKo leyendo Instagram con su sesión (como folk). **Pendiente:** los clics de Martín en Meta for Developers (el
+caso de uso de Instagram en la app MaKo, vincular el Instagram a «Hola MaKo», token con instagram_basic) y, si dice que sí,
+la lectura por la extensión.
+
+**Ticket #10 (25/10, primero por ser un cliente roto):** la ficha de /crm/3445 se caía con React #418. No era una fecha sin
+zona: el lead se llama «🧪 Martín…» y la marca de la cabecera cortaba el emoji por la mitad (`b6a7ede22`, la cosecha en
+hallazgos-ui). Quedan 8 copias del mismo corte en piezas de otras tabs (la lista, ahí): no son de este chat.
+
+**Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
+Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). **Redirigir antes del loader (25/10, del Cerebro):** hecho
+para las siete páginas de /crm, no sólo las tres que pidió (app/crm/layout.tsx; hallazgos-crm). Cuando entre el guard de
+Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`.
+
+**La llamada con Leandro (25/10):** f15 (WhatsApp abre el chat de MaKo, en las cuatro puertas), f12 («Completar nombres»
+por la extensión: pide instalarla y arranca sola), f13 (la pregunta de «Datos de empresa» en una línea) y f11 («Completar
+nombres» en el pie). f14 (decidido por el Cerebro): «Datos de empresa» en una sola pasada, sin el tope de 40 por corrida; el de 120 por día
+queda, porque cuida la línea de un baneo (no era por Apify, como creía el Cerebro: hallazgos-crm). **Los cortes de emoji**
+de otras tabs los hizo el Ops Center (lib/unicode-seguro.ts, `iniciales`): cuando su rama entre al tren, dejar UN solo
+helper (Marca, Avatar y el historial a esa; borrar lib/iniciales.ts; tests/iniciales-hidratacion apuntando a la que queda). **Pendiente de la extensión** (no de este chat):
+reponer mako-puente.js en las pestañas abiertas en `onInstalled`, para que f12 arranque sin recargar (hallazgos-crm).
+
+**El panel de MaKo y la barra (25/10, rojo del tren):** flota 12 px debajo de la barra de inspección y de la alerta de la voz
+(`f36918c92`); con la alerta sola quedaba tapado. Cosecha en hallazgos-ui.
+
+**Pendiente con Martín:** la comprobación del chip del @ de un lead con sólo Instagram en producción (el Cerebro: crear
+«Prueba @ solo» en el ws3, mirarlo en kanban, lista y ficha, probar el duplicado y borrarlo). En el ws3 no hay ninguno así
+(medido en la base el 25/10), y crear y borrar en producción pide su sí en el chat. El Chrome de Martín no respondía. Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
+`b1c4924fd`, 17 hallazgos por arreglar) NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
 

@@ -1147,7 +1147,7 @@ export const BITACORA: Hito[] = [
     revisar: '/web-generator',
   },
   {
-    fecha: '25 oct', hora: '22:19', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    fecha: '24 oct', hora: '22:19', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
     titulo: 'Hecho: el Web Generator ya no se rompe al abrirlo',
     puntos: [
@@ -1162,5 +1162,60 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
     tickets: [9],
+  },
+  {
+    fecha: '24 oct', hora: '22:49', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El clic derecho ya anda en el chat de MaKo y en las secciones del Web Generator',
+    pedido: '«En Automations o Web Generator, si le doy click derecho, no hace nada.» «En el lienzo de Web tambien debería funcionar el click derecho, como en otros editores.»',
+    puntos: [
+      'En el chat de MaKo del Web Generator, el clic derecho sobre un mensaje abre su menú: Responder y Copiar. Responder pone ese mensaje arriba de la caja, como en WhatsApp, y MaKo sabe a qué le contestas.',
+      'Los otros chats con MaKo (Automations, Offer, el onboarding y los demás) ya tienen Copiar con el clic derecho. Responder se suma en cada uno más adelante.',
+      'En el lienzo, el clic derecho sobre una sección abre el mismo menú de sus tres puntitos (duplicar, mover, ocultar, eliminar…), donde hiciste clic, como en Canva.',
+      'Con Shift + clic derecho, o con texto elegido, sale el menú de siempre del navegador (para copiar o corregir una palabra).',
+      'Probado con tests; falta mirarlo con clics en el editor.',
+    ],
+    archivos: [
+      'app/_chat/HiloMako.tsx — el menú de cada mensaje en los chats con MaKo',
+      'app/web-generator/editor/nodos/TarjetaVista.tsx — el clic derecho sobre una sección',
+      'docs/hallazgos-editor-landing.md — cómo quedó y lo que falta',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '24 oct', hora: '23:11', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: 'Verificado: MaKo ya puede leer la página de Mauricio',
+    pedido: '«La página respondió 403: está bloqueando la lectura automática... eso es un error nuestro... Y pasa en muchos lugares, como en Offer.»',
+    puntos: [
+      'Se probó en MaKo, ya publicado, con la página de venta del Sprint de Mauricio: MaKo la abrió sin el error 403.',
+      'Es el mismo camino que usan Offer y el análisis de una página, así que en esos lugares tampoco debería salir más.',
+      'Se probó en la cuenta de prueba, sin crear nada en la de ningún cliente.',
+    ],
+    archivos: [
+      'lib/landing-fetch.ts — cómo MaKo abre una página de afuera',
+      'docs/hallazgos-editor-landing.md — cómo se midió',
+    ],
+    revisar: '/offer',
+  },
+  {
+    fecha: '25 oct', hora: '01:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La landing nueva de MaKo, armada como la venden los que más venden: lista para publicar',
+    pedido: '«Para las landing de MaKo, y en general la comunicación y la forma de vender, quiero que investigues al 100% como lo venden otros... tipo landing page, no saas super consolidados»',
+    puntos: [
+      'Dos portadas para probar con anuncios: «Tu media buyer, tu setter y tu diseñador. Ya contratados.» y «Todo lo que hoy pagas por separado, en un solo lugar.» El resto de la página es el mismo.',
+      'El diseño copia la estructura de 100ads, el competidor más parecido, con los colores de MaKo.',
+      'Las secciones: el caso de Mauricio, los problemas de siempre, el equipo, el circuito del anuncio a la venta, tu propia IA, lo que te ahorras, los precios, para quién no es, quién está detrás y las preguntas frecuentes.',
+      'Los precios siempre son los de hoy: salen de los planes, no están escritos en la página.',
+      'No promete nada que MaKo todavía no hace. La garantía de 14 días queda afuera hasta que la política de reembolsos la diga.',
+      'Falta publicarla: escribir en la página real de MaKo pide tu permiso. Y la portada principal se cambia cuando salga la actualización de la página.',
+    ],
+    archivos: [
+      'scripts/landings-mako-v2.mts — las dos portadas y sus secciones',
+      'lib/editor-landing/precios-en-landing.ts — los precios de hoy adentro de la landing',
+      'docs/hallazgos-editor-landing.md — lo que se decidió y lo que falta',
+    ],
+    revisar: '/web-generator',
   },
 ];

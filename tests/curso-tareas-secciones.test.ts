@@ -300,6 +300,9 @@ const EXCEPCIONES: Array<{ archivo: string; contiene?: string; motivo: string }>
   { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'forma: p.forma, campos: [...p.campos]', motivo: 'una plantilla de la tarjeta de Clients: sus datos, no la tarea' },
   { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'NOMBRE_CAMPO_TARJETA_CLIENTE', motivo: 'los datos de la tarjeta de Clients, con su nombre' },
   { archivo: 'lib/api-mako/areas/cs.run.ts', contiene: 'setTarjetaClientes(payload.campos', motivo: 'guarda los datos de la tarjeta de Clients' },
+  // Duplicar un programa (25/10/2026): la lista ENTERA, con sus secciones, va a la clase nueva (`camposDeCopia` le saca
+  // el post y la categoría de la otra comunidad y reescribe los adjuntos de cada sección). No lee respuestas.
+  { archivo: 'lib/curso-duplicar.ts', contiene: 'Array.isArray(c.campos) ? (c.campos as Campo[]) : []', motivo: 'la copia de un programa: copia la tarea entera, no lee respuestas' },
 ];
 
 /** ¿Esta línea con `.campos` está bien? (ver las reglas en el test) */

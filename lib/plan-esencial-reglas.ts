@@ -14,8 +14,10 @@
 // ⚠️ PURO: lo leen el servidor, la barra (vía /api/auth/me) y los tests.
 
 /** Las claves de la barra (app/_components/nav.ts) de las tabs de Pro. Las de AI Avatar, con sus secciones. */
+// 25/10/2026: el Media Buyer (/ads-manager) ya NO es sólo de Pro: Esencial lo tiene en «propone», 2 recomendaciones por día y sin
+// piloto automático (decisión del Cerebro con la investigación de venta; memoria decisiones-venta-25-10). El cupo lo cumple lib/media-buyer.
 export const NAV_SOLO_PRO: ReadonlySet<string> = new Set([
-  'ads-manager', 'image-editor', 'video-editor',
+  'image-editor', 'video-editor',
   'ai-avatar', 'ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas',
 ]);
 /**

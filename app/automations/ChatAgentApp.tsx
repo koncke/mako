@@ -138,7 +138,9 @@ export type PasoSecuenciaDto = {
  */
 export type CamposDelFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'nodo' | 'espera' | 'ramas' | 'casos' | 'si_no' | 'destino' | 'revisar' | 'media_id'
   // AI Step: el MEDIO (décima) y lo del OBJETIVO (undécima). Lo de cada escenario viaja en `casos`.
-  | 'paso_ia' | 'suelta' | 'medio' | 'objetivo' | 'audio' | 'ejemplos'>;
+  | 'paso_ia' | 'suelta' | 'medio' | 'objetivo' | 'audio' | 'ejemplos'
+  // Los BOTONES de un mensaje de Instagram o Messenger (24/10/2026, lib/botones-social.ts): cada uno de flujo es una salida.
+  | 'botones'>;
 export type AudioSetting = { id: number; titulo: string; media_mime: string; duracion_s: number | null; transcript: string | null; url: string | null };
 export type SecuenciaDto = {
   id: number; clave: string; nombre: string; etapa: string; trigger_tipo: string;

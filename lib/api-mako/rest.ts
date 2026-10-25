@@ -612,6 +612,12 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // ── curso (08/10/2026: migrar un curso con Claude) ─────────────────────────
   ['GET', '/curso/cursos', 'listar_cursos'],
   ['GET', '/curso/cursos/{productoId}', 'ver_curso'],
+  // El programa entero (25/10/2026): como un repo de GitHub. POST a /copias es el «Create a fork»; PATCH lo renombra;
+  // DELETE lo archiva (vuelve: no es un borrado) y la restauración lo devuelve, como la de una clase.
+  ['PATCH', '/curso/cursos/{productoId}', 'renombrar_curso'],
+  ['DELETE', '/curso/cursos/{productoId}', 'eliminar_curso'],
+  ['POST', '/curso/cursos/{productoId}/copias', 'duplicar_curso'],
+  ['PUT', '/curso/cursos/{productoId}/restauracion', 'restaurar_curso'],
   ['POST', '/curso/cursos/{productoId}/modulos', 'crear_modulo_curso'],
   ['PUT', '/curso/cursos/{productoId}/modulos', 'ordenar_modulos_curso'],
   ['PATCH', '/curso/cursos/{productoId}/modulos/{clave}', 'renombrar_modulo_curso'],
