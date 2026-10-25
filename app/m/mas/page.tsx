@@ -51,6 +51,8 @@ import { RUTA_CUENTA } from '../_ui/cabecera';
 import { contarBadges } from '../badges';
 import { FilaVersionComputadora } from './VersionComputadora';
 import { FilaComputadoraM, FilaGrupoM } from './FilasMas';
+import { CartelPruebaM } from '../_prueba/PruebaM';
+import { estadoDePrueba } from '@/lib/prueba-uso';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +72,8 @@ export default async function MasPagina() {
   // MaKo Esencial por la pasarela (23/10/2026): las tabs de Pro se ven, con «Pasar a Pro» debajo (lib/plan-esencial-reglas.ts).
   const esencial = await esEsencialDeLaSesion();
   const ids = grupos.flatMap((g) => g.filas.flatMap((f) => (f.tipo === 'pantalla' && f.seccion ? [f.seccion] : [])));
+  // LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): el cartel de la barra lateral, en el menú del teléfono.
+  const prueba = ctx.ws != null ? await estadoDePrueba(ctx.ws) : null;
   const [negocio, badges, perfil] = await Promise.all([
     ctx.impersonando
       ? Promise.resolve(ctx.clienteNombre)
@@ -121,6 +125,7 @@ export default async function MasPagina() {
           href={RUTA_CUENTA}
         />
       </ListaM>
+      {prueba?.enPrueba && <CartelPruebaM dias={prueba.dias} plan={prueba.plan ?? 'tu plan'} despues={prueba.despues} />}
 
       {((veOpsCenter && !centroEnBarra) || arriba || diario) && (
         <div className="m-mas-sec" data-sec="diario">

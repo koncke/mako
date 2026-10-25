@@ -18,26 +18,36 @@ import { cache } from 'react';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { getSetting, setSetting } from './settings';
-import { esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
-import { textoTopePrueba, topeEnPrueba, type TopePrueba } from './topes-plan';
+import { diasQueQuedan, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
+import { NOMBRE_COSA_PRUEBA, textoTopePrueba, topeEnPrueba, type TopePrueba } from './topes-plan';
+import { formatoMonto } from './pasarela-moneda';
 
 export const CLAVE_USO_PRUEBA = 'prueba.uso';
 
-export type EstadoPrueba = { enPrueba: boolean; capa: string | null; hasta: string | null };
+export type EstadoPrueba = {
+  enPrueba: boolean; capa: string | null; hasta: string | null;
+  /** Lo que se cobra al terminar («US$ 97/mes») y el plan («MaKo Pro»): lo dicen el cartel y la franja. */
+  despues: string | null; plan: string | null;
+  /** Los días que quedan, contados al leer (fuera del render: una pantalla no lee el reloj). */
+  dias: number | null;
+};
 
 /** ¿Este negocio está en su prueba gratis? Una lectura por pedido (`cache`). Sin poder leer: no está (deja pasar). */
 export const estadoDePrueba = cache(async (ws: number): Promise<EstadoPrueba> => {
-  const nada: EstadoPrueba = { enPrueba: false, capa: null, hasta: null };
+  const nada: EstadoPrueba = { enPrueba: false, capa: null, hasta: null, despues: null, plan: null, dias: null };
   try {
     const plataforma = await wsSuperAdmin();
     if (ws === plataforma) return nada;
-    const { data, error } = await getSupabaseServer().from('cobros').select('tipo, estado, creado_por, alta_capa, inicio_at')
+    const { data, error } = await getSupabaseServer().from('cobros').select('tipo, estado, creado_por, alta_capa, inicio_at, monto, moneda, concepto')
       .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)
       .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     if (error) throw new Error(error.message);
-    const c = data as { tipo: string; estado: string; creado_por: string | null; alta_capa: string | null; inicio_at: string | null } | null;
+    const c = data as { tipo: string; estado: string; creado_por: string | null; alta_capa: string | null; inicio_at: string | null; monto: number | null; moneda: string | null; concepto: string | null } | null;
     if (!c || !esPruebaDePlan(c) || c.estado !== 'pendiente') return nada;
-    return { enPrueba: true, capa: c.alta_capa, hasta: c.inicio_at };
+    // El concepto es «MaKo Pro · mensual» (`conceptoDelPlan`): el plan es lo de antes del punto.
+    const plan = (c.concepto ?? '').replace(/\s*·\s*mensual$/i, '').trim() || null;
+    const despues = c.monto != null && c.moneda ? `${formatoMonto(Number(c.monto), c.moneda)}/mes` : null;
+    return { enPrueba: true, capa: c.alta_capa, hasta: c.inicio_at, despues, plan, dias: diasQueQuedan(c.inicio_at, Date.now()) };
   } catch (e) {
     console.warn(`[prueba-uso] no pude leer si el negocio ${ws} está en prueba; sin topes de prueba:`, e instanceof Error ? e.message : String(e));
     return nada;
@@ -91,4 +101,34 @@ export async function sumarUsoDePrueba(ws: number, cual: TopePrueba, cuantas = 1
   } catch (e) {
     console.warn(`[prueba-uso] no pude sumar ${cual} en la prueba del negocio ${ws}:`, e instanceof Error ? e.message : String(e));
   }
+}
+
+export type UsoDePrueba = { tope: Exclude<TopePrueba, 'prueba.exportar'>; usado: number; de: number };
+export type ResumenPrueba =
+  | { enPrueba: false }
+  | { enPrueba: true; dias: number | null; hasta: string | null; plan: string; despues: string | null; usos: UsoDePrueba[]; exportarHabilitado: false };
+
+/**
+ * La prueba del negocio en un vistazo: cuántos días quedan, qué se cobra después y cuánto usó de cada tope. Lo dibujan el
+ * cartel de la barra lateral, la franja de cada pantalla con tope, «Tu plan» del teléfono, y lo lee la API (`ver_mi_prueba`).
+ * Las páginas publicadas se cuentan de la tabla (las publicadas hoy), como el freno. Nunca tira.
+ */
+export async function resumenDePrueba(ws: number, ahoraMs: number = Date.now()): Promise<ResumenPrueba> {
+  const e = await estadoDePrueba(ws);
+  if (!e.enPrueba) return { enPrueba: false };
+  let uso: Partial<Record<TopePrueba, number>> = {};
+  try { uso = leerUsoDePrueba(await runWithWorkspace(ws, () => getSetting(CLAVE_USO_PRUEBA))); } catch { /* sin uso leído: 0 */ }
+  let publicadas = 0;
+  try {
+    const { count } = await getSupabaseServer().from('landing_docs').select('id', { count: 'exact', head: true })
+      .eq('workspace_id', ws).is('papelera_at', null).not('publicado', 'is', null);
+    publicadas = count ?? 0;
+  } catch { /* sin contar: 0 */ }
+  const usos: UsoDePrueba[] = [];
+  for (const tope of Object.keys(NOMBRE_COSA_PRUEBA) as Array<UsoDePrueba['tope']>) {
+    const de = topeEnPrueba(e.capa ?? '', tope);
+    if (de == null) continue;
+    usos.push({ tope, usado: tope === 'web.landings_publicadas' ? publicadas : uso[tope] ?? 0, de });
+  }
+  return { enPrueba: true, dias: diasQueQuedan(e.hasta, ahoraMs), hasta: e.hasta, plan: e.plan ?? 'tu plan', despues: e.despues, usos, exportarHabilitado: false };
 }

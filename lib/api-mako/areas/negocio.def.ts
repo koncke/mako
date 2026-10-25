@@ -190,15 +190,33 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mi_plan', area: 'negocio', tipo: 'lectura',
     titulo: 'Plan de MaKo del negocio',
-    descripcion: 'El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, con la baja pedida o dado de baja), o acordado a mano. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).',
+    descripcion: 'El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, en su prueba gratis, con la baja pedida o dado de baja), o acordado a mano. En la prueba gratis, el detalle (días que quedan, topes usados) es ver_mi_prueba. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
   },
   {
     id: 'dar_de_baja_mi_plan', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
     titulo: 'Dar de baja el plan de MaKo',
-    descripcion: 'PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.',
+    descripcion: 'PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. En la PRUEBA GRATIS no se cobra nada: se cancela en el acto y se sigue usando hasta el día que iba a cobrarse. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.',
     escribe: 'programa la baja en Stripe (o cancela la suscripción en Mercado Pago), deja el código en el cobro de MaKo y el historial del lead en el CRM de MaKo',
+    parametros: [],
+    canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
+  },
+  // LA PRUEBA GRATIS (25/10/2026): lo que dicen el cartel «Versión de prueba» de la barra lateral y la franja de cada tope
+  // (lib/prueba-uso.ts, `resumenDePrueba`), y «Empezar mi plan ya» de Tu plan (lib/empezar-plan.ts). Cancelarla es
+  // dar_de_baja_mi_plan. Empezar una prueba NO está acá: es la compra pública de /planes, de un negocio que todavía no existe.
+  {
+    id: 'ver_mi_prueba', area: 'negocio', tipo: 'lectura',
+    titulo: 'Prueba gratis del negocio',
+    descripcion: 'Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba (videos armados, tomas, videos con avatar de IA, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'empezar_mi_plan_ya', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    titulo: 'Empezar el plan antes de terminar la prueba',
+    descripcion: 'PROPONE terminar la prueba gratis antes y pagar el plan desde hoy: abre el pago y devuelve el link para que el dueño lo pague. La prueba se cancela recién cuando ese pago entra, así abrir el link no le quita la prueba. Se confirma en una pantalla, nunca por el chat. Se rechaza si el negocio no está en prueba o si el primer cobro es en menos de un día (Mercado Pago cobra solo). Revisa antes ver_mi_prueba.',
+    escribe: 'abre un cobro del plan de MaKo atado a este negocio, con el historial del lead en el CRM de MaKo; al pagarse, cancela la prueba',
     parametros: [],
     canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
   },

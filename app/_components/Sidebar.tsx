@@ -42,6 +42,7 @@ import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
+import { CartelPrueba } from './CartelPrueba';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -918,6 +919,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
+          <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}
