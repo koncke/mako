@@ -4633,7 +4633,7 @@ AvisoArriba de NotificationsProvider) usan `app/_ui/descartar.tsx`: la ✕, arra
 - **La regla:** un aviso nuevo esparce `useDeslizarParaCerrar(onCerrar).props` en su caja y su temporizador es
   `setTimeout(esperarPausa(cerrar), ms)`; nunca `setTimeout(() => setX(null))` (lo fija tests/avisos-se-cierran.test.ts).
 
-## La sidebar plegada por defecto: cambiar un default pide clave nueva y primer cuadro nuevo (24/10/2026)
+## La sidebar plegada por defecto: cambiar un default pide clave nueva, primer cuadro nuevo, y mirar quién lo LEÍA (24-25/10/2026)
 
 Martín: «en web generator, como en todas las tabs, haz que por defecto al entrar se pliegue la sidebar principal, pero no
 impidas que se vuelva a desplegar».
@@ -4642,9 +4642,22 @@ impidas que se vuelva a desplegar».
   todas las tabs) y `plegadaAca` (Ops Center, Automations, ventana chica, MaKo abierto: por visita, la flecha la abre sólo
   ahí). Web Generator va en el PRIMERO: con `RUTAS_QUE_PLIEGAN` se volvería a plegar en cada visita, que es justo lo que
   Martín pidió no impedir.
+- **El default nuevo rompió el SEGUNDO mecanismo sin tocarlo (la regresión del 25/10).** Martín: «La sidebar principal en
+  muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada». `fija` era `guardada && (!plegadaAca ||
+  abiertaAca)`: el pliegue temporal SUPONÍA que lo guardado era «si» (lo era por defecto). Con lo guardado en «no» para casi
+  todos, la flecha en Automations, el Ops Center, una ventana de menos de 1200 px o con MaKo abierto abría `abiertaAca`, y
+  `fija` seguía en false: se veía abierta mientras el cursor estaba encima y se plegaba al salir. El diagnóstico obvio
+  («la flecha no guarda») era a medias: guardaba bien fuera de esas pantallas. **Regla:** donde la barra se pliega sola manda
+  lo que hizo la flecha en esa visita (`barraFija`), y desplegarla se guarda SIEMPRE (`loQueGuardaLaFlecha`); plegarla en una
+  de esas pantallas es de ese rato. Al cambiar un default, buscá quién lo leía con un `&&`.
+  - **Lo que queda a propósito:** en una ventana de menos de 1200 px, al RECARGAR, la barra vuelve a arrancar plegada aunque
+    esté guardada abierta (el corte del 21/10, para que no se rompa todo lo de la derecha). Navegando entre tabs se mantiene.
 - **Un default nuevo con la clave vieja no lo ve quien ya tocó la flecha** (tenía «si» guardado). Como el 20/10 con las
   secciones, la clave cambia y todos arrancan plegados una vez.
 - **El `useState` inicial es el primer cuadro.** Con `useState(true)` y el default en plegada, cada carga dibujaba la barra
   abierta y la plegaba al montar. Va `useState(false)`; el salto queda sólo para quien la fijó abierta.
 - **Sin hacer:** mirar en producción cada tab con la barra plegada. El navegador de la app no tiene sesión y el Chrome no
   estaba conectado; el rail es el mismo que ya veía quien la plegaba, y a 934 y 1027 px (21/10) daba 0 desbordes.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`leerFija`, `barraFija`, `loQueGuardaLaFlecha`, `plegadaAca`) ·
+`tests/sidebar-plegada-por-defecto.test.ts` (el recorrido de una persona: Automations → CRM → MaKo abierto y cerrado).

@@ -15,6 +15,8 @@ const CH = 'Centro de Operaciones';
 const ESTRATEGIA = 'Estrategia 3 cuentas';
 /** Las sesiones de esos dos chats en la app (`sesion`, lib/centro-chats.ts): el Centro junta por sesión. */
 const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
+/** El chat «Ops Center» de la cuenta 5 (Ananda), desde el 24/10/2026 a la noche. */
+const SESION_OPS5 = 'local_ea6ee0d2-c89d-49d7-b9a5-7354088461a9';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
 /** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
 const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
@@ -1597,6 +1599,30 @@ export const BITACORA: Hito[] = [
       'app/_ui/descartar.tsx — useDeslizarParaCerrar y esperarPausa · Toast.tsx, ShellM.tsx (AvisoM) y NotificationsProvider.tsx (AvisoArriba)',
       'app/_components/Sidebar.tsx — `mk-nav-fija-v2`, plegada por defecto',
       'tests/avisos-se-cierran.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (4 roturas)',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '20:40', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin la app no se escribe en NINGÚN chat, y la flecha de la sidebar no la deja abierta',
+    pedido: '«Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me sigue dejando enviar mensajes... No debería. En ningun chat, no solo en Ops Center...» y «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada, eso debería funcionar siempre...»',
+    puntos: ['Puntos 22 y 23 de los 24 de la noche (docs/feedback-24-10.md). Llegó por el Cerebro de la cuenta 5.'],
+  },
+  {
+    fecha: '24 oct', hora: '21:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin la app, todos los chats y cajas de MaKo dicen «Instalar MaKo»; la flecha de la sidebar la deja abierta en cualquier tab',
+    revisar: '/automations',
+    puntos: [
+      '**Sin la app** ahora se bloquean también Automations, Offer (no el onboarding), el Web Generator, el Dashboard, los editores de imagen y video, MaKo en la ficha del lead, el asesor de WhatsApp, el chat de un gráfico y las cajas de «crear» (landing, automatización, hoja). Y tu cuenta: la plataforma ya no queda afuera.',
+      '**Siguen abiertos a propósito:** la tab Chats (le escribís a tus leads), la Ticketera, tu Ops Center de super admin (va a Claude Code), el teléfono y el onboarding de un cliente nuevo.',
+      '**La sidebar:** la flecha en Automations, el Ops Center, una ventana chica o con MaKo abierto no la dejaba abierta (se plegaba al sacar el mouse). Ahora queda abierta y la próxima tab la encuentra abierta.',
+      '**Sin mirar en pantalla**: el navegador de la app sigue sin sesión.',
+    ],
+    archivos: [
+      'app/_chat/app-de-escritorio.ts, useAppDeEscritorio.tsx e InstalarMaKo.tsx · CajaPedido.tsx — `bloqueo` · api/mako/chat — `?app=1`',
+      'app/_components/Sidebar.tsx — barraFija y loQueGuardaLaFlecha',
+      'tests/app-de-escritorio-todos-los-chats.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (3 roturas)',
     ],
   },
 ];

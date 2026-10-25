@@ -7,6 +7,39 @@ del código.
 
 ---
 
+## Sin la app, NINGÚN chat: el bloqueo vivía en una caja y había quince (25/10/2026)
+
+- **Síntoma** (Martín): «Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me
+  sigue dejando enviar mensajes... No debería. En ningun chat, no solo en Ops Center».
+- **Causa: dos, y la segunda no se veía desde el código del chat.**
+  1. El bloqueo del 23-24/10 vivía en la caja del chat COMÚN (`CajaDelCliente`): el Ops Center del cliente y la estrella de cada
+     tab. Los chats con caja propia (Automations, Offer, Web Generator, Dashboard, los editores de imagen y video, la ficha del
+     lead, el asesor de WhatsApp, el chat de un gráfico) y las CAJAS DE PEDIDO (crear una landing, una automatización, una hoja)
+     no preguntaban nada. «Unificamos la caja» (`CajaChat`) era verdad para el DIBUJO, no para las reglas: cada pantalla arma
+     sus props y su envío.
+  2. En la cuenta de Martín (la de la plataforma) no bloqueaba NI el Ops Center: `appDeEscritorio` dejaba afuera al negocio de
+     la plataforma «porque contesta su IA». Él lo vio desde su cuenta y lo pidió igual: se sacó.
+- **Regla:** toda caja de MaKo monta `useAppDeEscritorio()` (app/_chat/useAppDeEscritorio.tsx) y le pasa `bloqueo` a su caja
+  (`CajaChat` o `CajaPedido`, que ahora también lo sabe dibujar), y corta su envío con `bloqueada` (una sugerencia o un pedido
+  que llega de otra pantalla no pasa por la caja). El inventario lo fija tests/app-de-escritorio-todos-los-chats.test.ts: una
+  pantalla nueva con `<CajaChat>` o `<CajaPedido>` que no está en ninguna lista es un rojo.
+- **Las que NO se bloquean, con su porqué** (en el test): la tab Chats (le escribís a tus leads), la Ticketera (al equipo de
+  MaKo), el Ops Center del super admin (a los chats de Claude Code por el cartero), el teléfono (no se instala ahí), y **el
+  onboarding** (`arranque` de OfferApp): es lo primero que ve un cliente nuevo y corre con el crédito de MaKo; bloquearlo lo
+  dejaría afuera antes de entrar. La tab Offer sí se bloquea.
+- **Trampa: el hook no puede traer CSS.** Lo usan motores que los tests dibujan en node (Automations `ChatMako.tsx`, el cuadro del
+  Web Generator `CajaCrear.tsx`): un `import './x.css'` ahí rompe decenas de tests. Por eso son tres piezas: la pregunta pura
+  (`app-de-escritorio.ts`, una vez por página, relee cada 8 s mientras bloquea), el hook sin CSS, y el botón con CSS
+  (`InstalarMaKo.tsx`) que entra con `next/dynamic`. El modal de «Ya lo instalé: conectar» va por PORTAL: la caja puede vivir en
+  un panel con `transform`, que volvería su marco el `fixed` del fondo del modal.
+- **Sin hacer:** el «Editar con IA» de cada sección del Web Generator (`app/web-generator/editor/AskAgent.tsx`) no se bloquea:
+  Martín pidió sacarlo (punto 5 del 24/10, chat Landings). Si queda, va con el mismo hook. Y falta recorrerlo en pantalla con una
+  cuenta sin computadora (el navegador de la app no tiene sesión).
+
+**Vive en:** `app/_chat/app-de-escritorio.ts` · `app/_chat/useAppDeEscritorio.tsx` · `app/_chat/InstalarMaKo.tsx` ·
+`app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`
+(`appDeEscritorio`) · `tests/app-de-escritorio-todos-los-chats.test.ts`
+
 ## El cartel de la app de escritorio, en el lugar de la caja (24/10/2026)
 
 - **Síntoma** (Martín): «te había pedido que si no se tiene descargado la app desktop no te deje enviar mensajes y salga el cartel

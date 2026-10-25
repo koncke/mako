@@ -37,6 +37,9 @@ export const CUENTAS = {
   // `~/.claude/cuentas.tsv`), pero la cuenta es de Martín, como las otras tres. Corre sólo en la app
   // (`~/.claude`); su semana renueva el martes a las 16:59 de Argentina.
   claude4: { n: 4, nombre: 'Leandro Tejado 2', ventana: '—', config: '~\\.claude (app)' },
+  // La 5 entra el 24/10/2026 a las 20:30, cuando la 1 llegó al 94% semanal. Martín la llamó «Ananda»; el gmail de la
+  // suscripción no se declaró. Corre en la app (`~/.claude`); su semana renueva el martes a las 15:00 de Argentina.
+  claude5: { n: 5, nombre: 'Ananda', ventana: '—', config: '~\\.claude (app)' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;
