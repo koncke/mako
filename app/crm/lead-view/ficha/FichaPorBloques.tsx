@@ -87,6 +87,7 @@ import { PASOS_FICHA_EDICION, RECORRIDO_FICHA_EDICION } from './recorrido-ficha'
 import { AuditHistory } from '../AuditHistory';
 import { useRefrescarFicha } from '../ficha-cambio';
 import { useRouter } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { MenuContextual } from '@/app/_ui/MenuContextual';
 import { itemsFicha, menuPropioEn, opcionesFicha, type HojaDelMenu, type IdOpcionFicha } from './menu-contextual-ficha';
 import { FlechaDerechaIcon, FlechaIzquierdaIcon } from '../../iconos';
@@ -595,7 +596,8 @@ export function FichaPorBloques({ data, parchear, altoChat, initialTab, onTab, f
   const elegirMenuFicha = (id: IdOpcionFicha) => {
     switch (id) {
       case 'analyst': setPanel('analizar'); return;
-      case 'whatsapp': if (telDigitos) window.open(`https://wa.me/${telDigitos}`, '_blank', 'noopener'); return;
+      // En Chats, adentro de MaKo, como el tablero (f15 de la llamada con Leandro, 24/10).
+      case 'whatsapp': router.push(rutaChatsDeLead(lead.id)); return;
       case 'copiar_telefono': if (lead.telefono) copiar(String(lead.telefono), 'Teléfono'); return;
       case 'copiar_email': if (lead.email) copiar(String(lead.email), 'Email'); return;
       case 'copiar_link': copiarLink(); return;

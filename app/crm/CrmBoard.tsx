@@ -13,7 +13,8 @@ import { empujeDeColumna } from './arrastre-columna';
 import { anchoMinimo, columnasQueEntran, plantillaDeColumnas } from './tabla-columnas';
 import { CeldasLead, TitulosLista, estiloEncabezado, estiloFila } from './TablaListaLeads';
 import { fotoVaciaDeArrastre, useArrastreCopia } from '@/app/plan/board/arrastre-copia';
-import { useRouter, useWs } from '@/app/_ui/Link';
+import Link, { useRouter, useWs } from '@/app/_ui/Link';
+import { rutaChatsDeLead } from '@/lib/chats-links';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
@@ -203,7 +204,7 @@ export type CrmLead = {
   /** La etapa guardada que este funnel ya no contiene. null = está donde dice. */
   stageFuera?: string | null;   // posición real en el funnel (ignora override) — para el worklist
   created: string;
-  telefonoNorm: string | null;   // teléfono solo-dígitos — para wa.me / WhatsApp
+  telefonoNorm: string | null;   // teléfono solo-dígitos — para `tel:` y para saber si hay WhatsApp
   /**
    * El usuario de Instagram, sin @ (`leads.instagram`): el buscador lo encuentra (22/10/2026, `arrobaInstagram`).
    * Y desde el 23/10/2026 un lead puede entrar con el @ como ÚNICO canal (la prospección: un perfil público no da ni
@@ -331,8 +332,9 @@ const rotQuitar = (nombre: string) => `Quitar «${nombre}» de la selección`;
 const rotPoner = (nombre: string) => `Seleccionar «${nombre}» para moverlo o editarlo junto con otros`;
 const rotWa = (nombre: string) => `Escribirle a ${nombre} por WhatsApp`;
 const rotEliminar = (nombre: string) => `Eliminar «${nombre}»`;
-/** El telefono ya viene solo-digitos (`telefonoNorm`), que es lo que wa.me espera. */
-const waDe = (telefono: string) => `https://wa.me/${telefono}`;
+// «WhatsApp» abre la conversación del lead ADENTRO de MaKo, en Chats, no WhatsApp Web. Martín en la llamada con Leandro
+// (24/10, f15): «ahí si apretás el botón de WhatsApp debería llevarte al chat dentro de Maco». Un lead sin mensajes también
+// abre: Chats pide esa conversación sola (`claveDelLink`). La misma función que la ficha del teléfono (`rutaChatsDeLead`).
 const rotIg = (nombre: string) => `Abrir el Instagram de ${nombre}`;
 const igDe = (usuario: string) => `https://www.instagram.com/${encodeURIComponent(usuario)}/`;
 /**
@@ -2667,7 +2669,7 @@ export function CrmBoard({
       case 'abrir': if (l) openDetail(l); return;
       case 'que_hacer': if (l) abrirQueHacer(l.id); return;
       case 'mover_etapa': if (l && valor) { idASoltar.current = l.id; handleDrop(valor); } return;
-      case 'whatsapp': if (l?.telefonoNorm) window.open(waDe(l.telefonoNorm), '_blank', 'noopener,noreferrer'); return;
+      case 'whatsapp': if (l) router.push(rutaChatsDeLead(l.id)); return;
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
       case 'partners_llevar': if (l) setAPartners(l); return;
@@ -3508,13 +3510,13 @@ export function CrmBoard({
                   {/* Solo con telefono: un boton de WhatsApp sin numero no puede ir a ningun
                       lado, y uno apagado en cada fila es ruido por fila. */}
                   {l.telefonoNorm && (
-                    <a href={waDe(l.telefonoNorm)} target="_blank" rel="noopener noreferrer"
+                    <Link href={rutaChatsDeLead(l.id)}
                       onClick={(ev) => ev.stopPropagation()}
                       title={rotWa(l.name)} aria-label={rotWa(l.name)}
                       className="mk-icon-btn" data-tone="dim"
                       style={{ width: 28, height: 28, textDecoration: 'none' }}>
                       <IconoWhatsapp />
-                    </a>
+                    </Link>
                   )}
                   {/* Sin teléfono ni email pero con @: escribirle es por Instagram. */}
                   {soloInstagram(l) && (
@@ -3734,7 +3736,7 @@ export function CrmBoard({
               { k: 'Entró', v: l.created },
             ]}
             acciones={[
-              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', href: waDe(l.telefonoNorm), externo: true }] : []),
+              ...(l.telefonoNorm ? [{ texto: 'Llamar', href: `tel:+${l.telefonoNorm}`, primaria: true }, { texto: 'WhatsApp', onClick: () => { cerrar(); router.push(rutaChatsDeLead(l.id)); } }] : []),
               { texto: 'Abrir ficha', onClick: () => { cerrar(); openDetail(l); }, primaria: !l.telefonoNorm },
             ]}
             mover={stages.map((s) => ({ id: s.key, label: s.label, aqui: s.key === etapa }))}

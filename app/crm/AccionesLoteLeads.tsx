@@ -663,7 +663,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       {pide?.tipo === 'empresa' && (
         <Confirm
           title="¿Traer los datos de empresa?"
-          message={preguntaDePerfiles(pide.cuenta, `los ${miles(pide.cuenta.total)} tildados con teléfono`, minutosDePerfiles(pide.cuenta.estaCorrida), TOPE_PERFILES_DIA, pide.cuenta.linea)
+          message={preguntaDePerfiles(pide.cuenta, minutosDePerfiles(pide.cuenta.estaCorrida), pide.cuenta.linea)
             + (pide.cuenta.sinPais ? ` ${miles(pide.cuenta.sinPais)} sin código de país no se consultan (corrige su teléfono).` : '')
             + (n > TOPE_LOTE_COMPLETAR ? ` Se toman los primeros ${miles(TOPE_LOTE_COMPLETAR)} de los ${miles(n)} tildados.` : '')}
           confirmLabel={`Consultar ${miles(pide.cuenta.estaCorrida)}`} tone="primary"

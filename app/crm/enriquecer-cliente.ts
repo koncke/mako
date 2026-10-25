@@ -113,12 +113,15 @@ export function resumenDePerfiles(a: AvancePerfiles): string {
   return `${miles(a.empresas)} de ${miles(a.hechas)} tienen cuenta de empresa${datos}.${resto}${cola}`;
 }
 
-/** La pregunta antes de «Datos de empresa», con la cuenta real y el tiempo (el Cerebro, 24/10: «la cuenta y el tiempo antes»). */
-export function preguntaDePerfiles(
-  c: { pendientes: number; total: number; quedanHoy: number; estaCorrida: number }, de: string, minutos: number, topeDia: number, linea?: string | null,
-): string {
-  const resto = c.estaCorrida < c.pendientes ? ` Los otros ${miles(c.pendientes - c.estaCorrida)}, en otra vuelta.` : '';
-  // Desde el tablero la línea no se elige a la vista: se nombra (el cupo es de ESA línea).
-  const cual = linea ? `en la línea «${linea}»` : 'en esta línea';
-  return `Faltan ${miles(c.pendientes)} de ${de}. Ahora se consultan ${miles(c.estaCorrida)}, de a uno: unos ${minutos} min.${resto} Hoy quedan ${miles(c.quedanHoy)} de ${miles(topeDia)} consultas ${cual}. Sólo se completa lo vacío, y no les llega nada.`;
+/**
+ * La pregunta antes de «Datos de empresa»: cuántos ahora de cuántos faltan, y en cuánto (el Cerebro, 24/10: «la cuenta y el
+ * tiempo antes»). CORTA a propósito: Martín en la llamada con Leandro (24/10, f13), sobre la que decía también el cupo del día
+ * y que sólo se completa lo vacío: «el texto muy largo. No me gustan textos largos». El título pregunta y el botón dice
+ * «Consultar N»; el tope del día se dice cuando corta, en `resumenDePerfiles`.
+ */
+export function preguntaDePerfiles(c: { pendientes: number; estaCorrida: number }, minutos: number, linea?: string | null): string {
+  const cuantos = c.estaCorrida < c.pendientes ? `${miles(c.estaCorrida)} de los ${miles(c.pendientes)} que faltan` : `Los ${miles(c.pendientes)} que faltan`;
+  const tiempo = minutos <= 1 ? 'un minuto' : `unos ${minutos} min`;
+  // Desde el tablero la línea no se ve: se nombra (la consulta sale por ESA línea).
+  return `${cuantos}, ${tiempo}${linea ? `, desde «${linea}»` : ''}. No les llega nada.`;
 }

@@ -14,16 +14,17 @@
 //     elige el siguiente. Nunca duplica, y el que ya está en el CRM no se vuelve a cargar: va abajo, en gris (24/10/2026).
 // ⚠️ DE A TANDAS (`TANDA_GRUPO`): un grupo llega a 1.024 personas y cada lead son varias escrituras; una acción tiene 60 s.
 
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
+import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles, type AvancePerfiles } from './enriquecer-cliente';
-import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
 import { Confirm } from '@/app/_ui';
 import {
-  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarNombresDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
+  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarPerfilesDeGrupoAction, etapasDeFunnelAction, gruposDeLineaAction,
   participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
@@ -74,6 +75,11 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   /** «Completar desde mi WhatsApp» corriendo, y el pedido de parar (lo mira el bucle entre tandas). */
   const [leyendoWa, setLeyendoWa] = useState(false);
   const pararWa = useRef(false);
+  /** «Completar nombres» sin la extensión: 'pide' = el pie dice «Instala la extensión»; 'fue' = tocó «Instalar». Al aparecer
+   *  la extensión en esta pestaña, arranca sola. */
+  const [esperaExt, setEsperaExt] = useState<'pide' | 'fue' | null>(null);
+  /** Recién trajo: el pie ofrece completar (f11, Leandro no encontró «Completar» en el «⋯»). */
+  const [trasTraer, setTrasTraer] = useState(false);
   const abierto = useRef(false);
 
   // Al abrir: las líneas del negocio y las etapas del funnel. Al cambiar de funnel, sólo sus etapas.
@@ -153,8 +159,8 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const sinOfrecer = etapas.filter((e) => e.manda).length;
   const usables = etapas.filter((e) => !e.manda);
   const trayendo = avance != null || completando;
-  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
-  const extWa = extensionLeeFichas();
+  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). En vivo. */
+  const extWa = useExtensionFichas();
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
   const listo = !!grupo && !!etapa && sel.size > 0 && !!etiqueta.trim() && funnel != null;
 
@@ -164,7 +170,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   };
   const traer = async () => {
     if (!grupo || !listo) return;
-    setErr(null); setHecho(null);
+    setErr(null); setHecho(null); setTrasTraer(false); setEsperaExt(null);
     // Sólo los nuevos, aunque algo los haya tildado: un lead que ya está no se vuelve a cargar.
     const yaEnElCrm = new Set((gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono));
     const tels = [...sel].filter((t) => !yaEnElCrm.has(t));
@@ -198,31 +204,9 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     const fallidos = errores.length ? ` No se pudieron: ${errores.slice(0, 5).join(', ')}${errores.length > 5 ? '…' : ''}.` : '';
     const cola2 = corte ? ` Se cortó: ${corte} Quedaron ${miles(tels.length - hechos)} sin traer: vuelve a tocar «Traer» para seguir.` : ' Elige otro grupo para seguir.';
     setHecho(`«${grupo.nombre}»: ${resumen}.${fallidos}${cola2}`);
+    setTrasTraer(true);
     onTraidos(resumen);
     setVuelta((n) => n + 1);
-  };
-
-  // «COMPLETAR NOMBRES» (24/10/2026, el Cerebro: traer ahora no puede impedir completar después). El listado del grupo no trae
-  // nombres: los traídos nacen con su número. Esto les pone el que WhatsApp conozca hoy, sólo donde tienen el número; se puede
-  // volver a tocar más adelante (quien escriba deja su nombre). No crea, no mueve, no le manda nada a nadie.
-  const completar = async () => {
-    if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true);
-    let completados = 0, sinNombre = 0;
-    try {
-      for (let vuelta = 0; vuelta < 10; vuelta++) {
-        const r = await completarNombresDeGrupoAction({ linea, jid })
-          .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-        if (!r.ok) { setErr(r.error); break; }
-        completados += r.completados;
-        sinNombre = r.sinNombre;
-        if (!r.quedan) break;
-      }
-    } finally { setCompletando(false); }
-    const cuantos = `${miles(completados)} ${completados === 1 ? 'nombre completado' : 'nombres completados'}`;
-    const sin = sinNombre ? ` · ${miles(sinNombre)} todavía sin nombre en WhatsApp` : '';
-    setHecho(`«${grupo.nombre}»: ${completados ? cuantos : 'ningún nombre nuevo'}${sin}.`);
-    if (completados) { onTraidos(cuantos); setVuelta((n) => n + 1); }
   };
 
   // «COMPLETAR DESDE MI WHATSAPP» (24/10/2026, Martín: «con la extensión de MaKo... que se extraiga los nombres y la información
@@ -233,7 +217,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     if (!grupo || trayendo) return;
     const tels = (gente ?? []).filter((p) => p.enElCrm).map((p) => p.telefono);
     if (!tels.length) return;
-    setErr(null); setHecho(null); setLeyendoWa(true); pararWa.current = false;
+    setErr(null); setHecho(null); setTrasTraer(false); setLeyendoWa(true); pararWa.current = false;
     setAvance('Leyendo tu WhatsApp Web…');
     try {
       const r = await pedirFichasDeWhatsappWeb(tels);
@@ -254,6 +238,21 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     } finally { setLeyendoWa(false); setAvance(null); }
   };
 
+  // «COMPLETAR NOMBRES» VA POR LA EXTENSIÓN (25/10/2026). Martín en la llamada con Leandro (24/10, f12): «En completar nombres,
+  // si no tenés instalada la extensión de Maco (...) eso es un bug (...) ese botón te debería decir instala la extensión de
+  // Maco y que ahí directamente comience». Sin ella, el server le pedía a WhatsApp el nombre que conociera y completaba
+  // «algunos o ninguno» sin decir por qué (`completarNombresDelGrupo` sigue, para la API de MaKo). Ahora: con la extensión,
+  // lo de SU WhatsApp Web; sin ella (o vieja), el pie lo dice con «Instalar», y arranca SOLA cuando la extensión aparece en
+  // esta pestaña.
+  const completarNombres = () => {
+    if (!grupo || trayendo) return;
+    setTrasTraer(false);
+    if (extWa === 'si') { setEsperaExt(null); void leerDeWhatsappWeb(); return; }
+    setErr(null); setHecho(null); setEsperaExt('pide');
+  };
+  const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void leerDeWhatsappWeb(); });
+  useEffect(() => { if (esperaExt && extWa === 'si') arrancarAlInstalar(); }, [esperaExt, extWa]);
+
   // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
   // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. No le llega nada a nadie.
   // Cada consulta es tráfico en la red de su línea: primero la CUENTA (cuántos faltan, cuántos hace esta vez y en cuánto, cuántos
@@ -262,7 +261,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     // Para entre una llamada y la siguiente (cada una, hasta ~40 s): se dice, para que no parezca que no oyó.
     if (perfilando) { pararPerfiles.current = true; setAvance('Parando al terminar esta tanda…'); return; }
     if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true); setAvance('Contando…');
+    setErr(null); setHecho(null); setTrasTraer(false); setCompletando(true); setAvance('Contando…');
     try {
       const c = await completarPerfilesDeGrupoAction({ linea, jid, soloContar: true })
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
@@ -321,18 +320,25 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
   const mas: OpcionMas[] = trayendo || !yaEstan ? [] : [
     // El camino por defecto (24/10/2026): las fichas de SU WhatsApp Web, por la extensión. Con una extensión vieja no se ofrece.
     ...(extWa === 'si' ? [{ id: 'wa', texto: 'Completar desde mi WhatsApp', icono: 'whatsapp' as const, onElegir: () => void leerDeWhatsappWeb() }] : []),
-    // Sin la extensión: el nombre que WhatsApp conozca hoy (`completar`).
-    ...(extWa === 'no' ? [{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: () => void completar() }] : []),
+    // Sin la extensión (o vieja): el mismo camino, que primero pide instalarla y después arranca solo (f12, 25/10/2026).
+    ...(extWa !== 'si' ? [{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: completarNombres }] : []),
     { id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: () => void contarPerfiles() },
   ];
   // Lo que corre se para desde el pie: el mismo llamado que lo arrancó (cada uno se para si ya corre).
   const parar = leyendoWa ? { texto: 'Parar', onClick: () => void leerDeWhatsappWeb() }
     : perfilando ? { texto: 'Parar', onClick: () => void contarPerfiles() } : undefined;
+  // «Completar» se ve sin abrir el «⋯» (Leandro, f11: «Ah, no lo vi eso»): en el pie, después de traer y cuando hay gente
+  // que ya está y nada más que decir.
+  const completarAca = { texto: 'Completar nombres', onClick: completarNombres };
+  const instalar = { texto: extWa === 'vieja' ? 'Actualizar' : 'Instalar', onClick: () => { setEsperaExt('fue'); window.open('/extension/instalar', '_blank', 'noopener'); } };
+  const ofrecer = !trayendo && yaEstan > 0;
   const estado = err ? { texto: err, tono: 'mal' as const }
     : avance ? { texto: avance, tono: 'neutro' as const, ...(parar ? { accion: parar } : {}) }
-    : hecho ? { texto: hecho, tono: 'ok' as const }
-    : extWa === 'vieja' && yaEstan > 0 ? { texto: 'Actualiza la extensión de MaKo para completar desde tu WhatsApp', tono: 'neutro' as const }
+    : esperaExt === 'pide' ? { texto: `${extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo para completar los nombres.`, tono: 'neutro' as const, accion: instalar }
+    : esperaExt === 'fue' ? { texto: 'Cuando la extensión esté, empieza sola. Si no arranca, recarga esta pestaña.', tono: 'neutro' as const }
+    : hecho ? { texto: hecho, tono: 'ok' as const, ...(trasTraer && ofrecer ? { accion: completarAca } : {}) }
     : buscandoTodos ? { texto: 'Buscando el resto de tus grupos…', tono: 'neutro' as const }
+    : ofrecer ? { texto: `${miles(yaEstan)} ya ${yaEstan === 1 ? 'está' : 'están'} en tu CRM.`, tono: 'neutro' as const, accion: completarAca }
     : null;
 
   return (
@@ -432,7 +438,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para traer.'}</p>}
       {cuentaPerfiles && (
         <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
-          message={preguntaDePerfiles(cuentaPerfiles, `los ${miles(cuentaPerfiles.total)} que ya están`, minutosDePerfiles(cuentaPerfiles.estaCorrida), TOPE_PERFILES_DIA)}
+          message={preguntaDePerfiles(cuentaPerfiles, minutosDePerfiles(cuentaPerfiles.estaCorrida))}
           onConfirm={() => void traerPerfiles()} onCancel={() => setCuentaPerfiles(null)} />
       )}
     </MoldeTraer>

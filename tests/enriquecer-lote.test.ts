@@ -131,14 +131,14 @@ test('5. «Datos de empresa» no corta callado: el server que no consulta ningun
   assert.match(resumenDePerfiles(parado), / Paraste antes de terminar\.$/);
 });
 
-test('6. la pregunta antes de consultar: cuántos faltan, cuántos ahora, en cuánto, y cuántos quedan hoy', () => {
-  assert.equal(
-    preguntaDePerfiles({ pendientes: 221, total: 230, quedanHoy: 120, estaCorrida: 40 }, 'los 230 tildados con teléfono', 2, 120),
-    'Faltan 221 de los 230 tildados con teléfono. Ahora se consultan 40, de a uno: unos 2 min. Los otros 181, en otra vuelta. Hoy quedan 120 de 120 consultas en esta línea. Sólo se completa lo vacío, y no les llega nada.',
-  );
-  assert.ok(!preguntaDePerfiles({ pendientes: 3, total: 3, quedanHoy: 120, estaCorrida: 3 }, 'x', 1, 120).includes('otra vuelta'));
-  // Desde el tablero la línea no se ve: se nombra (el cupo es de ESA línea).
-  assert.match(preguntaDePerfiles({ pendientes: 3, total: 3, quedanHoy: 80, estaCorrida: 3 }, 'x', 1, 120, 'Ventas'), /Hoy quedan 80 de 120 consultas en la línea «Ventas»./);
+// La pregunta, CORTA (25/10/2026): Martín en la llamada con Leandro (24/10, f13), sobre la de antes —que decía además el cupo del
+// día y que sólo se completa lo vacío, unas 40 palabras—: «el texto muy largo. No me gustan textos largos».
+test('6. la pregunta antes de consultar: cuántos ahora de cuántos faltan y en cuánto, en una línea', () => {
+  assert.equal(preguntaDePerfiles({ pendientes: 221, estaCorrida: 40 }, 2), '40 de los 221 que faltan, unos 2 min. No les llega nada.');
+  assert.equal(preguntaDePerfiles({ pendientes: 3, estaCorrida: 3 }, 1), 'Los 3 que faltan, un minuto. No les llega nada.');
+  // Desde el tablero la línea no se ve: se nombra (la consulta sale por ESA línea).
+  assert.equal(preguntaDePerfiles({ pendientes: 3, estaCorrida: 3 }, 1, 'Ventas'), 'Los 3 que faltan, un minuto, desde «Ventas». No les llega nada.');
+  assert.ok(preguntaDePerfiles({ pendientes: 1_221, estaCorrida: 40 }, 12, 'Ventas').split(/\s+/).length <= 16, 'volvió a ser un párrafo (la de antes: unas 40 palabras)');
 });
 
 test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del grupo, y sólo el admin', () => {
