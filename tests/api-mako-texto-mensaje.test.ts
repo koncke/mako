@@ -86,10 +86,10 @@ test('el texto de un DM también suelta las variantes del texto viejo', () => {
 });
 
 test('la operación: por HTTP, de pantalla, al FINAL del área, con su ruta; y el guardado respeta un [] explícito', () => {
-  const d = porId('cambiar_texto_mensaje')! as { confirmacion?: string; canales: readonly string[]; parametros: { nombre: string; obligatorio?: boolean }[] };
+  const d = porId('cambiar_texto_mensaje')!;
   assert.ok(d, 'no está declarada');
   assert.ok(d.canales.includes('http'));
-  assert.equal(d.confirmacion, 'pantalla');
+  assert.equal((d as { confirmacion?: string }).confirmacion, 'pantalla');
   assert.deepEqual(d.parametros.filter((p) => p.obligatorio).map((p) => p.nombre), ['secuenciaId', 'tarjeta']);
   const chatbot = REGISTRO.filter((x) => x.area === 'chatbot').map((x) => x.id);
   assert.equal(chatbot.at(-1), 'cambiar_texto_mensaje', 'una operación nueva va AL FINAL del área: a igual puntaje el chat trae la declarada antes');
