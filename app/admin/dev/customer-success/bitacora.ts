@@ -1117,6 +1117,8 @@ export const BITACORA: Hito[] = [
       'tests/mako-partners-landing.test.ts y tests/partners-para-clientes.test.ts — 18 roturas, cada una cae',
     ],
     revisar: '/partners',
+  },
+  {
     fecha: '24 oct', hora: '23:40', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
     titulo: '«Sacar» en Members saca al alumno del curso y de la comunidad',
