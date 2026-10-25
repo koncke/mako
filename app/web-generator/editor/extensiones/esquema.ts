@@ -32,8 +32,12 @@ import { TextStyleLanding, ColorLanding, TamTexto, ResaltadoLanding, Etiqueta, V
 import { AtajosLanding, IdsUnicos, PartirConGuiones, PortapapelesFiel, Subidas, OpcionesDelDocumento, type OpcionesLanding } from './plugins';
 import { ResaltarACompletar } from './completar';
 
-/** El texto de la línea vacía donde está el cursor (Gamma: «Type / for blocks»). */
-export const PLACEHOLDER_GENERAL = 'Escribe algo o escribe «/» para ver los comandos';
+/**
+ * El texto de la línea vacía donde está el cursor (Gamma: «Type / for blocks»). Corto a propósito (24/10/2026): en una
+ * columna angosta se corta con «…» (estilos-nodos.ts), y el de antes («Escribe algo o escribe «/» para ver los
+ * comandos») no se leía.
+ */
+export const PLACEHOLDER_GENERAL = 'Escribe o pulsa «/» para comandos';
 /** El título vacío de una sección. */
 export const PLACEHOLDER_TITULO = 'Título de la sección';
 

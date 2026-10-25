@@ -55,6 +55,7 @@ import { NOMBRES_ICONO } from './iconos';
 import { hrefPermitido, srcImagen, NORMALIZAR_NODOS, NORMALIZAR_MARCAS, ETIQUETA_CAMPO } from './especificacion';
 import { compactar } from './validar';
 import { hrefPagoValido, productoDeHref } from './pago-landing';
+import { TOPE_TEXTOS_DISENO, conTextos, textosDeHtmlEditable } from './html-editable-textos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La gramática (tipos)
@@ -104,7 +105,12 @@ export type BloqueIA =
   | { t: 'imagen'; busqueda: string; alt: string; src?: string | null; ref?: string }
   | { t: 'etiqueta'; texto: string }
   /** Un elemento que ya existe y la gramática no expresa (video, insertado, HTML): vuelve del original. */
-  | { t: 'conservar'; ref: string; que?: string };
+  | { t: 'conservar'; ref: string; que?: string }
+  /**
+   * Una sección de «Diseño editable» (24/10/2026, html-editable-textos.ts): sus TEXTOS en orden, para cambiarlos sin tocar
+   * la forma. Vuelve con la misma cantidad; cada uno va a su lugar exacto del HTML.
+   */
+  | { t: 'diseno'; ref: string; textos: string[] };
 
 /** Fondo de una sección: el del tema, el color de acento, un degradado de la lista o un #rrggbb. */
 export type FondoIA = 'tema' | 'acento' | Degradado | `#${string}`;
@@ -912,6 +918,17 @@ function convertirBloque(raw: unknown, ctx: Ctx, enColumna: boolean): JsonNodo[]
       if (!orig || orig.type === NODO.optimizadoItem) { ctx.d?.push(`conservar: la referencia «${ref}» no existe, se cae`); return []; }
       return [clonar(orig)];
     }
+    // Un «Diseño editable» con sus textos cambiados: cada uno a su lugar; la forma, intacta. Otra cantidad = como estaba.
+    case 'diseno': {
+      const ref = strCrudo(b.ref);
+      const orig = ctx.refs.get(ref);
+      if (!orig || orig.type !== NODO.htmlEditable) { ctx.d?.push(`diseno: la referencia «${ref}» no es un diseño editable, se cae`); return []; }
+      const html = typeof orig.attrs?.html === 'string' ? orig.attrs.html : '';
+      const nuevo = conTextos(html, arr(b.textos));
+      if (nuevo === null) { ctx.d?.push(`diseno «${ref}»: volvieron ${arr(b.textos).length} textos y la sección tiene ${textosDeHtmlEditable(html).length}: queda como estaba`); return [clonar(orig)]; }
+      const copia = clonar(orig);
+      return [{ ...copia, attrs: { ...(copia.attrs ?? {}), html: nuevo } }];
+    }
     default:
       ctx.d?.push(`bloque «${t || '(sin t)'}» no existe en la gramática, se cae`);
       return [];
@@ -1299,7 +1316,15 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
       const r = refDeNodo(base, n);
       return r ? [{ t: 'imagen', busqueda: '', alt: strCrudo(a.alt), ref: r }] : [];
     }
-    case NODO.video: case NODO.insertado: case NODO.htmlLibre: case NODO.htmlEditable: {
+    // Un «Diseño editable» viaja con sus TEXTOS (24/10/2026, Martín: «Todas las paginas de MaKo no son editables»): era una
+    // caja cerrada y MaKo no veía ni una palabra. Con demasiados textos, cerrada como antes.
+    case NODO.htmlEditable: {
+      const r = refDeNodo(base, n);
+      if (!r) return [];
+      const textos = textosDeHtmlEditable(typeof a.html === 'string' ? a.html : '');
+      return textos.length && textos.length <= TOPE_TEXTOS_DISENO ? [{ t: 'diseno', ref: r, textos }] : [{ t: 'conservar', ref: r, que: 'html' }];
+    }
+    case NODO.video: case NODO.insertado: case NODO.htmlLibre: {
       const r = refDeNodo(base, n);
       const que = n.type === NODO.video ? 'video' : n.type === NODO.insertado ? 'insertado' : 'html';
       return r ? [{ t: 'conservar', ref: r, que }] : [];
@@ -1386,6 +1411,7 @@ function armarGramatica(): string {
     '- {"t":"imagen","busqueda","alt"} una foto suelta (búsqueda en inglés).',
     '- {"t":"etiqueta","texto"} una píldora corta: «Más vendido», «Nuevo».',
     '- {"t":"conservar","ref"} un elemento que ya existe (video, imagen, insertado): déjalo donde va, sin tocar el ref. Lo mismo con el "ref" de un ítem o de un formulario.',
+    '- {"t":"diseno","ref","textos":["..."]} una sección de diseño a medida: SÓLO cambias sus textos, cada uno en su lugar. Devuelve la MISMA cantidad de textos, en el mismo orden; el que no cambia va igual. No agregues ni quites textos, no escribas HTML ni markdown y no toques el ref.',
     'TEXTO: **negrita**, *cursiva* y [texto](url). Nada de HTML ni de otro markdown (sin #, sin >, sin tablas en texto).',
     'VARIANTES de optimizado (cuándo usar cada una): ' + variantes + '.',
     'ÍCONOS válidos (campo "icono"; si ninguno calza, no pongas ícono): ' + iconos + '.',

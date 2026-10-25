@@ -58,3 +58,67 @@ test('las páginas con loader que redirigen al super admin tienen su layout que 
     assert.match(leer(`app/${seg}/layout.tsx`), /redirect\(/, `${seg} tiene loader y redirige sólo adentro: el redirect va al stream`);
   }
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Ticket #9 (25/10/2026): el mismo #310 en /web-generator, que redirigía desde la página con loader desde el 24/10.
+// ─────────────────────────────────────────────────────────────────────────────
+
+test('/web-generator: el layout redirige ANTES del loader en las tres rutas que redirigen, con la regla de las páginas', async () => {
+  const { redireccionDelLayout, esPanelPelado } = await import('../app/web-generator/panel-reglas');
+  assert.equal(redireccionDelLayout('/web-generator', {}), 'ultima');
+  assert.equal(redireccionDelLayout('/web-generator', { ws: '10' }), 'ultima');
+  assert.equal(redireccionDelLayout('/web-generator', { panel: '1' }), null, '?panel=1 es el Panel: no salta');
+  assert.equal(redireccionDelLayout('/web-generator', { diagnostico: '3' }), null);
+  assert.equal(redireccionDelLayout('/web-generator/analizar', { url: 'https://x.test' }), 'analizar');
+  assert.equal(redireccionDelLayout('/web-generator/crear', {}), 'crear');
+  assert.equal(redireccionDelLayout('/web-generator/32', {}), null, 'el editor de una landing no redirige');
+  assert.equal(redireccionDelLayout(null, {}), null, 'sin el header del proxy no se adivina');
+  assert.equal(esPanelPelado({ ws: '3' }), true);
+  const lay = sinComentarios(leer('app/web-generator/layout.tsx'));
+  assert.match(lay, /const cual = redireccionDelLayout\(ruta, query\);/);
+  assert.match(lay, /await requireRolWs\(\[\], \{ nav: 'landing-writer' \}\);/, 'el layout calcula el destino sin la puerta de la tab');
+  assert.match(lay, /if \(cual === 'analizar'\) redirect\(await rutaConWs\(destinoAnalizar\(query\)\)\);/);
+  assert.match(lay, /if \(cual === 'crear'\) redirect\(await rutaConWs\(destinoCrear\(query\)\)\);/);
+  assert.match(lay, /if \(ultima\) redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\);/);
+  assert.match(lay, /return children;\n\}/);
+  // La página usa LA MISMA regla de «pelada».
+  assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /if \(!errorLista && esPanelPelado\(sp\)\) \{/);
+});
+
+/**
+ * LO QUE YA ESTABA ASÍ el 25/10/2026, de otras tabs: páginas que redirigen debajo de un loader sin el layout que redirige
+ * antes. Cada una tiene el mismo riesgo del #310 (en una carga directa, la redirección va en el stream). No se tocaron en
+ * el ticket #9 (son de otros chats); se anotaron en docs/hallazgos-infra.md. Una página NUEVA así hace fallar este test.
+ */
+const CONOCIDAS_SIN_LAYOUT = new Set([
+  'app/admin/operaciones/page.tsx', 'app/crm/revisar/page.tsx', 'app/crm/revisar/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx',
+  'app/dashboard/page.tsx', 'app/m/chats/page.tsx', 'app/m/dashboard/page.tsx', 'app/m/dashboard/[hoja]/page.tsx', 'app/m/second-brain/page.tsx',
+]);
+
+test('ninguna página NUEVA redirige debajo de un loader sin que el layout de afuera del loader lo haga antes', async () => {
+  const { readdirSync, existsSync } = await import('node:fs');
+  const paginas: string[] = [];
+  const recorrer = (rel: string) => {
+    for (const e of readdirSync(join(RAIZ, rel), { withFileTypes: true })) {
+      if (e.isDirectory()) { if (!e.name.startsWith('.') && e.name !== 'node_modules') recorrer(`${rel}/${e.name}`); }
+      else if (e.name === 'page.tsx') paginas.push(`${rel}/page.tsx`);
+    }
+  };
+  recorrer('app');
+  const mal: string[] = [];
+  for (const p of paginas) {
+    if (!/\bredirect\(/.test(sinComentarios(leer(p)))) continue;
+    // El loader de más AFUERA: todo lo de adentro queda en su Suspense; el layout de esa carpeta queda afuera.
+    let dir = p.slice(0, p.lastIndexOf('/'));
+    let afuera: string | null = null;
+    while (dir.startsWith('app')) {
+      if (existsSync(join(RAIZ, dir, 'loading.tsx'))) afuera = dir;
+      dir = dir.includes('/') ? dir.slice(0, dir.lastIndexOf('/')) : '';
+    }
+    if (!afuera) continue;
+    const lay = `${afuera}/layout.tsx`;
+    const ok = existsSync(join(RAIZ, lay)) && /\bredirect\(/.test(sinComentarios(leer(lay)));
+    if (!ok && !CONOCIDAS_SIN_LAYOUT.has(p)) mal.push(`${p} (loader: ${afuera}/loading.tsx)`);
+  }
+  assert.deepEqual(mal, [], 'estas páginas redirigen adentro de un loader: React #310 en una carga directa (redirigí en el layout de esa carpeta)');
+});

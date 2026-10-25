@@ -1114,4 +1114,53 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '21:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los textos de ayuda ya no se esconden detrás de otras secciones, y el editor de texto se abre con un botón',
+    puntos: [
+      'Los textos grises de ayuda de un renglón vacío («Escribe o pulsa / para comandos», «Título de la sección») se partían en varias líneas cuando no entraban y quedaban tapados por la sección de abajo. Ahora ocupan un solo renglón, terminan en «…» si no entran, y en un título centrado se ven centrados.',
+      'El editor de texto ya no está metido en una tira chiquita con scroll en la barra de arriba: hay un botón «Texto» que abre una segunda barra debajo, con todas las opciones a la vista. MaKo recuerda si la dejaste abierta.',
+      'Se probó con capturas de antes y después usando los estilos reales del editor, y con tests que se rompen si vuelve lo de antes. Falta mirarlo en el editor con clics.',
+    ],
+    archivos: [
+      'app/web-generator/editor/extensiones/estilos-nodos.ts — cómo se dibujan los textos de ayuda',
+      'app/web-generator/editor/EditorLanding.tsx — el botón «Texto» y la segunda barra',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '24 oct', hora: '22:04', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las páginas de MaKo se editan por sección, sin romper su diseño',
+    puntos: [
+      'Las páginas de MaKo (la principal y las de cada funnel) son diseños a medida. Escribir adentro ya andaba; lo que fallaba era todo lo de alrededor.',
+      'Ahora, al hacer clic adentro de una sección, esa sección queda elegida: se ven sus botones y MaKo sabe de cuál le hablas.',
+      'MaKo ya puede cambiar los textos de esas secciones desde el chat. Cambia sólo lo que dicen, cada texto en su lugar: los colores, tamaños y la forma del diseño no se tocan. Antes MaKo no veía esos textos.',
+      'En la barrita de la sección se sumaron Negrita y Cursiva, además de cambiar imagen, enlace y código.',
+      'Probado con tests y con un Chrome sin ventana; falta mirarlo con clics en el editor.',
+    ],
+    archivos: [
+      'lib/editor-landing/html-editable-textos.ts — cómo MaKo lee y vuelve a poner los textos de un diseño',
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — el clic que elige la sección, y negrita y cursiva',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '25 oct', hora: '22:19', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Hecho: el Web Generator ya no se rompe al abrirlo',
+    puntos: [
+      'Al entrar al Web Generator, a veces la pantalla se rompía con un error. Pasaba porque te lleva directo a tu última landing, y ese salto chocaba con la pantalla de «cargando».',
+      'Ahora el salto pasa antes de que aparezca el «cargando», así que ya no choca. Lo mismo para los enlaces viejos de «Analizar» y «Crear» del Web Generator.',
+      'Y quedó un control que revisa toda la app: si otra pantalla nueva repite este error, se avisa antes de salir.',
+    ],
+    archivos: [
+      'app/web-generator/layout.tsx — el salto a tu última landing, antes del «cargando»',
+      'tests/redirige-antes-del-loader.test.ts — el control que revisa toda la app',
+      'docs/hallazgos-infra.md — qué pasó y las otras pantallas que quedan por revisar',
+    ],
+    revisar: '/web-generator',
+    tickets: [9],
+  },
 ];

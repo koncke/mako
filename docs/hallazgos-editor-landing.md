@@ -2337,7 +2337,7 @@ cambios de allí y se apliquen. Revisa que no se dañe la landing». Contrato: l
   `<img src="/api/…">` o un url() relativo salía con la cookie de quien abre. Medios sólo https absolutos y nunca /api/.
 
 Lo que quedó SIN hacer:
-- «Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).
+- ~~«Editar con IA» no reescribe el texto de un diseño editable: lo conserva entero (`conservar` en ia-bloques.ts).~~ **Hecho el 24/10/2026** (abajo, «Las páginas de MaKo editables por sección»): viajan sus textos (`{"t":"diseno"}`).
 - La miniatura de una sección de diseño es un iframe de 640 px de alto (no se sabe su alto antes de dibujarla).
 - «Replicar → Página web» sigue armando HTML personalizado (aislado, sin texto editable); podría usar este bloque.
 - El tsc acotado de esta tanda lo cortó el vigía de RAM: los tipos los vio Integración.
@@ -2680,3 +2680,59 @@ editar"». **Vive en:** `app/_chat/SelectorIntencion.tsx` (el selector, comparti
 Lo que quedó SIN hacer:
 - Sin mirar con clics ni con la IA de verdad: el modelo de mentira fija lo que le llega y lo que vuelve, no la calidad de
   lo que contesta.
+
+## Los placeholders que se iban debajo de otras secciones, y el editor de texto en una segunda barra (24/10/2026 noche, tanda 3 de claude5)
+
+Puntos 6 y 8 del 24/10. **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts` (el placeholder) ·
+`extensiones/esquema.ts` (`PLACEHOLDER_GENERAL`) · `EditorLanding.tsx` (el botón «Texto» y `.gma-formato`) · `gamma.css`.
+
+- **La causa (sin la captura de Martín, deducida del código y medida en Chrome sin ventana):** el placeholder de TipTap
+  es un `::before` que FLOTA con alto 0, para que el cursor quede al principio. Alto 0 = no ocupa lugar: si el texto no
+  entra en un renglón (una columna angosta, un título grande), los renglones de más se derraman hacia abajo, encima de lo
+  que sigue, y la sección siguiente lo tapa (cada sección es su capa, `isolation: isolate`, y pinta su fondo encima).
+  Medido con la hoja real (scratchpad, `ph-antes.png` / `ph-ahora.png`): en una columna de 150 px, «Escribe algo o
+  escribe «/» para ver los comandos» ocupaba 3 renglones en un párrafo de 1.
+- **Regla:** en un párrafo o un título, el placeholder es ABSOLUTO sobre su renglón (`left: 0; right: 0`), en UN renglón
+  y cortado con «…». No empuja al cursor y queda alineado como el texto (flotando, un título centrado lo mostraba a la
+  izquierda). ⚠️ **No vale «alto 0 + `overflow: hidden`»**: con alto 0, el recorte lo borra entero. Los demás nodos (el
+  botón, la pregunta de un desplegable) siguen flotando: tienen padding y no se derraman.
+- El texto general se acortó a «Escribe o pulsa «/» para comandos».
+- **El editor de texto es un botón «Texto» (Aa) que abre una SEGUNDA barra** debajo de la de herramientas, con todas las
+  opciones de `BarraFormato` y sin scroll (si no entran, se parten en renglones). Se recuerda en el navegador
+  (`gma.formato.abierto`). La barra flotante sobre la selección sigue igual. Con la segunda barra cerrada, Mod+K para un
+  enlace lo atiende la flotante (aparece con la selección).
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics en el editor de verdad (la medición fue con la hoja real en una página armada a mano).
+
+## Las páginas de MaKo editables por sección, sin romper el diseño (24/10/2026 noche, tanda 4 de claude5)
+
+Punto 4 del 24/10: «Todas las paginas de MaKo no son editables, clickeo y no se pueden editar las secciones... Deben
+serlo. Y eso no implica romper el diseño, en todo caso agregar funcionalidades al editor web.» **Vive en:**
+`lib/editor-landing/html-editable-textos.ts` (nuevo, puro) · `lib/editor-landing/ia-bloques.ts` (el bloque `diseno`) ·
+`app/web-generator/editor/nodos/HtmlEditableVista.tsx` · `contexto.ts` (`marcarActiva`).
+
+- **El diagnóstico obvio era el equivocado: escribir adentro SÍ andaba.** Se midió en Chrome sin ventana por CDP, con un
+  iframe igual al del editor (`sandbox="allow-same-origin"`, sin scripts): el clic llega, se escribe y el editor se
+  entera (`mousedown`, `input`). Lo que no andaba era todo lo de ALREDEDOR: (1) un clic adentro del diseño pasa en el
+  iframe y ProseMirror no lo ve, así que la sección nunca quedaba ACTIVA (ni sus controles ni el chat se enteraban);
+  (2) la IA del chat recibía cada sección de diseño como `{"t":"conservar"}`, una caja cerrada: MaKo no veía ni una
+  palabra, y pedirle «cambia el título» no cambiaba nada.
+- **Regla para que la IA edite un diseño sin romperlo:** viaja la LISTA DE TEXTOS de la sección, en orden (`{"t":"diseno",
+  "ref","textos"}`), y vuelve con la MISMA cantidad; cada texto va a su lugar exacto del HTML. Etiquetas, clases,
+  estilos en línea y atributos no se tocan; lo que escribe la IA se escapa (nunca abre una etiqueta); un texto igual deja
+  su pedazo byte por byte; otra cantidad = la sección queda como estaba (y queda en los descartes). Los textos de un
+  `<style>`, un `<script>` o un ícono `<svg>` no viajan. Más de 400 textos en una sección: cerrada, como antes.
+- ⚠️ **El tokenizador es propio (sin DOM ni parser):** ia-bloques corre en el server, en el navegador y en los tests. Un
+  atributo entre comillas puede traer `>` (`data-x="a>b"`): la expresión de etiqueta lo respeta. El HTML que llega ya
+  pasó el saneo del server (sin scripts).
+- **Clic adentro = sección activa:** `ctx.marcarActiva(id)` (sin mover el cursor ni el scroll), buscando la tarjeta del
+  diseño desde `getPos()`. Las escuchas del iframe se ponen una vez al cargar: leen el contexto por un ref.
+- **Negrita y cursiva** en la barrita del diseño, con el comando de edición del documento del iframe (el botón no le roba
+  el foco). La API de MaKo hereda sola lo de la IA: `editar_landing_con_ia` usa la misma `editar`.
+
+Lo que quedó SIN hacer:
+- La prueba de que la IA no inventa (`quitarPruebaInventada`) mira los nodos de Gamma, no los textos de un diseño: un
+  testimonio o una cifra que la IA escriba en una página de MaKo no se vacía sola.
+- El ⋮ de una sección de diseño ofrece cosas de Gamma que no le aplican (color de fondo, estilo, «Probar nuevo diseño»).
+- Sin mirar con clics en el editor de verdad.
