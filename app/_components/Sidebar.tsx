@@ -29,7 +29,7 @@ import Link from '@/app/_ui/Link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
+import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
 import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
@@ -305,7 +305,13 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
         <ItemIcon item={item} size={size} />
         {!expanded && <Contador n={badge} compacto />}
       </span>
-      {expanded && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && !item.bajada && <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+      {expanded && item.bajada && (
+        <span style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', lineHeight: 1.25 }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
+          <span className="mk-navrow__bajada">{item.bajada}</span>
+        </span>
+      )}
       {expanded && <Contador n={badge} />}
       {expanded && pro && <Candado />}
       {expanded && item.comingSoon && (
@@ -313,7 +319,8 @@ export function NavLink({ item, active, expanded, tema = 'oscuro', size, badge =
       )}
     </>
   );
-  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : item.label, ...(pro ? { 'data-pro': '' } : {}) };
+  const nombre = item.bajada ? `${item.label} · ${item.bajada}` : item.label;
+  const props = { className: cls, style: base, title: pro ? `${item.label} · ${ROTULO_PASAR_A_PRO}` : expanded ? undefined : nombre, ...(pro ? { 'data-pro': '' } : {}) };
   if (item.entrarComoDueno) return <button type="button" onClick={onClick} {...props}>{content}</button>;
   if (item.newTab) return <a href={item.href} target="_blank" rel="noopener noreferrer" onClick={onClick} {...props}>{content}</a>;
   return <Link href={item.href} onClick={onClick} {...props}>{content}</Link>;
@@ -906,6 +913,7 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
               ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
                 { item: t, donde: f.sinRotulo ? null : f.label },
                 ...(t.secciones ? seccionesVisibles(t, vistaNav).filter((x) => x.href !== t.href).map((item) => ({ item, donde: t.label })) : []),
+                ...(t.adentro ?? []).map((k) => SIN_FILA.find((x) => x.key === k)).filter((x): x is NavItem => !!x && puedeVer(x)).map((item) => ({ item, donde: t.label })),
               ])),
               ...USER_NAV.filter((it) => (!it.adminOnly || adminShell) && puedeVer(it)).map((item): Destino => ({ item, donde: 'Settings' })),
               ...(adminShell ? [...SUPERADMIN_MENU, ...PRONTO].map((item): Destino => ({ item, donde: 'Platform' })) : []),
