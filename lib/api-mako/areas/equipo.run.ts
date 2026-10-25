@@ -949,7 +949,7 @@ export const RUNNERS: Runners = {
       const tzCruda = str(input, 'timezone');
       if (tzCruda != null) {
         const tz = zonaCanonica(tzCruda);
-        if (!tz) return { error: `«${tzCruda}» no es una zona horaria IANA válida (por ejemplo America/Mexico_City).`, faltan: ['timezone'] };
+        if (!tz) return { error: `«${tzCruda}» no es una zona horaria IANA válida (por ejemplo America/Monterrey).`, faltan: ['timezone'] };
         if (tz !== actual.timezone) cambio.timezone = tz;
       }
       const claves = Object.keys(cambio) as (keyof Perfil)[];

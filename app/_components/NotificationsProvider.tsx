@@ -239,14 +239,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     return () => { alive = false; window.removeEventListener(EVENTO_PREFS_IN_APP, recargar); };
   }, [pathname]);
 
+  /** Abre el aviso de arriba (un mensaje de WhatsApp, o el de prueba) y lo cierra a los 5 s si nadie lo está mirando. UN lugar
+   *  para los dos (tests/avisos-se-cierran.test.ts cuenta los temporizadores). Sólo usa setters y refs: es estable. */
+  const abrirAvisoWa = (t: { gid: string; nombre: string; prueba?: boolean }) => {
+    setToast(t);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(esperarPausa(() => setToast(null)), 5000);
+  };
+
   // El pop-up de prueba (EVENTO_PRUEBA_IN_APP): el mismo de un mensaje, sin chat detrás.
   useEffect(() => {
     const probar = () => {
       unlockAudio();
       if (inAppRef.current?.sonido !== false) playApproval();
-      setToast({ gid: '', nombre: 'MaKo', prueba: true });
-      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-      toastTimerRef.current = setTimeout(esperarPausa(() => setToast(null)), 5000);
+      abrirAvisoWa({ gid: '', nombre: 'MaKo', prueba: true });
     };
     window.addEventListener(EVENTO_PRUEBA_IN_APP, probar);
     return () => window.removeEventListener(EVENTO_PRUEBA_IN_APP, probar);
@@ -365,11 +371,7 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
           // mensaje entrante mientras la persona miraba otra pantalla. Un aviso que
           // interrumpe con audio tiene que ser algo que no puede esperar, y un mensaje
           // de WhatsApp espera: ya está el contador rojo en la tab de la sidebar.
-          if (dejaVer('wa-mensaje')) {
-            setToast({ gid: entrante.chatJid, nombre: entrante.nombre });
-            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-            toastTimerRef.current = setTimeout(esperarPausa(() => setToast(null)), 5000);
-          }
+          if (dejaVer('wa-mensaje')) abrirAvisoWa({ gid: entrante.chatJid, nombre: entrante.nombre });
         }
         recomputeNoOf();
       } catch { /* ignore */ }

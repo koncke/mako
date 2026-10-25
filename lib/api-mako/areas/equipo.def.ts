@@ -400,7 +400,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'empresa', tipo: 'string', max: 120, descripcion: 'empresa (dato personal; el nombre del negocio se cambia con renombrar_negocio). «-» lo vacía.' },
       { nombre: 'web', tipo: 'string', max: 200, descripcion: 'sitio web. «-» lo vacía.' },
       { nombre: 'bio', tipo: 'string', max: 1000, descripcion: '«sobre ti», a qué se dedica. «-» lo vacía.' },
-      { nombre: 'timezone', tipo: 'string', max: 60, descripcion: 'zona horaria personal IANA, por ejemplo America/Mexico_City.' },
+      { nombre: 'timezone', tipo: 'string', max: 60, descripcion: 'zona horaria personal IANA, por ejemplo America/Monterrey.' },
     ],
     canales: SOLO_APP, costo: 'gratis',
   },

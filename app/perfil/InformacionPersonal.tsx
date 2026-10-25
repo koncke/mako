@@ -45,6 +45,9 @@ const EJEMPLO: Record<Campo | 'negocio', string> = {
   nombre: 'Ana Torres', cargo: 'Fundadora', empresa: 'Estudio Norte', negocio: 'Estudio Norte', web: 'https://…', bio: 'A qué te dedicas',
 };
 
+/** Lo que se guarda del teléfono: «+» y los dígitos con el código de país (la forma del resto de la app), o vacío. */
+const telefonoGuardable = (tel: { lada: string; numero: string }) => (tel.numero.replace(/\D/g, '') ? `+${unirTelefono(tel.lada, tel.numero)}` : '');
+
 /** La zona del navegador de quien mira, canónica, o null: la que se sugiere primera en la lista. */
 function zonaDelNavegador(): string | null {
   try { return zonaCanonica(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch { return null; }
@@ -174,7 +177,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
 
   /** El teléfono se guarda al salir de la fila (el número o el país), si cambió. */
   const guardarTelefono = async (t = tel) => {
-    const valor = t.numero.replace(/\D/g, '') ? `+${unirTelefono(t.lada, t.numero)}` : '';
+    const valor = telefonoGuardable(t);
     if (valor === (ultimo.current.telefono ?? '')) return;
     if (!(await persistir({ telefono: valor }))) {
       const { lada, resto } = splitTelefono(ultimo.current.telefono ?? '');

@@ -94,6 +94,8 @@ const FUERA_DE_D6B: ReadonlyArray<{ prefijo: string; porque: string; salvo?: str
  * se vuelve a mirar: si ahora le pide algo a una IA, va adentro de `conSuIADelNegocio`.
  */
 const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> = [
+  // Cuántos teléfonos de la persona reciben avisos (Settings › Notificaciones › Celular, 25/10/2026): lee push_suscripciones.
+  { unidad: 'app/api/push/suscripcion/route.ts#GET', usa: ['getSupabaseServer', 'getUsuarioActual', 'usuarioPropio'], porque: 'cuenta los teléfonos de la persona con avisos (push_suscripciones): no le pide nada a una IA' },
   // El interruptor de «Aprende solo» (P8, 25/10/2026): guarda el setting second-brain.recolector; la vuelta que le pide a la IA es el cron, adentro de conSuIADelNegocio.
   { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector del negocio (un setting): no le pide nada a una IA; la que lee es la vuelta del cron, con la IA del negocio' },
   // Cómo se ve la tarjeta de una tarea (21/10/2026, las plantillas de tarjeta): de quien mira, en `usuarios.perfil`.
