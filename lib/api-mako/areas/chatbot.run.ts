@@ -20,6 +20,8 @@ import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nu
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { botonesDe } from '@/lib/botones-social';
+import { botonesParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -354,6 +356,8 @@ export const RUNNERS: Runners = {
           // espejo de la PRIMERA parte; sin esto, quien lee la ficha creía que el paso era sólo eso.
           ...(partesExplicitas(p) ? { partes: partesExplicitas(p) } : {}),
           revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
+          // LOS BOTONES de un DM (25/10/2026): «sigue» es la tarjeta a la que lleva el toque (su puerto es «btn:<id>»).
+          ...(botonesDe(p).length ? { botones: botonesDe(p).map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, sigue: b.siguiente ?? null })) } : {}),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -362,6 +366,7 @@ export const RUNNERS: Runners = {
         notas: [
           'Un «Si responde» con paso_ia=true es un AI Step: UN AI Step por medio, con un objetivo y sus escenarios adentro (hasta 10). Contesta cuando el lead escribe, hasta lograr el objetivo. Cada escenario dice cuándo entra (cuando), cómo responde (responder; null = no contesta) y su libertad: avisa (sólo te avisa), aprueba (deja la respuesta para aprobar y te avisa) o sola (sale sola, nunca si habla de plata). lo_demas es lo que pasa con lo que no encaja en ningún escenario: avisa o aprueba. Un escenario nuevo entra con agregar_escenario_secuencia.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
+          'Un mensaje de Instagram o Messenger puede llevar botones (hasta 3): uno con «sigue» lleva a esa tarjeta cuando el lead lo toca (aunque sea una de antes); uno con «link» abre esa dirección. Un mensaje con botones de «sigue» y sin siguiente espera el toque. Se cambian con cambiar_botones_mensaje.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
         ],
@@ -577,6 +582,8 @@ export const RUNNERS: Runners = {
           ...(vivas.has(Number(f.secuencia_id)) ? {
             paso: vivas.get(Number(f.secuencia_id))!.paso?.titulo ?? null,
             automatizacion_pausada: !vivas.get(Number(f.secuencia_id))!.automatizacionActiva,
+            // Parado en un DM con botones, esperando que toque uno (25/10/2026): los títulos.
+            ...(vivas.get(Number(f.secuencia_id))!.esperaToque?.length ? { espera_toque: vivas.get(Number(f.secuencia_id))!.esperaToque } : {}),
           } : {}),
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
@@ -1332,6 +1339,32 @@ export const RUNNERS: Runners = {
         throw e;
       }
       return { ok: true, resumen: `Pasos de la secuencia #${id} guardados.` };
+    },
+  },
+
+  // Los botones de un DM (25/10/2026; la def explica el porqué). Lo que se sabe sin escribir lo decide `botonesParaGuardar`
+  // (lib/botones-api.ts, puro y con test); se guarda por la misma puerta que editar_pasos (`publicarPasos`).
+  cambiar_botones_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      if (!Array.isArray(input.botones)) return { error: 'Falta la lista de botones ([] los saca).', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), input.botones as BotonPedido[], String(s.nombre ?? ''));
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé los botones de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Botones de la automatización #${id} guardados.` };
     },
   },
 

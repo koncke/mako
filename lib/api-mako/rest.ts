@@ -330,6 +330,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['PUT', '/chatbot/secuencias/{secuenciaId}/botones/{tarjeta}', 'cambiar_botones_mensaje'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
