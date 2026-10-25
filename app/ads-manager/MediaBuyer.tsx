@@ -22,6 +22,7 @@ import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { ConfigMediaBuyer, Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
+import { iniciales } from '@/lib/unicode-seguro';
 import {
   ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, saludo, tonoDe, verboLanzar,
   type Pestana,
@@ -183,7 +184,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
               return (
                 <div className="mb-act" key={d.id}>
                   <span className="mb-act-av" data-piloto={esPiloto ? '1' : '0'} aria-hidden>
-                    {esPiloto ? <Criatura nombre="MaKo" size={22} estrella /> : quien.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                    {esPiloto ? <Criatura nombre="MaKo" size={22} estrella /> : iniciales(quien).toUpperCase()}
                   </span>
                   <div className="mb-act-txt">
                     <b>{quien}{d.estado === 'deshecha' ? ' · deshecho' : ''}</b>
