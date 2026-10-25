@@ -22,7 +22,7 @@
 //
 // ⚠️ SIN `server-only`, a propósito: lo leen el servidor, las pantallas y los tests.
 
-import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
+import { CARTERO_VIVO_MS, DESTINO_NUEVO, DESTINO_RE, TOPE_TURNO, TOPE_TURNO_VIEJO, carteroVivo, esParaMartin, rutaParaRevisar, unirTurnos, type ChatCartero, type Cierre, type EstadoPedido, type TurnoChat } from './operaciones-reglas';
 import { instanteHito, type AreaP, type PasoP, type PedidoP } from './progreso-reglas';
 import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
@@ -1367,10 +1367,11 @@ export function partirPendiente(cuerpo: string): { detalle: string; cola: string
   return { detalle, cola };
 }
 
-/** ¿La PC cortó este turno al subirlo? Sube hasta `TOPE_TURNO` caracteres (cartero.mjs) y el resto no llega, sin avisar.
+/** ¿La PC cortó este turno al subirlo? Un cartero de antes de la 1.19.0 cortaba a `TOPE_TURNO_VIEJO` (4000); desde esa, sólo el
+ *  tope técnico (`TOPE_TURNO`). Lo cortado no llega, sin avisar.
  *  ⚠️ No se AVISA en pantalla (25/10/2026, Martín: «que no haya nunca un limite de caracteres, en todo caso achica el mensaje»):
  *  el «Completado» largo va plegado a su resumen, y uno cortado termina en «…» (Avance.tsx). */
-export const cortadoPorLaPC = (texto: string): boolean => texto.length >= TOPE_TURNO;
+export const cortadoPorLaPC = (texto: string): boolean => texto.length === TOPE_TURNO_VIEJO || texto.length >= TOPE_TURNO;
 
 /**
  * Lo que pidió Martín y respondió ese «Completado» (25/10/2026, Martín: «Por ejemplo dice "no, no era todo." si no pones antes
