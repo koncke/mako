@@ -10,7 +10,7 @@ import { CONFIG_POR_DEFECTO, type ConfigMediaBuyer } from '../lib/media-buyer/ti
 const ctx = (x: Omit<Partial<ContextoTopes>, 'config'> & { config?: Partial<ConfigMediaBuyer> } = {}): ContextoTopes => {
   const { config, ...resto } = x;
   return {
-    config: { ...CONFIG_POR_DEFECTO, ...(config ?? {}) },
+    config: { ...CONFIG_POR_DEFECTO, encendido: true, ...(config ?? {}) },
     actual: { estado: 'ACTIVE', presupuesto: 50 },
     inicioDelDia: null,
     totalActivo: 200,

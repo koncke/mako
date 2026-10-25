@@ -1,19 +1,20 @@
 // =============================================================================
-// /ads-manager/<ad_id> — el link viejo a un anuncio: lleva a /anuncio/<ad_id>
+// /ads-manager/<ad_id> — el link viejo a un anuncio
 // =============================================================================
-// Hasta el 25/10/2026 abría la réplica de Meta Ads Manager con ese anuncio abierto. La réplica se reemplazó por el Media
-// Buyer (app/ads-manager/page.tsx), que no tiene tabla de anuncios, y los links que ya se mandaron (avisos, CRM, MaKo)
-// siguen apuntando acá: van a la página del anuncio solo, que muestra lo mismo. Con el `?ws=` (rutaConWs): un link viejo
-// abierto mirando a un cliente no puede sacar del cliente.
+// Lo lleva a /anuncio/<ad_id> el layout de /ads-manager (app/ads-manager/layout.tsx), antes del loader. Esta página sólo
+// se dibuja si el id no es un número (un link roto): dice dónde está ahora lo que buscaba.
 // =============================================================================
 
-import { redirect } from 'next/navigation';
-import { rutaConWs } from '@/lib/workspace';
+import { Pagina } from '@/app/_ui/Pagina';
+import { EmptyState } from '@/app/_ui/Estados';
 
 export const dynamic = 'force-dynamic';
 
-export default async function AnuncioViejoPage({ params }: { params: Promise<{ adId: string }> }) {
-  const { adId } = await params;
-  const id = /^\d{1,30}$/.test(adId) ? adId : '';
-  redirect(await rutaConWs(id ? `/anuncio/${id}` : '/ads-manager'));
+export default function AnuncioViejoPage() {
+  return (
+    <Pagina>
+      <EmptyState titulo="Ese anuncio no existe" detalle="El Media Buyer reemplazó al Ads Manager. Los anuncios se abren desde sus decisiones."
+        accion={{ label: 'Ir al Media Buyer', href: '/ads-manager' }} />
+    </Pagina>
+  );
 }

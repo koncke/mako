@@ -88,7 +88,12 @@ export const TABLAS_DE_INQUILINO = [
   'landing_analyses', 'landing_doc_comentarios', 'landing_doc_versiones', 'landing_docs', 'landing_drafts', 'landing_sugerencias', 'landing_visits', 'lead_audit',
   'lead_funnel', 'lead_insights', 'lead_magnets', 'lead_orden', 'lead_respuestas', 'leads',
   'mako_acciones_pendientes', 'mako_confirmaciones', 'mako_doer_buffer', 'mako_doer_conv',
-  'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily', 'meta_campaign_drafts',
+  'mako_doer_lock', 'mako_knowledge', 'marketing_metrics_daily',
+  // El Media Buyer (mig 0332, 25/10/2026): su configuración y el registro de sus decisiones, por negocio. No van en
+  // TENANT_TABLES: las lee y escribe lib/media-buyer/store.ts con el cliente de servicio y el ws explícito (corre en un cron).
+  // ⚠️ La 0332 se aplica ANTES del deploy: el reset del cliente de prueba borra de estas dos y una tabla que no existe da error.
+  'media_buyer_config', 'media_buyer_decisiones',
+  'meta_campaign_drafts',
   'montaje_trabajos', 'notificaciones', 'nutricion_envios', 'nutricion_inscripciones', 'nutricion_secuencias',
   'objectives', 'oferta_productos', 'ofertas', 'offer_sesiones', 'pagos',
   // El código de MaKo Partners de cada negocio (mig 0330): vaciar o borrar el negocio se lleva su código. No va en TENANT_TABLES:

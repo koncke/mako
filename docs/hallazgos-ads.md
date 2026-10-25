@@ -4700,3 +4700,60 @@ de ese cliente sirve».
   docs/hallazgos-comunicacion.md, misma fecha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*
+
+## El Media Buyer reemplaza al Ads Manager: lo que se midió antes de dejar que un agente mueva plata (25/10/2026)
+
+**Vive en:** `lib/media-buyer/*` (motor, topes, datos, ejecutar, corrida, variaciones) · `lib/zernio-ads.ts` ·
+`app/ads-manager/MediaBuyer.tsx` · `app/m/ads/MediaBuyerM.tsx` · `supabase/migrations/0332_media_buyer.sql` ·
+`lib/api-mako/areas/ads.def.ts` (las siete del Media Buyer) · `docs/media-buyer/referencia.md`
+
+Martín, 25/10: borrar la réplica de Meta Ads Manager y que la tab sea «una app de IA, como un media buyer de MaKo»,
+copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (capturas reales en
+`docs/media-buyer/referencias/madgicx/`). Esto es lo que sirve después, no el changelog.
+
+- **El diagnóstico obvio era el equivocado: «hay que diseñar el agente».** Ya estaba diseñado: el Autopilot del 13-14/10
+  (`docs/diseno-ads-autopilot.md`, nunca implementado) con su encuadre validado por Martín. Se tomaron sus trampas
+  (apagado por defecto, abstenerse con datos viejos, con la lectura de Meta `parcial` o con una moneda sin tasa, deshacer
+  sólo si nadie lo tocó después, una cuenta compartida por dos negocios se maneja una vez) y se descartó su pantalla (un
+  modal dentro de la tabla): el pedido nuevo es que la tab ENTERA sea el media buyer. Antes de diseñar algo que «nadie
+  hizo», buscar `docs/diseno-*` del área.
+- **Zernio cubre todo lo que el agente escribe, medido en su OpenAPI v1.353.0 (25/10):** prender/pausar campaña, conjunto
+  y anuncio (`PUT …/status`, leen el interruptor EN VIVO y si ya estaba así contestan `skipped: 1` sin escribir),
+  presupuesto diario (`PUT /ads/campaigns/{id}` para CBO —en ABO da 409— y `PUT /ads/ad-sets/{id}` para ABO), duplicar
+  un anuncio en pausa y cambiarle el creativo por parche (conserva la media y el `url_tags`), borrar, y el árbol con
+  métricas y desglose diario por anuncio (`/ads/tree?timeIncrement=1&dailyLevel=ad`). ⚠️ **El presupuesto de Zernio va
+  en UNIDADES de la moneda de la cuenta, no en centavos** como el `daily_budget` de Meta (`aUnidadMeta`): mezclarlos
+  multiplica por 100.
+- **La cuenta de Zernio de la plataforma tiene CERO cuentas conectadas** (GET /accounts, 25/10): ningún anuncio de MaKo
+  pasó nunca por Zernio. El link para conectar la cuenta publicitaria de MaKo (`act_1426493815659364`) se genera bien
+  (`GET /connect/facebook/ads?loginMode=business&permissionLevel=advertise&adAccountId=…`, contesta la ventana de
+  Facebook de la app 712341431446535): lo que falta es el clic de Martín en esa ventana. `permissionLevel=advertise`
+  (Administrar campañas) alcanza para campañas, conjuntos, creativos y anuncios; `full` sólo hace falta para píxeles.
+- ⚠️ **El árbol de Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega (la campaña
+  trae `effective_status`; el conjunto, un estado derivado de sus anuncios). `arbolDesdeZernio` toma la entrega como
+  interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado y el agente no lo toca. Errar para
+  el lado de no tocar.
+- ⚠️ **Un padre que no vino en la lectura es «no sé», y «no sé» es «no está prendido».** La primera versión de
+  `prendido()` cortaba el recorrido al no encontrar al padre y devolvía `true`: con la página de campañas caída
+  (`parcial`), el motor habría subido el presupuesto de conjuntos cuya campaña podía estar apagada. Lo fija un test.
+- **El anuncio de un lead no es sólo `meta_ad_id`**: los de landing lo traen en `utm_content` (id o nombre). El agente
+  atribuye con `adIdDeLead` (lib/atribucion-url.ts), la misma regla del resto de MaKo; sin eso el Stop Loss apagaba el
+  anuncio que trae las reuniones (ya medido el 14/10: 9 de 114 agendados del ws1 tenían `meta_ad_id`).
+- **El CRM se cuenta por COHORTE** (los leads que entraron en la ventana, y de ésos cuántos agendaron o compraron), no con
+  `bajadaCrmPorAnuncio`, que suma las ventas de TODOS los leads del anuncio de cualquier fecha: contra el gasto de 3 días,
+  eso hace parecer barato a un anuncio que vendió hace un año.
+- **Las palabras de una descripción de la API roban pedidos de OTRA área.** La primera versión de `topes_media_buyer`
+  decía «lead, agenda o venta» y «dólares»: «editá la venta de Juan: 1500 dólares» dejó de traer `editar_venta_lead`
+  (tests/ops-center-clasificador-app.test.ts). Se reescribió sin esas raíces. Ya estaba en AGENTS.md para los ids; vale
+  igual para la descripción.
+- **Las dos tablas nuevas van en `TABLAS_DE_INQUILINO` y la 0332 tiene que estar ANTES del deploy**: el reset del cliente
+  de prueba borra de cada tabla de esa lista y una que no existe da error. Hasta que se aplique, el código las tolera
+  (PGRST205) y la pantalla dice que el registro no está.
+
+**Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
+`docs/relevo/media-buyer.md`); el video con hook nuevo FILMADO (hoy las variaciones de hook salen como texto sobre el
+mismo video; filmar depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); `validate_only` antes de
+escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
+cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*

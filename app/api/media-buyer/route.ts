@@ -19,6 +19,8 @@ import { leerConfig, guardarConfig, leerDecisiones, reclamar, actualizar, MediaB
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio } from '@/lib/media-buyer/datos';
+import { marcarPasoTab } from '@/lib/tab-onboarding-state';
+import { credWs } from '@/lib/credenciales';
 import { claveZernioAnuncios, conexionAnunciosZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 
 export const dynamic = 'force-dynamic';
@@ -86,6 +88,10 @@ export async function POST(req: NextRequest) {
       case 'config': {
         const cambio = (body.cambio ?? {}) as Record<string, unknown>;
         const config = await guardarConfig(ws, cambio, quien);
+        // El onboarding de la tab (lib/tab-onboarding-catalogo.ts → 'ads-manager'): elegir el resultado y prenderlo son sus
+        // pasos 2 y 3. Best-effort y en orden: si el paso anterior no está, marcarPasoTab se niega y no pasa nada.
+        if (cambio.kpi !== undefined) await marcarPasoTab('ads-manager', 'am_resultado').catch(() => null);
+        if (cambio.encendido === true) await marcarPasoTab('ads-manager', 'am_prender').catch(() => null);
         return J({ ok: true, config });
       }
       case 'analizar': {
@@ -96,6 +102,8 @@ export async function POST(req: NextRequest) {
         const tieneClave = !!(await claveZernioAnuncios(ws));
         const act = await cuentaDelNegocio(ws);
         const conexion = tieneClave ? await conexionAnunciosZernio(ws, act).catch(() => null) : null;
+        // Paso 1 del onboarding: la cuenta conectada (por Zernio o por el token de Meta del negocio).
+        if (conexion || (await credWs('META_ACCESS_TOKEN', ws))) await marcarPasoTab('ads-manager', 'am_cuenta').catch(() => null);
         return J({ ok: true, tieneClave, cuenta: act, conectado: !!conexion });
       }
       default:

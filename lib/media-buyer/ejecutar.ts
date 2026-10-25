@@ -237,6 +237,13 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   const nodo = datos.arbol.find((n) => n.id === d.entidadId);
   if (!nodo) return { ok: false, error: 'Eso ya no está en la cuenta de Meta.' };
   const actual = estadoVivo(nodo);
+  // ⚠️ SÓLO SI NADIE LO TOCÓ DESPUÉS. Si una persona cambió el presupuesto o lo prendió a mano desde que MaKo lo aplicó,
+  // «deshacer» pisaría ESE cambio con el de hace días (docs/diseno-ads-autopilot.md, «Deshacer»). Se compara con lo que
+  // MaKo dejó; un presupuesto con 1% de diferencia es el redondeo de la moneda, no otra persona.
+  const cambio = (a: number | undefined, b: number | undefined) => a != null && b != null && Math.abs(a - b) / Math.max(b, 0.01) > 0.01;
+  if ((d.despues.estado && actual.estado && actual.estado !== d.despues.estado) || cambio(actual.presupuesto, d.despues.presupuesto)) {
+    return { ok: false, error: 'Cambió desde que MaKo lo aplicó: deshacerlo pisaría ese cambio. Revísalo en la cuenta.' };
+  }
   const volver: EstadoEntidad = {};
   if (d.antes.estado && d.antes.estado !== actual.estado) volver.estado = d.antes.estado;
   if (d.antes.presupuesto != null && d.antes.presupuesto !== actual.presupuesto) volver.presupuesto = d.antes.presupuesto;

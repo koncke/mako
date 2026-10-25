@@ -94,11 +94,6 @@
 .mb-etq[data-tono="mal"] { background: var(--bad-bg); border-color: transparent; color: var(--bad); }
 .mb-etq[data-tono="cuidado"] { background: var(--warn-bg); border-color: transparent; color: var(--warn); }
 .mb-dec-der { display: flex; align-items: center; gap: 10px; flex: none; }
-.mb-tacho {
-  width: 42px; height: 42px; display: grid; place-items: center; border-radius: var(--r-md); border: 1px solid var(--border-strong);
-  background: var(--surface); color: var(--faint); cursor: pointer;
-}
-.mb-tacho:hover { color: var(--bad); border-color: var(--bad); }
 .mb-lanzar { min-width: 150px; justify-content: center; }
 .mb-estrellas { display: inline-flex; gap: 2px; }
 .mb-estrellas button { appearance: none; border: 0; background: none; cursor: pointer; padding: 2px; font-size: 18px; line-height: 1; color: var(--border-strong); }

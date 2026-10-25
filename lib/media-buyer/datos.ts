@@ -26,6 +26,7 @@ import { leerArbolMetaEnVivo } from '@/lib/meta-health';
 import { conexionAnunciosZernio, arbolPorZernio } from '@/lib/zernio-ads';
 import type { ConexionAnunciosZernio } from '@/lib/zernio-ads-cuerpo';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
+import { adIdDeLead } from '@/lib/atribucion-url';
 import type { NodoMB, SenalMB } from './motor';
 import { diasAntes, ventanas, senalesDeVentana, arbolDesdeZernio, type FilaMetrica, type FilaLeadAd } from './senales';
 export { diasAntes, ventanas, senalesDeVentana, arbolDesdeZernio, fmtUnidad, presupuestoMinimoCuenta } from './senales';
@@ -46,8 +47,10 @@ export type DatosCuenta = {
   conexion: ConexionAnunciosZernio | null;
   /** La suma de los presupuestos diarios de lo prendido, en la unidad del gasto (para el tope de la cuenta). */
   totalActivo: number;
-  /** Gasto del mes en curso hasta ayer, y la caja del CRM de los leads del mes (las «metas del mes»). */
-  mes: { gasto: number; caja: number; resultados: { leads: number; agendas: number; ventas: number } };
+  /** Meta devolvió el árbol a medias (una página falló): el agente NO decide sobre una cuenta que no vio entera. */
+  parcial: boolean;
+  /** El último día con métricas de la cuenta (null = ninguno en la ventana). Si no es ayer, los datos están viejos. */
+  ultimoDia: string | null;
   avisos: string[];
 };
 
@@ -90,21 +93,20 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     return null;
   });
   const v = ventanas(hoy);
-  const inicioMes = `${hoy.slice(0, 7)}-01`;
-  const desdeLectura = inicioMes < v.crm[0] ? inicioMes : v.crm[0];
+  const desdeLectura = v.crm[0];
 
   // 1. El árbol: Meta con el token del negocio; Zernio si no hay token o Meta no deja leer.
   let fuente: FuenteArbol = 'meta';
   let arbol: NodoMB[] = [];
   let moneda: string | null = null;
   let metricasZernio: FilaMetrica[] | null = null;
+  let parcial = false;
   const token = await credWs('META_ACCESS_TOKEN', ws);
   let errMeta: string | null = null;
   if (token) {
     try {
       const m = await arbolDeMeta(ws);
-      arbol = m.arbol; moneda = m.moneda;
-      if (m.parcial) avisos.push('Meta devolvió la cuenta a medias: lo que faltó no se toca.');
+      arbol = m.arbol; moneda = m.moneda; parcial = m.parcial;
     } catch (e) {
       errMeta = e instanceof Error ? e.message : String(e);
     }
@@ -122,26 +124,27 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   const conversor = conversorDeGasto(moneda);
 
   // 2 y 3. Métricas de Meta y la cohorte del CRM, en UNA lectura cada una (el rango más largo) y repartidas en memoria.
-  const { metricas, leads } = await runWithWorkspace(ws, async () => {
+  const { metricas, leads: leadsCrudos } = await runWithWorkspace(ws, async () => {
     const db = await getTenantDb();
     const [met, lds] = await Promise.all([
       metricasZernio ? Promise.resolve(metricasZernio) : leerTodo<FilaMetrica>(db, 'marketing_metrics_daily',
         'id, fecha, ad_id, spend, leads_count, agendas_meta, impressions, frequency, video_3s_views, ad_thumbnail_url',
         { orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }], eq: { plataforma: 'meta' }, filtros: (q) => q.not('ad_id', 'is', null).gte('fecha', desdeLectura).lte('fecha', v.crm[1]) }),
-      leerTodo<FilaLeadAd>(db, 'leads', 'id, meta_ad_id, created_at, fecha_junta_1, estado_lead, total_cobrado_usd',
-        { filtros: (q) => q.not('meta_ad_id', 'is', null).gte('created_at', `${desdeLectura}T00:00:00Z`) }),
+      leerTodo<FilaLeadAd & { utm_content: string | null }>(db, 'leads', 'id, meta_ad_id, utm_content, created_at, fecha_junta_1, estado_lead, total_cobrado_usd',
+        { filtros: (q) => q.or('meta_ad_id.not.is.null,utm_content.not.is.null').gte('created_at', `${desdeLectura}T00:00:00Z`) }),
     ]);
     return { metricas: met, leads: lds };
   });
+  // ⚠️ EL ANUNCIO DE UN LEAD NO ES SÓLO `meta_ad_id`. Los leads de una LANDING lo traen en `utm_content` (el id o el nombre
+  // del anuncio): medido el 14/10/2026, 9 de 114 agendados del ws1 tenían `meta_ad_id` (docs/hallazgos-ads.md, «El
+  // Autopilot»). Sin esto, el Stop Loss apagaría justo el anuncio que trae las reuniones. `adIdDeLead` es la misma
+  // atribución que usa el resto de MaKo (lib/atribucion-url.ts).
+  const nombresDeAds: Record<string, string> = Object.fromEntries(arbol.filter((n) => n.nivel === 'ad').map((n) => [n.id, n.nombre]));
+  const leads: FilaLeadAd[] = leadsCrudos.map((l) => ({ ...l, meta_ad_id: adIdDeLead(l.meta_ad_id, l.utm_content, nombresDeAds) }));
   const aU = conversor.aUsdNum;
   const corta = senalesDeVentana(metricas, leads, v.corta[0], v.corta[1], aU);
   const larga = senalesDeVentana(metricas, leads, v.larga[0], v.larga[1], aU);
   const crm = senalesDeVentana(metricas, leads, v.crm[0], v.crm[1], aU);
-  const mesS = senalesDeVentana(metricas, leads, inicioMes, v.crm[1], aU);
-  const mes = mesS.reduce((a, s) => ({
-    gasto: a.gasto + s.gasto, caja: a.caja + s.caja,
-    resultados: { leads: a.resultados.leads + Math.max(s.leadsMeta, s.leadsCrm), agendas: a.resultados.agendas + Math.max(s.agendasMeta, s.agendasCrm), ventas: a.resultados.ventas + s.cierres },
-  }), { gasto: 0, caja: 0, resultados: { leads: 0, agendas: 0, ventas: 0 } });
 
   // El total prendido: los presupuestos de lo que entrega (campaña CBO o conjunto ABO con su campaña prendida).
   const porId = new Map(arbol.map((n) => [n.id, n] as const));
@@ -155,7 +158,8 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     .filter(prendido)
     .reduce((s, n) => s + aU(n.presupuestoDia!), 0);
 
-  return { fuente, adAccountId: act ?? conexion?.adAccountId ?? null, moneda, arbol, corta, larga, crm, conversor, conexion, totalActivo, mes, avisos };
+  const ultimoDia = metricas.reduce<string | null>((m, r) => (Number(r.spend ?? 0) > 0 && (!m || r.fecha > m) ? r.fecha : m), null);
+  return { fuente, adAccountId: act ?? conexion?.adAccountId ?? null, moneda, arbol, corta, larga, crm, conversor, conexion, totalActivo, parcial, ultimoDia, avisos };
 }
 
 // ── «Metas del mes» (la tarjeta de la derecha): sólo la base, sin pegarle a Meta ──
@@ -178,17 +182,22 @@ export async function metasDelMes(ws: number, hoy: string = hoyEnTijuana()): Pro
     const [met, lds] = await Promise.all([
       leerTodo<FilaMetrica>(db, 'marketing_metrics_daily', 'id, fecha, ad_id, spend, leads_count, agendas_meta, impressions, frequency, video_3s_views',
         { orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }], eq: { plataforma: 'meta' }, filtros: (q) => q.not('ad_id', 'is', null).gte('fecha', desde).lte('fecha', hasta) }),
-      leerTodo<FilaLeadAd>(db, 'leads', 'id, meta_ad_id, created_at, fecha_junta_1, estado_lead, total_cobrado_usd',
-        { filtros: (q) => q.not('meta_ad_id', 'is', null).gte('created_at', `${desde}T00:00:00Z`) }),
+      leerTodo<FilaLeadAd & { utm_content: string | null }>(db, 'leads', 'id, meta_ad_id, utm_content, created_at, fecha_junta_1, estado_lead, total_cobrado_usd',
+        { filtros: (q) => q.or('meta_ad_id.not.is.null,utm_content.not.is.null').gte('created_at', `${desde}T00:00:00Z`) }),
     ]);
-    const s = senalesDeVentana(met, lds, desde, hasta, conv.aUsdNum);
+    // La caja del mes es de TODO lead que vino de un anuncio (por `meta_ad_id` o por `utm_content`): el id exacto no hace falta.
+    const conAnuncio = lds.map((l) => ({ ...l, meta_ad_id: l.meta_ad_id ?? (l.utm_content ? `utm:${l.utm_content}` : null) }));
+    const s = senalesDeVentana(met, conAnuncio, desde, hasta, conv.aUsdNum);
+    // Se suma cada lado por separado y se toma el MAYOR (la misma persona vista desde Meta y desde el CRM: `resultados`,
+    // lib/media-buyer/motor.ts). Sumar el mayor de cada anuncio contaría dos veces al lead de landing, que el CRM pone en
+    // otra clave que Meta.
     const total = s.reduce((a, x) => ({
-      gasto: a.gasto + x.gasto, caja: a.caja + x.caja,
-      leads: a.leads + Math.max(x.leadsMeta, x.leadsCrm), agendas: a.agendas + Math.max(x.agendasMeta, x.agendasCrm), ventas: a.ventas + x.cierres,
-    }), { gasto: 0, caja: 0, leads: 0, agendas: 0, ventas: 0 });
+      gasto: a.gasto + x.gasto, caja: a.caja + x.caja, lm: a.lm + x.leadsMeta, lc: a.lc + x.leadsCrm,
+      am: a.am + x.agendasMeta, ac: a.ac + x.agendasCrm, ventas: a.ventas + x.cierres,
+    }), { gasto: 0, caja: 0, lm: 0, lc: 0, am: 0, ac: 0, ventas: 0 });
     return {
       desde, hasta, diasQuedan, gasto: Math.round(total.gasto * 100) / 100, caja: Math.round(total.caja * 100) / 100,
-      resultados: { leads: total.leads, agendas: total.agendas, ventas: total.ventas }, moneda, convierte: conv.aUsd(1) != null,
+      resultados: { leads: Math.max(total.lm, total.lc), agendas: Math.max(total.am, total.ac), ventas: total.ventas }, moneda, convierte: conv.aUsd(1) != null,
     };
   });
 }

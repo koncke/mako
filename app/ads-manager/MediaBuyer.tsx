@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, EmptyState, IconButton, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
 import { Criatura } from '@/app/_components/Criatura';
+import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { ConfigMediaBuyer, Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
@@ -144,7 +145,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta }: {
       {/* Lo que frena todo, arriba (una cinta por motivo) */}
       <div className="mb-avisos">
         {!config.existeTabla && <Alert tono="warn">El registro de decisiones todavía no está instalado: MaKo no lanza nada hasta que esté.</Alert>}
-        {config.existeTabla && !config.encendido && (
+        {config.existeTabla && !config.encendido && config.ultimaCorrida && (
           <Alert tono="bad" accion={{ label: 'Prender', onClick: () => void guardarConfig({ encendido: true }) }}>El Media Buyer está apagado: no analiza ni lanza nada.</Alert>
         )}
         {zernio && !zernio.conectado && (
@@ -156,6 +157,16 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta }: {
           </Alert>
         )}
       </div>
+
+      {config.existeTabla && !config.encendido && !config.ultimaCorrida && (
+        <Arranque tieneMeta={tieneMeta} zernio={zernio} kpi={config.kpi}
+          onZernio={() => { void leerZernio(); }}
+          onPrender={async (kpiElegido) => {
+            if (await guardarConfig({ kpi: kpiElegido })) {
+              if (await guardarConfig({ encendido: true, modo: 'propone' })) void analizar();
+            }
+          }} />
+      )}
 
       {/* ── 2. Las dos tarjetas ── */}
       <section className="mb-tarjetas">
@@ -324,9 +335,7 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
         </div>
         <div className="mb-dec-der" onClick={(e) => e.stopPropagation()}>
           {p === 'abiertas' && <>
-            <button type="button" className="mb-tacho" title="Descartar" aria-label="Descartar" disabled={ocupada} onClick={onDescartar}>
-              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6" /></svg>
-            </button>
+            <BotonBorrar talla="lg" title="Descartar esta decisión" disabled={ocupada} onClick={onDescartar} />
             <Button className="mb-lanzar" loading={ocupada} disabled={!encendido} onClick={() => (abierta ? lanzar() : onAbrir())}>
               {abierta ? verboLanzar(d) : 'Lanzar'}
             </Button>
@@ -414,6 +423,53 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
         </div>
       )}
     </article>
+  );
+}
+
+// ── El arranque: el onboarding de la tab, en tres pasos (lib/tab-onboarding-catalogo.ts → 'ads-manager') ──
+// Conectar la cuenta · el resultado que se busca (el objetivo lo recomienda MaKo con los datos) · prenderlo en «propone».
+// Madgicx no muestra el suyo en sus capturas; éste sigue la regla de la casa (una pregunta por paso, nada que redactar).
+
+function Arranque({ tieneMeta, zernio, kpi, onZernio, onPrender }: {
+  tieneMeta: boolean; zernio: EstadoZernio | null; kpi: KpiMediaBuyer;
+  onZernio: () => void;
+  onPrender: (kpi: KpiMediaBuyer) => Promise<void>;
+}) {
+  const [elegido, setElegido] = useState<KpiMediaBuyer>(kpi);
+  const [prendiendo, setPrendiendo] = useState(false);
+  const conectada = tieneMeta || !!zernio?.conectado;
+  return (
+    <section className="mb-tarjeta" aria-label="Prender el Media Buyer">
+      <h2>Prende tu Media Buyer <small>tres pasos</small></h2>
+      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 16, fontSize: 'var(--fs-md)' }}>
+        <li>
+          <b>Tu cuenta publicitaria</b>
+          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: 'var(--dim)' }}>
+            {conectada ? <span>Conectada{zernio?.conectado ? ' por Zernio' : ''}.</span> : <span>Todavía no está conectada.</span>}
+            {!zernio?.conectado && (
+              <ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={zernio?.cuenta ?? null} size="sm" variant={conectada ? 'secondary' : 'primary'} onConectado={onZernio}>
+                Conectar con Facebook
+              </ConectarViaZernio>
+            )}
+          </div>
+        </li>
+        <li>
+          <b>El resultado que buscas</b>
+          <div style={{ marginTop: 6 }}>
+            <RadioGroup value={elegido} onChange={(v) => setElegido(v as KpiMediaBuyer)} options={[
+              { value: 'lead', label: 'Leads', hint: 'Personas que dejan sus datos.' },
+              { value: 'agenda', label: 'Agendas', hint: 'Leads que reservan una llamada (tu CRM).' },
+              { value: 'venta', label: 'Ventas', hint: 'Leads que compran (tu CRM).' },
+            ]} />
+          </div>
+        </li>
+        <li>
+          <b>Prenderlo</b>
+          <p style={{ margin: '6px 0 10px', color: 'var(--dim)' }}>Arranca proponiendo: cada decisión espera tu «Lanzar».</p>
+          <Button loading={prendiendo} disabled={!conectada} onClick={async () => { setPrendiendo(true); await onPrender(elegido); setPrendiendo(false); }}>Prender el Media Buyer</Button>
+        </li>
+      </ol>
+    </section>
   );
 }
 

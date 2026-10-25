@@ -34,7 +34,7 @@ function entrada(x: Omit<Partial<EntradaMotor>, 'config'> & { config?: Partial<C
   const { config, ...resto } = x;
   return {
     ahora: AHORA,
-    config: { ...CONFIG_POR_DEFECTO, ...(config ?? {}) },
+    config: { ...CONFIG_POR_DEFECTO, encendido: true, ...(config ?? {}) },
     objetivo: 10,
     arbol: cuenta(),
     corta: [], larga: [], crm: [], historial: [],

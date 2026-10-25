@@ -15,11 +15,11 @@
 
 begin;
 
--- Una fila por negocio. Sin fila = los valores por defecto de lib/media-buyer/tipos.ts (CONFIG_POR_DEFECTO): el
--- piloto automático APAGADO. Lo prende cada negocio (nunca MaKo por él).
+-- Una fila por negocio. Sin fila = los valores por defecto de lib/media-buyer/tipos.ts (CONFIG_POR_DEFECTO): el Media
+-- Buyer APAGADO y, prendido, en «propone». El piloto automático lo prende cada negocio (nunca MaKo por él).
 create table if not exists media_buyer_config (
   workspace_id        bigint primary key references workspaces(id) on delete cascade,
-  encendido           boolean not null default true,
+  encendido           boolean not null default false,
   modo                text not null default 'propone' check (modo in ('propone', 'piloto')),
   kpi                 text not null default 'lead' check (kpi in ('lead', 'agenda', 'venta')),
   -- En la unidad del gasto (dólares si la cuenta convierte). null = lo recomienda MaKo con los datos de la cuenta.

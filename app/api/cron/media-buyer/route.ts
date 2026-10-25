@@ -24,10 +24,11 @@ const MINIMO_UTIL_MS = 60_000;
 export async function GET(request: NextRequest) {
   const authFail = checkCronAuth(request);
   if (authFail) return authFail;
-  const ronda = await correrRonda(['meta', 'zernio'], (ws) => analizarCuenta(ws, { quien: 'cron' }),
+  const cuentasVistas = new Set<string>();
+  const ronda = await correrRonda(['meta', 'zernio'], (ws) => analizarCuenta(ws, { quien: 'cron', cuentasVistas }),
     { techoMs: TECHO_MS - 70_000, minimoMs: MINIMO_UTIL_MS, rotacion: 'media-buyer' });
   const plataforma = await wsSuperAdmin().catch(() => null);
   let deLaPlataforma: unknown = null;
-  if (plataforma != null && !ronda.conectados.includes(plataforma)) deLaPlataforma = await analizarCuenta(plataforma, { quien: 'cron' });
+  if (plataforma != null && !ronda.conectados.includes(plataforma)) deLaPlataforma = await analizarCuenta(plataforma, { quien: 'cron', cuentasVistas });
   return Response.json({ ok: true, ms: ronda.ms, resultados: ronda.resultados, sinTurno: ronda.sinTurno, plataforma: deLaPlataforma });
 }

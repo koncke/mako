@@ -391,7 +391,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
           porque: [
             k7 == null ? `En 7 días gastó ${pct(c7.gasto / obj)} de tu objetivo y no trajo ningún ${nom.uno}.`
               : `En 7 días cada ${nom.uno} costó ${(k7 / obj).toFixed(1)} veces tu objetivo.`,
-            'Bajarle el presupuesto ya no alcanza: lo que gasta acá rinde más en otro lado.',
+            'Bajarle el presupuesto ya no alcanza: lo que gasta aquí rinde más en otro lado.',
             'Pausarlo se deshace con un botón si cambias de idea.',
           ],
           numeros: [

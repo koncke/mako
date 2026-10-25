@@ -37,8 +37,14 @@ export type ConfigMediaBuyer = {
   cuentaPublicitaria: string | null;
 };
 
+/**
+ * Sin fila de configuración el Media Buyer está APAGADO: no analiza, no escribe variaciones (que gastarían la IA del
+ * negocio sin que lo pidiera: AGENTS.md, «Un default que cobra es un cobro silencioso») y no lanza nada. Lo prende cada
+ * negocio en su onboarding, y entonces arranca en «propone». Es lo que decidía el diseño del Autopilot del 13-14/10
+ * (docs/diseno-ads-autopilot.md: «default apagado para TODOS, sin backfill»).
+ */
 export const CONFIG_POR_DEFECTO: ConfigMediaBuyer = Object.freeze({
-  encendido: true,
+  encendido: false,
   modo: 'propone',
   kpi: 'lead',
   objetivo: null,

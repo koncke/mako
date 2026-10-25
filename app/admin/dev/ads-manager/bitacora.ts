@@ -1,10 +1,10 @@
 // =============================================================================
 // Ads Manager — el registro de construcción del área
 // =============================================================================
-// Alcance: la tab que muestra el estado VIVO de Meta cruzado con el CRM, y desde
-// la que se opera (encender, pausar, presupuesto, renombrar, crear, asignar a un
-// producto). Vive en app/ads-manager/ —CampanasBrowser.tsx es el 90% del área— y
-// en app/api/ads-manager/.
+// Alcance: desde el 25/10/2026 la tab /ads-manager es el MEDIA BUYER (app/ads-manager/MediaBuyer.tsx, lib/media-buyer/*):
+// un agente que mira la cuenta una vez por día y deja decisiones con su porqué (subir o bajar presupuesto, pausar,
+// prender, variaciones del ganador), que lanza una persona o el piloto automático. Hasta ese día era la réplica de Meta
+// Ads Manager (CampanasBrowser, el creador de campañas y sus modales), que se borró: su historia queda abajo.
 //
 // ⚠️ ESTA BITÁCORA NACIÓ EL 6/10/2026, con el área ya construida. Lo anterior está
 // en docs/hallazgos-ads.md, que es largo y está ordenado por corrida; acá entra
@@ -16,16 +16,13 @@
 import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
-  { titulo: 'Dónde vive cada acción', detalle: 'Crear arriba a la derecha · el resto en el ⋯ · un solo «Filtrar» y un «Actualizar» a la altura de las tabs · lo que opera sobre lo elegido, en la barra de la selección', estado: 'hecha' },
-  { titulo: 'Un interruptor, no dos botones', detalle: 'Activar/pausar en lote es UN control de arrastre: encendido = los N están activos, y con una mezcla va apagado', estado: 'hecha' },
-  { titulo: 'Las acciones en lote que faltaban', detalle: 'Presupuesto (sólo donde se edita en ESE nivel), producto, renombrar, agregar conjunto/anuncio y eliminar · con ícono Y texto', estado: 'hecha' },
-  { titulo: 'Ícono del catálogo, nunca un emoji', detalle: 'Los 💲🎯🗑 de la barra, el 👥 por fila, el segundo ✎ del presupuesto, el ⓘ del chip de problemas y el 📅/📝 del modal de renombrar · con guard sobre los cuatro .tsx del área', estado: 'hecha' },
-  { titulo: 'Asignar a un producto del CRM', detalle: 'Celda por fila + lote, reusando las actions del CRM · el conjunto sin producto propio dice el de SU campaña · con un solo producto la columna no se dibuja', estado: 'hecha' },
-  { titulo: 'Producto MÚLTIPLE por campaña', detalle: 'Ya no choca con el CRM: desde el 06/10 un lead puede estar en varios productos (lead_funnel, mig 0207) · lo que falta es que la entrada de leads de Meta lo use (hoy resuelve UNO en lib/campana-config.ts) · la decisión es de Martín', estado: 'cola' },
-  { titulo: 'El presupuesto pasa por un cartel, y en la moneda de la cuenta', detalle: 'La celda y el lote preguntan «viejo → nuevo» antes de escribir · se tipea en USD y se convierte a la moneda de la cuenta (lib/presupuesto-cambio.ts) · el presupuesto total no se edita como diario · lo escrito sobrevive a la caché vencida del árbol · falta la primera prueba en una cuenta real', estado: 'hecha' },
-  { titulo: 'Un video se usa cuando Meta lo procesó, y un reintento no publica dos veces', detalle: 'La tarjeta espera a Meta (los tres modales, una sola subida) · las rutas preguntan por los videos antes de crear · clave de idempotencia por payload en campaign-create, ad-add y adset-add · la 0215 está aplicada (medido el 13/10: 0 de 19 borradores con clave, o sea que ninguna publicación real pasó todavía por ahí) · falta publicar de verdad y medir un video pesado', estado: 'sigue' },
-  { titulo: 'Ver y cambiar dónde se muestra un conjunto que ya corre', detalle: '«Dónde se muestra» en el detalle de un conjunto · los lugares se editan en el editor de público, con el geo tocado sólo si cambió y sólo lectura ante lo que no se entiende · los pines se leen, se ven en el mapa y se les cambia el radio · falta la primera prueba real en una campaña en pausa de Martín y decidir cómo se CREA un pin', estado: 'sigue' },
-  { titulo: 'Usar un video de MaKo sin bajarlo y volverlo a subir', detalle: '«Mis creativos» en los tres modales: los anuncios montados y las tomas sueltas del bucket propio, por file_url · la url se deriva en el server, nunca viaja del navegador · falta la primera prueba en una cuenta real (Meta en ws9) y el worker de montaje; la imagen no tiene de dónde salir (#298)', estado: 'sigue' },
+  { titulo: 'El Media Buyer reemplaza a la réplica de Meta Ads Manager', detalle: 'Pantalla copiada de Madgicx · AI Marketer (saludo, «Lo que hizo MaKo», «Metas del mes», Abiertas · Hechas · Descartadas, detalle en tres columnas) · la vista vieja borrada con sus tests · el teléfono (/m/ads) con deslizar para lanzar', estado: 'hecha' },
+  { titulo: 'El agente: seis tácticas con su porqué', detalle: 'Surf, Sunsetting, Stop Loss y Revive (Madgicx) + Calidad de leads y Ganador (salen del CRM) · cada decisión con la tabla Condición · Valor · Por qué y el antes → después · 72 h sin tocar lo nuevo, un cambio de presupuesto por día', estado: 'hecha' },
+  { titulo: 'Topes, modos y deshacer', detalle: 'Apagado por defecto · «propone» o «piloto automático» por negocio · subida máxima por día, presupuesto máximo de la cuenta e interruptor, mirados al escribir con la cuenta en vivo · deshacer sólo si nadie lo tocó después', estado: 'hecha' },
+  { titulo: 'Zernio entero para Meta', detalle: 'Estado, presupuesto, duplicar con textos nuevos y borrar por la Zernio del negocio (OpenAPI v1.353.0) · el árbol de la cuenta por Zernio para la que no tiene token · falta la PRIMERA conexión real: el clic de Facebook lo hace Martín', estado: 'sigue' },
+  { titulo: 'Variaciones de texto y de hook', detalle: 'Las escribe la IA del negocio con los textos y la transcripción del ganador · se eligen con su casilla y salen como anuncios nuevos en el mismo conjunto, por Zernio · el video con hook nuevo filmado depende del puente a Flow (Content Machine)', estado: 'sigue' },
+  { titulo: 'MaKo opera el Media Buyer', detalle: 'ver_media_buyer, lanzar, deshacer, descartar, analizar, modo y topes en la API de MaKo · lo que mueve plata se confirma en pantalla y no corre en un flujo', estado: 'hecha' },
+  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Espera la migración 0332 (la aplica el Cerebro) y la conexión de Zernio de la cuenta act_1426493815659364 (el clic de Martín) · después: una decisión real en pausa, lanzada y deshecha', estado: 'cola' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -363,5 +360,27 @@ export const BITACORA: Hito[] = [
       'app/ads-manager/CalculadoraPresupuesto.tsx · lib/calculadora-presupuesto-ads.ts — lo medido',
       'tests/calculadora-sin-cuenta.test.ts',
     ],
+  },
+  {
+    fecha: '25 oct', hora: '01:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Borrar el Ads Manager y que sea un media buyer de IA, copiado de una app que ya exista',
+    pedido: '«Me interesa mucho que ya funcione el tema de Zernio para que funcione completamente el tema de Meta, publicar, etc...»\n«quiero que implementes end-to-end, copiando de alguna app o repo las IA que te manejan por completo el ads manager, que son automatas y tomas desiciones mucho mejores que los humanos... Te suben presupuesto, bajan, activan o desactivan campañas... Crean variaciones de textos, e incluso que tenemos el generador de video y editor, variaciones de hooks, de videos, etc...»\n«Implementalo end-to-end reemplazando lo que tenemos hoy en día en "ads manager", no tengas miedo en eliminar toda la vista actual... Quiero que sea una app de IA, como un media buyer de MaKo. Estoy seguro que existen apps o repos así, copialos.»\n«Muy importante que copies tambien el diseño de esa app de referencia, el diseño y la funcionalidad... No quiero que se vea feo. El diseño es muy importante»',
+    puntos: [
+      'La referencia es **Madgicx · AI Marketer**: es la que resuelve exactamente esto (audita la cuenta, propone o ejecuta, cada cambio con su porqué y un «Launch»). Las capturas reales quedaron en docs/media-buyer/referencias/madgicx/ y el mapa pantalla por pantalla en docs/media-buyer/referencia.md. De Madgicx salen también las cuatro tácticas (Surf, Sunsetting, Stop Loss, Revive); de MaKo, las dos que ninguna otra app puede tener porque salen del CRM: leads que no agendan y variaciones del ganador.',
+      '⚠️ **El diagnóstico obvio era copiar el «Autopilot» que ya estaba diseñado el 13-14/10** (docs/diseno-ads-autopilot.md, nunca implementado). Se tomó su encuadre y sus trampas —apagado por defecto, no decidir con datos viejos ni con la cuenta a medias, deshacer sólo si nadie lo tocó, una cuenta compartida se maneja una vez— pero no su pantalla (un modal escondido en la tabla): Martín pidió que la tab ENTERA sea el media buyer.',
+      'Lo autónomo mueve plata de clientes: el piloto automático lo prende cada negocio, nunca MaKo. Los topes se miran al escribir con la cuenta en vivo, y cada escritura reclama la decisión antes (un doble clic no lanza dos veces).',
+      'Lo que falta es de Martín y está en el relevo (docs/relevo/media-buyer.md): conectar la cuenta publicitaria de MaKo a Zernio con el botón de Facebook, para la primera prueba real.',
+    ],
+    archivos: [
+      'app/ads-manager/MediaBuyer.tsx · mb.css · mb-modelo.ts — la pantalla',
+      'app/m/ads/MediaBuyerM.tsx — el teléfono',
+      'lib/media-buyer/motor.ts — las tácticas (puro, con test) · topes.ts · ejecutar.ts · corrida.ts · datos.ts · variaciones.ts',
+      'lib/zernio-ads.ts — lo que el agente escribe por Zernio',
+      'supabase/migrations/0332_media_buyer.sql — config y registro de decisiones',
+      'lib/api-mako/areas/ads.def.ts — las siete operaciones del Media Buyer',
+    ],
+    revisar: '/ads-manager',
   },
 ];

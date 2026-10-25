@@ -40,7 +40,7 @@ export async function leerConfig(ws: number): Promise<ConfigGuardada> {
   }
   if (!data) return { ...CONFIG_POR_DEFECTO, ultimaCorrida: null, ultimaCorridaInfo: null, existeTabla: true };
   return {
-    encendido: data.encendido !== false,
+    encendido: data.encendido === true,
     modo: data.modo === 'piloto' ? 'piloto' : 'propone',
     kpi: data.kpi === 'agenda' || data.kpi === 'venta' ? data.kpi : 'lead',
     objetivo: num(data.objetivo),
