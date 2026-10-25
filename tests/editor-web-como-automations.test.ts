@@ -23,8 +23,9 @@ test('/web-generator abre la última landing tocada; sin ninguna (o todas en la 
   assert.equal(landingMasReciente([doc(2, '2026-10-20', { papelera: true })]), null);
   assert.equal(landingMasReciente([]), null);
   const page = sinComentarios(leer('app/web-generator/page.tsx'));
-  // Sólo sin nada en la URL (o el ?ws=) y con la lista leída: un error de lectura no salta, lo dice el Panel.
-  assert.match(page, /if \(!errorLista && Object\.keys\(sp\)\.every\(\(k\) => k === 'ws'\)\) \{/);
+  // Sólo sin nada en la URL (o el ?ws=) y con la lista leída: un error de lectura no salta, lo dice el Panel. (Desde el
+  // ticket #9 la regla es `esPanelPelado`, la misma del layout que salta antes del loader.)
+  assert.match(page, /if \(!errorLista && esPanelPelado\(sp\)\) \{/);
   assert.match(page, /redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\)/);
 });
 

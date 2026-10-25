@@ -148,6 +148,36 @@ sessionStorage). Para VER la pantalla de error al reproducir, se pone esa clave 
 
 *23/10/2026, chat «Rendimiento y loaders» (claude2).*
 
+## El mismo #310 en /web-generator, y por qué la regla del ticket #7 no alcanzó (25/10/2026, ticket #9)
+
+**Síntoma:** «La pantalla «Web Generator» se rompió» (ticket #9, ws 10, 24/10 21:43 ART, Chrome en Windows), «Minified
+React error #310» al abrir `/web-generator`.
+
+**La causa:** la del ticket #7, en otra tab. Desde el 24/10 (7ae16876e) `/web-generator` pelado salta a la última landing
+con un `redirect()` en la PÁGINA, y `app/web-generator/loading.tsx` existía desde el 23/10: el redirect va en el stream y
+queda en carrera con la hidratación. `/web-generator/analizar` y `/crear` (los links viejos, que siempre redirigen) tenían
+el mismo riesgo: **un loading.tsx envuelve a la página de su carpeta Y a las subrutas**, así que el layout de una
+subcarpeta tampoco sirve: el que queda afuera es el de la carpeta del loader de más arriba.
+
+**Por qué la regla de #7 no lo frenó:** quedó fijada sólo para /plan y /second-brain (un test por ruta). Nadie miraba una
+página NUEVA que redirige debajo de un loader. Ahora `tests/redirige-antes-del-loader.test.ts` recorre todo `app/`: una
+página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carpeta de ese loader redirija antes, falla.
+
+**El arreglo:** `app/web-generator/layout.tsx` redirige las tres (`redireccionDelLayout`, panel-reglas.ts, con test); las
+páginas conservan su redirect para cuando se llega navegando.
+
+⚠️ **Lo que quedó así, de otras tabs (el test las tiene en una lista de conocidas):** app/admin/operaciones/page.tsx,
+app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/dashboard/page.tsx,
+app/m/chats/page.tsx, app/m/dashboard/page.tsx, app/m/dashboard/[hoja]/page.tsx y app/m/second-brain/page.tsx redirigen
+debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin permiso); cada una se revisa en su chat y, si
+redirige en una carga normal, pasa la redirección a su layout y sale de la lista.
+
+**No se midió en producción:** la pestaña del Chrome de Martín no respondió (25/10). Para medirlo:
+`fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
+con el arreglo.
+
+*25/10/2026, chat «Landings» (claude5).*
+
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 
 **Síntoma (Martín):** «Al abrir Automations tarda mucho… Debería ser más rápido todo». Medido en producción

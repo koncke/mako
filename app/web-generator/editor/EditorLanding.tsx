@@ -820,6 +820,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     editor,
     tarjetaActiva,
     irATarjeta,
+    marcarActiva: setTarjetaActiva,
     modoIA,
     setModoIA,
     panelIzq,
@@ -842,7 +843,7 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
     recargar,
   }), [
     docId, titulo, setTitulo, contenido, config, setConfig, tema, version, estado, guardarAhora, paginaActual,
-    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, modoIA, setModoIA, panelIzq, setPanelIzq, creando, setNueva, panelDer, abrirAnimar,
+    irAPagina, setPaginas, editor, tarjetaActiva, irATarjeta, setTarjetaActiva, modoIA, setModoIA, panelIzq, setPanelIzq, creando, setNueva, panelDer, abrirAnimar,
     dialogo, elegirImagenEstable, avisar, reemplazarTarjetas, insertarTarjetas, urlPublica, doc.baseLandings, cambiosSinPublicar, recargar,
   ]);
 

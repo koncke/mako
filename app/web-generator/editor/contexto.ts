@@ -69,6 +69,12 @@ export type CtxEditorLanding = {
   /** Sección (tarjeta) donde está el cursor, o la última tocada. */
   tarjetaActiva: string | null;
   irATarjeta: (id: string) => void;
+  /**
+   * La sección pasa a ser la activa SIN mover el cursor ni el scroll (24/10/2026): un clic adentro de un «Diseño
+   * editable» pasa en su iframe y ProseMirror no lo ve, así que la sección no se activaba («clickeo y no se pueden editar
+   * las secciones», Martín).
+   */
+  marcarActiva: (id: string) => void;
 
   /** Lo de MaKo (Edición con IA). */
   modoIA: boolean;

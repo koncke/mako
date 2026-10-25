@@ -14,7 +14,11 @@
 // previa de celular del editor muestra el diseño de celular).
 //
 // Lo que se hace con el mouse:
-//   · Texto: clic y escribir. Enter es un salto de línea (no parte la caja del diseño en dos).
+//   · Clic adentro: la sección pasa a ser la ACTIVA (24/10/2026; antes ProseMirror no se enteraba del clic, que pasa en
+//     el iframe): se ven sus controles y el chat de MaKo la toma como pista. MaKo además lee y cambia sus TEXTOS
+//     (lib/editor-landing/html-editable-textos.ts): las páginas de MaKo se editan desde el chat sin tocar la forma.
+//   · Texto: clic y escribir. Enter es un salto de línea (no parte la caja del diseño en dos). Negrita y cursiva sobre
+//     lo elegido, desde la barrita.
 //   · Imagen: clic en la imagen y «Imagen» la reemplaza (el selector de siempre: subir, buscar, biblioteca).
 //   · Enlace: clic en el texto de un enlace o botón y «Enlace» cambia a dónde lleva.
 //   · «Código»: el HTML de la sección, para lo que no se toca a la vista.
@@ -30,7 +34,7 @@ import { NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from '../contexto';
 import { EstilosG2, Flotante, Icono, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
-import { TOPES } from '@/lib/editor-landing/doc';
+import { NODO, TOPES } from '@/lib/editor-landing/doc';
 import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editable';
 
 const RESPIRO_MS = 500;
@@ -60,6 +64,25 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const elegido = useRef<Element | null>(null);
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
   const editable = editor.isEditable;
+  // Lo que leen las escuchas del iframe, que se ponen UNA vez al cargar: siempre lo último.
+  const vivo = useRef({ ctx, editor, getPos });
+  vivo.current = { ctx, editor, getPos };
+
+  /**
+   * La sección de este diseño pasa a ser la ACTIVA (24/10/2026, Martín: «Todas las paginas de MaKo no son editables,
+   * clickeo y no se pueden editar las secciones»): el clic pasa en el iframe y ProseMirror no lo ve, así que la sección
+   * no se activaba: ni sus controles ni el chat («Editar» toma la sección activa como pista) se enteraban.
+   */
+  const marcarSeccion = () => {
+    const { ctx: c, editor: e, getPos: gp } = vivo.current;
+    const pos = gp();
+    if (typeof pos !== 'number' || e.isDestroyed) return;
+    const $p = e.state.doc.resolve(pos);
+    for (let d = $p.depth; d >= 1; d--) {
+      const n = $p.node(d);
+      if (n.type.name === NODO.tarjeta) { const id = String(n.attrs.id ?? ''); if (id) c.marcarActiva(id); return; }
+    }
+  };
 
   // El documento se rearma SÓLO si el html cambió por otro camino (no por lo que se escribió acá).
   useEffect(() => {
@@ -116,6 +139,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     });
     d.addEventListener('mousedown', (e) => {
       setActivo(true);
+      marcarSeccion();
       const t = e.target as Element | null;
       if (elegido.current) elegido.current.removeAttribute('data-gmx-sel');
       elegido.current = t?.closest?.('img, a') ?? null;
@@ -143,6 +167,19 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     guardar();
     medir();
   };
+  /**
+   * Negrita y cursiva sobre lo elegido ADENTRO del diseño (24/10/2026: «agregar funcionalidades al editor web» sin romper
+   * el diseño). El comando de edición del documento del iframe: el foco y la selección siguen allá porque el botón no se
+   * los roba (onMouseDown + preventDefault).
+   */
+  const formato = (cmd: 'bold' | 'italic') => {
+    const d = documento();
+    if (!d) return;
+    const sel = d.getSelection();
+    if (!sel || sel.isCollapsed) { ctx.avisar('Elige un texto'); return; }
+    d.execCommand(cmd);
+    guardar();
+  };
   const abrirEnlace = (ancla: HTMLElement) => {
     const a = elegido.current?.closest('a') as HTMLAnchorElement | null;
     if (!a) { ctx.avisar('Elige un enlace'); return; }
@@ -161,6 +198,13 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       <style href="gmx-editable" precedence="medium">{CSS_EDITABLE}</style>
       {mostrarBarra && (
         <div className="gmx gmx-nv-barra" contentEditable={false} onMouseDown={noRobaFoco}>
+          <button type="button" className="gmx-btn" title="Negrita" aria-label="Negrita" onMouseDown={(e) => e.preventDefault()} onClick={() => formato('bold')}>
+            <Icono nombre="negrita" />
+          </button>
+          <button type="button" className="gmx-btn" title="Cursiva" aria-label="Cursiva" onMouseDown={(e) => e.preventDefault()} onClick={() => formato('italic')}>
+            <Icono nombre="cursiva" />
+          </button>
+          <span className="gmx-nv-sep" />
           <button type="button" className="gmx-btn" title="Cambiar la imagen elegida" onMouseDown={(e) => e.preventDefault()} onClick={() => void cambiarImagen()}>
             <Icono nombre="imagen" /><span>Imagen</span>
           </button>

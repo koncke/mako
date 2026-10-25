@@ -20,7 +20,11 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
 - **Tanda 3 (puntos 6 y 8): hecha.** El placeholder de párrafos y títulos es un renglón con «…» (medido con la hoja
   real en Chrome sin ventana: antes se derramaba en 3 renglones); el editor de texto es un botón «Texto» que abre una
   segunda barra sin scroll. Detalle: docs/hallazgos-editor-landing.md → «Los placeholders que se iban debajo…».
-- **Sigue:** 4 (las páginas de MaKo editables por sección, sin romper su diseño); después P6 y P5 de docs/pendientes.md. Después, de docs/pendientes.md: P6 (sanear
+- **Tanda 4 (punto 4): hecha.** Escribir dentro de un «Diseño editable» ya andaba (medido por CDP); lo arreglado: el clic
+  adentro activa la sección, la IA del chat ve y cambia sus TEXTOS sin tocar la forma (`{"t":"diseno"}`), y la barrita
+  suma negrita y cursiva. Detalle: docs/hallazgos-editor-landing.md → «Las páginas de MaKo editables por sección…».
+- **Sigue:** P6 (sanear `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho, `HiloMako`) de
+  docs/pendientes.md. Después, de docs/pendientes.md: P6 (sanear
   `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
   docs/diseno-editor-web-como-automations.md §5).
 
