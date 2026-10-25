@@ -64,8 +64,19 @@ hallazgos-ui). Quedan 8 copias del mismo corte en piezas de otras tabs (la lista
 **Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
 Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). **Redirigir antes del loader (25/10, del Cerebro):** hecho
 para las siete páginas de /crm, no sólo las tres que pidió (app/crm/layout.tsx; hallazgos-crm). Cuando entre el guard de
-Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`. En cola, de la llamada con Leandro: f15, f12, f13 y f11 (f14 lo
-pregunta el Cerebro a Martín). Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
+Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`.
+
+**La llamada con Leandro (25/10):** f15 (WhatsApp abre el chat de MaKo, en las cuatro puertas), f12 («Completar nombres»
+por la extensión: pide instalarla y arranca sola), f13 (la pregunta de «Datos de empresa» en una línea) y f11 («Completar
+nombres» en el pie). f14 (decidido por el Cerebro): «Datos de empresa» en una sola pasada, sin el tope de 40 por corrida; el de 120 por día
+queda, porque cuida la línea de un baneo (no era por Apify, como creía el Cerebro: hallazgos-crm). **Los cortes de emoji**
+de otras tabs los hizo el Ops Center (lib/unicode-seguro.ts, `iniciales`): cuando su rama entre al tren, dejar UN solo
+helper (Marca, Avatar y el historial a esa; borrar lib/iniciales.ts; tests/iniciales-hidratacion apuntando a la que queda). **Pendiente de la extensión** (no de este chat):
+reponer mako-puente.js en las pestañas abiertas en `onInstalled`, para que f12 arranque sin recargar (hallazgos-crm).
+
+**Pendiente con Martín:** la comprobación del chip del @ de un lead con sólo Instagram en producción (el Cerebro: crear
+«Prueba @ solo» en el ws3, mirarlo en kanban, lista y ficha, probar el duplicado y borrarlo). En el ws3 no hay ninguno así
+(medido en la base el 25/10), y crear y borrar en producción pide su sí en el chat. El Chrome de Martín no respondía. Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
 `b1c4924fd`, 17 hallazgos por arreglar) NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos

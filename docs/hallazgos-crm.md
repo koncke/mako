@@ -11334,3 +11334,39 @@ tests/crm-redirige-antes-del-loader.test.ts.
 - **Costo:** una lectura chica más (el estado del onboarding) al ENTRAR a /crm, no entre sus rutas.
 
 *25/10/2026, chat «CRM» (`claude5`).*
+
+## La llamada con Leandro: WhatsApp adentro de MaKo, «Completar nombres» por la extensión, y el texto corto (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx y ficha/FichaPorBloques.tsx (`rutaChatsDeLead`), app/crm/TraerDeGrupoWA.tsx +
+app/crm/usar-extension-fichas.ts, `preguntaDePerfiles` (app/crm/enriquecer-cliente.ts) · tests/crm-whatsapp-en-mako,
+crm-completar-con-extension, enriquecer-lote (6).
+
+- **f15, «WhatsApp» abre el chat de MaKo:** eran CUATRO puertas a wa.me (el clic derecho, el botón de la fila, la vista
+  rápida de la tarjeta y el «⋯» de la ficha), no tres. `/chats?lead=<id>` sirve también para un lead SIN mensajes: si la
+  lista no lo trae, Chats pide esa conversación sola (`claveDelLink`). Lo que no hay que hacer es armar el link con el
+  teléfono: un número de dos leads abriría el de otro.
+- **f12, «Completar nombres» sin la extensión — el arreglo obvio era el equivocado:** el camino del server (pedirle a
+  WhatsApp el nombre que conozca) existía y ERA el problema: completaba «algunos o ninguno» sin decir por qué. Martín quiere
+  que el botón diga «instala la extensión» y arranque solo. La pantalla mira la extensión EN VIVO (`useExtensionFichas`:
+  MutationObserver sobre el atributo de mako-puente.js, y al volver a la pestaña) y arranca con `useEffectEvent` cuando
+  aparece. `completarNombresDeGrupoAction` quedó sin uso en la pantalla; `completarNombresDelGrupo` sigue para la API.
+- **⚠️ Chrome NO inyecta el content script en una pestaña que ya estaba abierta al instalar la extensión**, y
+  extension/background.js no lo repone en `onInstalled` (sólo al emparejar, `pedirEmparejar`). O sea: en la pestaña donde
+  se tocó «Completar nombres», la extensión aparece recién al recargar, y el modal se pierde. Por eso el texto dice «Si no
+  arranca, recarga esta pestaña» y no promete lo que no pasa. **Quedó SIN hacer (de la extensión):** en `onInstalled`,
+  `chrome.scripting.executeScript` de mako-puente.js en las pestañas de hola-mako.com abiertas; con eso arranca sin recargar.
+- **f13, el texto de «Datos de empresa»:** tenía unas 40 palabras (cuántos faltan, cuántos ahora, el cupo del día de la
+  línea, «sólo se completa lo vacío»). Queda en una línea: cuántos ahora de cuántos faltan, cuánto tarda y que no les llega
+  nada. **Regla:** el cupo del día se dice cuando CORTA (`resumenDePerfiles`), no antes de empezar; el título pregunta y el
+  botón dice «Consultar N». El test pone un tope de palabras.
+- **f11, que «Completar» se descubra solo:** el pie del molde lo ofrece después de traer y cuando hay gente que ya está.
+- **f14, una sola pasada en «Datos de empresa» — el diagnóstico obvio era el equivocado:** el Cerebro lo decidió creyendo
+  que el tope de 40 por corrida y 120 por día venía del costo de Apify. No: lo puso él mismo el 24/10 (0553eda9e) porque
+  cada consulta de perfil es tráfico en la red de una línea de WhatsApp NO oficial, que se expone a un baneo; Apify era otra
+  función, revertida. Sacar el tope entero habría expuesto la línea del cliente. Lo que se sacó es el de 40 POR CORRIDA,
+  que sólo partía el trabajo en toques: un toque consulta todo hasta el tope del día. **Regla:** antes de sacar un tope,
+  leer en el código (y en `git log -S`) para qué está; el del día y la espera entre consultas (`ESPERA_PERFIL_MS`) cuidan la
+  línea y no se mueven sin medir. Cuando corta, una línea («tócalo mañana»): mañana no sigue solo, MaKo no hace nada por
+  detrás.
+
+*25/10/2026, chat «CRM» (`claude5`).*
