@@ -23,6 +23,7 @@ import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
 import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 export type { NegocioDelPerfil };
 
 const TZ_OPTS = [
@@ -172,7 +173,7 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
     );
   };
 
-  const letra = (perfil.nombre || perfil.email || 'M').trim().slice(0, 1).toUpperCase();
+  const letra = iniciales(perfil.nombre || perfil.email, 1, 'M');
   const zona = TZ_OPTS.find((o) => o.value === perfil.timezone)?.label ?? perfil.timezone;
 
   return (

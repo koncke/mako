@@ -42,6 +42,7 @@ import { SaldoMaKo } from './SaldoMaKo';
 import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -82,7 +83,7 @@ type Tema = 'oscuro' | 'claro';
  * computadora, no un dato: si el almacenamiento no está (ventana privada, bloqueado), todas abiertas.
  */
 /** Las iniciales de un nombre (la foto cuando no hay foto). */
-const inicialesDe = (nombre: string) => nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase() || '·';
+const inicialesDe = (nombre: string) => iniciales(nombre, 2, '·');
 /** El @usuario: la parte de antes de la arroba del email (no hay un usuario aparte en la base). */
 const usuarioDe = (email: string) => { const u = (email ?? '').split('@')[0]?.trim(); return u ? `@${u}` : ''; };
 
@@ -258,7 +259,7 @@ export function identidadStyle(open: boolean, activo: boolean): CSSProperties {
 export function Identidad({ open, nombre, avatar, subrotulo }: {
   open: boolean; nombre: string; avatar?: string; subrotulo: string;
 }) {
-  const iniciales = nombre.trim().split(/\s+/).map((w) => w[0] ?? '').slice(0, 2).join('').toUpperCase();
+  const ini = iniciales(nombre, 2, '');
   return (
     <>
       {/* Las iniciales van sobre AZUL, no sobre el dorado: una foto de perfil
@@ -267,7 +268,7 @@ export function Identidad({ open, nombre, avatar, subrotulo }: {
         {avatar
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          : iniciales}
+          : ini}
       </div>
       {open && (
         <>

@@ -23,9 +23,9 @@
 
 import { esFoto, urlPortada, glifoDeIcono } from '@/lib/portadas';
 import { urlIcono, esIcono } from '@/lib/iconos-catalogo';
+import { iniciales } from '@/lib/unicode-seguro';
 
-const inicialesDe = (nombre: string) =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
+const inicialesDe = (nombre: string) => iniciales(nombre);
 
 export function Marca({ icono, emoji, nombre = '', tam = 40, y, color, cuadrado = false, sinFondo = false, foto: fotoDirecta }: {
   /** La columna `icono` (mig 0174): una URL del bucket o `icon:<set>:<nombre>`. */

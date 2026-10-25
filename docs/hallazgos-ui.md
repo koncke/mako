@@ -12,6 +12,19 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Las iniciales de un avatar con medio emoji: diecisiete copias de `w[0]` (25/10/2026)
+
+- **Síntoma** (lo vio Automations): un nombre que empieza con un emoji («🚀 Martín») dibujaba «�M» en el avatar.
+- **Causa:** cada pantalla tenía su copia de «las iniciales» (el Avatar de la casa, la barra dos veces, la Marca, los avisos, la
+  comunidad, los cursos, el equipo, la ficha del super admin, el Dropdown, General, Cobranza, el avatar de WhatsApp, la ventana de
+  Chats, MiFoto, el Perfil, el Plan y la bandeja de email), y todas tomaban `w[0]`, `charAt(0)` o `slice(0, 1)`: la primera
+  UNIDAD UTF-16, que en un emoji es su primera mitad. Es el mismo error de `slice` que tumbó los avisos del ws13 (lib/unicode-seguro.ts).
+- **Regla:** las iniciales salen de `iniciales` (lib/unicode-seguro.ts): la primera letra o número de cada palabra, saltando emojis
+  y símbolos. tests/iniciales-con-emoji.test.ts barre `app/` y falla con una copia nueva hecha a mano. Quedan afuera el teléfono
+  (`inicialesM`, que ya sacaba lo que no es letra) y OpenCut (código de afuera).
+
+**Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `tests/iniciales-con-emoji.test.ts`
+
 ## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)
 
 Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales,

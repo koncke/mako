@@ -19,6 +19,7 @@ import { avisoInvitacion, type AvisoInvitacion, type ResultadoInvitacion } from 
 import Link from '@/app/_ui/Link';
 import { CuerpoGrupo, GrupoAjustes } from '@/app/_ui/Ajustes';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /** `pasarAPro`: el tope de usuarios del plan (lib/tope-equipo-reglas.ts): el cartel lleva el link para pasar a Pro. */
 type Respuesta = { ok: boolean; error?: string; invitacion?: ResultadoInvitacion | null; pasarAPro?: string };
@@ -52,10 +53,7 @@ const fmtLogin = (iso: string | null) => {
   const d = new Date(iso);
   return `${d.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })} · ${d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}`;
 };
-const inicialesTxt = (base: string) => {
-  const p = (base || '?').trim().split(/\s+/).filter(Boolean);
-  return (p.length >= 2 ? `${p[0][0]}${p[1][0]}` : (base || '?').slice(0, 1)).toUpperCase();
-};
+const inicialesTxt = (base: string) => iniciales(base);
 
 function ChipEstado({ u }: { u: Miembro }) {
   if (u.estado === 'activo') return <span style={chip('var(--good-bg)', 'var(--good)')}>activo</span>;
