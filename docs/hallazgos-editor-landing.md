@@ -2914,8 +2914,26 @@ ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar la
   las encontraba. Arreglado el mismo día: docs/hallazgos-api-mako.md, «Las páginas de MaKo no se leían ni se cambiaban por
   la API».
 
+**Verificado en producción (25/10, ~14:55, main 9c684f88c), con clics sobre una COPIA (#42, ya en la papelera):**
+- con la sección sin activar, el clic cae en el iframe;
+- se escribió « PRUEBA» en el título, se guardó solo y siguió ahí al recargar;
+- la #32 no cambió.
+
+**Y a 1280 la barra no entraba (lo vio la misma prueba):**
+- pedía 872 px en 848, y el «⋯» (Menú del documento) quedaba cortado fuera de la pantalla;
+- la app tiene `overflow-x: hidden`, pero un foco igual la scrollea: al abrir «Páginas» todo se corría 15 px. Era el salto
+  que parecía del ancho del panel;
+- la causa: el título con `flex: 0 0 auto` (24/10) no cedía nada, y lo que «cedía» (el formato del medio) está vacío sin un
+  texto elegido;
+- el arreglo: `flex: 0 1 auto`, que no baja de 160 px. Medido en la pestaña: entra justo; chat, «Páginas» y la tira quedan en
+  el mismo lugar (340 px, el lienzo en x=424). A 1440 ya entraba.
+
+**Regla:** un `overflow: hidden` no impide que el contenedor se scrollee: sólo esconde la barra. Si algo adentro desborda,
+un `focus()` o un `scrollIntoView` lo corre. Lo que hay que medir es `scrollWidth > clientWidth`, no que «no se vea la barra».
+
 Lo que quedó SIN hacer:
-- Probarlo con clics en producción cuando despliegue (un título de una copia, no de la publicada).
+- La tira de secciones muestra en gris las miniaturas de las secciones «Diseño editable» hasta que cargan (a 1280 todas
+  grises un rato; a 1440 algunas se dibujaron). A mirar si cargan todas.
 - `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor
   cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
   editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como

@@ -1327,4 +1327,19 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '15:05', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Probado en producción: se escribe en las páginas de MaKo (y la barra a 1280, arreglada)',
+    pedido: '«Las landing de MaKo NO son editables, no puedo ni cambiar un título de lo que ya esta, cada bloque debe ser editable»',
+    puntos: [
+      'Probado con clics en tu editor, sobre una copia de la página principal: se escribió en el título, se guardó solo y siguió ahí al recargar. La copia quedó en la papelera.',
+      'A 1280 de ancho la barra de arriba no entraba: el botón de los tres puntos quedaba cortado y la pantalla se corría un poco al abrir «Páginas». Arreglado: el nombre de la página se achica un poco para que todo entre. Llega con el próximo despliegue.',
+      'A 1440 ya estaba bien.',
+    ],
+    archivos: [
+      'app/web-generator/gamma.css — el nombre de la página cede para que la barra entre',
+    ],
+    revisar: '/web-generator',
+  },
 ];
