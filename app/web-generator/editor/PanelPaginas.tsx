@@ -179,8 +179,9 @@ export default function PanelPaginas({ onCerrar }: { onCerrar: () => void }) {
           disabled={paginas.length >= TOPES.paginas} onClick={agregar}>
           <Ico n="mas" t={16} />
         </button>
-        <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Contraer" aria-label="Contraer" onClick={onCerrar}>
-          <Ico n="chevron-doble-izquierda" t={16} />
+        {/* Vuelve al chat (la tarjeta no se pliega desde el 24/10/2026: las páginas son una vista de ella). */}
+        <button type="button" className="gma-boton gma-boton--chico gma-boton--icono gma-tip" data-tip="Volver al chat" aria-label="Volver al chat" onClick={onCerrar}>
+          <Ico n="x" t={16} />
         </button>
       </div>
       <div ref={contRef} className="gma-paginas" {...handlers}>

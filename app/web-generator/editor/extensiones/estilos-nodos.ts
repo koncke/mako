@@ -51,11 +51,13 @@ export const CSS_NODOS = [
   // sección y el aire va como padding: con un margin, cruzar el hueco apagaba el hover.
   '.gmc-lado { position: absolute; top: 0; right: 100%; padding: 2px 6px 0 0; display: flex; flex-direction: column; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 0.12s ease; z-index: 6; }',
   '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; pointer-events: auto; }',
-  // A sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda.
-  // y lo mismo en la vista de teléfono o tableta, donde la sección ocupa todo el ancho del marco.
-  // Y en una LANDING todas van a sangre (css.ts, bloque 15c, feedback del 12/10/2026): las
-  // tarjetas con aire son sólo de una presentación, así que ahí la columna sigue afuera.
-  '.gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado, .gm-doc:not([data-formato="presentacion"]) .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
+  // En una diapositiva a sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda, y lo
+  // mismo en la vista de teléfono o tableta (el marco recorta lo que sale: `overflow: hidden` en gamma.css).
+  // ⚠️ Una LANDING en escritorio la lleva AFUERA (24/10/2026): todas sus secciones van a sangre (css.ts, 15c) y adentro,
+  // arriba a la izquierda, la columna caía encima del logo y del asa del primer bloque (AsaBloque, 52 px a la izquierda
+  // del bloque: el borde de la sección). Martín: «Los botones se siguen superponiendo, fijate la esquina superior
+  // izquierda en el linezo». El lugar de afuera es el margen de 40 px que el lienzo le deja a una landing (gamma.css).
+  '.gm-doc[data-formato="presentacion"] .gm-tarjeta[data-ancho="completo"] > .gmc-lado, [data-dispositivo="movil"] .gm-tarjeta > .gmc-lado, [data-dispositivo="tableta"] .gm-tarjeta > .gmc-lado { right: auto; left: 12px; top: 12px; padding: 0; }',
 
   // El «+» entre secciones: ocupa el hueco de arriba de la sección (el margin-top de 3.5em).
   '.gmc-entre { position: absolute; left: 0; right: 0; bottom: 100%; height: 3.5em; display: flex; align-items: center; justify-content: center; z-index: 4; }',

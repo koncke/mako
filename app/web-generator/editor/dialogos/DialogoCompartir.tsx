@@ -1,59 +1,74 @@
 'use client';
 
 // =============================================================================
-// DialogoCompartir — el modal «Compartir» de Gamma (pestañas Compartir · Exportar)
+// DialogoCompartir — el panel «Compartir» que se abre debajo del botón azul de la barra (copiado de Canva)
 // =============================================================================
-// Pedido de Martín (11/10/2026): «Replica por completo a Gamma». Copia del modal de Gamma
-// (gamma-ui.md §6.1): título «Compartir {título}», las pestañas en píldora con la activa en azul
-// claro, el botón «Publicar en el sitio…» a la derecha del título, y el pie con «Ver análisis» y
-// [Listo].
+// Pedido de Martín (24/10/2026), textual: «Te pedí que "Compartir" y "publicar" sean un solo botón, azul y que diga
+// "compartir"... Con el desplegable de la vista previa y las otras opciones, claro... Y mejora el diseño del pop-up de
+// "Compartir y exportar" fijate como lo hacen otras apps, porque hay mucho texto y botones juntos, no se entiende...».
 //
-// Pestaña Compartir:
-//   · El enlace público (si está publicada) con «Copiar enlace»; si no, «Esta página aún no se
-//     ha publicado» y el camino a Publicar.
-//   · El enlace PRIVADO al borrador (`{accion:'vistaPrevia'}`): lo guardado, sin publicar, sin
-//     Pixel y `noindex`. «Regenerar» revoca el anterior (el server pisa el token): quien tenía
-//     el viejo deja de entrar, por eso pregunta antes.
-//   · Quién puede editar: el equipo del workspace, en una línea.
-// Pestaña Exportar: `CuerpoExportar` (DialogoExportar.tsx).
+// La referencia es el panel «Compartir» de Canva (canva.com/help/share-via-link-or-email, mirado el 24/10/2026): se abre
+// DEBAJO del botón Compartir de la barra (no es un modal en el medio), arriba el enlace con UN botón grande («Copiar
+// enlace») y abajo una fila de atajos con ícono y nombre (Descargar, Presentar, Enlace de vista pública…). Elegir uno que
+// tiene opciones (Descargar) cambia el panel por el suyo con «←», sin abrir otro modal encima.
 //
-// Lo que NO se copia de Gamma, y por qué:
-//   · «Colaborar» (invitar por correo, permisos por persona): el editor lo usa el equipo del
-//     workspace con los roles de MaKo; no hay invitados externos a una landing.
-//   · «Insertar» (copiar el iframe): `X-Frame-Options: DENY` es de toda la app (D4).
-//   · Acceso general «cualquiera con el enlace puede editar/comentar»: el link público sólo se ve.
+// Lo que había antes (un modal de 640 px con pestañas Compartir/Exportar, «Publicar en el sitio…», tres bloques con
+// título y explicación, «Quién puede editar» y tres botones al pie) se fue entero. Lo que queda, de arriba abajo:
+//   · el enlace público con «Copiar enlace»; si no está publicada, una línea y el botón «Publicar» (abre Publicar, que es
+//     donde se elige la dirección); si hay cambios sin publicar, una línea con «Actualizar»;
+//   · los atajos: Descargar (la vista de exportar, acá adentro), Vista previa (el borrador en otra pestaña), Enlace privado
+//     (su vista, acá adentro: copiar y regenerar) y Presentar.
+// «Quién puede editar» no se dibuja: no hay invitados a una landing (la edita el equipo del negocio, con sus roles).
 // =============================================================================
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useEditorLanding } from '../contexto';
+import { Flotante, Ico, type Ancla } from '../MenuDocumento';
 import { CuerpoExportar } from './DialogoExportar';
-import { EstilosGmp, Giro, Icono, ModalGma, Pestanas, copiarTexto, pedir, useConfirmaGma, useFijo } from './piezas-gma';
+import { EstilosGmp, Giro, copiarTexto, pedir, useConfirmaGma, useFijo } from './piezas-gma';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 const CSS_COMPARTIR = [
-  '.gmp-comp-bloque{display:grid;gap:8px;padding:14px 0;border-bottom:1px solid var(--gmp-borde)}',
-  '.gmp-comp-bloque:last-child{border-bottom:0}',
-  '.gmp-comp-tit{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;color:var(--gmp-tinta)}',
-  '.gmp-comp-fila{display:flex;align-items:center;gap:8px;flex-wrap:wrap}',
-  '.gmp-comp-url{flex:1;min-width:180px;display:flex;align-items:center;height:36px;padding:0 12px;border:1px solid var(--gmp-borde);border-radius:6px;background:var(--gmp-suave);color:var(--gmp-tinta);font-size:13.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}',
-  '.gmp-comp-persona{display:flex;align-items:center;gap:10px}',
-  '.gmp-comp-avatar{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:50%;background:var(--gmp-azul-claro);color:var(--gmp-sobre-azul-claro)}',
-  '.gmp-comp-rol{margin-left:auto;font-size:13px;color:var(--gmp-tenue)}',
+  '.gmp-cp{width:360px;max-width:calc(100vw - 24px);max-height:min(80vh,640px);overflow-y:auto;padding:16px;border-radius:14px;' +
+    'background:var(--gmp-fondo);box-shadow:0 12px 32px rgba(0,0,0,.16),0 0 0 .8px var(--gmp-borde)}',
+  '.gmp-cp-cab{display:flex;align-items:center;gap:6px;margin:-4px -6px 12px -4px}',
+  '.gmp-cp-tit{flex:1;min-width:0;margin:0;font-size:15px;font-weight:700;color:var(--gmp-tinta)}',
+  '.gmp-cp-rot{display:block;margin:0 0 6px;font-size:12.5px;font-weight:600;color:var(--gmp-tenue)}',
+  '.gmp-cp-url{display:block;height:36px;line-height:34px;padding:0 12px;margin-bottom:8px;border:1px solid var(--gmp-borde);border-radius:8px;' +
+    'background:var(--gmp-suave);color:var(--gmp-tinta);font-size:13.5px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}',
+  '.gmp-cp-nota{margin:0 0 10px;font-size:13.5px;color:var(--gmp-texto)}',
+  '.gmp-cp-cambios{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:var(--gmp-texto)}',
+  '.gmp-cp-cambios::before{content:"";width:7px;height:7px;flex:none;border-radius:50%;background:var(--gmp-azul-linea)}',
+  '.gmp-cp-cambios span{flex:1}',
+  '.gmp-cp-atajos{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-top:16px;padding-top:14px;border-top:1px solid var(--gmp-borde)}',
+  '.gmp-cp-atajo{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 2px;border:0;border-radius:10px;background:transparent;' +
+    'color:var(--gmp-tinta);font-size:12px;font-weight:500;line-height:1.2;text-align:center;cursor:pointer}',
+  '.gmp-cp-atajo:hover{background:var(--gmp-suave)}',
+  '.gmp-cp-circ{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:50%;background:var(--gmp-suave);color:var(--gmp-tinta)}',
+  '.gmp-cp-atajo:hover .gmp-cp-circ{background:var(--gmp-hover)}',
+  '.gmp-cp-fila{display:flex;gap:8px}',
+  '.gmp-cp-fila .gmp-btn{flex:1}',
 ].join('\n');
 
-type Pestana = 'compartir' | 'exportar';
+type Vista = 'inicio' | 'descargar' | 'privado';
 
-export function DialogoCompartir({ onCerrar }: { onCerrar?: () => void } = {}) {
+export function DialogoCompartir({ onCerrar, ancla = null, onVistaPrevia }: {
+  onCerrar?: () => void;
+  /** El botón azul «Compartir» de la barra: el panel se abre debajo, alineado a su borde derecho (Canva). */
+  ancla?: Ancla | null;
+  /** Abre el borrador en otra pestaña (lo arma el editor: guarda antes y pide el link privado). */
+  onVistaPrevia?: () => void;
+} = {}) {
   const { dialogo } = useEditorLanding();
   if (dialogo !== 'compartir') return null;
-  return <DialogoCompartirAbierto onCerrar={onCerrar} />;
+  return <PanelCompartir onCerrar={onCerrar} ancla={ancla} onVistaPrevia={onVistaPrevia} />;
 }
 
-function DialogoCompartirAbierto({ onCerrar }: { onCerrar?: () => void }) {
-  const { docId, titulo, urlPublica, setDialogo, avisar } = useEditorLanding();
+function PanelCompartir({ onCerrar, ancla, onVistaPrevia }: { onCerrar?: () => void; ancla: Ancla | null; onVistaPrevia?: () => void }) {
+  const { docId, urlPublica, cambiosSinPublicar, setDialogo, avisar } = useEditorLanding();
   const { confirmar, nodoConfirma } = useConfirmaGma();
   const cerrar = useFijo(() => (onCerrar ? onCerrar() : setDialogo(null)));
-  const [pestana, setPestana] = useState<Pestana>('compartir');
+  const [vista, setVista] = useState<Vista>('inicio');
   const [privado, setPrivado] = useState<string | null>(null);
   const [cargandoPrivado, setCargandoPrivado] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -77,78 +92,88 @@ function DialogoCompartirAbierto({ onCerrar }: { onCerrar?: () => void }) {
     if (await copiarTexto(r.url)) avisar(regenerar ? 'Enlace regenerado' : 'Enlace copiado');
   };
 
-  return (
-    <ModalGma
-      titulo={`Compartir ${titulo || 'landing'}`}
-      icono={<Icono nombre="compartir" tam={22} style={{ color: 'var(--gmp-titulo)' }} />}
-      onCerrar={cerrar}
-      ancho={640}
-      alto="min(88vh, 720px)"
-      cabecera={(
-        <button type="button" className="gmp-btn gmp-btn-contorno" onClick={() => setDialogo('publicar')}>
-          <Icono nombre="globo" tam={14} />Publicar en el sitio…
+  const cabecera = (titulo: string, volver: boolean) => (
+    <div className="gmp-cp-cab">
+      {volver && (
+        <button type="button" className="gmp-x" aria-label="Volver" onClick={() => { setVista('inicio'); setError(null); }}>
+          <Ico n="flecha-izquierda" t={18} />
         </button>
       )}
-      pie={(
-        <>
-          <button type="button" className="gmp-btn gmp-btn-fantasma" onClick={() => setDialogo('analitica')}><Icono nombre="grafico" tam={15} />Ver análisis</button>
-          {/* Exportar vive acá también (24/10/2026, Martín: «"Compartir y exportar" podrían ser el mismo botón»): como en Gamma
-              (Share → Export) y Canva (Compartir → Descargar). El ⋯ lo sigue teniendo. */}
-          <button type="button" className="gmp-btn gmp-btn-fantasma" onClick={() => setDialogo('exportar')}><Icono nombre="descargar" tam={15} />Exportar…</button>
-          <span style={{ flex: 1 }} />
-          <button type="button" className="gmp-btn gmp-btn-primario" onClick={cerrar}>Listo</button>
-        </>
-      )}>
-      <EstilosGmp extra={{ href: 'gmp-compartir', css: CSS_COMPARTIR }} />
-      <div style={{ marginBottom: 6 }}>
-        <Pestanas etiqueta="Compartir" valor={pestana} onCambiar={setPestana}
-          opciones={[{ valor: 'compartir', texto: 'Compartir', icono: 'globo' }, { valor: 'exportar', texto: 'Exportar', icono: 'descargar' }]} />
-      </div>
+      <h2 className="gmp-cp-tit">{titulo}</h2>
+      <button type="button" className="gmp-x" aria-label="Cerrar" onClick={cerrar}><Ico n="x" t={18} /></button>
+    </div>
+  );
 
-      {pestana === 'exportar' ? <div style={{ paddingTop: 10 }}><CuerpoExportar /></div> : (
-        <>
-          <div className="gmp-comp-bloque">
-            <div className="gmp-comp-tit"><Icono nombre="globo" tam={16} />Enlace público</div>
-            {urlPublica ? (
-              <div className="gmp-comp-fila">
-                <span className="gmp-comp-url" title={urlPublica}>{urlPublica.replace(/^https?:\/\//, '')}</span>
-                <button type="button" className="gmp-btn gmp-btn-secundario" onClick={() => void copiarPublico()}><Icono nombre="copiar" tam={14} />Copiar enlace</button>
-              </div>
-            ) : (
-              <div className="gmp-comp-fila">
-                <span className="gmp-ayuda" style={{ flex: 1 }}>Esta página aún no se ha publicado</span>
-                <button type="button" className="gmp-btn gmp-btn-primario gmp-btn-chico" onClick={() => setDialogo('publicar')}>Publicar</button>
+  const atajo = (icono: string, texto: string, onClick: () => void) => (
+    <button type="button" className="gmp-cp-atajo" onClick={onClick}>
+      <span className="gmp-cp-circ"><Ico n={icono} t={20} /></span>
+      {texto}
+    </button>
+  );
+
+  let cuerpo: ReactNode;
+  if (vista === 'descargar') {
+    cuerpo = <>{cabecera('Descargar', true)}<CuerpoExportar /></>;
+  } else if (vista === 'privado') {
+    cuerpo = (
+      <>
+        {cabecera('Enlace privado', true)}
+        <p className="gmp-cp-nota">Muestra lo guardado, sin publicar.</p>
+        {privado && <span className="gmp-cp-url" title={privado}>{privado.replace(/^https?:\/\//, '')}</span>}
+        <div className="gmp-cp-fila">
+          <button type="button" className="gmp-btn gmp-btn-primario gmp-btn-ancho" disabled={cargandoPrivado}
+            onClick={() => void (privado ? copiarTexto(privado).then((ok) => { if (ok) avisar('Enlace copiado'); }) : copiarPrivado())}>
+            {cargandoPrivado ? <Giro chico /> : <Ico n="copiar" t={16} />}Copiar enlace
+          </button>
+          <button type="button" className="gmp-btn gmp-btn-contorno gmp-btn-ancho" disabled={cargandoPrivado} onClick={() => void copiarPrivado(true)}>
+            Regenerar
+          </button>
+        </div>
+        {error && <p className="gmp-error" role="alert">{error}<ReportarASoporte /></p>}
+      </>
+    );
+  } else {
+    cuerpo = (
+      <>
+        {cabecera('Compartir', false)}
+        <span className="gmp-cp-rot">Enlace público</span>
+        {urlPublica ? (
+          <>
+            <span className="gmp-cp-url" title={urlPublica}>{urlPublica.replace(/^https?:\/\//, '')}</span>
+            <button type="button" className="gmp-btn gmp-btn-primario gmp-btn-ancho" onClick={() => void copiarPublico()}>
+              <Ico n="copiar" t={16} />Copiar enlace
+            </button>
+            {cambiosSinPublicar && (
+              <div className="gmp-cp-cambios">
+                <span>Tienes cambios sin publicar</span>
+                <button type="button" className="gmp-btn gmp-btn-secundario gmp-btn-chico" onClick={() => setDialogo('publicar')}>Actualizar</button>
               </div>
             )}
-          </div>
+          </>
+        ) : (
+          <>
+            <p className="gmp-cp-nota">Todavía no está publicada.</p>
+            <button type="button" className="gmp-btn gmp-btn-primario gmp-btn-ancho" onClick={() => setDialogo('publicar')}>
+              <Ico n="globo" t={16} />Publicar
+            </button>
+          </>
+        )}
+        <div className="gmp-cp-atajos">
+          {atajo('descargar', 'Descargar', () => setVista('descargar'))}
+          {atajo('ojo', 'Vista previa', () => { cerrar(); onVistaPrevia?.(); })}
+          {atajo('enlace', 'Enlace privado', () => setVista('privado'))}
+          {atajo('presentar', 'Presentar', () => setDialogo('presentar'))}
+        </div>
+      </>
+    );
+  }
 
-          <div className="gmp-comp-bloque">
-            <div className="gmp-comp-tit"><Icono nombre="enlace" tam={16} />Vista previa privada</div>
-            <div className="gmp-comp-fila">
-              {privado ? <span className="gmp-comp-url" title={privado}>{privado.replace(/^https?:\/\//, '')}</span> : <span className="gmp-ayuda" style={{ flex: 1 }}>Lo guardado, sin publicar.</span>}
-              <button type="button" className="gmp-btn gmp-btn-secundario" disabled={cargandoPrivado}
-                onClick={() => void (privado ? copiarTexto(privado).then((ok) => { if (ok) avisar('Enlace copiado'); }) : copiarPrivado())}>
-                {cargandoPrivado ? <Giro chico /> : <Icono nombre="copiar" tam={14} />}Copiar enlace privado
-              </button>
-              <button type="button" className="gmp-btn gmp-btn-fantasma gmp-btn-chico" disabled={cargandoPrivado} onClick={() => void copiarPrivado(true)}>
-                <Icono nombre="restablecer" tam={14} />Regenerar
-              </button>
-            </div>
-            {error && <p className="gmp-error" role="alert">{error}<ReportarASoporte /></p>}
-          </div>
-
-          <div className="gmp-comp-bloque">
-            <div className="gmp-comp-tit"><Icono nombre="usuarios" tam={16} />Quién puede editar</div>
-            <div className="gmp-comp-persona">
-              <span className="gmp-comp-avatar"><Icono nombre="usuarios" tam={16} /></span>
-              <span className="gmp-fila-tit">Miembros del espacio de trabajo</span>
-              <span className="gmp-comp-rol">Pueden editar</span>
-            </div>
-          </div>
-        </>
-      )}
+  return (
+    <Flotante ancla={ancla} onCerrar={cerrar} alinear="fin" rol="dialog" etiqueta="Compartir" className="gmp gmp-cp">
+      <EstilosGmp extra={{ href: 'gmp-compartir', css: CSS_COMPARTIR }} />
+      {cuerpo}
       {nodoConfirma}
-    </ModalGma>
+    </Flotante>
   );
 }
 

@@ -354,11 +354,12 @@ test('plantillas: español neutro (tú), con el detector completo del guard del 
 // La pantalla (fuente)
 // ─────────────────────────────────────────────────────────────────────────────
 
-test('pantalla: en una presentación Presentar es el botón principal, y el lienzo y Presentar llevan la forma', () => {
+test('pantalla: en una presentación Presentar está a un clic en la barra, y el lienzo y Presentar llevan la forma', () => {
   const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
-  const partido = ed.slice(ed.indexOf('<div className="gma-partido">'), ed.indexOf('aria-label={presentacion ? \'Más opciones\''));
-  assert.ok(partido.length > 100 && partido.length < 1500, `recorte del botón partido: ${partido.length}`);
-  assert.match(partido, /\{presentacion \? \(\s*<button[^>]*onClick=\{\(\) => setDialogo\('presentar'\)\}>\s*<Ico n="presentar"[^>]*\/> Presentar/);
+  // Desde el 24/10/2026 el botón azul es UNO y dice «Compartir» (Martín); en una presentación, Presentar va al lado, chico
+  // y con su atajo (Gamma: «Present» junto a «Share»).
+  const antesDelPartido = ed.slice(ed.indexOf('className="gma-herr-der"'), ed.indexOf('<div className="gma-partido">'));
+  assert.match(antesDelPartido, /\{presentacion \? \(\s*<button[^>]*data-tip="Presentar"[^>]*onClick=\{\(\) => setDialogo\('presentar'\)\}>\s*<Ico n="presentar"/);
   assert.match(ed, /data-formato=\{presentacion \? 'presentacion' : undefined\}/);
   assert.match(ed, /baseDelLienzo\(dispositivo, zoom, fija \? \{ ancho: anchoLienzo \} : null\)/);
   const pr = sinComentarios(leer('app/web-generator/editor/Presentar.tsx'));
@@ -392,6 +393,6 @@ test('pantalla: en una presentación Presentar es el botón principal, y el lien
 //   · plantillas: dos diseños optimizados en una diapositiva .. 1 fallo (una idea)
 //   · plantillas: un párrafo largo (> 40 palabras) ............ 1 fallo (una idea)
 //   · plantillas: una variante mal escrita ('embudox') ........ 1 fallo (saneo / descartes)
-//   · EditorLanding: Publicar como principal en presentación .. 1 fallo (pantalla)
+//   · EditorLanding: sin Presentar en la barra de presentación  1 fallo (pantalla)
 //   · Presentar sin `encajar` ................................. 1 fallo (pantalla)
 //   · Configuración: «Ancho de las secciones» con forma fija .. 1 fallo (pantalla)

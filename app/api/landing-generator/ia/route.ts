@@ -17,7 +17,7 @@
 
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { esquema, secciones, editar, texto, disenos, notas, type ResultadoIA } from '@/lib/editor-landing/ia';
+import { esquema, secciones, editar, texto, disenos, notas, discutir, type ResultadoIA } from '@/lib/editor-landing/ia';
 import type { PedidoIA, RespuestaIA } from '@/lib/editor-landing/api-tipos';
 import type { SeLeeEnNavegador } from '@/lib/editor-landing/lectura-tipos';
 
@@ -54,7 +54,10 @@ export async function POST(req: Request) {
       case 'secciones':
         return responder(await secciones({ esquema: body.esquema, indices: body.indices, params: body.params, temaId: body.temaId }));
       case 'editar':
-        return responder(await editar({ instruccion: body.instruccion, tarjetas: body.tarjetas, alcance: body.alcance === 'seccion' ? 'seccion' : 'landing', params: body.params, adjuntos: body.adjuntos }));
+        return responder(await editar({ instruccion: body.instruccion, tarjetas: body.tarjetas, alcance: body.alcance === 'seccion' ? 'seccion' : 'landing', params: body.params, enFoco: body.enFoco, adjuntos: body.adjuntos }));
+      // «Discutir» (24/10/2026): contesta sin tocar la página.
+      case 'discutir':
+        return responder(await discutir({ pregunta: body.pregunta, tarjetas: body.tarjetas, enFoco: body.enFoco, charla: body.charla, adjuntos: body.adjuntos }));
       case 'texto':
         return responder(await texto({ tipo: body.tipo, texto: body.texto, contexto: body.contexto, tono: body.tono, idioma: body.idioma }));
       case 'disenos':

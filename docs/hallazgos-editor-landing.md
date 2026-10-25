@@ -2584,3 +2584,99 @@ Al convertir el editor en el molde de Automations (docs/diseno-editor-web-como-a
 - **La lista de la tarjeta lee con `pedirDocs({ accion: 'listar' })`**, el mismo del Panel, y un error de lectura se dice
   («No pude leer tus landings» + Reintentar), no se dibuja como una lista vacía. La redirección tampoco salta con la lista
   sin leer.
+
+## «Nueva landing» adentro del editor, «Compartir» en un solo botón y sin «Guardado» (24/10/2026 noche, tanda 1 de claude5)
+
+Pedidos de Martín del 24/10, textuales en `docs/feedback-24-10.md` (sección «Editor web → chat Landings», puntos 3, 7 y 9).
+**El 3 y el 7 ya se habían dado por hechos ese mismo día (7ae16876e) y no cumplían.**
+
+**Vive en:** `app/web-generator/editor/EditorLanding.tsx` (`setNueva`, `creando`, la barra) ·
+`app/web-generator/editor/paneles/PanelLandings.tsx` · `app/web-generator/Inicio.tsx` (`embebido`) ·
+`app/web-generator/editor/dialogos/DialogoCompartir.tsx` · `app/web-generator/[id]/page.tsx` (las analizadas y las bases).
+
+- **El diagnóstico equivocado: «Nueva landing abre las plantillas» se leyó como «llega a las plantillas por cualquier
+  camino».** Lo entregado era un `<Link>` a `/web-generator?panel=1`: otra RUTA y otra barra lateral (la del Panel). Martín:
+  «NO me debe redireccionar a otra ruta... Y la sidebar no debe cambiar». **Regla:** cuando Martín dice «que no me
+  redirija», no cambia la URL NI la columna de la izquierda; se reemplaza sólo el área que nombra.
+- **Cómo quedó:** «Nueva landing» es un botón que prende `nueva` en el editor; la barra y el lienzo quedan MONTADOS y
+  ocultos (`display: none`: volver es instantáneo, con el deshacer intacto) y en su lugar va el Panel ENTERO en modo
+  `embebido` (sin su barra de documentos, sin reescribir la URL y con la lista leída al montar). Es el mismo `Inicio`, no
+  una copia: crear, Analizar, Replicar y las plantillas son los del Panel. Se carga perezoso (`lazy`): trae Crear, el
+  Diagnóstico y Replicar, que el editor no necesita hasta ese clic.
+- ⚠️ **El Panel reescribe la URL con lo que muestra** (`queryDeDerecha` + `history.replaceState`): montado adentro del
+  editor, ponía `?panel=1` sobre `/web-generator/<id>`. Embebido, ese efecto no corre.
+- **`nueva` se ve sólo con la LISTA a la izquierda** (`creando = nueva && panelIzq === 'landings'`) y salir de la lista lo
+  apaga: ir al chat (la criatura, Mod+E) es volver a ESTA landing, y el chat edita la abierta.
+- **El panel Compartir es de Canva, no de Gamma:** se abre DEBAJO del botón (un `Flotante` con su ancla, no un modal),
+  el enlace con UN botón grande y una fila de atajos (Descargar, Vista previa, Enlace privado, Presentar). Lo que tiene
+  opciones (Descargar, Enlace privado) cambia el panel con «←», sin otro modal encima. Se fueron las pestañas, «Quién
+  puede editar» y los tres botones del pie. El ▾ del botón lleva Publicar, Vista previa, la publicada, Descargar y Presentar.
+- **En una presentación, Presentar quedó como ícono al lado de Compartir** (T3 pedía «tal cual Gamma», que pone «Present»
+  junto a «Share»); el azul es uno solo en las dos.
+- **«Guardado» no se dibuja, los problemas sí:** «No se guardó · Reintentar» y «Versión más nueva» siguen (callarlos sería
+  la app contando algo que no pasa). El título no baja de 160 px (`flex: 0 0 auto`); lo que cede es el formato del medio.
+
+Lo que quedó SIN hacer:
+- **No se miró con clics ni a 1280 px.** Con ~2 GB libres el vigía mató el chequeo de tipos de 2,4 GB, y el editor en
+  `next dev` pide 5-6 GB. Lo de la barra a 1280 sigue en «Sin verificar en pantalla» (docs/pendientes.md).
+- El clic derecho (P5), los botones amontonados del lienzo (5), la sidebar del chat que no se pliega (10), los
+  placeholders tapados (6), la segunda barra de formato (8) y las páginas de MaKo editables por sección (4): tandas que siguen.
+
+## Los botones amontonados en la esquina del lienzo y el chat que no se pliega (24/10/2026 noche, tanda 2a de claude5)
+
+Puntos 5 y 10 del 24/10 (docs/feedback-24-10.md). **Vive en:** `app/web-generator/editor/extensiones/estilos-nodos.ts`
+(`.gmc-lado`) · `app/web-generator/gamma.css` (el margen del lienzo) · `nodos/TarjetaVista.tsx` · `EditorLanding.tsx`
+(`PanelIzq`, la barra) · `paneles/PanelAgente.tsx`.
+
+- **La causa del amontonamiento NO era el botón de la tira (que se movió igual): eran TRES piezas que caen en el mismo
+  punto.** En una landing toda sección va a sangre (css.ts, 15c), así que la columna ⋮ ✨ ▤ iba ADENTRO, a 12 px de la
+  esquina; el asa de cada bloque (AsaBloque) se ubica 52 px a la izquierda del bloque, que con el padding de 3,5em del
+  cuerpo y el lienzo de ~850 px (padding-inline de la sección en 0) es justo el borde de la sección; y el primer bloque
+  del header es el logo. **Regla:** en una landing de escritorio la columna va AFUERA, en un margen de 40 px que el
+  lienzo le deja a la página (sólo en el editor); adentro queda donde lo de afuera se recorta (el marco de teléfono o
+  tableta tiene `overflow: hidden`) y en una diapositiva a sangre.
+- **La columna en una landing es UN botón (⋮):** el ✨ «Editar con IA» se fue (el chat de la tarjeta está siempre) y las
+  notas del orador quedan sólo en una presentación (en una landing siguen en el ⋮).
+- **La tira de secciones es una vista de la TARJETA de la izquierda** (`PanelIzq = 'tira'`), con su botón en la barra,
+  como Páginas. Ya no es una columna entre la tarjeta y el lienzo: el lienzo ganó ~150 px, que a 1280 hacen falta.
+- **El chat no se pliega:** `PanelIzq` ya no admite `null` (el tipo lo impide), se fueron el «⇤» de la cabecera, «Abrir
+  MaKo» de la barra y el `agentePlegado`; Mod+E lleva al chat y le pone el cursor. Cerrar Páginas o la tira vuelve al chat.
+  El 12/10 Martín había pedido «de ultima que se pueda plegar»: lo del 24/10 es posterior y gana.
+- **El placeholder partido** («Envía un mensaje al / agente…») no cabía al lado del «+», los emojis y el micrófono: va
+  «Escribe a MaKo», el molde del Ops Center («Escribe a <quién>»), y el `::placeholder` no corta renglón.
+
+Lo que quedó SIN hacer:
+- **«Discutir / Editar» en lugar de «Toda la landing / Sin título»** (la otra mitad del punto 10): «Discutir» necesita que
+  la IA del editor conteste sin tocar la landing, y hoy sólo sabe editar (`accion: 'editar'`, lib/editor-landing/ia.ts).
+  Va en la tanda 2b, con su prompt y su lugar en la API de MaKo.
+- La columna en el teléfono y la tableta sigue ADENTRO (el marco recorta lo de afuera) y ahí todavía puede encimarse con
+  el asa del primer bloque.
+- Sin mirar con clics (la RAM no dio para levantar el editor).
+
+## «Discutir | Editar» en el chat del editor (24/10/2026 noche, tanda 2b de claude5)
+
+La otra mitad del punto 10: «Tampoco pongas los botones de "toda la landing, sin titulo" pon los botones de "Discutir,
+editar"». **Vive en:** `app/_chat/SelectorIntencion.tsx` (el selector, compartido) · `app/web-generator/editor/paneles/PanelAgente.tsx`
+(`pedirDiscusion`, `pedirEdicion`) · `lib/editor-landing/ia.ts` (`discutir`, la pista en `editar`) ·
+`lib/editor-landing/ia-reglas.ts` (los prompts y lo puro) · `lib/prompt-registry.ts` · `app/api/landing-generator/ia/route.ts`.
+
+- **«Sin título» no era un bug de título: era el chip de la SECCIÓN con el cursor** (una sección sin encabezado se llama
+  «Sin título»). Los chips eran el alcance de la edición; sin ellos, el alcance se decide solo.
+- **Regla del alcance sin chips:** «Editar» manda la landing ENTERA y la sección del cursor viaja como PISTA (`enFoco` →
+  `focoParaEditar`, en el slot `alcance` que arma el código: el prompt editable no cambió): si la instrucción no dice
+  dónde («mejora la escritura»), es ésa; si nombra otra parte, la IA hace eso. Antes, con el chat abierto y una sección
+  tocada, se mandaba SÓLO esa sección por defecto. Si la página no entra de una vez (`MUCHO_PARA_EDITAR`, compartida en
+  api-tipos), se vuelve a pedir sólo la sección del cursor y la respuesta lo dice; sin cursor, pide tocar una.
+- **«Discutir» es una acción nueva de la IA (`accion: 'discutir'`), no «editar» con otra bandera:** lee el TEXTO de cada
+  sección (no el JSON), lo último de la charla (sin eso «como te dije» no existe: la lección de Automations, 22/10), los
+  archivos de la caja y el negocio; devuelve texto. Sus dos prompts están en el registro (/configuraciones), con el
+  mismo contrato que los demás del editor (lo fija tests/editor-landing-ia.test.ts).
+- **El selector es UNO para los chats** (`app/_chat/SelectorIntencion.tsx`, la misma clave `mako-chat-intencion`): quien
+  eligió «Discutir» en Automations lo encuentra igual acá. ⚠️ **Automations todavía dibuja su copia** (app/automations/ChatMako.tsx,
+  `SelectorIntencion`): no se tocó porque ese chat estaba trabajando en el archivo. Al migrarla, se borra la copia.
+- **No va a la API de MaKo, a propósito:** «Discutir» no configura nada; quien usa la API ya es una IA que lee la
+  página con `ver_secciones_landing` y opina sola. Lo que la API sí tiene es `editar_landing_con_ia`.
+
+Lo que quedó SIN hacer:
+- Sin mirar con clics ni con la IA de verdad: el modelo de mentira fija lo que le llega y lo que vuelve, no la calidad de
+  lo que contesta.

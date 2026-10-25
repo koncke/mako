@@ -33,8 +33,68 @@ test('la lista de la tarjeta: sin la papelera, la más tocada primero, y buscar 
   assert.deepEqual(landingsDeLaLista(docs, '').map((d) => d.id), [2, 1]);
   assert.deepEqual(landingsDeLaLista(docs, 'coach').map((d) => d.id), [1]);
   assert.deepEqual(landingsDeLaLista(docs, 'borr'), []);
-  // «Nueva landing» y «Ver todo en el Panel» van al Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing).
+  // «Ver todo en el Panel» va al Panel de verdad (sin ?panel=1, /web-generator saltaría a una landing). «Nueva landing» ya
+  // no: se abre adentro del editor (el test de abajo).
   assert.equal(RUTA_NUEVA_LANDING, '/web-generator?panel=1');
+});
+
+test('«Nueva landing» NO navega: «¿Qué vas a crear hoy?» ocupa la barra y el lienzo, y la tarjeta de la izquierda no cambia', () => {
+  // Martín, 24/10/2026: «Cuando le doy a "Nueva landing" NO me debe redireccionar a otra ruta... Y la sidebar no debe
+  // cambiar... Solamente debe aparecer el "¿Qué vas a crear hoy?" con los templates en lugar de la topbar de edición y el
+  // lienzo». Lo entregado antes ese día era un <Link> al Panel (/web-generator?panel=1): otra ruta y otra barra lateral.
+  const lista = sinComentarios(leer('app/web-generator/editor/paneles/PanelLandings.tsx'));
+  assert.match(lista, /<button type="button" className="gma-ls-item gma-ls-nueva" aria-current=\{nueva \? 'true' : undefined\} onClick=\{\(\) => setNueva\(true\)\}>/);
+  assert.doesNotMatch(lista, /<Link href=\{RUTA_NUEVA_LANDING\} className="gma-ls-item gma-ls-nueva"/, '«Nueva landing» volvió a navegar al Panel');
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  // El cuadro de crear (el del Panel, embebido) en lugar de la barra y el lienzo; la landing abierta queda montada y oculta.
+  assert.match(editor, /\{creando \? \(\s*<div className="gma-centro" role="region" aria-label="Nueva landing">[\s\S]{0,400}<InicioEmbebido\s+embebido/);
+  assert.match(editor, /<main className="gma-centro" style=\{creando \? \{ display: 'none' \} : undefined\}>/);
+  // La tarjeta de la izquierda sigue siendo la lista: «Nueva landing» la deja en 'landings', y salir de la lista lo cierra.
+  assert.match(editor, /const setNueva = useCallback\(\(v: boolean\) => \{\s*if \(v\) \{\s*void guardarAhora\(\);\s*setPanelDer\(null\);\s*setPanelIzqEstado\('landings'\);/);
+  assert.match(editor, /const creando = nueva && panelIzq === 'landings';/);
+  // El Panel embebido no dibuja su barra de documentos ni reescribe la URL (la de la landing abierta).
+  const inicio = sinComentarios(leer('app/web-generator/Inicio.tsx'));
+  assert.match(inicio, /\{!props\.embebido && <aside className="gp-lateral"/);
+  assert.match(inicio, /useEffect\(\(\) => \{\s*if \(props\.embebido\) return;\s*const s = queryDeDerecha\(window\.location\.search, derecha\)/);
+});
+
+test('UN solo botón azul que dice «Compartir», con el ▾ de la vista previa y las demás; el panel Compartir copiado de Canva', () => {
+  // Martín, 24/10/2026: «Te pedí que "Compartir" y "publicar" sean un solo botón, azul y que diga "compartir"... Con el
+  // desplegable de la vista previa y las otras opciones, claro... Y mejora el diseño del pop-up de "Compartir y exportar"».
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
+  const primarios = barra.match(/className="gma-boton gma-boton--primario[^"]*"/g) ?? [];
+  assert.equal(primarios.length, 2, 'el botón partido: Compartir y su ▾, nada más azul');
+  assert.match(barra, /<Ico n="compartir" t=\{15\} \/> Compartir\s*<\/button>/);
+  assert.doesNotMatch(barra, /\/> Publicar\s*<\/button>/, 'volvió el botón Publicar al lado de Compartir');
+  assert.doesNotMatch(barra, /gma-boton--secundario/, 'volvió el Compartir gris de al lado');
+  // El ▾: Publicar, Vista previa, la publicada, Descargar y Presentar.
+  const menu = editor.slice(editor.indexOf('{menuPublicar ? ('), editor.indexOf('{menuZoom ? ('));
+  for (const item of ['Vista previa', "setDialogo('publicar')", "setDialogo('exportar')", "setDialogo('presentar')"]) {
+    assert.ok(menu.includes(item), `el ▾ de Compartir tiene que llevar ${item}`);
+  }
+  // El panel: debajo del botón (Flotante con su ancla), sin pestañas ni modal; el enlace con UN botón y la fila de atajos.
+  const cp = sinComentarios(leer('app/web-generator/editor/dialogos/DialogoCompartir.tsx'));
+  assert.match(cp, /<Flotante ancla=\{ancla\} onCerrar=\{cerrar\} alinear="fin" rol="dialog"/);
+  assert.doesNotMatch(cp, /ModalGma|Pestanas|Quién puede editar/, 'volvió el modal con pestañas y tres bloques');
+  for (const a of ["atajo('descargar', 'Descargar'", "atajo('ojo', 'Vista previa'", "atajo('enlace', 'Enlace privado'", "atajo('presentar', 'Presentar'"]) {
+    assert.ok(cp.includes(a), `falta el atajo ${a}`);
+  }
+  // Descargar se abre ADENTRO del panel (con «←»), no en otro modal encima.
+  assert.match(cp, /if \(vista === 'descargar'\) \{\s*cuerpo = <>\{cabecera\('Descargar', true\)\}<CuerpoExportar \/><\/>;/);
+});
+
+test('sin «Guardado» al lado del título, y el título con lugar para leerse', () => {
+  // Martín, 24/10/2026: «Elimina "Guardado", ya que no deja ver bien el título de la pagina... Y extiende mas la sección del
+  // titulo para que se lea» (se veía «Landin…»).
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  const indicador = editor.slice(editor.indexOf('function IndicadorGuardado('), editor.indexOf('function DeshacerRehacer('));
+  assert.match(indicador, /if \(estado === 'guardando' \|\| estado === 'guardado' \|\| estado === 'sin-guardar'\) return null;/);
+  assert.doesNotMatch(indicador, /> Guardado</, 'volvió «Guardado»');
+  // Lo que no se puede callar sigue: no se guardó, con Reintentar.
+  assert.match(indicador, /No se guardó/);
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /\.gma-herramientas \.gma-titulo \{ flex: 0 0 auto; max-width: 320px; min-width: 160px; \}/);
 });
 
 test('la «←» del chat va a la LISTA de la tarjeta sin navegar, y la cabecera dice «MaKo», no el título', () => {
@@ -46,17 +106,15 @@ test('la «←» del chat va a la LISTA de la tarjeta sin navegar, y la cabecera
   assert.match(editor, /panelIzq === 'landings' \? \(\s*<section role="complementary" className="gma-izq" data-panel="landings"/);
 });
 
-test('UNA sola barra: el título, el guardado, Compartir, Publicar y el ⋯ viven en la de herramientas', () => {
+test('UNA sola barra: el título, Compartir y el ⋯ viven en la de herramientas', () => {
   const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   // En el editor (fuera de la pantalla de error) ya no hay <header className="gma-barra">.
   assert.equal((editor.match(/<header className="gma-barra">/g) ?? []).length, 0, 'volvió la segunda barra');
   assert.doesNotMatch(editor, /gma-avatar/, 'el avatar está en la barra lateral de la app');
   const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
-  for (const pieza of ['className="gma-titulo"', '<IndicadorGuardado', "setDialogo('compartir')", "setDialogo('publicar')", 'aria-label="Menú del documento"']) {
+  for (const pieza of ['className="gma-titulo"', '<IndicadorGuardado', "setDialogo(dialogo === 'compartir' ? null : 'compartir')", 'aria-label="Menú del documento"']) {
     assert.ok(barra.includes(pieza), `la barra única tiene que llevar ${pieza}`);
   }
-  // Compartir lleva Exportar adentro.
-  assert.match(sinComentarios(leer('app/web-generator/editor/dialogos/DialogoCompartir.tsx')), /onClick=\{\(\) => setDialogo\('exportar'\)\}/);
 });
 
 test('la columna del bloque no tapa sus propios botones: tooltip de la casa a la derecha, sin title nativo', () => {
@@ -66,4 +124,39 @@ test('la columna del bloque no tapa sus propios botones: tooltip de la casa a la
   assert.match(t, /className="gmc-btn gmc-tip"\s*data-asa=""\s*data-tip=\{`Opciones · arrastra/);
   const css = leer('app/web-generator/editor/extensiones/estilos-nodos.ts');
   assert.match(css, /\.gmc-tip::before \{ content: attr\(data-tip\); position: absolute; left: calc\(100% \+ 6px\)/);
+});
+
+test('la columna de la sección es UN botón en una landing: sin «Editar con IA», y las notas sólo en una presentación', () => {
+  // Martín, 24/10/2026: «Hay un botón que dice "Editar con IA" eso eliminalo... Por defecto siempre esta el editor de IA».
+  const t = sinComentarios(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'));
+  const lado = t.slice(t.indexOf('className="gma gmc gmc-lado"'), t.indexOf('className="gma gmc gmc-entre"'));
+  assert.ok(lado.length > 200, 'no encontré la columna');
+  assert.doesNotMatch(lado, /data-tip="Editar con IA"|abrir\('agente', e\.currentTarget, 'editar'\)/, 'volvió ✨ «Editar con IA» a la columna');
+  assert.match(lado, /\{esPresentacion\(ctx\?\.config \?\? \{\}\) && \(\s*<button[^>]*data-tip="Notas del orador"/);
+});
+
+test('«Abrir tira de imágenes» es un botón de la barra y la tira se abre en la tarjeta del chat; nada flota en la esquina del lienzo', () => {
+  // Martín, 24/10/2026: «"Abrir tira de imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat».
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /gma-tira-abrir/, 'volvió el botón flotante de la tira');
+  const area = editor.slice(editor.indexOf('<div className="gma-area">'), editor.indexOf('ref={lienzoRef}'));
+  assert.doesNotMatch(area, /<TiraSecciones/, 'la tira volvió a ser una columna al lado del lienzo');
+  const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
+  assert.match(barra, /aria-label="Abrir tira de imágenes"\s*aria-pressed=\{panelIzq === 'tira'\} onClick=\{\(\) => \(panelIzq === 'tira' \? cerrarPaginas\(\) : setPanelIzqEstado\('tira'\)\)\}/);
+  assert.match(editor, /<section role="complementary" className="gma-izq" data-panel="tira" aria-label="Secciones">\s*<TiraSecciones revision=\{revision\} onCerrar=\{cerrarPaginas\} \/>/);
+});
+
+test('el chat de MaKo no se pliega nunca: sin botón de plegar, sin «Abrir MaKo», y la tarjeta nunca queda vacía', () => {
+  // Martín, 24/10/2026: «La sidebar del chat de MaKo NO se debe poder cerrar nunca. Elimina el boton de plegar».
+  const agente = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  assert.doesNotMatch(agente, /Cerrar el panel|setPanelIzq\(null\)|chevron-doble-izquierda/, 'volvió el botón de plegar el chat');
+  const ctx = sinComentarios(leer('app/web-generator/editor/contexto.ts'));
+  assert.match(ctx, /export type PanelIzq = 'agente' \| 'paginas' \| 'landings' \| 'tira';/, 'la tarjeta de la izquierda volvió a poder quedar en null');
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /data-tip="Abrir MaKo"|agentePlegado/);
+  // Mod+E lleva al chat; ya no lo cierra.
+  assert.match(editor, /\(e\.key === 'e' \|\| e\.key === 'E'\)\) \{\s*e\.preventDefault\(\);\s*setPanelIzqEstado\('agente'\);/);
+  // El placeholder entra en un renglón.
+  assert.match(agente, /placeholder="Escribe a MaKo"/);
+  assert.doesNotMatch(agente, /Envía un mensaje al agente/);
 });
