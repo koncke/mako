@@ -1430,4 +1430,18 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '25 oct', hora: '20:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Dos secciones pintadas se tocan, sin franja blanca entre las dos',
+    pedido: 'Cerebro: «si el margin-top de 96 px entre secciones queda con el fondo de la página, al pintar una sección aparece justo la "separación" que Martín no entiende... que ese espacio pase a ser parte de la sección»',
+    puntos: [
+      'Al pintar una sección, el espacio que el diseño dejaba arriba (96 px en «historia») ahora toma su color. Ya no queda una franja blanca entre dos secciones pintadas.',
+      'La rayita que marcaba dónde empezaba la sección, que había quedado en el medio del color, ahora no se ve.',
+      'Sin pintar, la página se ve igual que antes, y «Del diseño» la deja como estaba.',
+      'Revisado en la página publicada (a 1280 y 1440) y en el editor.',
+    ],
+    archivos: ['lib/editor-landing/fondo-de-diseno.ts — dónde va el color de cada sección'],
+    revisar: '/web-generator/32',
+  },
 ];

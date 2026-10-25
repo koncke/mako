@@ -12,7 +12,15 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   alcance por sección en «Análisis», la API y el Analyst; docs/hallazgos-landing.md → «Qué sección se ve»). Falta aceptarla
   con datos de producción cuando despliegue. L2: hechas las reglas puras (lib/editor-landing/prueba-landing.ts: la guarda de estructura,
   quién va fijo a A, la cookie y las cabeceras). Conectarlo a `responderPublico` espera a A1/A2 de Automations (`lib/pruebas/`,
-  rama aut-2510; al 25/10 todavía no existe, avisa con las firmas) y L3 (el agente; el ws9 queda en «propone» hasta el sí de Martín).
+  rama aut-2510, ya con `asignar`, `juez`, `store` y el cron `app/api/cron/pruebas/route.ts` en 27a632789) y L3 (el agente; el ws9 queda
+  en «propone» hasta el sí de Martín). **La firma que avisó Automations el 25/10 a la noche, para su entrega que va encima de
+  27a632789:**
+  - `MEDIDORES` va por superficie y después por métrica. Los de la landing van en `MEDIDORES.landing` (`clic_conversion`, `optin`,
+    `play_manual`).
+  - Cada `Medidor` recibe `lugar` (con el doc_id) y TODAS las asignaciones de la época, así congela el primer resultado.
+  - `Asignacion.previo` es un mapa por métrica (`{ agendo: false }`).
+  - `conteosPorRama(..., { ramas, ventanaDias, hasta, metrica })` pide la métrica.
+  - Ejemplo: lib/pruebas/medidores-automatizacion.ts y lib/pruebas/resultados.ts.
 - **Verificado en producción (25/10 tarde, main 9c684f88c):** escribir en una sección de diseño (copia #42, ya en la
   papelera), y la barra a 1280 y 1440. A 1280 la barra no entraba: arreglado en esta rama (el título cede hasta 160 px).
 - **Todo editable en las páginas de MaKo y el clic derecho (25/10 tarde):** hecho en la rama, con el inventario de la #32
@@ -20,7 +28,8 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
 - **La barra «Texto» sin «Editar con IA» (25/10 tarde):** hecho en la rama; la IA queda en el chat, en ⌘E y en la barra
   que aparece sobre un texto elegido.
 - **El color de fondo de cada sección de las páginas de MaKo (25/10 tarde):** hecho en la rama: menú ⋮, clic derecho y la API
-  (docs/hallazgos-editor-landing.md → «El color de fondo…»). Falta probarlo con clics cuando despliegue.
+  (docs/hallazgos-editor-landing.md → «El color de fondo…»). Con el pedido del Cerebro, el margen entre secciones queda
+  adentro de lo pintado: dos pintadas se tocan sin franja. Falta probarlo con clics cuando despliegue.
 - **Los íconos por la API (25/10 tarde):** hecho en la rama (cambiar_icono_landing, ver_iconos_landing, y los `iconos` de cada
   sección en ver_secciones_landing; docs/hallazgos-api-mako.md → «Los íconos por la API»).
 - **Sigue:** probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;

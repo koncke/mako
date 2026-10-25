@@ -3082,20 +3082,33 @@ tapa el fondo de la tarjeta. No daba error: no cambiaba nada.
 (`.gm-libre #beta`, que le gana al `style` de la raíz); o de nada, porque la raíz es una columna de 1080-1120 px centrada y se
 ve el fondo de la página (el hero, «¿Qué es MaKo?» y «Cómo funciona» de la #32).
 
+**Y entre secciones hay MÁRGENES** (`margin-top`: 96 px en «historia», 40 px en «para quién» y en «beta» de la #32). Muestran
+el fondo de la página. Con el color en la raíz, el margen quedaba afuera de lo pintado: pintado el hero, aparecía una franja
+blanca de 96 px, justo la «separación» de la que se quejó Martín.
+
 **El arreglo (lib/editor-landing/fondo-de-diseno.ts), en el HTML, que es lo que se publica:**
-- Si la raíz ocupa todo el ancho, se suma `background:<color> !important` AL FINAL de su `style`, con la marca
-  `data-gm-fondo`. Un `style` con `!important` gana también a la regla `!important` de la hoja. Lo que traía queda escrito,
-  así que «Del diseño» vuelve byte por byte.
-- Si la raíz es una columna angosta, va una envoltura de ancho completo
-  (`<div data-gm-fondo data-gm-envoltura style="background:…">`). **El encabezado pegajoso nunca se envuelve:** adentro de
-  una caja de su mismo alto deja de pegarse.
-- Medido en Chrome sin ventana, a 1280 y 1440 y en el editor: las 9 secciones de la #32 toman el color, la columna pinta de
-  borde a borde, «beta» cambia y el encabezado sigue pegado al bajar 2500 px.
+- Cada sección pintada va en una envoltura de ancho completo:
+  `<div data-gm-fondo data-gm-envoltura style="background:…;display:flow-root">`. **`flow-root` deja los márgenes de la raíz
+  ADENTRO**, así dos secciones pintadas se tocan sin franja. Sin pintar, nada cambia.
+- **El margen NO se pasó a padding.** Las 14 nuevas cambian su padding por pantalla con `@media`, y un padding escrito en el
+  `style` lo pisaría en el celular.
+- Si la raíz trae fondo propio, se suma `background:transparent !important` AL FINAL de su `style` (marca
+  `data-gm-fondo="transparent"`). Un `style` con `!important` gana también a la regla `!important` de la hoja.
+- **Una raya de arriba con margen arriba quedaba flotando 96 px adentro de lo pintado** (el `border-top` de «historia», que
+  marcaba dónde empezaba): se hace transparente (`data-gm-sin-borde`). Sin margen, la raya sigue en el borde y se queda.
+- Lo que traía queda escrito, y el `;` que separa lo agregado es siempre uno nuevo: «Del diseño» vuelve byte por byte (las 9
+  de la #32, y un `style` que ya terminaba en `;`).
+- **El encabezado pegajoso nunca se envuelve:** adentro de una caja de su mismo alto deja de pegarse. Su color va al `style`.
+- Medido en Chrome sin ventana, a 1280 y 1440, y en el editor: lo pintado se toca en las 4 uniones, el contenido no se mueve
+  un píxel y el encabezado sigue pegado. En el editor, los 96 px de arriba de «historia» son del color.
+- **Trampa de la medición:** el pie «se movía» 58 px entre corridas, para un lado o para el otro. Era el alto de
+  «testimonios», que depende de qué imágenes cargaron. Medir después de cargarlas todas (`loading="eager"`, `onload`, las
+  fuentes listas), no con una espera fija.
 
 **Regla:** en una sección de diseño, todo lo que se cambie tiene que ir a su HTML. Un atributo de la tarjeta (ancho,
 acento, alto, fondo) no llega a lo publicado: el panel ahora es sólo «Color de sección», y la API dice que lo demás no aplica.
 
 Lo que quedó SIN hacer:
-- El `margin-top` de una sección del diseño (96 px en «historia» de la #32) no es de ninguna de las dos secciones: queda del
-  fondo de la página. Pintado el hero, se ve como un hueco blanco. Es del diseño y se cambia en «Código».
+- Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
+  ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
 - Probarlo con clics en producción cuando despliegue, sobre una copia.

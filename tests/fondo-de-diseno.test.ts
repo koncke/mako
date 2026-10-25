@@ -3,10 +3,12 @@
 // =============================================================================
 // Martín (25/10): «tampoco puedo editar el color del bg de cada sección». En las landings de MaKo el fondo sale del
 // `style` de la raíz, de una clase o una regla con `!important` de la hoja, o de nada (una columna angosta sobre el fondo
-// de la página). Medido sobre las 9 secciones de la #32: las 9 toman el color y vuelven EXACTAS al del diseño. Lo que fija:
+// de la página). Y entre secciones, márgenes que muestran el de la página: pintada una sección, quedaban como una franja
+// (Cerebro, 25/10: «dos secciones pintadas se tocan sin franja»). Medido sobre las 9 secciones de la #32: las 9 toman el
+// color, con su margen adentro, y vuelven EXACTAS al del diseño. Lo que fija:
 //   1. qué fondo se VE (la cascada: hoja < style < hoja !important < style !important) y el que puso MaKo;
-//   2. raíz de ancho completo: el color al final de su `style`, con `!important` y la marca; columna angosta: una
-//      envoltura de ancho completo; el encabezado pegajoso, nunca envuelto;
+//   2. una envoltura de ancho completo con `display:flow-root` (los márgenes quedan ADENTRO de lo pintado); la raíz con
+//      fondo propio, transparente con `!important`; el encabezado pegajoso, nunca envuelto: el color en su `style`;
 //   3. cambiar dos veces no apila, y «el del diseño» vuelve byte por byte;
 //   4. el panel «Color de sección» del editor y la API usan ESTO (y nada que no llegue a lo publicado).
 // Correr: node --import tsx --test tests/fondo-de-diseno.test.ts
@@ -43,21 +45,29 @@ test('qué fondo se ve: el style, la clase, la regla con !important, o ninguno (
   assert.equal(fondoPuestoDe(HISTORIA), null);
 });
 
-test('raíz de ancho completo: el color al final del style, con !important y la marca; el resto, igual', () => {
+test('una envoltura de ancho completo que se queda con los márgenes; la raíz con fondo propio, transparente', () => {
+  // «historia» (margin-top:96px y fondo propio): pintada, su margen es del color, y su fondo deja ver el de la envoltura.
   const con = conFondoDeDiseno(HISTORIA, { color: '#112233' }, CSS);
-  assert.equal(con, HISTORIA.replace('#EEF0F3"', '#EEF0F3;background:#112233 !important" data-gm-fondo="#112233"'));
+  assert.equal(con, '<div data-gm-fondo="#112233" data-gm-envoltura="" style="background:#112233;display:flow-root">'
+    + HISTORIA.replace('#EEF0F3"', '#EEF0F3;background:transparent !important;border-top-color:transparent !important" data-gm-fondo="transparent" data-gm-sin-borde="top"') + '</div>');
+  assert.match(con, /margin-top:96px/, 'el margen del diseño no se toca: queda adentro de lo pintado');
+  // Su raya de arriba quedaría flotando 96 px adentro de lo pintado: transparente. Sin margen, la raya marca el borde y queda.
+  const sinMargen = '<section style="background:#fff;border-top:1px solid #EEF0F3;"><p>x</p></section>';
+  assert.doesNotMatch(conFondoDeDiseno(sinMargen, { color: '#112233' }, CSS), /border-top-color/);
+  assert.equal(conFondoDeDiseno(conFondoDeDiseno(sinMargen, { color: '#112233' }, CSS), null, CSS), sinMargen, 'un style que termina en «;» también vuelve exacto');
   assert.equal(fondoVisibleDe(con, CSS), '#112233');
   assert.deepEqual(fondoPuestoDe(con), { color: '#112233' });
-  // Le gana a la regla con !important de la hoja (un style con !important gana siempre).
-  assert.equal(fondoVisibleDe(conFondoDeDiseno(BETA, { color: '#112233' }, CSS), CSS), '#112233');
+  // La raíz transparente le gana a la regla con !important de la hoja (un style con !important gana siempre).
+  assert.match(conFondoDeDiseno(BETA, { color: '#112233' }, CSS), /<section id="beta" style="margin-top:40px;background:#F5F7FA;background:transparent !important" data-beta-on data-gm-fondo="transparent">/);
   assert.equal(fondoVisibleDe(conFondoDeDiseno(NUEVA, { degradado: 'noche' }, CSS), CSS), DEGRADADOS.noche);
+  assert.match(conFondoDeDiseno(NUEVA, { degradado: 'noche' }, CSS), /<section class="mkv mkv-sec mkv-sec-gris" id="equipo" style="background:transparent !important"/, 'el fondo de una clase, también');
   // El encabezado pegajoso no se envuelve (envuelto, dejaría de pegarse), aunque tenga max-width.
   assert.match(conFondoDeDiseno(NAV, { color: '#112233' }, CSS), /^<header style="position:sticky;[^"]*;background:#112233 !important" data-gm-fondo="#112233">/);
 });
 
-test('columna angosta o varias cosas sueltas: una envoltura de ancho completo', () => {
+test('una columna angosta sin fondo propio, o varias cosas sueltas: la envoltura, y adentro nada cambia', () => {
   const con = conFondoDeDiseno(HERO, { color: '#112233' }, CSS);
-  assert.equal(con, `<div data-gm-fondo="#112233" data-gm-envoltura="" style="background:#112233">${HERO}</div>`);
+  assert.equal(con, `<div data-gm-fondo="#112233" data-gm-envoltura="" style="background:#112233;display:flow-root">${HERO}</div>`);
   assert.equal(fondoVisibleDe(con, CSS), '#112233');
   assert.match(conFondoDeDiseno('<p>uno</p><p>dos</p>', { color: '#abc' }, CSS), /^<div data-gm-fondo="#abc" data-gm-envoltura=""/);
 });
@@ -66,8 +76,7 @@ test('cambiar dos veces no apila nada, y «el del diseño» vuelve byte por byte
   for (const html of [HISTORIA, HERO, BETA, NAV, NUEVA]) {
     const dos = conFondoDeDiseno(conFondoDeDiseno(html, { color: '#112233' }, CSS), { degradado: 'aurora' }, CSS);
     assert.deepEqual(fondoPuestoDe(dos), { degradado: 'aurora' });
-    assert.equal(dos.split('data-gm-fondo=').length, 2, 'una sola marca');
-    assert.equal(dos.split('!important').length, html === HERO ? 1 : 2, 'una sola declaración (la columna va envuelta, sin !important)');
+    assert.equal(dos, conFondoDeDiseno(html, { degradado: 'aurora' }, CSS), 'lo de antes se fue entero');
     assert.equal(conFondoDeDiseno(dos, null, CSS), html, 'no vuelve exacto');
   }
   assert.equal(conFondoDeDiseno(HISTORIA, null, CSS), HISTORIA, 'sin nada puesto, sacarlo no cambia nada');

@@ -147,7 +147,8 @@ test('configurar_seccion_landing: el fondo de una sección de diseño, en su HTM
   const css = '.para { background: #F5F7FA; }';
   const c = contenido();
   const r = ok(planConfigurarSeccion(c, { seccion: 'tPara', color: '#112233' }, { css }) as Plan);
-  assert.equal(htmlDe(r.contenido, 1), PARA.replace('<section class="para">', '<section class="para" style="background:#112233 !important" data-gm-fondo="#112233">'));
+  assert.equal(htmlDe(r.contenido, 1), '<div data-gm-fondo="#112233" data-gm-envoltura="" style="background:#112233;display:flow-root">'
+    + PARA.replace('<section class="para">', '<section class="para" style="background:transparent !important" data-gm-fondo="transparent">') + '</div>');
   assert.match(r.resumen, /#F5F7FA → #112233/);
   assert.deepEqual(r.contenido.paginas[0].doc.content![1].attrs, { id: 'tPara' }, 'la tarjeta no se toca: lo publicado es el HTML');
   // Leer: el fondo que se ve, y que lo cambió MaKo.
