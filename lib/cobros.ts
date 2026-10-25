@@ -26,6 +26,7 @@ import { actualizarWorkspace, getTenantDb, getWorkspace, runWithWorkspace, wsSup
 import { buscarUsuarioPorEmail } from './usuarios';
 import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
+import { avisarDePlataforma } from './invitaciones';
 import { getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
@@ -62,7 +63,7 @@ import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } fr
 import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
-import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA } from './prueba-plan-reglas';
+import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -735,6 +736,8 @@ export async function aplicarPagoAprobado(c: Cobro, p: {
     await altaSiCorresponde(actual);
     // 5b. La plataforma: el primer mes de un CLIENTE DE AGENCIA lo habilita solo (#866, 17/10/2026). No tira.
     if (!renovacion) await habilitarClienteDeAgencia(actual);
+    // 5d. «Empezar mi plan ya» (25/10/2026): el plan desde hoy ya se cobró, la prueba que reemplaza se cancela. No tira.
+    if (!renovacion) await cerrarPruebaAlEmpezarYa(actual);
     // 5c. El negocio que se había PAUSADO por falta de pago y acaba de pagar su plan vuelve a entrar en el acto, sin
     //     esperar al cron (lib/plan-acceso.ts, 17/10/2026). Best effort: el cron lo vuelve a mirar en media hora.
     if (actual.alta_ws != null) {
@@ -1464,6 +1467,40 @@ export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'r
   }
 }
 
+/**
+ * «EMPEZAR MI PLAN YA» (25/10/2026, lib/empezar-plan.ts): cuando se cobra el plan desde hoy, la PRUEBA que reemplaza se
+ * cancela en la pasarela (así el día 8 no vuelve a cobrar) y queda anulada (el negocio deja de estar en prueba). Si la prueba
+ * YA se había cobrado (el día 8 llegó antes que este pago), es un mes cobrado dos veces: se cancela ESTA suscripción nueva y se
+ * avisa al equipo para devolver uno. La llaman `aplicarPagoAprobado` y el cron. Idempotente; nunca tira.
+ */
+export async function cerrarPruebaAlEmpezarYa(c: Cobro): Promise<void> {
+  const pruebaId = pruebaDeEmpezarYa(c.creado_por);
+  if (pruebaId == null || c.estado !== 'pagado' || c.tipo !== 'suscripcion') return;
+  try {
+    const plataforma = await wsSuperAdmin();
+    if (c.workspace_id !== plataforma) return;
+    const prueba = await getCobro(plataforma, pruebaId);
+    if (!prueba || !esPruebaDePlan(prueba) || prueba.alta_ws !== c.alta_ws) return;
+    if (prueba.estado === 'pendiente') {
+      if (prueba.suscripcion_estado !== 'cancelada') {
+        const r = await cancelarSuscripcionCobro(plataforma, prueba.id, 'Empezó su plan antes de terminar la prueba');
+        if (!r.ok) { console.error(`[cobros] empezar ya ${c.id}: no pude cancelar la prueba ${prueba.id}: ${r.resumen}`); return; }
+      }
+      await actualizar(plataforma, prueba.id, { estado: 'anulado', motivo: 'Empezó su plan antes de terminar la prueba.' }, { estado: ['pendiente'] });
+      return;
+    }
+    if (prueba.estado === 'pagado' && c.suscripcion_estado !== 'cancelada') {
+      const r = await cancelarSuscripcionCobro(plataforma, c.id, 'Cobro doble del primer mes');
+      const texto = `${c.nombre ?? c.email ?? 'Un negocio'} pagó «empezar mi plan ya» después de que su prueba ya se cobró: el primer mes entró dos veces. ${r.ok ? 'Cancelé la suscripción nueva.' : `No pude cancelar la suscripción nueva: ${r.resumen}`} Hay que devolver uno.`;
+      console.error(`[cobros] ${texto}`);
+      if (c.lead_id) await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Cobro doble', texto, NOMBRE_PASARELA[c.proveedor])).catch(() => {});
+      await avisarDePlataforma({ to: EMAIL_MAKO, tag: 'cobro-doble', asunto: 'Un primer mes de MaKo entró dos veces', preheader: 'Hay que devolver uno.', cuerpo: texto }).catch(() => {});
+    }
+  } catch (e) {
+    console.error(`[cobros] no pude cerrar la prueba del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+  }
+}
+
 /** Cancela la suscripción en la pasarela EN EL ACTO (deja de cobrar). Irreversible en Mercado Pago. */
 export async function cancelarSuscripcionCobro(ws: number, id: number, autor: string): Promise<{ ok: boolean; resumen: string }> {
   const c = await getCobro(ws, id);
@@ -1616,6 +1653,8 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
   for (const c of pagados) {
     // El cliente de agencia que pagó y quedó sin habilitar (el aviso se cortó después del pago): compare-and-set, no tira.
     await habilitarClienteDeAgencia(c);
+    // «Empezar mi plan ya» que se cobró y cuyo aviso se cortó antes de cerrar la prueba: idempotente, no tira.
+    await cerrarPruebaAlEmpezarYa(c);
     const faltaCuota = !!c.lead_id && c.monto_usd != null && !!c.proveedor_pago_id && !conCuota.has(c.id);
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
     if (!faltaCuota && !faltaAlta) continue;

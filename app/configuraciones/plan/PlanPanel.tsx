@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '../../_components/ChatItemMenu';
 import { CuerpoGrupo, FilaAjustes, GrupoAjustes } from '../../_ui/Ajustes';
-import { aceptarRetencionAction, darmeDeBajaAction, pasarAProAction } from './actions';
+import { aceptarRetencionAction, darmeDeBajaAction, empezarPlanYaAction, pasarAProAction } from './actions';
 import type { OfertaRetencion, OpcionRetencion } from '@/lib/retencion-plan';
 
 const SANS = "'Geist', sans-serif";
@@ -24,14 +24,18 @@ export type SuscripcionVisible = {
   cancelada: boolean;
   /** El texto de la baja ya pedida («Baja pedida el … (código …). Deja de cobrarse el …»), o null. */
   baja: string | null;
+  /** LA PRUEBA GRATIS (25/10/2026): hasta qué día va («el lunes 3 de noviembre»), o null si ya se cobra. */
+  prueba?: { hasta: string } | null;
 } | null;
 
-export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada }: {
+export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, subir, porLlamada, destacarEmpezar }: {
   plan: string; suscripcion: SuscripcionVisible; emailMako: string; oferta?: OfertaRetencion; retencion?: string | null;
   /** «Pasar a Pro» (23/10/2026): a quien paga MaKo Esencial por la pasarela. El monto de Pro, en su moneda; null = no se ofrece. */
   subir?: { nombre: string; monto: string } | null;
   /** «Pasar a Pro» sin la subida en el acto (sin pasarela): la agenda. Es a donde llevan los carteles de tope. */
   porLlamada?: { titulo: string; detalle: string; href: string } | null;
+  /** Viene de un tope de la prueba (`?empezar=1`): «Empezar mi plan ya» arriba de todo y a la vista. */
+  destacarEmpezar?: boolean;
 }) {
   const [corriendo, setCorriendo] = useState(false);
   const [confirmarSubida, setConfirmarSubida] = useState(false);
@@ -57,6 +61,15 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
     setCorriendo(false);
   };
 
+  // «Empezar mi plan ya» (25/10/2026): abre el pago desde hoy; la prueba se cancela recién cuando ese pago entra.
+  const empezarYa = async () => {
+    setCorriendo(true); setAviso(null);
+    const r = await empezarPlanYaAction().catch(() => ({ ok: false as const, resumen: 'No pudimos abrir el pago. Prueba otra vez.' }));
+    if (r.ok) { window.location.href = r.link; return; }
+    setAviso({ ok: false, texto: r.resumen });
+    setCorriendo(false);
+  };
+
   const darmeDeBaja = async () => {
     setPreguntar(false); setCorriendo(true); setAviso(null);
     const r = await darmeDeBajaAction().catch(() => ({ ok: false as const, resumen: 'No pudimos darte de baja.' }));
@@ -64,13 +77,23 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
     setCorriendo(false);
   };
 
-  const estado = !suscripcion ? undefined : suscripcion.cancelada ? 'De baja' : suscripcion.baja ? 'Baja pedida' : 'Activo';
+  const enPrueba = !!suscripcion?.prueba;
+  const estado = !suscripcion ? undefined : suscripcion.cancelada ? 'De baja' : suscripcion.baja ? 'Baja pedida' : enPrueba ? 'En prueba' : 'Activo';
   const puedeDarseDeBaja = !!suscripcion && !suscripcion.cancelada && !suscripcion.baja && !aviso?.ok;
+  const filaEmpezar = enPrueba && puedeDarseDeBaja && (
+    <FilaAjustes icono="subir" titulo="Empezar mi plan ya" detalle={`Pagas ${suscripcion!.monto} desde hoy y tienes todo, sin los topes de la prueba.`}
+      onClick={corriendo ? undefined : () => void empezarYa()} apilada />
+  );
   return (
     <>
       <GrupoAjustes>
-        <FilaAjustes icono="repetir" titulo={plan} detalle={suscripcion ? `${suscripcion.monto} por mes` : 'Acordado con MaKo'}
+        {destacarEmpezar && filaEmpezar}
+        <FilaAjustes icono="repetir" titulo={plan}
+          detalle={!suscripcion ? 'Acordado con MaKo' : enPrueba
+            ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}, y después cada mes.`
+            : `${suscripcion.monto} por mes`}
           tono={suscripcion ? (suscripcion.cancelada || suscripcion.baja ? 'warn' : 'good') : undefined} estado={estado} apilada />
+        {!destacarEmpezar && filaEmpezar}
         {suscripcion?.baja && <FilaAjustes icono="nota" titulo="Tu baja" detalle={suscripcion.baja} apilada />}
         {retencion && <FilaAjustes icono="nota" titulo="Tu oferta" detalle={retencion} apilada />}
         {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y suma crédito (24/10: no «un mes»: nada lo consume todavía). */}
@@ -82,7 +105,7 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         {porLlamada && <FilaAjustes icono="subir" titulo={porLlamada.titulo} detalle={porLlamada.detalle} href={porLlamada.href} apilada />}
         {puedeDarseDeBaja && (
           <FilaAjustes icono="pausar" titulo="Darme de baja"
-            detalle="Lo sigues usando hasta el fin del mes pagado."
+            detalle={enPrueba ? 'No se te cobra nada, y lo sigues usando hasta el fin de la prueba.' : 'Lo sigues usando hasta el fin del mes pagado.'}
             onClick={corriendo ? undefined : () => (ofertaViva ? setOfrecer(true) : setPreguntar(true))} apilada />
         )}
       </GrupoAjustes>
@@ -115,9 +138,11 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
       )}
       {preguntar && (
         <ConfirmDialog titulo="¿Darte de baja?"
-          detalle={suscripcion?.proveedor === 'stripe'
-            ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
-            : 'Mercado Pago deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.'}
+          detalle={enPrueba
+            ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
+            : suscripcion?.proveedor === 'stripe'
+              ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
+              : 'Mercado Pago deja de cobrarlo desde ya, y sigues usando MaKo hasta el fin del mes pagado. No se puede deshacer.'}
           confirmLabel="Darme de baja" danger onCancel={() => setPreguntar(false)} onConfirm={darmeDeBaja} />
       )}
     </>

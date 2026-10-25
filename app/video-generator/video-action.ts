@@ -59,6 +59,7 @@ import { guardarSaldo, leerSaldoGuardado, guardarCostoMedido, type SaldoFlow } f
 import { leerPlan, porQueNoSirveElPlan, type Plan } from './plan-montaje';
 import { planParaRemontar } from '@/lib/montaje/cola';
 import { pistaPorId } from '@/lib/musica-catalogo';
+import { frenoDePrueba, sumarUsoDePrueba } from '@/lib/prueba-uso';
 
 async function ctxAdmin(): Promise<{ ok: true; ws: number } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') {
@@ -605,6 +606,9 @@ export async function generarTomaAction(
   // ⚠️ CON EL MOTOR POR INTERFAZ (extensión ≥ 0.69) el pedido es OTRO: el prompt,
   // la cara y la duración, y la pestaña aprieta los botones de Flow. Al resto se le
   // sigue mandando el cuerpo de BOQ, que es lo único que sabe hacer.
+  // LA PRUEBA GRATIS (25/10/2026): una toma NUEVA cuenta para el tope de la prueba (lib/prueba-uso.ts, lib/topes-plan.ts).
+  const enPrueba = await frenoDePrueba(ctx.ws, 'prueba.tomas');
+  if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
   const trabajoId = usaInterfaz(puente.version)
     ? await encolar('generar_clip', pedidoClipInterfaz({
       prompt: promptClip,
@@ -639,6 +643,7 @@ export async function generarTomaAction(
   if (trabajoId == null) {
     return { ok: false, error: `No se pudo mandar la toma ${n} a filmar. Es un problema nuestro, no tuyo: vuelve a intentarlo en un momento.` };
   }
+  await sumarUsoDePrueba(ctx.ws, 'prueba.tomas');
 
   // Los SEIS campos del intento anterior, en la misma escritura que encola el
   // nuevo. `operacion: ''` es la que más importa: con la vieja puesta, el sondeo
@@ -1506,6 +1511,9 @@ export async function generarImagenAction(
       error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.',
     };
   }
+  // LA PRUEBA GRATIS (25/10/2026): una imagen generada cuenta para el tope de la prueba.
+  const enPrueba = await frenoDePrueba(ctx.ws, 'prueba.imagenes');
+  if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
   const trabajoId = porInterfaz
     ? await encolar('generar_imagen', pedidoImagenInterfaz({
       prompt: promptFinal(escena.prompt, { conCara: !!cara, puestaId: item.plan.puestaId, propio: item.promptsImagenPropios?.[String(n)] }),
@@ -1542,6 +1550,7 @@ export async function generarImagenAction(
     }),
   });
   if (trabajoId == null) return { ok: false, error: 'No se pudo encolar la imagen.' };
+  await sumarUsoDePrueba(ctx.ws, 'prueba.imagenes');
 
   return {
     ok: true,
@@ -2332,6 +2341,15 @@ export async function montarAnuncioAction(
     .maybeSingle();
   if (vivo?.id) return { ok: true, id: Number(vivo.id) };
 
+  // LA PRUEBA GRATIS (25/10/2026): un anuncio que se arma por PRIMERA vez cuenta como un video de la prueba. Volver a armarlo
+  // (con los cortes editados, o después de un fallo) es el mismo video.
+  const { count: yaArmado } = await db.from('montaje_trabajos').select('id', { count: 'exact', head: true }).eq('plan_id', planId);
+  const esNuevo = !yaArmado;
+  if (esNuevo) {
+    const enPrueba = await frenoDePrueba(ctx.ws, 'prueba.videos');
+    if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
+  }
+
   // ⚠️ «MONTAR DE NUEVO» NO PIERDE LOS CORTES EDITADOS. Sin plan, se usan los del ÚLTIMO trabajo de este anuncio si
   // falló y las tomas son exactamente las mismas (lib/montaje/cola.ts → planParaRemontar); si no, el detector los
   // calcula solo sobre las tomas de ahora, como siempre.
@@ -2382,6 +2400,7 @@ export async function montarAnuncioAction(
     console.error('[montaje] no se pudo encolar:', error?.message);
     return { ok: false, error: 'No se pudo empezar el montaje.' };
   }
+  if (esNuevo) await sumarUsoDePrueba(ctx.ws, 'prueba.videos');
   return { ok: true, id: Number(data.id) };
 }
 

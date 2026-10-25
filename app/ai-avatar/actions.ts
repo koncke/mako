@@ -33,6 +33,7 @@ import { listarVoces, sumarVozCompartida } from '@/lib/elevenlabs';
 import { estadoContextoVideo, leerHistorial, guardarEnHistorial } from '@/app/video-generator/video-datos';
 import { generarPlanAction } from '@/app/video-generator/actions';
 import { avataresDelHistorial, conAvatar, type AvatarIA } from '@/app/video-editor/avatar/avatares';
+import { frenoDePrueba, sumarUsoDePrueba } from '@/lib/prueba-uso';
 
 const NO_PUEDE = 'Todavía no tienes acceso a AI Avatar.';
 const SIN_WS = 'Elige un workspace arriba para usar AI Avatar.';
@@ -154,12 +155,17 @@ export async function crearLookAction(input: { plantillaId: string; fotoId: stri
   const cara = await caraDeFoto(foto.id);
   if (!cara) return { ok: false, error: 'MaKo está subiendo tu foto a Google. En unos segundos vuelve a intentar.' };
 
+  // LA PRUEBA GRATIS (25/10/2026): el look es una imagen generada (lib/prueba-uso.ts).
+  const ws = (await getWorkspaceActual())!;
+  const enPrueba = await frenoDePrueba(ws, 'prueba.imagenes');
+  if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
   const trabajoId = await encolar('generar_imagen', pedidoImagenInterfaz({
     prompt: promptFinal(plantilla.prompt, { conCara: true, puestaId: plantilla.puestaId }),
     cara,
     ruta: rutaDeSubida('ai-avatar', 'escena', 1, randomUUID()),
   }));
   if (trabajoId == null) return { ok: false, error: 'No se pudo pedir el look. Es un problema nuestro: vuelve a intentar.' };
+  await sumarUsoDePrueba(ws, 'prueba.imagenes');
 
   const look: Look = {
     id: randomUUID(),
@@ -264,6 +270,10 @@ export async function crearVideoAction(input: { avatarId: string; guion: string;
   }
   if (!avatar) return { ok: false, error: 'Ese avatar ya no está. Elige otro.' };
 
+  // LA PRUEBA GRATIS (25/10/2026): un video con avatar de IA cuenta para el tope de la prueba (lib/prueba-uso.ts).
+  const ws = (await getWorkspaceActual())!;
+  const enPrueba = await frenoDePrueba(ws, 'prueba.avatares');
+  if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
   const plan = await generarPlanAction({
     puestaId: avatar.puestaId,
     guionId: '',
@@ -276,6 +286,7 @@ export async function crearVideoAction(input: { avatarId: string; guion: string;
   if (!plan.ok) return plan;
   const item = conAvatar(plan.item, avatar);
   await guardarEnHistorial(item);
+  await sumarUsoDePrueba(ws, 'prueba.avatares');
   return { ok: true, planId: item.id, tomas: item.plan.clips.map((c) => c.n) };
 }
 

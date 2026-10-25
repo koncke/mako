@@ -1513,10 +1513,41 @@ días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Pl
 - **Rojo previo, no de esto:** tests/pago-link-anulado.test.ts «anular cierra el link también en Mercado Pago» recorta
   `anularCobro` y la rama de MP vive en `cerrarLinkEnLaPasarela` desde antes: falla igual en el commit anterior.
 
-**Sin hacer (de la prueba):** los topes de la prueba en cada pantalla (videos, avatar, imágenes, landing, exportar) y el botón
-«empezar el plan ya» van en la tanda siguiente. La mig 0334 la aplica Martín (aditiva; el código anda sin ella, sin el freno
+**Sin hacer (de la prueba, al cerrar D2):** los topes en cada pantalla y «empezar el plan ya» quedaron hechos en D3 (abajo). La mig 0334 la aplica Martín (aditiva; el código anda sin ella, sin el freno
 por tarjeta). **Vive en:** lib/prueba-plan-reglas.ts · lib/prueba-plan.ts · lib/cobros.ts (`activarPruebaSiAutorizo`,
 `suscripcionDeMakoDe`, `darDeBajaMiPlan`, `reconciliarCobros`) · lib/compra-plan.ts (`puedeEmpezarPrueba`,
 `iniciarCompraDePlan`) · lib/plan-acceso-reglas.ts (`pruebaDelLugar`) · lib/plan-esencial.ts · app/pagar/[token]/listo ·
 app/planes/[plan]/CompraPlan.tsx · app/api/cron/aviso-fin-de-prueba · supabase/migrations/0334_prueba_de_plan.sql ·
 tests/prueba-plan.test.ts.
+
+### Los topes de la prueba y «Empezar mi plan ya» (tanda D3, 25/10/2026)
+
+- **El diagnóstico obvio era el equivocado: «topear por lo que cuesta».** Los videos y las imágenes se generan con el Google
+  Flow del CLIENTE (su cuenta, sus créditos, en su navegador): a MaKo casi no le cuestan. El tope es por lo que alguien se
+  LLEVA gratis y después se va. Por eso «3 videos» son 3 ANUNCIOS armados (el primer montaje de cada uno; volver a armarlo es el
+  mismo video), y las tomas sueltas van aparte con 30, porque una toma se descarga sin armar el anuncio. Las 30 tomas las
+  decidí acá; el resto son los números del Cerebro (`TOPES_PRUEBA`, lib/topes-plan.ts, con `topeDe(CAPA_PRUEBA, …)`).
+- **No había un contador de usos por negocio**: `anthropic_usage` cuenta llamadas de texto y su workspace es el dueño de la
+  clave, no el cliente; las tomas de Flow no quedan en ninguna tabla por negocio. El uso de la prueba se suma en un setting
+  del negocio (`prueba.uso`, lib/prueba-uso.ts), SÓLO mientras está en prueba: con el primer cobro los topes se van solos.
+- **Las páginas publicadas se cuentan de la tabla** (las publicadas HOY, no «desde que empezó»): despublicar libera el lugar,
+  como en el tope de Esencial.
+- **Trampa: un error TIRADO por una acción del servidor llega sin su texto en producción.** La exportación de leads devolvía el
+  archivo y tiraba en el error: el «Disponible al terminar tu prueba» se habría visto como un error genérico. El modal pregunta
+  antes (`topeDeExportarAction`) y la acción vuelve a frenar. Exportar en masa hoy es sólo el CSV de leads: la «biblioteca de
+  creativos» no tiene descarga en masa (cada video se baja de a uno).
+- **«Empezar mi plan ya» no adelanta la prueba** (Mercado Pago no documenta mover el `start_date` de una suscripción
+  autorizada): abre una suscripción NUEVA atada al negocio, y la prueba se cancela recién cuando esa nueva se COBRA
+  (`cerrarPruebaAlEmpezarYa`). Abrir el link y no pagar no le quita la prueba a nadie. Si el día 8 llega antes que ese pago, el
+  primer mes entra dos veces: se cancela la nueva y se avisa a equipo@ para devolver uno. A menos de un día del cobro no se
+  ofrece.
+- **«Tu plan» en prueba** dice hasta cuándo va y cuánto se cobra, ofrece «Empezar mi plan ya» (arriba de todo si llega desde un
+  tope, `?empezar=1`) y no ofrece «Pasar a Pro» ni la oferta de retención: no hay un mes pagado sobre el que hacerlas.
+
+**Sin hacer (de los topes):** el Media Buyer vive en otra rama (wt-mediabuyer-2510): su `cupoDe(ws)` tiene que leer
+`estadoDePrueba(ws).enPrueba` (lib/prueba-uso.ts) para negar el piloto automático en la prueba; se lo pasé al Cerebro. El
+error por toma del AI Avatar y la pantalla del avatar del editor de video dicen el texto del tope sin el botón. «Tu plan» del
+teléfono no tiene «Empezar mi plan ya». **Vive en:** lib/topes-plan.ts · lib/prueba-uso.ts · lib/empezar-plan.ts ·
+app/_ui/EmpezarPlanYa.tsx · lib/cobros.ts (`cerrarPruebaAlEmpezarYa`) · app/video-generator/video-action.ts ·
+app/ai-avatar/actions.ts · app/video-editor/avatar/actions.ts · lib/editor-landing/tope-landings-server.ts · app/crm/actions.ts ·
+app/configuraciones/plan · tests/prueba-topes.test.ts.

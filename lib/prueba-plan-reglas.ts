@@ -40,6 +40,16 @@ export function esPruebaDePlan(c: { tipo: string; alta_capa?: string | null; cre
  */
 export const FILTRO_SUSCRIPCION_DE_MAKO = 'estado.eq.pagado,and(estado.eq.pendiente,suscripcion_estado.not.is.null,creado_por.like.planes:*:prueba)';
 
+/**
+ * «Empezar mi plan ya» (lib/empezar-plan.ts): el cobro nuevo, sin prueba, lleva en `creado_por` la prueba que reemplaza. Al
+ * cobrarse, esa prueba se cancela (`cerrarPruebaAlEmpezarYa`, lib/cobros.ts).
+ */
+export const creadoPorEmpezarYa = (pruebaId: number): string => `empezar-ya:${pruebaId}`;
+export function pruebaDeEmpezarYa(creadoPor: string | null | undefined): number | null {
+  const m = /^empezar-ya:(\d{1,12})$/.exec(creadoPor ?? '');
+  return m ? Number(m[1]) : null;
+}
+
 /** El día del primer cobro: `PRUEBA_DIAS` después de empezar. */
 export const finDeLaPrueba = (desdeMs: number): string => new Date(desdeMs + PRUEBA_DIAS * DIA_MS).toISOString();
 

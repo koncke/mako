@@ -18,6 +18,7 @@ import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import { textoDeLaVuelta, type ResumenRecolector } from '@/lib/recolector-reglas';
 import { cambiarRecolectorAction } from './recolector-actions';
+import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
 
 const CSS = `
 .as-boton{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--border);
@@ -121,7 +122,8 @@ export function AprendeSolo({ resumen, soloCuentas }: { resumen: ResumenRecolect
                 {resumen.sinIndice > 0 && (
                   <p className="as-aviso">
                     {resumen.sinIndice} {resumen.sinIndice === 1 ? 'conversación todavía no la usa' : 'conversaciones todavía no las usa'} al
-                    responder: conecta tu Gemini en <a href="/integraciones">Integraciones</a>.
+                    {/* Conectar nunca saca de la tab (regla del 14/10/2026): el modal de la integración, acá mismo. */}
+                    responder: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>conecta tu Gemini</BotonIntegracion>.
                   </p>
                 )}
                 {soloCuentas
