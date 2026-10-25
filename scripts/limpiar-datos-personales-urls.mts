@@ -1,8 +1,8 @@
 // =============================================================================
-// limpiar-datos-personales-urls — saca los datos de una persona de las URL YA GUARDADAS (25/10/2026, P6)
+// limpiar-datos-personales-urls — saca los datos de una persona de las URL YA GUARDADAS (24/10/2026, P6)
 // =============================================================================
-// Desde el 25/10 las rutas del Pixel guardan la URL sin los datos de una persona (lib/url-datos-personales.ts). Lo que se
-// guardó antes sigue ahí: medido el 25/10 (sólo lectura), 487 filas de `vsl_events` y 112 de `landing_visits` de Código
+// Desde el 24/10 las rutas del Pixel guardan la URL sin los datos de una persona (lib/url-datos-personales.ts). Lo que se
+// guardó antes sigue ahí: medido el 24/10 (sólo lectura), 487 filas de `vsl_events` y 112 de `landing_visits` de Código
 // Inmobiliario (ws 13, ~75 personas) y P2P Consulting (ws 14, 3 personas), con `?name=…&email=…` de la página de gracias
 // de Calendly. `replay_sesiones`: ninguna.
 //

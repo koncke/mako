@@ -86,4 +86,4 @@ el de la casa. Las opciones las arma una función pura con test, como `opcionesC
 | 2. La tarjeta lista ↔ chat, el Panel sólo sin landings | **hecho**, 7ae16876e (sin recorrer con clics: falta mirarlo desplegado) |
 | 3. Una sola barra, Compartir con Exportar | **hecho**, 7ae16876e; **corregido el 24/10 noche** (claude5): Compartir y Publicar eran DOS botones; ahora uno azul «Compartir» con su ▾, y el panel copiado de Canva |
 | 4. «Nueva landing» abre las plantillas | **NO cumplía** (iba al Panel: otra ruta y otra barra lateral); **corregido el 24/10 noche** (claude5): se abre adentro del editor, en lugar de la barra y el lienzo |
-| 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **sin hacer**: el plan está arriba |
+| 5. El menú mínimo en `HiloMako` y el clic derecho del lienzo | **hecho el 24/10 noche** (claude5): Copiar en todos los chats con `HiloMako` y Responder en el del editor web; en el lienzo, el clic derecho abre el menú del ⋮ en el punto del clic (no una lista nueva). Falta Responder en los otros chats (cada uno pasa `onCitar`) y mirarlo con clics |

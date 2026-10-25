@@ -1,9 +1,9 @@
 // =============================================================================
-// url-datos-personales — sacar de una URL los datos de una PERSONA antes de guardarla (25/10/2026, P6)
+// url-datos-personales — sacar de una URL los datos de una PERSONA antes de guardarla (24/10/2026, P6)
 // =============================================================================
 // La página de gracias de una agenda lleva los datos de quien agendó en la URL: Calendly redirige a
 // `…/gracias?name=Ana+Pérez&email=ana@…` (y `rescheduledby=<email>` al reprogramar). El Pixel manda la URL de cada
-// página que se ve, y la guardábamos ENTERA: medido el 25/10/2026 (sólo lectura), 487 filas de `vsl_events.landing_url`
+// página que se ve, y la guardábamos ENTERA: medido el 24/10/2026 (sólo lectura), 487 filas de `vsl_events.landing_url`
 // y 112 de `landing_visits.landing_url` con nombre y email en claro, de Código Inmobiliario (~75 personas) y de P2P
 // Consulting (3). Que el Pixel le pase esos datos a Meta (CAPI) está bien: van hasheados y lo hace el navegador. Lo que no
 // estaba bien es que NOSOTROS los guardáramos en tablas de eventos que no son el lugar de los datos de una persona
@@ -15,7 +15,7 @@
 // URLs cambia. Una URL ADENTRO de un parámetro (`?next=https%3A…%3Fname%3D…`, o un `?` repetido) se limpia igual.
 // ⚠️ NO por «parece un teléfono» sin más: los ids de campaña de Meta (`utm_id=1202…`) son números largos y no son de nadie
 //    (en la medición, 84 mil filas eran eso). Un nombre de TELÉFONO sí, pero sólo si el valor trae dígitos (`tel=1` no).
-// ⚠️ Revisión adversarial del 25/10 (docs/hallazgos-landing.md, P6): los nombres de Hotmart y Calendly prellenado, las
+// ⚠️ Revisión adversarial del 24/10 (docs/hallazgos-landing.md, P6): los nombres de Hotmart y Calendly prellenado, las
 //    claves con corchetes (`data[phone]`), `&amp;`, `;`, la doble codificación y el router con `#` entran por acá.
 //
 // Lo usan las rutas del Pixel (app/api/track/vsl, optin y replay) y `normalizarUrl` (lib/landing-paginas.ts).

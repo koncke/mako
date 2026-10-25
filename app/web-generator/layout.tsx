@@ -1,5 +1,5 @@
 // =============================================================================
-// /web-generator — las rutas que REDIRIGEN lo hacen acá, ANTES del loader (25/10/2026, ticket #9)
+// /web-generator — las rutas que REDIRIGEN lo hacen acá, ANTES del loader (24/10/2026, ticket #9)
 // =============================================================================
 // Ticket #9 (ws 10, 24/10 21:43 ART): «La pantalla «Web Generator» se rompió», «Minified React error #310» al abrir
 // /web-generator. Es el mismo caso del ticket #7 (docs/hallazgos-infra.md): `app/web-generator/loading.tsx` es un Suspense

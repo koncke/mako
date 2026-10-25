@@ -150,7 +150,7 @@ export function normalizarUrl(crudo: string): string | null {
     // UTM y los click-ids de las plataformas son el mismo caso: dicen de dónde
     // vino esta VISITA, no qué página es.
     for (const p of PARAMS_DE_MEDICION) u.searchParams.delete(p);
-    // ⚠️ NI LOS DATOS DE UNA PERSONA (25/10/2026, P6). La página de gracias de una agenda trae `?name=…&email=…` y esto
+    // ⚠️ NI LOS DATOS DE UNA PERSONA (24/10/2026, P6). La página de gracias de una agenda trae `?name=…&email=…` y esto
     // los dejaba pasar a toda lista de páginas (el probador, el pagina_registro de un lead, el cruce de funnels). Tampoco
     // identifican una página. La regla vive en lib/url-datos-personales.ts.
     for (const [k, v] of [...u.searchParams]) if (esParametroPersonal(k, v)) u.searchParams.delete(k);

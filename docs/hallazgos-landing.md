@@ -4457,7 +4457,7 @@ la base, las grabaciones y GETs a Stripe. Lo pidió el Cerebro después de la au
 - **Sin medir:** quién abrió cada uno de los 12 checkouts (Stripe no guarda el origen; el del 18/10 03:45 UTC es casi
   seguro una prueba de Martín: salió 3 minutos después de mandarle el link).
 
-## Los datos de una persona en las URL que guarda el Pixel (25/10/2026, P6)
+## Los datos de una persona en las URL que guarda el Pixel (24/10/2026, P6)
 
 **Síntoma:** la página de gracias de Calendly trae `?name=…&email=…` y el Pixel manda la URL de cada página vista: la
 guardábamos ENTERA. Medido (sólo lectura, sin imprimir datos): **487 filas de `vsl_events.landing_url`, 112 de

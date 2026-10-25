@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
         e: payload.e,
         z: payload.z === 1 ? 1 : 0,
         ms: typeof payload.ms === 'number' && Number.isFinite(payload.ms) ? payload.ms : 0,
-        // Sin los datos de una persona en la query (25/10/2026, P6: lib/url-datos-personales.ts).
+        // Sin los datos de una persona en la query (24/10/2026, P6: lib/url-datos-personales.ts).
         landingUrl: texto(typeof payload.landing_url === 'string' ? urlSinDatosPersonales(payload.landing_url) : payload.landing_url, 500),
         prueba: texto(payload.prueba, 40),
         fin: payload.fin === 1 || payload.fin === true,

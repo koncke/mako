@@ -476,7 +476,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '22:41', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    fecha: '24 oct', hora: '22:41', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
     titulo: 'MaKo ya no guarda el nombre y el email de quien agenda en las direcciones de las páginas',
     puntos: [

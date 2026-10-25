@@ -23,10 +23,19 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
 - **Tanda 4 (punto 4): hecha.** Escribir dentro de un «Diseño editable» ya andaba (medido por CDP); lo arreglado: el clic
   adentro activa la sección, la IA del chat ve y cambia sus TEXTOS sin tocar la forma (`{"t":"diseno"}`), y la barrita
   suma negrita y cursiva. Detalle: docs/hallazgos-editor-landing.md → «Las páginas de MaKo editables por sección…».
-- **Sigue:** P6 (sanear `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho, `HiloMako`) de
-  docs/pendientes.md. Después, de docs/pendientes.md: P6 (sanear
-  `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
-  docs/diseno-editor-web-como-automations.md §5).
+- **Ticket #9 (React #310 al abrir /web-generator): hecho.** El salto a la última landing pasa en
+  `app/web-generator/layout.tsx`, antes del loader; un test revisa toda la app. Detalle: docs/hallazgos-infra.md.
+  **Sin medir en producción** (la pestaña del Chrome de Martín no respondió).
+- **P6 (los datos de una persona en las URL del Pixel): hecho al guardar.** `lib/url-datos-personales.ts` en las rutas
+  del Pixel y en `normalizarUrl`. ⚠️ **Lo YA guardado (unas 670 filas de Código Inmobiliario y P2P Consulting) NO se
+  limpió:** `scripts/limpiar-datos-personales-urls.mts --aplicar` espera el OK del Cerebro. Detalle:
+  docs/hallazgos-landing.md → «Los datos de una persona en las URL…».
+- **P5 (el clic derecho): hecho, sin mirar con clics.** El menú de un mensaje en todos los chats con `HiloMako` (Copiar;
+  Responder en el del editor web, con la cita arriba de la caja) y, en el lienzo, el menú del ⋮ en el punto del clic.
+  Falta Responder en los otros chats (cada pantalla pasa `onCitar`). Detalle: docs/hallazgos-editor-landing.md → «El
+  clic derecho en los chats embebidos y en el lienzo».
+- **Sigue:** mirar todo con clics a 1280 px en el editor desplegado (la barra única, y que el análisis de la página de
+  Mauricio no dé 403); el OK para limpiar lo guardado de P6.
 
 ## Estado al 24/10/2026 madrugada (cuenta claude1)
 

@@ -108,7 +108,7 @@ const CORPUS = [
 ];
 
 /**
- * El ÚNICO cambio de forma a propósito de `normalizarUrl` (25/10/2026, P6): ya no deja pasar los datos de una persona
+ * El ÚNICO cambio de forma a propósito de `normalizarUrl` (24/10/2026, P6): ya no deja pasar los datos de una persona
  * (`?name=…&email=…` de la página de gracias de una agenda: lib/url-datos-personales.ts). Para el resto del corpus es
  * la identidad. Medido antes de cambiarlo: ninguna llave guardada de un negocio (`app_settings`) los tenía.
  */

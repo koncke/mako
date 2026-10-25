@@ -308,7 +308,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
   // Sanitizadores de los campos nuevos (opcionales, beacon viejo sigue andando).
   const texto = (v: unknown, max: number): string | null =>
     typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null;
-  // La URL de la página SIN los datos de una persona (25/10/2026, P6: la página de gracias de Calendly trae `?name=…&email=…`
+  // La URL de la página SIN los datos de una persona (24/10/2026, P6: la página de gracias de Calendly trae `?name=…&email=…`
   // y la guardábamos entera). Se saca ANTES de cortar a 500: un corte podía dejar medio email adentro.
   const urlGuardable = (v: unknown): string | null => texto(typeof v === 'string' ? urlSinDatosPersonales(v) : v, 500);
 
@@ -348,7 +348,7 @@ async function procesar(payload: Payload, visitorId: string, ip: string, ubicaci
         visitor_id: visitorId,
         // URL exacta de la landing (multi-landing / pruebas A/B) + referrer.
         landing_url: urlGuardable(payload.landing_url),
-        // El referrer de la página que sigue a /gracias trae la misma query (25/10, revisión adversarial de P6).
+        // El referrer de la página que sigue a /gracias trae la misma query (24/10, revisión adversarial de P6).
         referrer: urlGuardable(payload.referrer),
         prueba: texto(payload.prueba, 40),
         // ⚠️ ACÁ NO VA `auto`. Una VISITA no se reproduce sola: el autoplay es una

@@ -207,7 +207,7 @@ export async function POST(req: NextRequest) {
           // opt-in sin pagina es el caso nuevo y se nombra: `sin_pagina`.
           detalle: txt(body.origen_captura) === 'agenda' ? 'agenda' : 'sin_pagina',
           prueba: txt(body.prueba),
-          // Sin los datos de una persona (25/10/2026, P6): lo que se guarda es que PASÓ, no quién.
+          // Sin los datos de una persona (24/10/2026, P6): lo que se guarda es que PASÓ, no quién.
           landing_url: txt(typeof body.pagina === 'string' ? urlSinDatosPersonales(body.pagina) : body.pagina),
         });
       });

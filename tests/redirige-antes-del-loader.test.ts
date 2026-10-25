@@ -60,7 +60,7 @@ test('las páginas con loader que redirigen al super admin tienen su layout que 
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Ticket #9 (25/10/2026): el mismo #310 en /web-generator, que redirigía desde la página con loader desde el 24/10.
+// Ticket #9 (24/10/2026): el mismo #310 en /web-generator, que redirigía desde la página con loader desde el 24/10.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('/web-generator: el layout redirige ANTES del loader en las tres rutas que redirigen, con la regla de las páginas', async () => {
@@ -86,7 +86,7 @@ test('/web-generator: el layout redirige ANTES del loader en las tres rutas que 
 });
 
 /**
- * LO QUE YA ESTABA ASÍ el 25/10/2026, de otras tabs: páginas que redirigen debajo de un loader sin el layout que redirige
+ * LO QUE YA ESTABA ASÍ el 24/10/2026, de otras tabs: páginas que redirigen debajo de un loader sin el layout que redirige
  * antes. Cada una tiene el mismo riesgo del #310 (en una carga directa, la redirección va en el stream). No se tocaron en
  * el ticket #9 (son de otros chats); se anotaron en docs/hallazgos-infra.md. Una página NUEVA así hace fallar este test.
  */

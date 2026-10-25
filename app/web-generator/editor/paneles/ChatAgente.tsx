@@ -23,6 +23,8 @@ import type { ReactNode, RefObject } from 'react';
 import { PanelDeChat, type CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
+import { CitaCaja } from '@/app/admin/operaciones/MensajeWA';
+import type { MensajeWA } from '@/lib/centro-mensajes';
 
 /** Quien contesta en el hilo: la estrella de MaKo (23/10/2026; antes, la criatura de la tab). */
 const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
@@ -39,16 +41,21 @@ export function PanelAgenteChat({ cabecera, hilo, adjuntos, caja, children }: {
 }
 const nada = () => {};
 
-export function HiloAgente({ items, corriendo, enMensaje }: {
+export function HiloAgente({ items, corriendo, enMensaje, onCitar }: {
   items: readonly ItemHilo[];
   corriendo: boolean;
   enMensaje: (x: Extract<ItemHilo, { k: 'msg' }>) => EnMensaje | null;
+  /** «Responder» del clic derecho (24/10/2026, P5): la cita va arriba de la caja del agente. */
+  onCitar?: (m: MensajeWA) => void;
 }) {
   return (
     <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={corriendo ? { segs: 0 } : null}
-      tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+      tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} onCitar={onCitar} />
   );
 }
+
+/** La cita de «Responder» arriba de la caja: la del Ops Center (tocarla lleva al mensaje; la ✕ la saca). */
+export const CitaAgente = CitaCaja;
 
 /** La caja única, en su marco (`.co-caja`): lo que se escribe y se adjunta lo maneja el panel por props. */
 export function CajaAgente(p: PropsCajaChat) {

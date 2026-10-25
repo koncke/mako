@@ -1,5 +1,5 @@
 // =============================================================================
-// Las URL que guarda el Pixel van SIN los datos de una persona (25/10/2026, P6)
+// Las URL que guarda el Pixel van SIN los datos de una persona (24/10/2026, P6)
 // =============================================================================
 // La página de gracias de Calendly trae `?name=…&email=…` y la guardábamos entera en `vsl_events.landing_url` y en
 // `landing_visits.landing_url` (medido: 487 + 112 filas de Código Inmobiliario y P2P Consulting). La regla vive en
@@ -72,7 +72,7 @@ test('las tres rutas del Pixel guardan la URL saneada, ANTES de cortarla', () =>
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// La revisión adversarial del 25/10/2026: cada caso que se escapaba, y los falsos positivos que había que evitar.
+// La revisión adversarial del 24/10/2026: cada caso que se escapaba, y los falsos positivos que había que evitar.
 // ─────────────────────────────────────────────────────────────────────────────
 
 test('adversarial: nombres de otros formularios (Calendly prellenado, Hotmart, CF7, portugués) y claves con corchetes', () => {
