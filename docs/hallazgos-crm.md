@@ -366,7 +366,13 @@ entera (con el chat de CRM, que rehacía las tabs). Hubo tres propuestas y un ju
 - **El teléfono (/m)** dice la que hay que mirar primero, cuándo le sale lo próximo o su estado en dos palabras, y un
   punto del color del sello («Sprint · apertura · mañana 09:00 · +1»).
 
-**Sin hacer:** la foto de la FICHA ENTERA en producción, en escritorio y teléfono, cuando haya una sesión en el navegador.
+**La foto en ESCRITORIO, hecha (24/10/2026 ~22:30 ART, claude5, en el Chrome de Martín, sólo mirando):** `/crm/3445?ws=3`, un lead
+de prueba del Cliente de Prueba con una automatización en pausa. La tarjeta sale entre «Posibles duplicados» y «Calificación»: el sello
+de pausa, el nombre, «Automatización en pausa», «Le salió» con su hora, «En pausa» con lo que sigue punteado, «Frenar» en rojo abajo a la
+izquierda y «Ver todas» arriba a la derecha. **Sin hacer: la del TELÉFONO.** `/m/crm/<id>` en un navegador de escritorio devuelve la
+ficha de escritorio: la vista del teléfono la decide el servidor por el navegador o la cookie de vista (`prefiereMovil`, proxy.ts). En el
+Chrome de Martín eso es cambiarle la cookie o la ventana, y no se hizo: va con su teléfono o con Playwright en modo móvil. **De paso:**
+el avatar de ese lead dice «�M» (docs/hallazgos-ui.md, «Las iniciales de un avatar parten un emoji»).
 
 **Vive en:** app/crm/automatizacion-lead.ts (la vista, pura: `estadoDeTarjeta`, `rielDeTarjeta`, `ordenarTarjetas`,
 `tipoDeFreno`, `fechaCorta`, `diaCorto`, las preguntas) · app/crm/lead-view/ficha/resumen/automatizaciones.tsx (el bloque) ·
