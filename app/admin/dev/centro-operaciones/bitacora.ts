@@ -1845,4 +1845,15 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['app/_components/Sidebar.tsx — el menú de la foto · app/_ui/icono-tuerca.ts · icons.tsx · iconos-menu.tsx', 'tests/menu-perfil-tuerca.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '15:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que contesta cada chat llega entero al Ops Center',
+    pedido: 'Del mismo pedido: «que no haya nunca un limite de caracteres, en todo caso achica el mensaje y hazlo más claro». El Cerebro decidió subir el tope.',
+    puntos: [
+      '**Ya no se corta a los 4000 caracteres**: lo que contesta un chat llega entero (sólo hay un tope técnico muy alto contra abusos), y lo largo se ve resumido con «Ver todo».',
+      '**Falta instalar el programa nuevo en las computadoras** (el cartero 1.19.0), después de desplegar el servidor: hasta entonces, lo que llega sigue cortado.',
+    ],
+    archivos: ['lib/operaciones-reglas.ts — TOPE_TURNO, TEXTO_POR_CHAT · scripts/operaciones/cartero.mjs (1.19.0)', 'tests/turnos-enteros.test.ts'],
+  },
 ];

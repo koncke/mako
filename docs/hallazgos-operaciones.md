@@ -31,6 +31,16 @@ del código.
     tiene el texto que escribió. Uno largo se achica a 4 renglones con su propio «Ver todo» (no se corta).
   - **Los rótulos:** «Respuesta de <chat>» sobre la respuesta, y «Ya lo vi» en lugar de «Visto».
   - ⚠️ `tests/centro-ops7.test.ts` fijaba el aviso de corte (el pedido del 17/10 era avisarlo). Se actualizó: es la regla nueva.
+  - **Y después el texto entero** (la tercera tanda, decisión del Cerebro): `TOPE_TURNO` pasó de 4000 a 200.000, un tope
+    técnico contra abusos. Lo que no se ve y cuesta:
+    - **El ORDEN de los despliegues importa:** primero el servidor (que acepta lo largo), después el cartero 1.19.0. Un cartero
+      viejo contra el servidor nuevo sigue mandando 4000 y no rompe nada; uno nuevo contra el servidor viejo, se cortaba igual.
+    - **Lo cortado se sigue reconociendo:** justo 4000 caracteres es un cartero viejo (`TOPE_TURNO_VIEJO`), y termina en «…».
+    - **Una vuelta con turnos enteros podía pasar el límite del cuerpo de Vercel (4,5 MB) y fallar ENTERA**, todas las vueltas
+      de esa cuenta: el cartero reparte por un presupuesto de texto (`MAX_TEXTO_VUELTA`, 1,5 millones de caracteres), y lo que
+      no entra sale en la siguiente (la marca de ese chat no avanza), igual que los 300 turnos. El primer chat entra siempre.
+    - **Un chat no puede pesar megas en cada lectura:** la base guarda sus turnos más nuevos que entren en `TEXTO_POR_CHAT`
+      (600.000), además de los 60 de siempre; el último entra aunque solo lo pase.
 
 **Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`) · `Avance.tsx`
 (`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·

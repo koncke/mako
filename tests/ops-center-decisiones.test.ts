@@ -48,7 +48,7 @@ const ask = JSON.stringify({
 
 test('1. el cartero sube las preguntas de un AskUserQuestion: una por pregunta, con su recomendada, y con el mismo id siempre', async () => {
   const { turnosDeLineas, VERSION } = await cartero();
-  assert.equal(VERSION, '1.18.1'); // 1.18.1: «la última de cada chat», sólo de wrap_up (tests/preguntas-cadena-y-ask.test.ts)
+  assert.equal(VERSION, '1.19.0'); // 1.18.1: «la última de cada chat», sólo de wrap_up; 1.19.0: los turnos, enteros (tests/turnos-enteros.test.ts)
   const r = turnosDeLineas([ask]);
   assert.equal(r.preguntas.length, 2);
   const [a, b] = r.preguntas;
