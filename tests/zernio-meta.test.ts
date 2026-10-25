@@ -17,10 +17,13 @@ import {
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
-test('apagado hasta la prueba en la cuenta de MaKo', () => {
-  // Se prende con scripts/prueba-zernio-meta.mts pasada, y con su resultado en docs/hallazgos-integraciones.md.
-  assert.equal(ZERNIO_META_PROBADO, false);
-  // Y mientras tanto lo nuevo corre SÓLO en el negocio de la plataforma: nunca primero en un cliente.
+test('prendido SÓLO con la prueba pasada en la cuenta de MaKo, y la prueba escrita donde se lee', () => {
+  // Se prendió el 25/10/2026 con scripts/prueba-zernio-meta.mts pasada (CAPI con TEST96217 incluido). Si alguien lo prende
+  // sin dejar la prueba escrita, o lo apaga, este test lo dice.
+  assert.equal(ZERNIO_META_PROBADO, true);
+  const hallazgos = leer('../docs/hallazgos-integraciones.md');
+  assert.match(hallazgos, /TEST96217[\s\S]{0,400}eventsReceived/, 'prendido sin la prueba de CAPI escrita en hallazgos');
+  // Apagado vuelve a correr SÓLO en el negocio de la plataforma: nunca primero en un cliente.
   const via = leer('../lib/meta-via.ts');
   assert.match(via, /if \(ZERNIO_META_PROBADO\) return true;\n\s*return ws === \(await wsSuperAdmin\(\)/);
 });

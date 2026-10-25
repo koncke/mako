@@ -23,8 +23,9 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
   arranque (que posterga el paso de integraciones) y el medidor ven a un negocio conectado sólo por Zernio.
 - **El tutorial:** en la app, el «?» de «Token del píxel» (pasos numerados) y una línea de deduplicación en el del píxel; entero,
   con el `eventID` y el Schedule doble de Mauricio, en `docs/tutorial-capi-pixel.md`.
-- **Todo APAGADO detrás de la prueba:** `ZERNIO_META_PROBADO = false` (lib/zernio-meta-cuerpo.ts). Mientras tanto Zernio corre
-  SÓLO en el negocio de la plataforma (el de MaKo). Ningún cliente cambia de camino.
+- **Prendido para todos el 25/10** (`ZERNIO_META_PROBADO = true`, lib/zernio-meta-cuerpo.ts) con la prueba pasada primero en el
+  negocio de la plataforma. Un negocio cambia de camino recién cuando conecta («Conectar con Facebook»); el que no conecta sigue
+  con su token hasta el corte (`CORTE_TOKEN_META`, que se fija el día del aviso).
 
 ## La prueba en la cuenta de MaKo (25/10/2026)
 
@@ -39,7 +40,10 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
   reales: Meta conectada, lecturas sin errores, salud en verde, CAPI por la conexión de Facebook).
 - **El nivel anuncio, medido con la tarjeta (25/10):** sobre la campaña de prueba del Media Buyer (en pausa), Zernio da el
   conjunto con presupuesto 1 USD en unidades, el anuncio con imagen, miniatura y post, y las finanzas con la tarjeta.
-- **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
+- **CAPI: PROBADO (~20:35 UTC) con TEST96217** — dos Lead de prueba (el script y `probar_capi_meta`), `eventsReceived: 1` cada
+  uno. Con eso `ZERNIO_META_PROBADO = true`: Meta por Zernio queda prendido para todos los negocios que conecten.
+- **Lo que falta ver con datos reales:** filas de insights (la cuenta de MaKo no gasta): en el primer cron de un negocio que
+  gaste y conecte (Código Inmobiliario ya tiene clave de Zernio).
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
 
 ## La deprecación del token de Meta (pedido de Martín, 25/10 ~15:40)

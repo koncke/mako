@@ -14,9 +14,9 @@
 //     no pixel-scoped access token to paste» (su guía de Meta). Zernio hashea email, teléfono, nombres y `externalId`:
 //     se mandan EN CLARO. `eventId` es OBLIGATORIO.
 //
-// ⚠️ NADA DE ESTO ESTÁ PROBADO CONTRA LA CUENTA REAL. Lo decide la cuenta publicitaria de MaKo (act_1426493815659364)
-// conectada a Zernio con el clic de Martín (scripts/prueba-zernio-meta.mts). Hasta entonces `ZERNIO_META_PROBADO` queda
-// en false y lo nuevo corre SÓLO en el negocio de la plataforma (el de MaKo), que es donde se prueba.
+// PROBADO el 25/10/2026 en la cuenta publicitaria de MaKo (act_1426493815659364), conectada a Zernio con el clic de Martín
+// (scripts/prueba-zernio-meta.mts): la conexión, las lecturas, el nivel anuncio con la tarjeta y CAPI. Lo que NO se pudo medir
+// ahí: filas de insights reales (la cuenta nunca gastó): se miran en el primer cron de un negocio que gaste.
 //
 // Sin `server-only`: lo ejecutan los tests sin red.
 // =============================================================================
@@ -24,11 +24,14 @@
 import type { MetaInsightRaw } from './types';
 
 /**
- * Se prende SÓLO con la prueba de scripts/prueba-zernio-meta.mts pasada en la cuenta de MaKo, y con su resultado en
- * docs/hallazgos-integraciones.md. Prendido: todo negocio con su conexión de anuncios de Zernio lee y escribe Meta por ahí,
- * y el token de Meta deja de pedirse en el onboarding y en Integraciones.
+ * PRENDIDO el 25/10/2026 con la prueba pasada en la cuenta de MaKo (docs/hallazgos-integraciones.md → «Meta entero por la
+ * Zernio del negocio»): la conexión quedó al segundo clic, con la página fija; las lecturas del cron, la salud, el modal del
+ * anuncio y la API contestan sin errores; el nivel anuncio da el presupuesto en unidades y el creativo con su post; y CAPI
+ * llegó al píxel con el código de «Probar eventos» TEST96217 (eventsReceived 1, por el script y por `probar_capi_meta`).
+ * Prendido: todo negocio con su conexión de anuncios de Zernio lee y escribe Meta por ahí, y el token de Meta deja de pedirse
+ * en Integraciones (queda plegado para quien lo tenía).
  */
-export const ZERNIO_META_PROBADO = false;
+export const ZERNIO_META_PROBADO = true;
 
 /** La credencial con el `_id` de la conexión `metaads` del negocio en SU Zernio. Un id, no un secreto: la escribe sólo el server. */
 export const ENV_CUENTA_ZERNIO = 'META_ZERNIO_CUENTA';

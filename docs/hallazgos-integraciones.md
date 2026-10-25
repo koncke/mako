@@ -1785,6 +1785,11 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
   y CAPI (falta el código de «Probar eventos»).
 
+- **CAPI por Zernio, PROBADO el 25/10 (~20:35 UTC) con el código de «Probar eventos» TEST96217** sobre el píxel de MaKo
+  (`1869323014511830`), con la conexión de permiso «Control total»: dos Lead de prueba, uno por el script (`capi --si`:
+  `eventsReceived: 1`, `eventsFailed: 0`, fbtrace `AW5-rkSpUET8ixrvKTtm9R8`) y otro por el camino entero de la app
+  (`probar_capi_meta` → `sendMetaCAPIEvent` → Zernio: recibidos 1). Con eso se prendió `ZERNIO_META_PROBADO`. Sigue sin medir si
+  alcanza «Administrar campañas» (`advertise`): por eso el botón pide «Control total».
 - **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
   que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
   conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el

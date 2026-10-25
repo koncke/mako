@@ -10,8 +10,8 @@
 // Zernio: las lecturas que reemplazan a la Graph API (insights, presupuestos en vivo) devuelven la MISMA forma que Meta,
 // así quien las usa no cambia su parser.
 //
-// ⚠️ APAGADO detrás de la prueba (`ZERNIO_META_PROBADO`): mientras no pase, Zernio se usa SÓLO en el negocio de la
-// plataforma (el de MaKo), que es donde se prueba. Ningún cliente pasa primero.
+// Prendido para todos el 25/10/2026 (`ZERNIO_META_PROBADO`), con la prueba pasada primero en el negocio de la plataforma (el de
+// MaKo): ningún cliente pasó primero. Apagarlo vuelve a dejar a Zernio sólo en el negocio de la plataforma.
 //
 // TENANT-SAFETY: `ws` explícito o el del contexto (`runWithWorkspace` en los crons). La clave de Zernio es la del negocio
 // (`claveZernioAnuncios`: la de la plataforma sólo para el negocio de la plataforma).
