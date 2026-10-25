@@ -1,0 +1,7 @@
+/* La tapa de la app de escritorio mientras decide si pide el login (PuertaDeLaApp, 25/10/2026): sólo en la app instalada de la
+   computadora (`pointer: fine`: la del teléfono también corre «instalada» y no es esta regla). Sin ella se veía un instante la
+   cuenta que hubiera en el perfil del navegador antes de preguntar. */
+.puerta-app { display: none; }
+@media (display-mode: standalone) and (pointer: fine), (display-mode: window-controls-overlay) and (pointer: fine), (display-mode: minimal-ui) and (pointer: fine) {
+  .puerta-app { display: block; position: fixed; inset: 0; z-index: 2147483000; background: var(--bg, #F4F6F9); }
+}

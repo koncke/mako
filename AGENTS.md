@@ -2366,6 +2366,15 @@ scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier pág
 llevaría la computadora del cliente (y su Claude) a otro MaKo. La app pregunta en una ventana del sistema a qué negocio y como
 quién se conecta; sin poder mostrarla, «no» (docs/plan-instalador-escritorio.md).
 
+## Y emparejar la computadora NUNCA abre una cuenta; la app de escritorio pide el login de la persona (25/10/2026)
+
+El token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) no son una sesión, ninguna ruta de `/api/ia-pc` toca una cookie, y una
+sesión la arman SÓLO los logins (los que importan `lib/sesion-cookies.ts`). Lo fija `tests/ia-pc-nunca-sesion.test.ts`: una ruta
+nueva que arme sesiones va a esa lista con su porqué. Y toda ventana de la app de escritorio (la app web instalada, el acceso
+«MaKo» con `?app=1`) pasa por el login de la persona: una app instalada hereda la sesión de su perfil del navegador, que puede
+ser de otro (Martín entró a la cuenta de Mauricio así: docs/hallazgos-seguridad.md). Lo hace `app/_components/PuertaDeLaApp.tsx`
+con la sesión que firma cuándo se entró (`iat`); un enlace nuevo que abra la app lleva `?app=1`, nunca un token.
+
 ## Y un código que pide un archivo del Storage no se sube sin el archivo
 
 La 0.3.2 de «MaKo en tu computadora» se desplegó el 21/10/2026 sin sus ejecutables en el bucket `ia-pc`: a todo cliente

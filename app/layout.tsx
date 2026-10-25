@@ -14,6 +14,7 @@ import { CentinelaArranque } from './_components/CentinelaArranque';
 import { SeccionesTab } from './_components/SeccionesTab';
 import { TituloTab } from './_components/TituloTab';
 import { WsFetch } from './_components/WsFetch';
+import { PuertaDeLaApp } from './_components/PuertaDeLaApp';
 import { TemaCandidato } from './_components/TemaCandidato';
 import { ModoArranque } from './_components/ModoArranque';
 import { ModoDelUsuario } from './_components/ModoDelUsuario';
@@ -160,6 +161,10 @@ export default async function RootLayout({
             le pega el `?ws=` de la pestaña a todas las llamadas a /api. Va lo más
             arriba posible del árbol para que el chunk cargue antes que nadie. */}
         <WsFetch />
+        {/* LA APP DE ESCRITORIO PIDE EL LOGIN (25/10/2026, Martín: «jamás me pidió login... entró directo a la cuenta de
+            Mauricio»): cada ventana nueva de la app instalada, o del acceso «MaKo», pasa por el login de la persona. Fuera de
+            la app no hace nada. Va arriba: su tapa tiene que estar antes de que se vea la cuenta del perfil. */}
+        <PuertaDeLaApp />
         {/* ⚠️ EL ENLACE DEL PUENTE VA EN EL LAYOUT, y no adentro de
             /video-generator. Su alcance tiene que ser el MISMO que el del content
             script que le habla, y ése está declarado en el manifest de la

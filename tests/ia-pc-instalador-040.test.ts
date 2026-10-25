@@ -5,8 +5,9 @@
 // app de escritorio con el típico panel de "avanzar"... Que al darle conectar si no tenes instalada la app, te deje
 // descargarla». Y el 22/10 a las 23:21, por el Cerebro: «la 0.4.0 sin firmar», con UNA línea para el aviso de Windows, y la
 // línea de PowerShell sólo como respaldo escondido. Lo que fija este test:
-//   1. en Windows son tres pasos y ninguno pide una terminal: descargar (con la línea del aviso), conectar con mako://, y la
-//      sesión de Claude con mako://iniciar-sesion; la línea de comandos, SÓLO plegada como respaldo; la Mac, como siempre;
+//   1. (25/10/2026, Martín: «rediseña eso, que se vea facil, mira la cantidad de texto») dos pantallas, un botón grande cada
+//      una, y ninguna con un comando ni un código a la vista: descargar (con la línea del aviso), conectar (el botón abre la app
+//      con mako://) y la sesión de Claude con mako://iniciar-sesion; la línea de comandos, SÓLO para una PC de la 0.3.x;
 //   2. «Descargar» pide la sesión, baja el instalador con su nombre, y si falta lo dice (no pasa callado);
 //   3. el instalador: por usuario, registra mako://, instala Claude Code oculto y sin la barra lenta, vuelve a arrancar la
 //      app, y al terminar abre «Tus cuentas de IA» directo en «Conecta MaKo» (con las PC de antes ya leídas).
@@ -16,40 +17,45 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  AVISO_PC_SIN_SESION, AVISO_SMARTSCREEN, RUTA_TRAS_INSTALAR, VERSION_PC, archivoDelInstalador, nombreDelInstalador,
+  AVISO_PC_SIN_SESION, AVISO_SMARTSCREEN, RUTA_TRAS_INSTALAR, abreEnlacesMako, VERSION_PC, archivoDelInstalador, nombreDelInstalador,
 } from '../lib/ia-pc-reglas';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. Windows y Mac: tres pasos sin terminal; la línea de comandos sólo plegada', () => {
+test('1. conectar sin terminal ni código a la vista: dos pantallas, un botón cada una (25/10/2026)', () => {
   assert.equal(AVISO_SMARTSCREEN, 'Si Windows dice «protegió su PC»: Más información › Ejecutar de todas formas.');
   const ui = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  const tut = ui.slice(ui.indexOf('function Tutorial('), ui.indexOf('function SusClaves('));
-  // Desde la 0.4.2 también la Mac (MaKo.app): tres pasos, y la Terminal plegada.
-  assert.match(tut, /const pasos = \[1, 2, 4\];/);
-  // Paso 2: descargar, con la UNA línea del aviso.
-  const descargar = tut.slice(tut.indexOf("{paso === 2 && sistema === 'windows' && ("), tut.indexOf("{paso === 2 && sistema === 'mac' && ("));
-  assert.match(descargar, /<a className="tci-boton" href="\/api\/ia-pc\/descargar\?os=windows">Descargar MaKo para Windows<\/a>/);
-  assert.equal((descargar.match(/\{AVISO_SMARTSCREEN\}/g) ?? []).length, 1);
-  // Paso 4: el botón abre el enlace con el código; la línea de PowerShell, sólo en el respaldo plegado.
-  const conectar = tut.slice(tut.indexOf("{sistema === 'windows' ? ("), tut.indexOf(') : (', tut.indexOf("{sistema === 'windows' ? (")));
-  assert.match(conectar, /<a className="tci-boton" href=\{`mako:\/\/conectar\?codigo=\$\{codigo\}`\}>Conectar esta computadora<\/a>/);
-  const respaldo = conectar.slice(conectar.indexOf('<details className="tci-respaldo">'), conectar.indexOf('</details>'));
-  assert.ok(respaldo.length > 0, 'falta el respaldo plegado');
-  const fueraDelRespaldo = conectar.replace(respaldo, '');
-  assert.doesNotMatch(fueraDelRespaldo, /DONDE_PEGAR|lineaDeInstalacion|COMANDO_CLAUDE|LOGIN_CLAUDE/, 'Windows pide abrir PowerShell fuera del respaldo');
-  assert.match(respaldo, /<Copiar texto=\{lineaDeInstalacion\(window\.location\.origin, 'windows', codigo\)\} \/>/);
-  // Lo de la terminal (instalar Claude Code, el login, la línea de conectar) sólo dentro de un respaldo plegado: en Windows
-  // y en la Mac.
-  const sinRespaldos = tut.replace(/<details className="tci-respaldo">[\s\S]*?<\/details>/g, '');
-  assert.doesNotMatch(sinRespaldos, /COMANDO_CLAUDE|LOGIN_CLAUDE|lineaDeInstalacion|DONDE_PEGAR/, 'el tutorial pide abrir una terminal fuera de un respaldo');
+  const tut = ui.slice(ui.indexOf('function Tutorial('), ui.indexOf('const LogoIA'));
+  assert.ok(tut.length > 1000, 'no encontré el tutorial');
+  // Dos pantallas: 2 (descargar) y 4 (conectar). El instalador vuelve al 4; «Nuevo dispositivo» abre el 2.
+  assert.match(tut, /const \[paso, setPaso\] = useState\(pasoInicial >= 4 \? 4 : 2\);/);
+  assert.doesNotMatch(tut, /Paso \$\{/, 'volvió el «Paso 3 de 3»');
+  // Paso 2: descargar el de esta computadora, con la UNA línea del aviso recién después de tocar.
+  assert.match(tut, /<a className="tci-instalar__boton" href=\{descarga\} onClick=\{\(\) => setBajado\(true\)\}>/);
+  assert.equal((tut.match(/AVISO_SMARTSCREEN/g) ?? []).length, 1);
+  // Paso 4: UN botón, «Conectar», que acepta y abre la app con el código (el enlace sale solo, no es otro botón).
+  assert.match(tut, /className="tci-instalar__boton" onClick=\{conectar\}>Conectar<\/button>/);
+  assert.match(tut, /const abrirEnWindows = \(c: string\) => \{ window\.location\.href = `mako:\/\/conectar\?codigo=\$\{c\}`; \};/);
+  // Cada pantalla, un solo botón grande.
+  for (const bloque of tut.split(/\{paso === /).slice(1)) {
+    assert.ok((bloque.match(/className="tci-instalar__boton"/g) ?? []).length <= 1, `dos botones grandes en una pantalla: ${bloque.slice(0, 60)}`);
+  }
+  // Nada de terminal en el tutorial: ni la línea de PowerShell, ni la de la Terminal, ni el login, ni un respaldo plegado.
+  assert.doesNotMatch(tut, /DONDE_PEGAR|lineaDeInstalacion|COMANDO_CLAUDE|LOGIN_CLAUDE|<details/, 'el tutorial muestra un comando');
+  // El código no se ve en Windows: sólo en la Mac, y sólo si no se pudo copiar solo.
+  assert.equal((tut.match(/<Copiar texto=\{codigo\} \/>/g) ?? []).length, 1);
+  assert.match(tut, /\{sistema === 'mac' && copiado === false && codigo && <Copiar texto=\{codigo\} \/>\}/);
   // Sin la sesión de Claude: en Windows, el enlace que la inicia sin terminal.
-  assert.match(tut, /<a className="tci-boton" href=\{conClaude \? 'mako:\/\/iniciar-sesion' : 'mako:\/\/iniciar-sesion\?ia=chatgpt'\}>\{`Iniciar sesión en \$\{nombre\}`\}<\/a>/);
+  assert.match(tut, /<a className="tci-instalar__boton" href=\{conClaude \? 'mako:\/\/iniciar-sesion' : 'mako:\/\/iniciar-sesion\?ia=chatgpt'\}>Iniciar sesión<\/a>/);
   // El aviso del chat sin la sesión de Claude no manda a un paso: en Windows el «paso 3» ya no existe (revisión de la 0.4.0).
   assert.doesNotMatch(AVISO_PC_SIN_SESION, /paso \d/, 'el aviso manda a un paso que no existe');
-  // Una PC de la 0.3.2 (instalada con la línea de comandos, como la del ws1) no abre mako://: plegada, la línea de siempre.
-  assert.match(tut, /<summary>¿No funciona\? Con la línea de comandos<\/summary>\s*<p>\{DONDE_PEGAR\.windows\}<\/p>\s*<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
+  // SÓLO una PC de la 0.3.x (instalada con la línea de comandos, como la del ws1) no abre mako://: ésa, y nadie más, ve la
+  // línea plegada, en su fila de las cuentas.
+  assert.match(ui, /\{!abreEnlacesMako\(d\.version\) && \(\s*<details className="tci-respaldo">\s*<summary>¿No funciona\? Con la línea de comandos<\/summary>\s*<p>\{DONDE_PEGAR\.windows\}<\/p>\s*<Copiar texto=\{LOGIN_CLAUDE\.windows\} \/>/);
+  for (const [v, abre] of [['0.3.2', false], ['0.3.2+windows', false], ['0.4.0', true], ['0.4.2+mac', true], ['1.0.0', true], [null, true]] as const) {
+    assert.equal(abreEnlacesMako(v), abre, `abreEnlacesMako(${v})`);
+  }
 });
 
 test('2. «Descargar» pide la sesión, baja el instalador con su nombre, y si falta lo dice', () => {

@@ -17,14 +17,17 @@ import { abrirMaKo, destinoDeAbrir, paginaDeLogin } from '../scripts/ia-pc/mako-
 const RAIZ = join(__dirname, '..');
 
 test('1. «MaKo» abre el Ops Center del negocio conectado; sin conexión, conectar la computadora', () => {
-  assert.equal(destinoDeAbrir(null), 'https://hola-mako.com/perfil/ia?computadora=1');
-  assert.equal(destinoDeAbrir({ pendiente: { token: 'x' } }), 'https://hola-mako.com/perfil/ia?computadora=1', 'pendiente no es conectada');
-  assert.equal(destinoDeAbrir({ token: 't', servidor: 'https://hola-mako.com' }), 'https://hola-mako.com/second-brain');
-  assert.equal(destinoDeAbrir({ token: 't' }), 'https://hola-mako.com/second-brain');
-  assert.equal(destinoDeAbrir({ token: 't', servidor: 'javascript:alert(1)' }), 'https://hola-mako.com/second-brain', 'un servidor raro no se abre');
+  // Con `app=1` (25/10/2026): la ventana del acceso pide el login de la persona (lib/app-escritorio-reglas.ts), y el token de la
+  // PC nunca va en el enlace.
+  assert.equal(destinoDeAbrir(null), 'https://hola-mako.com/perfil/ia?computadora=1&app=1');
+  assert.equal(destinoDeAbrir({ pendiente: { token: 'x' } }), 'https://hola-mako.com/perfil/ia?computadora=1&app=1', 'pendiente no es conectada');
+  assert.equal(destinoDeAbrir({ token: 't', servidor: 'https://hola-mako.com' }), 'https://hola-mako.com/second-brain?app=1');
+  assert.equal(destinoDeAbrir({ token: 't' }), 'https://hola-mako.com/second-brain?app=1');
+  assert.equal(destinoDeAbrir({ token: 't', servidor: 'javascript:alert(1)' }), 'https://hola-mako.com/second-brain?app=1', 'un servidor raro no se abre');
+  assert.ok(!destinoDeAbrir({ token: 'mkopc_SECRETO', servidor: 'https://hola-mako.com' }).includes('mkopc_'), 'el token de la PC viaja en el enlace');
   const abiertos: string[] = [];
   assert.equal(abrirMaKo({ abrir: (u: string) => { abiertos.push(u); return true; }, config: { token: 't', servidor: 'https://hola-mako.com' } }), 0);
-  assert.deepEqual(abiertos, ['https://hola-mako.com/second-brain']);
+  assert.deepEqual(abiertos, ['https://hola-mako.com/second-brain?app=1']);
   assert.equal(abrirMaKo({ abrir: () => false, config: null }), 1);
   const src = readFileSync(join(RAIZ, 'scripts/ia-pc/mako-pc.mjs'), 'utf8');
   assert.match(src, /else if \(cmd === 'abrir'\) salir\(abrirMaKo\(\)\);/, 'el comando');
