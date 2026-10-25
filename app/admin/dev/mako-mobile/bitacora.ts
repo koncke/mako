@@ -218,4 +218,20 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/movil-rutas.ts — masCompleto: una fila de Dashboard por rol', 'tests/sidebar-nueva.test.ts — probado rompiéndolo'],
     revisar: '/m/mas',
   },
+  {
+    fecha: '25 oct', hora: '00:39', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las pantallas que te mandan a otra parte ya no pueden romperse al abrirlas',
+    puntos: [
+      'Cuando una pantalla te tiene que mandar a otro lado (porque falta terminar el arranque, porque no está en tu plan o porque no iniciaste sesión), a veces se rompía con un error en vez de llevarte. Es el mismo error de la pantalla rota del Web Generator.',
+      'Ahora ese salto pasa antes de que aparezca el «cargando», así que ya no choca. Quedó en 25 secciones: casi todas las del teléfono (CRM, Chats, Calendario, Automations, Plan, Hoy y las demás), y en la computadora Ads Writer, Automations, Calendario, Chats, Offer, Image Editor, Video Editor, Plan, Second Brain, Dashboard y el Web Generator.',
+      'Quedó un control que revisa toda la app: si una pantalla nueva vuelve a saltar adentro del «cargando», se avisa antes de salir.',
+      'Faltan tres, anotadas: el Ops Center y, en el teléfono, la lista de Chats y Second Brain.',
+    ],
+    archivos: [
+      'tests/redirige-antes-del-loader.test.ts — el control que revisa toda la app',
+      'docs/hallazgos-infra.md — por qué eran 25 y no 6, y las que faltan',
+    ],
+    revisar: '/m/hoy',
+  },
 ];

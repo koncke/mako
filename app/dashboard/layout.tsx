@@ -8,6 +8,10 @@
 // La decisión es la de la página (`sinSuHoja`, ./redireccion.ts), que la conserva por si se llega navegando. La ruta la pone
 // el proxy (lib/pedido-actual.ts): un layout no la recibe. En el teléfono /dashboard se reescribe a /m/dashboard, que
 // tiene su propio layout: éste es sólo el de la computadora.
+// LA PUERTA, SIEMPRE (25/10/2026, chat «Landings»): `requireRolWs` también redirige por dentro (al onboarding pendiente, a
+// «no está en tu plan», con el negocio pausado). Pasarla sólo cuando se iba a redirigir dejaba a un cliente con el onboarding
+// pendiente yendo a /onboarding desde ADENTRO del loader: el mismo #310. Va primero, como en la página; cuesta lo que ella
+// ya pregunta, y no demora al loader más que eso (tests/redirige-antes-del-loader.test.ts cuenta las puertas).
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -18,16 +22,13 @@ import { pedidoActual } from '@/lib/pedido-actual';
 import { sinSuHoja } from './redireccion';
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  // La puerta de la tab, la misma de la página y antes que nada: el destino no se calcula para quien no la tiene.
+  await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
   const { ruta } = await pedidoActual();
   if (ruta === '/dashboard') {
     // Cacheados por request: la página los vuelve a pedir sin otra consulta.
     const [rol, capa] = await Promise.all([getRolWsEfectivo(), getCapaActual()]);
-    if (sinSuHoja(rol, capa)) {
-      // La puerta de la tab, la misma de la página: el destino no se calcula para quien no la tiene. Sólo cuando se va a
-      // redirigir: el onboarding y el negocio pausado no están cacheados, y la página ya los pregunta.
-      await requireRolWs(['closer', 'setter'], { nav: 'graphics' });
-      redirect(await rutaConWs(homeDeCapa(capa)));
-    }
+    if (sinSuHoja(rol, capa)) redirect(await rutaConWs(homeDeCapa(capa)));
   }
   return children;
 }

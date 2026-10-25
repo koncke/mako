@@ -11,6 +11,11 @@
 // La decisión es la de las páginas (`redireccionDelLayout`, panel-reglas.ts, con test), que la conservan por si se llega
 // navegando (este layout envuelve a todas las rutas de la tab y no se vuelve a dibujar entre ellas). La ruta y la query
 // las pone el proxy (lib/pedido-actual.ts): un layout no las recibe.
+//
+// LA PUERTA, SIEMPRE (25/10/2026): `requireRolWs` también redirige por dentro (a «no está en tu plan», al onboarding
+// pendiente). Hasta hoy el layout la pasaba sólo en las tres rutas que saltan, y el editor (`/web-generator/<id>`) o el
+// Panel (`?panel=1`) de un cliente con el onboarding pendiente redirigían desde adentro del loader. Las cuatro páginas de la
+// tab tienen la MISMA puerta: va primero, para todas (tests/redirige-antes-del-loader.test.ts lo vigila).
 // =============================================================================
 
 import type { ReactNode } from 'react';
@@ -22,11 +27,11 @@ import { listar } from '@/lib/editor-landing/server';
 import { destinoAnalizar, destinoCrear, landingMasReciente, redireccionDelLayout } from './panel-reglas';
 
 export default async function WebGeneratorLayout({ children }: { children: ReactNode }) {
+  // La puerta de la tab, la misma de las páginas y antes que nada: el destino no se calcula para quien no la tiene.
+  await requireRolWs([], { nav: 'landing-writer' });
   const { ruta, query } = await pedidoActual();
   const cual = redireccionDelLayout(ruta, query);
   if (cual) {
-    // La puerta de la tab, la misma de las páginas: el destino no se calcula para quien no la tiene.
-    await requireRolWs([], { nav: 'landing-writer' });
     if (cual === 'analizar') redirect(await rutaConWs(destinoAnalizar(query)));
     if (cual === 'crear') redirect(await rutaConWs(destinoCrear(query)));
     // La pelada: la última landing tocada. Una lista que no se pudo leer no salta: la página dice el error.
