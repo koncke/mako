@@ -417,4 +417,22 @@ export const BITACORA: Hito[] = [
       'tests/ia-pc-respaldo.test.ts — cinco roturas, todas caen',
     ],
   },
+  {
+    fecha: '25 oct', hora: '19:30', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El buscador de conocimiento deja de depender de Gemini',
+    puntos: [
+      'Embebe con la IA del negocio: su GPT primero, su Gemini si es lo único. Sin ninguna, busca por palabras y nunca dice «conecta tu Gemini».',
+      'Una pregunta se compara sólo con lo embebido con el mismo modelo; el método de MaKo, para quien usa su GPT, se encuentra por palabras.',
+      'Lo que quedó sin vector se embebe solo, de a poco: al conectar su IA y desde cada búsqueda.',
+      'La migración que anota el modelo va sin número: la numera el Cerebro.',
+    ],
+    archivos: [
+      'lib/embeddings.ts — con qué embebe cada negocio',
+      'lib/conocimiento-palabras.ts — la búsqueda por palabras',
+      'lib/mako-knowledge.ts — el buscador, el re-embebido y el goteo',
+      'supabase/sin-numero/mako_knowledge_modelo.sql — la columna `embedding_modelo`',
+      'tests/conocimiento-sin-gemini.test.ts y tests/ia16-cada-uno-su-ia.test.ts — 18 roturas, todas caen',
+    ],
+  },
 ];

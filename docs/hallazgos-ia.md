@@ -4,6 +4,68 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## El buscador de conocimiento sin Gemini: con la IA del negocio, o por palabras (25/10/2026)
+
+El Cerebro, 25/10/2026, cerrando la excepción que había quedado abierta (abajo, «Ningún cartel le ofrece Gemini»): «Embebe
+con la IA del negocio que la tenga: su OpenAI (text-embedding-3-small, 1536) primero, su Gemini si es lo único que tiene. Sin
+ninguna de las dos, búsqueda por palabras (la de Postgres), nunca la Gemini de la plataforma y nunca "conecta tu Gemini". Cada
+fila guarda con qué se embebió. Una pregunta sólo se compara contra filas del mismo modelo, y el resto se re-embebe solo, de a
+poco, cuando el negocio conecta su IA».
+
+**El síntoma:** un negocio con sólo su GPT no tenía buscador —ni de lo suyo ni del método de MaKo—, sus filas quedaban en
+`error` con «Conecta tu Gemini en Integraciones…» y el Second Brain («Aprende solo») le decía «conecta tu Gemini».
+
+**Cómo quedó:**
+- Embebe `embebedorDelNegocio` (lib/embeddings.ts): su OpenAI, si no su Gemini, si no `null`. En la plataforma (ws9) y para el
+  método de MaKo (`deMako`), la Gemini de la plataforma, como desde IA16: es contenido de MaKo, no del negocio.
+- Sin su IA NO es un error: `embed` tira `SinEmbebedor`, la fila queda `pendiente` con `POR_PALABRAS` en el campo `error`
+  («Se busca por palabras hasta que conectes tu GPT.») y `falloDelRag()` queda en null.
+- `searchKnowledge`: por vector, sólo las filas del MISMO modelo que la pregunta (coseno > 0,15); después, las demás —sin
+  vector o de otro modelo— por palabras (lib/conocimiento-palabras.ts, umbral 0,25). Completan, no compiten con el coseno.
+- Re-embeber: `reembeberLoQueFalta(limite)` toma lo del negocio sin vector o con el de otro modelo, de a `limite`. Lo dispara
+  guardar su OpenAI o su Gemini (lib/reembeber-al-conectar.ts: tandas de 40, hasta 40 s) y el GOTEO de cada búsqueda.
+
+**Lo que no se ve:**
+- ⚠️ **El diagnóstico obvio («re-embeber también el método de MaKo en OpenAI») era el equivocado.** Habría que pagarlo con la
+  OpenAI de la plataforma (sin crédito desde el 04/10) o con la del negocio (contenido de MaKo en su cuenta, una copia por
+  negocio). Un negocio que embebe con su OpenAI encuentra el método **por palabras**: el método sigue en Gemini.
+- ⚠️ **`.not('embedding', 'is', null)` en la consulta dejaba afuera, para siempre, lo que no tenía vector.** Sin su IA el
+  buscador volvía vacío con 119 filas cargadas. Salió: lo sin vector es justo lo que se busca por palabras.
+- ⚠️ **Guardar la clave no alcanza para «el resto, solo»:** un negocio que YA tenía su GPT no la vuelve a guardar, y sus filas
+  (las que IA16 dejó en `error` por no tener su Gemini) se quedarían por palabras para siempre. Por eso el goteo
+  (`gotear`, lib/mako-knowledge.ts): una búsqueda que ve filas del negocio sin el vector de su IA re-embebe 10, con `after()`,
+  una vez cada 10 minutos por negocio y proceso. Sin pedido en curso `after` tira y no corre: lo hace la próxima búsqueda.
+  Las filas que ya fallaron van al final de cada tanda: si no, una que falla siempre se quedaba con el lugar de las demás.
+- ⚠️ **Re-indexar sin su IA no borra un vector que todavía es de ESE texto** (`content_hash` igual): sigue sirviendo con su
+  modelo. El de un cuerpo que cambió sí sale (si no, la pregunta se compararía con el texto viejo).
+- **«La de Postgres» va en la app, no en Postgres:** las filas ya vienen en la consulta (las de UN negocio más el método, pocas)
+  y así la regla se prueba con datos de mentira. Si el conocimiento de un negocio pasa a miles de filas, pasarla a
+  `to_tsvector` con su índice (otra migración).
+- **La migración va SIN número** (supabase/sin-numero/mako_knowledge_modelo.sql: `embedding_modelo` + marcar las filas con
+  vector por su largo). El código anda sin ella: el select contesta 42703 y el PATCH, PGRST204; lo detecta, deja de pedir la
+  columna en ese proceso y el modelo sale del largo (`modeloDelVector`).
+- El PostgREST de mentira (tests/_postgrest-de-mentira.ts) acepta CUALQUIER columna: «sin la migración» no se ve si no se
+  simula (`sinColumna` en tests/_ia16-hijo.ts).
+- El «buscar con MaKo» del Second Brain (app/api/second-brain/buscar) NO es este buscador: es la cascada sobre el mapa, y su
+  texto (`conSuIASinClave`) ya pide su Claude o su OpenAI. La advertencia de abajo sobre él quedó sin objeto.
+
+**Vive en:** lib/embeddings.ts, lib/conocimiento-palabras.ts, lib/mako-knowledge.ts (`embedRow`, `reembeberLoQueFalta`,
+`gotear`, `searchKnowledge`), lib/reembeber-al-conectar.ts (`EMBEBEN`, `reembeberAlConectarSuIA`),
+app/api/integraciones/credencial/route.ts, app/second-brain/AprendeSolo.tsx y scripts/reembeber-conocimiento.mts (ya no hace
+falta correrlo: el goteo hace lo mismo solo). Tests: tests/ia16-cada-uno-su-ia.test.ts (4, 6, 7 y 9) y
+tests/conocimiento-sin-gemini.test.ts. Probado rompiéndolo (25/10/2026): 18 roturas, una por vez (su OpenAI no va primero, la
+Gemini de la plataforma sin su IA, el coseno entre modelos, vuelve el `.not`, sin palabras, «sin IA» como fallo, re-indexar
+borra un vector que sirve, el cuerpo cambiado conserva el viejo, sin «de a poco», no re-embebe lo de otro modelo, sin tolerar
+la base sin la columna, al conectar sólo su Gemini, «conecta tu Gemini» en «Aprende solo» y en el texto, sin goteo, el plural,
+el saludo y las que fallaron adelante): todas rojas, y todo verde al restaurar.
+
+**Sin hacer:**
+- Numerar y aplicar la migración (el Cerebro, con el sí de Martín).
+- La tarjeta de Gemini de /integraciones dice que «busca en tu conocimiento» y la de OpenAI no (lib/integraciones-catalogo.ts,
+  de Integraciones/Settings).
+- El goteo no se prueba en un pedido real (el hijo no tiene `after`): lo fija el test de fuente. Medirlo en producción con el
+  log `[conocimiento] ws N: re-embebí … (goteo)`.
+
 ## «No es seguro», el instalador con la marca y «Conecta MaKo» sin texto (MaKo Desktop, 25/10/2026)
 
 Martín, 25/10 ~11:30: «me dice que no es seguro, que podemos hacer para que no salga eso? Y el instalador de MaKo debe estar
@@ -142,11 +204,10 @@ grupo, en [hallazgos-comunicacion.md](hallazgos-comunicacion.md) (misma fecha).
   `CON_SU_IA_SIN_VISION` (lib/fallo-ia-texto.ts), `AVISO_SIN_IA`, `AVISO_NO_LEI_SU_IA` y `AVISO_SIN_ARCHIVERO`
   (lib/mako-turno-app-reglas.ts). **Quedan, de otros dueños:** `SU_IA` y `SU_CLAVE` (lib/flujo-ia.ts, Automations),
   lib/ai-cheap.ts:1116, lib/persona.ts:219 y las bajadas de «Tus cuentas de IA» (lib/ia-pc-reglas.ts:890, TusCuentasIA.tsx,
-  /perfil/ia: MaKo Desktop). ⚠️ `conSuIASinClave` también lo dice la búsqueda del Second Brain: si esa búsqueda embebe con
-  Gemini (lib/embeddings.ts), ahí su GPT no alcanza, y es la excepción sin decidir de abajo.
-- ⚠️ **La excepción que no se saca sin decidir: el conocimiento.** El buscador embebe con Gemini (lib/embeddings.ts): sin su
-  Gemini no hay búsqueda de conocimiento, ni siquiera del método de MaKo. O queda como única excepción, o se re-embebe con
-  OpenAI (1536 dimensiones contra 768).
+  /perfil/ia: MaKo Desktop). `conSuIASinClave` también lo dice la búsqueda del Second Brain, que NO embebe: es la cascada
+  sobre el mapa (app/api/second-brain/buscar), y su GPT alcanza.
+- **La excepción del conocimiento, DECIDIDA el mismo día:** embebe con la IA del negocio (su OpenAI primero) y, sin ninguna,
+  busca por palabras. Arriba: «El buscador de conocimiento sin Gemini».
 - ⚠️ **La marca «red gratis salteada» de lib/ai-cheap.ts (≈:891 y :896) se deja sin preguntar si había red**, también
   cuando el negocio tiene su IA (`soloSuIA()`). `sinRedPorDatos` reconoce las dos, y por eso nutrición (lib/nutricion.ts)
   y el simulador de setting le dicen `CONECTA_TU_CLAUDE` a negocios que ya la tienen. Es el arreglo que el doer tuvo el
@@ -6353,7 +6414,8 @@ interruptor y la clave) · la puerta 2 (`permisoDeLaClaveDelNegocio`, lib/anthro
 - `lib/solo-su-ia.ts` (`PROVS_SU_IA = ['gemini', 'openai']`) y `lib/ia-del-negocio.ts` (`CLAVES_SU_IA` con Gemini).
 - `lib/embeddings.ts`, `scripts/reembeber-conocimiento.mts` (por workspace).
 - `lib/conectar-ia-reglas.ts` y `app/integraciones/TusCuentasIA.tsx`.
-- `lib/reembeber-al-conectar.ts` (al guardar su Gemini) y `reembeberLoQueFalta` (lib/mako-knowledge.ts).
+- `lib/reembeber-al-conectar.ts` (al guardar su Gemini; desde el 25/10, su OpenAI o su Gemini) y `reembeberLoQueFalta`
+  (lib/mako-knowledge.ts).
 - «Tus cuentas de IA» con su Gemini: `lib/su-clave-reglas.ts`, `lib/su-clave.ts`.
 - `tests/ia16-cada-uno-su-ia.test.ts` (con `tests/_ia16-hijo.ts`).
 

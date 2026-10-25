@@ -10,11 +10,13 @@
 //      plataforma no cuenta como suya; la red queda sólo para lo interno de MaKo (el ws9);
 //   3. con su Gemini, el texto y la nota de voz van a SU cuenta (las dos, en orden), nunca a la de la plataforma ni a la
 //      del entorno de la PC;
-//   4. el buscador de conocimiento embebe con SU Gemini (prueba la otra cuenta si una rebota); sin su Gemini (o con una
-//      copia), tira «Conecta tu Gemini»; el ws9 usa la de la plataforma; y la consulta de un negocio encuentra el método
-//      de la plataforma (mismo modelo, otra cuenta) pero no un vector viejo de OpenAI.
+//   4. el buscador de conocimiento embebe con la IA DEL NEGOCIO: su OpenAI primero, su Gemini si es lo único (prueba la
+//      otra cuenta si una rebota); sin ninguna (o con una copia de la de la plataforma) busca por PALABRAS, sin salir a la
+//      red y sin «Conecta tu Gemini» (25/10/2026, el Cerebro; IA16 lo hacía sólo con su Gemini); el ws9 usa la de la
+//      plataforma; una consulta se compara sólo contra vectores del MISMO modelo, y lo demás se encuentra por palabras.
 //
-// Probado rompiéndolo (22/10/2026, una rotura por vez, restaurada): ver docs/hallazgos-ia.md («IA16 v2»).
+// Probado rompiéndolo (22/10/2026 y 25/10/2026, una rotura por vez, restaurada): ver docs/hallazgos-ia.md («IA16 v2» y
+// «El buscador de conocimiento sin Gemini»).
 // =============================================================================
 
 import { test } from 'node:test';
@@ -69,39 +71,74 @@ test('3. con su Gemini, el texto y la nota de voz van a SU cuenta (las dos), nun
   }
 });
 
-test('4. el buscador: SU Gemini (y la otra cuenta si una rebota); sin la suya, «Conecta tu Gemini»; el ws9, la de la plataforma', () => {
-  const { embed, SIN_SU_GEMINI, busqueda, busquedaSinSuGemini } = correr();
-  assert.equal(embed.ws13.r, 'vector de 768');
+test('4. el buscador: su OpenAI primero, su Gemini si es lo único; sin ninguna, por palabras (nunca «Conecta tu Gemini»)', () => {
+  const { embed, POR_PALABRAS, busqueda } = correr();
+  assert.equal(embed.ws15.r, 'text-embedding-3-small de 1536', 'con su OpenAI y su Gemini, no embebió con su OpenAI');
+  assert.deepEqual(embed.ws15.claves, ['15-OPENAI_API_KEY-kk']);
+  assert.equal(embed.ws13.r, 'gemini-embedding-001 de 768');
   // La primera que probó rebotó (429): tiene que haber probado la OTRA, las dos del ws13.
   assert.deepEqual([...embed.ws13.claves].sort(), ['13-GEMINI_API_KEY-kk', '13-GEMINI_API_KEY_2-'], 'no probó su otra cuenta tras el 429');
-  assert.equal(SIN_SU_GEMINI, 'Conecta tu Gemini en Integraciones para que MaKo busque en tu conocimiento');
-  for (const ws of ['ws14', 'ws1'] as const) {
-    assert.equal(embed[ws].r, `tiró: ${SIN_SU_GEMINI}`, `${ws}: embebió sin su Gemini`);
-    assert.deepEqual(embed[ws].claves, [], `${ws}: salió a Google sin su Gemini (¿con la de la plataforma o la del entorno?)`);
+  assert.equal(POR_PALABRAS, 'Se busca por palabras hasta que conectes tu GPT.');
+  assert.doesNotMatch(POR_PALABRAS, /gemini/i);
+  // Sin ninguna IA (el ws12 tiene sólo Groq, que no embebe; el ws1, una copia de la de la plataforma): no sale a la red.
+  for (const ws of ['ws14', 'ws1', 'ws12'] as const) {
+    assert.equal(embed[ws].r, `tiró: ${POR_PALABRAS}`, `${ws}: embebió sin su IA`);
+    assert.deepEqual(embed[ws].claves, [], `${ws}: salió a la red sin su IA (¿con la de la plataforma o la del entorno?)`);
   }
-  assert.equal(embed.ws9.r, 'vector de 768');
+  assert.equal(embed.ws9.r, 'gemini-embedding-001 de 768');
   assert.deepEqual(embed.ws9.claves, ['AQ.PLATAFORMA-gemini'], 'lo interno de MaKo no usó la fila de la plataforma (¿la del entorno?)');
-  assert.deepEqual(busqueda, ['del método'], 'la consulta con su Gemini no encontró el método de la plataforma, o se comparó contra el vector viejo de OpenAI');
-  assert.deepEqual(busquedaSinSuGemini, []);
+  // Con su Gemini: el método de la plataforma por vector (mismo modelo, otra cuenta); la vieja de OpenAI, no.
+  assert.deepEqual(busqueda.ws13.r, [['del método', 1]], 'la consulta con su Gemini no encontró el método, o se comparó contra el vector viejo de OpenAI');
+  // Con su OpenAI: lo suyo por vector, y el método (Gemini) por PALABRAS: puntaje 1 (las dos palabras, en el título). Un
+  // coseno entre un vector de OpenAI y uno de Gemini no da 1, ni lo deja afuera: daría un puntaje plausible y equivocado.
+  assert.deepEqual(busqueda.ws15.r, [['Mi oferta', 1], ['Objeciones de precio', 1]], 'con su OpenAI no encontró lo suyo por vector y el método por palabras');
+  assert.deepEqual(busqueda.ws15.salio, ['api.openai.com'], 'la consulta con su OpenAI salió también a Google');
+  // Sin ninguna IA: por palabras, sin red y sin fallo; una pregunta sin palabras que digan algo no trae todo.
+  assert.deepEqual(busqueda.ws14, { r: [['Objeciones de precio', 1]], salio: [], fallo: null }, 'sin su IA el buscador no busca por palabras (o salió a la red, o lo contó como fallo)');
+  assert.deepEqual(busqueda.ws14Hola.r, []);
+  // Su IA no contesta: por palabras igual, y queda dicho (`falloDelRag`): «no tiene método» y «no pude» no son lo mismo.
+  assert.deepEqual(busqueda.ws16.r, [['Objeciones de precio', 1]], 'con su Gemini caído el buscador quedó vacío');
+  assert.match(String(busqueda.ws16.fallo), /^no pude embeber la consulta \(busqué por palabras\): embeddings: Internal error/);
 });
 
-test('6. el método de MaKo (en el ws1, un cliente sin su Gemini) se embebe con la de la plataforma; lo del ws1, no', () => {
-  const { metodoWs1, notaWs1, SIN_SU_GEMINI } = correr();
-  assert.equal(metodoWs1.estado, 'indexado', `el método no se embebió: ${metodoWs1.error}`);
-  assert.deepEqual(metodoWs1.claves, ['AQ.PLATAFORMA-gemini'], 'el método no usó la de la plataforma (o usó la del entorno)');
-  assert.equal(notaWs1.estado, 'error');
-  assert.equal(notaWs1.error, SIN_SU_GEMINI);
-  assert.deepEqual(notaWs1.claves, [], 'lo del ws1 salió a Google con una clave que no es suya');
+test('6. el método de MaKo (en el ws1, un cliente sin su IA) se embebe con la de la plataforma; lo del ws1, por palabras', () => {
+  const { metodoWs1, notaWs1, yaEmbebida, cambio, POR_PALABRAS } = correr();
+  assert.deepEqual(metodoWs1, { estado: 'indexado', error: null, claves: ['AQ.PLATAFORMA-gemini'], largo: 768, modelo: 'gemini-embedding-001' },
+    'el método no se embebió con la de la plataforma (o usó la del entorno, o no anotó el modelo)');
+  // Sin su IA no es un error: queda `pendiente`, se busca por palabras y espera su IA.
+  assert.deepEqual(notaWs1, { estado: 'pendiente', error: POR_PALABRAS, claves: [], largo: 0, modelo: null }, 'lo del ws1 salió a la red con una clave que no es suya, o quedó como error');
+  // Re-indexar sin IA no borra el vector que todavía es de ESTE texto; el de un cuerpo que cambió, sí.
+  assert.deepEqual(yaEmbebida, { estado: 'indexado', error: null, claves: [], largo: 768, modelo: null }, 're-indexar sin su IA le borró un vector que servía');
+  assert.deepEqual(cambio, { estado: 'pendiente', error: POR_PALABRAS, claves: [], largo: 0, modelo: null }, 'un cuerpo que cambió se quedó con el vector del texto viejo');
 });
 
-test('7. al conectar su Gemini, lo que quedó sin buscador se embebe con SU cuenta (y lo que ya está, no)', () => {
-  const { alConectar } = correr();
-  // Del ws13: la vieja de OpenAI (1536) y la sin vector se embeben; la que ya estaba en Gemini, no.
+test('7. al conectar su IA, lo que quedó sin vector o con el de otro modelo se embebe con SU cuenta, de a poco', () => {
+  const { alConectar, alConectarOpenAI } = correr();
+  // Del ws13 (sólo su Gemini): la vieja de OpenAI (1536) y la sin vector se embeben; la que ya estaba en Gemini, no.
   assert.equal(alConectar.n, 2);
   assert.ok(alConectar.claves.length > 0 && alConectar.claves.every((k: string) => k.startsWith('13-GEMINI_API_KEY')), `claves: ${alConectar.claves}`);
-  assert.deepEqual(Object.fromEntries(alConectar.largos), { vieja: 768, 'sin vector': 768, 'ya en Gemini': 768 });
+  assert.deepEqual(alConectar.filas, [['vieja', 768, 'gemini-embedding-001'], ['sin vector', 768, 'gemini-embedding-001'], ['ya en Gemini', 768, null]]);
+  // Del ws15 (su OpenAI y su Gemini): todo a su OpenAI, de a `limite` por vez (1, después lo que queda, después nada).
+  assert.deepEqual(alConectarOpenAI.tandas, [1, 2, 0], 'no re-embebe de a poco (o no termina)');
+  // La que ya falló va al final aunque su id sea el menor: la primera tanda (de 1) es para la que está en Gemini.
+  assert.deepEqual(Object.fromEntries(alConectarOpenAI.trasLaPrimera.map(([t, largo]: [string, number]) => [t, largo])), { 'Mi oferta': 1536, 'en Gemini': 1536, 'sin vector': 0, falló: 0 },
+    'una fila que ya falló se quedó con la tanda de las que se pueden embeber');
+  assert.deepEqual(alConectarOpenAI.claves, ['15-OPENAI_API_KEY-kk']);
+  assert.deepEqual(alConectarOpenAI.filas, [['Mi oferta', 1536, 'text-embedding-3-small'], ['en Gemini', 1536, 'text-embedding-3-small'], ['sin vector', 1536, 'text-embedding-3-small'], ['falló', 1536, 'text-embedding-3-small']]);
+  // Lo dispara guardar su OpenAI o su Gemini en /integraciones.
   const ruta = readFileSync(new URL('../app/api/integraciones/credencial/route.ts', import.meta.url), 'utf8');
-  assert.match(ruta, /if \(guardadas > 0 && servicio\.key === 'gemini'\) await reembeberAlConectarGemini\(ctx\.ws\);/);
+  assert.match(ruta, /if \(guardadas > 0 && \(EMBEBEN as readonly string\[\]\)\.includes\(servicio\.key\)\) await reembeberAlConectarSuIA\(ctx\.ws\);/);
+  const al = readFileSync(new URL('../lib/reembeber-al-conectar.ts', import.meta.url), 'utf8');
+  assert.match(al, /export const EMBEBEN = \['openai', 'gemini'\] as const;/);
+});
+
+test('9. sin la migración de `embedding_modelo`, el buscador escribe y busca igual (el modelo sale del largo)', () => {
+  const { sinColumna } = correr();
+  assert.equal(sinColumna.n, 1, 'sin la columna no re-embebió');
+  assert.deepEqual(sinColumna.fila, [1536, 'indexado', null], 'sin la columna la fila no quedó embebida');
+  assert.equal(sinColumna.busqueda.fallo, null, `sin la columna el buscador falló: ${sinColumna.busqueda.fallo}`);
+  assert.ok(sinColumna.busqueda.r.some(([t]: [string]) => t === 'sin columna') && sinColumna.busqueda.r.some(([t]: [string]) => t === 'Objeciones de precio'),
+    `sin la columna no encontró lo suyo por vector o el método por palabras: ${JSON.stringify(sinColumna.busqueda.r)}`);
 });
 
 test('5. las listas de texto no nombran a Groq; las de audio sí; y la marca del Gemini pago no vuelve', () => {
