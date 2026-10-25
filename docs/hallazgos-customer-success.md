@@ -5914,3 +5914,54 @@ curso sin nombre dice `SIN_NOMBRE_ALUMNO_EN_LISTA` («Programa sin nombre»); so
 `tests/clients-un-selector.test.ts` (6 roturas, cada una cae)
 
 *25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*
+
+## Eliminar un programa, el clic derecho del Classroom, y MaKo diciendo «Customer Success» (25/10/2026, f25, f26 y f30)
+
+**Síntomas** (llamada con Leandro): «El curso sin nombre lo quiero eliminar. ¿Existe todavía la opción de eliminar?»
+(@49:10); «el click derecho (...) Leandro lo estaba usando en Classroom (...) y no funciona» (@38:00); y MaKo le dijo
+que los cursos estaban «en Customer Success», una tab que ya no existe (@48:04).
+
+**Causa.** Eliminar un producto SÍ existía, pero escondido en el editor de etapas del kanban (`eliminarServicioAction`):
+desde el curso no había camino. El clic derecho no existía en Clients. Y MaKo lee el título del área `cs` y las
+descripciones de la API (`AREA_INFO`, los `.def.ts`), que seguían con el nombre de antes del 17/10.
+
+⚠️ **El diagnóstico obvio era el equivocado**: «hay que construir eliminar». Ya estaba hecho, con la decisión del CRM
+(archivar los embudos, y si no hay ninguno, la baja). Lo que faltaba era el lugar, la cuenta de alumnos y el «Deshacer».
+
+**Arreglo.** Cada programa de la cabecera tiene su «…» y su clic derecho (y el nombre del curso en la barra del
+Classroom, su clic derecho): Renombrar y Eliminar (`opcionesPrograma`, app/clients/menu-contextual-clients.ts). Eliminar
+pregunta sólo con alumnos o clases, con la cuenta (`preguntaAlEliminar`), archiva por la MISMA action (que ahora devuelve
+QUÉ hizo) y navega duro. Un módulo o una clase, con clic derecho, abren SU «…». MaKo y los avisos de la tab dicen
+«Clients»; las claves (`cs`, `customer-success`) no se tocaron.
+
+**Las reglas que quedan:**
+- **Un «Deshacer» que tiene que cruzar una recarga va en `sessionStorage`, con plazo y leído UNA vez.** Eliminar cambia
+  QUÉ EXISTE y por eso navega duro (AGENTS.md: un refresh llega un paso atrás); el aviso con su botón se perdía con la
+  página. La cabecera nueva lo lee al montar, lo borra y sólo lo muestra dentro de los 12 segundos (`NOTA_DESHACER`).
+- **Una action que hace una de dos cosas devuelve CUÁL hizo**, para que deshacer sea lo inverso exacto y no una
+  adivinanza (`DeshacerEliminar`: los embudos archivados, o la baja). Y lo que vuelve del navegador se valida contra la
+  base antes de escribir (`deshacerValido`: un embudo ajeno no se restaura).
+- **Un menú que navega con `router.push` se salta la guarda de la lección sin guardar**: el menú del programa no tiene
+  «Abrir» (abrir es el link de la fila).
+- **El clic derecho de algo que ya tiene «…» abre ESE «…»**, no una segunda lista: renombrar, mover y eliminar un módulo
+  o una clase ya estaban ahí, con sus preguntas y sus «Deshacer». Sobre un texto que se está editando queda el del
+  navegador (copiar, pegar).
+- **El título de un área de la API es texto que MaKo lee**, no una clave: la clave es `cs`. El comentario que decía «los
+  títulos no cambian (son la clave del área)» estaba mal y se corrigió.
+
+**Quedó SIN hacer, y dónde:**
+- **Duplicar** (un programa, un módulo o una clase): no existe en el server. Para una clase sería copiar su fila de
+  `curso_clases` con sus campos; para un programa, la cadena producto → oferta → embudo más el curso entero.
+- El principal no se elimina (lo frena `archivarFunnel`): si el «Curso sin nombre» de Leandro es su producto principal,
+  su menú sólo ofrece Renombrar. No se pudo medir: leer su negocio está bloqueado desde esta sesión.
+- «Customer Success» sigue en textos de OTRAS áreas: las acciones del editor de Automations (`lib/editor-acciones.ts`),
+  el catálogo de gráficos (`lib/graficos-*.ts`), el de modelos de IA (`lib/model-catalogo.ts`) y los prompts que dicen
+  «asistente de Customer Success» (`lib/curso-propuesta.ts`, `lib/closing-entrega-contrato.ts`: es el oficio, no la tab).
+- Nada se miró en el navegador.
+
+**Vive en:** `app/customer-success/eliminar-programa.ts` · `app/customer-success/actions.ts` (`eliminarServicioAction`,
+`previaEliminarServicioAction`, `restaurarServicioAction`) · `app/clients/menu-contextual-clients.ts` ·
+`app/clients/ClientsShell.tsx` · `app/_cursos/CursoUgc.tsx` (`clicDerechoAlMenu`) · `lib/api-mako/tipos.ts` ·
+`tests/clients-eliminar-programa.test.ts` (10 roturas) y `tests/clients-nombre-en-mako.test.ts` (3 roturas)
+
+*25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin mirar en pantalla.*

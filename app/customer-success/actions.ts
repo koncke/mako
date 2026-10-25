@@ -56,7 +56,8 @@ import { quitarClienteDeProducto, volverClienteAProducto } from '@/lib/cs-quitar
 import { crearClienteGanado } from '@/lib/cs-crear-cliente';
 import { guardarEtapasEntrega, entregaDeProducto } from '@/lib/entrega-servicio';
 import { crearProductoConFunnel } from '@/lib/producto-con-funnel';
-import { renombrarProducto, archivarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
+import { renombrarProducto, archivarFunnel, restaurarFunnel, getPipelineStagesDeLead } from '@/lib/funnels';
+import { pasoParaEliminar, deshacerValido, type DeshacerEliminar } from './eliminar-programa';
 import type { EtapaEntrega, FaseEntrega } from '@/lib/servicio-etapas';
 import { anotarFichaAbierta } from './onboarding-clientes-sync';
 
@@ -660,26 +661,81 @@ export async function renombrarServicioAction(productoId: number, nombreCrudo: s
  * `activo = false` — que es lo que el catálogo de productos ya entiende por baja.
  * Las filas de `cliente_entrega` NO se tocan: el histórico del cliente dice lo que pasó.
  */
-export async function eliminarServicioAction(productoId: number): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function eliminarServicioAction(productoId: number): Promise<
+  { ok: true; deshacer: DeshacerEliminar | null } | { ok: false; error: string }
+> {
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede eliminar un producto.' };
-    const embudos = await embudosDelProducto(productoId);
-    const vivos = embudos.filter((f) => f.activo);
-    if (vivos.some((f) => f.esDefault)) return { ok: false, error: 'Es tu producto principal: no se puede eliminar. Puedes cambiarle el nombre.' };
-    if (vivos.length) {
-      for (const f of vivos) await archivarFunnel(f.id);
-    } else if (!embudos.length) {
+    // La decisión (archivar sus embudos, darlo de baja, o nada), pura y con test: ./eliminar-programa.ts.
+    const paso = pasoParaEliminar(await embudosDelProducto(productoId));
+    if (paso.tipo === 'no') return { ok: false, error: paso.error };
+    let deshacer: DeshacerEliminar | null = null;
+    if (paso.tipo === 'archivar') {
+      for (const id of paso.ids) await archivarFunnel(id);
+      deshacer = { tipo: 'embudos', ids: paso.ids };
+    } else if (paso.tipo === 'baja') {
       const db = await getTenantDb();
       const { data: tocadas, error } = await db.from('productos').update({ activo: false }).eq('id', productoId).select('id');
       if (error) return { ok: false, error: `No se pudo eliminar: ${error.message}` };
+      if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
+      deshacer = { tipo: 'baja' };
+    }
+    revalidatePath('/clients');
+    revalidatePath('/crm');
+    // `deshacer`: lo que se hizo, para el «Deshacer» de la cabecera de Clients (`restaurarServicioAction`).
+    return { ok: true, deshacer };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo eliminar.' };
+  }
+}
+
+/**
+ * Lo que la cabecera de Clients necesita para preguntar antes de eliminar un programa (f25, 24/10/2026): cuántos
+ * ALUMNOS lo ven (los miembros de su comunidad, la misma regla que el portal: `miembrosDeLaComunidad`) y cuántas clases
+ * tiene. Sin ninguno de los dos no se pregunta (./eliminar-programa.ts). Sólo un admin.
+ */
+export async function previaEliminarServicioAction(productoId: number): Promise<
+  { ok: true; alumnos: number; clases: number } | { ok: false; error: string }
+> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    const ws = await adminDeWorkspaceActual();
+    if (!ws) return { ok: false, error: 'Sólo un administrador puede eliminar un producto.' };
+    const [{ miembrosDeLaComunidad }, { clasesDelProducto }] = await Promise.all([
+      import('@/lib/comunidad-datos'), import('@/lib/curso-datos'),
+    ]);
+    const [comunidad, clases] = await Promise.all([miembrosDeLaComunidad(ws, productoId), clasesDelProducto(productoId)]);
+    return { ok: true, alumnos: comunidad.alumnos.size, clases: clases.length };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No pude contar sus alumnos.' };
+  }
+}
+
+/**
+ * El «Deshacer» de eliminar un programa: lo INVERSO EXACTO de lo que hizo `eliminarServicioAction` (sus embudos
+ * vuelven a la lista, o vuelve a estar de alta). Los embudos tienen que ser de ESE producto (`deshacerValido`): el
+ * «Deshacer» viaja por el navegador.
+ */
+export async function restaurarServicioAction(productoId: number, deshacer: DeshacerEliminar): Promise<{ ok: true } | { ok: false; error: string }> {
+  const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
+  try {
+    if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede restaurar un producto.' };
+    if (!deshacer || (deshacer.tipo !== 'baja' && deshacer.tipo !== 'embudos')) return { ok: false, error: 'No sé qué deshacer.' };
+    if (!deshacerValido(deshacer, await embudosDelProducto(productoId))) return { ok: false, error: 'Ese producto no es de este workspace.' };
+    if (deshacer.tipo === 'embudos') {
+      for (const id of deshacer.ids) await restaurarFunnel(id);
+    } else {
+      const db = await getTenantDb();
+      const { data: tocadas, error } = await db.from('productos').update({ activo: true }).eq('id', productoId).select('id');
+      if (error) return { ok: false, error: `No se pudo restaurar: ${error.message}` };
       if (!((tocadas ?? []) as unknown[]).length) return { ok: false, error: 'Ese producto no es de este workspace.' };
     }
     revalidatePath('/clients');
     revalidatePath('/crm');
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo eliminar.' };
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo restaurar.' };
   }
 }
 

@@ -31,15 +31,16 @@ const tramo = (src: string, desde: string, hasta: string) => {
 };
 
 test('f27: la marca del Classroom es un RÓTULO (sin menú ni clic): CursoUgc la dibuja sin botón', () => {
-  assert.match(APP, /marca=\{marcaDelProducto\(tituloDe\(servicio\)\)\}/);
+  // Con su clic derecho (f26), que abre el menú del programa: no la vuelve clickeable.
+  assert.match(APP, /marca=\{\{ \.\.\.marcaDelProducto\(tituloDe\(servicio\)\), onMenuContextual: menuPrograma \? \(pt\) => menuPrograma\(servicio\.productoId, pt\) : undefined \}\}/);
   assert.doesNotMatch(APP, /menu: menuMarca|const menuMarca|ItemMenuUgc|TituloMenuUgc/, 'volvió el desplegable de la barra');
   const ugc = sinComentarios(leer('app/_cursos/CursoUgc.tsx'));
-  assert.match(ugc, /\) : \(\s*<div className="ugc-side-brand" data-recorrido="marca">/, 'sin menú ni onClick la marca tiene que ser un div');
+  assert.match(ugc, /\) : \(\s*<div className="ugc-side-brand" data-recorrido="marca"\s/, 'sin menú ni onClick la marca tiene que ser un div');
 });
 
 test('f28: UN selector, el de la cabecera; cada programa es un link (la guarda de la lección lo ataja)', () => {
   const prog = tramo(SHELL, 'function Programa(', 'function Personalizar(');
-  assert.match(prog, /<Link key=\{p\.id\} href=\{hrefDe\(p\.id\)\}/);
+  assert.match(prog, /<Link href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
   assert.match(SHELL, /hrefDe=\{\(id\) => hrefConPrograma\(pathname, search, id\)\}/);
   assert.doesNotMatch(SHELL, /router\.push\(/);
   // La guarda que lo ataja: los links del documento, en captura (app/customer-success/curso/LeccionEditable.tsx).

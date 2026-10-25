@@ -249,7 +249,7 @@ export async function invitarAlCurso(
   try {
     const d = deps ?? (await depsReales());
     return await d.enWorkspace(p.ws, async (): Promise<IntentoInvitar> => {
-      if (!(await d.capaConCs(p.ws))) return { tipo: 'error', error: 'Esta cuenta no tiene Customer Success.' };
+      if (!(await d.capaConCs(p.ws))) return { tipo: 'error', error: 'Esta cuenta no tiene Clients.' };
 
       const lead = await d.lead(p.leadId);
       if (!lead) return { tipo: 'error', error: 'Ese cliente no existe.' };

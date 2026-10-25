@@ -15210,7 +15210,7 @@ Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 13 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
-Los productos de este negocio que pueden tener curso (los mismos que muestra Customer Success › Curso), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
+Los productos de este negocio que pueden tener curso (los mismos que muestra Clients › Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
 
 - **Ruta por operación:** `GET /api/v1/curso/listar_cursos`
 - **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)
@@ -15599,7 +15599,7 @@ curl -L \
 
 ### `PUT /api/v1/curso/cursos/{productoId}/accesos/{leadId}` — Dar acceso a un curso
 
-Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Customer Success. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.
+Le abre a un cliente el curso de UN producto y le manda la invitación por email con su link de entrada al portal: el mismo correo que «Invitar» en Clients. Se le crea el acceso si no lo tenía, y pasa a abrirle ese curso sin cerrarle los que ya veía. Tiene que ser un cliente GANADO de ese producto (en su kanban de Clientes): a otro lead el portal no le abre, y esto no lo mueve de etapa. Sin email usa el del CRM; si el CRM no tenía ninguno, el que se pasa queda guardado en el lead. Si ya estaba invitado a ese curso o ya entró, no la manda de nuevo, salvo reenviar: true. Con el acceso cortado no lo abre: primero habilitar_acceso_curso. Devuelve si el correo salió.
 
 - **Ruta por operación:** `POST /api/v1/curso/dar_acceso_curso`
 - **Token detallado:** permiso `curso=write` (Lectura y escritura en «Curso (módulos y clases)»)
@@ -15758,7 +15758,7 @@ Tab **Clients › Community** (`/clients/community`). 14 lecturas · 27 acciones
 
 ### `GET /api/v1/comunidad/comunidades` — Listar las comunidades
 
-Los productos de Customer Success de este negocio (los mismos del selector de la tab Comunidad), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.
+Los programas de Clients de este negocio (los mismos del selector de la cabecera de Clients), cada uno con su productoId y el nombre de su comunidad. Empieza por aquí para conseguir el productoId. Un producto con `error` no está vacío: no se pudo leer.
 
 - **Ruta por operación:** `GET /api/v1/comunidad/listar_comunidades`
 - **Token detallado:** permiso `comunidad=read` (Solo lectura en «Comunidad»)

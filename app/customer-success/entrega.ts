@@ -180,9 +180,11 @@ async function productosOfrecibles(opts: { estricto?: boolean } = {}): Promise<O
  * ofrecer las etapas de entrega de un producto que no es el principal de ningún embudo: sin
  * esto, un servicio con kanban no se podía elegir como disparador.
  */
-export async function productosDeLaEntrega(): Promise<Array<{ id: number; nombre: string }>> {
-  const { productos } = await productosOfrecibles();
-  return productos.map((p) => ({ id: p.id, nombre: p.nombre }));
+export async function productosDeLaEntrega(): Promise<Array<{ id: number; nombre: string; principal: boolean; conEmbudo: boolean }>> {
+  // `principal` y `conEmbudo` (24/10/2026, f25): el menú de cada programa de la cabecera de Clients no ofrece
+  // «Eliminar» al principal, y la pregunta dice de dónde vuelve sólo si tiene embudo (ver `Servicio`).
+  const { productos, principales, conEmbudo } = await productosOfrecibles();
+  return productos.map((p) => ({ id: p.id, nombre: p.nombre, principal: principales.has(p.id), conEmbudo: conEmbudo.has(p.id) }));
 }
 
 /**

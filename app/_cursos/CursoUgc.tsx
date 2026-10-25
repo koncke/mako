@@ -45,7 +45,7 @@
  * app/conocimientos/posicion.ts (`#curso=&mod=<key>&q=&v=recursos&clase=<id>&r=&x=<extra>`).
  */
 
-import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
+import { Fragment, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { IconoMenu, type NombreIconoMenu } from '@/app/_ui/iconos-menu';
 import { usePosicion, type Posicion } from '@/app/conocimientos/posicion';
@@ -267,6 +267,9 @@ export default function CursoUgc(props: CursoUgcProps) {
   // El menú «…»: el botón y el desplegable son del dibujo; lo de adentro lo arma la pantalla.
   const abrirOpciones = (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) =>
     setOpciones((a) => (a && a.ancla === ancla ? null : { ...o, ancla }));
+  /** El clic derecho: abre siempre (no alterna, como el «…»): un segundo clic derecho no lo cierra. */
+  const mostrarOpciones = (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) =>
+    setOpciones({ ...o, ancla });
   const cerrarOpciones = () => setOpciones(null);
   const mOpc = opciones?.tipo === 'modulo' ? modulo(opciones.key) : undefined;
   const cOpc = opciones?.tipo === 'clase' ? clases.find((c) => c.id === opciones.id) : undefined;
@@ -280,7 +283,9 @@ export default function CursoUgc(props: CursoUgcProps) {
   const contenidoOpciones = mOpc && edicion?.menuModulo ? edicion.menuModulo(mOpc, ctlOpc)
     : cOpc && edicion?.menuClase ? edicion.menuClase(cOpc, ctlOpc) : null;
   /** Lo que el índice y la grilla necesitan del editor de la estructura. */
-  const estructura: Estructura = { arr, abrirOpciones, conMenuModulo: !!edicion?.menuModulo, conMenuClase: !!edicion?.menuClase };
+  const estructura: Estructura = {
+    arr, abrirOpciones, mostrarOpciones, conMenuModulo: !!edicion?.menuModulo, conMenuClase: !!edicion?.menuClase,
+  };
 
   return (
     // `ahdoc--ugc` acota lo propio de este dibujo (./estilos.ts): CursoReplica comparte la hoja
@@ -315,7 +320,8 @@ export default function CursoUgc(props: CursoUgcProps) {
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </button>
             ) : (
-              <div className="ugc-side-brand" data-recorrido="marca">
+              <div className="ugc-side-brand" data-recorrido="marca"
+                onContextMenu={marca.onMenuContextual ? (e) => { e.preventDefault(); marca.onMenuContextual!({ x: e.clientX, y: e.clientY }); } : undefined}>
                 <span className="ugc-side-name">{marca.texto}{marca.resaltado != null && <span>{marca.resaltado}</span>}</span>
               </div>
             )}
@@ -565,7 +571,8 @@ function Indice({ portada, clases, modulos, t, edicion, onAbrir, onModulo, estru
                   draggable={arrastra || undefined}
                   onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
                   onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'modulo', key: m.key }) : undefined}
-                  onDragEnd={arrastra ? arr.terminar : undefined}>
+                  onDragEnd={arrastra ? arr.terminar : undefined}
+                  onContextMenu={clicDerechoAlMenu(estructura.conMenuModulo ? (a) => estructura.mostrarOpciones({ tipo: 'modulo', key: m.key }, a) : null)}>
                   <TarjetaModulo m={m} t={t} onAbrir={() => onModulo(m)} renombrar={renombrar} />
                   {/* Los controles van AL LADO de la tarjeta (un botón adentro de otro no es HTML
                       válido) y no arrastran (`data-nodrag`). */}
@@ -711,7 +718,9 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
   return (
     <>
       {/* Filtrando por módulo, el título dice DE QUÉ módulo: «12 de 404» no dice dónde estás. */}
-      <div className="ugc-rail-head">
+      <div className="ugc-rail-head"
+        onContextMenu={clicDerechoAlMenu(estructura.conMenuModulo && modulo && edicion?.onTexto && !modulo.sinEdicion
+          ? (a) => estructura.mostrarOpciones({ tipo: 'modulo', key: modulo.key }, a) : null)}>
         {/* Editando, el NOMBRE del módulo se cambia con un clic acá, que es donde se lo lee
             entero (la tarjeta es un botón: un clic en ella abre el módulo). */}
         {edicion?.onTexto && modulo && !modulo.sinEdicion ? (
@@ -754,7 +763,8 @@ function Grilla({ clases, total, mod, modulo, t, abrirClase, edicion, puede, est
                   draggable={arrastra || undefined}
                   onPointerDownCapture={arrastra ? arr.marcarOrigen : undefined}
                   onDragStart={arrastra ? (e) => arr.agarrar(e, { tipo: 'clase', id: c.id, moduloKey: c.moduloKey }) : undefined}
-                  onDragEnd={arrastra ? arr.terminar : undefined}>
+                  onDragEnd={arrastra ? arr.terminar : undefined}
+                  onContextMenu={clicDerechoAlMenu(estructura.conMenuClase ? (a) => estructura.mostrarOpciones({ tipo: 'clase', id: c.id }, a) : null)}>
                   <TarjetaClase clase={c} onAbrir={() => abrirClase(c.id)} />
                   <div className="ugc-editable-ctrls" role="group" aria-label={`Ordenar ${c.titulo}`} data-nodrag>
                     <button type="button" className="ugc-editable-btn" title="Subir" aria-label="Subir"
@@ -1078,6 +1088,7 @@ export function TituloMenuUgc({ children }: { children: ReactNode }) {
 type Estructura = {
   arr: ArrastreCurso;
   abrirOpciones: (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) => void;
+  mostrarOpciones: (o: { tipo: 'modulo'; key: string } | { tipo: 'clase'; id: number }, ancla: HTMLElement) => void;
   conMenuModulo: boolean;
   conMenuClase: boolean;
 };
@@ -1088,6 +1099,20 @@ type Estructura = {
  */
 function Hueco({ alto }: { alto: number }) {
   return <div className="ugc-hueco" style={{ minHeight: Math.max(120, alto) }} aria-hidden />;
+}
+
+/**
+ * EL CLIC DERECHO en un módulo o una clase (f26 de la llamada con Leandro, 24/10/2026): abre SU menú «…», anclado a su
+ * botón. Es el mismo menú (renombrar, portada, mover, acceso, eliminar): dos listas para lo mismo dirían dos cosas.
+ * Sobre un texto que se está editando queda el del navegador (copiar, pegar). Sin menú, `undefined`: el del navegador.
+ */
+function clicDerechoAlMenu(abrir: ((ancla: HTMLElement) => void) | null) {
+  if (!abrir) return undefined;
+  return (e: ReactMouseEvent<HTMLElement>) => {
+    if ((e.target as Element).closest('input, textarea, [contenteditable="true"]')) return;
+    e.preventDefault();
+    abrir(e.currentTarget.querySelector<HTMLElement>('.ugc-editable-btn--menu') ?? e.currentTarget);
+  };
 }
 
 /** El «…» de un módulo o una clase. Va con los controles de la tarjeta y no arrastra. */

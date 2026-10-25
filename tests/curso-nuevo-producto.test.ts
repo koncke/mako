@@ -57,7 +57,8 @@ test('el programa de la cabecera ofrece «+ Nuevo producto» a un admin, al fina
 });
 
 test('el diálogo va AFUERA del curso, montado por la cabecera', () => {
-  const finCuerpo = SHELL.indexOf("<div className={`cls-cuerpo${papel ? ' cls-cuerpo--papel' : ''}`}>{children}</div>");
+  // El cuerpo de la cabecera (las pantallas de abajo, con el menú del programa a mano: `MenuProgramaCtx`).
+  const finCuerpo = SHELL.indexOf('{children}</MenuProgramaCtx.Provider>');
   const dialogo = SHELL.indexOf('{creando && <NuevoProducto onCerrar={cerrarCreando} />}');
   assert.ok(finCuerpo > 0 && dialogo > finCuerpo, 'el diálogo quedó adentro del cuerpo (la hoja del curso le saca la piel a sus botones)');
   assert.match(SHELL, /const cerrarCreando = useCallback\(\(\) => setCreando\(false\), \[\]\);/, 'el onCerrar del diálogo cambia en cada render (el foco salta)');

@@ -26,7 +26,7 @@ import { tabEnCapa } from '@/lib/capas';
 /** ¿Puede MIRAR la tab? La misma pregunta que `requireCapa('customer-success')`, sin redirect. */
 export async function puedeVer(): Promise<string | null> {
   if (!(await getRolWsEfectivo())) return 'Tu sesión venció.';
-  if (!tabEnCapa('customer-success', await getCapaActual())) return 'Tu plan no incluye Customer Success.';
+  if (!tabEnCapa('customer-success', await getCapaActual())) return 'Tu plan no incluye Clients.';
   return null;
 }
 

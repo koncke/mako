@@ -117,6 +117,13 @@ button.cls-prog:hover{ background: var(--cl-acento-suave); }
 .cls-color--otro input{ position: absolute; inset: -6px; width: calc(100% + 12px); height: calc(100% + 12px); opacity: 0;
   cursor: pointer; border: 0; padding: 0; }
 a.cls-opcion{ text-decoration: none; box-sizing: border-box; }
+.cls-fila-prog{ display: flex; align-items: center; gap: 4px; }
+.cls-fila-prog > .cls-opcion{ flex: 1; min-width: 0; }
+.cls-mas{ flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--cl-dim);
+  font: 800 16px/1 var(--cl-letra); cursor: pointer; opacity: 0; }
+.cls-fila-prog:hover .cls-mas, .cls-mas:focus-visible{ opacity: 1; }
+.cls-mas:hover{ background: var(--cl-acento-suave); color: var(--cl-tinta); }
+@media (hover: none){ .cls-mas{ opacity: 1; } }
 .cls-opcion--nuevo{ font-weight: 700; color: var(--cl-dim); }
 .cls-opcion--nuevo:hover{ color: var(--cl-tinta); }
 .cls-sep{ height: 1px; background: var(--cl-linea); margin: 4px 6px 10px; }

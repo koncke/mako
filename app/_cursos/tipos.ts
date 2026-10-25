@@ -353,6 +353,11 @@ export type CursoUgcProps = {
      * `menu`, la marca es un DESPLEGABLE (y `onClick` no se usa). Recibe con qué cerrarlo.
      */
     menu?: (cerrar: () => void) => ReactNode;
+    /**
+     * El CLIC DERECHO en la marca (f26, 24/10/2026): el menú del programa (Renombrar, Eliminar) de la cabecera de
+     * Clients. No la vuelve clickeable: el clic izquierdo no hace nada (f27).
+     */
+    onMenuContextual?: (punto: { x: number; y: number }) => void;
   };
   /**
    * El color de acento del curso (el lima de la casa por default), en `#RRGGBB`. Lo pinta
