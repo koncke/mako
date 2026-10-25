@@ -23,7 +23,10 @@ import { requireRolWs } from '@/lib/tab-access';
 import { getWorkspaceActual } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { abrir, temasPropiosDe } from '@/lib/editor-landing/server';
+import { listarAnalizadas } from '@/lib/landing-analyst';
+import { basesLandings } from '@/lib/app-url';
 import type { LandingCompleta, TemaPropio } from '@/lib/editor-landing/api-tipos';
+import type { Analizada } from '../panel-reglas';
 import EditorLanding from '../editor/EditorLanding';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +38,15 @@ export default async function EditorLandingPage({ params }: { params: Promise<{ 
   const id = /^\d{1,15}$/.test(idCrudo) ? Number(idCrudo) : NaN;
   if (!Number.isSafeInteger(id) || id <= 0) notFound();
 
-  const r = await abrir(id);
+  // Las analizadas van con la landing: «Nueva landing» abre «¿Qué vas a crear hoy?» ADENTRO del editor (24/10/2026) y su
+  // «landing de base» sale de ellas, como en el Panel. Una lectura que falla no es «no analizaste ninguna»: se dice ahí.
+  const [r, rAnalizadas] = await Promise.all([
+    abrir(id),
+    listarAnalizadas().then(
+      (a): { ok: true; analizadas: Analizada[] } => ({ ok: true, analizadas: a }),
+      (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e) }),
+    ),
+  ]);
   if (!r.ok && r.status === 404) notFound();
 
   let doc: LandingCompleta | null = null;
@@ -67,6 +78,9 @@ export default async function EditorLandingPage({ params }: { params: Promise<{ 
       temasPropios={temasPropios}
       creadoPor={doc?.creadoPor ?? null}
       autor={autor}
+      analizadas={rAnalizadas.ok ? rAnalizadas.analizadas : []}
+      errorAnalizadas={rAnalizadas.ok ? null : rAnalizadas.error}
+      bases={basesLandings()}
     />
   );
 }

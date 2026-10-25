@@ -371,8 +371,9 @@
   box-shadow: var(--gma-sombra-sm), 0 0 0 0.8px var(--gma-borde-suave); }
 .gma-ag-estado { font-size: 12px; color: var(--gma-tenue); white-space: nowrap; }
 .gma-ag-volver { font-size: 16px; line-height: 1; }
-/* La barra ÚNICA lleva el título: más angosto que en la barra de arriba para que entre todo. */
-.gma-herramientas .gma-titulo { max-width: 240px; min-width: 64px; }
+/* La barra ÚNICA lleva el título. Sin «Guardado» al lado (24/10/2026, Martín: «extiende mas la sección del titulo para que se
+   lea»): no se achica por debajo de 160 px (antes llegaba a 64 y se leía «Landin…»); lo que cede es el formato del medio. */
+.gma-herramientas .gma-titulo { flex: 0 0 auto; max-width: 320px; min-width: 160px; }
 .gma-izq-cabeza {
   flex: none;
   height: 48px;

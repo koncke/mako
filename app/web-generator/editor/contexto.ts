@@ -71,6 +71,12 @@ export type CtxEditorLanding = {
 
   panelIzq: PanelIzq;
   setPanelIzq: (p: PanelIzq) => void;
+  /**
+   * «Nueva landing» abierta: «¿Qué vas a crear hoy?» ocupa el lugar de la barra y el lienzo, SIN navegar y sin cambiar la
+   * tarjeta de la izquierda (24/10/2026, Martín). `setNueva(false)` vuelve a la landing abierta tal como estaba.
+   */
+  nueva: boolean;
+  setNueva: (v: boolean) => void;
   panelDer: PanelDer;
   setPanelDer: (p: PanelDer) => void;
   /**

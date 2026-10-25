@@ -2584,3 +2584,40 @@ Al convertir el editor en el molde de Automations (docs/diseno-editor-web-como-a
 - **La lista de la tarjeta lee con `pedirDocs({ accion: 'listar' })`**, el mismo del Panel, y un error de lectura se dice
   («No pude leer tus landings» + Reintentar), no se dibuja como una lista vacía. La redirección tampoco salta con la lista
   sin leer.
+
+## «Nueva landing» adentro del editor, «Compartir» en un solo botón y sin «Guardado» (24/10/2026 noche, tanda 1 de claude5)
+
+Pedidos de Martín del 24/10, textuales en `docs/feedback-24-10.md` (sección «Editor web → chat Landings», puntos 3, 7 y 9).
+**El 3 y el 7 ya se habían dado por hechos ese mismo día (7ae16876e) y no cumplían.**
+
+**Vive en:** `app/web-generator/editor/EditorLanding.tsx` (`setNueva`, `creando`, la barra) ·
+`app/web-generator/editor/paneles/PanelLandings.tsx` · `app/web-generator/Inicio.tsx` (`embebido`) ·
+`app/web-generator/editor/dialogos/DialogoCompartir.tsx` · `app/web-generator/[id]/page.tsx` (las analizadas y las bases).
+
+- **El diagnóstico equivocado: «Nueva landing abre las plantillas» se leyó como «llega a las plantillas por cualquier
+  camino».** Lo entregado era un `<Link>` a `/web-generator?panel=1`: otra RUTA y otra barra lateral (la del Panel). Martín:
+  «NO me debe redireccionar a otra ruta... Y la sidebar no debe cambiar». **Regla:** cuando Martín dice «que no me
+  redirija», no cambia la URL NI la columna de la izquierda; se reemplaza sólo el área que nombra.
+- **Cómo quedó:** «Nueva landing» es un botón que prende `nueva` en el editor; la barra y el lienzo quedan MONTADOS y
+  ocultos (`display: none`: volver es instantáneo, con el deshacer intacto) y en su lugar va el Panel ENTERO en modo
+  `embebido` (sin su barra de documentos, sin reescribir la URL y con la lista leída al montar). Es el mismo `Inicio`, no
+  una copia: crear, Analizar, Replicar y las plantillas son los del Panel. Se carga perezoso (`lazy`): trae Crear, el
+  Diagnóstico y Replicar, que el editor no necesita hasta ese clic.
+- ⚠️ **El Panel reescribe la URL con lo que muestra** (`queryDeDerecha` + `history.replaceState`): montado adentro del
+  editor, ponía `?panel=1` sobre `/web-generator/<id>`. Embebido, ese efecto no corre.
+- **`nueva` se ve sólo con la LISTA a la izquierda** (`creando = nueva && panelIzq === 'landings'`) y salir de la lista lo
+  apaga: ir al chat (la criatura, Mod+E) es volver a ESTA landing, y el chat edita la abierta.
+- **El panel Compartir es de Canva, no de Gamma:** se abre DEBAJO del botón (un `Flotante` con su ancla, no un modal),
+  el enlace con UN botón grande y una fila de atajos (Descargar, Vista previa, Enlace privado, Presentar). Lo que tiene
+  opciones (Descargar, Enlace privado) cambia el panel con «←», sin otro modal encima. Se fueron las pestañas, «Quién
+  puede editar» y los tres botones del pie. El ▾ del botón lleva Publicar, Vista previa, la publicada, Descargar y Presentar.
+- **En una presentación, Presentar quedó como ícono al lado de Compartir** (T3 pedía «tal cual Gamma», que pone «Present»
+  junto a «Share»); el azul es uno solo en las dos.
+- **«Guardado» no se dibuja, los problemas sí:** «No se guardó · Reintentar» y «Versión más nueva» siguen (callarlos sería
+  la app contando algo que no pasa). El título no baja de 160 px (`flex: 0 0 auto`); lo que cede es el formato del medio.
+
+Lo que quedó SIN hacer:
+- **No se miró con clics ni a 1280 px.** Con ~2 GB libres el vigía mató el chequeo de tipos de 2,4 GB, y el editor en
+  `next dev` pide 5-6 GB. Lo de la barra a 1280 sigue en «Sin verificar en pantalla» (docs/pendientes.md).
+- El clic derecho (P5), los botones amontonados del lienzo (5), la sidebar del chat que no se pliega (10), los
+  placeholders tapados (6), la segunda barra de formato (8) y las páginas de MaKo editables por sección (4): tandas que siguen.
