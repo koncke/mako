@@ -19,6 +19,22 @@ import {
 } from '@/lib/calendario-modelo';
 import type { CalendarioGoogle, EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import { ROTULO_RECURRENTE } from '@/lib/plan-recurrentes';
+import type { EntidadChat } from '@/lib/chat-desde';
+
+/**
+ * De qué le habla la persona a MaKo con un renglón abierto (24/10/2026, la llamada con Leandro, f08: «le tenés que poder
+ * decir che Maco, movéme la reunión, agendame tal o tal»): la llamada del CRM es SU lead (las herramientas de reuniones del
+ * CRM lo toman por defecto: `proponer_mover_reunion`, `proponer_cambiar_reunion`…), y lo del Plan, su tarea o su proyecto.
+ * Lo de Google y lo propio no tienen entidad: la agenda de Google no pasa por la IA (AGENTS.md, `datosDeGoogle`).
+ */
+export function entidadDelItem(it: ItemCalendario | null): EntidadChat | null {
+  if (!it) return null;
+  const m = /^crm:(\d{1,15}):R[12]$/.exec(it.id);
+  if (m && it.fuente === 'crm') return { tipo: 'lead', id: Number(m[1]), titulo: it.titulo };
+  const p = /^plan:([tp]):(.+)$/.exec(it.id);
+  if (p && it.fuente === 'plan') return { tipo: p[1] === 't' ? 'tarea' : 'proyecto', id: p[2], titulo: it.titulo };
+  return null;
+}
 
 /** El color de cada calendario de MaKo, de la paleta de eventos de Google (los mismos hex que su web). */
 export const COLOR_CAPA: Record<CapaCalendario, string> = {

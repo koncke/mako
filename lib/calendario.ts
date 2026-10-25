@@ -40,6 +40,7 @@ import {
   itemDeFila, filaDeEntrada, quartersDelRango, proximasVeces, itemDeCuota, MAX_LOTE, esTipoEvento, esFormato, TOPE_TITULO, TOPE_NOTAS,
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
+import type { LlamadaDeVenta } from './calendario-llamadas';
 
 export type FallosCalendario = {
   propios?: boolean;
@@ -123,6 +124,45 @@ async function leerCrm(desde: string, hasta: string, desdeIso: string, hastaIso:
   for (const l of f2) poner(l, 'R2', null, l.fecha_junta_2);
   return out;
 }
+
+type FilaLlamada = FilaReunion & { asistio_j1: boolean | null; asistio_j2: boolean | null };
+
+/**
+ * «Llamadas» del Calendario (24/10/2026, la lista de citas de venta, lib/calendario-llamadas.ts): las R1 y R2 del CRM en
+ * la ventana, CON las canceladas (conservan la hora y pierden la fecha: la grilla no las dibuja, la lista las muestra en
+ * su pestaña) y con la asistencia. Las mismas lecturas que `leerCrm`, sin `or()`.
+ */
+export async function leerLlamadasDeVenta(desde: string, hasta: string, tz: string): Promise<LlamadaDeVenta[]> {
+  const db = await getTenantDb();
+  const desdeIso = inicioDelDia(desde, tz);
+  const hastaIso = inicioDelDia(hasta, tz);
+  const cols = 'id, nombre, closer, junta_1_at, junta_2_at, fecha_junta_1, fecha_junta_2, asistio_j1, asistio_j2';
+  const [a1, a2, f1, f2] = await Promise.all([
+    leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_1_at', desdeIso).lt('junta_1_at', hastaIso) }),
+    leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.gte('junta_2_at', desdeIso).lt('junta_2_at', hastaIso) }),
+    leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.is('junta_1_at', null).gte('fecha_junta_1', desde).lt('fecha_junta_1', hasta) }),
+    leerTodo<FilaLlamada>(db, 'leads', cols, { orden: 'id', filtros: (q) => q.is('junta_2_at', null).gte('fecha_junta_2', desde).lt('fecha_junta_2', hasta) }),
+  ]);
+  const out: LlamadaDeVenta[] = [];
+  const poner = (l: FilaLlamada, cual: 'R1' | 'R2', iso: string | null, fecha: string | null) => {
+    const inicio = iso ?? (fecha ? inicioDelDia(fecha.slice(0, 10), tz) : null);
+    if (!inicio) return;
+    out.push({
+      id: `crm:${l.id}:${cual}`, leadId: Number(l.id), nombre: (l.nombre ?? '').trim() || `Lead #${l.id}`, cual, inicio, diaCompleto: !iso,
+      closer: l.closer, asistio: cual === 'R1' ? l.asistio_j1 : l.asistio_j2,
+      // Con hora y sin fecha: cancelada (la regla de `leerCrm`).
+      cancelada: !!iso && !(cual === 'R1' ? l.fecha_junta_1 : l.fecha_junta_2),
+    });
+  };
+  for (const l of a1) poner(l, 'R1', l.junta_1_at, null);
+  for (const l of a2) poner(l, 'R2', l.junta_2_at, null);
+  for (const l of f1) poner(l, 'R1', null, l.fecha_junta_1);
+  for (const l of f2) poner(l, 'R2', null, l.fecha_junta_2);
+  return out;
+}
+
+/** Las tareas y proyectos del Plan con deadline en la ventana (lo mismo que la capa «Plan» de la grilla). */
+export const leerTareasConFecha = (desde: string, hasta: string, tz: string): Promise<ItemCalendario[]> => leerPlan(desde, hasta, tz);
 
 /**
  * TODOS los calendarios de la cuenta de Google conectada y sus eventos (14/10/2026: la copia fiel de Google Calendar).

@@ -397,3 +397,74 @@ test('la tab lee Google con UN token y escribe sólo con permiso', () => {
   const rest = g.slice(g.indexOf('export async function restaurarEventoGoogle('));
   assert.match(rest, /method: 'PATCH', body: JSON\.stringify\(\{ status: 'confirmed' \}\)/);
 });
+
+// ── La estrella de MaKo en el Calendario (24/10/2026, la llamada con Leandro, f08) ───────────────────────────────────
+// «Que ahí aparezca el tema del chat de Maco, que ahí no aparece la estrellita (...) le tenés que poder decir che Maco,
+// movéme la reunión, agendame tal o tal». La pieza es la de las otras tabs; agendar y mover lo hacen las herramientas del
+// CRM y del Calendario de la API de MaKo. Lo de Google NO lleva entidad: la agenda no pasa por la IA.
+test('el Calendario tiene la estrella de MaKo, le deja su lugar, y una llamada o una tarea abierta es «de qué se habla»', async () => {
+  const app = sinComentarios(leer('../app/calendario/CalendarioApp.tsx'));
+  assert.match(app, /<MakoEnLaTab tab="Calendario" entidad=\{entidadDelItem\(abierto\?\.t === 'tarjeta' \? abierto\.item : null\)\} \/>/);
+  assert.match(app, /<div className="gc" data-calendario="" style=\{\{ paddingLeft: 'var\(--ancho-panel-mako, 0px\)' \}\}>/, 'abierta, el calendario se corre');
+  const { entidadDelItem } = await import('../app/calendario/comun');
+  const base = { inicio: '2026-10-24T13:00:00.000Z', fin: null, diaCompleto: false } as const;
+  assert.deepEqual(entidadDelItem({ ...base, id: 'crm:42:R1', fuente: 'crm', capa: 'llamadas', titulo: 'Ana' } as never), { tipo: 'lead', id: 42, titulo: 'Ana' });
+  assert.deepEqual(entidadDelItem({ ...base, id: 'plan:t:abc-1', fuente: 'plan', capa: 'plan', titulo: 'Grabar VSL' } as never), { tipo: 'tarea', id: 'abc-1', titulo: 'Grabar VSL' });
+  assert.deepEqual(entidadDelItem({ ...base, id: 'plan:p:p9', fuente: 'plan', capa: 'plan', titulo: '🚀 Lanzamiento' } as never), { tipo: 'proyecto', id: 'p9', titulo: '🚀 Lanzamiento' });
+  assert.equal(entidadDelItem({ ...base, id: 'g:x:1', fuente: 'google', capa: 'llamadas', titulo: 'Reunión' } as never), null, 'lo de Google no va a la IA');
+  assert.equal(entidadDelItem({ ...base, id: 'rec:t1:2026-10-24', fuente: 'plan', capa: 'recurrentes', titulo: 'Posteo' } as never), null, 'una próxima vez no es una tarea');
+  assert.equal(entidadDelItem(null), null);
+  // Lo que se le pide a MaKo («movéme la reunión») tiene con qué hacerse: las herramientas de reuniones del CRM.
+  const crm = sinComentarios(leer('../lib/api-mako/areas/crm.def.ts'));
+  for (const id of ['proponer_mover_reunion', 'proponer_agendar_reunion', 'horarios_libres_dia']) assert.match(crm, new RegExp(`id: '${id}'`), id);
+});
+// Roturas (24/10/2026; base 1 / 0 en este test), cada una restaurada (pasan / fallan):
+//   · el Calendario sin la estrella                                                           -> 0 / 1
+//   · una reunión de Google con entidad (la agenda iría a la IA)                              -> 0 / 1
+//   · el calendario no se corre con el panel abierto                                           -> 0 / 1
+
+// ── «Llamadas»: las citas de venta del CRM como lista (24/10/2026, la llamada con Leandro, f07) ──────────────────────
+// «Se ve muy como calendario de Google»: al lado de la grilla, la lista de citas de HighLevel (Appointment List View) con lo
+// que ya existe en MaKo: las R1 y R2 del CRM con su estado, y las tareas del Plan con fecha.
+test('el estado de una llamada: lo marcado gana, la cancelada es cancelada, y sin marcar recién cuando terminó', async () => {
+  const { estadoDeLlamada, llamadasDeLaPestana, cuentaPorPestana } = await import('../lib/calendario-llamadas');
+  const ahora = '2026-10-25T15:00:00.000Z';
+  const l = (id: string, inicio: string, x: Partial<{ diaCompleto: boolean; asistio: boolean | null; cancelada: boolean }> = {}) =>
+    ({ id, leadId: 1, nombre: id, cual: 'R1' as const, inicio, diaCompleto: false, closer: null, asistio: null, cancelada: false, ...x });
+  assert.equal(estadoDeLlamada(l('a', '2026-10-25T18:00:00.000Z'), ahora), 'agendada');
+  assert.equal(estadoDeLlamada(l('b', '2026-10-25T12:00:00.000Z'), ahora), 'sin-marcar', 'ya pasó y nadie marcó');
+  assert.equal(estadoDeLlamada(l('c', '2026-10-25T18:00:00.000Z', { asistio: true }), ahora), 'asistio', 'lo marcado gana sobre la hora');
+  assert.equal(estadoDeLlamada(l('d', '2026-10-24T12:00:00.000Z', { asistio: false }), ahora), 'no-vino');
+  assert.equal(estadoDeLlamada(l('e', '2026-10-26T12:00:00.000Z', { cancelada: true, asistio: true }), ahora), 'cancelada');
+  assert.equal(estadoDeLlamada(l('f', '2026-10-25T03:00:00.000Z', { diaCompleto: true }), ahora), 'agendada', 'sólo con el día: es de hoy hasta que el día termina');
+  const lista = [l('p2', '2026-10-27T12:00:00.000Z'), l('p1', '2026-10-26T12:00:00.000Z'), l('v1', '2026-10-20T12:00:00.000Z'), l('v2', '2026-10-24T12:00:00.000Z'), l('x', '2026-10-26T12:00:00.000Z', { cancelada: true })];
+  assert.deepEqual(llamadasDeLaPestana(lista, 'proximas', ahora).map((x) => x.id), ['p1', 'p2'], 'la más cercana primero');
+  assert.deepEqual(llamadasDeLaPestana(lista, 'pasadas', ahora).map((x) => x.id), ['v2', 'v1'], 'la más reciente primero');
+  assert.deepEqual(llamadasDeLaPestana(lista, 'canceladas', ahora).map((x) => x.id), ['x']);
+  assert.deepEqual(cuentaPorPestana(lista, ahora), { proximas: 2, pasadas: 2, canceladas: 1 });
+});
+
+test('«Llamadas» lee el CRM y el Plan, con las canceladas y la asistencia, y nada de Google', () => {
+  const pagina = sinComentarios(leer('../app/calendario/page.tsx'));
+  const rama = pagina.slice(pagina.indexOf("if (sp?.vista === 'llamadas') {"), pagina.indexOf('const pedida = sp?.vista;'));
+  assert.match(rama, /leerLlamadasDeVenta\(sumarDias\(hoy, -DIAS_ATRAS_LLAMADAS\), sumarDias\(hoy, DIAS_ADELANTE_LLAMADAS\), tz\)/);
+  assert.match(rama, /leerTareasConFecha\(/);
+  assert.doesNotMatch(rama, /leerCalendario|Google|google/, 'la lista no lee la agenda de Google');
+  assert.match(rama, /<ListaLlamadas llamadas=\{llamadas\} tareas=\{tareas\} hoy=\{hoy\} tz=\{tz\} ahora=\{new Date\(\)\.toISOString\(\)\} fallos=\{fallos\} \/>/);
+  const lib = sinComentarios(leer('../lib/calendario.ts'));
+  const f = lib.slice(lib.indexOf('export async function leerLlamadasDeVenta'), lib.indexOf('export const leerTareasConFecha'));
+  assert.match(f, /asistio_j1, asistio_j2/, 'con la asistencia');
+  assert.match(f, /cancelada: !!iso && !\(cual === 'R1' \? l\.fecha_junta_1 : l\.fecha_junta_2\)/, 'cancelada = con hora y sin fecha, como la grilla');
+  assert.doesNotMatch(f.slice(0, f.indexOf('const out')), /not\('fecha_junta/, 'las canceladas se leen (la grilla las saltea; la lista las muestra)');
+  // La entrada, arriba a la derecha de las dos pantallas, y la estrella de MaKo también en la lista.
+  assert.match(sinComentarios(leer('../app/calendario/CalendarioApp.tsx')), /<div className="gc-derecha">\s*<PestanasCalendario activa="calendario" \/>/);
+  const lista = sinComentarios(leer('../app/calendario/ListaLlamadas.tsx'));
+  assert.match(lista, /<div className="gc-derecha"><PestanasCalendario activa="llamadas" \/><\/div>/);
+  assert.match(lista, /<MakoEnLaTab tab="Calendario" \/>/);
+  assert.match(lista, /href=\{`\/crm\/\$\{l\.leadId\}`\}/, 'cada llamada lleva a la ficha del lead');
+});
+// Roturas (24/10/2026, base 2 / 0 en estos dos), cada una restaurada (pasan / fallan):
+//   · `estadoDeLlamada` mira la hora antes que lo marcado                                     -> 1 / 1
+//   · las próximas ordenadas de la más lejana a la más cercana                                -> 1 / 1
+//   · la lista lee con `leerCalendario` (trae Google)                                          -> 1 / 1
+//   · `leerLlamadasDeVenta` sin las canceladas                                                 -> 1 / 1
