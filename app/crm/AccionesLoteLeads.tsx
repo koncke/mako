@@ -57,7 +57,7 @@
 //     nuevos de grupos». Vivían sólo en el modal de traer de un grupo (siguen ahí); el lugar principal es éste. Sólo escriben
 //     lo vacío (el nombre donde está el número, la empresa y los datos de empresa donde no hay nada), no crean, no mueven y
 //     no le mandan nada a nadie. Tardan minutos: corren con su avance y un «Parar», y la pregunta antes dice cuántos y
-//     cuánto. «Datos de empresa» gasta la red de la línea: tope por corrida y por día (app/crm/grupo-wa-server.ts). Sólo el
+//     cuánto. «Datos de empresa» gasta la red de la línea: tope por día, sin tope por corrida desde el 25/10 (f14; app/crm/grupo-wa-server.ts). Sólo el
 //     admin (`puedeCompletar`), como en el grupo. Las máquinas, compartidas con el modal: app/crm/enriquecer-cliente.ts.
 //
 // Y una que se dejo AFUERA a proposito: meter los seleccionados en una secuencia
@@ -371,7 +371,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       if (!c.total) { onListo({ texto: `Ninguno de los ${cuantos} tiene un teléfono que sea sólo suyo${sinPais}.`, hubo: false, tono: 'warn' }); return; }
       if (!c.pendientes) { onListo({ texto: `Ya se consultaron los ${miles(c.total)} con teléfono${sinPais}.`, hubo: false }); return; }
       if (!c.estaCorrida) {
-        onListo({ texto: `Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de tu línea. Mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(c.pendientes)} que faltan.`, hubo: false, tono: 'warn' });
+        onListo({ texto: `Hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de tu línea (cuidan tu WhatsApp de un bloqueo). Faltan ${miles(c.pendientes)}: tócalo mañana.`, hubo: false, tono: 'warn' });
         return;
       }
       setPideEstado({ tipo: 'empresa', cuenta: { total: c.total, pendientes: c.pendientes, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida, linea: c.lineaNombre ?? null, sinPais: c.sinPais ?? 0 } });
@@ -396,7 +396,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     onCorriendo?.(false);
     onListo(entera ? r : { ...r, tono: 'warn' });
     const misma = idsAhora.current.length === deEstos.length && idsAhora.current.every((id) => deEstos.includes(id));
-    // A medias, la selección queda: el aviso pide «vuelve a tocar para seguir», y para eso tienen que seguir tildados.
+    // A medias (el tope del día), la selección queda: el aviso pide tocarlo mañana, y para eso tienen que seguir tildados.
     if (entera && misma) onLimpiar();
   };
 

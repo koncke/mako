@@ -84,7 +84,7 @@ test('3. la cobertura y el aviso: lo que su WhatsApp tiene, lo escrito, y si par
   assert.match(resumenDeFichas(221, fichas, { ...base, error: 'Se cortó guardando: quedaron 9 sin guardar.' }), /quedaron 9 sin guardar\.$/, 'el corte no se dice');
 });
 
-const perf = (o: Partial<{ revisados: number; empresas: number; completados: number; campos: number; pendientes: number; sinRespuesta: string[]; sigue: boolean; corte: 'dia' | 'corrida' | null }>) => ({
+const perf = (o: Partial<{ revisados: number; empresas: number; completados: number; campos: number; pendientes: number; sinRespuesta: string[]; sigue: boolean; corte: 'dia' | null }>) => ({
   ok: true as const, total: 221, pendientes: o.pendientes ?? 221, quedanHoy: 120, estaCorrida: 40, revisados: o.revisados ?? 0, empresas: o.empresas ?? 0,
   completados: o.completados ?? 0, campos: o.campos ?? 0, errores: 0, sinRespuesta: o.sinRespuesta ?? [], sigue: o.sigue ?? false, corte: o.corte ?? null,
 });
@@ -94,19 +94,22 @@ test('4. «Datos de empresa»: suma lo hecho entre llamadas, saltea a los que no
   const respuestas = [
     perf({ revisados: 15, empresas: 6, completados: 2, campos: 3, pendientes: 221, sinRespuesta: ['1155550001'], sigue: true }),
     perf({ revisados: 15, empresas: 5, completados: 1, campos: 1, pendientes: 207, sigue: true }),
-    perf({ revisados: 10, empresas: 3, pendientes: 192, corte: 'corrida' }),
+    perf({ revisados: 10, empresas: 3, pendientes: 192, corte: 'dia' }),
   ];
   const a = await correrPerfiles({ pendientes: 221, estaCorrida: 40 }, async (hechas, saltear) => { pedidos.push({ hechas, saltear }); return respuestas[pedidos.length - 1]; }, { parar: () => false });
-  assert.deepEqual(pedidos.map((x) => x.hechas), [0, 15, 30], 'el tope de la corrida necesita lo ya consultado');
+  assert.deepEqual(pedidos.map((x) => x.hechas), [0, 15, 30], 'el avance necesita lo ya consultado');
   assert.deepEqual(pedidos[1].saltear, ['1155550001'], 'el que no contestó vuelve a ser el primero de la llamada siguiente');
   assert.equal(a.hechas, 40);
   assert.equal(a.empresas, 14);
   assert.equal(a.completados, 3);
   assert.equal(a.pendientes, 182);
-  assert.equal(a.corte, 'corrida');
-  assert.equal(resumenDePerfiles(a), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). Faltan 182: vuelve a tocar «Datos de empresa» para seguir.');
-  // No dice «mañana sigue»: no sigue nada solo, hay que volver a tocar.
-  assert.match(resumenDePerfiles({ ...a, corte: 'dia' }), /Por hoy se terminaron las consultas de esta línea: mañana vuelve a tocar «Datos de empresa» para seguir con los 182 que faltan \(los ya consultados no se repiten\)\.$/);
+  assert.equal(a.corte, 'dia');
+  // UNA SOLA PASADA (25/10/2026, f14: «no debería volver a tocar nada»): lo único que corta es el tope del día, y se dice en
+  // una línea. No dice «mañana sigue»: no sigue nada solo, hay que tocarlo (MaKo no hace nada por detrás).
+  assert.equal(resumenDePerfiles(a), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). Faltan 182: tócalo mañana (120 consultas por día cuidan tu línea de un bloqueo).');
+  // Sin el tope del día, los que quedan son los que no contestaron: nada de «vuelve a tocar para seguir».
+  assert.equal(resumenDePerfiles({ ...a, corte: null, pendientes: 3 }), '14 de 40 tienen cuenta de empresa · 3 con datos nuevos (4 entre web, Instagram, correo y dirección). 3 no contestaron.');
+  assert.doesNotMatch(resumenDePerfiles({ ...a, corte: null }), /vuelve a tocar/);
 });
 
 test('5. «Datos de empresa» no corta callado: el server que no consulta ninguno, el error, la red, el tope de vueltas y «Parar»', async () => {
@@ -119,11 +122,12 @@ test('5. «Datos de empresa» no corta callado: el server que no consulta ningun
   assert.equal(tira.error, 'Failed to fetch');
   let n = 0;
   const siempre = await correrPerfiles(cuenta, async () => {
-    if (++n > 25) throw new Error('un bucle sin fin'); // el doble corta solo: una regresión es un rojo, no un test colgado
+    if (++n > 60) throw new Error('un bucle sin fin'); // el doble corta solo: una regresión es un rojo, no un test colgado
     return perf({ revisados: 1, sigue: true });
   }, { parar: () => false });
-  assert.ok(n <= 20, 'un bucle sin fin');
-  assert.match(siempre.error ?? '', /Se cortó después de 20 consultas/, 'el tope de vueltas cortó callado');
+  // 30 vueltas (25/10/2026, sin tope por corrida): alcanzan para las 120 del día aunque cada llamada consulte sólo 4.
+  assert.ok(n <= 30, 'un bucle sin fin');
+  assert.match(siempre.error ?? '', /Se cortó después de 30 consultas/, 'el tope de vueltas cortó callado');
   let llamadas = 0;
   const parado = await correrPerfiles(cuenta, async () => { llamadas++; return perf({ revisados: 15, sigue: true }); }, { parar: () => llamadas >= 1 });
   assert.equal(llamadas, 1);

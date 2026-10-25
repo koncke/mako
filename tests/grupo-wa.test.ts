@@ -19,7 +19,7 @@ import assert from 'node:assert/strict';
 import {
   conNombresConocidos, esJidDeGrupo, esNombreDeRelleno, etapaPorDefecto, etiquetaDeGrupo, funnelPorDefecto, gruposDeChats, gruposDeFetchAll,
   lineaDePerfil, nombreUtil, parcheDePerfil, participantesDe, perfilDeEmpresa, telefonoDeJid,
-  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_CORRIDA, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
+  SEGUNDOS_POR_PERFIL, TOPE_PERFILES_DIA, TOPE_VISTOS, cuantosEstaCorrida, cupoDeHoy, minutosDePerfiles, quedanHoy,
   vistosConNuevos, vistosDe,
 } from '../lib/grupo-wa-reglas';
 
@@ -367,7 +367,7 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(cuerpo, /if \(p\.soloContar\) return \{ ok: true, \.\.\.cuenta,/, 'la cuenta de la pregunta consulta perfiles');
   assert.ok(cuerpo.indexOf('if (p.soloContar) return') < cuerpo.indexOf('fetchBusinessProfile'), 'la cuenta tiene que salir antes de cualquier consulta');
   assert.match(cuerpo, /if \(!\(await reservarPerfil\(p\.linea, hoy\)\)\) \{ corte = 'dia'; break; \}\n\s+const \{ telefono, id \} = ahora\[i\];\n\s+revisados\+\+;\n\s+const r = await ev\(`\/chat\/fetchBusinessProfile/, 'consulta sin reservar el cupo del día antes');
-  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan, hechas \}\);/);
+  assert.match(cuerpo, /const estaCorrida = cuantosEstaCorrida\(\{ pendientes: ahora\.length, quedanHoy: quedan \}\);/);
   assert.match(cuerpo, /for \(let i = 0; i < estaCorrida; i\+\+\)/, 'el bucle no respeta el tope de la corrida');
   assert.match(cuerpo, /const faltan = conLead\.filter\(\(x\) => !vistos\.has\(x\.telefono\.slice\(-10\)\)\);/, 'vuelve a consultar a los que ya contestaron');
   assert.match(cuerpo, /if \(r == null\) \{ sinRespuesta\.push\(telefono\.slice\(-10\)\); continue; \}\n\s+nuevos\.push\(/, 'lo que no contestó quedó como consultado');
@@ -395,13 +395,14 @@ test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados 
   assert.deepEqual(cupoDeHoy('{"dia":"2026-10-24","usadas":-3}', hoy), { dia: hoy, usadas: 0 });
   assert.equal(quedanHoy({ dia: hoy, usadas: 100 }), TOPE_PERFILES_DIA - 100);
   assert.equal(quedanHoy({ dia: hoy, usadas: TOPE_PERFILES_DIA + 5 }), 0);
-  // Esta corrida: lo menor entre lo que falta, lo que queda hoy y lo que le queda a la corrida.
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: 0 }), TOPE_PERFILES_CORRIDA);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7, hechas: 0 }), 7);
-  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120, hechas: 0 }), 3);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA - 5 }), 5);
-  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120, hechas: TOPE_PERFILES_CORRIDA + 9 }), 0);
-  assert.ok(TOPE_PERFILES_CORRIDA <= TOPE_PERFILES_DIA);
+  // Esta corrida: TODO lo que falta, hasta lo que queda hoy. Sin tope por corrida desde el 25/10/2026 (f14 de la llamada con
+  // Leandro: «no debería volver a tocar nada»): el de 40 sólo partía el trabajo; lo que cuida la línea es el del día.
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 120 }), 120);
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 7 }), 7);
+  assert.equal(cuantosEstaCorrida({ pendientes: 3, quedanHoy: 120 }), 3);
+  assert.equal(cuantosEstaCorrida({ pendientes: 90, quedanHoy: 120 }), 90, 'volvió el tope por corrida: «vuelve a tocar para seguir»');
+  assert.equal(cuantosEstaCorrida({ pendientes: 221, quedanHoy: 0 }), 0);
+  assert.equal(TOPE_PERFILES_DIA, 120, 'el tope del día cuida la línea de un baneo: no se mueve sin medir');
   // Los ya consultados: sin repetir, los nuevos al final, recortado a los más recientes.
   assert.deepEqual([...vistosDe('["1155550001","x",7,"1155550002"]')], ['1155550001', '1155550002']);
   assert.deepEqual([...vistosDe('roto')], []);

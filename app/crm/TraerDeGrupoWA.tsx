@@ -267,7 +267,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
       if (!c.ok) { setErr(c.error); return; }
       if (!c.pendientes) { setHecho(`«${grupo.nombre}»: ya se consultaron los ${miles(c.total)} que están.`); return; }
-      if (!c.estaCorrida) { setErr(`Por hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea. Mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(c.pendientes)} que faltan.`); return; }
+      if (!c.estaCorrida) { setErr(`Hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea (cuidan tu WhatsApp de un bloqueo). Faltan ${miles(c.pendientes)}: tócalo mañana.`); return; }
       setCuentaPerfiles({ pendientes: c.pendientes, total: c.total, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida });
     } finally { setCompletando(false); setAvance(null); }
   };

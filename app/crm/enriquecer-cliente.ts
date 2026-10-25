@@ -11,7 +11,7 @@
 // callado, y nunca un bucle que no termina.
 
 import type { ResultadoFichas, ResultadoPerfiles } from './grupo-wa-server';
-import { TANDA_FICHAS, nombreDeFicha, type FichaWa } from '@/lib/grupo-wa-reglas';
+import { TANDA_FICHAS, TOPE_PERFILES_DIA, nombreDeFicha, type FichaWa } from '@/lib/grupo-wa-reglas';
 import { miles } from './traer-seleccion';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : 'error');
@@ -68,11 +68,12 @@ export type AvancePerfiles = {
   hechas: number; empresas: number; completados: number; campos: number;
   /** Los que siguen sin consultar al terminar (para decir «faltan N»). */
   pendientes: number;
-  corte: 'dia' | 'corrida' | null; parado: boolean; error: string | null;
+  corte: 'dia' | null; parado: boolean; error: string | null;
 };
 
-/** Cuántas llamadas puede hacer una corrida como mucho (cada una, ~40 s): con el tope de 40 consultas sobra; si se llega, se dice. */
-const VUELTAS_PERFILES = 20;
+/** Cuántas llamadas puede hacer una corrida como mucho (cada una, ~40 s y unas 15 consultas): sobra para el tope del día aunque
+ *  cada llamada consulte sólo 4; si se llega, se dice. */
+const VUELTAS_PERFILES = Math.ceil(TOPE_PERFILES_DIA / 4);
 
 /**
  * Corre «Datos de empresa» después de la pregunta: llama con lo ya consultado (`hechas`, el tope de la corrida) y los que no
@@ -84,7 +85,7 @@ export async function correrPerfiles(
   o: { parar: () => boolean; alAvanzar?: (hechas: number, meta: number) => void },
 ): Promise<AvancePerfiles> {
   let hechas = 0, empresas = 0, completados = 0, campos = 0, pendientes = cuenta.pendientes;
-  let corte: 'dia' | 'corrida' | null = null;
+  let corte: 'dia' | null = null;
   const saltear: string[] = [];
   const fin = (parado: boolean, error: string | null): AvancePerfiles => ({ hechas, empresas, completados, campos, pendientes, corte, parado, error });
   for (let vuelta = 0; vuelta < VUELTAS_PERFILES; vuelta++) {
@@ -103,12 +104,16 @@ export async function correrPerfiles(
   return fin(false, `Se cortó después de ${miles(hechas)} consultas: vuelve a tocar para seguir.`);
 }
 
-/** El aviso al terminar «Datos de empresa»: lo encontrado, y por qué quedan (el tope del día, o «vuelve a tocar»). */
+/**
+ * El aviso al terminar «Datos de empresa»: lo encontrado, y por qué quedan. Una sola pasada desde el 25/10/2026 (f14): lo único
+ * que corta es el tope del DÍA, que cuida la línea de un baneo, y se dice en una línea (f13: nada de textos largos). Mañana no
+ * sigue solo (MaKo no hace nada por detrás): hay que tocarlo.
+ */
 export function resumenDePerfiles(a: AvancePerfiles): string {
   const datos = a.completados ? ` · ${miles(a.completados)} con datos nuevos (${miles(a.campos)} entre web, Instagram, correo y dirección)` : ' · ningún dato nuevo';
-  const resto = a.pendientes <= 0 ? '' : a.corte === 'dia'
-    ? ` Por hoy se terminaron las consultas de esta línea: mañana vuelve a tocar «Datos de empresa» para seguir con los ${miles(a.pendientes)} que faltan (los ya consultados no se repiten).`
-    : ` Faltan ${miles(a.pendientes)}: vuelve a tocar «Datos de empresa» para seguir.`;
+  const resto = a.pendientes <= 0 || a.parado || a.error ? '' : a.corte === 'dia'
+    ? ` Faltan ${miles(a.pendientes)}: tócalo mañana (${miles(TOPE_PERFILES_DIA)} consultas por día cuidan tu línea de un bloqueo).`
+    : ` ${miles(a.pendientes)} no contestaron.`;
   const cola = a.parado ? ' Paraste antes de terminar.' : a.error ? ` ${a.error}` : '';
   return `${miles(a.empresas)} de ${miles(a.hechas)} tienen cuenta de empresa${datos}.${resto}${cola}`;
 }
