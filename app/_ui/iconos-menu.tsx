@@ -28,6 +28,7 @@
 
 import type { CSSProperties, ReactNode } from 'react';
 import { ICONO_FUNNEL } from './icono-funnel';
+import { TUERCA } from './icono-tuerca';
 
 /**
  * EL TACHO DE BORRAR (general 9, textual: «Cambia el botón de BORRAR con ese ícono de basura que no se
@@ -72,7 +73,8 @@ const TRAZOS = {
   subir: <><path d="M12 15V4" /><path d="m7.5 8.5 4.5-4.5 4.5 4.5" /><path d="M5 20h14" /></>,
   enviar: <><path d="M20.5 3.5 10 14" /><path d="M20.5 3.5 14 20.5l-4-6.5-6.5-4 17-6.5Z" /></>,
   emoji: <><circle cx="12" cy="12" r="8.5" /><path d="M8.5 14.2a4.3 4.3 0 0 0 7 0" /><path d="M9.2 9.8h.01M14.8 9.8h.01" /></>,
-  configurar: <><path d="M4 7h9M17 7h3M4 17h3M11 17h9" /><circle cx="15" cy="7" r="2" /><circle cx="9" cy="17" r="2" /></>,
+  // «Configurar» es la TUERCA, la misma de Settings en la barra (25/10/2026: «siempre debe ser la tuerca»).
+  configurar: <><path d={TUERCA} /><circle cx="12" cy="12" r="3" /></>,
   etiqueta: <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><circle cx="8" cy="8" r="1.3" /></>,
   'etiqueta-mas': <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><path d="M11.5 10v5M9 12.5h5" /></>,
   'etiqueta-menos': <><path d="M3.5 11.6V4.5a1 1 0 0 1 1-1h7.1l8.9 8.9-8.1 8.1-8.9-8.9Z" /><path d="M9 12.5h5" /></>,

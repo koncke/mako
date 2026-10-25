@@ -4,7 +4,9 @@
 // Pedido de Martín: «continua y termina el centro de operaciones». La pantalla es
 // /admin/operaciones; el diseño, docs/diseno-centro-de-operaciones.md.
 //
-// ⚠️ SÓLO LECTURAS, Y SÓLO LA PLATAFORMA. Un pedido del Centro es un prompt que corre en la PC de
+// ⚠️ LECTURAS, Y SÓLO LA PLATAFORMA. Lo único que se CAMBIA es el ✓ de un «Completado» (25/10/2026, «Todo, todo siempre tiene
+//    que ir a la API, todo MaKo se debe poder utilizar por API»): no manda nada a la PC, sólo dice que Martín ya lo vio.
+// Un pedido del Centro es un prompt que corre en la PC de
 // Martín, así que:
 //   · todo va con `soloPlataforma` + `rolMinimo: 'admin'` (un admin de cliente no lo ve: para él
 //     estas operaciones no existen);
@@ -38,5 +40,24 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'El estado de los Runners del Centro de Operaciones (el proceso de la PC que entrega lo que Martín escribe a sus chats de Claude), uno por cuenta: cuándo se conectó cada uno por última vez, si está activo, cuántos chats tiene abiertos y cuáles, y cuántos Tokens de dispositivo acepta. Sirve para contestar «¿por qué no salió mi trabajo?»: si el Runner de esa cuenta no está activo, el trabajo espera hasta que Martín abra el chat Runner en la app de Claude.',
     parametros: [],
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  {
+    id: 'ver_completados_operaciones', area: 'operaciones', tipo: 'lectura',
+    titulo: 'Completados que esperan tu ✓',
+    descripcion: 'Los chats del Ops Center que dicen «Completado»: su último «Ya está» todavía no tiene el ✓ de Martín (lo mismo que la fila y el bloque de arriba de la caja). Por cada uno: el chat y su cuenta, cuándo terminó, lo que pidió Martín antes (su último mensaje o trabajo), la respuesta ENTERA del chat y la página para revisarlo. Para darlo por visto, `marcar_visto_operaciones`.',
+    parametros: [
+      { nombre: 'chat', rotulo: 'Chat', tipo: 'string', descripcion: 'filtra por el nombre del chat («CRM», «Cerebro»).' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  {
+    id: 'marcar_visto_operaciones', area: 'operaciones', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Dar por visto un Completado',
+    descripcion: 'Le pone el ✓ al último «Completado» de un chat del Ops Center, como «Ya lo vi» en la pantalla: el chat deja de decir «Completado» y el bloque de arriba de su caja se va. No le manda nada al chat. Antes, `ver_completados_operaciones` dice cuáles esperan.',
+    parametros: [
+      { nombre: 'chat', rotulo: 'Chat', tipo: 'string', obligatorio: true, descripcion: 'el nombre del chat que dice «Completado» («CRM», «Cerebro»).' },
+    ],
+    escribe: 'el ✓ del último «Completado» de ese chat (operaciones.ya-vistos, en la plataforma); marcar sólo avanza',
+    canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
 ];

@@ -18,7 +18,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
 import { NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
-import { GARANTIA_DIAS, HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, precioEnPesos } from '../lib/planes-mako';
+import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
 
@@ -218,20 +218,32 @@ test('el ANUAL: 2 meses gratis, se elige arriba, y SIEMPRE se pide (el checkout 
   assert.match(fuente('lib/compra-plan.ts'), /const nombrePlan = anual \? `\$\{nombre\} anual \(US\$ \$\{anual\.toLocaleString\('es-AR'\)\} por año\)` : nombre;/, 'el pedido dice que es el anual');
 });
 
-test('la GARANTÍA de los planes: 14 días el mensual y 30 el anual, en las tarjetas y en /reembolsos, de una constante', async () => {
-  assert.deepEqual({ ...GARANTIA_DIAS }, { mensual: 14, anual: 30 });
-  const { textoGarantia } = await import('../app/planes/Tarjetas');
+test('la PRUEBA GRATIS (Martín, 25/10): 7 días, y debajo de cada botón lo que se cobra después; la garantía de 14/30 se fue', async () => {
+  assert.equal(PRUEBA_DIAS, 7);
+  assert.equal(textoDespuesDeLaPrueba(97, 'mes'), 'Después US$ 97/mes. Cancela cuando quieras antes del día 8.');
   const t = await vitrina();
-  assert.ok(t.includes(`Quiero MaKo Pro ${textoGarantia('mensual')}`), 'abajo del botón del mensual');
-  assert.ok(t.includes(`Quiero el anual ${textoGarantia('anual')}`), 'abajo del botón del anual');
-  assert.ok(t.includes('Garantía de 14 días en el plan mensual y de 30 en el anual.'));
+  assert.ok(t.includes('MaKo Pro ¿Ya vendes?'), 'la tarjeta de Pro');
+  assert.ok(t.includes('7 días gratis US$ 97 / mes'), '«7 días gratis» junto al precio');
+  assert.ok(t.includes(`Quiero MaKo Pro ${textoDespuesDeLaPrueba(97, 'mes')}`), 'abajo del botón del mensual, con SU monto');
+  assert.ok(t.includes(`Quiero MaKo Esencial ${textoDespuesDeLaPrueba(47, 'mes')}`));
+  assert.ok(t.includes(`Quiero el anual ${textoDespuesDeLaPrueba(970, 'año')}`), 'y del anual, con el del año');
+  assert.ok(t.includes('7 días gratis con tu tarjeta: si te das de baja antes del día 8, no se te cobra nada.'));
+  assert.ok(t.includes('¿Cómo es la prueba gratis?'));
   const React = await import('react');
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { default: Reembolsos } = await import('../app/reembolsos/page');
   const r = sinMarcas(renderToStaticMarkup(React.createElement(Reembolsos)));
-  assert.ok(r.includes('Garantía de 14 días en el plan mensual y de 30 en el anual.'), '/reembolsos dice lo mismo');
-  assert.doesNotMatch(r, /El mes ya pagado no se reembolsa/, 'ya no dice que el primer mes no se devuelve');
-  assert.match(fuente('app/reembolsos/page.tsx'), /Garantía de \{GARANTIA_DIAS\.mensual\} días en el plan mensual y de \{GARANTIA_DIAS\.anual\} en el anual\./);
+  assert.ok(r.includes('7 días gratis. Al empezar pones tu tarjeta'), '/reembolsos dice lo mismo');
+  assert.ok(r.includes('Si te das de baja antes del día 8'));
+  assert.ok(r.includes('Después del primer cobro, lo ya pagado no se reembolsa'), 'después, no hay devolución');
+  for (const [que, txt] of [['la vitrina', t], ['/reembolsos', r]] as const) {
+    assert.doesNotMatch(txt, /días de garantía|Garantía de 14|te devolvemos tu pago/, `${que}: sin la garantía de los planes`);
+  }
+  assert.ok(r.includes('Garantía de entrega:'), 'la del Acelerador queda: es otra (sobre los entregables)');
+  for (const rel of ['lib/planes-mako.ts', 'app/planes/Tarjetas.tsx', 'app/planes/Vitrina.tsx', 'app/reembolsos/page.tsx', 'app/planes/[plan]/page.tsx']) {
+    assert.doesNotMatch(fuente(rel), /GARANTIA_DIAS/, rel);
+  }
+  assert.match(fuente('app/reembolsos/page.tsx'), /<strong>\{PRUEBA_DIAS\} días gratis\.<\/strong>/, 'los días, de la constante');
 });
 
 test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo tiene (nunca con una tasa)', async () => {
@@ -305,3 +317,12 @@ test('sin plan Agencia aparte (10/10): la agencia maneja a sus clientes desde Pr
 //   · la fila del media buyer escrita a mano                                                -> 39 / 1
 //   · el media buyer de Esencial aplica solo                                                -> 39 / 1
 //   · el pedido no dice que es anual                                                        -> 39 / 1
+// Roturas de la PRUEBA GRATIS (25/10/2026, ~11:00; base 25 / 0 con planes-sin-pasarela), cada una restaurada (pasan / fallan):
+//   · la prueba de 14 días                                                                  -> 24 / 1
+//   · debajo del botón, el monto de Pro para todos los planes                               -> 24 / 1
+//   · sin «7 días gratis» junto al precio                                                   -> 24 / 1
+//   · /reembolsos vuelve a la garantía de 14 días                                           -> 24 / 1
+//   · /reembolsos con los días escritos a mano                                              -> 24 / 1
+//   · la pregunta vuelve a «te devolvemos tu pago»                                          -> 24 / 1
+//   · vuelve `GARANTIA_DIAS`                                                                -> 24 / 1
+//   · /reembolsos sin «después del primer cobro, no se reembolsa»                            -> 24 / 1

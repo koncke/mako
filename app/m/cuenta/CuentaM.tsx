@@ -164,7 +164,7 @@ export function CuentaM({ datos }: { datos: DatosCuenta }) {
       {datos.negocio && (
         <SeccionM titulo={GRUPO_NEGOCIO}>
         <ListaM etiqueta={GRUPO_NEGOCIO}>
-          <FilaM navegacion icono="config" titulo={datos.negocio} segunda="Equipo, integraciones, avisos y tu plan" href="/m/configuraciones" />
+          <FilaM navegacion icono="tuerca" titulo={datos.negocio} segunda="Equipo, integraciones, avisos y tu plan" href="/m/configuraciones" />
         </ListaM>
         </SeccionM>
       )}

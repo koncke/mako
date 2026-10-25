@@ -7,6 +7,18 @@ viejas). El informe inicial es la réplica de las tabs viejas de Marketing y Com
 Analysts (Ads, Landing, Closing, Productividad) son plantillas de «Nueva hoja». Lo que se hizo está en
 el commit; acá va lo que hay que saber **antes** de tocarlo.
 
+## Una métrica de prueba A/B en el Dashboard: el formato la redondea a 0 y la dimensión «Variante» está vacía (25/10/2026)
+
+**Vive en:** `lib/experimentos-formato.ts`, `app/dashboard/ElementoExperimento.tsx`, `lib/graficos-catalogo.ts`, `lib/graficos-datos.ts`.
+
+- **`fmtVal` no conoce una métrica fuera del catálogo** (`ab:*`): cae en 'num' y `Math.round(0.09)` da 0. El elemento dice
+  «antes / ahora», que no es lo que compara una prueba (A / B). Se formatea por el prefijo `ab:`, no sumándola a
+  `lib/experimentos-catalogo.ts`: ese catálogo lo lee la IA que propone experimentos y empezaría a proponer pruebas A/B.
+- **La dimensión «Variante» lee `prueba` del Pixel**, que es la marca del probador (`?mko_test`) y se descarta en todas las
+  lecturas: por eso siempre queda vacía.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## «Analizar con MaKo» sale de la barra; el AI Analyst queda en el ⋮ hasta que Martín decida (24/10/2026)
 
 **La lección, que es más grande que el caso:** un pedido de «sacá esto, ya lo cubre aquello» se MIDE antes de borrar;

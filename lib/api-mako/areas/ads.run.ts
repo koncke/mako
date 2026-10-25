@@ -18,6 +18,7 @@
 import 'server-only';
 import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, PlanSinPiloto } from '@/lib/media-buyer/store';
 import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
+import { ORDEN_TACTICAS, TACTICAS, resolverTacticas, validarTacticas, type TacticaAuto } from '@/lib/media-buyer/tacticas';
 import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
@@ -1067,6 +1068,54 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
       return { ok: true, resumen: 'Topes del Media Buyer guardados.' };
+    },
+  },
+  ver_automatizaciones_media_buyer: {
+    leer: async (_input, ctx) => {
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const r = resolverTacticas(config.tacticas, { piloto: modoEfectivoMB(config.modo, cupo) === 'piloto', pilotoPermitido: cupo.piloto });
+      return J({
+        pilotoEnElPlan: cupo.piloto,
+        tacticas: ORDEN_TACTICAS.map((t) => {
+          const ds = decisiones.filter((d) => d.tactica === t);
+          return {
+            tactica: t, nombre: TACTICAS[t].nombre, que: TACTICAS[t].que, estado: r[t].estado,
+            umbrales: TACTICAS[t].parametros.map((p) => ({ id: p.id, nombre: p.nombre, valor: r[t].p[p.id], recomendado: p.recomendado, minimo: p.min, maximo: p.max })),
+            campanas: r[t].campanas ? [...r[t].campanas] : 'toda la cuenta',
+            recomendaciones30d: ds.length, hechas30d: ds.filter((d) => d.estado === 'aplicada').length,
+            ultima: ds.map((d) => d.creada).sort().pop() ?? null,
+          };
+        }),
+      });
+    },
+  },
+  automatizacion_media_buyer: {
+    preparar: async (input, ctx) => {
+      const t = str(input, 'tactica') as TacticaAuto;
+      if (!(ORDEN_TACTICAS as string[]).includes(t)) return { error: 'tactica tiene que ser una de las de ver_automatizaciones_media_buyer.', faltan: ['tactica'] };
+      const cambio: Record<string, unknown> = {};
+      const estado = str(input, 'estado');
+      if (estado) cambio.estado = estado;
+      if (input.umbrales != null) cambio.parametros = input.umbrales;
+      if (Array.isArray(input.campanas)) cambio.campanas = input.campanas.length ? input.campanas : null;
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['estado', 'umbrales', 'campanas'] };
+      const config = await leerConfigMB(ctx.ws);
+      const actual = config.tacticas[t] ?? {};
+      const tacticas = { ...config.tacticas, [t]: { ...actual, ...cambio, parametros: { ...(actual.parametros ?? {}), ...((cambio.parametros as Record<string, number>) ?? {}) } } };
+      const v = validarTacticas(tacticas);
+      if (!v.ok) return { error: v.error };
+      if (v.valor[t]?.estado === 'automatica' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const partes = [
+        estado ? `queda ${estado === 'automatica' ? 'automática' : estado}` : null,
+        cambio.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
+        'campanas' in cambio ? (cambio.campanas ? `cubre ${(cambio.campanas as string[]).length} campañas` : 'cubre toda la cuenta') : null,
+      ].filter(Boolean);
+      return { payload: { tacticas: v.valor }, resumen: `${TACTICAS[t].nombre}: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Táctica del Media Buyer guardada.' };
     },
   },
 };

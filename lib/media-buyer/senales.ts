@@ -79,11 +79,43 @@ export function senalesDeVentana(metricas: FilaMetrica[], leads: FilaLeadAd[], d
 }
 
 /**
- * El árbol de Zernio, traducido. ⚠️ Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto: trae la
- * entrega (Meta `effective_status` en la campaña, un estado derivado de los anuncios en el conjunto). Se toma la
- * entrega como interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado, y el motor no lo
- * toca. Errar para el lado de no tocar es lo seguro.
+ * El árbol de Zernio, traducido. ⚠️ El árbol (`/ads/tree`) no trae el interruptor PROPIO de una campaña ni de un
+ * conjunto: trae la entrega (Meta `effective_status` en la campaña, un estado derivado de los anuncios en el conjunto). Se
+ * toma la entrega como interruptor —un conjunto que no entrega se trata como apagado: errar para el lado de no tocar— y
+ * después `conInterruptorEnVivo` pone el interruptor de verdad con lo leído en vivo (`/ads/accounts/live`).
  */
+/**
+ * Sobre el árbol de Zernio, lo leído EN VIVO (lib/zernio-ads.ts → enVivoPorZernio): el interruptor propio de cada campaña y
+ * conjunto, y su presupuesto diario de hoy. Lo que no vino en vivo queda como estaba (la entrega como interruptor).
+ */
+type FilaVivo = { id: string; nombre?: string | null; campanaId?: string | null; configurado: string | null; entrega?: string | null; presupuestoDia: number | null };
+export function conInterruptorEnVivo(arbol: NodoMB[], vivo: { campanas: FilaVivo[]; conjuntos: FilaVivo[] }): NodoMB[] {
+  const porId = new Map([...vivo.campanas, ...vivo.conjuntos].map((x) => [x.id, x] as const));
+  // El árbol de Zernio se arma desde los ANUNCIOS: una campaña o un conjunto sin anuncios no está. Lo en vivo sí lo trae,
+  // y se suma (con su interruptor y su presupuesto) para que el Media Buyer lo vea y lo pueda operar.
+  const yaEsta = new Set(arbol.map((n) => n.id));
+  const sw = (s: string | null): string | null => (s ? (s === 'ACTIVE' ? 'ACTIVE' : 'PAUSED') : null);
+  const nuevasCampanas: NodoMB[] = vivo.campanas.filter((c) => !yaEsta.has(c.id)).map((c) => ({
+    id: c.id, nombre: c.nombre ?? c.id, nivel: 'campaign', parentId: null, configurado: sw(c.configurado), entrega: (c.entrega ?? '').toUpperCase(),
+    presupuestoDia: c.presupuestoDia, nivelPresupuesto: c.presupuestoDia != null ? 'campaign' : 'adset', creada: null,
+  }));
+  const nivelDe = new Map([...arbol, ...nuevasCampanas].filter((n) => n.nivel === 'campaign').map((n) => [n.id, n.nivelPresupuesto] as const));
+  const nuevosConjuntos: NodoMB[] = vivo.conjuntos.filter((s) => !yaEsta.has(s.id) && s.campanaId).map((s) => ({
+    id: s.id, nombre: s.nombre ?? s.id, nivel: 'adset', parentId: s.campanaId!, configurado: sw(s.configurado), entrega: (s.entrega ?? '').toUpperCase(),
+    presupuestoDia: s.presupuestoDia, nivelPresupuesto: nivelDe.get(s.campanaId!) ?? null, creada: null,
+  }));
+  return [...arbol.map((n) => {
+    if (n.nivel === 'ad') return n;
+    const v = porId.get(n.id);
+    if (!v) return n;
+    return {
+      ...n,
+      configurado: v.configurado === 'ACTIVE' ? 'ACTIVE' : v.configurado ? 'PAUSED' : n.configurado,
+      presupuestoDia: n.presupuestoDia != null && v.presupuestoDia != null ? v.presupuestoDia : n.presupuestoDia,
+    };
+  }), ...nuevasCampanas, ...nuevosConjuntos];
+}
+
 export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; metricas: FilaMetrica[] } {
   const arbol: NodoMB[] = [];
   const metricas: FilaMetrica[] = [];

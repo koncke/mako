@@ -137,6 +137,7 @@ export async function conexionesViaZernio(ws: number, red?: RedZernio): Promise<
 // ── Conectar: el link del login ──────────────────────────────────────────────
 
 const ID_ANUNCIOS = /^act_\d{5,20}$/;
+const ID_PAGINA = /^\d{5,20}$/;
 const ID_CUENTA = /^[A-Za-z0-9_-]{6,64}$/;
 
 /**
@@ -149,13 +150,15 @@ const ID_CUENTA = /^[A-Za-z0-9_-]{6,64}$/;
  *     (21/10/2026).
  *   · `reconectarId`: reconectar una cuenta que Zernio dice vencida (`reconnectAccountId`; en anuncios, `force`).
  *   · `adAccountId`: acota los anuncios a UNA cuenta publicitaria (`act_<dígitos>`).
+ *   · `pageId`: la página de los anuncios. ⚠️ Con VARIAS concedidas y sin ella, Zernio NO crea la conexión (medido el 25/10/2026
+ *     con la cuenta de MaKo; la elige `paginaParaConectar`, lib/zernio-meta-cuerpo.ts).
  * Un 200 de Zernio sin link ni `alreadyConnected` NO es un éxito: es `respuesta`.
  */
 export async function urlConectarViaZernio(
   ws: number,
   red: RedZernio,
   volver: string,
-  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; flujo?: string | null } = {},
+  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null } = {},
 ): Promise<RespuestaConectar> {
   try {
     if (!esRedZernio(red)) throw new ZernioConectarError('error', 'Esa red no se puede conectar.');
@@ -179,6 +182,13 @@ export async function urlConectarViaZernio(
       if (def.anuncios) q.set('force', 'true'); else q.set('reconnectAccountId', opc.reconectarId);
     }
     if (def.anuncios && opc.adAccountId && ID_ANUNCIOS.test(opc.adAccountId)) q.set('adAccountId', opc.adAccountId);
+    if (def.anuncios && opc.pageId && ID_PAGINA.test(opc.pageId)) q.set('pageId', opc.pageId);
+    // Sin página elegida, la que MaKo ya sabe si es UNA sola (con varias, la elige la persona en el modal de Meta).
+    if (def.anuncios && !q.has('pageId')) {
+      const { paginaDeducida } = await import('./meta-conexion-zernio');
+      const pagina = await paginaDeducida(ws, c.apiKey);
+      if (pagina) q.set('pageId', pagina);
+    }
 
     const r = await zFetch<Record<string, unknown>>(c.apiKey, `/connect/${def.ruta}?${q.toString()}`);
     const url = urlDeLoginDeZernio(r);

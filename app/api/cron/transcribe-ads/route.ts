@@ -14,7 +14,7 @@ import { transcribeAd, STRUCTURE_SYSTEM_BASE, IMAGE_PROMPT_BASE } from '@/lib/tr
 import { getPromptText } from '@/lib/prompt-render';
 import { diasAntes, ayerEnTijuana } from '@/lib/date-utils';
 import { correrPorWorkspace } from '@/lib/cron-workspaces';
-import { credWs } from '@/lib/credenciales';
+import { accesoDeMeta } from '@/lib/meta-via';
 import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '@/lib/supabase-paginado';
 
 export const dynamic = 'force-dynamic';
@@ -95,17 +95,17 @@ export async function GET(request: NextRequest) {
     ]);
     const prompts = { structureSystem, imagePrompt, whisperGlossary };
 
-    // Token de Meta del WORKSPACE actual (dueño → env). FAIL-CLOSED: sin token
-    // propio se corta este workspace — transcribeAd sin metaToken caería al
-    // token global del dueño para los ads de un cliente.
-    const metaToken = await credWs('META_ACCESS_TOKEN');
-    if (!metaToken) throw new Error('META_ACCESS_TOKEN no configurado para este workspace');
+    // Con qué lee el creativo este WORKSPACE: su Zernio si conectó Meta por ahí (25/10/2026, lib/meta-via.ts) o su token
+    // (dueño → env). FAIL-CLOSED: sin ninguno de los dos se corta este workspace — transcribeAd sin acceso caería al token
+    // global del dueño para los ads de un cliente.
+    const acceso = await accesoDeMeta();
+    if (!acceso) throw new Error('Meta no está conectado en este workspace (ni por Zernio ni con el token)');
 
     let ok = 0, sinVideo = 0, grandes = 0, errores = 0, procesados = 0;
     for (const adId of pendientes) {
       if (procesados >= MAX_POR_CORRIDA || Date.now() - tStart > TIME_BUDGET_MS) break;
       procesados++;
-      const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, metaToken });
+      const res = await transcribeAd(adId, { imageUrl: thumbs.get(adId), prompts, ...acceso });
       const { error: upErr } = await supabase.from('ad_transcripts').upsert({
         ad_id: res.ad_id, video_id: res.video_id, tipo: res.tipo, status: res.status, transcript: res.transcript,
         secciones: res.secciones, idioma: res.idioma, duracion_s: res.duracion_s, model: res.model, error: res.error, updated_at: new Date().toISOString(),

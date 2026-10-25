@@ -1,15 +1,27 @@
 import 'server-only';
 
 // =============================================================================
-// Área «operaciones» — los cuerpos. Sólo lecturas (ver operaciones.def.ts).
+// Área «operaciones» — los cuerpos. Lecturas, y el ✓ de un «Completado» (ver operaciones.def.ts).
 // =============================================================================
 
 import type { Runners, SalidaLectura } from '../tipos';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
+import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
+import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
+import { completadoSinVer, completadosDeLasCuentas, pedidoDelCompletado, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat } from '@/lib/centro-chats';
 import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido } from '@/lib/operaciones-reglas';
 
 const json = (o: unknown): string => JSON.stringify(o);
 const cuentaN = (c: string | null) => (c ? `cuenta ${c.replace('claude', '')}` : 'cuenta desconocida');
+const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Los chats que dicen «Completado», con lo mismo que la lista del Ops Center. null = no se pudieron leer los ✓ (no se inventa). */
+async function completados(): Promise<CompletadoDeChat[] | null> {
+  const [{ carteros }, ultimos, vistos] = await Promise.all([leerCarteros(), leerUltimosTurnos(), leerYaVistosDe()]);
+  return vistos ? completadosDeLasCuentas(carteros, ultimos, vistos) : null;
+}
+/** El de ese nombre (sin mayúsculas ni tildes; «Cerebro» también por su nombre de antes). */
+const elDe = (lista: readonly CompletadoDeChat[], chat: string) => lista.find((c) => normal(c.titulo) === normal(chat) || c.clave === `nombre:${normal(chat)}`);
 
 export const RUNNERS: Runners = {
   ver_pedidos_operaciones: {
@@ -51,6 +63,51 @@ export const RUNNERS: Runners = {
         token: tokenPista ? 'configurado' : 'sin token: se crea en /admin/operaciones → Runners → Nuevo Runner',
         nota: carteros.length ? 'Un trabajo a una cuenta cuyo Runner no está activo espera: se arregla abriendo el chat Runner en la app de Claude.' : 'Ningún Runner se conectó todavía: se conecta desde /admin/operaciones → Runners → Nuevo Runner.',
       });
+    },
+  },
+  ver_completados_operaciones: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const todos = await completados();
+      if (!todos) return json({ error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.' });
+      const chat = typeof input.chat === 'string' && input.chat.trim() ? input.chat.trim() : null;
+      const lista = chat ? todos.filter((c) => c === elDe(todos, chat)) : todos;
+      // La respuesta ENTERA y lo que pidió Martín: los turnos completos de sus sesiones (la lista trae sólo el renglón).
+      const detalle = await Promise.all(lista.map(async (c) => {
+        const lineas: LineaChat[] = (await leerTurnos(c.locales)).map((t) => ({ tipo: 'turno', instante: Date.parse(t.at), turno: t }));
+        const t = completadoSinVer(lineas, c.instante - 1);
+        const [n] = t ? yaEstaDelChat([{ tipo: 'turno', instante: c.instante, turno: t }]) : [];
+        return {
+          chat: c.titulo, cuenta: cuentaN(c.cuenta), termino: new Date(c.instante).toISOString(),
+          titulo: n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado',
+          pedido: t ? pedidoDelCompletado(lineas, t) : null,
+          respuesta: t?.texto ?? null,
+          revisar: n?.revisar?.pagina ?? null,
+        };
+      }));
+      return json({
+        completados: detalle,
+        nota: detalle.length
+          ? 'Cada uno sigue diciendo «Completado» hasta que Martín lo da por visto (en la pantalla, «Ya lo vi»; por aquí, `marcar_visto_operaciones`).'
+          : chat ? `«${chat}» no dice «Completado».` : 'Ningún chat dice «Completado»: todo lo terminado ya está visto.',
+      });
+    },
+  },
+  marcar_visto_operaciones: {
+    preparar: async (input) => {
+      const chat = typeof input.chat === 'string' ? input.chat.trim() : '';
+      if (!chat) return { error: 'Falta el chat: el nombre del que dice «Completado».', faltan: ['chat'] };
+      const todos = await completados();
+      if (!todos) return { error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.' };
+      const c = elDe(todos, chat);
+      if (!c) return { error: `«${chat}» no dice «Completado».`, disponibles: todos.map((x) => x.titulo) };
+      return { payload: { clave: c.clave, instante: c.instante, chat: c.titulo }, resumen: `Dar por visto el «Completado» de ${c.titulo}.` };
+    },
+    ejecutar: async (payload) => {
+      const clave = typeof payload.clave === 'string' ? payload.clave : '';
+      const instante = typeof payload.instante === 'number' && Number.isFinite(payload.instante) ? payload.instante : NaN;
+      if (!clave.startsWith('nombre:') || !Number.isFinite(instante)) return { ok: false, resumen: 'No sé qué «Completado» marcar: pide la lista de nuevo.' };
+      await marcarYaVistoDe(clave, instante);
+      return { ok: true, resumen: `Listo: el «Completado» de ${typeof payload.chat === 'string' ? payload.chat : 'ese chat'} ya está visto.` };
     },
   },
 };

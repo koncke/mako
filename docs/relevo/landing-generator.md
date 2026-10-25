@@ -1,6 +1,17 @@
 # Relevo · Web Generator, ex Landing Generator (el editor copiado de Gamma)
 
-## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings») — leer primero
+## Estado al 25/10/2026 mediodía (cuenta claude5, chat «Landings») — leer primero
+
+Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace de `tren-j`; la sube el Cerebro.
+- **Hecho y entregado:** las puertas antes del loader; las dos tandas de landings de MaKo (SIN publicar: lo decide Martín);
+  la barra del editor del 25/10 (tooltips en un portal, el asa al margen, Compartir partido, paneles del ancho del chat,
+  «Texto» primero); la prueba gratis de 7 días con `PRUEBA_DIAS`; y **escribir en las secciones de las landings de MaKo**
+  (el clic no llegaba al iframe: docs/hallazgos-editor-landing.md → «Las secciones de las landings de MaKo no dejaban
+  escribir»).
+- **Sigue:** mirar todo eso con clics a 1280 y 1440 cuando despliegue; publicar las landings con el OK de Martín;
+  Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
+
+## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings»)
 
 **La tanda de Martín del 24/10 noche** (docs/feedback-24-10.md, «Editor web → chat Landings», puntos 3 a 10) se hace de a
 tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), y la sube el Cerebro por el tren.
@@ -44,8 +55,10 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
   → «La landing principal con lo que hace la competencia».
 - **Sigue:**
-  - **Tanda 2 de la landing:** las de funcionalidad y avatar con los titulares y ángulos de la investigación (§6b), con las
-    piezas del script v2. Las de closing y cursos/comunidad son nuevas; la del media buyer se arma y no se publica.
+  - **Tanda 2 de la landing: hecha, SIN publicar.** `scripts/landings-mako-v2-funnels.mts`: doce documentos `mako-…`
+    (media buyer y avatares en pausa). Publicar con `--subir`, que pide el permiso de Martín.
+  - **La prueba gratis de 7 días** (Martín, 25/10 ~10:20; reemplaza a la garantía): la línea bajo el botón, el botón y las
+    preguntas, leídos de lib/planes-mako.ts. Espera el nombre del export, que define Planes (se le preguntó el 25/10).
   - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
     no tiene ninguna.
   - **Responder en los otros chats:** Automations, Offer, el chat general, la ficha del lead, Dashboard, Image Editor,

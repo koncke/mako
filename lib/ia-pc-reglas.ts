@@ -386,12 +386,18 @@ export function lanzadorDeLaAppMac(): string {
     'xattr -d com.apple.quarantine "$D/mako-pc.nuevo" 2>/dev/null || true',
     'codesign --force --sign - "$D/mako-pc.nuevo" 2>/dev/null || true',
     'mv -f "$D/mako-pc.nuevo" "$D/mako-pc"',
+    // El ícono de MaKo para sus ventanas (scripts/ia-pc/mako-pc.mjs → iconoDeDialogo): el programa corre desde $D, fuera de la app.
+    `cp -f "$R/${ICONO_APP_MAC}" "$HOME/.mako-pc/${ICONO_APP_MAC}" 2>/dev/null || true`,
     'exec "$D/mako-pc" app',
     '',
   ].join('\n');
 }
 
-/** El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema). */
+/**
+ * El Info.plist de MaKo.app: sin ícono en el Dock (las ventanas son del sistema), con el de MaKo en el Finder y en «Abrir»
+ * (Contents/Resources/MaKo.icns, de installer/marca: scripts/ia-pc/marca.mjs; 25/10/2026, el instalador con el diseño de MaKo).
+ */
+export const ICONO_APP_MAC = 'MaKo.icns';
 export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -404,6 +410,7 @@ export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
     `<key>CFBundleShortVersionString</key><string>${version}</string>`,
     '<key>CFBundlePackageType</key><string>APPL</string>',
     '<key>CFBundleExecutable</key><string>MaKo</string>',
+    `<key>CFBundleIconFile</key><string>${ICONO_APP_MAC}</string>`,
     '<key>LSMinimumSystemVersion</key><string>11.0</string>',
     '<key>LSUIElement</key><true/>',
     '</dict></plist>',
@@ -413,6 +420,24 @@ export function infoPlistDeLaAppMac(version: string = VERSION_PC): string {
 
 /** Adónde vuelve el instalador al terminar: «Tus cuentas de IA», directo en «Conecta MaKo». */
 export const RUTA_TRAS_INSTALAR = '/perfil/ia?computadora=1';
+
+/**
+ * «Tus cuentas de IA» tiene link propio (25/10/2026, docs/conexiones-y-ayuda.md, tanda 3d): `/integraciones?abrir=ia` abre su
+ * modal (lo abre `TarjetaTusCuentasIA`, no el tablero: no es una integración con credenciales), y `/perfil/ia` es su página para
+ * todos los roles. Los dos son contrato: un rediseño los conserva.
+ */
+export const ABRIR_IA = 'ia';
+export const LINK_TUS_CUENTAS_IA = `/integraciones?abrir=${ABRIR_IA}`;
+
+/**
+ * ¿Esa PC abre los enlaces mako://? Las del instalador con asistente (0.4.0 en adelante) sí; las que se instalaron pegando la línea
+ * de comandos (0.3.x, como la del ws1) no, y sólo a ésas se les ofrece la línea plegada (25/10/2026, Martín: «mira la cantidad de
+ * texto»: un cliente con la app de hoy no ve un comando). Sin versión, se la toma por nueva. `version`: «0.4.2» o «0.4.2+mac».
+ */
+export function abreEnlacesMako(version: string | null | undefined): boolean {
+  const m = /^(\d+)\.(\d+)\./.exec(version ?? '');
+  return !m || Number(m[1]) > 0 || Number(m[2]) >= 4;
+}
 
 /**
  * Qué archivos de ESTA versión faltan en el bucket (IA1/IA2, 22/10/2026). La 0.3.2 se desplegó sin sus ejecutables y el

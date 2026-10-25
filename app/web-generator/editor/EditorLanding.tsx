@@ -1102,6 +1102,16 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
               />
               <IndicadorGuardado estado={estado} onReintentar={() => { void guardarAhora(); }} />
               <span className="gma-sep" />
+              {/* PRIMERO de las herramientas (25/10/2026, Martín: «el botón de "texto" debe estar al principio de todo, no al
+                  final»). El editor de texto es UN botón que abre la segunda barra, abajo (24/10/2026, Martín: «El editor de texto quedó
+                  en un scroll muy chiquito, lo que te propongo es que sea un botón el editor de texto y se abra otra topbar
+                  tipo edición de texto con todas las opciones»). Como la barra contextual de Canva al tocar un texto. */}
+              <button type="button" className="gma-herr-boton gma-tip" data-tip="Editor de texto" aria-label="Editor de texto"
+                aria-pressed={formatoAbierto} disabled={!editor || paginaRota}
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => cambiarFormato(!formatoAbierto)}>
+                <Ico n="texto-aa" t={16} /> <span className="gma-herr-texto">Texto</span>
+              </button>
               {/* (Acá estaba «Abrir MaKo», para cuando el chat se plegaba: ya no se pliega.) Las otras vistas de la tarjeta de
                   la izquierda: las páginas y la tira de secciones, que vuelven al chat con un segundo clic. */}
               <button type="button" className="gma-herr-boton gma-tip" data-tip="Páginas" aria-label="Abrir panel de páginas"
@@ -1128,15 +1138,6 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
                 onClick={() => (panelDer === 'animacion' ? setPanelDer(null) : abrirAnimar(tarjetaActivaRef.current ? 'seccion' : 'pagina'))}>
                 <Ico n="brillo" t={16} /> <span className="gma-herr-texto">Animar</span>
               </button>
-              {/* El editor de texto es UN botón que abre la segunda barra, abajo (24/10/2026, Martín: «El editor de texto quedó
-                  en un scroll muy chiquito, lo que te propongo es que sea un botón el editor de texto y se abra otra topbar
-                  tipo edición de texto con todas las opciones»). Como la barra contextual de Canva al tocar un texto. */}
-              <button type="button" className="gma-herr-boton gma-tip" data-tip="Editor de texto" aria-label="Editor de texto"
-                aria-pressed={formatoAbierto} disabled={!editor || paginaRota}
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => cambiarFormato(!formatoAbierto)}>
-                <Ico n="texto-aa" t={16} /> <span className="gma-herr-texto">Texto</span>
-              </button>
               <div className="gma-herr-ctx" />
               <div className="gma-herr-der">
                 <div className="gma-dispositivos" role="group" aria-label="Vista por dispositivo">
@@ -1160,13 +1161,13 @@ function Armazon({ doc, temasPropios, creadoPor, analizadas, errorAnalizadas, ba
                     El botón abre el panel Compartir (enlace, Publicar, Descargar…: DialogoCompartir, copiado de Canva); el ▾,
                     Publicar, Vista previa, la página publicada, Descargar y Presentar. */}
                 <div className="gma-partido">
-                  <button type="button" className="gma-boton gma-boton--primario gma-tip"
+                  <button type="button" className="gma-boton gma-boton--primario gma-partido-principal gma-tip"
                     data-tip={cambiosSinPublicar ? 'Tienes cambios que publicar' : 'Compartir'}
                     aria-expanded={dialogo === 'compartir'}
                     onClick={(e) => { setAnclaCompartir(e.currentTarget); setDialogo(dialogo === 'compartir' ? null : 'compartir'); }}>
                     <Ico n="compartir" t={15} /> Compartir
                   </button>
-                  <button type="button" className="gma-boton gma-boton--primario" aria-label="Más opciones para compartir"
+                  <button type="button" className="gma-boton gma-boton--primario gma-partido-flecha" aria-label="Más opciones para compartir"
                     aria-expanded={!!menuPublicar} onClick={(e) => setMenuPublicar(menuPublicar ? null : e.currentTarget)}>
                     <Ico n="chevron-abajo" t={14} />
                   </button>

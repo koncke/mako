@@ -83,8 +83,13 @@ test('el sincronizador guarda la moneda de la cuenta en el mismo pedido de siemp
   const src = sinComentarios(leer('../lib/meta-ads.ts'));
   const i = src.indexOf('export async function fetchMetaInsights(');
   const cuerpo = src.slice(i, src.indexOf('\n}\n', i));
-  assert.match(cuerpo, /'account_currency'/, 'dejó de pedir account_currency: el gasto nuevo no tiene moneda guardada');
-  assert.match(cuerpo, /registrarMonedaMeta\(/, 'pide la moneda y no la guarda');
+  // Desde el 25/10/2026 los campos viven en `CAMPOS_INSIGHTS` (los mismos por Meta directo y por Zernio, lib/meta-via.ts):
+  // la constante pide la moneda y las DOS ramas del pedido la usan.
+  const j = src.indexOf('const CAMPOS_INSIGHTS');
+  const campos = src.slice(j, src.indexOf('];', j));
+  assert.match(campos, /'account_currency'/, 'dejó de pedir account_currency: el gasto nuevo no tiene moneda guardada');
+  assert.equal((cuerpo.match(/CAMPOS_INSIGHTS/g) ?? []).length, 2, 'una de las dos ramas (Zernio o el token) dejó de pedir los campos de siempre');
+  assert.equal((cuerpo.match(/registrarMonedaMeta\(/g) ?? []).length, 2, 'una rama pide la moneda y no la guarda');
 });
 
 test('⚠️ la tool del doer rotula el gasto con la moneda REAL, no con `gasto_mxn`', () => {

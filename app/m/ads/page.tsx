@@ -16,6 +16,7 @@ import { PantallaM, VacioM } from '@/app/m/_ui';
 import { leerConfig, leerDecisiones, cupoDe } from '@/lib/media-buyer/store';
 import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { MediaBuyerM } from './MediaBuyerM';
+import '@/app/ads-manager/mb-paleta.css';
 import './mb-m.css';
 
 export const dynamic = 'force-dynamic';
@@ -29,7 +30,7 @@ export default async function MediaBuyerMovil() {
   const nombre = (ctx.sesion.nombre ?? '').trim().split(/\s+/)[0] || 'equipo';
   return (
     <PantallaM>
-      <MediaBuyerM nombre={nombre} config={config} cupo={cupo} decisiones={dec.decisiones} puedeOperar={puedeOperar} />
+      <MediaBuyerM nombre={nombre} config={config} decisiones={dec.decisiones} puedeOperar={puedeOperar} />
     </PantallaM>
   );
 }

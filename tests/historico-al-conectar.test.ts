@@ -204,6 +204,7 @@ test('una puerta NUEVA que guarde credenciales tiene que decidir si arranca el h
   // histórico (y entonces lo arranca) o por qué no. Uno nuevo falla acá hasta que alguien lo decida.
   const PUERTAS: Record<string, string> = {
     'lib/meta-conexion.ts': 'Meta: pegar el token y «Conectar con Meta»',
+    'lib/meta-conexion-zernio.ts': 'Meta por Zernio (25/10/2026): «Conectar con Facebook» y elegir la cuenta o el píxel',
     'app/api/integraciones/credencial/route.ts': 'cualquier integración a mano, y elegir la cuenta o la página de Meta (y GitHub, que no tiene histórico)',
     'app/api/metodo/route.ts': 'cualquier integración',
     'app/api/onboarding/route.ts': 'cualquier integración en el wizard · «simular» queda afuera: son las credenciales de Mauricio',

@@ -30,6 +30,7 @@ import { avisarPuente } from '@/app/video-generator/avisar-puente';
 import { rutaEditarEnEditor } from '@/app/video-editor/desde/desde';
 import { PLANTILLAS_AVATAR, CATEGORIAS, vozSugerida, plantillaPorId, type PlantillaAvatar } from '@/lib/ai-avatar/plantillas';
 import { VOCES_GALERIA, ACENTOS_GALERIA, type VozGaleria } from '@/lib/ai-avatar/voces-galeria';
+import { EmpezarPlanYa } from '@/app/_ui/EmpezarPlanYa';
 
 type Inicio = Extract<InicioOut, { ok: true }>;
 
@@ -263,6 +264,7 @@ export function Avatares({ plantillaInicial }: { plantillaInicial?: string }) {
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 18, flexWrap: 'wrap' }}>
         <Button onClick={crear} loading={enviando} disabled={!inicio.puente.puede || !fotoId || !plantillaId}>Crear look</Button>
         {aviso && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)' }}>{aviso}</span>}
+        <EmpezarPlanYa texto={aviso || null} />
       </div>
     </div>
   );
@@ -478,6 +480,7 @@ export function CrearVideo({ avatarInicial, plantillaInicial }: { avatarInicial?
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 16, flexWrap: 'wrap' }}>
             <Button onClick={generar} loading={enviando} disabled={!guion.trim() || !avatar || !inicio.puente.puede}>Generar video</Button>
             {aviso && <span style={{ fontSize: 'var(--fs-sm)', color: 'var(--bad)' }}>{aviso}</span>}
+            <EmpezarPlanYa texto={aviso || null} />
           </div>
           <div style={{ fontSize: 'var(--fs-meta)', color: 'var(--text-dim)', marginTop: 8 }}>Cada toma gasta créditos de tu cuenta de Flow.</div>
         </div>

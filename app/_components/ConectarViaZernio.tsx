@@ -46,7 +46,8 @@ import {
 } from '@/lib/zernio-redes';
 
 export type FaseZernio = 'listo' | 'abriendo' | 'esperando' | 'conectado' | 'error';
-export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null };
+/** `pageId`: la página de los anuncios de Meta (`metaads`): con varias concedidas y sin ella, Zernio no crea la conexión. */
+export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null };
 
 /** Lo que contesta POST /api/zernio (las acciones de esta pieza). */
 type RespuestaApi = {

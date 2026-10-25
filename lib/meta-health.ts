@@ -18,6 +18,7 @@
 // las señales que sí tenemos (status de cuenta, rechazos, aprendizaje, pausas).
 // =============================================================================
 
+import { canalMeta, cuentaCrudaPorZernio } from './meta-via';
 import { META_BALANCE_ALERTA_MXN } from './config';
 import { conversorDeGasto, desdeUnidadMeta, montoCuenta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
@@ -194,7 +195,7 @@ function learningInfo(raw: unknown): NodoEstado['learning'] {
 // Cuenta (1 GET)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
+export function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
   const status = num(raw.account_status);
   const disableReason = num(raw.disable_reason);
   const currency = String(raw.currency ?? MONEDA_META_POR_DEFECTO);
@@ -245,6 +246,15 @@ function computeAccountHealth(raw: Record<string, unknown>): MetaAccountHealth {
 }
 
 async function fetchAccountRaw(): Promise<Record<string, unknown>> {
+  // Por Zernio (25/10/2026, lib/meta-via.ts): el mismo objeto crudo, así la severidad se juzga igual. Si falla y el negocio
+  // conserva su token de Meta, se lee por el token como siempre.
+  const canal = await canalMeta();
+  if (canal.via === 'zernio') {
+    try { return await cuentaCrudaPorZernio(canal); } catch (e) {
+      if (!canal.respaldo) throw e;
+      console.error(`[meta-health] cuenta por Zernio falló (ws${canal.ws}), sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const acct = await getEnv('META_AD_ACCOUNT_ID');
   const ver = await getEnv('META_API_VERSION');
   const token = await getEnv('META_ACCESS_TOKEN');

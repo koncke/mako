@@ -23,6 +23,7 @@ import { getUsuarioActual } from '@/lib/auth';
 import { hayAlumnoVigente } from '@/lib/alumno-acceso';
 import { leerLinkAlumno, PARAM_LINK_ALUMNO } from '@/lib/alumno-sesion';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
+import { PARAM_APP } from '@/lib/app-escritorio-reglas';
 import { previewDeDestino } from '@/lib/preview-links';
 import { APP_BASE_URL } from '@/lib/app-url';
 
@@ -89,6 +90,10 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   // esta pantalla sin forma de loguearse, porque el botón de Google no se dibuja. Va directo al
   // OAuth (GET), sin borrar la cookie: entrar como usuario no la necesita borrada.
   const alumno = sesion ? false : await hayAlumnoVigente();
+  // LA APP DE ESCRITORIO PIDE EL LOGIN (25/10/2026, Martín: «jamás me pidió login... entró directo a la cuenta de Mauricio»):
+  // con `?app=1` (app/_components/PuertaDeLaApp.tsx) se entra aunque el navegador tenga una sesión abierta, que puede ser de
+  // otro. Sin esto, «Ya tienes la sesión abierta» llevaba adentro solo y la puerta volvía a mandar acá.
+  const deLaApp = uno(sp[PARAM_APP]) === '1';
   return (
     <div style={{ position: 'fixed', inset: 0, zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#14161B', padding: '20px' }}>
       <div style={{ width: '100%', maxWidth: '380px', background: '#F5F7FA', borderRadius: '18px', border: '1px solid rgba(0,0,0,.08)', padding: '34px 30px', boxShadow: '0 12px 40px rgba(0,0,0,.35)' }}>
@@ -104,7 +109,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
             <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '6px' }}>Tu programa te espera.</div>
             <BotonEntrarAlumno token={tokenAlumno} />
           </>
-        ) : sesion ? (
+        ) : sesion && !deLaApp ? (
           <YaLogueado nombre={sesion.nombre} email={sesion.email} />
         ) : alumno ? (
           <>
@@ -120,7 +125,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
           </>
         ) : (
           <>
-            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>Entra al dashboard.</div>
+            <div style={{ fontSize: '14px', color: '#5B6472', marginBottom: '22px' }}>{deLaApp ? 'Entra con tu cuenta.' : 'Entra al dashboard.'}</div>
             {/* La vuelta del link del alumno (venció, intentos, fallo): arriba de todo, en una frase. */}
             {motivoAlumno && <div style={{ marginBottom: '16px', fontSize: '13px', color: '#b91c1c', background: '#fdecec', border: '1px solid #f5c2c2', borderRadius: '10px', padding: '10px 12px' }}>{motivoAlumno}</div>}
             <Suspense fallback={<div style={{ height: '46px', borderRadius: '11px', background: 'rgba(0,0,0,.05)' }} />}>

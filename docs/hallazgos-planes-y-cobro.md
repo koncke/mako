@@ -1440,10 +1440,8 @@ Decidido por el Cerebro (memoria `decisiones-venta-25-10`), sobre docs/como-vend
 - **El selector Mensual/Anual va sin JavaScript** (dos radios y `:has()`): las tarjetas se dibujan en /planes, que es del
   servidor, y en el portal de la landing. Sin `:has()` se ven los dos precios, nunca ninguno. Sale sólo si TODOS los planes
   tienen anual: uno sin anual quedaría sin precio al elegirlo.
-- **La garantía era la contradicción del 24/10, y ahora es una constante:** `GARANTIA_DIAS` (14 el mensual, 30 el anual) la
-  dicen las tarjetas, la línea de abajo, la pregunta «¿Y si no me sirve?» y /reembolsos §1, que antes decía «el mes ya pagado
-  no se reembolsa». **Decidido acá, no por el Cerebro:** vale para el primer pago de cada negocio, una vez (lo común, y frena
-  el pagar-pedir-volver a pagar); si Martín no lo quiere, es una frase de /reembolsos.
+- **(REEMPLAZADO el mismo 25/10 a las 10:20 por la prueba gratis de 7 días: ver «La prueba gratis de 7 días».)** La garantía
+  de 14/30 días (`GARANTIA_DIAS`) se fue entera: no quedó ni la constante.
 - **Pesos sin inventar una tasa:** la línea «Desde Argentina pagas en pesos, con Mercado Pago» sale siempre; un PRECIO en pesos
   sólo si el plan lo tiene (`precioEnPesos`, de `preciosLocales.ARS`). Hoy ningún plan lo tiene (los de código traen `{}` y en
   producción no hay setting `planes.mako`), así que no se ve ningún número en pesos. Para mostrarlo: cargar el precio en el
@@ -1461,3 +1459,95 @@ de alta a mano: el checkout (`iniciarCompraDePlan`, lib/compra-plan.ts) no tiene
 `precioEnPesos`) · lib/topes-plan.ts · lib/planes-comparacion.ts · app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx ·
 app/planes/[plan]/page.tsx · lib/compra-plan-reglas.ts (`botonAnualDelPlan`, `TEXTO_ANUAL_SE_PIDE`) · lib/compra-plan.ts ·
 app/reembolsos/page.tsx §1 · tests/planes-tres-bloques.test.ts.
+
+## La prueba gratis de 7 días, con tarjeta, en lugar de la garantía (25/10/2026)
+
+Martín (25/10, ~10:20): «quiero implementar la prueba gratuita de 7 días, y eliminar la garantia de devolución... para darte de
+alta en la prueba gratuita debes poner la tarjeta, tal cual como una suscripción, y se te cobra automático luego de esos 7
+días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Planes», cuenta 5.
+
+- **Lo que se lee (tanda D1):** `PRUEBA_DIAS = 7` (lib/planes-mako.ts) reemplaza a `GARANTIA_DIAS`, que no quedó. Junto al precio
+  «7 días gratis»; debajo de cada botón `textoDespuesDeLaPrueba` con el monto de ESE plan («Después US$ 97/mes. Cancela cuando
+  quieras antes del día 8»); la pregunta «¿Cómo es la prueba gratis?»; /reembolsos §1 y /terminos §8 dicen lo mismo, y que
+  después del primer cobro no hay devolución. La garantía de entrega del Acelerador sigue: es otra cosa (sobre lo que se arma).
+- **El diagnóstico obvio era el equivocado: «la suscripción ya se cobra, alcanza con agregarle días gratis».** Los topes del
+  plan, el alta automática y «Darme de baja» miran sólo la suscripción PAGADA (`suscripcionDeMakoDe`, y su copia en
+  lib/plan-esencial.ts). Un negocio en prueba no tiene pago: se daría de alta sin ningún tope, no podría darse de baja, y la
+  vigencia lo trataría como «sin pasarela» (acceso para siempre aunque cancele). La prueba toca esas tres lecturas, no el
+  botón.
+- **Mercado Pago ya cobra con primer cobro diferido** (`start_date`, el `inicio_at` del cobro, en uso desde el 17/10 para los
+  clientes de agencia: es el parámetro documentado al crear la suscripción). La prueba va sobre eso y no sobre `free_trial`,
+  que en la documentación aparece en los planes asociados y no está dicho para una suscripción sin plan.
+- **Cómo es una prueba (tanda D2), sin tabla nueva:** un cobro de suscripción de la plataforma con alta, `creado_por =
+  planes:<plan>:prueba` y `inicio_at` a 7 días (lib/prueba-plan-reglas.ts, `esPruebaDePlan`). El alta se hace al AUTORIZAR
+  (`activarPruebaSiAutorizo`, lib/cobros.ts), que la llaman la página de vuelta del pago y el cron de conciliación (la persona
+  puede cerrar la pestaña). El aviso de autorizada de Mercado Pago se sigue ignorando en el webhook: el pago del día 8 llega en
+  su propia notificación, como siempre.
+- **`suscripcionDeMakoDe` y su copia en lib/plan-esencial.ts leen la PAGADA o la PRUEBA AUTORIZADA** con el mismo filtro
+  (`FILTRO_SUSCRIPCION_DE_MAKO`, en el módulo liviano porque plan-esencial no puede importar lib/cobros). Con eso, el negocio en
+  prueba tiene los topes de su plan, «Darme de baja» y su plan en «Tu plan». La baja en prueba cancela la suscripción en el
+  acto (el día 8 no cobra) y usa MaKo hasta ese día. La vigencia: al día hasta el cobro; cancelada, vence ese día, SIN la
+  gracia de 5 días de un plan pagado (la prueba ya fue gratis); sin el cobro del día 8, mora como una renovación fallida.
+- **Antiabuso, en dos momentos:** antes de abrir el pago, por EMAIL (una prueba que llegó a autorizarse) y por CUENTA (un
+  email que ya es usuario de MaKo es un negocio que existe: no hay prueba). Al autorizar, por HUELLA. **Trampa: Mercado Pago no
+  publica una huella de la tarjeta** como el `card.fingerprint` de Stripe. La suscripción devuelve la cuenta que paga
+  (`payer_id`, una por persona) y la tarjeta guardada de esa cuenta (`card_id`): la huella guarda las dos y cualquiera que
+  coincida es la misma persona. Una prueba repetida se CANCELA en la pasarela antes de anularse: si MP no la canceló, no se
+  anula nada y el cron reintenta (anularla primero dejaría un cobro el día 8 de una prueba que no dio de alta a nadie).
+- **El aviso de 2 días antes** es un cron diario (app/api/cron/aviso-fin-de-prueba, «0 13 * * *») con la marca
+  `prueba_aviso_at`. Sin la mig 0334 no hay marca: avisa a las que cobran entre 1 y 2 días después, y como corre una vez por
+  día, cada prueba cae en una sola vuelta.
+- **La prueba se ofrece SÓLO con Mercado Pago** (`PASARELAS_CON_PRUEBA`). Stripe no toma vendedores de Argentina; Paddle y
+  Creem, las del resto del mundo (docs/estrategia-financiera-mako.md), no están integradas. Lo averiguado el 25/10 para cuando
+  se integren:
+  - **Stripe:** Checkout con `subscription_data.trial_period_days` (o `trial_end`); por defecto junta la tarjeta, y
+    `customer.subscription.trial_will_end` llega unos días antes. Ojo con la factura de US$0 del inicio: se asentaría como un
+    pago. La huella es `payment_method.card.fingerprint` (docs.stripe.com/payments/checkout/free-trials,
+    support.stripe.com/questions/how-can-i-detect-duplicate-cards-or-bank-accounts).
+  - **Paddle Billing:** la prueba va en el PRECIO (`trial_period`), y con `requires_payment_method` pide la tarjeta en el
+    checkout; la prueba sin tarjeta es de acceso anticipado (developer.paddle.com/build/trials/create-trial).
+  - **Creem:** la prueba se prende por producto (días), con estado `trialing`; su documentación no dice explícitamente que pida
+    la tarjeta, aunque el checkout la junta (docs.creem.io/features/trials).
+- **Límite conocido:** el `start_date` se fija al CREAR el link (7 días desde ese momento). Quien abre el link y lo autoriza
+  días después tiene menos días de prueba. Mercado Pago no documenta mover la fecha de una suscripción ya autorizada.
+- **Rojo previo, no de esto:** tests/pago-link-anulado.test.ts «anular cierra el link también en Mercado Pago» recorta
+  `anularCobro` y la rama de MP vive en `cerrarLinkEnLaPasarela` desde antes: falla igual en el commit anterior.
+
+**Sin hacer (de la prueba, al cerrar D2):** los topes en cada pantalla y «empezar el plan ya» quedaron hechos en D3 (abajo). La mig 0334 la aplica Martín (aditiva; el código anda sin ella, sin el freno
+por tarjeta). **Vive en:** lib/prueba-plan-reglas.ts · lib/prueba-plan.ts · lib/cobros.ts (`activarPruebaSiAutorizo`,
+`suscripcionDeMakoDe`, `darDeBajaMiPlan`, `reconciliarCobros`) · lib/compra-plan.ts (`puedeEmpezarPrueba`,
+`iniciarCompraDePlan`) · lib/plan-acceso-reglas.ts (`pruebaDelLugar`) · lib/plan-esencial.ts · app/pagar/[token]/listo ·
+app/planes/[plan]/CompraPlan.tsx · app/api/cron/aviso-fin-de-prueba · supabase/migrations/0334_prueba_de_plan.sql ·
+tests/prueba-plan.test.ts.
+
+### Los topes de la prueba y «Empezar mi plan ya» (tanda D3, 25/10/2026)
+
+- **El diagnóstico obvio era el equivocado: «topear por lo que cuesta».** Los videos y las imágenes se generan con el Google
+  Flow del CLIENTE (su cuenta, sus créditos, en su navegador): a MaKo casi no le cuestan. El tope es por lo que alguien se
+  LLEVA gratis y después se va. Por eso «3 videos» son 3 ANUNCIOS armados (el primer montaje de cada uno; volver a armarlo es el
+  mismo video), y las tomas sueltas van aparte con 30, porque una toma se descarga sin armar el anuncio. Las 30 tomas las
+  decidí acá; el resto son los números del Cerebro (`TOPES_PRUEBA`, lib/topes-plan.ts, con `topeDe(CAPA_PRUEBA, …)`).
+- **No había un contador de usos por negocio**: `anthropic_usage` cuenta llamadas de texto y su workspace es el dueño de la
+  clave, no el cliente; las tomas de Flow no quedan en ninguna tabla por negocio. El uso de la prueba se suma en un setting
+  del negocio (`prueba.uso`, lib/prueba-uso.ts), SÓLO mientras está en prueba: con el primer cobro los topes se van solos.
+- **Las páginas publicadas se cuentan de la tabla** (las publicadas HOY, no «desde que empezó»): despublicar libera el lugar,
+  como en el tope de Esencial.
+- **Trampa: un error TIRADO por una acción del servidor llega sin su texto en producción.** La exportación de leads devolvía el
+  archivo y tiraba en el error: el «Disponible al terminar tu prueba» se habría visto como un error genérico. El modal pregunta
+  antes (`topeDeExportarAction`) y la acción vuelve a frenar. Exportar en masa hoy es sólo el CSV de leads: la «biblioteca de
+  creativos» no tiene descarga en masa (cada video se baja de a uno).
+- **«Empezar mi plan ya» no adelanta la prueba** (Mercado Pago no documenta mover el `start_date` de una suscripción
+  autorizada): abre una suscripción NUEVA atada al negocio, y la prueba se cancela recién cuando esa nueva se COBRA
+  (`cerrarPruebaAlEmpezarYa`). Abrir el link y no pagar no le quita la prueba a nadie. Si el día 8 llega antes que ese pago, el
+  primer mes entra dos veces: se cancela la nueva y se avisa a equipo@ para devolver uno. A menos de un día del cobro no se
+  ofrece.
+- **«Tu plan» en prueba** dice hasta cuándo va y cuánto se cobra, ofrece «Empezar mi plan ya» (arriba de todo si llega desde un
+  tope, `?empezar=1`) y no ofrece «Pasar a Pro» ni la oferta de retención: no hay un mes pagado sobre el que hacerlas.
+
+**Sin hacer (de los topes):** el Media Buyer vive en otra rama (wt-mediabuyer-2510): su `cupoDe(ws)` tiene que leer
+`estadoDePrueba(ws).enPrueba` (lib/prueba-uso.ts) para negar el piloto automático en la prueba; se lo pasé al Cerebro. El
+error por toma del AI Avatar y la pantalla del avatar del editor de video dicen el texto del tope sin el botón. «Tu plan» del
+teléfono no tiene «Empezar mi plan ya». **Vive en:** lib/topes-plan.ts · lib/prueba-uso.ts · lib/empezar-plan.ts ·
+app/_ui/EmpezarPlanYa.tsx · lib/cobros.ts (`cerrarPruebaAlEmpezarYa`) · app/video-generator/video-action.ts ·
+app/ai-avatar/actions.ts · app/video-editor/avatar/actions.ts · lib/editor-landing/tope-landings-server.ts · app/crm/actions.ts ·
+app/configuraciones/plan · tests/prueba-topes.test.ts.

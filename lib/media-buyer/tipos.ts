@@ -9,6 +9,8 @@
 // una persona (o el piloto automático) la lanza, y se puede deshacer. Es la «recommendation» de Madgicx.
 // =============================================================================
 
+import type { ConfigTacticas } from './tacticas';
+
 /** Cómo trabaja el agente en un negocio. Martín: «piloto automático» y «propone y yo apruebo». */
 export type ModoMediaBuyer = 'propone' | 'piloto';
 
@@ -35,6 +37,8 @@ export type ConfigMediaBuyer = {
   metaGastoMes: number | null;
   /** La cuenta publicitaria (act_…) si el negocio no la tiene en Integraciones. La de Integraciones manda. */
   cuentaPublicitaria: string | null;
+  /** Cada táctica como automatización: estado, umbrales y campañas que cubre (lib/media-buyer/tacticas.ts). Vacío = lo recomendado. */
+  tacticas: ConfigTacticas;
 };
 
 /**
@@ -53,6 +57,7 @@ export const CONFIG_POR_DEFECTO: ConfigMediaBuyer = Object.freeze({
   metaVentasMes: null,
   metaGastoMes: null,
   cuentaPublicitaria: null,
+  tacticas: {},
 }) as ConfigMediaBuyer;
 
 export type NivelMeta = 'campaign' | 'adset' | 'ad';

@@ -106,7 +106,8 @@ test('/web-generator: el layout redirige ANTES del loader en las tres rutas que 
   assert.match(lay, /if \(cual === 'analizar'\) redirect\(await rutaConWs\(destinoAnalizar\(query\)\)\);/);
   assert.match(lay, /if \(cual === 'crear'\) redirect\(await rutaConWs\(destinoCrear\(query\)\)\);/);
   assert.match(lay, /if \(ultima\) redirect\(await rutaConWs\(`\/web-generator\/\$\{ultima\.id\}`\)\);/);
-  assert.match(lay, /return children;\n\}/);
+  // Lo que dibuja: la tab y los tooltips flotantes de toda la tab (25/10/2026, editor/TooltipsFlotantes.tsx).
+  assert.match(lay, /return <>\{children\}<TooltipsFlotantes \/><\/>;\n\}/);
   // La página usa LA MISMA regla de «pelada».
   assert.match(sinComentarios(leer('app/web-generator/page.tsx')), /if \(!errorLista && esPanelPelado\(sp\)\) \{/);
 });

@@ -889,13 +889,13 @@ export const nombraConfiguraciones = (texto: string): boolean => /\bConfiguracio
 /**
  * LA TUERCA DE VERDAD EN EL GLOBO (24/10/2026, f19 de la llamada con Leandro: «Maco debería poder enviar íconos... el ícono de
  * configuraciones no es el correcto... Fíjate dónde está»): el mismo ícono del botón del título (`BotonTuerca`,
- * ./SecuenciaPerfil.tsx, `Icon name="config"`) con su nombre, y abre Configuraciones. Así lo que dice MaKo y lo que se ve son
+ * ./SecuenciaPerfil.tsx, `Icon name="tuerca"`: la tuerca de verdad desde el 25/10/2026) con su nombre, y abre Configuraciones. Así lo que dice MaKo y lo que se ve son
  * lo mismo, y no hay que buscarlo.
  */
 function TuercaEnElGlobo({ onClick }: { onClick: () => void }) {
   return (
     <button type="button" data-tuerca-mako="" onClick={onClick} title="Abrir Configuraciones de esta automatización" style={S.tuercaGlobo}>
-      <Icon name="config" size={15} />
+      <Icon name="tuerca" size={15} />
       <span>Configuraciones</span>
     </button>
   );

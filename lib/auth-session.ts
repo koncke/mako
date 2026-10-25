@@ -30,6 +30,12 @@ export type Sesion = {
   rol: Rol;
   /** epoch segundos de expiración. */
   exp: number;
+  /**
+   * epoch segundos en que se ENTRÓ (25/10/2026). Lo usa la app de escritorio para saber que el login es de ESTA ventana y no
+   * una sesión que ya estaba en el perfil del navegador (lib/app-escritorio-reglas.ts). Las sesiones de antes no lo traen: para
+   * la app son viejas, y se pide el login.
+   */
+  iat?: number;
   /** true si vino de la cookie compartida vieja o del gate sin configurar. */
   legacy?: boolean;
   /** workspace del usuario (multi-inquilino). null = admin sin workspace propio. */
@@ -219,10 +225,11 @@ function firmar(payload: string, sec: string): string {
 }
 
 /** Crea el token de sesión. Devuelve null si no hay secret configurado. */
-export function crearToken(s: Omit<Sesion, 'exp'>, dias: number = SESSION_DIAS): string | null {
+export function crearToken(s: Omit<Sesion, 'exp' | 'iat'>, dias: number = SESSION_DIAS): string | null {
   const sec = secret();
   if (!sec) return null;
-  const sesion: Sesion = { ...s, exp: Math.floor(Date.now() / 1000) + dias * 24 * 60 * 60 };
+  const ahora = Math.floor(Date.now() / 1000);
+  const sesion: Sesion = { ...s, iat: ahora, exp: ahora + dias * 24 * 60 * 60 };
   const payload = b64url(Buffer.from(JSON.stringify(sesion), 'utf8'));
   return `v1.${payload}.${firmar(payload, sec)}`;
 }

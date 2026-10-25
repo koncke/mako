@@ -7,6 +7,7 @@
 
 import type { Pasarela } from './cobros-tipos';
 import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
+import { PRUEBA_DIAS } from './planes-mako';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -97,6 +98,11 @@ export type PedidoCompra = {
   diagnostico: RespuestaDePuerta[] | null;
   /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
   periodo: 'mensual' | 'anual';
+  /**
+   * Empezar SIN la prueba gratis (25/10/2026): la salida de quien ya la usó con ese email. El plan se cobra desde hoy. Sin
+   * pedirlo, toda compra en línea empieza con los 7 días gratis.
+   */
+  sinPrueba: boolean;
 };
 
 /** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
@@ -125,7 +131,7 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     ok: true,
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
-      diagnostico: diagnosticoLimpio(b.diagnostico), periodo,
+      diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
     },
   };
 }
@@ -173,8 +179,8 @@ export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: st
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */
 export function bajadaDePlanes(algunoCobrable: boolean): string {
   return algunoCobrable
-    ? 'Pagas por mes y entras en el acto. Te das de baja cuando quieras.'
-    : 'Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp. Te das de baja cuando quieras.';
+    ? `Empiezas con ${PRUEBA_DIAS} días gratis y entras en el acto. Te das de baja cuando quieras.`
+    : `Elige tu plan y déjanos tus datos: te damos de alta por WhatsApp, con ${PRUEBA_DIAS} días gratis. Te das de baja cuando quieras.`;
 }
 
 /**

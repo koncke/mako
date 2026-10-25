@@ -48,6 +48,25 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Conecta tu Gemini»: lo que le llegó a Florencia y por qué, medido (25/10/2026)
+
+**Vive en:** `lib/mako-doer-in.ts`, `lib/fallo-ia-texto.ts`, `lib/mako-doer-buffer.ts`, `lib/ia-del-negocio.ts`.
+
+- **El diagnóstico obvio era el equivocado.** Ella contó que mandó audios de su Fathom al grupo. En su grupo hay UN solo mensaje
+  suyo, de texto, del 22/10 («Estas analizando mis fathom?»); la cola del grupo no se borra (`lib/mako-doer-buffer.ts`), así que
+  no hubo audios ahí. Sus notas de voz estaban en el chat del onboarding y en el WhatsApp personal de Martín.
+- **El cartel que le contesta MaKo no se guarda en ningún lado** (no entra a `mako_doer_conv`; `anthropic_usage` guarda sólo la
+  causa). Hubo que reconstruir el texto desde el código de esa hora. Regla: cada cartel guarda su texto.
+- **Le pidió «una API key» con un link a GEMINI y no nombró Fathom**, que era lo que preguntaba. El aviso del Desarrollador del 24/10
+  nombró «tu Claude, tu GPT o tu Gemini, y también Fathom» con UN solo link (Claude). Regla: un link por conexión que falta.
+- **El doer descarta la computadora:** usa `.suIA` y no mira `conPc`, aunque `lib/ia-del-negocio.ts` da `suIA: true` a todo
+  negocio con la PC conectada. Con MaKo Desktop y sin clave, el grupo diría «tu negocio todavía no tiene su IA conectada»: falso.
+  El camino del audio arma su aviso aparte y tampoco lo mira.
+- **Claude no escucha notas de voz** (la cascada de transcripción es gemini, groq, openai) y en WhatsApp entra sólo en turnos sin
+  herramientas: no sirve de respaldo en el grupo. El plan quedó en docs/conexiones-y-ayuda.md.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## «La línea de MaKo está muerta, no sale ningún aviso»: el grupo no sale por el ws9 (23/10/2026)
 
 **Síntoma:** con `mako_ws9` en `connecting` desde el 19/10, se dio por hecho que ningún aviso a los grupos de los

@@ -23,6 +23,8 @@ import {
   leerHistorial,
 } from '@/app/video-generator/video-datos';
 import { avataresDelHistorial, conAvatar } from './avatares';
+import { getWorkspaceActual } from '@/lib/workspace';
+import { frenoDePrueba, sumarUsoDePrueba } from '@/lib/prueba-uso';
 
 /** Lo que la pestaña necesita de un avatar (sin el prompt de la escena). */
 export type AvatarParaElegir = {
@@ -70,6 +72,12 @@ export async function crearAvatarAction(input: {
   const avatar = avataresDelHistorial(await leerHistorial()).find((a) => a.id === input.avatarId);
   if (!avatar) return { ok: false, error: 'Ese avatar ya no está. Elige otro.' };
 
+  // LA PRUEBA GRATIS (25/10/2026): un video con avatar de IA cuenta para el tope de la prueba (lib/prueba-uso.ts).
+  const ws = await getWorkspaceActual();
+  if (ws != null) {
+    const enPrueba = await frenoDePrueba(ws, 'prueba.avatares');
+    if (!enPrueba.ok) return { ok: false, error: enPrueba.texto };
+  }
   const plan = await generarPlanAction({
     puestaId: avatar.puestaId,
     guionId: '',
@@ -84,5 +92,6 @@ export async function crearAvatarAction(input: {
 
   const item = conAvatar(plan.item, avatar);
   await guardarEnHistorial(item);
+  if (ws != null) await sumarUsoDePrueba(ws, 'prueba.avatares');
   return { ok: true, planId: item.id, tomas: item.plan.clips.map((c) => c.n) };
 }

@@ -543,6 +543,7 @@ ver_analitica_landing
 ver_anuncio_planteado
 ver_anuncio_video
 ver_archivero
+ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
 ver_base_formulario_meta

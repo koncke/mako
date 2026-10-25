@@ -42,6 +42,27 @@ Cada entrada dice de qué corrida y de qué fecha viene.
 
 ---
 
+## Medir qué sección se ve: `display: contents` no tiene caja, y cuatro trampas para un evento nuevo (25/10/2026)
+
+**Vive en:** `lib/landing-token.ts` (el Pixel), `lib/editor-landing/render.ts`, `lib/leads.ts`, `lib/vsl-retencion.ts`.
+
+- **Hoy no se puede saber que «la sección 4 no la ve nadie».** El scroll registra hitos de la PÁGINA (25/50/75/100) y
+  `alcancePorSeccion` vuelve null a propósito, aunque la pantalla de Análisis ya lo dibuja.
+- **El selector obvio no ve nada en las landings de MaKo.** Las secciones de «Diseño editable» salen como
+  `div.gm-libre-seccion[data-seccion]` con `display: contents`: no tienen caja y un IntersectionObserver nunca las ve en pantalla.
+  Se observan sus HIJOS. Y una sección más alta que dos pantallas nunca llega a «la mitad en pantalla»: se cuenta con la mitad
+  del elemento o la mitad de la pantalla, lo menor.
+- **El techo de eventos.** `getTrackingEvents` (la ficha del lead) hace `.limit(120)` en la base ANTES de filtrar en JS: un
+  evento por sección le borraría a la ficha los clics y los plays. Va un evento ACUMULADO, fuera de esa lista.
+- **`prueba` del Pixel NO es una variante A/B**: es la marca `?mko_test` del probador y todas las lecturas descartan esas filas.
+  Guardar ahí un A/B borraría su tráfico. Por eso la dimensión «Variante» del Dashboard queda siempre vacía.
+- **`video_variant` (el A/B de Panda) es una copia de `video_id`** y nadie lo lee.
+- **`ES_EVENTO_DE_VIDEO` es `^(play|pausa|retoma|fin|exit|p\d+|s\d+)$`**: un evento nuevo nunca se puede llamar `s<número>`.
+- **El muestreo de grabaciones es 100 por defecto**: el mapa de calor de una rama B no sale vacío (los clics vienen de
+  `vsl_events`); lo que sale de una grabación es sólo la foto de fondo.
+
+*25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
+
 ## Cómo venden con landing los productos parecidos a MaKo, y la trampa del voseo (25/10/2026)
 
 **Vive en:** [como-venden-otros.md](como-venden-otros.md) (80 productos con landing, precios y frases verificados el 25/10, y
