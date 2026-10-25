@@ -2739,7 +2739,12 @@ WhatsApp, de punta a punta). Chat «Planes», cuenta 5, a pedido del Cerebro.
 - **La plataforma no «tiene su IA»** (`negocioConSuIA` da false para el ws de la plataforma, a propósito). La regla
   «sin su IA no corre» es para los CLIENTES (`claveDeIAPropia`); el espacio de MaKo corre con la de la plataforma, que es la
   suya.
-- **El libro (mig 0332, `second_brain_recolectado`) es la marca y la llave:** una fila por conversación con hasta dónde leyó;
+- **Un CLIENTE arranca APAGADO; el espacio de MaKo, prendido** (el Cerebro, 25/10: «Gasta la IA del negocio cada hora, y la
+  regla es que cada negocio paga SU IA: no se la gastamos sin que lo elija»). Cada negocio lo prende en «Aprende solo»
+  (`prendidoPorDefecto`, lib/recolector-reglas.ts). Un setting roto o un «no sé si es la plataforma» se lee apagado.
+- **El número de la migración se le pide al Cerebro antes de nombrar el archivo:** la 0332 ya era de Media Buyer, sin
+  commitear en su worktree (por eso no estaba en origin/main). Quedó 0333.
+- **El libro (mig 0333, `second_brain_recolectado`) es la marca y la llave:** una fila por conversación con hasta dónde leyó;
   se escribe DESPUÉS de guardar lo aprendido, así que una IA caída deja la conversación para la vuelta siguiente. Sin la
   migración, el cron lo dice en su respuesta y no gasta IA.
 - **Ejercitado sin la app:** tests/second-brain-recolector-simulado.test.ts corre `recolectarWhatsApp` de verdad con la base,
@@ -2750,5 +2755,5 @@ borrar una entrada desde «Aprende solo» (hoy se apaga entero). El bloque del s
 «TU METODOLOGÍA» (lib/mako-context.ts): los hechos de un cliente no son método; si confunde al modelo, va en su propia
 sección. Interruptores: env `RECOLECTOR_SECOND_BRAIN` (`off`/`seco`) y el de cada negocio en el Mapa. **Vive en:**
 lib/recolector.ts · lib/recolector-reglas.ts · app/api/cron/second-brain-recolector/route.ts · app/second-brain/AprendeSolo.tsx
-· app/second-brain/recolector-actions.ts · supabase/migrations/0332_second_brain_recolectado.sql ·
+· app/second-brain/recolector-actions.ts · supabase/migrations/0333_second_brain_recolectado.sql ·
 tests/second-brain-recolector.test.ts · tests/second-brain-recolector-simulado.test.ts.

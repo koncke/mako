@@ -8,7 +8,8 @@
 //   2. sin mensajes nuevos, no vuelve a pedir nada ni duplica;
 //   3. con mensajes nuevos, ACTUALIZA la misma entrada partiendo de lo que ya sabía;
 //   4. si la IA falla, la marca de esa conversación NO avanza (se vuelve a leer) y la vuelta lo dice;
-//   5. un negocio sin su IA no corre, y uno apagado tampoco.
+//   5. un negocio sin su IA no corre, y uno apagado tampoco;
+//   6. un CLIENTE que nunca tocó el interruptor no corre (arranca apagado: gasta SU IA), y el espacio de MaKo sí.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -78,7 +79,7 @@ function from(tabla) {
 }
 const ws = await import(${url('lib/workspace.ts')});
 mock.module(${url('lib/workspace.ts')}, { exports: { ...real(ws), getTenantDb: async () => ({ from }), wsSuperAdmin: async () => 9 } });
-const settings = {};
+const settings = { '10:second-brain.recolector': JSON.stringify({ prendido: true }) };
 const st = await import(${url('lib/settings.ts')});
 mock.module(${url('lib/settings.ts')}, { exports: { ...real(st), getSetting: async (k) => settings[wsActual + ':' + k] ?? null, setSetting: async (k, v) => { settings[wsActual + ':' + k] = v; } } });
 const pag = await import(${url('lib/supabase-paginado.ts')});
@@ -114,16 +115,18 @@ for (const [i, t] of ['Hola', 'Quiero info', 'del plan Esencial'].entries()) tab
 falla = true;
 const v4 = await recolectarWhatsApp(10, { deadline, ahora }); const f4 = foto();
 falla = false;
-wsActual = 30; const v5 = await recolectarWhatsApp(30, { deadline, ahora });
+wsActual = 30; settings['30:second-brain.recolector'] = JSON.stringify({ prendido: true }); const v5 = await recolectarWhatsApp(30, { deadline, ahora });
 wsActual = 20; settings['20:second-brain.recolector'] = JSON.stringify({ prendido: false }); const v6 = await recolectarWhatsApp(20, { deadline, ahora });
-console.log(JSON.stringify({ v1, v2, v3, v4, v5, v6, f1, f3, f4, p1, p2, p3, pedidos, settings10: settings['10:second-brain.recolector'] ?? null }));
+wsActual = 40; const v7 = await recolectarWhatsApp(40, { deadline, ahora });
+wsActual = 9; const v8 = await recolectarWhatsApp(9, { deadline, ahora });
+console.log(JSON.stringify({ v1, v2, v3, v4, v5, v6, v7, v8, f1, f3, f4, p1, p2, p3, pedidos, settings10: settings['10:second-brain.recolector'] ?? null }));
 `;
 
 type Fila = { ref: string; etiqueta: string; knowledge_id: number | null; mensajes: number; hasta: string; fuente: string };
 type Entrada = { id: number; titulo: string; cuerpo: string; fuente: string; area: string; categoria: string };
 type Vuelta = { resultado: string; motivo?: string; pendientes: number; nuevas: number; actualizadas: number; leidas: number };
 type Salida = {
-  v1: Vuelta; v2: Vuelta; v3: Vuelta; v4: Vuelta; v5: Vuelta; v6: Vuelta;
+  v1: Vuelta; v2: Vuelta; v3: Vuelta; v4: Vuelta; v5: Vuelta; v6: Vuelta; v7: Vuelta; v8: Vuelta;
   f1: { libro: Fila[]; kn: Entrada[] }; f3: { libro: Fila[]; kn: Entrada[] }; f4: { libro: Fila[]; kn: Entrada[] };
   p1: number; p2: number; p3: number; pedidos: Array<{ ws: number; user: string; feature: string; pii: boolean }>; settings10: string | null;
 };
@@ -188,4 +191,11 @@ test('un negocio sin su IA no corre (no gasta la nuestra), y uno apagado tampoco
   assert.equal(s.v5.resultado, 'sin-ia');
   assert.equal(s.v6.resultado, 'apagado');
   assert.ok(!s.pedidos.some((p) => p.ws === 30 || p.ws === 20), 'ningún pedido a la IA de esos negocios');
+});
+
+test('un CLIENTE que nunca lo prendió no corre (gasta SU IA), y el espacio de MaKo arranca prendido', () => {
+  const s = correr();
+  assert.equal(s.v7.resultado, 'apagado', 'un cliente sin tocar el interruptor');
+  assert.ok(!s.pedidos.some((p) => p.ws === 40), 'ni un pedido a su IA');
+  assert.notEqual(s.v8.resultado, 'apagado', 'el negocio de Martín, prendido sin tocar nada');
 });

@@ -186,15 +186,22 @@ export function cuerpoDeLaEntrada(p: { etiqueta: string; hechos: readonly string
 export type ResultadoVuelta = 'ok' | 'sin-ia' | 'error' | 'apagado' | 'sin-tabla';
 
 export type EstadoRecolector = {
-  /** El interruptor del negocio. Sin escribir: prendido (lo pidió Martín «para todos los ws»). */
+  /** El interruptor del negocio. Sin escribir, `porDefecto` (`prendidoPorDefecto`): apagado para un cliente, prendido para MaKo. */
   prendido: boolean;
   ultima: { at: string; resultado: ResultadoVuelta; motivo?: string; nuevas: number; actualizadas: number; leidas: number } | null;
 };
 
 const RESULTADOS: ReadonlySet<string> = new Set(['ok', 'sin-ia', 'error', 'apagado', 'sin-tabla']);
 
-/** Lo que dice el setting, saneado: un valor roto es «prendido, sin vueltas». */
-export function leerEstadoRecolector(crudo: string | null | undefined): EstadoRecolector {
+/**
+ * Cómo arranca un negocio que nunca tocó el interruptor (el Cerebro, 25/10/2026, con Martín pidiendo no preguntar): un
+ * CLIENTE, APAGADO — el recolector gasta SU IA cada hora y la regla es que cada negocio paga su IA: no se la gastamos sin que
+ * lo elija; lo prende en «Aprende solo». El espacio de MaKo (la plataforma, el negocio de Martín), PRENDIDO.
+ */
+export const prendidoPorDefecto = (esPlataforma: boolean): boolean => esPlataforma;
+
+/** Lo que dice el setting, saneado: un valor roto es «como arranca», sin vueltas. */
+export function leerEstadoRecolector(crudo: string | null | undefined, porDefecto = false): EstadoRecolector {
   try {
     const o = crudo ? (JSON.parse(crudo) as Record<string, unknown>) : {};
     const u = o.ultima as Record<string, unknown> | undefined;
@@ -202,9 +209,9 @@ export function leerEstadoRecolector(crudo: string | null | undefined): EstadoRe
     const ultima = u && typeof u.at === 'string' && !Number.isNaN(Date.parse(u.at)) && RESULTADOS.has(String(u.resultado))
       ? { at: u.at, resultado: u.resultado as ResultadoVuelta, ...(typeof u.motivo === 'string' && u.motivo ? { motivo: u.motivo.slice(0, 300) } : {}), nuevas: n(u.nuevas), actualizadas: n(u.actualizadas), leidas: n(u.leidas) }
       : null;
-    return { prendido: o.prendido !== false, ultima };
+    return { prendido: typeof o.prendido === 'boolean' ? o.prendido : porDefecto, ultima };
   } catch {
-    return { prendido: true, ultima: null };
+    return { prendido: porDefecto, ultima: null };
   }
 }
 
@@ -218,13 +225,13 @@ export type ResumenRecolector = {
   sinIndice: number;
   /** Las últimas conversaciones que dejaron algo: con quién, cuándo y qué aprendió. */
   ultimas: Array<{ etiqueta: string; cuando: string; hechos: string[] }>;
-  /** La tabla todavía no existe en este entorno (falta la migración 0332). */
+  /** La tabla todavía no existe en este entorno (falta la migración 0333). */
   sinTabla?: true;
 };
 
 /** Lo que se le dice a la persona de la última vuelta. */
 export function textoDeLaVuelta(e: EstadoRecolector): string {
-  if (!e.prendido) return 'Apagado: MaKo no está leyendo tu WhatsApp.';
+  if (!e.prendido) return 'Apagado. Préndelo para que MaKo aprenda de tus conversaciones con tus leads; usa tu propia IA.';
   const u = e.ultima;
   if (!u) return 'Todavía no leyó nada: la primera vuelta corre en la próxima hora.';
   if (u.resultado === 'sin-ia') return 'No corre: conecta tu propia IA para que MaKo pueda leer y resumir tus conversaciones.';

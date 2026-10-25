@@ -6,7 +6,7 @@
 > absolutamente todo. Porque eso sí será un "Second Brain". **Esto para todos los ws**».
 
 **Estado (25/10/2026):** el primer paso (§8, WhatsApp) está hecho: lib/recolector.ts, el cron
-`second-brain-recolector` (cada hora), la migración 0332 y «Aprende solo» en el Mapa del Second Brain. Lo que se aprendió al
+`second-brain-recolector` (cada hora), la migración 0333 y «Aprende solo» en el Mapa del Second Brain. Lo que se aprendió al
 hacerlo, en docs/hallazgos-second-brain.md («El recolector»). Meta y Fathom siguen sin hacer.
 
 **Estado original:** diseño, sin dueño asignado todavía. Lo escribió el Cerebro la noche del 23 al 24/10 para que el

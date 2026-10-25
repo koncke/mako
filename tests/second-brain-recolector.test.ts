@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CLAVE_RECOLECTOR, FUENTE_WHATSAPP, MAX_CONVERSACIONES_POR_VUELTA, conversacionesPendientes, cuerpoDeLaEntrada, esChatDePersona,
-  hechosDeLaEntrada, leerEstadoRecolector, leerRespuesta, textoDeLaVuelta, transcripcion, type MensajeWa,
+  hechosDeLaEntrada, leerEstadoRecolector, leerRespuesta, prendidoPorDefecto, textoDeLaVuelta, transcripcion, type MensajeWa,
 } from '../lib/recolector-reglas';
 import { sePresta } from '../lib/rag-prestamo';
 
@@ -81,11 +81,18 @@ test('cada entrada dice de dónde salió (el chat sólo lee título y cuerpo), y
   assert.match(act, /mensajes hasta el 24\/10\/2026/, 'una entrada actualizada junta vueltas: dice hasta cuándo');
 });
 
-test('el estado del negocio: prendido salvo que lo apague, y lo que se le dice de cada vuelta', () => {
-  assert.deepEqual(leerEstadoRecolector(null), { prendido: true, ultima: null });
-  assert.deepEqual(leerEstadoRecolector('{roto'), { prendido: true, ultima: null });
-  assert.equal(leerEstadoRecolector('{"prendido":false}').prendido, false);
-  const e = leerEstadoRecolector(JSON.stringify({ ultima: { at: '2026-10-25T03:00:00Z', resultado: 'sin-ia', nuevas: 0, actualizadas: 0, leidas: 0 } }));
+test('el estado del negocio: un CLIENTE arranca apagado (gasta su IA: lo prende él), MaKo prendido; y lo que se le dice', () => {
+  // El Cerebro, 25/10/2026: «para los CLIENTES el recolector arranca APAGADO, y cada negocio lo prende en "Aprende solo"...
+  // Para el negocio de Martín (ws9), prendido».
+  assert.equal(prendidoPorDefecto(false), false, 'un cliente');
+  assert.equal(prendidoPorDefecto(true), true, 'la plataforma');
+  assert.deepEqual(leerEstadoRecolector(null), { prendido: false, ultima: null });
+  assert.deepEqual(leerEstadoRecolector(null, true), { prendido: true, ultima: null });
+  assert.deepEqual(leerEstadoRecolector('{roto'), { prendido: false, ultima: null }, 'un setting roto no lo prende');
+  assert.equal(leerEstadoRecolector('{"prendido":true}').prendido, true, 'lo que eligió el negocio gana');
+  assert.equal(leerEstadoRecolector('{"prendido":false}', true).prendido, false);
+  assert.match(textoDeLaVuelta({ prendido: false, ultima: null }), /Préndelo/);
+  const e = leerEstadoRecolector(JSON.stringify({ prendido: true, ultima: { at: '2026-10-25T03:00:00Z', resultado: 'sin-ia', nuevas: 0, actualizadas: 0, leidas: 0 } }));
   assert.match(textoDeLaVuelta(e), /conecta tu propia IA/);
   assert.match(textoDeLaVuelta({ prendido: true, ultima: { at: 'x', resultado: 'ok', nuevas: 2, actualizadas: 1, leidas: 40 } }), /aprendió de 3 conversaciones/);
   assert.match(textoDeLaVuelta({ prendido: false, ultima: null }), /Apagado/);
@@ -94,7 +101,7 @@ test('el estado del negocio: prendido salvo que lo apague, y lo que se le dice d
 
 test('lo recolectado no sale de su negocio: no se presta en el RAG y su libro es una tabla por negocio', () => {
   assert.equal(sePresta(FUENTE_WHATSAPP), false, 'el RAG de otro negocio nunca lo ve');
-  const mig = readFileSync(join(RAIZ, 'supabase/migrations/0332_second_brain_recolectado.sql'), 'utf8');
+  const mig = readFileSync(join(RAIZ, 'supabase/migrations/0333_second_brain_recolectado.sql'), 'utf8');
   assert.match(mig, /workspace_id\s+bigint not null references workspaces\(id\) on delete cascade/);
   assert.match(mig, /unique \(workspace_id, fuente, ref\)/, 'una fila por conversación: la llave contra el duplicado');
   assert.match(mig, /revoke all on second_brain_recolectado from anon, authenticated/);
@@ -105,7 +112,8 @@ test('lo recolectado no sale de su negocio: no se presta en el RAG y su libro es
 test('la vuelta: sin su IA no corre, sólo lee WhatsApp, guarda con procedencia y la marca avanza AL FINAL', () => {
   const r = fuente('lib/recolector.ts');
   const f = r.slice(r.indexOf('export async function recolectarWhatsApp'), r.indexOf('export async function resumenDelRecolector'));
-  assert.match(f, /if \(!estado\.prendido\) return \{ \.\.\.v, resultado: 'apagado' \};/);
+  assert.match(f, /leerEstadoRecolector\(await getSetting\(CLAVE_RECOLECTOR\), prendidoPorDefecto\(esPlataforma\)\);\s*if \(!estado\.prendido\) return \{ \.\.\.v, resultado: 'apagado' \};/, 'apagado ANTES de gastar nada');
+  assert.match(r, /prendidoPorDefecto\(ws != null && ws === plataforma\)/, 'la pantalla dice lo mismo que el cron');
   assert.match(f, /if \(!esPlataforma && \(await claveDeIAPropia\(ws\)\) !== true\)/, 'un cliente sin su IA no corre con la nuestra');
   assert.match(f, /feature: FEATURE_RECOLECTOR, maxTokens: 900, temperature: 0\.2, pii: true/);
   assert.match(f, /createKnowledge\(\{ titulo, categoria: 'WhatsApp', cuerpo, area: 'general', fuente: FUENTE_WHATSAPP, autor: 'MaKo' \}\)/);
@@ -152,3 +160,7 @@ test('la pantalla: de qué aprende, cuándo y cuánto; y el super admin ve cuán
 //   · el cron sin «sólo su IA»                                                                 -> 13 / 1
 //   · el super admin ve la lista y los hechos                                                  -> 13 / 1
 //   · cada vuelta relee la conversación entera (sin la marca)                                  -> 13 / 1
+// Roturas del arranque apagado (25/10/2026; base 15 / 0 con el simulado), cada una restaurada (pasan / fallan):
+//   · `prendidoPorDefecto` prende también a los clientes                                       -> 13 / 2
+//   · la vuelta arranca prendida sin mirar si es la plataforma                                 -> 13 / 2
+//   · un setting sin `prendido` se lee como prendido                                           -> 13 / 2

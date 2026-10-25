@@ -68,7 +68,8 @@ export function tonoDelRecolector(r: ResumenRecolector | null): 'bien' | 'aviso'
 export function AprendeSolo({ resumen, soloCuentas }: { resumen: ResumenRecolector | null; soloCuentas: boolean }) {
   const router = useRouter();
   const [abierto, setAbierto] = useState(false);
-  const [prendido, setPrendido] = useState(resumen?.estado.prendido ?? true);
+  // Un cliente arranca apagado (lo prende acá: gasta su IA); sin poder leer el estado, tampoco se lo da por prendido.
+  const [prendido, setPrendido] = useState(resumen?.estado.prendido ?? false);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const estado = resumen ? { ...resumen.estado, prendido } : null;

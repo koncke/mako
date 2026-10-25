@@ -1,5 +1,5 @@
 -- =============================================================================
--- 0332 — second_brain_recolectado: lo que el recolector del Second Brain ya leyó, por conversación
+-- 0333 — second_brain_recolectado: lo que el recolector del Second Brain ya leyó, por conversación
 -- =============================================================================
 -- ORDEN DE DESPLIEGUE: ANTES del deploy (aditiva: una tabla nueva, nada se toca).
 --

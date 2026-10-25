@@ -49,8 +49,8 @@ export async function GET(req: NextRequest) {
   const ms = Date.now() - inicio;
   // Log SIEMPRE, también sin nada que hacer: un cron mudo y uno que no corrió se ven iguales.
   console.log(`[cron:second-brain-recolector] modo=${modo} negocios=${vueltas.length} ${JSON.stringify(porResultado)} pendientes=${suma('pendientes')} nuevas=${suma('nuevas')} actualizadas=${suma('actualizadas')} leidas=${suma('leidas')} sinTiempo=${sinTiempo.length} errores=${errores.length} ms=${ms}`);
-  // Sin la migración 0332, lo dice (y no gastó IA): nadie tiene que adivinar por qué no aprende.
+  // Sin la migración 0333, lo dice (y no gastó IA): nadie tiene que adivinar por qué no aprende.
   const sinTabla = vueltas.some((v) => v.resultado === 'sin-tabla');
   const ok = errores.length === 0 || vueltas.length > 0;
-  return Response.json({ ok, modo, ...(sinTabla ? { aviso: 'falta la migración 0332 (second_brain_recolectado)' } : {}), porResultado, vueltas, sinTiempo, errores, ms }, { status: ok ? 200 : 500 });
+  return Response.json({ ok, modo, ...(sinTabla ? { aviso: 'falta la migración 0333 (second_brain_recolectado)' } : {}), porResultado, vueltas, sinTiempo, errores, ms }, { status: ok ? 200 : 500 });
 }

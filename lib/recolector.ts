@@ -23,7 +23,7 @@
 // =============================================================================
 
 import 'server-only';
-import { getTenantDb, wsSuperAdmin } from './workspace';
+import { getTenantDb, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getSetting, setSetting } from './settings';
 import { leerTodo } from './supabase-paginado';
 import { claveDeIAPropia } from './ia-del-negocio';
@@ -32,7 +32,7 @@ import { createKnowledge, updateKnowledge } from './mako-knowledge';
 import { tzDeWorkspace } from './timezone';
 import {
   CLAVE_RECOLECTOR, DIAS_PRIMERA_VEZ, FUENTE_WHATSAPP, MAX_MENSAJES_POR_CONVERSACION,
-  conversacionesPendientes, cuerpoDeLaEntrada, hechosDeLaEntrada, leerEstadoRecolector, leerRespuesta, pedidoAlaIA, tituloDeLaEntrada, transcripcion,
+  conversacionesPendientes, cuerpoDeLaEntrada, hechosDeLaEntrada, leerEstadoRecolector, leerRespuesta, pedidoAlaIA, prendidoPorDefecto, tituloDeLaEntrada, transcripcion,
   type EstadoRecolector, type MensajeWa, type ResultadoVuelta, type ResumenRecolector,
 } from './recolector-reglas';
 
@@ -58,7 +58,7 @@ type FilaLibro = { ref: string; etiqueta: string; knowledge_id: number | null; m
 type MensajeCompleto = MensajeWa & { push_name: string | null; telefono: string | null };
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
-/** ¿El error es «la tabla no existe» (la migración 0332 todavía no se aplicó)? */
+/** ¿El error es «la tabla no existe» (la migración 0333 todavía no se aplicó)? */
 const faltaLaTabla = (e: unknown) => /second_brain_recolectado/.test(msg(e)) && /does not exist|relation|schema cache|not find/i.test(msg(e));
 
 async function anotar(estado: EstadoRecolector, v: VueltaNegocio): Promise<void> {
@@ -88,12 +88,13 @@ async function etiquetaDe(mensajes: readonly MensajeCompleto[], previa: string |
  */
 export async function recolectarWhatsApp(ws: number, o: { deadline: number; seco?: boolean; ahora?: Date }): Promise<VueltaNegocio> {
   const v: VueltaNegocio = { ws, resultado: 'ok', pendientes: 0, nuevas: 0, actualizadas: 0, leidas: 0 };
-  const estado = leerEstadoRecolector(await getSetting(CLAVE_RECOLECTOR));
+  // Un cliente arranca APAGADO (gasta SU IA: lo prende él); el espacio de MaKo, prendido (`prendidoPorDefecto`).
+  const esPlataforma = ws === (await wsSuperAdmin().catch(() => null));
+  const estado = leerEstadoRecolector(await getSetting(CLAVE_RECOLECTOR), prendidoPorDefecto(esPlataforma));
   if (!estado.prendido) return { ...v, resultado: 'apagado' };
   const ahora = o.ahora ?? new Date();
   try {
     // Sin SU IA, un cliente no corre (§5). La plataforma (el espacio de MaKo) usa la suya, que es la de la plataforma.
-    const esPlataforma = ws === (await wsSuperAdmin());
     if (!esPlataforma && (await claveDeIAPropia(ws)) !== true) {
       const r = { ...v, resultado: 'sin-ia' as const };
       if (!o.seco) await anotar(estado, r);
@@ -104,7 +105,7 @@ export async function recolectarWhatsApp(ws: number, o: { deadline: number; seco
     try {
       libro = await leerTodo<FilaLibro>(db, TABLA, 'ref, etiqueta, knowledge_id, mensajes, hasta', { orden: 'id', filtros: (q) => q.eq('fuente', FUENTE_WHATSAPP) });
     } catch (e) {
-      if (faltaLaTabla(e)) return { ...v, resultado: 'sin-tabla', motivo: 'falta la migración 0332' };
+      if (faltaLaTabla(e)) return { ...v, resultado: 'sin-tabla', motivo: 'falta la migración 0333' };
       throw e;
     }
     const porRef = new Map(libro.map((f) => [f.ref, f]));
@@ -186,7 +187,8 @@ export async function recolectarWhatsApp(ws: number, o: { deadline: number; seco
 /** El resumen del recolector del negocio en curso. null = no se pudo leer (no se afirma nada). */
 export async function resumenDelRecolector(): Promise<ResumenRecolector | null> {
   try {
-    const estado = leerEstadoRecolector(await getSetting(CLAVE_RECOLECTOR));
+    const [ws, plataforma] = await Promise.all([getWorkspaceActual(), wsSuperAdmin().catch(() => null)]);
+    const estado = leerEstadoRecolector(await getSetting(CLAVE_RECOLECTOR), prendidoPorDefecto(ws != null && ws === plataforma));
     const db = await getTenantDb();
     const libro = await db.from(TABLA).select('etiqueta, knowledge_id, updated_at').eq('fuente', FUENTE_WHATSAPP).order('updated_at', { ascending: false }).limit(500);
     if (libro.error) {
