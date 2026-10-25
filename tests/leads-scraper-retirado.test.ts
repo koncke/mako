@@ -171,4 +171,18 @@ test('el guard sabe leer: cada patrón reconoce lo que busca y no acusa por pros
 });
 
 // ── ROTURAS (25/10/2026) ───────────────────────────────────────────────────────
-// (se completa con la corrida del arnés)
+// Una por vez, con un arnés que guarda el original en memoria, rompe, corre ESTE archivo y restaura comprobando el contenido.
+// Base: 6 pasan / 0 fallan. Las 12 cazadas («pasan / fallan» y QUÉ test la cazó):
+//   L1. la tarjeta de Hotmart de vuelta en DEFS                     → 4 / 2 · el barrido y «la tarjeta, los campos…»
+//   L2. HOTMART_HOTTOK de vuelta en RUTEO_POR_HASH                   → 4 / 2 · el barrido y «la tarjeta, los campos…»
+//   L3. SKOOL_WEBHOOK_CLAVE de vuelta en ROUTING_CREDS               → 4 / 2 · el barrido y «la tarjeta, los campos…»
+//   L4. 'skool' de vuelta en el tipo de servicio de ruteo            → 5 / 1 · «la tarjeta, los campos…»
+//   L5. el logo de Apify de vuelta en ServicioVisual                 → 4 / 2 · el barrido y «la tarjeta, los campos…»
+//   L6. un lib/apify.ts suelto en el disco, sin git add              → 5 / 1 · «los archivos del scraper no están»
+//   L7. la ruta /api/webhooks/apify en un fuente cualquiera          → 5 / 1 · el barrido
+//   L8. listar_prospectos de vuelta en crm.def.ts                   → 4 / 2 · el barrido y «la API de MaKo y el menú…»
+//   L9. buscar_prospectos de vuelta en el menú del CRM              → 4 / 2 · el barrido y «la API de MaKo y el menú…»
+//   L10. `servicio: 'apify'` de vuelta en las claves del chat        → 4 / 2 · el barrido y «una clave de Apify pegada…»
+//   L11. sin el aviso de retirada en docs/diseno-leads-scraper.md    → 5 / 1 · «los archivos del scraper no están»
+//   L12. el ping `async apify(` de vuelta en el verificador          → 5 / 1 · «la tarjeta, los campos…»
+// Restaurado: 6 / 0.

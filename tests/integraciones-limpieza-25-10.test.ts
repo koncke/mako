@@ -116,4 +116,19 @@ test('6. la agenda al entrar con Google: apagada salvo GOOGLE_LOGIN_CON_AGENDA=1
 });
 
 // ── ROTURAS (25/10/2026) ───────────────────────────────────────────────────────
-// (se completa con la corrida del arnés)
+// Una por vez, restaurando de memoria y comprobando el contenido. Base: 6 pasan / 0 fallan. Las 14 cazadas, cada una 5 / 1:
+//   I1. «MaKo IA (Anthropic)» de vuelta en la tarjeta                → 1. los nombres
+//   I2. «Email (Resend)» en los campos del modal                     → 1. los nombres
+//   I3. Google Calendar sin `oculto` (vuelve a ser tarjeta)          → 2. sin tarjeta pero existen
+//   I4. getIntegracion vuelve a mirar `oculto` (su modal no abre)    → 2.
+//   I5. ver_integraciones sin `conOcultas` (la API no las lee)       → 2.
+//   I6. `?abrir=` de una oculta devuelve sin abrir nada              → 3. el link es contrato
+//   I7. sin el «?» de la computadora                                → 4. «Tus cuentas de IA»
+//   I7b. la diferencia en el NOMBRE del botón (aria-label)          → 4.
+//   I8. «Pronto» en la fila de Groq                                 → 4.
+//   I9. las sin conectar sin atenuar (opacity 1)                     → 5. en gris
+//   I10. el interruptor de la agenda prende con cualquier valor     → 6. la agenda al entrar con Google
+//   I11. otorgoLaAgenda con UN scope alcanza (`some`)                → 6.
+//   I12. `access_type=offline` siempre, con o sin la agenda          → 6.
+//   I13. el callback guarda el refresh_token sin mirar el `scope`    → 6.
+// Restaurado: 6 / 0.
