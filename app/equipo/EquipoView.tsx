@@ -58,10 +58,10 @@ const inicialesTxt = (base: string) => iniciales(base);
 
 function ChipEstado({ u }: { u: Miembro }) {
   if (u.estado === 'activo') return null;
-  if (u.estado === 'suspendido') return <span style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
+  if (u.estado === 'suspendido') return <span className="aj-miembro__estado" style={chip('var(--bad-bg)', 'var(--bad)')}>suspendido</span>;
   // «Invitado» a secas afirmaba algo que no había pasado. Si no se le avisó, lo dice.
-  if (!u.invitacion_enviada_at) return <span style={chip('var(--bad-bg)', 'var(--bad)')}>sin avisar</span>;
-  return <span style={chip('var(--warn-bg)', 'var(--warn)')}>invitación enviada</span>;
+  if (!u.invitacion_enviada_at) return <span className="aj-miembro__estado" style={chip('var(--bad-bg)', 'var(--bad)')}>sin avisar</span>;
+  return <span className="aj-miembro__estado" style={chip('var(--warn-bg)', 'var(--warn)')}>invitación enviada</span>;
 }
 
 /** `roles`: qué ve cada rol, en la línea de «Tu equipo» (lo escribe la página: tests/tabs-retiradas.test.ts lo fija ahí). */
@@ -187,7 +187,7 @@ export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
                   ariaLabel={`Rol de ${u.email}`} buttonStyle={SELECT_AJUSTES}
                 />
               </div>
-              <Dropdown
+              <span className="aj-miembro__mas"><Dropdown
                 value="" resetAfterSelect align="right" placeholder="⋯" sinFlecha
                 ariaLabel={`Acciones sobre ${u.email}`} disabled={accionando} width={40}
                 buttonStyle={{ ...SELECT_AJUSTES, justifyContent: 'center', padding: 0, fontSize: 18, border: 'none', background: 'transparent' }}
@@ -201,7 +201,7 @@ export function EquipoView({ roles = null }: { roles?: ReactNode } = {}) {
                   else if (v === 'estado') accion({ action: 'estado', id: u.id, estado: u.estado === 'suspendido' ? 'activo' : 'suspendido' });
                   else if (v === 'eliminar') setAEliminar(u);
                 }}
-              />
+              /></span>
             </div>
             {avisoReenvio?.id === u.id && <div style={{ paddingBottom: 12 }}><Aviso aviso={avisoReenvio.aviso} /></div>}
           </div>
