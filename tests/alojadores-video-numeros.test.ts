@@ -54,7 +54,7 @@ test('el cron escribe sólo el VSL que marcó el negocio, de ese alojador, con s
 
 test('la base acepta las plataformas, y el funnel, la serie del VSL, sus fuentes y el Dashboard leen todas', () => {
   assert.deepEqual([...PLATAFORMAS_VIDEO], ['panda', 'wistia', 'bunny', 'vimeo', 'cloudflare']);
-  const mig = leer('supabase/migrations/XXXX_alojadores_video_plataforma.sql');
+  const mig = leer('supabase/migrations/0336_alojadores_video_plataforma.sql');
   assert.match(mig, /CHECK \(plataforma IN \('meta', 'youtube', 'panda', 'wistia', 'bunny', 'vimeo', 'cloudflare'\)\);/);
   const q = leer('lib/queries.ts');
   assert.equal(q.split("filtros: (q) => enRango(q).in('plataforma', [...PLATAFORMAS_VIDEO])").length - 1, 3, 'la ventana, el funnel y las tendencias');

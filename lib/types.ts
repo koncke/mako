@@ -16,7 +16,7 @@
  * alojadores de video»: hasta acá era sólo Panda). Las lecturas del VSL (lib/queries.ts, lib/sources.ts,
  * lib/graficos-datos.ts) leen TODAS: un negocio con su VSL en Wistia o en Bunny no puede quedar en cero. YouTube no está
  * acá a propósito: escribe en sus columnas `youtube_*` y sólo cuenta el que el negocio marcó como VSL.
- * ⚠️ El CHECK de la base las tiene que aceptar (supabase/migrations/XXXX_alojadores_video_plataforma.sql).
+ * ⚠️ El CHECK de la base las tiene que aceptar (supabase/migrations/0336_alojadores_video_plataforma.sql).
  */
 export const PLATAFORMAS_VIDEO = ['panda', 'wistia', 'bunny', 'vimeo', 'cloudflare'] as const;
 export type PlataformaVideo = (typeof PLATAFORMAS_VIDEO)[number];

@@ -60,7 +60,7 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   - **Las tarjetas de Integraciones**, hechas en los cuatro registros (claves en CLAVES_ALOJADOR = sus `envs`).
   - **Los números por día de Wistia y Bunny**, hechos: cron `app/api/cron/videos-daily` (35 13 * * *, sólo el VSL marcado),
     las lecturas del VSL de todos los alojadores (`PLATAFORMAS_VIDEO`) y la migración SIN NÚMERO
-    `supabase/migrations/XXXX_alojadores_video_plataforma.sql` (la numera el Cerebro; se aplica con el sí de Martín).
+    `supabase/migrations/0336_alojadores_video_plataforma.sql` (número del Cerebro; se aplica con el sí de Martín).
 - **Sigue (alojadores):** mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
   Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
   `panda`); probar el catálogo con una cuenta real de cada uno.

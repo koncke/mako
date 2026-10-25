@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migración XXXX (sin número: la numera el Cerebro): los otros alojadores de video en marketing_metrics_daily
+-- Migración 0336: los otros alojadores de video en marketing_metrics_daily
 -- =============================================================================
 -- Pedido de Martín (25/10/2026, por el Cerebro): «Implementa otros alojadores de video, no solo panda». El cron
 -- app/api/cron/videos-daily escribe una fila por día del VSL del negocio cuando está en Wistia o en Bunny Stream, con la

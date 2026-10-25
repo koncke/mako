@@ -557,7 +557,7 @@ export const BITACORA: Hito[] = [
     ],
     archivos: [
       'app/api/cron/videos-daily/route.ts — lo que corre cada mañana',
-      'supabase/migrations/XXXX_alojadores_video_plataforma.sql — el cambio en la base (sin número todavía)',
+      'supabase/migrations/0336_alojadores_video_plataforma.sql — el cambio en la base (se aplica con el sí de Martín)',
       'docs/hallazgos-landing.md — lo que no era obvio',
     ],
   },

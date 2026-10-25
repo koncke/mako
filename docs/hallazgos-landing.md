@@ -4672,7 +4672,7 @@ pasaron de «sólo Panda» a todas las plataformas de video (`PLATAFORMAS_VIDEO`
 - **Bunny no dice en qué unidad viene su tiempo visto** («total watch time»). Se guarda crudo en `raw_payload` y el tiempo
   medio queda en null, en vez de inventar segundos o minutos. Wistia sí: horas vistas sobre reproducciones.
 - **La base no los aceptaba:** el CHECK de `marketing_metrics_daily.plataforma` sólo admitía meta, youtube y panda.
-  La migración va sin número (`supabase/migrations/XXXX_alojadores_video_plataforma.sql`): la numera el Cerebro y se aplica
+  La migración es la 0336 (`supabase/migrations/0336_alojadores_video_plataforma.sql`, número del Cerebro): se aplica
   con el sí de Martín. Hasta entonces el insert rebota, y el cron lo dice en su respuesta.
 - Los tests del funnel, /general, los gráficos y los crons pasan con las lecturas nuevas.
 
