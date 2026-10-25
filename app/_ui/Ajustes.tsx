@@ -39,7 +39,9 @@ export function AjustesPagina({ lugar, secciones, grupos, activa, amplio, childr
   return (
     <main className="aj">
       <nav className="aj-indice" aria-label={lugar}>
-        <div className="aj-indice-titulo">{lugar}</div>
+        {/* La tuerca, el ícono de Settings en toda la app (25/10/2026, Martín: «siempre debe ser la tuerca»). `configurar` ES la
+            tuerca desde la rama del Ops Center (app/_ui/icono-tuerca.ts); antes eran los deslizantes. */}
+        <div className="aj-indice-titulo"><IconoMenu nombre="configurar" size={18} />{lugar}</div>
         {(grupos ?? [{ titulo: '', secciones: secciones ?? [] }]).map((g) => (
           <div key={g.titulo || 'unico'} className="aj-indice-grupo" role="group" aria-label={g.titulo || undefined}>
             {g.titulo && <div className="aj-indice-grupo-titulo">{g.titulo}</div>}
