@@ -3469,4 +3469,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '24 oct', hora: '20:55', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La llamada con Leandro: WhatsApp, «Completar nombres» y el texto largo',
+    pedido: '«Eso es un error, ahí si apretás el botón de WhatsApp debería llevarte al chat dentro de Maco.» · «En completar nombres, si no tenés instalada la extensión de Maco (...) eso es un bug (...) ese botón te debería decir instala la extensión de Maco y que ahí directamente comience.» · «Es otro feedback, el texto muy largo. No me gustan textos largos.» · Leandro, sobre completar los datos: «Ah, no lo vi eso, a ver, vamos a verlo.»',
+    puntos: [
+      'De la llamada de Fathom con Leandro (docs/feedback-24-10.md, «La llamada con Leandro»): f15, f12, f13 y f11. Los pasó el Cerebro.',
+      'f14 (una sola pasada en «Datos de empresa») lo decide Martín: choca con el tope del día puesto a propósito.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '00:39', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'WhatsApp abre el chat de MaKo, y «Completar nombres» pide la extensión',
+    puntos: [
+      'El botón de WhatsApp abre la conversación del lead en Chats, adentro de MaKo: en la tarjeta, la lista, el clic derecho y el «⋯» de la ficha. También para un lead que todavía no tiene mensajes.',
+      '«Completar nombres» sin la extensión ya no completa a medias sin decir por qué: dice «Instala la extensión de MaKo» con el botón para instalarla, y empieza sola cuando la extensión aparece.',
+      'Ojo: en la pestaña que ya estaba abierta, Chrome recién ve la extensión al recargar. La pantalla lo dice. Para que arranque sin recargar falta un cambio en la extensión (anotado).',
+      'La pregunta de «Datos de empresa» queda en una línea: «40 de los 221 que faltan, unos 2 min. No les llega nada.»',
+      '«Completar nombres» aparece abajo, sin abrir el «⋯», después de traer un grupo.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '83f243abe', msg: 'CRM: «WhatsApp» abre el chat de MaKo y «Completar nombres» pide la extensión y arranca sola (llamada con Leandro, f15 f12 f13 f11)', lineas: 285, archivos: 11 },
+    ],
+    archivos: [
+      'app/crm/CrmBoard.tsx · app/crm/lead-view/ficha/FichaPorBloques.tsx — WhatsApp a Chats',
+      'app/crm/TraerDeGrupoWA.tsx · app/crm/usar-extension-fichas.ts — completar por la extensión',
+      'app/crm/enriquecer-cliente.ts — la pregunta corta',
+      'tests/crm-whatsapp-en-mako.test.ts · tests/crm-completar-con-extension.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];
