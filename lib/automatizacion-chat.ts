@@ -44,8 +44,16 @@ export type MensajeChatMako = {
    * lib/flujo-conversacion.ts). Ausente = un turno del chat de siempre.
    */
   tarjeta?: string;
+  /**
+   * LO QUE PIDIÓ Y NO ESTÁ EN MaKo (24/10/2026, f23 de la llamada con Leandro; Martín: «si Mako detecta que lo que le preguntó
+   * no está... que le diga al usuario no, eso no está, pero se lo voy a levantar al equipo... Para eso existe la tiquetera»).
+   * Lo escribe el modelo en una frase; con esto el globo de MaKo ofrece pasárselo al equipo (un ticket, ./api/…/ia/falta).
+   */
+  falta?: string;
 };
 export type ChatAutomatizacion = { v: 1; mensajes: MensajeChatMako[] };
+/** El largo máximo de `falta`: es el título de un ticket. */
+export const TOPE_FALTA = 160;
 
 /** Cuántos mensajes se guardan: los ÚLTIMOS. */
 export const TOPE_CHAT = 60;
@@ -138,6 +146,7 @@ export function sanearMensaje(raw: unknown): MensajeChatMako | null {
     if (adjuntos.length) m.adjuntos = adjuntos;
   }
   if (typeof raw.tarjeta === 'string' && raw.tarjeta.trim()) m.tarjeta = raw.tarjeta.trim().slice(0, TOPE_TARJETA_CHAT);
+  if (raw.de === 'mako' && typeof raw.falta === 'string' && raw.falta.trim()) m.falta = raw.falta.replace(/\s+/g, ' ').trim().slice(0, TOPE_FALTA);
   return m;
 }
 
@@ -180,4 +189,5 @@ export type ExtrasEdicionIA = {
   disparadores?: Disparador[] | null;   // CRON a guardar por action 'disparadores'; ausente = no lo toca
   pregunta?: PreguntaMako;               // p. ej. «¿Cambio qué la dispara?»
   noHecho?: string[];                    // lo pedido que no se hizo (en rojo; 22/10/2026)
+  falta?: string;                        // lo que pidió y no está en MaKo (f23, 24/10/2026): el globo ofrece el ticket
 };

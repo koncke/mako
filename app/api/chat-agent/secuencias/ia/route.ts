@@ -280,12 +280,13 @@ export async function POST(req: NextRequest) {
         const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
-        const contestar = async (respuesta: string) => {
+        // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo; el globo ofrece pasárselo al equipo (./falta/route.ts).
+        const contestar = async (respuesta: string, falta?: string) => {
           if (req.signal.aborted) return;
-          await anotar([mensajeChat('mako', respuesta, 'app')]);
+          await anotar([mensajeChat('mako', respuesta, 'app', falta ? { falta } : {})]);
           send({
             t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
-            resumen: respuesta, cambiadas: [], quitadas: [],
+            resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}),
           });
         };
         // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
@@ -309,7 +310,7 @@ export async function POST(req: NextRequest) {
             send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
             return;
           }
-          await contestar(g.r.respuesta);
+          await contestar(g.r.respuesta, g.r.falta);
           return;
         }
 
@@ -337,7 +338,7 @@ export async function POST(req: NextRequest) {
         }
         const r = g.r;
         // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
-        if (r.respuesta) { await contestar(r.respuesta); return; }
+        if (r.respuesta) { await contestar(r.respuesta, r.falta); return; }
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.

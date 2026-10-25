@@ -7133,3 +7133,34 @@ como hace el Ops Center (`subirNotaDeVozDelChat`, lib/chat-mako-adjuntos.ts) des
 (/api/chat-agent/secuencias/ia). No se vio en pantalla.
 
 Vive en: app/automations/ChatMako.tsx (`enviarAudio`, `reintentar`, `hiloUnico`) · tests/chat-mako-nota-de-voz.test.ts.
+
+## Una pregunta en «Editar» y lo que no está en MaKo (24/10/2026, f18 y f23)
+
+**El síntoma (la llamada con Leandro, 29:24-31:16 y 36:01):** preguntó por audio, en «Editar», «¿Existe un tope de mensajes o
+un tope de comentarios que se puedan responder en la cuenta…?», y MaKo contestó «El tope de mensajes por día se configura
+en configuraciones de esta automatización». Martín: «le hiciste una pregunta en la opción de editar en lugar de discutir,
+entonces te respondió otra cosa». Después MaKo le describió «un bloque para Instagram» en Configuraciones que no existía.
+
+**⚠️ El diagnóstico obvio era el equivocado.** «Editar no contesta preguntas» no era cierto: desde el 22/10 una pregunta con
+«¿?» en «Editar» ya va al prompt de explicar (`vaAExplicar`, `esPreguntaDirecta`). Lo que falló fueron tres cosas:
+- **La pregunta DICTADA** no siempre trae «¿?». Ahora `esPreguntaDictada` (lib/flujo-ia-consulta.ts) reconoce la que arranca
+  como pregunta («existe…», «hay algún…», «cómo hago…», «cuántos…», «qué pasa si…») y no pide un cambio. Es a propósito
+  estrecha: «cuando contesta, mándale…» es una orden, y «se puede agregar…» es un pedido (`RX_PIDE_PREGUNTANDO`).
+- **MaKo no sabía lo que pone Meta**, y la regla «lo que se configura fuera de las tarjetas, di dónde está» lo mandaba a
+  Configuraciones. Ahora `LO_QUE_NO_ES_TARJETA` (lib/flujo-ia-intencion.ts) lo dice: un DM sólo dentro de las 24 h del
+  último mensaje de la persona, nunca primero, y a un comentario se le contesta una vez por privado.
+- **Lo que no está, inventado** (f22). Ahora MaKo lo dice en una frase y pone en `falta` qué pidió. El globo ofrece
+  «Pedírselo al equipo» (app/automations/PedirAlEquipo.tsx), que levanta un PEDIDO en la Ticketera con `noExiste`, como
+  `levantar_ticket` del Ops Center.
+
+**Regla:** el ticket sale del chat GUARDADO (`ticketDeLaFalta`, app/automations/pedir-al-equipo.ts): la última vez que MaKo
+dijo esa falta y lo que se le pidió antes. Del navegador sólo viaja cuál es. Una falta que MaKo no dijo no levanta nada, y
+tocar dos veces da el mismo ticket (`refDeLaFalta`). Se pregunta con un botón, no sale solo: es como lo hace
+`levantar_ticket`, y un falso «no está» del modelo no llena la Ticketera.
+
+**Sin hacer:** el chat del Ops Center ya tenía `levantar_ticket`; este botón es del chat del lienzo. No se probó con el modelo
+de verdad (sólo la lectura de su JSON): falta ver que Groq ponga `falta` cuando corresponde. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-consulta.ts (`esPreguntaDictada`, `faltaDelModelo`) · lib/flujo-ia-intencion.ts ·
+lib/automatizacion-chat.ts (`falta`) · app/api/chat-agent/secuencias/ia/route.ts y …/ia/falta/route.ts ·
+app/automations/PedirAlEquipo.tsx · tests/chat-mako-falta-y-pregunta-dictada.test.ts.

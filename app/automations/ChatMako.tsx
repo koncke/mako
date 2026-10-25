@@ -59,6 +59,7 @@ import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import type { CabeceraChat } from '@/app/admin/operaciones/PanelChat';
 import { avisarCambioEtiquetas } from '@/app/_components/etiquetas-cliente';
 import { transcribirNota } from '@/app/_components/useDictar';
+import { PedirAlEquipo } from './PedirAlEquipo';
 import type { HiloMsg } from '@/app/whatsapp/_shared/ChatHilo';
 import type { EnMensaje } from '@/app/_chat/HiloMako';
 import type { ArchivoHilo, ItemHilo } from '@/app/m/mako/chat-ui';
@@ -490,6 +491,8 @@ export function ChatMako(p: ChatMakoProps) {
       // Las cuentas (para el «✓ Listo» de una línea) y lo pedido que no se hizo (en rojo), como lo guarda la ruta.
       ...(l.modo === 'editar' && l.cambiadas ? { cambios: { cambiadas: l.cambiadas.length, quitadas: l.quitadas?.length ?? 0, agregadas: l.orden.length } } : {}),
       ...(l.noHecho?.length ? { noHecho: l.noHecho } : {}),
+      // Lo que pidió y no está en MaKo (f23): el globo ofrece pasárselo al equipo.
+      ...(l.falta ? { falta: l.falta } : {}),
     }]);
     return true;
   };
@@ -733,7 +736,7 @@ export function ChatMako(p: ChatMakoProps) {
 
   const { items, enGlobo } = hiloUnico({
     hilo, porId, extraPorId, total: mensajes.length, preguntaViva, ultimoMako, deshabilitado: !!p.deshabilitado, trabajando,
-    elegir, tocarBurbuja, voces: voces.current,
+    elegir, tocarBurbuja, voces: voces.current, secuenciaId: p.secuenciaId,
   });
 
   return (
@@ -778,6 +781,8 @@ export function hiloUnico(o: {
   tocarBurbuja: (id: string, boton: string) => void;
   /** La nota de voz de cada mensaje propio de esta sesión, por su id (f17). */
   voces?: ReadonlyMap<string, { url: string; secs: number }>;
+  /** De qué automatización es el chat: el botón de lo que falta (f23) se lo pasa al equipo desde ésta. */
+  secuenciaId?: number;
 }): { items: ItemHilo[]; enGlobo: Map<string, EnMensaje> } {
   const { hilo, porId, extraPorId, preguntaViva } = o;
   const enGlobo = new Map<string, EnMensaje>();
@@ -811,7 +816,7 @@ export function hiloUnico(o: {
       continue;
     }
     const viva = x.i === o.total - 1 && preguntaViva && x.m.pregunta?.id === preguntaViva.id ? preguntaViva : null;
-    const pm = parteDeMako(x.m, viva, x.i === o.ultimoMako, o.elegir, o.trabajando || o.deshabilitado);
+    const pm = parteDeMako(x.m, viva, x.i === o.ultimoMako, o.elegir, o.trabajando || o.deshabilitado, o.secuenciaId);
     items.push({ k: 'msg', id, role: 'assistant', texto: pm.texto, at: x.m.at });
     enGlobo.set(id, pm.en);
   }
@@ -831,7 +836,7 @@ function archivosDe(nombres: readonly string[]): ArchivoHilo[] {
  * turno que cambió el lienzo sin nada pedido afuera: «✓ Listo» y lo que quedó en UNA línea; el detalle tarjeta por tarjeta y
  * lo que MaKo acomodó solo, plegados y en gris. En rojo, SÓLO lo pedido que no se hizo (`noHecho`).
  */
-function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: boolean, onElegir: (e: EleccionMako) => void, deshabilitado: boolean): { texto: string; en: EnMensaje } {
+function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: boolean, onElegir: (e: EleccionMako) => void, deshabilitado: boolean, secuenciaId?: number): { texto: string; en: EnMensaje } {
   const preguntaAparte = m.pregunta && m.pregunta.texto.trim() !== m.texto.trim() ? m.pregunta.texto : null;
   const listo = lineaDeListo(m);
   const texto = listo ?? [m.texto, preguntaAparte].filter((t) => t && t.trim()).join('\n\n');
@@ -856,6 +861,7 @@ function parteDeMako(m: MensajeChatMako, viva: PreguntaMako | null, ultimo: bool
             </details>
           ) : null}
           {viva && <TarjetaPregunta pregunta={viva} onElegir={onElegir} deshabilitado={deshabilitado} />}
+          {m.falta && secuenciaId != null && <PedirAlEquipo secuenciaId={secuenciaId} falta={m.falta} />}
         </>
       ),
     },

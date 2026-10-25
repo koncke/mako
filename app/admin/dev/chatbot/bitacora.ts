@@ -2682,8 +2682,8 @@ FEEDBACK PROBAR:
     sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
     actor: "claude", tipo: "implementacion",
     titulo: "Un audio en el chat de MaKo del lienzo se manda al instante y se escucha",
-    pedido: "Leandro, en la llamada con Martín: «se envió tipo transcripto cuando ahí en el chat mismo se debería poder escuchar el audio... cuando le das a enviar audio se tiene que enviar automáticamente, no esperar a transcribirlo»",
     puntos: [
+      "Lo marcaron Martín y Leandro en su llamada del 24/10: el audio salía tarde y como texto.",
       "Al mandar un audio, su globo aparece en el chat en el acto, y se puede escuchar.",
       "Debajo aparece lo que MaKo entendió, y recién ahí MaKo trabaja.",
       "Si no se entiende, el audio queda con «Reintentar».",
@@ -2692,6 +2692,25 @@ FEEDBACK PROBAR:
     archivos: [
       "app/automations/ChatMako.tsx — la nota de voz sale antes de transcribirse",
       "tests/chat-mako-nota-de-voz.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
+  {
+    fecha: "25 oct", hora: "02:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "MaKo contesta una pregunta aunque estés en «Editar», y lo que no existe se lo pasa al equipo",
+    puntos: [
+      "Lo marcaron Martín y Leandro en su llamada del 24/10: una pregunta por audio en «Editar» recibió otra cosa, y MaKo describió un bloque de Instagram que no existía.",
+      "Una pregunta dictada, sin signos de pregunta, ahora se contesta también en «Editar».",
+      "MaKo sabe lo que pone Instagram: un mensaje directo sólo dentro de las 24 horas, y una sola respuesta privada por comentario.",
+      "Si le pides algo que MaKo no tiene, te lo dice y te ofrece «Pedírselo al equipo»: un toque y queda en la Ticketera.",
+    ],
+    archivos: [
+      "lib/flujo-ia-consulta.ts — la pregunta dictada",
+      "app/automations/PedirAlEquipo.tsx — el botón",
+      "app/api/chat-agent/secuencias/ia/falta/route.ts — el ticket, con lo que dijo MaKo",
+      "tests/chat-mako-falta-y-pregunta-dictada.test.ts — probado rompiéndolo",
     ],
     revisar: "/automations",
   },
