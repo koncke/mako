@@ -2584,4 +2584,35 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "24 oct", hora: "20:30", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "martin", tipo: "prompt",
+    titulo: "Que el goteo cuente desde el primer mensaje, y que la cuenta frenada la avise el grupo de MaKo",
+    pedido: "«eso si es un bug, el goteo debe comenzar a contar desde que se envia el primer mensaje» · «\"Su cuenta de anuncios frenada por falta de pago\", para esto tenemos las notificaciones de advertencia al grupo de mako»",
+    puntos: [
+      "Llegó por el Cerebro (cuenta 5): medir en producción el goteo de la campaña de Mauricio, que «Contestó» corte, y verificar que el aviso de la cuenta frenada le llegue a su grupo, sin mandarle nada de prueba a un cliente.",
+    ],
+  },
+  {
+    fecha: "24 oct", hora: "21:15", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "investigacion",
+    titulo: "Medido en producción: «Contestó» corta, y el aviso de la cuenta frenada llegó al grupo y calla desde el 16/10",
+    puntos: [
+      "«Contestó» corta: los 4 que contestaron en la campaña de Mauricio no recibieron ningún mensaje más.",
+      "Desde el arreglo no salió ningún primer mensaje nuevo (Mauricio no movió más leads). Los 20 que ya tenían su segundo mensaje agendado siguen con el reloj viejo: 13 unos 24 minutos tarde y 7 entre 12 y 15 horas. Ponerlos en hora es escribir en la base de un cliente: se le preguntó a Martín.",
+      "El script de medición de la cuenta anterior miraba la base equivocada y decía «nada tocado»: el negocio de Mauricio tiene base propia.",
+      "La cuenta de anuncios de Mauricio está frenada por saldo impago desde el 15/10. El aviso le llegó a su grupo 26 veces el 15 y 16/10; desde ahí calla por el tope de 3 avisos. Si debe volver a avisar mientras siga frenada lo decide Martín.",
+      "Y se arregló que dos negocios con la misma cuenta de anuncios (Mauricio y «Cliente de Diseño») avisaran cada uno con su reloj: ahora avisa uno solo.",
+      "Tres tests de main que estaban rojos tenían la versión vieja del código: se pusieron al día.",
+    ],
+    archivos: [
+      "scripts/medir-goteo-tras-deploy.mts — el goteo, las esperas y «Contestó», cada negocio en su base",
+      "scripts/recalcular-esperas-viejas.mts — lo ya agendado, a «último mensaje + la espera» (sin aplicar)",
+      "scripts/medir-aviso-cuenta-frenada.mts — el camino del aviso de la cuenta frenada, por negocio",
+      "lib/alerta-critica.ts — la cuenta compartida se toma aunque no le toque avisar",
+    ],
+    revisar: "/automations",
+  },
 ];

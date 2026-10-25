@@ -11022,5 +11022,14 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
 - ⚠️ **Y el ws4 «Cliente de Diseño» comparte la cuenta y el token con el ws1:** tiene su propio incidente (110) y fue el ÚNICO
   que recibió avisos después del 16/10 (hasta el 17/10). La dedup «una vez por cuenta» marca la cuenta como avisada DESPUÉS de
   emitir (alerta-critica.ts:237), así que en la misma corrida avisa el otro workspace (plausible, leído en el código).
+  **Medido y arreglado (24/10/2026 ~21:00 ART, claude5, P11; scripts/medir-aviso-cuenta-frenada.mts, sólo lectura):** no era
+  en la MISMA corrida (ahí el ws1 emite primero y la toma), sino en las otras cinco vueltas de la hora: el cron corre cada
+  10 min y la cadencia es de 60, y el ws1, mientras espera su hora, salía con `continue` ANTES de tomar la cuenta. El ws4 la
+  veía libre y emitía con su propio reloj: las marcas de hoy, ws1 a las 20:40 y ws4 a las 20:10. No llegó doble sólo porque
+  el ws4 no tiene grupo. Ahora la cuenta se toma en cuanto el incidente es crítico, antes de mirar la cadencia
+  (lib/alerta-critica.ts; tests/alerta-critica.test.ts, 11 / 1 con el código viejo).
+- **Lo que pidió Martín (24/10, 20 puntos, #4): «para esto tenemos las notificaciones de advertencia al grupo de mako».** El
+  camino anda: el cron vive (marca reescrita en la última hora), la #261 de SuperAdmin está prendida, el ws1 tiene grupo y le
+  llegaron 26. Lo que NO hace hoy es seguir avisando: con el techo agotado, una cuenta frenada nueve días calla desde el día 2.
 - **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
-  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4.
+  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).

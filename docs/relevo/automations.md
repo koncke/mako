@@ -4,6 +4,29 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
+## LO ÚLTIMO: 24/10/2026 noche, cuenta 5 (claude5, «Ananda»), rama `aut-2510`
+
+Martín: «eso si es un bug, el goteo debe comenzar a contar desde que se envia el primer mensaje», y sobre la cuenta de
+anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al grupo de mako».
+
+- **El goteo de la #289, medido en producción** (`scripts/medir-goteo-tras-deploy.mts`, sólo lectura, cada negocio en SU
+  base): «Contestó» corta (4 de 4). Desde el deploy (~18:06 ART) no salió ningún M1 nuevo; para ver el ritmo de 11 min y la
+  condición sin turno hacen falta M1 NUEVOS (que Mauricio mueva leads a «Prospección activa»). Volver a correrlo entonces.
+- **Lo agendado antes del deploy sigue con el reloj viejo** (20 activas, M2 de 24 min a 14,7 h tarde).
+  `scripts/recalcular-esperas-viejas.mts --ws=1 --sec=289` lo pone en «último mensaje + la espera»; simulado, no aplicado:
+  el permiso frenó escribir en la base de Mauricio y se le preguntó a Martín por el cartero (pregunta 33b2217e). Con su sí:
+  el mismo comando con `--aplicar` (las horas viejas quedan impresas). Después de las 13:00 ART del 25/10 ya no sirve: los 7
+  atrasados habrán salido.
+- **P11, el aviso de la cuenta frenada** (`scripts/medir-aviso-cuenta-frenada.mts`): llegó al grupo de Mauricio 26 veces el
+  15 y 16/10 y calla desde el 16/10 por el techo de 3 (la cuenta sigue impaga). Si vuelve a avisar un incidente de días es
+  decisión de Martín (docs/hallazgos-comunicacion.md, «Una alerta con el techo agotado…»). La cuenta compartida ws1/ws4
+  avisaba con dos relojes: arreglado en `lib/alerta-critica.ts`.
+- **Los tres rojos de main** (vuelo-mako, dashboard-pedidos-chat, paso-ia): tenía razón el código en los tres; los tests
+  fijaban líneas viejas. Al día y probados rompiéndolos.
+- **Sin dueño, visto de paso:** `tests/progreso.test.ts` rojo por dos hitos sin `sesion` en
+  app/admin/dev/ai-runtime-cascada/bitacora.ts (chat «IA del cliente»). Y el hito de esta tanda firma `claude5`, que en
+  `CUENTAS` (app/admin/dev/_registro/tipos.ts) entra con d7b1f9849 del tren (`tren-j`).
+
 ## El pedido, con el texto entero
 
 Martín, 21/10/2026 (llegó por el Cerebro): «que pruebes y valides que todo funcione bien en Automations de punta a

@@ -102,6 +102,14 @@ test('Una cuenta publicitaria compartida se avisa UNA vez, no una por workspace'
   const iCorte = src.indexOf('cuentaTomada');
   assert.ok(iCierre > 0 && iCorte > iCierre,
     'el corte por cuenta compartida quedó antes del cierre: la insistencia de ese workspace no se apaga nunca');
+
+  // Y la cuenta queda tomada ANTES de mirar si a este workspace le toca (24/10/2026): marcándola sólo al emitir, en las
+  // vueltas en que el primero espera su hora el segundo de la misma cuenta avisaba con su propio reloj (medido en
+  // producción: Mauricio y «Cliente de Diseño», la misma cuenta impaga, cada hora con media hora de diferencia).
+  const loop = src.slice(src.indexOf('for (const inc of abiertos)'));
+  const iToma = loop.indexOf('if (cuentaId) yaAvisadas?.add(cuentaId);');
+  assert.ok(iToma > 0 && iToma < loop.indexOf('if (desdeUltimo < cadaCuanto(minAbierto)) continue;'),
+    'la cuenta compartida se toma recién al emitir: el otro workspace avisa en las vueltas en que éste espera');
 });
 
 test('Insistir sin saber parar es peor: al resolverse, avisa y limpia', () => {
