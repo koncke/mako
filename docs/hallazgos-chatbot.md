@@ -7114,3 +7114,79 @@ decía «un bloque por canal (WhatsApp, Email)», y a Leandro le nombró uno de 
 Vive en: lib/goteo.ts · lib/config-automatizacion.ts · lib/nutricion.ts (`usoDelGoteo`, `sinLugar`, `quedaFrenada`) ·
 app/automations/ConfigAutomatizacionPanel.tsx · lib/api-mako/areas/chatbot.def.ts y .run.ts · lib/flujo-ia-intencion.ts ·
 tests/goteo-un-interruptor.test.ts.
+
+## La nota de voz del chat del lienzo: sale ya y se escucha (24/10/2026, f17)
+
+**El síntoma (la llamada con Leandro, 29:49):** «se envió tipo transcripto cuando ahí en el chat mismo se debería poder
+escuchar el audio... cuando le das a enviar audio se tiene que enviar automáticamente, no esperar a transcribirlo».
+
+**La causa:** `enviarAudio` (app/automations/ChatMako.tsx) transcribía PRIMERO y recién ahí mandaba el texto. No se veía
+nada mientras tanto, y el audio no quedaba en ningún lado. El hilo compartido (`HiloMako`) ya sabía dibujar una nota de
+voz (`voz` del item, con `AudioPlay`); el chat del lienzo nunca le pasaba una.
+
+**Qué quedó:** el globo con el audio entra al hilo en el acto («enviando» mientras se transcribe), y lo entendido sale como
+el mensaje, con su audio (`voces`, por id). Si no se entiende, queda con su error y «Reintentar» lo vuelve a transcribir.
+El molde es el chat del lead (app/crm/lead-view/MakoAnalystLead.tsx).
+
+**Sin hacer:** el audio es de esta sesión de la pantalla. Al recargar queda lo entendido, sin el audio. Guardarlo es subirlo
+como hace el Ops Center (`subirNotaDeVozDelChat`, lib/chat-mako-adjuntos.ts) desde la ruta del chat
+(/api/chat-agent/secuencias/ia). No se vio en pantalla.
+
+Vive en: app/automations/ChatMako.tsx (`enviarAudio`, `reintentar`, `hiloUnico`) · tests/chat-mako-nota-de-voz.test.ts.
+
+## Una pregunta en «Editar» y lo que no está en MaKo (24/10/2026, f18 y f23)
+
+**El síntoma (la llamada con Leandro, 29:24-31:16 y 36:01):** preguntó por audio, en «Editar», «¿Existe un tope de mensajes o
+un tope de comentarios que se puedan responder en la cuenta…?», y MaKo contestó «El tope de mensajes por día se configura
+en configuraciones de esta automatización». Martín: «le hiciste una pregunta en la opción de editar en lugar de discutir,
+entonces te respondió otra cosa». Después MaKo le describió «un bloque para Instagram» en Configuraciones que no existía.
+
+**⚠️ El diagnóstico obvio era el equivocado.** «Editar no contesta preguntas» no era cierto: desde el 22/10 una pregunta con
+«¿?» en «Editar» ya va al prompt de explicar (`vaAExplicar`, `esPreguntaDirecta`). Lo que falló fueron tres cosas:
+- **La pregunta DICTADA** no siempre trae «¿?». Ahora `esPreguntaDictada` (lib/flujo-ia-consulta.ts) reconoce la que arranca
+  como pregunta («existe…», «hay algún…», «cómo hago…», «cuántos…», «qué pasa si…») y no pide un cambio. Es a propósito
+  estrecha: «cuando contesta, mándale…» es una orden, y «se puede agregar…» es un pedido (`RX_PIDE_PREGUNTANDO`).
+- **MaKo no sabía lo que pone Meta**, y la regla «lo que se configura fuera de las tarjetas, di dónde está» lo mandaba a
+  Configuraciones. Ahora `LO_QUE_NO_ES_TARJETA` (lib/flujo-ia-intencion.ts) lo dice: un DM sólo dentro de las 24 h del
+  último mensaje de la persona, nunca primero, y a un comentario se le contesta una vez por privado.
+- **Lo que no está, inventado** (f22). Ahora MaKo lo dice en una frase y pone en `falta` qué pidió. El globo ofrece
+  «Pedírselo al equipo» (app/automations/PedirAlEquipo.tsx), que levanta un PEDIDO en la Ticketera con `noExiste`, como
+  `levantar_ticket` del Ops Center.
+
+**Regla:** el ticket sale del chat GUARDADO (`ticketDeLaFalta`, app/automations/pedir-al-equipo.ts): la última vez que MaKo
+dijo esa falta y lo que se le pidió antes. Del navegador sólo viaja cuál es. Una falta que MaKo no dijo no levanta nada, y
+tocar dos veces da el mismo ticket (`refDeLaFalta`). Se pregunta con un botón, no sale solo: es como lo hace
+`levantar_ticket`, y un falso «no está» del modelo no llena la Ticketera.
+
+**Sin hacer:** el chat del Ops Center ya tenía `levantar_ticket`; este botón es del chat del lienzo. No se probó con el modelo
+de verdad (sólo la lectura de su JSON): falta ver que Groq ponga `falta` cuando corresponde. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-consulta.ts (`esPreguntaDictada`, `faltaDelModelo`) · lib/flujo-ia-intencion.ts ·
+lib/automatizacion-chat.ts (`falta`) · app/api/chat-agent/secuencias/ia/route.ts y …/ia/falta/route.ts ·
+app/automations/PedirAlEquipo.tsx · tests/chat-mako-falta-y-pregunta-dictada.test.ts.
+
+## MaKo nombraba un ícono y un lugar que no estaban (24/10/2026, f19 y f22)
+
+**El síntoma (la llamada con Leandro, 31:29 y 36:01):** «el ícono de configuraciones no es el correcto... Fíjate dónde está»,
+y «un bloque para Instagram donde puedes configurar el tope máximo de comentarios», que no existía.
+
+**La causa:** a MaKo se le decía que Configuraciones está «en el «⋯» de esta automatización». Ese es el menú de la FILA, en la
+lista. En el lienzo, donde se chatea con MaKo, Configuraciones se abre con la tuerca del título (`BotonTuerca`,
+app/automations/SecuenciaPerfil.tsx). Y la guarda de un lugar inventado (`errorDeRespuestaEnEditar`) era sólo de Editar,
+pero la respuesta de Leandro salió de explicar.
+
+**Qué quedó:**
+- El prompt dice «la tuerca al lado del nombre de esta automatización» (`LO_QUE_NO_ES_TARJETA`).
+- El globo de MaKo que nombra Configuraciones lleva esa misma tuerca (`Icon name="config"`, `TuercaEnElGlobo`,
+  ChatMako.tsx), que la abre. Así lo que dice MaKo y lo que se ve son lo mismo.
+- `lugarInventado` (lib/flujo-ia-intencion.ts) la usan Editar y explicar: «Configuraciones › X» con una X que no está, o un
+  bloque, sección o pestaña de un canal, vuelve al modelo como error.
+
+**Regla:** lo que el prompt dice de una pantalla se cambia con la pantalla, y lo que MaKo puede mostrar (un ícono, un botón)
+sale del componente de verdad, no de una descripción.
+
+**Sin hacer:** la tuerca del globo sólo está en el chat del lienzo (el modal «Pídeselo a MaKo» no abre Configuraciones). Los
+otros chats (Ops Center) no tienen esta guarda de lugares. No se vio en pantalla.
+
+Vive en: lib/flujo-ia-intencion.ts (`lugarInventado`, `LO_QUE_NO_ES_TARJETA`) · app/api/chat-agent/secuencias/ia/route.ts ·
+app/automations/ChatMako.tsx (`TuercaEnElGlobo`) · app/automations/SecuenciaPerfil.tsx · tests/chat-mako-tuerca-y-lugares.test.ts.

@@ -17,6 +17,8 @@
 //   · En los TRES, lo último de la charla viaja al modelo (`bloqueDeLaCharla`): sin eso, «como te dije» no existe.
 // =============================================================================
 
+import { esPreguntaDictada } from './flujo-ia-consulta';
+
 export type IntencionChat = 'discutir' | 'editar';
 
 /** Lo que llega del cliente: sólo esas dos palabras valen; lo demás es «sin elegir». */
@@ -43,7 +45,8 @@ export const REGLAS_EDITAR = [
  * configuración del envío de la campaña»), decía que no se podía o metía esperas en el flujo. Va en editar Y en explicar.
  */
 export const LO_QUE_NO_ES_TARJETA = [
-  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», en el «⋯» de esta automatización: UNA pantalla con «Horario de oficina» y el bloque «Todos los canales» (vale para WhatsApp, email e Instagram). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo, sin inventar un lugar.',
+  'LO QUE NO SE ARMA CON TARJETAS: el horario, el goteo y los topes se configuran en «Configuraciones», la tuerca al lado del nombre de esta automatización: UNA pantalla con «Horario de oficina» y el bloque «Todos los canales» (vale para WhatsApp, email e Instagram). Si el dueño pide ESO, no armes tarjetas: dile dónde está, en una frase. Lo que no está aquí ni en las tarjetas (llamar por teléfono, un SMS) no se puede: dilo en una frase, sin inventar un lugar ni un botón, y pon en "falta" qué pidió (lo ve el equipo de MaKo).',
+  '- Lo que pone Meta en Instagram y Messenger: un DM sale sólo dentro de las 24 h del último mensaje de la persona (nunca escribe primero), y a un comentario se le contesta UNA vez por privado.',
   '- Los días y las horas en que sale (por ejemplo, ni sábado ni domingo): Configuraciones, «Horario de oficina».',
   '- Que no salgan todos juntos (uno cada N minutos) y cuántos como mucho por día: Configuraciones, «Todos los canales», «Goteo» y «Tope por día».',
   '- Deshacer el último cambio: el botón ↶ arriba del lienzo.',
@@ -80,10 +83,9 @@ const LUGARES_REALES = ['Horario', 'Todos', 'Goteo', 'Tope'];
  */
 export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: { esPregunta: boolean; charlaConTextos: boolean }): string | null {
   if (traeTextosPegados(pedido)) return ERROR_EDITAR_SIN_CAMBIOS;
-  // Con el guion: «Anti-ban» (sin él, leía «Anti» y lo daba por inventado).
+  const falso = lugarInventado(respuesta);
+  if (falso) return falso;
   const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
-  const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
-  if (falso) return `«Configuraciones › ${falso}» no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y el bloque «Todos los canales» («Goteo» y «Tope por día»). Si lo que pide no se puede hacer, dilo en una frase; si se puede con tarjetas, cambia el flujo.`;
   // «en Configuraciones, «Todos los canales», «Goteo»» (sin «›»: así lo dice el prompt desde el 23/10/2026) también nombra el lugar.
   if (lugares.length || /Configuraciones/.test(respuesta) || respuesta.includes('↶')) return null;
   const delega = /p[ií]d[eé]melo|hazlo t[uú]|desde el lienzo|ag[ré]galo t[uú]|habr[íi]a que|tendr[íi]as que/i.test(respuesta);
@@ -92,15 +94,34 @@ export function errorDeRespuestaEnEditar(pedido: string, respuesta: string, o: {
   return o.esPregunta && !delega ? null : ERROR_EDITAR_SIN_CAMBIOS;
 }
 
+/**
+ * ¿LA RESPUESTA NOMBRA UN LUGAR DE CONFIGURACIONES QUE NO EXISTE? null = no; si sí, el error para el reintento. (24/10/2026,
+ * f22 de la llamada con Leandro: MaKo le dijo «En la sección de la área de oficina ya aparece un bloque para Instagram donde
+ * puedes configurar el tope máximo de comentarios», y no había nada de eso.) La usan Editar (`errorDeRespuestaEnEditar`) y
+ * explicar (la ruta, sobre `deIARespuesta`): hasta ese día sólo Editar miraba, y la respuesta de Leandro fue de explicar.
+ *   · «Configuraciones › X» con una X que no es de la pantalla (`LUGARES_REALES`; con el guion: «Anti-ban», sin él se leía «Anti»);
+ *   · un bloque, una sección o una pestaña de un CANAL (no hay: el goteo es uno para todos, f21).
+ */
+export function lugarInventado(respuesta: string): string | null {
+  const lugares = [...respuesta.matchAll(/Configuraciones\s*›\s*([\p{L}-]+)/gu)].map((m) => m[1]);
+  const falso = lugares.find((l) => !LUGARES_REALES.includes(l));
+  const porCanal = /\b(?:bloque|secci[oó]n|pesta[ñn]a|apartado)\s+(?:de|para|del)\s+(?:whatsapp|e-?mail|correo|instagram|messenger)\b/i.exec(respuesta)?.[0];
+  if (!falso && !porCanal) return null;
+  return `${falso ? `«Configuraciones › ${falso}»` : `«${porCanal}»`} no existe: Configuraciones es una sola pantalla, con «Horario de oficina» y el bloque «Todos los canales» («Goteo» y «Tope por día», para todos los canales). No nombres un lugar ni un botón que no está: si lo que pide no se puede hacer, dilo en una frase y pon en "falta" qué pidió; si se puede con tarjetas, cambia el flujo.`;
+}
+
 /** ¿La charla reciente trae textos pegados del dueño? (con ellos, preguntar «¿qué cambios?» es no haber leído). */
 export function charlaConTextos(historial: readonly MensajeCharla[] | null | undefined): boolean {
   return (historial ?? []).filter((m) => m.de === 'yo').slice(-3).some((m) => traeTextosPegados(String(m.texto ?? '')));
 }
 
-/** ¿Es una pregunta directa («¿Qué hace?», «¿A cuántos les llega?»), sin textos pegados? En Editar va al prompt de explicar. */
+/**
+ * ¿Es una pregunta directa («¿Qué hace?», «¿A cuántos les llega?»), sin textos pegados? En Editar va al prompt de explicar.
+ * También la DICTADA, sin signos (24/10/2026, f18: `esPreguntaDictada`, lib/flujo-ia-consulta.ts).
+ */
 export function esPreguntaDirecta(pedido: string): boolean {
   const t = String(pedido ?? '').trim();
-  return !traeTextosPegados(t) && (t.startsWith('¿') || /\?\s*$/.test(t));
+  return !traeTextosPegados(t) && (t.startsWith('¿') || /\?\s*$/.test(t) || esPreguntaDictada(t));
 }
 
 /**
