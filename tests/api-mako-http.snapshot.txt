@@ -207,7 +207,10 @@ editar_plantilla_meta
 editar_post_comunidad
 editar_texto_guion_anuncio
 editar_venta_lead
+elegir_cuenta_meta
 elegir_formato_creativo_anuncio
+elegir_pagina_meta
+elegir_pixel_meta
 eliminar_broadcast
 eliminar_curso
 eliminar_etapa
@@ -434,6 +437,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
 programar_broadcast
@@ -562,6 +566,7 @@ ver_codigo_pixel
 ver_comentarios_clase_comunidad
 ver_comportamiento_landing
 ver_comunidad
+ver_conexion_meta
 ver_configuracion_landing
 ver_contexto_video
 ver_creacion

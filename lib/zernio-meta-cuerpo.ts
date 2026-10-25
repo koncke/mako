@@ -387,19 +387,21 @@ export function paginasDeZernio(body: unknown): { paginas: PaginaFacebook[]; ele
  * Con qué página se abre «Conectar con Facebook». Medido el 25/10/2026 con la cuenta de MaKo: con VARIAS páginas concedidas y
  * sin `pageId`, Zernio NO crea la conexión (el primer clic volvió sin nada; el segundo, con la página fija, conectó). Zernio
  * lo dice en su doc: «Multiple Pages without a selection return 400… restart with pageId», y su propia app muestra un selector.
- *   · La que eligió la persona, primero.
- *   · Si MaKo conoce UNA sola (la que el negocio ya tenía, o la de su Facebook en Zernio), ésa: se deduce, no se pregunta.
- *   · Con varias, se pregunta, con la sugerida marcada (la elegida en su Facebook de Zernio, o la que ya tenía).
+ *   · La que eligió la persona en la pantalla, primero.
+ *   · La del negocio (`META_PAGE_ID`): la eligió una persona (en la conexión vieja, o con `elegir_pagina_meta` de la API).
+ *   · Si MaKo conoce UNA sola (la de su Facebook en Zernio), ésa: se deduce, no se pregunta.
+ *   · Con varias, se pregunta, con la sugerida marcada (la elegida en su Facebook de Zernio).
  *   · Sin ninguna conocida, se abre sin página: si el negocio tiene una sola, Zernio usa ésa; si vuelve sin conexión, se pregunta.
  */
 export function paginaParaConectar(p: {
   elegida: string | null; delNegocio: string | null; candidatas: readonly PaginaFacebook[]; sugeridaDeZernio: string | null;
 }): { pageId: string | null; preguntar: boolean; sugerida: string | null } {
   if (p.elegida && ID_PAGINA.test(p.elegida)) return { pageId: p.elegida, preguntar: false, sugerida: p.elegida };
-  const ids = [...new Set([...p.candidatas.map((c) => c.id), ...(p.delNegocio && ID_PAGINA.test(p.delNegocio) ? [p.delNegocio] : [])])];
+  if (p.delNegocio && ID_PAGINA.test(p.delNegocio)) return { pageId: p.delNegocio, preguntar: false, sugerida: p.delNegocio };
+  const ids = [...new Set(p.candidatas.map((c) => c.id))];
   if (ids.length === 1) return { pageId: ids[0], preguntar: false, sugerida: ids[0] };
   if (ids.length === 0) return { pageId: null, preguntar: false, sugerida: null };
-  const sugerida = [p.sugeridaDeZernio, p.delNegocio].find((x): x is string => !!x && ids.includes(x)) ?? null;
+  const sugerida = p.sugeridaDeZernio && ids.includes(p.sugeridaDeZernio) ? p.sugeridaDeZernio : null;
   return { pageId: null, preguntar: true, sugerida };
 }
 

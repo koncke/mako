@@ -42,7 +42,7 @@
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
-- **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
+- **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
@@ -14890,7 +14890,7 @@ curl -L \
 
 ## Integraciones — `integraciones`
 
-Tab **Integraciones** (`/integraciones`). 8 lecturas · 0 acciones.
+Tab **Integraciones** (`/integraciones`). 10 lecturas · 3 acciones.
 
 ### `GET /api/v1/integraciones/servicios` — Estado de las integraciones
 
@@ -15048,6 +15048,142 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/integraciones/agente-claude"
+```
+
+### `GET /api/v1/integraciones/meta/conexion` — Conexión de Meta del negocio
+
+Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por el token de antes, y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.
+
+- **Ruta por operación:** `GET /api/v1/integraciones/ver_conexion_meta`
+- **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/integraciones/meta/conexion"
+```
+
+### `PUT /api/v1/integraciones/meta/cuenta` — Elegir la cuenta publicitaria de Meta
+
+PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Con el token de antes, la cuenta se elige en Integraciones (link_configurar_integracion).
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_cuenta_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_AD_ACCOUNT_ID del negocio, y arranca el histórico de métricas
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cuenta` | string | sí | id de la cuenta publicitaria con act_ adelante, tal como sale en ver_conexion_meta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/cuenta" \
+  -d '{"cuenta":"act_1426493815659364"}'
+```
+
+### `PUT /api/v1/integraciones/meta/pixel` — Elegir el píxel de Meta
+
+PROPONE elegir el píxel donde quedan registradas las conversiones del negocio (el contacto de un formulario, el calificado del CRM, la reunión agendada), entre los que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Mira antes ver_conexion_meta. Para probar que llegan: probar_capi_meta.
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_pixel_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_PIXEL_ID del negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pixel` | string | sí | id del píxel (sólo números), tal como sale en ver_conexion_meta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/pixel" \
+  -d '{"pixel":"1869323014511830"}'
+```
+
+### `PUT /api/v1/integraciones/meta/pagina` — Elegir la página de Facebook de los anuncios
+
+PROPONE elegir la página de Facebook con la que corren los anuncios y los formularios (queda pendiente hasta el «sí»). Con varias páginas y sin elegir una, Facebook no deja conectar: con la página elegida, la próxima «Conectar con Facebook» abre con ella; con la conexión ya hecha, se cambia ahí mismo. Mira antes ver_conexion_meta (las páginas que MaKo conoce).
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_pagina_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_PAGE_ID del negocio y, con la conexión hecha, la página de la conexión en Zernio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pagina` | string | sí | id de la página de Facebook (sólo números), tal como sale en ver_conexion_meta o en «Información» → «Transparencia de la página». |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/pagina" \
+  -d '{"pagina":"1315098941694049"}'
+```
+
+### `GET /api/v1/integraciones/meta/prueba-capi` — Probar las conversiones al píxel
+
+Manda UN contacto de prueba al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos: se ve en esa pestaña y NO cuenta en los datos del píxel. Dice si Meta lo recibió y, si no, el motivo. Úsala ante «¿le llegan a Meta mis contactos?».
+
+- **Ruta por operación:** `GET /api/v1/integraciones/probar_capi_meta`
+- **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `codigo` | string | sí | el código de prueba que da el Administrador de eventos → tu píxel → «Probar eventos» (empieza con TEST). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/integraciones/meta/prueba-capi?codigo=TEST12345"
 ```
 
 ### `GET /api/v1/integraciones/servicios/{servicio}/link-configuracion` — Link para conectar integración
