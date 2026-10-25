@@ -38,6 +38,21 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un merge limpio puede dejar el mismo import dos veces, y los tests no lo ven (25/10/2026)
+
+**Vive en:** cualquier merge de dos ramas que suman el mismo import en líneas distintas (lo vio el tren del 25/10 con
+`app/second-brain/AprendeSolo.tsx`).
+
+- **Síntoma:** el pre-push frenó el tren con `TS2300: Duplicate identifier 'BotonIntegracion'` en dos líneas del mismo archivo.
+  Los 8.715 tests del tren habían dado verde.
+- **Causa:** el tren ya traía `import { BotonIntegracion } …` (un arreglo del Cerebro) y la rama de Planes lo sumó en otra
+  línea. Git no lo marca como conflicto porque las líneas no se tocan, y los tests corren con tsx (esbuild), que no chequea tipos.
+  Es la misma familia que los hitos pegados de una bitácora resuelta por unión (TS1117).
+- **Regla:** después de un merge que tocó el mismo archivo desde dos ramas, buscar imports repetidos
+  (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
 **Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
