@@ -133,10 +133,13 @@ y lo que quedó sin hacer, en docs/hallazgos-customer-success.md («"Sacar" en M
 ⚠️ El alumno que Leandro sacó ANTES del arreglo sigue con el curso abierto: Members → «Fuera» → «Volver a admitir» y
 «Sacar» otra vez (sin backfill: es un cliente real).
 
-**Lo que sigue:** f25 (eliminar un curso a la papelera con Deshacer, como `borrarClase` en CursoApp.tsx), f27-f29 (la
-barra oscura del Classroom sin desplegable, un curso = un producto, el alumno sin «crear programa»), f30 («Customer
-Success» → «Clients» en lo que MaKo lee y dice; las claves internas no se tocan) y f26 (clic derecho con
-`app/_ui/MenuContextual.tsx`).
+**Tanda 2 (f27 + f28 + f29), hecha:** la barra oscura del Classroom es un rótulo; UN selector de programa (la cabecera
+de Clients, con «+ Nuevo producto» para un admin); todo el diseño en «Personalizar» («Otro color» y «Deshacer»
+incluidos); el alumno ve «Programa sin nombre» en su lista. Porqué y trampas: «Dos selectores de programa en Clients».
+
+**Lo que sigue:** f25 (eliminar un programa desde su menú en la cabecera, con la cuenta de alumnos y «Deshacer»), f26
+(clic derecho: el programa con `app/_ui/MenuContextual.tsx`; un módulo o una clase abren su «…») y f30 («Customer
+Success» → «Clients» en lo que MaKo lee y dice; las claves internas no se tocan).
 
 ## 0-Ω. 17/10/2026 (chat «Pendientes B2: CRM y clientes», cuenta `claude4`): los pendientes de CS y Cursos
 

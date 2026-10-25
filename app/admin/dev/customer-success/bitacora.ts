@@ -1107,4 +1107,25 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/clients/members',
   },
+  {
+    fecha: '25 oct', hora: '00:12', chat: 'Clients', sesion: 'local_1485825d-45bc-4b4c-aade-fff785f1dad6', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Un solo selector de programa: la barra del Classroom ya no es un desplegable',
+    pedido: 'Si apretás Fiesta Music ahí, solamente debería darte configuraciones de diseño. (...) el coso de Fiesta Music no debería ser clickeable dentro de la sidebar del curso, digamos, y que toda la configuración de diseño se vaya al botón de personalizar que ya está arriba en la top barra. (...) La sidebar negra del Classroom, ahí no tiene que ser un desplegable. Eso es un bug.',
+    puntos: [
+      'El programa y el de la barra oscura cambiaban a la vez: Leandro creyó estar en Fiesta Music y estaba en «Curso sin nombre».',
+      'Ahora la barra muestra sólo el nombre del curso. El programa se elige, y se crea, arriba en Clients; el color y la fuente, en Personalizar.',
+      'El alumno ya no ve «Tu programa» al lado de su otro curso: se leía como «crear tu propio programa».',
+    ],
+    commits: [
+      { sha: 'c024dd9d', msg: 'Clients: un solo selector de programa y la barra del Classroom sin desplegable (f27, f28, f29)', lineas: 473, archivos: 18 },
+    ],
+    archivos: [
+      'app/clients/ClientsShell.tsx — el programa (links y «+ Nuevo producto») y Personalizar («Otro color» y Deshacer)',
+      'app/customer-success/curso/CursoApp.tsx — la marca, un rótulo',
+      'app/compartido/curso/[token]/PortalAlumno.tsx — «Programa sin nombre» en la lista del alumno',
+      'tests/clients-un-selector.test.ts — 6 roturas, cada una cae',
+    ],
+    revisar: '/clients/classroom',
+  },
 ];
