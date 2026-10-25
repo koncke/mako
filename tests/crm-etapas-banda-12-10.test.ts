@@ -120,9 +120,10 @@ test('la pantalla: el arrastre cambia de lista y de tipo, el «+» entre etapas,
   // El «+ Agregar» del alto de las tarjetas.
   assert.match(md, /display: 'flex', alignItems: 'center', minHeight: ALTO_TARJETA, padding: '0 12px', borderRadius: 12,/);
   assert.doesNotMatch(md, /padding: '10px 12px', borderRadius: 10/);
-  // La caja gris con su cabecera, «Asignar campañas» con Meta y el tipo de funnel en lista.
+  // La caja gris con su cabecera y el tipo de funnel en lista. «Asignar campañas» con Meta se fue del editor el 24/10/2026
+  // («elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna», Martín).
   assert.match(md, /<CabeceraSeccion icono=\{<IconoMenu nombre="etapa" size=\{15\} \/>\} titulo="Editar etapas" \/>/);
-  assert.match(md, /<CabeceraSeccion icono=\{<LogoMeta size=\{16\} \/>\} titulo="Asignar campañas"/);
+  assert.doesNotMatch(md, /titulo="Asignar campañas"/);
   assert.match(md, /<div role="radiogroup" aria-label="Tipo de funnel" style=\{\{ display: 'flex', flexDirection: 'column', gap: 8 \}\}>/);
   // El server: el alta de una nutrición en un lugar de la banda.
   const ac = sinComentarios((leer('app/crm/actions.ts') + leer('lib/etapas-crm-server.ts')));

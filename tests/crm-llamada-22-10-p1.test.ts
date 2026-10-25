@@ -53,7 +53,7 @@ test('C4: crear una etapa se ve: «Creando…» en su lugar, en el pop-up de eta
 
 test('C5: el lápiz del selector de CRMs cierra el desplegable al abrir el pop-up', () => {
   const t = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
-  const i = t.indexOf('title: `Editar las etapas de ${comoSeLlama(f)}`');
+  const i = t.indexOf('title: `Editar etapas de ${comoSeLlama(f)}`');
   assert.ok(i > 0);
   assert.match(t.slice(i, i + 200), /cierra: true,/);
   // La marca la entiende el desplegable de la casa.

@@ -21,10 +21,12 @@
 // `agregarLoteAProductoAction` (mig 0207): una fila por lead en la etapa de ENTRADA de este
 // producto, y su casa —con su etapa, su venta y su nutrición— no se toca.
 //
-// ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila)
-// NO se listan desde el 22/10/2026 (salían en gris y sin casilla): Martín, en la llamada con
-// Mauricio, «ya no deberían saltar ahí, ni siquiera en gris... porque luego ya no me deja los
-// siguientes 300». Se dicen en una línea con su número. Lo puro: ./traer-seleccion.ts.
+// ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila) van
+// ABAJO, EN GRIS Y SIN CASILLA, como en «Traer de un grupo de WhatsApp» (24/10/2026). Martín: «En "traer de otro funnel"
+// te habia pedido que si ya lo trajo, no aparezca. Mejor que sea como en los grupos de whatsapp, que aparezca todo, pero
+// en gris». Del 22/10 al 24/10 no se listaban («ya no deberían saltar ahí, ni siquiera en gris... porque luego ya no me
+// deja los siguientes 300»): lo que aquello cuidaba sigue, porque van DESPUÉS de todos los que se pueden traer y no
+// ocupan sus lugares. Lo puro: ./traer-seleccion.ts.
 //
 // ⚠️ «TILDAR TODOS» TOMA A TODOS LOS QUE CUMPLEN EL FILTRO, no a los 300 que se dibujan (22/10:
 // «que se puedan traer los 1.050»). El filtro dice qué quiere la persona; el tope es de la
@@ -114,20 +116,23 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return () => { vivo = false; };
   }, [origen, delNegocio?.id, destino]);
 
-  /** Las etapas que de verdad hay entre los que se pueden traer: un filtro con opciones vacías no filtra nada. */
+  /** Las etapas que de verdad hay en la lista (también la de los que ya están: se ven): un filtro con opciones vacías no filtra nada. */
   const etapas = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of filas ?? []) if (!f.yaEsta && !m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
+    for (const f of filas ?? []) if (!m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
     return [...m].map(([key, label]) => ({ key, label }));
   }, [filas]);
 
-  // Los que cumplen el filtro y NO están en este funnel. Con el filtro DIFERIDO: la lista de 869 se vuelve a armar en
+  // Los que cumplen el filtro, separados: los que NO están en este funnel (se tildan) y los que ya están (abajo, en gris).
+  // Con el filtro DIFERIDO: la lista de 869 se vuelve a armar en
   // segundo plano y, mientras, se ve que está filtrando (`filtrando`) en vez de una pantalla que no contesta.
   const qDiferida = useDeferredValue(q);
   const etapaDiferida = useDeferredValue(etapa);
   const filtrando = q !== qDiferida || etapa !== etapaDiferida;
-  const { candidatos, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q: qDiferida, etapa: etapaDiferida }), [filas, qDiferida, etapaDiferida]);
+  const { candidatos, presentes, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q: qDiferida, etapa: etapaDiferida }), [filas, qDiferida, etapaDiferida]);
   const enPantalla = candidatos.slice(0, TOPE_PANTALLA);
+  /** Los que ya están, con su propio tope: van después de los nuevos y no les sacan lugar. */
+  const presentesEnPantalla = presentes.slice(0, TOPE_PANTALLA);
   const ocultos = candidatos.length - enPantalla.length;
   const tildados = useMemo(() => new Set(sel), [sel]);
   /** «Todos» son TODOS los que cumplen el filtro, se vean o no (22/10/2026). */
@@ -289,6 +294,23 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
                 </tr>
               );
             })}
+            {/* LOS QUE YA ESTÁN: en gris, sin casilla, sin clic, encabezados por un renglón que dice cuántos y que no se
+                traen. El MISMO dibujo que «Traer de un grupo de WhatsApp» (app/crm/TraerDeGrupoWA.tsx). */}
+            {presentesEnPantalla.length > 0 && (
+              <tr data-ya-estan>
+                <td colSpan={6} style={{ ...td, ...grisRotulo }}>{`Ya están en este funnel · ${miles(yaEstan)} · no se traen`}</td>
+              </tr>
+            )}
+            {presentesEnPantalla.map((f) => (
+              <tr key={f.id} data-ya-esta style={{ cursor: 'default' }}>
+                <td style={{ ...td, padding: '9px 0 9px 12px' }} />
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.nombre}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.empresa || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.email || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.telefono || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>Ya está</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
@@ -304,14 +326,16 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         {filas?.length === 0 && (
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese funnel no tiene leads.</p>
         )}
-        {!!filas?.length && candidatos.length === 0 && (
-          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>
-            {yaEstan > 0 ? 'Todos los de esos filtros ya están en este funnel.' : 'Nadie con esos filtros.'}
-          </p>
+        {/* Con todos ya acá, lo dicen las filas grises y su renglón: un texto más lo repetiría. */}
+        {!!filas?.length && candidatos.length === 0 && yaEstan === 0 && (
+          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Nadie con esos filtros.</p>
         )}
     </VistaConPie>
   );
 }
+
+/** El renglón que separa a los que ya están: chico, en mayúsculas, como la cabecera de la tabla (el de TraerDeGrupoWA). */
+const grisRotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, background: 'var(--surface-2)', padding: '8px 12px' };
 
 /** «Tildar los 869», en la casilla de arriba: con letra de texto, no de rótulo de columna. */
 const TILDAR_TODOS: CSSProperties = {

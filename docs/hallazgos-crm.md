@@ -20,6 +20,41 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Ordenar» es de cada COLUMNA, y dos pedidos viejos que el del 24/10 dio vuelta (24-25/10/2026)
+
+**Vive en:** app/crm/orden-kanban.ts (los criterios, puro) · app/crm/menu-contextual-crm.ts (`col_ordenar`, el orden del «⋯»)
+· app/crm/CrmBoard.tsx (`ordenDe`, `enOrden`, `datoParaOrdenar`) · app/crm/filtros-guardados.ts (`ordenes`) ·
+app/crm/traer-seleccion.ts (`presentes`) · tests: crm-orden-columna (4 roturas cazadas), crm-orden-manual, crm-menu-contextual,
+crm-traer-todos.
+
+- **«Ordenar» salió de «Filtrar» y pasó a ser POR COLUMNA** (Martín: «que se pueda ordenar dentro de esos 3 puntos»). Era UN
+  criterio para todo el embudo. Al ir al «⋯» de una columna, el criterio tiene que ser de esa columna (el «Ordenar por…» de una
+  lista de Trello); uno global en un menú de columna haría que ordenar «Ganado» reordene «Lead entrante» sin aviso.
+  - La base sigue igual pero por columna: «Manual» si ESA columna tiene algo arrastrado; si no, la llegada. Arrastrar en una la
+    deja en «Manual» sólo a ella.
+  - Lo guardado antes (`orden` del embudo) se sigue leyendo: «Fecha de llegada» elegida pasa a cada columna; «Manual» no hace
+    falta (ya es la base de las que tienen algo arrastrado).
+  - «Limpiar filtros» ya no toca el orden: un orden no esconde a nadie, no es un filtro. Contradice el «quitar filtros vuelve a
+    lo que arrastré» del 06/10, que vivía porque el orden estaba ADENTRO de «Filtrar». Para volver: «Ordenar › Manual».
+  - Una columna ordenada con algo distinto de su base lleva el ícono de «Ordenar» en azul junto al contador (el criterio en el
+    `title`). Sin eso, un «Nombre (A-Z)» elegido una vez se olvida y la columna parece desordenada.
+- **«Respondió primero» depende de una lectura que llega DESPUÉS del tablero.** El chip «Respondió» es de las inscripciones
+  en automatizaciones (`enAut`, `enAutomatizacionesAction` en tandas de 500), no de un campo del lead. Hasta que esa lectura
+  vuelve, todos valen «no está en ninguna» y la columna se ve por llegada; al llegar, se reacomoda. No es un parpadeo a
+  arreglar con un loader: es el dato que todavía no está.
+- **Lo que no tiene con qué no se ofrece** (`ordenesDeColumna`): «Mayor monto» sin plata cargada, «Fecha de reunión» sin
+  reuniones, «Vence primero» sin plazos o «Respondió» sin nadie en automatizaciones darían el orden de llegada haciéndose pasar
+  por otro. El elegido HOY se ofrece siempre (tildado), aunque ya no tenga con qué: si no, no hay cómo salir de él.
+- **Dos pedidos viejos que el del 24/10 dio vuelta, y no se hicieron por antigüedad:**
+  - Las flechas de la columna iban PRIMERAS («debería estar primero de todos ese botón», 30/09). El 24/10: «lo primero debe
+    ser nuevo lead. Y el editor de columnas abajo del todo». Quedan abajo, en «Columnas», antes de «Eliminar etapa».
+  - «Traer de otro funnel» no listaba a los que ya están («ni siquiera en gris... porque luego ya no me deja los siguientes
+    300», 22/10). El 24/10: «que aparezca todo, pero en gris», como en los grupos de WhatsApp. **Los dos se cumplen a la
+    vez**: los que ya están van DESPUÉS de todos los que se pueden traer, con su propio tope de 300, así que no le quitan
+    lugar a los nuevos (que era lo que el del 22/10 cuidaba).
+- **«Asignar campañas» se fue del editor de etapas** (el paso 2 de «Tipo de funnel»): el mismo `CampanasModal` se abre desde
+  el «⋯» de la columna de entrada. El modo `enLinea` de `CampanasModal` quedó sin quien lo use.
+
 ## Las hojas de la ficha: tres pedidos sobre la misma fila, y el problema era de JERARQUÍA (24/10/2026, noche)
 
 **Vive en:** app/crm/lead-view/LeadTabs.tsx · el desplegable del funnel, app/crm/lead-view/ProductoDelLead.tsx (`seccionesDelArbol`

@@ -330,8 +330,13 @@ test('sin fila de chips debajo del filtro: el número sobre «Filtrar» y «Limp
 // «Si refresco o me voy de pestaña y vuelvo, se deben mantener siempre los filtros» (Martín,
 // 10/10/2026).
 test('los filtros guardados: ida y vuelta, por cliente y embudo, y lo ajeno no entra', () => {
-  const f = { etapas: ['nuevo', 'ganado'], origenes: ['Landing'], campanas: ['A'], anuncios: ['a1'], orden: 'llegada' as const, ocultas: ['salidas' as const] };
+  const f = { etapas: ['nuevo', 'ganado'], origenes: ['Landing'], campanas: ['A'], anuncios: ['a1'], ordenes: { nuevo: 'nombre' as const, ganado: 'monto' as const }, ocultas: ['salidas' as const] };
   assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo', 'ganado'])), f);
+  // El orden es por COLUMNA desde el 24/10/2026: el de una etapa que ya no existe, o un criterio que no existe, no vuelve.
+  assert.deepEqual(leerFiltros(JSON.stringify({ ordenes: { nuevo: 'nombre', vieja: 'monto', ganado: 'otro' } }), new Set(['nuevo', 'ganado'])).ordenes, { nuevo: 'nombre' });
+  // Lo guardado antes (UN orden para todo el embudo): «Fecha de llegada» vale para cada columna; «Manual» es la base.
+  assert.deepEqual(leerFiltros(JSON.stringify({ orden: 'llegada' }), new Set(['nuevo', 'ganado'])).ordenes, { nuevo: 'llegada', ganado: 'llegada' });
+  assert.deepEqual(leerFiltros(JSON.stringify({ orden: 'manual' }), new Set(['nuevo'])).ordenes, {});
   // Una etapa que ya no existe en el embudo no vuelve: dejaría el tablero vacío sin casilla.
   assert.deepEqual(leerFiltros(escribirFiltros(f), new Set(['nuevo'])).etapas, ['nuevo']);
   // Lo roto o con otra forma se descarta entero o campo por campo.
@@ -384,7 +389,7 @@ test('«Activo · Nutrición · Descartado» viven adentro de «Filtrar», cuent
 test('el tablero restaura al entrar y guarda después, sin pisar lo guardado con los filtros vacíos', () => {
   const b = sinComentarios(readFileSync('app/crm/CrmBoard.tsx', 'utf8'));
   const i = b.indexOf('const claveGuardado = claveFiltros(wsTab, funnelActivo);');
-  const bloque = b.slice(i, b.indexOf('const ordenFiltro = vista', i));
+  const bloque = b.slice(i, b.indexOf('const elegirOrden = ', i));
   assert.ok(i > 0 && bloque.length > 600 && bloque.length < 2600, `el bloque mide ${bloque.length}`);
   assert.match(bloque, /useLayoutEffect\(\(\) => \{[\s\S]*localStorage\.getItem\(claveGuardado\)[\s\S]*recienRestaurado\.current = true;[\s\S]*\}, \[claveGuardado\]\);/);
   assert.match(bloque, /useEffect\(\(\) => \{\s*if \(recienRestaurado\.current\) \{ recienRestaurado\.current = false; return; \}/, 'el guardado se saltea el commit de la restauración');

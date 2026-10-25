@@ -129,6 +129,8 @@ const TRAZOS = {
   cita: <><path d="M5 6v12" /><path d="M9.5 8h9.5M9.5 12h9.5M9.5 16h6" /></>,
   arriba: <><path d="M12 19.5V5" /><path d="m6.5 10.5 5.5-5.5 5.5 5.5" /></>,
   abajo: <><path d="M12 4.5V19" /><path d="m6.5 13.5 5.5 5.5 5.5-5.5" /></>,
+  // «Ordenar» (24/10/2026, el «⋯» de cada columna del CRM): una flecha que sube y otra que baja, como el orden de una tabla.
+  ordenar: <><path d="M7.5 19V5" /><path d="m3.5 9 4-4 4 4" /><path d="M16.5 5v14" /><path d="m12.5 15 4 4 4-4" /></>,
   pregunta: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.4a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.7" /><path d="M12 17h.01" /></>,
   // El elemento «Insertar» del Dashboard (11/10/2026): una página de otro sitio adentro de la hoja. Los
   // corchetes angulares de un código, que es lo que la persona pega.
