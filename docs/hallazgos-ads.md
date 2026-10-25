@@ -4869,3 +4869,48 @@ escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss 
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### El rediseño con la estructura de AdAmigo (25/10/2026, tarde)
+
+Martín, textual: «Me gusta el de "AdAmigo" implementalo de punta en punta, revisa si es que tienen funcionalidades que nos
+faltan... en el onboarding, me imagino a la calculadora... todo con el chat de MaKo, como Offer... en el lienzo, recuerda
+que tenemos varios CRM, varios productos, se debe poder interactuar... Lo que más me interesa es que en diseño se vea muy
+bien». La pantalla pasó de Madgicx a AdAmigo (`app/ads-manager/aa.css`, todo token de la casa): Resumen · Autopilot ·
+Campañas (por producto) · Biblioteca, el panel «N activos» de los agentes, y el arranque como charla de Offer.
+
+- ⚠️ **Un reset `.aa button { … }` le gana a `.mk-btn`** (una clase y un elemento pesan más que una clase): los botones de la
+  casa salían sin fondo dentro de la pantalla nueva. **El diagnóstico obvio («falta importar ui.css») era el equivocado.**
+  El reset va con especificidad cero, `:where(.aa) :where(button)`, y entonces cualquier clase de la casa le gana.
+- ⚠️ **Los números del lienzo y de la Biblioteca se cruzan por el NOMBRE de la campaña**, no por su id: `getSenalesRecon`
+  trae `campana` (el nombre) y no el id de Meta. Una campaña renombrada este mes parte sus números en dos (la vieja queda
+  sin producto). La regla: `norm()` del nombre en las dos puntas (`lib/media-buyer/productos.ts`); el arreglo de fondo es
+  sumar el id de campaña a las señales, y queda SIN hacer.
+- **El producto de una campaña** es el de SU asignación del CRM; si no tiene, el de su primer conjunto asignado
+  (`CampanaAsignada.campanaId`); si tampoco, «Sin producto». Una asignación sin funnel va al default; la de un funnel que
+  ya no existe queda «Sin producto»: nunca se inventa uno.
+- ⚠️ **La tabla de decisiones tiene un CHECK sobre `tactica`** (`surf … manual`): un agente propio no puede guardar
+  `tactica: 'propio'`. Va como `manual` con la clave `propia:<id>:<nivel>:<entidad>:<día>` (`agenteDeClave` la lee), y la
+  corrida NUNCA lanza sola una `manual`: lo que la IA del negocio entendió de una regla espera siempre a una persona.
+  La IA no puede inventar entidades: sólo ids que están en la cuenta, con su nivel, y ±50% de presupuesto por paso.
+- **Un agente de MaKo no tiene estado propio: es el de sus tácticas** (`lib/media-buyer/agentes.ts`). Pausarlo apaga todas;
+  «automático» si alguna lanza sola. Así no hay dos verdades (el panel de agentes y la página de Automatizaciones).
+- **Las alertas de Protect no tienen tabla**: salen en cada corrida (rechazado, gasto que se dispara, leads de Meta que no
+  llegan al CRM, tope de la cuenta) y se guardan en `ultimaCorridaInfo.alertas`; las graves, además, en una notificación.
+  «Se disparó el gasto» es el gasto diario de 3 días por encima de 1,8 veces el de 7 días, y de US$ 20 para arriba.
+- **Un solo formato de plata: `fmtDinero` (`lib/format.ts`)**, con dos decimales debajo de 100 («US$ 7.80») y sin
+  decimales arriba. La pantalla mezclaba «US$ 7.8», «$7.80» y «7,80 USD» (el Cerebro lo marcó en la captura).
+- **Las pestañas en el teléfono entran sin íconos y repartidas** (`justify-content: space-between`, sin `overflow`): con
+  ícono, una pestaña salía cortada («Bloqu») a 390 px y no se veía que corría.
+- **Para mirar la pantalla sin servidor**, se renderiza estática con `renderToStaticMarkup` y hooks de módulo que cambian
+  `next/navigation`, el chat de la tab y las server actions por stubs: una server action importada en un componente de
+  cliente arrastra `server-only` y la carga revienta.
+- **Por la API**: `modo_agente_media_buyer` (mueve plata: pantalla, `dinero`, `NO_EN_FLUJOS`), `agente_media_buyer` y
+  `borrar_agente_media_buyer` (gratis, se confirman en el chat), `ver_biblioteca_media_buyer`, y `ver_media_buyer` /
+  `ver_campanas_media_buyer` ahora traen agentes, alertas y las campañas por producto.
+
+**Sin hacer, con su archivo:** sin piloto en la prueba gratis y la `<FranjaPrueba>` (esperan a que `planes-2510` esté en
+main; el cambio está escrito en las notas del Cerebro, `media-buyer-prueba-gratis.py`); el id de campaña en las señales
+(`lib/queries.ts` → `getSenalesRecon`); Ajustes y Automatizaciones siguen con la estética de Madgicx
+(`app/ads-manager/mb.css`); la Biblioteca muestra el texto de las variaciones, no la imagen del anuncio que generarían.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
