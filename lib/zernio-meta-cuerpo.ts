@@ -434,6 +434,14 @@ export function tokenMetaVencido(p: { corte: string | null; hoy: string; viaZern
   return p.hoy >= p.corte;
 }
 
+/**
+ * El evento de las PRUEBAS de CAPI (`probar_capi_meta`, scripts/prueba-zernio-meta.mts). NO es un «Lead» a propósito: medido el
+ * 25/10/2026, Zernio NO reenvía el `testCode` (el código de «Probar eventos»): los Lead de prueba entraron al píxel de MaKo como
+ * eventos REALES (en `/{pixel}/stats`, Lead con la clave de match `email` y nada más). Un evento propio no cuenta como contacto
+ * ni mueve la optimización de nadie, y se ve en la vista general del píxel.
+ */
+export const EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo';
+
 /** Lo que lee la persona cuando una escritura se frena por el corte: qué pasó y dónde se arregla. */
 export function avisoTokenVencido(corte: string): string {
   const [a, m, d] = corte.split('-');

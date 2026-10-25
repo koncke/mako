@@ -368,3 +368,13 @@ test('la conexión de anuncios se guarda en el negocio venga del botón que veng
   // El modal de Meta ya no guarda por su cuenta (lo hizo la pieza común): sólo vuelve a leer.
   assert.doesNotMatch(leer('../app/integraciones/ConectarMetaZernio.tsx'), /action: 'guardar'/);
 });
+
+test('una prueba de CAPI nunca manda un «Lead»: Zernio no reenvía el código de prueba y ensuciaría los contactos del píxel', async () => {
+  const { EVENTO_DE_PRUEBA_CAPI } = await import('../lib/zernio-meta-cuerpo');
+  assert.notEqual(EVENTO_DE_PRUEBA_CAPI, 'Lead');
+  const run = leer('../lib/api-mako/areas/integraciones.run.ts');
+  const prueba = run.slice(run.indexOf('  probar_capi_meta: {'));
+  assert.match(prueba, /eventName: EVENTO_DE_PRUEBA_CAPI/);
+  assert.doesNotMatch(prueba.slice(0, 1500), /eventName: 'Lead'/);
+  assert.doesNotMatch(leer('../scripts/prueba-zernio-meta.mts'), /eventName: 'Lead'/);
+});
