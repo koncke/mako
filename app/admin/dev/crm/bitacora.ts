@@ -3277,7 +3277,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '00:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '21:16', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: '«Ordenar» en el «⋯» de cada columna, y los ya traídos en gris',
     puntos: [
@@ -3313,7 +3313,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '01:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '21:57', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Las hojas con «Ver más», «A revisar» del CRM que miras, y el buscador de Instagram honesto',
     puntos: [
@@ -3346,7 +3346,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '03:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '22:46', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los modales de traer se abren encima, y los tres con la misma cara',
     puntos: [
@@ -3377,7 +3377,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '04:10', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '22:53', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'MaKo flota en la ficha, y cada dato se saca desde su fila',
     puntos: [
@@ -3406,7 +3406,7 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
-    fecha: '25 oct', hora: '05:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    fecha: '24 oct', hora: '23:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los grupos de WhatsApp abren al instante',
     puntos: [
@@ -3426,5 +3426,27 @@ export const BITACORA: Hito[] = [
       'tests/grupo-wa-rapido.test.ts',
     ],
     revisar: '/crm',
+  },
+  {
+    fecha: '24 oct', hora: '23:53', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'La ficha de un lead con un emoji en el nombre ya no se rompe',
+    puntos: [
+      'Ticket #10: «La pantalla «CRM» se rompió» al abrir un lead del Cliente de Prueba.',
+      'El lead se llama «🧪 Martín arnés…». El redondel de arriba armaba las iniciales cortando el emoji por la mitad: el servidor y el navegador escribían cosas distintas y la pantalla se caía. Arriba se leía «�M».',
+      'Ahora las iniciales salen de letras enteras: ese lead muestra «MA». Lo mismo en el buscador de Instagram del alta y en el historial de la ficha.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: 'b6a7ede22', msg: 'Ficha del lead: las iniciales cuentan letras enteras; medio emoji rompía la hidratación (ticket #10, React #418)', lineas: 101, archivos: 5 },
+    ],
+    archivos: [
+      'lib/iniciales.ts — las iniciales por letra entera',
+      'app/_components/Marca.tsx — el redondel de la cabecera',
+      'app/_ui/Avatar.tsx · app/crm/lead-view/AuditHistory.tsx',
+      'tests/iniciales-hidratacion.test.ts',
+    ],
+    revisar: '/crm/3445?ws=3',
+    tickets: [10],
   },
 ];

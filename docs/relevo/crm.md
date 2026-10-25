@@ -57,10 +57,15 @@ extensión de MaKo leyendo Instagram con su sesión (como folk). **Pendiente:** 
 caso de uso de Instagram en la app MaKo, vincular el Instagram a «Hola MaKo», token con instagram_basic) y, si dice que sí,
 la lectura por la extensión.
 
+**Ticket #10 (25/10, primero por ser un cliente roto):** la ficha de /crm/3445 se caía con React #418. No era una fecha sin
+zona: el lead se llama «🧪 Martín…» y la marca de la cabecera cortaba el emoji por la mitad (`b6a7ede22`, la cosecha en
+hallazgos-ui). Quedan 8 copias del mismo corte en piezas de otras tabs (la lista, ahí): no son de este chat.
+
 **Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
-Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). Después: las cuotas (`c7ff7d7fc`) esperan
-revisión adversarial; `crm-b5-2310` (punta real `b1c4924fd`) no sube antes del 26/10. Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
-`crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
+Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). En cola, del Cerebro: la redirección antes
+del loader en `/crm/revisar`, `/crm/revisar/[id]` y `/crm/[id]/resumen`, y de la llamada con Leandro f15, f12, f13 y f11
+(f14 lo pregunta él a Martín). Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
+`b1c4924fd`, 17 hallazgos por arreglar) NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos
 
