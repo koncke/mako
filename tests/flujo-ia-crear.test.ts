@@ -206,8 +206,9 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
   const def = porId('crear_automatizacion_con_ia');
   assert.ok(def && esAccion(def));
   assert.equal(def.confirmacion, 'chat');
-  assert.deepEqual([...def.canales].sort(), ['app', 'whatsapp'], 'sale por HTTP: tarda minutos y /api/v1 corta a 60 s');
-  assert.equal(def.costo, 'gratis');
+  // 25/10/2026: también por HTTP (el Cerebro: «todo MaKo se debe poder utilizar por API»), con 40 s para el modelo.
+  assert.deepEqual([...def.canales].sort(), ['app', 'http', 'whatsapp']);
+  assert.equal(def.costo, 'ia', 'escribe con la IA del negocio');
   assert.equal(def.gating?.rolMinimo, 'admin');
   // Duodécima tanda (§2.4): las respuestas a las preguntas de MaKo, opcionales.
   // 20/10/2026: y las del Recurrente (`horario`, `quien`, lib/flujo-ia-recurrente.ts).
@@ -220,7 +221,8 @@ test('la ruta y la API llaman a la MISMA función (`crearFlujoConIA`), y la API 
   const op = run.slice(run.indexOf('crear_automatizacion_con_ia: {'), run.indexOf('crear_automatizacion_desde_plantilla: {'));
   // Duodécima tanda: `preparar` suma las preguntas (§2.4), y el recorte llega a ~4.600.
   assert.ok(op.length > 200 && op.length < 6000, `el recorte mide ${op.length}`);
-  assert.match(op, /const r = await crearFlujoConIA\(\{ ws: ctx\.ws, pedido: String\(payload\.pedido \?\? ''\), plazoMs: 170_000, respuestas: sanearRespuestas\(payload\.respuestas\), via \}\);/);
+  assert.match(op, /const plazoMs = ctx\.canal === 'http' \? PLAZO_CREAR_HTTP_MS : 170_000;/);
+  assert.match(op, /const r = await crearFlujoConIA\(\{ ws: ctx\.ws, pedido: String\(payload\.pedido \?\? ''\), plazoMs, respuestas: sanearRespuestas\(payload\.respuestas\), via \}\);/);
 });
 
 // Rotura sugerida por el diseño (§7): sacar el chequeo del flujo.
