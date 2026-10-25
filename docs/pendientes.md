@@ -84,6 +84,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Plata, seguridad y envíos (42)
 
+- **CRM** — Las cuotas de la ficha (Pagos › Cuotas) de a una, sin «Armar el plan» (el plan uniforme), con el aviso cuando no
+  suman la venta: **HECHO, esperando la revisión adversarial. NO está en main.**
+  - Está en `c7ff7d7fc` (tag `respaldo/crm-diseno-t17-2410`, rama local `crm-cuotas-espera-revision` en `C:/dev/wt-crm-grupo`),
+    encima de main 59d228ea1. **No se reimplementa: se revisa y se sube.** El commit trae el código, el test (5 roturas probadas)
+    y la regla en docs/hallazgos-pagos.md.
+  - El Cerebro lo dejó para después del lanzamiento del 25/10: toca plata, y la revisión la hizo el mismo chat que lo escribió.
+  - _un plan mal armado cobra de más o de menos_ · chico · espera una revisión con agentes (otra cuenta, con RAM) ·
+    `docs/feedback-diseno-pendiente.md → «Modelo de cuotas simple en todos lados»`
+
 - **Automations** — Si la base falla, «No reprodujo el VSL» se cumple para todos y la automatización inscribe a todos los leads. _salen mensajes a quien no corresponde_ · chico · se puede hacer ya · `docs/hallazgos-crm.md → _listLeads; docs/hallazgos-chatbot.md (tercera tanda)`
 - **Automations** — Los mensajes de una secuencia no tienen candado: el cron y la vía rápida pueden mandar dos veces. _el lead recibe el mismo WhatsApp dos veces_ · medio · se puede hacer ya · `docs/hallazgos-comunicacion.md → El paso ⚡ Acción, SIN HACER`
 - **Automations** — Un cambio pedido al chat del lienzo puede reescribir otra tarjeta que nadie nombró y llevarse un link. _sale un mensaje roto a los leads_ · medio · se puede hacer ya · `docs/hallazgos-chatbot.md → «El chat del lienzo editaba cuando le preguntabas» (15/10)`
@@ -244,6 +253,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Settings** — El contenido de cada sección (Perfil, Seguridad, Notificaciones y las del negocio), rediseñado para que se parezca al teléfono; el molde, el índice y «Instalar la app» con las tres ya salieron (d37983cc2). _lo último del punto 9 de Martín del 24/10: «rediseñes todas esas tabs… coherencia con mobile»_ · medio · se puede hacer ya · `docs/hallazgos-ajustes.md`, rama ops-nota-de-voz-2410 (C:/dev/wt-integraciones)
 
 ## Pulido (58)
+
+- **CRM** — Mirar EN PANTALLA, en producción, tres cosas que salieron el 24/10 (main 59d228ea1) y sólo se verificaron con tests y
+  en Chrome headless:
+  - el «Creando…» de los «+» del editor de etapas (el de arriba de Ganado y los de la banda Nutrición): crear y borrar la
+    etapa en el Cliente de Prueba, nunca en un cliente real;
+  - el selector de funnel del teléfono (sin tilde, el actual primero y en negrita);
+  - las etapas en dos columnas del desplegable de la ficha.
+  - Quedó sin mirar porque el navegador integrado no tenía sesión (la entrada es con Google, la hace Martín). Lo demás de la
+    lista del CRM sigue en docs/feedback-diseno-pendiente.md («El CRM, medido aparte»). · chico · espera la sesión
 
 - **Ads Manager** — Mirar en pantalla el onboarding nuevo del Ads Manager · chico · se puede hacer ya · `docs/relevo/ads-manager.md (#801)`
 - **Agente** — Nada reporta desde una instalación real del plugin del agente (la purga de 90 días ya corre: cron diario, sólo lo vencido, con modo seco) — a medias: falta una instalación real que reporte · chico · se puede hacer ya · `docs/hallazgos-agente.md; commit a9b66a3f8`

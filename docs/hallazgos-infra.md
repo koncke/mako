@@ -5696,6 +5696,22 @@ el cast a la `Fila…` en cada llamada.
 **Vive en:** `lib/comunidad-datos.ts` (`de`) · `tests/comunidad-modelo.test.ts` (devolver el
 genérico tumba el test) · *2026-10-08 Customer Success*
 
+## Un genérico con un literal suelto se mide contra la RESTRICCIÓN, y frena el tren (24/10/2026)
+
+**Síntoma:** `tests/crm-etapa-dos-columnas.test.ts` pasaba en `node --test` y tenía 5 errores de tipos. Frenó el tren hasta
+que el Cerebro lo arregló (59d228ea1). Los tests corren con tsx, que transpila sin mirar tipos, y los chats de área pasan
+«sin tipos»: el error sólo aparece en el tsc del tren.
+
+**Causa:** `columnasDeSeccion<T extends { lineaArriba?: boolean; alPie?: boolean }>(options: readonly T[])` llamada con un
+literal suelto, `columnasDeSeccion([{ value: 'a' }, { value: 'b' }])`. TS no tiene de dónde inferir `T` más que ese literal,
+así que lo mide contra la restricción, y ahí `value` es una propiedad de más.
+
+**Regla:** si el único lugar de donde se infiere un genérico es un literal, el tipo va explícito, con un `const ab: O[] = …`
+o con `columnasDeSeccion<O>(…)`. Vale sobre todo en tests, que nadie tipa antes del tren.
+
+**Vive en:** `app/components/dropdown-reglas.ts` (`columnasDeSeccion`) · tests/crm-etapa-dos-columnas.test.ts ·
+*24/10/2026, chat «CRM» (claude1)*
+
 ## Dos tests de fuente que se rompen por la FORMA del código (08/10/2026)
 
 **Un guard que corta la sentencia en el primer `;` se corta adentro de un tipo en línea.**
