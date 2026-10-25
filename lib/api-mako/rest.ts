@@ -258,9 +258,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // El Media Buyer (25/10/2026): TODO lo que hace su pantalla (tests/media-buyer-api.test.ts). Lo que mueve plata (lanzar,
   // deshacer, el modo, los topes, una táctica, la cuenta) cuesta «dinero»: por HTTP propone y devuelve el link a la pantalla.
   ['GET', '/ads/media-buyer', 'ver_media_buyer'],
+  ['PUT', '/ads/media-buyer/agentes/{agente}', 'modo_agente_media_buyer'],
+  ['POST', '/ads/media-buyer/agentes-propios', 'agente_media_buyer'],
+  ['DELETE', '/ads/media-buyer/agentes-propios/{agenteId}', 'borrar_agente_media_buyer'],
   ['POST', '/ads/media-buyer/analisis', 'analizar_cuenta_media_buyer'],
   ['GET', '/ads/media-buyer/automatizaciones', 'ver_automatizaciones_media_buyer'],
   ['PATCH', '/ads/media-buyer/automatizaciones/{tactica}', 'automatizacion_media_buyer'],
+  ['GET', '/ads/media-buyer/biblioteca', 'ver_biblioteca_media_buyer'],
   ['GET', '/ads/media-buyer/campanas', 'ver_campanas_media_buyer'],
   ['PUT', '/ads/media-buyer/cuenta', 'cuenta_media_buyer'],
   ['POST', '/ads/media-buyer/decisiones/{decisionId}/descarte', 'descartar_decision_media_buyer'],

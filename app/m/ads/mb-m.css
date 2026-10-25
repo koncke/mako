@@ -1,20 +1,5 @@
-/* /m/ads — el Media Buyer en el teléfono: la ESTRUCTURA del de Madgicx (academy-11.png y academy-12.png: la tarjeta del
-   saludo y las recomendaciones en tarjetas sueltas) con los colores de MaKo (app/ads-manager/mb-paleta.css). La tarjeta del
-   saludo, que en Madgicx es violeta, va en el dorado de MaKo: es MaKo el que habla. */
-.mbm { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
-.mbm-saludo { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: var(--r-xl); background: var(--mbx-tarjeta-saludo); border: 1px solid var(--mbx-tarjeta-saludo-borde); }
-.mbm-saludo p { margin: 0; font-size: 18px; line-height: 1.4; font-weight: 600; color: var(--ink); }
-.mbm-saludo b { color: var(--mako-ink); font-weight: 700; }
-.mbm-mascota { flex: none; width: 64px; height: 64px; border-radius: var(--r-lg); display: grid; place-items: center; background: var(--surface); border: 2px solid var(--mbx-tarjeta-saludo-borde); }
-/* Las recomendaciones: tarjetas sueltas con borde fino, como en Madgicx (no una lista agrupada). */
-.mbm-lista { display: flex; flex-direction: column; gap: 12px; }
-.mbm-lista > * { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r-lg); overflow: hidden; }
-.mbm-baldosa { width: 48px; height: 48px; flex: none; border-radius: var(--r-md); display: grid; place-items: center; font-size: 22px; background: var(--bg); }
-.mbm-aviso { margin: 0; font-size: var(--fs-sm); color: var(--faint); }
-.mbm-hoja { display: flex; flex-direction: column; gap: 16px; }
-.mbm-hoja-tit { margin: 0; font-size: 20px; line-height: 1.3; font-weight: 600; }
-.mbm-titular { margin: 0; padding: 14px 16px; border-radius: var(--r-lg); font-weight: 600; background: var(--primary-bg); color: var(--primary-strong); }
-.mbm-titular[data-tono="mal"] { background: var(--bad-bg); color: var(--bad); }
-.mbm-titular[data-tono="bien"] { background: var(--good-bg); color: var(--good); }
-.mbm-porque { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
-.mbm-porque li { background: var(--bg); border-radius: var(--r-md); padding: 12px 14px; color: var(--dim); font-size: var(--fs-sm); line-height: 1.45; }
+/* /m/ads — el Media Buyer en el teléfono, con la estructura de AdAmigo (25/10/2026): las piezas de la computadora
+   (app/ads-manager/aa.css) adentro del marco de MaKo Mobile, que ya pone su aire y su fondo. */
+.aa.aa-m { padding: 4px 0 24px; min-height: 0; background: transparent; display: flex; flex-direction: column; gap: 12px; }
+.aa.aa-m .aa-sub { margin: 4px 0 0; justify-content: flex-start; gap: 18px; }
+.aa.aa-m .aa-nada { margin: 0; }

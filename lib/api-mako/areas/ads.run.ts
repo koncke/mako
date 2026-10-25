@@ -24,6 +24,11 @@ import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaM
 import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
+import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
+import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
+import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
+import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
+import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
 import { quienChatea } from '../tipos';
@@ -962,23 +967,36 @@ export const RUNNERS: Runners = {
   ver_media_buyer: {
     leer: async (_input, ctx) => {
       // Las mismas tres pestañas y los mismos 30 días que la pantalla (app/api/media-buyer/route.ts → GET).
-      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws)]);
+      const [config, { decisiones, existeTabla }, cupo, propios] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30), cupoMB(ctx.ws), leerAgentesPropios(ctx.ws).catch(() => [])]);
       if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const modo = modoEfectivoMB(config.modo, cupo);
+      const r = resolverTacticas(config.tacticas, { piloto: modo === 'piloto', pilotoPermitido: cupo.piloto });
+      // Quién firma cada acción (lo de un agente propio lleva su id en la clave: `propia:<id>:…`).
+      const firma = (d: DecisionMB) => {
+        const id = d.tactica === 'manual' ? agenteDeClave(d.clave) : null;
+        return id ? propios.find((a) => a.id === id)?.nombre ?? 'Un agente propio' : NOMBRE_AGENTE[AGENTE_DE[d.tactica]];
+      };
+      const alertas = (config.ultimaCorridaInfo as { alertas?: unknown } | null)?.alertas;
       const corta = (d: DecisionMB) => ({
-        id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
+        id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, agente: firma(d), nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
         titulo: d.titulo, titular: d.titular, porque: d.porque, numeros: d.numeros, antes: d.antes, despues: d.despues, moneda: d.moneda,
         creada: d.creada, aplicada: d.aplicadaAt, por: d.origen === 'piloto' ? 'piloto automático' : d.aplicadaPor, error: d.error,
         estrellas: d.estrellas, motivoDescarte: d.motivoDescarte,
         variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
       });
       return J({
-        prendido: config.encendido, modo: modoEfectivoMB(config.modo, cupo), resultado: config.kpi, objetivo: config.objetivo,
+        prendido: config.encendido, modo, resultado: config.kpi, objetivo: config.objetivo,
         // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
         plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         metas: { ventasMes: config.metaVentasMes, gastoMes: config.metaGastoMes },
         cuentaPublicitaria: config.cuentaPublicitaria,
         ultimaCorrida: config.ultimaCorrida,
+        // Los agentes, como el panel «N activos» de la pantalla (app/ads-manager/Agentes.tsx).
+        agentes: AGENTES_MAKO.map((a) => ({ agente: a, nombre: NOMBRE_AGENTE[a], que: QUE_HACE[a], estado: estadoDeAgente(a, r), tacticas: TACTICAS_DE[a] })),
+        agentesPropios: propios.map((a) => ({ agenteId: a.id, nombre: a.nombre, regla: a.regla, cada: a.cada, estado: a.estado })),
+        // Lo que Protect vio roto la última vez que miró la cuenta (lib/media-buyer/protect.ts).
+        alertas: Array.isArray(alertas) ? (alertas as AlertaMB[]).map((x) => ({ tipo: x.tipo, gravedad: x.gravedad, titulo: x.titulo, detalle: x.detalle })) : [],
         abiertas: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado)).map(corta),
         hechas: decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha').slice(0, 30).map(corta),
         descartadas: decisiones.filter((d) => d.estado === 'descartada' || d.estado === 'vencida').slice(0, 30).map(corta),
@@ -1200,12 +1218,21 @@ export const RUNNERS: Runners = {
       }
       // `prendido` es el interruptor PROPIO (lo que se elige en una táctica), como la lista de la pantalla.
       const fila = (n: (typeof d.arbol)[number]) => ({ id: n.id, nombre: n.nombre, prendido: n.configurado === 'ACTIVE', presupuestoDia: n.presupuestoDia });
+      // Por producto, como la pestaña Campañas (lienzoMediaBuyer, con la cuenta que ya se leyó). Si el CRM falla, sin esta parte.
+      const config = await leerConfigMB(ctx.ws);
+      const lz = await lienzoMediaBuyer(ctx.ws, config.kpi, config.objetivo, undefined, d).catch(() => null);
+      const deLienzo = (c: { id: string; nombre: string; gasto: number; resultados: number; costo: number | null }) => ({ id: c.id, nombre: c.nombre, gastoMes: c.gasto, resultadosMes: c.resultados, costoMes: c.costo });
       return J({
         conectada: true, fuente: d.fuente, cuenta: d.adAccountId, moneda: d.moneda, avisos: d.avisos,
-        campanas: d.arbol.filter((n) => n.nivel === 'campaign').map((c) => ({
+        campanas: d.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED').map((c) => ({
           ...fila(c),
-          conjuntos: d.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id).map(fila),
+          conjuntos: d.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id && s.configurado !== 'DELETED').map(fila),
         })),
+        ...(lz ? {
+          resultado: config.kpi,
+          porProducto: lz.productos.filter((p) => p.campanas.length).map((p) => ({ ...deLienzo(p), campanas: p.campanas.map(deLienzo) })),
+          sinProducto: lz.sinProducto.map(deLienzo),
+        } : {}),
       });
     },
   },
@@ -1235,6 +1262,77 @@ export const RUNNERS: Runners = {
     ejecutar: async (payload, ctx) => {
       await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
       return { ok: true, resumen: 'Táctica del Media Buyer guardada.' };
+    },
+  },
+  // ── Los agentes y la Biblioteca (25/10/2026): lo mismo que el panel «N activos» y la pestaña Biblioteca de la pantalla.
+  modo_agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const a = str(input, 'agente') as AgenteMako;
+      const estado = str(input, 'estado') as EstadoAgente;
+      if (!AGENTES_MAKO.includes(a)) return { error: 'agente tiene que ser estratega, media_buyer, disenador o protect.', faltan: ['agente'] };
+      if (!(estado in TACTICA_DE_ESTADO)) return { error: 'estado tiene que ser pausado, propone o automatico.', faltan: ['estado'] };
+      if (estado === 'automatico' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const config = await leerConfigMB(ctx.ws);
+      const v = validarTacticas(cambiarAgente(config.tacticas, a, TACTICA_DE_ESTADO[estado]));
+      if (!v.ok) return { error: v.error };
+      const que = estado === 'pausado' ? 'queda pausado' : estado === 'propone' ? 'propone y espera a una persona' : 'lanza solo, dentro de los topes';
+      return { payload: { tacticas: v.valor }, resumen: `${NOMBRE_AGENTE[a]} ${que}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, { tacticas: payload.tacticas as never }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Agente del Media Buyer guardado.' };
+    },
+  },
+  agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'agenteId');
+      const lista = await leerAgentesPropios(ctx.ws);
+      const actual = id ? lista.find((a) => a.id === id) : null;
+      if (id && !actual) return { error: `No encuentro el agente ${id} en este negocio (míralos con ver_media_buyer).` };
+      const cambio: Record<string, string> = {};
+      for (const k of ['nombre', 'regla', 'cada', 'estado'] as const) { const v = str(input, k); if (v) cambio[k] = v; }
+      if (actual && !Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['nombre', 'regla', 'cada', 'estado'] };
+      const agente = { ...(actual ?? { id: `ag-${Date.now().toString(36)}`, cada: 'dia', estado: 'activo' }), ...cambio };
+      const { validarAgente } = await import('@/lib/media-buyer/agentes-propios');
+      const v = validarAgente(agente);
+      if (!v.ok) return { error: v.error, faltan: actual ? undefined : ['nombre', 'regla'] };
+      const cada = v.valor.cada === 'semana' ? 'los lunes' : 'cada día';
+      return { payload: { agente: v.valor }, resumen: `${actual ? 'Cambiar' : 'Crear'} el agente «${v.valor.nombre}» (${cada}${v.valor.estado === 'pausado' ? ', pausado' : ''}): ${v.valor.regla}` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await guardarAgentePropio(ctx.ws, payload.agente);
+      return r.ok ? { ok: true, resumen: `Agente guardado: lo mira tu IA en la próxima vuelta del Media Buyer.` } : { ok: false, resumen: r.error };
+    },
+  },
+  borrar_agente_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'agenteId');
+      const a = (await leerAgentesPropios(ctx.ws)).find((x) => x.id === id);
+      if (!a) return { error: `No encuentro el agente ${id} en este negocio (míralos con ver_media_buyer).` };
+      return { payload: { agenteId: id }, resumen: `Borrar el agente «${a.nombre}».` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await borrarAgentePropio(ctx.ws, String(payload.agenteId));
+      return { ok: true, resumen: 'Agente borrado.' };
+    },
+  },
+  ver_biblioteca_media_buyer: {
+    leer: async (_input, ctx) => {
+      // Lo mismo que la pestaña Biblioteca (app/ads-manager/MediaBuyer.tsx → <Biblioteca>): las mismas decisiones y los mejores del mes.
+      const [config, { decisiones, existeTabla }] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 30)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const vista = await vistaMediaBuyer(ctx.ws, config.kpi, config.objetivo).catch(() => null);
+      const esVariacion = (d: DecisionMB) => d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook';
+      const corta = (d: DecisionMB) => ({
+        decisionId: d.id, tipo: d.tipo, de: d.entidadNombre, titulo: d.titulo, porque: d.porque, creada: d.creada, aplicada: d.aplicadaAt,
+        variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
+      });
+      return J({
+        resultado: config.kpi,
+        paraRevisar: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado) && esVariacion(d)).map(corta),
+        mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
+        lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
+      });
     },
   },
 };

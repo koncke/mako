@@ -1,25 +1,25 @@
 'use client';
 
 // =============================================================================
-// /m/ads — el Media Buyer en el teléfono, copiado del de Madgicx · AI Marketer (academy-11.png, academy-12.png)
+// /m/ads — el Media Buyer en el teléfono, con la estructura de AdAmigo (25/10/2026)
 // =============================================================================
-// Martín, 25/10/2026, sobre la primera versión: «Copiala tal cual a la interfaz de madgicx». El teléfono de Madgicx tiene
-// la tarjeta del saludo y debajo las recomendaciones en tarjetas (baldosa + título); las que sólo se resuelven en la
-// computadora quedan con «Only available on desktop». Nada más: ni interruptor ni pestañas. Lo que MaKo agrega y Madgicx
-// no tiene, dicho acá: «Lo que hizo MaKo» debajo (lo hecho, con su «Deshacer» en la hoja), y que el piloto automático, el
-// interruptor y los topes viven en la tuerca de la computadora. Los colores, los de MaKo (app/ads-manager/mb-paleta.css).
-// Lo que escribe es lo de la computadora: POST /api/media-buyer (lib/media-buyer/ejecutar.ts, con sus topes).
+// El teléfono DESTILA la computadora (memoria «mako-mobile»): las MISMAS piezas (app/ads-manager/Autopilot.tsx), en una
+// columna. Arriba «Te preparé N acciones nuevas para hoy», las alertas de Protect, «Hoy · Hechas», cada acción con su
+// Qué · Por qué · Impacto esperado y «Aplicar» a lo ancho, al alcance del pulgar, y al final la cuenta del mes.
+// Lo que en el teléfono no entra (el lienzo, la Biblioteca, los agentes) queda en la computadora. «Preguntar» abre el chat
+// de MaKo del teléfono. Lo que escribe es lo de la computadora: POST /api/media-buyer (lib/media-buyer/ejecutar.ts).
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
-import { Button } from '@/app/_ui/Button';
-import { Criatura } from '@/app/_components/Criatura';
-import { FilaM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, useToastM } from '@/app/m/_ui';
-import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
-import { ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, queSeHizo, saludo, verboLanzar, type Pestana } from '@/app/ads-manager/mb-modelo';
+import { useToastM } from '@/app/m/_ui';
+import type { ConfigMediaBuyer, Decision, MetasDelMes } from '@/lib/media-buyer/tipos';
+import type { Alerta } from '@/lib/media-buyer/protect';
+import { productoDeAccion } from '@/lib/media-buyer/productos';
+import { AlertasProtect, CabeceraHoy, Nada, PanelCuenta, TarjetaAccion } from '@/app/ads-manager/Autopilot';
+import { hace } from '@/app/ads-manager/mb-modelo';
 
-type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; existeTabla: boolean };
+type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
 async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?: string; ajuste?: string | null }> {
   try {
@@ -30,119 +30,68 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?
   }
 }
 
-export function MediaBuyerM({ nombre, config, decisiones, puedeOperar }: {
-  nombre: string;
+export function MediaBuyerM({ config, decisiones, puedeOperar, metas, productoDe }: {
   config: Config;
   decisiones: Decision[];
   puedeOperar: boolean;
+  metas: MetasDelMes | null;
+  productoDe: Record<string, string>;
 }) {
   const router = useRouter();
   const toast = useToastM();
-  const [abierta, setAbiertaCruda] = useState<Decision | null>(null);
-  // El detalle en dos pestañas, como «Stats» y «Storyline» del teléfono de Madgicx (telefono-detalle-*.png).
-  const [vista, setVista] = useState<'numeros' | 'porque'>('numeros');
-  const setAbierta = useCallback((d: Decision | null) => { setVista('numeros'); setAbiertaCruda(d); }, []);
-  const [ocupada, setOcupada] = useState(false);
-  const [hora, setHora] = useState(12);
-  useEffect(() => { setHora(new Date().getHours()); }, []);
+  const [ocupada, setOcupada] = useState<string | null>(null);
+  const [ver, setVer] = useState<'hoy' | 'hechas'>('hoy');
 
-  const grupos = useMemo(() => {
-    const g: Record<Pestana, Decision[]> = { abiertas: [], hechas: [], descartadas: [] };
-    for (const d of decisiones) g[pestanaDe(d.estado)].push(d);
-    return g;
-  }, [decisiones]);
-  const n = grupos.abiertas.length;
+  const hoy = useMemo(() => decisiones.filter((d) => d.estado === 'abierta' || d.estado === 'bloqueada' || d.estado === 'fallida'), [decisiones]);
+  const hechas = useMemo(() => decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha')
+    .sort((a, b) => ((b.aplicadaAt ?? '') < (a.aplicadaAt ?? '') ? -1 : 1)), [decisiones]);
+  const aplicadasHoy = hechas.filter((d) => d.aplicadaAt && new Date(d.aplicadaAt).toDateString() === new Date().toDateString()).length;
+  const alertas = useMemo(() => {
+    const a = (config.ultimaCorridaInfo as { alertas?: unknown } | null | undefined)?.alertas;
+    return Array.isArray(a) ? (a as Alerta[]).filter((x) => x && typeof x.titulo === 'string') : [];
+  }, [config.ultimaCorridaInfo]);
 
-  const hacer = useCallback(async (d: Decision, op: string, ok: string) => {
-    setOcupada(true);
-    const r = await api({ op, id: d.id });
-    setOcupada(false);
-    if (r.ok) { toast(r.ajuste ? `${ok}. ${r.ajuste}` : ok); setAbierta(null); }
+  const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string) => {
+    setOcupada(d.id);
+    const r = await api({ ...body, id: d.id });
+    setOcupada(null);
+    if (r.ok) toast(r.ajuste ? `${ok}. ${r.ajuste}` : ok);
     else toast(r.error ?? 'No se pudo.', { error: true });
     router.refresh();
-  }, [router, toast, setAbierta]);
+    return r.ok;
+  }, [router, toast]);
 
+  const lista = ver === 'hoy' ? hoy : hechas;
   return (
-    <div className="mbm">
-      {/* La tarjeta del saludo (academy-11.png): la mascota y cuántas recomendaciones hay. */}
-      <section className="mbm-saludo">
-        <span className="mbm-mascota" aria-hidden><Criatura nombre="MaKo" size={48} estrella /></span>
-        <p>{saludo(hora)}, {nombre}: {n === 0 ? 'hoy no hay recomendaciones' : <>hay <b>{n}</b> {n === 1 ? 'recomendación' : 'recomendaciones'}</>} para ti.</p>
-      </section>
-
-      {!config.encendido && <p className="mbm-aviso">El Media Buyer está apagado. Préndelo en la computadora.</p>}
-      {config.encendido && n === 0 && <p className="mbm-aviso">{config.ultimaCorrida ? 'Vuelvo a mirar tu cuenta mañana.' : 'Todavía no miré tu cuenta.'}</p>}
-
-      {/* Las recomendaciones en tarjetas (academy-11/12.png): baldosa y título. Se desliza a la derecha para lanzar y a la
-          izquierda para descartar; tocarla abre la hoja. Las variaciones se eligen en la computadora (academy-12: «Only
-          available on desktop»). */}
-      <div className="mbm-lista">
-        {grupos.abiertas.map((d) => {
-          const soloCompu = d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook';
-          const lanzable = puedeOperar && config.encendido && !soloCompu;
-          return (
-            <FilaM key={d.id} titulo={d.titulo}
-              pill={soloCompu ? <PildoraM>Sólo en la computadora</PildoraM> : d.estado === 'fallida' ? <PildoraM tono="bad">No se pudo</PildoraM> : d.estado === 'bloqueada' ? <PildoraM tono="warn">Frenada por un tope</PildoraM> : undefined}
-              leading={<span className="mbm-baldosa" aria-hidden>{ICONO_TIPO[d.tipo]}</span>}
-              onClick={() => setAbierta(d)}
-              swipeDerecha={lanzable ? { rotulo: verboLanzar(d), icono: 'check', tono: 'mako', onAccion: () => void hacer(d, 'lanzar', 'Lanzado') } : undefined}
-              swipeIzquierda={puedeOperar ? { rotulo: 'Descartar', icono: 'trash', tono: 'neutro', onAccion: () => void hacer(d, 'descartar', 'Descartada') } : undefined} />
-          );
-        })}
-      </div>
-
-      {grupos.hechas.length > 0 && (
-        <SeccionM titulo="Lo que hizo MaKo">
-          <div className="mbm-lista">
-            {grupos.hechas.slice(0, 10).map((d) => (
-              <FilaM key={d.id} titulo={d.titulo} segunda={`${queSeHizo(d)} · ${hace(d.aplicadaAt)}`}
-                pill={d.estado === 'deshecha' ? <PildoraM>Deshecha</PildoraM> : <PildoraM tono="good">{d.origen === 'piloto' ? 'Piloto automático' : 'Hecha'}</PildoraM>}
-                leading={<span className="mbm-baldosa" aria-hidden>{ICONO_TIPO[d.tipo]}</span>}
-                onClick={() => setAbierta(d)} />
+    <div className="aa aa-m">
+      <CabeceraHoy pendientes={hoy.length} aplicadasHoy={aplicadasHoy} ajustesHref="/ads-manager/ajustes"
+        actualizado={config.ultimaCorrida ? `Miré tu cuenta ${hace(config.ultimaCorrida)}` : 'Todavía no miré tu cuenta'}
+        alertasGraves={alertas.filter((a) => a.gravedad === 'alta').length} />
+      {!config.encendido && <Nada>El Media Buyer está apagado. Préndelo desde la computadora.</Nada>}
+      {!puedeOperar && <Nada>Estás mirando otro negocio: para aplicar, entra con el tuyo.</Nada>}
+      <AlertasProtect alertas={alertas} onPreguntar={() => router.push('/m/mako')} />
+      <nav className="aa-sub" role="tablist" aria-label="Acciones">
+        <button type="button" role="tab" aria-selected={ver === 'hoy'} onClick={() => setVer('hoy')}>Hoy{hoy.length > 0 && <small>{hoy.length}</small>}</button>
+        <button type="button" role="tab" aria-selected={ver === 'hechas'} onClick={() => setVer('hechas')}>Hechas{hechas.length > 0 && <small>{hechas.length}</small>}</button>
+      </nav>
+      {lista.length === 0
+        ? <Nada>{ver === 'hoy' ? 'Nada para aprobar hoy.' : 'Todavía no apliqué nada.'}</Nada>
+        : (
+          <div className="aa-lista" style={{ marginTop: 14 }}>
+            {lista.map((d) => (
+              <TarjetaAccion key={d.id} d={d} kpi={config.kpi} producto={productoDeAccion(productoDe, d)} ocupada={ocupada === d.id}
+                encendido={config.encendido && puedeOperar} ajustesHref="/ads-manager/ajustes"
+                onAplicar={(extra) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicada')}
+                onBorrar={() => void accion(d, { op: 'descartar' }, 'Descartada')}
+                onPreguntar={() => router.push('/m/mako')}
+                onDeshacer={() => void accion(d, { op: 'deshacer' }, 'Deshecha')}
+                onReabrir={() => void accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
+                onCalificar={(n) => void accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
+                onHooksAVideo={(elegidas) => void accion(d, { op: 'hooks_a_video', elegidas }, 'En Video Generator')} />
             ))}
           </div>
-        </SeccionM>
-      )}
-
-      <SheetM abierto={!!abierta} onCerrar={() => setAbierta(null)} titulo={abierta ? NOMBRE_TACTICA[abierta.tactica] : ''} snap="alto" ocupado={ocupada} id="decision"
-        pie={abierta && (
-          <PieM consecuencia={abierta.error ?? abierta.nota ?? undefined}>
-            {pestanaDe(abierta.estado) === 'abiertas' && puedeOperar && <>
-              <Button variant="primary" size="lg" full loading={ocupada} disabled={!config.encendido} onClick={() => void hacer(abierta, 'lanzar', 'Lanzado')}>{verboLanzar(abierta)}</Button>
-              <Button variant="tertiary" size="lg" full disabled={ocupada} onClick={() => void hacer(abierta, 'descartar', 'Descartada')}>Descartar</Button>
-            </>}
-            {abierta.estado === 'aplicada' && puedeOperar && <Button variant="secondary" size="lg" full loading={ocupada} onClick={() => void hacer(abierta, 'deshacer', 'Deshecho')}>Deshacer</Button>}
-            {(abierta.estado === 'descartada' || abierta.estado === 'vencida') && puedeOperar && <Button variant="secondary" size="lg" full loading={ocupada} onClick={() => void hacer(abierta, 'reabrir', 'Abierta otra vez')}>Volver a abrir</Button>}
-          </PieM>
-        )}>
-        {abierta && (
-          <div className="mbm-hoja">
-            <h3 className="mbm-hoja-tit">{abierta.titulo}</h3>
-            <p className="mbm-titular" data-tono={abierta.tipo === 'subir_presupuesto' || abierta.tipo === 'activar' ? 'bien' : abierta.tipo.startsWith('variaciones') ? 'mako' : 'mal'}>{abierta.titular}</p>
-            <SegmentadoM etiqueta="Detalle" valor={vista} onCambio={setVista} opciones={[{ id: 'numeros', label: 'Números' }, { id: 'porque', label: 'Por qué' }]} />
-            {vista === 'numeros' ? <>
-            <ListaM etiqueta="Lo que cambia">
-              {abierta.campanaNombre && <FilaM titulo="Campaña" segunda={abierta.campanaNombre} />}
-              <FilaM titulo={NIVEL[abierta.nivel]} segunda={abierta.entidadNombre} />
-              {(abierta.antes.presupuesto != null || abierta.despues.presupuesto != null) && (
-                <FilaM titulo="Presupuesto diario" segunda={`${monto(abierta.antes.presupuesto, abierta.moneda)} → ${monto(abierta.despues.presupuesto, abierta.moneda)}`} />
-              )}
-              {abierta.despues.estado && <FilaM titulo="Estado" segunda={`${abierta.antes.estado === 'PAUSED' ? 'Pausado' : 'Activo'} → ${abierta.despues.estado === 'PAUSED' ? 'Pausado' : 'Activo'}`} />}
-            </ListaM>
-            {abierta.variaciones?.length ? (
-              <ListaM etiqueta="Variaciones">
-                {abierta.variaciones.map((v) => <FilaM key={v.id} titulo={v.gancho ?? v.textoPrincipal.slice(0, 60)} segunda={v.textoPrincipal} pill={v.elegida ? <PildoraM tono="good">Elegida</PildoraM> : undefined} />)}
-              </ListaM>
-            ) : (
-              <ListaM etiqueta="Los números">
-                {abierta.numeros.map((x, i) => <FilaM key={i} titulo={x.condicion} segunda={x.porQue} riel={<b>{x.valor}</b>} />)}
-              </ListaM>
-            )}
-            </> : <ul className="mbm-porque">{abierta.porque.map((t, i) => <li key={i}>{t}</li>)}</ul>}
-          </div>
         )}
-      </SheetM>
-
+      {metas && <div style={{ marginTop: 18 }}><PanelCuenta metas={metas} kpi={config.kpi} objetivo={config.objetivo} productos={[]} /></div>}
     </div>
   );
 }

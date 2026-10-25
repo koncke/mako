@@ -8,6 +8,7 @@ actualizar_avance_tarea
 adjuntar_grabaciones_fathom
 admitir_alumno_comunidad
 afinar_avatares
+agente_media_buyer
 agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
@@ -41,6 +42,7 @@ audios_requeridos
 automatizacion_media_buyer
 avisar_al_equipo
 baja_del_cliente
+borrar_agente_media_buyer
 borrar_analisis_landing
 borrar_avatar_negocio
 borrar_borrador_landing
@@ -409,6 +411,7 @@ metricas_chatbot
 metricas_closers
 metricas_negocio
 mis_creaciones
+modo_agente_media_buyer
 modo_media_buyer
 mover_a_nutricion_manual
 mover_clase_curso
@@ -552,6 +555,7 @@ ver_automatizaciones_media_buyer
 ver_avatares
 ver_avisos_comunidad
 ver_base_formulario_meta
+ver_biblioteca_media_buyer
 ver_borrador_de_reunion
 ver_borrador_landing
 ver_borrador_plan

@@ -41,6 +41,7 @@ const CON_EL_BLOQUEO: readonly string[] = [
   'app/video-editor/_opencut/chat/PanelChat.tsx',
   'app/web-generator/CajaCrear.tsx', // «¿Qué vas a crear hoy?»
   'app/whatsapp/WhatsAppAdvisor.tsx',
+  'app/ads-manager/ArranqueMediaBuyer.tsx', // el arranque del Media Buyer (la charla de Offer con la calculadora)
 ];
 
 /** Cajas que dibujan lo que les arma su MOTOR (las props llegan armadas): el bloqueo vive en el motor. */
