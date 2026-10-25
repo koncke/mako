@@ -35,6 +35,9 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   Falta Responder en los otros chats (cada pantalla pasa `onCitar`). Detalle: docs/hallazgos-editor-landing.md → «El
   clic derecho en los chats embebidos y en el lienzo».
 - **La página de Mauricio ya no da 403 en producción** (medido el 24/10 noche, sin escribir nada): docs/hallazgos-editor-landing.md.
+- **Las puertas antes del loader (25/10 madrugada): en la rama `landings-2510-b`, que nace de `tren-j`** (no de
+  `landings-2510`: el test era el mismo que reescribió Automations y el tren ya los tenía juntos). 25 carpetas, el guard
+  que cuenta las puertas, y el layout de /web-generator con la puerta siempre. Detalle: docs/hallazgos-infra.md.
 - **Sigue:**
   - **La barra a 1280 px:** se mira cuando despliegue el tren con las tandas. Producción de las ~19 h del 24/10 todavía
     no tiene ninguna.
