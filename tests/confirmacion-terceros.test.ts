@@ -142,6 +142,7 @@ const NO_LLEGAN: Record<string, string> = {
   crear_automatizacion_con_ia: 'nace PAUSADA: no le escribe a nadie hasta que alguien la active',
   asignar_audio_paso: 'a los leads que todavía no son clientes queda como borrador para que alguien lo mande',
   avisar_al_equipo: 'es un aviso al grupo del negocio (el equipo), no al lead',
+  marcar_visto_operaciones: '«No le manda nada al chat»: sólo pone el ✓ de «Ya lo vi» en el Ops Center de la plataforma',
 };
 
 test('una acción de chat que dice que le escribe, le avisa o le manda algo a alguien está marcada, o su excepción dice por qué no', () => {

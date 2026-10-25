@@ -15,7 +15,7 @@ import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
-import { GARANTIA_DIAS, MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR } from '@/lib/planes-mako';
+import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
 import { CompraPlan } from './CompraPlan';
@@ -56,7 +56,7 @@ export default async function PlanPage({ params, searchParams }: {
   if (uno('periodo') === 'anual' && plan.precioAnualUsd) {
     return (
       <Ficha titulo={`${plan.nombre}, anual`} precio={`US$ ${plan.precioAnualUsd.toLocaleString('es-AR')} por año: ${MESES_GRATIS_ANUAL} meses gratis`}>
-        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta. Tienes {GARANTIA_DIAS.anual} días de garantía.</p>
+        <p className="planes-sub">Déjanos tus datos y te escribimos por WhatsApp para darte de alta. Empiezas con {PRUEBA_DIAS} días gratis.</p>
         <QuieroPlan plan={plan.id} nombrePlan={`${plan.nombre} anual`} origen={origen} refCodigo={ref} periodo="anual" />
       </Ficha>
     );
@@ -67,7 +67,7 @@ export default async function PlanPage({ params, searchParams }: {
       {/* Sin pasarela que lo cobre: no hay formulario que lleve a un pago imposible. Desde el 24/10/2026 la salida NO es la
           agenda (Martín no usa Calendly): el pedido queda en el CRM con su origen y su partner, y se da de alta a mano. */}
       {pasarelas.length
-        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} />
+        ? <CompraPlan plan={plan.id} pasarelas={pasarelas} origen={origen} refCodigo={ref} sinPrueba={uno('sinPrueba') === '1'} />
         : (
           <>
             <p className="planes-sub">{TEXTO_SIN_PASARELA}</p>

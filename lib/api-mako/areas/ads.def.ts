@@ -752,4 +752,41 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
   },
+  // Las tácticas como automatizaciones (25/10/2026, las «Automation Tactics» de Madgicx; lib/media-buyer/tacticas.ts): lo que
+  // muestra /ads-manager/automatizaciones, por la API.
+  {
+    id: 'ver_automatizaciones_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver las automatizaciones del Media Buyer',
+    descripcion: 'Las tácticas del Media Buyer como automatizaciones (Stop Loss, Calidad de leads, Sunsetting, Surf, Revive, Ganador): de cada una, su estado (apagada, propone o automática), sus umbrales con el valor recomendado, las campañas que cubre, cuántas recomendaciones hizo en 30 días y la última vez. Úsala antes de automatizacion_media_buyer.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'automatizacion_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Ajustar una táctica del Media Buyer',
+    descripcion: 'PROPONE cambiar UNA táctica del Media Buyer (de ver_automatizaciones_media_buyer): su estado (`apagada`, `propone` o `automatica`), sus umbrales (los ids que lista ver_automatizaciones_media_buyer) o las campañas que cubre ([] = toda la cuenta). Sólo cambia lo que se pasa. Automática lanza sin esperar a una persona: se confirma en una pantalla.',
+    escribe: 'cambia la táctica en media_buyer_config.tacticas',
+    parametros: [
+      { nombre: 'tactica', tipo: 'string', obligatorio: true, enum: ['stop_loss', 'calidad', 'sunsetting', 'surf', 'revive', 'ganador'], descripcion: 'la táctica.' },
+      { nombre: 'estado', tipo: 'string', enum: ['apagada', 'propone', 'automatica'], descripcion: 'apagada, propone o automatica.' },
+      {
+        nombre: 'umbrales', tipo: 'object', descripcion: 'umbrales a cambiar (sólo los de esa táctica; sus mínimos y máximos, de ver_automatizaciones_media_buyer).',
+        campos: [
+          { nombre: 'gastoVeces', tipo: 'number', descripcion: 'Stop Loss: gastó sin resultados, en veces el objetivo.' },
+          { nombre: 'dias', tipo: 'number', descripcion: 'Stop Loss: días corriendo como mínimo.' },
+          { nombre: 'leads', tipo: 'number', descripcion: 'Calidad de leads: leads en el CRM como mínimo.' },
+          { nombre: 'tasaCuentaPct', tipo: 'number', descripcion: 'Calidad de leads: agenda de toda la cuenta como mínimo, en %.' },
+          { nombre: 'bajarVeces', tipo: 'number', descripcion: 'Sunsetting: bajar si cuesta, en veces el objetivo.' },
+          { nombre: 'bajarPct', tipo: 'number', descripcion: 'Sunsetting: cuánto bajar, en %.' },
+          { nombre: 'apagarVeces', tipo: 'number', descripcion: 'Sunsetting: pausar si cuesta, en veces el objetivo.' },
+          { nombre: 'costoPct', tipo: 'number', descripcion: 'Surf: subir si cuesta menos de este % del objetivo.' },
+          { nombre: 'resultados', tipo: 'number', descripcion: 'Surf (3 días) o Ganador (7 días): resultados como mínimo.' },
+          { nombre: 'subidaPct', tipo: 'number', descripcion: 'Surf: cuánto subir, en %.' },
+          { nombre: 'costoVeces', tipo: 'number', descripcion: 'Revive: prender si cuesta, en veces el objetivo, hasta.' },
+        ],
+      },
+      { nombre: 'campanas', tipo: 'string[]', max: 300, vaciaEsValor: true, descripcion: 'ids de las campañas que cubre; [] = toda la cuenta.' },
+    ],
+    canales: SIN_HTTP, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
 ];

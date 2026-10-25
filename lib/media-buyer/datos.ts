@@ -23,12 +23,12 @@ import { leerTodo } from '@/lib/supabase-paginado';
 import { conversorDeGasto, type ConversorGasto } from '@/lib/presupuesto-cambio';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerArbolMetaEnVivo } from '@/lib/meta-health';
-import { conexionAnunciosZernio, arbolPorZernio } from '@/lib/zernio-ads';
+import { conexionAnunciosZernio, arbolPorZernio, enVivoPorZernio } from '@/lib/zernio-ads';
 import type { ConexionAnunciosZernio } from '@/lib/zernio-ads-cuerpo';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
 import { adIdDeLead } from '@/lib/atribucion-url';
 import type { NodoMB, SenalMB } from './motor';
-import { diasAntes, ventanas, senalesDeVentana, arbolDesdeZernio, type FilaMetrica, type FilaLeadAd } from './senales';
+import { diasAntes, ventanas, senalesDeVentana, arbolDesdeZernio, conInterruptorEnVivo, type FilaMetrica, type FilaLeadAd } from './senales';
 export { diasAntes, ventanas, senalesDeVentana, arbolDesdeZernio, fmtUnidad, presupuestoMinimoCuenta } from './senales';
 export type { FilaMetrica, FilaLeadAd } from './senales';
 import type { MetasDelMes } from './tipos';
@@ -101,7 +101,9 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   let moneda: string | null = null;
   let metricasZernio: FilaMetrica[] | null = null;
   let parcial = false;
-  const token = await credWs('META_ACCESS_TOKEN', ws);
+  // El token de Meta sirve si el negocio tiene su cuenta en Integraciones (META_AD_ACCOUNT_ID). Si la cuenta sólo está en los
+  // Ajustes del Media Buyer (el negocio de MaKo: el token del dueño, sin cuenta propia), se va directo por Zernio.
+  const token = (await credWs('META_AD_ACCOUNT_ID', ws)) ? await credWs('META_ACCESS_TOKEN', ws) : null;
   let errMeta: string | null = null;
   if (token) {
     try {
@@ -115,6 +117,15 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     const z = await arbolPorZernio(ws, conexion, desdeLectura, v.crm[1]);
     const t = arbolDesdeZernio(z.campanas);
     fuente = 'zernio'; arbol = t.arbol; moneda = z.moneda; metricasZernio = t.metricas;
+    // El interruptor propio y el presupuesto de hoy, en vivo. Si no contesta, queda la entrega como interruptor (lo seguro).
+    try {
+      const vivo = await enVivoPorZernio(ws, conexion);
+      arbol = conInterruptorEnVivo(arbol, vivo);
+      if (!moneda) moneda = vivo.moneda;
+      if (!vivo.completo) avisos.push('La cuenta tiene más de 500 campañas o conjuntos: lo que no entró se lee por su entrega.');
+    } catch (e) {
+      avisos.push(`Zernio no dio el estado en vivo (${(e instanceof Error ? e.message : String(e)).slice(0, 120)}): se usó la entrega.`);
+    }
     if (errMeta) avisos.push(`El token de Meta no dejó leer la cuenta (${errMeta.slice(0, 160)}): se leyó por Zernio.`);
   } else if (errMeta) {
     throw new SinCuentaParaOperar(`Meta no dejó leer la cuenta: ${errMeta}`);

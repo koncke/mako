@@ -46,9 +46,10 @@ test('«recomendadas hoy» cuenta las claves del día del agente, no las de ayer
   ], hoy), 2);
 });
 
-test('el cableado: la corrida lanza sólo con el modo que vale y mira el cupo ANTES de gastar IA en variaciones', () => {
+test('el cableado: la corrida lanza sólo lo de las tácticas automáticas que el plan permite, y mira el cupo ANTES de gastar IA', () => {
   const corrida = leer('lib/media-buyer/corrida.ts');
-  assert.match(corrida, /const enPiloto = modoEfectivo\(config\.modo, cupo\) === 'piloto'/);
+  assert.match(corrida, /resolverTacticas\(config\.tacticas, \{ piloto: modoEfectivo\(config\.modo, cupo\) === 'piloto', pilotoPermitido: cupo\.piloto \}\)/);
+  assert.match(corrida, /tacticas\[d\.tactica\]\.estado === 'automatica'/, 'el piloto lanza por táctica');
   assert.doesNotMatch(corrida, /config\.modo === 'piloto'/, 'el piloto se decide con modoEfectivo, nunca con el modo guardado');
   const bucle = corrida.slice(corrida.indexOf('for (const p of orden)'));
   assert.ok(bucle.indexOf('if (quedan <= 0)') >= 0 && bucle.indexOf('if (quedan <= 0)') < bucle.indexOf('prepararVariaciones('),
@@ -57,7 +58,8 @@ test('el cableado: la corrida lanza sólo con el modo que vale y mira el cupo AN
 
 test('el cableado: guardar la configuración es la puerta del piloto, y la pantalla y la API muestran el modo que vale', () => {
   const store = leer('lib/media-buyer/store.ts');
-  assert.match(store, /if \(v\.fila\.modo === 'piloto' && !\(await cupoDe\(ws\)\)\.piloto\) throw new PlanSinPiloto\(\)/);
+  assert.match(store, /const pidePiloto = v\.fila\.modo === 'piloto' \|\| \(v\.fila\.tacticas != null && pideAutomatica\(/);
+  assert.match(store, /if \(pidePiloto && !\(await cupoDe\(ws\)\)\.piloto\) throw new PlanSinPiloto\(\)/);
   for (const r of ['app/api/media-buyer/route.ts', 'app/ads-manager/page.tsx', 'app/m/ads/page.tsx', 'lib/api-mako/areas/ads.run.ts']) {
     assert.match(leer(r), /modoEfectivo(MB)?\(/, `${r} muestra el modo que vale`);
   }

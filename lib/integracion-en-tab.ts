@@ -21,8 +21,12 @@
 //    abierto suelto dibujaría un código vacío. Esos links siguen yendo a /integraciones, a propósito.
 // =============================================================================
 
-/** Las integraciones cuyo modal no se puede abrir fuera de /integraciones (necesitan datos de su `page.tsx`). */
-export const SIN_MODAL_SUELTO: readonly string[] = ['landing', 'agente'];
+/**
+ * Las integraciones cuyo modal no se puede abrir fuera de /integraciones (necesitan datos de su `page.tsx`). Y `ia` (25/10/2026):
+ * «Tus cuentas de IA» no es una integración con credenciales; su modal lo abre su tarjeta en /integraciones (`ABRIR_IA`,
+ * lib/ia-pc-reglas.ts), así que su link va hasta ahí.
+ */
+export const SIN_MODAL_SUELTO: readonly string[] = ['landing', 'agente', 'ia'];
 
 const CLAVE = /^[a-z0-9_-]{1,40}$/;
 

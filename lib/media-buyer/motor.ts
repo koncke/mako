@@ -33,6 +33,7 @@
 //   · Ganador: 3 resultados o más en 7 días a ≤ el objetivo; una tanda de variaciones por anuncio por semana.
 // =============================================================================
 
+import type { TacticaAuto, TacticasResueltas } from './tacticas';
 import type {
   ConfigMediaBuyer, EstadoDecision, KpiMediaBuyer, NivelMeta, NumeroDecision, Propuesta, Tactica, TipoDecision,
 } from './tipos';
@@ -81,6 +82,11 @@ export type DecisionPrevia = {
 
 export type EntradaMotor = {
   ahora: number;
+  /**
+   * Cada táctica con su estado, sus umbrales y lo que cubre (lib/media-buyer/tacticas.ts → resolverTacticas). Sin esto, todas
+   * prendidas con los valores de siempre (las constantes de abajo).
+   */
+  tacticas?: TacticasResueltas;
   config: ConfigMediaBuyer;
   /** El objetivo ya resuelto (el del negocio, o el recomendado de `objetivoRecomendado`). */
   objetivo: number | null;
@@ -269,6 +275,16 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   const ctx: Contexto = { ...entrada, porId, hijos };
   const { config } = entrada;
   if (!config.encendido) return [];
+  // Cada táctica, con lo suyo (tacticas.ts): apagada no mira nada; sus umbrales; y si cubre sólo algunas campañas.
+  const T = entrada.tacticas;
+  const on = (t: TacticaAuto): boolean => (T ? T[t].estado !== 'apagada' : true);
+  const par = (t: TacticaAuto, id: string, def: number): number => T?.[t].p[id] ?? def;
+  const cubre = (t: TacticaAuto, n: NodoMB): boolean => {
+    const c = T?.[t].campanas;
+    if (!c) return true;
+    const camp = n.nivel === 'campaign' ? n : campanaDe(ctx, n);
+    return !!camp && c.has(camp.id);
+  };
 
   const kpi = config.kpi;
   const nom = NOMBRE_RESULTADO[kpi];
@@ -291,13 +307,15 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   });
 
   // ── 1. Stop Loss: anuncios que gastaron sin resultado ─────────────────────
-  if (obj != null) {
+  if (obj != null && on('stop_loss')) {
+    const gastoVeces = par('stop_loss', 'gastoVeces', STOP_GASTO_MIN);
+    const diasMin = par('stop_loss', 'dias', STOP_DIAS_MIN);
     for (const ad of entrada.arbol.filter((n) => n.nivel === 'ad')) {
-      if (!prendido(ctx, ad) || enfriando(ctx, ad)) continue;
+      if (!prendido(ctx, ad) || enfriando(ctx, ad) || !cubre('stop_loss', ad)) continue;
       const s = entrada.larga.find((x) => x.adId === ad.id);
       if (!s) continue;
       const r = resultados(s, kpi);
-      if (r > 0 || s.gasto < obj * STOP_GASTO_MIN || s.diasCorriendo < STOP_DIAS_MIN) continue;
+      if (r > 0 || s.gasto < obj * gastoVeces || s.diasCorriendo < diasMin) continue;
       const camp = campanaDe(ctx, ad);
       poner({
         clave: clave('stop_loss', ad), tipo: 'pausar', tactica: 'stop_loss', nivel: 'ad',
@@ -310,9 +328,9 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
           'Pausarlo libera ese gasto para los anuncios que sí convierten. Si después aparecen resultados tardíos, MaKo lo vuelve a prender.',
         ],
         numeros: [
-          { condicion: 'Gasto, últimos 7 días', valor: entrada.fmt(s.gasto), porQue: `Más de ${STOP_GASTO_MIN} veces tu objetivo` },
+          { condicion: 'Gasto, últimos 7 días', valor: entrada.fmt(s.gasto), porQue: `Más de ${gastoVeces} veces tu objetivo` },
           { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)}, últimos 7 días`, valor: '0', porQue: 'Ni uno' },
-          { condicion: 'Días corriendo', valor: String(s.diasCorriendo), porQue: `Con ${STOP_DIAS_MIN} o más ya tuvo su oportunidad` },
+          { condicion: 'Días corriendo', valor: String(s.diasCorriendo), porQue: `Con ${diasMin} o más ya tuvo su oportunidad` },
         ],
         antes: { estado: 'ACTIVE' }, despues: { estado: 'PAUSED' },
       });
@@ -320,14 +338,15 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   }
 
   // ── 2. Calidad (MaKo): leads que no agendan ──────────────────────────────
-  if (kpi !== 'lead') {
+  if (kpi !== 'lead' && on('calidad')) {
     const cuenta = entrada.crm.reduce(sumar, VACIO);
     const tasaCuenta = cuenta.leadsCrm > 0 ? Math.max(cuenta.agendasMeta, cuenta.agendasCrm) / cuenta.leadsCrm : 0;
-    if (tasaCuenta >= CALIDAD_TASA_CUENTA_MIN) {
+    const leadsMin = par('calidad', 'leads', CALIDAD_LEADS_MIN);
+    if (tasaCuenta >= par('calidad', 'tasaCuentaPct', CALIDAD_TASA_CUENTA_MIN * 100) / 100) {
       for (const ad of entrada.arbol.filter((n) => n.nivel === 'ad')) {
-        if (!prendido(ctx, ad) || enfriando(ctx, ad)) continue;
+        if (!prendido(ctx, ad) || enfriando(ctx, ad) || !cubre('calidad', ad)) continue;
         const s = entrada.crm.find((x) => x.adId === ad.id);
-        if (!s || s.leadsCrm < CALIDAD_LEADS_MIN || Math.max(s.agendasMeta, s.agendasCrm) > 0) continue;
+        if (!s || s.leadsCrm < leadsMin || Math.max(s.agendasMeta, s.agendasCrm) > 0) continue;
         const camp = campanaDe(ctx, ad);
         poner({
           clave: clave('calidad', ad), tipo: 'pausar', tactica: 'calidad', nivel: 'ad',
@@ -340,7 +359,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
             'Esto sólo lo puede ver MaKo, porque cruza el anuncio con lo que pasó después en tu CRM.',
           ],
           numeros: [
-            { condicion: 'Leads en el CRM, últimos 14 días', valor: String(s.leadsCrm), porQue: `Con ${CALIDAD_LEADS_MIN} o más la muestra alcanza` },
+            { condicion: 'Leads en el CRM, últimos 14 días', valor: String(s.leadsCrm), porQue: `Con ${leadsMin} o más la muestra alcanza` },
             { condicion: 'Agendas de esos leads', valor: '0', porQue: 'Ninguno avanzó' },
             { condicion: 'Agenda de toda la cuenta', valor: pct(tasaCuenta), porQue: 'Tu cuenta sí agenda: es el anuncio' },
           ],
@@ -353,7 +372,13 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   // ── 3. Sunsetting y Surf: la unidad que tiene el presupuesto ──────────────
   // En CBO el presupuesto es de la campaña; en ABO, de cada conjunto. Un conjunto de una campaña CBO no se
   // sube ni se baja: se apaga si es muy malo (Sunsetting final).
-  if (obj != null) {
+  if (obj != null && (on('sunsetting') || on('surf'))) {
+    const bajarVeces = par('sunsetting', 'bajarVeces', BAJAR_COSTO_MIN);
+    const bajarPct = par('sunsetting', 'bajarPct', BAJAR_PCT);
+    const apagarVeces = par('sunsetting', 'apagarVeces', APAGAR_COSTO_MIN);
+    const surfCosto = par('surf', 'costoPct', SURF_COSTO_MAX * 100) / 100;
+    const surfResultados = par('surf', 'resultados', SURF_RESULTADOS_MIN);
+    const surfSalto = par('surf', 'subidaPct', SURF_SALTO_MAX_PCT);
     const conPresupuesto = entrada.arbol.filter((n) =>
       (n.nivel === 'campaign' && n.nivelPresupuesto === 'campaign') || (n.nivel === 'adset' && n.nivelPresupuesto !== 'campaign'));
     for (const n of conPresupuesto) {
@@ -377,9 +402,10 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         porQue: 'Un cambio por día como mucho: Meta necesita tiempo para reacomodar la entrega',
       };
 
+      const ponerSunset = on('sunsetting') && cubre('sunsetting', n);
       // Sunsetting final: apagar
-      const apagar = (k7 != null && k7 >= obj * APAGAR_COSTO_MIN && c7.gasto >= obj * BAJAR_GASTO_MIN)
-        || (r7 === 0 && c7.gasto >= obj * APAGAR_GASTO_SIN_RESULTADOS);
+      const apagar = ponerSunset && ((k7 != null && k7 >= obj * apagarVeces && c7.gasto >= obj * BAJAR_GASTO_MIN)
+        || (r7 === 0 && c7.gasto >= obj * APAGAR_GASTO_SIN_RESULTADOS));
       if (apagar) {
         poner({
           clave: clave('sunsetting', n), tipo: 'pausar', tactica: 'sunsetting', nivel: n.nivel,
@@ -405,8 +431,8 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
       }
 
       // Sunsetting: bajar
-      if (k7 != null ? (k7 >= obj * BAJAR_COSTO_MIN && c7.gasto >= obj * BAJAR_GASTO_MIN) : (c7.gasto >= obj * BAJAR_GASTO_MIN)) {
-        const nuevo = Math.max(entrada.presupuestoMinimo, redondear(n.presupuestoDia * (1 - BAJAR_PCT / 100)));
+      if (ponerSunset && (k7 != null ? (k7 >= obj * bajarVeces && c7.gasto >= obj * BAJAR_GASTO_MIN) : (c7.gasto >= obj * BAJAR_GASTO_MIN))) {
+        const nuevo = Math.max(entrada.presupuestoMinimo, redondear(n.presupuestoDia * (1 - bajarPct / 100)));
         if (nuevo < n.presupuestoDia) {
           poner({
             clave: clave('sunsetting', n), tipo: 'bajar_presupuesto', tactica: 'sunsetting', nivel: n.nivel,
@@ -416,7 +442,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
             porque: [
               k7 == null ? `En 7 días no trajo ${nom.varios} y ya gastó ${pct(c7.gasto / obj)} de tu objetivo.`
                 : `Su costo por ${nom.uno} está ${pct(k7 / obj - 1)} por encima de tu objetivo.`,
-              `Se baja ${BAJAR_PCT}% y no de golpe: si se recupera, vuelve a subir; si no, MaKo lo apaga.`,
+              `Se baja ${bajarPct}% y no de golpe: si se recupera, vuelve a subir; si no, MaKo lo apaga.`,
             ],
             numeros: [
               filaObjetivo(k7, 'últimos 7 días'),
@@ -431,8 +457,8 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
 
       // Surf: subir
       const ritmo = c3.gasto / Math.max(presuUnidad * 3, 0.01);
-      if (k3 != null && k3 <= obj * SURF_COSTO_MAX && r3 >= SURF_RESULTADOS_MIN && ritmo >= SURF_RITMO_MIN) {
-        const saltoPct = Math.min(config.subidaMaxPctDia, SURF_SALTO_MAX_PCT);
+      if (on('surf') && cubre('surf', n) && k3 != null && k3 <= obj * surfCosto && r3 >= surfResultados && ritmo >= SURF_RITMO_MIN) {
+        const saltoPct = Math.min(config.subidaMaxPctDia, surfSalto);
         if (saltoPct <= 0) continue;
         const nuevo = redondear(n.presupuestoDia * (1 + saltoPct / 100));
         poner({
@@ -447,7 +473,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
           ],
           numeros: [
             filaObjetivo(k3, 'últimos 3 días'),
-            { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)}, últimos 3 días`, valor: String(r3), porQue: `Con ${SURF_RESULTADOS_MIN} o más ya no es suerte` },
+            { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)}, últimos 3 días`, valor: String(r3), porQue: `Con ${surfResultados} o más ya no es suerte` },
             { condicion: 'Gastó su presupuesto', valor: pct(ritmo), porQue: 'Si no lo gastara, subirlo no cambiaría nada' },
             filaCambio,
           ],
@@ -458,11 +484,12 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   }
 
   // ── 4. Revive: lo que pausó MaKo y resultó bueno ──────────────────────────
-  if (obj != null) {
+  if (obj != null && on('revive')) {
+    const reviveCosto = par('revive', 'costoVeces', REVIVE_COSTO_MAX);
     for (const d of entrada.historial) {
       if (d.tipo !== 'pausar' || d.estado !== 'aplicada' || !d.aplicadaAt) continue;
       const n = porId.get(d.entidadId);
-      if (!n || n.configurado !== 'PAUSED') continue;
+      if (!n || n.configurado !== 'PAUSED' || !cubre('revive', n)) continue;
       // Que nadie la haya vuelto a tocar después (una persona la pausó también, o la prendió y la volvió a pausar).
       const ultima = ultimaAplicada(ctx, n.id);
       if (ultima && ultima.aplicadaAt !== d.aplicadaAt) continue;
@@ -470,7 +497,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
       if (!(edad >= UN_DIA_MS)) continue;
       const c = agregar(entrada.crm, anunciosDe(ctx, n));
       const k = costo(c, kpi);
-      if (k == null || k > obj * REVIVE_COSTO_MAX) continue;
+      if (k == null || k > obj * reviveCosto) continue;
       const camp = campanaDe(ctx, n);
       const que = n.nivel === 'campaign' ? 'la campaña' : n.nivel === 'adset' ? 'el conjunto' : 'el anuncio';
       poner({
@@ -494,15 +521,16 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
   }
 
   // ── 5. Ganador: variaciones de lo que mejor convierte ─────────────────────
-  if (obj != null) {
+  if (obj != null && on('ganador')) {
+    const ganadorMin = par('ganador', 'resultados', GANADOR_RESULTADOS_MIN);
     const candidatos: Array<{ ad: NodoMB; s: SenalMB; r: number; k: number }> = [];
     for (const ad of entrada.arbol.filter((n) => n.nivel === 'ad')) {
-      if (!prendido(ctx, ad)) continue;
+      if (!prendido(ctx, ad) || !cubre('ganador', ad)) continue;
       const s = entrada.larga.find((x) => x.adId === ad.id);
       if (!s) continue;
       const r = resultados(s, kpi);
       const k = r > 0 ? s.gasto / r : null;
-      if (r < GANADOR_RESULTADOS_MIN || k == null || k > obj) continue;
+      if (r < ganadorMin || k == null || k > obj) continue;
       const reciente = entrada.historial.some((d) => d.entidadId === ad.id && d.tactica === 'ganador'
         && entrada.ahora - Date.parse(d.creada) < VARIACIONES_CADA_MS && d.estado !== 'vencida');
       if (reciente) continue;
@@ -527,7 +555,7 @@ export function proponer(entrada: EntradaMotor, hoy: string): Propuesta[] {
         ],
         numeros: [
           filaObjetivo(k, 'últimos 7 días'),
-          { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)}, últimos 7 días`, valor: String(r), porQue: `El que más trajo (${GANADOR_RESULTADOS_MIN} o más)` },
+          { condicion: `${nom.varios[0].toUpperCase()}${nom.varios.slice(1)}, últimos 7 días`, valor: String(r), porQue: `El que más trajo (${ganadorMin} o más)` },
           { condicion: 'Frecuencia', valor: s.frecuencia != null ? s.frecuencia.toFixed(1) : '—', porQue: fatiga ? 'Desde 3, la gente se cansa del anuncio' : 'Todavía no cansa' },
         ],
         antes: {}, despues: {},

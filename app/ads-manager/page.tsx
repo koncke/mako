@@ -9,6 +9,7 @@
 // Quién: el admin del negocio, o el super admin mirándolo (`wsDeAdsManager`, el mismo guard que las escrituras).
 // =============================================================================
 
+import './mb-paleta.css';
 import './mb.css';
 import { requireRolWs } from '@/lib/tab-access';
 import { adsSinNegocio, wsDeAdsManager } from '@/lib/ads-guard';
@@ -24,8 +25,9 @@ import { MediaBuyer } from './MediaBuyer';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-// El padding IZQUIERDO deja el lugar del chat de MaKo abierto (`--ancho-panel-mako`, como en el CRM).
-const MARGEN_MAKO = { paddingLeft: 'calc(44px + var(--ancho-panel-mako, 0px))' } as const;
+// El Media Buyer es Madgicx tal cual: el fondo oscuro ocupa TODA el área, así que la página no pone su aire ni su ancho
+// máximo (los márgenes, y el lugar del chat de MaKo abierto con `--ancho-panel-mako`, los pone mb.css).
+const A_SANGRE = { padding: 0 } as const;
 
 export default async function MediaBuyerPage({ searchParams }: { searchParams: Promise<{ decision?: string | string[] }> }) {
   await requireRolWs([], { nav: 'ads-manager' });
@@ -55,7 +57,7 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
   const sp = await searchParams;
 
   return (
-    <Pagina style={MARGEN_MAKO}>
+    <Pagina ancho="completo" style={A_SANGRE}>
       <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla, cupo }} metas={metas} tieneMeta={!!token}
         decisionInicial={typeof sp.decision === 'string' && /^[0-9a-f-]{36}$/i.test(sp.decision) ? sp.decision : null} />
     </Pagina>

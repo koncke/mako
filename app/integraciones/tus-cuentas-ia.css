@@ -123,7 +123,6 @@ summary.tci-disp__resumen:focus-visible { outline: 2px solid var(--primary); out
 .tci-cerrar { width: 32px; height: 32px; border: 0; background: none; color: var(--dim); font-size: 20px; cursor: pointer; }
 .tci-comando { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); }
 .tci-comando code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-meta); }
-.tci-espera { display: flex; align-items: center; gap: 8px; color: var(--dim); }
 @media (pointer: coarse) {
   .tci-boton, .tci-opcion, .tci-chica, .tci-nuevo-fila, summary.tci-disp__resumen { min-height: var(--touch); }
   .tci-cerrar { width: var(--touch); height: var(--touch); }
@@ -135,7 +134,6 @@ summary.tci-disp__resumen:focus-visible { outline: 2px solid var(--primary); out
   .tci-ventana { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "nombre pct" "barra barra"; row-gap: 4px; }
 }
 @media (prefers-reduced-motion: reduce) { .tci-flecha { transition: none; } }
-.tci-acepto { padding: 10px 12px; border-radius: var(--r-md); background: var(--primary-bg); color: var(--text); }
 /* Las claves de API del negocio y si anduvieron o fallaron (IA3, 22/10/2026). */
 .tci-claves { display: flex; flex-direction: column; gap: 8px; }
 .tci-clave { display: flex; flex-direction: column; gap: 4px; padding: 10px 14px; border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface-2); }
@@ -170,3 +168,21 @@ summary.tci-disp__resumen:focus-visible { outline: 2px solid var(--primary); out
 .tci-instalar__boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .tci-instalar__otro { margin-top: 4px; font-size: var(--fs-meta); color: var(--dim); }
 .tci-instalar__otro:hover { color: var(--primary); }
+
+/* El tutorial de conectar, con el MISMO dibujo que «Instalar MaKo desktop» (25/10/2026, Martín: «rediseña eso, que se vea facil,
+   mira la cantidad de texto»): centrado, el ícono en su círculo, el título, la píldora azul y una línea chica abajo. La «×»
+   flota arriba a la derecha: sin la fila de «Paso 3 de 3», que ocupaba un renglón para decir algo que no ayudaba. */
+.tci-tutorial--grande { position: relative; align-items: center; gap: 8px; padding: 30px 20px 24px; text-align: center; border-color: var(--border); border-radius: var(--r-lg); background: var(--surface-2); }
+.tci-tutorial__x { position: absolute; top: 6px; right: 6px; }
+.tci-tutorial .tci-tutorial__titulo { margin: 0; font-size: var(--fs-card); font-weight: 600; color: var(--ink); }
+.tci-tutorial--grande .tci-instalar__boton { margin-top: 6px; }
+.tci-tutorial__linea { max-width: 42ch; color: var(--dim); }
+.tci-tutorial--grande p.tci-tutorial__linea { font-size: var(--fs-meta); line-height: 1.45; }
+.tci-tutorial__aviso { color: var(--bad); }
+.tci-tutorial__enlace { padding: 0; border: 0; background: none; color: var(--primary); font: inherit; font-size: inherit; font-weight: 600; text-decoration: none; cursor: pointer; }
+.tci-tutorial__enlace:hover { text-decoration: underline; text-underline-offset: 2px; }
+.tci-tutorial__criatura { display: grid; place-items: center; width: 56px; height: 56px; margin-bottom: 4px; }
+.tci-instalar__icono--bien { background: var(--good-bg, var(--primary-bg)); color: var(--good); }
+.tci-tutorial--grande .tci-comando { width: 100%; max-width: 320px; }
+/* «Ya lo instalé», suelto (no dentro de una línea): del tamaño del texto chico, no del de la página. */
+.tci-tutorial--grande > .tci-tutorial__enlace { font-size: var(--fs-sm); }

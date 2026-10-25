@@ -11,6 +11,7 @@ import { cache } from 'react';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getSupabaseServer } from './supabase';
 import { esEsencialPorPasarela } from './plan-esencial-reglas';
+import { FILTRO_SUSCRIPCION_DE_MAKO } from './prueba-plan-reglas';
 
 /** El negocio `ws`, con la capa que tiene hoy (si se sabe; si no, se lee). */
 export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promise<boolean> {
@@ -26,9 +27,10 @@ export async function esEsencialDe(ws: number, capaDeHoy?: string | null): Promi
     // La MISMA lectura que `suscripcionDeMakoDe` (lib/cobros.ts: su suscripción pagada más reciente, en la plataforma), sin
     // importar el módulo: lib/cobros alcanza una IA en su grafo, y esto lo importan /api/auth/me y todas las páginas
     // (tests/d6b-rutas.test.ts). tests/plan-esencial.test.ts ata los filtros de las dos.
+    // Con la PRUEBA GRATIS autorizada (25/10/2026): el negocio en prueba tiene los topes de su plan desde el primer día.
     const { data, error } = await getSupabaseServer().from('cobros').select('alta_capa')
-      .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').eq('estado', 'pagado')
-      .order('pagado_at', { ascending: false }).limit(1).maybeSingle();
+      .eq('workspace_id', plataforma).eq('alta_ws', ws).eq('tipo', 'suscripcion').or(FILTRO_SUSCRIPCION_DE_MAKO)
+      .order('pagado_at', { ascending: false, nullsFirst: false }).order('id', { ascending: false }).limit(1).maybeSingle();
     if (error) throw new Error(error.message);
     const capaVendida = (data as { alta_capa?: string | null } | null)?.alta_capa ?? null;
     return esEsencialPorPasarela({ ws, wsPlataforma: plataforma, capa, capaVendida });

@@ -82,6 +82,11 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   5.7+ es `<ArrayBufferLike>`, y `crypto.subtle.digest` pide uno respaldado por `ArrayBuffer`) y un `possibly 'null'` en un test.
   El chat dueño había visto el primero en tsc-acotado y lo descartó como «igual en main». Pero en main no estaba: lo trajo su
   propio merge. **Regla:** un rojo del acotado no se descarta por «está en main» sin correr el mismo archivo en un main limpio.
+- **Y el acotado tampoco ve todo lo que ve el entero.** Ese mismo día, el «Completado» de Ops Center pasó tsc-acotado limpio
+  y el push lo frenó con TS2774 («This condition will always return true since this function is always defined») en
+  `responder ? preguntas.length : 0`, con `responder` obligatorio. Medido después: el acotado sobre esos dos archivos seguía sin
+  marcarlo. El acotado sirve para descartar lo obvio. El que manda es el entero (o sus tandas) del pre-push, y un rojo ahí no se
+  discute con «el acotado dio verde».
 
 ## Unir «los dos lados» de una bitácora pega dos hitos en un objeto: esbuild no lo ve, tsc sí (25/10/2026)
 
@@ -159,6 +164,16 @@ con **0**: su único fallo es un `test(…, { todo: 'depende de la 1.2 (rama mak
 el mismo resumen «failing tests», con su `test at …`. El script los cuenta como rojos de archivo (el `fail` del total, no).
 **Antes de perseguir un rojo de esa lista, correr el archivo solo y mirar la salida:** si es 0, es un `todo`. Sin arreglar:
 filtrar en el script los `test at` que vienen después de una línea con `# …` de `todo`.
+
+## Chrome sin ventana no baja de ~500 px: una captura «a 390» con `--window-size=390,…` es de una pantalla más ancha recortada (25/10/2026)
+
+**Vive en:** cualquier captura con `chrome --headless=new --window-size=390,… --screenshot`.
+
+En el chat Media Buyer, las capturas a 390 salieron con textos cortados contra el borde derecho y parecía que la pantalla
+se salía en el teléfono. Medido en el navegador con el viewport emulado a 390 (`resize_window`): `scrollWidth` = 390 y nada
+pasa del borde. El modo sin ventana no achica la ventana por debajo de ~500 px: arma la página más ancha y la captura se
+corta a 390. **Regla:** para mirar el teléfono, el viewport emulado del navegador (o `--force-device-scale-factor` con
+`--window-size` de 500 o más), y medir `document.documentElement.scrollWidth` antes de creerle a una captura.
 
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 

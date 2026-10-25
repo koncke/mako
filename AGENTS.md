@@ -1096,6 +1096,14 @@ vuelve a empujar el relleno: medido, 14 de 37 tarjetas. **Y para marcar hecha un
 
 # Una capacidad nueva de MaKo se DECLARA en el registro de la API, no se escribe en una ruta
 
+> **Martín, 25/10/2026, textual: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API».**
+> Lo dijo al ver que los botones de Instagram de Automations estaban en producción y Leandro, que configura con su Claude, no
+> los podía leer ni editar por la API. Por eso:
+> - **Toda entrega al Cerebro dice qué quedó declarado en la API** (operación por operación) o por qué no corresponde. Sin esa
+>   línea, la punta vuelve al chat para el tren siguiente.
+> - **Leer Y cambiar:** no alcanza con que la API pueda crear algo; lo que la pantalla deja leer o editar, la API también.
+> - **Lo que ya está en producción sin API es un hueco abierto**, no una decisión: se cierra en el área que corresponde.
+
 Todo lo que un agente puede leer o hacer en MaKo —MaKo por WhatsApp, el chat de la app,
 la skill de Claude del cliente, cualquier integración con un bearer— vive en UN registro:
 `lib/api-mako/areas/<área>.def.ts` (qué es, parámetros, por qué canales sale, cómo se
@@ -2357,6 +2365,15 @@ MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
 scripts/ia-pc/mako-pc.mjs → `conectarDesdeEnlace` (22/10/2026): cualquier página puede abrir un `mako://`, y con su servidor se
 llevaría la computadora del cliente (y su Claude) a otro MaKo. La app pregunta en una ventana del sistema a qué negocio y como
 quién se conecta; sin poder mostrarla, «no» (docs/plan-instalador-escritorio.md).
+
+## Y emparejar la computadora NUNCA abre una cuenta; la app de escritorio pide el login de la persona (25/10/2026)
+
+El token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) no son una sesión, ninguna ruta de `/api/ia-pc` toca una cookie, y una
+sesión la arman SÓLO los logins (los que importan `lib/sesion-cookies.ts`). Lo fija `tests/ia-pc-nunca-sesion.test.ts`: una ruta
+nueva que arme sesiones va a esa lista con su porqué. Y toda ventana de la app de escritorio (la app web instalada, el acceso
+«MaKo» con `?app=1`) pasa por el login de la persona: una app instalada hereda la sesión de su perfil del navegador, que puede
+ser de otro (Martín entró a la cuenta de Mauricio así: docs/hallazgos-seguridad.md). Lo hace `app/_components/PuertaDeLaApp.tsx`
+con la sesión que firma cuándo se entró (`iat`); un enlace nuevo que abra la app lleva `?app=1`, nunca un token.
 
 ## Y un código que pide un archivo del Storage no se sube sin el archivo
 

@@ -204,3 +204,29 @@ test('4. publicar-binarios: el programa se firma después de marcarlo y antes de
   // Ni una clave a la consola.
   assert.doesNotMatch(s, /console\.\w+\([^\n]*(clave|totp|usuario|SSL_COM_)/i);
 });
+
+test('5. la firma como la ve Windows: válida, a nombre de quién, con marca de tiempo, y publicar-binarios no sube otra', () => {
+  // Lo que contesta Get-AuthenticodeSignature (por un PowerShell de mentira): la ruta va por el entorno, nunca en la línea.
+  const llamadas: Array<{ args: string[]; env: Record<string, string> }> = [];
+  const con = (stdout: string) => (comando: string, args: string[], opts: Record<string, any>) => {
+    assert.equal(comando, 'powershell.exe');
+    llamadas.push({ args, env: opts.env });
+    return { stdout, stderr: '', status: 0 };
+  };
+  const ruta = 'C:\\Users\\José Muñoz\\MaKo "Setup".exe';
+  assert.deepEqual(F.verificarFirmaWindows(ruta, { correr: con('{"estado":"Valid","editor":"Martín Koncke","marca":true}') }), { valida: true, estado: 'Valid', editor: 'Martín Koncke', conMarca: true });
+  assert.equal(llamadas[0].env.MAKO_ARCHIVO, ruta);
+  assert.ok(!llamadas[0].args.join(' ').includes('Muñoz'), 'la ruta va en la línea de comandos');
+  assert.match(llamadas[0].args.join(' '), /\[Console\]::OutputEncoding = \[Text\.Encoding\]::UTF8/, 'sin UTF-8, «Martín» llega como «Mart¡n»');
+  // Rota: tomar «firmado» por haber firma → un certificado vencido, sin cadena o un archivo tocado pasaban.
+  for (const [salida, estado] of [['{"estado":"NotSigned","editor":null,"marca":false}', 'NotSigned'], ['{"estado":"HashMismatch","editor":"Martín Koncke","marca":true}', 'HashMismatch'], ['{"estado":"UnknownError","editor":"Martín Koncke","marca":false}', 'UnknownError'], ['', 'sin respuesta'], ['basura', 'sin respuesta']] as const) {
+    const v = F.verificarFirmaWindows('x.exe', { correr: con(salida) });
+    assert.equal(v.valida, false, salida);
+    assert.equal(v.estado, estado);
+  }
+  assert.equal(F.verificarFirmaWindows('x.exe', { correr: con('{"estado":"Valid","editor":"Martín Koncke","marca":false}') }).conMarca, false);
+  // publicar-binarios: con la firma cargada, los dos .exe pasan por Windows antes de subir, y sin marca de tiempo no sube.
+  const s = sinComentarios(leer('scripts/ia-pc/publicar-binarios.mts'));
+  assert.match(s, /for \(const archivo of \[path\.join\(dir, 'mako-pc\.exe'\), rutaDelSetup\]\) \{\s*const v = verificarFirmaWindows\(archivo\);\s*if \(!v\.valida \|\| !v\.conMarca\) \{[^\n]*process\.exit\(1\); \}/);
+  assert.ok(s.indexOf('verificarFirmaWindows(archivo)') < s.indexOf('async function subir('), 'se verifica después de subir');
+});

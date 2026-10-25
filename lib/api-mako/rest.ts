@@ -260,6 +260,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/ads/media-buyer', 'ver_media_buyer'],
   ['POST', '/ads/media-buyer/analisis', 'analizar_cuenta_media_buyer'],
   ['POST', '/ads/media-buyer/decisiones/{decisionId}/descarte', 'descartar_decision_media_buyer'],
+  ['GET', '/ads/media-buyer/automatizaciones', 'ver_automatizaciones_media_buyer'],
   ['GET', '/ads/motivos-venta-llamada', 'listar_motivos_venta_llamada'],
   ['GET', '/ads/pixeles', 'listar_pixeles_meta'],
   ['GET', '/ads/pixeles/{pixel}/eventos', 'listar_eventos_pixel_meta'],

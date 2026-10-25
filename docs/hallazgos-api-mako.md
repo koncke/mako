@@ -14,6 +14,17 @@ en el documento de cada área. Lo de la skill del cliente, en
 
 ---
 
+## «Regenerar los docs, el snapshot y el plugin»: qué cambia de verdad con una operación que no sale por HTTP (25/10/2026)
+
+Martín: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Cada entrega dice qué quedó
+declarado. Al sumar al área `operaciones` dos operaciones SÓLO de la plataforma y sin HTTP (ver y dar por visto un
+«Completado»):
+- **`docs/api-mako.md` y el snapshot no cambian, y está bien:** la referencia pública y `tests/api-mako-http.snapshot.txt` listan
+  sólo lo que sale por HTTP. «Ya estaba al día» no es que el generador no la vio. La prueba de que una operación así está
+  bien declarada es su test (que NO esté en el snapshot), no un diff en los docs.
+- ⚠️ **`node scripts/generar-plugin.mjs` revienta** con `ERR_MODULE_NOT_FOUND ... lib/detalle-contrato` (importa `.ts`), aunque
+  su cabecera diga ese comando. Se corre con `node --import tsx scripts/generar-plugin.mjs`, como `generar-api-doc.mjs`.
+
 ## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
 
 **Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a
@@ -2459,3 +2470,23 @@ medido con un script; arreglos probados rompiéndolos.*
 - Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Las páginas de MaKo no se leían ni se cambiaban por la API: su texto vive en un ATRIBUTO (25/10/2026, claude5)
+
+Martín, 25/10: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Ese día se arregló
+en la pantalla que se pudiera escribir en las secciones de las landings de MaKo (docs/hallazgos-editor-landing.md, «Las
+secciones de las landings de MaKo no dejaban escribir»). Por la API pasaba lo mismo. Medido sobre la #32 en memoria, sin
+escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambiar_texto_landing` contestaba «No encontré…».
+
+- **La causa:** todas las secciones de esas páginas son «Diseño editable» (`htmlEditable`), y su texto vive en el HTML de
+  `attrs.html`, no en nodos hijos. `textoDe` (doc.ts) ya lo miraba, pero el lector de la API usa `textoVisible`
+  (diagnostico.ts, vía `bloquesDeTexto`), que no. `planCambiarTexto` sólo recorría nodos `text`.
+- **La regla:** todo código que lee o cambia el texto de una landing tiene que mirar los nodos cuyo texto vive en un
+  atributo (`htmlEditable`, el `boton` de un formulario, el `titulo` de un gráfico). Para cambiarlo se usa
+  html-editable-textos.ts (`textosDeHtmlEditable`/`conTextos`): cada pedazo vuelve a su lugar exacto, se escapa lo que se
+  escribe, y el esqueleto del HTML queda igual byte por byte. Nunca un `split/join` sobre el HTML crudo: no encuentra
+  `&amp;` y deja pasar `<b>`.
+- **Lo declarado:** `ver_landing_creada` (leer) y `cambiar_texto_landing` (cambiar) cubren el «Diseño editable». Su
+  descripción lo dice, `docs/api-mako.md` está regenerado y el snapshot HTTP queda igual (no se expuso nada nuevo).
+  De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
+- Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).

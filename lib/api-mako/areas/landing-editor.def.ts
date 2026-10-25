@@ -227,7 +227,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'cambiar_texto_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar un texto de una landing',
-    descripcion: `Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. ${VERSION}`,
+    descripcion: `Cambia una frase EXACTA por otra en los textos de una landing del editor del Web Generator (títulos, párrafos, viñetas, botones, y los textos de un «Diseño editable», como las páginas de MaKo, sin tocar su diseño): el titular, un precio, una fecha. Si aparece más de una vez pide la sección o todas:true. Una frase con formatos distintos en el medio (una parte en negrita) se cambia por partes o con editar_landing_con_ia. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'buscar', rotulo: 'Texto de ahora', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'El texto de hoy, tal cual (mayúsculas y tildes incluidas; de ver_landing_creada).' },

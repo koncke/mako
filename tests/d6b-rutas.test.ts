@@ -112,6 +112,9 @@ const SIN_IA: ReadonlyArray<{ unidad: string; usa: string[]; porque: string }> =
   // El Second Brain: leer el mapa, El Archivero sin leer documentos, y las áreas sin generar (sus POST prenden).
   { unidad: 'app/api/second-brain/cerebro/route.ts#GET', usa: ['cerebroQueSeDibuja', 'chatsMakoDeQuienMira', 'construirCerebro', 'soloAdminDeTab'], porque: 'arma el mapa con lecturas (lib/cerebro-grafo.ts)' },
   { unidad: 'app/api/second-brain/exportar/route.ts#POST', usa: ['AREAS', 'construirCerebro', 'construirVault', 'requireRolWs'], porque: 'exporta el mapa que ya está armado' },
+  // «Aprende solo» (25/10/2026, el recolector): el interruptor guarda un setting del negocio; la vuelta que lee y resume corre en el
+  // cron, adentro de `conSuIADelNegocio` (app/api/cron/second-brain-recolector).
+  { unidad: 'app/second-brain/recolector-actions.ts#cambiarRecolectorAction', usa: ['adminDeWorkspaceActual', 'cambiarRecolector'], porque: 'prende o apaga el recolector (un setting del negocio): no le pide nada a una IA' },
   { unidad: 'app/api/onboarding/archivero/route.ts#GET', usa: ['buildEstado', 'resolverWsAdmin', 'runWithWorkspace'], porque: 'lee el estado de El Archivero' },
   { unidad: 'app/api/onboarding/archivero/route.ts#DELETE', usa: ['borrarBinario', 'buildEstado', 'deleteFileRow', 'getFile', 'listFiles', 'resolverWsAdmin', 'runWithWorkspace', 'setPanorama'], porque: 'borra un documento y recalcula sin IA' },
   { unidad: 'app/api/onboarding/archivero/download/route.ts#GET', usa: ['getFile', 'resolverWsAdmin', 'runWithWorkspace', 'urlDescarga', 'urlPreview'], porque: 'firma el link de un archivo guardado' },
