@@ -17,7 +17,12 @@ import type { ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import type { Tema } from '@/lib/editor-landing/temas';
 
 // 'landings' = la lista de la tarjeta izquierda (la otra vista del chat, como en Automations: 24/10/2026).
-export type PanelIzq = 'agente' | 'paginas' | 'landings' | null;
+/**
+ * La TARJETA de la izquierda: siempre está (24/10/2026, Martín: «La sidebar del chat de MaKo NO se debe poder cerrar nunca.
+ * Elimina el boton de plegar»). Cambia de vista: el chat, las páginas, tus landings o la tira de secciones («"Abrir tira de
+ * imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat de mako»).
+ */
+export type PanelIzq = 'agente' | 'paginas' | 'landings' | 'tira';
 /** `animacion` = el panel «Animar» (paneles/PanelAnimacion.tsx). */
 export type PanelDer = 'tema' | 'comentarios' | 'historial' | 'animacion' | null;
 /** Las dos vistas del panel «Animar» (el «Elemento | Página» del Image Editor). */

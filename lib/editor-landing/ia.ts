@@ -54,9 +54,10 @@ import {
   prepararAlternativa, elegirAlternativas,
   instruccionTexto, accionTextoValida, limpiarTextoDelModelo, limpiarNotas,
   objetoConUnaReparacion, SalidaInvalida, REGLAS_PAGINA,
+  seccionesParaDiscutir, focoParaDiscutir, charlaParaDiscutir, focoParaEditar,
 } from './ia-reglas';
 import { NODO, TOPES, textoDe, type JsonNodo } from './doc';
-import type { Esquema, ParamsGeneracion, FuenteImagenes, AccionTexto } from './api-tipos';
+import { MUCHO_PARA_EDITAR, type Esquema, type ParamsGeneracion, type FuenteImagenes, type AccionTexto } from './api-tipos';
 import { fallaEnNavegador, motivoDeError, motivoDePagina, sanearLectura } from './lectura-reglas';
 import type { MotivoEnNavegador, SeLeeEnNavegador } from './lectura-tipos';
 import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAPOSITIVAS_EDITAR } from './plantillas-presentaciones';
@@ -105,6 +106,7 @@ const PLAZOS = {
   texto: { ia: 40_000 },
   disenos: { ia: 60_000 },
   notas: { ia: 30_000 },
+  discutir: { ia: 60_000 },
 } as const;
 
 /** El tope de lo que se le manda a «Edición con IA» de una vez. */
@@ -427,8 +429,11 @@ export async function secciones(p: PedidoSecciones): Promise<ResultadoIA<{ tarje
 // editar
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** `adjuntos`: los archivos del mensaje, ya leídos en la pantalla (./adjuntos.ts). Llegan sin validar. */
-export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: unknown };
+/**
+ * `adjuntos`: los archivos del mensaje, ya leídos en la pantalla (./adjuntos.ts). Llegan sin validar.
+ * `enFoco`: la sección con el cursor, como PISTA en «toda la landing» (`focoParaEditar`, 24/10/2026).
+ */
+export type PedidoEditar = { instruccion: string; tarjetas: unknown; alcance: 'landing' | 'seccion'; params?: Partial<ParamsGeneracion>; adjuntos?: unknown; enFoco?: unknown };
 
 /**
  * «Edición con IA». Devuelve SOLO las secciones que cambian: las que ya existían
@@ -451,7 +456,9 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
   const formularioId = idTarjetaConFormulario(originales);
   const vista = seccionesParaEditar(originales, (t) => tarjetaABloques(t, { formularioId }));
   const json = JSON.stringify({ tarjetas: vista }, null, 1);
-  if (json.length > MAX_JSON_EDICION) return invalido('Es mucho de una vez. Edita por sección.');
+  if (json.length > MAX_JSON_EDICION) return invalido(MUCHO_PARA_EDITAR);
+  // La sección con el cursor, por su id (sólo en «toda la landing»: con una sección, ya es ésa).
+  const foco = p.alcance === 'seccion' || typeof p.enFoco !== 'string' ? -1 : originales.findIndex((t) => attrsDe(t).id === p.enFoco);
 
   try {
     // Los archivos del mensaje van en el CONTEXTO, como datos (./adjuntos.ts): así también cuentan como respaldo de
@@ -462,6 +469,7 @@ export async function editar(p: PedidoEditar): Promise<ResultadoIA<{ tarjetas: J
     const user = await renderPrompt(PROMPTS_EDITOR.editarUser.key, PROMPTS_EDITOR.editarUser.tpl, {
       instruccion: contenidoNoConfiable(instruccion, 'instruccion'),
       alcance: (p.alcance === 'seccion' ? 'una sección: cambia solo esa' : 'toda la landing: cambia solo las secciones que la instrucción toca')
+        + focoParaEditar(foco)
         + `\n${esDiapositivas(p.params) ? REGLAS_DIAPOSITIVAS_EDITAR : REGLAS_PAGINA}`,
       secciones: contenidoNoConfiable(json, 'secciones'),
       contexto,
@@ -630,5 +638,47 @@ export async function notas(p: { tarjeta: unknown }): Promise<ResultadoIA<{ nota
     return { ok: true, notas: n };
   } catch (err) {
     return { ok: false, error: await falloIA(err, 'escribir las notas'), status: 502 };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// discutir (el chat del editor en «Discutir», 24/10/2026)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Llega sin validar: las tarjetas, el foco y la charla vienen del navegador. */
+export type PedidoDiscutir = { pregunta: string; tarjetas: unknown; enFoco?: unknown; charla?: unknown; adjuntos?: unknown };
+
+/**
+ * «Discutir»: MaKo contesta y sugiere SIN tocar la página (para cambiarla está «Editar»). Lee el TEXTO de cada sección
+ * (no el JSON: no va a editar), lo último de la charla y el contexto del negocio. Devuelve texto plano.
+ */
+export async function discutir(p: PedidoDiscutir): Promise<ResultadoIA<{ respuesta: string }>> {
+  const t0 = Date.now();
+  const pregunta = String(p.pregunta ?? '').trim().slice(0, 4_000);
+  if (!pregunta) return invalido('Escribe qué quieres pensar.');
+  const tarjetas = (Array.isArray(p.tarjetas) ? p.tarjetas : []).filter(esTarjeta).slice(0, TOPES.tarjetasPorPagina);
+  const foco = typeof p.enFoco === 'string' ? tarjetas.findIndex((t) => attrsDe(t).id === p.enFoco) : -1;
+  const charla = charlaParaDiscutir(p.charla);
+  try {
+    const sys = await system(PROMPTS_EDITOR.discutirSystem, { idioma: bloqueIdiomaDelTexto() });
+    const user = await renderPrompt(PROMPTS_EDITOR.discutirUser.key, PROMPTS_EDITOR.discutirUser.tpl, {
+      pregunta: contenidoNoConfiable(pregunta, 'pregunta'),
+      foco: focoParaDiscutir(foco),
+      secciones: contenidoNoConfiable(seccionesParaDiscutir(tarjetas.map((t) => ({ texto: textoDe(t) }))), 'secciones'),
+      charla: charla ? `LA CHARLA HASTA AHORA (lo último):\n${contenidoNoConfiable(charla, 'charla')}\n\n` : '',
+      contexto: contextoConAdjuntos(await buildLandingBrief(pregunta), adjuntosDelPedido(p.adjuntos)),
+    });
+    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+      feature: FEATURE_EDITAR,
+      motivo: 'Discutir la landing',
+      maxTokens: 1_200,
+      thinking: false,
+      hastaMs: t0 + PLAZOS.discutir.ia,
+    });
+    const respuesta = limpiarTextoDelModelo(salida).slice(0, 2_000);
+    if (!respuesta) return sinResultado('MaKo no contestó. Vuelve a intentar.');
+    return { ok: true, respuesta };
+  } catch (err) {
+    return { ok: false, error: await falloIA(err, 'contestar'), status: 502 };
   }
 }

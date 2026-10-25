@@ -13,8 +13,9 @@
 //   · `.gm-tarjeta-fondo` (el NodeViewWrapper: pinta el fondo propio, detrás);
 //   · `.gm-acento` (la imagen de acento; sin imagen, el hueco «Agregar imagen»);
 //   · `.gm-tarjeta-cuerpo`: el contentDOM de ProseMirror con los bloques (lo marca index.ts);
-//   · los controles de Gamma 5, todos en `.gma` y `contentEditable={false} suppressContentEditableWarning`: la columna de 3
-//     botones a la izquierda POR FUERA del módulo (⋮ opciones y asa · ✨ Ask Agent · ▤ notas),
+//   · los controles de Gamma 5, todos en `.gma` y `contentEditable={false} suppressContentEditableWarning`: la columna a la
+//     izquierda POR FUERA del módulo (⋮ opciones y asa; ▤ notas, sólo en una presentación; el ✨ «Editar con IA» se fue
+//     el 24/10/2026 — el agente de la tarjeta de la izquierda está siempre),
 //     el «+» entre secciones, la mini barra [+ | ✨ | ▾] debajo de la activa y la marca de oculta.
 //
 // ⚠️ Los `data-*` del contrato (`data-diseno`, `data-ancho`…) los escribe index.ts en cada
@@ -37,7 +38,7 @@ import { EditorLandingContext } from '../contexto';
 import { attrsTarjeta, specTarjeta, srcImagen } from '@/lib/editor-landing/especificacion';
 import { varsDeFondoPropio } from '@/lib/editor-landing/temas';
 import { DISENOS_SECCION } from '@/lib/editor-landing/plantillas';
-import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
+import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, esPresentacion, terminoTarjeta } from '@/lib/editor-landing/api-tipos';
 import { NODO, TOPES, tituloDeTarjeta, type AttrsTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import AskAgent, { type ModoAskAgent } from '../AskAgent';
@@ -408,14 +409,15 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
             >
               <Ico n="puntos-vertical" />
             </button>
-            <button type="button" className="gmc-btn gmc-tip" data-tip="Editar con IA" aria-label="Editar la sección con IA" aria-expanded={panel?.tipo === 'agente' && panel.modo === 'editar'}
-              onMouseDown={sinRobarFoco} onClick={(e) => abrir('agente', e.currentTarget, 'editar')}>
-              <Ico n="destellos" />
-            </button>
-            <button type="button" className="gmc-btn gmc-tip" data-tip="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
-              data-con-notas={a.notas ? '' : undefined} onMouseDown={sinRobarFoco} onClick={(e) => abrir('notas', e.currentTarget)}>
-              <Ico n="notas" />
-            </button>
+            {/* (Acá estaba ✨ «Editar con IA»: se fue el 24/10/2026. Martín: «Hay un botón que dice "Editar con IA" eso
+                eliminalo... Por defecto siempre esta el editor de IA», el chat de la tarjeta de la izquierda.) Las notas del
+                orador son de una presentación: en una landing quedan sólo en el ⋮, y la columna es UN botón. */}
+            {esPresentacion(ctx?.config ?? {}) && (
+              <button type="button" className="gmc-btn gmc-tip" data-tip="Notas del orador" aria-label="Notas del orador" aria-expanded={panel?.tipo === 'notas'}
+                data-con-notas={a.notas ? '' : undefined} onMouseDown={sinRobarFoco} onClick={(e) => abrir('notas', e.currentTarget)}>
+                <Ico n="notas" />
+              </button>
+            )}
           </div>
 
           {/* El «+» del hueco de arriba: una sección en blanco ACÁ */}

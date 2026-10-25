@@ -9,10 +9,18 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   `embebido` en lugar de la barra y el lienzo, sin navegar); Compartir es UN botón azul con su ▾; el panel Compartir se
   copió de Canva; «Guardado» se fue. Detalle y trampas: docs/hallazgos-editor-landing.md → «"Nueva landing" adentro del
   editor…». **Falta mirarla a 1280 px** (la RAM no dio para levantar el editor).
-- **Sigue, en este orden:** 5 (los botones ⋮ ✨ 📋 amontonados en la esquina del lienzo; «Abrir tira de imágenes» a la
-  barra y abriéndose donde está el chat; sacar «Editar con IA») y 10 (la tarjeta del chat no se pliega nunca; el
-  placeholder en un renglón; chips «Discutir / Editar»); después 6 (placeholders tapados), 8 (el formato como botón que
-  abre una segunda barra) y 4 (las páginas de MaKo editables por sección). Después, de docs/pendientes.md: P6 (sanear
+- **Tanda 2a (punto 5 y la parte de pantalla del 10): hecha, sin mirar con clics.** La columna ⋮ de cada sección va
+  AFUERA en un margen de 40 px del lienzo (en una landing de escritorio); se fue ✨ «Editar con IA»; la tira de secciones
+  es una vista de la tarjeta del chat con su botón en la barra; el chat no se pliega; el placeholder es «Escribe a MaKo».
+  Detalle: docs/hallazgos-editor-landing.md → «Los botones amontonados en la esquina del lienzo…».
+- **Tanda 2b (el resto del 10): hecha, sin mirar con clics.** «Discutir | Editar» en lugar de los chips de alcance;
+  «Discutir» es una acción nueva de la IA (`accion: 'discutir'`, prompts en el registro); «Editar» manda la landing entera
+  con el cursor como pista. Detalle: docs/hallazgos-editor-landing.md → «"Discutir | Editar" en el chat del editor».
+  ⚠️ Automations sigue con su copia del selector (app/automations/ChatMako.tsx): migrarla a app/_chat/SelectorIntencion.tsx.
+- **Tanda 3 (puntos 6 y 8): hecha.** El placeholder de párrafos y títulos es un renglón con «…» (medido con la hoja
+  real en Chrome sin ventana: antes se derramaba en 3 renglones); el editor de texto es un botón «Texto» que abre una
+  segunda barra sin scroll. Detalle: docs/hallazgos-editor-landing.md → «Los placeholders que se iban debajo…».
+- **Sigue:** 4 (las páginas de MaKo editables por sección, sin romper su diseño); después P6 y P5 de docs/pendientes.md. Después, de docs/pendientes.md: P6 (sanear
   `vsl_events.landing_url`, con revisión adversarial) y P5 (el clic derecho en `HiloMako`, el plan en
   docs/diseno-editor-web-como-automations.md §5).
 

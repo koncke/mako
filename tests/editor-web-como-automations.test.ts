@@ -125,3 +125,67 @@ test('la columna del bloque no tapa sus propios botones: tooltip de la casa a la
   const css = leer('app/web-generator/editor/extensiones/estilos-nodos.ts');
   assert.match(css, /\.gmc-tip::before \{ content: attr\(data-tip\); position: absolute; left: calc\(100% \+ 6px\)/);
 });
+
+test('la columna de la sección es UN botón en una landing: sin «Editar con IA», y las notas sólo en una presentación', () => {
+  // Martín, 24/10/2026: «Hay un botón que dice "Editar con IA" eso eliminalo... Por defecto siempre esta el editor de IA».
+  const t = sinComentarios(leer('app/web-generator/editor/nodos/TarjetaVista.tsx'));
+  const lado = t.slice(t.indexOf('className="gma gmc gmc-lado"'), t.indexOf('className="gma gmc gmc-entre"'));
+  assert.ok(lado.length > 200, 'no encontré la columna');
+  assert.doesNotMatch(lado, /data-tip="Editar con IA"|abrir\('agente', e\.currentTarget, 'editar'\)/, 'volvió ✨ «Editar con IA» a la columna');
+  assert.match(lado, /\{esPresentacion\(ctx\?\.config \?\? \{\}\) && \(\s*<button[^>]*data-tip="Notas del orador"/);
+});
+
+test('«Abrir tira de imágenes» es un botón de la barra y la tira se abre en la tarjeta del chat; nada flota en la esquina del lienzo', () => {
+  // Martín, 24/10/2026: «"Abrir tira de imagenes" debería ser un botón en la topbar, y se debería abrir donde está el chat».
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /gma-tira-abrir/, 'volvió el botón flotante de la tira');
+  const area = editor.slice(editor.indexOf('<div className="gma-area">'), editor.indexOf('ref={lienzoRef}'));
+  assert.doesNotMatch(area, /<TiraSecciones/, 'la tira volvió a ser una columna al lado del lienzo');
+  const barra = editor.slice(editor.indexOf('className="gma-herramientas"'), editor.indexOf('className="gma-area"'));
+  assert.match(barra, /aria-label="Abrir tira de imágenes"\s*aria-pressed=\{panelIzq === 'tira'\} onClick=\{\(\) => \(panelIzq === 'tira' \? cerrarPaginas\(\) : setPanelIzqEstado\('tira'\)\)\}/);
+  assert.match(editor, /<section role="complementary" className="gma-izq" data-panel="tira" aria-label="Secciones">\s*<TiraSecciones revision=\{revision\} onCerrar=\{cerrarPaginas\} \/>/);
+});
+
+test('el chat de MaKo no se pliega nunca: sin botón de plegar, sin «Abrir MaKo», y la tarjeta nunca queda vacía', () => {
+  // Martín, 24/10/2026: «La sidebar del chat de MaKo NO se debe poder cerrar nunca. Elimina el boton de plegar».
+  const agente = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
+  assert.doesNotMatch(agente, /Cerrar el panel|setPanelIzq\(null\)|chevron-doble-izquierda/, 'volvió el botón de plegar el chat');
+  const ctx = sinComentarios(leer('app/web-generator/editor/contexto.ts'));
+  assert.match(ctx, /export type PanelIzq = 'agente' \| 'paginas' \| 'landings' \| 'tira';/, 'la tarjeta de la izquierda volvió a poder quedar en null');
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  assert.doesNotMatch(editor, /data-tip="Abrir MaKo"|agentePlegado/);
+  // Mod+E lleva al chat; ya no lo cierra.
+  assert.match(editor, /\(e\.key === 'e' \|\| e\.key === 'E'\)\) \{\s*e\.preventDefault\(\);\s*setPanelIzqEstado\('agente'\);/);
+  // El placeholder entra en un renglón.
+  assert.match(agente, /placeholder="Escribe a MaKo"/);
+  assert.doesNotMatch(agente, /Envía un mensaje al agente/);
+});
+
+test('el placeholder de un texto vacío es UN renglón dentro de su caja: no se derrama debajo de la sección siguiente', () => {
+  // Martín, 24/10/2026: «Muchos placeholder como el de la captura se ponen por detras de otras secciones y no se llegan a
+  // leer». Flotaba con alto 0 (no ocupa lugar): si no entraba en un renglón, lo que sobraba caía debajo de la sección
+  // siguiente (cada sección es su capa, `isolation: isolate`, y pinta su fondo encima).
+  const css = leer('app/web-generator/editor/extensiones/estilos-nodos.ts');
+  assert.ok(css.includes(`'.ProseMirror :is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""]) { position: relative; }'`));
+  const regla = css.split('\n').find((l) => l.includes(':is(p, h1, h2, h3, h4).is-empty[data-placeholder]:not([data-placeholder=""])::before'));
+  assert.ok(regla, 'falta la regla del placeholder de párrafos y títulos');
+  for (const d of ['float: none', 'height: auto', 'position: absolute', 'left: 0', 'right: 0', 'white-space: nowrap', 'overflow: hidden', 'text-overflow: ellipsis']) {
+    assert.ok(regla.includes(d), `al placeholder le falta «${d}»`);
+  }
+  const esquema = leer('app/web-generator/editor/extensiones/esquema.ts');
+  const general = esquema.match(/export const PLACEHOLDER_GENERAL = '([^']+)';/)?.[1] ?? '';
+  assert.ok(general && general.length <= 36, `el placeholder general es largo (${general.length}): en una columna no se lee`);
+});
+
+test('el editor de texto es UN botón que abre una segunda barra con todas las opciones, sin scroll', () => {
+  // Martín, 24/10/2026: «El editor de texto quedó en un scroll muy chiquito, lo que te propongo es que sea un botón el
+  // editor de texto y se abra otra topbar tipo edición de texto con todas las opciones».
+  const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
+  const barra = editor.slice(editor.indexOf('className="gma-herramientas" role="toolbar"'), editor.indexOf('{formatoAbierto ? ('));
+  assert.ok(barra.length > 500, 'no encontré la barra de herramientas');
+  assert.doesNotMatch(barra, /<BarraFormato modo="fija" \/>/, 'el formato volvió a la barra de arriba, en un scroll');
+  assert.match(barra, /data-tip="Editor de texto" aria-label="Editor de texto"\s*aria-pressed=\{formatoAbierto\}[\s\S]{0,200}onClick=\{\(\) => cambiarFormato\(!formatoAbierto\)\}/);
+  assert.match(editor, /\{formatoAbierto \? \(\s*<div className="gma-herramientas gma-formato">\s*<BarraFormato modo="fija" \/>/);
+  const css = leer('app/web-generator/gamma.css');
+  assert.match(css, /\.gma-formato \.gmx-bf-fija \{ flex-wrap: wrap; overflow-x: visible;/, 'la segunda barra volvió a tener scroll');
+});

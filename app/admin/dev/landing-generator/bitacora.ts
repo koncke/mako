@@ -1076,4 +1076,57 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator',
   },
+  {
+    fecha: '24 oct', hora: '21:15', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los botones ya no se amontonan en la esquina del lienzo, y el chat de MaKo no se cierra',
+    puntos: [
+      'Los botones de cada sección se encimaban arriba a la izquierda, sobre el logo. Ahora el de opciones de la sección queda afuera, en un margen a la izquierda de la página, y ya no se pisa con los del primer bloque.',
+      'Se fue el botón «Editar con IA» de cada sección: para eso está siempre el chat de MaKo. Las notas del orador quedan sólo en las presentaciones.',
+      '«Tira de imágenes» ahora es un botón de la barra de arriba y se abre donde está el chat de MaKo; con otro clic vuelves al chat.',
+      'El chat de MaKo ya no se puede plegar: se sacó su botón. Y su caja dice «Escribe a MaKo» en un solo renglón.',
+      'Falta la otra mitad del pedido del chat: cambiar «Toda la landing / Sin título» por «Discutir / Editar». Va en la próxima entrega.',
+      'No se vio con clics: la computadora no tenía memoria libre para levantar el editor. Está probado con tests, rompiendo cada arreglo.',
+    ],
+    archivos: [
+      'app/web-generator/editor/extensiones/estilos-nodos.ts — dónde va el botón de opciones de cada sección',
+      'app/web-generator/gamma.css — el margen de la página en el editor',
+      'app/web-generator/editor/EditorLanding.tsx — la tira en la tarjeta del chat y el chat que no se pliega',
+      'app/web-generator/editor/paneles/PanelAgente.tsx — el chat sin botón de plegar',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '24 oct', hora: '21:43', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El chat del editor web tiene «Discutir» y «Editar», como Automations',
+    puntos: [
+      'Se fueron los botones «Toda la landing» y «Sin título» de arriba de la caja del chat. En su lugar están «Discutir» y «Editar», los mismos de Automations, y MaKo recuerda cuál elegiste.',
+      'En «Editar», MaKo cambia lo que le pides mirando la landing entera; si no dices dónde, cambia la sección donde tienes el cursor.',
+      'En «Discutir», MaKo te contesta y te sugiere qué cambiaría, sin tocar nada. Se acuerda de lo último que hablaron y lee los archivos que le adjuntes.',
+      'Lo que MaKo tiene que hacer al discutir se puede ajustar desde Configuraciones, como el resto de sus instrucciones del editor.',
+      'No se vio con clics ni con la IA de verdad: está probado con tests y con una IA de mentira, rompiendo cada pieza.',
+    ],
+    archivos: [
+      'app/web-generator/editor/paneles/PanelAgente.tsx — el chat del editor con Discutir y Editar',
+      'app/_chat/SelectorIntencion.tsx — el selector, para todos los chats',
+      'lib/editor-landing/ia.ts — lo que hace MaKo al discutir',
+    ],
+    revisar: '/web-generator',
+  },
+  {
+    fecha: '24 oct', hora: '21:52', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Los textos de ayuda ya no se esconden detrás de otras secciones, y el editor de texto se abre con un botón',
+    puntos: [
+      'Los textos grises de ayuda de un renglón vacío («Escribe o pulsa / para comandos», «Título de la sección») se partían en varias líneas cuando no entraban y quedaban tapados por la sección de abajo. Ahora ocupan un solo renglón, terminan en «…» si no entran, y en un título centrado se ven centrados.',
+      'El editor de texto ya no está metido en una tira chiquita con scroll en la barra de arriba: hay un botón «Texto» que abre una segunda barra debajo, con todas las opciones a la vista. MaKo recuerda si la dejaste abierta.',
+      'Se probó con capturas de antes y después usando los estilos reales del editor, y con tests que se rompen si vuelve lo de antes. Falta mirarlo en el editor con clics.',
+    ],
+    archivos: [
+      'app/web-generator/editor/extensiones/estilos-nodos.ts — cómo se dibujan los textos de ayuda',
+      'app/web-generator/editor/EditorLanding.tsx — el botón «Texto» y la segunda barra',
+    ],
+    revisar: '/web-generator',
+  },
 ];

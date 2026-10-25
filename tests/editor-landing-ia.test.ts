@@ -421,6 +421,7 @@ const ALIAS: Record<string, string> = {
   textoSystem: 'LANDING_EDITOR_TEXTO_SYSTEM', textoUser: 'LANDING_EDITOR_TEXTO_USER',
   disenosSystem: 'LANDING_EDITOR_DISENOS_SYSTEM', disenosUser: 'LANDING_EDITOR_DISENOS_USER',
   notasSystem: 'LANDING_EDITOR_NOTAS_SYSTEM', notasUser: 'LANDING_EDITOR_NOTAS_USER',
+  discutirSystem: 'LANDING_EDITOR_DISCUTIR_SYSTEM', discutirUser: 'LANDING_EDITOR_DISCUTIR_USER',
 };
 
 // Roto borrando `v('diagnostico', …)` de la fila del registro: 1 fallo, 0 pases. Roto cambiando

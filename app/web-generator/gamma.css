@@ -471,6 +471,10 @@
 .gma-herr-boton:disabled { opacity: 0.4; cursor: default; background: transparent; }
 .gma-herr-ctx { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 2px; }
 .gma-herr-der { flex: none; display: flex; align-items: center; gap: 4px; margin-left: auto; }
+/* La segunda barra: el editor de texto entero, debajo de la de herramientas (24/10/2026, Martín: «quedó en un scroll muy
+   chiquito... que sea un botón el editor de texto y se abra otra topbar»). Sin scroll: si no entra, se parte en renglones. */
+.gma-formato { min-height: 44px; padding: 4px 8px; flex-wrap: wrap; }
+.gma-formato .gmx-bf-fija { flex-wrap: wrap; overflow-x: visible; row-gap: 2px; }
 /* «Agregar bloque» se colapsa a un ícono solo cuando no entra (como en Gamma). */
 /* Con la barra única (24/10/2026) entran el título, el guardado, Compartir y Publicar: los textos se pliegan antes. */
 @media (max-width: 1440px) {
@@ -551,6 +555,8 @@
   box-shadow: 0 0 0 0.8px var(--gma-borde-suave);
 }
 .gma-tira[data-vista="lista"] { width: 200px; }
+/* Desde el 24/10/2026 la tira vive en la tarjeta de la izquierda (la del chat): ocupa la tarjeta entera, sin su propio marco. */
+.gma-izq[data-panel="tira"] .gma-tira { flex: 1; width: auto; border-radius: 0; box-shadow: none; }
 .gma-tira-cabeza {
   flex: none;
   display: flex;
@@ -694,12 +700,6 @@
   background: var(--gma-seleccion);
   pointer-events: none;
 }
-.gma-tira-abrir {
-  flex: none;
-  align-self: flex-start;
-  margin-top: 4px;
-}
-
 /* El lienzo: el fondo de la página (lo pinta .gm-fondo del tema) y las secciones al centro. */
 .gma-lienzo {
   flex: 1;
@@ -716,6 +716,11 @@
 }
 .gma-lienzo > .gm-doc { flex: 1 0 auto; display: flex; flex-direction: column; min-width: 0; }
 .gma-lienzo > .gm-doc > .gm-fondo { flex: 1 0 auto; }
+/* Una LANDING en escritorio deja un margen a la izquierda, del color del lienzo: ahí va la columna ⋮ de cada sección
+   (estilos-nodos.ts, `.gmc-lado`), POR FUERA de la sección, como el asa de Notion. Antes iba adentro, arriba a la
+   izquierda, y se encimaba con el asa del primer bloque y con el contenido (24/10/2026, Martín: «Los botones se siguen
+   superponiendo, fijate la esquina superior izquierda en el lienzo»). Sólo en el editor: la publicada no lo tiene. */
+.gma-lienzo[data-dispositivo="escritorio"] > .gm-doc:not([data-formato="presentacion"]) { margin-left: 40px; }
 .gma-lienzo[data-dispositivo="tableta"] > .gm-doc,
 .gma-lienzo[data-dispositivo="movil"] > .gm-doc {
   align-self: center;
