@@ -34,6 +34,26 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## «Clients» pasa a llamarse «Classroom», y su ruta /classroom (25/10/2026)
+
+Martín (punto 11 del feedback de la tarde): «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»
+- **/classroom abre el CURSO**, que es lo que el nombre promete; el kanban de la entrega es la sub-tab Clients
+  (/classroom/clients). Orden: Classroom · Community · Clients · Calendar · Members · Leaderboards · About — los tres
+  primeros son el trío del teléfono, que tiene que ser el MISMO (tests/partners.test.ts lo compara).
+- ⚠️ **Lo viejo redirige en `next.config.ts`, no en una página.** Una página con `redirect()` adentro de una carpeta con
+  `loading.tsx` es el React #310 que ya pasó en el Ops Center; `next.config` corre ANTES de dibujar y lleva la query
+  sola. `rutaNuevaDeVieja` (lib/clients-rutas.ts) dice lo mismo para quien arma un link, y su test compara las dos tablas:
+  `/clients/classroom` tiene que ir ANTES de `/clients/:path*` (si no, cae en /classroom/classroom).
+- **Todo sale de UNA constante** (`RUTA_CLASSROOM`/`RUTA_CLIENTES`): la cabecera, las sub-tabs, el teléfono y la API de
+  MaKo (áreas `cs`, `curso` y `comunidad`, que cambian `docs/api-mako.md`). Lo escrito a mano (`revalidatePath('/clients')`,
+  los links que se mandan por WhatsApp en cs-sin-contacto) se cambió con reglas de más larga a más corta; en los tests hay
+  además la forma ESCAPADA (`\/clients\/classroom` en un regex), que un reemplazo de texto no ve.
+- **En el teléfono, la fila de More dice «Classroom» y abre /m/cs** (el kanban, con el trío arriba): /m/curso pide la
+  llave `cs-curso` y la fila es `customer-success`, y el guardián de More exige que coincidan.
+- **Quedan con /clients:** app/partners (otro chat; el redirect los cubre).
+
+**Vive en:** `lib/clients-rutas.ts` · `app/classroom/` · `next.config.ts` · `lib/movil-rutas.ts` · `tests/clients-rutas.test.ts`
+
 ## El Deshacer de la entrega repone lo que creía la PANTALLA, no lo que pisó el server (14/10/2026)
 
 Lo encontró la verificación del tablero de Clientes del teléfono, y el escritorio usa el mismo patrón

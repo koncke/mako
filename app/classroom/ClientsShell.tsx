@@ -56,7 +56,7 @@ import {
 import { avisoDeCopia, preguntaAlEliminar, type DeshacerEliminar } from '@/app/customer-success/eliminar-programa';
 import { esOpcionPrograma, itemsPrograma, opcionesPrograma } from './menu-contextual-clients';
 import {
-  SECCIONES_CLIENTS, esSeccionComunidad, esVistaPrevia, hrefConPrograma, hrefSeccion, seccionDeRuta,
+  esSeccionComunidad, esVistaPrevia, hrefConPrograma, hrefSeccion, seccionDeRuta, seccionesDe, type SeccionClients,
 } from '@/lib/clients-rutas';
 import { CSS_CLIENTS } from './estilos';
 
@@ -122,10 +122,12 @@ export function varsDelPrograma(p: Pick<ProgramaClients, 'acento' | 'fuente'> | 
 /** Las variables del programa, para lo que va por portal al `body` (fuera de la raíz que las pinta). */
 const VarsCtx = createContext<CSSProperties | undefined>(undefined);
 
-export function ClientsShell({ programas: programasProp, puedePersonalizar, children }: {
+export function ClientsShell({ programas: programasProp, puedePersonalizar, plataforma = false, children }: {
   programas: ProgramaClients[];
   /** Admin del workspace: el guard de verdad lo vuelve a hacer la action. */
   puedePersonalizar: boolean;
+  /** El super admin en su propio workspace: ve también Methodology (lo que sabe MaKo). La página se cuida sola. */
+  plataforma?: boolean;
   children: ReactNode;
 }) {
   const pathname = usePathname() ?? '';
@@ -187,7 +189,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
   if (esVistaPrevia(pathname) || !seccion) return <>{children}</>;
 
   /** Entre dos pestañas de la comunidad no se navega: la comunidad lee su pestaña de la URL (D5). */
-  const alClicTab = (e: MouseEvent<HTMLAnchorElement>, destino: string, id: (typeof SECCIONES_CLIENTS)[number]['id']) => {
+  const alClicTab = (e: MouseEvent<HTMLAnchorElement>, destino: string, id: SeccionClients) => {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     if (!esSeccionComunidad(seccion) || !esSeccionComunidad(id)) return;
     e.preventDefault();
@@ -295,7 +297,7 @@ export function ClientsShell({ programas: programasProp, puedePersonalizar, chil
           )}
         </div>
         <nav className="cls-tabs" aria-label="Classroom">
-          {SECCIONES_CLIENTS.map((s) => {
+          {seccionesDe(plataforma).map((s) => {
             const href = hrefSeccion(s.id, search);
             return (
               <Link key={s.id} href={href} className="cls-tab" aria-current={seccion === s.id ? 'page' : undefined}

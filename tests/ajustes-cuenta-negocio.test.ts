@@ -35,7 +35,7 @@ test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Perfil', 'Seguridad', 'Notificaciones', 'Instalar la app']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
   // «Notificaciones» del negocio salió del índice el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta», abajo.
-  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Método']);
+  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Método', 'Prompts']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
   assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'fiscal', 'plan']);
   // En el workspace de la PLATAFORMA no hay «Tu plan»: la plataforma no tiene un plan de MaKo (15/10/2026).

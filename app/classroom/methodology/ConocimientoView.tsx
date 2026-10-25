@@ -11,9 +11,9 @@
 // Escribe sobre la misma tabla mako_knowledge que usa el RAG de MaKo.
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { MakoLogo } from '../_components/MakoBrand';
-import { ConfirmDialog } from '../_components/ChatItemMenu';
-import { Dropdown, type DropdownOption } from '../components/Dropdown';
+import { MakoLogo } from '@/app/_components/MakoBrand';
+import { ConfirmDialog } from '@/app/_components/ChatItemMenu';
+import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";

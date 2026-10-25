@@ -134,8 +134,8 @@ test('la tab del jefe: el nombre de la barra, sin mayúsculas ni tildes, y la de
   // (nav.ts → `jefe`) y «Ops Center» sigue siendo el del super admin.
   assert.equal(rutaDeLaTab('Ops Center', TABS), '/admin/operaciones');
   assert.equal(rutaDeLaTab('  second   BRAIN ', TABS), '/second-brain', 'misma comparación que las secciones del Centro');
-  // Con el orden al revés, la de desarrollo ganaría: por eso el orden va contado en la función y en la pantalla.
-  assert.equal(rutaDeLaTab('CRM', [...TABS].reverse()), '/admin/dev/crm');
+  // Con el orden al revés, la de desarrollo ganaba (/admin/dev/crm); Dev se fue el 25/10/2026 y ya no compite.
+  assert.equal(rutaDeLaTab('CRM', [...TABS].reverse()), '/crm');
   // Lo que no es una tab de la barra no tiene ruta: el título que inventó la app, el orquestador, un área del producto
   // sin tab propia («Closing Analyst»: nombre válido de jefe, pero sin pantalla), vacío. («Puente a Google Flow» salió de
   // esta lista el 17/10/2026: desde entonces tiene su página de desarrollo en la barra, /admin/dev/puente-flow.)

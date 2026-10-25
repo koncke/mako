@@ -33,8 +33,9 @@ test('ninguna operación de la API de MaKo nombra la tab vieja (es lo que MaKo l
   assert.deepEqual(malas, []);
 });
 
-test('los títulos de las áreas: `cs` es Clients (la clave no cambia)', () => {
-  assert.equal(AREA_INFO.cs.tab, 'Clients');
+test('los títulos de las áreas: `cs` es Classroom › Clients (la clave no cambia)', () => {
+  // Clients es desde el 25/10/2026 la sub-tab del kanban adentro de Classroom (lib/clients-rutas.ts).
+  assert.equal(AREA_INFO.cs.tab, 'Classroom › Clients');
   assert.doesNotMatch(AREA_INFO.cs.titulo, VIEJO);
   for (const [area, info] of Object.entries(AREA_INFO)) assert.doesNotMatch(info.titulo, VIEJO, `el título del área ${area}`);
 });

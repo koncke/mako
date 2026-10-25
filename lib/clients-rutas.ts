@@ -36,7 +36,15 @@ export const SECCIONES_CLIENTS = [
   { id: 'about', label: 'About', href: `${RUTA_CLASSROOM}/about` },
 ] as const;
 
-export type SeccionClients = (typeof SECCIONES_CLIENTS)[number]['id'];
+/** Lo que sabe MaKo para responder (era «Conocimiento» de MaKo Context, 25/10/2026): sólo la plataforma la ve. */
+export const SECCION_METODOLOGIA = { id: 'methodology', label: 'Methodology', href: `${RUTA_CLASSROOM}/methodology` } as const;
+
+export type SeccionClients = (typeof SECCIONES_CLIENTS)[number]['id'] | typeof SECCION_METODOLOGIA.id;
+
+/** Las sub-tabs que ve quien mira: la metodología, sólo la plataforma (el super admin en su propio workspace). */
+export function seccionesDe(plataforma: boolean): ReadonlyArray<{ id: SeccionClients; label: string; href: string }> {
+  return plataforma ? [...SECCIONES_CLIENTS, SECCION_METODOLOGIA] : SECCIONES_CLIENTS;
+}
 
 /**
  * Las secciones que son de la COMUNIDAD: una sola página (`app/clients/[seccion]`) que ya tiene sus datos,
@@ -79,7 +87,7 @@ export function seccionDeRuta(pathname: string | null | undefined): SeccionClien
   if (p === RUTA_CLASSROOM || p === RUTA_VISTA_PREVIA) return 'classroom';
   if (!p.startsWith(`${RUTA_CLASSROOM}/`)) return null;
   const tramo = p.slice(RUTA_CLASSROOM.length + 1).split('/')[0];
-  return tramo !== 'classroom' && SECCIONES_CLIENTS.some((s) => s.id === tramo) ? (tramo as SeccionClients) : null;
+  return tramo !== 'classroom' && seccionesDe(true).some((s) => s.id === tramo) ? (tramo as SeccionClients) : null;
 }
 
 export function esVistaPrevia(pathname: string | null | undefined): boolean {
@@ -96,7 +104,7 @@ const QUERY_QUE_VIAJA = ['producto', 'ws'] as const;
 
 /** El href de una sub-tab, con lo que viaja de la query actual. */
 export function hrefSeccion(id: SeccionClients, search: string | URLSearchParams | null | undefined): string {
-  const base = SECCIONES_CLIENTS.find((s) => s.id === id)?.href ?? RUTA_CLASSROOM;
+  const base = seccionesDe(true).find((s) => s.id === id)?.href ?? RUTA_CLASSROOM;
   const q = typeof search === 'string' || search == null ? new URLSearchParams(search ?? '') : search;
   const sale = new URLSearchParams();
   for (const k of QUERY_QUE_VIAJA) {

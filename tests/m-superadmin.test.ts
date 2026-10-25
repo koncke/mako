@@ -1,5 +1,5 @@
 // =============================================================================
-// Las herramientas del super admin en el teléfono: MaKo Messages, AI Models, MaKo Context, Billing y Client Agents
+// Las herramientas del super admin en el teléfono: MaKo Messages, Billing y Client Agents
 // =============================================================================
 // 17/10/2026, «Mobile 2» (Martín: «Implementa completamente MaKo Mobile en todas las tabs»). Las tres son de la
 // plataforma (nav.ts → HERRAMIENTAS). Lo que fija este archivo es lo invisible:
@@ -18,6 +18,9 @@
 // Y Billing y Client Agents (la tanda siguiente; base 7 / 0):
 //   · CobrosM importando `reembolsarCobroMakoAction`                    → 6 / 1 (lo que mueve plata, en la computadora)
 //   · `UNA_A_UNA` sin '/admin/agente'                                   → 6 / 1 (la ida y vuelta)
+//
+// 25/10/2026: AI Models y MaKo Context se fueron, en la computadora y en el teléfono (Martín, puntos 13 y 14). Lo que sabe
+// MaKo está en Classroom › Methodology y los prompts en Settings › Prompts; las rutas viejas redirigen (next.config.ts).
 // =============================================================================
 
 import test from 'node:test';
@@ -34,8 +37,6 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
 
 const TRES = [
   { escritorio: '/mensajes', movil: '/m/mensajes', pagina: 'app/mensajes/page.tsx', titulo: 'MaKo Messages' },
-  { escritorio: '/modelos-ia', movil: '/m/modelos-ia', pagina: 'app/modelos-ia/page.tsx', titulo: 'AI Models' },
-  { escritorio: '/contexto', movil: '/m/contexto', pagina: 'app/contexto/page.tsx', titulo: 'MaKo Context' },
   // Billing y Client Agents (17/10/2026, la tanda que siguió), del menú de la foto del super admin.
   { escritorio: '/admin/cobros', movil: '/m/cobros', pagina: 'app/admin/cobros/page.tsx', titulo: 'Billing' },
   { escritorio: '/admin/agente', movil: '/m/agente', pagina: 'app/admin/agente/page.tsx', titulo: 'Client Agents' },
@@ -62,23 +63,14 @@ test('la MISMA puerta que escritorio: getSesionAdmin antes de leer nada', () => 
   }
 });
 
-test('las MISMAS rutas de datos, y las opciones de AI Models en UNA copia', () => {
+test('las MISMAS rutas de datos que la computadora', () => {
   const mensajes = leer('app/m/mensajes/MensajesM.tsx');
   assert.match(mensajes, /const RUTA = '\/api\/admin\/plantillas'/);
   assert.match(mensajes, /action: 'enabled', id: p\.id, enabled/);
-  assert.match(leer('app/m/modelos-ia/ModelosIAM.tsx'), /const RUTA = '\/api\/admin\/modelos'/);
-  const contexto = leer('app/m/contexto/ContextoM.tsx');
-  for (const r of ['/api/mako/knowledge', '/api/mako/fases', '/api/mako/prompts']) assert.ok(contexto.includes(`'${r}'`), `Contexto sin ${r}`);
-  // Una sola lista de modelos: la computadora y el teléfono la importan de app/modelos-ia/opciones.ts.
-  assert.doesNotMatch(leer('app/modelos-ia/ModelosIA.tsx'), /const (CHAT|STT)_OPTS/);
-  assert.match(leer('app/modelos-ia/ModelosIA.tsx'), /from '\.\/opciones'/);
-  assert.match(leer('app/m/modelos-ia/ModelosIAM.tsx'), /from '@\/app\/modelos-ia\/opciones'/);
   // Abren con lo que leyó el SERVER, con la MISMA función que su ruta, y se montan con `key` nuevo en cada pasada del
   // server (refrescar trae lo nuevo). Si el server no leyó, la pantalla la pide como la computadora.
   const lecturas: [string, string, RegExp][] = [
     ['mensajes', 'app/api/admin/plantillas/route.ts', /enElStoreDeLaPestana/],
-    ['modelos-ia', 'app/api/admin/modelos/route.ts', /getModelosConfig\(\)/],
-    ['contexto', 'app/api/mako/prompts/route.ts', /getPrompts\(\)/],
   ];
   for (const [carpeta, ruta, lectura] of lecturas) {
     const pagina = leer(`app/m/${carpeta}/page.tsx`);
@@ -86,7 +78,7 @@ test('las MISMAS rutas de datos, y las opciones de AI Models en UNA copia', () =
     assert.match(leer(ruta), lectura, `${ruta}: la ruta dejó de usar la lectura compartida`);
     assert.match(pagina, /key=\{Date\.now\(\)\} iniciales=\{iniciales\}/, `${carpeta}: refrescar no trae lo nuevo`);
   }
-  for (const f of ['app/m/mensajes/MensajesM.tsx', 'app/m/modelos-ia/ModelosIAM.tsx', 'app/m/contexto/ContextoM.tsx']) {
+  for (const f of ['app/m/mensajes/MensajesM.tsx']) {
     assert.match(leer(f), /useEffect\(\(\) => \{ if \(iniciales == null\) void cargar\(\); \}, \[cargar, iniciales\]\);/, `${f}: sin lo del server, no lo pide`);
   }
 });
@@ -101,14 +93,12 @@ test('MaKo Messages se alcanza por la barra de secciones de Automations, y sólo
   }
 });
 
-test('More del super admin abre AI Models y MaKo Context en el teléfono; el de un cliente no las tiene', () => {
-  const filas = (adminShell: boolean) => masCompleto('admin', 'superadmin', adminShell).flatMap((g) => g.filas);
-  const sa = filas(true);
-  for (const [label, href] of [['AI Models', '/m/modelos-ia'], ['MaKo Context', '/m/contexto']]) {
-    const f = sa.find((x) => x.label === label);
-    assert.ok(f && f.tipo === 'pantalla' && f.href === href, `${label}: no abre su pantalla`);
-  }
-  assert.ok(!masCompleto('admin', 'completo', false).flatMap((g) => g.filas).some((x) => x.label === 'AI Models'));
+test('More del super admin ya no tiene AI Models, MaKo Context ni Dev (se fueron el 25/10/2026)', () => {
+  const sa = masCompleto('admin', 'superadmin', true).flatMap((g) => g.filas);
+  for (const label of ['AI Models', 'MaKo Context', 'Dev']) assert.ok(!sa.some((x) => x.label === label), `${label} volvió a More`);
+  for (const ruta of ['/m/modelos-ia', '/m/contexto']) assert.ok(!SECCIONES_MAS.some((s) => s.href === ruta), `${ruta} volvió`);
+  // La ruta de escritorio no se lleva al teléfono: redirige antes (next.config.ts).
+  assert.equal(rutaMovil('/contexto'), rutaMovil('/una-que-no-existe'));
 });
 
 test('Billing: lo que mueve plata queda en la computadora, y Client Agents lee con la función de escritorio', () => {
@@ -119,6 +109,3 @@ test('Billing: lo que mueve plata queda en la computadora, y Client Agents lee c
   assert.doesNotMatch(leer('app/admin/agente/page.tsx'), /from\('agente_sesiones'\)/, 'la lectura volvió a la página');
 });
 
-test('AI Models sólo ofrece lo que ofrece la computadora (las listas de chat y de voz a texto)', () => {
-  assert.match(leer('app/m/modelos-ia/ModelosIAM.tsx'), /\(it\.grupo === 'STT' \? STT_OPTS : CHAT_OPTS\)/);
-});

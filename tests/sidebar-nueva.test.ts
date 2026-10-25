@@ -283,8 +283,10 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
-    '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
+  // de Ads Writer, que vivían en la página de Dev) es desde ese día una sección de Copywriting.
+  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/mensajes', '/admin/agente', '/admin/estrategia',
+    '/admin/cobros', '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');

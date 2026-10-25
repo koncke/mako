@@ -70,7 +70,7 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'mensajes' | 'modelos-ia' | 'contexto' | 'conocimientos' | 'agente' | 'cobros'
+  | 'mensajes' | 'conocimientos' | 'agente' | 'cobros'
   // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
   | 'api-mako'
   // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
@@ -251,8 +251,6 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
   // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
   { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
-  { id: 'modelos-ia', label: 'AI Models', href: '/m/modelos-ia', icon: 'mako', navKey: 'modelos-ia', familia: null, oculta: true, superAdmin: true },
-  { id: 'contexto', label: 'MaKo Context', href: '/m/contexto', icon: 'contexto', navKey: 'contexto', familia: null, oculta: true, superAdmin: true },
   { id: 'api-mako', label: 'API', href: '/m/api-mako', icon: 'api', navKey: 'api-mako', familia: null, oculta: true },
   // Knowledge (el portal de cursos del equipo): /m/conocimientos, un curso en /<slug> y una clase en /<slug>/<n>.
   { id: 'conocimientos', label: 'Knowledge', href: '/m/conocimientos', icon: 'contexto', navKey: 'conocimientos', familia: null, oculta: true, superAdmin: true },
@@ -269,8 +267,6 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
  */
 const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/mensajes': '/m/mensajes',
-  '/modelos-ia': '/m/modelos-ia',
-  '/contexto': '/m/contexto',
   '/api-mako': '/m/api-mako',
   '/admin/cobros': '/m/cobros',
   '/admin/agente': '/m/agente',
@@ -447,11 +443,12 @@ export function gruposMas(rol: RolMovil, capa: string | null | undefined): Grupo
  * fila (una o dos frases, sin voseo), arriba del botón que la abre igual en la versión de computadora.
  */
 export const SOLO_ESCRITORIO: Readonly<Record<string, string>> = {
-  // Un MODO, no una pantalla: /admin/dev reemplaza la barra entera por el mapa de las 122 áreas (Sidebar → familiasDev).
-  'dev-entrar': 'Dev cambia la barra entera por los registros de cada área, los docs y el grafo. Se recorre con pantalla ancha.',
   // /email es la CONFIGURACIÓN del canal desde el 17/10/2026 (los emails se leen en Chats): el dominio son registros DNS y
   // las secuencias, un editor por etapa. Chats del teléfono ya dice «Conectar canales · En la computadora».
   email: 'Conectar el dominio y armar las secuencias se hace en la computadora. Los emails se leen y contestan en Chats.',
+  // Las bibliotecas de Ads Writer (25/10/2026, vivían en la página de Dev): cada ángulo y cada estructura es un texto largo
+  // con varios campos.
+  'admin-guiones': 'Los ángulos y las estructuras con que escribe Ads Writer son textos largos con varios campos: se editan en la computadora.',
 };
 
 /**

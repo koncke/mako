@@ -31,7 +31,7 @@ function armarDeLasBitacoras(ahora: number): Cerebro<string> {
     const r = registroDe(slug);
     return {
       slug, titulo: a?.titulo ?? slug, familia: a?.familia ?? 'Platform', estado: a?.estado ?? 'parcial',
-      alcance: a?.alcance ?? '', nota: a?.nota, vive: a?.vive ?? [], partes: r.partes, bitacora: r.bitacora,
+      alcance: a?.alcance ?? '', nota: a?.nota, verEnApp: a?.verEnApp, vive: a?.vive ?? [], partes: r.partes, bitacora: r.bitacora,
     };
   });
   return armarConstruccion(areas, ahora);

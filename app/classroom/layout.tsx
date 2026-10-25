@@ -15,7 +15,8 @@ import { productosDeLaEntrega } from '@/app/customer-success/entrega';
 import { nombresDeCursos } from '@/lib/curso-nombre-datos';
 import { SIN_NOMBRE_EQUIPO } from '@/lib/curso-nombre';
 import { estilosLeidos } from '@/lib/curso-estilo-datos';
-import { adminDeWorkspaceActual } from '@/lib/workspace';
+import { adminDeWorkspaceActual, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { getSesionAdmin } from '@/lib/auth';
 import { ClientsShell, type ProgramaClients } from './ClientsShell';
 
 async function programasDeClients(): Promise<ProgramaClients[]> {
@@ -42,10 +43,22 @@ async function programasDeClients(): Promise<ProgramaClients[]> {
   }
 }
 
+/** ¿Es la plataforma la que mira? El super admin en SU workspace (mirando a un cliente, no: es el Classroom del cliente).
+ *  La misma pregunta que /metodo. Sin poder leerla, no: Methodology no aparece (su página igual se cuida sola). */
+async function esLaPlataforma(): Promise<boolean> {
+  const [sesion, ws, plataforma] = await Promise.all([
+    getSesionAdmin().catch(() => null),
+    getWorkspaceActual().catch(() => null),
+    wsSuperAdmin().catch(() => -1),
+  ]);
+  return sesion != null && ws != null && ws === plataforma;
+}
+
 export default async function ClientsLayout({ children }: { children: ReactNode }) {
-  const [programas, admin] = await Promise.all([
+  const [programas, admin, plataforma] = await Promise.all([
     programasDeClients(),
     adminDeWorkspaceActual().catch(() => null),
+    esLaPlataforma(),
   ]);
-  return <ClientsShell programas={programas} puedePersonalizar={admin != null}>{children}</ClientsShell>;
+  return <ClientsShell programas={programas} puedePersonalizar={admin != null} plataforma={plataforma}>{children}</ClientsShell>;
 }
