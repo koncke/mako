@@ -11,6 +11,8 @@
 
 import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
+import { esEsencialDe } from '@/lib/plan-esencial';
+import { cupoDelPlan, type CupoMediaBuyer } from './plan';
 import {
   CONFIG_POR_DEFECTO, VENCE_HORAS,
   type ConfigMediaBuyer, type Decision, type EstadoDecision, type Propuesta,
@@ -25,6 +27,14 @@ export function tablaFalta(e: { code?: string | null; message?: string | null } 
   if (!e) return false;
   return e.code === '42P01' || e.code === 'PGRST205' || /media_buyer_\w+.*(does not exist|schema cache)/i.test(e.message ?? '');
 }
+
+/** El plan no trae el piloto automático (MaKo Esencial por la pasarela: lib/media-buyer/plan.ts). */
+export class PlanSinPiloto extends Error {
+  constructor() { super('Tu plan trae el Media Buyer en modo «propone»: MaKo recomienda y tú decides. El piloto automático es de MaKo Pro.'); this.name = 'PlanSinPiloto'; }
+}
+
+/** El cupo del plan del negocio. Ante la duda (no se pudo leer la suscripción), sin cupo: lib/plan-esencial.ts. */
+export const cupoDe = async (ws: number): Promise<CupoMediaBuyer> => cupoDelPlan(await esEsencialDe(ws));
 
 const num = (x: unknown): number | null => (x == null || x === '' ? null : Number.isFinite(Number(x)) ? Number(x) : null);
 
@@ -100,6 +110,8 @@ export function validarCambio(c: CambioConfig): { ok: true; fila: Record<string,
 export async function guardarConfig(ws: number, cambio: CambioConfig, quien: string): Promise<ConfigGuardada> {
   const v = validarCambio(cambio);
   if (!v.ok) throw new Error(v.error);
+  // La ÚNICA puerta que prende el piloto (la pantalla, Ajustes y la API de MaKo pasan por acá).
+  if (v.fila.modo === 'piloto' && !(await cupoDe(ws)).piloto) throw new PlanSinPiloto();
   const { error } = await getSupabaseServer().from('media_buyer_config')
     .upsert({ workspace_id: ws, ...v.fila, updated_at: new Date().toISOString(), updated_by: quien.slice(0, 200) }, { onConflict: 'workspace_id' });
   if (error) {

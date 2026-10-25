@@ -28,6 +28,9 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | Lo que escribe por Zernio | `lib/zernio-ads.ts` (la parte del 25/10) |
 | La pantalla y el teléfono | `app/ads-manager/MediaBuyer.tsx` · `mb.css` · `mb-modelo.ts` · `app/m/ads/MediaBuyerM.tsx` |
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
+| Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
+| Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
+| Lo que trae cada plan (Esencial: 2 por día, sin piloto) | `lib/media-buyer/plan.ts` (puro) · `cupoDe` en `store.ts` · el número en `lib/topes-plan.ts` (de Planes) |
 
 ## Estado (25/10/2026)
 
@@ -35,10 +38,14 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
   corrida y el cron, la pantalla copiada de Madgicx (escritorio y teléfono), el arranque de tres pasos, las variaciones de
   texto y de hook (texto), la API de MaKo, la bitácora de `/admin/dev` y la cosecha.
 - **Apagado por defecto en TODOS los negocios.** Nadie tiene el piloto automático: lo prende cada negocio.
+- **MaKo Esencial (el Cerebro, 25/10):** «propone», 2 recomendaciones por día, sin piloto. Pro, entero. Sólo al Esencial que
+  MaKo cobra por la pasarela. Lo fija `tests/media-buyer-plan.test.ts`. ⚠️ Hasta que Planes saque 'ads-manager' de
+  `NAV_SOLO_PRO`, ese Esencial ni entra a la tab.
 
 ## Lo que falta, en orden
 
-1. **La migración 0332** (número pedido al Cerebro): sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
+1. **La migración 0332** — revisada y aprobada por el Cerebro el 25/10; **la aplica él, no este chat**, cuando Martín diga que
+   sí (se la llevó junto con la 0333). Sin aplicar en producción. ⚠️ Va ANTES del deploy: el reset del
    cliente de prueba borra de estas tablas. Hasta que esté, la pantalla dice que el registro no está y nada se lanza.
 2. **Conectar la cuenta publicitaria de MaKo a Zernio — ES DE MARTÍN (un clic de permisos en Facebook).** La Zernio de la
    plataforma tiene cero cuentas conectadas (medido el 25/10). El link se genera con la clave de la plataforma:
@@ -48,13 +55,18 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    ⚠️ La pieza única de conectar (`<ConectarViaZernio>`) usa la clave DEL NEGOCIO: el ws9 no tiene una propia (la de la
    plataforma no se puede guardar como suya, `KeyDePlataformaError`), así que para la cuenta de MaKo el link sale por
    script, no por el botón.
-3. **La prueba real, en la cuenta de MaKo:** prender el Media Buyer en «propone», «Analizar ahora», lanzar UNA decisión de
+3. **La medición de Zernio, ya escrita:** `scripts/media-buyer-medir-zernio.mts` (conectar · estado · crear --si · editar --si ·
+   borrar --si), sólo sobre la cuenta de MaKo. `conectar` imprime el link de Facebook (vence a los 30 min: pedirlo con Martín
+   enfrente).
+4. **La prueba real, en la cuenta de MaKo:** prender el Media Buyer en «propone», «Analizar ahora», lanzar UNA decisión de
    estado sobre un anuncio en pausa de prueba, ver que Meta la refleja, deshacerla. Después, una variación de texto. La
    cuenta de MaKo no tiene medio de pago: crear anuncios en pausa se puede; que entreguen, no.
-4. **Lo que quedó sin hacer:** el video con hook nuevo FILMADO (depende del puente a Flow; hoy las variaciones de hook son
-   texto sobre el mismo video), `validate_only` por el token de Meta, el Stop Loss intradía, y borrar las rutas viejas de
-   `app/api/ads-manager/*` que sólo usaba la vista borrada (sin pantalla; algunas las lee la API de MaKo por sus libs).
-5. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
+5. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
+   hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
+   y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
+   y «hooks al video» (piden archivos o la pantalla); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
+   vista borrada (`creative-signurl` SÍ se usa: la subida del Media Buyer).
+6. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
    Buyer», se lo pide el Cerebro a ese chat.
 
 ## Rojos de main que no son de esta rama

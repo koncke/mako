@@ -13,7 +13,8 @@
 import 'server-only';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
-import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla } from './store';
+import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
+import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio } from './datos';
 import { prepararVariaciones } from './variaciones';
 import { lanzar } from './ejecutar';
@@ -34,6 +35,8 @@ export type ResumenCorrida = {
   lanzadas?: number;
   fallidas?: string[];
   sinVariaciones?: string[];
+  /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Esencial: lib/media-buyer/plan.ts). */
+  fueraDelCupo?: number;
   avisos?: string[];
   fuente?: string;
 };
@@ -85,6 +88,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   if (datos.ultimoDia && datos.ultimoDia < diasAntes(hoy, 1) && datos.fuente === 'meta' && datos.totalActivo > 0) {
     return { estado: 'datos_viejos', mensaje: `El último día con gasto es el ${datos.ultimoDia}: MaKo espera a tener el de ayer.`, fuente: datos.fuente };
   }
+  const cupo = await cupoDe(ws);
   const recomendado = objetivoRecomendado(datos.crm, config.kpi);
   const objetivo = config.objetivo ?? recomendado;
   const { decisiones } = await leerDecisiones(ws, 21);
@@ -98,11 +102,16 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // Las variaciones se escriben ANTES de guardar: una propuesta de variaciones sin variaciones no se puede lanzar. Sólo las
   // que todavía no existen (misma clave = ya se escribieron hoy, no se gasta IA dos veces).
+  // EL CUPO DEL PLAN (Esencial: 2 por día) se mira ANTES de escribirlas: lo que no entra hoy no gasta IA, y mañana el motor
+  // lo vuelve a ver si sigue igual. Entra primero lo que cuida la plata (plan.ts → ordenDelCupo).
   const yaGuardadas = new Set(decisiones.map((d) => d.clave));
+  const { orden, lugares } = ordenDelCupo(props.filter((p) => !yaGuardadas.has(p.clave)), recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
+  let quedan = lugares;
+  let fueraDelCupo = 0;
   const sinVariaciones: string[] = [];
   const listas: Propuesta[] = [];
-  for (const p of props) {
-    if (yaGuardadas.has(p.clave)) continue;
+  for (const p of orden) {
+    if (quedan <= 0) { fueraDelCupo++; continue; }
     if (p.tipo === 'variaciones_texto' || p.tipo === 'variaciones_hook') {
       const v = await prepararVariaciones(ws, p);
       if (!v.variaciones.length) { sinVariaciones.push(`${p.entidadNombre}: ${v.motivo ?? 'sin variaciones'}`); continue; }
@@ -110,6 +119,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
     } else {
       listas.push(p);
     }
+    quedan--;
   }
   const nuevas = await guardarPropuestas(ws, listas, datos.moneda);
 
@@ -117,7 +127,9 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   // que lo SUBE, así el tope de la cuenta ve primero lo que se liberó.
   let lanzadas = 0;
   const fallidas: string[] = [];
-  if (config.modo === 'piloto' && !soloProponer) {
+  // Un negocio que bajó a Esencial con el piloto prendido queda en «propone» (plan.ts → modoEfectivo).
+  const enPiloto = modoEfectivo(config.modo, cupo) === 'piloto' && !soloProponer;
+  if (enPiloto) {
     const orden = (d: Decision) => (d.tipo === 'pausar' ? 0 : d.tipo === 'bajar_presupuesto' ? 1 : d.tipo === 'activar' ? 2 : d.tipo === 'subir_presupuesto' ? 3 : 4);
     for (const d of [...nuevas].sort((a, b) => orden(a) - orden(b))) {
       const x = await lanzar(ws, d.id, { nombre: 'Piloto automático', origen: 'piloto' }, { datos });
@@ -128,7 +140,6 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   // El aviso: lo que propone un cron no dispara nada solo (docs/hallazgos-ads.md, «El Autopilot»: «una propuesta de
   // madrugada espera sin que nadie se entere»). Va al feed de avisos del negocio, el de la campanita y el Inbox del teléfono.
-  const enPiloto = config.modo === 'piloto' && !soloProponer;
   const avisar = enPiloto ? lanzadas : nuevas.length;
   if (avisar > 0) {
     await crearNotificacion({
@@ -142,7 +153,8 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   return {
     estado: 'ok', objetivo, objetivoEsRecomendado: config.objetivo == null,
-    propuestas: props.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones,
-    avisos: datos.avisos, fuente: datos.fuente,
+    propuestas: props.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
+    avisos: fueraDelCupo && cupo.recomendacionesDia != null ? [...datos.avisos, textoCupo(cupo.recomendacionesDia)] : datos.avisos,
+    fuente: datos.fuente,
   };
 }

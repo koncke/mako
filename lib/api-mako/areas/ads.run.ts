@@ -16,7 +16,8 @@
 // =============================================================================
 
 import 'server-only';
-import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB } from '@/lib/media-buyer/store';
+import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, PlanSinPiloto } from '@/lib/media-buyer/store';
+import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
 import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
@@ -957,7 +958,7 @@ export const RUNNERS: Runners = {
   // (topes, lectura en vivo, reclamo antes de escribir): estos runners no escriben en Meta por su cuenta.
   ver_media_buyer: {
     leer: async (_input, ctx) => {
-      const [config, { decisiones, existeTabla }] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 7)]);
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 7), cupoMB(ctx.ws)]);
       if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
       const corta = (d: DecisionMB) => ({
         id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
@@ -966,7 +967,9 @@ export const RUNNERS: Runners = {
         variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
       });
       return J({
-        prendido: config.encendido, modo: config.modo, resultado: config.kpi, objetivo: config.objetivo,
+        prendido: config.encendido, modo: modoEfectivoMB(config.modo, cupo), resultado: config.kpi, objetivo: config.objetivo,
+        // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
+        plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
         topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
         ultimaCorrida: config.ultimaCorrida,
         abiertas: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado)).map(corta),
@@ -1029,9 +1032,10 @@ export const RUNNERS: Runners = {
     },
   },
   modo_media_buyer: {
-    preparar: async (input) => {
+    preparar: async (input, ctx) => {
       const modo = str(input, 'modo');
       if (!['piloto', 'propone', 'apagado'].includes(modo)) return { error: 'modo tiene que ser piloto, propone o apagado.', faltan: ['modo'] };
+      if (modo === 'piloto' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
       const que = modo === 'piloto' ? 'Prender el piloto automático: MaKo lanza solo sus decisiones, dentro de los topes.'
         : modo === 'propone' ? 'Dejar el Media Buyer proponiendo: cada decisión espera a una persona.' : 'Apagar el Media Buyer: no analiza ni lanza nada.';
       return { payload: { modo }, resumen: que };

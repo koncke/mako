@@ -16,6 +16,7 @@
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Alert, Button, EmptyState, IconButton, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
 import { Criatura } from '@/app/_components/Criatura';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
@@ -23,6 +24,10 @@ import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import type { ConfigMediaBuyer, Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
 import { iniciales } from '@/lib/unicode-seguro';
+import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
+import { subirAlStaging } from './creativeUpload';
 import {
   ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, saludo, tonoDe, verboLanzar,
   type Pestana,
@@ -45,7 +50,7 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
 
 export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial = null }: {
   nombre: string;
-  inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean };
+  inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean; cupo: CupoMediaBuyer };
   metas: MetasDelMes | null;
   tieneMeta: boolean;
   /** `?decision=<id>`: la decisión que abre un link (un aviso, MaKo), en su pestaña y abierta. */
@@ -53,11 +58,14 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
 }) {
   const [config, setConfig] = useState<Config>(inicial.config);
   const [decisiones, setDecisiones] = useState<Decision[]>(inicial.decisiones);
+  // El plan del negocio (MaKo Esencial: N recomendaciones por día y sin piloto automático; lib/media-buyer/plan.ts).
+  const [cupo, setCupo] = useState<CupoMediaBuyer>(inicial.cupo);
   const deLink = decisionInicial ? inicial.decisiones.find((d) => d.id === decisionInicial) ?? null : null;
   const [pestana, setPestana] = useState<Pestana>(deLink ? pestanaDe(deLink.estado) : 'abiertas');
   const [abierta, setAbierta] = useState<string | null>(deLink?.id ?? null);
   const [ajustes, setAjustes] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
+  const [subiendo, setSubiendo] = useState(false);
   const [confirmarPiloto, setConfirmarPiloto] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
@@ -69,7 +77,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
 
   const recargar = useCallback(async () => {
     const r = await fetch('/api/media-buyer', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
-    if (r?.ok) { setConfig(r.config); setDecisiones(r.decisiones); }
+    if (r?.ok) { setConfig(r.config); setDecisiones(r.decisiones); if (r.cupo) setCupo(r.cupo); }
   }, []);
   const leerZernio = useCallback(async () => {
     const r = await api<EstadoZernio>({ op: 'estado_zernio' });
@@ -135,10 +143,18 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
           <p>{actualizado}</p>
         </div>
         <div className="mb-acciones">
-          <label className="mb-piloto" data-on={piloto ? '1' : '0'} title="Con el piloto automático, MaKo lanza sus decisiones solo, dentro de tus topes">
-            <Switch checked={piloto} disabled={!config.existeTabla} onChange={(v) => { if (v) setConfirmarPiloto(true); else void guardarConfig({ modo: 'propone' }); }} />
-            Piloto automático
-          </label>
+          {cupo.piloto ? (
+            <label className="mb-piloto" data-on={piloto ? '1' : '0'} title="Con el piloto automático, MaKo lanza sus decisiones solo, dentro de tus topes">
+              <Switch checked={piloto} disabled={!config.existeTabla} onChange={(v) => { if (v) setConfirmarPiloto(true); else void guardarConfig({ modo: 'propone' }); }} />
+              Piloto automático
+            </label>
+          ) : (
+            <div className="mb-piloto" data-on="0" title="El piloto automático es de MaKo Pro">
+              <Switch checked={false} disabled onChange={() => undefined} />
+              Piloto automático
+              <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro">Pro</Link>
+            </div>
+          )}
           <IconButton title="Ajustes del Media Buyer" onClick={() => setAjustes(true)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
           </IconButton>
@@ -149,6 +165,12 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
       {/* Lo que frena todo, arriba (una cinta por motivo) */}
       <div className="mb-avisos">
         {!config.existeTabla && <Alert tono="warn">El registro de decisiones todavía no está instalado: MaKo no lanza nada hasta que esté.</Alert>}
+        {cupo.recomendacionesDia != null && Number(config.ultimaCorridaInfo?.fueraDelCupo ?? 0) > 0 && (
+          <Alert tono="info"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            {textoCupo(cupo.recomendacionesDia)}
+            <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro-link">Pasar a Pro</Link>
+          </span></Alert>
+        )}
         {config.existeTabla && !config.encendido && config.ultimaCorrida && (
           <Alert tono="bad" accion={{ label: 'Prender', onClick: () => void guardarConfig({ encendido: true }) }}>El Media Buyer está apagado: no analiza ni lanza nada.</Alert>
         )}
@@ -252,6 +274,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
           </button>
         ))}
         <div className="mb-pestanas-der">
+          <Button size="sm" variant="secondary" disabled={!config.existeTabla} onClick={() => setSubiendo(true)}>Subir creativos</Button>
           <Button size="sm" variant="secondary" loading={analizando} disabled={!config.encendido || !config.existeTabla} onClick={() => void analizar()}>Analizar ahora</Button>
         </div>
       </nav>
@@ -272,11 +295,17 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
             onDescartar={() => accion(d, { op: 'descartar' }, 'Descartada')}
             onDeshacer={() => accion(d, { op: 'deshacer' }, 'Deshecho')}
             onReabrir={() => accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
-            onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')} />
+            onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
+            onHooksAVideo={async (elegidas) => {
+              const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: d.id, elegidas });
+              if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
+              else show(r.error ?? 'No se pudo.', undefined, 'bad');
+            }} />
         ))}
       </div>
 
-      {ajustes && <AjustesModal config={config} zernio={zernio} onCerrar={() => setAjustes(false)} onGuardar={guardarConfig} onZernio={() => { void leerZernio(); void recargar(); }} />}
+      {ajustes && <AjustesModal config={config} cupo={cupo} zernio={zernio} onCerrar={() => setAjustes(false)} onGuardar={guardarConfig} onZernio={() => { void leerZernio(); void recargar(); }} />}
+      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setPestana('hechas'); void recargar(); }} />}
       {pidiendo && <PedidoModal onCerrar={() => setPidiendo(false)} onEnviar={(texto) => { setPedidoMako({ texto, vez: Date.now() }); setPidiendo(false); }} />}
       {confirmarPiloto && (
         <Modal titulo="¿Prender el piloto automático?" ancho={480} onCerrar={() => setConfirmarPiloto(false)}
@@ -299,11 +328,12 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
 
 // ── Una decisión: la fila y, abierta, el detalle de tres columnas ─────────────
 
-function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDescartar, onDeshacer, onReabrir, onCalificar }: {
+function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDescartar, onDeshacer, onReabrir, onCalificar, onHooksAVideo }: {
   d: Decision; abierta: boolean; ocupada: boolean; encendido: boolean;
   onAbrir: () => void;
   onLanzar: (extra: { presupuesto?: number; elegidas?: string[] }) => Promise<boolean>;
   onDescartar: () => void; onDeshacer: () => void; onReabrir: () => void; onCalificar: (n: number) => void;
+  onHooksAVideo: (elegidas: string[]) => void;
 }) {
   const p = pestanaDe(d.estado);
   const tono = tonoDe(d);
@@ -421,6 +451,7 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
             <p data-tono={d.error ? (d.estado === 'bloqueada' ? 'cuidado' : 'mal') : undefined}>{d.error ?? d.nota ?? ''}</p>
             {p === 'abiertas' && <>
               {d.despues.presupuesto != null && <Button variant="secondary" onClick={() => setEditando((x) => !x)}>{editando ? 'Usar el de MaKo' : 'Editar'}</Button>}
+              {d.tipo === 'variaciones_hook' && <Button variant="secondary" disabled={elegidas.size === 0} onClick={() => onHooksAVideo([...elegidas])}>Filmarlos en Video Generator</Button>}
               <Button loading={ocupada} disabled={!encendido || (esVar && elegidas.size === 0)} onClick={lanzar}>{verboLanzar(d)}</Button>
             </>}
             {p !== 'abiertas' && <Button variant="secondary" onClick={onAbrir}>Ocultar</Button>}
@@ -480,8 +511,8 @@ function Arranque({ tieneMeta, zernio, kpi, onZernio, onPrender }: {
 
 // ── Ajustes (el ⚙ de Madgicx: el KPI y su objetivo, más los topes, el modo y la conexión) ──
 
-function AjustesModal({ config, zernio, onCerrar, onGuardar, onZernio }: {
-  config: Config; zernio: EstadoZernio | null;
+function AjustesModal({ config, cupo, zernio, onCerrar, onGuardar, onZernio }: {
+  config: Config; cupo: CupoMediaBuyer; zernio: EstadoZernio | null;
   onCerrar: () => void;
   onGuardar: (c: Partial<ConfigMediaBuyer>) => Promise<boolean>;
   onZernio: () => void;
@@ -513,10 +544,18 @@ function AjustesModal({ config, zernio, onCerrar, onGuardar, onZernio }: {
       pie={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button loading={guardando} onClick={() => void guardar()}>Guardar</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
         <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no analiza ni lanza nada." />
-        <RadioGroup label="Modo" value={modo} onChange={(v) => setModo(v === 'piloto' ? 'piloto' : 'propone')} options={[
-          { value: 'propone', label: 'Propone y yo apruebo', hint: 'Cada decisión espera tu «Lanzar».' },
-          { value: 'piloto', label: 'Piloto automático', hint: 'MaKo lanza solo, dentro de tus topes.' },
-        ]} />
+        <div>
+          <RadioGroup label="Modo" value={modo} disabled={!cupo.piloto} onChange={(v) => setModo(v === 'piloto' ? 'piloto' : 'propone')} options={[
+            { value: 'propone', label: 'Propone y yo apruebo', hint: 'Cada decisión espera tu «Lanzar».' },
+            { value: 'piloto', label: 'Piloto automático', hint: 'MaKo lanza solo, dentro de tus topes.' },
+          ]} />
+          {!cupo.piloto && (
+            <p className="mk-hint" style={{ margin: '8px 0 0' }}>
+              {cupo.recomendacionesDia != null ? textoCupo(cupo.recomendacionesDia) : 'El piloto automático es de MaKo Pro.'}{' '}
+              <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro-link">Pasar a Pro</Link>
+            </p>
+          )}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14 }}>
           <Select label="Resultado principal" value={kpi} onChange={(v) => setKpi(v as KpiMediaBuyer)} options={[
             { value: 'lead', label: 'Leads' }, { value: 'agenda', label: 'Agendas' }, { value: 'venta', label: 'Ventas' },
@@ -539,6 +578,106 @@ function AjustesModal({ config, zernio, onCerrar, onGuardar, onZernio }: {
             </ConectarViaZernio>
           </div>
         </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Subir creativos nuevos a un conjunto (lo que Meta rechaza con la app del cliente: va por su Zernio) ──
+// Un modal: el conjunto, los archivos (subidos al staging con su barra), los textos (los del mejor anuncio del conjunto,
+// editables) y publicar. Cada archivo es un anuncio nuevo en el conjunto; queda en «Hechas» con su «Deshacer».
+
+type ArchivoEnSubida = { clave: string; nombre: string; tipo: 'image' | 'video'; progreso: number; path: string | null; error: string | null };
+
+function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onListo: (msg: string) => void }) {
+  const [conjuntos, setConjuntos] = useState<ConjuntoParaSubir[] | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
+  const [adSetId, setAdSetId] = useState('');
+  const [textos, setTextos] = useState<TextosCreativo>({ textoPrincipal: '', titulo: '', cta: 'LEARN_MORE', link: null, formularioId: null });
+  const [deAnuncio, setDeAnuncio] = useState<string | null>(null);
+  const [archivos, setArchivos] = useState<ArchivoEnSubida[]>([]);
+  const [pausa, setPausa] = useState(false);
+  const [publicando, setPublicando] = useState(false);
+  useEffect(() => {
+    void api<{ conjuntos: ConjuntoParaSubir[]; conectado: boolean }>({ op: 'subir_preparar' }).then((r) => {
+      if (!r.ok) { setAviso(r.error ?? 'No pude leer la cuenta.'); setConjuntos([]); return; }
+      setConjuntos(r.conjuntos);
+      if (!r.conectado) setAviso('Para publicar creativos nuevos conecta tu cuenta por Zernio (Ajustes → Conectar con Facebook).');
+    });
+  }, []);
+  const elegir = (id: string) => {
+    setAdSetId(id);
+    setDeAnuncio(null);
+    void api<{ plantilla: { textos: TextosCreativo; deAnuncio: string | null } | null }>({ op: 'subir_preparar', adSetId: id }).then((r) => {
+      if (r.ok && r.plantilla) { setTextos(r.plantilla.textos); setDeAnuncio(r.plantilla.deAnuncio); }
+    });
+  };
+  const agregar = (files: FileList | null) => {
+    for (const f of Array.from(files ?? []).slice(0, 10)) {
+      const clave = `${f.name}-${f.size}-${Date.now()}`;
+      const tipo = f.type.startsWith('video') ? 'video' as const : 'image' as const;
+      setArchivos((xs) => [...xs, { clave, nombre: f.name, tipo, progreso: 0, path: null, error: null }]);
+      const cambiar = (c: Partial<ArchivoEnSubida>) => setArchivos((xs) => xs.map((x) => (x.clave === clave ? { ...x, ...c } : x)));
+      subirAlStaging(f, (p) => cambiar({ progreso: p })).then((r) => cambiar({ path: r.path, progreso: 100 }), (e) => cambiar({ error: e instanceof Error ? e.message : String(e) }));
+    }
+  };
+  const listos = archivos.filter((a) => a.path && !a.error);
+  const subiendoAun = archivos.some((a) => !a.path && !a.error);
+  const falta = !adSetId ? 'Elige el conjunto.' : !listos.length ? 'Sube al menos un archivo.' : errorDeTextos(textos);
+  const publicar = async () => {
+    setPublicando(true);
+    const r = await api<{ creados: string[]; errores: string[] }>({
+      op: 'subir_creativos', adSetId, textos, activo: !pausa,
+      archivos: listos.map((a) => ({ path: a.path, tipo: a.tipo, nombre: a.nombre })),
+    });
+    setPublicando(false);
+    if (r.ok) onListo(r.errores?.length ? `Se crearon ${r.creados.length} de ${listos.length}` : `${r.creados.length} ${r.creados.length === 1 ? 'anuncio creado' : 'anuncios creados'}`);
+    else setAviso(r.error ?? 'No se pudo publicar.');
+  };
+  return (
+    <Modal titulo="Subir creativos" ancho={680} alto="min(88vh, 760px)" onCerrar={onCerrar}
+      pie={<>
+        {falta && <span style={{ marginRight: 'auto', fontSize: 'var(--fs-sm)', color: 'var(--faint)' }}>{falta}</span>}
+        <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>
+        <Button loading={publicando} disabled={!!falta || subiendoAun} onClick={() => void publicar()}>
+          {listos.length ? `Publicar ${listos.length} ${listos.length === 1 ? 'anuncio' : 'anuncios'}` : 'Publicar'}
+        </Button>
+      </>}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+        {aviso && <Alert tono="warn">{aviso}</Alert>}
+        <Select label="Conjunto" value={adSetId} onChange={elegir} placeholder={conjuntos ? 'Elige el conjunto' : 'Leyendo la cuenta…'}
+          options={(conjuntos ?? []).map((c) => ({ value: c.id, label: c.nombre, sub: `${c.campana ?? 'Sin campaña'} · ${c.prendido ? 'activo' : 'pausado'} · ${c.anuncios} ${c.anuncios === 1 ? 'anuncio' : 'anuncios'}` }))} />
+        <div>
+          <div className="mk-label" style={{ marginBottom: 8 }}>Archivos</div>
+          <label className="mb-soltar">
+            <input type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={(e) => { agregar(e.target.files); e.target.value = ''; }} />
+            <span>Elige imágenes o videos (hasta 10)</span>
+          </label>
+          {archivos.length > 0 && (
+            <ul className="mb-archivos">
+              {archivos.map((a) => (
+                <li key={a.clave}>
+                  <span aria-hidden>{a.tipo === 'video' ? '🎬' : '🖼️'}</span>
+                  <span className="mb-archivo-nombre">{a.nombre}</span>
+                  {a.error ? <em data-tono="mal">{a.error}</em> : a.path ? <em>Listo</em> : <div className="mb-barra" style={{ width: 120 }}><i style={{ width: `${a.progreso}%` }} /></div>}
+                  <button type="button" className="mb-quitar" aria-label={`Quitar ${a.nombre}`} onClick={() => setArchivos((xs) => xs.filter((x) => x.clave !== a.clave))}>✕</button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <TextField multiline label="Texto principal" value={textos.textoPrincipal} maxLength={2200}
+          hint={deAnuncio ? `Del mejor anuncio del conjunto: «${deAnuncio}».` : undefined}
+          onChange={(e) => setTextos((t) => ({ ...t, textoPrincipal: e.target.value }))} />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14 }}>
+          <TextField label="Título" value={textos.titulo} maxLength={255} onChange={(e) => setTextos((t) => ({ ...t, titulo: e.target.value }))} />
+          <Select label="Botón" value={textos.cta} onChange={(v) => setTextos((t) => ({ ...t, cta: v as Cta }))}
+            options={CTAS.map((c) => ({ value: c, label: NOMBRE_CTA[c] }))} />
+        </div>
+        {textos.formularioId
+          ? <p style={{ margin: 0, fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>Usa el formulario instantáneo del conjunto.</p>
+          : <TextField label="Link de destino" value={textos.link ?? ''} placeholder="https://" onChange={(e) => setTextos((t) => ({ ...t, link: e.target.value || null }))} />}
+        <Switch checked={pausa} onChange={setPausa} label="Dejarlos en pausa" hint="Si no, empiezan a entregar con el presupuesto del conjunto." />
       </div>
     </Modal>
   );

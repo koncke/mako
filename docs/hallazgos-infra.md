@@ -128,6 +128,16 @@ y recién ahí se decide: `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq
 comando y no del código, el lugar donde evita el error no es un documento: es el comando mismo — por eso la receta de
 arriba va textual, para copiarla.
 
+## `tests-afectados` lista como ROJO un test `todo` que falla, aunque su archivo salga con 0 (25/10/2026)
+
+**Vive en:** `scripts/tests-afectados.mjs` (los «Rojos:» salen de las líneas `test at …` del resumen de fallas).
+
+En el chat Media Buyer la corrida terminó con «Rojos: …, tests/chats-mako-envio.test.ts, …». Ese archivo, corrido solo, sale
+con **0**: su único fallo es un `test(…, { todo: 'depende de la 1.2 (rama mako-wa)…' })`, y Node pone los `todo` que fallan en
+el mismo resumen «failing tests», con su `test at …`. El script los cuenta como rojos de archivo (el `fail` del total, no).
+**Antes de perseguir un rojo de esa lista, correr el archivo solo y mirar la salida:** si es 0, es un `todo`. Sin arreglar:
+filtrar en el script los `test at` que vienen después de una línea con `# …` de `todo`.
+
 ## La guarda del aviso «ya quedó arreglado» SÍ da verde: Vercel guarda el commit, pero sólo lo encuentra ENTERO (24/10/2026)
 
 **Vive en:** `scripts/avisar-arreglo-al-grupo.mts` (`pruebaDeProduccion`) · `lib/vercel-salida.ts` · cualquier chequeo que use

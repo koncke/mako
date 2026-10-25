@@ -63,7 +63,9 @@ export type TipoDecision =
   | 'pausar'
   | 'activar'
   | 'variaciones_texto'
-  | 'variaciones_hook';
+  | 'variaciones_hook'
+  /** Una persona subió creativos nuevos a un conjunto (no lo propone el motor): queda registrado para poder deshacerlo. */
+  | 'crear_anuncios';
 
 /**
  * La táctica que la disparó. Las cuatro primeras son las de Madgicx (academy.madgicx.com/lessons/
@@ -75,7 +77,8 @@ export type Tactica =
   | 'stop_loss'     // pausa lo que gastó sin resultado
   | 'revive'        // prende lo que se apagó y después resultó bueno (la atribución llega tarde)
   | 'calidad'       // MaKo: leads que no agendan, aunque Meta los cuente
-  | 'ganador';      // MaKo: lo que gana alimenta lo que se escribe (variaciones)
+  | 'ganador'       // MaKo: lo que gana alimenta lo que se escribe (variaciones)
+  | 'manual';       // lo hizo una persona desde el Media Buyer (subir creativos): no lo disparó ninguna táctica
 
 export type EstadoDecision =
   | 'abierta'       // propuesta, esperando a una persona

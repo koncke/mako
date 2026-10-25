@@ -16,6 +16,7 @@ export const NOMBRE_TACTICA: Record<Tactica, string> = {
   revive: 'Revive',
   calidad: 'Calidad de leads',
   ganador: 'Ganador',
+  manual: 'Subida',
 };
 
 export const ICONO_TIPO: Record<TipoDecision, string> = {
@@ -25,6 +26,7 @@ export const ICONO_TIPO: Record<TipoDecision, string> = {
   activar: '🔄',
   variaciones_texto: '✍️',
   variaciones_hook: '🎬',
+  crear_anuncios: '⬆️',
 };
 
 export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', adset: 'Conjunto', ad: 'Anuncio' };
@@ -32,7 +34,7 @@ export const NIVEL: Record<Decision['nivel'], string> = { campaign: 'Campaña', 
 /** El tono del titular de la columna del medio: verde lo que gana, rojo lo que pierde, dorado lo que crea MaKo. */
 export function tonoDe(d: Pick<Decision, 'tipo' | 'tactica'>): 'bien' | 'mal' | 'cuidado' | 'mako' {
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') return 'mako';
-  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar') return 'bien';
+  if (d.tipo === 'subir_presupuesto' || d.tipo === 'activar' || d.tipo === 'crear_anuncios') return 'bien';
   if (d.tactica === 'sunsetting' && d.tipo === 'bajar_presupuesto') return 'cuidado';
   return 'mal';
 }

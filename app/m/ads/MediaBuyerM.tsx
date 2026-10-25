@@ -19,6 +19,8 @@ import { Button } from '@/app/_ui/Button';
 import { Criatura } from '@/app/_components/Criatura';
 import { FilaM, InterruptorM, ListaM, PieM, PildoraM, SeccionM, SegmentadoM, SheetM, VacioM, useToastM } from '@/app/m/_ui';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
+import type { CupoMediaBuyer } from '@/lib/media-buyer/plan';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, verboLanzar, type Pestana } from '@/app/ads-manager/mb-modelo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; existeTabla: boolean };
@@ -32,9 +34,11 @@ async function api(body: Record<string, unknown>): Promise<{ ok: boolean; error?
   }
 }
 
-export function MediaBuyerM({ nombre, config: inicial, decisiones, puedeOperar }: {
+export function MediaBuyerM({ nombre, config: inicial, cupo, decisiones, puedeOperar }: {
   nombre: string;
   config: Config;
+  /** El plan (MaKo Esencial: sin piloto automático; lib/media-buyer/plan.ts). */
+  cupo: CupoMediaBuyer;
   decisiones: Decision[];
   puedeOperar: boolean;
 }) {
@@ -78,10 +82,15 @@ export function MediaBuyerM({ nombre, config: inicial, decisiones, puedeOperar }
       </section>
 
       <ListaM>
-        <FilaM titulo="Piloto automático" segunda={piloto ? `Lanza solo · ${automatico}% de lo hecho` : 'Propone y tú apruebas'}
-          leading={<span className="mbm-baldosa" aria-hidden>🤖</span>}
-          control={<InterruptorM etiqueta="Piloto automático" activo={piloto} deshabilitado={!puedeOperar || !config.existeTabla}
-            onCambio={(v) => { if (v) setConfirmarPiloto(true); else void cambiarModo('propone'); }} />} />
+        {cupo.piloto ? (
+          <FilaM titulo="Piloto automático" segunda={piloto ? `Lanza solo · ${automatico}% de lo hecho` : 'Propone y tú apruebas'}
+            leading={<span className="mbm-baldosa" aria-hidden>🤖</span>}
+            control={<InterruptorM etiqueta="Piloto automático" activo={piloto} deshabilitado={!puedeOperar || !config.existeTabla}
+              onCambio={(v) => { if (v) setConfirmarPiloto(true); else void cambiarModo('propone'); }} />} />
+        ) : (
+          <FilaM titulo="Piloto automático" segunda={cupo.recomendacionesDia != null ? `Es de MaKo Pro · tu plan trae ${cupo.recomendacionesDia} por día` : 'Es de MaKo Pro'}
+            leading={<span className="mbm-baldosa" aria-hidden>🤖</span>} href={RUTA_CAMBIAR_PLAN} />
+        )}
       </ListaM>
 
       {!config.encendido && <p className="mbm-aviso">El Media Buyer está apagado: no analiza ni lanza nada.</p>}

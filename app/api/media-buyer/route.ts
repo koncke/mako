@@ -5,6 +5,8 @@
 // POST → { op, … }:
 //   lanzar { id, presupuesto?, elegidas? } · descartar { id, motivo? } · reabrir { id } · deshacer { id }
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
+//   hooks_a_video { id, elegidas? } (los hooks de un video ganador, como guiones del Video Generator)
+//   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
 // El botón de conectar Facebook NO está acá: es la pieza única `<ConectarViaZernio red="metaads">` (AGENTS.md).
 //
 // QUIÉN: el admin DEL negocio (o el super admin mirándolo), el mismo guard que tenían las escrituras del Ads Manager
@@ -15,16 +17,22 @@
 import type { NextRequest } from 'next/server';
 import { wsDeAdsManager } from '@/lib/ads-guard';
 import { getUsuarioActual } from '@/lib/auth';
-import { leerConfig, guardarConfig, leerDecisiones, reclamar, actualizar, MediaBuyerSinTabla } from '@/lib/media-buyer/store';
+import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actualizar, MediaBuyerSinTabla, PlanSinPiloto, cupoDe } from '@/lib/media-buyer/store';
+import { modoEfectivo } from '@/lib/media-buyer/plan';
+import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
-import { cuentaDelNegocio } from '@/lib/media-buyer/datos';
+import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
+import { conjuntosDe, plantillaDelConjunto, subirCreativos } from '@/lib/media-buyer/subir';
+import { CTAS } from '@/lib/media-buyer/creativos';
 import { marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { credWs } from '@/lib/credenciales';
 import { claveZernioAnuncios, conexionAnunciosZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120;
+// 300: subir un video lo baja Zernio, lo sube a Meta y espera que lo procese antes de contestar.
+export const maxDuration = 300;
 
 const J = (x: unknown, status = 200) => Response.json(x, { status });
 const uuid = (x: unknown): string | null => (typeof x === 'string' && /^[0-9a-f-]{36}$/i.test(x) ? x : null);
@@ -33,8 +41,9 @@ export async function GET() {
   const ws = await wsDeAdsManager();
   if (ws instanceof Response) return ws;
   try {
-    const [config, { decisiones, existeTabla }] = await Promise.all([leerConfig(ws), leerDecisiones(ws, 30)]);
-    return J({ ok: true, config, decisiones, existeTabla });
+    const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfig(ws), leerDecisiones(ws, 30), cupoDe(ws)]);
+    // El modo que VALE: con un plan sin piloto, la pantalla nunca lo muestra prendido (plan.ts → modoEfectivo).
+    return J({ ok: true, config: { ...config, modo: modoEfectivo(config.modo, cupo) }, cupo, decisiones, existeTabla });
   } catch (e) {
     return J({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
   }
@@ -106,11 +115,47 @@ export async function POST(req: NextRequest) {
         if (conexion || (await credWs('META_ACCESS_TOKEN', ws))) await marcarPasoTab('ads-manager', 'am_cuenta').catch(() => null);
         return J({ ok: true, tieneClave, cuenta: act, conectado: !!conexion });
       }
+      case 'hooks_a_video': {
+        // Los hooks elegidos de una decisión de video, como guiones en el Video Generator (se filma sólo el gancho).
+        const id = uuid(body.id);
+        const d = id ? await leerDecision(ws, id) : null;
+        if (!d) return J({ ok: false, error: 'Esa decisión no existe en este negocio.' }, 404);
+        const elegidas = Array.isArray(body.elegidas) ? new Set(body.elegidas.filter((x): x is string => typeof x === 'string')) : null;
+        const conElegidas = elegidas ? { ...d, variaciones: (d.variaciones ?? []).map((v) => ({ ...v, elegida: elegidas.has(v.id) })) } : d;
+        const r = await llevarHooksAlVideo(ws, conElegidas);
+        return J(r, r.ok ? 200 : 409);
+      }
+      case 'subir_preparar': {
+        const datos = await leerDatosCuenta(ws);
+        const conjuntos = conjuntosDe(datos);
+        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
+        const plantilla = adSetId ? await plantillaDelConjunto(ws, datos, adSetId) : null;
+        return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion });
+      }
+      case 'subir_creativos': {
+        const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
+        if (!adSetId) return J({ ok: false, error: 'Elige el conjunto.' }, 400);
+        const archivos = (Array.isArray(body.archivos) ? body.archivos : []).map((a) => {
+          const o = (a ?? {}) as Record<string, unknown>;
+          return { path: String(o.path ?? ''), tipo: o.tipo === 'video' ? 'video' as const : 'image' as const, nombre: String(o.nombre ?? 'creativo').slice(0, 120) };
+        });
+        const t = (body.textos ?? {}) as Record<string, unknown>;
+        const textos = {
+          textoPrincipal: String(t.textoPrincipal ?? ''), titulo: String(t.titulo ?? ''),
+          cta: (CTAS as readonly string[]).includes(String(t.cta)) ? (t.cta as (typeof CTAS)[number]) : 'LEARN_MORE',
+          link: typeof t.link === 'string' && t.link.trim() ? t.link.trim() : null,
+          formularioId: typeof t.formularioId === 'string' && /^\d{1,30}$/.test(t.formularioId) ? t.formularioId : null,
+        };
+        const r = await subirCreativos(ws, { adSetId, archivos, textos, activo: body.activo !== false }, quien);
+        return J(r, r.ok ? 200 : 409);
+      }
       default:
         return J({ ok: false, error: 'Operación desconocida.' }, 400);
     }
   } catch (e) {
     if (e instanceof MediaBuyerSinTabla) return J({ ok: false, error: e.message }, 503);
+    if (e instanceof PlanSinPiloto) return J({ ok: false, error: e.message, tope: true, link: RUTA_CAMBIAR_PLAN }, 403);
+    if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
     const z = leerErrorDeZernio(e);
     return J({ ok: false, error: z ? `Zernio: ${z.mensaje}` : e instanceof Error ? e.message : String(e) }, 500);
   }

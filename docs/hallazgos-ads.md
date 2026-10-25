@@ -4750,9 +4750,35 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   de prueba borra de cada tabla de esa lista y una que no existe da error. Hasta que se aplique, el código las tolera
   (PGRST205) y la pantalla dice que el registro no está.
 
+- ⚠️ **El botón de conectar no sirve para la cuenta de MaKo.** `<ConectarViaZernio>` arma el link con la clave de Zernio
+  DEL NEGOCIO, y el negocio de la plataforma (ws9) no tiene una propia: la de la plataforma no se puede guardar como suya
+  (`KeyDePlataformaError`). El link de MaKo sale por `scripts/media-buyer-medir-zernio.mts conectar`, que también mide
+  crear · editar · borrar en pausa. Y la cuenta de MaKo no tiene `META_AD_ACCOUNT_ID`: el Media Buyer la toma de su
+  Ajuste «Cuenta publicitaria» (`media_buyer_config.cuenta_publicitaria`).
+- **Filmar un hook NO es del servidor.** El Video Generator filma con la extensión y una pestaña de Flow en el navegador
+  del cliente. Lo que el Media Buyer sí hace: cada hook elegido, pegado al cuerpo del video ganador (su transcripción
+  menos la primera frase), entra como guion con los rótulos GANCHO / HISTORIA —el contrato que la app usa para cortarlo
+  en tomas— en la celda «Hooks del Media Buyer» (`lib/media-buyer/hooks-video.ts`), sin duplicar por `huellaGuion`.
+- **Subir un video por Zernio tarda** (`POST /ads/create` con `video.url` espera a que Meta lo procese): con el timeout
+  de 90 s de las otras llamadas, cortar no deshace lo creado y MaKo no se entera. Para video van 240 s y una
+  `Idempotency-Key` por archivo, para que un reintento no publique dos veces. Sin medir todavía con un video real (la
+  cuenta de MaKo no está conectada). La ruta `creative-signurl` del Ads Manager viejo
+  SIGUE en uso: es la subida al staging del Media Buyer.
+
+- **El Media Buyer en MaKo Esencial (el Cerebro, 25/10): 2 recomendaciones por día y sin piloto automático.** El número no
+  vive en el Media Buyer: es `ads.recomendaciones_dia` de la tabla de topes de Planes (`lib/topes-plan.ts`), y se aplica
+  SÓLO al Esencial que MaKo cobra por la pasarela (`esEsencialDe`). Tres cosas que no eran obvias: el cupo se mira ANTES de
+  escribir las variaciones (si no, la IA del negocio escribe textos de propuestas que no se van a guardar); el piloto se
+  niega en UNA puerta (`guardarConfig`) y la corrida lanza con el modo que VALE (`modoEfectivo`), porque un negocio que baja
+  de Pro a Esencial queda con `modo = 'piloto'` guardado; y con el cupo lleno entra primero lo que cuida la plata (Stop
+  Loss, Calidad, Sunsetting) y no lo que la sube. ⚠️ **El candado de la tab le gana al cupo:** `NAV_SOLO_PRO`
+  (lib/plan-esencial-reglas.ts) todavía tiene 'ads-manager', así que el Esencial de la pasarela rebota a
+  /no-esta-en-tu-plan y nunca ve sus 2 recomendaciones. Es de Planes (avisado al Cerebro el 25/10).
+
 **Sin hacer, con su archivo:** la primera conexión de Zernio y la prueba real en la cuenta de MaKo (relevo:
-`docs/relevo/media-buyer.md`); el video con hook nuevo FILMADO (hoy las variaciones de hook salen como texto sobre el
-mismo video; filmar depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); `validate_only` antes de
+`docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y
+«hooks al video»; `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 

@@ -149,6 +149,21 @@ export function makeThumbDeUrl(url: string): Promise<string | null> {
  * dice si Meta todavía lo procesa. Quien llama lo pasa a su bandeja TAL CUAL —nunca un
  * `processing: false` escrito a mano— y, si es true, espera con esperarVideoListo.
  */
+/**
+ * SÓLO la subida al staging (la URL firmada y el PUT con progreso), sin pasar por Meta: la usa el Media Buyer, que publica
+ * por la Zernio del negocio (lib/media-buyer/subir.ts) y le da a Zernio la URL firmada del archivo.
+ */
+export async function subirAlStaging(file: File, onProgress: (pct: number) => void): Promise<{ path: string }> {
+  const tope = limiteCreativo(file);
+  if (tope) throw new Error(tope);
+  const s = await fetch('/api/ads-manager/creative-signurl', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ filename: file.name, content_type: file.type }) });
+  const sj = await s.json().catch(() => null);
+  if (!sj?.ok || typeof sj.path !== 'string') throw new Error(sj?.error || 'No se pudo preparar la subida');
+  await putWithProgress(sj.signedUrl, file, sj.apikey ?? null, onProgress);
+  onProgress(100);
+  return { path: sj.path };
+}
+
 export async function subirCreativo(file: File, onProgress: (pct: number) => void): Promise<SubidoCreativo> {
   const tope = limiteCreativo(file);
   if (tope) throw new Error(tope);
