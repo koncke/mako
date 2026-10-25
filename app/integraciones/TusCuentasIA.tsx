@@ -366,19 +366,19 @@ function ClavesDeApi({ esAdmin, onElegir }: { esAdmin: boolean; onElegir: (ia: I
     const contenido = (
       <>
         <SvcIcon k={c.key} size={13} box={22} radius={6} />
-        <span className="tci-clave__nombre">{nombreDeClave(c.key)}</span>
-        {st && <span className="tci-clave__estado" data-conectada={st.conectada || undefined}>{st.conectada ? 'Conectada' : 'Sin conectar'}</span>}
+        <span className="tci-api__nombre">{nombreDeClave(c.key)}</span>
+        {st && <span className="tci-api__estado" data-conectada={st.conectada || undefined}>{st.conectada ? 'Conectada' : 'Sin conectar'}</span>}
       </>
     );
-    if (!esAdmin) return <div key={c.key} className="tci-clave" role="listitem">{contenido}</div>;
-    if (c.ia) return <button key={c.key} type="button" className="tci-clave" role="listitem" onClick={() => onElegir(c.ia!)}>{contenido}</button>;
-    return <BotonIntegracion key={c.key} servicio={c.key} className="tci-clave" onConectado={() => void leer()}>{contenido}</BotonIntegracion>;
+    if (!esAdmin) return <div key={c.key} className="tci-api" role="listitem">{contenido}</div>;
+    if (c.ia) return <button key={c.key} type="button" className="tci-api" role="listitem" onClick={() => onElegir(c.ia!)}>{contenido}</button>;
+    return <BotonIntegracion key={c.key} servicio={c.key} className="tci-api" onConectado={() => void leer()}>{contenido}</BotonIntegracion>;
   };
   return (
     <section className="tci-bloque" aria-label="Claves de API">
       <BrandDefs />
       <h3 className="tci-bloque__titulo">Claves de API</h3>
-      <div className="tci-claves" role="list">{CLAVES_API.map(fila)}</div>
+      <div className="tci-apis" role="list">{CLAVES_API.map(fila)}</div>
     </section>
   );
 }

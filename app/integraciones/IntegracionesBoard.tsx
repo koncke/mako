@@ -32,7 +32,8 @@ import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
 import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
-import { ordenCategoria } from '@/lib/integraciones-catalogo';
+import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -231,6 +232,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   const searchParams = useSearchParams();
   const [usage, setUsage] = useState<Resumen | null>(null);
   const [modal, setModal] = useState<{ t: 'svc'; key: string } | { t: 'hist' } | null>(null);
+  // Las que NO tienen tarjeta en la grilla (`oculto`: las cuatro IA, que viven en «Tus cuentas de IA», y Google Calendar,
+  // que se conecta desde Calendario) siguen abriéndose con su link: el MISMO modal que usan las demás pestañas.
+  const { abrir: abrirSuelta, modal: modalSuelto } = useConectarIntegracion();
   // La fila de controles (24/10/2026). Vive en la pantalla: no viaja en la URL (nadie la comparte).
   const [estadoF, setEstadoF] = useState<string>(TODAS);
   const [catF, setCatF] = useState<string>(TODAS);
@@ -267,9 +271,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // ese render vuelve a dejar la puerta abierta para el próximo.
     if (!abrir) { yaAbierto.current = false; return; }
     if (yaAbierto.current) return;
-    if (!integraciones.some((i) => i.key === abrir) && !SYNTHETIC[abrir]) return;
+    // `?abrir=<key>` es contrato (avisos, la API de MaKo, MaKo en WhatsApp): una integración sin tarjeta (`oculto`) no
+    // puede quedar en un link que no hace nada (25/10/2026, al sacar las IA y Google Calendar de la grilla).
+    // Groq tenía un modal sintético (SYNTHETIC): ahora está en el catálogo, y el suelto trae su estado real.
+    const enGrilla = integraciones.some((i) => i.key === abrir);
+    const oculta = !enGrilla && DEFS.some((d) => d.key === abrir && d.oculto);
+    if (!enGrilla && !oculta && !SYNTHETIC[abrir]) return;
     yaAbierto.current = true;
-    setModal({ t: 'svc', key: abrir });
+    if (oculta) abrirSuelta(abrir);
+    else setModal({ t: 'svc', key: abrir });
     // Que la tarjeta se vea (24/10/2026): sin filtros que la escondan, y fuera de lo que pliega «Mostrar más». El scroll va
     // en su efecto, detrás del render que la pone en el DOM.
     setQ(''); setCatF(TODAS); setEstadoF(TODAS);
@@ -277,7 +287,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     const q = new URLSearchParams(searchParams.toString());
     q.delete('abrir');
     router.replace(`/integraciones${q.size ? `?${q}` : ''}`, { scroll: false });
-  }, [abrir, integraciones, router, searchParams]);
+  }, [abrir, integraciones, router, searchParams, abrirSuelta]);
 
   // ── Google Calendar: "hay token" NO es "está conectado" ────────────────────
   // El server solo sabe que existe un refresh_token. Si ese token es de los VIEJOS
@@ -590,6 +600,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
 
       {/* ═══ MODALES ═══ */}
+      {modalSuelto}
       {modal?.t === 'svc' && svcByKey(modal.key) && (
         <ServicioModal
           i={svcByKey(modal.key)!}
