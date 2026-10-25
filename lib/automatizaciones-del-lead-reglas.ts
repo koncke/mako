@@ -9,6 +9,8 @@ import { idDe, claseDe, type PasoGrafo } from './flujo-grafo';
 import type { FrenoDelEnvio } from './por-que-no-sale';
 import { leerNoVolvio, ROTULO_REENTRADA, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
 import { ESTADOS_EN_CURSO, ESTADOS_QUE_SALEN } from './nutricion-inscripcion-manual';
+import { botonesDeFlujo } from './botones-social';
+export { textoEsperaToque } from './botones-social';
 
 export type { NoEntro, InformeMovimiento };
 
@@ -27,7 +29,20 @@ export type EnAutomatizacion = {
    * «No salió: fuera del horario de oficina (9 a 21, hora de Tijuana). Sale hoy 9:00.». null = nada lo frena.
    */
   frenado?: FrenoDelEnvio | null;
+  /** Está parado en un DM de Instagram o Messenger esperando que toque uno de estos botones (`botonesQueEspera`). */
+  esperaToque?: string[] | null;
 };
+
+/**
+ * ¿ESPERA QUE TOQUE UN BOTÓN? (25/10/2026, lib/botones-social.ts) Los títulos de los botones de flujo del DM en el que está, si
+ * la inscripción corre y no tiene un próximo envío: el motor la deja ahí hasta el toque (`avanceDesde`, `tocarBoton`).
+ * null = no espera un toque. Sin esto la ficha decía «Corriendo» de alguien que está quieto hasta que toque.
+ */
+export function botonesQueEspera(f: Pick<FilaInscripcion, 'estado' | 'proximo_envio_at'>, p: PasoGrafo | undefined): string[] | null {
+  if (f.estado !== 'activa' || f.proximo_envio_at || !p || claseDe(p) !== 'mensaje') return null;
+  const t = botonesDeFlujo(p).map((b) => b.titulo);
+  return t.length ? t : null;
+}
 
 /** Las inscripciones que siguen vivas: corriendo, o frenadas porque contestó. */
 export const ESTADOS_VIVOS = ['activa', 'respondio'] as const;
@@ -61,6 +76,7 @@ export function enAutomatizacionesDe(filas: readonly FilaInscripcion[], secs: re
       estado: f.estado as EnAutomatizacion['estado'], paso: i >= 0 ? { numero: i + 1, titulo: pasoEnPalabras(pasos[i], null).que } : null,
       proximoEnvioAt: f.proximo_envio_at, link: `/automations?sec=${s.id}`,
       ...(frenoDe ? { frenado: frenoDe(f, s, canalDelPaso(i >= 0 ? pasos[i] : undefined)) } : {}),
+      ...((() => { const t = botonesQueEspera(f, i >= 0 ? pasos[i] : undefined); return t ? { esperaToque: t } : {}; })()),
     });
     out.set(Number(f.lead_id), lista);
   }
@@ -216,6 +232,8 @@ export type InscripcionDelLead = {
   contesto?: string | null;
   /** Qué contestó, citado (`respuestaDelLead`). null = no se encontró el mensaje. */
   respuesta?: string | null;
+  /** Parado en un DM esperando que toque uno de estos botones (`botonesQueEspera`). null = no. */
+  esperaToque?: string[] | null;
 };
 
 export type AutomatizacionesDelLead = { zona: string; inscripciones: InscripcionDelLead[]; noEntro: NoEntro[] };
@@ -284,6 +302,7 @@ export function detalleDe(o: {
       proximo: f.estado === 'activa' && f.proximo_envio_at && i >= 0
         ? { at: f.proximo_envio_at, titulo: titulo(i), canal, que: pasoEnPalabras(pasos[i], o.nombreDelLead ?? null) } : null,
       frenado: o.frenoDe && f.estado === 'activa' ? o.frenoDe(f, s, canal) : null,
+      esperaToque: vive && i >= 0 ? botonesQueEspera(f, pasos[i]) : null,
       enviados: o.envios.filter((e) => Number(e.inscripcion_id) === Number(f.id))
         .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)).slice(0, TOPE_ENVIOS)
         .map((e) => {
