@@ -36,6 +36,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |
 | Second Brain | `Leé docs/hallazgos-second-brain.md y docs/diseno-second-brain-centro.md y seguimos desde ahí.` |
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
+| Settings (las nueve pestañas, el molde de Linear) | `Lee docs/relevo/settings.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Automations (ex Chatbot) | `Leé docs/relevo/automations.md y docs/relevo/chatbot.md y seguimos desde ahí.` (automations.md: la prospección del Sprint, 21/10) |

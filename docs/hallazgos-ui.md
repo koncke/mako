@@ -4819,3 +4819,14 @@ layout.
 (son 0,2 s).
 
 Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.
+
+**Capturas ANTES y DESPUÉS de una pantalla sin levantar la app, con los mismos datos (25/10/2026, Settings).** El banco de
+la ficha (24/10, docs/hallazgos-crm.md) arma los componentes REALES con esbuild y APIs simuladas. Para el «antes» no hace
+falta otro worktree: un plugin `onLoad` de esbuild que, para cada archivo que cambió la rama (`git diff --name-only <base>
+HEAD`), devuelve `git show <base>:<ruta>` en vez del archivo del disco, y el MISMO mock de `fetch`. Así el antes y el después
+muestran los mismos datos, y la diferencia es sólo la pantalla. Trampas: (1) un módulo de `lib/` que lee `process.env` deja
+la página EN BLANCO sin un error a la vista (en la consola: «process is not defined»); un `window.process = { env: {} }`
+antes del bundle lo destraba; (2) el CSS viejo también va por `git show` (si no, el antes sale con el CSS nuevo); (3) las
+acciones `'use server'` se cambian por stubs por nombre de archivo (`negocio-actions`, `horario-actions`…), porque el bundle
+del navegador no puede importarlas; (4) un `python` dentro de un heredoc de Bash pierde las barras invertidas (`\r?\n` llega
+como un salto de línea de verdad): el script va a un archivo con la herramienta de escribir y se corre desde ahí.
