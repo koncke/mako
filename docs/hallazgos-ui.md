@@ -61,7 +61,12 @@ cuadros un poco redondeados... Unifica ese diseño».
   y símbolos. tests/iniciales-con-emoji.test.ts barre `app/` y falla con una copia nueva hecha a mano. Quedan afuera el teléfono
   (`inicialesM`, que ya sacaba lo que no es letra) y OpenCut (código de afuera).
 
-**Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `tests/iniciales-con-emoji.test.ts`
+- ⚠️ **El mismo día salieron DOS piezas:** la ficha del CRM, por el ticket #10 (React #418: medio emoji es «�» en el HTML del
+  servidor y la hidratación tiraba la pantalla), hizo `inicialesPorLetra` en lib/iniciales.ts, con la misma regla. Ninguna
+  rama veía la otra: una estaba en tren-j y la otra no. Al juntarlas quedó una (`inicialesPorLetra` llama a ésta). Antes de
+  crear una pieza compartida, buscarla también en la rama del tren (`git grep <nombre> tren-j`), no sólo en main.
+
+**Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
 
 ## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)
 
