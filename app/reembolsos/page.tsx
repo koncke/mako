@@ -9,9 +9,9 @@
 //   · la garantía del programa grupal: DECIDIDA el 25/10/2026 por el Cerebro (Martín: «no hagas preguntas»), sobre los
 //     ENTREGABLES de la semana 1, no sobre el resultado (docs/como-venden-otros.md §6c). La frase es la de la tarjeta
 //     (`PROGRAMA_ACELERADOR.garantia`, lib/planes-mako.ts): una sola, para que /planes y esta página no se contradigan;
-//   · la garantía de los planes: DECIDIDA el 25/10/2026 por el Cerebro, 14 días en el mensual y 30 en el anual, en lugar de
-//     una prueba gratis (docs/como-venden-otros.md §6c). Antes decía «el mes ya pagado no se reembolsa». Los días salen de
-//     `GARANTIA_DIAS` (lib/planes-mako.ts), los mismos que dicen las tarjetas de /planes;
+//   · la prueba gratis de los planes: DECIDIDA por Martín el 25/10/2026 (~10:20), 7 días con la tarjeta cargada y el cobro
+//     solo el día 8, EN LUGAR de la garantía de 14/30 días que había puesto el Cerebro esa madrugada (se fue entera).
+//     Los días salen de `PRUEBA_DIAS` (lib/planes-mako.ts), los mismos que dicen las tarjetas de /planes;
 //   · darse de baja sin escribir: DECIDIDO (Estrategia, 15/10) y HECHO el mismo día: el botón «Darme de baja» de
 //     «Configuración del negocio → Tu plan» (app/configuraciones/plan), propio de MaKo para cubrir Stripe y Mercado Pago.
 //
@@ -20,7 +20,7 @@
 // así), y la razón social va en el HTML del servidor (tests/razon-social-sitio.test.ts).
 
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { GARANTIA_DIAS, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
+import { PRUEBA_DIAS, PROGRAMA_ACELERADOR, HORAS_SEMANA_1 } from '@/lib/planes-mako';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, Ojo, LegalShell } from '@/app/_legal/LegalShell';
 
@@ -51,9 +51,14 @@ export default function Page() {
       <H id="mensuales">1. Planes de MaKo (Esencial y Pro)</H>
       <ul>
         <li>
-          <strong>Garantía de {GARANTIA_DIAS.mensual} días en el plan mensual y de {GARANTIA_DIAS.anual} en el anual.</strong>{' '}
-          Si en esos días, contados desde tu primer pago, MaKo no te sirve, te devolvemos ese pago entero. La pides
-          escribiéndonos a {mail}. Vale para el primer pago de cada negocio, una vez.
+          <strong>{PRUEBA_DIAS} días gratis.</strong> Al empezar pones tu tarjeta, como en cualquier suscripción, y no se te
+          cobra nada durante {PRUEBA_DIAS} días. Si te das de baja antes del día {PRUEBA_DIAS + 1}, desde{' '}
+          <strong>Configuración del negocio → Tu plan</strong>, no se te cobra nada. Si no, el día {PRUEBA_DIAS + 1} se cobra
+          solo el primer período, y te avisamos por email dos días antes.
+        </li>
+        <li>
+          Hay <strong>una prueba por negocio</strong>, por tarjeta y por email. Durante la prueba, algunas cosas tienen tope
+          (lo que se genera con IA y lo que se descarga en masa); el resto de MaKo anda entero.
         </li>
         <li>
           El plan mensual se paga <strong>por adelantado</strong> y se renueva solo cada mes, con el mismo medio de pago,
@@ -65,8 +70,8 @@ export default function Page() {
           llega un código de baja por email.
         </li>
         <li>
-          Pasada la garantía, <strong>lo ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos de la
-          sección 3. Si te das de baja, sigues usando MaKo hasta que termina lo que pagaste.
+          Después del primer cobro, <strong>lo ya pagado no se reembolsa</strong>, ni entero ni en parte, salvo en los casos
+          de la sección 3. Si te das de baja, sigues usando MaKo hasta que termina lo que pagaste.
         </li>
       </ul>
 
