@@ -15,6 +15,8 @@ const CH = 'Centro de Operaciones';
 const ESTRATEGIA = 'Estrategia 3 cuentas';
 /** Las sesiones de esos dos chats en la app (`sesion`, lib/centro-chats.ts): el Centro junta por sesión. */
 const SESION_CH = 'local_5cc6190d-8390-4df1-b215-849f5590ee30';
+/** El chat «Ops Center» de la cuenta 5 (Ananda), desde el 24/10/2026 a la noche. */
+const SESION_OPS5 = 'local_ea6ee0d2-c89d-49d7-b9a5-7354088461a9';
 const SESION_ESTRATEGIA = 'local_94ec0e46-f987-4530-a3cc-c5c1a0bc0601';
 /** Desde el 15/10 a la noche, en la cuenta 3: el chat del Centro y el coordinador de esa cuenta. */
 const SESION_CH_3 = 'local_428051c1-0369-4df2-ae6b-bcb42f63b64b';
@@ -1600,6 +1602,136 @@ export const BITACORA: Hito[] = [
     ],
   },
   {
+    fecha: '24 oct', hora: '20:40', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Sin la app no se escribe en NINGÚN chat, y la flecha de la sidebar no la deja abierta',
+    pedido: '«Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me sigue dejando enviar mensajes... No debería. En ningun chat, no solo en Ops Center...» y «La sidebar principal en muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada, eso debería funcionar siempre...»',
+    puntos: ['Puntos 22 y 23 de los 24 de la noche (docs/feedback-24-10.md). Llegó por el Cerebro de la cuenta 5.'],
+  },
+  {
+    fecha: '24 oct', hora: '21:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Sin la app, todos los chats y cajas de MaKo dicen «Instalar MaKo»; la flecha de la sidebar la deja abierta en cualquier tab',
+    revisar: '/automations',
+    puntos: [
+      '**Sin la app** ahora se bloquean también Automations, Offer (no el onboarding), el Web Generator, el Dashboard, los editores de imagen y video, MaKo en la ficha del lead, el asesor de WhatsApp, el chat de un gráfico y las cajas de «crear» (landing, automatización, hoja). Y tu cuenta: la plataforma ya no queda afuera.',
+      '**Siguen abiertos a propósito:** la tab Chats (le escribís a tus leads), la Ticketera, tu Ops Center de super admin (va a Claude Code), el teléfono y el onboarding de un cliente nuevo.',
+      '**La sidebar:** la flecha en Automations, el Ops Center, una ventana chica o con MaKo abierto no la dejaba abierta (se plegaba al sacar el mouse). Ahora queda abierta y la próxima tab la encuentra abierta.',
+      '**Sin mirar en pantalla**: el navegador de la app sigue sin sesión.',
+    ],
+    archivos: [
+      'app/_chat/app-de-escritorio.ts, useAppDeEscritorio.tsx e InstalarMaKo.tsx · CajaPedido.tsx — `bloqueo` · api/mako/chat — `?app=1`',
+      'app/_components/Sidebar.tsx — barraFija y loQueGuardaLaFlecha',
+      'tests/app-de-escritorio-todos-los-chats.test.ts (5 roturas) y tests/sidebar-plegada-por-defecto.test.ts (3 roturas)',
+    ],
+  },
+  {
+    fecha: '24 oct', hora: '22:35', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las fotos del teléfono se leen al elegirlas, y si algo falla al mandar el aviso dice qué',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El ticket #8** («No pude subir los adjuntos: vuelve a mandarlo», desde tu Android): en el teléfono, una foto de la galería o de la cámara deja de poder leerse si la app pasa a segundo plano, y la caja recién la leía al «Firmar y mandar». Ahora la lee en el momento de elegirla.',
+      'Si igual algo falla, el aviso dice qué: «No pude leer “foto.jpg”», que se cortó la conexión, o qué contestó MaKo.',
+      '**Sin mirar en tu teléfono**: es la causa más probable por lo que dice el ticket (Android, al mandar), no la vi pasar.',
+    ],
+    archivos: ['app/admin/operaciones/leer-adjunto.ts · useCentro.ts (sumarAdjuntos) · mandar.ts', 'tests/centro-adjuntos-android.test.ts (3 roturas)'],
+    tickets: [8],
+  },
+  {
+    fecha: '24 oct', hora: '22:55', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La caja le escribe al Cerebro abierto, y el Uso dice «Ananda»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El Cerebro abierto:** con un chat abierto en varias cuentas y ninguna lista para recibir, ganaba el de más cuota libre aunque estuviera cerrado (así tus seis pedidos del 24/10 fueron al Cerebro de la cuenta 2). Ahora va al abierto.',
+      '**El Uso:** la cuenta 5 se llama «Ananda», sin la nota que traía su renglón de cuentas.tsv.',
+    ],
+    archivos: ['lib/centro-cuentas.ts — sesionAutomatica · lib/centro-titulares.ts — sinNota', 'tests/centro-cuentas.test.ts · tests/centro-cuentas-titulares.test.ts'],
+  },
+  {
+    fecha: '24 oct', hora: '20:41', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Settings: no me gusta nada, página por página, y no llega al ancho',
+    pedido: '«En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales, Tu plan", basicamente no me gusta nada de lo que hiciste... Fijate pagina por pagina como lo hacen otras apps y esfuerzate en el diseño de cada una. En mobile tampoco se ven bien... Y en desktop es como que esta cortado a la mitad, no llega al final del ancho...»',
+    puntos: ['Punto 11 de los 24 de la noche (docs/feedback-24-10.md). «Notificaciones» aparecía dos veces en el índice.'],
+  },
+  {
+    fecha: '24 oct', hora: '23:40', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Settings a todo el ancho, en dos columnas, con «Notificaciones» una sola vez',
+    revisar: '/perfil',
+    puntos: [
+      '**Copiado de Catalyst (los ajustes de Tailwind) y de la página de descargas de Linear**: cada sección con su título a la izquierda y la tarjeta a la derecha, hasta el borde de la pantalla.',
+      '**Perfil**: tu foto grande con tu nombre y tu correo arriba. **Instalar la app**: Windows y Mac con su botón, el código para el teléfono, y Chrome. **Equipo**: invitar en una línea y una fila por persona. **Identidades fiscales**: una fila por identidad con sus acciones. **Tu plan**: el plan arriba, grande, y la baja en su propia sección al final.',
+      '**Notificaciones**: una sola, con lo tuyo arriba y lo del negocio abajo.',
+      '**En el teléfono**: cada fila medía 300 px de alto y la página scrolleaba de costado; las seis entran en 390 px.',
+      '**Sin mirar en producción**: dibujado con las piezas reales y datos de ejemplo.',
+    ],
+    archivos: ['app/_ui/Ajustes.tsx y ajustes.css — el molde', 'app/perfil/* · app/equipo/EquipoView.tsx · app/configuraciones/IdentidadesFiscalesPanel.tsx · plan/PlanPanel.tsx'],
+  },
+  {
+    fecha: '24 oct', hora: '23:50', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Un nombre con emoji ya no dibuja «�» en el avatar',
+    puntos: [
+      'Lo vio el chat de Automations: con un emoji adelante («🚀 Martín»), el avatar sin foto mostraba medio emoji. Cada pantalla sacaba las iniciales a su manera; ahora es una sola pieza para toda la app, que saltea emojis y símbolos.',
+    ],
+    archivos: ['lib/unicode-seguro.ts — iniciales', 'tests/iniciales-con-emoji.test.ts (barre app/)'],
+  },
+  {
+    fecha: '24 oct', hora: '23:55', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'La app de escritorio: «MaKo» en el menú Inicio, y entrar con otra cuenta de Claude',
+    pedido: 'f03, la llamada con Leandro: «Ahí te debería dejar elegir otra cuenta, no solamente detectar la que ya está abierta».',
+    puntos: [
+      '**f02:** recién instalado no había nada que abrir. El instalador deja «MaKo» en el menú Inicio y en el escritorio: abre el Ops Center del negocio conectado, o conectar la computadora.',
+      '**f03:** la página para iniciar sesión ofrece entrar con otra cuenta de Claude (el mismo enlace, en una ventana de incógnito).',
+      '**Falta publicar:** el instalador nuevo (0.4.3) hay que compilarlo y subirlo antes de cambiar la versión que la web ofrece.',
+    ],
+    archivos: ['scripts/ia-pc/mako-pc.mjs — abrir, otraCuenta · installer/windows/mako.iss', 'tests/ia-pc-abrir.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '00:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los cursos se encuentran desde la barra: «Clients» dice que adentro están',
+    revisar: '/clients/classroom',
+    pedido: 'f31, la llamada con Leandro: «MaKo, no encuentro la sección de curso. (...) Yo pensé que Clients era algo más CRM. (...) Esto va a pasar mucho.»',
+    puntos: [
+      'La fila **Clients** lleva abajo «Clientes, cursos y comunidad».',
+      'El buscador (Ctrl K) encuentra **Classroom** con «curso», «cursos» o «clases», y **Community** con «comunidad». Antes no encontraba nada: esas dos pantallas no tienen fila y la barra no se las pasaba.',
+    ],
+    archivos: ['app/_components/nav.ts — bajada, adentro · Sidebar.tsx · lib/buscador-nav.ts', 'tests/cursos-en-la-barra.test.ts'],
+  },
+  {
+    fecha: '24 oct', hora: '20:41', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'MaKo no tiene que ser un cuadrado: unifica el diseño',
+    pedido: '«En el editor del CRM no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con cuadros un poco redondeados... Unifica ese diseño.»',
+    puntos: ['Punto 12 de los 24 de la noche. El CRM lo hizo en su ficha; aquí va el panel de la estrella, que es el mismo en todas las tabs.'],
+  },
+  {
+    fecha: '25 oct', hora: '00:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El panel de MaKo de cada tab flota, como el del Dashboard',
+    revisar: '/crm',
+    puntos: [
+      'La estrella de cada tab abre MaKo en un bloque flotante: aire con la barra y con los bordes, esquinas redondeadas y sombra, el mismo marco que el Dashboard.',
+      'En el teléfono va a pantalla completa, y la pantalla de atrás ya no se corre de costado.',
+      '**Sin mirar en producción**: dibujado con los estilos reales y datos de ejemplo, en la computadora y en un teléfono.',
+    ],
+    archivos: ['app/_chat/chat.css — .ch-tab-panel · MakoEnLaTab.tsx', 'tests/mako-en-la-tab-flota.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '00:05', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Ops Center, los Chats y el Ops Center del teléfono saltan antes de cargar',
+    puntos: [
+      'El error «Minified React error #310» de Web Generator y de /general (tickets #7 y #9) podía pasar también al abrir el Ops Center, los Chats del teléfono desde un aviso y la app del teléfono: las tres saltaban a otra pantalla mientras se dibujaba el cargando. Ahora saltan antes.',
+    ],
+    archivos: ['app/admin/operaciones/layout.tsx · app/m/chats/layout.tsx · app/m/second-brain/layout.tsx', 'lib/movil-desvio.ts — pedidoInterno · tests/redirige-antes-del-loader.test.ts'],
+  },
+  {
     fecha: '24 oct', hora: '20:30', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
     actor: 'martin', tipo: 'prompt',
     titulo: 'Entra la cuenta 5, «Ananda», y sigue con todo',
@@ -1623,5 +1755,34 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-operaciones.md — lo que costó el arranque',
       'C:/dev/cerebro-herramientas/capturas-24-10/ — las 11 capturas de los 24 puntos (fuera del repo)',
     ],
+  },
+  {
+    fecha: '24 oct', hora: '23:39', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Los chats que esperan mi respuesta, arriba',
+    pedido: '«el tema de los chats de MaKo cuando tienen [...] un espera tu respuesta deberían posicionarse arriba porque había muchos que estaban abajo y yo no los veo»',
+    puntos: ['Y antes, el mismo día: «Si ya aparecen los puntitos en las preguntas, no hace falta "1 de 3"».'],
+  },
+  {
+    fecha: '25 oct', hora: '02:00', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Los chats que esperan tu respuesta van primero, y las preguntas sin «1 de 3»',
+    revisar: '/admin/operaciones',
+    puntos: [
+      '**El orden de la lista:** primero los que dicen «Espera tu respuesta», después los que trabajan, después los «Completado» que no tildaste, y el resto. En la computadora y en el teléfono; un chat que espera sube con su grupo.',
+      '**Las preguntas:** sin «1 de 3» a la vista; quedan las flechas y un puntito por pregunta.',
+      '**Sin mirar en pantalla.**',
+    ],
+    archivos: ['lib/centro-chats.ts — prioridadEnLista · PiezasCentro.tsx · ChatsMovil.tsx · PreguntasDelChat.tsx', 'tests/chats-esperan-arriba.test.ts · ops-center-bloque-y-estado.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '02:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Una pregunta ya no queda «Espera tu respuesta» para siempre cuando el chat sigue en otra cuenta',
+    puntos: [
+      '**Lo que pasó:** «Ventas de MaKo» te preguntó algo en la cuenta 2 el 23/10 y siguió en la cuenta 1; la pregunta quedó esperando hasta que el Cerebro la sacó a mano. Ahora la deja atrás lo que el chat escribe en cualquiera de sus cuentas.',
+      '**Y una que se podía perder:** cuando un chat pregunta por la app de Claude y por el Ops Center a la vez, ahora siempre queda la que contestas aquí.',
+    ],
+    archivos: ['lib/centro-preguntas-chat.ts · centro-preguntas-chat-db.ts · lib/operaciones.ts · scripts/operaciones/cartero.mjs (1.18.1)', 'tests/preguntas-cadena-y-ask.test.ts'],
   },
 ];

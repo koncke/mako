@@ -18,6 +18,7 @@ import type { ApiComunidad } from './api';
 import type { AdjuntoVista, ComunidadVista, EncuestaVista, MiembroVista, VideoVista } from '@/lib/comunidad-tipos';
 import { haceCuanto, type TokenTexto } from '@/lib/comunidad-reglas';
 import { Ico } from './iconos';
+import { iniciales } from '@/lib/unicode-seguro';
 
 // ── El contexto ──────────────────────────────────────────────────────────────────
 
@@ -57,8 +58,6 @@ export { Ico } from './iconos';
 
 // ── La cara: avatar con la insignia de nivel (abajo a la derecha, como Skool) ────
 
-const iniciales = (nombre: string) =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() ?? '').join('') || '?';
 
 export function AvatarNivel({ m, size = 40, sinNivel = false }: { m: Pick<MiembroVista, 'nombre' | 'foto' | 'nivel'>; size?: number; sinNivel?: boolean }) {
   const [rota, setRota] = useState(false);

@@ -9,13 +9,11 @@
 // =============================================================================
 
 import { useState, type CSSProperties } from 'react';
+import { iniciales } from '@/lib/unicode-seguro';
 
 const sinFoto = new Set<string>(); // teléfonos sin foto (o que fallaron) → no reintentar
 
-function initials(name: string): string {
-  const parts = (name || '?').trim().split(/\s+/).filter(Boolean);
-  return (parts.length >= 2 ? `${parts[0][0]}${parts[1][0]}` : (name || '?').slice(0, 1)).toUpperCase();
-}
+const initials = (name: string): string => iniciales(name);
 
 export function Avatar({ telefono, name, size = 38 }: { telefono: string | null; name: string; size?: number }) {
   const digits = (telefono || '').replace(/\D/g, '');

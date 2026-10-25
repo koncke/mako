@@ -49,6 +49,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { useFunnelsGeneral, useTituloPropio } from '../../dashboard/ElementoGeneral';
 import { rotuloDeFunnels } from '@/lib/funnels-elegidos';
+import { iniciales as inicialesDe } from '@/lib/unicode-seguro';
 
 export const CSS_BLOQUES = `
 .gb{--gb-losa:color-mix(in srgb,var(--ink) 4.5%,transparent);--gb-losa-2:color-mix(in srgb,var(--ink) 8%,transparent);
@@ -200,4 +201,4 @@ export function diaDeSemana(fecha: string): string {
 }
 
 /** Las iniciales de un nombre (el avatar de una fila). */
-export const iniciales = (n: string): string => n.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '·';
+export const iniciales = (n: string): string => inicialesDe(n, 2, '·');

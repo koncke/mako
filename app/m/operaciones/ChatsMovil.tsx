@@ -244,10 +244,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
-  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que trabaja, después lo que espera a Martín.
-  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `centro.avisos`).
+  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que espera su respuesta (24/10/2026), después lo que trabaja,
+  // después un «Completado» sin ver (`centro.avisos` los cuenta juntos; `esperanRespuesta`, sólo las preguntas, las mismas del
+  // renglón de cada fila: lib/centro-chats.ts → prioridadEnLista).
   const avisos = centro.avisos;
-  const secciones = useMemo(() => seccionesDeChats(chats, avisos), [chats, avisos]);
+  const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  const secciones = useMemo(() => seccionesDeChats(chats, avisos, esperanRespuesta), [chats, avisos, esperanRespuesta]);
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
   //    su «‹», como Renombrar: en el teléfono nunca hay dos hojas) ──────────────────────────────────────────────────

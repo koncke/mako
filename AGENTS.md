@@ -6748,7 +6748,7 @@ Preguntá con `cartero preguntar` y terminá el turno: se contesta desde el Ops 
 tocó las opciones y no pasó nada, escribió la respuesta a mano y ese mensaje quedó en «escrito» porque el turno estaba trabado:
 «Intenté responder esa pregunta en mobile y no funcionó... Está fallando». Desde el teléfono una pregunta así NO tiene respuesta
 posible: la app de Claude está en la computadora.
-Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una, con «1 de 3».
+Con varias decisiones, un archivo por decisión (uno tras otro): Martín las ve juntas y las contesta de a una: un puntito por pregunta y las flechas ‹ › (sin «1 de 3» a la vista desde el 24/10/2026).
 Un ejemplo, con su recomendada (el índice desde 0) y el detalle de lo que pasa con cada una:
 
 ```json

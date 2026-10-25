@@ -86,7 +86,7 @@ export async function fotoCentroAction(): Promise<FotoCentro> {
 export async function pedidosDelChatAction(ids: string[]): Promise<{ ok: true; pedidos: PedidoP[] } | { ok: false; error: string }> {
   const admin = await getSesionAdmin();
   if (!puedeOperar(admin, await wsSuperAdmin())) return { ok: false, error: NO_PUEDE };
-  if (!Array.isArray(ids)) return { ok: false, error: 'Faltan los pedidos.' };
+  if (!Array.isArray(ids)) return { ok: false, error: 'Faltan los trabajos.' };
   const pedir = new Set(ids.filter((x): x is string => typeof x === 'string').slice(0, TOPE_PEDIDOS_POR_LECTURA));
   try {
     return { ok: true, pedidos: pedidosDelCentro(areasDeProgreso(), Date.now()).filter((p) => pedir.has(p.id)) };

@@ -169,6 +169,24 @@ export function urlReescrita(destino: string, searchOriginal: string): string {
 }
 
 /**
+ * Lo que recibe la página de /m que sirve un pedido: su ruta interna y su query, YA reescritas (25/10/2026, React #310). En un
+ * teléfono el proxy sirve la URL de escritorio (/chats, /second-brain) con la página de /m (`urlReescrita`), pero los headers
+ * de la ruta y la query (lib/pedido-actual.ts) dicen lo que pidió el NAVEGADOR. Un layout de /m que redirige antes del loader
+ * tiene que decidir con lo mismo que su página: esto lo traduce igual que el proxy. null = no es una pantalla de /m (o el pedido
+ * no pasó por el proxy): el layout no hace nada.
+ */
+export function pedidoInterno(ruta: string | null, search: string): { ruta: string; search: string } | null {
+  if (!ruta) return null;
+  const p = ruta.replace(/\/+$/, '') || '/';
+  const s = search.replace(/^\?/, '');
+  if (esRutaMovil(p)) return { ruta: p, search: s };
+  const d = decidirDesvio(p, s);
+  if (d.tipo !== 'movil') return null;
+  const [interna, q = ''] = urlReescrita(d.destino, s).split('?');
+  return { ruta: interna, search: q };
+}
+
+/**
  * ¿Se desvía ESTE request? El interruptor y un teléfono sin «Versión completa». Nadie más queda afuera.
  *
  * ⚠️ EL ADMIN GLOBAL SIN CLIENTE TAMBIÉN SE DESVÍA, a SU negocio (`wsPropioMovil`). La versión del

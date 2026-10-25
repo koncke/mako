@@ -21,6 +21,7 @@ import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -78,6 +79,8 @@ export function WhatsAppAdvisor({
   // Chat
   const [chat, setChat] = useState<Msg[]>([]);
   const [input, setInput] = useState('');
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   const [pensando, setPensando] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -135,7 +138,7 @@ export function WhatsAppAdvisor({
 
   const enviarChat = async (texto?: string) => {
     const txt = (texto ?? input).trim();
-    if (!txt || pensando) return;
+    if (!txt || pensando || appEscritorio.bloqueada) return;
     setInput(''); setChatError(null);
     setChat((c) => [...c, { role: 'user', content: txt }]);
     setPensando(true);
@@ -274,7 +277,7 @@ export function WhatsAppAdvisor({
             {/* La caja única (app/_chat/CajaChat.tsx): el «+», los emojis y el micrófono que dicta. */}
             <div className="co-caja">
               <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando}
-                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda />
+                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} />
             </div>
           </div>
         </div>

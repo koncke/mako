@@ -162,9 +162,11 @@ export function ListaCentro({ centro: k, visibles, actual, buscando, onElegir }:
   // elimínalo»): una sola lista, y lo que trabaja o espera una respuesta arriba.
   const [plegadas, setPlegadas] = useState<Set<string>>(() => new Set());
   const [enteras, setEnteras] = useState<Set<string>>(new Set());
-  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`).
+  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `k.avisos`). Y PRIMERO lo que espera
+  // su respuesta, antes de lo que trabaja (24/10/2026: `prioridadEnLista`): las preguntas solas, las del renglón de la fila.
   const { avisos } = k;
-  const secciones = useMemo(() => seccionesDeChats(visibles, avisos), [visibles, avisos]);
+  const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, k.esperas), [k.esperas]);
+  const secciones = useMemo(() => seccionesDeChats(visibles, avisos, esperanRespuesta), [visibles, avisos, esperanRespuesta]);
   const fila = (c: ChatCentro, sub: boolean) => <FilaCentro key={c.clave} centro={k} c={c} sub={sub} actual={actual === c.clave} onElegir={onElegir} />;
   // Sin ningún Runner dando vueltas, lo de abajo es una foto: se dice desde cuándo, en vez de mostrarlos «quietos».
   const sinNoticias = sinNoticiasDesde(k.carteros, k.ahora);

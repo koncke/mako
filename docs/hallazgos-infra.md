@@ -225,12 +225,11 @@ página con `redirect(` debajo de un `loading.tsx`, sin que el layout de la carp
 **El arreglo:** `app/web-generator/layout.tsx` redirige las tres (`redireccionDelLayout`, panel-reglas.ts, con test); las
 páginas conservan su redirect para cuando se llega navegando.
 
-⚠️ **Lo que quedó así, de otras tabs (el test las tiene en una lista de conocidas):** app/admin/operaciones/page.tsx,
-app/crm/revisar/page.tsx, app/crm/revisar/[id]/page.tsx, app/crm/[id]/resumen/page.tsx, app/m/chats/page.tsx y
-app/m/second-brain/page.tsx redirigen debajo de un loader. Algunas lo harán sólo en un caso raro (sin sesión, sin
-permiso); cada una se revisa en su chat y, si redirige en una carga normal, pasa la redirección a su layout y sale de la
-lista. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista (si no, una regresión
-suya pasaría callada). Los tres dashboards salieron el 25/10 (la entrada de abajo).
+⚠️ **La lista de conocidas quedó VACÍA (25/10):** las páginas de otras tabs que redirigían debajo de un loader pasaron la
+redirección (y su puerta) a su layout: los tres dashboards (la entrada de abajo), /admin/operaciones, /m/chats y
+/m/second-brain (la entrada que sigue: en /m hay una trampa) y las del CRM; las que deciden por ruta están en
+`DECIDEN_POR_RUTA` con su test. Desde el 25/10 el test falla también si una conocida YA tiene su layout y sigue en la lista
+(si no, una regresión suya pasaría callada).
 
 **No se midió en producción:** la pestaña del Chrome de Martín no respondió (24/10). Para medirlo:
 `fetch('/web-generator?ws=10', { redirect: 'manual' })` da `200 basic` con el redirect en el stream, y `opaqueredirect`
@@ -267,6 +266,35 @@ app/m/dashboard/layout.tsx · app/m/dashboard/redireccion.ts · tests/redirige-a
 *25/10/2026, chat «Automations» (claude5).*
 
 *24/10/2026, chat «Landings» (claude5).*
+
+## En /m, la ruta del header es la del NAVEGADOR: un layout de /m no puede compararla con `/m/…` (25/10/2026, #310)
+
+**Por qué importaba:** /admin/operaciones, /m/chats y /m/second-brain estaban en la lista de conocidas del barrido de arriba.
+/m/second-brain es por donde ENTRA la app del teléfono, y a /m/chats llegan los avisos y MaKo por WhatsApp con un link
+profundo: cargas directas, justo las que se rompen.
+
+**La trampa:** `pedidoActual` (el molde) da la ruta que pidió el NAVEGADOR (`HEADER_RUTA` es `req.nextUrl.pathname`). En un
+teléfono el proxy sirve `/chats` con la página de `/m/chats` (un rewrite), así que el header dice `/chats`: un layout que
+compara con `/m/chats` no redirige NUNCA, y no da ningún error. La query tampoco es la de la página: el rewrite le suma la
+suya (`urlReescrita`), y `/chats?c=ig:5` no es la lista sino el chat `/m/chats/ig%3A5`. Un layout de /m usa
+`pedidoMovilActual` (lib/pedido-actual.ts), que traduce como el proxy (`pedidoInterno`, lib/movil-desvio.ts, con test).
+
+**El arreglo:** el layout de la carpeta de cada loader, con las condiciones COPIADAS de la página (el test exige que estén
+iguales en los dos): app/admin/operaciones/layout.tsx (sin sesión de admin, o con el `?ws=` de un cliente),
+app/m/chats/layout.tsx (los links profundos, sólo en la lista: el layout envuelve también a cada chat) y
+app/m/second-brain/layout.tsx (el Mapa, y el super admin a su Centro; sólo en el chat: envuelve también al Mapa).
+
+**Ojo, sin arreglar:** `requireMovil` también redirige (login, onboarding, la tab que no le toca) y lo llama cada página de /m
+debajo de su loader. El barrido no lo ve porque busca `redirect(` en el archivo de la página. Los dos layouts nuevos lo llaman
+primero, así que ahí sale antes del loader; en el resto de /m sigue igual (lib/movil-guard.ts).
+**La puerta va para TODA la carpeta del loader, no sólo para la ruta que redirige** (lo vio Landings, cuyo guard cuenta las
+puertas): el loader de /m/chats envuelve también a cada chat, así que `requireMovil({ navKey: 'chats' })` va primero y sin
+mirar la ruta; y el Mapa, debajo del loader de /m/second-brain, pasa por OTRA puerta (`second-brain`, no `mako`), que su
+layout repite en esa ruta.
+
+**Sin medir en producción** (la receta, en la entrada de arriba).
+
+*25/10/2026, chat «Ops Center» (claude5).*
 
 ## Una ruta /api releía la sesión 19 a 61 veces POR PEDIDO: el `cache()` de React no memoiza fuera de un render (23/10/2026)
 

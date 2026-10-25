@@ -19,8 +19,9 @@ export default async function EquipoPage() {
   await requireRolWs([], { nav: 'configuraciones' });
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'equipo')} activa="equipo">
-      <TituloAjustes titulo="Equipo" bajada={<>Suma a tu equipo y decide qué ve cada uno. El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</>} />
-      <EquipoView />
+      {/* Qué ve cada rol va en la línea de la sección «Tu equipo» (EquipoView), donde se elige (25/10/2026). */}
+      <TituloAjustes titulo="Equipo" bajada="Quién trabaja en tu negocio y qué ve cada uno." />
+      <EquipoView roles={<>El <b>Closer</b> ve CRM, WhatsApp y la hoja Closing del Dashboard; el <b>Setter</b> ve CRM, WhatsApp, Email, Automations y la hoja Chat Analyst del Dashboard; el <b>Admin</b> ve todo tu negocio.</>} />
     </AjustesPagina>
   );
 }

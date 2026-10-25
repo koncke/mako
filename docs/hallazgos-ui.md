@@ -12,6 +12,95 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Un alias del buscador que apunta a una key que la barra no le pasa no encuentra nada, sin error (25/10/2026, f31)
+
+Leandro (la llamada de Fathom, f31): «MaKo, no encuentro la sección de curso... Yo pensé que Clients era algo más CRM». Buscó
+en Web Generator y en Offer antes de dar con Clients.
+
+- **El diagnóstico obvio era «falta el alias»: estaba.** `lib/buscador-nav.ts` tenía `curso: 'cs-curso'` y `comunidad:
+  'cs-comunidad'` desde el 17/10. Pero `buscarDestinos` resuelve un alias contra la LISTA que recibe, y la barra
+  (Sidebar.tsx → `<BuscadorNav destinos=…>`) arma esa lista con las filas y sus `secciones`: Classroom y Community son
+  sub-tabs de Clients SIN fila (nav.ts → `SIN_FILA`), así que nunca estaban. El alias no encontraba nada y no se quejaba.
+- **La regla:** una pantalla de adentro de una tab sin barra de secciones se nombra en la fila con `adentro: [keys]`, y la
+  barra se las pasa al buscador (con `puedeVer`, como todo). Un alias nuevo se prueba contra la lista COMO LA ARMA LA BARRA
+  (tests/cursos-en-la-barra.test.ts), no contra `TODOS_LOS_ITEMS`.
+- **Cuando el nombre no dice lo que hay adentro**, la fila lleva `bajada` (una línea chica, «Clientes, cursos y comunidad»),
+  que el buscador también lee. Es una fila más alta: sólo donde la confusión ya pasó.
+
+**Vive en:** `app/_components/nav.ts` (`bajada`, `adentro`) · `app/_components/Sidebar.tsx` (`NavLink`, el `BuscadorNav`) ·
+`lib/buscador-nav.ts` · `app/_ui/ui.css` (`.mk-navrow__bajada`)
+
+## El panel de MaKo de cada tab flota, y en el teléfono la tab NO se corre: si no, el panel se estira con la página (25/10/2026)
+
+Martín (24/10, punto 12): «no me gusta que MaKo sea un cuadrado, cuando ya lo venimos haciendo tipo bloque flotante con
+cuadros un poco redondeados... Unifica ese diseño».
+
+- **El marco es UNO: el de `.an`** (el panel de MaKo del Dashboard, app/dashboard/PanelAnalista.tsx): 12 px de aire, bordes de
+  14, el filete y `0 18px 44px rgba(18,21,27,.18)`. Lo copiaron la ficha del CRM (`.fb-mako-panel`) y la estrella de cada tab
+  (`.ch-tab-panel`, app/_chat/chat.css); tests/mako-en-la-tab-flota.test.ts compara el de la estrella con el de `.an`. Un panel
+  de MaKo nuevo copia ese marco, no inventa otro.
+- **Con aire, la tab tiene que dejarle el panel MÁS su aire** (`LUGAR_PANEL` = 440 + 2 × 12 en `--ancho-panel-mako`); si no, el
+  contenido queda 12 px debajo del panel.
+- **Trampa (medida, no supuesta): en el teléfono, `--ancho-panel-mako` corría la tab fuera de la pantalla.** La página pasaba a
+  scrollear de costado, y un `position: fixed` con `left: 0; right: 0` se estira con ese ancho: el panel medía 630 px en una
+  pantalla de 390. En el teléfono el panel tapa todo, así que la variable vale 0 ahí (`html { --ancho-panel-mako: 0px
+  !important; }`: el `!important` de una hoja le gana a una variable puesta en línea). Se mide con `scrollWidth` en un teléfono
+  emulado de verdad (CDP); el Edge sin ventana tiene un ancho mínimo de ~500 px y miente.
+
+**Vive en:** `app/_chat/chat.css` (`.ch-tab-panel`) · `app/_chat/MakoEnLaTab.tsx` (`AIRE_PANEL`, `LUGAR_PANEL`) ·
+`tests/mako-en-la-tab-flota.test.ts`
+
+## Las iniciales de un avatar con medio emoji: diecisiete copias de `w[0]` (25/10/2026)
+
+- **Síntoma** (lo vio Automations): un nombre que empieza con un emoji («🚀 Martín») dibujaba «�M» en el avatar.
+- **Causa:** cada pantalla tenía su copia de «las iniciales» (el Avatar de la casa, la barra dos veces, la Marca, los avisos, la
+  comunidad, los cursos, el equipo, la ficha del super admin, el Dropdown, General, Cobranza, el avatar de WhatsApp, la ventana de
+  Chats, MiFoto, el Perfil, el Plan y la bandeja de email), y todas tomaban `w[0]`, `charAt(0)` o `slice(0, 1)`: la primera
+  UNIDAD UTF-16, que en un emoji es su primera mitad. Es el mismo error de `slice` que tumbó los avisos del ws13 (lib/unicode-seguro.ts).
+- **Regla:** las iniciales salen de `iniciales` (lib/unicode-seguro.ts): la primera letra o número de cada palabra, saltando emojis
+  y símbolos. tests/iniciales-con-emoji.test.ts barre `app/` y falla con una copia nueva hecha a mano. Quedan afuera el teléfono
+  (`inicialesM`, que ya sacaba lo que no es letra) y OpenCut (código de afuera).
+
+- ⚠️ **El mismo día salieron DOS piezas:** la ficha del CRM, por el ticket #10 (React #418: medio emoji es «�» en el HTML del
+  servidor y la hidratación tiraba la pantalla), hizo `inicialesPorLetra` en lib/iniciales.ts, con la misma regla. Ninguna
+  rama veía la otra: una estaba en tren-j y la otra no. Al juntarlas quedó una (`inicialesPorLetra` llama a ésta). Antes de
+  crear una pieza compartida, buscarla también en la rama del tren (`git grep <nombre> tren-j`), no sólo en main.
+
+**Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
+
+## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)
+
+Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones, Identidades fiscales,
+Tu plan"... Fijate pagina por pagina como lo hacen otras apps... En mobile tampoco se ven bien... Y en desktop es como que esta
+cortado a la mitad, no llega al final del ancho».
+
+- **Copiado de dos referencias abiertas y miradas ese día:** los ajustes de Catalyst (Tailwind, catalyst-demo.tailwindui.com/settings)
+  y la página de descargas de Linear (linear.app/download). Las dos usan secciones de DOS COLUMNAS: su título y para qué sirve a la
+  izquierda, la tarjeta a la derecha, separadas por una línea. Así el ancho entero trabaja. El de shadcn/ui (forms) se descartó:
+  también corta el formulario a 2/3, que es lo que Martín marcó.
+- **El cambio es del molde, no de cada página:** `.aj-cuerpo` sin el `max-width: 720px` y `GrupoAjustes` con la tarjeta adentro de
+  `.aj-grupo-caja` (dos columnas desde 1100 px; abajo, una debajo de la otra). Una lista con columnas (los miembros del equipo) va
+  `ancha`: el título arriba y la tarjeta entera. Lo que dibujaba su propia caja con estilos sueltos (Equipo, Identidades fiscales,
+  Notificaciones) pasó a usar las piezas del molde: si no, quedaba a todo el ancho y fuera de la grilla.
+- **«Notificaciones» estaba DOS veces en el índice**, una por grupo, y las dos se marcaban a la vez (las dos con `activa=
+  "notificaciones"`). Ahora es una, en «Tu cuenta», con lo del negocio abajo para quien lo administra (`#negocio`), y
+  /configuraciones/notificaciones redirige ahí. Un test exige que ningún nombre ni clave se repita en el índice.
+- **Trampa 1 (el teléfono «no se ve bien»): `flex: 1 1 220px` en una fila que pasa a COLUMNA es su ALTO.** El detalle de cada fila
+  medía 220 px de alto en el teléfono: «Nombre» arriba, un hueco, y el valor 200 px más abajo. Era de antes. En columna, `flex: none`.
+- **Trampa 2: el índice de chips ensanchaba la página.** `.aj` tenía `align-items: flex-start` también en el teléfono: el índice
+  (que se desliza) tomaba su ancho entero, 1215 px, y toda la página scrolleaba de costado con el texto cortado. Con `stretch` mide
+  la pantalla y se desliza adentro. Se MIDE así: `scrollWidth === clientWidth` en un teléfono emulado de verdad (CDP, la receta de
+  «Una captura de teléfono»), las seis páginas a 390 px.
+- **Trampa 3: dos interruptores al lado de un nombre no entran en 390 px.** En la computadora, una grilla compartida (las columnas
+  quietas); en el teléfono, la fila es flex y los interruptores bajan debajo del nombre. La fila es `display: contents` arriba de
+  1100 px para que sus celdas sigan en la grilla.
+- **Sin mirar en producción:** se dibujó con las piezas reales y datos de ejemplo (el arnés de esbuild de «Ver una pantalla de
+  cliente sin levantar la app»). Falta recorrerlo con la sesión de Martín.
+
+**Vive en:** `app/_ui/Ajustes.tsx` (`GrupoAjustes`, `ApartadoAjustes`) · `app/_ui/ajustes.css` · `app/perfil/InformacionPersonal.tsx` ·
+`app/perfil/NotificacionesPanel.tsx` · `app/perfil/instalar/InstalarApp.tsx` · `app/equipo/EquipoView.tsx` ·
+`app/configuraciones/IdentidadesFiscalesPanel.tsx` · `app/configuraciones/plan/PlanPanel.tsx` · `tests/ajustes-cuenta-negocio.test.ts`
+
 ## Un `<aside>` que flota con aire: la regla de la barra le fuerza el alto, y con la alerta de la voz SOLA no lo baja (25/10/2026)
 
 **Vive en:** la regla `[data-barra-agencia] aside, [data-alerta-voz] aside[data-sidebar]` (app/globals.css) · el panel de MaKo
@@ -4679,7 +4768,7 @@ AvisoArriba de NotificationsProvider) usan `app/_ui/descartar.tsx`: la ✕, arra
 - **La regla:** un aviso nuevo esparce `useDeslizarParaCerrar(onCerrar).props` en su caja y su temporizador es
   `setTimeout(esperarPausa(cerrar), ms)`; nunca `setTimeout(() => setX(null))` (lo fija tests/avisos-se-cierran.test.ts).
 
-## La sidebar plegada por defecto: cambiar un default pide clave nueva y primer cuadro nuevo (24/10/2026)
+## La sidebar plegada por defecto: cambiar un default pide clave nueva, primer cuadro nuevo, y mirar quién lo LEÍA (24-25/10/2026)
 
 Martín: «en web generator, como en todas las tabs, haz que por defecto al entrar se pliegue la sidebar principal, pero no
 impidas que se vuelva a desplegar».
@@ -4688,12 +4777,25 @@ impidas que se vuelva a desplegar».
   todas las tabs) y `plegadaAca` (Ops Center, Automations, ventana chica, MaKo abierto: por visita, la flecha la abre sólo
   ahí). Web Generator va en el PRIMERO: con `RUTAS_QUE_PLIEGAN` se volvería a plegar en cada visita, que es justo lo que
   Martín pidió no impedir.
+- **El default nuevo rompió el SEGUNDO mecanismo sin tocarlo (la regresión del 25/10).** Martín: «La sidebar principal en
+  muchas tabs no funciona el botón de "desplegar" para mantenerla desplegada». `fija` era `guardada && (!plegadaAca ||
+  abiertaAca)`: el pliegue temporal SUPONÍA que lo guardado era «si» (lo era por defecto). Con lo guardado en «no» para casi
+  todos, la flecha en Automations, el Ops Center, una ventana de menos de 1200 px o con MaKo abierto abría `abiertaAca`, y
+  `fija` seguía en false: se veía abierta mientras el cursor estaba encima y se plegaba al salir. El diagnóstico obvio
+  («la flecha no guarda») era a medias: guardaba bien fuera de esas pantallas. **Regla:** donde la barra se pliega sola manda
+  lo que hizo la flecha en esa visita (`barraFija`), y desplegarla se guarda SIEMPRE (`loQueGuardaLaFlecha`); plegarla en una
+  de esas pantallas es de ese rato. Al cambiar un default, buscá quién lo leía con un `&&`.
+  - **Lo que queda a propósito:** en una ventana de menos de 1200 px, al RECARGAR, la barra vuelve a arrancar plegada aunque
+    esté guardada abierta (el corte del 21/10, para que no se rompa todo lo de la derecha). Navegando entre tabs se mantiene.
 - **Un default nuevo con la clave vieja no lo ve quien ya tocó la flecha** (tenía «si» guardado). Como el 20/10 con las
   secciones, la clave cambia y todos arrancan plegados una vez.
 - **El `useState` inicial es el primer cuadro.** Con `useState(true)` y el default en plegada, cada carga dibujaba la barra
   abierta y la plegaba al montar. Va `useState(false)`; el salto queda sólo para quien la fijó abierta.
 - **Sin hacer:** mirar en producción cada tab con la barra plegada. El navegador de la app no tiene sesión y el Chrome no
   estaba conectado; el rail es el mismo que ya veía quien la plegaba, y a 934 y 1027 px (21/10) daba 0 desbordes.
+
+**Vive en:** `app/_components/Sidebar.tsx` (`leerFija`, `barraFija`, `loQueGuardaLaFlecha`, `plegadaAca`) ·
+`tests/sidebar-plegada-por-defecto.test.ts` (el recorrido de una persona: Automations → CRM → MaKo abierto y cerrado).
 
 ## La criatura «se escondía detrás» de la barra desplegada (24/10/2026, f34)
 

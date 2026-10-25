@@ -66,19 +66,50 @@ export function TituloAjustes({ titulo, bajada, volver }: { titulo: string; baja
   );
 }
 
-/** Una tarjeta: título y una línea arriba, y adentro filas o un formulario. */
-export function GrupoAjustes({ titulo, descripcion, children, pie }: { titulo?: string; descripcion?: ReactNode; children?: ReactNode; pie?: ReactNode }) {
+/**
+ * Una sección: su título y una línea, y la TARJETA con las filas o el formulario (`.aj-grupo-caja`).
+ * EN DOS COLUMNAS EN LA COMPUTADORA (25/10/2026, Martín: «en desktop es como que esta cortado a la mitad, no llega al final del
+ * ancho»): el título a la izquierda y la tarjeta a la derecha, separadas por una línea de la sección de arriba, como los ajustes de
+ * Catalyst (Tailwind) y la página de descargas de Linear, abiertas y miradas ese día. Así el ancho entero trabaja y no queda un
+ * tercio vacío. Sin título, la tarjeta igual va en la columna de la derecha (todo alineado). En una ventana angosta y en el
+ * teléfono, una debajo de la otra (ajustes.css).
+ */
+export function GrupoAjustes({ titulo, descripcion, children, pie, ancha }: {
+  titulo?: string; descripcion?: ReactNode; children?: ReactNode; pie?: ReactNode;
+  /** Una lista que necesita el ancho (los miembros del equipo, con sus columnas): el título arriba y la tarjeta entera, como las
+   *  tablas de Catalyst. */
+  ancha?: boolean;
+}) {
+  const cab = !!(titulo || descripcion);
   return (
-    <section className="aj-grupo">
-      {(titulo || descripcion) && (
+    <section className="aj-grupo" data-sin-cab={cab ? undefined : 'true'} data-ancha={ancha || undefined}>
+      {cab && (
         <div className="aj-grupo-cab">
           {titulo && <h2>{titulo}</h2>}
           {descripcion && <p>{descripcion}</p>}
         </div>
       )}
-      {children}
-      {pie && <div className="aj-grupo-pie">{pie}</div>}
+      {(children || pie) && (
+        <div className="aj-grupo-caja">
+          {children}
+          {pie && <div className="aj-grupo-pie">{pie}</div>}
+        </div>
+      )}
     </section>
+  );
+}
+
+/**
+ * Un APARTADO de la página: un título como el de la página, más chico, que junta las secciones que siguen (25/10/2026: en
+ * Notificaciones, «Los avisos del negocio» debajo de los tuyos). Con `id`, un link lo abre ahí (`#negocio`).
+ */
+export function ApartadoAjustes({ id, titulo, bajada, children }: { id?: string; titulo: string; bajada?: ReactNode; children: ReactNode }) {
+  return (
+    <div id={id} className="aj-apartado">
+      <h2 className="aj-apartado-titulo">{titulo}</h2>
+      {bajada && <p className="aj-bajada">{bajada}</p>}
+      {children}
+    </div>
   );
 }
 

@@ -61,8 +61,14 @@ export async function leerAbiertas(): Promise<Record<string, number>> {
   }
 }
 
-/** Guarda lo que subió una vuelta. Devuelve los ids que ENTRARON (la PC borra sólo esos: el molde de `cierresIds`). */
-export async function guardarPreguntas(preguntas: readonly PreguntaChat[]): Promise<string[]> {
+/** Las sesiones de la cadena de `local` (la suya incluida; sin cadena, sólo ella), las que tienen una clave en la base. */
+const deLaCadena = (local: string, cadena?: ReadonlyMap<string, readonly string[]>): string[] =>
+  [...new Set([local, ...(cadena?.get(local) ?? [])])].filter((l) => DESTINO_RE.test(l)).slice(0, 12);
+
+/** Guarda lo que subió una vuelta. Devuelve los ids que ENTRARON (la PC borra sólo esos: el molde de `cierresIds`).
+ *  `cadena` (lib/centro-chats.ts → cadenasDeSesiones): una pregunta se supera también con los turnos de las otras sesiones de
+ *  su chat (25/10/2026). */
+export async function guardarPreguntas(preguntas: readonly PreguntaChat[], cadena?: ReadonlyMap<string, readonly string[]>): Promise<string[]> {
   const porChat = new Map<string, PreguntaChat[]>();
   for (const p of preguntas) porChat.set(p.local, [...(porChat.get(p.local) ?? []), p]);
   if (!porChat.size) return [];
@@ -72,10 +78,11 @@ export async function guardarPreguntas(preguntas: readonly PreguntaChat[]): Prom
     const escritas = new Map<string, PreguntaChat[]>();
     for (const [local, nuevas] of porChat) {
       const antes = lista(parsear(await getSettingEstricto(PREFIJO + local)));
-      // Con los turnos del chat: una de wrap_up que llega cuando Martín ya contestó en la app entra superada.
-      const turnos = sanearTurnos(parsear(await getSetting(PREFIJO_TURNOS + local)));
+      // Con los turnos del chat (los de todas sus sesiones): una de wrap_up que llega cuando Martín ya contestó en la app entra
+      // superada.
+      const turnos = (await Promise.all(deLaCadena(local, cadena).map(async (l) => sanearTurnos(parsear(await getSetting(PREFIJO_TURNOS + l)))))).flat();
       // Y ANTES de unir: una de wrap_up que ya quedó atrás no frena a la misma pregunta hecha de nuevo (revisión de la ola 1).
-      const juntas = superarPreguntas(unirPreguntas(superarPreguntas(antes, turnos), nuevas), turnos);
+      const juntas = superarPreguntas(unirPreguntas(superarPreguntas(antes, turnos, cadena), nuevas), turnos, cadena);
       await setSetting(PREFIJO + local, JSON.stringify(juntas));
       escritas.set(local, juntas);
       entraron.push(...nuevas.map((p) => p.id));
@@ -101,17 +108,20 @@ export async function leerPreguntas(locales: readonly string[]): Promise<Pregunt
 /**
  * Con los turnos NUEVOS de una vuelta: las preguntas de wrap_up que quedaron atrás se marcan superadas (Martín contestó en
  * la app, en la caja o por Remote Control). Lo llama `guardarTurnos`. Lee estricto: si no puede leer, no escribe.
+ * Con `cadena`, también las de las OTRAS sesiones de cada chat (25/10/2026): la pregunta de la cuenta 2 que la conversación
+ * dejó atrás en la cuenta 1 (`superarPreguntas`).
  */
-export async function superarConTurnos(turnos: readonly TurnoQueSupera[]): Promise<void> {
+export async function superarConTurnos(turnos: readonly TurnoQueSupera[], cadena?: ReadonlyMap<string, readonly string[]>): Promise<void> {
   // `el` también (cartero 1.18.0): lo que el chat escribe después de un AskUserQuestion la deja atrás (superarPreguntas).
-  const locales = [...new Set(turnos.filter((t) => t.rol === 'yo' || t.rol === 'otro' || t.rol === 'el').map((t) => t.local))].filter((l) => DESTINO_RE.test(l));
+  const quienes = [...new Set(turnos.filter((t) => t.rol === 'yo' || t.rol === 'otro' || t.rol === 'el').map((t) => t.local))].filter((l) => DESTINO_RE.test(l));
+  const locales = [...new Set(quienes.flatMap((l) => deLaCadena(l, cadena)))];
   if (!locales.length) return;
   const ws = await wsSuperAdmin();
   await runWithWorkspace(ws, async () => {
     const escritas = new Map<string, PreguntaChat[]>();
     for (const local of locales) {
       const actuales = lista(parsear(await getSettingEstricto(PREFIJO + local)));
-      const superadas = superarPreguntas(actuales, turnos);
+      const superadas = superarPreguntas(actuales, turnos, cadena);
       if (superadas === actuales) continue;
       await setSetting(PREFIJO + local, JSON.stringify(superadas));
       escritas.set(local, superadas);

@@ -81,7 +81,9 @@ const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] 
   { key: 'general', label: 'General', href: '/configuraciones', icono: 'configurar', descripcion: 'A qué hora escribe MaKo y qué entra al tablero.', si: 'general' },
   { key: 'equipo', label: 'Equipo', href: '/equipo', icono: 'equipo', descripcion: 'Quién trabaja en tu negocio y qué ve cada uno.' },
   { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'link', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
-  { key: 'notificaciones', label: 'Notificaciones', href: '/configuraciones/notificaciones', icono: 'avisar', descripcion: 'A quién le avisa MaKo del negocio.' },
+  // «Notificaciones» del negocio SALIÓ del índice el 25/10/2026 (Martín la vio DOS veces, «Perfil, Notificaciones, Instalar App,
+  // Equipo, Notificaciones...»): a quién le avisa MaKo lo del negocio vive en la de «Tu cuenta», abajo, para quien administra.
+  // /configuraciones/notificaciones redirige ahí (los avisos viejos con `?tab=notif` caen en esa ruta).
   { key: 'fiscal', label: 'Identidades fiscales', href: '/configuraciones/fiscal', icono: 'dinero', descripcion: 'Los datos con los que facturas, y en qué moneda.' },
   // El botón «Darme de baja», como todo SaaS (15/10/2026): /reembolsos y /terminos remiten acá.
   { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },

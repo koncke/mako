@@ -14,6 +14,7 @@
 
 import type { EtapaChat, IdentidadCanal, MensajeChat } from '@/lib/chats-tipos';
 import { LINEA_CANAL_MAKO } from '@/lib/chats-reglas';
+import { iniciales } from '@/lib/unicode-seguro';
 
 // ── Fechas ───────────────────────────────────────────────────────────────────────────────────
 // A mano y no con Intl: el «p. m.» de es-MX sale con espacios finos distintos según el motor
@@ -422,11 +423,10 @@ export function guardarBorradorLocal(st: Almacen | null, ws: number | null, clav
 
 // ── Avatares ─────────────────────────────────────────────────────────────────────────────────
 
-/** Las iniciales de un nombre («Mandy R» → «MR»). Sin nombre, ''. */
+/** Las iniciales de un nombre («Mandy R» → «MR»). Sin nombre, ''. Con la pieza de toda la app: un contacto de WhatsApp que
+ *  empieza con un emoji («🌸 María») dibujaba medio emoji (lib/unicode-seguro.ts → iniciales, 25/10/2026). */
 export function inicialesDe(nombre: string): string {
-  const p = (nombre ?? '').trim().split(/\s+/).filter(Boolean);
-  if (!p.length) return '';
-  return (p.length >= 2 ? `${p[0][0]}${p[1][0]}` : p[0].slice(0, 1)).toUpperCase();
+  return iniciales(nombre, 2, '');
 }
 
 /**

@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  SECCIONES_CUENTA, TITULO_CUENTA, conLaQuery, rutaDeTabVieja, seccionesCuenta, seccionesNegocio,
+  SECCIONES_CUENTA, TITULO_CUENTA, conLaQuery, gruposAjustes, rutaDeTabVieja, seccionesCuenta, seccionesNegocio,
 } from '../lib/ajustes-secciones';
 import { detalleDeUrl, estadoGeneral, filasDeAcceso, filasDeDispositivos, type EstadoSeguridad } from '../app/perfil/seguridad/reglas';
 import { rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
@@ -34,9 +34,10 @@ test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   // 24/10/2026 (Martín): «Perfil primero en lugar de Información personal» y «Elimina la tab de Tus cuentas de IA».
   assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Perfil', 'Seguridad', 'Notificaciones', 'Instalar la app']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
-  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Notificaciones', 'Identidades fiscales', 'Tu plan', 'Método']);
+  // «Notificaciones» del negocio salió del índice el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta», abajo.
+  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Método']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
-  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'notificaciones', 'fiscal', 'plan']);
+  assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'fiscal', 'plan']);
   // En el workspace de la PLATAFORMA no hay «Tu plan»: la plataforma no tiene un plan de MaKo (15/10/2026).
   assert.ok(!seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
   // Mirando a un cliente, «Tu cuenta» muestra su perfil; lo tuyo sólo si es donde estás parado.
@@ -138,3 +139,20 @@ test('el menú de la foto: dos lugares, e Integraciones es una sección del nego
 //   ítem sin `soloSeccion`) · el teléfono titulado «Perfil» · Integraciones con `maxDuration = 60`.
 // ⚠️ La rotura del orden se armó mal la primera vez y dio VERDE (8/0): movía el redirect viejo justo
 // antes del de la entrada por defecto, o sea al orden correcto. Rehecha poniéndolo después: 7/1.
+
+test('«Notificaciones» UNA vez: ningún nombre se repite en el índice, y la del negocio vive en la de tu cuenta (25/10/2026)', () => {
+  // Martín: «En settings no me gusta el diseño de "Perfil, Notificaciones, Instalar App, Equipo, Notificaciones..."»: estaba dos
+  // veces, una por grupo, y las dos se marcaban a la vez.
+  const indice = gruposAjustes(SECCIONES_CUENTA, seccionesNegocio(TODAS)).flatMap((g) => g.secciones);
+  const nombres = indice.map((s) => s.label);
+  assert.deepEqual(nombres.filter((n, i) => nombres.indexOf(n) !== i), [], 'un nombre repetido en el índice');
+  const claves = indice.map((s) => s.key);
+  assert.deepEqual(claves.filter((k, i) => claves.indexOf(k) !== i), [], 'dos secciones con la misma clave se marcan juntas');
+  // La página de tu cuenta muestra lo del negocio a quien lo administra, en `#negocio`.
+  const cuenta = sinComentarios(leer('app/perfil/notificaciones/page.tsx'));
+  assert.match(cuenta, /const admin = rol === 'admin';/);
+  assert.match(cuenta, /\{admin && \(\s*<ApartadoAjustes id="negocio"[\s\S]*?<NotificacionesPanel parte="negocio" \/>/);
+  // Y la ruta vieja (ahí caen los avisos con `?tab=notif`) redirige ahí, con el `?ws=` del cliente, después del guard del negocio.
+  const vieja = sinComentarios(leer('app/configuraciones/notificaciones/page.tsx'));
+  assert.match(vieja, /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);\s*redirect\(`\$\{conLaQuery\('\/perfil\/notificaciones', await searchParams\)\}#negocio`\);/);
+});
