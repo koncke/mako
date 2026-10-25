@@ -104,16 +104,23 @@ test('«Editar» abre el chat de MaKo en modo edición, con la hoja abierta; sal
   assert.match(chat, /if \(edicion\) fd\.append\('edicion', JSON\.stringify\(edicion\)\);/, 'con un archivo, también');
 });
 
-test('el «⋯»: «Exportar (PDF)» imprime la ficha como se ve, y la guía de edición tiene dónde apuntar', () => {
+test('el «⋯»: «Exportar PDF» imprime la ficha como se ve, y la guía de edición tiene dónde apuntar', () => {
   const ficha = sinComentarios(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'));
-  assert.match(ficha, /\{ value: 'pdf', label: 'Exportar \(PDF\)', icono: 'descargar' \}/);
-  assert.match(ficha, /\.\.\.\(puede \? \[\{ value: 'guia', label: 'Guía de edición'/, 'la guía es de quien edita');
+  // Desde el 24/10/2026 el «⋯» abre el menú de la ficha (./menu-contextual-ficha.ts).
+  const menu = sinComentarios(leer('app/crm/lead-view/ficha/menu-contextual-ficha.ts'));
+  assert.match(menu, /exportar_pdf: \{ texto: 'Exportar PDF', icono: 'descargar' \}/);
+  assert.match(menu, /\.\.\.\(c\.puedeEditar \? \['guia' as const\] : \[\]\),/, 'la guía es de quien edita');
+  assert.match(ficha, /case 'exportar_pdf': exportarPdf\(\); return;/);
   assert.match(ficha, /closest<HTMLElement>\('\[data-ficha-ruta\], \[role="dialog"\]'\)/, 'se imprime la ficha, no la página de atrás');
   const imp = leer('app/crm/lead-view/ficha/imprimir-ficha.ts');
   assert.match(imp, /querySelectorAll\('link\[rel="stylesheet"\], style'\)/, 'la copia lleva las hojas de estilo de la página');
   assert.match(imp, /\.fb-personalizar, \.lt-accion, \[aria-label="Más opciones de la ficha"\]/, 'los botones no salen en el papel');
-  // «Nueva hoja» y el menú de una hoja llevan la clase que el papel esconde.
-  assert.equal([...sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx')).matchAll(/className="lt-(?:tab-mas|nueva-tab) lt-accion"/g)].length, 2);
+  // «Nueva hoja» (en la fila, en el medidor y adentro de «Ver más») lleva la clase que el papel esconde; la flechita de la
+  // tab se fue el 24/10/2026 (su menú es el «⋯»).
+  const lt = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
+  assert.equal([...lt.matchAll(/className="lt-nueva-tab lt-accion"/g)].length, 2, 'la de la fila y la del medidor');
+  assert.match(lt, /className="fb-opcion lt-accion" onClick=\{\(\) => \{ setVerMas\(null\); onNueva\(\); \}\}/, 'la de adentro de «Ver más»');
+  assert.doesNotMatch(lt, /lt-tab-mas/, 'volvió la flechita de la tab');
   // Cada paso de la guía apunta a algo que la pantalla marca.
   const pantalla = ['app/crm/lead-view/ficha/FichaPorBloques.tsx', 'app/crm/lead-view/LeadTabs.tsx', 'app/crm/lead-view/ficha/Armador.tsx'].map(leer).join('\n');
   for (const p of PASOS_FICHA_EDICION) assert.ok(pantalla.includes(`data-recorrido="${p.objetivo}"`) || pantalla.includes(`'${p.objetivo}'`), `el paso «${p.titulo}» no tiene a qué apuntar (${p.objetivo})`);

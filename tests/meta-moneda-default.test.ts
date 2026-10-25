@@ -28,9 +28,10 @@ const LECTORES = [
   '../lib/meta-health.ts',
   '../lib/meta-ads-create.ts',
   '../app/api/meta-health/route.ts',
-  '../app/ads-manager/AgregarConjuntoModal.tsx',
-  '../app/ads-manager/NuevaCampanaModal.tsx',
-  '../app/ads-manager/CampanasBrowser.tsx',
+  // 25/10/2026: la réplica de Meta Ads Manager se borró; los que leen la moneda ahora son los del Media Buyer.
+  '../lib/media-buyer/senales.ts',
+  '../lib/media-buyer/datos.ts',
+  '../app/ads-manager/mb-modelo.ts',
 ];
 
 test('el default es uno y es una moneda de verdad', () => {

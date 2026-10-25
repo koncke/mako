@@ -36,7 +36,8 @@ const gate = leer('app/_components/MakoConfirmGate.tsx');
 const ruta = leer('app/api/datos-sin-marcar-count/route.ts');
 
 test('revisar abre la ficha del lead EN EL LUGAR, con el «Ver» de sus datos abierto', () => {
-  assert.match(gate, /fetch\('\/api\/datos-sin-marcar-count\?lista=1'\)/);
+  // Con el CRM del tablero desde el 24/10/2026 (tests/a-revisar-por-crm.test.ts).
+  assert.match(gate, /fetch\(`\/api\/datos-sin-marcar-count\?lista=1\$\{crmDelTablero/);
   const ini = gate.indexOf('{filas.map(');
   const filas = gate.slice(ini, gate.indexOf('{verMas && ignorados.map(', ini));
   assert.ok(filas.length > 200, 'no encontré las filas');
@@ -65,11 +66,11 @@ test('la ficha se carga recién al abrirla: el panel está en TODAS las páginas
 
 test('el endpoint da la lista sólo si se la piden, y con tope', () => {
   // El Sidebar lo pide en cada página para el número: sin `?lista=1` no viajan nombres.
-  assert.match(ruta, /if \(new URL\(req\.url\)\.searchParams\.get\('lista'\) === '1'\) \{/);
+  assert.match(ruta, /if \(sp\.get\('lista'\) === '1'\) \{/);
   // UN corte, el de los leads: cada lead es una fila, con todos sus datos adentro (hasta el
   // 13/10/2026 eran dos, porque cada dato era una fila).
   // El tope se aplica en filasPorLead (lib/a-revisar-filas.ts, con test que lo ejecuta), por LEAD.
-  assert.match(ruta, /filasPorLead\(items \?\? \[\], TOPE_LISTA\)/, 'la lista perdió su tope');
+  assert.match(ruta, /filasPorLead\(items, TOPE_LISTA\)/, 'la lista perdió su tope');
   assert.match(ruta, /const TOPE_LISTA = 12;/);
   assert.match(ruta, /return Response\.json\(\{ total \}\);/);
 });

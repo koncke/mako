@@ -21,11 +21,13 @@
 import { requireRolWs } from '@/lib/tab-access';
 import { Pagina } from '@/app/_ui';
 import { hoyEnWorkspace } from '@/lib/timezone';
-import { leerCalendario, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
-import { esVistaCalendario, rangoDeVista } from '@/lib/calendario-modelo';
+import { leerCalendario, leerLlamadasDeVenta, leerTareasConFecha, zonaDelCalendario, type LecturaCalendario } from '@/lib/calendario';
+import { DIAS_ADELANTE_LLAMADAS, DIAS_ATRAS_LLAMADAS, type LlamadaDeVenta } from '@/lib/calendario-llamadas';
+import { esVistaCalendario, rangoDeVista, sumarDias, type ItemCalendario } from '@/lib/calendario-modelo';
 import { getEstadoTab, marcarPasoTab } from '@/lib/tab-onboarding-state';
 import { googleCalendarConectado } from '@/lib/google-calendar';
 import { CalendarioApp } from './CalendarioApp';
+import { ListaLlamadas } from './ListaLlamadas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -34,6 +36,23 @@ export default async function CalendarioPage({ searchParams }: { searchParams: P
   await requireRolWs([], { nav: 'calendario' });
   const sp = await searchParams;
   const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+  // «Llamadas» (24/10/2026, la llamada con Leandro, f07): la lista de citas de venta del CRM y las tareas del Plan con fecha
+  // (./ListaLlamadas.tsx, copiada del «Appointment List View» de HighLevel). Lee una ventana fija, no la de una vista, y
+  // nada de Google: lo que muestra es de MaKo.
+  if (sp?.vista === 'llamadas') {
+    const fallos: { llamadas?: boolean; tareas?: boolean } = {};
+    const [llamadas, tareas] = await Promise.all([
+      leerLlamadasDeVenta(sumarDias(hoy, -DIAS_ATRAS_LLAMADAS), sumarDias(hoy, DIAS_ADELANTE_LLAMADAS), tz)
+        .catch((e): LlamadaDeVenta[] => { console.error('[calendario] llamadas:', e instanceof Error ? e.message : e); fallos.llamadas = true; return []; }),
+      leerTareasConFecha(sumarDias(hoy, -14), sumarDias(hoy, 31), tz)
+        .catch((e): ItemCalendario[] => { console.error('[calendario] tareas:', e instanceof Error ? e.message : e); fallos.tareas = true; return []; }),
+    ]);
+    return (
+      <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <ListaLlamadas llamadas={llamadas} tareas={tareas} hoy={hoy} tz={tz} ahora={new Date().toISOString()} fallos={fallos} />
+      </Pagina>
+    );
+  }
   const pedida = sp?.vista;
   const vista = esVistaCalendario(pedida) ? pedida : 'semana';
   const fecha = typeof sp?.fecha === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(sp.fecha) ? sp.fecha : hoy;

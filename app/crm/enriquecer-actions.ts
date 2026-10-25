@@ -38,7 +38,7 @@ export async function completarFichasDeLeadsAction(p: { ids: number[]; fichas: u
 }
 
 /**
- * «Datos de empresa» sobre los tildados: con tope por corrida (`hechas`) y por día (lo cuenta el server). `soloContar`: la cuenta
+ * «Datos de empresa» sobre los tildados: con tope por día (lo cuenta el server; sin tope por corrida desde el 25/10). `soloContar`: la cuenta
  * que se muestra antes de consultar. Corta por tiempo: la barra vuelve a llamar con `hechas` y `saltear`.
  */
 export async function completarPerfilesDeLeadsAction(p: { ids: number[]; hechas?: number; saltear?: string[]; soloContar?: boolean }): Promise<ResultadoPerfiles> {

@@ -24,7 +24,7 @@ import { claveDeUsuario, idValido } from '@/lib/comunidad-reglas';
 export async function actorDelEquipo(productoIdRaw: unknown): Promise<Actor | string> {
   const sesion = await getUsuarioActual();
   if (!sesion || !(await getRolWsEfectivo())) return 'Tu sesión venció.';
-  if (!tabEnCapa('customer-success', await getCapaActual())) return 'Tu plan no incluye Customer Success.';
+  if (!tabEnCapa('customer-success', await getCapaActual())) return 'Tu plan no incluye Clients.';
   const ws = await getWorkspaceActual();
   if (!ws) return 'Abre un negocio primero.';
   const usuarioId = /^[1-9]\d{0,17}$/.test(sesion.sub ?? '') ? Number(sesion.sub) : null;

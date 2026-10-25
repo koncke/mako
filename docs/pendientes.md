@@ -1,3 +1,48 @@
+# Lo que quedó pendiente — capa del 24/10/2026 (la más nueva)
+
+<sub>Abajo sigue la foto del 17/10, que no se tocó. **Esta capa es la que vale hoy**: lo de abajo puede estar hecho.
+Los pedidos de Martín del 24/10, textuales, están en [`feedback-24-10.md`](feedback-24-10.md).</sub>
+
+**`main` = `59d228ea1`, verificado en producción el 24/10 ~23:00 ART.**
+
+## Trabado esperando a Martín (nadie puede avanzar sin esto)
+
+| # | Qué | Por qué traba |
+|---|---|---|
+| M1 | **La sesión de MaKo en el navegador de la app** (`Ctrl+Shift+B` → «Continuar con Google») | **Tres chats parados.** Sin sesión no se verifica nada en pantalla y el login es suyo |
+| M3 | **Aplicar a Paddle y a Creem** el mismo día | Sin pasarela no hay cobro en línea. **Stripe no es opción: Argentina no es país habilitado** |
+| M5 | **Mauricio:** el redirect del Payment Link con `{CHECKOUT_SESSION_ID}` | Su página de venta ya está restaurada; falta eso |
+
+## Sin hacer, con dueño
+
+| # | Qué | Dónde vive | Origen |
+|---|---|---|---|
+| P2 | **Los 6 pedidos trabados** (le llegaron al Cerebro de la cuenta 2, cerrado): los dos del dictado, CERRADOS (arreglados en 9b5cc7e76); «Sí, y que la criatura vea la hoja» → Automations; ticket #8 (adjuntos del Ops Center) y las opciones que no se tocan en el teléfono → Ops Center; tickets #5 y #6 (MaKo no le contesta a Mauricio) → el Cerebro verifica si la red de plataforma del 24/10 ya lo resuelve | repartidos el 24/10 por la cuenta 5 | 20 puntos, #7 |
+| P3 | **Login en el navegador de la app + app de escritorio con todas las tabs + Mac y Linux** | Instalador | 20 puntos, #10 |
+| P4 | **El contenido de cada sección de Settings** (Perfil, Seguridad, Notificaciones) | Ops Center | 20 puntos, #9 (a medias) |
+| P5 | **El clic derecho en los 11 chats embebidos y en el lienzo del editor.** Es UNA pieza (`HiloMako`), no once: relevo escrito, sin implementar | Landings | editor web, #2 |
+| P6 | **Sacar los datos personales de `vsl_events.landing_url`** (`?name=`/`?email=` en claro) y avisarle a la agencia de Código Inmobiliario | Ventas (apagado) | 6 puntos, #2 |
+| P7 | **El cartero como servicio de escritorio** | `docs/diseno-cartero-servicio.md` | 20 puntos, #16 |
+| P8 | **El recolector del Second Brain** | `docs/diseno-second-brain-recolector.md` | 20 puntos, #17 |
+| P11 | **Verificar que el aviso de «cuenta de anuncios frenada por falta de pago»** llegue al grupo | Avisos | 20 puntos, #4 |
+
+## Sin verificar en pantalla (está en producción, nadie lo miró)
+
+- La **barra única del editor web a 1280** (es la de más riesgo: entra título, guardado, Compartir, Publicar y ⋯)
+- El **«Creando…»** de los «+» del editor de etapas (se prueba en el **Cliente de Prueba**, nunca en un cliente real)
+- El **selector de funnel del teléfono**
+- Las **dos columnas** del desplegable de etapas de la ficha
+- Que el **403 esté arreglado desde la app desplegada** (se midió que el bloqueo es por UA y no por IP, pero no se
+  probó desde los rangos de Vercel)
+
+## Rojos en `main` sin dueño
+
+- `tests/vuelo-mako.test.ts` — `app/automations/ChatMako.tsx` perdió la criatura al unificar los chats (`d85c86611`)
+- `tests/dashboard-pedidos-chat.test.ts:129` — `PanelEditarMako`
+- `tests/paso-ia.test.ts:135` — `lib/nutricion.ts`, la guarda `if (!lead?.telefono)`
+
+---
+
 # Lo que quedó pendiente (17/10/2026 noche)
 
 Inventario de TODO lo pendiente de las implementaciones de MaKo, pedido por Martín el 17/10. La foto de la mañana (296 puntos, commit 5e77ecebb)
@@ -19,6 +64,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 
 ## Le falla a un cliente (14)
 
+- **Ads (Mauricio, ws1)** — La cuenta de anuncios «Cuenta 2» está frenada por Meta desde el 15/10 por un saldo impago de 8.743,59 MXN: la campaña 030 está activa y no entrega. _Mauricio no tiene pauta desde hace 9 días; es el 6.º episodio desde agosto_ · chico · **depende de Martín** (que Mauricio pague o cambie el medio de pago) · `docs/hallazgos-ads.md → «Un día sin filas de Meta no es "sin sincronizar"» (24/10)`
+- **Avisos** — MaKo dejó de avisarle a Mauricio de su cuenta frenada el 16/10: el techo de 3 avisos por estado se compara con la marca heredada (26). Decidir si un incidente abierto varios días vuelve a avisar (por ejemplo, una vez por día) y separar la cuenta que comparten el ws1 y el ws4. _el cliente no se entera de que no tiene pauta_ · chico · **depende de Martín** · `docs/hallazgos-comunicacion.md → «Una alerta con el techo agotado se calla…» (24/10)`
+- **Automations** — **MEDIR en producción el goteo y el reloj de las esperas** que subieron el 24/10/2026 a la tarde (629500245 + cdadbc30f, tren 43c343ebd, deploy Ready ~18:06 ART). Al subirlos no había nada que medir: las 24 inscriptas de «Sprint · apertura» (#289, Mauricio) ya tenían su M1, y lo próximo era lo agendado ANTES del deploy, que no se recalcula (los M2 desde las 21:33 ART del 24/10, cada 12 min: su ritmo no prueba nada). **Cómo:** `node --env-file=<clon>/dashboard-marketing/.env.local --conditions=react-server --import tsx scripts/medir-goteo-tras-deploy.mts` (sólo lectura, todas las automatizaciones con goteo). **Qué tiene que dar:**
+  1. la espera que queda después de cada M2 de la #289, agendada a **último mensaje + 48,00 h** exactas, sin minutos de más. Se ve desde la noche del 24/10;
+  2. la **mediana** del intervalo entre M1 nuevos, ~11 min y no 22. Antes, el mínimo «cumplía» y lo que delataba el defecto era la mediana;
+  3. que tras cada M1 nuevo la espera quede agendada en 1-2 min, no en 11 o 22: «Contestó» ya no toma turno.
+
+  Los puntos 2 y 3 necesitan M1 NUEVOS, es decir, que Mauricio mueva más leads a «Prospección activa». Si algo no da, se revierte sólo esto: la tag es `respaldo/tren-2410-noche`. Al medirlo, borrar este punto y cosechar en docs/hallazgos-chatbot.md. _si el arreglo no hace lo que dice, el segundo mensaje le llega a la gente un día tarde y la campaña sale a la mitad del ritmo_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → «Y la espera contaba desde que el motor procesaba la condición…» (24/10); scripts/medir-goteo-tras-deploy.mts`
+
 - **Automations** — El aviso «en 30 min tenés la reunión» al dueño sólo sale con Calendly: con Cal.com (Código Inmobiliario) no llega. _el cliente que agenda por Cal.com se pierde el recordatorio_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → Séptima tanda; app/api/cron/reunion-recordatorio/route.ts (recorre sólo 'calendly')`
 - **Automations** — Una automatización sin disparador se puede prender y queda callada (le pasó a Brigitte). _el cliente la ve activa y no le escribe a nadie_ · chico · se puede hacer ya · `docs/hallazgos-chatbot.md → «Las automatizaciones de Brigitte (ws15)…» (17/10)`
 - **Automations** — El disparador «Un lead escribe por WhatsApp» murió con Chatwoot, y el CRM automático no lee el número de empresa. _la automatización que espera respuesta no arranca y el CRM puede mover a «No responde» a quien sí escribió_ · medio · se puede hacer ya · `docs/relevo/avisos-y-whatsapp.md → 3.8 y decisión 5.5; docs/relevo/seguridad-aislamiento.md §2.5`
@@ -35,6 +89,15 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Video / Ads** — Montar el servidor que arma los videos (y el alta en Epidemic Sound): dos montajes de Mauricio y Leila nunca se procesaron. _el anuncio armado del cliente queda trabado_ · medio · **depende de Martín** · `docs/hallazgos-ads.md → #797; docs/hallazgos-video-pipeline.md §13`
 
 ## Plata, seguridad y envíos (42)
+
+- **CRM** — Las cuotas de la ficha (Pagos › Cuotas) de a una, sin «Armar el plan» (el plan uniforme), con el aviso cuando no
+  suman la venta: **HECHO, esperando la revisión adversarial. NO está en main.**
+  - Está en `c7ff7d7fc` (tag `respaldo/crm-diseno-t17-2410`, rama local `crm-cuotas-espera-revision` en `C:/dev/wt-crm-grupo`),
+    encima de main 59d228ea1. **No se reimplementa: se revisa y se sube.** El commit trae el código, el test (5 roturas probadas)
+    y la regla en docs/hallazgos-pagos.md.
+  - El Cerebro lo dejó para después del lanzamiento del 25/10: toca plata, y la revisión la hizo el mismo chat que lo escribió.
+  - _un plan mal armado cobra de más o de menos_ · chico · espera una revisión con agentes (otra cuenta, con RAM) ·
+    `docs/feedback-diseno-pendiente.md → «Modelo de cuotas simple en todos lados»`
 
 - **Automations** — Si la base falla, «No reprodujo el VSL» se cumple para todos y la automatización inscribe a todos los leads. _salen mensajes a quien no corresponde_ · chico · se puede hacer ya · `docs/hallazgos-crm.md → _listLeads; docs/hallazgos-chatbot.md (tercera tanda)`
 - **Automations** — Los mensajes de una secuencia no tienen candado: el cron y la vía rápida pueden mandar dos veces. _el lead recibe el mismo WhatsApp dos veces_ · medio · se puede hacer ya · `docs/hallazgos-comunicacion.md → El paso ⚡ Acción, SIN HACER`
@@ -102,7 +165,12 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Mobile** — Probar MaKo Mobile en un teléfono real (el tuyo es Android) y Chats con conversaciones de verdad; el onboarding pendiente del ws3 tapa /m. _sólo se miró en Chrome simulando un teléfono_ · chico · **depende de Martín** · `docs/relevo/mako-mobile.md → Lo que falta (Mobile 1, 2 y 3)`
 - **Ops Center** — Abrir los Runners de las cuentas 2 y 3 y darle al token de GitHub acceso al repo nuevo (da 404). _lo que se les manda queda esperando_ · chico · **depende de Martín** · `docs/hallazgos-operaciones.md → Lo que quedó sin hacer (17/10); docs/relevo/centro-operaciones.md`
 
-## Falta construir (89)
+## Falta construir (90)
+
+- **Chats de MaKo (los 11 embebidos)** — El clic derecho de un mensaje no hace nada fuera del Ops Center. Es UNA pieza: el menú vive en `MensajeWA` y sólo se prende con `ContextoWA`; los 11 chats dibujan con `HiloMako`, que no lo conecta. El arreglo es un menú mínimo (Copiar y Responder) en `HiloMako`, y llega a los 11 de una vez. Más el clic derecho en el lienzo del editor web con `MenuContextual`. Automations no lo toca (acordado). _Martín: «si le doy click derecho, no hace nada»_ · medio · se puede hacer ya · `docs/diseno-editor-web-como-automations.md §5; docs/hallazgos-operaciones.md (24/10); punta 4e1e6dbb2`
+- **Pagos** — Una venta con el Stripe propio del negocio entra como cobro externo ya pagado, con su Purchase a Meta. Diseñado y verificado contra el código; el Cerebro decidió hacerlo después del lanzamiento (toca el webhook que cobra la suscripción de MaKo). _la primera venta del Sprint de Mauricio se perdería entera_ · grande · se puede hacer ya · `docs/diseno-venta-externa-stripe.md`
+- **Ads** — El resto de «qué eventos manda MaKo a Meta»: la lectura de /stats (paso 5), el Lead del opt-in, el Schedule de Cal.com y que todo envío nuevo pase por la política. El Schedule doble ya está arreglado (5b77a50d4). · medio · se puede hacer ya · `docs/diseno-eventos-meta-por-funnel.md`
+- **Pixel (Mauricio)** — Elegir «Compra» en la página de venta del Sprint (`sprint.mauriciobustos.com`, ws1; sólo el campo `conversion`, sin aviso al grupo: decisión del Cerebro). La página ya está restaurada. · chico · se puede hacer ya · `docs/hallazgos-landing.md → «La página de venta del Sprint se pisó…» (24/10)`
 
 - **Ads Manager** — Subir un anuncio de imagen desde MaKo (hoy sólo videos). _los anuncios de imagen van por Meta a mano_ · medio · se puede hacer ya · `docs/relevo/ads-manager.md → Lo que quedó SIN hacer (falta «Usar en un anuncio» en el Image Editor: exportar el PNG y subirlo a adimages)`
 - **Ads Manager** — El Autopilot de anuncios: faltan el motor, el cron, la pantalla y la API (la base quedó a medias fuera de main). _pediste «implementalo completo»; hay que renumerar la migración_ · grande · se puede hacer ya · `docs/relevo/ads-manager.md → El Autopilot (punto 18)`
@@ -193,8 +261,20 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Ventas** — Referidos: construir atribución y comisiones, y mandar el acuerdo y los mensajes (primero Jan, Juanfran y su hermana). _está decidido y no se anunció_ · grande · **depende de Martín** · `docs/relevo/super-admin.md §5 ⑤; docs/referidos.md; docs/relevo/vender-mako-estrategia.md`
 - **Video Editor** — Decidir qué es un «formato» de video o imagen para Creaciones, los B-rolls de IA, Lottie y el montador de anuncios. _sin respuesta no se construye_ · chico · **depende de Martín** · `docs/relevo/video-editor.md (14-15/10); docs/hallazgos-creaciones.md`
 - **Web Generator** — Generar imágenes con IA por Google Flow dentro del editor. _dijiste «más tarde»; para medirlo hay que pasar tu extensión al ws3_ · grande · **depende de Martín** · `docs/relevo/landing-generator.md → Tanda 4 y 6`
+- **Settings** — El contenido de cada sección (Perfil, Seguridad, Notificaciones y las del negocio), rediseñado para que se parezca al teléfono; el molde, el índice y «Instalar la app» con las tres ya salieron (d37983cc2). _lo último del punto 9 de Martín del 24/10: «rediseñes todas esas tabs… coherencia con mobile»_ · medio · se puede hacer ya · `docs/hallazgos-ajustes.md`, rama ops-nota-de-voz-2410 (C:/dev/wt-integraciones)
 
-## Pulido (57)
+## Pulido (58)
+
+- **CRM** — Mirar EN PANTALLA, en producción, tres cosas que salieron el 24/10 (main 59d228ea1) y sólo se verificaron con tests y
+  en Chrome headless:
+  - el «Creando…» de los «+» del editor de etapas (el de arriba de Ganado y los de la banda Nutrición): crear y borrar la
+    etapa en el Cliente de Prueba, nunca en un cliente real;
+  - el selector de funnel del teléfono (sin tilde, el actual primero y en negrita);
+  - las etapas en dos columnas del desplegable de la ficha.
+  - Quedó sin mirar porque el navegador integrado no tenía sesión (la entrada es con Google, la hace Martín). Lo demás de la
+    lista del CRM sigue en docs/feedback-diseno-pendiente.md («El CRM, medido aparte»). · chico · espera la sesión
+
+- **Web Generator** — Mirar desplegado el editor como Automations: sobre todo que la barra única entre en una pantalla de 1280 con el chat abierto, y el 403 desde Vercel en el Diagnóstico y Offer. La lista entera, paso por paso. _nadie lo vio con clics_ · chico · se puede hacer ya · `docs/diseno-editor-web-como-automations.md → «Cómo se verifica en pantalla»; 7ae16876e`
 
 - **Ads Manager** — Mirar en pantalla el onboarding nuevo del Ads Manager · chico · se puede hacer ya · `docs/relevo/ads-manager.md (#801)`
 - **Agente** — Nada reporta desde una instalación real del plugin del agente (la purga de 90 días ya corre: cron diario, sólo lo vencido, con modo seco) — a medias: falta una instalación real que reporte · chico · se puede hacer ya · `docs/hallazgos-agente.md; commit a9b66a3f8`
@@ -253,6 +333,7 @@ Orden: por impacto (cliente roto > plata y riesgo > traba a Martín > traba a un
 - **Velocidad** — La app tarda: funciones y base en regiones distintas, 450 KB de más por página y arranques de 1-3 s. _el primer toque se siente lento_ · medio · **depende de Martín** · `docs/hallazgos-mobile.md (14/10)`
 - **Web Generator** — Mirar con clics las animaciones, el cuadro con modos, la ventana del lector y «otra landing para mi otro producto» · chico · **depende de Martín** · `docs/relevo/landing-generator.md → Tanda 7, 8 y Pedidos sueltos`
 - **WhatsApp** — Soltar las líneas viejas del número personal y avisar el cambio en los grupos · chico · **depende de Martín** · `memory/numero-mako-y-personal.md`
+- **Sidebar** — Mirar en pantalla, tab por tab, que la barra plegada por defecto no rompa nada (salió el 24/10, 5357515d5, sin mirarla: el navegador de la app sin sesión y el Chrome sin conectar). _el rail es el mismo de quien ya la plegaba; a 934 y 1027 px daba 0 desbordes (21/10)_ · chico · espera la sesión en el navegador de la app · `docs/hallazgos-ui.md`
 
 ## Se cerraron hoy (100): para que los revises
 

@@ -38,6 +38,13 @@ const TODAS = seccionesNegocio({ general: true, integraciones: true, metodo: tru
 
 test('cada sección con pantalla es la MISMA ruta de escritorio que dice lib/ajustes-secciones.ts', () => {
   for (const k of CLAVES) {
+    // «Notificaciones» del negocio salió del índice de la computadora el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta»
+    // (/perfil/notificaciones#negocio) y su ruta de escritorio quedó como un redirect ahí. El teléfono sigue con su pantalla.
+    if (k === 'notificaciones') {
+      assert.equal(SECCIONES_NEGOCIO_M[k], '/configuraciones/notificaciones');
+      assert.match(leer('app/configuraciones/notificaciones/page.tsx'), /redirect\(`\$\{conLaQuery\('\/perfil\/notificaciones'/);
+      continue;
+    }
     const s = TODAS.find((x) => x.key === k);
     assert.ok(s, `${k}: no es una sección de «Configuración del negocio»`);
     assert.equal(SECCIONES_NEGOCIO_M[k], s.href, `${k}: la tabla del teléfono no es la ruta de escritorio`);

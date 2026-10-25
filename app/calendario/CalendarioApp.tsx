@@ -30,6 +30,13 @@
 //     «Conectar»/«Reconectar» del aviso abre ESE modal acá, nunca navega a /integraciones; el OAuth vuelve a esta tab
 //     (`?gcal=`, `useVueltaDeGoogle`). Reemplaza a «¿Qué vas a crear hoy?», que se fue entero («eliminalo
 //     completamente»): la galería ya no se abre sola y el armado de la semana con IA no existe más.
+//   · LA ESTRELLA DE MAKO, como en las otras tabs (24/10/2026, llamada con Leandro, f08: «que ahí aparezca el tema del chat
+//     de Maco... le tenés que poder decir che Maco, movéme la reunión, agendame tal o tal»). Lo que se escribe va al Cerebro
+//     de la persona, que agenda y mueve con las herramientas del CRM y del Calendario de la API de MaKo; con una llamada o
+//     una tarea abierta, MaKo sabe de cuál se habla (`entidadDelItem`). Abierta, el calendario le deja su lugar
+//     (`--ancho-panel-mako`). La agenda de Google no pasa por la IA: lo de Google no lleva entidad.
+//   · «CALENDARIO | LLAMADAS» arriba a la derecha (24/10/2026, f07: «se ve muy como calendario de Google»): «Llamadas» es la
+//     lista de citas de venta del CRM y las tareas del Plan con fecha (./ListaLlamadas.tsx, la de HighLevel).
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
@@ -51,7 +58,9 @@ import { PlantillasSemana } from './PlantillasSemana';
 import { AgendarLlamada } from './AgendarLlamada';
 import { useConectarIntegracion, useVueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { CSS_GC } from './gc-css';
-import { COLOR_CAPA, NOMBRE_CAPA, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, visiblesPorDefecto } from './comun';
+import { COLOR_CAPA, NOMBRE_CAPA, entidadDelItem, entradaGoogle, entradaPropia, llaveDe, sinLlamadasRepetidas, visiblesPorDefecto } from './comun';
+import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
+import { PestanasCalendario } from './Pestanas';
 import { MiniMes, Flecha } from './MiniMes';
 import { VistaTiempo, type NuevoRango } from './VistaTiempo';
 import { VistaAgenda, VistaAnio, VistaMes } from './VistasLista';
@@ -302,8 +311,9 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   const nombreVista = VISTAS_CALENDARIO.find((v) => v.id === vista)?.nombre ?? 'Semana';
 
   return (
-    <div className="gc" data-calendario="">
+    <div className="gc" data-calendario="" style={{ paddingLeft: 'var(--ancho-panel-mako, 0px)' }}>
       <style>{CSS_GC}</style>
+      <MakoEnLaTab tab="Calendario" entidad={entidadDelItem(abierto?.t === 'tarjeta' ? abierto.item : null)} />
       {toast && <Toast state={toast} onClose={clear} />}
 
       {/* La barra de arriba */}
@@ -320,6 +330,7 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
         <button type="button" className="gc-ico" aria-label="Siguiente" title="Siguiente" onClick={() => ir(vista, moverFecha(vista, fecha, 1))}><Flecha dir="der" /></button>
         <h1 className="gc-titulo" data-rango="">{titulo}</h1>
         <div className="gc-derecha">
+          <PestanasCalendario activa="calendario" />
           <button type="button" className="gc-vista-boton" aria-haspopup="menu" aria-expanded={!!menuVista}
             onClick={(e) => { const r = e.currentTarget.getBoundingClientRect(); setMenuVista(menuVista ? null : r); }}>
             {nombreVista}<Flecha dir="abajo" tam={18} />

@@ -62,6 +62,12 @@ Root: HKCU; Subkey: "Software\Classes\mako\shell\open\command"; ValueType: strin
 ; Arranca sola al prender la computadora (la misma clave que el instalador de consola).
 Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "MaKo"; ValueData: """{app}\mako-pc.exe"""; Flags: uninsdeletevalue
 
+; «¿Cómo abro MaKo?» (25/10/2026, la llamada con Leandro, f02): el programa corre escondido, y sin un acceso no había nada que
+; abrir. «MaKo» en el menú Inicio y en el escritorio corre `mako-pc abrir`: MaKo en el navegador (el Ops Center, o conectar).
+[Icons]
+Name: "{userprograms}\MaKo"; Filename: "{app}\mako-pc.exe"; Parameters: "abrir"; Comment: "Abrir MaKo"
+Name: "{userdesktop}\MaKo"; Filename: "{app}\mako-pc.exe"; Parameters: "abrir"; Comment: "Abrir MaKo"
+
 [Run]
 ; Claude Code, si no está: el instalador oficial (code.claude.com/docs/en/setup), sin ventana. Lo corre el instalador, nunca la
 ; persona. A PROBAR en una computadora de verdad: la doc no dice si anda oculto.

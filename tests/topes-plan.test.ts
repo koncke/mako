@@ -18,8 +18,11 @@ test('los números de la oferta: Esencial con topes, Pro sin ellos salvo 3 líne
   assert.deepEqual(TOPES.completo, {
     'crm.funnels': 1, 'crm.leads': 2000, 'chats.lineas_whatsapp': 1, 'automations.activas': 3,
     'web.landings_publicadas': 3, 'web.dominios': 1, 'cobros.cuentas': 1, 'equipo.usuarios': 1,
+    // 25/10/2026: el media buyer de Esencial propone 2 recomendaciones por día (el Cerebro).
+    'ads.recomendaciones_dia': 2,
   });
   assert.equal(topeDe('agencia', 'crm.leads'), null);
+  assert.equal(topeDe('agencia', 'ads.recomendaciones_dia'), null);
   assert.equal(topeDe('agencia', 'chats.lineas_whatsapp'), 3);
   assert.equal(topeDe('agencia', 'equipo.usuarios'), 5);
 });

@@ -16,7 +16,10 @@ import type { CapaId } from './capas';
 
 export type Tope =
   | 'crm.funnels' | 'crm.leads' | 'chats.lineas_whatsapp' | 'automations.activas' | 'web.landings_publicadas'
-  | 'web.dominios' | 'cobros.cuentas' | 'equipo.usuarios';
+  | 'web.dominios' | 'cobros.cuentas' | 'equipo.usuarios'
+  // El media buyer con IA (25/10/2026, el Cerebro): Esencial lo tiene en modo «propone», con 2 recomendaciones por día y sin
+  // piloto automático (el cupo del plan de entrada de AdAmigo). Lo hace cumplir el chat «Media Buyer»; la vitrina lo lee acá.
+  | 'ads.recomendaciones_dia';
 
 /** null = sin tope. */
 export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope, number | null>>>> = {
@@ -24,16 +27,20 @@ export const TOPES: Readonly<Record<'completo' | 'agencia', Readonly<Record<Tope
   completo: {
     'crm.funnels': 1, 'crm.leads': 2000, 'chats.lineas_whatsapp': 1, 'automations.activas': 3,
     'web.landings_publicadas': 3, 'web.dominios': 1, 'cobros.cuentas': 1, 'equipo.usuarios': 1,
+    'ads.recomendaciones_dia': 2,
   },
   // MaKo Pro (US$97): sin esos topes, con 3 líneas y 5 usuarios.
   agencia: {
     'crm.funnels': null, 'crm.leads': null, 'chats.lineas_whatsapp': 3, 'automations.activas': null,
     'web.landings_publicadas': null, 'web.dominios': null, 'cobros.cuentas': null, 'equipo.usuarios': 5,
+    'ads.recomendaciones_dia': null,
   },
 };
 
 /** Las tabs que son SÓLO del Pro (docs/ofertas-mako.md): una capa «esencial» que las esconda es del área de capas. */
-export const TABS_SOLO_PRO = ['ads-manager', 'closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
+// 25/10/2026: 'ads-manager' salió de acá: el Media Buyer es de los dos planes y lo que separa a Pro es el piloto automático y el
+// cupo (ads.recomendaciones_dia), no la tab.
+export const TABS_SOLO_PRO = ['closing-analyst', 'image-editor', 'video-editor', 'ai-avatar'] as const;
 
 /** El tope de esa cosa para esa capa. null = sin tope (también para una capa que no es un plan: pm, superadmin). */
 export function topeDe(capa: CapaId | string, tope: Tope): number | null {

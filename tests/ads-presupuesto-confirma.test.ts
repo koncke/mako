@@ -32,8 +32,6 @@ import {
 } from '../lib/presupuesto-cambio';
 
 const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r\n/g, '\n');
-const BROWSER = 'app/ads-manager/CampanasBrowser.tsx';
-const BARRA = 'app/ads-manager/BarraAcciones.tsx';
 
 /** El fuente entre dos marcas, las dos obligatorias: un corte que no encuentra su cierre mira otra cosa. */
 function bloque(src: string, desde: string, hasta: string): string {
@@ -165,135 +163,6 @@ test('la hora de la escritura sale del header Date, no del reloj de la pestaña'
   assert.equal(horaDeEscritura('no es una fecha', 42), 42);
 });
 
-test('el árbol de Meta dice cuándo EMPEZÓ a leerse, y la tabla compara contra eso', () => {
-  const health = sinComentarios(leer('lib/meta-health.ts'));
-  // ANTES del primer pedido a Meta: `fetchedAtISO` se pone al final, y una lectura que
-  // arrancó antes de la escritura y terminó después traería el monto viejo con una hora
-  // posterior.
-  const antes = bloque(health, 'async function _getMetaHealth', 'await fetchAccountRaw()');
-  assert.match(antes, /const inicioLecturaISO = new Date\(\)\.toISOString\(\);/);
-  assert.match(bloque(health, 'recosMetaDisponibles,\n    parcial,', '};'), /inicioLecturaISO,/);
-
-  const src = sinComentarios(leer(BROWSER));
-  const opt = bloque(src, 'const optimistasQueSiguen', 'useEffect(() => { cargar(); }');
-  assert.match(opt, /Date\.parse\(h\.inicioLecturaISO \?\? ''\)/);
-  assert.match(opt, /presupuestosVigentes\(escritos\.current, reales, Number\.isFinite\(leidaDesde\) \? leidaDesde : null\)/);
-  assert.doesNotMatch(opt, /Date\.now\(\)|fetchedAtISO/, 'ni el reloj de la pestaña ni el FINAL de la lectura');
-  //   ROTO A PROPÓSITO (07/10/2026), cada una por separado: la línea de
-  //   `inicioLecturaISO` movida debajo de `fetchAccountRaw()` → pass 17 / fail 1; y
-  //   `presupuestosVigentes(escritos.current, reales, Date.now())` en la tabla → pass 17
-  //   / fail 1. Las dos caen acá.
-});
-
-test('writeBudget anota ANTES del POST, y si falla vuelve a lo que había', () => {
-  const src = sinComentarios(leer(BROWSER));
-  const wb = bloque(src, 'async function writeBudget', 'const avisarFallos');
-  const anota = wb.indexOf('escritos.current.set(id, mio);');
-  assert.ok(anota >= 0, 'falta anotar la escritura en vuelo');
-  assert.ok(anota < wb.indexOf("fetch('/api/meta-write'"), 'se anota ANTES del POST, o un cargar() en el medio la pierde');
-  assert.match(wb, /const mio: EscritoPresupuesto = \{ valor: monto, en: null \};/);
-  // Al volver OK: la hora del servidor, y el optimista repuesto.
-  assert.match(wb, /mio\.en = horaDeEscritura\(r\.headers\.get\('date'\), Date\.now\(\)\);/);
-  assert.match(wb, /if \(escritos\.current\.get\(id\) === mio\) setOpt\(id, \{ budget: monto \}\);/);
-  // Al fallar: lo de antes, no el árbol cargado.
-  assert.match(wb, /if \(previo\) \{ escritos\.current\.set\(id, previo\); setOpt\(id, \{ budget: previo\.valor \}\); \}/);
-  assert.match(wb, /if \(!j\.ok\) \{ volver\(\); return/);
-  assert.match(wb, /catch \(e\) \{ volver\(\); return/);
-  assert.doesNotMatch(wb.slice(wb.indexOf("fetch('/api/meta-write'")), /clearOpt\(id, 'budget'\)/, 'un fallo borraba el optimista sin mirar lo escrito antes');
-  //   ROTO A PROPÓSITO (07/10/2026), cada una por separado y restaurando de memoria: el
-  //   `escritos.current.set(id, mio)` movido después del `await fetch` → pass 17 / fail 1;
-  //   el `if (!j.ok)` de vuelta a `clearOpt(id, 'budget')` → pass 17 / fail 1; y sin el
-  //   `if (previo) {…}` de `volver` → pass 17 / fail 1. Las tres caen acá.
-});
-
-// ── (b) la pantalla: nada escribe sin el «sí» ─────────────────────────────
-
-test('la celda y el lote ARMAN el cartel; sólo su «sí» llama a writeBudget', () => {
-  const src = sinComentarios(leer(BROWSER));
-  const celda = bloque(src, 'onSaveBudget={', 'onStartName=');
-  assert.doesNotMatch(celda, /writeBudget/, 'el ✓ de la celda volvió a escribir directo');
-  assert.match(celda, /pedirPresupuesto\(/);
-
-  const pedir = bloque(src, 'const pedirPresupuesto', 'const bulkPresupuesto');
-  assert.doesNotMatch(pedir, /writeBudget/);
-  assert.match(pedir, /setPideBudget\(/);
-
-  const lote = bloque(src, 'const bulkPresupuesto', 'const aplicarPresupuesto');
-  assert.doesNotMatch(lote, /writeBudget/, '«Aplicar a N» volvió a escribir sin preguntar');
-  assert.match(lote, /setPideBudget\(/);
-
-  // Todos los llamados a writeBudget viven en aplicarPresupuesto…
-  const aplicar = bloque(src, 'const aplicarPresupuesto', '\n  const ');
-  const total = (src.match(/writeBudget\(/g) ?? []).length - 1; // menos la declaración
-  assert.ok(total >= 1);
-  assert.equal((aplicar.match(/writeBudget\(/g) ?? []).length, total, 'hay un writeBudget fuera de aplicarPresupuesto');
-  // …y no recarga: la caché del árbol no se entera de la escritura y no traería nada nuevo.
-  assert.doesNotMatch(aplicar, /cargar\(/);
-  // …y a aplicarPresupuesto lo llama UNA vez, el onConfirm del cartel.
-  const cartel = bloque(src, '{pideBudget && (', '{pideLote && (');
-  assert.equal((src.match(/aplicarPresupuesto\(/g) ?? []).length, 1);
-  assert.match(cartel, /onConfirm=\{[\s\S]*aplicarPresupuesto\(p\)/);
-  assert.match(cartel, /cancelLabel="No cambiar"/);
-  // Enter tiene dos caminos al mismo onConfirm: el segundo no escribe de nuevo.
-  assert.match(cartel, /if \(aplicandoBudget\.current === p\) return;/);
-  //   ROTO A PROPÓSITO (07/10/2026), cada una por separado y restaurando de memoria:
-  //   el `onSaveBudget` de vuelta a `writeBudget(...)` → pass 12 / fail 1; un
-  //   `void writeBudget(...)` adentro de bulkPresupuesto → pass 12 / fail 1; y un
-  //   `cargar(true)` en aplicarPresupuesto → pass 12 / fail 1. Las tres caen acá.
-});
-
-test('writeBudget dice si salió, y el éxito se afirma sólo con todas', () => {
-  const src = sinComentarios(leer(BROWSER));
-  assert.match(src, /async function writeBudget\([^)]*\): Promise<\{ ok: boolean; msg\?: string \}>/);
-  const aplicar = bloque(src, 'const aplicarPresupuesto', '\n  const ');
-  // Desde el 13/10/2026 con tope (lib/settled-con-tope.ts): la misma forma que allSettled.
-  assert.match(aplicar, /allSettledConTope\(p\.filas, TOPE_LOTE_META,/);
-  // La línea que DECIDE: la rama de fallo corta. Sin el `return`, «Presupuesto cambiado
-  // en N» volvía a pisar el error, que es el bug que la #349 cerró.
-  const corta = "{ avisarFallos(results, 'cambiar'); return; }";
-  assert.match(aplicar, /if \(results\.some\(\(res\) => res\.status === 'rejected' \|\| !res\.value\.ok\)\) \{ avisarFallos\(results, 'cambiar'\); return; \}/);
-  assert.ok(aplicar.indexOf(corta) < aplicar.indexOf('setToast('), 'el éxito va DESPUÉS del if que corta');
-  //   ROTO A PROPÓSITO (07/10/2026): sacando el `return` de la rama de fallo → pass 17 /
-  //   fail 1, éste. (La versión anterior de este test sólo buscaba que `avisarFallos(`
-  //   existiera, y con esa rotura daba 13 / 0: lo midió la revisión de la #349.)
-});
-
-test('la celda convierte con la moneda de la cuenta, no con el 17,30 fijo', () => {
-  const src = sinComentarios(leer(BROWSER));
-  const editor = bloque(src, 'function BudgetEditor', 'function NameEditor');
-  assert.doesNotMatch(editor, /TIPO_DE_CAMBIO_USD_MXN|17\.3/);
-  assert.match(editor, /tipeadoACuenta\(v, currency\)/);
-  assert.match(editor, /if \(v === inicial\) \{ onCancel\(\); return; \}/, 'sin cambio no hay cartel');
-  // El cartel se monta en el mismo keydown y enfoca su botón: sin el preventDefault, el
-  // keypress del Enter lo activaba.
-  assert.match(editor, /if \(e\.key === 'Enter'\) \{ e\.preventDefault\(\);/);
-  assert.doesNotMatch(src, /mxnAUsd/, 'lo que se MUESTRA también asumía pesos');
-
-  const celda = bloque(src, 'function BudgetCell', 'function BudgetEditor');
-  assert.match(celda, /editaPresupuestoAca\(r\.node, r\.level\)/, 'sin diario no hay lápiz');
-  assert.match(bloque(src, 'const bulkPresupuesto', 'const aplicarPresupuesto'), /editaPresupuestoAca\(r\.node, r\.level\)/, 'la celda y el lote con la MISMA regla');
-  //   ROTO A PROPÓSITO (07/10/2026): borrando `if (v === inicial) { onCancel(); return; }`
-  //   → pass 12 / fail 1; y el Enter de vuelta a `if (e.key === 'Enter') save();` (sin
-  //   el preventDefault) → pass 12 / fail 1. Los dos caen acá.
-});
-
-test('la barra de lote tipea en la misma unidad que la celda', () => {
-  const src = sinComentarios(leer(BARRA));
-  const panel = bloque(src, "{modo === 'presupuesto' && onPresupuesto && (", "{modo === 'producto'");
-  assert.doesNotMatch(panel, /replace\(',', '\.'\)/, '«1.500» volvía a leerse como 1,5');
-  assert.match(panel, /disabled=\{tipeadoACuenta\(monto, moneda\) == null\}/);
-  // Lo que SE MANDA, no sólo el `disabled`: el regex suelto encontraba
-  // `tipeadoACuenta(monto, moneda)` en el disabled y dejaba pasar un onClick que mandaba
-  // el número crudo (50 en vez de 865 en el ws1).
-  const click = bloque(panel, 'onClick={() =>', 'setModo(null)');
-  assert.match(click, /const m = tipeadoACuenta\(monto, moneda\); if \(m == null\) return; onPresupuesto\(m\);/);
-  assert.match(panel, /placeholder=\{`Diario, en \$\{esConvertible\(moneda\) \? 'USD' : moneda\}`\}/, 'el placeholder dice la unidad');
-  //   ROTO A PROPÓSITO (07/10/2026), con los 18 tests de hoy: el `disabled` de vuelta a
-  //   `!Number(monto.replace(',', '.'))` → pass 17 / fail 1; y `onPresupuesto(m)`
-  //   cambiado por `onPresupuesto(Number(monto))` → pass 17 / fail 1 (con el test
-  //   anterior daba 13 / 0). Los dos caen acá.
-});
-
 test('una tecla mantenida no confirma el cartel', () => {
   const src = sinComentarios(leer('app/_ui/Confirm.tsx'));
   const onKey = bloque(src, 'const onKey = (e: KeyboardEvent) => {', 'document.addEventListener');
@@ -305,29 +174,4 @@ test('una tecla mantenida no confirma el cartel', () => {
   //   ROTO A PROPÓSITO (07/10/2026): sacando la línea del `e.repeat` → pass 12 / fail 1
   //   (con los 13 tests de entonces); y dejándola sin el `return` → pass 17 / fail 1 con
   //   los 18 de hoy (con el regex anterior daba 13 / 0). Las dos caen acá.
-});
-
-test('agregar conjunto no trata «no pude leer la moneda» como «cobra en dólares»', () => {
-  const src = sinComentarios(leer('app/ads-manager/AgregarConjuntoModal.tsx'));
-  assert.doesNotMatch(src, /cuenta\?\.currency \?\? 'USD'/, 'una lectura caída escribía el monto sin convertir');
-  assert.match(src, /const moneda = cuenta\?\.currency \?\? monedaRespaldo \?\? null;/);
-  // Sin moneda no se puede crear un conjunto con presupuesto propio…
-  assert.match(src, /budgetUsd > 0 && moneda != null/);
-  assert.match(src, /usdACuenta\(budgetUsd \?\? 0, moneda\)/);
-  // …y el respaldo es la moneda del árbol que la tabla ya tiene, como en el wizard.
-  const montaje = bloque(sinComentarios(leer(BROWSER)), '<AgregarConjuntoModal', '\n');
-  assert.match(montaje, /monedaRespaldo=\{health\?\.account\.currency \?\? null\}/);
-  //   ROTO A PROPÓSITO (07/10/2026): `const moneda = cuenta?.currency ?? 'USD'` (la
-  //   regla vieja) → pass 17 / fail 1, éste.
-});
-
-test('la tabla de tasas y el aviso ×5 viven en UN lugar', () => {
-  for (const f of ['app/ads-manager/NuevaCampanaModal.tsx', 'app/ads-manager/AgregarConjuntoModal.tsx']) {
-    const codigo = sinComentarios(leer(f));
-    assert.doesNotMatch(codigo, /const (usdACuenta|TASAS_DESDE_USD|USD_MXN)\b/, `${f} volvió a copiar la tabla de tasas`);
-    assert.match(codigo, /from '@\/lib\/presupuesto-cambio'/);
-  }
-  const run = sinComentarios(leer('lib/api-mako/areas/ads.run.ts'));
-  assert.doesNotMatch(run, /dailyBudgetMxn \* 5/, 'el ×5 volvió a escribirse a mano');
-  assert.equal((run.match(/saltoPresupuesto\(monto, n\.dailyBudgetMxn\)/g) ?? []).length, 2);
 });

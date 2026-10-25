@@ -1365,3 +1365,99 @@ faltaba era DÓNDE hacer clic: los tres precios en la página de venta, con un b
 
 **Vive en:** app/vsl/PreciosLanding.tsx · app/vsl/Landing.tsx · app/planes/[plan]/QuieroPlan.tsx · lib/compra-plan.ts
 (`pedirPlanSinPasarela`, `planesParaLanding`) · lib/compra-plan-reglas.ts · tests/planes-sin-pasarela.test.ts.
+
+## Planes que venden: el lenguaje interno estaba en los DATOS, y dos ofertas que el código no tiene (24/10/2026, noche)
+
+Martín: «La sección de planes no se entiende para nada... Lo hiciste con lenguaje interno, las personas no saben que es "Ops
+Center"... Tienes que VENDER... el acompañamiento debe tener mas beneficios y verse diferencial... El personalizado tiene que
+tener un factor de PROMESA de resultados, ya no solo software». Chat «Planes», cuenta 5.
+
+- **La jerga no estaba en la pantalla: estaba en los datos** (`incluye` y `resumen` de `PLANES_MAKO_DEFAULT`, y los nombres
+  de las filas de lib/planes-comparacion.ts). Se dibujan en /planes, en la landing de venta y en /planes/<plan>; cambiar sólo la
+  vitrina dejaba la landing igual. Ahora lo que incluye dice lo que la persona CONSIGUE, con los números de `TOPES`, y la guarda
+  (`INTERNO`, tests/planes-tres-bloques.test.ts) lee el render de las dos pantallas y los datos. **Ojo:** el setting
+  `planes.mako` de la plataforma pisa los planes enteros; medido el 24/10, en producción NO hay fila. Si alguien lo carga con el
+  texto viejo, la jerga vuelve sin que ningún test lo vea (la guarda mira los de hoy).
+- **Una guarda de palabras tiene que distinguir la tab de la palabra común:** «Cobros» (la tab) no va; «tus cobros» sí. Las
+  tabs que también son palabras van con mayúscula y sin `i` (`TAB_CON_MAYUSCULA`).
+- **/planes y la landing eran dos dibujos de los mismos planes** (Vitrina.tsx y PreciosLanding.tsx, cada uno con su CSS):
+  ahora son UNA pieza (app/planes/Tarjetas.tsx). Sus clases llevan `mkpl-`: adentro de una landing del Web Generator conviven
+  con el CSS del diseño, y un nombre genérico se pisa.
+- **«El acompañamiento» es el Acelerador, y se veía como «Pro más caro»** porque la tarjeta mostraba 5 de los 9 renglones de
+  docs/ofertas-mako.md §3. Ahora va en un bloque oscuro con «Con acompañamiento» (el «Dominate» de ClickFunnels) y todo lo que
+  trae; nada nuevo inventado.
+- **«El personalizado» NO existe en el código.** La pista es la escalera de agosto: un 1 a 1 de US$4.000 al lado del grupal de
+  1.500 (docs/embudo-y-high-ticket.md, área «GTM: Oferta y precios»), que nunca entró a /planes; docs/ofertas-mako.md (23/10)
+  no lo tiene. **Resuelto el 25/10** (el Cerebro, con Martín pidiendo «no hagas preguntas»): el personalizado ES el
+  Acelerador, con promesa y garantía. Ver la entrada que sigue.
+- **La «garantía de 14 días en los planes» de docs/ofertas-mako.md contradice lo publicado:** /reembolsos dice que el mes
+  pagado no se devuelve, y la del programa es «la que acordamos contigo en la llamada». No se puso en la vitrina. Decidida el
+  25/10 (14 días el mensual, 30 el anual): cambian /reembolsos y la vitrina juntas.
+
+**Sin hacer:** «Tu plan» (app/configuraciones/plan) es del
+chat de Settings y no se tocó. **Vive en:** app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx · app/vsl/PreciosLanding.tsx ·
+lib/planes-mako.ts · lib/planes-comparacion.ts · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El Acelerador con promesa, garantía de entrega y el diagnóstico como puerta (25/10/2026)
+
+Decidido por el Cerebro sobre docs/como-venden-otros.md §6c (memoria `decisiones-venta-25-10`). Chat «Planes», cuenta 5.
+
+- **Una promesa no es una garantía, y la tarjeta tiene las dos por separado.** `PROGRAMA_ACELERADOR.promesa` es un resultado
+  con plazo («En 90 días, tu embudo andando…») y NO devuelve nada; `garantia` es sobre los ENTREGABLES de la semana 1 («si tu
+  embudo no está armado, te devolvemos la cuota»). Una garantía de resultado («si no vendes…») recién cuando haya datos para
+  medirla. La guarda lo lee en las dos frases: la promesa no puede decir devolver/garantía/plata, la garantía no puede decir
+  vender/facturar/llamadas.
+- **La garantía se escribe UNA vez.** La tarjeta y /reembolsos §2 leen la misma constante, y el test compara el render de las
+  dos. Antes /reembolsos decía «la que acordamos contigo en la llamada»: una frase suelta en cada página es cómo se terminan
+  contradiciendo.
+- **El tope de horas es un número de producto, no un dato.** `HORAS_SEMANA_1 = 10` sale del molde de Mercately (US$1.499 con
+  tope de 10 horas), no de Martín. Si él lo cambia, se cambia ahí y lo dicen la tarjeta y /reembolsos.
+- **La puerta reusa el diagnóstico de fase, no escribe otro** (`PREGUNTAS_DE_LA_PUERTA` = facturación, inversión y cuello de
+  lib/fase-diagnostico.ts): son los tramos con los que docs/embudo-y-high-ticket.md §6 califica la llamada. El test exige el
+  MISMO objeto, no una copia. Se guarda el TEXTO de la opción en el historial del lead y en el mail: un índice en el CRM no dice
+  nada, y si alguien reordena las opciones, el historial mentiría.
+- **Trampa: esos tramos dicen «$» y son dólares.** En Argentina «$3.000» se lee pesos. La puerta lo aclara arriba («con montos
+  en dólares»); el onboarding, que usa las mismas preguntas, sigue sin aclararlo (lib/fase-diagnostico.ts, área Onboarding).
+- **Un diagnóstico a medias no pierde el lead:** `diagnosticoLimpio` da null y el pedido entra igual. La puerta es para la
+  llamada, no un filtro que rebote a quien quiere comprar.
+- **El campo de WhatsApp del pedido no tenía estilo:** el CSS de /planes/<plan> cubría `type=text` y `type=email`, y el WhatsApp
+  es `type=tel`. Se veía distinto a los otros dos desde el 24/10.
+
+**Sin hacer:** la fase NO se calcula del pedido (el diagnóstico de fase pide 6 respuestas y la puerta trae 3), así que no hay
+compuerta automática «Fase 1 → no se le ofrece el programa»: la lectura es de quien hace la llamada. **Vive en:**
+lib/planes-mako.ts (`PROGRAMA_ACELERADOR`, `HORAS_SEMANA_1`) · app/planes/Tarjetas.tsx · app/reembolsos/page.tsx §2 ·
+lib/compra-plan-reglas.ts (`PREGUNTAS_DE_LA_PUERTA`, `diagnosticoLimpio`) · lib/compra-plan.ts (`pedirPlanSinPasarela`) ·
+app/planes/[plan]/QuieroPlan.tsx · tests/planes-tres-bloques.test.ts · tests/planes-sin-pasarela.test.ts.
+
+## El anual, la garantía de 14/30, los pesos y el media buyer de Esencial (25/10/2026)
+
+Decidido por el Cerebro (memoria `decisiones-venta-25-10`), sobre docs/como-venden-otros.md §6c. Chat «Planes», cuenta 5.
+
+- **El anual se muestra y SIEMPRE se pide.** El checkout cobra por mes: con pasarela, «Empezar» del anual cobraría un mes
+  creyendo vender un año. Por eso su botón es otro (`botonAnualDelPlan`, con el origen y el partner del sufijo más
+  `periodo=anual`), /planes/<plan>?periodo=anual va al pedido ANTES de mirar la pasarela, y la ruta rechaza un anual que no
+  venga como pedido (`TEXTO_ANUAL_SE_PIDE`). El pedido dice «MaKo Pro anual (US$ 970 por año)» en el historial y en el mail.
+- **El selector Mensual/Anual va sin JavaScript** (dos radios y `:has()`): las tarjetas se dibujan en /planes, que es del
+  servidor, y en el portal de la landing. Sin `:has()` se ven los dos precios, nunca ninguno. Sale sólo si TODOS los planes
+  tienen anual: uno sin anual quedaría sin precio al elegirlo.
+- **La garantía era la contradicción del 24/10, y ahora es una constante:** `GARANTIA_DIAS` (14 el mensual, 30 el anual) la
+  dicen las tarjetas, la línea de abajo, la pregunta «¿Y si no me sirve?» y /reembolsos §1, que antes decía «el mes ya pagado
+  no se reembolsa». **Decidido acá, no por el Cerebro:** vale para el primer pago de cada negocio, una vez (lo común, y frena
+  el pagar-pedir-volver a pagar); si Martín no lo quiere, es una frase de /reembolsos.
+- **Pesos sin inventar una tasa:** la línea «Desde Argentina pagas en pesos, con Mercado Pago» sale siempre; un PRECIO en pesos
+  sólo si el plan lo tiene (`precioEnPesos`, de `preciosLocales.ARS`). Hoy ningún plan lo tiene (los de código traen `{}` y en
+  producción no hay setting `planes.mako`), así que no se ve ningún número en pesos. Para mostrarlo: cargar el precio en el
+  setting, no tocar código.
+- **El media buyer de Esencial es un tope del plan** (`ads.recomendaciones_dia` en lib/topes-plan.ts: 2 en Esencial, sin tope
+  en Pro), no un número en la vitrina: la fila de la comparación y lo que incluye Esencial lo leen de ahí, y el chat «Media
+  Buyer» lo hace cumplir desde el mismo lugar. Lo de «propone, no aplica solo» va en el texto («y tú decides si las aplicas»).
+- **Trampa de test:** `renderToStaticMarkup` no escribe los atributos en el orden del JSX (el `<input>` sale `type, id, name`
+  aunque el JSX diga `type, name, id`), y el HTML crudo trae el `<style>` con los nombres de las clases: para ver si algo se
+  dibuja, mirar el texto visible, no el HTML.
+
+**Sin hacer:** NADA hace cumplir todavía las 2 recomendaciones por día: la vitrina las promete desde el tope y el que las
+cumple es el chat «Media Buyer» (lib/topes-plan.ts). El precio en pesos lo decide Martín (setting `planes.mako`). El anual se da
+de alta a mano: el checkout (`iniciarCompraDePlan`, lib/compra-plan.ts) no tiene período anual. **Vive en:** lib/planes-mako.ts (`GARANTIA_DIAS`, `MESES_GRATIS_ANUAL`,
+`precioEnPesos`) · lib/topes-plan.ts · lib/planes-comparacion.ts · app/planes/Tarjetas.tsx · app/planes/Vitrina.tsx ·
+app/planes/[plan]/page.tsx · lib/compra-plan-reglas.ts (`botonAnualDelPlan`, `TEXTO_ANUAL_SE_PIDE`) · lib/compra-plan.ts ·
+app/reembolsos/page.tsx §1 · tests/planes-tres-bloques.test.ts.

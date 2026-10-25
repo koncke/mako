@@ -80,7 +80,10 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
  */
 // `vender_plan_mako` (23/10/2026, revisión adversarial): un paso de un flujo se confirma solo, y vender un plan de MaKo lo
 // confirma el super admin. Su runner además lo rechaza desde un flujo (un paso viejo o importado).
-export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako']);
+// El Media Buyer (25/10/2026): lo que mueve plata en la cuenta de Meta lo confirma una persona o el piloto automático que el
+// negocio prendió, nunca un paso de una automatización (docs/diseno-ads-autopilot.md, «Seguridad e inquilinos»).
+export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
+  'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer']);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,

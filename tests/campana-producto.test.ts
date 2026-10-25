@@ -226,14 +226,14 @@ test('un conjunto asignado a un producto ARCHIVADO no tapa a su campaña viva', 
   assert.equal(funnelIdDeCampana(lista, { campaignId: '111111111111', adsetId: '999999999999' }, () => false).asignada, false);
 });
 
-test('el pop-up monta el selector con el principal como null, no con su id', () => {
-  // El selector del tablero abre el pop-up del principal con su id NUMÉRICO: con ese
+test('las campañas se asignan desde el «⋯» de la columna, con el principal como null, y el editor ya no las ofrece', () => {
+  // El selector del tablero abría el pop-up del principal con su id NUMÉRICO: con ese
   // número no se veían sus campañas y no se podía asignar ninguna.
-  // Desde el 12/10/2026 las campañas se asignan en el paso 2 del tipo de funnel (`SeccionFunnel`),
-  // con la MISMA tabla del «⋯» de la columna (`CampanasModal`, en línea).
-  const src = leer('app/crm/EtapasModal.tsx');
-  assert.match(src, /funnelIdCampanas=\{emb\.esDefault \|\| funnelId == null \? null : funnelId\}/);
-  assert.match(src, /<CampanasModal enLinea funnelId=\{funnelIdCampanas\}/);
+  // Del 12/10 al 24/10/2026 también se asignaban en el paso 2 del tipo de funnel del editor (`SeccionFunnel`). Martín, 24/10:
+  // «En el editor de CRM, elimina lo de "Asignar campañas", para eso ya tenemos los 3 puntos en cada columna...».
+  const src = sinComentarios(leer('app/crm/EtapasModal.tsx'));
+  assert.doesNotMatch(src, /CampanasModal|Asignar campañas|funnelIdCampanas/, 'volvieron las campañas al editor del CRM');
+  assert.match(sinComentarios(leer('app/crm/CrmBoard.tsx')), /\{campanasAbierto && \(\s*<CampanasModal\b/, 'el «⋯» de la columna dejó de abrir las campañas');
   // Y el server se defiende igual: traduce el id del principal a null antes de validar.
   const acc = sinComentarios(leer('app/crm/campanas-actions.ts'));
   assert.match(acc, /return \{ ok: true, id: f\.esDefault \? null : f\.id, real: f\.id,/);

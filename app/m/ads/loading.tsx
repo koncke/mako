@@ -5,5 +5,5 @@
 import { CargandoMako } from '@/app/_ui/CargandoMako';
 
 export default function Cargando() {
-  return <CargandoMako que="Ads Manager" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
+  return <CargandoMako que="Media Buyer" alto="calc(100dvh - var(--m-abajo, 72px) - 96px)" />;
 }

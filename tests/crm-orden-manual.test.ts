@@ -64,8 +64,10 @@ test('soltar arriba de otra: el vecino y la columna ENTERA (la pieza de Customer
   assert.deepEqual(columnaConInsercion(dibujadas, [1], antes), [4, 1, 3, 2]);
 });
 
-test('«Ordenar» ofrece Manual y la fecha de llegada', () => {
-  assert.deepEqual(Object.keys(ORDEN_KANBAN).sort(), ['llegada', 'manual']);
+// Desde el 24/10/2026 son más («estoy seguro que existen muchos otros posibles ordenamientos», Martín); los de cada uno, en
+// tests/crm-orden-columna.test.ts.
+test('«Ordenar» ofrece Manual, la llegada y los demás criterios', () => {
+  assert.deepEqual(Object.keys(ORDEN_KANBAN), ['manual', 'llegada', 'antiguos', 'nombre', 'respondio', 'monto', 'reunion', 'vence']);
 });
 
 // ── El cableado del tablero ───────────────────────────────────────────────────
@@ -86,16 +88,20 @@ test('en otra columna, el lugar se guarda recién cuando el movimiento SE HACE �
 });
 
 test('cada columna se dibuja con el criterio elegido', () => {
-  assert.match(BOARD, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\)\);/);
+  assert.match(BOARD, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\), c\.key\);/);
 });
 
 test('soltar donde ya estaba no guarda ni cambia «Ordenar»', () => {
   assert.match(BOARD, /if \(!mueve && mismaLista\(nueva, columna\)\) return;/);
 });
 
-test('⚠️ «Ordenar» se CALCULA: con algo arrastrado la base es «Manual», y vale por embudo', () => {
-  assert.match(BOARD, /const ordenBase: OrdenKanban = hayOrdenManual \? 'manual' : 'llegada';/);
-  assert.match(BOARD, /ordenElegido && ordenElegido\.funnel === funnelActivo \? ordenElegido\.valor : ordenBase/);
+// Por COLUMNA desde el 24/10/2026: la base de cada una es «Manual» si tiene algo arrastrado.
+test('⚠️ «Ordenar» se CALCULA: con algo arrastrado la base de la columna es «Manual», y vale por embudo', () => {
+  assert.match(BOARD, /const ordenBaseDe = \(etapa: string\): OrdenKanban => \(\(listaManual\(etapa\)\?\.length \?\? 0\) > 0 \? 'manual' : 'llegada'\);/);
+  assert.match(BOARD, /ordenElegido && ordenElegido\.funnel === funnelActivo \? ordenElegido\.porEtapa : \{\}/);
+  assert.match(BOARD, /const ordenDe = \(etapa: string\): OrdenKanban => ordenesDelFunnel\[etapa\] \?\? ordenBaseDe\(etapa\);/);
+  // Arrastrar en una columna la deja en «Manual» a ELLA: las otras siguen con lo suyo.
+  assert.match(BOARD, /setOrdenElegido\(\{ funnel, porEtapa: conOrdenDe\(ordenesDelFunnel, etapa, null\) \}\);/);
   assert.doesNotMatch(BOARD, /useState<OrdenKanban>/, 'un useState fijo perdería lo arrastrado en cada F5');
 });
 
@@ -103,21 +109,22 @@ test('el orden local lleva el embudo en la clave (las etapas se repiten entre em
   assert.match(BOARD, /const claveCol = \(etapa: string\) => `\$\{funnelActivo \?\? 0\}:\$\{etapa\}`;/);
 });
 
-// ── La barra: «Ordenar», su chip, y «Limpiar» vuelve a la base ────────────────
+// ── «Ordenar» vive en el «⋯» de la columna, no en «Filtrar» (24/10/2026) ──────
+// Martín: «Y ahí pon la opción de "ordenar", y la sacas de filtros, que no este ordenamientos en el botón de filtros,
+// sino que se pueda ordenar dentro de esos 3 puntos».
 
 const TOOLBAR = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
 
-test('«Ordenar» cuenta como filtro sólo si se apartó de la base, y «Limpiar» vuelve a ella', () => {
-  assert.match(TOOLBAR, /const ordenOn = !!orden && orden\.valor !== orden\.base;/);
-  assert.match(TOOLBAR, /\+ \(ordenOn \? 1 : 0\);/);
-  // El «Limpiar filtros» del menú. La fila de chips, que tenía su propio «Limpiar», se sacó el
-  // 10/10/2026 (tests/crm-filtro-ads.test.ts).
-  assert.equal((TOOLBAR.match(/orden\?\.elegir\(orden\.base\)/g) ?? []).length, 1);
+test('«Filtrar» ya no ordena: ni la categoría, ni su número, ni «Limpiar» lo toca', () => {
+  assert.doesNotMatch(TOOLBAR, /label: 'Ordenar'|ordenOn|orden\?\.elegir|OrdenFiltro/, 'volvió «Ordenar» al botón de filtros');
+  assert.doesNotMatch(BOARD, /ordenFiltro/, 'el tablero le volvió a pasar un orden a «Filtrar»');
+  // «Limpiar filtros» no toca el orden: no es un filtro (no esconde a nadie).
+  assert.match(BOARD, /const limpiarTodo = \(\) => \{ setStageFilter\(new Set\(\)\); setOriginFilter\(new Set\(\)\); setCampanaFilter\(new Set\(\)\); setCreativoFilter\(new Set\(\)\); setSearch\(''\); \};/);
 });
 
-test('el tablero le pasa «Ordenar» al menú, sólo en el kanban', () => {
-  assert.match(BOARD, /const ordenFiltro = vista === 'kanban'/);
-  assert.equal((BOARD.match(/orden=\{ordenFiltro\}/g) ?? []).length, 1);
+test('el «⋯» de cada columna ofrece «Ordenar ›» con lo que esa columna tiene, y elegir ordena ESA columna', () => {
+  assert.match(BOARD, /orden: c \? \{ opciones: ordenesDeColumna\(hayParaOrdenar\(c\.key\), ordenDe\(c\.key\)\), actual: ordenDe\(c\.key\) \} : undefined,/);
+  assert.match(BOARD, /case 'col_ordenar': if \(c && valor && valor in ORDEN_KANBAN\) elegirOrden\(c\.key, valor as OrdenKanban\); return;/);
 });
 
 // ── La base y la acción ───────────────────────────────────────────────────────

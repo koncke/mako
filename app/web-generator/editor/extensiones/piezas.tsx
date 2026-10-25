@@ -41,10 +41,10 @@ export function Ico({ n, tam = 16 }: { n: string; tam?: number }) {
 /**
  * Un panel flotante anclado a `ancla`. `lado: 'abajo'` (default) lo pone debajo y lo da vuelta
  * si no entra; `'derecha'` lo pone al costado (los menús de la columna de la sección, que vive a
- * la izquierda del módulo).
+ * la izquierda del módulo). `ancla` también puede ser un PUNTO: el del clic derecho sobre una sección (24/10/2026).
  */
 export function Flotante({ ancla, onCerrar, children, etiqueta, ancho = 240, lado = 'abajo', rol = 'dialog' }: {
-  ancla: HTMLElement;
+  ancla: HTMLElement | { x: number; y: number };
   onCerrar: () => void;
   children: ReactNode;
   etiqueta: string;
@@ -66,7 +66,7 @@ export function Flotante({ ancla, onCerrar, children, etiqueta, ancho = 240, lad
     const ubicar = () => {
       const el = ref.current;
       if (!el) return;
-      const r = ancla.getBoundingClientRect();
+      const r = 'getBoundingClientRect' in ancla ? ancla.getBoundingClientRect() : { left: ancla.x, right: ancla.x, top: ancla.y, bottom: ancla.y };
       const w = el.offsetWidth, h = el.offsetHeight;
       let top: number;
       let left: number;
@@ -94,7 +94,7 @@ export function Flotante({ ancla, onCerrar, children, etiqueta, ancho = 240, lad
   useEffect(() => {
     const fuera = (e: PointerEvent) => {
       const t = e.target as Node | null;
-      if (t && (ref.current?.contains(t) || ancla.contains(t))) return;
+      if (t && (ref.current?.contains(t) || ('contains' in ancla && ancla.contains(t)))) return;
       // Un clic adentro de OTRO panel anidado encima (un submenú) no cierra este.
       if (t instanceof Element && t.closest('.gmc-flota') && !ref.current?.contains(t)) return;
       cerrarRef.current();

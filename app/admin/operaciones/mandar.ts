@@ -18,6 +18,7 @@ import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
 import { encolarPedidoAction } from './acciones';
 import { claveDelDispositivo, crearClaveDelDispositivo, firmar, type ClaveDispositivo } from './clave-dispositivo';
+import { ERROR_SUBIDA } from './leer-adjunto';
 
 /** A quién va: la SESIÓN del chat (nunca su título: se repiten entre cuentas). */
 /** `tope`: el largo que acepta el Runner de esa cuenta (useCentro.ts → topeDe); sin él, el de siempre (MAX_TEXTO). */
@@ -89,14 +90,21 @@ export async function subirAdjuntos(
   if (grandes) return subirDirecto(archivos);
   const fallo = { ok: false as const, error: 'No pude subir los adjuntos: vuelve a mandarlo' };
   try {
-    const propios = await Promise.all(archivos.map(async (f) => ({ bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())) })));
+    // Cada falla dice la suya (ticket #8, 25/10/2026): el genérico de abajo queda para lo que no se esperaba.
+    const propios: { bytes: number; sha256: string }[] = [];
+    for (const f of archivos) {
+      try { propios.push({ bytes: f.size, sha256: hex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())) }); }
+      catch { return { ok: false, error: ERROR_SUBIDA.leer(f.name) }; }
+    }
     const fd = new FormData();
     for (const f of archivos) fd.append('adjuntos', f, f.name);
-    const r = await fetch('/api/operaciones/adjuntos', { method: 'POST', body: fd, signal: AbortSignal.timeout(120_000) });
+    let r: Response;
+    try { r = await fetch('/api/operaciones/adjuntos', { method: 'POST', body: fd, signal: AbortSignal.timeout(120_000) }); }
+    catch { return { ok: false, error: ERROR_SUBIDA.red }; }
     // El 413 de Vercel es TEXTO PLANO: se lee como texto antes de parsear.
     if (r.status === 413) return { ok: false, error: ERROR_ADJUNTO.pesado };
     let o: { ok?: boolean; error?: string; adjuntos?: AdjuntoPedido[] } = {};
-    try { o = JSON.parse(await r.text()); } catch { return fallo; }
+    try { o = JSON.parse(await r.text()); } catch { return { ok: false, error: ERROR_SUBIDA.servidor(r.status) }; }
     if (!r.ok || !o.ok) return { ok: false, error: o.error || fallo.error };
     const suyos = o.adjuntos;
     if (!Array.isArray(suyos) || suyos.length !== archivos.length) return fallo;
@@ -117,26 +125,35 @@ async function subirDirecto(archivos: readonly File[]): Promise<{ ok: true; adju
   try {
     const propios: { nombre: string; mime: MimeAdjunto; bytes: number; sha256: string }[] = [];
     for (const f of archivos) {
-      const b = new Uint8Array(await f.arrayBuffer());
+      // `<ArrayBuffer>`: crypto.subtle.digest pide un BufferSource respaldado por un ArrayBuffer, y el `Uint8Array` pelado de
+      // TypeScript 5.7+ es `<ArrayBufferLike>` (podría ser un SharedArrayBuffer): el chequeo de tipos entero lo frenaba.
+      let b: Uint8Array<ArrayBuffer>;
+      try { b = new Uint8Array(await f.arrayBuffer()); } catch { return { ok: false, error: ERROR_SUBIDA.leer(f.name) }; }
       const mime = mimeDeArchivoCentro(b, f.name);
       if (!mime || !(MIMES_ADJUNTO as readonly string[]).includes(mime)) return { ok: false, error: 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' };
       const nombre = f.name.replace(/[\u0000-\u001f]/g, '').trim().slice(0, MAX_NOMBRE_ADJUNTO) || 'adjunto';
       propios.push({ nombre, mime: mime as MimeAdjunto, bytes: b.byteLength, sha256: hex(await crypto.subtle.digest('SHA-256', b)) });
     }
-    const r = await fetch('/api/operaciones/adjuntos', {
-      method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000),
-      body: JSON.stringify({ archivos: propios.map(({ nombre, mime, bytes }) => ({ nombre, mime, bytes })) }),
-    });
+    let r: Response;
+    try {
+      r = await fetch('/api/operaciones/adjuntos', {
+        method: 'POST', headers: { 'content-type': 'application/json' }, signal: AbortSignal.timeout(30_000),
+        body: JSON.stringify({ archivos: propios.map(({ nombre, mime, bytes }) => ({ nombre, mime, bytes })) }),
+      });
+    } catch { return { ok: false, error: ERROR_SUBIDA.red }; }
     let o: { ok?: boolean; error?: string; subidas?: { ref: string; url: string }[] } = {};
-    try { o = JSON.parse(await r.text()); } catch { return fallo; }
+    try { o = JSON.parse(await r.text()); } catch { return { ok: false, error: ERROR_SUBIDA.servidor(r.status) }; }
     if (!r.ok || !o.ok || !Array.isArray(o.subidas) || o.subidas.length !== archivos.length) return { ok: false, error: o.error || fallo.error };
     const subidas = o.subidas;
     // De a uno: un minuto, más uno por cada 100 KB (un archivo grande por una conexión lenta entra).
     for (const [i, f] of archivos.entries()) {
-      const s = await fetch(subidas[i].url, {
-        method: 'PUT', body: f, headers: { 'content-type': propios[i].mime, 'x-upsert': 'false' },
-        signal: AbortSignal.timeout(60_000 + Math.ceil(f.size / 100_000) * 1000),
-      });
+      let s: Response;
+      try {
+        s = await fetch(subidas[i].url, {
+          method: 'PUT', body: f, headers: { 'content-type': propios[i].mime, 'x-upsert': 'false' },
+          signal: AbortSignal.timeout(60_000 + Math.ceil(f.size / 100_000) * 1000),
+        });
+      } catch { return { ok: false, error: ERROR_SUBIDA.red }; }
       if (!s.ok) return { ok: false, error: `No pude subir «${propios[i].nombre}»: vuelve a mandarlo` };
     }
     return { ok: true, adjuntos: propios.map((p, i) => ({ ref: subidas[i].ref, ...p })) };

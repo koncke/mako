@@ -11,6 +11,8 @@
 //
 // PROBADO ROMPIÉNDOLO (22/10/2026), con el archivo en 5 / 0, una rotura por vez y restaurada:
 //   · `filasParaTraer` listando a los que ya están                                     → 4 / 1
+// Desde el 24/10/2026 los que ya están VUELVEN a verse, abajo y en gris (`presentes`): «Mejor que sea como en los grupos de
+// whatsapp, que aparezca todo, pero en gris» (Martín). Siguen sin ser candidatos y sin quitarles lugar.
 //   · «todos» volviendo a tildar sólo lo que está en pantalla (`enPantalla`)            → 4 / 1
 //   · el pie sin `position: 'sticky'`                                                 → 4 / 1
 //   · el arrastre de un tildado sin pasar por la barra de lote                         → 4 / 1
@@ -35,7 +37,7 @@ const fila = (id: number, o: Partial<FilaTraible> = {}): FilaTraible => ({
   id, nombre: `Lead ${id}`, email: null, telefono: null, empresa: null, etapaKey: 'reactivacion', yaEsta: false, ...o,
 });
 
-test('C1: los que ya están no se listan (se cuentan), y «todos» son todos los del filtro, no los de la pantalla', () => {
+test('C1: los que ya están van aparte (abajo, en gris), y «todos» son todos los del filtro, no los de la pantalla', () => {
   // La foto del ws1 del 22/10: 1.050 en reactivación, los 300 primeros ya en el Sprint, y otras etapas.
   const filas = [
     ...Array.from({ length: 1050 }, (_, i) => fila(i + 1, { yaEsta: i < 300 })),
@@ -44,7 +46,9 @@ test('C1: los que ya están no se listan (se cuentan), y «todos» son todos los
   const r = filasParaTraer(filas, { q: '', etapa: 'reactivacion' });
   assert.equal(r.candidatos.length, 750, 'los 750 que faltan traer');
   assert.equal(r.yaEstan, 300, 'y los 300 que ya están, contados aparte');
-  assert.ok(r.candidatos.every((f) => !f.yaEsta), 'ninguno de los que ya están en la lista');
+  assert.ok(r.candidatos.every((f) => !f.yaEsta), 'ninguno de los que ya están entre los que se tildan');
+  assert.equal(r.presentes.length, 300, 'los que ya están, para dibujarlos abajo en gris');
+  assert.ok(r.presentes.every((f) => f.yaEsta));
   assert.equal(r.candidatos[0].id, 301, 'arranca por el primero que falta (antes, los 300 de arriba eran los ya traídos)');
   assert.ok(r.candidatos.length > TOPE_PANTALLA, 'más de lo que entra en la pantalla: por eso «todos» no puede mirar sólo lo dibujado');
   // El filtro manda: lo que el filtro deja afuera no se tilda.
@@ -59,12 +63,17 @@ test('C1: los que ya están no se listan (se cuentan), y «todos» son todos los
 test('C1: la pantalla tilda a TODOS los candidatos, agrega de a tandas, el botón queda abajo y se puede deshacer', () => {
   const t = sinComentarios(leer('app/crm/TraerDeOtroProducto.tsx'));
   // Con el filtro diferido desde el 23/10/2026 (el loader al filtrar: tests/crm-traer-23-10.test.ts).
-  assert.match(t, /const \{ candidatos, yaEstan \} = useMemo\(\(\) => filasParaTraer\(filas \?\? \[\], \{ q: qDiferida, etapa: etapaDiferida \}\)/);
+  assert.match(t, /const \{ candidatos, presentes, yaEstan \} = useMemo\(\(\) => filasParaTraer\(filas \?\? \[\], \{ q: qDiferida, etapa: etapaDiferida \}\)/);
   assert.match(t, /const ids = new Set\(candidatos\.map\(\(f\) => f\.id\)\);/, '«todos» volvió a mirar sólo la pantalla');
   assert.match(t, /const todosTildados = candidatos\.length > 0 && candidatos\.every/);
-  assert.doesNotMatch(t, /f\.yaEsta \?|Ya está\s*<\/span>/, 'volvieron las filas grises de los que ya están');
+  // Los que ya están: DESPUÉS de los nuevos, en gris y sin casilla (24/10/2026, como en los grupos de WhatsApp).
+  const iNuevos = t.indexOf('{enPantalla.map((f) => {');
+  const iGris = t.indexOf('{presentesEnPantalla.map((f) => (');
+  assert.ok(iNuevos > 0 && iGris > iNuevos, 'los que ya están tienen que ir abajo de los que se pueden traer');
+  assert.doesNotMatch(t.slice(iGris, t.indexOf('</tbody>', iGris)), /type="checkbox"|onClick=/, 'a uno que ya está se lo puede tildar');
+  assert.match(t, /`Ya están en este funnel · \$\{miles\(yaEstan\)\} · no se traen`/);
   // El pie pegado vive en `VistaConPie` desde el 24/10/2026 (tests/crm-traer-23-10.test.ts, 4).
-  assert.match(t, /<VistaConPie/, 'el botón de agregar volvió a quedar abajo de todo');
+  assert.match(t, /<MoldeTraer\b/, 'el botón de agregar volvió a quedar abajo de todo');
   assert.match(t, /for \(const tanda of enTandas\(sel, TANDA_AGREGAR\)\) \{\s*const r = await agregarLoteAProductoAction\(tanda, destino\);/);
   // La línea «Se ven 300 de 869… 300 ya están en este funnel» se fue el 23/10/2026 (Martín: «si hace falta algo, que sea
   // el número en la casilla»): tests/crm-traer-23-10.test.ts.

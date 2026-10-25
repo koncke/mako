@@ -15,7 +15,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bajadaDePlanes, botonDelPlan, leerPedidoCompra, whatsappLimpio } from '../lib/compra-plan-reglas';
+import { bajadaDePlanes, botonDelPlan, diagnosticoEnTexto, diagnosticoLimpio, leerPedidoCompra, PREGUNTAS_DE_LA_PUERTA, whatsappLimpio } from '../lib/compra-plan-reglas';
+import { PREGUNTAS } from '../lib/fase-diagnostico';
 import { proPorLlamada } from '../lib/subir-plan-reglas';
 import { sufijoDesdeUrl } from '../app/vsl/PreciosLanding';
 
@@ -24,7 +25,7 @@ const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '');
 
 test('SIN AGENDA (24/10, Martín: «No voy a usar Calendly»): ningún botón ni página lleva a Calendly', () => {
-  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx']) {
+  for (const rel of ['lib/compra-plan-reglas.ts', 'app/planes/Vitrina.tsx', 'app/planes/[plan]/page.tsx', 'app/configuraciones/plan/page.tsx', 'app/vsl/Landing.tsx', 'app/vsl/PreciosLanding.tsx', 'app/planes/Tarjetas.tsx']) {
     assert.doesNotMatch(fuente(rel), /calendly\.com|AGENDA_MAKO|agendaConOrigen|initInlineWidget/, rel);
   }
 });
@@ -46,6 +47,22 @@ test('el pedido sin pago: el WhatsApp es obligatorio, sólo dígitos, de 8 a 15'
   assert.ok(ok.ok && ok.pedido.quiero && ok.pedido.whatsapp === '525512345678' && ok.pedido.ref === 'estudio-sol');
 });
 
+test('la puerta del Acelerador: las preguntas del diagnóstico de fase, se guarda el texto, e incompleta no traba el pedido', () => {
+  assert.deepEqual(PREGUNTAS_DE_LA_PUERTA.map((q) => q.id), ['facturacion', 'inversion', 'cuello']);
+  for (const q of PREGUNTAS_DE_LA_PUERTA) assert.equal(q, PREGUNTAS.find((x) => x.id === q.id), `${q.id}: la del onboarding, no una copia`);
+  const d = diagnosticoLimpio({ facturacion: 1, inversion: 0, cuello: 1 });
+  assert.deepEqual(d?.map((x) => x.respuesta), PREGUNTAS_DE_LA_PUERTA.map((q, i) => q.opciones[[1, 0, 1][i]]), 'el texto de la opción, no el índice');
+  assert.match(diagnosticoEnTexto(d!), /^Factura por mes: \$3\.000 – \$10\.000 · Invierte por mes en conseguir clientes: Nada o menos de \$600 · Su mayor traba: /);
+  for (const malo of [{ facturacion: 1, inversion: 0 }, { facturacion: 9, inversion: 0, cuello: 1 }, { facturacion: '1', inversion: 0, cuello: 1 }, [1, 0, 1], null]) {
+    assert.equal(diagnosticoLimpio(malo), null, JSON.stringify(malo));
+  }
+  const base = { plan: 'acelerador', nombre: 'Ana', email: 'a@x.com', quiero: true, whatsapp: '+54 9 11 1234 5678' };
+  const con = leerPedidoCompra({ ...base, diagnostico: { facturacion: 1, inversion: 0, cuello: 1 } });
+  assert.ok(con.ok && con.pedido.diagnostico?.length === 3);
+  const sin = leerPedidoCompra({ ...base, diagnostico: { facturacion: 1 } });
+  assert.ok(sin.ok && sin.pedido.diagnostico === null, 'un diagnóstico a medias no pierde el lead');
+});
+
 test('la bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea', () => {
   assert.match(bajadaDePlanes(true), /entras en el acto/);
   assert.doesNotMatch(bajadaDePlanes(false), /en el acto/);
@@ -61,8 +78,10 @@ test('«Pasar a Pro» por pedido: sólo desde Esencial y sólo sin la subida en 
 
 test('/planes arma el botón con la regla y decide por plan con la misma cuenta que el checkout', () => {
   const pagina = fuente('app/planes/page.tsx');
-  const vitrina = fuente('app/planes/Vitrina.tsx');
-  assert.match(vitrina, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable, sufijo \}\);/);
+  // Los bloques de /planes y de la landing son UNA pieza (24/10, noche): el botón se arma ahí.
+  const tarjetas = fuente('app/planes/Tarjetas.tsx');
+  assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/);
   assert.match(pagina, /ofertasDeLosPlanes\(\)/);
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
@@ -76,16 +95,18 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerado
   assert.match(pagina, /pasarelas\.length\s*\?\s*<CompraPlan[\s\S]*?:\s*\([\s\S]*?<QuieroPlan plan=\{plan\.id\}/);
   const programa = pagina.indexOf('if (id === PROGRAMA_ACELERADOR.id) {');
   assert.ok(programa > 0 && programa < pagina.indexOf('ofertaDelPlan('), 'el programa no pasa por la pasarela');
-  assert.match(pagina, /<QuieroPlan plan=\{pr\.id\} nombrePlan=\{pr\.nombre\} origen=\{origen\} refCodigo=\{ref\} \/>/);
+  assert.match(pagina, /<QuieroPlan plan=\{pr\.id\} nombrePlan=\{pr\.nombre\} origen=\{origen\} refCodigo=\{ref\} preguntas=\{PREGUNTAS_DE_LA_PUERTA\} \/>/,
+    'el Acelerador se pide con el diagnóstico como puerta');
   const form = fuente('app/planes/[plan]/QuieroPlan.tsx');
-  assert.match(form, /JSON\.stringify\(\{ plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web \}\)/);
+  assert.match(form, /JSON\.stringify\(\{ plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo \}\)/);
   // La ruta: el pedido va con el código de partner que ganó (la cookie de /r primero), y nunca abre un pago.
   const ruta = fuente('app/api/planes/comprar/route.ts');
   assert.match(ruta, /if \(pedido\.quiero\) \{\s*const q = await pedirPlanSinPasarela\(\{ \.\.\.pedido, ref \}\);/);
   assert.ok(ruta.indexOf('if (pedido.quiero)') < ruta.indexOf('iniciarCompraDePlan('), 'un pedido no llega al checkout');
   const lib = fuente('lib/compra-plan.ts');
   const pedir = lib.slice(lib.indexOf('export async function pedirPlanSinPasarela'));
-  assert.match(pedir, /logLeadEvent\(lead\.leadId, 'Pedido de plan', `Quiere \$\{nombrePlan\}\$\{de\}\$\{ref\}\.\$\{wa\}`/, 'el partner queda en el historial del lead');
+  assert.match(pedir, /logLeadEvent\(lead\.leadId, 'Pedido de plan', `Quiere \$\{nombrePlan\}\$\{de\}\$\{ref\}\.\$\{wa\}\$\{diag\}`/,
+    'el partner y el diagnóstico quedan en el historial del lead');
   assert.match(pedir, /avisarDePlataforma\(\{\s*to: EMAIL_MAKO,/, 'el equipo se entera en el momento');
 });
 
@@ -109,9 +130,10 @@ test('la LANDING de venta: las columnas de precios donde estaba la agenda, con e
   // El efecto que monta los precios va ANTES que el del diseño (que corre su script, el que cargaría Calendly).
   assert.ok(landing.indexOf('setDestinoPrecios(montarPrecios(root));') < landing.indexOf("sc.id = 'gm-diseno-js';"));
   const precios = fuente('app/vsl/PreciosLanding.tsx');
-  assert.match(precios, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/, 'el mismo botón que /planes');
-  assert.match(precios, /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
-  assert.doesNotMatch(precios, /precioAnualUsd|por año/, 'sin el anual');
+  assert.match(precios, /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/, 'los mismos bloques (y el mismo botón) que /planes');
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{`\/planes\/\$\{pr\.id\}\$\{sufijo\}`\}>Quiero el Acelerador</);
+  // El anual (25/10/2026) se muestra y SIEMPRE se pide: su botón es otro, nunca el del checkout mensual.
+  assert.match(fuente('app/planes/Tarjetas.tsx'), /href=\{botonAnualDelPlan\(\{ id: p\.id, sufijo \}\)\.href\}/);
   for (const rel of ['app/page.tsx', 'app/vsl/[slug]/page.tsx']) assert.match(fuente(rel), /planesParaLanding\(\)/, rel);
 });
 

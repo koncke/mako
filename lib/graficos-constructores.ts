@@ -49,8 +49,8 @@ export type Metrica = {
    */
   percentil?: { de: string; p: number };
 };
-export type Area = 'Negocio' | 'Marketing' | 'CRM y ventas' | 'Comunicación' | 'Automations' | 'Plan' | 'Customer Success' | 'Second Brain' | 'Onboarding' | 'IA y contenido';
-export const AREAS: readonly Area[] = ['Negocio', 'Marketing', 'CRM y ventas', 'Comunicación', 'Automations', 'Plan', 'Customer Success', 'Second Brain', 'Onboarding', 'IA y contenido'];
+export type Area = 'Negocio' | 'Marketing' | 'CRM y ventas' | 'Comunicación' | 'Automations' | 'Plan' | 'Clients' | 'Second Brain' | 'Onboarding' | 'IA y contenido';
+export const AREAS: readonly Area[] = ['Negocio', 'Marketing', 'CRM y ventas', 'Comunicación', 'Automations', 'Plan', 'Clients', 'Second Brain', 'Onboarding', 'IA y contenido'];
 
 export type Fuente = {
   id: string;

@@ -200,3 +200,63 @@ al closer). Segundo mes, el crédito a precio de lista y el aviso. Otra corrida,
 nunca. Y el tablero y el panel del super admin cuentan lo mismo. Así, cuando Martín conecte la pasarela, no se descubre ahí que
 no acredita. **Lo que NO prueba:** la pasarela misma (que el webhook deje `alta_estado = 'hecha'` y las cuotas en `pagos`), que
 se prueba con la compra de humo.
+
+## La landing hasta que el negocio se une, y «¿meses o dinero?» contestado en una mirada (24/10/2026, noche)
+
+Martín: «La pagina de MaKo Partners DEBE ser siempre la landing al menos que el usuario ya se haya registrado como partner,
+solo cuando se registre ahi aparece el dashboard... No me da claridad en lo que ganan, esta todo muy amontonado, no se sabe si
+se ganan meses o dinero... Falta algo como "Calculadora"». Chat «Planes», cuenta 5.
+
+- **«Registrado como partner» ES tener código** (`partner_codigos`): no hay otra marca, y una segunda sería otra respuesta a la
+  misma pregunta. **La trampa:** `tableroDe` llama a `codigoDe`, que CREA el código si no hay. Hasta hoy el código nacía con
+  sólo abrir el tablero, así que todo admin que abrió la tab el 23-24/10 ya figura unido sin haber tocado nada (ve el panel, no
+  la landing). Para preguntar si se unió está `codigoSiExiste` (sólo lee); nunca `tableroDe` ni `codigoDe`. «Unirme» es
+  `unirmeAPartnersAction` (app/partners/actions.ts): admin del negocio, nunca la plataforma, vuelta de una lista blanca.
+- **(REEMPLAZADO el 25/10: ver la entrada que sigue.)** La respuesta honesta a «¿meses o dinero?» era «crédito para tu plan,
+  no dinero en efectivo», dicha en la ficha del hero y primera en las preguntas. Lo decidido el 10/10 (docs/referidos.md) es descuento para el usuario común y plata del sobrante
+  para la agencia, pero NADA consume el crédito todavía: «no es dinero» es verdad hoy para todos. El día que se le pague a una
+  agencia, la ficha cambia junto con la regla. La calculadora suma en dólares y NO dice a cuántos meses equivale: el Cerebro ya
+  había frenado «= 5 meses de MaKo Pro» como promesa (el test lo sigue frenando).
+- **La landing pública escondía la barra de la app** (`body:has(.mp-root) aside { display: none }`): montarla adentro de la tab
+  dejaba la app sin su barra. Ahora sólo con `.mp-publica`, y el modo `app` toma los tokens de la app (`--primary`, nunca
+  `--accent`, que es el dorado). Una pieza pública que se reusa adentro: buscar primero qué le hace al `body`.
+- **Copiada de:** LLM Pulse (llmpulse.ai/affiliate: la calculadora con la barra y el plan a la izquierda y el resultado en el
+  bloque azul), systeme.io (la ficha «qué, cuánto, cuándo»), DigitalOcean («earn free credits»: crédito, sin vueltas) y Kit (la
+  cuenta con un ejemplo). GoHighLevel, Hostinger y Beehiiv no tienen calculadora: buscarla en programas chicos de SaaS.
+- **Mirar un componente de cliente sin levantar la app:** el render estático no hidrata, así que la calculadora se probó
+  empaquetando SÓLO ella con el esbuild del clon (`node node_modules/esbuild/bin/esbuild entrada.tsx --bundle --jsx=automatic
+  --tsconfig=../tsconfig.json`, que resuelve el `@/`) y montándola con `createRoot` en lugar de la estática, sobre el HTML de
+  `renderToStaticMarkup`; Playwright de Python con `channel='chrome'` movió la barra y leyó «US$ 564» (12 × 47).
+
+**Sin hacer:** el super admin ve la landing entera arriba del programa (lo pidió así el 24/10 a la tarde; si molesta, va
+plegada). Aplicar el crédito sigue pendiente (docs/relevo/suscripcion.md, punto 5). **Vive en:** app/mako-partners/LandingPartners.tsx ·
+app/mako-partners/Calculadora.tsx · app/partners/referidos/page.tsx · app/m/partners/page.tsx · app/partners/actions.ts ·
+lib/partners-programa.ts (`codigoSiExiste`) · tests/mako-partners-landing.test.ts · tests/partners-para-clientes.test.ts.
+
+## «Meses Y dinero, según qué se refiere»: la comisión del Acelerador vuelve a la landing (25/10/2026)
+
+Decidido por el Cerebro (memoria `decisiones-venta-25-10`), con lo que Martín ya había decidido el 10/10 en
+docs/referidos.md: el negocio que se suscribe deja su primer mes como crédito; el que entra al Acelerador, US$300 en efectivo
+(el 20% de cada cuota). La landing no puede decir «no es dinero» a secas. Chat «Planes», cuenta 5.
+
+- **El diagnóstico obvio era el equivocado: «no es dinero» no era la frase honesta, era la mitad.** Era verdad para el crédito
+  y callaba la comisión del Acelerador, que estaba decidida desde el 10/10 y la paga el equipo a mano. Una pantalla honesta
+  dice las dos, una línea cada una, y cada una con lo que pasa hoy: `CREDITO_HOY` (nada lo descuenta solo) y `COMISION_HOY`
+  (el libro no la registra: la anota y la transfiere el equipo). La guarda lo exige así: toda pantalla que nombra el efectivo
+  tiene `COMISION_HOY` (tests/mako-partners-landing.test.ts, `EFECTIVO`).
+- **La comisión tiene UNA fuente:** `comisionDelAcelerador(PROGRAMA_ACELERADOR.precioUsd)` con `COMISION_GRUPAL` (0,2), que
+  existía en lib/partners-reglas.ts sin que nadie la usara; /admin/estrategia tiene su propio `COMISION_GRUPAL = 300` en
+  dólares (app/admin/estrategia/datos.ts). Si cambia el precio del Acelerador o el porcentaje, cambian la landing, el panel y
+  el teléfono; la estrategia, no.
+- **Trampa de una guarda de palabras: «¿Gano dinero o meses?» contiene «no dinero»** (Ga-NO DINERO). La regla para frenar «no
+  es dinero» va con `\b`.
+- **Sin comisión si el negocio usa la garantía del Acelerador** (docs/referidos.md): ahora que hay garantía de entrega (la
+  cuota se devuelve si en la semana 1 el embudo no está armado), la landing lo dice en las preguntas.
+- **La calculadora suma el Acelerador aparte:** se elige como un plan más, a todo el ancho, y el resultado dice «En efectivo»
+  con la letra de la comisión, no la del crédito.
+
+**Sin hacer:** el libro no registra la comisión (el Acelerador se cobra fuera de la pasarela): el pedido llega con el código
+del partner (`pedirPlanSinPasarela`) y el equipo la anota a mano. El día que se registre, cambian `COMISION_HOY` y el panel
+juntos. Los mails del crédito no la nombran (a propósito: el test lo frena). **Vive en:** lib/partners-reglas.ts
+(`comisionDelAcelerador`, `COMISION_HOY`) · app/mako-partners/LandingPartners.tsx · app/mako-partners/Calculadora.tsx ·
+app/partners/referidos/Referidos.tsx · app/m/partners/ReferidosM.tsx · tests/mako-partners-landing.test.ts.

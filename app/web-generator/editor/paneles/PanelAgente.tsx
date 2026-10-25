@@ -78,6 +78,7 @@ import { instruccionConAdjuntos, type AdjuntoEditar } from '@/lib/editor-landing
 import { useEditorLanding, type CtxEditorLanding } from '../contexto';
 import { MUCHO_PARA_EDITAR, esPresentacion, formatoDe, terminoTarjeta, type ConfigLanding } from '@/lib/editor-landing/api-tipos';
 import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
+import { armarConCita, type Cita, type MensajeWA } from '@/lib/centro-mensajes';
 import type { JsonNodo } from '@/lib/editor-landing/doc';
 import {
   PLAZO_PEDIDOS_MS, bajarDelArchivero, cortadoPorUsuario, leerArchivo, pedirDocs, pedirIA, pedirLoQueVendes, pedirPedidos, type DocDelArchivero,
@@ -99,6 +100,7 @@ import {
   type CambioSeccion,
 } from '../diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pedidos a las rutas: viven en ../../cliente (una sola copia; había cuatro). Se re-exportan
@@ -695,6 +697,7 @@ let ultimoAdjunto = 0;
 const HiloAgente = dynamic(() => import('./ChatAgente').then((m) => m.HiloAgente));
 const CajaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CajaAgente));
 const PanelAgenteChat = dynamic(() => import('./ChatAgente').then((m) => m.PanelAgenteChat));
+const CitaAgente = dynamic(() => import('./ChatAgente').then((m) => m.CitaAgente));
 
 /** Un archivo del pedido, en el hilo (no se abre desde ahí: viajó su texto, no se guardó). */
 const archivoDe = (nombre: string) => ({ nombre, tipo: /\.(png|jpe?g|webp|gif|avif)$/i.test(nombre) ? 'image' as const : 'document' as const, sinAbrir: true });
@@ -728,10 +731,19 @@ export function PanelAgente() {
   // Recién recargada (u otra computadora): la charla guardada de esta landing.
   useEffect(() => { traerHilo(docId); }, [docId]);
   const [texto, setTexto] = useState('');
+  // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   // «Discutir» o «Editar», recordado (el mismo de Automations: app/_chat/SelectorIntencion.tsx). Reemplaza a los chips
   // «Toda la landing / <la sección>» (24/10/2026, Martín: «Tampoco pongas los botones de "toda la landing, sin titulo"»):
   // «Editar» manda la landing entera con la sección del cursor como pista (`pedirEdicion`).
   const [intencion, elegirIntencion] = useIntencion();
+  // «Responder» desde el clic derecho de un mensaje (24/10/2026, P5): la cita queda arriba de la caja y sale con lo escrito
+  // (`armarConCita`, la del Ops Center): MaKo sabe a qué le contestan, y la burbuja la muestra.
+  const [cita, setCita] = useState<Cita | null>(null);
+  const citar = useCallback((m: MensajeWA) => {
+    setCita({ de: m.de, texto: m.texto, id: m.id });
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }, []);
   const sugerencias = intencion === 'discutir' ? SUGERENCIAS_DISCUTIR : sugerenciasDe(ctx.config);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const hiloRef = useRef<HTMLDivElement>(null);
@@ -770,7 +782,7 @@ export function PanelAgente() {
   }, [hilo.mensajes.length, hilo.corriendo]);
 
   const enviar = (instruccion: string, op: { interpretar?: boolean } = {}) => {
-    if (hilo.corriendo || !instruccion.trim()) return;
+    if (hilo.corriendo || !instruccion.trim() || appEscritorio.bloqueada) return;
     void pedirEdicion(ctxRef.current, instruccion, 'landing', op);
     setTexto('');
   };
@@ -825,16 +837,18 @@ export function PanelAgente() {
   /** El ↑ (o Enter) de la caja: lo escrito y los archivos leídos. Lo que se ve en la caja es lo que viaja. */
   const mandar = () => {
     const items = caja.current.items;
-    if (hilo.corriendo || !editor || !puedeMandar(texto, items)) return;
-    if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, texto, { adjuntos: paraEnviar(items) });
-    else void pedirEdicion(ctxRef.current, texto, 'landing', { adjuntos: paraEnviar(items) });
+    if (hilo.corriendo || !editor || !puedeMandar(texto, items) || appEscritorio.bloqueada) return;
+    const conCita = armarConCita(cita, texto);
+    if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, conCita, { adjuntos: paraEnviar(items) });
+    else void pedirEdicion(ctxRef.current, conCita, 'landing', { adjuntos: paraEnviar(items) });
     setTexto('');
+    setCita(null);
     soltarTodos();
   };
 
   const sugerir = (s: Sugerencia) => {
     // En «Discutir», una sugerencia es una PREGUNTA nuestra: se manda tal cual, sin tocar la página.
-    if (intencion === 'discutir') { if (!hilo.corriendo) void pedirDiscusion(ctxRef.current, s.rotulo); return; }
+    if (intencion === 'discutir') { if (!hilo.corriendo && !appEscritorio.bloqueada) void pedirDiscusion(ctxRef.current, s.rotulo); return; }
     // Una sugerencia es una edición escrita por nosotros: va directo a «editar», sin interpretarla.
     if (s.instruccion) { enviar(s.instruccion, { interpretar: false }); return; }
     if (s.rellenar) setTexto(s.rellenar);
@@ -995,7 +1009,8 @@ export function PanelAgente() {
             linea»: «Envía un mensaje al / agente…» no cabía al lado del «+», los emojis y el micrófono). Es el del Ops Center,
             «Escribe a <quién>». */}
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
-          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda />
+          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo}
+          arriba={cita ? <CitaAgente cita={cita} onQuitar={() => setCita(null)} /> : null} />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
           {hilo.mensajes.length === 0 && (
@@ -1012,7 +1027,7 @@ export function PanelAgente() {
               </div>
             </>
           )}
-          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} />
+          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} onCitar={citar} />
           {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
           {hilo.mensajes.length > 0 && !hilo.corriendo && (
             <div className="gma-ag-pildoras">

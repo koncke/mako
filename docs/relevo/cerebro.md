@@ -1,67 +1,84 @@
-# Relevo — Cerebro y «Cerebro › Integración»
+# Relevo — Cerebro
 
-<sub>Esta sección se PISA en cada relevo y no pasa de ~60 líneas. Lo viejo, tal cual se escribió, está en
-`docs/relevo/cerebro-historia.md` (ahí quedaron los relevos del 21/10 noche de las cuentas claude4 y claude3).</sub>
+<sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
+`cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 23/10/2026 tarde, cuenta claude2
+## ⏩ LEER PRIMERO — 25/10/2026 ~09:50, cuenta 5 «Ananda» (claude5)
 
-**El Cerebro son dos chats:** **«Cerebro»** reparte y habla con Martín; **«Cerebro › Integración»** es el ÚNICO que integra
-y arma el tren, y le pasa el sha verificado al Cerebro, que sube `main`. Las puntas van a Integración; los pedidos y
-preguntas, al Cerebro. Cómo se integra paso a paso: el relevo del 21/10 noche, en `cerebro-historia.md` (sigue vigente).
+**Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta, la voy a llamar X. Continúa con todo» y con eso
+alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
-**Al iniciar una cuenta, en este orden (Martín lo pidió el 21/10 y el 23/10 se hizo dos veces, en claude1 y en claude2):**
-1. **La cuenta:** la dice Martín al abrir, y si no cuadra con `~/.claude/cuenta-activa.txt` gana él y se reescribe en el
-   acto. La prueba barata es el reset SEMANAL de `get_usage` (al 23/10: claude1 28/10 10:00 UTC, claude2 27/10 21:00,
-   claude3 28/10 08:59, claude4 27/10 19:59). Guardar las dos ventanas en `uso-semanal.txt` y `uso-cinco.txt`.
-2. **El chat donde escribe Martín se llama «Cerebro»** y se fija arriba. Conviene que sea un chat NUEVO: el 23/10 el
-   Cerebro de claude1 era una sesión de agosto desarchivada y no tenía `start_session`; el de claude2, abierto ese día, sí.
-3. **El Runner, antes que nada:** `start_session` con el título «Runner», Haiku con esfuerzo bajo y modo bypass. El prompt
-   es `INSTRUCCIONES_RUNNER` (lib/runner.ts) más «hacé una vuelta ya». A los ~3 minutos
-   `~/.claude/operaciones/uso/<cuenta>.json` ya tiene la cuenta medida. Después, `detach_session` del Runner: si queda
-   colgado del Cerebro, cada vuelta de 2 minutos lo despierta.
-4. **Archivar los chats viejos de la cuenta.** Las listas de chats y los grupos de la barra son POR CUENTA. Grupo «Cerebro»
-   en orden alfabético, y la lista sin secciones por carpeta.
-5. **Integración y los jefes con trabajo se abren EN EL TURNO de Martín**, porque un turno automático no puede abrir chats.
-   Se abren con lo que haya y lo verificado se manda después por mensaje. Van con los mismos nombres que en la otra cuenta,
-   porque el Ops Center une los chats por nombre. ⚠️ `start_session` cambia «›» por «'» en el título: hay que renombrar en
-   el acto con `set_session_title`. El techo es de 6 a 8 chats, según la RAM: el 23/10, con 11 chats, la PC bajó a
-   0,86 GB y un push quedó 40 minutos colgado.
-6. **El estado de cada chat de la otra cuenta se VERIFICA con git, no se copia de lo que dijo.** Va un lector Sonnet por
-   chat sobre su cronología, con git (`merge-base --is-ancestor`): `C:/dev/cerebro-herramientas/workflow-relevo-chats-cuenta.js`.
-   Las cronologías salen de `cola.cjs` y la lista de chats por cuenta de `listar.cjs`. El 23/10 tardó 4 min con 10 lectores
-   y encontró una punta que el tren no tenía, otra que ya estaba en main y un relevo apuntando a un documento que no era.
+1. **La cuenta:** `claude<N>` en `~/.claude/cuenta-activa.txt`; su línea en `~/.claude/cuentas.tsv` (sin gmail declarado,
+   el alias); `get_usage` → `uso-semanal.txt` y `uso-cinco.txt` con la cuenta en el 4º campo. El reset semanal es la
+   prueba barata de que es otra cuenta.
+2. **El Runner:** `node ~/.claude/operaciones/cartero.mjs cartero claude<N> app ~/.claude` y `… carpeta <uuid> claude<N>`
+   (la carpeta NUEVA de `%APPDATA%/Claude/claude-code-sessions`); sumala también a `C:/dev/cerebro-herramientas/listar.cjs`.
+   Después `start_session` «Runner», `claude-haiku-5-5`, esfuerzo bajo, `INSTRUCCIONES_RUNNER` (lib/runner.ts) + «hacé una
+   vuelta ya». A los 3 minutos existe `~/.claude/operaciones/uso/claude<N>.json`: `detach_session` y al grupo «Cerebro».
+   ⚠️ **Una cuenta recién comprada no tiene el modo bypass** (se prende en sus Settings y es de Martín). La sesión está en
+   **auto** aunque `get_session` diga «default»: los chats se abren con `permission_mode: 'auto'` y andan.
+3. **Este chat se llama «Cerebro» y se fija.** Los de área se abren EN EL TURNO de Martín, cada uno con su brief y su
+   worktree propio (`C:/dev/wt-<área>-<fecha>`). Anidados bajo el Cerebro; sólo el Runner va suelto.
+4. **El estado de la cuenta anterior se VERIFICA con git, no se copia.** Un Workflow con un lector Sonnet por chat sobre su
+   cronología (`cola.cjs`) + git. El de la cuenta 5 (8 lectores, 18 minutos) encontró 4 puntas listas sin subir, 6 pedidos
+   de Martín sin ejecutar, una cosecha equivocada (la de Vercel) y las capturas que sólo vivían en el transcript. Lo que
+   corrige se les manda a los chats nuevos por mensaje.
+5. **`/admin/dev`:** sumá la cuenta a `CUENTAS` (`app/admin/dev/_registro/tipos.ts`): sin la fila, un hito firmado por
+   ella rompe la pantalla.
 
-**EL TREN (AGENTS.md, «Cómo se sube»):** cada chat pasa su punta «VERDE sin pushear». Integración mergea en
-`C:/dev/wt-push-q` (merge, nunca rebase), corre los tests afectados, la batería del Ops Center sola y las guardas, y pasa el
-sha. El Cerebro sube `main` con `--no-verify`, con el permiso permanente de Martín del 22/10 («que avance siempre»).
-⚠️ **Sin minutos de Actions (vuelven el 1/11), subir `integracion` NO avanza `main`.** El 23/10 el arreglo de un cliente
-quedó en `integracion` creyendo que Actions lo subía. Después de cada push, `git ls-remote origin refs/heads/main` y
-`npx vercel ls -m githubCommitSha=<sha>` hasta que diga Ready. Los tipos son red: van después del push y con RAM.
+## Estado al escribir (25/10 ~09:50)
 
-**La ventana de 5 horas es de la CUENTA, no del chat.** Cuando se agota, se cortan TODOS los chats de la cuenta a la vez:
-el 23/10, entre las 11:56 y las 12:02. Con la ventana arriba del 85 %, ni workflows ni tandas. Lo que está en el disco
-se commitea o se deja escrito antes; a Planes lo cortó con trabajo sin commitear.
+- **`main` = `75b367235`, subido con tipos en verde.** Producción servía `44def1637` (desplegado a las 09:19); el despliegue de
+  `75b367235` (la tanda 2 del Media Buyer) quedó en marcha. La noche del 24 al 25 subieron cuatro trenes: lo de la llamada con
+  Leandro (CRM, Clients, Automations, Calendario), los botones de Instagram, el Media Buyer (`/ads-manager`, copiado de Madgicx,
+  apagado), la landing nueva SIN publicar, el recolector del Second Brain, Ops Center (los que esperan arriba, sin «1 de 3»,
+  `unirPreguntas`) y Planes (Acelerador con promesa y garantía, Partners meses + US$300, anual, garantía 14/30, pesos).
+- **Chats de la cuenta 5, todos sin nada en cola salvo Ops Center:** Ops Center hace el «Completado» como bloque arriba de la
+  caja (pedido de Martín del 25/10 09:32). Media Buyer espera a Martín (abajo). Landings tiene la tanda 2 de landings por
+  funcionalidad y avatar (§6b de docs/como-venden-otros.md) sin empezar.
+- **Instalado por el Cerebro:** el hook `sin-ask.mjs` (un AskUserQuestion se vuelve `cartero preguntar`; lo toman los chats que
+  se abren desde ahora), el cartero 1.18.1, y la guardia de RAM más estricta (`memoria.mjs`, respaldo `.antes-25-10`).
+- **Decisiones de venta del 25/10:** memoria `decisiones-venta-25-10`. Media Buyer reemplaza al Ads Manager: memoria
+  `media-buyer-ia-reemplaza-ads-manager`.
+- **Los informes:** docs/ram-de-la-pc.md (lo que más rinde: 32 GB) y docs/como-venden-otros.md (80 productos con landing).
+- **Sin repartir:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 (el cartero como servicio), el cobro
+  (Paddle/Creem + Mercado Pago, cuando Martín aplique), la extensión que no inyecta mako-puente.js en una pestaña ya abierta
+  (lo vio CRM), y si el portal del ALUMNO también saca el desplegable de «Tus programas» (pregunta para Martín).
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
 
-**Estado al escribir (23/10, ~15:10 ART, claude2):**
-- `main` = `3e8462653`, en producción. Dos trenes del día:
-  - **309c54ef4:** Cobros (el primer cobro real), Planes (/planes sin pasarela, partner en la agenda, Calendly), Ops Center (fotos), Landings (Diagnóstico y carruseles), Offer (Ángulos), Chats de las tabs (grafo), el seguimiento detrás de «No contestó» y este relevo.
-  - **3e8462653:** el anti-ban por automatización, con `misma-persona-propia.mts --aplicar` corrido (510 filas, el antes igual al después), la tarjeta de MaKo sin desplegables, el chat del costado, las 8 tarjetas de la revisión, la limpieza de automatizaciones (374 archivadas) y Ads Manager con la cuenta que lee. Martín verificó la #289.
-- **Próximo tren** (Integración, sin apuro): Ads Manager `4ce368228` («Cuenta Cuenta 2») y Automations `e3253d518` (el null de FlujoLienzo:392).
-- **Abiertos:** Cerebro, Runner, Integración, Automations, Automations › Limpieza, Planes, Cobros, Landings y Ads Manager. Martín pidió NO archivar ninguno todavía.
-- **NO van todavía:** CRM `crm-b5-2310` @ `60bd69812` (después del 25/10) e IA16 `ia16-2210` @ `9cd361a5e` (lunes 26/10).
-- **Ventas** `0c28ccf39` da rojo en `tests/crm-tarjeta-personalizable.test.ts`: queda una tarjeta para reabrir su chat (task_69fc20ed). ⚠️ El `main` LOCAL del clon compartido lleva `72abfb92c`/`d1dc59049` viejos de Ventas: no se empuja nunca.
-- **Sábado 24:** Automations mide la primera hora de la campaña de Mauricio (#289, goteo de 5 min y que «Contestó» corte) y, cuando entre un lead nuevo del ws13 y avise, manda los dos mensajes a su grupo: el aviso de arreglo y los 10 leads sin aviso, nombres escritos por el código.
-- **Mauricio, Ads Manager:** sus campañas de Sergio (ws20), Patricia (ws22) y Florencia (ws21) no existen en las cuentas conectadas: quedaron como borrador o se crearon en otra cuenta. Florencia no conectó Meta. Espera que él diga en qué cuenta las creó.
-- **Decisiones del día que no se re-preguntan:** el «ya me llegó tu pago» de la #289 es a propósito (levantamuertos); una tarjeta no gana controles y cada canal es su tarjeta (AGENTS.md); la vista previa del link vive en Configuraciones porque la pidió Mauricio.
+## Lo que NO se vuelve a discutir
 
-**Espera a Martín, por lo que más duele:**
-1. El QR del WhatsApp de MaKo en `/whatsapp?ws=9`. Está muerto desde el 19/10: es la línea de venta del ws9. Los avisos a los grupos de los clientes salen por la «voz de MaKo», que está viva.
-2. Calendly en `/integraciones?ws=9`: el token de koncke y el nombre del evento de R1. Además, si su Calendly es pago,
-   porque el webhook lo pide.
-3. La pasarela en `/integraciones?ws=9` y, con la tanda de Cobros en producción, la prueba de humo de
-   `docs/prueba-humo-cobro-mako.md`. Si cobra en pesos, el precio en «Planes en Mercado Pago».
-4. La base de venta: su WhatsApp personal en el ws9, «Traer de un grupo de WhatsApp» y activar #568 y #569.
-5. Partners: cumplir o dejar de prometer «se descuenta de tus próximos meses».
+- **Nunca `--no-verify`.** El 24/10 el hook de pre-push frenó un tren con 5 errores de tipos.
+- **Un chequeo que decide si se sube NO se pipea:** `cmd > salida 2>&1; rc=$?; tail -6 salida; [ "$rc" -eq 0 ] && git push`.
+- **Vercel SÍ guarda el commit, pero lo encuentra sólo con el sha ENTERO** (`git rev-parse <corto>`); con el corto contesta
+  «No deployments found» sobre un despliegue vivo. El relevo anterior decía lo contrario y estaba mal (medido el 24/10 a
+  las 21:00; `docs/hallazgos-infra.md`). La prueba de producción es el despliegue que SIRVE el dominio
+  (`vercel inspect hola-mako.com`).
+- **El tren se arma ANTES de pushear,** y dos pushes a `main` en paralelo se traban en el candado del typecheck: de a uno.
+- **Una rama entregada al tren NO se rebasa.** Para poner commits a salvo, una etiqueta `refs/tags/respaldo/<nombre>`,
+  no una rama (las ramas en origin disparan builds de preview).
+- **Nunca `AskUserQuestion`:** traba el turno y Martín no puede contestar desde el teléfono. Se pregunta con
+  `cartero preguntar <archivo.json>` y se termina el turno.
+- **El `tsc` entero no entra en la PC:** cae al respaldo de 3 tandas (`scripts/tipos-respaldo-push.mjs`, ~6 min).
+- **Un pedido viejo de diseño no se hace por antigüedad:** se busca en `docs/hallazgos-<área>.md` y se compara con lo
+  que Martín pidió después.
+- **Un lector que mira un worktree a mitad del checkout ve el índice VACÍO** (18.900 «borrados»): se vuelve a medir antes
+  de alarmar a nadie.
 
-**Fechas:** el lanzamiento es el DOMINGO 25/10 (el 24 es sábado y la campaña de Mauricio arranca ese día; el 26 es lunes).
-Varios chats escribieron «sábado 25».
+## Trabado esperando a Martín
+
+1. **Las migraciones 0332 (Media Buyer) y 0333 (recolector):** revisadas por el Cerebro, aditivas y por negocio. Aplicarlas en
+   producción lo frena el clasificador de permisos en los chats; espera el sí de Martín en ESTE chat. El código las tolera.
+2. **Conectar la cuenta publicitaria de MaKo a Zernio:** un clic de permisos de Facebook. Sin eso el Media Buyer no decide
+   sobre ninguna cuenta real.
+3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
+4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+5. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+6. **La RAM a 32 GB** (2 SODIMM DDR4-3200 de 16 GB, ~USD 290), sacar del inicio Copilot/NVIDIA/MEGA y reiniciar.
+
+## Fechas
+
+**El lanzamiento es el domingo 25/10.** La campaña de Mauricio va del 24/10 al 13/11 (50 leads por día). Su Sprint es el
+24, 25 y 26 de noviembre.

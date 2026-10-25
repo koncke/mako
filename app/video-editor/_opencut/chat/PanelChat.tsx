@@ -48,6 +48,7 @@ import { storageService } from "@/app/video-editor/_opencut/services/storage/ser
 import Link from "@/app/_ui/Link";
 import { PLAZO_PEDIDOS_MS, burbujasDe, cuerpoPedidos, interpretacionDe, objetosDeProyectos, textoActual } from "./pedidos";
 import { ReportarASoporte } from "@/app/_ui/ReportarASoporte";
+import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -369,6 +370,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const nombreProyecto = useEditor((e) => e.project.getActiveOrNull()?.metadata.name ?? null);
 	const hilo = useHilo(proyectoId);
 	const [texto, setTexto] = useState("");
+	// Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
+	const appEscritorio = useAppDeEscritorio();
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const hiloRef = useRef<HTMLDivElement>(null);
@@ -406,7 +409,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	}, [foco, hilo.mensajes.length]);
 
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
-		if (hilo.corriendo || !instruccion.trim() || !proyectoId) return;
+		if (hilo.corriendo || !instruccion.trim() || !proyectoId || appEscritorio.bloqueada) return;
 		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
 		setTexto("");
 	};
@@ -590,7 +593,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda />
+						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
 				</div>
 			</footer>
 		</section>

@@ -16,11 +16,20 @@ export type CuentasConNombre = Record<string, DatosDeCuenta>;
 export const TOPE_NOMBRE_CUENTA = 40;
 const EMAIL_RE = /^[^\s@<>]{1,64}@[^\s@<>]{1,190}\.[a-z]{2,24}$/i;
 
+/**
+ * Una NOTA entre paréntesis al final no es el nombre (25/10/2026). El renglón de la cuenta 5 es «Ananda (asi la llamo Martin el
+ * 24/10/2026; gmail de la suscripcion sin declarar)», y el Uso habría dicho «Ananda (asi la llamo Martin el 24/10/202»: el tope de
+ * 40 cortaba la nota y no el nombre. La PC (cartero.mjs → titularDe) la manda cortada y SIN el «)», así que se saca igual.
+ */
+export function sinNota(nombre: string): string {
+  return nombre.replace(/\s*\([^)]*\)?\s*$/, '').trim();
+}
+
 /** Un renglón de cuentas.tsv: «Nombre <email>», o sólo el nombre. */
 export function titularDeRenglon(texto: string): Titular {
   const t = texto.replace(/\s+/g, ' ').trim();
   const m = /^(.*?)\s*<([^>]+)>\s*$/.exec(t);
-  const nombre = (m ? m[1] : t).trim().slice(0, TOPE_NOMBRE_CUENTA) || null;
+  const nombre = sinNota((m ? m[1] : t).trim()).slice(0, TOPE_NOMBRE_CUENTA) || null;
   const email = m && EMAIL_RE.test(m[2].trim()) ? m[2].trim().toLowerCase() : null;
   return { nombre, email };
 }
@@ -29,7 +38,7 @@ export function titularDeRenglon(texto: string): Titular {
 export function sanearTitular(x: unknown): Titular | null {
   if (!x || typeof x !== 'object') return null;
   const o = x as Record<string, unknown>;
-  const nombre = typeof o.nombre === 'string' ? o.nombre.replace(/\s+/g, ' ').trim().slice(0, TOPE_NOMBRE_CUENTA) || null : null;
+  const nombre = typeof o.nombre === 'string' ? sinNota(o.nombre.replace(/\s+/g, ' ').trim()).slice(0, TOPE_NOMBRE_CUENTA) || null : null;
   const email = typeof o.email === 'string' && EMAIL_RE.test(o.email.trim()) ? o.email.trim().toLowerCase() : null;
   return nombre || email ? { nombre, email } : null;
 }

@@ -22,6 +22,9 @@ import { ChatSecondBrain } from './ChatSecondBrain';
 import { construirCerebro } from '@/lib/cerebro-grafo';
 import { chatsMakoDeQuienMira } from '@/lib/cerebro-chats';
 import { cerebroQueSeDibuja, quienOpera } from '@/lib/second-brain-opera';
+import { resumenDelRecolector } from '@/lib/recolector';
+import { estaImpersonando } from '@/lib/workspace';
+import { AprendeSolo } from './AprendeSolo';
 import { RECORRIDO_INICIO } from '@/lib/onboarding-arranque';
 import { OPCION_ARMAR } from '@/lib/offer-reglas';
 import type { DatosCentro } from '@/app/admin/operaciones/useCentro';
@@ -53,9 +56,14 @@ export async function mapaDelSecondBrain(): Promise<ReactNode> {
   // Con los chats con MaKo de quien mira: son suyos, así que sólo los suma la pantalla (lib/cerebro-chats.ts). Y para
   // quien OPERA (el super admin, con la misma guarda del Centro), UN cerebro con la construcción de MaKo colgada de la
   // raíz, acomodado entero en el servidor (20/10/2026: nunca dos). A los demás no se les arma ni se les manda.
-  const [chatsMako, opera] = await Promise.all([chatsMakoDeQuienMira(), quienOpera()]);
+  // «Aprende solo» (25/10/2026, el recolector: lib/recolector.ts): de qué fuentes aprende el negocio y cuánto entró. El super
+  // admin mirando un negocio ve cuánto, no qué (docs/diseno-second-brain-recolector.md §4); el que opera (su propio grafo,
+  // el de la plataforma) también lo ve, con lo suyo.
+  const [chatsMako, opera, recolector, mirando] = await Promise.all([
+    chatsMakoDeQuienMira(), quienOpera(), resumenDelRecolector(), estaImpersonando().catch(() => true),
+  ]);
   const cerebro = await cerebroQueSeDibuja(await construirCerebro({ chatsMako }), opera);
-  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} />;
+  return <VistaCerebro cerebro={cerebro} funnelPanel={funnelPanel} aprendeSolo={<AprendeSolo resumen={recolector} soloCuentas={mirando} />} />;
 }
 
 /** La guarda vive en lib/second-brain-opera.ts (la usa también la ruta del grafo vivo, que no puede importar esta página). */

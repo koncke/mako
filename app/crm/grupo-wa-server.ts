@@ -36,7 +36,8 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_CORRIDA, conNombresConocidos,
+  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_COMPLETO_MS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_DIA, VIEJA_GRUPOS_MS,
+  conNombresConocidos, gruposGuardados,
   cuantosEstaCorrida, cupoDeHoy, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo, fichaLimpia,
   gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe,
   perfilDeEmpresa, quedanHoy, vistosConNuevos, vistosDe, type CampoDelPerfil, type FichaWa, type GrupoWA, type ParticipanteWA,
@@ -85,30 +86,64 @@ async function lineaDelNegocio(linea: string | null | undefined): Promise<LineaG
   return lineas.find((l) => l.linea === linea) ?? null;
 }
 
+const claveGrupos = (linea: string) => `grupos_wa.lista.${linea}`;
+
 /**
- * Los grupos de la línea. Primero preguntándole a WhatsApp (`fetchAllGroups` sin participantes, con tope: en una línea con muchos
- * grupos no terminaba); si no contesta, los de la base de Evolution (`findChats`), que son los grupos con los que habló.
+ * Los grupos de la línea, EN DOS TIEMPOS (25/10/2026; el porqué medido, en lib/grupo-wa-reglas.ts → `TOPE_GRUPOS_COMPLETO_MS`).
+ *   · Rápido (`completo` false): la lista GUARDADA de la última vez, al instante; sin ninguna guardada, los grupos de la base de
+ *     Evolution (`findChats`, 0,5 s), que son sólo los grupos con los que la línea habló. `refrescar` = hay que pedir la completa
+ *     (no había guardada, o es vieja).
+ *   · Completo: le pregunta a WhatsApp (`fetchAllGroups` sin participantes, hasta 50 s) y la GUARDA para la próxima. Si no
+ *     contesta, error: la pantalla se queda con la rápida.
+ * Leer o guardar la lista no le manda nada a nadie: es la misma lectura de antes, guardada.
  */
-export async function gruposDeLinea(linea: string | null): Promise<{ ok: true; linea: string; grupos: GrupoWA[]; deLaBase: boolean } | { ok: false; error: string }> {
+export async function gruposDeLinea(linea: string | null, completo = false): Promise<{ ok: true; linea: string; grupos: GrupoWA[]; deLaBase: boolean; refrescar: boolean } | { ok: false; error: string }> {
   const l = await lineaDelNegocio(linea);
   if (!l) return { ok: false, error: 'Conecta una línea de WhatsApp para traer los contactos de un grupo.' };
   const inst = encodeURIComponent(l.linea);
+  if (completo) {
+    const vivos = await ev(`/group/fetchAllGroups/${inst}?getParticipants=false`, TOPE_GRUPOS_COMPLETO_MS);
+    if (!Array.isArray(vivos)) return { ok: false, error: 'WhatsApp no contestó con la lista completa de grupos.' };
+    const grupos = gruposDeFetchAll(vivos);
+    await setSetting(claveGrupos(l.linea), JSON.stringify({ at: Date.now(), grupos })).catch((e) => console.error('[grupo-wa] no pude guardar la lista de grupos:', msg(e)));
+    return { ok: true, linea: l.linea, grupos, deLaBase: false, refrescar: false };
+  }
+  const guardada = gruposGuardados(await getSetting(claveGrupos(l.linea)).catch(() => null));
+  if (guardada) return { ok: true, linea: l.linea, grupos: guardada.grupos, deLaBase: false, refrescar: Date.now() - guardada.at > VIEJA_GRUPOS_MS };
+  const deLaBase = await ev(`/chat/findChats/${inst}`, 10_000, { method: 'POST', body: '{}' });
+  if (Array.isArray(deLaBase)) return { ok: true, linea: l.linea, grupos: gruposDeChats(deLaBase), deLaBase: true, refrescar: true };
+  // Sin base de Evolution, el camino de siempre: WhatsApp con el tope corto.
   const vivos = await ev(`/group/fetchAllGroups/${inst}?getParticipants=false`, TOPE_GRUPOS_MS);
-  if (Array.isArray(vivos)) return { ok: true, linea: l.linea, grupos: gruposDeFetchAll(vivos), deLaBase: false };
-  const guardados = await ev(`/chat/findChats/${inst}`, 10_000, { method: 'POST', body: '{}' });
-  if (Array.isArray(guardados)) return { ok: true, linea: l.linea, grupos: gruposDeChats(guardados), deLaBase: true };
+  if (Array.isArray(vivos)) return { ok: true, linea: l.linea, grupos: gruposDeFetchAll(vivos), deLaBase: false, refrescar: false };
   return { ok: false, error: 'WhatsApp no contestó. Revisa que la línea esté conectada.' };
 }
 
+/**
+ * LOS PARTICIPANTES, UN RATO EN MEMORIA (25/10/2026). Traer va en tandas de 40 y cada tanda volvía a leer el grupo y la agenda
+ * entera de la línea (2.350 contactos, 800 KB, medido en la línea de la plataforma): ~1 s por tanda que no aportaba nada nuevo.
+ * Dos minutos, por negocio, línea y grupo; en `globalThis` (Turbopack puede emitir una copia del módulo por capa). Otra
+ * instancia del server lee de nuevo: es una caché, no una verdad.
+ */
+const TTL_PARTICIPANTES_MS = 2 * 60_000;
+type Leidos = { ok: true; linea: string; participantes: ParticipanteWA[]; sinNumero: number };
+const gp = globalThis as typeof globalThis & { __makoParticipantesGrupo?: Map<string, { hasta: number; v: Leidos }> };
+const cacheParticipantes = (gp.__makoParticipantesGrupo ??= new Map());
+
 /** Los participantes de un grupo de la línea (los que se pueden traer) y cuántos no dejan ver su número. */
-export async function participantesDelGrupo(linea: string | null, jid: string): Promise<{ ok: true; linea: string; participantes: ParticipanteWA[]; sinNumero: number } | { ok: false; error: string }> {
+export async function participantesDelGrupo(linea: string | null, jid: string, fresco = false): Promise<Leidos | { ok: false; error: string }> {
   if (!esJidDeGrupo(jid)) return { ok: false, error: 'Ese grupo no existe.' };
   const l = await lineaDelNegocio(linea);
   if (!l) return { ok: false, error: 'Esa línea no es de este negocio.' };
+  const clave = `${await getWorkspaceActual()}|${l.linea}|${jid}`;
+  const ya = cacheParticipantes.get(clave);
+  if (!fresco && ya && ya.hasta > Date.now()) return ya.v;
   const r = await ev(`/group/participants/${encodeURIComponent(l.linea)}?groupJid=${encodeURIComponent(jid)}`, TOPE_PARTICIPANTES_MS);
   if (r == null) return { ok: false, error: 'No pude leer el grupo. Revisa que la línea siga en él.' };
   const { participantes, sinNumero } = participantesDe(r, l.numero);
-  return { ok: true, linea: l.linea, participantes: await nombresConocidos(l.linea, participantes), sinNumero };
+  const v: Leidos = { ok: true, linea: l.linea, participantes: await nombresConocidos(l.linea, participantes), sinNumero };
+  if (cacheParticipantes.size > 50) cacheParticipantes.delete(cacheParticipantes.keys().next().value as string);
+  cacheParticipantes.set(clave, { hasta: Date.now() + TTL_PARTICIPANTES_MS, v });
+  return v;
 }
 
 /**
@@ -136,7 +171,7 @@ export type ResultadoCompletar = { ok: true; completados: number; yaTenian: numb
  * `soloContar`: cuántos se completarían, sin escribir (la propuesta de la API de MaKo).
  */
 export async function completarNombresDelGrupo(p: { linea: string | null; jid: string; autor: string; hasta?: number; soloContar?: boolean }): Promise<ResultadoCompletar> {
-  const leidos = await participantesDelGrupo(p.linea, p.jid);
+  const leidos = await participantesDelGrupo(p.linea, p.jid, true);  // fresco: los nombres pueden haber aparecido recién
   if (!leidos.ok) return leidos;
   const idx = await indiceContactos();
   const telIdx = { exactos: idx.tels, sufijos: idx.telsSufijo };
@@ -190,7 +225,7 @@ export type ResultadoPerfiles = {
   /** true = cortó por TIEMPO y a esta corrida le quedan: la pantalla vuelve a llamar sumando `hechas`. */
   sigue: boolean;
   /** Por qué no siguió con los que faltan: el tope del día o el de la corrida (se dice). null = terminó, o sigue. */
-  corte: 'dia' | 'corrida' | null;
+  corte: 'dia' | null;
   /** Desde el tablero: el nombre de la línea que se usa (el cupo es suyo) y los que no se consultan por no tener código de país. */
   lineaNombre?: string; sinPais?: number;
 } | { ok: false; error: string };
@@ -239,8 +274,9 @@ async function reservarPerfil(linea: string, hoy: string): Promise<boolean> {
  * ⚠️ CADA CONSULTA ES TRÁFICO EN LA RED DE LA LÍNEA (el Cerebro, 24/10: «tope duro por corrida y por día; la cuenta real y el
  * tiempo antes de arrancar»):
  *   · de a UNO y despacio (`ESPERA_PERFIL_MS`);
- *   · a lo sumo `TOPE_PERFILES_CORRIDA` por corrida (la pantalla suma `hechas` entre llamadas) y `TOPE_PERFILES_DIA` por día y
- *     por línea, reservado ANTES de cada consulta (`reservarPerfil`): el del día lo hace cumplir el server, no la pantalla;
+ *   · a lo sumo `TOPE_PERFILES_DIA` por día y por línea, reservado ANTES de cada consulta (`reservarPerfil`): lo hace cumplir
+ *     el server, no la pantalla. Sin tope por corrida desde el 25/10/2026 (f14: «debería extraerte todo»): un toque sigue
+ *     llamando hasta terminar o llegar al del día;
  *   · el que ya contestó no se vuelve a consultar (`perfiles_wa.vistos.<línea>`): la corrida de mañana sigue con los que faltan.
  *     El que no contestó es «no sé», no «no»: no queda como consultado (pero gastó cupo: fue tráfico igual).
  *   · `soloContar`: la cuenta de la pregunta (cuántos faltan, cuántos hace esta corrida, cuántos quedan hoy), sin consultar.
@@ -272,11 +308,10 @@ export async function completarPerfiles(p: {
   const [rawVistos, rawCupo] = await Promise.all([getSettingEstricto(claveVistos(p.linea)), getSettingEstricto(claveCupo(p.linea))]);
   const vistos = vistosDe(rawVistos);
   const faltan = conLead.filter((x) => !vistos.has(x.telefono.slice(-10)));
-  const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_CORRIDA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
+  const saltear = new Set((p.saltear ?? []).slice(0, TOPE_PERFILES_DIA).map((t) => String(t).replace(/\D/g, '').slice(-10)));
   const ahora = faltan.filter((x) => !saltear.has(x.telefono.slice(-10)));
-  const hechas = Math.max(0, Math.floor(Number(p.hechas) || 0));
   const quedan = quedanHoy(cupoDeHoy(rawCupo, hoy));
-  const estaCorrida = cuantosEstaCorrida({ pendientes: ahora.length, quedanHoy: quedan, hechas });
+  const estaCorrida = cuantosEstaCorrida({ pendientes: ahora.length, quedanHoy: quedan });
   const cuenta = { total: conLead.length, pendientes: faltan.length, quedanHoy: quedan, estaCorrida };
   if (p.soloContar) return { ok: true, ...cuenta, revisados: 0, empresas: 0, completados: 0, campos: 0, errores: 0, sinRespuesta: [], sigue: false, corte: null };
 
@@ -284,7 +319,7 @@ export async function completarPerfiles(p: {
   if (!candado) return { ok: false, error: 'Ya hay una consulta de perfiles corriendo en esta línea (en otra pestaña o de otra persona del equipo): espera a que termine y vuelve a tocar.' };
   const db = await getTenantDb();
   let revisados = 0, empresas = 0, completados = 0, campos = 0, errores = 0;
-  let sigue = false, corte: 'dia' | 'corrida' | null = null;
+  let sigue = false, corte: 'dia' | null = null;
   const nuevos: string[] = [];
   const sinRespuesta: string[] = [];
   try {
@@ -326,10 +361,8 @@ export async function completarPerfiles(p: {
     }
     await soltarCandado(p.linea, candado);
   }
-  // Terminó lo de esta llamada sin cortar por tiempo, y quedan: ¿por qué no siguió? Se dice.
-  if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) {
-    corte = hechas + revisados >= TOPE_PERFILES_CORRIDA ? 'corrida' : 'dia';
-  }
+  // Terminó lo de esta llamada sin cortar por tiempo, y quedan: sin tope por corrida, es el del día. Se dice.
+  if (!sigue && !corte && revisados === estaCorrida && ahora.length > estaCorrida) corte = 'dia';
   return { ok: true, ...cuenta, revisados, empresas, completados, campos, errores, sinRespuesta, sigue, corte };
 }
 
@@ -473,15 +506,19 @@ export async function traerDelGrupo(p: {
   const errores: string[] = [];
   let creados = 0, yaEstaban = 0, salteados = 0;
   let pendientes: string[] = [];
-  for (const [i, x] of quienes.entries()) {
-    if (p.hasta != null && Date.now() > p.hasta) { pendientes = quienes.slice(i).map((q) => q.telefono); break; }
+  // ⚠️ DE A CUATRO A LA VEZ (25/10/2026). Medido con lo que ya pasó (los eventos «Traído de un grupo de WhatsApp» de los ws 9 y
+  // 10): ~135 ms por lead, uno detrás del otro. Cada alta son unas lecturas y una escritura propias; no comparten contador
+  // (`createLead`), y el duplicado se ataja por teléfono, que en un grupo no se repite. El tope de tiempo se mira entre cada
+  // cuatro.
+  const PARALELO = 4;
+  const uno = async (x: ParticipanteWA): Promise<void> => {
     const existente = buscarTelefono(telIdx, x.telefono);
-    if (existente === null) { salteados++; continue; }
+    if (existente === null) { salteados++; return; }
     try {
       // ⚠️ YA ESTÁ EN EL CRM: no se vuelve a cargar (Martín, 24/10/2026: «no me debe cargar nuevamente»). Hasta el 24/10 se lo
       // sumaba a este funnel y se le ponía la etiqueta del grupo (el Cerebro, 23/10: «dos grupos, dos etiquetas»); su pedido de
       // hoy lo reemplaza: ni funnel ni etiqueta. Si algún día se quiere sólo la etiqueta, es acá (`traidos.push(existente)`).
-      if (existente !== undefined) { yaEstaban++; continue; }
+      if (existente !== undefined) { yaEstaban++; return; }
       // ⚠️ NACE EN LA ETAPA ELEGIDA, nunca en la de entrada y movido después (la revisión de privacidad, 23/10/2026): entre el
       // alta y el movimiento, el barrido de la hora lo inscribía en «Un Lead Entró», y si el movimiento fallaba quedaba ahí.
       // La etapa ya se verificó: no manda nada (`destino.manda`) y no es terminal (`etapasParaTraer`).
@@ -493,11 +530,15 @@ export async function traerDelGrupo(p: {
       traidos.push(lead.id);
       await logLeadEvent(lead.id, 'Traído de un grupo de WhatsApp', `«${p.nombreGrupo}», a «${destino.label}»`, p.autor).catch(() => {});
     } catch (e) {
-      if (e instanceof LeadDuplicadoError) { yaEstaban++; continue; }
+      if (e instanceof LeadDuplicadoError) { yaEstaban++; return; }
       // A la pantalla, el NOMBRE del que no se pudo y un texto llano; el detalle de la base, sólo al log (sin datos de la persona).
       console.error('[grupo-wa] no pude traer a un participante:', msg(e));
       errores.push(x.nombre ?? `+${x.telefono}`);
     }
+  };
+  for (let i = 0; i < quienes.length; i += PARALELO) {
+    if (p.hasta != null && Date.now() > p.hasta) { pendientes = quienes.slice(i).map((q) => q.telefono); break; }
+    await Promise.all(quienes.slice(i, i + PARALELO).map(uno));
   }
   // Si la etiqueta falla, volver a traer ya no la repara (los recién creados quedan «ya están» y no se vuelven a cargar): se dice
   // a cuántos les faltó y cómo ponérsela; el detalle de la base, sólo al log (la revisión del 24/10/2026).

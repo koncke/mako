@@ -7,6 +7,211 @@ del código.
 
 ---
 
+## El «Completado» se perdía en el scroll: va en un bloque arriba de la caja, como las preguntas (25/10/2026)
+
+- Martín (25/10, 09:32): «Hay muchos chats que dicen "completado", pero no veo el mensaje... Tal vez sería bueno hacerlo como
+  las preguntas, en bloque arriba del chat, sino se pierde en el scroll».
+- **Qué hace que un chat diga «Completado»:** SÓLO su último turno «Ya está» sin el ✓ (`esperaCheck(ultimoYaEsta(…))`). El
+  cierre de un trabajo del cartero (decidido, hecho, comprobado, sigue, prueba) se dibuja debajo de su pedido, pero no vuelve
+  «Completado» a un chat. Por eso el bloque lleva ese turno (`completadoSinVer`) y no el cierre: es justo el mensaje que la fila
+  anuncia. Ese turno suele traer adentro lo mismo, en Markdown, y su «Revisar» sale de la ruta que dejó.
+- **No es una tarjeta nueva:** es `YaEstaMensaje`, la del hilo, con `sinCabecera` (el bloque ya dice «Completado» y lleva el
+  «Visto»), adentro del marco del bloque de preguntas y con un tope de alto (`min(40dvh, 340px)`), para que uno largo no tape la
+  conversación. «Visto» es el ✓ de siempre: el chat deja de decir «Completado» y el bloque se va.
+- **La pregunta manda:** con una esperando, el «Completado» queda en su tira, arriba de ella, hasta que se lo abra. Plegarlo se
+  recuerda POR TURNO (`usePlegado`): un «Ya está» nuevo vuelve a abrirse.
+- **La tira es un renglón:** sin los asteriscos del Markdown (`sinMarkdown`, la regla de la lista). Se vio en la captura.
+
+**Vive en:** `app/admin/operaciones/BloqueCompletado.tsx` · `lib/centro-chats.ts` (`completadoSinVer`) · `Avance.tsx`
+(`sinCabecera`) · `Conversacion.tsx` · `app/m/operaciones/ChatsMovil.tsx` · `centro.css` (`.co-preg--completado`) ·
+`tests/completado-arriba.test.ts`
+
+## Una pregunta se guarda por SESIÓN y el chat es una CADENA: «Espera tu respuesta» para siempre (25/10/2026)
+
+- **Síntoma** (lo halló el Cerebro): una pregunta de AskUserQuestion de «Ventas de MaKo» decía «Espera tu respuesta» desde el
+  23/10, 19:20. La hizo la sesión de la cuenta 2; la conversación siguió en la cuenta 1, que escribió mucho después.
+- **La causa:** las preguntas y los turnos se guardan por sesión (`operaciones.preguntas.<local>`), pero el Ops Center junta en
+  UN chat todas las sesiones que se llaman igual (`unirPorNombre`). `superarPreguntas` sólo miraba turnos de la MISMA sesión, y
+  `superarConTurnos` sólo abría las preguntas de las sesiones que traían turnos: la de la cuenta 2 no se volvía a mirar nunca.
+- **La regla:** lo que decide sobre UN chat del Ops Center mira su CADENA (`cadenasDeSesiones`, lib/centro-chats.ts, con la
+  misma clave que `unirPorNombre`: `grupoDeNombre`). El ciclo del cartero la arma con lo que subieron TODAS las cuentas
+  (`cadenaDeLasCuentas`, lib/operaciones.ts) y se la pasa a los turnos y a las preguntas; sin poder leerla, se supera como
+  antes, por sesión.
+- **Lo que se acepta:** dos sesiones VIVAS con el mismo nombre en dos cuentas son, para el Ops Center, el mismo chat. Si una
+  pregunta y la otra sigue escribiendo, la pregunta queda superada. Es lo que pidió el Cerebro, y la lista ya las mostraba juntas.
+- ⚠️ **Ojo con el nombre:** ya existía un `claveDeNombre` en lib/centro-chats.ts (la clave de un chat SIN sesión,
+  `nombre:<…>`). La clave del grupo es otra función: `grupoDeNombre`.
+
+**Vive en:** `lib/centro-chats.ts` (`grupoDeNombre`, `cadenasDeSesiones`) · `lib/centro-preguntas-chat.ts` (`superarPreguntas`) ·
+`lib/centro-preguntas-chat-db.ts` · `lib/centro-turnos-db.ts` · `lib/operaciones.ts` · `tests/preguntas-cadena-y-ask.test.ts`
+
+## La de `preguntar` se perdía detrás de la 'ask' igual: nada contestable, sin aviso (25/10/2026)
+
+- **Lo midió la revisión del hook** que convierte cada AskUserQuestion en `cartero preguntar` (~/.claude/guardia/sin-ask.mjs):
+  cuando corre el hook, el tool_use ya está en el transcript (3 ms). El Runner sube la copia 'ask' y el archivo de `preguntar`
+  aparece 0,4-1 s después. Si la 'ask' entra sola en una vuelta (o en el ciclo de otra cuenta: las cinco comparten
+  `preguntas/`), en la siguiente `unirPreguntas` DESCARTABA la de `preguntar` por igual a una abierta. Igual figuraba en
+  `entraron`, la PC borraba el archivo, y el primer turno del chat superaba la 'ask'. Un 2-5 % de las veces.
+- **La regla:** cuando dos preguntas iguales compiten, gana la que se contesta EN el Ops Center. La 'ask' queda superada a la
+  hora de la nueva. Es el caso inverso del de wrap_up (ahí la de wrap_up se queda y lleva `tambienPreguntar`).
+- **Y en el cartero** (1.18.1): `preguntasParaSubir` dejaba UNA pregunta de cierre por chat mezclando wrap_up y 'ask', así que
+  una 'ask' más nueva tapaba a la de wrap_up. «La última de cada chat» es sólo de wrap_up.
+
+**Vive en:** `lib/centro-preguntas-chat.ts` (`unirPreguntas`) · `scripts/operaciones/cartero.mjs` (`preguntasParaSubir`) ·
+`tests/preguntas-cadena-y-ask.test.ts` (los cuatro órdenes)
+
+## Primero lo que espera tu respuesta: los avisos mezclaban una pregunta con un «Completado» (25/10/2026)
+
+- Martín (24/10, 23:39): «el tema de los chats de MaKo cuando tienen [...] un espera tu respuesta deberían posicionarse arriba
+  porque había muchos que estaban abajo y yo no los veo».
+- **Por qué no alcanzaba con subir los avisos:** `avisos` (useCentro.ts) suma las preguntas Y el «Completado» sin ✓ (el mismo
+  globito, por pedido del 17/10). Para el orden hacen falta las preguntas SOLAS, las del renglón «Espera tu respuesta» de la
+  fila: `esperaDe(c, esperas)`. La lista recibe las dos (`seccionesDeChats(chats, avisos, esperanRespuesta)`).
+- **El orden:** espera tu respuesta > trabaja > «Completado» sin ✓ > el resto. Un sub-chat que espera sube a su jefe, y debajo
+  del Cerebro rige el mismo orden (antes sus sub-chats no se ordenaban).
+
+**Vive en:** `lib/centro-chats.ts` (`prioridadEnLista`, `seccionesDeChats`) · `app/admin/operaciones/PiezasCentro.tsx` ·
+`app/m/operaciones/ChatsMovil.tsx` · `tests/chats-esperan-arriba.test.ts`
+
+---
+
+## La caja le escribía al Cerebro CERRADO: con ninguna sesión lista, desempataba la cuota (25/10/2026)
+
+- **Síntoma** (el Cerebro de la cuenta 5): los seis pedidos de Martín del 24/10 fueron a parar al Cerebro de claude2, que estaba
+  cerrado, y no al abierto.
+- **Causa:** un chat es un NOMBRE con una sesión por cuenta, y «Automático» (lib/centro-cuentas.ts → `sesionAutomatica`) elegía
+  primero la que recibe YA y después la de más cuota libre. Con la sesión nueva del Cerebro (cuenta 5) todavía sin Runner en su
+  carpeta, NINGUNA recibía ya, y la cuota decidía: la de la cuenta 2, cerrada pero con la semana libre, ganaba. La lista
+  (`unirPorNombre`) ya ponía las abiertas antes que las cerradas (`pesoSesion`); el destino no.
+- **Regla:** el destino y la lista ordenan igual: recibe ya > abierta (aunque sin Runner o con la foto vieja) > cerrada; la cuota
+  recién después. Una cerrada sólo gana si no hay ninguna abierta.
+
+**Vive en:** `lib/centro-cuentas.ts` (`sesionAutomatica`) · `lib/centro-chats.ts` (`pesoSesion`) · `tests/centro-cuentas.test.ts`
+
+## La cuenta 5 en el Uso: una nota de cuentas.tsv no es el nombre (25/10/2026)
+
+- **Lo que no se ve hasta que el Runner sube:** el renglón de la 5 en `~/.claude/cuentas.tsv` es «Ananda (asi la llamo Martin el
+  24/10/2026; gmail de la suscripcion sin declarar)». El cartero toma todo lo que no es `<email>` como nombre y lo corta a 40
+  letras: el Uso habría dicho «Ananda (asi la llamo Martin el 24/10/202».
+- **Regla:** MaKo saca la nota entre paréntesis del final del nombre (`sinNota`, lib/centro-titulares.ts), también cortada y sin
+  el «)», al guardar y al leer. No se tocó cartero.mjs: la PC corre su copia instalada y el arreglo del servidor alcanza.
+- `CUENTAS.claude5` (lo que el Uso dibuja siempre) lo trajo el tren del Cerebro (`d7b1f9849`).
+
+**Vive en:** `lib/centro-titulares.ts` (`sinNota`) · `tests/centro-cuentas-titulares.test.ts`
+
+## Una foto del teléfono que ya no se puede leer al mandar (25/10/2026, ticket #8)
+
+- **Síntoma** (Martín, desde su Android, con «Reportar a Soporte»): «No pude subir los adjuntos: vuelve a mandarlo» al «Firmar y
+  mandar» del Ops Center.
+- **Causa (la más probable; no se vio pasar):** en Chrome de Android un archivo de la galería o de la cámara es una referencia a un
+  `content://`. Si la app pasa a segundo plano o pasa un rato, leerlo tira `NotReadableError`, y la caja lo leía recién al mandar
+  (`subirAdjuntos` / `subirDirecto`). Ese error, y cualquier corte de red, caían en el mismo `catch` con el mensaje genérico: el
+  aviso no decía qué había pasado, y el ticket llegó sin un dato para diagnosticar.
+- **Regla:** un adjunto se copia a memoria AL ELEGIRLO (`enMemoria`, app/admin/operaciones/leer-adjunto.ts), y cada paso de la
+  subida dice su falla (`ERROR_SUBIDA`: leer, la red, la respuesta con su código). El genérico queda para lo inesperado.
+- **Lo que queda:** si vuelve a pasar, el aviso nuevo dice cuál de las tres fue; con eso se sigue.
+
+**Vive en:** `app/admin/operaciones/leer-adjunto.ts` · `useCentro.ts` (`sumarAdjuntos`) · `mandar.ts` ·
+`tests/centro-adjuntos-android.test.ts`
+
+## Sin la app, NINGÚN chat: el bloqueo vivía en una caja y había quince (25/10/2026)
+
+- **Síntoma** (Martín): «Ni en la cuenta de Mauricio ni en la mia tengo instalado aun la app de escritorio de MaKo y aún así me
+  sigue dejando enviar mensajes... No debería. En ningun chat, no solo en Ops Center».
+- **Causa: dos, y la segunda no se veía desde el código del chat.**
+  1. El bloqueo del 23-24/10 vivía en la caja del chat COMÚN (`CajaDelCliente`): el Ops Center del cliente y la estrella de cada
+     tab. Los chats con caja propia (Automations, Offer, Web Generator, Dashboard, los editores de imagen y video, la ficha del
+     lead, el asesor de WhatsApp, el chat de un gráfico) y las CAJAS DE PEDIDO (crear una landing, una automatización, una hoja)
+     no preguntaban nada. «Unificamos la caja» (`CajaChat`) era verdad para el DIBUJO, no para las reglas: cada pantalla arma
+     sus props y su envío.
+  2. En la cuenta de Martín (la de la plataforma) no bloqueaba NI el Ops Center: `appDeEscritorio` dejaba afuera al negocio de
+     la plataforma «porque contesta su IA». Él lo vio desde su cuenta y lo pidió igual: se sacó.
+- **Regla:** toda caja de MaKo monta `useAppDeEscritorio()` (app/_chat/useAppDeEscritorio.tsx) y le pasa `bloqueo` a su caja
+  (`CajaChat` o `CajaPedido`, que ahora también lo sabe dibujar), y corta su envío con `bloqueada` (una sugerencia o un pedido
+  que llega de otra pantalla no pasa por la caja). El inventario lo fija tests/app-de-escritorio-todos-los-chats.test.ts: una
+  pantalla nueva con `<CajaChat>` o `<CajaPedido>` que no está en ninguna lista es un rojo.
+- **Las que NO se bloquean, con su porqué** (en el test): la tab Chats (le escribís a tus leads), la Ticketera (al equipo de
+  MaKo), el Ops Center del super admin (a los chats de Claude Code por el cartero), el teléfono (no se instala ahí), y **el
+  onboarding** (`arranque` de OfferApp): es lo primero que ve un cliente nuevo y corre con el crédito de MaKo; bloquearlo lo
+  dejaría afuera antes de entrar. La tab Offer sí se bloquea.
+- **Trampa: el hook no puede traer CSS.** Lo usan motores que los tests dibujan en node (Automations `ChatMako.tsx`, el cuadro del
+  Web Generator `CajaCrear.tsx`): un `import './x.css'` ahí rompe decenas de tests. Por eso son tres piezas: la pregunta pura
+  (`app-de-escritorio.ts`, una vez por página, relee cada 8 s mientras bloquea), el hook sin CSS, y el botón con CSS
+  (`InstalarMaKo.tsx`) que entra con `next/dynamic`. El modal de «Ya lo instalé: conectar» va por PORTAL: la caja puede vivir en
+  un panel con `transform`, que volvería su marco el `fixed` del fondo del modal.
+- **Sin hacer:** el «Editar con IA» de cada sección del Web Generator (`app/web-generator/editor/AskAgent.tsx`) no se bloquea:
+  Martín pidió sacarlo (punto 5 del 24/10, chat Landings). Si queda, va con el mismo hook. Y falta recorrerlo en pantalla con una
+  cuenta sin computadora (el navegador de la app no tiene sesión).
+
+**Vive en:** `app/_chat/app-de-escritorio.ts` · `app/_chat/useAppDeEscritorio.tsx` · `app/_chat/InstalarMaKo.tsx` ·
+`app/web-generator/CajaPedido.tsx` (`bloqueo`) · `app/api/mako/chat/route.ts` (`?app=1`, `laApp`) · `lib/chat-mako-reglas.ts`
+(`appDeEscritorio`) · `tests/app-de-escritorio-todos-los-chats.test.ts`
+
+## Un AskUserQuestion traba al chat y el Ops Center no lo puede contestar: la red es un hook, y la revisión le encontró la falla grande (25/10/2026)
+
+**Vive en:** `~/.claude/guardia/sin-ask.mjs` (hook PreToolUse, matcher `AskUserQuestion`; copia en
+`scripts/claude-hooks/guardia/sin-ask.mjs`, con su prueba `sin-ask-prueba.mjs`) · `cartero.mjs` (`preguntasDeAsk`,
+`preguntar`, `retirar`) · `lib/centro-preguntas-chat.ts` (`unirPreguntas`, `superarPreguntas`).
+
+- **Síntoma:** Martín, frente a «Ventas de MaKo» en «Espera tu respuesta»: «¿Por qué no puedo contestar desde la app?». Era un
+  AskUserQuestion de la cuenta 2 del 23/10 a las 19:20. La conversación siguió en la cuenta 1 y nunca se dio por superada.
+- **Dos causas.**
+  1. Un AskUserQuestion se contesta sólo en la app de Claude de la computadora, en la cuenta del chat. Mientras espera, no le
+     entra ningún mensaje.
+  2. `superarPreguntas` sólo mira turnos del MISMO `local`: si el chat sigue en otra cuenta, la pregunta de la anterior queda
+     abierta para siempre.
+
+  Se retiró a mano (`cartero retirar b0ca26c3 --chat local_1ec074ab…`). El arreglo de la cadena entre cuentas es de Ops Center.
+- **La regla no alcanzó:** AGENTS.md lo prohíbe desde el 22/10, y el Cerebro preguntó así 8 veces en dos días. La red es el
+  hook:
+  - guarda cada pregunta con `cartero preguntar`, que la saca a la conversación del chat en el Ops Center;
+  - NIEGA la herramienta, con un motivo que le dice al modelo que termine el turno;
+  - decide por la carpeta del PROYECTO (`CLAUDE_PROJECT_DIR`), no por la carpeta actual;
+  - si la pregunta es repetida, devuelve el mismo id, y tiene un presupuesto de 15 s;
+  - ante un error deja pasar la herramienta y lo anota en guardia.log.
+- **El diagnóstico obvio era el equivocado: «10 casos en verde» no era «anda».** Cuatro revisores, con un refutador cada uno,
+  encontraron que con el cartero REAL el hook decía SIEMPRE «no salió». `cartero preguntar` imprime el JSON con sangría, en
+  varias líneas, y el hook leía sólo la última («}»). La prueba no lo vio porque su cartero falso imprimía en una línea.
+  **Regla: un falso de prueba imprime igual que el programa real, y el camino feliz se prueba con el real aislado
+  (`CARTERO_DIR` en una carpeta temporal).**
+- **Trampa de orden, medida:** el `tool_use` ya está escrito en el transcript 3 ms después de que arranca el PreToolUse, y
+  el archivo de `preguntar` aparece 0,4 a 1 s después. El Runner puede subir sola la copia «ask», que no se contesta, y
+  `unirPreguntas` descartaba después la de `preguntar` por ser igual. La pregunta se perdía un 2-5% de las veces.
+- **Instalado el 25/10 a las ~09:40** en `~/.claude/settings.json` (PreToolUse `AskUserQuestion`, timeout 30; la copia en
+  `scripts/claude-hooks/settings-hooks.json`). Se instaló recién con el arreglo de MaKo en producción (44def1637, desplegado a las
+  09:19: `unirPreguntas` deja que la de `preguntar` reemplace a la «ask» igual), y con el cartero 1.18.1.
+- **Trampa: Claude Code toma una foto de los hooks al ARRANCAR la sesión.** Un hook agregado a mano en settings.json lo toman
+  los chats que se abren después; los que ya estaban abiertos, al reabrirse. Por eso no se probó en vivo en el chat que lo
+  instaló: si no lo tomaba, ese turno quedaba trabado con una pregunta que no se contesta desde el teléfono.
+- **Sin hacer:** verlo actuar en un chat de verdad. Cada vez que corre deja una línea `[sin-ask]` en `~/.claude/guardia/guardia.log`.
+
+*25/10/2026, el Cerebro (claude5).*
+
+## La cuenta 5 («Ananda») arranca en 10 minutos, y lo que la otra dejó se verifica con git (24/10/2026)
+
+**Vive en:** `~/.claude/operaciones/cartero.mjs` (`cartero`, `carpeta`) · `C:/dev/cerebro-herramientas/listar.cjs` ·
+`app/admin/dev/_registro/tipos.ts` (`CUENTAS`) · docs/relevo/cerebro.md
+
+- **Una cuenta recién comprada NO tiene el modo bypass** («not enabled for this account in Settings»). El Runner no se
+  pudo abrir en bypass, y subir el Cerebro tampoco. Lo que no se ve: la sesión YA estaba en **auto** aunque `get_session`
+  dijera «default», y con `permission_mode: 'auto'` el Runner y los cinco chats arrancaron sin trabas. Prender el bypass es
+  un ajuste de Martín en los Settings de esa cuenta.
+- **El relevo para la cuenta nueva no estaba en main:** vivía en tres commits de docs de la rama `tren-j` de
+  `C:/dev/wt-push-q`, sin subir (el push del Cerebro de claude1 de las 20:10 no corrió el typecheck por RAM y nadie lo
+  volvió a intentar). Sin mirar ese worktree, la cuenta nueva habría arrancado con el relevo del 23/10.
+- **La verificación con git valió la pena:** 8 lectores (uno por chat de claude1 más el Cerebro) en 18 minutos encontraron
+  4 puntas listas y sin subir (docs del CRM, docs de Landings, el script del goteo y la guarda del Ops Center), 6 pedidos
+  de Martín que le habían llegado a un Cerebro CERRADO de la cuenta 2 y nadie ejecutó, una cosecha equivocada que el relevo
+  repetía (la de Vercel: docs/hallazgos-infra.md) y las 11 capturas de los 24 puntos, que sólo vivían en el transcript.
+- **El diagnóstico obvio era el equivocado:** un lector reportó «18.892 archivos borrados en el índice» en dos worktrees
+  nuevos y recomendó un `git reset`. Era una foto a mitad del `git worktree add` (el índice todavía vacío); un minuto
+  después estaban sanos. Antes de alarmar a un chat por su árbol, se vuelve a medir.
+- **Sumar una cuenta son cinco lugares:** el marcador y `cuentas.tsv`, el cartero (`cartero <cuenta> app ~/.claude` +
+  `carpeta <uuid> <cuenta>`), `listar.cjs`, `CUENTAS` de `/admin/dev` (sin la fila un hito firmado por ella rompe la
+  pantalla) y el panel Uso del Ops Center (quedó para el chat Ops Center).
+
+---
+
 ## El cartel de la app de escritorio, en el lugar de la caja (24/10/2026)
 
 - **Síntoma** (Martín): «te había pedido que si no se tiene descargado la app desktop no te deje enviar mensajes y salga el cartel

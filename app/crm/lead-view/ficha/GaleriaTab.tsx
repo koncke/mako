@@ -45,6 +45,7 @@ import { plantillaTabPorId, sugeridasDeTab, type PlantillaTab } from '@/lib/fich
 import { TOPE_PEDIDO_TAB } from '@/lib/ficha/ia';
 import { EJEMPLOS_HOJA, EJEMPLOS_TAB, EN_BLANCO_HOJA, esLaDeHoy, galeriaDeLugar, miniaturaDe, rotuloUsar, type VistaGaleria } from './galeria';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 
 /** El tope de la ruta (`maxDuration = 100`) + margen: el `fetch` no puede esperar para siempre. */
 const TOPE_CLIENTE_MS = 105_000;
@@ -87,6 +88,8 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
 
   // ── La caja: MaKo arma la tab con un pedido ──────────────────────────────────────────────
   const [pedido, setPedido] = useState('');
+  // Sin la app de escritorio, la caja de pedido tampoco escribe (25/10/2026, «En ningun chat»): app/_chat/useAppDeEscritorio.tsx.
+  const appEscritorio = useAppDeEscritorio();
   const [desde, setDesde] = useState<number | null>(null);
   const [ahora, setAhora] = useState(() => Date.now());
   const [error, setError] = useState<{ texto: string; link?: string } | null>(null);
@@ -104,7 +107,7 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
   const cancelar = () => { ctrl.current?.abort(); ctrl.current = null; setDesde(null); };
   const enviar = async () => {
     const texto = pedido.trim();
-    if (pensando || !texto) return;
+    if (pensando || !texto || appEscritorio.bloqueada) return;
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
@@ -179,7 +182,7 @@ export function GaleriaTab({ tab, ficha, nombreTab, vista, onVista, onElegir, on
           <CajaPedido titulo={{ texto: TITULO_CAJA, nivel: 2 }} valor={pedido} onValor={setPedido} onEnviar={() => { void enviar(); }}
             ejemplos={esTabFicha(tab) ? EJEMPLOS_TAB[tab] : EJEMPLOS_HOJA} animar placeholderQuieto="Escribe o dicta qué quieres ver"
             etiqueta={nueva ? 'Qué quieres ver en la hoja nueva' : `Qué quieres ver en ${nombreTab}`}
-            tope={TOPE_PEDIDO_TAB} deshabilitado={pensando} onError={(m) => setError(m ? { texto: m } : null)} />
+            tope={TOPE_PEDIDO_TAB} deshabilitado={pensando} onError={(m) => setError(m ? { texto: m } : null)} bloqueo={appEscritorio.bloqueo} />
           {pensando && (
             <div role="status" aria-live="polite" style={S.estado}>
               <span style={S.rotulo}>✦ {GRAMATICA.analizando.rotulo}</span>

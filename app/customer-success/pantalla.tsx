@@ -31,7 +31,8 @@ import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
 import type { ClienteCruce } from './cruce';
-import { adminDeWorkspaceActual, estaImpersonando, wsSuperAdmin } from '@/lib/workspace';
+import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { sacadosPorProducto } from '@/lib/comunidad-moderacion';
 import { puedeOperar } from '@/lib/operaciones-reglas';
 import { AdminView } from '@/app/admin/AdminView';
 import { urlGravatar } from '@/lib/gravatar';
@@ -304,11 +305,15 @@ async function cursoDeLaCartera(
   entrega: Extract<Awaited<ReturnType<typeof carteraEnEntrega>>, { ok: true }>,
 ): Promise<CursoClientes> {
   const ids = clientes.map((c) => c.leadId);
-  const [clasesR, progresoR, accesosR] = await Promise.all([
+  const ws = await getWorkspaceActual();
+  const [clasesR, progresoR, accesosR, sacados] = await Promise.all([
     Promise.all(entrega.servicios.map(async (s) => [s.productoId, await clasesDelProducto(s.productoId)] as const))
       .then((xs) => ({ ok: true as const, m: new Map<number, Clase[]>(xs) }), (e) => ({ ok: false as const, error: mensaje(e) })),
     progresoDeClientes(ids).then((m) => ({ ok: true as const, m }), (e) => ({ ok: false as const, error: mensaje(e) })),
     accesosDeClientes(ids).catch((e) => { console.warn('[cs] no pude leer los accesos al curso:', mensaje(e)); return null; }),
+    // Los sacados de cada programa no van en su Avance (se ven en Members → «Fuera»). Sin poder leerlos, se listan.
+    (ws ? sacadosPorProducto(ws) : Promise.resolve(new Map<number, Set<number>>()))
+      .catch((e) => { console.warn('[cs] no pude leer a los sacados:', mensaje(e)); return new Map<number, Set<number>>(); }),
   ]);
 
   const conCurso: Record<number, boolean> = {};
@@ -328,7 +333,7 @@ async function cursoDeLaCartera(
     const keys = s.etapas.map((e) => e.key);
     const asignacion = entrega.porServicio[s.productoId] ?? {};
     const filas = clientes
-      .filter((c) => esDelProducto(c.leadId, s.productoId, entrega.casaPorLead, asignacion))
+      .filter((c) => esDelProducto(c.leadId, s.productoId, entrega.casaPorLead, asignacion) && !sacados.get(s.productoId)?.has(c.leadId))
       .map((c): FilaConAcceso => {
         const etapa = etapaDelCliente(keys, asignacion[c.leadId]?.etapa);
         const a = avanceDeCliente(clases, keys, etapa, progresoR.m.get(c.leadId));

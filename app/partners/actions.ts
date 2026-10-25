@@ -11,9 +11,29 @@
 // el núcleo (`esAgencia`, lib/partners.ts). Esconder el botón no protege nada.
 
 import { revalidatePath } from 'next/cache';
-import { adminDeWorkspaceActual } from '@/lib/workspace';
+import { redirect } from 'next/navigation';
+import { adminDeWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getUsuarioActual } from '@/lib/auth';
 import { abrirCuentaDePartner, leadParaPartners, type CuentaAbierta } from '@/lib/partners';
+import { codigoDe } from '@/lib/partners-programa';
+
+/** A dónde vuelve «Unirme»: el tablero de la computadora, o /partners (el teléfono lo abre como /m/partners). */
+const VUELTAS_DE_UNIRME = new Set(['/partners/referidos', '/partners']);
+
+/**
+ * «Unirme a MaKo Partners» (24/10/2026): la landing de la tab se ve hasta que el negocio se une, y unirse es tener su
+ * código (`codigoDe`, que lo crea la primera vez y devuelve el mismo después: dos clics no hacen dos). Sólo el ADMIN del
+ * negocio, como el tablero; la plataforma nunca es partner. Un formulario sin JavaScript: termina en un redirect.
+ */
+export async function unirmeAPartnersAction(datos: FormData): Promise<void> {
+  const pedida = String(datos.get('volver') ?? '');
+  const volver = VUELTAS_DE_UNIRME.has(pedida) ? pedida : '/partners/referidos';
+  const ws = await adminDeWorkspaceActual();
+  if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/partners'));
+  const codigo = await codigoDe(ws).catch((e) => { console.warn(`[partners] no pude unir al negocio ${ws}:`, e instanceof Error ? e.message : e); return null; });
+  revalidatePath('/partners/referidos');
+  redirect(await rutaConWs(codigo ? volver : `${volver}?unirme=error`));
+}
 
 /**
  * Abrirle su cuenta de MaKo a un cliente de la agencia: desde un lead del CRM (`leadId`, cualquier etapa) o desde

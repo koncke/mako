@@ -140,14 +140,15 @@ function TiraSugerencias({ n, onAbrir }: { n: number; onAbrir: () => void }) {
 }
 
 /** La flecha para plegar, arriba a la derecha de la tarjeta. */
-const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que?: string }) => (
+export const Plegar = ({ onPlegar, que = 'las preguntas' }: { onPlegar: () => void; que?: string }) => (
   <button type="button" className="co-preg__plegar" onClick={onPlegar} aria-expanded aria-label={`Ocultar ${que}`} title="Ocultar">
     <span aria-hidden>▾</span>
   </button>
 );
 
 /** ‹, los puntos (uno por pregunta: se toca para ir) y ›. Las flechas solas (Martín, 22/10/2026: «alcanza con las flechas»):
- *  sin una antes o después, la suya queda apagada, y el rótulo es para quien no ve. */
+ *  sin una antes o después, la suya queda apagada, y el rótulo es para quien no ve. Sin «1 de 3» a la vista (Martín, 24/10/2026:
+ *  «Si ya aparecen los puntitos en las preguntas, no hace falta "1 de 3"»): lo dice el `aria-label` de los puntos, para el lector. */
 function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
   items: ReadonlyArray<{ id: string }>; pos: number; ir: (i: number) => void; contestada: (id: string) => boolean; enviando?: boolean;
   /** Cómo se llama cada punto para quien no ve: «Pregunta 2», «Sugerencia 2». */
@@ -163,7 +164,6 @@ function Pasos({ items, pos, ir, contestada, enviando, nombre = 'Pregunta' }: {
             data-contestada={contestada(q.id) ? 'true' : undefined} />
         ))}
       </span>
-      <span className="co-preg__paso">{`${pos + 1} de ${items.length}`}</span>
       <button type="button" className="co-chip co-preg__flechita" disabled={enviando || pos + 1 >= items.length} onClick={() => ir(pos + 1)} aria-label="Siguiente" title="Siguiente">›</button>
     </div>
   );

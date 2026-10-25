@@ -124,6 +124,8 @@ const FUERA_DEL_PROXY: Record<string, string> = {
   tickets: 'la Ticketera de la plataforma lee todos; lib/tickets-db.ts filtra por negocio a mano',
   // La IA del cliente en su computadora (migs 0320 y 0321): el negocio sale del TOKEN de la PC, no de la sesión.
   ia_pc_codigos: 'la puerta de la PC del cliente; lib/ia-pc.ts filtra por negocio a mano (service role)',
+  media_buyer_config: 'el Media Buyer (mig 0332): lib/media-buyer/store.ts con el cliente de servicio y el ws explícito (corre en un cron, sin sesión)',
+  media_buyer_decisiones: 'el registro del Media Buyer (mig 0332): lib/media-buyer/store.ts, siempre con el workspace_id filtrado a mano',
   ia_pc_dispositivos: 'la puerta de la PC del cliente; lib/ia-pc.ts filtra por negocio a mano (el negocio sale del token)',
   ia_pc_turnos: 'la puerta de la PC del cliente; lib/ia-pc.ts filtra por negocio y por PC a mano',
 };

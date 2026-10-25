@@ -119,7 +119,8 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
       <>
         <TituloAjustes titulo="Seguridad" bajada="Cómo entras a MaKo y desde dónde." />
         {tarjetaCodigos}
-        <section className="aj-grupo">
+        {/* El estado, en la tarjeta de la columna de la derecha (GrupoAjustes sin título): alineado con las secciones de abajo. */}
+        <GrupoAjustes>
           <div className="aj-estado" data-protegida={g.protegida}>
             <span className="aj-estado-escudo"><IconoMenu nombre="escudo" size={30} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
@@ -128,7 +129,7 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
             </div>
             {g.ir && <Link href={`${BASE}?ver=${g.ir}`} className="aj-boton">Resolver</Link>}
           </div>
-        </section>
+        </GrupoAjustes>
 
         <GrupoAjustes titulo="Cómo entras a MaKo" descripcion="Asegúrate de poder entrar siempre, aunque pierdas el celular.">
           {filasDeAcceso(e).map((f) => (

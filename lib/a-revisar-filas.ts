@@ -21,6 +21,32 @@ export type FilaLead = { lead_id: number; lead_nombre: string; pasos: PasoFila[]
 type ItemWorklist = { lead_id: number; lead_nombre: string; tipo?: string; faltantes?: ReadonlyArray<{ id: string; label: string }> };
 type Ignorado = { lead_id: number; lead_nombre: string; paso: { id: string; label: string } };
 
+/**
+ * EL CRM QUE SE MIRA (24/10/2026). Martín: «El botón de "A revisar" no esta funcionando por CRM, cuando si debería... No
+ * debo estar en un CRM y que me traigan las notificaciones de otro». Hasta acá «A revisar» listaba el negocio entero.
+ *
+ * Se corta por la CASA del lead (`funnel_id`), la misma regla con que el tablero acota sus «datos sin marcar»
+ * (app/crm/page.tsx, `idsDeLaCasa`): lo que falta es del recorrido de la casa, y «Revisar» escribe ahí. Un AGREGADO (está
+ * en este tablero por una fila de `lead_funnel`) no trae sus pendientes a este CRM.
+ *
+ * `crm.id` null = el CRM del negocio, que es la casa de los leads sin funnel (`funnel_id` null) y de los que tienen el id
+ * del funnel por defecto (`defaultId`). Sin `crm` (otra pantalla), todo.
+ */
+export type CrmQueSeMira = { id: number | null; defaultId: number | null };
+export function delCrm<T extends { funnel_id?: number | null }>(xs: readonly T[], crm: CrmQueSeMira | null): T[] {
+  if (!crm) return [...xs];
+  const delNegocio = (f: number | null | undefined) => f == null || (crm.defaultId != null && f === crm.defaultId);
+  return xs.filter((x) => (crm.id == null || crm.id === crm.defaultId ? delNegocio(x.funnel_id) : x.funnel_id === crm.id));
+}
+
+/** Lo que manda el panel en `?funnel=`: «negocio», el id de un CRM, o nada (no está en un tablero). */
+export function crmPedido(v: string | null): { id: number | null } | null {
+  if (v == null || v === '') return null;
+  if (v === 'negocio') return { id: null };
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? { id: n } : null;
+}
+
 /** Los leads del worklist (que ya viene uno por lead), con sus datos, hasta `tope` leads. */
 export function filasPorLead(items: readonly ItemWorklist[], tope: number): FilaLead[] {
   const filas: FilaLead[] = [];

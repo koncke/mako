@@ -90,7 +90,9 @@ import { spawnSync } from 'node:child_process';
 //         da por superada si Martín contesta por otro lado), sólo la ÚLTIMA de cada chat y con tope antes de mandar
 //         (`preguntasParaSubir`), la marca no avanza si no entró (`marcasQueAvanzan`), `armarPregunta` limpia como el
 //         servidor, y un archivo de pregunta malformado no tumba la vuelta.
-export const VERSION = '1.18.0';
+// 1.18.1: «la ÚLTIMA de cada chat» vale sólo para las de wrap_up (25/10/2026): una de AskUserQuestion más nueva tapaba a la
+//         de wrap_up del mismo chat, y las 'ask' de un chat se pisaban entre ellas (`preguntasParaSubir`).
+export const VERSION = '1.18.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -790,14 +792,19 @@ export const MAX_PREGUNTAS_VUELTA = 20;
  * Lo que sube la vuelta (1.17.3): de los cierres, sólo la ÚLTIMA pregunta de wrap_up de cada chat (las anteriores ya
  * quedaron atrás: MaKo las daría por superadas igual), sin repetir las de `preguntar`, y el tope ANTES de mandar, con las
  * más nuevas. `sinLugar`: los chats cuya pregunta no entró en el tope: su marca no avanza, y sale en la vuelta siguiente.
+ * ⚠️ «LA ÚLTIMA» ES SÓLO DE WRAP_UP (1.18.1, 25/10/2026): las de AskUserQuestion (`origen: 'ask'`) también salen de los
+ *    cierres, y mezcladas en el mismo mapa una 'ask' más nueva TAPABA a la de wrap_up del chat (y una 'ask' a otra). Cada
+ *    'ask' sube; MaKo junta las iguales (`unirPreguntas`).
  */
 export function preguntasParaSubir(deArchivos, deCierres, tope = MAX_PREGUNTAS_VUELTA) {
   const ultima = new Map();
+  const deLaApp = [];
   for (const q of (Array.isArray(deCierres) ? deCierres : []).filter(preguntaLegible)) {
+    if (q.origen !== 'wrap_up') { deLaApp.push(q); continue; }
     const antes = ultima.get(q.local);
     if (!antes || Date.parse(q.at) >= Date.parse(antes.at)) ultima.set(q.local, q);
   }
-  const todas = preguntasSinRepetir(deArchivos, [...ultima.values()]);
+  const todas = preguntasSinRepetir(deArchivos, [...ultima.values(), ...deLaApp]);
   if (todas.length <= tope) return { preguntas: todas, sinLugar: new Set() };
   const t = (q) => { const n = Date.parse(q?.at); return Number.isFinite(n) ? n : 0; };
   const quedan = [...todas].sort((a, b) => t(b) - t(a)).slice(0, tope);

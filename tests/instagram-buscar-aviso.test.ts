@@ -50,7 +50,8 @@ test('la ruta cuenta qué pasó con Meta en cada salida', () => {
     "estadoDe(encontrados, 'no-esta')",                                              // todo estaba en la caché
     'estadoDe(encontrados, pausaDe(pausa))',                                         // la conexión está en pausa
     "estadoDe(encontrados, motivo === 'sin-permiso' ? 'sin-permiso' : 'no-pude')",   // leer la cuenta de la página falló
-    "estadoDe(encontrados, 'sin-conexion')",                                         // sin conexión de Meta o sin Instagram
+    // Sin conexión de Meta, o conectada sin Instagram: dos cosas desde el 24/10/2026 (la segunda no pide «Conectar»).
+    "estadoDe(encontrados, token ? 'sin-instagram' : 'sin-conexion')",
     'estadoDe(encontrados, peor)',                                                   // preguntó cada @
   ]);
   assert.match(ruta, /perfiles: combinarPerfiles\(meta\.perfiles, google\?\.perfiles \?\? \[\]\),\n\s*meta: meta\.estado,/, 'la respuesta no dice qué pasó con Meta');

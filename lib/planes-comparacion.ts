@@ -6,45 +6,57 @@
 // Los números NO se escriben a mano: salen de los topes que el código hace cumplir (lib/topes-plan.ts, `TOPES`), así la
 // vitrina no puede prometer 3 automatizaciones si el producto frena en 2. Lo que es sólo de Pro sale de `TABS_SOLO_PRO`.
 // El Acelerador trae MaKo Pro (docs/ofertas-mako.md §3): sus topes son los de Pro, y suma lo del programa.
+//
+// SIN LENGUAJE INTERNO (24/10/2026, noche, Martín: «las personas no saben que es "Ops Center" y muchas otras cosas»): cada
+// fila dice lo que la persona CONSIGUE, nunca el nombre de una tab, y van por grupos, como el «Compare features» de Kajabi
+// (kajabi.com/pricing, mirado el 24/10). La guarda está en tests/planes-tres-bloques.test.ts.
 // =============================================================================
 
 import { TOPES, TABS_SOLO_PRO, type Tope } from './topes-plan';
 
 /** true = incluido, false = no incluido, texto = el tope. */
 export type Celda = boolean | string;
-export type FilaComparacion = { que: string; esencial: Celda; pro: Celda; acelerador: Celda };
+export type FilaComparacion = { grupo: string; que: string; esencial: Celda; pro: Celda; acelerador: Celda };
 
 const cantidad = (n: number | null, prefijo = ''): string => (n == null ? 'Sin tope' : `${prefijo}${n.toLocaleString('es-AR')}`);
 
 /** Una fila de tope: Esencial es la capa `completo`; Pro y el Acelerador, `agencia`. */
-const filaDeTope = (que: string, t: Tope, prefijo = ''): FilaComparacion => ({
+const filaDeTope = (grupo: string, que: string, t: Tope, prefijo = ''): FilaComparacion => ({
+  grupo,
   que,
   esencial: cantidad(TOPES.completo[t], prefijo),
   pro: cantidad(TOPES.agencia[t], prefijo),
   acelerador: cantidad(TOPES.agencia[t], prefijo),
 });
 
-/** Las tabs que son sólo de Pro, con el nombre que se le muestra a un desconocido. */
+/** Las tabs que son sólo de Pro, con lo que consigue quien no conoce MaKo (nunca el nombre de la tab). */
 export const NOMBRE_TAB_PRO: Readonly<Record<(typeof TABS_SOLO_PRO)[number], string>> = {
-  'ads-manager': 'Ads Manager',
-  'closing-analyst': 'Closing Analyst',
-  'image-editor': 'Image Editor',
-  'video-editor': 'Video Editor',
-  'ai-avatar': 'AI Avatar',
+  'closing-analyst': 'Análisis de tus llamadas de venta con IA',
+  'image-editor': 'Editor de imágenes con IA',
+  'video-editor': 'Editor de video',
+  'ai-avatar': 'Videos con un avatar de IA',
 };
 
+export const GRUPOS_COMPARACION = ['Tu asistente', 'Vender', 'Atender', 'Anuncios y contenido', 'Equipo', 'Acompañamiento'] as const;
+
 export function filasDeComparacion(): FilaComparacion[] {
+  const [asistente, vender, atender, anuncios, equipo, acompanamiento] = GRUPOS_COMPARACION;
   return [
-    { que: 'Ops Center con MaKo y tu propia IA', esencial: true, pro: true, acelerador: true },
-    filaDeTope('Funnels del CRM', 'crm.funnels'),
-    filaDeTope('Leads', 'crm.leads', 'Hasta '),
-    filaDeTope('Líneas de WhatsApp, más Instagram', 'chats.lineas_whatsapp'),
-    filaDeTope('Automatizaciones activas', 'automations.activas'),
-    filaDeTope('Landings publicadas', 'web.landings_publicadas'),
-    filaDeTope('Usuarios', 'equipo.usuarios'),
-    ...TABS_SOLO_PRO.map((t): FilaComparacion => ({ que: NOMBRE_TAB_PRO[t], esencial: false, pro: true, acelerador: true })),
-    { que: 'Los negocios de tus clientes (agencia)', esencial: false, pro: true, acelerador: true },
-    { que: 'La asesoría grupal de Martín, cada semana', esencial: false, pro: false, acelerador: true },
-    { que: 'Tu funnel armado en la primera semana', esencial: false, pro: false, acelerador: true },
+    { grupo: asistente, que: 'MaKo, tu asistente con IA, con tu propia cuenta de IA', esencial: true, pro: true, acelerador: true },
+    filaDeTope(vender, 'Embudos de venta en tu CRM', 'crm.funnels'),
+    filaDeTope(vender, 'Contactos en tu CRM', 'crm.leads', 'Hasta '),
+    filaDeTope(vender, 'Páginas de venta publicadas', 'web.landings_publicadas'),
+    filaDeTope(vender, 'Automatizaciones de mensajes activas', 'automations.activas'),
+    filaDeTope(atender, 'Números de WhatsApp, más Instagram', 'chats.lineas_whatsapp'),
+    // El media buyer: en Esencial propone y no aplica solo (25/10/2026); cuántas recomendaciones, del tope del plan.
+    filaDeTope(anuncios, 'Recomendaciones de tu media buyer con IA, por día', 'ads.recomendaciones_dia'),
+    { grupo: anuncios, que: 'Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes', esencial: false, pro: true, acelerador: true },
+    ...TABS_SOLO_PRO.map((t): FilaComparacion => ({ grupo: anuncios, que: NOMBRE_TAB_PRO[t], esencial: false, pro: true, acelerador: true })),
+    filaDeTope(equipo, 'Personas de tu equipo', 'equipo.usuarios'),
+    { grupo: equipo, que: 'Los negocios de tus clientes, si eres agencia', esencial: false, pro: true, acelerador: true },
+    { grupo: acompanamiento, que: 'Tu embudo armado en la primera semana', esencial: false, pro: false, acelerador: true },
+    { grupo: acompanamiento, que: 'La asesoría grupal en vivo con Martín, cada semana', esencial: false, pro: false, acelerador: true },
+    { grupo: acompanamiento, que: 'Plantillas probadas de páginas, mensajes y guiones', esencial: false, pro: false, acelerador: true },
+    { grupo: acompanamiento, que: 'Un grupo de WhatsApp con respuestas de Martín', esencial: false, pro: false, acelerador: true },
   ];
 }

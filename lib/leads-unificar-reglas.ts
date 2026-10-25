@@ -173,8 +173,8 @@ export const TABLAS_QUE_SE_MUDAN: ReadonlyArray<{ tabla: string; col: string; qu
 /** Lo que hace a una ficha CLIENTE: si la que se va tiene algo de esto, la v1 no une (lo dice y no hace nada). */
 export const TABLAS_DE_CLIENTE: ReadonlyArray<{ tabla: string; col: string; que: string }> = [
   { tabla: 'pagos', col: 'lead_id', que: 'cuotas' },
-  { tabla: 'cs_clientes', col: 'lead_id', que: 'Customer Success' },
-  { tabla: 'cs_respuestas', col: 'lead_id', que: 'respuestas de Customer Success' },
+  { tabla: 'cs_clientes', col: 'lead_id', que: 'Clients' },
+  { tabla: 'cs_respuestas', col: 'lead_id', que: 'respuestas de Clients' },
   { tabla: 'cliente_entrega', col: 'lead_id', que: 'entregas del servicio' },
   { tabla: 'cliente_entrega_fuera', col: 'lead_id', que: 'entregas del servicio' },
   { tabla: 'curso_progreso', col: 'lead_id', que: 'avance en el curso' },

@@ -189,6 +189,17 @@ export function unirPreguntas(antes: readonly PreguntaChat[], nuevas: readonly P
       //    botón (`textoDeRespuesta`), y la copia del cliente, que todavía lo tenía, firmaba OTRO texto: la base no la marcaba
       //    y, sin origen, ningún turno la superaba. Abierta para siempre: la queja de Martín otra vez.
       const vieja = porId.get(igual);
+      // ⚠️ UNA DE `preguntar` LE GANA A LA MISMA DE ASKUSERQUESTION (25/10/2026, la revisión del hook que convierte cada
+      //    AskUserQuestion en `cartero preguntar`): la copia 'ask' sube primero y el archivo de `preguntar` llega 0,4-1 s
+      //    después. Si caían en vueltas distintas (o en el ciclo de otra cuenta), la de `preguntar` se descartaba por igual, la
+      //    PC borraba su archivo, y el primer turno del chat superaba la 'ask': no quedaba nada contestable, sin aviso (2-5 %).
+      //    Es el caso inverso del de wrap_up: la 'ask' queda superada a la hora de la nueva, y entra la que se contesta acá.
+      if (vieja?.origen === 'ask' && !p.origen) {
+        porId.set(igual, { ...vieja, superada: p.at });
+        porId.set(p.id, p);
+        abiertas.set(norm(p), p.id);
+        continue;
+      }
       if (vieja?.origen === 'wrap_up' && p.origen !== 'wrap_up') porId.set(igual, { ...vieja, tambienPreguntar: true });
       continue;
     }
@@ -205,22 +216,25 @@ export type TurnoQueSupera = { local: string; rol: string; at: string };
  * Las preguntas de un chat con las de wrap_up que quedaron atrás marcadas `superada`: hay un turno de Martín u otro chat
  * POSTERIOR (contestó por la app, por la caja o por Remote Control), o el chat cerró con otro wrap_up más nuevo. Las de
  * `preguntar` y las contestadas no se tocan. Devuelve la MISMA lista si no cambió nada.
+ * `cadena` (25/10/2026, lib/centro-chats.ts → cadenasDeSesiones): las sesiones de cada chat que el Ops Center junta en uno. Un
+ * turno de CUALQUIERA de ellas cuenta: la conversación pudo seguir en otra cuenta. Sin ella, sólo la sesión que preguntó.
  */
-export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: readonly TurnoQueSupera[]): PreguntaChat[] {
+export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: readonly TurnoQueSupera[], cadena?: ReadonlyMap<string, readonly string[]>): PreguntaChat[] {
   const t = (s: string) => Date.parse(s);
+  const deSuChat = (x: TurnoQueSupera, p: PreguntaChat) => x.local === p.local || (cadena?.get(p.local)?.includes(x.local) ?? false);
   let cambio = false;
   const out = preguntas.map((p) => {
     // Una de AskUserQuestion (cartero 1.18.0): el chat no escribe NADA hasta que Martín la contesta en la app, así que lo
     // primero que el chat dice después la deja atrás (también un turno suyo, `el`).
     if (p.origen === 'ask' && estaAbierta(p)) {
-      const sigue = turnos.filter((x) => x.local === p.local && (x.rol === 'el' || x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => t(x.at)).sort((a, b) => a - b)[0];
+      const sigue = turnos.filter((x) => deSuChat(x, p) && (x.rol === 'el' || x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => t(x.at)).sort((a, b) => a - b)[0];
       if (sigue == null) return p;
       cambio = true;
       return { ...p, superada: new Date(sigue).toISOString() };
     }
     if (p.origen !== 'wrap_up' || p.tambienPreguntar || !estaAbierta(p)) return p;
     const despues = [
-      ...turnos.filter((x) => x.local === p.local && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
+      ...turnos.filter((x) => deSuChat(x, p) && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
       ...preguntas.filter((q) => q.id !== p.id && q.local === p.local && q.origen === 'wrap_up' && t(q.at) > t(p.at)).map((q) => q.at),
     ].sort((a, b) => t(a) - t(b));
     if (!despues.length) return p;

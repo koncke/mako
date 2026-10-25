@@ -16,7 +16,7 @@
 //    entera. Lo sanea acá y otra vez el servidor (sin claves, sin emails ni teléfonos); de quién es, lo dice la sesión.
 // ⚠️ SIN CSS NI IMPORTS PESADOS: lo importan ~180 archivos y varios los cargan tests en node.
 
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ROTULO_MANDADO, ROTULO_REPORTAR, RUTA_REPORTAR, TOPE_ACCION, TOPE_ERROR, limpio } from '@/lib/soporte-reporte';
 
 // ── El último botón que tocó la persona: «lo que hacía» cuando salió el error ─────────────────────────────────────────
@@ -75,6 +75,12 @@ export async function reportarASoporte({ error, accion }: { error: string; accio
   }
 }
 
+/**
+ * `true` = acá no hay sesión de MaKo (el portal del ALUMNO): no se dibuja. La ruta del reporte pide la sesión y le
+ * contestaba «no autenticado» al lado de su aviso (f33 de la llamada con Leandro, 24/10/2026). Lo pone PortalAlumno.
+ */
+export const SinSoporteCtx = createContext(false);
+
 const S_BOTON: CSSProperties = {
   display: 'inline', marginLeft: 8, padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit',
   fontSize: '0.92em', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: 2, cursor: 'pointer', whiteSpace: 'nowrap',
@@ -107,6 +113,7 @@ export function ReportarASoporte({ error, accion, style }: { error?: string; acc
   const texto = (error ?? delAviso).trim();
   // Un error nuevo en el mismo aviso se puede reportar de nuevo.
   useEffect(() => { setEstado({ k: 'listo' }); }, [texto]);
+  const sinSoporte = useContext(SinSoporteCtx);
 
   const mandar = async () => {
     if (estado.k === 'mandando' || !texto) return;
@@ -115,6 +122,7 @@ export function ReportarASoporte({ error, accion, style }: { error?: string; acc
     setEstado(r.ok ? { k: 'mandado', id: r.id } : { k: 'fallo', texto: r.error });
   };
 
+  if (sinSoporte) return null;
   return (
     <span ref={ref} data-soporte="" style={texto ? undefined : { display: 'none' }}>
       {estado.k === 'mandado' ? (

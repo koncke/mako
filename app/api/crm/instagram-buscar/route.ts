@@ -154,8 +154,9 @@ async function buscarEnMeta(usuarios: string[], ws: number): Promise<{ perfiles:
     console.error(`[api:crm/instagram-buscar] la cuenta de Instagram del ws ${ws}: ${msg(e)}`);
     return { perfiles: encontrados, estado: estadoDe(encontrados, motivo === 'sin-permiso' ? 'sin-permiso' : 'no-pude') };
   }
-  // Sin conexión de Meta o sin Instagram profesional en la página: no es un error, sigue Google.
-  if (!token || !ig) return { perfiles: encontrados, estado: estadoDe(encontrados, 'sin-conexion') };
+  // Sin conexión de Meta, o conectada sin Instagram profesional en la página: no es un error, sigue Google. Y son DOS
+  // cosas (24/10/2026): con token, la pantalla no pide «Conectar Meta» (`sin-instagram`).
+  if (!token || !ig) return { perfiles: encontrados, estado: estadoDe(encontrados, token ? 'sin-instagram' : 'sin-conexion') };
   const tk = token;
   const cuenta = ig;
 
@@ -212,7 +213,8 @@ async function conexionDeMeta(ws: number, fresco: boolean): Promise<ConexionMeta
   try {
     const token = await credWs('META_ACCESS_TOKEN', ws);
     const ig = token ? await igDelNegocio(ws, token) : null;
-    return token && ig ? 'conectado' : 'sin-conexion';
+    // Con token y sin la cuenta de Instagram de la página, Meta ESTÁ conectada (24/10/2026): `sin-instagram`, no «conectá».
+    return token && ig ? 'conectado' : token ? 'sin-instagram' : 'sin-conexion';
   } catch (e) {
     // Lo que no se pudo leer NO es «sin conexión»: no se manda a conectar lo que quizá ya está conectado.
     console.error(`[api:crm/instagram-buscar] el estado de Meta del ws ${ws}: ${msg(e)}`);

@@ -1,5 +1,32 @@
 # Relevo — Ops Center, ex Centro de Operaciones (17/10/2026, ~20:00; cuenta 4, `claude4`)
 
+## 24/10 noche (claude5 «Ananda», chat «Ops Center», `local_ea6ee0d2…`): las dos regresiones, el Uso, Settings y la investigación
+
+Encargo del Cerebro de la cuenta 5 con los puntos 11, 22, 23 y 24 de la noche (docs/feedback-24-10.md, TEXTUAL) y P4 de
+docs/pendientes.md. Rama `ops-2510-regresiones` (worktree `C:/dev/wt-ops-reg`), sobre origin/main `59d228ea1`, entregada al Cerebro en
+3 puntas: `0667e8175` (las regresiones), `1a07f3768` (#8, la caja al Cerebro abierto, tests/operaciones, el Uso) y `b45ecac47`
+(Settings). La rama `ops-2510` (C:/dev/wt-ops-2510) quedó VIEJA: su contenido pasó entero a la otra; no se entrega. Lo que costó:
+docs/hallazgos-operaciones.md («Sin la app, NINGÚN chat») y docs/hallazgos-ui.md («La sidebar plegada
+por defecto…», la regresión).
+
+| Pedido | Estado |
+|---|---|
+| 22. «En ningún chat» se escribe sin la app | HECHO: `useAppDeEscritorio` en cada caja de MaKo (chats y cajas de pedido), la plataforma ya no queda afuera, y el inventario en tests/app-de-escritorio-todos-los-chats.test.ts. Fuera a propósito: Chats, Ticketera, Ops Center del super admin, teléfono, onboarding |
+| 23. La flecha no deja la sidebar desplegada | HECHO: `barraFija` y `loQueGuardaLaFlecha` (Sidebar.tsx); desplegarla se guarda siempre |
+| 2. El Uso con la cuenta 5, «Ananda» | `CUENTAS.claude5` lo trajo el tren (`d7b1f9849`); lo mío (`sinNota`: la nota de cuentas.tsv no es el nombre) va en la punta siguiente |
+| 11 + P4. Settings página por página | HECHO (punta siguiente): el molde a dos columnas y todo el ancho (Catalyst, Linear), Perfil, Notificaciones una vez, Instalar, Equipo, Identidades fiscales, Tu plan; el teléfono sin scroll de costado. Sin mirar en producción |
+| 24. La investigación financiera en una ruta | LO HIZO EL CEREBRO: /admin/docs?d=estrategia-financiera-mako |
+| Cola del Cerebro (25/10): las iniciales con emoji, f02, f03, f31 | HECHO (punta del 25/10): `iniciales` (lib/unicode-seguro.ts); «MaKo» en el menú Inicio y «¿Otra cuenta de Claude?» (mako-pc); Clients con «Clientes, cursos y comunidad» y el buscador que encuentra Classroom y Community. **f02/f03 sin publicar**: el instalador 0.4.3 hay que compilarlo y subirlo ANTES de subir `VERSION_PC` |
+| 12. «Unifica ese diseño» (el panel de la estrella) | HECHO: `.ch-tab-panel` con el marco de `.an`; en el teléfono la tab no se corre. Sin mirar en producción |
+| Cola del Cerebro (25/10, madrugada): «1 de 3», los que esperan arriba, la cadena, `preguntar` contra la 'ask', el cartero | HECHO: sin «1 de 3» a la vista; el orden espera > trabaja > «Completado» > resto; `cadenasDeSesiones` en el ciclo del cartero; `unirPreguntas` deja la de `preguntar`; cartero 1.18.1. **El cartero 1.18.1 hay que instalarlo en las PCs** (el hook de AskUserQuestion espera esto desplegado) |
+| «Completado» en bloque arriba del chat (25/10, 09:32) | HECHO (rama `ops-2510-completado`, desde main 44def1637): `BloqueCompletado` con la tarjeta del hilo, «Visto», plegar, y en tira si hay una pregunta. Sin mirar en producción |
+| React #310 en /admin/operaciones, /m/chats, /m/second-brain | HECHO: su layout redirige antes del loader; salieron de CONOCIDAS_SIN_LAYOUT. Para eso la rama trae `e89fb2e8c` (Landings) por merge, con el conflicto de PanelAgente.tsx ya resuelto. Queda `requireMovil` redirigiendo debajo del loader en el resto de /m (docs/hallazgos-infra.md) |
+
+- **Sin mirar en pantalla:** el navegador de la app sigue sin la sesión de Martín. Lo que falta recorrer: una cuenta sin
+  computadora en Automations, Offer, el Web Generator y el Dashboard («Instalar MaKo» en el lugar del micrófono), y la flecha de
+  la sidebar en Automations con la ventana grande.
+- **AskAgent** («Editar con IA» de cada sección del Web Generator) no se bloquea: Martín pidió sacarlo (punto 5, chat Landings).
+
 ## 24/10 madrugada (claude1, chat «Ops Center», `local_5cc6190d…`): /integraciones, «Tus cuentas de IA» y el cartel de la app
 
 Tres encargos del Cerebro con el mismo origen: Martín vio la pantalla y dijo que era demasiado. Rama `ops-integraciones-2410`

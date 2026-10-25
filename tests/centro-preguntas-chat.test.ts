@@ -97,7 +97,7 @@ test('5. el servidor marca contestada sólo con el trabajo firmado que dice lo e
   assert.match(cuerpo, /error: string \}> \{\s*const admin = await getSesionAdmin\(\);\s*if \(!puedeOperar\(/, 'la guarda en la primera línea');
   assert.match(cuerpo, /w\.destino !== local \|\| w\.texto\.trim\(\) !== textoDeRespuesta\(p, v\.elegidas, v\.otra\)/, 'compara lo firmado');
   const ciclo = leer('lib/operaciones.ts');
-  assert.match(ciclo, /preguntasIds = await guardarPreguntas\(preguntas\)/);
+  assert.match(ciclo, /preguntasIds = await guardarPreguntas\(preguntas, cadena\)/);
   assert.match(ciclo, /cierresIds, turnosOk, preguntasIds \}/, 'la PC sabe cuáles entraron');
 });
 

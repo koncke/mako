@@ -26,11 +26,11 @@ import { useState, type ReactNode } from 'react';
 import './chat.css';
 import { DescargarMaKo, avisoAlAbrir } from '@/app/integraciones/CuentasYDispositivos';
 import { Icon } from '@/app/_components/icons';
+import { FRASE_APP, FRASE_INSTALAR } from './app-de-escritorio';
 
-/** Lo que falta, en el campo apagado de la caja. */
-export const FRASE_APP = 'Instala MaKo para escribir';
-/** El paso siguiente, ya descargado (con lo que dice el sistema al abrirlo, en el `title` del botón). */
-export const FRASE_INSTALAR = 'Abre lo que descargaste';
+// Las frases del campo apagado viven con la pregunta compartida (./app-de-escritorio.ts): las usan también las cajas con su
+// propio motor (./useAppDeEscritorio.tsx).
+export { FRASE_APP, FRASE_INSTALAR };
 export const FRANJA_APP = 'Descarga MaKo en tu computadora: desde ahí trabaja con tu Claude.';
 
 /**

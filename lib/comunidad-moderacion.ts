@@ -8,27 +8,36 @@ import 'server-only';
 // Lo hace el EQUIPO: cada función vuelve a preguntar la regla (`puedeSacar`, `puedeModerar`,
 // lib/comunidad-reglas.ts) antes de escribir, con el actor de la SESIÓN.
 //
-// ⚠️ SACAR NO CORTA EL CURSO. El baneo vive en `comunidad_baneos` (mig 0217), aparte de
-//    `curso_accesos`: el alumno sigue con sus clases y su portal, y lo que pierde es la comunidad —
-//    ni leer ni escribir—, porque `actorDelAlumno` (el portón de /api/compartido/comunidad) lo devuelve
-//    `null` mientras el baneo esté vigente (`levantado_at` en null).
+// ⚠️ SACAR ES DEL PROGRAMA ENTERO: LA COMUNIDAD Y EL CURSO (24/10/2026, f32/f33 de la llamada con Leandro: «no me
+//    saca del curso, pero me saca de la comunidad»). Hasta ese día el baneo cerraba sólo la comunidad y el alumno
+//    seguía entrando a sus clases, con la comunidad diciéndole «tu acceso no está activo». Ahora son dos escrituras:
+//    el baneo en `comunidad_baneos` (mig 0217), que cierra la comunidad —`actorDelAlumno`, el portón de
+//    /api/compartido/comunidad, lo devuelve `null` mientras esté vigente—, y el curso de ese programa
+//    (`sacarDelCurso`, lib/curso-datos.ts): se le saca de su lista o, si era lo único que veía, se le corta el acceso
+//    y el portal le dice en la entrada que no está activo. Las dos con el MISMO instante: «Volver a admitir» lo usa
+//    para habilitar sólo un corte que hizo este «sacar» (`accesoTrasAdmitir`).
 
 import { idValido, leerClave, puedeModerar, puedeSacar, sanearTexto } from './comunidad-reglas';
 import { de, msg, postDe, infoDeMiembros, miembroVista, descartarAdjunto, type Actor } from './comunidad-datos';
 import { getSupabaseServer } from './supabase';
+import { runWithWorkspace } from './workspace';
+import { leerTodo } from './supabase-paginado';
 import type { Resultado, SacadoVista } from './comunidad-tipos';
 
 /** Hasta dónde llega «borrar lo que escribió» al sacar a alguien: los últimos 7 días, como el ban de Skool. */
 const BORRAR_DIAS = 7;
 const TOPE_MOTIVO = 300;
 
+/** Qué pasó con su curso al sacarlo: se le sacó ése, se le cortó el acceso (era el único) o no tenía ese curso. */
+export type CursoAlSacar = 'quitado' | 'cortado' | 'sin-curso';
+
 /**
- * Saca a un alumno de la comunidad. Con `borrarContenido`, además borra sus posts y comentarios de los
- * últimos 7 días (sin vuelta atrás, y lo dice el botón). Volver a sacar a alguien que había vuelto
- * reescribe su fila.
+ * Saca a un alumno del programa: su comunidad y su curso (ver la cabecera). Con `borrarContenido`, además borra sus
+ * posts y comentarios de los últimos 7 días (sin vuelta atrás, y lo dice el botón). Volver a sacar a alguien que
+ * había vuelto reescribe su fila.
  */
 export async function sacarAlumno(a: Actor, claveRaw: unknown, opts: { motivo?: unknown; borrarContenido?: unknown } = {}):
-  Promise<Resultado<{ borrados: { posts: number; comentarios: number } }>> {
+  Promise<Resultado<{ borrados: { posts: number; comentarios: number }; curso: CursoAlSacar }>> {
   try {
     const c = leerClave(claveRaw);
     if (!c || !puedeSacar(a, c.clave)) return { ok: false, error: 'Solo el equipo saca a un alumno.' };
@@ -38,11 +47,20 @@ export async function sacarAlumno(a: Actor, claveRaw: unknown, opts: { motivo?: 
     if (!lead) return { ok: false, error: 'Esa persona ya no está.' };
     const motivo = sanearTexto(opts.motivo, { unaLinea: true }).slice(0, TOPE_MOTIVO);
     const borrar = opts.borrarContenido === true;
+    const ahora = new Date();
     const { error } = await de(a.ws, 'comunidad_baneos').upsert({
       producto_id: a.productoId, miembro: c.clave, lead_id: c.id, motivo, por: a.nombre, borro_contenido: borrar,
-      levantado_at: null, created_at: new Date().toISOString(),
+      levantado_at: null, created_at: ahora.toISOString(),
     }, { onConflict: 'workspace_id,producto_id,miembro' });
     if (error) return { ok: false, error: error.message };
+    // El curso, con el mismo instante que el baneo. En el negocio del actor: el acceso se lee con `getTenantDb()`.
+    let curso: CursoAlSacar;
+    try {
+      const { sacarDelCurso } = await import('./curso-datos');
+      curso = await runWithWorkspace(a.ws, () => sacarDelCurso(c.id, a.productoId, ahora));
+    } catch (e) {
+      return { ok: false, error: `Quedó fuera de la comunidad, pero no pude sacarle el curso: ${msg(e, 'error de lectura')}. Vuelve a intentarlo.` };
+    }
 
     const borrados = { posts: 0, comentarios: 0 };
     if (borrar) {
@@ -60,24 +78,56 @@ export async function sacarAlumno(a: Actor, claveRaw: unknown, opts: { motivo?: 
       borrados.posts = filas.length;
       borrados.comentarios = (k.data ?? []).length;
     }
-    return { ok: true, borrados };
+    return { ok: true, borrados, curso };
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo sacar.') };
   }
 }
 
-/** Vuelve a admitir a un alumno sacado: el baneo queda levantado (la fila se conserva, con su fecha). */
-export async function admitirAlumno(a: Actor, claveRaw: unknown): Promise<Resultado> {
+/**
+ * Vuelve a admitir a un alumno sacado: el baneo queda levantado (la fila se conserva, con su fecha) y el curso de ese
+ * programa vuelve (`devolverElCurso`). `cursoCortado`: a su acceso lo cortó otra persona, y eso no lo deshace volver
+ * a admitirlo (se habilita desde su ficha).
+ */
+export async function admitirAlumno(a: Actor, claveRaw: unknown): Promise<Resultado<{ cursoCortado: boolean }>> {
   try {
     const c = leerClave(claveRaw);
     if (!c || !puedeSacar(a, c.clave)) return { ok: false, error: 'Solo el equipo admite a un alumno.' };
-    const { error } = await de(a.ws, 'comunidad_baneos').update({ levantado_at: new Date().toISOString() })
-      .eq('producto_id', a.productoId).eq('miembro', c.clave).is('levantado_at', null);
+    const { data, error } = await de(a.ws, 'comunidad_baneos').update({ levantado_at: new Date().toISOString() })
+      .eq('producto_id', a.productoId).eq('miembro', c.clave).is('levantado_at', null).select('created_at');
     if (error) return { ok: false, error: error.message };
-    return { ok: true };
+    const ban = ((data ?? []) as Array<{ created_at: string | null }>)[0];
+    if (!ban) return { ok: true, cursoCortado: false }; // ya estaba adentro: no se toca su curso
+    try {
+      const { devolverElCurso } = await import('./curso-datos');
+      const r = await runWithWorkspace(a.ws, () => devolverElCurso(c.id, a.productoId, ban.created_at));
+      return { ok: true, cursoCortado: r === 'cortado' };
+    } catch (e) {
+      return { ok: false, error: `Volvió a la comunidad, pero no pude abrirle el curso: ${msg(e, 'error de lectura')}.` };
+    }
   } catch (e) {
     return { ok: false, error: msg(e, 'No se pudo admitir.') };
   }
+}
+
+/**
+ * Los alumnos sacados de cada programa (baneo vigente), producto → leads. Lo leen las dos tablas de Avance (la de
+ * Clients y la del Classroom) para no listarlos: sacarlo es del programa entero, y ahí se lo invitaría otra vez. Se
+ * los ve, y se los vuelve a admitir, en Members → «Fuera». Tira si la base no contesta: quien llama decide.
+ */
+export async function sacadosPorProducto(ws: number): Promise<Map<number, Set<number>>> {
+  const filas = await leerTodo<{ id: number; producto_id: number | string; lead_id: number | string | null }>(
+    getSupabaseServer(), 'comunidad_baneos', 'id, producto_id, lead_id',
+    { orden: 'id', eq: { workspace_id: ws }, filtros: (q) => q.is('levantado_at', null) },
+  );
+  const out = new Map<number, Set<number>>();
+  for (const f of filas) {
+    if (f.lead_id == null) continue;
+    const p = Number(f.producto_id);
+    if (!out.has(p)) out.set(p, new Set());
+    out.get(p)!.add(Number(f.lead_id));
+  }
+  return out;
 }
 
 /** Los alumnos fuera de la comunidad (baneo vigente), del más reciente al más viejo. Sólo el equipo. */

@@ -33,3 +33,21 @@ export function datosSinMediosEmojis<T>(v: T): T {
   }
   return v;
 }
+
+/**
+ * LAS INICIALES de un nombre, para el avatar sin foto: UNA pieza para toda la app (25/10/2026). Había una copia por pantalla
+ * (el Avatar de la casa, la barra, la marca, los avisos, la comunidad, los cursos, el equipo, la ficha…) y todas tomaban
+ * `w[0]`, `charAt(0)` o `slice(0, 1)`: la primera UNIDAD UTF-16, no el primer carácter. Con un nombre que empieza con un emoji
+ * («🚀 Martín», lo vio Automations) es la primera mitad del emoji, y el avatar dibujaba «�M».
+ * Se toma la primera LETRA o NÚMERO de cada palabra (un emoji o un símbolo se saltean, y una palabra sin ninguno no cuenta),
+ * hasta `cuantas`, en mayúsculas. Sin ninguna, `sinNada`.
+ */
+export function iniciales(nombre: string | null | undefined, cuantas = 2, sinNada = '?'): string {
+  const letras: string[] = [];
+  for (const palabra of String(nombre ?? '').trim().split(/\s+/)) {
+    if (letras.length >= cuantas) break;
+    const m = /[\p{L}\p{N}]/u.exec(palabra);
+    if (m) letras.push(m[0]);
+  }
+  return letras.length ? letras.join('').toLocaleUpperCase('es') : sinNada;
+}

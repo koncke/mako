@@ -30,8 +30,10 @@ test('el nombre del archivo, sin tildes ni espacios', () => {
   assert.equal(nombreArchivoLead(7, null), 'lead-7.csv');
 });
 
-test('el «⋯» de la ficha ofrece «Exportar (CSV)» y lo descarga', () => {
+// «Exportar CSV», sin paréntesis, desde el 24/10/2026: el «⋯» abre el menú de la ficha (./menu-contextual-ficha.ts).
+test('el «⋯» de la ficha ofrece «Exportar CSV» y lo descarga', () => {
   const ficha = readFileSync('app/crm/lead-view/ficha/FichaPorBloques.tsx', 'utf8').replace(/\r\n/g, '\n');
-  assert.match(ficha, /\{ value: 'csv', label: 'Exportar \(CSV\)', icono: 'descargar' \}/);
-  assert.match(ficha, /else if \(v === 'csv'\) exportarCsv\(\);/);
+  const menu = readFileSync('app/crm/lead-view/ficha/menu-contextual-ficha.ts', 'utf8');
+  assert.match(menu, /exportar_csv: \{ texto: 'Exportar CSV', icono: 'descargar' \}/);
+  assert.match(ficha, /case 'exportar_csv': exportarCsv\(\); return;/);
 });

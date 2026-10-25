@@ -55,7 +55,9 @@ import { attrsDeRaiz } from '../extensiones/comun';
 type ModoAgente = ModoAskAgent;
 
 type Panel =
-  | { tipo: 'menu' | 'notas' | 'estilo' | 'disenos'; ancla: HTMLElement }
+  /** El menú de la sección: desde el ⋮ (su botón) o desde el clic derecho sobre la sección (el punto del clic). */
+  | { tipo: 'menu'; ancla: HTMLElement | { x: number; y: number } }
+  | { tipo: 'notas' | 'estilo' | 'disenos'; ancla: HTMLElement }
   | { tipo: 'agente'; ancla: HTMLElement; modo: ModoAgente };
 
 /** El contenedor que scrollea al lienzo (para el auto-scroll del arrastre). */
@@ -283,6 +285,29 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   // El panel que se abre desde el menú se ancla al ⋮ (el menú se cierra al elegir).
   const asaRef = useRef<HTMLButtonElement | null>(null);
   const desdeMenu = (accion: () => void) => () => { setPanel(null); accion(); };
+  /** El ancla de lo que se abre desde el menú: el ⋮ (aunque el menú se haya abierto con el clic derecho, en otro punto). */
+  const anclaSub = (): HTMLElement => asaRef.current ?? (panel && panel.ancla instanceof HTMLElement ? panel.ancla : fondoRef.current!);
+
+  /**
+   * EL CLIC DERECHO SOBRE LA SECCIÓN (24/10/2026, Martín: «en el lienzo de Web tambien debería funcionar el click derecho,
+   * como en otros editores»; docs/diseno-editor-web-como-automations.md §5): abre el MISMO menú del ⋮, en el punto del
+   * clic, como Canva. Quedan con el menú del navegador: con Shift (la salida de siempre de los editores), y con texto
+   * elegido adentro de la sección (copiar, pegar, el corrector). Un bloque de adentro que ya atendió el clic derecho
+   * (`defaultPrevented`) se queda con el suyo.
+   */
+  useEffect(() => {
+    const seccion = fondoRef.current?.parentElement;
+    if (!seccion || !editable) return;
+    const alClicDerecho = (e: MouseEvent) => {
+      if (e.shiftKey || e.defaultPrevented) return;
+      const sel = window.getSelection();
+      if (sel && !sel.isCollapsed && sel.anchorNode && seccion.contains(sel.anchorNode)) return;
+      e.preventDefault();
+      setPanel({ tipo: 'menu', ancla: { x: e.clientX, y: e.clientY } });
+    };
+    seccion.addEventListener('contextmenu', alClicDerecho);
+    return () => seccion.removeEventListener('contextmenu', alClicDerecho);
+  }, [editable]);
 
   // El hero con VIDEO de fondo (animaciones.ts, `VideoFondo`) se dibuja con su póster, como en el render del editor
   // (especificacion.ts, `acentoConVideo`): el video sólo corre en la publicada. Hoy ninguna pantalla pone un
@@ -460,18 +485,18 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           <FilaMenu icono="duplicar" texto={`Duplicar ${uno}`} onClick={desdeMenu(() => { duplicarTarjeta(editor, id); })} />
           <FilaMenu icono="flecha-arriba" texto="Combinar con lo anterior" apagado={iMenu <= 0} onClick={desdeMenu(() => { combinarConAnterior(editor, id); })} />
           <SepMenu />
-          <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
-          <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: asaRef.current ?? panel.ancla })} />
+          <FilaMenu icono="paleta" texto="Cambiar el color de fondo" onClick={() => setPanel({ tipo: 'estilo', ancla: anclaSub() })} />
+          <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: anclaSub() })} />
           {/* El panel «Animar» en la vista de ESTA sección (paneles/PanelAnimacion.tsx). */}
           {ctx && <FilaMenu icono="brillo" texto={`Animar ${uno}`} onClick={desdeMenu(() => ctx.abrirAnimar('seccion', id))} />}
           <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => setAttrs(ESTILO_RESTABLECIDO))} />
-          <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: asaRef.current ?? panel.ancla })} />
+          <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: anclaSub() })} />
           <FilaMenu icono="enlace" texto="Copiar enlace" onClick={desdeMenu(copiarEnlace)} />
           <SepMenu />
           <FilaMenu icono="chevron-arriba" texto="Mover arriba" apagado={iMenu <= 0} onClick={desdeMenu(() => { moverTarjeta(editor, iMenu, iMenu - 1); })} />
           <FilaMenu icono="chevron-abajo" texto="Mover abajo" apagado={iMenu < 0 || iMenu >= n - 1} onClick={desdeMenu(() => { moverTarjeta(editor, iMenu, iMenu + 1); })} />
           <FilaMenu icono={a.oculta ? 'ojo' : 'ojo-tachado'} texto={a.oculta ? 'Mostrar' : 'Ocultar'} onClick={desdeMenu(() => setAttrs({ oculta: !a.oculta }))} />
-          <FilaMenu icono="varita" texto="Probar nuevo diseño" onClick={() => setPanel({ tipo: 'agente', ancla: asaRef.current ?? panel.ancla, modo: 'disenos' })} />
+          <FilaMenu icono="varita" texto="Probar nuevo diseño" onClick={() => setPanel({ tipo: 'agente', ancla: anclaSub(), modo: 'disenos' })} />
           <SepMenu />
           <FilaMenu icono={<IconoBorrar size={16} />} texto="Eliminar" peligro onClick={desdeMenu(eliminar)} />
         </Flotante>

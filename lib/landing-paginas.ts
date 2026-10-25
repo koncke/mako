@@ -17,6 +17,8 @@
 // tiene que poder testearse.
 // =============================================================================
 
+import { esParametroPersonal, urlSinDatosPersonales } from './url-datos-personales';
+
 export const PAGINAS_KEY = 'landing.paginas';
 
 /** Tope: si alguien tiene más de esto, el desplegable dejó de ser un desplegable. */
@@ -130,7 +132,9 @@ export function esPreviewDeEditor(crudo: string): boolean {
  * dice por qué no se deriva de ésta). La forma no cambia sin migrar lo guardado: tests/landing-url-unica.test.ts.
  */
 export function normalizarUrl(crudo: string): string | null {
-  const s = (crudo ?? '').trim();
+  // Sin los datos de una persona ANTES de parsear (P6): un `?` repetido o una URL adentro de un parámetro los esconden
+  // en un valor que URLSearchParams no abre.
+  const s = urlSinDatosPersonales((crudo ?? '').trim());
   if (!s) return null;
   // Sin esquema no se puede rutear ni abrir: se asume https en vez de rechazar,
   // porque «tu-pagina.com» es lo que la gente escribe.
@@ -146,6 +150,10 @@ export function normalizarUrl(crudo: string): string | null {
     // UTM y los click-ids de las plataformas son el mismo caso: dicen de dónde
     // vino esta VISITA, no qué página es.
     for (const p of PARAMS_DE_MEDICION) u.searchParams.delete(p);
+    // ⚠️ NI LOS DATOS DE UNA PERSONA (24/10/2026, P6). La página de gracias de una agenda trae `?name=…&email=…` y esto
+    // los dejaba pasar a toda lista de páginas (el probador, el pagina_registro de un lead, el cruce de funnels). Tampoco
+    // identifican una página. La regla vive en lib/url-datos-personales.ts.
+    for (const [k, v] of [...u.searchParams]) if (esParametroPersonal(k, v)) u.searchParams.delete(k);
     const path = u.pathname.replace(/\/+$/, '');
     return `${u.protocol}//${hostCanonico(u.hostname)}${u.port ? `:${u.port}` : ''}${path}${u.search}`;
   } catch {

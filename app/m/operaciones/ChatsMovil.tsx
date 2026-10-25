@@ -36,6 +36,7 @@ import type { PedidoP, PushP } from '@/lib/progreso-reglas';
 import type { AccionResponder, Decision } from '@/app/admin/runway/decisiones';
 import { preguntasDelChat, respuestasDelChat } from '@/lib/centro-preguntas';
 import { BloqueDePreguntas } from '@/app/admin/operaciones/PreguntasDelChat';
+import { BloqueCompletado } from '@/app/admin/operaciones/BloqueCompletado';
 import { CirculoNuevo } from '@/app/admin/operaciones/NuevoChat';
 import { useChatNuevo } from '@/app/admin/operaciones/ChatNuevo';
 import { CajaChatNuevo, CriaturaChatNuevo, CuerpoChatNuevo, TituloChatNuevo } from '@/app/admin/operaciones/ChatNuevoPiezas';
@@ -244,10 +245,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     return () => clearTimeout(t);
   }, [abierto, lineas.length]);
 
-  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que trabaja, después lo que espera a Martín.
-  // Lo que espera a Martín arriba: una pregunta, o un «Completado» sin ver (el mismo aviso: `centro.avisos`).
+  // Una sola lista (sin «Sin asignar», 17/10/2026): arriba lo que espera su respuesta (24/10/2026), después lo que trabaja,
+  // después un «Completado» sin ver (`centro.avisos` los cuenta juntos; `esperanRespuesta`, sólo las preguntas, las mismas del
+  // renglón de cada fila: lib/centro-chats.ts → prioridadEnLista).
   const avisos = centro.avisos;
-  const secciones = useMemo(() => seccionesDeChats(chats, avisos), [chats, avisos]);
+  const esperanRespuesta = useMemo(() => (c: ChatCentro) => esperaDe(c, esperas), [esperas]);
+  const secciones = useMemo(() => seccionesDeChats(chats, avisos, esperanRespuesta), [chats, avisos, esperanRespuesta]);
 
   // ── Lo de WhatsApp en cada mensaje (17/10/2026, MensajeWA.tsx): el menú, su Info y Reenviar (adentro de ESTA hoja, con
   //    su «‹», como Renombrar: en el teléfono nunca hay dos hojas) ──────────────────────────────────────────────────
@@ -469,7 +472,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* TODO lo que espera a Martín, pegado a la caja y en UN bloque, como en la computadora (PreguntasDelChat.tsx →
-                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. */}
+                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y su último «Completado» sin ✓,
+                en el mismo marco (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
+            <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
+              tareas={centro.tareasDe(elegido)} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>

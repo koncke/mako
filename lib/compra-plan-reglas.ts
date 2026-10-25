@@ -2,10 +2,11 @@
 // compra-plan-reglas — lo que decide el checkout público de /planes (puro, con test)
 // =============================================================================
 // El servidor vive en lib/compra-plan.ts. Acá: qué se acepta del pedido (nada de precio ni de capa), cómo se limpia el
-// ORIGEN que manda la landing y el código de MaKo Partners, y qué pasarela se usa.
+// ORIGEN que manda la landing y el código de MaKo Partners, qué pasarela se usa, y el diagnóstico del Acelerador.
 // =============================================================================
 
 import type { Pasarela } from './cobros-tipos';
+import { PREGUNTAS, type Pregunta } from './fase-diagnostico';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const CODIGO_REF_RE = /^[a-z0-9-]{3,32}$/;
@@ -51,13 +52,55 @@ export function codigoRefLimpio(v: unknown): string | null {
   return CODIGO_REF_RE.test(s) ? s : null;
 }
 
+// =============================================================================
+// EL DIAGNÓSTICO DE 2 MINUTOS, la puerta del Acelerador (25/10/2026)
+// =============================================================================
+// docs/como-venden-otros.md §6c, el molde de Ropofy: «un diagnóstico de 2 minutos como puerta, más la llamada». Antes de
+// dejar sus datos, quien pide el Acelerador contesta tres preguntas, una por pantalla, y la llamada arranca sabiendo dónde
+// está su negocio. Son las MISMAS del diagnóstico de fase del onboarding (lib/fase-diagnostico.ts), no unas escritas acá:
+// docs/embudo-y-high-ticket.md §6 califica la llamada por facturación y por cuello, con esos mismos tramos. Lo que se
+// guarda es el TEXTO de la opción (el índice solo no dice nada en el CRM), y nunca lo que escribió el navegador.
+
+export const PREGUNTAS_DE_LA_PUERTA: readonly Pregunta[] = ['facturacion', 'inversion', 'cuello']
+  .map((id) => PREGUNTAS.find((p) => p.id === id)!);
+/** Cómo se nombra cada respuesta en el historial del lead y en el aviso al equipo. */
+const ROTULO_DE_LA_PUERTA: Record<string, string> = {
+  facturacion: 'Factura por mes', inversion: 'Invierte por mes en conseguir clientes', cuello: 'Su mayor traba',
+};
+export type RespuestaDePuerta = { rotulo: string; respuesta: string };
+
+/** Las respuestas del diagnóstico (`{ facturacion: 1, … }`, el índice de cada opción): las tres, o null. */
+export function diagnosticoLimpio(v: unknown): RespuestaDePuerta[] | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const out: RespuestaDePuerta[] = [];
+  for (const p of PREGUNTAS_DE_LA_PUERTA) {
+    const i = o[p.id];
+    if (typeof i !== 'number' || !Number.isInteger(i) || i < 0 || i >= p.opciones.length) return null;
+    out.push({ rotulo: ROTULO_DE_LA_PUERTA[p.id], respuesta: p.opciones[i] });
+  }
+  return out;
+}
+
+/** El diagnóstico en un renglón, para el historial del lead y el aviso: «Factura por mes: $3.000 – $10.000 · …». */
+export function diagnosticoEnTexto(d: readonly RespuestaDePuerta[]): string {
+  return d.map((x) => `${x.rotulo}: ${x.respuesta}`).join(' · ');
+}
+
 export type PedidoCompra = {
   plan: string; nombre: string; email: string; pasarela: Pasarela | null; origen: OrigenCompra | null; ref: string | null;
   /** El WhatsApp (sólo dígitos), para el pedido sin pasarela: por ahí se le da de alta. */
   whatsapp: string | null;
   /** true = «lo quiero» sin pasarela: deja el pedido en el CRM, no abre un pago (`pedirPlanSinPasarela`). */
   quiero: boolean;
+  /** El diagnóstico de la puerta (sólo lo manda el pedido del Acelerador). Incompleto = null: el pedido entra igual. */
+  diagnostico: RespuestaDePuerta[] | null;
+  /** Por mes o por año (25/10/2026). El anual SIEMPRE se pide: el checkout cobra por mes. */
+  periodo: 'mensual' | 'anual';
 };
+
+/** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
+export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
 
 /**
  * El pedido del formulario, validado. Lo que NUNCA sale de acá: el precio, la moneda y la capa (los pone el plan). El
@@ -76,7 +119,15 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
   const quiero = b.quiero === true;
   const whatsapp = whatsappLimpio(b.whatsapp);
   if (quiero && !whatsapp) return { ok: false, error: 'Escribe tu WhatsApp con el código de país: por ahí te damos de alta.' };
-  return { ok: true, pedido: { plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero } };
+  const periodo = b.periodo === 'anual' ? 'anual' : 'mensual';
+  if (periodo === 'anual' && !quiero) return { ok: false, error: TEXTO_ANUAL_SE_PIDE };
+  return {
+    ok: true,
+    pedido: {
+      plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
+      diagnostico: diagnosticoLimpio(b.diagnostico), periodo,
+    },
+  };
 }
 
 /**
@@ -111,6 +162,12 @@ export const TEXTO_SIN_PASARELA = 'Todavía no cobramos en línea. Déjanos tus 
 /** El botón de un plan: comprar si se puede cobrar; si no, pedirlo en su página (nunca «Empezar» sin cobro detrás). */
 export function botonDelPlan(p: { id: string; nombre: string; cobrable: boolean; sufijo: string }): { href: string; texto: string } {
   return { href: `/planes/${p.id}${p.sufijo}`, texto: p.cobrable ? `Empezar con ${p.nombre}` : `Quiero ${p.nombre}` };
+}
+
+/** El botón del anual: siempre «Quiero» (se pide), con el origen y el partner del sufijo más `periodo=anual`. */
+export function botonAnualDelPlan(p: { id: string; sufijo: string }): { href: string; texto: string } {
+  const sufijo = p.sufijo.startsWith('?') ? `${p.sufijo}&periodo=anual` : '?periodo=anual';
+  return { href: `/planes/${p.id}${sufijo}`, texto: 'Quiero el anual' };
 }
 
 /** La bajada de /planes: «entras en el acto» sólo si algún plan se puede pagar en línea. */

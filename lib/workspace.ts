@@ -198,6 +198,9 @@ const TENANT_TABLES = new Set<string>([
   // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
   // de otro, y «uno a la vez» se contaría entre todos los negocios.
   'plan_repriorizaciones',
+  // El libro del recolector del Second Brain (mig 0333, 25/10/2026): qué conversación ya se leyó y hasta dónde. Sin esta
+  // línea getTenantDb() es PASSTHROUGH y la marca de un negocio se mezclaría con la de otro.
+  'second_brain_recolectado',
   // Los cobros de la pasarela (Stripe / Mercado Pago, mig 0255). Sin esta línea getTenantDb() es
   // PASSTHROUGH y la tab Pagos de una ficha listaría los cobros de TODOS los negocios. Las rutas
   // públicas (/pagar/<token>) y los webhooks leen con service role y ws explícito, a propósito.

@@ -16,8 +16,14 @@
 // =============================================================================
 
 import 'server-only';
+import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDecision as leerDecisionMB, reclamar as reclamarMB, guardarConfig as guardarConfigMB, validarCambio as validarCambioMB, cupoDe as cupoMB, PlanSinPiloto } from '@/lib/media-buyer/store';
+import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
+import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
+import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
+import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
+import { quienChatea } from '../tipos';
 import { crearRunnerAcciones, ejecutarAccion } from '@/lib/mako-doer-acciones';
 import { runWithWorkspace } from '@/lib/workspace';
 import { filaDeRendimiento } from '@/lib/ads-rendimiento';
@@ -947,4 +953,120 @@ export const RUNNERS: Runners = {
   proponer_agregar_avatar: { preparar: prepararAgregarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'agregar') },
   proponer_editar_avatar: { preparar: prepararEditarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'editar') },
   proponer_borrar_avatar: { preparar: prepararBorrarVocab('avatares'), ejecutar: ejecutarVocab('avatares', 'borrar') },
+
+  // ── El Media Buyer (25/10/2026): lo que hace la pantalla /ads-manager, por la API. La plata la mueve lib/media-buyer/ejecutar.ts
+  // (topes, lectura en vivo, reclamo antes de escribir): estos runners no escriben en Meta por su cuenta.
+  ver_media_buyer: {
+    leer: async (_input, ctx) => {
+      const [config, { decisiones, existeTabla }, cupo] = await Promise.all([leerConfigMB(ctx.ws), leerDecisionesMB(ctx.ws, 7), cupoMB(ctx.ws)]);
+      if (!existeTabla) return J({ instalado: false, nota: 'El registro del Media Buyer todavía no está instalado (falta la migración 0332).' });
+      const corta = (d: DecisionMB) => ({
+        id: d.id, estado: d.estado, tipo: d.tipo, tactica: d.tactica, nivel: d.nivel, entidad: d.entidadNombre, entidadId: d.entidadId,
+        titulo: d.titulo, titular: d.titular, porque: d.porque, numeros: d.numeros, antes: d.antes, despues: d.despues, moneda: d.moneda,
+        creada: d.creada, aplicada: d.aplicadaAt, por: d.origen === 'piloto' ? 'piloto automático' : d.aplicadaPor, error: d.error,
+        variaciones: d.variaciones?.map((v) => ({ id: v.id, gancho: v.gancho ?? null, texto: v.textoPrincipal.slice(0, 280), elegida: v.elegida })),
+      });
+      return J({
+        prendido: config.encendido, modo: modoEfectivoMB(config.modo, cupo), resultado: config.kpi, objetivo: config.objetivo,
+        // El plan (MaKo Esencial: N recomendaciones por día y sin piloto automático; null = sin tope).
+        plan: { recomendacionesPorDia: cupo.recomendacionesDia, pilotoAutomatico: cupo.piloto },
+        topes: { subidaMaxPctDia: config.subidaMaxPctDia, presupuestoMaxDia: config.presupuestoMaxDia },
+        ultimaCorrida: config.ultimaCorrida,
+        abiertas: decisiones.filter((d) => ['abierta', 'fallida', 'bloqueada'].includes(d.estado)).map(corta),
+        aplicadas: decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha').slice(0, 20).map(corta),
+      });
+    },
+  },
+  lanzar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio (míralas con ver_media_buyer).` };
+      if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
+      return { payload: { decisionId: id }, resumen: `Lanzar: ${d.titulo}. ${d.titular}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
+      const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' });
+      return r.ok ? { ok: true, resumen: `Lanzada: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
+    },
+  },
+  deshacer_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (d.estado !== 'aplicada') return { error: 'Sólo se deshace una decisión aplicada.' };
+      return { payload: { decisionId: id }, resumen: `Deshacer: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await deshacerMB(ctx.ws, String(payload.decisionId), quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return r.ok ? { ok: true, resumen: `Deshecha: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
+    },
+  },
+  descartar_decision_media_buyer: {
+    preparar: async (input, ctx) => {
+      const id = str(input, 'decisionId');
+      const d = await leerDecisionMB(ctx.ws, id).catch(() => null);
+      if (!d) return { error: `No encuentro la decisión ${id} en este negocio.` };
+      if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
+      const motivo = str(input, 'motivo').slice(0, 300) || null;
+      return { payload: { decisionId: id, motivo }, resumen: `Descartar: ${d.titulo}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const d = await reclamarMB(ctx.ws, String(payload.decisionId), ['abierta', 'fallida', 'bloqueada'], { estado: 'descartada', motivo_descarte: (payload.motivo as string | null) ?? null });
+      return d ? { ok: true, resumen: `Descartada: ${d.titulo}.` } : { ok: false, resumen: 'Esa decisión ya no estaba abierta.' };
+    },
+  },
+  analizar_cuenta_media_buyer: {
+    preparar: async (_input, ctx) => {
+      const config = await leerConfigMB(ctx.ws);
+      if (!config.existeTabla) return { error: 'El Media Buyer todavía no está instalado (falta la migración 0332).' };
+      if (!config.encendido) return { error: 'El Media Buyer está apagado: préndelo en /ads-manager (o con modo_media_buyer) para que mire la cuenta.' };
+      return { payload: {}, resumen: 'Que el Media Buyer mire la cuenta ahora y deje sus decisiones (sin lanzar ninguna).' };
+    },
+    ejecutar: async (_payload, ctx) => {
+      const r = await analizarCuentaMB(ctx.ws, { quien: quienChatea(ctx)?.nombre ?? 'MaKo', soloProponer: true });
+      if (r.estado !== 'ok') return { ok: false, resumen: r.mensaje ?? `El Media Buyer no pudo mirar la cuenta (${r.estado}).` };
+      return { ok: true, resumen: `Listo: ${r.nuevas ?? 0} decisiones nuevas para revisar en /ads-manager.${r.sinVariaciones?.length ? ` Sin variaciones: ${r.sinVariaciones[0]}` : ''}` };
+    },
+  },
+  modo_media_buyer: {
+    preparar: async (input, ctx) => {
+      const modo = str(input, 'modo');
+      if (!['piloto', 'propone', 'apagado'].includes(modo)) return { error: 'modo tiene que ser piloto, propone o apagado.', faltan: ['modo'] };
+      if (modo === 'piloto' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
+      const que = modo === 'piloto' ? 'Prender el piloto automático: MaKo lanza solo sus decisiones, dentro de los topes.'
+        : modo === 'propone' ? 'Dejar el Media Buyer proponiendo: cada decisión espera a una persona.' : 'Apagar el Media Buyer: no analiza ni lanza nada.';
+      return { payload: { modo }, resumen: que };
+    },
+    ejecutar: async (payload, ctx) => {
+      const modo = String(payload.modo);
+      const cambio = modo === 'apagado' ? { encendido: false } : { encendido: true, modo: modo === 'piloto' ? 'piloto' as const : 'propone' as const };
+      await guardarConfigMB(ctx.ws, cambio, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: modo === 'apagado' ? 'Media Buyer apagado.' : modo === 'piloto' ? 'Piloto automático prendido.' : 'El Media Buyer queda proponiendo.' };
+    },
+  },
+  topes_media_buyer: {
+    preparar: async (input) => {
+      const cambio: Record<string, unknown> = {};
+      for (const k of ['subidaMaxPctDia', 'presupuestoMaxDia', 'objetivo'] as const) { const v = num(input, k); if (v != null) cambio[k] = v; }
+      const kpi = str(input, 'kpi');
+      if (kpi) cambio.kpi = kpi;
+      if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['subidaMaxPctDia', 'presupuestoMaxDia', 'kpi', 'objetivo'] };
+      const v = validarCambioMB(cambio);
+      if (!v.ok) return { error: v.error };
+      const partes = [
+        cambio.subidaMaxPctDia != null ? `subida máxima ${cambio.subidaMaxPctDia}% por día` : null,
+        cambio.presupuestoMaxDia != null ? `presupuesto máximo US$ ${cambio.presupuestoMaxDia} por día` : null,
+        cambio.kpi ? `resultado: ${cambio.kpi}` : null,
+        cambio.objetivo != null ? `objetivo US$ ${cambio.objetivo} por resultado` : null,
+      ].filter(Boolean);
+      return { payload: cambio, resumen: `Topes del Media Buyer: ${partes.join(' · ')}.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      await guardarConfigMB(ctx.ws, payload, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)');
+      return { ok: true, resumen: 'Topes del Media Buyer guardados.' };
+    },
+  },
 };

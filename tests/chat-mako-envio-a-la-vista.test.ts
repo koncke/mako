@@ -51,12 +51,12 @@ test('2 · lo escrito entra al hilo ANTES de la vuelta por los pedidos, y se va 
   const espera = enviar.indexOf('await pedirPedidos(');
   assert.ok(entra >= 0, 'lo escrito no entra al hilo como extra');
   assert.ok(espera >= 0 && entra < espera, 'lo escrito entra recién después de los pedidos: se ven sólo los tres puntos');
-  assert.match(enviar, /const enviado: ExtraChat = \{ id: `\$\{PREFIJO_EXTRA\}\$\{nuevoId\('yo'\)\}`, at: new Date\(\)\.toISOString\(\), yo: t \};/);
+  assert.match(enviar, /const enviado: ExtraChat = \{ id: `\$\{PREFIJO_EXTRA\}\$\{nuevoId\('yo'\)\}`, at: new Date\(\)\.toISOString\(\), yo: t(?:, \.\.\.\(voz \? \{ voz \} : \{\}\))? \};/);
   // Cada camino que llega a un turno saca el extra (el turno lo pone en el hilo): si no, se ve dos veces.
-  const turnos = [...enviar.matchAll(/return turno\(t, null, origen, actual( \?\? undefined)?\);/g)];
+  const turnos = [...enviar.matchAll(/return turno\(t, null, origen, actual( \?\? undefined)?(?:, \[\], voz)?\);/g)];
   assert.equal(turnos.length, 2, 'cambiaron los caminos que llegan al turno: revisar que todos saquen el extra');
-  assert.match(enviar, /if \(!nuevas\.length\) \{ ponerExtras\(sinEnviado\); return turno\(t, null, origen, actual \?\? undefined\); \}/, 'sin burbujas, el mensaje queda dos veces');
-  assert.match(enviar, /ponerExtras\(\(xs\) => \[\.\.\.sinEnviado\(xs\), \.\.\.burbujas\]\);\n\s+return turno\(t, null, origen, actual\);/, 'con burbujas, el mensaje queda dos veces');
+  assert.match(enviar, /if \(!nuevas\.length\) \{ ponerExtras\(sinEnviado\); return turno\(t, null, origen, actual \?\? undefined(?:, \[\], voz)?\); \}/, 'sin burbujas, el mensaje queda dos veces');
+  assert.match(enviar, /ponerExtras\(\(xs\) => \[\.\.\.sinEnviado\(xs\), \.\.\.burbujas\]\);\n\s+return turno\(t, null, origen, actual(?:, \[\], voz)?\);/, 'con burbujas, el mensaje queda dos veces');
   // Sin nada de esta automatización, lo escrito ya está: no se suma otra vez.
   assert.doesNotMatch(enviar, /\{ id: `\$\{PREFIJO_EXTRA\}\$\{nuevoId\('yo'\)\}`, at: new Date\(base\)/, 'lo escrito se suma dos veces cuando sólo trae burbujas');
 });
@@ -66,17 +66,17 @@ test('2 · si no salió, queda en el hilo con «No se envió · Reintentar», y 
   const deshacer = bloque(chat, 'const deshacer = (');
   // Un error (no Cancelar, no una opción tocada): el mensaje queda, marcado; no vuelve a la barra.
   // (23/10/2026, AU4: con lo adjuntado, para que «Reintentar» lo mande otra vez.)
-  assert.match(deshacer, /if \(e && origen !== 'boton'\) \{\n\s+ponerExtras\(\(xs\) => \[\.\.\.xs, \{ id: `\$\{PREFIJO_EXTRA\}\$\{yo\.id\}`, at: yo\.at, yo: dicho, fallido: e\.texto, \.\.\.\(adj\.length \? \{ adjuntos: adj \} : \{\}\) \}\]\);\n\s+return true;\n\s+\}/);
+  assert.match(deshacer, /if \(e && origen !== 'boton'\) \{\n\s+ponerExtras\(\(xs\) => \[\.\.\.xs, \{ id: `\$\{PREFIJO_EXTRA\}\$\{yo\.id\}`, at: yo\.at, yo: dicho, fallido: e\.texto, \.\.\.\(adj\.length \? \{ adjuntos: adj \} : \{\}\)(?:, \.\.\.\(voz \? \{ voz \} : \{\}\))? \}\]\);\n\s+return true;\n\s+\}/);
   assert.ok(deshacer.indexOf("if (e && origen !== 'boton')") < deshacer.indexOf("if (origen === 'barra') return { error: null };"), 'el error vuelve a la barra antes de quedar en el hilo');
   // Cancelar sigue igual: lo escrito vuelve a la barra.
   assert.match(chat, /if \(fin\.t === 'cancelado'\) return deshacer\(null\);/);
   // Se dibuja debajo del mensaje, con el botón: el error y el «Reintentar» del hilo único (HiloMako, 23/10/2026, AU4).
-  assert.match(chat, /\.\.\.\(e\.fallido !== undefined \? \{ estado: 'error' as const, error: NO_SE_ENVIO \} : \{\}\)/);
+  assert.match(chat, /\.\.\.\(e\.fallido !== undefined \? \{ estado: 'error' as const, error: (?:e\.voz && !e\.yo \? e\.fallido : )?NO_SE_ENVIO \} : \{\}\)/);
   assert.match(chat, /export const NO_SE_ENVIO = 'No se envió';/);
   assert.match(chat, /onReintentar=\{\(id\) => \{ const e = extrasRef\.current\.find\(\(y\) => y\.id === id\); if \(e\?\.yo !== undefined\) reintentar\(e\.id, e\.yo\); \}\}/);
   const reintentar = bloque(chat, 'const reintentar = (');
-  assert.match(reintentar, /ponerExtras\(\(xs\) => xs\.filter\(\(x\) => x\.id !== id\)\);/, 'Reintentar deja el viejo y suma otro: el mensaje queda dos veces');
-  assert.match(reintentar, /void enviarTexto\(texto, 'afuera', adj\);/, 'Reintentar no lo manda (con lo adjuntado)');
+  assert.match(reintentar, /ponerExtras\(\(xs\) => xs\.filter\(\((\w)\) => \1\.id !== id\)\);/, 'Reintentar deja el viejo y suma otro: el mensaje queda dos veces');
+  assert.match(reintentar, /void enviarTexto\(texto, 'afuera', (?:adj|x\?\.adjuntos \?\? \[\])(?:, x\?\.voz)?\);/, 'Reintentar no lo manda (con lo adjuntado)');
   assert.match(reintentar, /if \(trabajando \|\| interpretando\) return;/, 'Reintentar con MaKo trabajando pisa el turno en curso');
 });
 

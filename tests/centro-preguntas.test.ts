@@ -98,7 +98,8 @@ test('el dibujo copia AskUserQuestion: el tema, «1 de 2», las opciones numerad
   const html = renderToStaticMarkup(createElement(BloqueDePreguntas, { chat: 'local_infra', ticketera: [a, b], responderTicketera: async () => ({ error: null, ok: true }) }));
   // Desde el 22/10/2026 va en el bloque único (PreguntasDelChat.tsx): el tema de la abierta, y la navegación del bloque.
   assert.match(html, /class="co-preg__tema">Frena el chat</);
-  assert.match(html, />1 de 2</);
+  // «1 de 2» ya no se ve (24/10/2026: «Si ya aparecen los puntitos...»): lo dice el rótulo de los puntos.
+  assert.match(html, /class="co-preg__puntos" role="group" aria-label="1 de 2"/);
   assert.match(html, new RegExp(`co-preg__texto">${a.pregunta.replace(/[?¿]/g, '.')}<`));
   assert.match(html, /co-preg__num" aria-hidden="true">1<[\s\S]*?Sí<span class="co-preg__rec"> \(Recomendada\)<\/span>[\s\S]*?co-preg__detalle">Se publica hoy</);
   assert.match(html, /co-preg__num" aria-hidden="true">2<[\s\S]*?>No</);

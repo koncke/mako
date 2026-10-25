@@ -117,17 +117,19 @@ test('en una pantalla TÁCTIL (un iPad): 44 px de toque y campos de 16 px, por c
   assert.match(leer('app/crm/lead-view/CabeceraLead.tsx'), /@media \(pointer: coarse\)\{\s*\.cl-cab \.cl-acc button\{ min-height:var\(--touch\); \}/);
 });
 
-// ⚠️ REESCRITO EL 24/10/2026 (de vuelta a tabs, pedido de Martín): un nombre va en UN renglón y, si es largo, con «…»; si
-//    las tabs no entran, la LISTA se desplaza de costado (con un fundido en el borde), nunca la página ni la ficha.
-test('las tabs: un nombre en un renglón con «…», y si no entran, la lista se desplaza de costado con fundido', () => {
+// ⚠️ REESCRITO EL 24/10/2026 (de vuelta a tabs, pedido de Martín): un nombre va en UN renglón y, si es largo, con «…». Y la
+//    misma noche, las que no entran van a «Ver más» con «Nueva hoja» adentro («ahí si deberías poner la ultima hoja con un
+//    desplegable, algo como "Ver más"»): la lista ya no se desplaza de costado (tests/ficha-ver-mas.test.ts).
+test('las tabs: un nombre en un renglón con «…», y si no entran, «Ver más» (la lista no se desplaza)', () => {
   const tabs = sinComentarios(leer('app/crm/lead-view/LeadTabs.tsx'));
   // En un flex, «Nueva hoja» se partía en dos renglones teniendo lugar (recorrido del 17/10/2026): todo en un renglón.
   assert.match(tabs, /\.lt-tab-btn \{[^}]*white-space: nowrap;/);
   assert.match(tabs, /\.lt-nueva-tab \{[^}]*white-space: nowrap;/);
   assert.match(tabs, /\.lt-tab-nombre \{ max-width: 220px; overflow: hidden; text-overflow: ellipsis; \}/, 'un nombre largo empuja a las demás fuera de la vista');
-  assert.match(tabs, /\.lt-tabs \{[^}]*overflow-x: auto; overflow-y: hidden;/, 'sin desplazamiento, las tabs que no entran se pierden');
-  assert.match(tabs, /\.lt-tabs\[data-der\] \{ mask-image:/, 'sin fundido no se nota que hay más tabs');
-  // La abierta se trae a la vista DE COSTADO a mano: `scrollIntoView` también movería la página para arriba o abajo.
-  assert.doesNotMatch(tabs, /scrollIntoView/);
-  assert.match(tabs, /el\.scrollLeft = /);
+  assert.doesNotMatch(tabs, /overflow-x: auto|mask-image|scrollLeft|scrollIntoView/, 'volvió el desplazamiento de costado');
+  assert.match(tabs, /const reparto = tabsQueEntran\(\{/, 'las que no entran se pierden');
+  assert.match(tabs, /\{reparto\.verMas && \(/);
+  // El medidor mide a ancho natural: si se encogiera con la fila, la cuenta creería que entra todo.
+  assert.match(tabs, /\.lt-medidor \{[^}]*width: max-content;/);
+  assert.match(tabs, /\.lt-medidor > \* \{ flex: none; \}/);
 });

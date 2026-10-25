@@ -881,6 +881,15 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg--plegada { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 0; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 .co-preg--plegada:hover { background: var(--velo-hover); }
 .co-preg__flecha { color: var(--dim); }
+/* El último «Completado» arriba de la caja (25/10/2026, BloqueCompletado.tsx): el marco del bloque de preguntas y, adentro, la
+   tarjeta del hilo sin su propio marco. Con un tope de alto: un «Ya está» largo se lee adentro y nunca tapa la conversación. */
+.co-preg--completado .co-preg__cab { justify-content: flex-start; }
+.co-preg--completado .co-preg__cab .co-ya__check { margin-left: auto; }
+.co-preg--completado .co-preg__plegar { margin-left: 0; }
+.co-preg__ya-cuerpo { max-height: min(40dvh, 340px); overflow-y: auto; }
+.co-preg__ya-cuerpo > .co-ya { max-width: none; padding: 0 2px 4px; box-shadow: none; background: none; }
+.co-preg__ya-tira { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.co-preg__ya-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el
    mismo nombre arriba. Nunca se confunden con una pregunta de un chat. */
 .co-preg__sug { display: inline-flex; align-items: center; gap: 6px; min-width: 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }

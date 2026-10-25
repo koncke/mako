@@ -21,10 +21,12 @@
 // `agregarLoteAProductoAction` (mig 0207): una fila por lead en la etapa de ENTRADA de este
 // producto, y su casa —con su etapa, su venta y su nutrición— no se toca.
 //
-// ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila)
-// NO se listan desde el 22/10/2026 (salían en gris y sin casilla): Martín, en la llamada con
-// Mauricio, «ya no deberían saltar ahí, ni siquiera en gris... porque luego ya no me deja los
-// siguientes 300». Se dicen en una línea con su número. Lo puro: ./traer-seleccion.ts.
+// ⚠️ LA LISTA DE ORIGEN TRAE A SUS AGREGADOS, y los que YA están acá (por casa o por fila) van
+// ABAJO, EN GRIS Y SIN CASILLA, como en «Traer de un grupo de WhatsApp» (24/10/2026). Martín: «En "traer de otro funnel"
+// te habia pedido que si ya lo trajo, no aparezca. Mejor que sea como en los grupos de whatsapp, que aparezca todo, pero
+// en gris». Del 22/10 al 24/10 no se listaban («ya no deberían saltar ahí, ni siquiera en gris... porque luego ya no me
+// deja los siguientes 300»): lo que aquello cuidaba sigue, porque van DESPUÉS de todos los que se pueden traer y no
+// ocupan sus lugares. Lo puro: ./traer-seleccion.ts.
 //
 // ⚠️ «TILDAR TODOS» TOMA A TODOS LOS QUE CUMPLEN EL FILTRO, no a los 300 que se dibujan (22/10:
 // «que se puedan traer los 1.050»). El filtro dice qué quiere la persona; el tope es de la
@@ -42,11 +44,11 @@
 // roto». El pie era `sticky` dentro del cuerpo del modal, que tiene 20 px de padding abajo: las filas pasaban por ahí.
 // Ahora la vista mide el alto del cuerpo (`height: 100%`), la que scrollea es la tabla y el pie es el último renglón.
 
-import { useDeferredValue, useEffect, useMemo, useState, useTransition, type CSSProperties } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { TANDA_AGREGAR, TOPE_PANTALLA, enTandas, filasParaTraer, miles } from './traer-seleccion';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { Spinner } from '@/app/_ui';
-import { VistaConPie } from '@/app/_ui/VistaConPie';
+import { CAMPO_TRAER, MoldeTraer } from './MoldeTraer';
 import { leadsDeProductoAction, type LeadParaTraer } from './actions';
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 
@@ -66,7 +68,7 @@ const td: CSSProperties = {
 
 export type ProductoOrigen = { id: number; nombre: string; esDefault: boolean };
 
-export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: {
+export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos, arriba }: {
   /** Todos los productos del workspace, incluido el de destino (que se excluye acá). */
   productos: ProductoOrigen[];
   /** A dónde van. `null` = el producto del negocio. */
@@ -79,6 +81,8 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
    * «Deshacer» del aviso del padre. Ausente cuando no se agregó nadie.
    */
   onTraidos: (agregados: number, fallaron: number, deshacer?: () => Promise<void>) => void;
+  /** Lo que va arriba de todo (el importador pone ahí «Desde un archivo · De otro funnel»). */
+  arriba?: ReactNode;
 }) {
   // ⚠️ El de destino se saca de la lista: «traer de este producto a este producto» no es
   // una opción, es un control que no hace nada. Y `null` resuelve al del negocio, que es
@@ -114,20 +118,23 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     return () => { vivo = false; };
   }, [origen, delNegocio?.id, destino]);
 
-  /** Las etapas que de verdad hay entre los que se pueden traer: un filtro con opciones vacías no filtra nada. */
+  /** Las etapas que de verdad hay en la lista (también la de los que ya están: se ven): un filtro con opciones vacías no filtra nada. */
   const etapas = useMemo(() => {
     const m = new Map<string, string>();
-    for (const f of filas ?? []) if (!f.yaEsta && !m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
+    for (const f of filas ?? []) if (!m.has(f.etapaKey)) m.set(f.etapaKey, f.etapa);
     return [...m].map(([key, label]) => ({ key, label }));
   }, [filas]);
 
-  // Los que cumplen el filtro y NO están en este funnel. Con el filtro DIFERIDO: la lista de 869 se vuelve a armar en
+  // Los que cumplen el filtro, separados: los que NO están en este funnel (se tildan) y los que ya están (abajo, en gris).
+  // Con el filtro DIFERIDO: la lista de 869 se vuelve a armar en
   // segundo plano y, mientras, se ve que está filtrando (`filtrando`) en vez de una pantalla que no contesta.
   const qDiferida = useDeferredValue(q);
   const etapaDiferida = useDeferredValue(etapa);
   const filtrando = q !== qDiferida || etapa !== etapaDiferida;
-  const { candidatos, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q: qDiferida, etapa: etapaDiferida }), [filas, qDiferida, etapaDiferida]);
+  const { candidatos, presentes, yaEstan } = useMemo(() => filasParaTraer(filas ?? [], { q: qDiferida, etapa: etapaDiferida }), [filas, qDiferida, etapaDiferida]);
   const enPantalla = candidatos.slice(0, TOPE_PANTALLA);
+  /** Los que ya están, con su propio tope: van después de los nuevos y no les sacan lugar. */
+  const presentesEnPantalla = presentes.slice(0, TOPE_PANTALLA);
   const ocultos = candidatos.length - enPantalla.length;
   const tildados = useMemo(() => new Set(sel), [sel]);
   /** «Todos» son TODOS los que cumplen el filtro, se vean o no (22/10/2026). */
@@ -159,61 +166,53 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
     );
   }
 
-  // ⚠️ EL PIE (22/10 «que el botón no se tenga que desplazar»; 23/10 «se ven leads por detrás y debajo»): el último renglón
-  // de `VistaConPie`, con fondo sólido. Sin textos: lo que no se ve lo dice la casilla de arriba.
-  const pie = (
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-        <button type="button" onClick={onAtras} disabled={agregando} style={btnAtras}>← Atrás</button>
-        <span style={{ flex: 1 }} />
-        {err && <span style={{ fontFamily: SANS, fontSize: 13, color: 'var(--bad)' }}>{err}</span>}
-        <button type="button" disabled={agregando || !sel.length}
-          onClick={() => startAgregar(async () => {
-            setErr(null);
-            // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
-            // Deshacer (el molde de Customer Success).
-            // ⚠️ DE A TANDAS: el server corta en 2.000 sin decirlo (`slice(0, 2000)`), y 1.050 de una vez son seis
-            // tandas de base adentro de UNA action. Se suman lo que entró y lo que falló de cada tanda.
-            const agregados: number[] = [];
-            let fallaron = 0;
-            for (const tanda of enTandas(sel, TANDA_AGREGAR)) {
-              const r = await agregarLoteAProductoAction(tanda, destino);
-              if (!r.ok) { fallaron += tanda.length; if (!agregados.length) { setErr(r.error); return; } continue; }
-              agregados.push(...r.agregados);
-              fallaron += r.fallaron;
-            }
-            if (!agregados.length && fallaron) { setErr('No se pudo agregar ninguno.'); return; }
-            // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
-            // deshacer» en vez de dar por vuelto algo que sigue escrito.
-            onTraidos(agregados.length, fallaron, agregados.length
-              ? async () => {
-                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
-                  const q = await quitarLoteDeProductoAction(tanda, destino);
-                  if (!q.ok) throw new Error(q.error);
-                }
-              }
-              : undefined);
-          })}
-          style={{
-            padding: '11px 22px', borderRadius: 10, border: 'none',
-            background: 'var(--primary)', color: '#fff', fontFamily: SANS,
-            fontSize: 14, fontWeight: 700,
-            cursor: agregando || !sel.length ? 'default' : 'pointer',
-            opacity: agregando || !sel.length ? 0.45 : 1,
-          }}>
-          {agregando ? 'Agregando…' : sel.length ? `Agregar ${miles(sel.length)} aquí` : 'Agregar aquí'}
-        </button>
-      </div>
-  );
+  /** Agregar lo tildado a este funnel. */
+  const agregar = () => startAgregar(async () => {
+    setErr(null);
+    // Sin «¿estás seguro?»: agregar no saca a nadie de ningún lado, y el padre ofrece
+    // Deshacer (el molde de Customer Success).
+    // ⚠️ DE A TANDAS: el server corta en 2.000 sin decirlo (`slice(0, 2000)`), y 1.050 de una vez son seis
+    // tandas de base adentro de UNA action. Se suman lo que entró y lo que falló de cada tanda.
+    const agregados: number[] = [];
+    let fallaron = 0;
+    for (const tanda of enTandas(sel, TANDA_AGREGAR)) {
+      const r = await agregarLoteAProductoAction(tanda, destino);
+      if (!r.ok) { fallaron += tanda.length; if (!agregados.length) { setErr(r.error); return; } continue; }
+      agregados.push(...r.agregados);
+      fallaron += r.fallaron;
+    }
+    if (!agregados.length && fallaron) { setErr('No se pudo agregar ninguno.'); return; }
+    // El deshacer TIRA si no pudo: el padre tiene que poder decir «No se pudo
+    // deshacer» en vez de dar por vuelto algo que sigue escrito.
+    onTraidos(agregados.length, fallaron, agregados.length
+      ? async () => {
+        for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
+          const q = await quitarLoteDeProductoAction(tanda, destino);
+          if (!q.ok) throw new Error(q.error);
+        }
+      }
+      : undefined);
+  });
 
-  // ⚠️ LA TABLA SCROLLEA, EL PIE NO: `VistaConPie` (app/_ui/VistaConPie.tsx), la MISMA pieza que «Traer de un grupo de
-  // WhatsApp» (24/10/2026). El arreglo del 23/10 («se ven leads por detrás y debajo») vivía sólo acá, y la vista del grupo,
-  // copiada antes, se quedó con el error.
+  // ⚠️ EL MOLDE DE LOS TRES (24/10/2026, ./MoldeTraer.tsx, copiado del «Preview import» de Attio): de dónde arriba, una
+  // línea de resumen con sus números, la tabla (lo único que scrollea: `VistaConPie`, el arreglo del 23/10 «se ven leads
+  // por detrás y debajo») y abajo sólo «Atrás» y «Agregar N aquí».
   return (
-    <VistaConPie
-      lista={{ border: '1px solid var(--border)', borderRadius: 12, opacity: filtrando ? 0.55 : 1, transition: 'opacity .12s' }}
-      cabecera={(
-      /* La barra: de dónde, qué busco, qué etapa. */
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+    <MoldeTraer
+      arriba={arriba}
+      lista={{ opacity: filtrando ? 0.55 : 1, transition: 'opacity .12s' }}
+      resumen={filas === null ? undefined : {
+        texto: `${miles(candidatos.length)} para traer`,
+        chips: [
+          ...(sel.length ? [{ texto: `${miles(sel.length)} elegidos`, tono: 'nuevo' as const }] : []),
+          ...(yaEstan ? [{ texto: `${miles(yaEstan)} ya están`, tono: 'gris' as const }] : []),
+        ],
+      }}
+      estado={err ? { texto: err, tono: 'mal' } : null}
+      atras={{ onClick: onAtras, deshabilitado: agregando }}
+      accion={{ texto: agregando ? 'Agregando…' : sel.length ? `Agregar ${miles(sel.length)} aquí` : 'Agregar aquí', onClick: agregar, deshabilitado: agregando || !sel.length }}
+      fuente={(
+      <>
         <span style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--faint)', flex: 'none' }}>Traer de</span>
         <Dropdown
           value={String(origen ?? '')}
@@ -225,11 +224,8 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         <input
           value={q} onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar por nombre, email o teléfono"
-          style={{
-            flex: '1 1 220px', minWidth: 160, padding: '9px 12px', borderRadius: 10,
-            border: '1px solid var(--border-strong)', background: 'var(--surface-2)',
-            color: 'var(--ink)', fontFamily: SANS, fontSize: 14, outline: 'none',
-          }}
+          aria-label="Buscar"
+          style={{ ...CAMPO_TRAER, flex: '1 1 220px', minWidth: 160 }}
         />
         {/* El filtro de etapa sólo aparece cuando hay más de una: con una sola es un
             desplegable que no puede cambiar nada. */}
@@ -243,9 +239,8 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
           />
         )}
         {filtrando && <Spinner size={16} />}
-      </div>
+      </>
       )}
-      pie={pie}
     >
       {/* La tabla. */}
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -289,6 +284,23 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
                 </tr>
               );
             })}
+            {/* LOS QUE YA ESTÁN: en gris, sin casilla, sin clic, encabezados por un renglón que dice cuántos y que no se
+                traen. El MISMO dibujo que «Traer de un grupo de WhatsApp» (app/crm/TraerDeGrupoWA.tsx). */}
+            {presentesEnPantalla.length > 0 && (
+              <tr data-ya-estan>
+                <td colSpan={6} style={{ ...td, ...grisRotulo }}>{`Ya están en este funnel · ${miles(yaEstan)} · no se traen`}</td>
+              </tr>
+            )}
+            {presentesEnPantalla.map((f) => (
+              <tr key={f.id} data-ya-esta style={{ cursor: 'default' }}>
+                <td style={{ ...td, padding: '9px 0 9px 12px' }} />
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.nombre}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.empresa || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.email || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>{f.telefono || '—'}</td>
+                <td style={{ ...td, color: 'var(--faint)' }}>Ya está</td>
+              </tr>
+            ))}
           </tbody>
         </table>
 
@@ -304,14 +316,16 @@ export function TraerDeOtroProducto({ productos, destino, onAtras, onTraidos }: 
         {filas?.length === 0 && (
           <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Ese funnel no tiene leads.</p>
         )}
-        {!!filas?.length && candidatos.length === 0 && (
-          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>
-            {yaEstan > 0 ? 'Todos los de esos filtros ya están en este funnel.' : 'Nadie con esos filtros.'}
-          </p>
+        {/* Con todos ya acá, lo dicen las filas grises y su renglón: un texto más lo repetiría. */}
+        {!!filas?.length && candidatos.length === 0 && yaEstan === 0 && (
+          <p style={{ fontFamily: SANS, fontSize: 13.5, color: 'var(--dim)', padding: '22px 14px', margin: 0 }}>Nadie con esos filtros.</p>
         )}
-    </VistaConPie>
+    </MoldeTraer>
   );
 }
+
+/** El renglón que separa a los que ya están: chico, en mayúsculas, como la cabecera de la tabla (el de TraerDeGrupoWA). */
+const grisRotulo: CSSProperties = { fontFamily: MONO, fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', color: 'var(--faint)', fontWeight: 600, background: 'var(--surface-2)', padding: '8px 12px' };
 
 /** «Tildar los 869», en la casilla de arriba: con letra de texto, no de rótulo de columna. */
 const TILDAR_TODOS: CSSProperties = {

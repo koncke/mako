@@ -80,7 +80,7 @@ test('4: la casilla de la columna tilda lo que SE VE de esa columna, suma a lo t
   // En el tablero: los ids son los de las tarjetas de ESTA columna (lo filtrado), y la casilla no arrastra la columna.
   const c = columna();
   // (Entre las dos va `dibujadas`, la tanda que se dibuja: la casilla mira la columna ENTERA, tests/crm-columna-por-tandas.test.ts.)
-  assert.match(c, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\)\);[\s\S]{0,400}?const idsCol = cards\.map\(\(x\) => x\.id\);\s*const colSel = estadoDeColumna\(idsCol, selLeads\);/);
+  assert.match(c, /const cards = enOrden\(filtered\.filter\(\(l\) => effStage\(l\) === c\.key\), c\.key\);[\s\S]{0,400}?const idsCol = cards\.map\(\(x\) => x\.id\);\s*const colSel = estadoDeColumna\(idsCol, selLeads\);/);
   assert.match(BOARD, /<input type="checkbox" data-nodrag className="mk-sel-columna"/);
   assert.match(BOARD, /onChange=\{\(\) => setSelLeads\(\(p\) => alternarColumna\(p, idsCol\)\)\}/);
   assert.match(BOARD, /title=\{rotuloDeColumna\(colSel, c\.label, hayFiltros\)\}/);

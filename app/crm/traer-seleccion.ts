@@ -6,8 +6,10 @@
 // desplazar», y «están dentro de este funnel, ya no deberían saltar ahí, ni siquiera en gris, o debería directamente no
 // verse... porque luego ya no me deja los siguientes 300». Lo usa app/crm/TraerDeOtroProducto.tsx y lo prueba
 // tests/crm-traer-todos.test.ts ejecutándolo.
-//   · Los que YA están en el destino NO se listan (antes salían en gris y ocupaban los 300 lugares de la pantalla). Se
-//     cuentan aparte, para decirlo en una línea: una búsqueda que no los encuentra no es «no existen».
+//   · Los que YA están en el destino van APARTE: no son candidatos, no se tildan y no ocupan los 300 lugares de los nuevos.
+//     ⚠️ Y DESDE EL 24/10/2026 SE VUELVEN A VER, abajo y en gris (`presentes`). Martín: «En "traer de otro funnel" te habia
+//     pedido que si ya lo trajo, no aparezca. Mejor que sea como en los grupos de whatsapp, que aparezca todo, pero en
+//     gris». Lo del 22/10 (que no le quitaran lugar a los nuevos) sigue: van DESPUÉS de todos los candidatos.
 //   · La pantalla dibuja hasta TOPE_PANTALLA filas, pero «tildar todos» toma a TODOS los que cumplen el filtro: el filtro
 //     dice qué quiere la persona; el tope es sólo lo que entra en la pantalla.
 // =============================================================================
@@ -19,18 +21,20 @@ export const TANDA_AGREGAR = 1000;
 
 export type FilaTraible = { id: number; nombre: string; email: string | null; telefono: string | null; empresa: string | null; etapaKey: string; yaEsta: boolean };
 
-/** Las filas que cumplen el filtro y NO están en el destino, y cuántas de las que cumplen ya están. */
-export function filasParaTraer<F extends FilaTraible>(filas: readonly F[], filtro: { q: string; etapa: string }): { candidatos: F[]; yaEstan: number } {
+/**
+ * Las filas que cumplen el filtro: las que NO están en el destino (`candidatos`, las que se tildan) y las que ya están
+ * (`presentes`, en gris abajo), con cuántas son.
+ */
+export function filasParaTraer<F extends FilaTraible>(filas: readonly F[], filtro: { q: string; etapa: string }): { candidatos: F[]; presentes: F[]; yaEstan: number } {
   const texto = filtro.q.trim().toLowerCase();
   const candidatos: F[] = [];
-  let yaEstan = 0;
+  const presentes: F[] = [];
   for (const f of filas) {
     if (filtro.etapa && f.etapaKey !== filtro.etapa) continue;
     if (texto && ![f.nombre, f.email, f.telefono, f.empresa].some((v) => (v ?? '').toLowerCase().includes(texto))) continue;
-    if (f.yaEsta) { yaEstan++; continue; }
-    candidatos.push(f);
+    (f.yaEsta ? presentes : candidatos).push(f);
   }
-  return { candidatos, yaEstan };
+  return { candidatos, presentes, yaEstan: presentes.length };
 }
 
 /** Partir una lista en tandas de `n`. */
