@@ -18,6 +18,10 @@ con su porqué y se lanza con un botón. Capturas reales en `referencias/madgicx
 | `academy-08.png` | una táctica de automatización: «Condition · Value · Why this value?» y «puede dispararse como máximo una vez por día por conjunto» | idem |
 | `academy-09.png` | «Ad Set Settings» (editar antes de lanzar) | idem |
 | `academy-11.png`, `academy-12.png` | el teléfono: la tarjeta del saludo y las recomendaciones en tarjetas; las que sólo andan en la compu, grises | idem |
+| `web-detalle.png` | el detalle ABIERTO de la versión oscura: cabecera con «Hide Details», el cuerpo en la banda y el pie con «Launch» | cuadro de animation-ui-02 de madgicx.com/ai-marketer |
+| `web-filas-completed.png` | las filas oscuras: la lanzada queda con «Completed» en verde | cuadro de animation-ui-01, idem |
+| `web-saludo.png` | la tarjeta de saludo con la mascota y los globos (en MaKo: el estado vacío y el arranque) | cuadro de animation-ui-03, idem |
+| `changelog-detalle-presupuesto.jpg` | el detalle de un cambio de presupuesto: el porqué a la izquierda, el banner, la tabla y «Apply Changes» | roadmap.madgicx.com/changelog/19142 |
 
 La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto oficial):
 - academy.madgicx.com/lessons/madgicx-automation-tactics — las cuatro tácticas: **Stop Loss** (pausa lo que gastó sin
@@ -34,7 +38,7 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
 | ⚙ + «Ask AI Marketer to Do More» | ⚙ Ajustes (modo, topes, objetivo, Zernio) + «Pedirle más a MaKo» (abre el chat) | cabecera, derecha |
 | «Save work for N people» con la actividad + «Percent of account automation» | «Lo que hizo MaKo» con la actividad (quién, qué, cuándo) + «En piloto automático: N%» | tarjeta izquierda |
 | «Monthly goals · 4 days left · Edit» (Revenue, Amount spent, Blended ROAS) | «Metas del mes · quedan N días · Editar»: Ventas (caja del CRM), Gasto, Costo por resultado | tarjeta derecha |
-| Open (15) · Completed · Dismissed | Abiertas (N) · Hechas · Descartadas | pestañas |
+| el chip «All recommendations 4 ×» (la versión actual; las pestañas Open · Completed · Dismissed son de la anterior) | el chip «Todas las recomendaciones N», que abre Hechas y Descartadas | arriba de la lista |
 | fila: ícono · título · «Madgicx» + etiquetas · 🗑 · «Launch» | fila: ícono · título · «MaKo» + etiquetas · 🗑 · «Lanzar» | lista |
 | detalle en 3 columnas + «Edit Settings» + botón principal | el porqué · los números (Condición · Valor · Por qué este valor) · lo que cambia (antes → después) + «Editar» + «Lanzar» | detalle |
 | Completed con 1-5 estrellas | Hechas con «Deshacer» y 1-5 estrellas | Hechas |
@@ -45,6 +49,13 @@ La documentación consultada para la FUNCIÓN (no hay capturas de esto, es texto
 
 - **El puntaje contra «el promedio de Madgicx»**: MaKo no tiene un universo de cuentas comparable. Se muestra el
   porcentaje de la cuenta en piloto automático, sin comparación.
-- **Los colores y la tipografía**: los de la casa (AGENTS.md: se copia la ESTRUCTURA, los tokens son nuestros).
+- ~~Los colores y la tipografía: los de la casa~~ — **cambiado el 25/10/2026**: Martín vio la primera versión en producción y
+  la rechazó («Realmente no creo que la interfaz de madgicx se vea así de fea, con tantos botones, no se entiende...
+  Copiala tal cual a la interfaz de madgicx»). Desde entonces se copian TAMBIÉN los colores (medidos con PIL sobre las
+  capturas: el encabezado de `app/ads-manager/mb.css` los lista), las medidas y la letra (Inter; los títulos en Geist 500
+  porque Aeonik Pro es de pago), limitados a `.mb` como `.gh` en /api-mako. La criatura de MaKo sigue dorada: es la marca.
+- **Lo que en Madgicx no se ve y no se inventó**: su estado vacío (se usa su tarjeta de saludo con globos), lo que abre
+  «Ask AI Marketer to Do More» (en MaKo: mirar la cuenta ahora, subir creativos y el pedido libre al chat) y su tuerca
+  completa (sólo se conoce el popup «Primary KPI»; en MaKo suma el modo, los topes, la cuenta y el interruptor).
 - **Lo que MaKo agrega y Madgicx no tiene**: decide por lo que pasa DESPUÉS del clic (leads del CRM, agendas,
   ventas y caja por anuncio), no sólo por lo que reporta Meta; y el interruptor que apaga todo.

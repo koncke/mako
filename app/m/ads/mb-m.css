@@ -1,15 +1,23 @@
-/* /m/ads — el Media Buyer en el teléfono (academy-11.png y academy-12.png de Madgicx). Tokens de la casa. */
-.mbm { display: flex; flex-direction: column; gap: 18px; }
-.mbm-saludo { display: flex; align-items: center; gap: 14px; padding: 18px; border-radius: var(--r-xl); background: var(--mako-bg); border: 1px solid var(--mako-border); }
-.mbm-saludo p { margin: 0; font-size: 18px; line-height: 1.35; font-weight: 600; color: var(--ink); }
-.mbm-saludo b { color: var(--mako-ink); }
-.mbm-mascota { flex: none; width: 60px; height: 60px; border-radius: var(--r-lg); display: grid; place-items: center; background: var(--surface); }
-.mbm-baldosa { width: 40px; height: 40px; flex: none; border-radius: var(--r-md); display: grid; place-items: center; font-size: 20px; background: var(--bg); border: 1px solid var(--border); }
-.mbm-aviso { margin: 0; padding: 12px 14px; border-radius: var(--r-md); background: var(--bad-bg); color: var(--bad); font-size: var(--fs-sm); }
+/* /m/ads — el Media Buyer en el teléfono, copiado de Madgicx (academy-11.png y academy-12.png). Los colores son los de
+   Madgicx, en app/ads-manager/mb-paleta.css (cubre el marco entero de esta pantalla). */
+.mbm { display: flex; flex-direction: column; gap: 16px; padding-top: 4px; }
+/* La tarjeta del saludo: violeta, con la mascota en su cuadro y el texto blanco en dos o tres renglones. */
+.mbm-saludo {
+  display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: 14px;
+  background: linear-gradient(180deg, #2e3968 0%, #4a4fa3 100%); /* medido en academy-11.png */ box-shadow: 0 6px 18px rgba(0, 0, 0, .35);
+}
+.mbm-saludo p { margin: 0; font-family: 'Geist', system-ui, sans-serif; font-size: 18px; line-height: 1.4; font-weight: 600; color: #fff; }
+.mbm-saludo b { color: #c9c1ff; font-weight: 600; }
+.mbm-mascota { flex: none; width: 64px; height: 64px; border-radius: 10px; display: grid; place-items: center; background: var(--mbx-banda); border: 3px solid #a69aec; }
+/* Las recomendaciones: tarjetas sueltas con borde fino, como en Madgicx (no una lista agrupada). */
+.mbm-lista { display: flex; flex-direction: column; gap: 12px; }
+.mbm-lista > * { background: var(--mbx-fondo); border: 1px solid var(--mbx-borde); border-radius: 12px; overflow: hidden; }
+.mbm-baldosa { width: 48px; height: 48px; flex: none; border-radius: 8px; display: grid; place-items: center; font-size: 22px; background: var(--mbx-baldosa); }
+.mbm-aviso { margin: 0; font-size: 14.5px; color: var(--mbx-gris); }
 .mbm-hoja { display: flex; flex-direction: column; gap: 16px; }
-.mbm-hoja-tit { margin: 0; font-size: 19px; line-height: 1.3; }
-.mbm-titular { margin: 0; padding: 14px 16px; border-radius: var(--r-lg); font-weight: 600; background: var(--good-bg); color: var(--good); }
-.mbm-titular[data-tono="mal"] { background: var(--bad-bg); color: var(--bad); }
-.mbm-titular[data-tono="mako"] { background: var(--mako-bg); color: var(--mako-ink); }
-.mbm-porque { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 8px; color: var(--dim); font-size: var(--fs-sm); line-height: 1.45; }
-.mbm-texto { margin: 0; color: var(--dim); }
+.mbm-hoja-tit { margin: 0; font-family: 'Geist', system-ui, sans-serif; font-size: 20px; line-height: 1.3; font-weight: 500; }
+.mbm-titular { margin: 0; padding: 14px 16px; border-radius: 6px; font-weight: 500; background: var(--mbx-tarjeta-saludo); color: var(--mbx-tinta); }
+.mbm-titular[data-tono="mal"] { color: var(--mbx-rojo); }
+.mbm-titular[data-tono="bien"] { color: var(--mbx-verde-texto); }
+.mbm-porque { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.mbm-porque li { background: var(--mbx-baldosa); border-radius: 6px; padding: 12px 14px; color: var(--mbx-tinta-2); font-size: 14.5px; line-height: 1.45; }

@@ -1,23 +1,27 @@
 'use client';
 
 // =============================================================================
-// Media Buyer — la pantalla (/ads-manager), copiada de Madgicx · AI Marketer (25/10/2026)
+// Media Buyer — la pantalla (/ads-manager), copiada TAL CUAL de Madgicx · AI Marketer (25/10/2026, segunda vuelta)
 // =============================================================================
-// Martín, 25/10/2026: «Quiero que sea una app de IA, como un media buyer de MaKo… copia también el diseño de esa app de
-// referencia, el diseño y la funcionalidad». La referencia y qué se copió de cada pantalla: docs/media-buyer/referencia.md
-// (capturas en docs/media-buyer/referencias/madgicx/). De arriba abajo, como en Madgicx:
-//   1. el saludo con la mascota y el número de decisiones, «Actualizado hace…», y a la derecha el piloto, ⚙ y «Pedirle
-//      más a MaKo» (el «Ask AI Marketer to Do More»);
-//   2. dos tarjetas: «Lo que hizo MaKo» con la actividad y el % en piloto automático, y «Metas del mes»;
-//   3. las pestañas Abiertas · Hechas · Descartadas;
-//   4. la fila de cada decisión (baldosa, título, «MaKo» + etiquetas, 🗑 y «Lanzar») que se abre en el detalle de tres
-//      columnas (el porqué · los números · lo que cambia) con su pie.
-// Lo que escribe va a /api/media-buyer; lo que decide y lanza, a lib/media-buyer/*.
+// Martín, 25/10/2026, sobre la primera versión en producción: «Realmente no creo que la interfaz de madgicx se vea así de
+// fea, con tantos botones, no se entiende... Copiala tal cual a la interfaz de madgicx». Las capturas reales están en
+// docs/media-buyer/referencias/madgicx/ y el mapa pantalla por pantalla en docs/media-buyer/referencia.md. De arriba abajo,
+// como en web-ai-marketer.png:
+//   1. la mascota y «Buen día, 4 recomendaciones para ti.» / «Actualizado hace…»; a la derecha SÓLO la tuerca y «Pedirle
+//      más a MaKo» (su «Ask AI Marketer to Do More»). El piloto automático, el interruptor y los topes van en la tuerca;
+//      subir creativos y «Analizar ahora», en «Pedirle más»;
+//   2. las dos tarjetas: lo que hizo MaKo con el % de la cuenta automatizado, y «Metas del mes»;
+//   3. UN chip, «Todas las recomendaciones N»: abre Hechas y Descartadas;
+//   4. la lista sobre su banda: baldosa, título, «MaKo» + etiquetas, tacho y «Lanzar» (web-filas-completed.png: la hecha
+//      queda con «Hecha» en verde). Abierta, la fila es el detalle de web-detalle.png: cabecera con «Ocultar detalles», el
+//      cuerpo (el porqué · el banner y los números · lo que cambia) y el pie con el botón.
+// Sin banners (Madgicx no tiene): lo interno (la tabla sin instalar) no se le muestra al cliente, y conectar la cuenta va
+// al saludo con globos (web-saludo.png) y a la tuerca. Lo que escribe va a /api/media-buyer; lo que decide, a lib/media-buyer/*.
 // =============================================================================
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Alert, Button, EmptyState, IconButton, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
+import { Alert, Button, Modal, RadioGroup, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
 import { Criatura } from '@/app/_components/Criatura';
 import { BotonBorrar } from '@/app/_ui/BotonBorrar';
 import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
@@ -27,6 +31,7 @@ import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
 import { subirAlStaging } from './creativeUpload';
+import { FuenteMediaBuyer } from './fuente';
 import {
   ICONO_TIPO, NIVEL, NOMBRE_TACTICA, hace, monto, pestanaDe, porcentajeAutomatico, queSeHizo, saludo, tonoDe, verboLanzar,
   type Pestana,
@@ -40,6 +45,7 @@ const NOMBRE_KPI: Record<KpiMediaBuyer, { varios: string; costo: string }> = {
   agenda: { varios: 'Agendas', costo: 'Costo por agenda' },
   venta: { varios: 'Ventas', costo: 'Costo por venta' },
 };
+const NOMBRE_FILTRO: Record<Pestana, string> = { abiertas: 'Todas las recomendaciones', hechas: 'Hechas', descartadas: 'Descartadas' };
 
 async function api<T = Record<string, unknown>>(body: Record<string, unknown>): Promise<T & { ok: boolean; error?: string }> {
   const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -47,12 +53,31 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
   return j as T & { ok: boolean; error?: string };
 }
 
+// Los íconos de línea de Madgicx (los suyos, redibujados en el mismo trazo).
+const IcTuerca = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
+);
+const IcVarita = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M15 4V2M15 16v-2M8 9h2M20 9h2M17.8 11.8 19 13M17.8 6.2 19 5M3 21l9-9M12.2 6.2 11 5" /></svg>
+);
+const IcCapas = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="m12 3 9 5-9 5-9-5 9-5z" /><path d="m3 13 9 5 9-5" /></svg>
+);
+const IcLapiz = () => (
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 20h9" /><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z" /></svg>
+);
+const IcFlor = () => (
+  <svg className="mb-auto-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 2.5a3.5 3.5 0 0 1 3.4 4.3 3.5 3.5 0 0 1 4.3 3.4 3.5 3.5 0 0 1-1.6 3 3.5 3.5 0 0 1-1.1 5.3 3.5 3.5 0 0 1-5 .3 3.5 3.5 0 0 1-5-.3 3.5 3.5 0 0 1-1.1-5.3 3.5 3.5 0 0 1-1.6-3 3.5 3.5 0 0 1 4.3-3.4A3.5 3.5 0 0 1 12 2.5z" /><circle cx="12" cy="12" r="2.6" /></svg>
+);
+
+const iniciales = (s: string) => s.split(/\s+/).filter(Boolean).map((p) => p[0]).slice(0, 2).join('').toUpperCase();
+
 export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial = null }: {
   nombre: string;
   inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean; cupo: CupoMediaBuyer };
   metas: MetasDelMes | null;
   tieneMeta: boolean;
-  /** `?decision=<id>`: la decisión que abre un link (un aviso, MaKo), en su pestaña y abierta. */
+  /** `?decision=<id>`: la recomendación que abre un link (un aviso, MaKo), en su filtro y abierta. */
   decisionInicial?: string | null;
 }) {
   const [config, setConfig] = useState<Config>(inicial.config);
@@ -60,12 +85,12 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   // El plan del negocio (MaKo Esencial: N recomendaciones por día y sin piloto automático; lib/media-buyer/plan.ts).
   const [cupo, setCupo] = useState<CupoMediaBuyer>(inicial.cupo);
   const deLink = decisionInicial ? inicial.decisiones.find((d) => d.id === decisionInicial) ?? null : null;
-  const [pestana, setPestana] = useState<Pestana>(deLink ? pestanaDe(deLink.estado) : 'abiertas');
+  const [filtro, setFiltro] = useState<Pestana>(deLink ? pestanaDe(deLink.estado) : 'abiertas');
+  const [menu, setMenu] = useState(false);
   const [abierta, setAbierta] = useState<string | null>(deLink?.id ?? null);
   const [ajustes, setAjustes] = useState(false);
   const [pidiendo, setPidiendo] = useState(false);
   const [subiendo, setSubiendo] = useState(false);
-  const [confirmarPiloto, setConfirmarPiloto] = useState(false);
   const [analizando, setAnalizando] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
   const [zernio, setZernio] = useState<EstadoZernio | null>(null);
@@ -73,6 +98,13 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   const { toast, show, clear } = useToast();
   const [hora, setHora] = useState(12);
   useEffect(() => { setHora(new Date().getHours()); }, []);
+  const chipRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!menu) return;
+    const fuera = (e: MouseEvent) => { if (!chipRef.current?.contains(e.target as Node)) setMenu(false); };
+    document.addEventListener('mousedown', fuera);
+    return () => document.removeEventListener('mousedown', fuera);
+  }, [menu]);
 
   const recargar = useCallback(async () => {
     const r = await fetch('/api/media-buyer', { cache: 'no-store' }).then((x) => x.json()).catch(() => null);
@@ -84,15 +116,16 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   }, []);
   useEffect(() => { void leerZernio(); }, [leerZernio]);
 
-  const porPestana = useMemo(() => {
+  const porFiltro = useMemo(() => {
     const g: Record<Pestana, Decision[]> = { abiertas: [], hechas: [], descartadas: [] };
     for (const d of decisiones) g[pestanaDe(d.estado)].push(d);
     return g;
   }, [decisiones]);
   const aplicadas = useMemo(() => decisiones.filter((d) => d.estado === 'aplicada' || d.estado === 'deshecha')
     .sort((a, b) => ((b.aplicadaAt ?? '') < (a.aplicadaAt ?? '') ? -1 : 1)), [decisiones]);
+  const personas = useMemo(() => [...new Set(aplicadas.map((d) => (d.origen === 'piloto' ? 'MaKo' : d.aplicadaPor ?? 'Equipo')))], [aplicadas]);
   const automatico = porcentajeAutomatico(decisiones);
-  const nAbiertas = porPestana.abiertas.length;
+  const nAbiertas = porFiltro.abiertas.length;
 
   const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string) => {
     setOcupada(d.id);
@@ -117,177 +150,152 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
     setAnalizando(false);
     if (r.ok) {
       const n = r.resumen?.nuevas ?? 0;
-      show(n ? `${n} ${n === 1 ? 'decisión nueva' : 'decisiones nuevas'}` : 'Sin decisiones nuevas', undefined, 'good');
+      show(n ? `${n} ${n === 1 ? 'recomendación nueva' : 'recomendaciones nuevas'}` : 'Sin recomendaciones nuevas', undefined, 'good');
+      setFiltro('abiertas');
     } else show(r.error ?? 'MaKo no pudo leer la cuenta.', undefined, 'bad');
     await recargar();
   }, [recargar, show]);
 
-  const piloto = config.modo === 'piloto';
   const kpi = NOMBRE_KPI[config.kpi];
   const actualizado = config.ultimaCorrida ? `Actualizado ${hace(config.ultimaCorrida)}` : 'Todavía no miró tu cuenta';
+  const conectada = tieneMeta || !!zernio?.conectado;
+  const fueraDelCupo = Number(config.ultimaCorridaInfo?.fueraDelCupo ?? 0);
+  const lista = porFiltro[filtro];
 
-  // Lo que MaKo (el chat) ve de esta pantalla: las decisiones abiertas, en texto.
+  // Lo que MaKo (el chat) ve de esta pantalla: las recomendaciones abiertas, en texto.
   const pantalla = useMemo(() => [
-    `Media Buyer · modo ${piloto ? 'piloto automático' : 'propone y apruebo'} · ${config.encendido ? 'encendido' : 'apagado'}`,
-    ...porPestana.abiertas.slice(0, 12).map((d) => `- ${d.titulo} (${NOMBRE_TACTICA[d.tactica]}): ${d.titular}`),
-  ].join('\n'), [config.encendido, piloto, porPestana.abiertas]);
+    `Media Buyer · modo ${config.modo === 'piloto' ? 'piloto automático' : 'propone y apruebo'} · ${config.encendido ? 'encendido' : 'apagado'}`,
+    ...porFiltro.abiertas.slice(0, 12).map((d) => `- ${d.titulo} (${NOMBRE_TACTICA[d.tactica]}): ${d.titular}`),
+  ].join('\n'), [config.encendido, config.modo, porFiltro.abiertas]);
 
   return (
     <div className="mb">
-      {/* ── 1. La cabecera ── */}
-      <header className="mb-cab">
-        <div className="mb-mascota" aria-hidden><Criatura nombre="MaKo" size={46} estrella /></div>
-        <div className="mb-saludo">
-          <h1>{saludo(hora)}, {nombre}: <b>{nAbiertas}</b> {nAbiertas === 1 ? 'decisión' : 'decisiones'} para ti.</h1>
-          <p>{actualizado}</p>
-        </div>
-        <div className="mb-acciones">
-          {cupo.piloto ? (
-            <label className="mb-piloto" data-on={piloto ? '1' : '0'} title="Con el piloto automático, MaKo lanza sus decisiones solo, dentro de tus topes">
-              <Switch checked={piloto} disabled={!config.existeTabla} onChange={(v) => { if (v) setConfirmarPiloto(true); else void guardarConfig({ modo: 'propone' }); }} />
-              Piloto automático
-            </label>
-          ) : (
-            <div className="mb-piloto" data-on="0" title="El piloto automático es de MaKo Pro">
-              <Switch checked={false} disabled onChange={() => undefined} />
-              Piloto automático
-              <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro">Pro</Link>
+      <FuenteMediaBuyer />
+      <div className="mb-arriba">
+        {/* ── 1. La cabecera: la mascota, el saludo, y sólo la tuerca y «Pedirle más a MaKo» ── */}
+        <header className="mb-cab">
+          <div className="mb-mascota" aria-hidden><Criatura nombre="MaKo" size={54} estrella /></div>
+          <div className="mb-saludo">
+            <h1>{saludo(hora)}, <b>{nAbiertas}</b> {nAbiertas === 1 ? 'recomendación' : 'recomendaciones'} para ti.</h1>
+            <p>{actualizado}</p>
+          </div>
+          <div className="mb-acciones">
+            <button type="button" className="mb-tuerca" title="Ajustes del Media Buyer" aria-label="Ajustes del Media Buyer" onClick={() => setAjustes(true)}><IcTuerca /></button>
+            <button type="button" className="mb-pedir" onClick={() => setPidiendo(true)}><IcVarita />Pedirle más a MaKo</button>
+          </div>
+        </header>
+
+        {/* ── 2. Las dos tarjetas ── */}
+        <section className="mb-tarjetas">
+          <div className="mb-tarjeta">
+            <div className="mb-tarjeta-cab">
+              <h2>Lo que hizo MaKo <small>{aplicadas.length} {aplicadas.length === 1 ? 'cambio' : 'cambios'} en 30 días</small></h2>
+              {personas.length > 0 && (
+                <span className="mb-caras" aria-hidden>
+                  {personas.slice(0, 4).map((p) => <span key={p}>{p === 'MaKo' ? <Criatura nombre="MaKo" size={18} estrella /> : iniciales(p)}</span>)}
+                </span>
+              )}
             </div>
-          )}
-          <IconButton title="Ajustes del Media Buyer" onClick={() => setAjustes(true)}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" /></svg>
-          </IconButton>
-          <Button variant="secondary" onClick={() => setPidiendo(true)}>Pedirle más a MaKo</Button>
-        </div>
-      </header>
+            <div className="mb-actividad">
+              {aplicadas.length === 0 && <div className="mb-vacio-act">Todavía no lanzó nada.</div>}
+              {aplicadas.slice(0, 20).map((d) => {
+                const esPiloto = d.origen === 'piloto';
+                const quien = esPiloto ? 'Piloto automático' : (d.aplicadaPor ?? 'Alguien del equipo');
+                return (
+                  <div className="mb-act" key={d.id}>
+                    <span className="mb-act-av" data-piloto={esPiloto ? '1' : '0'} aria-hidden>
+                      {esPiloto ? <Criatura nombre="MaKo" size={20} estrella /> : iniciales(quien)}
+                    </span>
+                    <div className="mb-act-txt">
+                      <b>{quien}{d.estado === 'deshecha' ? ' · deshecho' : ''}</b>
+                      <span>{queSeHizo(d)} · {hace(d.aplicadaAt)}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mb-auto">
+              <IcFlor />
+              <div className="mb-auto-cuerpo">
+                <div className="mb-fila-dato"><span>Porcentaje de la cuenta automatizado</span><em>{automatico}%</em></div>
+                <div className="mb-barra"><i style={{ width: `${automatico}%` }} /></div>
+              </div>
+            </div>
+          </div>
 
-      {/* Lo que frena todo, arriba (una cinta por motivo) */}
-      <div className="mb-avisos">
-        {!config.existeTabla && <Alert tono="warn">El registro de decisiones todavía no está instalado: MaKo no lanza nada hasta que esté.</Alert>}
-        {cupo.recomendacionesDia != null && Number(config.ultimaCorridaInfo?.fueraDelCupo ?? 0) > 0 && (
-          <Alert tono="info"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-            {textoCupo(cupo.recomendacionesDia)}
-            <Link href={RUTA_CAMBIAR_PLAN} className="mb-pro-link">Pasar a Pro</Link>
-          </span></Alert>
-        )}
-        {config.existeTabla && !config.encendido && config.ultimaCorrida && (
-          <Alert tono="bad" accion={{ label: 'Prender', onClick: () => void guardarConfig({ encendido: true }) }}>El Media Buyer está apagado: no analiza ni lanza nada.</Alert>
-        )}
-        {zernio && !zernio.conectado && (
-          <Alert tono="info">
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              {tieneMeta ? 'Para crear anuncios nuevos, conecta tu cuenta publicitaria por Zernio.' : 'Conecta tu cuenta publicitaria para que MaKo la pueda operar.'}
-              <ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={zernio.cuenta} size="sm" onConectado={() => { void leerZernio(); void recargar(); }}>Conectar con Facebook</ConectarViaZernio>
-            </span>
-          </Alert>
-        )}
-      </div>
-
-      {config.existeTabla && !config.encendido && !config.ultimaCorrida && (
-        <Arranque tieneMeta={tieneMeta} zernio={zernio} kpi={config.kpi}
-          onZernio={() => { void leerZernio(); }}
-          onPrender={async (kpiElegido) => {
-            if (await guardarConfig({ kpi: kpiElegido })) {
-              if (await guardarConfig({ encendido: true, modo: 'propone' })) void analizar();
-            }
-          }} />
-      )}
-
-      {/* ── 2. Las dos tarjetas ── */}
-      <section className="mb-tarjetas">
-        <div className="mb-tarjeta">
-          <h2>Lo que hizo MaKo <small>{aplicadas.length} {aplicadas.length === 1 ? 'cambio' : 'cambios'} en 30 días</small></h2>
-          <div className="mb-actividad">
-            {aplicadas.length === 0 && <div className="mb-vacio-act">Todavía no lanzó nada.</div>}
-            {aplicadas.slice(0, 20).map((d) => {
-              const esPiloto = d.origen === 'piloto';
-              const quien = esPiloto ? 'Piloto automático' : (d.aplicadaPor ?? 'Alguien del equipo');
+          <div className="mb-tarjeta">
+            <div className="mb-tarjeta-cab">
+              <h2>Metas del mes {metas && <small>{metas.diasQuedan === 1 ? 'queda 1 día' : `quedan ${metas.diasQuedan} días`}</small>}</h2>
+              <button type="button" className="mb-editar-meta" onClick={() => setAjustes(true)}><IcLapiz />Editar</button>
+            </div>
+            {!metas && <div className="mb-vacio-act">No pude leer los números del mes.</div>}
+            {metas && (() => {
+              const fmt = (u: number) => (metas.convierte ? `$${u.toLocaleString('en-US', { maximumFractionDigits: 0 })}` : `${u.toLocaleString('es-MX', { maximumFractionDigits: 0 })} ${metas.moneda ?? ''}`);
+              const res = config.kpi === 'venta' ? metas.resultados.ventas : config.kpi === 'agenda' ? metas.resultados.agendas : metas.resultados.leads;
+              const costo = res > 0 ? metas.gasto / res : null;
+              const obj = config.objetivo;
+              const delta = costo != null && obj ? costo / obj - 1 : null;
+              const pct = (a: number, b: number | null) => (b ? Math.min(100, (a / b) * 100) : 0);
               return (
-                <div className="mb-act" key={d.id}>
-                  <span className="mb-act-av" data-piloto={esPiloto ? '1' : '0'} aria-hidden>
-                    {esPiloto ? <Criatura nombre="MaKo" size={22} estrella /> : quien.split(/\s+/).map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
-                  </span>
-                  <div className="mb-act-txt">
-                    <b>{quien}{d.estado === 'deshecha' ? ' · deshecho' : ''}</b>
-                    <span>{queSeHizo(d)} · {hace(d.aplicadaAt)}</span>
+                <div className="mb-metas">
+                  <div className="mb-meta">
+                    <div className="mb-fila-dato"><span><span aria-hidden>💰</span>Ventas</span><strong>{fmt(metas.caja)}{config.metaVentasMes ? <small> / {fmt(config.metaVentasMes)}</small> : null}</strong></div>
+                    <div className="mb-barra"><i style={{ width: `${pct(metas.caja, config.metaVentasMes)}%` }} /></div>
+                  </div>
+                  <div className="mb-meta">
+                    <div className="mb-fila-dato"><span><span aria-hidden>📣</span>Gasto en Meta</span><strong>{fmt(metas.gasto)}{config.metaGastoMes ? <small> / {fmt(config.metaGastoMes)}</small> : null}</strong></div>
+                    <div className="mb-barra"><i style={{ width: `${pct(metas.gasto, config.metaGastoMes)}%` }} /></div>
+                  </div>
+                  <div className="mb-meta">
+                    <div className="mb-fila-dato">
+                      <span><IcCapas />{kpi.costo}</span>
+                      <strong>
+                        {costo != null ? fmt(costo) : '—'}{obj ? <small> / {fmt(obj)}</small> : null}
+                        {delta != null && <span className="mb-insignia" data-tono={delta <= 0 ? undefined : 'mal'}>{delta <= 0 ? '' : '+'}{Math.round(delta * 100)}%</span>}
+                      </strong>
+                    </div>
+                    <div className="mb-barra" data-tono={delta != null && delta > 0 ? 'mal' : 'verde'}><i style={{ width: `${costo != null && obj ? Math.min(100, (obj / costo) * 100) : 0}%` }} /></div>
                   </div>
                 </div>
               );
-            })}
+            })()}
           </div>
-          <div className="mb-auto">
-            <span className="mb-auto-ic" aria-hidden>
-              <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2l2.4 4.8L20 8l-4 4 1 6-5-2.7L7 18l1-6-4-4 5.6-1.2z" /></svg>
+        </section>
+
+        {/* ── 3. El chip: «Todas las recomendaciones N» (abre Hechas y Descartadas) ── */}
+        <div className="mb-chips" ref={chipRef}>
+          <button type="button" className="mb-chip-tab" aria-haspopup="menu" aria-expanded={menu} onClick={() => setMenu((x) => !x)}>
+            <IcCapas />{NOMBRE_FILTRO[filtro]}
+            <span className="mb-chip-n">{lista.length}
+              {filtro !== 'abiertas' && <span className="mb-chip-x" role="button" aria-label="Volver a todas" onClick={(e) => { e.stopPropagation(); setFiltro('abiertas'); setMenu(false); }}>✕</span>}
             </span>
-            <div className="mb-auto-cuerpo">
-              <div className="mb-auto-fila"><span>En piloto automático</span><em>{automatico}%</em></div>
-              <div className="mb-barra" data-tono="mako"><i style={{ width: `${automatico}%` }} /></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-tarjeta">
-          <div className="mb-tarjeta-cab">
-            <h2>Metas del mes {metas && <small>{metas.diasQuedan === 1 ? 'queda 1 día' : `quedan ${metas.diasQuedan} días`}</small>}</h2>
-            <Button size="sm" variant="secondary" onClick={() => setAjustes(true)}>Editar</Button>
-          </div>
-          {!metas && <div className="mb-vacio-act">No pude leer los números del mes.</div>}
-          {metas && (() => {
-            const fmt = (u: number) => (metas.convierte ? `US$ ${u.toLocaleString('es-MX', { maximumFractionDigits: 0 })}` : `${u.toLocaleString('es-MX', { maximumFractionDigits: 0 })} ${metas.moneda ?? ''}`);
-            const res = config.kpi === 'venta' ? metas.resultados.ventas : config.kpi === 'agenda' ? metas.resultados.agendas : metas.resultados.leads;
-            const costo = res > 0 ? metas.gasto / res : null;
-            const obj = config.objetivo;
-            const delta = costo != null && obj ? costo / obj - 1 : null;
-            return (
-              <>
-                <div className="mb-meta">
-                  <div className="mb-meta-fila"><span>Ventas (tu CRM)</span><strong>{fmt(metas.caja)}{config.metaVentasMes ? <small> / {fmt(config.metaVentasMes)}</small> : null}</strong></div>
-                  <div className="mb-barra" data-tono="bien"><i style={{ width: `${config.metaVentasMes ? Math.min(100, (metas.caja / config.metaVentasMes) * 100) : 0}%` }} /></div>
-                </div>
-                <div className="mb-meta">
-                  <div className="mb-meta-fila"><span>Gasto en Meta</span><strong>{fmt(metas.gasto)}{config.metaGastoMes ? <small> / {fmt(config.metaGastoMes)}</small> : null}</strong></div>
-                  <div className="mb-barra"><i style={{ width: `${config.metaGastoMes ? Math.min(100, (metas.gasto / config.metaGastoMes) * 100) : 0}%` }} /></div>
-                </div>
-                <div className="mb-meta">
-                  <div className="mb-meta-fila">
-                    <span>{kpi.costo}</span>
-                    <strong>
-                      {costo != null ? fmt(costo) : '—'}{obj ? <small> / {fmt(obj)}</small> : null}
-                      {delta != null && <span className="mb-chip" data-tono={delta <= 0 ? 'bien' : 'mal'}>{delta <= 0 ? '' : '+'}{Math.round(delta * 100)}%</span>}
-                    </strong>
-                  </div>
-                  <div className="mb-barra" data-tono={delta != null && delta > 0 ? 'mal' : 'bien'}><i style={{ width: `${costo != null && obj ? Math.min(100, (costo / obj) * 100) : 0}%` }} /></div>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      </section>
-
-      {/* ── 3. Las pestañas ── */}
-      <nav className="mb-pestanas" role="tablist">
-        {(['abiertas', 'hechas', 'descartadas'] as Pestana[]).map((p) => (
-          <button key={p} type="button" role="tab" className="mb-pestana" aria-selected={pestana === p} onClick={() => setPestana(p)}>
-            {p === 'abiertas' ? 'Abiertas' : p === 'hechas' ? 'Hechas' : 'Descartadas'}
-            <i>{porPestana[p].length}</i>
           </button>
-        ))}
-        <div className="mb-pestanas-der">
-          <Button size="sm" variant="secondary" disabled={!config.existeTabla} onClick={() => setSubiendo(true)}>Subir creativos</Button>
-          <Button size="sm" variant="secondary" loading={analizando} disabled={!config.encendido || !config.existeTabla} onClick={() => void analizar()}>Analizar ahora</Button>
+          {menu && (
+            <div className="mb-menu" role="menu">
+              {(['abiertas', 'hechas', 'descartadas'] as Pestana[]).map((p) => (
+                <button key={p} type="button" role="menuitemradio" aria-checked={filtro === p} onClick={() => { setFiltro(p); setMenu(false); }}>
+                  {NOMBRE_FILTRO[p]}<i>{porFiltro[p].length}</i>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
-      </nav>
+      </div>
 
-      {/* ── 4. La lista ── */}
-      <div className="mb-lista">
-        {porPestana[pestana].length === 0 && (
-          pestana === 'abiertas'
-            ? <EmptyState titulo={config.ultimaCorrida ? 'Sin decisiones abiertas' : 'MaKo todavía no miró tu cuenta'}
-              detalle={config.ultimaCorrida ? 'MaKo vuelve a mirar la cuenta mañana temprano.' : 'Mira la cuenta una vez por día y propone qué subir, bajar, pausar o variar.'}
-              accion={config.encendido && config.existeTabla ? { label: 'Analizar ahora', onClick: () => void analizar() } : undefined} />
-            : <EmptyState titulo={pestana === 'hechas' ? 'Nada lanzado todavía' : 'Nada descartado'} inline />
+      {/* ── 4. La banda con la lista ── */}
+      <div className="mb-banda">
+        {filtro === 'abiertas' && (!config.encendido || lista.length === 0) && (
+          <Saludo config={config} conectada={conectada} zernio={zernio} analizando={analizando} hayAbiertas={lista.length > 0}
+            onZernio={() => { void leerZernio(); void recargar(); }}
+            onAnalizar={() => void analizar()}
+            onPrender={async (kpiElegido) => {
+              if (await guardarConfig({ kpi: kpiElegido })) {
+                if (await guardarConfig({ encendido: true, modo: 'propone' })) void analizar();
+              }
+            }} />
         )}
-        {porPestana[pestana].map((d) => (
+        {filtro !== 'abiertas' && lista.length === 0 && <p className="mb-cupo">{filtro === 'hechas' ? 'Nada lanzado todavía.' : 'Nada descartado.'}</p>}
+        {lista.map((d) => (
           <FilaDecision key={d.id} d={d} abierta={abierta === d.id} ocupada={ocupada === d.id} encendido={config.encendido}
             onAbrir={() => setAbierta((x) => (x === d.id ? null : d.id))}
             onLanzar={(extra) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Lanzado')}
@@ -301,23 +309,19 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
               else show(r.error ?? 'No se pudo.', undefined, 'bad');
             }} />
         ))}
+        {filtro === 'abiertas' && cupo.recomendacionesDia != null && fueraDelCupo > 0 && (
+          <p className="mb-cupo">{textoCupo(cupo.recomendacionesDia)}<Link href={RUTA_CAMBIAR_PLAN}>Pasar a Pro</Link></p>
+        )}
       </div>
 
       {ajustes && <AjustesModal config={config} cupo={cupo} zernio={zernio} onCerrar={() => setAjustes(false)} onGuardar={guardarConfig} onZernio={() => { void leerZernio(); void recargar(); }} />}
-      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setPestana('hechas'); void recargar(); }} />}
-      {pidiendo && <PedidoModal onCerrar={() => setPidiendo(false)} onEnviar={(texto) => { setPedidoMako({ texto, vez: Date.now() }); setPidiendo(false); }} />}
-      {confirmarPiloto && (
-        <Modal titulo="¿Prender el piloto automático?" ancho={480} onCerrar={() => setConfirmarPiloto(false)}
-          pie={<>
-            <Button variant="secondary" onClick={() => setConfirmarPiloto(false)}>Cancelar</Button>
-            <Button onClick={async () => { if (await guardarConfig({ modo: 'piloto', encendido: true })) setConfirmarPiloto(false); }}>Prender piloto</Button>
-          </>}>
-          <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 8, fontSize: 'var(--fs-md)', color: 'var(--dim)' }}>
-            <li>MaKo lanza solo sus decisiones, una vez por día.</li>
-            <li>Sube como mucho {config.subidaMaxPctDia}% por día{config.presupuestoMaxDia ? `, y la cuenta no pasa de ${config.presupuestoMaxDia} por día` : ''}.</li>
-            <li>Todo queda en «Hechas», con su porqué y un botón para deshacerlo.</li>
-          </ul>
-        </Modal>
+      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setFiltro('hechas'); void recargar(); }} />}
+      {pidiendo && (
+        <PedidoModal puedeAnalizar={config.encendido && config.existeTabla} puedeSubir={config.existeTabla} analizando={analizando}
+          onAnalizar={() => { setPidiendo(false); void analizar(); }}
+          onSubir={() => { setPidiendo(false); setSubiendo(true); }}
+          onCerrar={() => setPidiendo(false)}
+          onEnviar={(texto) => { setPedidoMako({ texto, vez: Date.now() }); setPidiendo(false); }} />
       )}
       <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
       <Toast state={toast} onClose={clear} />
@@ -325,7 +329,59 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, decisionInicial 
   );
 }
 
-// ── Una decisión: la fila y, abierta, el detalle de tres columnas ─────────────
+// ── El saludo con globos (web-saludo.png): Madgicx no muestra su estado vacío, así que el arranque y «nada para hoy» van
+// en su tarjeta de saludo. Los pasos son los del onboarding de la tab (lib/tab-onboarding-catalogo.ts → 'ads-manager'):
+// conectar la cuenta · el resultado que se busca · prenderlo en «propone». Una cosa por globo, nada que redactar.
+
+function Saludo({ config, conectada, zernio, analizando, hayAbiertas, onZernio, onAnalizar, onPrender }: {
+  config: Config; conectada: boolean; zernio: EstadoZernio | null; analizando: boolean; hayAbiertas: boolean;
+  onZernio: () => void; onAnalizar: () => void;
+  onPrender: (kpi: KpiMediaBuyer) => Promise<void>;
+}) {
+  const [elegido, setElegido] = useState<KpiMediaBuyer>(config.kpi);
+  const [prendiendo, setPrendiendo] = useState(false);
+  const primeraVez = !config.ultimaCorrida;
+  const tercero = !config.existeTabla ? 'Todavía no miré tu cuenta.'
+    : !conectada ? 'Conecta tu cuenta publicitaria para empezar.'
+      : !config.encendido ? (primeraVez ? '¿Qué resultado buscas?' : 'Estoy apagado: no miro ni lanzo nada.')
+        : primeraVez ? 'Voy a mirar tu cuenta ahora.'
+          : hayAbiertas ? 'Estas son mis recomendaciones de hoy.' : 'Hoy no hay nada para cambiar. Vuelvo a mirar mañana.';
+  return (
+    <section className="mb-hola" aria-label="MaKo, tu media buyer">
+      <div className="mb-hola-cara" aria-hidden><Criatura nombre="MaKo" size={74} estrella /></div>
+      <div className="mb-globos">
+        <span className="mb-globo">¡Hola! Soy MaKo, tu media buyer.</span>
+        <span className="mb-globo">Miro tu cuenta una vez por día y te dejo recomendaciones.</span>
+        <span className="mb-globo">{tercero}</span>
+        {config.existeTabla && (
+          <div className="mb-hola-acciones">
+            {!conectada && (
+              <ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={zernio?.cuenta ?? null} onConectado={onZernio}>Conectar con Facebook</ConectarViaZernio>
+            )}
+            {conectada && !config.encendido && primeraVez && (
+              <>
+                <span className="mb-kpi" role="group" aria-label="El resultado que buscas">
+                  {(['lead', 'agenda', 'venta'] as KpiMediaBuyer[]).map((k) => (
+                    <button key={k} type="button" aria-pressed={elegido === k} onClick={() => setElegido(k)}>{NOMBRE_KPI[k].varios}</button>
+                  ))}
+                </span>
+                <button type="button" className="mb-lanzar" disabled={prendiendo} onClick={async () => { setPrendiendo(true); await onPrender(elegido); setPrendiendo(false); }}>Prender</button>
+              </>
+            )}
+            {conectada && !config.encendido && !primeraVez && (
+              <button type="button" className="mb-lanzar" disabled={prendiendo} onClick={async () => { setPrendiendo(true); await onPrender(config.kpi); setPrendiendo(false); }}>Prender</button>
+            )}
+            {conectada && config.encendido && primeraVez && (
+              <button type="button" className="mb-lanzar" disabled={analizando} onClick={onAnalizar}>{analizando ? 'Mirando…' : 'Analizar ahora'}</button>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ── Una recomendación: la fila y, abierta, el detalle (web-detalle.png) ──────────
 
 function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDescartar, onDeshacer, onReabrir, onCalificar, onHooksAVideo }: {
   d: Decision; abierta: boolean; ocupada: boolean; encendido: boolean;
@@ -348,7 +404,7 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
   };
   const estadoEtq = d.estado === 'fallida' ? { t: 'No se pudo', tono: 'mal' } : d.estado === 'bloqueada' ? { t: 'Frenada por un tope', tono: 'cuidado' }
     : d.estado === 'vencida' ? { t: 'Vencida', tono: undefined } : d.estado === 'deshecha' ? { t: 'Deshecha', tono: undefined }
-      : d.estado === 'aplicada' ? { t: d.origen === 'piloto' ? 'Piloto automático' : `Lanzada por ${d.aplicadaPor ?? 'tu equipo'}`, tono: d.origen === 'piloto' ? 'mako' : 'bien' } : null;
+      : d.estado === 'aplicada' ? { t: d.origen === 'piloto' ? 'Piloto automático' : `Lanzada por ${d.aplicadaPor ?? 'tu equipo'}`, tono: undefined } : null;
 
   return (
     <article className="mb-dec" data-abierta={abierta ? '1' : '0'}>
@@ -358,29 +414,27 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
         <div className="mb-dec-cuerpo">
           <h3 className="mb-dec-titulo">{d.titulo}</h3>
           <div className="mb-dec-meta">
-            <span className="mb-fuente"><Criatura nombre="MaKo" size={16} estrella /> MaKo</span>
-            <span className="mb-etq" data-tono="mako">{NOMBRE_TACTICA[d.tactica]}</span>
-            <span className="mb-etq">{NIVEL[d.nivel]}</span>
+            <span className="mb-fuente"><span className="mb-fuente-av" aria-hidden><Criatura nombre="MaKo" size={16} estrella /></span>MaKo</span>
+            <span className="mb-etq">{NOMBRE_TACTICA[d.tactica]}</span>
             {d.campanaNombre && <span className="mb-etq" title={d.campanaNombre}>{d.campanaNombre}</span>}
             {estadoEtq && <span className="mb-etq" data-tono={estadoEtq.tono}>{estadoEtq.t}</span>}
-            <span>{hace(p === 'hechas' ? d.aplicadaAt : d.creada)}</span>
           </div>
         </div>
         <div className="mb-dec-der" onClick={(e) => e.stopPropagation()}>
           {p === 'abiertas' && <>
-            <BotonBorrar talla="lg" title="Descartar esta decisión" disabled={ocupada} onClick={onDescartar} />
-            {/* Abierta, el botón principal es el del pie (como el «Hide details» de Madgicx, academy-07.png): no se duplica. */}
+            <BotonBorrar talla="lg" title="Descartar esta recomendación" disabled={ocupada} onClick={onDescartar} />
+            {/* Abierta, el botón principal es el del pie, como el «Hide Details» de Madgicx (web-detalle.png). */}
             {abierta
-              ? <Button variant="secondary" className="mb-lanzar" onClick={onAbrir}>Ocultar</Button>
-              : <Button className="mb-lanzar" loading={ocupada} disabled={!encendido} onClick={onAbrir}>Lanzar</Button>}
+              ? <button type="button" className="mb-secundario" onClick={onAbrir}>Ocultar detalles</button>
+              : <button type="button" className="mb-lanzar" disabled={!encendido || ocupada} onClick={onAbrir}>Lanzar</button>}
           </>}
           {p === 'hechas' && <>
             <span className="mb-estrellas" aria-label="Calificar">
               {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" data-on={(d.estrellas ?? 0) >= n ? '1' : '0'} title={`${n} de 5`} onClick={() => onCalificar(n)}>★</button>)}
             </span>
-            {d.estado === 'aplicada' && <Button variant="secondary" loading={ocupada} onClick={onDeshacer}>Deshacer</Button>}
+            <button type="button" className="mb-lanzar" data-hecha="1" onClick={onAbrir}>{d.estado === 'deshecha' ? 'Deshecha' : 'Hecha'}</button>
           </>}
-          {p === 'descartadas' && <Button variant="secondary" loading={ocupada} onClick={onReabrir}>Volver a abrir</Button>}
+          {p === 'descartadas' && <button type="button" className="mb-secundario" disabled={ocupada} onClick={onReabrir}>Volver a abrir</button>}
         </div>
       </div>
 
@@ -389,71 +443,79 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
           <div className="mb-det-grid">
             <div className="mb-det-col">
               <ul className="mb-porque">
-                {d.porque.map((t, i) => <li key={i} data-ic={['💡', '📊', '🛡️', '✅'][i % 4]}>{t}</li>)}
+                {d.porque.map((t, i) => <li key={i} data-ic={['💻', '📉', '🤝', '✅'][i % 4]}>{t}</li>)}
               </ul>
             </div>
             <div className="mb-det-col">
-              <div className="mb-banner" data-tono={tono}>
-                <span className="mb-banner-ic" aria-hidden><span>{ICONO_TIPO[d.tipo]}</span></span>
+              <div className="mb-banner" data-tono={tono === 'mal' || tono === 'bien' ? tono : undefined}>
+                <span className="mb-banner-ic" aria-hidden>{ICONO_TIPO[d.tipo]}</span>
                 <b>{d.titular}</b>
               </div>
               {esVar ? (
-                <div className="mb-vars">
-                  {(d.variaciones ?? []).map((v) => {
-                    const on = elegidas.has(v.id);
-                    return (
-                      <label key={v.id} className="mb-var" data-on={on ? '1' : '0'}>
-                        <input type="checkbox" checked={on} disabled={p !== 'abiertas'} onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n; })} />
-                        <span className="mb-var-txt">
-                          {v.gancho && <b>{v.gancho}</b>}
-                          <p>{v.textoPrincipal}</p>
-                          {v.titulo && <em>Título: {v.titulo}</em>}
-                        </span>
-                      </label>
-                    );
-                  })}
-                </div>
+                <>
+                  <h4 className="mb-det-sub">{d.tipo === 'variaciones_hook' ? 'Elige los ganchos que quieres probar' : 'Elige los textos que quieres probar'}</h4>
+                  <div className="mb-vars">
+                    {(d.variaciones ?? []).map((v) => {
+                      const on = elegidas.has(v.id);
+                      return (
+                        <label key={v.id} className="mb-var" data-on={on ? '1' : '0'}>
+                          <input type="checkbox" checked={on} disabled={p !== 'abiertas'} onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n; })} />
+                          <span className="mb-var-txt">
+                            {v.gancho && <b>{v.gancho}</b>}
+                            <p>{v.textoPrincipal}</p>
+                            {v.titulo && <em>Título: {v.titulo}</em>}
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </>
               ) : (
-                <div className="mb-tabla">
-                  <div className="mb-tabla-tit">Por qué ahora</div>
-                  <table>
-                    <thead><tr><th>Condición</th><th>Valor</th><th>Por qué este valor</th></tr></thead>
-                    <tbody>{d.numeros.map((n, i) => <tr key={i}><td>{n.condicion}</td><td>{n.valor}</td><td>{n.porQue}</td></tr>)}</tbody>
-                  </table>
-                  <div className="mb-tabla-pie">Como máximo un cambio por día en cada {NIVEL[d.nivel].toLowerCase()}</div>
-                </div>
+                <>
+                  <div className="mb-tabla">
+                    <table>
+                      <thead><tr><th>Condición</th><th>Valor</th><th>Por qué este valor</th></tr></thead>
+                      <tbody>{d.numeros.map((n, i) => <tr key={i}><td>{n.condicion}</td><td>{n.valor}</td><td>{n.porQue}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                  <span className="mb-pastilla">Como máximo un cambio por día en cada {NIVEL[d.nivel].toLowerCase()}</span>
+                </>
               )}
             </div>
             <div className="mb-det-col">
-              <h4 className="mb-ajustes-tit">Lo que cambia</h4>
-              <dl className="mb-kv">
-                {d.campanaNombre && <div><dt>Campaña</dt><dd>{d.campanaNombre}</dd></div>}
-                <div><dt>{NIVEL[d.nivel]}</dt><dd>{d.entidadNombre}</dd></div>
-                {(d.antes.presupuesto != null || d.despues.presupuesto != null) && (
-                  <div><dt>Presupuesto diario</dt><dd>{monto(d.antes.presupuesto, d.moneda)}<span className="mb-flecha">→</span>{monto(d.despues.presupuesto, d.moneda)}</dd></div>
+              <div className="mb-ajustes">
+                <h4>Lo que cambia</h4>
+                <dl className="mb-kv">
+                  {d.campanaNombre && <div><dt>Campaña</dt><dd>{d.campanaNombre}</dd></div>}
+                  <div><dt>{NIVEL[d.nivel]}</dt><dd>{d.entidadNombre}</dd></div>
+                  {(d.antes.presupuesto != null || d.despues.presupuesto != null) && (
+                    <div><dt>Presupuesto diario</dt><dd>{monto(d.antes.presupuesto, d.moneda)}<span className="mb-flecha">→</span>{monto(d.despues.presupuesto, d.moneda)}</dd></div>
+                  )}
+                  {(d.antes.estado || d.despues.estado) && (
+                    <div><dt>Estado</dt><dd>{d.antes.estado === 'PAUSED' ? 'Pausado' : 'Activo'}<span className="mb-flecha">→</span>{d.despues.estado === 'PAUSED' ? 'Pausado' : 'Activo'}</dd></div>
+                  )}
+                  {esVar && <div><dt>Anuncios nuevos</dt><dd>{p === 'abiertas' ? elegidas.size : d.creados.length}, en el mismo conjunto</dd></div>}
+                  {d.canal && <div><dt>Por dónde</dt><dd>{d.canal === 'zernio' ? 'Zernio' : 'Meta'}</dd></div>}
+                  <div><dt>Propuesta</dt><dd>{hace(d.creada)}</dd></div>
+                </dl>
+                {editando && d.despues.presupuesto != null && (
+                  <div className="mb-editar">
+                    <input inputMode="decimal" value={montoTxt} onChange={(e) => setMontoTxt(e.target.value)} aria-label="Presupuesto diario nuevo, en la moneda de la cuenta" />
+                    <span>{d.moneda ?? ''} por día</span>
+                  </div>
                 )}
-                {(d.antes.estado || d.despues.estado) && (
-                  <div><dt>Estado</dt><dd>{d.antes.estado === 'PAUSED' ? 'Pausado' : 'Activo'}<span className="mb-flecha">→</span>{d.despues.estado === 'PAUSED' ? 'Pausado' : 'Activo'}</dd></div>
-                )}
-                {esVar && <div><dt>Anuncios nuevos</dt><dd>{p === 'abiertas' ? elegidas.size : d.creados.length}, en el mismo conjunto</dd></div>}
-                {d.canal && <div><dt>Por dónde</dt><dd>{d.canal === 'zernio' ? 'Zernio' : 'Meta'}</dd></div>}
-              </dl>
-              {editando && d.despues.presupuesto != null && (
-                <div className="mb-editar">
-                  <input inputMode="decimal" value={montoTxt} onChange={(e) => setMontoTxt(e.target.value)} aria-label="Presupuesto diario nuevo, en la moneda de la cuenta" />
-                  <span style={{ fontSize: 'var(--fs-meta)', color: 'var(--faint)' }}>{d.moneda ?? ''} por día</span>
-                </div>
-              )}
+              </div>
             </div>
           </div>
           <div className="mb-det-pie">
             <p data-tono={d.error ? (d.estado === 'bloqueada' ? 'cuidado' : 'mal') : undefined}>{d.error ?? d.nota ?? ''}</p>
             {p === 'abiertas' && <>
-              {d.despues.presupuesto != null && <Button variant="secondary" onClick={() => setEditando((x) => !x)}>{editando ? 'Usar el de MaKo' : 'Editar'}</Button>}
-              {d.tipo === 'variaciones_hook' && <Button variant="secondary" disabled={elegidas.size === 0} onClick={() => onHooksAVideo([...elegidas])}>Filmarlos en Video Generator</Button>}
-              <Button loading={ocupada} disabled={!encendido || (esVar && elegidas.size === 0)} onClick={lanzar}>{verboLanzar(d)}</Button>
+              {d.despues.presupuesto != null && <button type="button" className="mb-secundario" onClick={() => setEditando((x) => !x)}>{editando ? 'Usar el de MaKo' : 'Editar'}</button>}
+              {d.tipo === 'variaciones_hook' && <button type="button" className="mb-secundario" disabled={elegidas.size === 0} onClick={() => onHooksAVideo([...elegidas])}>Filmarlos en Video Generator</button>}
+              <button type="button" className="mb-lanzar" disabled={ocupada || !encendido || (esVar && elegidas.size === 0)} onClick={lanzar}>{ocupada ? 'Lanzando…' : verboLanzar(d)}</button>
             </>}
-            {p !== 'abiertas' && <Button variant="secondary" onClick={onAbrir}>Ocultar</Button>}
+            {p === 'hechas' && d.estado === 'aplicada' && <button type="button" className="mb-secundario" disabled={ocupada} onClick={onDeshacer}>Deshacer</button>}
+            {p !== 'abiertas' && <button type="button" className="mb-secundario" onClick={onAbrir}>Ocultar detalles</button>}
           </div>
         </div>
       )}
@@ -461,54 +523,7 @@ function FilaDecision({ d, abierta, ocupada, encendido, onAbrir, onLanzar, onDes
   );
 }
 
-// ── El arranque: el onboarding de la tab, en tres pasos (lib/tab-onboarding-catalogo.ts → 'ads-manager') ──
-// Conectar la cuenta · el resultado que se busca (el objetivo lo recomienda MaKo con los datos) · prenderlo en «propone».
-// Madgicx no muestra el suyo en sus capturas; éste sigue la regla de la casa (una pregunta por paso, nada que redactar).
-
-function Arranque({ tieneMeta, zernio, kpi, onZernio, onPrender }: {
-  tieneMeta: boolean; zernio: EstadoZernio | null; kpi: KpiMediaBuyer;
-  onZernio: () => void;
-  onPrender: (kpi: KpiMediaBuyer) => Promise<void>;
-}) {
-  const [elegido, setElegido] = useState<KpiMediaBuyer>(kpi);
-  const [prendiendo, setPrendiendo] = useState(false);
-  const conectada = tieneMeta || !!zernio?.conectado;
-  return (
-    <section className="mb-tarjeta" aria-label="Prender el Media Buyer">
-      <h2>Prende tu Media Buyer <small>tres pasos</small></h2>
-      <ol style={{ margin: 0, paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 16, fontSize: 'var(--fs-md)' }}>
-        <li>
-          <b>Tu cuenta publicitaria</b>
-          <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: 'var(--dim)' }}>
-            {conectada ? <span>Conectada{zernio?.conectado ? ' por Zernio' : ''}.</span> : <span>Todavía no está conectada.</span>}
-            {!zernio?.conectado && (
-              <ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={zernio?.cuenta ?? null} size="sm" variant={conectada ? 'secondary' : 'primary'} onConectado={onZernio}>
-                Conectar con Facebook
-              </ConectarViaZernio>
-            )}
-          </div>
-        </li>
-        <li>
-          <b>El resultado que buscas</b>
-          <div style={{ marginTop: 6 }}>
-            <RadioGroup value={elegido} onChange={(v) => setElegido(v as KpiMediaBuyer)} options={[
-              { value: 'lead', label: 'Leads', hint: 'Personas que dejan sus datos.' },
-              { value: 'agenda', label: 'Agendas', hint: 'Leads que reservan una llamada (tu CRM).' },
-              { value: 'venta', label: 'Ventas', hint: 'Leads que compran (tu CRM).' },
-            ]} />
-          </div>
-        </li>
-        <li>
-          <b>Prenderlo</b>
-          <p style={{ margin: '6px 0 10px', color: 'var(--dim)' }}>Arranca proponiendo: cada decisión espera tu «Lanzar».</p>
-          <Button loading={prendiendo} disabled={!conectada} onClick={async () => { setPrendiendo(true); await onPrender(elegido); setPrendiendo(false); }}>Prender el Media Buyer</Button>
-        </li>
-      </ol>
-    </section>
-  );
-}
-
-// ── Ajustes (el ⚙ de Madgicx: el KPI y su objetivo, más los topes, el modo y la conexión) ──
+// ── La tuerca (el popup «Primary KPI» de Madgicx, academy-05.png, con lo que MaKo agrega: el modo, los topes y la cuenta) ──
 
 function AjustesModal({ config, cupo, zernio, onCerrar, onGuardar, onZernio }: {
   config: Config; cupo: CupoMediaBuyer; zernio: EstadoZernio | null;
@@ -542,11 +557,17 @@ function AjustesModal({ config, cupo, zernio, onCerrar, onGuardar, onZernio }: {
     <Modal titulo="Ajustes del Media Buyer" ancho={640} onCerrar={onCerrar}
       pie={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button loading={guardando} onClick={() => void guardar()}>Guardar</Button></>}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-        <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no analiza ni lanza nada." />
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14 }}>
+          <Select label="Resultado principal" value={kpi} onChange={(v) => setKpi(v as KpiMediaBuyer)} options={[
+            { value: 'lead', label: 'Leads' }, { value: 'agenda', label: 'Agendas' }, { value: 'venta', label: 'Ventas' },
+          ]} />
+          <TextField label={`${NOMBRE_KPI[kpi].costo} objetivo`} inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)}
+            placeholder={recomendado ? `MaKo recomienda ${recomendado}` : 'MaKo lo recomienda'} hint="En dólares. Vacío: lo calcula MaKo." />
+        </div>
         <div>
           <RadioGroup label="Modo" value={modo} disabled={!cupo.piloto} onChange={(v) => setModo(v === 'piloto' ? 'piloto' : 'propone')} options={[
-            { value: 'propone', label: 'Propone y yo apruebo', hint: 'Cada decisión espera tu «Lanzar».' },
-            { value: 'piloto', label: 'Piloto automático', hint: 'MaKo lanza solo, dentro de tus topes.' },
+            { value: 'propone', label: 'Propone y yo apruebo', hint: 'Cada recomendación espera tu «Lanzar».' },
+            { value: 'piloto', label: 'Piloto automático', hint: 'MaKo lanza solo, una vez por día, dentro de tus topes. Todo queda en «Hechas» con su «Deshacer».' },
           ]} />
           {!cupo.piloto && (
             <p className="mk-hint" style={{ margin: '8px 0 0' }}>
@@ -556,26 +577,24 @@ function AjustesModal({ config, cupo, zernio, onCerrar, onGuardar, onZernio }: {
           )}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) minmax(0,1fr)', gap: 14 }}>
-          <Select label="Resultado principal" value={kpi} onChange={(v) => setKpi(v as KpiMediaBuyer)} options={[
-            { value: 'lead', label: 'Leads' }, { value: 'agenda', label: 'Agendas' }, { value: 'venta', label: 'Ventas' },
-          ]} />
-          <TextField label={`${NOMBRE_KPI[kpi].costo} objetivo`} inputMode="decimal" value={objetivo} onChange={(e) => setObjetivo(e.target.value)}
-            placeholder={recomendado ? `MaKo recomienda ${recomendado}` : 'MaKo lo recomienda'} hint="En dólares. Vacío: lo calcula MaKo con tu cuenta." />
           <TextField label="Subida máxima por día" inputMode="numeric" value={subida} onChange={(e) => setSubida(e.target.value)} suffix="%" />
           <TextField label="Presupuesto máximo por día" inputMode="decimal" value={maxDia} onChange={(e) => setMaxDia(e.target.value)} placeholder="Sin tope" hint="La suma de lo prendido, en dólares." />
           <TextField label="Meta de ventas del mes" inputMode="decimal" value={ventas} onChange={(e) => setVentas(e.target.value)} placeholder="Sin meta" />
           <TextField label="Gasto previsto del mes" inputMode="decimal" value={gasto} onChange={(e) => setGasto(e.target.value)} placeholder="Sin meta" />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, borderTop: '1px solid var(--border)', paddingTop: 18 }}>
-          <div style={{ fontWeight: 600, fontSize: 'var(--fs-md)' }}>Cuenta publicitaria</div>
+          <div style={{ fontWeight: 500, fontSize: 15 }}>Cuenta publicitaria</div>
           <TextField label="Cuenta (act_…)" value={cuenta} onChange={(e) => setCuenta(e.target.value)} placeholder={zernio?.cuenta ?? 'act_123456789'}
             hint="Sólo si no está en Integraciones: la de Integraciones manda." />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 'var(--fs-sm)', color: 'var(--dim)' }}>
-            {zernio?.conectado ? <span>Conectada por Zernio: MaKo puede crear anuncios nuevos.</span> : <span>Sin Zernio, MaKo opera con tu token de Meta y no puede crear anuncios nuevos.</span>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 14, color: 'var(--dim)' }}>
+            {zernio?.conectado ? <span>Conectada por Zernio: MaKo puede crear anuncios nuevos.</span> : <span>Sin Zernio, MaKo opera con tu token de Meta y no crea anuncios nuevos.</span>}
             <ConectarViaZernio red="metaads" volver="/ads-manager" adAccountId={zernio?.cuenta ?? null} size="sm" variant="secondary" onConectado={onZernio}>
               {zernio?.conectado ? 'Reconectar' : 'Conectar con Facebook'}
             </ConectarViaZernio>
           </div>
+        </div>
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 18 }}>
+          <Switch checked={encendido} onChange={setEncendido} label="Media Buyer encendido" hint="Apagado, MaKo no mira tu cuenta ni lanza nada." />
         </div>
       </div>
     </Modal>
@@ -682,13 +701,22 @@ function SubirCreativosModal({ onCerrar, onListo }: { onCerrar: () => void; onLi
   );
 }
 
-// ── «Pedirle más a MaKo» (el «Ask AI Marketer to Do More»): el pedido va al chat de MaKo de la tab ──
+// ── «Pedirle más a MaKo» (el «Ask AI Marketer to Do More» de Madgicx). Lo que Madgicx abre ahí no se ve en ninguna captura
+// pública: arriba, las dos cosas que MaKo hace en el acto (mirar la cuenta, subir creativos); abajo, el pedido libre al chat.
 
-function PedidoModal({ onCerrar, onEnviar }: { onCerrar: () => void; onEnviar: (texto: string) => void }) {
+function PedidoModal({ puedeAnalizar, puedeSubir, analizando, onAnalizar, onSubir, onCerrar, onEnviar }: {
+  puedeAnalizar: boolean; puedeSubir: boolean; analizando: boolean;
+  onAnalizar: () => void; onSubir: () => void;
+  onCerrar: () => void; onEnviar: (texto: string) => void;
+}) {
   const [texto, setTexto] = useState('');
   return (
-    <Modal titulo="Pedirle más a MaKo" ancho={520} onCerrar={onCerrar}
+    <Modal titulo="Pedirle más a MaKo" ancho={560} onCerrar={onCerrar}
       pie={<><Button variant="secondary" onClick={onCerrar}>Cancelar</Button><Button disabled={texto.trim().length < 4} onClick={() => onEnviar(`Media Buyer: ${texto.trim()}`)}>Enviar</Button></>}>
+      <div className="mb-pedir-ops">
+        <button type="button" className="mb-pedir-op" disabled={!puedeAnalizar || analizando} onClick={onAnalizar}><span aria-hidden>🔎</span><span>Mirar mi cuenta ahora</span></button>
+        <button type="button" className="mb-pedir-op" disabled={!puedeSubir} onClick={onSubir}><span aria-hidden>⬆️</span><span>Subir creativos nuevos</span></button>
+      </div>
       <TextField multiline label="¿Qué más quieres que haga?" value={texto} onChange={(e) => setTexto(e.target.value)}
         placeholder="Por ejemplo: «prueba un público de intereses en la campaña de leads»" maxLength={600} />
     </Modal>
