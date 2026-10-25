@@ -32,7 +32,7 @@ import type { CarteraPartner, CuentaPartner } from '@/lib/partners';
 import { EquipoDeCuenta } from './EquipoDeCuenta';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { ModalLlevarAPartners } from './LlevarAPartners';
-import { PresentacionPartners } from './PresentacionPartners';
+import { LandingPartners } from '@/app/mako-partners/LandingPartners';
 import type { ResumenPrograma } from '@/lib/partners-programa';
 import { textoProgramaSinReferidos } from '@/lib/partners-reglas';
 
@@ -283,12 +283,14 @@ function Programa({ cartera }: { cartera: CarteraPartner }) {
 }
 
 /** Para el super admin sin cliente: las agencias del programa. Entra a cada una con su `?ws=` (un ancla: ctrl+clic). */
-export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: {
+export function PartnersPlataforma({ partners, programa, cobraEnLinea = true, emailMako }: {
   partners: Array<{ ws: number; nombre: string; cuentas: Record<EstadoCartera, number> }> | null;
   /** El programa de referidos entero (lib/partners-programa.ts, `resumenDelPrograma`). null = no se pudo leer. */
   programa: ResumenPrograma | null;
   /** ¿MaKo cobra en línea? Sin eso no se registra ningún referido, y el programa en cero lo dice. */
   cobraEnLinea?: boolean;
+  /** A dónde escribe un partner cuyo referido no aparece (la landing lo dice sin cobro en línea). */
+  emailMako: string;
 }) {
   const usd = (n: number) => `US$ ${n.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
   const alMenos = programa?.truncado ? 'al menos ' : '';
@@ -296,9 +298,11 @@ export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: 
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS }} />
       <PageHeader titulo="MaKo Partners" />
-      {/* Primero lo que vende la idea (como lo ven los clientes), después el panel del programa (Martín, 24/10/2026). */}
-      <PresentacionPartners vista="plataforma" />
-      <h3 className="pt-titulo">El programa</h3>
+      {/* Primero lo que vende la idea, tal como la ven los clientes que todavía no se unieron (la landing de la tab, sin el
+          botón: la plataforma no es partner), y después el panel del programa (Martín, 24/10/2026). */}
+      <LandingPartners modo="app" cobraEnLinea={cobraEnLinea} emailMako={emailMako}
+        rotulo={<p className="pt-rotulo">Así ven tus clientes MaKo Partners antes de unirse. <a href="#pt-el-programa">Ir al panel del programa ↓</a></p>} />
+      <h3 className="pt-titulo" id="pt-el-programa" style={{ marginTop: 36, scrollMarginTop: 80 }}>El programa</h3>
       {programa == null ? (
         <ErrorState titulo="No pude leer el programa" detalle="Reintenta en un momento." />
       ) : (
@@ -355,6 +359,8 @@ export function PartnersPlataforma({ partners, programa, cobraEnLinea = true }: 
 
 // ⚠️ NINGÚN BACKTICK ACÁ ADENTRO, ni en un comentario: cierra la cadena a la mitad.
 const CSS = `
+.pt-rotulo{ margin:0 0 12px; font-size:var(--fs-sm); color:var(--dim); }
+.pt-rotulo a{ color:var(--primary); font-weight:600; }
 .pt-titulo{ margin:0 0 12px; font-size:20px; font-weight:800; letter-spacing:-.02em; color:var(--ink); display:flex; align-items:center; gap:8px; }
 .pt-kpis{ display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(170px, 1fr)); margin:0 0 16px; }
 .pt-kpi{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; }

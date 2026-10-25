@@ -21,6 +21,7 @@ import { esAgencia } from '@/lib/agencia';
 import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
 import { resumenDelPrograma } from '@/lib/partners-programa';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
+import { EMAIL_MAKO } from '@/lib/app-url';
 import { PartnersApp, PartnersPlataforma } from './PartnersApp';
 
 export const dynamic = 'force-dynamic';
@@ -44,7 +45,7 @@ export default async function PartnersPage({ searchParams }: { searchParams: Pro
       // Sin pasarela no se registra ningún referido: el panel en cero dice por qué (no pude leer = no se afirma).
       ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
     ]);
-    return <PartnersPlataforma partners={partners} programa={programa} cobraEnLinea={cobraEnLinea} />;
+    return <PartnersPlataforma partners={partners} programa={programa} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} />;
   }
   // Cualquier negocio puede recomendar MaKo (23/10/2026): el admin que no es agencia va a su tablero de referidos.
   if (ws != null && !(await esAgencia(ws)) && (await adminDeWorkspaceActual()) != null) redirect(await rutaConWs('/partners/referidos'));
