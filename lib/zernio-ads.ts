@@ -234,6 +234,30 @@ export async function arbolPorZernio(ws: number, conexion: ConexionAnunciosZerni
 
 export type { ZCampaign, ZAdSet, ZAd };
 
+/** Una campaña o un conjunto leído EN VIVO de Meta (GET /ads/accounts/live): su interruptor propio y su presupuesto de hoy. */
+export type EnVivoZernio = { id: string; configurado: string | null; entrega: string | null; presupuestoDia: number | null };
+
+/**
+ * Las campañas y los conjuntos de la cuenta, leídos en vivo por Zernio (OpenAPI v1.356+: `GET /ads/accounts/live`, una
+ * llamada a Meta por pedido). Trae lo que el árbol sincronizado no tiene: `configuredStatus`, el interruptor PROPIO (el
+ * dato lo pasó el chat «Zernio y CAPI», 25/10/2026). `completo` es false si quedó otra página sin leer.
+ */
+export async function enVivoPorZernio(ws: number, conexion: ConexionAnunciosZernio): Promise<{ campanas: EnVivoZernio[]; conjuntos: EnVivoZernio[]; completo: boolean }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  type Fila = { platformCampaignId?: string; platformAdSetId?: string; configuredStatus?: string | null; platformCampaignStatus?: string | null; platformAdSetStatus?: string | null; dailyBudget?: number | null };
+  const q = new URLSearchParams({ accountId: conexion.accountId, adAccountId: conexion.adAccountId, limit: '500' });
+  const r = await zAds<{ campaigns?: Fila[]; adSets?: Fila[]; paging?: { campaigns?: { after?: string | null }; adSets?: { after?: string | null } } }>(clave, `/ads/accounts/live?${q.toString()}`);
+  const fila = (id: string | undefined, f: Fila, entrega: string | null | undefined): EnVivoZernio | null => (id
+    ? { id, configurado: f.configuredStatus ? f.configuredStatus.toUpperCase() : null, entrega: entrega ? entrega.toUpperCase() : null, presupuestoDia: typeof f.dailyBudget === 'number' ? f.dailyBudget : null }
+    : null);
+  return {
+    campanas: (r.campaigns ?? []).map((f) => fila(f.platformCampaignId, f, f.platformCampaignStatus)).filter((x): x is EnVivoZernio => !!x),
+    conjuntos: (r.adSets ?? []).map((f) => fila(f.platformAdSetId, f, f.platformAdSetStatus)).filter((x): x is EnVivoZernio => !!x),
+    completo: !r.paging?.campaigns?.after && !r.paging?.adSets?.after,
+  };
+}
+
 /** Los textos de un anuncio leídos por Zernio (para cuando el negocio no tiene token propio de Meta). */
 export async function leerAnuncioPorZernio(ws: number, adId: string): Promise<{ body: string | null; linkUrl: string | null } | null> {
   const clave = await claveZernioAnuncios(ws);

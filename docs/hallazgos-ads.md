@@ -4729,10 +4729,12 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   (`GET /connect/facebook/ads?loginMode=business&permissionLevel=advertise&adAccountId=…`, contesta la ventana de
   Facebook de la app 712341431446535): lo que falta es el clic de Martín en esa ventana. `permissionLevel=advertise`
   (Administrar campañas) alcanza para campañas, conjuntos, creativos y anuncios; `full` sólo hace falta para píxeles.
-- ⚠️ **El árbol de Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega (la campaña
-  trae `effective_status`; el conjunto, un estado derivado de sus anuncios). `arbolDesdeZernio` toma la entrega como
-  interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado y el agente no lo toca. Errar para
-  el lado de no tocar.
+- ⚠️ **El árbol de Zernio (`/ads/tree`) no trae el interruptor PROPIO de una campaña ni de un conjunto**, sólo la entrega
+  (la campaña trae `effective_status`; el conjunto, un estado derivado de sus anuncios). Lo trae otro endpoint: `GET
+  /ads/accounts/live` (OpenAPI v1.356+, `configuredStatus`, más el presupuesto de hoy, una llamada a Meta por pedido; el
+  dato lo pasó el chat «Zernio y CAPI»). `conInterruptorEnVivo` (lib/media-buyer/senales.ts) lo pone sobre el árbol; si
+  no contesta, queda la entrega como interruptor —un conjunto que no entrega se trata como apagado: errar para el lado de
+  no tocar— y va un aviso.
 - ⚠️ **Un padre que no vino en la lectura es «no sé», y «no sé» es «no está prendido».** La primera versión de
   `prendido()` cortaba el recorrido al no encontrar al padre y devolvía `true`: con la página de campañas caída
   (`parcial`), el motor habría subido el presupuesto de conjuntos cuya campaña podía estar apagada. Lo fija un test.

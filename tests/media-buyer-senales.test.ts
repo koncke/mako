@@ -5,7 +5,7 @@
 // voseo, 1 fallo y 7 pases. Restaurado, 8 de 8.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { senalesDeVentana, ventanas, arbolDesdeZernio, type FilaMetrica, type FilaLeadAd } from '../lib/media-buyer/senales';
+import { senalesDeVentana, ventanas, arbolDesdeZernio, conInterruptorEnVivo, type FilaMetrica, type FilaLeadAd } from '../lib/media-buyer/senales';
 import { parsearVariaciones, promptVariaciones } from '../lib/media-buyer/variaciones-prompt';
 
 const met = (fecha: string, ad: string, spend: number, x: Partial<FilaMetrica> = {}): FilaMetrica => ({
@@ -83,4 +83,20 @@ test('el pedido de variaciones le prohíbe el voseo al modelo y le pasa por qué
   assert.match(system, /primeros 3 segundos/);
   assert.match(user, /8 leads a US\$ 5/);
   assert.match(user, /Hola, soy/);
+});
+
+test('el interruptor EN VIVO de Zernio reemplaza a la entrega: un conjunto prendido que no entrega sigue prendido', () => {
+  const { arbol } = arbolDesdeZernio([{
+    platformCampaignId: 'c1', campaignName: 'C', platformCampaignStatus: 'ACTIVE', budgetLevel: 'adset',
+    adSets: [{ platformAdSetId: 's1', adSetName: 'S', status: 'paused', adSetBudget: { type: 'daily', amount: 20 }, ads: [{ platformAdId: 'a1', status: 'paused' }] }],
+  } as never]);
+  assert.equal(arbol.find((n) => n.id === 's1')?.configurado, 'PAUSED', 'sin lo en vivo, la entrega manda');
+  const vivo = conInterruptorEnVivo(arbol, {
+    campanas: [{ id: 'c1', configurado: 'PAUSED', presupuestoDia: null }],
+    conjuntos: [{ id: 's1', configurado: 'ACTIVE', presupuestoDia: 35 }],
+  });
+  assert.equal(vivo.find((n) => n.id === 's1')?.configurado, 'ACTIVE');
+  assert.equal(vivo.find((n) => n.id === 's1')?.presupuestoDia, 35, 'el presupuesto de hoy');
+  assert.equal(vivo.find((n) => n.id === 'c1')?.configurado, 'PAUSED', 'la campaña apagada a mano, aunque entregue');
+  assert.equal(vivo.find((n) => n.id === 'a1')?.configurado, arbol.find((n) => n.id === 'a1')?.configurado, 'los anuncios no se tocan');
 });

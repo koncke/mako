@@ -34,6 +34,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
 | Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
+| Las tácticas como automatizaciones (estado, umbrales, campañas) — puro, con test | `lib/media-buyer/tacticas.ts` · la pantalla `app/ads-manager/Automatizaciones.tsx` (`/ads-manager/automatizaciones`) |
 | Lo que trae cada plan (Esencial: 2 por día, sin piloto) | `lib/media-buyer/plan.ts` (puro) · `cupoDe` en `store.ts` · el número en `lib/topes-plan.ts` (de Planes) |
 
 ## Estado (25/10/2026)
@@ -42,6 +43,10 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
   corrida y el cron, la pantalla copiada de Madgicx (escritorio y teléfono), el arranque de tres pasos, las variaciones de
   texto y de hook (texto), la API de MaKo, la bitácora de `/admin/dev` y la cosecha.
 - **Apagado por defecto en TODOS los negocios.** Nadie tiene el piloto automático: lo prende cada negocio.
+- **Automatizaciones (25/10, el «Automation Overview» de Madgicx):** cada táctica apagada / propone / automática, con sus
+  umbrales (el recomendado es el que el motor usó siempre) y las campañas que cubre. El modo general de la tuerca es el
+  valor de las que no eligieron otro. El piloto lanza SÓLO lo de las tácticas automáticas, y una sola puerta niega
+  «automática» sin plan (`guardarConfig`). En la API: `ver_automatizaciones_media_buyer` y `automatizacion_media_buyer`.
 - **MaKo Esencial (el Cerebro, 25/10):** «propone», 2 recomendaciones por día, sin piloto. Pro, entero. Sólo al Esencial que
   MaKo cobra por la pasarela. Lo fija `tests/media-buyer-plan.test.ts`. ⚠️ Hasta que Planes saque 'ads-manager' de
   `NAV_SOLO_PRO`, ese Esencial ni entra a la tab.

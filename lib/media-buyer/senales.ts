@@ -79,11 +79,29 @@ export function senalesDeVentana(metricas: FilaMetrica[], leads: FilaLeadAd[], d
 }
 
 /**
- * El árbol de Zernio, traducido. ⚠️ Zernio no trae el interruptor PROPIO de una campaña ni de un conjunto: trae la
- * entrega (Meta `effective_status` en la campaña, un estado derivado de los anuncios en el conjunto). Se toma la
- * entrega como interruptor: un conjunto que no entrega por cualquier motivo se trata como apagado, y el motor no lo
- * toca. Errar para el lado de no tocar es lo seguro.
+ * El árbol de Zernio, traducido. ⚠️ El árbol (`/ads/tree`) no trae el interruptor PROPIO de una campaña ni de un
+ * conjunto: trae la entrega (Meta `effective_status` en la campaña, un estado derivado de los anuncios en el conjunto). Se
+ * toma la entrega como interruptor —un conjunto que no entrega se trata como apagado: errar para el lado de no tocar— y
+ * después `conInterruptorEnVivo` pone el interruptor de verdad con lo leído en vivo (`/ads/accounts/live`).
  */
+/**
+ * Sobre el árbol de Zernio, lo leído EN VIVO (lib/zernio-ads.ts → enVivoPorZernio): el interruptor propio de cada campaña y
+ * conjunto, y su presupuesto diario de hoy. Lo que no vino en vivo queda como estaba (la entrega como interruptor).
+ */
+export function conInterruptorEnVivo(arbol: NodoMB[], vivo: { campanas: Array<{ id: string; configurado: string | null; presupuestoDia: number | null }>; conjuntos: Array<{ id: string; configurado: string | null; presupuestoDia: number | null }> }): NodoMB[] {
+  const porId = new Map([...vivo.campanas, ...vivo.conjuntos].map((x) => [x.id, x] as const));
+  return arbol.map((n) => {
+    if (n.nivel === 'ad') return n;
+    const v = porId.get(n.id);
+    if (!v) return n;
+    return {
+      ...n,
+      configurado: v.configurado === 'ACTIVE' ? 'ACTIVE' : v.configurado ? 'PAUSED' : n.configurado,
+      presupuestoDia: n.presupuestoDia != null && v.presupuestoDia != null ? v.presupuestoDia : n.presupuestoDia,
+    };
+  });
+}
+
 export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; metricas: FilaMetrica[] } {
   const arbol: NodoMB[] = [];
   const metricas: FilaMetrica[] = [];
