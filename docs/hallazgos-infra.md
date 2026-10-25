@@ -48,6 +48,18 @@ archivo tenía media hora de trabajo sin commitear. El `git diff --stat` vacío 
 desde el script de reemplazos, que seguía en el scratchpad). **Regla:** antes de romper, `cp <archivo> <scratchpad>/x.bak`, y
 se restaura con `cp` de vuelta; `git checkout --` sólo sobre un archivo que está igual a HEAD.
 
+## `tsc-acotado | grep "error TS"` esconde el «NO SE PUDO CHEQUEAR»: dos verdes falsos y una tanda con errores (25/10/2026)
+
+**Vive en:** scripts/tsc-acotado.mjs (salida 0 = limpio, 1 = errores, **99 = no chequeó**) y cualquier filtro de su salida.
+
+El chat CRM corría `node scripts/tsc-acotado.mjs … | grep "error TS" | grep -v _opencut; echo fin` para no ver los 14 errores
+ajenos de `_opencut`. Dos corridas terminaron con «fin» y nada más, y se leyeron como limpias: **las había matado el vigía de
+RAM** (código 99, «NO SE PUDO CHEQUEAR», en stderr y sin «error TS», así que el grep lo tiraba). Una tanda salió al tren con
+dos errores de tipos (TS2339 y TS2345 en FichaPorBloques.tsx) que se encontraron recién en la corrida siguiente. Es la misma
+trampa que la del `&&` de abajo, del otro lado: el filtro decide qué se ve, y lo que no matchea parece que no pasó.
+**Regla:** la salida entera a un archivo, `echo "codigo=$?"` después, y recién ahí filtrar el archivo. Con 99 no hay veredicto:
+se espera RAM o se parte la lista (el tablero del CRM solo ya pide ~2,5 GB).
+
 ## El `&&` después de un pipe mide el `tail`, no el chequeo: el tren se subió con 5 errores de tipos (24/10/2026)
 
 **Vive en:** cualquier comando del Cerebro con la forma `chequeo | tail && push`.

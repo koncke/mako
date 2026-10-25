@@ -20,6 +20,25 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Nuevo lead» y sus hijos: la pila de la casa ya existía, y una vista que REEMPLAZA el contenido la saltea (25/10/2026)
+
+**Vive en:** app/crm/CrmBoard.tsx (`volverAlAlta`, `cerrarImportar`) · app/_components/pila-modales.ts · app/crm/MoldeTraer.tsx
+· tests: crm-modales-encima, crm-molde-traer (5 roturas cazadas entre los dos).
+
+- **El pedido «cerrar un modal hijo vuelve al padre» ya estaba resuelto en la casa** (pila-modales: un modal sobre otro
+  esconde al de abajo con `display:none`, sin desmontarlo, y al cerrar el de arriba vuelve igual). «Nuevo lead» no lo usaba de
+  dos formas: «Traer» y el Scraper REEMPLAZABAN el contenido del mismo `Modal` (dos vistas, dos tamaños), e «Importar»
+  CERRABA el alta para abrirse. En los dos casos el clic afuera no tenía «anterior» al que volver. **Regla:** lo que se abre
+  desde un modal es OTRO `Modal` montado encima (el de abajo queda montado); nunca un cambio de contenido del mismo, ni un
+  cerrar-y-abrir. `onCerrar` del hijo vuelve al padre y tiene identidad fija (`useCallback`).
+- **Las tres vistas de traer comparten un molde** copiado de la pantalla «Preview import» de Attio (documentación oficial):
+  de dónde arriba con un «⋯» para lo secundario, «Entran a» abajo, una línea de resumen con chips de números, la lista
+  (`VistaConPie`) y el pie con sólo «Atrás» y la acción; lo que corre muestra su «Parar» al lado del avance. El importador dejó
+  `WizardShell` (era «una estetica MUY diferente») y pasó al `Modal` de la casa con los pasos «Archivo · Revisar» del molde.
+- **Sin hacer:** «en todos lados» va más allá del CRM. Fuera de app/crm no se barrió qué modales reemplazan su contenido o
+  cierran para abrir otro; el patrón a buscar es `setX(null); setY(true)` en un `onClick` y un `Modal` con el título que
+  depende de una vista.
+
 ## El buscador de Instagram en la cuenta de Mauricio: Meta conectada SIN Instagram, y ninguna fuente trae la foto (25/10/2026)
 
 **Vive en:** lib/instagram-buscar.ts (`sin-instagram`, `pideConectarMeta`) · app/api/crm/instagram-buscar/route.ts ·

@@ -34,9 +34,18 @@ el ícono azul de una columna ordenada, y «Traer de otro funnel» con los grise
   leer Instagram en esa cuenta. Fue al Ops Center la pregunta a Martín (el Instagram de MaKo + permiso, gratis; o Apify, pago).
   Sin ver en pantalla, igual que la tanda 1.
 
-**Lo que sigue, en orden** (el pedido del Cerebro): 12 («Editar con MaKo» como bloque flotante, y todo editable), 19 (cerrar
-un modal hijo vuelve al padre), 20 (Scraper, Traer e Importar con una estética), 18 (los grupos de WhatsApp, más rápido:
-medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
+**Tanda 2, arreglo:** `b38cfd930` (dos errores de tipos de la ficha que se colaron: ver hallazgos-infra, el filtro que
+escondía el «NO SE PUDO CHEQUEAR»). La pregunta de Instagram se rehízo sin Apify (Martín lo descartó el 24/10).
+
+**Tanda 3 — puntos 19 y 20:**
+- 19: «Traer», el Scraper e «Importar» se abren ENCIMA de «Nuevo lead» (la pila de la casa): cerrarlos vuelve al alta con lo
+  escrito.
+- 20: los tres con un molde (app/crm/MoldeTraer.tsx), **copiado del «Preview import» de Attio** (su documentación oficial,
+  captura del 25/10 en el scratchpad de la sesión): de dónde arriba con un «⋯», «Entran a», el resumen con chips, la lista, y
+  abajo sólo «Atrás» y la acción. El importador dejó `WizardShell`.
+
+**Lo que sigue, en orden:** 12 («Editar con MaKo» como bloque flotante, y sacar un dato desde su fila en modo edición: la
+captura c06 muestra que «Datos ▾» ya existe y no se encuentra), 18 (los grupos de WhatsApp, más rápido: medir antes). Después: las cuotas (`c7ff7d7fc`) con revisión adversarial, y
 `crm-b5-2310` @ `60bd69812` NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos

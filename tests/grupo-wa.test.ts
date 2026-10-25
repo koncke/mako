@@ -155,7 +155,7 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
   assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
-  assert.match(pantalla, /\{!!gente\?\.length && \(\n\s*<span[^\n]*>\n\s*\{\[[\s\S]{0,400}?'No les manda nada\.',/, 'la pantalla lo dice, siempre');
+  assert.match(pantalla, /\{ texto: 'No les manda nada', tono: 'gris' as const \},/, 'la pantalla lo dice, siempre');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
@@ -301,9 +301,11 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
   // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts);
   // sin ella, este.
-  assert.match(pantalla, /\{yaEstan > 0 && extWa === 'no' && \(\n\s+<button type="button" onClick=\{\(\) => void completar\(\)\}/);
+  // En el «⋯» del molde desde el 24/10/2026 (sólo con gente que ya está y sin nada corriendo).
+  assert.match(pantalla, /\.\.\.\(extWa === 'no' \? \[\{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: \(\) => void completar\(\) \}\] : \[\]\),/);
+  assert.match(pantalla, /const mas: OpcionMas\[\] = trayendo \|\| !yaEstan \? \[\] : \[/);
   assert.match(pantalla, /const r = await completarNombresDeGrupoAction\(\{ linea, jid \}\)/);
-  assert.match(pantalla, /<VistaConPie\n\s+lista=/);
+  assert.match(pantalla, /<MoldeTraer\b/);
   assert.doesNotMatch(pantalla, /position: 'sticky', bottom: 0/, 'el pie volvió a armarse a mano: flota (ver app/_ui/VistaConPie.tsx)');
   // Una línea sin conectar (una segunda a medio conectar queda «conectando» en la base) se dice, y no se elige si hay otra.
   assert.match(pantalla, /setLinea\(\(r\.lineas\.find\(\(l\) => l\.conectada\) \?\? r\.lineas\[0\]\)\?\.linea \?\? null\);/);
@@ -371,7 +373,7 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(reservar, /if \(quedanHoy\(c\) <= 0\) return false;/);
   // La pantalla: primero la cuenta, la pregunta con la cuenta y el tiempo, «Parar», y sigue sumando `hechas`.
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /onClick=\{\(\) => void contarPerfiles\(\)\}/);
+  assert.match(pantalla, /onElegir: \(\) => void contarPerfiles\(\)/);
   assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
   assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
   assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, `los \$\{miles\(cuentaPerfiles\.total\)\} que ya están`, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\), TOPE_PERFILES_DIA\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
@@ -380,7 +382,7 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   assert.match(cliente, /Hoy quedan \$\{miles\(c\.quedanHoy\)\} de \$\{miles\(topeDia\)\} consultas \$\{cual\}\./);
   assert.match(cliente, /const cual = linea \? `en la línea «\$\{linea\}»` : 'en esta línea';/);
   assert.match(pantalla, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\), \{/);
-  assert.match(pantalla, /\{perfilando \? 'Parar' : 'Datos de empresa'\}/);
+  assert.match(pantalla, /: perfilando \? \{ texto: 'Parar', onClick: \(\) => void contarPerfiles\(\) \} : undefined;/);
 });
 
 test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados no se repiten', () => {
