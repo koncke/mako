@@ -3449,4 +3449,24 @@ export const BITACORA: Hito[] = [
     revisar: '/crm/3445?ws=3',
     tickets: [10],
   },
+  {
+    fecha: '25 oct', hora: '00:11', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El CRM ya no puede romperse al mandarte a otra pantalla',
+    puntos: [
+      'Cuando el CRM te tiene que mandar a otro lado (terminar el onboarding, una tab que no está en tu plan, el lead de otro negocio), lo hacía mientras la pantalla todavía cargaba. A veces eso rompe la pantalla: ya pasó en General y en Web Generator.',
+      'Ahora decide antes de empezar a cargar. Son siete pantallas del CRM, no las tres que se habían visto: cuatro te mandaban a otro lado desde adentro de su control de acceso.',
+      'Quedan seis pantallas de otras tabs con lo mismo (Ads Writer, Automations, Calendario, Chats, Offer y el editor de landings): anotadas para sus chats.',
+      'Sin ver en pantalla todavía: se mira cuando esté desplegado.',
+    ],
+    commits: [
+      { sha: '7c446209f', msg: 'CRM: /crm redirige en su layout, antes del loader (las siete páginas que redirigen, también por sus puertas)', lineas: 192, archivos: 6 },
+    ],
+    archivos: [
+      'app/crm/layout.tsx — decide antes del loader',
+      'app/crm/layout-reglas.ts — qué ruta pasa por qué control',
+      'tests/crm-redirige-antes-del-loader.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];

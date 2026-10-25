@@ -8373,3 +8373,24 @@ resolvedor sí acertaba en sacar repetidos. Lo que rompía era la forma.
   En las cuatro puntas sanas que se midieron eso no aparece ni una vez. Así que no toca nada que no esté roto.
 
 **Vive en:** `scripts/unir-indice-hallazgos.py` · docs/hallazgos.md
+
+## Las PUERTAS también redirigen debajo del loader, y el guard de #9 no las ve (25/10/2026)
+
+**Síntoma:** ninguno todavía; es el riesgo de los tickets #7 y #9 con otra cara. Arreglando las tres páginas del CRM que el
+guard (`tests/redirige-antes-del-loader.test.ts`) tenía como conocidas, apareció que /crm, /crm/new, la ficha y
+/crm/prospectos redirigían igual adentro de `app/crm/loading.tsx`, sin un solo `redirect(` en su archivo.
+
+**La causa:** las puertas de `lib/tab-access.ts` redirigen por dentro: `requireCapa` (a «no está en tu plan»),
+`guardOnboarding` (a /onboarding: un cliente nuevo que abre una tab con el onboarding pendiente, lo de todos los días),
+`requireRolWs` y `requireSesion`. El guard busca `redirect(` en la página, así que no las cuenta.
+
+**Lo que queda (medido el 25/10 con la lógica del guard, contando las puertas):** seis páginas de otras tabs redirigen SÓLO
+por sus puertas debajo de un loader, sin layout que lo haga antes: app/ads-writer, app/automations, app/calendario,
+app/chats, app/offer y app/web-generator/[id]. La última, además, el guard la daría por buena cuando entre el layout de
+/web-generator, porque mira si el layout tiene ALGÚN `redirect(`, no si cubre esa ruta. **Regla:** el guard tiene que contar
+las puertas como redirecciones (`/\b(requireCapa|guardOnboarding|requireRolWs|requireSesion|requireRol)\(/`), y una tab
+que las tiene repite en su layout la misma puerta de cada página, en el mismo orden (el molde: `app/crm/layout.tsx`).
+
+**Vive en:** lib/tab-access.ts · tests/redirige-antes-del-loader.test.ts · app/crm/layout.tsx + layout-reglas.ts
+
+*25/10/2026, chat «CRM» (`claude5`).*

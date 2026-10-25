@@ -62,9 +62,10 @@ zona: el lead se llama «🧪 Martín…» y la marca de la cabecera cortaba el 
 hallazgos-ui). Quedan 8 copias del mismo corte en piezas de otras tabs (la lista, ahí): no son de este chat.
 
 **Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
-Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). En cola, del Cerebro: la redirección antes
-del loader en `/crm/revisar`, `/crm/revisar/[id]` y `/crm/[id]/resumen`, y de la llamada con Leandro f15, f12, f13 y f11
-(f14 lo pregunta él a Martín). Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
+Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). **Redirigir antes del loader (25/10, del Cerebro):** hecho
+para las siete páginas de /crm, no sólo las tres que pidió (app/crm/layout.tsx; hallazgos-crm). Cuando entre el guard de
+Landings, sacar las tres de su `CONOCIDAS_SIN_LAYOUT`. En cola, de la llamada con Leandro: f15, f12, f13 y f11 (f14 lo
+pregunta el Cerebro a Martín). Después: las cuotas (`c7ff7d7fc`) esperan revisión adversarial; `crm-b5-2310` (punta real
 `b1c4924fd`, 17 hallazgos por arreglar) NO sube antes del lunes 26/10.
 
 ## 0-Ω24. 24/10/2026, madrugada (chat «CRM», cuenta `claude1`): la base de venta de Martín desde sus grupos

@@ -11309,3 +11309,22 @@ ve en su WhatsApp Web (lo lleva el chat del CRM). Lo que se aprendió y sirve pa
   línea no oficial. Una búsqueda afuera, si vuelve, va en goteo y a ritmo humano desde su navegador, y frena ante un captcha.
 
 *24/10/2026, chat «Ventas de MaKo» (`claude1`).*
+
+## /crm redirige en su layout, antes del loader: las páginas y sus puertas (25/10/2026)
+
+**Vive en:** `redireccionDelLayoutCrm` y `destinoDelResumen` (app/crm/layout-reglas.ts), app/crm/layout.tsx ·
+tests/crm-redirige-antes-del-loader.test.ts.
+
+- **Por qué un layout en /crm:** `app/crm/loading.tsx` envuelve a TODAS las rutas de /crm, y un redirect de adentro va en el
+  stream (el #310 de los tickets #7 y #9, hallazgos-infra). El único layout que queda afuera es el de la carpeta del
+  loader: uno en `app/crm/revisar/` no habría servido.
+- **No eran tres, eran siete.** El pedido nombraba las tres con `redirect(` a la vista (las dos de «Revisar» y el resumen);
+  /crm, /crm/new, la ficha y prospectos redirigen por sus PUERTAS (`requireCapa`, `guardOnboarding`, `requireRolWs`). El
+  layout repite la puerta de cada una, igual y en el mismo orden. El resumen va SIN `guardOnboarding` a propósito: se
+  abre desde un WhatsApp con la reunión encima.
+- **Regla:** cambiar la puerta de una página de /crm es cambiar también `app/crm/layout.tsx` (el test compara las dos), y
+  una página nueva que redirige o tiene puerta entra a `redireccionDelLayoutCrm` y a `CUBIERTAS`, o el test falla. Las
+  páginas conservan su puerta: navegando entre rutas de /crm el layout no se vuelve a dibujar.
+- **Costo:** una lectura chica más (el estado del onboarding) al ENTRAR a /crm, no entre sus rutas.
+
+*25/10/2026, chat «CRM» (`claude5`).*
