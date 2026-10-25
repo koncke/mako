@@ -100,11 +100,7 @@ test('todo en /partners: /partners/referidos lleva ahí, el super admin va direc
   assert.match(p, /if \(DE_AGENCIA\.some\(\(k\) => sp\[k\]\) \|\| VISTAS_DE_AGENCIA\.includes\(sp\.tab \?\? ''\)\)/, 'los links viejos de agencia (?cuenta=, ?nuevo=, ?tab=)');
   assert.match(p, /redirect\(await rutaConWs\(`\/agency\$\{q\.size \? `\?\$\{q\}` : ''\}`\)\)/);
   assert.doesNotMatch(p, /PartnersApp|cuentasDePartner|partnersDeLaPlataforma/, 'el panel de agencia no está en /partners');
-  const ag = fuente('app/agency/page.tsx');
-  assert.match(ag, /<PartnersApp\s+cartera=\{cartera\}/);
-  assert.match(ag, /if \(ws == null \|\| !\(await esAgencia\(ws\)\)\) redirect/);
-  assert.match(ag, /<AgenciasDeLaPlataforma partners=/, 'el super admin ve las agencias en /agency');
-  assert.match(fuente('app/partners/PartnersApp.tsx'), /tabs=\{\[\{ id: 'clients', label: 'Clients' \}, \{ id: 'program', label: 'Program' \}\]\}/, 'sin la pestaña «Referidos»');
+  // Lo de ADENTRO de /agency (el Agency Dashboard) es del chat «Agencias y clientes» y lo cuida tests/agency.test.ts.
   assert.match(fuente('lib/movil-rutas.ts'), /if \(dentro\(p, '\/agency'\)\) return '\/m\/agency';/);
   assert.match(fuente('app/partners/PanelPartner.tsx'), /\{agencia && <ButtonLink href="\/agency" variant="secondary">Agency Dashboard<\/ButtonLink>\}/, 'la agencia llega a su panel desde arriba');
   assert.match(fuente('app/partners/PanelPartner.tsx'), /<ButtonLink href=\{RUTA_LANDING_PARTNERS\} variant="secondary">Ver la landing<\/ButtonLink>/, 'el botón de arriba para ver la landing');

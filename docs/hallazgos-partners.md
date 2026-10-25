@@ -23,7 +23,7 @@ CRM». Chat «Clients», cuenta 4.
 - **El plan y el equipo, sólo de las cuentas aprobadas** (`clientesAprobados`): son lecturas que cruzan de inquilino.
   Una cuenta pendiente se ve por su nombre y su estado. `equipo: null` es «no pude leer», nunca «nadie».
 - **El link de pago lo escribe el código, nunca el modelo**: la API lo manda a la persona por `ctx.aPersona` y el
-  resumen que lee el modelo no lo lleva (`tests/partners.test.ts`). Un link de Mercado Pago retipeado por un modelo es
+  resumen que lee el modelo no lo lleva (`tests/partners.test.ts`, desde el 25/10 `tests/agency.test.ts`). Un link de Mercado Pago retipeado por un modelo es
   un pago a otro lado. **Vive en:** `lib/api-mako/areas/cs.run.ts` (`llevar_a_partners`).
 - **Program dice sólo lo que existe**: el precio sale de la plataforma (`precioClienteDeAgencia`, lo carga el super
   admin en /admin/cobros), el primer mes habilita la cuenta y el mes corre desde el onboarding. **Los premios por
@@ -66,7 +66,7 @@ página pública»), que era una recomendación de la corrida del 10/10 y no una
   cron no acreditan dos veces. Las bienvenidas salen una vez: su marca es haber escrito `workspaces.referido_por_ws` con
   compare-and-set sobre null.
 - **Cualquier admin con plan es partner**: el tablero es /partners/referidos (la agencia lo ve como tercera pestaña). El test
-  de D7 (tests/partners.test.ts) sigue valiendo para la pestaña «Program» de la agencia, que no habla de premios.
+  de D7 (tests/partners.test.ts, hoy tests/agency.test.ts) sigue valiendo para la pestaña «Program» de la agencia, que no habla de premios.
 
 **Sin hacer:** APLICAR el crédito en la suscripción del partner (Stripe: saldo del cliente; Mercado Pago: el monto de la cuota)
 y el beneficio del que llega (el 1er mes gratis en el de 47, 50% en el de 97: en Stripe es una prueba o un cupón y una factura
@@ -288,9 +288,11 @@ SuperAdmin, directo ver el dashboard». Las reglas nuevas, en docs/referidos.md 
   app/planes/[plan]/CodigoReferido.tsx. El Acelerador no lo lleva (no entra en Partners).
 - **Trampa del login:** el `?next` de proxy.ts guarda sólo la RUTA, no la query. Desde /mako-partners sin sesión, «Hacerme
   partner» (`/partners?alta=1`) vuelve a /partners sin el `?alta=1`: la landing con el mismo botón, un clic más.
-- **La agencia salió a /agency** (y /m/agency): el panel de antes, mudado tal cual (app/partners/PartnersApp.tsx sigue ahí
-  porque lo importan el CRM, Clients y varios tests). Los links viejos `/partners?cuenta=|nuevo=|tab=` redirigen. El Agency
-  Dashboard nuevo lo arma el chat «Agencias y clientes» encima de app/agency/.
+- **La agencia salió a /agency** (y /m/agency). En la rama de Planes, un /agency provisorio con el panel de antes; el chat
+  «Agencias y clientes» lo reemplaza entero con su Agency Dashboard (app/agency/AgencyApp.tsx, app/m/agency/AgencyM.tsx) y se
+  llevó los tests de la cartera a tests/agency.test.ts. Los links viejos `/partners?cuenta=|nuevo=|tab=` redirigen. **Cuando
+  entren las dos ramas quedan muertos** app/partners/PartnersApp.tsx, LlevarAPartners.tsx y app/m/partners/PartnersM.tsx (no
+  app/partners/EquipoDeCuenta.tsx: lo usa AgencyApp).
 - **Copiado de:** el portal de Tolt para el panel del partner (saludo, cuatro números, «Earnings» al lado de «Share», la
   tabla) y el admin de FirstPromoter para el del super admin (to be paid · unpaid · paid). Capturas en
   docs/partners/referencias/. Rewardful y Dub no mostraron su panel sin cuenta (sólo videos de marketing).
