@@ -226,7 +226,7 @@ export function Conversacion({
             AskUserQuestion, que se contesta en la app de Claude. Lo contestado se va de acá y queda en la conversación.
             Y su último «Completado» sin ✓, en el mismo marco (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
         <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
-          tareas={tareas} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + (responder ? preguntas.length : 0) > 0} />
+          tareas={tareas} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
           delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}

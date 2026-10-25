@@ -72,7 +72,7 @@ test('3. arriba de la caja en la computadora y en el teléfono, antes del bloque
     const j = src.indexOf(`<BloqueDePreguntas key={\`b-\${${chat}.clave}\`}`);
     assert.ok(i > 0, `${f}: falta el bloque del «Completado»`);
     assert.ok(i < j, `${f}: el «Completado» va antes (arriba) del bloque de preguntas`);
-    assert.ok(src.includes('hayPreguntas={bloque.length + deLaApp.length + (responder ? preguntas.length : 0) > 0}'), `${f}: la pregunta manda`);
+    assert.ok(src.includes('hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0}'), `${f}: la pregunta manda`);
   }
 });
 

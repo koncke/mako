@@ -475,7 +475,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y su último «Completado» sin ✓,
                 en el mismo marco (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
-              tareas={centro.tareasDe(elegido)} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + (responder ? preguntas.length : 0) > 0} />
+              tareas={centro.tareasDe(elegido)} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>
