@@ -43,7 +43,8 @@ test('2. las filas marcadas, y la ✕ en el bloque elegido con la MISMA operaci�
 
 test('3. el panel de MaKo de la ficha flota: aire, bordes de 14, sombra, y sin la raya de color', () => {
   const f = leer('app/crm/lead-view/ficha/FichaPorBloques.tsx');
-  assert.match(f, /\.fb-mako-panel\{position:fixed;top:12px;left:12px;bottom:12px;/);
+  // El aire de arriba se suma a la barra de inspección o a la alerta de la voz (25/10/2026, tests/barra-inspeccion-alto, 4).
+  assert.match(f, /\.fb-mako-panel\{position:fixed;top:calc\(12px \+ var\(--barra-agencia,0px\)\);left:12px;bottom:12px;/);
   assert.match(f, /border-radius:14px;box-shadow:0 18px 44px rgba\(18,21,27,\.18\)/, 'el mismo marco que `.an` del Dashboard');
   assert.doesNotMatch(f, /borderTop: '3px solid var\(--mako\)'/, 'volvió la raya de color del cuadrado');
   assert.match(leer('app/dashboard/PanelAnalista.tsx'), /border-radius: 14px;\s*box-shadow: 0 18px 44px rgba\(18,21,27,\.18\)/, 'el del Dashboard cambió: unificar de nuevo');

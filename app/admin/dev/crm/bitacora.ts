@@ -3531,4 +3531,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '25 oct', hora: '01:43', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El panel de MaKo de la ficha ya no queda tapado por la barra de arriba',
+    puntos: [
+      'Cuando arriba de MaKo aparece una barra (la de «Estás viendo el negocio de…», o el aviso de que la voz se cayó), el panel de MaKo de la ficha queda debajo de ella, con su aire.',
+      'Con el aviso de la voz caída, que también ve un cliente, el panel quedaba tapado, con el botón de cerrar adentro.',
+      'Medido en un navegador con las tres barras. Sin ver en producción todavía.',
+    ],
+    commits: [
+      { sha: 'f36918c92', msg: 'CRM · ficha: el panel flotante de MaKo flota debajo de la barra de inspección y de la alerta de la voz', lineas: 25, archivos: 3 },
+    ],
+    archivos: [
+      'app/crm/lead-view/ficha/FichaPorBloques.tsx — el panel suma la barra',
+      'tests/barra-inspeccion-alto.test.ts (4)',
+    ],
+    revisar: '/crm',
+  },
 ];
