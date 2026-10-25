@@ -42,7 +42,7 @@ yo estaba en mi cuenta de super admin». La captura: una ventana «MaKo - Ops Ce
 emparejado para la cuenta de Mauricio el 22/10) es falso, y se midió:
 - **La ventana no es nuestra app:** el «MaKo» del escritorio de Martín es una APP WEB DE CHROME (`chrome_proxy.exe
   --profile-directory="Profile 9" --app-id=…`), instalada el **26/08/2026**, dos meses antes de que existiera el instalador
-  (0.4.0, 23/10). Y «Profile 9» es el perfil de Chrome **mbustos@elevate.com.mx**: el de Mauricio en esa PC. Una app web
+  (0.4.0, 23/10). Y «Profile 9» es el perfil de Chrome **de la cuenta de trabajo de Mauricio**: el suyo en esa PC. Una app web
   instalada usa las cookies del perfil que la instaló, así que abre con la sesión de MaKo que haya en ese perfil, sin preguntar.
   Es lo mismo que abrir ese perfil de Chrome y entrar a hola-mako.com.
 - **El emparejamiento no puede dar una sesión:** el token de la PC (`mkopc_…`) y el del turno (`mkotn_…`) son azar con prefijo,
