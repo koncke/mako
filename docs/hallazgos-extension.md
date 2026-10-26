@@ -165,11 +165,55 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
 - ⚠️ Sin verificar en vivo que el `fetch` lea el disco y no una copia en memoria (no se pudo: su Chrome sigue en la 0.70.0).
   Lo dice la primera vez que la carpeta traiga una versión nueva con la 0.71.1 corriendo.
 
+## «Extraer» a la vista: recorrer la lista de miembros SUMA nombres que la base no tiene (26/10/2026, 0.72)
+
+**Vive en:** extension/wa-recorrer.js (`recorrerGrupo`, `pantallaWhatsapp`) · `nombresDeFilas`/`sumarVistos`
+(extension/wa-fichas-reglas.js) · el pedido `visible`, `anotarExtraccion`, `abrirDesplegable`, `volverAMako`
+(extension/background.js) · la navegación y la animación (extension/popup.js/.html) · tests/wa-extraer-072.test.ts.
+
+- **El diagnóstico obvio era el equivocado otra vez:** «abrir el grupo es sólo para que se vea». No: MEDIDO en el WhatsApp Web
+  de Martín (sólo cantidades), la lista «Busca miembros» del grupo de los 221 dibuja el «~nombre» de 53 personas que
+  `model-storage` NO tiene (ahí, 1 `pushname` de 247, antes y después de abrirla: WhatsApp los tiene en memoria y no los
+  guarda), 40 de ellas con el teléfono al lado. Corrida real con la 0.72.2: `vistos: 40`. Sólo se leen mirando la pantalla.
+  **Regla:** para un nombre que «no existe», además de contar en la memoria (entrada de los 221), mirar lo que la interfaz
+  DIBUJA: puede venir de memoria que ninguna tabla guarda.
+- **Las piezas medidas** (WhatsApp Business, en español, 26/10): la búsqueda es un `input[data-tab="3"]` (antes era un
+  contenteditable) y responde a `execCommand('insertText')` desde el mundo aislado; el chat abre con
+  pointerdown/mousedown/pointerup/mouseup/click sobre `[data-testid="cell-frame-container"]` (un `.click()` solo, no); la info
+  es `[role="complementary"]` con «N miembros» y «Ver todos (N más)»; la lista, un `[role="dialog"]` con UN elemento que
+  scrollea y filas de 72 px. Hay `data-testid` estables (`cell-frame-title`, `cell-frame-secondary`, `list-item-N`); las
+  clases cambian en cada versión y no se usan.
+- **La lista es VIRTUAL y tarda en dibujar:** de a 500 px cada 250 ms se vieron 98 de 247; de a 250 px cada 300 ms, 234. Se
+  baja de a media pantalla con `behavior: 'smooth'` y 420 ms entre pasos (~45 s para 247), y si no se mueve dos veces seguidas,
+  se corta (no espera hasta el tope).
+- **`chrome.action.openPopup` falla la primera vez:** en la primera corrida no se abrió; con reintentos (4, cada 350 ms, el
+  último sin `windowId`) se abrió en la segunda. Chrome lo rechaza mientras la ventana todavía no tiene el foco que acaba de
+  pedir `windows.update`. El porqué queda en la fila del registro (`desplegable`) y vuelve a la pantalla: sin eso, «no se ve»
+  no se puede diagnosticar.
+- **Abrir el grupo marca como leídos los mensajes DEL GRUPO** (no los de cada persona). Es el pedido de Martín y lo dice la
+  política de privacidad (/privacidad/extension); antes decía «no hace clic, no abre chats, no marca nada como leído».
+- **Sólo el pedido que empieza crea su fila del registro** (`anotarExtraccion(..., crear)`): un aviso con un id que no está
+  (de antes de recargarse la extensión) creaba una «extracción» fantasma. Encontrado probando, 0.72.2.
+- **El QR, como Flow (0.72.3):** Martín pidió «replicar» lo de Flow en el Scraper. Abrir la pestaña si falta y reusar la que
+  hay YA estaba (`pestanaDeWhatsappLista`, el mismo molde que `prepararEscenario`). Lo que faltaba era MIRAR LA PANTALLA: con
+  la sesión cerrada `model-storage` puede seguir ahí, así que «hay base» no es «hay sesión». `estadoDeSesion` (en
+  wa-recorrer.js: wa-fichas.js no toca la pantalla, y su test lo exige) dice 'lista' (está `#side`), 'qr' (el lienzo, el
+  `data-ref` o el texto) o 'cargando'; con el QR, la pestaña al frente y CINCO minutos de espera, contándolo. El desplegable
+  dice cómo está WhatsApp Web arriba del registro (`WA_ESTADO`, sólo mira). ⚠️ La pantalla del QR NO se midió en vivo
+  (cerrarle la sesión a Martín no se hace): si WhatsApp cambia ese dibujo, el síntoma es esperar el minuto de «cargando» y
+  decir `sin_sesion`. Medido en vivo que con la sesión abierta NO se confunde (2 s, sin pasar por «qr»).
+- **Probar sin desplegar la pantalla:** el mismo pedido que manda MaKo se dispara desde SU pestaña de hola-mako.com con
+  `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
+  ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
+
 ## Sin hacer
 
-- **La corrida completa en el Chrome de Martín con la 0.71.1** (con capturas): lista en las notas del Cerebro
-  (capturas-completar-wa/CORRIDA-COMPLETA.md). Por el ensayo, en el grupo de los 221 completa 77; falta que Martín toque
-  «Recargar» una vez (corre la 0.71.0, que no se recarga sola).
+- **La corrida con la pantalla nueva desplegada** (la mitad de MaKo de «Extraer»: crear los leads con la etiqueta y guardar
+  los nombres): la extensión 0.72.2 ya corre en su Chrome y se probó a la vista (notas del Cerebro, capturas-extraer-072). Al
+  desplegar: Nuevo lead › Scraper › el grupo › «Extraer N», y mirar que el desplegable termine en «N nombres en MaKo».
+- **El desplegable en su estado final («listo»)** no se capturó: vuelve a MaKo a los 4 s y se cierra. Se ve en su registro.
+- **La pantalla del QR, medida:** la primera vez que un cliente (o un perfil aparte) llegue con la sesión cerrada, mirar que
+  el desplegable diga «Escanea el QR» y no «cargando».
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).

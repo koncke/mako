@@ -16,6 +16,8 @@
 // un pedido puede traer el `@lid` del lead (lo sabe Evolution, app/crm/enriquecer-lote-server.ts) para encontrar a los que
 // WhatsApp Web no tiene con su teléfono. `lid-pn-mapping` y `lid-display-name-mapping` existen pero estaban VACÍAS.
 // Leer esa base no toca la interfaz ni la red: no marca nada como leído, no abre chats, no le avisa a nadie. Y de la agenda de Martín sólo sale lo de los teléfonos que MaKo pide (leads que ya están en su CRM).
+// ⚠️ DESDE LA 0.72.0 (26/10/2026) «Extraer» además RECORRE el grupo a la vista (wa-recorrer.js): lo que se ve en la lista de
+// miembros suma nombres que esa base no tiene (`nombresDeFilas`, `sumarVistos`). Eso sí abre el chat del grupo.
 //
 // Script clásico (los content scripts de MV3 no son módulos): deja `MakoWaFichas` en el global y, en node, lo exporta para
 // los tests (tests/wa-fichas-extension.test.ts).
@@ -227,7 +229,63 @@
     return out;
   }
 
-  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, buscarGrupos, fichasDe };
+  /** ¿Es un teléfono como lo dibuja WhatsApp Web («+52 1 55 1234 5678», con guiones que no cortan)? */
+  function esTelefonoDibujado(t) {
+    const s = String(t || '').trim();
+    return /^\+?[\d\s().‐-―-]{7,}$/.test(s) && s.replace(/\D/g, '').length >= 8;
+  }
+
+  /**
+   * LOS NOMBRES QUE SE VIERON EN LA LISTA DE MIEMBROS DEL GRUPO (wa-recorrer.js, 0.72.0): teléfono (sus últimos 10) → nombre.
+   * WhatsApp Web dibuja a quien no está en la agenda con su «~nombre» (el que la persona se puso) y su teléfono al lado, en
+   * cualquiera de los dos renglones. Sólo esas filas: un nombre sin teléfono a la vista no se puede cruzar con nadie.
+   * ⚠️ MEDIDO el 26/10/2026 en el grupo de los 221 de Martín: 53 filas con «~nombre», 39 con el teléfono al lado; en
+   * `model-storage`, de esos 247, sólo 1 tenía `pushname`. WhatsApp los tiene en memoria al abrir la lista y no los guarda.
+   */
+  function nombresDeFilas(filas) {
+    const m = new Map();
+    for (const f of Array.isArray(filas) ? filas : []) {
+      const t = String((f && f.titulo) || '').trim();
+      const s = String((f && f.secundario) || '').trim();
+      const par = /^~/.test(t) && esTelefonoDibujado(s) ? [t, s] : /^~/.test(s) && esTelefonoDibujado(t) ? [s, t] : null;
+      if (!par) continue;
+      // Sin el «Admin. del grupo» que WhatsApp dibuja en la fila de un admin, por si quedara pegado al nombre.
+      const nombre = textoUtil(par[0].replace(/^~\s*/, '').replace(/\s*(admin\.? del grupo|group admin|admin do grupo)\s*$/i, ''));
+      const clave = sufijo(par[1]);
+      if (nombre && !m.has(clave)) m.set(clave, nombre);
+    }
+    return m;
+  }
+
+  /**
+   * Suma a las fichas lo que se VIO en pantalla (`vistos`, de `nombresDeFilas`), sólo para los pedidos que no tenían ningún
+   * nombre: lo guardado en `model-storage` gana. Devuelve las fichas nuevas y cuántas ganaron un nombre así.
+   */
+  function sumarVistos(fichas, pedidos, vistos) {
+    const out = (Array.isArray(fichas) ? fichas : []).map((f) => ({ ...f }));
+    let enPantalla = 0;
+    if (!vistos || typeof vistos.get !== 'function' || !vistos.size) return { fichas: out, enPantalla };
+    const porTel = new Map(out.map((f) => [sufijo(f.telefono), f]));
+    for (const p of Array.isArray(pedidos) ? pedidos : []) {
+      const tel = String((p && typeof p === 'object' ? p.telefono : p) || '').replace(/\D/g, '');
+      if (tel.length < 8) continue;
+      const visto = vistos.get(sufijo(tel));
+      if (!visto) continue;
+      const f = porTel.get(sufijo(tel));
+      if (f) {
+        if (f.agenda || f.pushname || f.empresa) continue;
+        f.pushname = visto;
+      } else {
+        const nueva = { telefono: tel, agenda: null, pushname: visto, empresa: null, esEmpresa: false, grupos: [] };
+        out.push(nueva);
+        porTel.set(sufijo(tel), nueva);
+      }
+      enPantalla++;
+    }
+    return { fichas: out, enPantalla };
+  }
+
+  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, buscarGrupos, fichasDe, esTelefonoDibujado, nombresDeFilas, sumarVistos };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.MakoWaFichas = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

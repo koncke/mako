@@ -1279,7 +1279,8 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false, escribe: 'crea un lead por cada número nuevo del grupo, con su etiqueta de origen y su historial (a los que ya son leads no los toca)',
   },
   // 24/10/2026 (el Cerebro: «traer ahora no puede impedir completar los nombres después»): el listado del grupo no trae
-  // nombres, y volver a traer no toca a los que ya están. Lo mismo que «Completar nombres» de la pantalla.
+  // nombres, y volver a traer no toca a los que ya están. (La pantalla ya no tiene «Completar nombres»: desde el 26/10/2026 los
+  // nombres van solos dentro de «Extraer», por la extensión. Esta acción sigue para el chat de MaKo, con lo que sabe la línea.)
   {
     id: 'completar_nombres_de_grupo', area: 'crm', tipo: 'accion', confirmacion: 'chat',
     titulo: 'Completar nombres de un grupo',

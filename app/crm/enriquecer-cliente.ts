@@ -74,26 +74,8 @@ export function gruposEnWhatsappDichos(grupos: readonly GrupoEnWhatsapp[]): stri
   return ` ${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`;
 }
 
-/** Lo más largo que entra en la barra del lote al lado de los botones (medido en el Chrome de Martín, 1536 px: ~48). */
-const ENTRA_EN_LA_BARRA = 44;
-
-/**
- * El paso que cuenta la extensión, dicho para la barra del lote, que es angosta (25/10/2026: «Buscando el grupo «…» en tu
- * WhatsApp Web…» salía cortado con «…»). NO SE CORTA NADA (Martín, 25/10: «que no haya nunca un límite de caracteres, en todo
- * caso achica el mensaje»): se elige una frase más corta. El grupo va con su nombre si entra entero; si no, sin él (el aviso
- * final lo nombra).
- */
-export function avanceCorto(paso: string, texto: string): string {
-  if (paso === 'abriendo') return texto.startsWith('Despertando') ? 'Despertando WhatsApp Web…' : texto.startsWith('Recargando') ? 'Recargando WhatsApp Web…' : 'Abriendo WhatsApp Web…';
-  if (paso === 'cargando') return 'Esperando tus chats de WhatsApp…';
-  if (paso === 'leyendo') {
-    const grupo = /«(.+)»/.exec(texto)?.[1] ?? null;
-    if (!grupo) return /grupos/.test(texto) ? 'Buscando los grupos en tu WhatsApp…' : 'Leyendo tu WhatsApp Web…';
-    const conNombre = `Buscando «${grupo}»…`;
-    return [...conNombre].length <= ENTRA_EN_LA_BARRA ? conNombre : 'Buscando el grupo en tu WhatsApp…';
-  }
-  return texto;
-}
+// (`avanceCorto`, el paso de la extensión dicho para la barra del lote, se fue el 26/10/2026 con la 0.72.0: ese avance ahora
+// vive en el desplegable de la extensión, que tiene lugar para la frase entera.)
 
 /** El aviso al terminar «Completar desde mi WhatsApp»: la cobertura, lo escrito, y si paró o se cortó. */
 export function resumenDeFichas(pedidos: number, fichas: readonly FichaWa[], a: AvanceFichas): string {

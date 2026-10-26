@@ -54,7 +54,7 @@ function leerStore(db, nombre) {
  * Lo pedido: teléfonos sueltos o `{ telefono, lid }` (con el `@lid` se encuentra al que WhatsApp Web no tiene con su teléfono),
  * y los NOMBRES de los grupos de donde vinieron esos leads: se buscan acá y se dice si están y cuántos son (25/10/2026, 0.71.0).
  */
-async function fichasPedidas(pedidos, nombresGrupos) {
+async function fichasPedidas(pedidos, nombresGrupos, filasVistas) {
   const db = await abrirModelStorage();
   if (!db) return { ok: false, motivo: 'sin_base', diagnostico: { base: false } };
   try {
@@ -65,11 +65,14 @@ async function fichasPedidas(pedidos, nombresGrupos) {
     const indice = MakoWaFichas.indexar(contactos, grupos, participantes, verificados);
     const conLid = Array.isArray(pedidos) && pedidos.some((p) => p && typeof p === 'object' && p.lid);
     const porLid = conLid ? MakoWaFichas.indexarLids(contactos, grupos, participantes, verificados) : null;
-    const fichas = MakoWaFichas.fichasDe(indice, pedidos, porLid);
+    // Lo que se VIO al recorrer el grupo (0.72.0, wa-recorrer.js) completa a los que la base no tiene con nombre.
+    const vistos = MakoWaFichas.nombresDeFilas(filasVistas);
+    const { fichas, enPantalla } = MakoWaFichas.sumarVistos(MakoWaFichas.fichasDe(indice, pedidos, porLid), pedidos, vistos);
     // El diagnóstico: QUÉ hay (nombres de stores y cantidades), nunca datos de nadie.
     const diagnostico = {
       base: true, stores: Array.from(db.objectStoreNames), contactos: contactos.length, grupos: grupos.length,
       participantes: participantes.length, pedidos: Array.isArray(pedidos) ? pedidos.length : 0, conFicha: fichas.length,
+      vistos: vistos.size, enPantalla,
     };
     const enGrupos = Array.isArray(nombresGrupos) && nombresGrupos.length ? MakoWaFichas.buscarGrupos(grupos, participantes, nombresGrupos, contactos, verificados) : [];
     return { ok: true, fichas, grupos: enGrupos, diagnostico };
@@ -91,12 +94,18 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   // El worker pregunta si este script está vivo en la pestaña (una abierta antes de instalar o actualizar no lo tiene) y si
   // WhatsApp Web ya guardó su base (recién abierta, o sin la sesión iniciada, no).
   if (msg && msg.tipo === 'WA_FICHAS_PING') {
-    hayBase().then((base) => responder({ ok: true, base }), () => responder({ ok: true, base: null }));
+    // `recorre`: ¿está también wa-recorrer.js? (una pestaña con el script de la 0.71 no lo tiene, y el worker se lo pone.)
+    const recorre = !!globalThis.__makoWaRecorrer;
+    // `sesion` (0.72.3): 'lista', 'qr' o 'cargando' (el worker espera el QR unos minutos). La mira wa-recorrer.js: este
+    // archivo no toca la pantalla.
+    const sesion = typeof globalThis.__makoWaSesion === 'function' ? globalThis.__makoWaSesion() : null;
+    hayBase().then((base) => responder({ ok: true, base, recorre, sesion }), () => responder({ ok: true, base: null, recorre, sesion }));
     return true;
   }
   if (!msg || msg.tipo !== 'WA_FICHAS') return false;
   const pedidos = Array.isArray(msg.pedidos) ? msg.pedidos.slice(0, 5000) : Array.isArray(msg.telefonos) ? msg.telefonos.slice(0, 5000) : [];
   const grupos = Array.isArray(msg.grupos) ? msg.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
-  fichasPedidas(pedidos, grupos).then(responder, (e) => responder({ ok: false, motivo: 'error', error: String(e && e.message || e) }));
+  const vistas = Array.isArray(msg.vistas) ? msg.vistas.slice(0, 5000) : [];
+  fichasPedidas(pedidos, grupos, vistas).then(responder, (e) => responder({ ok: false, motivo: 'error', error: String(e && e.message || e) }));
   return true;
 });

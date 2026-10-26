@@ -33,7 +33,11 @@ export type GrupoWA = { jid: string; nombre: string; tamano: number | null };
  * Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país), su nombre si se conoce, y su `@lid`
  * (el alias interno de WhatsApp: con él la agenda de la línea guarda a muchos contactos, y por ahí también sale el nombre).
  */
-export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: string | null };
+export type ParticipanteWA = {
+  telefono: string; nombre: string | null; lid?: string | null;
+  /** Admin del grupo (Evolution: `admin: 'admin' | 'superadmin'`). «Ignorar admins» (Martín, 26/10/2026) los destilda. */
+  admin?: boolean;
+};
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
@@ -128,7 +132,8 @@ export function participantesDe(json: unknown, propio?: string | null): { partic
     if (vistos.has(telefono) || (propioDig && telefono === propioDig)) continue;
     vistos.add(telefono);
     const lid = typeof o.id === 'string' && o.id.endsWith('@lid') ? o.id : typeof o.lid === 'string' && o.lid.endsWith('@lid') ? o.lid : null;
-    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid });
+    const admin = o.admin === 'admin' || o.admin === 'superadmin' || o.admin === true;
+    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid, ...(admin ? { admin: true } : {}) });
   }
   return { participantes, sinNumero };
 }
@@ -173,9 +178,11 @@ export function esNombreDeRelleno(nombre: string | null | undefined): boolean {
 }
 
 /**
- * La etiqueta de ORIGEN de los que se traen. La elige la persona («Formación de Jan», «Evento Cancún»: el Cerebro, 23/10/2026,
- * para la base de venta de Martín), y viene con el nombre del grupo. Entra en el tope de una etiqueta del CRM
- * (`TOPE_NOMBRE_ETIQUETA`, 40): más larga, `limpiarNombreEtiqueta` la cortaba sin decirlo.
+ * La etiqueta de ORIGEN de los que se traen: EL NOMBRE DEL GRUPO, tal cual (Martín, 26/10/2026: «al agregarse al CRM siempre
+ * con una etiqueta con el nombre del grupo donde vinieron. Con las etiquetas que ya existen... y tampoco quiero cambiar el
+ * nombre del grupo, que se llame exactamente igual»). Hasta el 26/10 la pantalla la dejaba editar. Entra entera en el tope de
+ * una etiqueta (`TOPE_NOMBRE_ETIQUETA`, 100 desde la mig 0338: el asunto de un grupo de WhatsApp llega a 100); sólo se le
+ * sacan los espacios de más.
  */
 export function etiquetaDeGrupo(nombre: string): string {
   return limpiarNombreEtiqueta(nombre) || 'Grupo de WhatsApp';

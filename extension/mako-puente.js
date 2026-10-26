@@ -254,9 +254,12 @@ window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
     ? d.pedidos.filter((p) => p && typeof p.telefono === 'string').slice(0, 5000).map((p) => ({ telefono: p.telefono, lid: typeof p.lid === 'string' ? p.lid : null }))
     : undefined;
   const grupos = Array.isArray(d.grupos) ? d.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
+  // Desde la 0.72.0: «Extraer» a la vista (la pestaña de WhatsApp al frente, el desplegable y su registro) con su título.
+  const visible = d.visible === true;
+  const titulo = typeof d.titulo === 'string' ? d.titulo.slice(0, 160) : undefined;
   const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
   try {
-    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos }, (r) => {
+    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos, visible, titulo }, (r) => {
       if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
       contestar(r);
     });
@@ -264,10 +267,27 @@ window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
 });
 
 // El avance que cuenta el worker («Abriendo WhatsApp Web…», «Buscando el grupo…»), a la pantalla, con el `id` del pedido.
+// Y el «Parar» del desplegable (0.72.0): la pantalla deja de guardar.
 chrome.runtime.onMessage.addListener((msg) => {
+  if (msg && msg.tipo === 'WA_FICHAS_PARAR') {
+    window.dispatchEvent(new CustomEvent('MAKO_WA_PARAR', { detail: { id: msg.id } }));
+    return false;
+  }
   if (!msg || msg.tipo !== 'WA_FICHAS_AVANCE') return false;
   window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_AVANCE', { detail: { id: msg.id, paso: msg.paso, texto: msg.texto } }));
   return false;
+});
+
+// Cómo sigue una extracción del lado de MaKo (guardando, el final), al registro del desplegable (0.72.0). Sólo números y
+// textos cortos: los nombres de nadie salen de esta página.
+window.addEventListener('MAKO_WA_EXTRACCION', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  if (typeof d.id !== 'string') return;
+  const m = { tipo: 'WA_EXTRACCION', id: d.id };
+  for (const k of ['fase', 'estado', 'texto']) if (typeof d[k] === 'string') m[k] = d[k].slice(0, 400);
+  for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total']) if (typeof d[k] === 'number') m[k] = d[k];
+  try { chrome.runtime.sendMessage(m, () => void chrome.runtime.lastError); } catch { /* nada */ }
 });
 
 // La pantalla vio una extensión vieja: el worker mira si su carpeta ya trae la nueva y, si sí, se recarga (0.71.1).

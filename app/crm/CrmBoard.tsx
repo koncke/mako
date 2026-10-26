@@ -3342,6 +3342,9 @@ export function CrmBoard({
               // «Frenar automatización» del lote cambia en qué automatizaciones está cada uno: se vuelve a leer.
               setVersionAut((v) => v + 1);
               const deshacer = r.deshacer;
+              // Lo que ya se dijo en el desplegable de la extensión no se repite abajo (Martín, 26/10/2026: «no me gusta que
+              // salga el cartel negro abajo»).
+              if (r.enLaExtension) { router.refresh(); return; }
               // `r.tono`: un «Completar» a medias (paró, se cortó o faltan) no se canta como un «listo».
               mostrarAviso(r.texto, deshacer ? () => {
                 startTransition(async () => {
@@ -3667,7 +3670,7 @@ export function CrmBoard({
       )}
       {nuevoLead?.traer && (
         <Modal
-          titulo={nuevoLead.traer === 'grupo' ? 'Traer de un grupo de WhatsApp' : 'Traer de otro funnel'}
+          titulo={nuevoLead.traer === 'grupo' ? 'Extraer de un grupo de WhatsApp' : 'Traer de otro funnel'}
           ancho={1040}
           alto="min(88vh, 720px)"
           onCerrar={volverAlAlta}
@@ -3675,11 +3678,12 @@ export function CrmBoard({
           {/* Los contactos de un grupo de WhatsApp (23/10/2026, ./TraerDeGrupoWA.tsx): sólo el admin, que es quien la ve. */}
           {nuevoLead.traer === 'grupo' ? (
             <TraerDeGrupoWA
-              productos={funnels.map((f) => ({ id: f.id, nombre: f.nombre, esDefault: f.esDefault }))}
               destino={funnelActivo}
               onAtras={volverAlAlta}
-              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos).
-              onTraidos={(resumen) => { mostrarAviso(resumen); router.refresh(); }}
+              // NO se cierra: se sigue con otro grupo (la base de venta de Martín son varios grupos seguidos). Sin aviso abajo
+              // (Martín, 26/10/2026: «no me gusta que salga el cartel negro abajo»): el resultado ya está en el pie del modal y en
+              // el desplegable de la extensión.
+              onTraidos={() => router.refresh()}
             />
           ) : (
             <TraerDeOtroProducto

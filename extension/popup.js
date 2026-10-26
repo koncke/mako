@@ -23,6 +23,8 @@ const $ = (id) => document.getElementById(id);
 
 /** Un solo lugar arma la pantalla: título, línea tenue y como máximo un botón. */
 function pantalla({ titulo, numero, tenue, pasos, boton, accion, suave, boton2, accion2 }) {
+  // Es la pantalla de Flow: si la persona ya se fue a otra (la navegación, 0.72.0), un `pintar` que llega tarde no la pisa.
+  if (vista.pantalla !== 'flow') return;
   const cuerpo = $('cuerpo');
   cuerpo.textContent = '';
 
@@ -804,4 +806,336 @@ async function recargarMakoYConectar() {
   await pintar();
 }
 
-void pintar();
+// =============================================================================
+// La NAVEGACIÓN del desplegable (26/10/2026, 0.72.0)
+// =============================================================================
+// Martín: «la extensión debe tener navegación, que se guarde el registro de las extracciones si me voy para "atrás" en la
+// extracción, y que si me voy para atrás nuevamente pueda seleccionar Scraper o Flow, ya que la extensión hace las 2 cosas...
+// por defecto está configurada la extensión para Flow, porque al "conectar" me abre Flow».
+//   Inicio: Scraper de WhatsApp | Google Flow
+//     · Scraper → el REGISTRO de las extracciones (lo escribe el worker en `extracciones`) → una, en vivo o terminada;
+//     · Flow → lo de siempre (`pintar`, arriba): conectar este navegador recién ahí, cuando la persona eligió Flow.
+// Al abrir: la extracción que está corriendo (el worker abre este desplegable al empezarla), y si no, donde se dejó.
+let vista = { pantalla: 'inicio' };
+const ATRAS = { flow: 'inicio', scraper: 'inicio', extraccion: 'scraper' };
+const DONDE = { flow: 'Google Flow', scraper: 'Scraper de WhatsApp', extraccion: 'Scraper de WhatsApp' };
+/** Una extracción sin noticias hace tanto se cortó (el navegador cerró la extensión a la mitad). */
+const CORTADA_MS = 3 * 60000;
+
+async function ir(v) {
+  vista = v;
+  try { await chrome.storage.local.set({ popupVista: v }); } catch { /* sin recordar dónde quedó */ }
+  await dibujar();
+}
+
+async function registro() {
+  try {
+    const { extracciones } = await chrome.storage.local.get('extracciones');
+    return Array.isArray(extracciones) ? extracciones.filter((e) => e && typeof e.id === 'string') : [];
+  } catch { return []; }
+}
+
+/** ¿Sigue corriendo? «corriendo» sin noticias hace minutos es una que se cortó. */
+const enCurso = (e) => !!e && e.estado === 'corriendo' && Date.now() - (Number(e.actualizado) || 0) < CORTADA_MS;
+
+async function dibujar() {
+  $('atras').hidden = vista.pantalla === 'inicio';
+  $('donde').textContent = DONDE[vista.pantalla] || '';
+  armada = null;
+  if (vista.pantalla === 'flow') { esperando('Un momento…'); await pintar(); return; }
+  const lista = await registro();
+  if (vista.pantalla === 'scraper') dibujarRegistro(lista);
+  else if (vista.pantalla === 'extraccion') dibujarExtraccion(lista.find((e) => e.id === vista.id) || null);
+  else dibujarInicio(lista);
+}
+
+const NS = 'http://www.w3.org/2000/svg';
+/** Un ícono de trazo (24×24), armado por nodos. */
+function icono(d, color) {
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', color);
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('stroke-linecap', 'round');
+  svg.setAttribute('stroke-linejoin', 'round');
+  for (const tramo of d) {
+    const p = document.createElementNS(NS, 'path');
+    p.setAttribute('d', tramo);
+    svg.appendChild(p);
+  }
+  return svg;
+}
+const nodo = (tag, clase, texto) => {
+  const el = document.createElement(tag);
+  if (clase) el.className = clase;
+  if (texto != null) el.textContent = texto;
+  return el;
+};
+
+function dibujarInicio(lista) {
+  const cuerpo = $('cuerpo');
+  cuerpo.textContent = '';
+  cuerpo.appendChild(nodo('h1', '', '¿Qué hacemos?'));
+  const viva = (lista || []).find(enCurso);
+  const opcion = (nombre, sub, d, color, fondo, alElegir) => {
+    const b = nodo('button', 'opcion');
+    b.type = 'button';
+    const ico = nodo('span', 'ico');
+    ico.style.background = fondo;
+    ico.appendChild(icono(d, color));
+    const txt = nodo('span');
+    txt.appendChild(nodo('span', 'nom', nombre));
+    txt.appendChild(nodo('span', 'sub', sub));
+    b.append(ico, txt);
+    b.addEventListener('click', alElegir);
+    cuerpo.appendChild(b);
+  };
+  opcion('Scraper de WhatsApp', viva ? `Extrayendo «${viva.titulo || 'tu grupo'}»…` : 'Los nombres de tus grupos, al CRM',
+    ['M3 21l1.7-5A8.5 8.5 0 1 1 8 19.3z', 'M9 10h.01M12 10h.01M15 10h.01'], '#1f9d55', 'rgba(31,157,85,.12)',
+    () => void ir(viva ? { pantalla: 'extraccion', id: viva.id } : { pantalla: 'scraper' }));
+  opcion('Google Flow', 'Tus anuncios, con tu cuenta de Flow',
+    ['M4 5h11a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4z', 'M17 10l4-3v10l-4-3'], '#2f6df6', 'rgba(47,109,246,.12)',
+    () => void ir({ pantalla: 'flow' }));
+}
+
+/** «hoy 10:32» o «24/10 10:32». */
+function cuandoFue(ms) {
+  const d = new Date(Number(ms) || 0);
+  const hora = d.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' });
+  const hoy = new Date();
+  return d.toDateString() === hoy.toDateString() ? `hoy ${hora}` : `${d.getDate()}/${d.getMonth() + 1} ${hora}`;
+}
+
+const miles = (n) => (Number(n) || 0).toLocaleString('es');
+
+/** Cómo terminó, en dos o tres palabras (la fila del registro). */
+function comoTermino(e) {
+  if (enCurso(e)) return 'en curso';
+  if (e.estado === 'listo') return `${miles(e.nombres)} ${Number(e.nombres) === 1 ? 'nombre' : 'nombres'}`;
+  if (e.estado === 'parado') return 'la paraste';
+  return 'no se pudo';
+}
+
+/**
+ * CÓMO ESTÁ TU WHATSAPP WEB, arriba del registro (0.72.3). Lo mismo que el desplegable hace con Google Flow («Preparo todo y
+ * empezamos», «Inicia sesión en Google Flow»): una línea y, si hace falta, UN botón que lo resuelve. Martín, 26/10: «revisa
+ * las cosas que tenemos en la extensión de Flow para replicarlas en Scraper». Sólo mira: abrir lo abre el botón (y nunca una
+ * segunda pestaña: `WA_ENFOCAR` pone al frente la que hay, y abre una sólo si no hay ninguna).
+ */
+let turnoEstadoWa = 0;
+async function estadoWhatsapp(caja) {
+  const turno = ++turnoEstadoWa;
+  const s = await enviar({ tipo: 'WA_ESTADO' });
+  if (turno !== turnoEstadoWa || !caja.isConnected || !s) return;
+  const ir = (texto) => {
+    const b = nodo('button', 'suave', texto);
+    b.type = 'button';
+    b.addEventListener('click', () => { b.disabled = true; void enviar({ tipo: 'WA_ENFOCAR' }).then(() => window.close()); });
+    return b;
+  };
+  caja.textContent = '';
+  if (s.pestana === false) {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web no está abierto. Al extraer lo abro solo, o ábrelo ahora.'), ir('Abrir WhatsApp Web'));
+  } else if (s.sesion === 'qr') {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web pide escanear el QR. Escanéalo antes de extraer (o al extraer: te espero unos minutos).'), ir('Ir a WhatsApp Web'));
+  } else if (s.sesion === 'lista') {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web está listo.'));
+  } else if (s.pestana) {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web se está preparando: al extraer lo pongo a punto.'));
+  }
+}
+
+function dibujarRegistro(lista) {
+  const cuerpo = $('cuerpo');
+  cuerpo.textContent = '';
+  const estadoWa = nodo('div', 'estado-wa');
+  void estadoWhatsapp(estadoWa);
+  if (!lista.length) {
+    cuerpo.appendChild(nodo('h1', '', 'Todavía no extrajiste nada'));
+    cuerpo.appendChild(nodo('div', 'tenue', 'En el CRM de MaKo: Nuevo lead › Scraper › el grupo › «Extraer». Lo vas a ver acá, paso a paso.'));
+    const b = nodo('button', '', 'Ir al CRM');
+    b.type = 'button';
+    b.addEventListener('click', () => void abrirMakoEn('/crm'));
+    cuerpo.appendChild(b);
+    cuerpo.appendChild(estadoWa);
+    return;
+  }
+  cuerpo.appendChild(nodo('h1', '', 'Tus extracciones'));
+  cuerpo.appendChild(estadoWa);
+  const caja = nodo('div', 'registro');
+  for (const e of lista) {
+    const b = nodo('button', 'fila');
+    b.type = 'button';
+    b.title = e.titulo || '';
+    if (enCurso(e)) b.appendChild(nodo('span', 'vivo'));
+    b.appendChild(nodo('span', 'nom', e.titulo || 'Tus contactos'));
+    b.appendChild(nodo('span', 'meta', `${cuandoFue(e.cuando)} · ${comoTermino(e)}`));
+    b.addEventListener('click', () => void ir({ pantalla: 'extraccion', id: e.id }));
+    caja.appendChild(b);
+  }
+  cuerpo.appendChild(caja);
+}
+
+// Las fases que ve la persona, y qué pasos del worker / de WhatsApp Web / de MaKo cae en cada una.
+const FASES = [
+  { texto: 'Abro tu WhatsApp', pasos: ['abriendo', 'cargando', 'qr'] },
+  { texto: 'Entro al grupo', pasos: ['buscando', 'entrando'] },
+  { texto: 'Leo los miembros', pasos: ['miembros', 'recorriendo', 'parando'] },
+  { texto: 'Junto los nombres', pasos: ['leyendo'] },
+  { texto: 'Los guardo en MaKo', pasos: ['guardando'] },
+];
+/** Lo que se dice mientras WhatsApp Web pide el QR (el worker espera cinco minutos con la pestaña al frente). */
+const TEXTO_QR = 'Escanea el QR en WhatsApp Web: en tu teléfono, WhatsApp › Dispositivos vinculados › Vincular un dispositivo. Te espero unos minutos y sigo sola.';
+const TEXTO_A_LA_VISTA = 'En tu WhatsApp Web, a la vista. No toques nada mientras tanto.';
+const MOTIVO = {
+  sin_sesion: 'No se escaneó el QR de WhatsApp Web a tiempo. Escanéalo y vuelve a tocar «Extraer» en MaKo.',
+  sin_respuesta_wa: 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar «Extraer».',
+  recargar_whatsapp_web: 'Recarga la pestaña de WhatsApp Web y vuelve a tocar «Extraer».',
+};
+/** Un punto por miembro hasta este tope; en un grupo más grande, cada punto es un puñado. */
+const TOPE_PUNTOS = 240;
+
+/** Lo que ya está dibujado de la extracción a la vista: los avances sólo cambian números y clases (la animación no se corta). */
+let armada = null;
+
+function dibujarExtraccion(e) {
+  const cuerpo = $('cuerpo');
+  if (!e) {
+    armada = null;
+    cuerpo.textContent = '';
+    cuerpo.appendChild(nodo('h1', '', 'Esa extracción ya no está'));
+    cuerpo.appendChild(nodo('div', 'tenue', 'El registro guarda las últimas 30.'));
+    return;
+  }
+  const viva = enCurso(e);
+  const estado = viva ? 'corriendo' : e.estado === 'corriendo' ? 'cortada' : e.estado;
+  if (!armada || armada.id !== e.id || armada.estado !== estado) armada = armarExtraccion(cuerpo, e, estado);
+  const a = armada;
+
+  // Los puntos: los leídos se encienden, y de ésos, los que traen nombre van en azul (repartidos parejo).
+  const miembros = Number(e.miembros) || 0;
+  const k = Math.max(1, Math.ceil(miembros / TOPE_PUNTOS));
+  const cuantos = Math.min(TOPE_PUNTOS, Math.ceil((miembros || 0) / k));
+  if (a.puntos && a.puntos.childElementCount !== cuantos) {
+    a.puntos.textContent = '';
+    for (let i = 0; i < cuantos; i++) a.puntos.appendChild(document.createElement('i'));
+  }
+  if (a.puntos) {
+    const leidos = Math.min(cuantos, Math.floor((Number(e.vistos) || 0) / k));
+    const azules = Math.min(leidos, Math.floor((Number(e.conNombre) || 0) / k));
+    Array.from(a.puntos.children).forEach((p, j) => {
+      const azul = j < leidos && Math.floor(((j + 1) * azules) / leidos) > Math.floor((j * azules) / leidos);
+      p.className = azul ? 'n' : j < leidos ? 'v' : '';
+    });
+  }
+
+  if (estado === 'corriendo') {
+    // Con el QR a la vista, la línea de abajo del título dice qué hacer (como «Inicia sesión en Google Flow»).
+    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : TEXTO_A_LA_VISTA;
+    const i = Math.max(0, FASES.findIndex((f) => f.pasos.includes(e.fase)));
+    a.fases.forEach((li, j) => { li.className = j < i ? 'hecha' : j === i ? 'ahora' : ''; li.firstChild.textContent = j < i ? '✓' : ''; });
+    if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
+      a.conteo.firstChild.textContent = `${miles(e.guardados)}`;
+      a.conteo.lastChild.textContent = `de ${miles(e.total)} guardados`;
+    } else if (miembros) {
+      a.conteo.firstChild.textContent = `${miles(Math.min(Number(e.vistos) || 0, miembros))}`;
+      a.conteo.lastChild.textContent = `de ${miles(miembros)} miembros · ${miles(e.conNombre)} con nombre`;
+    } else {
+      a.conteo.firstChild.textContent = '';
+      a.conteo.lastChild.textContent = '';
+    }
+  }
+}
+
+/** Arma la pantalla de una extracción según cómo está (corriendo, lista, parada, con error o cortada). */
+function armarExtraccion(cuerpo, e, estado) {
+  cuerpo.textContent = '';
+  const out = { id: e.id, estado, puntos: null, fases: [], conteo: null, tenue: null };
+  cuerpo.appendChild(nodo('h1', 'grupo', e.titulo || 'Tus contactos'));
+  if (estado === 'corriendo') {
+    out.tenue = nodo('div', 'tenue', TEXTO_A_LA_VISTA);
+    cuerpo.appendChild(out.tenue);
+    out.conteo = nodo('div', 'conteo');
+    out.conteo.append(document.createTextNode(''), nodo('small'));
+    cuerpo.appendChild(out.conteo);
+    out.puntos = nodo('div', 'puntos');
+    out.puntos.setAttribute('aria-hidden', 'true');
+    cuerpo.appendChild(out.puntos);
+    const ol = nodo('ol', 'fases');
+    for (const f of FASES) {
+      const li = nodo('li');
+      li.append(nodo('span', 'marca-fase'), document.createTextNode(f.texto));
+      ol.appendChild(li);
+      out.fases.push(li);
+    }
+    cuerpo.appendChild(ol);
+    const parar = nodo('button', 'suave', 'Parar');
+    parar.type = 'button';
+    parar.addEventListener('click', () => { parar.disabled = true; parar.textContent = 'Parando…'; void enviar({ tipo: 'WA_PARAR', id: e.id }); });
+    cuerpo.appendChild(parar);
+    return out;
+  }
+  if (estado === 'listo') {
+    const c = nodo('div', 'conteo');
+    c.append(document.createTextNode(miles(e.nombres)), nodo('small', '', Number(e.nombres) === 1 ? 'nombre en MaKo' : 'nombres en MaKo'));
+    cuerpo.appendChild(c);
+    if (e.miembros) {
+      out.puntos = nodo('div', 'puntos');
+      out.puntos.setAttribute('aria-hidden', 'true');
+      cuerpo.appendChild(out.puntos);
+    }
+    if (e.texto) cuerpo.appendChild(nodo('div', 'tenue', e.texto));
+  } else if (estado === 'parado') {
+    cuerpo.appendChild(nodo('div', 'tenue', 'La paraste. Lo que ya estaba guardado queda; para seguir, vuelve a tocar «Extraer» en MaKo.'));
+  } else if (estado === 'cortada') {
+    cuerpo.appendChild(nodo('div', 'tenue', 'Se cortó a mitad de camino (el navegador cerró la extensión). Vuelve a tocar «Extraer» en MaKo.'));
+  } else {
+    cuerpo.appendChild(nodo('div', 'tenue', MOTIVO[e.motivo] || e.texto || 'No se pudo. Vuelve a tocar «Extraer» en MaKo.'));
+  }
+  if (e.noEncontrado) cuerpo.appendChild(nodo('div', 'tenue', `No encontré «${e.noEncontrado}» entre tus chats.`));
+  cuerpo.appendChild(nodo('div', 'tenue', cuandoFue(e.cuando)));
+  const b = nodo('button', '', 'Ver en MaKo');
+  b.type = 'button';
+  b.addEventListener('click', () => void abrirMakoEn('/crm'));
+  cuerpo.appendChild(b);
+  return out;
+}
+
+/** La pestaña de MaKo que ya está, al frente; si no hay, una en `ruta`. */
+async function abrirMakoEn(ruta) {
+  const t = await pestanaDeMako();
+  if (t) {
+    await chrome.tabs.update(t.id, { active: true }).catch(() => {});
+    await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});
+  } else {
+    await chrome.tabs.create({ url: `${ORIGEN_MAKO}${ruta}` });
+  }
+  window.close();
+}
+
+async function arrancar() {
+  try { $('version').textContent = 'v' + chrome.runtime.getManifest().version; } catch { /* nada */ }
+  try { const { workspaceNombre } = await chrome.storage.local.get('workspaceNombre'); $('ws').textContent = workspaceNombre || ''; } catch { /* nada */ }
+  $('atras').addEventListener('click', () => void ir({ pantalla: ATRAS[vista.pantalla] || 'inicio' }));
+  const lista = await registro();
+  let guardada = null;
+  try { guardada = (await chrome.storage.local.get('popupVista')).popupVista || null; } catch { /* nada */ }
+  const viva = lista.find(enCurso);
+  if (viva) vista = { pantalla: 'extraccion', id: viva.id };
+  else if (guardada && ATRAS[guardada.pantalla] !== undefined) {
+    // Una extracción terminada hace rato no es «donde se dejó»: su lugar es el registro.
+    const e = guardada.pantalla === 'extraccion' ? lista.find((x) => x.id === guardada.id) : null;
+    vista = guardada.pantalla === 'extraccion' && (!e || Date.now() - (Number(e.actualizado) || 0) > 10 * 60000) ? { pantalla: 'scraper' } : guardada;
+  }
+  chrome.storage.onChanged.addListener((c, area) => {
+    if (area !== 'local' || !c.extracciones) return;
+    const nueva = Array.isArray(c.extracciones.newValue) ? c.extracciones.newValue : [];
+    if (vista.pantalla === 'scraper') dibujarRegistro(nueva);
+    else if (vista.pantalla === 'extraccion') dibujarExtraccion(nueva.find((e) => e && e.id === vista.id) || null);
+    else if (vista.pantalla === 'inicio') dibujarInicio(nueva);
+  });
+  await dibujar();
+}
+
+void arrancar();
