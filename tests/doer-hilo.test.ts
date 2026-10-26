@@ -49,12 +49,14 @@ function nombresDeSiempre(): string[] {
 const DE_SIEMPRE = nombresDeSiempre().map((name) => ({ name }));
 const vista: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 13, rol: 'admin', tabs: null };
 
-/** El turno como lo arma el doer: el mensaje, y el hilo si lo sigue (lib/mako-doer-in.ts). */
-function turno(pedido: string, mako: string, mensaje: string, conHilo = true) {
+/** El turno como lo arma el doer: el mensaje, y el hilo si lo sigue (lib/mako-doer-in.ts). `pendientes`: los resúmenes de
+ *  las vigentes del grupo, como se los pasa el doer. */
+function turno(pedido: string, mako: string, mensaje: string, conHilo = true, pendientes: string[] = []) {
   const historial = [{ role: 'user' as const, content: pedido }, { role: 'assistant' as const, content: mako }];
-  const delMensaje = clasificarIntencion(mensaje, { makoPregunto: makoPreguntoAlgo(mako) });
+  const hayPendientes = pendientes.length > 0;
+  const delMensaje = clasificarIntencion(mensaje, { makoPregunto: makoPreguntoAlgo(mako), hayPendientes });
   const h = conHilo ? conElHilo(delMensaje, mensaje, pedidoDelHilo(historial), mako) : { veredicto: delMensaje, hilo: null };
-  const t = herramientasDelTurno({ veredicto: h.veredicto, texto: mensaje, hilo: h.hilo, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes: false });
+  const t = herramientasDelTurno({ veredicto: h.veredicto, texto: mensaje, hilo: h.hilo, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes, resumenesPendientes: pendientes });
   return { veredicto: h.veredicto, nombres: t.tools.map((x) => x.name), areas: t.areas };
 }
 
@@ -117,6 +119,25 @@ test('3. lo que NO es un seguimiento queda como estaba', () => {
   const nuevo = turno(SEGUIMIENTOS[2][0], SEGUIMIENTOS[2][1], '¿cuántos leads entraron hoy?');
   assert.equal(nuevo.veredicto.sigueElHilo, undefined);
   assert.equal(nuevo.veredicto.intencion, 'consultar');
+});
+
+test('3-bis. un seguimiento levantado desde la duda NO confirma ni cancela lo pendiente; el «sí» y el «no» de verdad, sí', () => {
+  // La revisión del 26/10/2026: la #400 pendiente (irreversible, ni a terceros ni plata) y MaKo preguntando «¿Confirmás?».
+  const pedido = 'eliminá la etapa Seguimiento del funnel';
+  const mako = 'Voy a eliminar la etapa «Seguimiento». ¿Confirmás?';
+  const pend = ['#400: Eliminar la etapa «Seguimiento»'];
+  for (const s of ['esperá, primero movamos esos leads', 'eso está mal', 'también la de Cierre']) {
+    const r = turno(pedido, mako, s, true, pend);
+    assert.equal(r.veredicto.sigueElHilo, true, `«${s}» dejó de seguir el hilo: el caso ya no se mide`);
+    assert.equal(r.veredicto.noResuelvePendientes, true, `«${s}»`);
+    for (const id of ['confirmar_accion', 'cancelar_accion']) assert.ok(!r.nombres.includes(id), `«${s}» trae ${id}: puede resolver la #400 sin el «sí»`);
+  }
+  // El «sí» y el «no» puros siguen siendo la confirmación de siempre, con sus dos herramientas.
+  for (const s of ['sí', 'no', 'dale']) {
+    const r = turno(pedido, mako, s, true, pend);
+    assert.equal(r.veredicto.intencion, 'confirmar', `«${s}»`);
+    assert.ok(r.nombres.includes('confirmar_accion') && r.nombres.includes('cancelar_accion'), `«${s}» perdió confirmar/cancelar`);
+  }
 });
 
 test('4. qué es apuntar a lo hablado: el verbo con pronombre y la referencia, no cualquier «-la»', () => {

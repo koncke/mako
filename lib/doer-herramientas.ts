@@ -295,7 +295,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
    */
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
   const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa, !!v.adivina)
-    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
+    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')))
+    // Un seguimiento levantado desde «sin señal clara» no resuelve lo pendiente (lib/doer-hilo.ts, `noResuelvePendientes`).
+    .filter((t) => !(v.noResuelvePendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
   // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
   // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su
   // propio preludio, y «buen día, movela al viernes» llegaba con la agenda y el plan y SIN la

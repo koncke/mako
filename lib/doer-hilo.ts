@@ -97,7 +97,11 @@ export function pedidoDelHilo(historial: readonly TurnoDelHilo[], clasificar: (t
  *
  *   1. El cajón de «sin señal clara» (`capturar` dudoso) con un seguimiento corto —apunta a lo hablado, o contesta una
  *      pregunta o un pedido de datos de MaKo— SIGUE el pedido: se actúa (o se consulta, si es una pregunta sobre una
- *      consulta) con las áreas del pedido. Lo que se hace sigue pasando por el «sí» (las acciones de WhatsApp proponen).
+ *      consulta) con las áreas del pedido. Lo NUEVO que se haga pasa por el «sí» (las acciones de WhatsApp proponen); lo que
+ *      YA está pendiente no se toca (`noResuelvePendientes`): sin `confirmar_accion` ni `cancelar_accion`. ⚠️ La revisión
+ *      del 26/10/2026: con la #400 «Eliminar la etapa Seguimiento» pendiente y MaKo preguntando «¿Confirmás?», «esperá,
+ *      primero movamos esos leads» llegaba con `confirmar_accion`, y una mala lectura del modelo la ejecutaba (irreversible,
+ *      y `confirmacionPura` sólo frena lo que va a terceros o mueve plata).
  *      Un «bueno», «mmm» o «mañana tengo que llamar al contador» sin MaKo preguntando nada queda como estaba: una idea.
  *   2. Un pedido corto que apunta a lo hablado pero no nombra el área del pedido («ya lo conecté, analizá la última»
  *      después de «¿estás analizando mis fathom?») suma las áreas del pedido a las suyas.
@@ -126,6 +130,9 @@ export function conElHilo(
         areas: areasDelHilo as VeredictoIntencion['areas'],
         relevancia: [pedido.veredicto.relevancia, v.relevancia, DIA_U_HORA.test(propio) ? RELEVANCIA_FECHA : ''].filter(Boolean).join(' ') || undefined,
         sigueElHilo: true,
+        // Siempre: un «sí» o un «no» de verdad nunca llega acá (la regla 1 del clasificador los lee como 'confirmar', con
+        // confirmar y cancelar). Lo fija tests/doer-hilo.test.ts 3-bis.
+        noResuelvePendientes: true,
       },
       hilo,
     };

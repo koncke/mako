@@ -93,6 +93,13 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
   perdían apenas corría otra herramienta en el medio. Las últimas seis, vencen a las 14 h, y un turno sin nada con id no
   toca nada. El nombre de una recomendación viene en `hacer`, no en `titulo`; y entran TODAS las listas con id de la salida, no
   sólo la primera (la `clave` de una descartada, en `descartadas`, es la que pide una «reabierta»).
+- ⚠️ **Un seguimiento levantado desde la duda NO resuelve lo pendiente** (`noResuelvePendientes`, la revisión adversarial
+  del 26/10). Pasar «capturar (dudosa)» a «actuar» traía `confirmar_accion` y `cancelar_accion`: con la #400 «Eliminar la
+  etapa Seguimiento» pendiente y MaKo preguntando «¿Confirmás?», «esperá, primero movamos esos leads» podía ejecutarla si el
+  modelo leía mal. Es irreversible y `confirmacionPura` no la frena: sólo protege lo que va a terceros o mueve plata. Lo
+  NUEVO que se hace sigue pasando por el «sí»; lo que YA estaba pendiente sólo lo resuelve un «sí» o un «no» de verdad, que
+  la regla 1 del clasificador lee como «confirmar». Medir con `hayPendientes: true`: el test original lo armaba siempre sin
+  pendientes y no lo veía.
 - ⚠️ **La memoria del grupo NO va al system de la red de la plataforma** (`baseRed`): nombra leads y lo que se habló, y
   la red corre sin datos de clientes.
 - **El conocimiento del negocio (Second Brain) se busca por el tema** (`consultaDelTurno`). Con «y eso?» solo,
