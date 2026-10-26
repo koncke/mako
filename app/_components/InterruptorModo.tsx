@@ -49,7 +49,12 @@ export function modoPreferido(): boolean {
   } catch { return false; /* incógnito: claro */ }
 }
 
-export function InterruptorModo({ compacto = false }: { compacto?: boolean }) {
+/**
+ * `cabecera` (26/10/2026, Martín: «El modo oscuro lo quiero arriba en la topbar, donde dice "settings" con el botón del sol y
+ * la luna, y sin texto»): el MISMO botón en la acción de la cabecera del teléfono (`m-cabecera__accion`, 44×44, con el color
+ * del texto de la cabecera). La barra de escritorio sigue con el de siempre.
+ */
+export function InterruptorModo({ compacto = false, variante = 'barra' }: { compacto?: boolean; variante?: 'barra' | 'cabecera' }) {
   // Arranca en claro y se corrige en el efecto: el server no sabe qué eligió
   // este navegador, y pintar otra cosa sería un mismatch de hidratación.
   const [oscuro, setOscuro] = useState(false);
@@ -70,6 +75,15 @@ export function InterruptorModo({ compacto = false }: { compacto?: boolean }) {
   const alternar = useCallback(() => aplicarModo(!oscuro), [oscuro]);
   const rotulo = oscuro ? 'Pasar a modo claro' : 'Pasar a modo oscuro';
 
+  if (variante === 'cabecera') {
+    return (
+      <button type="button" onClick={alternar} aria-label={rotulo} aria-pressed={oscuro} className="m-cabecera__accion"
+        style={{ position: 'relative', overflow: 'hidden', border: 0, background: 'transparent', color: 'var(--ink)', cursor: 'pointer' }}>
+        {iconos(oscuro, 20)}
+      </button>
+    );
+  }
+
   return (
     <button
       type="button" onClick={alternar} title={rotulo} aria-label={rotulo} aria-pressed={oscuro}
@@ -83,27 +97,32 @@ export function InterruptorModo({ compacto = false }: { compacto?: boolean }) {
       onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--sidebar-2)'; e.currentTarget.style.color = 'var(--on-sidebar)'; }}
       onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--sidebar-text)'; }}
     >
-      {(['luna', 'sol'] as const).map((cual) => {
-        const dentro = oscuro ? cual === 'sol' : cual === 'luna';
-        // Fuera del recorte: la luna espera arriba y sale por abajo; el sol al revés.
-        const y = dentro ? 0 : cual === 'luna' ? -FUERA : FUERA;
-        return (
-          <svg
-            key={cual} viewBox="0 0 24 24" aria-hidden
-            className="mk-modo-ico"
-            style={{
-              position: 'absolute', top: '50%', left: '50%', width: 16, height: 16,
-              margin: '-8px 0 0 -8px', fill: 'currentColor',
-              transform: `translateY(${y}px)`,
-              transitionDelay: dentro ? '200ms' : '0ms',
-            }}
-          >
-            <path d={cual === 'luna' ? LUNA : SOL} />
-          </svg>
-        );
-      })}
+      {iconos(oscuro, 16)}
     </button>
   );
+}
+
+/** Los dos íconos en su carril (el de nordtheme.com, ver arriba), del tamaño de cada cara. */
+function iconos(oscuro: boolean, lado: number) {
+  return (['luna', 'sol'] as const).map((cual) => {
+    const dentro = oscuro ? cual === 'sol' : cual === 'luna';
+    // Fuera del recorte: la luna espera arriba y sale por abajo; el sol al revés.
+    const y = dentro ? 0 : cual === 'luna' ? -FUERA : FUERA;
+    return (
+      <svg
+        key={cual} viewBox="0 0 24 24" aria-hidden
+        className="mk-modo-ico"
+        style={{
+          position: 'absolute', top: '50%', left: '50%', width: lado, height: lado,
+          margin: `-${lado / 2}px 0 0 -${lado / 2}px`, fill: 'currentColor',
+          transform: `translateY(${y}px)`,
+          transitionDelay: dentro ? '200ms' : '0ms',
+        }}
+      >
+        <path d={cual === 'luna' ? LUNA : SOL} />
+      </svg>
+    );
+  });
 }
 
 // Eva Icons — moon-fill y sun-fill, los mismos dos que usa nordtheme.com.

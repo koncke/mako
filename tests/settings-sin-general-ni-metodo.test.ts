@@ -28,12 +28,12 @@ import { NOMBRES_ICONO_MENU } from '../app/_ui/iconos-menu';
 const RAIZ = join(import.meta.dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const TODAS = { integraciones: true, metodo: true, plan: true };
+const TODAS = { integraciones: true, plan: true };
 
-test('1. el índice: sin General ni Método; Prompts sigue con la regla de la plataforma; Integraciones con el enchufe', () => {
+test('1. el índice: sin General ni Método; Integraciones con el enchufe', () => {
   const keys = seccionesNegocio(TODAS).map((s) => s.key);
-  assert.deepEqual(keys, ['equipo', 'integraciones', 'fiscal', 'plan', 'prompts']);
-  assert.equal(seccionesNegocio({ ...TODAS, metodo: false }).some((s) => s.key === 'prompts'), false, '«Prompts» es de la plataforma: sólo la agencia');
+  // «Prompts» también salió el 26/10/2026 (tests/settings-movil-26-10.test.ts): su pantalla sigue, sin entrada en Settings.
+  assert.deepEqual(keys, ['equipo', 'integraciones', 'fiscal', 'plan']);
   const integ = seccionesNegocio(TODAS).find((s) => s.key === 'integraciones')!;
   assert.equal(integ.icono, 'enchufe', 'Integraciones volvió al ícono del link');
   assert.ok(NOMBRES_ICONO_MENU.includes('enchufe'), 'el enchufe no está en el set de íconos');

@@ -16,8 +16,7 @@ export async function disponiblesNegocio(): Promise<DisponiblesNegocio> {
   const superAdmin = sesion?.rol === 'admin';
   return {
     integraciones: tabEnCapa('integraciones', capa),
-    // Lo de la plataforma («Prompts»): sólo la agencia, la pregunta de `getSesionAdmin()`.
-    metodo: superAdmin,
+    // (Lo de la plataforma —Método, después Prompts— salió del índice el 26/10/2026: no queda una sección sólo de la agencia.)
     // La plataforma no tiene un plan de MaKo: «Tu plan» es de cada negocio.
     plan: ws != null && ws !== plataforma,
   };
