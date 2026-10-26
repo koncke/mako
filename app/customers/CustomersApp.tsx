@@ -48,11 +48,15 @@ const fechaLarga = (iso: string) => {
 const grupoTxt = (f: FilaCliente) =>
   f.segmentos.includes('de-agencia') ? `De ${f.agencia ?? 'una agencia'}` : f.segmentos.map((s) => ({ agency: 'Agency', partner: 'Partner', cliente: 'Cliente', 'de-agencia': '' }[s])).join(' · ');
 
-export function CustomersApp({ vista }: { vista: VistaClientes }) {
+export function CustomersApp({ vista, abiertoInicial = null }: {
+  vista: VistaClientes;
+  /** La ficha que abre al cargar (`?cliente=<ws>`: un link a un cliente, o la captura de la ficha). */
+  abiertoInicial?: number | null;
+}) {
   const { filas, kpis } = vista;
   const [grupo, setGrupo] = useState<Grupo>('todos');
   const [q, setQ] = useState('');
-  const [abierto, setAbierto] = useState<number | null>(null);
+  const [abierto, setAbierto] = useState<number | null>(abiertoInicial);
   const [todosLosAvisos, setTodosLosAvisos] = useState(false);
 
   const deMaKo = useMemo(() => filas.filter((f) => !f.segmentos.includes('de-agencia')), [filas]);

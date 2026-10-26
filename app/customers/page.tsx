@@ -39,13 +39,15 @@ export const metadata = { title: 'Customers' };
 
 const PESTANAS: readonly PestanaCustomers[] = ['customers', 'accounts', 'billing', 'agents'];
 
-export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ tab?: string; cuenta?: string }> }) {
+export default async function CustomersPage({ searchParams }: { searchParams: Promise<{ tab?: string; cuenta?: string; cliente?: string }> }) {
   await requireSesion();
   const sesionAdmin = await getSesionAdmin();
   if (!sesionAdmin) redirect('/inicio');
   const sp = await searchParams;
   const tab: PestanaCustomers = (PESTANAS as readonly string[]).includes(sp.tab ?? '') ? (sp.tab as PestanaCustomers) : 'customers';
   const cuenta = /^[1-9]\d{0,11}$/.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
+  // `?cliente=<ws>`: la ficha de Customers abierta (un link a un cliente).
+  const cliente = /^[1-9]\d{0,11}$/.test(sp.cliente ?? '') ? Number(sp.cliente) : null;
 
   return (
     <Pagina ancho="completo">
@@ -54,16 +56,16 @@ export default async function CustomersPage({ searchParams }: { searchParams: Pr
       {tab === 'billing' ? <ContenidoCobros />
         : tab === 'agents' ? <ContenidoAgentes />
         : tab === 'accounts' ? await PestanaCuentas(sesionAdmin, cuenta)
-        : await PestanaClientes()}
+        : await PestanaClientes(cliente)}
     </Pagina>
   );
 }
 
 /** La pestaña Customers: la vista de la plataforma, entera del server (la ficha es un panel sin estado de carga). */
-async function PestanaClientes() {
+async function PestanaClientes(cliente: number | null) {
   const vista = await vistaDeClientes().catch((e) => ({ error: e instanceof Error ? e.message : String(e) }));
   if ('error' in vista) return <ErrorState titulo="No pude leer tus clientes" detalle={vista.error} accion={{ label: 'Volver a cargar', href: '/customers' }} />;
-  return <CustomersApp vista={vista} />;
+  return <CustomersApp vista={vista} abiertoInicial={cliente} />;
 }
 
 /** La pestaña Accounts: la grilla de administración, con lo que la ficha de cada cliente necesita (como /clients antes). */
