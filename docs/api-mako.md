@@ -11140,7 +11140,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/secciones` — Secciones y bloques de una landing
 
-El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Cada sección trae sus íconos (n, el nombre en la biblioteca o null si es uno que trajo el diseño, y el texto junto a él). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.
+El mapa de una landing o presentación del editor del Web Generator: sus páginas (id, ruta, inicio) y sus secciones en orden (id, posición, título, oculta, fondo, imagen de acento, íconos con su n) con sus bloques (posición, tipo —título, texto, botones, formulario, agenda, video, imagen…— y texto corto). Un «diseño editable» (las páginas de MaKo) suma sus botones, imágenes y videos. Úsala antes de cambiar una sección o un bloque: piden su id y su posición. El texto entero, en ver_landing_creada.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_secciones_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
