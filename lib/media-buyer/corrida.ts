@@ -155,7 +155,7 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   // Protect (el de AdAmigo): lo roto en la cuenta. Las graves van al aviso del negocio, aparte de las recomendaciones.
   const alertas = alertasProtect({
     arbol: datos.arbol, corta: datos.corta, larga: datos.larga, totalActivo: datos.totalActivo, presupuestoMaxDia: config.presupuestoMaxDia,
-    aUsd: datos.conversor.aUsdNum, fmt: fmtUnidad(datos),
+    fmt: fmtUnidad(datos),
   });
   const graves = alertas.filter((a) => a.gravedad === 'alta');
   if (graves.length) {

@@ -30,7 +30,7 @@ import type { ProductoArranque, RespuestasArranque } from '@/lib/media-buyer/arr
 import { productoDeAccion, type AnuncioDestacado } from '@/lib/media-buyer/productos';
 import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
 import { subirAlStaging } from './creativeUpload';
-import { NOMBRE_TACTICA, deHoy, rotuloDe } from './mb-modelo';
+import { NOMBRE_TACTICA, aplicablesEnLote, deHoy, rotuloDe } from './mb-modelo';
 import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
@@ -149,16 +149,20 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
   const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
 
+  // Lanza en fila lo que se puede lanzar sin abrir nada (sin los textos de la IA) y dice lo que el servidor ajustó o frenó:
+  // un presupuesto que se recalculó, o uno que otra decisión ya había cambiado (revisión de tren-l, fallas 0 y 1).
   const aplicarTodas = async () => {
     setAplicandoTodas(true);
     let bien = 0;
-    let mal = 0;
-    for (const d of hoy.filter((x) => x.estado === 'abierta')) {
-      const r = await api({ op: 'lanzar', id: d.id });
-      if (r.ok) bien++; else mal++;
+    const avisos: string[] = [];
+    for (const d of aplicablesEnLote(hoy)) {
+      const r = await api<{ ajuste?: string | null }>({ op: 'lanzar', id: d.id });
+      if (r.ok) bien++;
+      if (r.ok && r.ajuste) avisos.push(`«${d.entidadNombre}»: ${r.ajuste}`);
+      if (!r.ok) avisos.push(`«${d.entidadNombre}»: ${r.error ?? 'no se pudo'}`);
     }
     setAplicandoTodas(false);
-    show(mal ? `Apliqué ${bien}; ${mal} no se pudieron (mira su detalle)` : `${bien} cambios aplicados`, undefined, mal ? 'warn' : 'good');
+    show(avisos.length ? `${bien} aplicados. ${avisos.join(' · ')}` : `${bien} cambios aplicados`, undefined, avisos.length ? 'warn' : 'good');
     await recargar();
   };
 
@@ -216,7 +220,8 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
           ? <ArranqueMediaBuyer nombre={nombre} conectada={conectada} cuenta={zernio?.cuenta ?? config.cuentaPublicitaria} {...arranque} inicial={arranque.respuestas}
               onConectado={() => { void leerZernio(); void recargar(); }}
               onGuardar={(respuestas) => { void api({ op: 'arranque', respuestas }); }}
-              onTerminar={async (cambio) => { if (await guardarConfig(cambio)) await analizar(); }}
+              pilotoPermitido={cupo.piloto}
+              onTerminar={async (cambio) => { const ok = await guardarConfig(cambio); if (ok) await analizar(); return ok; }}
               onPreguntar={pedir} />
           : <NuevoChat titulo="¿En qué te ayudo hoy?" bajada="Muevo tu presupuesto de Meta hacia lo que vende." onSugerencia={sugerencia} onPedir={pedir} />}
         {siempre}

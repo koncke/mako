@@ -47,7 +47,7 @@ const RESULTADO: Record<KpiMediaBuyer, { uno: string; varios: string }> = {
 };
 
 /** El paso que toca: el primero que falta. Con UN producto en el CRM, no se pregunta cuál. */
-export function pasoDeArranque(x: { conectada: boolean; r: RespuestasArranque; productos: readonly ProductoArranque[]; costoMedido: number | null }): PasoArranque {
+export function pasoDeArranque(x: { conectada: boolean; r: RespuestasArranque; productos: readonly ProductoArranque[]; costoMedido: number | null; pilotoPermitido?: boolean }): PasoArranque {
   const { r } = x;
   if (!x.conectada) return 'cuenta';
   if (!r.producto && x.productos.length > 1) return 'producto';
@@ -56,12 +56,14 @@ export function pasoDeArranque(x: { conectada: boolean; r: RespuestasArranque; p
   if (!r.costo && x.costoMedido == null) return 'costo';
   if (r.inversionMes == null) return 'inversion';
   if (!r.plan) return 'plan';
-  if (!r.modo) return 'modo';
+  // Un «piloto» guardado en un plan sin piloto vuelve a preguntar el modo (la charla quedaba trabada en «listo» con el Media
+  // Buyer apagado; revisión de tren-l, falla 6).
+  if (!r.modo || (r.modo === 'piloto' && x.pilotoPermitido === false)) return 'modo';
   return 'listo';
 }
 
 /** Las respuestas rápidas de cada paso (lo que se toca). El número también se puede escribir en la caja. */
-export function opcionesDe(paso: PasoArranque, x: { productos: readonly ProductoArranque[]; r: RespuestasArranque; costoMedido: number | null }): string[] {
+export function opcionesDe(paso: PasoArranque, x: { productos: readonly ProductoArranque[]; r: RespuestasArranque; costoMedido: number | null; pilotoPermitido?: boolean }): string[] {
   switch (paso) {
     case 'producto': return [...x.productos.slice(0, 5).map((p) => p.nombre), 'Varios a la vez'];
     case 'resultado': return ['Leads', 'Agendas', 'Ventas'];
@@ -72,7 +74,7 @@ export function opcionesDe(paso: PasoArranque, x: { productos: readonly Producto
     case 'costo': return [`No sé, usa ${us(COSTO_SUPUESTO[x.r.kpi ?? 'lead'])} para empezar`];
     case 'inversion': return INVERSIONES.map((n) => `${us(n)} al mes`);
     case 'plan': return ['Así está bien', 'Probar con otro monto'];
-    case 'modo': return ['Te propongo y tú apruebas', 'Piloto automático, dentro de tus topes'];
+    case 'modo': return x.pilotoPermitido === false ? ['Te propongo y tú apruebas'] : ['Te propongo y tú apruebas', 'Piloto automático, dentro de tus topes'];
     default: return [];
   }
 }
@@ -126,7 +128,7 @@ export function tramoDe(paso: PasoArranque): number {
  * La charla hasta el paso de hoy: cada pregunta de MaKo con la respuesta que ya dio la persona, y la pregunta que toca con
  * sus opciones. Los pasos que se saltean (un solo producto, el costo medido) no aparecen. Sin hora: el hilo no la necesita.
  */
-export function mensajesDeArranque(x: { nombre: string; conectada: boolean; r: RespuestasArranque; productos: readonly ProductoArranque[]; costoMedido: number | null }): OfferMensaje[] {
+export function mensajesDeArranque(x: { nombre: string; conectada: boolean; r: RespuestasArranque; productos: readonly ProductoArranque[]; costoMedido: number | null; pilotoPermitido?: boolean }): OfferMensaje[] {
   const actual = pasoDeArranque(x);
   const out: OfferMensaje[] = [];
   for (const paso of ORDEN) {
@@ -142,7 +144,7 @@ export function mensajesDeArranque(x: { nombre: string; conectada: boolean; r: R
 }
 
 /** Lo que la persona eligió, leído del texto de la pastilla o de lo que escribió en la caja. null = no se entendió. */
-export function leerRespuesta(paso: PasoArranque, texto: string, x: { productos: readonly ProductoArranque[]; r: RespuestasArranque; costoMedido: number | null }): Partial<RespuestasArranque> | null {
+export function leerRespuesta(paso: PasoArranque, texto: string, x: { productos: readonly ProductoArranque[]; r: RespuestasArranque; costoMedido: number | null; pilotoPermitido?: boolean }): Partial<RespuestasArranque> | null {
   const t = texto.trim();
   const num = (() => { const m = t.replace(/\./g, '').replace(',', '.').match(/\d+(\.\d+)?/); return m ? Number(m[0]) : null; })();
   switch (paso) {
@@ -167,7 +169,7 @@ export function leerRespuesta(paso: PasoArranque, texto: string, x: { productos:
       if (/otro monto/i.test(t)) return { inversionMes: undefined, plan: undefined };
       return null;
     case 'modo':
-      if (/piloto/i.test(t)) return { modo: 'piloto' };
+      if (/piloto/i.test(t)) return x.pilotoPermitido === false ? null : { modo: 'piloto' };
       if (/propon/i.test(t)) return { modo: 'propone' };
       return null;
     default: return null;

@@ -73,7 +73,7 @@ test('lo que propone un agente propio: sólo entidades que existen, cambios acot
 });
 
 const S = (adId: string, x: Partial<SenalMB>): SenalMB => ({ adId, gasto: 0, leadsMeta: 0, leadsCrm: 0, agendasMeta: 0, agendasCrm: 0, cierres: 0, caja: 0, impresiones: 0, frecuencia: null, diasCorriendo: 3, esVideo: false, miniatura: null, ...x });
-const base = { arbol, totalActivo: 20, presupuestoMaxDia: null, aUsd: (u: number) => u, fmt: (u: number) => `$${Math.round(u)}` };
+const base = { arbol, totalActivo: 20, presupuestoMaxDia: null, fmt: (u: number) => `$${Math.round(u)}` };
 
 test('Protect: rechazados prendidos, el gasto disparado contra la semana, leads que no llegan al CRM, y lo prendido sobre el tope', () => {
   assert.deepEqual(alertasProtect({ ...base, corta: [], larga: [] }), [], 'una cuenta sana no tiene alertas');

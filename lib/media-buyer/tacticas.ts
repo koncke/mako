@@ -98,6 +98,14 @@ export type TacticasResueltas = Record<TacticaAuto, TacticaResuelta>;
  * Lo que vale hoy para cada táctica. `piloto`: el modo general es piloto automático (modoEfectivo); `pilotoPermitido`: el
  * plan lo trae. Sin plan, una táctica guardada como automática queda en «propone».
  */
+/**
+ * Lo que llega se MEZCLA con lo guardado, táctica por táctica: una pestaña abierta desde antes que toca un agente no reescribe
+ * las demás con su copia vieja (podía volver a poner en automático algo que otro apagó; revisión de tren-l, falla 2).
+ */
+export function mezclarTacticas(guardadas: ConfigTacticas | null | undefined, recibidas: ConfigTacticas): ConfigTacticas {
+  return { ...(guardadas ?? {}), ...recibidas };
+}
+
 export function resolverTacticas(cfg: ConfigTacticas | null | undefined, o: { piloto: boolean; pilotoPermitido: boolean }): TacticasResueltas {
   const out = {} as TacticasResueltas;
   for (const t of ORDEN_TACTICAS) {

@@ -13,7 +13,7 @@ import 'server-only';
 import { getSupabaseServer } from '@/lib/supabase';
 import { esEsencialDe } from '@/lib/plan-esencial';
 import { cupoDelPlan, type CupoMediaBuyer } from './plan';
-import { pideAutomatica, validarTacticas, type ConfigTacticas } from './tacticas';
+import { mezclarTacticas, pideAutomatica, validarTacticas, type ConfigTacticas } from './tacticas';
 import {
   CONFIG_POR_DEFECTO, VENCE_HORAS,
   type ConfigMediaBuyer, type Decision, type EstadoDecision, type Propuesta,
@@ -121,6 +121,8 @@ export async function guardarConfig(ws: number, cambio: CambioConfig, quien: str
   // general o una táctica automática.
   const pidePiloto = v.fila.modo === 'piloto' || (v.fila.tacticas != null && pideAutomatica(v.fila.tacticas as ConfigTacticas));
   if (pidePiloto && !(await cupoDe(ws)).piloto) throw new PlanSinPiloto();
+  // Las tácticas que llegan se mezclan con las guardadas (el piloto se juzgó arriba sobre lo que se PIDIÓ, no sobre lo mezclado).
+  if (v.fila.tacticas != null) v.fila.tacticas = mezclarTacticas((await leerConfig(ws)).tacticas, v.fila.tacticas as ConfigTacticas);
   const { error } = await getSupabaseServer().from('media_buyer_config')
     .upsert({ workspace_id: ws, ...v.fila, updated_at: new Date().toISOString(), updated_by: quien.slice(0, 200) }, { onConflict: 'workspace_id' });
   if (error) {

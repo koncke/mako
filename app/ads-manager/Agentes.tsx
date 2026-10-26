@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { AgentePropio } from '@/lib/media-buyer/agentes-propios';
 import type { ConfigTacticas, TacticasResueltas } from '@/lib/media-buyer/tacticas';
-import { NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, cambiarAgente, estadoDeAgente, type Agente } from './mb-modelo';
+import { NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, estadoDeAgente, type Agente } from './mb-modelo';
 import { EtiquetaAgente, Ic } from './Autopilot';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 
@@ -63,7 +63,8 @@ export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, pr
 
   const cambiar = async (a: Propio, estado: 'apagada' | 'propone' | 'automatica') => {
     setOcupado(a);
-    await onTacticas(cambiarAgente(config, a, estado));
+    // Sólo las tácticas de ESTE agente: el servidor las mezcla con lo guardado (una copia vieja no pisa a las demás).
+    await onTacticas(Object.fromEntries(TACTICAS_DE[a].map((t) => [t, { ...(config[t] ?? {}), estado }])));
     setOcupado(null);
   };
 

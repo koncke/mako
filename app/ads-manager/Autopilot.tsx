@@ -19,7 +19,7 @@ import type { Alerta } from '@/lib/media-buyer/protect';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { TUERCA } from '@/app/_ui/icono-tuerca';
 import {
-  AGENTE_DE, NOMBRE_AGENTE, cambioDe, hace, impactoEsperado, queHace, verboLanzar,
+  AGENTE_DE, NOMBRE_AGENTE, cambioDe, hace, impactoEsperado, leerMonto, queHace, verboLanzar,
   type Agente,
 } from './mb-modelo';
 
@@ -72,7 +72,8 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
   const aplicar = () => {
     const extra: { presupuesto?: number; elegidas?: string[] } = {};
     if (esVar) extra.elegidas = [...elegidas];
-    if (editando && montoTxt.trim()) extra.presupuesto = Number(montoTxt.replace(',', '.'));
+    // «1,500» es mil quinientos, no 1,5 (revisión de tren-l, falla 4): leerMonto, y si no se entiende no se lanza.
+    if (editando && montoTxt.trim()) extra.presupuesto = leerMonto(montoTxt) ?? undefined;
     void onAplicar(extra).then((ok) => { if (ok) setEditando(false); });
   };
   const estado = d.estado === 'fallida' ? { t: 'No se pudo', tono: 'mal' } : d.estado === 'bloqueada' ? { t: 'Frenada por un tope', tono: 'cuidado' }
@@ -109,7 +110,8 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
         <div className="aa-bloque">
           <h4>{d.tipo === 'variaciones_hook' ? 'Los ganchos' : 'Los textos'}</h4>
           <div className="aa-vars">
-            {(d.variaciones ?? []).slice(0, mas ? undefined : 2).map((v) => {
+            {/* TODOS los textos a la vista: lo que se tilda es lo que sale (antes se veían 2 y salían 4; tren-l, falla 0). */}
+            {(d.variaciones ?? []).map((v) => {
               const on = elegidas.has(v.id);
               return (
                 <label key={v.id} className="aa-var" data-on={on ? '1' : '0'}>
@@ -152,7 +154,7 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
         )}
         <button type="button" className="aa-sec" onClick={onPreguntar}>{Ic.info()}Preguntar</button>
         {(abierta || reintentable) && (
-          <button type="button" className="aa-aplicar" disabled={ocupada || !encendido || (esVar && elegidas.size === 0)} onClick={aplicar}>
+          <button type="button" className="aa-aplicar" disabled={ocupada || !encendido || (esVar && elegidas.size === 0) || (editando && montoTxt.trim() !== '' && leerMonto(montoTxt) == null)} onClick={aplicar}>
             {Ic.check()}{ocupada ? 'Aplicando…' : reintentable ? 'Reintentar' : esVar ? verboLanzar(d) : 'Aplicar'}
           </button>
         )}
