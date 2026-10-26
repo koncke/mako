@@ -50,7 +50,7 @@
   //
   // NO se recarga la pestana automaticamente al detectarlo: un reload mata las
   // generaciones en vuelo y tira el `at` vivo. Se REPORTA, y la persona decide.
-  const VERSION_ESPEJO = '0.73.5';
+  const VERSION_ESPEJO = '0.73.6';
   if (window.__makoEspejo) return;
   window.__makoEspejo = VERSION_ESPEJO;
 

@@ -65,6 +65,13 @@ function mensajesDeGrupos(db, ids) {
     const store = tx.objectStore('message');
     diag.tabla = true;
     diag.clave = typeof store.keyPath === 'string' ? store.keyPath : JSON.stringify(store.keyPath);
+    // La FORMA de una clave cualquiera de un mensaje recibido (dígitos y letras tapados) y los índices: si el rango no trae
+    // nada, esto dice si es que no hay mensajes de ese grupo o que la clave cambió.
+    try { diag.indices = Array.from(store.indexNames).slice(0, 12); } catch { /* nada */ }
+    try {
+      const m = store.openCursor(IDBKeyRange.bound('false_', 'false_￿'));
+      m.onsuccess = () => { const c = m.result; if (c && !diag.forma) diag.forma = String(c.key).slice(0, 120).replace(/\d/g, '#').replace(/[A-Za-z](?![A-Za-z]*\.us|id\b)/g, 'a'); };
+    } catch { /* nada */ }
     let pendientes = ids.length;
     const listo = () => { if (--pendientes <= 0) resolve({ registros, diag }); };
     for (const gid of ids) {
