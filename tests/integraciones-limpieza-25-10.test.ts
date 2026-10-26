@@ -115,6 +115,48 @@ test('6. la agenda al entrar con Google: apagada salvo GOOGLE_LOGIN_CON_AGENDA=1
     'el callback guarda un token aunque no traiga la agenda');
 });
 
+// ── Lo que se rompió al sacar las tarjetas (revisión del tren, 25/10/2026) ─────────────────────────────────────────────
+
+test('7. link_configurar_integracion da el link de las que no tienen tarjeta (las IA y Google Calendar)', () => {
+  // Contestaba «La integración «anthropic» no existe para este negocio»: MaKo (chat y WhatsApp) no podía mandar el link.
+  const run = sinComentarios(leer('lib/api-mako/areas/integraciones.run.ts'));
+  const tool = run.slice(run.indexOf('link_configurar_integracion: {'));
+  assert.match(tool, /const tarjetas = await tarjetasDelWs\(ctx\.ws\);/, 'la herramienta dejó de validar con tarjetasDelWs');
+  const helpers = sinComentarios(leer('lib/api-mako/areas/integraciones.helpers.ts'));
+  const cuerpo = helpers.slice(helpers.indexOf('export async function tarjetasDelWs('));
+  assert.match(cuerpo, /return defsVisibles\(DEFS_TARJETAS\.map\(\(d\) => \(\{ \.\.\.d, oculto: false \}\)\), \{/,
+    'tarjetasDelWs volvió a sacar las `oculto`: el link de las IA y de Google Calendar dice «no existe»');
+  // Lo que esa regla deja pasar: las cinco, y la plataforma corta igual (un cliente no nombra GitHub).
+  const deUnCliente = defsVisibles(DEFS.map((d) => ({ ...d, oculto: false })), { cats: null, ocultas: new Set(), esSuper: false }).map((d) => d.key);
+  for (const key of SIN_TARJETA) assert.ok(deUnCliente.includes(key), `${key} no tendría link`);
+  assert.equal(deUnCliente.includes('github'), false, 'la regla de la plataforma dejó de cortar');
+});
+
+test('8. «Costo de MaKo»: la caja de cada IA y «Regístralos →» abren el modal de SU integración', () => {
+  const page = sinComentarios(leer('app/integraciones/page.tsx'));
+  assert.match(page, /const todas = await getIntegraciones\(\{ conOcultas: true \}\);/);
+  assert.match(page, /const integraciones = todas\.filter\(\(i\) => !esOculta\(i\.key\)\);/, 'la grilla tiene que seguir sin las `oculto`');
+  assert.match(page, /const sinTarjeta = todas\.filter\(\(i\) => esOculta\(i\.key\)\);/);
+  assert.match(page, /sinTarjeta=\{sinTarjeta\}/, 'el tablero no recibe las que no tienen tarjeta');
+  const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
+  assert.match(board, /onOpenService=\{\(key\) => setModal\(\{ t: 'svc', key \}\)\}/);
+  assert.match(board, /const svcByKey = \(key: string\): Integracion \| null => integraciones\.find\(\(x\) => x\.key === key\)\s*\?\? sinTarjeta\.find\(\(x\) => x\.key === key\) \?\? SYNTHETIC\[key\] \?\? null;/,
+    'svcByKey no busca en las que no tienen tarjeta: la caja de Claude no abre nada');
+  // Y nadie las dibuja: `sinTarjeta` sólo la lee svcByKey.
+  assert.equal((board.match(/sinTarjeta\./g) ?? []).length, 1, '`sinTarjeta` se usa para algo más que abrir el modal');
+});
+
+test('9. si falla la vuelta de Google, se reabre el modal suelto (el botón «Conectar» está)', () => {
+  const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
+  const ini = board.indexOf('const gcalReabierto = useRef<string | null>(null);');
+  assert.ok(ini > 0, 'no se encontró la reapertura del modal de Google');
+  const efecto = board.slice(ini, board.indexOf('}, [gcalParam, integraciones, abrirSuelta]);', ini));
+  assert.match(efecto, /if \(GCAL_MSG\[gcalParam\]\?\.kind !== 'err' \|\| integraciones\.some\(\(i\) => i\.key === 'google'\)\) return;/,
+    'con un «ok» (o con Google en la grilla) no se reabre nada');
+  assert.match(efecto, /gcalReabierto\.current = gcalParam;\s*abrirSuelta\('google', gcalParam\);/, 'un error de Google deja la pantalla sin botón');
+  assert.match(efecto, /if \(gcalReabierto\.current === gcalParam\) return;/, 'se reabriría en cada render');
+});
+
 // ── ROTURAS (25/10/2026) ───────────────────────────────────────────────────────
 // Una por vez, restaurando de memoria y comprobando el contenido. Base: 6 pasan / 0 fallan. Las 14 cazadas, cada una 5 / 1:
 //   I1. «MaKo IA (Anthropic)» de vuelta en la tarjeta                → 1. los nombres
@@ -132,3 +174,11 @@ test('6. la agenda al entrar con Google: apagada salvo GOOGLE_LOGIN_CON_AGENDA=1
 //   I12. `access_type=offline` siempre, con o sin la agenda          → 6.
 //   I13. el callback guarda el refresh_token sin mirar el `scope`    → 6.
 // Restaurado: 6 / 0.
+// Revisión del tren (25/10/2026), base 9 / 0; cada una 8 / 1 y restaurado 9 / 0 (script con reemplazo exacto, CRLF):
+//   I14. tarjetasDelWs con `DEFS_TARJETAS` a secas (las `oculto` «no existen») → 7. link_configurar_integracion
+//   I15. svcByKey sin buscar en `sinTarjeta`                         → 8. «Costo de MaKo»
+//   I16. page.tsx no le pasa `sinTarjeta` al tablero                 → 8.
+//   I17. page.tsx lee `getIntegraciones()` sin `conOcultas`          → 8.
+//   I18. un error de Google no reabre el modal suelto                → 9. la vuelta de Google
+//   I19. sin la ref (se reabriría en cada render)                    → 9.
+//   I20. se reabre también con un «ok»                               → 9.

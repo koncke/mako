@@ -183,6 +183,14 @@ export type Tablero = {
 
 type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: string | null; meses?: number | null; created_at: string };
 
+/**
+ * La compra que TRAJO al negocio (filtro de PostgREST): la que creó la cuenta (alta 'hecha') o el cobro de «Empezar mi plan
+ * ya» (lib/empezar-plan.ts), que reemplaza a esa prueba y hereda su código (25/10/2026, revisión del tren). Ése no crea la
+ * cuenta ni se marca 'hecha' (le habilitaría el cambio de email del acceso), y al cobrarse la prueba queda 'anulado': sin
+ * aceptarlo acá, el partner no cobraba nunca. Lo usan `acreditarReferidos` y `resumenDelPrograma`, con el MISMO filtro.
+ */
+const COMPRA_QUE_TRAJO = 'alta_estado.eq.hecha,creado_por.like.empezar-ya:*';
+
 /** Los cobros de la plataforma comprados con ESTE código, ya con su negocio (los referidos). */
 async function comprasConCodigo(plataforma: number, codigo: string): Promise<CompraConCodigo[]> {
   const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, meses, created_at')
@@ -300,7 +308,7 @@ export async function resumenDelPrograma(): Promise<ResumenPrograma> {
     db.from('partner_codigos').select('workspace_id, codigo').limit(TOPE),
     // El MISMO filtro que `acreditarReferidos`: la compra que creó la cuenta, pagada (o devuelta después).
     db.from('cobros').select('ref_codigo, alta_ws, created_at').eq('workspace_id', plataforma).not('ref_codigo', 'is', null)
-      .eq('alta_estado', 'hecha').not('alta_ws', 'is', null).in('estado', ['pagado', 'reembolsado'])
+      .or(COMPRA_QUE_TRAJO).not('alta_ws', 'is', null).in('estado', ['pagado', 'reembolsado'])
       .order('created_at', { ascending: true }).limit(TOPE),
     db.from('partner_creditos').select('referidor_ws, tipo, monto_usd, created_at').limit(TOPE),
   ]);
@@ -378,8 +386,9 @@ export async function acreditarReferidos(): Promise<{ vistos: number; atados: nu
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
   const { data, error } = await db.from('cobros').select('alta_ws, ref_codigo, monto_usd, plan_mako, meses, created_at')
-    // Sólo clientes NUEVOS (docs/referidos.md): la compra que CREÓ la cuenta (alta hecha), nunca la de quien ya la tenía.
-    .eq('workspace_id', plataforma).not('ref_codigo', 'is', null).not('alta_ws', 'is', null).eq('alta_estado', 'hecha')
+    // Sólo clientes NUEVOS (docs/referidos.md): la compra que CREÓ la cuenta (alta hecha), nunca la de quien ya la tenía; o
+    // la de «Empezar mi plan ya», que reemplaza a esa prueba con su mismo código (`COMPRA_QUE_TRAJO`, 25/10/2026).
+    .eq('workspace_id', plataforma).not('ref_codigo', 'is', null).not('alta_ws', 'is', null).or(COMPRA_QUE_TRAJO)
     .in('estado', ['pagado', 'reembolsado']).order('created_at', { ascending: true }).limit(1000);
   if (error) { console.warn(`[partners] no pude leer las compras con código: ${error.message}`); return out; }
   // El PRIMERO vale: la compra más vieja de cada negocio decide quién lo refirió.

@@ -39,11 +39,20 @@ export async function keysServiciosDelWs(ws: number): Promise<string[]> {
   return serviciosPara(await esWsPlataforma(ws)).map((s) => s.key);
 }
 
-/** Las tarjetas de /integraciones que ve este workspace: su capa y la regla de plataforma. */
+/**
+ * Las integraciones de /integraciones que este workspace puede configurar: su capa y la regla de plataforma.
+ *
+ * ⚠️ CON LAS `oculto` (25/10/2026). Desde que las cuatro IA (anthropic, openai, gemini, groq) y Google Calendar dejaron de
+ * ser tarjetas de la grilla, `defsVisibles` las sacaba, y link_configurar_integracion (la única que usa esto) contestaba
+ * «La integración «anthropic» no existe para este negocio»: MaKo, en el chat y en WhatsApp, no podía mandar el link para
+ * conectarlas — justo el caso de un cliente al que le falta su clave. `oculto` es «no es una tarjeta», no «no se
+ * configura»: su `?abrir=<key>` abre el modal suelto. Es lo mismo que hacen `getIntegraciones({ conOcultas: true })` y
+ * `getIntegracion` (lib/integraciones.ts). La capa y la plataforma siguen cortando igual.
+ */
 export async function tarjetasDelWs(ws: number): Promise<Def[]> {
   const w = await getWorkspace(ws).catch(() => null);
   const cap = capaDef((w?.capa ?? null) as CapaId | null);
-  return defsVisibles(DEFS_TARJETAS, {
+  return defsVisibles(DEFS_TARJETAS.map((d) => ({ ...d, oculto: false })), {
     cats: cap.categoriasIntegraciones,
     ocultas: new Set(cap.integracionesOcultas ?? []),
     esSuper: await esWsPlataforma(ws),

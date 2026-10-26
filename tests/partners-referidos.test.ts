@@ -12,6 +12,7 @@
 //   · /r pisa la cookie del primero que lo trajo                                 -> 8 / 1
 //   · `interesDeFuncionalidad` no reconoce «crm»                                 -> 8 / 1
 //   · el onboarding no siembra el origen                                         -> 8 / 1
+//   · (25/10) el que canceló la prueba con 0 meses vuelve a dar 'registrado'     -> 8 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -19,7 +20,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
+  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, porGanar, resumenDelLibro,
 } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -47,6 +48,12 @@ test('el estado de cada referido en el tablero', () => {
   assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: true }), 'primer-pago');
   assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: false }), 'se-fue');
   assert.equal(estadoDelReferido({ mesesPagados: 3, acreditado: true, vigente: false }), 'acreditado');
+  // 25/10/2026 (revisión del tren): el que canceló la prueba sin pagar nada se fue; no es plata «en camino» para el partner.
+  assert.equal(estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), 'se-fue');
+  assert.equal(porGanar([
+    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), gananciaUsd: 97 },
+    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: true }), gananciaUsd: 47 },
+  ]), 47, 'sólo el que sigue');
 });
 
 test('el libro: lo ganado, lo transferido y lo que queda a cobrar, en dinero (sin meses ni revendedor)', () => {
@@ -58,7 +65,10 @@ test('el libro: lo ganado, lo transferido y lo que queda a cobrar, en dinero (si
 
 test('el cron acredita SÓLO a clientes nuevos (la compra que creó la cuenta) y el primer código vale', () => {
   const p = fuente('lib/partners-programa.ts');
-  assert.match(p, /\.not\('ref_codigo', 'is', null\)\.not\('alta_ws', 'is', null\)\.eq\('alta_estado', 'hecha'\)/);
+  // La compra que creó la cuenta, o la de «Empezar mi plan ya» que reemplaza a esa prueba (25/10/2026): de punta a punta en
+  // tests/partners-empezar-ya.test.ts.
+  assert.match(p, /const COMPRA_QUE_TRAJO = 'alta_estado\.eq\.hecha,creado_por\.like\.empezar-ya:\*';/);
+  assert.match(p, /\.not\('ref_codigo', 'is', null\)\.not\('alta_ws', 'is', null\)\.or\(COMPRA_QUE_TRAJO\)/);
   assert.match(p, /if \(!primero\.has\(Number\(c\.alta_ws\)\)\) primero\.set/);
   assert.match(p, /\.update\(\{ referido_por_ws: referidor \}\)\.eq\('id', referido\)\.is\('referido_por_ws', null\)/, 'las bienvenidas, una vez');
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await acreditarReferidos\(\)/);

@@ -248,8 +248,12 @@ export async function abrirCuentaDePartner(p: AbrirCuenta): Promise<CuentaAbiert
   // le da una cuenta gratis. Si paga la agencia, el acceso sale con la habilitación, como siempre (lib/agencia-habilitar.ts).
   // ⚠️ `invitarPorEmail` devuelve SIEMPRE un objeto, también si el mail no salió: lo que se mira es `enviado` (el aviso de
   // la pantalla lo arma `avisoInvitacion`).
+  // ⚠️ Y SÓLO CON LINK DEL PRIMER MES (25/10/2026): sin él (MaKo sin Mercado Pago, sin precio en pesos, la pasarela que
+  // falló) no hay cartel de pago que le salte al terminar el onboarding, y nada lo crea después: mandarle el acceso era
+  // darle MaKo completo gratis para siempre. Sin link, queda esperando la firma como si pagara la agencia, y
+  // lib/agencia-habilitar.ts le manda el acceso al habilitarla (`invitacion_enviada_at` sigue sin marcar).
   let acceso: ResultadoInvitacion | undefined;
-  if (paga === 'cliente') {
+  if (paga === 'cliente' && cobro.ok) {
     acceso = await invitarPorEmail({ email: correo, nombre, workspace: nombre, rolWs: 'admin' })
       .catch((e) => ({ enviado: false, error: e instanceof Error ? e.message : String(e), enlace: '' }));
   }
