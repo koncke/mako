@@ -444,7 +444,10 @@ test('la cascada respeta el PLAZO del caller y puede no bajar de modelo (lib/ai-
   const cascada = entre(AC, 'export async function chatCheapCascade(', '\n}\n');
   // Ningún intento arranca sin plazo para uno entero, y cada uno se acota a lo que queda.
   assert.match(cascada, /for \(let intento = 0; intento <= maxIntentos; intento\+\+\) \{\s*if \(quedan\(\) < MIN_INTENTO_MS\) return sinTiempo\(\);/);
-  assert.equal(cascada.split('chatCheap({ ...base, timeoutMs: plazoDeIntento(),').length - 1, 2, 'los dos pedidos de un intento van con el plazo');
+  // (26/10/2026) El primer pedido lleva el plazo en `plazo` (con él se decide si un cuelgue dice algo del modelo,
+  // tests/ia-saturacion.test.ts) y el segundo lo pide igual.
+  assert.match(cascada, /const plazo = plazoDeIntento\(\);/);
+  assert.equal(cascada.split('chatCheap({ ...base, timeoutMs: plazo').length - 1, 2, 'los dos pedidos de un intento van con el plazo');
   assert.doesNotMatch(cascada, /timeoutMs: opts\.timeoutMs/, 'un intento con el timeout pelado ignora el plazo');
   assert.match(cascada, /if \(quedan\(\) - espera < MIN_INTENTO_MS\) break;\s*await new Promise\(\(r\) => setTimeout\(r, espera\)\);/);
   assert.match(cascada, /modelosAProbar\(prov, opts\.modelos\?\.\[prov\], !opts\.sinRespaldoDeModelo\)/);

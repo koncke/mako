@@ -62,8 +62,10 @@ function bloque(src: string, nombre: string): string {
   // 13/10/2026: chatCheapCascade son 13.384 caracteres y leerDocumentoIA 4.213.
   // Con el tope en 9.000 —el número que se me ocurrió primero— este test salía
   // ROJO sobre un recorte correcto, y en un clon compartido eso es un test rojo
-  // para todas las sesiones.
-  assert.ok(b.length < 20_000, `el recorte de ${nombre} salió enorme: está mirando otra cosa`);
+  // para todas las sesiones. Y pasó otra vez el 26/10/2026: chatCheapCascade ya medía
+  // 19.707 en main y la reserva de plazo para el respaldo (tests/ia-saturacion.test.ts)
+  // la llevó a 21.548. Un recorte desbocado es el resto del archivo (más de 100.000).
+  assert.ok(b.length < 40_000, `el recorte de ${nombre} salió enorme: está mirando otra cosa`);
   return b;
 }
 
@@ -85,11 +87,13 @@ test('los caminos del ARRANQUE piden la red de plataforma', () => {
 
 test('la red corre DESPUÉS de las keys del cliente, nunca antes', () => {
   const casc = sinComentarios(bloque(AI, 'chatCheapCascade'));
-  const iCliente = casc.indexOf('const instancias = await provsDe(prov);');
+  // Las cuentas del cliente se cargan UNA vez antes del lazo (`instanciasDe`, revisión del tren-l) y el lazo las recorre.
+  const iCarga = casc.indexOf('[p, await provsDe(p)]');
+  const iCliente = casc.indexOf('const instancias = instanciasDe.get(prov) ?? [];');
   const iRed = casc.indexOf('if (opts.redDePlataforma) {');
-  assert.ok(iCliente > 0, 'no encuentro el recorrido de las keys del cliente');
+  assert.ok(iCarga > 0 && iCliente > 0, 'no encuentro el recorrido de las keys del cliente');
   assert.ok(iRed > 0, 'la cascada no tiene red de plataforma');
-  assert.ok(iCliente < iRed, 'la red quedó ANTES de las keys del cliente: le gastaría la cuota de la agencia a todos');
+  assert.ok(iCarga < iRed && iCliente < iRed, 'la red quedó ANTES de las keys del cliente: le gastaría la cuota de la agencia a todos');
 });
 
 test('la red usa la key de la PLATAFORMA, no la del cliente', () => {

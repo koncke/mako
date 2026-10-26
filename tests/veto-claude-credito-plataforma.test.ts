@@ -83,7 +83,8 @@ test('LA FRONTERA: ninguna otra clave pasa por la puerta del crédito', () => {
 
 test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso («Por ahora solo en onboarding»)', () => {
   // Lo habilitado, y nada más: las funciones del wizard del primer ingreso.
-  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'offer'].sort(),
+  // Y desde el 26/10/2026 lo interno de MaKo (Martín, en el Centro: «1. Claude de la plataforma»), sólo en su espacio.
+  assert.deepEqual(CREDITO_HABILITADO_PARA.map((h) => h.feature).sort(), ['El Archivero', 'onboarding-extract', 'offer', 'landing-editor', 'landing-editor-ia', 'landing-analyst'].sort(),
     'la lista de lo que usa el crédito cambió: habilitar algo más lo decide Martín');
   // El chat de Offer ES el onboarding desde el 16/10/2026 («el onboarding será ese chat de offer»): lo usa
   // mientras el onboarding está en curso, y la tab Offer de después, no.
@@ -95,7 +96,8 @@ test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'productos', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, false,
     'el paso Productos del wizard, que ya no existe, sigue usando el crédito');
   for (const h of CREDITO_HABILITADO_PARA) {
-    assert.equal(h.soloDuranteElOnboarding, true, `${h.feature} usaría el crédito fuera del onboarding`);
+    // Cada línea tiene su límite: el onboarding en curso, o el espacio de MaKo. Ninguna queda abierta para cualquier negocio.
+    assert.ok(h.soloDuranteElOnboarding || h.soloLaPlataforma === true, `${h.feature} usaría el crédito fuera del onboarding y en cualquier negocio`);
     assert.ok(!FEATURES_DEL_PLAN.includes(h.feature), `${h.feature} es del Plan`);
   }
   // Lo que ya llamaba al crédito el 16/10 y Martín NO habilitó: el AI Step, las Conclusiones del Dashboard y
@@ -109,6 +111,21 @@ test('PARA QUÉ: sólo lo que Martín habilitó, y hoy es el onboarding en curso
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: HOY }).ok, false,
     'sin saber si el onboarding está en curso, se toma que no');
   assert.equal(evaluarCreditoDeLaPlataforma({ feature: 'El Archivero', clave: C1, creditos: [C1, C2], hoy: HOY, onboardingEnCurso: true }).ok, true);
+});
+
+test('lo interno de MaKo usa el crédito SÓLO en el espacio de la plataforma, y sin pedir onboarding', () => {
+  for (const f of ['landing-editor', 'landing-editor-ia', 'landing-analyst']) {
+    assert.equal(evaluarCreditoDeLaPlataforma({ feature: f, clave: C1, creditos: [C1, C2], hoy: HOY, esLaPlataforma: true }).ok, true, `${f} en el espacio de MaKo`);
+    assert.equal(evaluarCreditoDeLaPlataforma({ feature: f, clave: C1, creditos: [C1, C2], hoy: HOY, esLaPlataforma: false, onboardingEnCurso: true }).ok, false,
+      `${f} usaría el crédito en un negocio (aunque esté en su onboarding): cada negocio paga su IA`);
+    assert.equal(evaluarCreditoDeLaPlataforma({ feature: f, clave: C1, creditos: [C1, C2], hoy: HOY }).ok, false, 'sin saber si es la plataforma, se toma que no');
+  }
+  // La puerta mira «es la plataforma» ANTES de leer las claves, y se lo pasa al veto.
+  const b = cuerpoDelCredito();
+  const solo = b.indexOf('if (habilitado.soloLaPlataforma && !esLaPlataforma) return null;');
+  assert.ok(solo > 0 && solo < b.indexOf('for (const nombre of CLAVES_CREDITO_PLATAFORMA)'), 'un negocio lee las claves del crédito de lo interno de MaKo');
+  assert.match(b, /esLaPlataforma = wsSA === p\.wsCliente;/);
+  assert.match(b, /evaluarCreditoDeLaPlataforma\(\{[^}]*esLaPlataforma[^}]*\}\)/);
 });
 
 test('el Plan nunca paga IA, tampoco con el crédito', () => {

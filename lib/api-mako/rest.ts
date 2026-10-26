@@ -773,7 +773,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],
   ['POST', '/mako/pendientes/{id}/confirmacion', 'confirmar_accion'],
   ['GET', '/mako/propuestas', 'listar_propuestas_revisar'],
-  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],];
+  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],
+  // MaKo recomienda (26/10/2026): la lista de hoy y lo que se decide sobre una (GitHub: POST a la colección de decisiones).
+  ['GET', '/mako/recomendaciones', 'que_recomienda_mako'],
+  ['POST', '/mako/recomendaciones/decisiones', 'decidir_recomendacion'],];
 
 type Compilada = { metodo: MetodoRest; ruta: string; operacion: string; segs: string[] };
 const COMPILADAS: Compilada[] = RUTAS_REST.map(([metodo, ruta, operacion]) => ({ metodo, ruta, operacion, segs: ruta.split('/').filter(Boolean) }));
