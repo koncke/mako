@@ -24,7 +24,7 @@ test('la regla: limpio, con letras y con tope', () => {
 });
 
 test('«Tu negocio» ya no es una sección de Configuraciones: el nombre se cambia en el perfil (Martín, 21/10/2026)', () => {
-  for (const quien of [{ general: false, integraciones: false, metodo: false, plan: true }, { general: true, integraciones: true, metodo: true, plan: true }]) {
+  for (const quien of [{ integraciones: false, metodo: false, plan: true }, { integraciones: true, metodo: true, plan: true }]) {
     assert.ok(!seccionesNegocio(quien).some((s) => s.key === 'negocio'), 'volvió la sección «Tu negocio»');
   }
   assert.match(sinComentarios(leer('app/configuraciones/negocio/page.tsx')), /redirect\('\/perfil'\)/, 'la dirección vieja no lleva al perfil');

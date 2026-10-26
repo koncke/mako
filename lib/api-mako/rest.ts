@@ -647,8 +647,6 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
   ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
   ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
-  ['GET', '/equipo/negocio/criterio-reuniones', 'ver_criterio_reuniones'],
-  ['PUT', '/equipo/negocio/criterio-reuniones', 'guardar_criterio_reuniones'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],

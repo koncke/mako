@@ -2,6 +2,30 @@
 
 Lo que vive en app/perfil, app/configuraciones, app/m/cuenta, app/m/configuraciones y lib/ajustes-secciones.ts.
 
+**Sacar «General» y «Método» (26/10/2026): una sección son varios datos, y cada uno tiene su destino.**
+- **El diagnóstico obvio era el equivocado:** «General era sólo del super admin, no la usa nadie». Medido en producción, sólo
+  leyendo: la zona del negocio (`mako.timezone`) la tienen 13 negocios, el horario del negocio 2 (Mauricio y el de prueba) y el
+  criterio de reuniones UNO (Mauricio, 9.823 letras) que la extracción de reuniones y el Plan leen en cada corrida. Sacar la
+  pantalla con sus datos le habría cambiado a Mauricio qué entra a su tablero sin que nadie lo decidiera.
+- **Cada dato a donde se usa:** la zona del negocio, una fila de Perfil para quien administra (la MISMA acción que la tuerca de
+  una automatización, `saveZonaHorarioAction`); el horario, la tuerca de cada automatización (el del negocio sigue valiendo para
+  las que lo usan y la API lo sigue cambiando); el criterio, sin pantalla ni API, pero leído con su valor.
+- **«Método» era una segunda puerta a las mismas credenciales:** cada servicio de `SERVICIOS_METODO` tiene su tarjeta en
+  Integraciones con el mismo formulario. Las rutas `/api/metodo` quedan (las usan el onboarding y los tests de cobros, Meta y
+  Zernio). La bandera `metodo` de `DisponiblesNegocio` quedó gobernando «Prompts»: el nombre se conservó para no mover a nadie.
+- **Las rutas que se van redirigen con su query:** `/configuraciones` (los 49 avisos ya mandados con `?tab=notif`) y `/metodo`
+  (a Integraciones, con el `?ws=` de quien mira un cliente).
+
+**Quedó SIN hacer:**
+- El criterio de Mauricio sigue prendido. Si Martín lo quiere apagado, es un cambio de DATO (borrar `plan.criterio` del negocio
+  de Mauricio), no de código: no se hizo.
+- El horario de oficina DEL NEGOCIO (Mauricio y el de prueba) ya no tiene pantalla: se cambia por la API o automatización por
+  automatización.
+- Dos comentarios de Automations siguen diciendo «Configuraciones › Horario» (app/automations/ConfiguracionesBoton.tsx y
+  OnboardingChatAgent.tsx): son de ese chat.
+
+*26/10/2026, chat «Settings» (claude5). Guard: tests/settings-sin-general-ni-metodo.test.ts.*
+
 **El nombre del negocio, donde lo buscan (21/10/2026, Florencia, ws21).**
 - **Un dato está donde lo busca quien lo quiere cambiar, no donde lo guarda el código.** Primero se sumó «Tu negocio»
   en Configuración del negocio (/configuraciones/negocio), y Martín igual lo buscó en «Perfil de Florencia»

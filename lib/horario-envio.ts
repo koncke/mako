@@ -10,7 +10,8 @@
 //   · POR DEFECTO NO HAY HORARIO. Una espera se cumple a su hora exacta, de día o de noche. Hasta
 //     el 09/10 el motor tenía una ventana fija de 9 a 21 (`VENTANA_INICIO`/`VENTANA_FIN` en
 //     lib/nutricion.ts) que nadie podía apagar ni cambiar.
-//   · CADA NEGOCIO PUEDE PONER UNO (Configuraciones › Horario). Lo guarda `mako.horario_envio` en
+//   · CADA NEGOCIO PUEDE PONER UNO (hasta el 26/10/2026 en Configuraciones › Horario; hoy, cada automatización en su tuerca y la
+//     API de MaKo, `configurar_horario_envio`). Lo guarda `mako.horario_envio` en
 //     `app_settings`, por workspace y SIN herencia (lib/settings.ts no hereda nada).
 //   · CON EL HORARIO PRENDIDO, LO QUE VENCE AFUERA SALE AL ABRIR: el motor no manda fuera de
 //     horario (la fila queda vencida, nada se pierde) y el tick de cada minuto barre todo lo

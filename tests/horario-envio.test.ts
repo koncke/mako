@@ -130,12 +130,12 @@ test('apagado se guarda SIEMPRE, aunque los días o las horas no cierren; un ped
   }
 });
 
-test('la pantalla: Configuración del negocio › General la monta, y guarda un admin', () => {
-  // Desde el 15/10/2026 cada sección es su ruta (lib/ajustes-secciones.ts): el Horario vive en General.
-  const general = sinComentarios(leer('app/configuraciones/page.tsx'));
-  assert.match(general, /import \{ HorarioEnvioPanel \} from '\.\/HorarioEnvioPanel';/);
-  // Desde el 25/10/2026 en las filas de Settings (`filas`, el molde de Linear): el mismo panel, sin su recuadro.
-  assert.match(general, /<HorarioEnvioPanel filas \/>/, 'el panel existe y nadie lo monta');
+test('la pantalla: la tuerca de cada automatización lo monta, y guarda un admin', () => {
+  // Del 15 al 26/10/2026 vivió también en Settings › General. «General» se fue (Martín: «El huso horario ya se configura en
+  // cada Automatización»): el panel lo monta la tuerca de cada automatización, y la zona del negocio está en Perfil.
+  const tuerca = sinComentarios(leer('app/automations/ConfigAutomatizacionPanel.tsx'));
+  assert.match(tuerca, /return <HorarioEnvioPanel fuente=\{fuente\} onSucio=\{onSucio\} \/>;/, 'el panel existe y nadie lo monta');
+  assert.doesNotMatch(sinComentarios(leer('app/configuraciones/page.tsx')), /HorarioEnvioPanel/, '/configuraciones volvió a ser una pantalla');
   const acc = sinComentarios(leer('app/configuraciones/horario-actions.ts'));
   assert.match(acc, /^'use server';/m);
   // En un 'use server' sólo funciones async (AGENTS.md): los tipos y constantes viven en lib/.
