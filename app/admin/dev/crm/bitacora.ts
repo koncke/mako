@@ -3676,7 +3676,7 @@ export const BITACORA: Hito[] = [
       '«Extraer» ahora entra a la información de cada uno (de a uno, como una persona, hasta 60 por vez, las empresas primero) y guarda la web, el Instagram, otras redes y el correo, sólo donde el lead no tiene nada.',
       'Probado en tu WhatsApp: busca a cada uno, abre «Info. del contacto» y vuelve. En las pruebas apareció que un detector leía toda la pantalla en vez del panel de esa persona: no se guardó nada (esa parte no estaba desplegada) y ahora sólo lee el panel que muestra el teléfono de esa persona.',
       'Sin la extensión, «Extraer» no arranca: sale el aviso de instalarla y, cuando está, empieza sola.',
-      'Para grupos donde la gente escribe (lo de Leandro): ahora también lee el nombre con el que cada uno firma sus mensajes. Falta medirlo en un grupo tuyo con conversación.',
+      'Lo de Leandro, medido en tu grupo «Networking SINDEMEX»: tu WhatsApp Web ya no guarda el nombre de quien escribe en los mensajes. El nombre que se ve sale de la lista de miembros: de 231, 89 tienen nombre guardado y la lista muestra 47 más. Eso lo toma el recorrido (desde la extensión 0.72), y ahora también el buscador de cada miembro. Si Leandro tenía una extensión vieja, sólo sacaba los guardados.',
       '⚠️ Tu extensión dejó de cargar por un solo carácter invisible que Chrome no acepta en un archivo (no por las recargas, como dije primero). Ya está arreglado, y un control nuevo no deja que vuelva a pasar.',
     ],
     commits: [

@@ -242,17 +242,24 @@ Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales
 - **La «carpeta de Martín» (Escritorio\mako-puente) es un ENLACE** a dashboard-marketing-main/dashboard-marketing/extension:
   un clon en `main` muy atrasado. Cada copia «a su carpeta» queda ahí como archivos modificados o sin seguir. Nadie commitea
   en ese clon.
-- Lo de Leandro (los nombres de un grupo donde la gente escribe): la fuente es el `notifyName` de cada mensaje (0.73.5,
-  `mensajesDeGrupos` por el rango de claves `false_<grupo>_…`). ⚠️ Sin medir todavía: en INFRAGROWTH el rango no trajo
-  ningún mensaje y WhatsApp Web guarda sólo 2 participantes de ese grupo; la 0.73.6 dice la forma de una clave para saber
-  si no hay mensajes o la clave es otra.
+- **Lo de Leandro (los nombres de un grupo donde la gente escribe): el diagnóstico obvio fue el equivocado otra vez.** La
+  hipótesis era el `notifyName` de cada mensaje (0.73.5). MEDIDO en «Networking SINDEMEX» (0.73.7, sólo cantidades): el
+  rango de claves `false_<grupo>_…` SÍ trae los mensajes del grupo (1.610), pero ninguno tiene `notifyName` ni otro campo con
+  el nombre: un mensaje guarda id, autor, hora y un `msgRowOpaqueData` opaco. Esa fuente no existe en las tablas. Lo que sí
+  hay: de 231 miembros, 89 con nombre en las tablas, y la lista de miembros muestra **47 «~nombre» más** con su teléfono
+  (de la memoria de WhatsApp; los toma el recorrido desde la 0.72). Y al buscar a cada uno por su número para su perfil, la
+  fila dice su nombre aunque no tenga teléfono a la vista (`nombreFila`, 0.73.8). **Regla:** antes de leer una tabla nueva,
+  mirar qué CAMPOS trae (`mensajes.campos` del diagnóstico); el nombre que se ve en un grupo sale de la pantalla.
+  Lo de Leandro en sí: con una extensión de antes de la 0.72 (sin recorrido) sólo salen los de las tablas. Su versión no se
+  midió (la lectura de `flow_puentes` en producción pide permiso).
 
 ## Sin hacer
 
 - **Los perfiles, de punta a punta**: la 0.73.4+ lee el panel de ese contacto (los tres seguros); falta una corrida que
   guarde, con el server desplegado (b9d0e22c5 y siguientes), y mirar qué campos trae de verdad.
-- **Lo de Leandro, medido**: un grupo con conversación de Martín (Networking SINDEMEX tiene mensajes de hoy) con la 0.73.6:
-  `mensajes.forma` y `leidos`, y `sinMensajes` contra `conNombre`. Y la versión de la extensión de Leandro.
+- **La versión de la extensión de Leandro** (`flow_puentes.version` del negocio de Leandro, o su chrome://extensions): si es
+  anterior a la 0.72, ahí está su «no extrajo nada». Y el `notifyName` de la 0.73.5 quedó sin uso (los mensajes no lo traen):
+  sacarlo si en otro WhatsApp Web tampoco aparece.
 - **Los «@usuario» de la lista de miembros** (visto el 26/10 en «09,10,11 de Agosto»: filas como «@MiguelCarrenoDonado /
   Michelangelo Marketer»): WhatsApp ya muestra nombres de usuario, sin teléfono a la vista. `nombresDeFilas` sólo toma el
   «~nombre» con su teléfono, así que esas filas no suman. Medir cuántas son y si el `@lid` las cruza antes de construir.

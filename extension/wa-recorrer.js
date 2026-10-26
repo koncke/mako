@@ -299,7 +299,15 @@
       // escribir el teléfono en su buscador, tocar la fila, y en el menú que abre, «Ver»/«Info». `diag` dice qué paso falla.
       async abrirPerfil(nombreGrupo, telefono, espera) {
         const dig = String(telefono || '').replace(/\D/g, '');
-        if (!this.grupoAbierto(nombreGrupo)) return { ok: false, motivo: 'sin_grupo' };
+        // ⚠️ MEDIDO (26/10, 0.73.8): una tanda con OTRO grupo abierto dio «sin_grupo» en los 12. Si la persona tocó otra cosa
+        // entre el recorrido y los perfiles, o es una tanda suelta, el grupo se vuelve a abrir como en el recorrido.
+        if (!this.grupoAbierto(nombreGrupo)) {
+          if (!(await this.escribirBusqueda(nombreGrupo))) return { ok: false, motivo: 'sin_grupo' };
+          const filaGrupo = await esperar(() => this.filaDelGrupo(nombreGrupo), espera);
+          if (!filaGrupo) return { ok: false, motivo: 'sin_grupo' };
+          this.abrir(filaGrupo);
+          if (!(await esperar(() => this.grupoAbierto(nombreGrupo), espera))) return { ok: false, motivo: 'sin_grupo' };
+        }
         let dlg = dialogoMiembros();
         if (!dlg) {
           let inf = this.info();
