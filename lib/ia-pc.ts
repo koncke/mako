@@ -28,7 +28,7 @@ import {
   cuentasDeLaIA, iaDeLaPcConectada, iaDelConsentimiento, laPersonaEstaAdentro, pcUsable, type ProveedorPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
-import { elTelefonoEsDeLaPersona, telefonoDeVerdad } from './ia-pc-grupo-reglas';
+import { elTelefonoEsDeLaPersona, telefonoDeVerdad, type UsuarioDelNegocio } from './ia-pc-grupo-reglas';
 
 const hash = (s: string): string => createHash('sha256').update(s).digest('hex');
 const tokenNuevo = (prefijo: string): string => `${prefijo}${randomBytes(32).toString('base64url')}`;
@@ -401,13 +401,30 @@ export class SinLaPersona extends Error {}
  */
 async function esLaPersonaDelGrupo(d: Dispositivo, telefono: string): Promise<boolean> {
   if (!telefonoDeVerdad(telefono)) return false;
-  const { data, error } = await db().from('usuarios').select('id, email, nombre, estado, perfil').eq('workspace_id', d.ws).limit(500);
-  if (error || !data) return false;
-  const usuarios = data.map((u) => ({
+  const usuarios = await usuariosConTelefono(d.ws);
+  return !!usuarios && elTelefonoEsDeLaPersona(telefono, usuarios, d.persona);
+}
+
+/** Las personas de un negocio con el teléfono de su perfil (lo que mira la puerta del grupo). null si la base no contesta. */
+async function usuariosConTelefono(ws: number): Promise<UsuarioDelNegocio[] | null> {
+  const { data, error } = await db().from('usuarios').select('id, email, nombre, estado, perfil').eq('workspace_id', ws).limit(500);
+  if (error || !data) return null;
+  return data.map((u) => ({
     id: u.id, email: u.email as string | null, nombre: u.nombre as string | null, estado: u.estado as string | null,
     telefono: ((u.perfil as { telefono?: string } | null)?.telefono) ?? null,
   }));
-  return elTelefonoEsDeLaPersona(telefono, usuarios, d.persona);
+}
+
+/**
+ * ¿La puerta del grupo reconocería a esta persona por su teléfono? (25/10/2026, «MaKo en WhatsApp»: sin el teléfono en su perfil,
+ * su grupo nunca contesta con su computadora y nadie se entera). Su propio teléfono del perfil, contra la MISMA regla de la
+ * puerta: falta, no es un teléfono, o lo comparte con otra persona del equipo → false. null si no se pudo leer.
+ */
+export async function telefonoListoParaElGrupo(ws: number, persona: string): Promise<boolean | null> {
+  const usuarios = await usuariosConTelefono(ws);
+  if (!usuarios) return null;
+  const yo = usuarios.find((u) => (u.email ?? '').toLowerCase() === persona.toLowerCase());
+  return !!yo && elTelefonoEsDeLaPersona(yo.telefono, usuarios, persona);
 }
 
 /**

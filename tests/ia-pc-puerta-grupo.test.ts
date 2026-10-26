@@ -57,8 +57,17 @@ test('3. la puerta: con delGrupo mira el teléfono ADENTRO y falla cerrada; sin 
   // Y antes de contar o insertar: la prueba va primero.
   assert.ok(puerta.indexOf('SinLaPersona') < puerta.indexOf("from('ia_pc_turnos')"), 'encola antes de probar quién es');
   const quien = src.slice(src.indexOf('async function esLaPersonaDelGrupo('), src.indexOf('export async function encolarTurno('));
-  assert.match(quien, /if \(!telefonoDeVerdad\(telefono\)\) return false;/);
-  assert.match(quien, /\.from\('usuarios'\)\.select\('id, email, nombre, estado, perfil'\)\.eq\('workspace_id', d\.ws\)/, 'las personas de OTRO negocio');
-  assert.match(quien, /if \(error \|\| !data\) return false;/, 'con la base caída, encola');
-  assert.match(quien, /return elTelefonoEsDeLaPersona\(telefono, usuarios, d\.persona\);/);
+  assert.match(quien, /if \(!telefonoDeVerdad\(telefono\)\) return false;\s*const usuarios = await usuariosConTelefono\(d\.ws\);/, 'las personas de OTRO negocio');
+  assert.match(quien, /return !!usuarios && elTelefonoEsDeLaPersona\(telefono, usuarios, d\.persona\);/, 'con la base caída, encola');
+  assert.match(quien, /\.from\('usuarios'\)\.select\('id, email, nombre, estado, perfil'\)\.eq\('workspace_id', ws\)/);
+  assert.match(quien, /if \(error \|\| !data\) return null;/);
+});
+
+test('4. «Tus cuentas de IA» sabe si la puerta reconocería a la persona: la MISMA regla, con su teléfono del perfil', () => {
+  const src = sinComentarios(leer('lib/ia-pc.ts'));
+  const listo = src.slice(src.indexOf('export async function telefonoListoParaElGrupo('));
+  assert.match(listo, /return !!yo && elTelefonoEsDeLaPersona\(yo\.telefono, usuarios, persona\);/, 'otra regla que la de la puerta');
+  const ruta = sinComentarios(leer('app/api/ia-pc/estado/route.ts'));
+  assert.match(ruta, /const grupo = pcs\.some\(\(d\) => d\.esMia\) \? await telefonoListoParaElGrupo\(persona\.ws, persona\.actor\)\.catch\(\(\) => null\) : null;/);
+  assert.match(ruta, /\.\.\.\(grupo === false \? \{ grupoSinTelefono: true \} : \{\}\)/, 'dice «sin teléfono» cuando no se pudo leer');
 });
