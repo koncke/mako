@@ -10,6 +10,10 @@
 //
 // Lo que vuelve es una lista de operaciones validada en su FORMA (./catalogo.ts). Las refs las revisa quien tiene el
 // diseño: el panel (contra lo abierto) o la API (contra lo guardado). Esta función no escribe nada.
+//
+// «DISCUTIR» (26/10/2026, `intencion: 'discutir'`, la pieza de app/_chat/SelectorIntencion.tsx): otro system (contesta y
+// sugiere sobre ESTE diseño, en texto) y SIEMPRE `operaciones: []`, mande lo que mande el modelo (`salidaDeDiscutir`). Sin
+// `intencion` (o con otra cosa) es «editar», lo de siempre.
 // =============================================================================
 
 import 'server-only';
@@ -20,15 +24,15 @@ import { contenidoNoConfiable } from '../../prompt-render-pure';
 import { brandSystem } from '../../landing-writer';
 import { parseJsonObject } from '../../json-del-modelo';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../../editor-landing/ia-reglas';
-import { FORMATO_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, validarOperaciones, type OperacionImagen } from './catalogo';
-import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from './prompts';
+import { FORMATO_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, salidaDeDiscutir, validarOperaciones, type OperacionImagen } from './catalogo';
+import { CHAT_IMAGEN_DISCUTIR_TEMPLATE, CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from './prompts';
 
 export const FEATURE_CHAT_IMAGEN = 'image-editor-ia';
 
 /** El chat espera hasta aquí a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown };
+export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; intencion?: unknown };
 
 export type ResultadoChatImagen =
   | { ok: true; resumen: string; operaciones: OperacionImagen[]; descartes: string[] }
@@ -86,6 +90,18 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       alcance,
       diseno: contenidoNoConfiable(diseno, 'diseno'),
     });
+    if (p.intencion === 'discutir') {
+      const sysD = await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.discutir.key, CHAT_IMAGEN_DISCUTIR_TEMPLATE, {}));
+      const salidaD = await chatClaude(sysD, [{ role: 'user', content: user }], {
+        feature: FEATURE_CHAT_IMAGEN,
+        motivo: 'Discutir el diseño con el chat',
+        maxTokens: 800,
+        hastaMs: t0 + PLAZO_IA_MS,
+      });
+      // SIN operaciones, mande lo que mande el modelo: «Discutir» no cambia nada.
+      const d = salidaDeDiscutir(salidaD);
+      return { ok: true, ...d, resumen: d.resumen || 'No tengo nada para sugerir sobre eso. Pregúntame de otra forma.' };
+    }
     const sys = await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.system.key, CHAT_IMAGEN_SYSTEM_TEMPLATE, {
       catalogo: catalogoParaPrompt(),
       formato: FORMATO_CHAT_IMAGEN,

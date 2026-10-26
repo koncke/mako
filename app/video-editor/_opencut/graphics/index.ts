@@ -98,6 +98,26 @@ export function resolveGraphicElementParamsAtTime({
 	});
 }
 
+/**
+ * El tamaño del lienzo del que sale la textura de un gráfico: el cuadrado de 512 de una forma, o el cuadro entero si es
+ * ANIMADO (un motion graphic, lib/motion): ocupa todo el video y se dibuja a su resolución, nítido al exportar. Lo
+ * preguntan el nodo, el descriptor del cuadro, la resolución y los bordes de la selección: los cuatro tienen que decir
+ * lo mismo o la caja de selección no coincide con lo que se ve.
+ */
+export function tamanoFuenteGrafico({
+	definitionId,
+	lienzo,
+}: {
+	definitionId: string;
+	lienzo: { width: number; height: number };
+}): { width: number; height: number } {
+	registerDefaultGraphics();
+	if (graphicsRegistry.has(definitionId) && graphicsRegistry.get(definitionId).animado) {
+		return { width: Math.max(2, Math.round(lienzo.width)), height: Math.max(2, Math.round(lienzo.height)) };
+	}
+	return { width: DEFAULT_GRAPHIC_SOURCE_SIZE, height: DEFAULT_GRAPHIC_SOURCE_SIZE };
+}
+
 export function buildGraphicPreviewUrl({
 	definitionId,
 	params,

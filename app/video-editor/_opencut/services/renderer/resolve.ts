@@ -13,8 +13,8 @@ import { effectsRegistry, resolveEffectPasses } from "@/app/video-editor/_opencu
 import type { Effect, EffectPass } from "@/app/video-editor/_opencut/effects/types";
 import { getSourceTimeAtClipTime } from "@/app/video-editor/_opencut/retime";
 import {
-	DEFAULT_GRAPHIC_SOURCE_SIZE,
 	resolveGraphicElementParamsAtTime,
+	tamanoFuenteGrafico,
 } from "@/app/video-editor/_opencut/graphics";
 import {
 	buildTextBackgroundFromElement,
@@ -339,11 +339,16 @@ function resolveGraphicNode({
 	node: GraphicNode;
 	context: ResolveContext;
 }): ResolvedGraphicNodeState | null {
+	// Un motion graphic es del tamaño del lienzo; una forma, el cuadrado de 512 (graphics/index.ts).
+	const tamano = tamanoFuenteGrafico({
+		definitionId: node.params.definitionId,
+		lienzo: { width: context.renderer.width, height: context.renderer.height },
+	});
 	const visualState = resolveVisualState({
 		params: node.params,
 		context,
-		sourceWidth: DEFAULT_GRAPHIC_SOURCE_SIZE,
-		sourceHeight: DEFAULT_GRAPHIC_SOURCE_SIZE,
+		sourceWidth: tamano.width,
+		sourceHeight: tamano.height,
 	});
 	if (!visualState) {
 		return null;

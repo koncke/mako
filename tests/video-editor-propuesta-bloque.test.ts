@@ -83,6 +83,7 @@ test('las 34 operaciones del editor se dicen en palabras, sin «undefined» ni �
     ref: 'v1', refs: ['v1'], texto: 'x', inicio: 1, fin: 2, duracion: 1, en: 1, db: -3, silenciado: true, entrada: 1, salida: 1,
     activo: true, separado: true, oculto: true, x: 2, id: 'fundido', tipo: 'filtro', valores: { brillo: 10 }, estilo: {}, cambios: {},
     horizontal: true, revertido: true, buscar: 'a', reemplazo: 'b', modo: 'palabra', frase: 'eh', medio: 'm1', textos: {}, clips: {},
+    plantilla: 'titular',
   };
   const ops = new Set(OPERACIONES_API.map((o) => o.op));
   assert.ok(ops.size >= 30, `encontré ${ops.size} operaciones`);

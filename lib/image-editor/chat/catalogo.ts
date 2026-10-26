@@ -22,6 +22,12 @@ export const TOPES_CHAT_IMAGEN = {
   fuenteMax: 800,
   instruccion: 2_000,
   vistaMax: 60_000,
+  /** Lo que describe una imagen con IA (crear_imagen, editar_imagen). */
+  prompt: 2_000,
+  /** Imágenes con IA por pedido: cada una se cobra en la cuenta del negocio. */
+  imagenes: 2,
+  /** La imagen de referencia de una edición, como data URL: ⚠️ Vercel corta el cuerpo de un pedido en ~4,5 MB. */
+  referencia: 3_500_000,
 } as const;
 
 export type Alineacion = 'izquierda' | 'centro' | 'derecha' | 'justificado';
@@ -52,9 +58,23 @@ export type OperacionImagen =
   | { op: 'fondo'; pagina?: string; color: string }
   | { op: 'agregar_pagina'; despues_de?: string; duplicar?: boolean }
   | { op: 'borrar_pagina'; pagina: string }
-  | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string };
+  | { op: 'agregar_forma'; forma: FormaNueva; pagina?: string; x: number; y: number; ancho: number; alto: number; color?: string; ref?: string }
+  // Las imágenes con IA: la IA PIDE (crear_imagen, editar_imagen) y el navegador las genera antes de mostrar la propuesta
+  // (/api/image-editor/imagen) y las cambia por las de abajo, que son las que se guardan y se aplican.
+  | { op: 'crear_imagen'; prompt: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; ref?: string }
+  | { op: 'editar_imagen'; ref: string; prompt: string }
+  // INTERNAS: nunca las escribe la IA (no están en el catálogo y `validarOperacion` las rechaza). `src` es la URL estable de
+  // «Subidos» que devolvió la ruta; `natural`, los píxeles de la imagen; `asset`, el id de su fila de «Subidos».
+  | { op: 'agregar_imagen'; src: string; natural: { ancho: number; alto: number }; x: number; y: number; ancho: number; alto: number; pagina?: string; ref?: string; asset?: string; descripcion: string }
+  | { op: 'reemplazar_imagen'; ref: string; src: string; natural: { ancho: number; alto: number }; asset?: string; descripcion: string };
 
-export type IdOperacionImagen = OperacionImagen['op'];
+/** Las internas: las arma el navegador con lo que generó la IA de imágenes. */
+export type OperacionInterna = Extract<OperacionImagen, { op: 'agregar_imagen' | 'reemplazar_imagen' }>;
+/** Las que puede escribir la IA (las del catálogo). */
+export type IdOperacionImagen = Exclude<OperacionImagen['op'], OperacionInterna['op']>;
+/** Las que piden una imagen al modelo de imágenes (se cobran en la cuenta del negocio). */
+export type OperacionDeImagenIA = Extract<OperacionImagen, { op: 'crear_imagen' | 'editar_imagen' }>;
+export const esOperacionDeImagenIA = (o: OperacionImagen): o is OperacionDeImagenIA => o.op === 'crear_imagen' || o.op === 'editar_imagen';
 
 const REF = '"ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido)';
 const PAGINA = '"pagina" es la ref de una página (la de "paginas"); sin ella, la página abierta ("pagina_actual")';
@@ -80,6 +100,8 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'agregar_pagina', forma: '{"op":"agregar_pagina","despues_de":"pa3","duplicar":true}', para: 'Agrega una página después de "despues_de" (la ref de una página; sin ella, al final). Con "duplicar": true es una copia de esa página; si no, una en blanco.' },
   { op: 'borrar_pagina', forma: '{"op":"borrar_pagina","pagina":"pa3"}', para: 'Borra una página con todo lo que tiene. Un diseño siempre se queda con al menos una.' },
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
+  { op: 'crear_imagen', forma: '{"op":"crear_imagen","prompt":"Foto de una taza de café humeante sobre una mesa de madera clara, luz natural de mañana, fondo desenfocado, tonos cálidos","x":90,"y":240,"ancho":900,"alto":600,"ref":"n3"}', para: `Crea una imagen NUEVA con IA y la pone en el diseño. La dibuja un modelo de imágenes con la IA del negocio y SE COBRA EN SU CUENTA: úsala sólo cuando la persona pide una imagen, foto o ilustración nueva, nunca para algo que hacen las otras operaciones. "prompt": la imagen descrita en detalle, en el idioma de la persona: qué se ve, el estilo (foto, ilustración, 3D…), los colores, la luz y el encuadre. No le pidas textos adentro de la imagen: el texto va aparte, con agregar_texto. ${MEDIDAS}: la caja donde va (sin medidas, un cuadrado al centro de la página); la imagen sale con la proporción más parecida (cuadrada, apaisada o vertical) y entra entera en la caja. ${PAGINA}. "ref" opcional: una nueva («n1»…) para moverla o cambiarla después en este pedido. Como mucho ${TOPES_CHAT_IMAGEN.imagenes} imágenes con IA por pedido.` },
+  { op: 'editar_imagen', forma: '{"op":"editar_imagen","ref":"i7q","prompt":"Cambia el fondo por una playa al atardecer; la persona y su ropa quedan igual"}', para: `Edita con IA una imagen que YA está en el diseño (un elemento «imagen» de la vista): el modelo de imágenes recibe esa imagen, la rehace según "prompt" y la nueva ocupa la misma caja. "prompt": qué cambiar y qué dejar igual, en detalle. SE COBRA EN LA CUENTA DEL NEGOCIO. Para mover, agrandar, girar o hacer transparente una imagen no hace falta: eso es mover, tamano, rotar u opacidad. "ref" es la de una imagen de la vista (i…), nunca una nueva de este pedido.` },
 ];
 
 /**
@@ -87,7 +109,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar fotos, íconos o gráficos de la biblioteca o de Subidos; generar imágenes con IA; quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar fotos, íconos o gráficos de la biblioteca o de Subidos (una imagen NUEVA, sí: con crear_imagen); quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -182,6 +204,15 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   agregar_pagina: ['despues_de', 'duplicar'],
   borrar_pagina: ['pagina'],
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
+  crear_imagen: ['prompt', 'pagina', 'x', 'y', 'ancho', 'alto', 'ref'],
+  editar_imagen: ['ref', 'prompt'],
+};
+
+/** Lo que describe una imagen: no vacío y dentro del tope (más largo se RECHAZA, no se corta). */
+const promptValido = (x: unknown): string | null => {
+  if (typeof x !== 'string') return null;
+  const t = x.trim();
+  return t.length >= 3 && t.length <= TOPES_CHAT_IMAGEN.prompt ? t : null;
 };
 
 const textoValido = (x: unknown): string | null => {
@@ -196,6 +227,7 @@ const medida = (x: unknown) => enRango(numero(x), TOPES_CHAT_IMAGEN.tamanoMin, T
 export function validarOperacion(raw: unknown): Validada {
   if (!esObjeto(raw) || typeof raw.op !== 'string') return { ok: false, motivo: 'una operación sin forma' };
   const op = raw.op as IdOperacionImagen;
+  // `IDS` sale del catálogo: las internas (agregar_imagen, reemplazar_imagen) no están, y la IA no las puede escribir.
   if (!IDS.has(op)) return { ok: false, motivo: `«${String(raw.op).slice(0, 30)}» no es algo que pueda hacer` };
   const extra = sobrante(raw, VALIDAS[op]);
   if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de ${op}` };
@@ -328,6 +360,30 @@ export function validarOperacion(raw: unknown): Validada {
         },
       };
     }
+    case 'crear_imagen': {
+      const prompt = promptValido(raw.prompt);
+      if (!prompt) return { ok: false, motivo: `una imagen sin descripción o de más de ${TOPES_CHAT_IMAGEN.prompt} caracteres` };
+      if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una imagen en una página que no es de la vista' };
+      if ((raw.x !== undefined && !posicion(raw.x)) || (raw.y !== undefined && !posicion(raw.y))) return { ok: false, motivo: 'una imagen con una posición inválida' };
+      if ((raw.ancho !== undefined && !medida(raw.ancho)) || (raw.alto !== undefined && !medida(raw.alto))) return { ok: false, motivo: 'una imagen con un tamaño inválido' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'una imagen nueva con una ref que no es «n1», «n2»…' };
+      return {
+        ok: true,
+        op: {
+          op, prompt,
+          ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}),
+          ...(raw.x !== undefined ? { x: r1(raw.x as number) } : {}), ...(raw.y !== undefined ? { y: r1(raw.y as number) } : {}),
+          ...(raw.ancho !== undefined ? { ancho: r1(raw.ancho as number) } : {}), ...(raw.alto !== undefined ? { alto: r1(raw.alto as number) } : {}),
+          ...(ref !== undefined ? { ref: ref as string } : {}),
+        },
+      };
+    }
+    case 'editar_imagen': {
+      if (!esRef(ref) || esRefNueva(ref)) return { ok: false, motivo: 'una edición de imagen sin una imagen de la vista' };
+      const prompt = promptValido(raw.prompt);
+      if (!prompt) return { ok: false, motivo: `una edición de imagen sin descripción o de más de ${TOPES_CHAT_IMAGEN.prompt} caracteres` };
+      return { ok: true, op: { op, ref, prompt } };
+    }
   }
 }
 
@@ -336,12 +392,88 @@ export function validarOperaciones(raw: unknown): { operaciones: OperacionImagen
   const lista = Array.isArray(raw) ? raw : [];
   const operaciones: OperacionImagen[] = [];
   const descartes: string[] = [];
+  let imagenes = 0;
   for (const r of lista) {
     if (operaciones.length >= TOPES_CHAT_IMAGEN.operaciones) {
       descartes.push(`más de ${TOPES_CHAT_IMAGEN.operaciones} cambios de una vez`);
       break;
     }
     const v = validarOperacion(r);
+    if (!v.ok) { descartes.push(v.motivo); continue; }
+    // Cada imagen con IA se cobra en la cuenta del negocio: las que pasan del tope no se piden.
+    if (esOperacionDeImagenIA(v.op) && ++imagenes > TOPES_CHAT_IMAGEN.imagenes) {
+      descartes.push(`más de ${TOPES_CHAT_IMAGEN.imagenes} imágenes con IA en un pedido (cada una se cobra en tu cuenta)`);
+      continue;
+    }
+    operaciones.push(v.op);
+  }
+  return { operaciones, descartes };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las de una PROPUESTA (lo que se guarda y se acepta): las del catálogo y las internas de las imágenes
+// ─────────────────────────────────────────────────────────────────────────────
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * ¿Es la URL de una imagen de «Subidos» del editor (la que devuelve /api/image-editor/imagen)? Sólo esas entran en una
+ * propuesta: la del bucket público `image-editor`, `<ws>/<uuid>.<ext>`, por https. Una propuesta guardada vuelve del
+ * navegador y no se le cree.
+ */
+export function esSrcGenerada(x: unknown): x is string {
+  return typeof x === 'string' && x.length <= 600 && /^https:\/\/[^\s"'<>]+\/image-editor\/\d+\/[0-9a-f-]{36}\.(?:png|jpe?g|webp)$/i.test(x);
+}
+
+const natural = (x: unknown): { ancho: number; alto: number } | null => {
+  const n = x as { ancho?: unknown; alto?: unknown } | null;
+  const ok = (v: unknown) => typeof v === 'number' && Number.isInteger(v) && v >= 1 && v <= 100_000;
+  return n && typeof n === 'object' && ok(n.ancho) && ok(n.alto) ? { ancho: n.ancho as number, alto: n.alto as number } : null;
+};
+const descripcionDe = (x: unknown): string => (typeof x === 'string' ? x.trim().slice(0, TOPES_CHAT_IMAGEN.prompt) : '');
+const assetValido = (x: unknown) => x === undefined || (typeof x === 'string' && UUID_RE.test(x));
+
+/** Una operación de una propuesta: las del catálogo (salvo las que piden una imagen, que ya se cambiaron) y las internas. */
+export function validarOperacionDePropuesta(raw: unknown): Validada {
+  if (esObjeto(raw) && raw.op === 'agregar_imagen') {
+    const extra = sobrante(raw, ['src', 'natural', 'x', 'y', 'ancho', 'alto', 'pagina', 'ref', 'asset', 'descripcion']);
+    if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_imagen` };
+    const n = natural(raw.natural);
+    if (!esSrcGenerada(raw.src) || !n) return { ok: false, motivo: 'una imagen que no es de Subidos' };
+    if (!posicion(raw.x) || !posicion(raw.y) || !medida(raw.ancho) || !medida(raw.alto)) return { ok: false, motivo: 'una imagen sin medidas válidas' };
+    if (raw.pagina !== undefined && !esRefPagina(raw.pagina)) return { ok: false, motivo: 'una imagen en una página que no es de la vista' };
+    if (raw.ref !== undefined && !esRefNueva(raw.ref)) return { ok: false, motivo: 'una imagen nueva con una ref que no es «n1», «n2»…' };
+    if (!assetValido(raw.asset)) return { ok: false, motivo: 'una imagen con un id de Subidos inválido' };
+    return {
+      ok: true,
+      op: {
+        op: 'agregar_imagen', src: raw.src, natural: n, x: r1(raw.x as number), y: r1(raw.y as number), ancho: r1(raw.ancho as number), alto: r1(raw.alto as number),
+        ...(raw.pagina !== undefined ? { pagina: raw.pagina as string } : {}), ...(raw.ref !== undefined ? { ref: raw.ref as string } : {}),
+        ...(raw.asset !== undefined ? { asset: raw.asset as string } : {}), descripcion: descripcionDe(raw.descripcion),
+      },
+    };
+  }
+  if (esObjeto(raw) && raw.op === 'reemplazar_imagen') {
+    const extra = sobrante(raw, ['ref', 'src', 'natural', 'asset', 'descripcion']);
+    if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de reemplazar_imagen` };
+    const n = natural(raw.natural);
+    if (!esRef(raw.ref) || esRefNueva(raw.ref)) return { ok: false, motivo: 'un cambio de imagen sin la imagen' };
+    if (!esSrcGenerada(raw.src) || !n) return { ok: false, motivo: 'una imagen que no es de Subidos' };
+    if (!assetValido(raw.asset)) return { ok: false, motivo: 'una imagen con un id de Subidos inválido' };
+    return { ok: true, op: { op: 'reemplazar_imagen', ref: raw.ref, src: raw.src, natural: n, ...(raw.asset !== undefined ? { asset: raw.asset as string } : {}), descripcion: descripcionDe(raw.descripcion) } };
+  }
+  const v = validarOperacion(raw);
+  if (v.ok && esOperacionDeImagenIA(v.op)) return { ok: false, motivo: 'una imagen con IA que no se llegó a crear' };
+  return v;
+}
+
+/** Las de una propuesta, como `validarOperaciones` (mismo tope). */
+export function validarOperacionesDePropuesta(raw: unknown): { operaciones: OperacionImagen[]; descartes: string[] } {
+  const operaciones: OperacionImagen[] = [];
+  const descartes: string[] = [];
+  for (const r of Array.isArray(raw) ? raw : []) {
+    if (operaciones.length >= TOPES_CHAT_IMAGEN.operaciones) { descartes.push(`más de ${TOPES_CHAT_IMAGEN.operaciones} cambios de una vez`); break; }
+    const v = validarOperacionDePropuesta(r);
     if (v.ok) operaciones.push(v.op);
     else descartes.push(v.motivo);
   }
@@ -355,6 +487,26 @@ export function catalogoParaPrompt(): string {
     '',
     `NO SE PUEDE DESDE EL CHAT (dilo en el resumen, no lo simules): ${NO_SE_PUEDE_CHAT_IMAGEN}.`,
   ].join('\n');
+}
+
+/** Lo más largo que se muestra de una respuesta de «Discutir». */
+export const TOPE_DISCUTIR = 1_500;
+
+/**
+ * «Discutir»: lo que contestó el modelo, como texto para la persona y SIN operaciones, mande lo que mande (el modo no
+ * cambia nada; si el modelo igual armó un JSON con operaciones, se usa sólo su texto). Texto plano, corto.
+ */
+export function salidaDeDiscutir(salida: unknown): { resumen: string; operaciones: OperacionImagen[]; descartes: string[] } {
+  let t = typeof salida === 'string' ? salida.trim() : '';
+  t = t.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/, '').trim();
+  if (t.startsWith('{')) {
+    try {
+      const o = JSON.parse(t) as Record<string, unknown>;
+      const texto = [o.respuesta, o.resumen, o.texto].find((x) => typeof x === 'string' && x.trim());
+      t = typeof texto === 'string' ? texto.trim() : '';
+    } catch { /* no era JSON: va como texto */ }
+  }
+  return { resumen: t.slice(0, TOPE_DISCUTIR), operaciones: [], descartes: [] };
 }
 
 /** Forma del JSON de respuesta (va en el slot {{formato}}). */

@@ -15,9 +15,14 @@
 //     Fabric guardó en cada objeto (`cajaDe`/`ponerCaja`). Girar es sobre el centro, como en Canva.
 //   · «Nuevo» (agregar texto o forma) arma el objeto con los valores del motor (las fuentes y los colores de
 //     `_doory/editor/engine/objects/factories.ts`); Fabric completa lo demás al cargarlo.
+//   · LAS IMÁGENES CON IA llegan ya generadas (agregar_imagen, reemplazar_imagen: las arma el navegador con lo que devolvió
+//     /api/image-editor/imagen). Una nueva entra ENTERA en su caja (como `createImage` del motor); una reemplazada
+//     CONSERVA SU CAJA y la cubre recortando al centro (como `replaceSelectedImage` + `coverFrame` de
+//     `_doory/editor/engine/api/insert.ts`, copiado: el server no puede importar el motor). Si el motor cambia, se copia
+//     de nuevo. crear_imagen y editar_imagen sin generar no se aplican: `destinoDeImagen` las revisa ANTES de pagar.
 // =============================================================================
 
-import type { AlinearA, EstiloTexto, OperacionImagen } from './catalogo';
+import type { AlinearA, EstiloTexto, OperacionDeImagenIA, OperacionImagen } from './catalogo';
 import { cajaDe, factorOrigen, familiaDe, tipoDe } from './vista';
 
 /** Lo de la vista que hace falta para aplicar: ref → id (y su título) de los elementos, y ref → id de las páginas. */
@@ -27,8 +32,11 @@ type Obj = Record<string, unknown>;
 type Pagina = Obj & { id: string; objects: Obj[] };
 type Doc = Obj & { width: number; height: number; pages: Pagina[] };
 
-/** Una fila de la revisión: lo de antes y lo de después. */
-export type CambioImagen = { tipo: 'agrega' | 'cambia' | 'quita'; titulo: string; antes: string; despues: string };
+/**
+ * Una fila de la revisión: lo de antes y lo de después. `imagen`: la URL de la imagen nueva (una imagen con IA), para
+ * dibujar su miniatura; `imagenAntes`: la que reemplaza, si es una URL que se puede mostrar.
+ */
+export type CambioImagen = { tipo: 'agrega' | 'cambia' | 'quita'; titulo: string; antes: string; despues: string; imagen?: string; imagenAntes?: string };
 
 export type ResultadoAplicar = {
   doc: Doc;
@@ -428,6 +436,31 @@ export function aplicarOperaciones(p: {
         hecho({ tipo: 'quita', titulo: `Página ${i + 1}`, antes: `${pg.objects.length} elementos`, despues: '' });
         break;
       }
+      case 'crear_imagen':
+      case 'editar_imagen':
+        // Se generan en el navegador ANTES de proponer y se cambian por las de abajo; una que llega acá no se creó.
+        descartes.push('una imagen con IA que no se llegó a crear');
+        break;
+      case 'agregar_imagen': {
+        const pg = paginaDe(op.pagina);
+        if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
+        if (op.ref && nuevas.has(op.ref)) { descartes.push(`«${op.ref}» ya se usó en este pedido`); break; }
+        const o = objetoImagen({ id: p.nuevoId(), src: op.src, natural: op.natural, caja: op, asset: op.asset });
+        pg.objects.push(o);
+        if (op.ref) nuevas.set(op.ref, String(o.id));
+        hecho({ tipo: 'agrega', titulo: 'Imagen nueva con IA', antes: '', despues: op.descripcion.slice(0, 160) || 'Imagen con IA', imagen: op.src });
+        break;
+      }
+      case 'reemplazar_imagen': {
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        const motivo = noEsImagenEditable(e.o, e.titulo);
+        if (motivo) { descartes.push(motivo); break; }
+        const antes = typeof e.o.src === 'string' && /^https:\/\//.test(e.o.src) ? e.o.src : undefined;
+        cubrirCaja(e.o, op.src, op.natural, op.asset);
+        hecho({ tipo: 'cambia', titulo: `Imagen ${e.titulo}`, antes: 'la imagen de ahora', despues: op.descripcion.slice(0, 160) || 'la imagen nueva', imagen: op.src, ...(antes ? { imagenAntes: antes } : {}) });
+        break;
+      }
       case 'agregar_forma': {
         const pg = paginaDe(op.pagina);
         if (!pg) { descartes.push(`la página «${op.pagina}» no está`); break; }
@@ -448,6 +481,95 @@ export function aplicarOperaciones(p: {
     }
   }
   return { doc, cambios, descartes, aplicadas, fuentes: [...fuentes], pagina };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Las imágenes con IA
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Una imagen nueva que entra ENTERA en la caja, centrada (como `createImage` del motor: escala única, sin recortar). */
+export function objetoImagen(p: { id: string; src: string; natural: { ancho: number; alto: number }; caja: { x: number; y: number; ancho: number; alto: number }; asset?: string; nombre?: string }): Obj {
+  const { ancho: nw, alto: nh } = p.natural;
+  const s = Math.min(p.caja.ancho / nw, p.caja.alto / nh);
+  return {
+    type: 'image', id: p.id, name: p.nombre ?? 'Imagen con IA', src: p.src, ...(p.asset ? { assetId: p.asset } : {}),
+    originX: 'left', originY: 'top', left: r1(p.caja.x + (p.caja.ancho - nw * s) / 2), top: r1(p.caja.y + (p.caja.alto - nh * s) / 2),
+    width: nw, height: nh, scaleX: s, scaleY: s, cropX: 0, cropY: 0, angle: 0, opacity: 1, visible: true, strokeUniform: true,
+  };
+}
+
+/** Por qué este elemento no es una imagen que se pueda rehacer con IA; null si lo es. */
+function noEsImagenEditable(o: Obj, titulo: string): string | null {
+  if (tipoDe(o) !== 'imagen') return `${titulo} no es una imagen`;
+  if (o.qr) return `${titulo} es un código QR (se cambia desde su panel)`;
+  if (typeof o.src !== 'string' || !o.src) return `${titulo} no tiene una imagen que leer`;
+  return null;
+}
+
+/**
+ * Cambia la imagen de un objeto CONSERVANDO SU CAJA: la nueva la cubre y se recorta al centro (como `coverFrame` del
+ * motor). El origen no se toca: con la caja del mismo tamaño, queda donde estaba sea cual sea el origen.
+ */
+function cubrirCaja(o: Obj, src: string, natural: { ancho: number; alto: number }, asset?: string): void {
+  const c = cajaDe(o);
+  const { ancho: nw, alto: nh } = natural;
+  const escala = Math.max(c.ancho / nw, c.alto / nh) || 1;
+  const visW = c.ancho / escala;
+  const visH = c.alto / escala;
+  o.src = src;
+  if (asset) o.assetId = asset;
+  else delete o.assetId;
+  o.cropX = Math.max(0, (nw - visW) / 2);
+  o.cropY = Math.max(0, (nh - visH) / 2);
+  o.width = Math.min(nw, visW);
+  o.height = Math.min(nh, visH);
+  o.scaleX = (num(o.scaleX, 1) < 0 ? -1 : 1) * escala;
+  o.scaleY = (num(o.scaleY, 1) < 0 ? -1 : 1) * escala;
+}
+
+/** Dónde va una imagen con IA, o por qué no se puede: se pregunta ANTES de generarla (generarla se cobra). */
+export type DestinoImagen =
+  | { ok: true; op: 'crear_imagen'; caja: { x: number; y: number; ancho: number; alto: number } }
+  | { ok: true; op: 'editar_imagen'; caja: { x: number; y: number; ancho: number; alto: number }; src: string; recorte: { x: number; y: number; ancho: number; alto: number }; titulo: string }
+  | { ok: false; motivo: string };
+
+/**
+ * La caja de una crear_imagen (sin medidas, un cuadrado del 60 % del lado más corto, al centro; con una sola, cuadrada) o
+ * la imagen que va a rehacer una editar_imagen (su `src`, el recorte que se ve y su caja), con las MISMAS reglas que
+ * `aplicarOperaciones` (bloqueado, lo elegido, que exista): lo que no se va a poder aplicar no se paga.
+ */
+export function destinoDeImagen(p: {
+  doc: unknown; op: OperacionDeImagenIA; vista: RefsDeVista; activePageId?: string | null; soloRefs?: ReadonlySet<string> | null;
+}): DestinoImagen {
+  const doc = p.doc as Doc;
+  const pages = Array.isArray(doc?.pages) ? doc.pages : [];
+  if (p.op.op === 'crear_imagen') {
+    const op = p.op;
+    const id = op.pagina ? p.vista.paginas.get(op.pagina) : (p.activePageId ?? pages[0]?.id);
+    const pg = pages.find((x) => x.id === id) ?? (op.pagina ? null : pages[0] ?? null);
+    if (!pg) return { ok: false, motivo: `la página «${op.pagina}» no está` };
+    const w = num(pg.width, num(doc.width));
+    const h = num(pg.height, num(doc.height));
+    const lado = Math.max(1, Math.round(Math.min(w, h) * 0.6));
+    const ancho = op.ancho ?? op.alto ?? lado;
+    const alto = op.alto ?? op.ancho ?? lado;
+    return { ok: true, op: 'crear_imagen', caja: { x: op.x ?? r1((w - ancho) / 2), y: op.y ?? r1((h - alto) / 2), ancho, alto } };
+  }
+  const ref = p.op.ref;
+  const info = p.vista.elementos.get(ref);
+  if (!info) return { ok: false, motivo: `«${ref}» no está en el diseño` };
+  let o: Obj | undefined;
+  for (const pg of pages) { o = pg.objects.find((x) => x.id === info.id); if (o) break; }
+  if (!o) return { ok: false, motivo: `${info.titulo ?? ref} ya no está` };
+  const titulo = info.titulo ?? String(o.name ?? 'La imagen');
+  if (p.soloRefs && !p.soloRefs.has(ref)) return { ok: false, motivo: `${titulo} no está en lo elegido` };
+  if (o.locked === true) return { ok: false, motivo: `${titulo} está bloqueado` };
+  const motivo = noEsImagenEditable(o, titulo);
+  if (motivo) return { ok: false, motivo };
+  return {
+    ok: true, op: 'editar_imagen', caja: cajaDe(o), src: String(o.src), titulo,
+    recorte: { x: num(o.cropX), y: num(o.cropY), ancho: num(o.width), alto: num(o.height) },
+  };
 }
 
 /** «3 nuevos · 2 cambian · 1 se quita». */

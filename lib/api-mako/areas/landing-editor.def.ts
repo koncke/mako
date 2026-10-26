@@ -25,7 +25,9 @@
 // =============================================================================
 
 import type { OperacionDef, Gating, Parametro } from '../tipos';
-import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO } from '@/lib/editor-landing/doc';
+import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, FORMATOS_MOTION } from '@/lib/editor-landing/doc';
+// Puro: las plantillas del motor de motion graphics (las mismas del Video Editor).
+import { PLANTILLAS_MOTION } from '@/lib/motion/tipos';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
 import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
@@ -280,7 +282,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'agregar_bloque_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Agregar un bloque a una sección',
-    descripcion: `Agrega un bloque a una sección de una landing del editor del Web Generator, como el menú «/» del editor: titulo, subtitulo, texto, vinetas, numerada o cita (con «texto»), boton (con «texto» y «destino»), pago (el botón «Pagar ahora»: el producto se elige con cobrar_producto_landing), formulario (nombre, correo y teléfono: entra al CRM), agenda o video (con «enlace», o vacío para completar con poner_enlace_landing), imagen (con «imagen») o separador. Para diseños optimizados, gráficos o tablas está editar_landing_con_ia. ${VERSION}`,
+    descripcion: `Agrega un bloque a una sección de una landing del editor del Web Generator, como el menú «/» del editor: titulo, subtitulo, texto, vinetas, numerada o cita (con «texto»), boton (con «texto» y «destino»), pago (el botón «Pagar ahora»: el producto se elige con cobrar_producto_landing), formulario (nombre, correo y teléfono: entra al CRM), agenda o video (con «enlace», o vacío para completar con poner_enlace_landing), imagen (con «imagen»), separador o motion (un titular animado con «texto» de título; lo demás, con configurar_motion_landing). Para diseños optimizados, gráficos o tablas está editar_landing_con_ia. ${VERSION}`,
     parametros: [
       P_ID, P_SECCION,
       { nombre: 'bloque', rotulo: 'Bloque', tipo: 'string', obligatorio: true, enum: BLOQUES_API, descripcion: 'Qué bloque.' },
@@ -644,5 +646,27 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'los comentarios copiados a la landing (landing_sugerencias) y, si se pide, los de afuera como resueltos',
+  },
+  // El motion graphic (26/10/2026): leerlo es ver_secciones_landing (→ motion); ponerlo, agregar_bloque_landing. Al final del
+  // área, a propósito (AGENTS.md: una operación nueva no le saca el lugar en un empate a las de siempre).
+  {
+    id: 'configurar_motion_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Cambiar un motion graphic',
+    descripcion: `Cambia un bloque animado («Motion graphic»: un titular, una cifra, un testimonio, una oferta o un cierre que entran animados): su plantilla, sus textos y números, el tono, la fuente, los colores, el fondo o el formato. Los campos de cada plantilla, sus valores de hoy y sus topes salen de ver_secciones_landing (motion). Sólo cambia lo que se pasa; un texto más largo que su tope se rechaza, y con otra plantilla sus campos obligatorios se piden (nada sale del ejemplo). ${VERSION}`,
+    parametros: [
+      P_ID, P_SECCION,
+      { nombre: 'bloque', rotulo: 'Bloque', tipo: 'number', entero: true, minimo: 1, descripcion: 'Su n en la sección (de ver_secciones_landing), si hay más de uno.' },
+      { nombre: 'plantilla', rotulo: 'Plantilla', tipo: 'string', enum: PLANTILLAS_MOTION, descripcion: 'La plantilla nueva.' },
+      {
+        nombre: 'valores', rotulo: 'Valores', tipo: 'object[]', max: 40, descripcion: 'Los campos que cambian, como [{campo:"titulo", valor:"…"}].',
+        campos: [
+          { nombre: 'campo', tipo: 'string', obligatorio: true, max: 24, descripcion: 'El campo: titulo, bajada, numero, cita, colorAcento, tono, fuente, conFondo…' },
+          { nombre: 'valor', tipo: 'string', max: 400, descripcion: 'Su valor: el texto tal cual, un número, #rrggbb o true/false.' },
+        ],
+      },
+      { nombre: 'formato', rotulo: 'Formato', tipo: 'string', enum: FORMATOS_MOTION, descripcion: '16:9 (horizontal), 1:1 (cuadrado) o 9:16 (vertical).' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
   },
 ];

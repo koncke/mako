@@ -49,6 +49,7 @@ import {
   CORTE_CELULAR, EFECTOS, ESTILOS_PAGINA, animacionCss, efectoPorId, keyframesAnimaciones, nombreKeyframes,
   type DefEfecto, type DefEstilo, type Direccion, type IdEfecto,
 } from './animaciones';
+import { CSS_MOTION } from '../motion/css';
 
 const D = '.gm-doc';
 
@@ -1049,12 +1050,25 @@ const IMPRESION: string[] = [
 ];
 
 /**
+ * «Motion graphic» (motion.ts): la hoja del motor tal cual (lib/motion/css.ts, la misma coreografía que el Video
+ * Editor; va EN esta hoja porque la publicada no puede llevar un <style> propio por bloque) y, encima, lo que es de la
+ * LANDING: el radio de las cajas del tema, y que un cuadrado o una historia no ocupen todo el ancho de la sección (una
+ * 9:16 a 64em de ancho mediría más de dos pantallas de alto).
+ */
+const MOTION: string[] = [
+  CSS_MOTION,
+  r(D + ' .gm-motion', 'border-radius: var(--gm-radio-caja, 0.75em);'),
+  r(D + ' .gm-motion[data-formato="1:1"]', 'max-width: 36em; margin-left: auto; margin-right: auto;'),
+  r(D + ' .gm-motion[data-formato="9:16"]', 'max-width: 22em; margin-left: auto; margin-right: auto;'),
+];
+
+/**
  * La hoja del contenido: la misma en el editor y en la página publicada. Un string
  * sin backticks ni `${` (va adentro de un <style>), armado una vez al cargar.
  */
 export const CSS_CONTENIDO: string = [
   ...RAIZ, ...TARJETA, ...ACENTO, ...TIPOGRAFIA, ...MARCAS_TEXTO, ...BLOQUES, ...OPTIMIZADO,
-  ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...VIDEO_FONDO_CSS, ...RESPONSIVE, ...IMPRESION,
+  ...SITIO, ...PRESENTACION, ...PAGINA, ...ANIMACION, ...VIDEO_FONDO_CSS, ...RESPONSIVE, ...IMPRESION, ...MOTION,
 ].join('\n');
 
 /** Las variantes que la hoja reparte por modo (para el test: ninguna queda sin forma). */

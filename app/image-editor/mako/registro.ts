@@ -51,6 +51,7 @@ registerPanel({
   order: ORDEN_IA,
   placement: 'sidebar',
   component: PanelMakoIA,
-  // Proponer cambios es editar: con un enlace para ver o comentar, no hay chat.
-  requires: ({ state }) => !state.readOnly,
+  // Proponer cambios es editar: con un enlace para ver o comentar, no hay chat. Y en escritorio el chat está FIJO a la
+  // izquierda (EditorApp → `chatLateral`, 26/10/2026): este panel sólo existe en la pantalla chica (la hoja de la tira).
+  requires: ({ state }) => !state.readOnly && state.ui.compact,
 });

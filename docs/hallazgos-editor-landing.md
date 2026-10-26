@@ -3112,3 +3112,18 @@ Lo que quedó SIN hacer:
 - Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
   ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
 - Probarlo con clics en producción cuando despliegue, sobre una copia.
+
+## El bloque `motion` (26/10/2026, chat «motion-imagen», SUSPENDIDO y pasado al chat Landings)
+
+El estado y los archivos, en docs/relevo/motion-imagen.md (punto 5). El motor, en docs/hallazgos-motion.md.
+
+- ⚠️ **Un editor viejo TIRA el nodo que no conoce y el autoguardado lo borra.** El deploy con el nodo `motion` tiene que
+  estar en producción ANTES de que una landing tenga uno; si no, la pestaña vieja de alguien la guarda sin el bloque.
+- **El bloque no pasa por un `<style>` ni por un script propio** (la política de contenido de la publicada): `@keyframes`
+  fijos en la hoja (`CSS_MOTION`) y variables por pedazo; el script de la página sólo pone y saca `gm-mo-espera` según lo
+  que está en pantalla (`motionAlEntrar`).
+- **Una operación nueva y un tipo de bloque nuevo le sacaron la herramienta a frases de landing**: con
+  `configurar_motion_landing` y el bloque `motion`, el clasificador del Ops Center dio 2 de 48 en rojo y la batería perdió
+  una frase de web/ads. Sin resolver: achicar la descripción o subir la relevancia de lo que se perdió.
+- **El generador de la referencia de la API lee el registro ENTERO del disco**: la foto y `docs/api-mako.md` de la rama
+  traen las operaciones de las tres piezas juntas; si se separan, se regeneran.

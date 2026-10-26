@@ -1733,3 +1733,40 @@ La propuesta va en el hueco `enMensaje`, y ahí también el `data-mensaje` que b
 - El rótulo del alcance ya no va en la burbuja de la persona (sigue en los chips), y el tope del pedido lo pone `enviar`.
 
 **Vive en:** app/video-editor/_opencut/chat/PanelChat.tsx · tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## Motion graphics: un `graphic` ANIMADO, no un tipo de elemento nuevo (26/10/2026, chat «motion-imagen»)
+
+Pedido de Martín: motion graphics «en la web y en el editor» con las skills de iart-ai. El motor es lib/motion
+(docs/hallazgos-motion.md). En el editor:
+
+- **El diagnóstico obvio («un tipo de elemento `motion`») era el caro.** Un tipo nuevo son el modelo, el guardado, la línea
+  de tiempo, el panel, el chat, la copia de lectura para la API y el export. Un motion graphic es un `graphic` con
+  `definitionId` = `motion-<plantilla>` y sus campos como params de la definición (`graphics/definitions/motion.ts`). Así
+  la biblioteca, el panel de la derecha, el proyecto en IndexedDB y el chat lo tratan como a una forma. Lo único nuevo:
+  `animado` (se dibuja en cada cuadro con su tiempo, del tamaño del lienzo) y `preparar` (las fuentes, que se esperan en
+  el descriptor del cuadro: por ahí pasan el reproductor y el export).
+- ⚠️ **El tamaño de la fuente de un `graphic` se preguntaba en CUATRO lugares con `DEFAULT_GRAPHIC_SOURCE_SIZE`** (el nodo,
+  `frame-descriptor.ts`, `resolve.ts` y `preview/element-bounds.ts`). Ahora los cuatro preguntan `tamanoFuenteGrafico`.
+  Si uno queda en 512, la caja de selección no coincide con el motion.
+- ⚠️ **El nodo REUSA su lienzo y sube `versionFuente`.** Uno nuevo de 1920 × 1080 por cuadro es basura; el mismo objeto
+  sin versión nueva el compositor no lo re-sube (ver «El compositor es UNO»), y el motion quedaba congelado.
+- **Dónde está:** Biblioteca › Plantillas › «Motion» (al lado de «Anuncios»; `motion/registro.ts`, importado en
+  `ce/extensiones.ts`). La pestaña del panel derecho se llama «Motion» (`properties/registry.tsx`) y muestra «Textos» con el
+  rótulo de cada campo y «Estilo» (tono, fuente, colores, fondo). Nada de la plantilla es «keyframable»: la coreografía es
+  de la plantilla.
+- **Lo largo no se corta**: el panel avisa «Largo: se achica la letra» y el motor achica (`normalizarMotion` no estricto).
+
+**Vive en:** `graphics/definitions/motion.ts` · `graphics/index.ts` (`tamanoFuenteGrafico`) ·
+`services/renderer/nodes/graphic-node.ts` · `services/renderer/compositor/frame-descriptor.ts` · `motion/` ·
+`graphics/components/graphic-tab.tsx` (`MotionTab`) · *26/10/2026, chat «motion-imagen» (claude5).*
+
+## El chat con motion: la descripción de una operación le roba el presupuesto a otra (26/10/2026, A MEDIAS)
+
+El estado, en docs/relevo/motion-imagen.md (punto 4).
+
+- **La descripción de una operación puntúa contra el pedido palabra por palabra, y por SUBCADENA**: «titul» también calza
+  en «subtitulos». Con la lista de plantillas o la palabra «textos» en la descripción, `agregar_motion_video` le sacaba el
+  presupuesto de 12.000 a `cambiar_estilo_texto_video` («agregá un texto amarillo…»). Los catálogos van en la descripción
+  de un PARÁMETRO, que no puntúa. Se mide con `scripts/presupuesto-turno-app.mts` antes de entregar.
+- **Los textos de ejemplo de una plantilla son datos inventados si el chat los deja** («Ana Pérez», «+1250», 5 estrellas):
+  `valoresAlAgregar` los vacía al agregar por el chat; la biblioteca sí los pone (la persona los ve y los cambia).

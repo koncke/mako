@@ -14,6 +14,7 @@
   padding: 0 var(--cv-space-2);
   background: var(--cv-header-gradient);
   color: var(--cv-header-text);
+  border-bottom: 1px solid var(--cv-header-border, transparent);
   font: 500 var(--cv-text-base) / 22px var(--cv-font-sans);
 }
 
@@ -59,7 +60,7 @@
   width: 1px;
   height: 24px;
   margin: 0 var(--cv-space-1);
-  background: rgb(255 255 255 / 0.3);
+  background: var(--cv-header-sep, rgb(255 255 255 / 0.3));
 }
 
 /* Botón de la barra sobre el degradado. Canva: alto 40, radio 8, sin borde */
@@ -88,7 +89,7 @@
 }
 
 .hbtn:active:not(:disabled) {
-  background: rgb(255 255 255 / 0.24); /* Canva: presionado, un escalón más que el hover */
+  background: var(--cv-header-pressed, rgb(255 255 255 / 0.24)); /* presionado, un escalón más que el hover */
 }
 
 .hbtn:disabled {
@@ -124,8 +125,8 @@
   padding: 0 var(--cv-space-4);
   border: 0;
   border-radius: var(--cv-radius-sm);
-  background: #f3ebfd; /* Canva: «Compartir» sobre el degradado */
-  color: var(--cv-color-text);
+  background: var(--cv-header-share-bg, #f3ebfd); /* el azul de «Compartir» del Web Generator */
+  color: var(--cv-header-share-text, var(--cv-color-text));
   font: 600 var(--cv-text-base) / 22px var(--cv-font-sans);
   white-space: nowrap;
   cursor: pointer;
@@ -134,7 +135,7 @@
 
 .share:hover,
 .share[aria-expanded='true'] {
-  background: #ffffff;
+  background: var(--cv-header-share-bg-hover, #ffffff);
 }
 
 .shareIcon {
@@ -155,7 +156,7 @@
   padding: 0 var(--cv-space-2);
   border: 1px solid transparent;
   border-radius: var(--cv-radius-sm);
-  color: rgb(255 255 255 / 0.85); /* Canva: el título va en blanco translúcido */
+  color: var(--cv-header-title, rgb(255 255 255 / 0.85));
   white-space: nowrap;
 }
 

@@ -46,7 +46,7 @@ export type IdBloque =
   // Imágenes
   | 'imagen' | 'imagen-buscar' | 'imagen-url'
   // Videos y multimedia
-  | 'video-subir' | 'video-enlace'
+  | 'video-subir' | 'video-enlace' | 'motion'
   // Incrustaciones
   | 'insertar' | 'html-libre' | 'html-editable'
   // Gráficos y diagramas
@@ -136,6 +136,8 @@ export const BLOQUES: readonly DefBloque[] = [
   // ── Videos y multimedia ─────────────────────────────────────────────────────
   { id: 'video-subir', nombre: 'Subir video', categoria: 'Videos y multimedia', ayuda: 'MP4 o WebM', buscar: ['video', 'mp4', 'upload'], icono: 'video' },
   { id: 'video-enlace', nombre: 'Video de YouTube, Vimeo, Loom…', categoria: 'Videos y multimedia', ayuda: 'Pega el enlace del video', buscar: ['youtube', 'vimeo', 'loom', 'wistia', 'panda', 'vsl'], icono: 'video-enlace' },
+  // Un titular, una cifra, un testimonio o una oferta que entran animados (lib/motion, las plantillas del Video Editor).
+  { id: 'motion', nombre: 'Motion graphic', categoria: 'Videos y multimedia', ayuda: 'Un titular, una cifra o una oferta animados', buscar: ['motion', 'animacion', 'animado', 'kinetic', 'cifra', 'contador'], icono: 'rayo' },
 
   // ── Incrustaciones ──────────────────────────────────────────────────────────
   { id: 'insertar', nombre: 'Insertar', categoria: 'Incrustaciones', ayuda: 'Calendly, Cal.com, Google Calendar y más', buscar: ['embed', 'iframe', 'calendly', 'agenda', 'calcom', 'hubspot'], icono: 'insertar' },

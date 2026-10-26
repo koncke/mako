@@ -459,3 +459,50 @@ perdieron a propósito: el rótulo del alcance dentro de la burbuja de la person
 OTRA cosa; el alcance sigue en sus chips), y el `maxLength` del campo (la caja única no tiene tope): el tope lo pone
 `enviar`, con `TOPES_CHAT_IMAGEN.instruccion`. **Vive en:** app/image-editor/mako/chat/PanelMakoIA.tsx ·
 tests/editores-chat-piezas.test.ts · *22/10/2026, chat «Chats de las tabs».*
+
+## El chat de MaKo fijo a la izquierda y los colores de MaKo (26/10/2026, chat «motion-imagen»)
+
+Martín: «revisa el diseño y funcionalidades del editor e imagen, que se parezcan un poco mas a MaKo en el diseño, que tengan
+el chat de mako siempre abierto, como web generator… Que tengan la misma infraestructura, pero que no pierdan su
+funcionalidad». Copiado del Web Generator (`.gma-izq` + PanelAgente), no diseñado de cero.
+
+- **La ESTRUCTURA es la del Web Generator**: la tarjeta del chat flota a la izquierda, de punta a punta del alto (340 de
+  ancho, 8 de aire, radio 12), y a su derecha el editor entero, con la barra de arriba INCLUIDA. El chat no es un panel del
+  riel: es `chatLateral` de `EditorApp` (`_doory/types/adapter.ts`), que lo dibuja adentro del proveedor del editor porque
+  usa su estado. En la pantalla chica (< 1024 px) no está: ahí sigue siendo la hoja de la tira de abajo. Por eso
+  `PANEL_IA` (mako/registro.ts) ahora `requires` la pantalla chica; si no, en escritorio había DOS chats (el fijo y el del
+  riel) con el mismo hilo.
+- **El chat es el panel único** (`PanelDeChat`, la estrella de MaKo, «en línea»), con «Discutir | Editar» de
+  app/_chat/SelectorIntencion.tsx (la preferencia es la misma de Automations y del Web Generator). tests/chat-unico.test.ts
+  lo pasó a 'panel único', y tests/editores-chat-piezas.test.ts fija la estrella, el panel y que la intención llegue al motor.
+- **Los colores son TOKENS** (`_doory/styles/tokens.css`): la barra blanca con borde suave, el «Compartir» azul de MaKo, la
+  selección y el foco en el azul de la casa, los neutros de la escala `--gma-t*` y la letra Geist de la app. Lo que estaba
+  escrito a mano en TopBar.module.css (el lila de «Compartir», el blanco del título y del separador) pasó a tokens con su
+  valor viejo de respaldo. ⚠️ El botón de la IA del riel usaba el degradado de la barra: con la barra blanca quedaba un aro
+  blanco. Tiene su token propio (`--cv-ai-gradient`).
+- **La barra pasó de 56 a 48** (la del Web Generator). `TOOLBAR_BAND` (la franja de la barra del OBJETO) no depende de ella.
+- **Sigue SIN tema oscuro**: Doory tiene un solo tema. Si la app está oscura, el Web Generator se ve oscuro y el Image Editor
+  claro. Para hacerlo, se redefinen estos mismos tokens bajo el tema oscuro, no las reglas.
+- Lo que no se puede perder, relevado ANTES del cambio y tildado en el navegador después: la lista está en la carpeta de
+  notas de la sesión (funciones-que-no-se-pierden.md), con las capturas del antes y del después.
+
+**Vive en:** `_doory/editor/EditorApp.tsx` (`ChatFijo`) · `editor/PantallaEditor.tsx` · `mako/chat/PanelMakoIA.tsx` ·
+`mako/chat/chat.module.css` (`.columna`) · `_doory/styles/tokens.css` · *26/10/2026, chat «motion-imagen» (claude5).*
+
+## Crear y editar imágenes con la IA del negocio: lo que se midió antes de escribir (26/10/2026, A MEDIAS)
+
+El estado y lo que falta, en docs/relevo/motion-imagen.md (punto 6). Lo que no se ve en el código:
+
+- **`gpt-image-1` se apagó el 23/10/2026** (página de deprecaciones de OpenAI, medido ese día). Quedaron `gpt-image-2.5-flare`
+  para crear y `gpt-image-2.5-sunburst` para editar, en calidad `medium`: `auto` puede elegir `max` y cobra de más. Antes de
+  subir se vuelve a mirar: un modelo de imagen cambia de nombre seguido.
+- **`gemini-2.5-flash-image` no tiene capa gratis**, Google da dos fechas de apagado distintas (precios: 2/10/2026;
+  deprecaciones: 15/3/2027) y sólo anda con claves que ya usaron los 2.5. Reemplazo recomendado: `gemini-3.1-flash-lite-image`.
+- **`costFor` anota en $0 todo lo que dice `gemini`**, y una imagen cuesta unos $0,039 (lib/anthropic-usage.ts).
+- **Vercel corta el cuerpo de un pedido en ~4,5 MB**: la imagen de referencia para editar sale del navegador con 3,5 MB
+  de data URL como mucho; el server acepta 8.
+- **Generar cuesta la plata del negocio y se pide UNA vez**: la imagen se crea al PROPONER (para que «Original |
+  Modificado» muestre la de verdad) y nunca se reintenta.
+
+**Vive en:** `lib/image-editor/imagen-ia*.ts` · `app/api/image-editor/imagen/route.ts` · `lib/image-editor/chat/` ·
+*26/10/2026, chat «motion-imagen» (claude5), suspendido.*

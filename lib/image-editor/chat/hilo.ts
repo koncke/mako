@@ -16,7 +16,7 @@
 // =============================================================================
 
 import type { CambioImagen } from './aplicar';
-import { validarOperaciones, type OperacionImagen } from './catalogo';
+import { validarOperacionesDePropuesta, type OperacionImagen } from './catalogo';
 
 export type EstadoPropuesta = 'pendiente' | 'aplicando' | 'aplicada' | 'descartada' | 'restaurada';
 export type AlcanceImagen = 'diseno' | 'seleccion';
@@ -60,13 +60,21 @@ const numero = (x: unknown): number | null => (typeof x === 'number' && Number.i
 const idValido = (x: unknown): x is string => typeof x === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(x);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** La miniatura de una fila (una imagen con IA): sólo una URL https corta, sin nada que rompa un atributo. */
+const urlDeImagen = (x: unknown): string | null => (typeof x === 'string' && x.length <= 600 && /^https:\/\/[^\s"'<>]+$/.test(x) ? x : null);
+
 function cambios(x: unknown): CambioImagen[] | undefined {
   if (!Array.isArray(x)) return undefined;
-  const r = x.slice(0, TOPES_HILO.cambios).flatMap((c): CambioImagen[] =>
-    esObjeto(c) && TIPOS_CAMBIO.includes(c.tipo as CambioImagen['tipo'])
-      ? [{ tipo: c.tipo as CambioImagen['tipo'], titulo: texto(c.titulo, 300), antes: texto(c.antes, 600), despues: texto(c.despues, 600) }]
-      : [],
-  );
+  const r = x.slice(0, TOPES_HILO.cambios).flatMap((c): CambioImagen[] => {
+    if (!esObjeto(c) || !TIPOS_CAMBIO.includes(c.tipo as CambioImagen['tipo'])) return [];
+    // ⚠️ Es una lista blanca: un campo nuevo de `CambioImagen` que no se copia acá se ve al pedir y se pierde al recargar.
+    const imagen = urlDeImagen(c.imagen);
+    const imagenAntes = urlDeImagen(c.imagenAntes);
+    return [{
+      tipo: c.tipo as CambioImagen['tipo'], titulo: texto(c.titulo, 300), antes: texto(c.antes, 600), despues: texto(c.despues, 600),
+      ...(imagen ? { imagen } : {}), ...(imagenAntes ? { imagenAntes } : {}),
+    }];
+  });
   return r.length ? r : undefined;
 }
 
@@ -83,7 +91,8 @@ const pares = (x: unknown): Array<[string, string]> =>
 
 function propuesta(x: unknown): PropuestaGuardada | undefined {
   if (!esObjeto(x)) return undefined;
-  const { operaciones } = validarOperaciones(x.operaciones);
+  // Las de la propuesta: las del catálogo y las internas de las imágenes con IA (ya generadas), que la IA no puede escribir.
+  const { operaciones } = validarOperacionesDePropuesta(x.operaciones);
   if (!operaciones.length) return undefined;
   const elegidos = (Array.isArray(x.elegidos) ? x.elegidos : []).filter((r): r is string => typeof r === 'string' && r.length <= 20).slice(0, TOPES_HILO.refs);
   return {

@@ -42,7 +42,11 @@ export type MensajeMako = Extract<Mensaje, { de: 'mako' }>;
 type SinId<M> = M extends unknown ? Omit<M, 'id' | 'c' | 't'> : never;
 export type MensajeNuevo = SinId<Mensaje>;
 
-export type Hilo = { mensajes: Mensaje[]; corriendo: boolean };
+/**
+ * `progreso`: lo que se está haciendo mientras `corriendo` («Creando la imagen…» mientras la IA del negocio dibuja una
+ * imagen, que tarda de 10 a 90 s). Sólo en memoria: no es un mensaje y no se guarda.
+ */
+export type Hilo = { mensajes: Mensaje[]; corriendo: boolean; progreso?: string };
 const HILO_VACIO: Hilo = { mensajes: [], corriendo: false };
 
 const hilos = new Map<string, Hilo>();

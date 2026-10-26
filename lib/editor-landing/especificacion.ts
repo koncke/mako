@@ -58,6 +58,7 @@ import { hrefPagoValido } from './pago-landing';
 import {
   HtmlCrudo, arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
 } from './grafico-svg';
+import { arbolMotion, attrsMotion } from './motion';
 
 export { htmlDeArbol, escaparTexto, escaparAtributo, HtmlCrudo } from './grafico-svg';
 export type { NodoArbol, AttrsArbol, HijoArbol } from './grafico-svg';
@@ -642,6 +643,7 @@ export const NORMALIZAR_NODOS: Readonly<Record<string, (raw: unknown) => Record<
   [NODO.espaciador]: attrsEspaciador,
   [NODO.htmlLibre]: attrsHtmlLibre,
   [NODO.htmlEditable]: attrsHtmlEditable,
+  [NODO.motion]: attrsMotion,
   paragraph: attrsParrafo,
   heading: attrsEncabezado,
   bulletList: sinAtributos,
@@ -1135,6 +1137,18 @@ export function specHtmlEditable(raw: unknown, ctx?: CtxSpec): NodoArbol {
   }));
 }
 
+/**
+ * «Motion graphic» (motion.ts, el motor en lib/motion): `div.gm-motion[role=img]` con sus capas, el MISMO árbol en el
+ * NodeView del editor y en la página publicada. Cada pedazo sólo lleva variables en su `style` (la política de la
+ * publicada no deja un <style> propio): los @keyframes son los de CSS_MOTION, en la hoja. En una miniatura o una
+ * exportación sale quieto en su estado final (`gm-mo-espera`): la foto de un PNG o un PDF a mitad de una entrada
+ * saldría con los textos a medio aparecer.
+ */
+export function specMotion(raw: unknown, ctx?: CtxSpec): NodoArbol {
+  const m = modo(ctx);
+  return arbolMotion(raw, { quieto: m === 'miniatura' || m === 'exportar' });
+}
+
 // ── Los de TipTap (StarterKit, listas de tareas, tablas) ─────────────────────
 
 export function specParrafo(raw: unknown): NodoArbol {
@@ -1194,6 +1208,7 @@ export const SPEC_NODOS: Readonly<Record<string, (attrs: unknown, ctx?: CtxSpec)
   [NODO.espaciador]: specEspaciador,
   [NODO.htmlLibre]: specHtmlLibre,
   [NODO.htmlEditable]: specHtmlEditable,
+  [NODO.motion]: specMotion,
   paragraph: specParrafo,
   heading: specEncabezado,
   bulletList: specListaVinetas,

@@ -34,6 +34,7 @@ import {
   idValido, type NodoArbol,
 } from '@/lib/editor-landing/especificacion';
 import { normalizarGrafico } from '@/lib/editor-landing/grafico-svg';
+import { attrsMotion } from '@/lib/editor-landing/motion';
 import { embedDeIframe } from '@/lib/embeds';
 import {
   attrsDelJson, attrsSinParseo, dato, especificar, focoDeFondo, hijo, urlDeFondo, vistaDom,
@@ -570,9 +571,30 @@ export const HtmlEditable = Node.create<OpcionesNodo>({
   addNodeView() { return this.options.vista; },
 });
 
+/**
+ * «Motion graphic» (lib/editor-landing/motion.ts): un titular, una cifra o una oferta animados. Átomo: se edita en su
+ * panel (MotionVista). Sus datos no se leen de vuelta del HTML (son capas armadas por el motor): pegado desde afuera
+ * entra con su plantilla y el texto de ejemplo; copiado dentro del editor viaja entero en el JSON del portapapeles.
+ */
+export const Motion = Node.create<OpcionesNodo>({
+  name: NODO.motion,
+  ...atomo,
+  addOptions: sinVista,
+  addAttributes() { return attrsSinParseo(attrsMotion({})); },
+  parseHTML() {
+    return [{
+      tag: 'div.gm-motion',
+      getAttrs: (el) => attrsDelJson(el as HTMLElement, NODO.motion)
+        ?? attrsMotion({ plantilla: dato(el as HTMLElement, 'plantilla'), formato: dato(el as HTMLElement, 'formato') }),
+    }];
+  },
+  renderHTML({ node }) { return especificar(forma(NODO.motion)(node.attrs)); },
+  addNodeView() { return this.options.vista; },
+});
+
 /** Todos los nodos propios, para armar el esquema. */
 export const NODOS_PROPIOS = [
   Documento, Tarjeta, Columnas, Columna, Optimizado, OptimizadoItem, Botones, Boton, Recuadro,
   Desplegable, DesplegableTitulo, DesplegableCuerpo, Imagen, Video, Insertado, Formulario, Grafico,
-  Espaciador, HtmlLibre, HtmlEditable,
+  Espaciador, HtmlLibre, HtmlEditable, Motion,
 ] as const;

@@ -35,7 +35,7 @@ import type {
 	TextureCanvasDrawFn,
 	TextureUploadDescriptor,
 } from "./types";
-import { DEFAULT_GRAPHIC_SOURCE_SIZE } from "@/app/video-editor/_opencut/graphics";
+import { tamanoFuenteGrafico } from "@/app/video-editor/_opencut/graphics";
 
 export async function buildFrameDescriptor({
 	node,
@@ -244,22 +244,36 @@ async function collectVisualSourceNode({
 		return;
 	}
 
+	// Un gráfico animado (un motion graphic, lib/motion) se dibuja con el tiempo del cuadro y del tamaño del lienzo; sus
+	// fuentes se esperan acá, el punto por el que pasan el reproductor y el export (el primer cuadro sale con su fuente).
+	const lienzo = { width: renderer.width, height: renderer.height };
+	if (node instanceof GraphicNode) {
+		const listo = node.preparar(node.resolved.resolvedParams);
+		if (listo) await listo;
+	}
 	const source =
 		node instanceof GraphicNode
-			? node.getSource({ resolvedParams: node.resolved.resolvedParams })
+			? node.getSource({
+					resolvedParams: node.resolved.resolvedParams,
+					tiempo: node.resolved.localTime / TICKS_PER_SECOND,
+					duracion: node.params.duration / TICKS_PER_SECOND,
+					lienzo,
+				})
 			: node.resolved.source;
 	if (!source) {
 		return;
 	}
 
-	const sourceWidth =
+	const tamanoGrafico =
 		node instanceof GraphicNode
-			? DEFAULT_GRAPHIC_SOURCE_SIZE
-			: (node.resolved as ResolvedVisualSourceNodeState).sourceWidth;
-	const sourceHeight =
-		node instanceof GraphicNode
-			? DEFAULT_GRAPHIC_SOURCE_SIZE
-			: (node.resolved as ResolvedVisualSourceNodeState).sourceHeight;
+			? tamanoFuenteGrafico({ definitionId: node.params.definitionId, lienzo })
+			: null;
+	const sourceWidth = tamanoGrafico
+		? tamanoGrafico.width
+		: (node.resolved as ResolvedVisualSourceNodeState).sourceWidth;
+	const sourceHeight = tamanoGrafico
+		? tamanoGrafico.height
+		: (node.resolved as ResolvedVisualSourceNodeState).sourceHeight;
 
 	// Recorte, quitar fondo, filtros, ajustes y croma: ver ganchos-ce.ts.
 	const tipoFuente =
@@ -288,8 +302,12 @@ async function collectVisualSourceNode({
 		width: fuenteFinal.width,
 		height: fuenteFinal.height,
 		// El cuadro del video, por si el objeto llega igual (el canvas reciclado
-		// del decodificador, sin gancho ni pase que lo reemplace).
-		version: (node.resolved as ResolvedVisualSourceNodeState).sourceVersion,
+		// del decodificador, sin gancho ni pase que lo reemplace). Un gráfico reusa
+		// su lienzo y lleva su propia versión (graphic-node.ts).
+		version:
+			node instanceof GraphicNode
+				? node.versionFuente
+				: (node.resolved as ResolvedVisualSourceNodeState).sourceVersion,
 	});
 
 	const transform = computeVisualTransform({

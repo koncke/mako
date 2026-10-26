@@ -17,6 +17,7 @@ agregar_etapa
 agregar_filtro_dashboard
 agregar_grafico_dashboard
 agregar_link_fathom
+agregar_motion_video
 agregar_nota_lead
 agregar_objetivo_custom
 agregar_seccion_landing
@@ -123,6 +124,7 @@ configurar_boton_landing
 configurar_formulario_landing
 configurar_horario_envio
 configurar_landing
+configurar_motion_landing
 configurar_navegacion_landing
 configurar_reporte
 configurar_seccion_landing
@@ -211,6 +213,7 @@ editar_hoja_dashboard
 editar_hoja_general_con_ia
 editar_lead_magnet
 editar_meta_secuencia_email
+editar_motion_video
 editar_obligacion_deal
 editar_pagina_reserva
 editar_pasos_secuencia_email

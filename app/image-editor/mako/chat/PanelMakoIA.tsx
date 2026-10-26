@@ -1,31 +1,34 @@
 'use client';
 
 // =============================================================================
-// PanelMakoIA — «MaKo IA»: el chat del Image Editor, con la cara del panel de Canva AI
+// PanelMakoIA — el chat de MaKo del Image Editor, FIJO a la izquierda como en el Web Generator
 // =============================================================================
 // Pedido de Martín (16/10/2026, por el Cerebro): «implementes este chat en todas las tabs… quiero que la app sea AI
-// NATIVE». Es el chat del Video Editor (app/video-editor/_opencut/chat/PanelChat.tsx) en el editor de imágenes, con la
-// pantalla del panel de Canva AI: el saludo con sugerencias en píldoras, los mensajes de la persona en burbuja lila a
-// la derecha y los de MaKo sueltos a la izquierda, y el cuadro de abajo con el enviar redondo en el degradado.
-//   · la respuesta es un CAMBIO PROPUESTO con «Original | Modificado» que se acepta o se descarta entero; después de
-//     aceptar, «Restaurar» lo vuelve atrás (./acciones.ts);
-//   · el alcance en chips: «Todo el diseño» o lo elegido en el lienzo;
-//   · el hilo es por diseño y queda GUARDADO por persona (./hilo.ts, mig 0303).
-// Se abre con el botón redondo del pie del riel (chrome/RielCanva.tsx) y, en pantallas chicas, desde la tira de abajo.
-//
-// CON LAS PIEZAS DEL OPS CENTER (22/10/2026, TB3; Martín: «quiero que todos los chats de MaKo en las tabs sean el del Ops
-// Center»): el hilo es `HiloMako` (con la criatura de la tab, la misma que lo nombra en el Ops Center) y la caja es
-// `CajaChat` (app/_chat/). El motor sigue siendo el suyo (./acciones.ts): edita el diseño ABIERTO, en modo «editar», y la
-// propuesta con «Original | Modificado» va en el hueco `enMensaje` de la respuesta de MaKo que la trajo. El alcance
-// («Todo el diseño» o lo elegido) sigue en sus chips arriba de la caja; en el hilo ya no se repite en la burbuja.
+// NATIVE». Y el 26/10/2026: «revisa el diseño y funcionalidades del editor e imagen, que se parezcan un poco mas a MaKo
+// en el diseño, que tengan el chat de mako siempre abierto, como web generator… Que tengan la misma infraestructura, pero
+// que no pierdan su funcionalidad». Desde ese día:
+//   · es EL PANEL ÚNICO de los chats de MaKo (app/admin/operaciones/PanelChat.tsx → `PanelDeChat`: la cabecera con la
+//     estrella de MaKo y «en línea», el arrastrar y soltar, la columna del hilo y el lugar de la caja), con `HiloMako` y
+//     `CajaChat` adentro: lo mismo que monta el Web Generator (app/web-generator/editor/paneles/ChatAgente.tsx);
+//   · vive fijo a la izquierda en escritorio (EditorApp → `chatLateral`, desde ../../editor/PantallaEditor.tsx) y en la
+//     pantalla chica sigue siendo la hoja de la tira de abajo (mako/registro.ts, `PANEL_IA`);
+//   · arriba de la caja, «Discutir | Editar» (app/_chat/SelectorIntencion.tsx, el de Automations y el Web Generator):
+//     Discutir contesta y sugiere sin tocar nada; Editar arma el cambio;
+//   · el saludo es la burbuja de MaKo con sus sugerencias en píldoras, como el agente del Web Generator.
+// Lo que NO cambió (las reglas de «Un chat que edita lo abierto», AGENTS.md): la respuesta es un CAMBIO PROPUESTO con
+// «Original | Modificado» que se acepta o se descarta entero; después de aceptar, «Restaurar» lo vuelve atrás
+// (./acciones.ts); el alcance en chips (todo el diseño o lo elegido); el hilo por diseño, guardado por persona (./hilo.ts).
 // =============================================================================
 
 import '@/app/admin/operaciones/centro.css';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Check, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
+import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
+import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import Link from '@/app/_ui/Link';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
 import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
@@ -39,13 +42,20 @@ import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 const HILO_SERVER: Hilo = { mensajes: [], corriendo: false };
 const useHilo = (disenoId: string): Hilo => useSyncExternalStore(suscribir, () => leerHilo(disenoId), () => HILO_SERVER);
 
-/** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
-const QUIEN = { nombre: 'Image Editor' };
+/** Quien contesta en el hilo: la estrella de MaKo, como en el Web Generator (23/10/2026; antes, la criatura de la tab). */
+const QUIEN = { nombre: 'MaKo', aspecto: ASPECTO_MAKO };
 const nada = () => {};
 const iso = (ms: number): string | null => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null);
 
 const ETIQUETA_CAMBIO: Record<CambioImagen['tipo'], string> = { cambia: 'Cambia', agrega: 'Nuevo', quita: 'Se quita' };
 const MAX_FILAS = 8;
+
+/** La miniatura de una imagen nueva o cambiada (la que creó la IA), si la fila la trae. */
+function imagenDe(c: CambioImagen, lado: 'original' | 'modificado'): string | null {
+  const x = c as CambioImagen & { imagen?: string; imagenAntes?: string };
+  const url = lado === 'modificado' ? x.imagen : x.imagenAntes;
+  return typeof url === 'string' && /^(https:|data:image\/|blob:|\/)/.test(url) ? url : null;
+}
 
 function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
   m: MensajeMako & { cambios: CambioImagen[]; estado: EstadoPropuesta };
@@ -71,12 +81,14 @@ function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
       <ul className={styles.filas}>
         {filas.map((c, i) => {
           const valor = lado === 'original' ? c.antes : c.despues;
+          const img = imagenDe(c, lado);
           return (
             <li key={`${c.tipo}:${i}`} className={styles.fila}>
               <div className={styles.filaHead}>
                 <span className={styles.etiqueta} data-tipo={c.tipo}>{ETIQUETA_CAMBIO[c.tipo]}</span>
                 <b>{c.titulo}</b>
               </div>
+              {img ? <img className={styles.miniatura} src={img} alt={valor || c.titulo} loading="lazy" /> : null}
               <p className={lado === 'original' && c.tipo === 'cambia' ? styles.tachado : undefined}>
                 {valor || (lado === 'original' ? 'No existía' : 'Se quita')}
               </p>
@@ -117,12 +129,19 @@ function RevisionPropuesta({ m, tocada, onAceptar, onDescartar, onRestaurar }: {
 /** Las sugerencias: el rótulo es lo que se ve; `instruccion`, lo que se pide; `rellenar` deja el texto para completar. */
 type Sugerencia = { rotulo: string; instruccion?: string; rellenar?: string; necesitaSeleccion?: boolean };
 const SUGERENCIAS: Sugerencia[] = [
+  { rotulo: 'Crea una imagen', rellenar: 'Crea una imagen de ' },
   { rotulo: 'Cambia el título', rellenar: 'Cambia el título por: ' },
   { rotulo: 'Agrega un texto', rellenar: 'Agrega un texto que diga: ' },
+  { rotulo: 'Edita la imagen elegida', rellenar: 'Cambia la imagen elegida para que ', necesitaSeleccion: true },
   { rotulo: 'Mejora el contraste', instruccion: 'Mejora el contraste de los textos con el fondo para que se lean bien.' },
   { rotulo: 'Centra lo elegido', instruccion: 'Centra lo elegido en la página.', necesitaSeleccion: true },
   { rotulo: 'Otra paleta', instruccion: 'Cambia los colores del diseño por una paleta más llamativa, con buen contraste.' },
   { rotulo: 'Duplica la página', instruccion: 'Duplica la página abierta.' },
+];
+const SUGERENCIAS_DISCUTIR: Sugerencia[] = [
+  { rotulo: '¿Qué mejorarías?', instruccion: '¿Qué mejorarías de este diseño para que venda más?' },
+  { rotulo: '¿Se lee bien?', instruccion: '¿Los textos se leen bien en el teléfono?' },
+  { rotulo: 'Ideas de título', instruccion: 'Dame tres ideas de título para este diseño.' },
 ];
 
 export function PanelMakoIA() {
@@ -133,6 +152,8 @@ export function PanelMakoIA() {
   const elegidos = useEditorState((s) => s.selection.ids.length);
   const hilo = useHilo(disenoId);
   const [texto, setTexto] = useState('');
+  // «Discutir | Editar», la preferencia compartida con los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
+  const [intencion, elegirIntencion] = useIntencion();
   // Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
   const appEscritorio = useAppDeEscritorio();
   const [alcance, setAlcance] = useState<AlcanceChat>('diseno');
@@ -157,7 +178,7 @@ export function PanelMakoIA() {
 
   const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal) => {
     if (hilo.corriendo || !instruccion.trim() || !disenoId || appEscritorio.bloqueada) return;
-    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc);
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, intencion);
     setTexto('');
   };
 
@@ -167,6 +188,7 @@ export function PanelMakoIA() {
       return;
     }
     if (s.rellenar) setTexto(s.rellenar);
+    if (s.necesitaSeleccion) setAlcance('seleccion');
     requestAnimationFrame(() => {
       const el = inputRef.current;
       if (!el) return;
@@ -175,7 +197,7 @@ export function PanelMakoIA() {
     });
   };
 
-  const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || elegidos > 0);
+  const visibles = (intencion === 'discutir' ? SUGERENCIAS_DISCUTIR : SUGERENCIAS).filter((s) => !s.necesitaSeleccion || elegidos > 0);
 
   // El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links, la
   // propuesta con «Original | Modificado»), en su hueco.
@@ -209,49 +231,64 @@ export function PanelMakoIA() {
     };
   };
 
-  return (
-    <div className={styles.panel}>
-      {/* Con su propio aire: el del Ops Center (24 px por lado) dejaba el hilo en 206 px en este panel. */}
-      <div ref={hiloRef} className={`co-hilo ${styles.hilo}`} style={{ padding: '8px 4px' }} aria-live="polite">
-        <div className="co-hilo__col">
-          {hilo.mensajes.length === 0 && (
-            <div className={styles.saludo}>
-              <span className={styles.chispa} aria-hidden="true"><Sparkles size={20} /></span>
-              <p className={styles.saludoTitulo}>¿Qué cambiamos?</p>
-              <p className={styles.saludoTexto}>Pídeme lo que quieras del diseño.</p>
-            </div>
-          )}
-          <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
-          {hilo.corriendo && (
-            <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
-          )}
-          {!hilo.corriendo && (
-            <div className={styles.sugerencias}>
-              {(hilo.mensajes.length ? visibles.slice(0, 4) : visibles).map((s) => (
-                <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+  const pildoras = (lista: Sugerencia[]) => (
+    <div className={styles.sugerencias}>
+      {lista.map((s) => (
+        <button key={s.rotulo} type="button" className={styles.pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo || !disenoId}>{s.rotulo}</button>
+      ))}
+    </div>
+  );
 
-      <div className={styles.pie}>
-        <div className={styles.chips} role="group" aria-label="Alcance">
-          <button type="button" className={styles.chip} aria-pressed={alcanceReal === 'diseno'} onClick={() => setAlcance('diseno')}>Todo el diseño</button>
-          {elegidos > 0 && (
-            <button type="button" className={styles.chip} aria-pressed={alcanceReal === 'seleccion'} onClick={() => setAlcance('seleccion')}>
-              {rotuloSeleccion(elegidos)}
-            </button>
-          )}
-        </div>
-        {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
-            (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
-        <div className="co-caja">
-          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
-        </div>
-      </div>
+  return (
+    <div className={styles.columna} data-testid="ie-chat-mako">
+      <PanelDeChat
+        hilo={hiloRef}
+        estado=""
+        cabecera={{
+          clave: `imagen:${disenoId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO,
+          animo: hilo.corriendo ? 'trabajando' : 'despierto',
+          acciones: <span className={styles.enLinea}>{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>,
+        }}
+        caja={
+          <div className={styles.pie}>
+            {/* «Discutir | Editar», como en el Web Generator y en Automations. */}
+            <SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={hilo.corriendo} />
+            {intencion === 'editar' && (
+              <div className={styles.chips} role="group" aria-label="Alcance">
+                <button type="button" className={styles.chip} aria-pressed={alcanceReal === 'diseno'} onClick={() => setAlcance('diseno')}>Todo el diseño</button>
+                {elegidos > 0 && (
+                  <button type="button" className={styles.chip} aria-pressed={alcanceReal === 'seleccion'} onClick={() => setAlcance('seleccion')}>
+                    {rotuloSeleccion(elegidos)}
+                  </button>
+                )}
+              </div>
+            )}
+            {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
+                (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
+            <div className="co-caja">
+              <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
+                apagado={!disenoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+            </div>
+          </div>
+        }
+      >
+        {hilo.mensajes.length === 0 && (
+          <>
+            <div className={styles.burbuja}>
+              {intencion === 'discutir'
+                ? 'Pregúntame lo que quieras de tu diseño: te digo qué cambiaría, sin tocar nada.'
+                : 'Pídeme que edite el diseño o que cree una imagen nueva.'}
+            </div>
+            {pildoras(visibles)}
+          </>
+        )}
+        <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+          tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+        {hilo.corriendo && (
+          <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
+        )}
+        {hilo.mensajes.length > 0 && !hilo.corriendo && pildoras(visibles.slice(0, 4))}
+      </PanelDeChat>
     </div>
   );
 }

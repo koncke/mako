@@ -20,7 +20,7 @@ import { getSupabaseServer } from '@/lib/supabase';
 import { getTenantDb, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { veEditorImagen } from './acceso';
 import {
-  BUCKET_IMAGE, CARPETA_SUBIDAS, TOPE_DOC_BYTES, esTipoAudio, medida, pathDeMiniatura, pathDeSubida,
+  BUCKET_IMAGE, CARPETA_SUBIDAS, TOPE_DOC_BYTES, TOPE_IMAGEN_BYTES, esTipoAudio, medida, pathDeMiniatura, pathDeSubida,
   resumirDoc, sanearNombre, sanearTitulo, sniffArchivo, srcsLocales, subidaDelWs, topeDeTipo, uuidValido,
   validarSubida, versionValida,
 } from './reglas';
@@ -296,5 +296,36 @@ export async function registrarSubida(ws: number, p: Extract<PedidoSubidos, { ac
     ancho: medida(p.ancho), alto: medida(p.alto), bytes: cabeza.total ?? 0, ruta: sub.final, url,
   }).select('id, nombre, tipo, ancho, alto, bytes, url, created_at').single();
   if (error) return { ok: false, error: error.message, status: 500 };
+  return { ok: true, subido: aSubido(data as FilaSubido) };
+}
+
+/**
+ * Una imagen que creó la IA del negocio (/api/image-editor/imagen, la API de MaKo): va a «Subidos» como cualquier subida
+ * (`<ws>/<uuid>.<ext>` y su fila), así el diseño la nombra por una URL estable y no por una data URL de megas. Los bytes
+ * los verificó quien llama (firma y medidas, lib/image-editor/imagen-ia-reglas.ts); acá se vuelven a mirar por la firma.
+ * Si la fila no queda, se borra el archivo (no queda nada huérfano que nadie vea).
+ */
+export async function guardarImagenGenerada(ws: number, img: { bytes: Uint8Array; mime: string; ancho: number; alto: number }, nombre: string): Promise<RespRegistrar & { status?: number }> {
+  const tipo = sniffArchivo(img.bytes.subarray(0, 32));
+  if (tipo !== img.mime || (tipo !== 'image/png' && tipo !== 'image/jpeg' && tipo !== 'image/webp')) return { ok: false, error: 'Lo que llegó no es una imagen', status: 502 };
+  if (img.bytes.length > TOPE_IMAGEN_BYTES) return { ok: false, error: 'La imagen pasa de 15 MB.', status: 413 };
+  const uuid = randomUUID();
+  const ext = tipo === 'image/png' ? 'png' : tipo === 'image/jpeg' ? 'jpg' : 'webp';
+  const ruta = `${ws}/${uuid}.${ext}`;
+  const bucket = getSupabaseServer().storage.from(BUCKET_IMAGE);
+  // ⚠️ storage-js no tira: devuelve `{ error }` (AGENTS.md, «`res.ok` no es salió bien»).
+  const { error: e1 } = await bucket.upload(ruta, img.bytes, { contentType: tipo, upsert: false, cacheControl: '31536000' });
+  if (e1) return { ok: false, error: e1.message, status: 500 };
+  const url = bucket.getPublicUrl(ruta).data.publicUrl;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('image_subidos').insert({
+    id: uuid, workspace_id: ws, nombre: sanearNombre(nombre, 'Imagen con IA'), tipo,
+    ancho: medida(img.ancho), alto: medida(img.alto), bytes: img.bytes.length, ruta, url,
+  }).select('id, nombre, tipo, ancho, alto, bytes, url, created_at').single();
+  if (error) {
+    const { error: e2 } = await bucket.remove([ruta]);
+    if (e2) console.warn(`[image-editor] no pude borrar ${ruta}: ${e2.message}`);
+    return { ok: false, error: error.message, status: 500 };
+  }
   return { ok: true, subido: aSubido(data as FilaSubido) };
 }

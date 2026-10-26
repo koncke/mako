@@ -26,7 +26,7 @@ import { hrefPermitido } from '@/lib/editor-landing/especificacion';
 import {
   Documento, Tarjeta, Columnas, Columna, Optimizado, OptimizadoItem, Botones, Boton, Recuadro,
   Desplegable, DesplegableTitulo, DesplegableCuerpo, Imagen, Video, Insertado, Formulario, Grafico,
-  Espaciador, HtmlLibre, HtmlEditable, TablaLanding,
+  Espaciador, HtmlLibre, HtmlEditable, Motion, TablaLanding,
 } from './nodos';
 import { TextStyleLanding, ColorLanding, TamTexto, ResaltadoLanding, Etiqueta, VariantesTexto } from './marcas';
 import { AtajosLanding, IdsUnicos, PartirConGuiones, PortapapelesFiel, Subidas, OpcionesDelDocumento, type OpcionesLanding } from './plugins';
@@ -117,6 +117,7 @@ export function extensionesBase(op: OpcionesBase = {}): Extensions {
     Espaciador.configure(vista(NODO.espaciador)),
     HtmlLibre.configure(vista(NODO.htmlLibre)),
     HtmlEditable.configure(vista(NODO.htmlEditable)),
+    Motion.configure(vista(NODO.motion)),
     TablaLanding,
     TableRow,
     TableHeader,

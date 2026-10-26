@@ -54,6 +54,40 @@
   font-family: inherit;
 }
 
+/* El chat fijo y el editor, en fila (26/10/2026). El editor es una columna: barra, avisos, cuerpo y la tira de abajo. */
+.marco {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  background: var(--cv-chrome);
+}
+
+.columna {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* La tarjeta del chat FLOTA sobre el gris, como `.gma-izq` del Web Generator: 340 de ancho, 8 de aire, radio 12 y la
+   sombra suave de la barra. Mide lo mismo que la del Web Generator para que el editor no salte al ir de uno al otro. */
+.chat {
+  flex: none;
+  width: 340px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 8px 0 8px 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--cv-color-surface);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 0 0 0.8px rgb(0 0 0 / 0.06);
+}
+
 .body {
   position: relative;
   flex: 1;

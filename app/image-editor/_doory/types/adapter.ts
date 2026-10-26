@@ -249,4 +249,10 @@ export interface EditorAppProps {
   /** Slots in the editor's top bar. */
   topBarStart?: ReactNode
   topBarEnd?: ReactNode
+  /**
+   * El chat de MaKo FIJO a la izquierda, de punta a punta del alto, como en el Web Generator (26/10/2026, Martín: «que
+   * tengan el chat de mako siempre abierto, como web generator»). Se dibuja adentro del editor (usa su estado) y sólo
+   * en escritorio: debajo de 1024 px el chat vuelve a ser la hoja de la tira de abajo.
+   */
+  chatLateral?: ReactNode
 }

@@ -10509,3 +10509,13 @@ Ninguna pantalla, agente ni LLM declara un ganador mirando los números por su c
 y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las ramas tienen el n que `planDePrueba` calculó ANTES
 de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
 puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.
+
+## Un motion graphic se arma con lib/motion: una coreografía, dos dibujantes (26/10/2026)
+
+Un motion graphic (el bloque animado de una landing, el clip `motion-<plantilla>` del Video Editor) sale SIEMPRE de
+lib/motion: `normalizarMotion` es la única puerta del spec (la IA y la API, estricto; lo que la persona escribe a mano, sin
+recortar), `armarEscena` arma la coreografía y la dibujan dos: el lienzo (`dibujarEscena`, en cualquier t) y la landing
+(`arbolDeEscena` + los `@keyframes` fijos de `CSS_MOTION`, con variables por pedazo: la publicada no deja un `<style>` ni un
+script propio). Nadie escribe su propia animación al lado, ni deja que un modelo escriba HTML o JS. Un efecto nuevo son DOS
+lados (`evaluar.ts` y `css.ts`), y tests/motion.test.ts cruza pedazo por pedazo que digan lo mismo. Las recetas son de las
+skills de iart-ai (MIT, `lib/motion/LICENSE-IART`); lo que costó, en docs/hallazgos-motion.md.

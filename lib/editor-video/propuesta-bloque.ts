@@ -16,8 +16,9 @@
 // Puro y sin `server-only`: lo leen el runner de la API y los tests.
 // =============================================================================
 
-import type { OperacionChat } from './chat-catalogo';
+import { textoValoresMotion, type OperacionChat } from './chat-catalogo';
 import { OPERACIONES_API } from './chat-api';
+import { PLANTILLAS as DEF_MOTION } from '../motion/plantillas';
 
 /** Cuántas filas lleva la tarjeta: el tope del bloque G4 (lib/chat-bloques.ts). */
 export const MAX_FILAS_TARJETA = 12;
@@ -119,6 +120,12 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
     case 'eliminar_muletillas': return 'Sin muletillas';
     case 'reemplazar_clip': return `Con el archivo ${els.get(op.medio)?.nombre ?? op.medio}`;
     case 'usar_plantilla': return `La plantilla ${comillas(op.id)}, con ${Object.keys(op.textos).length} textos y ${Object.keys(op.clips).length} clips`;
+    case 'agregar_motion': {
+      const def = DEF_MOTION[op.plantilla];
+      const campos = textoValoresMotion(op.valores, op.plantilla);
+      return `Motion ${comillas(def.nombre)}${campos ? ` (${campos})` : ''} ${entre(op.inicio, op.inicio + (op.duracion ?? def.duracionMs / 1000))}`;
+    }
+    case 'editar_motion': return textoValoresMotion(op.valores) || 'Sin cambios';
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');
@@ -132,8 +139,8 @@ export function antesDe(op: OperacionChat, els: Map<string, Elemento> = new Map(
   if (op.op === 'cortar_frase') return comillas(op.frase);
   if (op.op === 'borrar') return op.refs.map((r) => comoEsta(r, els)).join('; ');
   const ref = (op as { ref?: unknown }).ref;
-  // agregar_texto y capa_efecto llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
-  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto') return comoEsta(ref, els);
+  // agregar_texto, capa_efecto y agregar_motion llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
+  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion') return comoEsta(ref, els);
   return '—';
 }
 

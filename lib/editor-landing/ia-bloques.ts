@@ -34,7 +34,7 @@
 //   tarjeta > bloques · optimizado > optimizadoItem > (heading nivel 3)? + párrafos
 //   botones > boton > texto · recuadro > párrafos · desplegable > desplegableTitulo
 //   (texto) + desplegableCuerpo > párrafos · columnas > columna > bloques
-//   formulario, grafico, imagen, video, insertado, htmlLibre, espaciador: átomos
+//   formulario, grafico, imagen, video, insertado, htmlLibre, espaciador, motion: átomos
 //   (todo en attrs) · etiqueta: una MARCA sobre el texto de un párrafo.
 // =============================================================================
 
@@ -56,6 +56,9 @@ import { hrefPermitido, srcImagen, NORMALIZAR_NODOS, NORMALIZAR_MARCAS, ETIQUETA
 import { compactar } from './validar';
 import { hrefPagoValido, productoDeHref } from './pago-landing';
 import { TOPE_TEXTOS_DISENO, conTextos, textosDeHtmlEditable } from './html-editable-textos';
+// El motion graphic (motion.ts sobre lib/motion): la ÚNICA validación de un spec es `normalizarMotion`, acá ESTRICTA.
+import { FORMATOS_MOTION, FORMATO_MOTION_DEFECTO, attrsMotion, catalogoMotionCorto, pedidoMotion, type FormatoMotion } from './motion';
+import { TONOS_MOTION, type IdPlantilla, type ValorCampo } from '../motion/tipos';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La gramática (tipos)
@@ -102,6 +105,8 @@ export type BloqueIA =
   | { t: 'espaciador'; alto?: AltoEspaciador }
   | { t: 'formulario'; campos: CampoIA[]; boton: string; exito: string; ref?: string }
   | { t: 'grafico'; tipo: TipoGrafico; titulo: string; categorias: string[]; series: SerieIA[]; prefijo?: string; sufijo?: string }
+  /** Un motion graphic: la plantilla y sus campos (lib/motion). `ref` = el que ya estaba (lo que no cambia, vuelve de él). */
+  | { t: 'motion'; plantilla: IdPlantilla; valores: Record<string, ValorCampo>; formato?: FormatoMotion; ref?: string }
   | { t: 'imagen'; busqueda: string; alt: string; src?: string | null; ref?: string }
   | { t: 'etiqueta'; texto: string }
   /** Un elemento que ya existe y la gramática no expresa (video, insertado, HTML): vuelve del original. */
@@ -514,7 +519,8 @@ export function normalizarBusqueda(v: unknown): string {
 // (`tarjetaABloques`) y la vuelta (`bloquesATarjeta` con `base`) recorren el MISMO
 // original con la MISMA función, así el número siempre apunta al mismo nodo.
 
-const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario]);
+// El motion graphic también: su estilo y lo que la persona escribió sin tope vuelven del original (nodoMotion).
+const CON_REF = new Set<string>([NODO.imagen, NODO.video, NODO.insertado, NODO.htmlLibre, NODO.htmlEditable, NODO.formulario, NODO.motion]);
 
 export function refsDe(base: JsonNodo | null | undefined): Map<string, JsonNodo> {
   const m = new Map<string, JsonNodo>();
@@ -816,6 +822,27 @@ function nodoGrafico(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
   };
 }
 
+/**
+ * Un motion graphic (motion.ts, `pedidoMotion`): lo que escribe el modelo pasa ESTRICTO, campo por campo. Un texto más
+ * largo que su tope, un número fuera de rango, un obligatorio que falta o la cifra de «cifra» sin dar hacen CAER el
+ * bloque con su motivo (nunca se recorta, y no queda el texto de ejemplo de la plantilla en su lugar); un color, un
+ * tono, una fuente o un formato inválidos se anotan y queda el anterior. Con `ref` (el que ya estaba), lo que vuelve
+ * igual no se re-valida: un texto largo que la persona escribió en el panel no hace caer el bloque por pasar por la IA.
+ */
+function nodoMotion(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
+  const ref = strCrudo(b.ref);
+  const orig = ref ? ctx.refs.get(ref) : undefined;
+  if (ref && orig?.type !== NODO.motion) ctx.d?.push(`motion: la referencia «${ref}» no es un motion graphic`);
+  const base = orig?.type === NODO.motion ? attrsMotion(orig.attrs) : null;
+  const r = pedidoMotion({ plantilla: b.plantilla, valores: b.valores, formato: b.formato }, base);
+  for (const a of r.avisos) ctx.d?.push(`motion: ${a}; queda el anterior`);
+  if (!r.attrs) {
+    for (const m of r.motivos) ctx.d?.push(`motion: ${m}; se cae el bloque`);
+    return null;
+  }
+  return { type: NODO.motion, attrs: r.attrs };
+}
+
 function nodoImagen(b: Record<string, unknown>, ctx: Ctx): JsonNodo | null {
   const alt = texto(b.alt, ctx.d, 'imagen', 200).trim();
   const ref = strCrudo(b.ref);
@@ -911,6 +938,7 @@ function convertirBloque(raw: unknown, ctx: Ctx, enColumna: boolean): JsonNodo[]
     case 'espaciador': return [{ type: NODO.espaciador, attrs: { alto: enLista<AltoEspaciador>(ALTOS_ESPACIADOR, b.alto, 'm') } }];
     case 'formulario': return [nodoFormulario(b, ctx)];
     case 'grafico': { const n = nodoGrafico(b, ctx); return n ? [n] : []; }
+    case 'motion': { const n = nodoMotion(b, ctx); return n ? [n] : []; }
     case 'imagen': { const n = nodoImagen(b, ctx); return n ? [n] : []; }
     case 'conservar': {
       const ref = strCrudo(b.ref);
@@ -1316,6 +1344,16 @@ function bloqueDeNodo(n: JsonNodo, base: JsonNodo, d: string[] | undefined, form
       const r = refDeNodo(base, n);
       return r ? [{ t: 'imagen', busqueda: '', alt: strCrudo(a.alt), ref: r }] : [];
     }
+    // Un motion graphic viaja ENTERO (la plantilla, sus campos y el formato) con su `ref`: lo que el modelo devuelve igual
+    // vuelve del original (nodoMotion).
+    case NODO.motion: {
+      const mo = attrsMotion(a);
+      const r = refDeNodo(base, n);
+      return [{
+        t: 'motion', plantilla: mo.plantilla, valores: { ...mo.valores },
+        ...(mo.formato !== FORMATO_MOTION_DEFECTO ? { formato: mo.formato } : {}), ...(r ? { ref: r } : {}),
+      }];
+    }
     // Un «Diseño editable» viaja con sus TEXTOS (24/10/2026, Martín: «Todas las paginas de MaKo no son editables»): era una
     // caja cerrada y MaKo no veía ni una palabra. Con demasiados textos, cerrada como antes.
     case NODO.htmlEditable: {
@@ -1408,6 +1446,7 @@ function armarGramatica(): string {
     '- {"t":"separador"} · {"t":"espaciador"}',
     '- {"t":"formulario","campos":[{"tipo":"nombre|email|telefono|empresa|texto|textoLargo|opciones","etiqueta","requerido","opciones":[...]}],"boton","exito"} siempre con email o teléfono; los datos entran al CRM.',
     '- {"t":"grafico","tipo":"' + TIPOS_GRAFICO.join('|') + '","titulo","categorias":[...],"series":[{"nombre","valores":[números]}]} sólo con datos que te dieron.',
+    '- {"t":"motion","plantilla","valores":{"campo":valor},"formato":"' + FORMATOS_MOTION.join('|') + '"} un motion graphic: un titular, una cifra, un testimonio, una oferta o un cierre que entran ANIMADOS. Úsalo cuando pidan algo animado o en movimiento. Los textos van TAL CUAL te los dieron y dentro del tope de cada campo (uno más largo se cae); nunca inventes una cifra, un nombre, una cita ni un precio. Si trae "ref", devuélvelo igual. Plantillas y campos (* = obligatorio): ' + catalogoMotionCorto() + '. En barras, "datos" va «Etiqueta: valor», uno por línea. Comunes a todas: tono (' + TONOS_MOTION.join('|') + '), colorFondo, colorTexto, colorAcento (#rrggbb), conFondo (true/false), fuente.',
     '- {"t":"imagen","busqueda","alt"} una foto suelta (búsqueda en inglés).',
     '- {"t":"etiqueta","texto"} una píldora corta: «Más vendido», «Nuevo».',
     '- {"t":"conservar","ref"} un elemento que ya existe (video, imagen, insertado): déjalo donde va, sin tocar el ref. Lo mismo con el "ref" de un ítem o de un formulario.',

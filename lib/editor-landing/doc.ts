@@ -21,6 +21,9 @@
 
 // Sólo TIPOS (el catálogo de animaciones es puro y no importa este módulo: sin ciclo en runtime).
 import type { AnimacionSeccion, Direccion, VideoFondo } from './animaciones';
+// El motion graphic (./motion.ts, sobre lib/motion): puro y SIN importar este módulo, así que no hay ciclo.
+import { NODO_MOTION, textoDeMotion } from './motion';
+export { FORMATOS_MOTION, type FormatoMotion, type AttrsMotion } from './motion';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // JSON de ProseMirror (lo que guarda la base)
@@ -73,6 +76,7 @@ export const NODO = {
   espaciador: 'espaciador',
   htmlLibre: 'htmlLibre',            // HTML personalizado, en iframe sandbox
   htmlEditable: 'htmlEditable',      // «Diseño editable»: HTML a medida, sin JS, con texto a la vista (html-editable.ts)
+  motion: NODO_MOTION,               // «Motion graphic»: un titular, una cifra o una oferta animados (motion.ts, lib/motion)
 } as const;
 
 /** Nodos de TipTap que se aceptan tal cual (StarterKit + listas de tareas + tablas). */
@@ -402,6 +406,8 @@ export function textoDe(n: JsonNodo | undefined | null, sep = '\n'): string {
   if (n.type === 'text') return n.text ?? '';
   // El texto de un diseño editable vive en su HTML (un atributo), no en hijos.
   if (n.type === NODO.htmlEditable) return typeof n.attrs?.html === 'string' ? textoDeHtmlEditable(n.attrs.html) : '';
+  // El de un motion graphic, también: lo que se lee en su `aria-label` (los textos de la plantilla, en orden).
+  if (n.type === NODO.motion) return textoDeMotion(n.attrs);
   if (!n.content?.length) return '';
   const bloque = new Set(['paragraph', 'heading', 'listItem', 'taskItem', 'blockquote', 'tableRow', NODO.tarjeta, NODO.optimizadoItem, NODO.desplegableTitulo, NODO.desplegableCuerpo]);
   return n.content.map((c) => textoDe(c, sep)).join(bloque.has(n.type) ? sep : '').replace(/\n{3,}/g, '\n\n');

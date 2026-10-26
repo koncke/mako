@@ -167,7 +167,8 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
   'app/web-generator/editor/paneles/ChatAgente.tsx': 'panel único',
   'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Editor',
-  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'pendiente, de Image Editor',
+  // 26/10/2026: el chat del Image Editor fijo a la izquierda, con el panel único, como el Web Generator.
+  'app/image-editor/mako/chat/PanelMakoIA.tsx': 'panel único',
   'app/_components/MakoChat.tsx': 'panel único',
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
 };

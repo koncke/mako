@@ -65,7 +65,7 @@ import {
   DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
 import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
-import { CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
+import { CHAT_IMAGEN_DISCUTIR_TEMPLATE, CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
 import { SETTING_GANCHO_TEMPLATE, SETTING_PREGUNTAS_TEMPLATE, SETTING_CRITERIO_TEMPLATE } from './setting-secuencias';
 import { SETTING_SIMULADOR_SYSTEM_TEMPLATE } from './setting-simulador';
@@ -802,6 +802,13 @@ export const REGISTRY: Group[] = [
         variables: [v('instruccion', 'lo que pidió la persona'), v('alcance', 'todo el diseño o los elementos elegidos'), v('diseno', 'el diseño: páginas y elementos con su referencia, medidas, textos y colores')], scope: 'full', sensitive: false,
         default: CHAT_IMAGEN_USER_TEMPLATE,
         context: 'Le pasa a MaKo la instrucción y el diseño actual. Conserva los slots: {{instruccion}} y {{diseno}} llegan delimitados como dato no confiable.',
+      },
+      {
+        key: 'image_editor.chat.discutir', source: 'override',
+        label: 'MaKo IA en «Discutir» (system)', kind: 'system', dynamic: false,
+        variables: [], scope: 'static-only', sensitive: true,
+        default: CHAT_IMAGEN_DISCUTIR_TEMPLATE,
+        context: 'Con «Discutir» elegido, MaKo contesta y sugiere sobre el diseño en texto, sin cambiar nada. El user es el mismo de arriba. Aunque este prompt pida operaciones, el código las descarta: en «Discutir» no se aplica nada.',
       },
     ],
   },

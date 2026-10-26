@@ -49,6 +49,7 @@ import {
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
   planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
+  planConfigurarMotion,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
 } from './landing-contenido.helpers';
@@ -878,5 +879,8 @@ export const RUNNERS_EDITOR: Runners = {
       }
     },
   },
+
+  // El motion graphic de una sección: el plan (landing-contenido.helpers.ts) valida ESTRICTO, como la IA.
+  configurar_motion_landing: { ...edicion({ que: 'cambiar el motion graphic', planear: (i, d) => planConfigurarMotion(d.contenido, i) }) },
 };
 

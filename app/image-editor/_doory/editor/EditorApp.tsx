@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState, type ReactNode } from 'react'
 import type { EditorAppProps, EditorHandle } from '@/app/image-editor/_doory/types/adapter'
 import './builtins/commands'
 import './builtins/audio'
@@ -38,6 +38,17 @@ import styles from './EditorApp.module.css'
 /** How many times the code of the live session is fetched again (after 1, 2, 4, 8 s …) before the person is told to reload. */
 const COLLAB_LOAD_ATTEMPTS = 4
 
+/**
+ * El chat de MaKo fijo (`chatLateral`): sólo en escritorio y si se puede editar. En una pantalla chica (< 1024 px) y en un
+ * enlace para ver no está: ahí el chat es la hoja de la tira de abajo (o no hay chat).
+ */
+function ChatFijo({ children }: { children?: ReactNode }) {
+  const compact = useEditorState((s) => s.ui.compact)
+  const readOnly = useEditorState((s) => s.readOnly)
+  if (!children || compact || readOnly) return null
+  return <div className={styles.chat}>{children}</div>
+}
+
 function LiveRegion() {
   const message = useEditorState((s) => s.announcement)
   return (
@@ -52,7 +63,7 @@ function LiveRegion() {
  * panels, history, export, autosave triggering) lives inside.
  */
 export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function EditorApp(props, ref) {
-  const { document: doc, meta, adapter, onTitleChange, onSaveStateChange, onConflictResolve, topBarStart, topBarEnd } = props
+  const { document: doc, meta, adapter, onTitleChange, onSaveStateChange, onConflictResolve, topBarStart, topBarEnd, chatLateral } = props
   const [engine] = useState(() => new EditorEngine({ adapter, document: doc, meta }))
   const [root, setRoot] = useState<HTMLDivElement | null>(null)
   const rootRef = useRef<HTMLDivElement | null>(null)
@@ -175,22 +186,31 @@ export const EditorApp = forwardRef<EditorHandle, EditorAppProps>(function Edito
             lienzo. Debajo de 1024 px el riel no está: las herramientas van en la tira de abajo (CompactTools) y
             abren como hoja inferior (DrawerHost).
           */}
-          <TopBar start={topBarStart} end={topBarEnd} onTitle={onTitle} onPresent={() => engine.openDialog('presenter')} />
-          <ConflictBanner onResolve={onConflictResolve} />
-          <CollabBanner />
-          <MissingFontsNotice />
-          <div className={styles.body}>
-            <RielCanva />
-            <SidebarHost />
-            <div className={styles.main}>
-              <ContextualToolbar />
-              <Workspace stripOpen={stripOpen} onToggleStrip={() => setStripOpen((o) => !o)} />
-              <NotesHost />
-              <LazyTimelineHost />
-              {stripOpen ? <PageStrip /> : null}
+          {/*
+            Con MaKo (26/10/2026): el chat fijo a la izquierda, de punta a punta, y a su derecha el editor entero (la barra
+            de arriba incluida), como el Web Generator: la tarjeta del chat flota sobre el gris y el editor es la columna.
+          */}
+          <div className={styles.marco}>
+            <ChatFijo>{chatLateral}</ChatFijo>
+            <div className={styles.columna}>
+              <TopBar start={topBarStart} end={topBarEnd} onTitle={onTitle} onPresent={() => engine.openDialog('presenter')} />
+              <ConflictBanner onResolve={onConflictResolve} />
+              <CollabBanner />
+              <MissingFontsNotice />
+              <div className={styles.body}>
+                <RielCanva />
+                <SidebarHost />
+                <div className={styles.main}>
+                  <ContextualToolbar />
+                  <Workspace stripOpen={stripOpen} onToggleStrip={() => setStripOpen((o) => !o)} />
+                  <NotesHost />
+                  <LazyTimelineHost />
+                  {stripOpen ? <PageStrip /> : null}
+                </div>
+              </div>
+              <CompactTools />
             </div>
           </div>
-          <CompactTools />
           <DrawerHost />
         </ChromeProvider>
         <DialogHost onTitle={onTitle} />

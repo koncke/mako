@@ -31,6 +31,7 @@ import { crearDiseno, leerDiseno } from '../mako/nube';
 import { registrarProyectos } from '../mako/registro';
 import { RUTA_INICIO, rutaDiseno } from '../ruta';
 import { CreditoDoory } from './CreditoDoory';
+import { PanelMakoIA } from '../mako/chat/PanelMakoIA';
 import styles from './pantalla.module.css';
 
 type Abierto = { id: string; titulo: string; doc: DoryDocument; version: number };
@@ -132,6 +133,8 @@ export function PantallaEditor({ disenoId, ws, senales = null }: {
               <span>Inicio</span>
             </Link>
           }
+          // El chat de MaKo siempre abierto a la izquierda, como en el Web Generator (26/10/2026).
+          chatLateral={<PanelMakoIA />}
         />
       </div>
       <CreditoDoory />

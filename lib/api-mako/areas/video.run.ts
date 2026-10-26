@@ -607,6 +607,8 @@ export const RUNNERS: Runners = {
   cortar_tramo_video: { ...enElEditor('cortar_tramo_video') },
   eliminar_muletillas_video: { ...enElEditor('eliminar_muletillas_video') },
   usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
+  agregar_motion_video: { ...enElEditor('agregar_motion_video') },
+  editar_motion_video: { ...enElEditor('editar_motion_video') },
 
   ver_contexto_video: {
     leer: async () => {

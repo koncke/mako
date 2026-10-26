@@ -111,6 +111,11 @@ const PRICING: Record<string, { in: number; out: number }> = {
   'gpt-5.6-luna': { in: 0.20, out: 1.20 },
   'gpt-6-luna': { in: 0.10, out: 0.50 },
   'gpt-6.1-sol': { in: 2, out: 10 },
+  // Las imágenes del Image Editor (lib/image-editor/imagen-ia-reglas.ts), con la clave del negocio. Verificado el 26/10/2026 en
+  // developers.openai.com/api/docs/pricing: texto 5, imagen de entrada 8 e imagen de salida 30 por 1M. `in` va al de la imagen
+  // de entrada (lo que pesa en una edición; el texto de un pedido son centésimos de centavo).
+  'gpt-image-2.5-flare': { in: 8, out: 30 },
+  'gpt-image-2.5-sunburst': { in: 8, out: 30 },
 };
 const DEFAULT_PRICE = { in: 5, out: 25 };
 // Precio de Gemini cuando el cliente cargó créditos (tier pago). En free tier no cobra

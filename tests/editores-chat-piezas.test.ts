@@ -21,8 +21,14 @@ const imagen = sinComentarios(readFileSync('app/image-editor/mako/chat/PanelMako
 const video = sinComentarios(readFileSync('app/video-editor/_opencut/chat/PanelChat.tsx', 'utf8'));
 const hueco = (src: string) => src.slice(src.indexOf('const enMensaje = ('), src.indexOf('return (', src.indexOf('const enMensaje = (') + 600));
 
-test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo y la caja única', () => {
-  assert.match(imagen, /const QUIEN = \{ nombre: 'Image Editor' \};/);
+// 26/10/2026 (Martín: «que tengan el chat de mako siempre abierto, como web generator»): el Image Editor dibuja el PANEL ÚNICO
+// (PanelDeChat) fijo a la izquierda, con la estrella de MaKo (como el agente del Web Generator desde el 23/10) y «Discutir |
+// Editar» arriba de la caja. PROBADO ROMPIENDOLO (26/10/2026, base 4/0): sin el panel único → 3/1; sin el selector → 3/1;
+// la intención sin llegar al motor → 3/1.
+test('el Image Editor: el panel único con la estrella de MaKo, la propuesta en el hueco y la caja única', () => {
+  assert.match(imagen, /const QUIEN = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/);
+  assert.match(imagen, /<PanelDeChat\b/, 'el panel único, como el Web Generator');
+  assert.match(imagen, /<SelectorIntencion valor=\{intencion\} onCambio=\{elegirIntencion\}/, '«Discutir | Editar», como el Web Generator');
   assert.match(imagen, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
@@ -49,6 +55,6 @@ test('los dos cargan la hoja del Centro (sin ella, el hilo y la caja no tienen f
 });
 
 test('los dos siguen recortando lo que se pide a su tope (la caja única no tiene `maxLength`)', () => {
-  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc\)/);
+  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, intencion\)/);
   assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, op\)/);
 });

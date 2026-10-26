@@ -1,6 +1,6 @@
 /*
- * «MaKo IA» con la cara del panel de Canva AI: el saludo con la chispa en el degradado, píldoras de sugerencias, la
- * persona en burbuja lila a la derecha, MaKo suelto a la izquierda y el cuadro de abajo con el enviar redondo.
+ * El chat de MaKo del Image Editor. Desde el 26/10/2026 es la columna fija con el panel único (`.columna`, al final de
+ * este archivo); de lo de antes (la cara del panel de Canva AI) quedan la propuesta, los chips y los avisos.
  * Usa los tokens `--cv-*` del editor (el panel se dibuja dentro de `.cv`): el tema oscuro lo pone el editor.
  * El cuerpo del panel (ToolHost.module.css, `.sidebarBody`) es una columna: el hilo scrollea y el cuadro queda abajo.
  */
@@ -396,4 +396,115 @@
   .girando {
     animation-duration: 2s;
   }
+}
+
+/*
+ * La columna FIJA del chat (26/10/2026): el panel único de los chats de MaKo (PanelDeChat) con los valores del agente del
+ * Web Generator (app/web-generator/editor/paneles/PanelAgente.tsx, `CSS_AGENTE` y los `--pb-*` de los paneles B): la
+ * cabecera de 48 con la estrella y «en línea», la burbuja gris de MaKo, las píldoras celestes y la caja con borde suave.
+ * Las piezas del Ops Center (centro.css) leen `--surface`, `--ink`… : se redefinen acá con los colores de MaKo, como hace
+ * `.gma-ag` (AGENTS.md: una pantalla se re-tematiza redefiniendo TOKENS, no reglas).
+ */
+.columna {
+  --surface: #ffffff;
+  --surface-2: #f5f5f6;
+  --border: #dfdfe0;
+  --border-strong: #dfdfe0;
+  --ink: #38383c;
+  --dim: #4d4d51;
+  --faint: #8b8b90;
+  --velo-hover: #f5f5f6;
+  --focus-ring: 0 0 0 2px #2c88f7;
+  --primary: #0540ad;
+  --primary-weak: #2c88f7;
+  --on-primary: #ffffff;
+  --bg: #ffffff;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+  background: #ffffff;
+  color: #38383c;
+  font: 14px / 1.45 var(--cv-font-sans);
+}
+.columna > :global(.co-panel) {
+  flex: 1;
+  min-height: 0;
+  background: transparent;
+}
+.columna :global(.co-cab) {
+  min-height: 48px;
+  padding: 0 8px 0 12px;
+  gap: 8px;
+}
+.columna :global(.co-hilo) {
+  padding: 8px 12px 12px;
+}
+.columna :global(.co-hilo__col) {
+  gap: 10px;
+}
+.columna :global(.co-caja-wrap) {
+  padding: 0;
+}
+.columna :global(.co-caja) textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.enLinea {
+  font-size: 12px;
+  color: #8b8b90;
+  white-space: nowrap;
+}
+.columna .pie {
+  display: grid;
+  gap: 8px;
+  padding: 8px 12px 12px;
+}
+.burbuja {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: #f5f5f6;
+  color: #38383c;
+  font-size: 13.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.columna .sugerencias {
+  gap: 6px;
+}
+.columna .pildora {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 999px;
+  background: #ebf3fe;
+  color: #002253;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.columna .pildora:hover:not(:disabled) {
+  background: #d0e6fe;
+}
+.columna .pildora:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* La imagen que creó o cambió MaKo, en la fila de la propuesta. */
+.miniatura {
+  display: block;
+  width: 100%;
+  max-height: 180px;
+  margin: 6px 0 2px;
+  object-fit: contain;
+  border-radius: 8px;
+  background: #f5f5f6;
+  box-shadow: 0 0 0 1px #dfdfe0;
 }

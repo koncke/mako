@@ -1,7 +1,8 @@
 // =============================================================================
 // POST /api/image-editor/ia — el chat «MaKo IA» del Image Editor
 // =============================================================================
-// POST json {instruccion, diseno, alcance} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// POST json {instruccion, diseno, alcance, intencion?} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// `intencion: 'discutir'` contesta y sugiere SIN operaciones (lib/image-editor/chat/ia.ts); sin ella, editar.
 //
 // El panel (app/image-editor/mako/chat/PanelMakoIA.tsx) manda lo que pidió la persona y la vista del diseño abierto
 // (lib/image-editor/chat/vista.ts); vuelve una PROPUESTA (operaciones de lib/image-editor/chat/catalogo.ts) que la
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== 'object') return fallo('Pedido inválido.', 400);
 
   return runWithWorkspace(p.ws, async () => {
-    const r = await editarImagen({ instruccion: body.instruccion, diseno: body.diseno, alcance: body.alcance });
+    const r = await editarImagen({ instruccion: body.instruccion, diseno: body.diseno, alcance: body.alcance, intencion: body.intencion });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

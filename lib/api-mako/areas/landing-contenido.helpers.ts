@@ -59,6 +59,10 @@ import { pendienteVencido, urlDeDominio, type EstadoDominio } from '@/lib/editor
 // Puro (sin React ni DOM; lo prueba tests/editor-landing-insertar.test.ts en node): el JSON de cada bloque del
 // catálogo, EL MISMO que inserta el menú «/» del editor.
 import { bloqueJson } from '@/app/web-generator/editor/insertar';
+// Puro: el motion graphic de la landing (motion.ts) y su motor (lib/motion). `pedidoMotion` es el saneo ESTRICTO de la IA y la API.
+import { attrsMotion, pedidoMotion } from '@/lib/editor-landing/motion';
+import { PLANTILLAS, camposDe, esPlantilla } from '@/lib/motion/plantillas';
+import { PLANTILLAS_MOTION, type IdPlantilla } from '@/lib/motion/tipos';
 // Puro (sin 'use client'): la MISMA validación de la «Landing de base» que hace la pantalla.
 import { baseDelDeepLink } from '@/app/web-generator/crear/ajustes';
 import { botonesDeLanding, paginasEnTexto, type BotonDeLanding } from './landing-editor.helpers';
@@ -261,6 +265,7 @@ export function nombreDeBloque(n: JsonNodo): string {
   const a = attrsDe(n);
   if (n.type === 'heading') return a.variante === 'titulo' ? 'título principal' : `título ${Number(a.level) || 2}`;
   if (n.type === NODO.optimizado) return `diseño optimizado (${String(a.variante ?? '')})`;
+  if (n.type === NODO.motion) return `motion graphic (${PLANTILLAS[attrsMotion(a).plantilla].nombre})`;
   if (n.type === NODO.insertado) {
     const e = attrsInsertado(a);
     const clase = claseDeProveedor(e.proveedor);
@@ -285,6 +290,16 @@ function elementosParaApi(html: string) {
     videos: videos.slice(0, 10).map((v) => ({ video: v.src, tipo: v.reproductor ? 'reproductor' : 'archivo' })),
     ...(botones.length > 30 || imagenes.length > 20 || videos.length > 10 ? { cortado: true } : {}),
   };
+}
+
+/**
+ * Un motion graphic como lo lee la API (ver_secciones_landing → motion): la plantilla, sus valores de HOY (los que
+ * cambia configurar_motion_landing, campo por campo), el formato y el tope de cada texto (uno más largo se rechaza).
+ */
+function motionParaApi(n: JsonNodo) {
+  const m = attrsMotion(n.attrs);
+  const topes = Object.fromEntries(PLANTILLAS[m.plantilla].campos.flatMap((c) => (c.tipo === 'texto' ? [[c.clave, c.max]] : [])));
+  return { plantilla: m.plantilla, formato: m.formato, valores: m.valores, topes };
 }
 
 /**
@@ -313,7 +328,11 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         const tx = corto(textoDe(b, ' ').replace(/\s+/g, ' ').trim(), TOPES_ESTRUCTURA.textoBloque);
         if (tx && usado + tx.length > TOPES_ESTRUCTURA.textoTotal) { sinTexto++; return { n: j + 1, tipo: nombreDeBloque(b) }; }
         usado += tx.length;
-        return { n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}), ...(b.type === NODO.htmlEditable && typeof b.attrs?.html === 'string' ? { elementos: elementosParaApi(b.attrs.html) } : {}) };
+        return {
+          n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}),
+          ...(b.type === NODO.htmlEditable && typeof b.attrs?.html === 'string' ? { elementos: elementosParaApi(b.attrs.html) } : {}),
+          ...(b.type === NODO.motion ? { motion: motionParaApi(b) } : {}),
+        };
       });
       return {
         n: k + 1,
@@ -685,7 +704,7 @@ export function planCambiarTexto(c: LandingContenido, e: { buscar?: unknown; ree
  */
 export type BloqueApi = (typeof BLOQUES_API)[number];
 
-const PIDEN_TEXTO: ReadonlySet<BloqueApi> = new Set<BloqueApi>(['titulo', 'subtitulo', 'texto', 'vinetas', 'numerada', 'cita']);
+const PIDEN_TEXTO: ReadonlySet<BloqueApi> = new Set<BloqueApi>(['titulo', 'subtitulo', 'texto', 'vinetas', 'numerada', 'cita', 'motion']);
 
 /** Lo que dice un enlace pegado: el insertado que arma el saneo (lib/embeds.ts) y si es una agenda o un video. */
 export function enlaceEmbebible(enlace: string): { src: string; proveedor: string; alto: number | null; clase: 'agenda' | 'video' | null } | null {
@@ -709,6 +728,13 @@ export function nodosDeBloque(e: { bloque: BloqueApi; texto?: string; destino?: 
       return [{ type: e.bloque === 'vinetas' ? 'bulletList' : 'orderedList', content: lineasDe(t).map((x) => ({ type: 'listItem', content: [parrafo(x)] })) }];
     case 'cita': return [{ type: 'blockquote', content: [parrafo(t)] }];
     case 'separador': return [bloqueJson('separador') as JsonNodo];
+    // El titular animado con ESE texto como título (el menú «/» lo inserta con el de ejemplo): estricto, un texto más
+    // largo que el tope del título se rechaza. La plantilla y los demás campos, con configurar_motion_landing.
+    case 'motion': {
+      const r = pedidoMotion({ plantilla: 'titular', valores: { titulo: t } }, null);
+      if (!r.attrs) return { error: `Ese texto no entra como título del motion graphic: ${r.motivos.join('; ')}. Uno más corto, o un bloque «titulo».` };
+      return [{ type: NODO.motion, attrs: r.attrs }];
+    }
     case 'formulario': return [bloqueJson('formulario') as JsonNodo];
     case 'boton':
     case 'pago': {
@@ -2182,4 +2208,80 @@ export function resumenGenerar(p: PedidoGenerarApi, nombreTema: string | null): 
     p.params.basadoEnUrl ? `sobre ${corto(p.params.basadoEnUrl, 80)}, resolviendo sus hallazgos` : '',
   ].filter(Boolean);
   return `Crear con IA ${que}${para} ${de}: ${partes.join(', ')}. Queda como borrador, sin publicar (se puede mandar a la papelera). Usa IA y tarda hasta unos minutos.`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El motion graphic (configurar_motion_landing)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** «sí» / «no» de un campo que llega como texto por la API; lo demás queda como vino (y el saneo lo rechaza con su motivo). */
+function siNoDeTexto(s: string): boolean | string {
+  const t = s.trim().toLowerCase();
+  if (['true', 'si', 'sí', '1', 'yes'].includes(t)) return true;
+  if (['false', 'no', '0'].includes(t)) return false;
+  return s;
+}
+
+/**
+ * `configurar_motion_landing`: la plantilla, los campos y el formato de UN motion graphic de una sección, con el saneo
+ * ESTRICTO de la IA y la API (`pedidoMotion`, motion.ts): un texto más largo que el tope de su campo se RECHAZA (nunca
+ * se recorta), lo que no se pasa queda como estaba, y con otra plantilla lo propio de la anterior se va sin que nada
+ * salga del texto de ejemplo (un obligatorio que falta se pide). `valores` llega como `[{campo, valor}]` con el valor
+ * en texto (un número o un sí/no también): se convierten según el tipo del campo en la plantilla que queda.
+ */
+export function planConfigurarMotion(
+  c: LandingContenido,
+  e: { seccion?: unknown; bloque?: unknown; plantilla?: unknown; valores?: unknown; formato?: unknown },
+): PlanContenido | FallaPlan {
+  const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
+  if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
+  const u = ubicarSeccion(c, id);
+  if (!u) return noEstaSeccion(c, id);
+  const seccion = corto(tituloSeccion(u.tarjeta));
+  const hallados = buscarNodos(c, (n) => n.type === NODO.motion, u);
+  const lista = () => hallados.map((f) => ({ bloque: f.ruta[0] + 1, plantilla: attrsMotion(f.nodo.attrs).plantilla, texto: corto(textoDe(f.nodo, ' '), 60) }));
+  if (!hallados.length) return { error: `La sección «${seccion}» no tiene un motion graphic: se agrega con agregar_bloque_landing (bloque motion).` };
+  const n = typeof e.bloque === 'number' && Number.isInteger(e.bloque) ? e.bloque : null;
+  const x = n !== null ? hallados.find((f) => f.ruta[0] === n - 1) : hallados.length === 1 ? hallados[0] : null;
+  if (!x) {
+    return n !== null
+      ? { error: `El bloque ${n} de «${seccion}» no es un motion graphic.`, disponibles: lista() }
+      : { error: `«${seccion}» tiene ${hallados.length} motion graphics: pasa «bloque» (su n en ver_secciones_landing).`, faltan: ['bloque'], disponibles: lista() };
+  }
+  const base = attrsMotion(x.nodo.attrs);
+  const pedida = typeof e.plantilla === 'string' && e.plantilla.trim() ? e.plantilla.trim() : null;
+  if (pedida && !esPlantilla(pedida)) return { error: `La plantilla «${corto(pedida, 30)}» no existe.`, disponibles: [...PLANTILLAS_MOTION] };
+  const plantilla: IdPlantilla = pedida && esPlantilla(pedida) ? pedida : base.plantilla;
+  const defs = camposDe(plantilla);
+  const valores: Record<string, unknown> = {};
+  for (const cp of Array.isArray(e.valores) ? e.valores : []) {
+    if (!cp || typeof cp !== 'object') continue;
+    const o = cp as { campo?: unknown; valor?: unknown };
+    const campo = typeof o.campo === 'string' ? o.campo.trim() : '';
+    const def = defs.find((d) => d.clave === campo);
+    if (!def) return { error: `«${corto(campo, 30)}» no es un campo de «${PLANTILLAS[plantilla].nombre}».`, disponibles: defs.map((d) => d.clave) };
+    const txt = o.valor === undefined || o.valor === null ? '' : String(o.valor);
+    valores[campo] = def.tipo === 'numero' ? (txt.trim() === '' ? txt : Number(txt.trim().replace(',', '.'))) : def.tipo === 'si-no' ? siNoDeTexto(txt) : txt;
+  }
+  if (!pedida && !Object.keys(valores).length && (e.formato === undefined || e.formato === null || e.formato === '')) {
+    return { error: 'No pasaste nada para cambiar: la plantilla, algún campo (valores) o el formato.', faltan: ['valores'] };
+  }
+  const r = pedidoMotion({ plantilla: pedida ?? undefined, valores, formato: e.formato }, base);
+  const problemas = [...r.motivos, ...r.avisos];
+  if (!r.attrs || problemas.length) return { error: `Ese motion graphic no se puede guardar así: ${problemas.join('; ')}.` };
+  if (JSON.stringify(r.attrs) === JSON.stringify(base)) return { error: 'Ese motion graphic ya está así.', yaEstaba: true };
+  const nueva = conNodo(u.tarjeta, x.ruta, { ...x.nodo, attrs: r.attrs });
+  const frena = frenaElSaneo([u.tarjeta], [nueva]);
+  if (frena) return frena;
+  const cambios: string[] = [];
+  if (r.attrs.plantilla !== base.plantilla) cambios.push(`plantilla «${PLANTILLAS[base.plantilla].nombre}» → «${PLANTILLAS[r.attrs.plantilla].nombre}»`);
+  for (const k of Object.keys(r.attrs.valores)) {
+    if (r.attrs.valores[k] !== base.valores[k] && (k in valores || r.attrs.plantilla !== base.plantilla)) cambios.push(`${k}: «${corto(String(r.attrs.valores[k]), 80)}»`);
+  }
+  if (r.attrs.formato !== base.formato) cambios.push(`formato ${base.formato} → ${r.attrs.formato}`);
+  return {
+    contenido: conSeccion(c, u, nueva),
+    resumen: `Cambiar el motion graphic (bloque ${x.ruta[0] + 1}) de la sección «${seccion}»: ${cambios.join(', ')}. ${NOTA_VERSION}`,
+    datos: { seccion: id, bloque: x.ruta[0] + 1 },
+  };
 }

@@ -34,7 +34,7 @@
 // ⚠️ SIN IMPORTS DE NODE NI DE MÓDULOS server-only (sólo tipos): lo importa el panel del navegador.
 // =============================================================================
 
-import { NODO, tarjetasDe, textoDeHtmlEditable, tituloDeTarjeta, type JsonNodo, type LandingContenido, type Pagina } from './doc';
+import { NODO, tarjetasDe, textoDe, textoDeHtmlEditable, tituloDeTarjeta, type JsonNodo, type LandingContenido, type Pagina } from './doc';
 import { CSP_PAGINA_AFUERA, pedidoDeIframe } from './html-libre';
 import { baseDeDocumento, sinRastreadores, urlParaReplicar } from './replicar-reglas';
 import { claveDeLanding } from '../landing-url';
@@ -318,6 +318,8 @@ function textoVisible(n: JsonNodo | null | undefined): string {
   // El «Diseño editable» (las páginas de MaKo) SÍ está en esta página, pero su texto vive en el HTML de un atributo, no
   // en hijos. Sin esto, ver_landing_creada y el diagnóstico no veían ni una palabra de esas páginas (25/10/2026).
   if (n.type === NODO.htmlEditable) return typeof a.html === 'string' ? `${textoDeHtmlEditable(a.html)}\n` : '';
+  // Un motion graphic también: su texto vive en sus atributos (lo que se lee en su aria-label).
+  if (n.type === NODO.motion) { const t = textoDe(n).trim(); return t ? `${t}\n` : ''; }
   const hijos = (Array.isArray(n.content) ? n.content : []).map(textoVisible).join('');
   return CORTAN_RENGLON.has(n.type) ? `${hijos}\n` : hijos;
 }
