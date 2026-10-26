@@ -17,6 +17,8 @@ import { googleCalendarConectado, googleCalendarDueno } from './google-calendar'
 import { capaDef } from './capas';
 import { getCapaActual, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { tokenAgenteVisible } from './agente-token';
+import { esGrabador } from './grabadores/reunion';
+import { CATALOGO_GRABADORES } from './grabadores/catalogo';
 
 export type EstadoIntegracion = 'conectada' | 'falta';
 
@@ -43,6 +45,12 @@ export type Integracion = {
    */
   soloServidor?: boolean;
   paraQue?: string;
+  /**
+   * Un grabador que HOY no se conecta (Loom no tiene API; Read AI y Google Meet piden un inicio de sesión que todavía no
+   * está: lib/grabadores/catalogo.ts, `conectable: false`). La tarjeta dice por qué en vez de pedir claves que no existen,
+   * y no cuenta como un pendiente del negocio.
+   */
+  sinConexion?: { texto: string; chip: string };
 };
 
 // El catálogo y la regla de visibilidad viven aparte, sin `server-only`, para poder
@@ -203,6 +211,15 @@ async function integracionDeDef(d: Def): Promise<Integracion> {
   }
   if (d.key === 'agente') {
     return { key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion, ...(await estadoAgente()) };
+  }
+  // Un grabador que no se conecta: la tarjeta lo dice (no pide claves que no existen) y no es un pendiente.
+  const grabador = esGrabador(d.key) ? CATALOGO_GRABADORES[d.key] : null;
+  if (grabador && !grabador.conectable) {
+    const texto = grabador.aviso ?? `${grabador.nombre} todavía no se puede conectar.`;
+    return {
+      key: d.key, nombre: d.nombre, categoria: d.categoria, descripcion: d.descripcion,
+      estado: 'falta', detalle: texto, soloServidor: true, sinConexion: { texto, chip: grabador.chip ?? 'Próximamente' },
+    };
   }
   // Servicios de plataforma: se evalúan contra el env global (agencia).
   // Per-cliente: contra las credenciales del workspace actual.

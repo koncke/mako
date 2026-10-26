@@ -36,6 +36,7 @@ import { destinoSinIA, esProyectoBandeja, PROYECTO_SIN_PROYECTO } from '../lib/p
 import { aplicarCruces, candidatasDelCruce, conCruceGuardado, PREFIJO_BORRADOR } from '../lib/cruce-borrador';
 import { motivoDelTipo, clasificarReunion } from '../lib/reunion-clasificar';
 import type { FathomMeeting } from '../lib/fathom-api';
+import { deFathom, type Reunion } from '../lib/grabadores/reunion';
 import type { PropuestaTarea } from '../lib/plan-propuesta';
 
 const RAIZ = join(__dirname, '..');
@@ -281,10 +282,10 @@ test('la ruta las ofrece para «Sin leer» (sin las que ya tienen borrador) y «
 
 test('motivoDelTipo dice QUÉ correo decidió, por el mismo camino que clasificarReunion', () => {
   const meet = (externos: string[], extra: Partial<{ recorded_by: { email: string } }> = {}) =>
-    ({ recording_id: 1, calendar_invitees: externos.map((email) => ({ email, is_external: true })), ...extra }) as unknown as FathomMeeting;
+    deFathom({ recording_id: 1, calendar_invitees: externos.map((email) => ({ email, is_external: true })), ...extra } as unknown as FathomMeeting);
   const leads = new Map([['pro@x.com', { estado_lead: 'abierto' }], ['cli@x.com', { estado_lead: 'ganado' }]]);
   const equipo = new Set(['ana@mako.com']);
-  const casos: Array<[FathomMeeting, RegExp]> = [
+  const casos: Array<[Reunion, RegExp]> = [
     [meet(['pro@x.com']), /pro@x\.com.*prospecto/],
     [meet(['cli@x.com']), /cli@x\.com es cliente tuyo/],
     [meet([], { recorded_by: { email: 'ana@mako.com' } }), /ana@mako\.com es de tu equipo/],
@@ -400,10 +401,12 @@ test('el cruce terminó con el modal ABIERTO: su autosave y su «Agregar» no lo
 
 test('el webhook usa la MISMA vara que el cron: activo y con Fathom conectado', () => {
   assert.deepEqual(R.r7, { activo: true, conFathomPausado: false, pausado: false, sinFathom: false, noExiste: false });
-  const hook = leer('app', 'api', 'webhooks', 'fathom', 'route.ts');
-  const a = hook.indexOf("wsEnLaRonda('fathom', wsPlan)");
+  // 26/10/2026: el webhook de Fathom (y el de cada grabador) delega en `alTerminarReunion`, que es el que pregunta.
+  assert.match(leer('app', 'api', 'webhooks', 'fathom', 'route.ts'), /await alTerminarReunion\(ws, deFathom\(body\)/);
+  const hook = leer('lib', 'grabadores', 'al-terminar.ts');
+  const a = hook.indexOf('wsEnLaRonda(GRABADORES_QUE_SE_LEEN, ws)');
   assert.ok(a > 0, 'el webhook no pregunta si le toca a ese workspace');
-  assert.ok(a < hook.indexOf('procesarReunionesNuevas(wsPlan'), 'y lo pregunta ANTES de leer');
+  assert.ok(a < hook.indexOf('procesarReunionesNuevas(ws'), 'y lo pregunta ANTES de leer');
 });
 
 test('conCruceGuardado: una copia vieja recupera la marca por título; la que trae la suya manda', () => {

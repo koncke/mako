@@ -14,9 +14,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { clasificarReunion } from '../lib/reunion-clasificar';
 import type { FathomMeeting } from '../lib/fathom-api';
+import { deFathom } from '../lib/grabadores/reunion';
 
-const meet = (emails: string[]): FathomMeeting =>
-  ({ recording_id: 1, calendar_invitees: emails.map((email) => ({ email, is_external: true })) }) as FathomMeeting;
+// Una reunión de Fathom de verdad, por el traductor a la forma común (lib/grabadores/reunion.ts): el clasificador lee ésa.
+const meet = (emails: string[]) =>
+  deFathom({ recording_id: 1, calendar_invitees: emails.map((email) => ({ email, is_external: true })) } as FathomMeeting);
 
 const leads = (m: Record<string, string | null>) =>
   new Map(Object.entries(m).map(([e, estado]) => [e, { estado_lead: estado }]));
@@ -57,5 +59,5 @@ test('emails se comparan en minúscula (los invitados vienen normalizados)', () 
 });
 
 test('sin invitados externos → otra', () => {
-  assert.equal(clasificarReunion({ recording_id: 1, calendar_invitees: [] } as FathomMeeting, leads({}), new Set()), 'otra');
+  assert.equal(clasificarReunion(deFathom({ recording_id: 1, calendar_invitees: [] } as FathomMeeting), leads({}), new Set()), 'otra');
 });

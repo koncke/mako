@@ -43,11 +43,13 @@ test('una sesión POSTERIOR al cierre ganado es entrega; la R2 del día del cier
 });
 
 // PROBADO ROMPIÉNDOLO: con la guarda borrada del webhook, cae.
+// Desde el 26/10/2026 la guarda vive en lib/grabadores/al-terminar.ts: la comparten Fathom y los otros grabadores que avisan.
 test('el webhook de Fathom NO engancha una sesión de entrega como R2 (y sale antes de aplicar nada)', () => {
-  const w = sinComentarios(leer('app/api/webhooks/fathom/route.ts'));
+  assert.match(sinComentarios(leer('app/api/webhooks/fathom/route.ts')), /alTerminarReunion\(ws, deFathom\(body\)/);
+  const w = sinComentarios(leer('lib/grabadores/al-terminar.ts'));
   const guarda = w.indexOf('if (esGrabacionDeEntrega({ fecha }, lead)) {');
   assert.ok(guarda > 0, 'falta la guarda');
-  assert.match(w.slice(guarda, guarda + 400), /return Response\.json\(\{ ok: true, ignored: true, reason: 'sesion de entrega' \}\)/);
+  assert.match(w.slice(guarda, guarda + 400), /return \{ ok: true, ignored: true, reason: 'sesion de entrega' \}/);
   // Y va ANTES de escribir, de disparar el evento y de pagar el análisis.
   assert.ok(guarda < w.indexOf('applyFathomRecording(lead,'), 'la guarda tiene que ir antes de applyFathomRecording');
   assert.ok(guarda < w.indexOf("dispararEvento('reunion.ocurrio'"), 'y antes del evento de R2');

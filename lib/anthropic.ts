@@ -210,7 +210,7 @@ export async function conClaveDelNegocio(p: {
   /** Lo que MIRA (IA6): imágenes y PDF como bloques de Claude, antes del texto. Las fotos de un negocio con su IA las lee su
    *  Claude o su OpenAI, nunca Gemini (lib/ai-cheap.ts → `leerDocumentoIA`). */
   bloques?: Array<Record<string, unknown>>;
-}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true } | null> {
+}): Promise<{ texto: string; model?: string } | { error: string; noPudeLeer?: true; esCredito?: true } | null> {
   const r = await permisoDeLaClaveDelNegocio(p.feature);
   if (!r) return null;
   // No es un fallo de SU clave: no se anota en su tarjeta (`anotarFalloDeSuClave`), y quien llama no paga con otra.
@@ -238,7 +238,8 @@ export async function conClaveDelNegocio(p: {
       // Gemini: en toda la historia hubo 0 filas con la marca del negocio, y una clave sin crédito se veía igual que «nunca
       // se usó». El status va adelante: el motivo corto lo lee de ahí (lib/su-clave-reglas.ts).
       await (await import('./su-clave')).anotarFalloDeSuClave({ proveedor: 'anthropic', error: `HTTP ${res.status} ${body?.error?.type ?? ''} ${error}`, feature: permiso.feature, modelo: permiso.model });
-      return { error };
+      // Con el crédito que paga MaKo (`esCredito`), «sin crédito» es de la plataforma: quien llama no se lo pide al negocio.
+      return permiso.esCredito ? { error, esCredito: true } : { error };
     }
     // Lo paga el negocio: la marca va PRIMERO en el motivo, y lib/costos-ia.ts la saca del gasto de MaKo.
     await recordUsage(permiso.feature, permiso.model, body.usage, [marcaDelGasto(permiso), (p.motivo ?? '').trim()].filter(Boolean).join(' · ')).catch(() => {});

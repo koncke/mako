@@ -176,9 +176,11 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'ver_borrador_de_reunion', area: 'plan', tipo: 'lectura',
     datosDeClientes: false,
     titulo: 'Qué salió de una reunión',
-    descripcion: 'Dado el recordingId de una grabación de Fathom, el borrador que dejó, EN CUALQUIER ESTADO: cuántas tareas se cargaron, cuántas propias y de otras personas siguen pendientes, o si se descartó. Evita volver a leer (y pagar) una reunión que ya se leyó.',
+    descripcion: 'Dado el recordingId de una reunión grabada (de Fathom, tl;dv, Fireflies, Zoom u Otter), el borrador que dejó, EN CUALQUIER ESTADO: cuántas tareas se cargaron, cuántas propias y de otras personas siguen pendientes, o si se descartó. Evita volver a leer (y pagar) una reunión que ya se leyó.',
     parametros: [
-      { nombre: 'recordingId', tipo: 'number', descripcion: 'recording_id de la API de Fathom (en WhatsApp o en la app sale de listar_reuniones_fathom; por la API, del propio Fathom). NO es el número de la URL fathom.video/calls/<id>.', obligatorio: true, entero: true, minimo: 1 },
+      // La CLAVE de la reunión (lib/grabadores/reunion.ts): en Fathom, su recording_id (positivo); en los demás grabadores, un
+      // número negativo que da listar_reuniones_fathom. Por eso ya no lleva `minimo: 1` (26/10/2026).
+      { nombre: 'recordingId', tipo: 'number', descripcion: 'el recordingId que da listar_reuniones_fathom: en Fathom, el recording_id de su API (NO el número de la URL fathom.video/calls/<id>); en los demás grabadores, un número negativo.', obligatorio: true, entero: true },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
@@ -186,14 +188,16 @@ export const DEFS: readonly OperacionDef[] = [
     id: 'listar_reuniones_fathom', area: 'plan', tipo: 'lectura',
     // Los títulos de las grabaciones nombran a con quién fue la llamada, y entre ellas están las de ventas.
     datosDeClientes: true,
-    titulo: 'Últimas reuniones de Fathom',
-    descripcion: 'Una página de las grabaciones recientes del Fathom del negocio: título, fecha, duración en minutos, link, cantidad de participantes y tipo (equipo, ventas, entrega u otra, calculado contra el CRM y el equipo), más qué borrador dejó cada una y `sin_leer`: las que el cron no leyó y por qué. Para seguir, pasa el cursor que devuelve. Necesita Fathom conectado.',
+    titulo: 'Últimas reuniones grabadas',
+    // El id se quedó con «fathom» (lo usan el clasificador del Ops Center y los clientes de la API); desde el 26/10/2026 junta
+    // TODOS los grabadores conectados (lib/grabadores).
+    descripcion: 'Una página de las reuniones grabadas recientes del negocio, de TODOS sus grabadores (Fathom, tl;dv, Fireflies, Zoom, Otter): grabador, título, fecha, duración en minutos, link, cantidad de participantes y tipo (equipo, ventas, entrega u otra, calculado contra el CRM y el equipo), más qué borrador dejó cada una y `sin_leer`: las que el cron no leyó y por qué. Para seguir, pasa el cursor que devuelve. Necesita un grabador conectado.',
     parametros: [
       { nombre: 'cursor', tipo: 'string', descripcion: 'el cursor de la página anterior (campo siguiente_cursor).', max: 400 },
       { nombre: 'recordedAfter', tipo: 'string', descripcion: 'solo las grabadas después de esta fecha, ISO (AAAA-MM-DD o con hora).', max: 40 },
       { nombre: 'limit', tipo: 'number', descripcion: 'cuántas por página (default 15).', entero: true, minimo: 1, maximo: 25 },
     ],
-    salida: 'json', canales: SIN_HTTP, costo: 'externo', lenta: true, gating: { tab: 'todo', integracion: 'fathom' },
+    salida: 'json', canales: SIN_HTTP, costo: 'externo', lenta: true, gating: { tab: 'todo', integracion: 'un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)' },
   },
   {
     id: 'cruzar_tareas_con_plan', area: 'plan', tipo: 'lectura',
@@ -229,7 +233,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_senales_negocio', area: 'plan', tipo: 'lectura',
     titulo: 'Qué ya está resuelto',
-    descripcion: 'Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y Fathom conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.',
+    descripcion: 'Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y un grabador de reuniones (Fathom u otro) conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

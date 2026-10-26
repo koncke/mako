@@ -16,6 +16,7 @@
 
 import 'server-only';
 import { credWs } from './credenciales';
+import { GrabadorSinRespuestaError } from './grabadores/errores';
 
 const BASE = 'https://api.fathom.ai/external/v1';
 
@@ -92,7 +93,9 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * que Fathom tosía quedaba cerrada para siempre como «sin compromisos». Un 4xx sigue siendo un
  * `Error` común: ése no se arregla reintentando.
  */
-export class FathomSinRespuestaError extends Error {}
+export class FathomSinRespuestaError extends GrabadorSinRespuestaError {
+  constructor(mensaje: string) { super('fathom', mensaje); }
+}
 
 // Reintenta en 429 / 5xx / red, con backoff. El bug del v1 fue tragar estos
 // fallos en silencio (transcript vacío → análisis basura con score 0).

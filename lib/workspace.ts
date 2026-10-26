@@ -194,6 +194,9 @@ const TENANT_TABLES = new Set<string>([
   // Las reuniones de Fathom que el cron descartó por tipo (mig 0300, 16/10/2026). Sin esta línea
   // getTenantDb() es PASSTHROUGH y la lista «Descartadas» de un negocio mostraría las de todos.
   'plan_reuniones_descartadas',
+  // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026): sin esta
+  // línea, la clave de una reunión de Loom de un negocio devolvería la de otro.
+  'grabador_reuniones',
   // «Re-priorizar todo»: un trabajo por tablero, con su foto y su avance (mig 0301, 16/10/2026). Sin
   // esta línea getTenantDb() es PASSTHROUGH: el tablero de un negocio vería —y empujaría— el trabajo
   // de otro, y «uno a la vez» se contaría entre todos los negocios.

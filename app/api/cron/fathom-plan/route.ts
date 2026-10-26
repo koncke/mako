@@ -14,6 +14,8 @@ import { checkCronAuth } from '@/lib/cron-auth';
 import { procesarReunionesNuevas } from '@/lib/reunion-auto';
 import { cruzarPendientes } from '@/lib/reunion-cruce';
 import { correrRonda } from '@/lib/cron-workspaces';
+// Los workspaces con CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI…: lib/grabadores, 26/10/2026).
+import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
     // workspace con tres reuniones largas sigue reventando el tope — y morir a mitad
     // es peor que no arrancar, porque no escribe ni el borrador ni el candado y la
     // reunión se reprocesa entera en las 13 corridas del día.
-    const ronda = await correrRonda('fathom', async (ws, deadline) => {
+    const ronda = await correrRonda(GRABADORES_QUE_SE_LEEN, async (ws, deadline) => {
       const res = await procesarReunionesNuevas(ws, { hasta: deadline });
       // EL BARRIDO DEL CRUCE (16/10/2026): los borradores pendientes que quedaron sin cruzar contra el
       // tablero —el cruce no entró en el reloj, falló, o los dejó un camino que no cruza— se cruzan

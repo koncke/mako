@@ -16,10 +16,12 @@
 // llamada de VENTAS como tareas del plan de ejecución".
 // =============================================================================
 
-// Solo el TIPO (se borra en runtime): fathom-api.ts es 'server-only' y este módulo
-// tiene que poder cargarse en un test suelto. externalInviteeEmails se reimplementa
-// acá abajo — son cuatro líneas y así el módulo queda sin dependencias de servidor.
-import type { FathomMeeting } from './fathom-api';
+// La reunión en su forma COMÚN (lib/grabadores/reunion.ts, 26/10/2026): el clasificador es el mismo venga de Fathom, de
+// Loom o de Zoom. Ese módulo es puro, así que éste se sigue cargando en un test suelto.
+import { emailsExternos, emailsDeLaReunion as emailsDeReunion, type Reunion } from './grabadores/reunion';
+
+/** Lo que el clasificador mira de una reunión. */
+type ReunionAClasificar = Pick<Reunion, 'invitados' | 'anfitrion' | 'acciones'>;
 
 export type TipoReunion = 'entrega' | 'ventas' | 'equipo' | 'otra';
 
@@ -55,20 +57,15 @@ export function esClienteMako(email: string, lead: LeadDeReunion | undefined, cl
   return clientes.nombres.some((x) => x === n || ` ${x} `.includes(` ${n} `));
 }
 
-/** Emails (minúscula) de los invitados EXTERNOS. Espejo de fathom-api, sin server-only. */
-export function emailsInvitadosExternos(m: FathomMeeting): string[] {
-  return (m.calendar_invitees ?? [])
-    .filter((i) => i.is_external && i.email)
-    .map((i) => i.email!.trim().toLowerCase())
-    .filter(Boolean);
+/** Emails (minúscula) de los invitados EXTERNOS. */
+export function emailsInvitadosExternos(m: ReunionAClasificar): string[] {
+  return emailsExternos(m);
 }
-
-const mail = (v: unknown): string => (typeof v === 'string' ? v.trim().toLowerCase() : '');
 
 /**
  * TODOS los emails que aparecen en la reunión, mire donde mire: invitados de
- * calendario (externos o no), quien la grabó, y los dueños que Fathom ya asignó a
- * sus action items.
+ * calendario (externos o no), quien la grabó, y los dueños que el grabador ya asignó a
+ * sus compromisos.
  *
  * Antes se miraban SOLO los invitados externos, y eso dejaba ciega a la app en el
  * caso más común de una reunión de trabajo: un Meet ad-hoc, sin evento de
@@ -76,18 +73,12 @@ const mail = (v: unknown): string => (typeof v === 'string' ? v.trim().toLowerCa
  * cron la descartaba entera y en silencio — pasó con la reunión del 1-ago
  * ("Impromptu Google Meet Meeting"), de la que no salió ni una tarea al plan.
  */
-export function emailsDeLaReunion(m: FathomMeeting): string[] {
-  const out = new Set<string>();
-  for (const i of m.calendar_invitees ?? []) { const e = mail(i.email); if (e) out.add(e); }
-  const rec = m as unknown as { recorded_by?: { email?: string }; action_items?: Array<{ assignee?: { email?: string } }> };
-  const host = mail(rec.recorded_by?.email);
-  if (host) out.add(host);
-  for (const a of rec.action_items ?? []) { const e = mail(a.assignee?.email); if (e) out.add(e); }
-  return [...out];
+export function emailsDeLaReunion(m: ReunionAClasificar): string[] {
+  return emailsDeReunion(m);
 }
 
 export function clasificarReunion(
-  m: FathomMeeting,
+  m: ReunionAClasificar,
   leadsByEmail: Map<string, LeadDeReunion>,
   equipoEmails: Set<string>,
   clientes?: ClientesMako | null,
@@ -119,7 +110,7 @@ export function clasificarReunion(
  * si divergieran, el motivo explicaría otro veredicto.
  */
 export function motivoDelTipo(
-  m: FathomMeeting,
+  m: ReunionAClasificar,
   leadsByEmail: Map<string, LeadDeReunion>,
   equipoEmails: Set<string>,
   clientes?: ClientesMako | null,

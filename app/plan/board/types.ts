@@ -10,6 +10,7 @@
 // pantallas), así que traerlo desde este archivo —que también viaja al navegador— es gratis.
 import { llevaDeadline } from '@/lib/plan-recurrentes';
 import type { OpcionesPrioridadManual } from './lugar-al-soltar';
+import { esGrabador, type GrabadorId } from '@/lib/grabadores/reunion';
 import type { Repriorizacion } from '@/lib/plan-repriorizar-nucleo';
 // Las COLUMNAS del kanban (16/10/2026): el estado y sus reglas viven en un módulo de datos sin
 // `server-only`, el mismo que lee el server de las dos mitades. Acá sólo se declara el campo.
@@ -31,8 +32,11 @@ export const esIA = (a: Actor) => a !== 'user';
 export const ACTOR_LABEL: Record<Actor, string> = { user: '', ia: 'MaKo', code: 'Claude Code' };
 
 // La FUENTE de una tarjeta: DE DÓNDE salió (más rico que `origen`, que solo dice quién).
-// Fathom (una reunión), WhatsApp, un archivo, o Claude Code (con nombre + link del chat).
-export type FuenteTipo = 'manual' | 'mako' | 'fathom' | 'whatsapp' | 'archivo' | 'claude-code' | 'retro' | 'experimento' | 'recurrente';
+// Una reunión (el grabador que la grabó: Fathom, Loom, Zoom…; lib/grabadores, 26/10/2026), WhatsApp, un archivo, o
+// Claude Code (con nombre + link del chat).
+export type FuenteTipo = 'manual' | 'mako' | GrabadorId | 'whatsapp' | 'archivo' | 'claude-code' | 'retro' | 'experimento' | 'recurrente';
+/** ¿La tarjeta salió de una REUNIÓN grabada? Lo que antes era `tipo === 'fathom'`. */
+export const esFuenteDeReunion = (tipo: string | null | undefined): tipo is GrabadorId => esGrabador(tipo);
 export type Fuente = { tipo: FuenteTipo; etiqueta?: string; url?: string }; // etiqueta = reunión/archivo/chat; url = link
 // Si la tarjeta no tiene fuente explícita, se deriva del origen (compat con lo ya guardado).
 export function fuenteEfectiva(t: { origen: Actor; fuente?: Fuente }): Fuente {

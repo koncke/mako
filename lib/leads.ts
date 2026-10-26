@@ -1790,9 +1790,9 @@ export async function applyFathomRecording(
 
   if (!markedAsistencia && !addedLink) return { markedAsistencia: false, addedLink: false };
 
-  // La asistencia pasa por updateLead → dispara Meta CAPI QualifiedLead si el lead
-  // ya estaba calificado (antes el UPDATE directo bypaseaba el CAPI). Los links no
-  // son campo de updateLead, así que van por update directo.
+  // La asistencia pasa por updateLead (sus reglas y su historial). Desde el 05/10/2026 la asistencia ya NO manda
+  // eventos a Meta: sólo `calificado` dispara el CAPI (revisión del tren m, 26/10/2026: este comentario decía lo
+  // contrario). Los links no son campo de updateLead, así que van por update directo.
   if (markedAsistencia) {
     await updateLead(lead.id, which === 'j1' ? { asistio_j1: asistValue } : { asistio_j2: asistValue });
   }

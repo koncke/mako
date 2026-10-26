@@ -8,6 +8,8 @@
 // getTenantDb auto-scopea por workspace_id (TENANT_TABLES), así que las queries no
 // lo tocan a mano. Mapeo 1:1 con BoardTask/Label (jsonb para checklist/historial/fuente).
 
+import { esGrabador } from './grabadores/reunion';
+import { nombreDeGrabador } from './grabadores/catalogo';
 import { esIdColumnaPropia } from './plan-columnas';
 import { esColumnaInexistente } from './nutricion-grafo-motor';
 import 'server-only';
@@ -588,7 +590,7 @@ export async function borrarPlanProyecto(id: string): Promise<void> {
 function desdeDeFuente(f?: Fuente): { actor: Actor; desde: string } {
   const tipo = f?.tipo ?? 'whatsapp';
   const actor: Actor = tipo === 'claude-code' ? 'code' : 'ia';
-  const base = tipo === 'whatsapp' ? 'WhatsApp' : tipo === 'claude-code' ? 'Claude Code' : tipo === 'fathom' ? 'Fathom' : 'MaKo';
+  const base = tipo === 'whatsapp' ? 'WhatsApp' : tipo === 'claude-code' ? 'Claude Code' : esGrabador(tipo) ? nombreDeGrabador(tipo) : 'MaKo';
   return { actor, desde: f?.etiqueta ? `${base} · ${f.etiqueta}` : base };
 }
 

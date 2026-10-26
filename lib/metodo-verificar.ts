@@ -319,6 +319,65 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     }
     return { ok: true, detalle: 'Key válida — MaKo puede clonar voces y convertir audio.', facts };
   },
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores): leer UNA reunión con la clave, como Fathom. Las respuestas
+  // a una clave mala se midieron ese día contra las APIs reales (docs/hallazgos-integraciones.md).
+  async tldv(v) {
+    const { status, body } = await fetchJson('https://pasta.tldv.io/v1alpha1/meetings?limit=1', { headers: { 'x-api-key': v.TLDV_API_KEY, accept: 'application/json' } });
+    // Medido: falta de key y key mala dan el MISMO 401 (AuthorizationRequiredError).
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida (¿tu plan de tl;dv es Pro o Business?).' };
+    if (status >= 400 || !Array.isArray(body.results)) return { ok: false, error: `tl;dv respondió ${status}.` };
+    const u = (body.results as Array<{ name?: string; happenedAt?: string }>)[0];
+    const cuando = haceCuanto(u?.happenedAt);
+    return { ok: true, detalle: 'Key válida.', facts: u?.name ? [{ k: 'Tu última reunión', v: cuando ? `${u.name} · ${cuando}` : u.name, c: 'var(--good)' }] : [{ k: 'Reuniones', v: 'Key válida, sin reuniones todavía', c: 'var(--warn)' }] };
+  },
+
+  async fireflies(v) {
+    const { status, body } = await fetchJson('https://api.fireflies.ai/graphql', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${v.FIREFLIES_API_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: '{ transcripts(limit: 1) { title date } }' }),
+    });
+    // ⚠️ Una key mala contesta 500 con `auth_failed`, no 401 (medido el 26/10/2026).
+    const errores = Array.isArray(body.errors) ? (body.errors as Array<{ code?: string; message?: string }>) : [];
+    if (status === 401 || status === 403 || errores.some((e) => e.code === 'auth_failed')) return { ok: false, error: 'API key inválida.' };
+    if (status >= 400 || errores.length) return { ok: false, error: `Fireflies respondió ${status}${errores[0]?.message ? `: ${errores[0].message}` : ''}.` };
+    const lista = ((body.data as { transcripts?: Array<{ title?: string; date?: number }> } | undefined)?.transcripts) ?? [];
+    const u = lista[0];
+    const cuando = u?.date ? haceCuanto(new Date(u.date).toISOString()) : null;
+    return { ok: true, detalle: 'Key válida.', facts: u?.title ? [{ k: 'Tu última reunión', v: cuando ? `${u.title} · ${cuando}` : u.title, c: 'var(--good)' }] : [{ k: 'Reuniones', v: 'Key válida, sin reuniones todavía', c: 'var(--warn)' }] };
+  },
+
+  async zoom(v) {
+    const cuenta = (v.ZOOM_ACCOUNT_ID ?? '').trim();
+    const basic = Buffer.from(`${(v.ZOOM_CLIENT_ID ?? '').trim()}:${(v.ZOOM_CLIENT_SECRET ?? '').trim()}`).toString('base64');
+    const tok = await fetchJson(`https://zoom.us/oauth/token?grant_type=account_credentials&account_id=${encodeURIComponent(cuenta)}`, { method: 'POST', headers: { Authorization: `Basic ${basic}` } });
+    // Medido: credenciales malas = 400 «Invalid client_id or client_secret»; una cuenta que no es = 400 también.
+    if (tok.status >= 400 || typeof tok.body.access_token !== 'string') {
+      return { ok: false, error: `Zoom no aceptó la app${typeof tok.body.reason === 'string' ? `: ${tok.body.reason}` : ''}. Revisa los tres datos y que la app esté activada.` };
+    }
+    const desde = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+    const { status, body } = await fetchJson(`https://api.zoom.us/v2/users/me/recordings?from=${desde}&page_size=1`, { headers: { Authorization: `Bearer ${tok.body.access_token}` } });
+    if (status === 401 || status === 403 || (status === 400 && /scope/i.test(String(body.message ?? '')))) {
+      return { ok: false, error: 'La app entra, pero no tiene permiso de leer las grabaciones: suma los scopes de "cloud_recording".' };
+    }
+    if (status >= 400 || !Array.isArray(body.meetings)) return { ok: false, error: `Zoom respondió ${status}${body.message ? `: ${String(body.message)}` : ''}.` };
+    const u = (body.meetings as Array<{ topic?: string; start_time?: string }>)[0];
+    const cuando = haceCuanto(u?.start_time);
+    return { ok: true, detalle: 'App válida.', facts: u?.topic ? [{ k: 'Tu última grabación en la nube', v: cuando ? `${u.topic} · ${cuando}` : u.topic, c: 'var(--good)' }] : [{ k: 'Grabaciones', v: 'Sin grabaciones en la nube en los últimos 30 días', c: 'var(--warn)' }] };
+  },
+
+  async otter(v) {
+    const { status, body } = await fetchJson('https://api.otter.ai/v1/conversations?limit=1', { headers: { Authorization: `Bearer ${v.OTTER_API_KEY}`, accept: 'application/json' } });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida (la API de Otter es sólo del plan Enterprise).' };
+    if (status >= 400) return { ok: false, error: `Otter respondió ${status}.` };
+    const lista = Array.isArray(body.data) ? body.data : Array.isArray(body.conversations) ? body.conversations : null;
+    // La forma de la lista no se pudo medir sin una cuenta Enterprise: si no es la esperada, se dice (no «sin reuniones»).
+    if (!lista) return { ok: false, error: `Otter contestó con una forma que MaKo no conoce (${Object.keys(body).join(', ') || 'vacía'}). Avísanos.` };
+    const u = (lista as Array<{ title?: string; created_at?: string }>)[0];
+    const cuando = haceCuanto(u?.created_at);
+    return { ok: true, detalle: 'Key válida.', facts: u?.title ? [{ k: 'Tu última conversación', v: cuando ? `${u.title} · ${cuando}` : u.title, c: 'var(--good)' }] : [{ k: 'Conversaciones', v: 'Key válida, sin conversaciones todavía', c: 'var(--warn)' }] };
+  },
+
   async fathom(v) {
     const { status, body } = await fetchJson('https://api.fathom.ai/external/v1/meetings?limit=1', {
       headers: { 'X-Api-Key': v.FATHOM_API_KEY, accept: 'application/json' },

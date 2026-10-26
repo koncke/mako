@@ -13,19 +13,23 @@ import { createPortal } from 'react-dom';
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { MakoStar } from '../../_components/MakoBrand';
 import { fuenteEfectiva, type BoardTask, type Label } from './types';
+import { GRABADORES } from '@/lib/grabadores/reunion';
+import { nombreDeGrabador } from '@/lib/grabadores/catalogo';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
 
 const FUENTE_INFO: Record<string, { label: string; emoji: string }> = {
-  whatsapp: { label: 'WhatsApp', emoji: '💬' }, fathom: { label: 'Reunión · Fathom', emoji: '🎙️' },
+  whatsapp: { label: 'WhatsApp', emoji: '💬' },
+  // Una por grabador (lib/grabadores, 26/10/2026): «Reunión · Loom», «Reunión · Zoom»…
+  ...Object.fromEntries(GRABADORES.map((g) => [g, { label: `Reunión · ${nombreDeGrabador(g)}`, emoji: '🎙️' }])),
   mako: { label: 'MaKo', emoji: '✨' }, archivo: { label: 'Archivo', emoji: '📄' },
   'claude-code': { label: 'Claude Code', emoji: '⌨️' }, retro: { label: 'Retro', emoji: '🔁' },
   experimento: { label: 'Experimento', emoji: '🧪' }, manual: { label: 'Manual', emoji: '✍️' },
   recurrente: { label: 'Se repite', emoji: '⟳' },
 };
 // Orden en que se muestran los grupos por origen (los no listados van al final).
-const ORIGEN_ORDER = ['whatsapp', 'fathom', 'mako', 'archivo', 'experimento', 'retro', 'claude-code', 'manual'];
+const ORIGEN_ORDER = ['whatsapp', ...GRABADORES, 'mako', 'archivo', 'experimento', 'retro', 'claude-code', 'manual'];
 
 // Logo real de WhatsApp para el header del grupo (el resto usa su emoji). Inline para
 // no depender de BrandDefs (que solo se monta en Integraciones).

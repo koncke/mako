@@ -37,6 +37,8 @@ import { enRango, queTableroLeer, fechaTj, funnelsAgregados, leer, leerPorIds, l
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { conversorGastoMeta } from './moneda-meta';
 import { integracionConectada } from './credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from './grabadores';
 import { getQuadrantData } from './ads-analyst';
 import { getAngles } from './script-angles';
 import { getAvatares } from './script-avatares';
@@ -480,7 +482,7 @@ type FLlamadaVenta = {
  * Sin Fathom la tab no muestra nada (pide la key): la tarjeta lo dice en vez de dibujar ceros mudos
  * que se leen como «no hubo llamadas».
  */
-export const exigirFathom = async () => { if (!(await integracionConectada('fathom'))) throw new SinConexionError('Conecta Fathom en Integraciones'); };
+export const exigirFathom = async () => { if (!(await hayGrabadorConectado())) throw new SinConexionError('Conecta tu grabador de reuniones (Fathom, tl;dv, Fireflies, Zoom…) en Integraciones'); };
 
 /**
  * Las llamadas de venta analizadas, el universo de la tab (getClosingViewData). Cada fila es UNA llamada con

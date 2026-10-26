@@ -37,6 +37,8 @@ import { getTenantDb, getWorkspaceActual, runWithWorkspace, OWNER_WS } from './w
 import { leerTodo, leerPorPaginas } from './supabase-paginado';
 import { enTandas } from './ids-con-filas';
 import { integracionConectada } from './credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from './grabadores';
 import { accesoDeMeta } from './meta-via';
 import { configWs } from './cron-workspaces';
 import { ayerEnTijuana, diasAntes } from './date-utils';
@@ -87,9 +89,9 @@ async function jobAplica(key: JobKey): Promise<{ aplica: boolean; motivo?: strin
         ? { aplica: true }
         : { aplica: false, motivo: 'Meta no conectado' };
     case 'fathom_calls':
-      return (await integracionConectada('fathom'))
+      return (await hayGrabadorConectado())
         ? { aplica: true }
-        : { aplica: false, motivo: 'Fathom no conectado' };
+        : { aplica: false, motivo: 'Sin grabador de reuniones conectado' };
     case 'vsl_metrics': {
       // Los videos se leen con `configWs`, el MISMO lector de los crons de YouTube y Panda: el setting y,
       // si no está, la credencial (YOUTUBE_VSL_VIDEO_ID, PANDA_VSL_VIDEO_IDS), que es donde los guarda

@@ -22,6 +22,8 @@
 import type { NextRequest } from 'next/server';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { correrRonda } from '@/lib/cron-workspaces';
+// Los workspaces con CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI…: lib/grabadores, 26/10/2026).
+import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 import {
   drenarSesionesEntrega,
   MAX_SESIONES_POR_CORRIDA,
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
   const denied = checkCronAuth(request);
   if (denied) return denied;
 
-  const ronda = await correrRonda('fathom', async (ws, deadline) => {
+  const ronda = await correrRonda(GRABADORES_QUE_SE_LEEN, async (ws, deadline) => {
     const r = await drenarSesionesEntrega({ deadline, max: MAX_SESIONES_POR_CORRIDA });
     console.log(
       `[cron:cs-sesiones-entrega] ws=${ws} pendientes=${r.pendientes} analizadas=${r.analizadas} ` +

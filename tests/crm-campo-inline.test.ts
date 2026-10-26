@@ -141,9 +141,9 @@ test('un link de Fathom se valida, y el formulario NO lo validaba', () => {
   assert.equal(valorDeCampo('fathom_r2', 'https://app.fathom.video/calls/99'), 'https://app.fathom.video/calls/99');
   // Vaciar es legítimo: saca el link de esa reunión.
   assert.equal(valorDeCampo('fathom_r1', ''), null);
-  assert.throws(() => valorDeCampo('fathom_r1', 'la grabación de la primera'), /URL de Fathom/);
-  assert.throws(() => valorDeCampo('fathom_r2', 'https://fathom.video.evil.tld/x'), /URL de Fathom/);
-  assert.throws(() => valorDeCampo('fathom_r1', 'http://fathom.video/x'), /URL de Fathom/);
+  assert.throws(() => valorDeCampo('fathom_r1', 'la grabación de la primera'), /un grabador de reuniones/);
+  assert.throws(() => valorDeCampo('fathom_r2', 'https://fathom.video.evil.tld/x'), /un grabador de reuniones/);
+  assert.throws(() => valorDeCampo('fathom_r1', 'http://fathom.video/x'), /un grabador de reuniones/);
 });
 
 test('guardar el link de UNA reunión no toca los de las otras', () => {

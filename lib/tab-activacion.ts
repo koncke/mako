@@ -63,8 +63,9 @@ export const TABS_ACTIVACION: Record<string, TabActivacion> = {
     // el 11/10/2026 y fue entera a la hoja Closing del Dashboard: el título nombra dónde vive ahora.
     titulo: 'Closing en el Dashboard',
     servicio: 'fathom',
-    eyebrow: '✦ Con Fathom conectado',
-    queFalta: 'Fathom es donde se graban tus llamadas. Con su API key, el sync las trae solo y MaKo las analiza en lotes.',
+    // Se prende con CUALQUIER grabador (Fathom, tl;dv, Fireflies, Zoom, Otter: lib/grabadores, 26/10/2026); se ofrece Fathom.
+    eyebrow: '✦ Con tu grabador de reuniones conectado',
+    queFalta: 'Conecta el grabador de tus llamadas (Fathom, tl;dv, Fireflies, Zoom u Otter): el sync las trae solas y MaKo las analiza.',
     ademas: 'Con la key alcanza para traerlas. Para que cada llamada quede pegada a su lead tienen que coincidir por email, o sea tener el lead cargado en el CRM.',
     slides: [
       // lib/closing.ts (ClosingDim/ClosingObjection con t_seconds) + cron closing-sync

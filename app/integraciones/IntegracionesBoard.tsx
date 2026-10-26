@@ -453,8 +453,10 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
   // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
+  // Y un grabador que HOY no se conecta (Loom sin API; Read AI y Meet, sin su inicio de sesión: `sinConexion`): no hay nada
+  // que la persona pueda hacer para conectarlo, así que no es un pendiente.
   const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) && sevOf(i) !== 'good')
-    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
+    || i.detalle === POR_QUE_LA_CONFIGURA_MAKO || !!i.sinConexion;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
   // ⚠️ Y las que no son tarjetas (`sinTarjeta`, 25/10/2026): desde que las IA dejaron la grilla, la caja de Claude, OpenAI
@@ -639,7 +641,8 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
           // El chip repite la palabra del estado. Con permiso incompleto, "Por
           // configurar" (lo que diría el ámbar por defecto) manda al usuario a
           // buscar una credencial que no existe: acá lo que falta es un permiso.
-          chipWord={modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
+          chipWord={svcByKey(modal.key)?.sinConexion ? svcByKey(modal.key)!.sinConexion!.chip
+            : modal.key === 'google' && gcalIncompleta ? 'Falta permiso'
             : modal.key === 'landing' && landingVieja ? ROTULO_PIXEL_VIEJO
             : modal.key === 'calendly' && faltaAvisoCalendly ? faltaAvisoCalendly.chip
             : undefined}
@@ -1576,7 +1579,7 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
 
   // Estado EN VIVO (no descripción): Meta, y la IA cuya key guardada es la de MaKo (el campo se ve lleno y no es suya:
   // tickets #5 y #6, lib/ia-keys.ts → `veredictoDeIA`).
-  let alerta: string | null = i.detalle === POR_QUE_IA_DE_MAKO || i.detalle === POR_QUE_LA_CONFIGURA_MAKO ? i.detalle : null;
+  let alerta: string | null = i.detalle === POR_QUE_IA_DE_MAKO || i.detalle === POR_QUE_LA_CONFIGURA_MAKO ? i.detalle : i.sinConexion?.texto ?? null;
   // La del workspace del entorno no se pega (`soloServidor`, sin formulario) y tampoco lleva la lista de lo que falta.
   const delEquipo = i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   let facts: Array<{ k: string; v: string; c: string }> = [];
@@ -1752,7 +1755,7 @@ export function ServicioModal({ i, sev, chipWord, gcal, health, metaError, usage
             // sin esto el chip de acá arriba, el tile y el contador se quedaban en
             // "Por configurar" después de guardar, hasta que apretaras F5.
             <ServicioConfigForm servicioKey={i.key} onEstado={onCambio} />
-          ) : i.estado === 'falta' && i.key !== 'google' && !delEquipo && (
+          ) : i.estado === 'falta' && i.key !== 'google' && !delEquipo && !i.sinConexion && (
             // Google no lleva credenciales que copiar: se conecta por OAuth y su
             // estado lo cuenta PermisoGoogleCalendar. Sin esta excepción, el chip
             // de "falta configurar" mostraba la frase del detalle como si fuera
