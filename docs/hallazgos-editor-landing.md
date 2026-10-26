@@ -3184,3 +3184,25 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
 Lo que quedó SIN hacer (en este documento cuando se haga):
 - Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45).
 - «Aplicar» del analizador de otras landings y «Replicar» con una landing de la competencia: siguen en esta tanda.
+
+## Lo que se veía bien en el editor y se perdía al GUARDAR un diseño (26/10/2026, claude5)
+
+La revisión adversarial de tren-l lo encontró en lo nuevo de la barra «Texto» y de «Botón» en los diseños. Se veía bien
+en el editor, pero el HTML de un diseño pasa por el saneo del server (html-editable-seguro.ts) al guardar, al abrir y al
+publicar, y tres cosas se iban sin aviso:
+
+- **`execCommand` sin `styleWithCSS` escribe etiquetas VIEJAS.** El tachado sale `<strike>` y un color, `<font
+  color>`. La lista blanca del saneo no las tenía y su modo es `discard`: se va la etiqueta, queda el texto y el formato
+  se pierde. **Regla:** antes de un formato con `execCommand`, `styleWithCSS` en `true` (sale un `span` con estilo);
+  y el saneo pasa `strike`/`del` a `s` y `font color` a `span` con su color. Eso cubre también lo ya guardado y
+  lo pegado.
+- **Un enlace «a otra página» (`pagina:<id>`) se borraba**, porque `pagina` no era un esquema permitido. Y aunque pasara,
+  el HTML de un diseño se publica TAL CUAL: `resolverHref` corría sólo en los botones de bloque. Ahora el esquema se acepta
+  en `<a>` con un id válido, y al publicar `conEnlacesDePaginas` (html-editable.ts, desde render.ts y especificacion.ts)
+  lo cambia por la dirección de la página, o por `#` si ya no existe.
+- **Un precio con formato quedaba congelado.** La marca (`data-mako-precio`, `data-mako-desde`, `data-mako-prueba`) se
+  reconocía sólo con texto plano adentro (`[^<]*`). Una negrita encima la dejaba con el precio del día de publicar, aunque
+  cambiara en Planes. Ahora se reemplaza sólo el texto y las etiquetas de formato quedan. Con formato sobre una PARTE, el
+  número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
+
+Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).

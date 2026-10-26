@@ -64,7 +64,9 @@ const OPCIONES: sanitizeHtml.IOptions = {
     stop: SVG_ATTRS, clippath: SVG_ATTRS, mask: SVG_ATTRS, text: SVG_ATTRS, tspan: SVG_ATTRS,
   },
   allowedSchemes: ['http', 'https', 'mailto', 'tel'],
-  allowedSchemesByTag: { img: ['https', 'data'], source: ['https'], video: ['https'], iframe: ['https'] },
+  // `pagina:<id>` (26/10/2026): «a otra página» del selector de destino, como en un botón de bloque. Se traduce a la
+  // dirección de esa página al publicar (`conEnlacesDePaginas`, html-editable.ts); el id se valida abajo.
+  allowedSchemesByTag: { a: ['http', 'https', 'mailto', 'tel', 'pagina'], img: ['https', 'data'], source: ['https'], video: ['https'], iframe: ['https'] },
   allowedSchemesAppliedToAttributes: ['href', 'src', 'poster', 'srcset'],
   allowProtocolRelative: false,
   // Comentarios y el texto de lo que no pasa (un <script>) se van; el de una etiqueta desconocida queda.
@@ -73,9 +75,28 @@ const OPCIONES: sanitizeHtml.IOptions = {
   parser: { lowerCaseAttributeNames: false },
   exclusiveFilter: (frame) => frame.tag === 'iframe' && !iframePermitido(frame.attribs.src),
   transformTags: {
-    a: (tag, attribs) => (attribs.target === '_blank' ? { tagName: tag, attribs: { ...attribs, rel: 'noopener noreferrer' } } : { tagName: tag, attribs }),
+    a: (tag, attribs) => {
+      const a = { ...attribs };
+      // Un `pagina:` que no es un id de página no pasa (queda el enlace sin destino).
+      if (typeof a.href === 'string' && /^\s*pagina:/i.test(a.href) && !RE_PAGINA.test(a.href.trim())) delete a.href;
+      if (a.target === '_blank') a.rel = 'noopener noreferrer';
+      return { tagName: tag, attribs: a };
+    },
+    // LO QUE ESCRIBE CHROME (26/10/2026): el tachado de `execCommand` sin `styleWithCSS` es un `<strike>` (y un pegado
+    // puede traer `<del>` o `<font color>`). No están en la lista: con `discard` se iba la etiqueta y el formato se
+    // perdía al guardar, sin aviso. Pasan a sus equivalentes de la lista.
+    strike: 's',
+    del: 's',
+    font: (_tag, attribs) => {
+      const a: sanitizeHtml.Attributes = {};
+      if (/^#[0-9a-f]{3,8}$|^[a-z]{3,20}$/i.test(attribs.color ?? '')) a.style = `color:${attribs.color}`;
+      return { tagName: 'span', attribs: a };
+    },
   },
 };
+
+/** Un enlace a otra página del sitio (el `pagina:<id>` del selector de destino). */
+const RE_PAGINA = /^pagina:[A-Za-z0-9_-]{1,60}$/;
 
 /** ¿El `src` de un iframe es de un proveedor permitido (lib/embeds.ts)? Se queda con SU src, completo. */
 function iframePermitido(src: unknown): boolean {

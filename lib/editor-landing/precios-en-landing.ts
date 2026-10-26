@@ -42,9 +42,64 @@ export function precioDesde(planes: readonly PlanConPrecio[]): number | null {
   return precios.length ? Math.min(...precios) : null;
 }
 
-/** Un elemento marcado con `attr` (y su valor, si se pide) cuyo contenido es sólo texto: la apertura, el texto, el cierre. */
-const marca = (attr: string, valor?: string) =>
-  new RegExp(`(<([a-z][a-z0-9]*)\\b[^>]*\\s${attr}${valor === undefined ? '(?:="[^"]*")?' : `="${valor}"`}[^>]*>)([^<]*)(</\\2>)`, 'gi');
+/**
+ * Las etiquetas de FORMATO que pueden envolver el texto de una marca (26/10/2026): la barra «Texto» de un diseño pone
+ * negrita, cursiva, un color o un enlace sobre el precio, y con eso adentro la marca no se reconocía: el precio quedaba
+ * congelado en el que tenía el día que se publicó.
+ */
+const FORMATO = new Set(['b', 'strong', 'i', 'em', 'u', 's', 'mark', 'small', 'span', 'a', 'font', 'sub', 'sup']);
+
+/** El índice del cierre de `<tag>` que abrió antes de `desde` (cuenta los del mismo nombre de adentro), o -1. */
+function cierreDe(html: string, tag: string, desde: number): number {
+  const re = new RegExp(`<(/?)${tag}\\b[^>]*>`, 'gi');
+  re.lastIndex = desde;
+  let prof = 1;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    if (m[1]) { if (--prof === 0) return m.index; } else if (!m[0].endsWith('/>')) prof++;
+  }
+  return -1;
+}
+
+/**
+ * El contenido de una marca con el texto nuevo: si adentro hay sólo texto y etiquetas de formato, el texto va en el
+ * primer pedazo (con sus espacios de los costados) y los otros se vacían; las etiquetas quedan. Otra cosa adentro, null.
+ */
+function conTextoNuevo(adentro: string, nuevo: string): string | null {
+  const partes = adentro.split(/(<[^>]*>)/);
+  for (const p of partes) {
+    if (!p.startsWith('<')) continue;
+    const t = /^<\/?([a-z][a-z0-9]*)/i.exec(p)?.[1]?.toLowerCase();
+    if (!t || !FORMATO.has(t)) return null;
+  }
+  let puesto = false;
+  const res = partes.map((p) => {
+    if (p.startsWith('<') || !p.trim()) return p;
+    if (puesto) return '';
+    puesto = true;
+    const m = /^(\s*)[\s\S]*?(\s*)$/.exec(p);
+    return (m?.[1] ?? '') + nuevo + (m?.[2] ?? '');
+  });
+  if (puesto) return res.join('');
+  return partes.some((p) => p.startsWith('<')) ? null : nuevo;
+}
+
+/** Cada elemento marcado con `attr` (y su valor, si se pide), con `nuevo` como su texto. Lo demás vuelve byte por byte. */
+function ponerEnMarcas(html: string, attr: string, valor: string | undefined, nuevo: string): string {
+  const re = new RegExp(`<([a-z][a-z0-9]*)\\b[^>]*\\s${attr}${valor === undefined ? '(?:="[^"]*")?' : `="${valor}"`}[^>]*>`, 'gi');
+  let out = '';
+  let hecho = 0;
+  for (let m = re.exec(html); m; m = re.exec(html)) {
+    const ini = m.index + m[0].length;
+    const fin = cierreDe(html, m[1], ini);
+    if (fin < 0) continue;
+    const contenido = conTextoNuevo(html.slice(ini, fin), nuevo);
+    if (contenido === null) continue;
+    out += html.slice(hecho, ini) + contenido;
+    hecho = fin;
+    re.lastIndex = fin;
+  }
+  return out + html.slice(hecho);
+}
 
 /**
  * El HTML con los precios de hoy (y los días de la prueba gratis, si se pasan) en sus marcas. Un plan que ya no está deja su respaldo;
@@ -56,16 +111,14 @@ export function conPreciosEnHtml(html: string, planes: readonly PlanConPrecio[],
   if (diasDePrueba != null && Number.isInteger(diasDePrueba) && diasDePrueba > 0) {
     const d = diasDePrueba;
     const textos: Record<string, string> = { linea: lineaDePrueba(d), boton: botonDePrueba(d), dias: String(d), cobro: String(d + 1) };
-    for (const [cual, t] of Object.entries(textos)) {
-      out = out.replace(marca('data-mako-prueba', cual), (_t, abre: string, _tag: string, _txt: string, cierra: string) => `${abre}${t}${cierra}`);
-    }
+    for (const [cual, t] of Object.entries(textos)) out = ponerEnMarcas(out, 'data-mako-prueba', cual, t);
   }
   if (!planes.length) return out;
   const desde = precioDesde(planes);
-  if (desde != null) out = out.replace(marca('data-mako-desde'), (_t, abre: string, _tag: string, _txt: string, cierra: string) => `${abre}${precioUsd(desde)}${cierra}`);
+  if (desde != null) out = ponerEnMarcas(out, 'data-mako-desde', undefined, precioUsd(desde));
   for (const p of planes) {
     if (!/^[a-z0-9-]{1,32}$/.test(p.id) || !(p.precioUsd > 0)) continue;
-    out = out.replace(marca('data-mako-precio', p.id), (_t, abre: string, _tag: string, _txt: string, cierra: string) => `${abre}${precioUsd(p.precioUsd)}${cierra}`);
+    out = ponerEnMarcas(out, 'data-mako-precio', p.id, precioUsd(p.precioUsd));
   }
   return out;
 }

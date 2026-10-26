@@ -38,7 +38,7 @@ import { sanearConfig } from './validar';
 import { urlBloqueHtmlLibre } from './html-libre';
 import { productoDeHref, urlPasoPago } from './pago-landing';
 import { animacionDeSeccion } from './animaciones';
-import { CLASE_LIBRE, CLASE_SECCION_LIBRE, esTarjetaEditable } from './html-editable';
+import { CLASE_LIBRE, CLASE_SECCION_LIBRE, conEnlacesDePaginas, esTarjetaEditable } from './html-editable';
 
 export { ORIGEN_IMAGENES, origenImagenes, srcPermitido, hrefPermitido } from './especificacion';
 export type { ModoRender } from './especificacion';
@@ -505,7 +505,8 @@ function htmlDePaginaLibre(pagina: Pagina, tarjetas: Record<string, unknown>[], 
     else if (!ctx.incluirOcultas) continue;
     if (esTarjetaEditable(t)) {
       cerrarTramo();
-      const html = (t.content as unknown[]).map((n) => attrsHtmlEditable(esObj(n) ? n.attrs : null).html).join('');
+      // Los enlaces «a otra página» del diseño, a su dirección (como los de un botón de bloque).
+      const html = (t.content as unknown[]).map((n) => conEnlacesDePaginas(attrsHtmlEditable(esObj(n) ? n.attrs : null).html, (h) => resolverHref(h, ctx))).join('');
       // El ancla de la sección (25/10/2026): un botón que lleva a esta sección dice `#t-<id>` (SelectorDestino, como en una de
       // bloques), y este `div` no puede llevar el id: con `display: contents` no tiene caja, y un ancla sin caja no hace
       // scroll. Va un `span` vacío y de alto 0 adelante (`.gm-ancla-seccion`, html-editable.ts).
