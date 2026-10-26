@@ -40,7 +40,8 @@ test('ERROR 2: el super-admin SÍ la ve, aunque su capa no liste esa categoría'
   assert.equal(ve(suyas, 'github'), true, 'la capa NO puede tirar una credencial de plataforma');
   // Y su capa sigue mandando sobre lo que SÍ es del negocio.
   assert.equal(ve(suyas, 'meta'), false, 'Publicidad no está en su capa');
-  assert.equal(ve(suyas, 'anthropic'), true, 'Inteligencia sí');
+  // (Era anthropic hasta el 25/10/2026: las IA pasaron a «Tus cuentas de IA», `oculto`. ElevenLabs está en otra categoría de su capa.)
+  assert.equal(ve(suyas, 'elevenlabs'), true, 'IA Generativa sí');
 });
 
 test('las ocultas de la capa se respetan igual', () => {
@@ -135,7 +136,8 @@ test('ERROR 3 bis: y NO se confunde la plataforma con OWNER_WS', () => {
 test('la capa SuperAdmin muestra Meta y las que antes escondía', () => {
   const cap = CAPAS.superadmin;
   const suyas = f({ cats: cap.categoriasIntegraciones, ocultas: cap.integracionesOcultas ?? [], esSuper: true });
-  for (const key of ['meta', 'calendly', 'google', 'youtube', 'github']) {
+  // Google Calendar no: es `oculto` desde el 25/10/2026 (se conecta en Calendario); Cal.com es la otra de Reuniones.
+  for (const key of ['meta', 'calendly', 'calcom', 'youtube', 'github']) {
     assert.equal(ve(suyas, key), true, `el super-admin no ve «${key}»`);
   }
 });

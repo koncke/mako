@@ -5,6 +5,47 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## /integraciones limpia: sacar una tarjeta NO es sacar la integración, y el Leads Scraper era una sola cosa (25/10/2026)
+
+**Vive en:** `lib/integraciones-catalogo.ts` (`oculto`), `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`),
+`app/integraciones/TusCuentasIA.tsx`, `lib/google-login-agenda.ts`, `app/api/auth/google/route.ts` y su callback.
+Guards: `tests/integraciones-limpieza-25-10.test.ts`, `tests/leads-scraper-retirado.test.ts`.
+
+- **Ocultar una tarjeta rompía su link EN SILENCIO.** El `?abrir=<key>` del tablero buscaba la key en la lista VISIBLE: con
+  las cuatro IA y Google Calendar en `oculto`, `?abrir=anthropic` o `?abrir=google` (que mandan los avisos, la API de MaKo y
+  MaKo en WhatsApp) no abría nada, sin error. Ahora una `oculto` abre el modal suelto (`useConectarIntegracion`). **Regla:
+  `oculto` saca la tarjeta, no la integración; su modal (`getIntegracion` no mira `oculto`), su estado en la API
+  (`getIntegraciones({ conOcultas: true })`) y su link tienen que seguir andando.**
+- **Ocultar algo pone rojo a un test ajeno que lo usaba de EJEMPLO.** `integraciones-visibles` tomaba a `anthropic` como «la
+  tarjeta de Inteligencia que el super admin ve»: rojo desde el commit que la ocultó, y no lo dijo nadie hasta correrlo.
+  Antes de ocultar, `git grep` de la key en `tests/`.
+- **Las filas nuevas salían apiladas y centradas, y no era la grilla:** `.tci-clave` ya existía más abajo en
+  `tus-cuentas-ia.css` (reglas viejas sin dueño, `flex-direction: column`) y le ganaba a la nueva. Un nombre de clase se
+  busca antes de usarlo; las nuevas son `.tci-api`.
+- **«Depreca Hotmart, Skool... Elimina Apify» no eran tres tarjetas: era el Leads Scraper entero** (14/10). Dos webhooks que
+  entraban gente al CRM, el ruteo por hash, la pantalla `/crm/prospectos` con su renglón del «⋯» y del clic derecho, dos
+  operaciones de la API y un `funnel-de-entrada` que sólo existía para ellos. Medido antes, sólo leyendo: **0** claves (ni de
+  la plataforma), 0 filas de ruteo, 0 leads con ese origen, 0 búsquedas. Salió todo; las tablas de la mig 0289 quedan
+  (vacías) y `RUTEO_POR_HASH` queda vacío pero vivo (es el mismo mecanismo de los tokens de la API).
+- **Apify tenía una segunda vida que no es la integración:** la lectura de un @ de Instagram que paga la PLATAFORMA
+  (`lib/instagram-perfil-server.ts`, 22/10). Quedó DORMIDA: no hay clave en ningún lado y la tarjeta para cargarla se fue.
+  Su respaldo con la clave del negocio (`credDelCliente('APIFY_TOKEN')`) ya no se puede cargar.
+- **El login con Google NUNCA pidió la agenda, y dos comentarios decían que sí** (el callback y `GoogleCalendarPanel`):
+  `guardarCalendarBestEffort` estaba dormido. Ahora la pide con `GOOGLE_LOGIN_CON_AGENDA=1`, apagado: la app de Google no
+  está verificada (`docs/verificacion-google.md`) y los scopes del calendario son SENSIBLES → «Google no verificó esta app»
+  a todo el que entra y cada uno cuenta contra el tope de 100. **Trampa del consentimiento granular:** la persona puede
+  destildar el calendario y Google igual manda un refresh_token; el callback guarda sólo si el `scope` de la respuesta trae
+  la agenda ENTERA (`otorgoLaAgenda`).
+
+**Quedó SIN hacer:**
+- Prender `GOOGLE_LOGIN_CON_AGENDA`: recién con la verificación aprobada (Martín contesta el hilo de Google con el video
+  youtu.be/0-i4bJ8w5fo y arma la cuenta de revisor en el ws3) y **antes** reescribir `app/privacidad/page.tsx` (promete dos
+  consentimientos separados, el del login y el de la agenda).
+- La lectura de un @ por Apify de la plataforma (`lib/instagram-perfil-server.ts`): sacarla o reemplazarla lo decide el CRM.
+- El nombre y el logo de Zernio: los lleva el chat de Zernio.
+
+*25/10/2026, chat «Settings» (claude5), rama integraciones-2510.*
+
 ## Los links a cada conexión: `?abrir=` y `?servicio=` abren el modal, y el login perdía la query (25/10/2026)
 
 **Vive en:** `app/integraciones/IntegracionesBoard.tsx`, `proxy.ts` (`denegar`), `lib/integraciones-catalogo.ts`,

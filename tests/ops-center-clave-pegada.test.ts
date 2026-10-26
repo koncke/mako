@@ -31,7 +31,8 @@ const OPENAI = `sk-proj-${'Ab1x'.repeat(14)}`;
 test('1. reconoce la de Apify (y las de Anthropic y OpenAI), sin tapar texto normal', () => {
   const t = taparClaves(`Otra: ${APIFY}`);
   assert.equal(t.tapadas, 1);
-  assert.equal(t.servicio, 'apify', 'el servicio de /integraciones');
+  // Sin servicio desde el 25/10/2026: Apify salió de /integraciones y no hay «Conectar» que ofrecer. Se tapa igual.
+  assert.equal(t.servicio, null, 'Apify ya no es una integración: sin botón de conectar');
   assert.ok(!t.texto.includes(APIFY));
   for (const k of [ANTHROPIC, OPENAI]) assert.ok(hayClave(`te paso la clave ${k}`), k.slice(0, 8));
   for (const normal of ['el apify_api no anda', 'creala con apify.com y avisame', '/products/sk-ii-facial-treatment-essence-230ml']) {

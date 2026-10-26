@@ -15,9 +15,10 @@
 //   · cualquier otro caso → no-autorizado. Los usuarios nuevos se agregan
 //     desde /admin.
 //
-// Además, si Google devuelve un refresh_token (el login pide el scope de
-// Calendar), se guarda en el workspace del usuario — best-effort: eso NUNCA
-// puede impedir que el login se complete.
+// Además, si Google devuelve un refresh_token CON la agenda otorgada (el login la
+// pide sólo con GOOGLE_LOGIN_CON_AGENDA=1, lib/google-login-agenda.ts), se guarda
+// en el workspace del usuario — best-effort: eso NUNCA puede impedir que el login
+// se complete.
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
@@ -29,7 +30,8 @@ import { requiereCrearContrasena } from '@/lib/contrasena-reglas';
 import { tieneContrasena } from '@/lib/contrasena';
 import { dispositivoValido, mfaActivoReal } from '@/lib/mfa';
 import { buscarUsuarioPorEmail, contarUsuarios, crearUsuario, registrarLogin, type Usuario } from '@/lib/usuarios';
-import { googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
+import { GCAL_SCOPE, googleCalendarDueno, guardarRefreshTokenGoogle } from '@/lib/google-calendar';
+import { otorgoLaAgenda } from '@/lib/google-login-agenda';
 import { runWithWorkspace } from '@/lib/workspace';
 import { accesoInvitadoPorEmail, ponerCookieAlumno } from '@/lib/alumno-acceso';
 import { RUTA_ALUMNO } from '@/lib/rutas-publicas';
@@ -157,7 +159,7 @@ export async function GET(req: NextRequest) {
         code, client_id: clientId, client_secret: clientSecret, redirect_uri: redirectUri, grant_type: 'authorization_code',
       }),
     });
-    const tokens = (await tokenRes.json()) as { access_token?: string; refresh_token?: string };
+    const tokens = (await tokenRes.json()) as { access_token?: string; refresh_token?: string; scope?: string };
     if (!tokens.access_token) return fail('token');
 
     const uiRes = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
@@ -193,7 +195,8 @@ export async function GET(req: NextRequest) {
     // existe en esta respuesta de Google y no se lo pasea por una cookie. No abre nada:
     // conecta la agenda de ESTA misma cuenta de Google a SU propio workspace, y sólo si
     // no tenía ninguna — quien ya tiene la cuenta de Google ya tenía esa agenda.
-    await guardarCalendarBestEffort(usuario, tokens.refresh_token);
+    // Sólo con la agenda ENTERA otorgada: el consentimiento granular deja destildar el calendario (25/10/2026).
+    await guardarCalendarBestEffort(usuario, otorgoLaAgenda(tokens.scope, GCAL_SCOPE) ? tokens.refresh_token : undefined);
 
     const nombre = (ui.name ?? usuario.nombre ?? '').trim();
     const sub = usuario.id > 0 ? String(usuario.id) : 'password';

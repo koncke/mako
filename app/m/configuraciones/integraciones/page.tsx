@@ -25,7 +25,6 @@ import { SIN_MODAL_SUELTO } from '@/lib/integracion-en-tab';
 import { ordenCategoria } from '@/lib/integraciones-catalogo';
 import { ordenIA } from '@/lib/ia-labels';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
 import { POR_QUE_IA_DE_MAKO, POR_QUE_LA_CONFIGURA_MAKO } from '@/lib/ia-keys';
 import { CabeceraM, PantallaM } from '@/app/m/_ui';
 import { IntegracionesM, type IntegracionM, type ProblemaM } from './IntegracionesM';
@@ -47,7 +46,7 @@ export default async function IntegracionesMovil({ searchParams }: { searchParam
       conectada: i.estado === 'conectada' || i.detalle === POR_QUE_LA_CONFIGURA_MAKO,
       // La clave que pegó es la de MaKo: sin conectar, con algo que hacer (como en la tarjeta de la computadora).
       problema: inc ? { estado: inc.statusLabel, rojo: inc.severidad === 'rojo' } : i.detalle === POR_QUE_IA_DE_MAKO ? { estado: 'Revisa tu clave', rojo: false } : null,
-      opcional: esPasarela(i.key) || esIntegracionDeLeads(i.key),
+      opcional: esPasarela(i.key),
       // El link de escritorio que abre SU modal (o la grilla, para las que no se abren sueltas).
       enComputadora: SIN_MODAL_SUELTO.includes(i.key) ? '/integraciones' : `/integraciones?abrir=${encodeURIComponent(i.key)}`,
     };

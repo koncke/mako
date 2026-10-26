@@ -278,7 +278,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'email',
-    nombre: 'Email (Resend)',
+    nombre: 'Resend',
     categoria: 'Mensajería',
     paraQue: 'Envío de emails de nutrición, broadcasts y reportes.',
     campos: [
@@ -299,7 +299,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'anthropic',
-    nombre: 'MaKo IA (Anthropic)',
+    nombre: 'Anthropic API',
     categoria: 'Inteligencia',
     core: true,
     // ⚠️ DECÍA «El cerebro de MaKo: análisis, chats, sugerencias y todos los Analysts», y era
@@ -329,7 +329,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'openai',
-    nombre: 'OpenAI',
+    nombre: 'OpenAI API',
     categoria: 'Inteligencia',
     paraQue: 'Transcripción de audios/videos (Whisper) y tareas simples de extracción.',
     campos: [
@@ -348,7 +348,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'groq',
-    nombre: 'Groq',
+    nombre: 'Groq API',
     categoria: 'Inteligencia',
     paraQue: 'IA rápida y gratis para tareas simples (clasificar, extraer, titular) y transcripción de notas de voz (Whisper). MaKo la prefiere sobre OpenAI cuando hay key: se limita por tokens/día, no por saldo.',
     campos: [
@@ -369,7 +369,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   },
   {
     key: 'gemini',
-    nombre: 'Google Gemini',
+    nombre: 'Gemini API',
     categoria: 'Inteligencia',
     paraQue: 'Tu Gemini: con tu clave, MaKo trabaja solo con tu cuenta. El plan gratis no cobra, pero Google puede usar tus datos para mejorar sus modelos (con revisión humana). Activa la facturación en AI Studio y no los usa.',
     campos: [
@@ -770,105 +770,14 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
-  // ⚠️ LAS FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md): el propio
-  // público del negocio entra solo al CRM (lib/fuentes-leads.ts). No hay una API que conectar: el
-  // negocio pega UN secreto y la dirección del recuadro amarillo del otro lado. Ese secreto es el
-  // ÚNICO campo y es obligatorio: es lo que rutea el aviso —su hash va a webhook_routing,
-  // lib/ruteo-hash.ts— y lo que lo prueba. Sin él no entra nadie (tests/webhook-ruteo-obligatorio).
-  //
-  // Los nombres de las pantallas de Hotmart salen de guías de terceros (en inglés y portugués:
-  // «Tools» → «Webhook (API Notifications)» → «Authentication» → «Verification Hottok»), no de la
-  // pantalla en español: NO MEDIDOS. Se corrigen con la primera cuenta real que se conecte.
-  {
-    key: 'hotmart',
-    nombre: 'Hotmart',
-    categoria: 'Pagos',
-    paraQue: 'Cada compra y cada carrito abandonado de tus productos de Hotmart entran solos a tu CRM, con su historial.',
-    campos: [
-      { env: 'HOTMART_HOTTOK', label: 'Hottok', secreto: true, placeholder: 'Tu hottok de Hotmart', nota: 'Está en Hotmart, en Webhook → «Autenticación». Sin esto no entra ninguna compra a tu CRM.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección dentro de Hotmart',
-      porque: 'Es por donde Hotmart avisa cada compra y cada carrito abandonado. Sin esto, no entra nadie a tu CRM.',
-      valor: '{{APP_URL}}/api/webhooks/hotmart',
-      donde: 'En Hotmart: «Herramientas» → «Webhook» → «Registrar webhook», en el campo de la URL.',
-      ojo: [
-        'Elige la versión 2.0.0 y marca los eventos de compra y de carrito abandonado.',
-        'El «Hottok» de esa pantalla es el mismo que va en MaKo: si no coinciden, MaKo rechaza el aviso.',
-      ],
-    },
-    tutorial: {
-      url: 'https://app.hotmart.com/tools/list/producer',
-      urlLabel: 'Hotmart → Herramientas',
-      pasos: [
-        'En app.hotmart.com entra a «Herramientas», busca «Webhook» y abre su tarjeta.',
-        'En la pestaña «Autenticación» copia el «Hottok» y pégalo en «Hottok».',
-        'Toca «Registrar webhook», ponle de nombre MaKo y pega la dirección del recuadro amarillo.',
-        'Elige la versión 2.0.0 y marca los eventos de compra y de carrito abandonado.',
-      ],
-    },
-  },
-  // Skool no tiene un webhook propio documentado: lo oficial son los triggers de su app de Zapier
-  // («Answered Membership Questions», «New Paid Member»), y el Zap termina en «Webhooks by Zapier».
-  // La clave la INVENTA el negocio (como el «Secret» de Cal.com) y viaja en un header, nunca en la
-  // URL. ⚠️ NO MEDIDO: que con «Data» vacío Zapier mande los campos crudos del trigger (es lo que
-  // dice su ayuda del paso POST); el lector (lib/skool-evento.ts) acepta también los campos mapeados.
-  {
-    key: 'skool',
-    nombre: 'Skool',
-    categoria: 'Contenido',
-    paraQue: 'Quien pide entrar a tu comunidad de Skool entra solo a tu CRM, con sus respuestas a las preguntas de ingreso.',
-    campos: [
-      { env: 'SKOOL_WEBHOOK_CLAVE', label: 'Clave del aviso', secreto: true, placeholder: 'Una clave larga que inventes', nota: 'La inventas tú. Va igual aquí y en el header X-MaKo-Clave del Zap. Sin esto no entra nadie.' },
-    ],
-    pasoExterno: {
-      titulo: 'Pega esta dirección en tu Zap de Skool',
-      porque: 'Skool avisa por Zapier. Sin este paso, quien pide entrar a tu comunidad no llega a tu CRM.',
-      valor: '{{APP_URL}}/api/webhooks/skool',
-      donde: 'En zapier.com: tu Zap con Skool → paso «Webhooks by Zapier» → «POST» → campo «URL».',
-      ojo: [
-        'En «Headers» agrega X-MaKo-Clave con la misma clave de MaKo: sin ella, MaKo rechaza el aviso.',
-        'Deja «Data» vacío: así llegan el email, el nombre y las respuestas tal como los da Skool.',
-      ],
-    },
-    tutorial: {
-      url: 'https://zapier.com/apps/skool/integrations',
-      urlLabel: 'Zapier → Skool',
-      pasos: [
-        'En «Clave del aviso» escribe una clave larga que inventes (por ejemplo micomunidad2026clave).',
-        'En zapier.com crea un Zap con el trigger de Skool «Answered Membership Questions».',
-        'Como acción elige «Webhooks by Zapier» → «POST» y pega la dirección del recuadro amarillo.',
-        'En «Headers» agrega X-MaKo-Clave con la misma clave, y publica el Zap.',
-      ],
-    },
-  },
-  // APIFY (15/10/2026, docs/diseno-leads-scraper.md §5): donde corren las búsquedas de prospectos.
-  // BYOK: cada búsqueda se cobra en la cuenta de Apify del negocio, con un techo que MaKo le pasa a
-  // la corrida (`maxTotalChargeUsd`, lib/apify.ts). No recibe webhooks por credencial: el aviso de
-  // vuelta se rutea por la búsqueda (app/api/webhooks/apify), así que no hay fila de ruteo.
-  {
-    key: 'apify',
-    nombre: 'Apify',
-    categoria: 'Datos',
-    paraQue: 'Buscar prospectos en Google Maps e Instagram desde MaKo, con tu cuenta de Apify: pagas sólo lo que encuentras.',
-    campos: [
-      { env: 'APIFY_TOKEN', label: 'Token de Apify', secreto: true, placeholder: 'apify_api_…', nota: 'Está en Apify → Settings → API & Integrations. Cada búsqueda se cobra en tu cuenta, con un techo.' },
-    ],
-    tutorial: {
-      url: 'https://console.apify.com/settings/integrations',
-      urlLabel: 'Apify → Settings → API & Integrations',
-      pasos: [
-        'Crea tu cuenta en apify.com: el plan gratis alcanza para empezar.',
-        'En console.apify.com entra a «Settings» → «API & Integrations».',
-        'Copia tu «Personal API token» y pégalo en «Token de Apify».',
-      ],
-    },
-  },
+  // ⚠️ ACÁ ESTABAN Hotmart, Skool y Apify (el Leads Scraper): se fueron el 25/10/2026 sin una sola clave guardada en
+  // producción. Ver tests/leads-scraper-retirado.test.ts.
   // Google NO va acá, por lo mismo que Supabase: GOOGLE_CLIENT_ID/SECRET son la
   // app OAuth de la AGENCIA (login + Google Calendar), infra compartida de la
   // plataforma. Un cliente jamás crea su propia app OAuth ni pisa estas
-  // credenciales: conecta su agenda AUTORIZANDO (entra con Google, o el botón
-  // "Conectar Google Calendar" de /integraciones). Sigue en lib/integraciones.ts
+  // credenciales: conecta su agenda AUTORIZANDO (el botón "Conectar Google Calendar" del
+  // modal, en Calendario y el CRM; al entrar con Google sólo con GOOGLE_LOGIN_CON_AGENDA=1,
+  // lib/google-login-agenda.ts). Sigue en lib/integraciones.ts
   // como "Google Calendar", medido por señal real (el refresh token del ws).
 ];
 

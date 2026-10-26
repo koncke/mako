@@ -213,8 +213,8 @@ function MenuItem({ icon, label, onClick, href }: {
     : <button type="button" onClick={onClick} style={style} {...handlers}>{inner}</button>;
 }
 
-export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas, funnelActivo = null }: {
-  /** El CRM que se está mirando: «Buscar prospectos» lo lleva, y «Volver» de allá vuelve a ÉL (C6, 22/10/2026). */
+export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas, onPersonalizarTarjetas }: {
+  /** El CRM que se está mirando. Lo llevaba «Buscar prospectos» (C6, 22/10/2026), que se fue con el Leads Scraper el 25/10. */
   funnelActivo?: number | null;
   onImportar: () => void;
   onExportar: () => void;
@@ -260,15 +260,11 @@ export function AccionesHeader({ onImportar, onExportar, onNuevo, onEditarEtapas
                 leads"»: el pop-up ya se llamaba así, era el menú el que prometía un
                 formato cuando el importador lee planilla, PDF, foto y documento. */}
             {/* ⚠️ EN ESTE ORDEN DESDE EL 24/10/2026 (Martín: «revisa el orden y los botones de los desplegables, tal vez
-                sobran botones o estan desordenados»): lo que TRAE leads (importar, buscar prospectos), lo que los SACA
+                sobran botones o estan desordenados»): lo que TRAE leads (importar), lo que los SACA
                 (exportar) y, después de la raya, la configuración. El clic derecho del fondo del tablero lleva el mismo
                 orden (`opcionesCrm`, app/crm/menu-contextual-crm.ts). */}
             <MenuItem icon={<UploadIcon size={15} />} label="Importar leads"
               onClick={() => { setOpen(false); onImportar(); }} />
-            {/* El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la
-                prospección en frío. Navega: es una pantalla, no un pop-up, porque la lista vive sola. */}
-            <MenuItem icon={<IconoMenu nombre="buscar" size={15} />} label="Buscar prospectos" href={funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'}
-              onClick={() => setOpen(false)} />
             <MenuItem icon={<DownloadIcon size={15} />} label="Exportar leads"
               onClick={() => { setOpen(false); onExportar(); }} />
             <span style={{ height: 1, background: 'var(--border)', margin: '5px 6px' }} />

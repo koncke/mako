@@ -164,7 +164,7 @@ function enOrden(chica: string[], grande: string[]): boolean {
 const DECIDEN_POR_RUTA: Record<string, { test: string; paginas: string[] }> = {
   'app/crm': {
     test: 'tests/crm-redirige-antes-del-loader.test.ts',
-    paginas: ['app/crm/page.tsx', 'app/crm/new/page.tsx', 'app/crm/[id]/page.tsx', 'app/crm/prospectos/page.tsx', 'app/crm/revisar/page.tsx',
+    paginas: ['app/crm/page.tsx', 'app/crm/new/page.tsx', 'app/crm/[id]/page.tsx', 'app/crm/revisar/page.tsx',
       'app/crm/revisar/[id]/page.tsx', 'app/crm/[id]/resumen/page.tsx'],
   },
   'app/plan': { test: 'tests/redirige-antes-del-loader.test.ts', paginas: ['app/plan/page.tsx', 'app/plan/agencia/page.tsx', 'app/plan/revisar/[id]/page.tsx'] },
