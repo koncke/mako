@@ -983,6 +983,7 @@ const FASES = [
   { texto: 'Entro al grupo', pasos: ['buscando', 'entrando'] },
   { texto: 'Leo los miembros', pasos: ['miembros', 'recorriendo', 'parando'] },
   { texto: 'Junto los nombres', pasos: ['leyendo'] },
+  { texto: 'Leo sus perfiles', pasos: ['perfiles'] },
   { texto: 'Los guardo en MaKo', pasos: ['guardando'] },
 ];
 /** Lo que se dice mientras WhatsApp Web pide el QR (el worker espera cinco minutos con la pestaña al frente). */
@@ -1032,10 +1033,13 @@ function dibujarExtraccion(e) {
 
   if (estado === 'corriendo') {
     // Con el QR a la vista, la línea de abajo del título dice qué hacer (como «Inicia sesión en Google Flow»).
-    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : TEXTO_A_LA_VISTA;
+    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : e.fase === 'perfiles' && e.ahora ? e.ahora : TEXTO_A_LA_VISTA;
     const i = Math.max(0, FASES.findIndex((f) => f.pasos.includes(e.fase)));
     a.fases.forEach((li, j) => { li.className = j < i ? 'hecha' : j === i ? 'ahora' : ''; li.firstChild.textContent = j < i ? '✓' : ''; });
-    if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
+    if (e.fase === 'perfiles' && Number(e.perfilesTotal) > 0) {
+      a.conteo.firstChild.textContent = `${miles(e.perfilesHechos)}`;
+      a.conteo.lastChild.textContent = `de ${miles(e.perfilesTotal)} perfiles`;
+    } else if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
       a.conteo.firstChild.textContent = `${miles(e.guardados)}`;
       a.conteo.lastChild.textContent = `de ${miles(e.total)} guardados`;
     } else if (miembros) {
@@ -1086,6 +1090,7 @@ function armarExtraccion(cuerpo, e, estado) {
       cuerpo.appendChild(out.puntos);
     }
     if (e.texto) cuerpo.appendChild(nodo('div', 'tenue', e.texto));
+    if (Number(e.perfiles) > 0) cuerpo.appendChild(nodo('div', 'tenue', `${miles(e.perfiles)} con links, redes o correo de su perfil.`));
   } else if (estado === 'parado') {
     cuerpo.appendChild(nodo('div', 'tenue', 'La paraste. Lo que ya estaba guardado queda; para seguir, vuelve a tocar «Extraer» en MaKo.'));
   } else if (estado === 'cortada') {
@@ -1094,17 +1099,20 @@ function armarExtraccion(cuerpo, e, estado) {
     cuerpo.appendChild(nodo('div', 'tenue', MOTIVO[e.motivo] || e.texto || 'No se pudo. Vuelve a tocar «Extraer» en MaKo.'));
   }
   if (e.noEncontrado) cuerpo.appendChild(nodo('div', 'tenue', `No encontré «${e.noEncontrado}» entre tus chats.`));
+  if (e.volver === 'sin_pestana') cuerpo.appendChild(nodo('div', 'tenue', 'La pestaña de MaKo desde la que extrajiste ya no está abierta.'));
   cuerpo.appendChild(nodo('div', 'tenue', cuandoFue(e.cuando)));
   const b = nodo('button', '', 'Ver en MaKo');
   b.type = 'button';
-  b.addEventListener('click', () => void abrirMakoEn('/crm'));
+  // A la pestaña desde la que se tocó «Extraer» (puede haber varios CRM abiertos); si ya no está, el CRM.
+  b.addEventListener('click', () => void abrirMakoEn('/crm', e.origenTab));
   cuerpo.appendChild(b);
   return out;
 }
 
-/** La pestaña de MaKo que ya está, al frente; si no hay, una en `ruta`. */
-async function abrirMakoEn(ruta) {
-  const t = await pestanaDeMako();
+/** La pestaña `preferida` (la de origen de una extracción), si sigue abierta; si no, la de MaKo que ya está; si no, una en `ruta`. */
+async function abrirMakoEn(ruta, preferida) {
+  const propia = preferida != null ? await chrome.tabs.get(preferida).catch(() => null) : null;
+  const t = propia || await pestanaDeMako();
   if (t) {
     await chrome.tabs.update(t.id, { active: true }).catch(() => {});
     await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});

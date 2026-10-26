@@ -177,6 +177,8 @@ test('4. el content script: sin base NO la crea (ni la abre); con base, lee en m
     base: true, stores: ['contact', 'group-metadata', 'participant', 'message'], contactos: 6, grupos: 2, participantes: 3, pedidos: 1, conFicha: 1,
     // 0.72.0: cuántos nombres se vieron al recorrer el grupo, y cuántas fichas ganaron uno así (sin recorrer: 0).
     vistos: 0, enPantalla: 0,
+    // 0.73.5: los nombres que firman los mensajes de los grupos nombrados (acá no se nombró ninguno).
+    mensajes: { tabla: false, clave: null, leidos: 0, conNombre: 0, conAutor: 0, campos: {}, autores: 0, sumados: 0 },
   }, 'el diagnóstico: cantidades y nombres de tablas, nunca datos de nadie');
 
   const otro = await pedirAlContentScript(con.api, { tipo: 'OTRA_COSA' });

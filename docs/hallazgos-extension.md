@@ -202,15 +202,84 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   dice cómo está WhatsApp Web arriba del registro (`WA_ESTADO`, sólo mira). ⚠️ La pantalla del QR NO se midió en vivo
   (cerrarle la sesión a Martín no se hace): si WhatsApp cambia ese dibujo, el síntoma es esperar el minuto de «cargando» y
   decir `sin_sesion`. Medido en vivo que con la sesión abierta NO se confunde (2 s, sin pasar por «qr»).
+- **En producción (26/10, 781d069b3, extensión 0.72.3), «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto»:** usó la
+  pestaña de WhatsApp que ya estaba, entró al grupo, recorrió los 126 y terminó «105 nuevos · 41 nombres · 41 empresas», cada
+  lead en Lead entrante con la etiqueta del grupo. ⚠️ **El desplegable NO se abrió en esa corrida, que se disparó con un clic
+  por CDP (Claude in Chrome); sí se abrió en otra corrida de la misma hora con un clic de verdad en otra pestaña.**
+  `chrome.action.openPopup` pide que la ventana de Chrome tenga el foco del sistema, y un clic por CDP no se lo da (la ventana
+  de adelante era la app de Claude). **Regla para probar:** el desplegable se verifica con el clic de una persona (o mirando
+  `desplegable` en el registro); que no se abra desde un script no es un error de la extensión.
 - **Probar sin desplegar la pantalla:** el mismo pedido que manda MaKo se dispara desde SU pestaña de hola-mako.com con
   `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
   ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
+- **Volver a la pestaña EXACTA (0.74.0).** Martín: «puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que
+  identifique dónde fue que le dio click». La extracción vuelve a la pestaña que MANDÓ el pedido (el `sender.tab` del
+  mensaje, guardado como `origenTab` en el registro), nunca a «la primera de hola-mako.com»; al terminar y también si se corta
+  (error, parado, sin respuesta). Si esa pestaña ya no está no elige otra: lo anota (`volver: 'sin_pestana'`) y el desplegable
+  lo dice. MEDIDO en su Chrome (26/10): dos CRM y Ads Writer abiertos, pedido desde el segundo CRM, y al terminar quedó al
+  frente ése. tests/wa-extraer-072 (3d), probado rompiéndolo: volver a «la primera de MaKo» lo hace fallar.
+- ⚠️ **Qué pestaña quedó al frente no se sabe con un script de Claude in Chrome:** `document.visibilityState` y
+  `document.hasFocus()` dieron `visible` y `true` en las TRES pestañas de su grupo a la vez. **Regla:** se mira en una
+  captura de la tira de pestañas (computer-use, zoom sobre la tira), no preguntándole a la página.
+
+## Los PERFILES de cada contacto (26/10/2026, 0.73.0 → 0.73.6): cinco cosas medidas en vivo, y dos que casi rompen todo
+
+**Vive en:** `leerPerfiles`, `abrirPerfil`, `panelDeContacto(dig)` (extension/wa-recorrer.js) · `perfilDeInfo` (reglas) ·
+`WA_PERFILES_PEDIDO` (background.js) · `perfilesEnTandas`, `candidatosDePerfil`, `sumarPerfiles` (lib/wa-fichas-cliente.ts)
+· `perfilLimpio` + `completarFichas` (lib/grupo-wa-reglas.ts, app/crm/grupo-wa-server.ts) · tests/wa-extraer-072 (7 a 8).
+
+Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email». Y del visto: «No importa».
+- **El camino que anda** (medido): en «Busca miembros», el buscador encuentra a cada uno escribiendo `+<número>`; tocar la
+  fila abre SIEMPRE un menú («Info. del contacto», «Confirmar código de seguridad», «Enviar mensaje a…»); «Info. del contacto»
+  abre el panel a la derecha. ~4 s por perfil con la pausa de persona.
+- **El texto de cada opción del menú trae pegado el nombre de su ícono** («ic-info…Info. del contacto»): con `^Info` no se
+  encontró ninguna (60 de 60 «sin_ver», 0.73.0). Se busca en cualquier parte del texto. **Regla:** en WhatsApp Web, matchear
+  el texto de un botón sin anclar al principio.
+- ⚠️ **El panel del contacto no es `[role="complementary"]` ni `section`** (11 de 12 «sin_panel», 0.73.2). Y el primer
+  arreglo (0.73.3) **leyó TODA la pantalla**: tomó como título la opción «Info. del contacto» del MENÚ, todavía abierto, y
+  subió hasta el contenedor de la app; los 12 «perfiles» salieron con la web y el correo de OTROS chats. No se guardó nada
+  porque el server no estaba desplegado. **Regla:** un lector de pantalla que va a ESCRIBIR en un lead valida que lo que lee
+  es de esa persona: el título no está en un menú, diálogo ni lista; el panel no contiene #side ni #main; y muestra el
+  teléfono pedido (`panelDeContacto(dig)`). Sin eso, no se lee.
+- ⚠️ **Chrome mata el service worker si UN pedido pasa de 5 minutos**: 60 perfiles en el pedido de fichas (~5 min) terminaron
+  en «La extensión no contestó» (0.73.1), sin avance ni respuesta. **Regla:** nada de un pedido largo; la pantalla pide los
+  perfiles de a 12 (~1 min cada uno) con el mismo id (`perfilesEnTandas`).
+- ⚠️ **La 0.73.6 no cargó por UN carácter, y el diagnóstico obvio fue el equivocado:** «se recargó demasiadas veces» (~10
+  recargas solas en una hora; lo dije yo y no era). El Cerebro leyó chrome://extensions: «No se ha podido cargar el archivo
+  "wa-fichas.js" para el script de contenido. No está codificado con UTF-8.» El archivo ERA UTF-8 válido, pero traía un
+  U+FFFF LITERAL en `IDBKeyRange.bound('false_', 'false_<U+FFFF>')`: Chrome rechaza los NO CARACTERES (U+FFFE/U+FFFF de cada
+  plano, U+FDD0–U+FDEF) en un content script, y python, `file` y `node --check` lo dan por bueno. Se coló porque la
+  herramienta de edición convirtió la secuencia de escape en el carácter (y un reemplazo por bash se comió la barra otra
+  vez). Sin ícono, sin el puente en hola-mako.com, y también sin Flow. **Regla:** la secuencia de escape, nunca el carácter;
+  y para escribirla desde un script, armar la barra con `chr(92)`. Lo frena tests/extension-sin-no-caracteres.test.ts
+  (probado con este mismo caso). Igual: al iterar en vivo, juntar los cambios y copiar a su carpeta una sola vez.
+- **La «carpeta de Martín» (Escritorio\mako-puente) es un ENLACE** a dashboard-marketing-main/dashboard-marketing/extension:
+  un clon en `main` muy atrasado. Cada copia «a su carpeta» queda ahí como archivos modificados o sin seguir. Nadie commitea
+  en ese clon.
+- **Lo de Leandro (los nombres de un grupo donde la gente escribe): el diagnóstico obvio fue el equivocado otra vez.** La
+  hipótesis era el `notifyName` de cada mensaje (0.73.5). MEDIDO en «Networking SINDEMEX» (0.73.7, sólo cantidades): el
+  rango de claves `false_<grupo>_…` SÍ trae los mensajes del grupo (1.610), pero ninguno tiene `notifyName` ni otro campo con
+  el nombre: un mensaje guarda id, autor, hora y un `msgRowOpaqueData` opaco. Esa fuente no existe en las tablas. Lo que sí
+  hay: de 231 miembros, 89 con nombre en las tablas, y la lista de miembros muestra **47 «~nombre» más** con su teléfono
+  (de la memoria de WhatsApp; los toma el recorrido desde la 0.72). Y al buscar a cada uno por su número para su perfil, la
+  fila dice su nombre aunque no tenga teléfono a la vista (`nombreFila`, 0.73.8). **Regla:** antes de leer una tabla nueva,
+  mirar qué CAMPOS trae (`mensajes.campos` del diagnóstico); el nombre que se ve en un grupo sale de la pantalla.
+  Lo de Leandro en sí: con una extensión de antes de la 0.72 (sin recorrido) sólo salen los de las tablas. Su versión no se
+  midió (la lectura de `flow_puentes` en producción pide permiso).
 
 ## Sin hacer
 
-- **La corrida con la pantalla nueva desplegada** (la mitad de MaKo de «Extraer»: crear los leads con la etiqueta y guardar
-  los nombres): la extensión 0.72.2 ya corre en su Chrome y se probó a la vista (notas del Cerebro, capturas-extraer-072). Al
-  desplegar: Nuevo lead › Scraper › el grupo › «Extraer N», y mirar que el desplegable termine en «N nombres en MaKo».
+- **Los perfiles, de punta a punta**: MEDIDO en vivo con la 0.73.8 (26/10, grupo de agosto, sólo lectura): recorrido y en
+  seguida 12 perfiles → 12 paneles abiertos (el del contacto: su teléfono, «1 grupo en común», Bloquear/Reportar), 2 con datos
+  (2 webs, 1 red, 1 correo) y 4 con su nombre por la fila del buscador. Falta la corrida que GUARDA, con el server desplegado
+  (666fe43e1 y siguientes no están en main). ⚠️ En esa corrida el recorrido quedó un rato en «11 de 126» con la lista de
+  miembros en miniatura (terminó bien); Martín estaba usando otra ventana: mirar si una ventana sin foco frena la lista.
+- **La versión de la extensión de Leandro** (`flow_puentes.version` del negocio de Leandro, o su chrome://extensions): si es
+  anterior a la 0.72, ahí está su «no extrajo nada». Y el `notifyName` de la 0.73.5 quedó sin uso (los mensajes no lo traen):
+  sacarlo si en otro WhatsApp Web tampoco aparece.
+- **Los «@usuario» de la lista de miembros** (visto el 26/10 en «09,10,11 de Agosto»: filas como «@MiguelCarrenoDonado /
+  Michelangelo Marketer»): WhatsApp ya muestra nombres de usuario, sin teléfono a la vista. `nombresDeFilas` sólo toma el
+  «~nombre» con su teléfono, así que esas filas no suman. Medir cuántas son y si el `@lid` las cruza antes de construir.
 - **El desplegable en su estado final («listo»)** no se capturó: vuelve a MaKo a los 4 s y se cierra. Se ve en su registro.
 - **La pantalla del QR, medida:** la primera vez que un cliente (o un perfil aparte) llegue con la sesión cerrada, mirar que
   el desplegable diga «Escanea el QR» y no «cargando».

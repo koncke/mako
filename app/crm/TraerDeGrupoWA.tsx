@@ -27,7 +27,7 @@ import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CS
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, TOPE_PERFILES_DIA, minutosDePerfiles, fichaLimpia, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDePerfiles, type AvanceFichas, type AvancePerfiles } from './enriquecer-cliente';
-import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
@@ -87,9 +87,12 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   /** «Extraer» corriendo, y el pedido de parar (lo mira cada tanda; llega del pie o del «Parar» del desplegable). */
   const [extrayendo, setExtrayendo] = useState(false);
   const parar = useRef(false);
-  /** Sin la extensión (o vieja): 'pide' = el pie dice «Instala la extensión»; 'fue' = tocó «Instalar». Al aparecer la
-   *  extensión en esta pestaña, los nombres arrancan solos. */
-  const [esperaExt, setEsperaExt] = useState<'pide' | 'fue' | null>(null);
+  /** SIN LA EXTENSIÓN (o vieja) «Extraer» NO ARRANCA (Martín, 26/10/2026: «si no tiene la extensión que no lo deje
+   *  scrapear, que le salte el pop-up para instalar la extensión»): `pideExt` abre el pop-up; tocó «Instalar» → 'fue', y al
+   *  aparecer la extensión en esta pestaña la extracción arranca sola. Antes traía los leads sin nombres y pedía la extensión
+   *  después (a Leandro le pasó con una extensión vieja: «hizo todo el proceso... y no extrajo nada»). */
+  const [esperaExt, setEsperaExt] = useState<'fue' | null>(null);
+  const [pideExt, setPideExt] = useState(false);
   /** «Ignorar admins» (Martín, 26/10/2026): los admins del grupo no se tildan. */
   const [sinAdmins, setSinAdmins] = useState(false);
   const sinAdminsAhora = useRef(false);
@@ -210,6 +213,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
    */
   const extraer = async (soloNombres = false) => {
     if (!grupo || trayendo || !entrada) return;
+    if (extWa !== 'si') { setPideExt(true); return; }
     setErr(null); setHecho(null); setEsperaExt(null);
     const id = nuevoIdExtraccion();
     parar.current = false;
@@ -233,7 +237,9 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         const f = await fichasP;
         if (f.ok) {
           console.info('[wa-fichas]', f.diagnostico);
-          const fichas = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+          // Y el PERFIL de cada uno (0.73.2): de a tandas, antes de guardar, así se guarda todo junto.
+          const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x), { grupo: grupo.nombre, id, parar: () => parar.current });
+          const fichas = pf.fichas;
           avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
           a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeGrupoAction({ linea, jid, fichas: tanda }), {
             parar: () => parar.current,
@@ -254,6 +260,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'nuevo' : 'nuevos'}` : '',
         a ? `${miles(nombres)} ${nombres === 1 ? 'nombre' : 'nombres'}` : '',
         a?.empresas ? `${miles(a.empresas)} ${a.empresas === 1 ? 'empresa' : 'empresas'}` : '',
+        a?.perfiles ? `${miles(a.perfiles)} con datos de su perfil` : '',
         t?.errores.length ? `${miles(t.errores.length)} no se ${t.errores.length === 1 ? 'pudo' : 'pudieron'}` : '',
       ].filter(Boolean);
       const resumen = partes.join(' · ') || (t ? 'Nadie para extraer' : 'Sin nombres nuevos');
@@ -269,19 +276,17 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
       ].join('');
       if (!fallaWa && conExt) {
         avisarExtraccion(id, {
-          estado: parar.current ? 'parado' : 'listo', nombres, empresas: a?.empresas ?? 0, nuevos: nuevosHechos,
+          estado: parar.current ? 'parado' : 'listo', nombres, empresas: a?.empresas ?? 0, nuevos: nuevosHechos, perfiles: a?.perfiles ?? 0,
           texto: nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'lead nuevo' : 'leads nuevos'} en «${entrada.label}», con la etiqueta del grupo.` : 'Ya estaban todos en tu CRM.',
         });
       }
       setHecho(`«${grupo.nombre}»: ${resumen}.${cola}`);
       setExtrayendo(false); setAvance(null);
-      // Sin la extensión: los nombres, cuando la instale (y arrancan solos al aparecer).
-      if (!conExt && extWa !== 'si' && (nuevosHechos > 0 || yaEstan > 0)) setEsperaExt('pide');
       if (nuevosHechos || nombres) onTraidos(resumen);
       setVuelta((n) => n + 1);
     }
   };
-  const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void extraer(true); });
+  const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void extraer(); });
   useEffect(() => { if (esperaExt && extWa === 'si') arrancarAlInstalar(); }, [esperaExt, extWa]);
 
   // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
@@ -349,12 +354,16 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   // Lo que corre se para desde el pie (y «Extraer», también desde el desplegable de la extensión).
   const pararAccion = extrayendo ? { texto: 'Parar', onClick: () => { parar.current = true; setAvance('Parando…'); } }
     : perfilando ? { texto: 'Parar', onClick: () => void contarPerfiles() } : undefined;
-  const instalar = { texto: extWa === 'vieja' ? 'Actualizar' : 'Instalar', onClick: () => { setEsperaExt('fue'); window.open('/extension/instalar', '_blank', 'noopener'); } };
+  const irAInstalar = () => {
+    setPideExt(false); setEsperaExt('fue');
+    // Una descomprimida vieja con la nueva en su carpeta se pone al día sola con esto (0.71.1+).
+    window.dispatchEvent(new CustomEvent('MAKO_EXTENSION_REVISAR'));
+    window.open('/extension/instalar', '_blank', 'noopener');
+  };
   const estado = err ? { texto: err, tono: 'mal' as const }
     : avance ? { texto: avance, tono: 'neutro' as const, ...(pararAccion ? { accion: pararAccion } : {}) }
     : lineas && !entrada ? { texto: 'Ninguna etapa de este CRM se puede usar al extraer: todas mandan algo o cierran el trato.', tono: 'mal' as const }
-    : esperaExt === 'pide' ? { texto: `${extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo para los nombres.`, tono: 'neutro' as const, accion: instalar }
-    : esperaExt === 'fue' ? { texto: 'Cuando la extensión esté, los nombres empiezan solos.', tono: 'neutro' as const }
+    : esperaExt === 'fue' ? { texto: 'Cuando la extensión esté, la extracción empieza sola.', tono: 'neutro' as const, accion: { texto: 'Cancelar', onClick: () => setEsperaExt(null) } }
     : hecho ? { texto: hecho, tono: 'ok' as const }
     : buscandoTodos ? { texto: 'Buscando el resto de tus grupos…', tono: 'neutro' as const }
     : null;
@@ -445,6 +454,14 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         {!jid && grupos !== null && <p style={nota}>{grupos.length ? 'Elige el grupo de arriba.' : 'Esta línea no está en ningún grupo.'}</p>}
         {(grupos === null || (jid && gente === null)) && <p style={{ ...nota, color: 'var(--faint)' }}>Cargando…</p>}
         {jid && gente?.length === 0 && <p style={nota}>{sinNumero ? 'WhatsApp no deja ver los números de este grupo.' : 'Nadie para extraer.'}</p>}
+      {pideExt && (
+        <Confirm tone="primary" title={extWa === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'}
+          confirmLabel={extWa === 'vieja' ? 'Actualizar' : 'Instalar'}
+          message={extWa === 'vieja'
+            ? 'Tu extensión es de antes y no sabe extraer de un grupo. Actualízala y la extracción empieza sola.'
+            : 'Para extraer de un grupo, MaKo entra a tu WhatsApp Web con su extensión. Instálala y la extracción empieza sola.'}
+          onConfirm={irAInstalar} onCancel={() => setPideExt(false)} />
+      )}
       {cuentaPerfiles && (
         <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
           message={preguntaDePerfiles(cuentaPerfiles, minutosDePerfiles(cuentaPerfiles.estaCorrida))}

@@ -36,15 +36,18 @@ test('1. la extensión, en vivo: el atributo de mako-puente.js y al volver a la 
   assert.match(p, /const extWa = useExtensionFichas\(\);/);
 });
 
-test('2. sin la extensión: «Extraer» trae igual, el pie pide instalarla, y los nombres arrancan solos al aparecer', () => {
+test('2. sin la extensión (o vieja), «Extraer» NO arranca: salta el pop-up de instalarla, y al aparecer arranca sola', () => {
+  // Martín, 26/10/2026: «si no tiene la extensión que no lo deje scrapear, que le salte el pop-up para instalar la extensión».
   const p = sinComentarios(leer('app/crm/TraerDeGrupoWA.tsx'));
   assert.doesNotMatch(p, /completarNombresDeGrupoAction/, 'volvió el camino que completaba «algunos o ninguno» sin decir por qué');
-  assert.match(p, /if \(!conExt && extWa !== 'si' && \(nuevosHechos > 0 \|\| yaEstan > 0\)\) setEsperaExt\('pide'\);/, 'sin la extensión no pide instalarla');
-  assert.match(p, /const arrancarAlInstalar = useEffectEvent\(\(\) => \{ setEsperaExt\(null\); void extraer\(true\); \}\);/);
-  assert.match(p, /useEffect\(\(\) => \{ if \(esperaExt && extWa === 'si'\) arrancarAlInstalar\(\); \}, \[esperaExt, extWa\]\);/, 'no arranca solo al instalarla');
-  assert.match(p, /esperaExt === 'pide' \? \{ texto: `\$\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión de MaKo para los nombres\.`, tono: 'neutro' as const, accion: instalar \}/);
+  const cuerpo = p.slice(p.indexOf('const extraer = async'));
+  assert.match(cuerpo, /^const extraer = async \(soloNombres = false\) => \{\n\s+if \(!grupo \|\| trayendo \|\| !entrada\) return;\n\s+if \(extWa !== 'si'\) \{ setPideExt\(true\); return; \}/, 'sin la extensión, «Extraer» trae leads sin nombres');
+  assert.match(p, /\{pideExt && \(\n\s+<Confirm tone="primary" title=\{extWa === 'vieja' \? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'\}/, 'sin el pop-up');
   assert.match(p, /window\.open\('\/extension\/instalar', '_blank', 'noopener'\)/);
-  assert.match(p, /esperaExt === 'fue' \? \{ texto: 'Cuando la extensión esté, los nombres empiezan solos\.'/);
+  assert.match(p, /window\.dispatchEvent\(new CustomEvent\('MAKO_EXTENSION_REVISAR'\)\);/, 'una vieja con la nueva en su carpeta no se pone al día');
+  assert.match(p, /const arrancarAlInstalar = useEffectEvent\(\(\) => \{ setEsperaExt\(null\); void extraer\(\); \}\);/);
+  assert.match(p, /useEffect\(\(\) => \{ if \(esperaExt && extWa === 'si'\) arrancarAlInstalar\(\); \}, \[esperaExt, extWa\]\);/, 'no arranca sola al instalarla');
+  assert.match(p, /esperaExt === 'fue' \? \{ texto: 'Cuando la extensión esté, la extracción empieza sola\.'/);
 });
 
 test('3. no hay «Completar nombres»: ni en el «⋯» ni en el pie (van solos dentro de «Extraer»)', () => {
@@ -57,5 +60,5 @@ test('3. no hay «Completar nombres»: ni en el «⋯» ni en el pie (van solos 
 //   · sin el efecto que arranca al aparecer la extensión                                   → 2 / 1
 //   · el pie sin «Completar nombres» cuando hay gente que ya está                          → 2 / 1
 //   · el hook sin mirar el atributo (sólo al volver a la pestaña)                          → 2 / 1
-// Y el 26/10/2026, con «Extraer» (base 3 / 0): un «Completar nombres» de vuelta en el «⋯» → 2 / 1; sin el `setEsperaExt('pide')`
-// al terminar sin la extensión → 2 / 1.
+// Y el 26/10/2026, con «Extraer» (base 3 / 0): un «Completar nombres» de vuelta en el «⋯» → 2 / 1; «Extraer» sin la extensión
+// que igual arranca (sin el `setPideExt(true)`) → 2 / 1.

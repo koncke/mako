@@ -75,14 +75,15 @@ test('1. las reglas: displayNameLID es un nombre, el @lid encuentra al que no ti
   assert.deepEqual(plano(r.fichasDe(indice, ['5491155550002'], porLid)), []);
   // Los grupos: el nombre sin acentos ni emojis; contesta sólo si está y cuántos son, nunca a quiénes.
   assert.deepEqual(plano(r.buscarGrupos(GRUPOS, PARTICIPANTES, ['Formacion de Jan', 'afiliados', 'No existe'])), [
-    { nombre: 'Formacion de Jan', encontrado: true, participantes: 3, conNombre: null },
-    { nombre: 'afiliados', encontrado: true, participantes: 1, conNombre: null },
-    { nombre: 'No existe', encontrado: false, participantes: null, conNombre: null },
+    // `conNotify` (0.73.5): cuántos firman algún mensaje con su nombre (acá no se pasaron mensajes).
+    { nombre: 'Formacion de Jan', encontrado: true, participantes: 3, conNombre: null, conNotify: 0, sinMensajes: null },
+    { nombre: 'afiliados', encontrado: true, participantes: 1, conNombre: null, conNotify: 0, sinMensajes: null },
+    { nombre: 'No existe', encontrado: false, participantes: null, conNombre: null, conNotify: null, sinMensajes: null },
   ]);
   // Con los contactos, de cuántos del grupo WhatsApp sabe el NOMBRE (en el grupo de Martín, 1 de 247: es de anuncios).
   const sinNombre = [...CONTACTOS, { id: '301234567890009@lid', phoneNumber: '5491155550009@c.us' }];
   const conUnoMudo = [{ groupId: '120363000000000001@g.us', participants: [...PARTICIPANTES[0].participants, '301234567890009@lid'] }];
-  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, conUnoMudo, ['Formación de Jan'], sinNombre)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 3 }]);
+  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, conUnoMudo, ['Formación de Jan'], sinNombre)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 3, conNotify: 0, sinMensajes: 3 }]);
   assert.ok(!JSON.stringify(r.buscarGrupos(GRUPOS, PARTICIPANTES, ['Afiliados'])).includes('@lid'), 'salió un participante');
   // ⚠️ EL NOMBRE DE EMPRESA DE `verified-business-name` (26/10/2026): en el grupo de los 221 de Martín, ninguno tenía nombre en
   // `contact` (la 0.71.0 completó 0) y 83 lo tenían ahí, por su @lid. Con teléfono y con @lid, y cuenta en `conNombre`.
@@ -94,7 +95,7 @@ test('1. las reglas: displayNameLID es un nombre, el @lid encuentra al que no ti
   assert.deepEqual(porTel.map((f) => [f.empresa, f.esEmpresa, f.grupos]), [['Panadería Sol', true, ['Formación de Jan 🚀']]], 'el nombre de empresa de verified-business-name no se lee por teléfono');
   const soloLid = plano(r.fichasDe(r.indexar([], GRUPOS, gruposMudo, VERIFICADOS), [{ telefono: '5491155550007', lid: '301234567890007@lid' }], r.indexarLids([], GRUPOS, gruposMudo, VERIFICADOS))) as Array<{ empresa: string | null }>;
   assert.deepEqual(soloLid.map((f) => f.empresa), ['Panadería Sol'], 'el nombre de empresa no se lee por @lid');
-  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, gruposMudo, ['Formación de Jan'], conMudo, VERIFICADOS)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 4 }]);
+  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, gruposMudo, ['Formación de Jan'], conMudo, VERIFICADOS)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 4, conNotify: 0, sinMensajes: 4 }]);
   assert.match(leer('extension/wa-fichas.js'), /leerStore\(db, 'verified-business-name'\)/, 'el script no lee la tabla de nombres de empresa');
   // La misma regla de nombre en la extensión y en el servidor (el servidor busca el grupo en su línea con la suya).
   for (const s of ['Formación de Jan 🚀', '  CÍRCULO  tibio #3 ', 'Ñandú · Afiliados']) assert.equal(r.asuntoComparable(s), asuntoTs(s), s);
@@ -145,7 +146,7 @@ test('2. el script de WhatsApp Web: el «ping» no abre la base; el pedido con @
   const r = respuesta as { ok: boolean; fichas: Array<{ telefono: string; pushname: string }>; grupos: unknown[] };
   assert.equal(r.ok, true);
   assert.deepEqual(r.fichas.map((f) => [f.telefono, f.pushname]), [['5491155550002', 'Lucía Ríos']]);
-  assert.deepEqual(r.grupos, [{ nombre: 'Formación de Jan', encontrado: true, participantes: 3, conNombre: 3 }]);
+  assert.deepEqual(r.grupos, [{ nombre: 'Formación de Jan', encontrado: true, participantes: 3, conNombre: 3, conNotify: 0, sinMensajes: 3 }]);
 });
 
 test('3. el cliente de la página: espera mientras hay avance, y un puente huérfano no le gana a la respuesta viva', async () => {

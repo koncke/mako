@@ -368,6 +368,8 @@ export async function completarPerfiles(p: {
 
 export type ResultadoFichas = {
   ok: true; recibidas: number; deLeads: number; nombres: number; empresas: number; grupos: number; errores: number;
+  /** Los leads a los que su perfil de WhatsApp les completó algo (web, Instagram, correo, dirección) o dejó su línea. */
+  perfiles?: number;
   /** Los teléfonos que no se llegaron a guardar porque se acabó el tiempo: la pantalla los vuelve a mandar. */
   pendientes: string[];
 } | { ok: false; error: string };
@@ -413,7 +415,7 @@ export async function completarFichas(p: { fichas: unknown[]; autor: string; has
     if (error) return { ok: false, error: `No pude leer los leads: ${error.message}` };
     for (const r of (data ?? []) as Array<{ id: number; nombre: string | null }>) actuales.set(Number(r.id), { nombre: r.nombre ?? null });
   }
-  let nombres = 0, empresas = 0, grupos = 0, errores = 0;
+  let nombres = 0, empresas = 0, grupos = 0, errores = 0, perfiles = 0;
   const pendientes: string[] = [];
   for (const { f, id } of conLead) {
     if (Date.now() > p.hasta) { pendientes.push(f.telefono); continue; }
@@ -423,6 +425,19 @@ export async function completarFichas(p: { fichas: unknown[]; autor: string; has
       const nombre = nombreDeFicha(f);
       if (nombre && esNombreDeRelleno(lead.nombre) && await completarNombreDeRelleno(id, lead.nombre, nombre, p.autor)) nombres++;
       if (f.empresa && (await completarCamposVacios(id, { empresa: f.empresa }, p.autor)).length) empresas++;
+      // SU PERFIL (0.73.0): por el mismo camino que «Datos de empresa» (`parcheDePerfil`: sólo lo vacío; lo que no tiene
+      // columna, en una línea del historial, una vez).
+      if (f.perfil) {
+        const { data } = await db.from('leads').select(`id, ${CAMPOS_DEL_PERFIL.join(', ')}`).eq('id', id).maybeSingle();
+        const escritos = data ? await completarCamposVacios(id, parcheDePerfil(data as Partial<Record<CampoDelPerfil, string | null>>, f.perfil), p.autor) : [];
+        const linea = lineaDePerfil(f.perfil);
+        let dejoLinea = false;
+        if (linea) {
+          const { data: ultima } = await db.from('lead_audit').select('valor_nuevo').eq('lead_id', id).eq('campo', 'Perfil de WhatsApp').order('created_at', { ascending: false }).limit(1);
+          if ((ultima?.[0] as { valor_nuevo?: string } | undefined)?.valor_nuevo !== linea) { await logLeadEvent(id, 'Perfil de WhatsApp', linea, p.autor); dejoLinea = true; }
+        }
+        if (escritos.length || dejoLinea) perfiles++;
+      }
       const linea = lineaDeGrupos(f.grupos);
       if (linea) {
         // Una vez por cambio: si la última línea de grupos de este lead dice lo mismo, no se repite.
@@ -434,7 +449,7 @@ export async function completarFichas(p: { fichas: unknown[]; autor: string; has
       errores++;
     }
   }
-  return { ok: true, recibidas: fichas.length, deLeads: conLead.length, nombres, empresas, grupos, errores, pendientes };
+  return { ok: true, recibidas: fichas.length, deLeads: conLead.length, nombres, empresas, grupos, errores, pendientes, perfiles };
 }
 
 /** Cuáles ya son un lead del CRM (de cualquier funnel): la pantalla lo marca, y al traerlos se SUMAN, no se crean de nuevo. */

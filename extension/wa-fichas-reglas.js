@@ -169,7 +169,60 @@
    * 237 con teléfono y UNO con nombre, porque es un grupo de anuncios donde nadie escribe (17 mensajes guardados, todos del
    * sistema) y WhatsApp sólo conoce el nombre de quien le escribió. Sin este número, «1 completado» se lee como que no anda.
    */
-  function buscarGrupos(grupos, participantes, nombres, contactos, verificados) {
+  /** El grupo con ese nombre: igual (sin acentos ni emojis), y si no, el ÚNICO que lo contiene. null si no está o es ambiguo. */
+  function grupoNombrado(grupos, nombre) {
+    const lista = (Array.isArray(grupos) ? grupos : []).filter((g) => g && typeof g.id === 'string' && textoUtil(g.subject));
+    const buscado = asuntoComparable(nombre);
+    if (!buscado) return null;
+    const iguales = lista.filter((g) => asuntoComparable(g.subject) === buscado);
+    const contienen = iguales.length ? iguales : lista.filter((g) => asuntoComparable(g.subject).includes(buscado));
+    return contienen.length === 1 ? contienen[0] : iguales[0] || null;
+  }
+
+  /**
+   * LOS NOMBRES QUE FIRMAN LOS MENSAJES DE UN GRUPO (0.73.5): autor → `notifyName` (el nombre que la persona se puso, que
+   * WhatsApp manda con cada mensaje). Leandro (26/10): en un grupo cerrado donde la gente ESCRIBE, «había un montón de
+   * personas que tenían nombres y no extrajo nada». El de los 221 de Martín era de anuncios (nadie escribe): esta fuente nunca
+   * se había probado. El último mensaje de cada autor gana (es el nombre de hoy).
+   */
+  function nombresDeMensajes(registros) {
+    const m = new Map();
+    for (const r of Array.isArray(registros) ? registros : []) {
+      if (!r || typeof r !== 'object') continue;
+      const autor = typeof r.author === 'string' ? r.author : r.author && typeof r.author._serialized === 'string' ? r.author._serialized : null;
+      const nombre = textoUtil(r.notifyName);
+      if (autor && /@(lid|c\.us|s\.whatsapp\.net)$/.test(autor) && nombre) m.set(autor.replace(/:\d+@/, '@'), nombre);
+    }
+    return m;
+  }
+
+  /** Suma esos nombres a las fichas de los pedidos (por su `@lid` o su `@c.us`), sólo donde no había ninguno. */
+  function sumarNotify(fichas, pedidos, notify) {
+    const out = (Array.isArray(fichas) ? fichas : []).map((f) => ({ ...f }));
+    let conNotify = 0;
+    if (!notify || typeof notify.get !== 'function' || !notify.size) return { fichas: out, conNotify };
+    const porTel = new Map(out.map((f) => [sufijo(f.telefono), f]));
+    for (const p of Array.isArray(pedidos) ? pedidos : []) {
+      const tel = String((p && typeof p === 'object' ? p.telefono : p) || '').replace(/\D/g, '');
+      if (tel.length < 8) continue;
+      const lid = p && typeof p === 'object' && typeof p.lid === 'string' ? p.lid : null;
+      const nombre = (lid && notify.get(lid)) || notify.get(`${tel}@c.us`) || notify.get(`${tel}@s.whatsapp.net`) || null;
+      if (!nombre) continue;
+      const f = porTel.get(sufijo(tel));
+      if (f) {
+        if (f.agenda || f.pushname || f.empresa) continue;
+        f.pushname = nombre;
+      } else {
+        const n = { telefono: tel, agenda: null, pushname: nombre, empresa: null, esEmpresa: false, grupos: [] };
+        out.push(n);
+        porTel.set(sufijo(tel), n);
+      }
+      conNotify++;
+    }
+    return { fichas: out, conNotify };
+  }
+
+  function buscarGrupos(grupos, participantes, nombres, contactos, verificados, notify) {
     const lista = (Array.isArray(grupos) ? grupos : []).filter((g) => g && typeof g.id === 'string' && textoUtil(g.subject));
     const cuantos = new Map();
     for (const p of Array.isArray(participantes) ? participantes : []) {
@@ -182,9 +235,14 @@
       if (typeof id === 'string' && (textoUtil(c.name) || textoUtil(c.pushname) || textoUtil(c.notifyName) || textoUtil(c.verifiedName) || textoUtil(c.displayNameLID))) conNombreDe.set(id, true);
     }
     const nombrados = new Map();
+    const firmados = new Map();
+    const base = new Map();
+    const conNotifyDe = notify && typeof notify.has === 'function' ? notify : new Map();
     for (const p of Array.isArray(participantes) ? participantes : []) {
       if (!p || typeof p.groupId !== 'string' || !Array.isArray(p.participants)) continue;
-      nombrados.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x))).length);
+      nombrados.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x)) || conNotifyDe.has(idDe(x))).length);
+      firmados.set(p.groupId, p.participants.filter((x) => conNotifyDe.has(idDe(x))).length);
+      base.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x))).length);
     }
     const out = [];
     for (const n of Array.isArray(nombres) ? nombres.slice(0, 20) : []) {
@@ -196,6 +254,10 @@
       out.push({
         nombre: String(n).slice(0, 120), encontrado: !!g, participantes: g ? (cuantos.get(g.id) ?? null) : null,
         conNombre: g && Array.isArray(contactos) ? (nombrados.get(g.id) ?? 0) : null,
+        // Cuántos de ellos firman algún mensaje con su nombre (0.73.5).
+        conNotify: g ? (firmados.get(g.id) ?? 0) : null,
+        // Y cuántos tenían nombre SIN los mensajes (el «antes» de la 0.73.5).
+        sinMensajes: g && Array.isArray(contactos) ? (base.get(g.id) ?? 0) : null,
       });
     }
     return out;
@@ -285,7 +347,75 @@
     return { fichas: out, enPantalla };
   }
 
-  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, buscarGrupos, fichasDe, esTelefonoDibujado, nombresDeFilas, sumarVistos };
+  // ── El PERFIL de cada contacto (0.73.0) ─────────────────────────────────────────────────────────────────────────────
+  // Martín, 26/10/2026: «Creo que el scraper solo está extrayendo los nombres, cuando podría entrar a cada perfil y fijarse si
+  // tiene links, redes sociales, email, etc...». Y del «visto»: «No importa si marca como "leido" la extensión». wa-recorrer.js
+  // abre la información de cada uno (de a uno, con pausas) y le pasa acá lo que se ve: los textos y los links. Esto sólo
+  // CLASIFICA lo que está escrito: un perfil sin nada no inventa nada.
+  const REDES = [
+    ['instagram', /instagram\.com\/([A-Za-z0-9._]{1,30})/i],
+    ['facebook', /(?:facebook|fb)\.com\/([A-Za-z0-9.\-]{2,80})/i],
+    ['tiktok', /tiktok\.com\/@?([A-Za-z0-9._]{2,30})/i],
+    ['linkedin', /linkedin\.com\/(?:in|company)\/([A-Za-z0-9\-_%]{2,100})/i],
+    ['youtube', /(?:youtube\.com\/(?:@|c\/|channel\/|user\/)?|youtu\.be\/)([A-Za-z0-9_\-]{2,80})/i],
+    ['x', /(?:twitter|x)\.com\/([A-Za-z0-9_]{1,15})(?:[/?#]|$)/i],
+  ];
+  const ES_DE_UNA_RED = /(^|\/\/)([a-z0-9-]+\.)*(instagram\.com|facebook\.com|fb\.com|tiktok\.com|linkedin\.com|youtube\.com|youtu\.be|twitter\.com|x\.com)(\/|$)/i;
+  const NO_ES_CUENTA = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share', 'sharer', 'watch', 'shorts', 'home', 'intent', 'hashtag', 'search']);
+  const URL_RE = /\bhttps?:\/\/[^\s<>"'«»]+/gi;
+  const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+  /** Una red (instagram, facebook...) y su cuenta, de un link; null si no es una red o es una ruta que no es una cuenta. */
+  function redDe(url) {
+    for (const [red, re] of REDES) {
+      const m = re.exec(url);
+      if (m && !NO_ES_CUENTA.has(m[1].toLowerCase())) return { red, cuenta: m[1], url };
+    }
+    return null;
+  }
+  /** Un link que no sirve como web: los de WhatsApp y los de Google que arma la propia app. */
+  const esInterno = (u) => /(^|\/\/)([a-z0-9-]+\.)*(whatsapp\.com|whatsapp\.net|wa\.me|facebook\.com\/l\.php)/i.test(u);
+
+  /**
+   * LO QUE DICE EL PERFIL, clasificado: la web (el primer link que no es una red ni de WhatsApp), el Instagram, las otras
+   * redes, el correo y la dirección si el panel la rotula. `info` = { textos: string[], links: string[], rotulos?: { [rótulo]:
+   * valor } }. null si no hay nada (no se inventa).
+   */
+  function perfilDeInfo(info) {
+    const textos = (info && Array.isArray(info.textos) ? info.textos : []).map((t) => String(t || '')).filter(Boolean).slice(0, 200);
+    const links = (info && Array.isArray(info.links) ? info.links : []).map((t) => String(t || '')).filter((u) => /^https?:\/\//i.test(u)).slice(0, 50);
+    const todo = textos.join('\n');
+    const urls = Array.from(new Set([...links, ...(todo.match(URL_RE) || [])].map((u) => u.replace(/[).,;:!?]+$/, ''))));
+    const redes = [];
+    let web = null;
+    for (const u of urls) {
+      if (esInterno(u)) continue;
+      const r = redDe(u);
+      if (r) { if (!redes.some((x) => x.red === r.red)) redes.push(r); }
+      // Un link de una red que NO es una cuenta (una publicación, un reel) no es su web.
+      else if (!web && !ES_DE_UNA_RED.test(u)) web = u;
+    }
+    // «IG: @cuenta» o «Instagram @cuenta» escrito a mano, sin link.
+    if (!redes.some((x) => x.red === 'instagram')) {
+      const m = /\b(?:ig|insta(?:gram)?)\s*[:：-]?\s*@([A-Za-z0-9._]{2,30})/i.exec(todo);
+      if (m) redes.push({ red: 'instagram', cuenta: m[1], url: `https://instagram.com/${m[1]}` });
+    }
+    const mails = Array.from(new Set([...links.filter((u) => /^mailto:/i.test(u)).map((u) => u.slice(7)), ...(todo.match(EMAIL_RE) || [])]))
+      .filter((e) => !/@(s\.whatsapp\.net|c\.us|lid|g\.us)$/i.test(e));
+    const rot = (info && info.rotulos && typeof info.rotulos === 'object') ? info.rotulos : {};
+    const rotulo = (re) => { for (const [k, v] of Object.entries(rot)) if (re.test(k) && typeof v === 'string' && v.trim()) return v.trim(); return null; };
+    const p = {
+      web,
+      instagram: (redes.find((x) => x.red === 'instagram') || {}).cuenta || null,
+      email: mails[0] || null,
+      direccion: rotulo(/direcci[oó]n|address|endere[cç]o/i),
+      rubro: rotulo(/categor[ií]a|category|rubro/i),
+      descripcion: rotulo(/descripci[oó]n|description|descri[cç][aã]o/i),
+      redes: redes.filter((x) => x.red !== 'instagram').map((x) => `${x.red}: ${x.url}`),
+    };
+    return p.web || p.instagram || p.email || p.direccion || p.rubro || p.descripcion || p.redes.length ? p : null;
+  }
+
+  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, grupoNombrado, buscarGrupos, fichasDe, esTelefonoDibujado, nombresDeFilas, sumarVistos, nombresDeMensajes, sumarNotify, perfilDeInfo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.MakoWaFichas = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

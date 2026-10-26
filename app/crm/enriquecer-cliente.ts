@@ -17,7 +17,7 @@ import type { GrupoEnWhatsapp } from '@/lib/wa-fichas-cliente';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : 'error');
 
-export type AvanceFichas = { nombres: number; empresas: number; guardadas: number; total: number; parado: boolean; error: string | null };
+export type AvanceFichas = { nombres: number; empresas: number; guardadas: number; total: number; parado: boolean; error: string | null; perfiles?: number };
 
 /**
  * Guarda las fichas que leyó la extensión, de a `TANDA_FICHAS`. `guardar` es la acción del server (la del grupo o la del lote);
@@ -28,9 +28,9 @@ export async function guardarFichasEnTandas(
   fichas: readonly FichaWa[], guardar: (tanda: FichaWa[]) => Promise<ResultadoFichas>,
   o: { parar: () => boolean; alAvanzar?: (guardadas: number, total: number) => void },
 ): Promise<AvanceFichas> {
-  let nombres = 0, empresas = 0, guardadas = 0;
+  let nombres = 0, empresas = 0, guardadas = 0, perfiles = 0;
   let cola = [...fichas];
-  const fin = (parado: boolean, error: string | null): AvanceFichas => ({ nombres, empresas, guardadas, total: fichas.length, parado, error });
+  const fin = (parado: boolean, error: string | null): AvanceFichas => ({ nombres, empresas, guardadas, total: fichas.length, parado, error, perfiles });
   while (cola.length) {
     if (o.parar()) return fin(true, null);
     const tanda = cola.slice(0, TANDA_FICHAS);
@@ -38,7 +38,7 @@ export async function guardarFichasEnTandas(
     let g: ResultadoFichas;
     try { g = await guardar(tanda); } catch (e) { return fin(false, `${msg(e)} · quedaron ${miles(cola.length)} sin guardar.`); }
     if (!g.ok) return fin(false, `${g.error} · quedaron ${miles(cola.length)} sin guardar.`);
-    nombres += g.nombres; empresas += g.empresas;
+    nombres += g.nombres; empresas += g.empresas; perfiles += g.perfiles ?? 0;
     const quedan = new Set(g.pendientes);
     const vuelven = tanda.filter((x) => quedan.has(x.telefono));
     if (vuelven.length === tanda.length) return fin(false, `Se cortó guardando: quedaron ${miles(cola.length)} sin guardar. Vuelve a tocar para seguir.`);

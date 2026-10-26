@@ -22,9 +22,24 @@ aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Ex
 - **Falta:** desplegar la pantalla (y la mig 0339 ANTES) y la corrida con la pantalla nueva: crear los leads con su etiqueta y
   guardar los nombres. ⚠️ Abrir el grupo marca como leídos sus mensajes (dicho en la política).
 - **No reviertas** (aviso del Cerebro, 26/10): los tests crm-auto-sla-etapa y lead-quieto (Automations, aut-2510); no se tocaron.
+- **En producción (781d069b3, 26/10 12:22):** «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto» en su Chrome: 105
+  nuevos · 41 nombres · 41 empresas, en Lead entrante con la etiqueta del grupo (verificado en una ficha). El desplegable no se
+  abrió en esa corrida (clic por CDP: sin el foco del sistema); en la de otra pestaña, a la misma hora, sí. Capturas y GIF:
+  notas del Cerebro, capturas-extraer-prod.
+- **Después, los perfiles y lo de Leandro (666fe43e1 → db8aae187, 0.73.0 → 0.73.6):** «Extraer» abre la información de
+  cada uno (de a uno, de a tandas de 12 pedidas por la pantalla, tope 60, empresas primero) y guarda links, redes y correo
+  sólo en lo vacío; sin la extensión, pop-up de instalar y no arranca; los nombres que firman los mensajes del grupo
+  (notifyName: MEDIDO que los mensajes no lo traen; la fuente real es la lista de miembros y la fila del buscador, 0.73.8).
+  ⚠️ La 0.73.6 no cargó por un U+FFFF literal en wa-fichas.js (no por las recargas, como dije primero): el
+  Cerebro lo arregló en su carpeta y el guard nuevo lo frena. Sin probar todavía:
+  la corrida que guarda perfiles (server sin desplegar) y lo de Leandro (sin medir).
 - **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
   espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
   tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.
+- **Después (68fc2c238, 0.74.0), la vuelta a la pestaña exacta:** al terminar «Extraer» (o si se corta) vuelve a la pestaña
+  desde la que se tocó (`sender.tab`), no a otra de MaKo; si ya no está, el desplegable lo dice. Probado en su Chrome con dos
+  CRM y Ads Writer abiertos (volvió al CRM desde el que se pidió) y con el test roto a propósito. Corre en su Chrome (su
+  carpeta); para los demás, cuando la rama llegue a main.
 
 ## 0-Ω26. 25/10/2026 (chat «CRM», cuenta `claude5`): «Completar desde mi WhatsApp» de punta a punta, extensión 0.71.0
 

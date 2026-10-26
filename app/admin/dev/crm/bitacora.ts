@@ -3649,4 +3649,72 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '12:25', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: '«Extraer» en producción: 105 leads de un grupo, con su etiqueta y 41 nombres',
+    puntos: [
+      'En tu Chrome, con la versión desplegada: Nuevo lead › Scraper › «Anuncio Ganador - 09,10,11 de Agosto» › «Extraer 105».',
+      'Fue a tu pestaña de WhatsApp (la que ya tenías), entró al grupo y recorrió los 126 miembros a la vista.',
+      'Resultado: 105 nuevos · 41 nombres · 41 empresas. Cada uno en PROSPECCIÓN › Lead entrante, con la etiqueta «Anuncio Ganador - 09,10,11 de Agosto».',
+      'En la extracción de «19, 20, 21 de Octubre», desde la otra pestaña, el desplegable se abrió con la animación. En la mía (disparada por mí, sin un clic tuyo) no se abrió: Chrome sólo lo deja con la ventana al frente.',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '26 oct', hora: '12:45', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el scraper entre a cada perfil, que pida la extensión, y lo de Leandro',
+    pedido: '«Creo que el scraper solo esta extrayendo los nombres, cuando podría entrar a cada perfil y fijarse si tiene links, redes sociales, email, etc...» · «si no tiene la extensión que no lo deje scrapear, que le salte el pop-up para instalar la extension» · «Leandro al final sí extrajo otra vez en el grupo grupo cerrado Infraer AI y hizo todo el proceso de extracción, había un montón de personas que tenían nombres y no extrajo nada, no extrajo el nombre. No entiendo por qué.»',
+    puntos: ['Los tres, pasados por el Cerebro.'],
+  },
+  {
+    fecha: '26 oct', hora: '13:15', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El perfil de cada contacto, el pop-up de la extensión y los nombres de quien escribe',
+    puntos: [
+      '«Extraer» ahora entra a la información de cada uno (de a uno, como una persona, hasta 60 por vez, las empresas primero) y guarda la web, el Instagram, otras redes y el correo, sólo donde el lead no tiene nada.',
+      'Probado en tu WhatsApp: busca a cada uno, abre «Info. del contacto» y vuelve. En las pruebas apareció que un detector leía toda la pantalla en vez del panel de esa persona: no se guardó nada (esa parte no estaba desplegada) y ahora sólo lee el panel que muestra el teléfono de esa persona.',
+      'Sin la extensión, «Extraer» no arranca: sale el aviso de instalarla y, cuando está, empieza sola.',
+      'Lo de Leandro, medido en tu grupo «Networking SINDEMEX»: tu WhatsApp Web ya no guarda el nombre de quien escribe en los mensajes. El nombre que se ve sale de la lista de miembros: de 231, 89 tienen nombre guardado y la lista muestra 47 más. Eso lo toma el recorrido (desde la extensión 0.72), y ahora también el buscador de cada miembro. Si Leandro tenía una extensión vieja, sólo sacaba los guardados.',
+      '⚠️ Tu extensión dejó de cargar por un solo carácter invisible que Chrome no acepta en un archivo (no por las recargas, como dije primero). Ya está arreglado, y un control nuevo no deja que vuelva a pasar.',
+    ],
+    commits: [
+      { sha: '666fe43e1', msg: 'Extensión 0.73.0: «Extraer» entra al perfil de cada contacto y lee sus links, redes y correo', lineas: 461, archivos: 17 },
+      { sha: '3017d0be3', msg: 'Extensión 0.73.4: el perfil sólo se lee del panel de ESE contacto; sin la extensión, pop-up de instalar', lineas: 113, archivos: 8 },
+      { sha: 'cf077cf1c', msg: 'Extensión 0.73.5: los nombres que FIRMAN los mensajes del grupo', lineas: 168, archivos: 10 },
+    ],
+    archivos: [
+      'extension/wa-recorrer.js — abrir el perfil de cada uno y leerlo sólo si es de esa persona',
+      'lib/wa-fichas-cliente.ts — los perfiles de a tandas',
+      'extension/wa-fichas.js — los nombres de los mensajes del grupo',
+      'app/crm/TraerDeGrupoWA.tsx — el pop-up de instalar la extensión',
+    ],
+    revisar: '/crm',
+  },
+  {
+    fecha: '26 oct', hora: '13:51', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que al terminar vuelva a la pestaña del CRM desde la que se tocó',
+    pedido: '«cuando termine de extraer debe volver de nuevo a la tab del CRM, tiene que identificar cual tab es, porque puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que identifique donde fue que le dio click»',
+    puntos: ['Pasado por el Cerebro.'],
+  },
+  {
+    fecha: '26 oct', hora: '14:00', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Vuelve a la pestaña exacta desde la que tocaste «Extraer»',
+    puntos: [
+      'Al terminar (y también si se corta), la extensión vuelve a la pestaña desde la que tocaste «Extraer», aunque tengas varios CRM u otras pestañas de MaKo abiertas.',
+      'Si cerraste esa pestaña, no elige otra: el desplegable te dice que ya no está, y «Ver en MaKo» abre el CRM.',
+      'Probado en tu Chrome con dos CRM y Ads Writer abiertos: volvió al CRM desde el que se pidió.',
+    ],
+    commits: [
+      { sha: '68fc2c238', msg: 'Extensión 0.74.0: al terminar «Extraer» (o si se corta) vuelve a la pestaña EXACTA desde la que se tocó, y si ya no está lo dice', lineas: 82, archivos: 8 },
+    ],
+    archivos: [
+      'extension/background.js — vuelve a la pestaña que mandó el pedido',
+      'extension/popup.js — «Ver en MaKo» va a esa pestaña, y dice si ya no está',
+    ],
+    revisar: '/crm',
+  },
 ];

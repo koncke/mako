@@ -11,6 +11,7 @@
 // cada paso (`MAKO_WA_FICHAS_AVANCE`): por eso esto ya no corta a los 20 s fijos, sino cuando pasan 30 s SIN noticias.
 
 import { esMasVieja } from './version-comparar';
+import { nombreUtil, perfilLimpio, type FichaWa } from './grupo-wa-reglas';
 
 /**
  * La versión de la extensión que pide la pantalla para leer fichas. La 0.71.0 (25/10/2026) lee el nombre donde WhatsApp Web lo
@@ -132,7 +133,7 @@ export function nuevoIdExtraccion(): string {
 /** Lo que una extracción a la vista cuenta de su lado de MaKo: números y textos cortos (nunca nombres de nadie). */
 export type AvisoExtraccion = {
   fase?: 'guardando'; estado?: 'corriendo' | 'listo' | 'error' | 'parado'; texto?: string;
-  guardados?: number; total?: number; nombres?: number; empresas?: number; nuevos?: number;
+  guardados?: number; total?: number; nombres?: number; empresas?: number; nuevos?: number; perfiles?: number;
 };
 
 /**
@@ -151,6 +152,123 @@ export function alPararExtraccion(id: string, fn: () => void): () => void {
   const al = (ev: Event) => { if (((ev as CustomEvent).detail as { id?: unknown } | null)?.id === id) fn(); };
   window.addEventListener('MAKO_WA_PARAR', al);
   return () => window.removeEventListener('MAKO_WA_PARAR', al);
+}
+
+// ── LOS PERFILES, de a tandas (0.73.2) ──────────────────────────────────────────────────────────────────────────────────
+// Martín, 26/10/2026: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email, etc...». La extensión abre
+// la información de cada uno en su WhatsApp Web (extension/wa-recorrer.js `leerPerfiles`). ⚠️ De a TANDAS y pedidas desde
+// acá: un solo pedido de 60 perfiles pasa los 5 minutos y Chrome mata el service worker de la extensión (medido en vivo el
+// 26/10: «La extensión no contestó»). Cada tanda es un pedido corto, con el mismo id de la extracción (el desplegable la
+// muestra como una sola).
+
+/** A lo sumo, cuántos perfiles se abren por extracción (de a uno y con pausas, ~5 s cada uno), y cuántos por pedido. */
+export const TOPE_PERFILES = 60;
+export const TANDA_PERFILES = 12;
+
+/** A quiénes: los pedidos, sin repetir, primero las cuentas de EMPRESA (web, correo, dirección), después los que tienen nombre. */
+export function candidatosDePerfil(
+  pedidos: ReadonlyArray<string | { telefono: string }>, fichas: ReadonlyArray<Partial<FichaWa> & { telefono: string }>,
+): Array<{ telefono: string; nombre: string | null }> {
+  const suf = (t: string) => t.replace(/\D/g, '').slice(-10);
+  const porTel = new Map(fichas.map((f) => [suf(f.telefono), f]));
+  const vistos = new Set<string>();
+  const out: Array<{ telefono: string; nombre: string | null; orden: number }> = [];
+  for (const p of pedidos) {
+    const tel = (typeof p === 'string' ? p : p.telefono).replace(/\D/g, '');
+    if (tel.length < 8 || vistos.has(suf(tel))) continue;
+    vistos.add(suf(tel));
+    const f = porTel.get(suf(tel));
+    const nombre = f ? f.agenda ?? f.empresa ?? f.pushname ?? null : null;
+    // Las empresas primero (web, correo, dirección), después los que NO tienen nombre (la fila del buscador lo dice: lo de
+    // Leandro), al final los que ya lo tienen.
+    out.push({ telefono: tel, nombre, orden: f?.esEmpresa ? 0 : nombre ? 2 : 1 });
+  }
+  return out.sort((a, b) => a.orden - b.orden).map(({ telefono, nombre }) => ({ telefono, nombre }));
+}
+
+/** Los perfiles que leyó la extensión (no confiables: `perfilLimpio`), sumados a su ficha por los últimos 10; sin ficha, la gana. */
+export function sumarPerfiles(fichas: readonly FichaWa[], perfiles: unknown): FichaWa[] {
+  const suf = (t: string) => t.replace(/\D/g, '').slice(-10);
+  const out = fichas.map((f) => ({ ...f }));
+  const porTel = new Map(out.map((f) => [suf(f.telefono), f]));
+  for (const x of Array.isArray(perfiles) ? perfiles : []) {
+    const o = (x ?? {}) as Record<string, unknown>;
+    const tel = String(o.telefono ?? '').replace(/\D/g, '');
+    const perfil = perfilLimpio(o.perfil);
+    // El nombre que mostró la fila al buscarlo (0.73.8): el de la agenda o el que la persona se puso. Sólo donde no hay.
+    const nf = (o.nombre ?? {}) as Record<string, unknown>;
+    const agenda = nombreUtil(nf.agenda);
+    const pushname = nombreUtil(nf.pushname);
+    if (tel.length < 8 || tel.length > 15 || (!perfil && !agenda && !pushname)) continue;
+    let f = porTel.get(suf(tel));
+    if (!f) { f = { telefono: tel, agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: [] }; out.push(f); porTel.set(suf(tel), f); }
+    if (perfil) f.perfil = perfil;
+    if (!f.agenda && !f.pushname && !f.empresa) { if (agenda) f.agenda = agenda; else if (pushname) f.pushname = pushname; }
+  }
+  return out;
+}
+
+export type RespuestaPerfiles = { ok: true; perfiles: unknown[]; diag: Record<string, unknown> | null } | { ok: false; motivo: string };
+
+/** UNA tanda de perfiles a la extensión. Nunca tira; contesta por el mismo canal que las fichas (`MAKO_WA_FICHAS`, con el id). */
+export function pedirPerfilesDeWhatsappWeb(
+  candidatos: ReadonlyArray<{ telefono: string; nombre: string | null }>,
+  o: { grupo: string; id: string; desde: number; total: number; silencioMs?: number },
+): Promise<RespuestaPerfiles> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') { resolve({ ok: false, motivo: 'extension' }); return; }
+    let terminado = false;
+    const fin = (r: RespuestaPerfiles) => {
+      if (terminado) return;
+      terminado = true;
+      clearTimeout(mudo);
+      window.removeEventListener('MAKO_WA_FICHAS', al);
+      window.removeEventListener('MAKO_WA_FICHAS_AVANCE', avance);
+      resolve(r);
+    };
+    const silencio = o.silencioMs ?? SILENCIO_FICHAS_MS;
+    let mudo = setTimeout(() => fin({ ok: false, motivo: 'sin_respuesta' }), silencio);
+    const avance = (ev: Event) => {
+      if (((ev as CustomEvent).detail as { id?: unknown } | null)?.id !== o.id) return;
+      clearTimeout(mudo);
+      mudo = setTimeout(() => fin({ ok: false, motivo: 'sin_respuesta' }), silencio);
+    };
+    const al = (ev: Event) => {
+      const d = ((ev as CustomEvent).detail ?? {}) as Record<string, unknown>;
+      if (d.id !== o.id) return;
+      fin(d.ok === true
+        ? { ok: true, perfiles: Array.isArray(d.perfiles) ? d.perfiles : [], diag: (d.diag as Record<string, unknown>) ?? null }
+        : { ok: false, motivo: typeof d.motivo === 'string' ? d.motivo : 'error' });
+    };
+    window.addEventListener('MAKO_WA_FICHAS', al);
+    window.addEventListener('MAKO_WA_FICHAS_AVANCE', avance);
+    window.dispatchEvent(new CustomEvent('MAKO_WA_PERFILES_PIDO', { detail: { id: o.id, grupo: o.grupo, candidatos: [...candidatos], desde: o.desde, total: o.total } }));
+  });
+}
+
+/**
+ * LOS PERFILES DE UNA EXTRACCIÓN, de a tandas: elige a quiénes (`candidatosDePerfil`, con tope), los pide de a
+ * `TANDA_PERFILES` y los suma a las fichas. Para con `parar()` entre una tanda y la siguiente, y con la primera que falla
+ * (dice por qué en `corte`). `pedir` se puede cambiar (los tests).
+ */
+export async function perfilesEnTandas(
+  pedidos: ReadonlyArray<string | { telefono: string }>, fichas: readonly FichaWa[],
+  o: { grupo: string; id: string; parar: () => boolean; pedir?: typeof pedirPerfilesDeWhatsappWeb; tope?: number },
+): Promise<{ fichas: FichaWa[]; leidos: number; conDatos: number; corte: string | null }> {
+  const pedir = o.pedir ?? pedirPerfilesDeWhatsappWeb;
+  const candidatos = candidatosDePerfil(pedidos, fichas).slice(0, o.tope ?? TOPE_PERFILES);
+  let out = [...fichas];
+  let leidos = 0, conDatos = 0;
+  let corte: string | null = null;
+  for (let i = 0; i < candidatos.length; i += TANDA_PERFILES) {
+    if (o.parar()) { corte = 'parado'; break; }
+    const r = await pedir(candidatos.slice(i, i + TANDA_PERFILES), { grupo: o.grupo, id: o.id, desde: i, total: candidatos.length });
+    if (!r.ok) { corte = r.motivo; break; }
+    out = sumarPerfiles(out, r.perfiles);
+    leidos += Number(r.diag?.abiertos) || 0;
+    conDatos += Number(r.diag?.conDatos) || 0;
+  }
+  return { fichas: out, leidos, conDatos, corte };
 }
 
 /** «Ir a WhatsApp Web»: la extensión pone esa pestaña al frente, o abre una (para iniciar la sesión). */
