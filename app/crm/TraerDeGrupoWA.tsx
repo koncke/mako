@@ -254,6 +254,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'nuevo' : 'nuevos'}` : '',
         a ? `${miles(nombres)} ${nombres === 1 ? 'nombre' : 'nombres'}` : '',
         a?.empresas ? `${miles(a.empresas)} ${a.empresas === 1 ? 'empresa' : 'empresas'}` : '',
+        a?.perfiles ? `${miles(a.perfiles)} con datos de su perfil` : '',
         t?.errores.length ? `${miles(t.errores.length)} no se ${t.errores.length === 1 ? 'pudo' : 'pudieron'}` : '',
       ].filter(Boolean);
       const resumen = partes.join(' · ') || (t ? 'Nadie para extraer' : 'Sin nombres nuevos');
@@ -269,7 +270,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
       ].join('');
       if (!fallaWa && conExt) {
         avisarExtraccion(id, {
-          estado: parar.current ? 'parado' : 'listo', nombres, empresas: a?.empresas ?? 0, nuevos: nuevosHechos,
+          estado: parar.current ? 'parado' : 'listo', nombres, empresas: a?.empresas ?? 0, nuevos: nuevosHechos, perfiles: a?.perfiles ?? 0,
           texto: nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'lead nuevo' : 'leads nuevos'} en «${entrada.label}», con la etiqueta del grupo.` : 'Ya estaban todos en tu CRM.',
         });
       }

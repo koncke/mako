@@ -246,7 +246,11 @@ export function etapasQueDisparan(
 // consulta es tráfico en la RED de una línea no oficial (lib/fotos-contacto.ts): se hace de a una y despacio.
 
 /** Lo que sirve del perfil de empresa de un número. null = no es una cuenta de empresa (o no contestó). */
-export type PerfilEmpresa = { rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null };
+export type PerfilEmpresa = {
+  rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null;
+  /** Las otras redes que no tienen columna en el lead («facebook: https://…»), leídas del perfil en WhatsApp Web (0.73.0). */
+  redes?: string[];
+};
 
 /** La cuenta de Instagram de un link (`instagram.com/<usuario>`), sin las rutas que no son una cuenta. */
 function instagramDe(s: string | null | undefined): string | null {
@@ -288,7 +292,7 @@ export function parcheDePerfil(lead: Partial<Record<CampoDelPerfil, string | nul
 
 /** El renglón del historial con lo que no tiene columna: el rubro y la descripción. null si no trae ninguno. */
 export function lineaDePerfil(p: PerfilEmpresa): string | null {
-  const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
+  const partes = [p.rubro, p.descripcion, ...(p.redes ?? [])].filter((x): x is string => !!x);
   return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
 }
 
@@ -299,7 +303,34 @@ export function lineaDePerfil(p: PerfilEmpresa): string | null {
 // empresa si es una cuenta de empresa, y en qué grupos suyos está.
 
 /** Una ficha como la manda la extensión. Viene del NAVEGADOR: entrada no confiable, se limpia con `fichaLimpia`. */
-export type FichaWa = { telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[] };
+export type FichaWa = {
+  telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[];
+  /** Lo que dijo SU PERFIL al abrirlo en WhatsApp Web (0.73.0, «Extraer»): links, redes, correo. Limpio (`perfilLimpio`). */
+  perfil?: PerfilEmpresa | null;
+};
+
+/**
+ * El perfil que mandó el NAVEGADOR (no confiable): cada campo, un texto útil y con forma (la web un http(s), el correo un
+ * correo, el Instagram una cuenta), y a lo sumo 6 redes. null si no queda nada: un perfil vacío no inventa datos.
+ */
+export function perfilLimpio(x: unknown): PerfilEmpresa | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const corto = (v: unknown, tope: number) => { const t = texto(v); return t && [...t].length <= tope ? t : null; };
+  const web = corto(o.web, 300);
+  const email = corto(o.email, 200);
+  const instagram = corto(o.instagram, 30);
+  const p: PerfilEmpresa = {
+    rubro: corto(o.rubro, 120),
+    descripcion: corto(o.descripcion, 600),
+    web: web && /^https?:\/\/[^\s]+$/i.test(web) ? web : null,
+    instagram: instagram && /^[A-Za-z0-9._]{1,30}$/.test(instagram) ? instagram : null,
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    direccion: corto(o.direccion, 300),
+    redes: (Array.isArray(o.redes) ? o.redes : []).map((r) => corto(r, 300)).filter((r): r is string => !!r && /^[a-z]+: https?:\/\//.test(r)).slice(0, 6),
+  };
+  return p.rubro || p.descripcion || p.web || p.instagram || p.email || p.direccion || p.redes?.length ? p : null;
+}
 
 /** La ficha limpia: teléfono en dígitos, textos útiles y cortos, a lo sumo 50 grupos. null si no sirve. */
 export function fichaLimpia(x: unknown): FichaWa | null {
@@ -308,7 +339,8 @@ export function fichaLimpia(x: unknown): FichaWa | null {
   const telefono = String(o.telefono ?? '').replace(/\D/g, '');
   if (telefono.length < 8 || telefono.length > 15) return null;
   const grupos = (Array.isArray(o.grupos) ? o.grupos : []).map((g) => texto(g)?.slice(0, 120) ?? null).filter((g): g is string => !!g).slice(0, 50);
-  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos };
+  const perfil = perfilLimpio(o.perfil);
+  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos, ...(perfil ? { perfil } : {}) };
 }
 
 /**

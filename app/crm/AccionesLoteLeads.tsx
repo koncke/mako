@@ -479,7 +479,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       });
       r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0, enLaExtension: true };
       avisarExtraccion(id, {
-        estado: a.parado ? 'parado' : a.error ? 'error' : 'listo', nombres: a.nombres, empresas: a.empresas,
+        estado: a.parado ? 'parado' : a.error ? 'error' : 'listo', nombres: a.nombres, empresas: a.empresas, perfiles: a.perfiles ?? 0,
         texto: a.error ?? `De ${miles(t.pedidos.length)} leads del CRM.`,
       });
       entera = !a.parado && !a.error;

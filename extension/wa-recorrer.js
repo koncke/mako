@@ -83,6 +83,44 @@
     }
   }
 
+
+  // ── LOS PERFILES, de a uno (0.73.0) ────────────────────────────────────────────────────────────────────────────────────
+  // Martín, 26/10/2026: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email, etc...». Para cada
+  // teléfono que MaKo pidió (sólo esos: la agenda de Martín es suya), busca a la persona en la lista de miembros, abre su
+  // información, lee lo que se ve (textos y links; `perfilDeInfo` lo clasifica) y vuelve. De a uno, con una pausa de persona
+  // entre cada uno (1,2 a 2,6 s), y con tope por corrida: a WhatsApp no le gusta que alguien abra cien perfiles en un minuto.
+  // `diag` dice qué paso falló, y la FORMA del primer panel abierto (sin datos de nadie), para ajustar los selectores.
+  async function leerPerfiles(nombreGrupo, candidatos, p, avisar, parado, o) {
+    const t = Object.assign({ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600 }, o || {});
+    const lista = (Array.isArray(candidatos) ? candidatos : []).filter((c) => c && String(c.telefono || '').replace(/\D/g, '').length >= 8).slice(0, t.tope);
+    const perfiles = [];
+    const diag = { intentados: 0, abiertos: 0, conDatos: 0, fallos: {}, forma: null, menu: null, busqueda: null };
+    const fallo = (m) => { diag.fallos[m] = (diag.fallos[m] || 0) + 1; };
+    for (let i = 0; i < lista.length; i++) {
+      if (parado()) break;
+      const c = lista[i];
+      diag.intentados++;
+      avisar('perfiles', { texto: `Leyendo el perfil de ${c.nombre || `+${String(c.telefono).replace(/\D/g, '')}`}…`, hechos: i, total: lista.length });
+      try {
+        const r = await p.abrirPerfil(nombreGrupo, c.telefono, t.espera);
+        if (r.busqueda && !diag.busqueda) diag.busqueda = r.busqueda;
+        if (r.menu && !diag.menu) diag.menu = r.menu;
+        if (!r.ok) { fallo(r.motivo || 'no_abrio'); await p.volverDelPerfil(); continue; }
+        diag.abiertos++;
+        if (!diag.forma) diag.forma = p.forma(r.info);
+        const perfil = raiz.MakoWaFichas.perfilDeInfo(p.leerPerfil(r.info));
+        if (perfil) { perfiles.push({ telefono: String(c.telefono).replace(/\D/g, ''), perfil }); diag.conDatos++; }
+        await p.volverDelPerfil();
+      } catch (e) {
+        fallo('error');
+      }
+      await dormir(t.pausaMin + Math.round(Math.random() * (t.pausaMax - t.pausaMin)));
+    }
+    avisar('perfiles', { texto: `Leí ${diag.abiertos} perfiles`, hechos: lista.length, total: lista.length });
+    try { p.cerrar(); } catch { /* nada */ }
+    return { perfiles, diag };
+  }
+
   // ── La pantalla de WhatsApp Web ──────────────────────────────────────────────────────────────────────────────────────
   // ⚠️ MEDIDO el 26/10/2026 en el WhatsApp Web (Business) de Martín, en español: la búsqueda es un `input[data-tab="3"]`; la
   // fila de un chat, `[role="row"]` con `[data-testid="cell-frame-title"] span[title]`; el grupo abre con pointerdown/mousedown/
@@ -95,6 +133,23 @@
     const CERRAR = /^(cerrar|close|fechar)$/i;
     const BUSCAR = /buscar|search|pesquis/i;
 
+    const VER_PERFIL = /^(ver|view|info|informaci[oó]n|dados)\b/i;
+    const INFO_CONTACTO = /info\.? (del contacto|de (la )?empresa|comercial)|contact info|business info|dados (do contato|comerciais)/i;
+    // Las palabras de la interfaz que se dejan ver en la forma del panel (todo lo demás, tapado: puede ser de una persona).
+    const UI = new Set('info info. del de la contacto empresa grupo grupos en común comun archivos enlaces y documentos mensajes destacados silenciar notificaciones temporales cifrado cifrados bloquear reportar añadir favoritos eliminar ver todo todos más mas llamar video buscar atrás atras cerrar correo electrónico sitio web dirección direccion categoría categoria horario catálogo catalogo descripción descripcion sobre mí mi negocio cuenta de empresa enviar mensaje a editar perfil foto compartir contactos contacto info. business account contact profile about email website address category'.split(' '));
+    const enmascararTexto = (s) => String(s || '').slice(0, 80).split(/\s+/).map((w) => (UI.has(w.toLowerCase()) ? w : w.replace(/[\p{L}]/gu, 'a').replace(/\d/g, '#'))).join(' ');
+    const enmascarar = (el) => enmascararTexto((el.textContent || '').trim());
+    const dialogoMiembros = () => Array.from(d.querySelectorAll('[role="dialog"]')).find((x) => x.querySelector('[data-testid="cell-frame-title"]')) || null;
+    /** La fila de la lista cuyo teléfono (en cualquiera de sus dos renglones) termina como el pedido. */
+    const filaConTelefono = (dlg, dig) => {
+      const fin = dig.slice(-8);
+      const filas = Array.from(dlg.querySelectorAll('[data-testid="cell-frame-container"]'));
+      const conTel = filas.find((c) => (c.textContent || '').replace(/\D/g, '').endsWith(fin) || (c.textContent || '').replace(/\D/g, '').includes(fin));
+      return conTel || (filas.length === 1 ? filas[0] : null);
+    };
+    const opcionesDeMenu = () => Array.from(d.querySelectorAll('[role="application"] [role="button"], [role="menu"] [role="menuitem"], [role="menu"] li, ul[role="listbox"] li, div[data-animate-dropdown-item] , li[role="button"]'))
+      .filter((x) => (x.textContent || '').trim()).slice(0, 12);
+    const panelDeContacto = () => Array.from(d.querySelectorAll('[role="complementary"], section')).find((e) => INFO_CONTACTO.test(e.getAttribute('aria-label') || '') || INFO_CONTACTO.test((e.textContent || '').slice(0, 300))) || null;
     const clic = (el) => {
       const o = { bubbles: true, cancelable: true, view: window, button: 0 };
       for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
@@ -196,6 +251,70 @@
         try { l.sc.scrollBy({ top: paso, behavior: 'smooth' }); } catch { l.sc.scrollTop += paso; }
       },
       alFinal(l) { return l.sc.scrollTop + l.sc.clientHeight >= l.sc.scrollHeight - 4; },
+      // ⚠️ LO DEL PERFIL, NO MEDIDO TODAVÍA (0.73.0): la lista de miembros se abre igual que en el recorrido (medido); de ahí,
+      // escribir el teléfono en su buscador, tocar la fila, y en el menú que abre, «Ver»/«Info». `diag` dice qué paso falla.
+      async abrirPerfil(nombreGrupo, telefono, espera) {
+        const dig = String(telefono || '').replace(/\D/g, '');
+        if (!this.grupoAbierto(nombreGrupo)) return { ok: false, motivo: 'sin_grupo' };
+        let dlg = dialogoMiembros();
+        if (!dlg) {
+          let inf = this.info();
+          if (!inf) { this.abrirInfo(); inf = await esperar(() => this.info(), espera); }
+          if (!inf) return { ok: false, motivo: 'sin_info' };
+          const ver = this.verTodos(inf);
+          if (ver) { this.abrir(ver); dlg = await esperar(dialogoMiembros, espera); }
+          if (!dlg) return { ok: false, motivo: 'sin_lista' };
+        }
+        const caja = dlg.querySelector('input, [contenteditable="true"]');
+        if (!caja) return { ok: false, motivo: 'sin_buscador' };
+        // El número como lo escribiría una persona; si no aparece, sin el + y después los últimos 10.
+        let fila = null;
+        let busqueda = null;
+        for (const variante of [`+${dig}`, dig, dig.slice(-10)]) {
+          caja.focus();
+          if (caja.tagName === 'INPUT') caja.select(); else d.execCommand('selectAll', false);
+          d.execCommand('delete', false);
+          d.execCommand('insertText', false, variante);
+          fila = await esperar(() => filaConTelefono(dlg, dig), 2500, 250);
+          if (fila) { busqueda = variante === dig ? 'digitos' : variante.startsWith('+') ? 'con_mas' : 'ultimos_10'; break; }
+        }
+        if (!fila) return { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' };
+        this.abrir(fila);
+        await dormir(500);
+        // Un menú («Mensaje a…», «Ver…»), o directamente el panel del contacto.
+        let panel = panelDeContacto();
+        let menu = null;
+        if (!panel) {
+          const opciones = opcionesDeMenu();
+          menu = opciones.map(enmascarar).slice(0, 8);
+          const ver = opciones.find((x) => VER_PERFIL.test((x.textContent || '').trim()));
+          if (!ver) return { ok: false, motivo: opciones.length ? 'sin_ver' : 'sin_menu', busqueda, menu };
+          clic(ver);
+          panel = await esperar(panelDeContacto, espera);
+        }
+        if (!panel) return { ok: false, motivo: 'sin_panel', busqueda, menu };
+        return { ok: true, info: panel, busqueda, menu };
+      },
+      leerPerfil(panel) {
+        const textos = String(panel.innerText || panel.textContent || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 200);
+        const links = Array.from(panel.querySelectorAll('a[href]')).map((a) => a.getAttribute('href') || '').filter(Boolean).slice(0, 50);
+        return { textos, links };
+      },
+      async volverDelPerfil() {
+        const panel = panelDeContacto();
+        const b = panel && (botonPorNombre(panel, /^(atr[aá]s|back|voltar)$/i) || botonPorNombre(panel, CERRAR));
+        if (b) clic(b);
+        else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
+        await dormir(450);
+      },
+      // La FORMA del panel, sin datos de nadie: cada renglón con sus letras tapadas salvo las palabras de la interfaz, los
+      // botones igual, y los DOMINIOS de los links (instagram.com no es de nadie).
+      forma(panel) {
+        const lineas = String(panel.innerText || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 40).map(enmascararTexto);
+        const botones = Array.from(panel.querySelectorAll('[aria-label]')).map((b) => enmascararTexto(b.getAttribute('aria-label') || '')).slice(0, 30);
+        const dominios = Array.from(new Set(Array.from(panel.querySelectorAll('a[href]')).map((a) => { try { return new URL(a.href).hostname; } catch { return '?'; } }))).slice(0, 20);
+        return { rol: panel.getAttribute('role'), aria: enmascararTexto(panel.getAttribute('aria-label') || ''), lineas, botones, dominios };
+      },
       // Deja WhatsApp como estaba: cierra la lista y la información, y borra la búsqueda. El grupo queda abierto.
       cerrar() {
         const dlg = Array.from(d.querySelectorAll('[role="dialog"]')).find((x) => x.querySelector('[data-testid="cell-frame-title"]'));
@@ -231,7 +350,7 @@
     } catch { return null; }
   }
 
-  const api = { recorrerGrupo, pantallaWhatsapp, esperar, estadoDeSesion };
+  const api = { recorrerGrupo, leerPerfiles, pantallaWhatsapp, esperar, estadoDeSesion };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   if (raiz.__makoWaRecorrer) return;
   raiz.__makoWaRecorrer = true;
@@ -245,6 +364,23 @@
   let enCurso = null;
   chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     if (msg && msg.tipo === 'WA_RECORRER_PARAR') { parados.add(msg.id); return false; }
+    // LOS PERFILES (0.73.0): los candidatos los elige el worker (los teléfonos que MaKo pidió, empresas primero).
+    if (msg && msg.tipo === 'WA_PERFILES' && typeof msg.grupo === 'string') {
+      if (enCurso) { responder({ ok: false, motivo: 'ocupado', perfiles: [], diag: null }); return false; }
+      const id = msg.id;
+      const p = pantallaWhatsapp(document);
+      const avisar = (paso, datos) => {
+        const n = datos || {};
+        p.decir(`${n.texto || 'Leyendo perfiles…'} · no toques nada`);
+        try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
+      };
+      const tope = Math.max(0, Math.min(Number(msg.tope) || 60, 200));
+      enCurso = leerPerfiles(msg.grupo.slice(0, 120), Array.isArray(msg.candidatos) ? msg.candidatos.slice(0, 500) : [], p, avisar, () => parados.has(id), { tope })
+        .then((r) => { p.decir('Listo'); p.sacarCartel(1600); responder({ ok: true, ...r }); })
+        .catch((e) => responder({ ok: false, motivo: 'error', error: String((e && e.message) || e), perfiles: [], diag: null }))
+        .finally(() => { enCurso = null; });
+      return true;
+    }
     if (!msg || msg.tipo !== 'WA_RECORRER' || typeof msg.grupo !== 'string') return false;
     if (enCurso) { responder({ ok: false, motivo: 'ocupado', filas: [] }); return false; }
     const id = msg.id;

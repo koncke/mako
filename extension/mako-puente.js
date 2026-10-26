@@ -286,7 +286,7 @@ window.addEventListener('MAKO_WA_EXTRACCION', (ev) => {
   if (typeof d.id !== 'string') return;
   const m = { tipo: 'WA_EXTRACCION', id: d.id };
   for (const k of ['fase', 'estado', 'texto']) if (typeof d[k] === 'string') m[k] = d[k].slice(0, 400);
-  for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total']) if (typeof d[k] === 'number') m[k] = d[k];
+  for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total', 'perfiles']) if (typeof d[k] === 'number') m[k] = d[k];
   try { chrome.runtime.sendMessage(m, () => void chrome.runtime.lastError); } catch { /* nada */ }
 });
 

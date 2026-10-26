@@ -2639,6 +2639,43 @@ function anotarExtraccion(id, cambios, crear = false) {
   return colaRegistro;
 }
 
+/** Cuántos perfiles se abren por extracción, a lo sumo (0.73.0): de a uno y con pausas, son unos 5 s cada uno. */
+const TOPE_PERFILES = 60;
+
+/**
+ * A QUIÉNES SE LES ABRE EL PERFIL (0.73.0): sólo a los que MaKo pidió, y primero las cuentas de EMPRESA (son las que tienen
+ * web, correo, dirección), después los que tienen algún nombre y al final el resto. Con el nombre para el desplegable.
+ */
+function candidatosDePerfil(pedidos, fichas) {
+  const suf = (t) => String(t || '').replace(/\D/g, '').slice(-10);
+  const porTel = new Map((Array.isArray(fichas) ? fichas : []).map((f) => [suf(f.telefono), f]));
+  const out = [];
+  const vistos = new Set();
+  for (const p of Array.isArray(pedidos) ? pedidos : []) {
+    const tel = String((p && typeof p === 'object' ? p.telefono : p) || '').replace(/\D/g, '');
+    if (tel.length < 8 || vistos.has(suf(tel))) continue;
+    vistos.add(suf(tel));
+    const f = porTel.get(suf(tel)) || null;
+    const nombre = f ? (f.agenda || f.empresa || f.pushname || null) : null;
+    out.push({ telefono: tel, nombre, orden: f && f.esEmpresa ? 0 : nombre ? 1 : 2 });
+  }
+  return out.sort((a, b) => a.orden - b.orden).map(({ telefono, nombre }) => ({ telefono, nombre }));
+}
+
+/** Los perfiles leídos, sumados a las fichas por los últimos 10 del teléfono; el que no tenía ficha, la gana. */
+function sumarPerfiles(fichas, perfiles) {
+  const suf = (t) => String(t || '').replace(/\D/g, '').slice(-10);
+  const out = (Array.isArray(fichas) ? fichas : []).map((f) => ({ ...f }));
+  const porTel = new Map(out.map((f) => [suf(f.telefono), f]));
+  for (const x of Array.isArray(perfiles) ? perfiles : []) {
+    if (!x || !x.perfil || String(x.telefono || '').replace(/\D/g, '').length < 8) continue;
+    const f = porTel.get(suf(x.telefono));
+    if (f) f.perfil = x.perfil;
+    else { const n = { telefono: String(x.telefono).replace(/\D/g, ''), agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: [], perfil: x.perfil }; out.push(n); porTel.set(suf(x.telefono), n); }
+  }
+  return out;
+}
+
 /** La pestaña al frente, y su ventana. */
 async function alFrente(tab) {
   try { await chrome.tabs.update(tab.id, { active: true }); } catch { /* nada */ }
@@ -3075,9 +3112,22 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           responder({ ok: false, motivo: 'sin_respuesta_wa' });
           return;
         }
+        // LOS PERFILES (0.73.0, Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email»): con la
+        // base ya leída se sabe quién es empresa, y ésas van primero. De a uno, a la vista, con tope.
+        let diagPerfiles = null;
+        if (visible && grupos.length && r && r.ok && !viva.parado) {
+          const candidatos = candidatosDePerfil(msg.pedidos, r.fichas);
+          if (candidatos.length) {
+            void anotarExtraccion(pedidoId, { fase: 'perfiles', perfilesTotal: Math.min(candidatos.length, TOPE_PERFILES), perfilesHechos: 0 });
+            const rp = await conTope(chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_PERFILES', id: pedidoId, grupo: grupos[0], candidatos, tope: TOPE_PERFILES }), 30 * 60000).catch(() => null);
+            if (rp && rp.ok && Array.isArray(rp.perfiles)) r.fichas = sumarPerfiles(r.fichas, rp.perfiles);
+            diagPerfiles = rp ? rp.diag || { motivo: rp.motivo || null } : { motivo: 'sin_respuesta' };
+            void anotarExtraccion(pedidoId, { perfilesLeidos: rp && rp.diag ? rp.diag.abiertos : 0, perfilesConDatos: rp && rp.diag ? rp.diag.conDatos : 0 });
+          }
+        }
         if (visible && r && r.ok) void anotarExtraccion(pedidoId, { fase: 'guardando', conFicha: Array.isArray(r.fichas) ? r.fichas.length : 0 });
         // Si el desplegable se abrió (o por qué no), también a la pantalla: es lo primero que hay que saber si «no se ve».
-        responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable } : r) : { ok: false, motivo: 'sin_respuesta' });
+        responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable, diagPerfiles } : r) : { ok: false, motivo: 'sin_respuesta' });
       } catch (e) {
         if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'recargar_whatsapp_web' }); extraccionesVivas.delete(pedidoId); }
         responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
@@ -3092,9 +3142,10 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     const viva = extraccionesVivas.get(id);
     if (!viva) return false;
     const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : undefined);
-    void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre) });
+    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined });
+    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre) });
     if (viva.origen != null) {
-      const texto = msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : typeof msg.texto === 'string' ? msg.texto : '';
+      const texto = msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
       chrome.tabs.sendMessage(viva.origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: String(msg.paso || ''), texto }).catch(() => {});
     }
     return false;
@@ -3105,7 +3156,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     const id = typeof msg.id === 'string' ? msg.id : '';
     const c = {};
     for (const k of ['fase', 'estado', 'texto']) if (typeof msg[k] === 'string') c[k] = msg[k].slice(0, 400);
-    for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total']) if (typeof msg[k] === 'number' && Number.isFinite(msg[k])) c[k] = msg[k];
+    for (const k of ['guardados', 'nombres', 'empresas', 'nuevos', 'total', 'perfiles']) if (typeof msg[k] === 'number' && Number.isFinite(msg[k])) c[k] = msg[k];
     void anotarExtraccion(id, c);
     if (c.estado && c.estado !== 'corriendo') {
       const viva = extraccionesVivas.get(id);

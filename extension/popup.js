@@ -983,6 +983,7 @@ const FASES = [
   { texto: 'Entro al grupo', pasos: ['buscando', 'entrando'] },
   { texto: 'Leo los miembros', pasos: ['miembros', 'recorriendo', 'parando'] },
   { texto: 'Junto los nombres', pasos: ['leyendo'] },
+  { texto: 'Leo sus perfiles', pasos: ['perfiles'] },
   { texto: 'Los guardo en MaKo', pasos: ['guardando'] },
 ];
 /** Lo que se dice mientras WhatsApp Web pide el QR (el worker espera cinco minutos con la pestaña al frente). */
@@ -1032,10 +1033,13 @@ function dibujarExtraccion(e) {
 
   if (estado === 'corriendo') {
     // Con el QR a la vista, la línea de abajo del título dice qué hacer (como «Inicia sesión en Google Flow»).
-    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : TEXTO_A_LA_VISTA;
+    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : e.fase === 'perfiles' && e.ahora ? e.ahora : TEXTO_A_LA_VISTA;
     const i = Math.max(0, FASES.findIndex((f) => f.pasos.includes(e.fase)));
     a.fases.forEach((li, j) => { li.className = j < i ? 'hecha' : j === i ? 'ahora' : ''; li.firstChild.textContent = j < i ? '✓' : ''; });
-    if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
+    if (e.fase === 'perfiles' && Number(e.perfilesTotal) > 0) {
+      a.conteo.firstChild.textContent = `${miles(e.perfilesHechos)}`;
+      a.conteo.lastChild.textContent = `de ${miles(e.perfilesTotal)} perfiles`;
+    } else if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
       a.conteo.firstChild.textContent = `${miles(e.guardados)}`;
       a.conteo.lastChild.textContent = `de ${miles(e.total)} guardados`;
     } else if (miembros) {
@@ -1086,6 +1090,7 @@ function armarExtraccion(cuerpo, e, estado) {
       cuerpo.appendChild(out.puntos);
     }
     if (e.texto) cuerpo.appendChild(nodo('div', 'tenue', e.texto));
+    if (Number(e.perfiles) > 0) cuerpo.appendChild(nodo('div', 'tenue', `${miles(e.perfiles)} con links, redes o correo de su perfil.`));
   } else if (estado === 'parado') {
     cuerpo.appendChild(nodo('div', 'tenue', 'La paraste. Lo que ya estaba guardado queda; para seguir, vuelve a tocar «Extraer» en MaKo.'));
   } else if (estado === 'cortada') {

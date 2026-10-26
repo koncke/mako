@@ -182,6 +182,7 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
         if (m.tipo === 'WA_FICHAS_PING') return { ok: true, base: true, recorre: true };
         if (m.tipo === 'WA_RECORRER') return { ok: true, encontrado: true, total: 2, filas: [{ titulo: '~ Lucía', secundario: '+52 1 55 5555 0001' }] };
         if (m.tipo === 'WA_FICHAS') return { ok: true, fichas: [{ telefono: '5215555550001', pushname: 'Lucía' }], grupos: [], diagnostico: { base: true } };
+        if (m.tipo === 'WA_PERFILES') return { ok: true, perfiles: [{ telefono: '5215555550001', perfil: { web: 'https://lucia.mx' } }], diag: { intentados: 1, abiertos: 1, conDatos: 1, fallos: {} } };
         return undefined;
       },
       onUpdated: { addListener: () => {}, removeListener: () => {} },
@@ -213,7 +214,11 @@ test('3. el worker «a la vista»: SU pestaña de WhatsApp al frente, el despleg
   assert.deepEqual(plano(w.reg.popups), [{ windowId: 1 }], 'no abrió el desplegable');
   // El recorrido va ANTES de leer la base, y lo que vio viaja con el pedido.
   const aWa = w.reg.aTabs.filter(([id]) => id === 7).map(([, m]) => m.tipo);
-  assert.deepEqual(aWa.filter((t) => t !== 'WA_FICHAS_PING'), ['WA_RECORRER', 'WA_FICHAS']);
+  // Y después de la base, los PERFILES (0.73.0): con la base leída se sabe quién es empresa.
+  assert.deepEqual(aWa.filter((t) => t !== 'WA_FICHAS_PING'), ['WA_RECORRER', 'WA_FICHAS', 'WA_PERFILES']);
+  const pedidoPerfiles = w.reg.aTabs.find(([, m]) => m.tipo === 'WA_PERFILES')![1];
+  assert.deepEqual([pedidoPerfiles.grupo, pedidoPerfiles.tope, pedidoPerfiles.candidatos], ['Formación de Jan', 60, [{ telefono: '5215555550001', nombre: 'Lucía' }]]);
+  assert.deepEqual((r as unknown as { fichas: Array<Record<string, unknown>> }).fichas[0].perfil, { web: 'https://lucia.mx' }, 'el perfil leído no llegó a la pantalla');
   const fichas = w.reg.aTabs.find(([, m]) => m.tipo === 'WA_FICHAS')![1];
   assert.deepEqual(fichas.vistas, [{ titulo: '~ Lucía', secundario: '+52 1 55 5555 0001' }]);
   // El registro: la fila de esta extracción, y el desplegable abre en ella.
@@ -431,8 +436,94 @@ test('6c. el desplegable dice cómo está WhatsApp Web, como con Flow, y SÓLO m
   assert.match(popup, /ir\('Ir a WhatsApp Web'\)/);
   assert.match(popup, /void enviar\(\{ tipo: 'WA_ENFOCAR' \}\)/, 'el botón no usa el camino que nunca abre una segunda pestaña');
   // Durante la extracción, con el QR, la línea de abajo del título dice qué hacer.
-  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : TEXTO_A_LA_VISTA;/);
+  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : e\.fase === 'perfiles' && e\.ahora \? e\.ahora : TEXTO_A_LA_VISTA;/);
   assert.match(popup, /\{ texto: 'Abro tu WhatsApp', pasos: \['abriendo', 'cargando', 'qr'\] \}/);
+});
+
+// ── 7. Los PERFILES de cada contacto (0.73.0) ───────────────────────────────────────────────────────────────────────────
+// Martín, 26/10: «Creo que el scraper solo está extrayendo los nombres, cuando podría entrar a cada perfil y fijarse si tiene
+// links, redes sociales, email, etc...». ⚠️ La pantalla del perfil no se midió todavía (ver la corrida en vivo): acá, que se
+// clasifique bien lo que se lee, que se abra de a uno con tope y pausa, y que se guarde sólo en lo vacío.
+test('7. el perfil leído: la web, el Instagram, las otras redes y el correo; los de WhatsApp no; y sin nada, nada', () => {
+  const r = reglas as Reglas & { perfilDeInfo(i: unknown): Record<string, unknown> | null };
+  const p = r.perfilDeInfo({
+    textos: ['Agencia de marketing', 'Escríbenos a hola@agencia.com', 'IG: @otra.cuenta', 'Visítanos https://agencia.mx/contacto.'],
+    links: ['https://www.instagram.com/agencia.mx/', 'https://facebook.com/agenciamx', 'https://wa.me/5215555550001', 'https://www.instagram.com/p/abc123'],
+  });
+  assert.deepEqual(plano(p), {
+    web: 'https://agencia.mx/contacto', instagram: 'agencia.mx', email: 'hola@agencia.com', direccion: null, rubro: null, descripcion: null,
+    redes: ['facebook: https://facebook.com/agenciamx'],
+  });
+  // Un «@cuenta» escrito a mano, sin link, también es su Instagram.
+  assert.equal(r.perfilDeInfo({ textos: ['Ventas por Insta: @tienda_sol'], links: [] })!.instagram, 'tienda_sol');
+  // Lo de WhatsApp no es una web, y un jid no es un correo.
+  assert.equal(r.perfilDeInfo({ textos: ['5491155550001@s.whatsapp.net'], links: ['https://wa.me/549115555', 'https://chat.whatsapp.com/abc'] }), null);
+  assert.equal(r.perfilDeInfo({ textos: ['Hola, estoy usando WhatsApp', 'Disponible'], links: [] }), null, 'un perfil sin nada inventó algo');
+  assert.equal(r.perfilDeInfo(null), null);
+});
+
+test('7b. de a uno, con tope y pausa: busca, abre, lee, vuelve; cuenta cada paso y qué falló', async () => {
+  const rec = requerir(join(raiz, 'extension', 'wa-recorrer.js')) as {
+    leerPerfiles(g: string, c: unknown[], p: unknown, avisar: (paso: string, d: Record<string, unknown>) => void, parado: () => boolean, o?: Record<string, number>): Promise<{ perfiles: Array<{ telefono: string; perfil: unknown }>; diag: Record<string, unknown> }>;
+  };
+  // `perfilDeInfo` vive en el global de las reglas, como en la pestaña.
+  (globalThis as Record<string, unknown>).MakoWaFichas = reglas;
+  const abiertos: string[] = [];
+  let vueltas = 0;
+  const p = {
+    abrirPerfil: async (_g: string, tel: string) => (tel.endsWith('0009') ? { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' } : { ok: true, info: { tel }, busqueda: 'con_mas', menu: ['Mensaje a ~aaa', 'Ver ~aaa'] }),
+    leerPerfil: (info: { tel: string }) => { abiertos.push(info.tel); return info.tel.endsWith('0001') ? { textos: ['hola@sol.com'], links: [] } : { textos: ['Disponible'], links: [] }; },
+    volverDelPerfil: async () => { vueltas++; },
+    forma: () => ({ lineas: ['Info. del contacto'] }),
+    cerrar: () => {},
+  };
+  const avisos: Array<Record<string, unknown>> = [];
+  const candidatos = ['5215555550001', '5215555550002', '5215555550009', '5215555550004', '5215555550005'].map((telefono) => ({ telefono, nombre: null }));
+  const r = await rec.leerPerfiles('Formación de Jan', candidatos, p, (paso, d) => avisos.push({ paso, ...d }), () => false, { tope: 4, pausaMin: 0, pausaMax: 0 });
+  assert.deepEqual(abiertos, ['5215555550001', '5215555550002', '5215555550004'], 'pasó el tope, o abrió al que no encontró');
+  assert.deepEqual(plano(r.perfiles), [{ telefono: '5215555550001', perfil: { web: null, instagram: null, email: 'hola@sol.com', direccion: null, rubro: null, descripcion: null, redes: [] } }]);
+  assert.deepEqual(plano(r.diag), { intentados: 4, abiertos: 3, conDatos: 1, fallos: { sin_fila: 1 }, forma: { lineas: ['Info. del contacto'] }, menu: ['Mensaje a ~aaa', 'Ver ~aaa'], busqueda: 'con_mas' });
+  assert.equal(vueltas, 4, 'no volvió del perfil (ni del que falló): el siguiente se busca con el panel abierto');
+  assert.deepEqual(avisos.slice(0, 2).map((a) => [a.paso, a.hechos, a.total]), [['perfiles', 0, 4], ['perfiles', 1, 4]]);
+  assert.match(String(avisos[0].texto), /^Leyendo el perfil de \+5215555550001…$/);
+  // Parado: no abre el siguiente.
+  let n = 0;
+  const parado = await rec.leerPerfiles('X', candidatos, p, () => {}, () => ++n > 1, { tope: 10, pausaMin: 0, pausaMax: 0 });
+  assert.equal(parado.diag.intentados, 1);
+  // Y en la pantalla de verdad: pausa de persona por defecto, tope 60, y la forma del panel sin datos de nadie.
+  const src = sinComentarios(leer('extension/wa-recorrer.js'));
+  assert.match(src, /const t = Object\.assign\(\{ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600 \}, o \|\| \{\}\);/);
+  assert.match(src, /w\.replace\(\/\[\\p\{L\}\]\/gu, 'a'\)\.replace\(\/\\d\/g, '#'\)/, 'la forma del panel deja ver letras de una persona');
+});
+
+test('7c. el worker: empresas primero, sólo los pedidos, y el perfil sumado a su ficha; y el server guarda sólo lo vacío', async () => {
+  const bg = leer('extension/background.js');
+  const piezas = bg.slice(bg.indexOf('function candidatosDePerfil('), bg.indexOf('/** La pestaña al frente, y su ventana. */'));
+  const ctx: Record<string, unknown> = {};
+  runInNewContext(`${piezas}\nglobalThis.c = candidatosDePerfil; globalThis.s = sumarPerfiles;`, ctx);
+  const c = ctx.c as (p: unknown[], f: unknown[]) => unknown[];
+  const sumar = ctx.s as (f: unknown[], p: unknown[]) => Array<Record<string, unknown>>;
+  const pedidos = [{ telefono: '5215555550001' }, { telefono: '5215555550002' }, '5215555550003', { telefono: '5215555550002' }];
+  const fichas = [{ telefono: '5215555550002', empresa: 'Panadería Sol', esEmpresa: true }, { telefono: '5215555550003', pushname: 'Beto' }];
+  assert.deepEqual(plano(c(pedidos, fichas)), [
+    { telefono: '5215555550002', nombre: 'Panadería Sol' }, { telefono: '5215555550003', nombre: 'Beto' }, { telefono: '5215555550001', nombre: null },
+  ], 'las empresas no van primero, o se repitió un teléfono');
+  const sumadas = plano(sumar(fichas, [{ telefono: '5215555550001', perfil: { web: 'https://a.mx' } }, { telefono: '5215555550002', perfil: { email: 'x@y.co' } }, { telefono: '', perfil: {} }]));
+  assert.deepEqual(sumadas.map((f) => [f.telefono, f.perfil]), [['5215555550002', { email: 'x@y.co' }], ['5215555550003', undefined], ['5215555550001', { web: 'https://a.mx' }]]);
+  // El tope por corrida.
+  assert.match(bg, /const TOPE_PERFILES = 60;/);
+  // El server: la ficha trae el perfil LIMPIO, y se escribe por el camino de «Datos de empresa» (sólo lo vacío).
+  const { perfilLimpio, fichaLimpia } = await import('../lib/grupo-wa-reglas');
+  assert.equal(perfilLimpio({ web: 'javascript:alert(1)' }), null, 'una web que no es http(s) entró');
+  assert.equal(perfilLimpio({ instagram: 'no es una cuenta' }), null);
+  assert.equal(perfilLimpio({ redes: ['<img src=x>', 'facebook: https://facebook.com/x'] })!.redes!.length, 1);
+  assert.deepEqual(fichaLimpia({ telefono: '5215555550001', perfil: { email: 'hola@sol.com' } })!.perfil!.email, 'hola@sol.com');
+  const server = leer('app/crm/grupo-wa-server.ts');
+  assert.match(server, /if \(f\.perfil\) \{\n\s+const \{ data \} = await db\.from\('leads'\)\.select\(`id, \$\{CAMPOS_DEL_PERFIL\.join\(', '\)\}`\)\.eq\('id', id\)\.maybeSingle\(\);\n\s+const escritos = data \? await completarCamposVacios\(id, parcheDePerfil\(/, 'el perfil pisa lo que el lead ya tiene');
+  // El desplegable: la fase y su conteo.
+  const popup = sinComentarios(leer('extension/popup.js'));
+  assert.match(popup, /\{ texto: 'Leo sus perfiles', pasos: \['perfiles'\] \}/);
+  assert.match(popup, /a\.conteo\.lastChild\.textContent = `de \$\{miles\(e\.perfilesTotal\)\} perfiles`;/);
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026), contra una base de 8 / 0, de a una y restaurando de una copia:
@@ -451,3 +542,9 @@ test('6c. el desplegable dice cómo está WhatsApp Web, como con Flow, y SÓLO m
 //   · una sesión abierta (con la columna de chats) se lee como QR                           → 10 / 1
 //   · el estado de WhatsApp Web sin el botón para abrirlo                                   → 10 / 1
 //   · con el QR, el desplegable no dice qué hacer                                           → 10 / 1
+// Y los perfiles (0.73.0), contra 14 / 0 (el 7 encontró uno de verdad: una publicación de Instagram quedaba como «web»):
+//   · sin el tope por corrida                                                              → 13 / 1
+//   · no vuelve del perfil que falló (el siguiente se busca con el panel abierto)          → 13 / 1
+//   · las empresas no van primero                                                          → 13 / 1
+//   · una publicación de una red queda como web                                            → 13 / 1
+//   · una web que no es http(s) entra (el server)                                          → 13 / 1

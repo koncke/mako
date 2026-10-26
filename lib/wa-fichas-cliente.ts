@@ -132,7 +132,7 @@ export function nuevoIdExtraccion(): string {
 /** Lo que una extracción a la vista cuenta de su lado de MaKo: números y textos cortos (nunca nombres de nadie). */
 export type AvisoExtraccion = {
   fase?: 'guardando'; estado?: 'corriendo' | 'listo' | 'error' | 'parado'; texto?: string;
-  guardados?: number; total?: number; nombres?: number; empresas?: number; nuevos?: number;
+  guardados?: number; total?: number; nombres?: number; empresas?: number; nuevos?: number; perfiles?: number;
 };
 
 /**
