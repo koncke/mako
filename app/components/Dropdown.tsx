@@ -690,22 +690,32 @@ export function Dropdown({
       // arranca desde el principio del documento.
       ref.current?.querySelector('button')?.focus();
     };
-    // Al scrollear/redimensionar el menú fijo se despegaría del botón → cerrar.
-    // PERO si el scroll ocurre DENTRO del propio menú (lista larga), NO cerrar.
-    const onScrollResize = (e?: Event) => {
-      if (e && e.type === 'scroll' && e.target instanceof Node && menuRef.current?.contains(e.target)) return;
+    // Al scrollear el menú fijo se despegaría del botón → cerrar. PERO si el scroll ocurre DENTRO del propio menú (lista
+    // larga), NO cerrar.
+    //
+    // ⚠️ UN `resize` NO CIERRA: REUBICA (26/10/2026, Martín desde el teléfono: «dentro de "perfil", no puedo apretar ningún
+    // desplegable, se abre y se cierra automáticamente»). En el teléfono, /m declara `interactive-widget: resizes-content`
+    // (app/m/layout.tsx): el TECLADO achica la ventana y manda `resize`. Abrir un desplegable con buscador abre el teclado, y
+    // tocar uno con el teclado ya abierto (venías de escribir en «Cargo») lo cierra: las dos cosas son un `resize`, y
+    // cerraban el menú en el mismo gesto que lo abría. Reubicado contra el botón, el menú no se despega.
+    // (tests/desplegable-teclado.test.ts)
+    const onScroll = (e: Event) => {
+      if (e.target instanceof Node && menuRef.current?.contains(e.target)) return;
       setOpen(false);
     };
+    const onResize = () => place(medido.current, menuRef.current?.getBoundingClientRect().width ?? null);
     document.addEventListener('mousedown', onDoc);
     document.addEventListener('keydown', onEsc, true);
-    window.addEventListener('scroll', onScrollResize, true);
-    window.addEventListener('resize', onScrollResize);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', onResize);
     return () => {
       document.removeEventListener('mousedown', onDoc);
       document.removeEventListener('keydown', onEsc, true);
-      window.removeEventListener('scroll', onScrollResize, true);
-      window.removeEventListener('resize', onScrollResize);
+      window.removeEventListener('scroll', onScroll, true);
+      window.removeEventListener('resize', onResize);
     };
+    // `place` se arma en cada render y lee las props de ahora (como en el efecto que mide).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   const flat = secciones ? secciones.flatMap(opcionesDe)
@@ -767,6 +777,10 @@ export function Dropdown({
     const elegido = !resetAfterSelect ? (varios?.length ? varios[0] : value) : '';
     const camino = abrirEnLaRaiz ? null : caminoDe(secciones, elegido);
     if (camino) setRuta(camino);
+    // ⚠️ EN UNA PANTALLA TÁCTIL, NO (26/10/2026): enfocar el buscador abre el teclado, que tapa media lista justo cuando la
+    // persona quiere elegir con el dedo. Si quiere buscar, toca el campo. Con mouse, el foco entra solo, como siempre.
+    const tactil = typeof window !== 'undefined' && window.matchMedia?.('(pointer: coarse)').matches;
+    if (tactil) return;
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);
     // Sólo al ABRIR: lo elegido de ese momento. Elegir adentro (con `varios`) no tiene que mover el menú.
