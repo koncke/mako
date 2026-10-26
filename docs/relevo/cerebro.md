@@ -39,8 +39,9 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
   fallas de la revisión), Zernio `d2116184e` (un negocio sin token administra sus campañas; `CORTE_TOKEN_META =
   '2026-11-03'`), Ops Center `738ffba0d` (avances en una burbuja, la voz como audio, respuestas como Claude), MaKo en
   WhatsApp `fd6c7ac1c` (sigue la conversación), Customers `6fe3bc7ac`, Grabadores `24752ffdd` (tl;dv, Fireflies, Zoom y
-  Otter; el aviso cuando la IA del negocio se cae) y MaKo recomienda `9035a6b6a` (con los 9 arreglos de la revisión).
-  Todas pasaron por la revisión adversarial y sus arreglos. Faltan: el chequeo del tren, los tipos y la 0338.
+  Otter; el aviso cuando la IA del negocio se cae). Todas pasaron por la revisión adversarial y sus arreglos.
+  **MaKo recomienda NO va:** la verificación de sus arreglos dio 5 de 9 cerrados y una falla nueva (la cascada todavía
+  marca saturado un modelo sano para todos); respaldo en la etiqueta `respaldo/tren-m-con-recomienda`.
 - **Revisiones de esta noche:** detalle en `%APPDATA%/Claude/side-session-notes/local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8/`
   (`revision-tren-l-2.md`, `revision-tren-m.md`). Las tres juntas confirmaron 40 fallas invisibles; todas arregladas.
 - **Motion y el Image Editor:** SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con otra cuenta: rama LOCAL
