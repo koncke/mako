@@ -45,8 +45,10 @@ import { TABS_DEL_MENU, type ChatDelYaEsta } from './Avance';
 import { MiFoto } from './MiFoto';
 import { Pasos, Plegar, usePlegado } from './PreguntasDelChat';
 
-/** Desde cuántos caracteres el pedido se achica a 3 renglones (y se abre tocándolo). */
+/** Desde cuántos caracteres el pedido se achica a 3 renglones (y se abre tocándolo). Con varios mensajes, antes: si no, la
+ *  respuesta queda abajo del scroll del bloque (26/10/2026, medido en el teléfono con dos mensajes de ~190). */
 const PEDIDO_LARGO = 200;
+const PEDIDO_LARGO_ENTRE_VARIOS = 110;
 
 /**
  * Un texto plegado que se abre TOCÁNDOLO (sin «Ver todo»): un link adentro se abre sin desplegar, y seleccionar texto tampoco
@@ -70,9 +72,9 @@ function SeAbreTocando({ abierto, abrir, clase, children }: { abierto: boolean; 
 }
 
 /** Lo que respondía: un globo a la derecha, como en el hilo. De Martín, con su foto; de otro chat, con su nombre y su ícono. */
-function Pedido({ texto, de }: { texto: string; de: string | null }) {
+function Pedido({ texto, de, tope = PEDIDO_LARGO }: { texto: string; de: string | null; tope?: number }) {
   const [abierto, setAbierto] = useState(false);
-  const largo = texto.length > PEDIDO_LARGO;
+  const largo = texto.length > tope;
   return (
     <div className="co-preg__ya-pedido">
       <div className="co-yo">
@@ -163,7 +165,7 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
       <div className="co-preg__ya-cuerpo">
         {pedidos.length > 0 && (
           <div className="co-preg__ya-pedidos">
-            {pedidos.map((p, k) => <Pedido key={`p-${t.uuid}-${k}`} texto={p.texto} de={p.de} />)}
+            {pedidos.map((p, k) => <Pedido key={`p-${t.uuid}-${k}`} texto={p.texto} de={p.de} tope={pedidos.length > 1 ? PEDIDO_LARGO_ENTRE_VARIOS : PEDIDO_LARGO} />)}
           </div>
         )}
         <p className="co-preg__ya-de">{`Respuesta de ${chat.titulo}`}</p>
@@ -176,6 +178,8 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
               <IconoMenu nombre="cita" size={15} />Responder sobre esto
             </button>
           )}
+          {/* «Revisar» y «Ya lo vi», juntos: si no entran al lado de «Responder sobre esto» (el teléfono), bajan los dos. */}
+          <span className="co-preg__ya-acciones">
           {destino && (
             <Link className="co-chip co-preg__ya-revisar" href={destino.href}>
               <Icon name="eye" size={15} />{destino.via === 'tab' ? 'Revisar en su tab' : 'Revisar'}
@@ -189,6 +193,7 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
               <Icon name="check" size={15} />Ya lo vi
             </button>
           )}
+          </span>
         </div>
       )}
     </div>

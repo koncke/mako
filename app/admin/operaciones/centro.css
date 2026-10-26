@@ -923,6 +923,7 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg__ya-pie { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
 /* «Responder sobre esto» (26/10/2026): la secundaria de la izquierda; «Revisar» y «Ya lo vi», a la derecha. */
 .co-preg__ya-responder { margin-right: auto; }
+.co-preg__ya-acciones { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 .co-preg__ya-responder svg { flex: none; }
 .co-preg__ya-revisar { text-decoration: none; }
 .co-preg__ya-revisar svg, .co-preg__ya-visto svg { flex: none; }

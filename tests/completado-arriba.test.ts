@@ -219,7 +219,7 @@ const leerBloque = () => leer('app/admin/operaciones/BloqueCompletado.tsx');
 test('9. UNA acción y las secundarias: «Ya lo vi», «Revisar» y «Responder sobre esto»; sin «Ver todo» ni la tarea del Plan', () => {
   const html = renderToStaticMarkup(createElement(BloqueCompletado, { chat: CHAT, lineas, yaVisto: T1, onYaVisto: () => {}, hayPreguntas: false, onResponderSobre: () => {} }));
   assert.equal((html.match(/co-chip--primario/g) ?? []).length, 1, 'una sola acción principal');
-  assert.match(html, /<div class="co-preg__ya-pie"><button type="button" class="co-chip co-preg__ya-responder">.*Responder sobre esto<\/button><a [^>]*class="co-chip co-preg__ya-revisar"[^>]*>.*Revisar<\/a><button type="button" class="co-chip co-chip--primario co-preg__ya-visto"/,
+  assert.match(html, /<div class="co-preg__ya-pie"><button type="button" class="co-chip co-preg__ya-responder">.*Responder sobre esto<\/button><span class="co-preg__ya-acciones"><a [^>]*class="co-chip co-preg__ya-revisar"[^>]*>.*Revisar<\/a><button type="button" class="co-chip co-chip--primario co-preg__ya-visto"/,
     'abajo: «Responder sobre esto» y «Revisar» (las secundarias) y «Ya lo vi» (la principal)');
   assert.doesNotMatch(html, /Ver todo|co-ya__plan|co-ya__check/, 'nada más: la tarea del Plan queda en la tarjeta del hilo');
   // Sin página que revisar, sólo «Ya lo vi».
