@@ -1498,6 +1498,22 @@ export const BITACORA: Hito[] = [
     revisar: '/web-generator/44',
   },
   {
+    fecha: '26 oct', hora: '06:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El analizador aplica todos sus comentarios, y una página copiada trae sus botones',
+    pedido: '«Que funcione bien también el analizador de otras landing, que si le doy al botón de aplicar lo haga... prueba en traer una landing de alguna competencia y ver si la duplica bien»',
+    puntos: [
+      'Probado con la página de un competidor: se analiza, se copia al editor y «Aplicar» cambia la copia.',
+      'Un comentario que no está en una sección también tiene «Aplicar»: arregla la página entera.',
+      'Al copiar una página, sus botones quedan como botones y sus preguntas como desplegables, aunque la IA no responda.',
+    ],
+    archivos: [
+      'lib/editor-landing/diagnostico-aplicar.ts — «Aplicar»',
+      'lib/editor-landing/ia-reglas.ts — la copia sin IA',
+    ],
+    revisar: '/web-generator?diagnostico=46',
+  },
+  {
     fecha: '26 oct', hora: '07:20', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
     titulo: 'En las páginas de MaKo, el tachado, los enlaces a otra página y el precio con formato ya no se pierden al guardar',
