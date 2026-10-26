@@ -426,7 +426,9 @@ export function unirPaginas(...listas: ReadonlyArray<readonly PaginaFacebook[]>)
  * (crear, editar, pausar, presupuesto, borrar); leer métricas sigue. null = sin corte. Lo fija el Cerebro el día que sale el
  * aviso: una semana después de ese día.
  */
-export const CORTE_TOKEN_META: string | null = null;
+// Fijado el 26/10/2026: el aviso sale el lunes 27/10 a las 10:00 a los cinco negocios que usan el token (lo aprobó Martín) y el
+// corte es una semana después.
+export const CORTE_TOKEN_META: string | null = '2026-11-03';
 
 /** ¿Este negocio ya no puede administrar anuncios con el token? Sólo pasado el corte y sin la conexión de Zernio. */
 export function tokenMetaVencido(p: { corte: string | null; hoy: string; viaZernio: boolean }): boolean {
