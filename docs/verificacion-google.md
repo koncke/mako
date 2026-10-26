@@ -1,5 +1,10 @@
 # Verificación de la app de Google de MaKo
 
+> **APROBADA (26/10/2026, Martín: «Ya aprobaron la app de google!»).** Lo que queda: prender la agenda al entrar con Google
+> poniendo `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (producción), cuando la rama de la política esté en main. La política de
+> privacidad ya lee ese mismo interruptor (app/privacidad/page.tsx): con él prendido dice «una sola vez, al entrar», y
+> apagado, los dos momentos de antes. Lo de abajo es la historia de la verificación.
+
 App OAuth del proyecto `mako-500317` (cuenta martinkoncke@gmail.com), cliente «MaKo Web».
 Publicada («In production») el 07/10/2026 y **sin verificar**: quien conecta su agenda ve
 «Google no verificó esta app» y la app tiene un tope de 100 usuarios en toda su vida.
