@@ -3180,6 +3180,11 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
   no tiene transición; `visibility` sí, con retardo, y mientras se ve se puede apretar.
 - **Tests que fijaban nombres:** `setActivo(true)` en el `mousedown`, `boton('Enlace'…)` y el `className` de la
   barrita. Se respetaron los nombres; sólo se cambió la activación, que ahora es el puente.
+- **El test nuevo pasaba acá y caía en el tren:** leía los fuentes sin normalizar el fin de línea y buscaba `\n`. En este
+  worktree los archivos estaban en LF; en wt-push-q (`core.autocrlf=true`) llegan en CRLF. La regla ya estaba en
+  AGENTS.md («Fin de línea»): todo `readFileSync` de un fuente va con `.replace(/\r\n/g, '\n')`. **Cómo se prueba:**
+  pasar a CRLF los fuentes que lee el test y correrlo (`probar-crlf.mjs` del scratchpad). Con la lectura vieja daba 7/1;
+  con la normalizada, 8/8.
 
 **El analizador y «Replicar», con una de la competencia (100ads.ai).** El análisis dejó 2 comentarios. «Aplicar» replicó
 la página (#46), pasó los comentarios y aplicó el que tenía sección: el documento cambió de verdad. Lo que falló:
