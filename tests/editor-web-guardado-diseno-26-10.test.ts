@@ -20,7 +20,8 @@ import { conPreciosEnHtml } from '../lib/editor-landing/precios-en-landing';
 import { conEnlacesDePaginas } from '../lib/editor-landing/html-editable';
 
 const RAIZ = join(import.meta.dirname, '..');
-const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
+// Sin CRLF: en un checkout con core.autocrlf=true el fuente llega con \r\n y las regex con \n no calzan (AGENTS.md).
+const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 /** El saneo lleva `server-only`: corre en un node aparte (tests/_html-editable-seguro-hijo.ts). */
 const sanear = (html: string): string => (JSON.parse(execFileSync(process.execPath,
   ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_html-editable-seguro-hijo.ts'), html], { cwd: RAIZ, encoding: 'utf8', timeout: 90_000 })) as { limpio: string }).limpio;
