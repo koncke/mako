@@ -85,6 +85,11 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
   · lo que se pidió y lo que contestó MaKo hasta 7 días atrás, con su fecha en la zona del negocio;
   · lo que MaKo propuso en ese grupo y cómo terminó (`mako_acciones_pendientes`: hecha, venció, falló).
   Va con la advertencia de que un «sí» de ahora no lo confirma: es el «sí, cargalo» del 26/07, que es la razón de las 14 h.
+- **Lo que MOSTRARON las herramientas vuelve al turno siguiente** (`referenciasDeLaSalida` → setting `mako.doer.refs.<grupo>`
+  → `bloqueLoQueMostraste`). La memoria guarda el TEXTO de MaKo, no lo que devolvieron sus herramientas: «descartá esa»,
+  «la segunda» o «esos 5» apuntaban a ids que el turno siguiente no veía. Lo pidió «MaKo inteligente»: sin las `clave` de
+  `que_recomienda_mako`, «lo de la landing no aplica» no podía armar `decidir_recomendacion`. Se guardan los ids y los
+  nombres (hasta 10 por herramienta, las últimas cuatro), vencen a las 14 h, y un turno sin nada con id deja lo de antes.
 - ⚠️ **La memoria del grupo NO va al system de la red de la plataforma** (`baseRed`): nombra leads y lo que se habló, y
   la red corre sin datos de clientes.
 - **El conocimiento del negocio (Second Brain) se busca por el tema** (`consultaDelTurno`). Con «y eso?» solo,
@@ -96,7 +101,8 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
 
 **SIN hacer:**
 - `mako_doer_conv` no guarda QUIÉN habló: en un grupo con varias personas, «lo que te pidió Leila» no se puede seguir.
-- Lo que MaKo hizo SIN pendiente (lecturas, borradores directos) no queda como hecho; sólo las acciones que propuso.
+- Lo que MaKo hizo SIN pendiente (un borrador directo, una lectura de hace dos días) no queda como hecho: quedan las acciones
+  que propuso y lo que mostró el último turno.
 - «creá una etiqueta para los del webinar» no se lee como pedido por WhatsApp: el seguimiento no tiene pedido que
   seguir. Es del clasificador, no del hilo.
 - Medir con `scripts/medir-hilo-whatsapp.mts` cuántos seguimientos reales cambian, por negocio.

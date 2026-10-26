@@ -45,7 +45,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueYaSeHablo, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
@@ -1081,6 +1081,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       new Date(),
       await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT),
     );
+    // Y los ids que mostraron las herramientas del turno anterior («descartá esa», «la segunda»): se guardan al final del turno.
+    const ctxMostrado = bloqueLoQueMostraste(await getSetting(CLAVE_REFS(jid)).catch(() => null), Date.now());
+    const refsDelTurno: RefDelTurno[] = [];
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda.`
       : '';
@@ -1227,7 +1230,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
       // ⚠️ La memoria del grupo NO va al system de la red de la plataforma (`baseRed`): nombra leads y lo que se habló, y la red
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
-      const conMemoria = baseDelSystem === base && ctxYaSeHablo ? `\n\n${ctxYaSeHablo}` : '';
+      const conMemoria = baseDelSystem === base ? [ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${conMemoria}`;
     };
     const system = armarSystem(tools);
@@ -1354,6 +1357,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
+      const refs = referenciasDeLaSalida(name, out);
+      if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
@@ -2256,6 +2261,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // la agenda no pasa por ninguno.
       if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
       else if (partes.length) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Lo que mostraron las herramientas de ESTE turno, para el siguiente (las últimas cuatro). Un turno sin nada con id deja
+      // lo de antes: «la segunda» sigue siendo de la última lista que se mostró.
+      if (!avisoDeSistema && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), JSON.stringify({ at: Date.now(), refs: refsDelTurno.slice(-4) })).catch(() => {});
     }
     return { engaged: true, reply: [respuesta, ...paraLaPersona].filter(Boolean).join('\n\n') };
   } catch (e) {

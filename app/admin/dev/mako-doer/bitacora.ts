@@ -662,13 +662,14 @@ export const BITACORA: Hito[] = [
       '«No guarda contexto» no era la memoria: el modelo veía la charla, pero lo que podía hacer salía del último mensaje solo.',
       '«pausala», «publicá la del webinar» o «mandales a esos 5» llegaban sin con qué hacerlo; ahora siguen el pedido que MaKo ya contestó.',
       'Lo de más de 14 horas vuelve como hechos con su fecha, y también lo que MaKo propuso en el grupo y cómo terminó.',
+      'Lo que mostraron sus herramientas (los ids) llega al turno siguiente: «descartá esa» sabe cuál es.',
       'La lectura de producción quedó frenada por un permiso: el script para medirla queda en el repo.',
     ],
     archivos: [
       'lib/doer-hilo.ts — el seguimiento y lo que ya se habló',
       'lib/mako-doer-in.ts — el turno con el hilo y los hechos en su system',
       'scripts/medir-hilo-whatsapp.mts — la medición, de sólo lectura',
-      'tests/doer-hilo.test.ts — 16 roturas, todas caen',
+      'tests/doer-hilo.test.ts — 23 roturas, todas caen',
     ],
   },
 ];

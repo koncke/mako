@@ -224,6 +224,70 @@ export function bloqueYaSeHablo(filas: readonly FilaDelHilo[], acciones: readonl
   return out.slice(0, TOPE_HECHOS);
 }
 
+// ── LO QUE MOSTRARON LAS HERRAMIENTAS (los ids del turno anterior) ───────────────────────────────────────────────────
+// La memoria del grupo guarda el TEXTO de MaKo, no lo que devolvieron sus herramientas: «descartá esa», «la segunda» o «esos
+// 5» se refieren a ids que el turno siguiente no veía (lo pidió «MaKo inteligente», 26/10/2026: sin las `clave` de
+// `que_recomienda_mako`, «lo de la landing no aplica» no podía armar `decidir_recomendacion`). Se guarda, por grupo, lo que
+// mostraron las herramientas del último turno —sus ids y sus nombres, nada más— y vuelve al system del siguiente.
+
+/** Lo que una herramienta mostró: su nombre y, de cada cosa, el id y cómo se llama. */
+export type RefDelTurno = { herramienta: string; items: Array<{ id: string; nombre: string }> };
+export const CLAVE_REFS = (jid: string) => `mako.doer.refs.${jid}`;
+/** Lo que se mostró hace más que esto ya no es «la segunda» de nadie: la misma ventana que la charla. */
+export const VIGENCIA_REFS_MS = 14 * 3600_000;
+const ITEMS_MAX = 10;
+const CLAVES_ID = ['clave', 'id', 'lead_id', 'tarea_id', 'campana_id', 'landing_id', 'pendiente_id'] as const;
+const CLAVES_NOMBRE = ['titulo', 'nombre', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa'] as const;
+
+const comoTexto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null);
+function itemDe(o: unknown): { id: string; nombre: string } | null {
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return null;
+  const r = o as Record<string, unknown>;
+  const id = CLAVES_ID.map((k) => comoTexto(r[k])).find(Boolean);
+  if (!id) return null;
+  const nombre = CLAVES_NOMBRE.map((k) => comoTexto(r[k])).find(Boolean) ?? '';
+  return { id, nombre: enUnaLinea(nombre, 70) };
+}
+/** La primera lista de cosas con id, en la salida o adentro (`{ tareas: [...] }`, `{ ok, datos: { items } }`); si no hay lista,
+ *  la cosa con id que haya (`{ ok, landing: { id, nombre } }`). */
+function listaConIds(v: unknown, prof = 0): Array<{ id: string; nombre: string }> | null {
+  if (Array.isArray(v)) {
+    const items = v.map(itemDe).filter((x): x is { id: string; nombre: string } => !!x);
+    return items.length ? items : null;
+  }
+  if (!v || typeof v !== 'object' || prof > 2) return null;
+  const solo = itemDe(v);
+  for (const hijo of Object.values(v as Record<string, unknown>)) {
+    const l = listaConIds(hijo, prof + 1);
+    if (l) return l;
+  }
+  return solo ? [solo] : null;
+}
+
+/** Lo que mostró una herramienta, si mostró cosas con id. Un texto que no es JSON, o JSON sin ids, no deja nada. */
+export function referenciasDeLaSalida(herramienta: string, salida: unknown): RefDelTurno | null {
+  const crudo = typeof salida === 'string' ? salida : salida && typeof salida === 'object' && 'content' in (salida as object) ? (salida as { content: unknown }).content : salida;
+  let v: unknown = crudo;
+  if (typeof crudo === 'string') { try { v = JSON.parse(crudo); } catch { return null; } }
+  const items = listaConIds(v);
+  return items?.length ? { herramienta, items: items.slice(0, ITEMS_MAX) } : null;
+}
+
+/** Lo que mostraste, para el system del turno siguiente. Vacío si no hay, o si es de hace más de la ventana. */
+export function bloqueLoQueMostraste(guardado: string | null | undefined, ahoraMs: number): string {
+  if (!guardado) return '';
+  let g: { at?: number; refs?: RefDelTurno[] };
+  try { g = JSON.parse(guardado); } catch { return ''; }
+  if (typeof g.at !== 'number' || ahoraMs - g.at > VIGENCIA_REFS_MS || !Array.isArray(g.refs) || !g.refs.length) return '';
+  const min = Math.max(1, Math.round((ahoraMs - g.at) / 60_000));
+  const hace = min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
+  const lineas = g.refs.flatMap((r) => [
+    `- ${r.herramienta} (${hace}):`,
+    ...r.items.map((it, i) => `  ${i + 1}) ${it.id}${it.nombre ? ` «${it.nombre}»` : ''}`),
+  ]);
+  return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');
+}
+
 /** La consulta al conocimiento del negocio (Second Brain): el mensaje y, si sigue un hilo, el pedido. «y eso?» solo no
  *  encuentra nada. */
 export function consultaDelTurno(mensaje: string, hilo: string | null): string {

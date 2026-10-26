@@ -30,8 +30,8 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import {
-  bloqueYaSeHablo, conElHilo, consultaDelTurno, LARGO_SEGUIMIENTO, partirMemoria, pedidoDelHilo, refiereAlHilo, TOPE_HECHOS,
-  type FilaDelHilo,
+  bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, LARGO_SEGUIMIENTO, partirMemoria, pedidoDelHilo,
+  referenciasDeLaSalida, refiereAlHilo, TOPE_HECHOS, VIGENCIA_REFS_MS, type FilaDelHilo,
 } from '../lib/doer-hilo';
 import type { Vista } from '../lib/api-mako/registro';
 
@@ -211,8 +211,12 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(doer, /veredicto: intencion, texto, contextoDelSi, hilo: conHilo\.hilo,/, 'las herramientas no reciben el hilo');
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
-  // Los hechos van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  assert.match(doer, /const conMemoria = baseDelSystem === base && ctxYaSeHablo \?/);
+  // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
+  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
+  // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
+  assert.match(doer, /memo\.anotar\(name, out\);\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
+  assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), JSON\.stringify\(\{ at: Date\.now\(\), refs: refsDelTurno\.slice\(-4\) \}\)\)/);
+  assert.match(doer, /const ctxMostrado = bloqueLoQueMostraste\(await getSetting\(CLAVE_REFS\(jid\)\)/);
   assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}\$\{conMemoria\}`;/);
   assert.match(doer, /armarSystem\(toolsRed, [^\n]*, baseRed\)/);
   // La marca de contexto le dice que resuelva lo que señala con lo de arriba.
@@ -223,4 +227,38 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(conv, /return partirMemoria\(filas, Date\.now\(\), \{ turnos, horas: HORAS_CONTEXTO \}\);/);
   const pend = leer('lib/mako-pendientes.ts');
   assert.match(pend, /\.eq\('grupo_jid', grupoJid\)\.neq\('estado', 'pendiente'\)/, 'lo que hizo MaKo trae también las vigentes (ya van aparte)');
+});
+
+// ── 4. Lo que mostraron las herramientas, para el turno siguiente ───────────────────────────────────────────────────
+
+test('10. de lo que devuelve una herramienta quedan sus ids y sus nombres (las `clave` de lo que MaKo recomendó también)', () => {
+  // La forma de `que_recomienda_mako` (lib/recomendaciones.ts, «MaKo inteligente»): cada recomendación trae su `clave`.
+  const rec = JSON.stringify({ ok: true, recomendaciones: [
+    { clave: 'leads-esperando', titulo: 'Contestar a los 4 leads que esperan respuesta', porque: 'hace 6 h' },
+    { clave: 'landing-sin-pixel', titulo: 'Poner el píxel en la landing del webinar', porque: '0 eventos' },
+  ] });
+  assert.deepEqual(referenciasDeLaSalida('que_recomienda_mako', rec), { herramienta: 'que_recomienda_mako', items: [
+    { id: 'leads-esperando', nombre: 'Contestar a los 4 leads que esperan respuesta' },
+    { id: 'landing-sin-pixel', nombre: 'Poner el píxel en la landing del webinar' },
+  ] });
+  // Una lista suelta, una adentro de otro objeto, un objeto solo y la salida de error del runner.
+  assert.deepEqual(referenciasDeLaSalida('listar_tareas_plan', JSON.stringify([{ id: 12, titulo: 'Llamar a Norma' }, { id: 13, titulo: 'Mandar el presupuesto' }]))?.items.map((x) => x.id), ['12', '13']);
+  assert.deepEqual(referenciasDeLaSalida('ver_landing_creada', JSON.stringify({ ok: true, landing: { id: 7, nombre: 'Webinar' } }))?.items, [{ id: '7', nombre: 'Webinar' }]);
+  assert.deepEqual(referenciasDeLaSalida('x', { content: JSON.stringify([{ lead_id: 5, nombre: 'Ana' }]), isError: false })?.items, [{ id: '5', nombre: 'Ana' }]);
+  // Lo que no tiene ids no deja nada: un texto, JSON sin ids, una lista de números.
+  for (const s of ['Listo, la pausé.', JSON.stringify({ ok: true, total: 14 }), JSON.stringify([1, 2, 3])]) assert.equal(referenciasDeLaSalida('x', s), null, s);
+  // Hasta diez cosas: una lista de 300 leads no es contexto.
+  assert.equal(referenciasDeLaSalida('listar_leads', JSON.stringify(Array.from({ length: 300 }, (_, i) => ({ id: i, nombre: `L${i}` }))))?.items.length, 10);
+});
+
+test('11. lo que mostraste vuelve al turno siguiente con los ids, y deja de valer pasada la ventana', () => {
+  const ahora = Date.parse('2026-10-26T12:00:00Z');
+  const guardado = JSON.stringify({ at: ahora - 3 * 60_000, refs: [{ herramienta: 'que_recomienda_mako', items: [{ id: 'leads-esperando', nombre: 'Contestar a los 4 leads' }, { id: 'landing-sin-pixel', nombre: 'Poner el píxel' }] }] });
+  const b = bloqueLoQueMostraste(guardado, ahora);
+  assert.match(b, /^LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR \(los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»/);
+  assert.match(b, /- que_recomienda_mako \(hace 3 min\):\n  1\) leads-esperando «Contestar a los 4 leads»\n  2\) landing-sin-pixel «Poner el píxel»/);
+  assert.equal(bloqueLoQueMostraste(JSON.stringify({ at: ahora - VIGENCIA_REFS_MS - 1, refs: JSON.parse(guardado).refs }), ahora), '', 'lo de ayer sigue siendo «la segunda»');
+  for (const g of [null, '', 'no es json', JSON.stringify({ at: ahora, refs: [] })]) assert.equal(bloqueLoQueMostraste(g, ahora), '');
+  // Es por grupo.
+  assert.equal(CLAVE_REFS('123@g.us'), 'mako.doer.refs.123@g.us');
 });
