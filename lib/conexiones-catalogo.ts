@@ -69,10 +69,13 @@ const SINONIMOS: Record<string, readonly string[]> = {
   calcom: ['cal.com', 'calcom'],
   stripe: ['stripe'],
   mercadopago: ['mercado pago', 'mercadopago'],
-  hotmart: ['hotmart'],
-  skool: ['skool'],
-  apify: ['apify'],
+  // Hotmart, Skool y Apify salieron el 25/10/2026 (el Leads Scraper, tests/leads-scraper-retirado.test.ts); entran los
+  // alojadores de video que se sumaron ese día.
   panda: ['panda', 'panda video'],
+  vimeo: ['vimeo'],
+  wistia: ['wistia'],
+  bunny: ['bunny stream', 'bunny'],
+  cloudflare: ['cloudflare stream', 'cloudflare'],
   youtube: ['youtube'],
   // «pixel» solo, no: el de Meta no es de MaKo (lib/hechos-mako.ts).
   landing: ['pixel de mako', 'codigo de la landing', 'codigo de mako'],
