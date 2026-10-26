@@ -2518,6 +2518,8 @@ function esperarCarga(tabId) {
 // comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue hasta el próximo
 // cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
 const WA_WEB = 'https://web.whatsapp.com/';
+/** Cuánto se espera a que la persona escanee el QR de WhatsApp Web (0.72.3). */
+const ESPERA_QR_MS = 5 * 60000;
 const esPestanaDeWhatsapp = (t) => !!t && t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/');
 
 /** Una promesa con tope: pasado `ms`, `{ tope: true }` (un mensaje a una pestaña congelada no contesta nunca). */
@@ -2586,14 +2588,25 @@ async function pestanaDeWhatsappLista(avisar) {
     ping = await pingConEspera(tab.id, 30000);
   }
   if (!ping) return { tab, motivo: 'sin_respuesta_wa' };
-  // Recién abierta, WhatsApp Web todavía no guardó su base (o falta iniciar la sesión): se espera un minuto, contándolo.
-  const hasta = Date.now() + 60000;
-  while (ping.base === false && Date.now() < hasta) {
-    avisar('cargando', 'Esperando que WhatsApp Web cargue tus chats…');
+  // Recién abierta, WhatsApp Web todavía no guardó su base: se espera un minuto, contándolo.
+  // ⚠️ Y SI PIDE EL QR, SE ESPERA UNOS MINUTOS (0.72.3, Martín 26/10: «si el usuario no escaneó el QR, que la extensión le diga
+  // y se quede esperando unos minutos... Aprovechá lo que tenemos»: como el desplegable con Google Flow). La pestaña va al
+  // frente (ahí está el código) y cada vuelta lo dice; escaneado, sigue sola. La 0.71 no miraba la pantalla: con el QR
+  // esperaba un minuto y decía `sin_sesion`.
+  const lista = (p) => (p.sesion ? p.sesion === 'lista' && p.base !== false : p.base !== false);
+  let hasta = Date.now() + 60000;
+  let enQr = false;
+  while (!lista(ping) && Date.now() < hasta) {
+    if (ping.sesion === 'qr') {
+      if (!enQr) { enQr = true; hasta = Date.now() + ESPERA_QR_MS; await alFrente(tab); }
+      avisar('qr', 'Escanea el QR en WhatsApp Web: te espero unos minutos…');
+    } else {
+      avisar('cargando', 'Esperando que WhatsApp Web cargue tus chats…');
+    }
     await new Promise((r) => setTimeout(r, 2500));
     ping = (await pingWhatsapp(tab.id)) || ping;
   }
-  if (ping.base === false) return { tab, motivo: 'sin_sesion' };
+  if (!lista(ping)) return { tab, motivo: 'sin_sesion' };
   return { tab, motivo: null };
 }
 
@@ -3115,6 +3128,21 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     void anotarExtraccion(id, viva ? { fase: 'parando' } : { estado: 'parado', fase: 'parado' });
     responder?.({ ok: true });
     return false;
+  }
+
+  // Cómo está WhatsApp Web, para el desplegable (0.72.3, como el estado de Flow): SÓLO MIRA. Sin pestaña, sin despertar ni
+  // inyectar nada; una dormida o sin el script dice «se está preparando» y se arregla al extraer.
+  if (msg?.tipo === 'WA_ESTADO') {
+    void (async () => {
+      try {
+        const tab = (await chrome.tabs.query({})).find(esPestanaDeWhatsapp);
+        if (!tab) { responder({ pestana: false }); return; }
+        if (tab.discarded) { responder({ pestana: true, sesion: 'dormida' }); return; }
+        const p = await pingWhatsapp(tab.id);
+        responder({ pestana: true, sesion: p ? (p.sesion || (p.base === false ? 'cargando' : 'lista')) : 'sin_script' });
+      } catch { responder({ pestana: null }); }
+    })();
+    return true;
   }
 
   // «Ir a WhatsApp Web» desde MaKo (para iniciar la sesión, 25/10/2026): la pestaña que hay, al frente; si no hay, una nueva.

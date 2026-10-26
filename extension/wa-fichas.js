@@ -96,7 +96,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
   if (msg && msg.tipo === 'WA_FICHAS_PING') {
     // `recorre`: ¿está también wa-recorrer.js? (una pestaña con el script de la 0.71 no lo tiene, y el worker se lo pone.)
     const recorre = !!globalThis.__makoWaRecorrer;
-    hayBase().then((base) => responder({ ok: true, base, recorre }), () => responder({ ok: true, base: null, recorre }));
+    // `sesion` (0.72.3): 'lista', 'qr' o 'cargando' (el worker espera el QR unos minutos). La mira wa-recorrer.js: este
+    // archivo no toca la pantalla.
+    const sesion = typeof globalThis.__makoWaSesion === 'function' ? globalThis.__makoWaSesion() : null;
+    hayBase().then((base) => responder({ ok: true, base, recorre, sesion }), () => responder({ ok: true, base: null, recorre, sesion }));
     return true;
   }
   if (!msg || msg.tipo !== 'WA_FICHAS') return false;

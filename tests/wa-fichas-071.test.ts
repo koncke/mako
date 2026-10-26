@@ -138,8 +138,9 @@ async function alScript(existe: boolean, msg: unknown) {
 
 test('2. el script de WhatsApp Web: el «ping» no abre la base; el pedido con @lid y grupos los contesta', async () => {
   // `recorre` (0.72.0): si está también wa-recorrer.js; acá no se cargó, y el worker se lo pone (tests/wa-extraer-072.test.ts).
-  assert.deepEqual(await alScript(true, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: true, recorre: false }, abiertas: 0 }, 'el ping abrió la base');
-  assert.deepEqual(await alScript(false, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: false, recorre: false }, abiertas: 0 });
+  // `sesion` (0.72.3): la pantalla de WhatsApp Web (lista, QR o cargando); acá no hay `document`.
+  assert.deepEqual(await alScript(true, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: true, recorre: false, sesion: null }, abiertas: 0 }, 'el ping abrió la base');
+  assert.deepEqual(await alScript(false, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: false, recorre: false, sesion: null }, abiertas: 0 });
   const { respuesta } = await alScript(true, { tipo: 'WA_FICHAS', pedidos: [{ telefono: '5491155550002', lid: '301234567890002@lid' }], grupos: ['Formación de Jan'] });
   const r = respuesta as { ok: boolean; fichas: Array<{ telefono: string; pushname: string }>; grupos: unknown[] };
   assert.equal(r.ok, true);

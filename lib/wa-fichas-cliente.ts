@@ -164,7 +164,8 @@ export function motivoDeFichas(motivo: string): string {
     case 'sin_whatsapp_web': return 'Abre WhatsApp Web en otra pestaña de este navegador y vuelve a tocar.';
     case 'recargar_whatsapp_web': return 'Recarga la pestaña de WhatsApp Web (la extensión se actualizó) y vuelve a tocar.';
     case 'sin_base': return 'WhatsApp Web todavía no terminó de cargar tus chats: espera un momento y vuelve a tocar.';
-    case 'sin_sesion': return 'Inicia sesión en WhatsApp Web (te la abrí en otra pestaña) y vuelve a tocar.';
+    // Desde la 0.72.3 la extensión espera el QR cinco minutos con la pestaña al frente: llegar acá es que no se escaneó.
+    case 'sin_sesion': return 'No se escaneó el QR de WhatsApp Web: escanéalo (te dejé esa pestaña al frente) y vuelve a tocar.';
     case 'sin_respuesta_wa': return 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar.';
     case 'extension': return 'No encontré la extensión de MaKo en este navegador.';
     case 'sin_respuesta': return 'La extensión no contestó. Recarga esta página y vuelve a tocar.';

@@ -212,10 +212,32 @@
     };
   }
 
-  const api = { recorrerGrupo, pantallaWhatsapp, esperar };
+  /**
+   * ¿EN QUÉ ESTÁ WHATSAPP WEB? 'lista' (con la columna de chats), 'qr' (pide escanear el código para vincular), 'cargando' (ni
+   * una ni otra: sincronizando) o null si no se pudo mirar. Martín, 26/10/2026: «si el usuario no escaneó el QR, que la
+   * extensión le diga y se quede esperando unos minutos». Lo mismo que el desplegable ya hace con Google Flow («Inicia sesión
+   * en Google Flow»). Por la PANTALLA y no por la base: con la sesión cerrada, `model-storage` puede seguir ahí.
+   * ⚠️ No medido en vivo (la sesión de Martín está abierta y cerrarla no se hace): la pantalla del QR se reconoce por su
+   * lienzo, su `data-ref` o su texto en español, inglés y portugués.
+   */
+  function estadoDeSesion(doc) {
+    try {
+      if (!doc || typeof doc.querySelector !== 'function') return null;
+      if (doc.querySelector('#side, #pane-side')) return 'lista';
+      if (doc.querySelector('canvas[aria-label], [data-ref] canvas, [data-testid="qrcode"], div[data-ref]')) return 'qr';
+      const texto = String((doc.body && (doc.body.innerText || doc.body.textContent)) || '').slice(0, 4000);
+      if (/c[oó]digo QR|QR code|c[oó]digo de vinculaci[oó]n|vincular (un )?dispositivo|link (a |with )?device|log ?in with phone|iniciar sesi[oó]n con (tu |el )?n[uú]mero|escane(a|ie) o c[oó]digo/i.test(texto)) return 'qr';
+      return 'cargando';
+    } catch { return null; }
+  }
+
+  const api = { recorrerGrupo, pantallaWhatsapp, esperar, estadoDeSesion };
   if (typeof module !== 'undefined' && module.exports) { module.exports = api; return; }
   if (raiz.__makoWaRecorrer) return;
   raiz.__makoWaRecorrer = true;
+  // El ping de wa-fichas.js lo pregunta (ese archivo no toca la pantalla: lo que mira la pantalla vive acá).
+  raiz.__makoWaSesion = () => estadoDeSesion(document);
+
 
   // El worker pide el recorrido (`WA_RECORRER`, con el nombre del grupo) y puede pedir que pare (`WA_RECORRER_PARAR`). Cada
   // paso vuelve como `WA_RECORRER_AVANCE` con el mismo `id`.

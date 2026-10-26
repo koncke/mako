@@ -345,6 +345,96 @@ test('5. «Extraer»: arranca la extensión en el acto, sin «Entran a», sin «
   assert.match(barra, /enLaExtension: f\.motivo !== 'extension' && f\.motivo !== 'sin_respuesta'/);
 });
 
+// ── 6. El QR y el estado de WhatsApp Web, como con Flow (0.72.3) ─────────────────────────────────────────────────────
+// Martín, 26/10: «revisa las cosas que tenemos en la extensión de Flow para replicarlas en Scraper, por ejemplo, si el usuario
+// no tiene abierto la pestaña de WhatsApp web que la abra sola, si el usuario no escaneó el QR, que la extensión le diga y se
+// quede esperando unos minutos... Aprovecha lo que tenemos». ⚠️ El QR NO se probó en vivo: la sesión de Martín está abierta y
+// cerrarla (o abrir una segunda pestaña) se la saca. Se prueba acá, con la pantalla y el tiempo de mentira.
+type Doc = { querySelector(s: string): unknown; body?: { innerText: string } };
+const doc = (o: { side?: boolean; canvasQr?: boolean; texto?: string }): Doc => ({
+  querySelector: (sel: string) => {
+    if (o.side && sel.includes('#side')) return {};
+    if (o.canvasQr && sel.includes('canvas[aria-label]')) return {};
+    return null;
+  },
+  body: { innerText: o.texto ?? '' },
+});
+
+test('6. la pantalla de WhatsApp Web: con chats, con el QR (por el lienzo o por el texto), o cargando', () => {
+  const r = requerir(join(raiz, 'extension', 'wa-recorrer.js')) as { estadoDeSesion(d: unknown): string | null };
+  assert.equal(r.estadoDeSesion(doc({ side: true, canvasQr: true })), 'lista', 'con la columna de chats, está lista aunque haya otro lienzo');
+  assert.equal(r.estadoDeSesion(doc({ canvasQr: true })), 'qr');
+  assert.equal(r.estadoDeSesion(doc({ texto: 'Pasos para iniciar sesión. Escanea el código QR con tu teléfono' })), 'qr');
+  assert.equal(r.estadoDeSesion(doc({ texto: 'Use WhatsApp on your computer. Link with phone number instead. Scan the QR code' })), 'qr');
+  assert.equal(r.estadoDeSesion(doc({ texto: 'Cargando tus chats [57%]' })), 'cargando');
+  assert.equal(r.estadoDeSesion(null), null);
+  // El ping lo manda; lo mira wa-recorrer.js (wa-fichas.js no toca la pantalla: tests/wa-fichas-extension.test.ts, 5).
+  assert.match(sinComentarios(leer('extension/wa-fichas.js')), /const sesion = typeof globalThis\.__makoWaSesion === 'function' \? globalThis\.__makoWaSesion\(\) : null;/);
+  assert.match(sinComentarios(leer('extension/wa-recorrer.js')), /raiz\.__makoWaSesion = \(\) => estadoDeSesion\(document\);/);
+});
+
+/** La espera de `pestanaDeWhatsappLista`, ejecutada: los pings que devuelve la pestaña, y un reloj que avanza 7 s por vuelta. */
+function cargarLista(pings: Array<Record<string, unknown>>) {
+  const bg = leer('extension/background.js');
+  const ayudas = bg.slice(bg.indexOf('const WA_WEB = '), bg.indexOf('/** Abre Flow, o enfoca la pestana que ya esta. */'));
+  const esperar = bg.slice(bg.indexOf('function esperarCarga(tabId) {'), bg.indexOf('\n}\n', bg.indexOf('function esperarCarga(tabId) {')) + 3);
+  const reg = { creadas: 0, activadas: [] as number[], avisos: [] as Array<[string, string]> };
+  let x = 0;
+  const fakeChrome = {
+    tabs: {
+      query: async () => [{ id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }],
+      create: async () => { reg.creadas++; return { id: 99 }; },
+      update: async (id: number) => { reg.activadas.push(id); },
+      reload: async () => {},
+      sendMessage: async () => (pings.length > 1 ? pings.shift() : pings[0]),
+      onUpdated: { addListener: () => {}, removeListener: () => {} },
+    },
+    windows: { update: async () => {} },
+    scripting: { executeScript: async () => {} },
+  };
+  const ctx: Record<string, unknown> = { chrome: fakeChrome, setTimeout: (f: () => void) => setTimeout(f, 0), clearTimeout, console, Date: { now: () => (x += 7000) } };
+  runInNewContext(`${esperar}\n${ayudas}\nglobalThis.lista = pestanaDeWhatsappLista;`, ctx);
+  const lista = ctx.lista as (avisar: (paso: string, texto: string) => void) => Promise<{ motivo: string | null }>;
+  return { reg, correr: () => lista((paso, texto) => reg.avisos.push([paso, texto])) };
+}
+
+test('6b. con el QR: lo dice, pone la pestaña al frente y espera MINUTOS (no el minuto de «cargando»); escaneado, sigue', async () => {
+  const qr = { ok: true, base: true, recorre: true, sesion: 'qr' };
+  // Escanea a la vuelta 12 (~84 s: más que el minuto de antes), después sincroniza, y queda lista.
+  const a = cargarLista([qr, ...Array(12).fill(qr), { ok: true, base: true, recorre: true, sesion: 'cargando' }, { ok: true, base: true, recorre: true, sesion: 'lista' }]);
+  assert.equal(plano(await a.correr()).motivo, null, 'no esperó a que escaneara');
+  assert.ok(a.reg.avisos.some(([p, t]) => p === 'qr' && /Escanea el QR en WhatsApp Web/.test(t)), 'no dijo que escanee el QR');
+  assert.deepEqual(a.reg.activadas, [7], 'no puso la pestaña del QR al frente (o la puso en cada vuelta)');
+  assert.equal(a.reg.creadas, 0, '⚠️ abrió otra pestaña de WhatsApp Web');
+  // Nunca escanea: espera los cinco minutos y dice `sin_sesion`.
+  const b = cargarLista([qr]);
+  assert.equal(plano(await b.correr()).motivo, 'sin_sesion');
+  const vueltasQr = b.reg.avisos.filter(([p]) => p === 'qr').length;
+  assert.ok(vueltasQr * 7 >= 4 * 60, `se rindió a los ${vueltasQr * 7} s: tiene que esperar unos minutos`);
+  // Y la que sólo está cargando (sin QR) sigue con su minuto.
+  const c = cargarLista([{ ok: true, base: false, recorre: true, sesion: 'cargando' }]);
+  assert.equal(plano(await c.correr()).motivo, 'sin_sesion');
+  assert.ok(c.reg.avisos.length * 7 <= 70, 'cargando, esperó más de un minuto');
+});
+
+test('6c. el desplegable dice cómo está WhatsApp Web, como con Flow, y SÓLO mira (nunca abre una pestaña)', async () => {
+  const sin = cargarWorker({ tabs: [] });
+  assert.deepEqual(await sin.pedir({ tipo: 'WA_ESTADO' }), { pestana: false });
+  assert.deepEqual(sin.reg.creadas, [], 'mirar el estado abrió WhatsApp Web');
+  const con = cargarWorker({ tabs: [{ id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }] });
+  assert.deepEqual(await con.pedir({ tipo: 'WA_ESTADO' }), { pestana: true, sesion: 'lista' });
+  const dormida = cargarWorker({ tabs: [{ id: 7, url: 'https://web.whatsapp.com/', discarded: true, windowId: 1 }] });
+  assert.deepEqual(await dormida.pedir({ tipo: 'WA_ESTADO' }), { pestana: true, sesion: 'dormida' });
+  const popup = sinComentarios(leer('extension/popup.js'));
+  assert.match(popup, /const s = await enviar\(\{ tipo: 'WA_ESTADO' \}\);/);
+  assert.match(popup, /ir\('Abrir WhatsApp Web'\)/);
+  assert.match(popup, /ir\('Ir a WhatsApp Web'\)/);
+  assert.match(popup, /void enviar\(\{ tipo: 'WA_ENFOCAR' \}\)/, 'el botón no usa el camino que nunca abre una segunda pestaña');
+  // Durante la extracción, con el QR, la línea de abajo del título dice qué hacer.
+  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : TEXTO_A_LA_VISTA;/);
+  assert.match(popup, /\{ texto: 'Abro tu WhatsApp', pasos: \['abriendo', 'cargando', 'qr'\] \}/);
+});
+
 // PROBADO ROMPIÉNDOLO (26/10/2026), contra una base de 8 / 0, de a una y restaurando de una copia:
 //   · el worker sin traer al frente la pestaña de WhatsApp                                 → 7 / 1
 //   · el worker sin abrir el desplegable                                                   → 7 / 1
@@ -355,3 +445,9 @@ test('5. «Extraer»: arranca la extensión en el acto, sin «Entran a», sin «
 //   · el desplegable sin la guarda de Flow (un `pintar` tarde pisa otra pantalla)          → 7 / 1
 //   · «Extraer» crea los leads ANTES de arrancar la extensión                              → 7 / 1
 //   · el tablero vuelve a poner el cartel negro con un lote que ya se dijo en la extensión → 7 / 1
+// Y el QR (0.72.3), contra 11 / 0:
+//   · con el QR se rinde al minuto (sin los cinco de espera)                                → 10 / 1
+//   · la pestaña del QR no va al frente                                                     → 10 / 1
+//   · una sesión abierta (con la columna de chats) se lee como QR                           → 10 / 1
+//   · el estado de WhatsApp Web sin el botón para abrirlo                                   → 10 / 1
+//   · con el QR, el desplegable no dice qué hacer                                           → 10 / 1

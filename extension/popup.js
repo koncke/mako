@@ -917,19 +917,52 @@ function comoTermino(e) {
   return 'no se pudo';
 }
 
+/**
+ * CÓMO ESTÁ TU WHATSAPP WEB, arriba del registro (0.72.3). Lo mismo que el desplegable hace con Google Flow («Preparo todo y
+ * empezamos», «Inicia sesión en Google Flow»): una línea y, si hace falta, UN botón que lo resuelve. Martín, 26/10: «revisa
+ * las cosas que tenemos en la extensión de Flow para replicarlas en Scraper». Sólo mira: abrir lo abre el botón (y nunca una
+ * segunda pestaña: `WA_ENFOCAR` pone al frente la que hay, y abre una sólo si no hay ninguna).
+ */
+let turnoEstadoWa = 0;
+async function estadoWhatsapp(caja) {
+  const turno = ++turnoEstadoWa;
+  const s = await enviar({ tipo: 'WA_ESTADO' });
+  if (turno !== turnoEstadoWa || !caja.isConnected || !s) return;
+  const ir = (texto) => {
+    const b = nodo('button', 'suave', texto);
+    b.type = 'button';
+    b.addEventListener('click', () => { b.disabled = true; void enviar({ tipo: 'WA_ENFOCAR' }).then(() => window.close()); });
+    return b;
+  };
+  caja.textContent = '';
+  if (s.pestana === false) {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web no está abierto. Al extraer lo abro solo, o ábrelo ahora.'), ir('Abrir WhatsApp Web'));
+  } else if (s.sesion === 'qr') {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web pide escanear el QR. Escanéalo antes de extraer (o al extraer: te espero unos minutos).'), ir('Ir a WhatsApp Web'));
+  } else if (s.sesion === 'lista') {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web está listo.'));
+  } else if (s.pestana) {
+    caja.append(nodo('div', 'tenue', 'Tu WhatsApp Web se está preparando: al extraer lo pongo a punto.'));
+  }
+}
+
 function dibujarRegistro(lista) {
   const cuerpo = $('cuerpo');
   cuerpo.textContent = '';
+  const estadoWa = nodo('div', 'estado-wa');
+  void estadoWhatsapp(estadoWa);
   if (!lista.length) {
     cuerpo.appendChild(nodo('h1', '', 'Todavía no extrajiste nada'));
-    cuerpo.appendChild(nodo('div', 'tenue', 'En el CRM de MaKo: Nuevo lead › Extraer de un grupo de WhatsApp. Lo vas a ver acá, paso a paso.'));
+    cuerpo.appendChild(nodo('div', 'tenue', 'En el CRM de MaKo: Nuevo lead › Scraper › el grupo › «Extraer». Lo vas a ver acá, paso a paso.'));
     const b = nodo('button', '', 'Ir al CRM');
     b.type = 'button';
     b.addEventListener('click', () => void abrirMakoEn('/crm'));
     cuerpo.appendChild(b);
+    cuerpo.appendChild(estadoWa);
     return;
   }
   cuerpo.appendChild(nodo('h1', '', 'Tus extracciones'));
+  cuerpo.appendChild(estadoWa);
   const caja = nodo('div', 'registro');
   for (const e of lista) {
     const b = nodo('button', 'fila');
@@ -946,14 +979,17 @@ function dibujarRegistro(lista) {
 
 // Las fases que ve la persona, y qué pasos del worker / de WhatsApp Web / de MaKo cae en cada una.
 const FASES = [
-  { texto: 'Abro tu WhatsApp', pasos: ['abriendo', 'cargando'] },
+  { texto: 'Abro tu WhatsApp', pasos: ['abriendo', 'cargando', 'qr'] },
   { texto: 'Entro al grupo', pasos: ['buscando', 'entrando'] },
   { texto: 'Leo los miembros', pasos: ['miembros', 'recorriendo', 'parando'] },
   { texto: 'Junto los nombres', pasos: ['leyendo'] },
   { texto: 'Los guardo en MaKo', pasos: ['guardando'] },
 ];
+/** Lo que se dice mientras WhatsApp Web pide el QR (el worker espera cinco minutos con la pestaña al frente). */
+const TEXTO_QR = 'Escanea el QR en WhatsApp Web: en tu teléfono, WhatsApp › Dispositivos vinculados › Vincular un dispositivo. Te espero unos minutos y sigo sola.';
+const TEXTO_A_LA_VISTA = 'En tu WhatsApp Web, a la vista. No toques nada mientras tanto.';
 const MOTIVO = {
-  sin_sesion: 'Inicia sesión en WhatsApp Web y vuelve a tocar «Extraer» en MaKo.',
+  sin_sesion: 'No se escaneó el QR de WhatsApp Web a tiempo. Escanéalo y vuelve a tocar «Extraer» en MaKo.',
   sin_respuesta_wa: 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar «Extraer».',
   recargar_whatsapp_web: 'Recarga la pestaña de WhatsApp Web y vuelve a tocar «Extraer».',
 };
@@ -995,6 +1031,8 @@ function dibujarExtraccion(e) {
   }
 
   if (estado === 'corriendo') {
+    // Con el QR a la vista, la línea de abajo del título dice qué hacer (como «Inicia sesión en Google Flow»).
+    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : TEXTO_A_LA_VISTA;
     const i = Math.max(0, FASES.findIndex((f) => f.pasos.includes(e.fase)));
     a.fases.forEach((li, j) => { li.className = j < i ? 'hecha' : j === i ? 'ahora' : ''; li.firstChild.textContent = j < i ? '✓' : ''; });
     if (e.fase === 'guardando' && Number(e.total) > 0 && e.guardados != null) {
@@ -1013,10 +1051,11 @@ function dibujarExtraccion(e) {
 /** Arma la pantalla de una extracción según cómo está (corriendo, lista, parada, con error o cortada). */
 function armarExtraccion(cuerpo, e, estado) {
   cuerpo.textContent = '';
-  const out = { id: e.id, estado, puntos: null, fases: [], conteo: null };
+  const out = { id: e.id, estado, puntos: null, fases: [], conteo: null, tenue: null };
   cuerpo.appendChild(nodo('h1', 'grupo', e.titulo || 'Tus contactos'));
   if (estado === 'corriendo') {
-    cuerpo.appendChild(nodo('div', 'tenue', 'En tu WhatsApp Web, a la vista. No toques nada mientras tanto.'));
+    out.tenue = nodo('div', 'tenue', TEXTO_A_LA_VISTA);
+    cuerpo.appendChild(out.tenue);
     out.conteo = nodo('div', 'conteo');
     out.conteo.append(document.createTextNode(''), nodo('small'));
     cuerpo.appendChild(out.conteo);
