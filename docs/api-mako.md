@@ -11140,7 +11140,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/secciones` — Secciones y bloques de una landing
 
-El mapa de una landing o presentación del editor del Web Generator: cada página (id, ruta, si es la de inicio) con sus secciones en orden (id, posición, título, si está oculta, si lleva imagen de acento) y los bloques de cada sección (posición, tipo —título, texto, viñetas, botones, formulario, agenda, video, imagen, diseño editable…— y su texto corto). Un «diseño editable» (las páginas de MaKo) trae además sus elementos: los botones con su texto y a dónde llevan, las imágenes y los videos; y su sección, el fondo que se ve (null: el de la página) y si MaKo lo cambió. Cada sección trae sus íconos (n, el nombre en la biblioteca o null si es uno que trajo el diseño, y el texto junto a él). Úsala antes de cualquier operación que cambie una sección o un bloque: piden su id y su posición. Para leer el texto completo está ver_landing_creada.
+Mapa de una landing o presentación: páginas (id, ruta) y secciones en orden (id, título, oculta, fondo, íconos) con sus bloques (posición, tipo —texto, botones, formulario, agenda, video, imagen— y texto corto; un «diseño editable» suma botones, imágenes y videos). Úsala antes de cambiar una sección o un bloque. El texto entero: ver_landing_creada.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_secciones_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -11633,7 +11633,7 @@ curl -L \
 
 ### `PATCH /api/v1/landing/documentos/{id}/formulario` — Cambiar el formulario de una landing
 
-El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
+El formulario de una landing (lo enviado entra al CRM): los campos, el botón, el mensaje de éxito y a dónde lleva después. Sin «seccion», el único de la landing. Antes guarda una versión «Antes de un cambio de MaKo» (se vuelve atrás con restaurar_version_landing); no toca la versión al aire.
 
 - **Ruta por operación:** `POST /api/v1/landing/configurar_formulario_landing`
 - **Token detallado:** permiso `landing=write` (Lectura y escritura en «Landing (Analyst, Generator y tracking)»)
@@ -11650,14 +11650,14 @@ El formulario de una landing del editor del Web Generator (lo que se envía entr
 | --- | --- | --- | --- |
 | `id` | number | sí | El id de la landing o presentación (de listar_landings_creadas). |
 | `seccion` | string | no | El id de la sección (de ver_secciones_landing), cuando hay más de un lugar posible. |
-| `campos` | object[] | no | Los campos, en orden (reemplazan a los de hoy). |
-| `campos.tipo` | string (nombre \\| email \\| telefono \\| empresa \\| texto \\| textoLargo \\| opciones) | sí | nombre, email, telefono, empresa, texto, textoLargo u opciones (nombre, email y telefono, una vez cada uno). |
-| `campos.etiqueta` | string | no | Lo que dice arriba del campo. Sin ella, la de su tipo. |
-| `campos.requerido` | boolean | no | true si es obligatorio. |
+| `campos` | object[] | no | En orden (reemplazan a los de hoy). |
+| `campos.tipo` | string (nombre \\| email \\| telefono \\| empresa \\| texto \\| textoLargo \\| opciones) | sí | nombre, email y telefono, una vez cada uno. |
+| `campos.etiqueta` | string | no | Sin ella, la de su tipo. |
+| `campos.requerido` | boolean | no | Obligatorio. |
 | `campos.opciones` | string[] | no | Sólo opciones: entre 2 y 12. |
-| `boton` | string | no | El texto del botón («Quiero mi lugar»). |
-| `exito` | string | no | Lo que ve la persona al enviar. |
-| `redirigir` | string | no | Un enlace https al que lleva después de enviar ("" = no lleva a ningún lado). |
+| `boton` | string | no | Su texto («Quiero mi lugar»). |
+| `exito` | string | no | Lo que ve al enviar. |
+| `redirigir` | string | no | Enlace https al que lleva ("" = ninguno). |
 
 ```bash
 curl -L \

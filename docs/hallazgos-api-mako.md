@@ -2607,3 +2607,26 @@ Lo que quedó SIN hacer: el enlace de la agenda (`[data-calendly]`) por la API. 
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
 
+## El presupuesto del turno de la app: una operación nueva deja afuera a la que la frase pedía (25/10/2026, claude5)
+
+Al mezclar landings-2510-b en tren-k cayeron tres tests (bisecado por el Cerebro). Las operaciones nuevas
+(cambiar_imagen_landing, cambiar_icono_landing, listar_videos_alojados, ver_iconos_landing) y las descripciones más largas
+empujaban fuera a otras. El último en caer: con «cambia el formulario de la landing: agrega el teléfono», el turno de la
+app recibía cambiar_imagen_landing y NO configurar_formulario_landing.
+
+**Cómo arma la lista** (lib/doer-herramientas.ts → `toolsDelRegistro`, lib/api-mako/registro.ts):
+- Ordena por relevancia (`ordenarPorRelevancia`): 2 puntos si una raíz está en el id o el título, 1 si está en la
+  descripción. La frase va junto con las palabras que suma el clasificador (`relevancia`).
+- Mete en ese orden hasta 12.000 caracteres de esquema. La que no entra se SALTEA y las siguientes pueden entrar: por eso
+  una operación más corta y peor ubicada entra donde la que se pidió no.
+- **Lo engañoso:** configurar_formulario_landing era la DÉCIMA. Cuando le tocaba, las nueve de antes ya sumaban 10.590 y
+  ella ocupa 1.790. Achicar cambiar_imagen_landing (la que «entraba en su lugar») no servía de nada. Había que sacar 380
+  caracteres de las NUEVE de antes o de ella misma. Y ver_secciones_landing había subido al puesto 7 porque su
+  descripción ganó la palabra «formulario».
+- **El arreglo, sin tocar el orden (es de todos):** recortar las dos del área landing. ver_secciones_landing pasó de 821 a
+  671 y configurar_formulario_landing de 1.790 a 1.522, sin sacar ninguna palabra que ordena. Ahora entra con 38 de
+  margen (11.962).
+
+**Regla:** antes de sumar una operación o alargar una descripción, medir el orden REAL de las frases de su área con
+`scripts/presupuesto-turno-app.mts "frase"` (posición, entra o no, largo, acumulado). Una palabra nueva en una descripción
+también MUEVE el orden. El margen es chico: el de WhatsApp quedó en 11.860 de 12.000 para «quítale la animación».

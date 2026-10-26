@@ -474,4 +474,20 @@ export const BITACORA: Hito[] = [
       'tests/api-mako-vender-plan.test.ts y tests/capas-vendibles.test.ts — 18 roturas',
     ],
   },
+  {
+    fecha: '25 oct', hora: '23:10', chat: 'Landings', cuenta: 'claude5', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Cambia el formulario de la landing» vuelve a llegarle a MaKo con su herramienta',
+    pedido: 'Cerebro: «"cambia el formulario de la landing: agrega el teléfono" no trae configurar_formulario_landing (en su lugar entra cambiar_imagen_landing)... Preferí acortar las descripciones nuevas antes que tocar el orden de relevancia»',
+    puntos: [
+      'Con las herramientas nuevas de las landings (imágenes, íconos, videos), un pedido de cambiar el formulario dejaba de llegarle a MaKo con la herramienta del formulario.',
+      'Se acortaron dos descripciones, sin cambiar qué hace cada herramienta. Ahora vuelve a llegar.',
+      'Quedó una herramienta para medir qué recibe MaKo en cada pedido, antes de sumar otra.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-editor.def.ts — las dos descripciones',
+      'scripts/presupuesto-turno-app.mts — la medición',
+      'docs/hallazgos-api-mako.md — por qué y la regla',
+    ],
+  },
 ];

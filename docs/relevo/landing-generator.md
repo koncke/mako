@@ -61,6 +61,9 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   - **Los números por día de Wistia y Bunny**, hechos: cron `app/api/cron/videos-daily` (35 13 * * *, sólo el VSL marcado),
     las lecturas del VSL de todos los alojadores (`PLATAFORMAS_VIDEO`) y la migración SIN NÚMERO
     `supabase/migrations/0336_alojadores_video_plataforma.sql` (APLICADA el 25/10/2026 19:27, con el sí de Martín).
+  - **El presupuesto del turno de la app** (tren-k): se recortaron ver_secciones_landing y configurar_formulario_landing
+    para que «cambia el formulario de la landing» reciba su operación; margen de 38 caracteres. Antes de sumar o alargar
+    una operación del área, medir con `scripts/presupuesto-turno-app.mts`.
 - **Sigue (alojadores):** mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
   Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
   `panda`); probar el catálogo con una cuenta real de cada uno.
