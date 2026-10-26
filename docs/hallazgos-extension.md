@@ -255,8 +255,11 @@ Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales
 
 ## Sin hacer
 
-- **Los perfiles, de punta a punta**: la 0.73.4+ lee el panel de ese contacto (los tres seguros); falta una corrida que
-  guarde, con el server desplegado (b9d0e22c5 y siguientes), y mirar qué campos trae de verdad.
+- **Los perfiles, de punta a punta**: MEDIDO en vivo con la 0.73.8 (26/10, grupo de agosto, sólo lectura): recorrido y en
+  seguida 12 perfiles → 12 paneles abiertos (el del contacto: su teléfono, «1 grupo en común», Bloquear/Reportar), 2 con datos
+  (2 webs, 1 red, 1 correo) y 4 con su nombre por la fila del buscador. Falta la corrida que GUARDA, con el server desplegado
+  (666fe43e1 y siguientes no están en main). ⚠️ En esa corrida el recorrido quedó un rato en «11 de 126» con la lista de
+  miembros en miniatura (terminó bien); Martín estaba usando otra ventana: mirar si una ventana sin foco frena la lista.
 - **La versión de la extensión de Leandro** (`flow_puentes.version` del negocio de Leandro, o su chrome://extensions): si es
   anterior a la 0.72, ahí está su «no extrajo nada». Y el `notifyName` de la 0.73.5 quedó sin uso (los mensajes no lo traen):
   sacarlo si en otro WhatsApp Web tampoco aparece.
