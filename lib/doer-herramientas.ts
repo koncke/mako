@@ -180,6 +180,11 @@ export type EntradaTurno<T extends { name: string }> = {
    * (medido el 08/10: entraban 20 lecturas y ninguna escritura de agenda).
    */
   contextoDelSi?: string | null;
+  /**
+   * Cuando el turno SIGUE el pedido del hilo (`veredicto.sigueElHilo`, lib/doer-hilo.ts): el texto de ese pedido. «pausala»
+   * no nombra ningún área, y sin esto las herramientas se elegían sólo por él (26/10/2026).
+   */
+  hilo?: string | null;
   /** Hay un pedido de agenda abierto (el código le acaba de mostrar opciones). */
   agendaAbierta: boolean;
   /** Las de siempre (lib/mako-tools.ts + lib/mako-doer-acciones.ts). */
@@ -242,7 +247,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   const v = p.veredicto;
   // Lo que escribió la persona: el encabezado de un lote es nuestro y no puede puntuar.
   const propio = sinPrefijoDeLote(p.texto);
-  const sobre = v.sigueOfrecimiento && p.contextoDelSi ? `${p.contextoDelSi}\n${propio}` : propio;
+  const sobre = v.sigueOfrecimiento && p.contextoDelSi ? `${p.contextoDelSi}\n${propio}`
+    : v.sigueElHilo && p.hilo ? `${p.hilo}\n${propio}`
+    : propio;
   const areasDelTexto = CONTRATO[v.intencion].tools === null && !v.dudosa ? areasDelMensaje(sobre) : [];
   const areas = [...new Set<Area>([
     ...areasDelTexto,
@@ -288,7 +295,9 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
    */
   const ofrece = v.intencion === 'consultar' || v.intencion === 'pensar';
   const tools = toolsParaIntencion<T | ToolDef>(v.intencion, [...deSiempre, ...delRegistro], v.dudosa, !!v.adivina)
-    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
+    .filter((t) => !ofrece || !escribe(t.name) || (p.hayPendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')))
+    // Un seguimiento levantado desde «sin señal clara» no resuelve lo pendiente (lib/doer-hilo.ts, `noResuelvePendientes`).
+    .filter((t) => !(v.noResuelvePendientes && (t.name === 'confirmar_accion' || t.name === 'cancelar_accion')));
   // Lo dice el VEREDICTO, no el texto leído otra vez: con una propuesta de agenda abierta el
   // clasificador ya decidió que es la reunión y no marca nada. Re-leer el texto acá tenía su
   // propio preludio, y «buen día, movela al viernes» llegaba con la agenda y el plan y SIN la

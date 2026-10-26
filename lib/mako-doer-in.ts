@@ -43,8 +43,9 @@ import { herramientasDelTurno, preguntoReunionOTarea, turnoParaLaRed, soloElTurn
 import { listarPendientes, confirmarPendiente } from '@/lib/api-mako/acciones';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
-import { pendientesVigentes } from '@/lib/mako-pendientes';
-import { guardarTurno, historialGrupo } from '@/lib/mako-doer-conv';
+import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
+import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
@@ -992,7 +993,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Historial (memoria) + system — TODO scopeado al workspace del grupo (wsData).
     // 12 turnos (antes 24): la memoria útil rara vez pasa de ahí y el historial es INPUT
     // en cada llamada (costo). Feedback jul-19.
-    const historial = await historialGrupo(wsData, jid, 12);
+    // Y lo de ANTES de esos 12 turnos o de las 14 h (hasta 7 días) vuelve como HECHOS en el system, no como turnos
+    // (lib/doer-hilo.ts, 26/10/2026): «probá de vuelta agendarle a Pablo lo que te pidió» era de 15 horas antes.
+    const memoria = await memoriaDelGrupo(wsData, jid, { turnos: 12, dias: DIAS_DE_HECHOS });
+    const historial = memoria.reciente;
     // Router PRIMERO (elige el modelo por turno) para decidir cuánto contexto mandar:
     // razonamiento/copy/media (Opus) → contexto completo; el resto (cargar tareas, leer
     // un dato, confirmar, charla) → LEAN (las tools traen el dato). Recorta el INPUT, que
@@ -1023,7 +1027,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         .map((c) => ({ c, v: c ? clasificarIntencion(c) : null }))
         .find((x) => x.v && x.v.intencion !== 'charlar' && !x.v.dudosa) ?? null
       : null;
-    const intencion = clasificarIntencion(texto, {
+    const delMensaje = clasificarIntencion(texto, {
       hayMedia: !!mediaBlocks,
       hayPendientes: vigentes.length > 0,
       // «no, mejor a las 13» corrige una propuesta de agenda, no la contesta.
@@ -1041,6 +1045,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         && historial.filter((r) => r.role === 'user').slice(-2).some((r) => typeof r.content === 'string' && esPedidoDeAgenda(r.content)),
       pedidoPrometido: pedidoPrometido?.v?.intencion,
     });
+    // ── EL TURNO SIGUE EL HILO (26/10/2026, lib/doer-hilo.ts) ────────────────────────────────────────────────────────────
+    // «pausala», «publicá la del webinar», «mandales un mensaje a esos 5»: el último mensaje solo cae en «sin señal clara» y
+    // llegaba con 2 herramientas. Si sigue un pedido vivo (MaKo ya contestó), se lee con ese pedido y sus áreas.
+    const conHilo = conElHilo(delMensaje, texto, pedidoDelHilo(historial), typeof ultimoDeMako === 'string' ? ultimoDeMako : null);
+    const intencion = conHilo.veredicto;
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
@@ -1063,7 +1072,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // no creaba nada). Volvemos al contexto completo: la baja de costo real la dan el
     // router (tareas→Sonnet, no Opus), el subset de tools y el historial de 12. El lean
     // queda disponible en buildSystemPrompt para cuando revisemos ese flujo.
-    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: texto }));
+    // La consulta al conocimiento (el Second Brain): con el pedido del hilo, si lo sigue. «y eso?» solo no encuentra nada.
+    const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo) }));
+    // LO QUE YA SE HABLÓ (y lo que MaKo propuso o hizo) de antes de la ventana: hechos con fecha, al final del system.
+    const ctxYaSeHablo = bloqueYaSeHablo(
+      memoria.antes,
+      await accionesDelGrupo(wsData, jid, DIAS_DE_HECHOS).catch(() => []),
+      new Date(),
+      await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT),
+    );
+    // Y los ids que mostraron las herramientas del turno anterior («descartá esa», «la segunda»): se guardan al final del turno.
+    const refsGuardadas = await getSetting(CLAVE_REFS(jid)).catch(() => null);
+    const ctxMostrado = bloqueLoQueMostraste(refsGuardadas, Date.now());
+    const refsDelTurno: RefDelTurno[] = [];
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda.`
       : '';
@@ -1151,7 +1172,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       ? [typeof ultimoPedido === 'string' ? ultimoPedido : '', typeof ultimoDeMako === 'string' ? ultimoDeMako : ''].filter(Boolean).join('\n')
       : null;
     const turno = herramientasDelTurno({
-      veredicto: intencion, texto, contextoDelSi, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
+      veredicto: intencion, texto, contextoDelSi, hilo: conHilo.hilo, agendaAbierta: !!agendaAbierta, deSiempre: toolsDeSiempre,
       vista: await vistaDe(ctxApi), hayPendientes: vigentes.length > 0, resumenesPendientes: vigentes.map((p) => p.resumen), sinCalendly,
     });
     const { tools, ofrece } = turno;
@@ -1208,7 +1229,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // El pedido de agenda en curso, sólo si el turno trae la herramienta que lo sigue (un
       // prompt que nombra algo que no viajó es una trampa, ver DOER_WA_TOOLS).
       const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
-      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}`;
+      // ⚠️ La memoria del grupo NO va al system de la red de la plataforma (`baseRed`): nombra leads y lo que se habló, y la red
+      // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
+      const conMemoria = baseDelSystem === base ? [ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${conMemoria}`;
     };
     const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
@@ -1336,6 +1360,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       memo.anotar(name, out);
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
+      // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
+      const refs = referenciasDeLaSalida(name, out);
+      if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
       // otra vez falla igual).
       if (name === LEVANTAR_TICKET) ticketPropuesto = true;
@@ -1411,7 +1438,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (historialMarcado.length) {
       historialMarcado.unshift({
         role: 'user',
-        content: '[CONTEXTO — los mensajes que siguen hasta el último son la charla PREVIA de este grupo. Sirven para entender de qué se viene hablando. NO son el pedido de ahora y NO se responden: lo único que hay que atender es el ÚLTIMO mensaje.]',
+        content: '[CONTEXTO — los mensajes que siguen hasta el último son la charla PREVIA de este grupo. Sirven para entender de qué se viene hablando: si el último mensaje se refiere a algo de acá («pausala», «la segunda», «esos 5», el dato que pediste), resuélvelo con esto y no vuelvas a preguntar lo que ya te dijeron. NO son el pedido de ahora y NO se responden: lo único que hay que atender es el ÚLTIMO mensaje.]',
       });
       historialMarcado.push({ role: 'assistant', content: '(entendido: lo de arriba es contexto; atiendo solo el próximo mensaje)' });
     }
@@ -2236,6 +2263,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // la agenda no pasa por ninguno.
       if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
       else if (partes.length) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
+      // Lo que mostraron las herramientas de ESTE turno, para los siguientes: pisa lo de la misma herramienta y deja lo demás
+      // vigente (`unirRefs`). Un turno sin nada con id no toca nada: «la segunda» sigue siendo de la última lista que se mostró.
+      if (!avisoDeSistema && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), unirRefs(refsGuardadas, refsDelTurno, Date.now())).catch(() => {});
     }
     return { engaged: true, reply: [respuesta, ...paraLaPersona].filter(Boolean).join('\n\n') };
   } catch (e) {

@@ -94,6 +94,13 @@ export type VeredictoIntencion = {
   /** La persona le reclama a MaKo lo que le prometió («Pasamelo» después de «Eso lo miro y te lo paso»): las
    *  herramientas se eligen por el pedido que MaKo prometió, no por el último mensaje (lib/mako-doer-in.ts). */
   reclamaPromesa?: boolean;
+  /** Es un SEGUIMIENTO del pedido del hilo («pausala» después de «¿cómo va la campaña?»): las herramientas se eligen también
+   *  por ese pedido (`hilo`, lib/doer-herramientas.ts). Lo marca lib/doer-hilo.ts (`conElHilo`), 26/10/2026. */
+  sigueElHilo?: boolean;
+  /** Un seguimiento que el hilo levantó desde «sin señal clara» (lib/doer-hilo.ts, rama 1): NO puede confirmar ni cancelar lo
+   *  que ya está pendiente. «esperá, primero movamos esos leads» después de «¿Confirmás?» no es un «sí» (la revisión del
+   *  26/10/2026). El «sí» o el «no» de verdad entran por la regla 1, como 'confirmar'. */
+  noResuelvePendientes?: boolean;
   /** Sólo en la app (`ctx.canal`): si el texto no nombra ningún área, la operación se busca en TODO el registro, ordenada por
    *  relevancia contra el pedido, en vez de llegar sin ninguna. Es la contracara de «un canal propone»: en la app lo que se
    *  elige es una tarjeta, no una acción hecha (lib/doer-herramientas.ts). */
