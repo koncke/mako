@@ -294,9 +294,10 @@ export function ChatOffer({
       {error && <div role="alert" className="of-error">{error}{errorExtra ? <> {errorExtra}</> : null}<ReportarASoporte /></div>}
       {/* La caja va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la grabación guarda el `onAudio` del
           render en que se apretó el micrófono). */}
+      {/* Lo que MaKo recomienda sobre la oferta con lo que dice la gente (26/10/2026): el bloque de preguntas, plegado, justo
+          arriba de la caja (afuera de su envoltorio: la caja es la única, tests/onboarding-caja-centro.test.ts). */}
+      <RecomendacionesDeMako superficie="offer" alPedir={caja.onTexto} />
       <div key={sesion.id} className="co-caja-wrap" style={SIN_VERDE}>
-        {/* Lo que MaKo recomienda sobre la oferta con lo que dice la gente (26/10/2026): el bloque de preguntas, plegado. */}
-        <RecomendacionesDeMako superficie="offer" alPedir={caja.onTexto} />
         <div className="co-caja"><CajaChat {...caja} /></div>
       </div>
     </div>

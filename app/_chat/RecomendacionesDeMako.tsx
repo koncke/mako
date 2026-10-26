@@ -16,9 +16,10 @@
 //   · SIN NADA QUE DECIR, NO SE DIBUJA NADA: ni una tira vacía ni un «todo bien».
 //   · Sólo el admin recibe algo (la ruta le devuelve `[]` al resto): lo que se decide acá vale para todo el equipo.
 // ⚠️ SE PIDE UNA VEZ AL MONTARSE (GET, que no escribe nada del negocio). Lo decidido sale de la lista en el acto.
+// ⚠️ SIN `import` DE CSS: las hojas del bloque (centro.css) las carga cada pantalla que lo monta, y un `.css` importado acá
+//    rompía a los tests de node que arrastran la pantalla (tests/editor-landing-agente.test.ts: «Unexpected token '.'»).
 // =============================================================================
 
-import '@/app/admin/operaciones/centro.css';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BloqueDePreguntas, type PreguntaDeLaTab } from '@/app/admin/operaciones/PreguntasDelChat';
 import { leerRespuesta } from '@/app/m/mako/chat-ui';
