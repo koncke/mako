@@ -95,6 +95,7 @@ const CANAL: Record<string, string> = {
   'lib/meta-via.ts': '¿por dónde habla MaKo con Meta? Zernio primero, el token de respaldo; las lecturas con la forma de Meta',
   'lib/meta-conexion-zernio.ts': 'guardar, mirar y probar la conexión de Meta por Zernio (cuentas publicitarias y píxeles)',
   'lib/meta-capi.ts': 'las conversiones al píxel por la Zernio del negocio (`POST /v1/ads/conversions`), antes que por el token',
+  'lib/meta-escribir-zernio.ts': 'pausar, prender, presupuestar, renombrar y borrar en Meta por la Zernio del negocio (un negocio sin token, 26/10/2026)',
   'lib/transcribe.ts': 'el video y la imagen de un anuncio por la Zernio del negocio (`GET /v1/ads/{adId}/media`), para transcribirlo',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',

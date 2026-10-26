@@ -750,14 +750,21 @@ export const RUNNERS: Runners = {
       if ((n.configuredStatus ?? n.effectiveStatus) !== 'PAUSED') return { error: `«${n.name}» no está pausada (${n.statusLabel}). Solo se elimina lo pausado: primero pausa.` };
       const hijos = nivel === 'campaign' ? a.h.adsets.filter((s) => s.parentId === id).length : nivel === 'adset' ? a.h.ads.filter((x) => x.parentId === id).length : 0;
       const etiqueta = nivel === 'campaign' ? 'la campaña' : nivel === 'adset' ? 'el conjunto' : 'el anuncio';
-      return { payload: { nivel, id }, resumen: `ELIMINAR en Meta ${etiqueta} «${n.name}» (${id})${hijos ? ` y sus ${hijos} ${nivel === 'campaign' ? 'conjuntos (con sus anuncios)' : 'anuncios'}` : ''}. No se puede deshacer.` };
+      // Por la conexión de Facebook, borrar el ÚLTIMO anuncio de un conjunto que creó Zernio (por MaKo) borra también el conjunto,
+      // y la campaña si queda vacía (OpenAPI de Zernio, DELETE /ads/{adId}). Con el token no pasaba: se dice antes de confirmar.
+      const { canalMeta } = await import('@/lib/meta-via');
+      const unico = nivel === 'ad' && n.parentId != null && a.h.ads.filter((x) => x.parentId === n.parentId).length === 1;
+      const cascada = unico && (await canalMeta()).via === 'zernio'
+        ? ' Es el único anuncio de su conjunto: si el conjunto lo creó MaKo, se borran también el conjunto y, si queda vacía, la campaña.'
+        : '';
+      return { payload: { nivel, id }, resumen: `ELIMINAR en Meta ${etiqueta} «${n.name}» (${id})${hijos ? ` y sus ${hijos} ${nivel === 'campaign' ? 'conjuntos (con sus anuncios)' : 'anuncios'}` : ''}. No se puede deshacer.${cascada}` };
     },
     ejecutar: async (p, ctx) => {
       const level = p.nivel === 'campaign' ? 'campaign' : p.nivel === 'ad' ? 'ad' : 'adset';
       // La guarda de preparar() sale de arbolMeta → getMetaHealth, una caché de 120 s
       // que metaWrite no invalida al cambiar un estado. Lo que decide un DELETE en
       // cascada se lee EN VIVO, justo antes, y en la MISMA cuenta que va a borrar.
-      const vivo = await estadoVivoMeta(String(p.id), ctx.ws);
+      const vivo = await estadoVivoMeta(String(p.id), ctx.ws, level);
       if ('error' in vivo) return { ok: false, resumen: `No borré nada: ${vivo.error}` };
       const estado = vivo.configurado ?? vivo.efectivo;
       if (estado !== 'PAUSED') return { ok: false, resumen: `No borré nada: en Meta ya no está pausada (estado actual: ${estado}). Pausa primero y vuelve a proponerlo.` };
