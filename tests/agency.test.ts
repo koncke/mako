@@ -23,6 +23,8 @@
 //   · el CRM vuelve a llevar a /partners?cuenta=                                              → 1 fallo (2)
 //   · `buscarUsuarioPorEmail` va DESPUÉS de `crearWorkspace`                                  → 1 fallo (3)
 //   · el acceso sale aunque pague la agencia (sin el `if (paga === 'cliente')`)                → 1 fallo (3)
+//   · el acceso sale aunque pague el cliente SIN link del primer mes (sin `&& cobro.ok`)      → 1 fallo (3)
+//   · el modal vuelve a decir «Le llegó su acceso» sin link (sin `&& hecho.link`)            → 1 fallo (3)
 //   · `cartelDePago` deja cerrar el primer mes (`cerrable: true`)                             → 1 fallo (4)
 //   · /api/agencia/mi-pago contesta al super admin (sin `s.rol === 'admin'`)                  → 1 fallo (4)
 //   · el resumen de `abrirYContar` lleva el link                                              → 1 fallo (6)
@@ -47,6 +49,12 @@ const cuerpo = (src: string, nombre: string) => {
   assert.ok(i >= 0, `no encontré ${nombre}`);
   const j = src.indexOf('\nexport ', i + 10);
   return src.slice(i, j < 0 ? undefined : j);
+};
+/** El `if (...)` que encierra el envío del acceso en `abrirCuentaDePartner`: de quién depende que salga. */
+const guardaDelAcceso = (abrir: string) => {
+  const i = abrir.indexOf('acceso = await invitarPorEmail(');
+  assert.ok(i >= 0, 'no encontré el envío del acceso');
+  return abrir.slice(abrir.lastIndexOf('if (', i), i);
 };
 
 // ── 1. Sumarse ─────────────────────────────────────────────────────────────────────
@@ -145,7 +153,7 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     desde = i;
   }
   // El acceso sale YA sólo si paga el cliente (tiene que hacer su onboarding); si paga la agencia, al habilitarse.
-  assert.match(abrir, /if \(paga === 'cliente'\) \{\s*acceso = await invitarPorEmail\(/);
+  assert.match(guardaDelAcceso(abrir), /^if \(paga === 'cliente'[ )]/);
   // Si paga el cliente, el link del primer mes va a SU email (y la renovación se la pide a él).
   assert.match(abrir, /email: paga === 'cliente' \? correo : p\.pagador/);
   assert.doesNotMatch(cuerpo(lib, 'leadParaPartners'), /estado_lead/, 'un lead de cualquier etapa, no sólo un ganado');
@@ -155,6 +163,26 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
   assert.match(acc, /const r = await abrirCuentaDePartner\(\{/);
   assert.match(acc, /paga: quienPagaDe\(datos\?\.paga\),/);
   assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga \}\)/);
+});
+
+test('«paga tu cliente» sin link del primer mes: su acceso NO sale, y el modal no pide reenviárselo (25/10/2026)', () => {
+  // Sin link (MaKo sin Mercado Pago, sin precio en pesos, la pasarela que falló) no hay cobro: `cartelDePago` recibe
+  // `pendiente: null` y no salta, y nada lo crea después. Con el acceso afuera, el cliente usaba MaKo completo gratis
+  // para siempre. Sin link queda esperando la firma, y lib/agencia-habilitar.ts le manda el acceso al habilitarla.
+  const abrir = cuerpo(leer('lib/partners.ts'), 'abrirCuentaDePartner');
+  assert.equal(abrir.split('invitarPorEmail(').length - 1, 1, 'un solo lugar manda el acceso');
+  assert.match(guardaDelAcceso(abrir), /cobro\.ok/, 'el acceso del cliente, sólo con el link del primer mes');
+  assert.match(cuerpo(leer('lib/agencia-habilitar.ts'), 'avisarClienteAprobado'), /if \(admin\.invitacion_enviada_at\) return/,
+    'la habilitación manda el acceso a quien todavía no lo recibió');
+  // El modal: «le llegó su acceso» sólo con link; sin él, «Cuenta pedida», como si pagara la agencia.
+  const modal = leer('app/agency/NuevoCliente.tsx');
+  const rama = modal.match(/\} else if \((hecho && hecho\.paga === 'cliente'[^)]*)\) \{/);
+  assert.ok(rama, 'la rama de «paga tu cliente»');
+  assert.match(rama[1], /hecho\.link/, 'sin link no es «le llegó su acceso»: cae en «Cuenta pedida»');
+  const pedida = modal.slice(modal.indexOf('} else if (hecho) {'));
+  assert.match(pedida, /'Cuenta pedida'/);
+  assert.match(pedida, /Le llega su acceso cuando MaKo la habilite\./);
+  assert.doesNotMatch(modal, /Todavía no hay link de pago/);
 });
 
 test('quién paga: sólo «cliente» es el cliente; lo demás es la agencia (lo que pasaba antes de poder elegir)', () => {

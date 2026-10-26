@@ -113,6 +113,7 @@ cobrar_producto_landing
 columna_nutricion_crm
 comentar_clase_comunidad
 comentar_post_comunidad
+como_conectar
 comparar_agendas_meta_crm
 compartir_borrador_landing
 conectar_componentes_dashboard
@@ -622,6 +623,7 @@ ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
 ver_horario_envio
+ver_ia_del_negocio
 ver_iconos_landing
 ver_integracion
 ver_integraciones

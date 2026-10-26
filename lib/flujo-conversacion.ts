@@ -1624,8 +1624,11 @@ function conRamaBCopiada<P extends PasoParaGrafo>(pasos: readonly P[], abId: str
   if (!ab || !a || (c !== 'mensaje' && c !== 'accion' && c !== 'esperar') || ramas.length < 2 || ramas[1].siguiente) return [...pasos];
   const idCopia = nuevoId(pasos, rnd);
   const i = indicePorId(pasos, a.id);
-  const { paralelos: _sinParalelos, ...resto } = a as P & { paralelos?: string[] };
-  void _sinParalelos;
+  // La copia NO se lleva las variantes de A (la revisión del tren-k, 25/10/2026): al cambiarle el texto a B, el motor seguía
+  // sorteando las de A (`textoDelPaso`) y a 4 de cada 5 leads de B les llegaba lo de A; el juez comparaba A contra casi A.
+  // Con id nuevo, `setSecuenciaPasos` no le repone ninguna.
+  const { paralelos: _sinParalelos, variantes: _sinVariantes, ...resto } = a as P & { paralelos?: string[]; variantes?: string[] };
+  void _sinParalelos; void _sinVariantes;
   const copia = { ...resto, id: idCopia, siguiente: siguienteDeTarjeta(pasos, i) } as P;
   const out = [...pasos];
   out.splice(i + 1, 0, copia);

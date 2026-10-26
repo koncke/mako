@@ -50,7 +50,7 @@ import { MakoRedacta, type HistorialRedacta, type PropuestaRedacta } from './Mak
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { aplicarVariables } from '@/lib/template-vars';
 import { cambiosDePaso } from '@/lib/guion-audio';
-import { partesDe, formaGuardada, esUnTexto, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
+import { partesDe, formaGuardada, esUnTexto, variantesTrasCambio, TOPE_PARTES, type ParteMensaje } from '@/lib/mensaje-partes';
 import { validarArchivoWA, archivoConTipoWA, tituloDeArchivo, pesoLegible, type AdjuntoDto } from '@/lib/setting-adjuntos-reglas';
 import { IDENTIDAD_SOCIAL, NOMBRE_CANAL, problemaDeAdjunto, plataformaDe, cuentaDelPaso, TOPE_TEXTO_SOCIAL, type CanalSocial } from '@/lib/canal-social';
 import { BurbujaSocial, ArchivoSocial, LogoSocial } from './social-ui';
@@ -169,12 +169,13 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
 
   // ── El mensaje es la lista de partes (como en WhatsApp) ──
   const partes = partesDe(paso);
-  const aplicarPartes = (lista: readonly ParteMensaje[]) => {
+  // Las variantes son de UN texto: otra cosa, o un texto que CAMBIA, las suelta (`variantesTrasCambio`); `devolver`, el «Deshacer».
+  const aplicarPartes = (lista: readonly ParteMensaje[], devolver?: readonly string[] | null) => {
     const antes = pasoVivo.current;
     const f = formaGuardada(lista);
     const despues: PasoSecuenciaDto = {
       ...antes, tipo: f.tipo, cuerpo: f.cuerpo, audio_id: f.audio_id, media_id: f.media_id, partes: f.partes,
-      ...(esUnTexto(lista) ? {} : { variantes: [] }),
+      ...variantesTrasCambio(antes, esUnTexto(lista), f.cuerpo ?? '', devolver),
     };
     onChange(cambiosDePaso(antes, despues));
   };
@@ -208,7 +209,7 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
     aplicarPartes(antes.filter((_, j) => j !== i));
     if (editando === i) limpiarBarra();
     else if (editando != null && editando > i) setEditando(editando - 1);
-    show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes); });
+    show('Mensaje borrado', () => { if (mismoPaso(pasoVivo.current, deQuien)) aplicarPartes(antes, deQuien.variantes); });
   };
 
   // ── EL ✦ DE MaKo (punto 8): el panel en lugar del chat, y la propuesta arriba de la barra ──

@@ -41,10 +41,13 @@ export type EstadoReferido = 'registrado' | 'primer-pago' | 'acreditado' | 'se-f
 /**
  * En qué va un referido, con sus meses PAGADOS (cuotas cobradas de su plan) y si su lugar sigue vigente. Acreditado =
  * ya llegó a su 2º pago (el renglón del libro lo dice; esto es para la pantalla mientras tanto).
+ * ⚠️ Sin lugar vigente y sin llegar al 2º pago es 'se-fue' AUNQUE no haya pagado nada (25/10/2026, revisión del tren): el
+ * que canceló la prueba antes del día 8 (0 meses) daba 'registrado', y `porGanar` lo sumaba como «US$ 97 más en camino»
+ * en el panel del partner (y `en_camino_usd` en la API) para siempre, por un negocio que no va a pagar nunca.
  */
 export function estadoDelReferido(p: { mesesPagados: number; acreditado: boolean; vigente: boolean }): EstadoReferido {
   if (p.acreditado) return 'acreditado';
-  if (!p.vigente && p.mesesPagados < PAGOS_PARA_ACREDITAR) return p.mesesPagados > 0 ? 'se-fue' : 'registrado';
+  if (!p.vigente && p.mesesPagados < PAGOS_PARA_ACREDITAR) return 'se-fue';
   return p.mesesPagados >= 1 ? 'primer-pago' : 'registrado';
 }
 

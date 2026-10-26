@@ -53,6 +53,9 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   el lugar a `editar_pasos_secuencia_mensajes` y a `cambiar_crons_secuencia` (tests/ops-center-clasificador-app). Una
   operación nueva va AL FINAL del área y se mide con esas frases antes de entregar (AGENTS.md). Crear con IA por HTTP
   devuelve la pregunta como 400 con `faltan`, y la pérdida esperada del juez quedó sólo al tope.
+- **Las variantes del texto viejo (25/10, la revisión del tren-k):** todo lo que cambia el texto de un mensaje (los dos
+  editores, Editar con IA, la API) pasa por `variantesTrasCambio` (lib/mensaje-partes.ts) y las suelta; la rama B de una
+  prueba nace sin las de A y la firma las cuenta; el «Deshacer» del 🗑 las devuelve.
 - **El texto de un WhatsApp o email en un flujo CON ramas, por la API (25/10):** `cambiar_texto_mensaje` (PATCH
   …/mensajes/{tarjeta}/texto), por `publicarPasos`, al final del área. Cambiar el texto suelta las variantes del viejo (el
   guardado ahora respeta un `[]` explícito), también en el texto de un DM. Sin hacer: `editar_pasos_secuencia_mensajes` sigue

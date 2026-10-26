@@ -14,8 +14,14 @@
 import { huellaDeVisitante } from '../replay-contrato';
 import { claseDe, descendientes, idDe, nodoPorId, ramasABDe, type PasoGrafo, type RamaAB } from '../flujo-grafo';
 
-/** Los campos de una tarjeta que cambian lo que le llega al lead (lo demás —posición, orden— no es la rama). */
-const CAMPOS_QUE_LLEGAN = ['nodo', 'canal', 'tipo', 'cuerpo', 'asunto', 'partes', 'audio_id', 'media_id', 'botones', 'espera', 'accion', 'ramas', 'si_no', 'proveedor', 'template_wa'] as const;
+/**
+ * Los campos de una tarjeta que cambian lo que le llega al lead (lo demás —posición, orden— no es la rama). Con `variantes`
+ * (la revisión del tren-k, 25/10/2026): el motor las sortea con el cuerpo, así que cambiarlas abre una época nueva.
+ */
+const CAMPOS_QUE_LLEGAN = ['nodo', 'canal', 'tipo', 'cuerpo', 'variantes', 'asunto', 'partes', 'audio_id', 'media_id', 'botones', 'espera', 'accion', 'ramas', 'si_no', 'proveedor', 'template_wa'] as const;
+/** El valor de un campo para la firma. Sin variantes y `[]` firman igual: el guardado no escribe un `[]` (lib/nutricion.ts). */
+const paraFirmar = (p: Record<string, unknown>, k: (typeof CAMPOS_QUE_LLEGAN)[number]): unknown =>
+  k === 'variantes' && !(Array.isArray(p[k]) && (p[k] as unknown[]).length) ? null : p[k] ?? null;
 
 /** Lo que es SÓLO de cada rama: lo que se alcanza por ella y no por ninguna otra. */
 export function tarjetasDeCadaRama(pasos: readonly PasoGrafo[], abId: string): Map<string, string[]> {
@@ -33,7 +39,7 @@ export function tarjetasDeCadaRama(pasos: readonly PasoGrafo[], abId: string): M
 export function firmaDeRama(pasos: readonly PasoGrafo[], abId: string, r: RamaAB, propias = tarjetasDeCadaRama(pasos, abId).get(r.clave) ?? []): string {
   const contenido = propias.map((id) => {
     const p = nodoPorId(pasos, id) as Record<string, unknown> | null;
-    return p ? [id, ...CAMPOS_QUE_LLEGAN.map((k) => p[k] ?? null)] : [id];
+    return p ? [id, ...CAMPOS_QUE_LLEGAN.map((k) => paraFirmar(p, k))] : [id];
   });
   return huellaDeVisitante(JSON.stringify([r.pct, r.siguiente ?? null, contenido])).toString(36);
 }

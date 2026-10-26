@@ -194,8 +194,11 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, avisoCalendly = null, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
+export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, avisoCalendly = null, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
   integraciones: Integracion[];
+  /** Las que no son tarjetas de la grilla (`oculto`: las cuatro IA y Google Calendar), con su estado real. No se dibujan:
+   *  están para que su modal se abra desde «Costo de MaKo» con el saldo y el refresco de la página (25/10/2026). */
+  sinTarjeta?: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   /** `null` = no se pudieron leer (no es «no hubo»). */
@@ -326,6 +329,20 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // pantalla se recargaba idéntica y el usuario apretaba "Conectar" en loop.
   const gcalMsg = GCAL_MSG[searchParams.get('gcal') ?? ''] ?? null;
 
+  // ⚠️ Y SI FALLÓ, EL BOTÓN TIENE QUE ESTAR (25/10/2026). Google Calendar ya no es una tarjeta: se conecta en el modal
+  // suelto (`?abrir=google`, el link que manda MaKo). Si el OAuth volvía con un error, la franja de abajo pedía «Vuelve a
+  // apretar "Conectar Google Calendar"» y en la pantalla no había ni tarjeta ni modal con ese botón. Se reabre el suelto
+  // UNA vez por resultado (la ref), que dice adentro qué pasó y trae el botón; la franja queda, como antes.
+  const gcalParam = searchParams.get('gcal');
+  const gcalReabierto = useRef<string | null>(null);
+  useEffect(() => {
+    if (!gcalParam) { gcalReabierto.current = null; return; }
+    if (gcalReabierto.current === gcalParam) return;
+    if (GCAL_MSG[gcalParam]?.kind !== 'err' || integraciones.some((i) => i.key === 'google')) return;
+    gcalReabierto.current = gcalParam;
+    abrirSuelta('google', gcalParam);
+  }, [gcalParam, integraciones, abrirSuelta]);
+
   // El toast global (y el chip de la sidebar) linkean con ?ops=1 → abrimos el
   // historial de operaciones. Consumimos el flag al instante (router.replace) para
   // que un segundo click del toast (mismo ?ops=1) vuelva a ser un cambio '' → 'ops=1'
@@ -429,7 +446,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
-  const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
+  // ⚠️ Y las que no son tarjetas (`sinTarjeta`, 25/10/2026): desde que las IA dejaron la grilla, la caja de Claude, OpenAI
+  // o Gemini y «¿Cargaste créditos? Regístralos →» llamaban a `setModal` con una key que acá no estaba, y no se abría NADA.
+  const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key)
+    ?? sinTarjeta.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
 
   // ── Conectadas y sin conectar (24/10/2026) ──
   // Una IA que configura el equipo de MaKo no le pide nada al negocio: va con las conectadas, con su leyenda.

@@ -103,13 +103,14 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
         <Link className="nc-si" href={`/agency?cuenta=${ya}`}>Ver su cuenta</Link>
       </>
     );
-  } else if (hecho && hecho.paga === 'cliente') {
+  } else if (hecho && hecho.paga === 'cliente' && hecho.link) {
+    // Sin link del primer mes, su acceso NO sale (lib/partners.ts, 25/10/2026): cae en «Cuenta pedida», como si pagara la
+    // agencia. Decirle «Su acceso no salió: reenvíaselo» era empujar a la agencia a mandarle MaKo gratis.
     titulo = 'Cuenta abierta';
     cuerpo = (
       <>
         <p className="nc-ayuda nc-ayuda--fuerte">{hecho.aviso?.tono === 'ok' ? `Le llegó su acceso a ${email.trim()}.` : hecho.aviso?.texto ?? 'Su acceso no salió: reenvíaselo desde su cuenta.'}</p>
         <p className="nc-ayuda">Cuando termine su configuración, le aparece el pago de {mes}. Al pagarlo, puedes entrar a su cuenta.</p>
-        {!hecho.link && hecho.sinLink && <p className="nc-ayuda">Todavía no hay link de pago: {hecho.sinLink}</p>}
       </>
     );
     pie = (

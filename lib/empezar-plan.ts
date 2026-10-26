@@ -49,9 +49,16 @@ export async function empezarPlanAhora(ws: number, autor: string, ahoraMs: numbe
       return { ok: false, resumen: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };
     }
     // ⚠️ ATADO A SU NEGOCIO ANTES DE DEVOLVER EL LINK (como reactivar): sin `alta_ws`, el pago no sería de este negocio.
-    const { data: conPlan } = await db.from('cobros').select('plan_mako').eq('id', prueba.id).eq('workspace_id', plataforma).maybeSingle();
+    // ⚠️ Y CON EL CÓDIGO DEL PARTNER DE LA PRUEBA (25/10/2026, revisión del tren): al cobrarse éste, la prueba queda 'anulado'
+    // y `acreditarReferidos` (lib/partners-programa.ts) sólo lee cobros pagados con `ref_codigo`; sin copiarlo, el partner que
+    // trajo al negocio no cobraba nunca. Sólo si la prueba CREÓ la cuenta (alta 'hecha'): el programa es para clientes nuevos.
+    // A éste NO se le marca `alta_estado` 'hecha' (le habilitaría el cambio de email del acceso, /api/pagar/email): el
+    // programa lo reconoce por su `creado_por` (empezar-ya:<prueba>).
+    const { data: conPlan } = await db.from('cobros').select('plan_mako, ref_codigo').eq('id', prueba.id).eq('workspace_id', plataforma).maybeSingle();
     const planMako = (conPlan as { plan_mako?: string | null } | null)?.plan_mako ?? null;
-    const { error } = await db.from('cobros').update({ alta_ws: ws, ...(planMako ? { plan_mako: planMako } : {}) }).eq('id', r.cobro.id).eq('workspace_id', plataforma);
+    const refCodigo = prueba.alta_estado === 'hecha' ? (conPlan as { ref_codigo?: string | null } | null)?.ref_codigo ?? null : null;
+    const { error } = await db.from('cobros').update({ alta_ws: ws, ...(planMako ? { plan_mako: planMako } : {}), ...(refCodigo ? { ref_codigo: refCodigo } : {}) })
+      .eq('id', r.cobro.id).eq('workspace_id', plataforma);
     if (error) {
       console.error(`[empezar-plan] ws=${ws}: no pude atar el cobro ${r.cobro.id}: ${error.message}`);
       return { ok: false, resumen: 'No pudimos abrir el pago. Prueba otra vez en un minuto.' };

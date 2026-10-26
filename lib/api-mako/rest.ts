@@ -628,6 +628,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Con qué IA trabaja el negocio y cómo se conecta cada cosa (25/10/2026, docs/conexiones-y-ayuda.md). `que` va en la query:
+  // es texto libre («mi claude»).
+  ['GET', '/integraciones/ia-del-negocio', 'ver_ia_del_negocio'],
+  ['GET', '/integraciones/conexiones', 'como_conectar'],
   // Meta por Zernio (25/10/2026): la conexión de «Conectar con Facebook» es UN recurso (`meta`); elegir cuenta, píxel o
   // página es reemplazar ese dato (PUT), y la prueba de CAPI es una lectura con el código de «Probar eventos».
   ['GET', '/integraciones/meta/conexion', 'ver_conexion_meta'],

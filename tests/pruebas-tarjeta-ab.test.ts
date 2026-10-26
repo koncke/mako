@@ -34,7 +34,7 @@ import {
 } from '../lib/nutricion-grafo-motor';
 import { problemasDeForma } from '../lib/flujo-forma';
 import { iniciar, siguiente, escenariosDePrueba, elegirComoLead } from '../lib/simulador-grafo';
-import { opcionesDelMas, opcionesSueltas, insertarDesdeLienzo, quitarRamaAB, agregarRamaAB, repartirPcts, grafoDeSecuencia, ID_ENTRADA } from '../lib/flujo-conversacion';
+import { opcionesDelMas, opcionesSueltas, insertarDesdeLienzo, quitarRamaAB, agregarRamaAB, repartirPcts, grafoDeSecuencia, ID_ENTRADA, type PasoParaGrafo } from '../lib/flujo-conversacion';
 import { pegarTarjetas, copiaDeTarjetas } from '../lib/flujo-copia';
 import { aIA, deIA, deIAEdicion, userDeCrear, PRUEBA_AB_IA, disparadoresParaIA, LISTA_BLANCA_IA, type CtxIA } from '../lib/flujo-ia';
 import { opcionesCronIA } from '../lib/disparadores';
@@ -43,11 +43,12 @@ import { porId } from '../lib/api-mako/registro';
 import { cambiosDeLaPrueba, firmaDeRama, ramasParaLaPrueba, tarjetaABDe, metricaDeLaAutomatizacion } from '../lib/pruebas/tarjeta-ab';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
-const msg = (id: string, siguiente: string | null, cuerpo = id): PasoGrafo => ({ id, canal: 'whatsapp', cuerpo, siguiente } as PasoGrafo);
-const AB = (a: string | null, b: string | null, extra: Partial<PasoGrafo> = {}): PasoGrafo =>
-  ({ id: 'ab', nodo: 'ab', ramas_ab: [{ clave: 'A', pct: 50, siguiente: a, nombre: 'Sin cambio' }, { clave: 'B', pct: 50, siguiente: b, nombre: 'Con audio' }], ...extra } as PasoGrafo);
+// Los pasos del lienzo (`PasoParaGrafo`, un PasoGrafo con lo del mensaje): lo que piden insertarDesdeLienzo y grafoDeSecuencia.
+const msg = (id: string, siguiente: string | null, cuerpo = id): PasoParaGrafo => ({ id, canal: 'whatsapp', cuerpo, siguiente } as PasoParaGrafo);
+const AB = (a: string | null, b: string | null, extra: Partial<PasoGrafo> = {}): PasoParaGrafo =>
+  ({ id: 'ab', nodo: 'ab', ramas_ab: [{ clave: 'A', pct: 50, siguiente: a, nombre: 'Sin cambio' }, { clave: 'B', pct: 50, siguiente: b, nombre: 'Con audio' }], ...extra } as PasoParaGrafo);
 /** m1 → A/B → (A: m2a | B: m2b) → m3: las ramas se juntan en m3. */
-const F: PasoGrafo[] = [msg('m1', 'ab'), AB('m2a', 'm2b'), msg('m2a', 'm3'), msg('m2b', 'm3', 'Con audio'), msg('m3', null)];
+const F: PasoParaGrafo[] = [msg('m1', 'ab'), AB('m2a', 'm2b'), msg('m2a', 'm3'), msg('m2b', 'm3', 'Con audio'), msg('m3', null)];
 
 // ── El modelo ────────────────────────────────────────────────────────────────────────────────────────────────────────
 test('el modelo: la clase, sus puertos (la letra), sin siguiente, y dos ramas que se juntan no «chocan»', () => {
@@ -177,6 +178,13 @@ test('el lienzo: en una flecha, A es lo que seguía y la B copia lo que se prueb
   const copia = nodoPorId(r.pasos, b.siguiente)!;
   assert.ok(copia && copia.id !== 'm2' && copia.cuerpo === 'El mensaje que pruebo' && copia.siguiente === 'm3', 'la B no copió lo que se prueba o no se juntó en m3');
   assert.deepEqual(validarGrafo(r.pasos), []);
+  // La B NO se lleva las variantes de A (la revisión del tren-k): al cambiarle el texto, el motor seguía sorteando las de A
+  // y en 10.000 envíos de B el texto nuevo salía 1.939 veces.
+  const conV: PasoParaGrafo[] = L.map((p) => (p.id === 'm2' ? { ...p, variantes: ['Otra forma', 'Y otra'] } : p));
+  const rv = insertarDesdeLienzo(conV, 'm1', 'sig', 'ab', () => 0.42);
+  const copiaV = nodoPorId(rv.pasos, nodoPorId(rv.pasos, rv.id!)!.ramas_ab![1].siguiente) as PasoGrafo & { variantes?: string[] };
+  assert.equal(copiaV.variantes, undefined, 'la B salió con las variantes de A');
+  assert.deepEqual((nodoPorId(rv.pasos, 'm2') as PasoGrafo & { variantes?: string[] }).variantes, ['Otra forma', 'Y otra'], 'la A conserva las suyas');
   // Una por automatización, y nunca debajo de «Si responde».
   assert.ok(!opcionesDelMas(r.pasos, 'm3', false).some((o) => o.value === 'ab'));
   assert.ok(!opcionesSueltas(r.pasos).some((o) => o.value === 'ab'));
@@ -290,6 +298,11 @@ test('la firma de cada rama: cambia con lo SUYO, no con lo compartido; y lo que 
   assert.notEqual(firmaDeRama(tocoB, 'ab', nodoPorId(tocoB, 'ab')!.ramas_ab![1]), b0, 'cambiar lo de B no cambió su firma');
   assert.equal(firmaDeRama(tocoB, 'ab', nodoPorId(tocoB, 'ab')!.ramas_ab![0]), a0, 'cambiar B cambió la de A');
   assert.equal(firmaDeRama(tocoCola, 'ab', nodoPorId(tocoCola, 'ab')!.ramas_ab![1]), b0, 'lo compartido (m3) no es de ninguna rama');
+  // Las variantes llegan al lead (el motor las sortea): cambiarlas cambia la firma; sin variantes y `[]` firman igual.
+  const conVariantes = F.map((p) => (p.id === 'm2b' ? { ...p, variantes: ['Otra forma'] } : p));
+  const vacias = F.map((p) => (p.id === 'm2b' ? { ...p, variantes: [] } : p));
+  assert.notEqual(firmaDeRama(conVariantes, 'ab', nodoPorId(conVariantes, 'ab')!.ramas_ab![1]), b0, 'cambiar las variantes de B no cambió su firma');
+  assert.equal(firmaDeRama(vacias, 'ab', nodoPorId(vacias, 'ab')!.ramas_ab![1]), b0, 'un [] abriría una época de más');
   assert.deepEqual(cambiosDeLaPrueba(F, 'ab', guardadas), { que: 'nada' });
   const e = cambiosDeLaPrueba(tocoB, 'ab', guardadas);
   assert.ok(e.que === 'epoca' && e.porque === 'Cambiaste B.');

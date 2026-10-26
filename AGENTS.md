@@ -1465,6 +1465,18 @@ archivos**, y se lee como una fuga entre clientes cuando es un destino que falta
   template literal con la URL pegada compila perfecto— y deja afuera, con su motivo escrito,
   el prompt que describe la forma de una URL y el archivo donde vive el helper.
 
+⚠️ **Y EL LINK A UNA CONEXIÓN ES CONTRATO (25/10/2026, docs/conexiones-y-ayuda.md).** `/integraciones?abrir=<key>` abre el
+modal de esa tarjeta, `/integraciones?abrir=ia` «Tus cuentas de IA», `/perfil/ia?computadora=1` «Conecta MaKo» y
+`/chats?conectar=whatsapp` el QR. Y las de Settings (su rediseño del 25/10/2026: cada pestaña es su ruta y el detalle va por
+query): `/perfil`, `/perfil/seguridad?ver=<app|llaves|contrasena|codigos|whatsapp|email|dispositivos|dispositivo-N>`,
+`/perfil/notificaciones?canal=<app|celular|whatsapp|email>`, `/perfil/instalar`, `/configuraciones`, `/equipo`,
+`/configuraciones/fiscal` y `/metodo`. Ya viajaron en mensajes de WhatsApp, avisos y prompts: **un rediseño los conserva** (o
+los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión, sacado de `lib/conexiones-catalogo.ts` (el
+catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
+veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
+correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
+
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
 sin el `?ws=` → aterrizó en **su propio** onboarding, con el chrome de admin, sin barra de
@@ -2413,11 +2425,17 @@ ahora»; y el 23/10/2026, para ChatGPT: «igual que Claude, sólo para que el du
 atender leads solo»).** Su Claude o su ChatGPT en su PC (D6a) es SÓLO para que el dueño trabaje con SU IA desde la app: el
 chat de la app, el del teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que
 corra solo hacia un lead —respuestas automáticas de WhatsApp, AI Steps de Automations, nutrición, avisos, crons, webhooks,
-secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo
+secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega
 `turnoApp` (lib/mako-turno-app.ts), y **la sesión se mira ADENTRO del turno, no sólo en quien lo llama**
 (`laPersonaEstaAdentro`): armar la persona del dueño no alcanza. Una entrada nueva que lo llame se suma en
 tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no. Una PC contesta sólo con la IA del texto
 que aceptó quien la conectó (`iaDeLaPcConectada`).
+**Y el grupo de MaKo del DUEÑO (Martín, 25/10/2026: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado
+a su claude o GPT»):** es la persona escribiéndole a su MaKo, como el chat de la app, así que también llega a su PC, por la
+misma puerta. El webhook no trae la cookie: la prueba la hace la puerta con el teléfono que manda WhatsApp (`encolarTurno`
+con `delGrupo`, lib/ia-pc.ts): de UNA sola persona activa del negocio, y ésa es quien conectó esa PC; y el doer sólo la pide
+si el lote entero lo escribió esa persona (`loteDeVarios`). Un lead que escribe en un grupo, o cualquier otro canal de
+WhatsApp, no es esto: D6a sigue entera (tests/ia-pc-nunca-a-leads.test.ts, 7).
 
 **Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
 a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de

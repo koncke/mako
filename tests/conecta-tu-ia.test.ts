@@ -27,13 +27,16 @@ import { DEFS } from '../lib/integraciones-catalogo';
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. sin IA: «Conecta tu Claude, tu GPT o tu Gemini», y el botón abre su Claude (el link del grupo, su GPT)', () => {
+test('1. sin IA: «Conecta tu Claude o tu GPT» (sin Gemini desde el 25/10), y el botón abre su Claude (el link del grupo, su GPT)', () => {
   const m = mensajeIAFallo({ hayIA: false, motivo: null, tema: 'generar las razones' });
-  assert.match(m, /No hay ninguna IA conectada, así que MaKo no puede generar las razones\. Conecta tu Claude, tu GPT o tu Gemini en Integraciones\./);
+  assert.match(m, /No hay ninguna IA conectada, así que MaKo no puede generar las razones\. Conecta tu Claude o tu GPT en Integraciones\./);
+  // 25/10/2026, Martín: «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos que todo eso se hace con la app de
+  // escritorio de MaKo y conectado a su claude o GPT». Gemini salió de la frase (reemplaza lo de IA16).
+  assert.doesNotMatch(m, /gemini/i);
   // SU Gemini sí; «Gemini gratis» (la de la plataforma) no.
   assert.doesNotMatch(m, /gratis/);
-  assert.equal(CONECTA_TU_IA, 'Conecta tu Claude, tu GPT o tu Gemini');
-  assert.equal(FALTA_TU_IA, 'Tu Claude, tu GPT o tu Gemini');
+  assert.equal(CONECTA_TU_IA, 'Conecta tu Claude o tu GPT');
+  assert.equal(FALTA_TU_IA, 'Tu Claude o tu GPT');
   assert.equal(SERVICIO_IA, 'anthropic');
   assert.equal(iaParaConectar([]), 'anthropic', 'sin ninguna IA, su Claude');
   // El de WhatsApp abre su GPT desde el 25/10/2026 (lib/fallo-ia-texto.ts, `CUBREN_EL_TURNO`): en el grupo su Claude no

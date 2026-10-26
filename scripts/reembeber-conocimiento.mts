@@ -1,18 +1,20 @@
 // =============================================================================
-// reembeber-conocimiento — pasar el buscador de conocimiento al embedding de Gemini (IA16, 22/10/2026)
+// reembeber-conocimiento — embeber el conocimiento con la IA de cada negocio, de una vez (IA16, 22/10/2026; 25/10/2026)
 // =============================================================================
 // Uso, desde la raíz de este repo:
 //   npx tsx --conditions=react-server scripts/reembeber-conocimiento.mts --env <.env.local>             ← en seco
 //   npx tsx --conditions=react-server scripts/reembeber-conocimiento.mts --env <.env.local> --aplicar   ← escribe
 //
 // ⚠️ ESCRIBE EN LA BASE de .env.local (PRODUCCIÓN) sólo con --aplicar: el `embedding` de cada fila de `mako_knowledge`.
-// ⚠️ CADA NEGOCIO CON SU GEMINI (lib/embeddings.ts): las filas de un workspace sin su Gemini conectado NO se tocan (se
-//    quedarían marcadas `error`). Se re-embeben solas cuando lo conecte (/integraciones). Las del ws9 y el MÉTODO DE MAKO
-//    (`fuente` que se presta, que vive en el ws1) van con la de la plataforma: es contenido de MaKo.
+// ⚠️ CADA NEGOCIO CON SU IA (lib/embeddings.ts, 25/10/2026): su OpenAI primero, su Gemini si es lo único. Las filas de un
+//    workspace sin ninguna NO se tocan: se buscan por palabras y se embeben solas cuando la conecte (/integraciones) o de a
+//    poco desde la búsqueda (el goteo, lib/mako-knowledge.ts). Las del ws9 y el MÉTODO DE MAKO (`fuente` que se presta, que
+//    vive en el ws1) van con la de la plataforma (Gemini): es contenido de MaKo.
+//    No hace falta correrlo: el goteo hace lo mismo solo. Sirve para no esperar.
 //
-// En seco dice, por workspace, cuántas filas hay, cuántas ya están en Gemini (768) y cuántas con el vector viejo, si tiene
-// su Gemini y cuánto texto se le manda. Con --aplicar re-embebe una por una (en su workspace, con `reindexKnowledge`) las de
-// los que lo tienen; al final relee.
+// En seco dice, por workspace, cuántas filas hay y con qué modelo está cada una, con qué embebe el negocio y cuánto texto se
+// le manda. Con --aplicar re-embebe una por una (en su workspace, con `reindexKnowledge`) las que no están con el modelo que
+// les toca; al final relee.
 // =============================================================================
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -28,12 +30,13 @@ const APLICAR = process.argv.includes('--aplicar');
 const imp = (rel: string) => import(pathToFileURL(path.join(REPO, rel)).href);
 const { getSupabaseServer } = await imp('lib/supabase.ts');
 const { runWithWorkspace } = await imp('lib/workspace.ts');
-const { clavesDeSuGemini } = await imp('lib/ai-cheap.ts');
 const { sePresta } = await imp('lib/rag-prestamo.ts');
-const { DIMENSIONES } = await imp('lib/embeddings.ts');
+const { embebedorDelNegocio, modeloDelVector } = await imp('lib/embeddings.ts');
 const { reindexKnowledge } = await imp('lib/mako-knowledge.ts');
 
 type Fila = { id: number; workspace_id: number; titulo: string; cuerpo: string; fuente: string | null; embedding: unknown; estado: string };
+const GEMINI = 'gemini-embedding-001';
+const OPENAI = 'text-embedding-3-small';
 async function leer(): Promise<Fila[]> {
   const out: Fila[] = [];
   for (let de = 0; ; de += 500) {
@@ -44,32 +47,32 @@ async function leer(): Promise<Fila[]> {
   }
   return out;
 }
-const largo = (f: Fila) => (Array.isArray(f.embedding) ? f.embedding.length : 0);
+// El modelo sale del largo del vector (`modeloDelVector`), con o sin la columna `embedding_modelo`.
 const resumen = (fs: Fila[]) => {
-  const gemini = fs.filter((f) => largo(f) === DIMENSIONES).length;
-  const otros = fs.filter((f) => largo(f) && largo(f) !== DIMENSIONES).length;
-  return `${fs.length} filas · ${gemini} en Gemini (${DIMENSIONES}) · ${otros} con el vector viejo · ${fs.length - gemini - otros} sin vector`;
+  const de = (m: string | null) => fs.filter((f) => modeloDelVector(f) === m).length;
+  return `${fs.length} filas · ${de(OPENAI)} en OpenAI · ${de(GEMINI)} en Gemini · ${de(null)} sin vector`;
 };
 
 const filas = await leer();
 console.log(`Hoy: ${resumen(filas)}`);
-// Por workspace: ¿tiene su Gemini? (lee sus filas de credenciales; no llama a Google).
+// Por workspace: ¿con qué embebe? (lee sus filas de credenciales; no llama a ninguna IA).
 const conCuerpo: Fila[] = [];
 for (const ws of [...new Set(filas.map((f) => f.workspace_id))].sort((a, b) => a - b)) {
   const suyas = filas.filter((f) => f.workspace_id === ws);
   const conTexto = suyas.filter((f) => (f.cuerpo ?? '').trim());
-  const cuentas = (await runWithWorkspace(ws, () => clavesDeSuGemini()).catch(() => [])).length;
-  // El método de MaKo se embebe con la de la plataforma aunque el negocio no tenga su Gemini.
-  const van = conTexto.filter((f) => cuentas || sePresta(f.fuente));
+  const suIA = await runWithWorkspace(ws, () => embebedorDelNegocio()).catch(() => null) as { modelo: string; claves: string[] } | null;
+  // El método de MaKo, con la de la plataforma (Gemini) aunque el negocio no tenga su IA; lo suyo, con su IA.
+  const van = conTexto.filter((f) => (sePresta(f.fuente) ? modeloDelVector(f) !== GEMINI : !!suIA && modeloDelVector(f) !== suIA.modelo));
   const caracteres = van.reduce((a, f) => a + Math.min(8000, f.cuerpo.trim().length), 0);
   const deMako = van.filter((f) => sePresta(f.fuente)).length;
-  console.log(`  ws${ws}: ${resumen(suyas)} · ${cuentas ? `su Gemini (${cuentas} cuenta${cuentas > 1 ? 's' : ''})` : 'SIN su Gemini'} · van ${van.length}${deMako ? ` (${deMako} del método de MaKo)` : ''} · ${caracteres} caracteres (≈ ${Math.round(caracteres / 4)} tokens)`);
+  const conQue = suIA ? `su ${suIA.modelo === OPENAI ? 'OpenAI' : 'Gemini'} (${suIA.claves.length} cuenta${suIA.claves.length > 1 ? 's' : ''})` : 'SIN su IA (por palabras)';
+  console.log(`  ws${ws}: ${resumen(suyas)} · ${conQue} · van ${van.length}${deMako ? ` (${deMako} del método de MaKo)` : ''} · ${caracteres} caracteres (≈ ${Math.round(caracteres / 4)} tokens)`);
   conCuerpo.push(...van);
 }
 console.log(`A embeber: ${conCuerpo.length} filas`);
 
 if (!conCuerpo.length) {
-  console.log('Nada para embeber: ningún workspace con filas tiene su Gemini.');
+  console.log('Nada para embeber: todo está con el modelo que le toca (o el negocio no tiene su IA).');
 } else if (!APLICAR) {
   console.log('En seco: no se escribió nada. Con --aplicar, se re-embebe.');
 } else {
