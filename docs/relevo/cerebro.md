@@ -41,7 +41,12 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 - **El plan de la noche del 26/10** (memoria `noche-26-10-cinco-puntos`): MaKo inteligente → chat mako-inteligente; el
   scraper de WhatsApp → CRM; la llamada de Leila → hecha (el informe quedó en este chat; `docs/hallazgos-closing.md`);
   otros grabadores → Grabadores; Motion y el Image Editor → **SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con
-  otra cuenta**: rama `motion-imagen-2610`, relevo en `docs/relevo/motion-imagen.md`.
+  otra cuenta**: rama LOCAL `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta
+  `respaldo/motion-imagen-2610`; worktree `C:/dev/wt-motion-imagen`). El relevo `docs/relevo/motion-imagen.md` y su cosecha
+  (`docs/hallazgos-motion.md`, una regla de AGENTS.md sobre `lib/motion`) viven SÓLO en esa rama: no están en main porque
+  hablan de código que main no tiene. Al retomarla: toca archivos del Web Generator que Landings cambió después (mezclar
+  main primero), y el bloque motion tiene que estar desplegado antes de que una landing lo use (un editor viejo lo borra
+  al autoguardar).
 - **Web Generator de punta a punta → chat Landings** (pedido de Martín del 26/10 ~02:00): textos y botones que no se
   editan, secciones que no se reordenan, video, SVG y Calendly que no aparecen, botones flotantes que se van al hacer
   scroll, el menú de clic derecho que no se cierra, «Aplicar» del analizador y replicar una landing de la competencia.
