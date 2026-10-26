@@ -267,7 +267,8 @@ const HERRAMIENTAS = {
   // ⚠️ «MaKo Messages» (/mensajes) YA NO ES UNA SECCIÓN (26/10/2026, Martín: «En Automations de Super Admin tengo "MaKo
   // Messages" elimina eso»). Era el editor de la BASE de los avisos al dueño, y la base no existe en producción (medido:
   // ninguna fila `mako.plantillas.base`): desde el 10/10 no le cambiaba nada a nadie. Los avisos siguen saliendo con lo que
-  // tiene cada negocio (lib/avisos.ts lee su store); cada negocio edita los suyos en Configuración › Notificaciones, y los
+  // tiene cada negocio (lib/avisos.ts lee su store; de una pantalla, sólo lo toca el detalle de la bandeja de correo:
+  // docs/hallazgos-comunicacion.md, «Nueve avisos de Notificaciones no le salen a nadie»), y los
   // mensajes de la plataforma son automatizaciones (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). /mensajes y
   // /m/mensajes redirigen a Automations.
   // En qué trabaja cada cliente en SU Claude Code. Es información de CLIENTES: su casa es Clients.

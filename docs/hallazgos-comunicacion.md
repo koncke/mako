@@ -48,6 +48,40 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
+
+**La trampa.** Un aviso pasa por DOS cortes, y la pantalla sólo muestra uno:
+- el del **store** (`mako.plantillas.store`, `estaPrendida` en lib/plantillas.ts): es el que lee el ENVÍO, por los dos caminos
+  (`emitirDelCatalogo` en lib/avisos.ts:574, y `emitirAviso` vía `estadoAviso` en lib/perfil.ts). **Sin `porDefecto` en el
+  catálogo y sin entrada en el store, nace APAGADO** (la regla del 28/09: «me llegan un chorro»);
+- el de **Notificaciones** (el de cada persona, y `notification_prefs.avisos`): **arranca prendido**. La pantalla los muestra
+  prendidos, y `configurar_aviso_whatsapp` (la API de MaKo) escribe en `notification_prefs.avisos`, que el envío NO lee
+  desde que quedó «un solo interruptor» (lib/perfil.ts). Prenderlo por MaKo no hace nada, y `esta_aviso_activo` sigue
+  diciendo que está apagado.
+
+Con «MaKo Messages» afuera (7faa975da) no queda pantalla que toque el store: el aviso queda apagado para siempre y la
+pantalla dice que está prendido.
+
+**Medido en producción (sólo lectura, 26/10/2026).** No son 4: son **9** de la lista de Notificaciones
+(`AVISOS_WA_EN_VIVO`) los que leen el store sin `porDefecto`. Por `emitirDelCatalogo`, que corta antes de dejar fila en el
+feed y no deja rastro: crm-lead-estancado, crm-lead-quieto, tareas-autocompletadas y retro-lista. Por `emitirAviso`, que deja
+la fila «apagado»: plan-proyecto-vence, avisos-resumen, objetivo-en-riesgo, meta-alcanzada y quarter-planificar. De los 16
+negocios, ninguno tiene una entrada que prenda alguno. Hay dos explícitos en false: Código Inmobiliario,
+tareas-autocompletadas; y Mauricio Bustos, plan-proyecto-vence sin `enabled`, que es apagado. `notification_prefs.avisos`
+no tiene ninguno de los 9 en ningún negocio. En el feed de 30 días, «Tu objetivo va atrasado» se generó 6 veces para Leila
+(20 al 25/10, todas apagado) y «Proyectos por vencer», 3 en el negocio de Martín desde el 17/10 (apagado; antes del 17/10
+la fila no decía si salió).
+
+**Sin hacer (lo decide Martín; pregunta 86c71ad9 por el Ops Center):** (a) que salgan, y que decida el interruptor de
+Notificaciones respetando del store sólo `oculto`; o (b) sacarlos de `AVISOS_WA_EN_VIVO`, para que no muestren un
+interruptor que no hace nada. Aparte, `configurar_aviso_whatsapp` tendría que escribir en el store o retirarse.
+
+**Vive en:** lib/plantillas.ts (`estaPrendida`) · lib/avisos.ts (`emitirDelCatalogo`, `emitirAviso`) · lib/perfil.ts
+(`estadoAviso`, `avisoWaActivo`) · lib/notif-catalogo.ts (`AVISOS_WA_EN_VIVO`, `PUSH_TIPOS`) ·
+lib/api-mako/areas/equipo.run.ts (`configurar_aviso_whatsapp`)
+
+---
+
 ## «MaKo Messages» salió de Automations: editaba una base que no existía (26/10/2026)
 
 **El pedido.** Martín: «En Automations de Super Admin tengo "MaKo Messages" elimina eso». El Cerebro: «deprecar no es
@@ -57,8 +91,9 @@ romper»; antes de sacarla, medir qué hace y quién la usa.
 workspace de la plataforma), la que heredan todos los negocios. **Esa fila no existe**: desde que se separó la base (10/10)
 nadie la tocó, y todos reciben el catálogo de fábrica (lib/avisos-catalogo.ts). Los stores propios
 (`mako.plantillas.store`) sí existen en tres negocios (Mauricio Bustos, 16/10; Código Inmobiliario, 06/10; Cliente de
-Diseño, 29/09), y los edita la Configuración › Notificaciones de cada uno (`/api/perfil/plantillas`). Los mensajes de la
-plataforma son automatizaciones desde el 16/10.
+Diseño, 29/09). De una pantalla los toca sólo el detalle de un mensaje de la bandeja de correo (`/api/perfil/plantillas`):
+**no hay un interruptor por aviso de WhatsApp** en Notificaciones (la entrada de arriba; lo dije mal el 26/10 a la
+mañana). Los mensajes de la plataforma son automatizaciones desde el 16/10.
 
 **⚠️ Lo que parece muerto y no lo es:** el store se lee AL ENVIAR. lib/avisos.ts (el texto, el flujo y si está prendido),
 lib/avisos-programados.ts y lib/flujos.ts lo usan; sacar la pantalla no toca nada de eso. Muerta sí quedó la lista

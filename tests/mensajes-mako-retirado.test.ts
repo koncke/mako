@@ -8,8 +8,9 @@
 //   · ni la barra ni la sección de Automations ni el menú del super admin la nombran, en la computadora y en el teléfono;
 //   · /mensajes y /m/mensajes redirigen a Automations (next.config.ts), y el `?tab=plantillas` viejo de /agencia también;
 //   · las pantallas se fueron (escritorio, teléfono y la lista que sólo usaban ellas);
-//   · lo que sigue vivo NO se tocó: el envío (lib/avisos.ts) lee el store de cada negocio, y cada negocio edita los suyos en
-//     Configuración › Notificaciones (`/api/perfil/plantillas` y el detalle de un mensaje, que usa la bandeja de correo).
+//   · lo que sigue vivo NO se tocó: el envío (lib/avisos.ts) lee el store de cada negocio, y lo que lo toca desde una pantalla
+//     (`/api/perfil/plantillas` y el detalle de un mensaje, que usa la bandeja de correo). No hay un interruptor por aviso de
+//     WhatsApp en Notificaciones: docs/hallazgos-comunicacion.md, «Nueve avisos de Notificaciones no le salen a nadie».
 // Correr: node --import tsx --test tests/mensajes-mako-retirado.test.ts
 // =============================================================================
 import test from 'node:test';
@@ -54,7 +55,7 @@ test('lo que MaKo manda solo sigue andando: el envío lee el store de cada negoc
   assert.match(avisos, /const \{ getPlantilla, referenciaResuelta, generarMensajeAviso \} = await import\('\.\/plantillas'\);/);
   assert.match(leer('lib/avisos-programados.ts'), /import \{ plantillaActiva, getPlantilla \} from '\.\/plantillas';/);
   assert.match(leer('lib/flujos.ts'), /import \{ listarFlujosActivos \} from '\.\/plantillas';/);
-  // Cada negocio: Configuración › Notificaciones (su ruta y el detalle de un mensaje, que usa la bandeja de correo).
+  // Lo que toca el store de un negocio desde una pantalla: su ruta y el detalle de un mensaje, que usa la bandeja de correo.
   assert.ok(existsSync(join(RAIZ, 'app/api/perfil/plantillas/route.ts')));
   assert.match(leer('app/perfil/BandejaEmail.tsx'), /import \{ TemplateDetalleModal, type PlantillaVista \} from '\.\.\/agencia\/TemplateDetalleModal';/);
 });
