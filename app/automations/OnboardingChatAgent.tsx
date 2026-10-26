@@ -152,7 +152,7 @@ const AYUDA: Partial<Record<PasoKey, AyudaDef>> = {
   // ⚠️ SIN EL MÉTODO OFICIAL (10/10/2026, restos de versiones anteriores): salió del producto (#832) y
   // esta ayuda lo seguía comparando —«Ventajas frente al método oficial», «Para qué sirve entonces el
   // oficial»—. Y prometía «solo entre las 9 y las 21»: el horario de envío ahora es OPCIONAL y lo pone
-  // el negocio (Configuraciones › Horario, o el reloj de la lista de Automations).
+  // cada automatización en su tuerca (Settings › General, donde estaba el del negocio, se fue el 26/10/2026).
   wa_no_oficial: {
     titulo: '¿Cómo se conecta tu WhatsApp?',
     intro: 'Es tu propio número de WhatsApp, vinculado mediante un código QR. MaKo escribe desde ahí igual que lo harías tú: sin plantillas que aprobar y sin costo por mensaje. A cambio, es un número común y WhatsApp puede restringirlo si detecta un patrón de spam; abajo está qué se hace para evitarlo.',
