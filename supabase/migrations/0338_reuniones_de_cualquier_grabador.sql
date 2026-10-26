@@ -1,5 +1,5 @@
 -- =============================================================================
--- Migración XXXX (sin número: la numera el Cerebro; se aplica con el sí de Martín): grabador_reuniones
+-- Migración 0338 (la numeró el Cerebro el 26/10/2026; se aplica con el sí de Martín): grabador_reuniones
 -- =============================================================================
 -- Pedido de Martín (26/10/2026): «implementa otras integraciones de grabadores de reuniones, como Loom, etc... Así no
 -- solo se puede grabar con fathom».
