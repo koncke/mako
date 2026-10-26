@@ -4998,6 +4998,17 @@ fija `tests/media-buyer-revision-l.test.ts`, roto una vez por falla. Lo que qued
   `creados` vacío, y lo creado tarde se guarda sólo si sigue «aplicada» (si no, se borra).
 - **El cupo de Esencial no contaba lo de los agentes propios (falla 9):** cada «Analizar» de más dejaba otras tantas.
 
+**La verificación de tren-m** cerró 9 de 10 y encontró lo que el arreglo dejó abierto:
+- **«Lo que se tilda es lo que sale» no incluía el TÍTULO:** la IA también escribe el headline del anuncio, y ni la hoja ni la
+  confirmación del chat lo mostraban (la del chat, además, cortaba el gancho a 120 caracteres). Ahora salen enteros.
+- ⚠️ **El mismo «1,500 → 1,5» vivía en dos lugares más:** el arranque (sus pastillas salen de `fmtDinero`: «$1,000 al mes» se
+  leía 1 y quedaba un tope de 1 por día) y los Ajustes, ya en producción (un objetivo «1,500» quedaba en 1,5 y el Stop Loss se
+  disparaba con US$3). **Arreglar el campo que se vio no alcanzaba:** se buscó toda lectura de monto del área. `leerMonto` y
+  `montoDelTexto` viven ahora en `lib/media-buyer/monto.ts`; código nuevo que lea un monto escrito pasa por ahí.
+- **Una guarda sin tiempo es una trampa:** «aplicada» con `creados` vacío quedaba trabada para siempre (una subida de creativos
+  reintentada por el camino equivocado, o un lanzamiento cortado). `seEstaCreando` vence a los 10 minutos, y `lanzar` ya no
+  toma una subida de creativos.
+
 *26/10/2026, chat «Media Buyer» (`claude5`).*
 
 ## Las lecturas de Meta del cron, de la salud y del modal del anuncio, por Zernio; y CAPI por la misma conexión (25/10/2026)

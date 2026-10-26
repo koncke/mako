@@ -17,6 +17,7 @@ import { ConectarViaZernio } from '@/app/_components/ConectarViaZernio';
 import type { ConfigMediaBuyer, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import { textoCupo, type CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
+import { leerMonto } from '@/lib/media-buyer/monto';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
@@ -45,7 +46,9 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
   const leerZernio = () => { void api<EstadoZernio>({ op: 'estado_zernio' }).then((r) => { if (r.ok) setZernio({ tieneClave: r.tieneClave, cuenta: r.cuenta, conectado: r.conectado }); }); };
   useEffect(leerZernio, []);
 
-  const num = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(',', '.')));
+  // «1,500» es mil quinientos (revisión de tren-l, falla 4): un objetivo leído 1,5 disparaba el Stop Loss con US$3. Lo que
+  // no se entiende va como NaN y el servidor lo rechaza con su mensaje.
+  const num = (s: string): number | null => (s.trim() === '' ? null : leerMonto(s) ?? Number.NaN);
   const recomendado = config.ultimaCorridaInfo && typeof config.ultimaCorridaInfo.objetivo === 'number' && config.ultimaCorridaInfo.objetivoEsRecomendado ? config.ultimaCorridaInfo.objetivo as number : null;
   const guardar = async () => {
     setGuardando(true);

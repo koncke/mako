@@ -17,6 +17,18 @@ import type { ConfigMediaBuyer, Decision, EstadoEntidad, TipoDecision } from './
  * el motor y los agentes propios pueden dejar dos bajas abiertas sobre lo mismo, y la segunda aplicaba su porcentaje sobre lo
  * que ya había bajado la primera (−20% dos veces = −36%). Revisión de tren-l, falla 1.
  */
+/** Cuánto puede tardar en guardar sus `creados` un lanzamiento de anuncios (2N llamadas a Zernio; la ruta corta a los 300 s). */
+export const CREANDO_MAX_MS = 10 * 60_000;
+
+/**
+ * ¿Una decisión de anuncios «aplicada» está todavía creándolos? Sus `creados` se guardan juntos al final, así que vacía y
+ * RECIENTE es una a mitad de camino; vacía y vieja es una que se cortó (o una subida reintentada que no creó nada) y se puede
+ * deshacer. Sin el tiempo, quedaba trabada para siempre (verificación de tren-m, falla 8).
+ */
+export function seEstaCreando(d: Pick<Decision, 'creados' | 'aplicadaAt'>, ahora = Date.now()): boolean {
+  return !d.creados.length && !!d.aplicadaAt && ahora - Date.parse(d.aplicadaAt) < CREANDO_MAX_MS;
+}
+
 export function presupuestoYaCambiado(
   d: Pick<Decision, 'id' | 'entidadId' | 'creada'>,
   otras: readonly Pick<Decision, 'id' | 'entidadId' | 'estado' | 'despues' | 'aplicadaAt'>[],

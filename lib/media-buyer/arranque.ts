@@ -15,6 +15,7 @@
 
 import type { OfferMensaje } from '@/lib/offer-marco';
 import type { EntradaCalculadora, PlanCalculadora } from '@/lib/calculadora-presupuesto-ads';
+import { montoDelTexto } from './monto';
 import type { ConfigMediaBuyer, KpiMediaBuyer } from './tipos';
 import { fmtDinero } from '@/lib/format';
 
@@ -146,7 +147,8 @@ export function mensajesDeArranque(x: { nombre: string; conectada: boolean; r: R
 /** Lo que la persona eligió, leído del texto de la pastilla o de lo que escribió en la caja. null = no se entendió. */
 export function leerRespuesta(paso: PasoArranque, texto: string, x: { productos: readonly ProductoArranque[]; r: RespuestasArranque; costoMedido: number | null; pilotoPermitido?: boolean }): Partial<RespuestasArranque> | null {
   const t = texto.trim();
-  const num = (() => { const m = t.replace(/\./g, '').replace(',', '.').match(/\d+(\.\d+)?/); return m ? Number(m[0]) : null; })();
+  // «$1,000 al mes» es mil (las pastillas salen de fmtDinero): antes se leía 1 y quedaba un tope de 1 por día.
+  const num = montoDelTexto(t);
   switch (paso) {
     case 'producto': {
       if (/varios/i.test(t)) return { producto: 'varios' };
