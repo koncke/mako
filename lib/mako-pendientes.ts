@@ -187,6 +187,26 @@ export async function reclamarPendiente(ws: number, id: number): Promise<boolean
   });
 }
 
+/**
+ * Lo que MaKo PROPUSO en un grupo los últimos `dias`, ya resuelto (hecho, cancelado, vencido o con error), lo más reciente
+ * primero: el doer lo cuenta como hecho («LO QUE PROPUSISTE O HICISTE AHÍ», lib/doer-hilo.ts). Las vigentes no: ésas ya van
+ * en «ACCIONES PENDIENTES DE CONFIRMACIÓN». Si la base no contesta, ninguna.
+ */
+export async function accionesDelGrupo(
+  ws: number, grupoJid: string, dias = 7, limite = 12,
+): Promise<Array<{ id: number; resumen: string; estado: string; resultado: string | null; created_at: string }>> {
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const { data, error } = await db.from('mako_acciones_pendientes')
+      .select('id, resumen, estado, resultado, created_at')
+      .eq('grupo_jid', grupoJid).neq('estado', 'pendiente')
+      .gte('created_at', new Date(Date.now() - dias * 86_400_000).toISOString())
+      .order('created_at', { ascending: false }).limit(limite);
+    if (error) return [];
+    return (data ?? []) as Array<{ id: number; resumen: string; estado: string; resultado: string | null; created_at: string }>;
+  });
+}
+
 /** Todas las pendientes VIGENTES del workspace, vengan del canal que vengan. Para la
  *  bandeja /mako/pendientes, donde una persona logueada confirma o cancela. */
 export async function pendientesDelWorkspace(ws: number): Promise<Pendiente[]> {

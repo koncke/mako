@@ -17,6 +17,9 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ### Lo que más muerde acá
 
+- **«No guarda contexto» era el TURNO, no la memoria** (26/10/2026). El modelo veía la charla, pero la intención y las
+  herramientas salían del último mensaje solo: «pausala» o «publicá la del webinar» llegaban sin con qué hacerlo. Un
+  seguimiento sigue el pedido del hilo (`lib/doer-hilo.ts`); ver «MaKo en WhatsApp no seguía la conversación», abajo.
 - **«No puedo» casi nunca es que no puede: es que el turno llegó sin la herramienta.** El 16/10 MaKo le dijo a un
   cliente que su Google Calendar no estaba conectado y que no podía escribir en él, con el permiso guardado desde
   hacía seis horas: el clasificador había mandado los pedidos a turnos sin agenda. Y una respuesta del doer es el
@@ -45,6 +48,60 @@ re-verificaron lo aclaran. El registro completo de corridas está en
   el funnel SÍ le llega al modelo y pierde contra un imperativo del catálogo. Una clienta
   que prospecta en frío grabó un audio que dice «vi que dejaste tus datos en el anuncio».
   Ver [El Chatbot y el funnel](#el-chatbot-ex-setting--chat-agent-y-el-funnel-del-cliente).
+
+---
+
+## MaKo en WhatsApp no seguía la conversación: el turno se decidía con el último mensaje (26/10/2026)
+
+Martín, 26/10/2026 ~01:50: «MaKo en WhatsApp (que no funciona muy bien, no guarda contexto)». El Cerebro: «que recuerde la
+conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive en `lib/doer-hilo.ts` y lo usa
+`lib/mako-doer-in.ts`; lo fija `tests/doer-hilo.test.ts`.
+
+- ⚠️ **El diagnóstico obvio —«que lea más historial»— era el equivocado.** El modelo ya veía los 12 turnos de las
+  últimas 14 horas. Lo que no seguía la charla era EL TURNO: la intención (`clasificarIntencion`) y las herramientas
+  (`herramientasDelTurno`) se decidían SÓLO con el último mensaje. Medido con el clasificador real, sobre seis
+  seguimientos de un pedido que MaKo ya había contestado:
+  · cuatro caían en «capturar (dudosa): sin señal clara», con 2 herramientas: «pausala», «publicá la del webinar»,
+    «mandales un mensaje a esos 5» y «pasale la segunda para mañana». MaKo no podía hacerlos: los anotaba como idea o
+    preguntaba de qué se hablaba, y eso se leía como que perdió el hilo;
+  · dos iban al área equivocada: «ya lo conecté, analizá la última» llegaba sin el Closing.
+  Los parches de antes eran la MISMA falla vista de a una forma: el «sí» (`sigueOfrecimiento`), «Pasamelo»
+  (`pedidoPrometido`), el nombre y la dirección que MaKo pidió (`siguePedidoDeAgenda`) y «¿La reunión o la tarea?».
+- **La red, no otra regla: un seguimiento SIGUE EL PEDIDO del hilo** (`conElHilo`). Aplica a un mensaje corto (hasta 180
+  caracteres) que cae en el cajón de «sin señal clara», si se cumplen las dos cosas:
+  · apunta a lo hablado (un verbo con pronombre: «pausala», «mandales»; o una referencia: «la segunda», «la del webinar»,
+    «esos 5») o contesta una pregunta o un pedido de datos de MaKo;
+  · hay un pedido vivo en el hilo (MaKo ya contestó).
+  Entonces actúa con las áreas del pedido. Las acciones siguen proponiendo: el «sí» no cambia. Lo que no es seguimiento
+  queda igual: «bueno», «mmm», «ok gracias» o «mañana tengo que llamar al contador».
+- ⚠️ **Trampa: lo que contestó MaKo corre el presupuesto.** Sumar todas las áreas de su respuesta («9 leads», «revisar
+  la landing», el «borrador» que nombra WhatsApp) dejaba afuera `publicar_landing` y `cambiar_fecha_tarea_plan`. De la
+  respuesta cuenta sólo su tema: la primera frase que nombra un área, y sólo si el pedido no nombró ninguna
+  (`areasDeLaRespuesta`). Y «pasale … para mañana» no comparte raíz con `cambiar_fecha_tarea_plan`: un día o una hora en
+  el seguimiento suma `RELEVANCIA_FECHA`.
+- **Lo de más atrás de la ventana vuelve como HECHO, no como turno** (`memoriaDelGrupo` → `partirMemoria` →
+  `bloqueYaSeHablo`, al final del system). «Mago, probá de vuelta agendarle a Pablo lo que te pidió» (ws18, 17/10) llegó
+  19 horas después del pedido y de los datos. Ahora el system trae dos cosas:
+  · lo que se pidió y lo que contestó MaKo hasta 7 días atrás, con su fecha en la zona del negocio;
+  · lo que MaKo propuso en ese grupo y cómo terminó (`mako_acciones_pendientes`: hecha, venció, falló).
+  Va con la advertencia de que un «sí» de ahora no lo confirma: es el «sí, cargalo» del 26/07, que es la razón de las 14 h.
+- ⚠️ **La memoria del grupo NO va al system de la red de la plataforma** (`baseRed`): nombra leads y lo que se habló, y
+  la red corre sin datos de clientes.
+- **El conocimiento del negocio (Second Brain) se busca por el tema** (`consultaDelTurno`). Con «y eso?» solo,
+  `searchKnowledge` no encontraba nada.
+- ⚠️ **La medición en producción NO se pudo correr desde el chat.** El 26/10 el permiso «Production Reads» frenó la
+  lectura de `mako_doer_conv`. Lo medido usa el clasificador real y las conversaciones que ya estaban en el repo (ws18,
+  ws21). Para medir los otros negocios quedó `scripts/medir-hilo-whatsapp.mts`: sólo lectura, con las muestras cortadas
+  y los números tapados. Lo corre quien tenga el permiso.
+
+**SIN hacer:**
+- `mako_doer_conv` no guarda QUIÉN habló: en un grupo con varias personas, «lo que te pidió Leila» no se puede seguir.
+- Lo que MaKo hizo SIN pendiente (lecturas, borradores directos) no queda como hecho; sólo las acciones que propuso.
+- «creá una etiqueta para los del webinar» no se lee como pedido por WhatsApp: el seguimiento no tiene pedido que
+  seguir. Es del clasificador, no del hilo.
+- Medir con `scripts/medir-hilo-whatsapp.mts` cuántos seguimientos reales cambian, por negocio.
+
+*26/10/2026, chat «MaKo en WhatsApp: conexiones» (claude5), a pedido del Cerebro.*
 
 ---
 
