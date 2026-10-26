@@ -669,7 +669,7 @@ export const BITACORA: Hito[] = [
       'lib/doer-hilo.ts — el seguimiento y lo que ya se habló',
       'lib/mako-doer-in.ts — el turno con el hilo y los hechos en su system',
       'scripts/medir-hilo-whatsapp.mts — la medición, de sólo lectura',
-      'tests/doer-hilo.test.ts — 23 roturas, todas caen',
+      'tests/doer-hilo.test.ts — 28 roturas, todas caen',
     ],
   },
 ];

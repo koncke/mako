@@ -230,14 +230,17 @@ export function bloqueYaSeHablo(filas: readonly FilaDelHilo[], acciones: readonl
 // `que_recomienda_mako`, «lo de la landing no aplica» no podía armar `decidir_recomendacion`). Se guarda, por grupo, lo que
 // mostraron las herramientas del último turno —sus ids y sus nombres, nada más— y vuelve al system del siguiente.
 
-/** Lo que una herramienta mostró: su nombre y, de cada cosa, el id y cómo se llama. */
-export type RefDelTurno = { herramienta: string; items: Array<{ id: string; nombre: string }> };
+/** Lo que una herramienta mostró: su nombre y, de cada cosa, el id y cómo se llama. `at`: cuándo (al guardarlo). */
+export type RefDelTurno = { herramienta: string; items: Array<{ id: string; nombre: string }>; at?: number };
 export const CLAVE_REFS = (jid: string) => `mako.doer.refs.${jid}`;
 /** Lo que se mostró hace más que esto ya no es «la segunda» de nadie: la misma ventana que la charla. */
 export const VIGENCIA_REFS_MS = 14 * 3600_000;
 const ITEMS_MAX = 10;
 const CLAVES_ID = ['clave', 'id', 'lead_id', 'tarea_id', 'campana_id', 'landing_id', 'pendiente_id'] as const;
-const CLAVES_NOMBRE = ['titulo', 'nombre', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa'] as const;
+// `hacer`: lo que dice una recomendación de `que_recomienda_mako` (lib/api-mako/areas/mako.run.ts, «MaKo inteligente»).
+const CLAVES_NOMBRE = ['titulo', 'nombre', 'hacer', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa'] as const;
+/** Cuántas herramientas se recuerdan a la vez: las últimas, cada una con lo último que mostró. */
+const HERRAMIENTAS_MAX = 6;
 
 const comoTexto = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : typeof v === 'number' ? String(v) : null);
 function itemDe(o: unknown): { id: string; nombre: string } | null {
@@ -273,16 +276,38 @@ export function referenciasDeLaSalida(herramienta: string, salida: unknown): Ref
   return items?.length ? { herramienta, items: items.slice(0, ITEMS_MAX) } : null;
 }
 
+/** Lo guardado, vigente: cada herramienta con su hora (o la del guardado, en el formato de antes), sin lo vencido. */
+function refsVigentes(guardado: string | null | undefined, ahoraMs: number): RefDelTurno[] {
+  if (!guardado) return [];
+  let g: { at?: number; refs?: RefDelTurno[] };
+  try { g = JSON.parse(guardado); } catch { return []; }
+  if (!Array.isArray(g.refs)) return [];
+  return g.refs
+    .map((r) => ({ ...r, at: typeof r.at === 'number' ? r.at : g.at }))
+    .filter((r): r is RefDelTurno & { at: number } => typeof r.at === 'number' && ahoraMs - r.at <= VIGENCIA_REFS_MS && Array.isArray(r.items) && r.items.length > 0);
+}
+
+/**
+ * Lo que se guarda al final de un turno: lo de antes que sigue vigente y lo de este turno, que pisa lo de la MISMA
+ * herramienta. Así las `clave` de `que_recomienda_mako` siguen ahí aunque en el medio corra otra herramienta («descartá
+ * esa» dos mensajes después). Las últimas `HERRAMIENTAS_MAX`.
+ */
+export function unirRefs(guardado: string | null | undefined, nuevas: readonly RefDelTurno[], ahoraMs: number): string {
+  const de = new Set(nuevas.map((r) => r.herramienta));
+  const refs = [...refsVigentes(guardado, ahoraMs).filter((r) => !de.has(r.herramienta)), ...nuevas.map((r) => ({ ...r, at: ahoraMs }))];
+  return JSON.stringify({ refs: refs.slice(-HERRAMIENTAS_MAX) });
+}
+
 /** Lo que mostraste, para el system del turno siguiente. Vacío si no hay, o si es de hace más de la ventana. */
 export function bloqueLoQueMostraste(guardado: string | null | undefined, ahoraMs: number): string {
-  if (!guardado) return '';
-  let g: { at?: number; refs?: RefDelTurno[] };
-  try { g = JSON.parse(guardado); } catch { return ''; }
-  if (typeof g.at !== 'number' || ahoraMs - g.at > VIGENCIA_REFS_MS || !Array.isArray(g.refs) || !g.refs.length) return '';
-  const min = Math.max(1, Math.round((ahoraMs - g.at) / 60_000));
-  const hace = min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
-  const lineas = g.refs.flatMap((r) => [
-    `- ${r.herramienta} (${hace}):`,
+  const vigentes = refsVigentes(guardado, ahoraMs);
+  if (!vigentes.length) return '';
+  const hace = (at: number) => {
+    const min = Math.max(1, Math.round((ahoraMs - at) / 60_000));
+    return min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
+  };
+  const lineas = vigentes.flatMap((r) => [
+    `- ${r.herramienta} (${hace(r.at!)}):`,
     ...r.items.map((it, i) => `  ${i + 1}) ${it.id}${it.nombre ? ` «${it.nombre}»` : ''}`),
   ]);
   return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');

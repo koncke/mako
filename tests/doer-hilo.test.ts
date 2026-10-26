@@ -31,7 +31,7 @@ import { clasificarIntencion, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import {
   bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, LARGO_SEGUIMIENTO, partirMemoria, pedidoDelHilo,
-  referenciasDeLaSalida, refiereAlHilo, TOPE_HECHOS, VIGENCIA_REFS_MS, type FilaDelHilo,
+  referenciasDeLaSalida, refiereAlHilo, TOPE_HECHOS, unirRefs, VIGENCIA_REFS_MS, type FilaDelHilo,
 } from '../lib/doer-hilo';
 import type { Vista } from '../lib/api-mako/registro';
 
@@ -215,8 +215,8 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   assert.match(doer, /const conMemoria = baseDelSystem === base \? \[ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
   assert.match(doer, /memo\.anotar\(name, out\);\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
-  assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), JSON\.stringify\(\{ at: Date\.now\(\), refs: refsDelTurno\.slice\(-4\) \}\)\)/);
-  assert.match(doer, /const ctxMostrado = bloqueLoQueMostraste\(await getSetting\(CLAVE_REFS\(jid\)\)/);
+  assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
+  assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(jid\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
   assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}\$\{conMemoria\}`;/);
   assert.match(doer, /armarSystem\(toolsRed, [^\n]*, baseRed\)/);
   // La marca de contexto le dice que resuelva lo que señala con lo de arriba.
@@ -232,11 +232,11 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
 // ── 4. Lo que mostraron las herramientas, para el turno siguiente ───────────────────────────────────────────────────
 
 test('10. de lo que devuelve una herramienta quedan sus ids y sus nombres (las `clave` de lo que MaKo recomendó también)', () => {
-  // La forma de `que_recomienda_mako` (lib/recomendaciones.ts, «MaKo inteligente»): cada recomendación trae su `clave`.
-  const rec = JSON.stringify({ ok: true, recomendaciones: [
-    { clave: 'leads-esperando', titulo: 'Contestar a los 4 leads que esperan respuesta', porque: 'hace 6 h' },
-    { clave: 'landing-sin-pixel', titulo: 'Poner el píxel en la landing del webinar', porque: '0 eventos' },
-  ] });
+  // La forma de `que_recomienda_mako` (lib/api-mako/areas/mako.run.ts de «MaKo inteligente», 93d54117f): `clave` y `hacer`.
+  const rec = JSON.stringify({ pantalla: 'whatsapp', recomendaciones: [
+    { clave: 'leads-esperando', hacer: 'Contestar a los 4 leads que esperan respuesta', cambia: 'responder antes', porque: 'hace 6 h', de_donde: ['wa_mensajes'] },
+    { clave: 'landing-sin-pixel', hacer: 'Poner el píxel en la landing del webinar', cambia: 'medir', porque: '0 eventos', de_donde: ['landing'] },
+  ], lo_que_mejoro: [], descartadas: [] });
   assert.deepEqual(referenciasDeLaSalida('que_recomienda_mako', rec), { herramienta: 'que_recomienda_mako', items: [
     { id: 'leads-esperando', nombre: 'Contestar a los 4 leads que esperan respuesta' },
     { id: 'landing-sin-pixel', nombre: 'Poner el píxel en la landing del webinar' },
@@ -261,4 +261,25 @@ test('11. lo que mostraste vuelve al turno siguiente con los ids, y deja de vale
   for (const g of [null, '', 'no es json', JSON.stringify({ at: ahora, refs: [] })]) assert.equal(bloqueLoQueMostraste(g, ahora), '');
   // Es por grupo.
   assert.equal(CLAVE_REFS('123@g.us'), 'mako.doer.refs.123@g.us');
+});
+
+test('12. lo de cada herramienta se recuerda aparte: «descartá esa» dos mensajes después sigue sabiendo cuál', () => {
+  const t0 = Date.parse('2026-10-26T12:00:00Z');
+  const rec = { herramienta: 'que_recomienda_mako', items: [{ id: 'leads-esperando', nombre: 'Contestar a los 4 leads' }] };
+  const plan = { herramienta: 'listar_tareas_plan', items: [{ id: '12', nombre: 'Llamar a Norma' }] };
+  // Turno 1: las recomendaciones. Turno 2: otra herramienta. Las recomendaciones siguen.
+  const g1 = unirRefs(null, [rec], t0);
+  const g2 = unirRefs(g1, [plan], t0 + 5 * 60_000);
+  const b = bloqueLoQueMostraste(g2, t0 + 6 * 60_000);
+  assert.match(b, /- que_recomienda_mako \(hace 6 min\):\n  1\) leads-esperando «Contestar a los 4 leads»/);
+  assert.match(b, /- listar_tareas_plan \(hace 1 min\):\n  1\) 12 «Llamar a Norma»/);
+  // La misma herramienta otra vez pisa lo suyo (la lista nueva es la que cuenta).
+  const g3 = unirRefs(g2, [{ herramienta: 'listar_tareas_plan', items: [{ id: '20', nombre: 'Otra' }] }], t0 + 7 * 60_000);
+  assert.doesNotMatch(bloqueLoQueMostraste(g3, t0 + 8 * 60_000), /Llamar a Norma/);
+  // Lo vencido se va al guardar, y no más de seis herramientas.
+  assert.doesNotMatch(unirRefs(g1, [plan], t0 + VIGENCIA_REFS_MS + 60_000), /leads-esperando/);
+  const muchas = Array.from({ length: 9 }, (_, i) => ({ herramienta: `h${i}`, items: [{ id: String(i), nombre: '' }] }));
+  assert.equal(JSON.parse(unirRefs(null, muchas, t0)).refs.length, 6);
+  // El formato de antes (un `at` para todo) se sigue leyendo.
+  assert.match(bloqueLoQueMostraste(JSON.stringify({ at: t0, refs: [rec] }), t0 + 60_000), /leads-esperando/);
 });

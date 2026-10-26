@@ -45,7 +45,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, type RefDelTurno } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
@@ -1082,7 +1082,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT),
     );
     // Y los ids que mostraron las herramientas del turno anterior («descartá esa», «la segunda»): se guardan al final del turno.
-    const ctxMostrado = bloqueLoQueMostraste(await getSetting(CLAVE_REFS(jid)).catch(() => null), Date.now());
+    const refsGuardadas = await getSetting(CLAVE_REFS(jid)).catch(() => null);
+    const ctxMostrado = bloqueLoQueMostraste(refsGuardadas, Date.now());
     const refsDelTurno: RefDelTurno[] = [];
     const ctxPend = vigentes.length
       ? `\n\nACCIONES PENDIENTES DE CONFIRMACIÓN EN ESTE GRUPO (la más reciente primero):\n${vigentes.map((p) => `- #${p.id}: ${p.resumen}`).join('\n')}\nSi el dueño está confirmando, usa confirmar_accion con el id que corresponda.`
@@ -2261,9 +2262,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // la agenda no pasa por ninguno.
       if (avisoDeSistema) console.warn(`[mako-doer-in] ws=${wsData} aviso de plataforma enviado y FUERA del historial (${(respuesta ?? '').length} chars)`);
       else if (partes.length) await guardarTurno(wsData, jid, 'assistant', partes.join('\n\n'), undefined);
-      // Lo que mostraron las herramientas de ESTE turno, para el siguiente (las últimas cuatro). Un turno sin nada con id deja
-      // lo de antes: «la segunda» sigue siendo de la última lista que se mostró.
-      if (!avisoDeSistema && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), JSON.stringify({ at: Date.now(), refs: refsDelTurno.slice(-4) })).catch(() => {});
+      // Lo que mostraron las herramientas de ESTE turno, para los siguientes: pisa lo de la misma herramienta y deja lo demás
+      // vigente (`unirRefs`). Un turno sin nada con id no toca nada: «la segunda» sigue siendo de la última lista que se mostró.
+      if (!avisoDeSistema && refsDelTurno.length) await setSetting(CLAVE_REFS(jid), unirRefs(refsGuardadas, refsDelTurno, Date.now())).catch(() => {});
     }
     return { engaged: true, reply: [respuesta, ...paraLaPersona].filter(Boolean).join('\n\n') };
   } catch (e) {

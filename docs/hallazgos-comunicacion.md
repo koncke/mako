@@ -89,7 +89,9 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
   → `bloqueLoQueMostraste`). La memoria guarda el TEXTO de MaKo, no lo que devolvieron sus herramientas: «descartá esa»,
   «la segunda» o «esos 5» apuntaban a ids que el turno siguiente no veía. Lo pidió «MaKo inteligente»: sin las `clave` de
   `que_recomienda_mako`, «lo de la landing no aplica» no podía armar `decidir_recomendacion`. Se guardan los ids y los
-  nombres (hasta 10 por herramienta, las últimas cuatro), vencen a las 14 h, y un turno sin nada con id deja lo de antes.
+  nombres (hasta 10) POR HERRAMIENTA, cada una con su hora (`unirRefs`): si cada turno pisara lo anterior, las `clave` se
+  perdían apenas corría otra herramienta en el medio. Las últimas seis, vencen a las 14 h, y un turno sin nada con id no
+  toca nada. El nombre de una recomendación viene en `hacer`, no en `titulo`.
 - ⚠️ **La memoria del grupo NO va al system de la red de la plataforma** (`baseRed`): nombra leads y lo que se habló, y
   la red corre sin datos de clientes.
 - **El conocimiento del negocio (Second Brain) se busca por el tema** (`consultaDelTurno`). Con «y eso?» solo,
@@ -103,6 +105,9 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
 - `mako_doer_conv` no guarda QUIÉN habló: en un grupo con varias personas, «lo que te pidió Leila» no se puede seguir.
 - Lo que MaKo hizo SIN pendiente (un borrador directo, una lectura de hace dos días) no queda como hecho: quedan las acciones
   que propuso y lo que mostró el último turno.
+- Lo que el dueño DECIDE o AFIRMA del negocio («esa landing es de prueba», «ya no vendo el plan X») no se guarda aparte:
+  vive en `mako_doer_conv` y vuelve 7 días en «lo que ya se habló». Extraerlo a un lugar legible por negocio (lo quiere el
+  motor de recomendaciones de «MaKo inteligente» como motivo de un descarte) pide IA por mensaje y no está hecho.
 - «creá una etiqueta para los del webinar» no se lee como pedido por WhatsApp: el seguimiento no tiene pedido que
   seguir. Es del clasificador, no del hilo.
 - Medir con `scripts/medir-hilo-whatsapp.mts` cuántos seguimientos reales cambian, por negocio.
