@@ -14,6 +14,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { SheetM, useToastM } from '@/app/m/_ui';
 import { Criatura } from '@/app/_components/Criatura';
+import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { productoDeAccion } from '@/lib/media-buyer/productos';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
@@ -68,7 +69,7 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
 
   return (
     <div className="aa aa-m">
-      <button type="button" className="aa-orden-m" onClick={() => router.push('/m/mako')}>Pídele algo a MaKo</button>
+      <button type="button" className="aa-orden-m" onClick={() => router.push('/m/mako')}><MiFoto size={30} /><span>Pídele algo a MaKo</span></button>
       {hoy.length
         ? <ArbolDeHoy decisiones={hoy} productoDe={producto} kpi={config.kpi} ocupada={ocupada} encendido={puede}
             avatar={<Criatura nombre="MaKo" size={18} estrella />} aplicandoTodas={aplicandoTodas}

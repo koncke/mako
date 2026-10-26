@@ -4,8 +4,10 @@
 // Media Buyer — las piezas de HOY alrededor del árbol (25/10/2026 noche)
 // =============================================================================
 // · `CajaDeOrden`: arriba de todo, la caja del chat de MaKo (la única de la app, CajaChat) donde se le da una orden en una
-//   línea, como en la 04 («Move 20% of budget to the best ad set in every account»). Lo que se escribe va al chat de MaKo
-//   de la tab (MakoEnLaTab), que es quien lo hace; sin la app de escritorio, se bloquea como en todo chat.
+//   línea, como en la 04 («Move 20% of budget to the best ad set in every account»), con la foto de quien pide a la
+//   izquierda (Martín, 26/10: «pon la foto de perfil, tal como lo pone AdAmigo»): la de su perfil, la MISMA de sus globos en
+//   todos los chats (MiFoto.tsx); sin foto, su inicial. Lo que se escribe va al chat de MaKo de la tab (MakoEnLaTab), que es
+//   quien lo hace; sin la app de escritorio, se bloquea como en todo chat.
 // · `NuevoChat`: la captura 2 de AdAmigo («New Chat · What can I help you with today?», adamigo-2.webp): la estrella, una
 //   pregunta, cuatro sugerencias en 2×2 y la caja. Es lo que ve una cuenta NUEVA, y un día sin cambios.
 // · `NumerosDelMes`: tres números del mes en una franja (gastado · resultados · costo contra el objetivo), para Campañas.
@@ -16,6 +18,7 @@ import { useState, type ReactNode } from 'react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
 import { Criatura } from '@/app/_components/Criatura';
+import { MiFoto } from '@/app/admin/operaciones/MiFoto';
 import { fmtDinero, fmtNum } from '@/lib/format';
 import type { Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
 import { hace, queHace, queSeHizo } from './mb-modelo';
@@ -26,6 +29,7 @@ export function CajaDeOrden({ placeholder, onPedir }: { placeholder: string; onP
   const appEscritorio = useAppDeEscritorio();
   return (
     <div className="aa-orden">
+      <MiFoto size={36} />
       <div className="co-caja">
         <CajaChat texto={texto} onTexto={setTexto} placeholder={placeholder} enterManda bloqueo={appEscritorio.bloqueo}
           onMandar={() => { const t = texto.trim(); if (!t) return; onPedir(t); setTexto(''); }} />

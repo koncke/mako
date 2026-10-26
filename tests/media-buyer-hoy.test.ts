@@ -7,6 +7,8 @@
 // Correr: node --import tsx --test tests/media-buyer-hoy.test.ts
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { cambioCorto, columnasDeHoy, deHoy, mensajeDeCampanas, mensajeDeHoy, pildoraDeCampanas, pildoraDeHoy, ramasDeHoy, rotuloDe } from '../app/ads-manager/mb-modelo';
@@ -103,4 +105,10 @@ test('Campañas: la pastilla, y al pie el producto más barato y el más caro, o
   const ps = [{ nombre: 'Curso', costo: 14 }, { nombre: 'Mentoría', costo: 8 }, { nombre: 'Comunidad', costo: null }];
   assert.equal(mensajeDeCampanas(ps, 0, 'lead', f), '«Mentoría» trae los leads más baratos ($8) y «Curso», los más caros ($14). Toca una campaña para ver sus números o cambiarla de producto.');
   assert.equal(mensajeDeCampanas([{ nombre: 'Curso', costo: 14 }], 2, 'agenda', f), '«Curso»: $14 por agenda este mes. 2 campañas no tienen producto: tócalas para asignarles uno.');
+});
+
+test('la caja lleva a la izquierda la foto de quien pide, como la 04 (la de su perfil: MiFoto; sin foto, su inicial)', () => {
+  const leer = (f: string) => readFileSync(join(import.meta.dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(leer('app/ads-manager/Hoy.tsx'), /<div className="aa-orden">\s*<MiFoto\b/, 'computadora: la foto, antes de la caja');
+  assert.match(leer('app/m/ads/MediaBuyerM.tsx'), /className="aa-orden-m".*?\}><MiFoto\b/, 'teléfono: la foto, antes del texto');
 });

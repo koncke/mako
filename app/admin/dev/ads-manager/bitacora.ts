@@ -522,4 +522,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/ads-manager',
   },
+  {
+    fecha: '26 oct', hora: '00:30', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Aprobado, con la foto de quien pide en la caja',
+    pedido: '«Me gusta como esta quedando el media buyer, pon la foto de perfil, tal como lo pone AdAmigo»',
+    puntos: [
+      'Como en la 04: a la izquierda de la caja donde se le pide algo a MaKo va la foto de perfil de quien está adentro; si no tiene, su inicial. En la computadora y en el teléfono.',
+      'Es la misma foto de sus mensajes en todos los chats de MaKo (ya salía en la charla del arranque): una sola pieza, sin pedir el perfil dos veces.',
+      'Con esto, el Cerebro la sube en el tren siguiente.',
+    ],
+    archivos: [
+      'app/ads-manager/Hoy.tsx — la caja con MiFoto',
+      'app/m/ads/MediaBuyerM.tsx — la caja del teléfono',
+    ],
+    revisar: '/ads-manager',
+  },
 ];

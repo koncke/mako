@@ -41,8 +41,10 @@
 /* ── 2. HOY: la caja de órdenes y el árbol de la 04 (Hoy.tsx, Arbol.tsx) ── */
 /* La columna de cada pestaña: el ancho de la 04, centrado. */
 .aa-hoy, .aa-pagina { max-width: 1040px; margin: 0 auto; padding-top: 18px; display: flex; flex-direction: column; }
-.aa-orden { width: min(100%, 720px); margin: 0 auto; }
-.aa-orden .co-caja { box-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 10px 28px -14px rgba(15, 23, 42, .16); }
+/* La caja de la 04: una tarjeta blanca con la foto de quien pide a la izquierda y la caja de la casa adentro, sin su borde. */
+.aa-orden { width: min(100%, 720px); margin: 0 auto; display: flex; align-items: center; gap: 2px; padding-left: 14px; border-radius: var(--r-xl, 20px); background: var(--surface); box-shadow: 0 0 0 1px var(--border-strong), 0 10px 28px -14px rgba(15, 23, 42, .16); }
+.aa-orden:focus-within { box-shadow: 0 0 0 1px var(--primary-weak), 0 10px 28px -14px rgba(15, 23, 42, .16); }
+.aa-orden .co-caja { flex: 1; min-width: 0; max-width: none; margin: 0; background: transparent; box-shadow: none; }
 .aa-aviso { align-self: center; margin-top: 14px; max-width: 100%; display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: var(--bad-bg); color: var(--bad); font-size: 12.5px; font-weight: 500; }
 .aa-aviso::before { content: ''; flex: none; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .aa-arbol { position: relative; display: flex; flex-direction: column; align-items: center; padding-top: 28px; }
