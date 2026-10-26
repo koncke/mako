@@ -294,7 +294,7 @@ test('6. el servidor: el grupo sale del historial del lead; y las versiones de l
 });
 
 /** `alDiaConSuCarpeta` de background.js, de verdad, con un `chrome` y un `fetch` de mentira. */
-function cargarAlDia(o: { corre: string; carpeta: string; tienda?: boolean; intentada?: string; trabajo?: boolean }) {
+function cargarAlDia(o: { corre: string; carpeta: string; tienda?: boolean; intentada?: string; trabajo?: boolean; ciclo?: boolean }) {
   const bg = leer('extension/background.js');
   const desde = bg.indexOf('let fichasEnVuelo = 0;');
   const funcion = bg.slice(desde, bg.indexOf('/** Sin llamadores desde el 01/09/2026.', desde));
@@ -303,6 +303,7 @@ function cargarAlDia(o: { corre: string; carpeta: string; tienda?: boolean; inte
   const storage: Record<string, unknown> = o.intentada ? { recargaPorCarpeta: o.intentada } : {};
   const ctx: Record<string, unknown> = {
     console: { log() {} },
+    corriendo: o.ciclo === true,
     FASES_EN_CURSO: ['generando'],
     registrosInterfaz: async () => (o.trabajo ? [{ fase: 'generando' }] : [{ fase: 'listo' }]),
     fetch: async () => ({ json: async () => ({ version: o.carpeta }) }),
@@ -327,6 +328,8 @@ test('7. la extensión se pone al día con su carpeta SOLA: una vez por versión
     ['viene de la tienda (ahí actualiza Chrome)', { corre: '0.71.1', carpeta: '0.71.2', tienda: true }],
     ['ya lo intentó con esta versión (si no la levanta, no queda en bucle)', { corre: '0.71.1', carpeta: '0.71.2', intentada: '0.71.2' }],
     ['hay un trabajo de Flow en curso', { corre: '0.71.1', carpeta: '0.71.2', trabajo: true }],
+    // La revisión adversarial de tren-l (26/10/2026): con un ciclo andando, la recarga cortaba el POST a /api/flow/puente.
+    ['hay un ciclo andando (cortaría el POST a /api/flow/puente con los trabajos ya tomados)', { corre: '0.71.1', carpeta: '0.71.2', ciclo: true }],
   ] as const) {
     const x = cargarAlDia(o);
     await x.correr();
@@ -351,3 +354,4 @@ test('7. la extensión se pone al día con su carpeta SOLA: una vez por versión
 //   · la página le cree al primer «no encontré la extensión»                                 → 26 / 1
 //   · la opción «Desde mi WhatsApp» vuelve a ser gris                                        → 26 / 1
 //   · sin arrancar sola al instalarse la extensión                                           → 26 / 1
+//   · (0.71.2, 26/10) `hayTrabajoEnCurso` sin el chequeo de `corriendo` (la recarga corta un ciclo) → 7 / 1, sólo éste
