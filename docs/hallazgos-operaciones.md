@@ -3121,6 +3121,12 @@ más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas
 - Responder algo en el Ops Center es SIEMPRE la cita arriba de la caja, nunca texto pegado en el campo.
 - Lo que respondía un «Completado» es todo lo que Martín dijo en su tramo (`pedidosDelCompletado`, los últimos 4), cada mensaje
   en su globo con su foto. La API lo trae igual (`contexto` en `ver_completados_operaciones`).
+- Si lo relevó el Cerebro, el prompt de Martín ya viene adentro del relevo: es lo que va entre «…» después de «textual:» o
+  «textuales:» (`promptsDeMartin`, con las comillas de adentro balanceadas, porque Martín también escribe «»). Va ESO con su
+  foto, no la frase del relevo (09:14). Las demás comillas del relevo («Completado», un botón) no son de Martín: sin «textual»,
+  queda el relevo con el nombre del chat. Depende de que el Cerebro siga citando así: si deja de hacerlo, se ve el relevo, no se
+  pierde nada.
+- Cuándo terminó va al lado de «Completado», con la forma del hilo («Hoy · 12:30»): las dos salen de `lib/centro-fechas.ts`.
 
 **Vive en:** `lib/centro-chats.ts` (`pedidosDelCompletado`) · `app/admin/operaciones/BloqueCompletado.tsx` · `Avance.tsx` ·
 `Conversacion.tsx` y `app/m/operaciones/ChatsMovil.tsx` (`responderSobre` / `feedback`) · `tests/completado-responder-y-contexto.test.ts`
