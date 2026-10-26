@@ -147,3 +147,11 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
 //   7. `fallaDeSaturacion` sin mirar el plazo necesario (cualquier timeout cuenta) → rojo «1. un timeout…» y «2. una tanda GRANDE…».
 //   8. `hayOtraOpcion` contando el último de `orden` y no el último CON clave     → rojo «2. la ÚLTIMA opción real…».
 //   9. la reserva de vuelta (`quedan() - MIN_INTENTO_MS` en `plazoDeIntento`)     → rojo «2. una tanda GRANDE…».
+// Tercera versión, después de la verificación del tren-m (26/10/2026), siete más con el mismo arnés:
+//  10. `chatCheap` anotando el timeout para el PROCESO                → rojo «2. una tanda GRANDE…», «2. un TIMEOUT…», «2. adentro de una réplica…», «3.».
+//  11. `chatCheapTools` anotando el timeout para el PROCESO           → rojo «3. el turno con herramientas…».
+//  12. `primeroLosSanos` sin mirar los cuelgues del pedido            → rojo «2. adentro de una réplica…».
+//  13. la réplica sin `conMemoriaDelPedido`                           → rojo «4. la réplica…».
+//  14. `hayRed` sin mirar `pii`                                       → rojo «2. una red de la plataforma PEDIDA…».
+//  15. `hayRed` sin mirar el super admin                              → rojo «2. una red de la plataforma PEDIDA…».
+//  16. la memoria del pedido escrita en la del proceso                → rojo «2. una tanda GRANDE…», «2. un TIMEOUT…», «2. adentro…».

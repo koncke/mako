@@ -235,3 +235,6 @@ test('Second Brain: «Aprende solo» apagado con conversaciones de las que apren
 //  13. «muda» sin el primer envío (cuenta a todos los inscritos)  → rojo «automatizaciones…».
 //  14. «muda» sin el margen de 2 días                             → rojo «automatizaciones…».
 //  15. un envío FALLADO contado como recibido                     → rojo «automatizaciones…».
+// Después de la verificación del tren-m (26/10/2026):
+//  16. un día de margen en el borde (lo de la segunda versión)    → rojo «respuesta lenta: cuenta…».
+//  17. `FILTRO_PERSONAS_WA` dejando pasar grupos                  → rojo «respuesta lenta: cuenta…» (y el «11.» de la memoria).

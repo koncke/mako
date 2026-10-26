@@ -60,32 +60,42 @@ async function main() {
   pg.db.app_settings.push({ workspace_id: WS, key: reglas.CLAVE_MEMORIA, value: JSON.stringify({ v: 1, decisiones: viejas }), updated_at: new Date(ahora - DIA).toISOString() });
   const memoria = () => JSON.parse(String(pg.db.app_settings.find((f) => f.key === reglas.CLAVE_MEMORIA)?.value ?? '{"decisiones":[]}')) as { decisiones: Array<{ clave: string; d: string }> };
   const ultimas = (k: number) => memoria().decisiones.slice(-k).map((d) => `${d.clave}=${d.d}`);
-  const decidir = (o: { d: 'ahora-no' | 'no-aplica'; claves?: string[] }) => runWithWorkspace(WS, () => rec.decidirRecomendacion({ superficie: 'ops-center', clave: S1, ...o, quien: 'admin@negocio.com' }));
+  const decidir = (o: { d: 'ahora-no' | 'no-aplica' | 'hecha'; claves?: string[] }) => runWithWorkspace(WS, () => rec.decidirRecomendacion({ superficie: 'ops-center', clave: S1, ...o, quien: 'admin@negocio.com' }));
 
   const out: Record<string, unknown> = { bytesAntes: JSON.stringify(memoria()).length };
-  // 1. La PANTALLA manda la tarjeta que se vio (la de las reglas: sólo S1), con la redacción vieja que juntaba S1 y S2 todavía
-  //    guardada: se anota S1 y NADA sobre S2, que la persona no vio. Y la escritura compara `updated_at` (la memoria es grande).
+  const lectura = await runWithWorkspace(WS, () => rec.senalesDelNegocio('ops-center'));
+  out.senalesTipos = lectura.senales.map((s) => s.tipo);
+  /** La redacción que SE MUESTRA hoy: la misma huella que calcula el motor con la memoria de ahora. */
+  const refrescar = () => {
+    const m = reglas.leerMemoria(JSON.stringify(memoria()));
+    const huella = reglas.huellaDe('ops-center', reglas.senalesQueHablan(lectura.senales, m, 'ops-center', new Date()), m);
+    pg.db.app_settings.find((f) => f.key === CLAVE_REDACCION)!.value = redaccion(huella);
+  };
+  // 1. Por la API (sin claves), con la redacción VIEJA que juntaba S1 y S2 (la pantalla muestra las reglas: una señal por
+  //    tarjeta): se anota S1 y NADA sobre S2. Y la escritura compara `updated_at` (la memoria es grande).
   patches = [];
-  out.r1 = await decidir({ d: 'ahora-no', claves: [S1] });
-  out.patches1 = patches;
+  out.r1 = await decidir({ d: 'ahora-no' });
+  out.patches1 = [...patches];
   out.ultimas1 = ultimas(2);
   out.total1 = memoria().decisiones.length;
-  // 2. Por la API (sin claves), con la redacción que SE MUESTRA hoy (la misma huella, recién hecha): se decide sobre las dos.
-  const lectura = await runWithWorkspace(WS, () => rec.senalesDelNegocio('ops-center'));
-  const m = reglas.leerMemoria(JSON.stringify(memoria()));
-  const huella = reglas.huellaDe('ops-center', reglas.senalesQueHablan(lectura.senales, m, 'ops-center', new Date()), m);
-  pg.db.app_settings.find((f) => f.key === CLAVE_REDACCION)!.value = redaccion(huella);
-  patches = [];
-  out.r2 = await decidir({ d: 'no-aplica' });
-  out.patches2 = patches.length;
+  // 2. La PANTALLA manda las claves de la tarjeta que se vio (sólo S1), aunque la redacción vigente junte S1 y S2: se usan las
+  //    de la pantalla.
+  refrescar();
+  out.r2 = await decidir({ d: 'hecha', claves: [S1] });
   out.ultimas2 = ultimas(2);
   out.total2 = memoria().decisiones.length;
-  // 3. La MISMA decisión otra vez (otra pestaña con la lista vieja): no escribe nada y contesta ok.
+  // 3. Por la API, con la redacción que SE MUESTRA hoy: se decide sobre las dos.
+  refrescar();
   patches = [];
   out.r3 = await decidir({ d: 'no-aplica' });
   out.patches3 = patches.length;
+  out.ultimas3 = ultimas(2);
   out.total3 = memoria().decisiones.length;
-  out.senalesTipos = lectura.senales.map((s) => s.tipo);
+  // 4. La MISMA decisión otra vez (otra pestaña con la lista vieja): no escribe nada y contesta ok.
+  patches = [];
+  out.r4 = await decidir({ d: 'no-aplica' });
+  out.patches4 = patches.length;
+  out.total4 = memoria().decisiones.length;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

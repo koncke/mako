@@ -220,3 +220,6 @@ test('lo que lee la IA no lleva lo que descartó sin su motivo, y la huella camb
 //  16. `anotarDecision` sin el tope en bytes                     → rojo «10.».
 //  17. el tope en bytes tirando las NUEVAS (`slice(0, -1)`)       → rojo «10.».
 //  18. `leerRedaccion` guardando sólo la clave principal          → rojo «la IA redacta…» (14).
+// Después de la verificación del tren-m (26/10/2026):
+//  19. «mejoró» = la señal NO está (lo de la segunda versión)    → rojo «12.».
+//  20. «mejoró» sin mirar la muestra                              → rojo «12.».
