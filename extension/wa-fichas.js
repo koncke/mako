@@ -56,7 +56,7 @@ function leerStore(db, nombre) {
  * tope por grupo. `diag` dice cómo es la tabla (por si WhatsApp la cambia) y cuánto trajo, sin datos de nadie.
  */
 function mensajesDeGrupos(db, ids) {
-  const diag = { tabla: false, clave: null, leidos: 0, conNombre: 0 };
+  const diag = { tabla: false, clave: null, leidos: 0, conNombre: 0, conAutor: 0, campos: {} };
   if (!db.objectStoreNames.contains('message') || !ids.length || typeof IDBKeyRange === 'undefined') return Promise.resolve({ registros: [], diag });
   return new Promise((resolve) => {
     const registros = [];
@@ -84,7 +84,16 @@ function mensajesDeGrupos(db, ids) {
         if (!c || n >= 30000) { listo(); return; }
         n++; diag.leidos++;
         const v = c.value || {};
-        if (v.notifyName) { diag.conNombre++; registros.push({ author: v.author, notifyName: v.notifyName }); }
+        // ⚠️ MEDIDO en vivo (26/10, 0.73.6, Networking SINDEMEX): el rango trae los mensajes del grupo (1.610) pero NINGUNO
+        // tiene `notifyName`. Se prueban los otros campos donde WhatsApp puede guardar el nombre del que escribe, y el
+        // diagnóstico cuenta qué campos trae un mensaje (sólo sus NOMBRES) para saber dónde está.
+        if (diag.campos && Object.keys(diag.campos).length < 80 && n <= 400) for (const k of Object.keys(v)) diag.campos[k] = (diag.campos[k] || 0) + 1;
+        const nombre = [v.notifyName, v.pushname, v.senderName, v.verifiedBizName].find((x) => typeof x === 'string' && x.trim()) || null;
+        // El autor: el campo, o la última parte de la clave (`false_<grupo>_<id>_<autor>`).
+        const finClave = String(c.key).split('_').pop();
+        const autor = v.author || v.participant || (finClave && finClave.includes('@') ? finClave : null);
+        if (autor) diag.conAutor++;
+        if (nombre) { diag.conNombre++; registros.push({ author: autor, notifyName: nombre }); }
         c.continue();
       };
     }

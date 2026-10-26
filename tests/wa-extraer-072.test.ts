@@ -568,7 +568,8 @@ test('8. el `notifyName` de los mensajes: por autor, el último gana, y sólo ll
   const script = sinComentarios(leer('extension/wa-fichas.js'));
   assert.match(script, /store\.openCursor\(IDBKeyRange\.bound\(`false_\$\{gid\}_`, `false_\$\{gid\}_\\uffff`\)\)/);
   assert.match(script, /if \(!c \|\| n >= 30000\) \{ listo\(\); return; \}/);
-  assert.match(script, /if \(v\.notifyName\) \{ diag\.conNombre\+\+; registros\.push\(\{ author: v\.author, notifyName: v\.notifyName \}\); \}/, 'saca del mensaje algo más que el autor y su nombre');
+  assert.match(script, /if \(nombre\) \{ diag\.conNombre\+\+; registros\.push\(\{ author: autor, notifyName: nombre \}\); \}/, 'saca del mensaje algo más que el autor y su nombre');
+  assert.match(script, /for \(const k of Object\.keys\(v\)\) diag\.campos\[k\]/, 'el diagnóstico de los campos manda valores');
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026), contra una base de 8 / 0, de a una y restaurando de una copia:
