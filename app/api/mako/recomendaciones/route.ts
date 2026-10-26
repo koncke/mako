@@ -73,7 +73,10 @@ export async function POST(req: NextRequest) {
     const decision = b?.decision;
     if (!esDecision(decision)) return json({ ok: false, error: 'Elige qué hacer con la recomendación.' }, 400);
     const motivo = typeof b?.motivo === 'string' ? b.motivo.slice(0, MAX_MOTIVO) : null;
-    const r = await runWithWorkspace(q.ws, () => conSuIADelNegocio(q.ws, () => decidirRecomendacion({ superficie, clave, d: decision, motivo, quien: q.actor })));
+    // Las OTRAS claves de la recomendación (la IA puede juntar varias señales en una): cada una con la misma forma que la
+    // principal, y pocas. El server además las saca de la redacción guardada (`clavesDeLaRecomendacion`).
+    const claves = Array.isArray(b?.claves) ? (b.claves as unknown[]).filter((k): k is string => typeof k === 'string' && CLAVE.test(k)).slice(0, 8) : [];
+    const r = await runWithWorkspace(q.ws, () => conSuIADelNegocio(q.ws, () => decidirRecomendacion({ superficie, clave, claves, d: decision, motivo, quien: q.actor })));
     if (!r.ok) return json({ ok: false, error: r.error }, r.status);
     return json({ ok: true });
   } catch (e) {

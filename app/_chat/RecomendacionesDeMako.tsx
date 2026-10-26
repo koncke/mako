@@ -82,7 +82,8 @@ export function useRecomendaciones(superficie: SuperficieDePantalla, o: { alPedi
       try {
         const res = await fetch(RUTA, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ superficie, clave: r.clave, decision: d }), signal: AbortSignal.timeout(45_000),
+          // Todas las claves que la sostienen: decidir sobre una recomendación que junta varias señales decide sobre todas.
+          body: JSON.stringify({ superficie, clave: r.clave, claves: r.claves ?? [r.clave], decision: d }), signal: AbortSignal.timeout(45_000),
         });
         status = res.status; cuerpo = await res.text();
       } catch { /* red caída */ }

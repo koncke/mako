@@ -27,7 +27,7 @@ import { canalKeyDeSesion } from '@/lib/mako-turno-app-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
 import { decidirRecomendacion, leerMemoriaDelNegocio, recomendacionesDe, senalesDelNegocio } from '@/lib/recomendaciones';
-import { claveDe, deSenal, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
+import { claveDe, deSenal, decisionVigente, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
 
 const num = (input: Record<string, unknown>, k: string): number | null => {
   const v = input[k];
@@ -380,7 +380,9 @@ export const RUNNERS: Runners = {
         if (!previa || (previa.d !== 'no-aplica' && previa.d !== 'ahora-no')) return { error: 'Esa recomendación no está descartada.' };
         return { payload: { pantalla: superficie, clave, decision }, resumen: `Volver a mostrar la recomendación que se descartó el ${previa.en.slice(0, 10)}` };
       }
-      if (previa?.d === decision) return { error: 'Ya estaba anotada así.', yaEstaba: true };
+      // «Ya estaba así» sólo mientras esa decisión SIGUE callándola: pasado un «Ahora no» o una «Hecha», la recomendación
+      // vuelve y callarla otra vez es nuevo (la misma regla que la ruta, `decisionVigente`).
+      if (decisionVigente(previa, decision, new Date())) return { error: 'Ya estaba anotada así.', yaEstaba: true };
       const { senales, fallas } = await senalesDelNegocio(superficie);
       const s = senales.find((x) => claveDe(x) === clave);
       if (!s) return { error: fallas.length ? 'No pude leer los datos de esa recomendación. Intenta de nuevo.' : 'Esa recomendación ya no está (el dato cambió). Pide de nuevo que_recomienda_mako.' };

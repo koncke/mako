@@ -36,7 +36,9 @@ export const UMBRALES = {
   /** Una automatización que falla al mandar. */
   automatizacionFalla: { dias: 7, tasa: 0.15, nMinimo: 10, fallosMinimo: 5 },
   /** Una automatización que espera respuesta (tiene un «Contestó» o un AI Step) y contesta menos de uno de cada veinte. */
-  automatizacionMuda: { dias: 30, tasa: 0.05, nMinimo: 25 },
+  // `margenDias`: sólo cuenta quien YA recibió un mensaje hace al menos esto (tuvo tiempo de contestar). Sin el margen, una
+  // importación de hoy o una espera de 2 días al principio daban «no respondió ninguna» sobre un mensaje que no salió.
+  automatizacionMuda: { dias: 30, tasa: 0.05, nMinimo: 25, margenDias: 2 },
   /** Una página con gente que entra y casi nadie deja sus datos. */
   landingConversion: { visitantesMinimo: 150, tasa: 0.01 },
   /** Una página donde casi nadie llega a la mitad. */
@@ -237,8 +239,8 @@ export function senalMotivoPerdida(leads: readonly LeadSenal[], ahora: Date): Se
 // ── Automations: lo que falla y lo que nadie contesta ───────────────────────────────────────────────────────────────
 
 export type SecuenciaSenal = { id: number; nombre: string; activa: boolean; esperaRespuesta: boolean };
-export type EnvioSenal = { secuencia_id: number | null; estado: string | null; error: string | null; created_at: string };
-export type InscripcionSenal = { secuencia_id: number; estado: string | null; inscripto_at: string };
+export type EnvioSenal = { secuencia_id: number | null; inscripcion_id: number | null; estado: string | null; error: string | null; created_at: string };
+export type InscripcionSenal = { id: number; secuencia_id: number; estado: string | null; inscripto_at: string };
 
 /** Un error de un proveedor, sin teléfonos ni ids (puede venir con el número del lead adentro). */
 export const errorLimpio = (e: string): string =>
@@ -248,6 +250,14 @@ export function senalesDeAutomatizaciones(secs: readonly SecuenciaSenal[], envio
   const out: Senal[] = [];
   const F = UMBRALES.automatizacionFalla, M = UMBRALES.automatizacionMuda;
   const desdeF = ahora.getTime() - F.dias * DIA, desdeM = ahora.getTime() - M.dias * DIA;
+  // El primer mensaje que le SALIÓ a cada inscripción (los envíos tienen que cubrir la ventana de `automatizacionMuda`).
+  const primerEnvio = new Map<number, number>();
+  for (const e of envios) {
+    if (e.estado !== 'enviado' || e.inscripcion_id == null) continue;
+    const t = Date.parse(e.created_at);
+    const ya = primerEnvio.get(e.inscripcion_id);
+    if (Number.isFinite(t) && (ya == null || t < ya)) primerEnvio.set(e.inscripcion_id, t);
+  }
   for (const s of secs) {
     if (!s.activa) continue;
     const nombre = nombreCorto(s.nombre || `Automatización ${s.id}`);
@@ -270,12 +280,15 @@ export function senalesDeAutomatizaciones(secs: readonly SecuenciaSenal[], envio
       });
     }
     if (!s.esperaRespuesta) continue;
-    const entraron = insc.filter((i) => i.secuencia_id === s.id && Date.parse(i.inscripto_at) >= desdeM);
+    // Sólo quien YA recibió algo de esta automatización hace al menos `margenDias` (revisión del tren-l, hallazgo 13): una
+    // inscripción de hoy, una que espera un paso con demora o una que se creó cerrada sin mandar nada no es «no contestó».
+    const conTiempo = ahora.getTime() - M.margenDias * DIA;
+    const entraron = insc.filter((i) => i.secuencia_id === s.id && Date.parse(i.inscripto_at) >= desdeM && (primerEnvio.get(i.id) ?? Infinity) <= conTiempo);
     if (!entraron.length) continue;
     const respondieron = entraron.filter((i) => i.estado === 'respondio' || i.estado === 'handoff').length;
     out.push({
       tipo: 'automatizacion-muda', objeto: `automatizacion:${s.id}`, superficies: ['ops-center', 'automations'],
-      dato: `De ${entraron.length} personas que entraron a «${nombre}» en ${M.dias} días, ${respondieron === 0 ? 'no respondió ninguna' : `respondieron ${respondieron}`} (${pct(respondieron / entraron.length)})`,
+      dato: `De ${entraron.length} personas a las que «${nombre}» ya les escribió (hace más de ${M.margenDias} días, en los últimos ${M.dias}), ${respondieron === 0 ? 'no respondió ninguna' : `respondieron ${respondieron}`} (${pct(respondieron / entraron.length)})`,
       valor: respondieron / entraron.length, umbral: M.tasa, sentido: 'menor', n: entraron.length, nMinimo: M.nMinimo,
       fuente: 'las personas que pasaron por tus automatizaciones', impacto: 0.7,
       hacer: `Cambia el primer mensaje de «${nombre}» por una pregunta corta que se conteste con una palabra`,
@@ -405,6 +418,37 @@ export function senalSecondBrainSinAprender(o: { prendido: boolean; conIA: boole
     cambia: 'Las recomendaciones de la oferta y del guion salen de lo que tu gente dice de verdad',
     accion: { tipo: 'link', etiqueta: 'Abrir el Second Brain', href: '/second-brain?vista=mapa' },
   };
+}
+
+// ── De qué fuente sale cada tipo (para no afirmar una mejora que no se midió) ───────────────────────────────────────
+
+/** Las fuentes que lee el motor (lib/recomendaciones.ts, `senalesDelNegocio`). */
+export type FuenteRec = 'whatsapp' | 'leads' | 'automatizaciones' | 'landings' | 'objeciones' | 'second-brain';
+
+/** De qué fuente sale cada tipo de señal. Un tipo nuevo se suma acá: sin su fuente, nunca figura como «mejoró». */
+export const FUENTE_DEL_TIPO: Readonly<Record<string, FuenteRec>> = {
+  'respuesta-lenta': 'whatsapp', 'esperando-respuesta': 'whatsapp',
+  'no-show-alto': 'leads', 'motivo-perdida': 'leads',
+  'automatizacion-falla': 'automatizaciones', 'automatizacion-muda': 'automatizaciones',
+  'landing-no-convierte': 'landings', 'landing-no-la-leen': 'landings',
+  'objecion-sin-respuesta': 'objeciones',
+  'second-brain-sin-aprender': 'second-brain',
+};
+
+/** Lo que necesita los leads para medirse bien (los registros por página, los motivos): si los leads fallan, tampoco se midió.
+ *  WhatsApp no: sus conversaciones traen el `lead_id` en el mensaje, y sin leads sólo pierde la comparación de quién avanzó. */
+const DEPENDEN_DE_LEADS: readonly FuenteRec[] = ['landings', 'objeciones'];
+
+/**
+ * Los TIPOS que se midieron de verdad en una lectura: los de las fuentes leídas, menos los de las que fallaron (y lo que
+ * depende de los leads, si fallaron los leads). Revisión del tren-l, hallazgo 12: sin esto, «Lo que mejoró» daba por mejorado
+ * lo que esta pantalla ni leyó.
+ */
+export function tiposMedidos(leidas: readonly FuenteRec[], fallas: ReadonlyArray<{ fuente: string }>): Set<string> {
+  const fallidas = new Set(fallas.map((f) => f.fuente));
+  if (fallidas.has('leads')) DEPENDEN_DE_LEADS.forEach((f) => fallidas.add(f));
+  const ok = new Set(leidas.filter((f) => !fallidas.has(f)));
+  return new Set(Object.entries(FUENTE_DEL_TIPO).filter(([, f]) => ok.has(f)).map(([t]) => t));
 }
 
 /** Las claves de un lote de señales (para tests y para el registro de lo dicho). */

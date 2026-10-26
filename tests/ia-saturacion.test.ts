@@ -1,14 +1,16 @@
 // =============================================================================
-// Un modelo saturado no deja a MaKo sin IA: el respaldo llega a probarse (26/10/2026)
+// Un modelo saturado no deja a MaKo sin IA, y un pedido sano y lento no se trata como saturado (26/10/2026)
 // =============================================================================
 // El caso (Landings, logs de Vercel, 26/10/2026 05:52 UTC, ws9): la réplica de una página de 20 secciones dejó 17 SIN IA en
 // 135 s con un plazo de 240. «gemini · cuenta 3: The operation was aborted due to timeout» y «gemini · cuenta 4: This model
-// is currently experiencing high demand». El respaldo sano (`gemini-flash-lite-latest`) existía y nunca se probó: el primer
-// intento colgado se comía los 42 s de la tanda, se reintentaba igual, y la tanda siguiente volvía a empezar por el colgado.
-// Lo que se fija acá:
-//   1. lo puro de lib/ia-saturacion.ts: qué es saturación (un 429 no lo es), cuándo cuenta un timeout, y que vence;
-//   2. la cascada REAL (tests/_ia-saturacion-hijo.ts): el intento le deja lugar al respaldo, una saturación no se reintenta,
-//      el pedido siguiente empieza por el respaldo, y sin plazo del que llama nada cambia;
+// is currently experiencing high demand». El respaldo sano (`gemini-flash-lite-latest`) existía y la tanda siguiente volvía a
+// empezar por el saturado. La revisión del tren-l (hallazgos 17 y 18) corrigió la primera versión: la reserva de 15 s cortaba
+// tandas sanas y las marcaba «saturadas» para todos, y un proveedor SIN clave contaba como «otra opción». Lo que se fija acá:
+//   1. lo puro de lib/ia-saturacion.ts: qué es saturación (un 429 no), y que un timeout cuenta sólo con el plazo COMPLETO que
+//      el tamaño del pedido necesitaba;
+//   2. la cascada REAL (tests/_ia-saturacion-hijo.ts): el intento pide todo su plazo; un corte de una tanda grande no marca a
+//      nadie; un cuelgue con el plazo completo o un 503 sí, sin reintento si hay a dónde ir, y el pedido siguiente empieza por
+//      el respaldo; la ÚLTIMA opción real (sin contar proveedores sin clave) sí insiste;
 //   3. el turno con herramientas (MaKo en WhatsApp) también anota la saturación;
 //   4. la réplica del Web Generator da una segunda vuelta a lo que quedó sin IA.
 //
@@ -21,22 +23,29 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  TIMEOUT_QUE_CUENTA_MS, VENTANA_SATURADO_MS, anotarSaturado, esSaturacion, estaSaturado, fallaDeSaturacion, olvidarSaturados, primeroLosSanos,
+  VENTANA_SATURADO_MS, anotarSaturado, esSaturacion, estaSaturado, fallaDeSaturacion, olvidarSaturados, plazoEsperadoMs, primeroLosSanos,
 } from '../lib/ia-saturacion';
 
 const RAIZ = join(__dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n')
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. qué es saturación: «high demand» y 503 sí; la cuota de una cuenta no; un timeout sólo con plazo razonable', () => {
+test('1. qué es saturación: «high demand» y 503 sí; la cuota de una cuenta no', () => {
   assert.equal(esSaturacion('HTTP 503 This model is currently experiencing high demand.'), true);
   assert.equal(esSaturacion('The model is overloaded. Please try again later.'), true);
   assert.equal(esSaturacion('HTTP 429 RESOURCE_EXHAUSTED: quota exceeded'), false, 'la cuota es de UNA cuenta: la arregla otra cuenta');
   // El ambiguo: un 429 que además dice «overloaded». Sigue siendo la cuota de una cuenta, no el modelo.
   assert.equal(esSaturacion('HTTP 429: the service is overloaded for this key, retry later'), false, 'un 429 nunca marca al modelo');
   assert.equal(esSaturacion('HTTP 400 invalid argument'), false);
-  assert.equal(fallaDeSaturacion('The operation was aborted due to timeout', 42_000), true);
-  assert.equal(fallaDeSaturacion('The operation was aborted due to timeout', TIMEOUT_QUE_CUENTA_MS - 1), false, 'un intento con poco plazo no dice nada del modelo');
+});
+
+test('1. un timeout cuenta sólo si el intento tuvo TODO el plazo que su tamaño necesitaba', () => {
+  assert.equal(plazoEsperadoMs(7_400), 88_800, 'la fórmula de chatClaude: 12 ms por token');
+  assert.equal(plazoEsperadoMs(), 30_000, 'un pedido chico necesita 30 s');
+  assert.equal(plazoEsperadoMs(50_000), 120_000, 'con techo');
+  const corte = 'The operation was aborted due to timeout';
+  assert.equal(fallaDeSaturacion(corte, 42_000, plazoEsperadoMs(7_400)), false, 'una tanda grande cortada por el plazo del que llama no está colgada');
+  assert.equal(fallaDeSaturacion(corte, 30_000, plazoEsperadoMs()), true, 'un pedido chico que no contestó en sus 30 s, sí');
 });
 
 test('1. saturado vence solo, y el saturado va AL FINAL de la lista sin que se saque a nadie', () => {
@@ -48,40 +57,45 @@ test('1. saturado vence solo, y el saturado va AL FINAL de la lista sin que se s
   assert.deepEqual(primeroLosSanos('gemini', ['gemini-flash-latest', 'gemini-flash-lite-latest'], 'gemini-flash-latest', t + 1), ['gemini-flash-lite-latest', 'gemini-flash-latest']);
   assert.deepEqual(primeroLosSanos('gemini', [undefined, 'gemini-flash-lite-latest'], 'gemini-flash-latest', t + 1), ['gemini-flash-lite-latest', undefined], '`undefined` es el modelo por default');
   assert.equal(estaSaturado('gemini', 'gemini-flash-latest', t + VENTANA_SATURADO_MS + 1), false, 'pasado el bache, vuelve a ser el primero');
-  assert.deepEqual(primeroLosSanos('gemini', ['gemini-flash-latest', 'gemini-flash-lite-latest'], 'x', t + VENTANA_SATURADO_MS + 2), ['gemini-flash-latest', 'gemini-flash-lite-latest']);
 });
 
 type Pedido = { modelo: string; plazo: number | null };
-type Vuelta = { respuesta?: string; pedidos: Pedido[]; saturadoDespues?: boolean; quedabanMs?: number };
+type Vuelta = { respuesta?: string; pedidos: Pedido[]; saturadoDespues?: boolean };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ia-saturacion-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
-const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'B' | 'C' | 'D' | 'E', Vuelta> & { error?: string };
+const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2', Vuelta> & { error?: string };
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
+const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
 
-test('2. el caso del ws9: flash-latest colgado, el intento le DEJA LUGAR al respaldo y contesta flash-lite', () => {
+test('2. una tanda GRANDE pide todo su plazo (sin reservar) y su corte NO marca al modelo para los demás', () => {
   assert.equal(R.error, undefined, String(R.error));
-  assert.equal(R.A.respuesta, `respuesta de ${LITE}`);
-  assert.deepEqual(R.A.pedidos.map((p) => p.modelo), [LATEST, LITE], 'un solo intento al colgado, después el respaldo');
-  const primero = R.A.pedidos[0].plazo ?? Infinity;
-  assert.ok(primero <= 42_000 - 15_000 + 500, `el primer intento pidió ${primero} ms: no le dejó los 15 s al respaldo`);
+  assert.ok((R.A.pedidos[0]?.plazo ?? 0) > 40_000, `el primer intento pidió ${R.A.pedidos[0]?.plazo} ms: se le recortó el plazo`);
+  assert.equal(R.A.saturadoDespues, false, 'una tanda sana y lenta quedó marcada saturada para todos los negocios del proceso');
 });
 
-test('2. el pedido siguiente empieza por el respaldo (el saturado va al final), y un 503 no se reintenta', () => {
+test('2. un cuelgue con el plazo completo o un 503 SÍ marcan, no se reintentan, y el pedido siguiente empieza por el respaldo', () => {
+  assert.equal(R.A2.saturadoDespues, true);
+  assert.deepEqual(modelos(R.A2), [LATEST, LITE], 'colgado con su plazo entero: no se reintenta, se pasa al respaldo');
   assert.equal(R.B.pedidos[0]?.modelo, LITE, `empezó por ${R.B.pedidos[0]?.modelo}`);
   assert.equal(R.B.respuesta, `respuesta de ${LITE}`);
-  assert.deepEqual(R.C.pedidos.map((p) => p.modelo), [LATEST, LITE], 'el 503 «high demand» no se reintenta en el mismo modelo');
+  assert.deepEqual(modelos(R.C), [LATEST, LITE], 'el 503 «high demand» no se reintenta en el mismo modelo');
   assert.equal(R.C.saturadoDespues, true);
 });
 
-test('2. sin plazo del que llama no hay nada que reservar: el intento pide su timeout de siempre', () => {
+test('2. sin plazo del que llama, el intento pide su timeout de siempre', () => {
   assert.equal(R.D.pedidos[0]?.plazo, 88_800);
-  assert.equal(R.D.respuesta, `respuesta de ${LITE}`);
+});
+
+test('2. la ÚLTIMA opción real insiste: un proveedor de la lista sin clave no cuenta como «otra opción»', () => {
+  for (const [nombre, v] of [['lista por default', R.F], ['su Gemini sola, con «sólo su IA»', R.F2]] as const) {
+    assert.deepEqual(modelos(v), [LATEST, LITE, LITE], `${nombre}: flash-lite es la última opción real y su 503 no se reintentó (${modelos(v).join(', ')})`);
+  }
 });
 
 test('3. el turno con herramientas (MaKo en WhatsApp) también anota la saturación', () => {
   assert.equal(R.E.saturadoDespues, true);
-  assert.deepEqual(R.E.pedidos.map((p) => p.modelo), [LATEST, LITE], 'rota al respaldo en el mismo turno');
+  assert.deepEqual(modelos(R.E), [LATEST, LITE], 'rota al respaldo en el mismo turno');
 });
 
 test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que quedaron sin IA', () => {
@@ -93,15 +107,14 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
   assert.match(src, /if \(Date\.now\(\) - t0 \+ TANDA_MS > PLAZO_BLOQUES_MS\) continue;/);
 });
 
-// ── Probado rompiéndolo (26/10/2026) ─────────────────────────────────────────────────────────────────────────────────
+// ── Probado rompiéndolo (26/10/2026, segunda versión, después de la revisión del tren-l) ────────────────────────────────
 // Cada cambio a mano en lib/ai-cheap.ts (o en lib/ia-saturacion.ts / replicar.ts), corrido y restaurado de memoria:
-//   1. `plazoDeIntento` sin la reserva (siempre lo que queda)          → rojo «2. el caso del ws9…» (pidió 42 000 ms).
-//   2. `modelosAProbar` sin `primeroLosSanos`                         → rojo «2. el pedido siguiente…».
-//   3. sin el `break` de la saturación en la cascada                  → rojo «2. el caso del ws9…» y «… un 503 no se reintenta».
-//   4. `chatCheap` sin anotar el 503                                  → rojo «2. el pedido siguiente…» (saturadoDespues).
-//   5. el turno con herramientas sin anotar                           → rojo «3. el turno con herramientas…».
-//   6. `esSaturacion` contando el 429                                 → rojo «1. qué es saturación…».
-//   7. la réplica sin la segunda vuelta                               → rojo «4. la réplica…».
-//   8. `fallaDeSaturacion` contando cualquier timeout                 → rojo «1. qué es saturación…».
-// El 6 dio VERDE la primera vez: el mensaje de cuota del test no traía ninguna palabra de saturación, así que la guarda no se
-// ejercitaba. Se sumó el ambiguo (un 429 que dice «overloaded») y dio rojo.
+//   1. `modelosAProbar` sin `primeroLosSanos`                         → rojo «2. un cuelgue… el pedido siguiente…».
+//   2. sin el `break` de la saturación en la cascada                  → rojo «2. un cuelgue…» (reintenta el mismo modelo).
+//   3. `chatCheap` sin anotar el 503                                  → rojo «2. un cuelgue…» (C: saturadoDespues).
+//   4. el turno con herramientas sin anotar                           → rojo «3. el turno con herramientas…».
+//   5. `esSaturacion` contando el 429                                 → rojo «1. qué es saturación…».
+//   6. la réplica sin la segunda vuelta                               → rojo «4. la réplica…».
+//   7. `fallaDeSaturacion` sin mirar el plazo necesario (cualquier timeout cuenta) → rojo «1. un timeout…» y «2. una tanda GRANDE…».
+//   8. `hayOtraOpcion` contando el último de `orden` y no el último CON clave     → rojo «2. la ÚLTIMA opción real…».
+//   9. la reserva de vuelta (`quedan() - MIN_INTENTO_MS` en `plazoDeIntento`)     → rojo «2. una tanda GRANDE…».

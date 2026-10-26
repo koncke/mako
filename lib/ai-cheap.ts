@@ -38,7 +38,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
-import { anotarSaturado, fallaDeSaturacion, primeroLosSanos } from '@/lib/ia-saturacion';
+import { anotarSaturado, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -578,7 +578,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
   // empieza por su respaldo. El error sigue su camino igual.
   let res: Response;
   try { res = await pedir(esfuerzo, aire); } catch (e) {
-    if (fallaDeSaturacion(e instanceof Error ? `${e.name} ${e.message}` : String(e), opts.timeoutMs ?? 30000)) anotarSaturado(p.nombre, model);
+    if (fallaDeSaturacion(e instanceof Error ? `${e.name} ${e.message}` : String(e), opts.timeoutMs ?? 30000, plazoEsperadoMs(opts.maxTokens))) anotarSaturado(p.nombre, model);
     throw e;
   }
   let data = await res.json().catch(() => ({}));
@@ -595,7 +595,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     // pelado y el clasificador no tenía qué leer (15/10/2026: así se escondió el 400 de 'minimal'). `leerErrorProveedor`
     // lee los dos.
     // «high demand» (503) es del MODELO, no de la cuenta: queda saturado unos minutos (lib/ia-saturacion.ts).
-    if (fallaDeSaturacion(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`, 0)) anotarSaturado(p.nombre, model);
+    if (fallaDeSaturacion(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`, 0, Infinity)) anotarSaturado(p.nombre, model);
     throw new Error(`chatCheap(${rotulo(p)}): ${leerErrorProveedor(data, res.status).mensaje}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
@@ -707,14 +707,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
-  // ⚠️ `reservar` (26/10/2026): con OTRA opción esperando (otro modelo, otra cuenta, otro proveedor), el intento deja lugar
-  // para ella (`MIN_INTENTO_MS`). Sin esto, un primer intento colgado se comía el plazo entero de la tanda (42 s en las
-  // secciones del Web Generator) y el respaldo sano nunca llegaba a probarse: la réplica del ws9 dejó 17 de 20 secciones
-  // sin IA con 105 s de plazo sin usar. Sin `hastaMs` no cambia nada (el plazo que queda es infinito).
-  const plazoDeIntento = (reservar = false): number => {
-    const q = quedan();
-    return Math.min(opts.timeoutMs ?? 30_000, reservar && Number.isFinite(q) ? Math.max(MIN_INTENTO_MS, q - MIN_INTENTO_MS) : q);
-  };
+  // ⚠️ SIN RESERVAR LUGAR PARA LA OPCIÓN SIGUIENTE (revisión del tren-l, hallazgo 17): la primera versión del 26/10/2026 le
+  // dejaba 15 s al respaldo, y eso cortaba a los 27 s una tanda SANA de 30 s que antes salía. El respaldo llega por otro lado:
+  // un 503 marca el modelo saturado y el pedido siguiente empieza por él (lib/ia-saturacion.ts).
+  const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
   const sinTiempo = (): string => {
     opts.erroresOut?.push(`sin tiempo: el plazo del pedido vence en ${Math.max(0, Math.round(quedan() / 1000))} s`);
     return '';
@@ -753,8 +749,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const { conClaveDelNegocio } = await import('./anthropic');
     const r = await conClaveDelNegocio({
       system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
-      // Detrás de su Claude siempre está la cascada: le deja lugar.
-      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(true),
+      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(),
     }).catch(() => null);
     if (r && 'texto' in r) {
       const t = opts.json ? soloElJson(r.texto) : r.texto;
@@ -764,6 +759,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
     }
   }
+  // Las cuentas de cada proveedor, UNA vez: con ellas se sabe cuál es de verdad la última opción (revisión del tren-l, hallazgo
+  // 18: un proveedor de la lista SIN clave contaba como «otra opción», y la última opción real perdía su reintento). La red de
+  // la plataforma también es una opción, si el que llama la pidió y el negocio no corre con «sólo su IA».
+  const instanciasDe = new Map(await Promise.all((orden as ProvName[]).map(async (p) => [p, await provsDe(p)] as const)));
+  const conClave = (orden as ProvName[]).filter((p) => (instanciasDe.get(p) ?? []).length > 0);
+  const ultimoProv = conClave[conClave.length - 1];
+  const hayRed = !!opts.redDePlataforma && !soloSuIA();
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -771,7 +773,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     // Gemini —mismo modelo, mismo contexto de 1M— y no un Llama de 70b que era lo
     // mejor que quedaba río abajo. Sin key cargada, `instancias` es vacío y no
     // cuesta ni un request.
-    const instancias = await provsDe(prov);
+    const instancias = instanciasDe.get(prov) ?? [];
     if (instancias.length) probados.add(prov);
     for (const inst of instancias) {
      // ⚠️ TERCER EJE DE ROTACIÓN: EL MODELO. Los otros dos (cuenta y proveedor) no
@@ -808,16 +810,17 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // Pasó el 16/08 con un cliente esperando: Gemini devolvió 503 «high demand» y los
       // 4 documentos se cayeron; minutos después la MISMA key contestaba 200 tres de tres.
       // No era cuota, no era la key: era Google saturado y nadie atrás.
-      const ultimoRecurso = !otraCuenta && prov === orden[orden.length - 1];
-      // ¿Queda OTRA opción después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor)? Entonces el intento le
-      // deja lugar (`plazoDeIntento(true)`) y una saturación no se reintenta acá: se pasa a la opción siguiente.
-      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== orden[orden.length - 1];
+      // ¿Queda OTRA opción REAL después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor CON clave, la red de la
+      // plataforma)? Entonces una saturación no se reintenta acá: se pasa a la siguiente. La última opción real sí insiste
+      // (`ultimoRecurso`): contaba proveedores sin clave y no era la última nunca (con sólo su Gemini, 1 reintento y no 3).
+      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed;
+      const ultimoRecurso = !hayOtraOpcion;
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
         // ⏱ Sin plazo para un intento entero, no se arranca NINGUNO más: ni éste, ni otra
         // cuenta, ni otro modelo. `return` sale de los tres bucles de una.
         if (quedan() < MIN_INTENTO_MS) return sinTiempo();
-        const plazo = plazoDeIntento(hayOtraOpcion);
+        const plazo = plazoDeIntento();
         try {
           avisar();
           let t = await chatCheap({ ...base, timeoutMs: plazo, json: opts.json });
@@ -825,7 +828,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // response_format json_object (el modelo native anda; el /chat/completions no).
           // Reintentamos la MISMA cuenta SIN el flag: `validar`/parseJsonLoose de los
           // callers tolera fences/markdown igual, así que no perdemos nada.
-          if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(hayOtraOpcion), json: false });
+          if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: false });
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
           if (t.trim() && (!opts.validar || opts.validar(t))) return t;
@@ -857,7 +860,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // ⚠️ UN MODELO SATURADO NO SE REINTENTA si hay a dónde ir (26/10/2026): «high demand» o un cuelgue con plazo
           // razonable no se arreglan en 1,5 s, y el reintento colgaba otra vez con el plazo de la opción siguiente. `chatCheap`
           // ya lo anotó saturado: la opción que sigue (y el próximo pedido) empieza por el respaldo.
-          if (hayOtraOpcion && fallaDeSaturacion(m, plazo)) break;
+          if (hayOtraOpcion && fallaDeSaturacion(m, plazo, plazoEsperadoMs(opts.maxTokens))) break;
           if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
             // Espera creciente: 1,5s · 6s · 13,5s. Un 503 de saturación no se arregla en el
             // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
@@ -1400,7 +1403,7 @@ export async function chatCheapTools(
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
       // «high demand» o un cuelgue con plazo razonable: el modelo queda saturado unos minutos para TODO el proceso
       // (lib/ia-saturacion.ts). Este turno rota igual (la rotación de abajo); el próximo empieza por el respaldo.
-      if (fallaDeSaturacion(detalle, plazoPaso)) anotarSaturado(p.nombre, model);
+      if (fallaDeSaturacion(detalle, plazoPaso, opts.timeoutMs ?? 45000)) anotarSaturado(p.nombre, model);
       // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
       // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
       if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {

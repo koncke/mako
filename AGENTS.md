@@ -4516,6 +4516,15 @@ aplica en memoria DESPUÉS de paginar por `id`. Las otras formas de truncar sin 
 qué tablas ya pasaron las 1000, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El
 techo de 1000 filas no da error».
 
+- **Un `if (filas.length >= N)` detrás de un `.limit(N)` con N mayor que 1000 es una rama
+  MUERTA**: nunca llega a N. En MaKo recomienda (26/10/2026) esa rama era el «borde de lo
+  leído» de WhatsApp, y conversaciones viejas contaban como primeros contactos lentos. Un tope
+  propio va en el `onPagina` de `leerPorPaginas`, que devuelve `false` al llegar.
+- **Los filtros de PostgREST viajan en la URL**: un compare-and-set con
+  `.eq('value', <el JSON leído>)` anda hasta que el valor pasa unos KB y desde ahí no guarda
+  NADA, para siempre (la memoria de MaKo recomienda, a unas 35 decisiones). Lo que crece se
+  compara por `updated_at` o una revisión (`lib/automatizacion-chat-db.ts`, `despuesDe`).
+
 # Contar filas no es contar cosas — cruzá por clave
 
 Dos conteos que no coinciden invitan a restar y llamar «faltante» a la diferencia. Casi
@@ -10519,4 +10528,6 @@ recomendación nueva es una `Senal` (lib/recomendaciones-senales.ts) que mide el
 el `dato`. Ninguna pantalla rellena cuando la lista viene vacía; ningún prompt ordena «da N recomendaciones». La IA del negocio
 sólo redacta: el porqué lo escribe el código y `leerRedaccion` descarta lo que no cite una señal o traiga un número ajeno. Se
 muestran en el bloque de preguntas (`RecomendacionesDeMako` → `BloqueDePreguntas`), nunca en una lista suelta, y «Hacerlo» no
-ejecuta nada. tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
+ejecuta nada. Una decisión vale para TODAS las señales de la recomendación (`claves`), repetirla mientras sigue vigente no
+escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
+tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.

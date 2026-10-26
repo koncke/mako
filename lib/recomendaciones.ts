@@ -21,7 +21,8 @@
 import 'server-only';
 import { getTenantDb, getWorkspaceActual, wsSuperAdmin } from './workspace';
 import { getSetting, getSettingEstricto, cambiarSettingSi, setSetting } from './settings';
-import { leerTodo } from './supabase-paginado';
+import { leerPorPaginas, leerTodo } from './supabase-paginado';
+import { getSupabaseServer } from './supabase';
 import { claveDeIAPropia } from './ia-del-negocio';
 import { chatCheapCascade } from './ai-cheap';
 import { perfilNegocioTexto, getAnswers } from './onboarding';
@@ -32,13 +33,13 @@ import { rasgosDelFlujo } from './automatizacion-metricas';
 import type { PasoGrafo } from './flujo-grafo';
 import { CLAVE_RECOLECTOR, FUENTE_WHATSAPP, hechosDeLaEntrada, leerEstadoRecolector, prendidoPorDefecto } from './recolector-reglas';
 import {
-  CLAVE_MEMORIA, anotarDecision, claveDe, descartadas, elegirSinIA, funcionaron, huellaDe, leerMemoria, leerRedaccion, pedidoAlAsesor,
+  CLAVE_MEMORIA, anotarDecision, claveDe, decisionVigente, descartadas, elegirSinIA, funcionaron, huellaDe, leerMemoria, leerRedaccion, pedidoAlAsesor,
   senalesQueHablan, ultimaDecision, type Decision, type DecisionGuardada, type MemoriaRecs, type Recomendacion, type Senal, type Superficie,
 } from './recomendaciones-reglas';
 import {
   senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, senalesDeAutomatizaciones,
-  senalesDeLandings, senalesDeObjeciones, type EnvioSenal, type InscripcionSenal, type LeadSenal, type LlamadaSenal, type MensajeSenal,
-  type PaginaSenal, type SecuenciaSenal,
+  senalesDeLandings, senalesDeObjeciones, tiposMedidos, type EnvioSenal, type FuenteRec, type InscripcionSenal, type LeadSenal,
+  type LlamadaSenal, type MensajeSenal, type PaginaSenal, type SecuenciaSenal,
 } from './recomendaciones-senales';
 
 export const FEATURE_RECOMIENDA = 'mako-recomienda';
@@ -49,7 +50,7 @@ const VIGENCIA_REDACCION_MS = DIA;
 /** Tope de lo que se lee de WhatsApp: los más nuevos. Si se llega al tope, la ventana se acorta a lo leído (y se dice). */
 const MAX_MENSAJES = 6000;
 
-type Fuente = 'whatsapp' | 'leads' | 'automatizaciones' | 'landings' | 'objeciones' | 'second-brain';
+type Fuente = FuenteRec;
 const FUENTES_DE: Record<Superficie, readonly Fuente[]> = {
   'ops-center': ['whatsapp', 'leads', 'automatizaciones', 'landings', 'objeciones', 'second-brain'],
   whatsapp: ['whatsapp', 'leads', 'automatizaciones', 'landings', 'objeciones'],
@@ -87,10 +88,16 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
   let conversacionesConLead = 0;
   await leer('whatsapp', async () => {
     const desdeLectura = new Date(ahora.getTime() - 21 * DIA);
-    const r = await db.from('wa_mensajes').select('chat_jid, wa_timestamp, from_me, lead_id, tipo, texto')
-      .gte('wa_timestamp', desdeLectura.toISOString()).order('wa_timestamp', { ascending: false }).limit(MAX_MENSAJES);
-    if (r.error) throw new Error(`no pude leer los mensajes: ${r.error.message}`);
-    const msgs = (r.data ?? []) as MensajeSenal[];
+    // ⚠️ PAGINADO, no un `.limit(6000)`: PostgREST corta en 1000 en silencio (lib/supabase-paginado.ts) y con eso el borde de
+    // abajo nunca se activaba: una charla vieja cuyo primer mensaje retenido era del lead contaba como «te escribió por
+    // primera vez» (revisión del tren-l, hallazgo 11). Del más nuevo al más viejo, con `id` al final (la PK) para un orden
+    // único, y se corta en MAX_MENSAJES devolviendo `false`: el truncado queda escrito acá.
+    const msgs: MensajeSenal[] = [];
+    await leerPorPaginas<MensajeSenal>(db, 'wa_mensajes', 'id, chat_jid, wa_timestamp, from_me, lead_id, tipo, texto', (filas) => {
+      msgs.push(...filas);
+      return msgs.length < MAX_MENSAJES;
+    }, { orden: [{ col: 'wa_timestamp', asc: false }, { col: 'id', asc: false }], filtros: (q) => q.gte('wa_timestamp', desdeLectura.toISOString()) });
+    if (msgs.length > MAX_MENSAJES) msgs.length = MAX_MENSAJES;
     // Con el tope lleno, lo leído empieza más tarde que los 21 días: la ventana real es la de lo leído.
     const desdeReal = msgs.length >= MAX_MENSAJES ? new Date(msgs[msgs.length - 1].wa_timestamp) : desdeLectura;
     if (msgs.length >= MAX_MENSAJES) out.notas.push(`WhatsApp: se leyeron los ${MAX_MENSAJES} mensajes más nuevos (desde ${desdeReal.toISOString().slice(0, 10)})`);
@@ -112,19 +119,21 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
   });
 
   await leer('automatizaciones', async () => {
-    const desdeEnvios = new Date(ahora.getTime() - 7 * DIA).toISOString();
+    // Los envíos cubren los 30 días de las inscripciones: la señal «muda» cuenta sólo a quien ya recibió un mensaje (con su
+    // `inscripcion_id`), y la de fallas mira sus últimos 7 adentro.
     const desdeInsc = new Date(ahora.getTime() - 30 * DIA).toISOString();
     const [secs, envios, insc] = await Promise.all([
       db.from('nutricion_secuencias').select('id, nombre, activa, pasos').is('archivada_at', null).order('id'),
-      leerTodo<EnvioSenal>(db, 'nutricion_envios', 'secuencia_id, estado, error, created_at', { orden: 'id', filtros: (q) => q.gte('created_at', desdeEnvios) }),
-      leerTodo<InscripcionSenal>(db, 'nutricion_inscripciones', 'secuencia_id, estado, inscripto_at', { orden: 'id', filtros: (q) => q.gte('inscripto_at', desdeInsc) }),
+      leerTodo<EnvioSenal>(db, 'nutricion_envios', 'secuencia_id, inscripcion_id, estado, error, created_at', { orden: 'id', filtros: (q) => q.gte('created_at', desdeInsc) }),
+      leerTodo<InscripcionSenal>(db, 'nutricion_inscripciones', 'id, secuencia_id, estado, inscripto_at', { orden: 'id', filtros: (q) => q.gte('inscripto_at', desdeInsc) }),
     ]);
     if (secs.error) throw new Error(`no pude leer las automatizaciones: ${secs.error.message}`);
     const lista: SecuenciaSenal[] = ((secs.data ?? []) as Array<{ id: number; nombre: string | null; activa: boolean | null; pasos: unknown }>).map((s) => ({
       id: Number(s.id), nombre: String(s.nombre ?? ''), activa: s.activa === true,
       esperaRespuesta: Array.isArray(s.pasos) && rasgosDelFlujo(s.pasos as PasoGrafo[]).respuesta,
     }));
-    out.senales.push(...senalesDeAutomatizaciones(lista, envios, insc.map((i) => ({ ...i, secuencia_id: Number(i.secuencia_id) })), ahora));
+    out.senales.push(...senalesDeAutomatizaciones(lista, envios.map((e) => ({ ...e, inscripcion_id: e.inscripcion_id == null ? null : Number(e.inscripcion_id) })),
+      insc.map((i) => ({ ...i, id: Number(i.id), secuencia_id: Number(i.secuencia_id) })), ahora));
   });
 
   await leer('landings', async () => {
@@ -196,11 +205,47 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
 
 // ── La memoria del negocio ──────────────────────────────────────────────────────────────────────────────────────────
 
+// ⚠️ EL COMPARE-AND-SET VA POR `updated_at`, NUNCA POR EL VALOR (revisión del tren-l, hallazgo 10): `cambiarSettingSi`
+//    compara el JSON entero con un `.eq('value', …)`, que PostgREST manda en la URL, y pasados unos 6 KB la URL ya no entra
+//    (docs/hallazgos-infra.md: 8-12 KB «fetch failed», 16-32 KB 400). La memoria llegaba ahí en unas 35 decisiones y desde
+//    ahí ningún botón guardaba nada, para siempre. Es el molde de lib/automatizacion-chat-db.ts: el valor viaja en el CUERPO.
+
+type FilaMemoria = { value: string | null; updated_at: string } | null;
+
+/** La fila de la memoria, ESTRICTA: «no pude leer» tira (nunca es «no hay memoria», que escribiría encima). */
+async function filaDeMemoria(ws: number): Promise<FilaMemoria> {
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings').select('value, updated_at')
+    .eq('workspace_id', ws).eq('key', CLAVE_MEMORIA).maybeSingle();
+  if (error) throw new Error(`no pude leer la memoria de recomendaciones: ${error.message}`);
+  return (data as FilaMemoria) ?? null;
+}
+
+/** Un `updated_at` posterior al leído aunque el reloj de este servidor vaya atrasado (el token del compare-and-set). */
+function despuesDe(leido: string): string {
+  const antes = Date.parse(leido);
+  return new Date(Number.isNaN(antes) ? Date.now() : Math.max(Date.now(), antes + 1)).toISOString();
+}
+
+/** Guarda la memoria si nadie la cambió desde `updatedAt` (null = no había fila). true = ganó. */
+async function guardarMemoria(ws: number, m: MemoriaRecs, updatedAt: string | null): Promise<boolean> {
+  const valor = JSON.stringify(m);
+  if (updatedAt == null) return cambiarSettingSi(CLAVE_MEMORIA, null, valor);
+  const { data, error } = await getSupabaseServer()
+    .from('app_settings').update({ value: valor, updated_at: despuesDe(updatedAt) })
+    .eq('workspace_id', ws).eq('key', CLAVE_MEMORIA).eq('updated_at', updatedAt)
+    .select('key');
+  if (error) throw new Error(`no pude guardar la memoria de recomendaciones: ${error.message}`);
+  return (data ?? []).length > 0;
+}
+
 /** La memoria del negocio en curso. null = no se pudo leer (no se dibuja nada que dependa de ella: se calla todo). */
-export async function leerMemoriaDelNegocio(): Promise<{ m: MemoriaRecs; crudo: string | null } | null> {
+export async function leerMemoriaDelNegocio(): Promise<{ m: MemoriaRecs; updatedAt: string | null } | null> {
   try {
-    const crudo = await getSettingEstricto(CLAVE_MEMORIA);
-    return { m: leerMemoria(crudo), crudo };
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    const fila = await filaDeMemoria(ws);
+    return { m: leerMemoria(fila?.value ?? null), updatedAt: fila?.updated_at ?? null };
   } catch (e) {
     console.error(`[recomendaciones] no pude leer la memoria: ${msg(e)}`);
     return null;
@@ -209,34 +254,62 @@ export async function leerMemoriaDelNegocio(): Promise<{ m: MemoriaRecs; crudo: 
 
 export type ResultadoDecidir = { ok: true } | { ok: false; error: string; status: number };
 
+/** Tope de claves de una recomendación (la IA junta pocas; esto frena una lista inventada por quien llama). */
+const MAX_CLAVES = 8;
+
 /**
- * Anota lo que la persona decidió sobre una recomendación (compare-and-set: dos personas que deciden a la vez no se
- * pisan). La recomendación tiene que existir HOY en esa superficie: no se anota sobre una clave inventada.
+ * Todas las claves de una recomendación: la principal, las que mandó la pantalla y las que juntó la redacción guardada de la
+ * IA (revisión del tren-l, hallazgo 14). La redacción guardada se lee del setting, que comparten todas las instancias.
  */
-export async function decidirRecomendacion(o: { superficie: Superficie; clave: string; d: Decision; motivo?: string | null; quien: string }): Promise<ResultadoDecidir> {
+async function clavesDeLaRecomendacion(superficie: Superficie, clave: string, enviadas: readonly string[] = []): Promise<string[]> {
+  const guardada = leerRedaccionGuardada(await getSetting(claveRedaccion(superficie)).catch(() => null));
+  const rec = guardada?.recs.find((r) => r.clave === clave);
+  return [...new Set([clave, ...(rec?.claves ?? []), ...enviadas])].slice(0, MAX_CLAVES);
+}
+
+/**
+ * Anota lo que la persona decidió sobre una recomendación, sobre TODAS sus claves y en una sola escritura (compare-and-set:
+ * dos personas que deciden a la vez no se pisan). La principal tiene que existir HOY en esa superficie: no se anota sobre una
+ * clave inventada; una secundaria que ya no existe se saltea. Una decisión que sigue vigente no se repite (`decisionVigente`).
+ */
+export async function decidirRecomendacion(o: { superficie: Superficie; clave: string; claves?: readonly string[]; d: Decision; motivo?: string | null; quien: string }): Promise<ResultadoDecidir> {
+  const ws = await getWorkspaceActual();
+  if (ws == null) return { ok: false, error: 'Elige una cuenta primero.', status: 400 };
+  const claves = await clavesDeLaRecomendacion(o.superficie, o.clave, o.claves);
   // Reabrir no pide que la señal siga hoy: pide que haya algo callado con esa clave. Lo demás, que la recomendación exista.
-  let senal: { tipo: string; valor: number } | null = null;
+  let hoy: Map<string, Senal> | null = null;
   if (o.d !== 'reabierta') {
     const { senales, fallas } = await senalesDelNegocio(o.superficie);
-    const s = senales.find((x) => claveDe(x) === o.clave);
-    if (!s) return fallas.length
+    hoy = new Map(senales.map((s) => [claveDe(s), s]));
+    if (!hoy.has(o.clave)) return fallas.length
       ? { ok: false, error: 'No pude leer los datos de esa recomendación. Intenta de nuevo.', status: 503 }
       : { ok: false, error: 'Esa recomendación ya no está (el dato cambió).', status: 404 };
-    senal = s;
   }
   for (let intento = 0; intento < 3; intento++) {
     const leida = await leerMemoriaDelNegocio();
     if (!leida) return { ok: false, error: 'No pude leer lo que ya decidiste. Intenta de nuevo.', status: 503 };
-    const previa = ultimaDecision(leida.m, o.clave);
-    if (o.d === 'reabierta' && (!previa || (previa.d !== 'no-aplica' && previa.d !== 'ahora-no'))) {
-      return { ok: false, error: 'Esa recomendación no está descartada.', status: 404 };
+    const ahora = new Date();
+    let m = leida.m;
+    let escribe = false;
+    for (const k of claves) {
+      const previa = ultimaDecision(m, k);
+      if (o.d === 'reabierta') {
+        const callada = previa && (previa.d === 'no-aplica' || previa.d === 'ahora-no');
+        if (!callada) {
+          if (k === o.clave) return { ok: false, error: 'Esa recomendación no está descartada.', status: 404 };
+          continue;
+        }
+      } else if (decisionVigente(previa, o.d, ahora)) continue;
+      const base = o.d === 'reabierta' ? previa! : hoy?.get(k);
+      if (!base) continue;
+      m = anotarDecision(m, {
+        clave: k, tipo: base.tipo, superficie: o.superficie, d: o.d, en: ahora.toISOString(), valor: base.valor, quien: o.quien,
+        ...(o.motivo?.trim() ? { motivo: o.motivo } : {}),
+      });
+      escribe = true;
     }
-    const base = senal ?? { tipo: previa!.tipo, valor: previa!.valor };
-    const nueva = anotarDecision(leida.m, {
-      clave: o.clave, tipo: base.tipo, superficie: o.superficie, d: o.d, en: new Date().toISOString(), valor: base.valor, quien: o.quien,
-      ...(o.motivo?.trim() ? { motivo: o.motivo } : {}),
-    });
-    if (await cambiarSettingSi(CLAVE_MEMORIA, leida.crudo, JSON.stringify(nueva))) {
+    // Ya estaba todo así (la misma decisión, vigente): no se escribe nada, y la pantalla saca la tarjeta igual.
+    if (!escribe || await guardarMemoria(ws, m, leida.updatedAt)) {
       cache.clear();
       return { ok: true };
     }
@@ -330,7 +403,8 @@ export async function recomendacionesDe(superficie: Superficie, o: { ahora?: Dat
   // Sin la memoria no se sabe qué descartó: mostrar sería arriesgarse a repetir lo que dijo que no. Se calla.
   if (!memoria) return { ...base, recomendaciones: [], funcionaron: [], descartadas: [], fallas: [...lectura.fallas, { fuente: 'memoria', motivo: 'no pude leer lo que ya decidiste' }], redaccion: 'nada' };
   const habla = senalesQueHablan(lectura.senales, memoria.m, superficie, ahora);
-  const funciono = funcionaron(memoria.m, lectura.senales, ahora);
+  // «Lo que mejoró» sólo con lo que ESTA lectura midió de verdad (sus fuentes, sin las que fallaron).
+  const funciono = funcionaron(memoria.m, lectura.senales, ahora, tiposMedidos(FUENTES_DE[superficie], lectura.fallas));
   const callado = descartadas(memoria.m, ahora).map(({ clave, tipo, superficie: s, d, motivo, en }) => ({ clave, tipo, superficie: s, d, en, ...(motivo ? { motivo } : {}) }));
   let r: RecomendacionesDe;
   if (!habla.length) r = { ...base, recomendaciones: [], funcionaron: funciono, descartadas: callado, redaccion: 'nada' };

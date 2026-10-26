@@ -14,6 +14,8 @@ El motor que decide qué le recomienda MaKo a un negocio y cuándo se calla: `li
    IA sólo se le acepta lo que cita señales que existen y no trae números ajenos. [→](#la-ia-redacta-el-código-decide)
 3. **Tres roturas del test de señales dieron VERDE la primera vez**, y las tres por armar mal los datos del test, no por el
    código. [→](#tres-roturas-que-el-test-no-veía)
+4. **La memoria de decisiones dejaba de guardarse a unas 35, y el borde de WhatsApp no corría nunca**: los dos por límites de
+   PostgREST (la URL y las 1000 filas) que la base de mentira no tiene. [→](#lo-que-vio-la-revisión-del-tren-l-siete-fallas-que-ningún-test-mío-veía-26102026)
 
 ---
 
@@ -47,7 +49,8 @@ DIJO, no lo que se puede contar.
 
 - **«Nueva» se decide contra el BORDE DE LO LEÍDO, no contra la ventana.** WhatsApp se lee con tope (6.000 mensajes): con el
   tope lleno, lo leído empieza más tarde que los 21 días, y una conversación que parece empezar en ese borde puede tener historia
-  antes. Se descarta lo que cae a menos de un día del borde real (`desdeReal` en lib/recomendaciones.ts).
+  antes. Se descarta lo que cae a menos de un día del borde real (`desdeReal` en lib/recomendaciones.ts). ⚠️ En la primera
+  versión esta regla **no corría nunca**: ver «El borde que nunca se activaba», abajo.
 - **«Esperando respuesta» no cuenta «gracias», «ok» ni un emoji** (`noPideRespuesta`). La primera versión dejaba pasar
   «¡Gracias!»: el `¡` del principio no se limpiaba (sólo los signos del final).
 - **El no-show se cuenta sobre las llamadas MARCADAS.** Lo sin marcar no es ni asistió ni faltó; contarlo como asistió esconde
@@ -74,6 +77,36 @@ tres roturas dieron VERDE:
 
 **La regla que queda:** antes de creerle a un verde, rompe la condición; si sigue verde, el que está mal es el test (y el arreglo
 va en el test, no en el código).
+
+## Lo que vio la revisión del tren-l: siete fallas que ningún test mío veía (26/10/2026)
+
+Una revisión adversarial del tren encontró siete fallas en la primera versión. Ninguna rompía un test: los tests probaban las
+reglas puras y una base de mentira sin los límites de PostgREST.
+
+- **La memoria dejaba de guardarse a unas 35 decisiones, para siempre** (hallazgo 10). El compare-and-set comparaba el JSON
+  entero, y PostgREST pone los filtros en la URL. **Lo obvio era «achicar la memoria»; el arreglo es no comparar el valor:**
+  `guardarMemoria` compara `updated_at` (el molde de lib/automatizacion-chat-db.ts) y la memoria además tiene un techo de 60 KB
+  (`MAX_BYTES_MEMORIA`). El test corre `decidirRecomendacion` REAL contra la base de mentira y mira el PATCH que sale.
+- **El borde que nunca se activaba** (hallazgo 11). WhatsApp se leía con `.limit(6000)`; PostgREST corta en 1000 sin avisar,
+  así que `msgs.length >= 6000` nunca era cierto y una conversación vieja, cortada a mitad, contaba como primer contacto lento.
+  Ahora se lee con `leerPorPaginas` (del más nuevo al más viejo, con `id` al final) y el tope se corta en el `onPagina`.
+- **«Lo que mejoró» daba por mejorado lo que no se midió** (hallazgo 12): una señal que no está hoy puede ser porque mejoró, o
+  porque esa pantalla no lee esa fuente, porque la lectura falló o porque la muestra no alcanza. `funcionaron` sólo cuenta los
+  tipos de `tiposMedidos(FUENTES_DE[superficie], fallas)` y lo que hoy tiene muestra y está debajo del umbral.
+- **«Automatización muda» contaba a quien todavía no recibió nada** (hallazgo 13). El denominador son las personas a las que la
+  automatización YA les escribió, hace más de 2 días (`margenDias`): a quien le llegó ayer no le dio tiempo de contestar.
+- **Una recomendación de varias señales se decidía sólo sobre la primera** (hallazgo 14): la IA arma una con dos señales, el
+  botón mandaba `r.clave` y la otra volvía en la carga siguiente. Ahora cada recomendación lleva `claves` y la decisión se anota en
+  todas (las que manda la pantalla y las de la redacción guardada, para una pantalla vieja que sólo manda la principal).
+- **La misma decisión dos veces sumaba dos filas** (hallazgo 15): otra pestaña, o otra instancia con la lista en caché. Ahora
+  `decisionVigente` la vuelve un `ok` sin escribir, en la ruta Y en la API. ⚠️ La API tenía `previa.d === decision` → «Ya estaba»,
+  que **trababa**: pasados los 14 días de un «Ahora no» la recomendación vuelve y no se podía volver a callar.
+- **«Reabierta» no reabría si el tipo seguía apagado por otras claves** (hallazgo 16): `estadoDe` miraba el tipo antes que la
+  última decisión de la clave. Ahora una clave reabierta a propósito se ve; las demás del tipo siguen calladas.
+
+**La regla que queda:** un test con una base de mentira no ve los límites del servidor real (las 1000 filas, el largo de la URL).
+Lo que depende de ellos se prueba con la cuenta escrita en el test (el PATCH que sale, la lectura paginada en el fuente), no con
+el resultado de la base de mentira.
 
 ## Montar algo en una pantalla que es de otro chat: dos trampas (26/10/2026)
 

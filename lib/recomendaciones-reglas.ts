@@ -68,6 +68,12 @@ export type Senal = {
 export type Recomendacion = {
   /** `tipo|objeto` de su señal principal: con esto se calla, se acepta y se aprende. */
   clave: string;
+  /**
+   * TODAS las claves que la sostienen (la principal primero). La IA puede juntar varias señales en una recomendación; decidir
+   * sobre ella decide sobre todas (revisión del tren-l, hallazgo 14: con sólo la principal, «No aplica» callaba la mitad y la
+   * otra volvía en la carga siguiente).
+   */
+  claves: string[];
   tipo: string;
   superficie: Superficie;
   hacer: string;
@@ -110,6 +116,8 @@ export type MemoriaRecs = { v: 1; decisiones: DecisionGuardada[] };
 export const CLAVE_MEMORIA = 'mako.recomendaciones.memoria';
 /** Cuántas decisiones guarda (las más nuevas). Una memoria que crece sin tope es un setting de megas. */
 export const MAX_DECISIONES = 300;
+/** Y en bytes (el JSON entero): viaja en cada lectura y en cada escritura. */
+export const MAX_BYTES_MEMORIA = 60_000;
 /** «Ahora no» calla esto; después vuelve SÓLO si el dato sigue sosteniéndola. */
 export const DIAS_AHORA_NO = 14;
 /** «Hecha» calla esto (lo que tarda un cambio en verse en los números); después, si sigue igual, vuelve como seguimiento. */
@@ -148,7 +156,24 @@ export function anotarDecision(m: MemoriaRecs, d: DecisionGuardada): MemoriaRecs
   const motivo = d.motivo?.trim().slice(0, MAX_MOTIVO);
   const fila: DecisionGuardada = { ...d, ...(motivo ? { motivo } : { motivo: undefined }) };
   if (!fila.motivo) delete fila.motivo;
-  return { v: 1, decisiones: [...m.decisiones, fila].slice(-MAX_DECISIONES) };
+  let decisiones = [...m.decisiones, fila].slice(-MAX_DECISIONES);
+  // Y un tope en BYTES, no sólo en filas: el setting viaja entero en cada lectura (las más viejas se van primero).
+  while (decisiones.length > 1 && JSON.stringify({ v: 1, decisiones }).length > MAX_BYTES_MEMORIA) decisiones = decisiones.slice(1);
+  return { v: 1, decisiones };
+}
+
+/**
+ * ¿La última decisión sobre una clave SIGUE callándola con el mismo veredicto? Entonces repetirla no escribe nada (revisión
+ * del tren-l, hallazgo 15: otra instancia, o la misma pantalla abierta en el celular, mostraba la lista vieja y un segundo
+ * «Ahora no» sumaba otra fila). Pasado el plazo de un «Ahora no» o de una «Hecha», la recomendación vuelve y decidir otra vez
+ * sí es nuevo.
+ */
+export function decisionVigente(previa: DecisionGuardada | null, d: Decision, ahora: Date): boolean {
+  if (!previa || previa.d !== d || d === 'reabierta') return false;
+  const hace = ahora.getTime() - Date.parse(previa.en);
+  if (d === 'no-aplica') return true;
+  if (d === 'ahora-no') return hace < DIAS_AHORA_NO * DIA;
+  return hace < DIAS_HECHA * DIA;
 }
 
 export const claveDe = (s: Pick<Senal, 'tipo' | 'objeto'>): string => `${s.tipo}|${s.objeto}`;
@@ -209,11 +234,13 @@ export type EstadoClave =
 
 /** ¿Se puede mostrar la recomendación de esta señal, según lo que decidió la persona? */
 export function estadoDe(m: MemoriaRecs, s: Senal, ahora: Date): EstadoClave {
-  if (tipoApagado(m, s.tipo)) return { ve: false, por: 'tipo-apagado' };
   const u = ultimaDecision(m, claveDe(s));
+  // Una clave REABIERTA a propósito se ve aunque su tipo siga apagado por otras (revisión del tren-l, hallazgo 16: con tres
+  // «No aplica» del tipo, la reabierta quedaba escondida, fuera de «Descartadas» y sin poder reabrirse otra vez).
+  if (u?.d === 'reabierta') return { ve: true };
+  if (tipoApagado(m, s.tipo)) return { ve: false, por: 'tipo-apagado' };
   if (!u) return { ve: true };
   const hace = ahora.getTime() - Date.parse(u.en);
-  if (u.d === 'reabierta') return { ve: true };
   if (u.d === 'no-aplica') return { ve: false, por: 'no-aplica' };
   if (u.d === 'ahora-no') return hace < DIAS_AHORA_NO * DIA ? { ve: false, por: 'ahora-no' } : { ve: true };
   // «Hecha»: se le da tiempo a que se note. Pasado ese tiempo, si el dato SIGUE sosteniéndola, vuelve diciendo que se
@@ -221,16 +248,20 @@ export function estadoDe(m: MemoriaRecs, s: Senal, ahora: Date): EstadoClave {
   return hace < DIAS_HECHA * DIA ? { ve: false, por: 'hecha' } : { ve: true, seguimiento: { aceptadaEl: u.en } };
 }
 
-/** Lo que cambió desde que se aceptó (para «Lo que cambió»): las aceptadas cuya señal ya NO se sostiene. */
-export function funcionaron(m: MemoriaRecs, senales: readonly Senal[], ahora: Date): Array<{ clave: string; aceptadaEl: string; antes: number }> {
-  const vigentes = new Set(senales.filter(sostiene).map(claveDe));
+/**
+ * Lo que cambió desde que se aceptó (para «Lo que cambió»): las aceptadas cuya señal ya NO se sostiene, Y QUE SE MIDIERON en
+ * esta lectura (revisión del tren-l, hallazgo 12). `tiposMedidos`: los tipos cuya fuente se leyó bien en esta pantalla; sin él,
+ * no se afirma ninguna mejora. Una señal con poca muestra no «mejoró»: no se puede decir (cuenta como sigue igual).
+ */
+export function funcionaron(m: MemoriaRecs, senales: readonly Senal[], ahora: Date, tiposMedidos: ReadonlySet<string> = new Set()): Array<{ clave: string; aceptadaEl: string; antes: number }> {
+  const vigentes = new Set(senales.filter((s) => sostiene(s) || !(s.n >= s.nMinimo)).map(claveDe));
   const vistas = new Set<string>();
   const out: Array<{ clave: string; aceptadaEl: string; antes: number }> = [];
   for (let i = m.decisiones.length - 1; i >= 0; i--) {
     const d = m.decisiones[i];
     if (vistas.has(d.clave)) continue;
     vistas.add(d.clave);
-    if (d.d !== 'hecha' || vigentes.has(d.clave)) continue;
+    if (d.d !== 'hecha' || vigentes.has(d.clave) || !tiposMedidos.has(d.tipo)) continue;
     if (ahora.getTime() - Date.parse(d.en) < DIAS_HECHA * DIA) continue;
     out.push({ clave: d.clave, aceptadaEl: d.en, antes: d.valor });
   }
@@ -261,7 +292,7 @@ export function senalesQueHablan(senales: readonly Senal[], m: MemoriaRecs, supe
 /** La recomendación por defecto de una señal: el texto lo escribió el código. */
 export function deSenal(s: Senal, superficie: Superficie, seguimiento?: { aceptadaEl: string }): Recomendacion {
   return {
-    clave: claveDe(s), tipo: s.tipo, superficie, hacer: s.hacer, cambia: s.cambia, porque: [s.dato], fuentes: [s.fuente],
+    clave: claveDe(s), claves: [claveDe(s)], tipo: s.tipo, superficie, hacer: s.hacer, cambia: s.cambia, porque: [s.dato], fuentes: [s.fuente],
     ...(s.accion ? { accion: s.accion } : {}), origen: 'regla', ...(seguimiento ? { seguimiento } : {}),
   };
 }
@@ -373,7 +404,7 @@ export function leerRedaccion(texto: string, o: {
     const principal = porId.get(citadas[0])!;
     const todas = citadas.map((i) => porId.get(i)!.s);
     recs.push({
-      clave: claveDe(principal.s), tipo: principal.s.tipo, superficie: o.superficie, hacer, cambia,
+      clave: claveDe(principal.s), claves: todas.map(claveDe), tipo: principal.s.tipo, superficie: o.superficie, hacer, cambia,
       porque: todas.map((s) => s.dato), fuentes: [...new Set(todas.map((s) => s.fuente))],
       ...(principal.s.accion ? { accion: principal.s.accion } : {}), origen: 'ia',
       ...(principal.seguimiento ? { seguimiento: principal.seguimiento } : {}),

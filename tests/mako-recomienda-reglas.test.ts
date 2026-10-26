@@ -15,7 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  DIAS_AHORA_NO, DIAS_HECHA, MAX_DECISIONES, anotarDecision, claveDe, elegirSinIA, esGenerico, estadoDe, funcionaron, huellaDe,
+  DIAS_AHORA_NO, DIAS_HECHA, MAX_BYTES_MEMORIA, MAX_DECISIONES, MAX_MOTIVO, anotarDecision, claveDe, decisionVigente, elegirSinIA, esGenerico, estadoDe, funcionaron, huellaDe,
   leerMemoria, leerRedaccion, memoriaVacia, numerosAjenos, numerosDe, pedidoAlAsesor, pesoAprendido, senalesQueHablan, sostiene,
   tipoApagado, type MemoriaRecs, type Senal,
 } from '../lib/recomendaciones-reglas';
@@ -30,7 +30,7 @@ const senal = (x: Partial<Senal> = {}): Senal => ({
   impacto: 0.9, hacer: 'Contesta primero a los que esperan', cambia: 'Más conversaciones llegan a una llamada', ...x,
 });
 
-const decidir = (m: MemoriaRecs, s: Senal, d: 'hecha' | 'ahora-no' | 'no-aplica', dias: number, motivo?: string) =>
+const decidir = (m: MemoriaRecs, s: Senal, d: 'hecha' | 'ahora-no' | 'no-aplica' | 'reabierta', dias: number, motivo?: string) =>
   anotarDecision(m, { clave: claveDe(s), tipo: s.tipo, superficie: 'ops-center', d, en: haceDias(dias), valor: s.valor, ...(motivo ? { motivo } : {}) });
 
 test('(a) sin un dato que la sostenga no hay recomendación: umbral, sentido y muestra', () => {
@@ -74,10 +74,50 @@ test('(c) «Hecha» calla mientras se nota; después, si sigue igual, vuelve com
   const [r] = elegirSinIA([s], m, 'ops-center', AHORA);
   assert.ok(r.seguimiento, 'vuelve diciendo que ya se aceptó');
   assert.equal(r.seguimiento!.aceptadaEl, haceDias(DIAS_HECHA + 2));
-  assert.deepEqual(funcionaron(m, [s], AHORA), [], 'sigue igual: no funcionó todavía');
-  const mejoro = funcionaron(m, [senal({ valor: 0.05 })], AHORA);
+  const medido = new Set(['respuesta-lenta']);
+  assert.deepEqual(funcionaron(m, [s], AHORA, medido), [], 'sigue igual: no funcionó todavía');
+  const mejoro = funcionaron(m, [senal({ valor: 0.05 })], AHORA, medido);
   assert.equal(mejoro.length, 1);
   assert.equal(mejoro[0].clave, 'respuesta-lenta|negocio');
+});
+
+test('12. «Lo que mejoró» sólo con lo que se MIDIÓ: otra pantalla, una fuente caída o una muestra chica no son una mejora', () => {
+  const s = senal();
+  const m = decidir(memoriaVacia(), s, 'hecha', DIAS_HECHA + 2);
+  // La señal no está en esta lectura porque esta pantalla no lee WhatsApp (o su lectura falló): no se afirma nada.
+  assert.deepEqual(funcionaron(m, [], AHORA, new Set(['no-show-alto'])), [], 'otra pantalla: lo que no se leyó no «mejoró»');
+  assert.deepEqual(funcionaron(m, [], AHORA), [], 'sin decir qué se midió, ninguna mejora');
+  // Con la muestra debajo del mínimo, la señal no se sostiene por FALTA de datos, no porque haya bajado.
+  assert.deepEqual(funcionaron(m, [senal({ n: 3 })], AHORA, new Set(['respuesta-lenta'])), [], 'poca muestra no es «mejoró»');
+});
+
+test('16. una clave REABIERTA se ve aunque su tipo siga apagado por otras «No aplica»', () => {
+  const tipo = 'landing-no-convierte';
+  const [a, b, c] = ['landing:a', 'landing:b', 'landing:c'].map((objeto) => senal({ tipo, objeto }));
+  let m = decidir(decidir(decidir(memoriaVacia(), a, 'no-aplica', 5), b, 'no-aplica', 4), c, 'no-aplica', 3);
+  assert.equal(tipoApagado(m, tipo), true);
+  m = decidir(m, a, 'reabierta', 1);
+  assert.equal(estadoDe(m, a, AHORA).ve, true, 'la reabierta quedaba escondida (y fuera de «Descartadas»)');
+  assert.equal(estadoDe(m, b, AHORA).ve, false, 'las otras del tipo siguen calladas');
+});
+
+test('15. repetir una decisión que SIGUE vigente no es nuevo; pasado su plazo, sí', () => {
+  const s = senal();
+  const fila = (d: 'hecha' | 'ahora-no' | 'no-aplica', dias: number) => decidir(memoriaVacia(), s, d, dias).decisiones[0];
+  assert.equal(decisionVigente(fila('no-aplica', 400), 'no-aplica', AHORA), true);
+  assert.equal(decisionVigente(fila('ahora-no', DIAS_AHORA_NO - 1), 'ahora-no', AHORA), true);
+  assert.equal(decisionVigente(fila('ahora-no', DIAS_AHORA_NO + 1), 'ahora-no', AHORA), false, 'volvió: callarla otra vez es nuevo');
+  assert.equal(decisionVigente(fila('hecha', DIAS_HECHA + 1), 'hecha', AHORA), false, 'volvió como seguimiento: aceptarla otra vez es nuevo');
+  assert.equal(decisionVigente(fila('ahora-no', 1), 'no-aplica', AHORA), false, 'otra decisión, sí se anota');
+  assert.equal(decisionVigente(null, 'ahora-no', AHORA), false);
+});
+
+test('10. la memoria tiene tope en BYTES además de en filas, y se van las más viejas', () => {
+  let m = memoriaVacia();
+  const largo = 'x'.repeat(MAX_MOTIVO);
+  for (let i = 0; i < 260; i++) m = decidir(m, senal({ objeto: `o${i}` }), 'ahora-no', 1, largo);
+  assert.ok(JSON.stringify(m).length <= MAX_BYTES_MEMORIA, `la memoria pesa ${JSON.stringify(m).length} bytes`);
+  assert.equal(m.decisiones[m.decisiones.length - 1].clave, 'respuesta-lenta|o259', 'la más nueva queda');
 });
 
 test('aprende: dos «No aplica» de un tipo lo apagan; una aceptada lo salva; lo aceptado pesa más en el orden', () => {
@@ -121,6 +161,7 @@ test('la IA redacta y el código decide qué se acepta: cita señales que existe
   if (!bien.ok) return;
   assert.equal(bien.recs.length, 1);
   assert.equal(bien.recs[0].origen, 'ia');
+  assert.deepEqual(bien.recs[0].claves, ['respuesta-lenta|negocio', 'leads-sin-seguimiento|negocio'], '14: guarda TODAS las claves que la sostienen');
   assert.equal(bien.recs[0].porque.length, 2, 'el porqué junta los datos de las dos señales, escritos por el código');
   const inventa = leer({ recomendaciones: [{ senales: ['S1'], hacer: 'Contesta en menos de 5 minutos', cambia: 'Tu cierre sube un 391 %' }] });
   assert.ok(inventa.ok && inventa.recs.length === 0, 'un número que no está en los datos no pasa');

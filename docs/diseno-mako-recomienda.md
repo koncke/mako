@@ -149,7 +149,7 @@ Una recomendación existe **sólo si**:
 | `no-show-alto` | De las llamadas MARCADAS de 45 días, cuántas no se presentaron. | ≥ 30 % | 8 | Ops Center, Automations, WhatsApp |
 | `motivo-perdida` | El motivo de pérdida más repetido (120 días), agrupado sin mayúsculas ni acentos. | ≥ 35 % y 3 veces | 6 | Ops Center, Offer, Landing, WhatsApp |
 | `automatizacion-falla` | Envíos fallados de una automatización activa (7 días), con el motivo más común sin teléfonos. | ≥ 15 % y 5 fallas | 10 | Ops Center, Automations |
-| `automatizacion-muda` | De los que entraron a una automatización que ESPERA respuesta (tiene un «Contestó» o un AI Step), cuántos respondieron (30 días). | ≤ 5 % | 25 | Ops Center, Automations |
+| `automatizacion-muda` | De las personas a las que una automatización que ESPERA respuesta (tiene un «Contestó» o un AI Step) ya les escribió hace más de 2 días (30 días), cuántas respondieron. Quien todavía no recibió nada no cuenta. | ≤ 5 % | 25 | Ops Center, Automations |
 | `landing-no-convierte` | Visitantes de una página (30 días) contra los leads que entraron por ella. | ≤ 1 % | 150 visitantes | Ops Center, Landing |
 | `landing-no-la-leen` | De las personas con scroll medido, cuántas llegaron a la mitad. | ≤ 25 % | 100 | Landing |
 | `objecion-sin-respuesta` | Una familia de objeción (precio, confianza, tiempo, consultarlo) en los hechos de WhatsApp del Second Brain, las llamadas analizadas (con en cuántas no se respondió) y los motivos de pérdida, que el texto de la oferta no contesta. Sin oferta, calla. | ≥ 15 % y 3 veces | 3 | Offer, Landing, Ops Center, WhatsApp |
@@ -164,7 +164,10 @@ medirlos juntos con `scripts/probar-recomendaciones.mts` (§6).
   apagan para el negocio.
 - **«Ahora no»** la calla 14 días; después vuelve **sólo si el dato la sigue sosteniendo**.
 - **«Hecha»** la calla 10 días (lo que tarda un cambio en verse). Pasado eso, si el dato sigue igual, vuelve **como seguimiento**
-  («La aceptaste el 16/10 y sigue igual»); si ya no se sostiene, va a «lo que mejoró».
+  («La aceptaste el 16/10 y sigue igual»); si ya no se sostiene, va a «lo que mejoró». **«Lo que mejoró» sólo cuenta lo que la
+  pantalla MIDIÓ hoy** (su fuente leída sin error, con muestra suficiente): que una señal no esté no es que haya mejorado.
+- **Una decisión vale para todas las señales** de la recomendación (`claves`: la IA puede juntar dos). Repetirla mientras sigue
+  vigente no escribe nada. **«Reabierta»** se ve aunque el tipo siga apagado por otras claves.
 - **El orden** pondera cada tipo por lo que el negocio hizo con él: (aceptadas + 1) / (aceptadas + descartadas + 2).
 - **Lo descartado con su motivo** viaja a la IA para que no lo repita con otras palabras.
 

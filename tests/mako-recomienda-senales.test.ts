@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sostiene } from '../lib/recomendaciones-reglas';
 import {
-  UMBRALES, errorLimpio, noPideRespuesta, senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender,
+  FUENTE_DEL_TIPO, UMBRALES, errorLimpio, noPideRespuesta, senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, tiposMedidos,
   senalesDeAutomatizaciones, senalesDeLandings, senalesDeObjeciones, type LeadSenal, type MensajeSenal,
 } from '../lib/recomendaciones-senales';
 
@@ -110,26 +110,44 @@ test('automatizaciones: falla al mandar (con el motivo sin teléfonos) y nadie c
     { id: 2, nombre: 'Recordatorio', activa: true, esperaRespuesta: false },
     { id: 3, nombre: 'Vieja', activa: false, esperaRespuesta: true },
   ];
-  const envio = (sec: number, estado: string, error: string | null = null) => ({ secuencia_id: sec, estado, error, created_at: iso(2 * D) });
+  const envio = (sec: number, estado: string, error: string | null = null, inscripcion: number | null = null, hace = 2 * D) =>
+    ({ secuencia_id: sec, inscripcion_id: inscripcion, estado, error, created_at: iso(hace) });
+  let id = 0;
+  const inscripcion = (sec: number, estado: string, haceDias: number) => ({ id: ++id, secuencia_id: sec, estado, inscripto_at: iso(haceDias * D) });
+  const insc = [
+    ...Array.from({ length: 30 }, () => inscripcion(2, 'completada', 9)),
+    ...Array.from({ length: 29 }, () => inscripcion(1, 'completada', 9)),
+    inscripcion(1, 'respondio', 9),
+    // 13: quien todavía NO recibió nada (recién inscrito, o esperando un paso con demora) y quien lo recibió ayer, no cuentan.
+    ...Array.from({ length: 20 }, () => inscripcion(1, 'activa', 0.01)),
+    ...Array.from({ length: 10 }, () => inscripcion(1, 'activa', 1)),
+  ];
+  // Lo que les salió: a las 30 de Bienvenida hace 8 días (fuera de los 7 de las fallas), a las 10 de ayer, ayer.
+  const recibieron = insc.filter((i) => i.secuencia_id === 1 && i.inscripto_at === iso(9 * D)).map((i) => envio(1, 'enviado', null, i.id, 8 * D));
+  const ayer = insc.filter((i) => i.secuencia_id === 1 && i.inscripto_at === iso(1 * D)).map((i) => envio(1, 'enviado', null, i.id, 0.9 * D));
   const envios = [
     ...Array.from({ length: 6 }, () => envio(1, 'fallo', 'El número +54 9 11 5555-1234 no tiene WhatsApp')),
     ...Array.from({ length: 14 }, () => envio(1, 'enviado')),
     ...Array.from({ length: 30 }, () => envio(3, 'fallo', 'x')),
-  ];
-  const insc = [
-    ...Array.from({ length: 30 }, () => ({ secuencia_id: 2, estado: 'completada', inscripto_at: iso(5 * D) })),
-    ...Array.from({ length: 29 }, () => ({ secuencia_id: 1, estado: 'completada', inscripto_at: iso(5 * D) })),
-    { secuencia_id: 1, estado: 'respondio', inscripto_at: iso(5 * D) },
+    ...recibieron, ...ayer,
   ];
   const ss = senalesDeAutomatizaciones(secs, envios, insc, AHORA);
   const falla = ss.find((s) => s.tipo === 'automatizacion-falla')!;
-  assert.match(falla.dato, /«Bienvenida» falló en 6 de 20 envíos/);
+  assert.match(falla.dato, /«Bienvenida» falló en 6 de 30 envíos/, 'los de los últimos 7 días: 6 fallos, 14 enviados y los 10 de ayer');
   assert.doesNotMatch(falla.dato, /5555|1234/, 'el teléfono del lead no viaja en el dato');
   assert.equal(ss.filter((s) => s.objeto === 'automatizacion:3').length, 0, 'una pausada no habla');
   const muda = ss.find((s) => s.tipo === 'automatizacion-muda')!;
   assert.equal(muda.objeto, 'automatizacion:1');
-  assert.match(muda.dato, /De 30 personas que entraron a «Bienvenida» en 30 días, respondieron 1 \(3 %\)/);
+  assert.match(muda.dato, /De 30 personas a las que «Bienvenida» ya les escribió \(hace más de 2 días, en los últimos 30\), respondieron 1 \(3 %\)/,
+    '13: el denominador son las 30 que recibieron algo hace más de 2 días, no las 60 inscritas');
   assert.equal(sostiene(muda), true);
+  // 13: si a nadie se le escribió todavía (una importación de hoy), no hay «nadie contesta».
+  const deHoy = Array.from({ length: 40 }, () => inscripcion(1, 'activa', 0.01));
+  assert.ok(!senalesDeAutomatizaciones(secs, [], deHoy, AHORA).some((s) => s.tipo === 'automatizacion-muda'), 'sin mensajes enviados no hay a quién medir');
+  // 13: un envío que FALLÓ no le llegó a nadie: esas personas tampoco son «no contestó».
+  const sinLlegar = Array.from({ length: 40 }, () => inscripcion(1, 'activa', 9));
+  const fallados = sinLlegar.map((i) => envio(1, 'fallo', 'x', i.id, 8 * D));
+  assert.ok(!senalesDeAutomatizaciones(secs, fallados, sinLlegar, AHORA).some((s) => s.tipo === 'automatizacion-muda'), 'contó como recibido un envío que falló');
   assert.ok(!ss.some((s) => s.tipo === 'automatizacion-muda' && s.objeto === 'automatizacion:2'), 'un recordatorio no espera respuesta');
   assert.equal(errorLimpio('falló 4b1f8e9c2d3a4b5c6d7e8f90 en +54 11 4444-5555'), 'falló … en …');
 });
@@ -164,6 +182,20 @@ test('objeciones: lo que dice la gente y la oferta no contesta; sin oferta no se
   assert.ok(!sinCuotas.some((s) => s.objeto === 'objecion:confianza'), 'con garantía, la confianza no sale (y además nadie la pidió)');
   assert.equal(senalesDeObjeciones(hechos, ['precio'], 'Curso de 497 USD, en 3 cuotas sin interés').find((s) => s.objeto === 'objecion:precio'), undefined, 'si la oferta lo contesta, calla');
   assert.deepEqual(senalesDeObjeciones(hechos, ['precio'], null), [], 'sin oferta no se dice «no lo contesta»');
+});
+
+test('12. qué tipos se MIDIERON: los de las fuentes leídas, sin las que fallaron (y sin lo que depende de los leads si fallaron)', () => {
+  const offer = tiposMedidos(['leads', 'objeciones'], []);
+  assert.ok(offer.has('objecion-sin-respuesta') && offer.has('motivo-perdida'));
+  assert.ok(!offer.has('respuesta-lenta'), 'Offer no lee WhatsApp: no puede decir que la respuesta mejoró');
+  const sinWa = tiposMedidos(['whatsapp', 'leads'], [{ fuente: 'whatsapp' }]);
+  assert.ok(!sinWa.has('respuesta-lenta') && sinWa.has('no-show-alto'), 'una lectura que falló no mide nada');
+  const sinLeads = tiposMedidos(['leads', 'landings', 'objeciones', 'whatsapp'], [{ fuente: 'leads' }]);
+  assert.ok(!sinLeads.has('landing-no-convierte') && !sinLeads.has('objecion-sin-respuesta'), 'sin leads no hay registros ni motivos');
+  assert.ok(sinLeads.has('respuesta-lenta'), 'WhatsApp no depende de los leads');
+  // Todo tipo de señal tiene su fuente: uno nuevo sin fuente nunca figuraría como «mejoró», y eso se ve acá.
+  for (const t of ['respuesta-lenta', 'esperando-respuesta', 'no-show-alto', 'motivo-perdida', 'automatizacion-falla', 'automatizacion-muda',
+    'landing-no-convierte', 'landing-no-la-leen', 'objecion-sin-respuesta', 'second-brain-sin-aprender']) assert.ok(FUENTE_DEL_TIPO[t], `${t} sin fuente`);
 });
 
 test('Second Brain: «Aprende solo» apagado con conversaciones de las que aprender, y sólo si el negocio tiene su IA', () => {
