@@ -38,6 +38,23 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un rojo del tren que ya estaba en main (26/10/2026)
+
+- **Síntoma:** `tests-afectados` de tren-l dio rojo en cuatro tests cuyos fuentes el tren no tocó: zernio-conectar-redes,
+  ops-sin-silencio, ops-center-estrella-desde y dashboard-focus.
+- **El diagnóstico obvio era el equivocado:** parecía que un merge había borrado el manejo de error de la ventana de Zernio
+  (`errorDeVentana` ya no existe en el código). Fue un renombre a `deLaVentana.msg` en 2a6a166d8 (24/10), para que
+  tipara. El comportamiento es el mismo; lo que quedó vieja es la regex del test.
+- **Por qué nadie lo vio en tres días:** `tests-afectados` corre sólo los tests que tocan los archivos del cambio. Un test
+  de regex sobre fuentes queda rojo en main hasta que otro tren toca un archivo vecino.
+- **Regla:** antes de culpar al tren por un rojo, mirar si el test y los fuentes que lee cambiaron en el tren
+  (`git diff --quiet <base> HEAD -- <archivo>`). Si no cambiaron, el rojo es de main: va a su dueño y no frena el tren.
+  Quien arregla tipos renombrando, busca el nombre viejo en tests/ (`git grep`) en el mismo commit.
+- **Y el fin de línea:** en `C:/dev/wt-push-q` (core.autocrlf=true) los fuentes llegan en CRLF. Un test que lee un fuente
+  sin `.replace(/
+/g, '
+')` da rojo ahí y verde en el worktree de su autor (pasó con editor-web-punta-a-punta-26-10).
+
 ## Un archivo con CRLF puede chocar ENTERO al mezclar, y el choque real es de una línea (25/10/2026)
 
 **Vive en:** `scripts/mezcla-eol.sh` (la salida) · el repo corre con `core.autocrlf=true` (`.gitattributes`).
