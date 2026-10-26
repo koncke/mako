@@ -116,6 +116,16 @@ export function conInterruptorEnVivo(arbol: NodoMB[], vivo: { campanas: FilaVivo
   }), ...nuevasCampanas, ...nuevosConjuntos];
 }
 
+/**
+ * ⚠️ Lo BORRADO se queda en el árbol de Zernio (borrar es un borrado blando: `status: cancelled`), y un anuncio borrado trae
+ * `configuredStatus: ACTIVE` (medido por el chat «Zernio y CAPI», 25/10/2026). Se marca `DELETED`: no cuenta como prendido
+ * NI como pausado (Revive no propone prender lo borrado), y sigue en el árbol para que su gasto de antes sume en su conjunto
+ * y su campaña.
+ */
+export const BORRADO = 'DELETED';
+const RE_BORRADO = /^(cancelled|deleted|archived)$/i;
+export const estaBorrado = (...estados: Array<string | null | undefined>): boolean => estados.some((x) => !!x && RE_BORRADO.test(x));
+
 export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; metricas: FilaMetrica[] } {
   const arbol: NodoMB[] = [];
   const metricas: FilaMetrica[] = [];
@@ -125,7 +135,7 @@ export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; met
     const cbo = c.budgetLevel === 'campaign';
     arbol.push({
       id: c.platformCampaignId, nombre: c.campaignName ?? c.platformCampaignId, nivel: 'campaign', parentId: null,
-      configurado: sw(c.platformCampaignStatus ?? c.status), entrega: (c.platformCampaignStatus ?? c.status ?? '').toUpperCase(),
+      configurado: estaBorrado(c.platformCampaignStatus, c.status) ? BORRADO : sw(c.platformCampaignStatus ?? c.status), entrega: (c.platformCampaignStatus ?? c.status ?? '').toUpperCase(),
       presupuestoDia: cbo && c.campaignBudget?.type === 'daily' ? Number(c.campaignBudget.amount ?? 0) || null : null,
       nivelPresupuesto: c.budgetLevel ?? null, creada: c.createdTime ?? null,
     });
@@ -133,7 +143,7 @@ export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; met
       if (!s.platformAdSetId) continue;
       arbol.push({
         id: s.platformAdSetId, nombre: s.adSetName ?? s.platformAdSetId, nivel: 'adset', parentId: c.platformCampaignId,
-        configurado: sw(s.status), entrega: (s.status ?? '').toUpperCase(),
+        configurado: estaBorrado(s.status) ? BORRADO : sw(s.status), entrega: (s.status ?? '').toUpperCase(),
         presupuestoDia: !cbo && s.adSetBudget?.type === 'daily' ? Number(s.adSetBudget.amount ?? 0) || null : null,
         nivelPresupuesto: c.budgetLevel ?? null, creada: s.createdTime ?? null,
       });
@@ -141,7 +151,7 @@ export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; met
         if (!a.platformAdId) continue;
         arbol.push({
           id: a.platformAdId, nombre: a.name ?? a.platformAdId, nivel: 'ad', parentId: s.platformAdSetId,
-          configurado: a.configuredStatus ? a.configuredStatus.toUpperCase() : sw(a.status), entrega: (a.status ?? '').toUpperCase(),
+          configurado: estaBorrado(a.status) ? BORRADO : a.configuredStatus ? a.configuredStatus.toUpperCase() : sw(a.status), entrega: (a.status ?? '').toUpperCase(),
           presupuestoDia: null, nivelPresupuesto: c.budgetLevel ?? null, creada: a.platformCreatedAt ?? null,
         });
         const diario = (a as { daily?: Array<{ date?: string; spend?: number; impressions?: number; conversions?: number }> }).daily ?? [];

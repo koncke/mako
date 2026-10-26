@@ -1901,3 +1901,34 @@ no tocó en su rama.
 
 **Probado:** los cuatro pings contra las APIs REALES con claves inventadas contestan «inválido» con el motivo. Un ping que
 diga «válido» necesita una cuenta real de cada uno: queda para cuando Martín conecte una.
+
+## Conectar por Zernio la cuenta publicitaria de OTRO portfolio: un perfil aparte, y la vuelta que se tragaba el error (25/10/2026)
+
+**Vive en:** `lib/zernio-ads.ts` (`urlConectarAnunciosZernio`, `conexionAnunciosZernio`) · `lib/zernio-redes.ts`
+(`retornoDeZernio`, `errorDeVueltaAjena`) · `app/_components/ConectarViaZernio.tsx` (la vuelta de página entera).
+
+Para probar el Media Buyer en la cuenta de un cliente (Mauricio, con permiso de Martín) hubo que conectar su cuenta a la
+Zernio de la plataforma. Costó tres clics de Martín; esto es lo que no se ve en la doc de un vistazo.
+
+- **El diagnóstico obvio era «Martín no marcó las cuentas», y era el equivocado.** Las marcó. Zernio conecta los anuncios
+  con el inicio de sesión para empresas de Meta: el permiso es de UN portfolio (el que se elige primero), y las cuentas de
+  otro portfolio no entran aunque la persona las vea. La conexión de la plataforma es del portfolio de MaKo.
+- ⚠️ **Zernio guarda UNA conexión de anuncios por perfil, y un login nuevo en el mismo perfil la RECONECTA** (si comparte
+  alguna cuenta, cambia el alcance por el nuevo; si no comparte ninguna, lo rechaza con `reconnect_mismatch`). Conectar la
+  cuenta de un cliente en el perfil de MaKo podía cambiar o tirar la de MaKo, que el CAPI usa con «Control total». El
+  camino seguro: un perfil de Zernio aparte (`POST /v1/profiles`), sólo para eso, y borrarlo al terminar.
+- ⚠️ **La vuelta se tragaba el error.** `/ads-manager` (y toda pantalla con `ConectarViaZernio`) saca de la barra lo que
+  agrega Zernio, y si la pestaña no había empezado el login (un link abierto suelto) no decía nada: Martín aceptó dos veces
+  y nadie supo que no había conectado. Ahora un `error=` igual se dice, con el texto de MaKo y no el de la URL
+  (`errorDeVueltaAjena`; un éxito ajeno sigue sin hacer nada). Para un link armado a mano, volver a una página que no toca
+  la barra (la landing) deja leer `connected=metaads` o el `error=`.
+- **El estado de pago de cada cuenta sin leer el token del cliente:** `GET /v1/ads/accounts` trae `billingStatus`
+  (`ok` o `missing`), `accountStatus` y `minimumDailyBudget`. La de MaKo dice `missing`. ⚠️ Pero `ok` no alcanza: la
+  «Cuenta 1» de Elévate decía `ok` y Meta igual frenó el anuncio por el método de pago (docs/hallazgos-ads.md).
+- **Borrar el perfil de prueba:** primero `DELETE /v1/accounts/{id}` (desconecta; Zernio da un período de gracia) y después
+  `DELETE /v1/profiles/{id}`. Verificado el 25/10: quedó sólo el Default, con la conexión de MaKo intacta.
+
+**Sin hacer:** el botón de conectar no deja elegir el perfil de Zernio (siempre el Default del negocio): conectar un
+segundo portfolio en un mismo negocio hoy se hace por script.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
