@@ -48,6 +48,31 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «MaKo Messages» salió de Automations: editaba una base que no existía (26/10/2026)
+
+**El pedido.** Martín: «En Automations de Super Admin tengo "MaKo Messages" elimina eso». El Cerebro: «deprecar no es
+romper»; antes de sacarla, medir qué hace y quién la usa.
+
+**Lo medido (producción, sólo lectura).** /mensajes editaba la BASE de los avisos al dueño (`mako.plantillas.base`, en el
+workspace de la plataforma), la que heredan todos los negocios. **Esa fila no existe**: desde que se separó la base (10/10)
+nadie la tocó, y todos reciben el catálogo de fábrica (lib/avisos-catalogo.ts). Los stores propios
+(`mako.plantillas.store`) sí existen en tres negocios (Mauricio Bustos, 16/10; Código Inmobiliario, 06/10; Cliente de
+Diseño, 29/09), y los edita la Configuración › Notificaciones de cada uno (`/api/perfil/plantillas`). Los mensajes de la
+plataforma son automatizaciones desde el 16/10.
+
+**⚠️ Lo que parece muerto y no lo es:** el store se lee AL ENVIAR. lib/avisos.ts (el texto, el flujo y si está prendido),
+lib/avisos-programados.ts y lib/flujos.ts lo usan; sacar la pantalla no toca nada de eso. Muerta sí quedó la lista
+(`PlantillasView`), que se fue; el detalle de un mensaje (`TemplateDetalleModal`) sigue, porque lo usa la bandeja de
+correo del cliente.
+
+**Cómo quedó.** /mensajes y /m/mensajes redirigen a Automations (next.config.ts, como MaKo Context y AI Models el 25/10), y
+el `?tab=plantillas` viejo de /agencia también. La API de MaKo no tenía operaciones sobre la base: nada que retirar.
+**Sin hacer:** `/api/admin/plantillas` quedó sin quien la llame; se puede retirar si no aparece nadie.
+
+**Vive en:** app/_components/nav.ts · next.config.ts · lib/movil-rutas.ts · lib/plantillas.ts · tests/mensajes-mako-retirado
+
+---
+
 ## «¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» por WhatsApp, sin IA (25/10/2026)
 
 Tanda 5 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md) (decisiones 6 y 7). Vive en `lib/doer-ayuda.ts` (puro),

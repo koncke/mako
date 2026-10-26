@@ -565,7 +565,7 @@ export const RUNNERS: Runners = {
       return json({
         inscribiria: { total: ins.length, mostrados: Math.min(ins.length, TOPE), filas: ins.slice(0, TOPE) },
         enviaria: { total: env.length, mostrados: Math.min(env.length, TOPE), filas: env.slice(0, TOPE) },
-        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, el horario de envío del negocio (si puso uno en Configuraciones) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
+        nota: 'Simulación: no aplica el tope diario configurado, la pausa de 20 h por lead, el horario de envío (si la automatización tiene uno en su tuerca) ni si el envío del canal está habilitado. Lo que sale de verdad puede ser menos.',
         avisos: [] as string[],
       });
     },

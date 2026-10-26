@@ -70,7 +70,7 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'mensajes' | 'conocimientos' | 'agente' | 'cobros'
+  | 'conocimientos' | 'agente' | 'cobros'
   // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
   | 'api-mako'
   // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
@@ -251,9 +251,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   { id: 'tickets', label: 'Report a problem', href: '/m/tickets', icon: 'soporte', navKey: 'tickets', familia: null, oculta: true },
   // «Configuración del negocio»: el índice y cada sección debajo (/m/configuraciones/<sección>, `SECCIONES_NEGOCIO_M`).
   { id: 'configuraciones', label: 'Business settings', href: '/m/configuraciones', icon: 'tuerca', navKey: 'configuraciones', familia: null, oculta: true },
-  // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. MaKo Messages es una sección de Automations
-  // (se llega por la barra de secciones de /m/automations); AI Models y MaKo Context, del menú de su foto.
-  { id: 'mensajes', label: 'MaKo Messages', href: '/m/mensajes', icon: 'mako', navKey: 'mensajes', familia: null, oculta: true, superAdmin: true },
+  // Las del SUPER ADMIN (nav.ts → HERRAMIENTAS), con el nombre de la sidebar. (MaKo Messages salió el 26/10/2026: /m/mensajes
+  // redirige a /m/automations, next.config.ts.)
   { id: 'api-mako', label: 'API', href: '/m/api-mako', icon: 'api', navKey: 'api-mako', familia: null, oculta: true },
   // Knowledge (el portal de cursos del equipo): /m/conocimientos, un curso en /<slug> y una clase en /<slug>/<n>.
   { id: 'conocimientos', label: 'Knowledge', href: '/m/conocimientos', icon: 'contexto', navKey: 'conocimientos', familia: null, oculta: true, superAdmin: true },
@@ -269,7 +268,6 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
  * `rutaMovil` y a `rutaEscritorio`, así que la ida y la vuelta no pueden divergir.
  */
 const UNA_A_UNA: Readonly<Record<string, string>> = {
-  '/mensajes': '/m/mensajes',
   '/api-mako': '/m/api-mako',
   '/admin/cobros': '/m/cobros',
   '/admin/agente': '/m/agente',

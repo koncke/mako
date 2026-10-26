@@ -105,7 +105,7 @@ OPERATE ›
    Clients · MaKo Partners          (Clients con sus sub-tabs ADENTRO de la pantalla; Partners sólo agencias)
 SALES MACHINE ›
    Offer                           (Offer [+ Strategy · Playbook, super admin])
-   Web Generator · Automations     (Automations [+ MaKo Messages, super admin])
+   Web Generator · Automations     (Automations; MaKo Messages salió el 26/10/2026)
    Video · Image · Copywriting     (Copywriting [+ Method, super admin])
    Coming soon ›                   (super admin)
 ───
@@ -160,7 +160,7 @@ el super admin. Lo que es configuración de la plataforma (no el trabajo de una 
 | Ops Center | /admin/operaciones | **Arriba de todo**, con criatura | El pedido |
 | Ticketera | /admin/operaciones?ticketera= | Adentro del Ops Center (ya vivía ahí desde el 16/10) | Era un atajo |
 | WhatsApp de MaKo | /agencia | Chats › **MaKo WhatsApp** | Es la línea de WhatsApp de MaKo y sus grupos: una conversación |
-| Mensajes de MaKo | /mensajes | Automations › **MaKo Messages** | AGENTS.md: «Un Mensaje de MaKo ES una automatización» |
+| ~~Mensajes de MaKo~~ | ~~/mensajes~~ | salió el 26/10/2026 (Martín: «elimina eso»); redirige a Automations | docs/hallazgos-comunicacion.md |
 | Strategy | /admin/estrategia | Offer › **Strategy** | Empieza por la oferta y de ella sale la grilla de precios |
 | Offer Playbook | /admin/offer-playbook | Offer › **Playbook** | Es el criterio de la tab Offer |
 | Copywriting (método de MaKo) | /admin/copywriting | Copywriting › **Method** | Es con qué escribe MaKo; key nueva `admin-copywriting` (la vieja era la de la tab Copywriting) |
