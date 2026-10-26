@@ -97,4 +97,20 @@ test('5. «Prompts» sale de Settings, y su pantalla sigue con su puerta', () =>
 });
 
 // ── ROTURAS (26/10/2026) ───────────────────────────────────────────────────────
-// (se completa con la corrida del arnés)
+// Una por vez, con un arnés que guarda el original en memoria, rompe, corre ESTE archivo y restaura comprobando el contenido.
+// Base: 5 pasan / 0 fallan. Las 14 cazadas, cada una 4 / 1, por el test que la cuida:
+//   M1. un resize vuelve a cerrar el desplegable                → 1. el desplegable
+//   M2. al tacto el buscador se enfoca solo                     → 1.
+//   M3. el sol/luna fuera de la cabecera                        → 2. Settings del teléfono
+//   M4. «Tu negocio» vuelve a ser una fila a /m/configuraciones → 2.
+//   M5. «Cerrar sesión» sin rojo                                → 2.
+//   M6. «Cerrar sesión» sin su ícono                            → 2.
+//   M7. «Tu negocio» a quien no administra                      → 2.
+//   M8. el encuadre que no se guarda, de vuelta                 → 3. Perfil
+//   M9. «Tema» de vuelta en Perfil                              → 3.
+//   M10. «Fundadora» de vuelta en Cargo                         → 3.
+//   M11. la foto sube al bucket de portadas                     → 3.
+//   M12. el emoji se guarda como texto                          → 4. la foto siempre como imagen
+//   M13. cualquier SVG se lee como emoji (sin la marca)         → 4.
+//   M14. «Prompts» de vuelta en el índice                       → 5.
+// Restaurado: 5 / 0.
