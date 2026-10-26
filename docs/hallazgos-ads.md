@@ -4944,9 +4944,16 @@ impresionante... Te pedí mucho atención al diseño» y «Y la captura que me h
   literalmente `const appEscritorio = useAppDeEscritorio()` y `bloqueo={appEscritorio.bloqueo}`; con otro nombre de variable
   da rojo aunque la caja se bloquee bien.
 
-**Sin hacer, con su archivo:** Campañas (`Lienzo.tsx`) y Biblioteca (`Biblioteca.tsx`) siguen con la densidad de la primera
-vuelta; Ajustes y Automatizaciones, con `mb.css`; las alertas de Protect son una línea arriba del árbol y su hoja; «Aplicar
-los N» lanza de a uno desde el navegador (no hay una operación «lanzar varias» en `/api/media-buyer`).
+- **Campañas y Biblioteca, con el MISMO árbol** (`Ramas` y `TarjetaRama` en `Arbol.tsx`): en Campañas las ramas son los
+  productos (con «Sin producto» como una rama más) y cada tarjeta, una campaña con su gasto, sus resultados del CRM y su costo;
+  su único botón es «Asignar» o «N cambios», y al tocarla se abre la hoja con `ProductoCelda` (la del CRM). En Biblioteca, cada
+  tarjeta es uno de los anuncios que más trajeron, con «Variaciones». Lo nuevo para revisar ya está en Hoy y lo lanzado, en
+  Actividad: no se repite.
+- ⚠️ **Cuatro columnas no entran en el ancho de la 04** (1.040 px): con tres productos y «Sin producto», el nombre de la
+  campaña se cortaba. Quedan tres columnas; la cuarta rama baja de fila con su rótulo y sin el punto de la rama.
+
+**Sin hacer, con su archivo:** Ajustes y Automatizaciones, con `mb.css`; las alertas de Protect son una línea arriba del árbol
+y su hoja; «Aplicar los N» lanza de a uno desde el navegador (no hay una operación «lanzar varias» en `/api/media-buyer`).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
 

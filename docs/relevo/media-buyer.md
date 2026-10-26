@@ -99,8 +99,9 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    **Rechazada el mismo 25/10 ~19:40** («Una cantidad de botones y texto impresionante... la captura que me habias pasado de
    Adamigo no se parece en nada»): había elegido la captura 04 y se copió otra pantalla. **Rehecha como la 04** (Hoy = la
    caja del chat + el árbol de cambios por producto + una línea al pie; cuenta nueva = la captura 2). Las comparaciones lado a
-   lado, en las notas del Cerebro (`media-buyer-adamigo/`). El Cerebro las revisa antes de mostrárselas a Martín. Sigue la
-   lista: Campañas, Biblioteca, Protect y la API, con la misma densidad.
+   lado, en las notas del Cerebro (`media-buyer-adamigo/`). El Cerebro las vio («ahora sí se parece a la 04 y a la 2») y se
+   las mostró a Martín: **espera su visto antes de subirlo**. Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
+   9). Sigue: Protect, Ajustes y Automatizaciones con esta densidad.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
