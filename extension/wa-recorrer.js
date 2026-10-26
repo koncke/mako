@@ -153,7 +153,38 @@
     };
     const opcionesDeMenu = () => Array.from(d.querySelectorAll('[role="application"] [role="button"], [role="menu"] [role="menuitem"], [role="menu"] li, ul[role="listbox"] li, div[data-animate-dropdown-item] , li[role="button"]'))
       .filter((x) => (x.textContent || '').trim()).slice(0, 12);
-    const panelDeContacto = () => Array.from(d.querySelectorAll('[role="complementary"], section')).find((e) => INFO_CONTACTO.test(e.getAttribute('aria-label') || '') || INFO_CONTACTO.test((e.textContent || '').slice(0, 300))) || null;
+    // ⚠️ MEDIDO en vivo (26/10, 0.73.2): el panel del contacto SE ABRE («Info. del contacto», a la derecha) pero no es un
+    // `[role="complementary"]` ni una `section`: 11 de 12 dieron «sin_panel». Se lo encuentra por su TÍTULO (una hoja con
+    // ese texto) y se sube hasta el contenedor alto que lo encierra (el panel ocupa casi todo el alto de la ventana).
+    // ⚠️⚠️ Y LA PRIMERA VERSIÓN DE ESTO LEYÓ TODA LA PANTALLA (0.73.3, medido en vivo, sin guardar nada): tomó como título la
+    // OPCIÓN «Info. del contacto» del menú, que seguía abierto, y subió hasta el contenedor de toda la app: los 12 «perfiles»
+    // salieron con la web y el correo de OTROS chats. Tres seguros: el título no está dentro de un menú, un diálogo ni una
+    // lista; el panel no contiene la lista de chats (#side) ni la conversación (#main); y muestra el TELÉFONO pedido
+    // (`panelDeContacto(dig)`). Si no, no se lee nada.
+    const TITULO_CONTACTO = /^(info\.?\s*(del contacto|de (la )?empresa|comercial)|contact info|business info|dados (do contato|comerciais))$/i;
+    const EN_MENU = '[role="application"], [role="menu"], [role="dialog"], [role="listbox"], li';
+    const panelDeContacto = (dig) => {
+      const lado = d.querySelector('#side');
+      const main = d.querySelector('#main');
+      const ajeno = (el) => (lado && el.contains(lado)) || (main && el.contains(main));
+      const muestra = (el) => !dig || String(el.textContent || '').replace(/\D/g, '').includes(String(dig).replace(/\D/g, '').slice(-8));
+      const porRol = Array.from(d.querySelectorAll('[role="complementary"], section'))
+        .find((e) => !ajeno(e) && (INFO_CONTACTO.test(e.getAttribute('aria-label') || '') || INFO_CONTACTO.test((e.textContent || '').slice(0, 300))));
+      if (porRol) return muestra(porRol) ? porRol : null;
+      const titulo = Array.from(d.querySelectorAll('header span, header div, h1, h2, span, div'))
+        .find((e) => e.childElementCount === 0 && TITULO_CONTACTO.test((e.textContent || '').trim()) && !e.closest(EN_MENU));
+      if (!titulo) return null;
+      const alto = (typeof innerHeight === 'number' ? innerHeight : 800) * 0.6;
+      let el = titulo;
+      for (let i = 0; i < 15 && el.parentElement && el.parentElement !== d.body; i++) {
+        const padre = el.parentElement;
+        if (ajeno(padre)) break;
+        el = padre;
+        const r = el.getBoundingClientRect ? el.getBoundingClientRect() : { height: 0 };
+        if (r.height >= alto) return muestra(el) ? el : null;
+      }
+      return null;
+    };
     const clic = (el) => {
       const o = { bubbles: true, cancelable: true, view: window, button: 0 };
       for (const t of ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click']) {
@@ -285,17 +316,14 @@
         if (!fila) return { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' };
         this.abrir(fila);
         await dormir(500);
-        // Un menú («Mensaje a…», «Ver…»), o directamente el panel del contacto.
-        let panel = panelDeContacto();
-        let menu = null;
-        if (!panel) {
-          const opciones = opcionesDeMenu();
-          menu = opciones.map(enmascarar).slice(0, 8);
-          const ver = opciones.find((x) => VER_PERFIL.test((x.textContent || '').trim()));
-          if (!ver) return { ok: false, motivo: opciones.length ? 'sin_ver' : 'sin_menu', busqueda, menu };
-          clic(ver);
-          panel = await esperar(panelDeContacto, espera);
-        }
+        // Un menú («Info. del contacto», «Enviar mensaje a…»): medido el 26/10, tocar la fila lo abre siempre. Se toca la opción
+        // y se espera el panel de ESTE teléfono (un panel abierto de antes, de otro, no cuenta).
+        const opciones = opcionesDeMenu();
+        const menu = opciones.map(enmascarar).slice(0, 8);
+        const ver = opciones.find((x) => VER_PERFIL.test((x.textContent || '').trim()));
+        if (!ver) return { ok: false, motivo: opciones.length ? 'sin_ver' : 'sin_menu', busqueda, menu };
+        clic(ver);
+        const panel = await esperar(() => panelDeContacto(dig), espera);
         if (!panel) return { ok: false, motivo: 'sin_panel', busqueda, menu };
         return { ok: true, info: panel, busqueda, menu };
       },
@@ -305,7 +333,7 @@
         return { textos, links };
       },
       async volverDelPerfil() {
-        const panel = panelDeContacto();
+        const panel = panelDeContacto(null);
         const b = panel && (botonPorNombre(panel, /^(atr[aá]s|back|voltar)$/i) || botonPorNombre(panel, CERRAR));
         if (b) clic(b);
         else d.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', keyCode: 27, bubbles: true }));
