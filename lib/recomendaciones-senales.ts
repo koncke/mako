@@ -251,7 +251,8 @@ export function senalesDeAutomatizaciones(secs: readonly SecuenciaSenal[], envio
   for (const s of secs) {
     if (!s.activa) continue;
     const nombre = nombreCorto(s.nombre || `Automatización ${s.id}`);
-    const href = `/automations?id=${s.id}`;
+    // `?sec=`: el parámetro con que /automations abre una automatización (el de todos los links del repo).
+    const href = `/automations?sec=${s.id}`;
     const mios = envios.filter((e) => e.secuencia_id === s.id && Date.parse(e.created_at) >= desdeF && (e.estado === 'enviado' || e.estado === 'fallo'));
     const fallos = mios.filter((e) => e.estado === 'fallo');
     if (mios.length && fallos.length >= F.fallosMinimo) {
@@ -308,7 +309,8 @@ export function senalesDeLandings(paginas: readonly PaginaSenal[]): Senal[] {
   const C = UMBRALES.landingConversion, S = UMBRALES.landingScroll;
   for (const p of paginas) {
     const nombre = nombreDePagina(p.url);
-    const href = `/landing-generator?url=${encodeURIComponent(p.url)}`;
+    // El diagnóstico de esa página en el Web Generator (`?url=`: una página de afuera o nuestra; app/web-generator/analizar).
+    const href = `/web-generator/analizar?url=${encodeURIComponent(p.url)}`;
     if (p.registros != null && p.visitantes > 0) {
       out.push({
         tipo: 'landing-no-convierte', objeto: `landing:${p.url}`, superficies: ['ops-center', 'landing'],
@@ -317,7 +319,7 @@ export function senalesDeLandings(paginas: readonly PaginaSenal[]): Senal[] {
         fuente: 'las visitas que mide tu Pixel de MaKo y los leads de tu CRM', impacto: 0.7,
         hacer: `Pon el formulario o el botón principal de «${nombre}» arriba de todo, con una sola promesa clara`,
         cambia: 'Hoy pagas el tráfico de esa página y casi nadie se convierte en lead',
-        accion: { tipo: 'link', etiqueta: 'Abrir la página', href },
+        accion: { tipo: 'link', etiqueta: 'Analizar la página', href },
       });
     }
     if (p.scroll && p.scroll.base > 0) {
@@ -328,7 +330,7 @@ export function senalesDeLandings(paginas: readonly PaginaSenal[]): Senal[] {
         fuente: 'el scroll que mide tu Pixel de MaKo', impacto: 0.5,
         hacer: `Sube la oferta y el botón de «${nombre}» a la primera pantalla: lo que está abajo casi nadie lo ve`,
         cambia: 'Más gente ve la oferta antes de irse',
-        accion: { tipo: 'link', etiqueta: 'Abrir la página', href },
+        accion: { tipo: 'link', etiqueta: 'Analizar la página', href },
       });
     }
   }

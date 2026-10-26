@@ -82,6 +82,10 @@ va en el test, no en el código).
   `PanelAgente.tsx`, que ahora importaba `RecomendacionesDeMako.tsx`. El componente no importa hojas: las carga cada pantalla
   que lo monta (las cuatro ya cargaban centro.css). Lo vio la lista de `scripts/tests-afectados.mjs --explicar` filtrada por
   los archivos de la pantalla, no los tests del área.
+- **Dos de los links de «Hacerlo» llevaban a donde no era, y nada fallaba**: `/automations?id=` (la pantalla abre una
+  automatización con `?sec=`, como todos los links del repo) y `/landing-generator?url=` (la ruta vieja, que sólo redirige; el
+  diagnóstico de una página es `/web-generator/analizar?url=`). Los encontró una relectura propia, no un test: ahora el test 5 de
+  tests/mako-recomienda-superficies.test.ts saca cada `href` de las señales y exige su `app/<ruta>/page.tsx`.
 - **Hay tests que fijan la estructura EXACTA de una caja** (`tests/onboarding-caja-centro.test.ts`: el envoltorio de la caja de
   Offer tiene adentro sólo la caja única). El bloque va justo ARRIBA del envoltorio, no adentro; el test no se toca.
 

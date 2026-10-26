@@ -13,7 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { porId } from '../lib/api-mako/registro';
 import { CATALOGO_MODELOS } from '../lib/model-catalogo';
@@ -74,6 +74,19 @@ test('3. el motor no manda nada hacia afuera, y redacta sólo con la IA del nego
   assert.equal(cat!.def.provider, 'gemini', 'un default que cobra es un cobro silencioso');
 });
 
+test('5. cada link de una señal lleva a una pantalla que existe, con el parámetro que esa pantalla lee', () => {
+  const src = fuente('lib/recomendaciones-senales.ts');
+  const hrefs = [...src.matchAll(/href(?::|\s*=)\s*['`](\/[^'`?$]*)/g)].map((m) => m[1].replace(/\/$/, ''));
+  assert.ok(hrefs.length >= 5, `encontré ${hrefs.length} links`);
+  for (const h of hrefs) {
+    const pagina = join(RAIZ, 'app', h, 'page.tsx');
+    assert.ok(existsSync(pagina), `${h} no es una pantalla (falta app${h}/page.tsx)`);
+  }
+  // Una automatización se abre con `?sec=` (lo que lee /automations), nunca con `?id=`.
+  assert.match(src, /`\/automations\?sec=\$\{s\.id\}`/);
+  assert.doesNotMatch(src, /\/landing-generator/, 'la ruta vieja sólo redirige');
+});
+
 test('4. la API: leer y decidir, del admin, y decidir se confirma', () => {
   const leer = porId('que_recomienda_mako');
   const decidir = porId('decidir_recomendacion');
@@ -93,5 +106,6 @@ test('4. la API: leer y decidir, del admin, y decidir se confirma', () => {
 //   4. `rolMinimo` fuera de que_recomienda_mako                          → rojo «4. la API…».
 //   5. `puedeRedactar` sin `claveDeIAPropia` (siempre true)               → rojo «3. el motor…».
 //   6. un `db.from('leads').update({})` en lib/recomendaciones.ts           → rojo «3. el motor…».
+//   7. `/automations?id=`, `/landing-generator?url=` y `/bandeja`          → rojo «5. cada link…» (las tres).
 // La primera versión del chequeo de escrituras daba rojo SIN romper nada: confundía el `.delete()` del caché (un Map) con un
 // borrado en la base. Ahora mira sólo `.from(…)…insert|update|delete|upsert(`.
