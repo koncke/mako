@@ -50,7 +50,7 @@ export const SECCIONES_CREACION: readonly DefSeccionMas[] = [
   // Copywriting (tab unificada; su Ads Writer es la fila «Copywriting»): Stories.
   { id: 'stories', label: 'Stories', href: '/m/stories', icon: 'stories', navKey: 'stories', familia: null, oculta: true },
   // Copy Method (Copywriting › Method): una herramienta del SUPER ADMIN (nav.ts → HERRAMIENTAS.copywriting). `superAdmin`,
-  // como las de Mobile 2 (/m/mensajes): su page se cuida con `getSesionAdmin()`, no con `requireMovil({ navKey })`.
+  // como las de Mobile 2 (/m/cobros): su page se cuida con `getSesionAdmin()`, no con `requireMovil({ navKey })`.
   { id: 'admin-copywriting', label: 'Copy Method', href: '/m/admin/copywriting', icon: 'escribir', navKey: 'admin-copywriting', familia: null, oculta: true, superAdmin: true },
 ];
 

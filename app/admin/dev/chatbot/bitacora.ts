@@ -2883,4 +2883,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "26 oct", hora: "01:55", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "implementacion",
+    titulo: "«MaKo Messages» salió de Automations del super admin",
+    puntos: [
+      "Ya no aparece arriba de Automations, ni en la computadora ni en el teléfono.",
+      "Los links viejos llevan a Automations.",
+      "Los avisos que MaKo le manda a cada negocio siguen saliendo igual: no se tocó cómo se mandan.",
+      "Cada negocio cambia los suyos en Configuración › Notificaciones, como siempre.",
+    ],
+    archivos: [
+      "app/_components/nav.ts — la barra sin la sección",
+      "next.config.ts — /mensajes y /m/mensajes van a Automations",
+      "tests/mensajes-mako-retirado.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

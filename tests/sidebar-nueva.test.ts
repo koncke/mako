@@ -287,7 +287,8 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
   // de Ads Writer, que vivían en la página de Dev) es desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
   // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
-  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/mensajes', '/admin/estrategia',
+  // /mensajes (MaKo Messages) salió el 26/10/2026 (Martín: «elimina eso»): redirige a Automations (tests/mensajes-mako-retirado).
+  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/admin/estrategia',
     '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
