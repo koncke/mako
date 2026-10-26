@@ -161,11 +161,28 @@ export function tituloDe(texto: string): string {
 // (3) no pide nada que la app no tenga. Lo demás va a Martín con el porqué escrito, para que lo corrija en un clic.
 
 export type Confianza = 'alta' | 'media' | 'baja';
+
+// ── Los negocios cuyos tickets aprobó Martín de antemano (26/10/2026) ─────────────────────────────────────────────────
+// Martín, desde el Centro (13:19): «los tickets que vengan de Leandro pasen 100% sin mi aprobación, es decir, todo lo que
+// Leandro suba a la tiquetera lo ejecutes directamente sin preguntarme y que lo soluciones o lo implementes... y tú después
+// le tienes que ir avisando... por el grupo de WhatsApp de MaKo los tickets que ya van siendo resueltos». Leandro es el
+// ws 10 (Fiesta Music). Su ticket va al arreglo automático sea un bug, un pedido o una pregunta, y lleva la marca de la regla
+// para que Martín lo vea igual. SIGUE ESPERANDO A MARTÍN lo que toca una zona delicada (cobros, accesos, borrados, envíos) o
+// pide una migración o una escritura en producción, y todo si Martín apagó el arreglo automático. Lo que choca con una
+// decisión de Martín no se ve en el texto: el chat que lo trabaja lo frena y le pregunta (scripts/tickets.ts ver lo dice).
+export const APROBADOS_POR_REGLA: Readonly<Record<number, string>> = { 10: 'Leandro' };
+/** El nombre de la regla del negocio (null = sus tickets los decide Martín, como siempre). */
+export const aprobadoPorRegla = (ws: number | null | undefined): string | null => (ws != null && APROBADOS_POR_REGLA[ws]) || null;
+/** Lo que, aun aprobado por regla, escribe en producción: eso lo decide Martín. */
+const ESCRIBE_EN_PRODUCCION = [/\b(migraci\w*|base de datos|tabla(s)?|corr\w+ (los|mis) datos|arregl\w+ (los|mis) datos|carg\w+ (los|mis) (datos|contactos|leads)|import\w+ (los|mis)|cambi\w+ (mi|el) plan)\b/];
+
 export type Triage = {
   v: 1;
   tipo: TipoTicket;
   /** ¿Va al arreglo automático sin esperar a Martín? */
   autoArreglo: boolean;
+  /** La regla de Martín que lo aprobó de antemano («Leandro»): se ve en la bandeja y en lo que lee el Cerebro. */
+  regla?: string;
   confianza: Confianza;
   prioridad: Prioridad;
   /** El porqué, en frases que Martín lee en la bandeja. Siempre al menos una. */
@@ -224,7 +241,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
  * Clasifica un ticket. Puro y determinista: el mismo ticket da siempre el mismo veredicto, y cada veredicto dice por
  * qué. `apagado` = Martín apagó el arreglo automático; `arreglosHoy` = cuántos salieron hoy (el tope del día).
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; aprobadoPorRegla?: string | null } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   const error = e.contexto.error?.trim();
@@ -283,9 +300,21 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
     autoArreglo = false;
     porque.push(`Ya salieron ${TOPE_ARREGLOS_POR_DIA} arreglos automáticos hoy: espera a Martín.`);
   }
+  // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
+  const regla = opts.aprobadoPorRegla?.trim() || null;
+  if (regla && !autoArreglo) {
+    const delicado = zonaSensible(e) ?? (hay(ESCRIBE_EN_PRODUCCION, texto) ? 'pide una migración o una escritura en producción' : null);
+    if (opts.apagado) porque.push(`Aprobado por regla (${regla}), pero el arreglo automático está apagado: espera a Martín.`);
+    else if (delicado) porque.push(`Aprobado por regla (${regla}), pero ${delicado}: eso lo decide Martín.`);
+    else {
+      autoArreglo = true;
+      porque.push(`Aprobado por regla: ${regla}. Martín pidió que sus tickets se ejecuten sin esperarlo (26/10/2026).`);
+      return { v: 1, tipo, autoArreglo, confianza, prioridad, porque, regla };
+    }
+  }
   if (autoArreglo) porque.push('Bug evidente: va directo al arreglo, sin esperar a Martín.');
   if (tipo === 'pedido') porque.push('Es algo nuevo: lo decide Martín.');
-  return { v: 1, tipo, autoArreglo, confianza, prioridad, porque };
+  return { v: 1, tipo, autoArreglo, confianza, prioridad, porque, ...(regla && autoArreglo ? { regla } : {}) };
 }
 
 /** El estado con que nace un ticket después del triage. */
@@ -301,7 +330,8 @@ export function leerTriage(x: unknown): Triage | null {
   if (!['alta', 'media', 'baja'].includes(o.confianza as string)) return null;
   if (!(PRIORIDADES as readonly unknown[]).includes(o.prioridad)) return null;
   const porque = Array.isArray(o.porque) ? o.porque.filter((p): p is string => typeof p === 'string') : [];
-  return { v: 1, tipo: o.tipo, autoArreglo: o.autoArreglo, confianza: o.confianza as Confianza, prioridad: o.prioridad as Prioridad, porque };
+  const regla = typeof o.regla === 'string' && o.regla.trim() ? o.regla.trim().slice(0, 40) : null;
+  return { v: 1, tipo: o.tipo, autoArreglo: o.autoArreglo, confianza: o.confianza as Confianza, prioridad: o.prioridad as Prioridad, porque, ...(regla ? { regla } : {}) };
 }
 
 // ── Las transiciones ──────────────────────────────────────────────────────────────────────────────────────────────
