@@ -1,6 +1,8 @@
 # Verificación de la app de Google de MaKo
 
-> **APROBADA (26/10/2026, Martín: «Ya aprobaron la app de google!»).** Lo que queda: prender la agenda al entrar con Google
+> **APROBADA (26/10/2026, Martín: «Ya aprobaron la app de google!»). Confirmado en la consola ese día, sólo leyendo
+> (Verification Center del proyecto mako-500317): «Your branding has been verified» y «Your app's data access has been
+> verified»; en Data Access, los dos scopes sensibles son `calendar.readonly` y `calendar.events`.** Lo que queda: prender la agenda al entrar con Google
 > poniendo `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (producción), cuando la rama de la política esté en main. La política de
 > privacidad ya lee ese mismo interruptor (app/privacidad/page.tsx): con él prendido dice «una sola vez, al entrar», y
 > apagado, los dos momentos de antes. Lo de abajo es la historia de la verificación.
