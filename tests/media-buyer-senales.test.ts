@@ -125,6 +125,10 @@ test('lanzar y deshacer releen EN VIVO el interruptor de un anuncio antes de dec
   const lecturas = ej.match(/const actual = estadoVivo\(nodo\);/g) ?? [];
   assert.equal(lecturas.length, 2, 'lanzar y deshacer leen el estado actual una vez cada uno');
   assert.equal((ej.match(/await conAnuncioEnVivo\(ws, datos, nodo\);\s*const actual = estadoVivo\(nodo\);/g) ?? []).length, 2, 'las dos, con el anuncio releído antes');
+  // Y lo borrado no se escribe: Zernio contesta 200 al pausar un anuncio BORRADO (medido por el chat «Zernio y CAPI», 26/10/2026)
+  // y la decisión quedaba «aplicada» sobre algo que ya no existe.
+  const frenos = ej.match(/const actual = estadoVivo\(nodo\);\s*(?:\/\/[^\n]*\n\s*)*if \(nodo\.configurado === BORRADO\)/g) ?? [];
+  assert.equal(frenos.length, 2, 'lanzar y deshacer se frenan ante lo borrado, antes de escribir');
   const z = readFileSync(join(raiz, 'lib', 'zernio-ads.ts'), 'utf8');
   assert.match(z, /\/ads\/\$\{encodeURIComponent\(adId\)\}\?live=true/, 'la lectura del anuncio pide live=true');
 });

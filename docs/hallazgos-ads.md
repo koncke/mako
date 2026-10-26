@@ -4861,6 +4861,15 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   podían tomar). Marcarlo «pausado» tampoco sirve: Revive propondría prenderlo. Ahora `arbolDesdeZernio` lo deja como
   `DELETED` (ni prendido ni pausado, y sigue en el árbol para que su gasto de antes sume), y la lectura en vivo del anuncio
   mira `status` y la entrega antes que el interruptor. Con test, roto a propósito.
+- ⚠️ **Zernio contesta 200 al pausar un anuncio BORRADO** (medido por el chat «Zernio y CAPI», 26/10/2026), sin error. Marcarlo
+  `DELETED` no alcanzaba: `lanzar` y `deshacer` seguían hasta escribir y la decisión quedaba «aplicada» sobre algo que ya no
+  existe (una acción propuesta cuando estaba prendido y borrada a mano antes de lanzarla). **El diagnóstico obvio («ya lo
+  marcamos borrado, no se toca») era el equivocado**: la marca sólo se leía para el interruptor. Ahora los dos se frenan ante
+  `DELETED` antes de escribir (`lanzar` la cierra como vencida, «Se borró en Meta»); lo fija `tests/media-buyer-senales.test.ts`.
+- **Con la MISMA `Idempotency-Key`, Zernio devuelve lo creado la primera vez aunque ya esté borrado** (el mismo chat, 26/10).
+  Al Media Buyer no le pega: sus claves son `mb:<decisión>:<variación>` y `mb-subir:<ws>:<path>`, y una decisión deshecha no
+  se relanza (reabrir toma sólo descartadas o vencidas) y cada subida tiene un path nuevo. Quien arme una clave con el NOMBRE
+  del anuncio (`crearAnuncioEnConjunto`, `mako:<conjunto>:<nombre>`) recrea uno borrado: el chat de Zernio le puso una ventana.
 
 **Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
