@@ -58,6 +58,7 @@ test('1. las reglas: un «~nombre» con su teléfono al lado es un nombre; lo vi
   assert.equal(reglas.esTelefonoDibujado('+52 1 55 5555 0001'), true);
   assert.equal(reglas.esTelefonoDibujado('Hola 123'), false);
   assert.equal(reglas.nombresDeFilas(null).size, 0);
+  assert.equal(reglas.nombresDeFilas([{ titulo: '~ Support JanAdmin. del grupo', secundario: '+1 727 239 0298' }]).get('7272390298'), 'Support Jan', 'el rótulo de admin quedó en el nombre');
 
   // La base gana: a quien ya tiene un nombre no se le pisa; al que no tenía ficha, se le hace una.
   const fichas = [
@@ -227,6 +228,13 @@ test('3. el worker «a la vista»: SU pestaña de WhatsApp al frente, el despleg
   const fila = (w.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
   assert.deepEqual([fila.vistos, fila.miembros, fila.conNombre], [120, 247, 53]);
   assert.ok(w.reg.aTabs.some(([id, m]) => id === 5 && m.tipo === 'WA_FICHAS_AVANCE' && m.paso === 'recorriendo'), 'la pestaña de MaKo no se enteró: su espera de 30 s se corta');
+  // Un aviso con un id que no está no inventa una fila (de antes de recargarse la extensión).
+  w.mandar({ tipo: 'WA_EXTRACCION', id: 'otro', estado: 'listo', nombres: 3 });
+  w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 'otro', paso: 'recorriendo', vistos: 1 });
+  await dormir(20);
+  assert.equal((w.reg.storage.extracciones as unknown[]).length, 1, 'un aviso suelto creó una extracción');
+  // El desplegable, anotado (si no se abre, el porqué queda ahí).
+  assert.equal((w.reg.storage.extracciones as Array<Record<string, unknown>>)[0].desplegable, 'abierto');
   // El final que cuenta MaKo: al registro, y de vuelta a MaKo si la persona sigue en WhatsApp.
   w.mandar({ tipo: 'WA_EXTRACCION', id: 'w1', estado: 'listo', nombres: 77, nuevos: 105, texto: '105 leads nuevos en «Lead entrante».' });
   await dormir(30);
@@ -260,10 +268,11 @@ test('3c. el manifest y las versiones: el recorrido en WhatsApp Web, aislado; y 
   const man = JSON.parse(leer('extension/manifest.json')) as { version: string; content_scripts: Array<{ matches: string[]; js: string[]; world?: string }> };
   const wa = man.content_scripts.filter((c) => c.matches.some((m) => m.includes('web.whatsapp.com')));
   assert.deepEqual(wa.map((c) => [c.js, c.world ?? 'ISOLATED']), [[['wa-fichas-reglas.js', 'wa-fichas.js', 'wa-recorrer.js'], 'ISOLATED']]);
-  assert.equal(man.version, '0.72.0');
   const { VERSION_FICHAS } = await import('../lib/wa-fichas-cliente');
-  assert.equal(VERSION_FICHAS, man.version, 'con una extensión 0.71 la pantalla pediría «a la vista» y no pasaría nada');
-  assert.match(leer('extension/injected.js'), /VERSION_ESPEJO = '0\.72\.0'/);
+  const { esMasVieja } = await import('../lib/version-comparar');
+  assert.equal(VERSION_FICHAS, '0.72.0', 'con una extensión 0.71 la pantalla pediría «a la vista» y no pasaría nada');
+  assert.ok(!esMasVieja(man.version, VERSION_FICHAS), 'la pantalla pide una versión más nueva que el paquete');
+  assert.ok(leer('extension/injected.js').includes(`VERSION_ESPEJO = '${man.version}'`), 'el espejo de Flow no dice la versión del paquete');
   // El puente pasa `visible` y el título, y trae y lleva el avance de MaKo y el «Parar».
   const puente = sinComentarios(leer('extension/mako-puente.js'));
   assert.match(puente, /window\.addEventListener\('MAKO_WA_EXTRACCION', \(ev\) => \{\n\s+if \(!ev \|\| ev\.target !== window \|\| huerfano\(\)\) return;/);

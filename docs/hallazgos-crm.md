@@ -20,6 +20,33 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## «Extraer» de un grupo: dónde entran, con qué etiqueta, y por qué la etiqueta llega a 100 (26/10/2026)
+
+**Vive en:** app/crm/TraerDeGrupoWA.tsx (`extraer`, `traerTandas`) · `etiquetaDeOrigen`/`traerDelGrupo`
+(app/crm/grupo-wa-server.ts) · `etiquetaDeGrupo` (lib/grupo-wa-reglas.ts) · `TOPE_NOMBRE_ETIQUETA` (lib/etiquetas-reglas.ts) +
+mig 0339 · tests/wa-extraer-072.test.ts (5), grupo-wa, enriquecer-lote.
+
+- **Entran al CRM que se mira, a la ENTRADA que no manda nada** (`entrada` de `etapasParaTraer`: la primera etapa si no manda,
+  si no la primera que no manda). Martín: «siempre en el CRM en el que estoy parado y en la primera etapa de lead entrante».
+  `funnelPorDefecto`/`etapaPorDefecto` («Prospección › Tibio») siguen sólo para la API de MaKo. Que «no les manda nada» sigue
+  siendo así (`quedaDondeLoPusieron`): lo que se sacó es el texto, no la regla.
+- **La etiqueta ES el nombre del grupo, sin campo.** La que ya existe con ese nombre se reusa; una ARCHIVADA no cuenta (el índice
+  único de la 0224 es entre las vivas: se crea otra igual; antes frenaba con «está archivada»). Una que tiene una
+  automatización no se pone (el barrido de la hora inscribiría al grupo entero), y como ya no hay campo para elegir otra, se
+  trae SIN etiqueta y se dice (`sinEtiqueta`); frenar era un callejón. La API, que sí elige, sigue frenando.
+- **El tope de 40 cortaba el nombre:** el grupo de los 221 se llama «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador» (47) y
+  un asunto de WhatsApp llega a 100. Mig 0339: el check pasa a 1..100 (PRIMERO la migración, después el código: con el código
+  nuevo y el check viejo, una de 41+ no se crea y la pantalla lo dice). Las etiquetas de WhatsApp sólo se LEEN de la línea:
+  MaKo no crea ninguna allá con este nombre.
+- **«Extraer» arranca la extensión ANTES de crear los leads**, en paralelo: el recorrido a la vista tarda ~45 s y crear 105
+  también lleva su rato. Los nombres se piden para todos los que van a estar en el CRM al terminar (los nuevos y los que ya
+  estaban) y se guardan cuando las dos cosas terminaron (el guardado necesita que el lead exista).
+- **El cartel negro se fue por un campo, no por un if en cada lado:** `ResultadoLote.enLaExtension` dice que el resultado ya
+  se mostró en el desplegable, y el tablero no pone su aviso. Si falla ANTES de la extensión (sin teléfonos, sin la
+  extensión), el desplegable no tiene nada y el aviso de siempre queda.
+- **«Ignorar admins»:** `admin` viene en la lista de Evolution (`'admin' | 'superadmin'`) y `participantesDe` lo tiraba; ahora
+  lo marca. El botón destilda a los admins y se recuerda en el navegador.
+
 ## Los grupos de WhatsApp «tardan muchísimo»: el tope de 15 s cortaba una lista que tarda 33 (25/10/2026)
 
 **Vive en:** app/crm/grupo-wa-server.ts (`gruposDeLinea` en dos tiempos, `participantesDelGrupo` con memoria, `traerDelGrupo`

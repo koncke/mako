@@ -3582,4 +3582,40 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '10:20', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El scraper de WhatsApp: a la vista, en la extensión, y «Extraer» que haga todo',
+    pedido: '«No funciona nada lo del Scraper aún... Soluciona eso... Quiero que el scraper, con la extensión me redirija a la tab de whatsapp y se vea que está interactuando o buscando, que se vea que entra al grupo y ve los contactos. Y que se despliegue la extensión y que allí se vea la animación de la extracción. Actualicé la extensión y si extrajo más data, pero no me gusta que salga el cartel negro abajo y el "extrayendo" arriba en la topbar de selección multiple, quiero que todo eso salga en la extensión, en el desplegable. Y que la extensión debe tener navegación, que se guarde el registro de las extracciones si me voy para "atras" en la extraccción, y que si me voy para atras nuevamente pueda seleccionar Screpaer o Flow, ya que la extensión hace las 2 cosas... Revisa que por defecto esta configurada la extensión para flow, porque al "conectar" me abre flow, pero ahora que hace varias cosas se debe poder seleccionar. Quiero que al extraer de WhatsApp en el CRM, automáticamente ejecute esto. Que no me diga "Completar nombres". No quiero las opciones "Entran a", siempre en el CRM en el que estoy parado y en la primera etapa de lead entrante. Y tampoco quiero cambiar el nombre del grupo, que se llame exactamente igual. Falta un botón, sutil de "Ignorar Admins". Elimina los textos innecesarios, como "Sin las etapas que mandan algo" o "3 ya están / 17 sin número / No les manda nada". Y al agregarse al CRM siempre con una etiqueta con el nombre del grupo donde vinieron. Con las etiquetas que ya existen. El botón azul debe ser "Extraer" no "Traer". Y al darle a "Extraer" automáticamente que comience la extensión, que se vea toda la animación, etc...»',
+    puntos: [
+      'Con tres capturas: «0 nombres» antes de recargar, «77 de 221» después, y el modal «Traer de un grupo de WhatsApp». Lo pasó el Cerebro.',
+    ],
+  },
+  {
+    fecha: '26 oct', hora: '11:25', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Extraer»: entra al grupo a la vista, el desplegable muestra la animación, y los nombres se guardan solos',
+    puntos: [
+      'El botón azul dice «Extraer». Al tocarlo, la extensión te lleva a tu pestaña de WhatsApp (la que ya está: nunca abre otra), busca el grupo, entra, abre los miembros y baja la lista, con un cartel de MaKo arriba que dice qué hace.',
+      'El desplegable de la extensión se abre solo con la animación: un punto por miembro que se enciende al leerlo (azul si trae nombre), las fases con su tilde y un «Parar». Al terminar, vuelve sola a MaKo.',
+      'Y no es sólo para que se vea: en tu grupo de los 221, la lista de miembros mostró 40 nombres con su teléfono que tu WhatsApp Web no tenía guardados. Esos se suman a los 77 de empresa.',
+      'La extensión tiene navegación: Inicio (Scraper de WhatsApp o Google Flow) → tus extracciones → cada una. Flow ya no es lo primero que aparece.',
+      'En el modal: sin «Entran a» (van al CRM que estás mirando, a su primera etapa), sin «Completar nombres» (va solo), sin los textos de sobra, con «Ignorar admins», y cada uno entra con la etiqueta que se llama como el grupo (la que ya existe, o una nueva). El nombre entra entero.',
+      'La barra de selección múltiple ya no dice «extrayendo» ni sale el cartel negro: todo va al desplegable.',
+      '⚠️ Abrir el grupo marca como leídos los mensajes del grupo (no los de cada persona). La política de privacidad de la extensión lo dice.',
+      'Probado en tu Chrome con la extensión 0.72.2 (ya está en tu carpeta y se puso sola): entró al grupo, recorrió los 247, se abrió el desplegable y volvió a MaKo. La pantalla nueva del CRM entra con el próximo despliegue.',
+    ],
+    commits: [
+      { sha: 'cb24330c6', msg: 'CRM · «Extraer» de un grupo de WhatsApp, a la vista, con el desplegable de la extensión (0.72.0)', lineas: 1996, archivos: 31 },
+    ],
+    archivos: [
+      'extension/wa-recorrer.js — entra al grupo y recorre los miembros a la vista',
+      'extension/background.js — su pestaña al frente, el desplegable, el registro y la vuelta a MaKo',
+      'extension/popup.js · popup.html — la navegación y la animación',
+      'app/crm/TraerDeGrupoWA.tsx — «Extraer», sin «Entran a», «Ignorar admins»',
+      'supabase/migrations/0339_etiqueta_nombre_100.sql — el nombre del grupo entra entero en la etiqueta',
+      'tests/wa-extraer-072.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];

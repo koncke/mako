@@ -249,7 +249,8 @@
       const s = String((f && f.secundario) || '').trim();
       const par = /^~/.test(t) && esTelefonoDibujado(s) ? [t, s] : /^~/.test(s) && esTelefonoDibujado(t) ? [s, t] : null;
       if (!par) continue;
-      const nombre = textoUtil(par[0].replace(/^~\s*/, ''));
+      // Sin el «Admin. del grupo» que WhatsApp dibuja en la fila de un admin, por si quedara pegado al nombre.
+      const nombre = textoUtil(par[0].replace(/^~\s*/, '').replace(/\s*(admin\.? del grupo|group admin|admin do grupo)\s*$/i, ''));
       const clave = sufijo(par[1]);
       if (nombre && !m.has(clave)) m.set(clave, nombre);
     }
