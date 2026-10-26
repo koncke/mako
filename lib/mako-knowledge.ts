@@ -16,10 +16,21 @@
 // falla el embedding, search devuelve [] y MaKo se comporta como hoy.
 
 import 'server-only';
+import { after } from 'next/server';
 import { getSupabaseServer } from './supabase';
-import { getTenantDb, getWorkspaceActual, OWNER_WS, WS_NINGUNO, wsSuperAdmin } from './workspace';
+import { getTenantDb, getWorkspaceActual, OWNER_WS, runWithWorkspace, WS_NINGUNO, wsSuperAdmin } from './workspace';
 import { sePresta, sinLoAjeno } from './rag-prestamo';
-import { embed, cosine, hashText, DIMENSIONES } from './embeddings';
+import { embed, cosine, hashText, embebedorDelNegocio, modeloDelVector, SinEmbebedor, POR_PALABRAS, type Embebedor } from './embeddings';
+import { puntajePorPalabras, UMBRAL_PALABRAS } from './conocimiento-palabras';
+
+/**
+ * ¿La base todavía no tiene `embedding_modelo`? (la migración 0337_mako_knowledge_modelo, aplicada en producción el
+ * 25/10/2026 20:56; una base local o de prueba puede no tenerla). Sin ella se escribe y se lee sin la columna: el modelo sale
+ * del largo del vector (`modeloDelVector`). Una vez medida la falta, no se vuelve a probar en este proceso.
+ */
+let sinColumnaModelo = false;
+const faltaLaColumna = (e: { message?: string; code?: string } | null | undefined): boolean =>
+  !!e && (e.code === '42703' || e.code === 'PGRST204' || /embedding_modelo/.test(e.message ?? ''));
 
 export type EstadoIndex = 'indexado' | 'pendiente' | 'error';
 export type KnowledgeArea = 'mensajes' | 'ads' | 'general';
@@ -68,15 +79,30 @@ async function getById(id: number): Promise<KnowledgeEntry | null> {
   return (data as KnowledgeEntry) ?? null;
 }
 
-/** Embebe el cuerpo y marca estado indexado/error. No lanza. Scopeado al workspace. El método de MaKo (`fuente` que se
- *  presta), con la de la plataforma; lo del negocio, con su Gemini (lib/embeddings.ts). */
-async function embedRow(id: number, cuerpo: string, fuente: string | null | undefined): Promise<void> {
+/**
+ * Embebe el cuerpo y marca su estado. No lanza. Scopeado al workspace. El método de MaKo (`fuente` que se presta), con la de la
+ * plataforma; lo del negocio, con SU IA (su OpenAI, o su Gemini si es lo único: lib/embeddings.ts). Sin ninguna, NO es un
+ * error: queda `pendiente` (se busca por palabras) y se embebe sola cuando conecte su IA (25/10/2026).
+ */
+async function embedRow(id: number, cuerpo: string, fuente: string | null | undefined, embebedor?: Embebedor | null): Promise<void> {
   const sb = await getTenantDb();
+  const ahora = new Date().toISOString();
   try {
-    const v = await embed(cuerpo, 'documento', { deMako: sePresta(fuente) });
-    await sb.from('mako_knowledge').update({ embedding: v, content_hash: hashText(cuerpo), estado: 'indexado', error: null, updated_at: new Date().toISOString() }).eq('id', id);
+    const { modelo, vector } = await embed(cuerpo, 'documento', { deMako: sePresta(fuente), ...(embebedor !== undefined ? { embebedor } : {}) });
+    const fila = { embedding: vector, content_hash: hashText(cuerpo), estado: 'indexado', error: null, updated_at: ahora };
+    let r = sinColumnaModelo ? { error: null } : await sb.from('mako_knowledge').update({ ...fila, embedding_modelo: modelo }).eq('id', id);
+    if (sinColumnaModelo || faltaLaColumna(r.error)) { sinColumnaModelo = true; r = await sb.from('mako_knowledge').update(fila).eq('id', id); }
+    if (r.error) throw new Error(r.error.message);
   } catch (e) {
-    await sb.from('mako_knowledge').update({ estado: 'error', error: e instanceof Error ? e.message : String(e), updated_at: new Date().toISOString() }).eq('id', id);
+    if (!(e instanceof SinEmbebedor)) {
+      await sb.from('mako_knowledge').update({ estado: 'error', error: e instanceof Error ? e.message : String(e), updated_at: ahora }).eq('id', id);
+      return;
+    }
+    // Sin su IA. Si el vector que tiene es de ESTE texto (re-indexar sin cambios), sigue sirviendo con su modelo: no se toca.
+    // Si no lo es (fila nueva, o el cuerpo cambió), sale —ya no es de este texto— y la fila espera su IA, buscándose por palabras.
+    const { data } = await sb.from('mako_knowledge').select('content_hash').eq('id', id).maybeSingle();
+    if ((data as { content_hash?: string | null } | null)?.content_hash === hashText(cuerpo)) return;
+    await sb.from('mako_knowledge').update({ embedding: null, content_hash: null, estado: 'pendiente', error: POR_PALABRAS, updated_at: ahora }).eq('id', id);
   }
 }
 
@@ -169,18 +195,35 @@ export async function reindexKnowledge(id: number): Promise<KnowledgeEntry | nul
 }
 
 /**
- * IA16 (22/10/2026): cuando el negocio conecta su Gemini, lo que guardó sin buscador —sin vector, con el viejo de OpenAI o en
- * `error` por no tener su Gemini— se embebe con su cuenta. Lo llama /integraciones al guardar la clave, en segundo plano.
- * Devuelve cuántas embebió. No lanza (cada fila queda con su estado).
+ * Cuando el negocio conecta su IA (su OpenAI o su Gemini), lo que guardó sin vector, o con el de OTRO modelo, se embebe con su
+ * cuenta (25/10/2026; IA16 lo hacía sólo con su Gemini). De a poco: `limite` filas por vez, para no gastarle todo de golpe ni
+ * pasarse del tiempo de la invocación; lo que queda, en la próxima. Lo llama /integraciones al guardar su clave, en segundo
+ * plano (lib/reembeber-al-conectar.ts). El método de MaKo se queda con la de la plataforma (`deMako`). Devuelve cuántas embebió.
+ * No lanza por fila (cada una queda con su estado); sin su IA, no hace nada.
  */
-export async function reembeberLoQueFalta(): Promise<number> {
-  const { data, error } = await (await getTenantDb()).from('mako_knowledge').select('id, cuerpo, fuente, embedding').order('id');
-  if (error) throw new Error(`reembeberLoQueFalta: ${error.message}`);
+export const REEMBEBER_DE_A = 40;
+export async function reembeberLoQueFalta(limite = REEMBEBER_DE_A): Promise<number> {
+  const sb = await getTenantDb();
+  type Fila = { id: number; cuerpo: string | null; fuente: string | null; estado: string | null; embedding: unknown; embedding_modelo?: unknown };
+  const leerFilas = async (conModelo: boolean) => {
+    const { data, error } = await sb.from('mako_knowledge').select(`id, cuerpo, fuente, estado, embedding${conModelo ? ', embedding_modelo' : ''}`).order('id');
+    return { data: data as unknown as Fila[] | null, error };
+  };
+  let r = sinColumnaModelo ? null : await leerFilas(true);
+  if (!r || faltaLaColumna(r.error)) { if (r) sinColumnaModelo = true; r = await leerFilas(false); }
+  if (r.error) throw new Error(`reembeberLoQueFalta: ${r.error.message}`);
+  const delNegocio = await embebedorDelNegocio().catch(() => null);
   let n = 0;
-  for (const f of (data ?? []) as Array<{ id: number; cuerpo: string | null; fuente: string | null; embedding: unknown }>) {
+  // Las que ya fallaron, al final: una que falla siempre no ocupa la tanda de las que sí se pueden embeber.
+  const filas = (r.data ?? []).sort((a, b) => Number(a.estado === 'error') - Number(b.estado === 'error'));
+  for (const f of filas) {
+    if (n >= limite) break;
     if (!(f.cuerpo ?? '').trim()) continue;
-    if (Array.isArray(f.embedding) && f.embedding.length === DIMENSIONES) continue;
-    await embedRow(f.id, f.cuerpo!, f.fuente);
+    const deMako = sePresta(f.fuente);
+    const actual = modeloDelVector(f);
+    // El método de MaKo: con la de la plataforma (Gemini), una vez. Lo del negocio: con su IA, si el vector es de otro modelo.
+    if (deMako ? actual === 'gemini-embedding-001' : !delNegocio || actual === delNegocio.modelo) continue;
+    await embedRow(f.id, f.cuerpo!, f.fuente, deMako ? undefined : delNegocio);
     n++;
   }
   return n;
@@ -222,6 +265,27 @@ let ultimoFalloRag: { cuando: string; motivo: string } | null = null;
 export const falloDelRag = (): { cuando: string; motivo: string } | null => ultimoFalloRag;
 
 /**
+ * EL GOTEO (25/10/2026): una búsqueda que encontró filas DEL NEGOCIO sin el vector de su IA (sin vector, o con el de otro
+ * modelo) re-embebe unas pocas, en segundo plano. Es lo que hace que el resto se embeba solo, de a poco: guardar la clave
+ * (lib/reembeber-al-conectar.ts) hace una tanda, pero un negocio que ya tenía su GPT conectado antes de esto no la vuelve a
+ * guardar, y sus filas sin vector (las que IA16 dejó en `error` por no tener su Gemini) se quedarían por palabras para siempre.
+ * Una vez cada `GOTEO_CADA_MS` por negocio y proceso; sin pedido en curso (`after` tira), lo hace la próxima búsqueda que sí.
+ */
+export const GOTEO_DE_A = 10;
+const GOTEO_CADA_MS = 10 * 60_000;
+const ultimoGoteo = new Map<number, number>();
+function gotear(ws: number): void {
+  const ahora = Date.now();
+  if (ahora - (ultimoGoteo.get(ws) ?? 0) < GOTEO_CADA_MS) return;
+  try {
+    after(() => runWithWorkspace(ws, () => reembeberLoQueFalta(GOTEO_DE_A))
+      .then((n) => { if (n) console.log(`[conocimiento] ws ${ws}: re-embebí ${n} entradas con su IA (goteo)`); })
+      .catch((e) => console.error(`[conocimiento] ws ${ws}: el goteo no pudo re-embeber:`, e instanceof Error ? e.message : e)));
+    ultimoGoteo.set(ws, ahora);
+  } catch { /* sin pedido en curso: la próxima búsqueda */ }
+}
+
+/**
  * Top-k entradas activas más relevantes a la consulta (coseno). Lee el conocimiento
  * del workspace propio + el método curado del dueño (RAG compartido, read-only).
  * opts.area filtra por área de aplicación (ej. 'mensajes' para WhatsApp).
@@ -238,58 +302,76 @@ export async function searchKnowledge(
 ): Promise<Array<{ titulo: string; categoria: string | null; cuerpo: string; score: number }>> {
   const q = query.trim();
   if (!q) return [];
-  let data: Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; fuente: string; workspace_id: number; embedding: number[] }>;
+  let data: Array<{ titulo: string; categoria: string | null; cuerpo: string; area: string; fuente: string; workspace_id: number; embedding: number[] | null; embedding_modelo?: string | null }>;
   const wsPropio = (await getWorkspaceActual()) ?? WS_NINGUNO;
   try {
-    let sel = getSupabaseServer()
-      .from('mako_knowledge')
-      // `workspace_id` y `fuente` viajan para poder sacar lo que es del NEGOCIO del dueño
-      // y no método (ver `sinLoAjeno`). Sin las dos columnas el filtro no se puede
-      // escribir, y era por donde se colaban sus 22 nombres propios.
-      .select('titulo, categoria, cuerpo, area, fuente, workspace_id, embedding')
-      .in('workspace_id', await wsParaRag())
-      .eq('activo', true)
-      .not('embedding', 'is', null);
-    // El swipe y el conocimiento de producto solo se sirven pidiéndolos por área:
-    // ninguno es metodología de marketing para el chat de un cliente. El filtro
-    // va en JS (encadenar .neq() acá dispara TS2589 en el tipo del builder).
-    if (opts.area) sel = sel.eq('area', opts.area);
-    const r = await sel;
+    const wss = await wsParaRag();
+    const leer = (columnas: string) => {
+      let sel = getSupabaseServer()
+        .from('mako_knowledge')
+        // `workspace_id` y `fuente` viajan para poder sacar lo que es del NEGOCIO del dueño
+        // y no método (ver `sinLoAjeno`). Sin las dos columnas el filtro no se puede
+        // escribir, y era por donde se colaban sus 22 nombres propios.
+        // Sin `.not('embedding', 'is', null)` desde el 25/10/2026: lo que no tiene vector se encuentra por palabras.
+        .select(columnas)
+        .in('workspace_id', wss)
+        .eq('activo', true);
+      // El swipe y el conocimiento de producto solo se sirven pidiéndolos por área:
+      // ninguno es metodología de marketing para el chat de un cliente. El filtro
+      // va en JS (encadenar .neq() acá dispara TS2589 en el tipo del builder).
+      if (opts.area) sel = sel.eq('area', opts.area);
+      return sel;
+    };
+    const base = 'titulo, categoria, cuerpo, area, fuente, workspace_id, embedding';
+    let r = await leer(sinColumnaModelo ? base : `${base}, embedding_modelo`);
+    if (!sinColumnaModelo && faltaLaColumna(r.error)) { sinColumnaModelo = true; r = await leer(base); }
     // ⚠️ EL ERROR DE LA CONSULTA SE LEE Y SE SEPARA DEL VACÍO. Un `select` de PostgREST con
     // una columna inexistente rechaza la consulta entera y `data` vuelve `undefined`: sin
     // esto, un esquema cambiado se lee igual que «este workspace no cargó nada».
     if (r.error) { ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${r.error.message}` }; console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo); return []; }
     if (!r.data || r.data.length === 0) { ultimoFalloRag = null; return []; }
-    data = r.data as typeof data;
+    data = r.data as unknown as typeof data;
   } catch (e) {
     ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude leer el conocimiento: ${e instanceof Error ? e.message : String(e)}` };
     console.error('[mako-knowledge] RAG caído —', ultimoFalloRag.motivo);
     return [];
   }
 
-  let qv: number[];
+  // La pregunta, con la IA del negocio (su OpenAI, o su Gemini si es lo único). Sin ninguna, no es un fallo: por palabras.
+  let qv: { modelo: string; vector: number[] } | null = null;
   try {
     qv = await embed(q, 'consulta');
+    ultimoFalloRag = null;
   } catch (e) {
-    // ⚠️ ACÁ HAY FILAS Y NO HAY RESPUESTA: el peor de los dos ceros. Devolver `[]` sin
-    // decirlo afirma «este negocio no tiene método cargado» sobre un negocio que tiene 119
-    // entradas indexadas y un proveedor sin crédito.
-    ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude embeber la consulta: ${e instanceof Error ? e.message : String(e)}` };
-    console.error(`[mako-knowledge] RAG caído con ${data.length} entradas disponibles —`, ultimoFalloRag.motivo);
-    return [];
+    if (e instanceof SinEmbebedor) ultimoFalloRag = null;
+    else {
+      // ⚠️ ACÁ HAY FILAS Y SU IA NO CONTESTÓ: se busca por palabras igual, pero queda dicho. Sin esto, una lista corta afirmaría
+      // «este negocio no tiene método cargado» sobre un negocio con 119 entradas y un proveedor sin crédito.
+      ultimoFalloRag = { cuando: new Date().toISOString(), motivo: `no pude embeber la consulta (busqué por palabras): ${e instanceof Error ? e.message : String(e)}` };
+      console.error(`[mako-knowledge] RAG sin vectores con ${data.length} entradas disponibles —`, ultimoFalloRag.motivo);
+    }
   }
 
-  ultimoFalloRag = null;
-  return sinLoAjeno(data, wsPropio)
+  const candidatas = sinLoAjeno(data, wsPropio)
     // Sin área pedida, las reservadas quedan afuera del RAG general.
-    .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)))
-    // Sólo los vectores del MISMO modelo (el mismo largo): uno de OpenAI contra uno de Gemini da un coseno sin sentido
-    // (IA16, lib/embeddings.ts). Una fila sin re-embeber no aparece, en vez de aparecer mal.
-    .filter((r) => Array.isArray(r.embedding) && r.embedding.length === qv.length)
-    .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv, r.embedding) }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, k)
-    .filter((r) => r.score > 0.15);
+    .filter((r) => (opts.area ? true : !AREAS_RESERVADAS.includes(r.area)));
+  // Por vector, sólo las del MISMO modelo que la pregunta: uno de OpenAI contra uno de Gemini da un coseno sin sentido
+  // (lib/embeddings.ts). Las demás —sin vector, o de otro modelo, como el método de MaKo para quien embebe con su OpenAI— por
+  // palabras, después: completan, no compiten con el coseno.
+  const mismoModelo = (r: (typeof candidatas)[number]) => !!qv && modeloDelVector(r) === qv.modelo;
+  const porVector = qv
+    ? candidatas.filter(mismoModelo)
+        .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: cosine(qv!.vector, r.embedding as number[]) }))
+        .filter((r) => r.score > 0.15)
+        .sort((a, b) => b.score - a.score)
+    : [];
+  // Lo DEL NEGOCIO sin el vector de su IA (el método de MaKo se queda con el de la plataforma): unas pocas, a re-embeber.
+  if (qv && candidatas.some((r) => r.workspace_id === wsPropio && !sePresta(r.fuente) && !mismoModelo(r) && r.cuerpo?.trim())) gotear(wsPropio);
+  const porPalabras = candidatas.filter((r) => !mismoModelo(r))
+    .map((r) => ({ titulo: r.titulo, categoria: r.categoria, cuerpo: r.cuerpo, score: puntajePorPalabras(q, r) }))
+    .filter((r) => r.score >= UMBRAL_PALABRAS)
+    .sort((a, b) => b.score - a.score);
+  return [...porVector, ...porPalabras].slice(0, k);
 }
 
 /** Todas las entradas ACTIVAS de un área (workspace propio + método curado del dueño),

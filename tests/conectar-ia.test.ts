@@ -30,7 +30,8 @@ const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8');
 const sinComentarios = (s: string) => s.replace(/^\s*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 test('las vías: Claude y ChatGPT, por la computadora o por la clave; Gemini, por la clave', () => {
-  assert.deepEqual([...IAS_DEL_CLIENTE], ['claude', 'chatgpt', 'gemini']);
+  // Las que se OFRECEN: sin Gemini desde el 25/10/2026 (docs/conexiones-y-ayuda.md, decisión 1). Su clave sigue (abajo).
+  assert.deepEqual([...IAS_DEL_CLIENTE], ['claude', 'chatgpt']);
   assert.deepEqual(SERVICIO_DE_CLAVE, { claude: 'anthropic', chatgpt: 'openai', gemini: 'gemini' });
   const catalogo = new Set(DEFS.map((i) => i.key));
   for (const s of Object.values(SERVICIO_DE_CLAVE)) assert.ok(catalogo.has(s), `el modal de ${s} existe en /integraciones`);
@@ -56,7 +57,7 @@ test('las vías: Claude y ChatGPT, por la computadora o por la clave; Gemini, po
 });
 
 test('a quien no es admin, la clave no se le ofrece: se le dice a quién pedírsela', () => {
-  for (const ia of IAS_DEL_CLIENTE) {
+  for (const ia of [...IAS_DEL_CLIENTE, 'gemini'] as const) {
     const o = comoConectar(ia, { esAdmin: false, admin: 'Mauricio' });
     assert.deepEqual(o.map((x) => x.que), ia === 'gemini' ? ['pedir'] : ['pc', 'pedir']);
     const pedir = o[o.length - 1];

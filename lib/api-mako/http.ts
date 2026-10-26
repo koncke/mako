@@ -199,6 +199,8 @@ export function responder(r: Resultado, opts: { req?: Request; cabeceras?: Recor
     if (r.faltan) extra.faltan = r.faltan;
     if (r.disponibles) extra.disponibles = r.disponibles;
     if (r.yaEstaba) extra.yaEstaba = true;
+    // Lo que le falta conectar (`Falta`, 25/10/2026): el servicio como dato, para que quien integra arme su propio aviso.
+    if (r.falta) extra.falta = r.falta;
     return errorJson(r.status, r.error, extra, cab, opts.def);
   }
   if (r.tipo === 'lectura') {

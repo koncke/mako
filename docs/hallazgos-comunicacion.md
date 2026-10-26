@@ -48,6 +48,33 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» por WhatsApp, sin IA (25/10/2026)
+
+Tanda 5 de [conexiones-y-ayuda.md](conexiones-y-ayuda.md) (decisiones 6 y 7). Vive en `lib/doer-ayuda.ts` (puro),
+`lib/conexion-estado.ts` y `atenderAyuda` / `proponerTicket` de `lib/mako-doer-in.ts`; lo fija `tests/doer-ayuda.test.ts`.
+
+- ⚠️ **Sin su IA, ningún «sí» por WhatsApp confirma nada.** La confirmación de una pendiente pasa por el modelo
+  (`confirmar_accion`, forzada por la intención `confirmar`): a un negocio sin IA, el «sí» le devolvía el cartel de nuevo. Por
+  eso la oferta, la guía paso a paso y el ticket los atiende el CÓDIGO, antes de rutear a la IA (`atenderAyuda`), con el estado
+  en app_settings (`mako.doer.ayuda.<jid>`, 30 minutos): el cartel no entra al historial y sin esto el «sí» no sabría a qué
+  contesta. Lo que no contesta la oferta la cierra (un «sí» posterior a otra pregunta no es para esto).
+- ⚠️ **El obvio —proponer el ticket y confirmarlo al recibir el «sí»— rebotaba.** `confirmarPendiente` no confirma una pendiente
+  que nació en el mismo turno: es la guarda contra un modelo que se contesta su propio «sí». El ticket se propone AL OFRECERLO
+  (`proponerTicket`) y el «sí» del mensaje siguiente lo confirma; si la propuesta no entró, no se ofrece un «sí» que no confirma
+  nada (manda a «Reportar problema»).
+- **«No me sale» empieza con «no»**: el problema se mira antes que el «ahora no».
+- **El «listo» prueba la conexión de verdad** (`conectadaProbando`: la credencial contra el proveedor, la computadora EN LÍNEA),
+  no sólo que haya algo guardado; si no anda, el link de nuevo y el ticket con el motivo. `como_conectar` mira sólo lo guardado
+  (`conectadaSinProbar`): las dos preguntas son distintas.
+- **La guía no entra al historial** (la guarda de tests/doer-aviso-no-es-turno.test.ts: lo del sistema no es un turno de MaKo);
+  deja una fila `ayuda-doer` para contar cuántas guías y tickets salieron.
+
+**SIN hacer:** los tickets de cualquier otra cosa por WhatsApp siguen pasando por el modelo (`levantar_ticket`): sin IA, sólo
+el de una conexión que no anda. Y la guía de la computadora se ofrece sólo si una herramienta dice que falta (en el grupo, su
+computadora todavía no contesta: tanda 4).
+
+---
+
 ## «Conecta tu Gemini»: lo que le llegó a Florencia y por qué, medido (25/10/2026)
 
 **Vive en:** `lib/mako-doer-in.ts`, `lib/fallo-ia-texto.ts`, `lib/mako-doer-buffer.ts`, `lib/ia-del-negocio.ts`.
@@ -65,40 +92,22 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 - **Claude no escucha notas de voz** (la cascada de transcripción es gemini, groq, openai) y en WhatsApp entra sólo en turnos sin
   herramientas: no sirve de respaldo en el grupo. El plan quedó en docs/conexiones-y-ayuda.md.
 
+**Lo que quedó (tanda 1, «MaKo en WhatsApp: conexiones», 25/10/2026)** — `lib/fallo-ia-texto.ts`, `lib/mako-doer-in.ts`;
+lo fija `tests/doer-cartel-sin-ia.test.ts`:
+- ⚠️ **El arreglo obvio —«que instale MaKo Desktop y listo»— no alcanzaba:** el grupo no pasa por la computadora (D6a). Con la
+  computadora y sin clave, el cartel ahora dice lo cierto: «tu Claude está en tu computadora y te contesta en la app»
+  (`/second-brain`), y para el grupo, su GPT. `conPc` llega a los dos caminos (texto y audio).
+- **En el grupo se ofrece su GPT por clave** (`?abrir=openai`, texto y audio): ni Gemini ni su Claude por clave
+  (`CUBREN_EL_TURNO`). Si la que falló ES su GPT, no se le ofrece nada.
+- **Un link por cada cosa que falta** (`enlaceA`, que conserva el `?ws=`). Lo que el pedido necesita además de la IA sale del
+  área (`conexionesDelPedido`: closing → Fathom), y si la integración no se pudo leer, NO se afirma que falta.
+- ⚠️ **Trampa: `recordUsage` corta el motivo a 200 caracteres sin avisar** (lib/anthropic-usage.ts): por eso el texto no
+  quedaba. Ahora va en el motivo de la fila `cartel-ia` (`motivoDelCartel`, hasta 1500 sólo para esa feature), en una línea y
+  con el `ws` primero (de ahí lo saca el vigía). El cartel del AUDIO no dejaba ninguna fila: ahora deja la suya.
+- **SIN hacer:** «¿Quieres que te ayude?» y «¿Levanto un ticket?» con un «sí» (tanda 5); el vigía muestra los primeros 400
+  caracteres del motivo (`recorte`, lib/vigia-mako-grupos.ts).
+
 *25/10/2026, el Cerebro (claude5), con los relevamientos de pruebas A/B y de conexiones (docs/diseno-pruebas-ab.md, docs/conexiones-y-ayuda.md).*
-
-## El cartel del grupo cuando falta una conexión: sin Gemini, un link por cosa y el texto guardado (25/10/2026)
-
-Florencia (ws21) le preguntó a su grupo «Estas analizando mis fathom?» (22/10) y MaKo le pidió «una API key» con el link a
-Gemini, sin nombrar Fathom. Martín, 25/10: «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos que todo eso
-se hace con la app de escritorio de MaKo y conectado a su claude o GPT». El plan entero, en
-[conexiones-y-ayuda.md](conexiones-y-ayuda.md); lo de la IA, en [hallazgos-ia.md](hallazgos-ia.md) (misma fecha). Vive en
-`lib/fallo-ia-texto.ts` y `lib/mako-doer-in.ts`; lo fija `tests/doer-cartel-sin-ia.test.ts`.
-
-- **El diagnóstico obvio —«que instale MaKo Desktop y listo»— era el equivocado.** El grupo no pasa por la computadora
-  (D6a), y peor: con la computadora conectada y sin clave, el cartel le decía «tu negocio todavía no tiene su IA
-  conectada». `negocioConSuIA` da `suIA` a todo negocio con una PC, la PC no cuenta como clave, y la causa salía
-  `sin_keys`: el doer tiraba `conPc` en los DOS caminos (el del texto y el del audio, que se arma aparte, antes del turno).
-  Ahora el cartel dice lo cierto: tu Claude está en tu computadora y te contesta en la app (`/second-brain`); para el
-  grupo, su GPT.
-- **En WhatsApp lo que destraba es su GPT por clave, no su Claude.** Su Claude por clave entra sólo en un turno sin
-  NINGUNA herramienta (WA1) y no escucha audios: ofrecérselo en el grupo es prometer un respaldo que justo cuando hace falta
-  no está. `rutaKeysIA()` abre `?abrir=openai` para texto y audio, y `ia_lenta` y `sin_respaldo` ofrecen sólo su GPT
-  (`CUBREN_EL_TURNO`); si la que falló ES su GPT, no se le ofrece nada.
-- **Un aviso que nombra dos conexiones con un solo link no le sirve a nadie** (el del 24/10 al ws21: «tu Claude, tu GPT o
-  tu Gemini, y también Fathom» con el link de Claude). Cada cosa que falta va en su línea con su link (`enlaceA`, que
-  conserva el `?ws=` del link que recibió el cartel). Lo que el pedido necesita además de la IA sale del área que nombra
-  (`conexionesDelPedido`: closing → Fathom), y si la integración no se pudo leer, NO se afirma que falta.
-- ⚠️ **Trampa: `recordUsage` corta el motivo a 200 caracteres sin avisar** (lib/anthropic-usage.ts). Por eso el texto de
-  un cartel no quedaba en ningún lado y el del 22/10 hubo que reconstruirlo del código de esa hora. Ahora va en el motivo
-  de la fila `cartel-ia` (`motivoDelCartel`, hasta 1500 sólo para esa feature), en una línea y con el `ws` primero, que es
-  de donde lo saca el vigía. El cartel del AUDIO no dejaba ninguna fila: ahora deja la suya.
-
-**SIN hacer:**
-- «¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» con un «sí»: tanda 5 del plan.
-- El vigía muestra los primeros 400 caracteres del motivo (`recorte`, lib/vigia-mako-grupos.ts): lee el comienzo del
-  texto; el entero está en la base.
-- Lo que falta además de la IA se detecta sólo para el Closing (Fathom). El resto sale del catálogo único (tanda 3).
 
 ---
 
