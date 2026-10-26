@@ -22,6 +22,10 @@ aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Ex
 - **Falta:** desplegar la pantalla (y la mig 0339 ANTES) y la corrida con la pantalla nueva: crear los leads con su etiqueta y
   guardar los nombres. ⚠️ Abrir el grupo marca como leídos sus mensajes (dicho en la política).
 - **No reviertas** (aviso del Cerebro, 26/10): los tests crm-auto-sla-etapa y lead-quieto (Automations, aut-2510); no se tocaron.
+- **En producción (781d069b3, 26/10 12:22):** «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto» en su Chrome: 105
+  nuevos · 41 nombres · 41 empresas, en Lead entrante con la etiqueta del grupo (verificado en una ficha). El desplegable no se
+  abrió en esa corrida (clic por CDP: sin el foco del sistema); en la de otra pestaña, a la misma hora, sí. Capturas y GIF:
+  notas del Cerebro, capturas-extraer-prod.
 - **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
   espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
   tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.

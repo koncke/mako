@@ -3649,4 +3649,16 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '12:25', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'investigacion',
+    titulo: '«Extraer» en producción: 105 leads de un grupo, con su etiqueta y 41 nombres',
+    puntos: [
+      'En tu Chrome, con la versión desplegada: Nuevo lead › Scraper › «Anuncio Ganador - 09,10,11 de Agosto» › «Extraer 105».',
+      'Fue a tu pestaña de WhatsApp (la que ya tenías), entró al grupo y recorrió los 126 miembros a la vista.',
+      'Resultado: 105 nuevos · 41 nombres · 41 empresas. Cada uno en PROSPECCIÓN › Lead entrante, con la etiqueta «Anuncio Ganador - 09,10,11 de Agosto».',
+      'En la extracción de «19, 20, 21 de Octubre», desde la otra pestaña, el desplegable se abrió con la animación. En la mía (disparada por mí, sin un clic tuyo) no se abrió: Chrome sólo lo deja con la ventana al frente.',
+    ],
+    revisar: '/crm',
+  },
 ];

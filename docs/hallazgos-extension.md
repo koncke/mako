@@ -197,15 +197,22 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   dice cómo está WhatsApp Web arriba del registro (`WA_ESTADO`, sólo mira). ⚠️ La pantalla del QR NO se midió en vivo
   (cerrarle la sesión a Martín no se hace): si WhatsApp cambia ese dibujo, el síntoma es esperar el minuto de «cargando» y
   decir `sin_sesion`. Medido en vivo que con la sesión abierta NO se confunde (2 s, sin pasar por «qr»).
+- **En producción (26/10, 781d069b3, extensión 0.72.3), «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto»:** usó la
+  pestaña de WhatsApp que ya estaba, entró al grupo, recorrió los 126 y terminó «105 nuevos · 41 nombres · 41 empresas», cada
+  lead en Lead entrante con la etiqueta del grupo. ⚠️ **El desplegable NO se abrió en esa corrida, que se disparó con un clic
+  por CDP (Claude in Chrome); sí se abrió en otra corrida de la misma hora con un clic de verdad en otra pestaña.**
+  `chrome.action.openPopup` pide que la ventana de Chrome tenga el foco del sistema, y un clic por CDP no se lo da (la ventana
+  de adelante era la app de Claude). **Regla para probar:** el desplegable se verifica con el clic de una persona (o mirando
+  `desplegable` en el registro); que no se abra desde un script no es un error de la extensión.
 - **Probar sin desplegar la pantalla:** el mismo pedido que manda MaKo se dispara desde SU pestaña de hola-mako.com con
   `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
   ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
 
 ## Sin hacer
 
-- **La corrida con la pantalla nueva desplegada** (la mitad de MaKo de «Extraer»: crear los leads con la etiqueta y guardar
-  los nombres): la extensión 0.72.2 ya corre en su Chrome y se probó a la vista (notas del Cerebro, capturas-extraer-072). Al
-  desplegar: Nuevo lead › Scraper › el grupo › «Extraer N», y mirar que el desplegable termine en «N nombres en MaKo».
+- **Los «@usuario» de la lista de miembros** (visto el 26/10 en «09,10,11 de Agosto»: filas como «@MiguelCarrenoDonado /
+  Michelangelo Marketer»): WhatsApp ya muestra nombres de usuario, sin teléfono a la vista. `nombresDeFilas` sólo toma el
+  «~nombre» con su teléfono, así que esas filas no suman. Medir cuántas son y si el `@lid` las cruza antes de construir.
 - **El desplegable en su estado final («listo»)** no se capturó: vuelve a MaKo a los 4 s y se cierra. Se ve en su registro.
 - **La pantalla del QR, medida:** la primera vez que un cliente (o un perfil aparte) llegue con la sesión cerrada, mirar que
   el desplegable diga «Escanea el QR» y no «cargando».
