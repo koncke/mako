@@ -1477,4 +1477,24 @@ export const BITACORA: Hito[] = [
       'tests/landings-mako-v2.test.ts — lo que no se puede perder',
     ],
   },
+  {
+    fecha: '26 oct', hora: '05:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El editor web con las páginas de MaKo: el menú se cierra, la barra de texto anda y se ve el video',
+    pedido: '«Cosas basicas, como que si le doy click derecho y luego doy click izquierdo en otro lado, debe desaparecer el desplegable... La barra de texto me aparece en gris... Los botones tampoco son editables... Las secciones no se pueden acomodar... El video no se muestra...»',
+    puntos: [
+      'El menú del clic derecho se cierra con un clic en cualquier otro lado, también adentro de una sección.',
+      'La barra «Texto» de arriba funciona en las páginas de MaKo: negrita, color, tamaño, alineación, estilos y enlaces.',
+      'Al elegir un botón aparece «Botón»: su texto, a dónde lleva y sus colores.',
+      'Para mover una sección, mientras la arrastras todas se achican y la sueltas donde quieras.',
+      'Los botones de cada sección se quedan mientras la editas, aunque bajes por ella.',
+      'El video, la agenda de Calendly y la animación de MaKo se ven en el editor como en la página.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — la sección de diseño',
+      'app/web-generator/editor/BarraFormato.tsx — la barra «Texto»',
+      'app/web-generator/editor/nodos/TarjetaVista.tsx — mover las secciones',
+    ],
+    revisar: '/web-generator/44',
+  },
 ];

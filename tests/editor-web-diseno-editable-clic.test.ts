@@ -118,6 +118,7 @@ test('el camino del DOM del test es el que dibuja la vista', () => {
   assert.match(vista, /<NodeViewWrapper className="gmx-nv" data-activo=\{mostrarBarra \? 'si' : undefined\}/);
   assert.match(vista, /<div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable=\{false\}>\n\s*<iframe ref=\{marco\}/);
   // La sección se activa con el mousedown de ADENTRO del iframe: por eso el clic tiene que llegar.
-  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\n\s*setActivo\(true\);\n\s*marcarSeccion\(\);/);
+  // (26/10/2026: el diseño activo vive en ../puente-diseno.ts, que también lee la barra «Texto».)
+  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\n\s*activarDiseno\(\{ doc: d, guardar: \(\) => guardarVivo\.current\(\) \}\);\n\s*marcarSeccion\(\);/);
   assert.match(vista, /if \(editable\) d\.body\.setAttribute\('contenteditable', 'true'\);/);
 });

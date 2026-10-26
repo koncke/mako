@@ -240,11 +240,14 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
     g.linea?.remove();
     fondoRef.current?.parentElement?.removeAttribute('data-arrastrando');
     document.body.style.removeProperty('cursor');
+    document.body.removeAttribute('data-gm-reordenando');
     if (!g.arrastrando) return;
     trasArrastre.current = true;
-    if (soltar && g.destino !== g.desde && g.destino !== g.desde + 1) {
-      moverTarjeta(editor, g.desde, g.destino > g.desde ? g.destino - 1 : g.destino);
-    }
+    const a = g.destino > g.desde ? g.destino - 1 : g.destino;
+    if (soltar && g.destino !== g.desde && g.destino !== g.desde + 1) moverTarjeta(editor, g.desde, a);
+    // Las secciones vuelven a su alto: se ve la que se movió, donde quedó.
+    const queda = soltar && g.destino !== g.desde && g.destino !== g.desde + 1 ? a : g.desde;
+    requestAnimationFrame(() => secciones()[queda]?.scrollIntoView({ block: 'start' }));
   };
   useEffect(() => () => terminarArrastre(false), []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -384,6 +387,7 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
         <>
           {/* La columna de Gamma 5, por fuera del módulo a la izquierda */}
           <div className="gma gmc gmc-lado" contentEditable={false} suppressContentEditableWarning data-abierto={panel ? '' : undefined}>
+            <div className="gmc-lado-in">
             <button
               ref={asaRef}
               type="button"
@@ -416,6 +420,11 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
                   g.scroll = contenedorConScroll(editor.view.dom as HTMLElement);
                   fondoRef.current?.parentElement?.setAttribute('data-arrastrando', 'si');
                   document.body.style.cursor = 'grabbing';
+                  // Las secciones, en franjas (estilos-nodos.ts): entran todas. La que se arrastra queda bajo el puntero.
+                  document.body.setAttribute('data-gm-reordenando', 'si');
+                  const sec = fondoRef.current?.parentElement;
+                  const r = sec?.getBoundingClientRect();
+                  if (r) g.scroll.scrollBy({ top: r.top + Math.min(r.height, 132) / 2 - g.yPuntero });
                   g.raf = requestAnimationFrame(autoScroll);
                 }
                 ubicarLinea();
@@ -443,6 +452,7 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
                 <Ico n="notas" />
               </button>
             )}
+            </div>
           </div>
 
           {/* El «+» del hueco de arriba: una sección en blanco ACÁ */}

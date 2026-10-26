@@ -66,6 +66,11 @@ import { inlineAMarkdown, parsearInline } from '@/lib/editor-landing/ia-bloques'
 import { COLORES_TEMA, NODO, TAMANOS_TEXTO, esHex, type ColorTema, type JsonNodo, type TamanoTexto } from '@/lib/editor-landing/doc';
 import type { AccionTexto, PedidoIA } from '@/lib/editor-landing/api-tipos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { avisarDiseno, soltarDiseno, useDisenoActivo } from './puente-diseno';
+import {
+  alinearEnDiseno, colorEnDiseno, enlaceEnDiseno, estadoDeDiseno, marcarEnDiseno, quitarEnlaceEnDiseno, quitarFormatoEnDiseno,
+  resaltadoEnDiseno, tamanoEnDiseno, tipoEnDiseno, tipoPermitidoEnDiseno,
+} from './acciones-diseno';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // La hoja del chrome del paquete G2
@@ -915,7 +920,32 @@ function enchufarAbridorEnlace(editor: Editor, modo: 'flotante' | 'fija', fn: ((
 export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | null; modo: 'flotante' | 'fija' }) {
   const ctx = useEditorLanding();
   const editor = editorProp ?? ctx.editor;
-  const est = useEditorState({ editor, selector: ({ editor: e }) => leerEstado(e) });
+  const estPM = useEditorState({ editor, selector: ({ editor: e }) => leerEstado(e) });
+  // EN UN «DISEÑO EDITABLE» (26/10/2026, Martín: «La barra de texto me aparece en gris, no es editable»): el cursor está
+  // en el documento de su iframe, no en ProseMirror. La barra fija lee y escribe ahí (./acciones-diseno.ts); la flotante
+  // es la de una selección de ProseMirror y no cambia.
+  const { diseno } = useDisenoActivo();
+  const estDiseno = modo === 'fija' && diseno ? estadoDeDiseno(diseno.doc) : null;
+  const enDiseno = !!estDiseno && !!estPM;
+  const est: EstadoBarra | null = enDiseno && estPM && estDiseno
+    ? { ...estPM, ...estDiseno, esTexto: true, enTexto: true, enBoton: false, sinMarcas: false, foco: true, color: null, tam: null, resaltado: null, etiqueta: null }
+    : estPM;
+  // El cursor volvió a un bloque de ProseMirror: la barra deja el diseño.
+  useEffect(() => {
+    if (!editor || modo !== 'fija') return;
+    const volver = () => soltarDiseno();
+    editor.on('focus', volver);
+    return () => { editor.off('focus', volver); };
+  }, [editor, modo]);
+  /** En un diseño: hace el cambio en su documento, guarda su HTML y la barra vuelve a leer. */
+  const enElDiseno = (f: (doc: Document) => boolean): boolean => {
+    if (!enDiseno || !diseno) return false;
+    if (f(diseno.doc)) diseno.guardar();
+    avisarDiseno();
+    return true;
+  };
+  /** Un color del tema, por su valor (adentro del diseño no están las variables del tema). */
+  const valorDeColor = (c: string): string => (esHex(c) ? c : (varsDeTema(ctx.tema) as Record<string, string>)[VAR_COLOR[c as ColorTema]] ?? c);
   const [panel, setPanel] = useState<Panel | null>(null);
   const [ia, setIa] = useState<{ cargando: boolean; error: string | null }>({ cargando: false, error: null });
   const [seleccionando, setSeleccionando] = useState(false);
@@ -977,7 +1007,8 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
   }, [modo, visible, editor, est?.desde, est?.hasta, est]);
 
   const cadena = useCallback(() => (editor && !editor.isDestroyed ? editor.chain().focus() : null), [editor]);
-  const hayMarca = (n: string) => !!editor && !!editor.schema.marks[n];
+  // En un diseño, todo menos la etiqueta (una marca de ProseMirror que su HTML no tiene).
+  const hayMarca = (n: string) => (enDiseno ? n !== 'etiqueta' : !!editor && !!editor.schema.marks[n]);
   const abrir = (tipo: Panel['tipo'], ancla: HTMLElement) => setPanel((p) => (p && p.tipo === tipo ? null : { tipo, ancla }));
 
   // ⌘K: abre (nunca cierra) el panel de enlace anclado al botón «Enlace» de ESTA barra. Lee el
@@ -996,9 +1027,21 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
     return () => enchufarAbridorEnlace(editor, modo, null);
   }, [editor, modo]);
 
-  const marcar = (nombre: 'bold' | 'italic' | 'underline' | 'strike') => cadena()?.toggleMark(nombre).run();
+  const marcar = (nombre: 'bold' | 'italic' | 'underline' | 'strike') => {
+    if (enElDiseno((d) => marcarEnDiseno(d, nombre))) return;
+    cadena()?.toggleMark(nombre).run();
+  };
+  const quitarFormato = () => {
+    if (enElDiseno(quitarFormatoEnDiseno)) return;
+    cadena()?.unsetAllMarks().run();
+  };
 
   const ponerTextStyle = (cambio: { color?: string | null; tam?: TamanoTexto | null }) => {
+    if (enDiseno) {
+      if (cambio.color !== undefined) enElDiseno((d) => colorEnDiseno(d, cambio.color ? valorDeColor(cambio.color) : null));
+      if (cambio.tam !== undefined) enElDiseno((d) => tamanoEnDiseno(d, cambio.tam ?? null));
+      return;
+    }
     if (!editor || !est || !hayMarca('textStyle')) return;
     const color = cambio.color !== undefined ? cambio.color : est.color;
     const tam = cambio.tam !== undefined ? cambio.tam : est.tam;
@@ -1008,6 +1051,7 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
     else c.setMark('textStyle', { color: color ?? null, tam: tam ?? null }).run();
   };
   const ponerResaltado = (color: string | null) => {
+    if (enElDiseno((d) => resaltadoEnDiseno(d, color ? valorDeColor(color) : null))) return;
     if (!hayMarca('highlight')) return;
     if (color === null) cadena()?.unsetMark('highlight').run();
     else cadena()?.setMark('highlight', { color }).run();
@@ -1018,11 +1062,13 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
     else cadena()?.setMark('etiqueta', { color }).run();
   };
   const alinear = (valor: 'left' | 'center' | 'right') => {
+    if (enElDiseno((d) => alinearEnDiseno(d, valor))) { setPanel(null); return; }
     const v = valor === 'left' ? null : valor;
     cadena()?.updateAttributes('paragraph', { textAlign: v }).updateAttributes('heading', { textAlign: v }).run();
     setPanel(null);
   };
   const ponerEnlace = (href: string, nueva: boolean, etiqueta: string) => {
+    if (enElDiseno((d) => enlaceEnDiseno(d, href, nueva, etiqueta))) { setPanel(null); return; }
     if (!editor || !est || !hayMarca('link')) return;
     const attrs = { href, target: nueva && /^https?:/i.test(href) ? '_blank' : null };
     const c = cadena();
@@ -1035,7 +1081,14 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
     }
     setPanel(null);
   };
-  const quitarEnlace = () => { cadena()?.extendMarkRange('link').unsetMark('link').run(); setPanel(null); };
+  const quitarEnlace = () => {
+    if (!enElDiseno(quitarEnlaceEnDiseno)) cadena()?.extendMarkRange('link').unsetMark('link').run();
+    setPanel(null);
+  };
+  const ponerTipo = (t: TipoBloqueTexto) => {
+    if (!enElDiseno((d) => tipoEnDiseno(d, t)) && editor) aplicarTipoBloque(editor, t);
+    setPanel(null);
+  };
 
   const editarConIA = async (tipo: AccionTexto, extra: { tono?: string; idioma?: string } = {}) => {
     const e = editor;
@@ -1119,7 +1172,7 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
       <BotonBarra titulo="Cursiva ⌘I" activo={est.cursiva} apagado={sinTexto || est.sinMarcas || !hayMarca('italic')} onClick={() => marcar('italic')}><Icono nombre="cursiva" /></BotonBarra>
       <BotonBarra titulo="Subrayar ⌘U" activo={est.subrayado} apagado={sinTexto || est.sinMarcas || !hayMarca('underline')} onClick={() => marcar('underline')}><Icono nombre="subrayado" /></BotonBarra>
       <BotonBarra titulo="Tachado ⇧⌘X" activo={est.tachado} apagado={sinTexto || est.sinMarcas || !hayMarca('strike')} onClick={() => marcar('strike')}><Icono nombre="tachado" /></BotonBarra>
-      <BotonBarra titulo="Quitar formato" apagado={sinTexto || est.vacia} onClick={() => cadena()?.unsetAllMarks().run()}><span className="gmx-tx">T<sub>x</sub></span></BotonBarra>
+      <BotonBarra titulo="Quitar formato" apagado={sinTexto || est.vacia} onClick={quitarFormato}><span className="gmx-tx">T<sub>x</sub></span></BotonBarra>
       <span className="gmx-bf-sep" />
       <BotonBarra titulo="Enlace" activo={est.enlace !== null} expandido={panel?.tipo === 'enlace'} apagado={sinTexto || est.sinMarcas || !hayMarca('link')} onClick={(el) => abrir('enlace', el)}><Icono nombre="enlace" /></BotonBarra>
       <BotonBarra titulo="Alinear texto" expandido={panel?.tipo === 'alinea'} apagado={sinTexto} onClick={(el) => abrir('alinea', el)}>
@@ -1152,7 +1205,8 @@ export function BarraFormato({ editor: editorProp, modo }: { editor?: Editor | n
           editor={editor}
           onCerrar={() => setPanel(null)}
           onSub={(sub) => setPanel((p) => (p ? { ...p, sub } : p))}
-          onTipo={(t) => { aplicarTipoBloque(editor, t); setPanel(null); }}
+          onTipo={ponerTipo}
+          tipoPermitido={enDiseno ? tipoPermitidoEnDiseno : undefined}
           onColor={(c) => ponerTextStyle({ color: c })}
           onResaltado={ponerResaltado}
           onTam={(t) => { ponerTextStyle({ tam: t }); setPanel(null); }}
@@ -1179,11 +1233,13 @@ function colorDeMuestra(c: string | null): string | null {
 }
 
 /** Los paneles que abre la barra (uno por vez). */
-function PanelDeBarra({ panel, est, vars, editor, onCerrar, onSub, onTipo, onColor, onResaltado, onTam, onEtiqueta, onAlinear, onEnlace, onQuitarEnlace, onIA }: {
+function PanelDeBarra({ panel, est, vars, editor, onCerrar, onSub, onTipo, tipoPermitido, onColor, onResaltado, onTam, onEtiqueta, onAlinear, onEnlace, onQuitarEnlace, onIA }: {
   panel: Panel;
   est: EstadoBarra;
   vars: CSSProperties;
   editor: Editor;
+  /** En un «Diseño editable», los estilos que puede tomar (acciones-diseno.ts); sin esto, los del esquema. */
+  tipoPermitido?: (t: TipoBloqueTexto) => boolean;
   onCerrar: () => void;
   onSub: (sub: 'tono' | 'idioma' | undefined) => void;
   onTipo: (t: TipoBloqueTexto) => void;
@@ -1203,7 +1259,7 @@ function PanelDeBarra({ panel, est, vars, editor, onCerrar, onSub, onTipo, onCol
         <MenuFilas etiqueta="Estilos de texto">
           {TIPOS_BLOQUE.map((t) => (
             <FilaMenu key={t.id} nombre={t.nombre} icono={<Icono nombre={t.icono} />} atajo={t.atajo} estilo={t.muestra}
-              activo={est.tipo === t.id ? true : undefined} apagado={!tipoDisponible(editor, t.id)} onClick={() => onTipo(t.id)} />
+              activo={est.tipo === t.id ? true : undefined} apagado={tipoPermitido ? !tipoPermitido(t.id) : !tipoDisponible(editor, t.id)} onClick={() => onTipo(t.id)} />
           ))}
         </MenuFilas>
       </Flotante>

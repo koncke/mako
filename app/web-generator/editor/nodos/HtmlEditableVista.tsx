@@ -18,38 +18,52 @@
 //     el iframe): se ven sus controles y el chat de MaKo la toma como pista. MaKo además lee y cambia sus TEXTOS
 //     (lib/editor-landing/html-editable-textos.ts): las páginas de MaKo se editan desde el chat sin tocar la forma.
 //   · Texto: clic y escribir. Enter es un salto de línea (no parte la caja del diseño en dos). Negrita y cursiva sobre
-//     lo elegido, desde la barrita.
+//     lo elegido, desde la barrita; y TODA la barra «Texto» de arriba (26/10/2026: estaba gris), por ../puente-diseno.ts.
 //   · CADA ELEMENTO con el control que el editor ya tiene para su tipo (25/10/2026, Martín: «quiero que TODO sea editable,
 //     cada botón, cada video, cada cosa que hay»; lib/editor-landing/diseno-elementos.ts): clic en el elemento y su botón
 //     de la barrita, que se marca:
 //       - imagen → «Imagen», el selector de siempre (subir, buscar, biblioteca);
-//       - botón o enlace → «Enlace», el MISMO selector de destino del botón de un bloque (secciones, páginas, WhatsApp,
-//         correo, pestaña nueva), no un campo suelto;
+//       - enlace → «Enlace», el MISMO selector de destino del botón de un bloque; y si se ve como un BOTÓN, «Botón»
+//         (26/10/2026, Martín: «Los botones tampoco son editables»): su texto, a dónde lleva y sus colores;
 //       - video → «Video»: un `<video>`, el selector en modo video (el del bloque Video); un reproductor (Panda,
 //         YouTube…), el panel «Pegar una URL» del bloque Insertar;
 //       - ícono → «Ícono», el selector de íconos, con el tamaño y la clase del que estaba.
 //   · Clic derecho: el MISMO menú de la sección, en el punto (el evento pasa en el iframe y se reenvía a la sección).
 //   · «Código»: el HTML de la sección, para lo que no se toca a la vista.
 //
+// LO QUE LA PUBLICADA ARMA CON SCRIPTS, A LA VISTA (26/10/2026, Martín: «El video no se muestra», «El Calendly embed no
+// aparece», «La animación... de MaKo no aparece»). Adentro de un iframe sin scripts no corren, ni los de un iframe de
+// adentro (el sandbox se hereda). Por eso, desde afuera: cada reproductor y cada agenda va REAL en una capa encima de
+// su lugar (`vivos`: no recibe el mouse hasta que se elige, y el segundo clic ya es del reproductor), y la red de MaKo
+// se pinta en su canvas (../red-de-mako.ts).
+//
 // ⚠️ Lo que escribe esta vista NO recarga el iframe (se perdería el cursor): el documento se rearma sólo cuando
 //    el `html` cambia por OTRO camino (deshacer, «Código», la IA). `emitido` guarda lo último que salió de acá.
 // ⚠️ El alto se mide desde afuera (el iframe no corre scripts): al cargar, al escribir, al cargar una imagen y
 //    con un sondeo liviano, porque las fuentes y los videos cambian el alto sin avisar.
+// ⚠️ UN CLIC ADENTRO NO LLEGA A LA PÁGINA (26/10/2026, Martín: «si le doy click derecho y luego doy click izquierdo en
+//    otro lado, debe desaparecer el desplegable»): los menús y paneles se cierran con un `pointerdown` en el documento
+//    de la página, y el de adentro del iframe es de OTRO documento. Se reenvía al marco, como el clic derecho.
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { NodeViewWrapper, type ReactNodeViewProps } from '@tiptap/react';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import { useEditorLanding } from '../contexto';
-import { EstilosG2, Flotante, Icono, SelectorDestino, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
+import { EstilosG2, Flotante, Icono, SelectorDestino, VAR_COLOR, eliminarBloqueConDeshacer, noRobaFoco } from '../BarraFormato';
 import { SelectorIcono } from '../SelectorIcono';
 import { PanelInsertar } from './InsertadoVista';
-import { NODO, TOPES } from '@/lib/editor-landing/doc';
+import { COLORES_TEMA, NODO, TOPES, esHex } from '@/lib/editor-landing/doc';
 import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editable';
 import { srcVideo } from '@/lib/editor-landing/especificacion';
 import { svgIcono } from '@/lib/editor-landing/iconos';
+import { varsDeTema } from '@/lib/editor-landing/temas';
 import { PIDE_ELEGIR, elementoEnPunto, tipoDeElemento, type TipoElemento } from '@/lib/editor-landing/diseno-elementos';
 import { enlaceDeCalendly, fichaDeAgenda, fichaDeEmbed, srcdocDeFicha } from '@/lib/editor-landing/vista-embeds';
+import { ALLOW_EMBED, REFERRER_EMBED, SANDBOX_EMBED, embedDe } from '@/lib/embeds';
+import { activarDiseno, avisarDiseno, disenoActivo, soltarDiseno, useDisenoActivo } from '../puente-diseno';
+import { animarRedDeMako } from '../red-de-mako';
+import { colorDeBoton, conMarcas, esBotonDeDiseno, ponerColorDeBoton, ponerTextoDeBoton, textoDeBoton } from '../botones-diseno';
 
 const RESPIRO_MS = 500;
 const SONDEO_MS = 800;
@@ -61,11 +75,17 @@ const SONDEO_MS = 800;
  * sección se activa con el `mousedown` de ADENTRO del iframe, y con esa regla el clic nunca llegaba: ni cursor, ni
  * sección activa, ni barra. Medido con clics en el editor real (#32): el clic caía en el envoltorio. Esta regla le gana
  * por especificidad, no por orden (las dos van en `<style>` distintos): lo vigila tests/editor-web-diseno-editable-clic.test.ts.
+ *
+ * La barrita va en un ancla PEGADA arriba de lo que se ve (`sticky`, alto 0: no mueve nada), así en una sección de
+ * 2.000 px no se queda arriba, fuera de la pantalla, mientras se edita lo de abajo. Las capas vivas (`gmx-vivo`) van
+ * encima del iframe, en su lugar.
  */
 export const CSS_EDITABLE: string = [
   '.gmx-editable-vivo{position:relative}',
   '.gmx-editable-vivo iframe{display:block;width:100%;border:0;background:transparent}',
   '.gmx-nv .gmx-nv-marco.gmx-editable-vivo>iframe{pointer-events:auto}',
+  '.gmx-nv-ancla{position:sticky;top:56px;height:0;z-index:6}',
+  '.gmx-editable-vivo>iframe.gmx-vivo{position:absolute;display:block;border:0;border-radius:12px;background:#000;z-index:2}',
   '.gmx-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace!important;font-size:12.5px!important;line-height:1.5!important;min-height:420px!important;white-space:pre;tab-size:2;overflow:auto;resize:vertical;width:100%}',
 ].join('\n');
 
@@ -79,7 +99,7 @@ const CSS_DENTRO = 'body[contenteditable]{outline:none;caret-color:#2F6FED}[data
  * Lo que la página publicada arma con JavaScript y adentro del editor (un iframe SIN scripts) quedaría vacío, con su ficha
  * (vista-embeds.ts; 25/10/2026, Martín sobre la #36: «toda esta sección en blanco... no funciona bien el editor web»):
  * un reproductor muestra qué es y su enlace (su `srcdoc`), y una agenda vacía (`[data-calendly]`) lleva la ficha adentro.
- * Las dos son SÓLO del editor: `leer` las saca antes de guardar.
+ * Las dos son SÓLO del editor: `leer` las saca antes de guardar. Encima va la capa viva (`vivos`), si se reconoce.
  */
 function ponerFichas(d: Document) {
   d.querySelectorAll('iframe').forEach((f) => {
@@ -92,6 +112,26 @@ function ponerFichas(d: Document) {
   });
 }
 
+/** Un reproductor o una agenda REAL, encima de su lugar en el diseño. */
+type Vivo = { clave: string; src: string; titulo: string; x: number; y: number; w: number; h: number; el: Element };
+
+/** Los reproductores y las agendas del documento, con su lugar (en px del iframe, que es el del marco). */
+function vivosDe(d: Document): Vivo[] {
+  const out: Vivo[] = [];
+  const sumar = (el: Element, texto: string, i: number) => {
+    const e = embedDe(texto);
+    if (!e) return;
+    const r = el.getBoundingClientRect();
+    if (r.width < 8 || r.height < 8) return;
+    out.push({ clave: `${i}:${e.src}`, src: e.src, titulo: e.proveedor || 'Insertado', x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), el });
+  };
+  d.querySelectorAll('iframe[data-gmx-vista]').forEach((f, i) => sumar(f, f.getAttribute('src') ?? '', i));
+  d.querySelectorAll('[data-calendly]').forEach((el, i) => sumar(el, el.getAttribute('data-calendly') ?? '', 1000 + i));
+  return out;
+}
+const mismosVivos = (a: Vivo[], b: Vivo[]) =>
+  a.length === b.length && a.every((v, i) => v.clave === b[i].clave && v.x === b[i].x && v.y === b[i].y && v.w === b[i].w && v.h === b[i].h && v.el === b[i].el);
+
 export function HtmlEditableVista(props: ReactNodeViewProps) {
   const { node, editor, getPos, updateAttributes } = props;
   const ctx = useEditorLanding();
@@ -101,19 +141,29 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const emitido = useRef<string>(html);
   const [fuente, setFuente] = useState(html);
   const [alto, setAlto] = useState(320);
-  const [activo, setActivo] = useState(false);
   const [codigo, setCodigo] = useState<{ ancla: HTMLElement } | null>(null);
   const [enlace, setEnlace] = useState<{ ancla: HTMLElement; a: HTMLAnchorElement } | null>(null);
+  const [panelBoton, setPanelBoton] = useState<{ ancla: HTMLElement; a: HTMLAnchorElement } | null>(null);
   const [video, setVideo] = useState<{ ancla: HTMLElement; el: HTMLElement } | null>(null);
   const [icono, setIcono] = useState<{ ancla: HTMLElement; el: SVGElement } | null>(null);
   /** El tipo del elemento elegido: su botón de la barrita se marca. */
   const [tipo, setTipo] = useState<TipoElemento | null>(null);
+  /** El enlace elegido se ve como un botón (la barrita ofrece «Botón»). */
+  const [esBoton, setEsBoton] = useState(false);
+  const [vivos, setVivos] = useState<Vivo[]>([]);
+  const [elegidoEl, setElegidoEl] = useState<Element | null>(null);
   const elegido = useRef<Element | null>(null);
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** El documento que se cargó por última vez (el que se suelta del puente al irse). */
+  const docRef = useRef<Document | null>(null);
+  const pararRed = useRef<() => void>(() => {});
   const editable = editor.isEditable;
   // Lo que leen las escuchas del iframe, que se ponen UNA vez al cargar: siempre lo último.
   const vivo = useRef({ ctx, editor, getPos });
   vivo.current = { ctx, editor, getPos };
+  // ¿Este diseño es el que tiene el cursor? (la barrita se ve mientras lo sea: ../puente-diseno.ts)
+  const { diseno: activoEnPuente } = useDisenoActivo();
+  const esActivo = !!activoEnPuente && !!docRef.current && activoEnPuente.doc === docRef.current;
 
   /**
    * La sección de este diseño pasa a ser la ACTIVA (24/10/2026, Martín: «Todas las paginas de MaKo no son editables,
@@ -140,6 +190,14 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const documento = () => marco.current?.contentDocument ?? null;
   const raiz = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
 
+  // Las capas vivas, con su lugar de ahora (se mueven si el diseño cambia de alto o de ancho).
+  const medirVivos = useCallback(() => {
+    const d = documento();
+    if (!d) return;
+    const lista = vivosDe(d);
+    setVivos((prev) => (mismosVivos(prev, lista) ? prev : lista));
+  }, []);
+
   // ⚠️ EL ALTO ES EL DEL CONTENIDO, no el `scrollHeight` del documento (25/10/2026, Martín: «en muchas secciones hay como
   // una separación»). El `scrollHeight` de un documento nunca es menor que su ventana —el iframe mismo—, así que una
   // sección arrancaba en 320 px y no bajaba nunca: el encabezado de 65 px dejaba 255 px de gris abajo (medido en las 23
@@ -151,7 +209,8 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     const caja = r.getBoundingClientRect();
     const h = Math.max(40, Math.ceil(Math.max(caja.bottom, caja.top + r.scrollHeight)));
     setAlto((a) => (Math.abs(a - h) > 1 ? h : a));
-  }, []);
+    medirVivos();
+  }, [medirVivos]);
 
   /** El HTML de la sección como quedó, sin las marcas de esta vista. */
   const leer = (): string | null => {
@@ -162,6 +221,8 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     // Las fichas del editor (ponerFichas) no se guardan: ni la de la agenda ni el `srcdoc` de un reproductor.
     copia.querySelectorAll('[data-gmx-ui]').forEach((el) => el.remove());
     copia.querySelectorAll('[data-gmx-vista]').forEach((el) => { el.removeAttribute('srcdoc'); el.removeAttribute('data-gmx-vista'); });
+    // El tamaño en px que le puso el dibujo de la red de MaKo (../red-de-mako.ts) no es del diseño.
+    copia.querySelectorAll('canvas[data-animacion]').forEach((el) => { el.removeAttribute('width'); el.removeAttribute('height'); });
     return copia.innerHTML;
   };
   const guardar = useCallback(() => {
@@ -172,36 +233,63 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     emitido.current = v;
     updateAttributes({ html: v });
   }, [ctx, updateAttributes]); // eslint-disable-line react-hooks/exhaustive-deps
+  const guardarVivo = useRef(guardar);
+  guardarVivo.current = guardar;
   const conRespiro = useCallback(() => {
     if (reloj.current) clearTimeout(reloj.current);
     reloj.current = setTimeout(guardar, RESPIRO_MS);
     medir();
   }, [guardar, medir]);
-  useEffect(() => () => guardar(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Al irse: guarda, para la red y suelta el puente si este diseño era el activo.
+  useEffect(() => () => { guardar(); pararRed.current(); soltarDiseno(docRef.current); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // El cursor volvió a un bloque de ProseMirror: este diseño deja de ser el activo (y su barrita se va).
+  useEffect(() => {
+    const volver = () => soltarDiseno(docRef.current);
+    editor.on('focus', volver);
+    return () => { editor.off('focus', volver); };
+  }, [editor]);
 
   // Al cargar el documento: editable, sus escuchas y el alto.
   const alCargar = () => {
     const d = documento();
     if (!d) return;
+    if (docRef.current && docRef.current !== d) soltarDiseno(docRef.current);
+    docRef.current = d;
     const estilo = d.createElement('style');
     estilo.setAttribute('data-gmx', '');
     estilo.textContent = CSS_DENTRO;
     d.head.appendChild(estilo);
     if (editable) d.body.setAttribute('contenteditable', 'true');
     ponerFichas(d);
+    pararRed.current();
+    if (marco.current) pararRed.current = animarRedDeMako(d, marco.current);
     d.addEventListener('input', conRespiro);
     d.addEventListener('load', medir, true);
     d.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); d.execCommand('insertLineBreak'); }
     });
+    // El clic de adentro, a la página: cierra los menús y paneles abiertos (ver la cabecera).
+    d.addEventListener('pointerdown', (e) => {
+      const m = marco.current;
+      if (!m) return;
+      const r = m.getBoundingClientRect();
+      m.dispatchEvent(new PointerEvent('pointerdown', {
+        bubbles: true, cancelable: true, composed: true, clientX: r.left + e.clientX, clientY: r.top + e.clientY,
+        button: e.button, buttons: e.buttons, pointerType: e.pointerType || 'mouse', isPrimary: true,
+      }));
+    });
     d.addEventListener('mousedown', (e) => {
-      setActivo(true);
+      activarDiseno({ doc: d, guardar: () => guardarVivo.current() });
       marcarSeccion();
       if (elegido.current) elegido.current.removeAttribute('data-gmx-sel');
       elegido.current = elementoEnPunto(d, e.target as Element | null, e.clientX, e.clientY) as Element | null;
       if (elegido.current) elegido.current.setAttribute('data-gmx-sel', '');
       setTipo(tipoDeElemento(elegido.current));
+      setEsBoton(tipoDeElemento(elegido.current) === 'enlace' && !!elegido.current && esBotonDeDiseno(elegido.current));
+      setElegidoEl(elegido.current);
     });
+    // La barra «Texto» de arriba lee la selección de ACÁ (../puente-diseno.ts).
+    d.addEventListener('selectionchange', () => { if (disenoActivo()?.doc === d) avisarDiseno(); });
     // EL CLIC DERECHO (25/10/2026, Martín: «no funciona aún el click derecho en el editor web»). Medido en producción: el
     // evento llegaba al documento del iframe y no subía a la página, donde la sección (TarjetaVista) lo escucha. Se reenvía
     // al marco con el punto pasado a la página: abre el MISMO menú de la sección. Quedan con el menú del navegador lo
@@ -222,7 +310,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     medir();
   };
 
-  // Sondeo liviano del alto (fuentes, videos e imágenes que cambian el alto sin avisar).
+  // Sondeo liviano del alto (fuentes, videos e imágenes que cambian el alto sin avisar) y del lugar de las capas vivas.
   useEffect(() => {
     const id = setInterval(medir, SONDEO_MS);
     return () => clearInterval(id);
@@ -257,10 +345,12 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     if (!sel || sel.isCollapsed) { ctx.avisar('Elige un texto'); return; }
     d.execCommand(cmd);
     guardar();
+    avisarDiseno();
   };
   const abrirEnlace = (ancla: HTMLElement) => {
     const a = elegidoDe('enlace') as HTMLAnchorElement | null;
-    if (a) setEnlace({ ancla, a });
+    if (!a) return;
+    if (esBotonDeDiseno(a)) setPanelBoton({ ancla, a }); else setEnlace({ ancla, a });
   };
   /** A dónde lleva un botón o enlace, con el selector del botón de un bloque (pestaña nueva incluida). */
   const ponerDestino = (a: HTMLAnchorElement, href: string | null, nueva: boolean) => {
@@ -313,38 +403,53 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     const pos = getPos();
     if (typeof pos === 'number') eliminarBloqueConDeshacer(editor, pos, ctx.avisar);
   };
+  /** Los colores del tema, por su valor (adentro del diseño no están sus variables). */
+  const coloresDelTema = useMemo(() => {
+    const vars = varsDeTema(ctx.tema) as Record<string, string>;
+    return COLORES_TEMA.map((c) => vars[VAR_COLOR[c]]).filter((v): v is string => !!v);
+  }, [ctx.tema]);
 
-  const abierto = !!codigo || !!enlace || !!video || !!icono;
-  const mostrarBarra = editable && (activo || abierto);
+  const abierto = !!codigo || !!enlace || !!panelBoton || !!video || !!icono;
+  const mostrarBarra = editable && (esActivo || abierto);
   /** Un botón de la barrita: sólo el ícono (la barra cabe entre los controles de la sección) y su nombre en el tooltip. */
-  const boton = (nombre: string, ico: ReactNode, alClic: (ancla: HTMLElement) => void, marcado?: boolean) => (
+  const boton = (nombre: string, ico: ReactNode, alClic: (ancla: HTMLElement) => void, marcado?: boolean, texto?: string) => (
     <button type="button" className="gmx-btn gma-tip" data-tip={nombre} aria-label={nombre} aria-pressed={marcado === undefined ? undefined : marcado}
+      style={texto ? { width: 'auto', padding: '0 8px', gap: 6, fontWeight: 600 } : undefined}
       onMouseDown={(e) => e.preventDefault()} onClick={(e) => alClic(e.currentTarget)}>
-      {ico}
+      {ico}{texto && <span>{texto}</span>}
     </button>
   );
   return (
-    <NodeViewWrapper className="gmx-nv" data-activo={mostrarBarra ? 'si' : undefined}
-      onMouseLeave={() => { if (!abierto) setActivo(false); }}>
+    <NodeViewWrapper className="gmx-nv" data-activo={mostrarBarra ? 'si' : undefined}>
       <EstilosG2 />
       <style href="gmx-editable" precedence="medium">{CSS_EDITABLE}</style>
-      {mostrarBarra && (
-        <div className="gmx gmx-nv-barra" contentEditable={false} onMouseDown={noRobaFoco}>
-          {boton('Negrita', <Icono nombre="negrita" />, () => formato('bold'))}
-          {boton('Cursiva', <Icono nombre="cursiva" />, () => formato('italic'))}
-          <span className="gmx-nv-sep" />
-          {boton('Imagen', <Icono nombre="imagen" />, () => void cambiarImagen(), tipo === 'imagen')}
-          {boton('Enlace', <Icono nombre="enlace" />, abrirEnlace, tipo === 'enlace')}
-          {boton('Video', <Icono nombre="video" />, (a) => void cambiarVideo(a), tipo === 'video')}
-          {boton('Ícono', <Icono nombre="estrella" />, abrirIcono, tipo === 'icono')}
-          <span className="gmx-nv-sep" />
-          {boton('Código', <Icono nombre="codigo" />, (el) => { guardar(); setCodigo((p) => (p ? null : { ancla: el })); })}
-          {boton('Eliminar sección', <IconoBorrar size={16} />, eliminar)}
-        </div>
-      )}
+      <div className="gmx-nv-ancla" contentEditable={false}>
+        {mostrarBarra && (
+          <div className="gmx gmx-nv-barra" contentEditable={false} onMouseDown={noRobaFoco}>
+            {boton('Negrita', <Icono nombre="negrita" />, () => formato('bold'))}
+            {boton('Cursiva', <Icono nombre="cursiva" />, () => formato('italic'))}
+            <span className="gmx-nv-sep" />
+            {boton('Imagen', <Icono nombre="imagen" />, () => void cambiarImagen(), tipo === 'imagen')}
+            {/* Un enlace que se ve como un botón: «Botón», con su nombre a la vista (su texto, destino y colores). */}
+            {esBoton && boton('Botón', <Icono nombre="enlace" />, abrirEnlace, true, 'Botón')}
+            {boton('Enlace', <Icono nombre="enlace" />, abrirEnlace, tipo === 'enlace')}
+            {boton('Video', <Icono nombre="video" />, (a) => void cambiarVideo(a), tipo === 'video')}
+            {boton('Ícono', <Icono nombre="estrella" />, abrirIcono, tipo === 'icono')}
+            <span className="gmx-nv-sep" />
+            {boton('Código', <Icono nombre="codigo" />, (el) => { guardar(); setCodigo((p) => (p ? null : { ancla: el })); })}
+            {boton('Eliminar sección', <IconoBorrar size={16} />, eliminar)}
+          </div>
+        )}
+      </div>
       <div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable={false}>
         <iframe ref={marco} sandbox="allow-same-origin" srcDoc={doc} title="Diseño editable" referrerPolicy="no-referrer"
           onLoad={alCargar} style={{ height: alto + 'px' }} />
+        {/* Los reproductores y las agendas, REALES, encima de su lugar. Sin el mouse hasta que se eligen. */}
+        {vivos.map((v) => (
+          <iframe key={v.clave} className="gmx-vivo" src={v.src} title={v.titulo} sandbox={SANDBOX_EMBED} allow={ALLOW_EMBED}
+            referrerPolicy={REFERRER_EMBED} loading="lazy"
+            style={{ left: v.x, top: v.y, width: v.w, height: v.h, pointerEvents: esActivo && !!elegidoEl && (elegidoEl === v.el || v.el.contains(elegidoEl)) ? 'auto' : 'none' }} />
+        ))}
       </div>
 
       {codigo && (
@@ -357,6 +462,12 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
           <SelectorDestino valor={enlace.a.getAttribute('href')} nuevaPestana={enlace.a.getAttribute('target') === '_blank'}
             onElegir={(href, nueva) => ponerDestino(enlace.a, href, nueva)}
             onQuitar={enlace.a.getAttribute('href') ? () => ponerDestino(enlace.a, null, false) : undefined} />
+        </Flotante>
+      )}
+      {panelBoton && (
+        <Flotante ancla={panelBoton.ancla} onCerrar={() => setPanelBoton(null)} etiqueta="Botón" ancho={340}>
+          <PanelBoton a={panelBoton.a} colores={coloresDelTema} onCambio={() => { guardar(); medir(); }}
+            onDestino={(href, nueva) => { ponerDestino(panelBoton.a, href, nueva); setPanelBoton(null); }} />
         </Flotante>
       )}
       {video && (
@@ -395,6 +506,55 @@ function CodigoSeccion({ inicial, onListo }: { inicial: string; onListo: (html: 
         <span className="gmx-nota">Sin JavaScript</span>
         <button type="button" className="gmx-primario" onMouseDown={(e) => e.preventDefault()} onClick={() => onListo(texto)}>Listo</button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * «Botón» de un diseño (26/10/2026, Martín: «Los botones tampoco son editables»): su texto, a dónde lleva (el MISMO
+ * selector del botón de un bloque) y sus dos colores (los del tema o uno a elección). Cada cambio va a su HTML.
+ */
+function PanelBoton({ a, colores, onCambio, onDestino }: {
+  a: HTMLAnchorElement;
+  colores: readonly string[];
+  onCambio: () => void;
+  onDestino: (href: string | null, nueva: boolean) => void;
+}) {
+  const [texto, setTexto] = useState(() => textoDeBoton(a));
+  const [color, setColor] = useState(() => colorDeBoton(a));
+  const marcado = conMarcas(a);
+  const poner = (cual: 'fondo' | 'texto', v: string) => {
+    // Un color (hex, rgb, oklch…), nunca otra cosa en el `style`.
+    if (!v || /[;{}<>"]|url\(/i.test(v)) return;
+    ponerColorDeBoton(a, cual, v);
+    setColor((c) => ({ ...c, [cual]: v }));
+    onCambio();
+  };
+  const fila = (cual: 'fondo' | 'texto', rotulo: string) => (
+    <>
+      <span className="gmx-rotulo">{rotulo}</span>
+      <div className="gmx-muestras">
+        {colores.map((c) => (
+          <button key={c} type="button" className="gmx-muestra" title={c} aria-label={`${rotulo}: ${c}`} aria-pressed={color[cual].toLowerCase() === c.toLowerCase()}
+            style={{ background: c }} onMouseDown={(e) => e.preventDefault()} onClick={() => poner(cual, c)} />
+        ))}
+        <input type="color" aria-label={`${rotulo}: otro`} value={esHex(color[cual]) ? color[cual] : '#000000'} onChange={(e) => poner(cual, e.target.value.toLowerCase())} />
+      </div>
+    </>
+  );
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: 4 }}>
+      <span className="gmx-rotulo">Texto</span>
+      {marcado
+        ? <span className="gmx-nota">Este botón lleva datos que pone la página (la prueba o un precio): se escribe en el botón.</span>
+        : <input className="gmx-campo" value={texto} maxLength={80} aria-label="Texto del botón"
+            onChange={(e) => { setTexto(e.target.value); ponerTextoDeBoton(a, e.target.value); onCambio(); }} />}
+      {fila('fondo', 'Color del botón')}
+      {fila('texto', 'Color del texto')}
+      <span className="gmx-rotulo">A dónde lleva</span>
+      <SelectorDestino valor={a.getAttribute('href')} nuevaPestana={a.getAttribute('target') === '_blank'}
+        onElegir={(href, nueva) => onDestino(href, nueva)}
+        onQuitar={a.getAttribute('href') ? () => onDestino(null, false) : undefined} />
     </div>
   );
 }
