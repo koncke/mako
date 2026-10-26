@@ -8,6 +8,7 @@ import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
 import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
+import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
 import { FueraDeLoPublico, HideOnPublicLanding } from './_components/PublicRouteGate';
 import { CentinelaArranque } from './_components/CentinelaArranque';
@@ -277,6 +278,9 @@ export default async function RootLayout({
                   ⚠️ Y TAMBIÉN EN EL TELÉFONO (21/10/2026): adentro de <HideOnPublicLanding>, que apaga el cromo de escritorio en
                   un teléfono, no se montaba nunca ahí, y la Ticketera no tenía ni un error de MaKo Mobile. */}
               {sesion && <FueraDeLoPublico><ReportadorDeErrores /></FueraDeLoPublico>}
+              {/* El pago de un cliente de agencia que paga su propia cuenta, al terminar su onboarding (Agency Dashboard,
+                  25/10/2026). Encima de todo y también en el teléfono: el primer mes no se cierra. */}
+              {sesion && <CartelPagoCliente />}
               {children}
               {/* Toast global: avisa CADA operación de IA que gasta tokens y
                   linkea al detalle en Integraciones › Costo de MaKo. */}

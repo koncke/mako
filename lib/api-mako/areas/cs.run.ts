@@ -47,6 +47,9 @@ import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
 import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
 import { abrirCuentaDePartner, cuentasDePartner, leadParaPartners } from '@/lib/partners';
+import { estadoAgency, sumarseComoAgency } from '@/lib/agency';
+import { quienPagaDe, ROTULO_QUIEN_PAGA, TEXTO_NO_AGENCY } from '@/lib/agency-reglas';
+import { ESTADOS_CARTERA, type EstadoCartera } from '@/lib/agencia-cartera';
 import { cobrosDeClientesDeAgencia } from '@/lib/agencia-cobro';
 import { productosDelAlumno } from '@/lib/curso-datos';
 import { invitarAlCurso, TEXTO_NO_INVITA } from '@/lib/curso-invitar';
@@ -109,6 +112,27 @@ async function cursosDe(ids: readonly number[]): Promise<Array<{ productoId: num
   ]);
   const nombre = new Map(catalogo.map((p) => [Number(p.id), p.nombre]));
   return clases.filter(([, cs]) => cs.length > 0).map(([id]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto' }));
+}
+
+/** Quién paga, dicho para el resumen que confirma una persona. */
+const textoQuienPaga = (paga: 'agencia' | 'cliente'): string =>
+  paga === 'cliente'
+    ? `${ROTULO_QUIEN_PAGA.cliente}: le llega su acceso ya y, al terminar su onboarding, le aparece el pago.`
+    : `${ROTULO_QUIEN_PAGA.agencia}: queda esperando el pago de su primer mes, con tu tarjeta.`;
+
+/**
+ * Abrir la cuenta y contarlo. ⚠️ El link de pago lo escribe el CÓDIGO, nunca el modelo (AGENTS.md: un dato exacto que
+ * pasa por un LLM deja de serlo); y sólo si paga la agencia: si paga el cliente, lo ve él en su cartel.
+ */
+async function abrirYContar(ctx: Ctx, p: { nombre: string; email: string; leadId: number | null; paga: 'agencia' | 'cliente' }): Promise<Ejecutado> {
+  const pagador = ctx.actor && ctx.actor.includes('@') ? ctx.actor : null;
+  const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: p.nombre, email: p.email, leadId: p.leadId, pagador, paga: p.paga });
+  if (!r.ok) return { ok: false, resumen: r.error };
+  if (r.link && r.paga === 'agencia') ctx.aPersona?.(`Link de su primer mes: ${r.link}`);
+  const resumen = r.paga === 'cliente'
+    ? (r.acceso?.enviado ? 'Quedó su cuenta abierta y le llegó su acceso. Al terminar su onboarding le aparece el pago.' : 'Quedó su cuenta abierta, pero su acceso no salió: reenvíaselo desde Agency Dashboard.')
+    : (r.link ? 'Quedó su cuenta abierta. El link de su primer mes también está en Agency Dashboard.' : 'Quedó su cuenta abierta, esperando que MaKo la habilite.');
+  return { ok: true, resumen, datos: { clienteWs: r.clienteWs, paga: r.paga } };
 }
 
 // ⚠️ LA CARTERA SE REARMÓ EL 26/09/2026 Y DEJÓ DE SER LA DE UN CLIENTE. Se fueron
@@ -284,45 +308,97 @@ export const RUNNERS: Runners = {
           cliente_ws: c.ws, nombre: c.nombre, cuenta: c.estado, desde: c.desde, plan: c.plan,
           // Cuántas personas entran, nunca quiénes: los emails de otro negocio no viajan al modelo.
           personas: c.equipo ? c.equipo.length : null,
+          paga: c.paga,
           primer_mes_sin_pagar: !!c.cobro?.pagar,
           renovacion: c.cobro?.renovacion ? { desde: c.cobro.renovacion.desde, activada: c.cobro.renovacion.activada } : null,
           lead_crm: c.lead ? { id: c.lead.id, nombre: c.lead.nombre } : null,
         })),
         precio_usd_por_cliente: r.precio.usd,
-        nota: 'personas null = la cuenta todavía no está activa (o no se pudo leer). Los links de pago están en MaKo Partners.',
+        nota: 'personas null = la cuenta todavía no está activa (o no se pudo leer). paga: agencia (la agencia paga con su tarjeta) o cliente (el cliente paga al terminar su onboarding). Los links de pago están en Agency Dashboard.',
       });
     },
   },
 
   llevar_a_partners: {
     preparar: revisando(async (input, ctx) => {
-      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es parte de MaKo Partners: no puede abrirle cuentas a sus clientes.' };
+      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es Agency: se suma desde Agency Dashboard (con el plan MaKo Pro).' };
       const leadId = num(input, 'leadId');
       const lead = leadId != null ? await leadParaPartners(leadId) : null;
       if (!lead) return { error: `El lead #${leadId ?? '?'} no es de este CRM.` };
-      if (lead.clienteWs) return { error: `${lead.nombre || 'Ese lead'} ya tiene su cuenta en MaKo Partners.`, yaEstaba: true };
+      if (lead.clienteWs) return { error: `${lead.nombre || 'Ese lead'} ya tiene su cuenta en Agency Dashboard.`, yaEstaba: true };
       const pedido = str(input, 'email');
       const correo = emailNormalizado(pedido || lead.email || '');
       if (pedido && !emailUtilizable(correo)) return { error: 'Ese email no sirve.' };
       if (!emailUtilizable(correo)) return { error: `${lead.nombre || 'El lead'} no tiene email en el CRM. Pásalo en email: es por donde le llega el acceso.`, faltan: ['email'] };
+      const paga = quienPagaDe(str(input, 'paga'));
       return {
-        payload: { leadId: lead.id, email: correo },
-        resumen: `Abrirle a ${lead.nombre || `el lead #${lead.id}`} su cuenta de MaKo (${correo}) como cliente de tu agencia en MaKo Partners. Queda esperando el pago de su primer mes.`,
+        payload: { leadId: lead.id, email: correo, paga },
+        resumen: `Abrirle a ${lead.nombre || `el lead #${lead.id}`} su cuenta de MaKo (${correo}) como cliente de tu agencia. ${textoQuienPaga(paga)}`,
       };
     }),
     ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) => {
       const leadId = typeof payload.leadId === 'number' ? payload.leadId : null;
-      const pagador = ctx.actor && ctx.actor.includes('@') ? ctx.actor : null;
-      const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: '', email: String(payload.email ?? ''), leadId, pagador });
-      if (!r.ok) return { ok: false, resumen: r.error };
-      // El link de pago lo escribe el CÓDIGO, nunca el modelo (AGENTS.md: un dato exacto que pasa por un LLM deja de serlo).
-      if (r.link) ctx.aPersona?.(`Link de su primer mes: ${r.link}`);
+      return abrirYContar(ctx, { nombre: '', email: String(payload.email ?? ''), leadId, paga: quienPagaDe(payload.paga) });
+    }),
+  },
+
+  // ── Agency Dashboard (25/10/2026): lib/agency.ts ─────────────────────────────────────────────────────────────────
+  ver_agency: {
+    leer: async (_input, ctx) => {
+      const e = await estadoAgency(ctx.ws);
+      const cuentas: Record<EstadoCartera, number> = { pendiente: 0, aprobado: 0, revocado: 0 };
+      if (e.esAgency) {
+        for (const f of await carteraDeAgencia(ctx.ws)) {
+          const est = (ESTADOS_CARTERA as readonly string[]).includes(f.estado) ? (f.estado as EstadoCartera) : 'pendiente';
+          cuentas[est] += 1;
+        }
+      }
+      return json({
+        es_agency: e.esAgency,
+        se_sumo: e.sumada === null ? null : !!e.sumada,
+        puede_sumarse: e.puede.ok,
+        por_que_no: e.puede.ok ? null : TEXTO_NO_AGENCY[e.puede.motivo],
+        perfil: e.perfil ? { clientes: e.perfil.clientes, rubro: e.perfil.rubro || null, paga_hoy: e.perfil.pagaHoy } : null,
+        cuentas: e.esAgency ? cuentas : null,
+        nota: 'se_sumo null = no se pudo leer. cuentas: pendiente (espera su pago o que MaKo la habilite), aprobado (activa), revocado.',
+      });
+    },
+  },
+
+  sumarse_como_agency: {
+    preparar: revisando(async (input, ctx) => {
+      const e = await estadoAgency(ctx.ws);
+      if (e.esAgency) return { error: 'Este negocio ya es Agency: sus clientes están en Agency Dashboard.', yaEstaba: true };
+      if (!e.puede.ok) return { error: TEXTO_NO_AGENCY[e.puede.motivo] };
+      const perfil = { clientes: str(input, 'clientes') || null, rubro: str(input, 'rubro'), pagaHoy: str(input, 'pagaHoy') || null };
       return {
-        ok: true,
-        resumen: r.link ? 'Quedó su cuenta abierta. El link de su primer mes también está en MaKo Partners.' : 'Quedó su cuenta abierta, esperando que MaKo la habilite.',
-        datos: { clienteWs: r.clienteWs },
+        payload: perfil,
+        resumen: 'Sumar este negocio como Agency: vas a abrir las cuentas de MaKo de tus clientes y administrarlas desde Agency Dashboard.',
       };
     }),
+    ejecutar: sinLanzar('sumarte como Agency', async (payload, ctx) => {
+      const quien = ctx.actor && ctx.actor.includes('@') ? ctx.actor : null;
+      const r = await sumarseComoAgency({ ws: ctx.ws, quien, perfil: payload });
+      if (!r.ok) return { ok: false, resumen: r.error };
+      return { ok: true, resumen: r.yaEstaba ? 'Ya eras Agency.' : 'Listo: ya eres Agency. Tus clientes viven en Agency Dashboard.' };
+    }),
+  },
+
+  abrir_cuenta_cliente_agency: {
+    preparar: revisando(async (input, ctx) => {
+      if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es Agency: se suma desde Agency Dashboard (con el plan MaKo Pro).' };
+      const nombre = str(input, 'nombre').slice(0, 120);
+      if (!nombre) return { error: 'Falta su nombre.', faltan: ['nombre'] };
+      const correo = emailNormalizado(str(input, 'email'));
+      if (!emailUtilizable(correo)) return { error: 'Hace falta un email que sirva: es por donde le llega el acceso.', faltan: ['email'] };
+      const paga = quienPagaDe(str(input, 'paga'));
+      return {
+        payload: { nombre, email: correo, paga },
+        resumen: `Abrirle a ${nombre} su cuenta de MaKo (${correo}) como cliente de tu agencia. ${textoQuienPaga(paga)}`,
+      };
+    }),
+    ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) =>
+      abrirYContar(ctx, { nombre: String(payload.nombre ?? ''), email: String(payload.email ?? ''), leadId: null, paga: quienPagaDe(payload.paga) })),
   },
 
   ver_avance_curso_cs: {

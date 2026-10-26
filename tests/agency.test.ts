@@ -1,0 +1,281 @@
+// =============================================================================
+// Agency Dashboard: quién se suma, quién entra, quién paga cada cliente y cuándo salta su pago (25/10/2026)
+// =============================================================================
+// Martín (docs/feedback-25-10-tarde.md punto 9): «crees otra tab abajo de "Partners" que sea "Agency Dashboard"... que te
+// puedas sumar como "Agency", solo para los que tengan su plan de 97 activo... tu agregas a 1 cliente nuevo y puedes
+// elegir si el cobro se realiza ahí mismo con tu tarjeta, o si quieres que lo pague tu cliente, y en dicho caso, al
+// finalizar el onboarding de ese cliente debe saltar el cartel de pago». Era tests/partners.test.ts (17/10/2026), de
+// cuando la cartera de la agencia vivía en /partners; se mudó con ella. Lo que fija:
+//   1. sumarse: sólo con el plan Pro ACTIVO, y ser Agency es el plan Y la fila (no el plan solo);
+//   2. la tab: el super admin ve todas las agencias; el admin que no se sumó, la landing; la Agency, su dashboard; el
+//      cliente de una agencia no la ve; las puertas a una cuenta (CRM, Clients, «Salir») llevan a /agency. Que /partners
+//      ya no dibuje la cartera lo cuida Planes, que reescribió esas páginas (tests de Partners);
+//   3. abrir una cuenta: UNA implementación, con el orden que no deja cuentas sueltas, y quién paga;
+//   4. el cartel de pago del cliente: sólo si paga él, al terminar su onboarding, y el primer mes no se cierra;
+//   5. lo que cruza de inquilino, sólo de las aprobadas;
+//   6. la API: ver, sumarse y abrir, sin HTTP, sólo el admin, y el link lo escribe el código;
+//   7. el teléfono: /m/agency, la misma puerta y la misma alta (con quién paga) que la computadora.
+//
+// Probado rompiéndolo (con todo puesto: 0 fallos). Cada rotura, sola:
+//   · `puedeSumarseComoAgency` acepta un negocio pausado (sin el chequeo de `estado`)          → 1 fallo (1)
+//   · `esAgencia` vuelve a mirar sólo la capa (sin la fila de `agencias`)                      → 1 fallo (1)
+//   · la página de /agency deja entrar al cliente de una agencia (sin `agenciaDeCliente`)      → 1 fallo (2)
+//   · el CRM vuelve a llevar a /partners?cuenta=                                              → 1 fallo (2)
+//   · `buscarUsuarioPorEmail` va DESPUÉS de `crearWorkspace`                                  → 1 fallo (3)
+//   · el acceso sale aunque pague la agencia (sin el `if (paga === 'cliente')`)                → 1 fallo (3)
+//   · `cartelDePago` deja cerrar el primer mes (`cerrable: true`)                             → 1 fallo (4)
+//   · /api/agencia/mi-pago contesta al super admin (sin `s.rol === 'admin'`)                  → 1 fallo (4)
+//   · el resumen de `abrirYContar` lleva el link                                              → 1 fallo (6)
+//   · `abrir_cuenta_cliente_agency` sale por HTTP                                             → 1 fallo (6)
+//   · /m/agency deja pasar a quien no es admin                                                → 1 fallo (7)
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { DEFS } from '../lib/api-mako/areas/cs.def';
+import {
+  cartelDePago, puedeSumarseComoAgency, quienPagaDe, quienPagaSugerido, sanearPerfilAgency, CAPA_PRO,
+} from '../lib/agency-reglas';
+
+const RAIZ = join(import.meta.dirname, '..');
+const sinComentarios = (s: string) => s.replace(/\r\n/g, '\n').replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+const leer = (rel: string) => sinComentarios(readFileSync(join(RAIZ, rel), 'utf8'));
+/** El cuerpo de una función exportada, de su firma a la siguiente `export`. */
+const cuerpo = (src: string, nombre: string) => {
+  const i = src.search(new RegExp(`export (async function|const) ${nombre}\\b`));
+  assert.ok(i >= 0, `no encontré ${nombre}`);
+  const j = src.indexOf('\nexport ', i + 10);
+  return src.slice(i, j < 0 ? undefined : j);
+};
+
+// ── 1. Sumarse ─────────────────────────────────────────────────────────────────────
+
+test('sumarse: sólo con el plan Pro ACTIVO; la plataforma nunca', () => {
+  assert.equal(CAPA_PRO, 'agencia', 'el plan Pro de US$97 es la capa agencia (lib/planes-mako.ts)');
+  assert.deepEqual(puedeSumarseComoAgency({ capa: 'agencia', estado: 'activo', esPlataforma: false }), { ok: true });
+  assert.deepEqual(puedeSumarseComoAgency({ capa: 'completo', estado: 'activo', esPlataforma: false }), { ok: false, motivo: 'plan' });
+  assert.deepEqual(puedeSumarseComoAgency({ capa: 'agencia', estado: 'pausado', esPlataforma: false }), { ok: false, motivo: 'pausado' });
+  assert.deepEqual(puedeSumarseComoAgency({ capa: 'superadmin', estado: 'activo', esPlataforma: true }), { ok: false, motivo: 'plataforma' });
+  assert.deepEqual(puedeSumarseComoAgency({ capa: null, estado: null, esPlataforma: false }), { ok: false, motivo: 'plan' });
+  // El plan de verdad: el que da la capa agencia vale 97.
+  const planes = readFileSync(join(RAIZ, 'lib/planes-mako.ts'), 'utf8');
+  assert.match(planes, /id: 'pro',\s*nombre: 'MaKo Pro',\s*capa: 'agencia',\s*precioUsd: 97,/);
+});
+
+test('ser Agency es el plan Y la fila: con el plan solo, todo el que compraba Pro quedaba agencia sin pedirlo', () => {
+  const lib = leer('lib/agencia.ts');
+  const es = cuerpo(lib, 'esAgencia');
+  assert.match(es, /from\('workspaces'\)\.select\('capa'\)/);
+  assert.match(es, /from\('agencias'\)\.select\('ws'\)/);
+  assert.match(es, /=== 'agencia' && a\.data != null;/);
+  assert.match(es, /catch \{\s*return false;/, 'fail-closed');
+  // Las agencias de la plataforma, con la misma regla.
+  assert.match(cuerpo(lib, 'agenciasHabilitadas'), /filter\(\(x\) => sumadas\.has\(Number\(x\.id\)\)\)/);
+  // Sumarse repregunta el plan ANTES de escribir, y escribe la fila idempotente.
+  const agency = leer('lib/agency.ts');
+  const sumar = cuerpo(agency, 'sumarseComoAgency');
+  assert.ok(sumar.indexOf('if (!estado.puede.ok)') < sumar.indexOf('anotarAgency('), 'el plan, antes de anotar');
+  assert.match(cuerpo(lib, 'anotarAgency'), /\{ onConflict: 'ws', ignoreDuplicates: true \}/);
+});
+
+test('lo que contó al sumarse: saneado, y «¿quién paga hoy?» propone la opción del alta', () => {
+  assert.deepEqual(sanearPerfilAgency({ clientes: '6-20', rubro: '  inmobiliarias   y  coaches ', pagaHoy: 'clientes', basura: 1 }),
+    { clientes: '6-20', rubro: 'inmobiliarias y coaches', pagaHoy: 'clientes', desde: null });
+  assert.deepEqual(sanearPerfilAgency('no es json'), { clientes: null, rubro: '', pagaHoy: null, desde: null });
+  assert.equal(sanearPerfilAgency({ clientes: '1000' }).clientes, null);
+  assert.equal(quienPagaSugerido({ pagaHoy: 'clientes' }), 'cliente');
+  assert.equal(quienPagaSugerido({ pagaHoy: 'yo' }), 'agencia');
+  assert.equal(quienPagaSugerido(null), 'agencia');
+});
+
+// ── 2. Quién entra ─────────────────────────────────────────────────────────────────
+
+test('la tab: el super admin ve las agencias; el admin, la landing hasta sumarse; el cliente de una agencia, nada', () => {
+  const page = leer('app/agency/page.tsx');
+  assert.match(page, /await requireSesion\(\);/);
+  assert.match(page, /if \(esSuper && !\(await estaImpersonando\(\)\)\) \{[\s\S]*?<AgencyPlataforma/);
+  assert.match(page, /if \(!admin && !esSuper\) redirect\(await rutaConWs\('\/inicio'\)\);\s*[\s\S]*?await guardOnboarding\(\);/);
+  // «MaKo no les va a enviar promociones»: el cliente de una agencia no ve el programa.
+  assert.match(page, /if \(!esSuper && \(await agenciaDeCliente\(ws\)\)\) redirect\(await rutaConWs\('\/inicio'\)\);/);
+  // La landing hasta sumarse (y con «Ver la landing»); el dashboard después, armado entero en el server.
+  assert.match(page, /if \(!estado\.esAgency \|\| verLanding\) \{\s*return <LandingAgency/);
+  assert.ok(page.indexOf('<LandingAgency estado={estado}') < page.indexOf('const cartera = await cuentasDePartner(ws);'));
+  // El botón de la landing depende del plan: sólo `puede.ok` ofrece sumarse.
+  const landing = leer('app/agency/LandingAgency.tsx');
+  assert.match(landing, /if \(estado\.puede\.ok\) return <button type="button" className="ag-btn" onClick=\{onSumarme\}>Sumarme como Agency<\/button>;/);
+  assert.match(landing, /href=\{RUTA_CAMBIAR_PLAN\}>Pásate a MaKo Pro</);
+  // Y la barra: debajo de MaKo Partners.
+  const nav = readFileSync(join(RAIZ, 'app/_components/nav.ts'), 'utf8');
+  const i = nav.indexOf("{ key: 'partners'");
+  const j = nav.indexOf("{ key: 'agency', label: 'Agency Dashboard', href: '/agency'");
+  assert.ok(i > 0 && j > i && !nav.slice(i + 10, j).includes("{ key: '"), 'Agency Dashboard va justo debajo de MaKo Partners');
+});
+
+test('las puertas a la cuenta de un cliente de agencia llevan a /agency: el CRM, la ficha de Clients y el «Salir»', () => {
+  assert.match(leer('app/crm/CrmBoard.tsx'), /router\.push\(`\/agency\?cuenta=\$\{l\.cuentaPartners\}`\)/);
+  assert.match(leer('app/crm/lead-view/ficha/FichaPorBloques.tsx'), /router\.push\(`\/agency\?cuenta=\$\{lead\.cliente_ws\}`\)/);
+  assert.match(leer('app/customer-success/FichaCliente.tsx'), /<Link className="fc-partners" href=\{`\/agency\?cuenta=\$\{c\.clienteWs\}`\}/);
+  assert.match(leer('lib/agencia-cartera.ts'), /return esSuperAdmin \? '\/customers' : '\/agency';/);
+});
+
+// ── 3. Abrir una cuenta ───────────────────────────────────────────────────────────
+
+test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace pendiente, y quién paga', () => {
+  const lib = leer('lib/partners.ts');
+  const abrir = cuerpo(lib, 'abrirCuentaDePartner');
+  const orden = [
+    'if (!emailUtilizable(correo))',
+    'if (!(await esAgencia(p.agenciaWs)))',
+    'lead = await leadParaPartners(',
+    'if (lead.clienteWs) return',
+    'if (await buscarUsuarioPorEmail(correo))',
+    'const ws = await crearWorkspace(nombre);',
+    ".insert({ agencia_ws: p.agenciaWs, cliente_ws: ws.id, estado: 'pendiente' })",
+    'update({ cliente_ws: ws.id })',
+    'await crearUsuario({',
+    "await guardarQuienPaga(ws.id, 'cliente')",
+    'const cobro = await linkPrimerMes(',
+    'acceso = await invitarPorEmail(',
+  ];
+  let desde = 0;
+  for (const paso of orden) {
+    const i = abrir.indexOf(paso, desde);
+    assert.ok(i >= 0, `falta, o está fuera de orden: ${paso}`);
+    desde = i;
+  }
+  // El acceso sale YA sólo si paga el cliente (tiene que hacer su onboarding); si paga la agencia, al habilitarse.
+  assert.match(abrir, /if \(paga === 'cliente'\) \{\s*acceso = await invitarPorEmail\(/);
+  // Si paga el cliente, el link del primer mes va a SU email (y la renovación se la pide a él).
+  assert.match(abrir, /email: paga === 'cliente' \? correo : p\.pagador/);
+  assert.doesNotMatch(cuerpo(lib, 'leadParaPartners'), /estado_lead/, 'un lead de cualquier etapa, no sólo un ganado');
+  // Una sola implementación: Clients no abre cuentas; la tab, el CRM y la API van por el núcleo.
+  assert.doesNotMatch(leer('app/customer-success/actions.ts'), /crearWorkspace|crearUsuario\(|linkPrimerMes/);
+  const acc = leer('app/agency/actions.ts');
+  assert.match(acc, /const r = await abrirCuentaDePartner\(\{/);
+  assert.match(acc, /paga: quienPagaDe\(datos\?\.paga\),/);
+  assert.match(leer('app/agency/NuevoCliente.tsx'), /await abrirCuentaClienteAction\(\{ leadId, nombre, email, paga \}\)/);
+});
+
+test('quién paga: sólo «cliente» es el cliente; lo demás es la agencia (lo que pasaba antes de poder elegir)', () => {
+  assert.equal(quienPagaDe('cliente'), 'cliente');
+  assert.equal(quienPagaDe(' Cliente '), 'cliente');
+  for (const v of ['agencia', '', null, undefined, 'otro', 1]) assert.equal(quienPagaDe(v), 'agencia', String(v));
+});
+
+test('las acciones las usa sólo el admin, y en un archivo use server sólo se exportan funciones async', () => {
+  const acc = leer('app/agency/actions.ts');
+  assert.match(acc, /^'use server';/);
+  for (const m of acc.matchAll(/^export\s+(\S+\s+\S+)/gm)) assert.equal(m[1], 'async function', m[0]);
+  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 3, 'las tres acciones preguntan el admin');
+});
+
+test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no pide nada', () => {
+  const modal = leer('app/agency/NuevoCliente.tsx');
+  assert.match(modal, /export function ModalNuevoCliente\(/);
+  assert.match(modal, /return createPortal\(\s*<Modal/);
+  assert.match(modal, /if \(r\.clienteWs\) setYa\(r\.clienteWs\);/);
+  assert.match(leer('app/agency/AgencyApp.tsx'), /<ModalNuevoCliente leadId=\{alta\.leadId\}/);
+  for (const f of ['app/crm/CrmBoard.tsx', 'app/crm/lead-view/ficha/FichaPorBloques.tsx']) {
+    assert.match(leer(f), /import \{ ModalNuevoCliente as ModalLlevarAPartners \} from '@\/app\/agency\/NuevoCliente';/, f);
+  }
+});
+
+// ── 4. El cartel de pago del cliente ──────────────────────────────────────────────
+
+test('el cartel: sólo si paga él y terminó su onboarding; el primer mes no se cierra, la renovación sí', () => {
+  const pend = { pagar: 'https://pago/1', renovacion: null };
+  assert.equal(cartelDePago({ quienPaga: 'agencia', onboardingTerminado: true, pendiente: pend }), null, 'paga la agencia: nada');
+  assert.equal(cartelDePago({ quienPaga: 'cliente', onboardingTerminado: false, pendiente: pend }), null, 'antes de terminar el onboarding: nada');
+  assert.equal(cartelDePago({ quienPaga: 'cliente', onboardingTerminado: true, pendiente: null }), null, 'nada que pagar: nada');
+  assert.deepEqual(cartelDePago({ quienPaga: 'cliente', onboardingTerminado: true, pendiente: pend }),
+    { tipo: 'primer-mes', link: 'https://pago/1', cerrable: false });
+  const renov = { pagar: null, renovacion: { link: 'https://pago/2', desde: '2026-11-25T10:00:00.000Z', activada: false } };
+  assert.deepEqual(cartelDePago({ quienPaga: 'cliente', onboardingTerminado: true, pendiente: renov }),
+    { tipo: 'renovacion', link: 'https://pago/2', desde: '2026-11-25T10:00:00.000Z', cerrable: true });
+  assert.equal(cartelDePago({ quienPaga: 'cliente', onboardingTerminado: true, pendiente: { pagar: null, renovacion: { ...renov.renovacion, activada: true } } }), null);
+});
+
+test('el cartel lo pide sólo el admin de SU cuenta, no el super admin; y está montado para todos con sesión', () => {
+  const ruta = leer('app/api/agencia/mi-pago/route.ts');
+  assert.match(ruta, /if \(!s \|\| s\.legacy \|\| s\.rol === 'admin' \|\| s\.ws == null \|\| \(s\.rolWs \?\? 'admin'\) !== 'admin'\) return Response\.json\(\{ cartel: null \}\);/);
+  assert.match(ruta, /cartelDelCliente\(Number\(s\.ws\)\)/);
+  const cartel = leer('app/_components/CartelPagoCliente.tsx');
+  assert.match(cartel, /fetch\('\/api\/agencia\/mi-pago'\)/);
+  // El primer mes no tiene «Ahora no»: su salida honesta es cerrar sesión.
+  assert.match(cartel, /\{primer \? \(\s*<button[\s\S]*?Cerrar sesión[\s\S]*?\) : \(\s*<button type="button" className="cpc-salir" onClick=\{\(\) => setCerrado\(true\)\}>Ahora no<\/button>/);
+  assert.match(leer('app/layout.tsx'), /\{sesion && <CartelPagoCliente \/>\}/);
+  // Y no sale EN el onboarding: sale al terminarlo (lo decide el server con `onboardingTerminado`).
+  assert.match(cartel, /\^\\\/\(login\|onboarding\|/);
+  assert.match(cuerpo(leer('lib/agency.ts'), 'cartelDelCliente'), /onboardingTerminado\(ws\)/);
+});
+
+// ── 5. Lo que cruza de inquilino ──────────────────────────────────────────────────
+
+test('el plan y el equipo, SÓLO de las cuentas aprobadas; y «no pude leer» no es «nadie»', () => {
+  const lib = cuerpo(leer('lib/partners.ts'), 'cuentasDePartner');
+  assert.match(lib, /const aprobados = new Set\(clientesAprobados\(agenciaWs, cartera\)\);/);
+  assert.match(lib, /aprobados\.size \? listarUsuarios\(\)\.catch\(\(\) => null\) : Promise\.resolve\(\[\]\)/);
+  assert.match(lib, /if \(ws == null \|\| !aprobados\.has\(ws\)\) continue;/);
+  assert.match(lib, /return \{ ok: false, error: e instanceof Error \? e\.message : 'No pude leer tus clientes\.' \};/);
+  // Quién paga cruza como UNA palabra por cuenta, en una consulta.
+  assert.match(lib, /quienPagaDeClientes\(\[\.\.\.todos\]\),/);
+});
+
+// ── 6. La API de MaKo ─────────────────────────────────────────────────────────────
+
+test('la API: ver, sumarse y abrir, sin HTTP, sólo el admin, confirmado por una persona; el link lo escribe el código', () => {
+  const ids = ['ver_clientes_partners', 'llevar_a_partners', 'ver_agency', 'sumarse_como_agency', 'abrir_cuenta_cliente_agency'];
+  for (const id of ids) {
+    const d = DEFS.find((x) => x.id === id);
+    assert.ok(d, `falta ${id} en la API de MaKo`);
+    assert.ok(!d.canales.includes('http' as never), `${id}: son negocios de terceros, no salen por HTTP`);
+  }
+  for (const id of ['llevar_a_partners', 'sumarse_como_agency', 'abrir_cuenta_cliente_agency']) {
+    const d = DEFS.find((x) => x.id === id)!;
+    assert.equal(d.tipo, 'accion', id);
+    assert.equal(d.confirmacion, 'chat', id);
+    assert.equal(d.reversible, false, id);
+    assert.equal(d.gating?.rolMinimo, 'admin', id);
+  }
+  for (const id of ['llevar_a_partners', 'abrir_cuenta_cliente_agency']) {
+    const paga = DEFS.find((x) => x.id === id)!.parametros.find((p) => p.nombre === 'paga');
+    assert.deepEqual(paga?.enum, ['agencia', 'cliente'], `${id}: quién paga`);
+  }
+  const run = leer('lib/api-mako/areas/cs.run.ts');
+  const contar = run.slice(run.indexOf('async function abrirYContar('), run.indexOf('\n}\n', run.indexOf('async function abrirYContar(')));
+  assert.match(contar, /if \(r\.link && r\.paga === 'agencia'\) ctx\.aPersona\?\.\(`Link de su primer mes: \$\{r\.link\}`\);/);
+  const resumen = contar.slice(contar.indexOf('const resumen ='), contar.indexOf('return { ok: true, resumen'));
+  assert.ok(resumen.length > 0, 'no encontré el resumen');
+  assert.doesNotMatch(resumen, /r\.link\}/, 'el link no viaja en el resumen: lo leería el modelo');
+  // La lectura no manda los emails de otro negocio al modelo: cuántas personas, no quiénes.
+  const lect = run.slice(run.indexOf('ver_clientes_partners: {'), run.indexOf('llevar_a_partners: {'));
+  assert.match(lect, /personas: c\.equipo \? c\.equipo\.length : null,/);
+  assert.doesNotMatch(lect, /email/);
+});
+
+// ── 7. El teléfono ───────────────────────────────────────────────────────────────
+
+test('el teléfono: /m/agency, la misma puerta, los mismos datos y la misma alta (con quién paga)', () => {
+  const pagina = leer('app/m/agency/page.tsx');
+  assert.match(pagina, /await requireMovil\(\{ navKey: 'agency' \}\);/);
+  const puerta = pagina.indexOf('if (!admin && !esSuper) redirect(');
+  assert.ok(puerta > 0, 'sólo el admin (o el super admin)');
+  assert.ok(puerta < pagina.indexOf('cuentasDePartner(ws)'), 'la puerta, antes de leer la cartera');
+  assert.match(pagina, /if \(!esSuper && \(await agenciaDeCliente\(ws\)\)\) redirect\(/, 'el cliente de una agencia no la ve');
+  assert.match(pagina, /!cartera\.ok/, '«no pude leer» se dice: no es «todavía no tienes clientes»');
+  const app = leer('app/m/agency/AgencyM.tsx');
+  assert.match(app, /abrirCuentaClienteAction\(\{ nombre, email, paga \}\)/, 'abrir una cuenta es UNA implementación, con quién paga');
+  assert.doesNotMatch(app, /^import (?!type )[^;]*from ['"]@\/lib\/(partners|agency)['"]/m, 'lib/partners.ts y lib/agency.ts son server-only: el teléfono importa sólo sus tipos');
+});
+
+test('el teléfono: Clients, Community y Classroom llevan arriba el MISMO trío que la cabecera de escritorio', async () => {
+  const { SECCIONES_CLIENTS } = await import('../lib/clients-rutas');
+  const trio = leer('app/m/cs/SeccionesClientsM.tsx');
+  const labels = [...trio.matchAll(/label: '([^']+)'/g)].map((m) => m[1]);
+  assert.deepEqual(labels, SECCIONES_CLIENTS.slice(0, 3).map((s) => s.label), 'mismos nombres y orden');
+  for (const [rel, activa] of [['app/m/cs/page.tsx', 'clients'], ['app/m/comunidad/page.tsx', 'community'], ['app/m/curso/page.tsx', 'classroom']]) {
+    const src = leer(rel);
+    assert.match(src, new RegExp(`<SeccionesClientsM activa="${activa}"`), `${rel} sin el trío`);
+  }
+});

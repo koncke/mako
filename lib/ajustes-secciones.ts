@@ -88,6 +88,9 @@ const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] 
   // El botón «Darme de baja», como todo SaaS (15/10/2026): /reembolsos y /terminos remiten acá.
   { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },
   { key: 'metodo', label: 'Método', href: '/metodo', icono: 'llave', descripcion: 'Las credenciales de la plataforma.', si: 'metodo' },
+  // Lo que eran «Prompts» y «Configuración» de MaKo Context (/contexto, que se fue el 25/10/2026): con qué instrucciones
+  // piensa MaKo. Es de la PLATAFORMA, como Método: la misma regla (`metodo`) y la misma puerta (app/configuraciones/prompts).
+  { key: 'prompts', label: 'Prompts', href: '/configuraciones/prompts', icono: 'texto', descripcion: 'Con qué instrucciones piensa MaKo.', si: 'metodo' },
 ];
 
 export function seccionesNegocio(d: DisponiblesNegocio): SeccionAjustes[] {

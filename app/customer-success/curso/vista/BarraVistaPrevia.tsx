@@ -26,7 +26,7 @@ import { marcarVistaAlumnoAction } from '../actions';
  * El destino de «Volver a editar»: la tab Curso con el producto que se estaba mirando. Sin exportar: un
  * valor de un archivo `'use client'` no es ese valor para el server (AGENTS.md, la frontera de datos).
  */
-const hrefVolverAEditar = (productoId: number) => `/clients/classroom?producto=${productoId}`;
+const hrefVolverAEditar = (productoId: number) => `/classroom?producto=${productoId}`;
 
 export function BarraVistaPrevia({ productoId, anotar }: {
   productoId: number;

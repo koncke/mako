@@ -27,7 +27,7 @@ export const R = {
   comunidad: 'Comunidad',
   miembros: 'Miembros',
   ranking: 'Ranking',
-  // El selector del programa (en escritorio, desde el 17/10/2026, el de la cabecera de Clients: app/clients/ClientsShell.tsx)
+  // El selector del programa (en escritorio, desde el 17/10/2026, el de la cabecera de Clients: app/classroom/ClientsShell.tsx)
   // y los vacíos de la tab (ComunidadEquipo.tsx y su pantalla.tsx).
   producto: 'Programas',
   sinProductos: 'Sin productos',

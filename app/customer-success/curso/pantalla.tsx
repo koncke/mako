@@ -1,7 +1,7 @@
 // =============================================================================
-// Clients › Classroom (/clients/classroom) — el curso de cada servicio
+// Classroom (/classroom, la tab entera abre acá) — el curso de cada servicio
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/classroom/page.tsx; la ruta
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/page.tsx; la ruta
 // vieja (/customer-success/curso) redirige allá (docs/diseno-clients.md, D2).
 //
 // Pedido de Martín (06/10/2026), textual: «implementes la tab de "CURSO" que ya teníamos en
@@ -58,7 +58,7 @@ export async function PantallaClassroom({ searchParams }: { searchParams: Promis
   //    producto y la pestaña del cliente que se estaba mirando (`rutaConWs`: sin el `?ws=`, el super
   //    admin terminaría mirando su propio workspace).
   if (sp.vista === 'avance') {
-    redirect(await rutaConWs(`/clients?vista=avance${productoId ? `&producto=${productoId}` : ''}`));
+    redirect(await rutaConWs(`/classroom/clients?vista=avance${productoId ? `&producto=${productoId}` : ''}`));
   }
   const inicial: { productoId: number | null; vista: VistaCurso } = { productoId, vista: 'clases' };
 

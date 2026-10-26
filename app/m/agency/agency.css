@@ -1,0 +1,16 @@
+/* Agency Dashboard en el teléfono. TODAS las clases con el nombre ENTERO de la carpeta (app/m/_ui/LEEME.md §5). */
+.m-agency-kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 0 0 14px; }
+.m-agency-kpis > div { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px;
+  display: flex; flex-direction: column; gap: 2px; }
+.m-agency-kpis b { font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+.m-agency-kpis > div[data-tono="warn"] b { color: var(--warn); }
+.m-agency-kpis span { font-size: var(--fs-sm); color: var(--dim); }
+.m-agency-arriba { margin: 0 0 18px; }
+.m-agency-form { display: flex; flex-direction: column; gap: 6px; padding: 4px 0 8px; }
+[data-m] .m-agency-lab { margin: 10px 0 0; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); }
+/* 16 px o más: si no, iOS hace zoom al enfocar (LEEME §4). */
+.m-agency-in { width: 100%; min-height: 48px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px;
+  font: inherit; font-size: 16px; background: var(--surface); color: var(--ink); }
+.m-agency-in:focus { outline: none; border-color: var(--primary); box-shadow: var(--focus-ring); }
+[data-m] .m-agency-mal { margin: 8px 0 0; font-size: var(--fs-sm); color: var(--bad); }
+[data-m] .m-agency-nota { margin: 8px 0; font-size: var(--fs-md); color: var(--dim); }

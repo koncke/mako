@@ -1868,4 +1868,16 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/api-mako/areas/operaciones.def.ts · operaciones.run.ts · lib/centro-chats.ts — completadosDeLasCuentas', 'tests/api-mako-completados.test.ts'],
   },
+  {
+    fecha: '25 oct', hora: '17:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Clients pasa a llamarse Classroom, y salen MaKo Context, AI Models y Dev',
+    pedido: '«11. La tab de "clients" pasa a llamarse "Classroom". También su ruta. ... 13. Elimina "https://hola-mako.com/contexto", lo de "Conocimientos" lo puedes llevar a esa tab, donde está el curso, y que solo yo como super admin vea esas anotaciones... Lo de "fases" esta deprecado. Lo de "Configuración" entiendo que la mayoría de cosas allí las personaliza el propio usuario... Como tambien "prompts". 14. Elimina "https://hola-mako.com/modelos-ia", eso ya lo configura el usuario y el propio Ops Center de manera automática. 15. Elimina "dev", ya no lo necesitamos.»',
+    puntos: [
+      '**Classroom** (/classroom) abre el curso; los clientes son su sub-tab «Clients». Los links viejos de /clients siguen andando.',
+      '**Lo que sabe MaKo** está en Classroom › Methodology, y lo ves sólo tú. **Los prompts** no los editaba cada usuario: eran sólo de esa pantalla, así que se mudaron a Settings › Prompts, también sólo para ti.',
+      '**Fuera de tu menú**: MaKo Context, AI Models y Dev. Las bibliotecas de Ads Writer (ángulos y estructuras), que vivían en Dev, ahora están en Copywriting.',
+    ],
+    archivos: ['lib/clients-rutas.ts · app/classroom/ · next.config.ts · app/_components/nav.ts · Sidebar.tsx · app/configuraciones/prompts/ · app/admin/guiones/page.tsx', 'tests/clients-rutas.test.ts · m-superadmin · dev-areas'],
+  },
 ];

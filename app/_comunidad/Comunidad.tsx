@@ -19,7 +19,7 @@
 // fuente son los del programa (los pinta la raíz de Clients o el portal). La piel de la app queda para quien la pida.
 //
 // ⚠️ ADENTRO DE CLIENTS LA PESTAÑA LA MANDA LA URL (`pestana` + `onPestana`) y la fila de pestañas es la de la
-//    cabecera de Clients (`sinPestanas`): cada pestaña es una sub-tab (/clients/community, /clients/members…). Las
+//    cabecera de Clients (`sinPestanas`): cada pestaña es una sub-tab (/classroom/community, /classroom/members…). Las
 //    vueltas internas (abrir un post desde la campana, un evento, «Ver ranking») pasan por `onPestana` igual.
 //
 // ⚠️ LA MODERACIÓN SE OFRECE SÓLO SI EL SERVER DIJO QUE SE PUEDE (`puedoModerar`) Y LA API LA TIENE

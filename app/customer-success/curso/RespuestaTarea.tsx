@@ -162,7 +162,7 @@ function Propio({ c, v, nota, abrirArchivo, onOtroIntento }: {
     if (!r) return c.tipo === 'publicar' ? <span className="rt-sin">Sin publicar</span> : <span className="rt-sin">Sin comentar</span>;
     return (
       <span className="rt-texto">
-        {c.tipo === 'publicar' ? 'Publicó un post' : 'Comentó un post'} · <Link className="rt-link" href={`/clients/community?post=${r.postId}`}>Ver post</Link>
+        {c.tipo === 'publicar' ? 'Publicó un post' : 'Comentó un post'} · <Link className="rt-link" href={`/classroom/community?post=${r.postId}`}>Ver post</Link>
       </span>
     );
   }

@@ -16324,7 +16324,7 @@ curl -L \
 
 ## Curso (módulos y clases) — `curso`
 
-Tab **Clients › Classroom** (`/clients/classroom`). 4 lecturas · 17 acciones.
+Tab **Classroom** (`/classroom`). 4 lecturas · 17 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
@@ -16987,7 +16987,7 @@ curl -L \
 
 ## Comunidad — `comunidad`
 
-Tab **Clients › Community** (`/clients/community`). 14 lecturas · 27 acciones.
+Tab **Classroom › Community** (`/classroom/community`). 14 lecturas · 27 acciones.
 
 ### `GET /api/v1/comunidad/comunidades` — Listar las comunidades
 
