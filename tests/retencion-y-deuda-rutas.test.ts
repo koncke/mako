@@ -83,7 +83,9 @@ test('revisión del 23/10: sin link vivo para otro email, Stripe vivo sin factur
   assert.match(d, /if \(cobrando\.suscripcion_estado === 'activa'\) return \{ tipo: 'nada'/, 'alta 2');
   assert.match(d, /ciclosPerdidosMp\(hasta, deuda\.ciclos, ahora\)/, 'media 8');
   assert.match(d, /for \(const x of faltan\.filter\(\(f\) => \(f\.monto \?\? 0\) > 0\)\.reverse\(\)\)/, 'media 9: una factura de $0 no se asienta');
-  assert.match(fuente('app/api/planes/comprar/route.ts'), /const ref = codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\) \?\? pedido\.ref;/, 'media 14');
+  // Desde el 25/10/2026 el código ESCRITO en el carrito gana; sin él, la cookie sigue ganándole al `?ref=` (lib/compra-plan-reglas.ts).
+  assert.match(fuente('app/api/planes/comprar/route.ts'), /const ref = codigoDeLaCompra\(\{ escrito: pedido\.codigoEscrito, cookie: codigoRefLimpio\(req\.cookies\.get\(COOKIE_REF\)\?\.value\), url: pedido\.ref \}\);/, 'media 14');
+  assert.match(fuente('lib/compra-plan-reglas.ts'), /p\.escrito \?\? p\.cookie \?\? p\.url;/, 'media 14: la cookie antes que la URL');
 });
 
 test('el cobro de la deuda y el de reactivar quedan atados al negocio ANTES de devolver el link', () => {

@@ -42,6 +42,7 @@ import { lugarSeccion } from '@/lib/secciones-negocio';
 // (sin server-only), para que la def pueda importar sus valores.
 import { CIERRES_PASO, PASOS_ARRANQUE_POR_API, TABS_POR_API, PASOS_DE_TAB_POR_API } from '@/lib/onboarding-pasos-api';
 import { URGENCIAS } from '@/lib/oferta-modelo';
+import { COMO_PARTNERS, CUANTOS_PARTNERS, TOPE_COBRO } from '@/lib/partners-reglas';
 
 const TODOS = ['whatsapp', 'app', 'http'] as const;
 /** Sin http: links firmados a documentos, fotos de una persona, y los generadores de
@@ -219,6 +220,61 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'abre un cobro del plan de MaKo atado a este negocio, con el historial del lead en el CRM de MaKo; al pagarse, cancela la prueba',
     parametros: [],
     canales: TODOS, costo: 'externo', gating: { rolMinimo: 'admin' },
+  },
+  // MAKO PARTNERS (25/10/2026, Martín: «Todo, todo siempre tiene que ir a la API»): el programa de referidos del negocio, lo
+  // mismo que /partners (lib/partners-programa.ts). Partners paga en DINERO: el 100% del primer mes de cada negocio nuevo.
+  // El programa entero y «Marcar pagado» son de la plataforma (`soloPlataforma`), sin HTTP: son los libros de todos.
+  {
+    id: 'ver_mi_programa_partners', area: 'negocio', tipo: 'lectura',
+    titulo: 'Mi panel de MaKo Partners',
+    descripcion: 'El panel de MaKo Partners de este negocio (lo mismo que la pantalla MaKo Partners). MaKo Partners paga en DINERO el 100% del primer mes de cada negocio nuevo que entra con el link o el código del partner (US$ 97 por cada MaKo Pro, US$ 47 por cada MaKo Esencial), cuando ese negocio paga su segundo mes; MaKo se lo transfiere a la cuenta que el partner dejó. Si ya es partner: su link y su código para compartir, cuántas personas abrieron el link, lo ganado, lo que tiene a cobrar, lo que está en camino, lo ya transferido, a dónde se le transfiere, y cada negocio que trajo con su estado y lo que le deja. Si todavía no lo es: `es_partner: false` y cómo hacerse (hacerme_partner).',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'hacerme_partner', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Hacerme partner de MaKo',
+    descripcion: 'PROPONE hacer partner de MaKo a este negocio (el onboarding corto de la pantalla MaKo Partners): guarda a cuántos negocios cree que puede recomendarle MaKo, cómo va a llegar a ellos y dónde se le transfiere lo que gane, y le da su link y su código. Si ya era partner, actualiza las respuestas y devuelve el mismo link. Queda pendiente hasta el «sí». Revisa antes ver_mi_programa_partners.',
+    escribe: 'el alta de MaKo Partners del negocio (sus respuestas, en su configuración) y su código de partner',
+    parametros: [
+      { nombre: 'cuantos', tipo: 'string', enum: CUANTOS_PARTNERS.map((c) => c.id), descripcion: 'a cuántos negocios cree que puede recomendarle MaKo este mes.' },
+      { nombre: 'como', tipo: 'string[]', enum: COMO_PARTNERS.map((c) => c.id), max: COMO_PARTNERS.length, descripcion: 'cómo va a llegar a ellos: clientes, comunidad (sus redes), anuncios, boca (boca en boca).' },
+      { nombre: 'cobro', tipo: 'string', max: TOPE_COBRO, descripcion: 'dónde se le transfiere: su alias, su CBU o el email de PayPal. Sin esto, lo carga después.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'cambiar_cobro_partners', area: 'negocio', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    // «cobro» es a dónde MaKo le transfiere al partner, no los cobros de sus clientes.
+    datosDeClientes: false,
+    titulo: 'Cambiar dónde cobro de Partners',
+    descripcion: 'PROPONE cambiar a dónde MaKo le transfiere a este negocio lo que gana en MaKo Partners: su alias, su CBU o el email de PayPal. Sólo un partner (si no lo es, hacerme_partner). Queda pendiente hasta el «sí»; para deshacer, el mismo pedido con el de antes.',
+    escribe: 'a dónde se le transfiere lo ganado (el alta de MaKo Partners del negocio)',
+    parametros: [
+      { nombre: 'cobro', tipo: 'string', obligatorio: true, max: TOPE_COBRO, descripcion: 'el alias, el CBU o el email de PayPal.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: { rolMinimo: 'admin' },
+  },
+  {
+    id: 'ver_programa_partners', area: 'negocio', tipo: 'lectura',
+    titulo: 'El programa de MaKo Partners',
+    descripcion: 'Sólo la plataforma: el programa de MaKo Partners entero (lo que ve el super admin en MaKo Partners). Cuántos negocios se hicieron partner (y cuántos este mes), cuántos negocios nuevos entraron con un link o un código, lo ganado por los partners, lo ya transferido y lo que falta transferir, y cada partner con sus negocios, lo ganado, lo pagado, lo que se le debe y a dónde se le transfiere (primero a quién hay que pagarle). Para anotar una transferencia: registrar_pago_partner.',
+    parametros: [],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
+  },
+  {
+    id: 'registrar_pago_partner', area: 'negocio', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: false,
+    // El pago es de MaKo al partner (su libro de Partners), no un cobro de los clientes del negocio.
+    datosDeClientes: false,
+    titulo: 'Anotar un pago a un partner',
+    descripcion: 'Sólo la plataforma: PROPONE anotar que MaKo le transfirió a un partner lo que tenía a cobrar (el «Marcar pagado» del panel del programa). NO transfiere plata: anota la transferencia que ya se hizo, y le avisa al partner por email. Sin monto, todo lo que tiene a cobrar; nunca más que eso. Se confirma en una pantalla. Revisa antes ver_programa_partners.',
+    escribe: 'un pago en el libro de MaKo Partners del partner (partner_creditos) y un email a sus admins',
+    parametros: [
+      { nombre: 'partnerWs', rotulo: 'Partner', tipo: 'number', obligatorio: true, entero: true, minimo: 1, fijoAlRevisar: true, descripcion: 'el negocio partner (ws, de ver_programa_partners).' },
+      { nombre: 'montoUsd', rotulo: 'Monto', tipo: 'number', minimo: 0.01, descripcion: 'cuánto se le transfirió, en dólares. Sin esto, todo lo que tiene a cobrar.' },
+      { nombre: 'nota', tipo: 'string', max: TOPE_COBRO, descripcion: 'la referencia de la transferencia (opcional).' },
+    ],
+    canales: SIN_HTTP, costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
   {
     id: 'listar_tabs_por_configurar', area: 'negocio', tipo: 'lectura',

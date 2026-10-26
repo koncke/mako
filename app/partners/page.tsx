@@ -1,73 +1,123 @@
 // =============================================================================
-// /partners — MaKo Partners: las cuentas de MaKo de los clientes de una agencia
+// /partners — MaKo Partners: el programa de referidos (la landing, el alta corta y el panel), en UNA ruta (25/10/2026)
 // =============================================================================
-// Martín, 17/10/2026: «diseña la tab de "MaKo Partners" con todo lo que habíamos dicho y planeado... Y ahí deberían
-// vivir los clientes de agencia, que no son los mismos que "client": podrían serlo como no». El diseño, en
-// docs/diseno-clients.md (D7-D9); el núcleo, en lib/partners.ts.
+// Martín (25/10): «Revisa que la url es "https://hola-mako.com/partners/referidos" cuando solo basta "partners"... si alguien
+// no se hizo "Partner", no le debe saltar abajo nada de "Todavía no tienes referidos" o del dashboard... Solo los CTA para
+// que se haga Partner, posterior a apretar eso, un pequeño onboarding... Luego de eso, en la misma url, ahora si ven el
+// dashboard, con un botón arriba para ver la landing nuevamente por si quieren... En SuperAdmin, directo ver el dashboard».
 //
-// QUIÉN ENTRA: el ADMIN de un workspace del programa (`esAgencia`: el super admin le puso el plan Agencia) y el super
-// admin. Sin cliente, el super admin ve la lista de agencias del programa y entra a cada una con su `?ws=`. Cualquier
-// otro va a /clients: una tab que no le toca no es un 404, es «acá no». Sólo el admin porque son los links de pago y la
-// puerta a las cuentas de sus clientes; antes vivían en Clients, que la barra muestra sólo al admin.
-//
-// ⚠️ TODO VIENE CON EL HTML (la regla de Clients): la cartera, el cobro de cada cuenta y su equipo. La ficha de una
-//    cuenta es un modal sin estado de carga.
+// QUIÉN VE QUÉ:
+//   · el super admin sin cliente: el panel del programa (ProgramaPartners), y la landing con `?landing=1`;
+//   · el ADMIN de un negocio que NO se hizo partner (`altaDePartner` null): la landing, con «Hacerme partner» → `?alta=1`,
+//     el onboarding corto (AltaPartner) que termina dándole su link;
+//   · el que ya es partner: su panel (PanelPartner), y la landing con `?landing=1`;
+//   · cualquier otro rol: a /clients (una tab que no le toca no es un 404, es «acá no»).
+// LO DE AGENCIA SALIÓ DE ACÁ (Martín: «Ser Agencia es muy diferente a Partner»): su cartera vive en /agency. Los links
+// viejos de una agencia (`?cuenta=`, `?nuevo=` de la API `llevar_a_partners`, `?tab=clients|program`) llevan allá.
+// =============================================================================
 
 import { redirect } from 'next/navigation';
 import { requireSesion, guardOnboarding } from '@/lib/tab-access';
-import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs } from '@/lib/workspace';
+import { getWorkspaceActual, adminDeWorkspaceActual, estaImpersonando, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { getSesionAdmin } from '@/lib/auth';
 import { esAgencia } from '@/lib/agencia';
-import { cuentasDePartner, partnersDeLaPlataforma } from '@/lib/partners';
-import { resumenDelPrograma } from '@/lib/partners-programa';
+import { getSupabaseServer } from '@/lib/supabase';
+import { altaDePartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { RUTA_ALTA_PARTNERS, RUTA_PARTNERS } from '@/lib/partners-reglas';
 import { ofertasDeLosPlanes } from '@/lib/compra-plan';
 import { EMAIL_MAKO } from '@/lib/app-url';
-import { PartnersApp, PartnersPlataforma } from './PartnersApp';
+import { Pagina, PageHeader } from '@/app/_ui';
+import { LandingPartners } from '@/app/mako-partners/LandingPartners';
+import { AltaPartner } from './AltaPartner';
+import { PanelPartner } from './PanelPartner';
+import { ProgramaPartners } from './ProgramaPartners';
+import { RotuloLanding } from './RotuloLanding';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 export const metadata = { title: 'MaKo Partners' };
 
-const VISTAS = ['clients', 'program'] as const;
+/** Los parámetros del panel de AGENCIA que llegan por links viejos (el CRM, Clients, la API): van a /agency. */
+const DE_AGENCIA = ['cuenta', 'nuevo'] as const;
+const VISTAS_DE_AGENCIA = ['clients', 'program'];
 
-export default async function PartnersPage({ searchParams }: { searchParams: Promise<{ tab?: string; cuenta?: string; nuevo?: string }> }) {
+/** ¿MaKo cobra en línea? Sin pasarela no se registra ningún referido solo, y el panel en cero lo dice. No pude leer = sí. */
+const cobraEnLinea = () => ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true);
+
+export default async function PartnersPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   await requireSesion();
   const sp = await searchParams;
   const esSuper = (await getSesionAdmin()) != null;
   const ws = await getWorkspaceActual();
 
-  // El super admin sin cliente: lo que ven los clientes, el programa de referidos entero y las agencias (24/10/2026).
-  if (esSuper && !(await estaImpersonando())) {
-    const [partners, programa, cobraEnLinea] = await Promise.all([
-      partnersDeLaPlataforma().catch(() => null),
-      resumenDelPrograma().catch((e) => { console.warn('[partners] no pude leer el programa:', e instanceof Error ? e.message : e); return null; }),
-      // Sin pasarela no se registra ningún referido: el panel en cero dice por qué (no pude leer = no se afirma).
-      ofertasDeLosPlanes().then((o) => o.some((x) => x.cobrable)).catch(() => true),
-    ]);
-    return <PartnersPlataforma partners={partners} programa={programa} cobraEnLinea={cobraEnLinea} emailMako={EMAIL_MAKO} />;
+  // Un link viejo del panel de agencia: a /agency con lo mismo (25/10/2026).
+  if (DE_AGENCIA.some((k) => sp[k]) || VISTAS_DE_AGENCIA.includes(sp.tab ?? '')) {
+    const q = new URLSearchParams(Object.entries(sp).filter(([k, v]) => v != null && k !== 'ws') as Array<[string, string]>);
+    redirect(await rutaConWs(`/agency${q.size ? `?${q}` : ''}`));
   }
-  // Cualquier negocio puede recomendar MaKo (23/10/2026): el admin que no es agencia va a su tablero de referidos.
-  if (ws != null && !(await esAgencia(ws)) && (await adminDeWorkspaceActual()) != null) redirect(await rutaConWs('/partners/referidos'));
-  if (ws == null || !(await esAgencia(ws))) redirect(await rutaConWs('/clients'));
-  const admin = (await adminDeWorkspaceActual()) != null;
-  if (!admin && !esSuper) redirect(await rutaConWs('/clients'));
+
+  // El super admin sin cliente: directo el panel del programa (y la landing, como la ve un cliente, con «Ver la landing»).
+  if (esSuper && !(await estaImpersonando())) {
+    if (sp.landing === '1') {
+      return (
+        <Pagina>
+          <PageHeader titulo="MaKo Partners" />
+          <LandingPartners modo="app" accion={null} rotulo={<RotuloLanding texto="Así ven tus clientes MaKo Partners antes de hacerse partner." volver="Volver al panel del programa" />} />
+        </Pagina>
+      );
+    }
+    const [programa, enLinea] = await Promise.all([
+      resumenDelPrograma().catch((e) => { console.warn('[partners] no pude leer el programa:', e instanceof Error ? e.message : e); return null; }),
+      cobraEnLinea(),
+    ]);
+    return <ProgramaPartners programa={programa} cobraEnLinea={enLinea} />;
+  }
+
+  if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs('/clients'));
+  if ((await adminDeWorkspaceActual()) == null) redirect(await rutaConWs('/clients'));
   // Como toda tab: con el onboarding sin terminar, primero el onboarding (lib/tab-access.ts).
   await guardOnboarding();
 
-  const cartera = await cuentasDePartner(ws);
-  const vista = (VISTAS as readonly string[]).includes(sp.tab ?? '') ? (sp.tab as (typeof VISTAS)[number]) : 'clients';
-  const cuenta = /^[1-9]\d{0,11}$/.test(sp.cuenta ?? '') ? Number(sp.cuenta) : null;
-  // `?nuevo=<leadId>`: el link que deja MaKo cuando propone llevar a un lead (la API, `llevar_a_partners`).
-  const nuevo = /^[1-9]\d{0,11}$/.test(sp.nuevo ?? '') ? Number(sp.nuevo) : null;
-  return (
-    <PartnersApp
-      cartera={cartera}
-      vistaInicial={vista}
-      cuentaInicial={cuenta}
-      leadNuevo={nuevo}
-      puedeAbrir={admin}
-      superAdmin={esSuper}
-    />
-  );
+  const [alta, agencia, nombre] = await Promise.all([
+    // No pude leer = la landing (hacerse partner otra vez no duplica nada: `hacermePartner`).
+    altaDePartner(ws).catch((e) => { console.warn('[partners] no pude leer si el negocio es partner:', e instanceof Error ? e.message : e); return null; }),
+    esAgencia(ws).catch(() => false),
+    getSupabaseServer().from('workspaces').select('nombre').eq('id', ws).maybeSingle().then((r) => (r.data as { nombre?: string } | null)?.nombre ?? null, () => null),
+  ]);
+
+  // Todavía no es partner: la landing; y al tocar «Hacerme partner», el onboarding corto.
+  if (!alta) {
+    if (sp.alta === '1') {
+      return (
+        <Pagina>
+          <PageHeader titulo="MaKo Partners" />
+          <AltaPartner nombreNegocio={nombre} />
+        </Pagina>
+      );
+    }
+    return (
+      <Pagina>
+        <PageHeader titulo="MaKo Partners" />
+        <LandingPartners modo="app" accion={{ href: RUTA_ALTA_PARTNERS, texto: 'Hacerme partner' }} />
+      </Pagina>
+    );
+  }
+
+  // Ya es partner y quiere ver la landing otra vez.
+  if (sp.landing === '1') {
+    return (
+      <Pagina>
+        <PageHeader titulo="MaKo Partners" />
+        <LandingPartners modo="app" accion={{ href: RUTA_PARTNERS, texto: 'Ir a mi panel' }}
+          rotulo={<RotuloLanding texto="Ya eres partner: así se ve MaKo Partners para quien todavía no lo es." volver="Volver a mi panel" />} />
+      </Pagina>
+    );
+  }
+
+  const [tablero, enLinea] = await Promise.all([
+    tableroDe(ws).catch((e) => { console.warn('[partners] no pude leer el panel:', e instanceof Error ? e.message : e); return null; }),
+    cobraEnLinea(),
+  ]);
+  return <PanelPartner tablero={tablero} nombreNegocio={nombre} agencia={agencia} cobraEnLinea={enLinea} emailMako={EMAIL_MAKO} />;
 }

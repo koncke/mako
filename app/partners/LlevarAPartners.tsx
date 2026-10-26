@@ -91,7 +91,7 @@ export function ModalLlevarAPartners({ leadId = null, nombre: nombreInicial = ''
     pie = (
       <>
         <button type="button" className="pll-no" onClick={onCerrar}>Cerrar</button>
-        <Link className="pll-si" href={`/partners?cuenta=${ya}`}>Ver su cuenta</Link>
+        <Link className="pll-si" href={`/agency?cuenta=${ya}`}>Ver su cuenta</Link>
       </>
     );
   } else if (hecho) {
@@ -112,7 +112,7 @@ export function ModalLlevarAPartners({ leadId = null, nombre: nombreInicial = ''
     ) : (
       <>
         <button type="button" className="pll-no" onClick={onCerrar}>Cerrar</button>
-        <Link className="pll-si" href={`/partners?cuenta=${hecho.clienteWs}`}>Ver su cuenta</Link>
+        <Link className="pll-si" href={`/agency?cuenta=${hecho.clienteWs}`}>Ver su cuenta</Link>
       </>
     );
   } else {

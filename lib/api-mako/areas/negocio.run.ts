@@ -31,6 +31,8 @@ import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
 import { resumenDePrueba } from '@/lib/prueba-uso';
 import { empezarPlanAhora } from '@/lib/empezar-plan';
 import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { altaDePartner, cambiarCobroPartner, hacermePartner, registrarPagoAPartner, resumenDelPrograma, tableroDe } from '@/lib/partners-programa';
+import { COMO_PARTNERS, CUANTOS_PARTNERS, PAGOS_PARA_ACREDITAR, RUTA_PARTNERS, TEXTO_ESTADO_REFERIDO, altaLimpia, cobroLimpio } from '@/lib/partners-reglas';
 import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
@@ -258,6 +260,79 @@ export const RUNNERS: Runners = {
     ejecutar: sinLanzar(async (_payload, ctx) => {
       const r = await empezarPlanAhora(ctx.ws, ctx.actor?.trim() || 'MaKo');
       return r.ok ? { ok: true, resumen: `Listo: el pago está abierto. Para pagarlo: ${r.link}`, datos: { link: r.link } } : { ok: false, resumen: r.resumen };
+    }),
+  },
+
+  // MaKo Partners (25/10/2026): lo mismo que /partners (lib/partners-programa.ts).
+  ver_mi_programa_partners: {
+    leer: async (_input, ctx) => {
+      const link = linkApp(RUTA_PARTNERS, ctx.ws);
+      const t = await tableroDe(ctx.ws);
+      if (!t.alta) return json({ es_partner: false, gana: 'el 100% del primer mes de cada negocio nuevo que traiga, en dinero', para_hacerse: 'hacerme_partner', link });
+      return json({
+        es_partner: true, desde: t.alta.at, link_para_compartir: t.link, codigo: t.codigo,
+        visitas_al_link: t.visitas.total, visitas_este_mes: t.visitas.esteMes,
+        ganado_usd: t.resumen.ganadoUsd, a_cobrar_usd: t.resumen.aCobrarUsd, en_camino_usd: t.resumen.porGanarUsd, cobrado_usd: t.resumen.pagadoUsd,
+        se_le_transfiere_a: t.alta.cobro ?? 'sin cargar (cambiar_cobro_partners)',
+        negocios: t.referidos.map((r) => ({ nombre: r.nombre, plan: r.plan, desde: r.desde, estado: TEXTO_ESTADO_REFERIDO[r.estado], le_deja_usd: r.estado === 'se-fue' ? 0 : r.gananciaUsd })),
+        pagos: t.pagos.map((p) => ({ fecha: p.fecha, monto_usd: p.montoUsd })),
+        cuando_se_gana: `cuando cada negocio paga su ${PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`} mes`, link,
+      });
+    },
+  },
+  hacerme_partner: {
+    preparar: seguro(async (input, ctx) => {
+      const alta = altaLimpia(input);
+      const ya = await altaDePartner(ctx.ws).catch(() => null);
+      const cuantos = CUANTOS_PARTNERS.find((c) => c.id === alta.cuantos)?.texto;
+      const como = alta.como.map((c) => COMO_PARTNERS.find((x) => x.id === c)?.texto).filter(Boolean).join(', ');
+      const partes = [cuantos && `a ${cuantos} negocios`, como && `por ${como.toLowerCase()}`, alta.cobro ? `cobra en ${alta.cobro}` : 'dónde cobra, después'].filter(Boolean);
+      return { payload: { cuantos: alta.cuantos, como: alta.como, cobro: alta.cobro }, resumen: `${ya ? 'Actualizar el alta de MaKo Partners' : 'Hacer partner de MaKo a este negocio'}: ${partes.join(' · ')}. Gana el 100% del primer mes de cada negocio que traiga.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await hacermePartner(ctx.ws, payload);
+      return r.ok ? { ok: true, resumen: `Listo: ya es partner. Su link: ${r.link} (código ${r.codigo}).`, datos: { link: r.link, codigo: r.codigo } } : { ok: false, resumen: r.error };
+    }),
+  },
+  cambiar_cobro_partners: {
+    preparar: seguro(async (input, ctx) => {
+      const cobro = cobroLimpio(input.cobro);
+      if (!cobro) return { error: 'Falta a dónde transferirle: su alias, su CBU o el email de PayPal.' };
+      const alta = await altaDePartner(ctx.ws);
+      if (!alta) return { error: 'Este negocio todavía no es partner: primero hacerme_partner.' };
+      return { payload: { cobro }, resumen: `Transferirle lo que gane en MaKo Partners a: ${cobro}${alta.cobro ? ` (antes: ${alta.cobro})` : ''}.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await cambiarCobroPartner(ctx.ws, payload.cobro);
+      return r.ok ? { ok: true, resumen: `Listo: se le transfiere a ${r.cobro}.` } : { ok: false, resumen: r.error };
+    }),
+  },
+  ver_programa_partners: {
+    leer: async () => {
+      const p = await resumenDelPrograma();
+      return json({
+        partners: p.partners, partners_este_mes: p.partnersEsteMes, negocios_referidos: p.referidos,
+        ganado_usd: p.ganadoUsd, transferido_usd: p.pagadoUsd, a_pagar_usd: p.aPagarUsd, numeros_al_menos: p.truncado,
+        lista: p.lista.map((x) => ({ ws: x.ws, nombre: x.nombre, desde: x.desde, negocios: x.referidos, ganado_usd: x.ganadoUsd, pagado_usd: x.pagadoUsd, a_pagar_usd: x.aCobrarUsd, se_le_transfiere_a: x.cobro })),
+        para_anotar_un_pago: 'registrar_pago_partner',
+      });
+    },
+  },
+  registrar_pago_partner: {
+    preparar: seguro(async (input) => {
+      const ws = Number(input.partnerWs);
+      if (!Number.isInteger(ws) || ws <= 0) return { error: 'Falta el partner (partnerWs, de ver_programa_partners).' };
+      const p = (await resumenDelPrograma()).lista.find((x) => x.ws === ws);
+      if (!p) return { error: 'Ese negocio no es partner.' };
+      if (!(p.aCobrarUsd > 0)) return { error: `${p.nombre} no tiene nada a cobrar.` };
+      const monto = input.montoUsd == null ? p.aCobrarUsd : Math.round(Number(input.montoUsd) * 100) / 100;
+      if (!(monto > 0) || monto > p.aCobrarUsd) return { error: `El pago tiene que ser de hasta ${formatoMonto(p.aCobrarUsd, 'USD')}, lo que tiene a cobrar.` };
+      const nota = cobroLimpio(input.nota);
+      return { payload: { partnerWs: ws, montoUsd: monto, nota }, resumen: `Anotar que le transferiste ${formatoMonto(monto, 'USD')} a ${p.nombre}${p.cobro ? ` (${p.cobro})` : ''}. Se le avisa por email.` };
+    }),
+    ejecutar: sinLanzar(async (payload, ctx) => {
+      const r = await registrarPagoAPartner({ ws: Number(payload.partnerWs), montoUsd: Number(payload.montoUsd), nota: payload.nota == null ? null : String(payload.nota), autor: ctx.actor?.trim() || 'MaKo' });
+      return r.ok ? { ok: true, resumen: r.resumen, datos: { monto_usd: r.montoUsd } } : { ok: false, resumen: r.error };
     }),
   },
 

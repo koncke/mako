@@ -6,12 +6,15 @@
 // LA PRUEBA GRATIS (25/10/2026): se empieza con 7 días gratis y la tarjeta cargada; el primer cobro es el día 8. Quien ya la
 // usó con ese email recibe el texto claro de la ruta y, si quiere, «Empezar sin prueba» (se cobra desde hoy). `sinPrueba`
 // llega en `true` desde la página de vuelta de una prueba rechazada por la tarjeta.
+//
+// EL CÓDIGO DE REFERIDO (25/10/2026): el renglón «¿Te recomendó alguien?» arriba del botón (CodigoReferido.tsx).
 
 import { useState } from 'react';
 import type { Pasarela } from '@/lib/cobros-tipos';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
 import { PRUEBA_DIAS } from '@/lib/planes-mako';
 import { DIAS_AVISO_FIN_DE_PRUEBA } from '@/lib/prueba-plan-reglas';
+import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 
 const NOMBRE: Record<Pasarela, string> = { stripe: 'Tarjeta (Stripe)', mercadopago: 'Mercado Pago' };
 
@@ -27,6 +30,8 @@ export function CompraPlan(p: {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [web, setWeb] = useState('');
+  const [codigo, setCodigo] = useState(p.refCodigo ?? '');
+  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
   const [pasarela, setPasarela] = useState<Pasarela | null>(p.pasarelas.length === 1 ? p.pasarelas[0].pasarela : null);
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,14 +42,16 @@ export function CompraPlan(p: {
     if (p.pasarelas.length > 1 && !pasarela) { setError('Elige con qué quieres pagar.'); return; }
     setEnviando(true);
     setError(null);
+    setErrorCodigo(null);
     try {
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, web, sinPrueba: sin }),
+        body: JSON.stringify({ plan: p.plan, nombre, email, pasarela, origen: p.origen, ref: p.refCodigo, codigo: codigoParaMandar(codigo, p.refCodigo), web, sinPrueba: sin }),
       });
-      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean };
+      const j = (await r.json().catch(() => ({}))) as { link?: string; error?: string; sinPrueba?: boolean; campo?: string };
       if (r.ok && j.link) { window.location.href = j.link; return; }
+      if (j.campo === 'codigo') { setErrorCodigo(j.error ?? 'Revisa el código.'); setEnviando(false); return; }
       setError(j.error ?? 'No pudimos abrir el pago. Prueba otra vez.');
       setOfrecerSinPrueba(!!j.sinPrueba);
     } catch {
@@ -74,6 +81,7 @@ export function CompraPlan(p: {
           ))}
         </>
       )}
+      <CodigoReferido valor={codigo} onCambio={(v) => { setCodigo(v); setErrorCodigo(null); }} delLink={p.refCodigo} error={errorCodigo} />
       <button className="planes-btn" type="submit" disabled={enviando}>
         {enviando ? 'Abriendo…' : sinPrueba ? 'Ir a pagar' : `Empezar mis ${PRUEBA_DIAS} días gratis`}
       </button>

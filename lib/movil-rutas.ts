@@ -803,9 +803,10 @@ export function rutaMovil(href: string | null | undefined): string | null {
   if (dentro(p, '/customer-success/curso')) return q.get('vista') === 'avance' ? '/m/cs' : aSeccion('curso', q);
   if (dentro(p, '/customer-success/comunidad')) return aSeccion('comunidad', q);
   if (dentro(p, '/customer-success')) return '/m/cs';
-  // MaKo Partners (17/10/2026): la cartera de cuentas de los clientes de la agencia. La pantalla del teléfono pregunta el
-  // programa (`esAgencia`) como la de escritorio.
+  // MaKo Partners: el programa de referidos (la landing, el alta y el panel), como /partners en la computadora.
   if (dentro(p, '/partners')) return '/m/partners';
+  // El panel de AGENCIA (25/10/2026): salió de MaKo Partners a /agency, y en el teléfono es /m/agency (app/m/agency).
+  if (dentro(p, '/agency')) return '/m/agency';
   if (dentro(p, RUTA_AUTOMATIONS) || dentro(p, '/setting') || RUTAS_VIEJAS_AUTOMATIONS.some((r) => dentro(p, r))) return '/m/automations';
   if (dentro(p, '/video-generator')) {
     const plan = q.get('plan') ?? '';
@@ -942,6 +943,7 @@ export function rutaEscritorio(href: string): string {
   else if (p === '/m/comunidad') destino = '/clients/community';
   else if (p === '/m/cs') destino = '/clients';
   else if (p === '/m/partners') destino = '/partners';
+  else if (p === '/m/agency') destino = '/agency';
   else if (p === '/m/automations') destino = RUTA_AUTOMATIONS;
   else if ((m = p.match(/^\/m\/video\/([^/]+)$/))) { destino = '/video-generator'; q.set('plan', m[1]); }
   else if (p === '/m/video') destino = '/video-generator';
