@@ -8,9 +8,10 @@
 // dibuja SCRIPT_DISENO (lib/editor-landing/html-editable.ts) con `window.MakoAnim` (/vsl-assets/mako-anim.js). Adentro
 // del editor la sección es un iframe SIN scripts (nodos/HtmlEditableVista.tsx) y el canvas quedaba en blanco.
 //
-// El iframe es del mismo origen: esta ventana carga el mismo dibujante y pinta en SU canvas. Sólo mientras se ve (no
-// gasta cuadros en una sección que está fuera de la pantalla), y quieto con «reducir movimiento», como la publicada.
-// El canvas queda con `width`/`height` del dibujo: la vista los saca antes de guardar (no son del diseño).
+// ⚠️ PINTAR EN EL CANVAS DEL IFRAME NO SE VE (medido el 26/10/2026, en producción y en Chrome sin ventana): un iframe
+// sin scripts no presenta lo que se le dibuja desde afuera, aunque el canvas tenga el dibujo (sus píxeles están, la
+// pantalla no los muestra). Por eso la red va como el video: un canvas de ESTA página encima del lugar del canvas del
+// diseño (HtmlEditableVista, `redes`), y se pinta ése. Sólo mientras se ve, y quieto con «reducir movimiento».
 // =============================================================================
 
 type Dibujante = { draw: (ctx: CanvasRenderingContext2D, t: number, w: number, h: number) => void };
@@ -40,12 +41,10 @@ function cargar(): Promise<Dibujante | null> {
 }
 
 /**
- * Anima los canvas de la red que hay en `doc` (el documento del iframe del diseño), con `marco` (el iframe) para saber
- * si se ven. Devuelve cómo pararla (el documento se rearma o la vista se va).
+ * Anima la red en los canvas que devuelve `lienzos` (los de ESTA página, encima de cada canvas de la red del diseño; se
+ * piden en cada cuadro porque React los vuelve a dibujar). Devuelve cómo pararla.
  */
-export function animarRedDeMako(doc: Document, marco: HTMLElement): () => void {
-  const lienzos = Array.from(doc.querySelectorAll<HTMLCanvasElement>('canvas[data-animacion="mako-red"]'));
-  if (!lienzos.length) return () => {};
+export function animarRedDeMako(lienzos: () => HTMLCanvasElement[]): () => void {
   let vivo = true;
   let raf = 0;
   void cargar().then((anim) => {
@@ -55,26 +54,22 @@ export function animarRedDeMako(doc: Document, marco: HTMLElement): () => void {
     const t0 = performance.now();
     const pintar = (ahora: number) => {
       if (!vivo) return;
-      const m = marco.getBoundingClientRect();
-      for (const cv of lienzos) {
-        if (!cv.isConnected) continue;
+      for (const cv of lienzos()) {
         const r = cv.getBoundingClientRect();
         // Fuera de la pantalla, no se pinta (la vuelta sigue, por si vuelve a verse).
-        if (m.top + r.bottom < 0 || m.top + r.top > window.innerHeight) continue;
+        if (r.bottom < 0 || r.top > window.innerHeight || r.width < 2 || r.height < 2) continue;
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        const w = Math.max(1, r.width);
-        const h = Math.max(1, r.height);
-        const W = Math.round(w * dpr);
-        const H = Math.round(h * dpr);
+        const W = Math.round(r.width * dpr);
+        const H = Math.round(r.height * dpr);
         if (cv.width !== W) cv.width = W;
         if (cv.height !== H) cv.height = H;
         const ctx = cv.getContext('2d');
         if (!ctx) continue;
         ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        ctx.clearRect(0, 0, w, h);
-        try { anim.draw(ctx, quieto ? QUIETO_MS : (ahora - t0) % VUELTA_MS, w, h); } catch { /* un cuadro que falla no corta la vuelta */ }
+        ctx.clearRect(0, 0, r.width, r.height);
+        try { anim.draw(ctx, quieto ? QUIETO_MS : (ahora - t0) % VUELTA_MS, r.width, r.height); } catch { /* un cuadro que falla no corta la vuelta */ }
       }
-      if (lienzos.some((c) => c.isConnected)) raf = requestAnimationFrame(pintar);
+      raf = requestAnimationFrame(pintar);
     };
     raf = requestAnimationFrame(pintar);
   });
