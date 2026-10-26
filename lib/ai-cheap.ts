@@ -658,6 +658,21 @@ function soloElJson(t: string): string {
   try { JSON.parse(s); return s; } catch { return ''; }
 }
 
+/**
+ * ¿Este pedido tiene, detrás de las gratis, el crédito de Claude de lo INTERNO de MaKo? El workspace de la plataforma si sí
+ * (con él se llama a la puerta), o null. Martín, 26/10/2026: «1. Claude de la plataforma», sólo en el espacio de MaKo y sólo
+ * para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma`. «Está» lo dice la MISMA cuenta que hace la puerta
+ * (`hayCreditoDeLaPlataforma`: claves cargadas, sin pausa, sin agotar): una opción que no corre no es una opción.
+ */
+async function ultimoRecursoDeMaKo(feature?: string): Promise<number | null> {
+  if (!CREDITO_HABILITADO_PARA.some((h) => h.soloLaPlataforma && h.feature === (feature ?? '').trim())) return null;
+  const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+  const sa = await wsSuperAdmin().catch(() => null);
+  if (sa == null || (await getWorkspaceActual().catch(() => null)) !== sa) return null;
+  const { hayCreditoDeLaPlataforma } = await import('./anthropic');
+  return (await hayCreditoDeLaPlataforma({ feature, wsCliente: sa }).catch(() => false)) ? sa : null;
+}
+
 /** El techo de entrada de un proveedor (prompt + salida), el mismo con el que la cascada lo saltea. */
 export function techoDeEntrada(p: ProvName): number | undefined {
   return TECHO_ENTRADA[p];
@@ -763,19 +778,25 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   }
   // Las cuentas de cada proveedor, UNA vez: con ellas se sabe cuál es de verdad la última opción (revisión del tren-l, hallazgo
   // 18: un proveedor de la lista SIN clave contaba como «otra opción», y la última opción real perdía su reintento). La red de
-  // la plataforma también es una opción, pero sólo si CORRE: con los mismos cortes que tiene abajo (verificación del tren-m):
-  // «sólo su IA», datos de clientes (`pii`: el AI Step que le contesta a un lead) y el super admin, que ya probó sus keys.
-  // El crédito de Claude del onboarding no cuenta: sin él sólo se suma un reintento, no se pierde ninguna opción.
+  // la plataforma también es una opción, pero sólo si CORRE, y eso se le pregunta a la MISMA función que la arma
+  // (`provsGratisDePlataforma`, con «sólo su IA» y el super admin adentro) más los cortes del bloque de abajo (`pii`, y que
+  // el bloque no entra en el super admin). Hoy da false siempre: la red gratis no corre para ningún negocio (22/10/2026), y
+  // contarla le sacaba el reintento a la última opción real de un cliente (verificaciones del tren-m). El crédito de Claude
+  // del onboarding no cuenta: sin él sólo se suma un reintento, no se pierde ninguna opción.
   const instanciasDe = new Map(await Promise.all((orden as ProvName[]).map(async (p) => [p, await provsDe(p)] as const)));
   const conClave = (orden as ProvName[]).filter((p) => (instanciasDe.get(p) ?? []).length > 0);
   const ultimoProv = conClave[conClave.length - 1];
   const llevaPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
   let hayRed = false;
-  if (opts.redDePlataforma && !soloSuIA() && !llevaPII) {
+  if (opts.redDePlataforma && !llevaPII) {
     const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
     const sa = await wsSuperAdmin().catch(() => null);
-    hayRed = sa != null && (await getWorkspaceActual().catch(() => null)) !== sa;
+    hayRed = sa != null && (await getWorkspaceActual().catch(() => null)) !== sa
+      && (await provsGratisDePlataforma().catch(() => [])).length > 0;
   }
+  // Y el crédito de lo interno de MaKo (abajo), si de verdad está para este pedido: con él esperando, un 503 de `flash-lite`
+  // no se reintenta (los reintentos le dejaban 15-17 s, que no alcanzan para una tanda).
+  const wsCredito = await ultimoRecursoDeMaKo(opts.feature);
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -823,7 +844,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // ¿Queda OTRA opción REAL después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor CON clave, la red de la
       // plataforma)? Entonces una saturación no se reintenta acá: se pasa a la siguiente. La última opción real sí insiste
       // (`ultimoRecurso`): contaba proveedores sin clave y no era la última nunca (con sólo su Gemini, 1 reintento y no 3).
-      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed;
+      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== ultimoProv || hayRed || wsCredito != null;
       const ultimoRecurso = !hayOtraOpcion;
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
@@ -894,23 +915,19 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   // analizador). Llega acá DESPUÉS de que fallaron las gratis (sus Gemini, el respaldo de modelo incluido), nunca antes; con
   // el mismo tope de tokens de la tarea (`maxTokens`), y cada llamada queda en anthropic_usage con la marca del crédito
   // (lib/anthropic.ts, `conCreditoDeLaPlataforma`). Para un negocio no cambia nada: el veto lo frena aunque llegara.
-  if (quedan() >= MIN_INTENTO_MS && CREDITO_HABILITADO_PARA.some((h) => h.soloLaPlataforma && h.feature === (opts.feature ?? '').trim())) {
-    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
-    const sa = await wsSuperAdmin().catch(() => null);
-    if (sa != null && (await getWorkspaceActual().catch(() => null)) === sa) {
-      const { conCreditoDeLaPlataforma } = await import('./anthropic');
-      const c = await conCreditoDeLaPlataforma({
-        system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature,
-        motivo: `último recurso: las gratis no contestaron · ${opts.motivo ?? ''}`.trim(), timeoutMs: plazoDeIntento(), wsCliente: sa,
-      }).catch(() => null);
-      if (c && 'texto' in c) {
-        const t = opts.json ? soloElJson(c.texto) : c.texto;
-        if (t && (!opts.validar || opts.validar(t))) return t;
-        opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
-      } else if (c && 'error' in c) {
-        opts.erroresPlataformaOut?.push(c.error);
-        console.error(`[ai-cheap] el último recurso del espacio de MaKo (crédito de Claude) no contestó: ${c.error.slice(0, 300)}`);
-      }
+  if (wsCredito != null && quedan() >= MIN_INTENTO_MS) {
+    const { conCreditoDeLaPlataforma } = await import('./anthropic');
+    const c = await conCreditoDeLaPlataforma({
+      system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature,
+      motivo: `último recurso: las gratis no contestaron · ${opts.motivo ?? ''}`.trim(), timeoutMs: plazoDeIntento(), wsCliente: wsCredito,
+    }).catch(() => null);
+    if (c && 'texto' in c) {
+      const t = opts.json ? soloElJson(c.texto) : c.texto;
+      if (t && (!opts.validar || opts.validar(t))) return t;
+      opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
+    } else if (c && 'error' in c) {
+      opts.erroresPlataformaOut?.push(c.error);
+      console.error(`[ai-cheap] el último recurso del espacio de MaKo (crédito de Claude) no contestó: ${c.error.slice(0, 300)}`);
     }
   }
 

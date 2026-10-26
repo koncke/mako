@@ -27,6 +27,7 @@ const pg = crearPostgrest({
 let pedidos: Array<{ modelo: string; plazo: number | null }> = [];
 /** Cada pedido al crédito de Claude de la plataforma: el modelo, el tope de tokens y la clave. */
 let credito: Array<{ model: string; max_tokens: number; clave: string }> = [];
+let creditoCuelga = false;
 let flashLatest: 'cuelga' | '503' = 'cuelga';
 let flashLite: 'ok' | '503' = 'ok';
 const plazos = new WeakMap<AbortSignal, number>();
@@ -46,6 +47,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'api.anthropic.com') {
     const c = JSON.parse(String(init.body ?? '{}')) as { model?: string; max_tokens?: number };
     credito.push({ model: String(c.model ?? ''), max_tokens: Number(c.max_tokens ?? 0), clave: new Headers(init.headers).get('x-api-key') ?? '' });
+    if (creditoCuelga) {
+      return new Promise<Response>((_ok, mal) => {
+        init.signal?.addEventListener('abort', () => mal(init.signal?.reason ?? new DOMException('The operation was aborted due to timeout', 'TimeoutError')));
+      });
+    }
     return json({ content: [{ type: 'text', text: 'respuesta del crédito' }], usage: { input_tokens: 10, output_tokens: 5 } });
   }
   if (u.host !== 'generativelanguage.googleapis.com') return json({ error: { message: 'red de mentira' } }, 500);
@@ -140,6 +146,10 @@ async function main() {
   out.G = { respuesta: await cascadaSinD6b({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true, pii: true }), pedidos };
   reset('503', '503');
   out.G2 = { respuesta: await cascada({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true }), pedidos };
+  // G3. Un cliente SIN datos de clientes, con la red pedida: la red gratis no corre para ningún negocio (22/10/2026), así que
+  //     tampoco es «otra opción» (segunda verificación del tren-m: producción reintentaba y la rama no).
+  reset('503', '503');
+  out.G3 = { respuesta: await cascadaSinD6b({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true }), pedidos };
   // P. El ÚLTIMO recurso de lo interno de MaKo (Martín, 26/10/2026: «1. Claude de la plataforma»), con la clave del crédito
   //    cargada: en el espacio de MaKo, después de que fallaron sus Gemini; nunca primero, nunca para un negocio, nunca para otra
   //    tarea. Cada vuelta anota los pedidos a Google, los del crédito y las filas de uso con la marca del crédito.
@@ -161,6 +171,11 @@ async function main() {
   out.P_otraTarea = await vuelta(() => runWithWorkspace(PLATAFORMA, () => ai.chatCheapCascade({
     system: 's', user: 'otra tarea', feature: 'dashboard-conclusiones', provs: ['gemini'], timeoutMs: 30_000, hastaMs: Date.now() + 20_000,
   }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`)));
+  // El crédito que se CORTA por plazo: no contesta, pero puede haber gastado, y queda su fila con la marca.
+  reset('503', '503');
+  creditoCuelga = true;
+  out.P_corte = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
+  creditoCuelga = false;
   delete process.env.ANTHROPIC_CREDITO_CUENTA1;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }

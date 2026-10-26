@@ -67,9 +67,9 @@ type Vuelta = { respuesta?: string; pedidos: Pedido[]; saturadoDespues?: boolean
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ia-saturacion-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
-const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2', Vuelta>
+const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2' | 'G3', Vuelta>
   & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string }
-  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>;
+  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea' | 'P_corte', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>;
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
 const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
 
@@ -108,14 +108,14 @@ test('2. la ÚLTIMA opción real insiste: un proveedor de la lista sin clave no 
   }
 });
 
-test('2. una red de la plataforma PEDIDA que no corre no es «otra opción»: con datos de clientes, y en el super admin', () => {
-  for (const [nombre, v] of [['el AI Step de un lead (pii)', R.G], ['el super admin', R.G2]] as const) {
+test('2. una red de la plataforma PEDIDA que no corre no es «otra opción»: con datos de clientes, sin ellos, y en el super admin', () => {
+  for (const [nombre, v] of [['el AI Step de un lead (pii)', R.G], ['el super admin', R.G2], ['un negocio sin datos de clientes', R.G3]] as const) {
     assert.deepEqual(modelos(v), [LATEST, LITE, LITE], `${nombre}: la red no corre y el 503 de su última opción no se reintentó (${modelos(v).join(', ')})`);
   }
-  // `hayRed` mira los mismos cortes que la red de abajo.
+  // `hayRed` se le pregunta a la MISMA función que arma la red, más los cortes del bloque.
   const casc = fuente('lib/ai-cheap.ts');
-  assert.match(casc, /if \(opts\.redDePlataforma && !soloSuIA\(\) && !llevaPII\) \{/);
-  assert.match(casc, /hayRed = sa != null && \(await getWorkspaceActual\(\)\.catch\(\(\) => null\)\) !== sa;/);
+  assert.match(casc, /if \(opts\.redDePlataforma && !llevaPII\) \{/);
+  assert.match(casc, /hayRed = sa != null && \(await getWorkspaceActual\(\)\.catch\(\(\) => null\)\) !== sa\s*&& \(await provsGratisDePlataforma\(\)\.catch\(\(\) => \[\]\)\)\.length > 0;/);
 });
 
 test('3. el turno con herramientas (MaKo en WhatsApp) anota el 503, y NINGÚN camino anota un timeout para el proceso', () => {
@@ -141,8 +141,9 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
 test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIMO recurso, en su espacio y para sus tareas', () => {
   const P = R.P;
   assert.equal(P.respuesta, 'respuesta del crédito');
-  assert.equal(P.pedidos[0]?.modelo, LATEST, 'antes del crédito, sus Gemini');
-  assert.ok(P.pedidos.some((p) => p.modelo === LITE), 'el respaldo de modelo gratis va antes que el crédito');
+  // Antes del crédito, sus Gemini (el respaldo incluido); y con el crédito esperando, el 503 de flash-lite no se reintenta
+  // (los reintentos le dejaban al crédito 15-17 s, que no alcanzan para una tanda).
+  assert.deepEqual(modelos(P), [LATEST, LITE], `antes del crédito: ${modelos(P).join(', ')}`);
   assert.deepEqual(P.credito, [{ model: 'claude-haiku-4-5', max_tokens: 7_400, clave: 'sk-ant-credito-de-prueba-cuenta-1' }],
     'una sola llamada, con el mismo tope de tokens de la tarea y la clave del crédito');
   assert.equal(P.filasDeUso, 1, 'el gasto del crédito no quedó anotado con su marca');
@@ -150,6 +151,10 @@ test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIM
   assert.equal(R.P_gratisContesta.credito.length, 0, 'el crédito se usó con una gratis que contestaba: nunca primero');
   assert.equal(R.P_negocio.credito.length, 0, 'un negocio paga su IA: el crédito de lo interno de MaKo no es para él');
   assert.equal(R.P_otraTarea.credito.length, 0, 'una tarea que Martín no habilitó usó el crédito');
+  // Cortado por plazo después de mandar: Anthropic puede haber cobrado, y queda la fila con la marca del crédito.
+  assert.equal(R.P_corte.credito.length, 1);
+  assert.equal(R.P_corte.respuesta, '');
+  assert.equal(R.P_corte.filasDeUso, 1, 'un corte del crédito no dejó rastro de lo que pudo gastar');
 });
 
 // ── Probado rompiéndolo (26/10/2026, segunda versión, después de la revisión del tren-l) ────────────────────────────────

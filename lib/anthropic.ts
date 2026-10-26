@@ -9,7 +9,7 @@ import { recordUsage, type UsageInfo } from './anthropic-usage';
 import { credWs, credDelCliente, credWsEstricta, wsDelEntorno } from './credenciales';
 import {
   permisoDeGasto, evaluarClaveDelNegocio, MOTIVO_CLAVE_DEL_NEGOCIO, MOTIVO_CREDITO_SU_CLAVE, FEATURES_DEL_PLAN,
-  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude,
+  evaluarCreditoDeLaPlataforma, CLAVES_CREDITO_PLATAFORMA, CREDITO_HABILITADO_PARA, MOTIVO_CREDITO_PLATAFORMA, type PermisoClaude, type PermisoCredito,
   type PermisoClaveDelNegocio, CLAVE_MODELO_SU_CLAUDE, modeloDeSuClaude,
 } from './veto-claude';
 import type { ProvName } from './ai-cheap';
@@ -284,42 +284,11 @@ export async function conCreditoDeLaPlataforma(p: {
   /** El workspace del CLIENTE que lo usa: la fila de uso va ahí, nunca al ws1. */
   wsCliente: number;
 }): Promise<{ texto: string } | { error: string } | null> {
-  // PARA QUÉ, antes de leer nada: lo que Martín no habilitó no gasta ni una lectura (la lista y el porqué,
-  // en `CREDITO_HABILITADO_PARA`). Lo que se habilitó «sólo durante el onboarding» pregunta lo MISMO que el
-  // wizard (`onboardingPendiente`): si no se sabe, no.
-  const habilitado = CREDITO_HABILITADO_PARA.find((h) => h.feature === (p.feature ?? '').trim());
-  if (!habilitado) return null;
-  let onboardingEnCurso = false;
-  if (habilitado.soloDuranteElOnboarding) {
-    try {
-      const { onboardingPendiente } = await import('@/lib/onboarding-state');
-      onboardingEnCurso = await onboardingPendiente();
-    } catch { return null; }
-    if (!onboardingEnCurso) return null;
-  }
-  let creditos: Array<string | null>;
-  let esLaPlataforma = false;
-  try {
-    const { wsSuperAdmin } = await import('@/lib/workspace');
-    const wsSA = await wsSuperAdmin();
-    // Lo que se habilitó «sólo para la plataforma» (lo interno de MaKo) no lee ninguna clave para un negocio.
-    esLaPlataforma = wsSA === p.wsCliente;
-    if (habilitado.soloLaPlataforma && !esLaPlataforma) return null;
-    creditos = [];
-    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
-      const env = process.env[nombre]?.trim();
-      creditos.push(env || (await credWsEstricta(nombre, wsSA)));
-    }
-  } catch { return null; }
-  if (!creditos.some(Boolean)) return null;
-  const pausa = await claudePausado();
+  const permisos = await permisosDelCredito(p);
+  if (!permisos) return null;
   const system = p.json ? `${p.system}\n\nResponde SOLO con el JSON pedido, sin texto antes ni después y sin bloques de código.` : p.system;
   const errores: string[] = [];
-  for (const clave of creditos) {
-    if (!clave) continue;
-    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, esLaPlataforma, onboardingEnCurso });
-    if (!v.ok) return null;
-    const permiso = v.permiso;
+  for (const permiso of permisos) {
     if ((creditoAgotado.get(permiso.cuenta) ?? 0) > Date.now()) continue;
     try {
       const res = await fetch(permiso.endpoint, {
@@ -349,10 +318,64 @@ export async function conCreditoDeLaPlataforma(p: {
       if (texto) return { texto };
       errores.push(`crédito cuenta ${permiso.cuenta}: contestó vacío`);
     } catch (e) {
-      errores.push(`crédito cuenta ${permiso.cuenta}: ${e instanceof Error ? e.message : String(e)}`);
+      const detalle = e instanceof Error ? `${e.name} ${e.message}` : String(e);
+      errores.push(`crédito cuenta ${permiso.cuenta}: ${detalle}`);
+      // Cortada (por plazo o por la red) DESPUÉS de mandar: Anthropic puede haber cobrado igual. Queda la fila, con la marca
+      // del crédito y hasta cuánto pudo gastar (verificación del tren-m: sin esto, un corte no dejaba rastro del gasto).
+      await recordUsage(permiso.feature, permiso.model, {}, [`${MOTIVO_CREDITO_PLATAFORMA} (cuenta ${permiso.cuenta})`, `cortada sin respuesta (${detalle.slice(0, 80)}): puede haber gastado hasta ${p.maxTokens ?? 1024} tokens de salida`, (p.motivo ?? '').trim()].filter(Boolean).join(' · '), 'anthropic', permiso.cuenta, p.wsCliente).catch(() => {});
     }
   }
   return errores.length ? { error: errores.join(' · ') } : null;
+}
+
+/**
+ * Las cuentas del crédito que puede usar ESTE pedido, con su permiso, sin llamar a nadie (o null). Es la cuenta que hace la
+ * puerta antes de pedir, y la que usa la cascada para saber si el crédito es de verdad «otra opción» (`hayCreditoDeLaPlataforma`).
+ */
+async function permisosDelCredito(p: { feature?: string; wsCliente: number }): Promise<PermisoCredito[] | null> {
+  // PARA QUÉ, antes de leer nada: lo que Martín no habilitó no gasta ni una lectura (la lista y el porqué,
+  // en `CREDITO_HABILITADO_PARA`). Lo que se habilitó «sólo durante el onboarding» pregunta lo MISMO que el
+  // wizard (`onboardingPendiente`): si no se sabe, no.
+  const habilitado = CREDITO_HABILITADO_PARA.find((h) => h.feature === (p.feature ?? '').trim());
+  if (!habilitado) return null;
+  let onboardingEnCurso = false;
+  if (habilitado.soloDuranteElOnboarding) {
+    try {
+      const { onboardingPendiente } = await import('@/lib/onboarding-state');
+      onboardingEnCurso = await onboardingPendiente();
+    } catch { return null; }
+    if (!onboardingEnCurso) return null;
+  }
+  let creditos: Array<string | null>;
+  let esLaPlataforma = false;
+  try {
+    const { wsSuperAdmin } = await import('@/lib/workspace');
+    const wsSA = await wsSuperAdmin();
+    // Lo que se habilitó «sólo para la plataforma» (lo interno de MaKo) no lee ninguna clave para un negocio.
+    esLaPlataforma = wsSA === p.wsCliente;
+    if (habilitado.soloLaPlataforma && !esLaPlataforma) return null;
+    creditos = [];
+    for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
+      const env = process.env[nombre]?.trim();
+      creditos.push(env || (await credWsEstricta(nombre, wsSA)));
+    }
+  } catch { return null; }
+  if (!creditos.some(Boolean)) return null;
+  const pausa = await claudePausado();
+  const permisos: PermisoCredito[] = [];
+  for (const clave of creditos) {
+    if (!clave) continue;
+    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, esLaPlataforma, onboardingEnCurso });
+    if (!v.ok) return null;
+    permisos.push(v.permiso);
+  }
+  return permisos.length ? permisos : null;
+}
+
+/** ¿Queda el crédito para este pedido? (alguna cuenta con permiso y sin agotar). La misma cuenta que hace la puerta. */
+export async function hayCreditoDeLaPlataforma(p: { feature?: string; wsCliente: number }): Promise<boolean> {
+  const permisos = await permisosDelCredito(p).catch(() => null);
+  return !!permisos?.some((x) => (creditoAgotado.get(x.cuenta) ?? 0) <= Date.now());
 }
 
 export async function chatClaude(
