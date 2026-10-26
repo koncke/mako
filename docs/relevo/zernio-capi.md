@@ -88,6 +88,16 @@ Conectar en sí («Conectar con Facebook») es un clic de una persona: por la AP
 3. Con las tres en verde y su resultado escrito en `docs/hallazgos-integraciones.md`: prender `ZERNIO_META_PROBADO`. Desde ahí
    un negocio nuevo conecta Meta sólo con «Conectar con Facebook».
 
+## El reclamo a Zernio: `testCode` de CAPI no llega a Meta (ENVIADO, no reenviar)
+
+Zernio no reenvía el `testCode` de `POST /v1/ads/conversions` (medido el 25/10/2026: los Lead de prueba entraron al píxel de MaKo
+como eventos reales; por eso las pruebas mandan `PruebaMaKo`). El reclamo SALIÓ el 26/10/2026 a las 10:25 (13:25 UTC): lo mandó el
+Cerebro por mail, con el sí de Martín, desde MaKo <equipo@hola-mako.com> (Resend, reply-to equipo@) a support@zernio.com, con el
+borrador de las notas tal cual (sólo la cuenta, el píxel y los traceId de MaKo). Id de Resend: `01a17862-f17d-7398-bef6-a9ac5a522643`.
+La respuesta llega a equipo@hola-mako.com (lo reenvía Porkbun). **No mandarlo otra vez** (ni por mail ni por su API de soporte,
+«Ana»): si Zernio contesta que lo arregló, se prueba con `probar_capi_meta` y un código de «Probar eventos» antes de volver a
+mandar un Lead de prueba.
+
 ## El inventario: lo que MaKo hace con el token de Meta y lo que cubre Zernio
 
 Medido en el código el 25/10/2026 (un agente de lectura, archivo por archivo) y en la OpenAPI de Zernio v1.356.1. `permiso`:
