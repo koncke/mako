@@ -38,7 +38,7 @@ import { useCerrarEstable, useFocoInicial } from './dialogo-foco';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /** El curso del producto `id` (el `?ws=` lo pone `conWs`). */
-const rutaDelCurso = (id: number) => `/clients/classroom?producto=${id}`;
+const rutaDelCurso = (id: number) => `/classroom?producto=${id}`;
 
 export function NuevoProducto({ onCerrar }: { onCerrar: () => void }) {
   const id = useId();

@@ -17,7 +17,7 @@
 // =============================================================================
 
 import 'server-only';
-import type { Ctx, Preparado, Runners } from '../tipos';
+import type { Ctx, Falta, Preparado, Runners } from '../tipos';
 import { getClosingViewData, reviseAnalysis, analizarLlamadasDeLead, type ClosingAnalysisRow, type Tone } from '@/lib/closing';
 import { estadoDelAnalisis, arrancarAnalisis, cerrarAnalisis } from '@/lib/closing-job';
 import { resumenDeCorrida } from '@/lib/closing-job-estado';
@@ -96,13 +96,26 @@ async function ventasEnVentana(input: Record<string, unknown>) {
   };
 }
 
-async function exigirFathom(): Promise<string | null> {
-  return (await integracionConectada('fathom')) ? null : 'Fathom no está conectado en este negocio: se conecta en /integraciones.';
+/**
+ * LO QUE FALTA CONECTAR, COMO DATO (`Falta`, 25/10/2026). Decían «se conecta en /integraciones», un texto suelto: el modelo
+ * mandaba a la pantalla general y el código no podía armar el link al modal de ESA conexión. Ahora el link lo pone el código
+ * (`aFalta`, lib/api-mako/ejecutar.ts) y el texto dice sólo qué falta y para qué.
+ */
+type FaltaDeConexion = { error: string; falta: Falta };
+async function exigirFathom(): Promise<FaltaDeConexion | null> {
+  return (await integracionConectada('fathom'))
+    ? null
+    : { error: 'Fathom no está conectado en este negocio: sin Fathom no hay grabaciones de llamadas que leer.', falta: { servicio: 'fathom' } };
 }
-async function exigirIa(): Promise<string | null> {
+/**
+ * ⚠️ ES SU CLAUDE POR CLAVE, NO «SU IA» (25/10/2026). El análisis de las llamadas corre SÓLO con Claude, con la clave del
+ * negocio (lib/closing.ts, `conClaveDelNegocio`; lib/model-catalogo.ts lo deja en Sonnet a propósito): con su GPT la operación
+ * arrancaría y fallaría igual. Por eso no se le pide «tu IA» ni MaKo Desktop (el análisis corre solo, D6a): su Claude por clave.
+ */
+async function exigirIa(): Promise<FaltaDeConexion | null> {
   return (await credWs('ANTHROPIC_API_KEY'))
     ? null
-    : 'Este negocio no tiene cargada una key de IA (Anthropic): el análisis fallaría sin hacer nada. Se carga en /integraciones.';
+    : { error: 'El análisis de las llamadas corre con el Claude del negocio por clave, y este negocio no la tiene cargada: fallaría sin hacer nada.', falta: { servicio: 'anthropic' } };
 }
 
 // ── runners ──────────────────────────────────────────────────────────────────
@@ -111,8 +124,12 @@ export const RUNNERS: Runners = {
   // ── Lecturas agregadas ─────────────────────────────────────────────────────
   panorama_closing: {
     leer: async () => {
-      const data = await getClosingViewData();
-      return json({
+      // «¿Estás analizando mis fathom?» (Florencia, ws21, 22/10/2026) llega acá: sin Fathom no entran grabaciones nuevas, y
+      // eso se dice como dato (`falta`) y no con unos contadores en cero que parecen «no tuviste llamadas». Si no se pudo
+      // leer, no se afirma que falta.
+      const [data, sinFathom] = await Promise.all([getClosingViewData(), exigirFathom().catch(() => null)]);
+      const salida = json({
+        ...(sinFathom ? { fathom_conectado: false, fathom: `${sinFathom.error} Dilo así: lo que ves abajo es lo que entró antes.` } : {}),
         kpis: {
           score_promedio_0a10: data.kpis.scorePromedio,
           llamadas_con_score: data.kpis.conScore,
@@ -138,6 +155,7 @@ export const RUNNERS: Runners = {
           ...(data.counts.errores ? ['Hay llamadas con error: llamadas_pendientes_o_con_error dice por qué.'] : []),
         ],
       });
+      return sinFathom ? { content: salida, falta: sinFathom.falta } : salida;
     },
   },
 
@@ -296,7 +314,7 @@ export const RUNNERS: Runners = {
   transcript_llamada: {
     leer: async (input) => {
       const falta = await exigirFathom();
-      if (falta) return error(falta);
+      if (falta) return { ...error(falta.error), falta: falta.falta };
       const id = num(input, 'recording_id')!;
       const desde = num(input, 'desde_seg');
       const hasta = num(input, 'hasta_seg');
@@ -373,7 +391,7 @@ export const RUNNERS: Runners = {
           categoria: f.category, estado: f.status, motivo: f.status === 'pendiente' ? 'venta sin transcript en Fathom' : recorta(f.error, 300),
           tiene_transcript: f.has_transcript, actualizada: f.updated_at,
         })),
-        nota: 'El próximo sync reintenta todas. Un error de saldo o de key de IA se repite hasta que se arregle la key en /integraciones.',
+        nota: 'El próximo sync reintenta todas. Un error de saldo o de key de IA se repite hasta que se arregle la clave del negocio en Integraciones (para el análisis, su Claude por clave).',
       });
     },
   },
@@ -471,7 +489,7 @@ export const RUNNERS: Runners = {
     preparar: async (input): Promise<Preparado> => {
       const id = num(input, 'leadId')!;
       const falta = (await exigirFathom()) ?? (await exigirIa());
-      if (falta) return { error: falta };
+      if (falta) return falta;
       const lead = await getLead(id);
       if (!lead) return { error: `No existe el lead ${id} en este negocio.` };
       const job = await estadoDelAnalisis(id);
@@ -505,7 +523,7 @@ export const RUNNERS: Runners = {
   adjuntar_grabaciones_fathom: {
     preparar: async (input): Promise<Preparado> => {
       const falta = await exigirFathom();
-      if (falta) return { error: falta };
+      if (falta) return falta;
       const diasAtras = num(input, 'diasAtras') ?? 5;
       const maxLeads = num(input, 'maxLeads') ?? 60;
       return {
@@ -548,7 +566,7 @@ export const RUNNERS: Runners = {
       const reunion = str(input, 'reunion') as 'R1' | 'R2' | null;
       if (reunion !== 'R1' && reunion !== 'R2') return { error: 'Falta de qué reunión es: R1 o R2.', faltan: ['reunion'] };
       const faltaIa = await exigirIa();
-      if (faltaIa) return { error: faltaIa };
+      if (faltaIa) return faltaIa;
       const lead = await getLead(leadId);
       if (!lead) return { error: `No existe el lead ${leadId} en este negocio.` };
       if (!(lead.telefono ?? '').replace(/\D/g, '')) return { error: `${lead.nombre} no tiene teléfono en el CRM: no hay a dónde dejar el borrador de WhatsApp.` };

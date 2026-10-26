@@ -72,7 +72,8 @@ test('3. con un porqué conocido, el turno lo GUARDA como mensaje de MaKo; sin p
   assert.match(bloque, /if \(porQue\) \{\s*const boton = sinIAEs\?\.conectar \?\? (?:deSuClave|deSuCuenta)\?\.conectar \?\? null;\s*await anotarEnHilo\(s\.id, porQue, \[\{ t: 'porque', \.\.\.\(boton \? \{ conectar: boton \} : \{\}\) \}\]\);\s*\}\s*aviso = \[aviso, porQue \?\? AVISO_NO_PUDE\]/);
   assert.doesNotMatch(bloque, /guardados\.push/);
   // Y lo que dice sin IA nombra las tres que puede conectar.
-  assert.equal(AVISO_SIN_IA, 'Para contestarte necesito tu IA: conecta tu Claude, tu GPT o tu Gemini y mándamelo de nuevo.');
+  // Sin Gemini desde el 25/10/2026 (docs/conexiones-y-ayuda.md, decisión 1).
+  assert.equal(AVISO_SIN_IA, 'Para contestarte necesito tu IA: conecta tu Claude o tu GPT y mándamelo de nuevo.');
 });
 
 test('4. al volver a entrar: el aviso de MaKo con su botón, no «No te pude contestar esto»', () => {

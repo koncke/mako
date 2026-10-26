@@ -2053,7 +2053,8 @@ export function TarjetaNodo({ nodo, activo, roto, children }: {
  */
 export function tinteDeControl(n: Pick<NodoFlujo, 'familia' | 'tipo' | 'color'>): { fondo: string; borde: string; titulo: string } | null {
   if (n.familia !== 'control') return null;
-  if (n.tipo === 'condicion') return { fondo: 'var(--primary-bg)', borde: 'var(--primary-weak)', titulo: 'var(--primary-strong)' };
+  // La prueba A/B (tanda A3) es lógica como la condición: el mismo tinte (mientras corre no hay verde ni rojo).
+  if (n.tipo === 'condicion' || n.tipo === 'ab') return { fondo: 'var(--primary-bg)', borde: 'var(--primary-weak)', titulo: 'var(--primary-strong)' };
   if (n.tipo === 'etiqueta' && typeof n.color === 'string' && /^#[0-9a-f]{6}$/i.test(n.color)) {
     return { fondo: `${n.color}24`, borde: `${n.color}66`, titulo: 'var(--ink)' };
   }

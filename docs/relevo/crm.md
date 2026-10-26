@@ -6,6 +6,18 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω26. 25/10/2026 (chat «CRM», cuenta `claude5`): «Completar desde mi WhatsApp» de punta a punta, extensión 0.71.0
+
+Rama `crm-ext-2510` (desde origin/main 5785115b6; `crm-2510` ya estaba entera en main) en C:/dev/wt-crm-2510. Pedido textual
+en la bitácora. Lo medido y lo aprendido, en hallazgos-extension («No contestó» y los nombres que no salían).
+- Hecho: la opción gris abre la instalación y arranca sola; el worker abre, despierta y repara WhatsApp Web y espera sus chats;
+  el grupo sale del historial y el `@lid` de la lista del grupo; el nombre de `displayNameLID`; cada paso a la vista; la API
+  (`ver_completar_desde_whatsapp`, sólo el chat de MaKo). ZIP 0.71.0.
+- La 0.71.0 está COPIADA en la carpeta de Martín (C:\Users\marti\OneDrive\Escritorio\mako-puente; la 0.70.0, respaldada en el
+  scratchpad de la sesión). **Falta:** que Martín toque «Recargar» en chrome://extensions (desde acá no se puede manejar esa
+  página) y la prueba de punta a punta en su Chrome con la pantalla desplegada (antes del despliegue, la pantalla vieja).
+- ⚠️ Al medir se abrió una segunda pestaña de WhatsApp Web y le sacó la sesión a la de Martín («Usar aquí»).
+
 ## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10
 
 Los pedidos, TEXTUALES, en docs/feedback-24-10.md («CRM → chat CRM», puntos 12 a 21). Rama `crm-2510` en C:/dev/wt-crm-2510,

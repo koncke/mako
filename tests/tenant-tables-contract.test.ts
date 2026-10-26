@@ -128,6 +128,12 @@ const FUERA_DEL_PROXY: Record<string, string> = {
   media_buyer_decisiones: 'el registro del Media Buyer (mig 0332): lib/media-buyer/store.ts, siempre con el workspace_id filtrado a mano',
   ia_pc_dispositivos: 'la puerta de la PC del cliente; lib/ia-pc.ts filtra por negocio a mano (el negocio sale del token)',
   ia_pc_turnos: 'la puerta de la PC del cliente; lib/ia-pc.ts filtra por negocio y por PC a mano',
+  // Las pruebas A/B (mig «pruebas_ab», 25/10/2026): lib/pruebas/store.ts con el cliente de servicio y el ws explícito.
+  pruebas: 'las pruebas A/B: lib/pruebas/store.ts con el ws explícito (la página pública y el cron no tienen sesión)',
+  prueba_variantes: 'las ramas de una prueba A/B: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
+  prueba_asignaciones: 'quién vio qué rama: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
+  prueba_lecturas: 'los números diarios de una prueba: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
+  prueba_historial: 'el porqué de cada decisión de una prueba: lib/pruebas/store.ts, siempre con el workspace_id filtrado a mano',
 };
 /** En TENANT_TABLES y no en TABLAS_DE_INQUILINO, con su porqué. */
 const EN_EL_SET_SIN_SER_TABLA: Record<string, string> = {

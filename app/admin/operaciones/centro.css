@@ -911,22 +911,30 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg--plegada { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 10px 14px; border: 0; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 .co-preg--plegada:hover { background: var(--velo-hover); }
 .co-preg__flecha { color: var(--dim); }
-/* El último «Completado» arriba de la caja (25/10/2026, BloqueCompletado.tsx): el marco del bloque de preguntas y, adentro, la
-   tarjeta del hilo sin su propio marco. Con un tope de alto: un «Ya está» largo se lee adentro y nunca tapa la conversación. */
+/* Los «Completado» arriba de la caja (25/10/2026, BloqueCompletado.tsx): el marco del bloque de preguntas. Arriba, el rótulo,
+   las flechas si hay varios y la flecha para plegar; abajo, UNA acción («Ya lo vi») y una secundaria («Revisar»), fuera de lo
+   que se desplaza: siempre a la vista. Con un tope de alto: un «Ya está» largo se lee adentro y nunca tapa la conversación. */
 .co-preg--completado .co-preg__cab { justify-content: flex-start; }
-.co-preg--completado .co-preg__cab .co-ya__check { margin-left: auto; }
-.co-preg--completado .co-preg__plegar { margin-left: 0; }
+.co-preg--completado .co-preg__cab .co-preg__pasos { margin-left: auto; }
+.co-preg--completado .co-preg__plegar { margin-left: auto; }
+.co-preg--completado .co-preg__pasos + .co-preg__plegar { margin-left: 0; }
 .co-preg__ya-cuerpo { max-height: min(40dvh, 340px); overflow-y: auto; }
-.co-preg__ya-cuerpo > .co-ya { max-width: none; padding: 0 2px 4px; box-shadow: none; background: none; }
+.co-preg__ya-respuesta { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 2px; }
+.co-preg__ya-pie { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
+.co-preg__ya-revisar { text-decoration: none; }
+.co-preg__ya-revisar svg, .co-preg__ya-visto svg { flex: none; }
+/* Se abre TOCÁNDOLO (sin «Ver todo»): el desvanecido dice que sigue; el foco, para el teclado. */
+.co-preg__ya-abrir { cursor: pointer; border-radius: 6px; }
+.co-preg__ya-abrir:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 .co-preg__ya-tira { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
 .co-preg__ya-titulo { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-/* Lo que pidió Martín, arriba de la respuesta (25/10/2026): su globo con su foto, a la derecha, como en el hilo; achicado a 4
-   renglones si es largo, con su «Ver todo». Y la respuesta, con su rótulo y su detalle plegado más corto que en el hilo. */
+/* Lo que respondía, arriba de la respuesta (25/10/2026): un globo a la derecha, como en el hilo (de Martín con su foto, de otro
+   chat con su nombre); achicado a 3 renglones si es largo, y se abre tocándolo. Y la respuesta, con su rótulo y su detalle
+   plegado más corto que en el hilo. */
 .co-preg__ya-pedido { display: flex; justify-content: flex-end; margin: 2px 0 10px; }
 .co-preg__ya-pedido .co-yo { max-width: min(85%, 560px); }
 .co-preg__ya-pedido-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
-.co-preg__ya-pedido-texto--corto { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.co-preg__ya-pedido-mas { margin-top: 6px; }
+.co-preg__ya-pedido-texto--corto { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .co-preg__ya-de { margin: 0 2px 4px; font-size: var(--fs-meta); font-weight: 600; color: var(--dim); }
 .co-preg__ya-cuerpo .co-ya__detalle--plegado { max-height: 7.5em; }
 /* Las sugerencias de MaKo (22/10/2026): plegadas en una tira chica con su nombre, «Sugerencias de MaKo · 4 ▾»; abiertas, el

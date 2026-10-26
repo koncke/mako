@@ -1,20 +1,19 @@
 // =============================================================================
-// La landing de MaKo Partners: la que vende, con la calculadora, y que no promete lo que no pasa (24/10/2026)
+// La landing de MaKo Partners: la que vende, con la calculadora azul, y que no promete lo que no pasa (24/10/2026; 25/10)
 // =============================================================================
-// Martín (24/10, tarde): «mejora completamente el diseño de "Partners", eso debe verse de ventas, como una landing». Y a la
-// noche: «hazla mas marketinera... No me da claridad en lo que ganan, esta todo muy amontonado, no se sabe si se ganan
-// meses o dinero... Falta algo como "Calculadora"». El Cerebro, el mismo día: «la página de Partners no promete nada que
-// no vayamos a cumplir». Y el 25/10, el Cerebro: Partners paga «meses Y plata, según qué se refiere». Lo que se cuida acá:
-//   · QUÉ se gana se dice en una mirada, una línea para cada cosa: si se suscribe, meses de tu plan (su primer mes como
-//     crédito, cuánto por plan, cuándo y sin tope); si entra al Acelerador, la comisión en efectivo. Nunca «no es dinero» a
-//     secas. Los números salen de los planes, del programa y de las reglas (si cambia el precio de Pro, cambia la página);
-//   · la calculadora hace la cuenta del libro (n veces el primer mes del plan) o la de la comisión, nada más;
-//   · NINGUNA pantalla de Partners promete lo que no pasa: el crédito es un renglón del libro que nada descuenta solo
-//     (`CREDITO_HOY`), y la comisión no la registra el libro: la anota y la transfiere el equipo (`COMISION_HOY`). Toda
-//     pantalla que nombra el efectivo dice también eso; y sin cobro en línea, por qué un referido no aparece solo;
-//   · una sola acción: en la pública, a la tab; adentro, el botón «Unirme».
+// Martín (25/10/2026, ~15:40): «Elimina lo de "gana meses de tu plan", que solo ganen direro y listo... No pongas al
+// programa de 1500 en el programa de referidos... Hazlo más marketinero la landing, literalmente se llevan el 100% de lo
+// que venden... La calculadora ponlo en dode hoy está "Si se suscribe". Y solo la parte azul... Elimina la sección de "Cómo
+// funciona" y "Por ahora MaKo da de alta a mano"... Revisa las preguntas frecuentes... Ya no hay "meses" ni "devolución"...
+// Si pueden hacer ads que digan "mako", no aclares eso... Elimina lo de "Si llegó con varios links, vale el primero."... No
+// se entiende "No. Cada negocio nuevo que traes suma el suyo."». Lo que se cuida acá:
+//   · el título dice el 100% y la bajada cuánto por plan, en dinero; nada de meses, crédito, Acelerador ni devolución;
+//   · la calculadora es UN bloque azul, en el hero, donde estaba «Si se suscribe», y cuenta n veces el primer mes entero;
+//   · sin «Cómo funciona» ni el aviso del alta a mano; las preguntas nuevas, claras;
+//   · UNA acción (un link): hacerse partner (`RUTA_ALTA_PARTNERS`), volver al panel, o ninguna (el super admin mirando);
+//   · adentro de la app, los colores del tema.
 //
-// Probado rompiéndolo (24/10/2026): al pie del archivo.
+// Probado rompiéndolo (25/10/2026): al pie del archivo.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -23,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { COMISION_HOY, CREDITO_HOY, DIAS_COOKIE_REF, PAGOS_PARA_ACREDITAR, comisionDelAcelerador } from '../lib/partners-reglas';
+import { DIAS_COOKIE_REF, PAGO_HOY, RUTA_ALTA_PARTNERS } from '../lib/partners-reglas';
 import { PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR } from '../lib/planes-mako';
 
 (globalThis as unknown as { React: typeof React }).React = React;
@@ -32,125 +31,70 @@ const crudo = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r
 const fuente = (rel: string) => crudo(rel).replace(/^[ \t]*\/\/.*$/gm, '').replace(/^[ \t]*\/?\*.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 const usd = (n: number) => `US$ ${n.toLocaleString('es-AR')}`;
 const planes = PLANES_MAKO_DEFAULT.filter((p) => p.activo).slice().sort((a, b) => b.precioUsd - a.precioUsd);
-const tope = planes[0];
 const texto = (html: string) => html.replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|\s+/g, ' ');
-const EMAIL = 'equipo@hola-mako.com';
-const mes = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : '';
-const acelerador = PROGRAMA_ACELERADOR;
-const comision = comisionDelAcelerador(acelerador.precioUsd);
 
-/** Lo que una pantalla de Partners NO puede decir mientras nada descuente el crédito solo. «Todavía no se descuenta» sí. */
-const PROMESA = /meses? gratis|(?<!no )se descuenta|descuenta de tus|en plata|a cobrar|un mes de MaKo|Disponible/i;
-/** Lo que nombra el dinero de la comisión: donde aparece, tiene que estar `COMISION_HOY` (lo que pasa hoy con ella). */
-const EFECTIVO = /efectivo|transfer|comisi[oó]n/i;
+/** Lo que la landing ya no puede decir: los meses, el crédito, el Acelerador y la devolución (Martín, 25/10). */
+const VIEJO = /meses de tu plan|meses gratis|cr[eé]dito para|tu cr[eé]dito|Acelerador|1\.500|devoluci[oó]n|devuelvan|garant[ií]a|da de alta a mano|vale el primero|suma el suyo|C[oó]mo funciona|la palabra «MaKo»/i;
 
-type Props = { cobraEnLinea: boolean; emailMako: string; modo?: 'publica' | 'app'; unirme?: (d: FormData) => Promise<void>; volver?: string; error?: boolean };
-async function landing(p: Partial<Props> = {}): Promise<{ html: string; t: string }> {
+type Props = { modo?: 'publica' | 'app'; accion?: { href: string; texto: string } | null; rotulo?: React.ReactNode };
+async function landing(p: Props = {}): Promise<{ html: string; t: string }> {
   const { LandingPartners } = await import('../app/mako-partners/LandingPartners');
-  const html = renderToStaticMarkup(React.createElement(LandingPartners, { cobraEnLinea: true, emailMako: EMAIL, ...p }));
+  const html = renderToStaticMarkup(React.createElement(LandingPartners, p));
   return { html, t: texto(html) };
 }
 
-test('QUÉ se gana, en una mirada: meses de tu plan si se suscribe, la comisión en efectivo si entra al Acelerador', async () => {
-  const { t } = await landing();
-  assert.ok(t.includes('Gana meses de tu plan y dinero en efectivo por cada negocio que traigas a MaKo'), 'las dos cosas, arriba');
-  assert.ok(t.includes(`Si entra al ${acelerador.nombre}, te llevas ${usd(comision)} en efectivo.`));
-  // Una línea para cada cosa, en la ficha.
-  assert.ok(t.includes('Si se suscribe Meses de tu plan Su primer mes, como crédito para pagar tu MaKo.'));
-  for (const p of planes) assert.ok(t.includes(`Por un negocio en ${p.nombre} ${usd(p.precioUsd)}`), p.nombre);
-  assert.ok(t.includes(`Se suma al pagar su ${mes} mes`));
-  assert.ok(t.includes(`Si entra al ${acelerador.nombre} ${usd(comision)} en efectivo El 20% de cada cuota que paga, por transferencia.`));
-  assert.equal(comision, 300, 'US$300 por Acelerador (docs/referidos.md, 10/10)');
-  // Con \b: «¿Gano dinero…?» contiene «no dinero».
-  assert.doesNotMatch(t, /\bno es dinero|\bno dinero/i, 'nunca «no es dinero» a secas (el Cerebro, 25/10)');
-  assert.ok(t.includes(`Tu link dura ${DIAS_COOKIE_REF} días`));
-  // La pregunta de Martín, contestada primero y abierta: las dos cosas, cada una con lo que pasa hoy.
-  assert.match(t, /¿Gano dinero o meses\? Las dos cosas, según lo que tome el negocio\./);
-  assert.ok(t.includes(`${usd(comision)} en efectivo: el 20% de cada cuota que paga, por transferencia. ${COMISION_HOY}`));
-  assert.ok(t.includes('usa la garantía de entrega, esa venta no deja comisión'), 'sin comisión si devuelve (docs/referidos.md)');
-  assert.ok(t.includes(`${DIAS_COOKIE_REF} días en el navegador de quien lo abre`));
-});
-
-test('la calculadora: la cuenta del libro (n veces el primer mes), y se lee sin JavaScript', async () => {
-  const { creditoPorNegocios, gananciaPorNegocios, NEGOCIOS_DE_ARRANQUE, MAX_NEGOCIOS } = await import('../app/mako-partners/Calculadora');
-  assert.equal(gananciaPorNegocios(3, { precioUsd: acelerador.precioUsd, efectivo: true }), 900, 'tres Aceleradores, en efectivo');
-  assert.equal(gananciaPorNegocios(3, { precioUsd: 97 }), 291, 'tres Pro, en crédito');
-  assert.equal(creditoPorNegocios(1, 97), 97);
-  assert.equal(creditoPorNegocios(10, 47), 470);
-  assert.equal(creditoPorNegocios(3.7, 97), 291, 'negocios enteros');
-  assert.equal(creditoPorNegocios(-2, 97), 0);
-  assert.ok(MAX_NEGOCIOS >= 20 && NEGOCIOS_DE_ARRANQUE <= MAX_NEGOCIOS);
+test('el TÍTULO dice el 100%, y la bajada cuánto por plan, en dinero (los números salen de los planes)', async () => {
   const { html, t } = await landing();
-  assert.match(html, /<input id="mp-calc-n" class="mp-calc-barra" type="range" min="1" max="50"/);
-  // Sin JavaScript se ve la cuenta de arranque, con el plan más caro.
-  assert.ok(t.includes(`Tu crédito ${usd(NEGOCIOS_DE_ARRANQUE * tope.precioUsd)} ${NEGOCIOS_DE_ARRANQUE} negocios × ${usd(tope.precioUsd)}, el primer mes de ${tope.nombre}`));
-  assert.ok(t.includes(`A precio de lista. Cada negocio suma cuando paga su ${mes} mes. ${CREDITO_HOY}`), 'debajo, lo que pasa hoy');
-  assert.ok(t.includes(`${acelerador.nombre} ${usd(acelerador.precioUsd)} en ${acelerador.cuotas} cuotas`), 'el Acelerador, entre lo que pueden tomar');
-  const c = fuente('app/mako-partners/Calculadora.tsx');
-  assert.match(c, /creditoDelReferido\(precioUsd\)/, 'el mismo valor que acredita el libro');
-  assert.match(c, /p\.efectivo \? comisionDelAcelerador\(p\.precioUsd\) : creditoDelReferido\(p\.precioUsd\)/, 'y la misma comisión de las reglas');
-  assert.match(c, /\{plan\.efectivo \? notaEfectivo : nota\}/, 'con el Acelerador, la letra de la comisión');
-  assert.match(fuente('app/mako-partners/LandingPartners.tsx'), /notaEfectivo=\{`El \$\{pct\} de cada cuota que se cobra\. \$\{COMISION_HOY\}`\}/);
-  assert.doesNotMatch(c, /conversi[oó]n|clics|visitas/i, 'ni una tasa de conversión inventada');
+  assert.match(html, /<h1>Recomienda MaKo y llévate el <em>100%<\/em> de lo que vendes<\/h1>/);
+  for (const p of planes) assert.ok(t.includes(`${usd(p.precioUsd)} por cada ${p.nombre}`), `la bajada dice ${p.nombre}`);
+  assert.match(t, /En dinero y sin tope\./);
+  assert.match(t, /Cobras en dinero/);
+  assert.doesNotMatch(t, VIEJO, 'nada de meses, crédito, Acelerador, devolución, «Cómo funciona» ni el alta a mano');
+  assert.ok(!t.includes(PROGRAMA_ACELERADOR.nombre), 'el Acelerador no está en Partners');
 });
 
-test('la landing dice lo que pasa HOY con el crédito, y sin cobro en línea, por qué el referido no aparece solo', async () => {
-  const { t: con } = await landing();
-  assert.ok(con.includes(CREDITO_HOY), 'que el crédito todavía no se descuenta');
-  assert.ok(con.includes(COMISION_HOY), 'que la comisión la anota y la transfiere el equipo');
-  assert.doesNotMatch(con, PROMESA, 'ni meses gratis, ni un saldo disponible'); 
-  assert.doesNotMatch(con, /Growth|testimonio/i, 'ni un plan que no existe, ni prueba inventada');
-  assert.doesNotMatch(con, /da de alta a mano/, 'con pasarela, sin el aviso');
-  const { t: sin } = await landing({ cobraEnLinea: false });
-  assert.match(sin, /Por ahora MaKo da de alta a mano/);
-  assert.ok(sin.includes(`escríbenos a ${EMAIL}`));
-  // La página averigua si cobra con la MISMA cuenta que /planes y el panel; «no pude leer» no afirma que no cobra.
-  const pagina = fuente('app/mako-partners/page.tsx');
-  assert.match(pagina, /ofertasDeLosPlanes\(\)\.then\(\(o\) => o\.some\(\(x\) => x\.cobrable\)\)\.catch\(\(\) => true\)/);
-  assert.match(pagina, /<LandingPartners cobraEnLinea=\{cobraEnLinea\} emailMako=\{EMAIL_MAKO\} \/>/);
-  assert.match(pagina, /export const dynamic = 'force-dynamic';/, 'que no se congele en el build');
+test('la CALCULADORA: un bloque azul en el hero (donde estaba «Si se suscribe»), n veces el primer mes entero', async () => {
+  const { html, t } = await landing();
+  const hero = html.slice(html.indexOf('class="mp-hero-grilla"'), html.indexOf('class="mp-seccion"'));
+  assert.ok(hero.includes('class="mp-calc" id="calculadora"'), 'la calculadora está en el hero');
+  assert.doesNotMatch(html, /Si se suscribe|mp-ficha/, 'la ficha «Si se suscribe» se fue');
+  assert.match(t, /Te llevas US\$ 485 5 negocios × US\$ 97: el primer mes entero de cada MaKo Pro/, 'sin JavaScript: 5 negocios en el plan más caro');
+  const { gananciaPorNegocios } = await import('../app/mako-partners/Calculadora');
+  assert.equal(gananciaPorNegocios(10, 97), 970);
+  assert.equal(gananciaPorNegocios(3.9, 47), 141, 'negocios enteros');
+  assert.equal(gananciaPorNegocios(-2, 97), 0);
+  const css = fuente('app/mako-partners/LandingPartners.tsx').match(/const CSS = `([\s\S]*?)`;/)![1];
+  assert.match(css, /\.mp-calc \{[^}]*linear-gradient\(140deg, var\(--mp-azul\) 0%, var\(--mp-azul-osc\) 100%\)/, 'todo el bloque es el azul');
+  assert.doesNotMatch(fuente('app/mako-partners/Calculadora.tsx'), /mp-calc-entrada|tasa|conversi/i, 'sin la mitad blanca ni tasas inventadas');
 });
 
-test('NINGUNA pantalla de Partners promete lo que no pasa (landing, panel, teléfono, «Tu plan», /planes, el mail)', () => {
-  for (const rel of ['app/mako-partners/LandingPartners.tsx', 'app/mako-partners/Calculadora.tsx', 'app/partners/referidos/Referidos.tsx',
-    'app/m/partners/ReferidosM.tsx', 'app/configuraciones/plan/PlanPanel.tsx', 'app/planes/Vitrina.tsx']) {
-    assert.doesNotMatch(fuente(rel), PROMESA, rel);
-  }
-  const lib = fuente('lib/partners-programa.ts');
-  const mails = lib.slice(lib.indexOf('async function bienvenidas'), lib.indexOf('async function avisarCredito') + 900);
-  assert.doesNotMatch(mails, PROMESA, 'los mails de bienvenida y del crédito');
-  assert.doesNotMatch(mails, EFECTIVO, 'los mails del crédito no hablan de la comisión, que el libro no registra');
-  for (const rel of ['app/partners/referidos/Referidos.tsx', 'app/m/partners/ReferidosM.tsx']) {
-    assert.match(fuente(rel), /\{CREDITO_HOY\}/, `${rel}: dice lo que pasa hoy con el crédito`);
-    assert.match(fuente(rel), /comisionDelAcelerador\(PROGRAMA_ACELERADOR\.precioUsd\)/, `${rel}: la comisión, de las reglas`);
-    assert.doesNotMatch(fuente(rel), /r\.(saldoUsd|mesesGratis|aCobrarUsd)/, `${rel}: no muestra lo que nada consume`);
-  }
-  // Donde se nombra el efectivo, se dice lo que pasa hoy con él.
-  for (const rel of ['app/mako-partners/LandingPartners.tsx', 'app/partners/referidos/Referidos.tsx', 'app/m/partners/ReferidosM.tsx']) {
-    const f = fuente(rel).replace(/const CSS = `[\s\S]*?`;/, '');
-    assert.match(f, EFECTIVO, rel);
-    assert.match(f, /\{COMISION_HOY\}|\$\{COMISION_HOY\}/, `${rel}: nombra el efectivo y no dice lo que pasa hoy`);
-  }
-  for (const rel of ['app/configuraciones/plan/PlanPanel.tsx', 'app/planes/Vitrina.tsx']) assert.doesNotMatch(fuente(rel), EFECTIVO, rel);
+test('las PREGUNTAS nuevas: claras, sin meses ni devolución, anuncios sin vueltas, y el tope que se entiende', async () => {
+  const { t } = await landing();
+  const preguntas = ['¿Cuánto gano?', '¿Cuándo cobro?', '¿Hay un límite?', '¿Quién cuenta como mi referido?', '¿Y si no entra con mi link?',
+    '¿Cuánto dura mi link?', '¿Puedo hacer anuncios con mi link?', '¿Cuesta algo ser partner?'];
+  for (const q of preguntas) assert.ok(t.includes(q), q);
+  assert.match(t, /Es dinero, no crédito ni descuentos\./);
+  assert.ok(t.includes(PAGO_HOY), 'cuándo y cómo se cobra: lo que pasa hoy');
+  assert.match(t, /Ninguno\. Traes 10 negocios, ganas 10 primeros meses\. Traes 100, ganas 100\./);
+  assert.match(t, /Sí\. Compártelo donde quieras: tus redes, tus grupos de WhatsApp, tu newsletter o tus anuncios\./);
+  assert.ok(t.includes(`${DIAS_COOKIE_REF} días. Si alguien lo abre hoy`), 'cuánto dura, sin «vale el primero»');
+  assert.match(t, /pone tu código al pagar/, 'el código del carrito');
+  assert.doesNotMatch(t, /¿Y si soy agencia\?/, 'lo de agencia salió de Partners');
 });
 
-test('UNA acción: en la pública lleva a la tab; adentro es «Unirme»; el super admin, sin botón; y nada escrito a mano', async () => {
+test('UNA acción, un link: hacerse partner (al alta), volver al panel, o ninguna (el super admin)', async () => {
   const { html: pub } = await landing();
   const links = pub.match(/<a class="mp-btn" href="[^"]+">[^<]+<\/a>/g) ?? [];
   assert.equal(links.length, 3, 'arriba, en la calculadora y al final');
-  for (const a of links) assert.match(a, /href="\/partners\/referidos">Unirme gratis</);
-  assert.doesNotMatch(pub, /<form/, 'la pública no une a nadie');
-  const unirme = async () => {};
-  const { html: app } = await landing({ modo: 'app', unirme, volver: '/partners' });
-  assert.equal((app.match(/<button class="mp-btn" type="submit">Unirme a MaKo Partners<\/button>/g) ?? []).length, 3);
-  assert.equal((app.match(/<input type="hidden" name="volver" value="\/partners"\/>/g) ?? []).length, 3);
-  assert.doesNotMatch(app.replace(/<style[\s\S]*?<\/style>/, ''), /mp-publica|mp-barra/, 'adentro, sin la barra de la página pública (la de la app queda)');
+  for (const a of links) assert.ok(a.includes(`href="${RUTA_ALTA_PARTNERS}">Hacerme partner gratis<`), a);
+  assert.doesNotMatch(pub, /<form/);
+  const { html: app } = await landing({ modo: 'app', accion: { href: '/partners', texto: 'Ir a mi panel' } });
+  assert.equal((app.match(/<a class="mp-btn" href="\/partners">Ir a mi panel<\/a>/g) ?? []).length, 3);
   assert.match(app, /^<div class="mp-root mp-app">/, 'adentro no es otro <main>');
-  const { html: sa, t: saT } = await landing({ modo: 'app' });
-  assert.doesNotMatch(sa, /class="mp-btn"|<form/, 'el super admin mira: no se une');
-  assert.doesNotMatch(saT, /Empieza a sumar hoy/);
-  const { t: mal } = await landing({ modo: 'app', unirme, error: true });
-  assert.match(mal, /No pudimos unirte\. Prueba otra vez en un minuto\./);
+  assert.doesNotMatch(app.replace(/<style[\s\S]*?<\/style>/, ''), /mp-publica|mp-barra/);
+  const { html: sa, t: saT } = await landing({ modo: 'app', accion: null });
+  assert.doesNotMatch(sa, /class="mp-btn"/, 'el super admin mira: sin botón');
+  assert.doesNotMatch(saT, /te está esperando/);
   const p = fuente('app/mako-partners/LandingPartners.tsx');
   assert.doesNotMatch(p.replace(/const CSS = `[\s\S]*?`;/, ''), /US\$ ?\d|\b(47|97|60) días/, 'ningún número a mano');
 });
@@ -164,29 +108,19 @@ test('adentro de la app, la landing usa los colores de la app (cambia con el tem
   assert.doesNotMatch(css, /body:has\(\.mp-root\)/, 'la tab no esconde la barra de la app');
 });
 
-// Roturas (25/10/2026; base 20 / 0 con partners-para-clientes y partners), meses Y dinero, cada una restaurada (pasan / fallan):
-//   · la ficha vuelve a «No es dinero en efectivo»                                         -> 19 / 1
-//   · la comisión escrita a mano en la bajada («US$ 300»)                                  -> 19 / 1
-//   · la FAQ sin lo que pasa hoy con la comisión (`COMISION_HOY`)                          -> 18 / 2
-//   · la ficha sin el renglón del efectivo                                                 -> 19 / 1
-//   · la calculadora cuenta el Acelerador como crédito                                     -> 19 / 1
-//   · la calculadora con la letra del crédito para el Acelerador                           -> 19 / 1
-//   · el panel sin lo que pasa hoy con la comisión                                         -> 19 / 1
-//   · el teléfono con la comisión a mano                                                   -> 19 / 1
-//   · la comisión al 25%                                                                   -> 18 / 2
-//   · la landing promete «Meses gratis»                                                    -> 17 / 3
-//   · /planes nombra la comisión                                                           -> 19 / 1
-//   · la FAQ dice que igual cobras si el negocio usa la garantía                           -> 19 / 1
-// Roturas (24/10/2026, noche; base 6 / 0), cada una restaurada (pasan / fallan):
-//   · el número grande escrito a mano («US$ 97» en vez del plan más caro)                    -> 5 / 1
-//   · la ficha sin «No es dinero en efectivo»                                                -> 5 / 1
-//   · la calculadora con una «tasa de conversión» de 30%                                     -> 5 / 1
-//   · la calculadora multiplica por diez el precio (el anual)                                -> 5 / 1
-//   · la landing vuelve a prometer «= 5 meses de MaKo Pro»                                    -> 3 / 3
-//   · la landing sin la frase de lo que pasa hoy (`CREDITO_HOY`)                              -> 5 / 1
-//   · la landing sin el aviso de las altas a mano                                             -> 5 / 1
-//   · el panel vuelve a mostrar «Meses gratis ganados»                                        -> 5 / 1
-//   · adentro de la app, el botón vuelve a ser un link (no une a nadie)                       -> 5 / 1
-//   · el super admin con el botón de unirse                                                   -> 5 / 1
-//   · la tab vuelve a esconder la barra de la app (`body:has(.mp-root) aside`)                -> 5 / 1
-//   · el modo app con el dorado de --accent                                                   -> 5 / 1
+test('NINGUNA pantalla de Partners habla de meses, crédito ni del Acelerador (landing, panel, teléfono, «Tu plan», /planes, los mails)', () => {
+  for (const rel of ['app/mako-partners/LandingPartners.tsx', 'app/mako-partners/Calculadora.tsx', 'app/partners/PanelPartner.tsx', 'app/partners/ProgramaPartners.tsx',
+    'app/partners/AltaPartner.tsx', 'app/m/partners/ReferidosM.tsx', 'lib/partners-programa.ts']) {
+    const f = fuente(rel);
+    assert.doesNotMatch(f, /meses gratis|meses de tu plan|como cr[eé]dito|de cr[eé]dito|PROGRAMA_ACELERADOR|comisionDelAcelerador|COMISION_HOY|CREDITO_HOY/i, rel);
+  }
+  assert.match(fuente('app/configuraciones/plan/PlanPanel.tsx'), /detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas\." href="\/partners"/);
+  assert.match(fuente('app/planes/Vitrina.tsx'), /llévate el primer mes entero de cada negocio que traigas: <Link href="\/mako-partners">MaKo Partners<\/Link>/);
+});
+
+// Roturas (25/10/2026; base 27 / 0 con partners-solo-plata, mako-partners-landing, partners-para-clientes y partners-referidos
+// juntos), cada una restaurada (pasan / fallan):
+//   · el título vuelve a «Gana meses de tu plan»                                -> 25 / 2
+//   · la calculadora sale del hero                                              -> 25 / 2
+//   · vuelve «Cómo funciona»                                                    -> 26 / 1
+//   · la FAQ vuelve a «No. Cada negocio nuevo que traes suma el suyo.»          -> 25 / 2

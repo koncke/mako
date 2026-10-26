@@ -25,6 +25,41 @@ declarado. Al sumar al área `operaciones` dos operaciones SÓLO de la plataform
 - ⚠️ **`node scripts/generar-plugin.mjs` revienta** con `ERR_MODULE_NOT_FOUND ... lib/detalle-contrato` (importa `.ts`), aunque
   su cabecera diga ese comando. Se corre con `node --import tsx scripts/generar-plugin.mjs`, como `generar-api-doc.mjs`.
 
+## Lo que falta conectar viaja como DATO (`falta: { servicio }`), y el link lo pone el código (25/10/2026)
+
+Florencia (ws21) le preguntó al grupo «Estas analizando mis fathom?». Con su IA conectada, el runner del Closing habría
+contestado «Fathom no está conectado en este negocio: se conecta en /integraciones»: un texto suelto, con el que ni el
+código podía armar el link al modal de Fathom ni ofrecer ayuda. Plan: [conexiones-y-ayuda.md](conexiones-y-ayuda.md).
+Vive en `lib/api-mako/tipos.ts` (`Falta`, `ctx.aFalta`), `lib/api-mako/ejecutar.ts` (`faltaParaElModelo`) y los runners;
+lo fija `tests/conexiones-api.test.ts`.
+
+- **El servicio va como dato en tres lugares a la vez:** la salida del runner (`SalidaLectura.falta`, el error de
+  `Preparado`), el `Resultado` (y por HTTP, en el cuerpo del error) y el canal del código, `ctx.aFalta`, que corre salga
+  bien o mal la lectura. Una lectura que NO es un error también puede llevarla: `panorama_closing` sin Fathom contesta sus
+  contadores Y `falta`, porque unos contadores en cero se leen como «no tuviste llamadas».
+- ⚠️ **El link lo pone UNO solo.** Si el canal agrega la línea por código (el doer de WhatsApp, `aFalta` →
+  `lineaParaConectar`), el modelo recibe `falta` SIN link y con «no escribas ningún link»: si también se lo diéramos, lo
+  escribiría él y saldría dos veces. Sin `aFalta` (la app, HTTP), va el link exacto del catálogo para que lo pase tal cual.
+- ⚠️ **El análisis de llamadas no es «su IA»: es su Claude por clave.** Lo obvio era que `exigirIa` aceptara su GPT (IA16:
+  «cada negocio paga su IA»). Pero el análisis corre sólo con Claude (`conClaveDelNegocio` en lib/closing.ts, Sonnet a
+  propósito en lib/model-catalogo.ts): con su GPT la operación arrancaría y fallaría igual. Pide `falta: anthropic`.
+- **«Se vincula en la tab WhatsApp» mandaba a una tab que ya no existe**: el QR vive en Chats (`/chats?conectar=whatsapp`).
+- **`ver_ia_del_negocio`** dice con qué IA contesta cada cosa (la app, el grupo, los audios, el análisis) según las reglas del
+  código, no una opinión, y **`como_conectar`** da los pasos y el link de una cosa por cómo la nombra la gente. Leen
+  `listarPcDelNegocio` (lib/ia-pc.ts) sólo para contar: su comentario dice «para el super admin» porque devuelve nombres y
+  ubicaciones; acá salen sólo cuántas y cuántas en línea, del propio negocio.
+
+**SIN hacer:**
+- Meta (`SIN_META`, lib/api-mako/areas/ads.helpers.ts) sin `falta`: si es `meta` o `zernio` lo decide el chat de Zernio
+  (Zernio reemplaza el token de Meta, detrás de `ZERNIO_META_PROBADO`).
+- `crear_borrador_whatsapp_empresa` (un `proponer`: `Propuesto` no tiene `falta`), el remitente del email (no es una
+  conexión que falte: es el dominio en /email) y `conPasarelaConectada` de cobros (al confirmar).
+- El chat de la app (`turnoApp`) no pone `aFalta`: el link le llega al modelo en el JSON y lo escribe él.
+- `como_conectar` llega al turno sólo si el mensaje nombra el área integraciones, y su expresión no reconoce «conectar» ni
+  Fathom, Zernio, Instagram o «mi Claude» (lib/mako-intencion.ts): tanda 3.
+
+---
+
 ## El filtro por TAB no existe, y el presupuesto de 12.000 caracteres no alcanza para un jefe (16/10/2026)
 
 **Síntoma (medido leyendo, para el diseño del chat único, `docs/diseno-mako-ai-native.md`).** La idea obvia para darle a
@@ -355,14 +390,37 @@ no traía `cambiar_crons_secuencia`. La que entraba en su lugar era la nueva, `c
   pedido»). A igual puntaje gana la declarada antes, y botones está antes en chatbot.def.ts. Con ella adelante, el CRON
   (4.114) no entraba. Achicar no alcanzaba: había que sacar el empate.
 - El commit señalado (3a443b08f) no fue el primero: su padre fallaba igual. Empezó con la operación misma (b3ef516f9).
+- Una hora después lo repitieron las tres de la prueba A/B (A3): `prueba_ab_automatizacion` llevaba «automatizacion» en el id
+  (2 puntos en cualquier pedido de automatizaciones) y las tres estaban declaradas antes que el CRON. Ahora son `ver_prueba_ab`,
+  `empezar_prueba_ab` y `detener_prueba_ab`, sin «automatización» en el título y AL FINAL del área: pierden los empates.
 
-**La regla.** Una operación nueva se mide con las frases de `tests/ops-center-clasificador-app` ANTES de entregar. Su
-descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los demás mensajes, con
-editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área («automatización», «flujo»,
-«WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se sube: es el techo de Groq.
+**La regla.** Una operación nueva va al FINAL de su área y se mide con las frases de `tests/ops-center-clasificador-app`
+ANTES de entregar. Su descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los
+demás mensajes, con editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área
+(«automatización», «flujo», «WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se
+sube: es el techo de Groq.
 
 **Vive en:** `lib/api-mako/registro.ts` (`ordenarPorRelevancia`: el empate lo decide el orden de declaración) ·
 `lib/relevancia-app.ts` (`registroParaLaApp`, el 75 %) · `lib/api-mako/areas/chatbot.def.ts` · `tests/api-mako-botones.test.ts`
+
+---
+
+## ⚠️ La escritura directa de /api/v1 perdía `faltan`: una pregunta llegaba como un 422 de texto (25/10/2026)
+
+**Síntoma.** Crear con IA por HTTP con un token detallado que escribe: cuando MaKo necesitaba un dato («¿Por dónde le
+escribo?»), la respuesta era un 422 con la pregunta como mensaje de error. Para quien llama, un fallo.
+
+**Causa.** Hay dos caminos. El que propone (`ejecutarOperacion`, lib/api-mako/ejecutar.ts) devuelve el 400 de `preparar()`
+con `faltan`. La escritura directa (`aplicarEnElActo`, lib/api-mako/flujo.ts) resume todo en `resumen`, porque la escribió
+un flujo, que sólo necesita una frase para el rastro. El `faltan` se perdía ahí, y la pregunta que hace el modelo AL EJECUTAR
+ni siquiera lo tenía.
+
+**La regla.** `ResultadoFlujo.faltan` lo lleva (el de `preparar()`, y el de `ejecutar()` en `datos.faltan`), y
+lib/api-mako/rutas-http.ts lo devuelve como 400 con `faltan` ANTES del 422. Una pregunta es un parámetro que falta: quien
+llama contesta en ese parámetro y vuelve a llamar.
+
+**Vive en:** `lib/api-mako/flujo.ts` (`aplicarEnElActo`) · `lib/api-mako/rutas-http.ts` ·
+`lib/api-mako/areas/chatbot.run.ts` (`crear_automatizacion_con_ia`) · `tests/api-mako-botones.test.ts`
 
 ---
 
@@ -2478,6 +2536,25 @@ Las otras cuatro, más chicas:
 *23/10/2026 · chat «API de MaKo» (claude2) · revisión con tres lentes (seguridad, corrección, contrato), cada hallazgo
 medido con un script; arreglos probados rompiéndolos.*
 
+
+## Meta por Zernio en la API: elegir es un PUT, y «le manda» en una descripción se lee como un envío a una persona (25/10/2026)
+
+**Vive en:** `lib/api-mako/areas/integraciones.def.ts` / `.run.ts` (`ver_conexion_meta`, `elegir_cuenta_meta`,
+`elegir_pixel_meta`, `elegir_pagina_meta`, `probar_capi_meta`) · `lib/api-mako/rest.ts` · `tests/zernio-meta.test.ts`
+
+- **El área Integraciones era «sólo estado» por diseño** (guardar o elegir iba por el link a la pantalla). Martín, 25/10: «todo
+  MaKo se debe poder utilizar por API». La excepción es acotada: se eligen ids que la conexión de Facebook YA ve (cuenta,
+  píxel, página), con su «sí»; nunca se pega un secreto. Conectar sigue siendo un clic de una persona: eso es el link.
+- **Una descripción que dice «le manda MaKo las conversiones» hizo caer `tests/confirmacion-terceros.test.ts`**: el guard lee
+  «le manda» como algo que le llega a OTRA persona (y exige `aTerceros`). No era un envío a nadie: se reescribió («el píxel
+  donde quedan registradas las conversiones»). Una acción que de verdad no le escribe a nadie no lleva esos verbos.
+- **Cada operación que sale por HTTP necesita su ruta en `RUTAS_REST`** (y el recurso sale del segundo tramo: `meta`); elegir
+  es reemplazar un dato (PUT), y la prueba de CAPI es una lectura (GET con el código de «Probar eventos», que Meta muestra en
+  esa pestaña y no cuenta en el píxel).
+- Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
 ## Las páginas de MaKo no se leían ni se cambiaban por la API: su texto vive en un ATRIBUTO (25/10/2026, claude5)
 
 Martín, 25/10: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Ese día se arregló
@@ -2497,6 +2574,43 @@ escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambi
   descripción lo dice, `docs/api-mako.md` está regenerado y el snapshot HTTP queda igual (no se expuso nada nuevo).
   De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
 - Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).
+
+## configurar_seccion_landing contestaba «listo» en una sección de diseño y no cambiaba nada (25/10/2026, claude5)
+
+En una sección de «Diseño editable» (las páginas de MaKo), el estilo de la sección (fondo, ancho, acento, alto) se guardaba
+en los atributos de la tarjeta, que lo publicado de esas secciones no lee (render.ts las publica a sangre, su HTML tal cual).
+**La API decía que lo había cambiado, quedaba una versión nueva en el historial, y en la página no cambiaba nada.**
+
+Ahora, en una sección de diseño, configurar_seccion_landing cambia SÓLO el fondo, y lo hace en su HTML
+(lib/editor-landing/fondo-de-diseno.ts):
+- un color, un degradado, o fondo "tema" (o restablecer) para volver exacto al del diseño;
+- lo demás contesta un error que dice que es parte del diseño.
+ver_secciones_landing trae el `fondo` que se ve (leído del `style` y de las reglas simples de la hoja) y `fondo_cambiado`.
+
+**Regla:** una operación de la API sobre un dato que lo publicado no lee tiene que fallar diciendo por qué. Nunca debe
+contestar «listo». Antes de exponer un atributo, mirar que el render de ESE tipo de sección lo use.
+
+## Los íconos por la API: 75 en la #32, ninguno con nombre, y el «texto junto» que mentía (25/10/2026, claude5)
+
+Martín, 25/10: «Los íconos también por la API». La API no leía ni cambiaba ninguno. Ahora:
+- ver_secciones_landing trae los `iconos` de cada sección (n, el nombre en la biblioteca y el texto junto a él);
+- cambiar_icono_landing cambia uno por número o por el de hoy;
+- ver_iconos_landing busca en la biblioteca del editor.
+
+**Lo que no era obvio:**
+- **Los íconos de la #32 no tienen nombre.** Son `<svg>` de otra familia (trazo, `stroke="currentColor"`) y su color está
+  en el `style` (`color:#2F6FED`). Uno que pone MaKo (el editor o la API) se reconoce por el `d` de su único `path`, que es el
+  de la biblioteca. Al cambiar uno hay que conservar `style`, `width` y `class`. Si no, pierde el color: es lo que ya hacía el
+  control «Ícono» del editor.
+- **El texto «junto» al ícono mentía de dos maneras.** Un tramo de HTML cortado a mitad de una etiqueta se leía como texto
+  (salía `<div style="aspect-ratio:1;border`). Y el texto que sigue, juntado entero, ya era de la tarjeta de al lado («Arma tu
+  embudo Despega»). Ahora se corta en el último `>`, se toma el PRIMER texto que sigue (o el del botón que lo contiene), y
+  si no hay, el último de antes. Ocho íconos de una grilla en «¿Qué es MaKo?» quedan sin texto: se eligen por número.
+- **En una sección de bloques**, el ícono es el atributo `icono` de cada ítem de un «Diseño optimizado». Sólo se ofrecen los
+  que se ven (`mostrarIconos`, o un diseño de `CON_ICONOS`, css.ts). Cambiar uno apagado sería otro «listo» sin efecto.
+
+Lo que quedó SIN hacer: el enlace de la agenda (`[data-calendly]`) por la API. En el editor ya se cambia desde el control
+«Video».
 
 ## La guarda de la doc decía «no está en git» con la doc al día: el MEGA de `execFileSync` (25/10/2026)
 
@@ -2527,3 +2641,35 @@ escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambi
 - Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## El presupuesto del turno de la app: una operación nueva deja afuera a la que la frase pedía (25/10/2026, claude5)
+
+Al mezclar landings-2510-b en tren-k cayeron tres tests (bisecado por el Cerebro). Las operaciones nuevas
+(cambiar_imagen_landing, cambiar_icono_landing, listar_videos_alojados, ver_iconos_landing) y las descripciones más largas
+empujaban fuera a otras. El último en caer: con «cambia el formulario de la landing: agrega el teléfono», el turno de la
+app recibía cambiar_imagen_landing y NO configurar_formulario_landing.
+
+**Cómo arma la lista** (lib/doer-herramientas.ts → `toolsDelRegistro`, lib/api-mako/registro.ts):
+- Ordena por relevancia (`ordenarPorRelevancia`): 2 puntos si una raíz está en el id o el título, 1 si está en la
+  descripción. La frase va junto con las palabras que suma el clasificador (`relevancia`).
+- Mete en ese orden hasta 12.000 caracteres de esquema. La que no entra se SALTEA y las siguientes pueden entrar: por eso
+  una operación más corta y peor ubicada entra donde la que se pidió no.
+- **Lo engañoso:** configurar_formulario_landing era la DÉCIMA. Cuando le tocaba, las nueve de antes ya sumaban 10.590 y
+  ella ocupa 1.790. Achicar cambiar_imagen_landing (la que «entraba en su lugar») no servía de nada. Había que sacar 380
+  caracteres de las NUEVE de antes o de ella misma. Y ver_secciones_landing había subido al puesto 7 porque su
+  descripción ganó la palabra «formulario».
+- **El arreglo, sin tocar el orden (es de todos):** recortar las dos del área landing. ver_secciones_landing pasó de 821 a
+  671 y configurar_formulario_landing de 1.790 a 1.522, sin sacar ninguna palabra que ordena. Ahora entra con 38 de
+  margen (11.962).
+
+**Regla:** antes de sumar una operación o alargar una descripción, medir el orden REAL de las frases de su área con
+`scripts/presupuesto-turno-app.mts "frase"` (posición, entra o no, largo, acumulado). Una palabra nueva en una descripción
+también MUEVE el orden. El margen es chico: el de WhatsApp quedó en 11.860 de 12.000 para «quítale la animación».
+
+## `FallaPlan.disponibles` es `unknown`: los tests pasan y el pre-push frena (25/10/2026, claude5)
+
+`planConfigurarBoton` (lib/api-mako/areas/landing-contenido.helpers.ts) sumaba los botones de los diseños a la lista
+de `elegirBoton` con `[...(elegido.disponibles ?? [])]`. Los tests corren con tsx, que NO chequea tipos, y daban verde.
+El tsc acotado del tren lo marcó como TS2488, porque `FallaPlan.disponibles` se declara `unknown` y no se puede iterar.
+**Regla:** para leer `disponibles` de una falla, normalizar con `Array.isArray(x) ? x.map(String) : []`. Un verde de
+tests no es un verde de tipos.

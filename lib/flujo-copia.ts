@@ -120,6 +120,10 @@ function conDestinos(p: PasoCopiado, f: (id: string) => string | null): PasoCopi
   if (Array.isArray(p.paralelos_si_no)) out.paralelos_si_no = lista(p.paralelos_si_no) as string[];
   if (Array.isArray(p.ramas)) out.ramas = p.ramas.map((r) => ({ ...r, siguiente: uno(r.siguiente) as string | null, ...(Array.isArray(r.paralelos) ? { paralelos: lista(r.paralelos) as string[] } : {}) }));
   if (Array.isArray(p.casos)) out.casos = p.casos.map((c) => ({ ...c, siguiente: uno(c.siguiente) as string | null }));
+  // ⚠️ LAS FLECHAS DE LOS BOTONES Y DE LAS RAMAS DE UNA PRUEBA A/B (25/10/2026): sin esto, una copia pegada o llevada a otro
+  // negocio dejaba los botones (y las ramas) apuntando a las tarjetas del ORIGINAL. Un botón con link no tiene flecha.
+  if (Array.isArray(p.botones)) out.botones = p.botones.map((b) => (b.url ? b : { ...b, siguiente: uno(b.siguiente) as string | null }));
+  if (Array.isArray(p.ramas_ab)) out.ramas_ab = p.ramas_ab.map((r) => ({ ...r, siguiente: uno(r.siguiente) as string | null }));
   if (p.destino && typeof p.destino === 'object' && 'nodo' in p.destino) {
     const d = f(String((p.destino as { nodo: unknown }).nodo));
     out.destino = d ? { nodo: d } : null;
@@ -182,7 +186,9 @@ function guionesQueUsan(pasos: readonly PasoCopiado[], guiones?: Record<string, 
  */
 export function pegarTarjetas<P extends PasoGrafo>(pasos: readonly P[], copia: CopiaFlujo, rnd: () => number = Math.random): { pasos: P[]; ids: string[]; mapa: Map<string, string> } {
   const fijos = normalizar(pasos);
-  const entrantes = (normalizar(copia.pasos as PasoGrafo[]) as PasoCopiado[]).filter((p) => claseDe(p) !== 'inicio');
+  // Una prueba A/B por automatización (tanda A3): si ya hay una, la pegada no entra (lo que colgaba de ella queda suelto).
+  const yaHayAB = fijos.some((p) => claseDe(p) === 'ab');
+  const entrantes = (normalizar(copia.pasos as PasoGrafo[]) as PasoCopiado[]).filter((p) => claseDe(p) !== 'inicio' && !(yaHayAB && claseDe(p) === 'ab'));
   const mapa = new Map<string, string>();
   let acumulado: PasoGrafo[] = [...fijos];
   for (const p of entrantes) {

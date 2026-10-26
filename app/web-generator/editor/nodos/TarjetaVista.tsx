@@ -42,7 +42,7 @@ import { TIPOS_IMAGEN, TOPE_IMAGEN_BYTES, esPresentacion, terminoTarjeta } from 
 import { NODO, TOPES, tituloDeTarjeta, type AttrsTarjeta, type JsonNodo } from '@/lib/editor-landing/doc';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 import AskAgent, { type ModoAskAgent } from '../AskAgent';
-import EstiloSeccion, { ESTILO_RESTABLECIDO } from '../paneles/EstiloSeccion';
+import EstiloSeccion, { ESTILO_RESTABLECIDO, escribirFondoDeDiseno } from '../paneles/EstiloSeccion';
 import {
   borrarTarjeta, combinarConAnterior, duplicarTarjeta, insertarDisenoSeccion, insertarTarjetaEn, moverTarjeta, seccionPorId,
 } from '../insertar';
@@ -489,7 +489,11 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
           <FilaMenu icono="diseno" texto={`Editar estilo de ${uno}`} onClick={() => setPanel({ tipo: 'estilo', ancla: anclaSub() })} />
           {/* El panel «Animar» en la vista de ESTA sección (paneles/PanelAnimacion.tsx). */}
           {ctx && <FilaMenu icono="brillo" texto={`Animar ${uno}`} onClick={desdeMenu(() => ctx.abrirAnimar('seccion', id))} />}
-          <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => setAttrs(ESTILO_RESTABLECIDO))} />
+          {/* En una sección de diseño, también vuelve su fondo al del diseño (está en su HTML: paneles/EstiloSeccion.tsx). */}
+          <FilaMenu icono="refrescar" texto="Restablecer estilo" onClick={desdeMenu(() => {
+            setAttrs(ESTILO_RESTABLECIDO);
+            escribirFondoDeDiseno(editor, id, null, ctx?.config.diseno?.css ?? '');
+          })} />
           <FilaMenu icono="notas" texto="Notas del orador" onClick={() => setPanel({ tipo: 'notas', ancla: anclaSub() })} />
           <FilaMenu icono="enlace" texto="Copiar enlace" onClick={desdeMenu(copiarEnlace)} />
           <SepMenu />

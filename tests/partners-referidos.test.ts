@@ -1,18 +1,21 @@
 // =============================================================================
-// MaKo Partners (23/10/2026): las reglas decididas el 10/10 (docs/referidos.md), el cableado y el origen del onboarding
+// MaKo Partners (23/10/2026): las reglas (docs/referidos.md), el cableado y el origen del onboarding
 // =============================================================================
 // «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática... el dashboard de
-// cuánto dinero tenés acumulado... y también si es que te ganaste meses gratuitos» (Martín, 22/10/2026).
+// cuánto dinero tenés acumulado» (Martín, 22/10/2026). Desde el 25/10 Partners paga SÓLO PLATA: el 100% del primer mes;
+// lo nuevo (el alta, las visitas, el precio de lista del anual, el carrito) lo cuida tests/partners-solo-plata.test.ts.
 //
-// Probado rompiéndolo (23/10/2026; base 9 / 0). Una rotura por vez, restaurando (pasan / fallan):
+// Probado rompiéndolo (23/10/2026; base 9 / 0; los dos del libro rehechos el 25/10). Una rotura por vez, restaurando:
 //   · PAGOS_PARA_ACREDITAR = 1 (acredita con el primer pago)                     -> 7 / 2
 //   · `correspondeAcreditar` deja que alguien se refiera a sí mismo              -> 8 / 1
-//   · los meses gratis no redondean para abajo                                   -> 8 / 1
-//   · el revendedor no cobra lo que sobra en plata                               -> 8 / 1
 //   · el cron acredita a quien YA tenía cuenta (sin `alta_estado = hecha`)       -> 8 / 1
 //   · /r pisa la cookie del primero que lo trajo                                 -> 8 / 1
 //   · `interesDeFuncionalidad` no reconoce «crm»                                 -> 8 / 1
 //   · el onboarding no siembra el origen                                         -> 8 / 1
+//   · (25/10) el que canceló la prueba con 0 meses vuelve a dar 'registrado'     -> 8 / 1
+//   · (25/10, ronda 2) los cobros del lugar no se miran (`seFueSegunSusCobros` da false siempre)   -> 8 / 1
+//   · (25/10, ronda 2) «ningún otro cobro vivo» no se mira (la prueba caída alcanza)               -> 8 / 1
+//   · (25/10, ronda 2) la baja pedida no se mira, o un pago único cobrado no cuenta como vivo      -> 8 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -20,7 +23,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, creditoDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
+  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, porGanar, resumenDelLibro,
+  seFueSegunSusCobros,
 } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -40,7 +44,7 @@ test('cuenta desde el 2º mes pagado, una vez, y nunca a uno mismo', () => {
   assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 2, yaAcreditado: false }), true);
   assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 5, yaAcreditado: true }), false);
   assert.equal(correspondeAcreditar({ referidorWs: 3, referidoWs: 3, mesesPagados: 5, yaAcreditado: false }), false);
-  assert.equal(creditoDelReferido(47), 47, 'el primer mes de su plan, a precio de lista');
+  assert.equal(gananciaDelReferido(47), 47, 'el 100% del primer mes de su plan, a precio de lista');
 });
 
 test('el estado de cada referido en el tablero', () => {
@@ -48,27 +52,41 @@ test('el estado de cada referido en el tablero', () => {
   assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: true }), 'primer-pago');
   assert.equal(estadoDelReferido({ mesesPagados: 1, acreditado: false, vigente: false }), 'se-fue');
   assert.equal(estadoDelReferido({ mesesPagados: 3, acreditado: true, vigente: false }), 'acreditado');
+  // 25/10/2026 (revisión del tren): el que canceló la prueba sin pagar nada se fue; no es plata «en camino» para el partner.
+  assert.equal(estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), 'se-fue');
+  assert.equal(porGanar([
+    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), gananciaUsd: 97 },
+    { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: true }), gananciaUsd: 47 },
+  ]), 47, 'sólo el que sigue');
 });
 
-test('el libro: lo acumulado, lo usado, y los meses gratis de un usuario común (2 de 47 = su mes de 97)', () => {
-  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }], { precioPropioUsd: 97, revendedor: false });
-  assert.deepEqual(r, { acumuladoUsd: 141, usadoUsd: 0, saldoUsd: 141, mesesGratis: 1, aCobrarUsd: 0 });
-  const usado = resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -97 }], { precioPropioUsd: 47, revendedor: false });
-  assert.equal(usado.saldoUsd, 0);
-  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }], { precioPropioUsd: null, revendedor: false }).mesesGratis, 0, 'sin suscripción no hay meses');
-  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 80 }], { precioPropioUsd: 47, revendedor: false }).mesesGratis, 1, 'un mes y pico es UN mes gratis');
+test('se fue según SUS COBROS: la prueba caída y ningún otro cobro vivo (ronda 2: con el corte apagado nadie lo pausa)', () => {
+  const prueba = (extra: Record<string, unknown>) => ({ tipo: 'suscripcion', alta_capa: 'completo', creado_por: 'planes:pro:prueba', estado: 'pendiente', suscripcion_estado: 'activa', ...extra });
+  const plan = (extra: Record<string, unknown>) => ({ tipo: 'suscripcion', creado_por: 'empezar-ya:5', estado: 'pagado', suscripcion_estado: 'activa', ...extra });
+  assert.equal(seFueSegunSusCobros([prueba({})]), false, 'sigue en su prueba');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' })]), true, 'canceló la prueba y nunca pagó');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'pagado', suscripcion_estado: 'cancelada' })]), true, 'pagó el día 8 y canceló: no hay 2º mes');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'anulado', suscripcion_estado: 'cancelada' }), plan({})]), false, '«Empezar mi plan ya» pagado: sigue');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'anulado', suscripcion_estado: 'cancelada' }), plan({ suscripcion_estado: 'cancelada' })]), true);
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), plan({ estado: 'pendiente', suscripcion_estado: null })]), true, 'un link abierto y sin pagar no lo trae de vuelta');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), plan({ motivo: 'Baja pedida el 25/10' })]), true, 'con la baja pedida no se cobra más');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), { tipo: 'unico', estado: 'pagado', suscripcion_estado: null }]), false, 'un pago único cobrado (a mano) sigue');
+  assert.equal(seFueSegunSusCobros([plan({ suscripcion_estado: 'cancelada' })]), false, 'sin una prueba caída no decide: queda workspaces.estado');
 });
 
-test('el revendedor: primero su mes, lo que sobra en plata', () => {
-  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 97 }], { precioPropioUsd: 97, revendedor: true });
-  assert.equal(r.saldoUsd, 191);
-  assert.equal(r.aCobrarUsd, 94);
-  assert.equal(r.mesesGratis, 1);
+test('el libro: lo ganado, lo transferido y lo que queda a cobrar, en dinero (sin meses ni revendedor)', () => {
+  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -47 }]);
+  assert.deepEqual(r, { ganadoUsd: 144, pagadoUsd: 47, aCobrarUsd: 97 });
+  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -120 }]).aCobrarUsd, 0, 'nunca negativo');
+  assert.deepEqual(resumenDelLibro([{ tipo: 'ajuste', monto_usd: 10 }, { tipo: 'ajuste', monto_usd: -4 }]), { ganadoUsd: 10, pagadoUsd: 4, aCobrarUsd: 6 }, 'los ajustes, a favor o en contra');
 });
 
 test('el cron acredita SÓLO a clientes nuevos (la compra que creó la cuenta) y el primer código vale', () => {
   const p = fuente('lib/partners-programa.ts');
-  assert.match(p, /\.not\('ref_codigo', 'is', null\)\.not\('alta_ws', 'is', null\)\.eq\('alta_estado', 'hecha'\)/);
+  // La compra que creó la cuenta, o la de «Empezar mi plan ya» que reemplaza a esa prueba (25/10/2026): de punta a punta en
+  // tests/partners-empezar-ya.test.ts.
+  assert.match(p, /const COMPRA_QUE_TRAJO = 'alta_estado\.eq\.hecha,creado_por\.like\.empezar-ya:\*';/);
+  assert.match(p, /\.not\('ref_codigo', 'is', null\)\.not\('alta_ws', 'is', null\)\.or\(COMPRA_QUE_TRAJO\)/);
   assert.match(p, /if \(!primero\.has\(Number\(c\.alta_ws\)\)\) primero\.set/);
   assert.match(p, /\.update\(\{ referido_por_ws: referidor \}\)\.eq\('id', referido\)\.is\('referido_por_ws', null\)/, 'las bienvenidas, una vez');
   assert.match(fuente('app/api/cron/cobros-reconciliar/route.ts'), /await acreditarReferidos\(\)/);

@@ -79,13 +79,14 @@ test('2a: un «Completado» con el primer renglón largo se lee ENTERO, sin «�
   // El renglón entero llega al cuerpo (no cabe como título) y nada lo corta.
   const p = partesDeYaEsta(`Ya está: ${RENGLON}\nPruébalo en /admin/operaciones`);
   assert.equal(p.titulo, null);
-  assert.ok(p.cuerpo.startsWith(RENGLON), 'el primer renglón, completo, primero');
+  assert.ok(p.cuerpo.startsWith(`A${RENGLON.slice(1)}`), 'el primer renglón, completo, primero (con su mayúscula)');
   assert.ok(p.cuerpo.endsWith('Pruébalo en /admin/operaciones'));
   const pantalla = texto(tarjeta(`Ya está: ${RENGLON}\nPruébalo en /admin/operaciones`));
-  assert.ok(pantalla.includes(RENGLON), 'en la tarjeta, el renglón entero');
+  assert.ok(pantalla.includes(`A${RENGLON.slice(1)}`), 'en la tarjeta, el renglón entero');
   assert.ok(!pantalla.includes('…'), 'ningún «…»');
   // Uno corto sigue siendo el título, tal cual; y «Ya está» solo no repite lo que dice el rótulo.
-  assert.deepEqual(partesDeYaEsta('**Ya está:** el filtro del CRM\nPruébalo en /crm'), { titulo: 'el filtro del CRM', cuerpo: 'Pruébalo en /crm' });
+  assert.deepEqual(partesDeYaEsta('**Ya está:** el filtro del CRM\nPruébalo en /crm'), { titulo: 'El filtro del CRM', cuerpo: 'Pruébalo en /crm' }, 'con mayúscula: sin el «Ya está:» se leía cortado (25/10/2026)');
+  assert.deepEqual(partesDeYaEsta('Ya está: `crm-2510` en main'), { titulo: '`crm-2510` en main', cuerpo: '' }, 'un código de adelante queda como está');
   assert.deepEqual(partesDeYaEsta('Ya está\nPruébalo en /crm'), { titulo: null, cuerpo: 'Pruébalo en /crm' }, 'sin título repetido en el cuerpo');
   // Lo que la PC corta al subir (TOPE_TURNO) ya NO se avisa (25/10/2026, Martín: «que no haya nunca un limite de caracteres, en
   // todo caso achica el mensaje»): termina en «…» y va plegado a su resumen (tests/completado-arriba.test.ts, el 6).

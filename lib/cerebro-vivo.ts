@@ -234,7 +234,7 @@ export function agregarLoVivo(g: Armado, l: LecturasVivas, opciones: { raiz: str
       id: 'clientes', area: 'funnel', tipo: 'Clientes', etiqueta: `${C.total} ${C.total === 1 ? 'cliente' : 'clientes'}`,
       detalle: 'Los leads que compraron.',
       datos: [{ k: 'Los últimos', v: recientes.slice(0, 5).map((c) => corto(nombreDe(c), 24)).join(' · ') }],
-      fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/clients', abrirEn: 'Clients',
+      fuente: 'contados en tu CRM, hoy', autoria: 'mako', href: '/classroom/clients', abrirEn: 'Clients',
     });
     unir(hub, hay('leads') ? 'leads' : alFunnel, 'Salieron de tus leads');
     for (const c of recientes) {

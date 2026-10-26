@@ -51,7 +51,7 @@ import {
   type PasoGrafo, type NombresParaTexto, type HechosLead, type MedioAIStep, type FilaCondicion,
   claseDe, idDe, indicePorId, nodoPorId, normalizar, puertosDe, raicesSalida, raizRespuesta,
   textoEspera, textoRama, TOPE_HILOS, RESULTADO_SI_NO, paralelosDeResultado, elegirSalida, expandirPasoIA,
-  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta, llegaTarde,
+  extrasDeCaso, gruposDeRama, cumpleFila, textoFila, escenariosDeRespuesta, llegaTarde, ramasABDe,
 } from './flujo-grafo';
 
 /**
@@ -94,6 +94,11 @@ export type EventoSim<P extends PasoGrafo = PasoGrafo> =
   | { t: 'accion'; nodo: string; texto: string; paso: P }
   | { t: 'salto'; nodo: string; texto: string }
   | { t: 'condicion'; nodo: string; opciones: OpcionRama[] }
+  /**
+   * Una tarjeta «A/B TEST» (tanda A3): sus ramas, para elegir. NO se decide con los hechos del lead (a un lead le toca la
+   * rama de su asignación): «Probar» sigue por la del escenario elegido y, si no hay, por la A.
+   */
+  | { t: 'ab'; nodo: string; opciones: OpcionRama[] }
   | { t: 'fin'; texto: string };
 
 export type CasoElegido = { id: string | null; titulo: string; cuando: string };
@@ -329,6 +334,11 @@ export function elegirComoLead(pasos: readonly PasoGrafo[], estado: EstadoSim, h
   const e = estado.eligiendo;
   if (!e) return { estado, opcion: null };
   const p = nodoPorId(recorrido(pasos, estado.medio), e.nodo);
+  // Una prueba A/B no se decide con los hechos: sin escenario que la elija, la A (el control, el camino de antes).
+  if (p && claseDe(p) === 'ab') {
+    const a = e.opciones[0] ?? null;
+    return { estado: a ? elegir(estado, a.puerto) : { ...estado, eligiendo: null }, opcion: a };
+  }
   const puerto = p ? elegirSalida(p, hechos).puerto : RESULTADO_SI_NO;
   const opcion = e.opciones.find((o) => o.puerto === puerto) ?? e.opciones.find((o) => o.puerto === RESULTADO_SI_NO) ?? null;
   return { estado: opcion ? elegir(estado, opcion.puerto) : { ...estado, eligiendo: null }, opcion };
@@ -569,6 +579,14 @@ function correrHilo<P extends PasoGrafo>(pasos: readonly P[], estado: EstadoSim,
       ].map(conParalelos);
       return { evento: { t: 'condicion', nodo: id, opciones }, estado: { ...base, eligiendo: { nodo: id, opciones, hilo: k } } };
     }
+    case 'ab': {
+      // Una fila por rama, «B · 50 % — Con audio» (tanda A3). Sin «Si no» ni flechas en paralelo.
+      const opciones: OpcionRama[] = ramasABDe(p).map((r) => ({
+        puerto: r.clave, texto: `${r.clave} · ${r.pct} %${r.nombre ? ` — ${r.nombre}` : ''}`, destino: r.siguiente ?? null,
+      }));
+      if (!opciones.length) return cerrarHilo(st, k, 'Fin');
+      return { evento: { t: 'ab', nodo: id, opciones }, estado: { ...base, eligiendo: { nodo: id, opciones, hilo: k } } };
+    }
     case 'respuesta':
       // A «Si responde» se entra por una respuesta del lead, no caminando (y no se puede guardar
       // una flecha hacia ella). Se cierra ese hilo; si era el último, se dice qué falta.
@@ -743,6 +761,14 @@ export function escenariosDePrueba(
       const e = st.eligiendo;
       if (e) {
         const p = nodoPorId(pasos, e.nodo);
+        // UNA PRUEBA A/B (tanda A3): un escenario por rama (la A primero). No es un hecho del lead: se dice como «Le toca B».
+        if (p && claseDe(p) === 'ab' && !(e.nodo in elec)) {
+          for (const op of e.opciones) {
+            if (crudos.length >= TOPE_ESCENARIOS) { faltan += 1; continue; }
+            visitar(elegir(st, op.puerto), hechos, { ...elec, [e.nodo]: op.puerto }, [...dich, `Le toca ${op.texto}`], vistosAca);
+          }
+          return;
+        }
         // El primer hecho que esta condición pregunta y todavía no tiene valor: se abre en dos (primero el del lead).
         const falta = (p?.ramas ?? []).flatMap((r) => r.filas ?? []).find((f) => !hechos.has(claveHecho(f)));
         if (falta) {
@@ -778,7 +804,11 @@ export function escenariosDePrueba(
   const distinguen = new Set([...claves].filter((k) => new Set(crudos.map((c) => c.hechos.get(k)?.si)).size > 1));
   const out: EscenarioPrueba[] = crudos.map((c) => ({
     ...c.e,
-    cuando: [...new Set([...c.hechos].filter(([k]) => distinguen.has(k)).map(([, h]) => textoFila({ ...h.fila, no: !h.si }, o.nombres)))],
+    cuando: [
+      ...new Set([...c.hechos].filter(([k]) => distinguen.has(k)).map(([, h]) => textoFila({ ...h.fila, no: !h.si }, o.nombres))),
+      // La rama de una prueba A/B (tanda A3) siempre distingue: es lo que se prueba.
+      ...c.e.pasos.filter((d) => d.startsWith('Le toca ')),
+    ],
   }));
 
   // EL LEAD CONTESTA (15/10/2026): un escenario por caso del AI Step que escucha por este medio. El panel le hace escribir

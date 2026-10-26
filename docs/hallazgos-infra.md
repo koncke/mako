@@ -38,6 +38,24 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un archivo con CRLF puede chocar ENTERO al mezclar, y el choque real es de una línea (25/10/2026)
+
+**Vive en:** `scripts/mezcla-eol.sh` (la salida) · el repo corre con `core.autocrlf=true` (`.gitattributes`).
+
+- **Síntoma:** al armar el tren-k, `lib/integraciones-catalogo.ts` (Landings contra Zernio) salió en conflicto de la línea 1
+  a la 345: el archivo entero de un lado contra el archivo entero del otro. Después pasó lo mismo con
+  `app/_components/ServicioVisual.tsx`, `app/configuraciones/plan/PlanPanel.tsx` y la bitácora del Ops Center.
+- **El diagnóstico obvio era el equivocado.** Parecía que una rama había reescrito el archivo y había que elegir uno de los
+  dos a mano, perdiendo lo del otro. Las tres versiones (base, nuestra, la de ellos) tenían CRLF en todas sus líneas; la
+  causa exacta de que git las viera enteras distintas no quedó medida.
+- **Lo que anduvo:** pasar las tres versiones a LF y mezclarlas con `git merge-file`. `integraciones-catalogo.ts` salió
+  limpio, con sólo las 7 líneas que sumaba Landings; en los otros quedó el choque real, de 2 a 15 líneas.
+- **Regla:** ante un conflicto que abarca el archivo entero, antes de elegir un lado:
+  `sh scripts/mezcla-eol.sh <archivo>...` con el merge en curso. Deja limpio lo que es sólo fin de línea, y el resto con
+  sus marcadores. Lo escribe con el fin de línea que tenía HEAD.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## Un merge limpio puede dejar el mismo import dos veces, y los tests no lo ven (25/10/2026)
 
 **Vive en:** cualquier merge de dos ramas que suman el mismo import en líneas distintas (lo vio el tren del 25/10 con
@@ -81,6 +99,13 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
     `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
     esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
+  - **Archivar chats quietos NO libera RAM (26/10, 00:30):** se archivaron cuatro y la RAM disponible siguió en 4,5 GB. Un
+    chat quieto ya está casi entero en disco (los procesos de Claude: 7,7 GB privados contra 3,7 en RAM). El diagnóstico
+    obvio, «hay demasiados chats abiertos», era el equivocado; con la app de Claude abierta ése es el techo.
+  - **La zona roja del piso no protege la PC, protege la tanda.** Con el vigía PRENDIDO, una tanda que la toca muere y el
+    push sale con 99 («sin chequear», nunca un verde falso). Lo que trabó la PC a las 18:14 fue subir con el vigía en PAUSA.
+    `MAKO_TIPOS_RAM_MIN_GB=4.4 git push …` baja el piso de las tandas (nunca debajo del heap + 0,3) para intentarlo igual.
+    **Sólo con el vigía corriendo**: sin él, quedar sin RAM es el colgón del 11/10.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;

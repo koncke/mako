@@ -74,7 +74,7 @@
 // SI tiene deshacer (ver arriba): preguntar ahi seria friccion sobre algo reversible.
 // =============================================================================
 
-import { useImperativeHandle, useRef, useState, useTransition } from 'react';
+import { useEffect, useEffectEvent, useImperativeHandle, useRef, useState, useTransition } from 'react';
 import type { CSSProperties, Ref } from 'react';
 import { Confirm, SANS, MONO } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -94,9 +94,10 @@ import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
-import { extensionLeeFichas, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
-import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, telefonosDeLeadsAction } from './enriquecer-actions';
-import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
+import { enfocarWhatsappWeb, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { useExtensionFichas } from './usar-extension-fichas';
+import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
+import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
 import { miles } from './traer-seleccion';
 
 /**
@@ -236,8 +237,14 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   const parar = useRef(false);
   /** Los tildados de AHORA (al terminar una corrida se limpia la selección sólo si sigue siendo la misma). */
   const idsAhora = useRef<number[]>([]);
-  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). */
-  const extWa = extensionLeeFichas();
+  /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). En vivo. */
+  const extWa = useExtensionFichas();
+  /**
+   * «Desde mi WhatsApp» SIN la extensión (25/10/2026). Martín: «Si me dice "Instala la extensión de MaKo", si le apreto debería
+   * automáticamente salirme el desplegable». La opción ya no está gris: abre la instalación en otra pestaña y la barra espera;
+   * cuando la extensión aparece en esta pestaña (la 0.71.0 se repone sola en las pestañas de MaKo abiertas), arranca sola.
+   */
+  const [esperaExt, setEsperaExt] = useState(false);
   const n = elegidos.length;
   const ids = elegidos.map((l) => l.id);
   idsAhora.current = ids;
@@ -361,7 +368,12 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    */
   const pedirCompletar = async (v: string) => {
     if (ocupado || corridaViva) return;
-    if (v === 'whatsapp') { if (extWa === 'si') setPide({ tipo: 'whatsapp' }); return; }
+    if (v === 'whatsapp') {
+      if (extWa === 'si') { setPide({ tipo: 'whatsapp' }); return; }
+      setEsperaExt(true);
+      window.open('/extension/instalar', '_blank', 'noopener');
+      return;
+    }
     if (v !== 'empresa') return;
     setContando(true); setAvance('Contando…');
     try {
@@ -379,6 +391,10 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       onListo({ texto: e instanceof Error ? e.message : 'No se pudo', hubo: false, tono: 'warn' });
     } finally { setContando(false); setAvance(null); }
   };
+
+  // Al aparecer la extensión que se fue a instalar, arranca sola (con los tildados de ahora).
+  const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(false); if (!ocupadoAhora.current && n > 0) void correrWhatsapp(); });
+  useEffect(() => { if (esperaExt && extWa === 'si') arrancarAlInstalar(); }, [esperaExt, extWa]);
 
   /** Arranca una corrida larga: su estado ANTES del primer `await` (se dibuja ya), el candado y el aviso al tablero. */
   const empezarLargo = (primerAvance: string): boolean => {
@@ -405,18 +421,30 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    * clics, sin red) → se guarda de a tandas, SÓLO en estos leads. La pregunta se cierra antes de arrancar: si quedara abierta,
    * taparía el avance y el «Parar».
    */
+  // ⚠️ CADA PASO SE VE (25/10/2026). Martín: «en el proceso tampoco pasó nada, no hay ninguna acción que el usuario vea para
+  // saber que está corriendo bien». De qué grupos vinieron, lo que cuenta la extensión («Abriendo WhatsApp Web…», «Buscando el
+  // grupo «X»…»), «Completando N de M…» y un final que dice qué encontró y qué no.
   const correrWhatsapp = async () => {
     cerrar();
+    setEsperaExt(false);
     const deEstos = [...ids];
-    if (!empezarLargo('Leyendo tu WhatsApp Web…')) return;
+    if (!empezarLargo('Buscando de qué grupos vinieron…')) return;
     let r: ResultadoLote = { texto: 'No se pudo', hubo: false };
     let entera = false;
     try {
-      const t = await telefonosDeLeadsAction(deEstos);
+      const t = await pedidosDeFichasAction(deEstos);
       if (!t.ok) { r = { texto: t.error, hubo: false }; return; }
-      if (!t.telefonos.length) { r = { texto: `Ninguno de los ${cuantos} tiene teléfono.`, hubo: false }; return; }
-      const f = await pedirFichasDeWhatsappWeb(t.telefonos.map((x) => x.telefono));
-      if (!f.ok) { r = { texto: motivoDeFichas(f.motivo), hubo: false }; return; }
+      if (!t.pedidos.length) { r = { texto: `Ninguno de los ${cuantos} tiene teléfono.`, hubo: false }; return; }
+      setAvance('Pidiéndole a la extensión de MaKo…');
+      const f = await pedirFichasDeWhatsappWeb(t.pedidos.map((p) => ({ telefono: p.telefono, lid: p.lid })), {
+        grupos: t.grupos, alAvanzar: (texto) => setAvance(texto),
+      });
+      if (!f.ok) {
+        // Sin la sesión iniciada, la pestaña que abrió la extensión va al frente: ahí está el código para escanear.
+        if (f.motivo === 'sin_sesion') enfocarWhatsappWeb();
+        r = { texto: motivoDeFichas(f.motivo), hubo: false };
+        return;
+      }
       // Qué tablas tiene su WhatsApp Web, sin datos de nadie: si WhatsApp cambia cómo guarda, esto dice por qué no volvió nada.
       console.info('[wa-fichas]', f.diagnostico);
       if (f.diagnostico && !f.diagnostico.contactos) {
@@ -428,7 +456,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
         parar: () => parar.current,
         alAvanzar: (guardados, total) => setAvance(`Completando ${miles(guardados)} de ${miles(total)}…`),
       });
-      r = { texto: resumenDeFichas(t.telefonos.length, fichas, a), hubo: a.nombres + a.empresas > 0 };
+      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0 };
       entera = !a.parado && !a.error;
     } catch (e) {
       r = { texto: e instanceof Error ? e.message : 'No se pudo', hubo: false };
@@ -531,6 +559,18 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             {n}
           </span>
           {avance && <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
+          {/* Esperando la extensión que se fue a instalar: se dice, con cómo dejar de esperar. */}
+          {esperaExt && !largo && (
+            <>
+              <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo: cuando esté, empieza sola.
+              </span>
+              <button type="button" onClick={() => setEsperaExt(false)}
+                style={{ flex: 'none', height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </>
+          )}
           {/* «Parar» de «Completar»: frena entre una tanda y la siguiente, y lo dice para que no parezca que no oyó. */}
           {largo && (
             <button type="button" data-parar-completar onClick={() => { parar.current = true; setAvance('Parando al terminar esta tanda…'); }}
@@ -591,7 +631,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               buttonStyle={estiloDrop} disabled={ocupado}
               options={[
                 {
-                  value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp', disabled: extWa !== 'si',
+                  // No va gris sin la extensión (25/10/2026): tocarla abre la instalación y arranca sola al volver.
+                  value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp',
                   sub: extWa === 'si' ? 'Nombre, empresa y grupos en común' : extWa === 'vieja' ? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo',
                 },
                 { value: 'empresa', label: 'Datos de empresa', icono: 'web', sub: 'Web, Instagram, correo y dirección' },
@@ -655,7 +696,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       {pide?.tipo === 'whatsapp' && (
         <Confirm
           title={`¿Completar ${cuantos} desde tu WhatsApp?`}
-          message={'Lee lo que tu WhatsApp Web ya tiene de cada uno: el nombre, si es empresa y en qué grupos tuyos está. Pone el nombre sólo donde está su número y la empresa sólo donde está vacía. No abre chats y no les llega nada.'
+          message={'Lee lo que tu WhatsApp Web ya sabe de cada uno (nombre, empresa y grupos) y lo pone sólo donde falta. Si WhatsApp Web no está abierto, lo abre. No abre chats y no les llega nada.'
             + (n > TOPE_LOTE_COMPLETAR ? ` Se toman los primeros ${miles(TOPE_LOTE_COMPLETAR)} de los ${miles(n)} tildados.` : '')}
           confirmLabel="Completar" tone="primary"
           onConfirm={() => void correrWhatsapp()} onCancel={cerrar} />

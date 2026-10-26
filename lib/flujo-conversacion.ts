@@ -68,8 +68,8 @@ import {
   indicePorId, nodoPorId, nuevoId, insertarNodo, conectarPuerto, validarGrafo, textoRama, textoEspera, nodosEnBucle, textoCasoRespuesta,
   RESULTADO_SI_NO, paralelosDeResultado, puertoParalelo, contarParalelos, rotuloSiNoDeRespuesta,
   esPasoIA, erroresDelPasoIA, medioDe, raicesRespuesta, puedeSumarAIStep, juntarPasosIA,
-  llegaTarde, minutosDeCerca,
-  type MedioAIStep, type Espera,
+  llegaTarde, minutosDeCerca, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, PASO_PCT_AB,
+  type MedioAIStep, type Espera, type RamaAB,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): UNA lectura para la tarjeta, el editor y el motor.
 import { libertadDeCaso, type Libertad } from './ai-step-libertad';
@@ -574,6 +574,8 @@ export const TITULO = {
   // Novena tanda: «Si responde» con sus casos adentro. El nombre es el del pedido («una nueva tarjeta que
   // sea "AI Step"»), en mayúsculas como todos.
   paso_ia: 'AI STEP',
+  // Tanda A3 de las pruebas A/B (docs/diseno-pruebas-ab.md 3.1): «se titula "A/B TEST"», en inglés como todos.
+  ab: 'A/B TEST',
 } as const;
 
 /**
@@ -588,6 +590,7 @@ export function tituloDeTarjeta(p: PasoGrafo, enRespuesta?: boolean): string {
     // (novena tanda) es la misma clase con otra cara: también se nombra como se ve.
     case 'respuesta': return esPasoIA(p) ? TITULO.paso_ia : TITULO.condicion;
     case 'condicion': return TITULO.condicion;
+    case 'ab': return TITULO.ab;
     case 'ir_a': return TITULO.ir_a;
     case 'esperar': return TITULO.esperar;
     case 'accion': return etiquetaDeAccion(p) ? TITULO.etiqueta : esMako(p) ? (esPorEmail(paramsDeMakoDe(p)) ? TITULO.mako_email : TITULO.mako) : TITULO.accion;
@@ -607,6 +610,7 @@ function trozoDe(p: PasoGrafo, nombres?: NombresParaTexto): string {
   if (c === 'mensaje') t = p.canal === 'email' ? (p.asunto ?? '') || (p.cuerpo ?? '') : (p.cuerpo ?? '');
   else if (c === 'esperar') t = textoEspera(p.espera).replace(/^Esperar /, '');
   else if (c === 'condicion' && p.ramas?.[0]) t = textoRama(p.ramas[0], nombres);
+  else if (c === 'ab') t = ramasABDe(p).map((r) => `${r.clave} ${r.pct} %`).join(' · ');
   // La que escucha, por su primer caso («CONDITION: Pregunta el precio»): la frase entera no entra. El AI
   // Step, por su nombre solo: hay uno por automatización, y su primer caso al lado se leía como el caso
   // del que habla el error («AI STEP: Precio: «Precio» no contesta»).
@@ -782,6 +786,12 @@ export type OpcionesGrafo = {
   disparadores?: readonly DisparadorTarjeta[];
   /** Se dibuja «+ Nuevo CRON» debajo de los disparadores (quien monta sabe agregar uno). */
   nuevoDisparador?: boolean;
+  /**
+   * LA PRUEBA DE LA TARJETA «A/B TEST» (tanda A3, GET /api/chat-agent/pruebas): lo que dice arriba (`textoDeLaPrueba`,
+   * lib/pruebas/pantalla.ts) y, por letra, lo que dice cada fila («B · 50 % — 9 entraron · 3 respondieron (33 %)»). Sin
+   * esto (cargando, sin tablas) la tarjeta dice «Sin prueba: todos van a A.».
+   */
+  pruebaAB?: { texto: string; filas?: Readonly<Record<string, string>> } | null;
 };
 
 /** Lo que cuelga de «Si responde» (sin ella). Ahí no hay esperas: se contesta en el momento. */
@@ -830,7 +840,8 @@ export function esperaAntesDe(pasos: readonly PasoGrafo[], id: string, vistos: R
     const q = nodoPorId(pasos, pa.id);
     // Una CONDICIÓN no lleva tiempo: la espera de antes sigue contando (23/10/2026: el seguimiento lleva «No contestó desde
     // que entró» entre la espera y el mensaje, y la ventana de 24 h de Meta dejaba de verla).
-    if (q && claseDe(q) === 'condicion') { max = Math.max(max, esperaAntesDe(pasos, pa.id, new Set([...vistos, id]))); continue; }
+    // Una prueba A/B tampoco (tanda A3): no le hace nada al lead, y la ventana de Meta sigue contando la espera de antes.
+    if (q && (claseDe(q) === 'condicion' || claseDe(q) === 'ab')) { max = Math.max(max, esperaAntesDe(pasos, pa.id, new Set([...vistos, id]))); continue; }
     if (!q || claseDe(q) !== 'esperar' || q.espera?.modo === 'antes_reunion') continue;
     const m = Math.max(0, Number(q.espera?.minutos) || 0);
     max = Math.max(max, m + esperaAntesDe(pasos, pa.id, new Set([...vistos, id])));
@@ -1008,6 +1019,16 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
       const puertos: PuertoNodo[] = (p.ramas ?? []).map((r) => ({ id: r.id, rotulo: textoRama(r, op.nombres), tono: 'buena' as const, vacio: !r.siguiente, ...enParalelo(r.id) }));
       puertos.push({ id: RESULTADO_SI_NO, rotulo: 'Si no', tono: 'mala', vacio: !p.si_no, ...enParalelo(RESULTADO_SI_NO) });
       t = { ...base, tipo: 'condicion', familia: 'control', titulo: TITULO.condicion, icono: '🔀', puertos, alto: altoConFilas(puertos.length) };
+    } else if (c === 'ab') {
+      // LA PRUEBA A/B (tanda A3): una fila por rama, «A · 50 % — Sin cambio», sin «Si no» ni flechas en paralelo. Arriba, el
+      // estado de la prueba (mientras corre, sin verde ni rojo: lib/pruebas/pantalla.ts). Sin prueba, «todos van a A».
+      const puertos: PuertoNodo[] = ramasABDe(p).map((r) => ({
+        id: r.clave, rotulo: op.pruebaAB?.filas?.[r.clave] ?? rotuloRamaAB(r), tono: 'buena' as const, vacio: !r.siguiente,
+      }));
+      t = {
+        ...base, tipo: 'ab', familia: 'control', titulo: TITULO.ab, icono: '🧪', puertos, alto: altoConFilas(puertos.length),
+        detalle: op.pruebaAB?.texto ?? 'Sin prueba: todos van a A.',
+      };
     } else if (c === 'respuesta' && esPasoIA(p)) {
       // EL AI STEP: UNA tarjeta sin puertos —`puertos: []`, como un «Ir a»: sin puntos ni ＋— con SU objetivo y
       // sus escenarios adentro (undécima: una por objetivo, `resumenPasoIA`; lo dibuja `CuerpoPasoIA`). La flecha
@@ -1194,7 +1215,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
   const esMulti = (id: string) => {
     if (id === ID_ENTRADA) return true;
     const c = claseDe(pasos[indicePorId(pasos, id)]);
-    return c === 'condicion' || c === 'respuesta' || (hijos.get(id)?.length ?? 0) > 1;
+    return c === 'condicion' || c === 'respuesta' || c === 'ab' || (hijos.get(id)?.length ?? 0) > 1;
   };
   // El ancla es de donde SALEN las flechas: el centro de las filas, o la cabecera de una tarjeta
   // de una sola salida (con paralelos, todas salen del mismo punto).
@@ -1348,7 +1369,7 @@ export function grafoDeSecuencia(pasosIn: readonly PasoParaGrafo[], op: Opciones
  * salta a la 212, el que junta ramas) se siguen dibujando, corriendo y borrando: lo que se va es
  * crearlos. Con «MaKo» (decisión 11): la ⚡ Acción `avisar_al_equipo`, dibujada como su tarjeta.
  */
-export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | 'ai_step' | CanalSocial;
+export type QueAgregar = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'mako' | 'ai_step' | 'ab' | CanalSocial;
 /**
  * Una opción del menú del ＋ (estructural: `DropdownOption` vive en un componente). `grupo` separa
  * el menú con una línea; `icono` es un SVG (`data:`), nunca un emoji.
@@ -1381,6 +1402,8 @@ export const ICONOS_MAS = {
   // AI Step (novena tanda): la chispa de MaKo con una chispa chica al lado. La sola es «MaKo en WhatsApp»:
   // las dos en el mismo menú con el mismo dibujo no se distinguían.
   ai_step: svg('<path fill="#F2B01E" d="M-2 -9 C-1.2 -3.4 1.4 -0.8 7 0 C1.4 0.8 -1.2 3.4 -2 9 C-2.8 3.4 -5.4 0.8 -11 0 C-5.4 -0.8 -2.8 -3.4 -2 -9 Z"/><path fill="#F2B01E" d="M7.5 -11 C7.9 -8.6 8.9 -7.6 11 -7.2 C8.9 -6.8 7.9 -5.8 7.5 -3.4 C7.1 -5.8 6.1 -6.8 4 -7.2 C6.1 -7.6 7.1 -8.6 7.5 -11 Z"/>', '-12 -12 24 24'),
+  // La prueba A/B (tanda A3): un tubo de ensayo, con el mismo trazo que la lógica.
+  ab: svg(`<g ${LINEA}><path d="M9 3h6M10 3v6.5L5.2 18.2A2 2 0 0 0 7 21h10a2 2 0 0 0 1.8-2.8L14 9.5V3"/><path d="M7.5 15h9"/></g>`),
   // Los logos oficiales sobre su degradé (lib/canal-social.ts, `logoSocialSvg`).
   instagram: logoSocialSvg('instagram'),
   messenger: logoSocialSvg('messenger'),
@@ -1409,10 +1432,18 @@ export function opcionesDelMas(pasos: readonly PasoGrafo[], nodoLienzo: string, 
   const resp = raizRespuesta(pasos);
   const enRespuesta = nodoLienzo !== ID_ENTRADA && (nodoLienzo === resp || subarbolRespuesta(pasos).has(nodoLienzo));
   const sinAIStep = !puedeSumarAIStep(pasos);
+  // La prueba A/B (tanda A3): UNA por automatización (`validarGrafo`), nunca adentro de «Si responde» (`fueraDeRespuesta`).
+  const sinAB = !puedeSumarPruebaAB(pasos);
   return MENU_MAS
-    .filter((o) => !(enRespuesta && o.fueraDeRespuesta) && !(sinAIStep && o.value === 'ai_step'))
+    .filter((o) => !(enRespuesta && o.fueraDeRespuesta) && !(sinAIStep && o.value === 'ai_step') && !(sinAB && o.value === 'ab'))
     .map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
+
+/** ¿Se puede sumar una tarjeta «A/B TEST»? Una por automatización (tanda A3). */
+export const puedeSumarPruebaAB = (pasos: readonly PasoGrafo[]): boolean => !pasos.some((p) => p && claseDe(p) === 'ab');
+
+/** Lo que dice una fila de la tarjeta sin datos de la prueba: «B · 50 % — Con audio». */
+export const rotuloRamaAB = (r: RamaAB): string => `${r.clave} · ${r.pct} %${r.nombre ? ` — ${r.nombre}` : ''}`;
 
 // (Acá vivía `hayQueEscucha`: «una tarjeta que escucha por automatización». La regla es `puedeSumarAIStep`
 // (lib/flujo-grafo.ts): no con un «Si responde» de los de siempre, y UN AI Step por medio (undécima tanda).)
@@ -1438,6 +1469,8 @@ export const MENU_MAS: ReadonlyArray<OpcionMas & { fueraDeRespuesta?: boolean }>
   // es la condición que escucha. No adentro de su propia rama (`fueraDeRespuesta`); una por medio
   // (`puedeSumarAIStep`, undécima tanda).
   { value: 'ai_step', label: 'AI Step', icono: ICONOS_MAS.ai_step, grupo: 1, fueraDeRespuesta: true },
+  // Tanda A3: la prueba A/B. Con la lógica (parte el camino), nunca adentro de «Si responde»; una por automatización.
+  { value: 'ab', label: 'Prueba A/B', icono: ICONOS_MAS.ab, grupo: 1, fueraDeRespuesta: true },
   { value: 'etiqueta', label: 'Etiqueta', icono: ICONOS_MAS.etiqueta, grupo: 2 },
   { value: 'accion', label: 'Acción', icono: ICONOS_MAS.accion, grupo: 2 },
   { value: 'mako', label: 'MaKo en WhatsApp', icono: ICONOS_MAS.mako, grupo: 3 },
@@ -1452,7 +1485,8 @@ export function opcionesSueltas(pasos: readonly PasoGrafo[] = []): OpcionMas[] {
   // «AI Step» sólo si se puede sumar (`puedeSumarAIStep`): con un «Si responde» de los de siempre, o con el AI
   // Step del medio ya puesto, no se publica. Sin `pasos`, lo de siempre (la lista entera).
   const sinAIStep = !puedeSumarAIStep(pasos);
-  return MENU_MAS.filter((o) => !(sinAIStep && o.value === 'ai_step')).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
+  const sinAB = !puedeSumarPruebaAB(pasos);
+  return MENU_MAS.filter((o) => !(sinAIStep && o.value === 'ai_step') && !(sinAB && o.value === 'ab')).map(({ fueraDeRespuesta, ...o }) => { void fueraDeRespuesta; return o; });
 }
 
 /** Los campos que `setSecuenciaPasos` exige a todo paso, incluido uno de control. */
@@ -1501,6 +1535,9 @@ export function nodoNuevo(que: QueAgregar, pasos: readonly PasoGrafo[], rnd: () 
     // «Falta el objetivo» en rojo. (En la novena nacía con un caso vacío para que Publicar frenara: sin casos era
     // una tarjeta válida que no contestaba nada. El objetivo obligatorio lo cubre.)
     case 'ai_step': return { ...b, nodo: 'respuesta', paso_ia: true, casos: [], si_no: null };
+    // LA PRUEBA A/B (tanda A3): A es el control («Sin cambio», el camino que ya existe: `insertarNodo` le da lo que
+    // seguía) y B, a medias. Sin prueba corriendo, todos van a A.
+    case 'ab': return { ...b, nodo: 'ab', ramas_ab: [{ clave: 'A', pct: 50, siguiente: null, nombre: 'Sin cambio' }, { clave: 'B', pct: 50, siguiente: null }] };
     default: return b;
   }
 }
@@ -1562,13 +1599,103 @@ export function insertarDesdeLienzo<P extends PasoParaGrafo>(
     const n = nodoNuevo('ai_step', base, rnd) as unknown as P;
     return { pasos: renumerar(normalizar([...base, n])), id: n.id! };
   }
+  // La prueba A/B: una por automatización (el menú tampoco la ofrece si ya hay una).
+  if (que === 'ab' && !puedeSumarPruebaAB(base)) return { pasos: base, id: null };
   const lugar = lugarDesdeLienzo(nodo, puerto);
   // (Hasta la tercera tanda acá se frenaba un «Ir a» en una salida ocupada. El ＋ ya no crea «Ir a»:
   // decisión 3.)
   const nuevo = nodoNuevo(que, base, rnd) as unknown as P;
   const out = insertarNodo(base, lugar, nuevo);
   if (!out.some((p) => p.id === nuevo.id)) return { pasos: base, id: null };
-  return { pasos: renumerar(out), id: nuevo.id! };
+  return { pasos: renumerar(que === 'ab' ? conRamaBCopiada(out, nuevo.id!, rnd) : out), id: nuevo.id! };
+}
+
+/**
+ * LA RAMA B NACE COPIANDO LO QUE SE PRUEBA (tanda A3, crítica D.16): la tarjeta que sigue a la A (el mensaje que se quiere
+ * probar), con un id nuevo, y las dos ramas se vuelven a juntar después de ella (B → copia → lo que seguía). Copiar el camino
+ * ENTERO duplicaba el resto del flujo (el tope es de 60 tarjetas). Sólo si lo de la A es una tarjeta de UNA salida (un
+ * mensaje, una acción, una espera); si no, B nace vacía y se arma en el lienzo.
+ */
+function conRamaBCopiada<P extends PasoParaGrafo>(pasos: readonly P[], abId: string, rnd: () => number): P[] {
+  const ab = nodoPorId(pasos, abId);
+  const ramas = ramasABDe(ab);
+  const a = nodoPorId(pasos, ramas[0]?.siguiente);
+  const c = a ? claseDe(a) : null;
+  if (!ab || !a || (c !== 'mensaje' && c !== 'accion' && c !== 'esperar') || ramas.length < 2 || ramas[1].siguiente) return [...pasos];
+  const idCopia = nuevoId(pasos, rnd);
+  const i = indicePorId(pasos, a.id);
+  // La copia NO se lleva las variantes de A (la revisión del tren-k, 25/10/2026): al cambiarle el texto a B, el motor seguía
+  // sorteando las de A (`textoDelPaso`) y a 4 de cada 5 leads de B les llegaba lo de A; el juez comparaba A contra casi A.
+  // Con id nuevo, `setSecuenciaPasos` no le repone ninguna.
+  const { paralelos: _sinParalelos, variantes: _sinVariantes, ...resto } = a as P & { paralelos?: string[]; variantes?: string[] };
+  void _sinParalelos; void _sinVariantes;
+  const copia = { ...resto, id: idCopia, siguiente: siguienteDeTarjeta(pasos, i) } as P;
+  const out = [...pasos];
+  out.splice(i + 1, 0, copia);
+  return out.map((p) => (p.id === abId ? { ...p, ramas_ab: ramasABDe(p).map((r, k) => (k === 1 ? { ...r, siguiente: idCopia } : r)) } : p));
+}
+
+/** A dónde sigue una tarjeta de UNA salida (su `siguiente`, ya explícito después de `normalizar`). */
+function siguienteDeTarjeta(pasos: readonly PasoGrafo[], i: number): string | null {
+  const p = pasos[i];
+  return p && p.siguiente !== undefined ? (p.siguiente ?? null) : null;
+}
+
+/** Una letra más en la prueba (hasta 4), con los porcentajes repartidos de nuevo en partes iguales (de a 5). */
+export function agregarRamaAB<P extends PasoGrafo>(pasos: readonly P[], abId: string): P[] {
+  const ab = nodoPorId(pasos, abId);
+  const ramas = ramasABDe(ab);
+  if (!ab || ramas.length >= MAX_RAMAS_AB) return [...pasos];
+  const nueva: RamaAB = { clave: CLAVES_AB[ramas.length], pct: 0, siguiente: null };
+  return cambiarNodo(pasos, abId, { ramas_ab: repartirPcts([...ramas, nueva]) } as Partial<P>);
+}
+
+/**
+ * Saca una rama de la prueba (nunca la A, y siempre quedan 2). Se lleva lo que colgaba SÓLO de ella: lo que también se
+ * alcanza por otra rama (las ramas se vuelven a juntar) se queda. Los porcentajes se reparten de nuevo.
+ */
+export function quitarRamaAB<P extends PasoGrafo>(pasos: readonly P[], abId: string, clave: string): P[] {
+  const base = normalizar(pasos);
+  const ab = nodoPorId(base, abId);
+  const ramas = ramasABDe(ab);
+  const r = ramas.find((x) => x.clave === clave);
+  if (!ab || !r || clave === 'A' || ramas.length <= MIN_RAMAS_AB) return [...base];
+  // Las letras se corren (la C pasa a ser la B): siguen en orden, como pide `problemasDeTarjetaAB`.
+  const quedan = repartirPcts(ramas.filter((x) => x.clave !== clave).map((x, k) => ({ ...x, clave: CLAVES_AB[k] })));
+  let out = cambiarNodo(base, abId, { ramas_ab: quedan } as Partial<P>);
+  if (!r.siguiente) return out;
+  // Desde las raíces de ANTES: sin la flecha, lo de la rama queda sin padre, y una tarjeta sin padre cuenta como raíz.
+  const llegan = alcanzables(out, [...raicesSalida(base), ...raicesRespuesta(base)]);
+  const quitar = new Set([r.siguiente, ...descendientes(base, r.siguiente)].filter((x) => !llegan.has(x)));
+  out = out.filter((q) => !quitar.has(q.id!));
+  for (let i = 0; i < out.length; i++) {
+    for (const pt of puertosDe(out, i)) if (pt.destino && quitar.has(pt.destino)) out = conectarPuerto(out, out[i].id!, pt.puerto, null);
+  }
+  return out;
+}
+
+/** Lo que se alcanza desde `raices` (el CRON y «Si responde»), siguiendo puertos. */
+function alcanzables(pasos: readonly PasoGrafo[], raices: readonly string[]): Set<string> {
+  const out = new Set<string>();
+  const pila = [...raices];
+  while (pila.length) {
+    const id = pila.pop()!;
+    if (out.has(id)) continue;
+    const i = indicePorId(pasos, id);
+    if (i < 0) continue;
+    out.add(id);
+    for (const pt of puertosDe(pasos, i)) if (pt.destino && !out.has(pt.destino)) pila.push(pt.destino);
+  }
+  return out;
+}
+
+/** Los porcentajes en partes iguales, de a 5, que suman 100 (la A se queda con lo que sobra: 40/30/30). */
+export function repartirPcts(ramas: readonly RamaAB[]): RamaAB[] {
+  const n = ramas.length;
+  if (!n) return [];
+  const cada = Math.floor(100 / n / PASO_PCT_AB) * PASO_PCT_AB;
+  const sobra = 100 - cada * n;
+  return ramas.map((r, k) => ({ ...r, pct: cada + (k === 0 ? sobra : 0) }));
 }
 
 /** Saca un subárbol entero (con los saltos que apuntaban adentro) y corta las salidas que

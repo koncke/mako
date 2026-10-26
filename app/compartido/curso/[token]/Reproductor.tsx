@@ -20,7 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { VideoVista } from '@/lib/curso-portal';
-import { lecturaDePanda, srcDePandaParaClase } from '@/lib/embeds';
+import { lecturaDeAlojador, lecturaDePanda, srcDePandaParaClase, suscripcionPlayerJs, type ProveedorMedible } from '@/lib/embeds';
 import { ButtonLink } from '@/app/_ui';
 import { useVistaPrevia } from './vista-previa';
 
@@ -189,6 +189,8 @@ export default function Reproductor({ token, claseId, video, titulo, onPct, onDu
       return <VideoVimeo token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'panda':
       return <VideoPanda token={token} claseId={claseId} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
+    case 'alojado':
+      return <VideoAlojado token={token} claseId={claseId} proveedor={video.proveedor} embed={video.embed} titulo={titulo} onPct={onPct} onDuracion={onDuracion} />;
     case 'iframe':
       return (
         <div className="cp-video">
@@ -438,6 +440,58 @@ function VideoPanda({ token, claseId, embed, titulo, onPct, onDuracion }: {
   return (
     <div className="cp-video">
       <iframe ref={ref} src={src} title={titulo} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
+    </div>
+  );
+}
+
+/**
+ * Wistia, Bunny Stream y Cloudflare Stream (25/10/2026, «otros alojadores de video»: hasta acá iban «sin medir»). Como
+ * Panda: sus reproductores dicen el tiempo por postMessage y los lee `lecturaDeAlojador` (lib/embeds.ts, con lo medido
+ * con un video real de cada uno). Bunny habla player.js y no avisa nada hasta que se lo suscribe: al cargar el iframe y
+ * en su saludo (`ready`), por si el saludo llegó antes que este efecto.
+ * ⚠️ SE ESCUCHA SÓLO A ESTE IFRAME, con `e.source` Y `e.origin` (AGENTS.md, «un guard de ORIGEN se escribe con
+ *    origin»), como en `VideoPanda`.
+ */
+function VideoAlojado({ token, claseId, proveedor, embed, titulo, onPct, onDuracion }: {
+  token: string; claseId: number; proveedor: ProveedorMedible; embed: string; titulo: string; onPct?: (pct: number) => void; onDuracion?: (seg: number) => void;
+}) {
+  const { marcar, enviar } = useReporte(token, claseId, onPct);
+  const ref = useRef<HTMLIFrameElement>(null);
+  const durRef = useRef(onDuracion);
+  useEffect(() => { durRef.current = onDuracion; }, [onDuracion]);
+
+  useEffect(() => {
+    let origen = '';
+    try { origen = new URL(embed).origin; } catch { return; }
+    const f = ref.current;
+    const suscribir = () => {
+      if (proveedor !== 'bunny') return;
+      for (const m of suscripcionPlayerJs()) { try { f?.contentWindow?.postMessage(m, origen); } catch { /* todavía no cargó */ } }
+    };
+    let dur: number | null = null;
+    let dicha = false;
+    const alMensaje = (e: MessageEvent) => {
+      if (!ref.current || e.source !== ref.current.contentWindow || e.origin !== origen) return;
+      for (const l of lecturaDeAlojador(proveedor, e.data)) {
+        if (l.tipo === 'listo') { suscribir(); continue; }
+        if (l.tipo === 'duracion') {
+          dur = l.seg;
+          if (!dicha) { dicha = true; durRef.current?.(l.seg); }
+          continue;
+        }
+        if (l.tipo === 'avance') { marcar(l.seg, dur); continue; }
+        enviar();
+      }
+    };
+    window.addEventListener('message', alMensaje);
+    f?.addEventListener('load', suscribir);
+    suscribir();
+    return () => { window.removeEventListener('message', alMensaje); f?.removeEventListener('load', suscribir); enviar(); };
+  }, [embed, proveedor, marcar, enviar]);
+
+  return (
+    <div className="cp-video">
+      <iframe ref={ref} src={embed} title={titulo} allow="autoplay; fullscreen; picture-in-picture; encrypted-media" allowFullScreen loading="lazy" />
     </div>
   );
 }

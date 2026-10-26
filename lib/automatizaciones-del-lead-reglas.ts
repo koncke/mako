@@ -162,6 +162,7 @@ export function pasoEnPalabras(p: PasoGrafo | undefined, nombreDelLead: string |
   }
   if (c === 'esperar') return { clase: 'otro', canal: null, que: 'Una espera' };
   if (c === 'condicion') return { clase: 'otro', canal: null, que: 'Una condición' };
+  if (c === 'ab') return { clase: 'otro', canal: null, que: 'Una prueba A/B' };
   if (c === 'respuesta') return { clase: 'otro', canal: null, que: 'MaKo contesta' };
   return { clase: 'otro', canal: null, que: 'La entrada' };
 }

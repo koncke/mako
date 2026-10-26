@@ -17,10 +17,13 @@ import {
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 
-test('apagado hasta la prueba en la cuenta de MaKo', () => {
-  // Se prende con scripts/prueba-zernio-meta.mts pasada, y con su resultado en docs/hallazgos-integraciones.md.
-  assert.equal(ZERNIO_META_PROBADO, false);
-  // Y mientras tanto lo nuevo corre SÓLO en el negocio de la plataforma: nunca primero en un cliente.
+test('prendido SÓLO con la prueba pasada en la cuenta de MaKo, y la prueba escrita donde se lee', () => {
+  // Se prendió el 25/10/2026 con scripts/prueba-zernio-meta.mts pasada (CAPI con TEST96217 incluido). Si alguien lo prende
+  // sin dejar la prueba escrita, o lo apaga, este test lo dice.
+  assert.equal(ZERNIO_META_PROBADO, true);
+  const hallazgos = leer('../docs/hallazgos-integraciones.md');
+  assert.match(hallazgos, /TEST96217[\s\S]{0,400}eventsReceived/, 'prendido sin la prueba de CAPI escrita en hallazgos');
+  // Apagado vuelve a correr SÓLO en el negocio de la plataforma: nunca primero en un cliente.
   const via = leer('../lib/meta-via.ts');
   assert.match(via, /if \(ZERNIO_META_PROBADO\) return true;\n\s*return ws === \(await wsSuperAdmin\(\)/);
 });
@@ -328,4 +331,50 @@ test('Meta por Zernio se usa por la API de MaKo: leer, elegir (con su «sí») y
   assert.match(capi, /\.\.\.\(testCode \? \{ testCode \} : \{\}\)/);
   assert.match(capi, /\.\.\.\(params\.testCode \? \{ test_event_code: params\.testCode \} : \{\}\)/);
   assert.match(capi, /enviarPorZernio\(canal, destino\.id, ev, params\.testCode\)/);
+});
+
+test('el corte del token de Meta: pasado el día, sin Zernio no se administran anuncios; leer sigue', async () => {
+  const { CORTE_TOKEN_META, tokenMetaVencido, avisoTokenVencido, hoyEnArgentina } = await import('../lib/zernio-meta-cuerpo');
+  // Sin fecha, sin corte (lo fija el Cerebro el día que sale el aviso).
+  assert.equal(CORTE_TOKEN_META, null);
+  assert.equal(tokenMetaVencido({ corte: null, hoy: '2026-12-01', viaZernio: false }), false);
+  assert.equal(tokenMetaVencido({ corte: '2026-11-02', hoy: '2026-11-01', viaZernio: false }), false);
+  assert.equal(tokenMetaVencido({ corte: '2026-11-02', hoy: '2026-11-02', viaZernio: false }), true);
+  // Con Zernio conectado, nunca: escribe por ahí.
+  assert.equal(tokenMetaVencido({ corte: '2026-11-02', hoy: '2026-12-01', viaZernio: true }), false);
+  assert.equal(tokenMetaVencido({ corte: '2 de noviembre', hoy: '2026-12-01', viaZernio: false }), false);
+  assert.match(avisoTokenVencido('2026-11-02'), /^Desde el 02\/11\/2026 MaKo administra tus anuncios sólo con tu conexión de Zernio\. Conéctala en Integraciones → Zernio/);
+  // El día es el de Argentina: las 01:00 UTC del 2 todavía son el 1 allá.
+  assert.equal(hoyEnArgentina(new Date('2026-11-02T01:00:00Z')), '2026-11-01');
+  // Las puertas que ESCRIBEN con el token pasan por el freno; leer no.
+  assert.match(leer('../lib/meta-write.ts'), /const freno = await frenoDelTokenMeta\(ws\);\s*if \(freno\) return \{ ok: false, message: freno, status: 409 \};/);
+  const crear = leer('../lib/meta-ads-create.ts');
+  for (const puerta of ['async function graphPost', 'export async function uploadAdImage', 'export async function uploadAdVideo(', 'export async function crearFormularioInstantaneo', 'export async function deleteEntity']) {
+    const i = crear.indexOf(puerta);
+    assert.ok(i > 0, puerta);
+    assert.match(crear.slice(i, i + 700), /await sinCorteDelToken\(\);/, `${puerta} escribe con el token sin pasar por el corte`);
+  }
+  assert.doesNotMatch(leer('../lib/meta-ads.ts'), /sinCorteDelToken|frenoDelTokenMeta/, 'leer métricas no se corta');
+});
+
+test('la conexión de anuncios se guarda en el negocio venga del botón que venga (modal de Meta, tarjeta de Zernio, Media Buyer)', () => {
+  const pieza = leer('../app/_components/ConectarViaZernio.tsx');
+  const terminar = pieza.slice(pieza.indexOf('const terminar = useCallback'), pieza.indexOf('const conectarAsync'));
+  assert.match(terminar, /if \(r === 'metaads'\) \{\s*const g = await api\('conectada-meta', \{ accountId: nueva\.accountId \}\);/);
+  // Y antes de avisarle a la pantalla, así quien lee después ya la encuentra guardada.
+  assert.ok(terminar.indexOf("api('conectada-meta'") < terminar.indexOf('optsRef.current.onConectado'));
+  const ruta = leer('../app/api/zernio/route.ts');
+  assert.match(ruta, /if \(body\.action === 'conectada-meta'\) \{[\s\S]{0,700}if \(!\(await zernioMetaActivo\(ws\)\)\) return Response\.json\(\{ ok: true, guardada: false \}\);[\s\S]{0,400}guardarConexionMetaPorZernio\(ws, body\.accountId, autor\)/);
+  // El modal de Meta ya no guarda por su cuenta (lo hizo la pieza común): sólo vuelve a leer.
+  assert.doesNotMatch(leer('../app/integraciones/ConectarMetaZernio.tsx'), /action: 'guardar'/);
+});
+
+test('una prueba de CAPI nunca manda un «Lead»: Zernio no reenvía el código de prueba y ensuciaría los contactos del píxel', async () => {
+  const { EVENTO_DE_PRUEBA_CAPI } = await import('../lib/zernio-meta-cuerpo');
+  assert.notEqual(EVENTO_DE_PRUEBA_CAPI, 'Lead');
+  const run = leer('../lib/api-mako/areas/integraciones.run.ts');
+  const prueba = run.slice(run.indexOf('  probar_capi_meta: {'));
+  assert.match(prueba, /eventName: EVENTO_DE_PRUEBA_CAPI/);
+  assert.doesNotMatch(prueba.slice(0, 1500), /eventName: 'Lead'/);
+  assert.doesNotMatch(leer('../scripts/prueba-zernio-meta.mts'), /eventName: 'Lead'/);
 });

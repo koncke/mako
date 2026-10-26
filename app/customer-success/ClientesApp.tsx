@@ -25,7 +25,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { Pagina, Banner, EmptyState, ErrorState, Status, Toast, useToast } from '@/app/_ui';
 
 import type { ClienteCruce } from './cruce';
-import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
+import { usePrograma, useProgramaEnUrl } from '@/app/classroom/programa-url';
 import type { ResumenTrabajo, TableroCartera } from './trabajo';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
 import { FichaCliente } from './FichaCliente';
@@ -265,7 +265,7 @@ export function ClientesApp({ clientes, tablero, trabajo, user, error, entrega, 
   /** De que servicio es el tablero. `null` = todavia no se eligio; cae al primero. */
   // El servicio (el programa): el de la URL, RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
   // con otro `?producto=`); elegirlo acá lo escribe en la URL para que la cabecera diga el mismo
-  // (app/clients/programa-url.ts, 17/10/2026).
+  // (app/classroom/programa-url.ts, 17/10/2026).
   const [servicioId, setServicioId] = usePrograma(productoInicial);
   const servicio = servicios.find((s) => s.productoId === servicioId) ?? servicios[0] ?? null;
   useProgramaEnUrl(servicio?.productoId ?? null, servicios[0]?.productoId ?? null);
@@ -1305,7 +1305,7 @@ function AvanceDelServicio({ curso, productoId, visibles, accesoMovs, onAcceso }
   if (!curso.avance.ok) return <AvanceCurso etapas={[]} filas={[]} error={curso.avance.error} />;
   const p = curso.avance.porProducto[productoId];
   // Un producto sin clases no es «nadie empezó»: es que no hay curso, y se dice dónde se arma.
-  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Classroom." accion={{ label: 'Ir a Classroom', href: '/clients/classroom' }} />;
+  if (!p) return <EmptyState titulo="Este producto no tiene curso" detalle="Sus clases se cargan en Classroom." accion={{ label: 'Ir a Classroom', href: '/classroom' }} />;
   const ids = new Set(visibles.map((c) => c.leadId));
   const filas = p.filas
     .filter((f) => ids.has(f.leadId))

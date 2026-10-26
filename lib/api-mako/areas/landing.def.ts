@@ -210,6 +210,16 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: { ...G_INTEG, integracion: 'panda' }, lenta: true,
   },
   {
+    id: 'listar_videos_alojados', area: 'landing', tipo: 'lectura',
+    titulo: 'Videos de los alojadores conectados',
+    descripcion: 'Los videos de TODOS los alojadores de video que el negocio conectó en Integraciones (Panda, Vimeo, Wistia, Bunny Stream y Cloudflare Stream): el id con el que los mide el Pixel de MaKo (el mismo de listar_videos_detectados y tracking_lead), el alojador, el título, el link del reproductor (lo que se pega en una landing con poner_enlace_landing o en una clase con editar_clase_curso), la duración en segundos y las reproducciones totales cuando el alojador las da en su listado. Dice qué alojadores están conectados y cuál no se pudo leer. Cuánto vio cada persona lo mide el Pixel en todos por igual: eso está en tracking_lead y ver_serie_vsl.',
+    parametros: [
+      { nombre: 'alojador', tipo: 'string', enum: ['panda', 'vimeo', 'wistia', 'bunny', 'cloudflare'], descripcion: 'Sólo los de ese alojador. Sin él, todos.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 300, descripcion: 'Cuántos devolver. Por defecto 100; la respuesta dice cuántos quedaron afuera.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: G_INTEG, lenta: true,
+  },
+  {
     id: 'ver_metricas_video_panda', area: 'landing', tipo: 'lectura',
     titulo: 'Métricas de un video en Panda',
     descripcion: 'Lo que Panda Video midió de UN video: reproducciones y espectadores únicos de un día (con la retención media en % y la duración), o la serie día por día de un rango de hasta 92 días (sin retención: Panda la da solo por día). Úsala cuando pregunten «¿cuántos vieron mi VSL ayer?». Necesita el id externo del video (de listar_videos_panda) y que Panda esté conectado. Una retención null significa que Panda no la dio, no que sea 0.',

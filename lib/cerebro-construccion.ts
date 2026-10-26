@@ -37,6 +37,9 @@ export type AreaDeObra = {
   estado: string;
   alcance: string;
   nota?: string;
+  /** La página de MaKo donde se ve el área (`verEnApp` de areas.ts). Desde el 25/10/2026 es adonde lleva su nodo: la página
+   *  de su bitácora (/admin/dev/<área>) se fue con Dev. Sin página, el nodo no abre nada. */
+  verEnApp?: string;
   vive: readonly string[];
   partes: readonly { titulo: string; detalle: string; estado: 'hecha' | 'sigue' | 'cola' }[];
   bitacora: readonly HitoP[];
@@ -127,7 +130,7 @@ export function armarConstruccion(areas: readonly AreaDeObra[], ahora: number): 
       cuerpo: [a.nota && `La trampa: ${sinMarcas(a.nota)}`, cola.length && `En cola: ${cola.map((p) => p.titulo).join(' · ')}`].filter(Boolean).join('\n\n') || undefined,
       fuente: `su bitácora: ${a.bitacora.length} ${a.bitacora.length === 1 ? 'hito' : 'hitos'}`, autoria: 'mako',
       nace: primero ? isoDeHito(primero.fecha, primero.hora, ahora) : null,
-      href: `/admin/dev/${a.slug}`, abrirEn: 'su bitácora',
+      href: a.verEnApp, abrirEn: a.verEnApp ? 'su tab' : undefined,
     });
   }
 
@@ -148,7 +151,7 @@ export function armarConstruccion(areas: readonly AreaDeObra[], ahora: number): 
       cuerpo: h.puntos.length > 1 ? h.puntos.map(sinMarcas).join('\n\n') : undefined,
       fuente: `la bitácora de ${a.titulo}`, autoria: h.actor === 'martin' ? 'usuario' : 'mako',
       nace: isoDeHito(h.fecha, h.hora, ahora),
-      href: h.revisar || `/admin/dev/${a.slug}`, abrirEn: h.revisar ? 'MaKo' : 'su bitácora',
+      href: h.revisar || a.verEnApp, abrirEn: h.revisar ? 'MaKo' : a.verEnApp ? 'su tab' : undefined,
     });
     unir(id, `dev:${a.slug}`, 'Un hito de esta área');
   }

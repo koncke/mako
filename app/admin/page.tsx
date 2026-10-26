@@ -20,5 +20,6 @@ export default async function AdminPage() {
   // Sin guard de rol propio: el destino ya lo tiene (requireCapa) y duplicarlo acá
   // sería un segundo lugar donde vive la misma regla. El gate del proxy sigue
   // cortando /admin para quien no es super admin, antes de llegar hasta acá.
-  redirect('/clients');
+  // Desde el 25/10/2026 la grilla de los negocios (AdminView) vive en Customers: /classroom/clients le redirigiría ahí igual.
+  redirect('/customers');
 }

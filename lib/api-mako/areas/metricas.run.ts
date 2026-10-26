@@ -419,6 +419,7 @@ export const RUNNERS: Runners = {
         notas: [
           'plays_por_dia solo trae los días con alguna fila; un día que falta es un día sin dato, no necesariamente cero.',
           'espectadores_panda_suma_diaria suma los únicos de cada día: la misma persona dos días cuenta dos veces. null = Panda sin datos en la ventana.',
+          'Desde el 25/10/2026 los plays y el visionado suman el VSL del negocio en Panda, Wistia o Bunny Stream (el que marcó como VSL); panda_con_datos dice si alguno de esos tiene datos. Wistia y Bunny no dan únicos ni retención por día.',
           'retencion_p50_promedio_pct es el promedio de la retención MEDIANA (p50) diaria de Panda, sin ponderar por plays: no es una retención media, no la compares con una. La ventana termina hoy en UTC.',
         ],
       });

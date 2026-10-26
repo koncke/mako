@@ -83,13 +83,11 @@ test('C7: todas las hojas de la ficha a la vista, como tabs del mismo rango (tam
 // del «⋯» de la barra (/crm/prospectos). Y «Volver al CRM» de allá iba a /crm pelado: desde «Sprint 3 días» devolvía al
 // CRM principal. Probado rompiéndolo (base 5 / 0): sin la flecha → 4 / 1 · sin llevar el CRM → 4 / 1 · «Volver» a /crm
 // pelado → 4 / 1.
-test('C6: «Buscar prospectos» avisa que abre otra pantalla, lleva el CRM, y «Volver» vuelve a ESE CRM', () => {
+// 25/10/2026: «Buscar prospectos» se fue con el Leads Scraper entero (tests/leads-scraper-retirado.test.ts), y con él la
+// pantalla y su «Volver». Queda la regla: un renglón que navega lo DICE con la flecha.
+test('C6: el renglón que navega lo dice, y el «⋯» ya no manda a la pantalla de prospectos', () => {
   const t = sinComentarios(leer('app/crm/CrmToolbar.tsx'));
   assert.match(t, /\{href && <span aria-hidden style=\{\{ marginLeft: 'auto', fontSize: 13, color: 'var\(--faint\)' \}\}>→<\/span>\}/, 'el renglón que navega no lo dice');
-  assert.match(t, /label="Buscar prospectos" href=\{funnelActivo != null \? `\/crm\/prospectos\?funnel=\$\{funnelActivo\}` : '\/crm\/prospectos'\}/);
-  assert.match(BOARD, /onPersonalizarTarjetas=\{\(\) => setPersonalizando\(true\)\} funnelActivo=\{funnelActivo\} \/>/);
-  const page = sinComentarios(leer('app/crm/prospectos/page.tsx'));
-  assert.match(page, /const desde = funnels\.find\(\(f\) => String\(f\.id\) === sp\.funnel && !f\.esDefault\);/);
-  const app = sinComentarios(leer('app/crm/prospectos/ProspectosApp.tsx'));
-  assert.match(app, /<Link href=\{volver\?\.href \?\? '\/crm'\}[^>]*>\{volver \? `Volver a «\$\{volver\.nombre\}»` : 'Volver al CRM'\}<\/Link>/, '«Volver» no vuelve al CRM del que se vino');
+  assert.doesNotMatch(t, /crm\/prospectos/, 'volvió el renglón a la pantalla de prospectos');
+  assert.doesNotMatch(sinComentarios(BOARD), /crm\/prospectos/, 'el clic derecho del tablero sigue mandando a prospectos');
 });

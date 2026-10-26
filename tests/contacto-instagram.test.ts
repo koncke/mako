@@ -5,7 +5,8 @@
 // el lead se crea igual, con el @ como identificador. Un lead sin teléfono es un lead al que
 // todavía no le escribiste, no un lead inválido». Lo que se fija acá:
 //   1. UNA regla (`tieneContacto`, lib/contacto-minimo.ts), y la usan las tres puertas: el alta
-//      de «Nuevo lead» (form y server), el importador (`recalcular`) y la prospección.
+//      de «Nuevo lead» (form y server), el importador (`recalcular`) y la prospección (ésta se fue el 25/10/2026 con el
+//      Leads Scraper: tests/leads-scraper-retirado.test.ts).
 //   2. Nada se rellena: el lead con sólo el @ viaja con el email y el teléfono VACÍOS.
 //   3. El @ es una llave de duplicados: en el mismo archivo y contra lo que ya está en el CRM.
 //   4. El tablero lo dibuja como su canal (`soloInstagram`), sin un rótulo de «falta».
@@ -27,7 +28,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { tieneContacto, PEDIR_CONTACTO } from '../lib/contacto-minimo';
 import { recalcular, type FilaImport } from '../app/crm/leads-importar';
-import { contactable } from '../lib/prospectos-reglas';
 
 const leer = (rel: string) => readFileSync(new URL(rel, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 // Las líneas de comentario PRIMERO y los bloques después (AGENTS.md).
@@ -71,11 +71,6 @@ test('el mismo @ dos veces en el mismo lote: la segunda no entra', () => {
   assert.equal(b.motivo, 'repetido-archivo');
 });
 
-test('la prospección: un perfil de Instagram sin email ni teléfono se puede pasar', () => {
-  assert.equal(contactable({ email: null, telefono: null, instagram: 'perez' }), true);
-  assert.equal(contactable({ email: null, telefono: null, instagram: null }), false);
-});
-
 // ── Las puertas usan la regla ────────────────────────────────────────────────
 
 const ACCIONES = sinComentarios(leer('../app/crm/actions.ts'));
@@ -107,12 +102,6 @@ test('el @ ya guardado en el CRM marca la fila como «ya existe»', () => {
   const srv = sinComentarios(leer('../app/crm/importar-server.ts'));
   assert.match(bloque(srv, 'export async function indiceContactos('), /'id, email, telefono, telefono_normalizado, instagram'/);
   assert.match(bloque(srv, 'export async function marcarExistentes('), /const apuntan = \[porEmail, porTel, porIg\]/);
-});
-
-test('la prospección manda el @ en cada fila', () => {
-  const pasar = bloque(sinComentarios(leer('../lib/prospectos.ts')), 'export async function pasarAlCrm(');
-  assert.match(pasar, /instagram: p\.instagram \?\? '',/);
-  assert.match(pasar, /elegidos\.filter\(contactable\)/);
 });
 
 // ── Se ve distinto ───────────────────────────────────────────────────────────

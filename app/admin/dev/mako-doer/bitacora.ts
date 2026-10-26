@@ -605,4 +605,53 @@ export const BITACORA: Hito[] = [
       'tests/doer-cartel-sin-ia.test.ts — 9 tests, 11 roturas con su fallo; y los que fijaban Gemini, a la regla nueva',
     ],
   },
+  {
+    fecha: '25 oct', hora: '16:20', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que MaKo sabe de cómo conectar cada cosa sale del catálogo único: el prompt, las capacidades, los DEEP_LINKS, la intención y los carteles',
+    puntos: [
+      'Tanda 3 de docs/conexiones-y-ayuda.md. El prompt tenía tres links a mano (meta, anthropic, landing) y le prohibía a MaKo dar otros: ahora da los de su GPT, su computadora, Fathom, Zernio y el resto que más se pide, y para lo demás `como_conectar`.',
+      '**La intención** trae las herramientas de conectar con «conectar», «mi Claude», «la app de escritorio», Zernio o una clave de IA, y ya no nombra el inbox retirado. ⚠️ El `\\b` de JavaScript es ASCII: tras «conecté» no hay borde.',
+      '**El contrato de los links** (`?abrir=<key>`, `?abrir=ia`, `/perfil/ia?computadora=1`, `/chats?conectar=whatsapp`) quedó en AGENTS.md, y una guarda barre que ningún texto mande a «/integraciones» a secas.',
+    ],
+    archivos: [
+      'lib/conexiones-catalogo.ts — `EN_EL_PROMPT` y `conexionesParaElPrompt`',
+      'lib/hechos-mako.ts, lib/mako-capacidades.ts, lib/mako-intencion.ts, lib/fallo-ia-texto.ts — del catálogo',
+      'tests/conexiones-un-solo-lugar.test.ts — 5 tests, 9 roturas con su fallo',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '17:30', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«¿Quieres que te ayude a conectarlo?» y «¿Levanto un ticket?» por WhatsApp, atendidos por el código y sin IA',
+    puntos: [
+      'Martín, 25/10: «que le ofrezca ayuda, que le de el link y que le pregunte si quiere que le ayude con eso» y «que le proponga levantar un ticket... tiene que ser fácil». Tanda 5 de docs/conexiones-y-ayuda.md.',
+      '⚠️ **Sin su IA, ningún «sí» confirmaba nada** (la confirmación pasa por el modelo): la oferta, la guía paso a paso y el ticket los atiende el código antes de la IA, con el estado 30 minutos en app_settings.',
+      '⚠️ **Proponer y confirmar el ticket con el mismo «sí» rebotaba** (`confirmarPendiente` no confirma lo del mismo turno): se propone al ofrecerlo y el «sí» siguiente lo confirma.',
+      '**El «listo» prueba la conexión de verdad** (la clave contra el proveedor, la computadora en línea); si no anda, el link de nuevo y el ticket con el motivo.',
+    ],
+    archivos: [
+      'lib/doer-ayuda.ts — el estado, las respuestas, los pasos y los textos (puro)',
+      'lib/conexion-estado.ts — `conectadaSinProbar` y `conectadaProbando`',
+      'lib/mako-doer-in.ts — `atenderAyuda`, `proponerTicket` y la oferta en los carteles',
+      'tests/doer-ayuda.test.ts — 7 tests, 11 roturas con su fallo',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '18:40', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El grupo de MaKo del dueño contesta con su computadora, cuando escribe quien la conectó',
+    puntos: [
+      'Martín, 25/10: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Tanda 4 de docs/conexiones-y-ayuda.md, sobre la puerta de la computadora que hizo MaKo Desktop (`delGrupo`).',
+      '⚠️ **«Como el turno del chat de la app» no encajaba:** el doer conserva su turno (pendientes, agenda, memoria) y sólo la llamada al modelo va a la PC, con sus mismas herramientas.',
+      '**La identidad es el teléfono que manda WhatsApp**, probado en la puerta contra el perfil y contra quien conectó la PC; un lote de varias personas no va. Sin su número en el perfil, su computadora no contesta el grupo, y el cartel lo dice.',
+      '**Leads, Automations, nutrición y crons siguen sin llegar a la PC** (D6a entera para todo eso). AGENTS.md, lib/conectar-ia-reglas.ts y docs/ia-del-cliente.md con la cita.',
+    ],
+    archivos: [
+      'lib/mako-doer-in.ts — `pcDeQuienEscribe`, el turno a la PC y `loteDeVarios`',
+      'lib/doer-ticket.ts — `telefonoDelParticipante`',
+      'lib/fallo-ia-texto.ts — el cartel según qué pasó con SU computadora',
+      'tests/ia-pc-nunca-a-leads.test.ts (7, 5 roturas) y tests/doer-cartel-sin-ia.test.ts (7, 3 roturas)',
+    ],
+  },
 ];

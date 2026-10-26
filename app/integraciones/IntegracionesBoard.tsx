@@ -31,8 +31,8 @@ import { useRouter, useWs } from '@/app/_ui/Link';
 import { conWs } from '@/lib/ws-tab';
 import { volverDeLaPestana } from '@/lib/integracion-en-tab';
 import { esPasarela } from '@/lib/cobros-tipos';
-import { esIntegracionDeLeads } from '@/lib/fuentes-leads-catalogo';
-import { ordenCategoria } from '@/lib/integraciones-catalogo';
+import { DEFS, ordenCategoria } from '@/lib/integraciones-catalogo';
+import { useConectarIntegracion } from '@/app/_components/ConectarIntegracion';
 import { SelectorLanding } from './SelectorLanding';
 import { AsignarProducto } from './AsignarProducto';
 import type { RechazoGracias } from '@/lib/landing-gracias-reglas';
@@ -177,7 +177,7 @@ const sinTildes = (t: string) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, 
 // Servicios sintéticos: no están en el catálogo de integraciones pero tienen modal
 // propio (Groq es gratis y aparece en Costo de MaKo → su tile abre este modal).
 const SYNTHETIC: Record<string, Integracion> = {
-  groq: { key: 'groq', nombre: 'Groq', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
+  groq: { key: 'groq', nombre: 'Groq API', categoria: 'Inteligencia', descripcion: 'IA rápida y gratuita para tareas simples y transcripción. Limitada por rate (tokens/día del plan gratis), no por saldo.', estado: 'conectada', detalle: '' },
 };
 
 // Duración legible de un incidente (inicio → fin).
@@ -194,8 +194,11 @@ function fmtDuracion(desde: string, hasta: string): string {
 }
 
 // ── Board ─────────────────────────────────────────────────────────────────────
-export function IntegracionesBoard({ integraciones, health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, avisoCalendly = null, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
+export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, metaError, incidentes, snippetLanding, cargadorLanding, landingVieja = false, avisoCalendly = null, cuotas = [], agenteActual, appUrl, pixel, embebido = false }: {
   integraciones: Integracion[];
+  /** Las que no son tarjetas de la grilla (`oculto`: las cuatro IA y Google Calendar), con su estado real. No se dibujan:
+   *  están para que su modal se abra desde «Costo de MaKo» con el saldo y el refresco de la página (25/10/2026). */
+  sinTarjeta?: Integracion[];
   health: MetaHealth | null;
   metaError: string | null;
   /** `null` = no se pudieron leer (no es «no hubo»). */
@@ -231,6 +234,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   const searchParams = useSearchParams();
   const [usage, setUsage] = useState<Resumen | null>(null);
   const [modal, setModal] = useState<{ t: 'svc'; key: string } | { t: 'hist' } | null>(null);
+  // Las que NO tienen tarjeta en la grilla (`oculto`: las cuatro IA, que viven en «Tus cuentas de IA», y Google Calendar,
+  // que se conecta desde Calendario) siguen abriéndose con su link: el MISMO modal que usan las demás pestañas.
+  const { abrir: abrirSuelta, modal: modalSuelto } = useConectarIntegracion();
   // La fila de controles (24/10/2026). Vive en la pantalla: no viaja en la URL (nadie la comparte).
   const [estadoF, setEstadoF] = useState<string>(TODAS);
   const [catF, setCatF] = useState<string>(TODAS);
@@ -267,9 +273,15 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     // ese render vuelve a dejar la puerta abierta para el próximo.
     if (!abrir) { yaAbierto.current = false; return; }
     if (yaAbierto.current) return;
-    if (!integraciones.some((i) => i.key === abrir) && !SYNTHETIC[abrir]) return;
+    // `?abrir=<key>` es contrato (avisos, la API de MaKo, MaKo en WhatsApp): una integración sin tarjeta (`oculto`) no
+    // puede quedar en un link que no hace nada (25/10/2026, al sacar las IA y Google Calendar de la grilla).
+    // Groq tenía un modal sintético (SYNTHETIC): ahora está en el catálogo, y el suelto trae su estado real.
+    const enGrilla = integraciones.some((i) => i.key === abrir);
+    const oculta = !enGrilla && DEFS.some((d) => d.key === abrir && d.oculto);
+    if (!enGrilla && !oculta && !SYNTHETIC[abrir]) return;
     yaAbierto.current = true;
-    setModal({ t: 'svc', key: abrir });
+    if (oculta) abrirSuelta(abrir);
+    else setModal({ t: 'svc', key: abrir });
     // Que la tarjeta se vea (24/10/2026): sin filtros que la escondan, y fuera de lo que pliega «Mostrar más». El scroll va
     // en su efecto, detrás del render que la pone en el DOM.
     setQ(''); setCatF(TODAS); setEstadoF(TODAS);
@@ -277,7 +289,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     const q = new URLSearchParams(searchParams.toString());
     q.delete('abrir');
     router.replace(`/integraciones${q.size ? `?${q}` : ''}`, { scroll: false });
-  }, [abrir, integraciones, router, searchParams]);
+  }, [abrir, integraciones, router, searchParams, abrirSuelta]);
 
   // ── Google Calendar: "hay token" NO es "está conectado" ────────────────────
   // El server solo sabe que existe un refresh_token. Si ese token es de los VIEJOS
@@ -288,7 +300,10 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   //
   // El permiso real solo lo sabe Google (hay que refrescar el token para leer sus
   // scopes), así que se pregunta UNA vez al abrir la pantalla — nunca por tile.
-  const googleConToken = integraciones.some((i) => i.key === 'google' && i.estado === 'conectada');
+  // ⚠️ Google Calendar ya no es una tarjeta (25/10/2026): su estado viene en `sinTarjeta`. Mirando sólo la grilla, `gcal`
+  // no se pedía nunca, `gcalIncompleta` daba siempre false y una vuelta `?gcal=ok` con la casilla de escritura destildada
+  // en la pantalla de Google festejaba «Ya se usa ... para mover reuniones», que no pasa.
+  const googleConToken = [...integraciones, ...sinTarjeta].some((i) => i.key === 'google' && i.estado === 'conectada');
   const [gcal, setGcal] = useState<GoogleCalendarStatus | null>(null);
   useEffect(() => {
     if (!googleConToken) { setGcal(null); return; }
@@ -316,6 +331,28 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // re-consent fallaba (Google no reemitió el refresh_token, o saltó el CSRF), la
   // pantalla se recargaba idéntica y el usuario apretaba "Conectar" en loop.
   const gcalMsg = GCAL_MSG[searchParams.get('gcal') ?? ''] ?? null;
+  // Con token y el permiso todavía sin leer, el «conectado» espera (25/10/2026): si no, se lee un instante (hasta que
+  // Google contesta) aunque después resulte a medias.
+  const gcalSinLeer = googleConToken && gcal === null;
+
+  // ⚠️ Y SI FALLÓ, EL BOTÓN TIENE QUE ESTAR (25/10/2026). Google Calendar ya no es una tarjeta: se conecta en el modal
+  // suelto (`?abrir=google`, el link que manda MaKo). Si el OAuth volvía con un error, la franja de abajo pedía «Vuelve a
+  // apretar "Conectar Google Calendar"» y en la pantalla no había ni tarjeta ni modal con ese botón. Se reabre el suelto
+  // UNA vez por resultado (la ref), que dice adentro qué pasó y trae el botón; la franja queda, como antes.
+  // Y un «ok» con el permiso a medias (destildó la casilla de escritura) también: la franja se calla y no hay tarjeta que
+  // diga lo que falta; lo dice el modal («Faltan permisos para mover reuniones») y trae el botón. Sin el motivo «ok», que
+  // adentro festejaría lo mismo.
+  const gcalParam = searchParams.get('gcal');
+  const gcalReabierto = useRef<string | null>(null);
+  useEffect(() => {
+    if (!gcalParam) { gcalReabierto.current = null; return; }
+    if (gcalReabierto.current === gcalParam) return;
+    if (integraciones.some((i) => i.key === 'google')) return;
+    const fallo = GCAL_MSG[gcalParam]?.kind === 'err';
+    if (!fallo && !(gcalParam === 'ok' && gcalIncompleta)) return;
+    gcalReabierto.current = gcalParam;
+    abrirSuelta('google', fallo ? gcalParam : null);
+  }, [gcalParam, integraciones, abrirSuelta, gcalIncompleta]);
 
   // El toast global (y el chip de la sidebar) linkean con ?ops=1 → abrimos el
   // historial de operaciones. Consumimos el flag al instante (router.replace) para
@@ -416,11 +453,14 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
   // los negocios no vende por Hotmart, no tiene un Skool ni sale a buscar prospectos.
   // Y las IA que configura el equipo de MaKo (el workspace del entorno, lib/ia-keys.ts → `veredictoDeIA`): no son un
   // pendiente de la persona, y pedírselas en «Requiere tu atención» la empujaría a pegar una key que no debe.
-  const opcionalSinConectar = (i: Integracion) => ((esPasarela(i.key) || esIntegracionDeLeads(i.key)) && sevOf(i) !== 'good')
+  const opcionalSinConectar = (i: Integracion) => (esPasarela(i.key) && sevOf(i) !== 'good')
     || i.detalle === POR_QUE_LA_CONFIGURA_MAKO;
   // Resuelve un servicio por key incluyendo entradas sintéticas (Groq tiene tile en
   // Costo de MaKo pero no está en el catálogo de integraciones → su modal usa esto).
-  const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
+  // ⚠️ Y las que no son tarjetas (`sinTarjeta`, 25/10/2026): desde que las IA dejaron la grilla, la caja de Claude, OpenAI
+  // o Gemini y «¿Cargaste créditos? Regístralos →» llamaban a `setModal` con una key que acá no estaba, y no se abría NADA.
+  const svcByKey = (key: string): Integracion | null => integraciones.find((x) => x.key === key)
+    ?? sinTarjeta.find((x) => x.key === key) ?? SYNTHETIC[key] ?? null;
 
   // ── Conectadas y sin conectar (24/10/2026) ──
   // Una IA que configura el equipo de MaKo no le pide nada al negocio: va con las conectadas, con su leyenda.
@@ -494,7 +534,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
     const motivo = motivoDe(i);
     const sev = motivo ? sevOf(i) : 'good';
     return (
-      <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" onClick={() => setModal({ t: 'svc', key: i.key })}>
+      // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
+      <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
+        onClick={() => setModal({ t: 'svc', key: i.key })}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
           <span className="int-pildora">{i.categoria}</span>
@@ -546,8 +588,9 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
           respuesta a lo último que hizo el usuario antes de volver a esta pantalla. */}
       {/* El "conectado ✓" se calla si el permiso igual quedó a medias (se destildó la
           casilla de escritura en la pantalla de Google): festejar ahí sería el mismo
-          verde mentiroso que estamos sacando. La tarjeta de Google cuenta lo que falta. */}
-      {gcalMsg && !(gcalMsg.kind === 'ok' && gcalIncompleta) && (
+          verde mentiroso que estamos sacando. Lo que falta lo cuenta el modal de Google, que se reabre (25/10/2026: ya no
+          hay tarjeta). Y espera a saber el permiso (`gcalSinLeer`). */}
+      {gcalMsg && !(gcalMsg.kind === 'ok' && (gcalIncompleta || gcalSinLeer)) && (
         <div role="status" style={{ marginTop: 18, borderRadius: 12, padding: '12px 17px', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, background: gcalMsg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: gcalMsg.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
           {gcalMsg.txt}
         </div>
@@ -588,6 +631,7 @@ export function IntegracionesBoard({ integraciones, health, metaError, incidente
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
 
       {/* ═══ MODALES ═══ */}
+      {modalSuelto}
       {modal?.t === 'svc' && svcByKey(modal.key) && (
         <ServicioModal
           i={svcByKey(modal.key)!}
@@ -1785,9 +1829,11 @@ function PermisoGoogleCalendar({ conectada, estado }: { conectada: boolean; esta
     <div style={{ marginBottom: 15, padding: '12px 14px', borderRadius: 11, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)' }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Faltan permisos para mover reuniones</div>
       <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-        La agenda{estado.email ? ` de ${estado.email}` : ''} se autorizó cuando solo pedíamos leerla: tus reuniones se detectan, pero «Reagendar»
-        actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
-        Toca «Conectar Google Calendar» aquí abajo y Google te va a pedir el permiso que falta.
+        {/* 25/10/2026 (revisión del tren): no se inventa la causa. Pasa al conectar con la casilla de editar eventos sin
+            tildar, o con una agenda que se autorizó cuando sólo pedíamos leerla. */}
+        Google autorizó la agenda{estado.email ? ` de ${estado.email}` : ''} sin el permiso para editar eventos: tus reuniones se detectan, pero
+        «Reagendar» actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
+        Toca «Conectar Google Calendar» aquí abajo y, en la pantalla de Google, deja marcada la casilla para ver y editar tus eventos.
       </p>
     </div>
   );

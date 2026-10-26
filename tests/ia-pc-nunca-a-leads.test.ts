@@ -18,8 +18,17 @@
 //   2. a `turnoApp` (y a `turnoDelLead` / `turnoDelCrm`, que lo envuelven) lo llaman sólo esas entradas, con su sesión;
 //   3. ninguna de ellas es un cron, un webhook, WhatsApp ni Automations;
 //   4. el turno mira la sesión de ESTE pedido antes de leer la PC (`laPersonaEstaAdentro`): sin ella, ni se lee;
-//   5. una PC contesta sólo con la IA que aceptó quien la conectó, y su turno vence cuando el chat deja de esperarlo.
-// Si necesitás otra entrada: que sea una PERSONA en la app, y sumala acá con su porqué. Si corre sola, NO va a la PC.
+//   5. una PC contesta sólo con la IA que aceptó quien la conectó, y su turno vence cuando el chat deja de esperarlo;
+//   7. el grupo de WhatsApp del DUEÑO (25/10/2026): el doer llega a la puerta SÓLO con `delGrupo` y el teléfono que manda
+//      WhatsApp, y sólo si el lote es de una persona.
+//
+// 25/10/2026, Martín, por el audio de Florencia (ws21): «dijimos que todo eso se hace con la app de escritorio de MaKo y
+// conectado a su claude o GPT». El grupo de MaKo del DUEÑO es él escribiéndole a SU MaKo, como el chat de la app: contesta con
+// su computadora si quien escribe es quien la conectó (docs/conexiones-y-ayuda.md, decisión 2). El webhook no trae la cookie,
+// así que la prueba es otra —el teléfono que manda WhatsApp, de UNA sola persona activa del negocio, y esa persona es quien
+// conectó la PC— y la hace la PUERTA (`encolarTurno` con `delGrupo`, lib/ia-pc.ts; tests/ia-pc-puerta-grupo.test.ts). Lo
+// que corre solo hacia un lead (las respuestas automáticas, Automations, la nutrición, los avisos, los crons) sigue sin llegar.
+// Si necesitás otra entrada: que sea una PERSONA, y sumala acá con su porqué. Si corre sola, NO va a la PC.
 // =============================================================================
 
 import { test } from 'node:test';
@@ -89,7 +98,7 @@ test('1. a la computadora del cliente llega sólo el turno del chat de la app, y
     .filter((f) => f.ruta !== 'lib/ia-pc.ts')
     .filter((f) => /\bencolarTurno\b|\besperarALaPc\b/.test(f.src))
     .map((f) => f.ruta);
-  assert.deepEqual(tocan, ['lib/mako-turno-app.ts'], 'otra entrada manda turnos a la PC del cliente: si corre sola hacia un lead, no puede');
+  assert.deepEqual(tocan, ['lib/mako-doer-in.ts', 'lib/mako-turno-app.ts'], 'otra entrada manda turnos a la PC del cliente: si corre sola hacia un lead, no puede');
   // La tabla, por su nombre (no por cómo se la llama): cualquier comilla, una variable, un builder en otra línea.
   const nombran = codigo().filter((f) => f.ruta !== 'lib/ia-pc.ts' && /\bia_pc_turnos\b/.test(f.src)).map((f) => f.ruta).sort();
   assert.deepEqual(nombran, Object.keys(LEEN_LOS_TURNOS).sort(), 'otro archivo nombra la tabla de turnos de la PC');
@@ -218,6 +227,31 @@ test('6. la PUERTA mira la sesión: `encolarTurno` no le cree a quien la llama',
   // El turno le pasa la prueba sólo como la recibió.
   assert.match(de('lib/mako-turno-app.ts'), /\}, espera, \{ pruebaSinSesion: entrada\.pruebaSinSesion === true \}\);/);
 });
+
+test('7. el grupo del DUEÑO llega a la puerta sólo con `delGrupo`, el teléfono que manda WhatsApp y un lote de una persona', () => {
+  const doer = de('lib/mako-doer-in.ts');
+  // Una sola llamada a la puerta y una sola espera, y la llamada trae `delGrupo`: sin eso miraría una cookie que el webhook no tiene.
+  for (const nombre of ['encolarTurno', 'esperarALaPc']) {
+    assert.equal((doer.match(new RegExp(`\\b${nombre}\\b`, 'g')) ?? []).length, 2, `el doer nombra \`${nombre}\` fuera del import y de su único uso`);
+  }
+  assert.match(doer, /await encolarTurno\(delGrupo\.pc, SESION_DEL_GRUPO, \{[^}]*\}, espera, \{ delGrupo: \{ telefono: delGrupo\.telefono \} \}\);/,
+    'el doer llama la puerta sin `delGrupo`');
+  // La PC y el teléfono salen de quién escribió según WhatsApp (`participant`), nunca de lo que dice el mensaje, y un lote de
+  // varias personas no va.
+  const busca = cuerpo(doer, 'async function pcDeQuienEscribe(');
+  assert.match(busca, /if \(data\.loteDeVarios\) return null;/);
+  assert.match(busca, /const telefono = telefonoDelParticipante\(data\.key\?\.participant\);/);
+  assert.equal((doer.match(/\bpcDe\(/g) ?? []).length, 1, 'el doer busca una PC fuera de `pcDeQuienEscribe`');
+  assert.ok(busca.includes('pcDe('), '`pcDe` salió de `pcDeQuienEscribe`');
+  assert.match(doer, /\.\.\.\(autores\.size !== 1 \|\| autores\.has\(''\) \? \{ loteDeVarios: true \} : \{\}\),/, 'un lote de varias personas no queda marcado');
+  // Y la puerta, para el grupo, no le cree al doer: mira el teléfono contra el perfil y contra quien conectó esa PC.
+  const puerta = cuerpo(de('lib/ia-pc.ts'), 'export async function encolarTurno(');
+  assert.match(puerta, /if \(o\.delGrupo\) \{\s*if \(!\(await esLaPersonaDelGrupo\(d, o\.delGrupo\.telefono\)\)\) \{\s*throw new SinLaPersona\(/);
+});
+
+// 25/10/2026 (tanda 4 de docs/conexiones-y-ayuda.md): base 7 / 0; rotas, una por vez —el doer llama la puerta sin `delGrupo`,
+// con el teléfono de lo que dice el mensaje, sin mirar el lote de varios, sin marcarlo, o con una segunda llamada a la PC—,
+// las cinco caen en el 7.
 
 // PROBADO ROMPIÉNDOLO (23/10/2026, con ia-pc-varias, chat-ia, ia-pc e ia-pc-proveedor; base 27/0). Los cuatro últimos AGREGAN
 // un archivo (y lo borran):

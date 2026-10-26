@@ -75,7 +75,7 @@ const DOMINIO = ['conectar_dominio_landing', 'verificar_dominio_landing', 'quita
 const EDICIONES = [
   'agregar_seccion_landing', 'cambiar_texto_landing', 'acomodar_seccion_landing', 'configurar_seccion_landing',
   'agregar_bloque_landing', 'acomodar_bloque_landing', 'poner_enlace_landing', 'configurar_formulario_landing',
-  'configurar_boton_landing', 'quitar_cobro_landing', 'acomodar_pagina_landing', 'cambiar_tema_landing',
+  'configurar_boton_landing', 'cambiar_imagen_landing', 'cambiar_icono_landing', 'quitar_cobro_landing', 'acomodar_pagina_landing', 'cambiar_tema_landing',
   'configurar_landing', 'configurar_sitio_landing', 'configurar_navegacion_landing',
   // Las animaciones (15/10/2026; su test es tests/api-mako-landing-animacion.test.ts).
   'cambiar_animacion_landing',

@@ -1869,6 +1869,42 @@ export const BITACORA: Hito[] = [
     archivos: ['lib/api-mako/areas/operaciones.def.ts · operaciones.run.ts · lib/centro-chats.ts — completadosDeLasCuentas', 'tests/api-mako-completados.test.ts'],
   },
   {
+    fecha: '25 oct', hora: '15:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado», mirado en producción: el que no se podía abrir y el pedido que faltaba',
+    pedido: 'Cerebro: «Mira en el Ops Center que el próximo «Completado» de un chat llegue entero, con el pedido de Martín y su foto arriba. Si algo no anda, avísame con lo que viste.»',
+    puntos: [
+      '**El CRM decía «Completado» y al abrirlo no había nada**: ni el mensaje ni cómo darlo por visto. Era de un chat viejo del CRM, del 23/10, y al juntar todos sus chats quedaba afuera. Ahora llega siempre.',
+      '**Arriba va lo que respondía, aunque no lo hayas escrito tú**: casi todo se lo manda el Cerebro. Lo tuyo va con tu foto; lo de otro chat, con su nombre, nunca con tu foto.',
+      '**El título empieza con mayúscula**: sin el «Ya está:» de adelante, se leía cortado.',
+    ],
+    archivos: ['lib/operaciones-reglas.ts — turnosDeLaConversacion · lib/centro-turnos-db.ts · lib/centro-chats.ts — pedidoDelCompletado · BloqueCompletado.tsx', 'tests/completado-arriba.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '16:20', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado», rediseñado: un botón, y de a uno con flechas',
+    pedido: '«Rediseña bien la tarjeta de "completado"... Mira la cantidad de botones juntos... Y si tengo varios "completados" pendientes, para eso ya tenemos la opción de "espera tu respuesta" tipo modular con varias preguntas con las flechitas para la siguiente o anterior»',
+    puntos: [
+      '**Un solo botón, «Ya lo vi»**, y al lado «Revisar» si dejó una página. Sin «Ver todo»: el texto se abre tocándolo. Para responder, escribes en la caja de abajo.',
+      '**Varios sin ver, de a uno**, con las mismas flechas y puntitos de las preguntas. Empieza por el más viejo: «Ya lo vi» pasa al siguiente.',
+      '**Arriba, lo que respondía**: lo tuyo con tu foto; lo del Cerebro u otro chat, con su nombre. Si no hay, no queda el hueco.',
+    ],
+    archivos: ['app/admin/operaciones/BloqueCompletado.tsx · PreguntasDelChat.tsx (Pasos) · centro.css · lib/centro-chats.ts — completadosSinVer', 'tests/completado-arriba.test.ts'],
+  },
+  {
+    fecha: '25 oct', hora: '17:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Clients pasa a llamarse Classroom, y salen MaKo Context, AI Models y Dev',
+    pedido: '«11. La tab de "clients" pasa a llamarse "Classroom". También su ruta. ... 13. Elimina "https://hola-mako.com/contexto", lo de "Conocimientos" lo puedes llevar a esa tab, donde está el curso, y que solo yo como super admin vea esas anotaciones... Lo de "fases" esta deprecado. Lo de "Configuración" entiendo que la mayoría de cosas allí las personaliza el propio usuario... Como tambien "prompts". 14. Elimina "https://hola-mako.com/modelos-ia", eso ya lo configura el usuario y el propio Ops Center de manera automática. 15. Elimina "dev", ya no lo necesitamos.»',
+    puntos: [
+      '**Classroom** (/classroom) abre el curso; los clientes son su sub-tab «Clients». Los links viejos de /clients siguen andando.',
+      '**Lo que sabe MaKo** está en Classroom › Methodology, y lo ves sólo tú. **Los prompts** no los editaba cada usuario: eran sólo de esa pantalla, así que se mudaron a Settings › Prompts, también sólo para ti.',
+      '**Fuera de tu menú**: MaKo Context, AI Models y Dev. Las bibliotecas de Ads Writer (ángulos y estructuras), que vivían en Dev, ahora están en Copywriting.',
+    ],
+    archivos: ['lib/clients-rutas.ts · app/classroom/ · next.config.ts · app/_components/nav.ts · Sidebar.tsx · app/configuraciones/prompts/ · app/admin/guiones/page.tsx', 'tests/clients-rutas.test.ts · m-superadmin · dev-areas'],
+  },
+  {
     fecha: '26 oct', hora: '01:30', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Los «Avance» seguidos, en una sola burbuja',

@@ -175,7 +175,7 @@ test('la API de MaKo: el área chats existe, lee sin HTTP, manda SÓLO con la ta
   assert.ok(!AREA_KEYWORDS.chats.test(''));
 });
 
-test('/admin/dev: la ficha del área, la bitácora con el pedido LITERAL y su fila en la barra de dev', () => {
+test('/admin/dev: la ficha del área y la bitácora con el pedido LITERAL (la fila de Dev se fue con Dev, 25/10/2026)', () => {
   const area = areaDe('chats');
   assert.ok(area, 'falta el área chats en app/admin/dev/areas.ts');
   assert.equal(area!.familia, 'Operate');
@@ -194,7 +194,5 @@ test('/admin/dev: la ficha del área, la bitácora con el pedido LITERAL y su fi
   const plano1 = (s: string) => s.replace(/\n>\s?/g, ' ').replace(/\s+/g, ' ').trim();
   assert.equal(plano1(prompt!.pedido!), plano1(literal!), 'el pedido de la bitácora no es el literal del plano');
 
-  const fila = ADMIN_NAV.find((i) => i.key === 'dev-chats');
-  assert.ok(fila, 'la bitácora existe y no tiene fila en la barra de dev: es una tab que NO SE VE');
-  assert.equal(fila!.href, '/admin/dev/chats');
+  assert.equal(ADMIN_NAV.find((i) => i.key === 'dev-chats'), undefined, 'la fila de Dev volvió: su pantalla ya no existe');
 });

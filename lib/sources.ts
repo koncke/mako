@@ -11,6 +11,7 @@
 // =============================================================================
 
 import { getTenantDb } from './workspace';
+import { PLATAFORMAS_VIDEO } from './types';
 
 export type SourceStatus = 'ok' | 'stale' | 'off';
 
@@ -50,10 +51,11 @@ export async function getDataSources(): Promise<DataSource[]> {
       .eq('plataforma', 'meta')
       .order('fecha', { ascending: false })
       .limit(1),
+    // El reproductor del VSL: Panda y, desde el 25/10/2026, Wistia y Bunny (PLATAFORMAS_VIDEO).
     supabase
       .from('marketing_metrics_daily')
       .select('fecha')
-      .eq('plataforma', 'panda')
+      .in('plataforma', [...PLATAFORMAS_VIDEO])
       .order('fecha', { ascending: false })
       .limit(1),
     supabase

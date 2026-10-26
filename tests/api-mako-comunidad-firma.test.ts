@@ -142,7 +142,7 @@ test('leer la campana por la API no escribe en ella (un token «Solo lectura» n
 
 test('el área está enchufada: en el registro, SÓLO por HTTP, con sus datos como de clientes y sin sumarle herramientas al doer', () => {
   assert.ok((AREAS as readonly string[]).includes('comunidad'));
-  assert.deepEqual(AREA_INFO.comunidad, { titulo: 'Comunidad', tab: 'Clients › Community', ruta: '/clients/community' });
+  assert.deepEqual(AREA_INFO.comunidad, { titulo: 'Comunidad', tab: 'Classroom › Community', ruta: '/classroom/community' });
   assert.equal(DATOS_DE_CLIENTES_POR_AREA.comunidad, true, 'posts, comentarios y miembros son de los alumnos del negocio');
   const ops = porArea('comunidad');
   assert.equal(ops.length, 41);

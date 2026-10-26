@@ -25,15 +25,20 @@ export type IntegracionM = {
 };
 export type ProblemaM = { id: number; servicio: string; estado: string; detalle: string | null; rojo: boolean; confirmado: boolean; enCurso: boolean };
 
-export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
+export function IntegracionesM({ conectadas, sinConectar, historial, abrir, suelta = null }: {
   conectadas: IntegracionM[]; sinConectar: IntegracionM[]; historial: ProblemaM[]; abrir: string | null;
+  /** La que pidió el link y no es una fila (`oculto`: las cuatro IA y Google Calendar, 25/10/2026). No se dibuja en la
+   *  lista: sólo abre su hoja. */
+  suelta?: IntegracionM | null;
 }) {
   const ws = useWs();
   // `?abrir=<key>` (el link de un aviso, «Conectar Meta») abre esa hoja de entrada, como el modal en la computadora.
-  const [abierta, setAbierta] = useState<IntegracionM | null>(() => [...conectadas, ...sinConectar].find((i) => i.key === abrir) ?? null);
+  // También la de una sin fila (`suelta`): el link que MaKo manda por WhatsApp para conectar una IA o la agenda.
+  const [abierta, setAbierta] = useState<IntegracionM | null>(() => [...conectadas, ...sinConectar].find((i) => i.key === abrir)
+    ?? (suelta?.key === abrir ? suelta : null));
   const [problema, setProblema] = useState<ProblemaM | null>(null);
 
-  if (!conectadas.length && !sinConectar.length) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
+  if (!conectadas.length && !sinConectar.length && !suelta) return <VacioM frase="Tu plan no tiene integraciones para configurar." />;
 
   return (
     <>
@@ -88,7 +93,8 @@ export function IntegracionesM({ conectadas, sinConectar, historial, abrir }: {
         {abierta && (
           <>
             <p className="m-configuraciones-aviso" data-tono={abierta.estado === 'conectada' ? undefined : 'warn'}>
-              {abierta.estado === 'conectada' ? 'Conectada' : 'Falta conectarla'}{abierta.detalle ? ` · ${abierta.detalle}` : ''}
+              {/* «Falta configurar: ANTHROPIC_API_KEY» nombra la variable, no algo que el cliente reconozca (25/10/2026): no va. */}
+              {abierta.estado === 'conectada' ? 'Conectada' : 'Falta conectarla'}{abierta.detalle && !abierta.detalle.startsWith('Falta configurar') ? ` · ${abierta.detalle}` : ''}
             </p>
             <p className="m-configuraciones-texto">{abierta.descripcion}</p>
             {abierta.paraQue && <p className="m-configuraciones-texto m-configuraciones-texto--gris">{abierta.paraQue}</p>}

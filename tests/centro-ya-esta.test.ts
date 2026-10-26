@@ -69,7 +69,7 @@ test('cada «Ya está» del chat es un HECHO de Review, con su ruta y la sesión
   assert.deepEqual(hechos.map((n) => n.id), ['y:u-chat-0002', 'y:u-chat-0003'], 'sólo lo que dijo el chat, y sólo sus «Ya está»');
   const [filtro, solo] = hechos;
   assert.equal(filtro.estado, 'hecho');
-  assert.equal(filtro.titulo, 'el filtro del CRM.');
+  assert.equal(filtro.titulo, 'El filtro del CRM.', 'con mayúscula: sin el «Ya está:» se leía cortado (25/10/2026)');
   assert.deepEqual(filtro.revisar, { pagina: '/crm?lead=12', sesion: LOCAL });
   assert.equal(solo.titulo, 'Ya está');
   assert.equal(solo.revisar, null);

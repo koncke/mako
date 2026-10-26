@@ -65,6 +65,7 @@ export function miraLaReunion(pasos: readonly PasoGrafo[], id: string, vistos: S
     }
     if (c === 'esperar') return p.espera?.modo === 'antes_reunion';
     if (c === 'inicio') return false;
+    // Lo demás —un mensaje, una acción, una prueba A/B (tanda A3: transparente)— sigue subiendo.
     return miraLaReunion(pasos, pa.id, vistos);
   });
 }
@@ -113,6 +114,9 @@ function condicionesDetras(pasos: readonly PasoGrafo[], destino: string | null):
     if (i < 0) return;
     const c = claseDe(pasos[i]);
     if (c === 'condicion') { out.push({ id, esperas }); return; }
+    // ⚠️ UNA PRUEBA A/B ES TRANSPARENTE (tanda A3, crítica D.13): no hace nada al lead, así que CONDITION → A/B → CONDITION
+    // son dos condiciones pegadas (sin esto, se guardaba). Sigue por sus ramas sin contar como espera.
+    if (c === 'ab') { for (const pt of puertosDe(pasos, i)) ir(pt.destino, esperas); return; }
     if (c !== 'esperar') return;
     for (const pt of puertosDe(pasos, i)) ir(pt.destino, true);
   };

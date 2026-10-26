@@ -14,7 +14,7 @@
 import 'server-only';
 import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, unirTurnos, type TurnoChat } from './operaciones-reglas';
+import { ULTIMOS_VENTANA_MS, DESTINO_RE, resumirTurnos, sanearTurnos, turnosDeLaConversacion, unirTurnos, type TurnoChat } from './operaciones-reglas';
 import { getSupabaseServer } from './supabase';
 import { esYaEsta } from './centro-chats';
 import { superarConTurnos } from './centro-preguntas-chat-db';
@@ -53,7 +53,9 @@ export async function leerTurnos(locales: readonly string[]): Promise<TurnoChat[
   try {
     const ws = await wsSuperAdmin();
     const listas = await runWithWorkspace(ws, () => Promise.all(validos.map(async (l) => sanearTurnos(parsear(await getSetting(PREFIJO + l))))));
-    return unirTurnos([], listas.flat());
+    // Con su último «Ya está» y lo que respondía, aunque las sesiones juntas pasen los 60 turnos: si no, la lista dice
+    // «Completado» y al abrirlo no hay nada que ver ni ✓ que dar (25/10/2026, el CRM).
+    return turnosDeLaConversacion(listas.flat(), esYaEsta);
   } catch {
     return [];
   }

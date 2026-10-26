@@ -35,7 +35,8 @@ import { VISTA_COOKIE, tipoDeDispositivo, vaAMovil } from './lib/movil-dispositi
 
 // Rutas que además del login exigen rol admin. /metodo gestiona las
 // credenciales del workspace (tokens globales) — solo admins.
-const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo'];
+// '/customers' (25/10/2026): los clientes de MaKo del super admin (app/customers); la página vuelve a preguntar.
+const SOLO_ADMIN = ['/admin', '/api/admin', '/metodo', '/api/metodo', '/customers'];
 
 // ── Mudanza al dominio propio ────────────────────────────────────────────────
 // MaKo se sirve SOLO desde HOST_CANONICO. Cualquier otro host —los *.vercel.app

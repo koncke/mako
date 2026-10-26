@@ -1,7 +1,7 @@
 // =============================================================================
-// Clients › Clients (/clients) — tus clientes, y el trabajo de cada uno
+// Classroom › Clients (/classroom/clients) — tus clientes, y el trabajo de cada uno
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/page.tsx; la ruta vieja
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/clients/page.tsx; la ruta vieja
 // (/customer-success, app/customer-success/page.tsx) redirige allá. El porqué de que el código siga en
 // esta carpeta, en docs/diseno-clients.md (D2).
 //
@@ -27,14 +27,13 @@ import { requireCapa } from '@/lib/tab-access';
 import '@/app/integraciones/tus-cuentas-ia.css';
 import { ClientesApp } from './ClientesApp';
 import { getPerfil, getTarjetaClientes } from '@/lib/perfil';
+import { redirect } from 'next/navigation';
 import { clientesGanados, tableroDeLaCartera, filasDeTodos } from './trabajo';
 import { carteraEnEntrega } from './entrega';
 import { lecturaDeFichas } from './ficha-lectura';
 import type { ClienteCruce } from './cruce';
-import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
+import { adminDeWorkspaceActual, estaImpersonando, getWorkspaceActual } from '@/lib/workspace';
 import { sacadosPorProducto } from '@/lib/comunidad-moderacion';
-import { puedeOperar } from '@/lib/operaciones-reglas';
-import { AdminView } from '@/app/admin/AdminView';
 import { urlGravatar } from '@/lib/gravatar';
 import { getSesionAdmin } from '@/lib/auth';
 import { PARAM_CLIENTE, leerClienteDeUrl } from '@/app/plan/board/filtro-cliente';
@@ -64,41 +63,11 @@ export async function PantallaClientes({ searchParams }: { searchParams: Promise
   // tiene que ver la cartera de ESE cliente, no la de la plataforma. Lo decide
   // `estaImpersonando()`, que es la misma funcion de la que cuelga el chrome — si
   // mirara otra cosa, la barra diria un cliente y la lista seria de otro.
-  const sesionAdmin = await getSesionAdmin();
-  if (sesionAdmin && !(await estaImpersonando())) {
-    /**
-     * ⚠️ EL TRABAJO VIENE CON EL HTML, igual que en la ficha de un cliente. «Cuando
-     * entro al detail de un cliente tarda un montón en cargar sus tareas, cuando ya
-     * habíamos dicho que debe quedar registro y ser automático» (28/09/2026), y tenía
-     * razón: una versión anterior lo pedía por fetch al abrir la ficha, con su spinner.
-     * Es la MISMA lectura que ya hace esta pantalla para un cliente común, así que sale
-     * gratis — y es lo que hace que el detalle no tenga estado de carga.
-     *
-     * ⚠️ Y ES EL TRABAJO DEL SUPER ADMIN ATRIBUIDO A CADA CLIENTE, no el tablero del
-     * cliente: `filasDeTodos()` lee SU tablero (`plan_tareas`, porque su capa es
-     * `superadmin`) y lo agrupa por `cliente_lead_id`. Traer el del otro inquilino fue
-     * exactamente el error que se reportó: «no tiene sentido eso».
-     *
-     * Si alguna de las tres lecturas falla, la pantalla se dibuja igual: la grilla de
-     * workspaces sale de otro lado (/api/admin/workspaces) y lo único que se pierde es
-     * el tablero de la ficha, que lo dice.
-     */
-    const [trabajoSA, clientesSA, perfilSA] = await Promise.all([
-      filasDeTodos().catch(() => null),
-      clientesGanados().catch(() => []),
-      getPerfil().catch(() => ({ nombre: '', avatarUrl: '' })),
-    ]);
-    return (
-      <AdminView
-        titulo="Clients" icono="cs"
-        trabajo={trabajoSA}
-        clientes={clientesSA}
-        user={{ nombre: perfilSA.nombre, avatarUrl: perfilSA.avatarUrl }}
-        // Las computadoras de un cliente, en su ficha: sólo para quien pasa la guarda del Centro (la de sus acciones).
-        verComputadoras={puedeOperar(sesionAdmin, await wsSuperAdmin())}
-      />
-    );
-  }
+  //
+  // ⚠️ 25/10/2026: LOS WORKSPACES DEL SUPER ADMIN SE FUERON A /customers (docs/feedback-25-10-tarde.md punto 10: «una
+  // vista especial para ver a mis clientes... partners, agency y el resto»). Es la MISMA grilla (AdminView), con los
+  // segmentos, el MRR, Billing y Agents. Acá queda lo de los cursos y la comunidad (Classroom).
+  if ((await getSesionAdmin()) && !(await estaImpersonando())) redirect('/customers');
 
   // ⚠️ SI LA LISTA NO SE PUEDE LEER, NO SE DIBUJA UNA LISTA VACÍA. Un workspace
   // que todavía no ganó a nadie y uno cuya consulta falló se ven idénticos, y el

@@ -98,7 +98,7 @@ test('/planes/<plan>: con pasarela el pago; sin pasarela el pedido; el Acelerado
   assert.match(pagina, /<QuieroPlan plan=\{pr\.id\} nombrePlan=\{pr\.nombre\} origen=\{origen\} refCodigo=\{ref\} preguntas=\{PREGUNTAS_DE_LA_PUERTA\} \/>/,
     'el Acelerador se pide con el diagnóstico como puerta');
   const form = fuente('app/planes/[plan]/QuieroPlan.tsx');
-  assert.match(form, /JSON\.stringify\(\{ plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo \}\)/);
+  assert.match(form, /JSON\.stringify\(\{\s*plan: p\.plan, nombre, email, whatsapp, quiero: true, origen: p\.origen, ref: p\.refCodigo, web, diagnostico, periodo: p\.periodo,\s*codigo: preguntas\.length \? undefined : codigoParaMandar\(codigo, p\.refCodigo\),\s*\}\)/);
   // La ruta: el pedido va con el código de partner que ganó (la cookie de /r primero), y nunca abre un pago.
   const ruta = fuente('app/api/planes/comprar/route.ts');
   assert.match(ruta, /if \(pedido\.quiero\) \{\s*const q = await pedirPlanSinPasarela\(\{ \.\.\.pedido, ref \}\);/);

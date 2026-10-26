@@ -14,7 +14,6 @@ import { errorDeMercadoPago, errorDeStripe, factsDeMercadoPago, factsDeStripe } 
 import { credWs } from './credenciales';
 import { leerCuentaMp } from './mercadopago-api';
 import { leerCuentaStripe } from './stripe-api';
-import { cuentaDeApify } from './apify';
 import { claveBaseDe } from './ia-keys';
 import { servicioMetodo } from './metodo-catalogo';
 import { normalizarCuentaMeta } from './meta-cuenta-id';
@@ -355,6 +354,50 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     };
   },
 
+  // Los otros alojadores de video (25/10/2026, lib/alojadores-video.ts): leer UN video de la lista con la clave.
+  async vimeo(v) {
+    const { status, body } = await fetchJson('https://api.vimeo.com/me/videos?per_page=1&fields=name', {
+      headers: { Authorization: `bearer ${v.VIMEO_TOKEN}`, Accept: 'application/vnd.vimeo.*+json;version=3.4' },
+    });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso para ver tus videos ("Private").' };
+    if (status >= 400 || !Array.isArray(body.data)) return { ok: false, error: `Vimeo respondió ${status}.` };
+    const v0 = (body.data as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: v0?.name ? [{ k: 'Tu último video', v: v0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async wistia(v) {
+    const { status, body } = await fetchJson('https://api.wistia.com/v1/medias.json?per_page=1', { headers: { Authorization: `Bearer ${v.WISTIA_TOKEN}` } });
+    if (status === 401 || status === 403) return { ok: false, error: 'Token inválido, o sin permiso de leer ("Read all data").' };
+    const lista = body as unknown;
+    if (status >= 400 || !Array.isArray(lista)) return { ok: false, error: `Wistia respondió ${status}.` };
+    const m0 = (lista as Array<{ name?: string }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: m0?.name ? [{ k: 'Tu último video', v: m0.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
+  async bunny(v) {
+    const lib = (v.BUNNY_STREAM_LIBRARY ?? '').trim();
+    if (!/^\d{1,12}$/.test(lib)) return { ok: false, error: 'El Library ID es un número (está en "API", en tu biblioteca).' };
+    const { status, body } = await fetchJson(`https://video.bunnycdn.com/library/${lib}/videos?page=1&itemsPerPage=1`, { headers: { AccessKey: v.BUNNY_STREAM_KEY } });
+    if (status === 401 || status === 403) return { ok: false, error: 'API key inválida: va la de la BIBLIOTECA, no la de tu cuenta.' };
+    if (status === 404) return { ok: false, error: 'No hay una biblioteca con ese Library ID.' };
+    if (status >= 400 || !Array.isArray(body.items)) return { ok: false, error: `Bunny respondió ${status}.` };
+    const i0 = (body.items as Array<{ title?: string }>)[0];
+    return { ok: true, detalle: 'Clave válida.', facts: i0?.title ? [{ k: 'Tu último video', v: i0.title, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Biblioteca vacía todavía', c: 'var(--warn)' }] };
+  },
+
+  async cloudflare(v) {
+    const cuenta = (v.CLOUDFLARE_ACCOUNT_ID ?? '').trim();
+    if (!/^[0-9a-f]{32}$/i.test(cuenta)) return { ok: false, error: 'El Account ID son 32 letras y números (está en "Stream", a la derecha).' };
+    const { status, body } = await fetchJson(`https://api.cloudflare.com/client/v4/accounts/${cuenta}/stream?limit=1`, { headers: { Authorization: `Bearer ${v.CLOUDFLARE_STREAM_TOKEN}` } });
+    // ⚠️ Un token con forma rara NO da 401: da 400 con el código 9106 «Authentication failed» (medido el 25/10/2026). Uno
+    // con buena forma pero inexistente da 401 (10000). Los dos son «el token no sirve».
+    const codigos = Array.isArray(body.errors) ? (body.errors as Array<{ code?: number }>).map((e) => e.code) : [];
+    if (status === 401 || status === 403 || codigos.includes(9106) || codigos.includes(10000)) return { ok: false, error: 'Token inválido, o sin el permiso "Stream" → "Read" en esa cuenta.' };
+    if (status >= 400 || body.success !== true || !Array.isArray(body.result)) return { ok: false, error: `Cloudflare respondió ${status}.` };
+    const r0 = (body.result as Array<{ meta?: { name?: string } }>)[0];
+    return { ok: true, detalle: 'Token válido.', facts: r0?.meta?.name ? [{ k: 'Tu último video', v: r0.meta.name, c: 'var(--good)' }] : [{ k: 'Videos', v: 'Token válido, sin videos todavía', c: 'var(--warn)' }] };
+  },
+
   async youtube(v) {
     const id = v.YOUTUBE_VSL_VIDEO_ID || 'dQw4w9WgXcQ'; // cualquier video público valida la key
     const url = `https://www.googleapis.com/youtube/v3/videos?part=id&id=${encodeURIComponent(id)}&key=${encodeURIComponent(v.YOUTUBE_API_KEY)}`;
@@ -485,43 +528,7 @@ const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
     return { ok: true, detalle: `Conectada a tu cuenta de Mercado Pago${r.modo === 'prueba' ? ' (modo prueba)' : ''}.`, facts };
   },
 
-  // LAS FUENTES QUE AVISAN del Leads Scraper (14/10/2026, docs/diseno-leads-scraper.md). Su único
-  // campo es un SECRETO que no se comprueba contra nadie hasta que llega el primer aviso: el hottok
-  // no abre ninguna API de Hotmart, y la clave de Skool la inventa el negocio. Como el «Secret» de
-  // Cal.com: rechazarlo por no poder comprobarlo sería impedir guardar lo único de lo que depende
-  // todo. El tope de largo es el mismo con el que el webhook lee el header (`secretoDelHeader`).
-  async hotmart(v) {
-    const t = (v.HOTMART_HOTTOK ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta el hottok: sin eso no entra ninguna compra.' };
-    if (t.length > 200) return { ok: false, error: 'Ese hottok es demasiado largo. Cópialo de nuevo desde Hotmart.' };
-    return {
-      ok: true,
-      detalle: 'Tu hottok está guardado. Las compras entran en cuanto registres la dirección en Hotmart.',
-      facts: [{ k: 'Compras en vivo', v: 'Listas, cuando registres la dirección en Hotmart', c: 'var(--good)' }],
-    };
-  },
-
-  async skool(v) {
-    const t = (v.SKOOL_WEBHOOK_CLAVE ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta la clave del aviso: sin eso no entra nadie de tu comunidad.' };
-    // Es lo ÚNICO que separa tu CRM de cualquiera que conozca la dirección: corta, se adivina.
-    if (t.length < 12) return { ok: false, error: 'Usa una clave de 12 caracteres o más: es lo que protege tu CRM.' };
-    if (t.length > 200) return { ok: false, error: 'Esa clave es demasiado larga: usa una de menos de 200 caracteres.' };
-    return {
-      ok: true,
-      detalle: 'Tu clave está guardada. Las solicitudes entran en cuanto publiques el Zap con la misma clave.',
-      facts: [{ k: 'Solicitudes en vivo', v: 'Listas, cuando publiques el Zap', c: 'var(--good)' }],
-    };
-  },
-
-  // Apify (15/10/2026): la cuenta de la key. Sin plan pago igual busca (el gratis trae saldo).
-  async apify(v) {
-    const t = (v.APIFY_TOKEN ?? '').trim();
-    if (!t) return { ok: false, error: 'Falta el token de Apify.' };
-    const r = await cuentaDeApify(t);
-    if (!r.ok) return { ok: false, error: r.error };
-    return { ok: true, detalle: `Conectada a la cuenta ${r.usuario} de Apify.`, facts: [{ k: 'Cuenta', v: r.usuario }, ...(r.plan ? [{ k: 'Plan', v: r.plan }] : [])] };
-  },
+  // (Hotmart, Skool y Apify tenían su ping acá: salieron el 25/10/2026 con el Leads Scraper.)
 
   // google: NO tiene ping. Salió del catálogo (es la app OAuth de la agencia,
   // no una credencial que el cliente cargue) → verificarServicio('google') corta

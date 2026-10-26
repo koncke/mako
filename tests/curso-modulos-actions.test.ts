@@ -108,7 +108,7 @@ test('revalidatePath sólo donde cambia el KANBAN (crear, renombrar, vincular, r
   assert.match(cuerpo('borrarModuloAction'), /if \(r\.ok && r\.quitada\) alKanban\(\);/);
   assert.match(cuerpo('restaurarModuloAction'), /if \(x\.ok && r\?\.quitada\) alKanban\(\);/);
   // Y sólo si se GUARDÓ: un rechazo (algo en rojo, un choque) no cambió nada que releer.
-  assert.match(cuerpo('guardarLeccionAction'), /if \(r\.ok\) revalidatePath\('\/clients\/classroom'\);/);
+  assert.match(cuerpo('guardarLeccionAction'), /if \(r\.ok\) revalidatePath\('\/classroom'\);/);
 });
 
 test('guardarCampoClase: UN cambio por vez, y cada uno escribe SÓLO sus columnas (nunca la fila entera)', () => {

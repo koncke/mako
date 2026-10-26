@@ -12,8 +12,64 @@ Todo en la rama `landings-2510-b` (worktree `C:/dev/wt-landings-2510`), que nace
   alcance por sección en «Análisis», la API y el Analyst; docs/hallazgos-landing.md → «Qué sección se ve»). Falta aceptarla
   con datos de producción cuando despliegue. L2: hechas las reglas puras (lib/editor-landing/prueba-landing.ts: la guarda de estructura,
   quién va fijo a A, la cookie y las cabeceras). Conectarlo a `responderPublico` espera a A1/A2 de Automations (`lib/pruebas/`,
-  rama aut-2510; al 25/10 todavía no existe, avisa con las firmas) y L3 (el agente; el ws9 queda en «propone» hasta el sí de Martín).
-- **Sigue:** mirar todo eso con clics a 1280 y 1440 cuando despliegue; publicar las landings con el OK de Martín;
+  rama aut-2510, ya con `asignar`, `juez`, `store` y el cron `app/api/cron/pruebas/route.ts` en 27a632789) y L3 (el agente; el ws9 queda
+  en «propone» hasta el sí de Martín). **La firma que avisó Automations el 25/10 a la noche, para su entrega que va encima de
+  27a632789:**
+  - `MEDIDORES` va por superficie y después por métrica. Los de la landing van en `MEDIDORES.landing` (`clic_conversion`, `optin`,
+    `play_manual`).
+  - Cada `Medidor` recibe `lugar` (con el doc_id) y TODAS las asignaciones de la época, así congela el primer resultado.
+  - `Asignacion.previo` es un mapa por métrica (`{ agendo: false }`).
+  - `conteosPorRama(..., { ramas, ventanaDias, hasta, metrica })` pide la métrica.
+  - Ejemplo: lib/pruebas/medidores-automatizacion.ts y lib/pruebas/resultados.ts.
+- **Verificado en producción (25/10 tarde, main 9c684f88c):** escribir en una sección de diseño (copia #42, ya en la
+  papelera), y la barra a 1280 y 1440. A 1280 la barra no entraba: arreglado en esta rama (el título cede hasta 160 px).
+- **Todo editable en las páginas de MaKo y el clic derecho (25/10 tarde):** hecho en la rama, con el inventario de la #32
+  medido en producción (docs/hallazgos-editor-landing.md → «Todo editable…»). Falta probarlo con clics cuando despliegue.
+- **La barra «Texto» sin «Editar con IA» (25/10 tarde):** hecho en la rama; la IA queda en el chat, en ⌘E y en la barra
+  que aparece sobre un texto elegido.
+- **El color de fondo de cada sección de las páginas de MaKo (25/10 tarde):** hecho en la rama: menú ⋮, clic derecho y la API
+  (docs/hallazgos-editor-landing.md → «El color de fondo…»). Con el pedido del Cerebro, el margen entre secciones queda
+  adentro de lo pintado: dos pintadas se tocan sin franja. Falta probarlo con clics cuando despliegue.
+- **Los íconos por la API (25/10 tarde):** hecho en la rama (cambiar_icono_landing, ver_iconos_landing, y los `iconos` de cada
+  sección en ver_secciones_landing; docs/hallazgos-api-mako.md → «Los íconos por la API»).
+- **Otros alojadores de video (pedido de Martín por el Cerebro, 25/10 noche).** Tanda 1 hecha en la rama: el Pixel v27 mide
+  Bunny Stream y Cloudflare Stream, y el YouTube con enablejsapi=1 (docs/hallazgos-landing.md → «Otros alojadores de video»).
+  El mapa de dónde depende MaKo de Panda, medido ese día, para las tandas que siguen:
+  - **Los números por API van a `marketing_metrics_daily`** (`plataforma`, CHECK sólo `meta|youtube|panda`, lib/types.ts:16).
+    Los escribe el cron `app/api/cron/panda-daily` (lib/panda.ts). Los leen lib/queries.ts (funnel, serie del VSL,
+    tendencias), lib/sources.ts (`vsl_panda`), lib/graficos-datos.ts y `/general`.
+  - **La duración de cada video sale SÓLO de Panda** (`raw_payload.duration_seconds`, `getDuracionesVsl` en lib/leads.ts:2492):
+    sin ella, los segundos del Pixel no se vuelven porcentaje en el CRM ni en «Cuánto ven el video».
+  - **El catálogo** (título, reproductor, portada) para nombrar videos: `catalogoPanda` en `videosDetectados`
+    (lib/landing-token.ts).
+  - **La clave:** `PANDA_API_KEY` en lib/integraciones-catalogo.ts y lib/metodo-catalogo.ts, con el modal genérico
+    (app/integraciones/ServicioConfigForm.tsx) y «Probar conexión» (lib/metodo-verificar.ts). Settings está limpiando
+    Integraciones: se le preguntó qué toca antes de sumar las nuevas.
+  - **El Web Generator** reconoce YouTube, Vimeo, Loom, Drive, Panda, Wistia, Bunny y Fathom (lib/embeds.ts); **Cloudflare
+    en ningún lado**.
+  - **Los cursos** guardan el tipo (`curso_clases.video_tipo`, CHECK sin panda, wistia ni bunny: van como `url`) y miden
+    el avance con YouTube, Vimeo, Panda y el video propio; **Wistia y Bunny se ven «sin medir»** (lib/curso.ts:436,
+    app/compartido/curso/[token]/Reproductor.tsx).
+  - **La API:** `listar_videos_panda` y `ver_metricas_video_panda` (lib/api-mako/areas/landing.def.ts) son sólo de Panda.
+  - **Tanda 2 hecha:** la duración de cada video sale también de los eventos del Pixel (lib/vsl-retencion.ts →
+    `duracionesDeEventos`), para cualquier alojador y sin clave.
+  - **Tanda 3 hecha:** el catálogo de Vimeo, Wistia, Bunny y Cloudflare (lib/alojadores-video.ts y -api.ts, claves
+    `VIMEO_TOKEN`, `WISTIA_TOKEN`, `BUNNY_STREAM_KEY` + `BUNNY_STREAM_LIBRARY`, `CLOUDFLARE_STREAM_TOKEN` +
+    `CLOUDFLARE_ACCOUNT_ID`), «Nombrar videos» con los títulos de todos, Cloudflare en el editor (lib/embeds.ts), las
+    clases miden Wistia, Bunny y Cloudflare (`VideoAlojado`), y `listar_videos_alojados` en la API.
+  - **Las tarjetas de Integraciones**, hechas en los cuatro registros (claves en CLAVES_ALOJADOR = sus `envs`).
+  - **Los números por día de Wistia y Bunny**, hechos: cron `app/api/cron/videos-daily` (35 13 * * *, sólo el VSL marcado),
+    las lecturas del VSL de todos los alojadores (`PLATAFORMAS_VIDEO`) y la migración SIN NÚMERO
+    `supabase/migrations/0336_alojadores_video_plataforma.sql` (APLICADA el 25/10/2026 19:27, con el sí de Martín).
+  - **El presupuesto del turno de la app** (tren-k): se recortaron ver_secciones_landing y configurar_formulario_landing
+    para que «cambia el formulario de la landing» reciba su operación; margen de 38 caracteres. Antes de sumar o alargar
+    una operación del área, medir con `scripts/presupuesto-turno-app.mts`.
+- **Sigue (alojadores):** mirar con clics «Tus videos» del panel «Insertar» cuando despliegue (tanda 4); los números por día de
+  Wistia y Bunny (pide una migración del CHECK de `marketing_metrics_daily.plataforma` y que lib/queries.ts no lea sólo
+  `panda`); probar el catálogo con una cuenta real de cada uno.
+- **Sigue:**
+  probar con clics en producción lo de hoy cuando despliegue (sobre una copia); el enlace de la agenda por la API;
+  publicar las landings con el OK de Martín;
   Responder en los otros chats cuando entren `ops-2510-regresiones` y `aut-2510`.
 
 ## Estado al 24/10/2026 noche (cuenta claude5, chat «Landings»)

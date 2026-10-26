@@ -35,8 +35,20 @@ import {
 } from '@/lib/editor-landing/doc';
 // Puro (sin DOM): los textos de un «Diseño editable», cada uno en su lugar exacto del HTML (cambiar_texto_landing).
 import { conTextos, textosDeHtmlEditable } from '@/lib/editor-landing/html-editable-textos';
+// Puro (sin DOM): sus botones, imágenes y videos (configurar_boton_landing, poner_enlace_landing, cambiar_imagen_landing).
+import {
+  conEnlaceDeDiseno, conIconoDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable, iconosDeHtmlEditable,
+  type EnlaceDeDiseno, type ImagenDeDiseno, type VideoDeDiseno,
+} from '@/lib/editor-landing/html-editable-elementos';
+// La biblioteca de íconos del editor (la del selector) y los diseños que siempre los muestran (cambiar_icono_landing).
+import { ICONOS, buscarIconos, existeIcono } from '@/lib/editor-landing/iconos';
+import { CON_ICONOS } from '@/lib/editor-landing/css';
+// Puro: el color de fondo de una sección de diseño, en su HTML (configurar_seccion_landing, ver_secciones_landing).
+import { conFondoDeDiseno, fondoPuestoDe, fondoVisibleDe, valorDeFondo, type FondoDeDiseno } from '@/lib/editor-landing/fondo-de-diseno';
+import { esTarjetaEditable } from '@/lib/editor-landing/html-editable';
+import { videoDirecto } from '@/lib/embeds';
 import { tarjetaDesdeEsquema, MAX_PUNTOS, MAX_PUNTO, MAX_TITULO_SECCION } from '@/lib/editor-landing/ia-reglas';
-import { attrsInsertado, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
+import { attrsInsertado, attrsOptimizado, attrsOptimizadoItem, hrefPermitido, srcImagen, ETIQUETA_CAMPO } from '@/lib/editor-landing/especificacion';
 import { claseDeProveedor, nombreDeProveedor } from '@/lib/embeds';
 import { TEMAS, TEMA_DEFAULT_ID, FUENTES, REDONDECES, esOscuro, sanearTemaPropio } from '@/lib/editor-landing/temas';
 import { TOPE_TEMAS } from '@/lib/editor-landing/server-reglas';
@@ -146,6 +158,42 @@ function conSeccion(c: LandingContenido, u: SeccionUbicada, nueva: JsonNodo): La
   return conDoc(c, u.p, content);
 }
 
+/** Un «Diseño editable» de la landing: su sección, su lugar adentro (k) y su HTML. */
+type DisenoUbicado = { p: number; i: number; k: number; tarjeta: JsonNodo; html: string };
+
+/** Los «Diseño editable» de la landing (o de UNA sección), en orden. */
+function disenosDe(c: LandingContenido, u: SeccionUbicada | null): DisenoUbicado[] {
+  const out: DisenoUbicado[] = [];
+  c.paginas.forEach((pg, p) => (pg.doc.content ?? []).forEach((t, i) => {
+    if (t.type !== NODO.tarjeta || (u && (u.p !== p || u.i !== i))) return;
+    (t.content ?? []).forEach((h, k) => {
+      if (h.type === NODO.htmlEditable && typeof h.attrs?.html === 'string') out.push({ p, i, k, tarjeta: t, html: h.attrs.html });
+    });
+  }));
+  return out;
+}
+
+/**
+ * La landing con varios diseños cambiados. Cada cambio recibe el HTML ACTUAL de su diseño (dos cambios en el mismo
+ * diseño se encadenan) y devuelve el nuevo, o una falla que corta todo.
+ */
+function conDisenos(c: LandingContenido, cambios: ReadonlyArray<{ d: DisenoUbicado; cambio: (html: string) => string | { error: string } }>): { contenido: LandingContenido; antes: JsonNodo[]; despues: JsonNodo[] } | FallaPlan {
+  const tarjetas = new Map<string, { p: number; i: number; antes: JsonNodo; ahora: JsonNodo }>();
+  for (const { d, cambio } of cambios) {
+    const clave = `${d.p}:${d.i}`;
+    const t = tarjetas.get(clave) ?? { p: d.p, i: d.i, antes: d.tarjeta, ahora: d.tarjeta };
+    const hijos = [...(t.ahora.content ?? [])];
+    const html = String((hijos[d.k]?.attrs as { html?: unknown } | undefined)?.html ?? '');
+    const r = cambio(html);
+    if (typeof r !== 'string') return r;
+    hijos[d.k] = { ...hijos[d.k], attrs: { ...hijos[d.k].attrs, html: r } };
+    tarjetas.set(clave, { ...t, ahora: { ...t.ahora, content: hijos } });
+  }
+  let contenido = c;
+  for (const t of tarjetas.values()) contenido = conSeccion(contenido, { p: t.p, i: t.i, tarjeta: t.antes }, t.ahora);
+  return { contenido, antes: [...tarjetas.values()].map((t) => t.antes), despues: [...tarjetas.values()].map((t) => t.ahora) };
+}
+
 /**
  * Una copia con ids NUEVOS (la sección, y adentro el HTML personalizado y los campos de formulario: el saneo
  * exige que sean únicos en toda la landing y regeneraría los repetidos con un descarte). El id del HTML va
@@ -205,7 +253,7 @@ const NOMBRE_NODO: Readonly<Record<string, string>> = {
   paragraph: 'texto', bulletList: 'viñetas', orderedList: 'lista numerada', taskList: 'lista de tareas', blockquote: 'cita',
   horizontalRule: 'separador', table: 'tabla', [NODO.columnas]: 'columnas', [NODO.botones]: 'botones', [NODO.recuadro]: 'recuadro',
   [NODO.desplegable]: 'desplegable', [NODO.imagen]: 'imagen', [NODO.video]: 'video subido', [NODO.formulario]: 'formulario',
-  [NODO.grafico]: 'gráfico', [NODO.espaciador]: 'espacio', [NODO.htmlLibre]: 'HTML personalizado',
+  [NODO.grafico]: 'gráfico', [NODO.espaciador]: 'espacio', [NODO.htmlLibre]: 'HTML personalizado', [NODO.htmlEditable]: 'diseño editable',
 };
 
 /** Qué es un bloque, como lo diría una persona («título 2», «agenda (Calendly)», «video sin enlace»). */
@@ -222,8 +270,35 @@ export function nombreDeBloque(n: JsonNodo): string {
   return NOMBRE_NODO[n.type] ?? n.type;
 }
 
-/** Las páginas con sus secciones (también las ocultas) y los bloques de cada una, con topes. */
-export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: string | null) {
+/**
+ * Lo que se cambia por la API en un «Diseño editable» (25/10/2026): los botones (texto y a dónde llevan:
+ * configurar_boton_landing), las imágenes (cambiar_imagen_landing) y los videos (poner_enlace_landing). Con topes.
+ */
+function elementosParaApi(html: string) {
+  const els = elementosDeHtmlEditable(html);
+  const botones = els.filter((x): x is EnlaceDeDiseno => x.tipo === 'enlace');
+  const imagenes = els.filter((x): x is ImagenDeDiseno => x.tipo === 'imagen');
+  const videos = els.filter((x): x is VideoDeDiseno => x.tipo === 'video');
+  return {
+    botones: botones.slice(0, 30).map((b) => ({ texto: corto(b.texto, 60), destino: b.destino, ...(b.nuevaPestana ? { nueva_pestana: true } : {}) })),
+    imagenes: imagenes.slice(0, 20).map((m) => ({ imagen: m.src, ...(m.alt ? { alt: corto(m.alt, 60) } : {}) })),
+    videos: videos.slice(0, 10).map((v) => ({ video: v.src, tipo: v.reproductor ? 'reproductor' : 'archivo' })),
+    ...(botones.length > 30 || imagenes.length > 20 || videos.length > 10 ? { cortado: true } : {}),
+  };
+}
+
+/**
+ * El fondo de una sección de diseño (las páginas de MaKo) como lo ve el visitante: el valor CSS (null: no tiene uno
+ * propio, se ve el de la página) y si lo cambió MaKo (configurar_seccion_landing; fondo:"tema" lo vuelve al del diseño).
+ */
+function fondoDeSeccionParaApi(t: JsonNodo, css: string) {
+  const html = htmlDeDiseno((t.content ?? [])[0] ?? { type: '' });
+  if (!esTarjetaEditable(t) || html === null) return {};
+  return { fondo: fondoVisibleDe(html, css), ...(fondoPuestoDe(html) ? { fondo_cambiado: true } : {}) };
+}
+
+/** Las páginas con sus secciones (también las ocultas) y los bloques de cada una, con topes. `css`: la hoja del diseño. */
+export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: string | null, css = '') {
   let usado = 0;
   let sinTexto = 0;
   const paginas = c.paginas.filter((p) => !paginaId || p.id === paginaId).map((p) => ({
@@ -238,7 +313,7 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         const tx = corto(textoDe(b, ' ').replace(/\s+/g, ' ').trim(), TOPES_ESTRUCTURA.textoBloque);
         if (tx && usado + tx.length > TOPES_ESTRUCTURA.textoTotal) { sinTexto++; return { n: j + 1, tipo: nombreDeBloque(b) }; }
         usado += tx.length;
-        return { n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}) };
+        return { n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}), ...(b.type === NODO.htmlEditable && typeof b.attrs?.html === 'string' ? { elementos: elementosParaApi(b.attrs.html) } : {}) };
       });
       return {
         n: k + 1,
@@ -246,6 +321,8 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         titulo: tituloDeTarjeta(t),
         oculta: a.oculta === true,
         imagen_de_acento: a.diseno && a.diseno !== 'sin' ? String(a.diseno) : null,
+        ...fondoDeSeccionParaApi(t, css),
+        ...iconosParaApi(t),
         bloques,
         ...(hijos.length > bloques.length ? { bloques_afuera: hijos.length - bloques.length } : {}),
       };
@@ -368,21 +445,67 @@ const NOMBRE_ATTR: Readonly<Record<string, string>> = {
 };
 const valorAttr = (v: unknown): string => (v == null || v === '' ? 'nada' : typeof v === 'string' ? corto(v, 40) : String(v));
 
+type EntradaEstiloSeccion = { seccion?: unknown; diseno?: unknown; imagen?: unknown; ancho?: unknown; alineacion?: unknown; alto?: unknown; fondo?: unknown; color?: unknown; degradado?: unknown; notas?: unknown; restablecer?: unknown };
+
+/**
+ * `configurar_seccion_landing` sobre una sección de «Diseño editable» (las páginas de MaKo, 25/10/2026): SÓLO el fondo, en
+ * su HTML (lib/editor-landing/fondo-de-diseno.ts), que es lo que se publica. El estilo de la sección (acento, ancho, alto)
+ * no llega a lo publicado: se dice, en vez de guardarlo en vano. `fondo: "tema"` o `restablecer` vuelven al del diseño.
+ */
+function planFondoDeSeccionDeDiseno(c: LandingContenido, u: SeccionUbicada, e: EntradaEstiloSeccion, css: string): PlanContenido | FallaPlan {
+  const otros = (['diseno', 'imagen', 'ancho', 'alineacion', 'alto', 'notas'] as const).filter((k) => e[k] !== undefined);
+  if (otros.length) return { error: `En una sección de diseño (las páginas de MaKo) sólo se cambia el fondo; ${otros.join(', ')} es parte del diseño y se cambia en «Código», en el editor.` };
+  const color = typeof e.color === 'string' ? e.color.trim().toLowerCase() : null;
+  if (color !== null && !esHex(color)) return { error: 'El color va como #rrggbb (por ejemplo, #1f6feb).' };
+  const degradado = typeof e.degradado === 'string' ? e.degradado : null;
+  if (degradado !== null && !Object.prototype.hasOwnProperty.call(DEGRADADOS, degradado)) return { error: `El degradado va: ${Object.keys(DEGRADADOS).join(', ')}.` };
+  const pedido = e.restablecer === true ? 'tema' : e.fondo === undefined ? (color ? 'color' : degradado ? 'degradado' : undefined) : e.fondo;
+  if (pedido === undefined) return { error: 'Falta el fondo: un color (#rrggbb), un degradado, o fondo "tema" para volver al del diseño.', faltan: ['color'] };
+  if (pedido === 'acento') return { error: 'Una sección de diseño no toma el color de acento del tema: pasa un color (#rrggbb) o un degradado.' };
+  if (!enLista(FONDOS_TARJETA, pedido)) return { error: `El fondo va: ${FONDOS_TARJETA.join(', ')}.` };
+  let fondo: FondoDeDiseno | null = null;
+  if (pedido === 'color') {
+    if (!color) return { error: 'Un fondo de color necesita el color (#rrggbb).', faltan: ['color'] };
+    fondo = { color };
+  } else if (pedido === 'degradado') {
+    if (!degradado) return { error: 'Un fondo degradado necesita cuál.', faltan: ['degradado'] };
+    fondo = { degradado: degradado as keyof typeof DEGRADADOS };
+  }
+  const ds = disenosDe(c, u);
+  const antes = ds[0] ? fondoVisibleDe(ds[0].html, css) : null;
+  const r = conDisenos(c, ds.map((d) => ({ d, cambio: (html: string) => conFondoDeDiseno(html, fondo, css) })));
+  if ('error' in r) return r;
+  if (JSON.stringify(r.contenido) === JSON.stringify(c)) return { error: `La sección «${tituloSeccion(u.tarjeta)}» ya tiene ese fondo.`, yaEstaba: true };
+  if (r.despues.some((t) => (t.content ?? []).some((h) => String(h.attrs?.html ?? '').length > TOPES.htmlEditable))) {
+    return { error: 'La sección es demasiado grande para ponerle un fondo: achícala en «Código», en el editor.' };
+  }
+  const frena = frenaElSaneo(r.antes, r.despues);
+  if (frena) return frena;
+  const nuevo = !fondo ? 'el del diseño' : 'degradado' in fondo ? `degradado ${fondo.degradado}` : valorDeFondo(fondo);
+  return {
+    contenido: r.contenido,
+    resumen: `Cambiar el fondo de la sección de diseño «${corto(tituloSeccion(u.tarjeta))}»: ${antes ?? 'el de la página'} → ${nuevo}. ${NOTA_VERSION}`,
+    datos: { seccion: String(attrsDe(u.tarjeta).id ?? '') },
+  };
+}
+
 /**
  * `configurar_seccion_landing`: el estilo de una sección (el panel «Estilo» del editor): la imagen de acento y
  * dónde va, el ancho, la alineación, el alto, el fondo (del tema, un color, un degradado o el de acento), las
  * notas del orador y «Restablecer estilo». `imagen`: la URL ya en la biblioteca de la landing; '' la quita.
  * `imagenPendiente`: preparar() con una imagen de afuera que se copia al confirmar (todavía no hay URL nuestra).
+ * Una sección de «Diseño editable» va por planFondoDeSeccionDeDiseno (`css`: la hoja del diseño).
  */
 export function planConfigurarSeccion(
   c: LandingContenido,
-  e: { seccion?: unknown; diseno?: unknown; imagen?: unknown; ancho?: unknown; alineacion?: unknown; alto?: unknown; fondo?: unknown; color?: unknown; degradado?: unknown; notas?: unknown; restablecer?: unknown },
-  op: { imagenPendiente?: boolean } = {},
+  e: EntradaEstiloSeccion,
+  op: { imagenPendiente?: boolean; css?: string } = {},
 ): PlanContenido | FallaPlan {
   const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
   if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
   const u = ubicarSeccion(c, id);
   if (!u) return noEstaSeccion(c, id);
+  if (esTarjetaEditable(u.tarjeta)) return planFondoDeSeccionDeDiseno(c, u, e, op.css ?? '');
   // Con los valores de fábrica debajo: lo guardado antes de un atributo nuevo no lo trae, y «ya está así» se mide igual.
   const a: Record<string, unknown> = { ...ATTRS_TARJETA_DEFAULT, ...attrsDe(u.tarjeta) };
   const patch: Record<string, unknown> = {};
@@ -733,10 +856,14 @@ export function planPonerEnlace(c: LandingContenido, e: { enlace?: unknown; secc
   const enlace = typeof e.enlace === 'string' ? e.enlace.trim() : '';
   if (!enlace) return { error: 'Falta el enlace.', faltan: ['enlace'] };
   const em = enlaceEmbebible(enlace);
-  if (!em) return { error: TEXTO_PROVEEDORES };
   const seccion = typeof e.seccion === 'string' && e.seccion.trim() ? e.seccion.trim() : null;
   const u = seccion ? ubicarSeccion(c, seccion) : null;
   if (seccion && !u) return noEstaSeccion(c, seccion);
+  // Un archivo de video (.mp4…) sólo va en el `<video>` de una sección de diseño (25/10/2026).
+  if (!em) {
+    const archivo = videoDirecto(enlace);
+    return archivo ? planVideoDeDiseno(c, u, archivo, false) : { error: TEXTO_PROVEEDORES };
+  }
   const clase = (n: JsonNodo) => claseDeProveedor(attrsInsertado(attrsDe(n)).proveedor);
   const vacio = (n: JsonNodo) => !attrsInsertado(attrsDe(n)).src;
   const insertados = buscarNodos(c, (n) => n.type === NODO.insertado, u);
@@ -745,6 +872,11 @@ export function planPonerEnlace(c: LandingContenido, e: { enlace?: unknown; secc
   const vacios = deEsaClase.filter((x) => vacio(x.nodo));
   const que = em.clase === 'agenda' ? 'agenda' : 'video';
   const elegido = vacios.length === 1 ? vacios[0] : !vacios.length && deEsaClase.length === 1 ? deEsaClase[0] : null;
+  // Sin bloque de esa clase, el reproductor de una sección de diseño (las páginas de MaKo: el VSL de Panda, 25/10/2026).
+  if (!deEsaClase.length && disenosDe(c, u).length) {
+    const delDiseno = planVideoDeDiseno(c, u, em.src, true, em.clase);
+    if (!('error' in delDiseno) || delDiseno.disponibles) return delDiseno;
+  }
   if (!elegido) {
     if (!deEsaClase.length) return { error: `${u ? 'Esa sección' : 'La landing'} no tiene un hueco de ${que}: se agrega con agregar_bloque_landing (bloque ${que}).` };
     const lista = (vacios.length ? vacios : deEsaClase).map((x) => `${String(attrsDe(x.tarjeta).id ?? '')}: ${tituloSeccion(x.tarjeta)}`);
@@ -761,6 +893,199 @@ export function planPonerEnlace(c: LandingContenido, e: { enlace?: unknown; secc
     contenido: conSeccion(c, { p: elegido.p, i: elegido.i, tarjeta: elegido.tarjeta }, nueva),
     resumen: `${antes.src ? 'Reemplazar' : 'Poner'} el ${que} (${proveedor}) en la sección «${corto(tituloSeccion(elegido.tarjeta))}»${antes.src ? `: hoy muestra ${corto(antes.src, 70)}` : ''}. ${NOTA_VERSION}`,
     datos: { seccion: String(attrsDe(elegido.tarjeta).id ?? ''), proveedor: em.proveedor },
+  };
+}
+
+/**
+ * El video de una sección de diseño: un reproductor (`iframe`) recibe el de otro reproductor de la misma clase (video o
+ * agenda); un `<video>`, otro archivo. Con dos posibles, pide la sección; si la sección tiene dos, el último aviso lo dice.
+ */
+function planVideoDeDiseno(c: LandingContenido, u: SeccionUbicada | null, src: string, esReproductor: boolean, clase?: string | null): PlanContenido | FallaPlan {
+  const que = clase === 'agenda' ? 'agenda' : 'video';
+  const hallados = disenosDe(c, u).flatMap((d) => elementosDeHtmlEditable(d.html)
+    .filter((x): x is VideoDeDiseno => x.tipo === 'video' && x.reproductor === esReproductor
+      && (!esReproductor || (enlaceEmbebible(x.src)?.clase ?? 'video') === (clase ?? 'video')))
+    .map((x) => ({ d, x })));
+  if (!hallados.length) {
+    return { error: esReproductor
+      ? `${u ? 'Esa sección' : 'La landing'} no tiene un hueco de ${que}: se agrega con agregar_bloque_landing (bloque ${que}).`
+      : `${u ? 'Esa sección' : 'La landing'} no tiene un video de archivo para cambiar (un reproductor se cambia con el enlace de YouTube, Vimeo o Panda).` };
+  }
+  if (hallados.length > 1) {
+    return { error: `Hay ${hallados.length} lugares para un ${que}: pasa la sección («seccion»).`,
+      disponibles: [...new Set(hallados.map((h) => `${String(attrsDe(h.d.tarjeta).id ?? '')}: ${tituloSeccion(h.d.tarjeta)}`))].slice(0, 20) };
+  }
+  const { d, x } = hallados[0];
+  if (x.src === src) return { error: `Ese ${que} ya tiene ese enlace.`, yaEstaba: true };
+  const r = conDisenos(c, [{ d, cambio: (html: string) => conVideoDeDiseno(html, x.n, src, esReproductor) }]);
+  if ('error' in r) return r;
+  const frena = frenaElSaneo(r.antes, r.despues);
+  if (frena) return frena;
+  return {
+    contenido: r.contenido,
+    resumen: `Reemplazar el ${que} de la sección «${corto(tituloSeccion(d.tarjeta))}»: hoy muestra ${corto(x.src, 70)}. ${NOTA_VERSION}`,
+    datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') },
+  };
+}
+
+/**
+ * `cambiar_imagen_landing` (25/10/2026): UNA imagen de una sección de diseño, nombrada por su dirección de hoy (o un
+ * pedazo, como «caso-martin.jpg») o por su texto alternativo. `imagenPendiente`: preparar() con una imagen de afuera, que
+ * se copia a la biblioteca de la landing al confirmar (todavía no hay URL nuestra).
+ */
+export function planCambiarImagen(c: LandingContenido, e: { imagen?: unknown; actual?: unknown; seccion?: unknown }, op: { imagenPendiente?: boolean } = {}): PlanContenido | FallaPlan {
+  const actual = typeof e.actual === 'string' ? e.actual.trim() : '';
+  if (!actual) return { error: 'Falta cuál imagen: su dirección de hoy (o el final, como «caso-martin.jpg») o su texto alternativo.', faltan: ['actual'] };
+  if (typeof e.imagen !== 'string' || !e.imagen.trim()) return { error: 'Falta la imagen nueva.', faltan: ['imagen'] };
+  const seccion = typeof e.seccion === 'string' && e.seccion.trim() ? e.seccion.trim() : null;
+  const u = seccion ? ubicarSeccion(c, seccion) : null;
+  if (seccion && !u) return noEstaSeccion(c, seccion);
+  const todas = disenosDe(c, u).flatMap((d) => elementosDeHtmlEditable(d.html).filter((x): x is ImagenDeDiseno => x.tipo === 'imagen').map((x) => ({ d, x })));
+  const hallados = todas.filter(({ x }) => x.src.includes(actual) || (x.alt ?? '') === actual);
+  const lista = () => [...new Set(todas.map(({ x }) => x.src.split('/').pop() ?? x.src))].slice(0, 20);
+  if (!hallados.length) return { error: `No encontré una imagen «${corto(actual)}» en ${u ? 'esa sección' : 'las secciones de diseño de la landing'}.`, disponibles: lista() };
+  if (hallados.length > 1) return { error: `Hay ${hallados.length} imágenes con «${corto(actual)}»: pasa más de su dirección o la sección («seccion»).`, disponibles: lista() };
+  const { d, x } = hallados[0];
+  const donde = `la sección «${corto(tituloSeccion(d.tarjeta))}»`;
+  if (op.imagenPendiente) {
+    return { contenido: c, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde} por la de ese enlace (se copia a la biblioteca de la landing al confirmar). ${NOTA_VERSION}`, datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') } };
+  }
+  const src = srcImagen(e.imagen);
+  if (!src) return { error: 'Esa imagen no está en la biblioteca de la landing.' };
+  if (src === x.src) return { error: 'Esa imagen ya es esa.', yaEstaba: true };
+  const r = conDisenos(c, [{ d, cambio: (html: string) => conImagenDeDiseno(html, x.n, src) }]);
+  if ('error' in r) return r;
+  const frena = frenaElSaneo(r.antes, r.despues);
+  if (frena) return frena;
+  return { contenido: r.contenido, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde}. ${NOTA_VERSION}`, datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') } };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los íconos (25/10/2026): los `<svg>` de un diseño y los de los ítems de un «Diseño optimizado»
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un ícono de una sección: su número en ella, su nombre en la biblioteca (null: uno que trajo el diseño) y el texto junto. */
+type IconoDeSeccion = { n: number; nombre: string | null; junto: string };
+
+/** ¿Un «Diseño optimizado» muestra los íconos de sus ítems? Apagados, cambiar uno no se vería: no se ofrece. */
+const muestraIconos = (n: JsonNodo): boolean => {
+  const a = attrsOptimizado(n.attrs);
+  return a.mostrarIconos || CON_ICONOS.includes(a.variante);
+};
+
+/**
+ * Los íconos de una sección en el orden en que se ven: los `<svg>` de sus «Diseño editable» (las páginas de MaKo) y los de
+ * los ítems de sus «Diseño optimizado» que muestran íconos (también los que todavía no tienen uno).
+ */
+function iconosDeSeccion(t: JsonNodo): IconoDeSeccion[] {
+  const out: IconoDeSeccion[] = [];
+  const recorrer = (nodo: JsonNodo, muestra: boolean) => {
+    const html = htmlDeDiseno(nodo);
+    if (html !== null) {
+      for (const i of iconosDeHtmlEditable(html)) out.push({ n: out.length + 1, nombre: i.nombre, junto: i.junto });
+      return;
+    }
+    if (nodo.type === NODO.optimizadoItem) {
+      if (muestra) out.push({ n: out.length + 1, nombre: attrsOptimizadoItem(nodo.attrs).icono, junto: corto(textoDe(nodo, ' ').replace(/\s+/g, ' ').trim(), 50) });
+      return;
+    }
+    const m = nodo.type === NODO.optimizado ? muestraIconos(nodo) : muestra;
+    (nodo.content ?? []).forEach((h) => recorrer(h, m));
+  };
+  recorrer(t, false);
+  return out;
+}
+
+/** La sección con su ícono `n` (el de iconosDeSeccion) cambiado por `nombre` de la biblioteca. */
+function conIconoDeSeccion(t: JsonNodo, n: number, nombre: string): JsonNodo | FallaPlan {
+  let i = 0;
+  let falla: FallaPlan | null = null;
+  const mapear = (nodo: JsonNodo, muestra: boolean): JsonNodo => {
+    if (falla) return nodo;
+    const html = htmlDeDiseno(nodo);
+    if (html !== null) {
+      const cuantos = iconosDeHtmlEditable(html).length;
+      const k = n - i;
+      i += cuantos;
+      if (k < 1 || k > cuantos) return nodo;
+      const r = conIconoDeDiseno(html, k, nombre);
+      if (typeof r !== 'string') { falla = r; return nodo; }
+      return { ...nodo, attrs: { ...nodo.attrs, html: r } };
+    }
+    if (nodo.type === NODO.optimizadoItem) {
+      if (!muestra) return nodo;
+      i++;
+      return i === n ? { ...nodo, attrs: { ...nodo.attrs, icono: nombre } } : nodo;
+    }
+    const m = nodo.type === NODO.optimizado ? muestraIconos(nodo) : muestra;
+    return nodo.content ? { ...nodo, content: nodo.content.map((h) => mapear(h, m)) } : nodo;
+  };
+  const nueva = mapear(t, false);
+  return falla ?? nueva;
+}
+
+/** Los íconos de una sección para ver_secciones_landing (con tope). */
+function iconosParaApi(t: JsonNodo) {
+  const iconos = iconosDeSeccion(t);
+  if (!iconos.length) return {};
+  return {
+    iconos: iconos.slice(0, 40).map((x) => ({ n: x.n, icono: x.nombre, ...(x.junto ? { junto_a: x.junto } : {}) })),
+    ...(iconos.length > 40 ? { iconos_afuera: iconos.length - 40 } : {}),
+  };
+}
+
+/** `ver_iconos_landing`: los íconos de la biblioteca (los del selector del editor), buscados por nombre o etiqueta. */
+export function iconosDeBibliotecaParaApi(buscar: unknown) {
+  const consulta = typeof buscar === 'string' ? buscar.trim().slice(0, 60) : '';
+  const nombres = buscarIconos(consulta, 60);
+  return {
+    iconos: nombres.map((n) => ({ nombre: n, etiquetas: (ICONOS[n]?.tags ?? []).slice(0, 6) })),
+    ...(nombres.length ? {} : { nota: `Ningún ícono con «${consulta}»: prueba otra palabra (en español, sin acentos).` }),
+  };
+}
+
+/**
+ * `cambiar_icono_landing`: UN ícono de una sección por otro de la biblioteca, nombrado por su número (`n`, de
+ * ver_secciones_landing → iconos) o por el de hoy (`actual`: su nombre o el texto junto a él). En un diseño, el `<svg>` de
+ * la casa con el tamaño, la clase y el `style` (el color) del que estaba: lo mismo que el control «Ícono» del editor.
+ */
+export function planCambiarIcono(c: LandingContenido, e: { seccion?: unknown; icono?: unknown; n?: unknown; actual?: unknown }): PlanContenido | FallaPlan {
+  const nombre = typeof e.icono === 'string' ? e.icono.trim().toLowerCase() : '';
+  if (!nombre) return { error: 'Falta el ícono nuevo: su nombre en la biblioteca (ver_iconos_landing).', faltan: ['icono'] };
+  if (!existeIcono(nombre)) return { error: `No hay un ícono «${nombre}» en la biblioteca (búscalo con ver_iconos_landing).`, disponibles: buscarIconos(nombre, 12) };
+  const id = typeof e.seccion === 'string' ? e.seccion.trim() : '';
+  if (!id) return { error: 'Falta la sección.', faltan: ['seccion'] };
+  const u = ubicarSeccion(c, id);
+  if (!u) return noEstaSeccion(c, id);
+  const iconos = iconosDeSeccion(u.tarjeta);
+  if (!iconos.length) return { error: `La sección «${tituloSeccion(u.tarjeta)}» no tiene íconos que se vean.` };
+  const lista = () => iconos.slice(0, 30).map((x) => `${x.n}: ${x.nombre ?? 'del diseño'}${x.junto ? ` — ${x.junto}` : ''}`);
+  let n: number;
+  if (e.n !== undefined) {
+    n = Number(e.n);
+    if (!Number.isInteger(n) || n < 1 || n > iconos.length) return { error: `Esa sección tiene ${iconos.length} íconos: n va de 1 a ${iconos.length}.`, disponibles: lista() };
+  } else if (typeof e.actual === 'string' && e.actual.trim()) {
+    const act = e.actual.trim().toLowerCase();
+    const hallados = iconos.filter((x) => x.nombre === act || (!!x.junto && x.junto.toLowerCase().includes(act)));
+    if (hallados.length !== 1) {
+      return { error: hallados.length ? `Hay ${hallados.length} íconos «${e.actual.trim()}» en esa sección: pasa su número (n).` : `No encontré el ícono «${e.actual.trim()}» en esa sección.`, disponibles: lista() };
+    }
+    n = hallados[0].n;
+  } else return { error: 'Falta cuál ícono: su número (n, de ver_secciones_landing) o el de hoy (actual: su nombre o el texto junto a él).', faltan: ['n'] };
+  const viejo = iconos[n - 1];
+  if (viejo.nombre === nombre) return { error: `Ese ícono ya es «${nombre}».`, yaEstaba: true };
+  const nueva = conIconoDeSeccion(u.tarjeta, n, nombre);
+  if ('error' in nueva) return nueva;
+  if ((nueva.content ?? []).some((h) => String(h.attrs?.html ?? '').length > TOPES.htmlEditable)) {
+    return { error: 'La sección es demasiado grande para cambiarle un ícono: achícala en «Código», en el editor.' };
+  }
+  const frena = frenaElSaneo([u.tarjeta], [nueva]);
+  if (frena) return frena;
+  const junto = viejo.junto ? ` (junto a «${viejo.junto}»)` : '';
+  return {
+    contenido: conSeccion(c, u, nueva),
+    resumen: `Cambiar el ícono ${n} de la sección «${corto(tituloSeccion(u.tarjeta))}»${junto}: ${viejo.nombre ?? 'el del diseño'} → ${nombre}. ${NOTA_VERSION}`,
+    datos: { seccion: id, n, icono: nombre },
   };
 }
 
@@ -881,10 +1206,25 @@ function seccionesCambiadas(a: LandingContenido, b: LandingContenido): { antes: 
  * `configurar_boton_landing`: el texto, el destino, el estilo y si abre en otra pestaña de UN botón, que se
  * nombra por su texto de hoy. El cobro no va acá: cobrar_producto_landing y quitar_cobro_landing.
  */
-export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown }): PlanContenido | FallaPlan {
+export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; seccion?: unknown; todos?: unknown }): PlanContenido | FallaPlan {
   const actual = typeof e.boton === 'string' ? e.boton.trim() : '';
   if (!actual) return { error: 'Falta el botón (su texto de hoy).', faltan: ['boton'] };
+  // Los botones de un «Diseño editable» (25/10/2026: las páginas de MaKo son todas de diseño). Si el texto está SÓLO en
+  // diseños, van por acá; si está en los dos, se pide la sección; si está sólo en bloques, todo sigue como siempre.
+  const seccion = typeof e.seccion === 'string' && e.seccion.trim() ? e.seccion.trim() : null;
+  const u = seccion ? ubicarSeccion(c, seccion) : null;
+  if (seccion && !u) return noEstaSeccion(c, seccion);
+  const enDisenos = disenosDe(c, u).flatMap((d) => elementosDeHtmlEditable(d.html)
+    .filter((x): x is EnlaceDeDiseno => x.tipo === 'enlace' && mismoTexto(x.texto, actual)).map((x) => ({ d, x })));
+  const enBloques = botonesDeLanding(c).filter((b) => mismoTexto(b.texto, actual));
+  if (enDisenos.length && (!enBloques.length || u)) return planBotonDeDiseno(c, enDisenos, actual, e);
+  if (enDisenos.length && enBloques.length) return { error: `Hay botones «${actual}» en secciones de diseño y en bloques: pasa la sección («seccion»).` };
   const elegido = elegirBoton(botonesDeLanding(c), actual);
+  if ('error' in elegido && !enBloques.length) {
+    const deDisenos = disenosDe(c, null).flatMap((d) => elementosDeHtmlEditable(d.html).filter((x) => x.tipo === 'enlace').map((x) => (x as EnlaceDeDiseno).texto));
+    const deBloques = Array.isArray(elegido.disponibles) ? elegido.disponibles.map(String) : [];
+    return { ...elegido, disponibles: [...new Set([...deBloques, ...deDisenos].filter(Boolean))].slice(0, 30) };
+  }
   if ('error' in elegido) return elegido;
   const b = elegido.boton;
   const patchAttrs: Record<string, unknown> = {};
@@ -920,6 +1260,53 @@ export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; t
   const frena = frenaElSaneo(s.antes, s.despues);
   if (frena) return frena;
   return { contenido, resumen: `Cambiar el botón «${b.texto}» (${b.pagina}): ${partes.join('; ')}. ${NOTA_VERSION}`, datos: { boton: nuevoTexto ?? b.texto } };
+}
+
+/** A dónde puede llevar un botón de un diseño: lo de un bloque, o un ancla propia del diseño (`#beta`). */
+const hrefDeDiseno = (d: string): string | null => hrefPermitido(d) ?? (/^#[A-Za-z][\w-]{0,60}$/.test(d) ? d : null);
+
+/** `configurar_boton_landing` sobre los botones de un «Diseño editable»: el destino, la pestaña nueva y el texto. */
+function planBotonDeDiseno(
+  c: LandingContenido,
+  hallados: ReadonlyArray<{ d: DisenoUbicado; x: EnlaceDeDiseno }>,
+  actual: string,
+  e: { texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; todos?: unknown },
+): PlanContenido | FallaPlan {
+  if (e.estilo !== undefined) return { error: 'El estilo de un botón de una sección de diseño es parte del diseño: se cambia en «Código», en el editor.' };
+  if (hallados.length > 1 && e.todos !== true) {
+    return {
+      error: `Hay ${hallados.length} botones «${actual}»: pasa la sección («seccion») o todos:true para cambiarlos todos.`,
+      disponibles: [...new Set(hallados.map((h) => `${String(attrsDe(h.d.tarjeta).id ?? '')}: ${tituloSeccion(h.d.tarjeta)}`))].slice(0, 20),
+    };
+  }
+  const cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string } = {};
+  const partes: string[] = [];
+  if (e.destino !== undefined) {
+    const d = typeof e.destino === 'string' ? e.destino.trim() : '';
+    if (/^pago:/i.test(d)) return { error: 'Un botón de una sección de diseño no cobra: para cobrar, un «Botón de pago» (agregar_bloque_landing) y cobrar_producto_landing.' };
+    const href = d ? hrefDeDiseno(d) : null;
+    if (d && !href) return { error: 'Ese destino no se puede usar: un enlace https, una sección (#t-<id>), un ancla del diseño (#nombre), mailto: o tel:.' };
+    cambio.destino = href;
+    partes.push(`destino: ${href ?? 'ninguno'}`);
+  }
+  if (typeof e.nuevaPestana === 'boolean') {
+    cambio.nuevaPestana = e.nuevaPestana;
+    partes.push(e.nuevaPestana ? 'abre en otra pestaña' : 'abre en la misma pestaña');
+  }
+  if (e.texto !== undefined) {
+    const t = typeof e.texto === 'string' ? e.texto.trim().slice(0, 120) : '';
+    if (!t) return { error: 'El texto del botón no puede quedar vacío.' };
+    cambio.texto = t;
+    partes.push(`texto: «${actual}» → «${t}»`);
+  }
+  if (!partes.length) return { error: 'Falta qué cambiar: texto, destino o nuevaPestana.' };
+  const r = conDisenos(c, hallados.map(({ d, x }) => ({ d, cambio: (html: string) => conEnlaceDeDiseno(html, x.n, cambio) })));
+  if ('error' in r) return r;
+  if (JSON.stringify(r.contenido) === JSON.stringify(c)) return { error: `El botón «${actual}» ya está así.`, yaEstaba: true };
+  const frena = frenaElSaneo(r.antes, r.despues);
+  if (frena) return frena;
+  const cuantos = hallados.length > 1 ? ` (${hallados.length} botones)` : '';
+  return { contenido: r.contenido, resumen: `Cambiar el botón «${actual}»${cuantos} de la sección de diseño: ${partes.join('; ')}. ${NOTA_VERSION}`, datos: { boton: cambio.texto ?? actual, botones: hallados.length } };
 }
 
 /** `quitar_cobro_landing`: el botón deja de cobrar (queda sin destino, como «Quitar cobro» del editor: `href: '#'`). */

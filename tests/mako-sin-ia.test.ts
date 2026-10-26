@@ -99,7 +99,9 @@ test('¿falta la IA del negocio?: el texto de la cascada, o cero cuentas propias
   assert.ok(AVISO_SIN_IA.length <= 100, AVISO_SIN_IA);
   // Nombra las IA que puede conectar (su Claude, su GPT, su Gemini: el Cerebro, 22/10/2026), nunca «la gratis».
   assert.doesNotMatch(AVISO_SIN_IA, /api|key|gratis|groq|proveedor|vos|tenés|conectá/i);
-  assert.match(AVISO_SIN_IA, /conecta tu Claude, tu GPT o tu Gemini/);
+  // Sin Gemini desde el 25/10/2026 (Martín: «todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT»).
+  assert.match(AVISO_SIN_IA, /conecta tu Claude o tu GPT/);
+  assert.doesNotMatch(AVISO_SIN_IA, /gemini/i);
   assert.equal(SERVICIO_IA, 'anthropic', 'el modal de su Claude, el mismo que manda WhatsApp (`linkKeysIA`; IA9: antes, Gemini)');
   assert.equal(servicioDeLink(`/integraciones?abrir=${SERVICIO_IA}`), SERVICIO_IA, 'es un modal que se abre suelto en cualquier tab');
   assert.equal(botonConectar(SERVICIO_IA), 'Conectar tu IA');

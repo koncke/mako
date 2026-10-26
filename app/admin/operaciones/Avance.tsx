@@ -22,7 +22,7 @@ import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
 import { listasEnRenglones } from '@/lib/respuesta-como-claude';
-import { CUERPO_PLEGABLE, CUERPO_PLEGABLE_EN_BLOQUE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
+import { CUERPO_PLEGABLE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 
@@ -32,7 +32,7 @@ import type { TurnoChat } from '@/lib/operaciones-reglas';
  * Se importa `nav.ts` acá y no se trae del servidor: es una tabla pura que el Sidebar ya lleva al navegador, y así el link
  * anda igual en la computadora y en el teléfono (tests/centro-revisar.test.ts vigila que el orden sea el mismo).
  */
-const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
+export const TABS_DEL_MENU = [...TODOS_LOS_ITEMS, ...MAKO_NAV, ...ADMIN_NAV];
 
 /** El chat del mensaje: su título trae su tab, y su clave y su sesión arman el link de «Revisar». */
 export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
@@ -41,11 +41,8 @@ export type ChatDelYaEsta = Pick<ChatCentro, 'clave' | 'sesion' | 'titulo'>;
 const estadoDe = (x: TareaDelChat) => (x.ya && x.estado === 'creada' ? 'Marcándola hecha' : ROTULO_TAREA[x.estado]);
 
 /** El «Ya está» de un chat, en su conversación: qué cambió, dónde revisarlo, su tarea del Plan y responder sobre esto. */
-export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto, enBloque = false }: {
+export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaVisto }: {
   t: TurnoChat; chat?: ChatDelYaEsta; tareas?: readonly TareaDelChat[];
-  /** Adentro del bloque de arriba de la caja (BloqueCompletado.tsx), que ya dice «Completado» y lleva su «Ya lo vi»: sin la
-   *  cabecera, y más corto (se pliega desde `CUERPO_PLEGABLE_EN_BLOQUE`). */
-  enBloque?: boolean;
   /** El ✓ (18/10/2026, Martín: «no desaparecer hasta que yo le dé un check al mensaje de completado»): hasta qué «Ya está»
    *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
@@ -66,14 +63,14 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
   const titulo = n?.titulo && n.titulo !== 'Ya está' ? n.titulo : 'Completado';
   // Un cuerpo muy largo se pliega SÓLO en su detalle; lo que sigue pendiente y cómo probarlo queda siempre a la vista. Sin esa
   // cola, se pliega entero (antes quedaba abierto, tan largo como fuera).
-  const largo = cuerpo.length > (enBloque ? CUERPO_PLEGABLE_EN_BLOQUE : CUERPO_PLEGABLE);
+  const largo = cuerpo.length > CUERPO_PLEGABLE;
   const plegable = largo ? partirPendiente(cuerpo) ?? { detalle: cuerpo, cola: '' } : null;
   const [abierto, setAbierto] = useState(false);
   const instante = Date.parse(t.at);
   const visto = tieneCheck(instante, yaVisto);
   return (
     <article className="co-ya" aria-label={`Completado: ${titulo}`}>
-      {!enBloque && <header className="co-ya__cab">
+      <header className="co-ya__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
         {/* Hasta que lo toca, el chat dice «Espera tu respuesta» en la lista (lib/centro-chats.ts → esperaCheck). */}
@@ -83,7 +80,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
             <Icon name="check" size={15} />{visto ? 'Visto' : null}
           </button>
         )}
-      </header>}
+      </header>
       {/* Con el formato aplicado (17/10/2026): el título de un chat puede traer **negrita**, `código` o un link. */}
       {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}
       {plegable ? (

@@ -269,27 +269,6 @@ export const DEFS: readonly OperacionDef[] = [
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },
-  // El Leads Scraper (15/10/2026, docs/diseno-leads-scraper.md): la lista aparte de la prospección en
-  // frío. SIN HTTP: son datos de contacto de terceros (decisión de canales de la casa). Buscar y pasar
-  // al CRM son acciones que CUESTAN PLATA o escriben en lote: van por la pantalla /crm/prospectos.
-  {
-    id: 'listar_prospectos', area: 'crm', tipo: 'lectura',
-    titulo: 'Prospectos de la búsqueda en frío',
-    descripcion: 'La lista de prospectos que encontraron las búsquedas en Google Maps o Instagram (la pantalla /crm/prospectos), ordenada por puntaje: nombre, rubro, ciudad, fuente, si se puede contactar (tiene email o teléfono), el puntaje de 0 a 100 con su razón y su estado (por revisar, en el CRM o descartado). Responde «¿cuáles son los mejores prospectos?» o «¿cuántos me quedan por revisar?». No pasa a nadie al CRM: eso se hace en la pantalla.',
-    parametros: [
-      { nombre: 'estado', tipo: 'string', enum: ['nuevo', 'en_crm', 'descartado'], descripcion: 'nuevo (por revisar, el default), en_crm o descartado.' },
-      { nombre: 'minimo', tipo: 'number', entero: true, minimo: 0, maximo: 100, descripcion: 'puntaje mínimo (default 0).' },
-      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos devolver, de mayor a menor puntaje (default 30, máximo 100).' },
-    ],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
-  },
-  {
-    id: 'busquedas_prospeccion', area: 'crm', tipo: 'lectura',
-    titulo: 'Búsquedas de prospectos',
-    descripcion: 'Las últimas 20 búsquedas de prospectos (Google Maps o Instagram): qué se buscó, dónde, cuántos, si sigue corriendo, terminó o falló (con el motivo) y cuántos prospectos nuevos trajo. Responde «¿ya terminó la búsqueda de inmobiliarias?». No requiere parámetros.',
-    parametros: [],
-    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: TAB,
-  },
   {
     id: 'confirmaciones_crm_automatico', area: 'crm', tipo: 'lectura',
     titulo: 'Cambios automáticos por confirmar',
@@ -1310,6 +1289,16 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'el nombre de los leads del grupo que tenían su número por nombre (cada cambio queda en su historial)',
+  },
+  // «Completar desde mi WhatsApp» (25/10/2026): corre en el NAVEGADOR (la extensión lee el WhatsApp Web de la persona), así
+  // que por la API no se dispara. Esto dice qué haría, con los números del grupo, y cómo se dispara.
+  {
+    id: 'ver_completar_desde_whatsapp', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver completar desde mi WhatsApp',
+    descripcion: 'De los traídos de un grupo de WhatsApp: cuántos tienen teléfono y a cuántos se los encuentra por su identificador en el grupo, para completarlos con lo que la persona ya ve en su WhatsApp Web (nombre, empresa, grupos en común). Eso corre en su navegador con la extensión de MaKo: se dispara desde el CRM, tildándolos y tocando Completar, Desde mi WhatsApp. Esta lectura no toca el WhatsApp de nadie. Solo el administrador.',
+    parametros: [{ nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del grupo del que vinieron, como en grupos_whatsapp.' }],
+    // Sólo el chat de MaKo, como grupos_whatsapp y sus vecinas: lo de un grupo de WhatsApp no sale por HTTP.
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
   },
   // ── «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría de la API) ─────────────────────────
   // El interruptor del «⋯» de la columna Ganado (app/crm/curso-al-ganar-actions.ts): prendido, quien pasa a Ganado en

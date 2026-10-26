@@ -312,6 +312,39 @@ export function nombreDeFicha(f: FichaWa): string | null {
   return f.agenda ?? f.empresa ?? f.pushname ?? null;
 }
 
+// ── De qué grupo vino cada lead (25/10/2026, «Completar desde mi WhatsApp» del lote) ──────────────────────────────────────
+// Martín: «Si ya sabe el nombre del grupo debería buscarlos dentro». El nombre queda en el historial del lead al traerlo
+// (`traerDelGrupo`, app/crm/grupo-wa-server.ts): `«Formación de Jan», a «Prospección › Tibio»`.
+
+/** El campo del historial que deja traer a alguien de un grupo. Lo escribe `traerDelGrupo` y lo lee el lote. */
+export const EVENTO_TRAIDO_DE_GRUPO = 'Traído de un grupo de WhatsApp';
+
+/** El grupo de ese evento; null si el texto no tiene esa forma. */
+export function grupoDelEvento(valor: string | null | undefined): string | null {
+  const m = /^«(.+?)», a «/.exec(String(valor ?? ''));
+  const g = m ? m[1].trim().slice(0, 120) : '';
+  return g || null;
+}
+
+/** Un nombre de grupo para comparar: la MISMA regla que la extensión (`asuntoComparable`, extension/wa-fichas-reglas.js). */
+export function asuntoComparable(s: string | null | undefined): string {
+  return String(s ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+}
+
+/** Los grupos de un lote, del que trajo más leads al que menos, a lo sumo `tope`. */
+export function gruposDelLote(valores: ReadonlyArray<string | null | undefined>, tope = 5): string[] {
+  const cuenta = new Map<string, { nombre: string; n: number }>();
+  for (const v of valores) {
+    const g = grupoDelEvento(v);
+    if (!g) continue;
+    const k = asuntoComparable(g);
+    if (!k) continue;
+    const prev = cuenta.get(k);
+    cuenta.set(k, { nombre: prev?.nombre ?? g, n: (prev?.n ?? 0) + 1 });
+  }
+  return [...cuenta.values()].sort((a, b) => b.n - a.n).slice(0, tope).map((x) => x.nombre);
+}
+
 /** El renglón del historial con sus grupos en común (señal de interés). null si no está en ninguno. */
 export function lineaDeGrupos(grupos: readonly string[]): string | null {
   if (!grupos.length) return null;

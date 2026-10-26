@@ -82,9 +82,42 @@ es [hallazgos.md](hallazgos.md).
 - **Una pestaña abierta antes de instalar o actualizar no tiene el content script nuevo.** El worker lo detecta (el
   `sendMessage` falla) y la pantalla dice «Recarga la pestaña de WhatsApp Web». No es un error del código.
 
+## «La extensión no contestó» y los nombres que no salían: lo que se midió en el WhatsApp Web de Martín (25/10/2026, 0.71.0)
+
+**Vive en:** `pestanaDeWhatsappLista` y `reponerPuenteEnMako` (extension/background.js) · `indexarLids`, `buscarGrupos` y
+`fichasDe` (extension/wa-fichas-reglas.js) · el «ping» de extension/wa-fichas.js · el puente (extension/mako-puente.js) ·
+`pedirFichasDeWhatsappWeb` (lib/wa-fichas-cliente.ts) · `pedidosDeFichas` (app/crm/enriquecer-lote-server.ts) ·
+tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
+
+- **Síntoma:** Martín, con la 0.70 y 221 leads de un grupo tildados: «La extensión no contestó», ninguna señal de avance, y la
+  opción «Desde mi WhatsApp» gris con «Instala la extensión de MaKo» sin poder tocarla.
+- **El diagnóstico obvio era el equivocado.** «La lectura tarda o falla» no era: desde su Chrome, un pedido vacío contestó en
+  0,85 s con 27.391 contactos, 293 grupos y 291 listas de participantes. El «no contestó» es el corte de 20 s de la página
+  cuando la pestaña de WhatsApp Web no está, está dormida o tiene el script viejo; eso lo resuelve ahora el worker
+  (`pestanaDeWhatsappLista`: la abre de fondo, la despierta, le pone el script, la recarga, espera la base) y lo cuenta.
+- **Y el problema de fondo era otro, que con la 0.70 no se iba a ver nunca:** MEDIDO en su WhatsApp Web (sólo nombres de
+  campos y cantidades), en sus grupos los 15.244 participantes son `@lid` (ninguno `@c.us`), el 37 % sin `phoneNumber` en su
+  navegador, y el nombre está en **`displayNameLID`** (6.252), casi nunca en `name`/`pushname` (786), que era lo único que
+  leía la 0.70. `lid-pn-mapping` y `lid-display-name-mapping` existen pero estaban VACÍAS; `business-profile` guarda sólo
+  bots (comandos y prompts): no sirve para «Datos de empresa».
+- **Regla:** un participante de grupo se busca por su `@lid`, no por el teléfono. El `@lid` de cada lead lo da Evolution con
+  la lista del grupo (`participantesDelGrupo`, una lectura con caché) y el grupo sale del historial del lead («Traído de un
+  grupo de WhatsApp»). El nombre se lee también de `displayNameLID`.
+- **⚠️ Al actualizar, el puente VIEJO sigue vivo en las pestañas de MaKo abiertas**, sin la extensión detrás, y contestaba
+  «no encontré la extensión» antes que el nuevo. Ahora el nuevo no contesta huérfano (`chrome.runtime.id` vacío) y la página
+  espera 1,5 s a una respuesta viva antes de creerle. Y el worker repone el puente en `onInstalled` sólo donde no corre
+  (`__makoPuenteCargado`): correrlo dos veces en el mismo mundo tira por las declaraciones repetidas.
+- **⚠️ Abrir una segunda pestaña de WhatsApp Web le saca la sesión a la primera** (pasó midiendo: la nuestra cargó los chats
+  y la de Martín quedó con «Usar aquí»). El worker abre WhatsApp Web SÓLO si no hay ninguna pestaña; para medir, leer desde
+  la que ya está (un pedido vacío devuelve el `diagnostico`) y no abrir otra.
+- **Cómo se midió sin sacar datos:** desde la pestaña de MaKo, un pedido de fichas con CERO teléfonos devuelve el
+  `diagnostico` (tablas y cantidades). Los campos de cada tabla se leyeron con `getAll` en modo lectura e imprimiendo sólo
+  las claves; la herramienta del navegador bloquea en la salida los nombres de campo largos que parecen base64.
+
 ## Sin hacer
 
-- **La cobertura real sobre los 221** (cuántos con nombre, con empresa y en 2 o más grupos): sale de la primera corrida de
-  Martín con la 0.70 (lo muestra la pantalla al terminar), junto con el `diagnostico` de qué tablas tiene su WhatsApp Web.
-- **El panel del contacto** (categoría, web, correo, estado, catálogo): ver arriba. Medir antes de construir.
+- **La cobertura real sobre los 221 con la 0.71** (cuántos con nombre por `displayNameLID` y por `@lid`): sale de la primera
+  corrida de Martín con la 0.71 desplegada (la pantalla la dice al terminar).
+- **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
+  antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).

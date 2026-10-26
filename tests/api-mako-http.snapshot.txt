@@ -73,6 +73,7 @@ buscar_tutorial
 calificar_decision_media_buyer
 cambiar_animacion_landing
 cambiar_botones_mensaje
+cambiar_cobro_partners
 cambiar_curso_al_ganar
 cambiar_duracion_video
 cambiar_espera_paso
@@ -80,11 +81,14 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_icono_landing
+cambiar_imagen_landing
 cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
+cambiar_texto_mensaje
 cambiar_texto_video
 cambiar_textos_diseno_imagen
 cambiar_tipo_etapa
@@ -109,6 +113,7 @@ cobrar_producto_landing
 columna_nutricion_crm
 comentar_clase_comunidad
 comentar_post_comunidad
+como_conectar
 comparar_agendas_meta_crm
 compartir_borrador_landing
 conectar_componentes_dashboard
@@ -181,6 +186,7 @@ desvincular_cobro_etapa
 desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
+detener_prueba_ab
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
@@ -224,6 +230,7 @@ eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
 empezar_mi_plan_ya
+empezar_prueba_ab
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -284,6 +291,7 @@ guardar_tema_landing
 guardar_termino_glosario
 guardar_version_landing
 habilitar_acceso_curso
+hacerme_partner
 hooks_al_video_media_buyer
 huecos_secuencias
 ignorar_datos_sin_marcar
@@ -398,6 +406,7 @@ listar_temas_landing
 listar_trabajos_flow
 listar_triggers_email
 listar_versiones_landing
+listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
@@ -614,12 +623,15 @@ ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
 ver_horario_envio
+ver_ia_del_negocio
+ver_iconos_landing
 ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan
+ver_mi_programa_partners
 ver_mi_prueba
 ver_miembro_comunidad
 ver_moneda_negocio
@@ -639,6 +651,7 @@ ver_propuesta_accion
 ver_proximas_recurrentes
 ver_proyecto_plan
 ver_proyecto_video
+ver_prueba_ab
 ver_publico_conjunto_meta
 ver_puente_flow
 ver_ranking_comunidad

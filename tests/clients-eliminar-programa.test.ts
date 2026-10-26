@@ -18,7 +18,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { deshacerValido, pasoParaEliminar, preguntaAlEliminar } from '../app/customer-success/eliminar-programa';
-import { itemsPrograma, opcionesPrograma } from '../app/clients/menu-contextual-clients';
+import { itemsPrograma, opcionesPrograma } from '../app/classroom/menu-contextual-clients';
 
 const leer = (p: string) => readFileSync(join(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -85,7 +85,7 @@ test('la action decide con la regla y devuelve el «Deshacer»; restaurar valida
 });
 
 test('la cabecera: pregunta con la cuenta, navega DURO con el ?ws= y el «Deshacer» cruza la recarga', () => {
-  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const shell = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const elim = tramo(shell, 'const eliminar = async (p: ProgramaClients) => {', 'const elegirEnPrograma = ');
   assert.ok(antes(elim, 'previaEliminarServicioAction(p.id)', 'eliminarServicioAction(p.id)'), 'elimina sin contar a los alumnos');
   assert.match(elim, /if \(q && !\(await confirm\(q\.texto, \{ title: q\.titulo, confirmLabel: 'Eliminar' \}\)\)\) return;/);

@@ -48,7 +48,7 @@ export async function vistaDeOtro(): Promise<VistaDeOtro | null> {
     clienteWs,
     clienteNombre,
     modoAgencia: !esSuperAdmin,
-    salida: agencia ? `/partners?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
+    salida: agencia ? `/agency?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
     agencia,
   };
 }

@@ -9,7 +9,7 @@
 
 import { NextResponse } from 'next/server';
 import { personaDelRequest } from '@/lib/mako-turno-app';
-import { listarDispositivos } from '@/lib/ia-pc';
+import { listarDispositivos, telefonoListoParaElGrupo } from '@/lib/ia-pc';
 import { CLAVE_MODELO_PC, agruparPorCuenta, cuentasParaVer, modeloPc } from '@/lib/ia-pc-reglas';
 import { getSesionAdmin } from '@/lib/auth';
 import { puedeOperar } from '@/lib/operaciones-reglas';
@@ -41,8 +41,13 @@ export async function GET() {
   const claves = esAdmin ? await estadoDeSusClaves(persona.ws) : undefined;
   // A quien no es admin, la clave no se le ofrece: «Pídele a <admin> que conecte la IA del negocio» (IA4).
   const admin = esAdmin ? undefined : await nombreAdminDelNegocio(persona.ws).catch(() => '');
+  // EL GRUPO DE WHATSAPP A SU COMPUTADORA (25/10/2026): la puerta reconoce a quien escribe por el teléfono de su perfil. Con
+  // una computadora suya y sin un teléfono que la puerta acepte, su grupo nunca contesta con ella y nadie se entera:
+  // `grupoSinTelefono` lo dice. Sin poder leerlo (null), no se dice nada.
+  const grupo = pcs.some((d) => d.esMia) ? await telefonoListoParaElGrupo(persona.ws, persona.actor).catch(() => null) : null;
   return NextResponse.json({
     ok: true, esAdmin, modelo: modeloPc(modelo), ...(esAdmin ? { claves } : { admin }),
+    ...(grupo === false ? { grupoSinTelefono: true } : {}),
     // Las cuentas con sus dispositivos (23/10/2026: «Cuenta 1», «Cuenta 2», y adentro sus dispositivos). Se agrupa ACÁ, con los
     // emails enteros, y sale con la misma regla del enmascarado.
     grupos: agruparPorCuenta(pcs.map((d) => ({

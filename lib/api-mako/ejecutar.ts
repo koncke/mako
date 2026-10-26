@@ -27,7 +27,8 @@ import { runnerDe } from './runners';
 import { validarInput } from './validar';
 import { vistaDe } from './vista';
 import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA } from './acciones';
-import { esAccion, esControl, esLectura, type Ctx, type Resultado } from './tipos';
+import { esAccion, esControl, esLectura, type Ctx, type Falta, type Resultado } from './tipos';
+import { conexion } from '@/lib/conexiones-catalogo';
 import { sanearBloque } from '@/lib/chat-bloques';
 
 export { vistaDe };
@@ -78,8 +79,10 @@ export async function ejecutarOperacion(
         // Lo que el modelo no puede ver (la agenda de Google) va a la persona por el canal
         // del código, sale bien o mal la lectura. Sin canal (HTTP), se descarta.
         if (typeof cruda !== 'string' && cruda.paraLaPersona) ctx.aPersona?.(cruda.paraLaPersona);
+        // Lo que le falta conectar, por el mismo canal del código (`Falta`): salga bien o mal la lectura.
+        if (typeof cruda !== 'string' && cruda.falta) ctx.aFalta?.(cruda.falta);
         if (typeof cruda === 'string') return { ok: true, tipo: 'lectura', salida: def.salida, resultado: cruda };
-        if (cruda.isError) return { ok: false, status: 400, error: cruda.content };
+        if (cruda.isError) return { ok: false, status: 400, error: cruda.content, ...(cruda.falta ? { falta: cruda.falta } : {}) };
         // Lo que la lectura DIBUJA (lib/chat-bloques.ts) va a la pantalla por el canal del código, saneado; el modelo
         // recibe sólo `content`. Sin `aDibujar` (WhatsApp, HTTP) se descarta. `siSeDibuja` va sólo si se dibujó: un saneo
         // que lo descarta o el tope de bloques del turno (`aDibujar` da `false`) no se lo dicen al modelo.
@@ -122,7 +125,8 @@ export async function ejecutarOperacion(
       if (!run.preparar) throw new Error(`api-mako: «${def.id}» no tiene preparar()`);
       const prep = await run.preparar(v.input, ctx);
       if ('error' in prep && prep.paraLaPersona) ctx.aPersona?.(prep.paraLaPersona);
-      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}) };
+      if ('error' in prep && prep.falta) ctx.aFalta?.(prep.falta);
+      if ('error' in prep) return { ok: false, status: 400, error: prep.error, faltan: prep.faltan, disponibles: prep.disponibles, ...(prep.yaEstaba ? { yaEstaba: true } : {}), ...(prep.falta ? { falta: prep.falta } : {}) };
 
       if (def.confirmacion === 'pantalla') {
         // Se guarda el INPUT validado, no el payload preparado: la pantalla genérica
@@ -175,6 +179,17 @@ function traducirLegado(crudo: string): Resultado {
  * mensaje del borrador) y llevan la `instruccion` al modelo, que es lo que
  * gobierna su comportamiento por canal y se probó en producción.
  */
+/**
+ * Lo que el MODELO lee de una conexión que falta (25/10/2026). Si el canal la agrega por código (`ctx.aFalta`: el doer de
+ * WhatsApp), el link no se le da: lo escribiría él y saldría dos veces. Si no (la app, HTTP), va el link exacto del modal, para
+ * que lo pase tal cual y no mande a «/integraciones» a secas.
+ */
+export function faltaParaElModelo(f: Falta, ctx: Pick<Ctx, 'aFalta' | 'ws'>): Record<string, unknown> {
+  const c = conexion(f.servicio);
+  if (ctx.aFalta) return { servicio: f.servicio, ...(c ? { nombre: c.nombre } : {}), instruccion: 'El link para conectarlo se lo manda MaKo aparte: dile qué falta y no escribas ningún link.' };
+  return { servicio: f.servicio, ...(c ? { nombre: c.nombre, link: linkPantalla(c.ruta, ctx.ws), instruccion: 'Pásale este link TAL CUAL: abre justo esa conexión.' } : {}) };
+}
+
 export function runnerDelRegistro(ctx: Ctx) {
   let vista: Vista | null = null;
   return async (name: string, input: Record<string, unknown>): Promise<string | { content: string; isError?: boolean }> => {
@@ -184,6 +199,7 @@ export function runnerDelRegistro(ctx: Ctx) {
       const cuerpo: Record<string, unknown> = { ok: false, error: r.error };
       if (r.faltan) cuerpo.faltan = r.faltan;
       if (r.disponibles) cuerpo.disponibles = r.disponibles;
+      if (r.falta) cuerpo.falta = faltaParaElModelo(r.falta, ctx);
       // 404/500 son fallas nuestras o un nombre inventado: van como isError para que
       // el modelo no las lea como un dato. Un 400 es un pedido corregible: va como
       // texto, igual que hoy, para que el modelo pida lo que falta.

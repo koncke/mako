@@ -302,7 +302,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, cabeceraPropia = null,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, cabeceraPropia = null, avisoFijo = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -317,6 +317,11 @@ export function EditorInforme({
   aviso?: string | null;
   /** «Conecta tu Claude»: el Closing Analyst no tiene con qué analizar (./aviso-closing.ts). Fijo arriba de la hoja Closing. */
   avisoClosing?: string | null;
+  /**
+   * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
+   * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
+   */
+  avisoFijo?: ReactNode | null;
   /** El closer: mira la hoja Closing, exporta, y nada más. */
   soloLectura?: boolean;
   /** `?llamada=`: el recording_id de la llamada cuya ficha se abre al entrar. */
@@ -1481,6 +1486,9 @@ export function EditorInforme({
                 <span>{avisoClosing}</span>
                 {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>Conectar Claude</BotonIntegracion>}
               </div>
+            )}
+            {avisoFijo && !dueno && !enBlanco && (
+              <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" data-aviso-fijo onClick={(e) => e.stopPropagation()}>{avisoFijo}</div>
             )}
             {enBlanco ? (
               // 14/10/2026 — Martín (para General y para el Dashboard): «en lugar del botón de "nuevo dashboard" te pido que

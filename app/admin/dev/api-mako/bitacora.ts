@@ -474,4 +474,37 @@ export const BITACORA: Hito[] = [
       'tests/api-mako-vender-plan.test.ts y tests/capas-vendibles.test.ts — 18 roturas',
     ],
   },
+  {
+    fecha: '25 oct', hora: '15:10', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que falta conectar viaja como dato (`falta: { servicio }`), y dos lecturas nuevas: con qué IA trabaja el negocio y cómo se conecta cada cosa',
+    puntos: [
+      'Martín, 25/10, por Florencia (ws21): «que si detecta que alguien le falta una conexión o algo que le ofrezca ayuda, que le de el link». Tanda 2 de docs/conexiones-y-ayuda.md.',
+      '**`falta: { servicio }`** en la salida del runner, el Resultado, HTTP y `ctx.aFalta`. Lo devuelven el Closing (Fathom, y su Claude por clave para el análisis), cobros, Panda y el WhatsApp de empresa; `panorama_closing` sin Fathom lo dice.',
+      '⚠️ **El link lo pone UNO solo:** con `aFalta` (el doer) el modelo recibe `falta` sin link; si no, lo escribiría él y saldría dos veces.',
+      '**`ver_ia_del_negocio`** (sus claves, sus computadoras y qué contesta cada canal) y **`como_conectar`** (pasos y link, por cómo lo dice la gente), del catálogo único lib/conexiones-catalogo.ts. `ver_integracion` trae los pasos del tutorial.',
+    ],
+    archivos: [
+      'lib/api-mako/tipos.ts y lib/api-mako/ejecutar.ts — `Falta`, `aFalta`, `faltaParaElModelo`',
+      'lib/conexiones-catalogo.ts — el catálogo (puro)',
+      'lib/api-mako/areas/integraciones.def.ts y .run.ts — las dos lecturas',
+      'tests/conexiones-api.test.ts — 7 tests, 12 roturas con su fallo',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '23:10', chat: 'Landings', cuenta: 'claude5', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b',
+    actor: 'claude', tipo: 'correccion',
+    titulo: '«Cambia el formulario de la landing» vuelve a llegarle a MaKo con su herramienta',
+    pedido: 'Cerebro: «"cambia el formulario de la landing: agrega el teléfono" no trae configurar_formulario_landing (en su lugar entra cambiar_imagen_landing)... Preferí acortar las descripciones nuevas antes que tocar el orden de relevancia»',
+    puntos: [
+      'Con las herramientas nuevas de las landings (imágenes, íconos, videos), un pedido de cambiar el formulario dejaba de llegarle a MaKo con la herramienta del formulario.',
+      'Se acortaron dos descripciones, sin cambiar qué hace cada herramienta. Ahora vuelve a llegar.',
+      'Quedó una herramienta para medir qué recibe MaKo en cada pedido, antes de sumar otra.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-editor.def.ts — las dos descripciones',
+      'scripts/presupuesto-turno-app.mts — la medición',
+      'docs/hallazgos-api-mako.md — por qué y la regla',
+    ],
+  },
 ];

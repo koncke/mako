@@ -31,6 +31,7 @@ export const dynamic = 'force-dynamic';
 const EN_LA_COMPUTADORA: Record<string, string> = {
   general: 'El horario de envío se arma por día y hora, y el criterio de reuniones es un texto largo: se editan en la computadora.',
   metodo: 'Las credenciales de la plataforma son claves largas que se copian de cada servicio y se pegan: se cargan en la computadora.',
+  prompts: 'Los prompts de MaKo son textos largos, con su historial y sus variables: se editan en la computadora.',
 };
 
 const icono = (n: NombreIconoMenu) => <span className="m-icono" aria-hidden><IconoMenu nombre={n} size={18} /></span>;

@@ -58,9 +58,11 @@ const leer = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8');
 test('3. los cuerpos usan las mismas funciones que la pantalla', () => {
   const run = leer('lib/api-mako/areas/operaciones.run.ts');
   assert.match(run, /Promise\.all\(\[leerCarteros\(\), leerUltimosTurnos\(\), leerYaVistosDe\(\)\]\)/, 'la lista, con lo mismo que la fila');
-  assert.match(run, /vistos \? completadosDeLasCuentas\(carteros, ultimos, vistos\) : null/, 'sin los ✓, no inventa');
+  assert.match(run, /vistos \? \{ lista: completadosDeLasCuentas\(carteros, ultimos, vistos\), vistos \} : null/, 'sin los ✓, no inventa');
+  assert.match(run, /const antes = completadosSinVer\(lineas, leido\.vistos\[c\.clave\]\)\.filter\(\(x\) => x\.uuid !== t\?\.uuid\);/, 'los de antes sin ver, como las flechas del bloque');
   assert.match(run, /await marcarYaVistoDe\(clave, instante\);/, 'el ✓, con el mismo guardado que «Ya lo vi»');
-  assert.match(run, /pedido: t \? pedidoDelCompletado\(lineas, t\) : null,/, 'lo que pidió Martín, como el bloque');
+  assert.match(run, /const p = pedidoDelCompletado\(lineas, t\);/, 'lo que respondía, como el bloque');
+  assert.match(run, /pidio: p \? p\.de \?\? 'Martín' : null,/, 'y quién se lo pidió: Martín o el chat que se lo mandó');
 });
 
 test('4. no salen por HTTP: ni en el snapshot ni en la referencia pública (que lista sólo lo de HTTP; se regeneró igual)', () => {

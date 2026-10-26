@@ -23,8 +23,8 @@ import {
   CAMPOS_CONDICION, TOPE_CASOS, TOPE_NODOS, TOPE_RESPONDER, TOPE_INSTRUCCIONES, TOPE_OTRA_AVISO,
   TOPE_OBJETIVO, TOPE_EJEMPLOS, TOPE_EJEMPLO, TOPE_ESCENARIOS_AI_STEP, MEDIOS_AI_STEP,
   claseDe, idDe, indicePorId, siguienteDe, puertosDe, raizSalida, raizRespuesta, elegirSalida, esPasoIA,
-  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, llegaTarde,
-  type PasoGrafo, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
+  normalizar, nuevoId, paralelosDeResultado, aristasDeVuelta, padresSinVuelta, llegaTarde, nodoPorId, ramasABDe, CLAVES_AB, MAX_RAMAS_AB,
+  type PasoGrafo, type RamaAB, type HechosLead, type FilaCondicion, type RamaCondicion, type CasoRespuesta, type Espera, type DestinoIrA,
   type EjemploCaso, type MedioAIStep,
 } from './flujo-grafo';
 // La libertad de un escenario del AI Step (undécima tanda): la única que escribe `sola` / `no_contesta`.
@@ -106,7 +106,7 @@ export function siguienteIndice(pasos: readonly PasoGrafo[], idx: number): numbe
 const esControl = (p: PasoGrafo | undefined): boolean => {
   if (!p) return false;
   const c = claseDe(p);
-  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta' || c === 'inicio';
+  return c === 'condicion' || c === 'esperar' || c === 'ir_a' || c === 'respuesta' || c === 'inicio' || c === 'ab';
 };
 
 export const esNodoDeControl = esControl;
@@ -132,6 +132,12 @@ export type ContextoControl = {
    * de antes— y no desde que el motor llegó a procesarla. Ausente = `ahoraMs`, lo de antes. Ver `relojDeLasEsperas`.
    */
   relojMs?: number;
+  /**
+   * LA RAMA DE CADA TARJETA «A/B TEST» para este lead (tanda A3), por el id de la tarjeta: la de su asignación, o la A si
+   * no hay prueba corriendo (lib/pruebas/automatizacion.ts `ramaABDe`). Sin la de una tarjeta a la que se llega, la
+   * resolución contesta `falta_rama_ab` y quien llama la lee (y la escribe: es cuando el lead ENTRA a la rama).
+   */
+  ramasAB?: Readonly<Record<string, string>>;
 };
 
 /**
@@ -184,7 +190,9 @@ export type Resolucion = (
   repartos: Reparto[];
 }
   /** Hay que evaluar una condición y no hay hechos: leerlos y volver a llamar. */
-  | { tipo: 'faltan_hechos' };
+  | { tipo: 'faltan_hechos' }
+  /** Se llegó a la tarjeta «A/B TEST» `nodo` y no se sabe la rama del lead: leerla (y escribirla) y volver a llamar. */
+  | { tipo: 'falta_rama_ab'; nodo: string };
 
 /** Las flechas en paralelo de una tarjeta (sin repetidos ni vacías), tal como las recorre el motor. */
 function paralelosDelNodo(pasos: readonly PasoGrafo[], idx: number): string[] {
@@ -293,6 +301,20 @@ export function resolverControl(pasos: readonly PasoGrafo[], desde: number, ctx:
       if (objetivo <= ctx.ahoraMs) { if (p.espera?.modo !== 'antes_reunion') reloj = objetivo; idx = j; continue; }
       return { tipo: 'esperar', idx: j, proximoMs: objetivo, via, repartos };
     }
+    if (c === 'ab') {
+      // LA PRUEBA A/B (tanda A3): sigue por la rama del lead. ANTES del «Ir a» de abajo: si no, se la tragaba como un
+      // «Ir a» sin destino. Sin la rama, quien llama la lee y vuelve a llamar (la escribe recién ahora, cuando entra).
+      const nodo = idDe(p, idx);
+      const clave = ctx.ramasAB?.[nodo];
+      if (clave === undefined) return { tipo: 'falta_rama_ab', nodo };
+      const ramas = ramasABDe(p);
+      // Una letra que la tarjeta ya no tiene (se borró la rama): la A, que es el camino de antes.
+      const rama = ramas.find((r) => r.clave === clave) ?? ramas[0];
+      const j = indicePorId(pasos, rama?.siguiente);
+      if (j < 0) return { tipo: 'fin', motivo: `la rama ${rama?.clave ?? 'A'} de la prueba A/B termina aquí`, via, repartos };
+      idx = j;
+      continue;
+    }
     // ir_a
     const d = p.destino;
     if (!d) return { tipo: 'fin', motivo: '«Ir a» sin destino', via, repartos };
@@ -324,6 +346,8 @@ export function necesitaHechos(pasos: readonly PasoGrafo[], desde: number): bool
     if (!p) return false;
     const c = claseDe(p);
     if (c === 'condicion') return true;
+    // Una prueba A/B: detrás de cualquiera de sus ramas puede haber una condición (la del lead, todavía no se sabe).
+    if (c === 'ab') return ramasABDe(p).some((r) => necesitaHechos(pasos, indicePorId(pasos, r.siguiente)));
     if (c === 'esperar' || c === 'inicio') { idx = siguienteIndice(pasos, idx); continue; }
     if (c === 'ir_a' && p.destino && 'nodo' in p.destino) { idx = indicePorId(pasos, p.destino.nodo); continue; }
     return false;
@@ -427,7 +451,9 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
         if (padre.espera?.modo === 'antes_reunion') max = Math.max(max ?? 0, Math.max(0, Number(padre.espera.minutos) || 0));
         continue;
       }
-      if (!sube || c !== 'condicion' || vistos.has(pa.id)) continue;
+      // Una condición no espera; una prueba A/B tampoco (tanda A3, crítica D.13): lo que el mensaje recuerda lo decide la
+      // espera de arriba de las dos.
+      if (!sube || (c !== 'condicion' && c !== 'ab') || vistos.has(pa.id)) continue;
       vistos.add(pa.id);
       pila.push(pa.id);
     }
@@ -449,10 +475,21 @@ export function minutosAntesDeReunion(pasos: readonly PasoGrafo[], idx: number):
 export function condicionDeArriba(pasos: readonly PasoGrafo[], idx: number): number | null {
   const p = pasos[idx];
   if (!p) return null;
-  const padres = padresSinVuelta(pasos, idDe(p, idx));
-  if (padres.length !== 1) return null;
-  const i = indicePorId(pasos, padres[0].id);
-  return i >= 0 && claseDe(pasos[i]) === 'condicion' ? i : null;
+  // ⚠️ UNA PRUEBA A/B ES TRANSPARENTE (tanda A3, crítica D.13): «Su reunión sigue en pie» → A/B → «Mañana es tu reunión» sigue
+  // siendo un mensaje con su condición arriba. Mirando sólo el padre directo, la condición no se volvía a evaluar y salía
+  // el recordatorio de una reunión cancelada. Se sube por las tarjetas A/B (con un solo padre cada una).
+  let id = idDe(p, idx);
+  for (let n = 0; n <= MAX_RAMAS_AB; n++) {
+    const padres = padresSinVuelta(pasos, id);
+    if (padres.length !== 1) return null;
+    const i = indicePorId(pasos, padres[0].id);
+    if (i < 0) return null;
+    const c = claseDe(pasos[i]);
+    if (c === 'condicion') return i;
+    if (c !== 'ab') return null;
+    id = padres[0].id;
+  }
+  return null;
 }
 
 /** ¿La condición `idxCondicion`, evaluada con los hechos de AHORA, sigue llevando al mensaje `idx`? (Su salida o sus flechas en paralelo.) */
@@ -462,7 +499,19 @@ export function condicionSigueLlevando(pasos: readonly PasoGrafo[], idxCondicion
   if (!c || !p) return false;
   const id = idDe(p, idx);
   const s = elegirSalida(c, hechos);
-  return s.destino === id || paralelosDeResultado(c, s.puerto).includes(id);
+  if (s.destino === id || paralelosDeResultado(c, s.puerto).includes(id)) return true;
+  // Por una prueba A/B en el medio (`condicionDeArriba` sube por ella): la salida elegida lleva a la tarjeta A/B, y de ahí
+  // alguna de sus ramas al mensaje (la del lead: si está parado en el mensaje, vino por ahí).
+  let cur = s.destino;
+  for (let n = 0; n <= MAX_RAMAS_AB && cur; n++) {
+    const q = nodoPorId(pasos, cur);
+    if (!q || claseDe(q) !== 'ab') return false;
+    const ramas = ramasABDe(q);
+    if (ramas.some((r) => r.siguiente === id)) return true;
+    // Otra tarjeta A/B pegada: no se guarda (una por automatización), pero si llega igual se sigue por la A.
+    cur = ramas[0]?.siguiente ?? null;
+  }
+  return false;
 }
 
 // ── EL CARRIL DEL RECORDATORIO (undécima tanda, M3 y M4) ────────────────────────────
@@ -501,7 +550,9 @@ export function esHiloDelCarril(pasos: readonly PasoGrafo[], idx: number): boole
   const c = claseDe(p);
   if (c === 'esperar') return esEsperaAntes(p);
   if (c === 'mensaje' || c === 'accion') return minutosAntesDeReunion(pasos, idx) != null;
-  if (c !== 'condicion') return false;
+  // Una prueba A/B que cuelga de un DELAY «antes de la reunión» es del carril como una condición (tanda A3): si no, se
+  // congelaba fuera del horario y cuando el lead contesta, con el recordatorio detrás.
+  if (c !== 'condicion' && c !== 'ab') return false;
   const vuelta = aristasDeVuelta(pasos);
   const vistos = new Set<string>([idDe(p, idx)]);
   const pila = [idDe(p, idx)];
@@ -511,7 +562,8 @@ export function esHiloDelCarril(pasos: readonly PasoGrafo[], idx: number): boole
       const padre = pasos[indicePorId(pasos, pa.id)];
       if (!padre) continue;
       if (esEsperaAntes(padre)) return true;
-      if (claseDe(padre) !== 'condicion' || vistos.has(pa.id)) continue;
+      const cp = claseDe(padre);
+      if ((cp !== 'condicion' && cp !== 'ab') || vistos.has(pa.id)) continue;
       vistos.add(pa.id);
       pila.push(pa.id);
     }
@@ -1134,7 +1186,7 @@ const idValido = (x: unknown): x is string => typeof x === 'string' && RX_ID.tes
 const destinoId = (x: unknown): string | null | undefined => (x === null ? null : idValido(x) ? x : undefined);
 // 'inicio' (segunda tanda, 08/10/2026): el CRON con flechas en paralelo. Sin él acá, el primer
 // guardado lo volvía un mensaje vacío y las flechas del CRON se perdían en silencio.
-const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio']);
+const NODOS = new Set(['esperar', 'condicion', 'respuesta', 'ir_a', 'inicio', 'ab']);
 /** Un año de espera, en minutos. Una espera más larga es un dato roto, no una decisión. */
 const TOPE_ESPERA_MIN = 366 * 24 * 60;
 
@@ -1210,6 +1262,17 @@ function sanearRama(x: unknown): RamaCondicion | null {
     siguiente: destinoId(o.siguiente) ?? null,
     ...(paralelos ? { paralelos } : {}),
   };
+}
+
+/** Una rama de la tarjeta «A/B TEST» (tanda A3): la letra (A a D), el porcentaje entero de 0 a 100, la salida y el nombre. */
+function sanearRamaAB(x: unknown): RamaAB | null {
+  if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+  const o = x as Record<string, unknown>;
+  const clave = CLAVES_AB.find((c) => c === o.clave);
+  if (!clave) return null;
+  const pct = Math.round(Number(o.pct));
+  const nombre = typeof o.nombre === 'string' ? o.nombre.trim().slice(0, 40) : '';
+  return { clave, pct: Number.isFinite(pct) ? Math.min(100, Math.max(0, pct)) : 0, siguiente: destinoId(o.siguiente) ?? null, ...(nombre ? { nombre } : {}) };
 }
 
 /**
@@ -1319,7 +1382,10 @@ export type CamposFlujo = Pick<PasoGrafo, 'id' | 'siguiente' | 'paralelos' | 'no
   // Undécima tanda: lo del OBJETIVO del AI Step (la quinta puerta: sin esto el primer guardado lo borraba).
   | 'objetivo' | 'audio' | 'ejemplos'
   // 24/10/2026: los BOTONES de un mensaje de Instagram o Messenger (lib/botones-social.ts). Son SALIDAS del flujo.
-  | 'botones'>;
+  | 'botones'
+  // Tanda A3 de las pruebas A/B (25/10/2026): las RAMAS de la tarjeta «A/B TEST». Sin esto, el primer guardado la dejaba
+  // sin ramas (una tarjeta que no lleva a ningún lado).
+  | 'ramas_ab'>;
 
 /**
  * Las flechas en paralelo, saneadas: ids válidos, sin repetidos. Sólo en las clases que las
@@ -1347,6 +1413,7 @@ export function camposDelFlujo(p: unknown): CamposFlujo {
   const nodo = typeof o.nodo === 'string' && NODOS.has(o.nodo) ? (o.nodo as PasoGrafo['nodo']) : undefined;
   if (nodo) out.nodo = nodo;
   if (nodo === 'esperar') { const e = sanearEspera(o.espera); if (e) out.espera = e; }
+  if (nodo === 'ab') out.ramas_ab = Array.isArray(o.ramas_ab) ? o.ramas_ab.map(sanearRamaAB).filter((r): r is RamaAB => !!r) : [];
   if (nodo === 'condicion') {
     out.ramas = Array.isArray(o.ramas) ? o.ramas.map(sanearRama).filter((r): r is RamaCondicion => !!r) : [];
     out.si_no = destinoId(o.si_no) ?? null;
@@ -1416,7 +1483,7 @@ export function tieneTarjetasDeControl(pasos: readonly PasoGrafo[]): boolean {
 export function esLineal(pasos: readonly PasoGrafo[]): boolean {
   for (let i = 0; i < pasos.length; i++) {
     const c = claseDe(pasos[i]);
-    if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return false;
+    if (c === 'condicion' || c === 'respuesta' || c === 'ir_a' || c === 'ab') return false;
     // El inicio y las flechas en paralelo: «el paso 3» ya no es UN lugar (puede haber dos
     // caminos corriendo a la vez), así que una edición «por orden» no tiene a qué referirse.
     if (c === 'inicio' || (Array.isArray(pasos[i].paralelos) && pasos[i].paralelos!.length > 0)) return false;
@@ -1573,6 +1640,8 @@ export function ramaDeQuienContesto(pasos: readonly PasoGrafo[]): Set<string> {
     const q = pasos[i];
     if (q.siguiente) pila.push(q.siguiente);
     if (claseDe(q) === 'condicion') { for (const r of q.ramas ?? []) if (r.siguiente) pila.push(r.siguiente); if (q.si_no) pila.push(q.si_no); }
+    // Una prueba A/B dentro de lo de quien contestó: las dos ramas son de quien contestó.
+    if (claseDe(q) === 'ab') for (const r of ramasABDe(q)) if (r.siguiente) pila.push(r.siguiente);
   }
   return out;
 }
@@ -1612,7 +1681,8 @@ export function destinoAlContestar(pasos: readonly PasoGrafo[], idx: number): st
     adelante.add(j);
     const q = pasos[j];
     if (preguntaContesto(q)) { const r = ramaDeContesto(q); if (r.mezcla) return undefined; return r.hay && r.destino && indicePorId(pasos, r.destino) >= 0 ? r.destino : null; }
-    j = claseDe(q) === 'condicion' ? (q.si_no ? indicePorId(pasos, q.si_no) : -1) : siguienteIndice(pasos, j);
+    // Una prueba A/B en el camino: por la A (el camino de antes); la rama del lead no se sabe acá.
+    j = claseDe(q) === 'condicion' ? (q.si_no ? indicePorId(pasos, q.si_no) : -1) : claseDe(q) === 'ab' ? indicePorId(pasos, ramasABDe(q)[0]?.siguiente) : siguienteIndice(pasos, j);
   }
   return null;
 }

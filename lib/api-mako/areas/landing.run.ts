@@ -42,6 +42,7 @@ import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
+import { alojadoresConectados, catalogoDeVideos } from '@/lib/alojadores-video-api';
 import { urlsDescubiertas, getComportamiento, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
 import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
@@ -438,7 +439,8 @@ export const RUNNERS: Runners = {
 
   listar_videos_panda: {
     leer: async (input) => {
-      if (!(await pandaConectado())) return json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' });
+      // `falta` (25/10/2026): el link al modal de Panda lo pone el código.
+      if (!(await pandaConectado())) return { content: json({ conectado: false, videos: [], nota: 'Panda Video no está conectado en este negocio.' }), falta: { servicio: 'panda' } };
       const limite = num(input, 'limite') ?? 50;
       const todos = [...(await catalogoPanda()).entries()];
       return json({
@@ -450,13 +452,30 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Los videos de todos los alojadores conectados (25/10/2026, «otros alojadores de video»), con el id del Pixel.
+  listar_videos_alojados: {
+    leer: async (input) => {
+      const filtro = str(input, 'alojador');
+      const limite = num(input, 'limite') ?? 100;
+      const [{ videos, fallas }, otros, panda] = await Promise.all([catalogoDeVideos(), alojadoresConectados(), pandaConectado()]);
+      const todos = videos.filter((v) => !filtro || v.alojador === filtro);
+      return json({
+        conectados: [...(panda ? ['panda'] : []), ...otros],
+        videos: todos.slice(0, limite).map((v) => ({ id: v.id, alojador: v.alojador, titulo: v.titulo, reproductor: v.player, duracion_seg: v.duracion, reproducciones: v.reproducciones })),
+        total: todos.length, afuera: Math.max(0, todos.length - limite),
+        ...(fallas.length ? { no_se_pudo_leer: fallas } : {}),
+        nota: 'El id es el que manda el Pixel (vimeo:…, w:… de Wistia, bunny:…, cfs:… de Cloudflare; el de Panda va sin prefijo). duracion_seg y reproducciones en null = el alojador no las da en su listado (las reproducciones por persona están en tracking_lead). Un alojador sin conectar no aparece: se conecta en Integraciones.',
+      });
+    },
+  },
+
   ver_metricas_video_panda: {
     leer: async (input) => {
       const videoId = str(input, 'videoId') ?? '';
       const desde = str(input, 'desde') ?? '';
       const hasta = str(input, 'hasta');
       if (!fechaValida(desde) || (hasta && !fechaValida(hasta))) return errorLectura('Las fechas van en formato AAAA-MM-DD.');
-      if (!(await pandaConectado())) return errorLectura('Panda Video no está conectado en este negocio.');
+      if (!(await pandaConectado())) return { content: 'Panda Video no está conectado en este negocio.', isError: true, falta: { servicio: 'panda' } };
       try {
         if (!hasta || hasta === desde) {
           const s = await fetchPandaDailyStat(videoId, desde);

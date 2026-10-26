@@ -98,7 +98,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'lib/api-mako/areas/whatsapp.run.ts': PROTEGIDO,
   'lib/api-mako/tipos.ts': PROTEGIDO,
   'lib/evolution-mensajes.ts': PROTEGIDO,
-  'lib/mako-intencion.ts': PROTEGIDO,
   'lib/nutricion.ts': PROTEGIDO,
   // Pendientes de la segunda tanda.
   'lib/meta-templates.ts': PLANTILLAS,
@@ -107,7 +106,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'app/vsl/_detalle/features.ts': 'copy pública de /vsl/<slug>: las secciones del inbox oficial y del reporte por WhatsApp se reescriben aparte',
   'lib/flujos-tipos.ts': "el evento 'lead.wa_entrante' quedó sin emisor (lo emitía el webhook borrado)",
   // Historia.
-  'app/admin/dev/_historial.generado.ts': HISTORIA,
   'app/admin/dev/areas.ts': HISTORIA,
   'app/admin/dev/chatbot/bitacora.ts': HISTORIA,
   'app/admin/dev/crm/auditoria.ts': HISTORIA,

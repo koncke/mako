@@ -340,10 +340,15 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/chatbot/onboarding/reaperturas', 'reabrir_onboarding_chatbot'],
   ['GET', '/chatbot/secuencias', 'listar_secuencias_nutricion'],
   ['POST', '/chatbot/secuencias', 'crear_automatizacion_con_ia'],
+  ['GET', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'ver_prueba_ab'],
+  ['POST', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'empezar_prueba_ab'],
+  ['DELETE', '/chatbot/secuencias/{secuenciaId}/prueba-ab', 'detener_prueba_ab'],
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
   ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}', 'cambiar_botones_mensaje'],
+  // El texto de un WhatsApp o un email (25/10/2026): la misma ruta por tarjeta, con /texto (METODO+RUTA no se repiten).
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}/texto', 'cambiar_texto_mensaje'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
@@ -464,6 +469,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
   ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],
   ['GET', '/landing/panda/videos', 'listar_videos_panda'],
+  // Los de todos los alojadores conectados (25/10/2026).
+  ['GET', '/landing/videos-alojados', 'listar_videos_alojados'],
   ['GET', '/landing/panda/videos/{videoId}/metricas', 'ver_metricas_video_panda'],
   ['GET', '/landing/pixel/codigo', 'ver_codigo_pixel'],
   ['GET', '/landing/pixel/estado', 'ver_estado_pixel'],
@@ -484,10 +491,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/busqueda/fotos', 'buscar_fotos_landing'],
   // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
   ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
+  // La biblioteca de íconos del editor (25/10/2026): lo que pide cambiar_icono_landing.
+  ['GET', '/landing/iconos', 'ver_iconos_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
   // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
   ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
+  ['PATCH', '/landing/documentos/{id}/iconos', 'cambiar_icono_landing'],
+  ['PATCH', '/landing/documentos/{id}/imagenes', 'cambiar_imagen_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
   ['PATCH', '/landing/documentos/{id}/configuracion', 'configurar_landing'],
@@ -555,6 +566,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // La prueba gratis (25/10/2026): lo que dice el cartel «Versión de prueba», y «Empezar mi plan ya» (abre el pago desde hoy).
   ['GET', '/negocio/plan/prueba', 'ver_mi_prueba'],
   ['POST', '/negocio/plan/prueba/fin', 'empezar_mi_plan_ya'],
+  // MaKo Partners (25/10/2026): el panel del negocio, hacerse partner y dónde cobra (lo de la plataforma no sale por HTTP).
+  ['GET', '/negocio/partners', 'ver_mi_programa_partners'],
+  ['POST', '/negocio/partners', 'hacerme_partner'],
+  ['PUT', '/negocio/partners/cobro', 'cambiar_cobro_partners'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
@@ -613,6 +628,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Con qué IA trabaja el negocio y cómo se conecta cada cosa (25/10/2026, docs/conexiones-y-ayuda.md). `que` va en la query:
+  // es texto libre («mi claude»).
+  ['GET', '/integraciones/ia-del-negocio', 'ver_ia_del_negocio'],
+  ['GET', '/integraciones/conexiones', 'como_conectar'],
   // Meta por Zernio (25/10/2026): la conexión de «Conectar con Facebook» es UN recurso (`meta`); elegir cuenta, píxel o
   // página es reemplazar ese dato (PUT), y la prueba de CAPI es una lectura con el código de «Probar eventos».
   ['GET', '/integraciones/meta/conexion', 'ver_conexion_meta'],

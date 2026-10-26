@@ -1148,6 +1148,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
   el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
   `restaurar_version_landing`; docs/hallazgos-api-mako.md).
+- **Una operación nueva va AL FINAL de su área, y su id, título y descripción no repiten las palabras de todas las del
+  área** («automatización», «flujo», «WhatsApp»). El chat las ordena por puntaje contra el pedido y, a igual puntaje, trae
+  la declarada antes hasta el presupuesto de 12.000 (el techo de Groq, que no se sube): la nueva le saca el lugar a la que
+  se pidió. Se mide con `tests/ops-center-clasificador-app` ANTES de entregar (25/10/2026, docs/hallazgos-api-mako.md).
 - **`vaciaEsValor`** en toda lista que REEMPLAZA algo entero (las tareas de una clase). Sin la marca,
   el validador tira `[]` como «no vino» —lo correcto para un filtro— y no queda forma de vaciarla: la
   operación contesta «no pasaste nada para cambiar» (medido el 08/10/2026 con `tareas: []`).
@@ -1460,6 +1464,18 @@ archivos**, y se lee como una fuga entre clientes cuando es un destino que falta
   `tests/link-con-workspace.test.ts`, que barre `lib/` y `app/api/` sobre el FUENTE —un
   template literal con la URL pegada compila perfecto— y deja afuera, con su motivo escrito,
   el prompt que describe la forma de una URL y el archivo donde vive el helper.
+
+⚠️ **Y EL LINK A UNA CONEXIÓN ES CONTRATO (25/10/2026, docs/conexiones-y-ayuda.md).** `/integraciones?abrir=<key>` abre el
+modal de esa tarjeta, `/integraciones?abrir=ia` «Tus cuentas de IA», `/perfil/ia?computadora=1` «Conecta MaKo» y
+`/chats?conectar=whatsapp` el QR. Y las de Settings (su rediseño del 25/10/2026: cada pestaña es su ruta y el detalle va por
+query): `/perfil`, `/perfil/seguridad?ver=<app|llaves|contrasena|codigos|whatsapp|email|dispositivos|dispositivo-N>`,
+`/perfil/notificaciones?canal=<app|celular|whatsapp|email>`, `/perfil/instalar`, `/configuraciones`, `/equipo`,
+`/configuraciones/fiscal` y `/metodo`. Ya viajaron en mensajes de WhatsApp, avisos y prompts: **un rediseño los conserva** (o
+los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión, sacado de `lib/conexiones-catalogo.ts` (el
+catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
+veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
+correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
@@ -2418,11 +2434,17 @@ ahora»; y el 23/10/2026, para ChatGPT: «igual que Claude, sólo para que el du
 atender leads solo»).** Su Claude o su ChatGPT en su PC (D6a) es SÓLO para que el dueño trabaje con SU IA desde la app: el
 chat de la app, el del teléfono, el de MaKo en el CRM y el de la ficha del lead, siempre con la sesión de una persona. Nada que
 corra solo hacia un lead —respuestas automáticas de WhatsApp, AI Steps de Automations, nutrición, avisos, crons, webhooks,
-secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega sólo
+secuencias— va a la PC: va por clave de API, o por el crédito donde está asignado (lib/credito-negocio.ts). A la PC llega
 `turnoApp` (lib/mako-turno-app.ts), y **la sesión se mira ADENTRO del turno, no sólo en quien lo llama**
 (`laPersonaEstaAdentro`): armar la persona del dueño no alcanza. Una entrada nueva que lo llame se suma en
 tests/ia-pc-nunca-a-leads.test.ts con la sesión de su persona, y si corre sola, no. Una PC contesta sólo con la IA del texto
 que aceptó quien la conectó (`iaDeLaPcConectada`).
+**Y el grupo de MaKo del DUEÑO (Martín, 25/10/2026: «dijimos que todo eso se hace con la app de escritorio de MaKo y conectado
+a su claude o GPT»):** es la persona escribiéndole a su MaKo, como el chat de la app, así que también llega a su PC, por la
+misma puerta. El webhook no trae la cookie: la prueba la hace la puerta con el teléfono que manda WhatsApp (`encolarTurno`
+con `delGrupo`, lib/ia-pc.ts): de UNA sola persona activa del negocio, y ésa es quien conectó esa PC; y el doer sólo la pide
+si el lote entero lo escribió esa persona (`loteDeVarios`). Un lead que escribe en un grupo, o cualquier otro canal de
+WhatsApp, no es esto: D6a sigue entera (tests/ia-pc-nunca-a-leads.test.ts, 7).
 
 **Y todo .exe que publicar-binarios sube se firma con `firmar` (scripts/ia-pc/firmar-windows.mjs) DESPUÉS del último cambio
 a sus bytes y antes de subirlo.** «Firmado» es `peFirmado` y `peConMarcaDeTiempo` sobre lo que vuelve, nunca el código de
@@ -7426,6 +7448,12 @@ En los dos casos **la primera hipótesis correcta es la medición, no el código
 barata de comprobar y es la que más veces gana. La señal: un resultado redondo e inesperado
 (cero de diecisiete, 25 de 25) sobre algo que se acaba de escribir.
 
+**Romper un guard también es INVERTIR la condición, no sólo sacarla.** Medido el 25/10/2026 en la revisión del tren-k:
+`tests/agency.test.ts` buscaba el TEXTO `cobro.ok` en el `if` que manda el acceso, y con `paga === 'cliente' && !cobro.ok`
+(el acceso sale sólo SIN link, lo contrario de lo pedido) seguía en verde. Sacar la condición daba rojo, así que la tabla de
+«probado rompiéndolo» parecía completa. Un guard sobre una condición se fija exacta (`/^if \(paga === 'cliente' && cobro\.ok\) \{/`)
+y se prueba con la condición sacada Y con la condición invertida.
+
 # Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
 
 `router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el
@@ -9757,7 +9785,9 @@ veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 (`grafoDeSecuencia` en `lib/flujo-conversacion.ts`), al panel (`EditorDeNodo` en
 `app/automations/FlujoLienzo.tsx`), al motor (`lib/nutricion.ts`) y a `setSecuenciaPasos`
 —que **reconstruye cada paso campo por campo y borra lo que no conoce**—. La quinta puerta
-ya costó las `variantes` borradas en silencio.
+ya costó las `variantes` borradas en silencio. Y al revés (25/10/2026): quien cambia el TEXTO de un
+mensaje manda `variantes: []` —son formas de decir el texto viejo, y el motor las sortea—; la clave
+ausente las conserva (docs/hallazgos-chatbot.md).
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa
@@ -10478,3 +10508,13 @@ mirado («no pude leer» no es «vacío»); resume en HECHOS (nunca copia el ren
 procedencia va ESCRITA en el cuerpo de la entrada (el chat sólo recibe título y cuerpo); y la marca de su libro
 (`second_brain_recolectado`, con su `fuente`) avanza DESPUÉS de guardar. Nunca escribe hacia afuera. Fathom, además, con la
 cuenta de CADA negocio: nunca la de Martín. tests/second-brain-recolector*.test.ts.
+
+## Una prueba A/B la decide lib/pruebas/juez.ts, con horizonte fijo, y nadie más (25/10/2026)
+
+Toda superficie que reparta gente entre versiones (la tarjeta «A/B TEST», la landing, la portada, lo que venga) usa el motor
+de lib/pruebas/: `ramaParaServir` para servir (sin prueba corriendo, el control, y nunca un sorteo sin registro),
+`conteosPorRama` para contar (sólo las personas maduras; una lectura incompleta no es «0 éxitos») y `juzgar` para decidir.
+Ninguna pantalla, agente ni LLM declara un ganador mirando los números por su cuenta: mirar todos los días inventaba entre 10
+y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las ramas tienen el n que `planDePrueba` calculó ANTES
+de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
+puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.

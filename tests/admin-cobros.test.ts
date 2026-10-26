@@ -133,11 +133,17 @@ test('la capa de la plataforma no se ofrece como plan, ni en la pantalla ni en l
 });
 
 test('la página es sólo del super admin, y el guard va antes de leer nada', () => {
+  // Desde el 25/10/2026 /admin/cobros redirige a Customers › Billing, que monta app/admin/cobros/Contenido.tsx.
   const page = sinComentarios(leer('app/admin/cobros/page.tsx'));
   const guard = page.search(/const admin = await getSesionAdmin\(\);\s*if \(!admin\) redirect\('\/inicio'\);/);
   assert.ok(guard > 0, 'falta el guard de /admin/estrategia: getSesionAdmin y si no, redirect');
-  assert.ok(guard < page.indexOf('cobrosDeMakoAction()'), 'el guard va ANTES de leer los cobros');
-  assert.doesNotMatch(page, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
+  assert.ok(guard < page.indexOf("redirect('/customers?tab=billing')"), 'el guard va ANTES de mandarlo a Billing');
+  const customers = sinComentarios(leer('app/customers/page.tsx'));
+  const puerta = customers.search(/const sesionAdmin = await getSesionAdmin\(\);\s*if \(!sesionAdmin\) redirect\('\/inicio'\);/);
+  assert.ok(puerta > 0, 'Customers sin la puerta del super admin');
+  assert.ok(puerta < customers.indexOf('<ContenidoCobros />'), 'el guard va ANTES de leer los cobros');
+  for (const p of [page, customers]) assert.doesNotMatch(p, /requireRolWs/, 'requireRolWs([]) la abriría al dueño de cada workspace');
+  assert.match(sinComentarios(leer('app/admin/cobros/Contenido.tsx')), /await cobrosDeMakoAction\(\)/);
 });
 
 // Desde el 17/10/2026 la familia Admin salió de la barra: Cobros («Billing») es una SECCIÓN de Clients que sólo ve el
@@ -145,8 +151,9 @@ test('la página es sólo del super admin, y el guard va antes de leer nada', ()
 test('el item es del super admin, sin el prefijo de los registros, y ningún cliente lo ve', () => {
   const item = ADMIN_NAV.find((i) => i.href === '/admin/cobros');
   assert.equal(item?.key, 'admin-cobros', "la key va SIN 'dev-' (tests/dev-areas.test.ts lo reserva a los registros)");
-  // Primero colgó de Clients; desde que Clients es una tab con sus sub-tabs adentro (17/10/2026), va al menú de la foto.
-  assert.ok(SUPERADMIN_MENU.includes(item!), 'Billing no está en el menú de la foto del super admin');
+  // Primero colgó de Clients; desde que Clients es una tab con sus sub-tabs adentro (17/10/2026), fue al menú de la foto; desde
+  // el 25/10/2026 es la pestaña Billing de Customers y salió del menú (su entrada queda: el teléfono la abre por key).
+  assert.ok(!SUPERADMIN_MENU.includes(item!), 'Billing volvió al menú de la foto: vive en Customers');
   assert.equal(item!.adminOnly, true);
   assert.deepEqual(FAMILIAS.flatMap(itemsDe).filter((i) => i.href.startsWith('/admin/cobros')).map((i) => i.key), [], 'Billing volvió a la barra');
   assert.equal(puedeVerItem(item!, { adminShell: false, rolWs: 'admin', capa: 'completo' }), false, 'el admin de un cliente lo vería');

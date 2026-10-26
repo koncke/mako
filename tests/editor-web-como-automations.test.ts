@@ -95,7 +95,9 @@ test('sin «Guardado» al lado del título, y el título con lugar para leerse',
   // Lo que no se puede callar sigue: no se guardó, con Reintentar.
   assert.match(indicador, /No se guardó/);
   const css = leer('app/web-generator/gamma.css');
-  assert.match(css, /\.gma-herramientas \.gma-titulo \{ flex: 0 0 auto; max-width: 320px; min-width: 160px; \}/);
+  // No baja de 160 px, pero SÍ cede hasta ahí (25/10/2026: con `flex: 0 0 auto` la barra no entraba a 1280 y el «⋯» quedaba
+  // afuera; tests/editor-web-ui-25-10.test.ts).
+  assert.match(css, /\.gma-herramientas \.gma-titulo \{ flex: 0 1 auto; max-width: 320px; min-width: 160px; \}/);
 });
 
 test('la «←» del chat va a la LISTA de la tarjeta sin navegar, y la cabecera dice «MaKo», no el título', () => {
@@ -134,6 +136,17 @@ test('la columna de la sección es UN botón en una landing: sin «Editar con IA
   assert.ok(lado.length > 200, 'no encontré la columna');
   assert.doesNotMatch(lado, /data-tip="Editar con IA"|abrir\('agente', e\.currentTarget, 'editar'\)/, 'volvió ✨ «Editar con IA» a la columna');
   assert.match(lado, /\{esPresentacion\(ctx\?\.config \?\? \{\}\) && \(\s*<button[^>]*data-tip="Notas del orador"/);
+});
+
+test('la barra de «Texto» (la fija) no trae «Editar con IA»; la que aparece al elegir un texto, sí', () => {
+  // Martín, 25/10/2026: «elimina el botón de "Editar con IA" que aparece arriba en el desplegable de "texto"». La IA queda
+  // en el chat de la izquierda, en ⌘E y en la barra flotante sobre la selección.
+  const b = sinComentarios(leer('app/web-generator/editor/BarraFormato.tsx'));
+  const i = b.indexOf('<BotonBarra titulo="Editar con IA"');
+  assert.ok(i > 0, 'no encontré el botón de la barra flotante');
+  assert.match(b.slice(i - 120, i), /\{modo !== 'fija' && \(\s*<>\s*<span className="gmx-bf-sep" \/>\s*$/, 'el botón volvió a la barra de «Texto»');
+  assert.equal(b.split('titulo="Editar con IA"').length, 2, 'hay otro «Editar con IA» en la barra');
+  assert.match(leer('app/web-generator/editor/EditorLanding.tsx'), /<div className="gma-herramientas gma-formato">\s*<BarraFormato modo="fija" \/>/);
 });
 
 test('«Abrir tira de imágenes» es un botón de la barra y la tira se abre en la tarjeta del chat; nada flota en la esquina del lienzo', () => {

@@ -37,6 +37,8 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
+import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -192,7 +194,8 @@ export const RUNNERS: Runners = {
       // Con las dos conectadas y sin elegir, Stripe: el precio del catálogo está en dólares y es la
       // única de las dos que lo cobra tal cual (ver abajo).
       const pasarela: Pasarela = pedida ?? (conectadas.length === 1 ? conectadas[0] : 'stripe');
-      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.`, disponibles: conectadas.map((p) => NOMBRE_PASARELA[p]) };
+      // `falta`: el link al modal de ESA pasarela lo pone el código (25/10/2026).
+      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en este negocio.`, disponibles: conectadas.map((p) => NOMBRE_PASARELA[p]), falta: { servicio: pasarela } };
       // ⚠️ MERCADO PAGO COBRA EN LA MONEDA DE SU CUENTA (ARS, MXN, BRL…) y el catálogo guarda el
       // precio en USD: `decidirCobro` le exige el monto explícito en esa moneda, y un dólar no se
       // convierte solo (nunca una tasa inventada). Con el precio sólo del catálogo, por acá no se
@@ -524,7 +527,7 @@ export const RUNNERS: Runners = {
       if (pasarela === 'mercadopago') return { error: 'Mercado Pago cobra en la moneda de tu cuenta y la cuota está en dólares: ese link se crea desde la ficha del lead, con el monto en tu moneda.', faltan: ['monto'] };
       const conectadas = await pasarelasConectadas(ctx.ws).catch(() => null);
       if (!conectadas) return { error: 'No pude leer las pasarelas conectadas. Prueba de nuevo en un rato.' };
-      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en Integraciones.`, faltan: ['pasarela'] };
+      if (!conectadas.includes(pasarela)) return { error: `${NOMBRE_PASARELA[pasarela]} no está conectado en este negocio.`, faltan: ['pasarela'], falta: { servicio: pasarela } };
       const vivos = await listarCobros(ctx.ws, { leadId: lead.id, limite: 50 }).catch(() => []);
       const ya = vivos.find((c) => c.pago_id === q.id && (c.estado === 'pendiente' || c.estado === 'fallido'));
       if (ya) {
@@ -704,5 +707,44 @@ export const RUNNERS: Runners = {
         datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
       };
     }),
+  },
+
+  // ── Customers del super admin (25/10/2026): lib/clientes-plataforma.ts y lib/agente-sesiones.ts ─────────────────
+  // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md).
+  ver_clientes_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los clientes de MaKo son sólo de la plataforma.');
+      const v = await vistaDeClientes();
+      const seg = typeof input.segmento === 'string' ? input.segmento : null;
+      const filas = seg ? v.filas.filter((f) => (f.segmentos as string[]).includes(seg)) : v.filas;
+      return json({
+        numeros: {
+          mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
+          nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
+        },
+        clientes: filas.map((f) => ({
+          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: capaDef(f.capa).nombre, estado: f.estado,
+          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, desde: f.creado.slice(0, 10),
+        })),
+        avisos: v.avisos,
+        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0.',
+      });
+    },
+  },
+
+  ver_agentes_de_clientes: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
+      const { sesiones, nombreWs } = await leerSesionesAgente();
+      return json({
+        sesiones: sesiones.slice(0, limite).map((s) => ({
+          negocio: nombreWs.get(s.workspace_id) ?? `Workspace ${s.workspace_id}`, cuando: s.empezo_en ?? s.created_at,
+          titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
+        })),
+        total: sesiones.length,
+        nota: 'Los mensajes textuales están en Customers › Agents.',
+      });
+    },
   },
 };

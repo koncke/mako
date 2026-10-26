@@ -19,9 +19,12 @@ import { avisoDuplicada, primerMensajeDe } from '@/lib/automatizacion-duplicada'
 import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nutricion-inscripcion-manual';
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
-import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, problemasDeTarjetaAB, type PasoGrafo } from '@/lib/flujo-grafo';
+// La prueba A/B de la tarjeta «A/B TEST» (tanda A3).
+import { detenerPruebaDeLaTarjeta, empezarPruebaDeLaTarjeta, estadoDeLaTarjeta } from '@/lib/pruebas/automatizacion';
+import { tarjetaABDe } from '@/lib/pruebas/tarjeta-ab';
 import { botonesDe } from '@/lib/botones-social';
-import { botonesParaGuardar, type BotonPedido } from '@/lib/botones-api';
+import { botonesParaGuardar, textoParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -345,6 +348,8 @@ export const RUNNERS: Runners = {
           ramas: p.ramas ?? null, casos: esPasoIA(p) ? undefined : p.casos ?? null, si_no: p.si_no ?? null, paralelos_si_no: p.paralelos_si_no ?? null, destino: p.destino ?? null,
           // El CRON: qué hace cada camino cuando el lead contesta (14/10/2026). Sin la clave, el de fábrica (sigue).
           ...(p.nodo === 'inicio' ? { paralelos: p.paralelos ?? [] } : {}),
+          // LA PRUEBA A/B (tanda A3): cada rama con su letra (su puerto), su porcentaje y a qué tarjeta sigue.
+          ...(p.nodo === 'ab' ? { ramas_ab: (p.ramas_ab ?? []).map((r) => ({ letra: r.clave, pct: r.pct, nombre: r.nombre ?? null, sigue: r.siguiente ?? null })) } : {}),
           ...(esPasoIA(p) ? fichaPasoIA(p) : {}),
         }) : esPasoAccion(p) ? ({
           // Un paso «⚡ Acción de MaKo» no manda un mensaje: corre esta operación del registro.
@@ -671,7 +676,8 @@ export const RUNNERS: Runners = {
       const plazoMs = ctx.canal === 'http' ? PLAZO_CREAR_HTTP_MS : 170_000;
       const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs, respuestas: sanearRespuestas(payload.respuestas), via });
       // Algo cambió entre proponer y confirmar (o preguntó el modelo): la pregunta vuelve a la persona, numerada.
-      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta) };
+      // Por HTTP vuelve como `faltan` (lib/api-mako/flujo.ts, `aplicarEnElActo`): el parámetro que la contesta.
+      if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta), datos: { faltan: [r.pregunta.sobre] } };
       if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
       // ⚠️ EL LINK LO ESCRIBE EL CÓDIGO y va por `paraLaPersona` (AGENTS.md: un id que pasa por un modelo deja de ser
       // exacto). `/automations?sec=<id>&mako=1` abre el lienzo de esa automatización CON el chat de MaKo abierto (§2.5),
@@ -1373,6 +1379,78 @@ export const RUNNERS: Runners = {
         throw e;
       }
       return { ok: true, resumen: `Mensaje de Instagram de la automatización #${id} guardado.` };
+    },
+  },
+
+  // El texto de un WhatsApp o un email en un flujo con ramas (25/10/2026; la def explica el porqué): la misma puerta que el DM.
+  cambiar_texto_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const texto = typeof input.texto === 'string' ? input.texto : undefined;
+      const asunto = typeof input.asunto === 'string' ? input.asunto : undefined;
+      if (texto === undefined && asunto === undefined) return { error: 'Pasa el texto, el asunto (en un email) o los dos.', faltan: ['texto'] };
+      const r = textoParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), String(s.nombre ?? ''), { texto, asunto });
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Mensaje de la automatización #${id} guardado.` };
+    },
+  },
+
+  // LA PRUEBA A/B (tanda A3; la def explica el porqué). Lo que se puede saber sin escribir falla en `preparar()`.
+  ver_prueba_ab: {
+    leer: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      if (!(await secuenciaVigente(id))) return errorLectura(noExiste(id));
+      return json(await estadoDeLaTarjeta(ctx.ws, id));
+    },
+  },
+
+  empezar_prueba_ab: {
+    preparar: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const nodo = tarjetaABDe(s.pasos as PasoGrafo[]);
+      if (!nodo) return { error: `«${s.nombre}» no tiene una tarjeta «A/B TEST»: se agrega en el lienzo de Automations (＋ → Prueba A/B).` };
+      const mal = problemasDeTarjetaAB(nodoPorId(s.pasos as PasoGrafo[], nodo)!, nodo, true);
+      if (mal.length) return { error: `Antes de empezar: ${mal[0]}.` };
+      const viva = await estadoDeLaTarjeta(ctx.ws, id);
+      if (viva.estado === 'corriendo' || viva.estado === 'propuesta') return { error: `«${s.nombre}» ya tiene una prueba: ${viva.texto}` };
+      const efecto = Number(input.efecto);
+      return { payload: { secuenciaId: id, nodoId: nodo, ...(efecto > 0 ? { efecto } : {}) }, resumen: `Empezar la prueba A/B de «${s.nombre}»` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await empezarPruebaDeLaTarjeta(ctx.ws, Number(payload.secuenciaId), String(payload.nodoId), ctx.actor?.trim() || 'MaKo',
+        Number(payload.efecto) > 0 ? { mdeRel: Number(payload.efecto) } : {});
+      return r.ok ? { ok: true, resumen: `Prueba A/B en marcha. ${r.plan}`, datos: { pruebaId: r.pruebaId } } : { ok: false, resumen: r.error };
+    },
+  },
+
+  detener_prueba_ab: {
+    preparar: async (input, ctx) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      const e = await estadoDeLaTarjeta(ctx.ws, id);
+      if (e.estado !== 'corriendo' && e.estado !== 'propuesta') return { error: `«${s.nombre}» no tiene una prueba corriendo.`, yaEstaba: true };
+      return { payload: { secuenciaId: id }, resumen: `Detener la prueba A/B de «${s.nombre}» (todos a A)` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const r = await detenerPruebaDeLaTarjeta(ctx.ws, Number(payload.secuenciaId), ctx.actor?.trim() || 'MaKo');
+      return r.ok ? { ok: true, resumen: 'Prueba A/B detenida: todos van a A.' } : { ok: false, resumen: r.error ?? 'No pude detenerla.' };
     },
   },
 

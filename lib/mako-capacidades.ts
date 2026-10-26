@@ -148,14 +148,18 @@ export const CAPACIDADES: Capacidad[] = [
     como: ['Entra al Dashboard y abre «Editar con MaKo»', 'Pide «Probemos …» con tu idea', 'Arráncalo en la hoja y vuelve cuando termine para concluirlo'],
   },
   {
-    id: 'contexto', tab: 'Contexto de MaKo', ruta: '/contexto',
+    // /contexto era de la plataforma (sólo el super admin) y se fue el 25/10/2026: lo del negocio se carga en Second Brain
+    // (lib/secciones-negocio.ts). El id se queda: es el contrato de `listar_capacidades_mako`.
+    id: 'contexto', tab: 'Second Brain', ruta: '/second-brain',
     que: 'Cargar lo que MaKo tiene que saber del negocio: documentos, glosario, oferta, precios.',
-    como: ['Entra a Contexto de MaKo', 'Sube el documento o escríbelo', 'Desde ahí lo usa en todas las tabs'],
+    como: ['Entra a Second Brain', 'Sube el documento o escríbelo en la sección que corresponde', 'Desde ahí lo usa en todas las tabs'],
   },
   {
+    // 25/10/2026: decía que WhatsApp se conecta en Integraciones (el QR vive en Chats) y no nombraba la IA ni la computadora.
+    // El link de CADA conexión lo da el catálogo único (lib/conexiones-catalogo.ts, `como_conectar`).
     id: 'conectar', tab: 'Integraciones', ruta: '/integraciones',
-    que: 'Conectar Meta, WhatsApp, Fathom, el email y el resto de las cuentas, y ver cuáles están sanas.',
-    como: ['Entra a Integraciones', 'Busca el servicio', 'Sigue el paso a paso y prueba la conexión ahí mismo'],
+    que: 'Conectar tus cuentas desde la computadora: tu GPT, Fathom, tus redes con Zernio, tu agenda, el email y el resto, y ver cuáles están sanas.',
+    como: ['Desde la computadora, entra a Integraciones', 'Abre la tarjeta de lo que quieres conectar y sigue su paso a paso', 'Tu Claude en tu computadora va en «Tus cuentas de IA»; tu número de WhatsApp, en Chats'],
   },
   {
     id: 'funnel', tab: 'CRM', ruta: '/crm',

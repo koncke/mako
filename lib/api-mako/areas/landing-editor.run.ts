@@ -47,7 +47,7 @@ import {
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
   planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
-  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planQuitarCobro,
+  planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
   type FallaPlan, type PlanContenido, type PlanConfig,
@@ -197,6 +197,8 @@ function edicion(op: Edicion): AccionRun {
 
 export const RUNNERS_EDITOR: Runners = {
   // ── Lecturas ──
+  // La biblioteca de íconos del editor (25/10/2026): los nombres que pide cambiar_icono_landing.
+  ver_iconos_landing: { leer: async (input) => json(iconosDeBibliotecaParaApi(str(input, 'buscar'))) },
   ver_secciones_landing: {
     leer: async (input) => {
       const id = num(input, 'id') ?? 0;
@@ -204,7 +206,7 @@ export const RUNNERS_EDITOR: Runners = {
       if (!r.ok) { siFallaNuestra(r); return errorLectura(r.status === 404 ? noExisteCreada(id) : `No pude leer la landing ${id} (${r.error}).`); }
       const pagina = str(input, 'pagina');
       if (pagina && ubicarPagina(r.doc.contenido, pagina) == null) return errorLectura(`No hay una página «${pagina}» en esa landing.`);
-      return json(estructuraParaApi(id, r.doc.contenido, pagina));
+      return json(estructuraParaApi(id, r.doc.contenido, pagina, r.doc.config?.diseno?.css));
     },
   },
 
@@ -450,7 +452,7 @@ export const RUNNERS_EDITOR: Runners = {
   acomodar_seccion_landing: { ...edicion({ que: 'acomodar la sección', planear: (i, d) => planAcomodarSeccion(d.contenido, i) }) },
   configurar_seccion_landing: { ...edicion({
     que: 'cambiar el estilo de la sección', imagenes: ['imagen'],
-    planear: (i, d, x) => planConfigurarSeccion(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen') }),
+    planear: (i, d, x) => planConfigurarSeccion(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen'), css: d.config?.diseno?.css }),
   }) },
   agregar_bloque_landing: { ...edicion({
     que: 'agregar el bloque', imagenes: ['imagen'],
@@ -460,6 +462,11 @@ export const RUNNERS_EDITOR: Runners = {
   poner_enlace_landing: { ...edicion({ que: 'poner el enlace', planear: (i, d) => planPonerEnlace(d.contenido, i) }) },
   configurar_formulario_landing: { ...edicion({ que: 'cambiar el formulario', planear: (i, d) => planConfigurarFormulario(d.contenido, i) }) },
   configurar_boton_landing: { ...edicion({ que: 'cambiar el botón', planear: (i, d) => planConfigurarBoton(d.contenido, i) }) },
+  cambiar_imagen_landing: { ...edicion({
+    que: 'cambiar la imagen', imagenes: ['imagen'],
+    planear: (i, d, x) => planCambiarImagen(d.contenido, i, { imagenPendiente: x.pendientes.includes('imagen') }),
+  }) },
+  cambiar_icono_landing: { ...edicion({ que: 'cambiar el ícono', planear: (i, d) => planCambiarIcono(d.contenido, i) }) },
   quitar_cobro_landing: { ...edicion({ que: 'quitar el cobro', planear: (i, d) => planQuitarCobro(d.contenido, i) }) },
   acomodar_pagina_landing: { ...edicion({ que: 'acomodar la página', planear: (i, d) => planAcomodarPagina(d.contenido, i) }) },
 

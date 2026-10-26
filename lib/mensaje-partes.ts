@@ -350,6 +350,21 @@ export function formaGuardada(lista: readonly ParteMensaje[], ia = false): Campo
 export const esUnTexto = (lista: readonly ParteMensaje[]): boolean => lista.length === 1 && lista[0].tipo === 'texto';
 
 /**
+ * Qué pasa con las variantes («↻ N») cuando cambia el mensaje de un paso (25/10/2026, la revisión del tren-k). Son otras formas
+ * de decir UN texto, y el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts): con un texto nuevo y
+ * las variantes del viejo, a 4 de cada 5 leads les llegaba lo que ya no decía. Se sueltan EXPLÍCITAS (`[]`, que
+ * `setSecuenciaPasos` respeta) si el mensaje deja de ser un solo texto o si su texto CAMBIA; con el mismo texto la clave no se
+ * toca (`{}`) y se quedan. `devolver`: las que repone el «Deshacer» del 🗑 (las del paso de antes de borrar). La misma regla
+ * que `conCuerpo` (lib/botones-api.ts), la de la API.
+ */
+export function variantesTrasCambio(antes: { cuerpo?: string | null; variantes?: readonly string[] | null }, unTexto: boolean, cuerpo: string, devolver?: readonly string[] | null): { variantes?: string[] } {
+  if (!unTexto) return { variantes: [] };
+  if (devolver?.length) return { variantes: [...devolver] };
+  if ((antes.variantes ?? []).length && cuerpo.trim() !== String(antes.cuerpo ?? '').trim()) return { variantes: [] };
+  return {};
+}
+
+/**
  * Lo que `setSecuenciaPasos` le pisa al paso reconstruido para guardar sus partes. `{}` = nada: un
  * mensaje de los de siempre se guarda EXACTAMENTE como antes (ni la clave `partes` aparece).
  *
@@ -370,7 +385,7 @@ export function partesAlGuardar(p: PasoConPartes, previas?: unknown): Partial<Om
   if (!resto.length) return { partes: undefined };
   const f = formaGuardada([...cabeza, ...resto]);
   // Varias partes (o una sola que subió a la cabeza): ni variantes (se sortean sobre UN texto) ni
-  // «MaKo lo adapta». `undefined` y no `[]`: el merge de abajo repone las guardadas con un `[]`.
+  // «MaKo lo adapta». `undefined` (la clave fuera del JSON): pisa lo que el merge de variantes haya puesto.
   return { tipo: f.tipo, cuerpo: f.cuerpo, audio_id: f.audio_id, media_id: f.media_id, partes: f.partes.length ? f.partes : undefined, variantes: undefined };
 }
 

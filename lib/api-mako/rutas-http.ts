@@ -163,6 +163,9 @@ async function correr(req: NextRequest, auth: Autenticado, def: OperacionDef, vi
     const { bloque: _dibujo, ...datos } = res.datos ?? {};
     return NextResponse.json({ ok: true, hecho: !sinCambios, ...(sinCambios ? { sinCambios: true } : {}), resumen: res.resumen, ...(res.datos ? { datos } : {}) }, { status: 200, headers: conPermiso });
   }
+  // Una pregunta (crear con IA: «¿Por dónde le escribo?») o un dato que falta es un 400 con `faltan`: quien llama contesta en
+  // ese parámetro y vuelve a llamar. Como texto de un 422 parecía un fallo (el Cerebro, 25/10/2026).
+  if (res.faltan?.length) return errorJson(400, res.resumen, { faltan: res.faltan }, conPermiso, def);
   if (esNuestro(res.resumen)) {
     console.error(`[api-v1] escritura directa de ${def.id} (ws ${ws}) falló de nuestro lado: ${res.resumen}`);
     return errorJson(500, 'Falló de nuestro lado. Reintenta en un momento.', {}, conPermiso, def);

@@ -69,7 +69,8 @@ test('el reloj: el `proximo_envio_at` vencido, y nunca en el futuro', () => {
 
 test('el motor le pasa a las esperas el reloj de la inscripción', () => {
   const motor = readFileSync(join(import.meta.dirname, '..', 'lib/nutricion.ts'), 'utf8');
-  assert.match(motor, /const r = resolverControl\(sec\.pasos, idxLeido, \{ hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs\(lead\), reunionConHoraMs, relojMs: relojDeLasEsperas\(insc\.proximo_envio_at, ahoraCtl\) \}\);/);
+  // (Tanda A3: el contexto va en `ctxCtl`, para volver a resolver con la rama de la prueba A/B.)
+  assert.match(motor, /const ctxCtl: ContextoControl = \{ hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs\(lead\), reunionConHoraMs, relojMs: relojDeLasEsperas\(insc\.proximo_envio_at, ahoraCtl\) \};\r?\n\s+let r = resolverControl\(sec\.pasos, idxLeido, ctxCtl\);/);
 });
 
 // ── Las roturas (6 tests; sin romper nada: 6 pases, 0 fallos). Fallos / pases con cada una: ───────────────────────

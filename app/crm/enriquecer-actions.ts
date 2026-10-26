@@ -12,16 +12,19 @@ import { exigirSesion } from '@/lib/sesion-accion';
 import { getRolWsEfectivo } from '@/lib/workspace';
 import { autorDelMovimiento } from '@/lib/leads';
 import type { ResultadoFichas, ResultadoPerfiles } from './grupo-wa-server';
-import { completarFichasDeLeads, completarPerfilesDeLeads, idsLimpios, telefonosDeLeads } from './enriquecer-lote-server';
+import { completarFichasDeLeads, completarPerfilesDeLeads, idsLimpios, pedidosDeFichas, type PedidoDeFicha } from './enriquecer-lote-server';
 
 const SOLO_ADMIN = 'Sólo el administrador del negocio puede completar los datos en lote.';
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
-/** El teléfono de cada tildado, para pedirle a la extensión sus fichas (la extensión sólo lee los teléfonos que se le pasan). */
-export async function telefonosDeLeadsAction(ids: number[]): Promise<{ ok: true; telefonos: Array<{ id: number; telefono: string }> } | { ok: false; error: string }> {
+/**
+ * Lo que la extensión necesita de los tildados: teléfono y `@lid` de cada uno, y los grupos de donde vinieron (`pedidosDeFichas`;
+ * la extensión sólo lee lo que se le pasa). Reemplaza a `telefonosDeLeadsAction` (25/10/2026), que pedía sólo los teléfonos.
+ */
+export async function pedidosDeFichasAction(ids: number[]): Promise<{ ok: true; pedidos: PedidoDeFicha[]; grupos: string[] } | { ok: false; error: string }> {
   await exigirSesion();
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  try { return { ok: true, telefonos: await telefonosDeLeads(idsLimpios(ids)) }; } catch (e) { return { ok: false, error: msg(e) }; }
+  try { return { ok: true, ...(await pedidosDeFichas(idsLimpios(ids))) }; } catch (e) { return { ok: false, error: msg(e) }; }
 }
 
 /** Una tanda de fichas de SU WhatsApp Web, escrita sólo en los tildados (`ids`). Corta por tiempo: lo que falta, en `pendientes`. */

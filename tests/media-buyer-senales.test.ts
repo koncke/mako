@@ -5,6 +5,8 @@
 // voseo, 1 fallo y 7 pases. Restaurado, 8 de 8.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { senalesDeVentana, ventanas, arbolDesdeZernio, conInterruptorEnVivo, type FilaMetrica, type FilaLeadAd } from '../lib/media-buyer/senales';
 import { parsearVariaciones, promptVariaciones } from '../lib/media-buyer/variaciones-prompt';
 
@@ -113,4 +115,38 @@ test('lo que sólo trae la lectura en vivo (una campaña sin anuncios) se SUMA a
   assert.equal(c?.nivelPresupuesto, 'campaign', 'con presupuesto propio es CBO');
   assert.equal(vivo.find((n) => n.id === 's9')?.parentId, 'c9');
   assert.equal(vivo.find((n) => n.id === 's9')?.nivelPresupuesto, 'campaign', 'el conjunto hereda el nivel de su campaña');
+});
+
+test('lanzar y deshacer releen EN VIVO el interruptor de un anuncio antes de decidir (el árbol de Zernio tiene hasta una hora de atraso)', () => {
+  // Medido el 25/10/2026 en la cuenta de MaKo: recién pausado por el Media Buyer, «prender» se frenó con «Ya estaba prendido en
+  // Meta» porque el árbol de Zernio todavía decía prendido. Zernio: «Controllers that act on a switch should pass live=true».
+  const raiz = join(import.meta.dirname, '..');
+  const ej = readFileSync(join(raiz, 'lib', 'media-buyer', 'ejecutar.ts'), 'utf8');
+  const lecturas = ej.match(/const actual = estadoVivo\(nodo\);/g) ?? [];
+  assert.equal(lecturas.length, 2, 'lanzar y deshacer leen el estado actual una vez cada uno');
+  assert.equal((ej.match(/await conAnuncioEnVivo\(ws, datos, nodo\);\s*const actual = estadoVivo\(nodo\);/g) ?? []).length, 2, 'las dos, con el anuncio releído antes');
+  const z = readFileSync(join(raiz, 'lib', 'zernio-ads.ts'), 'utf8');
+  assert.match(z, /\/ads\/\$\{encodeURIComponent\(adId\)\}\?live=true/, 'la lectura del anuncio pide live=true');
+});
+
+test('lo BORRADO que Zernio deja en el árbol no cuenta como prendido ni como pausado (un anuncio borrado trae configuredStatus ACTIVE)', () => {
+  // Medido por el chat «Zernio y CAPI» (25/10/2026): los dos anuncios que la prueba borró salen con status cancelled y configuredStatus ACTIVE.
+  const { arbol } = arbolDesdeZernio([{
+    platformCampaignId: 'c1', campaignName: 'C', platformCampaignStatus: 'ACTIVE', budgetLevel: 'adset',
+    adSets: [{ platformAdSetId: 's1', adSetName: 'S', status: 'active', ads: [
+      { platformAdId: 'a1', name: 'vivo', status: 'active', configuredStatus: 'ACTIVE' },
+      { platformAdId: 'a2', name: 'borrado', status: 'cancelled', configuredStatus: 'ACTIVE' },
+      { platformAdId: 'a3', name: 'pausado', status: 'paused', configuredStatus: 'PAUSED' },
+    ] }, { platformAdSetId: 's2', adSetName: 'S2', status: 'cancelled', ads: [] }],
+  }, { platformCampaignId: 'c2', campaignName: 'C2', platformCampaignStatus: 'DELETED', adSets: [] }] as never);
+  const de = (id: string) => arbol.find((n) => n.id === id)?.configurado;
+  assert.equal(de('a1'), 'ACTIVE');
+  assert.equal(de('a2'), 'DELETED', 'un anuncio borrado NO está prendido');
+  assert.equal(de('a3'), 'PAUSED');
+  assert.equal(de('s2'), 'DELETED', 'un conjunto borrado tampoco está «pausado» (Revive lo querría prender)');
+  assert.equal(de('c2'), 'DELETED');
+  assert.ok(arbol.some((n) => n.id === 'a2'), 'sigue en el árbol: su gasto de antes suma en su conjunto');
+  // Y la lectura en vivo de un anuncio no lo revive: ejecutar.ts mira `status` y la entrega antes que el interruptor.
+  const ej = readFileSync(join(import.meta.dirname, '..', 'lib', 'media-buyer', 'ejecutar.ts'), 'utf8');
+  assert.match(ej, /if \(v && estaBorrado\(v\.estado, v\.entrega\)\) nodo\.configurado = BORRADO;/);
 });

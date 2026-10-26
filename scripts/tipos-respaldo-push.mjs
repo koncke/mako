@@ -28,7 +28,15 @@ export const TANDAS = 3;
 export const HEAP_MB = 4096;
 export const SALIDA_SIN_CHEQUEAR = 99;
 // El piso de RAM de cada tanda: el heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen. ≈ 5,3 GB.
-export const RAM_MIN_GB = HEAP_MB / 1024 + 0.1 + 0.9 + 0.3;
+// 26/10/2026 (el Cerebro): con la app de Claude abierta la PC dejó de pasar los 4,5 GB disponibles aunque se archivaran cuatro
+// chats (quietos, ya estaban en disco), y el tren esperó horas. La zona roja no protege la PC: con el vigía PRENDIDO, una tanda que
+// la toca muere y el push sale con 99 («sin chequear», nunca un verde falso). `MAKO_TIPOS_RAM_MIN_GB` baja el piso a mano para
+// intentarlo igual, nunca por debajo del heap + 0,3; sin el vigía corriendo no se usa (lo dice docs/hallazgos-infra.md).
+const PISO_POR_DEFECTO_GB = HEAP_MB / 1024 + 0.1 + 0.9 + 0.3;
+const PISO_A_MANO_GB = Number(process.env.MAKO_TIPOS_RAM_MIN_GB);
+export const RAM_MIN_GB = Number.isFinite(PISO_A_MANO_GB) && PISO_A_MANO_GB > 0
+  ? Math.max(HEAP_MB / 1024 + 0.3, Math.min(PISO_A_MANO_GB, PISO_POR_DEFECTO_GB))
+  : PISO_POR_DEFECTO_GB;
 const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
 // El mismo lock que scripts/typecheck-lock.mjs: nunca dos tsc grandes a la vez en esta PC.
 const LOCK = join(tmpdir(), 'mako-typecheck.lock');

@@ -5,11 +5,13 @@
 // las notas de voz». Corre la capa REAL contra un PostgREST de mentira y anota a qué hosts sale cada llamada (y con qué
 // clave):
 //   · el ws12 tiene SÓLO su Groq; el ws13, su Gemini (dos cuentas); el ws14, nada; el ws1, una COPIA de la Gemini de la
-//     plataforma; la plataforma (ws9), Gemini y Groq.
-// Todo lo que no es la base contesta un error (así la cascada recorre todo lo permitido), salvo el embedding de Gemini, que
-// contesta un vector de 768 — menos el primer pedido del ws13, que contesta un 429 (para ver que prueba la otra cuenta).
+//     plataforma; la plataforma (ws9), Gemini y Groq; el ws15, su OpenAI y su Gemini; el ws16, un Gemini que no contesta.
+// Todo lo que no es la base contesta un error (así la cascada recorre todo lo permitido), salvo los embeddings: el de Gemini
+// contesta un vector de 768 —menos el primer pedido del ws13, un 429 (para ver que prueba la otra cuenta), y el ws16, un 500—
+// y el de OpenAI, uno de 1536. `sinColumna` hace de una base sin la migración de `embedding_modelo` (25/10/2026).
 // =============================================================================
 
+import { createHash } from 'node:crypto';
 import { crearPostgrest } from './_postgrest-de-mentira';
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supa.test';
@@ -26,13 +28,23 @@ const pg = crearPostgrest({
 });
 let red: Array<{ host: string; camino: string; clave: string }> = [];
 let embebioWs13 = 0;
+let sinColumna = false;
 const json = (o: unknown, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'content-type': 'application/json' } });
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
-  if (u.host === 'supa.test') return pg.responder(u, init);
+  if (u.host === 'supa.test') {
+    // Como PostgREST sin la columna: el select contesta 42703 y el PATCH, PGRST204.
+    if (sinColumna && u.pathname.endsWith('/mako_knowledge')) {
+      if (u.search.includes('embedding_modelo')) return json({ code: '42703', message: 'column mako_knowledge.embedding_modelo does not exist' }, 400);
+      if (String(init.body ?? '').includes('embedding_modelo')) return json({ code: 'PGRST204', message: "Could not find the 'embedding_modelo' column of 'mako_knowledge' in the schema cache" }, 400);
+    }
+    return pg.responder(u, init);
+  }
   const h = new Headers(init.headers);
   const clave = (h.get('x-goog-api-key') ?? h.get('authorization') ?? '').replace(/^Bearer /, '').slice(0, 20);
   red.push({ host: u.host, camino: u.pathname, clave });
+  if (u.host === 'api.openai.com' && u.pathname === '/v1/embeddings') return json({ data: [{ embedding: Array.from({ length: 1536 }, (_, i) => (i % 5) / 5) }] });
+  if (u.pathname.endsWith(':embedContent') && clave.startsWith('16-GEMINI')) return json({ error: { message: 'Internal error encountered.' } }, 500);
   if (u.pathname.endsWith(':embedContent')) {
     // La PRIMERA cuenta del ws13 que se prueba (cuál va primero lo decide el orden por cuota) contesta un 429.
     if (clave.startsWith('13-GEMINI') && !embebioWs13++) return json({ error: { message: 'Resource has been exhausted' } }, 429);
@@ -48,9 +60,9 @@ async function main() {
   const { cifrarSecreto } = await import('../lib/credenciales');
   const { runWithWorkspace } = await import('../lib/workspace');
   const ai = await import('../lib/ai-cheap');
-  const { embed, SIN_SU_GEMINI } = await import('../lib/embeddings');
-  const { searchKnowledge } = await import('../lib/mako-knowledge');
-  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[1, 12, 13, 14].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
+  const { embed, POR_PALABRAS } = await import('../lib/embeddings');
+  const { searchKnowledge, falloDelRag, reindexKnowledge, reembeberLoQueFalta } = await import('../lib/mako-knowledge');
+  pg.db.workspaces.push({ id: PLATAFORMA, capa: 'superadmin', nombre: 'MaKo' }, ...[1, 12, 13, 14, 15, 16].map((id) => ({ id, capa: 'cliente', nombre: `ws${id}` })));
   const poner = (ws: number, clave: string, valor = `${ws}-${clave}-${'k'.repeat(30)}`) => pg.db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrarSecreto(valor, ws, clave), servicio: clave.split('_')[0].toLowerCase() });
   poner(12, 'GROQ_API_KEY');
   poner(13, 'GEMINI_API_KEY');
@@ -58,6 +70,9 @@ async function main() {
   poner(1, 'GEMINI_API_KEY', DE_LA_PLATAFORMA);
   poner(PLATAFORMA, 'GEMINI_API_KEY', DE_LA_PLATAFORMA);
   poner(PLATAFORMA, 'GROQ_API_KEY');
+  poner(15, 'OPENAI_API_KEY');
+  poner(15, 'GEMINI_API_KEY');
+  poner(16, 'GEMINI_API_KEY');
   const audio = Buffer.from('audio de prueba').toString('base64');
   const correr = async (ws: number, f: () => Promise<unknown>) => { red = []; await runWithWorkspace(ws, async () => { try { await f(); } catch { /* el error de mentira */ } }); return [...red]; };
   const hosts = (r: Array<{ host: string }>) => r.map((x) => x.host);
@@ -102,40 +117,86 @@ async function main() {
     nota: await correr(13, nota),
   };
 
-  // ── El buscador de conocimiento ───────────────────────────────────────────────────────────────────────────────────
-  const embeber = (ws: number) => async () => { red = []; const r = await runWithWorkspace(ws, () => embed('hola', 'consulta').then((v) => `vector de ${v.length}`, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`)); return { r, claves: red.map((x) => x.clave) }; };
-  out.embed = { ws13: await embeber(13)(), ws14: await embeber(14)(), ws1: await embeber(1)(), ws9: await embeber(PLATAFORMA)() };
-  out.SIN_SU_GEMINI = SIN_SU_GEMINI;
-  // Una fila vieja (OpenAI, 1536) del ws13 y una nueva (Gemini, 768) del método de la plataforma: la consulta del ws13, con
-  // su Gemini, encuentra la de la plataforma (el vector sale del modelo, no de la cuenta) y no la vieja.
+  // ── El buscador de conocimiento (25/10/2026): su OpenAI primero, su Gemini si es lo único; sin ninguna, por palabras ───
+  const embeber = (ws: number) => async () => { red = []; const r = await runWithWorkspace(ws, () => embed('hola', 'consulta').then((v) => `${v.modelo} de ${v.vector.length}`, (e) => `tiró: ${e instanceof Error ? e.message : String(e)}`)); return { r, claves: red.map((x) => x.clave) }; };
+  out.embed = { ws13: await embeber(13)(), ws14: await embeber(14)(), ws1: await embeber(1)(), ws9: await embeber(PLATAFORMA)(), ws12: await embeber(12)(), ws15: await embeber(15)() };
+  out.POR_PALABRAS = POR_PALABRAS;
+  const gem = Array.from({ length: 768 }, (_, i) => (i % 7) / 7);
+  const opn = Array.from({ length: 1536 }, (_, i) => (i % 5) / 5);
+  // Una fila vieja (OpenAI, 1536) del ws13; el método de la plataforma (Gemini, 768); y lo del ws15, con su OpenAI.
   pg.db.mako_knowledge.push(
     { id: 901, workspace_id: 13, titulo: 'vieja', categoria: null, cuerpo: 'algo', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', embedding: Array.from({ length: 1536 }, () => 0.5) },
-    { id: 902, workspace_id: PLATAFORMA, titulo: 'del método', categoria: null, cuerpo: 'algo', area: 'general', fuente: 'mako', activo: true, estado: 'indexado', embedding: Array.from({ length: 768 }, (_, i) => (i % 7) / 7) },
+    { id: 902, workspace_id: PLATAFORMA, titulo: 'del método', categoria: null, cuerpo: 'algo', area: 'general', fuente: 'mako', activo: true, estado: 'indexado', embedding: gem },
+    { id: 907, workspace_id: PLATAFORMA, titulo: 'Objeciones de precio', categoria: null, cuerpo: 'Cuando te dicen que es caro, pregunta comparado con qué.', area: 'general', fuente: 'mako', activo: true, estado: 'indexado', embedding: gem.map((x, i) => (i % 2 ? x : -x)) },
+    { id: 908, workspace_id: 15, titulo: 'Mi oferta', categoria: null, cuerpo: 'El programa dura doce semanas.', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', embedding: opn, embedding_modelo: 'text-embedding-3-small' },
   );
-  out.busqueda = await runWithWorkspace(13, () => searchKnowledge('hola', 5)).then((r) => r.map((x) => x.titulo));
-  out.busquedaSinSuGemini = await runWithWorkspace(14, () => searchKnowledge('hola', 5)).then((r) => r.map((x) => x.titulo));
+  const buscar = async (ws: number, q: string, k = 5) => {
+    red = [];
+    const r = await runWithWorkspace(ws, () => searchKnowledge(q, k));
+    return { r: r.map((x) => [x.titulo, Math.round(x.score * 100) / 100]), salio: [...new Set(red.map((x) => x.host))], fallo: falloDelRag()?.motivo ?? null };
+  };
+  out.busqueda = {
+    // Con su Gemini: el método de la plataforma por vector (mismo modelo, otra cuenta); la vieja de OpenAI, no.
+    ws13: await buscar(13, 'hola'),
+    // Con su OpenAI: lo suyo por vector; el método (Gemini) por palabras, sin comparar un vector de Gemini contra uno de OpenAI.
+    ws15: await buscar(15, 'objeciones de precio'),
+    // Sin ninguna IA: por palabras, sin salir a la red y sin que sea un fallo. «hola» no dice nada: no trae todo.
+    ws14: await buscar(14, 'objeciones de precio'),
+    ws14Hola: await buscar(14, 'hola'),
+    // Su Gemini no contesta: por palabras igual, y el fallo queda dicho.
+    ws16: await buscar(16, 'objeciones de precio'),
+  };
 
-  // ── El método de MaKo vive en el ws1 (un cliente, sin su Gemini): se embebe con la de la plataforma; lo suyo, no ──────
-  const { reindexKnowledge, reembeberLoQueFalta } = await import('../lib/mako-knowledge');
+  // ── El método de MaKo vive en el ws1 (un cliente, sin su IA): se embebe con la de la plataforma; lo suyo, por palabras ──
+  const hash = (t: string) => createHash('sha256').update(t).digest('hex');
   pg.db.mako_knowledge.push(
     { id: 903, workspace_id: 1, titulo: 'método en el ws1', categoria: null, cuerpo: 'el método', area: 'general', fuente: 'mako', activo: true, estado: 'pendiente', embedding: null },
     { id: 904, workspace_id: 1, titulo: 'nota de Mauricio', categoria: null, cuerpo: 'lo suyo', area: 'general', fuente: 'manual', activo: true, estado: 'pendiente', embedding: null },
+    // Del ws14 (sin IA): una con el vector de ESTE texto (se queda) y una cuyo cuerpo cambió (su vector ya no es de él).
+    { id: 910, workspace_id: 14, titulo: 'ya embebida', categoria: null, cuerpo: 'x', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', content_hash: hash('x'), embedding: gem },
+    { id: 912, workspace_id: 14, titulo: 'cambió', categoria: null, cuerpo: 'nuevo', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', content_hash: hash('viejo'), embedding: gem },
   );
-  const reindexar = async (ws: number, id: number) => { red = []; const fila = await runWithWorkspace(ws, () => reindexKnowledge(id)); return { estado: fila?.estado, error: fila?.error ?? null, claves: red.map((x) => x.clave) }; };
+  const fila = (id: number) => pg.db.mako_knowledge.find((f) => f.id === id)!;
+  const largo = (id: number) => (Array.isArray(fila(id).embedding) ? (fila(id).embedding as unknown[]).length : 0);
+  const reindexar = async (ws: number, id: number) => {
+    red = [];
+    const f = await runWithWorkspace(ws, () => reindexKnowledge(id));
+    return { estado: f?.estado, error: f?.error ?? null, claves: red.map((x) => x.clave), largo: largo(id), modelo: fila(id).embedding_modelo ?? null };
+  };
   out.metodoWs1 = await reindexar(1, 903);
   out.notaWs1 = await reindexar(1, 904);
-  // ── Al conectar su Gemini, lo que quedó sin buscador se embebe con su cuenta (y lo que ya está en Gemini, no) ─────────
+  out.yaEmbebida = await reindexar(14, 910);
+  out.cambio = await reindexar(14, 912);
+
+  // ── Al conectar su IA, lo que quedó sin vector o con el de otro modelo se embebe con SU cuenta, de a poco ─────────────
   pg.db.mako_knowledge.push(
     { id: 905, workspace_id: 13, titulo: 'sin vector', categoria: null, cuerpo: 'a', area: 'general', fuente: 'manual', activo: true, estado: 'error', embedding: null },
     { id: 906, workspace_id: 13, titulo: 'ya en Gemini', categoria: null, cuerpo: 'b', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', embedding: Array.from({ length: 768 }, () => 0.1) },
+    { id: 913, workspace_id: 15, titulo: 'en Gemini', categoria: null, cuerpo: 'c', area: 'general', fuente: 'manual', activo: true, estado: 'indexado', embedding: gem },
+    { id: 914, workspace_id: 15, titulo: 'sin vector', categoria: null, cuerpo: 'd', area: 'general', fuente: 'manual', activo: true, estado: 'pendiente', embedding: null },
+    // La que ya falló (id menor): va al final de la tanda, no se queda con el lugar de las que sí se pueden embeber.
+    { id: 900, workspace_id: 15, titulo: 'falló', categoria: null, cuerpo: 'f', area: 'general', fuente: 'manual', activo: true, estado: 'error', embedding: null },
   );
+  const delWs = (ws: number) => pg.db.mako_knowledge.filter((f) => f.workspace_id === ws).map((f) => [f.titulo, largo(f.id as number), f.embedding_modelo ?? null]);
   red = [];
-  const n = await runWithWorkspace(13, () => reembeberLoQueFalta());
-  out.alConectar = {
-    n,
-    claves: [...new Set(red.map((x) => x.clave))],
-    largos: pg.db.mako_knowledge.filter((f) => f.workspace_id === 13).map((f) => [f.titulo, Array.isArray(f.embedding) ? (f.embedding as unknown[]).length : 0]),
+  const n13 = await runWithWorkspace(13, () => reembeberLoQueFalta());
+  out.alConectar = { n: n13, claves: [...new Set(red.map((x) => x.clave))], filas: delWs(13) };
+  red = [];
+  const tandas = [await runWithWorkspace(15, () => reembeberLoQueFalta(1))];
+  const trasLaPrimera = delWs(15);
+  tandas.push(await runWithWorkspace(15, () => reembeberLoQueFalta()), await runWithWorkspace(15, () => reembeberLoQueFalta()));
+  out.alConectarOpenAI = { tandas, trasLaPrimera, claves: [...new Set(red.map((x) => x.clave))], filas: delWs(15) };
+
+  // ── Sin la migración de `embedding_modelo`: escribe y busca igual (el modelo sale del largo) ──────────────────────────
+  sinColumna = true;
+  pg.db.mako_knowledge.push({ id: 915, workspace_id: 15, titulo: 'sin columna', categoria: null, cuerpo: 'e', area: 'general', fuente: 'manual', activo: true, estado: 'pendiente', embedding: null });
+  out.sinColumna = {
+    n: await runWithWorkspace(15, () => reembeberLoQueFalta()),
+    fila: [largo(915), fila(915).estado, fila(915).embedding_modelo ?? null],
+    busqueda: await buscar(15, 'objeciones de precio', 10),
   };
+  sinColumna = false;
+
   // «Costo de MaKo» (23/10): las cajas de cuota son las IA que el negocio TIENE; la API de MaKo sigue pidiendo todas.
   const { cuotasProveedores } = await import('../lib/ia-cuotas');
   const cajas = (ws: number, soloCargadas: boolean) =>

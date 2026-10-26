@@ -24,6 +24,8 @@
 // se paga peor: manda a tocar algo que está bien.
 // =============================================================================
 
+import { conexion, rutaDeTarjeta } from './conexiones-catalogo';
+
 export type CausaFalloIA =
   /** No hay NINGUNA key cargada: sin eso MaKo no puede pensar. */
   | 'sin_keys'
@@ -199,12 +201,13 @@ export const CONECTA_TU_CLAUDE = 'Conecta tu Claude en Integraciones: lleva dato
  * contesta los turnos del chat, no los pedidos de una pantalla. La misma frase que `AVISO_SIN_ARCHIVERO` del chat
  * (lib/mako-turno-app-reglas.ts). Lo dicen pantallas del admin (las áreas y la búsqueda del Second Brain): la clave es suya.
  * `tema` va adentro de la frase: 'generar las razones', 'leer tus documentos'…
+ * Martín, 25/10/2026: ningún texto ofrece Gemini como «su IA» (docs/conexiones-y-ayuda.md, decisión 1); quien ya lo tiene, lo usa.
  */
-export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude, de OpenAI o de Gemini (en Integraciones).`;
+export const conSuIASinClave = (tema: string): string => `Con tu propio Claude, para ${tema} necesito tu clave de Claude o de OpenAI (en Integraciones).`;
 
-/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude ven su OpenAI y su Gemini (IA16). El mismo criterio
- *  que `AVISO_NO_LEI_SU_IA` del chat. */
-export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude, de OpenAI o de Gemini (en Integraciones).';
+/** Lo mismo para MIRAR una foto o un PDF escaneado: con su propio Claude ven su OpenAI (y su Gemini, si ya lo tiene: IA16). El
+ *  mismo criterio que `AVISO_NO_LEI_SU_IA` del chat, y sin ofrecer Gemini (25/10/2026). */
+export const CON_SU_IA_SIN_VISION = 'Con tu propio Claude, las fotos y los PDF escaneados los leo con tu clave de Claude o de OpenAI (en Integraciones).';
 
 /** Qué era lo que MaKo estaba por hacer, para que la frase no quede genérica. */
 export type QueIntentaba = 'contestar' | 'escuchar tu audio' | 'armar el borrador';
@@ -221,7 +224,8 @@ const NOMBRE_IA: Record<string, string> = { gemini: 'Gemini', openai: 'GPT', ant
  *     después de dos), así que ofrecérselo para el grupo es prometer un respaldo que justo cuando hace falta no está. Y
  *     Claude no escucha (`CASCADA_STT`, lib/ai-cheap.ts);
  *   · en la app, su Claude con MaKo en su computadora (MaKo Desktop): el chat de la app ya exige la computadora
- *     (lib/chat-mako-reglas.ts). El grupo todavía no pasa por ella (D6a).
+ *     (lib/chat-mako-reglas.ts). Y desde el 25/10 (tanda 4) también el grupo, cuando escribe quien la conectó: con ella
+ *     encendida, el grupo ni llega al cartel.
  * Un negocio que YA tiene su Gemini sigue andando con él (la cascada lo prueba): lo que no se hace es mandarlo a conectar uno.
  */
 const CUBREN_EL_TURNO = ['openai'] as const;
@@ -229,16 +233,19 @@ const respaldosDe = (prov: string): string[] => CUBREN_EL_TURNO.filter((p) => p 
 
 /**
  * LAS CONEXIONES QUE NOMBRA UN CARTEL, cada una con SU link (25/10/2026: el aviso del 24/10 al ws21 nombraba «tu Claude, tu
- * GPT o tu Gemini, y también Fathom» con UN solo link, el de Claude). Las rutas son contrato: `/integraciones?abrir=<key>`
- * abre el modal de esa tarjeta (app/integraciones/IntegracionesBoard.tsx), `/perfil/instalar` baja MaKo Desktop y
- * `/second-brain` es el chat de la app (el Ops Center).
+ * GPT o tu Gemini, y también Fathom» con UN solo link, el de Claude). Las rutas salen del catálogo único
+ * (lib/conexiones-catalogo.ts), que son contrato: `/integraciones?abrir=<key>` abre el modal de esa tarjeta y la computadora
+ * va directo a «Conecta MaKo», que trae «Descargar MaKo» para quien no la tiene. `/second-brain`, el chat de la app (el Ops
+ * Center), no es una conexión: va aparte.
  */
-export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app';
+export type ConexionDelCartel = 'openai' | 'anthropic' | 'fathom' | 'pc' | 'app' | 'perfil';
+const delCatalogo = (key: string): string => conexion(key)?.ruta ?? rutaDeTarjeta(key);
 export const RUTA_CONEXION: Record<ConexionDelCartel, string> = {
-  openai: '/integraciones?abrir=openai',
-  anthropic: '/integraciones?abrir=anthropic',
-  fathom: '/integraciones?abrir=fathom',
-  pc: '/perfil/instalar',
+  openai: delCatalogo('openai'),
+  anthropic: delCatalogo('anthropic'),
+  fathom: delCatalogo('fathom'),
+  pc: delCatalogo('pc'),
+  perfil: delCatalogo('perfil'),
   app: '/second-brain',
 };
 
@@ -264,8 +271,13 @@ export function enlaceA(link: string, conexion: ConexionDelCartel): string {
 
 /** Lo que el cartel sabe del negocio además de las claves (25/10/2026). */
 export type ContextoCartel = {
-  /** Alguien del negocio conectó su computadora: su Claude está, pero desde ahí contesta en la app, no en WhatsApp. */
+  /** Alguien del negocio conectó su computadora (MaKo Desktop). En el grupo contesta sólo a quien la conectó (decisión 2). */
   conPc?: boolean;
+  /**
+   * Lo que pasó con la computadora de QUIEN ESCRIBE, si es la persona que la conectó (el doer, `pcDeQuienEscribe`): apagada o
+   * sin internet, o no contestó a tiempo. Sin esto y con `conPc`, quien escribe no es quien la conectó.
+   */
+  laPcDelQueEscribe?: 'apagada' | 'no-contesto';
   /** Tiene su Claude por clave: para una nota de voz, «tu Claude no escucha» en vez de «no conectaste una IA». */
   suClaude?: boolean;
   /** Lo que el pedido necesita además de la IA y no está conectado (`conexionesDelPedido`, filtrado por el doer). */
@@ -339,20 +351,9 @@ export function textoFalloIA(
       // escucha notas de voz. Desde el 25/10, sin Gemini (ver `CUBREN_EL_TURNO`) y con un link por cada cosa que falta.
       // ⚠️ CON LA COMPUTADORA CONECTADA, «NO TIENE SU IA» ES FALSO (25/10/2026). `negocioConSuIA` da `suIA` a todo negocio
       // con MaKo Desktop, y como la computadora no cuenta claves, la causa salía `sin_keys` y el grupo le decía «tu negocio
-      // todavía no tiene su IA conectada» a quien la tenía. Lo cierto: su Claude contesta en la app, no aquí.
+      // todavía no tiene su IA conectada» a quien la tenía.
       if (que === 'escuchar tu audio') {
         // Una nota de voz no la escucha su Claude, ni por clave ni en su computadora: la escucha su GPT.
-        if (ctx.conPc && !ctx.suClaude) {
-          return [
-            '⚠️ No puedo escuchar tu audio: tu Claude está en tu computadora, y desde ahí no escucha notas de voz ni te contesta en WhatsApp.',
-            '',
-            'Para que te escuche y te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
-            gpt,
-            '',
-            'O escríbeme en la app 👇',
-            enlaceA(link, 'app'),
-          ].join('\n');
-        }
         if (ctx.conPc || ctx.suClaude) {
           return [
             '⚠️ No puedo escuchar tu audio: tu Claude no escucha notas de voz.',
@@ -368,15 +369,38 @@ export function textoFalloIA(
           gpt,
         ].join('\n');
       }
+      // ⚠️ DESDE LA TANDA 4 (25/10/2026), EL GRUPO DEL DUEÑO CONTESTA CON SU COMPUTADORA: «aquí no, en la app» dejó de ser cierto
+      // para quien la conectó. Lo cierto depende de qué pasó con la computadora de QUIEN ESCRIBE (`laPcDelQueEscribe`).
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'apagada') {
+        return [
+          `⚠️ No puedo ${que}: tu computadora con MaKo está apagada o sin internet, y aquí te contesto desde ella.`,
+          '',
+          'Préndela y mándamelo de nuevo. Para que te conteste aunque esté apagada, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
+      if (ctx.conPc && ctx.laPcDelQueEscribe === 'no-contesto') {
+        return [
+          `⚠️ No pude ${que}: tu computadora con MaKo no me contestó a tiempo.`,
+          '',
+          'Mándamelo de nuevo en un rato. Para que te conteste aunque tu computadora no responda, conecta también tu GPT (una clave de OpenAI) 👇',
+          gpt,
+          ...lineasDeLoQueFalta(link, ctx.faltan),
+        ].join('\n');
+      }
       if (ctx.conPc) {
         return [
-          `⚠️ Aquí no puedo ${que}: tu Claude está en tu computadora, y desde ahí te contesto en la app, no en WhatsApp.`,
+          `⚠️ Aquí no puedo ${que}: la IA de tu negocio está en una computadora con MaKo, y en WhatsApp contesta sólo a quien la conectó, desde su número.`,
           '',
-          'Escríbeme en la app 👇',
-          enlaceA(link, 'app'),
-          '',
-          'Para que también te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
+          'Para que te conteste a ti aquí, conecta tu GPT (una clave de OpenAI) 👇',
           gpt,
+          '',
+          'Si la conectaste tú, revisa que tu número de WhatsApp esté en tu perfil de MaKo 👇',
+          enlaceA(link, 'perfil'),
+          '',
+          'Y en la app te contesto con MaKo en tu computadora 👇',
+          enlaceA(link, 'app'),
           ...lineasDeLoQueFalta(link, ctx.faltan),
         ].join('\n');
       }
@@ -386,7 +410,7 @@ export function textoFalloIA(
         'Para que te conteste aquí, conecta tu GPT (una clave de OpenAI) 👇',
         gpt,
         '',
-        'Y para escribirme en la app, instala MaKo en tu computadora y conecta tu Claude 👇',
+        'O instala MaKo en tu computadora y conecta tu Claude: te contesto aquí y en la app 👇',
         enlaceA(link, 'pc'),
         ...lineasDeLoQueFalta(link, ctx.faltan),
       ].join('\n');

@@ -122,9 +122,10 @@ export function AprendeSolo({ resumen, soloCuentas }: { resumen: ResumenRecolect
                 </section>
                 {resumen.sinIndice > 0 && (
                   <p className="as-aviso">
-                    {resumen.sinIndice} {resumen.sinIndice === 1 ? 'conversación todavía no la usa' : 'conversaciones todavía no las usa'} al
-                    {/* Conectar nunca saca de la tab (regla del 14/10/2026): el modal de la integración, acá mismo. */}
-                    responder: <BotonIntegracion servicio="gemini" style={{ color: 'var(--primary)', fontWeight: 600 }}>conecta tu Gemini</BotonIntegracion>.
+                    {resumen.sinIndice} {resumen.sinIndice === 1 ? 'conversación se busca' : 'conversaciones se buscan'} sólo por palabras:
+                    {/* Conectar nunca saca de la tab (regla del 14/10/2026): el modal de la integración, acá mismo. Su GPT, nunca
+                        su Gemini (25/10/2026, lib/embeddings.ts). */}
+                    {' '}<BotonIntegracion servicio="openai" style={{ color: 'var(--primary)', fontWeight: 600 }}>conecta tu GPT</BotonIntegracion> para que MaKo las entienda mejor.
                   </p>
                 )}
                 {soloCuentas

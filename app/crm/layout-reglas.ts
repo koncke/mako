@@ -10,7 +10,6 @@
 // (no está en tu plan), `guardOnboarding` (a terminar el onboarding), `requireRolWs` (a la casa del plan)—, y un
 // guard que busca `redirect(` en la página no las ve. Cada ruta, con LA MISMA puerta de su página:
 //   · /crm, /crm/new y la ficha /crm/<id>: el CRM en el plan y el onboarding terminado;
-//   · /crm/prospectos: closer o setter (o admin), con el CRM;
 //   · /crm/<id>/resumen: el CRM en el plan, SIN onboarding (se abre desde un WhatsApp con la reunión encima), y el super
 //     admin que abre un lead de OTRO negocio va al negocio del lead (`?ws=`);
 //   · /crm/revisar y /crm/revisar/<id>: sin sesión, a /inicio.
@@ -19,7 +18,6 @@
 
 export type RedireccionCrm =
   | { tipo: 'tab' }
-  | { tipo: 'prospectos' }
   | { tipo: 'resumen'; leadId: number }
   | { tipo: 'pide-sesion' }
   | null;
@@ -28,7 +26,6 @@ export type RedireccionCrm =
 export function redireccionDelLayoutCrm(ruta: string | null): RedireccionCrm {
   if (!ruta) return null;
   if (ruta === '/crm' || ruta === '/crm/new' || /^\/crm\/\d+$/.test(ruta)) return { tipo: 'tab' };
-  if (ruta === '/crm/prospectos') return { tipo: 'prospectos' };
   if (ruta === '/crm/revisar' || /^\/crm\/revisar\/[^/]+$/.test(ruta)) return { tipo: 'pide-sesion' };
   const m = /^\/crm\/(\d+)\/resumen$/.exec(ruta);
   return m ? { tipo: 'resumen', leadId: Number(m[1]) } : null;

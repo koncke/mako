@@ -147,7 +147,7 @@ import { chipDeAutomatizacion, enTandasDe, lineaDeAutomatizacion, noEntroDelMovi
 import { enAutomatizacionesAction, frenarLeadsEnAutomatizacionesAction } from '@/app/automations/automatizaciones-del-lead-actions';
 import type { EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
 import { useEtiquetas, type Etiqueta } from '@/app/_components/etiquetas-cliente';
-import { ModalLlevarAPartners } from '@/app/partners/LlevarAPartners';
+import { ModalNuevoCliente as ModalLlevarAPartners } from '@/app/agency/NuevoCliente';
 import { EstiloTarjetas, FichaRapida, TarjetaPersona } from '@/app/_ui/TarjetaKanban';
 import { CAMPOS_TARJETA_DEFAULT, CAMPOS_TARJETA_LEAD, FONDO_COLUMNA, NOMBRE_CAMPO_TARJETA, PLANTILLAS_TARJETA_LEAD, colorDeNombre, fechaReunionCorta, insigniaDeCanal, plataDeLead, subtituloEnOrden, subtituloLead, type CampoTarjetaLead, type DisenoTarjeta, type PlantillaTarjetaLead } from '@/lib/tarjeta-kanban';
 import { PersonalizarTarjetas } from '@/app/_ui/PersonalizarTarjetas';
@@ -2673,7 +2673,7 @@ export function CrmBoard({
       case 'copiar_telefono': if (l) copiarDato(l.phone, 'Teléfono copiado'); return;
       case 'copiar_email': if (l) copiarDato(l.email, 'Email copiado'); return;
       case 'partners_llevar': if (l) setAPartners(l); return;
-      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/partners?cuenta=${l.cuentaPartners}`); return;
+      case 'partners_ver': if (l?.cuentaPartners != null) router.push(`/agency?cuenta=${l.cuentaPartners}`); return;
       case 'seleccionar':
       case 'quitar_seleccion': if (l) alternarSel(l.id); return;
       // La MISMA confirmación que el tacho de la fila.
@@ -2711,8 +2711,6 @@ export function CrmBoard({
       case 'col_eliminar': if (c) void quitarColumna(c); return;
       case 'nuevo_lead': setNuevoLead({ etapa: null }); return;
       case 'importar': setImportar(true); return;
-      // La misma pantalla que el renglón del «⋯» de la barra, con el CRM que se mira (C6, 22/10/2026).
-      case 'buscar_prospectos': router.push(funnelActivo != null ? `/crm/prospectos?funnel=${funnelActivo}` : '/crm/prospectos'); return;
       case 'exportar': setExportar(true); return;
       case 'editar_etapas': setEtapasDe({ id: funnelActivo, nombre: nombreDeFunnel(funnelActivo) }); return;
     }

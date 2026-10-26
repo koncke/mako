@@ -695,6 +695,33 @@ export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoCh
   return desde ? ultimos.slice(desde) : ultimos;
 }
 
+/**
+ * Los turnos de la conversación de un chat, de TODAS sus sesiones: los últimos `TURNOS_POR_CHAT` (`unirTurnos`) y, aunque hayan
+ * quedado afuera, su último «Ya está» y lo que hace falta para saber qué respondía (`pedidoDelCompletado`, lib/centro-chats.ts):
+ * el «Ya está» de antes (donde empieza ese tramo), lo último de Martín y lo último de otro chat en el tramo, y lo último de
+ * Martín de antes. `esYa` es `esYaEsta` (vive en lib/centro-chats.ts, que importa este módulo).
+ * ⚠️ MEDIDO EL 25/10/2026: el CRM decía «Completado» en la lista (`resumirTurnos` guarda el último «Ya está» de CADA sesión) y al
+ *    abrirlo no había bloque ni ✓ que dar, y la fila dejaba de decirlo: su «Ya está» era del 23/10, de una sesión vieja, y sus
+ *    6 sesiones juntas pasaban los 60 turnos. Al cerrarlo volvía a decir «Completado»: no había forma de darlo por visto.
+ */
+export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto: string) => boolean): TurnoChat[] {
+  const unidos = unirTurnos([], todos);
+  const orden = [...new Map(todos.map((t) => [t.uuid, t])).values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
+  const esSuYa = (t: TurnoChat) => t.rol === 'el' && esYa(t.texto);
+  const deMartin = (t: TurnoChat) => t.rol === 'yo' && !t.trabajo;
+  const iy = orden.findLastIndex(esSuYa);
+  if (iy < 0) return unidos;
+  const antes = orden.slice(0, iy);
+  const ip = antes.findLastIndex(esSuYa);
+  const tramo = antes.slice(ip + 1);
+  const estan = new Set(unidos.map((t) => t.uuid));
+  const faltan = new Map<string, TurnoChat>();
+  for (const t of [orden[iy], antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
+    if (t && !estan.has(t.uuid)) faltan.set(t.uuid, t);
+  }
+  return faltan.size ? [...faltan.values(), ...unidos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : unidos;
+}
+
 // ── Lo último de CADA chat, para su fila de la lista (17/10/2026, el aviso del «Completado» que no salía) ─────────────────
 // Los turnos completos viajan sólo del chat que se mira, así que la fila de uno que no se abrió nunca sabía que su último
 // mensaje era un «Ya está»: el aviso del «Completado» sin ver no salía (docs/hallazgos-operaciones.md). Cada refresco trae,

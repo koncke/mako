@@ -24,7 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   CANAL_VENTANA, CLAVE_VUELTA, PARAMS_DE_VUELTA, REDES, REDES_VISIBLES, TIPO_MENSAJE_VENTANA, VIGENCIA_VUELTA_MS, clavesDe, delaRed, esFlujoValido, esRedZernio, estadoDeRed,
-  guardarVuelta, leerCuentasDeZernio, leerVueltaGuardada, tieneListaDeCuentas,
+  errorDeVueltaAjena, guardarVuelta, leerCuentasDeZernio, leerVueltaGuardada, tieneListaDeCuentas,
   leerMensajeVentana, lineaDeCobro, medirConexion, motivoDeRespuesta, redDeCanal, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente,
   textoDeErrorDeRetorno, urlDeLoginDeZernio, urlDePagoDeZernio, validarVolver, volverConMarca, MENSAJES_DE_MOTIVO, SONDEO_MAX, SONDEO_MS,
   type ConexionZernio,
@@ -443,7 +443,10 @@ test('la pantalla: sin key se abre EL modal de Zernio de /integraciones, y la vu
   assert.doesNotMatch(HOOK, /replaceState\(window\.history\.state/);
   // La vuelta se procesa SÓLO si esta pestaña la inició (y es de ESA red), y se mide como la ventana; `connected` de la URL no decide.
   assert.match(HOOK, /guardada = leerVueltaGuardada\(window\.sessionStorage\.getItem\(CLAVE_VUELTA\), r, Date\.now\(\)\);/);
-  assert.match(HOOK, /if \(!guardada\) return;/);
+  // Sin lo guardado no se conecta NADA; sólo se dice un error, con el texto de MaKo (25/10/2026, errorDeVueltaAjena).
+  const sinGuardada = bloque(HOOK, 'if (!guardada) {', 'const g = guardada;', 600);
+  assert.match(sinGuardada, /return;/);
+  assert.doesNotMatch(sinGuardada, /medirConexion|terminar\(|setFase\('abriendo'\)|ret\.conectado|ret\.mensaje/, 'sin lo guardado de esta pestaña, nada se da por conectado');
   assert.match(HOOK, /const nueva = medirConexion\(\{ red: r, antes: g\.antes, ahora: j\.conexiones, pista: ret\.accountId, reconectarId: g\.reconectarId \}\);/);
   assert.doesNotMatch(bloque(HOOK, 'const g = guardada;', '}, []);', 3500), /ret\.conectado/, 'la vuelta vuelve a depender del parámetro de la URL');
   // La conexión queda armada ANTES de avisarle a la pantalla, y si el ruteo no quedó, se dice.
@@ -559,3 +562,18 @@ test('los consumidores usan la MISMA pieza: el modal de Zernio, Automations y Ch
 //   R45  el error repetido se espera 4 minutos                                                        → 22/1 · la pantalla: la ventana se abre EN el clic, los mensajes se …
 //   R46  el error de la ventana pierde el texto de Zernio                                             → 22/1 · la pantalla: la ventana se abre EN el clic, los mensajes se …
 // Restaurado: 23 / 0.
+
+test('errorDeVueltaAjena: un error de un login que no salió de esta pestaña SE DICE, con el texto de MaKo y nunca el de la URL', () => {
+  // Medido el 25/10/2026: dos clics de Martín no conectaron nada y la pantalla no dijo por qué (se descartaba en silencio).
+  const negado = retornoDeZernio('?zernio=metaads&error=meta_ads_authorization_denied');
+  assert.equal(errorDeVueltaAjena(negado), textoDeErrorDeRetorno('meta_ads_authorization_denied'));
+  const conTexto = retornoDeZernio('?zernio=metaads&error=reconnect_mismatch&error_message=Entra%20a%20evil.example&is_user_fixable=true');
+  const dicho = errorDeVueltaAjena(conTexto);
+  assert.ok(dicho, 'un error desconocido igual se dice');
+  assert.ok(!dicho!.includes('evil'), 'sin lo guardado de esta pestaña, el texto de la URL no se muestra');
+  assert.equal(errorDeVueltaAjena(retornoDeZernio('?zernio=metaads&connected=metaads&accountId=acc_000001')), null, 'un éxito ajeno no hace nada');
+  assert.equal(errorDeVueltaAjena(retornoDeZernio('?error=access_denied')), null, 'sin la marca de la vuelta no es una vuelta de Zernio');
+  // Y la pantalla lo usa en la rama sin lo guardado (antes: `if (!guardada) return;`).
+  const fuente = readFileSync(join(import.meta.dirname, '..', 'app', '_components', 'ConectarViaZernio.tsx'), 'utf8');
+  assert.match(fuente, /if \(!guardada\) \{[\s\S]{0,300}errorDeVueltaAjena\(ret\)/);
+});

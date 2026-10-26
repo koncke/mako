@@ -163,7 +163,8 @@ test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del gru
   // Las acciones: TODAS con la puerta del admin, y con techo de tiempo las que escriben.
   const acciones = leer('app/crm/enriquecer-actions.ts');
   const exportadas = [...acciones.matchAll(/export async function (\w+)/g)].map((m) => m[1]);
-  assert.deepEqual(exportadas, ['telefonosDeLeadsAction', 'completarFichasDeLeadsAction', 'completarPerfilesDeLeadsAction']);
+  // `pedidosDeFichasAction` reemplazó a `telefonosDeLeadsAction` el 25/10/2026 (teléfono, `@lid` y grupo de cada tildado).
+  assert.deepEqual(exportadas, ['pedidosDeFichasAction', 'completarFichasDeLeadsAction', 'completarPerfilesDeLeadsAction']);
   for (const f of exportadas) {
     const cuerpo = acciones.slice(acciones.indexOf(`export async function ${f}`));
     assert.match(cuerpo.slice(0, 400), /await exigirSesion\(\);\n {2}if \(\(await getRolWsEfectivo\(\)\) !== 'admin'\) return \{ ok: false, error: SOLO_ADMIN \};/, `${f}: sin la puerta del admin`);
@@ -171,7 +172,13 @@ test('7. el server del lote: sólo los tildados, por los MISMOS núcleos del gru
   assert.equal([...acciones.matchAll(/hasta: Date\.now\(\) \+ 40_000/g)].length, 2, 'una acción que escribe sin techo de tiempo');
   // Los ids que manda el navegador, limpios en las TRES (enteros positivos, sin repetir, con tope).
   assert.equal([...acciones.matchAll(/ids: idsLimpios\(p\.ids\)/g)].length, 2, 'una acción usa los ids del navegador sin limpiar');
-  assert.match(acciones, /telefonosDeLeads\(idsLimpios\(ids\)\)/, 'los teléfonos, con ids sin limpiar');
+  assert.match(acciones, /pedidosDeFichas\(idsLimpios\(ids\)\)/, 'los teléfonos, con ids sin limpiar');
+  // Los pedidos: el grupo sale del HISTORIAL del lead, y el `@lid` de la LISTA del grupo (una lectura con caché), nunca de una
+  // consulta de perfil por persona (eso sí gasta la red de la línea).
+  const pedidos = lote.slice(lote.indexOf('export async function pedidosDeFichas('), lote.indexOf('/** Las fichas de SU WhatsApp Web'));
+  assert.match(pedidos, /\.from\('lead_audit'\)\.select\('valor_nuevo'\)\.eq\('campo', EVENTO_TRAIDO_DE_GRUPO\)\.in\('lead_id', ids\.slice\(i, i \+ 200\)\)/);
+  assert.match(pedidos, /const leidos = await participantesDelGrupo\(l\.linea, g\.jid\)/);
+  assert.doesNotMatch(pedidos, /fetchBusinessProfile|\bev\(|fresco|true\)/, 'los pedidos consultan perfiles o releen el grupo sin caché');
   const lote2 = leer('app/crm/enriquecer-lote-server.ts');
   assert.match(lote2, /\.filter\(\(x\): x is number => Number\.isInteger\(x\) && \(x as number\) > 0\)\)\]\.slice\(0, TOPE_LOTE_COMPLETAR\)/);
 });
@@ -180,16 +187,18 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
   assert.match(barra, /\{puedeCompletar && \(\n\s+<Dropdown\n\s+value="" resetAfterSelect placeholder="Completar"/, 'sin el desplegable, o sin la puerta del admin');
   assert.match(leer('app/crm/CrmBoard.tsx'), /puedeCompletar=\{!!puedeCrearCrm\}/, 'el tablero no le dice a la barra quién es admin');
-  // Sin la extensión, la opción se ve apagada y dice qué falta.
-  assert.match(barra, /value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp', disabled: extWa !== 'si',/);
+  // Sin la extensión, la opción dice qué falta, y SE PUEDE TOCAR (25/10/2026, Martín: «Si me dice "Instala la extensión de
+  // MaKo", si le apreto debería automáticamente salirme el desplegable»): abre la instalación y espera (tests/wa-fichas-071).
+  assert.match(barra, /value: 'whatsapp', label: 'Desde mi WhatsApp', icono: 'whatsapp',\n/);
+  assert.doesNotMatch(barra, /disabled: extWa !== 'si'/, 'la opción volvió a ser un texto muerto');
   assert.match(barra, /extWa === 'vieja' \? 'Actualiza la extensión de MaKo' : 'Instala la extensión de MaKo'/);
   // Las dos preguntan antes; «Datos de empresa» cuenta ANTES de preguntar.
-  assert.match(barra, /if \(v === 'whatsapp'\) \{ if \(extWa === 'si'\) setPide\(\{ tipo: 'whatsapp' \}\); return; \}/);
+  assert.match(barra, /if \(v === 'whatsapp'\) \{\n\s+if \(extWa === 'si'\) \{ setPide\(\{ tipo: 'whatsapp' \}\); return; \}/);
   assert.match(barra, /const c = await completarPerfilesDeLeadsAction\(\{ ids, soloContar: true \}\);/);
   assert.match(barra, /\{pide\?\.tipo === 'whatsapp' && \(\n\s+<Confirm/);
   assert.match(barra, /\{pide\?\.tipo === 'empresa' && \(\n\s+<Confirm[\s\S]{0,200}message=\{preguntaDePerfiles\(pide\.cuenta,/);
   // Las corridas: con las máquinas compartidas, la pregunta cerrada ANTES (si no, tapa el avance y el «Parar»).
-  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\('Leyendo tu WhatsApp Web…'\)\) return;/);
+  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+setEsperaExt\(false\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\('Buscando de qué grupos vinieron…'\)\) return;/);
   assert.match(barra, /const correrEmpresa = async \(cuenta: CuentaPerfiles\) => \{\n\s+cerrar\(\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\(`Consultando perfiles: 0 de/);
   assert.match(barra, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeLeadsAction\(\{ ids: deEstos, fichas: tanda \}\), \{\n\s+parar: \(\) => parar\.current,/);
   assert.match(barra, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeLeadsAction\(\{ ids: deEstos, hechas, saltear \}\), \{\n\s+parar: \(\) => parar\.current,/);
@@ -227,8 +236,8 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   assert.match(barra, /setAvance\(`Completando \$\{miles\(guardados\)\} de \$\{miles\(total\)\}…`\)/);
   assert.match(barra, /\{largo && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
   assert.match(barra, /onClick=\{largo \? undefined : onLimpiar\}/, 'limpiar la selección a mitad desmonta la barra con su «Parar»');
-  // La extensión lee SÓLO los teléfonos de los tildados.
-  assert.match(barra, /const t = await telefonosDeLeadsAction\(deEstos\);[\s\S]{0,300}pedirFichasDeWhatsappWeb\(t\.telefonos\.map\(\(x\) => x\.telefono\)\)/);
+  // La extensión lee SÓLO los teléfonos de los tildados (con su `@lid` y sus grupos, desde el 25/10/2026), y cuenta cada paso.
+  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,400}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, alAvanzar: \(texto\) => setAvance\(texto\),/);
   // Más de 5.000 tildados: la pregunta dice que se toman los primeros (nunca un corte callado).
   assert.equal([...barra.matchAll(/n > TOPE_LOTE_COMPLETAR \? ` Se toman los primeros/g)].length, 2);
 });
@@ -281,7 +290,7 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   assert.match(op, /A los que ya son leads del CRM no los toca/);
   // El modal: un corte va al resumen, que releer el grupo no borra.
   const modal = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}`\);/, 'el corte de «Completar desde mi WhatsApp» se borra al releer el grupo');
+  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}\$\{gruposEnWhatsappDichos\(r\.grupos\)\}`\);/, 'el corte de «Completar desde mi WhatsApp» se borra al releer el grupo');
   assert.doesNotMatch(modal, /if \(a\.error\) setErr\(a\.error\);/);
   assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Traer» va a err y se borra al releer');
   assert.match(modal, /Se cortó: \$\{corte\} Quedaron \$\{miles\(tels\.length - hechos\)\} sin traer: vuelve a tocar «Traer» para seguir\./);

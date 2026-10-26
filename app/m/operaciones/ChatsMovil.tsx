@@ -474,10 +474,10 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 mostrar={cuantos} onVerAnteriores={verTodo} />
             </ContextoWA.Provider>
             {/* TODO lo que espera a Martín, pegado a la caja y en UN bloque, como en la computadora (PreguntasDelChat.tsx →
-                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y su último «Completado» sin ✓,
-                en el mismo marco (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
+                BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y sus «Completado» sin ✓, en
+                el mismo marco y de a uno (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
-              tareas={centro.tareasDe(elegido)} onFeedback={feedback} hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
+              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>

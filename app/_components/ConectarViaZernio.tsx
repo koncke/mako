@@ -41,7 +41,7 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useConectarIntegracion } from './ConectarIntegracion';
 import {
   CANAL_VENTANA, CLAVE_VUELTA, GRACIA_CIERRE_MS, MENSAJES_DE_MOTIVO, REDES, SONDEO_MAX, SONDEO_MS, delaRed, estadoDeRed, guardarVuelta,
-  leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
+  errorDeVueltaAjena, leerMensajeVentana, leerVueltaGuardada, medirConexion, retornoDeZernio, sinParamsDeVuelta, sinVentanaEmergente, textoDeErrorDeRetorno,
   type ConexionZernio, type MensajeVentana, type MotivoZernio, type RedZernio,
 } from '@/lib/zernio-redes';
 
@@ -160,6 +160,13 @@ export function useConectarViaZernio(opts: {
       if (!vivo.current) return;
       if (!c || !c.ok || c.ruteo === 'error' || c.webhook === 'error') ponerNota('Quedó conectada, pero no pudimos armar la recepción de mensajes. Vuelve a conectarla.');
       else if (c.ruteo === 'ocupado') ponerNota('Quedó conectada, pero esa cuenta ya recibe sus mensajes en otro negocio de MaKo. Avisa a soporte.');
+    }
+    // Meta por Zernio (25/10/2026): la conexión de ANUNCIOS se guarda en el negocio venga del botón que venga (el modal de Meta, la
+    // tarjeta de Zernio, el Media Buyer). Sin esto sólo la guardaba el modal de Meta.
+    if (r === 'metaads') {
+      const g = await api('conectada-meta', { accountId: nueva.accountId });
+      if (!vivo.current) return;
+      if (g && g.ok === false && typeof g.error === 'string') ponerNota(`Quedó conectada en Zernio, pero MaKo no la pudo guardar: ${g.error}`);
     }
     optsRef.current.onConectado?.(delaRed(r, ahora), nueva, r);
   }, [ponerNota]);
@@ -300,13 +307,19 @@ export function useConectarViaZernio(opts: {
     // cambio de URL, y su router vuelve a escribir los parámetros en el próximo cambio; con `null` copia su estado y sincroniza la URL (app-router.js).
     window.history.replaceState(null, '', `${window.location.pathname}${sinParamsDeVuelta(clave)}${window.location.hash}`);
     const r = ret.red;
-    // ⚠️ SÓLO si ESTA pestaña salió a hacer este login (y hace menos de 30 minutos): un link armado a mano, o la vuelta de otra red, no hace nada.
+    // ⚠️ SÓLO si ESTA pestaña salió a hacer este login (y hace menos de 30 minutos): un link armado a mano, o la vuelta de otra red, no conecta
+    // nada. Un error sí se dice (sin el texto de la URL): si no, quien aceptó en Facebook nunca sabe por qué no conectó.
     let guardada = null as ReturnType<typeof leerVueltaGuardada>;
     try {
       guardada = leerVueltaGuardada(window.sessionStorage.getItem(CLAVE_VUELTA), r, Date.now());
       if (guardada) window.sessionStorage.removeItem(CLAVE_VUELTA);
     } catch { /* sin almacenamiento */ }
-    if (!guardada) return;
+    if (!guardada) {
+      // Un ERROR igual se dice, con el texto de MaKo y no el de la URL (lib/zernio-redes.ts → errorDeVueltaAjena).
+      const ajeno = errorDeVueltaAjena(ret);
+      if (ajeno) { setRed(r); fallar(ajeno, null); }
+      return;
+    }
     const g = guardada;
     setRed(r);
     if (ret.error) { fallar(textoDeErrorDeRetorno(ret.error, ret.mensaje), null); return; }

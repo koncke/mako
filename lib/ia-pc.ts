@@ -28,6 +28,7 @@ import {
   cuentasDeLaIA, iaDeLaPcConectada, iaDelConsentimiento, laPersonaEstaAdentro, pcUsable, type ProveedorPc,
 } from './ia-pc-reglas';
 import type { ToolDef } from './anthropic';
+import { elTelefonoEsDeLaPersona, telefonoDeVerdad, type UsuarioDelNegocio } from './ia-pc-grupo-reglas';
 
 const hash = (s: string): string => createHash('sha256').update(s).digest('hex');
 const tokenNuevo = (prefijo: string): string => `${prefijo}${randomBytes(32).toString('base64url')}`;
@@ -395,8 +396,41 @@ export class TopeDeTurnos extends Error {}
 export class SinLaPersona extends Error {}
 
 /**
+ * ¿Quien escribe en el grupo (su teléfono) es la persona que conectó esta PC? Las personas del negocio de la PC, con su teléfono
+ * del perfil; la regla, en lib/ia-pc-grupo-reglas.ts. Falla cerrada: si la base no contesta, no.
+ */
+async function esLaPersonaDelGrupo(d: Dispositivo, telefono: string): Promise<boolean> {
+  if (!telefonoDeVerdad(telefono)) return false;
+  const usuarios = await usuariosConTelefono(d.ws);
+  return !!usuarios && elTelefonoEsDeLaPersona(telefono, usuarios, d.persona);
+}
+
+/** Las personas de un negocio con el teléfono de su perfil (lo que mira la puerta del grupo). null si la base no contesta. */
+async function usuariosConTelefono(ws: number): Promise<UsuarioDelNegocio[] | null> {
+  const { data, error } = await db().from('usuarios').select('id, email, nombre, estado, perfil').eq('workspace_id', ws).limit(500);
+  if (error || !data) return null;
+  return data.map((u) => ({
+    id: u.id, email: u.email as string | null, nombre: u.nombre as string | null, estado: u.estado as string | null,
+    telefono: ((u.perfil as { telefono?: string } | null)?.telefono) ?? null,
+  }));
+}
+
+/**
+ * ¿La puerta del grupo reconocería a esta persona por su teléfono? (25/10/2026, «MaKo en WhatsApp»: sin el teléfono en su perfil,
+ * su grupo nunca contesta con su computadora y nadie se entera). Su propio teléfono del perfil, contra la MISMA regla de la
+ * puerta: falta, no es un teléfono, o lo comparte con otra persona del equipo → false. null si no se pudo leer.
+ */
+export async function telefonoListoParaElGrupo(ws: number, persona: string): Promise<boolean | null> {
+  const usuarios = await usuariosConTelefono(ws);
+  if (!usuarios) return null;
+  const yo = usuarios.find((u) => (u.email ?? '').toLowerCase() === persona.toLowerCase());
+  return !!yo && elTelefonoEsDeLaPersona(yo.telefono, usuarios, persona);
+}
+
+/**
  * Encola un turno para la PC. El token de sus herramientas todavía no existe: se acuña cuando la PC lo toma. `esperaMs`: lo que
- * el chat lo va a esperar; después ya no se puede tomar. Lo llama SÓLO `turnoApp` (tests/ia-pc-nunca-a-leads.test.ts).
+ * el chat lo va a esperar; después ya no se puede tomar. Lo llama SÓLO `turnoApp` (tests/ia-pc-nunca-a-leads.test.ts) y, con
+ * `delGrupo`, el doer del grupo del dueño (lo suma «MaKo en WhatsApp», tanda 4 de docs/conexiones-y-ayuda.md).
  *
  * ⚠️ LA PUERTA MIRA LA SESIÓN (D6a; con ChatGPT, igual: Martín, 23/10/2026). No le cree a quien la llama: lee la cookie de
  * ESTE pedido, y tiene que ser la de quien conectó esa PC (`laPersonaEstaAdentro` contra `d.persona`). La primera versión de
@@ -404,12 +438,26 @@ export class SinLaPersona extends Error {}
  * sin que fallara un test: acá no hay forma de llegar sin la persona. Un cron o un webhook no tienen la cookie. Un `after()`
  * dentro de la ruta de la persona SÍ la tiene (Next la conserva): es la continuación de lo que ella pidió, y nada que corra
  * solo hacia un lead va ahí. `pruebaSinSesion`: sólo la PC de prueba del ws3.
+ *
+ * `delGrupo` (25/10/2026, el grupo de WhatsApp del DUEÑO a su computadora: docs/conexiones-y-ayuda.md, decisión 2): el doer
+ * corre sin cookie, así que la prueba es otra y la hace esta puerta, no quien llama. El teléfono de quien escribe (el que manda
+ * WhatsApp) tiene que ser de UNA sola persona activa del negocio de la PC, y ésa tiene que ser `d.persona`
+ * (lib/ia-pc-grupo-reglas.ts). Con la base caída, no encola. Sin `delGrupo`, la cookie, como siempre.
  */
-export async function encolarTurno(d: Dispositivo, sesionId: number, pedido: PedidoPc, esperaMs = TURNO_MS, o: { pruebaSinSesion?: boolean } = {}): Promise<number> {
-  // Fuera de un pedido (un cron, un script) `cookies()` tira: es null, y no encola.
-  const sesion = await getUsuarioActual().catch(() => null);
-  if (!laPersonaEstaAdentro(sesion, { ws: d.ws, actor: d.persona }, o.pruebaSinSesion === true)) {
-    throw new SinLaPersona('ia-pc: sin la sesión de quien conectó esta PC, el turno no se encola');
+export async function encolarTurno(
+  d: Dispositivo, sesionId: number, pedido: PedidoPc, esperaMs = TURNO_MS,
+  o: { pruebaSinSesion?: boolean; delGrupo?: { telefono: string } } = {},
+): Promise<number> {
+  if (o.delGrupo) {
+    if (!(await esLaPersonaDelGrupo(d, o.delGrupo.telefono))) {
+      throw new SinLaPersona('ia-pc: quien escribe en el grupo no es quien conectó esta PC, el turno no se encola');
+    }
+  } else {
+    // Fuera de un pedido (un cron, un script) `cookies()` tira: es null, y no encola.
+    const sesion = await getUsuarioActual().catch(() => null);
+    if (!laPersonaEstaAdentro(sesion, { ws: d.ws, actor: d.persona }, o.pruebaSinSesion === true)) {
+      throw new SinLaPersona('ia-pc: sin la sesión de quien conectó esta PC, el turno no se encola');
+    }
   }
   const { count, error: e1 } = await db().from('ia_pc_turnos').select('id', { count: 'exact', head: true })
     .eq('workspace_id', d.ws).gt('creado_at', new Date(Date.now() - 60_000).toISOString());

@@ -69,7 +69,7 @@ import { faltaColumnaNuevaDelAlta, sinColumnasNuevas, traeColumnasNuevas } from 
 // ficha (override chequeado contra el funnel vigente): con el override crudo, el
 // validador y la pantalla discrepan justo en los leads con etapas huérfanas.
 import { etapaVigenteDe } from './funnel-etapas';
-import { avanceDe, esEventoDeVideo } from './vsl-retencion';
+import { avanceDe, duracionesDeEventos, esEventoDeVideo } from './vsl-retencion';
 import { hoyEnTijuana } from './date-utils';
 import { limpiaNoShow, textoNoShow } from './reagenda-no-show';
 import { cachedRead, TAG, TTL } from './cache';
@@ -2508,6 +2508,29 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
   } catch (e) {
     console.error('[getDuracionesVsl] falló:', e instanceof Error ? e.message : e);
   }
+  // ⚠️ Y LA DE CUALQUIER OTRO ALOJADOR, DE LOS EVENTOS DEL PROPIO PIXEL (25/10/2026). Hasta acá sólo había duración de
+  // Panda, y sólo con su API conectada: un video de Vimeo, YouTube, Wistia, Bunny, Cloudflare o uno propio no tenía con
+  // qué volver porcentaje sus segundos. Lo de Panda manda (es la de su API); esto completa lo que falta. Los 90 días más
+  // nuevos, 1.000 filas como mucho (el tope de PostgREST): para una mediana alcanza. Un player sin identificar
+  // (`iframeN`) no es un video: no se le inventa duración.
+  try {
+    const supabase = await getTenantDb();
+    const desde = new Date(Date.now() - 90 * 86_400_000).toISOString();
+    const { data } = await supabase
+      .from('vsl_events')
+      .select('video_id, porcentaje, segundos')
+      .gte('created_at', desde)
+      .gte('porcentaje', 25)
+      .gt('segundos', 0)
+      .not('video_id', 'is', null)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+    const filas = ((data ?? []) as Array<{ video_id: string | null; porcentaje: number | null; segundos: number | null }>)
+      .filter((r) => !/^iframe\d+$/.test(r.video_id?.trim() ?? ''));
+    for (const [vid, dur] of duracionesDeEventos(filas)) if (!out.has(vid)) out.set(vid, dur);
+  } catch (e) {
+    console.error('[getDuracionesVsl] los eventos del Pixel fallaron:', e instanceof Error ? e.message : e);
+  }
   return out;
 }
 
@@ -2542,7 +2565,10 @@ export async function getDuracionesVsl(): Promise<Map<string, number>> {
 // `lib/video-id.ts`, que es el que conoce los prefijos que el repo escribe.
 
 function resolverDuracion(videosEnJuego: Set<string>, durs: Map<string, number>): (videoId: string | null | undefined) => number | null {
-  const unica = durs.size === 1 ? [...durs.values()][0] : null;
+  // «La única duración conocida» es la ÚNICA DE PANDA (un id sin alojador): desde el 25/10/2026 también hay duraciones
+  // de otros alojadores (de los eventos del Pixel), y contarlas apagaba el respaldo de Panda aunque hubiera un solo video.
+  const dePanda = [...durs].filter(([k]) => !idDeclaraHost(k));
+  const unica = dePanda.length === 1 ? dePanda[0][1] : null;
   const hayUnoSolo = videosEnJuego.size <= 1;
   return (videoId) => {
     const v = videoId?.trim();

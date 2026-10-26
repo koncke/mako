@@ -78,6 +78,17 @@ async function wsDeLaCuenta(): Promise<number> {
  * los tests y deja el archivo cableado al ws1 justo después de haberle sacado el
  * candado.
  */
+/**
+ * Pasado el corte del token de Meta para administrar anuncios (`CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts), un negocio que
+ * no conectó Zernio no escribe por acá: tira `MetaWriteError` con el mensaje para la persona. Lo llaman las puertas que ESCRIBEN
+ * con el token (`graphPost`, las subidas, el formulario, `deleteEntity`); leer no.
+ */
+async function sinCorteDelToken(): Promise<void> {
+  const { frenoDelTokenMeta } = await import('./meta-via');
+  const freno = await frenoDelTokenMeta(await wsDeLaCuenta());
+  if (freno) throw new MetaWriteError(freno);
+}
+
 async function cred(name: string): Promise<string> {
   const ws = await wsDeLaCuenta();
   // META_API_VERSION NO va por credWs: la fija instrumentation, no es un secreto y
@@ -190,6 +201,7 @@ export function metaErrorEnvelope(err: unknown): {
  * setter llega a borrar campañas con plata.
  */
 async function graphPost(path: string, params: Record<string, string | number | undefined>): Promise<Record<string, unknown>> {
+  await sinCorteDelToken();
   // Hoisteadas: credWs no cachea (un SELECT por llamada) y resolverlas adentro del
   // armado sería una chance más de abortar a mitad de un árbol ya empezado.
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
@@ -581,6 +593,7 @@ export async function formularioBase(pagina?: string | null): Promise<{ sitio: s
 export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: string | null): Promise<{ id: string; name: string }> {
   const errores = erroresFormulario(f);
   if (errores.length) throw new MetaWriteError(errores[0]);
+  await sinCorteDelToken();
   const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(pagina), pagina ? Promise.resolve(pagina) : pageId()]);
   const body = new URLSearchParams(paramsFormulario(f));
   body.set('access_token', token);
@@ -953,7 +966,8 @@ export async function searchInterests(q: string): Promise<Array<{ id: string; na
 
 /** Sube una imagen a act_<id>/adimages → devuelve image_hash (+ url/medidas). */
 export async function uploadAdImage(bytes: ArrayBuffer, filename: string): Promise<{ image_hash: string; url: string | null; width: number | null; height: number | null }> {
-  // fetch crudo: no pasa por graphPost, así que resuelve sus propias credenciales.
+  // fetch crudo: no pasa por graphPost, así que resuelve sus propias credenciales (y el corte del token).
+  await sinCorteDelToken();
   const [apiVersion, adAccountId, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const form = new FormData();
   form.append('access_token', accessToken);
@@ -969,7 +983,8 @@ export async function uploadAdImage(bytes: ArrayBuffer, filename: string): Promi
 
 /** Sube un video a act_<id>/advideos (multipart) → devuelve video_id. */
 export async function uploadAdVideo(bytes: ArrayBuffer, filename: string, mime: string): Promise<{ video_id: string }> {
-  // fetch crudo: no pasa por graphPost, así que resuelve sus propias credenciales.
+  // fetch crudo: no pasa por graphPost, así que resuelve sus propias credenciales (y el corte del token).
+  await sinCorteDelToken();
   const [apiVersion, adAccountId, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const form = new FormData();
   form.append('access_token', accessToken);
@@ -1350,6 +1365,7 @@ export async function updateAdCopy(adId: string, edited: { primary_text?: string
  * con la campaña todavía en Meta — que es lo que un reintento lee para crear otra.
  */
 export async function deleteEntity(id: string): Promise<boolean> {
+  await sinCorteDelToken();
   // fetch crudo, y es el que BORRA: resuelve las credenciales DEL WORKSPACE.
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = `${GRAPH_BASE}/${apiVersion}/${id}?access_token=${encodeURIComponent(accessToken)}`;

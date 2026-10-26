@@ -83,7 +83,7 @@ import {
   CAMPOS_CONDICION, ID_INICIO, TOPE_PARALELOS, TOPE_HILOS, TOPE_RAMAS, TOPE_FILAS, TOPE_CASOS, TOPE_OBJETIVO,
   claseDe, idDe, nuevoId, puertosDe, raicesSalida, raizRespuesta, descendientes, indicePorId,
   conectarPuerto, puedeTenerParalelos, validarGrafo, contarParalelos, esPasoIA,
-  borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep,
+  borrarNodo, padresDe, siguienteDe, medioDe, puedeSumarAIStep, ramasABDe, CLAVES_AB, MAX_RAMAS_AB, MIN_RAMAS_AB, MIN_PCT_AB, PASO_PCT_AB,
 } from './flujo-grafo';
 import { faltanEnPaso, LEAD_DEL_EVENTO } from './api-mako/flujo-params';
 import { respuestaAPasoIA } from './paso-ia-convertir';
@@ -111,6 +111,7 @@ import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON, botonesDe, typ
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
+import { variantesTrasCambio } from './mensaje-partes';
 import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
 import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
@@ -497,7 +498,7 @@ export function aliasDeVariable(key: string): string | null {
 
 // ── El JSON del modelo, tarjeta por tarjeta ───────────────────────────────────────
 
-type TipoTarjeta = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a' | 'si_responde';
+type TipoTarjeta = 'mensaje' | 'email' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'ir_a' | 'si_responde' | 'prueba_ab';
 
 /**
  * `ir_a` sigue en el mapa SÓLO para reconocerlo y sacarlo con su aviso propio (decisión 3 de la
@@ -514,6 +515,8 @@ const TIPOS: Record<string, TipoTarjeta> = {
   accion: 'accion',
   ir_a: 'ir_a', ira: 'ir_a', salto: 'ir_a',
   si_responde: 'si_responde', respuesta: 'si_responde', siresponde: 'si_responde',
+  // Tanda A3 de las pruebas A/B: la tarjeta «A/B TEST» (lo que lee `aIA` es `prueba_ab`).
+  prueba_ab: 'prueba_ab', ab: 'prueba_ab', ab_test: 'prueba_ab', prueba: 'prueba_ab',
 };
 
 function tipoDe(x: unknown): TipoTarjeta | null {
@@ -990,7 +993,7 @@ function claveDeLink(v: unknown, ctx: CtxIA): string | null {
 
 type NodoIA = {
   tmp: string;
-  clase: 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a';
+  clase: 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'ab';
   paso: Partial<PasoIA>;
   /** mensaje, acción, espera: [el que sigue, ...los paralelos]. */
   sigue: string[];
@@ -1002,6 +1005,8 @@ type NodoIA = {
    * guardado; uno con `sigue` es una salida, como una rama (lo que pasa al tocarlo).
    */
   botones: Array<{ titulo: string; url: string | null; sigue: string | null }>;
+  /** Sólo la prueba A/B (tanda A3): sus ramas, la primera es la de siempre (A). */
+  abRamas: Array<{ pct: number; nombre: string; sigue: string | null }>;
   /** Se SACA: lo que colgaba de él pasa a colgar de su padre (`seguir`). Un `ir_a` nace sacado. */
   quitar: boolean;
 };
@@ -1010,7 +1015,14 @@ const relleno = (): Pick<PasoIA, 'orden' | 'canal' | 'delay_horas' | 'asunto' | 
   { orden: 0, canal: 'whatsapp', delay_horas: 0, asunto: null, cuerpo: '', template_wa: null, proveedor: 'no_oficial' }
 );
 
-const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], botones: [], quitar: false });
+/** Porcentajes parejos de a 5 que suman 100 (la primera se queda con lo que sobra: 40/30/30), para una prueba A/B. */
+const repartoParejo = (n: number): number[] => {
+  if (n <= 0) return [];
+  const cada = Math.floor(100 / n / PASO_PCT_AB) * PASO_PCT_AB;
+  return Array.from({ length: n }, (_, k) => cada + (k === 0 ? 100 - cada * n : 0));
+};
+
+const vacio = (tmp: string, clase: NodoIA['clase']): NodoIA => ({ tmp, clase, paso: {}, sigue: [], ramas: [], siNo: null, casos: [], botones: [], abRamas: [], quitar: false });
 
 function textoLimpio(v: unknown, est: Estado, tope: number, destino?: DestinoMensaje): string {
   const r = limpiarTexto(str(v).slice(0, tope * 2), { destino, deja: linksDelPedido(est.ctx.pedido) });
@@ -1182,6 +1194,25 @@ function nodoDe(c: Card, est: Estado): NodoIA {
       if (!n.ramas.length) { avisos.push('Saqué una condición que no tenía ninguna rama válida'); n.quitar = true; }
       return n;
     }
+    case 'prueba_ab': {
+      // LA PRUEBA A/B (tanda A3): de 2 a 4 ramas; la primera es la de siempre. Porcentajes que no suman 100 (o que no van de
+      // a 5, o bajan de 10) se reparten en partes iguales: lo que se prueba lo decide el juez, no el porcentaje del modelo.
+      const n = vacio(c.tmp, 'ab');
+      const ramas = Array.isArray(raw.ramas) ? raw.ramas : [];
+      for (const r0 of ramas.slice(0, MAX_RAMAS_AB)) {
+        if (!r0 || typeof r0 !== 'object' || Array.isArray(r0)) continue;
+        const r = r0 as Record<string, unknown>;
+        n.abRamas.push({ pct: Math.round(Number(r.pct) || 0), nombre: str(r.nombre).trim().slice(0, 40), sigue: refs(r.sigue)[0] ?? null });
+      }
+      if (ramas.length > MAX_RAMAS_AB) avisos.push(`La prueba A/B tenía más de ${MAX_RAMAS_AB} ramas: dejé las primeras`);
+      const suma = n.abRamas.reduce((s, r) => s + r.pct, 0);
+      if (suma !== 100 || n.abRamas.some((r) => r.pct < MIN_PCT_AB || r.pct % PASO_PCT_AB !== 0)) {
+        const pcts = repartoParejo(n.abRamas.length);
+        n.abRamas = n.abRamas.map((r, k) => ({ ...r, pct: pcts[k] }));
+      }
+      if (n.abRamas.length < MIN_RAMAS_AB) { avisos.push('Saqué una prueba A/B con una sola rama: sigue la de siempre'); n.quitar = true; }
+      return n;
+    }
     case 'si_responde': {
       const n = vacio(c.tmp, 'respuesta');
       const casos = Array.isArray(raw.casos) ? raw.casos : [];
@@ -1263,6 +1294,8 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
   const quedanHilos = () => TOPE_HILOS - 1 - o.hilosPrevios - paralelos;
   const avisados = new Set<string>();
   const avisoUnaVez = (k: string, m: string) => { if (!avisados.has(k)) { avisados.add(k); est.avisos.push(m); } };
+  /** La prueba A/B que queda (tanda A3): la primera que se recorre; las demás se sacan (una por automatización). */
+  let abElegida: string | null = null;
   const AVISO_DOS_LUGARES = 'Una tarjeta seguía en dos lugares: la dejé en el primero';
 
   type Destino = { tipo: 'nada' } | { tipo: 'tarjeta'; tmp: string; extraPar: string[] } | { tipo: 'ocupada' } | { tipo: 'base'; id: string };
@@ -1287,8 +1320,13 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
     // Adentro de «Si responde» todo corre en el momento: una espera ahí se saca.
     const esperaEnRespuesta = hilo === 'respuesta' && n.clase === 'esperar';
     if (esperaEnRespuesta) avisoUnaVez(`esp:${ref}`, 'Saqué una espera de «Si responde»: ahí se contesta en el momento');
-    if (n.quitar || esperaEnRespuesta) {
+    // Una prueba A/B no va adentro de «Si responde» (`validarGrafo`) ni dos por automatización: se saca, y sigue la de siempre.
+    const abDeMas = n.clase === 'ab' && (hilo === 'respuesta' || (abElegida != null && abElegida !== n.tmp));
+    if (n.clase === 'ab' && !abDeMas && !n.quitar) abElegida = n.tmp;
+    if (abDeMas) avisoUnaVez(`ab:${ref}`, hilo === 'respuesta' ? 'Saqué una prueba A/B de «Si responde»: va en la salida' : 'Saqué una prueba A/B de más: va una por automatización');
+    if (n.quitar || esperaEnRespuesta || abDeMas) {
       if (n.clase === 'condicion') return seguir(n.siNo, hilo, visto);
+      if (n.clase === 'ab') return seguir(n.abRamas[0]?.sigue ?? null, hilo, visto);
       if (n.clase === 'ir_a') return { tipo: 'nada' };
       const d = seguir(n.sigue[0], hilo, visto);
       const extra = n.sigue.slice(1);
@@ -1359,6 +1397,9 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
       } else if (n.clase === 'condicion') {
         for (const r of n.ramas) cx.ramas.push(unaSalida(r.sigue, hilo).destino);
         cx.siNo = unaSalida(n.siNo, hilo).destino;
+      } else if (n.clase === 'ab') {
+        // Las ramas de la prueba son salidas como las de una condición, y pueden volver a juntarse más abajo.
+        for (const r of n.abRamas) cx.ramas.push(r.sigue && reclamado.has(r.sigue) && !nodos.get(r.sigue)?.quitar ? r.sigue : unaSalida(r.sigue, hilo).destino);
       } else if (n.clase === 'respuesta') {
         for (const c of n.casos) cx.casos.push(unaSalida(c.sigue, 'respuesta').destino);
         cx.siNo = unaSalida(n.siNo, 'respuesta').destino;
@@ -1403,6 +1444,13 @@ function armar(cards: Card[], raices: Raiz[], respuestaTmp: string | null, o: Op
         ramas: n.ramas.map((x, k) => ({ id: nuevo(), modo: x.modo, filas: x.filas, siguiente: r(cx.ramas[k] ?? null) })),
         si_no: r(cx.siNo),
       });
+      continue;
+    }
+    if (n.clase === 'ab') {
+      out.push({
+        ...relleno(), id, nodo: 'ab',
+        ramas_ab: n.abRamas.map((x, k) => ({ clave: CLAVES_AB[k], pct: x.pct, ...(k === 0 ? { nombre: 'Sin cambio' } : x.nombre ? { nombre: x.nombre } : {}), siguiente: r(cx.ramas[k] ?? null) })),
+      } as PasoIA);
       continue;
     }
     if (n.clase === 'respuesta') {
@@ -2039,7 +2087,7 @@ export function cambioDeCanal(pedido: unknown): CanalSocial | null {
 /** El canal de un mensaje guardado: email, un DM, o WhatsApp (lo de siempre). */
 const canalDePaso = (p: PasoGrafo): CanalIA => (p.canal === 'email' ? 'email' : esCanalSocial(p.canal) ? p.canal : 'whatsapp');
 
-type ClaseEditable = 'mensaje' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'respuesta' | 'ir_a' | 'inicio';
+type ClaseEditable = 'mensaje' | 'esperar' | 'condicion' | 'etiqueta' | 'accion' | 'respuesta' | 'ir_a' | 'inicio' | 'ab';
 /** La clase de una tarjeta guardada, con la de etiqueta aparte (en el lienzo son dos tarjetas distintas). */
 function claseEditable(p: PasoGrafo): ClaseEditable {
   const c = claseDe(p);
@@ -2049,6 +2097,7 @@ function claseEditable(p: PasoGrafo): ClaseEditable {
 }
 const CLASE_DE_TIPO: Readonly<Record<TipoTarjeta, ClaseEditable>> = {
   mensaje: 'mensaje', email: 'mensaje', esperar: 'esperar', condicion: 'condicion', etiqueta: 'etiqueta', accion: 'accion', ir_a: 'ir_a', si_responde: 'respuesta',
+  prueba_ab: 'ab',
 };
 // (Hasta el 23/10/2026 acá vivía `AVISO_MISMA_PERSONA`: una espera corta entre dos WhatsApp no se cumplía porque «Misma
 // persona» frenaba el segundo. «Misma persona» se fue del motor: la espera que se pide es la que se cumple.)
@@ -2164,6 +2213,8 @@ export function haySeguimiento(pasos: readonly PasoGrafo[]): boolean {
   return pasos.some((p) => {
     if (claseDe(p) !== 'esperar' || (p.espera as { modo?: string } | undefined)?.modo === 'antes_reunion') return false;
     let q = m.get(String(p.siguiente ?? ''));
+    // Una prueba A/B en el medio (tanda A3) es transparente: se sigue por la A, el camino de antes.
+    if (q && claseDe(q) === 'ab') q = m.get(String(q.ramas_ab?.[0]?.siguiente ?? ''));
     if (q && claseDe(q) === 'condicion') q = m.get(String(q.ramas?.[0]?.siguiente ?? ''));
     return !!q && claseDe(q) === 'mensaje';
   });
@@ -2275,7 +2326,8 @@ export function ultimoMensajeDelCamino(pasos: readonly PasoGrafo[]): string | nu
     const p = porId.get(x);
     if (!p) break;
     if (claseDe(p) === 'mensaje') ultimo = x;
-    x = claseDe(p) === 'condicion' ? (p.ramas?.[0]?.siguiente ?? null) : (p.siguiente ?? null);
+    // Una prueba A/B (tanda A3): por la A, el camino de antes.
+    x = claseDe(p) === 'condicion' ? (p.ramas?.[0]?.siguiente ?? null) : claseDe(p) === 'ab' ? (p.ramas_ab?.[0]?.siguiente ?? null) : (p.siguiente ?? null);
   }
   return ultimo;
 }
@@ -2329,7 +2381,7 @@ function quitarTarjeta(pasos: PasoIA[], id: string, est: Estado, aviso?: string)
   const i = indicePorId(pasos, id);
   if (i < 0 || claseDe(pasos[i]) === 'inicio') { est.avisos.push('No encontré una tarjeta para sacar'); return pasos; }
   const c = claseDe(pasos[i]);
-  const nombre = c === 'condicion' ? 'la condición' : esPasoIA(pasos[i]) ? 'el AI Step' : c === 'respuesta' ? 'el Si responde' : 'una tarjeta';
+  const nombre = c === 'condicion' ? 'la condición' : c === 'ab' ? 'la prueba A/B' : esPasoIA(pasos[i]) ? 'el AI Step' : c === 'respuesta' ? 'el Si responde' : 'una tarjeta';
   const out = borrarNodo(pasos, id);
   const colgaban = pasos.length - out.length - 1;
   if (aviso) est.avisos.push(aviso);
@@ -2382,6 +2434,9 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, exist
     q.cuerpo = cuerpoAntes.slice(0, TOPE_TEXTO_SOCIAL).trim();
     est.avisos.push(`Acorté un mensaje: por ${NOMBRE_CANAL[social]} va hasta ${TOPE_TEXTO_SOCIAL} caracteres`);
   }
+  // Un texto que CAMBIA suelta las variantes del viejo (`variantesTrasCambio`, lib/mensaje-partes.ts): el motor las sortea, y a
+  // 4 de cada 5 leads les seguía llegando lo de antes (la revisión del tren-k, 25/10/2026).
+  Object.assign(q, variantesTrasCambio({ cuerpo: cuerpoAntes, variantes: (p as { variantes?: string[] }).variantes }, true, String(q.cuerpo ?? '')));
   if (q.canal === 'email') {
     if (toca('asunto') || !String(p.asunto ?? '').trim()) q.asunto = np.asunto ?? null;
     if (toca('vista_previa', 'preheader')) { if (np.preheader) q.preheader = np.preheader; else delete q.preheader; }
@@ -3473,6 +3528,14 @@ export function aIA(pasos: readonly PasoGrafo[], nombres?: Nombres, o: { compact
         tarjetas.push(d && 'secuencia_id' in d ? { id, tipo: 'ir_a', automatizacion: d.secuencia_id } : { id, tipo: 'ir_a', a: d && 'nodo' in d ? d.nodo : null });
         return;
       }
+      case 'ab':
+        // LA PRUEBA A/B (tanda A3): el modelo la LEE (sin esto, lo que cuelga de ella le parecía suelto). Se cambia en el
+        // lienzo: `cambiarTarjeta` la deja como está.
+        tarjetas.push({
+          id, tipo: 'prueba_ab',
+          ramas: ramasABDe(p).map((r) => ({ letra: r.clave, pct: r.pct, ...(r.nombre ? { nombre: r.nombre } : {}), sigue: r.siguiente ?? null })),
+        });
+        return;
     }
   });
   return { inicio: raicesSalida(pasos), tarjetas };
@@ -3617,6 +3680,12 @@ function bloquesDeContexto(ctx: CtxIA, d: DatosPedido, o: { cron?: false | ((x: 
 /** ¿El pedido habla de botones, o de que la persona siga la cuenta (el gate)? Entonces el modelo necesita las reglas. */
 const RX_PIDE_BOTONES = /\bbot[oó]n(es)?\b|\b(me|nos|te|lo|la) sigue\b|\bsiga(n)? (la cuenta|a)\b|\bseguidor/i;
 
+/** ¿El pedido habla de una prueba A/B (tanda A3)? Entonces el modelo necesita la regla de la tarjeta (y sólo entonces: Groq). */
+export const RX_PIDE_AB = /\b(prueba|test|testear|probar)\s*a\s*\/\s*b\b|\ba\s*\/\s*b\s*(test|testing)?\b|\bab\s*test\b|\bdos versiones\b|\bsplit\s*test\b/i;
+
+/** La tarjeta «A/B TEST» para el modelo (tanda A3): va en el mensaje del usuario, nunca en el system (diseño 3.1). */
+export const PRUEBA_AB_IA = 'PRUEBA A/B: para probar dos versiones de algo, una tarjeta {"tipo":"prueba_ab","ramas":[{"pct":50,"sigue":"<lo de siempre>"},{"pct":50,"nombre":"<qué cambia, corto>","sigue":"<la versión nueva>"}]}. De 2 a 4 ramas, suman 100, la primera es la de siempre. Las ramas se vuelven a juntar después de lo que se prueba. Una por automatización, nunca en «Si responde».';
+
 /** Al EDITAR (25/10/2026): cambiar los botones de un mensaje y colgar tarjetas nuevas de uno. */
 export const BOTONES_AL_EDITAR = 'Para cambiar los botones de un mensaje: en "cambiar", su id con "botones" (la lista NUEVA entera; cada "sigue" a una tarjeta que ya está). Para colgar tarjetas nuevas de un botón: en "agregar", "despues_de": el id del mensaje y "salida": "btn:<id del botón>".';
 
@@ -3629,6 +3698,7 @@ export function userDeCrear(ctx: CtxIA, d: DatosPedido): string {
   const pedido = [
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
     ...(canal && esCanalSocial(canal) ? [`CANAL: "${canal}" (los mensajes al lead van por ahí)`, BOTONES_SOCIAL] : []),
+    ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(d.recurrente ? [d.recurrente.linea] : []),
     'Arma la automatización.',
   ];
@@ -3747,6 +3817,8 @@ export function userDeEditar(ctx: CtxIA, d: DatosPedido, pasos: readonly PasoGra
   return [
     ...bloquesDeContexto(ctx, d, { cron }),
     ...(conRedes ? [BOTONES_SOCIAL, BOTONES_AL_EDITAR] : []),
+    // La prueba A/B: sólo si el pedido habla de ella (el flujo que ya la tiene la muestra en `aIA` como "prueba_ab").
+    ...(RX_PIDE_AB.test(d.pedido) ? [PRUEBA_AB_IA] : []),
     ...(k >= 0 ? [`CRON ACTUAL: ${claveDisparo(k)}`] : []),
     `EL FLUJO ACTUAL (ids reales):\n${JSON.stringify(aIA(pasos, ctx))}`,
     `EL PEDIDO DEL DUEÑO:\n${d.pedido.trim().slice(0, 2000)}`,
@@ -3995,10 +4067,13 @@ export const LINK_CONECTA_CLAUDE = '/integraciones?abrir=anthropic';
  * QUÉ IA PROPIA ARMA FLUJOS: su Claude (la puerta 2, primera en la cascada), su GPT o su Gemini. Desde IA6 (lote 2 de IA,
  * 22/10/2026) un negocio con su IA corre la cascada con SU OpenAI y, desde IA16, también con SU Gemini (`PROVS_SU_IA`,
  * lib/solo-su-ia.ts; Martín: «Cada usuario debe poder pagar su token, su propia IA de gemini»). Lo cambió el chat de IA en
- * IA16, de acuerdo con Automations. tests/ia-aviso-sin-ia-propia.test.ts lo ata a `PROVS_SU_IA`.
+ * IA16, de acuerdo con Automations.
+ * ⚠️ LO QUE SE OFRECE NO ES LO QUE SE USA (Martín, 25/10/2026): ningún texto le ofrece Gemini a un negocio como «su IA»; se
+ * le ofrece su Claude o su GPT. Quien ya tiene su Gemini lo sigue usando (`PROVS_SU_IA` lo nombra): es sólo el texto.
+ * tests/ia-aviso-sin-ia-propia.test.ts lo fija.
  */
-export const SU_IA = 'tu Claude, tu GPT o tu Gemini';
-export const SU_CLAVE = 'tu clave de Claude, de OpenAI o de Gemini';
+export const SU_IA = 'tu Claude o tu GPT';
+export const SU_CLAVE = 'tu clave de Claude o de OpenAI';
 
 /** Un tope POR DÍA (Gemini «…PerDay…», Groq «tokens per day (TPD)»): «prueba en un rato» sería mentira hasta mañana. */
 const TOPE_DEL_DIA = /per ?day|\bTPD\b|\bRPD\b|daily/i;

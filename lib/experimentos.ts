@@ -28,6 +28,7 @@ import { getMarketingWindow, type MarketingWindow } from './queries';
 import { hoyEnTijuana, ayerEnTijuana, diasAntes } from './date-utils';
 import { fmtUSD, fmtNum } from './format';
 import { METRICAS_EXPERIMENTO, type KeyMetricaExperimento, type MetricaExperimento } from './experimentos-catalogo';
+import { textoDeVerdades } from './experimentos-verdades';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -720,18 +721,6 @@ export async function resumenExperimentos(): Promise<string> {
   } catch {
     return '';
   }
-  const validadas = todos.filter((e) => e.estado === 'cerrado' && e.veredicto === 'validada');
-  const activos = todos.filter((e) => e.estado === 'activo');
-  if (!validadas.length && !activos.length) return '';
-
-  const partes: string[] = [];
-  if (validadas.length) {
-    const lineas = validadas.slice(0, 12).map((e) => `- ${e.aprendizaje || e.titulo}`).join('\n');
-    partes.push(`VERDADES VALIDADAS (lo ÚNICO probado con datos en este negocio — cita esto cuando aplique):\n${lineas}`);
-  }
-  if (activos.length) {
-    const lineas = activos.slice(0, 12).map((e) => `- "${e.titulo}" mide ${e.metrica_label ?? e.metrica} (sin verdad todavía)`).join('\n');
-    partes.push(`EXPERIMENTOS EN CURSO (todavía sin conclusión — no adelantes el resultado):\n${lineas}`);
-  }
-  return partes.join('\n\n');
+  // Las validadas, lo PROBADO QUE NO FUNCIONA (sólo de una prueba A/B, lib/pruebas/) y lo que se mide, en un módulo puro.
+  return textoDeVerdades(todos);
 }

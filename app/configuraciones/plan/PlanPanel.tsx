@@ -117,9 +117,9 @@ export function PlanPanel({ plan, suscripcion, emailMako, oferta, retencion, sub
         )}
       </GrupoAjustes>
       {aviso && <p className="aj-texto" role="status" style={{ color: aviso.ok ? 'var(--good)' : 'var(--bad)' }}>{aviso.texto}</p>}
-      {/* MaKo Partners (23/10/2026): cualquier negocio con plan recomienda MaKo y suma crédito (24/10: no «un mes»: nada lo consume todavía). */}
-      <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: cada negocio que entra por él te suma crédito.">
-        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Tu link de MaKo Partners: cada referido te suma crédito." href="/partners/referidos" apilada />
+      {/* MaKo Partners (23/10/2026): cualquier negocio recomienda MaKo. Desde el 25/10 gana DINERO: el 100% del primer mes. */}
+      <GrupoAjustes titulo="Recomienda MaKo" descripcion="Comparte tu link: te llevas el primer mes entero de cada negocio que entra por él.">
+        <FilaAjustes icono="equipo" titulo="Recomienda MaKo" detalle="Con MaKo Partners te llevas el primer mes entero de cada negocio que traigas." href="/partners" apilada />
       </GrupoAjustes>
       {puedeDarseDeBaja && (
         <GrupoAjustes titulo="Darte de baja" descripcion={enPrueba ? 'No se te cobra nada, y tus datos quedan guardados.' : 'Lo sigues usando hasta el fin del mes pagado, y tus datos quedan guardados.'}>

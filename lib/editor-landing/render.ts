@@ -506,7 +506,11 @@ function htmlDePaginaLibre(pagina: Pagina, tarjetas: Record<string, unknown>[], 
     if (esTarjetaEditable(t)) {
       cerrarTramo();
       const html = (t.content as unknown[]).map((n) => attrsHtmlEditable(esObj(n) ? n.attrs : null).html).join('');
-      partes.push(htmlDeArbol(['div', { class: CLASE_SECCION_LIBRE, 'data-seccion': a.id }, 0], html));
+      // El ancla de la sección (25/10/2026): un botón que lleva a esta sección dice `#t-<id>` (SelectorDestino, como en una de
+      // bloques), y este `div` no puede llevar el id: con `display: contents` no tiene caja, y un ancla sin caja no hace
+      // scroll. Va un `span` vacío y de alto 0 adelante (`.gm-ancla-seccion`, html-editable.ts).
+      const ancla = /^[A-Za-z0-9_-]{1,40}$/.test(a.id) ? `<span id="t-${a.id}" class="gm-ancla-seccion" aria-hidden="true"></span>` : '';
+      partes.push(htmlDeArbol(['div', { class: CLASE_SECCION_LIBRE, 'data-seccion': a.id }, 0], ancla + html));
       continue;
     }
     ctx.spec.seccion = { indice, animacion: animacionDeSeccion(a, cfg.pagina, indice) };

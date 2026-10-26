@@ -40,8 +40,8 @@ export type OrigenLeadId =
   // conocía, y la tarjeta y el filtro decían «Sin origen» de un lead que llegó por Instagram.
   | 'instagram'      // escribió, comentó o tocó un link de Instagram
   | 'messenger'      // lo mismo por Messenger (la página de Facebook)
-  | 'hotmart'        // compró o abandonó el carrito en Hotmart (lib/fuentes-leads.ts)
-  | 'skool'          // pidió entrar a la comunidad de Skool, por Zapier (lib/fuentes-leads.ts)
+  | 'hotmart'        // compró o abandonó el carrito en Hotmart (Leads Scraper, retirado el 25/10/2026: queda por los leads viejos)
+  | 'skool'          // pidió entrar a la comunidad de Skool, por Zapier (ídem)
   // ⚠️ Y EL OCTAVO, que no es un canal de venta: lo crea la PRUEBA del Pixel
   // (app/integraciones/prueba-lead-actions.ts) para que la grabación de esa
   // prueba se pueda ver en el único lugar donde existe el reproductor, que es la
