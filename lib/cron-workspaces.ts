@@ -158,11 +158,15 @@ export async function correrPorWorkspace(
  * workspace pausado o dado de baja, con su WhatsApp de «tareas al plan» incluido). Ante la duda
  * (no se pudo leer), no: es lo que hace la ronda con el workspace que no puede evaluar.
  */
-export async function wsEnLaRonda(servicio: string, ws: number): Promise<boolean> {
+export async function wsEnLaRonda(servicio: string | readonly string[], ws: number): Promise<boolean> {
   try {
     const w = (await listarWorkspaces()).find((x) => x.id === ws);
     if (!w || w.estado !== 'activo') return false;
-    return await integracionConectada(servicio, ws);
+    // Con una lista (los grabadores de reuniones, 26/10/2026), CUALQUIERA: la misma vara que `correrRonda`.
+    for (const sv of typeof servicio === 'string' ? [servicio] : servicio) {
+      if (await integracionConectada(sv, ws)) return true;
+    }
+    return false;
   } catch { return false; }
 }
 

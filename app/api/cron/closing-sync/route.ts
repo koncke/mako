@@ -19,6 +19,8 @@ import { syncClosingCalls, conQueAnalizaElClosing, RESERVA_LLAMADA_MS, type Sync
 import { adjuntarFathomAutoThrottled } from '@/lib/fathom-auto';
 import { drenarInsightsDeLlamada } from '@/lib/insights-llamada';
 import { correrRonda } from '@/lib/cron-workspaces';
+// Los workspaces con CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI…: lib/grabadores, 26/10/2026).
+import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 import { checkCronAuth } from '@/lib/cron-auth';
 
 export const dynamic = 'force-dynamic';
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
   const denied = checkCronAuth(request);
   if (denied) return denied;
 
-  const ronda = await correrRonda('fathom', async (ws, deadline) => {
+  const ronda = await correrRonda(GRABADORES_QUE_SE_LEEN, async (ws, deadline) => {
     // EN POSITIVO: se analiza SI este cliente tiene con qué. El análisis corre con la
     // key del PROPIO workspace (lib/anthropic.ts → credWs) y sin fila propia credWs
     // devuelve null: el env es solo del dueño. Sin este guard, cada llamada tira

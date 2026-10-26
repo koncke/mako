@@ -25,8 +25,9 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { clasificarReunion, motivoDelTipo, esClienteMako, type ClientesMako, type LeadDeReunion } from '../lib/reunion-clasificar';
 import type { FathomMeeting } from '../lib/fathom-api';
+import { deFathom } from '../lib/grabadores/reunion';
 
-const reunion = (invitado: string): FathomMeeting => ({
+const reunion = (invitado: string) => deFathom({
   recording_id: 1,
   calendar_invitees: [
     { name: 'Martin Carballo', email: 'dueno@mako.test', is_external: false },

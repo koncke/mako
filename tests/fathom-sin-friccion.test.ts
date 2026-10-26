@@ -36,6 +36,7 @@ import { destinoSinIA, esProyectoBandeja, PROYECTO_SIN_PROYECTO } from '../lib/p
 import { aplicarCruces, candidatasDelCruce, conCruceGuardado, PREFIJO_BORRADOR } from '../lib/cruce-borrador';
 import { motivoDelTipo, clasificarReunion } from '../lib/reunion-clasificar';
 import type { FathomMeeting } from '../lib/fathom-api';
+import { deFathom, type Reunion } from '../lib/grabadores/reunion';
 import type { PropuestaTarea } from '../lib/plan-propuesta';
 
 const RAIZ = join(__dirname, '..');
@@ -281,10 +282,10 @@ test('la ruta las ofrece para «Sin leer» (sin las que ya tienen borrador) y «
 
 test('motivoDelTipo dice QUÉ correo decidió, por el mismo camino que clasificarReunion', () => {
   const meet = (externos: string[], extra: Partial<{ recorded_by: { email: string } }> = {}) =>
-    ({ recording_id: 1, calendar_invitees: externos.map((email) => ({ email, is_external: true })), ...extra }) as unknown as FathomMeeting;
+    deFathom({ recording_id: 1, calendar_invitees: externos.map((email) => ({ email, is_external: true })), ...extra } as unknown as FathomMeeting);
   const leads = new Map([['pro@x.com', { estado_lead: 'abierto' }], ['cli@x.com', { estado_lead: 'ganado' }]]);
   const equipo = new Set(['ana@mako.com']);
-  const casos: Array<[FathomMeeting, RegExp]> = [
+  const casos: Array<[Reunion, RegExp]> = [
     [meet(['pro@x.com']), /pro@x\.com.*prospecto/],
     [meet(['cli@x.com']), /cli@x\.com es cliente tuyo/],
     [meet([], { recorded_by: { email: 'ana@mako.com' } }), /ana@mako\.com es de tu equipo/],

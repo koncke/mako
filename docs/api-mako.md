@@ -1087,7 +1087,7 @@ curl -L \
 
 ### `GET /api/v1/plan/reuniones/{recordingId}/borrador` — Qué salió de una reunión
 
-Dado el recordingId de una grabación de Fathom, el borrador que dejó, EN CUALQUIER ESTADO: cuántas tareas se cargaron, cuántas propias y de otras personas siguen pendientes, o si se descartó. Evita volver a leer (y pagar) una reunión que ya se leyó.
+Dado el recordingId de una reunión grabada (de Fathom, tl;dv, Fireflies, Zoom u Otter), el borrador que dejó, EN CUALQUIER ESTADO: cuántas tareas se cargaron, cuántas propias y de otras personas siguen pendientes, o si se descartó. Evita volver a leer (y pagar) una reunión que ya se leyó.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_borrador_de_reunion`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -1098,7 +1098,7 @@ Dado el recordingId de una grabación de Fathom, el borrador que dejó, EN CUALQ
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `recordingId` | number | sí | recording_id de la API de Fathom (en WhatsApp o en la app sale de listar_reuniones_fathom; por la API, del propio Fathom). NO es el número de la URL fathom.video/calls/<id>. |
+| `recordingId` | number | sí | el recordingId que da listar_reuniones_fathom: en Fathom, el recording_id de su API (NO el número de la URL fathom.video/calls/<id>); en los demás grabadores, un número negativo. |
 
 ```bash
 curl -L \
@@ -12232,14 +12232,14 @@ Tab **Dashboard** (`/dashboard?hoja=closing`). 7 lecturas · 2 acciones.
 
 ### `GET /api/v1/closing/panorama` — Panorama del Closing Analyst
 
-Primer paso ante cualquier pregunta sobre las llamadas de venta: score promedio (0-10) de las llamadas analizadas, promedio de R1 y de R2, cuántas se ganaron, contadores de todo lo procesado (ventas, servicio, internas, test, con error, ventas pendientes sin transcript) y la fecha de la última actualización de cualquier llamada (sync con Fathom o corrección manual). No trae llamadas sueltas (la lista de llamadas no sale por la API: solo por WhatsApp y la app). No requiere parámetros.
+Primer paso ante cualquier pregunta sobre las llamadas de venta: score promedio (0-10) de las llamadas analizadas, promedio de R1 y de R2, cuántas se ganaron, contadores de todo lo procesado (ventas, servicio, internas, test, con error, ventas pendientes sin transcript) y la fecha de la última actualización de cualquier llamada (sync con los grabadores o corrección manual). No trae llamadas sueltas (la lista de llamadas no sale por la API: solo por WhatsApp y la app). No requiere parámetros.
 
 - **Ruta por operación:** `GET /api/v1/closing/panorama_closing`
 - **Token detallado:** permiso `closing=read` (Solo lectura en «Closing Analyst»)
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 _Sin parámetros._
@@ -12261,7 +12261,7 @@ Cómo va cada closer en las llamadas de venta analizadas: cantidad de llamadas, 
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12287,7 +12287,7 @@ Para cada una de las 7 dimensiones (SPIN y ejecución) compara el promedio en ll
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12312,7 +12312,7 @@ Score promedio (0-10) de las llamadas de venta analizadas, mes por mes (mes UTC 
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12337,7 +12337,7 @@ Cuántas llamadas R1 y R2 analizó el Closing Analyst, cuántas R2 terminaron ga
 - **Token clásico:** alcance mínimo lectura
 - **Devuelve:** json
 - **Costo:** gratis
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12378,7 +12378,7 @@ curl -L \
 
 ### `GET /api/v1/closing/leads/{leadId}/llamadas` — Saber si un lead tiene llamada
 
-Antes de gastar en analizar: dice si ya hay una llamada procesada por el Closing Analyst enganchada a este lead, o una que se le puede enganchar gratis porque coincide el email del invitado o la grabación cargada en su ficha, con su categoría y estado (una interna, de test o pendiente se engancha pero no aparece en llamadas_lead). Si dice que no, analizar_llamadas_lead tiene que buscar en Fathom y pagar el análisis.
+Antes de gastar en analizar: dice si ya hay una llamada procesada por el Closing Analyst enganchada a este lead, o una que se le puede enganchar gratis porque coincide el email del invitado o la grabación cargada en su ficha, con su categoría y estado (una interna, de test o pendiente se engancha pero no aparece en llamadas_lead). Si dice que no, analizar_llamadas_lead tiene que buscar en los grabadores y pagar el análisis.
 
 - **Ruta por operación:** `GET /api/v1/closing/lead_tiene_llamada`
 - **Token detallado:** permiso `closing=read` (Solo lectura en «Closing Analyst»)
@@ -12401,7 +12401,7 @@ curl -L \
 
 ### `POST /api/v1/closing/leads/{leadId}/analisis` — Analizar las llamadas de un lead
 
-PROPONE que MaKo analice las llamadas de UN lead: engancha gratis los análisis que ya existen y coinciden por email o grabación, busca en Fathom sus grabaciones y analiza con IA las que falten (paga una llamada al modelo por grabación nueva, con la key de IA del negocio). OJO: si un análisis enganchado a OTRO lead coincide por email o grabación, lo pasa a este sin dejar historial. Se confirma en una pantalla; al confirmar corre en segundo plano y el avance se consulta con estado_analisis_lead. Mira antes lead_tiene_llamada.
+PROPONE que MaKo analice las llamadas de UN lead: engancha gratis los análisis que ya existen y coinciden por email o grabación, busca en los grabadores sus grabaciones y analiza con IA las que falten (paga una llamada al modelo por grabación nueva, con la key de IA del negocio). OJO: si un análisis enganchado a OTRO lead coincide por email o grabación, lo pasa a este sin dejar historial. Se confirma en una pantalla; al confirmar corre en segundo plano y el avance se consulta con estado_analisis_lead. Mira antes lead_tiene_llamada.
 
 - **Ruta por operación:** `POST /api/v1/closing/analizar_llamadas_lead`
 - **Token detallado:** permiso `closing=write` (Lectura y escritura en «Closing Analyst»)
@@ -12412,7 +12412,7 @@ PROPONE que MaKo analice las llamadas de UN lead: engancha gratis los análisis 
 - **Reversible:** no
 - **Costo:** ia
 - **Solo el administrador del workspace.**
-- **Requiere conectada:** fathom
+- **Requiere conectada:** un grabador de reuniones (fathom, tldv, fireflies, zoom u otter)
 - **Requiere la tab:** closing
 
 | Parámetro | Tipo | Obligatorio | Descripción |
@@ -12428,9 +12428,9 @@ curl -L \
   "https://hola-mako.com/api/v1/closing/leads/LEAD_ID/analisis"
 ```
 
-### `POST /api/v1/closing/grabaciones/sincronizaciones` — Enganchar grabaciones de Fathom a leads
+### `POST /api/v1/closing/grabaciones/sincronizaciones` — Enganchar grabaciones a leads
 
-PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en Fathom la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso mueve la etapa derivada del lead y no se deshace). No mueve etapas a mano ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin Fathom».
+PROPONE revisar los leads con R1 o R2 ya pasada en los últimos días y con menos de 2 grabaciones, buscar en los grabadores (Fathom, tl;dv, Fireflies, Zoom, Otter) la grabación más cercana (±3 días) por el email del invitado y cargarla en su ficha, marcando asistencia solo si estaba vacía (eso mueve la etapa derivada del lead y no se deshace). No mueve etapas a mano ni analiza. El CRM ya lo corre solo cada 20 minutos al abrirse. Toca varios leads: se confirma en una pantalla. Sirve cuando «la reunión ya pasó y sigue sin grabación».
 
 - **Ruta por operación:** `POST /api/v1/closing/adjuntar_grabaciones_fathom`
 - **Token detallado:** permiso `closing=write` (Lectura y escritura en «Closing Analyst»)
@@ -15635,7 +15635,7 @@ Para UNA integración: para qué sirve, si está conectada, qué campos pide (cu
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicio` | string | sí | key de la integración (meta, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
+| `servicio` | string | sí | key de la integración (meta, email, gemini, groq, fathom, tldv, fireflies, zoom, otter, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones. |
 
 ```bash
 curl -L \
@@ -15659,7 +15659,7 @@ Prueba una integración con las credenciales YA guardadas: hace el pedido más b
 
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
-| `servicioKey` | string | sí | key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, gemini…). |
+| `servicioKey` | string | sí | key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, tldv, fireflies, zoom, gemini…). |
 
 ```bash
 curl -L \

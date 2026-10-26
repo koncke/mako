@@ -1,8 +1,10 @@
 // =============================================================================
-// fathom-auto — engancha AUTO la grabación de Fathom al lead tras la reunión
+// fathom-auto — engancha AUTO la grabación de la reunión al lead
 // =============================================================================
+// De CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom…: lib/grabadores, 26/10/2026; el archivo quedó
+// con el nombre de cuando sólo había Fathom).
 // SELF-CONTAINED y EVENT-DRIVEN: no depende del cron ni de closing_analyses. Va
-// directo a la API de Fathom (fetchAllMeetings), matchea la grabación por email +
+// directo a los grabadores (listarTodasLasReuniones), matchea la grabación por email +
 // fecha de la reunión, y la engancha al lead (fathom_links) marcando la asistencia.
 // SEGURO: applyFathomRecording nunca pisa una decisión humana; esto NO mueve al
 // lead de etapa (eso es del CRM-automático). Se dispara: (1) al vuelo desde el
@@ -11,7 +13,8 @@
 
 import 'server-only';
 import { listLeads, applyFathomRecording } from '@/lib/leads';
-import { fetchAllMeetings, externalInviteeEmails, meetingStartIso, type FathomMeeting } from '@/lib/fathom-api';
+import { listarTodasLasReuniones } from '@/lib/grabadores';
+import { emailsExternos, type Reunion } from '@/lib/grabadores/reunion';
 import { nombreComparable } from '@/lib/leads-duplicados';
 import { getSetting, setSetting } from '@/lib/settings';
 import { getWorkspaceActual } from '@/lib/workspace';
@@ -30,8 +33,8 @@ function yaPaso(at: string | null, fecha: string | null, now: number): boolean {
 }
 
 /**
- * Grabaciones de Fathom con share_url, indexadas por email y por NOMBRE del invitado
- * externo.
+ * Grabaciones con link (el de compartir; si el grabador no tiene, el de la grabación), indexadas por email y por NOMBRE
+ * del invitado externo.
  *
  * ⚠️ EL FALLO NO SE TRAGA. Acá había un `.catch(() => [])`: si faltaba la credencial
  * (`apiKey()` lanza) o la API no contestaba tras sus reintentos, el barrido seguía con
@@ -42,27 +45,32 @@ function yaPaso(at: string | null, fecha: string | null, now: number): boolean {
  * /api/admin/fathom-auto y el resumen de la operación de MaKo, que ya tienen su
  * try/catch).
  */
-type Grabaciones = { porEmail: Map<string, FathomMeeting[]>; porNombre: Map<string, FathomMeeting[]> };
+type Grabaciones = { porEmail: Map<string, Reunion[]>; porNombre: Map<string, Reunion[]> };
+
+/** El link que se le pega al lead: el de compartir (Fathom: share_url) o, si el grabador no tiene, el de la grabación. */
+const linkDe = (m: Reunion): string | null => m.linkCompartido ?? m.link ?? null;
 
 async function grabaciones(): Promise<Grabaciones> {
-  const meetings = await fetchAllMeetings({ includeSummary: false });
-  const porEmail = new Map<string, FathomMeeting[]>();
-  const porNombre = new Map<string, FathomMeeting[]>();
-  const sumar = (map: Map<string, FathomMeeting[]>, k: string, m: FathomMeeting) => {
+  // Con varios grabadores, uno caído no tapa a los otros (se dice en el log); si fallan TODOS, tira.
+  const { reuniones: meetings, fallos } = await listarTodasLasReuniones();
+  for (const f of fallos) console.warn(`[fathom-auto] ${f.grabador} no contestó (${f.error}): sus grabaciones no se enganchan en esta vuelta`);
+  const porEmail = new Map<string, Reunion[]>();
+  const porNombre = new Map<string, Reunion[]>();
+  const sumar = (map: Map<string, Reunion[]>, k: string, m: Reunion) => {
     const arr = map.get(k) ?? [];
     arr.push(m); map.set(k, arr);
   };
   for (const m of meetings) {
-    if (!m.share_url) continue;
-    for (const e of externalInviteeEmails(m)) {
+    if (!linkDe(m)) continue;
+    for (const e of emailsExternos(m)) {
       const k = (e || '').trim().toLowerCase();
       if (k) sumar(porEmail, k, m);
     }
     // El nombre sale del MISMO invitado externo que el email (el prospecto), no del
     // título de la reunión: un título es texto libre y matchearlo sería adivinar.
-    for (const i of m.calendar_invitees ?? []) {
-      if (!i?.is_external) continue;
-      const k = nombreComparable(i.name);
+    for (const i of m.invitados) {
+      if (i.externo !== true) continue;
+      const k = nombreComparable(i.nombre);
       if (k) sumar(porNombre, k, m);
     }
   }
@@ -70,10 +78,10 @@ async function grabaciones(): Promise<Grabaciones> {
 }
 
 /** Las grabaciones de la ventana, de la más cercana a `tMeeting` a la más lejana. */
-function cercanas(grabs: FathomMeeting[], tMeeting: number, usados: Set<string>): FathomMeeting[] {
+function cercanas(grabs: Reunion[], tMeeting: number, usados: Set<string>): Reunion[] {
   return grabs
-    .filter((m) => !!m.share_url && !usados.has(m.share_url))
-    .map((m) => ({ m, d: Math.abs((Date.parse(meetingStartIso(m) || '') || NaN) - tMeeting) }))
+    .filter((m) => !!linkDe(m) && !usados.has(linkDe(m)!))
+    .map((m) => ({ m, d: Math.abs((Date.parse(m.inicio || '') || NaN) - tMeeting) }))
     .filter((x) => Number.isFinite(x.d) && x.d <= VENTANA_MATCH_MS)
     .sort((a, b) => a.d - b.d)
     .map((x) => x.m);
@@ -158,8 +166,8 @@ export async function adjuntarFathomAuto(opts?: { diasAtras?: number; maxLeads?:
       // 1) Por EMAIL: la llave fuerte. La más cercana a la fecha de esa reunión
       //    (±3 días), igual que siempre, y afirma la asistencia.
       const porMail = cercanas(grabsEmail, tMeeting, usados)[0];
-      if (porMail?.share_url) {
-        const url = porMail.share_url;
+      if (porMail && linkDe(porMail)) {
+        const url = linkDe(porMail)!;
         usados.add(url); // reservada por ESTE lead, haya que escribirla o no
         const r = await applyFathomRecording(lead, which, url, true).catch((e) => {
           fallosPorLead++;
@@ -182,8 +190,8 @@ export async function adjuntarFathomAuto(opts?: { diasAtras?: number; maxLeads?:
       const candidatas = cercanas(grabsNombre, tMeeting, usados);
       if (candidatas.length > 1) { ambiguos++; continue; }
       const porNom = candidatas[0];
-      if (!porNom?.share_url) continue;
-      const url = porNom.share_url;
+      if (!porNom || !linkDe(porNom)) continue;
+      const url = linkDe(porNom)!;
       usados.add(url);
       const r = await applyFathomRecording(lead, which, url, null, { marcarAsistencia: false }).catch((e) => {
         fallosPorLead++;

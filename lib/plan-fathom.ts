@@ -2,10 +2,11 @@ import { MOLDE_DETALLE, MOLDE_ADVERTENCIA } from './detalle-contrato';
 import 'server-only';
 
 // =============================================================================
-// plan-fathom — extraer TAREAS del plan a partir de una reunión de Fathom (G3)
+// plan-fathom — extraer TAREAS del plan a partir de una reunión grabada (G3)
 // =============================================================================
-// Después de una reunión de equipo/estrategia, MaKo lee el summary + transcript
-// de Fathom y saca los ACTION ITEMS concretos (lo que el equipo tiene que HACER),
+// Después de una reunión de equipo/estrategia, MaKo lee el resumen + la transcripción
+// del grabador (Fathom, Loom, tl;dv, Fireflies, Zoom…: lib/grabadores, 26/10/2026; el
+// nombre del archivo quedó de cuando sólo había Fathom) y saca los ACTION ITEMS concretos (lo que el equipo tiene que HACER),
 // listos para caer en el board /plan como tarjetas con proyecto y prioridad
 // sugeridos. El perro guardián después los re-puntúa como a cualquier tarea.
 //
@@ -14,26 +15,20 @@ import 'server-only';
 //   - extraerTareasDeReunion(recordingId, proyectos) → summary+transcript por id,
 //     Claude devuelve los candidatos. El transcript es CONTENIDO NO CONFIABLE.
 //
-// La Fathom API key sale de credWs('FATHOM_API_KEY') (workspace del dueño, la
-// misma que usa el Closing Analyst). Prompts editables vía prompt-registry.
+// Las claves de cada grabador son del negocio (lib/grabadores/index.ts las resuelve por
+// workspace: las mismas que usa el Closing Analyst). Prompts editables vía prompt-registry.
 // =============================================================================
 
 import { chatClaude } from './anthropic';
 import { brandSystem, parseJsonObject } from './campaign-structurer';
 import { renderPrompt, contenidoNoConfiable } from './prompt-render';
 import { sumarUsage, type UsageInfo } from './anthropic-usage';
+import { listarReunionesRecientes, leerReunion, refDeClave } from './grabadores';
+import { GrabadorSinRespuestaError } from './grabadores/errores';
 import {
-  listMeetingsPage,
-  fetchRecordingSummary,
-  fetchRecordingTranscript,
-  meetingTitle,
-  meetingStartIso,
-  meetingDurationMin,
-  transcriptToText,
-  externalInviteeEmails,
-  FathomSinRespuestaError,
-  type FathomMeeting,
-} from './fathom-api';
+  duracionMin, emailsExternos, refDeReunion, transcripcionATexto,
+  type GrabadorId, type Reunion,
+} from './grabadores/reunion';
 import { getLeadsByEmail } from './closing';
 import { listarUsuarios } from './usuarios';
 import { clasificarReunion, motivoDelTipo, type TipoReunion, type ClientesMako, type LeadDeReunion } from './reunion-clasificar';
@@ -49,7 +44,7 @@ export type PlanPrioridad = 'alta' | 'media' | 'baja' | 'futuro';
 /** Alguien que estuvo en la reunión (nombre + email de la invitación de calendario). */
 export type Participante = {
   nombre: string; email: string;
-  /** Salió de la API de Google Calendar, no de Fathom. Ése NO va al prompt (la agenda no
+  /** Salió de la API de Google Calendar, no del grabador. Ése NO va al prompt (la agenda no
    *  pasa por ninguna IA, lib/agenda-sin-ia.ts): sirve para que el CÓDIGO le ponga el email al
    *  dueño de cada tarea (`resolverDueño`), nunca para que lo lea un modelo. */
   delCalendario?: true;
@@ -64,11 +59,16 @@ export type Participante = {
 export const cacheKeyReunion = (recordingId: number): string => `mako.fathom.cache.${recordingId}`;
 
 export type ReunionMeta = {
+  /** La CLAVE de la reunión (lib/grabadores/reunion.ts): en Fathom, su recording_id de siempre; en los demás, negativa.
+   *  Es la que llevan las marcas del Plan (`mako.reunion.auto.<n>`) y `plan_reuniones_descartadas`. */
   recordingId: number;
+  /** De qué grabador es, y la ref en texto («fathom:123», «loom:abc»): la de `plan_propuestas.ref`. */
+  grabador: GrabadorId;
+  ref: string;
   titulo: string;
   fecha: string | null;   // ISO de inicio
   durMin: number | null;
-  url: string | null;     // link a la grabación en Fathom
+  url: string | null;     // link a la grabación en el grabador
   involucrados: string[]; // emails de los invitados (para preview + búsqueda + clasificación)
   tipo: TipoReunion;      // clasificación automática (punto 10)
   /** Por qué es de ese tipo, en una línea (`motivoDelTipo`). Es lo que se muestra de una reunión
@@ -76,6 +76,8 @@ export type ReunionMeta = {
   motivo?: string;
   participantes: Participante[]; // TODOS los invitados con nombre (para repartir las tareas de otros)
   host: Participante | null;     // quién grabó (de él es el plan al que van las tareas, en el cron)
+  /** La reunión como la dio el grabador (sin transcripción): la extracción la reusa en vez de volver a pedirla. */
+  reunion?: Reunion;
 };
 
 export type PaginaReuniones = { reuniones: ReunionMeta[]; nextCursor: string | null };
@@ -85,7 +87,7 @@ export type PaginaReuniones = { reuniones: ReunionMeta[]; nextCursor: string | n
  * lista contra la que se resuelve el DUEÑO de cada tarea: sin email no hay forma de
  * mandarle sus tareas a alguien ni de encontrar su cuenta en la app.
  */
-export function participantesDeReunion(m: FathomMeeting): Participante[] {
+export function participantesDeReunion(m: Pick<Reunion, 'invitados' | 'anfitrion' | 'acciones'>): Participante[] {
   const vistos = new Set<string>();
   const out: Participante[] = [];
   const sumar = (nombre: unknown, email: unknown) => {
@@ -102,19 +104,15 @@ export function participantesDeReunion(m: FathomMeeting): Participante[] {
     out.push({ nombre: nom, email: e });
   };
 
-  for (const i of m.calendar_invitees ?? []) sumar(i.name || i.matched_speaker_display_name, i.email);
+  for (const i of m.invitados) sumar(i.nombre, i.email);
 
   // FALLBACK — sin esto, una reunión sin evento de calendario (un Meet ad-hoc, el
   // caso más común de una junta de trabajo) devolvía lista VACÍA: sin participantes
   // no hay email de dueño, el reparto por persona queda mudo y el prompt recibe
-  // literalmente "(no tengo la lista de invitados)". Fathom igual sabe quién grabó y
-  // a quién le asignó cada action item: se usa eso.
-  const extra = m as unknown as {
-    recorded_by?: { name?: string; email?: string };
-    action_items?: Array<{ assignee?: { name?: string; email?: string } }>;
-  };
-  sumar(extra.recorded_by?.name, extra.recorded_by?.email);
-  for (const a of extra.action_items ?? []) sumar(a.assignee?.name, a.assignee?.email);
+  // literalmente "(no tengo la lista de invitados)". El grabador igual sabe quién grabó y
+  // a quién le asignó cada compromiso: se usa eso.
+  sumar(m.anfitrion?.nombre, m.anfitrion?.email);
+  for (const a of m.acciones ?? []) sumar(a.responsable?.nombre, a.responsable?.email);
 
   return out;
 }
@@ -217,9 +215,34 @@ async function clientesMako(): Promise<ClientesMako | null> {
   }
 }
 
-export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string; createdAfter?: string } = {}): Promise<PaginaReuniones> {
-  const page = await listMeetingsPage({ limit: opts.limit ?? 15, cursor: opts.cursor ?? undefined, recordedAfter: opts.recordedAfter, createdAfter: opts.createdAfter });
-  const items = page.items ?? [];
+/** Una reunión del grabador como la lee el Plan: clasificada, con sus participantes y quién la grabó. */
+export function aReunionMeta(m: Reunion, leadsByEmail: Map<string, LeadDeReunion>, equipoEmails: Set<string>, clientes: ClientesMako | null): ReunionMeta {
+  return {
+    recordingId: m.clave,
+    grabador: m.grabador,
+    ref: refDeReunion(m),
+    titulo: m.titulo || 'Reunión sin título',
+    fecha: m.inicio,
+    durMin: duracionMin(m),
+    url: m.link ?? m.linkCompartido ?? null,
+    involucrados: emailsExternos(m),
+    tipo: clasificarReunion(m, leadsByEmail, equipoEmails, clientes),
+    motivo: motivoDelTipo(m, leadsByEmail, equipoEmails, clientes),
+    participantes: participantesDeReunion(m),
+    host: m.anfitrion?.email
+      ? { nombre: (m.anfitrion.nombre ?? '').trim(), email: m.anfitrion.email.trim().toLowerCase() }
+      : null,
+    reunion: m,
+  };
+}
+
+/**
+ * Las reuniones recientes de TODOS los grabadores del negocio (lib/grabadores), clasificadas. `createdAfter` = cuándo
+ * aparecieron en el grabador (la ventana del cron); `recordedAfter` = la fecha de la reunión (el filtro del selector).
+ * `fallos` = los grabadores que no contestaron (si fallan todos, tira: «no pude leer» no es «no hay»).
+ */
+export async function listReunionesRecientes(opts: { limit?: number; cursor?: string | null; recordedAfter?: string; createdAfter?: string } = {}): Promise<PaginaReuniones & { fallos?: Array<{ grabador: GrabadorId; error: string }> }> {
+  const page = await listarReunionesRecientes({ limite: opts.limit ?? 15, cursor: opts.cursor ?? undefined, desde: opts.createdAfter });
 
   // Los dos mapas para clasificar. Best-effort: si el CRM o los usuarios fallan,
   // las reuniones salen igual con tipo 'otra' en vez de tirar todo el selector.
@@ -230,31 +253,18 @@ export async function listReunionesRecientes(opts: { limit?: number; cursor?: st
   ]);
   const equipoEmails = new Set(usuarios.map((u) => u.email.trim().toLowerCase()).filter(Boolean));
 
-  const reuniones = items
-    .map((m: FathomMeeting) => ({
-      recordingId: m.recording_id,
-      titulo: meetingTitle(m) || 'Reunión sin título',
-      fecha: meetingStartIso(m),
-      durMin: meetingDurationMin(m),
-      url: m.url ?? m.share_url ?? null,
-      involucrados: externalInviteeEmails(m),
-      tipo: clasificarReunion(m, leadsByEmail, equipoEmails, clientes),
-      motivo: motivoDelTipo(m, leadsByEmail, equipoEmails, clientes),
-      participantes: participantesDeReunion(m),
-      host: m.recorded_by?.email
-        ? { nombre: (m.recorded_by.name ?? '').trim(), email: m.recorded_by.email.trim().toLowerCase() }
-        : null,
-    }))
+  const reuniones = page.reuniones
+    .map((m) => aReunionMeta(m, leadsByEmail, equipoEmails, clientes))
     .filter((r) => Number.isFinite(r.recordingId))
     // OJO: `recorded_after` la API de Fathom LO IGNORA (probado: devuelve exactamente
     // las mismas reuniones con y sin el parámetro). Por eso el filtro "desde" del
-    // selector no filtraba nada. Lo aplicamos acá sobre la fecha real de la grabación.
-    // El que la API sí respeta es `created_after` (cuándo apareció la grabación), que
-    // es otra pregunta y la usa el cron.
+    // selector se aplica acá sobre la fecha real de la grabación, igual para todos los
+    // grabadores. El que la API de Fathom sí respeta es `created_after` (cuándo apareció
+    // la grabación), que es otra pregunta y la usa el cron.
     .filter((r) => !opts.recordedAfter || (r.fecha ?? '') >= opts.recordedAfter)
     .sort((a, b) => (b.fecha ?? '').localeCompare(a.fecha ?? ''));
 
-  return { reuniones, nextCursor: page.next_cursor ?? null };
+  return { reuniones, nextCursor: page.cursor ?? null, ...(page.fallos.length ? { fallos: page.fallos } : {}) };
 }
 
 // ── Prompt (editable vía prompt-registry) ─────────────────────────────────────
@@ -534,7 +544,7 @@ export type ExtractOut = {
    */
   cabecera: string;
   /**
-   * La transcripción ENTERA, como la arma `transcriptToText` (renglones
+   * La transcripción ENTERA, como la arma `transcripcionATexto` (renglones
    * `[hh:mm:ss] Nombre: texto`). Vacía si no había o si no se pudo bajar.
    *
    * Se devuelve porque el JUEZ DEL CRITERIO la necesita completa y esta funcion ya
@@ -955,22 +965,28 @@ ${texto}`);
   };
 }
 
-export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts = {}): Promise<ExtractOut> {
-  // summary (markdown) + transcript + action items estructurados (traen assignee.email,
-  // hoy el dueño real que Fathom ya calculó). Si algo falla, seguimos con lo que haya.
-  // ⚠️ «Fathom no contestó» NO es «no hay contenido» (16/10/2026, revisión adversarial). Los dos
-  // `catch` caían a vacío, y una lectura vacía SIN `partesFallidas` es «leída entera, sin
-  // compromisos»: el cron la cierra para siempre (`KEY_VISTA`). Con el webhook, que lee en el minuto
-  // en que termina la reunión, un 5xx pasajero de Fathom cerraba la reunión sin rastro. Se anota si
-  // alguno de los dos falló por eso (`FathomSinRespuestaError`, ya con sus reintentos adentro).
+export async function extraerTareasDeReunion(recordingId: number, proyectos: ProyectoRef[], yo: Yo, opts: ExtractOpts & { reunion?: Reunion; ref?: { grabador: GrabadorId; id: string } } = {}): Promise<ExtractOut> {
+  // resumen (markdown) + transcripción + los compromisos que el grabador ya detectó (traen el email del dueño: hoy el
+  // dueño real que el grabador ya calculó). Si algo falla, seguimos con lo que haya.
+  // ⚠️ «El grabador no contestó» NO es «no hay contenido» (16/10/2026, revisión adversarial). Los `catch` caían a vacío,
+  // y una lectura vacía SIN `partesFallidas` es «leída entera, sin compromisos»: el cron la cierra para siempre
+  // (`KEY_VISTA`). Con el webhook, que lee en el minuto en que termina la reunión, un 5xx pasajero cerraba la reunión sin
+  // rastro. Se anota si falló por eso (`GrabadorSinRespuestaError`, ya con sus reintentos adentro).
   let fathomCallado = false;
-  const pasajero = (e: unknown) => { if (e instanceof FathomSinRespuestaError) fathomCallado = true; };
-  const [summary, transcript, page] = await Promise.all([
-    fetchRecordingSummary(recordingId).catch((e) => { pasajero(e); return null; }),
-    fetchRecordingTranscript(recordingId).catch((e) => { pasajero(e); return []; }),
-    listMeetingsPage({ limit: 25, includeActionItems: true }).catch(() => ({ items: [], next_cursor: null } as const)),
+  const pasajero = (e: unknown) => { if (e instanceof GrabadorSinRespuestaError) fathomCallado = true; };
+  // DE QUÉ GRABADOR ES (26/10/2026): la que vino del listado; si no, la clave lo dice (Fathom: positiva; los demás, por
+  // la tabla `grabador_reuniones`). Sin poder saberlo no hay qué leer, y eso no es «sin compromisos»: un tramo fallido.
+  const ref = opts.reunion ?? opts.ref ?? await refDeClave(recordingId).catch((e) => { console.error(`[plan-fathom] reunión ${recordingId}: no pude saber de qué grabador es (${e instanceof Error ? e.message : String(e)})`); return null; });
+  if (!ref) return { tareas: [], dudas: [], cabecera: '', transcript: '', partesFallidas: 1 };
+  const grabador = ref.grabador;
+  const [contenido, page] = await Promise.all([
+    leerReunion(ref, opts.reunion).catch((e) => { pasajero(e); return null; }),
+    // Los compromisos que el grabador ya detectó salen del LISTADO (en Fathom, `include_action_items`).
+    listarReunionesRecientes({ limite: 25, conAcciones: true, solo: grabador }).catch(() => ({ reuniones: [] as Reunion[] })),
   ]);
-  const resumen = summary?.markdown_formatted?.trim() ?? '';
+  const summary = contenido?.resumen ?? null;
+  const transcript = contenido?.transcripcion ?? [];
+  const resumen = summary?.trim() ?? '';
   // ANTES 14000 chars: en una reunión de 105' (~100k chars) eso cortaba el 86% — solo
   // llegaba el arranque (chit-chat) y los action items REALES quedaban afuera → "no
   // encontró nada". Después 120k, que ya cubría ~2h… pero una consultoría de 122 min
@@ -978,32 +994,32 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
   // próximos pasos. Ahora el largo no lo resuelve el recorte sino el troceado
   // (extraerTareasDeTexto): el tope queda como red de seguridad para no bajar un
   // transcript absurdo, en ~6 horas de charla.
-  const texto = transcriptToText(transcript, 400000);
-  // Vacía porque Fathom no contestó → UN tramo fallido: quien llama la reintenta en vez de cerrarla.
+  const texto = transcripcionATexto(transcript, 400000);
+  // Vacía porque el grabador no contestó → UN tramo fallido: quien llama la reintenta en vez de cerrarla.
   if (!resumen && !texto) return { tareas: [], dudas: [], cabecera: '', transcript: '', ...(fathomCallado ? { partesFallidas: 1 } : {}) };
   // ⚠️ Y SIN LA TRANSCRIPCIÓN AUNQUE HAYA RESUMEN (revisión de B5, 17/10/2026): las tareas salen de la transcripción, así
   // que con sólo el resumen la lectura vuelve vacía y SIN fallas, y quien llama la cerraba como «leída, sin compromisos»
-  // (o, completando, vaciaba la marca con el resto sin leer). Si Fathom no contestó, es un tramo fallido.
+  // (o, completando, vaciaba la marca con el resto sin leer). Si el grabador no contestó, es un tramo fallido.
   if (!texto && fathomCallado) return { tareas: [], dudas: [], cabecera: '', transcript: '', partesFallidas: 1 };
 
-  // Los action items estructurados de Fathom (con su dueño ya atribuido) le dan al
+  // Los compromisos que el grabador ya detectó (con su dueño ya atribuido) le dan al
   // modelo la pista de quién asumió qué, sin que lo tenga que adivinar del transcript.
-  const meta = (page.items ?? []).find((m) => m.recording_id === recordingId);
-  const ai = meta?.action_items ?? [];
+  const meta = page.reuniones.find((m) => m.clave === recordingId) ?? opts.reunion ?? contenido ?? undefined;
+  const ai = meta?.acciones ?? [];
   // Invitados de ESTA reunión: sin ellos no hay email al que atribuir una tarea de otro
   // (y el reparto por persona queda mudo). Si el listado no la trajo, vamos sin lista.
   let participantes = opts.participantes ?? (meta ? participantesDeReunion(meta) : []);
-  // SI FATHOM NO TRAE EMAILS, LOS PIDE EL CALENDARIO. Un Meet improvisado no tiene
-  // evento de calendario en Fathom, así que la lista llega con el que grabó y nada más
+  // SI EL GRABADOR NO TRAE EMAILS, LOS PIDE EL CALENDARIO. Un Meet improvisado no tiene
+  // evento de calendario en el grabador, así que la lista llega con el que grabó y nada más
   // —y sin emails no hay a quién mandarle sus tareas ni a quién citar en el detalle—.
   // Pero la reunión SÍ tiene fecha, hora y título, y con eso Google Calendar devuelve a
   // los invitados de verdad. Es la idea de Martín, y sale gratis: la integración ya
   // estaba conectada, solo faltaba la vuelta (buscar POR CUÁNDO, no por quién).
   // Best-effort absoluto: si no está conectado o no hay evento cerca, sigue igual.
   if (!participantes.some((p) => p.email)) {
-    const inicio = meta ? meetingStartIso(meta) : null;
+    const inicio = meta?.inicio ?? null;
     if (inicio) {
-      const delCal = await invitadosDeReunionPorFecha(inicio, meta ? meetingTitle(meta) : null).catch(() => []);
+      const delCal = await invitadosDeReunionPorFecha(inicio, meta?.titulo || null).catch(() => []);
       if (delCal.length) {
         const vistos = new Set(participantes.map((p) => p.nombre.trim().toLowerCase()).filter(Boolean));
         // Los del calendario primero (traen email); los que ya estaban por nombre se
@@ -1012,30 +1028,30 @@ export async function extraerTareasDeReunion(recordingId: number, proyectos: Pro
           ...delCal.map((i) => ({ nombre: i.nombre, email: i.email, delCalendario: true as const })),
           ...participantes.filter((p) => !p.email && !delCal.some((i) => i.nombre.trim().toLowerCase() === p.nombre.trim().toLowerCase())),
         ];
-        console.log(`[plan-fathom] reunión ${recordingId}: Fathom no trajo emails y los puso Google Calendar (${delCal.length}; ya había ${vistos.size} por nombre)`);
+        console.log(`[plan-fathom] reunión ${recordingId} (${grabador}): el grabador no trajo emails y los puso Google Calendar (${delCal.length}; ya había ${vistos.size} por nombre)`);
       }
     }
   }
-  // EL NOMBRE DE LA CUENTA DE FATHOM NO ES EL DE LA PERSONA (17/10/2026). Fathom rotula al que graba con el
+  // EL NOMBRE DE LA CUENTA DEL GRABADOR NO ES EL DE LA PERSONA (17/10/2026). Fathom rotula al que graba con el
   // nombre de SU cuenta («Martin Carballo») y la app lo conoce por otro («Martin Koncke»): el modelo copiaba la
   // etiqueta y 17 de 37 tarjetas del 16/10 decían «Martin Carballo». Si quien grabó tiene el MISMO email que
   // quien mira el tablero, el nombre se cambia en la transcripción, el resumen y la lista de participantes antes
   // de leer, y en lo que devuelve el modelo (`coerceCandidatas`).
-  const alias = aliasDelDueno(meta?.recorded_by, yo);
+  const alias = aliasDelDueno(meta?.anfitrion ? { name: meta.anfitrion.nombre, email: meta.anfitrion.email } : null, yo);
   if (alias) participantes = participantes.map((p) => (normNombre(p.nombre) === normNombre(alias.de) ? { ...p, nombre: alias.a } : p));
   const dueñosFathom = ai
-    .filter((a) => a?.description)
-    .map((a) => `- ${a.description}${a.assignee?.name || a.assignee?.email ? ` → ${a.assignee?.name ?? a.assignee?.email}` : ''}`)
+    .filter((a) => a?.descripcion)
+    .map((a) => `- ${a.descripcion}${a.responsable?.nombre || a.responsable?.email ? ` → ${a.responsable?.nombre ?? a.responsable?.email}` : ''}`)
     .join('\n');
 
-  // El resumen y los action items de Fathom son CABECERA, no cuerpo: se repiten en cada
+  // El resumen y los compromisos del grabador son CABECERA, no cuerpo: se repiten en cada
   // parte del troceado. Antes iban pegados al principio del texto, así que se los comía
   // la PARTE 1 y las demás leían transcripción cruda — sin saber de qué se trató la
   // reunión ni a quién le había asignado Fathom cada compromiso.
   const conReal = (x: string) => (alias ? conNombreReal(x, alias) : x);
   const cabecera = conReal([
     resumen ? `RESUMEN DE LA REUNIÓN (contexto: vale para todas las partes):\n${resumen}` : '',
-    dueñosFathom ? `ACTION ITEMS QUE FATHOM YA DETECTÓ (con su dueño):\n${dueñosFathom}` : '',
+    dueñosFathom ? `ACTION ITEMS QUE ${grabador === 'fathom' ? 'FATHOM' : 'EL GRABADOR'} YA DETECTÓ (con su dueño):\n${dueñosFathom}` : '',
   ].filter(Boolean).join('\n\n'));
 
   // ⚠️ La cabecera se DEVUELVE, no solo se pasa. `extraerTareasDeTexto` la usa

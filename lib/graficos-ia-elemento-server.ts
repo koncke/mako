@@ -40,8 +40,7 @@ import { parseJsonObject } from './json-del-modelo';
 import { tzDeWorkspace } from './timezone';
 import { TZ_TIJUANA, hoyEnTijuana } from './date-utils';
 import { leerLlamada } from './api-mako/areas/closing.helpers';
-import { fetchRecordingTranscript } from './fathom-api';
-import { integracionConectada } from './credenciales';
+import { hayGrabadorConectado, leerTranscripcionPorClave } from './grabadores';
 import { getScriptView } from './ads-analyst';
 import type { QueTablero } from './tablero-actual';
 
@@ -192,19 +191,9 @@ export async function programarCaja(p: { usuario: string; hoja: Hoja; elementoId
 
 // ── Lo que se abrió ──────────────────────────────────────────────────────────────────────────
 
-/** «HH:MM:SS» o «MM:SS» de Fathom a segundos (lo mismo que hace GET /api/closing/transcript). */
-function aSegundos(ts: string | null | undefined): number {
-  if (!ts) return 0;
-  const p = String(ts).split(':').map(Number);
-  if (p.some((n) => Number.isNaN(n))) return 0;
-  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
-  if (p.length === 2) return p[0] * 60 + p[1];
-  return p[0] || 0;
-}
-
 /**
  * Lo que la caja lee de lo que se abrió, con los lectores que ya existen: una llamada, su análisis guardado
- * (`leerLlamada`, por getTenantDb: una llamada de otro negocio no existe acá) y lo que se dijo (Fathom en vivo;
+ * (`leerLlamada`, por getTenantDb: una llamada de otro negocio no existe acá) y lo que se dijo (su grabador en vivo;
  * si falla, sigue con el análisis y lo dice); un anuncio, sus números del Ads Analyst (`getScriptView`).
  * Devuelve el motivo (un string) si no hay qué leer.
  */
@@ -215,13 +204,14 @@ async function leerEntidad(ctx: ContextoEntidad): Promise<EntradaEntidad | strin
     if (!c) return 'Esa llamada no está en esta cuenta.';
     let lineas: LineaParaIA[] | null = null;
     let errorTr: string | null = null;
-    if (await integracionConectada('fathom').catch(() => false)) {
+    // La transcripción, del grabador de ESA llamada (su clave lo dice: lib/grabadores, 26/10/2026).
+    if (await hayGrabadorConectado().catch(() => false)) {
       try {
-        lineas = (await fetchRecordingTranscript(id))
-          .map((it) => ({ t_seconds: aSegundos(it.timestamp), speaker: it.speaker?.display_name ?? null, text: (it.text ?? '').trim() }))
+        lineas = (await leerTranscripcionPorClave(id))
+          .map((it) => ({ t_seconds: it.segundo ?? 0, speaker: it.hablante, text: (it.texto ?? '').trim() }))
           .filter((l) => l.text);
       } catch (e) { errorTr = msg(e); }
-    } else errorTr = 'Fathom no está conectado';
+    } else errorTr = 'No hay un grabador de reuniones conectado';
     return entradaDeLlamada(c, lineas, errorTr);
   }
   if (ctx.tipo === 'anuncio') {

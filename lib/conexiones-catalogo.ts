@@ -21,6 +21,8 @@
 // Puro (sin `server-only`): lo usan la API de MaKo, el doer y sus tests.
 // =============================================================================
 
+import { esGrabador } from './grabadores/reunion';
+import { CATALOGO_GRABADORES } from './grabadores/catalogo';
 import { DEFS, type Def } from './integraciones-catalogo';
 import { RUTA_TRAS_INSTALAR } from './ia-pc-reglas';
 
@@ -57,6 +59,14 @@ export const rutaDeTarjeta = (key: string): string => `/integraciones?abrir=${en
  */
 const SINONIMOS: Record<string, readonly string[]> = {
   fathom: ['fathom', 'grabaciones', 'grabacion de llamadas', 'mis llamadas grabadas'],
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores). «Grabaciones» a secas sigue llevando a Fathom.
+  tldv: ['tldv', 'tl;dv', 'tl dv'],
+  fireflies: ['fireflies', 'fireflies.ai', 'fred de fireflies'],
+  zoom: ['zoom', 'grabaciones de zoom', 'mi zoom'],
+  otter: ['otter', 'otter.ai'],
+  loom: ['loom', 'mis loom', 'videos de loom'],
+  readai: ['read ai', 'read.ai', 'readai'],
+  meet: ['google meet', 'meet', 'transcripciones de meet'],
   openai: ['openai', 'gpt', 'chatgpt', 'chat gpt', 'mi gpt'],
   anthropic: ['anthropic', 'clave de claude', 'api de claude', 'key de claude'],
   gemini: ['gemini', 'ai studio'],
@@ -105,7 +115,9 @@ const deTarjeta = (d: Def): Conexion => ({
   donde: 'computadora',
   quien: 'admin',
   verifica: d.envs.length ? 'probar_conexion' : d.key === 'google' ? 'google' : null,
-  ...(NO_SE_OFRECEN.has(d.key) ? { noSeOfrece: true as const } : {}),
+  // Un grabador que hoy no se conecta (Loom sin API; Read AI y Meet sin su inicio de sesión) tampoco se ofrece: se explica si
+  // la persona lo nombra, y su tarjeta dice por qué (lib/grabadores/catalogo.ts, `conectable`).
+  ...(NO_SE_OFRECEN.has(d.key) || (esGrabador(d.key) && !CATALOGO_GRABADORES[d.key].conectable) ? { noSeOfrece: true as const } : {}),
   ...(d.soloPlataforma ? { soloPlataforma: true as const } : {}),
 });
 

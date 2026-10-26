@@ -5,6 +5,62 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## Los grabadores de reuniones: una reunión, venga de donde venga (26/10/2026)
+
+**Vive en:** `lib/grabadores/` (la capa: `reunion.ts` la forma común y la clave, `index.ts` la puerta, un lector por
+grabador, `formas.ts` lo que devuelve cada API, `firmas.ts`, `al-terminar.ts` lo que pasa cuando un grabador avisa),
+`app/api/webhooks/{tldv,fireflies,zoom}`, migración sin número `XXXX_reuniones_de_cualquier_grabador.sql`.
+Guard: `tests/grabadores.test.ts` (15, probado con 11 roturas, dos invertidas).
+
+Pedido de Martín (26/10, ~01:50): «implementa otras integraciones de grabadores de reuniones, como Loom, etc... Así no solo
+se puede grabar con fathom. Y revisa el plan y otras cosas que solo consumen fathom».
+
+- **El diagnóstico obvio era el equivocado: «Loom es el primero» no se puede hacer.** Loom dice textual «Loom does not offer
+  a open API at this time» (support.atlassian.com/loom). No hay listado, ni transcripción, ni webhooks; `api.loom.com` ni
+  resuelve DNS. El oEmbed (`loom.com/v1/oembed`) da título, duración y miniatura de un video PÚBLICO cuyo link ya tenés.
+  Lo único con transcripción es el Teamwork Graph de Atlassian: Preview, sólo desde apps Forge instaladas en Jira o
+  Confluence, con allowlist. La GraphQL de loom.com contesta 200 anónimo y la usan scrapers: NO es oficial, no se usa. Lo
+  que quedó: la tarjeta lo dice, el link de un Loom entra al lead, y la transcripción se sube en el Plan → Importar.
+- **El inventario: lo que leía SÓLO de Fathom eran cinco funciones de red y una forma.** `listMeetingsPage`,
+  `fetchAllMeetings`, `fetchMeetingContent`, `fetchRecordingTranscript`, `fetchRecordingSummary` y `FathomMeeting`, usados
+  por el Plan (cron, webhook, modal, API), el Closing (sync, por lead, re-analizar, transcript), Customer Success (sesiones
+  de entrega, propuesta del curso), el CRM (enganche automático de grabaciones, el webhook, el link del lead), los gráficos
+  con IA, el Ops Center y once lugares que preguntaban `integracionConectada('fathom')` para decir «¿puede leer
+  reuniones?». Todo pasa ahora por `lib/grabadores` (`hayGrabadorConectado`, `listarReunionesRecientes`, `leerReunion`).
+  El Second Brain todavía no lee reuniones (el recolector es sólo WhatsApp): cuando lo haga, de la capa.
+- **La clave numérica, para no migrar seis tablas.** `closing_analyses`, `plan_reuniones_descartadas` y
+  `curso_progreso.ia_recording_id` guardan la reunión como `bigint`, y las marcas del Plan van por número. Fathom sigue con
+  su `recording_id` (positivo): ninguna marca, borrador ni análisis viejo cambia de nombre. Los demás llevan un número
+  NEGATIVO derivado de «grabador:id» (cyrb53, 53 bits): nunca choca con uno de Fathom. De la clave a la reunión vuelve la
+  tabla `grabador_reuniones` (la escribe UN lugar, la capa al listar). Sin la migración todo lo que lleva la reunión
+  entera anda (el cron, el webhook, el modal); lo que tiene SÓLO el número («Leer igual», «Volver a analizar») lo dice.
+  ⚠️ El proyecto compila a ES2017: un hash con literales BigInt (`0xcbf…n`) no compila; por eso cyrb53 con `Math.imul`.
+- **Las trampas medidas contra las APIs reales (26/10, sin credenciales):**
+  - **Fireflies contesta HTTP 500 a una clave mala** (`errors[].code = "auth_failed"`), no 401: un cliente que reintenta
+    los 5xx reintentaría para siempre. El ping y el lector lo leen como «la clave no sirve» (`esAuthFireflies`).
+  - **tl;dv no firma sus avisos** (sólo deja agregar headers propios) y el esquema de `TranscriptReady` no coincide con el
+    ejemplo de su misma doc. Por eso de un aviso se usan el correo del organizador (ruteo) y el id, y la reunión se pide
+    ENTERA por la API con la clave de ese negocio: un aviso falso, a lo sumo, hace leer una reunión que de verdad es suya.
+  - **Fireflies y Zoom no dicen de quién es el aviso** (Fireflies manda sólo `meeting_id`; la validación de Zoom no trae
+    cuenta). Los rutea la FIRMA: el negocio cuyo secreto la verifica (`negocioPorFirma`). Dos negocios con el mismo
+    secreto (Fireflies lo escribe la persona) = no es de nadie.
+  - **Zoom: el correo de un participante de afuera viene VACÍO.** El CRM no puede saber solo de qué lead es la llamada;
+    la tarjeta lo dice. La transcripción es un VTT («Nombre: texto») y el rango de fechas, de un mes como máximo.
+  - **tl;dv, Fireflies y Otter no dicen quién es «de afuera»** (Fathom sí, `is_external`). Se infiere del correo contra el
+    de quien grabó (`externoPorCorreo`): el mismo dominio es de la casa; con un gmail, cualquiera es de afuera.
+  - **Una transcripción que falta en una reunión reciente es «todavía no está», no «no hay»** (tl;dv la devuelve sólo
+    completa; Zoom tarda). Tratarla como vacía cerraba la reunión para siempre como «sin compromisos»: es
+    `GrabadorSinRespuestaError`, y el cron la reintenta.
+  - **Read AI**: OAuth 2.1 con registro dinámico, token de 10 minutos y refresh que rota en cada uso, y su doc no dice si
+    acepta una vuelta que no sea la suya: sin probarlo, no hay botón. **Google Meet**: el permiso `meetings.space.readonly`
+    es «sensible» y la app de Google de MaKo no lo tiene. **Otter**: API sólo Enterprise; la forma de su LISTA no se pudo
+    medir, así que si no es la esperada, tira diciendo qué vino (nunca «no hay reuniones»).
+- **El chip «Fathom» del Plan mentía para todo lo demás.** El origen de una tarjeta caía a «WhatsApp» con cualquier
+  `origen` que no estuviera en una lista; ahora cada grabador es su propio origen, y el filtro «Reuniones grabadas» guarda
+  la clave vieja `'fathom'` para no borrarle el filtro a quien ya lo tenía.
+- **Sin hacer:** la migración (con el sí de Martín), Read AI, Meet, y Grain/MeetGeek/Avoma/Granola/Krisp (tienen API con
+  clave): `docs/pendientes.md` → P13.
+
 ## /integraciones limpia: sacar una tarjeta NO es sacar la integración, y el Leads Scraper era una sola cosa (25/10/2026)
 
 **Vive en:** `lib/integraciones-catalogo.ts` (`oculto`), `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`),

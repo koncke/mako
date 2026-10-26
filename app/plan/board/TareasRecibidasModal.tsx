@@ -41,6 +41,7 @@ import { SvcIcon } from '../../_components/ServicioVisual';
 import { ReunionTareas, type FilaTarea, type TareaYaCargada } from './ReunionTareas';
 import { pareceLaMisma, textoRepetidas, type TareaEnTablero } from '@/lib/tareas-dedup';
 import { recordingDeRef as recordingDeRefDeLaReunion } from '@/lib/lectura-por-partes';
+import { esGrabador } from '@/lib/grabadores/reunion';
 import { type Label, type Prio } from './types';
 
 import type { PropuestaTarea } from '@/lib/plan-propuesta';
@@ -82,7 +83,7 @@ async function api(body: Record<string, unknown>): Promise<Record<string, unknow
     .then((r) => r.json()).catch((e) => ({ ok: false, error: String(e) }));
 }
 
-/** El recordingId que dejó el cron en `ref` (fathom:12345) — habilita mandarle a otros. */
+/** La clave de la reunión que dejó el cron en `ref` (fathom:12345, loom:abc) — habilita mandarle a otros. */
 // ⚠️ También el de un borrador que COMPLETA una reunión leída a medias («fathom:123:partes-3-4», 17/10/2026): con
 // `Number(ref.slice(7))` ése daba NaN y sus tareas no se podían mandar a nadie.
 const recordingDeRef = (ref?: string): number | undefined => recordingDeRefDeLaReunion(ref);
@@ -471,7 +472,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '16px 22px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           <div style={{ display: 'flex', gap: 10, padding: '12px 14px', borderRadius: 12, border: '1px solid var(--primary-weak)', background: 'var(--primary-bg)' }}>
-            {props.some((p) => p.origen === 'fathom') && <span style={{ flex: 'none' }}><SvcIcon k="fathom" size={17} box={28} radius={8} /></span>}
+            {(() => { const g = props.find((p) => esGrabador(p.origen))?.origen; return g ? <span style={{ flex: 'none' }}><SvcIcon k={g} size={17} box={28} radius={8} /></span> : null; })()}
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--ink)', lineHeight: 1.5 }}>{sub}</div>
               {!!avisoRepetidas && <div style={{ fontSize: 12.5, color: 'var(--warn)', lineHeight: 1.5, marginTop: 4, fontWeight: 600 }}>⚠ {avisoRepetidas}</div>}

@@ -31,6 +31,9 @@ export function normalizar(id: string): string {
  */
 export const ROUTING_CREDS: Record<string, string> = {
   FATHOM_HOST_EMAIL: 'fathom',
+  // tl;dv (26/10/2026, lib/grabadores): su aviso dice quién organizó la reunión, como el `recorded_by` de Fathom. Fireflies y
+  // Zoom NO van acá: sus avisos no dicen de quién son, y los rutea la FIRMA (lib/grabadores/ruteo-por-firma.ts).
+  TLDV_HOST_EMAIL: 'tldv',
   CALENDLY_EVENT_TYPE_J1: 'calendly',
   CALENDLY_EVENT_TYPE_J2: 'calendly',
   // Cal.com va bajo SU PROPIO servicio, no bajo 'calendly'. Son dos productos

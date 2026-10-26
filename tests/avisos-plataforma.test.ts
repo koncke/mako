@@ -160,7 +160,8 @@ test('Fathom: el lead y la reunión que terminó; sin duración, su renglón se 
   assert.equal(anotado.corridas[0].ctx.negocioWs, NEGOCIO);
   assert.ok(!eventosOfrecidos('mako', null, {}).some((e) => e.subtipo === 'reunion_grabada'), 'un negocio no lo ve');
   // (17/10/2026, «nada por detrás», lote 3: sin el `texto` armado en el webhook, que sólo rotulaba el feed sin fila.)
-  assert.match(leer('app/api/webhooks/fathom/route.ts'), /emitirDelCatalogo\('reunion-ocurrio-fathom', \{ lead: \{ id: lead\.id, nombre \}, datos: datosPostLlamada\(\{ reunion, duracionMin: dur \}\) \}\)/);
+  // Desde el 26/10/2026, en lib/grabadores/al-terminar.ts: lo mismo para todos los grabadores que avisan.
+  assert.match(leer('lib/grabadores/al-terminar.ts'), /emitirDelCatalogo\('reunion-ocurrio-fathom', \{ lead: \{ id: lead\.id, nombre \}, datos: datosPostLlamada\(\{ reunion, duracionMin: dur \}\) \}\)/);
 });
 
 test('el runner manda la tarjeta al negocio del evento, con sus datos y sus links', () => {

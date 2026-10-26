@@ -3629,6 +3629,20 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
 
+# Una reunión grabada se lee de `lib/grabadores`, nunca de un grabador
+
+Desde el 26/10/2026 MaKo lee reuniones de Fathom, tl;dv, Fireflies, Zoom y Otter (Martín: «Así no solo se puede grabar con
+fathom»). Todo lo que lee reuniones —el Plan, el Closing, Customer Success, el CRM, la API— pasa por `lib/grabadores`
+(`hayGrabadorConectado`, `listarReunionesRecientes`, `leerReunion`, `leerTranscripcionPorClave`) y lee la forma común
+(`Reunion`, lib/grabadores/reunion.ts). **Importar `lib/fathom-api.ts` fuera de `lib/grabadores/` es volver a dejar
+afuera a todos los demás**, y preguntar `integracionConectada('fathom')` para decir «¿puede leer reuniones?» también.
+- La reunión se guarda por su CLAVE: Fathom, su `recording_id`; los demás, negativa (`claveDeReunion`). La ref en texto es
+  `refDeReunion` («fathom:123», «tldv:abc»), nunca armada a mano con «fathom:» delante.
+- Un grabador nuevo: su lector en `lib/grabadores/<grabador>.ts` (la forma, en `formas.ts`, sobre el ejemplo de SU doc),
+  los cuatro registros de una integración, su línea en `catalogo.ts` con lo que da DE VERDAD, y si avisa, su webhook
+  llama `leerYTerminar` (la reunión se pide por la API; lo que trae el aviso no es contenido). Lo que no da, su tarjeta lo
+  dice (`conectable: false`): Loom no tiene API. El porqué y lo medido: docs/hallazgos-integraciones.md.
+
 # Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
 
 Martín, 14/10/2026, textual: **«Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el

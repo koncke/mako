@@ -47,7 +47,9 @@ import { getTenantDb } from './workspace';
 import { leerTodo } from './supabase-paginado';
 import { chatClaude } from './anthropic';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
-import { fetchMeetingContent, type FathomMeeting } from './fathom-api';
+import { leerReunion, refDeClave } from './grabadores';
+import { nombreDeGrabador } from './grabadores/catalogo';
+import type { Reunion } from './grabadores/reunion';
 import { transcriptWithSeconds } from './closing';
 import { resolverClienteDeReunion } from './reunion-cliente';
 import { modeloDeFeature } from './model-registry';
@@ -231,13 +233,13 @@ async function fallar(f: FilaCola, motivo: string, culpa: CulpaFallo, corta: boo
   return { desenlace: corta ? 'proveedor' : 'fallo', atada: false, iaContesto };
 }
 
-/** Los emails de quienes estuvieron en la sesión: el invitado guardado y los que Fathom reconoció al hablar. */
-function emailsDeLaSesion(f: FilaCola, m: FathomMeeting): string[] {
+/** Los emails de quienes estuvieron en la sesión: el invitado guardado y los que el grabador reconoció al hablar. */
+function emailsDeLaSesion(f: FilaCola, m: Reunion): string[] {
   const out = new Set<string>();
   const sumar = (e: string | null | undefined) => { const x = (e ?? '').trim().toLowerCase(); if (x.includes('@')) out.add(x); };
   sumar(f.invitee_email);
-  for (const it of m.transcript ?? []) sumar(it.speaker?.matched_calendar_invitee_email);
-  for (const i of m.calendar_invitees ?? []) if (i.is_external) sumar(i.email);
+  for (const it of m.transcripcion ?? []) sumar(it.email);
+  for (const i of m.invitados) if (i.externo) sumar(i.email);
   return [...out];
 }
 
@@ -251,32 +253,37 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
   const id = f.recording_id;
 
   // 1) El transcript, con las funciones que ya usa el Closing Analyst. El listado de
-  //    metadata no hace falta: `fetchMeetingContent` baja transcript y resumen por id.
-  let m: FathomMeeting;
+  //    metadata no hace falta: `leerReunion` baja transcript y resumen por id, del grabador que la tenga
+  //    (la clave lo dice: lib/grabadores, 26/10/2026).
+  const ref = await refDeClave(id).catch(() => null);
+  // Sin saber de qué grabador es no hay qué leer: gasta un intento (no corta la corrida, que sigue con las demás).
+  if (!ref) return fallar(f, 'no sé de qué grabador es esta sesión (falta la migración de los grabadores)', 'sesion', false);
+  const grabador = nombreDeGrabador(ref.grabador);
+  let m: Reunion;
   try {
-    m = await conPlazo(fetchMeetingContent({ recording_id: id }), TOPE_FATHOM_MS, 'Fathom');
+    m = await conPlazo(leerReunion(ref), TOPE_FATHOM_MS, grabador);
   } catch (e) {
     const msg = msgDe(e);
     const tipo = clasificarFalloFathom(msg);
     // Un 404 es una grabación que ya no existe (Fathom no la va a devolver nunca): se
     // anota y no se reintenta.
     if (tipo === 'no-existe') {
-      await anotarFallo(id, textoSinReintento(`la grabación ya no está en Fathom (${msg})`));
+      await anotarFallo(id, textoSinReintento(`la grabación ya no está en ${grabador} (${msg})`));
       return { desenlace: 'sin-reintento', atada: false, iaContesto: false };
     }
     // Otro 4xx que no sea la key es de ESTA grabación: gasta un intento y la corrida sigue.
-    if (tipo === 'de-la-sesion') return fallar(f, `Fathom: ${msg}`, 'sesion', false);
+    if (tipo === 'de-la-sesion') return fallar(f, `${grabador}: ${msg}`, 'sesion', false);
     // La key, un 5xx que no cedió, la red, el tope de arriba: no se sabe si es de la sesión.
     // No gasta intento y corta la corrida, porque la siguiente va a fallar por lo mismo; si
     // es la key o la cuota, ni siquiera suma un ajeno.
-    return fallar(f, `Fathom: ${msg}`, esFalloSeguroDelProveedor(msg) ? 'proveedor' : 'ajena', true);
+    return fallar(f, `${grabador}: ${msg}`, esFalloSeguroDelProveedor(msg) ? 'proveedor' : 'ajena', true);
   }
-  const items = m.transcript ?? [];
-  if (!items.some((it) => (it.text ?? '').trim())) {
+  const items = m.transcripcion ?? [];
+  if (!items.some((it) => (it.texto ?? '').trim())) {
     // Sin transcript no hay nada que leer, y un análisis del resumen de Fathom solo no
     // tendría una cita que mostrar. Gasta un intento: puede ser una grabación todavía en
     // proceso, o una que nunca va a tener texto.
-    return fallar(f, 'Fathom devolvió el transcript vacío', 'sesion', false);
+    return fallar(f, `${grabador} devolvió el transcript vacío`, 'sesion', false);
   }
 
   // 2) De qué cliente es, si la fila no lo sabe. El resolver ya tiene la regla dura: con
@@ -313,7 +320,7 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
       metadatos,
       cliente: clienteTxt,
       // Lo que se dijo en la reunión es contenido NO confiable: va delimitado.
-      resumenFathom: contenidoNoConfiable(m.default_summary?.markdown_formatted?.trim() || '(sin resumen de Fathom)', 'resumen_fathom'),
+      resumenFathom: contenidoNoConfiable(m.resumen?.trim() || `(sin resumen de ${grabador})`, 'resumen_fathom'),
       transcript: contenidoNoConfiable(transcriptWithSeconds(items, TOPE_TRANSCRIPT), 'transcript'),
     });
     texto = await chatClaude(system, [{ role: 'user', content: user }], {
@@ -406,7 +413,7 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
     if (r.error) console.error(`[closing-entrega] no se pudo atar ${id} al lead ${cliente.id}: ${r.error.message}`);
     atada = !!r.data?.length;
   }
-  const resumenFathom = m.default_summary?.markdown_formatted?.trim() || null;
+  const resumenFathom = m.resumen?.trim() || null;
   return { desenlace: 'analizada', atada, iaContesto: true, sesion: { items, resumenFathom } };
 }
 

@@ -120,7 +120,7 @@ import { limpiarNombreEtiqueta, claveNombre, colorValido, emojiValido, consecuen
 import { linkApp, APP_BASE_URL } from '@/lib/app-url';
 import { ofertasDelLead, asignarOfertaAlLead, crearOfertaParaLead } from '@/lib/oferta-lead';
 import { validarOfertaNueva } from '@/lib/oferta-modelo';
-import { usuarioInstagram } from '@/app/crm/campo-inline';
+import { usuarioInstagram, esLinkDeGrabacion, ERROR_LINK_GRABACION } from '@/app/crm/campo-inline';
 import { sugerenciasDeUnCrm, volverAMostrar } from '@/lib/sugerencias-crm-server';
 import { plantillaPorId } from '@/lib/plantillas-automatizaciones';
 import {
@@ -2805,7 +2805,8 @@ export const RUNNERS: Runners = {
       const lead = await leadDe(input.leadId);
       if (!lead) return { error: noExiste(input.leadId) };
       const url = String(input.url ?? '').trim();
-      if (!/^https:\/\/([a-z0-9-]+\.)*fathom\.video\//i.test(url)) return { error: 'El link tiene que ser una URL de Fathom (https://fathom.video/…).' };
+      // De cualquier grabador (26/10/2026): la misma regla que la ficha (app/crm/campo-inline.ts).
+      if (!esLinkDeGrabacion(url)) return { error: ERROR_LINK_GRABACION };
       if ((lead.fathom_links ?? []).some((f) => f.url === url)) return { error: `Ese link ya está cargado en ${lead.nombre}.` };
       const cual = input.cual === 'R2' ? 'R2' : 'R1';
       return { payload: { leadId: lead.id, cual, url }, resumen: `Agregar a la ${cual} de ${lead.nombre} la grabación ${url}.` };

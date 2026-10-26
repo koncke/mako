@@ -464,7 +464,8 @@ export function textoSinReintento(motivo: string): string {
 export type FalloFathom = 'no-existe' | 'de-la-sesion' | 'del-proveedor';
 
 export function clasificarFalloFathom(msg: string): FalloFathom {
-  const cod = Number(String(msg).match(/\bFathom (\d{3})\b/)?.[1]);
+  // Vale para cualquier grabador (lib/grabadores, 26/10/2026): todos tiran «<Grabador> <código> en <ruta>» como Fathom.
+  const cod = Number(String(msg).match(/\b(?:Fathom|Loom|tl;dv|Fireflies|Zoom|Read AI|Google Meet|Otter) (\d{3})\b/)?.[1]);
   if (cod === 404) return 'no-existe';
   if (cod >= 400 && cod < 500 && cod !== 401 && cod !== 429) return 'de-la-sesion';
   return 'del-proveedor';

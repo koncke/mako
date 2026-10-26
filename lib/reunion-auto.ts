@@ -4,7 +4,8 @@ import 'server-only';
 // =============================================================================
 // reunion-auto — las reuniones del equipo se leen SOLAS (ya no hay que apretar nada)
 // =============================================================================
-// Cae una grabación nueva en Fathom, MaKo la lee y saca los compromisos. Dos reglas
+// Cae una grabación nueva en el grabador del negocio (Fathom, Loom, tl;dv, Fireflies, Zoom…: lib/grabadores, desde el
+// 26/10/2026), MaKo la lee y saca los compromisos. Dos reglas
 // que definen todo el comportamiento:
 //
 //   1) NO CREA NADA. Deja un BORRADOR pendiente (plan_propuestas). La próxima vez que
@@ -23,8 +24,8 @@ import 'server-only';
 // Y avisa por WhatsApp al grupo de MaKo del workspace: "tuviste una reunión con X,
 // salieron N tareas, te las dejé en el plan para que las confirmes".
 //
-// Corre por workspace (cron-workspaces con la integración 'fathom'), así que cada
-// negocio lee SU Fathom con SU key y escribe en SU tablero.
+// Corre por workspace (cron-workspaces con CUALQUIER grabador conectado), así que cada
+// negocio lee SUS grabadores con SUS claves y escribe en SU tablero.
 // =============================================================================
 
 import { listReunionesRecientes, extraerTareasDeReunion, cacheKeyReunion, ROL_CONSULTOR, ROL_DESCONOCIDO, type ProyectoRef, type ReunionMeta, type Yo } from './plan-fathom';
@@ -235,7 +236,10 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   // existió: el cron levantaba reuniones de hace tres semanas y las anunciaba como
   // nuevas. `created_after` sí filtra de verdad.
   const desde = new Date(Date.now() - horas * 3600_000).toISOString();
-  const { reuniones: todas } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
+  const { reuniones: todas, fallos } = await listReunionesRecientes({ limit: 20, createdAfter: desde });
+  // Un grabador que no contestó no tapa a los otros (lib/grabadores/index.ts), pero se dice: sus reuniones entran en la
+  // próxima corrida, que vuelve a mirar la ventana.
+  for (const f of fallos ?? []) console.error(`[reunion-auto] ws=${ws}: ${f.grabador} no contestó (${f.error}) — sus reuniones quedan para la próxima corrida`);
   const reuniones = opts.soloRecording != null ? todas.filter((r) => r.recordingId === opts.soloRecording) : todas;
   out.miradas = reuniones.length;
 
@@ -274,7 +278,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       console.warn(`[reunion-auto] ws=${ws}: se acabó el reloj de esta corrida, ${sinTiempo} reunión(es) quedan para la próxima (sin candado, no se pierden)`);
       break;
     }
-    const ref = `fathom:${r.recordingId}`;
+    // La ref de la reunión, de su grabador: «fathom:<recording_id>» es la de siempre (lib/grabadores/reunion.ts).
+    const ref = r.ref;
     // Ya la vio: o dejó borrador, o la leímos y no había nada que anotar. En los dos
     // casos no se vuelve a gastar el análisis. (Ante un error de lectura, saltear:
     // mejor perderse una reunión que duplicarla o quemar tokens en loop.)
@@ -338,6 +343,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         // EL RELOJ DE ESTA CORRIDA (17/10/2026): sin él, una junta de 3 h pasaba los 300 s y la función moría antes de
         // escribir el borrador. Con él, lo que no entra queda como parte sin leer y lo completa la próxima corrida.
         hasta, previa,
+        // La reunión como vino del listado: dice de qué grabador es y ahorra volver a pedirla.
+        reunion: r.reunion,
       });
       const { partesFallidas = 0, transcript, partes = 0, leidas = [], sinTiempo: partesSinTiempo = 0 } = extraida;
       // Completando: sin lo que ya propuso la vuelta anterior (las partes se solapan: la tarea dicha en el corte sale en
@@ -593,7 +600,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       // dejó de preguntar el 05/10/2026: el Perro decide fecha y prioridad solo.
       // Completando, lo nuevo va a un borrador APARTE (lib/lectura-por-partes.ts, `refDelResto`): sumarlo al primero podía
       // borrarlo el autoguardado del modal si la persona lo tenía abierto.
-      const refDestino = completando ? refDelResto(r.recordingId, leidas) : ref;
+      const refDestino = completando ? refDelResto(r.ref, leidas) : ref;
       // ⚠️ UNA VUELTA QUE COMPLETA Y YA SE HIZO NO SE AVISA OTRA VEZ (revisión de B5): con las mismas partes, la ref es la
       // misma, `crearPropuesta` devuelve el borrador que ya existe SIN escribir lo nuevo (y revive uno descartado), y el
       // aviso salía en cada corrida del cron. Sin partes leídas (`leidas` vacío) tampoco hay nada que completar.
@@ -603,7 +610,7 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
         continue;
       }
       const propId = await crearPropuesta({
-        ws, ref: refDestino, tareas: [...enLaFila, ...cruce.tareas], cruzado: cruce.cruzado && !enLaFila.length, origen: 'fathom',
+        ws, ref: refDestino, tareas: [...enLaFila, ...cruce.tareas], cruzado: cruce.cruzado && !enLaFila.length, origen: r.grabador,
         fuenteTitulo: r.titulo, fuenteUrl: r.url ?? undefined, fuenteFecha: r.fecha ?? undefined,
         // CON QUÉ CLIENTE fue (mig 0160). Antes se usaba para elegir el proyecto y se
         // tiraba: al confirmar ya no había reunión a la cual preguntarle, y las tareas
