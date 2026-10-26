@@ -113,7 +113,8 @@ test('5. toda función exportada de la capa de IA pasa por la puerta (o está en
     'lib/ai-cheap.ts#chatCheapJson': 'llama a chatCheap, que tiene la suya',
     'lib/anthropic.ts#permisoDeLaClaveDelNegocio': 'la clave del negocio: nunca una IA gratis',
     'lib/anthropic.ts#conClaveDelNegocio': 'la clave del negocio: nunca una IA gratis',
-    'lib/anthropic.ts#conCreditoDeLaPlataforma': 'el crédito de Claude de la plataforma, sólo en el onboarding (lo decide Martín): no es una IA gratis',
+    'lib/anthropic.ts#conCreditoDeLaPlataforma': 'el crédito de Claude de la plataforma, sólo en el onboarding y en lo interno de MaKo (lo decide Martín): no es una IA gratis',
+    'lib/anthropic.ts#hayCreditoDeLaPlataforma': 'no llama a ninguna IA: mira si ese crédito está para el pedido, con la misma cuenta que su puerta',
   };
   const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
   const faltan: string[] = [];
