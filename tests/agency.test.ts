@@ -220,7 +220,7 @@ test('«paga tu cliente» sin link: el teléfono y la API tampoco dicen «le lle
   for (const id of ['llevar_a_partners', 'abrir_cuenta_cliente_agency']) {
     const d = DEFS.find((x) => x.id === id)!;
     assert.match(d.descripcion, /o el cliente \(si MaKo ya puede cobrarle, le llega su acceso[^)]*; si no, su cuenta espera a que MaKo la habilite y ahí le llega su acceso\)/, id);
-    assert.match(d.escribe ?? '', /; si paga el cliente y el link salió, le manda su acceso$/, id);
+    assert.match((d as { escribe?: string }).escribe ?? '', /; si paga el cliente y el link salió, le manda su acceso$/, id);
   }
   const textos: Array<[string, string]> = [['computadora', modal], ['teléfono', app], ['API', quienPaga],
     ...['llevar_a_partners', 'abrir_cuenta_cliente_agency'].map((id): [string, string] => [id, DEFS.find((x) => x.id === id)!.descripcion])];
