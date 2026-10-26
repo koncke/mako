@@ -8710,3 +8710,11 @@ m/calendario, m/chats, m/crm, m/cs, m/curso, m/hoy, m/inbox, m/landing, m/mas, m
 web-generator, plan, second-brain, dashboard y m/dashboard.
 
 *25/10/2026, chat «Landings» (`claude5`).*
+
+## Los logs de consola de UN pedido, en producción (26/10/2026, claude5)
+
+`GET https://api.vercel.com/logs/request-logs` (con `requestPath` exacto) trae, además de la duración, los mensajes de
+consola de cada pedido: el `console.log`/`warn` de la función, en orden. Sirve para saber por qué un pedido largo
+salió como salió sin reproducirlo (ej.: una réplica que dejó 17 de 20 secciones sin IA mostraba cada tanda con su
+error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo, `VERCEL_TEAM_SLUG`
+(`/v2/teams/<slug>` da el id; `/v9/projects` el del proyecto «mako»). Nunca imprimir el token.

@@ -102,6 +102,9 @@ const CMD_MARCA = { bold: 'bold', italic: 'italic', underline: 'underline', stri
 
 /** Negrita, cursiva, subrayado o tachado sobre lo elegido. */
 export function marcarEnDiseno(doc: Document, nombre: keyof typeof CMD_MARCA): boolean {
+  // ⚠️ Sin `styleWithCSS`, Chrome tacha con un `<strike>` (etiqueta vieja que el saneo del server no tenía: se perdía al
+  // guardar). Con él, un `<span style="text-decoration-line: line-through">`. El saneo igual lo pasa a `<s>`.
+  if (nombre === 'strike') comando(doc, 'styleWithCSS', 'true');
   return comando(doc, CMD_MARCA[nombre]);
 }
 

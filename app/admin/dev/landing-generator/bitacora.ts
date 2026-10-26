@@ -1497,4 +1497,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/44',
   },
+  {
+    fecha: '26 oct', hora: '06:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El analizador aplica todos sus comentarios, y una página copiada trae sus botones',
+    pedido: '«Que funcione bien también el analizador de otras landing, que si le doy al botón de aplicar lo haga... prueba en traer una landing de alguna competencia y ver si la duplica bien»',
+    puntos: [
+      'Probado con la página de un competidor: se analiza, se copia al editor y «Aplicar» cambia la copia.',
+      'Un comentario que no está en una sección también tiene «Aplicar»: arregla la página entera.',
+      'Al copiar una página, sus botones quedan como botones y sus preguntas como desplegables, aunque la IA no responda.',
+    ],
+    archivos: [
+      'lib/editor-landing/diagnostico-aplicar.ts — «Aplicar»',
+      'lib/editor-landing/ia-reglas.ts — la copia sin IA',
+    ],
+    revisar: '/web-generator?diagnostico=46',
+  },
+  {
+    fecha: '26 oct', hora: '07:20', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En las páginas de MaKo, el tachado, los enlaces a otra página y el precio con formato ya no se pierden al guardar',
+    pedido: 'Cerebro (revisión de tren-l): «en el editor se ve bien, pero al GUARDAR se pierde sin aviso»',
+    puntos: [
+      'El texto tachado en una sección de MaKo se queda tachado después de guardar.',
+      'Un botón o enlace que lleva a otra página de la landing funciona en la página publicada.',
+      'Si pones negrita o un color sobre un precio, el precio se sigue actualizando cuando cambia el plan.',
+    ],
+    archivos: [
+      'lib/editor-landing/html-editable-seguro.ts — lo que se guarda de una sección de diseño',
+      'lib/editor-landing/precios-en-landing.ts — los precios de hoy en la landing',
+    ],
+  },
 ];

@@ -3181,6 +3181,45 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
 - **Tests que fijaban nombres:** `setActivo(true)` en el `mousedown`, `boton('Enlace'…)` y el `className` de la
   barrita. Se respetaron los nombres; sólo se cambió la activación, que ahora es el puente.
 
+**El analizador y «Replicar», con una de la competencia (100ads.ai).** El análisis dejó 2 comentarios. «Aplicar» replicó
+la página (#46), pasó los comentarios y aplicó el que tenía sección: el documento cambió de verdad. Lo que falló:
+- **Un comentario SIN sección no tenía «Aplicar».** Su cita estaba en el título de la pestaña (el del voseo), así que no
+  se ubicó en ninguna sección. No tenía botón ni en la pantalla ni en la API, y el aplicado automático de la copia
+  terminaba en «No ubiqué esa sección». Ahora se aplica a TODA la página de inicio: `editar` con alcance `landing`,
+  que cambia sólo las secciones que el comentario toca. «Aplicar todos» los suma al final.
+- **La réplica dejaba los botones como texto.** Medido en los logs: la IA del negocio no contestó a tiempo (17 de 20
+  secciones sin IA). Ese paso no es de esta área: se le avisó al Cerebro. El respaldo (`tarjetaDesdeEsquema`) volcaba
+  cada renglón en una viñeta, con las marcas del lector escritas («[BOTÓN] Ver todo lo que incluye»). Ahora
+  `[BOTÓN] texto → destino` es un botón (hasta 3 en la fila) y `[DESPLEGABLE] pregunta → respuesta` es un
+  desplegable. Un destino en palabras queda `#`: no se inventa una dirección. Sin marcas sigue igual (uno es un
+  párrafo, varios son viñetas), porque lo usa también `agregar_seccion_landing`.
+- **«Aplicar» con la IA cayéndose escribió «[BOTÓN] Quiero ver la demo gratis» como texto.** Lo copió de la sección,
+  que ya tenía esas marcas. Con el respaldo nuevo, la sección trae botones de verdad.
+- **Las descripciones de la API se ACORTARON** (−33 en landing.def.ts) para decir «sin sección, toca la landing entera»:
+  el presupuesto del turno de la app tiene 38 caracteres de margen (más arriba, «El presupuesto del turno de la app»).
+
 Lo que quedó SIN hacer (en este documento cuando se haga):
-- Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45).
-- «Aplicar» del analizador de otras landings y «Replicar» con una landing de la competencia: siguen en esta tanda.
+- Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45; la réplica #46).
+- Que la IA del editor de landings del ws9 no corra en Gemini (saturado y con timeouts el 26/10): es del área de IA.
+
+## Lo que se veía bien en el editor y se perdía al GUARDAR un diseño (26/10/2026, claude5)
+
+La revisión adversarial de tren-l lo encontró en lo nuevo de la barra «Texto» y de «Botón» en los diseños. Se veía bien
+en el editor, pero el HTML de un diseño pasa por el saneo del server (html-editable-seguro.ts) al guardar, al abrir y al
+publicar, y tres cosas se iban sin aviso:
+
+- **`execCommand` sin `styleWithCSS` escribe etiquetas VIEJAS.** El tachado sale `<strike>` y un color, `<font
+  color>`. La lista blanca del saneo no las tenía y su modo es `discard`: se va la etiqueta, queda el texto y el formato
+  se pierde. **Regla:** antes de un formato con `execCommand`, `styleWithCSS` en `true` (sale un `span` con estilo);
+  y el saneo pasa `strike`/`del` a `s` y `font color` a `span` con su color. Eso cubre también lo ya guardado y
+  lo pegado.
+- **Un enlace «a otra página» (`pagina:<id>`) se borraba**, porque `pagina` no era un esquema permitido. Y aunque pasara,
+  el HTML de un diseño se publica TAL CUAL: `resolverHref` corría sólo en los botones de bloque. Ahora el esquema se acepta
+  en `<a>` con un id válido, y al publicar `conEnlacesDePaginas` (html-editable.ts, desde render.ts y especificacion.ts)
+  lo cambia por la dirección de la página, o por `#` si ya no existe.
+- **Un precio con formato quedaba congelado.** La marca (`data-mako-precio`, `data-mako-desde`, `data-mako-prueba`) se
+  reconocía sólo con texto plano adentro (`[^<]*`). Una negrita encima la dejaba con el precio del día de publicar, aunque
+  cambiara en Planes. Ahora se reemplaza sólo el texto y las etiquetas de formato quedan. Con formato sobre una PARTE, el
+  número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
+
+Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).

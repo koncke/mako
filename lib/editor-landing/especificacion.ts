@@ -53,7 +53,7 @@ import {
 } from './animaciones';
 import { altoDeEmbed, atributosDeIframe, claseDeProveedor, embedDe, esProveedorEmbed, nombreDeProveedor } from '../embeds';
 import { SANDBOX_PUBLICO } from './html-libre';
-import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, documentoEditable } from './html-editable';
+import { ALTO_MINIATURA_EDITABLE, CLASE_EDITABLE, conEnlacesDePaginas, documentoEditable } from './html-editable';
 import { hrefPagoValido } from './pago-landing';
 import {
   HtmlCrudo, arbolDeGrafico, htmlDeArbol, normalizarGrafico, type AttrsArbol, type HijoArbol, type NodoArbol,
@@ -1128,7 +1128,8 @@ export function specHtmlLibre(raw: unknown, ctx?: CtxSpec): NodoArbol {
 export function specHtmlEditable(raw: unknown, ctx?: CtxSpec): NodoArbol {
   const a = attrsHtmlEditable(raw);
   if (!a.html) return el('div', { class: CLASE_EDITABLE, 'data-vacia': 'si' });
-  if (modo(ctx) === 'publico') return el('div', { class: CLASE_EDITABLE }, new HtmlCrudo(a.html));
+  // Los enlaces «a otra página», a su dirección (sin resolvedor, `#`: un `pagina:` crudo no sirve en la página).
+  if (modo(ctx) === 'publico') return el('div', { class: CLASE_EDITABLE }, new HtmlCrudo(conEnlacesDePaginas(a.html, ctx?.resolverHref)));
   return el('div', { class: CLASE_EDITABLE }, el('iframe', {
     sandbox: '', srcdoc: documentoEditable(a.html, ctx?.cssDiseno ?? ''), title: 'Diseño editable', loading: 'lazy',
     referrerpolicy: 'no-referrer', scrolling: 'no', style: `height:${ALTO_MINIATURA_EDITABLE}px`,
