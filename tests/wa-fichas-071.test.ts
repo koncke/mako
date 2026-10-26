@@ -237,9 +237,24 @@ test('5. el cableado: el worker cuenta los pasos y repone el puente; el puente n
   assert.match(barra, /setEsperaExt\(true\);\n\s+window\.open\('\/extension\/instalar', '_blank', 'noopener'\);/);
   assert.match(barra, /useEffect\(\(\) => \{ if \(esperaExt && extWa === 'si'\) arrancarAlInstalar\(\); \}, \[esperaExt, extWa\]\);/, 'no arranca sola al instalarla');
   assert.match(barra, /const extWa = useExtensionFichas\(\);/, 'la barra no se entera de la extensión en vivo');
-  assert.match(barra, /la extensión de MaKo: cuando esté, empieza sola\./);
+  // Corto, para que entre al lado de los botones (en el Chrome de Martín, 25/10, salía «cuando esté, emp…»).
+  assert.match(barra, /\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión: empieza sola\n/);
+  assert.match(barra, /alAvanzar: \(texto, paso\) => setAvance\(avanceCorto\(paso, texto\)\),/, 'el paso de la extensión, largo y cortado con «…»');
   assert.match(barra, /if \(f\.motivo === 'sin_sesion'\) enfocarWhatsappWeb\(\);/, 'sin la sesión, no lleva a WhatsApp Web');
   assert.match(barra, /resumenDeFichas\(t\.pedidos\.length, fichas, a\) \+ gruposEnWhatsappDichos\(f\.grupos\)/, 'el final no dice qué grupo encontró');
+});
+
+test('5b. el avance en la barra del lote: frases que entran enteras, nunca cortadas', async () => {
+  const { avanceCorto } = await import('../app/crm/enriquecer-cliente');
+  assert.equal(avanceCorto('abriendo', 'Abriendo WhatsApp Web en otra pestaña…'), 'Abriendo WhatsApp Web…');
+  assert.equal(avanceCorto('abriendo', 'Despertando la pestaña de WhatsApp Web…'), 'Despertando WhatsApp Web…');
+  assert.equal(avanceCorto('cargando', 'Esperando que WhatsApp Web cargue tus chats…'), 'Esperando tus chats de WhatsApp…');
+  assert.equal(avanceCorto('leyendo', 'Buscando el grupo «Formación de Jan» en tu WhatsApp Web…'), 'Buscando «Formación de Jan»…');
+  const largo = 'Buscando el grupo «PROSPECCIÓN · Círculo TIBIO de emprendedores 2026» en tu WhatsApp Web…';
+  assert.equal(avanceCorto('leyendo', largo), 'Buscando el grupo en tu WhatsApp…', 'un nombre que no entra se corta en vez de decirse sin él');
+  assert.equal(avanceCorto('leyendo', 'Buscando 3 grupos en tu WhatsApp Web…'), 'Buscando los grupos en tu WhatsApp…');
+  assert.equal(avanceCorto('otro', 'Completando 37 de 180…'), 'Completando 37 de 180…');
+  for (const t of ['Abriendo WhatsApp Web…', 'Esperando tus chats de WhatsApp…', 'Buscando el grupo en tu WhatsApp…']) assert.ok([...t].length <= 44, t);
 });
 
 test('6. el servidor: el grupo sale del historial del lead; y las versiones de las dos puntas coinciden', async () => {
