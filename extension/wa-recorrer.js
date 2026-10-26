@@ -91,7 +91,8 @@
   // entre cada uno (1,2 a 2,6 s), y con tope por corrida: a WhatsApp no le gusta que alguien abra cien perfiles en un minuto.
   // `diag` dice qué paso falló, y la FORMA del primer panel abierto (sin datos de nadie), para ajustar los selectores.
   async function leerPerfiles(nombreGrupo, candidatos, p, avisar, parado, o) {
-    const t = Object.assign({ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600 }, o || {});
+    // `desde` y `total`: la tanda dentro de la extracción (el avance dice «N de M» de toda la extracción).
+    const t = Object.assign({ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600, desde: 0, total: 0 }, o || {});
     const lista = (Array.isArray(candidatos) ? candidatos : []).filter((c) => c && String(c.telefono || '').replace(/\D/g, '').length >= 8).slice(0, t.tope);
     const perfiles = [];
     const diag = { intentados: 0, abiertos: 0, conDatos: 0, fallos: {}, forma: null, menu: null, busqueda: null };
@@ -100,7 +101,7 @@
       if (parado()) break;
       const c = lista[i];
       diag.intentados++;
-      avisar('perfiles', { texto: `Leyendo el perfil de ${c.nombre || `+${String(c.telefono).replace(/\D/g, '')}`}…`, hechos: i, total: lista.length });
+      avisar('perfiles', { texto: `Leyendo el perfil de ${c.nombre || `+${String(c.telefono).replace(/\D/g, '')}`}…`, hechos: t.desde + i, total: t.total || lista.length });
       try {
         const r = await p.abrirPerfil(nombreGrupo, c.telefono, t.espera);
         if (r.busqueda && !diag.busqueda) diag.busqueda = r.busqueda;
@@ -116,7 +117,7 @@
       }
       await dormir(t.pausaMin + Math.round(Math.random() * (t.pausaMax - t.pausaMin)));
     }
-    avisar('perfiles', { texto: `Leí ${diag.abiertos} perfiles`, hechos: lista.length, total: lista.length });
+    avisar('perfiles', { texto: `Leí ${diag.abiertos} perfiles`, hechos: t.desde + lista.length, total: t.total || lista.length });
     try { p.cerrar(); } catch { /* nada */ }
     return { perfiles, diag };
   }
@@ -378,7 +379,9 @@
         try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
       };
       const tope = Math.max(0, Math.min(Number(msg.tope) || 60, 200));
-      enCurso = leerPerfiles(msg.grupo.slice(0, 120), Array.isArray(msg.candidatos) ? msg.candidatos.slice(0, 500) : [], p, avisar, () => parados.has(id), { tope })
+      const desde = Math.max(0, Number(msg.desde) || 0);
+      const total = Math.max(0, Number(msg.total) || 0);
+      enCurso = leerPerfiles(msg.grupo.slice(0, 120), Array.isArray(msg.candidatos) ? msg.candidatos.slice(0, 500) : [], p, avisar, () => parados.has(id), { tope, desde, total })
         .then((r) => { p.decir('Listo'); p.sacarCartel(1600); responder({ ok: true, ...r }); })
         .catch((e) => responder({ ok: false, motivo: 'error', error: String((e && e.message) || e), perfiles: [], diag: null }))
         .finally(() => { enCurso = null; });

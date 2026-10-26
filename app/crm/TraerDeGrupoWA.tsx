@@ -27,7 +27,7 @@ import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CS
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, TOPE_PERFILES_DIA, minutosDePerfiles, fichaLimpia, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
 import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDePerfiles, type AvanceFichas, type AvancePerfiles } from './enriquecer-cliente';
-import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
@@ -233,7 +233,9 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         const f = await fichasP;
         if (f.ok) {
           console.info('[wa-fichas]', f.diagnostico);
-          const fichas = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+          // Y el PERFIL de cada uno (0.73.2): de a tandas, antes de guardar, así se guarda todo junto.
+          const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x), { grupo: grupo.nombre, id, parar: () => parar.current });
+          const fichas = pf.fichas;
           avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
           a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeGrupoAction({ linea, jid, fichas: tanda }), {
             parar: () => parar.current,

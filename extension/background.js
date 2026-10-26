@@ -2639,43 +2639,6 @@ function anotarExtraccion(id, cambios, crear = false) {
   return colaRegistro;
 }
 
-/** Cuántos perfiles se abren por extracción, a lo sumo (0.73.0): de a uno y con pausas, son unos 5 s cada uno. */
-const TOPE_PERFILES = 60;
-
-/**
- * A QUIÉNES SE LES ABRE EL PERFIL (0.73.0): sólo a los que MaKo pidió, y primero las cuentas de EMPRESA (son las que tienen
- * web, correo, dirección), después los que tienen algún nombre y al final el resto. Con el nombre para el desplegable.
- */
-function candidatosDePerfil(pedidos, fichas) {
-  const suf = (t) => String(t || '').replace(/\D/g, '').slice(-10);
-  const porTel = new Map((Array.isArray(fichas) ? fichas : []).map((f) => [suf(f.telefono), f]));
-  const out = [];
-  const vistos = new Set();
-  for (const p of Array.isArray(pedidos) ? pedidos : []) {
-    const tel = String((p && typeof p === 'object' ? p.telefono : p) || '').replace(/\D/g, '');
-    if (tel.length < 8 || vistos.has(suf(tel))) continue;
-    vistos.add(suf(tel));
-    const f = porTel.get(suf(tel)) || null;
-    const nombre = f ? (f.agenda || f.empresa || f.pushname || null) : null;
-    out.push({ telefono: tel, nombre, orden: f && f.esEmpresa ? 0 : nombre ? 1 : 2 });
-  }
-  return out.sort((a, b) => a.orden - b.orden).map(({ telefono, nombre }) => ({ telefono, nombre }));
-}
-
-/** Los perfiles leídos, sumados a las fichas por los últimos 10 del teléfono; el que no tenía ficha, la gana. */
-function sumarPerfiles(fichas, perfiles) {
-  const suf = (t) => String(t || '').replace(/\D/g, '').slice(-10);
-  const out = (Array.isArray(fichas) ? fichas : []).map((f) => ({ ...f }));
-  const porTel = new Map(out.map((f) => [suf(f.telefono), f]));
-  for (const x of Array.isArray(perfiles) ? perfiles : []) {
-    if (!x || !x.perfil || String(x.telefono || '').replace(/\D/g, '').length < 8) continue;
-    const f = porTel.get(suf(x.telefono));
-    if (f) f.perfil = x.perfil;
-    else { const n = { telefono: String(x.telefono).replace(/\D/g, ''), agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: [], perfil: x.perfil }; out.push(n); porTel.set(suf(x.telefono), n); }
-  }
-  return out;
-}
-
 /** La pestaña al frente, y su ventana. */
 async function alFrente(tab) {
   try { await chrome.tabs.update(tab.id, { active: true }); } catch { /* nada */ }
@@ -3112,25 +3075,45 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           responder({ ok: false, motivo: 'sin_respuesta_wa' });
           return;
         }
-        // LOS PERFILES (0.73.0, Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email»): con la
-        // base ya leída se sabe quién es empresa, y ésas van primero. De a uno, a la vista, con tope.
-        let diagPerfiles = null;
-        if (visible && grupos.length && r && r.ok && !viva.parado) {
-          const candidatos = candidatosDePerfil(msg.pedidos, r.fichas);
-          if (candidatos.length) {
-            void anotarExtraccion(pedidoId, { fase: 'perfiles', perfilesTotal: Math.min(candidatos.length, TOPE_PERFILES), perfilesHechos: 0 });
-            const rp = await conTope(chrome.tabs.sendMessage(lista.tab.id, { tipo: 'WA_PERFILES', id: pedidoId, grupo: grupos[0], candidatos, tope: TOPE_PERFILES }), 30 * 60000).catch(() => null);
-            if (rp && rp.ok && Array.isArray(rp.perfiles)) r.fichas = sumarPerfiles(r.fichas, rp.perfiles);
-            diagPerfiles = rp ? rp.diag || { motivo: rp.motivo || null } : { motivo: 'sin_respuesta' };
-            void anotarExtraccion(pedidoId, { perfilesLeidos: rp && rp.diag ? rp.diag.abiertos : 0, perfilesConDatos: rp && rp.diag ? rp.diag.conDatos : 0 });
-          }
-        }
-        if (visible && r && r.ok) void anotarExtraccion(pedidoId, { fase: 'guardando', conFicha: Array.isArray(r.fichas) ? r.fichas.length : 0 });
+        if (visible && r && r.ok) void anotarExtraccion(pedidoId, { fase: 'leyendo', conFicha: Array.isArray(r.fichas) ? r.fichas.length : 0 });
         // Si el desplegable se abrió (o por qué no), también a la pantalla: es lo primero que hay que saber si «no se ve».
-        responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable, diagPerfiles } : r) : { ok: false, motivo: 'sin_respuesta' });
+        responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable } : r) : { ok: false, motivo: 'sin_respuesta' });
       } catch (e) {
         if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'recargar_whatsapp_web' }); extraccionesVivas.delete(pedidoId); }
         responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
+      } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
+    })();
+    return true;
+  }
+
+  // LOS PERFILES, DE A TANDAS (0.73.2). Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email».
+  // ⚠️ MEDIDO en vivo con la 0.73.0/0.73.1 (26/10): 60 perfiles en UN pedido son más de 5 minutos, y Chrome MATA el service
+  // worker de una extensión cuando un pedido pasa de 5 minutos: se perdían el avance y la respuesta, y la pantalla decía «La
+  // extensión no contestó». Ahora la pantalla pide los perfiles de a tandas (`perfilesEnTandas`, lib/wa-fichas-cliente.ts:
+  // 12 por pedido, ~1 minuto), con el MISMO id de la extracción, y cada tanda es un pedido corto.
+  if (msg?.tipo === 'WA_PERFILES_PEDIDO') {
+    const origen = _s?.tab?.id;
+    const id = typeof msg.id === 'string' ? msg.id : '';
+    const grupo = typeof msg.grupo === 'string' ? msg.grupo.slice(0, 120) : '';
+    const candidatos = Array.isArray(msg.candidatos) ? msg.candidatos.filter((c) => c && typeof c.telefono === 'string').slice(0, 20) : [];
+    const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : 0);
+    fichasEnVuelo++;
+    void (async () => {
+      try {
+        let viva = extraccionesVivas.get(id);
+        if (!viva) { viva = { origen, waTab: null, parado: false }; extraccionesVivas.set(id, viva); }
+        if (viva.parado) { responder({ ok: false, motivo: 'parado' }); return; }
+        if (!id || !grupo || !candidatos.length) { responder({ ok: true, perfiles: [], diag: null }); return; }
+        const lista = await pestanaDeWhatsappLista(() => {});
+        if (lista.motivo) { responder({ ok: false, motivo: lista.motivo }); return; }
+        viva.waTab = lista.tab.id;
+        if (n(msg.desde) === 0) void anotarExtraccion(id, { fase: 'perfiles', perfilesTotal: n(msg.total), perfilesHechos: 0 });
+        const r = await conTope(chrome.tabs.sendMessage(lista.tab.id, {
+          tipo: 'WA_PERFILES', id, grupo, candidatos, tope: candidatos.length, desde: n(msg.desde), total: n(msg.total),
+        }), 4 * 60000).catch(() => null);
+        responder(r && !r.tope ? r : { ok: false, motivo: 'sin_respuesta_wa' });
+      } catch (e) {
+        responder({ ok: false, motivo: 'error', error: String(e?.message || e) });
       } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
     })();
     return true;

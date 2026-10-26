@@ -214,18 +214,15 @@ test('3. el worker «a la vista»: SU pestaña de WhatsApp al frente, el despleg
   assert.deepEqual(plano(w.reg.popups), [{ windowId: 1 }], 'no abrió el desplegable');
   // El recorrido va ANTES de leer la base, y lo que vio viaja con el pedido.
   const aWa = w.reg.aTabs.filter(([id]) => id === 7).map(([, m]) => m.tipo);
-  // Y después de la base, los PERFILES (0.73.0): con la base leída se sabe quién es empresa.
-  assert.deepEqual(aWa.filter((t) => t !== 'WA_FICHAS_PING'), ['WA_RECORRER', 'WA_FICHAS', 'WA_PERFILES']);
-  const pedidoPerfiles = w.reg.aTabs.find(([, m]) => m.tipo === 'WA_PERFILES')![1];
-  assert.deepEqual([pedidoPerfiles.grupo, pedidoPerfiles.tope, pedidoPerfiles.candidatos], ['Formación de Jan', 60, [{ telefono: '5215555550001', nombre: 'Lucía' }]]);
-  assert.deepEqual((r as unknown as { fichas: Array<Record<string, unknown>> }).fichas[0].perfil, { web: 'https://lucia.mx' }, 'el perfil leído no llegó a la pantalla');
+  // Los perfiles NO van en este pedido (0.73.2): los pide la pantalla de a tandas (un pedido de 5 minutos mata al worker).
+  assert.deepEqual(aWa.filter((t) => t !== 'WA_FICHAS_PING'), ['WA_RECORRER', 'WA_FICHAS']);
   const fichas = w.reg.aTabs.find(([, m]) => m.tipo === 'WA_FICHAS')![1];
   assert.deepEqual(fichas.vistas, [{ titulo: '~ Lucía', secundario: '+52 1 55 5555 0001' }]);
   // El registro: la fila de esta extracción, y el desplegable abre en ella.
   await dormir(20);
   const reg = w.reg.storage.extracciones as Array<Record<string, unknown>>;
   assert.equal(reg.length, 1);
-  assert.deepEqual([reg[0].id, reg[0].titulo, reg[0].estado, reg[0].fase, reg[0].total], ['w1', 'Formación de Jan', 'corriendo', 'guardando', 1]);
+  assert.deepEqual([reg[0].id, reg[0].titulo, reg[0].estado, reg[0].fase, reg[0].total], ['w1', 'Formación de Jan', 'corriendo', 'leyendo', 1]);
   assert.deepEqual(w.reg.storage.popupVista, { pantalla: 'extraccion', id: 'w1' });
   // Cada paso del recorrido, al registro y a la pestaña de MaKo que pidió (su espera vive de esos avisos).
   w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 'w1', paso: 'recorriendo', vistos: 120, total: 247, conNombre: 53 });
@@ -492,34 +489,54 @@ test('7b. de a uno, con tope y pausa: busca, abre, lee, vuelve; cuenta cada paso
   assert.equal(parado.diag.intentados, 1);
   // Y en la pantalla de verdad: pausa de persona por defecto, tope 60, y la forma del panel sin datos de nadie.
   const src = sinComentarios(leer('extension/wa-recorrer.js'));
-  assert.match(src, /const t = Object\.assign\(\{ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600 \}, o \|\| \{\}\);/);
+  assert.match(src, /const t = Object\.assign\(\{ tope: 60, espera: 5000, pausaMin: 1200, pausaMax: 2600, desde: 0, total: 0 \}, o \|\| \{\}\);/);
   assert.match(src, /w\.replace\(\/\[\\p\{L\}\]\/gu, 'a'\)\.replace\(\/\\d\/g, '#'\)/, 'la forma del panel deja ver letras de una persona');
 });
 
-test('7c. el worker: empresas primero, sólo los pedidos, y el perfil sumado a su ficha; y el server guarda sólo lo vacío', async () => {
-  const bg = leer('extension/background.js');
-  const piezas = bg.slice(bg.indexOf('function candidatosDePerfil('), bg.indexOf('/** La pestaña al frente, y su ventana. */'));
-  const ctx: Record<string, unknown> = {};
-  runInNewContext(`${piezas}\nglobalThis.c = candidatosDePerfil; globalThis.s = sumarPerfiles;`, ctx);
-  const c = ctx.c as (p: unknown[], f: unknown[]) => unknown[];
-  const sumar = ctx.s as (f: unknown[], p: unknown[]) => Array<Record<string, unknown>>;
+test('7c. de a TANDAS desde la pantalla: empresas primero, tope 60, 12 por pedido; el perfil sumado y limpio; y el server sólo llena lo vacío', async () => {
+  const { candidatosDePerfil, sumarPerfiles, perfilesEnTandas, TOPE_PERFILES, TANDA_PERFILES } = await import('../lib/wa-fichas-cliente');
+  assert.deepEqual([TOPE_PERFILES, TANDA_PERFILES], [60, 12]);
   const pedidos = [{ telefono: '5215555550001' }, { telefono: '5215555550002' }, '5215555550003', { telefono: '5215555550002' }];
-  const fichas = [{ telefono: '5215555550002', empresa: 'Panadería Sol', esEmpresa: true }, { telefono: '5215555550003', pushname: 'Beto' }];
-  assert.deepEqual(plano(c(pedidos, fichas)), [
+  const fichas = [
+    { telefono: '5215555550002', agenda: null, pushname: null, empresa: 'Panadería Sol', esEmpresa: true, grupos: [] },
+    { telefono: '5215555550003', agenda: null, pushname: 'Beto', empresa: null, esEmpresa: false, grupos: [] },
+  ];
+  assert.deepEqual(candidatosDePerfil(pedidos, fichas), [
     { telefono: '5215555550002', nombre: 'Panadería Sol' }, { telefono: '5215555550003', nombre: 'Beto' }, { telefono: '5215555550001', nombre: null },
   ], 'las empresas no van primero, o se repitió un teléfono');
-  const sumadas = plano(sumar(fichas, [{ telefono: '5215555550001', perfil: { web: 'https://a.mx' } }, { telefono: '5215555550002', perfil: { email: 'x@y.co' } }, { telefono: '', perfil: {} }]));
-  assert.deepEqual(sumadas.map((f) => [f.telefono, f.perfil]), [['5215555550002', { email: 'x@y.co' }], ['5215555550003', undefined], ['5215555550001', { web: 'https://a.mx' }]]);
-  // El tope por corrida.
-  assert.match(bg, /const TOPE_PERFILES = 60;/);
-  // El server: la ficha trae el perfil LIMPIO, y se escribe por el camino de «Datos de empresa» (sólo lo vacío).
-  const { perfilLimpio, fichaLimpia } = await import('../lib/grupo-wa-reglas');
-  assert.equal(perfilLimpio({ web: 'javascript:alert(1)' }), null, 'una web que no es http(s) entró');
-  assert.equal(perfilLimpio({ instagram: 'no es una cuenta' }), null);
-  assert.equal(perfilLimpio({ redes: ['<img src=x>', 'facebook: https://facebook.com/x'] })!.redes!.length, 1);
-  assert.deepEqual(fichaLimpia({ telefono: '5215555550001', perfil: { email: 'hola@sol.com' } })!.perfil!.email, 'hola@sol.com');
+  // Lo que vuelve del navegador se limpia: una web que no es http(s) no entra; sin ficha, la gana.
+  const sumadas = sumarPerfiles(fichas, [{ telefono: '5215555550001', perfil: { web: 'https://a.mx' } }, { telefono: '5215555550002', perfil: { web: 'javascript:alert(1)', email: 'x@y.co' } }, { telefono: '', perfil: {} }]);
+  assert.deepEqual(sumadas.map((f) => [f.telefono, f.perfil?.web ?? null, f.perfil?.email ?? null]), [['5215555550002', null, 'x@y.co'], ['5215555550003', null, null], ['5215555550001', 'https://a.mx', null]]);
+  // De a tandas: 130 pedidos → 60 (el tope) → 5 pedidos de 12; el avance sabe en qué tanda va; para entre tandas.
+  const muchos = Array.from({ length: 130 }, (_, k) => `52155555${String(k).padStart(5, '0')}`);
+  const tandas: Array<[number, number, number]> = [];
+  const pedir = async (c: ReadonlyArray<{ telefono: string }>, o: { desde: number; total: number }) => {
+    tandas.push([c.length, o.desde, o.total]);
+    return { ok: true as const, perfiles: c.slice(0, 1).map((x) => ({ telefono: x.telefono, perfil: { email: 'hola@sol.com' } })), diag: { abiertos: c.length, conDatos: 1 } };
+  };
+  const r = await perfilesEnTandas(muchos, [], { grupo: 'G', id: 'w1', parar: () => false, pedir });
+  assert.deepEqual(tandas, [[12, 0, 60], [12, 12, 60], [12, 24, 60], [12, 36, 60], [12, 48, 60]]);
+  assert.deepEqual([r.leidos, r.conDatos, r.fichas.length, r.corte], [60, 5, 5, null]);
+  let n = 0;
+  const parada = await perfilesEnTandas(muchos, [], { grupo: 'G', id: 'w1', parar: () => ++n > 2, pedir });
+  assert.equal(parada.corte, 'parado');
+  const falla = await perfilesEnTandas(muchos, [], { grupo: 'G', id: 'w1', parar: () => false, pedir: async () => ({ ok: false as const, motivo: 'sin_respuesta_wa' }) });
+  assert.equal(falla.corte, 'sin_respuesta_wa', 'una tanda que falla no corta');
+  // El worker: el pedido de una tanda es corto (≤ 20, con tope de 4 minutos) y le dice a WhatsApp Web en qué tanda va.
+  const w = cargarWorker({ tabs: [{ id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }] });
+  const rp = await w.pedir({ tipo: 'WA_PERFILES_PEDIDO', id: 'w9', grupo: 'G', candidatos: [{ telefono: '5215555550001', nombre: null }], desde: 12, total: 60 }) as { ok: boolean; perfiles: unknown[] };
+  assert.equal(rp.ok, true);
+  assert.deepEqual(rp.perfiles, [{ telefono: '5215555550001', perfil: { web: 'https://lucia.mx' } }]);
+  const alWa = w.reg.aTabs.find(([, m]) => m.tipo === 'WA_PERFILES')![1];
+  assert.deepEqual([alWa.desde, alWa.total, alWa.tope], [12, 60, 1]);
+  assert.deepEqual(w.reg.creadas, [], '⚠️ abrió una segunda pestaña de WhatsApp Web');
+  assert.match(leer('extension/background.js'), /\.slice\(0, 20\) : \[\];[\s\S]{0,1500}\}\), 4 \* 60000\)/, 'una tanda sin tope de tamaño o de tiempo');
+  // El server: el perfil se escribe por el camino de «Datos de empresa» (sólo lo vacío).
   const server = leer('app/crm/grupo-wa-server.ts');
   assert.match(server, /if \(f\.perfil\) \{\n\s+const \{ data \} = await db\.from\('leads'\)\.select\(`id, \$\{CAMPOS_DEL_PERFIL\.join\(', '\)\}`\)\.eq\('id', id\)\.maybeSingle\(\);\n\s+const escritos = data \? await completarCamposVacios\(id, parcheDePerfil\(/, 'el perfil pisa lo que el lead ya tiene');
+  // Las dos pantallas los piden ANTES de guardar (se guarda todo junto).
+  assert.match(leer('app/crm/TraerDeGrupoWA.tsx'), /const pf = await perfilesEnTandas\(pedidos,[\s\S]{0,300}a = await guardarFichasEnTandas\(fichas,/);
+  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /await perfilesEnTandas\(t\.pedidos\.map[\s\S]{0,400}const a = await guardarFichasEnTandas\(fichas,/);
   // El desplegable: la fase y su conteo.
   const popup = sinComentarios(leer('extension/popup.js'));
   assert.match(popup, /\{ texto: 'Leo sus perfiles', pasos: \['perfiles'\] \}/);
@@ -545,6 +562,7 @@ test('7c. el worker: empresas primero, sólo los pedidos, y el perfil sumado a s
 // Y los perfiles (0.73.0), contra 14 / 0 (el 7 encontró uno de verdad: una publicación de Instagram quedaba como «web»):
 //   · sin el tope por corrida                                                              → 13 / 1
 //   · no vuelve del perfil que falló (el siguiente se busca con el panel abierto)          → 13 / 1
-//   · las empresas no van primero                                                          → 13 / 1
+//   · las empresas no van primero                                                          → 13 / 1 (hoy en lib/wa-fichas-cliente.ts)
 //   · una publicación de una red queda como web                                            → 13 / 1
 //   · una web que no es http(s) entra (el server)                                          → 13 / 1
+// Y las tandas (0.73.2), contra 14 / 0: un solo pedido de 60 → 13 / 1; una tanda que falla no corta → 13 / 1.

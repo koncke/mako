@@ -266,6 +266,26 @@ window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
   } catch { contestar({ ok: false, motivo: 'extension' }); }
 });
 
+// Los perfiles, de a tandas (0.73.2): el pedido de la pantalla al worker; contesta por `MAKO_WA_FICHAS` con el mismo `id`.
+window.addEventListener('MAKO_WA_PERFILES_PIDO', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
+  const id = typeof d.id === 'string' ? d.id : '';
+  const candidatos = Array.isArray(d.candidatos)
+    ? d.candidatos.filter((c) => c && typeof c.telefono === 'string').slice(0, 20).map((c) => ({ telefono: c.telefono, nombre: typeof c.nombre === 'string' ? c.nombre.slice(0, 80) : null }))
+    : [];
+  const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
+  try {
+    chrome.runtime.sendMessage({
+      tipo: 'WA_PERFILES_PEDIDO', id, grupo: typeof d.grupo === 'string' ? d.grupo.slice(0, 120) : '', candidatos,
+      desde: typeof d.desde === 'number' ? d.desde : 0, total: typeof d.total === 'number' ? d.total : 0,
+    }, (r) => {
+      if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
+      contestar(r);
+    });
+  } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+
 // El avance que cuenta el worker («Abriendo WhatsApp Web…», «Buscando el grupo…»), a la pantalla, con el `id` del pedido.
 // Y el «Parar» del desplegable (0.72.0): la pantalla deja de guardar.
 chrome.runtime.onMessage.addListener((msg) => {

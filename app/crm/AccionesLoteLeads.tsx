@@ -94,7 +94,7 @@ import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
-import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
 import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
@@ -471,7 +471,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
         avisarExtraccion(id, { estado: 'error', texto: r.texto });
         return;
       }
-      const fichas = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      // El PERFIL de cada uno (0.73.2), de a tandas, en el grupo de donde vinieron (el primero, si son varios).
+      const limpias = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      const fichas = t.grupos.length
+        ? (await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })).fichas
+        : limpias;
       avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
       const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeLeadsAction({ ids: deEstos, fichas: tanda }), {
         parar: () => parar.current,
