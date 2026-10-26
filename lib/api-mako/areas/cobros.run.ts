@@ -38,6 +38,7 @@ import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 
@@ -634,6 +635,58 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: r.cambio ? `Listo: la suscripción quedó ${estado}.` : `Ya estaba ${estado}.`, datos: { estado, mesesAntes: r.mesesAntes } };
     }),
   },
+  // ── Customers del super admin (25/10/2026): lib/clientes-plataforma.ts y lib/agente-sesiones.ts ─────────────────
+  // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md).
+  // Va ANTES de vender_plan_mako: tests/api-mako-vender-plan.test.ts recorta ese runner hasta el cierre del objeto, y con
+  // estos dos detrás el recorte pasaba su techo de 7000 caracteres (el test fallaba al cargar).
+  // ⚠️ Y EN LA APP, EL SUPER ADMIN GLOBAL (revisión del tren, hallazgo 8): `rolMinimo: 'admin'` + `soloPlataforma` es el admin
+  // DEL WORKSPACE de la plataforma (lo mismo que dice vender_plan_mako), y /customers exige `getSesionAdmin`. Sin esto, alguien
+  // sumado al equipo de MaKo con rol admin veía por el chat lo que la pantalla le niega. Sólo en la app, que es donde hay
+  // sesión: por WhatsApp habla el grupo de la plataforma, sin cookies. Un flujo corre con canal 'app' y sin sesión: no pasa.
+  ver_clientes_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los clientes de MaKo son sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Los clientes de MaKo son sólo del super admin.');
+      const v = await vistaDeClientes();
+      const seg = typeof input.segmento === 'string' ? input.segmento : null;
+      const filas = seg ? v.filas.filter((f) => (f.segmentos as string[]).includes(seg)) : v.filas;
+      return json({
+        numeros: {
+          mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
+          nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
+          cobrado_por_mes: v.cobrado, cuotas_vencidas: v.vencido,
+        },
+        clientes: filas.map((f) => ({
+          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: nombreDePlan(f.capa), estado: f.estado,
+          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
+          dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
+          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),
+        })),
+        // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
+        para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
+        avisos: v.avisos,
+        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie de su equipo (o no se pudo leer: ver avisos); a un cliente de-agencia lo opera su agencia con su propia sesión, que no cuenta, y por eso nunca está en riesgo por sin-uso. onboarding_hecho null = no se pudo leer (ver avisos), no es «no lo terminó».',
+      });
+    },
+  },
+
+  ver_agentes_de_clientes: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
+      if (ctx.canal === 'app' && !(await esSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo del super admin.');
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
+      const { sesiones, nombreWs } = await leerSesionesAgente();
+      return json({
+        sesiones: sesiones.slice(0, limite).map((s) => ({
+          negocio: nombreWs.get(s.workspace_id) ?? `Workspace ${s.workspace_id}`, cuando: s.empezo_en ?? s.created_at,
+          titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
+        })),
+        total: sesiones.length,
+        nota: 'Los mensajes textuales están en Customers › Agents.',
+      });
+    },
+  },
+
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
   // La revisión adversarial del mismo día (wf_fbeb8485-d3c) le sumó:
   //   · el super admin GLOBAL al confirmar y al ejecutar (`esSuperAdmin`). `rolMinimo: 'admin'` + `soloPlataforma` es el admin
@@ -707,44 +760,5 @@ export const RUNNERS: Runners = {
         datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
       };
     }),
-  },
-
-  // ── Customers del super admin (25/10/2026): lib/clientes-plataforma.ts y lib/agente-sesiones.ts ─────────────────
-  // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md).
-  ver_clientes_de_mako: {
-    leer: async (input, ctx) => {
-      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los clientes de MaKo son sólo de la plataforma.');
-      const v = await vistaDeClientes();
-      const seg = typeof input.segmento === 'string' ? input.segmento : null;
-      const filas = seg ? v.filas.filter((f) => (f.segmentos as string[]).includes(seg)) : v.filas;
-      return json({
-        numeros: {
-          mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
-          nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
-        },
-        clientes: filas.map((f) => ({
-          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: capaDef(f.capa).nombre, estado: f.estado,
-          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, desde: f.creado.slice(0, 10),
-        })),
-        avisos: v.avisos,
-        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0.',
-      });
-    },
-  },
-
-  ver_agentes_de_clientes: {
-    leer: async (input, ctx) => {
-      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
-      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
-      const { sesiones, nombreWs } = await leerSesionesAgente();
-      return json({
-        sesiones: sesiones.slice(0, limite).map((s) => ({
-          negocio: nombreWs.get(s.workspace_id) ?? `Workspace ${s.workspace_id}`, cuando: s.empezo_en ?? s.created_at,
-          titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
-        })),
-        total: sesiones.length,
-        nota: 'Los mensajes textuales están en Customers › Agents.',
-      });
-    },
   },
 };

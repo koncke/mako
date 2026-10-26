@@ -173,7 +173,7 @@ function ChipEstadoUsuario({ u }: { u: Usuario }) {
 export type SegmentoAdmin = { ws: ReadonlySet<number> | null; conDeAgencias: boolean };
 export type ExtraDeCliente = { segmentos: string[]; mrrUsd: number; sinDolares: number; prueba: boolean; riesgo: boolean; agencia: string | null };
 
-export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false, incrustado = false, segmento = null, extra = null }: {
+export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes = [], user, verComputadoras = false, incrustado = false, segmento = null, extra = null, abrirInicial = null }: {
   titulo?: string;
   icono?: string;
   /**
@@ -193,6 +193,8 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
   incrustado?: boolean;
   segmento?: SegmentoAdmin | null;
   extra?: Record<number, ExtraDeCliente> | null;
+  /** La ficha que abre al cargar (Customers › Accounts, `?cuenta=<ws>`: el «Administrar» de la ficha de Customers). */
+  abrirInicial?: number | null;
 } = {}) {
   const [workspaces, setWorkspaces] = useState<Workspace[] | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[] | null>(null);
@@ -278,7 +280,7 @@ export function AdminView({ titulo = 'Admin', icono = 'admin', trabajo, clientes
             que es lo que siempre fueron — un puñado de personas, no un área. */}
         <PanelClientes workspaces={workspaces} usuarios={usuarios} sesion={sesion} recargar={cargar}
           trabajo={trabajo ?? null} clientes={clientes} user={user} verComputadoras={verComputadoras}
-          segmento={segmento} extra={extra} />
+          segmento={segmento} extra={extra} abrirInicial={abrirInicial} />
       </div>
     </main>
   );
@@ -467,7 +469,7 @@ const CSS_TABLA = `
 `;
 
 // =============================================================================
-function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false, segmento = null, extra = null }: {
+function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, clientes = [], user, verComputadoras = false, segmento = null, extra = null, abrirInicial = null }: {
   workspaces: Workspace[]; usuarios: Usuario[]; sesion: Sesion; recargar: () => Promise<void>;
   /**
    * El trabajo del SUPER ADMIN agrupado por cliente, y su CRM. Bajan desde el server
@@ -485,6 +487,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
   /** El segmento de la vista Customers y sus columnas (ver `SegmentoAdmin`). */
   segmento?: SegmentoAdmin | null;
   extra?: Record<number, ExtraDeCliente> | null;
+  abrirInicial?: number | null;
 }) {
   const [nombre, setNombre] = useState('');
   const [capa, setCapa] = useState<CapaId>(CAPA_DEFAULT);
@@ -496,7 +499,7 @@ function PanelClientes({ workspaces, usuarios, sesion, recargar, trabajo, client
 
   const [errAccion, setErrAccion] = useState<string | null>(null);
   const [accionando, setAccionando] = useState(false);
-  const [abierto, setAbierto] = useState<number | null>(null);
+  const [abierto, setAbierto] = useState<number | null>(abrirInicial);
   /** El alta dejo de ser un formulario clavado arriba de la lista y pasó a ser
    *  la primera tarjeta + un modal, igual que en la cartera. */
   const [altaAbierta, setAltaAbierta] = useState(false);

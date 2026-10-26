@@ -70,7 +70,7 @@ export type IdSeccionMas =
   // Las pantallas del MENÚ DE LA FOTO (17/10/2026): ocultas como sección (More arma su fila desde nav.ts → USER_NAV).
   | 'tickets' | 'configuraciones'
   // Las del super admin (17/10/2026): las herramientas que la sidebar cuelga de una tab o del menú de su foto.
-  | 'conocimientos' | 'agente' | 'cobros'
+  | 'conocimientos' | 'agente' | 'cobros' | 'customers'
   // La API de MaKo (17/10/2026): del menú de la foto, sólo el admin del negocio (key `api-mako` de USER_NAV).
   | 'api-mako'
   // Las de CREACIÓN (17/10/2026, Mobile 1): lib/movil-creacion.ts.
@@ -259,6 +259,8 @@ export const SECCIONES_MAS: readonly DefSeccionMas[] = [
   // Billing y Client Agents (menú de la foto del super admin): lo vendido de MaKo y en qué trabajan los clientes.
   { id: 'cobros', label: 'Billing', href: '/m/cobros', icon: 'tag', navKey: 'admin-cobros', familia: null, oculta: true, superAdmin: true },
   { id: 'agente', label: 'Client Agents', href: '/m/agente', icon: 'mako', navKey: 'admin-agente', familia: null, oculta: true, superAdmin: true },
+  // Customers (26/10/2026): su fila de More la arma la familia de la sidebar (Sales), como en la computadora.
+  { id: 'customers', label: 'Customers', href: '/m/customers', icon: 'cs', navKey: 'admin-customers', familia: null, oculta: true, superAdmin: true },
   // Las pantallas de CREACIÓN (17/10/2026), todas ocultas: lib/movil-creacion.ts dice por qué.
   ...SECCIONES_CREACION,
 ];
@@ -271,6 +273,8 @@ const UNA_A_UNA: Readonly<Record<string, string>> = {
   '/api-mako': '/m/api-mako',
   '/admin/cobros': '/m/cobros',
   '/admin/agente': '/m/agente',
+  // Customers (26/10/2026): los clientes de MaKo del super admin.
+  '/customers': '/m/customers',
 };
 
 /**
@@ -463,9 +467,6 @@ export const EN_CAMINO: Readonly<Record<string, string>> = {
   // Herramientas del super admin que colgaron de una tab el 17/10/2026 y todavía no tienen chat (docs/relevo/mako-mobile.md).
   // «agencia» salió el 24/10/2026: ya no es una sección (el número de MaKo es una línea de Chats, docs/diseno-chats.md §8.5).
   'admin-estrategia': 'sin dueño', 'admin-offer-playbook': 'sin dueño',
-  // Customers (25/10/2026): sus pestañas Billing y Agents ya tienen pantalla (/m/cobros, /m/agente); la lista con los
-  // segmentos y el MRR, todavía no.
-  'admin-customers': 'Agencias y clientes',
 };
 
 /** Lo que More dice de una tab EN CAMINO (sin motivo propio): corto, y sin prometer una fecha. */
@@ -557,8 +558,10 @@ export function masCompleto(rol: RolMovil, capa: string | null | undefined, admi
       const s = deFamilia.find((x) => keys.includes(x.navKey));
       if (s && unido && s.id === 'dashboard') continue;
       if (s) { usadas.add(s.id); filas.push({ tipo: 'pantalla', key: s.navKey, label: s.label, icon: s.icon, href: s.href, seccion: s.id }); continue; }
-      // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada.
-      if (SECCIONES_MAS.some((x) => keys.includes(x.navKey))) continue;
+      // Tiene sección en el teléfono pero la regla del teléfono no se la muestra (o subió a la barra): nada. ⚠️ Salvo la de
+      // super admin (26/10/2026, Customers): ésas nunca salen por `gruposMas` (van ocultas), así que una tab de la
+      // familia que es suya se dibuja con su propia fila (`filaDeItem` la lleva a su pantalla por `rutaMovil`).
+      if (SECCIONES_MAS.some((x) => keys.includes(x.navKey) && !x.superAdmin)) continue;
       filas.push(filaDeItem(visible, keys));
     }
     for (const g of f.grupos ?? []) {

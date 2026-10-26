@@ -1884,3 +1884,17 @@ SIN sesión. El matcher de proxy.ts no los eximía y la lista de extensiones no 
 
 **Vive en:** proxy.ts (`config.matcher`) · lib/rutas-publicas.ts (`PUBLICOS`) · next.config.ts · public/.well-known/ ·
 tests/well-known-publico.test.ts · *22/10/2026, chat «Chats de las tabs», por pedido del Cerebro.*
+
+## Entrar a la cuenta de otro desde /m: recarga entera, nunca un Link (26/10/2026)
+
+- **Síntoma (revisión del tren, b26a8ac40):** en el teléfono, «Entrar a su cuenta» de Customers abría el negocio del
+  cliente sin el chip «Viendo a X», con la barra y los avisos del super admin.
+- **Causa:** era un `ButtonLink`, que navega del lado del cliente. El proxy manda `/inicio?ws=N` a
+  `/m/second-brain?ws=N` y, como el árbol viejo y el nuevo comparten el segmento `m`, **app/m/layout.tsx no se vuelve a
+  ejecutar**. Ese layout es el que arma `contextoMovil`: el chip, la barra del cliente y sus badges.
+- **Regla:** todo botón que cambia el negocio que se está mirando (entrar o salir) va con
+  `window.location.href = ...`, como AgencyM y PartnersApp. Un test fija que Customers no vuelva al Link
+  (tests/customers.test.ts).
+
+**Vive en:** app/m/customers/CustomersM.tsx · app/m/layout.tsx (`contextoMovil`) · *26/10/2026, chat «Agencias y
+clientes» (claude5).*
