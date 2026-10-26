@@ -53,7 +53,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_mensajes_operaciones', area: 'operaciones', tipo: 'lectura',
     titulo: 'Mensajes de un chat del Ops Center',
-    descripcion: 'La conversación de un chat del Ops Center como se ve en la pantalla, la más reciente al final: lo que le mandó Martín (desde el Ops Center o la app de Claude) y lo que contestó el chat. Una nota de voz de Martín sale como `audio`, con lo que dura y su transcripción aparte. Los «Avance» seguidos (lo que el chat le contestó a otro chat) van juntos en un grupo: el último entero y los anteriores con su hora y su primera oración, como la burbuja de la pantalla. En qué está cada envío: `ver_pedidos_operaciones`.',
+    descripcion: 'La conversación de un chat del Ops Center como se ve en la pantalla, la más reciente al final: lo que le mandó Martín (desde el Ops Center o la app de Claude), lo que contestó el chat, y sus preguntas con sus opciones y lo que contestó Martín (`abierta` si espera). Una nota de voz de Martín sale como `audio`, con lo que dura y su transcripción aparte. Los «Avance» seguidos (lo que el chat le contestó a otro chat) van juntos en un grupo: el último entero y los anteriores con su hora y su primera oración, como la burbuja de la pantalla. NO trae las decisiones de la Ticketera ni los pedidos del Plan que también se ven en ese chat. En qué está cada envío: `ver_pedidos_operaciones`.',
     parametros: [
       { nombre: 'chat', rotulo: 'Chat', tipo: 'string', obligatorio: true, descripcion: 'el nombre del chat («Cerebro», «CRM»).' },
       { nombre: 'limite', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos mensajes o grupos, los últimos (default 30).' },

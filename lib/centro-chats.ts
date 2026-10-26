@@ -663,16 +663,25 @@ export function agruparAvances(lineas: readonly LineaChat[]): PiezaDelHilo[] {
 }
 
 /**
- * Lo que dice un chat para la API (`ver_mensajes_operaciones`), con lo MISMO que la conversación de la pantalla: sus turnos
- * y lo que Martín le mandó desde el Ops Center (sus trabajos, menos los que contestan una pregunta: ésos van adentro de la
- * pregunta). El turno que la PC guardó de un trabajo no se repite: `lineasDeConversacion` lo saca.
+ * Lo que dice un chat para la API (`ver_mensajes_operaciones`), con lo MISMO que la conversación de la pantalla
+ * (`historialDelChat`): sus turnos, sus preguntas, y lo que Martín le mandó desde el Ops Center. El trabajo que contesta una
+ * pregunta va ADENTRO de ella; uno con la marca de una pregunta que no se conoce sale como trabajo, para no perderlo. El turno
+ * que la PC guardó de un trabajo no se repite: `lineasDeConversacion` lo saca.
+ * ⚠️ SIN LAS PREGUNTAS, LA API CONTABA OTRA CONVERSACIÓN (26/10/2026, la revisión del tren-m): la respuesta de Martín no salía
+ *    por ningún lado (su trabajo se descartaba y su turno lo saca `lineasDeConversacion`), y dos tandas de avances que la
+ *    pregunta separa en la pantalla salían juntas.
  */
-export function lineasParaLaApi(turnos: readonly TurnoChat[], trabajos: readonly TrabajoP[]): LineaChat[] {
+export function lineasParaLaApi(turnos: readonly TurnoChat[], trabajos: readonly TrabajoP[], preguntas: readonly PreguntaChat[] = []): LineaChat[] {
   const out: LineaChat[] = [];
+  const conocidas = new Set(preguntas.map((p) => p.id));
+  const respuestaDe = new Map<string, TrabajoP>();
+  for (const w of trabajos) { const id = preguntaDeTrabajo(w.texto); if (id && conocidas.has(id)) respuestaDe.set(id, w); }
+  const contestan = new Set([...respuestaDe.values()].map((w) => w.id));
   for (const u of turnos) { const t = fecha(u.at); if (t != null) out.push({ tipo: 'turno', instante: t, turno: u }); }
+  for (const p of preguntas) { const t = fecha(p.at); if (t != null) out.push({ tipo: 'pregunta', instante: t, pregunta: p, trabajo: respuestaDe.get(p.id) ?? null }); }
   for (const w of trabajos) {
     const t = fecha(w.created_at);
-    if (t != null && !preguntaDeTrabajo(w.texto)) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
+    if (t != null && !contestan.has(w.id)) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
   }
   return out.sort((x, y) => x.instante - y.instante);
 }
@@ -697,6 +706,15 @@ export function piezaParaLaApi(p: PiezaDelHilo, chat: string) {
   }
   if (p.tipo === 'turno') {
     return { tipo: p.plegado ? ('avance' as const) : ('mensaje' as const), de: p.turno.rol === 'yo' ? 'Martín' : chat, at: p.turno.at, texto: delChat(p.turno) };
+  }
+  if (p.tipo === 'pregunta') {
+    // Lo que contestó Martín: lo que guardó la pregunta, o el texto de su trabajo sin la marca si no se llegó a guardar.
+    const q = p.pregunta;
+    const respuesta = q.respuesta ? resumenDeRespuesta(q, q.respuesta) : p.trabajo ? (p.trabajo.texto ?? '').replace(/\[pregunta [0-9a-f-]{36}\]\s*/, '').trim() : null;
+    return {
+      tipo: 'pregunta' as const, de: chat, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
+      respuesta, abierta: !q.respuesta && !p.trabajo && estaAbierta(q),
+    };
   }
   if (p.tipo === 'trabajo') {
     const w = p.trabajo;

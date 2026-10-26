@@ -8,6 +8,7 @@ import type { Runners, SalidaLectura } from '../tipos';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
+import { leerPreguntas } from '@/lib/centro-preguntas-chat-db';
 import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
   piezaParaLaApi, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat, type YaVistos,
@@ -127,8 +128,8 @@ export const RUNNERS: Runners = {
       // Lo MISMO que dibuja la pantalla: sus turnos y lo que Martín le mandó desde el Ops Center (`lineasParaLaApi`), la
       // conversación (`lineasDeConversacion`) y los avances seguidos en un grupo (`agruparAvances`, 25/10/2026). Los turnos
       // enteros: ninguno se pierde adentro de un grupo. Una nota de voz sale como audio, con su transcripción (26/10/2026).
-      const [turnos, pedidos] = await Promise.all([leerTurnos(c.locales), listarPedidos(100)]);
-      const lineas = lineasParaLaApi(turnos, pedidos.filter((p) => c.locales.includes(p.destino)));
+      const [turnos, pedidos, preguntas] = await Promise.all([leerTurnos(c.locales), listarPedidos(100), leerPreguntas(c.locales)]);
+      const lineas = lineasParaLaApi(turnos, pedidos.filter((p) => c.locales.includes(p.destino)), preguntas);
       const piezas = agruparAvances(lineasDeConversacion(lineas)).slice(-limite);
       return json({
         chat: c.titulo, cuenta: cuentaN(c.cuenta),

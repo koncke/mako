@@ -9,7 +9,9 @@
 //      que se abren, del más nuevo al más viejo, con «Ver los otros» después de cinco;
 //   3. la API (`ver_mensajes_operaciones`): una lectura sólo de la plataforma y nunca por HTTP, con el mismo agrupado que la
 //      pantalla y el texto entero de cada avance;
-//   4. lo «sin ver» no mira los grupos: cuenta líneas.
+//   4. lo «sin ver» no mira los grupos: cuenta líneas;
+//   5. la API trae las preguntas del chat y lo que contestó Martín, y cortan las tandas como en la pantalla (26/10/2026, la
+//      revisión del tren-m: sin ellas, la respuesta no salía por ningún lado y dos tandas salían juntas).
 //
 // PROBADO ROMPIÉNDOLO (25/10/2026, base 4/0): sin cortar en lo que no es avance → 2 rojos (1 y 3); sin el corte de día → 1 rojo
 // (1); agrupar de a uno → 2 rojos (1 y 2); los anteriores sin `.reverse()` → 1 rojo (2); la fila con `text-overflow: ellipsis`
@@ -20,7 +22,8 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { agruparAvances, lineasDeConversacion, piezaParaLaApi, type LineaChat, type PiezaDelHilo } from '../lib/centro-chats';
+import { agruparAvances, lineasDeConversacion, lineasParaLaApi, piezaParaLaApi, type LineaChat, type PiezaDelHilo, type TrabajoP } from '../lib/centro-chats';
+import type { PreguntaChat } from '../lib/centro-preguntas-chat';
 import { DEFS } from '../lib/api-mako/areas/operaciones.def';
 import { Hilo } from '../app/admin/operaciones/Hilo';
 import type { TurnoChat } from '../lib/operaciones-reglas';
@@ -132,3 +135,38 @@ test('4. lo «sin ver» y el «Completado» miran líneas, no grupos: el agrupad
     .sort();
   assert.deepEqual(usan, ['app/admin/operaciones/Hilo.tsx', 'lib/api-mako/areas/operaciones.run.ts', 'lib/centro-chats.ts']);
 });
+
+test('5. la API trae las preguntas del chat y lo que contestó Martín, y cortan las tandas como en la pantalla', () => {
+  const P = '5e9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed';
+  const W = '6f9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed';
+  const t = (uuid: string, rol: TurnoChat['rol'], at: string, texto: string): TurnoChat =>
+    ({ local: LOCAL, uuid, rol, de: rol === 'otro' ? 'CRM' : null, texto, at, trabajo: null });
+  const pregunta: PreguntaChat = {
+    id: P, local: LOCAL, pregunta: '¿Hago el commit?', contexto: null, opciones: [{ titulo: 'Commit', detalle: null }, { titulo: 'Ahora no', detalle: null }],
+    recomendada: 0, varias: false, at: '2026-10-25T12:03:00Z', respuesta: { elegidas: [0], otra: null, at: '2026-10-25T12:03:30Z', trabajo: W },
+  };
+  const w = (id: string, at: string, texto: string): TrabajoP => ({ id, destino: LOCAL, destino_titulo: 'Cerebro', destino_cuenta: 'claude5', created_at: at, texto, estado: 'entregado', motivo: null, cierre: null });
+  const huerfano = w('7a9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed', '2026-10-25T12:06:00Z', '[pregunta 8b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed] Ahora no');
+  const lineas = lineasParaLaApi(
+    [t('o', 'otro', '2026-10-25T12:00:00Z', 'CRM › lista.'), t('a1', 'el', '2026-10-25T12:01:00Z', 'Uno.'), t('a2', 'el', '2026-10-25T12:02:00Z', 'Dos.'),
+      t('a3', 'el', '2026-10-25T12:04:00Z', 'Tres.'), t('a4', 'el', '2026-10-25T12:05:00Z', 'Cuatro.')],
+    [w(W, '2026-10-25T12:03:30Z', `[pregunta ${P}] Commit`), huerfano],
+    [pregunta],
+  );
+  const piezas = agruparAvances(lineasDeConversacion(lineas)).map((x) => piezaParaLaApi(x, 'Cerebro'));
+  assert.deepEqual(piezas.map((x) => x.tipo), ['avances', 'pregunta', 'avances', 'mensaje'], 'la pregunta no corta la tanda, o se perdió');
+  assert.deepEqual(piezas[1], {
+    tipo: 'pregunta', de: 'Cerebro', at: '2026-10-25T12:03:00Z', pregunta: '¿Hago el commit?', opciones: ['Commit', 'Ahora no'], respuesta: 'Commit', abierta: false,
+  });
+  // El trabajo que contesta va adentro de su pregunta; uno con la marca de una pregunta que no se conoce, no se pierde.
+  assert.equal(piezas.filter((x) => x.tipo === 'mensaje').length, 1);
+  assert.equal((piezas[3] as { texto?: string }).texto, huerfano.texto);
+  const run = sinComentarios(leer('lib/api-mako/areas/operaciones.run.ts'));
+  assert.match(run, /leerPreguntas\(c\.locales\)/, 'la API no lee las preguntas');
+  assert.match(run, /lineasParaLaApi\(turnos, pedidos\.filter\(\(p\) => c\.locales\.includes\(p\.destino\)\), preguntas\)/);
+  // Lo que deja afuera, dicho: la Ticketera y los pedidos del Plan.
+  assert.match(DEFS.find((d) => d.id === 'ver_mensajes_operaciones')?.descripcion ?? '', /NO trae las decisiones de la Ticketera ni los pedidos del Plan/);
+});
+
+// PROBADO ROMPIÉNDOLO el 5 (26/10/2026, base 5/0): sin las líneas de pregunta → 1 rojo (5); sin sacar el trabajo que contesta → 1
+// rojo (5); descartando el huérfano → 1 rojo (5); la API sin `leerPreguntas` → 1 rojo (5).

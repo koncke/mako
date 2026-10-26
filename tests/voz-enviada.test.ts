@@ -128,7 +128,7 @@ test('5. la API dice que es un audio, con su transcripción aparte, y no repite 
     ({ local: LOCAL, uuid, rol, de: null, texto, at, trabajo: trabajoDe });
   const lineas: LineaChat[] = lineasParaLaApi(
     [t('u1', 'yo', '2026-10-26T03:41:05.000Z', TRANSCRIPCION, ID), t('u2', 'el', '2026-10-26T03:42:00.000Z', 'Te respondo en el Centro.')],
-    [trabajo({ voz: { segundos: 42 } }), trabajo({ id: '2c9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed', texto: '[pregunta 3d9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed] Commit' })],
+    [trabajo({ voz: { segundos: 42 } })],
   );
   const piezas = agruparAvances(lineasDeConversacion(lineas)).map((p) => piezaParaLaApi(p, 'Cerebro'));
   assert.deepEqual(piezas, [
@@ -136,7 +136,7 @@ test('5. la API dice que es un audio, con su transcripción aparte, y no repite 
     { tipo: 'mensaje', de: 'Cerebro', at: '2026-10-26T03:42:00.000Z', texto: 'Te respondo en el Centro.' },
   ]);
   const run = sinComentarios(leer('lib/api-mako/areas/operaciones.run.ts'));
-  assert.match(run, /lineasParaLaApi\(turnos, pedidos\.filter\(\(p\) => c\.locales\.includes\(p\.destino\)\)\)/, 'sin lo que mandó Martín');
+  assert.match(run, /lineasParaLaApi\(turnos, pedidos\.filter\(\(p\) => c\.locales\.includes\(p\.destino\)\), preguntas\)/, 'sin lo que mandó Martín');
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026, base 5/0): lo firmado sin la nota → 1 rojo (1); `esMp3` que acepta todo → 1 rojo (2);

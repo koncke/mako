@@ -3023,6 +3023,7 @@ reales). Esos mensajes NO se dibujan
   Martín, un «Ya está» (nunca es avance), una pregunta. Y el cambio de día en Argentina, porque entre medio va la píldora del día.
 - Es SÓLO cómo se dibuja: no saca ni agrega líneas. Lo «sin ver», el «Completado» y el texto de la fila siguen mirando las
   líneas. El test lo fija mirando que nadie más use `agruparAvances`.
+- La API arma lo MISMO que `historialDelChat`, PREGUNTAS incluidas (`lineasParaLaApi`, revisión del tren-m, 26/10): sin ellas, lo que contestó Martín no salía por ningún lado (su trabajo se descartaba y su turno lo saca `lineasDeConversacion`) y dos tandas que la pregunta separa salían juntas. Lo que no trae (la Ticketera, los pedidos del Plan) lo dice su descripción.
 - La paginación («Ver N mensajes anteriores») cuenta líneas: una tanda que cae en el corte se ve partida hasta que se cargan
   las de antes, y ahí se junta.
 
