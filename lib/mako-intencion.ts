@@ -904,6 +904,21 @@ const RELEVANCIA_TAREA_FECHA = 'cambiar fecha deadline quarter tarea plan buscar
 // que encontró y la persona dice «sí») y leer las tareas para encontrarla. Una pregunta («¿ya lo hiciste?») no es esto.
 const YA_HECHO = /^(?:(?:bueno|listo|dale|ok|perfecto)[\s,.!]+)?ya\s+(?:(?:lo|la|los|las|le|me|nos)\s+)?(?:hice|hicimos|termine|terminamos|complete|completamos|resolvi|resolvimos|arregle|arreglamos|cerre|cerramos|subi|subimos|mande|mandamos|envie|enviamos|cargue|cargamos|grabe|grabamos|publique|publicamos|llame|llamamos|pague|pagamos|entregue|entregamos)\b|^(?:(?:bueno|listo|dale|ok|perfecto)[\s,.!]+)?ya\s+(?:esta|quedo|estan|quedaron)\s+(?:(?:hech|list|terminad|resuelt|complet|cerrad)[oa]s?|la\s+#?\d+|el\s+#?\d+)\b/;
 const RELEVANCIA_YA_HECHO = 'cerrar tareas plan hecha completada evidencia listar tareas buscar';
+/**
+ * Corrige a MaKo sobre una recomendación (26/10/2026, MaKo recomienda, docs/diseno-mako-recomienda.md): «no me recomiendes más lo
+ * de la landing», «descarta esa recomendación», «esa sugerencia no aplica». Es una ACCIÓN (`decidir_recomendacion`, que deja su
+ * tarjeta), no una idea para anotar: sin esto caía en `capturar` y la corrección terminaba de tarea en el Plan. Sobre el texto
+ * normalizado (sin acentos ni mayúsculas).
+ */
+const CORRIGE_RECOMENDACION = /\bno (?:me |nos )?(?:vuelvas a |sigas )?(?:recomend|recomiend|sugier|suger)\w*|\b(?:descart|olvid|call|ignor|saca|quita)\w* (?:esa|esta|la|lo de la|las|esas|estas) (?:recomendaci|sugerenci)\w*|\b(?:esa|esta|la) (?:recomendaci|sugerenci)\w* no (?:aplica|sirve|va)\b/;
+const RELEVANCIA_CORRIGE_RECOMENDACION = 'decidir recomendacion descartar que recomienda';
+/**
+ * PIDE una recomendación (26/10/2026): «Mako, qué me recomendás hacer esta semana», «dame un consejo», «¿qué debería mejorar?».
+ * Es una CONSULTA (`que_recomienda_mako`): sin signo de pregunta, en WhatsApp caía en `capturar` (una idea para el Plan), y en la
+ * app, ante la duda, en `actuar` (con la escritura). En una consulta MaKo ofrece; la persona decide.
+ */
+const PIDE_RECOMENDACION = /\bque (?:me |nos )?(?:recomend|recomiend|suger|sugier|aconsej)\w*|\b(?:dame|danos|pasame|tenes|tienes|hay) (?:alguna?s? |un |unos |tu |tus )?(?:consejos?|recomendaci\w*|sugerenci\w*)|\bque (?:deberia|tendria que|me conviene) (?:mejorar|cambiar|hacer)\b/;
+const RELEVANCIA_PIDE_RECOMENDACION = 'que recomienda recomendaciones mako';
 /** Lo que suma un «movela al viernes»: reagendar, leer el día («qué tengo», el título de
  *  `agenda_del_dia`) y la tarea. Entran 15 de las ~100 de CRM y plan: medido el 09/10, con
  *  «buscar» y sin «tengo» la lectura del día quedaba afuera con «al viernes». */
@@ -1078,6 +1093,17 @@ export function clasificarIntencion(
   //              áreas y su relevancia: ninguna de esas frases nombra al CRM ni a `listar_productos`.
   if (pedidoCobro) {
     return { intencion: 'actuar', dudosa: false, porque: `pedido de cobro (${pedidoCobro.tipo})`, areas: AREAS_COBROS[pedidoCobro.tipo], relevancia: RELEVANCIA_COBROS[pedidoCobro.tipo] };
+  }
+
+  // 3-bis-rec) CORRIGE UNA RECOMENDACIÓN DE MaKo (26/10/2026, ver `CORRIGE_RECOMENDACION`): es la corrección en lenguaje natural
+  //            («no me recomiendes eso porque…»), y llega con `decidir_recomendacion` para que quede una tarjeta que se confirma.
+  if (CORRIGE_RECOMENDACION.test(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'corrige una recomendación de MaKo', areas: ['mako'], relevancia: RELEVANCIA_CORRIGE_RECOMENDACION };
+  }
+  // 3-bis-rec2) PIDE UNA RECOMENDACIÓN (ver `PIDE_RECOMENDACION`): una consulta, con las áreas que nombre además («¿qué me
+  //             recomiendas para la landing?» trae también las de la landing). Un pedido concreto que viene con ella gana su regla.
+  if (PIDE_RECOMENDACION.test(nPersona) && !pedidoAgenda && !pedidoLead && !pedidoLanding) {
+    return { intencion: 'consultar', dudosa: false, ...deLaApp, porque: 'pide una recomendación', areas: [...new Set<Area>(['mako', ...areasDelMensaje(t)])], relevancia: RELEVANCIA_PIDE_RECOMENDACION };
   }
 
   // 3-bis) SIGUE UN PEDIDO DE AGENDA. El código le acaba de mostrar a la persona
@@ -1406,7 +1432,10 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El Calendario (13/10/2026): lo que se agenda en la tab (publicaciones, bloques de trabajo). «calendario» también
   // trae la agenda del CRM (arriba): las dos áreas contestan cosas distintas del mismo día.
   calendario: /\b(calendario|publicaci[oó]n(es)? (?:de|para) (?:la semana|ma[ñn]ana|hoy|el)|programa(?:r|me|lo)? (?:un |una |el |la )?(?:reel|story|post|publicaci)|agend(?:ar|a|ame|alo) (?:un |una |el |la )?(?:reel|story|post|publicaci[oó]n|bloque)|bloques? de (?:trabajo|foco))/i,
-  mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades)/i,
+  // «¿qué me recomiendas?», «dame un consejo», «¿qué debería mejorar?» (26/10/2026, MaKo recomienda): traen `que_recomienda_mako`
+  // (y la corrección, `decidir_recomendacion`, cuando la regla 3-bis-rec la marca como acción). Las raíces, sin el final: «recomendás»,
+  // «recomiendes», «sugerencia», «sugieres».
+  mako: /\b(pendientes?|propuestas?|qu[eé] (pod[eé]s|puedes) hacer|capacidades|recomend|recomiend|suger|sugier|consejos?\b|qu[eé] (?:deber[ií]a|tendr[ií]a que) (?:mejorar|cambiar|hacer))/i,
   // El Centro de Operaciones (15/10/2026): sólo dos LECTURAS y sólo para la plataforma (`soloPlataforma`), así que
   // nombrarlas desde un cliente no le suma nada (lo saca `gatingOk`). Para Martín sí: «¿cómo van mis pedidos del centro?»,
   // «¿pasó el cartero?». Palabras propias y nunca «pedido» suelto, que en un negocio es un pedido de un cliente.

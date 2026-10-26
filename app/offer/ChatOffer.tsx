@@ -33,6 +33,7 @@ import { useWs } from '@/app/_ui/Link';
 import { MakoStar } from '@/app/_components/MakoBrand';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import type { PropsCajaChat } from '@/app/_chat/CajaChat';
+import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { FilaDelChat } from '@/app/admin/operaciones/Hilo';
 import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
@@ -294,6 +295,8 @@ export function ChatOffer({
       {/* La caja va POR CONVERSACIÓN (`key`): una grabación a medias no viaja a otra (la grabación guarda el `onAudio` del
           render en que se apretó el micrófono). */}
       <div key={sesion.id} className="co-caja-wrap" style={SIN_VERDE}>
+        {/* Lo que MaKo recomienda sobre la oferta con lo que dice la gente (26/10/2026): el bloque de preguntas, plegado. */}
+        <RecomendacionesDeMako superficie="offer" alPedir={caja.onTexto} />
         <div className="co-caja"><CajaChat {...caja} /></div>
       </div>
     </div>

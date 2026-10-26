@@ -49,7 +49,7 @@
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
 - **Creaciones de la comunidad (estrellas)** (`creaciones`): `listar_creaciones` · `ver_creacion` · `mis_creaciones` · `dar_estrella` · `quitar_estrella` · `publicar_creacion` · `retirar_creacion` · `usar_creacion`
 - **Cobros (Stripe y Mercado Pago)** (`cobros`): `listar_cobros` · `ver_cobro` · `crear_link_pago` · `anular_link_pago` · `reembolsar_cobro` · `cancelar_suscripcion` · `ver_moneda_negocio` · `cambiar_moneda_negocio` · `editar_dato_deal` · `editar_obligacion_deal` · `editar_venta_lead` · `editar_cuota` · `crear_link_cuota` · `cortar_recordatorio_cuota` · `baja_del_cliente` · `estado_suscripcion_manual`
-- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako`
+- **MaKo (pendientes, propuestas, chats)** (`mako`): `listar_pendientes` · `confirmar_accion` · `cancelar_accion` · `ver_pendiente` · `listar_propuestas_revisar` · `ver_propuesta_accion` · `resumen_bandejas_confirmacion` · `listar_capacidades_mako` · `que_recomienda_mako` · `decidir_recomendacion`
 
 ## General — `general`
 
@@ -19050,7 +19050,7 @@ curl -L \
 
 ## MaKo (pendientes, propuestas, chats) — `mako`
 
-Tab **Second Brain** (`/second-brain`). 6 lecturas · 0 acciones · 2 controles.
+Tab **Second Brain** (`/second-brain`). 7 lecturas · 1 acciones · 2 controles.
 
 ### `GET /api/v1/mako/pendientes` — Acciones pendientes de confirmar
 
@@ -19222,4 +19222,59 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/mako/capacidades"
+```
+
+### `GET /api/v1/mako/recomendaciones` — Qué recomienda hoy
+
+Lo que conviene hacer HOY en este negocio según sus propios datos: cada recomendación dice qué hacer, qué cambia, el porqué con el número medido (respuestas por WhatsApp, asistencia a llamadas, ventas perdidas, envíos de automatizaciones, visitas de páginas, objeciones de las conversaciones) y de dónde sale. Trae también lo que se aceptó y ya mejoró, y lo que la persona descartó (con su motivo). Úsala cuando pregunten «¿qué me recomiendas?», «¿qué debería mejorar?» o «¿cómo vengo?». Si viene vacía, no hay nada que valga la pena con los datos de hoy: dilo así y no inventes un consejo. Solo el administrador.
+
+- **Ruta por operación:** `GET /api/v1/mako/que_recomienda_mako`
+- **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pantalla` | string (ops-center \\| automations \\| offer \\| landing \\| whatsapp) | no | de qué pantalla: ops-center (todo el negocio), automations, offer, landing o whatsapp. Sin ella, todo el negocio. |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/mako/recomendaciones"
+```
+
+### `POST /api/v1/mako/recomendaciones/decisiones` — Decidir sobre una recomendación
+
+PROPONE anotar lo que la persona decidió sobre una recomendación de que_recomienda_mako (queda pendiente hasta el «sí»): hecha (lo hizo o lo va a hacer: MaKo mide después si cambió), ahora-no (la calla 14 días), no-aplica (no vuelve más; con el motivo, MaKo aprende y no la repite con otras palabras) o reabierta (deshace un descarte). La clave sale de que_recomienda_mako (de recomendaciones o de descartadas). Vale para todo el equipo. Solo el administrador.
+
+- **Ruta por operación:** `POST /api/v1/mako/decidir_recomendacion`
+- **Token detallado:** permiso `mako=write` (Lectura y escritura en «MaKo (pendientes, propuestas, chats)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la memoria de recomendaciones del negocio (qué se aceptó o descartó, y por qué)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `clave` | string | sí | la clave de la recomendación, tal cual vino de que_recomienda_mako. |
+| `decision` | string (hecha \\| ahora-no \\| no-aplica \\| reabierta) | sí | hecha, ahora-no, no-aplica o reabierta. |
+| `motivo` | string | no | por qué no aplica, con las palabras de la persona («ya lo hago a mano», «esa página es de prueba»). |
+| `pantalla` | string (ops-center \\| automations \\| offer \\| landing \\| whatsapp) | no | la pantalla de la que vino (la misma que se le pasó a que_recomienda_mako). Sin ella, todo el negocio. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/mako/recomendaciones/decisiones" \
+  -d '{"clave":"CLAVE","decision":"hecha"}'
 ```
