@@ -139,8 +139,8 @@ export default async function IntegracionesPage() {
 
   return (
     <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'integraciones')} activa="integraciones" amplio>
-    {/* Sin «WhatsApp» (24/10/2026): salió del catálogo el 09/10 y la bajada lo seguía nombrando. */}
-    <TituloAjustes titulo="Integraciones" bajada="Tu IA, Meta, tu web y todo lo que se conecta a tu negocio." />
+    {/* Sin bajada desde el 25/10/2026 (Settings copiada de Linear: el título y la configuración, docs/settings/referencia.md). */}
+    <TituloAjustes titulo="Integraciones" />
     {/* Su Claude, en su computadora (docs/ia-del-cliente.md §6): arriba, porque sin IA el Ops Center no contesta. Desde el
         24/10/2026 es la tarjeta destacada (el lugar del carrusel de Vercel Marketplace): su estado en una línea, y al tocarla
         el MISMO modal «Tus cuentas de IA» del Ops Center. El bloque entero desplegado era lo más grande de la página. */}

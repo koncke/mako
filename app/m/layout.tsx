@@ -29,6 +29,8 @@ import { TEMA_ANTES_DE_PINTAR } from './_ui/tema';
 import { ARRANQUE_ANTES_DE_PINTAR } from './_ui/entrada';
 import { inicialesM } from './_ui/formato';
 import { leerPerfil } from '@/lib/perfil';
+import { AvisoPruebaM } from './_prueba/PruebaM';
+import { estadoDePrueba } from '@/lib/prueba-uso';
 
 /**
  * El viewport del teléfono. `viewport-fit: cover` es lo que hace que
@@ -64,6 +66,8 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
     ])
     : [{}, null];
   const foto = perfil && !perfil.vista.deOtro ? perfil.perfil.avatarUrl.trim() || null : null;
+  // LA VERSIÓN DE PRUEBA (25/10/2026): una línea arriba de cada pantalla mientras dura (una lectura, cacheada por pedido).
+  const prueba = ctx?.ws != null ? await estadoDePrueba(ctx.ws) : null;
 
   return (
     <div id="m-root" data-m>
@@ -80,6 +84,7 @@ export default async function LayoutMovil({ children }: { children: ReactNode })
         usuario={ctx ? { iniciales: inicialesM(ctx.sesion.nombre, ctx.sesion.email), foto } : null}
         cliente={ctx?.impersonando ? { nombre: ctx.clienteNombre ?? 'Cliente' } : null}
       >
+        {prueba?.enPrueba && <AvisoPruebaM dias={prueba.dias} plan={prueba.plan ?? 'tu plan'} despues={prueba.despues} />}
         {children}
       </ShellM>
     </div>

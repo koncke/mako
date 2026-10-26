@@ -348,11 +348,20 @@ export function analiticaParaApi(id: number, a: Analitica) {
     leads: a.leads30,
     por_dia: a.porDia.map((d) => ({ dia: d.dia, visitas: d.visitas })),
     urls_medidas: a.urls,
+    // Pixel v26 (25/10/2026): qué porcentaje de los visitantes de su página VIO cada sección. null = no medido, nunca 0.
+    alcance_por_seccion: a.alcancePorSeccion
+      ? a.alcancePorSeccion.map((s) => ({ seccion: s.tarjetaId, titulo: s.titulo ?? null, porcentaje: s.pct }))
+      : null,
+    alcance_medido_desde: a.alcanceMedido?.desde ?? null,
+    alcance_visitantes: a.alcanceMedido?.visitantes ?? null,
     nota: a.publicada
-      ? 'Visitas del Pixel de MaKo en los últimos 30 días (sin las pruebas). leads = visitantes de esa página que quedaron como lead en el mismo período. Las fechas van en la zona horaria del negocio.'
+      ? `Visitas del Pixel de MaKo en los últimos 30 días (sin las pruebas). leads = visitantes de esa página que quedaron como lead en el mismo período. Las fechas van en la zona horaria del negocio. ${NOTA_ALCANCE}`
       : 'No está publicada: no hubo página que visitar, así que los ceros son ciertos.',
   };
 }
+
+/** Lo que dice la API del alcance por sección (lo leen ver_analitica_landing y ver_comportamiento_landing). */
+export const NOTA_ALCANCE = 'alcance_por_seccion: el porcentaje de los visitantes de cada página que VIO esa sección (la mitad de la sección o de la pantalla, lo menor, durante 1 segundo), desde alcance_medido_desde. null = todavía no se mide (el Pixel lo mide desde la versión 26, sólo en las páginas del Web Generator), nunca 0.';
 
 export const nombreDeDiseno = (id: string): string | null => DISENOS_LANDING.find((d) => d.id === id)?.nombre ?? null;
 export const nombreDeObjetivo = (id: string): string | null => OBJETIVOS_LANDING.find((o) => o.id === id)?.nombre ?? null;

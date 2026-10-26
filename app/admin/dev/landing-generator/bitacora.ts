@@ -1307,4 +1307,24 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/api-mako',
   },
+  {
+    fecha: '25 oct', hora: '13:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Ya se mide qué sección de tu página ve la gente',
+    pedido: '«Al igual que el Media Buyer AI, que toma desiciones solo, puede haber un Landing AI que haga pruebas A/B, que al detectar si una sección no es vista que haga variaciones, variaciones en el hook, en los copy, etc...»',
+    puntos: [
+      'El primer paso del Landing AI: saber qué sección de la página se ve y cuál no.',
+      'En «Análisis», cada sección muestra qué porcentaje de las personas la vio, desde que se empezó a medir y sobre cuántas personas.',
+      'Cuenta como vista la sección que la persona tuvo a la vista al menos un segundo, aunque sea más alta que la pantalla.',
+      'Lo mide el Pixel de MaKo en las páginas hechas con el Web Generator, sin volver a pegar nada; en el recorrido de cada lead no aparece.',
+      'MaKo lo lee por la API y el análisis de la página lo usa.',
+      'Falta: verlo con visitas reales cuando esto llegue a producción. Después, probar versiones de una sección.',
+    ],
+    archivos: [
+      'lib/landing-token.ts — el Pixel mide las secciones vistas',
+      'lib/editor-landing/alcance-secciones.ts — el porcentaje de cada sección',
+      'app/web-generator/editor/dialogos/DialogoAnalitica.tsx — la sección «Alcance por sección» de Análisis',
+    ],
+    revisar: '/web-generator/32',
+  },
 ];

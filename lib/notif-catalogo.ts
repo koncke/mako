@@ -215,8 +215,47 @@ export const PUSH_TIPOS: AvisoWaDef[] = [...PUSH_DE_MAKO, ...AVISOS_WA_EN_VIVO];
 // escritorio son de admin (adeudos, cuotas con montos, reportes), y el teléfono no los abre más.
 export const PUSH_SOLO_ADMINS: ReadonlySet<string> = new Set(['mako-pendiente', 'mako-propuesta']);
 
-/** `activo` = el interruptor de toda la persona; `items[tipo] === false` apaga uno. */
-export type NotifPush = { activo: boolean; items: Record<string, boolean> };
+/** `activo` = el interruptor de toda la persona; `items[tipo] === false` apaga uno. `silencio` = «No molestar» (abajo). */
+export type NotifPush = { activo: boolean; items: Record<string, boolean>; silencio?: Silencio | null };
+
+/**
+ * «NO MOLESTAR» (25/10/2026, Settings › Notificaciones; el «Notification schedule» de Slack, docs/settings/referencia.md):
+ * un horario en el que a la persona NO le llegan avisos al celular. Horas en medias horas (0 a 23.5), en la zona horaria
+ * de SU perfil. `desde > hasta` cruza la medianoche (22 → 8). Lo que cae adentro no se manda (no se acumula para después:
+ * es lo que hace Slack, y un «se juntaron 14 avisos» a las 8 de la mañana es otro problema).
+ */
+export type Silencio = { desde: number; hasta: number };
+
+/** Lo que se ofrece por defecto al prender «No molestar». */
+export const SILENCIO_SUGERIDO: Silencio = { desde: 22, hasta: 8 };
+
+const esMediaHora = (h: unknown): h is number => typeof h === 'number' && Number.isFinite(h) && h >= 0 && h < 24 && Math.round(h * 2) === h * 2;
+
+/** El silencio guardado, o null si no hay uno válido (una ventana de cero horas no es un silencio). */
+export function normalizarSilencio(raw: unknown): Silencio | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const { desde, hasta } = raw as Partial<Silencio>;
+  if (!esMediaHora(desde) || !esMediaHora(hasta) || desde === hasta) return null;
+  return { desde, hasta };
+}
+
+/** La hora del reloj (con minutos, en fracción) en `tz`. Una zona inválida cae en la de MaKo por defecto (Tijuana). */
+function horaEn(tz: string, ahora: Date): number {
+  const leer = (zona: string) => {
+    const partes = new Intl.DateTimeFormat('en-US', { timeZone: zona, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(ahora);
+    const n = (t: string) => Number(partes.find((p) => p.type === t)?.value ?? 0);
+    return n('hour') + n('minute') / 60;
+  };
+  try { return leer(tz); } catch { return leer('America/Tijuana'); }
+}
+
+/** ¿`ahora` cae en el «No molestar» de esta persona? Sin silencio guardado, nunca. */
+export function enSilencio(prefs: Pick<NotifPush, 'silencio'>, tz: string, ahora: Date = new Date()): boolean {
+  const s = normalizarSilencio(prefs.silencio);
+  if (!s) return false;
+  const h = horaEn(tz || 'America/Tijuana', ahora);
+  return s.desde < s.hasta ? h >= s.desde && h < s.hasta : h >= s.desde || h < s.hasta;
+}
 
 /** El rol con el que se decide el default. Ausente = no se sabe: se trata como admin (abajo). */
 export type RolPush = 'admin' | 'closer' | 'setter';
@@ -244,9 +283,11 @@ export function normalizarPush(raw: unknown, rol: RolPush): NotifPush {
   // Se conservan TODOS los que vinieron como booleano (no sólo los ofrecidos): un aviso que
   // hoy no está en PUSH_TIPOS y la persona apagó cuando sí estaba no vuelve a sonar solo.
   for (const [k, v] of Object.entries(src)) if (typeof v === 'boolean') items[k] = v;
+  const silencio = normalizarSilencio(o.silencio);
   return {
     activo: typeof o.activo === 'boolean' ? o.activo : rol === 'admin',
     items,
+    ...(silencio ? { silencio } : {}),
   };
 }
 

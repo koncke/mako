@@ -211,7 +211,8 @@ test('datos-4: el panel no reenvía una tarjeta que ya salió, y el server topea
   assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, nodo, enRespuesta\)/g) ?? []).length, 2, 'email y «MaKo contesta»');
   assert.equal((panel.match(/mandarReal\(\{(?:[^{}]|\{[^{}]*\})*\}, clave, enRespuesta\)/g) ?? []).length, 3, 'audio, archivo y texto de una parte');
   const arrancar = panel.slice(panel.indexOf('const arrancarRefs = () => {'), panel.indexOf('const reiniciar = (deVerdad = false) => {'));
-  assert.ok(arrancar.length > 0 && arrancar.length < 800, `el recorte de arrancarRefs mide ${arrancar.length}`);
+  // (25/10/2026: 900, con `limpiarBotones()` de los DMs con botones de la prueba.)
+  assert.ok(arrancar.length > 0 && arrancar.length < 900, `el recorte de arrancarRefs mide ${arrancar.length}`);
   assert.match(arrancar, /enviadosReal\.current = new Set\(\);\n\s+turnoLead\.current = 0;/);
   const responder = panel.slice(panel.indexOf('const alResponder = async'), panel.indexOf('async function enviarTexto'));
   assert.match(responder, /^[^\n]*\n\s+cortar\(\);\n\s+turnoLead\.current \+= 1;/, 'el turno del lead sube al escribir');

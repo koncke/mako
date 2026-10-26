@@ -13,7 +13,8 @@ import { requireMovil } from '@/lib/movil-guard';
 import { getCapaActual, getWorkspaceActual, rutaConWs, wsSuperAdmin } from '@/lib/workspace';
 import { RUTA_CONFIG_M } from '@/lib/movil-rutas';
 import { capaDef } from '@/lib/capas';
-import { suscripcionDeMakoDe } from '@/lib/cobros';
+import { inicioDeLaPrueba, suscripcionDeMakoDe } from '@/lib/cobros';
+import { diaDelCobro, esPruebaDePlan } from '@/lib/prueba-plan-reglas';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { EMAIL_MAKO } from '@/lib/app-url';
@@ -29,9 +30,15 @@ export default async function PlanMovil() {
   // La plataforma no tiene un plan de MaKo (el índice no ofrece la sección ahí): un link viejo vuelve al índice.
   if (ws == null || ws === (await wsSuperAdmin())) redirect(await rutaConWs(RUTA_CONFIG_M));
   const [capa, sus] = await Promise.all([getCapaActual(), suscripcionDeMakoDe(ws).catch(() => null)]);
+  // LA PRUEBA GRATIS (25/10/2026): hasta cuándo va y «Empezar mi plan ya», como en la computadora.
+  const enPrueba = !!sus && esPruebaDePlan(sus) && sus.estado === 'pendiente';
+  const hasta = enPrueba ? await inicioDeLaPrueba(sus!).catch(() => null) : null;
   // La pantalla no ve el cobro entero (ni el token, ni los ids del proveedor): sólo lo que dibuja. Igual que escritorio.
   const suscripcion: SuscripcionVisible = sus
-    ? { proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null }
+    ? {
+      proveedor: sus.proveedor, monto: formatoMonto(sus.monto, sus.moneda), cancelada: sus.suscripcion_estado === 'cancelada', baja: esBajaPedida(sus.motivo) ? sus.motivo : null,
+      prueba: enPrueba ? { hasta: hasta ? diaDelCobro(hasta) : 'el fin de la prueba' } : null,
+    }
     : null;
   return (
     <PantallaM>

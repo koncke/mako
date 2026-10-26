@@ -74,6 +74,7 @@ buscar_tareas_plan
 buscar_tutorial
 calificar_decision_media_buyer
 cambiar_animacion_landing
+cambiar_botones_mensaje
 cambiar_curso_al_ganar
 cambiar_duracion_video
 cambiar_espera_paso
@@ -117,6 +118,7 @@ configurar_aviso_whatsapp
 configurar_bloque_general
 configurar_boton_landing
 configurar_formulario_landing
+configurar_horario_envio
 configurar_landing
 configurar_navegacion_landing
 configurar_reporte
@@ -138,6 +140,7 @@ cortar_frase_video
 cortar_recordatorio_cuota
 cortar_tramo_video
 crear_alumno_curso
+crear_automatizacion_con_ia
 crear_borrador_whatsapp_empresa
 crear_broadcast
 crear_categoria_comunidad
@@ -213,12 +216,16 @@ editar_plantilla_meta
 editar_post_comunidad
 editar_texto_guion_anuncio
 editar_venta_lead
+elegir_cuenta_meta
 elegir_formato_creativo_anuncio
+elegir_pagina_meta
+elegir_pixel_meta
 eliminar_broadcast
 eliminar_curso
 eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
+empezar_mi_plan_ya
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -262,6 +269,7 @@ generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
+guardar_criterio_reuniones
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -444,6 +452,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
 programar_broadcast
@@ -510,6 +519,7 @@ renombrar_curso
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
+renombrar_negocio
 requisitos_para_mover
 resaltar_palabras_video
 resolver_confirmacion_crm
@@ -576,9 +586,11 @@ ver_codigo_pixel
 ver_comentarios_clase_comunidad
 ver_comportamiento_landing
 ver_comunidad
+ver_conexion_meta
 ver_configuracion_landing
 ver_contexto_video
 ver_creacion
+ver_criterio_reuniones
 ver_cuadrante_retencion
 ver_cuenta_meta
 ver_cuotas_ia
@@ -605,12 +617,14 @@ ver_ficha_guion
 ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
+ver_horario_envio
 ver_integracion
 ver_integraciones
 ver_landing_creada
 ver_media_buyer
 ver_metricas_video_panda
 ver_mi_plan
+ver_mi_prueba
 ver_miembro_comunidad
 ver_moneda_negocio
 ver_montaje_anuncio

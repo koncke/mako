@@ -80,6 +80,15 @@ export function botonesDe(p: { botones?: unknown } | null | undefined, existe?: 
   return out;
 }
 
+/**
+ * «Espera que toque «Obtener recurso»» / «… «A» o «B»» (25/10/2026): cómo dicen la ficha y la tarjeta del lead que está parado
+ * en un DM hasta que toque (lib/automatizaciones-del-lead-reglas.ts, `botonesQueEspera`).
+ */
+export function textoEsperaToque(titulos: readonly string[]): string {
+  const q = titulos.map((t) => `«${t}»`);
+  return `Espera que toque ${q.length > 1 ? `${q.slice(0, -1).join(', ')} o ${q[q.length - 1]}` : q[0]}`;
+}
+
 /** Los botones que MUEVEN el flujo (sin `url`). */
 export const botonesDeFlujo = (p: { botones?: unknown } | null | undefined): BotonSocial[] => botonesDe(p).filter((b) => !b.url);
 

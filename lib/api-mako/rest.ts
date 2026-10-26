@@ -343,9 +343,11 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/chatbot/onboarding', 'estado_onboarding_chatbot'],
   ['POST', '/chatbot/onboarding/reaperturas', 'reabrir_onboarding_chatbot'],
   ['GET', '/chatbot/secuencias', 'listar_secuencias_nutricion'],
+  ['POST', '/chatbot/secuencias', 'crear_automatizacion_con_ia'],
   ['GET', '/chatbot/secuencias-archivadas', 'listar_secuencias_archivadas'],
   ['DELETE', '/chatbot/secuencias/{secuenciaId}', 'archivar_secuencia'],
   ['GET', '/chatbot/secuencias/{secuenciaId}', 'ficha_secuencia_mensajes'],
+  ['PATCH', '/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}', 'cambiar_botones_mensaje'],
   ['GET', '/chatbot/secuencias/{secuenciaId}/escenarios', 'escenarios_secuencia'],
   ['PUT', '/chatbot/secuencias/{secuenciaId}/activacion', 'proponer_toggle_nutricion'],
   ['POST', '/chatbot/secuencias/{secuenciaId}/escenarios', 'agregar_escenario_secuencia'],
@@ -554,6 +556,9 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // El plan de MaKo del negocio («Tu plan», 15/10/2026): lo que le cobra la plataforma.
   ['GET', '/negocio/plan', 'ver_mi_plan'],
   ['POST', '/negocio/plan/bajas', 'dar_de_baja_mi_plan'],
+  // La prueba gratis (25/10/2026): lo que dice el cartel «Versión de prueba», y «Empezar mi plan ya» (abre el pago desde hoy).
+  ['GET', '/negocio/plan/prueba', 'ver_mi_prueba'],
+  ['POST', '/negocio/plan/prueba/fin', 'empezar_mi_plan_ya'],
   ['GET', '/negocio/onboarding/tabs-pendientes', 'listar_tabs_por_configurar'],
   ['GET', '/negocio/perfil/campos', 'ver_perfil_negocio'],
   ['PATCH', '/negocio/perfil/campos/{key}', 'guardar_campo_perfil'],
@@ -612,10 +617,23 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/integraciones/servicios/{servicio}', 'ver_integracion'],
   ['GET', '/integraciones/servicios/{servicio}/link-configuracion', 'link_configurar_integracion'],
   ['GET', '/integraciones/tabs/{key}/activacion', 'ver_activacion_tab'],
+  // Meta por Zernio (25/10/2026): la conexión de «Conectar con Facebook» es UN recurso (`meta`); elegir cuenta, píxel o
+  // página es reemplazar ese dato (PUT), y la prueba de CAPI es una lectura con el código de «Probar eventos».
+  ['GET', '/integraciones/meta/conexion', 'ver_conexion_meta'],
+  ['PUT', '/integraciones/meta/cuenta', 'elegir_cuenta_meta'],
+  ['PUT', '/integraciones/meta/pixel', 'elegir_pixel_meta'],
+  ['PUT', '/integraciones/meta/pagina', 'elegir_pagina_meta'],
+  ['GET', '/integraciones/meta/prueba-capi', 'probar_capi_meta'],
   // ── equipo ────────────────────────────────────────────────────────────────
   ['GET', '/equipo/negocio', 'ver_workspace'],
   ['GET', '/equipo/negocio/zona-horaria', 'ver_zona_horaria_workspace'],
   ['PUT', '/equipo/negocio/zona-horaria', 'fijar_zona_horaria_workspace'],
+  // Settings por la API (25/10/2026): el nombre, el horario de oficina y el criterio de las reuniones del negocio.
+  ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
+  ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
+  ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
+  ['GET', '/equipo/negocio/criterio-reuniones', 'ver_criterio_reuniones'],
+  ['PUT', '/equipo/negocio/criterio-reuniones', 'guardar_criterio_reuniones'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],

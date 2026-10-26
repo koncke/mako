@@ -148,11 +148,15 @@ test('«Notificaciones» UNA vez: ningún nombre se repite en el índice, y la d
   assert.deepEqual(nombres.filter((n, i) => nombres.indexOf(n) !== i), [], 'un nombre repetido en el índice');
   const claves = indice.map((s) => s.key);
   assert.deepEqual(claves.filter((k, i) => claves.indexOf(k) !== i), [], 'dos secciones con la misma clave se marcan juntas');
-  // La página de tu cuenta muestra lo del negocio a quien lo administra, en `#negocio`.
+  // La página de tu cuenta muestra lo del negocio (los canales WhatsApp y Email) a quien lo administra (25/10/2026: los canales
+  // de Linear, app/perfil/NotificacionesPanel.tsx).
   const cuenta = sinComentarios(leer('app/perfil/notificaciones/page.tsx'));
   assert.match(cuenta, /const admin = rol === 'admin';/);
-  assert.match(cuenta, /\{admin && \(\s*<ApartadoAjustes id="negocio"[\s\S]*?<NotificacionesPanel parte="negocio" \/>/);
+  assert.match(cuenta, /<NotificacionesPanel canal=\{canalDeUrl\(sp\.canal\)\} admin=\{admin\} /);
+  const panel = sinComentarios(leer('app/perfil/NotificacionesPanel.tsx'));
+  assert.match(panel, /\{admin && <FilaAjustes icono="whatsapp"/, 'WhatsApp del negocio a cualquiera del equipo');
+  assert.match(panel, /\{admin && <FilaAjustes icono="email"/, 'Email del negocio a cualquiera del equipo');
   // Y la ruta vieja (ahí caen los avisos con `?tab=notif`) redirige ahí, con el `?ws=` del cliente, después del guard del negocio.
   const vieja = sinComentarios(leer('app/configuraciones/notificaciones/page.tsx'));
-  assert.match(vieja, /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);\s*redirect\(`\$\{conLaQuery\('\/perfil\/notificaciones', await searchParams\)\}#negocio`\);/);
+  assert.match(vieja, /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);\s*redirect\(conLaQuery\('\/perfil\/notificaciones', await searchParams\)\);/);
 });

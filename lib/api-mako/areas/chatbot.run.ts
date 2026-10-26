@@ -20,6 +20,8 @@ import { motivoNoInscribe, motivoNoSale, SALIDAS_QUE_YA_ESTABAN } from '@/lib/nu
 import { sacarDeSecuencia, type SalidaManual } from '@/lib/nutricion-salida-manual';
 import { esPasoAccion } from '@/lib/nutricion-paso-accion';
 import { claseDe, idDe, siguienteDe, raizRespuesta, esPasoIA, medioDe, juntarPasosIA, nodoPorId, type PasoGrafo } from '@/lib/flujo-grafo';
+import { botonesDe } from '@/lib/botones-social';
+import { botonesParaGuardar, type BotonPedido } from '@/lib/botones-api';
 import { libertadDeCaso, ROTULO_LIBERTAD } from '@/lib/ai-step-libertad';
 import { libertadDeLoDemas } from '@/lib/ai-step-armar';
 import { esLineal, esNodoDeControl, relinear, tieneTarjetasDeControl, agregarCasoAlGrafo } from '@/lib/nutricion-grafo-motor';
@@ -153,6 +155,8 @@ function cambioDeConfigDelInput(input: Record<string, unknown>): { cambio: Recor
   return { cambio, resumen: partes.join(' · ') };
 }
 
+/** Lo que tiene el modelo para crear con IA por /api/v1, que corta a 60 s (`crear_automatizacion_con_ia`). */
+const PLAZO_CREAR_HTTP_MS = 40_000;
 const noExiste = (id: number) => `No existe la secuencia #${id} vigente en este negocio (puede estar archivada). Pide el id con listar_secuencias_nutricion.`;
 
 /** Los pasos con el audio puesto (o sacado) en el paso `orden`: lo mismo en la propuesta y en el «sí». */
@@ -354,6 +358,8 @@ export const RUNNERS: Runners = {
           // espejo de la PRIMERA parte; sin esto, quien lee la ficha creía que el paso era sólo eso.
           ...(partesExplicitas(p) ? { partes: partesExplicitas(p) } : {}),
           revisar: p.revisar ?? null, siguiente: siguienteDe(pasos, i),
+          // LOS BOTONES de un DM (25/10/2026): «sigue» es la tarjeta a la que lleva el toque, por el puerto «btn:<id>».
+          ...(botonesDe(p).length ? { botones: botonesDe(p).map((b) => (b.url ? { id: b.id, titulo: b.titulo, link: b.url } : { id: b.id, titulo: b.titulo, puerto: `btn:${b.id}`, sigue: b.siguiente ?? null })) } : {}),
           sin_terminar: RX_RELLENO.test(p.cuerpo) || RX_RELLENO.test(p.asunto ?? ''),
         })),
         estrategia: s.estrategia,
@@ -362,6 +368,7 @@ export const RUNNERS: Runners = {
         notas: [
           'Un «Si responde» con paso_ia=true es un AI Step: UN AI Step por medio, con un objetivo y sus escenarios adentro (hasta 10). Contesta cuando el lead escribe, hasta lograr el objetivo. Cada escenario dice cuándo entra (cuando), cómo responde (responder; null = no contesta) y su libertad: avisa (sólo te avisa), aprueba (deja la respuesta para aprobar y te avisa) o sola (sale sola, nunca si habla de plata). lo_demas es lo que pasa con lo que no encaja en ningún escenario: avisa o aprueba. Un escenario nuevo entra con agregar_escenario_secuencia.',
           'Un paso con sin_terminar=true no sale nunca: el motor lo reprograma cada 24 h.',
+          'Un mensaje de Instagram o Messenger puede llevar botones (hasta 3): uno con «sigue» lleva a esa tarjeta cuando el lead lo toca (aunque sea una de antes); uno con «link» abre esa dirección. Un mensaje con botones de «sigue» y sin siguiente espera el toque. Se cambian con cambiar_botones_mensaje.',
           'Los [tu link …] salen literales al lead: nada los reemplaza.',
           'activa=true no garantiza envíos: mira estado_canal_whatsapp_chatbot.',
         ],
@@ -577,6 +584,8 @@ export const RUNNERS: Runners = {
           ...(vivas.has(Number(f.secuencia_id)) ? {
             paso: vivas.get(Number(f.secuencia_id))!.paso?.titulo ?? null,
             automatizacion_pausada: !vivas.get(Number(f.secuencia_id))!.automatizacionActiva,
+            // Parado en un DM con botones, esperando que toque uno (25/10/2026): los títulos.
+            ...(vivas.get(Number(f.secuencia_id))!.esperaToque?.length ? { espera_toque: vivas.get(Number(f.secuencia_id))!.esperaToque } : {}),
           } : {}),
           desenlace: f.desenlace, desenlace_at: f.desenlace_at, inscripto: f.inscripto_at,
         })),
@@ -655,9 +664,12 @@ export const RUNNERS: Runners = {
     },
     ejecutar: async (payload, ctx) => {
       // 170 s: el turno del doer corre en un `after()` con `maxDuration` 300 y ya gastó lo suyo. El chat de la fila nueva
-      // dice por dónde llegó el pedido (`via`).
+      // dice por dónde llegó el pedido (`via`). POR HTTP (25/10/2026, el Cerebro: «todo MaKo se debe poder utilizar por API»,
+      // y Leandro arma con su Claude) la ruta corta a 60 s: 40 para el modelo y el resto para escribir. Cada intento se acota
+      // a lo que queda (`hastaMs`), y si no alcanza vuelve un error sin haber escrito nada.
       const via = ctx.canal === 'whatsapp' ? 'whatsapp' : 'app';
-      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs: 170_000, respuestas: sanearRespuestas(payload.respuestas), via });
+      const plazoMs = ctx.canal === 'http' ? PLAZO_CREAR_HTTP_MS : 170_000;
+      const r = await crearFlujoConIA({ ws: ctx.ws, pedido: String(payload.pedido ?? ''), plazoMs, respuestas: sanearRespuestas(payload.respuestas), via });
       // Algo cambió entre proponer y confirmar (o preguntó el modelo): la pregunta vuelve a la persona, numerada.
       if (!r.ok && 'pregunta' in r) return { ok: false, resumen: preguntaParaWhatsApp(r.pregunta) };
       if (!r.ok) return { ok: false, resumen: r.error, ...(r.link ? { paraLaPersona: `${r.error} 👉 ${linkApp(r.link, ctx.ws)}` } : {}) };
@@ -1332,6 +1344,35 @@ export const RUNNERS: Runners = {
         throw e;
       }
       return { ok: true, resumen: `Pasos de la secuencia #${id} guardados.` };
+    },
+  },
+
+  // Los botones de un DM (25/10/2026; la def explica el porqué). Lo que se sabe sin escribir lo decide `botonesParaGuardar`
+  // (lib/botones-api.ts, puro y con test); se guarda por la misma puerta que editar_pasos (`publicarPasos`).
+  cambiar_botones_mensaje: {
+    preparar: async (input) => {
+      const id = num(input, 'secuenciaId');
+      const s = await secuenciaVigente(id);
+      if (!s) return { error: noExiste(id) };
+      // Sin «botones», se quedan los que hay ([] los saca); sin «texto», el texto (25/10: el texto de un DM, por la API).
+      const lista = Array.isArray(input.botones) ? (input.botones as BotonPedido[]) : null;
+      const nuevoTexto = typeof input.texto === 'string' ? input.texto : undefined;
+      if (!lista && nuevoTexto === undefined) return { error: 'Pasa los botones ([] los saca), el texto o los dos.', faltan: ['botones'] };
+      const r = botonesParaGuardar(s.pasos as PasoGrafo[], str(input, 'tarjeta'), lista, String(s.nombre ?? ''), nuevoTexto);
+      if (!r.ok) return { error: r.error };
+      return { payload: { secuenciaId: id, pasos: r.pasos }, resumen: r.resumen };
+    },
+    ejecutar: async (payload) => {
+      const id = Number(payload.secuenciaId);
+      if (!(await secuenciaVigente(id))) return { ok: false, resumen: 'La automatización ya no existe o se archivó.' };
+      try {
+        await publicarPasos(id, payload.pasos as PasoSecuencia[]);
+      } catch (e) {
+        if (e instanceof DuplicadaError) return { ok: false, resumen: `No guardé el mensaje de la automatización #${id}: ${e.message}.` };
+        if (e instanceof PasosInvalidosError) return { ok: false, resumen: e.message };
+        throw e;
+      }
+      return { ok: true, resumen: `Mensaje de Instagram de la automatización #${id} guardado.` };
     },
   },
 

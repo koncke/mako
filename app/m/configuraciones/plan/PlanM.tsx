@@ -12,7 +12,7 @@ import { useState } from 'react';
 import { Button } from '@/app/_ui/Button';
 import { useRouter } from '@/app/_ui/Link';
 import { haptico } from '@/lib/haptico';
-import { darmeDeBajaAction } from '@/app/configuraciones/plan/actions';
+import { darmeDeBajaAction, empezarPlanYaAction } from '@/app/configuraciones/plan/actions';
 import type { SuscripcionVisible } from '@/app/configuraciones/plan/PlanPanel';
 import { FilaM, ListaM, PieM, PildoraM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 
@@ -22,8 +22,19 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
   const [corriendo, setCorriendo] = useState(false);
   const [aviso, setAviso] = useState<{ ok: boolean; texto: string } | null>(null);
 
+  const enPrueba = !!suscripcion?.prueba;
   const estado: { texto: string; tono: TonoPildora } | null = !suscripcion ? null
-    : suscripcion.cancelada ? { texto: 'De baja', tono: 'warn' } : suscripcion.baja ? { texto: 'Baja pedida', tono: 'warn' } : { texto: 'Activo', tono: 'good' };
+    : suscripcion.cancelada ? { texto: 'De baja', tono: 'warn' } : suscripcion.baja ? { texto: 'Baja pedida', tono: 'warn' }
+      : enPrueba ? { texto: 'En prueba', tono: 'good' } : { texto: 'Activo', tono: 'good' };
+
+  // «Empezar mi plan ya» (25/10/2026): abre el pago desde hoy; la prueba se cancela recién cuando ese pago entra.
+  const empezarYa = async () => {
+    if (corriendo) return;
+    setCorriendo(true); setAviso(null);
+    const r = await empezarPlanYaAction().catch(() => ({ ok: false as const, resumen: 'No pudimos abrir el pago. Prueba otra vez.' }));
+    if (r.ok) { window.location.href = r.link; return; }
+    haptico('error'); setAviso({ ok: false, texto: r.resumen }); setCorriendo(false);
+  };
   const puedeDarseDeBaja = !!suscripcion && !suscripcion.cancelada && !suscripcion.baja && !aviso?.ok;
   const esStripe = suscripcion?.proveedor === 'stripe';
 
@@ -39,8 +50,13 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
   return (
     <>
       <ListaM>
-        <FilaM icono="tag" titulo={plan} segunda={suscripcion ? `${suscripcion.monto} por mes` : 'Acordado con MaKo'}
+        <FilaM icono="tag" titulo={plan}
+          segunda={!suscripcion ? 'Acordado con MaKo' : enPrueba ? `Prueba gratis hasta el ${suscripcion.prueba!.hasta}: ese día se cobra ${suscripcion.monto}.` : `${suscripcion.monto} por mes`}
           pill={estado ? <PildoraM tono={estado.tono}>{estado.texto}</PildoraM> : undefined} />
+        {enPrueba && puedeDarseDeBaja && (
+          <FilaM icono="tag" titulo="Empezar mi plan ya" segunda={`Pagas ${suscripcion!.monto} desde hoy, sin los topes de la prueba.`}
+            onClick={() => { void empezarYa(); }} />
+        )}
         {suscripcion?.baja && <FilaM icono="notepencil" titulo="Tu baja" segunda={suscripcion.baja} />}
       </ListaM>
       {!suscripcion && (
@@ -51,16 +67,18 @@ export function PlanM({ plan, suscripcion, emailMako }: { plan: string; suscripc
       {puedeDarseDeBaja && (
         <ListaM>
           <FilaM titulo={<span className="m-configuraciones-rojo">Darme de baja</span>}
-            segunda={esStripe ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
+            segunda={enPrueba ? 'No se te cobra nada.' : esStripe ? 'Lo sigues usando hasta el fin del mes pagado.' : 'Mercado Pago deja de cobrarlo desde ya.'}
             onClick={() => setPreguntar(true)} />
         </ListaM>
       )}
       <SheetM id="baja" abierto={preguntar} onCerrar={() => setPreguntar(false)} ocupado={corriendo} titulo="¿Darte de baja?"
         rotuloCerrar="Seguir con mi plan"
         pie={(
-          <PieM consecuencia={esStripe
-            ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
-            : 'Mercado Pago deja de cobrarlo desde ya. No se puede deshacer.'}>
+          <PieM consecuencia={enPrueba
+            ? `No se te cobra nada, y sigues usando MaKo hasta el ${suscripcion!.prueba!.hasta}. No se puede deshacer.`
+            : esStripe
+              ? 'No se te cobra el mes siguiente, y sigues usando MaKo hasta el fin del mes pagado.'
+              : 'Mercado Pago deja de cobrarlo desde ya. No se puede deshacer.'}>
             <Button variant="danger" size="lg" full loading={corriendo} onClick={() => { void darmeDeBaja(); }}>Darme de baja</Button>
           </PieM>
         )} />

@@ -341,6 +341,31 @@ título o descripción nombran palabras del mensaje. Es un orden, no un filtro.
 
 ---
 
+## ⚠️ Una operación nueva le saca el lugar a otra por un EMPATE de palabras, no sólo por su tamaño (25/10/2026)
+
+**Síntoma.** `tests/ops-center-clasificador-app` en rojo: «Cambiá el segundo mensaje de la automatización de bienvenida…» ya
+no traía `editar_pasos_secuencia_mensajes`, y «Hacé que la automatización de reactivación salga todos los martes a las 15»
+no traía `cambiar_crons_secuencia`. La que entraba en su lugar era la nueva, `cambiar_botones_mensaje`.
+
+**El diagnóstico obvio («achicar lo que creció») arreglaba una sola.** Medido con una sonda en `toolsDelRegistro`:
+- En la primera, la app busca en todo (`registroParaLaApp`) y las áreas nombradas tienen el 75 %, 9.000. Botones, CRON y
+  editar_pasos sumaban 9.016: faltaban 16 caracteres.
+- En la segunda (una pasada de 12.000), botones EMPATABA en 2 puntos con `cambiar_crons_secuencia` por dos palabras sueltas
+  de su descripción: «automatización» y «flujo» (esta, de la pista del clasificador «crear automatizacion con ia flujo
+  pedido»). A igual puntaje gana la declarada antes, y botones está antes en chatbot.def.ts. Con ella adelante, el CRON
+  (4.114) no entraba. Achicar no alcanzaba: había que sacar el empate.
+- El commit señalado (3a443b08f) no fue el primero: su padre fallaba igual. Empezó con la operación misma (b3ef516f9).
+
+**La regla.** Una operación nueva se mide con las frases de `tests/ops-center-clasificador-app` ANTES de entregar. Su
+descripción dice de entrada para qué sirve SÓLO ella («SÓLO para un DM de Instagram o Messenger (los demás mensajes, con
+editar_pasos_secuencia_mensajes)») y no repite las palabras que tienen todas las del área («automatización», «flujo»,
+«WhatsApp»): cada una es un punto que la sube por encima de la que se pidió. El presupuesto no se sube: es el techo de Groq.
+
+**Vive en:** `lib/api-mako/registro.ts` (`ordenarPorRelevancia`: el empate lo decide el orden de declaración) ·
+`lib/relevancia-app.ts` (`registroParaLaApp`, el 75 %) · `lib/api-mako/areas/chatbot.def.ts` · `tests/api-mako-botones.test.ts`
+
+---
+
 ## ⚠️ Un aviso de «la lib corta en 1000» se vuelve mentira —o candado— el día que la lib pagina
 
 **El caso (17/09/2026):** la API de MaKo no podía arreglar los truncados de las libs, así que
@@ -2472,3 +2497,33 @@ escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambi
   descripción lo dice, `docs/api-mako.md` está regenerado y el snapshot HTTP queda igual (no se expuso nada nuevo).
   De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
 - Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).
+
+## La guarda de la doc decía «no está en git» con la doc al día: el MEGA de `execFileSync` (25/10/2026)
+
+- **Síntoma:** `node --import tsx scripts/generar-api-doc.mjs --check` (corre en el pre-push y en Actions) dijo
+  «✖ docs/api-mako.md no está en git» con el archivo commiteado y al día.
+- **Causa:** el chequeo lee la versión de HEAD con `execFileSync('git', ['show', 'HEAD:docs/api-mako.md'])`, y el `maxBuffer` por
+  defecto de Node es **1 MB**. La doc pasó 1 MB (1.050.185 bytes) al sumar dos operaciones: `git show` cortó con ENOBUFS, y el
+  `catch` lo leyó como «no está». **El diagnóstico obvio era el equivocado:** no faltaba commitear nada.
+- **La regla:** todo `execFileSync`/`execSync` que lea un archivo generado grande lleva `maxBuffer` explícito (64 MB en este).
+  Cualquier artefacto que crece con el registro (la doc, el snapshot, el plugin) va a cruzar el límite un día, sin aviso.
+
+**Vive en:** scripts/generar-api-doc.mjs. *25/10/2026 · chat «Planes» (claude5), al sumar ver_mi_prueba y empezar_mi_plan_ya.*
+
+## Meta por Zernio en la API: elegir es un PUT, y «le manda» en una descripción se lee como un envío a una persona (25/10/2026)
+
+**Vive en:** `lib/api-mako/areas/integraciones.def.ts` / `.run.ts` (`ver_conexion_meta`, `elegir_cuenta_meta`,
+`elegir_pixel_meta`, `elegir_pagina_meta`, `probar_capi_meta`) · `lib/api-mako/rest.ts` · `tests/zernio-meta.test.ts`
+
+- **El área Integraciones era «sólo estado» por diseño** (guardar o elegir iba por el link a la pantalla). Martín, 25/10: «todo
+  MaKo se debe poder utilizar por API». La excepción es acotada: se eligen ids que la conexión de Facebook YA ve (cuenta,
+  píxel, página), con su «sí»; nunca se pega un secreto. Conectar sigue siendo un clic de una persona: eso es el link.
+- **Una descripción que dice «le manda MaKo las conversiones» hizo caer `tests/confirmacion-terceros.test.ts`**: el guard lee
+  «le manda» como algo que le llega a OTRA persona (y exige `aTerceros`). No era un envío a nadie: se reescribió («el píxel
+  donde quedan registradas las conversiones»). Una acción que de verdad no le escribe a nadie no lleva esos verbos.
+- **Cada operación que sale por HTTP necesita su ruta en `RUTAS_REST`** (y el recurso sale del segundo tramo: `meta`); elegir
+  es reemplazar un dato (PUT), y la prueba de CAPI es una lectura (GET con el código de «Probar eventos», que Meta muestra en
+  esa pestaña y no cuenta en el píxel).
+- Los ids no llevan «zernio» (`tests/sin-instagram.test.ts`).
+
+*25/10/2026, chat «Zernio y CAPI» (`claude5`).*

@@ -6,6 +6,7 @@
 import { requireAiAvatar } from '../acceso';
 import { Pagina, PageHeader } from '@/app/_ui';
 import { Avatares } from '../AiAvatarCliente';
+import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export default async function AvataresPage({ searchParams }: { searchParams: Pro
   return (
     <Pagina>
       <PageHeader titulo="Avatars" proposito="Tu cara, en las escenas que elijas." />
+      <FranjaPrueba cosas={['prueba.imagenes']} />
       <Avatares plantillaInicial={typeof sp.plantilla === 'string' ? sp.plantilla.slice(0, 80) : undefined} />
     </Pagina>
   );

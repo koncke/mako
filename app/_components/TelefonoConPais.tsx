@@ -59,7 +59,7 @@ function opcionesPorLada() {
 
 export function TelefonoConPais({
   lada, numero, onLada, onNumero, onEnter, inputStyle, placeholder = '223 355 0684',
-  portalTo, anchoLada = 128, autoFocus,
+  portalTo, anchoLada = 128, autoFocus, estiloLada,
 }: {
   lada: string;
   numero: string;
@@ -72,6 +72,8 @@ export function TelefonoConPais({
   portalTo?: HTMLElement | null;
   anchoLada?: number;
   autoFocus?: boolean;
+  /** La cara del selector de país (el `buttonStyle` del Dropdown): en Settings, del alto de sus campos (SELECT_AJUSTES). */
+  estiloLada?: CSSProperties;
 }) {
   const opciones = useMemo(opcionesPorLada, []);
 
@@ -95,7 +97,7 @@ export function TelefonoConPais({
           se ven como las dos letras del país ("MX") — bug real reportado. */}
       <Dropdown
         value={lada} onChange={onLada} width={anchoLada} ariaLabel="Código de país" portalTo={portalTo}
-        options={opciones}
+        options={opciones} buttonStyle={estiloLada}
       />
       <input
         style={{ ...inputStyle, flex: 1, minWidth: 0 }}

@@ -28,6 +28,10 @@ import { leerFunnels } from '@/lib/funnels';
 import { rotuloDeFunnels, sanearFunnelIds } from '@/lib/funnels-elegidos';
 import { AVISO_DIAGNOSTICO_VIEJO, PUNTOS_CONTROL, REHACER_DIAGNOSTICO, avisosAfirmables, dimensionLabel } from '@/lib/offer-marco';
 import { EMAIL_MAKO, linkApp } from '@/lib/app-url';
+import { resumenDePrueba } from '@/lib/prueba-uso';
+import { empezarPlanAhora } from '@/lib/empezar-plan';
+import { esPruebaDePlan } from '@/lib/prueba-plan-reglas';
+import { NOMBRE_COSA_PRUEBA } from '@/lib/topes-plan';
 import { darDeBajaMiPlan, suscripcionDeMakoDe } from '@/lib/cobros';
 import { esBajaPedida } from '@/lib/cobros-reglas';
 import { getWorkspace } from '@/lib/workspace';
@@ -202,7 +206,8 @@ export const RUNNERS: Runners = {
       if (!sus) return json({ plan, cobro: 'acordado con MaKo', para_cambiar_o_cancelar: `escribir a ${EMAIL_MAKO}`, link: donde });
       return json({
         plan, cobro: NOMBRE_PASARELA[sus.proveedor], monto_por_mes: formatoMonto(sus.monto, sus.moneda),
-        estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida' : 'activo',
+        estado: sus.suscripcion_estado === 'cancelada' ? 'dado de baja' : esBajaPedida(sus.motivo) ? 'baja pedida'
+          : esPruebaDePlan(sus) && sus.estado === 'pendiente' ? 'en prueba gratis (ver_mi_prueba)' : 'activo',
         ...(esBajaPedida(sus.motivo) ? { baja: sus.motivo } : {}),
         para_darse_de_baja: 'dar_de_baja_mi_plan, o el botón «Darme de baja» de Tu plan',
         link: donde,
@@ -217,12 +222,42 @@ export const RUNNERS: Runners = {
       if (!sus) return { error: `El plan de este negocio no se cobra por la pasarela: para darlo de baja hay que escribir a ${EMAIL_MAKO}.` };
       if (sus.suscripcion_estado === 'cancelada') return { error: 'El plan ya estaba dado de baja.', yaEstaba: true };
       if (esBajaPedida(sus.motivo)) return { error: sus.motivo ?? 'La baja ya estaba pedida.', yaEstaba: true };
-      const como = sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
+      const como = esPruebaDePlan(sus) && sus.estado === 'pendiente'
+        ? 'Está en su prueba gratis: no se le cobra nada, y sigue usando MaKo hasta el día que iba a cobrarse.'
+        : sus.proveedor === 'stripe' ? 'Deja de cobrarse al final del mes pagado, y se sigue usando hasta entonces.' : 'Mercado Pago deja de cobrarlo en el acto.';
       return { payload: {}, resumen: `Dar de baja el plan de MaKo (${formatoMonto(sus.monto, sus.moneda)} por mes, por ${NOMBRE_PASARELA[sus.proveedor]}). ${como}` };
     }),
     ejecutar: sinLanzar(async (_payload, ctx) => {
       const r = await darDeBajaMiPlan(ctx.ws, ctx.actor?.trim() || 'MaKo');
       return r.ok ? { ok: true, resumen: r.resumen, datos: { codigo: r.codigo } } : { ok: false, resumen: r.resumen };
+    }),
+  },
+
+  // La prueba gratis (25/10/2026): lo mismo que el cartel «Versión de prueba» y la franja de cada tope.
+  ver_mi_prueba: {
+    leer: async (_input, ctx) => {
+      const r = await resumenDePrueba(ctx.ws);
+      const link = linkApp('/configuraciones/plan', ctx.ws);
+      if (!r.enPrueba) return json({ en_prueba: false, link });
+      return json({
+        en_prueba: true, dias_que_quedan: r.dias, primer_cobro: r.hasta, plan: r.plan, al_terminar_se_cobra: r.despues,
+        usos: r.usos.map((u) => ({ que: NOMBRE_COSA_PRUEBA[u.tope][1], usado: u.usado, de: u.de })),
+        exportar_en_masa: 'se habilita con el primer cobro',
+        para_empezar_ya: 'empezar_mi_plan_ya', para_cancelar_sin_cobro: 'dar_de_baja_mi_plan', link,
+      });
+    },
+  },
+
+  // «Empezar mi plan ya» (25/10/2026): la misma función que el botón de Tu plan (lib/empezar-plan.ts).
+  empezar_mi_plan_ya: {
+    preparar: seguro(async (_input, ctx) => {
+      const r = await resumenDePrueba(ctx.ws);
+      if (!r.enPrueba) return { error: 'Este negocio no está en su prueba gratis: su plan ya se cobra solo.' };
+      return { payload: {}, resumen: `Empezar ${r.plan} desde hoy${r.despues ? ` (${r.despues})` : ''}: se abre el pago, y la prueba se cancela cuando ese pago entre.` };
+    }),
+    ejecutar: sinLanzar(async (_payload, ctx) => {
+      const r = await empezarPlanAhora(ctx.ws, ctx.actor?.trim() || 'MaKo');
+      return r.ok ? { ok: true, resumen: `Listo: el pago está abierto. Para pagarlo: ${r.link}`, datos: { link: r.link } } : { ok: false, resumen: r.resumen };
     }),
   },
 

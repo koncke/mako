@@ -611,6 +611,58 @@ no puedan contradecirse.
 (`getTrackingEvents`) · `app/crm/lead-view/TrackingTimelineCard.tsx` ·
 `tests/landing-snippet-emitido.test.ts`
 
+### Qué sección se ve (snippet v26, 25/10/2026): el primer paso del Landing AI
+
+Martín, 25/10: «al detectar si una sección no es vista que haga variaciones». Diseño: docs/diseno-pruebas-ab.md, L1. Donde
+el diseño y la crítica chocan, manda la crítica (Anexo 2 §C). El Pixel v26 manda UN evento acumulado, `secciones`, con los
+ids de las secciones vistas en `detalle`. `alcancePorSeccion` (la pantalla «Análisis», `ver_analitica_landing` y el Landing
+Analyst) sale de ahí: lib/editor-landing/alcance-secciones.ts.
+
+- **Una sección de «Diseño editable» no tiene caja.** Va en `.gm-libre-seccion` con `display: contents`: un observador de
+  esa `div` nunca la ve en pantalla. Se mide la unión de sus HIJOS. Las 9 landings publicadas del ws9 son todas de ese tipo
+  (9 secciones cada una), así que sin esto no se medía ninguna.
+- **«La mitad de la sección» sola no cuenta nunca una sección más alta que dos pantallas.** Vista = la mitad de la sección O
+  de la pantalla, lo que sea menor, durante 1 s (el segundo se confirma con otra mirada al cumplirse).
+- **Un evento por sección rompía el techo.** Eran hasta 30 por visita, cuando el techo era scroll (4 + cierre) y clics (40).
+  Es UNO acumulado, que sale en los hitos del scroll y al irse, sólo con ids nuevos: 8 por visita como mucho.
+- **`getTrackingEvents` corta con `.limit` en la BASE, antes de filtrar en JS.** Con sólo no dejarlo pasar en el filtro, cada
+  fila de `secciones` le quitaba lugar a un clic o a un play de la ficha del lead. Se saca en la consulta, con
+  `.or('tipo_evento.is.null,tipo_evento.neq.secciones')`: un `neq` solo también tira las filas viejas sin tipo (NULL).
+- **La cuenta se hace desde el primer evento `secciones`, y por página.** Con la ventana de 30 días sola, los visitantes de
+  antes de la v26 entraban al denominador sin haber podido mandar nada, y el alcance salía bajo sin serlo. Una sección de
+  «precios» se divide por quien entró a «precios». Sin eventos, null («No medido»), nunca 0.
+- **⚠️ El diagnóstico obvio era el equivocado: la FOTO publicada no tiene el documento, tiene el HTML.** `publicado.paginas[]`
+  guarda `{ html, ruta, titulo }` ya dibujado. Recorrerla como `doc.content` daba 0 secciones en las 9 landings, sin un
+  error. Las secciones y sus títulos salen de ese HTML (`section.gm-tarjeta#t-<id>` y `div.gm-libre-seccion[data-seccion]`,
+  con la clase exigida: un `data-seccion` adentro de un diseño no es una sección).
+- **Trampas del snippet:**
+  - **Una comilla invertida en un COMENTARIO del snippet cierra el template literal.** El test que lee el texto emitido
+    siguió pasando: recortaba hasta donde podía. Sólo lo vio pixel-cargador, que compila el Pixel. La regla YA estaba en
+    AGENTS.md («adentro de un template literal no va NINGÚN backtick») y se rompió igual escribiendo un comentario: un test
+    exige ahora que el bloque no tenga ninguna. Una regla escrita sin guarda no frena a nadie.
+  - El primer `addEventListener('scroll'` del snippet es el que mira el test del scroll: un bloque nuevo va DESPUÉS.
+- **Cómo se probó sin tocar producción.** Chrome sin ventana sobre el HTML que sirve hola-mako.site para la #32 y sobre una
+  página de bloques dibujada por `htmlDePagina` (lo mismo que guarda «Publicar»):
+  - **pausado:** 9 de 9 y 5 de 5, con la sección de tres pantallas incluida;
+  - **rápido:** las que pasaron en menos de 1 s no cuentan.
+  - Dos trampas del arnés:
+    - la página publicada trae una **CSP con hashes** que sólo deja correr sus scripts y los de hola-mako.com: el Pixel de
+      la rama no corre hasta sacarla en la copia local;
+    - con `keepalive`, `Fetch.requestPaused` de CDP **no entrega el cuerpo del POST**: el beacon se captura envolviendo
+      `fetch` en la página.
+
+Lo que quedó SIN hacer:
+- **La aceptación con datos de producción** («Análisis» de la #32 con su % por sección, y un evento real en `vsl_events`):
+  cuando despliegue. Hoy no hay ninguna página de BLOQUES publicada en el ws9, ni landings publicadas de otros negocios.
+- Las mismas 8 landings se sirven también en hola-mako.com/vsl/<slug> (ISR). Esos eventos no entran a `urlsAMedir`, que sólo
+  mira hola-mako.site.
+- Un dominio propio todavía no se resuelve en el Landing Analyst (`alcanceDeLandingPorUrl` busca por slug en hola-mako.site).
+- Los clics por sección (el `sel` corta en el primer id que encuentra) y la profundidad del video atribuida por página: L3.
+
+**Vive en:** `lib/landing-token.ts` (bloque SECCIONES, v26) · `app/api/track/vsl/route.ts` (`CONOCIDOS`) · `lib/leads.ts`
+(`getTrackingEvents`) · `lib/editor-landing/alcance-secciones.ts` · `lib/editor-landing/server.ts` (`analitica`,
+`alcanceDeLanding`) · `lib/landing-analyst.ts` · `tests/alcance-secciones.test.ts` · `tests/landing-snippet-emitido.test.ts`
+
 ## Retención del VSL
 
 ### ⚠️ Un video puede tener TRES identidades, y ninguna pantalla lo dice

@@ -18,7 +18,8 @@
 //   1. un timeout va a otro modelo de la misma key, y si no queda, al MISMO una vez por turno;
 //   2. los reintentos tienen plazo (100 s por proveedor en WhatsApp); el primer pedido de cada paso, no;
 //   3. nunca un respaldo de la plataforma: todo sale de las keys del negocio;
-//   4. el cartel `ia_lenta` dice qué IA tardó, que lo cortamos, que lo mande de nuevo y qué IA suya le da respaldo;
+//   4. el cartel `ia_lenta` dice qué IA tardó, que lo cortamos, que lo mande de nuevo y qué IA suya le da respaldo (su GPT;
+//      nunca su Gemini, Martín 25/10/2026: con su GPT lento no hay otra que ofrecerle);
 //   5. un cartel nombra lo que el turno dejó esperando un «sí» (nada por detrás).
 //
 // Correr: node --import tsx --test tests/doer-timeout-gemini.test.ts
@@ -143,7 +144,7 @@ test('⚠️ EL DOER: plazo POR PROVEEDOR, la segunda cuenta del mismo no arranc
 
 test('El cartel del doer se elige y se escribe con los errores DEL NEGOCIO', () => {
   // `cartel` desde el arreglo del cartel sin IA (24/10/2026, `cartelDelFallo`): la misma causa, y la fila del vigía.
-  assert.match(DOER, /textoFalloIA\(cartel, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA\)/,
+  assert.match(DOER, /textoFalloIA\(cartel, linkKeysIA\(APP_URL\), eraDePlan \? 'armar el borrador' : 'contestar', nKeys, errsIA[,)]/,
     'el cartel no recibe los errores: `ia_lenta` no puede decir qué IA tardó');
 });
 
@@ -167,21 +168,22 @@ test('El cartel dice qué IA tardó, que lo cortamos, que lo mande de nuevo, y q
   assert.match(t, /Gemini, tu IA, tardó demasiado/, `no dice qué IA tardó: ${t}`);
   assert.match(t, /corté para no dejarte esperando/, 'no dice que lo cortamos nosotros (nada por detrás)');
   assert.match(t, /Mándamelo de nuevo/);
-  assert.match(t, /otra IA tuya \(tu GPT\)/, `no le dice qué IA suya le da respaldo: ${t}`);
+  assert.match(t, /Si conectas también tu GPT \(una clave de OpenAI\)/, `no le dice qué IA suya le da respaldo: ${t}`);
   // ⚠️ Su Claude no entra en un turno que ya corrió herramientas (WA1): ofrecérselo es prometer un respaldo que no está.
   assert.ok(!/Claude/.test(t), `le ofrece Claude de respaldo de un turno con herramientas: ${t}`);
-  // El link abre el modal de la que se le sugiere, no el de Claude que arma `linkKeysIA`.
+  // El link abre el modal de la que se le sugiere: su GPT, ni su Claude ni otra Gemini.
   const LINK_GPT = 'https://hola-mako.com/integraciones?abrir=openai';
-  assert.ok(t.includes(LINK_GPT) && !t.includes(LINK), `el link no abre su GPT: ${t}`);
+  assert.ok(t.includes(LINK_GPT) && !/abrir=(anthropic|gemini)/.test(t), `el link no abre su GPT: ${t}`);
   assert.ok(!/se cayó|carga una segunda|son gratis/i.test(t), `volvió el texto de una sola key: ${t}`);
   assert.deepEqual(marcasDeVoseo(t), [], 'voseo en el cartel');
   assert.ok(t.replace(LINK_GPT, '').length <= 260, `el cartel se alargó: ${t.length} caracteres`);
-  // Con GPT lento, el respaldo es su Gemini, y el link abre el de Gemini.
+  // Con GPT lento no hay otra que ofrecerle (25/10/2026: decía «(tu Gemini)» con `?abrir=gemini`, y Gemini no se ofrece).
   const gpt = textoFalloIA('ia_lenta', LINK, 'contestar', 1, ['chatCheapTools(openai): The operation was aborted due to timeout']);
-  assert.ok(/GPT, tu IA, tardó/.test(gpt) && /\(tu Gemini\)/.test(gpt) && gpt.includes('?abrir=gemini'), gpt);
+  assert.ok(/GPT, tu IA, tardó/.test(gpt) && /Mándamelo de nuevo en un rato/.test(gpt), gpt);
+  assert.ok(!/gemini|\/integraciones|también tu/i.test(gpt), `con su GPT lento le ofrece otra IA: ${gpt}`);
   // Para un audio, Claude no escucha: no se lo ofrece.
   const a = textoFalloIA('ia_lenta', LINK, 'escuchar tu audio', 1, ['gemini: The operation was aborted due to timeout']);
-  assert.match(a, /\(tu GPT\)/);
+  assert.match(a, /también tu GPT/);
   assert.ok(!/Claude/.test(a), `le ofrece Claude para escuchar un audio: ${a}`);
   // Con IA de dos marcas ya tiene respaldo: no se le pide nada.
   const dos = textoFalloIA('ia_lenta', LINK, 'contestar', 2, [ERR_WS15, 'chatCheapTools(openai): The operation was aborted due to timeout']);
@@ -271,3 +273,6 @@ test('los reintentos del turno (tool forzada, prometió sin hacer) van con la MI
 //   R15. `PLAZO_REINTENTOS_TURNO_MS` a 75 s (el caso del ws15 se vuelve a tirar)                   → 1 falla
 //   R16. `PLAZO_REINTENTOS_TURNO_MS` a 180 s (el cliente espera de más)                            → 1 falla
 //   R17. doer: el reintento de la tool forzada sin `clave: inst.clave`                            → 1 falla
+// 25/10/2026: el respaldo de `ia_lenta` es sólo su GPT (`CUBREN_EL_TURNO = ['openai']`) y `conAbrir` salió (el link de
+// cada conexión lo arma `enlaceA`). Base 15 / 0; R10 con 'gemini' en vez de 'anthropic' → 1 falla (el cartel); el resto
+// de lo que no ofrece Gemini lo fija tests/doer-cartel-sin-ia.test.ts (8).

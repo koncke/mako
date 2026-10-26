@@ -33,17 +33,17 @@
 - **Ads (Manager y Analyst)** (`ads`): `listar_campanas_meta` · `ver_estado_meta` · `ver_salud_cuenta_meta` · `listar_conjuntos_meta` · `listar_anuncios_meta` · `listar_anuncios_con_problemas_meta` · `listar_recomendaciones_meta` · `ver_rendimiento_anuncios` · `ver_cuenta_meta` · `listar_publicos_meta` · `buscar_intereses_meta` · `buscar_lugares_meta` · `listar_formularios_meta` · `listar_pixeles_meta` · `listar_eventos_pixel_meta` · `listar_conversiones_meta` · `listar_identidades_meta` · `verificar_ganadores_reusables` · `listar_motivos_venta_llamada` · `ver_publico_conjunto_meta` · `ver_textos_anuncio_meta` · `ver_datos_campana_meta` · `ver_datos_conjunto_meta` · `verificar_aprobacion_meta` · `listar_incidentes_meta` · `ver_base_formulario_meta` · `listar_publicaciones_mako_meta` · `listar_guiones_analizados` · `ver_ficha_guion` · `ver_estado_analisis_guiones` · `ver_cuadrante_retencion` · `ver_perfil_guiones` · `listar_angulos_guion` · `listar_avatares_guion` · `listar_guiones_valorados` · `ver_transcript_anuncio` · `proponer_estado_campana` · `proponer_renombrar_campana` · `proponer_estado_conjunto` · `proponer_estado_anuncio` · `proponer_renombrar_entidad_meta` · `proponer_presupuesto_campana` · `proponer_presupuesto_conjunto` · `proponer_eliminar_entidad_meta` · `proponer_agregar_anuncio` · `proponer_editar_textos_anuncio` · `proponer_editar_publico_conjunto` · `proponer_crear_publico_meta` · `proponer_crear_formulario_meta` · `proponer_sincronizar_guiones` · `proponer_reanalizar_guion` · `proponer_corregir_angulo_guion` · `proponer_corregir_avatar_guion` · `proponer_borrar_guion_valorado` · `proponer_agregar_angulo` · `proponer_editar_angulo` · `proponer_borrar_angulo` · `proponer_agregar_avatar` · `proponer_editar_avatar` · `proponer_borrar_avatar` · `ver_media_buyer` · `lanzar_decision_media_buyer` · `deshacer_decision_media_buyer` · `descartar_decision_media_buyer` · `reabrir_decision_media_buyer` · `calificar_decision_media_buyer` · `hooks_al_video_media_buyer` · `analizar_cuenta_media_buyer` · `modo_media_buyer` · `topes_media_buyer` · `metas_media_buyer` · `cuenta_media_buyer` · `ver_automatizaciones_media_buyer` · `ver_campanas_media_buyer` · `automatizacion_media_buyer` · `modo_agente_media_buyer` · `agente_media_buyer` · `borrar_agente_media_buyer` · `ver_biblioteca_media_buyer`
 - **WhatsApp** (`whatsapp`): `listar_plantillas_aprobadas` · `listar_borradores_plantilla` · `estado_plantillas_meta` · `variables_plantilla` · `estado_envio_whatsapp` · `listar_etiquetas_whatsapp` · `etapa_inbox_de_lead` · `lead_insiste_con_lo_mismo` · `crear_contacto_chatwoot_lead` · `borrar_borrador_plantilla` · `reconciliar_plantillas` · `crear_borrador_whatsapp_empresa` · `guardar_borrador_plantilla` · `enviar_plantilla_a_meta` · `editar_plantilla_meta` · `borrar_plantilla_meta`
 - **Email** (`email`): `kpis_email` · `listar_secuencias_email` · `ficha_secuencia_email` · `listar_etapas_email` · `listar_triggers_email` · `listar_broadcasts` · `ficha_broadcast` · `listar_segmentos_email` · `contar_segmento_email` · `estado_email` · `remitente_email` · `envio_email_habilitado` · `crear_secuencia_email` · `editar_meta_secuencia_email` · `cancelar_programacion_broadcast` · `verificar_dominio_envio` · `editar_pasos_secuencia_email` · `crear_broadcast` · `editar_broadcast` · `programar_broadcast` · `enviar_broadcast` · `enviar_prueba_broadcast` · `eliminar_broadcast` · `activar_envio_real_email`
-- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
+- **Chatbot y secuencias** (`chatbot`): `listar_secuencias_nutricion` · `ficha_secuencia_mensajes` · `escenarios_secuencia` · `metricas_chatbot` · `huecos_secuencias` · `estado_canal_whatsapp_chatbot` · `contexto_etapa` · `etapas_para_secuencia` · `listar_objetivos_secuencia` · `audios_requeridos` · `escenarios_ensayo` · `estado_onboarding_chatbot` · `plantillas_meta_de_secuencia` · `inscripciones_lead` · `listar_secuencias_archivadas` · `proponer_toggle_nutricion` · `crear_automatizacion_con_ia` · `cambiar_espera_paso` · `desarchivar_secuencia` · `guardar_publico_audios` · `agregar_objetivo_custom` · `avisar_al_equipo` · `reabrir_onboarding_chatbot` · `guardar_estrategia_secuencia` · `editar_pasos_secuencia_mensajes` · `cambiar_botones_mensaje` · `agregar_escenario_secuencia` · `archivar_secuencia` · `guardar_link_video` · `crear_lead_magnet`
 - **Dashboard y análisis** (`metricas`): `metricas_negocio` · `analisis_negocio` · `resumir_marketing_periodo` · `diagnosticar_funnel` · `ver_serie_funnel_semanal` · `ver_tendencias` · `detectar_fatiga_adsets` · `comparar_agendas_meta_crm` · `ver_serie_vsl` · `ver_revenue_periodo` · `ver_revenue_mensual` · `ver_mrr_activo` · `ver_cac_acumulado` · `ver_cac_mensual` · `listar_cohortes_semanales` · `listar_cohortes_mensuales` · `ver_embudo_comercial_maduro` · `ver_ciclo_venta` · `ver_tramos_ciclo_venta` · `ver_distribucion_pipeline` · `ver_catalogo_dashboard` · `consultar_datos_dashboard` · `metricas_automatizacion` · `leer_hoja_dashboard` · `leer_analisis_dashboard` · `crear_hoja_dashboard` · `editar_hoja_con_ia_dashboard` · `editar_hoja_dashboard` · `duplicar_hoja_dashboard` · `borrar_hoja_dashboard` · `agregar_grafico_dashboard` · `editar_grafico_dashboard` · `quitar_componente_dashboard` · `mover_componente_dashboard` · `agregar_filtro_dashboard` · `quitar_filtro_dashboard` · `insertar_elemento_dashboard` · `restablecer_informe_dashboard` · `analizar_hoja_dashboard` · `programar_analisis_dashboard` · `cancelar_analisis_dashboard` · `conectar_componentes_dashboard` · `quitar_conector_dashboard` · `leer_conclusiones_dashboard` · `generar_conclusiones_dashboard`
 - **Experimentos y Retro** (`experimentos`): `estado_experimentos` · `listar_experimentos` · `ficha_experimento` · `vista_experimentos` · `medicion_experimento` · `listar_conclusiones_experimentos` · `catalogo_metricas_experimento` · `snapshot_funnel_experimentos` · `listar_retros` · `plan_retro` · `seguimiento_ultima_retro` · `estado_gate_retro` · `destacados_periodo_retro` · `cobertura_datos_retro` · `iniciar_experimento` · `cerrar_experimento` · `descartar_experimento` · `aceptar_item_plan_retro` · `posponer_item_plan_retro` · `descartar_item_plan_retro` · `deshacer_item_plan_retro` · `crear_experimento` · `borrar_retro`
 - **Landing (Analyst, Generator y tracking)** (`landing`): `listar_landings` · `listar_landings_detectadas` · `ver_estado_pixel` · `verificar_pagina_pixel` · `ver_codigo_pixel` · `ver_novedades_pixel` · `detectar_piezas_landing` · `ver_cambios_landing` · `contar_eventos_prueba` · `ver_grabaciones_prueba` · `listar_videos_landing` · `listar_videos_detectados` · `listar_videos_panda` · `ver_metricas_video_panda` · `listar_analisis_landing` · `ver_diagnostico_landing` · `ver_comportamiento_landing` · `listar_borradores_landing` · `ver_borrador_landing` · `listar_landings_creadas` · `ver_landing_creada` · `ver_analitica_landing` · `ver_rechazos_pago_landing` · `listar_versiones_landing` · `listar_comentarios_landing` · `listar_disenos_landing` · `nombrar_video` · `olvidar_nombre_video` · `ocultar_video` · `crear_landing_desde_diseno` · `renombrar_landing` · `duplicar_landing` · `pausar_landing` · `mandar_landing_a_papelera` · `crear_presentacion_desde_plantilla` · `cambiar_estado_comentario_landing` · `restaurar_version_landing` · `despublicar_landing` · `guardar_landing` · `borrar_landing` · `borrar_analisis_landing` · `borrar_borrador_landing` · `cobrar_producto_landing` · `publicar_landing` · `ver_secciones_landing` · `ver_configuracion_landing` · `listar_temas_landing` · `ver_version_landing` · `revisar_direccion_landing` · `ver_dominio_landing` · `ver_cobro_landing` · `buscar_fotos_landing` · `listar_imagenes_landing` · `crear_landing_en_blanco` · `agregar_seccion_landing` · `cambiar_texto_landing` · `acomodar_seccion_landing` · `configurar_seccion_landing` · `agregar_bloque_landing` · `acomodar_bloque_landing` · `poner_enlace_landing` · `configurar_formulario_landing` · `configurar_boton_landing` · `quitar_cobro_landing` · `acomodar_pagina_landing` · `cambiar_tema_landing` · `configurar_landing` · `cambiar_animacion_landing` · `configurar_sitio_landing` · `configurar_navegacion_landing` · `guardar_tema_landing` · `borrar_tema_landing` · `compartir_borrador_landing` · `guardar_version_landing` · `borrar_landing_creada` · `importar_borrador_landing` · `pasar_comentarios_a_copia_landing`
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
-- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
+- **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
-- **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `link_configurar_integracion`
-- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte`
+- **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
+- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `ver_criterio_reuniones` · `renombrar_negocio` · `configurar_horario_envio` · `guardar_criterio_reuniones`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
@@ -7143,7 +7143,7 @@ curl -L \
 
 ## Chatbot y secuencias — `chatbot`
 
-Tab **Automations** (`/automations`). 15 lecturas · 13 acciones.
+Tab **Automations** (`/automations`). 15 lecturas · 15 acciones.
 
 ### `GET /api/v1/chatbot/secuencias` — Listar las secuencias de mensajes
 
@@ -7168,7 +7168,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/secuencias/{secuenciaId}` — Ficha de una secuencia
 
-Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
+Todo sobre UNA secuencia de mensajes: sus pasos (canal, horas de espera, tipo texto, audio o archivo, condición, texto y cantidad de variantes; un mensaje de Instagram o Messenger, sus botones: id, titulo y «sigue» —la tarjeta a la que lleva el toque, por el puerto «btn:<id>»— o «link»; en una secuencia con ramas, también cada tarjeta de control —condición, espera, «Si responde», «Ir a»— con su id y a qué tarjeta sigue, y el AI Step con su objetivo y cada escenario con su libertad), su estrategia (objetivo, gancho, preguntas, criterio de calificación, escenarios previstos, desenlace, modo) y sus métricas de los últimos 30 días. Úsala cuando pregunten qué hace una secuencia paso a paso o cómo le va. Pide antes el secuenciaId con listar_secuencias_nutricion.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/ficha_secuencia_mensajes`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -7436,7 +7436,7 @@ curl -L \
 
 ### `GET /api/v1/chatbot/leads/{leadId}/inscripciones` — Secuencias en las que está un lead
 
-Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.
+Las secuencias en las que está o estuvo un lead: estado de la inscripción (activa, respondió, completada, cancelada, hand-off, no responde), cuántos pasos avanzó (incluye pasos omitidos y los que quedaron como borrador, no solo enviados), próximo envío, último envío y desenlace. Úsala para «le estamos escribiendo a Juan» o «en qué paso va». espera_toque: está parado en un DM con botones, esperando que toque uno (los títulos). Pide antes el leadId (buscar_leads). Un lead no vuelve a entrar SOLO a una secuencia en la que ya estuvo, salvo a la que prepara una reunión cuando vuelve a agendar para otro día (o, si no se sabe qué reunión preparaba, cuando la vez anterior no le llegó nada): ahí la MISMA inscripción vuelve a correr y su fecha de inscripción pasa a ser la nueva. A mano, con inscribir_lead_secuencia, sí vuelve a una que terminó.
 
 - **Ruta por operación:** `GET /api/v1/chatbot/inscripciones_lead`
 - **Token detallado:** permiso `chatbot=read` (Solo lectura en «Chatbot y secuencias»)
@@ -7508,6 +7508,41 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/activacion" \
   -d '{"activa":true}'
+```
+
+### `POST /api/v1/chatbot/secuencias` — Crear una automatización con IA
+
+PROPONE crear una automatización nueva a partir de un pedido en palabras: MaKo arma el CRON, las tarjetas y el nombre (lo mismo que «Pídeselo a MaKo» en Automations); lo que contesta cuando el lead escribe va en UN AI Step con su objetivo y sus escenarios. Nace PAUSADA: no le escribe a nadie hasta que alguien la active. Si la persona mandó un audio, pasa la transcripción. Si falta un dato decisivo, el error trae UNA pregunta con opciones numeradas: hazla tal cual y vuelve a llamar con la respuesta en el parámetro que dice faltan (canal, producto, evento, horario o quien), con el mismo pedido. Si dice cada cuánto sale («los martes a las 3»), arma un Recurrente con ESE horario. Por Instagram o Messenger arma también los botones del DM, y el recurso a cambio de seguir la cuenta. Usa la IA del negocio; por la API, si en 40 s no termina, da un error sin crear nada.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/crear_automatizacion_con_ia`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** inserta una fila pausada en nutricion_secuencias con el flujo que arma la IA (y las etiquetas nuevas que nombre); si es un Recurrente, con «Cada vez que vuelve a entrar»
+- **Reversible:** sí
+- **Costo:** ia · puede tardar
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pedido` | string | sí | qué tiene que hacer, con las palabras de la persona. |
+| `canal` | string | no | opcional: la respuesta a «¿Por dónde le escribo?» (el número o el nombre de la opción, o «Elige tú»). |
+| `producto` | string | no | opcional: la respuesta a «¿De qué producto?» (el número o el nombre de la opción, o «Elige tú»). |
+| `evento` | string | no | opcional: la respuesta a «¿Qué hace la persona?» (el número o el nombre de la opción, o «Elige tú»). |
+| `horario` | string | no | opcional: la respuesta a «¿Cuándo sale?» (el número de la opción, o la hora o el día en palabras, o «Elige tú»). |
+| `quien` | string | no | opcional: la respuesta a «¿A quién le llega?» (el número o el nombre de la opción, o «Elige tú»). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias" \
+  -d '{"pedido":"PEDIDO"}'
 ```
 
 ### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/pasos/{orden}` — Cambiar la espera de un paso
@@ -7783,6 +7818,40 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/pasos" \
   -d '{"pasos":[]}'
+```
+
+### `PATCH /api/v1/chatbot/secuencias/{secuenciaId}/mensajes/{tarjeta}` — Botones de un DM de Instagram
+
+SÓLO para un DM de Instagram o Messenger (los demás mensajes, con editar_pasos_secuencia_mensajes): PROPONE cambiar sus botones (hasta 3) o su texto, aunque haya ramas, y devuelve un link para revisarlo. Sin botones, se quedan; sin texto, también. La lista que pases REEMPLAZA a la actual; [] los saca. Cada botón tiene un título (hasta 20 letras) y hace UNA cosa: «sigue» (el id de otra tarjeta del mismo lienzo, aunque sea de antes) o «link» (https). Un botón que ya estaba conserva su id con el mismo título. Un DM con botones de «sigue» y sin otra flecha espera el toque. El recurso a cambio de seguir la cuenta: «Obtener recurso» lleva a una condición «Sigue tu Instagram»; el link va SÓLO en el DM del sí, y el del no lleva «Ya te sigo», que vuelve a esa condición. Lee antes ficha_secuencia_mensajes.
+
+- **Ruta por operación:** `POST /api/v1/chatbot/cambiar_botones_mensaje`
+- **Token detallado:** permiso `chatbot=write` (Lectura y escritura en «Chatbot y secuencias»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** reemplaza el texto o los botones de ese mensaje en nutricion_secuencias.pasos (sin historial de versiones)
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** setting
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `secuenciaId` | number | sí | id de la secuencia de mensajes (de listar_secuencias_nutricion). |
+| `tarjeta` | string | sí | el id del DM (de ficha_secuencia_mensajes). |
+| `botones` | object[] | no | opcional: hasta 3, en orden; [] los saca. |
+| `botones.titulo` | string | sí | lo que dice (hasta 20 letras). |
+| `botones.sigue` | string | no | el id de la tarjeta a la que lleva el toque. |
+| `botones.link` | string | no | o la dirección https que abre. |
+| `texto` | string | no | opcional: el texto nuevo (con botones, Instagram corta en 640). Admite {{nombre}}. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/chatbot/secuencias/SECUENCIA_ID/mensajes/TARJETA"
 ```
 
 ### `POST /api/v1/chatbot/secuencias/{secuenciaId}/escenarios` — Agregar un caso previsto
@@ -10242,7 +10311,7 @@ curl -L \
 
 ### `GET /api/v1/landing/landings/comportamiento` — Comportamiento medido de una landing
 
-Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar) y de dónde vinieron. Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.
+Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar), de dónde vinieron y, en una página del Web Generator del negocio, qué porcentaje vio cada sección en los últimos 30 días (null = no se mide). Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_comportamiento_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -10363,7 +10432,7 @@ curl -L \
 
 ### `GET /api/v1/landing/documentos/{id}/analitica` — Visitas y leads de una landing creada
 
-Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead y las visitas de cada día. Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.
+Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead, las visitas de cada día y qué porcentaje de los visitantes vio cada sección (desde que el Pixel lo mide). Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.
 
 - **Ruta por operación:** `GET /api/v1/landing/ver_analitica_landing`
 - **Token detallado:** permiso `landing=read` (Solo lectura en «Landing (Analyst, Generator y tracking)»)
@@ -12275,7 +12344,7 @@ curl -L \
 
 ## El negocio (onboarding, Second Brain, conocimiento) — `negocio`
 
-Tab **Second Brain** (`/second-brain`). 18 lecturas · 17 acciones.
+Tab **Second Brain** (`/second-brain`). 19 lecturas · 18 acciones.
 
 ### `GET /api/v1/negocio/contexto` — Contexto del negocio
 
@@ -12406,7 +12475,7 @@ curl -L \
 
 ### `GET /api/v1/negocio/plan` — Plan de MaKo del negocio
 
-El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, con la baja pedida o dado de baja), o acordado a mano. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).
+El plan de MaKo de este negocio y cómo se lo cobra MaKo: por Stripe o por Mercado Pago (con el monto por mes y si está activo, en su prueba gratis, con la baja pedida o dado de baja), o acordado a mano. En la prueba gratis, el detalle (días que quedan, topes usados) es ver_mi_prueba. Para darlo de baja: dar_de_baja_mi_plan (se confirma en una pantalla), o el botón «Darme de baja» de Configuración del negocio → Tu plan (la respuesta trae el link).
 
 - **Ruta por operación:** `GET /api/v1/negocio/ver_mi_plan`
 - **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -12427,7 +12496,7 @@ curl -L \
 
 ### `POST /api/v1/negocio/plan/bajas` — Dar de baja el plan de MaKo
 
-PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.
+PROPONE dar de baja el plan de MaKo de este negocio (lo que le cobra MaKo por Stripe o Mercado Pago), y devuelve el código de baja. En Stripe deja de cobrarse al final del mes pagado y se sigue usando hasta entonces; en Mercado Pago deja de cobrarse en el acto. En la PRUEBA GRATIS no se cobra nada: se cancela en el acto y se sigue usando hasta el día que iba a cobrarse. Se confirma en una pantalla, nunca por el chat. Si el plan se acordó a mano, se rechaza: hay que escribirle a MaKo. Revisa antes ver_mi_plan.
 
 - **Ruta por operación:** `POST /api/v1/negocio/dar_de_baja_mi_plan`
 - **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
@@ -12448,6 +12517,52 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/negocio/plan/bajas"
+```
+
+### `GET /api/v1/negocio/plan/prueba` — Prueba gratis del negocio
+
+Si este negocio está en su prueba gratis de 7 días de MaKo: cuántos días le quedan, el día del primer cobro, qué plan y cuánto se cobra al terminar, y cuánto usó de cada tope de la prueba (videos armados, tomas, videos con avatar de IA, imágenes, páginas publicadas); exportar en masa se habilita con el primer cobro. Fuera de la prueba: `en_prueba: false`. Es lo que muestra el cartel «Versión de prueba». Para empezar el plan antes: empezar_mi_plan_ya; para cancelarla sin cobro: dar_de_baja_mi_plan.
+
+- **Ruta por operación:** `GET /api/v1/negocio/ver_mi_prueba`
+- **Token detallado:** permiso `negocio=read` (Solo lectura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan/prueba"
+```
+
+### `POST /api/v1/negocio/plan/prueba/fin` — Empezar el plan antes de terminar la prueba
+
+PROPONE terminar la prueba gratis antes y pagar el plan desde hoy: abre el pago y devuelve el link para que el dueño lo pague. La prueba se cancela recién cuando ese pago entra, así abrir el link no le quita la prueba. Se confirma en una pantalla, nunca por el chat. Se rechaza si el negocio no está en prueba o si el primer cobro es en menos de un día (Mercado Pago cobra solo). Revisa antes ver_mi_prueba.
+
+- **Ruta por operación:** `POST /api/v1/negocio/empezar_mi_plan_ya`
+- **Token detallado:** permiso `negocio=write` (Lectura y escritura en «El negocio (onboarding, Second Brain, conocimiento)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/mako/revisar) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** abre un cobro del plan de MaKo atado a este negocio, con el historial del lead en el CRM de MaKo; al pagarse, cancela la prueba
+- **Reversible:** no
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/negocio/plan/prueba/fin"
 ```
 
 ### `GET /api/v1/negocio/onboarding/tabs-pendientes` — Tabs que faltan configurar
@@ -15287,7 +15402,7 @@ curl -L \
 
 ## Integraciones — `integraciones`
 
-Tab **Integraciones** (`/integraciones`). 8 lecturas · 0 acciones.
+Tab **Integraciones** (`/integraciones`). 10 lecturas · 3 acciones.
 
 ### `GET /api/v1/integraciones/servicios` — Estado de las integraciones
 
@@ -15447,6 +15562,142 @@ curl -L \
   "https://hola-mako.com/api/v1/integraciones/agente-claude"
 ```
 
+### `GET /api/v1/integraciones/meta/conexion` — Conexión de Meta del negocio
+
+Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por el token de antes, y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.
+
+- **Ruta por operación:** `GET /api/v1/integraciones/ver_conexion_meta`
+- **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/integraciones/meta/conexion"
+```
+
+### `PUT /api/v1/integraciones/meta/cuenta` — Elegir la cuenta publicitaria de Meta
+
+PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Con el token de antes, la cuenta se elige en Integraciones (link_configurar_integracion).
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_cuenta_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_AD_ACCOUNT_ID del negocio, y arranca el histórico de métricas
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `cuenta` | string | sí | id de la cuenta publicitaria con act_ adelante, tal como sale en ver_conexion_meta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/cuenta" \
+  -d '{"cuenta":"act_1426493815659364"}'
+```
+
+### `PUT /api/v1/integraciones/meta/pixel` — Elegir el píxel de Meta
+
+PROPONE elegir el píxel donde quedan registradas las conversiones del negocio (el contacto de un formulario, el calificado del CRM, la reunión agendada), entre los que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Mira antes ver_conexion_meta. Para probar que llegan: probar_capi_meta.
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_pixel_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_PIXEL_ID del negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pixel` | string | sí | id del píxel (sólo números), tal como sale en ver_conexion_meta. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/pixel" \
+  -d '{"pixel":"1869323014511830"}'
+```
+
+### `PUT /api/v1/integraciones/meta/pagina` — Elegir la página de Facebook de los anuncios
+
+PROPONE elegir la página de Facebook con la que corren los anuncios y los formularios (queda pendiente hasta el «sí»). Con varias páginas y sin elegir una, Facebook no deja conectar: con la página elegida, la próxima «Conectar con Facebook» abre con ella; con la conexión ya hecha, se cambia ahí mismo. Mira antes ver_conexion_meta (las páginas que MaKo conoce).
+
+- **Ruta por operación:** `POST /api/v1/integraciones/elegir_pagina_meta`
+- **Token detallado:** permiso `integraciones=write` (Lectura y escritura en «Integraciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** la credencial META_PAGE_ID del negocio y, con la conexión hecha, la página de la conexión en Zernio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `pagina` | string | sí | id de la página de Facebook (sólo números), tal como sale en ver_conexion_meta o en «Información» → «Transparencia de la página». |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/integraciones/meta/pagina" \
+  -d '{"pagina":"1315098941694049"}'
+```
+
+### `GET /api/v1/integraciones/meta/prueba-capi` — Probar las conversiones al píxel
+
+Manda UN contacto de prueba al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos: se ve en esa pestaña y NO cuenta en los datos del píxel. Dice si Meta lo recibió y, si no, el motivo. Úsala ante «¿le llegan a Meta mis contactos?».
+
+- **Ruta por operación:** `GET /api/v1/integraciones/probar_capi_meta`
+- **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** externo
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** integraciones
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `codigo` | string | sí | el código de prueba que da el Administrador de eventos → tu píxel → «Probar eventos» (empieza con TEST). |
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/integraciones/meta/prueba-capi?codigo=TEST12345"
+```
+
 ### `GET /api/v1/integraciones/servicios/{servicio}/link-configuracion` — Link para conectar integración
 
 Devuelve el link que abre /integraciones con el formulario de esa integración ya abierto, para que la persona pegue su credencial o autorice con Google. Úsala SIEMPRE que haya que cargar, cambiar o borrar una credencial: nunca pidas una key por el chat. Necesita la key de la integración (de ver_integraciones).
@@ -15472,7 +15723,7 @@ curl -L \
 
 ## Cuenta, equipo y notificaciones — `equipo`
 
-Tab **Configuraciones** (`/configuraciones`). 6 lecturas · 5 acciones.
+Tab **Configuraciones** (`/configuraciones`). 8 lecturas · 8 acciones.
 
 ### `GET /api/v1/equipo/negocio` — Datos del negocio
 
@@ -15744,6 +15995,136 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/equipo/notificaciones/plantilla-reporte"
+```
+
+### `GET /api/v1/equipo/negocio/horario-envio` — Horario de oficina del negocio
+
+El horario en que las automatizaciones le escriben a los contactos del negocio (Settings › General): si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.
+
+- **Ruta por operación:** `GET /api/v1/equipo/ver_horario_envio`
+- **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/equipo/negocio/horario-envio"
+```
+
+### `GET /api/v1/equipo/negocio/criterio-reuniones` — Criterio de compromisos de las reuniones
+
+El texto con el que MaKo decide qué de cada reunión es un compromiso (va al Plan) y qué es ruido (Settings › General). Vacío = carga todo lo que parezca una tarea. Úsala antes de cambiarlo o para explicar por qué una tarea de una reunión entró o no.
+
+- **Ruta por operación:** `GET /api/v1/equipo/ver_criterio_reuniones`
+- **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo lectura
+- **Devuelve:** json
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+_Sin parámetros._
+
+```bash
+curl -L \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/equipo/negocio/criterio-reuniones"
+```
+
+### `PATCH /api/v1/equipo/negocio` — Cambiar el nombre del negocio
+
+PROPONE cambiar el nombre del negocio, el que se ve en toda la app (queda pendiente hasta el «sí»). Es el mismo que se cambia en Settings › Perfil › Nombre del negocio. Revisa antes quien_soy (dice el nombre actual).
+
+- **Ruta por operación:** `POST /api/v1/equipo/renombrar_negocio`
+- **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** workspaces.nombre del negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `nombre` | string | sí | el nombre nuevo del negocio. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/equipo/negocio" \
+  -d '{"nombre":"NOMBRE"}'
+```
+
+### `PATCH /api/v1/equipo/negocio/horario-envio` — Cambiar el horario de oficina
+
+PROPONE el horario en que las automatizaciones le escriben a los contactos del negocio (queda pendiente hasta el «sí»). `activo: false` = a cualquier hora. Pasa sólo lo que cambia; lo demás queda como está. La zona es la del negocio (fijar_zona_horaria_workspace). Revisa antes ver_horario_envio.
+
+- **Ruta por operación:** `POST /api/v1/equipo/configurar_horario_envio`
+- **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** app_settings del horario de envío del negocio
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `activo` | boolean | no | true = sólo en el horario; false = a cualquier hora. |
+| `desde` | number | no | hora en que abre, en medias horas (9 = 09:00). |
+| `hasta` | number | no | hora en que cierra, en medias horas (21 = 21:00). |
+| `dias` | string[] (lunes \\| martes \\| miercoles \\| jueves \\| viernes \\| sabado \\| domingo) | no | los días en que escribe. Reemplaza los de antes. |
+
+```bash
+curl -L \
+  -X PATCH \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/equipo/negocio/horario-envio"
+```
+
+### `PUT /api/v1/equipo/negocio/criterio-reuniones` — Cambiar el criterio de las reuniones
+
+PROPONE reemplazar ENTERO el criterio con el que MaKo decide qué de cada reunión es un compromiso (queda pendiente hasta el «sí»). Lee antes ver_criterio_reuniones y manda el texto completo nuevo: lo de antes no se guarda en ningún lado. Vacío (o «-») = carga todo lo que parezca una tarea.
+
+- **Ruta por operación:** `POST /api/v1/equipo/guardar_criterio_reuniones`
+- **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
+- **Escribe:** el criterio de compromisos del negocio (lib/plan-criterio.ts)
+- **Reversible:** no
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `texto` | string | sí | el criterio completo nuevo. «-» lo vacía. |
+
+```bash
+curl -L \
+  -X PUT \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/equipo/negocio/criterio-reuniones" \
+  -d '{"texto":"TEXTO"}'
 ```
 
 ## Curso (módulos y clases) — `curso`

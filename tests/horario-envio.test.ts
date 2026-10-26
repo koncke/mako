@@ -134,7 +134,8 @@ test('la pantalla: Configuración del negocio › General la monta, y guarda un 
   // Desde el 15/10/2026 cada sección es su ruta (lib/ajustes-secciones.ts): el Horario vive en General.
   const general = sinComentarios(leer('app/configuraciones/page.tsx'));
   assert.match(general, /import \{ HorarioEnvioPanel \} from '\.\/HorarioEnvioPanel';/);
-  assert.match(general, /<HorarioEnvioPanel \/>/, 'el panel existe y nadie lo monta');
+  // Desde el 25/10/2026 en las filas de Settings (`filas`, el molde de Linear): el mismo panel, sin su recuadro.
+  assert.match(general, /<HorarioEnvioPanel filas \/>/, 'el panel existe y nadie lo monta');
   const acc = sinComentarios(leer('app/configuraciones/horario-actions.ts'));
   assert.match(acc, /^'use server';/m);
   // En un 'use server' sólo funciones async (AGENTS.md): los tipos y constantes viven en lib/.
