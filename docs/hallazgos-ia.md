@@ -42,8 +42,9 @@ poco, cuando el negocio conecta su IA».
   y así la regla se prueba con datos de mentira. Si el conocimiento de un negocio pasa a miles de filas, pasarla a
   `to_tsvector` con su índice (otra migración).
 - **La migración es la 0337** (supabase/migrations/0337_mako_knowledge_modelo.sql: `embedding_modelo` + marcar las filas con
-  vector por su largo; se aplica con el sí de Martín). En producción, el 25/10: 77 filas de 1536 (las de OpenAI de antes del
-  22/10), 42 sin vector y ninguna de 768. El código anda sin ella: el select contesta 42703 y el PATCH, PGRST204; lo detecta, deja de pedir la
+  vector por su largo), APLICADA a mano en producción el 25/10/2026 20:56 (el Cerebro, con el sí de Martín): 77 filas de
+  1536 (las de OpenAI de antes del 22/10) quedaron en `text-embedding-3-small`, 42 sin vector en null, ninguna de 768. El
+  código anda también sin ella (una base local o de prueba): el select contesta 42703 y el PATCH, PGRST204; lo detecta, deja de pedir la
   columna en ese proceso y el modelo sale del largo (`modeloDelVector`).
 - El PostgREST de mentira (tests/_postgrest-de-mentira.ts) acepta CUALQUIER columna: «sin la migración» no se ve si no se
   simula (`sinColumna` en tests/_ia16-hijo.ts).
@@ -61,7 +62,6 @@ la base sin la columna, al conectar sólo su Gemini, «conecta tu Gemini» en «
 el saludo y las que fallaron adelante): todas rojas, y todo verde al restaurar.
 
 **Sin hacer:**
-- Aplicar la 0337 (con el sí de Martín).
 - El goteo no se prueba en un pedido real (el hijo no tiene `after`): lo fija el test de fuente. Medirlo en producción con el
   log `[conocimiento] ws N: re-embebí … (goteo)`.
 

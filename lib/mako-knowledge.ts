@@ -24,8 +24,8 @@ import { embed, cosine, hashText, embebedorDelNegocio, modeloDelVector, SinEmbeb
 import { puntajePorPalabras, UMBRAL_PALABRAS } from './conocimiento-palabras';
 
 /**
- * ¿La base todavía no tiene `embedding_modelo`? (la migración 0337_mako_knowledge_modelo, del 25/10/2026, se aplica
- * con el sí de Martín). Hasta que entre, se escribe y se lee sin la columna: el modelo sale
+ * ¿La base todavía no tiene `embedding_modelo`? (la migración 0337_mako_knowledge_modelo, aplicada en producción el
+ * 25/10/2026 20:56; una base local o de prueba puede no tenerla). Sin ella se escribe y se lee sin la columna: el modelo sale
  * del largo del vector (`modeloDelVector`). Una vez medida la falta, no se vuelve a probar en este proceso.
  */
 let sinColumnaModelo = false;

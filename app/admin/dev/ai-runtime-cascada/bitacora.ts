@@ -425,7 +425,7 @@ export const BITACORA: Hito[] = [
       'Embebe con la IA del negocio: su GPT primero, su Gemini si es lo único. Sin ninguna, busca por palabras y nunca dice «conecta tu Gemini».',
       'Una pregunta se compara sólo con lo embebido con el mismo modelo; el método de MaKo, para quien usa su GPT, se encuentra por palabras.',
       'Lo que quedó sin vector se embebe solo, de a poco: al conectar su IA y desde cada búsqueda.',
-      'La migración que anota el modelo es la 0337: se aplica con el sí de Martín.',
+      'La migración que anota el modelo es la 0337: aplicada en producción el 25/10 a las 20:56, con el sí de Martín.',
     ],
     archivos: [
       'lib/embeddings.ts — con qué embebe cada negocio',

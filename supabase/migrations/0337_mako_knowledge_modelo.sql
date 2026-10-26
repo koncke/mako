@@ -1,8 +1,9 @@
 -- =============================================================================
 -- 0337_mako_knowledge_modelo — con qué modelo se embebió cada fila del conocimiento (25/10/2026)
 -- =============================================================================
--- Numerada por el Cerebro (25/10/2026); se aplica con el sí de Martín. Revisada contra producción ese día: `embedding` es
--- jsonb, 77 filas de 1536 (las de text-embedding-3-small de antes del 22/10), 42 sin vector y ninguna de 768.
+-- Aplicada a mano en producción el 25/10/2026 20:56 (Cerebro), con el sí de Martín. Antes: `embedding` jsonb, 77 filas de
+-- 1536 (las de text-embedding-3-small de antes del 22/10), 42 sin vector y ninguna de 768. Después: la columna con su check,
+-- 77 filas en text-embedding-3-small y 42 en null.
 --
 -- El Cerebro, 25/10/2026 (docs/conexiones-y-ayuda.md): el buscador de conocimiento deja de depender de Gemini. Embebe con
 -- la IA del negocio que la tenga: su OpenAI (`text-embedding-3-small`, 1536) primero, su Gemini (`gemini-embedding-001`, 768)

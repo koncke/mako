@@ -9,7 +9,7 @@
 //   2. el umbral: una pregunta larga no trae cualquier fila que comparta UNA palabra;
 //   3. ningún texto del buscador ni del Second Brain pide su Gemini, y el aviso de lo no indexado lleva a su GPT;
 //   4. el buscador ya no descarta lo que no tiene vector, y el goteo re-embebe lo del negocio desde la búsqueda;
-//   5. la migración de `embedding_modelo` es la 0337 (la numeró el Cerebro el 25/10/2026) y es aditiva.
+//   5. la migración de `embedding_modelo` es la 0337 (aplicada en producción el 25/10/2026 20:56) y es aditiva.
 //
 // Probado rompiéndolo (25/10/2026, una rotura por vez, restaurada): ver docs/hallazgos-ia.md («El buscador de conocimiento sin
 // Gemini»).
