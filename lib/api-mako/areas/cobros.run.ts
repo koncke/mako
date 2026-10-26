@@ -721,13 +721,18 @@ export const RUNNERS: Runners = {
         numeros: {
           mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
           nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
+          cobrado_por_mes: v.cobrado, cuotas_vencidas: v.vencido,
         },
         clientes: filas.map((f) => ({
           ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: capaDef(f.capa).nombre, estado: f.estado,
-          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, desde: f.creado.slice(0, 10),
+          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
+          dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
+          sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),
         })),
+        // Lo que pide atención, el más grave primero (lo mismo que «Para mirar» en la pantalla).
+        para_mirar: v.paraMirar.map((a) => ({ ws: a.ws, nombre: a.nombre, motivo: a.motivo, que_pasa: a.texto })),
         avisos: v.avisos,
-        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0.',
+        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0. cobrado_por_mes null = no entró nada por la plataforma en 6 meses. por_que_en_riesgo: pausado, cobro (un cobro falló) o sin-uso (nadie de su equipo entra hace 14 días o más). dias_sin_entrar null = nunca entró nadie (o no se pudo leer: ver avisos).',
       });
     },
   },

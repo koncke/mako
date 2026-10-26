@@ -105,6 +105,12 @@ export type NavItem = {
    */
   soloCapas?: readonly string[];
   /**
+   * NO se dibuja en la barra del super admin (su shell, sin mirar a un cliente); los negocios la ven como siempre (26/10/2026,
+   * Martín: «Yo como SuperAdmin, no necesito "Agency" o "Partners" en la sidebar»). Lo que él mira de esos programas está en
+   * Customers. Cosmético, como todo acá: la ruta sigue abriendo.
+   */
+  noEnPlataforma?: true;
+  /**
    * El ícono es una CRIATURA del Ops Center (app/admin/operaciones/Muneco.tsx), no un dibujo de icons.tsx: el nombre
    * del empleado cuyo muñeco se dibuja («Ops Center», «Second Brain»). Es el mismo muñeco que tiene ese chat en el
    * Centro, porque el aspecto sale del nombre (lib/centro-munecos.ts → aspectoDe). Se mueve: flota y parpadea.
@@ -604,11 +610,11 @@ export const USER_NAV: NavItem[] = [
   // a su tablero (/partners/referidos) — con `soloCapas: ['agencia']` un cliente sólo llegaba tipeando la URL. Sin
   // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
   // referidos (app/partners/page.tsx).
-  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', match: starts('/partners') },
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', noEnPlataforma: true, match: starts('/partners') },
   // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
   // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
   // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).
-  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', match: starts('/agency') },
+  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', noEnPlataforma: true, match: starts('/agency') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

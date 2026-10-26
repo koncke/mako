@@ -1,9 +1,9 @@
 # Hallazgos — Customers (/customers, el super admin)
 
-Lo que no se ve leyendo el código de Customers: la vista de los clientes de MaKo para el super admin, con Billing (era
-/admin/cobros) y Agents (era /admin/agente) adentro. Los pedidos textuales, en
-[feedback-25-10-tarde.md](feedback-25-10-tarde.md) puntos 10 y 12. Las referencias de diseño (Stripe Customers,
-Baremetrics, ChartMogul, HighLevel, AgencyAnalytics) quedaron en la carpeta de notas del Cerebro, `agencias-referencias/`.
+Lo que no se ve leyendo el código de Customers: la vista de los clientes de MaKo para el super admin, con Accounts (la
+grilla de administración), Billing (era /admin/cobros) y Agents (era /admin/agente) adentro. Los pedidos textuales, en
+[feedback-25-10-tarde.md](feedback-25-10-tarde.md) puntos 10 y 12, y el rediseño del 26/10 abajo. Las 16 referencias de
+diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEEME.md](customers/referencias/otras-apps/LEEME.md).
 
 ## El MRR NO es el precio del plan (25/10/2026)
 
@@ -17,15 +17,33 @@ Baremetrics, ChartMogul, HighLevel, AgencyAnalytics) quedaron en la carpeta de n
   cuente en «Clientes activos».
 - **Vive en:** `lib/clientes-plataforma-reglas.ts` (puro, testeado) y `lib/clientes-plataforma.ts`.
 
-## La grilla no se rehízo (25/10/2026)
+## El rediseño: sin plata, el dato que manda es la actividad (26/10/2026)
 
-- `AdminView` ya hacía todo lo que hace falta sobre un workspace: el alta, el plan, el equipo, la ficha con su tablero,
-  las computadoras, entrar y borrar. Customers lo monta **incrustado**, filtrado por el segmento y con dos columnas más
-  (segmento y MRR), en tabla por defecto. Si dos cosas tienen que verse igual, tienen que ser el mismo componente.
-- **El segmento «Clientes de agencias» es el único que muestra a los clientes de una agencia.** La grilla los esconde a
-  propósito (28/09: «no son un cliente más de MaKo»), y si se quitaba ese filtro se mezclaban en «Todos».
-- **El /clients del super admin manda a /customers** (`pantalla.tsx`): era la misma grilla en dos puertas. En /clients
-  queda lo de los cursos (el Classroom).
+- **Síntoma:** Martín, al ver la primera versión: «no me gusta para nada como esta ahora». Arriba había cuatro tarjetas
+  iguales, una en «US$ 0», los grupos repetidos dos veces y, abajo, la grilla vieja con su barra de filtros.
+- **Lo que se midió antes de diseñar (producción, lectura):** la plataforma no tiene ni un cobro ni una cuota en `pagos`, y
+  `agente_sesiones` está vacía. Todo lo de plata daba cero y lo iba a seguir dando. Lo que SÍ hay y dice quién se está
+  yendo: `usuarios.ultimo_login`, la fecha del onboarding terminado y los leads de cada negocio con el último.
+- **Lo que quedó (copiado de cuatro capturas, no de cuatro apps):**
+  - arriba a la izquierda, lo que entra por mes (la 02 de ProfitWell). Sin plata, una línea que lo dice y «Vender un plan →»;
+  - arriba a la derecha, «Para mirar»: un renglón por cliente con una etiqueta de color, el más grave primero (`paraMirar`);
+  - los grupos en chips con el número adentro y la tabla con el estado en una palabra (la 04 de Baremetrics);
+  - la ficha en un panel lateral, con tres datos en fila y una sola acción, «Entrar a su cuenta» (la 14 de Polar).
+- **«Sin uso» exige el onboarding hecho:** uno recién dado de alta que todavía no entró está empezando, no yéndose. Eso lo
+  dice «Sin empezar», y sólo después de `DIAS_SIN_EMPEZAR` días.
+- **Un dato que no se pudo leer no se dibuja en cero:** cada lectura falla sola (`conAviso`). Sin la actividad, «sin uso» no
+  se afirma de nadie (`actividadLeida`), y arriba se dice qué faltó.
+- **La grilla de administración (AdminView) pasó a la pestaña Accounts,** sin filtros nuevos. «Administrar» en la ficha
+  lleva a `?tab=accounts&cuenta=<ws>`, que abre su ficha (`abrirInicial`). ⚠️ Es `?cuenta=` y no `?ws=`, porque `?ws=` hace
+  mirar a ese cliente.
+
+## La barra del super admin (26/10/2026)
+
+- `noEnPlataforma` (nav.ts, lib/nav-visibilidad.ts) saca «MaKo Partners» y «Agency Dashboard» de SU barra y de su More, y
+  los negocios los siguen viendo. Lo de esos programas que él mira está en Customers (los chips Partners y Agencies).
+- **La trampa del teléfono:** una fila de More `superAdmin` va siempre oculta, y `masCompleto` se salteaba toda tab que
+  tuviera fila en `SECCIONES_MAS`. Customers, que es una tab de la familia Sales, desaparecía del More del super admin.
+  Ahora esas filas no la frenan, y la tab se dibuja con `filaDeItem`, que la lleva a /m/customers por `rutaMovil`.
 
 ## Billing y Agents: las rutas viejas quedan como redirect, con su guard (25/10/2026)
 
@@ -37,8 +55,8 @@ Baremetrics, ChartMogul, HighLevel, AgencyAnalytics) quedaron en la carpeta de n
 
 ## Lo que quedó SIN hacer
 
-- **Tendencias y sparklines como Baremetrics:** no hay historia del MRR (nadie guarda una foto por día). Haría falta un
-  cron que la guarde antes de poder dibujar «from US$ X ↑ 14%».
-- **Customers en el teléfono:** `/m/cobros` y `/m/agente` siguen andando, pero no hay `/m/customers` con los segmentos.
-- **La ficha estilo Stripe** (cabecera con 3 números y bloques de suscripciones, pagos y facturas): hoy se abre la ficha
-  de siempre de AdminView.
+- **El MRR mes a mes de verdad:** lo que se dibuja es lo COBRADO por mes (las cuotas pagadas de la plataforma). El MRR
+  histórico necesita una foto por día que nadie guarda todavía.
+- **Las fichas de agencia con sus clientes adentro** (la 11 de HighLevel): hoy la agencia y sus clientes son filas sueltas
+  en sus chips.
+- **Administrar desde el teléfono** (cambiar el plan, el equipo): queda en la computadora.
