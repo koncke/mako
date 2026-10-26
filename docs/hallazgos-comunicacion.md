@@ -75,9 +75,15 @@ no tiene ninguno de los 9 en ningún negocio. En el feed de 30 días, «Tu objet
 (20 al 25/10, todas apagado) y «Proyectos por vencer», 3 en el negocio de Martín desde el 17/10 (apagado; antes del 17/10
 la fila no decía si salió).
 
-**Sin hacer (lo decide Martín; pregunta 86c71ad9 por el Ops Center):** (a) que salgan, y que decida el interruptor de
-Notificaciones respetando del store sólo `oculto`; o (b) sacarlos de `AVISOS_WA_EN_VIVO`, para que no muestren un
-interruptor que no hace nada. Aparte, `configurar_aviso_whatsapp` tendría que escribir en el store o retirarse.
+**Decidido (Martín, 26/10/2026, por el Ops Center, pregunta 86c71ad9): «Sacarlos de Notificaciones».** Salieron de
+`AVISOS_WA_EN_VIVO` (y con eso, del push). No cambió nada de lo que se manda: siguen sin salir, y siguen en el catálogo y en
+su código. Si un día se quiere que salgan, se les pone `porDefecto` y vuelven a la lista.
+
+**La regla.** En Notificaciones va sólo lo que sale: un evento de MaKo (`AVISOS_POR_EVENTO`) o un aviso con `porDefecto`
+'on' o 'siempre' (lib/notif-catalogo.ts, y lo fija tests/notificaciones-solo-lo-que-sale.test.ts).
+
+**Sin hacer:** `configurar_aviso_whatsapp` escribe en `notification_prefs.avisos`, que el envío no lee: tendría que
+escribir en el store o retirarse.
 
 **Vive en:** lib/plantillas.ts (`estaPrendida`) · lib/avisos.ts (`emitirDelCatalogo`, `emitirAviso`) · lib/perfil.ts
 (`estadoAviso`, `avisoWaActivo`) · lib/notif-catalogo.ts (`AVISOS_WA_EN_VIVO`, `PUSH_TIPOS`) ·

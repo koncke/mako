@@ -2892,7 +2892,7 @@ FEEDBACK PROBAR:
       "Ya no aparece arriba de Automations, ni en la computadora ni en el teléfono.",
       "Los links viejos llevan a Automations.",
       "Los avisos que MaKo le manda a cada negocio siguen saliendo igual: no se tocó cómo se mandan.",
-      "Ojo: hay 9 avisos que se ven prendidos en Notificaciones y no le salen a nadie; se le preguntó a Martín qué hacer.",
+      "Los 9 avisos que se veían prendidos en Notificaciones y no le salían a nadie salieron de esa lista (decisión de Martín).",
     ],
     archivos: [
       "app/_components/nav.ts — la barra sin la sección",

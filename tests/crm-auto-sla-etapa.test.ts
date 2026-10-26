@@ -207,14 +207,16 @@ test('⚠️ EL AVISO ESTÁ CABLEADO, y sólo con lo que de verdad se aplicó', 
   );
 });
 
-test('El aviso existe en los tres registros, con su rótulo y su interruptor', () => {
-  // Un aviso que no está en el catálogo no se puede leer, editar ni apagar; uno que no
-  // está en AVISOS_WA_EN_VIVO sale igual y nadie puede apagarlo.
+test('El aviso existe en el catálogo, con su rótulo, y no en Notificaciones', () => {
+  // Un aviso que no está en el catálogo no se puede leer, editar ni apagar. En Notificaciones va sólo lo que sale
+  // (tests/notificaciones-solo-lo-que-sale.test.ts).
   const cat = CATALOGO_AVISOS.find((c) => c.id === 'crm-lead-estancado');
   assert.ok(cat, 'falta la entrada en CATALOGO_AVISOS');
   assert.equal(cat.categoria, 'aviso', 'no pide un sí: si fuera accion/pregunta no podría agruparse');
   assert.equal(areaDeAviso('crm-lead-estancado'), 'lead', 'habla de contactos, no del sistema');
-  assert.ok(AVISOS_WA_EN_VIVO.some((a) => a.id === 'crm-lead-estancado'), 'no se puede apagar');
+  // Ya NO está en Notificaciones (26/10/2026, Martín: «Sacarlos de Notificaciones»): sin `porDefecto` nace apagado y esa
+  // pantalla no lo prende (tests/notificaciones-solo-lo-que-sale.test.ts).
+  assert.ok(!AVISOS_WA_EN_VIVO.some((a) => a.id === 'crm-lead-estancado'), 'un interruptor que no hace nada volvió a Notificaciones');
   assert.ok(AVISOS_AGRUPABLES.has('crm-lead-estancado'), 'el motor ya movió: puede esperar al resumen');
   // El ejemplo del catálogo es copy que ve todo el que abre /mensajes: nada de datos de
   // gente o negocios reales (la regla y su guard viven en tests/variables-aviso.test.ts).

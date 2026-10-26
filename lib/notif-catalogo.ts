@@ -21,9 +21,16 @@
 // usuario un interruptor para algo que nunca se enciende es peor que no
 // ofrecerlo: apaga algo que ya estaba apagado y cree que hizo algo.
 //
-// Al cablear un aviso nuevo, sumá su id acá para que aparezca en la pantalla. Si
-// te olvidás, el aviso igual sale (el default es "activo"): lo que se pierde es
-// la posibilidad de apagarlo, no el aviso.
+// Al cablear un aviso nuevo, sumá su id acá SÓLO SI SALE: que vaya por un evento de MaKo (`AVISOS_POR_EVENTO`) o que
+// tenga `porDefecto` 'on' o 'siempre' en el catálogo. Sin `porDefecto` nace APAGADO (`estaPrendida`, lib/plantillas.ts),
+// y el interruptor de esta pantalla no lo prende: el envío lee el store, no esto. Mostrarlo sería un interruptor que no hace
+// nada. Lo fija tests/notificaciones-solo-lo-que-sale.test.ts.
+//
+// ⚠️ 26/10/2026 (Martín, por el Ops Center: «Sacarlos de Notificaciones»): salieron NUEVE que estaban acá y no le salían a
+// ningún negocio (medido en producción: ninguno los tenía prendidos en su store, y «MaKo Messages», la única pantalla que
+// podía prenderlos, se fue ese día). Son crm-lead-estancado, crm-lead-quieto, tareas-autocompletadas, retro-lista,
+// plan-proyecto-vence, avisos-resumen, objetivo-en-riesgo, meta-alcanzada y quarter-planificar. Siguen en el catálogo y en
+// su código: si un día se quiere que salgan, se les pone `porDefecto` (y vuelven acá). docs/hallazgos-comunicacion.md.
 
 // ── 1. Dentro de la app (pop-up + sonido) ────────────────────────────────────
 export type NotifInAppDef = {
@@ -164,10 +171,6 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'reunion-cancelada', titulo: 'Reunión cancelada o reagendada', sub: 'Se libera o se mueve un horario ya reservado.' },
   { id: 'reunion-ocurrio-fathom', titulo: 'Grabación de reunión lista', sub: 'Termina una reunión y queda la transcripción.' },
   { id: 'reunion-tareas-al-plan', titulo: 'Tareas esperando confirmación', sub: 'De una reunión salieron tareas para revisar en el plan.' },
-  { id: 'tareas-autocompletadas', titulo: 'Tareas cerradas automáticamente', sub: 'MaKo dio por hechas tareas que ya estaban resueltas.' },
-  { id: 'plan-proyecto-vence', titulo: 'Proyectos atrasados o por vencer', sub: 'UN mensaje por día con todos juntos, y solo si algo cambió.' },
-  { id: 'avisos-resumen', titulo: 'El resumen de la mañana', sub: 'El mensaje que junta los avisos que no eran urgentes. Apagarlo NO los devuelve al momento: los deja sin salir.' },
-  { id: 'retro-lista', titulo: 'Retro semanal lista', sub: 'Queda armada la retro de la semana, con su PDF.' },
   { id: 'wa-mensaje-entrante', titulo: 'Mensaje de WhatsApp sin responder', sub: 'Un contacto escribe y todavía nadie le contestó.' },
   // Cableado el 06/10/2026 (lib/lineas-vigilante.ts, desde el cron de alertas).
   { id: 'wa-desconectado', titulo: 'Se cayó tu WhatsApp', sub: 'Tu línea por QR dejó de mandar y recibir. Avisa una vez y cada 24 h.' },
@@ -175,11 +178,6 @@ export const AVISOS_WA_EN_VIVO: AvisoWaDef[] = [
   { id: 'wa-reconectado', titulo: 'Volvió tu WhatsApp', sub: 'La línea que se había caído vuelve a mandar y recibir.' },
   { id: 'meta-anuncio-espera-aprobacion', titulo: 'Meta retuvo un anuncio', sub: 'Un anuncio publicado necesita aprobación manual para salir.' },
   { id: 'tracking-apagado', titulo: 'La landing dejó de mandar datos', sub: 'Se cortó el seguimiento y las métricas quedan ciegas.' },
-  { id: 'objetivo-en-riesgo', titulo: 'Tu objetivo del trimestre va atrasado', sub: 'Lo acumulado quedó por debajo del ritmo que hace falta para llegar.' },
-  { id: 'meta-alcanzada', titulo: 'Cumpliste un objetivo', sub: 'Un objetivo del trimestre llegó a su meta.' },
-  { id: 'quarter-planificar', titulo: 'Falta planificar el trimestre que viene', sub: 'Se está terminando el Quarter y el siguiente todavía está vacío.' },
-  { id: 'crm-lead-estancado', titulo: 'Leads quietos en una etapa', sub: 'MaKo movió los que pasaron el plazo de su columna. UN mensaje por día con todos juntos.' },
-  { id: 'crm-lead-quieto', titulo: 'Leads que pasaron el plazo de su etapa', sub: 'Siguen quietos más días de los que le pusiste a la etapa. UN mensaje por día con todos juntos.' },
 ];
 
 // ── 4. Web Push (MaKo Mobile): lo que le llega al TELÉFONO de una persona ────
