@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '24 de octubre de 2026';
+const ACTUALIZADO = '25 de octubre de 2026';
 
 export default function Page() {
   return (
@@ -64,7 +64,13 @@ export default function Page() {
         navegador</strong> sobre los teléfonos que MaKo le pasa, que son los de contactos que
         ya están en tu CRM: el nombre con el que los tienes agendados, el nombre que cada uno
         se puso en WhatsApp, si es una cuenta de empresa y el nombre de la empresa, y en qué
-        grupos tuyos está.
+        grupos tuyos está. Si esos contactos vinieron de un grupo, MaKo le pasa también el
+        nombre de ese grupo y el identificador con que WhatsApp los conoce en él, para
+        encontrarlos en tu WhatsApp Web; de ese grupo sólo vuelve si está y cuántos son.
+      </p>
+      <p>
+        Si WhatsApp Web no está abierto, la extensión lo <strong>abre en otra pestaña</strong> de
+        tu navegador y espera a que cargue tus chats. Abrirlo no abre ningún chat.
       </p>
       <p>
         <strong>A tu cuenta de MaKo viaja sólo eso, y sólo de esos teléfonos.</strong> El

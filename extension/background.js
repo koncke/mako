@@ -2474,6 +2474,87 @@ function esperarCarga(tabId) {
   });
 }
 
+// ── WhatsApp Web, lista para leer (25/10/2026, 0.71.0) ─────────────────────────
+// Por prefijo y no con el patrón de URL de Chrome: ese patrón termina en barra-asterisco, y los tests del worker quitan los
+// comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue hasta el próximo
+// cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
+const WA_WEB = 'https://web.whatsapp.com/';
+const esPestanaDeWhatsapp = (t) => !!t && t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/');
+
+/** Una promesa con tope: pasado `ms`, `{ tope: true }` (un mensaje a una pestaña congelada no contesta nunca). */
+function conTope(promesa, ms) {
+  return Promise.race([promesa, new Promise((resolve) => setTimeout(() => resolve({ tope: true }), ms))]);
+}
+
+/** ¿Está el script de las fichas en esa pestaña? Su respuesta dice además si WhatsApp Web ya guardó su base. */
+async function pingWhatsapp(tabId) {
+  try {
+    const r = await conTope(chrome.tabs.sendMessage(tabId, { tipo: 'WA_FICHAS_PING' }), 4000);
+    return r && r.ok ? r : null;
+  } catch { return null; }
+}
+
+/** Espera a que una pestaña termine de cargar, con tope. */
+async function cargaConTope(tabId, ms) {
+  await conTope(esperarCarga(tabId), ms);
+}
+
+/** El ping, repetido hasta `ms`: en una pestaña recién abierta el script entra recién cuando la página termina de cargar. */
+async function pingConEspera(tabId, ms) {
+  const hasta = Date.now() + ms;
+  let ping = await pingWhatsapp(tabId);
+  while (!ping && Date.now() < hasta) {
+    await new Promise((r) => setTimeout(r, 1500));
+    ping = await pingWhatsapp(tabId);
+  }
+  return ping;
+}
+
+/**
+ * LA PESTAÑA DE WHATSAPP WEB, LISTA PARA LEER. Lo que antes le tocaba a la persona («abrí WhatsApp Web», «recargá la
+ * pestaña», «la extensión no contestó»), acá: abrirla si no hay (de fondo, para no sacarla de MaKo), despertarla si Chrome la
+ * descartó, ponerle el script si es de antes de la extensión, recargarla si igual no contesta, y esperar a que cargue los
+ * chats. `motivo` sólo cuando no se pudo: `sin_sesion` (WhatsApp Web abierta sin chats: falta iniciar la sesión) o
+ * `sin_respuesta_wa`. No toca la interfaz de WhatsApp: abrir la página no abre ningún chat.
+ */
+async function pestanaDeWhatsappLista(avisar) {
+  const tabs = await chrome.tabs.query({});
+  let tab = tabs.find(esPestanaDeWhatsapp) || null;
+  let recien = false;
+  if (!tab) {
+    avisar('abriendo', 'Abriendo WhatsApp Web en otra pestaña…');
+    tab = await chrome.tabs.create({ url: WA_WEB, active: false });
+    await cargaConTope(tab.id, 45000);
+    recien = true;
+  } else if (tab.discarded) {
+    avisar('abriendo', 'Despertando la pestaña de WhatsApp Web…');
+    await chrome.tabs.reload(tab.id);
+    await cargaConTope(tab.id, 45000);
+    recien = true;
+  }
+  let ping = recien ? await pingConEspera(tab.id, 30000) : await pingWhatsapp(tab.id);
+  if (!ping) {
+    // Abierta ANTES de instalar o actualizar la extensión: no tiene el script. Se le pone sin recargarla.
+    try { await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ['wa-fichas-reglas.js', 'wa-fichas.js'] }); } catch { /* sigue abajo */ }
+    ping = await pingWhatsapp(tab.id);
+  }
+  if (!ping) {
+    avisar('abriendo', 'Recargando WhatsApp Web…');
+    try { await chrome.tabs.reload(tab.id); await cargaConTope(tab.id, 45000); } catch { /* sigue abajo */ }
+    ping = await pingConEspera(tab.id, 30000);
+  }
+  if (!ping) return { tab, motivo: 'sin_respuesta_wa' };
+  // Recién abierta, WhatsApp Web todavía no guardó su base (o falta iniciar la sesión): se espera un minuto, contándolo.
+  const hasta = Date.now() + 60000;
+  while (ping.base === false && Date.now() < hasta) {
+    avisar('cargando', 'Esperando que WhatsApp Web cargue tus chats…');
+    await new Promise((r) => setTimeout(r, 2500));
+    ping = (await pingWhatsapp(tab.id)) || ping;
+  }
+  if (ping.base === false) return { tab, motivo: 'sin_sesion' };
+  return { tab, motivo: null };
+}
+
 /** Abre Flow, o enfoca la pestana que ya esta. */
 async function abrirFlow() {
   try {
@@ -2688,7 +2769,26 @@ async function asegurarAlarma() {
   void ciclo();
 }
 
-chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); });
+/**
+ * EL PUENTE EN LAS PESTAÑAS DE MaKo QUE YA ESTABAN ABIERTAS (25/10/2026, 0.71.0). Chrome no mete los content scripts en una
+ * pestaña abierta ANTES de instalar o actualizar la extensión: la de MaKo no se enteraba de que la extensión estaba («Instala la
+ * extensión» con la extensión recién instalada) hasta recargarla, y Martín pidió que al volver de instalarla «empiece sola».
+ * Se repone sólo donde no corre (`__makoPuenteCargado`, lo deja mako-puente.js), para no correrlo dos veces en el mismo mundo.
+ */
+async function reponerPuenteEnMako() {
+  let tabs = [];
+  try { tabs = await chrome.tabs.query({}); } catch { return; }
+  for (const t of tabs) {
+    if (t.id == null || typeof t.url !== 'string' || !t.url.startsWith(`${MAKO}/`)) continue;
+    try {
+      const [ya] = await chrome.scripting.executeScript({ target: { tabId: t.id }, func: () => globalThis.__makoPuenteCargado === true });
+      if (ya && ya.result) continue;
+      await chrome.scripting.executeScript({ target: { tabId: t.id }, files: ['mako-puente.js'] });
+    } catch { /* una pestaña descartada o sin permiso: la repone su próxima carga */ }
+  }
+}
+
+chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); void reponerPuenteEnMako(); });
 chrome.runtime.onStartup.addListener(() => { void asegurarAlarma(); });
 void asegurarAlarma();
 
@@ -2770,23 +2870,54 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   }
 
   // LAS FICHAS DE WHATSAPP WEB (24/10/2026, wa-fichas.js). MaKo, desde la pestaña de hola-mako.com, pide lo que el WhatsApp Web
-  // de esta persona ya guardó sobre los teléfonos de sus leads; esto busca una pestaña de WhatsApp Web abierta y se lo pasa.
-  // No abre ninguna: si no hay, se dice («abrí WhatsApp Web»). La pestaña sólo LEE su base: no toca la interfaz ni la red.
+  // de esta persona ya guardó sobre los teléfonos de sus leads; esto lo lleva a la pestaña de WhatsApp Web. La pestaña sólo
+  // LEE su base: no toca la interfaz ni la red.
+  // ⚠️ DESDE LA 0.71.0 (25/10/2026), Martín: «La extensión no contestó... no hay ninguna acción que el usuario vea para saber
+  // que está corriendo bien». Ahora el worker resuelve lo que antes era un error para la persona: si no hay WhatsApp Web lo
+  // ABRE (en otra pestaña), si la pestaña está dormida la despierta, si no tiene el script se lo pone, y espera a que cargue los
+  // chats; y le cuenta cada paso a la pestaña de MaKo que pidió (`WA_FICHAS_AVANCE`, con el mismo `id`).
   if (msg?.tipo === 'WA_FICHAS_PEDIDO') {
+    const origen = _s?.tab?.id;
+    const pedidoId = typeof msg.id === 'string' ? msg.id : '';
+    const avisar = (paso, texto) => {
+      if (origen == null) return;
+      chrome.tabs.sendMessage(origen, { tipo: 'WA_FICHAS_AVANCE', id: pedidoId, paso, texto }).catch(() => {});
+    };
     void (async () => {
       try {
-        // Por prefijo y no con el patrón de URL de Chrome: ese patrón termina en barra-asterisco, y los tests del worker
-        // quitan los comentarios con una regex que, ante esa secuencia dentro de un texto, se come todo el código que sigue
-        // hasta el próximo cierre de comentario (rompió tres tests ajenos, 24/10/2026). La URL se ve: hay permiso del sitio.
-        const tabs = await chrome.tabs.query({});
-        const tab = tabs.find((t) => t.id != null && typeof t.url === 'string' && t.url.startsWith('https://web.whatsapp.com/'));
-        if (!tab) { responder({ ok: false, motivo: 'sin_whatsapp_web' }); return; }
-        const r = await chrome.tabs.sendMessage(tab.id, { tipo: 'WA_FICHAS', telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [] });
+        const lista = await pestanaDeWhatsappLista(avisar);
+        if (lista.motivo) { responder({ ok: false, motivo: lista.motivo }); return; }
+        const grupos = Array.isArray(msg.grupos) ? msg.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
+        avisar('leyendo', grupos.length === 1 ? `Buscando el grupo «${grupos[0]}» en tu WhatsApp Web…` : grupos.length > 1 ? `Buscando ${grupos.length} grupos en tu WhatsApp Web…` : 'Leyendo tu WhatsApp Web…');
+        const r = await conTope(chrome.tabs.sendMessage(lista.tab.id, {
+          tipo: 'WA_FICHAS',
+          telefonos: Array.isArray(msg.telefonos) ? msg.telefonos : [],
+          pedidos: Array.isArray(msg.pedidos) ? msg.pedidos : undefined,
+          grupos,
+        }), 90000);
+        if (r && r.tope) { responder({ ok: false, motivo: 'sin_respuesta_wa' }); return; }
         responder(r ?? { ok: false, motivo: 'sin_respuesta' });
       } catch (e) {
-        // Una pestaña abierta ANTES de instalar o actualizar la extensión no tiene el script: hace falta recargarla.
         responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
       }
+    })();
+    return true;
+  }
+
+  // «Ir a WhatsApp Web» desde MaKo (para iniciar la sesión, 25/10/2026): la pestaña que hay, al frente; si no hay, una nueva.
+  if (msg?.tipo === 'WA_ENFOCAR') {
+    void (async () => {
+      try {
+        const tabs = await chrome.tabs.query({});
+        const tab = tabs.find(esPestanaDeWhatsapp);
+        if (tab) {
+          await chrome.tabs.update(tab.id, { active: true });
+          if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
+        } else {
+          await chrome.tabs.create({ url: WA_WEB, active: true });
+        }
+        responder({ ok: true });
+      } catch { responder({ ok: false }); }
     })();
     return true;
   }

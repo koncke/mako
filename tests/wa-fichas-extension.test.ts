@@ -226,10 +226,14 @@ test('7. el puente: página → mako-puente → worker → pestaña de WhatsApp 
   const desde = worker.indexOf("tipo === 'WA_FICHAS_PEDIDO'");
   const enWorker = worker.slice(desde, worker.indexOf('\n  }\n', desde)); // SÓLO este bloque: el return del siguiente no cuenta
   assert.ok(worker.includes("tipo === 'WA_FICHAS_PEDIDO'"), 'el worker no atiende el pedido');
-  assert.match(enWorker, /t\.url\.startsWith\('https:\/\/web\.whatsapp\.com\/'\)/, 'el worker le pregunta a otra pestaña');
+  // Desde la 0.71.0 (25/10/2026) la pestaña la busca (y abre, despierta o repara) `pestanaDeWhatsappLista`, afuera del bloque.
+  assert.match(enWorker, /const lista = await pestanaDeWhatsappLista\(avisar\);/, 'el worker le pregunta a otra pestaña');
+  assert.match(worker, /const esPestanaDeWhatsapp = \(t\) => !!t && t\.id != null && typeof t\.url === 'string' && t\.url\.startsWith\('https:\/\/web\.whatsapp\.com\/'\);/);
   // ⚠️ Sin barra-asterisco en el código del worker: los tests de la extensión quitan comentarios con una regex que, ante esa
   // secuencia dentro de un texto, se come el resto del archivo (y esos tests dan rojo por razones que no son las suyas).
-  assert.ok(!enWorker.includes('web.whatsapp.com/*'), 'volvió el patrón con barra-asterisco al worker');
+  const ayudas = worker.slice(worker.indexOf('const WA_WEB = '), worker.indexOf('/** Abre Flow, o enfoca la pestana que ya esta. */'));
+  assert.ok(ayudas.length > 500, 'no encontré las ayudas de WhatsApp Web del worker');
+  assert.ok(!enWorker.includes('web.whatsapp.com/*') && !ayudas.includes('web.whatsapp.com/*'), 'volvió el patrón con barra-asterisco al worker');
   assert.match(enWorker, /tipo: 'WA_FICHAS'/);
   assert.match(enWorker, /return true;/, 'sin `return true` la respuesta asincrónica se pierde');
   assert.match(contenido, /msg\.tipo !== 'WA_FICHAS'/);
@@ -266,7 +270,7 @@ test('9. la pantalla: la dispara la persona, con avance y «Parar», y lo que el
   assert.match(cuerpo, /setAvance\(`Guardando /, 'sin avance visible');
   assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm\)/, 'pide fichas de gente que no está en el CRM');
   // El corte va ADENTRO del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía (la revisión del 24/10).
-  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}`\);/, 'un corte callado');
+  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}\$\{gruposEnWhatsappDichos\(r\.grupos\)\}`\);/, 'un corte callado');
   // «Parar» va en el pie del molde, al lado del avance (24/10/2026): el mismo llamado que lo arrancó lo para.
   assert.match(ui, /const parar = leyendoWa \? \{ texto: 'Parar', onClick: \(\) => void leerDeWhatsappWeb\(\) \}/);
   assert.doesNotMatch(cuerpo, /useEffect|setInterval/, 'corre solo');
@@ -283,5 +287,8 @@ test('10. la política de privacidad dice lo que hace: cada sitio del manifest, 
   }
   assert.match(pol, /<H>En WhatsApp Web<\/H>/);
   assert.match(pol, /no hace clic, no abre chats, no\s+envía mensajes, no marca nada como leído/);
-  assert.match(pol, /const ACTUALIZADO = '24 de octubre de 2026'/, 'la política cambió y la fecha no');
+  // 25/10/2026 (0.71.0): la extensión puede ABRIR WhatsApp Web, y recibe el nombre del grupo y el `@lid` de cada contacto.
+  assert.match(pol, /Si WhatsApp Web no está abierto, la extensión lo <strong>abre en otra pestaña<\/strong>/);
+  assert.match(pol, /el\s+nombre de ese grupo y el identificador con que WhatsApp los conoce en él/);
+  assert.match(pol, /const ACTUALIZADO = '25 de octubre de 2026'/, 'la política cambió y la fecha no');
 });
