@@ -692,7 +692,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Ver el Media Buyer',
-    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.',
+    descripcion: 'El Media Buyer de la cuenta: si está prendido, su modo (propone o piloto automático), el resultado que busca y su objetivo, los topes, las metas del mes, la cuenta publicitaria, la última vez que miró la cuenta, sus agentes (los cuatro de MaKo con su estado, y los propios del negocio), las alertas de Protect de la última vez que miró, y sus decisiones de 30 días como en la pantalla: abiertas (id, qué propone, quién la firma, por qué y los números), hechas (aplicadas o deshechas, con sus estrellas) y descartadas (con el motivo). Úsala antes de lanzar, descartar, reabrir, calificar o deshacer una decisión.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
@@ -817,7 +817,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_campanas_media_buyer', area: 'ads', tipo: 'lectura',
     titulo: 'Campañas que ve el Media Buyer',
-    descripcion: 'Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, y sus campañas y conjuntos (id, nombre, prendido, presupuesto diario). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.',
+    descripcion: 'Lo que el Media Buyer ve de la cuenta, leído en vivo: si está conectada y por dónde (Zernio o el token de Meta), la moneda, sus campañas y conjuntos (id, nombre, prendido, presupuesto diario), y las campañas por producto como la pestaña Campañas (cada producto del CRM con su gasto, sus resultados y su costo del mes, y las campañas sin producto). Úsala para elegir qué campañas cubre una táctica en automatizacion_media_buyer.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_MEDIA_BUYER,
   },
@@ -848,5 +848,48 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'campanas', tipo: 'string[]', max: 300, vaciaEsValor: true, descripcion: 'ids de las campañas que cubre (de ver_campanas_media_buyer); [] = toda la cuenta.' },
     ],
     canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  // Los agentes y la Biblioteca (25/10/2026, la estructura de AdAmigo; lib/media-buyer/agentes.ts y agentes-propios.ts): cada
+  // acción la firma un agente de MaKo que maneja sus tácticas, y el negocio suma los suyos (una regla en palabras que su IA
+  // mira cada día). Lo de un agente propio SIEMPRE propone (táctica `manual`): el piloto automático no lo lanza nunca.
+  {
+    id: 'modo_agente_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true, plata: true,
+    titulo: 'Modo de un agente de MaKo',
+    descripcion: 'PROPONE pausar, dejar proponiendo o poner en automático a UNO de los agentes de MaKo del Media Buyer (de ver_media_buyer, en agentes): el Estratega (calidad de leads), el Media Buyer (sube, baja y prende presupuestos), el Diseñador de creativos (variaciones del ganador) o Protect (pausa lo que gasta sin resultados). Cambia el estado de todas sus tácticas a la vez, sin tocar sus umbrales ni sus campañas. Automático lanza sin esperar a una persona: se confirma en una pantalla.',
+    escribe: 'cambia el estado de las tácticas del agente en media_buyer_config.tacticas',
+    parametros: [
+      { nombre: 'agente', tipo: 'string', obligatorio: true, enum: ['estratega', 'media_buyer', 'disenador', 'protect'], descripcion: 'estratega, media_buyer, disenador o protect.' },
+      { nombre: 'estado', tipo: 'string', obligatorio: true, enum: ['pausado', 'propone', 'automatico'], descripcion: 'pausado, propone o automatico.' },
+    ],
+    canales: TODOS, costo: 'dinero', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'agente_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Crear o cambiar un agente propio',
+    descripcion: 'PROPONE crear un agente propio del Media Buyer, o cambiar uno (con su agenteId, de ver_media_buyer en agentesPropios): una regla escrita en palabras («pausa todo conjunto que pase de US$ 15 por lead en 3 días») que la IA del negocio mira contra la cuenta cada día o cada lunes, y deja acciones para aprobar. Nunca lanza solo: lo suyo espera a una persona y al lanzar pasa por los topes. Hasta 10 por negocio. Sin agenteId crea uno; con agenteId sólo cambia lo que se pasa.',
+    escribe: 'guarda el agente en media-buyer.agentes (app_settings)',
+    parametros: [
+      { nombre: 'agenteId', tipo: 'string', max: 40, descripcion: 'para cambiar uno que ya existe (de ver_media_buyer, en agentesPropios). Sin esto, crea uno nuevo.' },
+      { nombre: 'nombre', tipo: 'string', max: 60, descripcion: 'cómo se llama (obligatorio al crear).' },
+      { nombre: 'regla', tipo: 'string', max: 600, descripcion: 'qué mira y qué hace, en palabras (obligatoria al crear).' },
+      { nombre: 'cada', tipo: 'string', enum: ['dia', 'semana'], descripcion: 'dia (cada día) o semana (los lunes). Por defecto, cada día.' },
+      { nombre: 'estado', tipo: 'string', enum: ['activo', 'pausado'], descripcion: 'activo o pausado. Por defecto, activo.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'borrar_agente_media_buyer', area: 'ads', tipo: 'accion', confirmacion: 'chat', reversible: false,
+    titulo: 'Borrar un agente propio',
+    descripcion: 'PROPONE borrar un agente propio del Media Buyer (de ver_media_buyer, en agentesPropios). Las acciones que ya dejó siguen en su lugar. No toca la cuenta de Meta.',
+    escribe: 'saca el agente de media-buyer.agentes (app_settings)',
+    parametros: [{ nombre: 'agenteId', tipo: 'string', obligatorio: true, max: 40, descripcion: 'el id del agente (de ver_media_buyer, en agentesPropios).' }],
+    canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
+  },
+  {
+    id: 'ver_biblioteca_media_buyer', area: 'ads', tipo: 'lectura',
+    titulo: 'Ver la Biblioteca del Media Buyer',
+    descripcion: 'La Biblioteca del Media Buyer, como su pestaña: lo nuevo para revisar (las variaciones de texto y de gancho que propuso el Diseñador de creativos, con su id de decisión), los anuncios que más resultados trajeron al CRM este mes (gasto, resultados y costo por resultado), y lo que ya se lanzó en 30 días. Úsala antes de lanzar_decision_media_buyer o hooks_al_video_media_buyer sobre una variación.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'gratis', gating: G_MEDIA_BUYER,
   },
 ];

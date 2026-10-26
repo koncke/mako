@@ -97,7 +97,7 @@ import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles,
 import { enfocarWhatsappWeb, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
-import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
+import { avanceCorto, correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
 import { miles } from './traer-seleccion';
 
 /**
@@ -371,6 +371,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     if (v === 'whatsapp') {
       if (extWa === 'si') { setPide({ tipo: 'whatsapp' }); return; }
       setEsperaExt(true);
+      // Si la carpeta de una extensión descomprimida ya trae la nueva, se recarga sola (0.71.1+): ni hace falta instalar.
+      window.dispatchEvent(new CustomEvent('MAKO_EXTENSION_REVISAR'));
       window.open('/extension/instalar', '_blank', 'noopener');
       return;
     }
@@ -437,7 +439,7 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       if (!t.pedidos.length) { r = { texto: `Ninguno de los ${cuantos} tiene teléfono.`, hubo: false }; return; }
       setAvance('Pidiéndole a la extensión de MaKo…');
       const f = await pedirFichasDeWhatsappWeb(t.pedidos.map((p) => ({ telefono: p.telefono, lid: p.lid })), {
-        grupos: t.grupos, alAvanzar: (texto) => setAvance(texto),
+        grupos: t.grupos, alAvanzar: (texto, paso) => setAvance(avanceCorto(paso, texto)),
       });
       if (!f.ok) {
         // Sin la sesión iniciada, la pestaña que abrió la extensión va al frente: ahí está el código para escanear.
@@ -558,12 +560,14 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             style={{ flex: 'none', minWidth: 24, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
             {n}
           </span>
-          {avance && <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
+          {avance && <span role="status" title={avance} style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
           {/* Esperando la extensión que se fue a instalar: se dice, con cómo dejar de esperar. */}
           {esperaExt && !largo && (
             <>
-              <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo: cuando esté, empieza sola.
+              {/* Corto, para que entre al lado de los botones (en el Chrome de Martín salía «cuando esté, emp…»); lo completo, al pasar. */}
+              <span role="status" title={`${extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo en la otra pestaña: cuando esté, esto empieza solo.`}
+                style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión: empieza sola
               </span>
               <button type="button" onClick={() => setEsperaExt(false)}
                 style={{ flex: 'none', height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>

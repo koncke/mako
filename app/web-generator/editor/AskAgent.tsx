@@ -294,8 +294,10 @@ export function AskAgent({ tarjetaId, ancla, onCerrar, modo = 'editar' }: PropsA
       cerrar();
     };
     document.addEventListener('keydown', onKey, true);
-    document.addEventListener('mousedown', onDown, true);
-    return () => { document.removeEventListener('keydown', onKey, true); document.removeEventListener('mousedown', onDown, true); };
+    // `pointerdown`, como los demás paneles: es el que HtmlEditableVista reenvía desde el iframe de un diseño (un clic
+    // adentro de una sección de MaKo también cierra este panel).
+    document.addEventListener('pointerdown', onDown, true);
+    return () => { document.removeEventListener('keydown', onKey, true); document.removeEventListener('pointerdown', onDown, true); };
   }, [arriba, cerrar, ancla]);
 
   if (typeof document === 'undefined') return null;

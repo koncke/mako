@@ -215,6 +215,9 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // El Media Buyer (25/10/2026, lib/media-buyer/variaciones.ts): las variaciones de texto y de hook del anuncio que más
   // resultados trajo. Corre con la IA DEL NEGOCIO (su Claude, su GPT o su Gemini): sin la suya no hay variaciones.
   { feature: 'media-buyer-variaciones', label: 'Variaciones del anuncio ganador (Media Buyer)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe cuatro variaciones de texto o de gancho del ganador, en la voz del negocio y en español neutro. Sin PII: textos de un anuncio publicado y el perfil del negocio.' },
+  // Los agentes PROPIOS del Media Buyer (25/10/2026, lib/media-buyer/agentes-ia.ts): una regla escrita por el negocio, mirada
+  // contra los números de su cuenta. También con la IA DEL NEGOCIO. Lo que deja siempre espera a una persona.
+  { feature: 'media-buyer-agentes', label: 'Agentes propios (Media Buyer)', grupo: 'Copywriting', def: GEMINI(), nota: 'Mira una regla del negocio («pausa lo que pase de $15 por lead») contra los números de 7 días de su cuenta y propone acciones. Sin PII: nombres de campañas y números agregados.' },
   { feature: 'landing-writer', label: 'Escribir la landing (Web Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el Diagnóstico de esa página. Voz de marca sin PII.' },
   // El editor copiado de Gamma (lib/editor-landing/ia.ts, docs/diseno-editor-landing.md D5).
   // Dos features y no una: generar (esquema + secciones, lo más voluminoso) y editar (texto,

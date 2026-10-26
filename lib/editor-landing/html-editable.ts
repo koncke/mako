@@ -107,6 +107,21 @@ export const CSS_BASE_LIBRE = [
 ].join('\n');
 
 /**
+ * Los enlaces «a otra página» de un diseño (`href="pagina:<id>"`, el selector de destino) a la dirección de esa página, al
+ * PUBLICAR (26/10/2026): el HTML de un diseño va tal cual a la página, y un `pagina:` crudo haría que el navegador busque
+ * una aplicación para ese esquema. `resolver` es el de los botones de bloque (render.ts, `resolverHref`); lo que no
+ * resuelve, o un id que no es de página, queda en `#`. Lo demás vuelve byte por byte.
+ */
+export function conEnlacesDePaginas(html: string, resolver?: (href: string) => string | null): string {
+  if (!html.includes('pagina:')) return html;
+  return html.replace(/(\shref=")(pagina:[^"]*)(")/gi, (_t, abre: string, h: string, cierra: string) => {
+    const r = /^pagina:[A-Za-z0-9_-]{1,60}$/.test(h) && resolver ? resolver(h) : null;
+    const v = r && !r.startsWith('pagina:') ? r : '#';
+    return abre + v.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;') + cierra;
+  });
+}
+
+/**
  * ¿Un medio (src, poster, srcset, un url() de un estilo) puede cargarse desde una sección de diseño? Sólo una URL
  * ABSOLUTA https (o una imagen `data:`) y nunca a una ruta /api/. ⚠️ El editor dibuja la sección en un iframe del
  * MISMO origen que la app (para poder editarla): un `<img src="/api/…">` ahí sale con la cookie de quien la abre

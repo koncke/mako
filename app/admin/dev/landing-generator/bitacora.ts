@@ -1461,4 +1461,71 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '26 oct', hora: '02:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las landings de MaKo cierran con los planes y la prueba gratis',
+    pedido: 'Martín, a «¿el bloque de cierre muestra los planes con la prueba gratis o la agenda para una llamada?»: «Los planes con la prueba gratis»',
+    puntos: [
+      'El final de la landing principal y de las doce muestra los dos planes, Esencial y Pro, con Pro como el recomendado.',
+      'Cada uno tiene su botón «Empezar mis 7 días gratis», que lleva a pagar ese plan.',
+      'Debajo queda un link chico: «¿Prefieres hablar antes? Déjanos tus datos y te escribimos».',
+      'No se publicó nada: Martín las mira primero.',
+    ],
+    archivos: [
+      'scripts/landings-mako-v2.mts — el bloque de cierre de todas',
+      'tests/landings-mako-v2.test.ts — lo que no se puede perder',
+    ],
+  },
+  {
+    fecha: '26 oct', hora: '05:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El editor web con las páginas de MaKo: el menú se cierra, la barra de texto anda y se ve el video',
+    pedido: '«Cosas basicas, como que si le doy click derecho y luego doy click izquierdo en otro lado, debe desaparecer el desplegable... La barra de texto me aparece en gris... Los botones tampoco son editables... Las secciones no se pueden acomodar... El video no se muestra...»',
+    puntos: [
+      'El menú del clic derecho se cierra con un clic en cualquier otro lado, también adentro de una sección.',
+      'La barra «Texto» de arriba funciona en las páginas de MaKo: negrita, color, tamaño, alineación, estilos y enlaces.',
+      'Al elegir un botón aparece «Botón»: su texto, a dónde lleva y sus colores.',
+      'Para mover una sección, mientras la arrastras todas se achican y la sueltas donde quieras.',
+      'Los botones de cada sección se quedan mientras la editas, aunque bajes por ella.',
+      'El video, la agenda de Calendly y la animación de MaKo se ven en el editor como en la página.',
+    ],
+    archivos: [
+      'app/web-generator/editor/nodos/HtmlEditableVista.tsx — la sección de diseño',
+      'app/web-generator/editor/BarraFormato.tsx — la barra «Texto»',
+      'app/web-generator/editor/nodos/TarjetaVista.tsx — mover las secciones',
+    ],
+    revisar: '/web-generator/44',
+  },
+  {
+    fecha: '26 oct', hora: '06:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El analizador aplica todos sus comentarios, y una página copiada trae sus botones',
+    pedido: '«Que funcione bien también el analizador de otras landing, que si le doy al botón de aplicar lo haga... prueba en traer una landing de alguna competencia y ver si la duplica bien»',
+    puntos: [
+      'Probado con la página de un competidor: se analiza, se copia al editor y «Aplicar» cambia la copia.',
+      'Un comentario que no está en una sección también tiene «Aplicar»: arregla la página entera.',
+      'Al copiar una página, sus botones quedan como botones y sus preguntas como desplegables, aunque la IA no responda.',
+    ],
+    archivos: [
+      'lib/editor-landing/diagnostico-aplicar.ts — «Aplicar»',
+      'lib/editor-landing/ia-reglas.ts — la copia sin IA',
+    ],
+    revisar: '/web-generator?diagnostico=46',
+  },
+  {
+    fecha: '26 oct', hora: '07:20', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'En las páginas de MaKo, el tachado, los enlaces a otra página y el precio con formato ya no se pierden al guardar',
+    pedido: 'Cerebro (revisión de tren-l): «en el editor se ve bien, pero al GUARDAR se pierde sin aviso»',
+    puntos: [
+      'El texto tachado en una sección de MaKo se queda tachado después de guardar.',
+      'Un botón o enlace que lleva a otra página de la landing funciona en la página publicada.',
+      'Si pones negrita o un color sobre un precio, el precio se sigue actualizando cuando cambia el plan.',
+    ],
+    archivos: [
+      'lib/editor-landing/html-editable-seguro.ts — lo que se guarda de una sección de diseño',
+      'lib/editor-landing/precios-en-landing.ts — los precios de hoy en la landing',
+    ],
+  },
 ];

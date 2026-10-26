@@ -7,6 +7,7 @@
 
 import type { ConversorGasto } from '@/lib/presupuesto-cambio';
 import type { NodoMB, SenalMB } from './motor';
+import { fmtDinero } from '@/lib/format';
 
 // Lo mínimo que necesita del árbol de Zernio (lib/zernio-ads.ts → ZCampaign), escrito acá para no importar un módulo
 // `server-only` desde código puro.
@@ -172,8 +173,8 @@ export function arbolDesdeZernio(campanas: ZCampaignP[]): { arbol: NodoMB[]; met
 /** Cómo se escribe un monto en la unidad del gasto: «US$ 12» si la cuenta convierte a dólares, si no en su moneda. */
 export function fmtUnidad(datos: { conversor: ConversorGasto; moneda: string | null }): (u: number) => string {
   const convierte = datos.conversor.moneda != null && datos.conversor.aUsd(1) != null;
-  const n = (u: number) => u.toLocaleString('es-MX', { maximumFractionDigits: 2 });
-  return (u) => (convierte ? `US$ ${n(u)}` : `${n(u)} ${datos.moneda ?? ''}`.trim());
+  // El formateador de la casa (lib/format.ts): «$9.07», «$2,140»; la moneda propia si no convierte.
+  return (u) => (convierte ? fmtDinero(u) : fmtDinero(u, datos.moneda));
 }
 
 /**

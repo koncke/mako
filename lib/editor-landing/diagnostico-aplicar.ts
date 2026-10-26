@@ -84,28 +84,33 @@ export async function aplicarComentarios(p: { docId?: unknown; ids?: unknown; ve
     const elegidas = ids.map((id) => lista.sugerencias.find((s) => s.id === id)).filter((s): s is Sugerencia => !!s);
     if (elegidas.length !== ids.length) return falla('Ese comentario no es de esta landing.', 404);
     if (elegidas.some((s) => s.estado !== 'pendiente')) return falla('Ese comentario ya no está pendiente.', 409);
+    // SIN SECCIÓN (26/10/2026, Martín: «que si le doy al botón de aplicar lo haga»): un comentario cuya cita no está en
+    // ninguna sección (el título de la pestaña, una frase que la réplica escribió distinta) se aplica a TODA la página de
+    // inicio: la IA cambia sólo las secciones que el comentario toca. Antes no tenía «Aplicar».
     const seccionId = elegidas[0].seccionId;
-    if (!seccionId) return falla('No sé en qué sección está ese comentario: usa «Preguntar a MaKo».', 422);
     if (elegidas.some((s) => s.seccionId !== seccionId)) return falla('Los comentarios son de secciones distintas.');
 
     const a = await abrir(docId);
     if (!a.ok) return falla(a.error, a.status);
     if (esperada && a.doc.version !== esperada) return falla('La landing cambió mientras tanto. Vuelve a intentarlo.', 409, { conflicto: true });
-    const pag = a.doc.contenido.paginas.find((x) => tarjetasDe(x).some((t) => idDe(t) === seccionId));
+    const pag = seccionId ? a.doc.contenido.paginas.find((x) => tarjetasDe(x).some((t) => idDe(t) === seccionId)) : a.doc.contenido.paginas[0];
     const todas = pag ? tarjetasDe(pag) : [];
-    const original = todas.find((t) => idDe(t) === seccionId);
-    if (!pag || !original) return falla('Esa sección ya no está.', 409);
+    const enSeccion = seccionId ? todas.find((t) => idDe(t) === seccionId) : undefined;
+    if (!pag || !todas.length || (seccionId && !enSeccion)) return falla('Esa sección ya no está.', 409);
+    const aEditar = enSeccion ? [enSeccion] : todas;
 
     const r = await editar({
       instruccion: instruccionDeSugerencias(elegidas.map((s) => s.hallazgo)),
-      tarjetas: [original],
-      alcance: 'seccion',
+      tarjetas: aEditar,
+      alcance: enSeccion ? 'seccion' : 'landing',
       params: { formato: formatoDe(a.doc.config) },
     });
     if (!r.ok) return falla(r.error, r.status);
     if (!r.tarjetas.length) return falla('MaKo no propuso cambios.', 422);
-    const propuestas: JsonNodo[] = anclasResueltas(r.tarjetas, [original], todas);
+    const propuestas: JsonNodo[] = anclasResueltas(r.tarjetas, aEditar, todas);
     const resultado = planDeAplicacion(todas, propuestas, { anclaNuevas: seccionId }).resultado;
+    // «Ver cambio» compara una sección: la del comentario, o la primera que la IA cambió.
+    const original = enSeccion ?? todas.find((t) => propuestas.some((x) => idDe(x) === idDe(t))) ?? todas[0];
     const contenido = { ...a.doc.contenido, paginas: a.doc.contenido.paginas.map((x) => (x.id === pag.id ? { ...x, doc: docPagina(resultado) } : x)) };
 
     // La versión de antes ANTES de tocar nada: si no se pudo dejar, no se aplica (sin ella no hay Deshacer).

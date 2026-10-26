@@ -4861,12 +4861,108 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   podían tomar). Marcarlo «pausado» tampoco sirve: Revive propondría prenderlo. Ahora `arbolDesdeZernio` lo deja como
   `DELETED` (ni prendido ni pausado, y sigue en el árbol para que su gasto de antes sume), y la lectura en vivo del anuncio
   mira `status` y la entrega antes que el interruptor. Con test, roto a propósito.
+- ⚠️ **Zernio contesta 200 al pausar un anuncio BORRADO** (medido por el chat «Zernio y CAPI», 26/10/2026), sin error. Marcarlo
+  `DELETED` no alcanzaba: `lanzar` y `deshacer` seguían hasta escribir y la decisión quedaba «aplicada» sobre algo que ya no
+  existe (una acción propuesta cuando estaba prendido y borrada a mano antes de lanzarla). **El diagnóstico obvio («ya lo
+  marcamos borrado, no se toca») era el equivocado**: la marca sólo se leía para el interruptor. Ahora los dos se frenan ante
+  `DELETED` antes de escribir (`lanzar` la cierra como vencida, «Se borró en Meta»); lo fija `tests/media-buyer-senales.test.ts`.
+- **Con la MISMA `Idempotency-Key`, Zernio devuelve lo creado la primera vez aunque ya esté borrado** (el mismo chat, 26/10).
+  Al Media Buyer no le pega: sus claves son `mb:<decisión>:<variación>` y `mb-subir:<ws>:<path>`, y una decisión deshecha no
+  se relanza (reabrir toma sólo descartadas o vencidas) y cada subida tiene un path nuevo. Quien arme una clave con el NOMBRE
+  del anuncio (`crearAnuncioEnConjunto`, `mako:<conjunto>:<nombre>`) recrea uno borrado: el chat de Zernio le puso una ventana.
 
 **Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
 (`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### El rediseño con la estructura de AdAmigo (25/10/2026, tarde)
+
+Martín, textual: «Me gusta el de "AdAmigo" implementalo de punta en punta, revisa si es que tienen funcionalidades que nos
+faltan... en el onboarding, me imagino a la calculadora... todo con el chat de MaKo, como Offer... en el lienzo, recuerda
+que tenemos varios CRM, varios productos, se debe poder interactuar... Lo que más me interesa es que en diseño se vea muy
+bien». La pantalla pasó de Madgicx a AdAmigo (`app/ads-manager/aa.css`, todo token de la casa): Resumen · Autopilot ·
+Campañas (por producto) · Biblioteca, el panel «N activos» de los agentes, y el arranque como charla de Offer.
+
+- ⚠️ **Un reset `.aa button { … }` le gana a `.mk-btn`** (una clase y un elemento pesan más que una clase): los botones de la
+  casa salían sin fondo dentro de la pantalla nueva. **El diagnóstico obvio («falta importar ui.css») era el equivocado.**
+  El reset va con especificidad cero, `:where(.aa) :where(button)`, y entonces cualquier clase de la casa le gana.
+- ⚠️ **Los números del lienzo y de la Biblioteca se cruzan por el NOMBRE de la campaña**, no por su id: `getSenalesRecon`
+  trae `campana` (el nombre) y no el id de Meta. Una campaña renombrada este mes parte sus números en dos (la vieja queda
+  sin producto). La regla: `norm()` del nombre en las dos puntas (`lib/media-buyer/productos.ts`); el arreglo de fondo es
+  sumar el id de campaña a las señales, y queda SIN hacer.
+- **El producto de una campaña** es el de SU asignación del CRM; si no tiene, el de su primer conjunto asignado
+  (`CampanaAsignada.campanaId`); si tampoco, «Sin producto». Una asignación sin funnel va al default; la de un funnel que
+  ya no existe queda «Sin producto»: nunca se inventa uno.
+- ⚠️ **La tabla de decisiones tiene un CHECK sobre `tactica`** (`surf … manual`): un agente propio no puede guardar
+  `tactica: 'propio'`. Va como `manual` con la clave `propia:<id>:<nivel>:<entidad>:<día>` (`agenteDeClave` la lee), y la
+  corrida NUNCA lanza sola una `manual`: lo que la IA del negocio entendió de una regla espera siempre a una persona.
+  La IA no puede inventar entidades: sólo ids que están en la cuenta, con su nivel, y ±50% de presupuesto por paso.
+- **Un agente de MaKo no tiene estado propio: es el de sus tácticas** (`lib/media-buyer/agentes.ts`). Pausarlo apaga todas;
+  «automático» si alguna lanza sola. Así no hay dos verdades (el panel de agentes y la página de Automatizaciones).
+- **Las alertas de Protect no tienen tabla**: salen en cada corrida (rechazado, gasto que se dispara, leads de Meta que no
+  llegan al CRM, tope de la cuenta) y se guardan en `ultimaCorridaInfo.alertas`; las graves, además, en una notificación.
+  «Se disparó el gasto» es el gasto diario de 3 días por encima de 1,8 veces el de 7 días, y de US$ 20 para arriba.
+- **Un solo formato de plata: `fmtDinero` (`lib/format.ts`)**, con dos decimales debajo de 100 («US$ 7.80») y sin
+  decimales arriba. La pantalla mezclaba «US$ 7.8», «$7.80» y «7,80 USD» (el Cerebro lo marcó en la captura).
+- **Las pestañas en el teléfono entran sin íconos y repartidas** (`justify-content: space-between`, sin `overflow`): con
+  ícono, una pestaña salía cortada («Bloqu») a 390 px y no se veía que corría.
+- **Para mirar la pantalla sin servidor**, se renderiza estática con `renderToStaticMarkup` y hooks de módulo que cambian
+  `next/navigation`, el chat de la tab y las server actions por stubs: una server action importada en un componente de
+  cliente arrastra `server-only` y la carga revienta.
+- **Por la API**: `modo_agente_media_buyer` (mueve plata: pantalla, `dinero`, `NO_EN_FLUJOS`), `agente_media_buyer` y
+  `borrar_agente_media_buyer` (gratis, se confirman en el chat), `ver_biblioteca_media_buyer`, y `ver_media_buyer` /
+  `ver_campanas_media_buyer` ahora traen agentes, alertas y las campañas por producto.
+
+**Sin hacer, con su archivo:** sin piloto en la prueba gratis y la `<FranjaPrueba>` (esperan a que `planes-2510` esté en
+main; el cambio está escrito en las notas del Cerebro, `media-buyer-prueba-gratis.py`); el id de campaña en las señales
+(`lib/queries.ts` → `getSenalesRecon`); Ajustes y Automatizaciones siguen con la estética de Madgicx
+(`app/ads-manager/mb.css`); la Biblioteca muestra el texto de las variaciones, no la imagen del anuncio que generarían.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### La segunda vuelta: la captura 04, no la pantalla Autopilot (25/10/2026, noche)
+
+Martín, al ver la primera versión «AdAmigo»: «Lo que me pasaste de media buyer no me gusta... Una cantidad de botones y texto
+impresionante... Te pedí mucho atención al diseño» y «Y la captura que me habias pasado de Adamigo no se parece en nada».
+
+- ⚠️ **El diagnóstico obvio («hay que achicar la tarjeta y sacar botones») era el equivocado.** Martín había elegido UNA
+  captura, la 04 (`docs/media-buyer/referencias/otras-apps/04-adamigo-aplicado-y-deshacer.png`: la orden en el chat, una
+  pastilla, un árbol de tarjetas chicas y un mensaje al pie), y se copió OTRA pantalla de la misma app (Autopilot, con Qué ·
+  Por qué · Impacto y cinco botones por tarjeta). La regla: se copia la captura elegida, no el resto de la app de donde sale,
+  y antes de mostrarla se pone AL LADO de la referencia, a la misma altura (las comparaciones quedan en las notas del Cerebro,
+  `media-buyer-adamigo/`). Es el segundo rechazo por lo mismo (el de las 14:10, a la de Madgicx).
+- **HOY es la 04** (`app/ads-manager/Arbol.tsx`, `Hoy.tsx`): la caja del chat arriba, «MaKo · N cambios para hoy», las ramas
+  por producto del CRM y una tarjeta chica por cambio (el producto, «Meta · la campaña», «Aplicar» o «Aplicado», un rótulo,
+  la entidad y «$30 → $36 / día +20%»). El porqué va en UNA línea al pie y en el detalle que se abre al tocar la tarjeta (la
+  tarjeta entera de antes, en una hoja). Una cuenta nueva y un día sin cambios ven la captura 2: «¿En qué te ayudo hoy?» con
+  cuatro sugerencias; «Lanzar una campaña» abre el arranque con la calculadora. Fuera de la primera pantalla: la tabla del mes,
+  la columna derecha, las subpestañas, «N activos», «Ajustar IA» y la barra (los agentes cuelgan de la tuerca; lo hecho, de
+  «Actividad»). Lo fija `tests/media-buyer-hoy.test.ts`, que renderiza la tarjeta y cuenta UN botón a la vista (roto tres
+  veces a propósito: otro botón, el porqué en la tarjeta, «Aplicar los N» con uno solo).
+- **Las ramas del árbol sin medir nada:** el hueco entre columnas va en % del ancho (`column-gap: 2.4%`), así el centro de
+  cada columna se calcula exacto y el abanico es un SVG con `preserveAspectRatio="none"` y `vector-effect: non-scaling-stroke`
+  (la línea queda de 1,5 px a cualquier ancho). Con el hueco en px habría que medir: a 1.000 px de ancho y 24 px de hueco, el
+  centro de una columna de costado se corre 8 px.
+- **Toda la tarjeta abre el detalle sin anidar botones:** un botón invisible que la cubre, debajo de «Aplicar»; lo demás va
+  con `pointer-events: none`. Un `role="button"` en la tarjeta con «Aplicar» adentro sería un botón dentro de otro.
+- **La caja nueva tiene que nombrar el hook como la casa:** `tests/app-de-escritorio-todos-los-chats.test.ts` busca
+  literalmente `const appEscritorio = useAppDeEscritorio()` y `bloqueo={appEscritorio.bloqueo}`; con otro nombre de variable
+  da rojo aunque la caja se bloquee bien.
+
+- **Campañas y Biblioteca, con el MISMO árbol** (`Ramas` y `TarjetaRama` en `Arbol.tsx`): en Campañas las ramas son los
+  productos (con «Sin producto» como una rama más) y cada tarjeta, una campaña con su gasto, sus resultados del CRM y su costo;
+  su único botón es «Asignar» o «N cambios», y al tocarla se abre la hoja con `ProductoCelda` (la del CRM). En Biblioteca, cada
+  tarjeta es uno de los anuncios que más trajeron, con «Variaciones». Lo nuevo para revisar ya está en Hoy y lo lanzado, en
+  Actividad: no se repite.
+- ⚠️ **Cuatro columnas no entran en el ancho de la 04** (1.040 px): con tres productos y «Sin producto», el nombre de la
+  campaña se cortaba. Quedan tres columnas; la cuarta rama baja de fila con su rótulo y sin el punto de la rama.
+
+**Sin hacer, con su archivo:** Ajustes y Automatizaciones, con `mb.css`; las alertas de Protect son una línea arriba del árbol
+y su hoja; «Aplicar los N» lanza de a uno desde el navegador (no hay una operación «lanzar varias» en `/api/media-buyer`).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
 

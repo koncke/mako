@@ -3112,3 +3112,119 @@ Lo que quedó SIN hacer:
 - Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
   ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
 - Probarlo con clics en producción cuando despliegue, sobre una copia.
+
+## El cierre de las landings de MaKo con los planes y la prueba gratis (26/10/2026, claude5)
+
+Martín (26/10 01:23), a «¿el bloque de cierre muestra los planes con la prueba gratis o la agenda para una llamada?»:
+«Los planes con la prueba gratis». `cierre()` (scripts/landings-mako-v2.mts) es UNO para las dos portadas y las doce de
+`scripts/landings-mako-v2-funnels.mts`: ahora dibuja las tarjetas de los planes activos, con el molde de /planes
+(app/planes/Tarjetas.tsx). Pro va destacado porque así lo dice el plan, y cada botón «Empezar mis 7 días gratis» lleva a
+`/planes/<plan>?landing=<slug>`. La llamada queda como un link chico debajo.
+
+- **Un botón `inline-flex` se come los espacios.** `.mkv-btn` es `display: inline-flex`. Con texto suelto y una marca
+  adentro (`Empezar mis <span data-mako-prueba="dias">7</span> días`), cada pedazo queda como un elemento aparte y el
+  espacio entre ellos desaparece: se leía «Empezar mis7días gratis». **Regla:** en un botón flex, el texto con marcas va
+  envuelto en UN `<span>`, como `data-mako-prueba="boton"` de la portada. El test fija el `<span>` y la foto lo muestra.
+- **El texto del botón no es el de la marca `boton`.** `botonDePrueba` dice «Empieza tus 7 días gratis» y hola-mako.com
+  lo pisa en cada `data-mako-prueba="boton"`. El cierre pide «Empezar mis…», así que va con la marca `dias` adentro de su
+  propia frase. Si fuera con `boton`, en producción saldría otro texto que el de la vista previa.
+- **El cierre NO es el lugar de las columnas.** `data-mako-planes` tiene que estar una sola vez por página, porque
+  hola-mako.com pone ahí las columnas de Planes. El cierre arma sus tarjetas en el HTML, con el precio por marca
+  (`data-mako-precio`). Por eso se ven igual en la vista previa suelta y en producción.
+- **La vista previa suelta no es la página entera.** Los `.html` de `--salida` no corren app/vsl/Landing.tsx. La franja
+  oscura de precios (`#planes`) muestra su respaldo, no las columnas de Planes. El cierre sí se ve como saldrá.
+
+Lo que quedó SIN hacer:
+- **Si Martín quiere WhatsApp en el link de abajo.** MaKo no tiene agenda en sus landings (Martín sacó Calendly el 24/10),
+  y su número es el de los grupos de los clientes: no se publica sin su sí. Por eso el link dice «¿Prefieres hablar antes?
+  Déjanos tus datos y te escribimos» y `hablarAntes()` lleva al pedido que ya existe, el del Acelerador (el Cerebro, 26/10).
+  Se cambia en ese único lugar.
+- **Publicar.** Espera el sí de Martín, después de ver las vistas previas (`--subir`, en producción).
+
+## El editor web de punta a punta con las páginas de MaKo: lo que un iframe sin scripts no deja ver (26/10/2026, claude5)
+
+Martín pidió probar el editor de punta a punta y listó siete cosas: el menú del clic derecho que no se cierra, la barra
+de texto gris, los botones, las secciones que no se acomodan, el video, los botones flotantes que se van, la animación de
+MaKo y el Calendly. Se reprodujeron en producción sobre una COPIA de la landing principal (#44) y sobre una creada desde
+cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de MaKo es un «Diseño editable», un iframe
+`sandbox="allow-same-origin"` SIN scripts.
+
+- **Un clic adentro de un diseño no existe para la página.** Los menús y paneles se cierran con un `pointerdown` en el
+  `document` de la página, y el clic pasa en el documento del iframe. Como en una landing de MaKo casi todo «otro lado»
+  es otro iframe, el menú no se cerraba nunca. El diseño reenvía su `pointerdown` al marco, igual que ya hacía con el
+  clic derecho. **Regla:** un panel nuevo se cierra con `pointerdown` en captura. AskAgent usaba `mousedown` y no se
+  enteraba.
+- **El sandbox se HEREDA.** Un iframe de Panda o de Calendly ADENTRO del diseño tampoco puede correr scripts, aunque lleve
+  su propio `sandbox` abierto. Por eso se veía la ficha y no el video. Lo real va en una capa ENCIMA de su lugar, en la
+  página, con el `sandbox` de los insertados. Medido: el reproductor de Panda carga ahí. La capa no recibe el mouse hasta
+  que se elige el elemento, así el primer clic elige y el segundo ya es del reproductor.
+- **El diagnóstico obvio era el equivocado (los botones).** Se pensaba que el texto de un botón de diseño no se podía
+  escribir: medido, sí se podía (el `<a>` es editable adentro del `contentEditable`). Lo que faltaba era un control: al
+  elegirlo sólo aparecía «Enlace», un ícono chico, y nada para sus colores. Ahora aparece «Botón» con su nombre a la vista:
+  texto, a dónde lleva y los dos colores. El color va con `!important`, porque la hoja de un diseño lo escribe así
+  (`.mkv-btn { color: #fff !important }`) y un estilo sin él no gana. En una landing creada desde cero el botón ya andaba.
+- **«El SVG de MaKo» es un canvas que dibuja un script** (`/vsl-assets/mako-anim.js`). El iframe es del mismo origen: la
+  página carga el mismo dibujante y pinta en SU canvas, sólo mientras se ve. El `width`/`height` que el dibujo le pone
+  al canvas se saca antes de guardar: si no, el diseño quedaba «con cambios» sin que nadie tocara nada.
+- **La barra «Texto» quedaba gris porque lee la selección de ProseMirror**, y el cursor de un diseño está en su iframe.
+  `puente-diseno.ts` le dice qué documento tiene el cursor, y `acciones-diseno.ts` hace ahí lo mismo con
+  `execCommand`. Medido: funciona con el foco en el botón de la barra, y «deshacer» del iframe lo vuelve atrás. Los
+  estilos que no son una etiqueta HTML (antetítulo, grande, pequeño, tareas) y la etiqueta no se ofrecen en un diseño.
+- **Arrastrar por la mitad de la sección no sirve con secciones de 2.000 px.** «Mover arriba/abajo» del menú andaba. El
+  arrastre del ⋮ no movía nada, porque la mitad de la sección vecina quedaba unos 900 px fuera de la pantalla. Mientras se
+  arrastra, cada sección se ve como una franja de 132 px (`body[data-gm-reordenando]`): entran todas y se suelta donde
+  se ve.
+- **Controles que se van con el hover:** la barrita del diseño estaba 12 px por arriba y se iba con el `mouseleave` al
+  cruzar ese aire. Ahora se queda mientras su diseño es el activo y va pegada arriba de lo que se ve (un ancla `sticky`
+  de alto 0, que no mueve nada). El ⋮ de la sección también va `sticky` y tarda medio segundo en irse. `pointer-events`
+  no tiene transición; `visibility` sí, con retardo, y mientras se ve se puede apretar.
+- **Tests que fijaban nombres:** `setActivo(true)` en el `mousedown`, `boton('Enlace'…)` y el `className` de la
+  barrita. Se respetaron los nombres; sólo se cambió la activación, que ahora es el puente.
+- **El test nuevo pasaba acá y caía en el tren:** leía los fuentes sin normalizar el fin de línea y buscaba `\n`. En este
+  worktree los archivos estaban en LF; en wt-push-q (`core.autocrlf=true`) llegan en CRLF. La regla ya estaba en
+  AGENTS.md («Fin de línea»): todo `readFileSync` de un fuente va con `.replace(/\r\n/g, '\n')`. **Cómo se prueba:**
+  pasar a CRLF los fuentes que lee el test y correrlo (`probar-crlf.mjs` del scratchpad). Con la lectura vieja daba 7/1;
+  con la normalizada, 8/8.
+
+**El analizador y «Replicar», con una de la competencia (100ads.ai).** El análisis dejó 2 comentarios. «Aplicar» replicó
+la página (#46), pasó los comentarios y aplicó el que tenía sección: el documento cambió de verdad. Lo que falló:
+- **Un comentario SIN sección no tenía «Aplicar».** Su cita estaba en el título de la pestaña (el del voseo), así que no
+  se ubicó en ninguna sección. No tenía botón ni en la pantalla ni en la API, y el aplicado automático de la copia
+  terminaba en «No ubiqué esa sección». Ahora se aplica a TODA la página de inicio: `editar` con alcance `landing`,
+  que cambia sólo las secciones que el comentario toca. «Aplicar todos» los suma al final.
+- **La réplica dejaba los botones como texto.** Medido en los logs: la IA del negocio no contestó a tiempo (17 de 20
+  secciones sin IA). Ese paso no es de esta área: se le avisó al Cerebro. El respaldo (`tarjetaDesdeEsquema`) volcaba
+  cada renglón en una viñeta, con las marcas del lector escritas («[BOTÓN] Ver todo lo que incluye»). Ahora
+  `[BOTÓN] texto → destino` es un botón (hasta 3 en la fila) y `[DESPLEGABLE] pregunta → respuesta` es un
+  desplegable. Un destino en palabras queda `#`: no se inventa una dirección. Sin marcas sigue igual (uno es un
+  párrafo, varios son viñetas), porque lo usa también `agregar_seccion_landing`.
+- **«Aplicar» con la IA cayéndose escribió «[BOTÓN] Quiero ver la demo gratis» como texto.** Lo copió de la sección,
+  que ya tenía esas marcas. Con el respaldo nuevo, la sección trae botones de verdad.
+- **Las descripciones de la API se ACORTARON** (−33 en landing.def.ts) para decir «sin sección, toca la landing entera»:
+  el presupuesto del turno de la app tiene 38 caracteres de margen (más arriba, «El presupuesto del turno de la app»).
+
+Lo que quedó SIN hacer (en este documento cuando se haga):
+- Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45; la réplica #46).
+- Que la IA del editor de landings del ws9 no corra en Gemini (saturado y con timeouts el 26/10): es del área de IA.
+
+## Lo que se veía bien en el editor y se perdía al GUARDAR un diseño (26/10/2026, claude5)
+
+La revisión adversarial de tren-l lo encontró en lo nuevo de la barra «Texto» y de «Botón» en los diseños. Se veía bien
+en el editor, pero el HTML de un diseño pasa por el saneo del server (html-editable-seguro.ts) al guardar, al abrir y al
+publicar, y tres cosas se iban sin aviso:
+
+- **`execCommand` sin `styleWithCSS` escribe etiquetas VIEJAS.** El tachado sale `<strike>` y un color, `<font
+  color>`. La lista blanca del saneo no las tenía y su modo es `discard`: se va la etiqueta, queda el texto y el formato
+  se pierde. **Regla:** antes de un formato con `execCommand`, `styleWithCSS` en `true` (sale un `span` con estilo);
+  y el saneo pasa `strike`/`del` a `s` y `font color` a `span` con su color. Eso cubre también lo ya guardado y
+  lo pegado.
+- **Un enlace «a otra página» (`pagina:<id>`) se borraba**, porque `pagina` no era un esquema permitido. Y aunque pasara,
+  el HTML de un diseño se publica TAL CUAL: `resolverHref` corría sólo en los botones de bloque. Ahora el esquema se acepta
+  en `<a>` con un id válido, y al publicar `conEnlacesDePaginas` (html-editable.ts, desde render.ts y especificacion.ts)
+  lo cambia por la dirección de la página, o por `#` si ya no existe.
+- **Un precio con formato quedaba congelado.** La marca (`data-mako-precio`, `data-mako-desde`, `data-mako-prueba`) se
+  reconocía sólo con texto plano adentro (`[^<]*`). Una negrita encima la dejaba con el precio del día de publicar, aunque
+  cambiara en Planes. Ahora se reemplaza sólo el texto y las etiquetas de formato quedan. Con formato sobre una PARTE, el
+  número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
+
+Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).

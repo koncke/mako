@@ -414,11 +414,72 @@ export function ordenarPorIndice<T extends SeccionGramatica>(lista: T[], indices
  */
 export function tarjetaDesdeEsquema(s: SeccionEsquema, esPrimera: boolean): JsonNodo {
   const contenido: JsonNodo[] = [titulo(s.titulo, esPrimera ? 1 : 2, esPrimera ? 'titulo' : null)];
-  if (s.puntos.length === 1) contenido.push(parrafo(s.puntos[0]));
-  else if (s.puntos.length > 1) {
-    contenido.push({ type: 'bulletList', content: s.puntos.map((p) => ({ type: 'listItem', content: [parrafo(p)] })) });
+  // Renglones sueltos: uno es un párrafo, varios son viñetas. Las marcas de una página LEÍDA (abajo) van a su bloque.
+  const sueltos = (ps: readonly string[]) => {
+    if (ps.length === 1) contenido.push(parrafo(ps[0]));
+    else if (ps.length > 1) contenido.push({ type: 'bulletList', content: ps.map((p) => ({ type: 'listItem', content: [parrafo(p)] })) });
+  };
+  let tanda: string[] = [];
+  for (const p of s.puntos) {
+    const b = bloqueDeMarca(p, contenido[contenido.length - 1]);
+    if (!b) { tanda.push(p.replace(RE_VINETA_LEIDA, '')); continue; }
+    sueltos(tanda);
+    tanda = [];
+    if (b !== 'sumado') contenido.push(b);
   }
+  sueltos(tanda);
   return tarjeta(contenido);
+}
+
+/**
+ * LAS MARCAS DE UNA PÁGINA LEÍDA (26/10/2026, Martín: «prueba en traer una landing de alguna competencia y ver si la duplica
+ * bien»). El lector (lector.ts, `renglonDeInteraccion`) escribe `[BOTÓN] texto → destino` y `[DESPLEGABLE] pregunta →
+ * respuesta`. Cuando la IA no arma una sección de la réplica (medido con 100ads.ai: 17 de 20, la IA del negocio saturada),
+ * esta sección de respaldo las dejaba como texto en una viñeta («[BOTÓN] Ver todo lo que incluye»). Ahora un botón es un
+ * botón (seguidos, hasta 3 en la misma fila) y un desplegable es un desplegable.
+ */
+const RE_BOTON_LEIDO = /^\[BOT[ÓO]N\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
+const RE_DESPLEGABLE_LEIDO = /^\[(?:DESPLEGABLE|PESTAÑA)\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
+/** La viñeta que el lector pone adelante de un renglón de lista. */
+const RE_VINETA_LEIDA = /^[•▪]\s+/;
+/** Hasta cuántos botones van en una fila (los mismos que deja la IA: nodoBotones de ia-bloques.ts). */
+const BOTONES_POR_FILA = 3;
+
+/** El destino leído (una dirección, un ancla o una descripción en palabras) como el `href` de un botón. */
+export function hrefDeDestinoLeido(d: string | undefined): string {
+  const v = (d ?? '').trim();
+  const url = /^https?:\/\/\S+/i.exec(v)?.[0];
+  if (url) return url;
+  if (/^#[\w-]+$/.test(v)) return v;
+  return '#';
+}
+
+/** El bloque de un renglón con marca; 'sumado' si se sumó al bloque anterior (un botón más en la fila); null si no tiene. */
+function bloqueDeMarca(p: string, anterior: JsonNodo | undefined): JsonNodo | 'sumado' | null {
+  const b = RE_BOTON_LEIDO.exec(p.trim());
+  if (b) {
+    const href = hrefDeDestinoLeido(b[2]);
+    const fila = anterior?.type === NODO.botones && (anterior.content?.length ?? 0) < BOTONES_POR_FILA ? anterior : null;
+    const boton: JsonNodo = {
+      type: NODO.boton,
+      attrs: { href, variante: fila ? 'secundario' : 'primario', nuevaPestana: /^https?:/i.test(href) },
+      content: [{ type: 'text', text: b[1].trim().slice(0, 80) }],
+    };
+    if (fila) { fila.content = [...(fila.content ?? []), boton]; return 'sumado'; }
+    return { type: NODO.botones, attrs: { alinea: 'izquierda' }, content: [boton] };
+  }
+  const d = RE_DESPLEGABLE_LEIDO.exec(p.trim());
+  if (d) {
+    const cuerpo = (d[2] ?? '').split(' / ').map((x) => x.trim()).filter(Boolean);
+    return {
+      type: NODO.desplegable,
+      content: [
+        { type: NODO.desplegableTitulo, content: [{ type: 'text', text: d[1].trim() }] },
+        { type: NODO.desplegableCuerpo, content: cuerpo.length ? cuerpo.map((x) => parrafo(x)) : [{ type: 'paragraph' }] },
+      ],
+    };
+  }
+  return null;
 }
 
 /**
