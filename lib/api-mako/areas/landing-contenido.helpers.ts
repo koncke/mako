@@ -1222,7 +1222,8 @@ export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; t
   const elegido = elegirBoton(botonesDeLanding(c), actual);
   if ('error' in elegido && !enBloques.length) {
     const deDisenos = disenosDe(c, null).flatMap((d) => elementosDeHtmlEditable(d.html).filter((x) => x.tipo === 'enlace').map((x) => (x as EnlaceDeDiseno).texto));
-    return { ...elegido, disponibles: [...new Set([...(elegido.disponibles ?? []), ...deDisenos].filter(Boolean))].slice(0, 30) };
+    const deBloques = Array.isArray(elegido.disponibles) ? elegido.disponibles.map(String) : [];
+    return { ...elegido, disponibles: [...new Set([...deBloques, ...deDisenos].filter(Boolean))].slice(0, 30) };
   }
   if ('error' in elegido) return elegido;
   const b = elegido.boton;

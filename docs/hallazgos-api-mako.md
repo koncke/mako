@@ -2665,3 +2665,11 @@ app recibía cambiar_imagen_landing y NO configurar_formulario_landing.
 **Regla:** antes de sumar una operación o alargar una descripción, medir el orden REAL de las frases de su área con
 `scripts/presupuesto-turno-app.mts "frase"` (posición, entra o no, largo, acumulado). Una palabra nueva en una descripción
 también MUEVE el orden. El margen es chico: el de WhatsApp quedó en 11.860 de 12.000 para «quítale la animación».
+
+## `FallaPlan.disponibles` es `unknown`: los tests pasan y el pre-push frena (25/10/2026, claude5)
+
+`planConfigurarBoton` (lib/api-mako/areas/landing-contenido.helpers.ts) sumaba los botones de los diseños a la lista
+de `elegirBoton` con `[...(elegido.disponibles ?? [])]`. Los tests corren con tsx, que NO chequea tipos, y daban verde.
+El tsc acotado del tren lo marcó como TS2488, porque `FallaPlan.disponibles` se declara `unknown` y no se puede iterar.
+**Regla:** para leer `disponibles` de una falla, normalizar con `Array.isArray(x) ? x.map(String) : []`. Un verde de
+tests no es un verde de tipos.
