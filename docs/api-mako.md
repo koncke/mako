@@ -1131,7 +1131,7 @@ curl -L \
 
 ### `GET /api/v1/plan/senales` — Qué ya está resuelto
 
-Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y Fathom conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.
+Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y un grabador de reuniones (Fathom u otro) conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.
 
 - **Ruta por operación:** `GET /api/v1/plan/ver_senales_negocio`
 - **Token detallado:** permiso `plan=read` (Solo lectura en «Plan»)
@@ -3114,9 +3114,9 @@ curl -L \
   "https://hola-mako.com/api/v1/crm/leads/LEAD_ID"
 ```
 
-### `POST /api/v1/crm/leads/{leadId}/reuniones/{cual}/grabaciones` — Agregar grabación de Fathom
+### `POST /api/v1/crm/leads/{leadId}/reuniones/{cual}/grabaciones` — Agregar la grabación de una reunión
 
-PROPONE agregar el link de la grabación de Fathom de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por Fathom; esto es el camino manual.
+PROPONE agregar el link de la grabación (de Fathom, Loom, tl;dv, Fireflies, Zoom u otro grabador) de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por el grabador conectado; esto es el camino manual (y el único para Loom, que no tiene API).
 
 - **Ruta por operación:** `POST /api/v1/crm/agregar_link_fathom`
 - **Token detallado:** permiso `crm=write` (Lectura y escritura en «CRM»)
@@ -3132,7 +3132,7 @@ PROPONE agregar el link de la grabación de Fathom de la R1 o R2 de un lead: dej
 | --- | --- | --- | --- |
 | `leadId` | number | sí | id del lead (de buscar_leads o listar_leads). |
 | `cual` | string (R1 \\| R2) | sí | qué reunión: R1 (primera) o R2 (segunda). |
-| `url` | string | sí | link para compartir de Fathom (https://fathom.video/…). |
+| `url` | string | sí | link de la grabación, con https: de Fathom (fathom.video), Loom, tl;dv, Fireflies, Zoom, Otter, Read AI o Meet. |
 
 ```bash
 curl -L \

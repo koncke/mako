@@ -401,10 +401,12 @@ test('el cruce terminó con el modal ABIERTO: su autosave y su «Agregar» no lo
 
 test('el webhook usa la MISMA vara que el cron: activo y con Fathom conectado', () => {
   assert.deepEqual(R.r7, { activo: true, conFathomPausado: false, pausado: false, sinFathom: false, noExiste: false });
-  const hook = leer('app', 'api', 'webhooks', 'fathom', 'route.ts');
-  const a = hook.indexOf("wsEnLaRonda('fathom', wsPlan)");
+  // 26/10/2026: el webhook de Fathom (y el de cada grabador) delega en `alTerminarReunion`, que es el que pregunta.
+  assert.match(leer('app', 'api', 'webhooks', 'fathom', 'route.ts'), /await alTerminarReunion\(ws, deFathom\(body\)/);
+  const hook = leer('lib', 'grabadores', 'al-terminar.ts');
+  const a = hook.indexOf('wsEnLaRonda(GRABADORES_QUE_SE_LEEN, ws)');
   assert.ok(a > 0, 'el webhook no pregunta si le toca a ese workspace');
-  assert.ok(a < hook.indexOf('procesarReunionesNuevas(wsPlan'), 'y lo pregunta ANTES de leer');
+  assert.ok(a < hook.indexOf('procesarReunionesNuevas(ws'), 'y lo pregunta ANTES de leer');
 });
 
 test('conCruceGuardado: una copia vieja recupera la marca por título; la que trae la suya manda', () => {

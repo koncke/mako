@@ -961,12 +961,13 @@ export const DEFS: readonly OperacionDef[] = [
   },
   {
     id: 'agregar_link_fathom', area: 'crm', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar',
-    titulo: 'Agregar grabación de Fathom',
-    descripcion: 'PROPONE agregar el link de la grabación de Fathom de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por Fathom; esto es el camino manual.',
+    // El id quedó con «fathom» (lo usan los clientes de la API); desde el 26/10/2026 acepta el link de cualquier grabador.
+    titulo: 'Agregar la grabación de una reunión',
+    descripcion: 'PROPONE agregar el link de la grabación (de Fathom, Loom, tl;dv, Fireflies, Zoom u otro grabador) de la R1 o R2 de un lead: deja un link donde una persona revisa la URL exacta y confirma. Destraba el requisito «Fathom» de la etapa y habilita analizar la llamada. Lo normal es que entre solo por el grabador conectado; esto es el camino manual (y el único para Loom, que no tiene API).',
     parametros: [
       leadId(),
       cualReunion,
-      { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'link para compartir de Fathom (https://fathom.video/…).' },
+      { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'link de la grabación, con https: de Fathom (fathom.video), Loom, tl;dv, Fireflies, Zoom, Otter, Read AI o Meet.' },
     ],
     canales: TODOS, costo: 'gratis', gating: TAB,
     reversible: true, escribe: 'agrega el link a fathom_links del lead y deja historial',

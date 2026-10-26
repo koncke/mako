@@ -233,7 +233,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_senales_negocio', area: 'plan', tipo: 'lectura',
     titulo: 'Qué ya está resuelto',
-    descripcion: 'Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y Fathom conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.',
+    descripcion: 'Lo que MaKo ya sabe del negocio sin preguntar, cada señal en sí o no: Meta, Calendly, WhatsApp y un grabador de reuniones (Fathom u otro) conectados, funnel cargado, leads en el CRM, llamadas analizadas, avatares, razones y oferta definidos, VSL con visitas, nutrición activa; más la fase y el canal del diagnóstico. Sirve para NO proponer tareas de cosas ya hechas. Una señal en no puede ser falta de evidencia, no prueba de que falte.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: TAB,
   },

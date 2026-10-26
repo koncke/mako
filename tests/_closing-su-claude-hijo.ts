@@ -57,7 +57,9 @@ async function main() {
   poner(10, CREDITO);
   poner(9, CREDITO, 'ANTHROPIC_CREDITO_CUENTA2');
   pg.db.app_settings.push({ workspace_id: 3, key: 'ia.su_claude.modelo', value: 'sonnet' }, { workspace_id: 10, key: 'ia.su_claude.modelo', value: 'sonnet' });
-  const reunion = { title: 'R2 con Juan', transcript: [{ speaker: { display_name: 'Closer' }, text: 'Hola Juan, ¿cómo va?', timestamp: '00:00:01' }], calendar_invitees: [], recorded_by: { name: 'Closer' } } as never;
+  // 26/10/2026: `analyzeMeeting` lee una `Reunion` de cualquier grabador (lib/grabadores); ésta viene de Fathom.
+  const { deFathom } = await import('../lib/grabadores/reunion');
+  const reunion = deFathom({ recording_id: 1, title: 'R2 con Juan', transcript: [{ speaker: { display_name: 'Closer' }, text: 'Hola Juan, ¿cómo va?', timestamp: '00:00:01' }], calendar_invitees: [], recorded_by: { name: 'Closer' } } as never);
   const out: Record<string, unknown> = {};
   for (const ws of [3, 11]) {
     pedidos.length = 0;
