@@ -49,6 +49,18 @@ export function conFallo(previa: IaCaida | null, motivo: FalloDeSuCuenta, ahoraI
 /** ¿Hay que avisarle al dueño? Sólo si este incidente todavía no se avisó. */
 export const tocaAvisar = (m: IaCaida): boolean => !m.avisadoAt;
 
+/**
+ * Lo que dijo la prueba de si volvió (`probarSiVolvio`, un pedido de un token con SU clave): contestó → volvió; un error
+ * de SU cuenta → sigue caída; cualquier otra cosa (sin su clave, la pausa, un 5xx, el crédito que paga MaKo) → no se sabe,
+ * y el incidente queda como está.
+ */
+export function resultadoDeLaPrueba(r: { texto: string } | { error: string; esCredito?: true; noPudeLeer?: true } | null): 'volvio' | 'sigue' | 'no-se' {
+  if (!r) return 'no-se';
+  if ('texto' in r || r.error === 'Claude contestó vacío') return 'volvio';
+  if (r.esCredito || r.noPudeLeer) return 'no-se';
+  return falloDeSuCuenta(r.error) ? 'sigue' : 'no-se';
+}
+
 /** Qué hacer, en una línea, por motivo (lo que lee la API y la pantalla; el aviso tiene su texto literal en su fila). */
 export function queHacerConSuIa(motivo: FalloDeSuCuenta): string {
   if (motivo === 'sin crédito') return 'Cárgale crédito a tu cuenta de Claude (console.anthropic.com → Billing).';

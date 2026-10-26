@@ -53,6 +53,7 @@ import { tableroDeCapa } from './tablero-de-capa';
 import { cruzarTareas } from './reunion-cruce';
 import { registrarDescartadas, registrarNoLeida, marcarDescartadaLeida } from './reunion-descartadas';
 import { tomarLectura, soltarLectura } from './reunion-leyendo';
+import { leTocaA, mapaDeGemelas, refDeReunion } from './grabadores/reunion';
 
 /**
  * Marca que YA miramos esta grabación, sin importar si dejó tareas o no.
@@ -241,6 +242,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
   // próxima corrida, que vuelve a mirar la ventana.
   for (const f of fallos ?? []) console.error(`[reunion-auto] ws=${ws}: ${f.grabador} no contestó (${f.error}) — sus reuniones quedan para la próxima corrida`);
   const reuniones = opts.soloRecording != null ? todas.filter((r) => r.recordingId === opts.soloRecording) : todas;
+  // Las copias de una misma reunión grabada por dos grabadores (de TODAS, no sólo las de esta corrida: el webhook pide una).
+  const gemelas = mapaDeGemelas(todas.flatMap((t) => (t.reunion ? [t.reunion] : [])));
   out.miradas = reuniones.length;
 
   const aProcesar = reuniones.filter((r) => TIPOS_AL_PLAN.includes(r.tipo));
@@ -277,6 +280,22 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
       sinTiempo = aProcesar.length - procesadas;
       console.warn(`[reunion-auto] ws=${ws}: se acabó el reloj de esta corrida, ${sinTiempo} reunión(es) quedan para la próxima (sin candado, no se pierden)`);
       break;
+    }
+    // ⚠️ LA MISMA REUNIÓN DE DOS GRABADORES SE LEE UNA VEZ (revisión del tren m, 26/10/2026): con Fathom y tl;dv grabando,
+    // cada copia tenía su clave y dejaba su borrador (el doble, con las mismas tareas). Le toca a la copia que ya tiene
+    // borrador o marca de vista —así la que llega DESPUÉS no se lee de nuevo— y si ninguna, a la del grabador que va
+    // primero (`leTocaA`). Ante un error de lectura, cuenta como vista: mejor perderse una copia que duplicarla.
+    const susGemelas = r.reunion ? gemelas.get(r.reunion.clave) ?? [] : [];
+    if (r.reunion && susGemelas.length) {
+      const vistas = new Set<number>();
+      for (const g of [r.reunion, ...susGemelas]) {
+        const p = await getPropuestaPorRef(refDeReunion(g)).then((x) => x ?? null, () => undefined);
+        if (p !== null || await getSetting(KEY_VISTA(g.clave)).catch(() => 'error')) vistas.add(g.clave);
+      }
+      if (!leTocaA(r.reunion, susGemelas, (x) => vistas.has(x.clave))) {
+        console.log(`[reunion-auto] ws=${ws} ${r.ref}: es la misma reunión que ${susGemelas.map(refDeReunion).join(', ')} — se lee una sola vez`);
+        continue;
+      }
     }
     // La ref de la reunión, de su grabador: «fathom:<recording_id>» es la de siempre (lib/grabadores/reunion.ts).
     const ref = r.ref;

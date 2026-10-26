@@ -3642,6 +3642,13 @@ afuera a todos los demás**, y preguntar `integracionConectada('fathom')` para d
   los cuatro registros de una integración, su línea en `catalogo.ts` con lo que da DE VERDAD, y si avisa, su webhook
   llama `leerYTerminar` (la reunión se pide por la API; lo que trae el aviso no es contenido). Lo que no da, su tarjeta lo
   dice (`conectable: false`): Loom no tiene API. El porqué y lo medido: docs/hallazgos-integraciones.md.
+- **Lo que procesa una reunión pregunta `leTocaA` antes** (revisión del tren m, 26/10/2026): la MISMA reunión grabada por
+  dos grabadores tiene dos claves, y sin preguntar se analiza, se engancha y dispara eventos dos veces. Lo que se dispara
+  por la reunión de un lead lleva `claveDeReunionDelLead` como `dedupKey`, nunca el link ni la clave del grabador.
+- **Un «no se sabe» de `invitadoHablo` NO es «asistió»** salvo con un grabador que atribuye voces (`anotaLaAsistencia`):
+  tl;dv y Fireflies sacan los invitados del calendario, así que con ellos un no-show quedaba «asistió».
+- **Lo que «falla en su cuenta» lo decide DE DÓNDE vino el error, no su texto**: la clave de la plataforma y el crédito de
+  MaKo contestan lo mismo que la del negocio («Your credit balance is too low»). Sólo `deSuClave` se le avisa al negocio.
 
 # Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
 

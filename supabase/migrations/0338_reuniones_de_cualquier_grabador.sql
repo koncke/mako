@@ -14,7 +14,9 @@
 --
 -- ORDEN DE DESPLIEGUE: da igual (aditiva: una tabla nueva, nada se toca). Sin ella todo lo que lee reuniones anda
 -- (el cron, el webhook, el modal llevan la ref entera); lo único que no puede es volver a abrir por su número una
--- reunión de un grabador que no es Fathom, y lo dice (`ReunionSinRefError`).
+-- reunión de un grabador que no es Fathom, y lo dice (`ReunionSinRefError`). Customer Success deja ESPERANDO esas
+-- sesiones sin gastarles intentos (lib/closing-entrega.ts; hasta la revisión del tren m quemaba los 3 y las sacaba de la
+-- cola para siempre), y al aplicarla la próxima lectura de cada grabador las anota y siguen solas.
 -- Idempotente: se puede correr dos veces.
 -- =============================================================================
 

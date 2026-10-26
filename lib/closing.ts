@@ -35,10 +35,11 @@ import { CLAUDE_PERMITIDO } from './veto-claude';
 import { contenidoNoConfiable, getPromptText, renderPrompt } from './prompt-render';
 import { isoToFechaTijuana } from './calendly';
 import { listarTodasLasReuniones, leerReunion, type FalloGrabador } from './grabadores';
-import { duracionMin, emailsExternos, transcripcionConSegundos, type Reunion, type TurnoReunion } from './grabadores/reunion';
+import { duracionMin, emailsExternos, gemelasDe, leTocaA, mapaDeGemelas, transcripcionConSegundos, type Reunion, type TurnoReunion } from './grabadores/reunion';
+import { GrabadorSinRespuestaError } from './grabadores/errores';
 import { CLAVES_CUENTA_GRABADOR, nombreDeGrabador } from './grabadores/catalogo';
 import { falloDeSuCuenta, queHacerConSuIa, type FalloDeSuCuenta } from './closing-ia-caida-reglas';
-import { anotarIaCaida, anotarQueVolvio, iaDelNegocioCaida } from './closing-ia-caida';
+import { anotarIaCaida, anotarQueVolvio, iaDelNegocioCaida, probarSiVolvio } from './closing-ia-caida';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -493,7 +494,9 @@ export type AnalyzeResult =
   // degradación quedaba INDETECTABLE. El costo se registra aparte (anthropic_usage);
   // esto es para poder mirar una fila vieja y saber quién la escribió.
   | { ok: true; analysis: ClaudeAnalysis; model: string }
-  | { ok: false; error: string };
+  // `deSuClave`: el error lo dio la clave PROPIA del negocio (no la de la plataforma ni el crédito que paga MaKo). Sólo ése
+  // puede ser «de su cuenta» (lib/closing-ia-caida-reglas.ts): un fallo de la clave de MaKo no se le avisa al negocio.
+  | { ok: false; error: string; deSuClave?: true };
 
 /** Corre Claude sobre una meeting con contenido. PURA: nunca tira, devuelve {ok}. */
 export async function analyzeMeeting(m: Reunion, lead: LeadMatch | null, feedback?: string): Promise<AnalyzeResult> {
@@ -509,7 +512,10 @@ export async function analyzeMeeting(m: Reunion, lead: LeadMatch | null, feedbac
     // Sin poder comprobar su clave, NO se cae a la de abajo: `chatClaude` pagaría con esa misma clave el modelo de la
     // plataforma (revisión de IA5/IA12). Queda en error, que el cron reintenta.
     if (suya && 'noPudeLeer' in suya) return { ok: false, error: suya.error };
-    if (suya) return { ok: false, error: `Tu clave de Claude no pudo analizar la llamada: ${suya.error}` };
+    // ⚠️ SÓLO ESTE ERROR ES DE SU CUENTA (revisión del tren m, 26/10/2026): el de la clave de la plataforma (abajo) o el del
+    // crédito que paga MaKo (`esCredito`) tiene la MISMA forma («Your credit balance is too low»), y se le pedía al negocio
+    // que cargara crédito en una cuenta que no es suya.
+    if (suya) return { ok: false, error: `Tu clave de Claude no pudo analizar la llamada: ${suya.error}`, ...('esCredito' in suya && suya.esCredito ? {} : { deSuClave: true as const }) };
     // Sin su clave: lo de siempre (el permiso de la plataforma, que vence el 2026-11-13). Vencido, para un cliente no es
     // «Claude vetado»: es que conecte el suyo.
     // Qué modelo corrió DE VERDAD. `onUsage` es el único que lo sabe: chatClaude
@@ -715,7 +721,7 @@ export async function processCandidate(
     // ⚠️ LO QUE FALLA EN SU CUENTA DE CLAUDE NO DEJA UNA FILA EN ERROR (26/10/2026, docs/hallazgos-closing.md). Sin crédito,
     // la clave borrada o sin permiso: el ws11 juntó 168 filas así en tres semanas, sin que nadie se enterara. La llamada
     // queda sin procesar (la próxima vuelta la toma) y quien llama corta y le avisa al dueño UNA vez (`anotarIaCaida`).
-    const suCuenta = falloDeSuCuenta(res.error);
+    const suCuenta = res.deSuClave ? falloDeSuCuenta(res.error) : null;
     if (suCuenta) return { status: 'error', category: 'sin_clasificar', suCuenta };
     await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
     return { status: 'error', category: 'sin_clasificar' };
@@ -732,7 +738,7 @@ export async function processCandidate(
  * FIJADO (así aparecen en getLeadInsights). Salta las que ya están analizadas
  * para ese lead. Liviano: barre metadata y solo baja transcript de las del lead.
  */
-export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number; fallidas: number; error: string | null }> {
+export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontradas: number; analizadas: number; relinkeadas: number; yaEstaban: number; fallidas: number; esperan: number; error: string | null }> {
   const supabase = (await getTenantDb());
   const { data: lr, error } = await supabase
     .from('leads')
@@ -801,8 +807,13 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
   // saldo. Un contador que no distingue "no había" de "no pude" es la misma
   // trampa que una API que devuelve vacío en vez de error.
   let fallidas = 0;
+  /** Las que todavía no tienen transcripción (tl;dv avisa antes): no se analizan vacías, se analizan cuando esté. */
+  let esperan = 0;
   let ultimoError: string | null = null;
   for (const meta of mias) {
+    // ⚠️ LA MISMA REUNIÓN DE DOS GRABADORES SE ANALIZA UNA VEZ (revisión del tren m, 26/10/2026): la copia que ya tiene
+    // fila, o la del grabador que va primero (`leTocaA`). La otra cuenta como que ya estaba.
+    if (!leTocaA(meta, gemelasDe(meta, meetings), (x) => doneByRec.has(x.clave))) { yaEstaban++; continue; }
     const prev = doneByRec.get(meta.clave);
     const resuelta = prev && prev.status !== 'error' && prev.status !== 'pendiente';
     if (resuelta && prev!.lead_id === lead.id) { yaEstaban++; continue; }
@@ -816,10 +827,15 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
       continue;
     }
     let m: Reunion = meta;
-    try { m = await leerReunion(meta, meta); } catch { /* seguimos con la metadata */ }
+    try { m = await leerReunion(meta, meta); } catch (e) {
+      // ⚠️ SIN TRANSCRIPCIÓN TODAVÍA NO SE PAGA UN ANÁLISIS VACÍO (revisión del tren m): tl;dv avisa antes de tenerla, y
+      // esto pagaba a Claude con el título solo y dejaba la fila «descartada» para siempre. Sin fila, el barrido la toma
+      // cuando esté. Otro error (la grabación sin texto, un 4xx): con la metadata, como siempre.
+      if (e instanceof GrabadorSinRespuestaError) { esperan++; continue; }
+    }
     const res = await analyzeMeeting(m, lead);
     if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis, res.model)); analizadas++; await anotarQueVolvio(); }
-    else if (falloDeSuCuenta(res.error)) {
+    else if (res.deSuClave && falloDeSuCuenta(res.error)) {
       // Su cuenta de Claude no puede (sin crédito, clave borrada, sin permiso): sin fila en error, se le avisa UNA vez y no
       // se sigue con las demás, que fallarían igual. Lo que se le dice acá es el paso para arreglarlo.
       const suCuenta = falloDeSuCuenta(res.error)!;
@@ -834,7 +850,7 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
       ultimoError = res.error ?? null;
     }
   }
-  return { encontradas: mias.length, analizadas, relinkeadas, yaEstaban, fallidas, error: ultimoError };
+  return { encontradas: mias.length, analizadas, relinkeadas, yaEstaban, fallidas, esperan, error: ultimoError };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -857,6 +873,10 @@ export type SyncResult = {
   corto_por: 'cola' | 'max' | 'tiempo' | 'errores' | 'ia_del_negocio';
   /** Lo que le pasa a su cuenta de Claude, si cortó por eso (y ya se le avisó al dueño, una vez por incidente). */
   ia_del_negocio?: FalloDeSuCuenta;
+  /** Con su Claude anotado como caído y ninguna llamada que lo probara: lo que dijo la prueba (`probarSiVolvio`). */
+  prueba_ia?: 'volvio' | 'sigue' | 'no-se';
+  /** Copias de una reunión que ya se procesa por otro grabador (`leTocaA`): no se analizan dos veces. */
+  gemelas?: number;
   ms: number;
   /** Los grabadores que no contestaron (las llamadas de los otros se procesaron igual). */
   fallos?: FalloGrabador[];
@@ -941,10 +961,17 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
   // un dato que no cambia en el medio del barrido.
   const internos = await internosDelWorkspace();
 
+  // ⚠️ LA MISMA REUNIÓN DE DOS GRABADORES (revisión del tren m, 26/10/2026): con Fathom y tl;dv grabando la misma llamada
+  // había dos claves, dos análisis y dos filas (score y conteos duplicados). Se procesa UNA: la copia que ya tiene fila
+  // (cualquier status), o la del grabador que va primero (`leTocaA`).
+  const gemelas = mapaDeGemelas(meetings);
+  const conFila = new Set(doneData.map((r) => r.recording_id));
+
   // Paso 1+2+3: triage barato.
   for (const m of meetings) {
     if (!Number.isFinite(m.clave)) continue;
     if (done.has(m.clave)) { result.ya_procesadas++; continue; }
+    if (!leTocaA(m, gemelas.get(m.clave) ?? [], (x) => conFila.has(x.clave))) { result.gemelas = (result.gemelas ?? 0) + 1; continue; }
     const cat = preClassify(m, internos);
     if (cat !== null) {
       // Descartable sin Claude.
@@ -1015,6 +1042,12 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
     else result.otras++;
   }
 
+  // ⚠️ UN INCIDENTE QUE NADIE PRUEBA NO SE CIERRA (revisión del tren m, 26/10/2026): si esta vuelta no tuvo ninguna llamada
+  // que llegara a su Claude (no había candidatas, o fallaron por el grabador), el incidente quedaba abierto después de que
+  // el negocio recargara: el drenaje de insights seguía frenado y el próximo corte ya no se avisaba. Una prueba mínima
+  // con SU clave lo resuelve.
+  if (caida && result.corto_por !== 'ia_del_negocio' && entraOtraLlamada()) result.prueba_ia = await probarSiVolvio();
+
   result.restantes = candidatas.length - intentadas;
   result.ms = Date.now() - tStart;
   return result;
@@ -1034,6 +1067,8 @@ export async function analyzeOne(recordingId: number): Promise<ClosingStatus> {
     if (ws != null) await anotarIaCaida(ws, r.suCuenta, 1);
     throw new Error(`Tu clave de Claude no pudo analizar la llamada (${r.suCuenta}). ${queHacerConSuIa(r.suCuenta)}`);
   }
+  // Salió: su Claude volvió (revisión del tren m: un «Re-analizar» abría el incidente y nunca lo cerraba).
+  if (r.status !== 'error') await anotarQueVolvio();
   return r.status;
 }
 

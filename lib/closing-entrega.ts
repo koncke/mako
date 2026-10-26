@@ -170,6 +170,8 @@ export type DrenajeEntrega = {
   atadas: number;
   /** Las que no llegaron a correr en esta corrida. */
   sinTurno: number;
+  /** Las de otro grabador cuya clave todavía no se sabe de qué reunión es (sin la migración 0338): esperan, sin gastar nada. */
+  esperan?: number;
   corto_por: 'cola' | 'max' | 'tiempo' | 'sin_ia' | 'proveedor';
   /** Por qué no hay IA, cuando `corto_por = 'sin_ia'`. */
   motivo?: string;
@@ -181,7 +183,7 @@ export type DrenajeEntrega = {
   propuestas?: ResultadoPropuestas & { error?: string };
 };
 
-type Desenlace = 'analizada' | 'ya' | 'fallo' | 'sin-reintento' | 'proveedor';
+type Desenlace = 'analizada' | 'ya' | 'fallo' | 'sin-reintento' | 'proveedor' | 'espera';
 
 /**
  * Cómo terminó UNA sesión. `iaContesto` = la IA devolvió texto (sirviera o no). `sesion` = el
@@ -255,9 +257,14 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
   // 1) El transcript, con las funciones que ya usa el Closing Analyst. El listado de
   //    metadata no hace falta: `leerReunion` baja transcript y resumen por id, del grabador que la tenga
   //    (la clave lo dice: lib/grabadores, 26/10/2026).
-  const ref = await refDeClave(id).catch(() => null);
-  // Sin saber de qué grabador es no hay qué leer: gasta un intento (no corta la corrida, que sigue con las demás).
-  if (!ref) return fallar(f, 'no sé de qué grabador es esta sesión (falta la migración de los grabadores)', 'sesion', false);
+  // ⚠️ «NO SÉ DE QUÉ GRABADOR ES» NO ES CULPA DE LA SESIÓN (revisión del tren m, 26/10/2026). Gastaba un intento: con el
+  // código desplegado antes que la migración 0338, cada sesión de tl;dv o Fireflies quemaba sus 3 intentos y salía de la
+  // cola PARA SIEMPRE, aunque la migración llegara después. Ahora: la base que no contesta corta la corrida sin culpar a
+  // nadie (`proveedor`), y una clave sin anotar espera sin tocar la fila. Así el orden de despliegue da igual.
+  let ref: Awaited<ReturnType<typeof refDeClave>>;
+  try { ref = await refDeClave(id); }
+  catch (e) { return fallar(f, `no pude leer de qué grabador es: ${msgDe(e)}`, 'proveedor', true); }
+  if (!ref) return { desenlace: 'espera', atada: false, iaContesto: false };
   const grabador = nombreDeGrabador(ref.grabador);
   let m: Reunion;
   try {
@@ -514,6 +521,8 @@ async function drenarCola(opts: { deadline: number; max?: number }, enMemoria: M
     if (iaContesto) iaViva = true;
     if (sesion) enMemoria.set(f.recording_id, sesion);
     if (atada) r.atadas++;
+    // La que espera (su clave sin anotar) no gasta el turno de otra.
+    if (desenlace === 'espera') { tomadas--; r.esperan = (r.esperan ?? 0) + 1; continue; }
     if (desenlace === 'analizada') r.analizadas++;
     else if (desenlace === 'sin-reintento') r.sinReintento++;
     else if (desenlace === 'fallo' || desenlace === 'proveedor') r.fallidas++;

@@ -70,7 +70,8 @@ test('el cableado: lo de su cuenta NO deja fila en error, corta la vuelta y avis
   assert.match(sync, /if \(status !== 'error' && caida\) \{ await anotarQueVolvio\(\); caida = null; \}/);
   // El análisis por lead (el botón y el drenaje de insights): lo mismo, y el error que ve la persona es el paso a seguir.
   const porLead = bloque(C, 'export async function analizarLlamadasDeLead(', '\n}\n');
-  assert.match(porLead, /else if \(falloDeSuCuenta\(res\.error\)\) \{[\s\S]{0,700}await anotarIaCaida\([\s\S]{0,200}ultimoError = queHacerConSuIa\(suCuenta\);\s*break;/);
+  // (Revisión del tren m: sólo si el error vino de SU clave, `deSuClave` — tests/grabadores-revision-tren-m.test.ts → 10.)
+  assert.match(porLead, /else if \(res\.deSuClave && falloDeSuCuenta\(res\.error\)\) \{[\s\S]{0,700}await anotarIaCaida\([\s\S]{0,200}ultimoError = queHacerConSuIa\(suCuenta\);\s*break;/);
   // El aviso sale sólo si este incidente no se avisó, y queda «avisado» sólo si había una fila que lo mande.
   const A = sinComentarios(leer('../lib/closing-ia-caida.ts'));
   assert.match(A, /if \(tocaAvisar\(marca\)\) \{[\s\S]{0,600}emitirEventoDePlataforma\('closing-ia-caida'/);

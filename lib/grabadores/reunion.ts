@@ -218,6 +218,92 @@ export function invitadoHablo(r: Pick<Reunion, 'transcripcion' | 'invitados' | '
   return soloDeCasa ? false : null;
 }
 
+/** Los grabadores que atribuyen cada voz a un correo del calendario: sólo Fathom (medido el 26/10/2026). */
+export const ATRIBUYEN_VOCES: ReadonlySet<GrabadorId> = new Set<GrabadorId>(['fathom']);
+
+/**
+ * ¿Se anota la asistencia con lo que dijo `invitadoHablo`? Una certeza (true/false) sí, venga de donde venga. Un «no se
+ * sabe» (null) se anota como «asistió» SÓLO con un grabador que atribuye voces (Fathom, como siempre): ahí la grabación
+ * con el invitado en el calendario es la señal de que vino.
+ *
+ * ⚠️ tl;dv y Fireflies dan null SIEMPRE (no atribuyen voces), y sus invitados salen del CALENDARIO, no de quién entró
+ * (revisión del tren m, 26/10/2026). Con «null = asistió» un lead que no vino —el closer lo esperó 10 minutos con tl;dv
+ * grabando— quedaba «asistió», la etapa avanzaba y nunca entraba a la nutrición No Show. Se engancha el link y la
+ * asistencia queda sin marcar, como hace `crm-auto.ts` con un match por nombre: la marca una persona o la regla T1.
+ */
+export const anotaLaAsistencia = (grabador: GrabadorId, hablo: boolean | null): boolean => hablo != null || ATRIBUYEN_VOCES.has(grabador);
+
+// ── La MISMA reunión, grabada por dos grabadores ───────────────────────────────────────────────────
+
+/** Cuánto pueden separarse los inicios de dos grabaciones de la misma reunión (cada bot entra cuando puede). */
+export const VENTANA_GEMELAS_MS = 10 * 60_000;
+
+const instantes = (r: Pick<Reunion, 'inicio' | 'programada'>): number[] =>
+  [r.inicio, r.programada].map((v) => (v ? Date.parse(v) : NaN)).filter((n) => Number.isFinite(n));
+const tituloNormal = (t: string | null | undefined): string =>
+  (t ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+/**
+ * ¿`a` y `b` son la MISMA reunión, grabada por dos grabadores distintos? (revisión del tren m, 26/10/2026: con Fathom y
+ * tl;dv grabando la R1, cada copia tenía su clave y se analizaba, se enganchaba y disparaba eventos DOS veces.)
+ *
+ * Empiezan con menos de 10 minutos de diferencia Y comparten un invitado (un correo que no es de quien grabó) o el mismo
+ * título con el mismo anfitrión. Del mismo grabador nunca: su id ya la identifica. Sin hora, no se afirma nada.
+ */
+export function esLaMismaReunion(a: Reunion, b: Reunion): boolean {
+  if (a.grabador === b.grabador) return false;
+  const ta = instantes(a), tb = instantes(b);
+  if (!ta.some((x) => tb.some((y) => Math.abs(x - y) <= VENTANA_GEMELAS_MS))) return false;
+  const anfitriones = new Set([minus(a.anfitrion?.email), minus(b.anfitrion?.email)].filter(Boolean));
+  const deA = new Set(a.invitados.map((i) => minus(i.email)).filter((e) => e && !anfitriones.has(e)));
+  if (b.invitados.some((i) => deA.has(minus(i.email)))) return true;
+  const titulo = tituloNormal(a.titulo);
+  const mismoAnfitrion = !minus(a.anfitrion?.email) || !minus(b.anfitrion?.email) || minus(a.anfitrion?.email) === minus(b.anfitrion?.email);
+  return titulo.length >= 4 && titulo === tituloNormal(b.titulo) && mismoAnfitrion;
+}
+
+/** Las otras copias de `r` (de otros grabadores) en `todas`. Para una lista chica (las reuniones de un lead). */
+export const gemelasDe = (r: Reunion, todas: readonly Reunion[]): Reunion[] =>
+  todas.filter((o) => o.clave !== r.clave && esLaMismaReunion(r, o));
+
+/**
+ * Las gemelas de cada reunión de `todas`, por clave (sólo las que tienen alguna). Para el barrido del Closing y del Plan,
+ * que miran cientos: ordena por hora y compara sólo las cercanas, en vez de todas contra todas. Con un solo grabador en
+ * la lista, vacío sin mirar nada.
+ */
+export function mapaDeGemelas(todas: readonly Reunion[]): Map<number, Reunion[]> {
+  const out = new Map<number, Reunion[]>();
+  if (new Set(todas.map((r) => r.grabador)).size < 2) return out;
+  const conHora = todas.map((r) => ({ r, t: Math.min(...instantes(r)) })).filter((x) => Number.isFinite(x.t)).sort((a, b) => a.t - b.t);
+  // `instantes` tiene la hora programada Y la de inicio: dos copias pueden diferir en la más temprana aunque coincidan en
+  // otra (una empezó tarde). Tres horas de vecindad sobran; la que decide es `esLaMismaReunion`.
+  const VECINDAD_MS = 3 * 3600_000;
+  const sumar = (a: Reunion, b: Reunion) => out.set(a.clave, [...(out.get(a.clave) ?? []), b]);
+  for (let i = 0; i < conHora.length; i++) {
+    for (let j = i + 1; j < conHora.length && conHora[j].t - conHora[i].t <= VECINDAD_MS; j++) {
+      if (esLaMismaReunion(conHora[i].r, conHora[j].r)) { sumar(conHora[i].r, conHora[j].r); sumar(conHora[j].r, conHora[i].r); }
+    }
+  }
+  return out;
+}
+
+/**
+ * De `r` y sus gemelas, ¿le toca a `r`? Una sola copia se procesa: la que ya tiene algo hecho (una fila del Closing, un
+ * borrador del Plan) —así una copia que llega DESPUÉS no se procesa de nuevo—, y si ninguna, la del grabador que va
+ * primero en `GRABADORES` (Fathom: el que mejor atribuye voces). Sin gemelas, siempre.
+ */
+export function leTocaA(r: Reunion, gemelas: readonly Reunion[], yaHecha: (x: Reunion) => boolean): boolean {
+  if (!gemelas.length) return true;
+  const grupo = [r, ...gemelas];
+  const hechas = grupo.filter(yaHecha);
+  const elegida = [...(hechas.length ? hechas : grupo)]
+    .sort((x, y) => GRABADORES.indexOf(x.grabador) - GRABADORES.indexOf(y.grabador) || x.clave - y.clave)[0];
+  return elegida.clave === r.clave;
+}
+
+/** La clave de «esta reunión de este lead» que no depende del grabador: el dedup del evento y del aviso al terminar. */
+export const claveDeReunionDelLead = (leadId: number, cual: 'j1' | 'j2', fecha: string | null): string => `reunion:${leadId}:${cual}:${fecha ?? ''}`;
+
 // ── Quién es de afuera, cuando el grabador no lo dice ──────────────────────────────────────────────
 
 /** Los correos gratuitos: un dominio así no dice de qué empresa es nadie. */

@@ -23,6 +23,7 @@ import { correrRonda } from '@/lib/cron-workspaces';
 import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 import { checkCronAuth } from '@/lib/cron-auth';
 import { iaDelNegocioCaida } from '@/lib/closing-ia-caida';
+import { seguimientosQueEsperaban } from '@/lib/grabadores/seguimiento-pendiente';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -92,6 +93,11 @@ export async function GET(request: NextRequest) {
       );
     }
     const res = await syncClosingCalls({ deadline });
+    // EL SEGUIMIENTO QUE ESPERABA LA TRANSCRIPCIÓN (revisión del tren m, 26/10/2026): tl;dv avisa antes de tenerla, y el
+    // aviso de la transcripción no dice de qué negocio es. Lo anotó `alTerminarReunion`; acá, UNO por ronda, si ya está.
+    // Con su Claude caído no: el borrador lo redacta su Claude.
+    const seguimiento = caida ? null : await seguimientosQueEsperaban({ deadline, reservaMs: RESERVA_LLAMADA_MS });
+    if (seguimiento?.esperan || seguimiento?.redactado) console.log(`[cron:closing-sync] ws=${ws} seguimientos que esperaban la transcripción: ${seguimiento.redactado ? '1 redactado, ' : ''}${seguimiento.esperan} esperan`);
     console.log(
       `[cron:closing-sync] ws=${ws} fathom=${res.total_fathom} ya=${res.ya_procesadas} cand=${res.candidatas} ` +
       `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} ` +

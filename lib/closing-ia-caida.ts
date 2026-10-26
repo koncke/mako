@@ -13,7 +13,8 @@ import { emitirEventoDePlataforma } from './avisos';
 import { zonaDelNegocio } from './timezone';
 import { fechaEnPalabras, hoyEnTz } from './date-utils';
 import { linkApp } from './app-url';
-import { KEY_IA_CAIDA, conFallo, datosIaCaida, leerIaCaida, tocaAvisar, type FalloDeSuCuenta, type IaCaida } from './closing-ia-caida-reglas';
+import { conClaveDelNegocio } from './anthropic';
+import { KEY_IA_CAIDA, conFallo, datosIaCaida, leerIaCaida, resultadoDeLaPrueba, tocaAvisar, type FalloDeSuCuenta, type IaCaida } from './closing-ia-caida-reglas';
 
 /** El incidente abierto del negocio en curso, o null. «No pude leer» = null (no frena: a lo sumo se prueba una llamada). */
 export async function iaDelNegocioCaida(): Promise<IaCaida | null> {
@@ -50,4 +51,15 @@ export async function anotarIaCaida(ws: number, motivo: FalloDeSuCuenta, pendien
 /** Su Claude volvió a analizar: el incidente se cierra (el próximo, si lo hay, se avisa de nuevo). */
 export async function anotarQueVolvio(): Promise<void> {
   if (await iaDelNegocioCaida()) await setSetting(KEY_IA_CAIDA, '').catch(() => {});
+}
+
+/**
+ * ¿Volvió su Claude? Un pedido mínimo (un token) con SU clave, para la vuelta que no tuvo ninguna llamada que lo probara
+ * (revisión del tren m, 26/10/2026). `count_tokens` no sirve: no mira el crédito. Si volvió, el incidente se cierra.
+ */
+export async function probarSiVolvio(): Promise<'volvio' | 'sigue' | 'no-se'> {
+  const r = await conClaveDelNegocio({ system: 'Contesta solo: OK', user: 'OK', maxTokens: 1, feature: 'closing', motivo: 'Probar si volvió su Claude (Closing)', timeoutMs: 20_000 }).catch(() => null);
+  const v = resultadoDeLaPrueba(r);
+  if (v === 'volvio') await anotarQueVolvio().catch(() => {});
+  return v;
 }

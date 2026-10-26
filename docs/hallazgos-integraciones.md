@@ -33,7 +33,9 @@ se puede grabar con fathom. Y revisa el plan y otras cosas que solo consumen fat
   su `recording_id` (positivo): ninguna marca, borrador ni análisis viejo cambia de nombre. Los demás llevan un número
   NEGATIVO derivado de «grabador:id» (cyrb53, 53 bits): nunca choca con uno de Fathom. De la clave a la reunión vuelve la
   tabla `grabador_reuniones` (la escribe UN lugar, la capa al listar). Sin la migración todo lo que lleva la reunión
-  entera anda (el cron, el webhook, el modal); lo que tiene SÓLO el número («Leer igual», «Volver a analizar») lo dice.
+  entera anda (el cron, el webhook, el modal); lo que tiene SÓLO el número («Leer igual», «Volver a analizar») lo dice, y
+  Customer Success deja esperando sus sesiones (hasta la revisión del tren m les quemaba los 3 intentos: ver
+  docs/hallazgos-closing.md). Con eso el orden entre el deploy y la 0338 da igual de verdad.
   ⚠️ El proyecto compila a ES2017: un hash con literales BigInt (`0xcbf…n`) no compila; por eso cyrb53 con `Math.imul`.
 - **Las trampas medidas contra las APIs reales (26/10, sin credenciales):**
   - **Fireflies contesta HTTP 500 a una clave mala** (`errors[].code = "auth_failed"`), no 401: un cliente que reintenta
@@ -58,6 +60,25 @@ se puede grabar con fathom. Y revisa el plan y otras cosas que solo consumen fat
 - **El chip «Fathom» del Plan mentía para todo lo demás.** El origen de una tarjeta caía a «WhatsApp» con cualquier
   `origen` que no estuviera en una lista; ahora cada grabador es su propio origen, y el filtro «Reuniones grabadas» guarda
   la clave vieja `'fathom'` para no borrarle el filtro a quien ya lo tenía.
+- **Lo que encontró la revisión del tren m (26/10, hallazgos 9, 12 y 13):**
+  - **La misma reunión grabada por dos grabadores era DOS reuniones.** Con Fathom y tl;dv en la misma R1, cada copia tenía
+    su clave: dos análisis del Closing (score y conteos duplicados), dos borradores del Plan, y como los links eran
+    distintos, los dos avisos «agregaban» un link y disparaban `reunion.ocurrio` y el aviso al dueño dos veces. El único
+    freno era por link. Ahora `esLaMismaReunion` (menos de 10 minutos de diferencia, y un invitado en común que no es el
+    anfitrión o el mismo título con el mismo anfitrión) y `leTocaA`: se procesa la copia que ya tiene algo hecho —así la
+    que llega después no se procesa de nuevo— y si ninguna, la de Fathom. El evento y el aviso llevan la clave del lead y
+    la reunión (`claveDeReunionDelLead`), no la del grabador.
+  - **Con tl;dv o Fireflies un no-show quedaba «asistió».** Ninguno atribuye voces a correos (`invitadoHablo` da null
+    siempre) y sus invitados salen del CALENDARIO, no de quién entró. El webhook hacía `null ?? true`: el lead que no vino
+    —el closer lo esperó con el grabador prendido— avanzaba de etapa y nunca entraba a la nutrición No Show. Un «no se
+    sabe» es «asistió» sólo con Fathom (`anotaLaAsistencia`); con los demás se engancha el link y la asistencia queda para
+    una persona o la regla T1. (El revisor dijo que disparaba CAPI QualifiedLead: falso, la asistencia dejó de mandar
+    eventos a Meta el 05/10; el comentario de `applyFathomRecording` que lo decía estaba viejo.)
+  - **tl;dv avisa MeetingReady ANTES de tener la transcripción, y TranscriptReady no dice de qué negocio es.** El
+    seguimiento se redactaba igual: el Closing pagaba un análisis con el título solo (y si salía «descartada», la llamada
+    se perdía para siempre) y el borrador no se hacía nunca. Ahora el aviso espera y reintenta mientras el reloj deje
+    lugar al análisis (`entraOtraEspera`); si no llega, el seguimiento queda anotado (`seguimiento-pendiente.ts`) y lo
+    redacta el cron del Closing cuando la transcripción esté. El análisis por lead no paga a Claude sin transcripción.
 - **Sin hacer:** la migración (con el sí de Martín), Read AI, Meet, y Grain/MeetGeek/Avoma/Granola/Krisp (tienen API con
   clave): `docs/pendientes.md` → P13.
 

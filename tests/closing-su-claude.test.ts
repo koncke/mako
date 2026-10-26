@@ -23,7 +23,7 @@ import { readFileSync } from 'node:fs';
 import { falloDeSuCuenta } from '../lib/closing-ia-caida-reglas';
 
 const RAIZ = join(__dirname, '..');
-type Corrida = { r: { ok: boolean; model?: string; error?: string }; pedidos: Array<{ host: string; clave: string; model: string }> };
+type Corrida = { r: { ok: boolean; model?: string; error?: string; deSuClave?: true }; pedidos: Array<{ host: string; clave: string; model: string }> };
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_closing-su-claude-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', timeout: 120_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
@@ -45,6 +45,7 @@ test('2. si su clave falla, se dice, y la de MaKo no se toca', () => {
   // 26/10/2026: y el texto REAL que devuelve se reconoce como de SU cuenta, que es lo que corta la vuelta y le avisa al dueño
   // UNA vez en vez de dejar una fila en error por llamada (tests/closing-ia-caida.test.ts).
   assert.equal(falloDeSuCuenta(R.ws11.r.error), 'sin crédito');
+  assert.equal(R.ws11.r.deSuClave, true, 'y viene de SU clave: es lo único que puede ser «de su cuenta»');
 });
 
 test('3. sin clave y con el permiso vencido: «Conecta tu Claude para el Closing Analyst», sin gastar nada', () => {
@@ -85,4 +86,15 @@ test('6. el cron pregunta lo mismo que el análisis: el ws1 (copia de la platafo
   const cron = readFileSync(join(RAIZ, 'app/api/cron/closing-sync/route.ts'), 'utf8');
   assert.match(cron, /const con = await conQueAnalizaElClosing\(\);/);
   assert.doesNotMatch(cron, /credWs\(/, 'el cron volvió a preguntar sólo si hay una clave');
+});
+
+test('6. la clave de la PLATAFORMA o el crédito que paga MaKo sin crédito NO es «de su cuenta» (revisión del tren m)', () => {
+  const P = (R as unknown as { plataformaSinCredito: Record<'ws1' | 'ws10', Corrida> }).plataformaSinCredito;
+  assert.ok(P.ws1.pedidos.some((p) => /PLATAFORMA/.test(p.clave)), 'el ws1 tiene que pedir con la clave de la plataforma (su copia)');
+  assert.ok(P.ws10.pedidos.some((p) => /CREDITO/.test(p.clave)), 'el ws10 tiene que pedir con el crédito de Martín');
+  for (const ws of ['ws1', 'ws10'] as const) {
+    assert.equal(P[ws].r.ok, false, `${ws} tenía que fallar`);
+    assert.equal(falloDeSuCuenta(P[ws].r.error), 'sin crédito', `${ws}: el texto es el MISMO que el de su clave (${P[ws].r.error}) — por eso hace falta la marca`);
+    assert.equal(P[ws].r.deSuClave, undefined, `${ws}: un fallo de la clave de MaKo se le avisaba al negocio como suyo`);
+  }
 });

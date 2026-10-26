@@ -26,9 +26,10 @@ import { datosPostLlamada } from '../reunion-grabada';
 import { esGrabacionDeEntrega } from '../insights-llamada-reparto';
 import { procesarReunionesNuevas } from '../reunion-auto';
 import { wsEnLaRonda } from '../cron-workspaces';
-import { duracionMin, invitadoHablo, type GrabadorId, type Reunion } from './reunion';
+import { anotaLaAsistencia, claveDeReunionDelLead, duracionMin, invitadoHablo, refDeReunion, type GrabadorId, type Reunion } from './reunion';
 import { GRABADORES_QUE_SE_LEEN, leerReunion, leerFicha } from './index';
 import { GrabadorSinRespuestaError } from './errores';
+import { anotarEsperaDeSeguimiento } from './seguimiento-pendiente';
 
 export type ResultadoAlTerminar =
   | { ok: true; ignored: true; reason: string; email?: string }
@@ -42,8 +43,12 @@ export type ResultadoAlTerminar =
  * `yaEnSegundoPlano`: quien llama YA está adentro de un `after()` (Zoom pide la respuesta en 3 s, así que su webhook
  * contesta primero y lee la reunión después). Ahí lo de después de la llamada no se vuelve a diferir: se espera, para que
  * la función no termine con el trabajo a medias.
+ *
+ * `transcripcionPendiente`: el grabador avisó antes de tener la transcripción (tl;dv) y `r` es la FICHA. El CRM engancha
+ * el link, pero el seguimiento no se redacta todavía: queda esperando (`seguimiento-pendiente.ts`) y lo redacta el cron
+ * del Closing cuando la transcripción esté.
  */
-export async function alTerminarReunion(ws: number, r: Reunion, opts: { hasta: number; log: string; yaEnSegundoPlano?: boolean }): Promise<ResultadoAlTerminar> {
+export async function alTerminarReunion(ws: number, r: Reunion, opts: { hasta: number; log: string; yaEnSegundoPlano?: boolean; transcripcionPendiente?: boolean }): Promise<ResultadoAlTerminar> {
   const { log } = opts;
   const pendientes: Array<Promise<unknown>> = [];
   const despues = (fn: () => Promise<unknown>) => { if (opts.yaEnSegundoPlano) pendientes.push(fn()); else after(fn); };
@@ -91,22 +96,32 @@ export async function alTerminarReunion(ws: number, r: Reunion, opts: { hasta: n
     else if (fecha && lead.fecha_junta_1 && fecha === lead.fecha_junta_1) which = 'j1';
     else if (lead.fecha_junta_2 && lead.asistio_j1 != null) which = 'j2'; // R1 ya resuelta → es la R2
 
-    // Asistencia: si el aviso trae transcripción, confirmamos que el invitado habló (null = no se puede saber).
+    // Asistencia: si el aviso trae transcripción, confirmamos que el invitado habló (null = no se puede saber). Un «no se
+    // sabe» es «asistió» SÓLO con Fathom, que atribuye voces: con tl;dv o Fireflies un no-show quedaba «asistió»
+    // (`anotaLaAsistencia`, revisión del tren m). Ahí se engancha el link y la asistencia queda para una persona o la T1.
     const attended = invitadoHablo(r, invitee.email);
     const link = r.linkCompartido ?? r.link ?? null;
-    const res = await applyFathomRecording(lead, which, link, attended);
+    const res = await applyFathomRecording(lead, which, link, attended, { marcarAsistencia: anotaLaAsistencia(r.grabador, attended) });
 
     // Aviso al dueño: sólo la 1ª vez que el aviso aporta algo nuevo a ese lead (idempotente ante los reintentos).
     if (res.markedAsistencia || res.addedLink) {
       const nombre = invitee.nombre?.trim() || lead.nombre;
       const reunion = which === 'j1' ? 'R1' : 'R2';
       const dur = duracionMin(r);
+      // ⚠️ LA MISMA REUNIÓN, DOS GRABADORES (revisión del tren m, 26/10/2026): con Fathom y tl;dv grabando la R1 llegan dos
+      // avisos con links distintos, y los dos «agregaban» un link. La clave es del lead y la reunión, no del grabador: los
+      // flujos del dueño corren UNA vez y el aviso sale UNO (el segundo link se guarda igual).
+      const claveReunion = claveDeReunionDelLead(lead.id, which, fecha);
       // ⚠️ EL `ws` VA EXPLÍCITO (06/10/2026): `dispararEvento` no lee el workspace del contexto.
-      await dispararEvento('reunion.ocurrio', { ws, leadId: lead.id, leadNombre: nombre, reunion });
+      await dispararEvento('reunion.ocurrio', { ws, leadId: lead.id, leadNombre: nombre, reunion, dedupKey: claveReunion });
 
       // Post-llamada: el análisis y el borrador del seguimiento (nunca un envío automático), y DESPUÉS el aviso al dueño.
       despues(() => runWithWorkspace(ws, async () => {
-        if (attended !== false) {
+        if (attended !== false && opts.transcripcionPendiente) {
+          // Sin transcripción el análisis sale vacío y el borrador no se hace nunca: queda esperando (revisión del tren m).
+          await anotarEsperaDeSeguimiento({ ref: refDeReunion(r), leadId: lead.id, link, reunion });
+          console.log(`${log} follow-up post-llamada lead=${lead.id}: espera la transcripción de ${r.grabador} (lo redacta el cron del Closing)`);
+        } else if (attended !== false) {
           try {
             const fu = await redactarFollowUpPostLlamada(lead.id, link, reunion);
             console.log(`${log} follow-up post-llamada lead=${lead.id}: ${fu.creado ? 'borrador creado' : `no (${fu.motivo})`}`);
@@ -115,7 +130,7 @@ export async function alTerminarReunion(ws: number, r: Reunion, opts: { hasta: n
           }
         }
         try {
-          await emitirDelCatalogo('reunion-ocurrio-fathom', { lead: { id: lead.id, nombre }, datos: datosPostLlamada({ reunion, duracionMin: dur }) });
+          await emitirDelCatalogo('reunion-ocurrio-fathom', { lead: { id: lead.id, nombre }, datos: datosPostLlamada({ reunion, duracionMin: dur }), dedupKey: claveReunion, dedupTtlMin: 180 });
         } catch (err3) {
           console.error(`${log} aviso post-llamada lead=${lead.id} falló: ${err3 instanceof Error ? err3.message : String(err3)}`);
         }
@@ -134,8 +149,10 @@ export async function alTerminarReunion(ws: number, r: Reunion, opts: { hasta: n
  * API, con la clave del negocio, y sigue `alTerminarReunion`. Lo que trae el aviso NO se usa como contenido: tl;dv no
  * firma sus avisos, y así un aviso falso, a lo sumo, hace leer una reunión que de verdad es de ese negocio.
  *
- * Corre dentro del `after()` del webhook (Zoom pide la respuesta en 3 s). Si la transcripción todavía no está, sigue con
- * la FICHA: el CRM engancha el link y la asistencia ahora, y el Plan la lee cuando esté (la reintenta el cron).
+ * Corre dentro del `after()` del webhook (Zoom pide la respuesta en 3 s). Si la transcripción todavía no está (tl;dv
+ * avisa MeetingReady antes de tenerla), espera y reintenta mientras el reloj deje lugar a lo de después; si no llega,
+ * sigue con la FICHA: el CRM engancha el link ahora, el Plan la lee cuando esté (la reintenta el cron) y el seguimiento
+ * queda esperando la transcripción (`transcripcionPendiente`).
  */
 export async function leerYTerminar(ws: number, ref: { grabador: GrabadorId; id: string }, opts: { hasta: number; log: string }): Promise<void> {
   const { log } = opts;
@@ -145,19 +162,38 @@ export async function leerYTerminar(ws: number, ref: { grabador: GrabadorId; id:
         console.log(`${log} ws ${ws}: no está activo o no tiene ${ref.grabador} conectado — no se lee`);
         return;
       }
-      let r: Reunion | null;
-      try {
-        r = await leerReunion(ref);
-      } catch (e) {
-        if (!(e instanceof GrabadorSinRespuestaError)) throw e;
-        console.warn(`${log} ws ${ws} ${ref.grabador}:${ref.id}: ${e.message} — sigo con la ficha (el Plan la lee cuando esté)`);
-        r = await leerFicha(ref);
+      let r: Reunion | null = null;
+      let transcripcionPendiente = false;
+      for (let intento = 1; ; intento++) {
+        try {
+          r = await leerReunion(ref);
+          break;
+        } catch (e) {
+          if (!(e instanceof GrabadorSinRespuestaError)) throw e;
+          if (!entraOtraEspera(intento, opts.hasta)) {
+            console.warn(`${log} ws ${ws} ${ref.grabador}:${ref.id}: ${e.message} — sigo con la ficha (el Plan la lee cuando esté)`);
+            r = await leerFicha(ref);
+            transcripcionPendiente = true;
+            break;
+          }
+          await new Promise((listo) => setTimeout(listo, ESPERA_TRANSCRIPCION_MS));
+        }
       }
       if (!r) { console.warn(`${log} ws ${ws} ${ref.grabador}:${ref.id}: no pude leer la reunión — la levanta el cron`); return; }
-      const res = await alTerminarReunion(ws, r, { hasta: opts.hasta, log, yaEnSegundoPlano: true });
+      const res = await alTerminarReunion(ws, r, { hasta: opts.hasta, log, yaEnSegundoPlano: true, transcripcionPendiente });
       console.log(`${log} ws ${ws} ${ref.grabador}:${ref.id}: ${'lead_id' in res ? `lead ${res.lead_id} ${res.which}` : `sin lead (${res.reason})`}`);
     } catch (e) {
       console.error(`${log} ws ${ws} ${ref.grabador}:${ref.id}: falló (${e instanceof Error ? e.message : String(e)}) — la levanta el cron`);
     }
   });
 }
+
+/** Cuánto se espera entre un pedido de la transcripción y el siguiente, y cuántos se hacen. */
+export const ESPERA_TRANSCRIPCION_MS = 30_000;
+export const INTENTOS_TRANSCRIPCION = 4;
+/** Lo que hay que dejar libre después de esperar: el análisis del seguimiento (una llamada a Claude, ~135 s) y algo más. */
+const RESERVA_DESPUES_MS = 150_000;
+
+/** ¿Entra otra espera por la transcripción antes del reloj, dejando lugar a lo de después? */
+export const entraOtraEspera = (intento: number, hasta: number, ahora = Date.now()): boolean =>
+  intento < INTENTOS_TRANSCRIPCION && ahora + ESPERA_TRANSCRIPCION_MS + RESERVA_DESPUES_MS <= hasta;
