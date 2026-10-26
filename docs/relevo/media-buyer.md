@@ -32,8 +32,11 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | Variaciones con la IA del negocio | `lib/media-buyer/variaciones.ts` · `variaciones-prompt.ts` (puro) |
 | Config y registro (tablas de la 0332) | `lib/media-buyer/store.ts` · `supabase/migrations/0332_media_buyer.sql` |
 | Lo que escribe por Zernio | `lib/zernio-ads.ts` (la parte del 25/10) |
-| La pantalla y el teléfono | `app/ads-manager/MediaBuyer.tsx` · `mb.css` · `mb-paleta.css` (los colores de Madgicx) · `mb-modelo.ts` · `app/m/ads/MediaBuyerM.tsx` |
-| La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` |
+| La pantalla (la captura 04 de AdAmigo desde el 25/10 noche) | `app/ads-manager/MediaBuyer.tsx` (Hoy · Campañas · Biblioteca, la hoja del detalle) · `Arbol.tsx` (el árbol y la tarjeta chica) · `Hoy.tsx` (la caja, «¿En qué te ayudo hoy?», Actividad, los números del mes) · `Autopilot.tsx` (la tarjeta entera del detalle, las alertas) · `Lienzo.tsx` · `Biblioteca.tsx` · `Agentes.tsx` (cuelga de la tuerca) · `ArranqueMediaBuyer.tsx` · `aa.css` · `mb-modelo.ts` |
+| El teléfono | `app/m/ads/MediaBuyerM.tsx` (las mismas piezas en una columna) · `mb-m.css` |
+| Lo que la pantalla lee además de la config (productos, mejores anuncios, arranque, agentes propios) | `lib/media-buyer/vista.ts` · `productos.ts` y `arranque.ts` (puros, con test) |
+| Los agentes de MaKo y los propios, y Protect | `lib/media-buyer/agentes.ts` · `agentes-propios.ts` (puros) · `agentes-ia.ts` · `protect.ts` (puro) · en la corrida, `corrida.ts` |
+| La API de MaKo (ver, lanzar, deshacer, descartar, analizar, modo, topes, agentes, Biblioteca) | `lib/api-mako/areas/ads.def.ts` / `.run.ts` · lo fija `tests/media-buyer-api.test.ts` |
 | Subir creativos nuevos a un conjunto (por Zernio) | `lib/media-buyer/subir.ts` · `creativos.ts` (puro) · el modal en `MediaBuyer.tsx` |
 | Los hooks de un video ganador como guiones del Video Generator | `lib/media-buyer/hooks-video.ts` · `hooks-guion.ts` (puro) |
 | Los Ajustes (la página «AI Marketer settings») | `app/ads-manager/Ajustes.tsx` (`/ads-manager/ajustes`) |
@@ -85,9 +88,21 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    planes-2510 entre a main (mergearla acá choca en 4 archivos de otros chats). Sólo del lado del servidor: la pantalla está
    en pausa (abajo). El script del cambio quedó en las notas compartidas del Cerebro (`media-buyer-prueba-gratis.py`): SIN
    las partes de pantalla (Ajustes, Automatizaciones) mientras dure la pausa.
-2c. **LA PANTALLA ESTÁ EN PAUSA (el Cerebro, 25/10 ~14:10).** Martín: «Esto de aca no se entiende nada... Rediseñala
-   completamente... dame opciones antes de lanzar a producción». El Cerebro arma tres opciones; no sumar texto ni botones a
-   la pantalla actual hasta que llegue la elegida. Tampoco la `<FranjaPrueba>` de Planes.
+2c. **LA PANTALLA, CON LA ESTRUCTURA DE ADAMIGO (25/10 ~18:50).** Martín eligió AdAmigo entre las opciones del Cerebro:
+   «Me gusta el de "AdAmigo" implementalo de punta en punta... Lo que más me interesa es que en diseño se vea muy bien».
+   Hecho en la rama: Resumen · Autopilot · Campañas (por producto, con la asignación de cada campaña ahí mismo) ·
+   Biblioteca, el panel «N activos» con los cuatro agentes de MaKo y los propios, Protect arriba de las acciones, el
+   arranque como la charla de Offer con la calculadora adentro, y el teléfono con las mismas piezas. Todo por la API
+   (`modo_agente_media_buyer`, `agente_media_buyer`, `borrar_agente_media_buyer`, `ver_biblioteca_media_buyer`).
+   El Cerebro lo sube cuando este chat le diga «esta punta entra». Falta: Ajustes y Automatizaciones con la estética nueva
+   (siguen con `mb.css`), y la `<FranjaPrueba>` de Planes (con 2b).
+   **Rechazada el mismo 25/10 ~19:40** («Una cantidad de botones y texto impresionante... la captura que me habias pasado de
+   Adamigo no se parece en nada»): había elegido la captura 04 y se copió otra pantalla. **Rehecha como la 04** (Hoy = la
+   caja del chat + el árbol de cambios por producto + una línea al pie; cuenta nueva = la captura 2). Las comparaciones lado a
+   lado, en las notas del Cerebro (`media-buyer-adamigo/`). El Cerebro las vio («ahora sí se parece a la 04 y a la 2») y se
+   las mostró a Martín, que la aprobó el 26/10 («Me gusta como esta quedando el media buyer, pon la foto de perfil, tal como lo
+   pone AdAmigo»): la caja lleva la foto de quien pide (MiFoto; sin foto, su inicial) y entra en el tren siguiente. Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
+   9). Sigue: Protect, Ajustes y Automatizaciones con esta densidad.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
@@ -102,4 +117,5 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 estaba en main) y dos de `tests/operaciones.test.ts` (Ops Center). Medidos el 25/10 con la rama; las líneas que marcan
 son de main. Más tarde, el mismo 25/10: `tests/ops-center-estrella-desde.test.ts` y `tests/ops-sin-silencio.test.ts` (Ops
 Center), y en `tests/zernio-conectar-redes.test.ts` la aserción de `errorDeVentana` (espera una línea que ningún archivo
-tiene, también en main).
+tiene, también en main). Esa noche, `tests/dashboard-focus.test.ts` (la tira de hojas del editor del Dashboard: el test y
+`app/dashboard/` son iguales en `origin/main`).

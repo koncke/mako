@@ -7,6 +7,8 @@
 //   calificar { id, estrellas } · config { cambio } · analizar · estado_zernio
 //   hooks_a_video { id, elegidas? } (los hooks de un video ganador, como guiones del Video Generator)
 //   subir_preparar { adSetId? } (los conjuntos y los textos de partida) · subir_creativos { adSetId, archivos, textos, activo }
+//   arranque { respuestas } (lo respondido en la charla del arranque, para seguir donde quedó) · lienzo (Campañas, por producto)
+//   agente { agente } (crea o cambia un agente propio) · agente_borrar { agenteId }
 // El botón de conectar Facebook NO está acá: es la pieza única `<ConectarViaZernio red="metaads">` (AGENTS.md).
 //
 // QUIÉN: el admin DEL negocio (o el super admin mirándolo), el mismo guard que tenían las escrituras del Ads Manager
@@ -21,6 +23,9 @@ import { leerConfig, guardarConfig, leerDecisiones, leerDecision, reclamar, actu
 import { modoEfectivo } from '@/lib/media-buyer/plan';
 import { RUTA_CAMBIAR_PLAN } from '@/lib/topes-plan';
 import { llevarHooksAlVideo } from '@/lib/media-buyer/hooks-video';
+import { guardarRespuestasArranque, lienzoMediaBuyer } from '@/lib/media-buyer/vista';
+import { borrarAgentePropio, guardarAgentePropio } from '@/lib/media-buyer/agentes-ia';
+import { sanearRespuestas } from '@/lib/media-buyer/arranque';
 import { lanzar, deshacer } from '@/lib/media-buyer/ejecutar';
 import { analizarCuenta } from '@/lib/media-buyer/corrida';
 import { cuentaDelNegocio, leerDatosCuenta, SinCuentaParaOperar } from '@/lib/media-buyer/datos';
@@ -131,6 +136,28 @@ export async function POST(req: NextRequest) {
         const adSetId = typeof body.adSetId === 'string' && /^\d{1,30}$/.test(body.adSetId) ? body.adSetId : null;
         const plantilla = adSetId ? await plantillaDelConjunto(ws, datos, adSetId) : null;
         return J({ ok: true, conjuntos, plantilla, conectado: !!datos.conexion });
+      }
+      case 'arranque': {
+        await guardarRespuestasArranque(ws, sanearRespuestas(body.respuestas));
+        return J({ ok: true });
+      }
+      case 'agente': {
+        const r = await guardarAgentePropio(ws, body.agente);
+        return J(r, r.ok ? 200 : 400);
+      }
+      case 'agente_borrar': {
+        const id = typeof body.agenteId === 'string' ? body.agenteId : '';
+        return J({ ok: true, agentes: await borrarAgentePropio(ws, id) });
+      }
+      case 'lienzo': {
+        // La pestaña Campañas: la cuenta en vivo, por producto (lib/media-buyer/vista.ts → lienzoMediaBuyer).
+        const config = await leerConfig(ws);
+        try {
+          return J({ ok: true, ...(await lienzoMediaBuyer(ws, config.kpi, config.objetivo)) });
+        } catch (e) {
+          if (e instanceof SinCuentaParaOperar) return J({ ok: false, error: e.message }, 409);
+          throw e;
+        }
       }
       case 'campanas': {
         // Las campañas de la cuenta, para elegir qué cubre cada táctica (Automatizaciones: el «Applies to» de Madgicx).
