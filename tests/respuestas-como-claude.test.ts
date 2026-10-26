@@ -98,7 +98,8 @@ test('4. la API devuelve el MISMO texto que se dibuja', () => {
   assert.equal(c.prueba, CIERRE.prueba);
   const run = sinComentarios(leer('lib/api-mako/areas/operaciones.run.ts'));
   assert.match(run, /cierre: p\.cierre \? cierreComoClaude\(p\.cierre\) : null,/, 'ver_pedidos_operaciones');
-  assert.match(run, /respuesta: t \? listasEnRenglones\(t\.texto\) : null,/, 'ver_completados_operaciones');
+  // El «Completado» (y cada uno de sus `anteriores`) sale de `resumen`: la respuesta va como se dibuja ahí adentro.
+  assert.match(run, /function resumen\([^)]*\) \{[\s\S]*?respuesta: listasEnRenglones\(t\.texto\),/, 'ver_completados_operaciones');
   const t = { local: LOCAL, uuid: 'u1', rol: 'el' as const, de: null, texto: CIERRE.hecho, at: '2026-10-26T03:43:00.000Z', trabajo: null };
   const p = piezaParaLaApi({ tipo: 'turno', instante: Date.parse(t.at), turno: t }, 'Cerebro');
   assert.equal('texto' in p ? p.texto : '', listasEnRenglones(CIERRE.hecho), 'ver_mensajes_operaciones');
