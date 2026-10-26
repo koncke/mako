@@ -12,9 +12,9 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { TOPE_LOTE_COMPLETAR } from '@/lib/grupo-wa-reglas';
+import { EVENTO_TRAIDO_DE_GRUPO, TOPE_LOTE_COMPLETAR, asuntoComparable, grupoDelEvento, gruposDelLote } from '@/lib/grupo-wa-reglas';
 import { numeroParaWhatsApp } from '@/lib/numero-whatsapp';
-import { completarFichas, completarPerfiles, lineasDelNegocio, type ResultadoFichas, type ResultadoPerfiles } from './grupo-wa-server';
+import { completarFichas, completarPerfiles, gruposDeLinea, lineasDelNegocio, participantesDelGrupo, type ResultadoFichas, type ResultadoPerfiles } from './grupo-wa-server';
 import { indiceContactos } from './importar-server';
 import { buscarTelefono } from './leads-importar';
 
@@ -36,6 +36,59 @@ export async function telefonosDeLeads(ids: readonly number[]): Promise<Array<{ 
     }
   }
   return out;
+}
+
+/** Un pedido a la extensión: el teléfono del lead y, si se sabe, su `@lid` (cómo lo conoce WhatsApp en un grupo). */
+export type PedidoDeFicha = { id: number; telefono: string; lid: string | null };
+
+/**
+ * LO QUE LA EXTENSIÓN NECESITA DE LOS TILDADOS (25/10/2026, Martín: «Si ya sabe el nombre del grupo debería buscarlos
+ * dentro»): el teléfono de cada uno, los grupos de donde vinieron (el historial «Traído de un grupo de WhatsApp») y el `@lid`
+ * de cada uno en ese grupo. ⚠️ El `@lid` hace falta: MEDIDO en el WhatsApp Web de Martín, en sus grupos TODOS los
+ * participantes son `@lid` y el 37 % no trae teléfono en su navegador; sin el `@lid` esos no se encuentran. Lo da Evolution
+ * con la lista del grupo (`participantesDelGrupo`: una lectura de la base del grupo, con caché de 2 min, no una consulta de
+ * perfil por persona). Si el grupo no está en ninguna línea, van sin `@lid`: la extensión busca igual por teléfono.
+ */
+export async function pedidosDeFichas(ids: readonly number[]): Promise<{ pedidos: PedidoDeFicha[]; grupos: string[] }> {
+  const tels = await telefonosDeLeads(ids);
+  if (!tels.length) return { pedidos: [], grupos: [] };
+  const db = await getTenantDb();
+  const valores: Array<string | null> = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await db.from('lead_audit').select('valor_nuevo').eq('campo', EVENTO_TRAIDO_DE_GRUPO).in('lead_id', ids.slice(i, i + 200));
+    if (error) throw new Error(`No pude leer de qué grupo vinieron: ${error.message}`);
+    for (const r of (data ?? []) as Array<{ valor_nuevo: string | null }>) valores.push(r.valor_nuevo);
+  }
+  const grupos = gruposDelLote(valores);
+  const lidPorSufijo = new Map<string, string>();
+  if (grupos.length) {
+    const lineas = (await lineasDelNegocio()).filter((l) => l.conectada);
+    for (const nombre of grupos) {
+      const buscado = asuntoComparable(nombre);
+      for (const l of lineas) {
+        const lista = await gruposDeLinea(l.linea).catch(() => null);
+        const g = lista && lista.ok ? lista.grupos.find((x) => asuntoComparable(x.nombre) === buscado) : null;
+        if (!g) continue;
+        const leidos = await participantesDelGrupo(l.linea, g.jid).catch(() => null);
+        if (!leidos || !leidos.ok) continue;
+        for (const p of leidos.participantes) if (p.lid) lidPorSufijo.set(p.telefono.slice(-10), p.lid);
+        break;
+      }
+    }
+  }
+  return { pedidos: tels.map((t) => ({ ...t, lid: lidPorSufijo.get(t.telefono.slice(-10)) ?? null })), grupos };
+}
+
+/** Los leads traídos de ese grupo (por su historial «Traído de un grupo de WhatsApp»), a lo sumo `TOPE_LOTE_COMPLETAR`. */
+export async function leadsDelGrupo(nombre: string): Promise<number[]> {
+  const db = await getTenantDb();
+  const literal = nombre.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data, error } = await db.from('lead_audit').select('lead_id, valor_nuevo').eq('campo', EVENTO_TRAIDO_DE_GRUPO)
+    .ilike('valor_nuevo', `«${literal}», a «%`).limit(TOPE_LOTE_COMPLETAR);
+  if (error) throw new Error(`No pude leer de qué grupo vinieron: ${error.message}`);
+  const buscado = asuntoComparable(nombre);
+  const filas = (data ?? []) as Array<{ lead_id: number; valor_nuevo: string | null }>;
+  return [...new Set(filas.filter((r) => asuntoComparable(grupoDelEvento(r.valor_nuevo)) === buscado).map((r) => Number(r.lead_id)))];
 }
 
 /** Las fichas de SU WhatsApp Web (las lee la extensión en el navegador), escritas SÓLO en los leads tildados. */

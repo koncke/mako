@@ -36,7 +36,7 @@ import { claveNombre } from '@/lib/etiquetas-reglas';
 import { etapaDeEntrada } from '@/lib/lead-funnel-reglas';
 import { terminalEstadoFor } from '@/lib/pipeline';
 import {
-  CAMPOS_DEL_PERFIL, TANDA_FICHAS, TOPE_GRUPOS_COMPLETO_MS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_DIA, VIEJA_GRUPOS_MS,
+  CAMPOS_DEL_PERFIL, EVENTO_TRAIDO_DE_GRUPO, TANDA_FICHAS, TOPE_GRUPOS_COMPLETO_MS, TOPE_GRUPOS_MS, TOPE_PARTICIPANTES_MS, TOPE_PERFILES_DIA, VIEJA_GRUPOS_MS,
   conNombresConocidos, gruposGuardados,
   cuantosEstaCorrida, cupoDeHoy, esJidDeGrupo, esNombreDeRelleno, etapasQueDisparan, etiquetaDeGrupo, fichaLimpia,
   gruposDeChats, gruposDeFetchAll, lineaDeGrupos, lineaDePerfil, nombreDeFicha, parcheDePerfil, participantesDe,
@@ -528,7 +528,7 @@ export async function traerDelGrupo(p: {
       });
       creados++;
       traidos.push(lead.id);
-      await logLeadEvent(lead.id, 'Traído de un grupo de WhatsApp', `«${p.nombreGrupo}», a «${destino.label}»`, p.autor).catch(() => {});
+      await logLeadEvent(lead.id, EVENTO_TRAIDO_DE_GRUPO, `«${p.nombreGrupo}», a «${destino.label}»`, p.autor).catch(() => {});
     } catch (e) {
       if (e instanceof LeadDuplicadoError) { yaEstaban++; return; }
       // A la pantalla, el NOMBRE del que no se pudo y un texto llano; el detalle de la base, sólo al log (sin datos de la persona).

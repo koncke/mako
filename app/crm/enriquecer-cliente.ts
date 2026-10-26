@@ -13,6 +13,7 @@
 import type { ResultadoFichas, ResultadoPerfiles } from './grupo-wa-server';
 import { TANDA_FICHAS, TOPE_PERFILES_DIA, nombreDeFicha, type FichaWa } from '@/lib/grupo-wa-reglas';
 import { miles } from './traer-seleccion';
+import type { GrupoEnWhatsapp } from '@/lib/wa-fichas-cliente';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : 'error');
 
@@ -54,6 +55,19 @@ export function coberturaDeFichas(fichas: readonly FichaWa[]): { conNombre: numb
     deEmpresa: fichas.filter((x) => x.esEmpresa).length,
     enVarios: fichas.filter((x) => x.grupos.length >= 2).length,
   };
+}
+
+/**
+ * Los grupos de donde vinieron los leads, buscados en su WhatsApp Web, en una línea para el aviso final (25/10/2026, Martín: «Si
+ * ya sabe el nombre del grupo debería buscarlos dentro»): si está y cuántos son, o que no está. Vacío si no se buscó ninguno.
+ */
+export function gruposEnWhatsappDichos(grupos: readonly GrupoEnWhatsapp[]): string {
+  if (!grupos.length) return '';
+  const partes = grupos.slice(0, 3).map((g) => (g.encontrado
+    ? `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`
+    : `el grupo «${g.nombre}» no está en tu WhatsApp Web`));
+  const texto = partes.join(' · ');
+  return ` ${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`;
 }
 
 /** El aviso al terminar «Completar desde mi WhatsApp»: la cobertura, lo escrito, y si paró o se cortó. */

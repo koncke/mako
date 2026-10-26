@@ -41,6 +41,8 @@ import {
 import { getFunnelDefault, getFunnelDe, listarFunnels, idDelFunnelDefault } from '@/lib/funnels';
 import { completarNombresDelGrupo, etapasParaTraer, etiquetaDeOrigen, gruposDeLinea, marcarEnElCrm, participantesDelGrupo, traerDelGrupo } from '@/app/crm/grupo-wa-server';
 import { etapaPorDefecto, funnelPorDefecto, type GrupoWA } from '@/lib/grupo-wa-reglas';
+import { leadsDelGrupo, pedidosDeFichas } from '@/app/crm/enriquecer-lote-server';
+import { VERSION_FICHAS } from '@/lib/wa-fichas-cliente';
 import { salidasDeEtapa, stageMetaOpt, ENTRADAS, MAKO_SETTER, type EntradaId, type Stage } from '@/lib/pipeline';
 // «Nuevo CRM» por su tipo (14/10/2026): el catálogo puro y el alta que comparte con el modal.
 import { TIPOS_CRM, TIPO_CRM_OTRO, ENTRADAS_OFRECIDAS, siembraDeCrm, tipoCrmPorId } from '@/lib/pipeline';
@@ -1221,6 +1223,25 @@ export const RUNNERS: Runners = {
       if (r.completados) invalidar('leads');
       return { ok: true, resumen: `Listo: ${r.completados} nombres completados en «${String(payload.nombreGrupo)}».${r.quedan ? ` Quedan ${r.quedan}: pídemelo de nuevo y sigo.` : ''}` };
     }),
+  },
+
+  // «Completar desde mi WhatsApp» (25/10/2026): las MISMAS funciones del lote del CRM (`pedidosDeFichas`); lo que lee el
+  // WhatsApp Web pasa en el navegador de la persona, así que acá sólo se cuenta y se dice cómo dispararlo.
+  ver_completar_desde_whatsapp: {
+    leer: async (input) => {
+      const nombre = typeof input.grupo === 'string' ? input.grupo.trim().slice(0, 120) : '';
+      if (!nombre) return fallo('Falta el nombre del grupo.');
+      try {
+        const ids = await leadsDelGrupo(nombre);
+        if (!ids.length) return fallo(`No encontré leads traídos de «${nombre}» (mira grupos_whatsapp).`);
+        const { pedidos } = await pedidosDeFichas(ids);
+        return json({
+          grupo: nombre, leads: ids.length, con_telefono: pedidos.length, con_identificador_del_grupo: pedidos.filter((p) => p.lid).length,
+          como: 'En el CRM: tildar estos leads y tocar Completar, Desde mi WhatsApp. Hace falta la extensión de MaKo en ese Chrome; si WhatsApp Web no está abierto, la extensión lo abre.',
+          version_extension: VERSION_FICHAS,
+        });
+      } catch (e) { return fallo(e instanceof Error ? e.message : 'No pude leer ese grupo.'); }
+    },
   },
 
   // «Vincular cobro» por MaKo (22/10/2026): las MISMAS funciones del pop-up (lib/cobro-etapa-server.ts, de Cobros).

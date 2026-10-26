@@ -17,8 +17,8 @@
 import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
 import { TANDA_GRUPO, TOPE_PERFILES_DIA, etapaPorDefecto, minutosDePerfiles, fichaLimpia, funnelPorDefecto, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
-import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles, type AvancePerfiles } from './enriquecer-cliente';
-import { motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles, type AvancePerfiles } from './enriquecer-cliente';
+import { enfocarWhatsappWeb, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
@@ -220,8 +220,15 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
     setErr(null); setHecho(null); setTrasTraer(false); setLeyendoWa(true); pararWa.current = false;
     setAvance('Leyendo tu WhatsApp Web…');
     try {
-      const r = await pedirFichasDeWhatsappWeb(tels);
-      if (!r.ok) { setErr(motivoDeFichas(r.motivo)); return; }
+      // Con el `@lid` de cada uno y el nombre del grupo (25/10/2026): en el WhatsApp Web de Martín TODOS los participantes de
+      // un grupo son `@lid` y el 37 % no trae teléfono; con el `@lid` se los encuentra igual. Y lo que hace la extensión se ve.
+      const pedidos = (gente ?? []).filter((p) => p.enElCrm).map((p) => ({ telefono: p.telefono, lid: p.lid ?? null }));
+      const r = await pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], alAvanzar: (texto) => setAvance(texto) });
+      if (!r.ok) {
+        if (r.motivo === 'sin_sesion') enfocarWhatsappWeb();
+        setErr(motivoDeFichas(r.motivo));
+        return;
+      }
       // Qué hay en su WhatsApp Web (nombres de tablas y cantidades, nunca datos de nadie): si WhatsApp cambia cómo guarda, esto
       // es lo que dice por qué no volvió nada.
       console.info('[wa-fichas]', r.diagnostico);
@@ -233,7 +240,7 @@ export function TraerDeGrupoWA({ productos, destino, onAtras, onTraidos }: {
         alAvanzar: (guardadas, total) => setAvance(`Guardando ${miles(guardadas)} de ${miles(total)}…`),
       });
       // El corte va adentro del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía.
-      setHecho(`«${grupo.nombre}»: ${resumenDeFichas(tels.length, fichas, a)}`);
+      setHecho(`«${grupo.nombre}»: ${resumenDeFichas(tels.length, fichas, a)}${gruposEnWhatsappDichos(r.grupos)}`);
       if (a.nombres || a.empresas) { onTraidos(`${miles(a.nombres)} nombres desde tu WhatsApp`); setVuelta((n) => n + 1); }
     } finally { setLeyendoWa(false); setAvance(null); }
   };

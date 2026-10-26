@@ -50,7 +50,11 @@ function leerStore(db, nombre) {
   });
 }
 
-async function fichasPedidas(telefonos) {
+/**
+ * Lo pedido: teléfonos sueltos o `{ telefono, lid }` (con el `@lid` se encuentra al que WhatsApp Web no tiene con su teléfono),
+ * y los NOMBRES de los grupos de donde vinieron esos leads: se buscan acá y se dice si están y cuántos son (25/10/2026, 0.71.0).
+ */
+async function fichasPedidas(pedidos, nombresGrupos) {
   const db = await abrirModelStorage();
   if (!db) return { ok: false, motivo: 'sin_base', diagnostico: { base: false } };
   try {
@@ -58,21 +62,40 @@ async function fichasPedidas(telefonos) {
       leerStore(db, 'contact'), leerStore(db, 'group-metadata'), leerStore(db, 'participant'),
     ]);
     const indice = MakoWaFichas.indexar(contactos, grupos, participantes);
-    const fichas = MakoWaFichas.fichasDe(indice, telefonos);
+    const conLid = Array.isArray(pedidos) && pedidos.some((p) => p && typeof p === 'object' && p.lid);
+    const porLid = conLid ? MakoWaFichas.indexarLids(contactos, grupos, participantes) : null;
+    const fichas = MakoWaFichas.fichasDe(indice, pedidos, porLid);
     // El diagnóstico: QUÉ hay (nombres de stores y cantidades), nunca datos de nadie.
     const diagnostico = {
       base: true, stores: Array.from(db.objectStoreNames), contactos: contactos.length, grupos: grupos.length,
-      participantes: participantes.length, pedidos: Array.isArray(telefonos) ? telefonos.length : 0, conFicha: fichas.length,
+      participantes: participantes.length, pedidos: Array.isArray(pedidos) ? pedidos.length : 0, conFicha: fichas.length,
     };
-    return { ok: true, fichas, diagnostico };
+    const enGrupos = Array.isArray(nombresGrupos) && nombresGrupos.length ? MakoWaFichas.buscarGrupos(grupos, participantes, nombresGrupos) : [];
+    return { ok: true, fichas, grupos: enGrupos, diagnostico };
   } finally {
     try { db.close(); } catch { /* nada */ }
   }
 }
 
+/** ¿WhatsApp Web ya guardó su base? Sin abrirla (abrirla si no está la crearía): sólo la lista de bases. */
+async function hayBase() {
+  try {
+    if (typeof indexedDB.databases !== 'function') return null;
+    const dbs = await indexedDB.databases();
+    return dbs.some((d) => d && d.name === 'model-storage');
+  } catch { return null; }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, responder) => {
+  // El worker pregunta si este script está vivo en la pestaña (una abierta antes de instalar o actualizar no lo tiene) y si
+  // WhatsApp Web ya guardó su base (recién abierta, o sin la sesión iniciada, no).
+  if (msg && msg.tipo === 'WA_FICHAS_PING') {
+    hayBase().then((base) => responder({ ok: true, base }), () => responder({ ok: true, base: null }));
+    return true;
+  }
   if (!msg || msg.tipo !== 'WA_FICHAS') return false;
-  const telefonos = Array.isArray(msg.telefonos) ? msg.telefonos.slice(0, 5000) : [];
-  fichasPedidas(telefonos).then(responder, (e) => responder({ ok: false, motivo: 'error', error: String(e && e.message || e) }));
+  const pedidos = Array.isArray(msg.pedidos) ? msg.pedidos.slice(0, 5000) : Array.isArray(msg.telefonos) ? msg.telefonos.slice(0, 5000) : [];
+  const grupos = Array.isArray(msg.grupos) ? msg.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
+  fichasPedidas(pedidos, grupos).then(responder, (e) => responder({ ok: false, motivo: 'error', error: String(e && e.message || e) }));
   return true;
 });
