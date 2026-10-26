@@ -133,7 +133,10 @@
     const CERRAR = /^(cerrar|close|fechar)$/i;
     const BUSCAR = /buscar|search|pesquis/i;
 
-    const VER_PERFIL = /^(ver|view|info|informaci[oó]n|dados)\b/i;
+    // ⚠️ MEDIDO en vivo (26/10, 0.73.0, el diagnóstico de 60 perfiles): el menú de un miembro dice «Info. del contacto»,
+    // «Enviar mensaje a +…» y otra más, pero el TEXTO de cada opción lleva pegado adelante el nombre de su ícono («ic-info…»):
+    // con `^Info` no se encontraba ninguna. Se busca en cualquier parte del texto.
+    const VER_PERFIL = /info\.?\s*(del contacto|de (la )?empresa|comercial)|contact info|business info|dados (do contato|comerciais)|ver (contacto|perfil)|view contact/i;
     const INFO_CONTACTO = /info\.? (del contacto|de (la )?empresa|comercial)|contact info|business info|dados (do contato|comerciais)/i;
     // Las palabras de la interfaz que se dejan ver en la forma del panel (todo lo demás, tapado: puede ser de una persona).
     const UI = new Set('info info. del de la contacto empresa grupo grupos en común comun archivos enlaces y documentos mensajes destacados silenciar notificaciones temporales cifrado cifrados bloquear reportar añadir favoritos eliminar ver todo todos más mas llamar video buscar atrás atras cerrar correo electrónico sitio web dirección direccion categoría categoria horario catálogo catalogo descripción descripcion sobre mí mi negocio cuenta de empresa enviar mensaje a editar perfil foto compartir contactos contacto info. business account contact profile about email website address category'.split(' '));
