@@ -116,6 +116,10 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
   → «La landing principal con lo que hace la competencia».
 - **Sigue:**
+  - **El cierre con los planes (26/10): hecho, SIN publicar.** Las dos portadas y las doce cierran con Esencial y Pro
+    (Pro destacado), «Empezar mis 7 días gratis» al carrito de /planes y «¿Prefieres hablar antes? Déjanos tus datos y te
+    escribimos» debajo. Las vistas previas y las fotos están en la carpeta de notas del Cerebro (`landings-cierre-2610`). El link de abajo
+    lleva al pedido que ya existe (`hablarAntes()`; si Martín quiere WhatsApp, va ahí). Falta su sí para publicar.
   - **Tanda 2 de la landing: hecha, SIN publicar.** `scripts/landings-mako-v2-funnels.mts`: doce documentos `mako-…`
     (media buyer y avatares en pausa). Publicar con `--subir`, que pide el permiso de Martín.
   - **La prueba gratis de 7 días** (Martín, 25/10 ~10:20; reemplaza a la garantía): la línea bajo el botón, el botón y las
