@@ -31,10 +31,10 @@ const plano = <T,>(x: T): T => (x === undefined ? x : JSON.parse(JSON.stringify(
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"])\/\/.*$/gm, '$1');
 
 type Reglas = {
-  indexar(c: unknown[], g: unknown[], p: unknown[]): Map<string, unknown>;
-  indexarLids(c: unknown[], g: unknown[], p: unknown[]): Map<string, unknown>;
+  indexar(c: unknown[], g: unknown[], p: unknown[], v?: unknown[]): Map<string, unknown>;
+  indexarLids(c: unknown[], g: unknown[], p: unknown[], v?: unknown[]): Map<string, unknown>;
   fichasDe(i: Map<string, unknown>, t: unknown[], l?: Map<string, unknown> | null): unknown[];
-  buscarGrupos(g: unknown[], p: unknown[], n: unknown[]): unknown[];
+  buscarGrupos(g: unknown[], p: unknown[], n: unknown[], c?: unknown[], v?: unknown[]): unknown[];
   asuntoComparable(s: unknown): string;
 };
 function cargarReglas(): Reglas {
