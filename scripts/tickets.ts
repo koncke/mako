@@ -70,7 +70,14 @@ async function ver(id: number) {
     linea('De quién', `${t.usuario_nombre || '—'} <${t.usuario_email}> · ${t.rol ?? 'rol ?'} · negocio «${t.negocio}» (ws ${t.workspace_id}) · plan ${t.plan ?? '?'}`);
     linea('Canal', t.canal);
     linea('Levantado', fecha(t.created_at));
-    if (triage) { linea('Triage', `${triage.tipo}, confianza ${triage.confianza}, ${triage.autoArreglo ? 'ARREGLO AUTOMÁTICO' : 'decide Martín'}`); linea('Porque', triage.porque.join(' ')); }
+    if (triage) { linea('Triage', `${triage.tipo}, confianza ${triage.confianza}, ${triage.regla ? `APROBADO POR REGLA: ${triage.regla}` : triage.autoArreglo ? 'ARREGLO AUTOMÁTICO' : 'decide Martín'}`); linea('Porque', triage.porque.join(' ')); }
+    // La regla de Martín (26/10/2026, lib/tickets-reglas.ts → APROBADOS_POR_REGLA): un pedido o una pregunta también se hacen.
+    if (triage?.regla) {
+      console.log(`\n⚠️  APROBADO POR REGLA (${triage.regla}): Martín pidió que sus tickets se ejecuten sin esperarlo. NO lo reclasifiques para`
+        + ' que lo decida él: arréglalo o impleméntalo en el chat de su área, sea un bug, un pedido o una pregunta. Vuelve a Martín SÓLO si'
+        + ' choca con una decisión suya, o pide una migración o una escritura en producción. Al quedar desplegado, el aviso a su grupo de'
+        + ' WhatsApp de MaKo sale solo con el hito `tickets: [n]` (lib/tickets-cierre.ts).');
+    }
     if (t.decision) linea('Decisión', `${t.decision} (${fecha(t.decidido_at)})${t.decision_nota ? ` — nota de Martín: ${t.decision_nota}` : ''}`);
     console.log('\nEL CONTEXTO (lo juntó el sistema, no el cliente):');
     linea('Pantalla', ctx.ruta);

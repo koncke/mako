@@ -20,7 +20,7 @@ import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
 import { REGISTROS_SLUGS, registroDe } from '@/app/admin/dev/registros';
 import { anotarDelCerebro } from './tickets-db';
-import { pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
+import { aprobadoPorRegla, pruebaDeProduccion, textoArregloAlGrupo, textoDelAviso, ticketsDeHitos, type AvisoCliente } from './tickets-reglas';
 
 const T = 'tickets';
 
@@ -151,6 +151,22 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
     }
     // Lo vea o no un cliente, el ticket del sistema ya está en /tickets y en la bandeja: no se reintenta para siempre.
     if (!salio.length) salio.push('tickets');
+  }
+  // Un negocio con la regla de Martín (Leandro, 26/10/2026: «tú después le tienes que ir avisando... por el grupo de WhatsApp de
+  // MaKo los tickets que ya van siendo resueltos»): ARREGLADO Y DESPLEGADO, el aviso va a su grupo por el camino del equipo
+  // (`avisarArregloAlGrupo`), con la MISMA prueba que exige (el hito de ESTE build con `tickets: [n]`). Por WhatsApp ya salió
+  // arriba (`enviarAlGrupoMaKo`): no se repite.
+  if (aprobadoPorRegla(ws) && f.canal !== 'sistema' && f.canal !== 'whatsapp' && f.estado === 'resuelto') {
+    const hito = desplegados.get(f.id) ?? (f.duplicado_de ? desplegados.get(f.duplicado_de) : undefined);
+    if (hito) {
+      try {
+        const { avisarArregloAlGrupo } = await import('./aviso-arreglo');
+        const prueba = pruebaDeProduccion({ ticket: f.id, hito: hito.titulo, area: hito.area, commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null, deploy: process.env.VERCEL_URL ?? null });
+        const r = await avisarArregloAlGrupo({ ws, clave: `ticket:${f.id}`, texto: textoArregloAlGrupo(f), prueba, origen: 'ticketera' });
+        if (r.ok) salio.push(`grupo de ws ${ws}`);
+        else if (r.motivo !== 'ya-avisado') console.error(`[tickets] aviso al grupo de ws ${ws} por #${f.id}: ${r.motivo} — ${r.detalle}`);
+      } catch (e) { console.error(`[tickets] aviso al grupo de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
+    }
   }
   // Por el formulario no hay canal de vuelta más que /tickets: el estado ya está ahí, y eso cuenta como avisado.
   if (f.canal === 'formulario' || f.canal === 'api') salio.push('tickets');
