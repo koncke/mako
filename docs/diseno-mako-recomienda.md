@@ -224,7 +224,11 @@ Juntarlos en el Ops Center es un paso aparte (§6).
    `scripts/probar-recomendaciones.mts` (el motor contra cada negocio, sin IA y sin escribir, con todas las señales y sus
    umbrales). Con eso, **calibrar `UMBRALES`** y sacar las capturas.
 2. **Juntar en el Ops Center** las sugerencias del CRM y las decisiones abiertas del Media Buyer, con una sola memoria.
-3. **El recolector de Fathom y de los chats con MaKo** (lo que el dueño cuenta) a la memoria: `lib/recolector.ts`.
+3. **El recolector de Fathom y de los chats con MaKo** (lo que el dueño cuenta) a la memoria: `lib/recolector.ts`. Lo que el
+   dueño DECIDE o AFIRMA por WhatsApp («esa landing es de prueba») vive en `mako_doer_conv` (role 'user', por grupo; se lee
+   paginado con `hiloDelGrupo`, lib/mako-doer-conv.ts): sacarlo como hecho pide IA por mensaje y quedó SIN hacer
+   (docs/hallazgos-comunicacion.md, «MaKo en WhatsApp no seguía la conversación»). Lo que MaKo recomendó en el grupo sí vuelve
+   al turno siguiente (`mako.doer.refs.<jid>`, rama wa-contexto-2610).
 4. **«Lo que mejoró» en pantalla** (hoy sólo por la API).
 5. **Un tope diario para todo MaKo** (la investigación sugiere 3 por día; criterio, no fuente).
 6. **Decisión de Martín:** ¿un resumen semanal por WhatsApp con lo que MaKo recomienda?
