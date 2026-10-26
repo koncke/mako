@@ -68,7 +68,8 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2', Vuelta>
-  & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string };
+  & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string }
+  & Record<'P' | 'P_gratisContesta' | 'P_negocio' | 'P_otraTarea', { respuesta: string; pedidos: Pedido[]; credito: Array<{ model: string; max_tokens: number; clave: string }>; filasDeUso: number }>;
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
 const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
 
@@ -136,6 +137,21 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
   assert.match(src, /if \(Date\.now\(\) - t0 \+ TANDA_MS > PLAZO_BLOQUES_MS\) continue;/);
 });
 
+// Martín, 26/10/2026, en el Centro: «1. Claude de la plataforma» como último recurso de lo interno de MaKo.
+test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIMO recurso, en su espacio y para sus tareas', () => {
+  const P = R.P;
+  assert.equal(P.respuesta, 'respuesta del crédito');
+  assert.equal(P.pedidos[0]?.modelo, LATEST, 'antes del crédito, sus Gemini');
+  assert.ok(P.pedidos.some((p) => p.modelo === LITE), 'el respaldo de modelo gratis va antes que el crédito');
+  assert.deepEqual(P.credito, [{ model: 'claude-haiku-4-5', max_tokens: 7_400, clave: 'sk-ant-credito-de-prueba-cuenta-1' }],
+    'una sola llamada, con el mismo tope de tokens de la tarea y la clave del crédito');
+  assert.equal(P.filasDeUso, 1, 'el gasto del crédito no quedó anotado con su marca');
+  assert.equal(R.P_gratisContesta.respuesta, `respuesta de ${LITE}`);
+  assert.equal(R.P_gratisContesta.credito.length, 0, 'el crédito se usó con una gratis que contestaba: nunca primero');
+  assert.equal(R.P_negocio.credito.length, 0, 'un negocio paga su IA: el crédito de lo interno de MaKo no es para él');
+  assert.equal(R.P_otraTarea.credito.length, 0, 'una tarea que Martín no habilitó usó el crédito');
+});
+
 // ── Probado rompiéndolo (26/10/2026, segunda versión, después de la revisión del tren-l) ────────────────────────────────
 // Cada cambio a mano en lib/ai-cheap.ts (o en lib/ia-saturacion.ts / replicar.ts), corrido y restaurado de memoria:
 //   1. `modelosAProbar` sin `primeroLosSanos`                         → rojo «2. un cuelgue… el pedido siguiente…».
@@ -155,3 +171,9 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
 //  14. `hayRed` sin mirar `pii`                                       → rojo «2. una red de la plataforma PEDIDA…».
 //  15. `hayRed` sin mirar el super admin                              → rojo «2. una red de la plataforma PEDIDA…».
 //  16. la memoria del pedido escrita en la del proceso                → rojo «2. una tanda GRANDE…», «2. un TIMEOUT…», «2. adentro…».
+// El último recurso de lo interno de MaKo (26/10/2026), roto con el mismo arnés:
+//  17. el bloque del crédito sin mirar que sea el espacio de MaKo     → rojo «5.» (un negocio lo usó).
+//  18. el crédito sin el `maxTokens` de la tarea                     → rojo «5.» (pidió 1.024).
+//  19. una llamada al crédito ANTES del lazo de las gratis            → rojo «5.» (contestó el crédito con una gratis sana).
+// Y en tests/veto-claude-credito-plataforma.test.ts: la puerta leyendo las claves para un negocio, y el veto con
+// `esLaPlataforma === false` (sin saber, dejaba pasar) → rojo «lo interno de MaKo usa el crédito SÓLO…».

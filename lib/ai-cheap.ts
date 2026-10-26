@@ -40,6 +40,7 @@ import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacio
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
 import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
+import { CREDITO_HABILITADO_PARA } from '@/lib/veto-claude';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
 /**
@@ -884,6 +885,32 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         }
       }
      }
+    }
+  }
+
+  // ── LO INTERNO DE MaKo: el crédito de Claude de la plataforma como ÚLTIMO recurso (26/10/2026) ──
+  // Martín, en el Centro: «1. Claude de la plataforma». Sólo en el espacio de MaKo (el super admin: la red de abajo no corre
+  // ahí) y sólo para lo que `CREDITO_HABILITADO_PARA` marca `soloLaPlataforma` (el editor de landings, la réplica, el
+  // analizador). Llega acá DESPUÉS de que fallaron las gratis (sus Gemini, el respaldo de modelo incluido), nunca antes; con
+  // el mismo tope de tokens de la tarea (`maxTokens`), y cada llamada queda en anthropic_usage con la marca del crédito
+  // (lib/anthropic.ts, `conCreditoDeLaPlataforma`). Para un negocio no cambia nada: el veto lo frena aunque llegara.
+  if (quedan() >= MIN_INTENTO_MS && CREDITO_HABILITADO_PARA.some((h) => h.soloLaPlataforma && h.feature === (opts.feature ?? '').trim())) {
+    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+    const sa = await wsSuperAdmin().catch(() => null);
+    if (sa != null && (await getWorkspaceActual().catch(() => null)) === sa) {
+      const { conCreditoDeLaPlataforma } = await import('./anthropic');
+      const c = await conCreditoDeLaPlataforma({
+        system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens, feature: opts.feature,
+        motivo: `último recurso: las gratis no contestaron · ${opts.motivo ?? ''}`.trim(), timeoutMs: plazoDeIntento(), wsCliente: sa,
+      }).catch(() => null);
+      if (c && 'texto' in c) {
+        const t = opts.json ? soloElJson(c.texto) : c.texto;
+        if (t && (!opts.validar || opts.validar(t))) return t;
+        opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
+      } else if (c && 'error' in c) {
+        opts.erroresPlataformaOut?.push(c.error);
+        console.error(`[ai-cheap] el último recurso del espacio de MaKo (crédito de Claude) no contestó: ${c.error.slice(0, 300)}`);
+      }
     }
   }
 

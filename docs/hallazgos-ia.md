@@ -7065,9 +7065,20 @@ test no traía ninguna palabra de saturación).
 rotación del audio, y las tres arman la lista con `modelosAProbar`. Las features con `fallback: []` o `sinRespaldoDeModelo` siguen
 sin respaldo A PROPÓSITO (no se degradan): para ellas el arreglo es sólo que el intento no se coma el plazo.
 
-**Lo que decide Martín:** en el ws9 no hay una segunda IA. Si `flash-lite` también se satura, una sección queda con el texto de la
-original. Lo único que hace «nunca» verdadero es un último recurso PAGO para lo interno de MaKo (el crédito de Claude de la
-plataforma, hoy sólo para el onboarding: `CREDITO_HABILITADO_PARA`, lib/veto-claude.ts) o crédito en la OpenAI de MaKo.
+**Lo que decidió Martín (26/10/2026, en el Centro: «1. Claude de la plataforma»):** el ws9 no tenía una segunda IA, y ahora su
+último recurso es el crédito de Claude de la plataforma, SÓLO para lo interno de MaKo. Tres líneas más en `CREDITO_HABILITADO_PARA`
+(lib/veto-claude.ts) con `soloLaPlataforma`: `landing-editor` (generar y replicar), `landing-editor-ia` (editar) y
+`landing-analyst` (el analizador). Cómo no gasta de más:
+- **Nunca primero:** la cascada lo llama DESPUÉS del lazo de las gratis (sus Gemini y el respaldo de modelo, con sus reintentos),
+  y sólo si queda un intento entero de plazo. La red de la plataforma no corría en el super admin: sin esto, ahí no había nada.
+- **El mismo tope:** el `maxTokens` de la tarea viaja tal cual (sin él, la puerta pedía 1.024).
+- **Registrado:** cada llamada queda en `anthropic_usage` con la marca del crédito y «último recurso: las gratis no contestaron»
+  en el motivo; lib/costos-ia.ts no la suma como gasto de MaKo y la cuenta aparte (`delCredito`), para que se vea cuánto se usa.
+- **Un negocio no:** el veto pide `esLaPlataforma`, la puerta (`conCreditoDeLaPlataforma`) lo mira ANTES de leer las claves, y
+  la cascada sólo entra en el espacio de MaKo. Tres frenos, y el test rompe cada uno.
+
+⚠️ Lo que sigue sin resolver: el crédito recibe el plazo que QUEDA. Si los reintentos de `flash-lite` se comen la tanda (un
+cuelgue, no un 503), no llega a probarse en esa tanda; sí en la segunda vuelta de la réplica.
 Y sin la reserva, un `flash-latest` COLGADO (no un 503) se sigue comiendo el plazo de LA tanda en que se cuelga: esa sección
 sale en la segunda vuelta, que empieza por el respaldo porque el cuelgue quedó en la memoria de la réplica.
 

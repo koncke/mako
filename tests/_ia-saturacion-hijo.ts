@@ -25,6 +25,8 @@ const pg = crearPostgrest({
 
 /** Cada pedido a Google: el modelo y el plazo que pidió la cascada. */
 let pedidos: Array<{ modelo: string; plazo: number | null }> = [];
+/** Cada pedido al crédito de Claude de la plataforma: el modelo, el tope de tokens y la clave. */
+let credito: Array<{ model: string; max_tokens: number; clave: string }> = [];
 let flashLatest: 'cuelga' | '503' = 'cuelga';
 let flashLite: 'ok' | '503' = 'ok';
 const plazos = new WeakMap<AbortSignal, number>();
@@ -40,6 +42,12 @@ const alta = json([{ error: { code: 503, message: 'This model is currently exper
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test') return pg.responder(u, init);
+  // El crédito de Claude de la plataforma (el último recurso del espacio de MaKo): anota qué pidió y contesta.
+  if (u.host === 'api.anthropic.com') {
+    const c = JSON.parse(String(init.body ?? '{}')) as { model?: string; max_tokens?: number };
+    credito.push({ model: String(c.model ?? ''), max_tokens: Number(c.max_tokens ?? 0), clave: new Headers(init.headers).get('x-api-key') ?? '' });
+    return json({ content: [{ type: 'text', text: 'respuesta del crédito' }], usage: { input_tokens: 10, output_tokens: 5 } });
+  }
   if (u.host !== 'generativelanguage.googleapis.com') return json({ error: { message: 'red de mentira' } }, 500);
   const cuerpo = JSON.parse(String(init.body ?? '{}')) as { model?: string };
   const modelo = String(cuerpo.model ?? '');
@@ -132,6 +140,28 @@ async function main() {
   out.G = { respuesta: await cascadaSinD6b({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true, pii: true }), pedidos };
   reset('503', '503');
   out.G2 = { respuesta: await cascada({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true }), pedidos };
+  // P. El ÚLTIMO recurso de lo interno de MaKo (Martín, 26/10/2026: «1. Claude de la plataforma»), con la clave del crédito
+  //    cargada: en el espacio de MaKo, después de que fallaron sus Gemini; nunca primero, nunca para un negocio, nunca para otra
+  //    tarea. Cada vuelta anota los pedidos a Google, los del crédito y las filas de uso con la marca del crédito.
+  process.env.ANTHROPIC_CREDITO_CUENTA1 = 'sk-ant-credito-de-prueba-cuenta-1';
+  const usoDelCredito = () => (pg.db.anthropic_usage ?? []).filter((f) => String(f.motivo ?? '').startsWith('⚠ crédito de Claude de la plataforma')).length;
+  const vuelta = async (fn: () => Promise<unknown>) => {
+    credito = [];
+    const antes = usoDelCredito();
+    const respuesta = await fn();
+    return { respuesta, pedidos, credito, filasDeUso: usoDelCredito() - antes };
+  };
+  reset('503', '503');
+  out.P = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
+  reset('503', 'ok');
+  out.P_gratisContesta = await vuelta(() => cascada({ hastaMs: Date.now() + 20_000, maxTokens: 7_400 }));
+  reset('503', '503');
+  out.P_negocio = await vuelta(() => cascadaSinD6b({ hastaMs: Date.now() + 20_000, maxTokens: 7_400, red: true }));
+  reset('503', '503');
+  out.P_otraTarea = await vuelta(() => runWithWorkspace(PLATAFORMA, () => ai.chatCheapCascade({
+    system: 's', user: 'otra tarea', feature: 'dashboard-conclusiones', provs: ['gemini'], timeoutMs: 30_000, hastaMs: Date.now() + 20_000,
+  }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`)));
+  delete process.env.ANTHROPIC_CREDITO_CUENTA1;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

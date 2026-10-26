@@ -298,9 +298,13 @@ export async function conCreditoDeLaPlataforma(p: {
     if (!onboardingEnCurso) return null;
   }
   let creditos: Array<string | null>;
+  let esLaPlataforma = false;
   try {
     const { wsSuperAdmin } = await import('@/lib/workspace');
     const wsSA = await wsSuperAdmin();
+    // Lo que se habilitó «sólo para la plataforma» (lo interno de MaKo) no lee ninguna clave para un negocio.
+    esLaPlataforma = wsSA === p.wsCliente;
+    if (habilitado.soloLaPlataforma && !esLaPlataforma) return null;
     creditos = [];
     for (const nombre of CLAVES_CREDITO_PLATAFORMA) {
       const env = process.env[nombre]?.trim();
@@ -313,7 +317,7 @@ export async function conCreditoDeLaPlataforma(p: {
   const errores: string[] = [];
   for (const clave of creditos) {
     if (!clave) continue;
-    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, onboardingEnCurso });
+    const v = evaluarCreditoDeLaPlataforma({ feature: p.feature, clave, creditos, pausa, esLaPlataforma, onboardingEnCurso });
     if (!v.ok) return null;
     const permiso = v.permiso;
     if ((creditoAgotado.get(permiso.cuenta) ?? 0) > Date.now()) continue;
