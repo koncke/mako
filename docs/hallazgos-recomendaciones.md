@@ -75,6 +75,16 @@ tres roturas dieron VERDE:
 **La regla que queda:** antes de creerle a un verde, rompe la condición; si sigue verde, el que está mal es el test (y el arreglo
 va en el test, no en el código).
 
+## Montar algo en una pantalla que es de otro chat: dos trampas (26/10/2026)
+
+- **Un `import '….css'` en un componente que se monta en varias pantallas rompe los tests de node que arrastran esas
+  pantallas** («SyntaxError: Unexpected token '.'», el `.co {` de centro.css): `tests/editor-landing-agente.test.ts` importa
+  `PanelAgente.tsx`, que ahora importaba `RecomendacionesDeMako.tsx`. El componente no importa hojas: las carga cada pantalla
+  que lo monta (las cuatro ya cargaban centro.css). Lo vio la lista de `scripts/tests-afectados.mjs --explicar` filtrada por
+  los archivos de la pantalla, no los tests del área.
+- **Hay tests que fijan la estructura EXACTA de una caja** (`tests/onboarding-caja-centro.test.ts`: el envoltorio de la caja de
+  Offer tiene adentro sólo la caja única). El bloque va justo ARRIBA del envoltorio, no adentro; el test no se toca.
+
 ## Lo que quedó sin hacer
 
 - **Medir en producción** (el clasificador de permisos negó «Production Reads»; lo habilita Martín):
