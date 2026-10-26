@@ -17,6 +17,11 @@ en la bitácora. Lo medido y lo aprendido, en hallazgos-extension («No contest�
   scratchpad de la sesión). **Falta:** que Martín toque «Recargar» en chrome://extensions (desde acá no se puede manejar esa
   página) y la prueba de punta a punta en su Chrome con la pantalla desplegada (antes del despliegue, la pantalla vieja).
 - ⚠️ Al medir se abrió una segunda pestaña de WhatsApp Web y le sacó la sesión a la de Martín («Usar aquí»).
+- **26/10 madrugada:** en producción (c8f1c4a57) probado el paso 1 en su Chrome con la 0.70.0 (la opción ya no es gris, abre
+  la instalación, la barra espera; el texto cortado, arreglado en 96246ee92). La 0.71.1 (`alDiaConSuCarpeta`) se recarga sola
+  cuando la carpeta trae una versión nueva: desde ahí, no hace falta tocar «Recargar». MEDIDO: el grupo de los 221 tiene 247
+  participantes y WhatsApp sabe el nombre de 1 (grupo de anuncios): la corrida va a completar 1, y el final lo explica.
+  Corrida completa lista en las notas del Cerebro (capturas-completar-wa/CORRIDA-COMPLETA.md).
 
 ## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10
 

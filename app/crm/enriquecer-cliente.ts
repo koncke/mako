@@ -63,9 +63,13 @@ export function coberturaDeFichas(fichas: readonly FichaWa[]): { conNombre: numb
  */
 export function gruposEnWhatsappDichos(grupos: readonly GrupoEnWhatsapp[]): string {
   if (!grupos.length) return '';
-  const partes = grupos.slice(0, 3).map((g) => (g.encontrado
-    ? `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`
-    : `el grupo «${g.nombre}» no está en tu WhatsApp Web`));
+  // Con cuántos sabe el NOMBRE (26/10/2026): en un grupo de anuncios nadie escribe y WhatsApp no conoce sus nombres (en el de
+  // Martín, 1 de 247); sin el número, «1 completado» se lee como que la extensión no anda.
+  const partes = grupos.slice(0, 3).map((g) => (!g.encontrado
+    ? `el grupo «${g.nombre}» no está en tu WhatsApp Web`
+    : g.participantes != null && g.conNombre != null
+      ? `el grupo «${g.nombre}» está en tu WhatsApp: de sus ${miles(g.participantes)}, WhatsApp sabe el nombre de ${miles(g.conNombre)}`
+      : `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`));
   const texto = partes.join(' · ');
   return ` ${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`;
 }

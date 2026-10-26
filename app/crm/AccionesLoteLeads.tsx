@@ -371,6 +371,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     if (v === 'whatsapp') {
       if (extWa === 'si') { setPide({ tipo: 'whatsapp' }); return; }
       setEsperaExt(true);
+      // Si la carpeta de una extensión descomprimida ya trae la nueva, se recarga sola (0.71.1+): ni hace falta instalar.
+      window.dispatchEvent(new CustomEvent('MAKO_EXTENSION_REVISAR'));
       window.open('/extension/instalar', '_blank', 'noopener');
       return;
     }
