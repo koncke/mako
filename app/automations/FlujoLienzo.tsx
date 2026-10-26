@@ -42,7 +42,9 @@ import { Icon } from '@/app/_components/icons';
 import { sinVistaPrevia, primerLink } from '@/lib/mensaje-partes';
 import { Toast, useToast } from '@/app/_ui';
 import { conectar, desconectar, eliminar, soltar, crearSuelta, duplicar, partirConEspera, type Edicion } from '@/lib/flujo-edicion';
-import { insertarDesdeLienzo } from '@/lib/flujo-conversacion';
+import { insertarDesdeLienzo, agregarRamaAB, quitarRamaAB } from '@/lib/flujo-conversacion';
+import { EditorPruebaAB } from './EditorPruebaAB';
+import { usePruebaAB, type EstadoPruebaAB } from './usePruebaAB';
 // El editor del paso «⚡ Acción» es UNO para los dos lienzos (este y el de /mensajes).
 import { EditorAccionMako, useTitulosAcciones, type ValorAccion } from '@/app/_components/EditorAccionMako';
 import {
@@ -366,6 +368,8 @@ export function FlujoLienzo({
   // nombre de lo elegido («Completó la clase «Bienvenida»» y no «una clase»). Se piden sólo si hay una
   // condición y quien mira es admin (la ruta es de admin): un setter ve el texto genérico.
   const remotosCond = useCatalogosCondicion(rolAdmin && pasos.some((p) => claseDe(p) === 'condicion'));
+  // LA PRUEBA DE LA TARJETA «A/B TEST» (tanda A3): lo que dice la tarjeta y lo que usa su editor. Sólo si hay una.
+  const pruebaAB = usePruebaAB(secuenciaId, pasos.some((p) => claseDe(p) === 'ab'));
   // Los nombres de las etiquetas, las etapas y lo del catálogo: los mismos para la tarjeta y para el «Ir a».
   const nombres: NombresParaTexto = {
     etiqueta: (id) => nombreEtiqueta(etiquetas, id), etapa: nombreEtapa,
@@ -379,6 +383,7 @@ export function FlujoLienzo({
     pendientesOtraCosa, anticipacionMin: anticipacion ?? null,
     // El alto de la tarjeta CRON es fijo y se suma por cajita (`altoCron`): tiene que saber cuántas son.
     disparadores, nuevoDisparador: conNuevoDisparador,
+    pruebaAB: pruebaAB.prueba ? { texto: pruebaAB.prueba.texto, filas: pruebaAB.prueba.filas } : null,
   };
   const derivado = grafoDeSecuencia(pasos, opcionesGrafo);
   // Lo movido, sobre el árbol. `moverRelativo` mide contra el DERIVADO: mover el CRON no arrastra al resto.
@@ -596,7 +601,8 @@ export function FlujoLienzo({
     // Desde el 10/10/2026 la de «Si responde» SÍ cuenta (`quitable`): desconectarla la deja suelta.
     const leLlega = grafo.aristas.some((a) => a.hasta === id && !(a.sinMas && !a.quitable) && !(a.esperas?.length && nodo?.enFlecha));
     return [
-      ...(claseDe(paso) !== 'respuesta' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
+      // La prueba A/B no se duplica: una por automatización (tanda A3).
+      ...(claseDe(paso) !== 'respuesta' && claseDe(paso) !== 'ab' ? [{ id: 'duplicar', label: 'Duplicar', icono: <Icon name="copy" size={16} />, onElegir: () => duplicarTarjeta(id) }] : []),
       { id: 'copiar', label: 'Copiar', icono: <Icon name="copy" size={16} />, onElegir: () => void copiarTarjetas([id]) },
       ...(leLlega && !nodo?.enFlecha ? [{ id: 'desconectar', label: 'Desconectar', icono: <Icon name="tijera" size={16} />, onElegir: () => aplicar(soltar(pasos, id), true) }] : []),
       { id: 'eliminar', label: 'Eliminar', grupo: 1, peligro: true, icono: <IconoBorrar size={16} />, onElegir: () => { if (sel === id) setSel(null); borrarTarjeta(id); } },
@@ -732,6 +738,7 @@ export function FlujoLienzo({
           onPasos={onPasos} onAudioNuevo={onAudioNuevo} onError={onError} onModoIA={onModoIA}
           editorEntrada={editorEntrada} formaPanel={formaPanel} linea={linea} pieWhatsApp={pieWhatsApp}
           disparador={disparador} secuenciaId={secuenciaId ?? null}
+          pruebaAB={pruebaAB.prueba} accionAB={pruebaAB.accion}
           onAbrir={(id) => setSel(id)}
         />
       )}
@@ -1058,6 +1065,9 @@ type PropsEditor = {
    * contexto para escribir el mensaje (sexta tanda, WhatsApp 3). Es el de la tarjeta CRON.
    */
   disparador?: string;
+  /** La prueba de la tarjeta «A/B TEST» (tanda A3, `usePruebaAB`): su estado, y empezarla o detenerla. */
+  pruebaAB?: EstadoPruebaAB | null;
+  accionAB?: (a: 'empezar' | 'detener', nodoId?: string) => Promise<{ ok: boolean; plan?: string; error?: string }>;
 };
 
 /**
@@ -1125,6 +1135,15 @@ function EditorDeNodo(pr: PropsEditor) {
       return <EditorRespuesta {...pr} paso={paso} id={id} cambiar={cambiar} />;
     }
     case 'ir_a': return <EditorIrA {...pr} paso={paso} id={id} cambiar={cambiar} />;
+    // LA PRUEBA A/B (tanda A3): sus ramas con su porcentaje, y empezar o detener la prueba (corre sobre lo publicado).
+    case 'ab':
+      return (
+        <EditorPruebaAB key={`ab-${id}`} paso={paso} id={id} busy={pr.busy} cambiar={(patch, apilar) => cambiar(patch, apilar)}
+          onAgregarRama={() => pr.onPasos((prev) => agregarRamaAB(prev, id), true)}
+          onQuitarRama={(clave) => pr.onPasos((prev) => quitarRamaAB(prev, id, clave), true)}
+          prueba={pr.pruebaAB ?? null} publicado
+          accion={pr.accionAB ?? (async () => ({ ok: false, error: 'Guarda la automatización primero.' }))} />
+      );
     default:
       // El ✦ de MaKo también en el email y en los DM (decimotercera tanda, punto 8): cada uno pide lo suyo (lib/mako-redacta.ts).
       if (paso.canal === 'email') {

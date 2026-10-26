@@ -85,6 +85,7 @@ cambiar_like_post_comunidad
 cambiar_moneda_negocio
 cambiar_tema_landing
 cambiar_texto_landing
+cambiar_texto_mensaje
 cambiar_texto_video
 cambiar_textos_diseno_imagen
 cambiar_tipo_etapa
@@ -181,6 +182,7 @@ desvincular_cobro_etapa
 desvincular_evento_etapa
 detectar_fatiga_adsets
 detectar_piezas_landing
+detener_prueba_ab
 diagnosticar_funnel
 dividir_clip_video
 duplicados_lead
@@ -224,6 +226,7 @@ eliminar_etapa
 eliminar_muletillas_video
 embudo_closing
 empezar_mi_plan_ya
+empezar_prueba_ab
 enviar_broadcast
 enviar_plantilla_a_meta
 enviar_prueba_broadcast
@@ -639,6 +642,7 @@ ver_propuesta_accion
 ver_proximas_recurrentes
 ver_proyecto_plan
 ver_proyecto_video
+ver_prueba_ab
 ver_publico_conjunto_meta
 ver_puente_flow
 ver_ranking_comunidad

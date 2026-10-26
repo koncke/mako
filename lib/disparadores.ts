@@ -1269,7 +1269,7 @@ export function textosParaElGrupo(pasos: readonly PasoGrafo[]): string[] {
     if (i < 0) return;
     const p = pasos[i];
     const clase = claseDe(p);
-    if (clase === 'condicion' || clase === 'respuesta' || clase === 'ir_a') return;
+    if (clase === 'condicion' || clase === 'respuesta' || clase === 'ir_a' || clase === 'ab') return;
     if (clase === 'mensaje' && p.canal !== 'email') {
       const partes = partesExplicitas(p as Parameters<typeof partesExplicitas>[0]);
       if (partes) {

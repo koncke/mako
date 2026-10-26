@@ -45,7 +45,9 @@ export type TipoNodo =
   // El AI STEP del chatbot (novena tanda): «Si responde» con sus casos ADENTRO (`paso_ia`,
   // lib/flujo-grafo.ts). Un tipo de DIBUJO aparte —el dato sigue siendo el nodo `respuesta`— porque
   // se dibuja sin filas de salida (una fila por caso, sin flechas) y su editor es otro y más alto.
-  | 'paso-ia';
+  | 'paso-ia'
+  // La tarjeta «A/B TEST» (tanda A3 de las pruebas A/B): parte el camino en ramas con su porcentaje. Su editor es otro.
+  | 'ab';
 
 /**
  * LA IDENTIDAD DE UNA TARJETA DE MENSAJE (tercera tanda, decisión 5): la de WhatsApp lleva el verde
@@ -288,7 +290,7 @@ export function rotuloDeFila(n: { salidaAlPie?: boolean }, p: Pick<PuertoNodo, '
  */
 export function filaALaDerecha(n: Pick<NodoFlujo, 'tipo'> & { salidaAlPie?: boolean }, p: Pick<PuertoNodo, 'rotulo'>): boolean {
   if (p.rotulo == null && n.salidaAlPie === true) return true;
-  return n.tipo === 'condicion' || n.tipo === 'respuesta';
+  return n.tipo === 'condicion' || n.tipo === 'respuesta' || n.tipo === 'ab';
 }
 
 /**
@@ -934,6 +936,9 @@ export const ALTO_EDITOR_CONTROL: Readonly<Partial<Record<TipoNodo, number>>> = 
   // escenarios scrollean adentro—. La TARJETA del lienzo es otra cosa: alto fijo, `altoPasoIA`
   // (lib/flujo-conversacion.ts), con sus renglones exactos.
   'paso-ia': 540,
+  // LA PRUEBA A/B (tanda A3): el estado (2 renglones, ~48), hasta 4 ramas con su porcentaje y su nombre (~44 c/u, 176),
+  // «＋ Rama» (32), el plan y «Empezar la prueba» (~90), con 12 entre bloques → ~400.
+  ab: 400,
 };
 const ALTO_EDITOR_CONTROL_OTRO = 320;
 

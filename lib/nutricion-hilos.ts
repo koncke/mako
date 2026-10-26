@@ -293,7 +293,8 @@ export function mensajeAnteriorDe(pasos: readonly PasoGrafo[], idx: number): num
       const j = indicePorId(pasos, pa.id);
       const c = j >= 0 ? claseDe(pasos[j]) : null;
       if (c === 'mensaje') return j;
-      if (c !== 'condicion' && c !== 'esperar' && c !== 'inicio') continue;
+      // Una prueba A/B no manda nada: se sube por ella como por una condición (tanda A3).
+      if (c !== 'condicion' && c !== 'esperar' && c !== 'inicio' && c !== 'ab') continue;
       if (!vistos.has(pa.id)) { vistos.add(pa.id); cola.push(pa.id); }
     }
   }

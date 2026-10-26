@@ -83,7 +83,7 @@ import { sinMediosEmojis } from '@/lib/unicode-seguro';
 import {
   normalizar, validarGrafo, claseDe, idDe, indicePorId, raizRespuesta, raizSalida, antiguedadDeEntrada, elegirSalida,
   escenariosDeRespuesta, expandirPasoIA, nodoPorId, siguienteDe, TOPE_NODOS, HILO_PRINCIPAL, TOPE_HILOS, raicesSalida,
-  juntarPasosIA, escuchaPor, extrasDeCaso, type MedioAIStep,
+  juntarPasosIA, escuchaPor, extrasDeCaso, MAX_RAMAS_AB, type MedioAIStep,
   type Espera, type RamaCondicion, type CasoRespuesta, type DestinoIrA, type HechosLead, type PasoGrafo, type FilaCondicion,
 } from '@/lib/flujo-grafo';
 import { OP_AVISAR, puedePisarFlujo } from '@/lib/flujo-legado';
@@ -102,8 +102,10 @@ import {
   estadoAlEscribir, aplazaParaNoTapar, APLAZO_SIN_TAPAR_MS,
   // El avance después de mandar contra lo que pasó mientras salía (24/10/2026, el #2502).
   reconciliarAvance, contestoMientrasSalia,
-  type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo,
+  type FilaHechos, type RecientesPorCanal, type EnviadoEnCorrida, type FilaLeadCatalogo, type ContextoControl,
 } from '@/lib/nutricion-grafo-motor';
+// La rama de la tarjeta «A/B TEST» de cada lead (tanda A3 de las pruebas A/B).
+import { ramaABDe, RAMA_SIN_PRUEBA, revisarLaPruebaAlGuardar } from '@/lib/pruebas/automatizacion';
 import {
   fuentesDeFilas, etapasEntregaDeFilas, embudosDeReunionDeFilas, estadoDeCuotas, normalizarTexto, type Fuente, type HechosCatalogo,
 } from '@/lib/condiciones-catalogo';
@@ -295,6 +297,8 @@ export type PasoSecuencia = {
    * `enviarPasoSocial` y, si alguno sigue el flujo, el mensaje espera el toque (`esperaToque`, `tocarBoton`).
    */
   botones?: PasoGrafo['botones'];
+  /** Las ramas de la tarjeta «A/B TEST» (tanda A3 de las pruebas A/B): las guarda `camposDelFlujo`, las sigue `resolverControl`. */
+  ramas_ab?: PasoGrafo['ramas_ab'];
 };
 
 export type Secuencia = {
@@ -1125,10 +1129,13 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
         template_categoria: p.template_categoria,
         template_idioma: p.template_idioma ?? 'es_MX',
         template_param: p.template_param ?? 'nombre',
-        // Las variantes las manda el cliente solo si las está editando; si no,
-        // sobreviven las que ya había para ese nodo.
+        // Las variantes las manda el cliente solo si las está editando; si no (la clave AUSENTE),
+        // sobreviven las que ya había para ese nodo. ⚠️ Un `[]` EXPLÍCITO es «ya no tiene» (25/10/2026):
+        // lo mandan pasar a voz o a archivo (lib/guion-audio.ts, que ya lo daba por hecho), el editor al
+        // partir un mensaje, y la API al cambiar el texto (lib/botones-api.ts). Antes volvían las del texto
+        // VIEJO y el motor las sorteaba: a 4 de cada 5 leads les llegaba lo que ya no decía.
         ...(() => {
-          const vs = Array.isArray(p.variantes) && p.variantes.length ? p.variantes : variantesPrevias.get(idDe(flujo, i));
+          const vs = Array.isArray(p.variantes) ? p.variantes : variantesPrevias.get(idDe(flujo, i));
           return vs?.length ? { variantes: vs.filter((v) => typeof v === 'string' && v.trim()).slice(0, 8) } : {};
         })(),
         ...partesAlGuardar(p, partesPrevias.get(idDe(flujo, i))),
@@ -1171,6 +1178,9 @@ export async function setSecuenciaPasos(id: number, pasos: PasoSecuencia[], o?: 
     .update({ pasos: grafo, updated_at: ahoraISO() })
     .eq('id', id);
   if (error) throw new Error(`setSecuenciaPasos: ${error.message}`);
+  // LA PRUEBA A/B QUE CORRE (tanda A3): editar lo de una rama o su porcentaje abre una época nueva, y borrar la tarjeta o
+  // cambiar sus ramas la detiene (lib/pruebas/automatizacion.ts). Lo guardado ya quedó: esto nunca frena el guardado.
+  await revisarLaPruebaAlGuardar(id, grafo as unknown as PasoGrafo[]);
 }
 
 // Las cohortes se leen PAGINADAS y ordenadas por `id` (lib/supabase-paginado.ts).
@@ -2772,7 +2782,7 @@ type InscripcionVencida = {
 };
 
 /** Cómo se lee un nodo de control en el plan del dry-run y en el rastro del motor. */
-const NOMBRE_CONTROL: Record<string, string> = { condicion: 'condición', esperar: 'espera', ir_a: '«ir a»', respuesta: '«si responde»' };
+const NOMBRE_CONTROL: Record<string, string> = { condicion: 'condición', esperar: 'espera', ir_a: '«ir a»', respuesta: '«si responde»', ab: '«prueba A/B»' };
 
 export type PlanEnvio = {
   inscripcion_id: number;
@@ -4578,13 +4588,22 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         // Las esperas cuentan desde que quedó LISTA (salió el mensaje de antes o venció la espera de antes), no desde que se
         // la procesa: el horario o un tick tarde no le corren el reloj (`relojDeLasEsperas`, 24/10/2026).
         const ahoraCtl = Date.now();
-        const r = resolverControl(sec.pasos, idxLeido, { hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs(lead), reunionConHoraMs, relojMs: relojDeLasEsperas(insc.proximo_envio_at, ahoraCtl) });
+        const ctxCtl: ContextoControl = { hechos, ahoraMs: ahoraCtl, reunionMs: reunionFuturaMs(lead), reunionConHoraMs, relojMs: relojDeLasEsperas(insc.proximo_envio_at, ahoraCtl) };
+        let r = resolverControl(sec.pasos, idxLeido, ctxCtl);
+        // LA PRUEBA A/B (tanda A3, lib/pruebas/automatizacion.ts): al llegar a la tarjeta, la rama del lead. Se lee y se
+        // ESCRIBE recién ahora, cuando entra a la rama (desde ahí corre su ventana). Sin prueba corriendo de esa tarjeta, o ante
+        // cualquier error, la A: nunca un sorteo sin registro. Una por automatización, así que alcanza con una vuelta más.
+        for (let k = 0; r.tipo === 'falta_rama_ab' && k < MAX_RAMAS_AB; k++) {
+          const clave = wsCorrida != null ? await ramaABDe(wsCorrida, sec.id, r.nodo, insc.lead_id, (lead ?? null) as Record<string, unknown> | null) : RAMA_SIN_PRUEBA;
+          ctxCtl.ramasAB = { ...(ctxCtl.ramasAB ?? {}), [r.nodo]: clave };
+          r = resolverControl(sec.pasos, idxLeido, ctxCtl);
+        }
         const canalCtl = pasoLeido.canal;
         // Las flechas en paralelo que la resolución encontró (de una espera, del inicio o —cuarta
         // tanda, punto 8— del RESULTADO elegido de una condición) arrancan con cualquier desenlace
         // del camino, salvo un cierre de la inscripción entera. Un hilo por flecha, por la misma
         // puerta (`escribir`, con su compare-and-set de `hilos_rev`).
-        const nuevos = r.tipo === 'faltan_hechos' ? [] : nuevosDe(sec, r.repartos, lead);
+        const nuevos = r.tipo === 'faltan_hechos' || r.tipo === 'falta_rama_ab' ? [] : nuevosDe(sec, r.repartos, lead);
         if (nuevos.some((n) => Date.parse(n.proximo) <= Date.now())) { vistos.delete(insc.id); otraVuelta = true; }
         const cerrar = async (motivo: string, rastro: boolean, alcance: 'hilo' | 'inscripcion' = 'hilo'): Promise<void> => {
           if (!(await escribir(insc, { estado: 'completada', proximo_envio_at: null }, { modo: 'cas', alcance, nuevos }))) {
@@ -4596,6 +4615,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
         };
         if (r.tipo === 'faltan_hechos') {
           res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'no pude leer lo que la condición necesita' });
+          continue;
+        }
+        if (r.tipo === 'falta_rama_ab') {
+          res.detalle.push({ lead_id: insc.lead_id, canal: canalCtl, estado: 'saltado', nota: 'no pude saber la rama de la prueba A/B' });
           continue;
         }
         if (r.tipo === 'fin') {
@@ -6619,7 +6642,8 @@ async function responderConGrafo(c: CtxRespuesta, medio: MedioAIStep = 'whatsapp
     }
     // `validarGrafo` no deja esperas en «Si responde» (se contesta en el momento): si llega una
     // escrita por otro lado, se corta ahí.
-    if (clase === 'esperar' || clase === 'respuesta') break;
+    // Una prueba A/B no corre dentro de «Si responde» (`validarGrafo` no la deja): si llega igual, no se manda como un mensaje.
+    if (clase === 'esperar' || clase === 'respuesta' || clase === 'ab') break;
     if (clase === 'accion') {
       const r = await correrAccionDeRespuesta(c, p, i, inscId);
       if (r.resumen) hecho.push(r.resumen);

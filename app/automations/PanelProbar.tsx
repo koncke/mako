@@ -1262,6 +1262,18 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
     }
   };
   /** La pastilla de una espera, un salto o una ⚡ Acción. La «MaKo en WhatsApp», en WhatsApp, además le escribe al grupo. */
+  /**
+   * LA PRUEBA A/B (tanda A3): la rama no sale de los hechos del lead. La elige el ESCENARIO de la barra (uno por rama); sin
+   * escenario, la A. Se dice por cuál siguió.
+   */
+  const seguirPruebaAB = (evento: Extract<EventoSim, { t: 'ab' }>) => {
+    const forzado = escRef.current?.elecciones[evento.nodo];
+    const op = evento.opciones.find((o) => o.puerto === forzado) ?? evento.opciones[0];
+    if (!op) { sistema('Fin'); setTerminado(true); return; }
+    simRef.current = elegir(simRef.current, op.puerto);
+    sistema(`🧪 Prueba A/B: sigue por ${op.texto}`);
+    luego(PILDORA_MS, avanzar);
+  };
   const pildora = (e: Extract<EventoSim, { t: 'espera' | 'accion' | 'salto' }>) => {
     if (e.t === 'accion' && ctx.current.canal === 'whatsapp' && vaAlGrupo(e.paso)) alGrupo(e.paso);
     else sistema(e.texto);
@@ -1481,6 +1493,7 @@ export function PanelProbar({ secuencia, edicion, secuencias, audios, negocio, r
         pildora(evento);
         luego(PILDORA_MS, avanzar);
         return;
+      case 'ab': seguirPruebaAB(evento); return;
       // ⚠️ CUARTA TANDA, PUNTOS 3 Y 17: «elimina los botones de "Tiene WhatsApp" y "Si no", eso no
       // tiene sentido». Con una condición primera la prueba se quedaba PARADA esperando la rama. Sin
       // botones, la condición se decide sola.
