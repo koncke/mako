@@ -1796,6 +1796,37 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
   guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
   de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
+- **Con el deploy (main 9c684f88c, 25/10 14:54) se guardó la conexión en el negocio de MaKo** (`META_ZERNIO_CUENTA`, la cuenta,
+  el píxel; la página «Hola MaKo» ya estaba). Medido con las funciones REALES de producción, sin el script: `integracionConectada`
+  da Meta conectada, `fetchMetaInsights` y `fetchAdsetBudgets` leen por Zernio (cero filas, cero errores), la salud da activa y
+  en verde, CAPI sale por la conexión de Facebook al píxel, y `ver_conexion_meta` de la API lo devuelve todo sin tokens. Desde
+  ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
+  y CAPI (falta el código de «Probar eventos»).
+
+- **CAPI por Zernio, PROBADO el 25/10 (~20:35 UTC) con el código de «Probar eventos» TEST96217** sobre el píxel de MaKo
+  (`1869323014511830`), con la conexión de permiso «Control total»: dos Lead de prueba, uno por el script (`capi --si`:
+  `eventsReceived: 1`, `eventsFailed: 0`, fbtrace `AW5-rkSpUET8ixrvKTtm9R8`) y otro por el camino entero de la app
+  (`probar_capi_meta` → `sendMetaCAPIEvent` → Zernio: recibidos 1). Con eso se prendió `ZERNIO_META_PROBADO`. Sigue sin medir si
+  alcanza «Administrar campañas» (`advertise`): por eso el botón pide «Control total».
+- ⚠️ **El diagnóstico obvio («no aparecen en Probar eventos → CAPI no llegó») era el equivocado: llegaron, como eventos REALES.**
+  `/{pixel}/stats` (por Zernio, `tracking-tags/{id}/stats`) mostró 2 «Lead» en la franja de las 20:00 UTC con la clave de match
+  `email` y NADA más (ni cookies, ni `fbp`, ni navegador): son los de prueba (sólo llevaban `prueba@hola-mako.com`); uno de la
+  landing trae cookies. O sea: **Zernio no reenvía el `testCode`** aunque su doc dice «Meta `test_event_code` passthrough». El
+  píxel de MaKo quedó con 3 Lead falsos (los de las 20:35 y 20:36 en la franja de las 20:00 UTC, el de las 21:41 en la de las 21:00, los tres con match `email` y nada más) (sin campañas corriendo: no movieron ninguna optimización; lo que entra por CAPI no se
+  borra). **La regla:** una prueba de CAPI nunca manda un evento que cuente (`EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo'`), y para ver
+  si un evento llegó, `aggregation=match_keys` de las estadísticas del píxel dice QUÉ lo identificó (un evento de servidor con sólo
+  email es el nuestro). El reclamo a Zernio, redactado para que Martín decida.
+  **Verificado en la pantalla de Meta** (el Cerebro, en el Administrador de eventos del píxel): «Información general» → «Cliente
+  potencial · Activo · API de conversiones · 2», y nada en «Probar eventos». **Para la próxima:** la API de Zernio no tiene otro
+  campo para el código de prueba (sólo `testCode`; `platformData` va únicamente a `custom_data`, no a la raíz del evento), así que
+  una prueba de CAPI por Zernio va contra un PÍXEL DE PRUEBA, nunca contra uno con anuncios que optimizan por Lead; y si se prueba
+  en un píxel real, con un evento propio (`PruebaMaKo`), nunca con uno estándar.
+- **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
+  que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
+  conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el
+  negocio, y el link del aviso abre la tarjeta de Zernio. Ahora la guarda la pieza común (`conectada-meta`), venga del botón que
+  venga. ⚠️ **El logo de Zernio no era el suyo:** iba una «Z» sobre violeta #6D4AFF; su ícono oficial es la marca blanca sobre
+  #EB3514 (zernio.com/icon.svg).
 
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan

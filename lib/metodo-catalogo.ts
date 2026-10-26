@@ -254,7 +254,7 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
   // las automatizaciones, con Messenger (tests/sin-instagram.test.ts cuenta la historia).
   {
     key: 'zernio',
-    nombre: 'Facebook, Instagram y anuncios (Zernio)',
+    nombre: 'Zernio',
     categoria: 'Mensajería',
     paraQue: 'Conecta tu Facebook, tu Instagram y tus anuncios de Meta con tu cuenta de Zernio, sin salir de MaKo.',
     campos: [

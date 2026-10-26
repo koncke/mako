@@ -161,6 +161,13 @@ export function useConectarViaZernio(opts: {
       if (!c || !c.ok || c.ruteo === 'error' || c.webhook === 'error') ponerNota('Quedó conectada, pero no pudimos armar la recepción de mensajes. Vuelve a conectarla.');
       else if (c.ruteo === 'ocupado') ponerNota('Quedó conectada, pero esa cuenta ya recibe sus mensajes en otro negocio de MaKo. Avisa a soporte.');
     }
+    // Meta por Zernio (25/10/2026): la conexión de ANUNCIOS se guarda en el negocio venga del botón que venga (el modal de Meta, la
+    // tarjeta de Zernio, el Media Buyer). Sin esto sólo la guardaba el modal de Meta.
+    if (r === 'metaads') {
+      const g = await api('conectada-meta', { accountId: nueva.accountId });
+      if (!vivo.current) return;
+      if (g && g.ok === false && typeof g.error === 'string') ponerNota(`Quedó conectada en Zernio, pero MaKo no la pudo guardar: ${g.error}`);
+    }
     optsRef.current.onConectado?.(delaRed(r, ahora), nueva, r);
   }, [ponerNota]);
 

@@ -15674,7 +15674,7 @@ curl -L \
 
 ### `GET /api/v1/integraciones/meta/prueba-capi` — Probar las conversiones al píxel
 
-Manda UN contacto de prueba al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos: se ve en esa pestaña y NO cuenta en los datos del píxel. Dice si Meta lo recibió y, si no, el motivo. Úsala ante «¿le llegan a Meta mis contactos?».
+Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».
 
 - **Ruta por operación:** `GET /api/v1/integraciones/probar_capi_meta`
 - **Token detallado:** permiso `integraciones=read` (Solo lectura en «Integraciones»)

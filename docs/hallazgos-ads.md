@@ -4873,6 +4873,13 @@ la Zernio del negocio».
   los tres llamadores piden `accesoDeMeta` y cortan sin acceso. Los links vencen (imagen ~24 h, video ~12 días): se bajan en
   el momento.
 
+- **El nivel anuncio, medido el 25/10 en la cuenta de MaKo** (con la tarjeta cargada; la campaña de prueba del Media Buyer, en
+  pausa): el conjunto en vivo da presupuesto diario **1** (USD en unidades: la conversión no multiplica ni divide), y el anuncio
+  en pausa trae imagen, miniatura y su post (`effectiveObjectStoryId` sobre la página «Hola MaKo»), así que el permalink sale
+  igual que con el token; las finanzas traen el medio de pago. ⚠️ **Un anuncio BORRADO sale en `/ads/tree` con `status:
+  cancelled` y `configuredStatus: ACTIVE`**: leer sólo el interruptor propio da por prendido a un anuncio que ya no existe
+  (avisado al Media Buyer). Sin entrega, los insights siguen vacíos: las filas reales recién con un negocio que gaste.
+
 **Sin hacer:** el árbol de `_getMetaHealth` por Zernio (`/v1/ads/accounts/live` + `/v1/ads/tree`), el
 reproductor del anuncio, `campanasYConjuntos` del selector del CRM, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de
 insights, `account_currency`, o de la cuenta), y las escrituras de `lib/meta-write.ts` / `lib/meta-ads-create.ts` fuera del

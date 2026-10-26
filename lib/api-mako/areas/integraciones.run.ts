@@ -44,6 +44,7 @@ import { canalMeta } from '@/lib/meta-via';
 import { MetaZernioError, elegirMetaPorZernio, elegirPaginaMeta, estadoMetaZernio, type EstadoMetaZernio } from '@/lib/meta-conexion-zernio';
 import { adondeVaLaCalificacion, sendMetaCAPIEvent } from '@/lib/meta-capi';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
+import { EVENTO_DE_PRUEBA_CAPI } from '@/lib/zernio-meta-cuerpo';
 
 const J = (o: unknown): string => JSON.stringify(o);
 const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
@@ -161,13 +162,19 @@ export const RUNNERS: Runners = {
       const codigo = typeof input.codigo === 'string' ? input.codigo.trim().toUpperCase() : '';
       if (!/^TEST[A-Z0-9]{1,26}$/.test(codigo)) return fallo('El código de prueba empieza con TEST (Administrador de eventos → tu píxel → «Probar eventos»).');
       const canal = await canalMeta(ctx.ws);
-      // Un contacto FALSO, con el código de prueba: Meta lo muestra en «Probar eventos» y no lo cuenta en el píxel.
+      // Un evento PROPIO, no un «Lead»: Zernio no reenvía el código de prueba (medido el 25/10/2026) y un Lead de prueba entraba
+      // al píxel como un contacto real. El código igual viaja: por el token de Meta sí se respeta.
       const r = await sendMetaCAPIEvent({
-        eventName: 'Lead', email: 'prueba@hola-mako.com', phone: null, eventId: `prueba-mako:${ctx.ws}:${Date.now()}`, testCode: codigo,
+        eventName: EVENTO_DE_PRUEBA_CAPI, email: 'prueba@hola-mako.com', phone: null, eventId: `prueba-mako:${ctx.ws}:${Date.now()}`, testCode: codigo,
       });
       const por = canal.via === 'zernio' ? 'conexion_de_facebook' : 'token';
       return r.ok
-        ? J({ ok: true, recibidos: r.recibidos, por, nota: 'Mira «Probar eventos» en el Administrador de eventos: el contacto de prueba aparece ahí y no cuenta en tus datos.' })
+        ? J({
+            ok: true, recibidos: r.recibidos, por, evento: EVENTO_DE_PRUEBA_CAPI,
+            nota: por === 'conexion_de_facebook'
+              ? `Meta lo recibió. Por la conexión de Facebook el código de prueba no llega a Meta: el evento «${EVENTO_DE_PRUEBA_CAPI}» aparece en la vista general de tu píxel (no en «Probar eventos») y no cuenta como contacto.`
+              : `Meta lo recibió: mira «Probar eventos» en el Administrador de eventos (el evento «${EVENTO_DE_PRUEBA_CAPI}»).`,
+          })
         : J({ ok: false, por, motivo: r.motivo, detalle: r.detalle, link: linkIntegracion('meta') });
     },
   },
