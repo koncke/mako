@@ -352,7 +352,12 @@ test('el corte del token de Meta: pasado el día, sin Zernio no se administran a
   for (const puerta of ['async function graphPost', 'export async function uploadAdImage', 'export async function uploadAdVideo(', 'export async function crearFormularioInstantaneo', 'export async function deleteEntity']) {
     const i = crear.indexOf(puerta);
     assert.ok(i > 0, puerta);
-    assert.match(crear.slice(i, i + 700), /await sinCorteDelToken\(\);/, `${puerta} escribe con el token sin pasar por el corte`);
+    // El freno va ANTES de usar el token (26/10/2026: el formulario tiene antes su rama de Zernio, que no lo usa ni se corta).
+    const cuerpo = crear.slice(i, crear.indexOf('\n}\n', i));
+    const freno = cuerpo.indexOf('await sinCorteDelToken();');
+    const usos = [cuerpo.indexOf("cred('META_ACCESS_TOKEN')"), cuerpo.indexOf('tokenDePagina(')].filter((x) => x >= 0);
+    assert.ok(freno > 0, `${puerta} escribe con el token sin pasar por el corte`);
+    assert.ok(usos.every((u) => u > freno), `${puerta} usa el token antes del corte`);
   }
   assert.doesNotMatch(leer('../lib/meta-ads.ts'), /sinCorteDelToken|frenoDelTokenMeta/, 'leer métricas no se corta');
 });
