@@ -36,6 +36,10 @@ aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Ex
 - **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
   espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
   tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.
+- **Después (68fc2c238, 0.74.0), la vuelta a la pestaña exacta:** al terminar «Extraer» (o si se corta) vuelve a la pestaña
+  desde la que se tocó (`sender.tab`), no a otra de MaKo; si ya no está, el desplegable lo dice. Probado en su Chrome con dos
+  CRM y Ads Writer abiertos (volvió al CRM desde el que se pidió) y con el test roto a propósito. Corre en su Chrome (su
+  carpeta); para los demás, cuando la rama llegue a main.
 
 ## 0-Ω26. 25/10/2026 (chat «CRM», cuenta `claude5`): «Completar desde mi WhatsApp» de punta a punta, extensión 0.71.0
 

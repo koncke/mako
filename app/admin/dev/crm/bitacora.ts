@@ -3692,4 +3692,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '13:51', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que al terminar vuelva a la pestaña del CRM desde la que se tocó',
+    pedido: '«cuando termine de extraer debe volver de nuevo a la tab del CRM, tiene que identificar cual tab es, porque puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que identifique donde fue que le dio click»',
+    puntos: ['Pasado por el Cerebro.'],
+  },
+  {
+    fecha: '26 oct', hora: '14:00', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Vuelve a la pestaña exacta desde la que tocaste «Extraer»',
+    puntos: [
+      'Al terminar (y también si se corta), la extensión vuelve a la pestaña desde la que tocaste «Extraer», aunque tengas varios CRM u otras pestañas de MaKo abiertas.',
+      'Si cerraste esa pestaña, no elige otra: el desplegable te dice que ya no está, y «Ver en MaKo» abre el CRM.',
+      'Probado en tu Chrome con dos CRM y Ads Writer abiertos: volvió al CRM desde el que se pidió.',
+    ],
+    commits: [
+      { sha: '68fc2c238', msg: 'Extensión 0.74.0: al terminar «Extraer» (o si se corta) vuelve a la pestaña EXACTA desde la que se tocó, y si ya no está lo dice', lineas: 82, archivos: 8 },
+    ],
+    archivos: [
+      'extension/background.js — vuelve a la pestaña que mandó el pedido',
+      'extension/popup.js — «Ver en MaKo» va a esa pestaña, y dice si ya no está',
+    ],
+    revisar: '/crm',
+  },
 ];

@@ -207,6 +207,15 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
 - **Probar sin desplegar la pantalla:** el mismo pedido que manda MaKo se dispara desde SU pestaña de hola-mako.com con
   `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
   ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
+- **Volver a la pestaña EXACTA (0.74.0).** Martín: «puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que
+  identifique dónde fue que le dio click». La extracción vuelve a la pestaña que MANDÓ el pedido (el `sender.tab` del
+  mensaje, guardado como `origenTab` en el registro), nunca a «la primera de hola-mako.com»; al terminar y también si se corta
+  (error, parado, sin respuesta). Si esa pestaña ya no está no elige otra: lo anota (`volver: 'sin_pestana'`) y el desplegable
+  lo dice. MEDIDO en su Chrome (26/10): dos CRM y Ads Writer abiertos, pedido desde el segundo CRM, y al terminar quedó al
+  frente ése. tests/wa-extraer-072 (3d), probado rompiéndolo: volver a «la primera de MaKo» lo hace fallar.
+- ⚠️ **Qué pestaña quedó al frente no se sabe con un script de Claude in Chrome:** `document.visibilityState` y
+  `document.hasFocus()` dieron `visible` y `true` en las TRES pestañas de su grupo a la vez. **Regla:** se mira en una
+  captura de la tira de pestañas (computer-use, zoom sobre la tira), no preguntándole a la página.
 
 ## Los PERFILES de cada contacto (26/10/2026, 0.73.0 → 0.73.6): cinco cosas medidas en vivo, y dos que casi rompen todo
 
