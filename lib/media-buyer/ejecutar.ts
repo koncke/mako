@@ -115,6 +115,12 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
   }
   await conAnuncioEnVivo(ws, datos, nodo);
   const actual = estadoVivo(nodo);
+  // ⚠️ LO BORRADO NO SE TOCA: Zernio contesta 200 al pausar un anuncio borrado (medido por el chat «Zernio y CAPI», 26/10/2026),
+  // y la decisión quedaba «aplicada» sobre algo que ya no existe. Se cierra como vencida, con el motivo.
+  if (nodo.configurado === BORRADO) {
+    await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: 'Se borró en Meta.' });
+    return { ok: false, error: 'Eso se borró en Meta: no hay nada que cambiar.' };
+  }
 
   // ¿Ya está como la decisión lo quería? Entonces no hay nada que lanzar: alguien lo hizo a mano.
   if (d.despues.estado && actual.estado === d.despues.estado && d.despues.presupuesto == null) {
@@ -253,6 +259,7 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   if (!nodo) return { ok: false, error: 'Eso ya no está en la cuenta de Meta.' };
   await conAnuncioEnVivo(ws, datos, nodo);
   const actual = estadoVivo(nodo);
+  if (nodo.configurado === BORRADO) return { ok: false, error: 'Eso se borró en Meta: no hay nada que deshacer.' };
   // ⚠️ SÓLO SI NADIE LO TOCÓ DESPUÉS. Si una persona cambió el presupuesto o lo prendió a mano desde que MaKo lo aplicó,
   // «deshacer» pisaría ESE cambio con el de hace días (docs/diseno-ads-autopilot.md, «Deshacer»). Se compara con lo que
   // MaKo dejó; un presupuesto con 1% de diferencia es el redondeo de la moneda, no otra persona.
