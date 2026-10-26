@@ -3112,3 +3112,31 @@ Lo que quedó SIN hacer:
 - Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
   ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
 - Probarlo con clics en producción cuando despliegue, sobre una copia.
+
+## El cierre de las landings de MaKo con los planes y la prueba gratis (26/10/2026, claude5)
+
+Martín (26/10 01:23), a «¿el bloque de cierre muestra los planes con la prueba gratis o la agenda para una llamada?»:
+«Los planes con la prueba gratis». `cierre()` (scripts/landings-mako-v2.mts) es UNO para las dos portadas y las doce de
+`scripts/landings-mako-v2-funnels.mts`: ahora dibuja las tarjetas de los planes activos, con el molde de /planes
+(app/planes/Tarjetas.tsx). Pro va destacado porque así lo dice el plan, y cada botón «Empezar mis 7 días gratis» lleva a
+`/planes/<plan>?landing=<slug>`. La llamada queda como un link chico debajo.
+
+- **Un botón `inline-flex` se come los espacios.** `.mkv-btn` es `display: inline-flex`. Con texto suelto y una marca
+  adentro (`Empezar mis <span data-mako-prueba="dias">7</span> días`), cada pedazo queda como un elemento aparte y el
+  espacio entre ellos desaparece: se leía «Empezar mis7días gratis». **Regla:** en un botón flex, el texto con marcas va
+  envuelto en UN `<span>`, como `data-mako-prueba="boton"` de la portada. El test fija el `<span>` y la foto lo muestra.
+- **El texto del botón no es el de la marca `boton`.** `botonDePrueba` dice «Empieza tus 7 días gratis» y hola-mako.com
+  lo pisa en cada `data-mako-prueba="boton"`. El cierre pide «Empezar mis…», así que va con la marca `dias` adentro de su
+  propia frase. Si fuera con `boton`, en producción saldría otro texto que el de la vista previa.
+- **El cierre NO es el lugar de las columnas.** `data-mako-planes` tiene que estar una sola vez por página, porque
+  hola-mako.com pone ahí las columnas de Planes. El cierre arma sus tarjetas en el HTML, con el precio por marca
+  (`data-mako-precio`). Por eso se ven igual en la vista previa suelta y en producción.
+- **La vista previa suelta no es la página entera.** Los `.html` de `--salida` no corren app/vsl/Landing.tsx. La franja
+  oscura de precios (`#planes`) muestra su respaldo, no las columnas de Planes. El cierre sí se ve como saldrá.
+
+Lo que quedó SIN hacer:
+- **Si Martín quiere WhatsApp en el link de abajo.** MaKo no tiene agenda en sus landings (Martín sacó Calendly el 24/10),
+  y su número es el de los grupos de los clientes: no se publica sin su sí. Por eso el link dice «¿Prefieres hablar antes?
+  Déjanos tus datos y te escribimos» y `hablarAntes()` lleva al pedido que ya existe, el del Acelerador (el Cerebro, 26/10).
+  Se cambia en ese único lugar.
+- **Publicar.** Espera el sí de Martín, después de ver las vistas previas (`--subir`, en producción).

@@ -1461,4 +1461,20 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator/32',
   },
+  {
+    fecha: '26 oct', hora: '02:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las landings de MaKo cierran con los planes y la prueba gratis',
+    pedido: 'Martín, a «¿el bloque de cierre muestra los planes con la prueba gratis o la agenda para una llamada?»: «Los planes con la prueba gratis»',
+    puntos: [
+      'El final de la landing principal y de las doce muestra los dos planes, Esencial y Pro, con Pro como el recomendado.',
+      'Cada uno tiene su botón «Empezar mis 7 días gratis», que lleva a pagar ese plan.',
+      'Debajo queda un link chico: «¿Prefieres hablar antes? Déjanos tus datos y te escribimos».',
+      'No se publicó nada: Martín las mira primero.',
+    ],
+    archivos: [
+      'scripts/landings-mako-v2.mts — el bloque de cierre de todas',
+      'tests/landings-mako-v2.test.ts — lo que no se puede perder',
+    ],
+  },
 ];

@@ -24,7 +24,7 @@ import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { botonDePrueba, conPreciosEnHtml, lineaDePrueba, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
 import { AFUERA_REDONDO, AHORRO, COMO_FUNCIONA_LA_PRUEBA, PORTADAS, PREGUNTAS, TOTAL_AFUERA, seccionesDe, type Portada } from '../scripts/landings-mako-v2.mjs';
-import { PRUEBA_DIAS } from '../lib/planes-mako';
+import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS } from '../lib/planes-mako';
 import { FUNNELS, seccionesDeFunnel } from '../scripts/landings-mako-v2-funnels.mjs';
 import { LANDINGS_MAKO } from '../lib/origen-cuenta';
 
@@ -154,5 +154,29 @@ test('el catálogo de preguntas está entero (lo comparten todas las landings)',
   for (const k of ['tecnologia', 'cierra', 'equivoca', 'numero', 'bloqueo', 'ia', 'equipo', 'permanencia', 'datos', 'chatgpt']) {
     const qa = PREGUNTAS[k];
     assert.ok(qa && qa[0].endsWith('?') && qa[1].length > 20, `la pregunta «${k}» está incompleta`);
+  }
+});
+
+test('el cierre: los planes con la prueba gratis, y la llamada como un link chico debajo (Martín, 26/10)', () => {
+  const activos = PLANES_MAKO_DEFAULT.filter((p) => p.activo);
+  const todas: Array<[string, Array<[string, string]>]> = [
+    ...CUALES.map((c): [string, Array<[string, string]>] => [PORTADAS[c].slug, seccionesDe(c)]),
+    ...FUNNELS.map((f): [string, Array<[string, string]>] => [f.slug, seccionesDeFunnel(f)]),
+  ];
+  assert.equal(todas.length, 14, 'las dos portadas y las doce');
+  for (const [slug, secciones] of todas) {
+    const c = secciones.find(([id]) => id === 'empezar')?.[1] ?? '';
+    assert.ok(c, `${slug}: sin cierre`);
+    for (const p of activos) {
+      assert.ok(c.includes(`<span data-mako-precio="${p.id}">`), `${slug}: ${p.id} sin su precio por marca`);
+      assert.ok(c.includes(`href="https://hola-mako.com/planes/${p.id}?landing=${slug}"><span>Empezar mis <span data-mako-prueba="dias">${PRUEBA_DIAS}</span> días gratis</span></a>`),
+        `${slug}: el botón de ${p.id} lleva a su carrito con el origen, con los días por marca`);
+    }
+    const destacados = [...c.matchAll(/class="mkv-plan mkv-plan-destacado">[\s\S]*?data-mako-precio="([a-z-]+)"/g)].map((m) => m[1]);
+    assert.deepEqual(destacados, activos.filter((p) => p.destacado).map((p) => p.id), `${slug}: el destacado es el de los planes`);
+    assert.doesNotMatch(c, /data-mako-planes|data-calendly/, `${slug}: el cierre no es el lugar de las columnas ni una agenda`);
+    const hablar = c.indexOf('¿Prefieres hablar antes? <a href=');
+    assert.ok(hablar > c.lastIndexOf('class="mkv-plan'), `${slug}: la llamada va debajo de los planes`);
+    assert.ok(c.slice(hablar).includes(`landing=${slug}">Déjanos tus datos y te escribimos</a>`), `${slug}: la llamada lleva el origen`);
   }
 });

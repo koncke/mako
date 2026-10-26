@@ -342,11 +342,43 @@ export function preguntasCon(qa: ReadonlyArray<[string, string]>): string {
   </div></section>`;
 }
 
+/**
+ * A dónde lleva «¿Prefieres hablar antes? Déjanos tus datos y te escribimos». MaKo no tiene una agenda en sus landings
+ * (Martín, 24/10: «No voy a usar Calendly») ni un número que se publique (el de MaKo es el de los grupos de los clientes):
+ * lleva al pedido que ya existe, «nos dejas tus datos y te escribimos», el del Acelerador (el Cerebro, 26/10). Si Martín
+ * quiere WhatsApp, se cambia acá.
+ */
+export const hablarAntes = (slug: string) => `${APP}/planes/acelerador?landing=${slug}`;
+
+/** Cuántos renglones de lo que incluye cada plan se ven en el cierre (la lista entera está en /planes). */
+const RENGLONES_DEL_CIERRE = 4;
+
+/** Un plan en el cierre: el molde de las tarjetas de /planes (app/planes/Tarjetas.tsx), con el precio y los días por marca. */
+function planDelCierre(slug: string, p: (typeof PLANES_HOY)[number]): string {
+  return `<div class="mkv-plan${p.destacado ? ' mkv-plan-destacado' : ''}">
+        ${p.destacado ? '<span class="mkv-plan-insignia">Recomendado</span>' : ''}
+        <p class="mkv-plan-nombre">${esc(p.nombre)}</p>
+        <p class="mkv-plan-resumen">${esc(p.resumen)}</p>
+        <span class="mkv-plan-gratis">${diasPrueba()} días gratis</span>
+        <p class="mkv-plan-precio"><span data-mako-precio="${p.id}">${precioUsd(p.precioUsd)}</span> <small>/ mes</small></p>
+        <a class="mkv-btn mkv-plan-btn${p.destacado ? '' : ' mkv-btn-borde'}" href="${APP}/planes/${p.id}?landing=${slug}"><span>Empezar mis ${diasPrueba()} días gratis</span></a>
+        <p class="mkv-plan-despues">No se te cobra nada hasta el día ${diaDelCobro()}.</p>
+        <ul class="mkv-plan-lista">${p.incluye.slice(0, RENGLONES_DEL_CIERRE).map((x) => `<li>${esc(x)}</li>`).join('')}</ul>
+      </div>`;
+}
+
+/**
+ * El cierre: los planes con la prueba gratis, y la llamada como un link chico debajo (Martín, 26/10 01:23, a «¿el bloque de
+ * cierre muestra los planes con la prueba gratis o la agenda para una llamada?»: «Los planes con la prueba gratis»).
+ */
 export function cierre(slug: string): string {
   return `<section class="mkv mkv-cierre" id="empezar"><div class="mkv-in mkv-centro">
     <h2 class="mkv-h1 mkv-h1-chico">Tú cierras.<br><em class="mkv-serif">Del resto se encarga MaKo.</em></h2>
     <p class="mkv-portada-bajada">Empieza con ${diasPrueba()} días gratis. Si no te sirve, te das de baja antes del día ${diaDelCobro()} y no se te cobra nada.</p>
-    ${botones(slug)}
+    <div class="mkv-cierre-planes">
+      ${PLANES_HOY.map((p) => planDelCierre(slug, p)).join('\n      ')}
+    </div>
+    <p class="mkv-cierre-hablar">¿Prefieres hablar antes? <a href="${hablarAntes(slug)}">Déjanos tus datos y te escribimos</a></p>
   </div></section>`;
 }
 
@@ -505,6 +537,23 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
 .mkv-faq-item .mkv-texto { margin-top: 10px; max-width: 620px; }
 /* El cierre y el pie */
 .mkv-cierre { padding: 110px 0; background: radial-gradient(110% 80% at 50% 100%, #EAF0FD 0%, var(--fondo) 60%); }
+/* Los planes del cierre: el molde de las tarjetas de /planes (app/planes/Tarjetas.tsx) */
+.mkv-cierre-planes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; max-width: 800px; margin: 44px auto 0; align-items: stretch; text-align: left; }
+.mkv-plan { position: relative; display: flex; flex-direction: column; background: #fff; border: 1px solid var(--borde); border-radius: 20px; padding: 28px 24px 24px; box-shadow: 0 1px 2px rgba(18,21,27,.04), 0 10px 28px rgba(18,21,27,.06); }
+.mkv-plan-destacado { border-color: var(--azul); box-shadow: 0 0 0 1px var(--azul), 0 16px 40px rgba(47,111,237,.18); }
+.mkv-plan-insignia { position: absolute; top: -13px; left: 24px; background: var(--azul); color: #fff; font-size: 12px; font-weight: 700; letter-spacing: .03em; padding: 5px 12px; border-radius: 999px; }
+.mkv-plan-nombre { font-size: 22px; line-height: 1.2; font-weight: 800; letter-spacing: -.01em; }
+.mkv-plan-resumen { margin-top: 6px; font-size: 15px; line-height: 1.5; color: var(--gris); min-height: 45px; }
+.mkv-plan-gratis { align-self: flex-start; margin-top: 16px; padding: 3px 10px; border-radius: 999px; background: #E3F5EB; color: #1F7A4D; font-size: 12.5px; font-weight: 800; letter-spacing: .02em; }
+.mkv-plan-precio { margin-top: 10px; font-size: 40px; line-height: 1; font-weight: 800; letter-spacing: -.03em; }
+.mkv-plan-precio small { font-size: 15px; font-weight: 500; letter-spacing: 0; color: var(--gris); }
+.mkv-plan-btn { width: 100%; margin-top: 20px; }
+.mkv-plan-despues { margin-top: 10px; font-size: 13.5px; color: var(--gris); text-align: center; }
+.mkv-plan-lista { list-style: none; padding: 18px 0 0; margin-top: 18px; border-top: 1px solid var(--borde); display: grid; gap: 10px; font-size: 14.5px; line-height: 1.45; color: var(--gris2); }
+.mkv-plan-lista li { display: flex; gap: 10px; align-items: flex-start; }
+.mkv-plan-lista li::before { content: '✓'; flex: none; width: 20px; height: 20px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 800; color: #1F7A4D; background: #E3F5EB; margin-top: 1px; }
+.mkv-cierre-hablar { margin-top: 28px; font-size: 14.5px; color: var(--gris); }
+.mkv-cierre-hablar a { color: var(--tinta); font-weight: 600; text-underline-offset: 3px; }
 .mkv-pie { background: #fff; border-top: 1px solid var(--borde); padding: 48px 0 32px; }
 .mkv-pie-in { display: grid; grid-template-columns: 1.4fr repeat(4, 1fr); gap: 24px; }
 .mkv-pie-marca { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
@@ -526,6 +575,9 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
   .mkv-tabla td, .mkv-tabla th { padding: 14px 16px; }
   .mkv-pie-in { grid-template-columns: 1fr 1fr; }
   .mkv-pie-marca { grid-column: 1 / -1; }
+  .mkv-cierre { padding: 72px 0; }
+  .mkv-cierre-planes { grid-template-columns: 1fr; gap: 26px; margin-top: 36px; }
+  .mkv-plan-resumen { min-height: 0; }
 }
 @media (max-width: 420px) {
   .mkv-in { padding: 0 16px; }
