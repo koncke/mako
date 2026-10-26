@@ -48,6 +48,9 @@ export type FilaSeguridad = {
   detalle: string;
   /** El estado, como pastilla (verde = activo, ámbar = falta). Sin pastilla, sólo el detalle. */
   estado?: { texto: string; tono: 'good' | 'warn' };
+  /** Lo que dice a la derecha de la fila en la vista general (25/10/2026, como Security & Access de Linear): corto, con su
+   *  punto (verde = activo, gris = sin activar, ámbar = falta y hace falta). */
+  valor: { texto: string; tono: 'good' | 'off' | 'warn' };
 };
 
 export const fechaCorta = (iso: string | null | undefined) =>
@@ -83,23 +86,27 @@ export function filasDeAcceso(e: EstadoSeguridad): FilaSeguridad[] {
       clave: 'app', icono: 'escudo', titulo: 'Verificación en 2 pasos',
       detalle: e.totp ? 'Con la app de autenticación' : 'Un código de tu celular, además de Google',
       estado: e.totp ? { texto: 'Activada', tono: 'good' } : { texto: 'Desactivada', tono: 'warn' },
+      valor: e.totp ? { texto: 'Activada', tono: 'good' } : { texto: 'Desactivada', tono: 'warn' },
     },
     {
       clave: 'llaves', icono: 'llave', titulo: 'Llaves de acceso',
       detalle: e.passkeys.length ? `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''} · huella o Face ID` : 'Se crean desde tu celular',
+      valor: e.passkeys.length ? { texto: `${e.passkeys.length} llave${e.passkeys.length > 1 ? 's' : ''}`, tono: 'good' } : { texto: 'Ninguna', tono: 'off' },
     },
     {
       clave: 'contrasena', icono: 'candado', titulo: 'Contraseña',
       detalle: e.contrasena ? 'Para entrar con tu correo, sin Google' : e.contrasena === false ? 'Para entrar con tu correo, sin Google' : 'No se pudo leer',
       estado: e.contrasena === false ? { texto: 'Falta crearla', tono: 'warn' } : e.contrasena ? { texto: 'Creada', tono: 'good' } : undefined,
+      valor: e.contrasena === false ? { texto: 'Falta crearla', tono: 'warn' } : e.contrasena ? { texto: 'Creada', tono: 'good' } : { texto: 'No se pudo leer', tono: 'off' },
     },
   ];
   // Un canal que hoy no manda códigos no se ofrece; si ya estuviera activo, se sigue mostrando.
-  if (e.whatsapp || e.canales.includes('whatsapp')) filas.push({ clave: 'whatsapp', icono: 'whatsapp', titulo: 'Código por WhatsApp', detalle: e.whatsapp ?? 'Sin activar' });
-  if (e.email || e.canales.includes('email')) filas.push({ clave: 'email', icono: 'email', titulo: 'Correo de respaldo', detalle: e.email ?? 'Sin activar' });
+  if (e.whatsapp || e.canales.includes('whatsapp')) filas.push({ clave: 'whatsapp', icono: 'whatsapp', titulo: 'Código por WhatsApp', detalle: e.whatsapp ?? 'Sin activar', valor: e.whatsapp ? { texto: e.whatsapp, tono: 'good' } : { texto: 'Sin activar', tono: 'off' } });
+  if (e.email || e.canales.includes('email')) filas.push({ clave: 'email', icono: 'email', titulo: 'Correo de respaldo', detalle: e.email ?? 'Sin activar', valor: e.email ? { texto: e.email, tono: 'good' } : { texto: 'Sin activar', tono: 'off' } });
   filas.push({
     clave: 'codigos', icono: 'numero', titulo: 'Códigos de recuperación',
     detalle: cantidadMetodos(e) ? `Te quedan ${e.codigosRestantes} de 10 códigos de un solo uso` : 'Se crean al activar la verificación en 2 pasos',
+    valor: cantidadMetodos(e) ? { texto: `${e.codigosRestantes} de 10`, tono: e.codigosRestantes > 2 ? 'good' : 'warn' } : { texto: 'Sin crear', tono: 'off' },
   });
   return filas;
 }

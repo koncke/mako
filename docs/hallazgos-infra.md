@@ -38,6 +38,21 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un merge limpio puede dejar el mismo import dos veces, y los tests no lo ven (25/10/2026)
+
+**Vive en:** cualquier merge de dos ramas que suman el mismo import en líneas distintas (lo vio el tren del 25/10 con
+`app/second-brain/AprendeSolo.tsx`).
+
+- **Síntoma:** el pre-push frenó el tren con `TS2300: Duplicate identifier 'BotonIntegracion'` en dos líneas del mismo archivo.
+  Los 8.715 tests del tren habían dado verde.
+- **Causa:** el tren ya traía `import { BotonIntegracion } …` (un arreglo del Cerebro) y la rama de Planes lo sumó en otra
+  línea. Git no lo marca como conflicto porque las líneas no se tocan, y los tests corren con tsx (esbuild), que no chequea tipos.
+  Es la misma familia que los hitos pegados de una bitácora resuelta por unión (TS1117).
+- **Regla:** después de un merge que tocó el mismo archivo desde dos ramas, buscar imports repetidos
+  (`git diff HEAD^1 -- <archivo> | grep "^+import"`) antes de dar el tren por verde. El tsc entero o sus tandas es la red.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## La RAM de la PC: el vigía mataba 81 pesados por día porque la guardia los dejaba arrancar sin lugar (25/10/2026)
 
 **Vive en:** `~/.claude/guardia/memoria.mjs` (respaldo `.antes-25-10`; copia en `scripts/claude-hooks/guardia/`) ·
@@ -55,6 +70,17 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
   - como mucho 2 workflows a la vez;
   - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **El tren no conseguía RAM nunca (25/10, ~18:20 a 19:10):** con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una
+  hora, y cada tanda del chequeo de tipos del pre-push pide 5,3. Subirlo igual, a las 18:14, trabó la PC. Esperar no alcanza:
+  cada chat que termina un pesado arranca otro.
+  - **Regla:** el que sube el tren pone `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`). Mientras esté,
+    la guardia hace esperar lo pesado y los workflows de las OTRAS sesiones; lo liviano pasa. No se corta a nadie: la RAM
+    se libera sola a medida que terminan los de antes. Vence sola en `hasta`, así un script caído no traba a nadie.
+  - El script que sube la pone, espera 5,5 GB, empuja y la saca al salir (`trap`).
+  - **Trampa:** la guardia mira el comando, y `node scripts/tests-afectados.mjs` no decía nada pesado. Arrancó con la reserva
+    puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
+    `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
+    esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;

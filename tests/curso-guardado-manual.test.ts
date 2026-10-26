@@ -233,7 +233,7 @@ test('item 1 y 3: salir con cambios pregunta — el hash del curso, un link de l
   assert.match(app, /<Link className="ugc-btn" href=\{hrefVistaPrevia\(productoId\)\} prefetch=\{false\} data-recorrido="vista-alumno" data-guardar-y-ver>/);
   // Cambiar de curso: desde el 24/10/2026 (f28) es la cabecera de Clients, y cada programa es un LINK para que la guarda
   // de los links de arriba lo ataje (un `router.push` desde un botón se la saltaba).
-  const shell = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const shell = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const prog = entre(shell, 'function Programa(', 'function Personalizar(');
   assert.match(prog, /<Link href=\{hrefDe\(p\.id\)\} scroll=\{false\} role="menuitem" className="cls-opcion"/);
   assert.doesNotMatch(shell, /router\.push\(/, 'cambiar de programa con un push se salta la pregunta de la lección sin guardar');
@@ -328,7 +328,7 @@ test('revisión final: «Guardar» revalida el curso (el Atrás), la disposició
   // la Vista del alumno dibujaba la clase de antes de guardar, y el próximo «Guardar» chocaba consigo mismo.
   const acc = sinComentarios(leer('app/customer-success/curso/modulos-actions.ts'));
   const action = entre(acc, 'export async function guardarLeccionAction', '\n}\n');
-  assert.match(action, /const r = await guardarLeccion\(Number\(claseId\), cambios, antes\);\s*if \(r\.ok\) revalidatePath\('\/clients\/classroom'\);\s*return r;/);
+  assert.match(action, /const r = await guardarLeccion\(Number\(claseId\), cambios, antes\);\s*if \(r\.ok\) revalidatePath\('\/classroom'\);\s*return r;/);
   // Esa vuelta trae los ajustes del SERVER (CursoApp resiembra `estilos`): la disposición se guarda ANTES.
   const lec = sinComentarios(leer('app/customer-success/curso/LeccionEditable.tsx'));
   const guardar = entre(lec, 'const guardar = useCallback(', '}, [poner, oRef]);');

@@ -9,7 +9,8 @@
 // Lo que queda en el menú: Importar leads · Exportar leads · Buscar prospectos · Editar las
 // etapas. «Buscar prospectos» se SUMÓ el 15/10/2026 (Leads Scraper, docs/diseno-leads-scraper.md):
 // es la tercera forma de traer leads al CRM, al lado de importar un archivo, y abre la lista de
-// prospectos (/crm/prospectos). Va sin subtítulo, como los demás. Un renglón más acá se DECLARA en
+// prospectos (/crm/prospectos). Va sin subtítulo, como los demás. Y se FUE el 25/10/2026 con el Leads Scraper entero
+// (tests/leads-scraper-retirado.test.ts): nadie lo usó nunca. Un renglón más acá se DECLARA en
 // este test con su motivo: el pedido del 14/10 fue acotar el menú. Lo que se
 // fue sólo se fue del MENÚ: los dos modales siguen abriéndose desde el engranaje de la ficha
 // y el motor del CRM automático sigue corriendo. Eso también se fija acá, porque «sacar el
@@ -54,11 +55,11 @@ function acciones(): string {
 test('ningún renglón del «⋯» lleva subtítulo, y el renglón ni siquiera lo acepta', () => {
   const acc = acciones();
   // Los cuatro que hay, para que el resto del test no pase en vacío sobre un menú que se fue.
-  // «Buscar prospectos» es el del 15/10 (ver arriba): cualquier otro renglón se declara acá, con su motivo.
+  // «Buscar prospectos» (15/10) se fue el 25/10 (ver arriba): cualquier otro renglón se declara acá, con su motivo.
   // «Personalizar tarjetas» (20/10/2026): Martín, «Las cards, las debería poder personalizar también, por si el usuario
   // quiere más o menos info». Es de quien mira (tests/crm-tarjeta-personalizable.test.ts).
   // «Editar etapas» sin el artículo desde el 24/10/2026, como «Cambiar nombre» («que no diga "Cambiar EL nombre"», Martín).
-  const RENGLONES = ['Importar leads', 'Buscar prospectos', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas'];
+  const RENGLONES = ['Importar leads', 'Exportar leads', 'Editar etapas', 'Personalizar tarjetas'];
   for (const label of RENGLONES) {
     assert.ok(acc.includes(`label="${label}"`), `falta el renglón «${label}» en el «⋯»`);
   }

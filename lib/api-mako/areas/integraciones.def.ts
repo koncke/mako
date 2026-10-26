@@ -14,6 +14,12 @@
 // La excepción es una COMPUTADORA con MaKo Desktop (desconectar_computadora, 25/10/2026): no
 // es una credencial que se pega en un formulario, y desconectarla se confirma con un «sí».
 //
+// ⚠️ SALVO META POR ZERNIO (25/10/2026, Martín: «todo MaKo se debe poder utilizar por API»): lo de «Conectar con Facebook»
+// se lee (ver_conexion_meta) y se elige (cuenta, píxel, página: tres acciones con su «sí») y CAPI se prueba
+// (probar_capi_meta, con el código de «Probar eventos», que no cuenta en el píxel). Ninguna pega un secreto: son ids que la
+// conexión YA ve. Conectar en sí es un clic de una persona en la ventana de Facebook: eso sigue siendo el link.
+// Los ids no llevan «zernio» a propósito (tests/sin-instagram.test.ts).
+//
 // La salud en vivo de Meta y sus incidentes ya viven en el área `ads`
 // (ver_salud_cuenta_meta, ver_estado_meta, listar_incidentes_meta): no se duplican.
 //
@@ -144,6 +150,53 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'que', tipo: 'string', obligatorio: true, max: 80, descripcion: 'lo que quiere conectar, con la key de ver_integraciones o con sus palabras: «fathom», «mi claude», «instagram», «la app de escritorio», «whatsapp».', ejemplo: 'fathom' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_TAB,
+  },
+  // ── Meta por Zernio («Conectar con Facebook», 25/10/2026): leer, elegir y probar ─────────
+  {
+    id: 'ver_conexion_meta', area: 'integraciones', tipo: 'lectura',
+    titulo: 'Conexión de Meta del negocio',
+    descripcion: 'Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por el token de antes, y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.',
+    parametros: [],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: G_ADMIN,
+  },
+  {
+    id: 'elegir_cuenta_meta', area: 'integraciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir la cuenta publicitaria de Meta',
+    descripcion: 'PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Con el token de antes, la cuenta se elige en Integraciones (link_configurar_integracion).',
+    escribe: 'la credencial META_AD_ACCOUNT_ID del negocio, y arranca el histórico de métricas',
+    parametros: [
+      { nombre: 'cuenta', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id de la cuenta publicitaria con act_ adelante, tal como sale en ver_conexion_meta.', ejemplo: 'act_1426493815659364' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
+  {
+    id: 'elegir_pixel_meta', area: 'integraciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir el píxel de Meta',
+    descripcion: 'PROPONE elegir el píxel donde quedan registradas las conversiones del negocio (el contacto de un formulario, el calificado del CRM, la reunión agendada), entre los que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Mira antes ver_conexion_meta. Para probar que llegan: probar_capi_meta.',
+    escribe: 'la credencial META_PIXEL_ID del negocio',
+    parametros: [
+      { nombre: 'pixel', tipo: 'string', obligatorio: true, max: 20, descripcion: 'id del píxel (sólo números), tal como sale en ver_conexion_meta.', ejemplo: '1869323014511830' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
+  {
+    id: 'elegir_pagina_meta', area: 'integraciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Elegir la página de Facebook de los anuncios',
+    descripcion: 'PROPONE elegir la página de Facebook con la que corren los anuncios y los formularios (queda pendiente hasta el «sí»). Con varias páginas y sin elegir una, Facebook no deja conectar: con la página elegida, la próxima «Conectar con Facebook» abre con ella; con la conexión ya hecha, se cambia ahí mismo. Mira antes ver_conexion_meta (las páginas que MaKo conoce).',
+    escribe: 'la credencial META_PAGE_ID del negocio y, con la conexión hecha, la página de la conexión en Zernio',
+    parametros: [
+      { nombre: 'pagina', tipo: 'string', obligatorio: true, max: 20, descripcion: 'id de la página de Facebook (sólo números), tal como sale en ver_conexion_meta o en «Información» → «Transparencia de la página».', ejemplo: '1315098941694049' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_ADMIN,
+  },
+  {
+    id: 'probar_capi_meta', area: 'integraciones', tipo: 'lectura',
+    titulo: 'Probar las conversiones al píxel',
+    descripcion: 'Manda UN evento de prueba («PruebaMaKo», no un contacto) al píxel del negocio por el mismo camino que usa MaKo de verdad (la conexión de Facebook, o el token del píxel), con el código de «Probar eventos» del Administrador de eventos. Dice si Meta lo recibió y, si no, el motivo; por la conexión de Facebook el código no llega a Meta y el evento se ve en la vista general del píxel. Úsala ante «¿le llegan a Meta mis contactos?».',
+    parametros: [
+      { nombre: 'codigo', tipo: 'string', obligatorio: true, max: 30, descripcion: 'el código de prueba que da el Administrador de eventos → tu píxel → «Probar eventos» (empieza con TEST).', ejemplo: 'TEST12345' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: G_ADMIN,
   },
   {
     id: 'link_configurar_integracion', area: 'integraciones', tipo: 'lectura',

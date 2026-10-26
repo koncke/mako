@@ -77,8 +77,6 @@ import { cobradoDeLaVenta, faltaDeLaVenta } from '@/lib/pagos-crm';
 import { getUltimoInsightGenerado, generarInsightLead } from '@/lib/lead-insights';
 import { buildJourney } from '@/lib/journey';
 import { propuestasPendientes, crearPropuesta } from '@/lib/propuestas';
-import { listarProspectos } from '@/lib/prospectos';
-import { FUENTES_PROSPECCION, contactable, rotuloDeBusqueda } from '@/lib/prospectos-reglas';
 import { getSetting } from '@/lib/settings';
 import { listPendientes, resolverConfirmacion } from '@/lib/mako-confirmaciones';
 import { evaluarAutoWorkspace } from '@/lib/crm-auto';
@@ -227,7 +225,7 @@ async function instanteEnZona(ws: number, fecha: unknown, hora: unknown): Promis
 /** null si se puede escribir en la agenda; si no, el motivo para la persona. */
 async function agendaParaEscribir(): Promise<string | null> {
   const p = await permisoCalendarioGoogle();
-  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta en Integraciones → Google Calendar.';
+  if (!p.conectado) return 'Este negocio no tiene una agenda de Google conectada. Se conecta desde Calendario (o con el link de link_configurar_integracion, servicio google).';
   if (!p.puedeMover) return 'La agenda de Google está conectada con permiso de solo lectura: hay que reconectarla en Integraciones para poder agendar o mover.';
   return null;
 }
@@ -878,34 +876,6 @@ export const RUNNERS: Runners = {
       });
     },
   },
-  listar_prospectos: {
-    leer: async (input) => {
-      const r = await listarProspectos();
-      if ('error' in r) return fallo(r.error);
-      const estado = s(input.estado) ?? 'nuevo';
-      const minimo = typeof input.minimo === 'number' ? input.minimo : 0;
-      const limite = typeof input.limite === 'number' ? input.limite : 30;
-      const coinciden = r.prospectos.filter((p) => p.estado === estado && p.puntaje >= minimo);
-      return json({
-        total: coinciden.length, devueltos: Math.min(limite, coinciden.length), pantalla: linkApp('/crm/prospectos', await getWorkspaceActual()),
-        prospectos: coinciden.slice(0, limite).map((p) => ({
-          id: p.id, nombre: p.nombre, rubro: p.rubro, ciudad: p.ciudad, fuente: FUENTES_PROSPECCION[p.fuente].nombre,
-          se_puede_contactar: contactable(p), puntaje: p.puntaje, razon: p.razon, estado: p.estado, lead_id: p.lead_id,
-        })),
-      });
-    },
-  },
-  busquedas_prospeccion: {
-    leer: async () => {
-      const r = await listarProspectos();
-      if ('error' in r) return fallo(r.error);
-      return json({
-        busquedas: r.busquedas.map((b) => ({
-          id: b.id, que: rotuloDeBusqueda(b.parametros), estado: b.estado, nuevos: b.nuevos, encontrados: b.resultados, motivo: b.motivo, creada: b.created_at,
-        })),
-      });
-    },
-  },
   confirmaciones_crm_automatico: {
     leer: async () => {
       const cs = await listPendientes();
@@ -961,7 +931,7 @@ export const RUNNERS: Runners = {
     leer: (input, ctx) => conLead(input, async (lead) => {
       if (!lead.email) return fallo(`${lead.nombre} no tiene email cargado: sin email no se reconoce su reunión en la agenda.`);
       const p = await permisoCalendarioGoogle();
-      if (!p.conectado) return fallo('Este negocio no tiene una agenda de Google conectada. Se conecta en Integraciones → Google Calendar.');
+      if (!p.conectado) return fallo('Este negocio no tiene una agenda de Google conectada. Se conecta desde Calendario (o con el link de link_configurar_integracion, servicio google).');
       const tz = await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
       return salidaReunionesDeLead({ nombre: lead.nombre, reuniones: await proximasReunionesCon(lead.email), tz });
     }),

@@ -158,7 +158,7 @@ export function VitrinaPlanes({ ofertas, sufijo }: {
           </details>
         </section>
 
-        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y suma crédito por cada negocio que traigas: <Link href="/mako-partners">MaKo Partners</Link></p>
+        <p className="planes-pie">¿Ya tienes MaKo? Recomiéndalo y llévate el primer mes entero de cada negocio que traigas: <Link href="/mako-partners">MaKo Partners</Link></p>
       </div>
     </main>
   );

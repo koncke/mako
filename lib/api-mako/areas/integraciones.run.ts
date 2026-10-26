@@ -1,8 +1,8 @@
 // =============================================================================
 // api-mako/areas/integraciones.run — los cuerpos del área `integraciones`
 // =============================================================================
-// Un runner por id de integraciones.def.ts. Solo lecturas: el área expone ESTADO,
-// nunca valores. Todo corre adentro de runWithWorkspace(ctx.ws).
+// Un runner por id de integraciones.def.ts. Lecturas de ESTADO, nunca valores, y desde el 25/10/2026 las elecciones de Meta
+// por Zernio (cuenta, píxel, página: ids que la conexión ya ve, con su «sí»). Todo corre adentro de runWithWorkspace(ctx.ws).
 //
 // Lo que no se ve leyendo las libs y gobierna este archivo:
 //
@@ -30,7 +30,7 @@ import { TEXTO_ALCANCE } from '../alcance';
 import { servicioDelWs, keysServiciosDelWs, tarjetasDelWs, esWsPlataforma } from './integraciones.helpers';
 import { getIntegraciones } from '@/lib/integraciones';
 import { servicioMetodo } from '@/lib/metodo-catalogo';
-import { estadoCampo, integracionConectada, credDelCliente } from '@/lib/credenciales';
+import { estadoCampo, integracionConectada, credDelCliente, credWs } from '@/lib/credenciales';
 import { esClaveDeCuenta, MAX_KEYS } from '@/lib/ia-keys';
 import { verificarServicio } from '@/lib/metodo-verificar';
 import { permisoCalendarioGoogle, googleCalendarConectado } from '@/lib/google-calendar';
@@ -45,6 +45,11 @@ import { desconectar, listarPcDelNegocio, puedeDesconectar } from '@/lib/ia-pc';
 import { actorDeSesion } from '@/lib/ia-pc-reglas';
 import { buscarConexion, CONEXIONES, conexion } from '@/lib/conexiones-catalogo';
 import { conectadaSinProbar } from '@/lib/conexion-estado';
+import { canalMeta } from '@/lib/meta-via';
+import { MetaZernioError, elegirMetaPorZernio, elegirPaginaMeta, estadoMetaZernio, type EstadoMetaZernio } from '@/lib/meta-conexion-zernio';
+import { adondeVaLaCalificacion, sendMetaCAPIEvent } from '@/lib/meta-capi';
+import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
+import { EVENTO_DE_PRUEBA_CAPI } from '@/lib/zernio-meta-cuerpo';
 
 const J = (o: unknown): string => JSON.stringify(o);
 const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
@@ -68,10 +73,135 @@ const ESTADO_CLAVE: Record<SuClaveGuardada['es'], string> = {
 };
 
 
+// ── Meta por Zernio (25/10/2026): leer, elegir y probar ───────────────────────
+
+/** El estado de cuenta de Meta en palabras (account_status). */
+const ESTADO_CUENTA: Record<number, string> = { 1: 'activa', 2: 'deshabilitada', 3: 'con saldo impago', 7: 'en revisión', 8: 'con pago pendiente', 9: 'en período de gracia', 100: 'por cerrarse', 101: 'cerrada' };
+
+/** Una elección de Meta por Zernio sólo se propone con la conexión hecha y leída: si no, el porqué y adónde ir. */
+async function conexionLista(ws: number): Promise<{ est: EstadoMetaZernio } | { error: string }> {
+  const est = await estadoMetaZernio(ws);
+  if (!est.activo) return { error: 'Conectar Meta por Zernio todavía no está abierto para este negocio: la cuenta y el píxel se eligen en Integraciones (link_configurar_integracion con «meta»).' };
+  if (!est.conexion) return { error: `Este negocio todavía no conectó Meta con «Conectar con Facebook»: es un clic de una persona en ${linkIntegracion('meta')}.` };
+  if (est.error) return { error: `No pude leer la conexión de Facebook: ${est.error}` };
+  return { est };
+}
+
+/** Las escrituras de Meta por Zernio: nunca tiran (el contrato de Ejecutado). */
+async function escribirMeta(fn: () => Promise<string>): Promise<Ejecutado> {
+  try { return { ok: true, resumen: await fn() }; } catch (e) {
+    return { ok: false, resumen: e instanceof MetaZernioError ? e.message : `No se pudo guardar (${e instanceof Error ? e.message : 'error'}).` };
+  }
+}
+
 export const RUNNERS: Runners = {
+  ver_conexion_meta: {
+    leer: async (_input, ctx) => {
+      const [canal, est, adonde, tokenPixel] = await Promise.all([
+        canalMeta(ctx.ws), estadoMetaZernio(ctx.ws), adondeVaLaCalificacion(ctx.ws).catch(() => null), credWs('META_CAPI_TOKEN', ctx.ws).catch(() => null),
+      ]);
+      // Por dónde sale CAPI: lo mismo que decide `sendMetaCAPIEvent` (Zernio primero; el token del píxel; el de Meta de antes).
+      const capiPor = canal.via === 'zernio' ? 'conexion_de_facebook' : tokenPixel ? 'token_del_pixel' : canal.via === 'token' ? 'token_de_meta' : null;
+      return J({
+        via: canal.via === 'zernio' ? 'conexion_de_facebook' : canal.via === 'token' ? 'token_de_meta' : 'sin_conexion',
+        conectar_por_facebook_abierto: est.activo,
+        conectada_por_facebook: !!est.conexion,
+        cuenta_elegida: est.cuenta,
+        cuentas: est.cuentas.map((c) => ({ id: c.id, nombre: c.nombre, moneda: c.moneda, estado: c.estado != null ? ESTADO_CUENTA[c.estado] ?? `código ${c.estado}` : null })),
+        pixel_elegido: est.pixel,
+        pixeles: est.pixeles.map((x) => ({ id: x.id, nombre: x.nombre, activo: x.activo })),
+        pagina: { elegida: est.pagina.pageId, hay_que_elegirla: est.pagina.preguntar, sugerida: est.pagina.sugerida },
+        paginas: est.paginas,
+        capi: { sale_por: capiPor, destino: adonde, token_del_pixel_cargado: !!tokenPixel },
+        ...(est.error ? { error: est.error } : {}),
+        link: linkIntegracion('meta'),
+        nota: est.conexion
+          ? 'Para cambiar algo: elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta. Para probar las conversiones: probar_capi_meta.'
+          : 'Conectar es un clic de una persona en el link («Conectar con Facebook»). Con varias páginas, elegir_pagina_meta antes.',
+      });
+    },
+  },
+
+  elegir_cuenta_meta: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const l = await conexionLista(ctx.ws);
+      if ('error' in l) return { error: l.error };
+      const act = normalizarCuentaMeta(typeof input.cuenta === 'string' ? input.cuenta.trim() : '');
+      const c = l.est.cuentas.find((x) => x.id === act);
+      if (!c) return { error: `La cuenta «${act}» no está entre las que ve la conexión de Facebook.`, faltan: ['cuenta'], disponibles: l.est.cuentas.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      if (l.est.cuenta === act) return { error: `MaKo ya trabaja con la cuenta «${c.nombre ?? act}».`, yaEstaba: true };
+      const antes = l.est.cuentas.find((x) => x.id === l.est.cuenta);
+      return { payload: { cuenta: act }, resumen: `Trabajar con la cuenta publicitaria «${c.nombre ?? act}» (${act}): métricas, Media Buyer y publicar. Antes: ${antes ? `«${antes.nombre ?? antes.id}»` : 'ninguna'}.` };
+    },
+    ejecutar: async (payload, ctx) => escribirMeta(async () => {
+      const est = await elegirMetaPorZernio(ctx.ws, { cuenta: String(payload.cuenta ?? '') }, ctx.actor ?? null);
+      return `Listo: MaKo trabaja con la cuenta ${est.cuenta}.`;
+    }),
+  },
+
+  elegir_pixel_meta: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const l = await conexionLista(ctx.ws);
+      if ('error' in l) return { error: l.error };
+      const id = typeof input.pixel === 'string' ? input.pixel.trim() : '';
+      const px = l.est.pixeles.find((x) => x.id === id);
+      if (!px) return { error: `El píxel «${id}» no está entre los que ve la conexión de Facebook.`, faltan: ['pixel'], disponibles: l.est.pixeles.map((x) => ({ id: x.id, nombre: x.nombre })) };
+      if (l.est.pixel === id) return { error: `Las conversiones ya van al píxel «${px.nombre ?? id}».`, yaEstaba: true };
+      return { payload: { pixel: id }, resumen: `Mandar las conversiones (contacto de formulario, calificado, reunión agendada) al píxel «${px.nombre ?? id}» (${id}). Antes: ${l.est.pixel ?? 'ninguno'}.` };
+    },
+    ejecutar: async (payload, ctx) => escribirMeta(async () => {
+      const est = await elegirMetaPorZernio(ctx.ws, { pixel: String(payload.pixel ?? '') }, ctx.actor ?? null);
+      return `Listo: las conversiones van al píxel ${est.pixel}.`;
+    }),
+  },
+
+  elegir_pagina_meta: {
+    preparar: async (input, ctx): Promise<Preparado> => {
+      const est = await estadoMetaZernio(ctx.ws);
+      if (!est.activo) return { error: 'Conectar Meta por Zernio todavía no está abierto para este negocio: la página se elige en Integraciones (link_configurar_integracion con «meta»).' };
+      const id = typeof input.pagina === 'string' ? input.pagina.trim() : '';
+      if (!/^\d{5,20}$/.test(id)) return { error: 'El ID de una página de Facebook son sólo números (está en la página → «Información» → «Transparencia de la página»).', faltan: ['pagina'] };
+      // Las que MaKo conoce; sin ninguna conocida se acepta el id, y con la conexión hecha lo valida Zernio al confirmar.
+      const p = est.paginas.find((x) => x.id === id);
+      if (est.paginas.length && !p) return { error: `La página «${id}» no está entre las que MaKo conoce de este negocio.`, faltan: ['pagina'], disponibles: est.paginas };
+      if (est.pagina.pageId === id && !est.pagina.preguntar) return { error: `La página de los anuncios ya es «${p?.nombre ?? id}».`, yaEstaba: true };
+      return {
+        payload: { pagina: id },
+        resumen: `Usar la página «${p?.nombre ?? id}» (${id}) para los anuncios y los formularios${est.conexion ? ' (se cambia en la conexión de Facebook)' : '; la próxima «Conectar con Facebook» abre con ella'}.`,
+      };
+    },
+    ejecutar: async (payload, ctx) => escribirMeta(async () => {
+      const r = await elegirPaginaMeta(ctx.ws, String(payload.pagina ?? ''), ctx.actor ?? null);
+      return `Listo: la página de los anuncios es ${r.pagina}${r.enZernio ? ' (cambiada en la conexión de Facebook)' : ''}.`;
+    }),
+  },
+
+  probar_capi_meta: {
+    leer: async (input, ctx) => {
+      const codigo = typeof input.codigo === 'string' ? input.codigo.trim().toUpperCase() : '';
+      if (!/^TEST[A-Z0-9]{1,26}$/.test(codigo)) return fallo('El código de prueba empieza con TEST (Administrador de eventos → tu píxel → «Probar eventos»).');
+      const canal = await canalMeta(ctx.ws);
+      // Un evento PROPIO, no un «Lead»: Zernio no reenvía el código de prueba (medido el 25/10/2026) y un Lead de prueba entraba
+      // al píxel como un contacto real. El código igual viaja: por el token de Meta sí se respeta.
+      const r = await sendMetaCAPIEvent({
+        eventName: EVENTO_DE_PRUEBA_CAPI, email: 'prueba@hola-mako.com', phone: null, eventId: `prueba-mako:${ctx.ws}:${Date.now()}`, testCode: codigo,
+      });
+      const por = canal.via === 'zernio' ? 'conexion_de_facebook' : 'token';
+      return r.ok
+        ? J({
+            ok: true, recibidos: r.recibidos, por, evento: EVENTO_DE_PRUEBA_CAPI,
+            nota: por === 'conexion_de_facebook'
+              ? `Meta lo recibió. Por la conexión de Facebook el código de prueba no llega a Meta: el evento «${EVENTO_DE_PRUEBA_CAPI}» aparece en la vista general de tu píxel (no en «Probar eventos») y no cuenta como contacto.`
+              : `Meta lo recibió: mira «Probar eventos» en el Administrador de eventos (el evento «${EVENTO_DE_PRUEBA_CAPI}»).`,
+          })
+        : J({ ok: false, por, motivo: r.motivo, detalle: r.detalle, link: linkIntegracion('meta') });
+    },
+  },
+
   ver_integraciones: {
     leer: async () => {
-      const lista = await getIntegraciones();
+      // Con las IA (que en la pantalla viven en «Tus cuentas de IA», no en la grilla): su estado se sigue leyendo por acá.
+      const lista = await getIntegraciones({ conOcultas: true });
       const integraciones = lista.map((i) => {
         // `detalle` trae nombres de variables de entorno («Falta configurar: META_ACCESS_TOKEN»):
         // es copy técnico. Se traduce a las etiquetas que la persona ve en el formulario.
@@ -89,6 +219,8 @@ export const RUNNERS: Runners = {
           '«conectada» significa que las credenciales están cargadas, no que funcionen: pruébala con probar_conexion_integracion.',
           'Google Calendar figura conectada si hay un permiso guardado, aunque Google ya lo haya rechazado: confirma con ver_estado_google_calendar.',
           'Pixel de MaKo figura conectada solo si llegaron eventos recientes de la landing.',
+          // 25/10/2026: sin tarjeta en la grilla. Que MaKo no mande a buscar una tarjeta que no está.
+          'Anthropic API, OpenAI API, Gemini API y Groq API no tienen tarjeta: se conectan en «Tus cuentas de IA», arriba de Integraciones. Google Calendar tampoco: se conecta desde Calendario. Para las dos, link_configurar_integracion abre su formulario igual.',
         ],
       });
     },

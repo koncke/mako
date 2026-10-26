@@ -136,17 +136,16 @@ test('las sub-rutas de /admin no se comen el título entre sí', () => {
   // propio nombre. Si algo más general se evalúa antes, ese esfuerzo se anula y
   // todas se leen «Clientes».
   //
-  // OJO: la fábrica de guiones ya NO se llama «Guiones». /admin/guiones redirige
-  // a /admin/dev/ads-writer y el título sale del item de Dev, que se llama como
-  // la feature. Este test decía 'MaKo - Guiones' y fue lo único que avisó del
-  // renombre — el pre-push corre tipos, no tests.
-  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Ads Writer');
+  // OJO: la fábrica de guiones ya NO se llama «Guiones». Hasta el 25/10/2026 /admin/guiones redirigía a la página de Dev
+  // de Ads Writer y el título salía de su fila de Dev; Dev se fue y las bibliotecas son una sección de Copywriting, con su
+  // nombre. Este test decía 'MaKo - Guiones' y fue lo único que avisó del renombre — el pre-push corre tipos, no tests.
+  assert.equal(tituloDe('/admin/guiones'), 'MaKo - Angles & Structures');
   // ⚠️ Desde el 28/09/2026 /admin es un REDIRECT a /customer-success y ya no tiene
   // item propio, así que cae al fallback («Admin», el primer segmento). Está bien:
   // es una ruta de paso, y el nombre que importa lo lee el destino.
   assert.equal(tituloDe('/admin'), 'MaKo - Admin');
   assert.notEqual(tituloDe('/admin'), tituloDe('/admin/guiones'));
-  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/dev/semaforo'));
+  assert.notEqual(tituloDe('/admin'), tituloDe('/admin/ui'));
 });
 
 test('una sub-ruta de /admin SIN item propio no se lee «Clientes»', () => {

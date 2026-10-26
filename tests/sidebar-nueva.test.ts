@@ -241,7 +241,8 @@ test('la barra de abajo del teléfono: CRM · Chats · Ops Center · Plan · Mor
     .filter((f) => f.tipo !== 'grupo' && (f.href === '/m/hoy' || f.href === '/m/dashboard')).map((f) => [f.label, f.tipo === 'grupo' ? null : f.href]);
   assert.deepEqual(diario('admin'), [['Dashboard', '/m/hoy']]);
   assert.deepEqual(diario('closer'), [['Dashboard', '/m/dashboard']]);
-  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label)).length, 1, 'More vuelve a tener dos «Dashboard»');
+  // «Agency Dashboard» (25/10/2026) es otra tab, la de las agencias: no es el segundo Dashboard que cuida esto.
+  assert.equal(mas.flatMap((g) => g.filas).filter((f) => /dashboard/i.test(f.label) && f.label !== 'Agency Dashboard').length, 1, 'More vuelve a tener dos «Dashboard»');
   const create = mas.find((g) => g.id === 'create')!;
   assert.deepEqual(create.filas.map((f) => f.label), ['Video', 'Image', 'Copywriting']);
 });
@@ -283,8 +284,11 @@ test('cada herramienta de la ex familia Admin tiene casa, la ve el super admin y
   // /agencia salió de la lista el 24/10/2026: ya no es una sección (Martín: «En SuperAdmin no deben haber 3 tabs allí»). Su
   // casa es Chats, donde el número de MaKo es una línea del chip «Canales» (docs/diseno-chats.md §8.5); la ruta sigue para
   // sus links y la barra marca Chats estando ahí (abajo).
-  const RUTAS = ['/admin/copywriting', '/mensajes', '/admin/dev', '/admin/agente', '/admin/estrategia',
-    '/admin/cobros', '/admin/operaciones', '/contexto', '/modelos-ia', '/conocimientos', '/admin/offer-playbook'];
+  // /admin/dev, /contexto y /modelos-ia se fueron el 25/10/2026 (redirigen, next.config.ts); /admin/guiones (las bibliotecas
+  // de Ads Writer, que vivían en la página de Dev) es desde ese día una sección de Copywriting. /admin/cobros y /admin/agente
+  // salieron el mismo día: son las pestañas Billing y Agents de Customers (tests/customers.test.ts).
+  const RUTAS = ['/admin/copywriting', '/admin/guiones', '/mensajes', '/admin/estrategia',
+    '/admin/operaciones', '/conocimientos', '/admin/offer-playbook'];
   const chats = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'bandeja');
   assert.equal(chats?.match('/agencia'), true, '/agencia: estando ahí, la barra no marca Chats');
   assert.ok(!(chats?.secciones ?? []).some((s) => s.href === '/agencia'), '«MaKo WhatsApp» volvió a ser una sección de Chats');
@@ -335,7 +339,7 @@ test('nada se rompe: cada destino de la barra y de lo que dejó de ser fila tien
   const existe = (href: string): boolean => {
     const ruta = href.split(/[?#]/)[0].replace(/^\//, '');
     const base = join(RAIZ, 'app', ...ruta.split('/'));
-    // Una ruta dinámica también vale (/clients/community es app/clients/[seccion]/page.tsx).
+    // Una ruta dinámica también vale (/classroom/community es app/classroom/[seccion]/page.tsx).
     const padre = join(base, '..');
     const dinamica = existsSync(padre) && readdirSync(padre).some((d) => d.startsWith('[') && d.endsWith(']') && !d.includes('.') &&existsSync(join(padre, d, 'page.tsx')));
     return ['page.tsx', 'route.ts'].some((f) => existsSync(join(base, f))) || existsSync(join(base, '[[...resto]]', 'page.tsx')) || dinamica;
@@ -349,7 +353,7 @@ test('todos los workspaces: la misma barra para el super admin, un cliente y un 
   // El admin de un cliente completo: las dos familias, sin nada del super admin.
   assert.deepEqual(visibles(CLIENTE), [
     ['Today', ['Plan', 'Chats', 'Dashboard']],
-    ['Sales', ['CRM', 'Calendar', 'Automations', 'Clients']],
+    ['Sales', ['CRM', 'Calendar', 'Automations', 'Classroom']],
     ['Marketing', ['Offer', 'Web Generator', 'Ads Manager']],
     ['Create', ['Video', 'Image', 'Copywriting']],
   ]);

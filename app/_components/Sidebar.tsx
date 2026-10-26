@@ -30,7 +30,6 @@ import { usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { FAMILIAS, arribaDe, USER_NAV, SUPERADMIN_MENU, PRONTO, SIN_FILA, ADMIN_FAMILIAS, itemsDe, fuenteContador, sumaDeContadores, type FuenteContador, type NavItem, type NavGrupo } from './nav';
-import { familiasDev } from '@/app/admin/dev/nav-dev';
 import { puedeVerItem, resolverTab, seccionesVisibles } from '@/lib/nav-visibilidad';
 import { ROTULO_PASAR_A_PRO, esNavSoloPro } from '@/lib/plan-esencial-reglas';
 import { BuscadorNav, type Destino } from './BuscadorNav';
@@ -43,6 +42,7 @@ import { CampanitaAvisos, ID_PANEL_AVISOS } from './CampanitaAvisos';
 import { InterruptorModo } from './InterruptorModo';
 import { useMakoAbierto } from '@/app/_chat/mako-abierto';
 import { iniciales } from '@/lib/unicode-seguro';
+import { CartelPrueba } from './CartelPrueba';
 
 const MONO = "'Geist Mono', monospace";
 export const RAIL = 68;
@@ -649,23 +649,11 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
    * subió arriba de todo y lo que es configuración de la plataforma está en el menú de la foto (nav.ts → HERRAMIENTAS).
    */
   /**
-   * MODO DEV. `/admin/dev` no es una sección más de Admin: es otro modo, y la
-   * barra se reemplaza ENTERA por el mapa de las 122 áreas (`familiasDev`).
-   *
-   * Por qué un modo y no un desplegable: 122 áreas en ocho familias no entran
-   * en un flyout, y aunque entraran, mirarlas desde afuera no es lo que hacés
-   * ahí — entrás a recorrerlas. El desplegable te deja parado en Admin.
-   *
-   * La familia `dev` de ADMIN_FAMILIAS ya no se pinta como carpeta, pero SIGUE
-   * exportada: es de donde `ADMIN_NAV` saca sus keys y `lib/titulo-tab.ts` el
-   * título de esas rutas. Borrarla dejaría media docena de pantallas sin nombre.
+   * El MODO DEV (/admin/dev cambiaba la barra entera por el mapa de las 122 áreas) se fue el 25/10/2026 (Martín: «Elimina
+   * "dev", ya no lo necesitamos»). La familia `dev` de ADMIN_FAMILIAS sigue exportada con Docs, UX/UI y el Grafo: es de
+   * donde `ADMIN_NAV` saca sus keys y `lib/titulo-tab.ts` el título de esas rutas, que otras pantallas enlazan.
    */
-  const enDev = pathname.startsWith('/admin/dev');
-  const familias = enDev
-    //  es opcional en NavFamilia y obligatorio en la vista: se normaliza
-    // acá, igual que con las de admin, y no se afloja el tipo de la vista.
-    ? familiasDev().map((f) => ({ ...f, grupos: f.grupos ?? [] }))
-    : familiasProducto;
+  const familias = familiasProducto;
 
   const todosDe = (f: typeof familias[number]) => [...f.bloques.flat(), ...f.grupos.flatMap((g) => g.items)];
 
@@ -705,22 +693,19 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
   // ninguna sección en el modo Dev.
   const familiaDeRuta = [...FAMILIAS, ...ADMIN_FAMILIAS].find((f) => itemsDe(f).some((i) => i.match(pathname)))?.key ?? null;
   const [rutaVista, setRutaVista] = useState(familiaDeRuta);
-  const [abiertaDev, setAbiertaDev] = useState<string | null>(familiaDeRuta ?? 'operate');
   const [plegadas, setPlegadas] = useState<ReadonlySet<string>>(() => new Set());
   useEffect(() => { setPlegadas(leerPlegadas()); }, []);
   if (familiaDeRuta && familiaDeRuta !== rutaVista) {
     setRutaVista(familiaDeRuta);
-    setAbiertaDev(familiaDeRuta);
     if (plegadas.has(familiaDeRuta)) {
       const sinEsa = new Set(plegadas);
       sinEsa.delete(familiaDeRuta);
       setPlegadas(sinEsa);
     }
   }
-  const estaAbierta = (k: string) => (enDev ? abiertaDev === k : !plegadas.has(k));
+  const estaAbierta = (k: string) => !plegadas.has(k);
   const alternarFamilia = (k: string) => {
     setExpanded(true);
-    if (enDev) { setAbiertaDev((prev) => (prev === k && open ? null : k)); return; }
     setPlegadas((prev) => {
       const n = new Set(prev);
       // Plegada la barra (el rail), el ícono de una familia plegada sólo la despliega: no se pliega lo que no se ve.
@@ -852,7 +837,6 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
     <aside data-sidebar data-fija={fija ? 'si' : 'no'} style={{ width: fija ? FULL : RAIL, flex: 'none', alignSelf: 'stretch', position: 'sticky', top: 0, height: '100vh', overflow: 'visible', zIndex: 60 }}>
       <div
         ref={panelRef}
-        className={enDev ? 'mk-sidebar--dev' : undefined}
         onMouseEnter={onEnter}
         onMouseLeave={onLeave}
         // Fin de la animación de ancho: recién acá la barra tiene su medida
@@ -881,30 +865,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
           )}
         </div>
 
-        {/* La marca del modo. Va ARRIBA de todo y con su propio filete: la
-            pregunta que responde es «¿dónde estoy?», y esa se contesta antes de
-            leer un renglón. Plegada quedan el filete y las tres letras, que es
-            lo máximo que entra y alcanza para no confundirse de shell. */}
-        {enDev && (
-          <div style={{ flex: 'none', margin: open ? '2px 2px 10px' : '2px 0 10px' }}>
-            <div style={{ height: 2, background: 'var(--dev-line)', borderRadius: 2, marginBottom: 9 }} />
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: open ? 'space-between' : 'center', gap: 8 }}>
-              <span style={{ fontFamily: MONO, fontSize: 10, letterSpacing: '.16em', color: 'var(--dev-line)', fontWeight: 700 }}>
-                {open ? 'MODO DEV' : 'DEV'}
-              </span>
-              {open && <a href="/clients" className="mk-dev-salir">← Regresar a Clientes</a>}
-            </div>
-            {/* Plegada la salida no entra como texto: queda la flecha sola,
-                que es el mismo destino y sigue siendo alcanzable. */}
-            {!open && (
-              <a href="/clients" title="Regresar a Clientes" aria-label="Regresar a Clientes"
-                style={{ display: 'block', textAlign: 'center', marginTop: 6, color: 'var(--dev-line)', fontSize: 14, textDecoration: 'none' }}>←</a>
-            )}
-          </div>
-        )}
-
         {/* EL BUSCADOR (17/10/2026 noche, Ctrl K): tabs, pantallas de adentro, ajustes y Platform, de lo que ESTA persona ve. */}
-        {!enDev && (
+        {(
           <div style={{ flex: 'none', marginBottom: 12 }}>
             <BuscadorNav abierta={open} onAbrir={() => setExpanded(true)} destinos={[
               ...familiasProducto.flatMap((f) => f.bloques.flat().flatMap((t): Destino[] => [
@@ -946,6 +908,8 @@ export function Sidebar({ inicial }: { inicial?: SidebarInicial }) {
 
         {/* El perfil. Second Brain vivía acá abajo hasta el 17/10/2026: subió arriba de todo, con su criatura. */}
         <div style={{ marginTop: 'auto', paddingTop: 12, flex: 'none' }}>
+          {/* LA VERSIÓN DE PRUEBA (25/10/2026, copiada de Madgicx): fija al pie, en todas las pantallas, mientras dura la prueba. */}
+          <CartelPrueba open={open} />
           <div style={{ height: 1, background: 'var(--sidebar-2)', margin: open ? '0 6px 8px' : '0 4px 8px' }} />
           {/* LA CAMPANITA (17/10/2026, app/_components/CampanitaAvisos.tsx) va en la fila de la identidad y no en una propia:
               la columna ya scrollea en 1024×768. Plegada, un punto sobre la foto. Sólo el admin: los avisos son del negocio. */}

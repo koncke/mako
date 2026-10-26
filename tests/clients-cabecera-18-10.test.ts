@@ -9,7 +9,7 @@
 //
 // PROBADO ROMPIÉNDOLO (18/10/2026), con el archivo en 3 / 0 y los archivos de antes, de a uno y restaurados:
 //   · app/customer-success/ClientesApp.tsx de antes (título y desplegable)          → 1 / 2
-//   · app/clients/estilos.ts de antes (la cabecera sobre `--cl-papel`)              → 2 / 1
+//   · app/classroom/estilos.ts de antes (la cabecera sobre `--cl-papel`)              → 2 / 1
 // Correr: node --import tsx --test tests/clients-cabecera-18-10.test.ts
 // =============================================================================
 
@@ -36,7 +36,7 @@ test('sin el desplegable del servicio, y «Editar etapas» en los tres puntos', 
 });
 
 test('el fondo de MaKo con la cuadrícula, no el papel crema', () => {
-  const css = leer('app/clients/estilos.ts');
+  const css = leer('app/classroom/estilos.ts');
   const cab = css.match(/\n\.cls-cab\{[^}]*\}/)?.[0] ?? '';
   assert.doesNotMatch(cab, /var\(--cl-papel\)/, 'la cabecera volvió al papel crema');
   assert.match(css, /\.cls-cuerpo--papel, \.cls-cab\{ background-color: var\(--bg\); background-image: radial-gradient\(var\(--border\) 1px, transparent 1px\)/);

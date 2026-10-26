@@ -1,8 +1,13 @@
 'use client';
 
 // =============================================================================
-// Seguridad — «Tu cuenta» › Seguridad, copiada de la de Google (15/10/2026)
+// Seguridad — Settings › Seguridad (15/10/2026; en el molde de LINEAR desde el 25/10/2026)
 // =============================================================================
+// 25/10/2026 (Martín: «rediseño completo… sin textos de sobra»): el molde es Security & Access de Linear
+// (docs/settings/referencia.md). Cada forma de entrar es una fila con su estado a la derecha y su punto («Activada ●»),
+// el estado general sólo aparece si FALTA algo, y los detalles perdieron sus párrafos: lo que se puede hacer es una fila con
+// su botón. La estructura de abajo (lista → detalle por `?ver=`, lo que borra sólo en el detalle) sigue siendo la de Google.
+//
 // El molde es myaccount.google.com/security (relevado el 15/10/2026; reglas.ts lo describe):
 //   · arriba la tarjeta de estado, con el escudo verde o ámbar y a dónde ir si falta algo;
 //   · «Cómo entras a MaKo» y «Tus dispositivos», como listas agrupadas: la fila ENTERA abre su detalle;
@@ -21,8 +26,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { startRegistration } from '@simplewebauthn/browser';
 import { useConfirm } from '@/app/_ui';
-import { IconoMenu } from '@/app/_ui/iconos-menu';
-import { CuerpoGrupo, FilaAjustes, GrupoAjustes, Pastilla, TituloAjustes } from '@/app/_ui/Ajustes';
+import { CuerpoGrupo, FilaAjustes, GrupoAjustes, PuntoEstado, TituloAjustes } from '@/app/_ui/Ajustes';
 import Link from '@/app/_ui/Link';
 import { descargarCodigos } from '@/app/login/2fa/descargar-codigos';
 import { CampoCodigo } from '@/app/login/2fa/CampoCodigo';
@@ -40,7 +44,7 @@ async function pedir(body: Record<string, unknown>): Promise<Respuesta> {
   return (await r.json().catch(() => ({ ok: false, error: 'No se pudo conectar.' }))) as Respuesta;
 }
 
-const estiloCodigo = { height: 44, padding: '0 14px', borderRadius: 10, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 18, letterSpacing: 4, width: 170, outline: 'none' } as const;
+const estiloCodigo = { height: 40, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 18, letterSpacing: 4, width: 170, outline: 'none' } as const;
 
 export function SeguridadCuenta({ ver }: { ver: string | null }) {
   const [e, setE] = useState<EstadoSeguridad | null>(null);
@@ -89,7 +93,7 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     return (
       <>
         <TituloAjustes titulo="Seguridad" />
-        <GrupoAjustes descripcion={sinLeer ? 'No se pudo leer tu seguridad. Recarga la página.' : 'Cargando…'} />
+        <GrupoAjustes><FilaAjustes titulo={sinLeer ? 'No se pudo leer tu seguridad. Recarga la página.' : 'Cargando…'} /></GrupoAjustes>
       </>
     );
   }
@@ -97,7 +101,7 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
   const avisoError = error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>;
   // Los códigos recién creados se muestran en la vista que sea: no se vuelven a ver nunca.
   const tarjetaCodigos = codigos && (
-    <GrupoAjustes titulo="Guarda estos códigos" descripcion="Cada uno sirve una vez, si pierdes el celular. No se vuelven a mostrar.">
+    <GrupoAjustes titulo="Guarda estos códigos" descripcion="No se vuelven a mostrar.">
       <CuerpoGrupo>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '8px 16px', fontFamily: "'Geist Mono', monospace", fontSize: 15, color: 'var(--ink)', margin: '4px 0 6px' }}>
           {codigos.map((c) => <div key={c}>{c}</div>)}
@@ -110,6 +114,8 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
       </CuerpoGrupo>
     </GrupoAjustes>
   );
+  /** El estado de una fila a la derecha, con su punto (Linear). */
+  const estado = (texto: string, tono: 'good' | 'off' | 'warn') => <>{texto}<PuntoEstado tono={tono} /></>;
 
   // ── La vista general ──────────────────────────────────────────────────────
   if (!detalle) {
@@ -117,34 +123,28 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     const dispositivos = filasDeDispositivos(e);
     return (
       <>
-        <TituloAjustes titulo="Seguridad" bajada="Cómo entras a MaKo y desde dónde." />
+        <TituloAjustes titulo="Seguridad" />
         {tarjetaCodigos}
-        {/* El estado, en la tarjeta de la columna de la derecha (GrupoAjustes sin título): alineado con las secciones de abajo. */}
-        <GrupoAjustes>
-          <div className="aj-estado" data-protegida={g.protegida}>
-            <span className="aj-estado-escudo"><IconoMenu nombre="escudo" size={30} /></span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <h2>{g.titulo}</h2>
-              <p>{g.detalle}</p>
-            </div>
-            {g.ir && <Link href={`${BASE}?ver=${g.ir}`} className="aj-boton">Resolver</Link>}
-          </div>
-        </GrupoAjustes>
+        {/* El estado general, sólo si FALTA algo: una cuenta protegida no necesita un cartel que lo diga. */}
+        {!g.protegida && (
+          <GrupoAjustes>
+            <FilaAjustes icono="escudo" titulo={g.titulo} detalle={g.detalle}
+              fin={g.ir ? <Link href={`${BASE}?ver=${g.ir}`} className="aj-boton">Resolver</Link> : undefined} />
+          </GrupoAjustes>
+        )}
 
-        <GrupoAjustes titulo="Cómo entras a MaKo" descripcion="Asegúrate de poder entrar siempre, aunque pierdas el celular.">
+        <GrupoAjustes titulo="Cómo entras">
           {filasDeAcceso(e).map((f) => (
-            <FilaAjustes key={f.clave} apilada icono={f.icono} titulo={f.titulo} detalle={f.detalle}
-              tono={f.estado?.tono} estado={f.estado?.texto} href={`${BASE}?ver=${f.clave}`} />
+            <FilaAjustes key={f.clave} icono={f.icono} titulo={f.titulo} valor={estado(f.valor.texto, f.valor.tono)} href={`${BASE}?ver=${f.clave}`} />
           ))}
         </GrupoAjustes>
 
-        <GrupoAjustes titulo="Tus dispositivos" descripcion="Los que recordaste al entrar: no te piden el código por 30 días."
-          pie={dispositivos.length > 1 && (
-            <Link href={`${BASE}?ver=${VER_DISPOSITIVOS}`} className="aj-boton" data-variante="texto" style={{ marginLeft: -12 }}>Administrar todos los dispositivos</Link>
-          )}>
+        {/* Los que recordaste al entrar (no te piden el código por 30 días). «Olvidar todos» vive en su detalle. */}
+        <GrupoAjustes titulo="Dispositivos recordados"
+          accion={dispositivos.length > 1 && <Link href={`${BASE}?ver=${VER_DISPOSITIVOS}`} className="aj-boton" data-variante="texto">Ver todos</Link>}>
           {dispositivos.length === 0
-            ? <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Ninguno todavía.</p></CuerpoGrupo>
-            : dispositivos.map((d) => <FilaAjustes key={d.id} apilada icono={d.icono} titulo={d.titulo} detalle={d.detalle} href={`${BASE}?ver=dispositivo-${d.id}`} />)}
+            ? <FilaAjustes titulo="Ninguno todavía" />
+            : dispositivos.map((d) => <FilaAjustes key={d.id} icono={d.icono} titulo={d.titulo} detalle={d.detalle} href={`${BASE}?ver=dispositivo-${d.id}`} />)}
         </GrupoAjustes>
         {avisoError}
         {confirmNode}
@@ -152,29 +152,25 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     );
   }
 
-  // ── Todos los dispositivos (donde vive «Olvidar todos», como el «Administrar» de Google) ──
+  // ── Todos los dispositivos (donde vive «Olvidar todos», como el «Revoke all» de Linear) ──
   if (detalle === VER_DISPOSITIVOS) {
     const dispositivos = filasDeDispositivos(e);
     return (
       <>
-        <TituloAjustes titulo="Tus dispositivos" volver={VOLVER} bajada="Los que recordaste al entrar: no te piden el código por 30 días." />
+        <TituloAjustes titulo="Dispositivos recordados" volver={VOLVER} />
         {avisoError}
-        <GrupoAjustes>
+        <GrupoAjustes titulo={dispositivos.length === 1 ? '1 dispositivo' : `${dispositivos.length} dispositivos`}
+          accion={dispositivos.length > 0 && (
+            <button type="button" className="aj-boton" data-variante="texto" style={{ color: 'var(--bad)' }} disabled={ocupado}
+              onClick={async () => {
+                if (!(await confirm('La próxima vez que entres desde cualquiera de ellos, MaKo te va a pedir el código.', { title: '¿Olvidar todos los dispositivos?', confirmLabel: 'Olvidar todos' }))) return;
+                void correr(() => pedir({ accion: 'dispositivo-revocar', id: 'todos' }).then(yRelee));
+              }}>Olvidar todos</button>
+          )}>
           {dispositivos.length === 0
-            ? <CuerpoGrupo><p className="aj-texto" style={{ margin: '18px 0 0' }}>Ninguno todavía.</p></CuerpoGrupo>
-            : dispositivos.map((d) => <FilaAjustes key={d.id} apilada icono={d.icono} titulo={d.titulo} detalle={d.detalle} href={`${BASE}?ver=dispositivo-${d.id}`} />)}
+            ? <FilaAjustes titulo="Ninguno todavía" />
+            : dispositivos.map((d) => <FilaAjustes key={d.id} icono={d.icono} titulo={d.titulo} detalle={d.detalle} href={`${BASE}?ver=dispositivo-${d.id}`} />)}
         </GrupoAjustes>
-        {dispositivos.length > 0 && (
-          <GrupoAjustes titulo="Olvidar todos" descripcion="La próxima vez que entres desde cualquiera de ellos, MaKo te va a pedir el código.">
-            <CuerpoGrupo>
-              <button type="button" className="aj-boton" data-variante="peligro" disabled={ocupado}
-                onClick={async () => {
-                  if (!(await confirm('La próxima vez que entres desde cualquiera de ellos, MaKo te va a pedir el código.', { title: '¿Olvidar todos los dispositivos?', confirmLabel: 'Olvidar todos' }))) return;
-                  void correr(() => pedir({ accion: 'dispositivo-revocar', id: 'todos' }).then(yRelee));
-                }}>Olvidar todos los dispositivos</button>
-            </CuerpoGrupo>
-          </GrupoAjustes>
-        )}
         {confirmNode}
       </>
     );
@@ -189,24 +185,25 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
       return (
         <>
           <TituloAjustes titulo="Dispositivo" volver={VOLVER} />
-          <GrupoAjustes descripcion="Este dispositivo ya no está recordado." />
+          <GrupoAjustes><FilaAjustes titulo="Este dispositivo ya no está recordado." /></GrupoAjustes>
         </>
       );
     }
     return (
       <>
-        <TituloAjustes titulo={d.titulo} volver={VOLVER} bajada={d.detalle} />
+        <TituloAjustes titulo={d.titulo} volver={VOLVER} />
         {avisoError}
-        <GrupoAjustes titulo="Recordado" descripcion={`No te pide el código hasta el ${fechaCorta(crudo.expira_at)}. Si lo olvidas, la próxima vez que entres desde ahí te lo pide.`}>
-          <CuerpoGrupo>
-            <div className="aj-acciones" style={{ marginTop: 4 }}>
-              <button type="button" className="aj-boton" data-variante="peligro" disabled={ocupado}
-                onClick={async () => {
-                  if (!(await confirm('La próxima vez que entres desde ahí, MaKo te va a pedir el código.', { title: `¿Olvidar ${d.titulo}?`, confirmLabel: 'Olvidar' }))) return;
-                  if (await correr(() => pedir({ accion: 'dispositivo-revocar', id }).then(yRelee))) history.back();
-                }}>Olvidar este dispositivo</button>
-            </div>
-          </CuerpoGrupo>
+        <GrupoAjustes>
+          <FilaAjustes titulo="Recordado desde" valor={fechaCorta(crudo.created_at)} />
+          <FilaAjustes titulo="Último uso" valor={crudo.usado_at ? fechaCorta(crudo.usado_at) : 'Sin usar todavía'} />
+          <FilaAjustes titulo="No pide el código hasta" valor={fechaCorta(crudo.expira_at)} />
+          <FilaAjustes titulo="Olvidar este dispositivo" peligro fin={(
+            <button type="button" className="aj-boton" data-variante="peligro" disabled={ocupado}
+              onClick={async () => {
+                if (!(await confirm('La próxima vez que entres desde ahí, MaKo te va a pedir el código.', { title: `¿Olvidar ${d.titulo}?`, confirmLabel: 'Olvidar' }))) return;
+                if (await correr(() => pedir({ accion: 'dispositivo-revocar', id }).then(yRelee))) history.back();
+              }}>Olvidar</button>
+          )} />
         </GrupoAjustes>
         {confirmNode}
       </>
@@ -217,6 +214,9 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     if (!(await confirm('Vas a poder volver a activarlo cuando quieras.', { title: `¿Quitar ${nombre}?`, confirmLabel: 'Quitar' }))) return;
     void correr(() => pedir({ accion: 'quitar', factor, passkeyId }).then(yRelee));
   };
+  const botonQuitar = (factor: string, nombre: string) => (
+    <button type="button" className="aj-boton" data-variante="texto" style={{ color: 'var(--bad)' }} disabled={ocupado} onClick={() => void quitar(factor, nombre)}>Quitar</button>
+  );
 
   // ── Verificación en 2 pasos (la app) ───────────────────────────────────────
   if (detalle === 'app') {
@@ -225,26 +225,20 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     const otros = filasDeAcceso(e).filter((f) => f.clave !== 'app' && f.clave !== 'contrasena');
     return (
       <>
-        <TituloAjustes titulo="Verificación en 2 pasos" volver={VOLVER}
-          bajada={`Además de Google, MaKo te pide un código de tu celular: si alguien consigue tu correo, igual no entra.${e.obligatorio ? ` Tu cuenta la exige${plazo}.` : ''}`} />
+        {/* La única línea: si tu cuenta la exige (y desde cuándo). Lo que es, lo dice el nombre. */}
+        <TituloAjustes titulo="Verificación en 2 pasos" volver={VOLVER} bajada={e.obligatorio ? `Tu cuenta la exige${plazo}.` : undefined} />
         {tarjetaCodigos}
         {avisoError}
-        <GrupoAjustes titulo="App de autenticación" descripcion="Google Authenticator, Microsoft Authenticator o la que uses: te da un código nuevo cada 30 segundos.">
-          <CuerpoGrupo>
-            {e.totp ? (
-              <>
-                <Pastilla tono="good">Activada</Pastilla>
-                <div className="aj-acciones">
-                  <button type="button" className="aj-boton" data-variante="peligro" disabled={ocupado} onClick={() => void quitar('totp', 'la app de autenticación')}>Quitar</button>
-                </div>
-              </>
-            ) : !qr ? (
-              <>
-                <p className="aj-texto">Vas a escanear un código QR con la app y escribir el número que te muestra.</p>
-                <button type="button" className="aj-boton" disabled={ocupado}
-                  onClick={() => void correr(() => pedir({ accion: 'totp-iniciar' }).then((j) => { if (j.ok) setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined }); return j; }))}>Configurar</button>
-              </>
-            ) : (
+        <GrupoAjustes>
+          {e.totp ? (
+            <FilaAjustes icono="escudo" titulo="App de autenticación" detalle="Un código nuevo cada 30 segundos" valor={estado('Activada', 'good')} fin={botonQuitar('totp', 'la app de autenticación')} />
+          ) : !qr ? (
+            <FilaAjustes icono="escudo" titulo="App de autenticación" detalle="Google Authenticator, Microsoft Authenticator…" fin={(
+              <button type="button" className="aj-boton" disabled={ocupado}
+                onClick={() => void correr(() => pedir({ accion: 'totp-iniciar' }).then((j) => { if (j.ok) setQr({ qr: String(j.qr), secreto: String(j.secreto), uri: typeof j.uri === 'string' ? j.uri : undefined }); return j; }))}>Configurar</button>
+            )} />
+          ) : (
+            <CuerpoGrupo>
               <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                 {/* eslint-disable-next-line @next/next/no-img-element -- data URL generado en el server */}
                 <img src={qr.qr} alt="Código QR" width={168} height={168} style={{ borderRadius: 12, background: '#fff', border: '1px solid var(--border)', flex: 'none' }} />
@@ -262,11 +256,11 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
                   </div>
                 </div>
               </div>
-            )}
-          </CuerpoGrupo>
+            </CuerpoGrupo>
+          )}
         </GrupoAjustes>
-        <GrupoAjustes titulo="Otras formas del segundo paso" descripcion="Por si no tienes la app a mano.">
-          {otros.map((f) => <FilaAjustes key={f.clave} apilada icono={f.icono} titulo={f.titulo} detalle={f.detalle} href={`${BASE}?ver=${f.clave}`} />)}
+        <GrupoAjustes titulo="Otras formas">
+          {otros.map((f) => <FilaAjustes key={f.clave} icono={f.icono} titulo={f.titulo} valor={estado(f.valor.texto, f.valor.tono)} href={`${BASE}?ver=${f.clave}`} />)}
         </GrupoAjustes>
         {confirmNode}
       </>
@@ -277,30 +271,30 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
   if (detalle === 'llaves') {
     return (
       <>
-        <TituloAjustes titulo="Llaves de acceso" volver={VOLVER} bajada="Entras con tu huella, tu cara o el bloqueo de tu celular, sin escribir códigos." />
+        <TituloAjustes titulo="Llaves de acceso" volver={VOLVER} />
         {avisoError}
-        <GrupoAjustes titulo="Tus llaves">
+        <GrupoAjustes titulo={e.passkeys.length === 1 ? '1 llave' : `${e.passkeys.length} llaves`}>
           {e.passkeys.length === 0
-            ? <CuerpoGrupo><p className="aj-texto" style={{ margin: 0 }}>Todavía no tienes ninguna.</p></CuerpoGrupo>
+            ? <FilaAjustes titulo="Todavía no tienes ninguna" />
             : e.passkeys.map((p) => (
-              <FilaAjustes key={p.id} apilada icono="llave" titulo={p.nombre || 'Llave'}
+              <FilaAjustes key={p.id} icono="llave" titulo={p.nombre || 'Llave'}
                 detalle={`Creada el ${fechaCorta(p.created_at)}${p.usado_at ? ` · último uso el ${fechaCorta(p.usado_at)}` : ''}`}
                 fin={<button type="button" className="aj-boton" data-variante="texto" style={{ color: 'var(--bad)' }} disabled={ocupado} onClick={() => void quitar('passkey', 'esta llave', p.id)}>Quitar</button>} />
             ))}
-          <div className="aj-grupo-pie">
-            {e.passkeysDisponibles ? (
+          {e.passkeysDisponibles ? (
+            <FilaAjustes titulo="Huella o Face ID de este celular" fin={(
               <button type="button" className="aj-boton" disabled={ocupado} onClick={() => void correr(async () => {
                 const o = await pedir({ accion: 'passkey-opciones' });
                 if (!o.ok) return o;
                 const respuesta = await startRegistration({ optionsJSON: o.opciones as Parameters<typeof startRegistration>[0]['optionsJSON'] });
                 return yRelee(await pedir({ accion: 'passkey-verificar', respuesta, nombre: navigator.platform || '' }));
-              })}>Crear una llave en este celular</button>
-            ) : (
-              // La huella se activa sólo desde el celular (decisión de Martín, 14/10/2026); en la computadora
-              // se listan las que hay, para poder quitarlas.
-              <p className="aj-texto" style={{ margin: 0 }}>Se crean desde MaKo en tu celular: Tu cuenta › Seguridad › Llaves de acceso.</p>
-            )}
-          </div>
+              })}>Crear una llave</button>
+            )} />
+          ) : (
+            // La huella se activa sólo desde el celular (decisión de Martín, 14/10/2026); en la computadora
+            // se listan las que hay, para poder quitarlas.
+            <FilaAjustes icono="celular" titulo="Se crean desde MaKo en tu celular" />
+          )}
         </GrupoAjustes>
         {confirmNode}
       </>
@@ -315,20 +309,15 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
     }));
     return (
       <>
-        <TituloAjustes titulo="Contraseña" volver={VOLVER}
-          bajada="Para entrar con tu correo cuando no puedas con Google. Igual te pide la verificación en 2 pasos." />
+        <TituloAjustes titulo="Contraseña" volver={VOLVER} />
         {avisoError}
         <GrupoAjustes>
-          <CuerpoGrupo>
-            <div style={{ margin: '18px 0 16px' }}>
-              {e.contrasena ? <Pastilla tono="good">Creada</Pastilla> : e.contrasena === false ? <Pastilla tono="warn">Falta crearla</Pastilla> : <span className="aj-texto">No se pudo leer.</span>}
-            </div>
-            {!e.totp ? (
-              <>
-                <p className="aj-texto">Para crearla o cambiarla, primero activa la verificación en 2 pasos con la app.</p>
-                <Link href={`${BASE}?ver=app`} className="aj-boton">Activar la verificación en 2 pasos</Link>
-              </>
-            ) : (
+          <FilaAjustes icono="candado" titulo="Contraseña" detalle="Para entrar con tu correo, sin Google"
+            valor={e.contrasena ? estado('Creada', 'good') : e.contrasena === false ? estado('Falta crearla', 'warn') : estado('No se pudo leer', 'off')} />
+          {!e.totp ? (
+            <FilaAjustes titulo="Primero activa la verificación en 2 pasos" fin={<Link href={`${BASE}?ver=app`} className="aj-boton">Activar</Link>} />
+          ) : (
+            <CuerpoGrupo>
               <form onSubmit={(ev) => { ev.preventDefault(); if (nuevaPass && codigo.length === 6) guardar(); }} style={{ maxWidth: 400 }}>
                 {/* El correo, oculto: el gestor de contraseñas la guarda con la cuenta correcta. */}
                 <input type="email" autoComplete="username" value={e.cuenta} readOnly hidden />
@@ -345,8 +334,8 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
                   <button type="submit" className="aj-boton" disabled={ocupado || !nuevaPass || codigo.length !== 6}>{e.contrasena ? 'Cambiar la contraseña' : 'Crear la contraseña'}</button>
                 </div>
               </form>
-            )}
-          </CuerpoGrupo>
+            </CuerpoGrupo>
+          )}
         </GrupoAjustes>
       </>
     );
@@ -356,28 +345,24 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
   if (detalle === 'codigos') {
     return (
       <>
-        <TituloAjustes titulo="Códigos de recuperación" volver={VOLVER}
-          bajada="Si pierdes el celular, cada código te deja entrar una vez. Guárdalos fuera del celular." />
+        {/* Una línea, porque es lo que hay que saber de ellos. */}
+        <TituloAjustes titulo="Códigos de recuperación" volver={VOLVER} bajada="Cada uno te deja entrar una vez si pierdes el celular." />
         {tarjetaCodigos}
         {avisoError}
         <GrupoAjustes>
-          <CuerpoGrupo>
-            {cantidadMetodos(e) === 0 ? (
-              <>
-                <p className="aj-texto" style={{ marginTop: 18 }}>Se crean al activar la verificación en 2 pasos.</p>
-                <Link href={`${BASE}?ver=app`} className="aj-boton">Activar la verificación en 2 pasos</Link>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 22, fontWeight: 500, color: 'var(--ink)', margin: '18px 0 4px' }}>Te quedan {e.codigosRestantes} de 10</div>
-                <p className="aj-texto">Si crees que alguien los vio, o ya usaste varios, genera códigos nuevos: los de antes dejan de servir.</p>
+          {cantidadMetodos(e) === 0 ? (
+            <FilaAjustes titulo="Se crean al activar la verificación en 2 pasos" fin={<Link href={`${BASE}?ver=app`} className="aj-boton">Activar</Link>} />
+          ) : (
+            <>
+              <FilaAjustes icono="numero" titulo="Te quedan" valor={estado(`${e.codigosRestantes} de 10`, e.codigosRestantes > 2 ? 'good' : 'warn')} />
+              <FilaAjustes titulo="Generar códigos nuevos" detalle="Los de ahora dejan de servir" fin={(
                 <button type="button" className="aj-boton" data-variante="borde" disabled={ocupado} onClick={async () => {
                   if (!(await confirm('Los códigos que tienes ahora dejan de servir.', { title: '¿Generar códigos nuevos?', confirmLabel: 'Generar', danger: false }))) return;
                   void correr(() => pedir({ accion: 'codigos-generar' }).then(yRelee));
-                }}>Generar códigos nuevos</button>
-              </>
-            )}
-          </CuerpoGrupo>
+                }}>Generar</button>
+              )} />
+            </>
+          )}
         </GrupoAjustes>
         {confirmNode}
       </>
@@ -390,24 +375,16 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
   const nombre = canal === 'whatsapp' ? 'Código por WhatsApp' : 'Correo de respaldo';
   return (
     <>
-      <TituloAjustes titulo={nombre} volver={VOLVER}
-        bajada={canal === 'whatsapp' ? 'Te mandamos el código por WhatsApp cuando entras.' : 'Te mandamos el código a un correo distinto del de Google.'} />
+      <TituloAjustes titulo={nombre} volver={VOLVER} />
       {tarjetaCodigos}
       {avisoError}
       <GrupoAjustes>
-        <CuerpoGrupo>
-          {activo ? (
-            <>
-              <div style={{ margin: '18px 0 4px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <Pastilla tono="good">Activado</Pastilla>
-                <span style={{ fontSize: 15, color: 'var(--ink)' }}>{activo}</span>
-              </div>
-              <div className="aj-acciones">
-                <button type="button" className="aj-boton" data-variante="peligro" disabled={ocupado} onClick={() => void quitar(canal, canal === 'whatsapp' ? 'el código por WhatsApp' : 'el correo de respaldo')}>Quitar</button>
-              </div>
-            </>
-          ) : !enviadoA ? (
-            <form style={{ maxWidth: 400, marginTop: 18 }} onSubmit={(ev) => {
+        {activo ? (
+          <FilaAjustes icono={canal === 'whatsapp' ? 'whatsapp' : 'email'} titulo={activo} valor={estado('Activado', 'good')}
+            fin={botonQuitar(canal, canal === 'whatsapp' ? 'el código por WhatsApp' : 'el correo de respaldo')} />
+        ) : !enviadoA ? (
+          <CuerpoGrupo>
+            <form style={{ maxWidth: 400 }} onSubmit={(ev) => {
               ev.preventDefault();
               void correr(() => pedir({ accion: 'codigo-enviar', canal, destino }).then((j) => { if (j.ok) setEnviadoA(String(j.destino)); return j; }));
             }}>
@@ -418,18 +395,18 @@ export function SeguridadCuenta({ ver }: { ver: string | null }) {
                 <button type="submit" className="aj-boton" disabled={ocupado || !destino.trim()}>Mandar el código</button>
               </div>
             </form>
-          ) : (
-            <div style={{ marginTop: 18 }}>
-              <p className="aj-texto">Te lo mandamos a {enviadoA}.</p>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-                <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={estiloCodigo}
-                  onCompleto={() => void correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(yRelee))} />
-                <button type="button" className="aj-boton" disabled={ocupado || codigo.length !== 6}
-                  onClick={() => void correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(yRelee))}>Activar</button>
-              </div>
+          </CuerpoGrupo>
+        ) : (
+          <CuerpoGrupo>
+            <p className="aj-texto">Te lo mandamos a {enviadoA}.</p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <CampoCodigo valor={codigo} onCambio={setCodigo} ocupado={ocupado} error={error} estilo={estiloCodigo}
+                onCompleto={() => void correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(yRelee))} />
+              <button type="button" className="aj-boton" disabled={ocupado || codigo.length !== 6}
+                onClick={() => void correr(() => pedir({ accion: 'codigo-confirmar', canal, codigo }).then(yRelee))}>Activar</button>
             </div>
-          )}
-        </CuerpoGrupo>
+          </CuerpoGrupo>
+        )}
       </GrupoAjustes>
       {confirmNode}
     </>

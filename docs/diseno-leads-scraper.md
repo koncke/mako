@@ -1,3 +1,7 @@
+> **RETIRADO el 25/10/2026.** Martín: «Depreca Hotmart, Skool... Elimina Apify». Se sacaron las tres integraciones, sus webhooks,
+> la pantalla /crm/prospectos y sus dos operaciones de la API (medido antes: 0 claves, 0 leads, 0 búsquedas). Este diseño queda
+> como historia. El guard: `tests/leads-scraper-retirado.test.ts`; el porqué: `docs/hallazgos-integraciones.md`.
+
 # Leads Scraper: qué fuentes se pueden usar y con qué riesgo (14/10/2026)
 
 > Pedido de Martín, pasado por el chat «Estrategia 3 cuentas» el 14/10/2026: scrapear leads de Instagram, LinkedIn,

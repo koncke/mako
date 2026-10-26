@@ -32,7 +32,7 @@
 //     f28 de la llamada con Leandro: «La sidebar negra del Classroom, ahí no tiene que ser un desplegable. Eso es
 //     un bug»). El curso se elige arriba, en el programa de la cabecera de Clients (UN selector: un curso es un
 //     producto), «+ Nuevo producto» va al final de esa lista, y el color y la fuente, en «Personalizar»
-//     (app/clients/ClientsShell.tsx).
+//     (app/classroom/ClientsShell.tsx).
 //   · ⚠️ SIN «Avance de los clientes» desde el 08/10/2026 (item 4): es una vista de /customer-success.
 //
 // ⚠️ EL CURSO CUELGA DE LAS ETAPAS DE LA ENTREGA, no tiene etapas propias (mig 0202). Las
@@ -107,7 +107,7 @@ import { comentariosDeClase } from '@/lib/curso-estilo';
 import type { ClaseUgc, ControlMenuUgc, ModuloUgc } from '@/app/_cursos/tipos';
 import { PASOS_RECORRIDO, PASOS_RECORRIDO_LECCION, RECORRIDO_CURSO, RECORRIDO_LECCION } from './recorridos-curso';
 // El programa de la cabecera de Clients y el de esta pantalla son el mismo (17/10/2026).
-import { usePrograma, useProgramaEnUrl } from '@/app/clients/programa-url';
+import { usePrograma, useProgramaEnUrl } from '@/app/classroom/programa-url';
 
 /**
  * Un servicio con su curso. `etapas` = las columnas del KANBAN (las de la tabla Avance, con su color);
@@ -129,7 +129,7 @@ const SIN_ESTILOS: Record<number, EstiloCurso> = {};
 //    son datos puros, y así un test puede comprobar que cada paso señala algo que existe en el fuente.
 
 /** La vista previa del alumno de un producto (./vista/page.tsx): sin lead, no crea accesos. */
-const hrefVistaPrevia = (productoId: number) => `/clients/classroom/preview?producto=${productoId}`;
+const hrefVistaPrevia = (productoId: number) => `/classroom/preview?producto=${productoId}`;
 
 export function CursoApp({
   servicios, clases: clasesProp, avance, avanceError, conAvance, puedeEditar, inicial, errorClases, errorEntrega,
@@ -165,7 +165,7 @@ export function CursoApp({
 }) {
   // El producto: el de la URL (o el primero), RE-SEMBRADO cuando la cabecera de Clients cambia de programa (navega
   // con otro `?producto=`); cambiarlo acá adentro lo escribe en la URL para que la cabecera diga el mismo
-  // (app/clients/programa-url.ts).
+  // (app/classroom/programa-url.ts).
   const [productoId] = usePrograma(
     servicios.some((s) => s.productoId === inicial.productoId) ? inicial.productoId : servicios[0]?.productoId ?? null,
   );
@@ -445,7 +445,7 @@ export function CursoApp({
       <Pagina>
         <EmptyState titulo="Todavía no hay servicios"
           detalle="El curso cuelga de las etapas de un producto. Créalo en Clients."
-          accion={{ label: 'Ir a Clients', href: '/clients' }} />
+          accion={{ label: 'Ir a Clients', href: '/classroom/clients' }} />
       </Pagina>
     );
   }
@@ -876,7 +876,7 @@ export function CursoApp({
         <>
           {l.despues}
           <ComentariosClase key={c.id} api={apiComunidad} claseId={c.id}
-            linkComunidad={(postId) => conWs(`/clients/community?producto=${c.productoId}&post=${postId}`, wsPestana)} />
+            linkComunidad={(postId) => conWs(`/classroom/community?producto=${c.productoId}&post=${postId}`, wsPestana)} />
         </>
       ),
     };
@@ -1026,7 +1026,7 @@ export function CursoApp({
   }
 
   return (
-    // ⚠️ SIN CABECERA PROPIA: arriba está la de Clients (el programa y las sub-tabs, app/clients/ClientsShell.tsx).
+    // ⚠️ SIN CABECERA PROPIA: arriba está la de Clients (el programa y las sub-tabs, app/classroom/ClientsShell.tsx).
     //    El producto se elige ahí (UN selector, 24/10/2026) y la vista del alumno, invitar y el «?» van en la barra
     //    del curso.
     // ⚠️ EMBEBIDO desde el 17/10/2026: con la cabecera de Clients encima, el alto ya no es la ventana. Lo da el

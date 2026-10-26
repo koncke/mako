@@ -34,6 +34,31 @@ que quedaron en `lib/api-mako/areas/cs.def.ts`.
 
 ---
 
+## «Clients» pasa a llamarse «Classroom», y su ruta /classroom (25/10/2026)
+
+Martín (punto 11 del feedback de la tarde): «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»
+- **/classroom abre el CURSO**, que es lo que el nombre promete; el kanban de la entrega es la sub-tab Clients
+  (/classroom/clients). Orden: Classroom · Community · Clients · Calendar · Members · Leaderboards · About — los tres
+  primeros son el trío del teléfono, que tiene que ser el MISMO (tests/partners.test.ts lo compara).
+- ⚠️ **Lo viejo redirige en `next.config.ts`, no en una página.** Una página con `redirect()` adentro de una carpeta con
+  `loading.tsx` es el React #310 que ya pasó en el Ops Center; `next.config` corre ANTES de dibujar y lleva la query
+  sola. `rutaNuevaDeVieja` (lib/clients-rutas.ts) dice lo mismo para quien arma un link, y su test compara las dos tablas:
+  `/clients/classroom` tiene que ir ANTES de `/clients/:path*` (si no, cae en /classroom/classroom).
+- **Todo sale de UNA constante** (`RUTA_CLASSROOM`/`RUTA_CLIENTES`): la cabecera, las sub-tabs, el teléfono y la API de
+  MaKo (áreas `cs`, `curso` y `comunidad`, que cambian `docs/api-mako.md`). Lo escrito a mano (`revalidatePath('/clients')`,
+  los links que se mandan por WhatsApp en cs-sin-contacto) se cambió con reglas de más larga a más corta; en los tests hay
+  además la forma ESCAPADA (`\/clients\/classroom` en un regex), que un reemplazo de texto no ve.
+- **En el teléfono, la fila de More dice «Classroom» y abre /m/cs** (el kanban, con el trío arriba): /m/curso pide la
+  llave `cs-curso` y la fila es `customer-success`, y el guardián de More exige que coincidan.
+- **Quedan con /clients:** app/partners (otro chat; el redirect los cubre).
+- ⚠️ **Al juntarlo con Customers (/customers, la vista del super admin): una sola grilla de cada cosa.** Para la plataforma
+  «mis clientes» son NEGOCIOS (su grilla es Customers, con Billing y Agents); el kanban de leads ganados es de cada negocio.
+  Si el super admin veía «Clients» en Classroom, era una segunda grilla o un link que saltaba a /customers (pantalla.tsx lo
+  redirige). Así que la plataforma ve Classroom SIN «Clients» y CON «Methodology» (`seccionesDe`), y entra por /customers
+  (app/admin, app/inicio). ⚠️ En el teléfono, /m/cs sigue mostrándole al super admin el kanban de leads: quedó sin tocar.
+
+**Vive en:** `lib/clients-rutas.ts` · `app/classroom/` · `next.config.ts` · `lib/movil-rutas.ts` · `tests/clients-rutas.test.ts`
+
 ## El Deshacer de la entrega repone lo que creía la PANTALLA, no lo que pisó el server (14/10/2026)
 
 Lo encontró la verificación del tablero de Clientes del teléfono, y el escritorio usa el mismo patrón
@@ -6015,3 +6040,20 @@ módulos, clases y su configuración; nunca los alumnos ni su progreso», en el 
 `tests/clients-duplicar-programa.test.ts` (10 roturas, cada una cae)
 
 *25/10/2026 · chat «Clients» (claude5), por encargo del Cerebro · tests y roturas medidos; sin probar contra la base.*
+
+## Las clases con video de Wistia, Bunny Stream o Cloudflare Stream ya miden cuánto vio el alumno (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro, «otros alojadores de video»): que los cursos traigan los datos de los videos de esas
+herramientas. Hasta acá Wistia y Bunny se veían adentro de la clase pero «sin medir», como Drive, y Cloudflare no se
+reconocía (caía «afuera», un botón que abre otra pestaña).
+
+**Lo que no era obvio:** los tres reproductores SÍ dicen el tiempo por postMessage, cada uno a su modo. Wistia avisa solo
+(`_trigger` con `timechange` y la duración en `transmit-stats`). Bunny habla player.js y NO dice nada hasta que se lo
+suscribe, así que hay que suscribirlo al cargar el iframe y otra vez en su saludo (`ready`), por si llegó antes. Cloudflare
+manda todo solo (`propertyChange` de `duration` y `currentTime`). Lo lee `lecturaDeAlojador` (lib/embeds.ts), con el
+mismo contrato que `lecturaDePanda`, y lo usa `VideoAlojado` (app/compartido/curso/[token]/Reproductor.tsx) con la misma
+guarda de ventana y origen.
+
+**Medido con el reproductor REAL de cada uno** (el lector compilado, en Chrome sin ventana, clic para reproducir y para
+pausar): Wistia dio 77 s de duración, 33 avances y la pausa; Bunny, 22,7 s, 39 avances, el saludo y la pausa; Cloudflare,
+29,9 s, 32 avances y la pausa. La columna `video_tipo` no cambia: van como `url` (su CHECK, mig 0202).

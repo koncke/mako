@@ -84,6 +84,10 @@ test('4. el Uso: el esqueleto mientras llega el estado; sin ninguna computadora,
   // desktop"»): sin computadora, ni cuentas ni «Nueva cuenta».
   assert.match(t, /\{vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar=\{\(\) => abrirTutorialEn\(4\)\} \/>\}/);
   assert.match(t, /\{\(estado \|\| leido\) && !vacia && !eligiendo && !tutorial && \(\n\s*<>\n\s*<NuevaCuenta /, '«Nueva cuenta» recién con el estado, y no sin computadora');
+  // 25/10/2026 tarde, LO POSTERIOR GANA (Martín: «elimina las IA dentro de las integraciones, para eso tenemos el bloque que dice
+  // "Tus cuentas de IA"»): las claves de API salieron de la grilla y viven acá, así que «sin computadora, SÓLO el botón» pasó a
+  // «sin computadora, el botón Y las claves». Sin ellas, quien no tiene MaKo Desktop no tendría dónde pegar su clave.
+  assert.match(t, /\{\(estado \|\| leido\) && !eligiendo && !tutorial && <ClavesDeApi /, 'las claves de API, con o sin computadora');
   assert.match(t, /<DescargarMaKo className="tci-instalar__boton" texto="Instalar MaKo desktop" onClick=\{\(\) => setDescargado\(true\)\}>/);
   assert.match(t, /setLeido\(true\);/, 'sin estado después de intentar, no queda el esqueleto para siempre');
 });

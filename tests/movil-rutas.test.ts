@@ -105,7 +105,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
     ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
     // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
-    ['mensajes', 'mensajes', null, true], ['modelos-ia', 'modelos-ia', null, true], ['contexto', 'contexto', null, true],
+    ['mensajes', 'mensajes', null, true],
     ['api-mako', 'api-mako', null, true], ['conocimientos', 'conocimientos', null, true],
     ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas
@@ -296,18 +296,18 @@ test('las siete de More (15/10/2026): cada pantalla de escritorio, y sus alias, 
     ['/customer-success/curso?vista=avance&producto=3', '/m/cs'],
     ['/customer-success/comunidad', '/m/comunidad'], ['/customer-success/comunidad?post=12&ws=3', '/m/comunidad?post=12'],
     // La tab Clients (17/10/2026): Classroom y las cinco sub-tabs de la comunidad, ANTES que Clients.
-    ['/clients', '/m/cs'], ['/clients?producto=3&cliente=21', '/m/cs'], ['/clients/classroom', '/m/curso'],
-    ['/clients/classroom?producto=3', '/m/curso?producto=3'], ['/clients/classroom/preview?producto=3', '/m/curso?producto=3'],
-    ['/clients/community', '/m/comunidad'], ['/clients/community?post=12&ws=3', '/m/comunidad?post=12'],
-    ['/clients/calendar', '/m/comunidad'], ['/clients/members', '/m/comunidad'], ['/clients/leaderboards', '/m/comunidad'],
-    ['/clients/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
+    ['/classroom/clients', '/m/cs'], ['/classroom/clients?producto=3&cliente=21', '/m/cs'], ['/classroom', '/m/curso'],
+    ['/classroom?producto=3', '/m/curso?producto=3'], ['/classroom/preview?producto=3', '/m/curso?producto=3'],
+    ['/classroom/community', '/m/comunidad'], ['/classroom/community?post=12&ws=3', '/m/comunidad?post=12'],
+    ['/classroom/calendar', '/m/comunidad'], ['/classroom/members', '/m/comunidad'], ['/classroom/leaderboards', '/m/comunidad'],
+    ['/classroom/about?producto=4', '/m/comunidad?producto=4'], ['/clientsx', null],
     // El prefijo va con barra.
     ['/calendariox', null], ['/offerx', null], ['/second-brainx', null],
   ];
   for (const [p, esperado] of casos) assert.equal(rutaMovil(p), esperado, p);
   // Un Web Push sale por `rutaMovilOHome` y VUELVE a escritorio (lib/push-payload.ts: linkApp → conWs →
   // rutaEscritorio): lo que no se conserva acá, la computadora también lo pierde.
-  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/clients/community?post=12',
+  for (const p of ['/experimentos?tab=analisis', '/ads-writer?tab=analizar', '/classroom/community?post=12',
     '/calendario?vista=mes&fecha=2026-10-14', '/second-brain?area=voz&vista=persona', '/offer?oferta=7']) {
     assert.equal(rutaEscritorio(rutaMovilOHome(p)), p, p);
   }

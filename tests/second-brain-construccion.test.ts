@@ -41,7 +41,7 @@ const hito = (fecha: string, hora: string, chat: string, titulo: string, extra: 
   fecha, hora, chat, cuenta: 'claude4', actor: 'claude', tipo: 'implementacion', titulo, puntos: [`**${titulo}**: lo que pasó`], ...extra,
 });
 const AREAS: AreaDeObra[] = [
-  { slug: 'crm', titulo: 'CRM', familia: 'Sales Machine', estado: 'parcial', alcance: 'El tablero de leads.', nota: 'stageMeta miente', vive: ['app/crm/a.tsx', 'lib/leads.ts', 'lib/comun.ts', 'lib/workspace.ts'],
+  { slug: 'crm', titulo: 'CRM', familia: 'Sales Machine', estado: 'parcial', alcance: 'El tablero de leads.', nota: 'stageMeta miente', verEnApp: '/crm', vive: ['app/crm/a.tsx', 'lib/leads.ts', 'lib/comun.ts', 'lib/workspace.ts'],
     partes: [{ titulo: 'Ficha', detalle: '', estado: 'hecha' }, { titulo: 'Bandeja', detalle: '', estado: 'sigue' }],
     bitacora: [hito('1 sep', '10:00', 'CRM', 'viejo'), hito('15 oct', '10:00', 'CRM', 'uno'), hito('16 oct', '10:00', 'CRM', 'dos'), hito('17 oct', '03:47', 'CRM', 'tres', { revisar: '/crm' })] },
   { slug: 'pagos', titulo: 'Pagos', familia: 'Business', estado: 'listo', alcance: 'Cobros.', vive: ['app/pagos/b.tsx', 'lib/leads.ts', 'lib/comun.ts', 'lib/workspace.ts'],
@@ -64,7 +64,8 @@ test('13b · las áreas, sus últimos hitos y los chats jefe, con sus aristas', 
   assert.equal(porId.get('raiz')!.etiqueta, 'MaKo');
   const crm = porId.get('dev:crm')!;
   assert.equal(crm.area, 'sales-machine');
-  assert.equal(crm.href, '/admin/dev/crm');
+  assert.equal(crm.href, '/crm', 'el área abre su tab: la página de su bitácora (/admin/dev/crm) se fue con Dev');
+  assert.equal(porId.get('dev:pagos')!.href, undefined, 'sin página propia, el nodo no abre nada (nunca un link muerto)');
   assert.ok((crm.datos ?? []).some((d) => d.k === 'Partes' && d.v === '1 hechas · 1 siguen · 0 en cola'));
   const hitosCrm = nodos.filter((n) => n.id.startsWith('hito:crm:'));
   assert.equal(hitosCrm.length, TOPES_CONSTRUCCION.hitosPorArea, 'los últimos de cada área, con tope');
@@ -126,12 +127,10 @@ test('13b · sólo quien opera recibe la capa, y la construcción no se edita ni
   assert.match(leer('lib/cerebro-construccion-datos.ts'), /^import 'server-only';/m);
 });
 
-test('13b · /admin/dev lleva al grafo, y la barra de antes se fue', () => {
+test('13b · /admin/dev se fue (25/10/2026) y redirige al Ops Center; el mapa de áreas no vuelve', () => {
   assert.ok(!existsSync(join(RAIZ, 'app/admin/dev/MapaAreas.tsx')));
-  const p = sinComentarios(leer('app/admin/dev/page.tsx'));
-  const i = p.indexOf('const admin = await getSesionAdmin();');
-  const j = p.indexOf("redirect('/admin/operaciones?panel=mapa&capa=construccion');");
-  assert.ok(i > 0 && j > i, 'el guard primero, después al grafo');
+  assert.ok(!existsSync(join(RAIZ, 'app/admin/dev/page.tsx')), 'volvió la pantalla de Dev');
+  assert.match(leer('next.config.ts'), /\{ source: '\/admin\/dev', destination: '\/admin\/operaciones', permanent: false \}/);
 });
 
 test('13b · `?capa=construccion` abre el mapa único ya filtrado a esa capa', () => {

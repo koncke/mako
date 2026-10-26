@@ -12,6 +12,7 @@
 import { requireAiAvatar } from './acceso';
 import { Pagina, PageHeader } from '@/app/_ui';
 import { CrearVideo } from './AiAvatarCliente';
+import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,6 +23,7 @@ export default async function AiAvatarPage({ searchParams }: { searchParams: Pro
   return (
     <Pagina>
       <PageHeader titulo="Create video" proposito="Tu avatar dice tu guion." />
+      <FranjaPrueba cosas={['prueba.avatares', 'prueba.tomas']} />
       <CrearVideo avatarInicial={uno(sp.avatar)} plantillaInicial={uno(sp.plantilla)} />
     </Pagina>
   );

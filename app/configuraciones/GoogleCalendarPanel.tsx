@@ -7,9 +7,9 @@
 // Google Calendar. La conexión es DE CADA WORKSPACE: cada cliente conecta su
 // propia agenda (antes era owner-only y el resto comía un 403).
 //
-// Entrar con Google ya pide el scope de la agenda y la conecta sola. Este panel
-// sigue siendo el camino manual para RE-AUTORIZAR sin desloguearse (quien se
-// logueó antes de que el login pidiera Calendar no otorgó ese permiso).
+// Entrar con Google NO pide la agenda (sólo con GOOGLE_LOGIN_CON_AGENDA=1, apagado
+// hasta que Google verifique la app: lib/google-login-agenda.ts). La agenda se conecta
+// con el modal de la integración, que se abre en Calendario y en el CRM.
 //
 // ⚠️ REGLA DE ESTADO (la pidió el dueño): «si necesitaba más permisos, debe
 // aparecer como DESCONECTADO». Un token que lee pero no puede MOVER eventos no es
@@ -18,7 +18,8 @@
 // nunca en verde. El verde queda para `conectado && puedeMover`, y punto.
 //
 // OJO: hoy este componente NO está montado en ninguna página — el botón vivo es
-// la acción "Conectar Google Calendar" del modal de /integraciones.
+// la acción "Conectar Google Calendar" del modal de la integración (sin tarjeta en
+// /integraciones desde el 25/10/2026: se abre en Calendario, el CRM y con ?abrir=google).
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import { useSearchParams } from 'next/navigation';

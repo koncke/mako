@@ -63,7 +63,7 @@ async function puertaProducto(productoId: number): Promise<string | null> {
 }
 
 /** Marca el kanban de Clientes: lee las etapas en su próxima carga. */
-const alKanban = () => revalidatePath('/clients');
+const alKanban = () => revalidatePath('/classroom/clients');
 
 // ── Los módulos ───────────────────────────────────────────────────────────────
 
@@ -289,7 +289,7 @@ export async function guardarLeccionAction(claseId: number, cambios: CambiosLecc
     const no = await puedeEditar();
     if (no) return { ok: false, error: no };
     const r = await guardarLeccion(Number(claseId), cambios, antes);
-    if (r.ok) revalidatePath('/clients/classroom');
+    if (r.ok) revalidatePath('/classroom');
     return r;
   } catch (e) {
     return fallo(e, 'No se pudo guardar.');

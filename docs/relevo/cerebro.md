@@ -70,6 +70,9 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 1. ~~Las migraciones 0332 y 0333~~ **APLICADAS el 25/10 ~13:10** por el Cerebro, con el sí de Martín en este chat
    («Sí, aplicá en producción las migraciones 0332 (Media Buyer) y 0333»). Verificado por PostgREST: las 3 tablas existen.
+   **0335 (pruebas A/B) y 0336 (alojadores de video): APLICADAS el 25/10 19:27**, con el sí de Martín. Verificado: las 5
+   tablas `prueba*` con RLS sin políticas y anon bloqueado (42501), y el CHECK de `marketing_metrics_daily.plataforma` con
+   wistia, bunny, vimeo y cloudflare. El SQL vino de aut-2510 @ cdfb8e14b (todavía como XXXX) y de landings-2510-b @ 2f393680d.
 2. ~~Conectar la cuenta publicitaria de MaKo a Zernio~~ **HECHO el 25/10 12:46.** El primer link no creó nada: con varias
    páginas marcadas y sin `pageId`, Zernio no conecta. El segundo, con la página «Hola MaKo», sí (accountId de Zernio
    6ade25185b6c93612b7cc6a1). La vuelta cayó en /login y `next` perdió `abrir=meta`: se lo pasé a Zernio y a los links de

@@ -127,6 +127,14 @@ abajo) y abre `mako://conectar` solo; si vence o la persona dice «No», el mism
 - Las ventanas de la Mac llevan el ícono de MaKo (`with icon (POSIX file …)`). **Sin probar en una Mac:** si el ícono hace
   fallar la ventana por otra cosa que «Cancelar» (-128), se repite con el genérico; una ventana que no sale es un «No».
 
+**El grupo de WhatsApp del dueño a su computadora: la prueba es el TELÉFONO, y la hace la puerta** (rama `desktop-api-2510`,
+`encolarTurno` con `delGrupo`; docs/conexiones-y-ayuda.md, decisión 2). El doer corre en un after() del webhook, sin cookie,
+así que `laPersonaEstaAdentro` no sirve. La prueba: el teléfono que manda WhatsApp (nunca un @lid, un jid ni un «whatsapp:…»)
+es de UNA sola persona ACTIVA del negocio, comparado con `mismoContacto` (el 9 de Argentina y el 1 de México cambian la forma),
+y esa persona es la que conectó la PC. Dos del equipo con el mismo número no son nadie. Va ADENTRO de la puerta y no en el doer,
+por lo mismo que la cookie: la refutación de D6a mostró que una guarda en quien llama se saltea con un alias.
+`tests/ia-pc-puerta-grupo.test.ts`. Quien llama (el doer) es de «MaKo en WhatsApp».
+
 **Lo que quedó SIN hacer:**
 - Publicar la 0.4.3 (la marca, el ícono de la Mac y lo de la llamada con Leandro): `VERSION_PC` y `VERSION` juntos, y
   `publicar-binarios --aplicar` ANTES de desplegar; los pasos en `docs/relevo/mako-desktop.md`.

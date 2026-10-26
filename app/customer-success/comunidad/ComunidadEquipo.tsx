@@ -1,14 +1,14 @@
 'use client';
 
 // =============================================================================
-// ComunidadEquipo — la comunidad del EQUIPO, adentro de Clients (/clients/community, /calendar, /members…)
+// ComunidadEquipo — la comunidad del EQUIPO, adentro de Clients (/classroom/community, /calendar, /members…)
 // =============================================================================
 // La misma comunidad que ve el alumno (app/_comunidad/Comunidad.tsx), con la piel del CURSO (17/10/2026) y las
 // server actions de ./actions.ts como camino al server. El equipo escribe con su nombre y es admin de
 // la comunidad: fija, borra lo ajeno y —si administra el workspace— arma las categorías y los nombres
 // de los niveles.
 //
-// El PROGRAMA lo elige la cabecera de Clients (app/clients/ClientsShell.tsx): es un `?producto=` en la URL,
+// El PROGRAMA lo elige la cabecera de Clients (app/classroom/ClientsShell.tsx): es un `?producto=` en la URL,
 // leído en el server, así la página llega con su comunidad ya armada (sin estado de carga). La PESTAÑA también
 // sale de la URL (la sub-tab de Clients): las cinco son una página, y cambiar entre ellas es `pushState` (D5 de
 // docs/diseno-clients.md). Las vueltas de adentro (la campana abre un post, «Ver ranking») escriben la URL igual.

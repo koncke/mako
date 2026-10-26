@@ -11,9 +11,19 @@
  *     filas históricas a nivel adset quedan con ad_id NULL), o
  *   - Un video (cuando plataforma = 'youtube').
  */
+/**
+ * Las plataformas de `marketing_metrics_daily` que son el reproductor del VSL y escriben `video_*` (25/10/2026, «otros
+ * alojadores de video»: hasta acá era sólo Panda). Las lecturas del VSL (lib/queries.ts, lib/sources.ts,
+ * lib/graficos-datos.ts) leen TODAS: un negocio con su VSL en Wistia o en Bunny no puede quedar en cero. YouTube no está
+ * acá a propósito: escribe en sus columnas `youtube_*` y sólo cuenta el que el negocio marcó como VSL.
+ * ⚠️ El CHECK de la base las tiene que aceptar (supabase/migrations/0336_alojadores_video_plataforma.sql).
+ */
+export const PLATAFORMAS_VIDEO = ['panda', 'wistia', 'bunny', 'vimeo', 'cloudflare'] as const;
+export type PlataformaVideo = (typeof PLATAFORMAS_VIDEO)[number];
+
 export type MarketingMetricRow = {
   fecha: string; // YYYY-MM-DD
-  plataforma: 'meta' | 'youtube' | 'panda';
+  plataforma: 'meta' | 'youtube' | PlataformaVideo;
 
   // Identificadores Meta
   ad_account_id?: string | null;

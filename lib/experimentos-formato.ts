@@ -22,9 +22,16 @@ export const METRICA_FMT: Record<string, 'usd' | 'pct' | 'num'> = {
   vsl_views: 'num', cierres: 'num',
 };
 
+/**
+ * ¿La fila la escribió una prueba A/B (lib/pruebas/concluir.ts)? Su métrica es «ab:<clave>», sus valores son la tasa de A
+ * y la de B en % (9,4, no 0,094), y se rotulan «A / B», no «antes / ahora». Sin esto caía en 'num' y `Math.round(9.4)`
+ * daba 9 (y una tasa de 0,09 daba 0: la crítica del diseño de pruebas A/B, punto 31).
+ */
+export const esPruebaAB = (metrica: string): boolean => metrica.startsWith('ab:');
+
 export function fmtVal(v: number | null | undefined, metrica: string): string {
   if (v == null || !Number.isFinite(v)) return '—';
-  const f = METRICA_FMT[metrica] ?? 'num';
+  const f = esPruebaAB(metrica) ? 'pct' : METRICA_FMT[metrica] ?? 'num';
   if (f === 'usd') return `$${v.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
   if (f === 'pct') return `${v.toFixed(1)}%`;
   return Math.round(v).toLocaleString('es-MX');

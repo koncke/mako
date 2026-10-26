@@ -204,7 +204,7 @@ function Avance({ leadId, curso, prod, editar }: {
   // El vacío dice dónde se arregla: las clases se cargan en la tab Curso. Por el `Link` de la
   // casa, que preserva el `?ws=` — sin eso el super admin aterrizaría en SU curso.
   if (!curso.productos.length || !prod) {
-    return <p className="fcu-nada">Sus productos todavía no tienen clases. <Link className="fcu-ir" href="/clients/classroom">Se cargan en Classroom →</Link></p>;
+    return <p className="fcu-nada">Sus productos todavía no tienen clases. <Link className="fcu-ir" href="/classroom">Se cargan en Classroom →</Link></p>;
   }
 
   async function revisar(c: ClaseFicha, aprobada: boolean) {

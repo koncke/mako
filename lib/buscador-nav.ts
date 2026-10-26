@@ -3,7 +3,7 @@
 // =============================================================================
 // La usa app/_components/BuscadorNav.tsx y la fija tests/sidebar-nueva.test.ts. Busca entre lo que ESTA persona ve (la
 // barra le pasa la lista ya filtrada por rol y capa) y entiende los nombres viejos: «General» o «home» llevan al
-// Dashboard (Focus), «Customer Success» a Clients.
+// Dashboard (Focus), «Customer Success» a Classroom (era Clients).
 
 import type { NavItem } from '@/app/_components/nav';
 

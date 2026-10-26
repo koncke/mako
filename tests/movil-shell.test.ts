@@ -210,8 +210,8 @@ test('la cabecera por defecto: título en la raíz, volver fijo en la subpantall
   assert.deepEqual(cabeceraPorRuta('/m/crm/12'), t('', { href: '/m/crm', label: 'CRM' }));
   // Las secciones de More vuelven a More; sus subpantallas, a la sección.
   assert.deepEqual(cabeceraPorRuta('/m/dashboard'), t('Dashboard', { href: '/m/mas', label: 'More' }));
-  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés).
-  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Clients', { href: '/m/mas', label: 'More' }));
+  // «Clients» desde el 17/10/2026 (la sidebar nueva: los nombres de las tabs en inglés); «Classroom» desde el 25/10/2026.
+  assert.deepEqual(cabeceraPorRuta('/m/cs'), t('Classroom', { href: '/m/mas', label: 'More' }));
   assert.deepEqual(cabeceraPorRuta('/m/ads/9'), t('', { href: '/m/ads', label: 'Ads Manager' }));
   // La cuenta es la primera fila de More.
   // «My Profile» desde el 17/10/2026 noche (lib/ajustes-secciones.ts, en inglés como las tabs).

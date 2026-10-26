@@ -60,16 +60,38 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    Zernio (cuenta de Zernio `6ade25185b6c93612b7cc6a1`); **la medición que escribe**: una decisión real lanzada por Zernio,
    recortada por el tope, leída en Meta y deshecha (`docs/hallazgos-ads.md` → «La medición que escribe, en la cuenta de
    MaKo»). El Media Buyer de MaKo (ws9) quedó **prendido en «propone»** con `act_1426493815659364` en Ajustes. Sin piloto.
-2. **Medir lo del ANUNCIO — ES DE MARTÍN: cargar un método de pago en la cuenta de MaKo.** Sin él Meta no deja crear un
-   anuncio, ni en pausa (subcode 1359188). Con el pago cargado: `crear --si` (todo en pausa), `editar --si` (prender, pausar
-   y una variación de texto), `borrar --si`, con `scripts/media-buyer-medir-zernio.mts`. El script pide `--si` en cada
-   escritura y guarda su estado fuera del repo (`C:/dev/cerebro-herramientas/media-buyer-prueba.json`).
+2. **Lo del ANUNCIO, MEDIDO el 25/10 en la cuenta de MaKo** (Martín: «Ya agregue la tarjeta»): crear en pausa, prender,
+   pausar y deshacer por el Media Buyer, variaciones de texto y de hook con su deshacer, borrar; gasto 0
+   (`docs/hallazgos-ads.md` → «La medición que escribe»). Para repetirlo: `foto` → `crear --si` → `decisiones-anuncio --si`
+   → `interruptor-anuncio --si` → `borrar --si` → `comparar`. Antes, el mismo día, se probó en la cuenta de Mauricio. Martín,
+   25/10 ~13:55: «Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago». La cuenta es
+   «Cuenta 1» del portfolio Elévate, `act_185929215397361` (activa, pago ok, MXN, mínimo MXN 18,59/día), conectada a un
+   perfil de Zernio APARTE de la plataforma (`6ade389b5bed5c321f2f42d8`, conexión `6ade3a22ef8ec89d32cced61`, «Administrar
+   campañas»; la de MaKo no se tocó y sigue con «Control total»). Hecha la foto de la cuenta (18 campañas, 22 conjuntos).
+   Con el permiso de Martín escrito en este chat («Autorizo crear, probar y borrar una campaña [PRUEBA MaKo] pausada…»),
+   `crear --si` falló en Meta con el mismo 1359188 que la de MaKo, aunque Zernio decía `billingStatus: ok`. La cuenta quedó
+   IGUAL que en la foto (40 campañas y conjuntos, nada nuevo); sólo quedó la imagen de prueba («ad_image.jpg», 1200×630,
+   subida el 25/10 a las 14:51) en su biblioteca de medios: Zernio no la puede borrar, hay que quitarla a mano en el
+   Administrador de anuncios. El perfil de Zernio de la prueba se desconectó y se borró (verificado: queda sólo el Default
+   con la conexión de MaKo en «Control total»), y la cuenta salió de `CUENTAS_PERMITIDAS`.
+   **Para medir lo del anuncio hace falta una cuenta donde Meta deje crear anuncios**: un método de pago válido en la de
+   MaKo (lo más simple: nada de clientes), o el de la «Cuenta 1» actualizado. El script ya tiene todo: `--cuenta=`,
+   `foto`/`comparar` y `decisiones-anuncio --si` (prender y deshacer el anuncio, una variación y su deshacer, con el Media
+   Buyer de la plataforma en «propone», que vuelve a su cuenta al terminar).
    ⚠️ Prender o pausar una campaña SIN anuncios no se puede por Zernio (404; el endpoint no acepta `accountId`): con un
    anuncio adentro sí.
+2b. **La prueba gratis (Martín y el Cerebro, 25/10): sin piloto los 7 días.** `cupoDe` lee `estadoDePrueba(ws).enPrueba`
+   (`lib/prueba-uso.ts`, rama planes-2510) y `PlanSinPiloto` dice «Disponible al terminar tu prueba». Espera a que
+   planes-2510 entre a main (mergearla acá choca en 4 archivos de otros chats). Sólo del lado del servidor: la pantalla está
+   en pausa (abajo). El script del cambio quedó en las notas compartidas del Cerebro (`media-buyer-prueba-gratis.py`): SIN
+   las partes de pantalla (Ajustes, Automatizaciones) mientras dure la pausa.
+2c. **LA PANTALLA ESTÁ EN PAUSA (el Cerebro, 25/10 ~14:10).** Martín: «Esto de aca no se entiende nada... Rediseñala
+   completamente... dame opciones antes de lanzar a producción». El Cerebro arma tres opciones; no sumar texto ni botones a
+   la pantalla actual hasta que llegue la elegida. Tampoco la `<FranjaPrueba>` de Planes.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
-   y «hooks al video» (piden archivos o la pantalla); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
+   (los archivos los sube el navegador al staging: anotado en `FALTA` de `tests/media-buyer-api.test.ts`); y borrar las rutas viejas de `app/api/ads-manager/*` que sólo usaba la
    vista borrada (`creative-signurl` SÍ se usa: la subida del Media Buyer).
 4. **El nombre en la barra** sigue «Ads Manager» (`app/_components/nav.ts` es del chat Sidebar): si Martín quiere «Media
    Buyer», se lo pide el Cerebro a ese chat.
@@ -78,4 +100,6 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 
 `tests/zernio-sin-respaldo.test.ts` (la clave de la plataforma para el ws de la plataforma en `lib/zernio-ads.ts`, que ya
 estaba en main) y dos de `tests/operaciones.test.ts` (Ops Center). Medidos el 25/10 con la rama; las líneas que marcan
-son de main.
+son de main. Más tarde, el mismo 25/10: `tests/ops-center-estrella-desde.test.ts` y `tests/ops-sin-silencio.test.ts` (Ops
+Center), y en `tests/zernio-conectar-redes.test.ts` la aserción de `errorDeVentana` (espera una línea que ningún archivo
+tiene, también en main).

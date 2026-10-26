@@ -70,7 +70,7 @@ export const ALIAS_VIDEO_ID: ReadonlyArray<{ de: string; a: string; porque: stri
 ];
 
 /** Los prefijos que quedan después de canonizar. Un id sin prefijo es de Panda. */
-export const PREFIJOS_CANONICOS = ['v:', 'w:', 'yt:', 'vimeo:', 'drive:'] as const;
+export const PREFIJOS_CANONICOS = ['v:', 'w:', 'yt:', 'vimeo:', 'drive:', 'bunny:', 'cfs:'] as const;
 
 const ALIAS_ORDENADOS = [...ALIAS_VIDEO_ID].sort((a, b) => b.de.length - a.de.length);
 

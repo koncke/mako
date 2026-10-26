@@ -36,6 +36,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Ticketera (los tickets de los usuarios) | `Leé docs/hallazgos-ticketera.md y docs/diseno-ticketera-usuarios.md y seguimos desde ahí.` |
 | Second Brain | `Leé docs/hallazgos-second-brain.md y docs/diseno-second-brain-centro.md y seguimos desde ahí.` |
 | Sidebar | `Leé docs/diseno-sidebar.md y seguimos desde ahí.` |
+| Settings (las nueve pestañas, el molde de Linear) | `Lee docs/relevo/settings.md y seguimos desde ahí.` |
 | MaKo Mobile | `Leé docs/relevo/mako-mobile.md y seguimos desde ahí.` |
 | CRM | `Leé docs/relevo/crm.md y seguimos desde ahí.` |
 | Automations (ex Chatbot) | `Leé docs/relevo/automations.md y docs/relevo/chatbot.md y seguimos desde ahí.` (automations.md: la prospección del Sprint, 21/10) |
@@ -63,7 +64,7 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |
 | IA del cliente («Tu ChatGPT», su Claude en su PC, la ola 3 con Codex) | `Leé docs/relevo/ia-del-cliente.md y seguimos desde ahí.` |
 | MaKo Desktop (el instalador, la firma y «Conecta MaKo»; la app con todas las tabs) | `Leé docs/relevo/mako-desktop.md y seguimos desde ahí.` |
-| Leads Scraper | `Leé docs/diseno-leads-scraper.md y seguimos desde ahí.` |
+| Leads Scraper | RETIRADO el 25/10/2026 (Hotmart, Skool, Apify y /crm/prospectos): ver `tests/leads-scraper-retirado.test.ts`. No se retoma. |
 | Lector de reuniones | `Leé docs/relevo/lector-reuniones.md y seguimos desde ahí.` |
 | Tareas de llamada con Mauricio | `Leé docs/relevo/tareas-llamada-mauricio.md y seguimos desde ahí.` |
 

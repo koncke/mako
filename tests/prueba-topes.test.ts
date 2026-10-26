@@ -55,8 +55,8 @@ test('la TABLA de la prueba: los números del Cerebro, con `topeDe(CAPA_PRUEBA, 
 
 test('el TEXTO de cada tope: «Disponible al terminar tu prueba», qué topó, y cómo seguir', () => {
   assert.equal(PREFIJO_TOPE_PRUEBA, 'Disponible al terminar tu prueba');
-  assert.equal(textoTopePrueba('prueba.videos', 3), 'Disponible al terminar tu prueba: en la prueba gratis van hasta 3 videos armados. Si quieres seguir ya, empieza tu plan.');
-  assert.equal(textoTopePrueba('prueba.avatares', 1), 'Disponible al terminar tu prueba: en la prueba gratis va 1 video con avatar de IA. Si quieres seguir ya, empieza tu plan.');
+  assert.equal(textoTopePrueba('prueba.videos', 3), 'Disponible al terminar tu prueba: en la prueba gratis van hasta 3 videos armados. Se habilita con tu plan.');
+  assert.equal(textoTopePrueba('prueba.avatares', 1), 'Disponible al terminar tu prueba: en la prueba gratis va 1 video con avatar de IA. Se habilita con tu plan.');
   assert.match(textoTopePrueba('prueba.exportar', 0), /exportar y descargar en masa se habilita con tu primer cobro/);
   for (const t of Object.keys(TOPES_PRUEBA) as Array<keyof typeof TOPES_PRUEBA>) assert.ok(esTopeDePrueba(textoTopePrueba(t, TOPES_PRUEBA[t])), t);
   assert.ok(!esTopeDePrueba('Llegaste al tope de tu plan (3). Pasa a MaKo Pro para tener más.'), 'el de un plan pagado es otro');

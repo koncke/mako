@@ -23,8 +23,9 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
   arranque (que posterga el paso de integraciones) y el medidor ven a un negocio conectado sólo por Zernio.
 - **El tutorial:** en la app, el «?» de «Token del píxel» (pasos numerados) y una línea de deduplicación en el del píxel; entero,
   con el `eventID` y el Schedule doble de Mauricio, en `docs/tutorial-capi-pixel.md`.
-- **Todo APAGADO detrás de la prueba:** `ZERNIO_META_PROBADO = false` (lib/zernio-meta-cuerpo.ts). Mientras tanto Zernio corre
-  SÓLO en el negocio de la plataforma (el de MaKo). Ningún cliente cambia de camino.
+- **Prendido para todos el 25/10** (`ZERNIO_META_PROBADO = true`, lib/zernio-meta-cuerpo.ts) con la prueba pasada primero en el
+  negocio de la plataforma. Un negocio cambia de camino recién cuando conecta («Conectar con Facebook»); el que no conecta sigue
+  con su token hasta el corte (`CORTE_TOKEN_META`, que se fija el día del aviso).
 
 ## La prueba en la cuenta de MaKo (25/10/2026)
 
@@ -34,10 +35,46 @@ pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requie
   pregunta si hay varias, y si la ventana vuelve sin conexión pide la página y reintenta (`paginaParaConectar`).
 - **`leer` (sin guardar nada en producción): anda.** Insights, creativos, conjuntos en vivo, cuenta y finanzas contestan con la
   forma esperada; la cuenta nunca gastó, así que no hay filas que comparar con Meta directo.
-- **`guardar --si` va DESPUÉS del deploy de esta rama:** con el código viejo, la cuenta guardada mete al negocio de MaKo en los
-  crons de Meta con el token del botón (sin `ads_read`) y arranca el barrido de leads de «Hola MaKo».
-- **`capi --si --codigo=TEST…`: espera el código** de «Probar eventos» del píxel `1869323014511830`.
+- **`guardar --si`: HECHO después del deploy** (main 9c684f88c, 14:54). El negocio de MaKo quedó con la conexión, la cuenta
+  `act_1426493815659364` y el píxel `1869323014511830`; los crons de Meta ya corren para él por Zernio (medido con las funciones
+  reales: Meta conectada, lecturas sin errores, salud en verde, CAPI por la conexión de Facebook).
+- **El nivel anuncio, medido con la tarjeta (25/10):** sobre la campaña de prueba del Media Buyer (en pausa), Zernio da el
+  conjunto con presupuesto 1 USD en unidades, el anuncio con imagen, miniatura y post, y las finanzas con la tarjeta.
+- **CAPI: PROBADO (~20:35 UTC) con TEST96217** — dos Lead de prueba (el script y `probar_capi_meta`), `eventsReceived: 1` cada
+  uno. Con eso `ZERNIO_META_PROBADO = true`: Meta por Zernio queda prendido para todos los negocios que conecten.
+- **Lo que falta ver con datos reales:** filas de insights (la cuenta de MaKo no gasta): en el primer cron de un negocio que
+  gaste y conecte (Código Inmobiliario ya tiene clave de Zernio).
 - **La vuelta sin sesión perdía la query** (`/login?…&next=%2Fintegraciones`): arreglado en `proxy.ts` (`denegar`), con test.
+
+## La deprecación del token de Meta (pedido de Martín, 25/10 ~15:40)
+
+«manda un aviso a todos los clientes que conecten Zernio y si no conectan dentro de 1 semana ya no podrán administrar anuncios en
+MaKo». El orden lo decidió el Cerebro: (1) medir quién usa el token, (2) prender Meta por Zernio para clientes con CAPI y el nivel
+anuncio probados, (3) recién ahí el aviso, (4) el nombre y el logo.
+
+- **(1) Medido** (sólo lectura): 5 negocios usan el token hoy, 4 lo tienen sin uso. Lista y texto del aviso: en la carpeta de
+  notas del Cerebro (`zernio-aviso-token-meta-25-10.md`), con los montos; acá no van.
+- **El corte, listo y apagado:** `CORTE_TOKEN_META` (lib/zernio-meta-cuerpo.ts, hoy `null`). Con una fecha, pasado ese día un
+  negocio SIN la conexión de Zernio no escribe con el token (`escribirEnMeta` y las puertas de `meta-ads-create`: crear, subir,
+  formulario, borrar) y ve «Desde el DD/MM MaKo administra tus anuncios sólo con tu conexión de Zernio…». Leer métricas sigue.
+  Se fija el día que sale el aviso: una semana después.
+- **La conexión se guarda venga del botón que venga** (`conectada-meta` en la pieza común): conectar «Anuncios de Meta» desde la
+  tarjeta de Zernio (el link del aviso, `?abrir=zernio`) o desde el Media Buyer ahora deja la conexión guardada en el negocio.
+  Antes sólo lo hacía el modal de Meta.
+- **(4) Hecho:** la tarjeta se llama «Zernio» y lleva su logo oficial (la marca blanca de zernio.com/icon.svg sobre #EB3514; el
+  violeta de antes no era el suyo). La revisión de los demás logos la hace Settings.
+
+## En la API de MaKo (área integraciones)
+
+| Operación | Tipo | Ruta | Qué |
+|---|---|---|---|
+| `ver_conexion_meta` | lectura | GET /integraciones/meta/conexion | la vía, las cuentas, los píxeles, la página y por dónde sale CAPI (sin tokens) |
+| `elegir_cuenta_meta` | acción con «sí» | PUT /integraciones/meta/cuenta | la cuenta publicitaria, entre las que ve la conexión |
+| `elegir_pixel_meta` | acción con «sí» | PUT /integraciones/meta/pixel | el píxel de las conversiones |
+| `elegir_pagina_meta` | acción con «sí» | PUT /integraciones/meta/pagina | la página de los anuncios (antes de conectar, o en la conexión) |
+| `probar_capi_meta` | lectura | GET /integraciones/meta/prueba-capi | un Lead de prueba con el código de «Probar eventos» |
+
+Conectar en sí («Conectar con Facebook») es un clic de una persona: por la API sale el link.
 
 ## Lo que es de Martín (en orden)
 

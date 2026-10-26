@@ -35,22 +35,3 @@ test('tarjetaAbierta: abierta es progress < 100, el criterio de tareasAbiertas',
   assert.equal(tarjetaAbierta(t(100)), undefined, 'una tarjeta cerrada (100) se cuenta como abierta');
   assert.equal(tarjetaAbierta(undefined), undefined);
 });
-
-test('en Historia, el «#N abierta» y la fila clickeable cuelgan de la tarjeta FILTRADA', () => {
-  const src = sinComentarios(leer('app/admin/dev/customer-success/RoadmapCS.tsx'));
-  const ini = src.indexOf('HISTORIA.map(');
-  const fin = src.indexOf('sueltas.length > 0', ini);
-  assert.ok(ini > 0 && fin > ini, 'no encontré el bloque de Historia en RoadmapCS.tsx');
-  const bloque = src.slice(ini, fin);
-  // El universo de la pregunta es ESTE bloque, y nada más: si mañana mide el triple, está
-  // mirando otra cosa (medido el 06/10 sin comentarios: 1.691 caracteres).
-  assert.ok(bloque.length < 3000, `el bloque de Historia mide ${bloque.length}: el corte está mirando de más`);
-
-  const decl = bloque.match(/const (\w+) = tarjetaAbierta\(tareaDe\(p\)\);/);
-  assert.ok(decl, 'Historia ya no pasa la tarjeta por tarjetaAbierta(tareaDe(p))');
-  const v = decl[1];
-  assert.doesNotMatch(bloque, /(?<!tarjetaAbierta\()tareaDe\(/, 'en Historia hay una tarjeta que llega sin pasar por tarjetaAbierta');
-  assert.match(bloque, new RegExp(`\\{${v} && <span[^>]*>#\\{${v}\\.num\\} abierta`), 'el rótulo «#N abierta» no depende de la tarjeta filtrada');
-  assert.match(bloque, new RegExp(`return ${v} \\?`), 'la fila clickeable no depende de la tarjeta filtrada');
-  assert.match(bloque, new RegExp(`id: ${v}\\.id`), 'el modal abre otra tarjeta que la filtrada');
-});

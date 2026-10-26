@@ -37,6 +37,8 @@ import { TAG } from '@/lib/cache';
 import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
+import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -705,5 +707,44 @@ export const RUNNERS: Runners = {
         datos: { cobroId: r.cobroId, url: r.link, monto: r.monto, moneda: r.moneda },
       };
     }),
+  },
+
+  // ── Customers del super admin (25/10/2026): lib/clientes-plataforma.ts y lib/agente-sesiones.ts ─────────────────
+  // El gating `soloPlataforma` ya lo dice; el runner lo vuelve a preguntar (AGENTS.md).
+  ver_clientes_de_mako: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Los clientes de MaKo son sólo de la plataforma.');
+      const v = await vistaDeClientes();
+      const seg = typeof input.segmento === 'string' ? input.segmento : null;
+      const filas = seg ? v.filas.filter((f) => (f.segmentos as string[]).includes(seg)) : v.filas;
+      return json({
+        numeros: {
+          mrr_usd: v.kpis.mrrUsd, suscripciones_sin_dolares: v.kpis.sinDolares, pagan: v.kpis.pagan, activos: v.kpis.activos,
+          nuevos_30_dias: v.kpis.nuevos30, en_riesgo: v.kpis.enRiesgo, por_segmento: v.kpis.porSegmento,
+        },
+        clientes: filas.map((f) => ({
+          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: capaDef(f.capa).nombre, estado: f.estado,
+          mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, desde: f.creado.slice(0, 10),
+        })),
+        avisos: v.avisos,
+        nota: 'mrr_usd sale de los cobros reales (las suscripciones activas de la plataforma), no del precio del plan: un plan dado a mano da 0.',
+      });
+    },
+  },
+
+  ver_agentes_de_clientes: {
+    leer: async (input, ctx) => {
+      if (ctx.ws !== (await wsSuperAdmin())) return fallo('Lo que hacen los clientes en su Claude Code es sólo de la plataforma.');
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(50, Math.floor(input.limite)) : 20;
+      const { sesiones, nombreWs } = await leerSesionesAgente();
+      return json({
+        sesiones: sesiones.slice(0, limite).map((s) => ({
+          negocio: nombreWs.get(s.workspace_id) ?? `Workspace ${s.workspace_id}`, cuando: s.empezo_en ?? s.created_at,
+          titulo: s.acta?.titulo ?? null, resumen: s.acta?.resumen ?? null, mensajes: s.turnos?.length ?? 0,
+        })),
+        total: sesiones.length,
+        nota: 'Los mensajes textuales están en Customers › Agents.',
+      });
+    },
   },
 };

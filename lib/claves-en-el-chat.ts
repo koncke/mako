@@ -96,7 +96,7 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   // archivo, no de este. La Public Key, `APP_USR-` + un UUID, tampoco cae: no es secreta.)
   { nombre: 'mercadopago', re: /\b(?:APP_USR|TEST)-\d{10,}-\d{6}-[A-Fa-f0-9]{32}-\d+/g, con: CLAVE_TAPADA, servicio: 'mercadopago' },
   // Las que pasaban enteras (revisión del lote 1, 22/10/2026), con su forma:
-  //   · Apify: `apify_api_` + 20+ alfanuméricos (20 y no 30: la del Ops Center, f871fe72a, se tapaba desde 20) (el producto se la pide al cliente para buscar prospectos);
+  //   · Apify: `apify_api_` + 20+ alfanuméricos (20 y no 30: la del Ops Center, f871fe72a, se tapaba desde 20) (la pedía el Leads Scraper, retirado el 25/10/2026);
   //   · DeepSeek: `sk-` + 32 hex en MINÚSCULA. No la cumple la de OpenAI (pide una mayúscula y 40+), ni un slug (lleva guiones);
   //   · Mistral: 32 alfanuméricos SIN prefijo, con mayúscula, minúscula y dígito. Sin prefijo, la forma sola es la de
   //     cualquier id: se tapa si el texto es SÓLO eso (lo que se pega cuando se pega una clave) o si el texto NOMBRA a
@@ -104,7 +104,8 @@ const PROPIAS_DESPUES: ReglaDeClave[] = [
   //     40 caracteres en la misma línea, y «Clave de Mistral 👇» con la clave abajo —como se pega en WhatsApp— pasaba
   //     entera (segunda revisión del lote 1).
   //   · xAI (`xai-`), Perplexity (`pplx-`), Hugging Face (`hf_`) y Together (`tgp_v1_`), con su prefijo y un largo de clave.
-  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: 'apify' },
+  // Apify se tapa igual, pero sin servicio desde el 25/10/2026: la integración se fue y no hay «Conectar» que ofrecer.
+  { nombre: 'apify', re: /\bapify_api_[A-Za-z0-9]{20,}/g, con: CLAVE_TAPADA, servicio: null },
   { nombre: 'deepseek', re: /\bsk-[a-f0-9]{32}\b/g, con: CLAVE_TAPADA, servicio: null },
   { nombre: 'xai', re: /\bxai-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },
   { nombre: 'perplexity', re: /\bpplx-[A-Za-z0-9]{40,}/g, con: CLAVE_TAPADA, servicio: null },

@@ -42,6 +42,7 @@ import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
+import { alojadoresConectados, catalogoDeVideos } from '@/lib/alojadores-video-api';
 import { urlsDescubiertas, getComportamiento, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
 import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
@@ -79,7 +80,7 @@ import {
   nombreDeDiseno, nombreDeObjetivo, yaPublicadaAsi, resumenPublicar, urlDeLanding, formatoParaApi,
   estaPublicada, direccionParaPublicar, siFallaNuestra, comentariosParaApi, nombreDeEstado, urlPublicaParaApi,
   botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, type BotonDeLanding,
-  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi,
+  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, NOTA_ALCANCE,
   type FilaPublicable, type DisponibilidadSlug,
 } from './landing-editor.helpers';
 
@@ -451,6 +452,23 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // Los videos de todos los alojadores conectados (25/10/2026, «otros alojadores de video»), con el id del Pixel.
+  listar_videos_alojados: {
+    leer: async (input) => {
+      const filtro = str(input, 'alojador');
+      const limite = num(input, 'limite') ?? 100;
+      const [{ videos, fallas }, otros, panda] = await Promise.all([catalogoDeVideos(), alojadoresConectados(), pandaConectado()]);
+      const todos = videos.filter((v) => !filtro || v.alojador === filtro);
+      return json({
+        conectados: [...(panda ? ['panda'] : []), ...otros],
+        videos: todos.slice(0, limite).map((v) => ({ id: v.id, alojador: v.alojador, titulo: v.titulo, reproductor: v.player, duracion_seg: v.duracion, reproducciones: v.reproducciones })),
+        total: todos.length, afuera: Math.max(0, todos.length - limite),
+        ...(fallas.length ? { no_se_pudo_leer: fallas } : {}),
+        nota: 'El id es el que manda el Pixel (vimeo:…, w:… de Wistia, bunny:…, cfs:… de Cloudflare; el de Panda va sin prefijo). duracion_seg y reproducciones en null = el alojador no las da en su listado (las reproducciones por persona están en tracking_lead). Un alojador sin conectar no aparece: se conecta en Integraciones.',
+      });
+    },
+  },
+
   ver_metricas_video_panda: {
     leer: async (input) => {
       const videoId = str(input, 'videoId') ?? '';
@@ -535,10 +553,17 @@ export const RUNNERS: Runners = {
         ventana: { desde: c.primer_evento, hasta: c.ultimo_evento, alcance: 'toda la historia del Pixel' },
         de_donde_vienen: c.top_referrers.map((r) => ({ origen: r.ref, visitas: r.n })),
         visitantes_compartidos: c.visitantes_compartidos,
+        // Pixel v26: sólo en las páginas del Web Generator del negocio (últimos 30 días). null = no se mide, nunca 0.
+        alcance_por_seccion: c.alcance_secciones
+          ? c.alcance_secciones.secciones.map((x) => ({ titulo: x.titulo, porcentaje: x.pct }))
+          : null,
+        alcance_medido_desde: c.alcance_secciones?.desde ?? null,
+        alcance_visitantes: c.alcance_secciones?.visitantes ?? null,
         nota: [
           'llegaron_al_50 y llegaron_al_final en null = no se pudo medir, NUNCA es 0. «Al final» es 90% o más.',
           'con_eventos_de_video cuenta a toda persona con algún evento de video, incluidos los que arrancaron solos (autoplay): no es intención de ver.',
           'agendaron = visitantes de esta página con una llamada agendada; no se verifica el orden, pudieron agendar antes de visitar.',
+          NOTA_ALCANCE,
           c.visitantes_compartidos ? 'Estos visitantes también entraron a otras páginas del negocio: la profundidad del video puede ser de la otra.' : null,
           c.hay_datos ? null : 'hay_datos false puede ser que el Pixel nunca reportó esta URL o que la lectura falló: esta función no distingue.',
         ].filter(Boolean).join(' '),

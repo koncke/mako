@@ -1,14 +1,13 @@
 // =============================================================================
-// MaKo Partners (23/10/2026): las reglas decididas el 10/10 (docs/referidos.md), el cableado y el origen del onboarding
+// MaKo Partners (23/10/2026): las reglas (docs/referidos.md), el cableado y el origen del onboarding
 // =============================================================================
 // «el sistema de referidos con la página de MaKo Partners... que se gestione de manera automática... el dashboard de
-// cuánto dinero tenés acumulado... y también si es que te ganaste meses gratuitos» (Martín, 22/10/2026).
+// cuánto dinero tenés acumulado» (Martín, 22/10/2026). Desde el 25/10 Partners paga SÓLO PLATA: el 100% del primer mes;
+// lo nuevo (el alta, las visitas, el precio de lista del anual, el carrito) lo cuida tests/partners-solo-plata.test.ts.
 //
-// Probado rompiéndolo (23/10/2026; base 9 / 0). Una rotura por vez, restaurando (pasan / fallan):
+// Probado rompiéndolo (23/10/2026; base 9 / 0; los dos del libro rehechos el 25/10). Una rotura por vez, restaurando:
 //   · PAGOS_PARA_ACREDITAR = 1 (acredita con el primer pago)                     -> 7 / 2
 //   · `correspondeAcreditar` deja que alguien se refiera a sí mismo              -> 8 / 1
-//   · los meses gratis no redondean para abajo                                   -> 8 / 1
-//   · el revendedor no cobra lo que sobra en plata                               -> 8 / 1
 //   · el cron acredita a quien YA tenía cuenta (sin `alta_estado = hecha`)       -> 8 / 1
 //   · /r pisa la cookie del primero que lo trajo                                 -> 8 / 1
 //   · `interesDeFuncionalidad` no reconoce «crm»                                 -> 8 / 1
@@ -20,7 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, creditoDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
+  PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, resumenDelLibro,
 } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -40,7 +39,7 @@ test('cuenta desde el 2º mes pagado, una vez, y nunca a uno mismo', () => {
   assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 2, yaAcreditado: false }), true);
   assert.equal(correspondeAcreditar({ referidorWs: 1, referidoWs: 2, mesesPagados: 5, yaAcreditado: true }), false);
   assert.equal(correspondeAcreditar({ referidorWs: 3, referidoWs: 3, mesesPagados: 5, yaAcreditado: false }), false);
-  assert.equal(creditoDelReferido(47), 47, 'el primer mes de su plan, a precio de lista');
+  assert.equal(gananciaDelReferido(47), 47, 'el 100% del primer mes de su plan, a precio de lista');
 });
 
 test('el estado de cada referido en el tablero', () => {
@@ -50,20 +49,11 @@ test('el estado de cada referido en el tablero', () => {
   assert.equal(estadoDelReferido({ mesesPagados: 3, acreditado: true, vigente: false }), 'acreditado');
 });
 
-test('el libro: lo acumulado, lo usado, y los meses gratis de un usuario común (2 de 47 = su mes de 97)', () => {
-  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }], { precioPropioUsd: 97, revendedor: false });
-  assert.deepEqual(r, { acumuladoUsd: 141, usadoUsd: 0, saldoUsd: 141, mesesGratis: 1, aCobrarUsd: 0 });
-  const usado = resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -97 }], { precioPropioUsd: 47, revendedor: false });
-  assert.equal(usado.saldoUsd, 0);
-  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }], { precioPropioUsd: null, revendedor: false }).mesesGratis, 0, 'sin suscripción no hay meses');
-  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 80 }], { precioPropioUsd: 47, revendedor: false }).mesesGratis, 1, 'un mes y pico es UN mes gratis');
-});
-
-test('el revendedor: primero su mes, lo que sobra en plata', () => {
-  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 97 }], { precioPropioUsd: 97, revendedor: true });
-  assert.equal(r.saldoUsd, 191);
-  assert.equal(r.aCobrarUsd, 94);
-  assert.equal(r.mesesGratis, 1);
+test('el libro: lo ganado, lo transferido y lo que queda a cobrar, en dinero (sin meses ni revendedor)', () => {
+  const r = resumenDelLibro([{ tipo: 'referido', monto_usd: 47 }, { tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -47 }]);
+  assert.deepEqual(r, { ganadoUsd: 144, pagadoUsd: 47, aCobrarUsd: 97 });
+  assert.equal(resumenDelLibro([{ tipo: 'referido', monto_usd: 97 }, { tipo: 'uso', monto_usd: -120 }]).aCobrarUsd, 0, 'nunca negativo');
+  assert.deepEqual(resumenDelLibro([{ tipo: 'ajuste', monto_usd: 10 }, { tipo: 'ajuste', monto_usd: -4 }]), { ganadoUsd: 10, pagadoUsd: 4, aCobrarUsd: 6 }, 'los ajustes, a favor o en contra');
 });
 
 test('el cron acredita SÓLO a clientes nuevos (la compra que creó la cuenta) y el primer código vale', () => {

@@ -35,7 +35,7 @@ test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   assert.deepEqual(SECCIONES_CUENTA.map((s) => s.label), ['Perfil', 'Seguridad', 'Notificaciones', 'Instalar la app']);
   // «Tu plan» se sumó el 15/10/2026: cancelar uno mismo el plan de MaKo, como todo SaaS (lo decidió Estrategia).
   // «Notificaciones» del negocio salió del índice el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta», abajo.
-  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Método']);
+  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['General', 'Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Método', 'Prompts']);
   // Sin General (hoy, quien no es el super admin), sin Integraciones (no lo compró) y sin Método (no es la agencia).
   assert.deepEqual(seccionesNegocio({ general: false, integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'fiscal', 'plan']);
   // En el workspace de la PLATAFORMA no hay «Tu plan»: la plataforma no tiene un plan de MaKo (15/10/2026).
@@ -148,11 +148,15 @@ test('«Notificaciones» UNA vez: ningún nombre se repite en el índice, y la d
   assert.deepEqual(nombres.filter((n, i) => nombres.indexOf(n) !== i), [], 'un nombre repetido en el índice');
   const claves = indice.map((s) => s.key);
   assert.deepEqual(claves.filter((k, i) => claves.indexOf(k) !== i), [], 'dos secciones con la misma clave se marcan juntas');
-  // La página de tu cuenta muestra lo del negocio a quien lo administra, en `#negocio`.
+  // La página de tu cuenta muestra lo del negocio (los canales WhatsApp y Email) a quien lo administra (25/10/2026: los canales
+  // de Linear, app/perfil/NotificacionesPanel.tsx).
   const cuenta = sinComentarios(leer('app/perfil/notificaciones/page.tsx'));
   assert.match(cuenta, /const admin = rol === 'admin';/);
-  assert.match(cuenta, /\{admin && \(\s*<ApartadoAjustes id="negocio"[\s\S]*?<NotificacionesPanel parte="negocio" \/>/);
+  assert.match(cuenta, /<NotificacionesPanel canal=\{canalDeUrl\(sp\.canal\)\} admin=\{admin\} /);
+  const panel = sinComentarios(leer('app/perfil/NotificacionesPanel.tsx'));
+  assert.match(panel, /\{admin && <FilaAjustes icono="whatsapp"/, 'WhatsApp del negocio a cualquiera del equipo');
+  assert.match(panel, /\{admin && <FilaAjustes icono="email"/, 'Email del negocio a cualquiera del equipo');
   // Y la ruta vieja (ahí caen los avisos con `?tab=notif`) redirige ahí, con el `?ws=` del cliente, después del guard del negocio.
   const vieja = sinComentarios(leer('app/configuraciones/notificaciones/page.tsx'));
-  assert.match(vieja, /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);\s*redirect\(`\$\{conLaQuery\('\/perfil\/notificaciones', await searchParams\)\}#negocio`\);/);
+  assert.match(vieja, /await requireRolWs\(\[\], \{ nav: 'configuraciones' \}\);\s*redirect\(conLaQuery\('\/perfil\/notificaciones', await searchParams\)\);/);
 });

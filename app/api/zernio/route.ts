@@ -9,6 +9,7 @@
 //        { ok: true, tipo: 'url', url } | { ok: true, tipo: 'ya-conectada', conexiones } | { ok: false, motivo, error, pagoUrl? }
 //   POST { action: 'conexiones', plataforma? } → { ok: true, conexiones, total } | { ok: false, motivo, error, pagoUrl? }   (SOLO lectura)
 //   POST { action: 'conectada' }               → { ok: true, ruteo, webhook }   (arma la recepción: ruteo de las cuentas y webhook)
+//   POST { action: 'conectada-meta', accountId } → { ok: true, guardada }   (Meta por Zernio: guarda la conexión de anuncios en el negocio)
 //   POST { action: 'estado', plataforma }      → { ok, cuentas: [{ id, usuario, nombre }], webhook }   (la cabecera de Automations)
 //   Sin Zernio (no hay key propia)             → 'estado': { ok: true, configurado: false }; las demás: { ok: false, motivo: 'sin-clave' }
 //   La key PROPIA no sirve (401 de Zernio)     → 'estado': { ok: false, motivo: 'key', error } (200)
@@ -32,6 +33,7 @@
 
 import type { NextRequest } from 'next/server';
 import { getRolWsEfectivo, getWorkspaceActual } from '@/lib/workspace';
+import { getUsuarioActual } from '@/lib/auth';
 import { cuentasConectadas, asegurarWebhook, usaCuentaPropia, zernioConfigurado, ZernioError } from '@/lib/zernio';
 import { conexionesViaZernio, motivoDeError, recibirConexion, urlConectarViaZernio } from '@/lib/zernio-conectar';
 import { esRedZernio, urlDePagoDeZernio } from '@/lib/zernio-redes';
@@ -45,7 +47,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ZERNIO_KEY_MALA = 'Tu key de Zernio no sirve';
 const ZERNIO_PAUSADA = 'Tu cuenta de Zernio está pausada';
 
-type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; pageId?: unknown; flujo?: unknown };
+type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; pageId?: unknown; flujo?: unknown; accountId?: unknown };
 
 export async function POST(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
@@ -54,6 +56,27 @@ export async function POST(req: NextRequest) {
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   // `null`, un número o un texto son JSON válidos: sin esto `body.action` tira un TypeError (500) en vez de un 400.
   if (!body || typeof body !== 'object' || Array.isArray(body)) return Response.json({ ok: false, error: 'body inválido' }, { status: 400 });
+
+  // ── Meta por Zernio (25/10/2026): quedó conectada una cuenta de ANUNCIOS desde cualquier botón (el modal de Meta, la tarjeta de
+  // Zernio, el Media Buyer). Se guarda en el negocio (lib/meta-conexion-zernio.ts) para que MaKo lea, publique y mande CAPI por
+  // ahí; sin esto sólo la guardaba el modal de Meta, y conectar desde la tarjeta de Zernio no cambiaba nada. Con Zernio todavía
+  // cerrado para el negocio no guarda nada (`guardada: false`), y eso no es un error.
+  if (body.action === 'conectada-meta') {
+    if (typeof body.accountId !== 'string') return Response.json({ ok: false, error: 'falta la conexión' }, { status: 400 });
+    const { MetaZernioError, guardarConexionMetaPorZernio } = await import('@/lib/meta-conexion-zernio');
+    const { zernioMetaActivo } = await import('@/lib/meta-via');
+    if (!(await zernioMetaActivo(ws))) return Response.json({ ok: true, guardada: false });
+    try {
+      const sesion = await getUsuarioActual();
+      const autor = sesion ? (sesion.legacy ? sesion.sub : (sesion.email || sesion.sub)) : null;
+      const r = await guardarConexionMetaPorZernio(ws, body.accountId, autor);
+      return Response.json({ ok: true, guardada: true, conflictos: r.conflictos });
+    } catch (e) {
+      if (e instanceof MetaZernioError) return Response.json({ ok: false, error: e.message });
+      console.error(`[api:zernio] conectada-meta ws${ws}: ${msg(e).slice(0, 300)}`);
+      return Response.json({ ok: false, error: 'No pude guardar tu conexión de Facebook.' }, { status: 500 });
+    }
+  }
 
   // ── Las acciones de la pieza «Conectar vía Zernio» (lib/zernio-conectar.ts) ──
   if (body.action === 'conectar' || body.action === 'conexiones' || body.action === 'conectada') {

@@ -90,10 +90,10 @@ export default function ConectarMetaZernio({ onEstado, onGuardado }: {
   // Quedó conectada la ventana: MaKo guarda la conexión y lo que se puede elegir solo.
   const z = useConectarViaZernio({
     volver: '/integraciones?abrir=meta',
-    onConectado: (_conexiones, nueva) => {
+    // La pieza común ya guardó la conexión (`conectada-meta`, app/api/zernio/route.ts) antes de avisar: acá sólo se vuelve a leer.
+    onConectado: () => {
       setGuardando(true);
-      void pedir({ method: 'POST', body: JSON.stringify({ action: 'guardar', accountId: nueva.accountId }) })
-        .then(guardado).finally(() => setGuardando(false));
+      void pedir().then(guardado).finally(() => setGuardando(false));
     },
   });
 

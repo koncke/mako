@@ -88,7 +88,20 @@ const QUE_TOPA: Readonly<Record<TopePrueba, (n: number) => string>> = {
   'web.landings_publicadas': (n) => `en la prueba gratis va${n === 1 ? '' : 'n hasta'} ${n} ${n === 1 ? 'página publicada' : 'páginas publicadas'}`,
   'prueba.exportar': () => 'exportar y descargar en masa se habilita con tu primer cobro',
 };
-export const textoTopePrueba = (tope: TopePrueba, n: number): string => `${PREFIJO_TOPE_PRUEBA}: ${QUE_TOPA[tope](n)}. Si quieres seguir ya, empieza tu plan.`;
+// «El mismo lenguaje» que el cartel de la versión de prueba (25/10/2026, el Cerebro, copiado de Madgicx): «se habilita con tu plan».
+export const textoTopePrueba = (tope: TopePrueba, n: number): string => `${PREFIJO_TOPE_PRUEBA}: ${QUE_TOPA[tope](n)}. Se habilita con tu plan.`;
+
+/** Cómo se nombra cada cosa en la franja «Usaste 1 de 3 … de la prueba» (singular, plural). La exportación no cuenta. */
+export const NOMBRE_COSA_PRUEBA: Readonly<Record<Exclude<TopePrueba, 'prueba.exportar'>, readonly [string, string]>> = {
+  'prueba.videos': ['video armado', 'videos armados'],
+  'prueba.tomas': ['toma', 'tomas'],
+  'prueba.avatares': ['video con avatar de IA', 'videos con avatar de IA'],
+  'prueba.imagenes': ['imagen', 'imágenes'],
+  'web.landings_publicadas': ['página publicada', 'páginas publicadas'],
+};
+/** «1 de 3 videos armados»: lo que lleva la franja, con el plural del tope. */
+export const usadoDePrueba = (tope: Exclude<TopePrueba, 'prueba.exportar'>, usado: number, de: number): string =>
+  `${usado} de ${de} ${NOMBRE_COSA_PRUEBA[tope][de === 1 ? 0 : 1]}`;
 export const esTopeDePrueba = (texto: string | null | undefined): boolean => typeof texto === 'string' && texto.startsWith(PREFIJO_TOPE_PRUEBA);
 
 /** ¿Puede crear una más? `usadas` es lo que ya tiene. */

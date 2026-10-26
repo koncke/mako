@@ -215,6 +215,17 @@ export function textoDeErrorDeRetorno(error: string | null, mensaje?: string | n
   }
 }
 
+/**
+ * La vuelta con `error=` de un login que NO salió de esta pestaña (el link se abrió suelto, desde otro lado, o venció lo
+ * guardado): igual se dice por qué no conectó. Antes se descartaba en silencio, y quien había aceptado en Facebook no se
+ * enteraba de que Zernio lo había rechazado (medido el 25/10/2026: dos clics de Martín que no conectaron nada). Va SIN el
+ * texto de Zernio: sin lo guardado de esta pestaña, la URL la pudo armar cualquiera con el dominio de MaKo. Un éxito
+ * ajeno sigue sin hacer nada (no se da por conectado lo que esta pestaña no midió).
+ */
+export function errorDeVueltaAjena(ret: Retorno): string | null {
+  return ret.red && ret.error ? textoDeErrorDeRetorno(ret.error, null) : null;
+}
+
 // ── El mensaje de la ventana ─────────────────────────────────────────────────
 
 export const TIPO_MENSAJE_VENTANA = 'mako-zernio';

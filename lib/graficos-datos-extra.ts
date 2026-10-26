@@ -300,7 +300,10 @@ async function filasToques(rg: Rango): Promise<Fila[]> {
  * videos no se presta nada. Si esa función se exporta, esto pasa a ser un import.
  */
 function duracionPara(videos: Set<string>, durs: Map<string, number>): (videoId: string | null) => number | null {
-  const unica = durs.size === 1 ? [...durs.values()][0] : null;
+  // «La única duración conocida» es la ÚNICA DE PANDA (un id sin alojador): desde el 25/10/2026 también hay duraciones
+  // de otros alojadores (de los eventos del Pixel), y contarlas apagaba el respaldo de Panda aunque hubiera un solo video.
+  const dePanda = [...durs].filter(([k]) => !idDeclaraHost(k));
+  const unica = dePanda.length === 1 ? dePanda[0][1] : null;
   const hayUnoSolo = videos.size <= 1;
   return (videoId) => {
     const v = videoId?.trim();

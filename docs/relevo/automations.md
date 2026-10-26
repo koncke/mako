@@ -44,6 +44,41 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   los dos en docs/hallazgos-chatbot.md. Y f19/f22 (la tuerca de verdad en el globo; un lugar inventado no pasa: «MaKo nombraba
   un ícono…»). Y f34, la criatura que se escondía detrás de la barra desplegada (docs/hallazgos-ui.md). Toda la tanda de la
   llamada que era de Automations está hecha; nada se vio en pantalla.
+- **Pruebas A/B, tanda A3 hecha (25/10): la tarjeta «A/B TEST»** con todas sus puertas (la lista revisada, en
+  docs/hallazgos-chatbot.md), el editor (EditorPruebaAB: ramas, porcentajes, Empezar y Detener), «Probar» (un escenario por
+  rama), Crear y Editar con IA (`prueba_ab`, su regla sólo si el pedido la nombra), la API (`ver_prueba_ab`,
+  `empezar_prueba_ab`, `detener_prueba_ab`), los medidores de Automations en el cron y una franja en Métricas. La migración
+  ya está aplicada (0335, 25/10 19:27); falta la primera prueba real en el Cliente de Prueba.
+- **El chat de MaKo perdía herramientas (25/10, arreglado):** `cambiar_botones_mensaje` y las tres de la prueba A/B le sacaban
+  el lugar a `editar_pasos_secuencia_mensajes` y a `cambiar_crons_secuencia` (tests/ops-center-clasificador-app). Una
+  operación nueva va AL FINAL del área y se mide con esas frases antes de entregar (AGENTS.md). Crear con IA por HTTP
+  devuelve la pregunta como 400 con `faltan`, y la pérdida esperada del juez quedó sólo al tope.
+- **El texto de un WhatsApp o email en un flujo CON ramas, por la API (25/10):** `cambiar_texto_mensaje` (PATCH
+  …/mensajes/{tarjeta}/texto), por `publicarPasos`, al final del área. Cambiar el texto suelta las variantes del viejo (el
+  guardado ahora respeta un `[]` explícito), también en el texto de un DM. Sin hacer: `editar_pasos_secuencia_mensajes` sigue
+  avisando «conserva N variantes» en vez de soltarlas.
+- **Pruebas A/B, tandas A1 y A2 hechas (25/10, el Cerebro; diseño en docs/diseno-pruebas-ab.md, manda la crítica):** A1, el
+  motor puro lib/pruebas/ (asignar, estadistica, juez, volumen, metricas) y el test A/A con el calendario real
+  (tests/pruebas-juez-aa, ≤ 5 % de falsos ganadores). A2, la migración supabase/migrations/0335_pruebas_ab.sql (la
+  numeró el Cerebro y la APLICÓ en producción el 25/10 19:27, con el sí de Martín), lib/pruebas/store.ts, el cron /api/cron/pruebas (6:15 UTC, sin
+  medidores todavía), concluir → `experimentos` y `fmtVal` con «ab:». Sigue **A3**: los medidores de Automations
+  («respondio», «agendo», en el cron), y la clase `ab` con TODAS sus puertas en un commit (transparente para `condicionDeArriba`, `minutosAntesDeReunion` y
+  las reglas de forma; `esBifurcacion()` y la lista de los ~70 `=== 'condicion'`); la primera prueba real, en el Cliente de
+  Prueba. Landings usa el motor para la landing: le pasé las firmas (25/10); el store ya está (A2).
+- **Los botones de Instagram, de punta a punta (25/10, Martín: «Que lo pide el cliente Leandro»):** Editar con IA,
+  Probar, la ficha y la API, hechos y probados sin pantalla (docs/hallazgos-chatbot.md, «Los botones de Instagram, de punta
+  a punta…»). **Falta el DM de verdad, y depende de Martín**: ningún negocio nuestro tiene Instagram conectado por Zernio
+  (`scripts/medir-instagram-de-mako.mts`). Los pasos:
+  1. En el negocio Martin Koncke, Integraciones › Zernio: pegar la key de Zernio de MaKo, y conectar el Instagram de MaKo
+     con el login de Instagram (el webhook se registra solo al conectar).
+  2. Armar la automatización de prueba en ese negocio: «Por Instagram: quien comenta PRUEBAMAKO recibe el recurso, pero sólo
+     si nos sigue» (Crear con MaKo arma el gate), y prenderla.
+  3. Desde OTRA cuenta de Instagram que NO siga a MaKo: comentar PRUEBAMAKO en un post de MaKo. Tiene que llegar el DM con
+     «Obtener recurso». Si Instagram rechaza los botones en esa respuesta privada (pasa con quien no sigue), llega el texto
+     con «Escríbeme «Obtener recurso»», y escribirlo cuenta como tocarlo.
+  4. Tocar «Obtener recurso»: tiene que llegar «Síguenos y toca el botón» con «Ya te sigo». Seguir a MaKo, tocar «Ya te
+     sigo»: tiene que llegar el link. Y en la ficha del lead, mientras espera: «Espera que toque…».
+  Para ver qué salió: `nutricion_envios` de ese negocio y la ficha del lead; la cuenta y el webhook, con `scripts/medir-instagram-de-mako.mts`.
 - **Lo que pidió el Cerebro (hecho el 24/10 a las 23:55):** el `redirect()` de las tres páginas del Dashboard con `loading.tsx` encima
   (React #310) pasó a app/dashboard/layout.tsx y app/m/dashboard/layout.tsx, y salieron de la lista de conocidas
   (docs/hallazgos-infra.md, «Los dashboards redirigen en su layout…»). Sin medir en producción.

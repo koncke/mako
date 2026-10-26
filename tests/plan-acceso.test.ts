@@ -131,7 +131,7 @@ test('a la agencia que mira un cliente pausado, la pantalla le dice qué hacer e
   assert.equal(textoDelCorte(null, { paraAgencia: true }).titulo, 'Este cliente está pausado');
   const p = fuente('app/cuenta-pausada/page.tsx');
   assert.match(p, /const esAgencia = cliente != null;/);
-  assert.match(fuente('app/cuenta-pausada/SalirDeLaCuenta.tsx'), /fetch\('\/api\/agencia\/entrar', \{ method: 'DELETE' \}\)[^\n]*window\.location\.href = '\/partners'/);
+  assert.match(fuente('app/cuenta-pausada/SalirDeLaCuenta.tsx'), /fetch\('\/api\/agencia\/entrar', \{ method: 'DELETE' \}\)[^\n]*window\.location\.href = '\/agency'/);
 });
 
 // La revisión adversarial del 17/10 frenó el corte de acceso (el cron sólo ve `alta_ws`; un pago devuelto con la

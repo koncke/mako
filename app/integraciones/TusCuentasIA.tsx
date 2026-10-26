@@ -12,13 +12,15 @@
 // aparece en la consola web). El último paso espera solo a que la computadora aparezca «En línea».
 // =============================================================================
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useRouter } from '@/app/_ui/Link';
 import { LogoClaude } from '@/app/admin/operaciones/Uso';
 import { Modal } from '@/app/_ui/Modal';
 import { Skeleton } from '@/app/_ui/Feedback';
 import { BotonIntegracion } from '@/app/_components/ConectarIntegracion';
+import { DEFS as DEFS_INTEGRACIONES } from '@/lib/integraciones-catalogo';
+import { integracionAction } from './servicio-actions';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { ABRIR_IA, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, abreEnlacesMako, cuentasDeLaIA, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
@@ -245,6 +247,9 @@ function Tutorial({ onCerrar, pcsAntes, recargar, pasoInicial = 2, ia = 'claude'
   );
 }
 
+/** El «?» de «Mi computadora»: por qué no es lo mismo que la clave de API (una línea). */
+const NO_ES_LO_MISMO = 'No es lo mismo que la clave: tu computadora contesta lo que le pides en el chat, con tu suscripción y mientras esté prendida; la clave hace lo que MaKo hace solo, a toda hora.';
+
 /** El logo de cada IA (el de su integración): grande para los botones del paso 1, chico para la fila de «Nueva cuenta». */
 const LogoIA = ({ ia, chico = false }: { ia: IaDelCliente; chico?: boolean }) => (ia === 'claude'
   ? <LogoClaude size={chico ? 16 : 28} />
@@ -263,6 +268,7 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
 }) {
   const [ia, setIa] = useState<IaDelCliente | null>(iaInicial ?? null);
   const [conectada, setConectada] = useState(false);
+  const idAyuda = useId();
   const donde = ia ? dondeSacarLaClave(ia) : null;
   return (
     <div className="tci-tutorial" role="dialog" aria-label="Conectar tu IA">
@@ -307,8 +313,13 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
               if (o.que === 'pedir') return <div key={o.que} className="tci-grande tci-grande--pedir" role="note">{contenido}</div>;
               const anda = o.habilitada && (o.que !== 'pc' || puedeComputadora);
               return (
-                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? () => onComputadora(ia) : undefined}>
+                <button key={o.que} type="button" className="tci-grande" disabled={!anda} onClick={o.que === 'pc' ? () => onComputadora(ia) : undefined}
+                  aria-describedby={o.que === 'pc' ? idAyuda : undefined}>
                   {contenido}
+                  {/* «Y ACLARA QUE NO ES LO MISMO, EN ALGÚN LUGAR SUTIL, TAL VEZ EN "?"» (Martín, 25/10/2026): la clave atiende lo que
+                      MaKo hace solo; la computadora, lo que le pides tú. A la vista, el `title` del «?»; al lector, la DESCRIPCIÓN del
+                      botón (`aria-describedby`), no su nombre: en el nombre se leía la oración entera en cada opción (MaKo Desktop). */}
+                  {o.que === 'pc' && <><span className="tci-ayuda" title={NO_ES_LO_MISMO} aria-hidden>?</span><span id={idAyuda} hidden>{NO_ES_LO_MISMO}</span></>}
                 </button>
               );
             })}
@@ -327,6 +338,51 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
         {conectada && <button type="button" className="tci-boton" onClick={onCerrar}>Listo</button>}
       </div>
     </div>
+  );
+}
+
+/**
+ * LAS CLAVES DE API (25/10/2026, Martín, docs/feedback-25-10-tarde.md: «elimina las IA dentro de las integraciones, para eso
+ * tenemos el bloque que dice "Tus cuentas de IA" arriba del todo. Ahí solo agrega a Groq y listo»). Las cuatro IA que eran
+ * tarjetas de /integraciones viven acá, con su NOMBRE REAL (el del catálogo, lib/integraciones-catalogo.ts) y su estado. La
+ * fila de Anthropic API y la de OpenAI API abren «¿Cómo la conectas?» (la clave o tu computadora, el MISMO tutorial de
+ * siempre); Gemini API y Groq API no tienen computadora: abren directo el modal de la clave, sin un «Pronto».
+ */
+const CLAVES_API: ReadonlyArray<{ key: 'anthropic' | 'openai' | 'gemini' | 'groq'; ia?: IaDelCliente }> = [
+  { key: 'anthropic', ia: 'claude' }, { key: 'openai', ia: 'chatgpt' }, { key: 'gemini' }, { key: 'groq' },
+];
+const nombreDeClave = (key: string): string => DEFS_INTEGRACIONES.find((d) => d.key === key)?.nombre ?? key;
+
+function ClavesDeApi({ esAdmin, onElegir }: { esAdmin: boolean; onElegir: (ia: IaDelCliente) => void }) {
+  // El estado de cada una, con la MISMA cuenta que la grilla (`integracionAction` → getIntegracion). Sólo quien administra
+  // conecta una clave (es del negocio): a los demás, la lista sin acciones.
+  const [estados, setEstados] = useState<Record<string, { conectada: boolean; detalle: string }>>({});
+  const leer = useCallback(async () => {
+    const r = await Promise.all(CLAVES_API.map((c) => integracionAction(c.key).catch(() => null)));
+    const e: Record<string, { conectada: boolean; detalle: string }> = {};
+    r.forEach((x, i) => { if (x?.ok) e[CLAVES_API[i].key] = { conectada: x.integracion.estado === 'conectada', detalle: x.integracion.detalle }; });
+    setEstados(e);
+  }, []);
+  useEffect(() => { if (esAdmin) void leer(); }, [esAdmin, leer]);
+  const fila = (c: (typeof CLAVES_API)[number]) => {
+    const st = estados[c.key];
+    const contenido = (
+      <>
+        <SvcIcon k={c.key} size={13} box={22} radius={6} />
+        <span className="tci-api__nombre">{nombreDeClave(c.key)}</span>
+        {st && <span className="tci-api__estado" data-conectada={st.conectada || undefined}>{st.conectada ? 'Conectada' : 'Sin conectar'}</span>}
+      </>
+    );
+    if (!esAdmin) return <div key={c.key} className="tci-api" role="listitem">{contenido}</div>;
+    if (c.ia) return <button key={c.key} type="button" className="tci-api" role="listitem" onClick={() => onElegir(c.ia!)}>{contenido}</button>;
+    return <BotonIntegracion key={c.key} servicio={c.key} className="tci-api" onConectado={() => void leer()}>{contenido}</BotonIntegracion>;
+  };
+  return (
+    <section className="tci-bloque" aria-label="Claves de API">
+      <BrandDefs />
+      <h3 className="tci-bloque__titulo">Claves de API</h3>
+      <div className="tci-apis" role="list">{CLAVES_API.map(fila)}</div>
+    </section>
   );
 }
 
@@ -453,6 +509,8 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
       {/* SIN LA APP, SÓLO EL BOTÓN (24/10/2026, Martín: «si no tengo instalada no tengo que ver el modal de siempre, solo el botón
           bien diseñado de "Instalar MaKo desktop"»): sin ninguna computadora, ni cuentas ni «Nueva cuenta». */}
       {vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar={() => abrirTutorialEn(4)} />}
+      {/* Las claves de API, siempre (con o sin computadora): las cuatro IA que salieron de la grilla de /integraciones. */}
+      {(estado || leido) && !eligiendo && !tutorial && <ClavesDeApi esAdmin={!!estado?.esAdmin} onElegir={setEligiendo} />}
       {(estado || leido) && !vacia && !eligiendo && !tutorial && (
         <>
           <NuevaCuenta onElegir={setEligiendo} vacia={vacia} />

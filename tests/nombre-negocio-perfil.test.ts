@@ -4,7 +4,7 @@
 // Martín buscó el nombre del negocio de Florencia (ws21) en «Perfil de Florencia» (/perfil?ws=21) y no estaba: vivía
 // sólo en Configuración › Tu negocio. Ahora el perfil (la computadora, y la hoja del teléfono en /m/cuenta) tiene la fila
 // «Nombre del negocio» para quien lo puede cambiar, con la MISMA acción y la MISMA regla que «Tu negocio». «Empresa»
-// queda como está: pendiente (lib/nombre-negocio.ts).
+// no se le ofrece a quien ve esa fila desde el rediseño de Settings (25/10/2026, docs/hallazgos-ajustes.md).
 //
 // ROTURAS: ver el final del archivo.
 import { test } from 'node:test';
@@ -16,19 +16,22 @@ import { muestraNegocio } from '../lib/nombre-negocio';
 const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
-test('quién ve la fila: el admin del negocio (y el super admin mirando); «Empresa» queda como está', () => {
+test('quién ve la fila: el admin del negocio (y el super admin mirando)', () => {
   assert.equal(muestraNegocio({ nombre: 'Consultesis', puedeEditar: true }), true);
   assert.equal(muestraNegocio({ nombre: 'Consultesis', puedeEditar: false }), false, 'alguien que no lo puede cambiar ve una fila que no guarda');
   for (const sinLeer of [null, undefined]) assert.equal(muestraNegocio(sinLeer), false);
 });
 
 test('la fila guarda con la MISMA acción que «Tu negocio», dice por qué no y vuelve a dibujar la app', () => {
+  // Desde el 25/10/2026 el campo está EN la fila y guarda al salir (el Profile de Linear, docs/settings/referencia.md): ya no
+  // hay `editando` ni «Guardar». Lo que se cuida es lo mismo de antes.
   const info = sinComentarios(leer('app/perfil/InformacionPersonal.tsx'));
-  assert.match(info, /\{muestraNegocio\(negocio\) && fila\('negocio', nombreNegocio\)\}/);
-  assert.match(info, /\n\s*\{fila\('empresa', perfil\.empresa\)\}/, '«Empresa» se tocó: quedó pendiente (Cerebro, 22/10)');
-  assert.match(info, /if \(editando === 'negocio'\) \{ await guardarNegocio\(\); return; \}/, 'se guardaba en el perfil de la persona');
-  assert.match(info, /const r = await guardarNombreNegocioAction\(borrador\);\n\s*if \(!r\.ok\) \{ setError\(r\.error\); return; \}/, 'un nombre rechazado no se decía');
-  assert.match(info, /setNombreNegocio\(r\.nombre\);\n\s*setEditando\(null\);\n\s*router\.refresh\(\);/, 'el encabezado seguía con el nombre viejo');
+  assert.match(info, /const conNegocio = muestraNegocio\(negocio\);/);
+  assert.match(info, /\{conNegocio && \(\s*<FilaCampo titulo="Nombre del negocio">[\s\S]{0,260}onGuardar=\{guardarNegocio\}/, 'la fila del negocio se perdió o guarda en el perfil de la persona');
+  assert.match(info, /const r = await guardarNombreNegocioAction\(v\);\n\s*if \(!r\.ok\) \{ setError\(r\.error\); return false; \}/, 'un nombre rechazado no se decía');
+  assert.match(info, /setNombreNegocio\(r\.nombre\);[\s\S]{0,80}router\.refresh\(\);/, 'el encabezado seguía con el nombre viejo');
+  // «Empresa» ya no se ofrece a quien ve «Nombre del negocio» (docs/hallazgos-ajustes.md: al lado confundía); al resto, sí.
+  assert.match(info, /\{!conNegocio && \(\s*<FilaCampo titulo="Empresa">/);
 });
 
 test('las dos pantallas leen el negocio con la MISMA lectura y se lo pasan a la fila', () => {

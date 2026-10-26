@@ -33,7 +33,7 @@ import { guardarAjusteEstilo } from '@/lib/curso-estilo-datos';
 import { ajusteValido, type Ajuste } from '@/lib/curso-estilo';
 import { anotarVistaAbierta } from './onboarding-sync';
 
-const RUTA = '/clients/classroom';
+const RUTA = '/classroom';
 
 // `puedeVer` (mirar la tab), `puedeEditar` (admin del workspace) y `productoPropio` viven en
 // ./puerta-curso.ts desde el 08/10/2026: eran privadas acá y estaban copiadas en ./adjuntos-actions.ts.

@@ -12,6 +12,35 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## Sacar MaKo Context, AI Models y Dev: lo que se iba con ellas sin que nadie lo supiera (25/10/2026)
+
+Martín (puntos 13 a 15): «Elimina /contexto... Elimina /modelos-ia... Elimina "dev", ya no lo necesitamos». Medido ANTES
+de borrar, lo que cada pantalla arrastraba y no se veía desde su nombre:
+- ⚠️ **«Prompts» y «Configuración» NO las personaliza cada usuario** (era la premisa del pedido): /contexto era el ÚNICO
+  lugar donde se editaban la persona de MaKo y los 33 prompts de cada pantalla (lib/prompt-registry.ts). Borrar la
+  pantalla dejaba los prompts sin editor. Se mudaron a **Settings › Prompts** (sólo la plataforma, la regla de «Método»).
+  «Conocimiento» (la metodología, `mako_knowledge`) fue a **Classroom › Methodology**, con el editor completo que vivía
+  suelto en /conocimiento. «Fases» quedó deprecado: su dato sigue en `mako.fase.*` y sigue entrando al prompt si tiene algo.
+- ⚠️ **Las bibliotecas de Ads Writer (Ángulos y Estructuras) sólo se editaban en la página de Dev de Ads Writer**
+  (`paneles.tsx`); /admin/guiones redirigía ahí y su TÍTULO de pestaña salía de la fila de Dev. Ahora /admin/guiones las
+  dibuja y es una sección de Copywriting («Angles & Structures»).
+- **El grafo del Second Brain (la construcción de MaKo) enlazaba cada área a /admin/dev/<área>**: hoy abre su `verEnApp`
+  (la tab del área) o nada. Un link a una pantalla que se fue no da error: redirige al Ops Center y parece que anda.
+- **La capacidad «contexto» que MaKo ofrece por la API mandaba a /contexto**, que un cliente ni podía abrir (era del
+  super admin): ahora manda a Second Brain, donde un negocio carga lo suyo. El id se queda (es el contrato).
+- **Lo de Dev que SE QUEDA porque otros lo importan:** las bitácoras (cierre de tickets por `tickets: [n]`, Progreso, el
+  Cerebro), `areas.ts`, `registros.ts`, `roadmap.ts` (Runway), `_registro/Registro.tsx` (la página de la API y el catálogo de
+  UI) y `pricing/Piezas.tsx` (Landing Analyst). Y /admin/docs y /admin/ui: otras pantallas los enlazan; ya no tienen puerta
+  en la barra. Se fueron el mapa de áreas, la página de cada área, sus paneles (Pricing, El semáforo, el roadmap de CS) y el
+  historial generado (`gen-dev-historial.mjs`).
+- **Las rutas viejas redirigen en next.config.ts**: /contexto y /conocimiento → Classroom › Methodology, /modelos-ia y
+  /admin/dev/* → el Ops Center.
+- **Quedó sin hacer:** el CSS del modo Dev (`.mk-sidebar--dev`, `--dev-line` en app/_ui/ui.css) ya no lo usa nadie; y los
+  comentarios de ~30 archivos que dicen «configurable en /modelos-ia» (el override guardado sigue rigiendo en runtime).
+
+**Vive en:** `app/_components/nav.ts` (`SUPERADMIN_MENU`, `ADMIN_FAMILIAS`) · `app/_components/Sidebar.tsx` · `next.config.ts` ·
+`app/classroom/methodology/` · `app/configuraciones/prompts/` · `app/admin/guiones/page.tsx` · `lib/cerebro-construccion.ts`
+
 ## La tuerca es Settings en toda la app, y el menú de la foto: sin la cara y con Platform en un ítem (25/10/2026)
 
 Martín (25/10, ~12:00), con la captura del menú: «No me gusta para nada que en el desplegable de super admin me aparezcan
@@ -4841,3 +4870,14 @@ layout.
 (son 0,2 s).
 
 Vive en: app/_chat/MakoEnLaTab.tsx · app/_chat/borde-barra.ts · tests/estrella-al-lado-de-la-barra.test.ts.
+
+**Capturas ANTES y DESPUÉS de una pantalla sin levantar la app, con los mismos datos (25/10/2026, Settings).** El banco de
+la ficha (24/10, docs/hallazgos-crm.md) arma los componentes REALES con esbuild y APIs simuladas. Para el «antes» no hace
+falta otro worktree: un plugin `onLoad` de esbuild que, para cada archivo que cambió la rama (`git diff --name-only <base>
+HEAD`), devuelve `git show <base>:<ruta>` en vez del archivo del disco, y el MISMO mock de `fetch`. Así el antes y el después
+muestran los mismos datos, y la diferencia es sólo la pantalla. Trampas: (1) un módulo de `lib/` que lee `process.env` deja
+la página EN BLANCO sin un error a la vista (en la consola: «process is not defined»); un `window.process = { env: {} }`
+antes del bundle lo destraba; (2) el CSS viejo también va por `git show` (si no, el antes sale con el CSS nuevo); (3) las
+acciones `'use server'` se cambian por stubs por nombre de archivo (`negocio-actions`, `horario-actions`…), porque el bundle
+del navegador no puede importarlas; (4) un `python` dentro de un heredoc de Bash pierde las barras invertidas (`\r?\n` llega
+como un salto de línea de verdad): el script va a un archivo con la herramienta de escribir y se corre desde ahí.

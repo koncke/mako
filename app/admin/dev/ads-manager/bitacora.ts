@@ -24,8 +24,8 @@ export const PARTES: Parte[] = [
   { titulo: 'Subir creativos nuevos a un conjunto', detalle: 'Un modal: el conjunto, los archivos al staging con su barra, los textos del mejor anuncio del conjunto (editables) y publicar · un anuncio por archivo, por la Zernio del negocio (con su token propio Meta rechaza el creativo nuevo, 1885183) · queda en «Hechas» con su «Deshacer», que los borra', estado: 'hecha' },
   { titulo: 'MaKo Esencial: 2 recomendaciones por día, sin piloto', detalle: 'Decisión del Cerebro (25/10, el cupo de entrada de AdAmigo) · el número sale de la tabla de topes de Planes · sólo al Esencial que paga por la pasarela · lo que no entra no gasta IA y entra primero lo que cuida la plata · espera que Planes saque la tab del candado de Pro', estado: 'sigue' },
   { titulo: 'Automatizaciones: cada táctica por su cuenta', detalle: 'El «Automation Overview» de Madgicx en /ads-manager/automatizaciones: qué hizo (prendió, pausó, subió, bajó) en 7 o 30 días, y cada táctica apagada / propone / automática con sus umbrales (el recomendado al lado) y las campañas que cubre · el piloto lanza sólo las automáticas · también por la API · faltan las reglas propias con Y/O', estado: 'sigue' },
-  { titulo: 'MaKo opera el Media Buyer', detalle: 'ver_media_buyer, lanzar, deshacer, descartar, analizar, modo y topes en la API de MaKo · lo que mueve plata se confirma en pantalla y no corre en un flujo', estado: 'hecha' },
-  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: una decisión real lanzada (recortada por el tope), leída en Meta y deshecha · lo del ANUNCIO (prender, pausar, variaciones) espera un método de pago en la cuenta (Martín)', estado: 'sigue' },
+  { titulo: 'MaKo opera el Media Buyer', detalle: 'Todo lo que hace la pantalla, por la API de MaKo y por HTTP (25/10): ver las tres pestañas, lanzar con monto y variaciones, deshacer, descartar, reabrir, calificar, los hooks al video, el modo, los topes, las metas, la cuenta y cada táctica · lo que mueve plata se confirma en pantalla y no corre en un flujo · falta subir creativos (archivos)', estado: 'sigue' },
+  { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: presupuesto (recortado por el tope), prender y pausar un anuncio, variaciones de texto y de hook, cada una leída en Meta y deshecha · todo en pausa, gasto 0', estado: 'hecha' },
 ];
 
 export const BITACORA: Hito[] = [
@@ -421,6 +421,62 @@ export const BITACORA: Hito[] = [
       'lib/zernio-ads.ts — la campaña vacía, el accountId y la moneda en vivo',
       'lib/media-buyer/senales.ts — lo que sólo trae la lectura en vivo se suma al árbol',
       'lib/media-buyer/datos.ts — sin META_AD_ACCOUNT_ID se va por Zernio',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '14:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todo el Media Buyer, por la API de MaKo',
+    pedido: '«Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «lo que mueve plata no puede salir por HTTP», y era el equivocado**: la API ya trata lo que cuesta dinero como una propuesta que se confirma en la pantalla, aun con un token con escritura. Lanzar, deshacer, el modo, los topes y las tácticas salen ahora por HTTP con su URL.',
+      'Lo que faltaba: ver Hechas y Descartadas (con estrellas y motivo, 30 días como la pantalla), lanzar con el monto editado y las variaciones elegidas, reabrir, calificar, llevar los hooks al Video Generator, las metas del mes, la cuenta publicitaria y las campañas para elegir en una táctica.',
+      'Un test lee los botones de la pantalla y pide la operación de cada uno, y que cada ajuste se pueda cambiar por la API. Roto a propósito cuatro veces antes de darlo por bueno.',
+      'Queda afuera, escrito: subir creativos (los archivos los sube el navegador).',
+    ],
+    archivos: [
+      'lib/api-mako/areas/ads.def.ts / ads.run.ts — las operaciones del Media Buyer',
+      'lib/api-mako/rest.ts — sus URLs',
+      'tests/media-buyer-api.test.ts — cada botón con su operación',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '14:55', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'La prueba del anuncio en la cuenta de Mauricio: Meta la frenó igual, por el pago',
+    pedido: '«Para probar el Media Buyer, hazlo en la cuenta de Mauricio, que si tiene metodo de pago...»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «esta cuenta sí tiene pago», y era el equivocado**: la «Cuenta 1» de Elévate figuraba con el pago ok y Meta igual frenó el anuncio de prueba por el método de pago. La única prueba es crear uno en pausa.',
+      'Conectarla costó tres clics: el inicio de sesión de Meta es de UN portfolio, y Zernio guarda una conexión de anuncios por perfil (otro login en el de MaKo la habría cambiado). Se hizo en un perfil aparte, y la vuelta de Zernio ya no se traga el error.',
+      'La cuenta quedó igual que antes, comparada campaña por campaña. Sólo quedó la imagen de prueba en su biblioteca (Zernio no la puede borrar). El perfil de prueba se borró, y la conexión de MaKo sigue en «Control total».',
+    ],
+    archivos: [
+      'scripts/media-buyer-medir-zernio.mts — --cuenta, foto/comparar y decisiones-anuncio',
+      'lib/zernio-redes.ts · app/_components/ConectarViaZernio.tsx — la vuelta con error',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '16:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Con la tarjeta en la cuenta de MaKo: el anuncio medido de punta a punta, y un atraso de Zernio',
+    pedido: '«Ya agregue la tarjeta»',
+    puntos: [
+      'Se midió todo lo que faltaba, en pausa y sin gastar: prender, pausar y deshacer un anuncio, y las variaciones de texto y de hook con su deshacer (Meta las muestra borradas). La campaña se borró; gasto 0.',
+      '⚠️ **El diagnóstico obvio era «el anuncio ya estaba prendido», y era el equivocado**: Zernio guarda el interruptor de los anuncios con hasta una hora de atraso. Ahora el Media Buyer relee el anuncio en Meta antes de prenderlo, pausarlo o deshacerlo.',
+      'Crear «en pausa» por Zernio pausa sólo la campaña: el conjunto y el anuncio nacen prendidos (no entregan, pero hay que pausarlos aparte para dejar todo quieto).',
+      'Un anuncio borrado vuelve de Zernio como «prendido» (lo vio el chat de Zernio): ahora queda como borrado, ni prendido ni pausado, para que ninguna táctica lo toque.',
+    ],
+    archivos: [
+      'lib/media-buyer/ejecutar.ts — conAnuncioEnVivo antes de decidir',
+      'lib/zernio-ads.ts — anuncioEnVivoPorZernio (live=true)',
+      'lib/media-buyer/senales.ts — lo borrado queda DELETED (estaBorrado)',
+      'scripts/media-buyer-medir-zernio.mts — interruptor-anuncio y las variaciones de hook',
     ],
     revisar: '/ads-manager',
   },

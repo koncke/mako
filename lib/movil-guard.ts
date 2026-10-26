@@ -126,7 +126,7 @@ export async function salidaDeVista(): Promise<{ salida: string; modoAgencia: bo
   const esSuperAdmin = ctx.sesion.rol === 'admin';
   const agencia = esSuperAdmin && ctx.ws != null ? await agenciaDeCliente(ctx.ws) : null;
   return {
-    salida: agencia ? `/customer-success?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
+    salida: agencia ? `/agency?${WS_PARAM}=${agencia.ws}` : rutaDeSalida(esSuperAdmin),
     modoAgencia: !esSuperAdmin,
   };
 }

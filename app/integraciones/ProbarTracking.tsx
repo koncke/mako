@@ -111,6 +111,11 @@ function legible(e: Evento): { texto: string; color: string } {
   if (e.tipo === 'video_ajeno') return { texto: 'Tu página tiene un video que no se puede medir', color: 'var(--dim)' };
   if (e.tipo === 'toque_video') return { texto: 'Tocó un video que no se puede medir', color: 'var(--primary)' };
   if (e.tipo === 'scroll') return { texto: e.porcentaje != null ? `Bajó hasta el ${e.porcentaje}% de la página` : 'Bajó por la página', color: 'var(--dim)' };
+  // Pixel v26: las secciones de una página del Web Generator que la persona vio (acumuladas; los ids no dicen nada acá).
+  if (e.tipo === 'secciones') {
+    const n = (e.detalle ?? '').split(' ').filter(Boolean).length;
+    return { texto: n ? `Vio ${n} ${n === 1 ? 'sección' : 'secciones'} de la página` : 'Vio secciones de la página', color: 'var(--dim)' };
+  }
   return { texto: e.tipo, color: 'var(--dim)' };
 }
 

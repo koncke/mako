@@ -61,6 +61,9 @@ export type ResultadoFlujo = {
   noCorrio?: true;
   /** Lo que contestó la base cuando la pendiente no entró: SÓLO para el rastro del motor, nunca a una persona ni por HTTP. */
   motivo?: string;
+  /** Los parámetros que faltan (o la pregunta de MaKo, en el parámetro que la contesta): por /api/v1 vuelven como `faltan`
+   *  con un 400, como un obligatorio que no vino. Sin esto la pregunta de crear con IA llegaba como un 422 de texto. */
+  faltan?: string[];
 };
 
 /** El contexto con el que corre un flujo: el admin del negocio, con alcance de ejecutar. */
@@ -83,7 +86,8 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
 // El Media Buyer (25/10/2026): lo que mueve plata en la cuenta de Meta lo confirma una persona o el piloto automático que el
 // negocio prendió, nunca un paso de una automatización (docs/diseno-ads-autopilot.md, «Seguridad e inquilinos»).
 export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
-  'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer']);
+  'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer',
+  'cuenta_media_buyer']);
 
 /**
  * Y lo que se acepta EN EL EDITOR DE VIDEO (pantalla `/video-editor`: las operaciones de su chat, lib/editor-video/chat-api.ts,
@@ -191,12 +195,17 @@ export async function aplicarEnElActo(
       return {
         ok: r.yaEstaba === true, resumen: r.error, via: 'ninguna',
         ...(r.motivo ? { motivo: r.motivo } : {}), ...(r.noCorrio ? { noCorrio: true as const } : {}),
+        ...(r.faltan?.length ? { faltan: r.faltan } : {}),
       };
     }
 
     if (r.tipo === 'pendiente') {
       const c = await confirmarPendiente(ctx, r.pendiente.id);
       if ('error' in c) return { ok: false, resumen: String(c.error), via: 'pendiente' };
+      // La pregunta que hizo el modelo al ejecutar (crear con IA) viaja en `datos.faltan`: sale como `faltan`.
+      const faltanAlEjecutar = !c.ok && 'datos' in c && Array.isArray((c.datos as { faltan?: unknown } | undefined)?.faltan)
+        ? ((c.datos as { faltan: unknown[] }).faltan).map(String) : null;
+      if (faltanAlEjecutar?.length) return { ok: false, resumen: c.resumen, via: 'pendiente', faltan: faltanAlEjecutar };
       return { ok: c.ok, resumen: c.resumen, via: 'pendiente', ...('datos' in c && c.datos ? { datos: c.datos as Record<string, unknown> } : {}) };
     }
 

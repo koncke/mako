@@ -210,6 +210,16 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: TODOS, costo: 'externo', gating: { ...G_INTEG, integracion: 'panda' }, lenta: true,
   },
   {
+    id: 'listar_videos_alojados', area: 'landing', tipo: 'lectura',
+    titulo: 'Videos de los alojadores conectados',
+    descripcion: 'Los videos de TODOS los alojadores de video que el negocio conectó en Integraciones (Panda, Vimeo, Wistia, Bunny Stream y Cloudflare Stream): el id con el que los mide el Pixel de MaKo (el mismo de listar_videos_detectados y tracking_lead), el alojador, el título, el link del reproductor (lo que se pega en una landing con poner_enlace_landing o en una clase con editar_clase_curso), la duración en segundos y las reproducciones totales cuando el alojador las da en su listado. Dice qué alojadores están conectados y cuál no se pudo leer. Cuánto vio cada persona lo mide el Pixel en todos por igual: eso está en tracking_lead y ver_serie_vsl.',
+    parametros: [
+      { nombre: 'alojador', tipo: 'string', enum: ['panda', 'vimeo', 'wistia', 'bunny', 'cloudflare'], descripcion: 'Sólo los de ese alojador. Sin él, todos.' },
+      { nombre: 'limite', tipo: 'number', entero: true, minimo: 1, maximo: 300, descripcion: 'Cuántos devolver. Por defecto 100; la respuesta dice cuántos quedaron afuera.' },
+    ],
+    salida: 'json', canales: TODOS, costo: 'externo', gating: G_INTEG, lenta: true,
+  },
+  {
     id: 'ver_metricas_video_panda', area: 'landing', tipo: 'lectura',
     titulo: 'Métricas de un video en Panda',
     descripcion: 'Lo que Panda Video midió de UN video: reproducciones y espectadores únicos de un día (con la retención media en % y la duración), o la serie día por día de un rango de hasta 92 días (sin retención: Panda la da solo por día). Úsala cuando pregunten «¿cuántos vieron mi VSL ayer?». Necesita el id externo del video (de listar_videos_panda) y que Panda esté conectado. Una retención null significa que Panda no la dio, no que sea 0.',
@@ -241,7 +251,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_comportamiento_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Comportamiento medido de una landing',
-    descripcion: 'Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar) y de dónde vinieron. Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.',
+    descripcion: 'Lo que hizo la gente en UNA landing, medido HOY sobre toda la historia del Pixel: visitas, visitantes únicos, cuántos tuvieron eventos de video (incluye los que arrancaron solos), cuántos llegaron al 50% y al final (null = no se pudo medir, NUNCA 0), cuántos de esos visitantes tienen una llamada agendada (sin comprobar si agendaron antes o después de visitar), de dónde vinieron y, en una página del Web Generator del negocio, qué porcentaje vio cada sección en los últimos 30 días (null = no se mide). Úsala para «¿cómo le va a mi landing?». Si esos visitantes también entraron a otras páginas del negocio, la profundidad del video puede ser de la otra, y la respuesta lo marca. Es lenta: recorre todas las visitas y eventos.',
     parametros: [
       { nombre: 'url', tipo: 'string', obligatorio: true, max: 500, descripcion: 'La dirección de la landing, con o sin https (se ignoran los parámetros de la URL y el www).' },
     ],
@@ -297,7 +307,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_analitica_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Visitas y leads de una landing creada',
-    descripcion: 'Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead y las visitas de cada día. Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.',
+    descripcion: 'Lo que midió el Pixel de MaKo en los últimos 30 días en una landing creada en el editor del Web Generator (la tarjeta «Analítica» del editor): visitas, visitantes únicos, cuántos de esos visitantes quedaron como lead, las visitas de cada día y qué porcentaje de los visitantes vio cada sección (desde que el Pixel lo mide). Las pruebas del Pixel no cuentan. Sin publicar devuelve publicada false y ceros, que en ese caso son ciertos. Úsala para «¿cuántas visitas tuvo mi landing?». Para una página que no se creó en el editor está ver_comportamiento_landing. Necesita el id (de listar_landings_creadas). Es lenta en un negocio con mucho tráfico.',
     parametros: [P_ID_CREADA],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER, lenta: true,
   },

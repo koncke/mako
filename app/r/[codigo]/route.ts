@@ -13,6 +13,7 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { getSupabaseServer } from '@/lib/supabase';
 import { codigoRefLimpio } from '@/lib/compra-plan-reglas';
 import { COOKIE_REF, DIAS_COOKIE_REF } from '@/lib/partners-reglas';
+import { sumarVisitaAlLink } from '@/lib/partners-programa';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,6 +33,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ codi
   const res = NextResponse.redirect(destino, 302);
   if (!previo) {
     res.cookies.set(COOKIE_REF, codigo, { maxAge: DIAS_COOKIE_REF * 86_400, path: '/', sameSite: 'lax', secure: true, httpOnly: true });
+    // La visita del panel del partner (25/10/2026): la primera vez de este navegador, y nunca un robot de vista previa. Si
+    // no se pudo anotar, el link igual lleva.
+    await sumarVisitaAlLink(codigo, req.headers.get('user-agent')).catch((e) => console.warn('[r] no pude anotar la visita:', e instanceof Error ? e.message : e));
   }
   return res;
 }

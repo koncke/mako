@@ -157,9 +157,8 @@ test('lo que se LEE dice «Web Generator», y las CLAVES siguen iguales', () => 
   // Lo que NO se renombra: la API interna y el registro de /admin/dev (sólo su rótulo).
   assert.ok(existsSync(join(RAIZ, 'app/api/landing-generator/route.ts')), 'la API interna /api/landing-generator no se mueve');
   assert.ok(existsSync(join(RAIZ, 'app/admin/dev/landing-generator/bitacora.ts')), 'el registro de /admin/dev no se mueve');
-  const dev = ADMIN_NAV.find((i) => i.key === 'dev-landing-generator');
-  assert.ok(dev, 'se fue el item del registro de /admin/dev');
-  assert.deepEqual([dev.label, dev.href], ['Web Generator', '/admin/dev/landing-generator']);
+  // La fila del registro en la barra de Dev se fue con Dev (25/10/2026); la bitácora se queda (arriba).
+  assert.equal(ADMIN_NAV.find((i) => i.key === 'dev-landing-generator'), undefined);
 });
 
 test('⚠️ nada del producto ENLAZA la página vieja: es un redirect, y la única lista que la nombra es la de alias', () => {

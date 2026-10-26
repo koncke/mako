@@ -1,7 +1,7 @@
 // =============================================================================
-// Clients › Classroom › vista del alumno (/clients/classroom/preview) — el curso como lo ve el cliente
+// Clients › Classroom › vista del alumno (/classroom/preview) — el curso como lo ve el cliente
 // =============================================================================
-// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/clients/classroom/preview/page.tsx; la
+// ⚠️ ESTO ES UNA PANTALLA, NO UNA RUTA (17/10/2026). La monta app/classroom/preview/page.tsx; la
 // ruta vieja (/customer-success/curso/vista) redirige allá (docs/diseno-clients.md, D2).
 //
 // Es el ENSAYO del onboarding de la tab Curso (`curso_vista`, lib/tab-onboarding-catalogo.ts): la
@@ -73,7 +73,7 @@ export async function PantallaVistaAlumno({ searchParams }: { searchParams: Prom
   if (!productoId || !prod) {
     return (
       <Pagina>
-        <EmptyState titulo="No encontré ese producto" accion={{ label: 'Volver a editar', href: '/clients/classroom' }} />
+        <EmptyState titulo="No encontré ese producto" accion={{ label: 'Volver a editar', href: '/classroom' }} />
       </Pagina>
     );
   }

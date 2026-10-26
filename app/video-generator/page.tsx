@@ -26,6 +26,7 @@ import { veEditorVideo } from '@/app/video-editor/acceso';
 // El interruptor del tema, en el HTML del servidor: corre antes del primer
 // pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
 import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
+import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -145,6 +146,8 @@ export default async function Page() {
   return (
     <>
       <TemaOscuroScript />
+      {/* LA PRUEBA GRATIS (25/10/2026, copiada de Madgicx): cuánto usó de lo que la prueba topa en esta pantalla. */}
+      <FranjaPrueba cosas={['prueba.videos', 'prueba.tomas', 'prueba.imagenes']} style={{ margin: '12px 16px 0' }} />
       {faltaOnboarding ? (
         <PuertaVideoGen
           fotos={contexto.fotos}

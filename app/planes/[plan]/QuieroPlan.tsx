@@ -7,10 +7,14 @@
 // Con `preguntas` (el Acelerador, 25/10/2026): antes de los datos, el diagnóstico de 2 minutos, UNA pregunta por pantalla y
 // con respuestas grandes que avanzan solas al tocarlas (lib/compra-plan-reglas.ts, `PREGUNTAS_DE_LA_PUERTA`). Se mandan los
 // índices; el servidor guarda el texto de cada opción.
+//
+// EL CÓDIGO DE REFERIDO (25/10/2026), como en el checkout (CodigoReferido.tsx): en el pedido de un PLAN. El Acelerador no lo
+// lleva: no entra en MaKo Partners (Martín: «No pongas al programa de 1500 en el programa de referidos»).
 
 import { useEffect, useRef, useState } from 'react';
 import type { OrigenCompra } from '@/lib/compra-plan-reglas';
 import type { Pregunta } from '@/lib/fase-diagnostico';
+import { CodigoReferido, codigoParaMandar } from './CodigoReferido';
 
 export function QuieroPlan(p: {
   plan: string; nombrePlan: string; origen: OrigenCompra | null; refCodigo: string | null; preguntas?: readonly Pregunta[];
@@ -23,6 +27,8 @@ export function QuieroPlan(p: {
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [codigo, setCodigo] = useState(p.refCodigo ?? '');
+  const [errorCodigo, setErrorCodigo] = useState<string | null>(null);
   const [web, setWeb] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [listo, setListo] = useState(false);
@@ -40,15 +46,20 @@ export function QuieroPlan(p: {
     if (enviando) return;
     setEnviando(true);
     setError(null);
+    setErrorCodigo(null);
     try {
       const diagnostico = preguntas.length ? respuestas : undefined;
       const r = await fetch('/api/planes/comprar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: p.plan, nombre, email, whatsapp, quiero: true, origen: p.origen, ref: p.refCodigo, web, diagnostico, periodo: p.periodo }),
+        body: JSON.stringify({
+          plan: p.plan, nombre, email, whatsapp, quiero: true, origen: p.origen, ref: p.refCodigo, web, diagnostico, periodo: p.periodo,
+          codigo: preguntas.length ? undefined : codigoParaMandar(codigo, p.refCodigo),
+        }),
       });
-      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string; campo?: string };
       if (r.ok && j.ok) { setListo(true); setEnviando(false); return; }
+      if (j.campo === 'codigo') { setErrorCodigo(j.error ?? 'Revisa el código.'); setEnviando(false); return; }
       setError(j.error ?? 'No pudimos registrar tu pedido. Prueba otra vez.');
     } catch {
       setError('No pudimos conectarnos. Revisa tu internet y prueba otra vez.');
@@ -115,6 +126,9 @@ export function QuieroPlan(p: {
         <label htmlFor="qp-web">Web</label>
         <input id="qp-web" type="text" tabIndex={-1} autoComplete="off" value={web} onChange={(e) => setWeb(e.target.value)} />
       </div>
+      {preguntas.length === 0 && (
+        <CodigoReferido valor={codigo} onCambio={(v) => { setCodigo(v); setErrorCodigo(null); }} delLink={p.refCodigo} error={errorCodigo} />
+      )}
       <button className="planes-btn" type="submit" disabled={enviando}>{enviando ? 'Enviando…' : `Quiero ${p.nombrePlan}`}</button>
       {error && <p className="planes-error" role="status" aria-live="polite">{error}</p>}
       <p className="planes-nota">

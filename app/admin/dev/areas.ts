@@ -26,8 +26,8 @@
 //   · El ROADMAP sale del plan. Cada área declara sus `proyectos` y la pantalla lee
 //     las tareas abiertas de la base. Un roadmap escrito a mano se queda viejo el
 //     martes; éste es el tablero, que es donde el trabajo ya vive.
-//   · El CHANGE HISTORY sale de git. `scripts/gen-dev-historial.mjs` corre
-//     `git log` sobre las rutas de `vive` y deja `_historial.generado.ts`.
+//   · El CHANGE HISTORY salía de git (`scripts/gen-dev-historial.mjs` → `_historial.generado.ts`) para las pantallas de
+//     /admin/dev, que se fueron el 25/10/2026 (Martín: «Elimina "dev", ya no lo necesitamos»): ya no se genera.
 //     Las bitácoras escritas a mano (`<area>/bitacora.ts`) NO se reemplazan:
 //     tienen el pedido TEXTUAL del dueño y el porqué, que ningún commit contiene.
 //     Donde existen, mandan ellas. Cuáles son sale de `registros.ts`, nunca de una
@@ -470,7 +470,7 @@ export const AREAS: AreaDev[] = [
     // la ficha nacieron el 05/10 y la lista archivo por archivo no los veía.
     // La tab Clients (17/10/2026, docs/diseno-clients.md): la cabecera y las rutas nuevas, y MaKo Partners (las cuentas
     // de los clientes de una agencia, que salieron de esta carpeta).
-    vive: ['app/clients/', 'lib/clients-rutas.ts', 'app/partners/', 'lib/partners.ts', 'docs/diseno-clients.md', 'docs/hallazgos-partners.md',
+    vive: ['app/classroom/', 'lib/clients-rutas.ts', 'app/partners/', 'lib/partners.ts', 'docs/diseno-clients.md', 'docs/hallazgos-partners.md',
       'app/customer-success/', 'lib/servicio-etapas.ts', 'lib/cs-mover-etapa.ts', 'lib/entrega-servicio.ts', 'lib/clientes-ganados.ts', 'app/plan/board/filtro-cliente.ts',
       // La cartera (#109, 07/10/2026): el último contacto como UNA regla y la alerta de baja al dueño.
       'lib/cs-contacto.ts', 'lib/cs-sin-contacto.ts', 'app/api/cron/cs-sin-contacto/',
@@ -874,16 +874,20 @@ export const AREAS: AreaDev[] = [
   },
   {
     slug: 'contexto-de-mako', titulo: 'Contexto de MaKo', familia: 'MaKo',
-    estado: 'listo', verEnApp: '/contexto',
-    alcance: 'La tab donde la agencia le carga el cerebro a MaKo: Conocimiento (RAG), Fases y Prompts. No es configuración de tu cuenta.',
-    vive: ['app/contexto/page.tsx', 'app/contexto/ContextoTabs.tsx'],
+    estado: 'listo', verEnApp: '/classroom/methodology',
+    // /contexto se fue el 25/10/2026 (Martín, punto 13): el Conocimiento (RAG) vive en Classroom › Methodology y los prompts
+    // en Settings › Prompts, los dos sólo para el super admin. Fases quedó deprecado (su dato sigue en `mako.fase.*`).
+    alcance: 'El cerebro de MaKo que carga la plataforma: el Conocimiento (RAG, en Classroom › Methodology) y los prompts (Settings › Prompts). No es configuración de tu cuenta.',
+    vive: ['app/classroom/methodology/page.tsx', 'app/classroom/methodology/ConocimientoView.tsx', 'app/configuraciones/prompts/page.tsx', 'app/configuraciones/prompts/PromptsMaKo.tsx', 'app/configuraciones/Configuraciones.tsx'],
     proyectos: ['Feature: Contexto de MaKo'],
   },
   {
     slug: 'modelos-ia', titulo: 'Modelos IA', familia: 'MaKo',
     estado: 'listo', verEnApp: '/modelos-ia',
     alcance: 'Qué modelo/IA corre cada tarea de la app, con la recomendación del audit y el override que re-rutea las llamadas de verdad en runtime. Es el control de COSTO, no la infraestructura.',
-    vive: ['app/modelos-ia/page.tsx', 'app/modelos-ia/ModelosIA.tsx', 'lib/model-registry.ts', 'app/api/admin/modelos/route.ts'],
+    // La pantalla /modelos-ia se fue el 25/10/2026 (Martín, punto 14: «eso ya lo configura el usuario y el propio Ops Center de
+    // manera automática»). El override guardado sigue rigiendo en runtime y su API (/api/admin/modelos) sigue respondiendo.
+    vive: ['lib/model-registry.ts', 'app/api/admin/modelos/route.ts'],
     proyectos: ['Feature: Modelos IA'],
   },
   {
@@ -897,7 +901,7 @@ export const AREAS: AreaDev[] = [
     slug: 'ai-runtime-cascada', titulo: 'AI Runtime & Cascada', familia: 'MaKo',
     estado: 'listo',
     alcance: 'El motor que ejecuta toda llamada de IA: chatClaude y el loop de tool-use, la cascada de proveedores gratis antes de pagar, y el override de qué modelo usa cada feature desde /modelos-ia.',
-    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/stt-degenerado.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/modelos-ia/ModelosIA.tsx', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
+    vive: ['lib/anthropic.ts', 'lib/ai-cheap.ts', 'lib/stt-degenerado.ts', 'lib/veto-claude.ts', 'lib/model-registry.ts', 'lib/model-catalogo.ts', 'lib/ia-keys.ts', 'lib/ia-keys-ws.ts', 'lib/ia-mensajes.ts', 'app/api/admin/modelos/route.ts', 'app/_components/ErrorIA.tsx', 'app/_components/ConectarIA.tsx', 'tests/veto-claude.test.ts', 'tests/model-registry.test.ts', 'tests/ia-mensajes.test.ts', 'tests/ia-keys.test.ts'],
     hallazgos: 'hallazgos-ia',
     nota: 'Las «916 líneas» son lib/anthropic.ts (301) + lib/ai-cheap.ts (615), verificado. Dos trampas: el override de /modelos-ia SOLO aplica si el caller no pasó `model` explícito (cualquier `chatClaude(..., { model })` se saltea el registro entero), y el catálogo vive aparte en lib/model-catalogo.ts —sin `server-only`, para poder testearlo— pero nadie lo importa directo: model-registry.ts lo re-exporta. El fallback pago está adentro de chatClaude, no en el registro: si toda la cascada gratis falla cae a claude-sonnet-5 y deja la nota visible en el historial.',
   },
@@ -931,7 +935,7 @@ export const AREAS: AreaDev[] = [
     estado: 'parcial',
     alcance: 'Cuánto cuesta la IA de verdad y qué plan la aguanta: el costo medido por acción, los escenarios de ruteo, los cupos de MaKo Tokens y lo que falta para poder cobrarlos.',
     verEnApp: '/integraciones#saldo-ia',
-    vive: ['app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'lib/costos-ia.ts', 'app/api/costos-ia/route.ts', 'docs/costos-ia-y-planes.md'],
+    vive: ['app/admin/dev/pricing/modelo.ts', 'lib/costos-ia.ts', 'app/api/costos-ia/route.ts', 'docs/costos-ia-y-planes.md'],
     proyectos: ['Feature: Cobros y planes'],
     hallazgos: 'hallazgos-ia',
     nota: 'El hallazgo que decide no es de costos sino de PRECIO: ChartMogul mide 23% de retención bruta anual en productos AI-native de menos de US$50/mes (45% entre 50 y 249, 70% arriba de 250), o sea que el Pro a US$47 cae en la peor banda por dos dólares. Y una reunión de venta cuesta US$666-900 contra un ACV de US$564. Ojo con el solape: esta área es el MODELO DE NEGOCIO; el medidor de consumo es `ai-spend-cuotas`. Cada número de modelo.ts dice si es medido, publicado o supuesto — y hay uno marcado «no usar» que circula por ocho sitios sin estudio primario detrás.',
@@ -1044,7 +1048,7 @@ export const AREAS: AreaDev[] = [
     // guarda los números. Se amplió al escribir la bitácora — la regla de AGENTS.md
     // «Una ruta que apunta a la nada»: el vive[] cubre dónde cae el trabajo de
     // verdad, no solo los componentes de la pantalla.
-    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Pricing.tsx', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'tests/tickets-decisiones-mazo.test.ts'],
+    vive: ['app/admin/estrategia/datos.ts', 'app/admin/estrategia/Estrategia.tsx', 'app/admin/estrategia/page.tsx', 'app/vsl/estrategia/page.tsx', 'app/admin/dev/pricing/modelo.ts', 'app/admin/dev/pricing/Piezas.tsx', 'tests/pricing-modelo.test.ts', 'docs/costos-ia-y-planes.md', 'docs/embudo-y-high-ticket.md', 'app/vsl/landing-html.ts', 'app/admin/runway/', 'lib/admin-decisiones.ts', 'scripts/decisiones.ts', 'tests/runway-decisiones.test.ts', 'app/tickets/decisiones/', 'app/admin/operaciones/TicketeraCentro.tsx', 'app/m/operaciones/TicketeraMovil.tsx', 'tests/tickets-decisiones-mazo.test.ts'],
     proyectos: ['Vender MaKo: Oferta y precios'],
     hallazgos: 'hallazgos-landing',
     nota: 'Está partido en dos mitades que no se hablan, y es lo primero que hay que entender: (1) la oferta y la estrategia viven en /admin/estrategia (antes /vsl/estrategia, que redirige; desde el 10/10/2026 importa sus números de modelo.ts y del runway) —MIX, unit economics, la escalera para que «cualquier lead compre algo»—; (2) los planes de software con cupo de MaKo Tokens viven en app/admin/dev/pricing/modelo.ts, que ya tiene su propio registro en /admin/dev con slug `pricing` (app/admin/dev/areas.ts) — no duplicarlo. Regla del archivo modelo.ts: cada número declara si es `medido` (de anthropic_usage en prod), `publicado` (precio de lista con fecha) o `supuesto`; un número sin origen no se agrega. La única superficie pública de precio es el bloque «Precio de fundador» de app/vsl/landing-html.ts, que no da cifra.',
@@ -1266,7 +1270,7 @@ export const AREAS: AreaDev[] = [
     slug: 'self-healing-dev-agent', titulo: 'Self-Healing Dev Agent', familia: 'Platform', grupo: 'Dev',
     estado: 'por-construir', agente: true,
     alcance: 'JUSTAMENTE el agente que esta sección viene a alimentar. Todavía no existe.',
-    vive: ['lib/cerrar-por-commits.ts', 'lib/github-commits.ts', 'app/api/cron/cerrar-por-commits/route.ts', 'app/admin/dev/', 'scripts/gen-dev-historial.mjs', 'tests/dev-areas.test.ts', 'docs/dev-areas.mjs', 'docs/dev-tabs-mapa.md'],
+    vive: ['lib/cerrar-por-commits.ts', 'lib/github-commits.ts', 'app/api/cron/cerrar-por-commits/route.ts', 'app/admin/dev/', 'tests/dev-areas.test.ts', 'docs/dev-areas.mjs', 'docs/dev-tabs-mapa.md'],
   },
 
   // ───────────────────────────────────────────────────────────── Infra

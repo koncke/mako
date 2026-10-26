@@ -252,21 +252,23 @@ test('videoDeClase y ordenarFilas', () => {
 
 // ── La barra ─────────────────────────────────────────────────────────────────
 
-// Desde el 17/10/2026 el Curso es la sub-tab Classroom de Clients (/clients/classroom): no es fila de la barra, pero su
+// Desde el 17/10/2026 el Curso es la sub-tab Classroom de Clients (/classroom): no es fila de la barra, pero su
 // key sigue en nav.ts (SIN_FILA) porque la pantalla del teléfono la pide.
 const todos = TODOS_LOS_ITEMS;
 
 test('nav: Clients (key customer-success) es la fila, y Classroom (cs-curso) su sub-tab', () => {
   const clientes = todos.filter((i) => i.key === 'customer-success');
   assert.equal(clientes.length, 1, 'la key customer-success tiene que estar UNA vez: la pide requireCapa');
-  assert.equal(clientes[0].href, '/clients');
+  assert.equal(clientes[0].href, '/classroom', 'la tab se llama Classroom y abre en el curso (25/10/2026)');
+  assert.equal(clientes[0].label, 'Classroom');
+  assert.equal(clientes[0].match('/clients'), true, 'un link viejo (redirige) sigue marcando la tab');
   const curso = todos.find((i) => i.key === 'cs-curso');
   assert.ok(curso, 'falta el ítem cs-curso (lo pide la pantalla del teléfono)');
-  assert.equal(curso.href, '/clients/classroom');
-  assert.equal(curso.match('/clients/classroom'), true);
+  assert.equal(curso.href, '/classroom');
+  assert.equal(curso.match('/classroom'), true);
   assert.equal(curso.match('/customer-success/curso'), true, 'la ruta vieja (redirige) no se reconoce');
-  assert.equal(clientes[0].match('/clients/classroom'), true, 'en Classroom la barra no marca Clients');
-  assert.equal(curso.match('/clients'), false);
+  assert.equal(clientes[0].match('/classroom'), true, 'en Classroom la barra no marca Clients');
+  assert.equal(curso.match('/classroom/clients'), false);
   const keys = todos.map((i) => i.key);
   assert.equal(new Set(keys).size, keys.length, 'hay keys de ítem repetidas en la barra');
 });

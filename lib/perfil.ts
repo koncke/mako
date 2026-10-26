@@ -403,6 +403,19 @@ export async function usuarioPropio(): Promise<{ id: number; workspaceId: number
   }
 }
 
+/**
+ * La zona horaria del perfil de quien está FRENTE AL TECLADO (no la del cliente que mira): en ella se mide su «No molestar»
+ * (lib/push.ts → enSilencio, con la misma fila). Sin fila propia, la de MaKo por defecto.
+ */
+export async function zonaPropia(): Promise<string> {
+  try {
+    const tz = (await filaPropia())?.perfil.timezone;
+    return typeof tz === 'string' && tz ? tz : DEFAULT_PERFIL.timezone;
+  } catch {
+    return DEFAULT_PERFIL.timezone;
+  }
+}
+
 export async function getNotifInApp(): Promise<NotifInApp> {
   try {
     const u = await filaPropia();

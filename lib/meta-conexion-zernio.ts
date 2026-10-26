@@ -23,6 +23,7 @@ import {
 } from './zernio-meta-cuerpo';
 
 const ID_ZERNIO = /^[A-Za-z0-9_-]{6,64}$/;
+const ID_PAGINA_FB = /^\d{5,20}$/;
 
 export class MetaZernioError extends Error {
   constructor(mensaje: string) { super(mensaje); this.name = 'MetaZernioError'; }
@@ -155,6 +156,13 @@ export async function guardarConexionMetaPorZernio(ws: number, accountId: string
   const guardadas: string[] = [];
   const conflictos: string[] = [];
   await guardar(ws, ENV_CUENTA_ZERNIO, id, autor, conflictos, guardadas);
+  // La página con la que quedó (la de los creativos y los formularios), si el negocio no tenía una: así la próxima vez que
+  // se conecte no hay que preguntarla (`paginaParaConectar` la toma como elegida). No pisa una que ya estaba.
+  const paginaActual = await credWs('META_PAGE_ID', ws);
+  if (!paginaActual) {
+    const p = paginasDeZernio(await zFetch<unknown>(clave, `/accounts/${encodeURIComponent(id)}/facebook-page`, undefined, 20_000).catch(() => null));
+    if (p?.elegida) await guardar(ws, 'META_PAGE_ID', p.elegida, autor, conflictos, guardadas);
+  }
   if (elegido.cuenta && elegido.cuenta !== cuentaActual) await guardar(ws, 'META_AD_ACCOUNT_ID', elegido.cuenta, autor, conflictos, guardadas);
   if (elegido.pixel && elegido.pixel !== pixelActual) await guardar(ws, 'META_PIXEL_ID', elegido.pixel, autor, conflictos, guardadas);
 
@@ -250,4 +258,33 @@ export async function paginaDeducida(ws: number, clave: string): Promise<string 
   } catch {
     return null;
   }
+}
+
+/**
+ * La persona elige la página de sus anuncios (la API de MaKo, `elegir_pagina_meta`). Con la conexión hecha, se cambia en Zernio
+ * (`PUT /v1/accounts/{id}/facebook-page`: la página con la que corren los anuncios y los formularios) y sólo entre las que la
+ * conexión ve; sin conexión, queda como la página del negocio (`META_PAGE_ID`) y la próxima «Conectar con Facebook» abre con ella.
+ * Tira `MetaZernioError` con un mensaje para la persona.
+ */
+export async function elegirPaginaMeta(ws: number, pagina: string, autor: string | null): Promise<{ pagina: string; enZernio: boolean }> {
+  const id = pagina.trim();
+  if (!ID_PAGINA_FB.test(id)) throw new MetaZernioError('Ese no es un ID de página de Facebook (son sólo números).');
+  if (!(await zernioMetaActivo(ws))) throw new MetaZernioError('Conectar Meta por Zernio todavía no está abierto.');
+  const [clave, conexion] = await Promise.all([claveZernioAnuncios(ws), credWs(ENV_CUENTA_ZERNIO, ws)]);
+  let enZernio = false;
+  if (conexion && clave) {
+    const p = paginasDeZernio(await zFetch<unknown>(clave, `/accounts/${encodeURIComponent(conexion)}/facebook-page`, undefined, 20_000));
+    if (!p) throw new MetaZernioError('Zernio contestó sin la lista de páginas de tu conexión.');
+    if (!p.paginas.some((x) => x.id === id)) {
+      throw new MetaZernioError(`Tu conexión de Facebook no ve esa página. Las que ve: ${p.paginas.map((x) => `${x.nombre ?? 'sin nombre'} (${x.id})`).join(', ') || 'ninguna'}.`);
+    }
+    if (p.elegida !== id) {
+      await zFetch<unknown>(clave, `/accounts/${encodeURIComponent(conexion)}/facebook-page`, { method: 'PUT', body: JSON.stringify({ selectedPageId: id }) }, 20_000);
+      enZernio = true;
+    }
+  }
+  const conflictos: string[] = [];
+  await guardar(ws, 'META_PAGE_ID', id, autor, conflictos, []);
+  if (conflictos.length) throw new MetaZernioError(conflictos.join(' '));
+  return { pagina: id, enZernio };
 }

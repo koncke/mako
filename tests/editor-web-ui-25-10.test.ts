@@ -80,6 +80,9 @@ test('«Páginas» y la tira miden lo mismo que el chat, vuelven con «←» arr
     assert.ok(volver < src.indexOf('className="gma-izq-titulo"'), `${rel}: la flecha va antes del título (arriba a la izquierda)`);
     assert.doesNotMatch(src, /<Ico n="(x|cerrar)"[^>]*\/>\s*<\/button>/, `${rel}: volvió la X para cerrar`);
   }
+  // La barra ENTRA a 1280 (medido en producción el 25/10: pedía 872 px en 848 y el «⋯» quedaba afuera): el título cede
+  // hasta su mínimo de 160 px. Con `flex: 0 0 auto` no cedía nada.
+  assert.match(sinComentarios(gamma), /\.gma-herramientas \.gma-titulo \{ flex: 0 1 auto; max-width: 320px; min-width: 160px; \}/);
   const ed = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   const texto = ed.indexOf('data-tip="Editor de texto"');
   for (const otro of ['data-tip="Páginas"', 'data-tip="Tira de imágenes"', 'data-tip="Agregar bloque"', 'data-tip="Animar"']) {

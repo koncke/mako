@@ -14,6 +14,7 @@
 // =============================================================================
 
 import type { AutomatizacionesDelLead, EnAutomatizacion } from '@/lib/automatizaciones-del-lead-reglas';
+import { textoEsperaToque } from '@/lib/botones-social';
 
 /** Hasta cuántos leads por pedido (el tope de `enAutomatizacionesAction`): un tablero más grande se pide en tandas. */
 export const TANDA_AUTOMATIZACIONES = 500;
@@ -48,6 +49,8 @@ export function estadoDeAutomatizacion(a: EnAutomatizacion, fecha: (iso: string)
   if (a.estado === 'respondio') return 'Frenada: respondió';
   if (!a.automatizacionActiva) return 'La automatización está en pausa';
   if (a.frenado) return a.frenado.texto;
+  // Parado en un DM con botones (25/10/2026): no «Corriendo», que es lo que se leía de alguien quieto hasta que toque.
+  if (a.esperaToque?.length) return textoEsperaToque(a.esperaToque);
   return a.proximoEnvioAt ? `Lo próximo sale ${fecha(a.proximoEnvioAt)}` : 'Corriendo';
 }
 
@@ -139,6 +142,8 @@ export type InscripcionVista = {
   respuesta?: string | null;
   /** Por qué no le sale (`porQueNoSale`): la frase entera, la corta, y cuándo sale sola si es el horario. */
   frenado: { texto: string; corto: string; saleAt?: string | null } | null;
+  /** Parado en un DM esperando que toque uno de estos botones (25/10/2026). */
+  esperaToque?: string[] | null;
   termino: { at: string | null; texto: string } | null;
   /** Lo que ya le salió en ESTA inscripción, del más nuevo al más viejo. */
   enviados: EnvioVista[];
@@ -193,7 +198,7 @@ export function vistaDeDetalle(d: AutomatizacionesDelLead): AutomatizacionesVist
     proximo: i.proximo ? { at: i.proximo.at, titulo: i.proximo.que?.que || i.proximo.titulo || null, clase: i.proximo.que?.clase ?? null } : null,
     frenado: i.frenado ? { texto: i.frenado.texto, corto: i.frenado.corto, saleAt: i.frenado.saleAt ?? null } : null,
     termino: i.termino, puede: i.puede, reentrada: i.reentrada, reentradaTexto: i.reentradaTexto,
-    contesto: i.contesto ?? null, respuesta: i.respuesta ?? null,
+    contesto: i.contesto ?? null, respuesta: i.respuesta ?? null, esperaToque: i.esperaToque ?? null,
     enviados: i.enviados.map((e) => ({
       at: e.at, paso: e.paso ? `Paso ${e.paso.numero}: ${e.paso.titulo}` : null, canal: e.canal, estado: e.estado, error: e.error,
       que: e.que?.que ?? null, clase: e.que?.clase ?? null,
@@ -217,6 +222,7 @@ export function vistaDeEnAutomatizacion(auts: readonly EnAutomatizacion[]): Auto
       paso: a.paso ? { ...a.paso, total: null } : null,
       proximo: a.proximoEnvioAt ? { at: a.proximoEnvioAt, titulo: null } : null,
       frenado: a.frenado ? { texto: a.frenado.texto, corto: a.frenado.corto, saleAt: a.frenado.saleAt ?? null } : null,
+      esperaToque: a.esperaToque ?? null,
       termino: null, enviados: [],
       // Frenar ya existía; «Empezar de nuevo» espera la acción de Automations (`empezarDeNuevoAction`).
       puede: { frenar: true, empezarDeNuevo: false }, reentrada: null,
@@ -240,6 +246,7 @@ export function chipDeInscripcion(i: InscripcionVista): { texto: string; tono: T
   }
   if (!i.automatizacionActiva) return { texto: 'Automatización en pausa', tono: 'gris' };
   if (i.frenado) return { texto: i.frenado.corto, tono: 'gris' };
+  if (i.esperaToque?.length) return { texto: 'Espera un toque', tono: 'mako' };
   return { texto: 'Activa', tono: 'mako' };
 }
 
@@ -327,6 +334,8 @@ export function estadoDeTarjeta(i: InscripcionVista): EstadoTarjeta {
       default: return e('alerta', 'warn', i.frenado.corto);
     }
   }
+  // Parado en un DM con botones (25/10/2026): espera que el lead toque; no está «En curso» de nada.
+  if (i.esperaToque?.length) return e('reloj', 'mako', textoEsperaToque(i.esperaToque));
   return e('disco', 'mako', 'En curso');
 }
 

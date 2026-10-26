@@ -48,6 +48,7 @@ import {
 import { leerTodo, leerPorPaginas, type OrdenPaginado, type ConsultaPaginada } from './supabase-paginado';
 import { faltaComprobante } from './pago-comprobante';
 import { mrrDeLaPasarela } from './cobros-reglas';
+import { PLATAFORMAS_VIDEO } from './types';
 
 /**
  * Orden de TODO barrido de `marketing_metrics_daily` en este archivo.
@@ -224,10 +225,11 @@ async function _getMarketingWindow(
       'id, fecha, ad_id, youtube_video_id, youtube_video_type, youtube_views',
       { orden: ORDEN_METRICAS, eq: { plataforma: 'youtube' }, filtros: enRango },
     ),
-    // Panda Video (Fase 5 v2): la fuente honesta del VSL en el presente
+    // Panda Video (Fase 5 v2): la fuente honesta del VSL en el presente. Desde el 25/10/2026, TODOS los alojadores
+    // de video (PLATAFORMAS_VIDEO): un VSL en Wistia o en Bunny no puede quedar en cero.
     leerTodo<{ fecha: string; video_plays: number | null }>(
       supabase, T_METRICAS, 'id, fecha, ad_id, video_plays',
-      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+      { orden: ORDEN_METRICAS, filtros: (q) => enRango(q).in('plataforma', [...PLATAFORMAS_VIDEO]) },
     ),
     supabase
       .from('leads')
@@ -1580,7 +1582,7 @@ async function _getFunnelSeries(
     ),
     leerTodo<{ fecha: string; video_plays: number | null }>(
       supabase, T_METRICAS, 'id, fecha, ad_id, video_plays',
-      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+      { orden: ORDEN_METRICAS, filtros: (q) => enRango(q).in('plataforma', [...PLATAFORMAS_VIDEO]) },
     ),
     supabase
       .from('leads')
@@ -2197,7 +2199,7 @@ async function _getVslSerie(dias = 56): Promise<VslSerie> {
     supabase
       .from('marketing_metrics_daily')
       .select('fecha, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds')
-      .eq('plataforma', 'panda')
+      .in('plataforma', [...PLATAFORMAS_VIDEO])
       .gte('fecha', desdeStr)
       .lte('fecha', hastaStr),
   ]);
@@ -3232,7 +3234,7 @@ async function _getTendencias(
     leerTodo<{ fecha: string; video_plays: number | null; video_unique_viewers: number | null; video_retention_p50: number | null; video_avg_watch_seconds: number | null }>(
       supabase, T_METRICAS,
       'id, fecha, ad_id, video_plays, video_unique_viewers, video_retention_p50, video_avg_watch_seconds',
-      { orden: ORDEN_METRICAS, eq: { plataforma: 'panda' }, filtros: enRango },
+      { orden: ORDEN_METRICAS, filtros: (q) => enRango(q).in('plataforma', [...PLATAFORMAS_VIDEO]) },
     ),
     // VSL en YouTube (historia, antes de migrar a Panda) — para que la serie de plays no arranque de cero.
     leerTodo<YtRow>(

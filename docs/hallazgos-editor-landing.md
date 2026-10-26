@@ -2934,9 +2934,181 @@ ser editable». Es el mismo pedido del 24/10 («clickeo y no se pueden editar la
   las encontraba. Arreglado el mismo día: docs/hallazgos-api-mako.md, «Las páginas de MaKo no se leían ni se cambiaban por
   la API».
 
+**Verificado en producción (25/10, ~14:55, main 9c684f88c), con clics sobre una COPIA (#42, ya en la papelera):**
+- con la sección sin activar, el clic cae en el iframe;
+- se escribió « PRUEBA» en el título, se guardó solo y siguió ahí al recargar;
+- la #32 no cambió.
+
+**Y a 1280 la barra no entraba (lo vio la misma prueba):**
+- pedía 872 px en 848, y el «⋯» (Menú del documento) quedaba cortado fuera de la pantalla;
+- la app tiene `overflow-x: hidden`, pero un foco igual la scrollea: al abrir «Páginas» todo se corría 15 px. Era el salto
+  que parecía del ancho del panel;
+- la causa: el título con `flex: 0 0 auto` (24/10) no cedía nada, y lo que «cedía» (el formato del medio) está vacío sin un
+  texto elegido;
+- el arreglo: `flex: 0 1 auto`, que no baja de 160 px. Medido en la pestaña: entra justo; chat, «Páginas» y la tira quedan en
+  el mismo lugar (340 px, el lienzo en x=424). A 1440 ya entraba.
+
+**Regla:** un `overflow: hidden` no impide que el contenedor se scrollee: sólo esconde la barra. Si algo adentro desborda,
+un `focus()` o un `scrollIntoView` lo corre. Lo que hay que medir es `scrollWidth > clientWidth`, no que «no se vea la barra».
+
 Lo que quedó SIN hacer:
-- Probarlo con clics en producción cuando despliegue (un título de una copia, no de la publicada).
+- La tira de secciones muestra en gris las miniaturas de las secciones «Diseño editable» hasta que cargan (a 1280 todas
+  grises un rato; a 1440 algunas se dibujaron). A mirar si cargan todas.
 - `editable` en HtmlEditableVista se lee una vez, al cargar el iframe (`editor.isEditable` no es reactivo ahí). Si el editor
   cambia de editable a no editable con la sección cargada, el `contenteditable` del iframe no lo sigue. Hoy no se ve: el
   editor abre editable. Si algún día se abre en modo lectura (una versión vieja), hay que seguirlo con `useEditorState`, como
   TarjetaVista.
+
+## Servir una prueba A/B de una landing: las reglas que no dependen del motor (Landing AI, L2; 25/10/2026, claude5)
+
+docs/diseno-pruebas-ab.md, L2; manda la crítica (Anexo 2 §E). El motor (`lib/pruebas/`: `asignar`, el store, la foto de B en
+`prueba_variantes.contenido`) lo arma Automations en A1/A2, y al 25/10 todavía no existe. Lo que sí quedó, puro y probado,
+en lib/editor-landing/prueba-landing.ts:
+
+- **B tiene la MISMA estructura que A, o no se sirve.** Las rutas laterales leen la foto de A (el iframe de `htmlLibre`, el pago
+  contra `publicado.pagos`), y el Landing AI nunca toca precio, oferta, links, formularios, pagos ni Pixel. Se compara lo que
+  la foto guarda (config, pagos, htmlLibre, título y descripción de cada página) y lo que el HTML lleva (destinos, formularios,
+  iframes, scripts, marcas de precio) **como multiconjunto**: subir una sección cambia el orden, no qué hay. Probado contra la
+  foto real de la #32: otro hook con dos secciones intercambiadas pasa; un botón a otro lado, no.
+- **Fijo a A va sólo lo de MaKo**: el lector (`?mako_leer`) y el análisis y la vigilancia (User-Agent `MaKoPixel/`). Nunca un bot
+  de terceros por su User-Agent: con Google es cloaking, y con Meta el anuncio se aprueba mirando A.
+- **La rama vive en `mko_ab_<prueba>`, HttpOnly y del servidor**, que se renueva en cada respuesta: la cookie del visitante la
+  reescribe el Pixel por JavaScript, y Safari corta esas a los 7 días. Una rama apagada no se respeta (se asigna de nuevo).
+- **Con prueba, la respuesta es `private, no-cache` + `Vary: Cookie`** (hoy `public`).
+
+Lo que quedó SIN hacer (espera a A1/A2 de Automations, que pasa las firmas):
+- Conectarlo en `responderPublico` (pagina-publica.ts): la marca de prueba en la misma fila que ya lee (sin una lectura extra por
+  visita), `asignar`, la foto de la rama, las cabeceras y la cookie; la vista previa con `?variante=B`; publicar a mano detiene la
+  prueba; el medidor `clic_conversion` contra la interfaz `Medidor`; y la API (crear, ver, aprobar, detener).
+
+## Todo editable en las páginas de MaKo (cada botón, video, imagen e ícono) y el clic derecho (25/10/2026, claude5)
+
+Martín, 25/10 ~15:10: «en las landing de MaKo, quiero que TODO sea editable, cada botón, cada video, cada cosa que hay...
+Para eso ya tenemos casi todo construido de funcionalidades dentro del editor... Y no funciona aún el click derecho en el
+editor web».
+
+**El hecho: qué tenía la #32 y qué se podía editar, medido en producción el 25/10 (copia #43; todas las secciones son de
+«Diseño editable»):**
+
+| Elemento | En la #32 | Antes (producción) | Ahora (esta rama), con el control que ya existía |
+|---|---|---|---|
+| Títulos y textos | 8 títulos, 25 párrafos | se escribían (desde el arreglo del clic) | igual; negrita y cursiva en la barrita |
+| Texto de los botones | 29 botones (5 «Agenda tu llamada», 23 tarjetas a hola-mako.com/vsl/…, 1 del encabezado) | se escribía | igual |
+| A dónde lleva un botón o enlace | 29 + 3 enlaces | un campo de texto suelto, después de tocarlo | **SelectorDestino**, el del botón de un bloque: secciones, páginas, enlace, pestaña nueva |
+| Imágenes | 10 | «Imagen», después de tocarla | igual (el selector de imágenes); el botón se marca al elegirla |
+| Video del VSL (Panda, `iframe`) | 1 | sólo por «Código» | **el panel «Pegar una URL» del bloque Insertar** |
+| Videos de archivo (`<video>`) | 3 | sólo por «Código» | **el selector en modo video**, el del bloque Video |
+| Íconos (`svg`) | 75 | sólo por «Código» | **SelectorIcono**, con el tamaño y la clase del que estaba |
+| Fondos con imagen, precios, formularios, listas | 0 | — | — |
+| Clic derecho | — | no abría nada (el evento quedaba en el iframe) | **el menú de la sección**, en el punto |
+
+**Lo que costó, y la regla de cada uno:**
+- **Un clic derecho adentro de un iframe NO sube a la página.** La sección (TarjetaVista) escuchaba `contextmenu` en su elemento y
+  nunca se enteraba: se medía con `window.__ctx` adentro del iframe (llegaba) y ningún menú del editor abría. Se reenvía al
+  marco con el punto pasado a la página (`r.left + e.clientX`). Quedan con el menú del navegador lo mismo que en un bloque: con
+  Shift y con texto elegido. Probado en Chrome: la sección recibe el punto exacto, y con Shift o texto elegido, nada.
+- **Un video del diseño se tragaba el clic que lo elige**: un `iframe` o `video` adentro del iframe del diseño se lleva el
+  mouse. Adentro del editor van con `pointer-events: none` (esa hoja no se guarda) y se eligen por su CAJA.
+- **«Una sección» como destino (`#t-<id>`) no existía en una sección de diseño**: SelectorDestino escribe `#t-<id>`, y el
+  `div.gm-libre-seccion` no puede llevar el id (con `display: contents` no tiene caja, y un ancla sin caja no hace scroll). El
+  render le pone adelante un `span#t-<id>` de alto 0, con el mismo `scroll-margin-top` que una de bloques. Sin esto, un botón
+  apuntado a una sección de diseño no iba a ningún lado, sin un error.
+- **La barrita de la sección chocaba con el «+ ✦ ⌄» de entre secciones** y le tapaba el tacho (captura del 25/10). Ahora va
+  con íconos y el nombre en el tooltip (el portal de los tooltips): ~280 px, lejos del centro.
+- **Por la API, lo mismo** (lib/editor-landing/html-editable-elementos.ts, sin DOM). Se toca SÓLO lo pedido, el resto vuelve
+  byte por byte, y lo nuevo se escapa. `configurar_boton_landing` cambia los botones de un diseño (con `seccion` o `todos` para
+  los cinco iguales; un ancla del diseño, `#beta`, vale como destino; el estilo es parte del diseño). `poner_enlace_landing`
+  cambia el reproductor de un diseño (y un `<video>` con un .mp4). `cambiar_imagen_landing` es NUEVA: una imagen de un diseño
+  por un pedazo de su dirección o su alt, copiada a la biblioteca al confirmar. `ver_secciones_landing` trae los elementos de
+  cada diseño. Un botón con título y bajada (las tarjetas) no se cambia de un golpe: cada texto, con cambiar_texto_landing.
+
+Lo que quedó SIN hacer:
+- **Probarlo con clics en producción, a 1280 y 1440, cuando despliegue** (en una copia). Mirar también que la barrita ya no
+  choque con el «+ ✦ ⌄».
+- Los íconos por la API (sólo en la pantalla); borrar o duplicar un elemento adentro de un diseño (hoy, por «Código»).
+- Fondos con imagen, precios, formularios y listas adentro de un diseño: la #32 no tiene ninguno; cuando una página los traiga,
+  medir de nuevo.
+
+## Las cajas vacías y las franjas grises de las páginas de MaKo en el editor (25/10/2026, claude5)
+
+Martín, 25/10, sobre la #36: «en muchas secciones hay como una separación, no entiendo por que» y «toda esta sección en
+blanco, realmente copiaste muy mal a las landing de MaKo... Eso significa que no funciona bien el editor web».
+
+**El recorrido (las 23 landings: las 9 publicadas desde su borrador, las 14 nuevas desde el generador), dibujadas como el
+editor en Chrome sin ventana, y la publicada en hola-mako.site:**
+
+| Landing | Lo que se veía mal en el editor | En hola-mako.site |
+|---|---|---|
+| #32 a #40 (las 9 publicadas) | franja de 255 px debajo del encabezado; de 230 px al final; de ~26 px en «¿Qué es MaKo…»; **la caja blanca de 700 px** en «Sé uno de los primeros» (la agenda); el VSL de Panda, una caja negra | bien: la agenda de Calendly y el video cargan, sin franjas |
+| Las 14 nuevas (2 portadas y 12 por funcionalidad o avatar) | franja de 255 px debajo del encabezado, de 19 px en «Tu IA, al costo» y de 64 px al final | no están publicadas |
+
+Después del arreglo, el mismo recorrido: **nada raro en las 23** (ni franjas, ni cajas vacías, ni contenido recortado).
+
+- **Las franjas: el alto salía del `scrollHeight` del DOCUMENTO del iframe, que nunca es menor que la ventana del iframe.** Una
+  sección arrancaba en 320 px y no bajaba nunca (el encabezado mide 65 px: 255 px de gris), y una que se achicaba al cargar sus
+  fuentes dejaba la diferencia. **Regla:** el alto de un iframe se mide por su CONTENIDO (la caja de la raíz, con `flow-root` para
+  que los márgenes queden adentro, más lo que se sale), nunca por el `scrollHeight` de su documento.
+- **La caja blanca era la agenda** (`#cal-embed[data-calendly]`): una caja de 700 px que en hola-mako.site llena el script del
+  diseño (SCRIPT_DISENO) con Calendly, y en hola-mako.com Landing.tsx cambia por las columnas de precios. El editor no corre
+  scripts: quedaba en blanco. **El VSL** (el iframe de Panda) adentro de un iframe sin scripts es una caja negra.
+- **El arreglo, sólo del editor y sin tocar el contenido** (lib/editor-landing/vista-embeds.ts): una ficha que dice qué es (su
+  ícono, «Agenda de Calendly» o «Video de Panda», su enlace) y se cambia con el control «Video» (pegando el enlace; la agenda
+  guarda la página de Calendly sin la query del embed). La ficha va marcada y `leer` la saca al guardar; el saneo del server
+  borra igual cualquier `srcdoc`.
+
+Lo que quedó SIN hacer:
+- Probarlo con clics en producción, a 1280 y 1440, cuando despliegue (sobre una copia).
+- En hola-mako.com la agenda de las 9 publicadas se ve como columnas de precios y en hola-mako.site como Calendly: dos cosas
+  distintas para la misma página. Que diga lo mismo en las dos es una decisión de Martín (las 12 nuevas ya traen las columnas).
+
+## Una regla de CSS fijada por DOS tests: arreglar uno y correr sólo ese deja el otro roto (25/10/2026, claude5)
+
+El arreglo de la barra a 1280 (`8a1fb5af9`, el título de `flex: 0 0 auto` a `0 1 auto`) se probó con
+tests/editor-web-ui-25-10.test.ts, que lo pide. Pero tests/editor-web-como-automations.test.ts fijaba la regla vieja
+TEXTUAL y quedó rojo hasta el commit siguiente: nadie lo corrió porque «no era de la barra».
+
+**Regla:** antes de cambiar una regla de CSS o un trozo de JSX que un test lee como texto, buscar el texto viejo en
+`tests/` (`grep -rn "flex: 0 0 auto" tests`) y correr TODOS los que lo nombran, no sólo el del arreglo.
+
+## El color de fondo de una sección de las páginas de MaKo: el menú lo ofrecía y no hacía nada (25/10/2026, claude5)
+
+Martín, 25/10: «tampoco puedo editar el color del bg de cada sección». El menú de la sección (⋮ y clic derecho) ya decía
+«Cambiar el color de fondo»: abría el panel de estilo y guardaba `fondo`/`fondoColor` en la TARJETA. **En una sección de
+«Diseño editable» eso no llega a ningún lado:** se publica a sangre, su HTML tal cual (render.ts), y en el editor el iframe
+tapa el fondo de la tarjeta. No daba error: no cambiaba nada.
+
+**De dónde sale el fondo que se ve (medido en la #32 y en las 14 nuevas):** del `style` de la raíz
+(`<section style="background:#F5F7FA">`); de una clase de la hoja (`.mkv-sec-gris`); de una regla con `!important`
+(`.gm-libre #beta`, que le gana al `style` de la raíz); o de nada, porque la raíz es una columna de 1080-1120 px centrada y se
+ve el fondo de la página (el hero, «¿Qué es MaKo?» y «Cómo funciona» de la #32).
+
+**Y entre secciones hay MÁRGENES** (`margin-top`: 96 px en «historia», 40 px en «para quién» y en «beta» de la #32). Muestran
+el fondo de la página. Con el color en la raíz, el margen quedaba afuera de lo pintado: pintado el hero, aparecía una franja
+blanca de 96 px, justo la «separación» de la que se quejó Martín.
+
+**El arreglo (lib/editor-landing/fondo-de-diseno.ts), en el HTML, que es lo que se publica:**
+- Cada sección pintada va en una envoltura de ancho completo:
+  `<div data-gm-fondo data-gm-envoltura style="background:…;display:flow-root">`. **`flow-root` deja los márgenes de la raíz
+  ADENTRO**, así dos secciones pintadas se tocan sin franja. Sin pintar, nada cambia.
+- **El margen NO se pasó a padding.** Las 14 nuevas cambian su padding por pantalla con `@media`, y un padding escrito en el
+  `style` lo pisaría en el celular.
+- Si la raíz trae fondo propio, se suma `background:transparent !important` AL FINAL de su `style` (marca
+  `data-gm-fondo="transparent"`). Un `style` con `!important` gana también a la regla `!important` de la hoja.
+- **Una raya de arriba con margen arriba quedaba flotando 96 px adentro de lo pintado** (el `border-top` de «historia», que
+  marcaba dónde empezaba): se hace transparente (`data-gm-sin-borde`). Sin margen, la raya sigue en el borde y se queda.
+- Lo que traía queda escrito, y el `;` que separa lo agregado es siempre uno nuevo: «Del diseño» vuelve byte por byte (las 9
+  de la #32, y un `style` que ya terminaba en `;`).
+- **El encabezado pegajoso nunca se envuelve:** adentro de una caja de su mismo alto deja de pegarse. Su color va al `style`.
+- Medido en Chrome sin ventana, a 1280 y 1440, y en el editor: lo pintado se toca en las 4 uniones, el contenido no se mueve
+  un píxel y el encabezado sigue pegado. En el editor, los 96 px de arriba de «historia» son del color.
+- **Trampa de la medición:** el pie «se movía» 58 px entre corridas, para un lado o para el otro. Era el alto de
+  «testimonios», que depende de qué imágenes cargaron. Medir después de cargarlas todas (`loading="eager"`, `onload`, las
+  fuentes listas), no con una espera fija.
+
+**Regla:** en una sección de diseño, todo lo que se cambie tiene que ir a su HTML. Un atributo de la tarjeta (ancho,
+acento, alto, fondo) no llega a lo publicado: el panel ahora es sólo «Color de sección», y la API dice que lo demás no aplica.
+
+Lo que quedó SIN hacer:
+- Pintada una sección cuya VECINA de abajo no está pintada, el margen de la vecina sigue con el color de la página: es de
+  ella, y el diseño lo puso así. Se ve si se pinta el hero y no «historia».
+- Probarlo con clics en producción cuando despliegue, sobre una copia.

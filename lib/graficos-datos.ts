@@ -47,6 +47,7 @@ import { horasHastaResponder, rotuloDeTarjeta, tipoDeEnvio } from './automatizac
 import type { PasoGrafo } from './flujo-grafo';
 import { carteraEnEntrega } from '@/app/customer-success/entrega';
 import { repartirEnEtapas } from './servicio-etapas';
+import { PLATAFORMAS_VIDEO } from './types';
 
 // ── Marketing ────────────────────────────────────────────────────────────────────────────
 
@@ -87,11 +88,12 @@ async function vistasVslPorDia(rg: Rango): Promise<Array<{ f: string; n: number 
   const rows = await leer<FVistaVsl>('marketing_metrics_daily', 'id, fecha, plataforma, youtube_video_type, youtube_views, video_plays', rg, {
     col: 'fecha',
     orden: [{ col: 'fecha' }, { col: 'ad_id' }, { col: 'id' }],
-    extra: (q) => q.in('plataforma', ['youtube', 'panda']),
+    extra: (q) => q.in('plataforma', ['youtube', ...PLATAFORMAS_VIDEO]),
   });
   const out: Array<{ f: string; n: number }> = [];
   for (const x of rows) {
-    const n = x.plataforma === 'panda'
+    // Panda y, desde el 25/10/2026, los demás alojadores (PLATAFORMAS_VIDEO): sus reproducciones en video_plays.
+    const n = (PLATAFORMAS_VIDEO as readonly string[]).includes(x.plataforma)
       ? num(x.video_plays)
       : x.youtube_video_type === 'vsl' && x.youtube_views != null ? num(x.youtube_views) : 0;
     if (n) out.push({ f: x.fecha, n });

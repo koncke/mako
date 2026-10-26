@@ -26,6 +26,7 @@
 
 import { useState } from 'react';
 import { Lista, paraLeer, type Destinatarios } from './DestinatariosLista';
+import { ReportarASoporte } from '../_ui/ReportarASoporte';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -84,8 +85,10 @@ export function DestinatariosCanal({ canal, inicial, onGuardado }: {
     } finally { setBusy(false); }
   }
 
+  // En la tarjeta del canal (Settings › Notificaciones › WhatsApp o Email, 25/10/2026): las filas de la lista, y debajo, en
+  // su propia franja, lo que pasó al guardar.
   return (
-    <div style={{ marginTop: 10 }}>
+    <div>
       {/* `portalTo` va en null a propósito: acá no hay modal encima, así que el menú
           de ladas se abre en su lugar. Portalearlo pediría medir un nodo, que es justo
           donde vive esa familia de bugs. */}
@@ -101,14 +104,19 @@ export function DestinatariosCanal({ canal, inicial, onGuardado }: {
         />
       )}
 
-      {(busy || flash || error) && (
-        <div style={{ marginTop: 6, fontSize: 12, fontWeight: 600, color: error ? 'var(--bad)' : 'var(--good)' }}>
-          {busy ? <span style={{ color: 'var(--faint)', fontFamily: MONO, fontWeight: 400 }}>Guardando…</span> : (error ?? flash)}
+      {error && !busy ? (
+        <div className="aj-dest__nota" role="alert" style={{ fontWeight: 600, color: 'var(--bad)' }}>
+          {error}
+          <ReportarASoporte />
+        </div>
+      ) : (busy || flash) && (
+        <div className="aj-dest__nota" role="status" style={{ fontWeight: 600, color: 'var(--good)' }}>
+          {busy ? <span style={{ color: 'var(--faint)', fontFamily: MONO, fontWeight: 400 }}>Guardando…</span> : flash}
         </div>
       )}
 
       {noAgregados.length > 0 && (
-        <div style={{ marginTop: 10, borderRadius: 10, padding: '10px 12px', background: 'var(--surface-2)', border: '1px solid var(--bad)' }}>
+        <div className="aj-dest__nota" style={{ background: 'var(--bad-bg)' }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>
             {noAgregados.length === 1 ? 'Quedó guardado, pero no entró al grupo' : 'Quedaron guardados, pero no entraron al grupo'}
           </div>
@@ -147,7 +155,7 @@ export function DestinatariosCanal({ canal, inicial, onGuardado }: {
       {/* Sacar a alguien de la lista no lo echa del grupo, y es a propósito: echarlo lo
           ven todos los demás y no es algo que se haga de rebote. */}
       {saca && (
-        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--dim)', lineHeight: 1.5 }}>
+        <div className="aj-dest__nota" style={{ color: 'var(--dim)' }}>
           Deja de recibir, pero sigue en el grupo. Si hace falta, sácalo desde WhatsApp.
         </div>
       )}

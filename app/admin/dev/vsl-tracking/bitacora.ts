@@ -492,4 +492,73 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-landing.md — los números, lo que se coló y lo que falta',
     ],
   },
+  {
+    fecha: '25 oct', hora: '21:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El Pixel mide los videos de Bunny Stream y Cloudflare Stream',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate de que funcionen bien y que los lugares donde consume eso, el Pixel de MaKo, web generator, cursos, etc, puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Se probó el Pixel con un video real de cada alojador: Panda, Vimeo, Wistia y YouTube ya se medían; Bunny Stream y Cloudflare Stream no registraban nada.',
+      'Ahora también se mide cuándo le dan play, hasta dónde lo ven y dónde lo pausan en Bunny Stream y Cloudflare Stream.',
+      'Un video de YouTube cuyo código traía «enablejsapi=1» no registraba nada: ahora sí.',
+      'Es la versión 27 del Pixel. Las páginas con la línea de instalación la reciben solas.',
+      'Falta: traer los números de cada alojador con su clave, el bloque de video del Web Generator, los cursos y la API.',
+    ],
+    archivos: [
+      'lib/landing-token.ts — el Pixel',
+      'scripts/pixel-alojadores-real.mts — la prueba con un video real de cada alojador',
+      'docs/hallazgos-landing.md — «Otros alojadores de video»',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '22:10', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hasta dónde ven cada video, aunque no esté en Panda',
+    pedido: '«Implementa otros alojadores de video, no solo panda... y que los lugares donde consume eso... puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Para saber hasta dónde vio cada persona un video, MaKo necesita cuánto dura. Hasta ahora sólo lo sabía de los videos de Panda, y sólo con su clave conectada.',
+      'Ahora lo calcula con lo que ya mide el Pixel, para cualquier video: Vimeo, YouTube, Wistia, Bunny, Cloudflare o uno subido a la página.',
+      'Se ve en la ficha de cada contacto en el CRM y en el gráfico «Cuánto ven el video».',
+      'Probado con un video real de Cloudflare: calculó 29,8 segundos, y dura 30.',
+    ],
+    archivos: [
+      'lib/vsl-retencion.ts — la cuenta de la duración',
+      'lib/leads.ts — de dónde sale la duración de cada video',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '23:30', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Tus videos de Vimeo, Wistia, Bunny y Cloudflare en MaKo, y las clases que los usan se miden',
+    pedido: '«Implementa otros alojadores de video, no solo panda, como Vimeo u otros... el Pixel de MaKo, web generator, cursos, etc, puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'MaKo ya sabe leer la lista de tus videos de Vimeo, Wistia, Bunny Stream y Cloudflare Stream: el nombre, cuánto duran y su reproductor. Falta la tarjeta en Integraciones para conectar cada cuenta.',
+      'En «Nombrar videos», un video de esos alojadores aparece con su nombre de verdad.',
+      'En los cursos, una clase con un video de Wistia, Bunny o Cloudflare ahora mide cuánto vio el alumno (antes decía «sin medir»). Probado con el video real de cada uno.',
+      'En el editor de páginas se puede insertar un video de Cloudflare Stream.',
+      'Por la API: una consulta nueva con los videos de todos los alojadores conectados.',
+    ],
+    archivos: [
+      'lib/alojadores-video.ts — lo que dice la lista de cada alojador',
+      'app/compartido/curso/[token]/Reproductor.tsx — cómo se mide la clase',
+      'docs/hallazgos-customer-success.md — los cursos con esos videos',
+    ],
+  },
+  {
+    fecha: '26 oct', hora: '00:45', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Las reproducciones por día del VSL también si está en Wistia o en Bunny',
+    pedido: '«Implementa otros alojadores de video, no solo panda... y que los lugares donde consume eso... puedan traer datos de tus videos de esas herramientas conectadas»',
+    puntos: [
+      'Si tu video de ventas está en Wistia o en Bunny Stream, MaKo trae cada mañana cuántas veces lo reprodujeron el día anterior, como ya hacía con Panda.',
+      'Esos números entran al embudo, a la serie del video de ventas y al Dashboard.',
+      'Sólo cuenta el video que marcaste como tu video de ventas: las clases de un curso no se mezclan.',
+      'El cambio en la base de datos ya está aplicado (con tu aprobación). Falta probarlo con una cuenta real.',
+    ],
+    archivos: [
+      'app/api/cron/videos-daily/route.ts — lo que corre cada mañana',
+      'supabase/migrations/0336_alojadores_video_plataforma.sql — el cambio en la base (aplicado el 25/10, con tu aprobación)',
+      'docs/hallazgos-landing.md — lo que no era obvio',
+    ],
+  },
 ];

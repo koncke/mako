@@ -31,6 +31,7 @@ import { APP_BASE_URL } from './app-url';
 import { VIDEOS_KEY, parsearVideos, type VideoLanding, VIDEOS_OCULTOS_KEY, parsearOcultos } from './landing-videos';
 import { esPreviewDeEditor, normalizarUrl } from './landing-paginas';
 import { catalogoPanda } from './panda';
+import { catalogoDeVideos } from './alojadores-video-api';
 import { esEventoDeVideo } from './vsl-retencion';
 import { estadoVideo } from './landing-analisis';
 import { enumerar } from './landing-snapshot';
@@ -165,8 +166,22 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       (`dominioDelVisitante`, como el «auto» de Google Analytics). Las cookies de antes no se juntan solas: cada
  *       host conserva su visitante viejo hasta que vence; desde acá, uno solo.
  *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: PIXEL_MINIMO_AVISO sigue en 22 (con la línea de /m.js llega sola).
+ *  26 — QUÉ SECCIÓN SE VE (25/10/2026, el primer paso del Landing AI, docs/diseno-pruebas-ab.md L1). Pedido de Martín:
+ *       «al detectar si una sección no es vista que haga variaciones». Sólo en las páginas que arma MaKo (Web
+ *       Generator): las secciones de bloques (`section.gm-tarjeta#t-<id>`) y las de «Diseño editable»
+ *       (`.gm-libre-seccion[data-seccion]`, que con `display: contents` no tienen caja: se mide la unión de sus
+ *       hijos). Vista = la mitad de la sección o de la pantalla (lo menor) durante 1 s. Viaja UN evento acumulado,
+ *       `secciones`, con los ids en `detalle`, en los hitos del scroll y al irse: 8 por visita como mucho.
+ *       ⚠️ NO ENTRA A `getTrackingEvents` (la ficha del lead): ahí se lee con `.limit(120)` antes de filtrar.
+ *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: las páginas del Web Generator cargan la línea de /m.js, y a una
+ *       página de afuera no le agrega nada (ULTIMA_PARA_TODAS sigue en 22).
+ *  27 — los videos de Bunny Stream y de Cloudflare Stream (25/10/2026, pedido de Martín: «Implementa otros alojadores
+ *       de video, no solo panda»). Medido con un video real de cada uno: sin esto, cero eventos. Bunny habla player.js
+ *       (hay que suscribirse); Cloudflare manda todo solo. Ids `bunny:` y `cfs:` (lib/video-id.ts). Y un YouTube que
+ *       ya traía enablejsapi=1 en una página sin la API de YouTube no medía nada (nadie le pedía): a los 6 s se le pide.
+ *       Le sirve a la página que tiene uno de esos videos (HOSTS_DE_LA_V27); al resto no le cambia nada.
  */
-export const SNIPPET_VERSION = 25;
+export const SNIPPET_VERSION = 27;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -219,6 +234,8 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  27: 'la medición de los videos de Bunny Stream y de Cloudflare Stream —cuándo le dan play, hasta dónde lo ven y dónde lo pausan—, y la de un video de YouTube que hasta ahora no registraba nada cuando su código traía «enablejsapi=1»',
+  26: 'cuánta gente ve cada sección de las páginas que haces con el Web Generator de MaKo: en qué sección deja de leer, una por una',
   25: 'que la misma persona cuente una sola vez aunque entre a tu página con www y sin www',
   24: 'que MaKo lea tu página como la ve un visitante —lo que hay dentro de cada desplegable, a dónde lleva cada botón y si tu agenda carga— cuando la analizas o la replicas',
   23: 'una línea de instalación que se actualiza sola: la pegas una vez y cada mejora del Pixel te llega sin volver a pegar nada',
@@ -523,6 +540,18 @@ export async function videosDetectados(dias = 90): Promise<Array<{ id: string; t
       v.url = p.player;
       v.titulo = p.titulo;
       v.redirigeA = p.redirigeA?.titulo ?? null;
+    }
+    // Y lo mismo con los OTROS alojadores conectados (25/10/2026: Vimeo, Wistia, Bunny Stream y Cloudflare Stream), por
+    // el id que manda el Pixel. Nunca rompe: sin claves, el catálogo viene vacío.
+    const otros = await catalogoDeVideos().then((c) => c.videos.filter((x) => x.alojador !== 'panda')).catch(() => []);
+    if (otros.length) {
+      const porId = new Map(otros.map((x) => [x.id, x]));
+      for (const v of out.values()) {
+        const x = porId.get(v.id);
+        if (!x) continue;
+        v.url = x.player;
+        v.titulo = x.titulo;
+      }
     }
 
     // Lo que no vino en las filas de la vuelta en que el video apareció (la URL
@@ -1104,7 +1133,13 @@ export async function landingDiagnostico(
   // ⚠️ Y EL CORTE ES EL DEL AVISO, no la última versión (09/10/2026): la v23 sólo renombra
   // una variable y trae el cargador de una línea, así que a una página en la 22 no le mide
   // nada distinto, y frenarle la prueba era un candado sin llave.
-  const codigoViejo = instalada > 0 && instalada < PIXEL_MINIMO_AVISO && ganaConLaNueva;
+  // ⚠️ SALVO EL VIDEO QUE SÓLO SE MIDE DESDE LA v27 (Bunny Stream y Cloudflare Stream, 25/10/2026): una página con uno
+  // de esos y un código anterior no mide su video, aunque esté en la 22 o más. Ahí sí hay algo que ganar al actualizar.
+  const HOSTS_DE_LA_V27 = ['video-bunny', 'video-cloudflare'];
+  const codigoViejo = instalada > 0 && (
+    (instalada < PIXEL_MINIMO_AVISO && ganaConLaNueva)
+    || (instalada < 27 && !!piezas && piezas.some((p) => HOSTS_DE_LA_V27.includes(p)))
+  );
 
   // ⚠️ EL ORDEN ES EL DEL EMBUDO, no el de cuándo se escribió cada chequeo.
   // Antes empezaba por «llegan las visitas» y metía el formulario ANTES del video:
@@ -2118,8 +2153,27 @@ export function landingSnippet(token: string): string {
   // el snippet llego tarde, recargar puede cortarle el video a alguien: se deja.
   var ytTemprano = !(window.performance && performance.now) || performance.now() < 10000;
 
+  // ⚠️ PERO AL QUE NADIE LE PIDE, NO HABLA NUNCA (medido el 25/10/2026 con un video real: un iframe con
+  // enablejsapi=1 en una página SIN la API de YouTube, play y pausa con clics: CERO eventos). El parámetro no siempre
+  // lo pone quien usa la API: se copia de un tutorial o lo deja un constructor de páginas. Si a los 6 s nadie le habló
+  // y en la página no hay API de YouTube, se le pide como a cualquiera; si después aparece una, ytCeder se lo devuelve.
+  function ytHayApi() {
+    if (window.YT && window.YT.Player) return true;
+    var s = document.getElementsByTagName('script');
+    for (var i = 0; i < s.length; i++) if (/youtube\\.com\\/(iframe_api|player_api)/.test(s[i].src || '')) return true;
+    return false;
+  }
+  function ytQuizasPedir(y) {
+    if (!y.pasivo || y.vivo || y.recargado || ytHayApi()) return;
+    y.pasivo = false;
+    ytOir(y);
+  }
+
   function ytOir(y) {
-    if (y.pasivo) return;
+    if (y.pasivo) {
+      if (!y.espera && !y.vivo) y.espera = setTimeout(function () { y.espera = 0; ytQuizasPedir(y); }, 6000);
+      return;
+    }
     if (y.timer) clearInterval(y.timer);
     y.vivo = false;
     var intentos = 0;
@@ -2495,6 +2549,145 @@ export function landingSnippet(token: string): string {
     } catch (err) {}
   });
 
+  // ── BUNNY STREAM Y CLOUDFLARE STREAM (el reproductor en su iframe; v27) ────
+  // Pedido de Martín (25/10/2026): «Implementa otros alojadores de video, no solo panda». Medido ese día en Chrome con
+  // un video REAL de cada uno (los de su propia documentación), sin este bloque: CERO eventos con play, pausa y avance.
+  //   · Bunny habla el protocolo player.js. Al cargar avisa { context: 'player.js', event: 'ready' } (como TEXTO JSON)
+  //     y nada más hasta que la página se suscribe ({ method: 'addEventListener', value, listener }). Desde ahí manda
+  //     play, pause, ended y timeupdate con { seconds, duration }, unas cuatro veces por segundo.
+  //   · Cloudflare manda TODO sin que se lo pidan, como objeto: { __privateUnstableMessageType: 'event', eventName } y
+  //     'propertyChange' con currentTime, duration y paused. No hay a qué suscribirse.
+  // Se reconocen por el ORIGEN del mensaje, como Vimeo, y el dominio no se escribe entero (el analizador de piezas lo
+  // busca en el texto de la página). El id: bunny:<guid del video> y cfs:<uid del video>, sacados del src del iframe.
+  var OTROS = [];
+  var BUNNY_ORIGEN = /^https:\\/\\/(iframe|player)\\.mediadelivery\\.net$/;
+  var CFS_ORIGEN = /^https:\\/\\/(iframe\\.videodelivery\\.net|(iframe|customer-[a-z0-9]+)\\.cloudflarestream\\.com)$/;
+  var OTROS_VIGIA = 0;
+  function otroDe(w, cual) {
+    for (var i = 0; i < OTROS.length; i++) if (OTROS[i].w === w) return OTROS[i];
+    var f = document.getElementsByTagName('iframe');
+    for (var j = 0; j < f.length; j++) {
+      if (f[j].contentWindow !== w) continue;
+      var r = { w: w, el: f[j], cual: cual, vid: null };
+      OTROS.push(r);
+      if (!OTROS_VIGIA) OTROS_VIGIA = setInterval(otrosVigia, 2000);
+      return r;
+    }
+    return null;
+  }
+  function otroId(r) {
+    var src = r.el.getAttribute('src') || '', m;
+    if (r.cual === 'bunny') {
+      m = /\\/(?:embed|play)\\/\\d+\\/([0-9a-f-]{36})/i.exec(src);
+      return 'bunny:' + (m ? m[1].toLowerCase() : 'iframe');
+    }
+    m = /\\/([0-9a-f]{32})(?:\\/|\\?|#|$)/i.exec(src);
+    return 'cfs:' + (m ? m[1].toLowerCase() : 'iframe');
+  }
+  function bunnySuscribir(w, origen) {
+    var n = ['play', 'pause', 'ended', 'timeupdate'];
+    for (var i = 0; i < n.length; i++) {
+      try { w.postMessage(JSON.stringify({ context: 'player.js', version: '0.0.11', method: 'addEventListener', value: n[i], listener: 'mko-' + n[i] }), origen); } catch (e) {}
+    }
+  }
+  // Un iframe que se saca de la página (un modal que se cierra) muere callado, como el de Vimeo: si era el que
+  // reproducía, se manda la pausa que habría mandado un video nativo.
+  function otrosVigia() {
+    for (var i = OTROS.length - 1; i >= 0; i--) {
+      var r = OTROS[i];
+      if (document.documentElement.contains(r.el)) continue;
+      var e = r.vid ? V[r.vid] : null;
+      if (e && e.play && !e.pausado && !e.fin && e.vel === r.el) {
+        e.pausado = true;
+        enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+      }
+      OTROS.splice(i, 1);
+    }
+  }
+  // Lo mismo que hace Vimeo con cada cosa que pasa: play (o retoma), pausa, fin y avance.
+  function otroPlay(r, e) {
+    if (!e.play) {
+      e.play = true;
+      e.pausado = false;
+      enviar({ tipo_evento: 'play', porcentaje: 0, segundos: 0, video_id: r.vid, vsl_titulo: e.tit, auto: !(huboInteraccion || document.activeElement === r.el), detalle: (r.el.src || '').slice(0, 300) });
+    } else if (e.pausado) {
+      e.pausado = false;
+      e.fin = false;
+      enviar({ tipo_evento: 'retoma', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+    }
+  }
+  function otroPausa(r, e) {
+    if (!e.play || e.pausado || e.fin) return;
+    // La pausa que llega justo antes del fin no es una pausa (igual que en Vimeo y en el nativo).
+    if (e.dur > 0 && e.dur - e.segs < 0.5) return;
+    e.pausado = true;
+    enviar({ tipo_evento: 'pausa', porcentaje: e.dur > 0 ? e.pct : null, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+  }
+  function otroFin(r, e) {
+    if (!e.play || e.fin) return;
+    e.fin = true;
+    e.pausado = true;
+    // Terminar es el 100% aunque el último segundo avisado no llegue a la duración (lo mismo que en YouTube).
+    if (e.dur > 0 && !e.hitos[100]) {
+      e.hitos[100] = true;
+      e.pct = 100;
+      enviar({ tipo_evento: 'p100', porcentaje: 100, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+    }
+    enviar({ tipo_evento: 'fin', porcentaje: 100, segundos: e.segs, video_id: r.vid, vsl_titulo: e.tit });
+  }
+  function otroTiempo(r, e, segs, dur) {
+    if (dur > 0 && isFinite(dur)) e.dur = dur;
+    // Después del final la posición no se mueve hasta el próximo play (el reproductor puede rebobinar solo a 0).
+    if (typeof segs !== 'number' || !isFinite(segs) || e.fin) return;
+    e.segs = segs;
+    if (e.play && !e.pausado) ytAvance(e, r.vid);
+  }
+  try {
+    var fb = document.getElementsByTagName('iframe');
+    for (var qb = 0; qb < fb.length; qb++) {
+      var ob = /^https:\\/\\/[^\\/]+/.exec(fb[qb].src || '');
+      // Un Bunny que cargó antes que este código ya mandó su «ready» a nadie: se lo suscribe al arrancar.
+      if (ob && BUNNY_ORIGEN.test(ob[0])) bunnySuscribir(fb[qb].contentWindow, ob[0]);
+    }
+  } catch (e) {}
+  window.addEventListener('message', function (ev) {
+    try {
+      var o = ev.origin || '';
+      var bunny = BUNNY_ORIGEN.test(o);
+      if (!bunny && !CFS_ORIGEN.test(o)) return;
+      var d = ev.data;
+      if (typeof d === 'string') { try { d = JSON.parse(d); } catch (x) { return; } }
+      if (!d || typeof d !== 'object') return;
+      var r = otroDe(ev.source, bunny ? 'bunny' : 'cfs');
+      if (!r) return;
+      if (bunny) {
+        if (d.context !== 'player.js') return;
+        // El video se fija en el saludo (un iframe que cambia de video vuelve a saludar), como en Vimeo.
+        if (d.event === 'ready') { r.vid = otroId(r); bunnySuscribir(ev.source, o); return; }
+      } else if (d.__privateUnstableMessageType === 'iframeReady') { r.vid = otroId(r); return; }
+      if (!r.vid) r.vid = otroId(r);
+      var e = est(r.vid);
+      e.vel = r.el;
+      if (!e.tit) e.tit = r.el.getAttribute('title') || null;
+      if (bunny) {
+        var x = d.value || {};
+        if (d.event === 'timeupdate') otroTiempo(r, e, x.seconds, x.duration);
+        else if (d.event === 'play') otroPlay(r, e);
+        else if (d.event === 'pause') otroPausa(r, e);
+        else if (d.event === 'ended') otroFin(r, e);
+        return;
+      }
+      if (d.__privateUnstableMessageType === 'propertyChange') {
+        if (d.property === 'duration') otroTiempo(r, e, null, d.value);
+        else if (d.property === 'currentTime') otroTiempo(r, e, d.value, 0);
+      } else if (d.__privateUnstableMessageType === 'event') {
+        if (d.eventName === 'play') otroPlay(r, e);
+        else if (d.eventName === 'pause') otroPausa(r, e);
+        else if (d.eventName === 'ended') otroFin(r, e);
+      }
+    } catch (err) {}
+  });
+
   // ── VIDEOS QUE NO SE PUEDEN MEDIR (iframes de Drive y de YouTube sin API) ──
   // Medido el 11/09/2026 en Chrome: un iframe de Drive le manda a la página UN
   // solo mensaje al cargar, igual en todos los archivos y sin ningún dato. Su
@@ -2866,6 +3059,8 @@ export function landingSnippet(token: string): string {
         if (scrollMax >= h && h > scrollHito) {
           scrollHito = h;
           enviar({ tipo_evento: 'scroll', porcentaje: h });
+          // Las secciones viajan en los MISMOS momentos (v26): ningun disparador nuevo.
+          mandarSecciones();
         }
       }
     } catch (e) {}
@@ -2881,6 +3076,9 @@ export function landingSnippet(token: string): string {
     try {
       if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = 0; }
       mirarScroll();
+      // Al irse, las secciones vistas desde el ultimo hito (antes del corte de abajo,
+      // que es del scroll: una seccion nueva puede no mover el porcentaje).
+      mandarSecciones();
       if (scrollFinales >= 3 || scrollMax <= scrollHito) return;
       scrollFinales++;
       scrollHito = scrollMax;
@@ -2897,6 +3095,118 @@ export function landingSnippet(token: string): string {
   // primera linea de cada visita.
   if (document.readyState === 'complete') setTimeout(mirarScroll, 500);
   else window.addEventListener('load', function () { setTimeout(mirarScroll, 500); });
+
+  // ── SECCIONES (v26) ─────────────────────────────────────────────────────────
+  // QUE SECCIONES DE LA PAGINA VIO LA PERSONA. El scroll dice hasta donde bajo en
+  // la pagina ENTERA; para saber que una seccion no se ve (y probarle otra
+  // version) hace falta saber cuales vio. Solo existen en las paginas que arma
+  // MaKo, y en cualquier otra esto no encuentra nada y no manda nada:
+  //   · las de bloques: section.gm-tarjeta con id «t-» + el id de la seccion;
+  //   · las de «Diseno editable»: .gm-libre-seccion con data-seccion. Van con
+  //     display: contents, que NO TIENE CAJA: se mide la union de sus hijos.
+  //
+  // VISTA = lo visible ocupa al menos la mitad de la seccion O la mitad de la
+  // pantalla, lo que sea MENOR, durante 1 s seguido. Con «la mitad de la seccion»
+  // sola, una seccion mas alta que dos pantallas no se contaria nunca.
+  //
+  // ⚠️ UN SOLO EVENTO ACUMULADO, CON TECHO. 'secciones' lleva en 'detalle' los ids
+  // vistos HASTA AHORA, separados por un espacio y cortados en 300 (el tope del
+  // beacon), y sale solo cuando el scroll cruza uno de sus hitos y al irse, y solo
+  // si hay ids nuevos: 8 por visita como mucho. Un evento por seccion eran hasta 30
+  // por visita, el doble del techo de todo lo demas junto.
+  // Las miradas van con el MISMO freno que el scroll: una cada 400 ms.
+  var SECC_MS = 1000;
+  var seccVistas = [];     // los ids vistos, en el orden en que se vieron
+  var seccMandadas = 0;    // cuantos ya viajaron
+  var seccEnvios = 0;
+  var seccEspera = {};     // id -> el reloj de su segundo
+  var seccTimer = 0;
+  function seccionesDeLaPagina() {
+    var out = [];
+    try {
+      var b = document.querySelectorAll('section.gm-tarjeta[id^="t-"]');
+      for (var i = 0; i < b.length && out.length < 60; i++) out.push({ id: b[i].id.slice(2), els: [b[i]] });
+      var l = document.querySelectorAll('.gm-libre-seccion[data-seccion]');
+      for (var j = 0; j < l.length && out.length < 60; j++) {
+        var hijos = [];
+        for (var k = 0; k < l[j].children.length && k < 40; k++) hijos.push(l[j].children[k]);
+        out.push({ id: l[j].getAttribute('data-seccion') || '', els: hijos });
+      }
+    } catch (e) {}
+    return out;
+  }
+  // La regla, sola y sin DOM (la prueba tests/landing-snippet-emitido.test.ts).
+  function seccionVista(arriba, abajo, vh) {
+    var alto = abajo - arriba;
+    if (!(alto > 0) || !(vh > 0)) return false;
+    var visible = Math.min(abajo, vh) - Math.max(arriba, 0);
+    return visible > 0 && visible >= Math.min(alto, vh) / 2;
+  }
+  function cajaDeSeccion(els) {
+    var arriba = Infinity, abajo = -Infinity;
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i] && els[i].getBoundingClientRect ? els[i].getBoundingClientRect() : null;
+      if (!r || !(r.height > 0) || !(r.width > 0)) continue;
+      if (r.top < arriba) arriba = r.top;
+      if (r.bottom > abajo) abajo = r.bottom;
+    }
+    return arriba < abajo ? { arriba: arriba, abajo: abajo } : null;
+  }
+  function seccionYaVista(id) {
+    for (var i = 0; i < seccVistas.length; i++) if (seccVistas[i] === id) return true;
+    return false;
+  }
+  function seccionEnPantalla(els) {
+    if (document.visibilityState === 'hidden') return false;
+    var c = cajaDeSeccion(els);
+    return !!c && seccionVista(c.arriba, c.abajo, window.innerHeight || (document.documentElement || {}).clientHeight || 0);
+  }
+  function mirarSecciones() {
+    try {
+      var ss = seccionesDeLaPagina();
+      for (var i = 0; i < ss.length; i++) {
+        var s = ss[i];
+        if (!/^[A-Za-z0-9_-]{1,40}$/.test(s.id) || seccionYaVista(s.id)) continue;
+        var en = seccionEnPantalla(s.els);
+        if (en && !seccEspera[s.id]) {
+          // El segundo se confirma con OTRA mirada al cumplirse: si la persona siguio
+          // de largo, ya no esta en pantalla y no cuenta.
+          (function (id, els) {
+            seccEspera[id] = setTimeout(function () {
+              seccEspera[id] = 0;
+              try { if (!seccionYaVista(id) && seccionEnPantalla(els)) seccVistas.push(id); } catch (e) {}
+            }, SECC_MS);
+          })(s.id, s.els);
+        } else if (!en && seccEspera[s.id]) {
+          clearTimeout(seccEspera[s.id]);
+          seccEspera[s.id] = 0;
+        }
+      }
+    } catch (e) {}
+  }
+  function mandarSecciones() {
+    try {
+      if (seccVistas.length <= seccMandadas || seccEnvios >= 8) return;
+      var d = '';
+      for (var i = 0; i < seccVistas.length; i++) {
+        var sig = d ? d + ' ' + seccVistas[i] : seccVistas[i];
+        if (sig.length > 300) break;
+        d = sig;
+      }
+      seccMandadas = seccVistas.length;
+      if (!d) return;
+      seccEnvios++;
+      enviar({ tipo_evento: 'secciones', detalle: d });
+    } catch (e) {}
+  }
+  window.addEventListener('scroll', function () {
+    if (seccTimer) return;
+    seccTimer = setTimeout(function () { seccTimer = 0; mirarSecciones(); }, 400);
+  }, { passive: true });
+  // Lo que se ve sin mover un dedo (el hero) cuenta igual: la primera mirada espera
+  // al 'load', como la del scroll, para medir la pagina con sus imagenes puestas.
+  if (document.readyState === 'complete') setTimeout(mirarSecciones, 500);
+  else window.addEventListener('load', function () { setTimeout(mirarSecciones, 500); });
 
   // ── AGENDÓ ────────────────────────────────────────────────────────────────
   // ⚠️ EL EVENTO QUE FALTABA, y para un negocio que vende por llamada es EL
