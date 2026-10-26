@@ -1358,10 +1358,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
       memo.anotar(name, out);
-      const refs = referenciasDeLaSalida(name, out);
-      if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
+      // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
+      const refs = referenciasDeLaSalida(name, out);
+      if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
       // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
       // otra vez falla igual).
       if (name === LEVANTAR_TICKET) ticketPropuesto = true;
