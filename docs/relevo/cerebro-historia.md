@@ -2,6 +2,54 @@
 
 ---
 
+## Estado del relevo del 26/10 ~08:15 (claude5) — reemplazado el 26/10 a las 12:20
+
+### Estado al escribir (26/10 ~08:15)
+
+- **`main` = `ede2bbaab` (tren-l), desplegado y sirviendo en hola-mako.com desde las 08:02.** Entraron Settings sin
+  General ni Método (la zona del negocio en Perfil, el enchufe en Integraciones), Automations sin «MaKo Messages», la
+  extensión 0.71.2 (los nombres de empresa de `verified-business-name` y la recarga sola que no corta un trabajo), el
+  cierre de las landings con los planes y los 7 días, el editor de Web Generator de punta a punta (los 7 puntos de
+  Martín, más el tachado, el enlace a otra página y los precios con formato que se perdían al guardar), «Aplicar» del
+  analizador y Replicar, y el Media Buyer con la foto de perfil como la captura 04.
+- **Landings hace los clics en producción** sobre las copias #44, #45 y #46 (sin publicar) y trae las capturas.
+- **El tren siguiente es `tren-m`,** en `C:/dev/wt-push-q`, armado sobre `ede2bbaab`: Media Buyer `7b50660e8` (las 10
+  fallas de la revisión), Zernio `d2116184e` (un negocio sin token administra sus campañas; `CORTE_TOKEN_META =
+  '2026-11-03'`), Ops Center `738ffba0d` (avances en una burbuja, la voz como audio, respuestas como Claude), MaKo en
+  WhatsApp `fd6c7ac1c` (sigue la conversación), Customers `6fe3bc7ac`, Grabadores `24752ffdd` (tl;dv, Fireflies, Zoom y
+  Otter; el aviso cuando la IA del negocio se cae). Todas pasaron por la revisión adversarial y sus arreglos.
+  **MaKo recomienda NO va:** la verificación de sus arreglos dio 5 de 9 cerrados y una falla nueva (la cascada todavía
+  marca saturado un modelo sano para todos); respaldo en la etiqueta `respaldo/tren-m-con-recomienda`.
+- **Revisiones de esta noche:** detalle en `%APPDATA%/Claude/side-session-notes/local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8/`
+  (`revision-tren-l-2.md`, `revision-tren-m.md`). Las tres juntas confirmaron 40 fallas invisibles; todas arregladas.
+- **Motion y el Image Editor:** SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con otra cuenta: rama LOCAL
+  `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta `respaldo/motion-imagen-2610`; worktree
+  `C:/dev/wt-motion-imagen`). Su relevo y su cosecha viven SÓLO en esa rama. Al retomarla: mezclar main primero (Landings
+  cambió el Web Generator) y desplegar el bloque motion antes de que una landing lo use.
+- **Leila (ws11):** memoria `leila-apps-y-pro-97`. Su análisis de llamadas falló 168 veces en silencio por su crédito de
+  Claude; el aviso nuevo va en tren-m.
+- **Aviso del token de Meta:** tarea programada `aviso-token-meta-lunes`, el 27/10 a las 10:00 (ws 1, 13, 14, 15 y 19).
+- **La RAM del push:** esperar SIN reservar y reservar recién con 4,5 GB (scratchpad `push-oportunista.sh`; la lección, en
+  docs/hallazgos-infra.md). Archivar chats NO libera RAM; reiniciar la app de Claude, sí.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. **Qué landings se publican.** Las 14 con el cierre nuevo están en https://claude.ai/artifact/4hKutkW7PX1sPMMHDC72YR
+   y la pregunta está en el Centro. `--subir` escribe en el ws9.
+2. **La 0338 de Grabadores y su aviso:** la pregunta está en el Centro. Ya no depende del orden con el deploy.
+3. **La IA paga de último recurso para lo interno de MaKo** (Claude de la plataforma u OpenAI): pregunta en el Centro.
+4. **El reclamo a Zernio** por el `testCode` (Ana, hasta US$1, o el mail): pregunta en el Centro.
+5. **Las lecturas de producción** que el clasificador frenó: las aprueba Martín en los chats MaKo inteligente, MaKo en
+   WhatsApp y Grabadores. El Cerebro no las hace por ellos.
+6. **La extensión:** tocar «Recargar» en chrome://extensions para estrenar la 0.71.2.
+7. **La limpieza de P6**, **la pasarela** (Paddle y Creem) y **la RAM** (memoria `pc-de-martin-hardware`).
+
+Las migraciones 0332, 0333, 0335, 0336 y 0337 están todas aplicadas con su sí.
+
+---
+
 ## Estado del relevo del 26/10 ~02:15 (claude5) — reemplazado el 26/10 a las 08:15
 
 ### Estado al escribir (26/10 ~02:15)

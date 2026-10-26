@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 26/10/2026 ~08:15, cuenta 5 «Ananda» (claude5)
+## ⏩ LEER PRIMERO — 26/10/2026 ~12:20, cuenta 5 «Ananda» (claude5)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta, la voy a llamar X. Continúa con todo» y con eso
 alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
@@ -26,35 +26,27 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 5. **`/admin/dev`:** sumá la cuenta a `CUENTAS` (`app/admin/dev/_registro/tipos.ts`): sin la fila, un hito firmado por
    ella rompe la pantalla.
 
-## Estado al escribir (26/10 ~08:15)
+## Estado al escribir (26/10 ~12:20)
 
-- **`main` = `ede2bbaab` (tren-l), desplegado y sirviendo en hola-mako.com desde las 08:02.** Entraron Settings sin
-  General ni Método (la zona del negocio en Perfil, el enchufe en Integraciones), Automations sin «MaKo Messages», la
-  extensión 0.71.2 (los nombres de empresa de `verified-business-name` y la recarga sola que no corta un trabajo), el
-  cierre de las landings con los planes y los 7 días, el editor de Web Generator de punta a punta (los 7 puntos de
-  Martín, más el tachado, el enlace a otra página y los precios con formato que se perdían al guardar), «Aplicar» del
-  analizador y Replicar, y el Media Buyer con la foto de perfil como la captura 04.
-- **Landings hace los clics en producción** sobre las copias #44, #45 y #46 (sin publicar) y trae las capturas.
-- **El tren siguiente es `tren-m`,** en `C:/dev/wt-push-q`, armado sobre `ede2bbaab`: Media Buyer `7b50660e8` (las 10
-  fallas de la revisión), Zernio `d2116184e` (un negocio sin token administra sus campañas; `CORTE_TOKEN_META =
-  '2026-11-03'`), Ops Center `738ffba0d` (avances en una burbuja, la voz como audio, respuestas como Claude), MaKo en
-  WhatsApp `fd6c7ac1c` (sigue la conversación), Customers `6fe3bc7ac`, Grabadores `24752ffdd` (tl;dv, Fireflies, Zoom y
-  Otter; el aviso cuando la IA del negocio se cae). Todas pasaron por la revisión adversarial y sus arreglos.
-  **MaKo recomienda NO va:** la verificación de sus arreglos dio 5 de 9 cerrados y una falla nueva (la cascada todavía
-  marca saturado un modelo sano para todos); respaldo en la etiqueta `respaldo/tren-m-con-recomienda`.
-- **Revisiones de esta noche:** detalle en `%APPDATA%/Claude/side-session-notes/local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8/`
-  (`revision-tren-l-2.md`, `revision-tren-m.md`). Las tres juntas confirmaron 40 fallas invisibles; todas arregladas.
-- **Motion y el Image Editor:** SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con otra cuenta: rama LOCAL
-  `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta `respaldo/motion-imagen-2610`; worktree
-  `C:/dev/wt-motion-imagen`). Su relevo y su cosecha viven SÓLO en esa rama. Al retomarla: mezclar main primero (Landings
-  cambió el Web Generator) y desplegar el bloque motion antes de que una landing lo use.
-- **Leila (ws11):** memoria `leila-apps-y-pro-97`. Su análisis de llamadas falló 168 veces en silencio por su crédito de
-  Claude; el aviso nuevo va en tren-m.
-- **Aviso del token de Meta:** tarea programada `aviso-token-meta-lunes`, el 27/10 a las 10:00 (ws 1, 13, 14, 15 y 19).
-- **La RAM del push:** esperar SIN reservar y reservar recién con 4,5 GB (scratchpad `push-oportunista.sh`; la lección, en
-  docs/hallazgos-infra.md). Archivar chats NO libera RAM; reiniciar la app de Claude, sí.
-- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
-  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+- **`main` = `781d069b3` (tren-m), subido a las 12:1x.** Trae: Zernio sin token (`CORTE_TOKEN_META = '2026-11-03'`), MaKo
+  en WhatsApp siguiendo la conversación, el Completado del Centro (responder, tus mensajes con foto, el prompt tal cual, la
+  fecha), los avances agrupados y la voz del Ops Center, Settings en el teléfono, Customers rediseñado y la barra del super
+  admin, tl;dv/Fireflies/Zoom/Otter y el aviso de la IA caída, los arreglos del Media Buyer, Notificaciones sin los 9 avisos
+  que no salían, MaKo recomienda (con el Claude de la plataforma de último recurso en lo interno del ws9), el Scraper nuevo
+  con la extensión 0.72.3, y los arreglos de Web Generator de después de la prueba en producción.
+- **Migraciones:** 0338 (grabador_reuniones) y 0339 (etiquetas hasta 100) APLICADAS el 26/10 con el sí de Martín en el chat.
+- **Falta después del deploy:** `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=closing_ia_caida` (escribe la
+  fila del aviso en el ws9: pide el sí de Martín EN EL CHAT); que Landings mire en producción la animación de MaKo y las
+  franjas con nombre; que CRM pruebe «Extraer» de punta a punta con la pantalla nueva.
+- **El push ya no entra con 4 GB de heap por tanda:** se sube con `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=5120
+  MAKO_TIPOS_RAM_MIN_GB=5.4` y ~5,5 GB libres (cerrando Chrome). Detalle en docs/hallazgos-infra.md.
+- **Reclamo a Zernio:** mandado el 26/10 10:25 desde equipo@hola-mako.com (Resend 01a17862-…); la respuesta llega a equipo@.
+- **Leila:** memoria `leila-apps-y-pro-97` (con su planilla: ahorro hoy ~US$94, en 2 semanas ~US$122, con GHL ~US$219;
+  Partner: 1 Pro por mes = su MaKo gratis).
+- **Motion y el Image Editor:** suspendidos, en la rama LOCAL `motion-imagen-2610` @ `7e7a49d96` (etiqueta
+  `respaldo/motion-imagen-2610`), con su relevo adentro.
+- **Prometido por Martín (26/10):** un VidIQ y un Submagic dentro de MaKo en máximo 2 semanas.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat.
 
 ## Lo que NO se vuelve a discutir
 
@@ -77,17 +69,13 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 ## Trabado esperando a Martín
 
-1. **Qué landings se publican.** Las 14 con el cierre nuevo están en https://claude.ai/artifact/4hKutkW7PX1sPMMHDC72YR
-   y la pregunta está en el Centro. `--subir` escribe en el ws9.
-2. **La 0338 de Grabadores y su aviso:** la pregunta está en el Centro. Ya no depende del orden con el deploy.
-3. **La IA paga de último recurso para lo interno de MaKo** (Claude de la plataforma u OpenAI): pregunta en el Centro.
-4. **El reclamo a Zernio** por el `testCode` (Ana, hasta US$1, o el mail): pregunta en el Centro.
-5. **Las lecturas de producción** que el clasificador frenó: las aprueba Martín en los chats MaKo inteligente, MaKo en
-   WhatsApp y Grabadores. El Cerebro no las hace por ellos.
-6. **La extensión:** tocar «Recargar» en chrome://extensions para estrenar la 0.71.2.
-7. **La limpieza de P6**, **la pasarela** (Paddle y Creem) y **la RAM** (memoria `pc-de-martin-hardware`).
-
-Las migraciones 0332, 0333, 0335, 0336 y 0337 están todas aplicadas con su sí.
+1. **Las landings:** no se publica ninguna hasta que diga los cambios (contestó «Ninguna todavía» el 26/10).
+2. **El aviso closing_ia_caida:** su sí en el chat para crear la fila del ws9.
+3. **Las lecturas de producción** que el clasificador frenó: las aprueba en los chats MaKo inteligente, MaKo en WhatsApp y
+   Grabadores.
+4. **Leila:** preguntarle qué es Diwep y cuánto paga de GoHighLevel antes de mandarle el mensaje.
+5. **La RAM a 32 GB** (memoria `pc-de-martin-hardware`), o minutos de Actions: el chequeo de tipos ya no entra en 4 GB.
+6. **La limpieza de P6** y **la pasarela** (Paddle y Creem).
 
 ## Fechas
 

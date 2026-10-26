@@ -3,6 +3,15 @@
 Lo que se aprendió leyendo llamadas grabadas con Fathom y sus análisis en `closing_analyses`.
 Una entrada por tema; lo que quedó sin hacer dice dónde vive.
 
+## Con pantalla compartida, los números están en el video, no en el transcript (26/10/2026)
+
+- **Síntoma:** el análisis de la llamada con Leila (847861420) listó sus suscripciones de lo que se DIJO y se le escaparon
+  Canva, WebEmpresa, Diwep y los montos exactos. Martín lo marcó con capturas del video.
+- **Causa:** ella compartió su planilla («Revisión de cuentas») y la repasaron en pantalla. El transcript de Fathom sólo tiene
+  la voz; una tabla que se lee en silencio, o a medias, no está.
+- **Regla:** si en la llamada se compartió pantalla con números (precios, gastos, métricas), el análisis se cierra con el
+  video (capturas de los minutos en que se ve), no sólo con el transcript. Y se dice en el informe qué parte salió de dónde.
+
 ## Buscar una llamada por el número que da Martín (26/10/2026)
 
 - **Síntoma:** Martín pide «la llamada 847861420» y no aparece buscando por `recording_id`.

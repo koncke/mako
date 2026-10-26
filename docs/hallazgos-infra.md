@@ -140,6 +140,12 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     tandas, que chequean todo el repo igual. Opt-in: sin la variable, nada cambia. ⚠️ El hook llama al lock del CLON
     principal (`$REPO/scripts/typecheck-lock.mjs`), no al del worktree: el cambio se copió ahí a mano y queda en el repo con
     este tren; si el clon se pone al día, ya lo trae.
+  - **Con tren-m, 4 GB de heap por tanda ya no alcanzan (26/10, ~11:40):** la tanda 1 «se quedó sin heap». No es un error del
+    código: el programa entero creció. `MAKO_TIPOS_HEAP_MB=5120` (scripts/tipos-respaldo-push.mjs, entre 4096 y 8192) pasó las
+    tres tandas, pero pide ~5,4 GB libres: salió recién cuando Martín cerró Chrome (5,5 a 5,8 GB). El siguiente salto de
+    tamaño ya no entra en esta PC con la app de Claude abierta: o 32 GB, o Actions con minutos.
+  - **Una punta entregada «sin tipos» los trae al push:** los 2 errores de lib/closing-entrega.ts eran de Grabadores
+    (`recorded_by` de Fathom contra la Reunion nueva). Sus tests pasaban porque tsx no mira tipos.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;
