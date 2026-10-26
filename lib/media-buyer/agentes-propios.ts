@@ -59,7 +59,13 @@ export function tocaHoy(a: Pick<AgentePropio, 'estado' | 'cada'>, hoy: string): 
 const RES: Record<KpiMediaBuyer, string> = { lead: 'leads', agenda: 'agendas', venta: 'ventas' };
 
 /** La cuenta en renglones cortos para la IA: cada entidad prendida o con gasto, con sus números de 7 días. */
-export function resumenParaAgente(arbol: readonly NodoMB[], larga: readonly SenalMB[], kpi: KpiMediaBuyer, fmt: (u: number) => string): string {
+/**
+ * `fmt` escribe la unidad del gasto (dólares si la cuenta convierte); `fmtCuenta` y `aUnidad`, el presupuesto en la moneda de
+ * la cuenta y su equivalente: antes los dos iban con «$» y la IA comparaba MX$1,000 de presupuesto con US$385 de gasto
+ * (revisión de tren-l, falla 5).
+ */
+export function resumenParaAgente(arbol: readonly NodoMB[], larga: readonly SenalMB[], kpi: KpiMediaBuyer, fmt: (u: number) => string,
+  fmtCuenta: (m: number) => string = fmt, aUnidad: (m: number) => number = (m) => m): string {
   const porAd = new Map(larga.map((s) => [s.adId, s] as const));
   const suma = (ids: string[]) => ids.reduce((acc, id) => {
     const s = porAd.get(id);
@@ -76,7 +82,7 @@ export function resumenParaAgente(arbol: readonly NodoMB[], larga: readonly Sena
     const { gasto, res } = suma(ads);
     if (n.configurado !== 'ACTIVE' && gasto <= 0) continue;
     const costo = res > 0 ? fmt(gasto / res) : '—';
-    lineas.push(`${n.nivel} ${n.id} «${n.nombre}» · ${n.configurado === 'ACTIVE' ? 'prendido' : 'pausado'}${n.presupuestoDia != null ? ` · ${fmt(n.presupuestoDia)}/día` : ''} · 7 días: gasto ${fmt(gasto)}, ${res} ${RES[kpi]}, costo ${costo}`);
+    lineas.push(`${n.nivel} ${n.id} «${n.nombre}» · ${n.configurado === 'ACTIVE' ? 'prendido' : 'pausado'}${n.presupuestoDia != null ? ` · presupuesto ${fmtCuenta(n.presupuestoDia)}/día (≈ ${fmt(aUnidad(n.presupuestoDia))})` : ''} · 7 días: gasto ${fmt(gasto)}, ${res} ${RES[kpi]}, costo ${costo}`);
     if (lineas.length >= 80) break;
   }
   return lineas.join('\n');
@@ -87,7 +93,7 @@ export function promptAgente(a: Pick<AgentePropio, 'nombre' | 'regla'>, resumen:
     system: [
       'Eres el media buyer de un negocio. El dueño escribió una regla para su cuenta de Meta y tú la aplicas a los números de hoy.',
       'Devuelve SÓLO JSON: {"acciones":[{"tipo":"pausar"|"activar"|"subir_presupuesto"|"bajar_presupuesto","nivel":"campaign"|"adset"|"ad","entidadId":"…","presupuesto":número o null,"porque":"una oración"}]}.',
-      'Usa SÓLO los ids que aparecen en la lista. Si la regla no aplica a nada hoy, devuelve {"acciones":[]}. Un presupuesto sólo para lo que tiene presupuesto diario, en la misma moneda, y nunca más de 50% de cambio.',
+      'Usa SÓLO los ids que aparecen en la lista. Si la regla no aplica a nada hoy, devuelve {"acciones":[]}. Un presupuesto sólo para lo que tiene presupuesto diario, nunca más de 50% de cambio, y en la moneda de la cuenta (la primera cifra del presupuesto); para compararlo con el gasto usa la cifra con ≈.',
       'El porqué, en español neutro con tú, sin voseo, con el número que lo dispara.',
     ].join('\n'),
     user: `La regla («${a.nombre}»): ${a.regla}\nEl resultado que busca: ${RES[kpi]}${objetivo ? `, objetivo ${objetivo} por resultado` : ''}.\n\nLa cuenta hoy:\n${resumen || '(sin nada prendido ni con gasto)'}`,

@@ -18,7 +18,7 @@
 import type { CSSProperties, ReactNode } from 'react';
 import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import { LogoMeta } from '@/app/_components/ServicioVisual';
-import { cambioCorto, columnasDeHoy, mensajeDeHoy, pildoraDeHoy, ramasDeHoy, rotuloDe } from './mb-modelo';
+import { aplicablesEnLote, cambioCorto, columnasDeHoy, esVariacion, mensajeDeHoy, pildoraDeHoy, ramasDeHoy, rotuloDe } from './mb-modelo';
 
 /** El hueco entre columnas, en % del ancho: así el centro de cada columna se calcula exacto para las ramas (sin medir). */
 const HUECO = 2.4;
@@ -120,7 +120,8 @@ export function ArbolDeHoy({ decisiones, productoDe, kpi, ocupada, encendido, av
 }) {
   const ramas = ramasDeHoy(decisiones, productoDe);
   const conProducto = ramas.filter((r) => r.producto != null).length;
-  const abiertas = decisiones.filter((d) => d.estado === 'abierta');
+  // «Aplicar los N» no lanza textos nuevos de la IA: ésos se leen en su hoja antes de salir (revisión de tren-l, falla 0).
+  const abiertas = aplicablesEnLote(decisiones);
   return (
     <Ramas etiqueta="Los cambios de hoy" avatar={avatar} pildora={pildoraDeHoy(decisiones, conProducto)}
       columnas={columnasDeHoy(ramas).map((c, i) => ({
@@ -160,7 +161,10 @@ export function TarjetaChica({ d, producto, ocupada, encendido, onAbrir, onAplic
       abrir={`${rotulo}: ${d.entidadNombre}. Ver el detalle`} onAbrir={onAbrir}
       marca={d.estado === 'aplicada'
         ? <span className="aa-chica-marca" data-tono="bien">✓ Aplicado</span>
-        : d.estado === 'abierta'
+        : d.estado === 'abierta' && esVariacion(d)
+          // Los textos de la IA no salen sin que alguien los lea: el botón abre la hoja, donde se eligen y se lanzan.
+          ? <button type="button" className="aa-chica-aplicar" data-tono="sec" onClick={onAbrir}>Ver textos</button>
+          : d.estado === 'abierta'
           ? <button type="button" className="aa-chica-aplicar" disabled={ocupada || !encendido} onClick={onAplicar}>{ocupada ? 'Aplicando…' : 'Aplicar'}</button>
           : <span className="aa-chica-marca" data-tono="cuidado">Frenado</span>}
       linea={<>

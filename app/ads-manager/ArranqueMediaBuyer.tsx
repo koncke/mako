@@ -36,7 +36,7 @@ import type { ConfigMediaBuyer } from '@/lib/media-buyer/tipos';
 const nada = () => {};
 const us = (n: number) => fmtDinero(n);
 
-export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costoMedido, cierreMedido, avatares, funcionalidades, inicial, onConectado, onGuardar, onTerminar, onPreguntar }: {
+export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costoMedido, cierreMedido, avatares, funcionalidades, inicial, pilotoPermitido, onConectado, onGuardar, onTerminar, onPreguntar }: {
   nombre: string;
   conectada: boolean;
   /** La cuenta publicitaria que ya se sabe (para el link de conectar). */
@@ -51,7 +51,10 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
   /** Guarda lo respondido (para seguir donde quedó si se va y vuelve). */
   onGuardar: (r: RespuestasArranque) => void;
   /** El último paso: la config del Media Buyer y mirar la cuenta. */
-  onTerminar: (cambio: Partial<ConfigMediaBuyer>) => Promise<void>;
+  /** Si el plan del negocio trae el piloto automático: sin él, el modo no se ofrece (cupoDe → piloto). */
+  pilotoPermitido: boolean;
+  /** Guarda la config del arranque; false = no se pudo (la charla vuelve a preguntar el modo, en vez de quedar en «listo»). */
+  onTerminar: (cambio: Partial<ConfigMediaBuyer>) => Promise<boolean>;
   /** Lo que no es la respuesta del paso va al Cerebro (el chat de MaKo de la tab). */
   onPreguntar: (texto: string) => void;
 }) {
@@ -61,9 +64,9 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
   const [ahora] = useState(() => Date.now());
   const hilo = useRef<HTMLDivElement>(null);
   const appEscritorio = useAppDeEscritorio();
-  const x = { nombre, conectada, r, productos, costoMedido };
+  const x = { nombre, conectada, r, productos, costoMedido, pilotoPermitido };
   const paso = pasoDeArranque(x);
-  const mensajes = useMemo(() => mensajesDeArranque({ nombre, conectada, r, productos, costoMedido }), [nombre, conectada, r, productos, costoMedido]);
+  const mensajes = useMemo(() => mensajesDeArranque({ nombre, conectada, r, productos, costoMedido, pilotoPermitido }), [nombre, conectada, r, productos, costoMedido, pilotoPermitido]);
   const items = useMemo(() => itemsDeOffer(mensajes).filter((m) => m.k !== 'bloque'), [mensajes]);
   const ultimo = mensajes[mensajes.length - 1];
   const opciones = ultimo?.de === 'mako' ? ultimo.opciones ?? [] : [];
@@ -79,7 +82,7 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
   }, [entrada?.presupuesto, entrada?.costoPorResultado, entrada?.ticket, entrada?.evento, entrada?.cierre, entrada?.avatares, entrada?.funcionalidades]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const responder = (t: string): boolean => {
-    const cambio = leerRespuesta(paso, t, { productos, r, costoMedido });
+    const cambio = leerRespuesta(paso, t, { productos, r, costoMedido, pilotoPermitido });
     if (!cambio) return false;
     const sig: RespuestasArranque = { ...r, ...cambio };
     for (const [k, v] of Object.entries(cambio)) if (v === undefined) delete (sig as Record<string, unknown>)[k];
@@ -87,7 +90,14 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
     onGuardar(sig);
     if (pasoDeArranque({ ...x, r: sig }) === 'listo') {
       setTerminando(true);
-      void onTerminar(configDelArranque(sig, plan)).finally(() => setTerminando(false));
+      void onTerminar(configDelArranque(sig, plan)).then((ok) => {
+        if (ok) return;
+        // No se guardó (el plan, la red): se saca el modo y vuelve su pregunta, con el aviso del error en pantalla.
+        const sinModo: RespuestasArranque = { ...sig };
+        delete sinModo.modo;
+        setR(sinModo);
+        onGuardar(sinModo);
+      }).finally(() => setTerminando(false));
     }
     return true;
   };

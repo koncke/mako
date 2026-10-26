@@ -24,8 +24,8 @@ export function alertasProtect(x: {
   /** La suma de los presupuestos diarios de lo prendido y el tope de la cuenta, en la unidad del gasto. */
   totalActivo: number;
   presupuestoMaxDia: number | null;
-  /** Pasa de la unidad del gasto a dólares (para los mínimos), y escribe un monto. */
-  aUsd: (u: number) => number;
+  /** Escribe un monto en la unidad del gasto. ⚠️ El gasto de las señales YA está en dólares (senales.ts → `aUnidad`): pasarlo
+   *  otra vez por la tasa dejaba muerta la alerta de gasto en una cuenta en pesos (revisión de tren-l, falla 7). */
   fmt: (u: number) => string;
 }): Alerta[] {
   const out: Alerta[] = [];
@@ -44,7 +44,7 @@ export function alertasProtect(x: {
   const sum = (ss: readonly SenalMB[], k: 'gasto' | 'leadsMeta' | 'leadsCrm') => ss.reduce((s, y) => s + y[k], 0);
   const diario3 = sum(x.corta, 'gasto') / 3;
   const diario7 = sum(x.larga, 'gasto') / 7;
-  if (diario7 > 0 && x.aUsd(diario3) >= 20 && diario3 > diario7 * 1.8) {
+  if (diario7 > 0 && diario3 >= 20 && diario3 > diario7 * 1.8) {
     out.push({
       id: 'gasto', tipo: 'gasto', gravedad: diario3 > diario7 * 3 ? 'alta' : 'media',
       titulo: `El gasto se disparó: ${Math.round((diario3 / diario7 - 1) * 100)}% arriba de tu semana`,

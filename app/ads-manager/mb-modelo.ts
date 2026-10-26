@@ -305,3 +305,26 @@ export function mensajeDeCampanas(productos: readonly { nombre: string; costo: n
   else partes.push('Toca una campaña para ver sus números o cambiarla de producto.');
   return partes.join(' ');
 }
+
+// ── Lo que escribe la persona y lo que se lanza en lote (la revisión de tren-l, 26/10/2026) ─────────────────────────────
+
+/**
+ * El monto de «Editar», leído como lo escribe una persona: «1,500» y «1.500» son mil quinientos (separador de miles, como
+ * los muestra la pantalla: «MX$1,250»), «1,5» y «1.5» son uno y medio, «1,234.50» y «1.234,50» también se entienden.
+ * null = no se entiende (la pantalla no lo lanza). Antes, `Number('1,500'.replace(',', '.'))` daba 1,5 por día.
+ */
+export function leerMonto(txt: string): number | null {
+  const t = txt.trim().replace(/[^\d.,]/g, '');
+  let n: number;
+  if (/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(t)) n = Number(t.replace(/,/g, ''));
+  else if (/^\d{1,3}(\.\d{3})+(,\d{1,2})?$/.test(t)) n = Number(t.replace(/\./g, '').replace(',', '.'));
+  else if (/^\d+([.,]\d{1,2})?$/.test(t)) n = Number(t.replace(',', '.'));
+  else return null;
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
+/** Una decisión de variaciones (textos o ganchos nuevos): se lanza SÓLO desde su hoja, con los textos a la vista. */
+export const esVariacion = (d: Pick<Decision, 'tipo'>): boolean => d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook';
+
+/** Lo que «Aplicar los N» puede lanzar sin abrir nada: lo abierto que NO son textos nuevos de la IA. */
+export const aplicablesEnLote = <T extends Pick<Decision, 'estado' | 'tipo'>>(ds: readonly T[]): T[] => ds.filter((d) => d.estado === 'abierta' && !esVariacion(d));

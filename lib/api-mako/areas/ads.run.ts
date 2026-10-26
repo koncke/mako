@@ -1018,8 +1018,12 @@ export const RUNNERS: Runners = {
         const ajenas = variaciones.filter((v) => !ids.has(v));
         if (ajenas.length || !variaciones.length) return { error: `Esas variaciones no son de la decisión (las suyas: ${[...ids].join(', ')}).` };
       }
-      const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, variaciones ? `${variaciones.length} variaciones` : null].filter(Boolean).join(', ');
-      return { payload: { decisionId: id, presupuesto, variaciones }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.` };
+      // Los textos de la IA salen sólo leídos: la confirmación los lista y van explícitos (sin esto, las que marcó el Diseñador).
+      const salen = d.variaciones?.length ? (variaciones ?? d.variaciones.filter((v) => v.elegida).map((v) => v.id)) : null;
+      if (salen && !salen.length) return { error: 'Esa decisión no tiene ningún texto elegido: pasa los ids en variaciones.' };
+      const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id)).map((v) => `«${(v.gancho ?? v.textoPrincipal).slice(0, 120)}»`).join(' · ') : '';
+      const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, salen ? `${salen.length} ${salen.length === 1 ? 'texto' : 'textos'}` : null].filter(Boolean).join(', ');
+      return { payload: { decisionId: id, presupuesto, variaciones: salen }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}` };
     },
     ejecutar: async (payload, ctx) => {
       const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
@@ -1312,8 +1316,8 @@ export const RUNNERS: Runners = {
       return { payload: { agenteId: id }, resumen: `Borrar el agente «${a.nombre}».` };
     },
     ejecutar: async (payload, ctx) => {
-      await borrarAgentePropio(ctx.ws, String(payload.agenteId));
-      return { ok: true, resumen: 'Agente borrado.' };
+      const r = await borrarAgentePropio(ctx.ws, String(payload.agenteId));
+      return r.ok ? { ok: true, resumen: 'Agente borrado.' } : { ok: false, resumen: r.error };
     },
   },
   ver_biblioteca_media_buyer: {

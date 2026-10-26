@@ -17,7 +17,9 @@
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
 import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
-import { aplicarTopes } from './topes';
+import { aplicarTopes, presupuestoYaCambiado } from './topes';
+import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
+import { fmtDinero } from '@/lib/format';
 import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
 import { leerDatosCuenta, fmtUnidad, type DatosCuenta } from './datos';
 import type { Decision, EstadoEntidad, NivelMeta } from './tipos';
@@ -136,7 +138,17 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
     if (actual.presupuesto == null) return { ok: false, error: 'En Meta ya no tiene presupuesto diario propio (se pasó a la campaña o a uno de por vida).' };
     if (opts.presupuesto != null) {
       if (!(opts.presupuesto > 0)) return { ok: false, error: 'El presupuesto tiene que ser mayor que cero.' };
+      // Un monto cinco veces más grande o más chico que el de hoy es casi siempre un separador de miles mal leído («1,500»
+      // como 1,5): no se escribe (revisión de tren-l, falla 4). Bajar no pasa por ningún tope, así que éste es el único freno.
+      const salto = saltoPresupuesto(opts.presupuesto, actual.presupuesto);
+      if (salto) return { ok: false, error: `${fmtDinero(opts.presupuesto, datos.moneda)} es ${salto.veces} veces ${salto.sube ? 'más' : 'menos'} que el de hoy: revisa el monto (sin separador de miles).` };
       despues = { presupuesto: Math.round(opts.presupuesto * 100) / 100 };
+    } else if (presupuestoYaCambiado(d, (await leerDecisiones(ws, 7)).decisiones)) {
+      // Otra decisión ya cambió el presupuesto de esta entidad desde que MaKo propuso ésta: aplicar el mismo porcentaje sobre
+      // el de hoy compondría (−20% dos veces deja −36%; revisión de tren-l, falla 1). Se cierra con el motivo.
+      const motivo = 'El presupuesto ya se cambió con otra decisión desde que MaKo propuso ésta.';
+      await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: motivo });
+      return { ok: false, error: motivo };
     } else if (d.antes.presupuesto && Math.abs(actual.presupuesto - d.antes.presupuesto) / d.antes.presupuesto > 0.01) {
       despues = { presupuesto: Math.round(actual.presupuesto * (d.despues.presupuesto / d.antes.presupuesto) * 100) / 100 };
       ajuste = 'El presupuesto había cambiado desde la propuesta: se aplicó el mismo porcentaje sobre el de hoy.';
@@ -204,6 +216,9 @@ async function lanzarVariaciones(ws: number, d: Decision, quien: Quien, datos: D
   if (!datos.conexion) {
     return { ok: false, error: 'Para crear anuncios nuevos MaKo usa tu Zernio: conéctalo en Ajustes (con el token propio, Meta los rechaza por la app en desarrollo, error 1885183).' };
   }
+  // Una PERSONA lanza sólo los textos que eligió a la vista: sin elegidas explícitas no sale nada (la tarjeta de Hoy y el
+  // lote ya no las lanzan; esto lo asegura también para la API). El piloto usa las que marcó el Diseñador.
+  if (quien.origen === 'persona' && !elegidas) return { ok: false, error: 'Elige los textos que salen: ábrelos en el detalle.' };
   const vars = (d.variaciones ?? []).filter((v) => (elegidas ? elegidas.includes(v.id) : v.elegida));
   if (!vars.length) return { ok: false, error: 'Elige al menos una variación.' };
   const ahora = new Date().toISOString();
@@ -232,7 +247,13 @@ async function lanzarVariaciones(ws: number, d: Decision, quien: Quien, datos: D
     await actualizar(ws, d.id, { estado: 'fallida', error: errores.join(' · ').slice(0, 1000), aplicada_at: null, aplicada_por: null, origen: null });
     return { ok: false, error: errores[0] ?? 'Zernio no creó ningún anuncio.' };
   }
-  await actualizar(ws, d.id, { creados, error: null, nota: errores.length ? `Se crearon ${creados.length} de ${vars.length}: ${errores.join(' · ')}`.slice(0, 1000) : null });
+  // Sólo si sigue «aplicada»: si alguien la deshizo mientras se creaban (otra pestaña, MaKo por chat), lo creado se borra
+  // en vez de quedar entregando con la decisión «deshecha» (revisión de tren-l, falla 8).
+  const guardada = await reclamar(ws, d.id, ['aplicada'], { creados, error: null, nota: errores.length ? `Se crearon ${creados.length} de ${vars.length}: ${errores.join(' · ')}`.slice(0, 1000) : null });
+  if (!guardada) {
+    for (const ad of creados) await borrarAnuncioPorZernio(ws, ad).catch(() => null);
+    return { ok: false, error: 'La deshicieron mientras se creaban los anuncios: los borré.' };
+  }
   return { ok: true, decision: { ...tomada, creados }, ajuste: errores.length ? `Se crearon ${creados.length} de ${vars.length}.` : null };
 }
 
@@ -244,6 +265,8 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
   if (d.estado !== 'aplicada') return { ok: false, error: 'Sólo se deshace lo que está aplicado.' };
 
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios') {
+    // «aplicada» con `creados` vacío es una a MITAD de su lanzamiento (los ids se guardan todos juntos al final).
+    if (!d.creados.length) return { ok: false, error: 'Todavía se están creando los anuncios: prueba de nuevo en unos segundos.' };
     const tomada = await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString() });
     if (!tomada) return { ok: false, error: 'Otra persona ya la está deshaciendo.' };
     const errores: string[] = [];

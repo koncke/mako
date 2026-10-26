@@ -4966,6 +4966,40 @@ y su hoja; «Aplicar los N» lanza de a uno desde el navegador (no hay una opera
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
 
+### La revisión adversarial de tren-l: diez fallas, con su test (26/10/2026)
+
+El detalle (escenario, por qué no se pudo refutar) está en las notas del Cerebro, `revision-tren-l-2.md`, hallazgos 0 a 9. Lo
+fija `tests/media-buyer-revision-l.test.ts`, roto una vez por falla. Lo que queda como regla:
+
+- ⚠️ **Lo que la IA escribe para el público sale sólo LEÍDO (falla 0).** Copiar el «Applied» de la 04 puso «Aplicar» en cada
+  tarjeta, también en las de textos nuevos: la IA publicaba y prendía copy que nadie leyó (y la hoja mostraba 2 de 4 y lanzaba
+  las 4). **El diagnóstico obvio («el botón es el de la referencia») era el equivocado:** en la 04 el botón cambia
+  presupuestos; un texto nuevo es otra cosa. Ahora esa tarjeta dice «Ver textos», «Aplicar los N» no cuenta variaciones, la hoja
+  muestra todas, y el servidor no lanza textos de una persona sin `elegidas` explícitas (la API los lista en la confirmación).
+- ⚠️ **La pantalla escribe «1,250» y el campo leía la coma como decimal (falla 4):** «1,500» salía 1,5 por día, y bajar no pasa
+  por ningún tope. `leerMonto` (mb-modelo.ts) entiende los separadores de miles, y el servidor no escribe un salto de 5 veces
+  o más (`saltoPresupuesto`, el que ya usaba el chat).
+- **«El mismo porcentaje sobre el de hoy» compone (falla 1):** dos bajas abiertas sobre la misma entidad (el motor de dos días,
+  o el motor y un agente propio) dejaban −36% con dos de −20%. Si otra decisión ya cambió el presupuesto después de proponerse
+  ésta, se cierra como vencida (`presupuestoYaCambiado`, topes.ts); el lote dice lo que se ajustó o se frenó.
+- **Una config JSON se guarda MEZCLANDO (falla 2):** el panel de agentes mandaba todas las tácticas con la copia de cuando se
+  abrió la página y podía volver a poner en automático algo que otro apagó. El servidor mezcla táctica por táctica
+  (`mezclarTacticas`) y cada pantalla manda sólo la que tocó; pasaba igual con Automatizaciones, ya en producción.
+- ⚠️ **`getSetting` devuelve null cuando Supabase falla (falla 3):** una lista de agentes leída como vacía se escribía encima
+  (editar uno durante un error pasajero dejaba ése solo). Lo que escribe lee estricto y guarda con compare-and-set por
+  `updated_at`: comparar el JSON entero viaja en la URL y se rompe pasados unos KB (`docs/hallazgos-infra.md`).
+- **Monedas mezcladas en lo que lee la IA (falla 5):** el gasto en dólares y el presupuesto en pesos, los dos con «$». Ahora el
+  presupuesto va en la moneda de la cuenta con su equivalente al lado.
+- **El arranque ofrecía el piloto a quien no lo tiene (falla 6):** el guardado se cortaba entero y la charla quedaba en «listo»
+  con el Media Buyer apagado. El arranque conoce el plan, y un guardado fallido vuelve a preguntar el modo.
+- ⚠️ **Protect pasaba a dólares lo que ya estaba en dólares (falla 7):** en una cuenta en pesos la alerta de gasto no saltaba
+  nunca. **El test pasaba porque usaba una conversión que no convierte;** el nuevo usa la tasa de verdad.
+- **Deshacer mientras se crean las variaciones (falla 8):** quedaba «deshecha» con los anuncios prendidos. No se deshace una con
+  `creados` vacío, y lo creado tarde se guarda sólo si sigue «aplicada» (si no, se borra).
+- **El cupo de Esencial no contaba lo de los agentes propios (falla 9):** cada «Analizar» de más dejaba otras tantas.
+
+*26/10/2026, chat «Media Buyer» (`claude5`).*
+
 ## Las lecturas de Meta del cron, de la salud y del modal del anuncio, por Zernio; y CAPI por la misma conexión (25/10/2026)
 
 **Vive en:** `lib/meta-ads.ts` (`fetchMetaInsights`, `fetchAdCreatives`, `fetchAdsetBudgets`) · `lib/meta-health.ts`

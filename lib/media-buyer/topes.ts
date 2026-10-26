@@ -10,7 +10,20 @@
 // sólo necesita el interruptor prendido.
 // =============================================================================
 
-import type { ConfigMediaBuyer, EstadoEntidad, TipoDecision } from './tipos';
+import type { ConfigMediaBuyer, Decision, EstadoEntidad, TipoDecision } from './tipos';
+
+/**
+ * ¿Otra decisión ya cambió el presupuesto de la MISMA entidad después de que se propuso ésta? Entonces lanzarla compondría:
+ * el motor y los agentes propios pueden dejar dos bajas abiertas sobre lo mismo, y la segunda aplicaba su porcentaje sobre lo
+ * que ya había bajado la primera (−20% dos veces = −36%). Revisión de tren-l, falla 1.
+ */
+export function presupuestoYaCambiado(
+  d: Pick<Decision, 'id' | 'entidadId' | 'creada'>,
+  otras: readonly Pick<Decision, 'id' | 'entidadId' | 'estado' | 'despues' | 'aplicadaAt'>[],
+): boolean {
+  return otras.some((o) => o.id !== d.id && o.entidadId === d.entidadId && o.estado === 'aplicada'
+    && o.despues.presupuesto != null && !!o.aplicadaAt && o.aplicadaAt > d.creada);
+}
 
 export type ContextoTopes = {
   config: ConfigMediaBuyer;

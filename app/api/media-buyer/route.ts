@@ -147,7 +147,8 @@ export async function POST(req: NextRequest) {
       }
       case 'agente_borrar': {
         const id = typeof body.agenteId === 'string' ? body.agenteId : '';
-        return J({ ok: true, agentes: await borrarAgentePropio(ws, id) });
+        const r = await borrarAgentePropio(ws, id);
+        return J(r, r.ok ? 200 : 409);
       }
       case 'lienzo': {
         // La pestaña Campañas: la cuenta en vivo, por producto (lib/media-buyer/vista.ts → lienzoMediaBuyer).

@@ -19,7 +19,7 @@ import type { ConfigMediaBuyer, Decision } from '@/lib/media-buyer/tipos';
 import { productoDeAccion } from '@/lib/media-buyer/productos';
 import { ArbolDeHoy } from '@/app/ads-manager/Arbol';
 import { TarjetaAccion } from '@/app/ads-manager/Autopilot';
-import { deHoy } from '@/app/ads-manager/mb-modelo';
+import { aplicablesEnLote, deHoy } from '@/app/ads-manager/mb-modelo';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo?: Record<string, unknown> | null; existeTabla: boolean };
 
@@ -60,10 +60,14 @@ export function MediaBuyerM({ config, decisiones, puedeOperar, productoDe }: {
   const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
   const aplicarTodas = async () => {
     setAplicandoTodas(true);
-    let mal = 0;
-    for (const d of hoy.filter((x) => x.estado === 'abierta')) if (!(await api({ op: 'lanzar', id: d.id })).ok) mal++;
+    const avisos: string[] = [];
+    for (const d of aplicablesEnLote(hoy)) {
+      const r = await api({ op: 'lanzar', id: d.id });
+      if (r.ok && r.ajuste) avisos.push(`«${d.entidadNombre}»: ${r.ajuste}`);
+      if (!r.ok) avisos.push(`«${d.entidadNombre}»: ${r.error ?? 'no se pudo'}`);
+    }
     setAplicandoTodas(false);
-    toast(mal ? `${mal} no se pudieron: mira su detalle` : 'Cambios aplicados', mal ? { error: true } : undefined);
+    toast(avisos.length ? avisos.join(' · ') : 'Cambios aplicados', avisos.length ? { error: true } : undefined);
     router.refresh();
   };
 
