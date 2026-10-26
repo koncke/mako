@@ -111,6 +111,7 @@ import { TOPE_BOTONES, TOPE_TEXTO_CON_BOTONES, TOPE_TITULO_BOTON, botonesDe, typ
 import { archivoDelPedido } from './archivo-del-pedido';
 import { datoDe, valePara, type DestinoMensaje } from './variables-aviso';
 import { paramsConPartes } from './mako-tarjeta';
+import { variantesTrasCambio } from './mensaje-partes';
 import { problemasDeForma, datosDeReunionSinMirarla } from './flujo-forma';
 import { PLANTILLAS, pasosDePlantilla, type PlantillaAutomatizacion } from './plantillas-automatizaciones';
 // Duodécima tanda, ola 2 (§3.5): lo que suma el `listo` de editar y la pregunta de MaKo. Sólo tipos (puro).
@@ -2433,6 +2434,9 @@ function parcheMensaje(p: PasoIA, x: Record<string, unknown>, est: Estado, exist
     q.cuerpo = cuerpoAntes.slice(0, TOPE_TEXTO_SOCIAL).trim();
     est.avisos.push(`Acorté un mensaje: por ${NOMBRE_CANAL[social]} va hasta ${TOPE_TEXTO_SOCIAL} caracteres`);
   }
+  // Un texto que CAMBIA suelta las variantes del viejo (`variantesTrasCambio`, lib/mensaje-partes.ts): el motor las sortea, y a
+  // 4 de cada 5 leads les seguía llegando lo de antes (la revisión del tren-k, 25/10/2026).
+  Object.assign(q, variantesTrasCambio({ cuerpo: cuerpoAntes, variantes: (p as { variantes?: string[] }).variantes }, true, String(q.cuerpo ?? '')));
   if (q.canal === 'email') {
     if (toca('asunto') || !String(p.asunto ?? '').trim()) q.asunto = np.asunto ?? null;
     if (toca('vista_previa', 'preheader')) { if (np.preheader) q.preheader = np.preheader; else delete q.preheader; }

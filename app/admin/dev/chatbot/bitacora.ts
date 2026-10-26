@@ -2864,4 +2864,23 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "25 oct", hora: "22:20", chat: "Automations", cuenta: "claude5",
+    sesion: "local_f1f2610a-6994-4bbf-8ad4-dff49fe09b49",
+    actor: "claude", tipo: "correccion",
+    titulo: "Cambiar el texto de un mensaje ya no deja salir el texto viejo",
+    puntos: [
+      "Un WhatsApp tiene «otras formas de decirlo» (↻), y MaKo elige una al azar en cada envío.",
+      "Si cambiabas el texto en Automations o con «Editar con IA», esas formas seguían siendo las del texto viejo: muchos lo recibían.",
+      "Ahora, al cambiar el texto, se quitan. Con el mismo texto, se quedan.",
+      "En una prueba A/B, la B ya no nace con las de A: si no, la prueba comparaba A contra casi A.",
+      "Borrar un mensaje y tocar «Deshacer» devuelve también sus otras formas de decirlo.",
+    ],
+    archivos: [
+      "lib/mensaje-partes.ts — la regla (variantesTrasCambio)",
+      "app/automations/EditorMensajeWhatsApp.tsx y EditorMensajeSocial.tsx — los editores",
+      "tests/variantes-al-cambiar-texto.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];
