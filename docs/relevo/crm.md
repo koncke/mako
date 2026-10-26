@@ -20,7 +20,8 @@ en la bitácora. Lo medido y lo aprendido, en hallazgos-extension («No contest�
 - **26/10 madrugada:** en producción (c8f1c4a57) probado el paso 1 en su Chrome con la 0.70.0 (la opción ya no es gris, abre
   la instalación, la barra espera; el texto cortado, arreglado en 96246ee92). La 0.71.1 (`alDiaConSuCarpeta`) se recarga sola
   cuando la carpeta trae una versión nueva: desde ahí, no hace falta tocar «Recargar». MEDIDO: el grupo de los 221 tiene 247
-  participantes y WhatsApp sabe el nombre de 1 (grupo de anuncios): la corrida va a completar 1, y el final lo explica.
+  participantes; el nombre de las cuentas de empresa vive en `verified-business-name` (83), que la 0.71.0 no leía: Martín
+  corrió la 0.71.0 y dio 0; con la 0.71.1 el ensayo da 77 de 221 (hallazgos-extension). Falta que toque «Recargar» una vez.
   Corrida completa lista en las notas del Cerebro (capturas-completar-wa/CORRIDA-COMPLETA.md).
 
 ## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10

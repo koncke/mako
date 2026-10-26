@@ -114,21 +114,34 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   `diagnostico` (tablas y cantidades). Los campos de cada tabla se leyeron con `getAll` en modo lectura e imprimiendo sólo
   las claves; la herramienta del navegador bloquea en la salida los nombres de campo largos que parecen base64.
 
-## Los 221 del grupo de Martín: WhatsApp no tiene sus nombres (26/10/2026, medido)
+## Los 221 del grupo de Martín: el nombre de una cuenta de EMPRESA vive en `verified-business-name` (26/10/2026, 0.71.1)
 
-**Vive en:** `buscarGrupos` (extension/wa-fichas-reglas.js, cuenta `conNombre`) · `gruposEnWhatsappDichos`
-(app/crm/enriquecer-cliente.ts) · tests/wa-fichas-071.test.ts (1 y 5b).
+**Vive en:** `verificadosPorLid` y los `verificados` de `indexar`/`indexarLids`/`buscarGrupos` (extension/wa-fichas-reglas.js)
+· la lectura de la tabla en extension/wa-fichas.js · `conNombre` y `gruposEnWhatsappDichos` (app/crm/enriquecer-cliente.ts)
+· tests/wa-fichas-071.test.ts (1, 2 y 5b).
 
-- **MEDIDO en su WhatsApp Web** (sólo lectura, sólo cantidades), el grupo de donde vinieron los 221 («16, 17 y 18 de JUNIO |
-  RETO del Anuncio Ganador»): 247 participantes, 237 con teléfono, **1 con nombre**, ni en `name`/`pushname` ni en
-  `displayNameLID`. El grupo guarda 17 mensajes, todos del sistema: es de anuncios y nadie escribe, y WhatsApp sólo conoce el
-  nombre de quien le escribió.
-- **El diagnóstico obvio era el equivocado:** «el scraper no anda». Anda; el dato no existe en su WhatsApp. Ninguna tabla lo
-  tiene (ni `message`: ningún `notifyName` del grupo), y abrir la info del grupo para que WhatsApp lo pida es abrir el chat
-  (da el «visto»): no se hace. Para un grupo así, los nombres llegan cuando escriben; «Datos de empresa» trae el de las
-  cuentas de empresa.
-- **Regla:** el final dice de cuántos sabe el nombre WhatsApp («de sus 247, WhatsApp sabe el nombre de 1»). Sin ese número,
-  «1 completado» se lee como que la extensión está rota.
+- **Síntoma:** Martín corrió la 0.71.0 sobre los 221 de «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador»: «De 221, tu
+  WhatsApp tiene el nombre de 0… 0 nombres completados», con el grupo encontrado (247). Y él: «literalmente hay muchos que
+  tienen toda la info».
+- **Dónde vive el nombre de una cuenta de empresa:** en la tabla `verified-business-name` de `model-storage`, por `@lid`
+  (`{ id: '…@lid', name, isSmb, level }`, 6.312 filas en su WhatsApp Web). NO en `contact`: ahí esos contactos no tienen
+  `name`, `pushname`, `verifiedName` ni `displayNameLID`. Es lo que WhatsApp Web muestra de una empresa que nunca le escribió.
+  En ese grupo tiene a 83 de los 247 (81 con teléfono). La 0.71.0 no leía esa tabla.
+- **El diagnóstico obvio fue el equivocado DOS veces:**
+  1. «No se arma el puente `@lid` ↔ teléfono» (el +, el 9, el 521): no. Medido con los teléfonos de los 221, el cruce da
+     221 de 221 por teléfono;
+  2. «El dato no existe en su WhatsApp» (lo que decía esta entrada antes): tampoco. Se había medido sólo en `contact`, en
+     `message` (ningún `notifyName`) y en las tablas de `@lid`; el nombre estaba en una tabla aparte, que se vio recién al
+     contar en la memoria de la página (`verifiedName` en 83 de los modelos de contacto) y buscar de dónde lo cargaba.
+  **Regla:** antes de decir «el dato no está», contar en la memoria de la página (`window.require('WAWebContactCollection')`,
+  sólo leer) y buscar la tabla que lo alimenta; la extensión lee la tabla, nunca la memoria (sigue en el mundo aislado).
+- **Ensayo con el código real sobre sus datos** (sólo lectura, sólo cantidades): la lógica de la 0.71.0 da 0, igual que su
+  aviso y con los mismos 17 «en 2 o más grupos»; la de la 0.71.1 da **77 de 221**, todos con su nombre de empresa.
+- **Los otros 144 siguen sin nombre, y eso sí es el dato:** el grupo es de anuncios (17 mensajes guardados, todos del
+  sistema) y WhatsApp sólo conoce el nombre de quien le escribió o de una empresa. Para tenerlo habría que abrir la info del
+  grupo, que es abrir el chat (da el «visto»): no se hace. Llegan cuando escriben.
+- **Regla del final:** dice de cuántos sabe el nombre WhatsApp, contando la tabla de empresas («de sus 247, WhatsApp sabe el
+  nombre de 83»). Sin ese número, un resultado bajo se lee como que la extensión está rota.
 
 ## Una descomprimida no se actualiza sola: la 0.71.1 sí (26/10/2026)
 
@@ -145,8 +158,9 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
 
 ## Sin hacer
 
-- **La corrida completa en el Chrome de Martín con la 0.71** (con capturas): lista en las notas del Cerebro
-  (capturas-completar-wa/CORRIDA-COMPLETA.md). Por lo medido, en el grupo de los 221 va a completar 1.
+- **La corrida completa en el Chrome de Martín con la 0.71.1** (con capturas): lista en las notas del Cerebro
+  (capturas-completar-wa/CORRIDA-COMPLETA.md). Por el ensayo, en el grupo de los 221 completa 77; falta que Martín toque
+  «Recargar» una vez (corre la 0.71.0, que no se recarga sola).
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).
