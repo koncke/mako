@@ -28,7 +28,11 @@
 //   · «Responder sobre esto» vuelve, como la SECUNDARIA de la izquierda, y cita el «Completado» arriba de la caja (la cita «↩»
 //     de responder un mensaje, MensajeWA.tsx): no escribe nada en el campo. Lo mismo hace el de la tarjeta del hilo;
 //   · arriba de la respuesta, TODO lo que le dijo Martín en ese tramo (`pedidosDelCompletado`), cada mensaje en su globo con su foto;
-//   · la respuesta, como una respuesta de Claude (lib/respuesta-como-claude.ts).
+//   · la respuesta, como una respuesta de Claude (lib/respuesta-como-claude.ts);
+//   · cuándo terminó, con fecha y hora, como los mensajes del hilo («Hoy · 12:30», lib/centro-fechas.ts; 09:15: «En "completado"
+//     falta la fecha y hora»);
+//   · un pedido que relevó el Cerebro muestra el prompt de Martín textual, con su foto (`promptsDeMartin`; 09:14: «no pongas "El
+//     cerebro me pasó el pedido de martin" pon mi prompt, con mi foto directamente»).
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
@@ -40,6 +44,7 @@ import {
   sinMarkdown, yaEstaDelChat, type LineaChat,
 } from '@/lib/centro-chats';
 import { listasEnRenglones } from '@/lib/respuesta-como-claude';
+import { cuandoAR } from '@/lib/centro-fechas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { TABS_DEL_MENU, type ChatDelYaEsta } from './Avance';
 import { MiFoto } from './MiFoto';
@@ -158,6 +163,8 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
       <div className="co-preg__cab">
         <span className="co-ya__sello" aria-hidden><Icon name="check" size={13} /></span>
         <span className="co-ya__rotulo">Completado</span>
+        {/* Cuándo terminó, como la hora de los mensajes del hilo (26/10/2026, Martín: «En "completado" falta la fecha y hora»). */}
+        {Number.isFinite(instante) && <time className="co-preg__ya-cuando" dateTime={t.at}>{cuandoAR(instante, Date.now())}</time>}
         {/* Varios sin ver: de a uno, con las flechas y los puntos de las preguntas (sin «1 de 3» a la vista). */}
         {todos.length > 1 && <Pasos items={ids} pos={i} ir={setPos} contestada={() => false} nombre="Completado" />}
         <Plegar onPlegar={() => { setPlegado(true); setAbiertoConPreguntas(null); }} que={todos.length > 1 ? 'los completados' : 'el completado'} />

@@ -1612,7 +1612,46 @@ export function pedidosDelCompletado(lineas: readonly LineaChat[], ya: Pick<Turn
   const suyos = lineas.filter((l) => l.instante > desde && l.instante < hasta).sort((a, b) => a.instante - b.instante).map(deMartin).filter(Boolean);
   if (suyos.length) return suyos.slice(-TOPE_PEDIDOS_DEL_COMPLETADO).map((texto) => ({ texto, de: null }));
   const uno = pedidoDelCompletado(lineas, ya);
+  // Lo relevó otro chat (el Cerebro casi siempre): si trae el prompt de Martín textual, va ESE, con su foto.
+  const citados = uno?.de ? promptsDeMartin(uno.texto) : [];
+  if (citados.length) return citados.slice(-TOPE_PEDIDOS_DEL_COMPLETADO).map((texto) => ({ texto, de: null }));
   return uno ? [uno] : [];
+}
+
+/** «textual:», «textuales:» o «textualmente», que es como el Cerebro presenta lo que dijo Martín (memoria «Los prompts de
+ *  Martín… textuales»). */
+const TEXTUAL = /textual(?:es|mente)?\b[^«\n]{0,12}/gi;
+
+/** El texto de la cita «…» que abre en `i`, con las de adentro balanceadas (Martín también escribe «»). null = no cierra. */
+function citaBalanceada(texto: string, i: number): { texto: string; fin: number } | null {
+  let nivel = 0;
+  for (let j = i; j < texto.length; j++) {
+    if (texto[j] === '«') nivel += 1;
+    else if (texto[j] === '»' && --nivel === 0) return { texto: texto.slice(i + 1, j).trim(), fin: j + 1 };
+  }
+  return null;
+}
+
+/**
+ * Los prompts de Martín que un relevo trae TEXTUALES (26/10/2026, Martín: «En "completado" de los chats, no pongas "El cerebro me
+ * pasó el pedido de martin" pon mi prompt, con mi foto directamente»). El Cerebro los cita así: «…, textual: «el prompt»» o
+ * «textuales: 1. «uno» 2. «otro»». Sólo lo que viene pegado a esa palabra (con su número de lista, si lo tiene): las demás
+ * comillas del relevo («Completado», el nombre de un botón) no son de Martín. [] = el relevo no trae nada textual.
+ */
+export function promptsDeMartin(texto: string): string[] {
+  const out: string[] = [];
+  for (const m of texto.matchAll(TEXTUAL)) {
+    let i = (m.index ?? 0) + m[0].length;
+    for (;;) {
+      const salto = /^(?:\s|\d{1,2}[.)]|[-•*]|y\b)*/.exec(texto.slice(i))?.[0].length ?? 0;
+      if (texto[i + salto] !== '«') break;
+      const c = citaBalanceada(texto, i + salto);
+      if (!c) break;
+      if (c.texto) out.push(c.texto);
+      i = c.fin;
+    }
+  }
+  return [...new Set(out)];
 }
 
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */

@@ -28,6 +28,7 @@ import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { Cierre, TurnoChat } from '@/lib/operaciones-reglas';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
 import { listasEnRenglones } from '@/lib/respuesta-como-claude';
+import { diaAR, horaAR, rotuloDia } from '@/lib/centro-fechas';
 import { textoDeRespuesta } from '@/app/admin/runway/decisiones';
 import { Muneco, type Animo } from './Muneco';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -46,15 +47,7 @@ import type { PasoDelTurno } from '@/lib/centro-pasos';
 import { Trabajando } from './Trabajando';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-/** «10:52», con el reloj de Argentina. */
-const horaAR = (t: number) => new Date(t).toLocaleTimeString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const diaAR = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
-function rotuloDia(t: number, ahora: number): string {
-  const d = diaAR(ahora) - diaAR(t);
-  if (d <= 0) return 'Hoy';
-  if (d === 1) return 'Ayer';
-  return new Date(t).toLocaleDateString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: 'numeric', month: 'short' });
-}
+// La hora de cada mensaje y la píldora del día, con el reloj de Argentina: lib/centro-fechas.ts (las usa también el «Completado»).
 
 /** Los ticks de WhatsApp: ✓ escrito, ✓✓ entregado, ✓✓ azul hecho, ✕ no salió. */
 export function Tick({ estado }: { estado: EstadoPedido }) {
