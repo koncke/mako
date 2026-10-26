@@ -61,9 +61,8 @@ export default async function MediaBuyerPage({ searchParams }: { searchParams: P
     <Pagina ancho="completo" style={A_SANGRE}>
       <MediaBuyer nombre={nombre} inicial={{ config, decisiones: dec.decisiones, existeTabla: dec.existeTabla && config.existeTabla, cupo }} metas={metas} tieneMeta={!!token}
         arranque={vista.arranque} productoDe={vista.productoDe} mejores={vista.mejores} agentes={vista.agentes}
-        productos={vista.productos.map((p) => ({ id: p.id, nombre: p.nombre, resultados: p.resultados, costo: p.costo, tono: p.tono, href: `/ads-manager?producto=${p.id}` }))}
         decisionInicial={typeof sp.decision === 'string' && /^[0-9a-f-]{36}$/i.test(sp.decision) ? sp.decision : null}
-        vistaInicial={sp.vista === 'resumen' || sp.vista === 'campanas' || sp.vista === 'biblioteca' || sp.vista === 'autopilot' ? sp.vista : null}
+        vistaInicial={sp.vista === 'campanas' || sp.vista === 'biblioteca' ? sp.vista : sp.vista === 'hoy' || sp.vista === 'autopilot' || sp.vista === 'resumen' ? 'hoy' : null}
         productoInicial={typeof sp.producto === 'string' && /^(\d{1,12}|sin)$/.test(sp.producto) ? sp.producto : null} />
     </Pagina>
   );

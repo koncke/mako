@@ -19,7 +19,7 @@ import { getRazones } from '@/lib/razones';
 import { deTusAnuncios } from '@/lib/calculadora-presupuesto-ads';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { diasAntes } from './senales';
-import { etiquetaDeFunnel, lienzo, mapaDeProductos, mejoresAnuncios, porProducto, type AnuncioDestacado, type CuentaDeProducto } from './productos';
+import { etiquetaDeFunnel, lienzo, mapaDeProductos, mejoresAnuncios, type AnuncioDestacado } from './productos';
 import type { ProductoArranque, RespuestasArranque } from './arranque';
 import type { KpiMediaBuyer } from './tipos';
 import { CLAVE_AGENTES, leerAgentes, type AgentePropio } from './agentes-propios';
@@ -29,7 +29,6 @@ export const CLAVE_ARRANQUE = 'media-buyer.arranque';
 
 export type VistaMediaBuyer = {
   arranque: { productos: ProductoArranque[]; costoMedido: number | null; cierreMedido: number | null; avatares: number; funcionalidades: number; respuestas: RespuestasArranque };
-  productos: CuentaDeProducto[];
   productoDe: Record<string, string>;
   /** Los anuncios que más resultados trajeron al CRM este mes (la Biblioteca). */
   mejores: AnuncioDestacado[];
@@ -67,7 +66,6 @@ export async function vistaMediaBuyer(ws: number, kpi: KpiMediaBuyer, objetivo: 
         avatares: avatares.length, funcionalidades: new Set(razones.map((r) => r.nombre)).size,
         respuestas: leerRespuestasArranque(crudo),
       },
-      productos: porProducto(senalesMes, asig, fs, kpi, objetivo),
       productoDe: mapaDeProductos(asig, fs),
       mejores: mejoresAnuncios(senalesMes, kpi),
       agentes: leerAgentes(crudoAgentes),

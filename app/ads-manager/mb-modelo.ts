@@ -183,3 +183,103 @@ export function impactoEsperado(d: Pick<Decision, 'tipo' | 'tactica'>, kpi: KpiM
     default: return ['Probar creativos nuevos en un conjunto que ya funciona'];
   }
 }
+
+// ── HOY como la captura 04 de AdAmigo (25/10/2026 noche) ───────────────────────────────────────────────────────────────
+// Martín, al ver la versión con la pantalla Autopilot de AdAmigo: «Una cantidad de botones y texto impresionante... la captura
+// que me habias pasado de Adamigo no se parece en nada». La que eligió es la 04 (docs/media-buyer/referencias/otras-apps/
+// 04-adamigo-aplicado-y-deshacer.png): una pastilla de MaKo, un ÁRBOL de tarjetas chicas (en MaKo, las ramas son los
+// productos del CRM) y un mensaje al pie. Cada tarjeta: el producto, «Meta · la campaña», un rótulo chico, la entidad y el
+// cambio con sus números. El porqué va en el mensaje del pie y en el detalle que se abre al tocarla, nunca en la tarjeta.
+
+const NIVEL_MIN: Record<Decision['nivel'], string> = { campaign: 'campaña', adset: 'conjunto', ad: 'anuncio' };
+const may = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** El rótulo chico de la tarjeta (el «BEST AD SET» de la 04): qué es esa entidad para esta acción. */
+export function rotuloDe(d: Pick<Decision, 'tactica' | 'nivel' | 'tipo'>): string {
+  const n = NIVEL_MIN[d.nivel];
+  switch (d.tactica) {
+    case 'surf': return `Mejor ${n}`;
+    case 'sunsetting': return `${may(n)} que se encareció`;
+    case 'stop_loss': return 'Gasta sin resultados';
+    case 'revive': return 'Volvió a andar';
+    case 'calidad': return 'Leads que no agendan';
+    case 'ganador': return d.tipo === 'variaciones_hook' ? 'Video ganador' : 'Anuncio ganador';
+    default: return 'Tu regla';
+  }
+}
+
+/** La línea del cambio: «US$ 30 → US$ 36 / día» con «+20%», «Prendido → Pausado», o «3 textos nuevos». */
+export function cambioCorto(d: Pick<Decision, 'tipo' | 'antes' | 'despues' | 'moneda' | 'variaciones' | 'creados'>): { antes: string | null; despues: string; pct: string | null; sube: boolean } {
+  const a = d.antes.presupuesto;
+  const b = d.despues.presupuesto;
+  if (a != null && b != null) {
+    const pct = a > 0 ? Math.round((b / a - 1) * 100) : null;
+    return { antes: monto(a, d.moneda), despues: `${monto(b, d.moneda)} / día`, pct: pct == null || pct === 0 ? null : `${pct > 0 ? '+' : ''}${pct}%`, sube: (pct ?? 0) > 0 };
+  }
+  if (d.antes.estado && d.despues.estado) {
+    const t = (e: string) => (e === 'ACTIVE' ? 'Prendido' : 'Pausado');
+    return { antes: t(d.antes.estado), despues: t(d.despues.estado), pct: null, sube: d.despues.estado === 'ACTIVE' };
+  }
+  const n = (d.variaciones ?? []).length || d.creados.length || 3;
+  const que = d.tipo === 'variaciones_hook' ? (n === 1 ? 'gancho nuevo' : 'ganchos nuevos') : d.tipo === 'variaciones_texto' ? (n === 1 ? 'texto nuevo' : 'textos nuevos') : (n === 1 ? 'anuncio nuevo' : 'anuncios nuevos');
+  return { antes: null, despues: `${n} ${que}`, pct: null, sube: true };
+}
+
+/** Lo que va en la tarjeta de HOY: lo abierto (también lo frenado, para reintentar) y lo que se aplicó HOY. */
+export function deHoy<T extends Pick<Decision, 'estado' | 'aplicadaAt'>>(ds: readonly T[], ahora = Date.now()): T[] {
+  const hoy = new Date(ahora).toDateString();
+  return ds.filter((d) => d.estado === 'abierta' || d.estado === 'bloqueada' || d.estado === 'fallida'
+    || (d.estado === 'aplicada' && !!d.aplicadaAt && new Date(d.aplicadaAt).toDateString() === hoy));
+}
+
+export type RamaDeHoy<T> = { producto: string | null; decisiones: T[] };
+
+/** Las ramas del árbol: una por producto del CRM, en el orden en que aparecen; lo sin producto, al final. */
+export function ramasDeHoy<T>(ds: readonly T[], productoDe: (d: T) => string | null): RamaDeHoy<T>[] {
+  const ramas: RamaDeHoy<T>[] = [];
+  for (const d of ds) {
+    const p = productoDe(d);
+    const r = ramas.find((x) => x.producto === p);
+    if (r) r.decisiones.push(d); else ramas.push({ producto: p, decisiones: [d] });
+  }
+  return [...ramas.filter((r) => r.producto != null), ...ramas.filter((r) => r.producto == null)];
+}
+
+/** Las columnas del árbol (la 04 tiene tres): con un solo producto, cada cambio es su propia rama. */
+export function columnasDeHoy<T>(ramas: readonly RamaDeHoy<T>[], max = 3): RamaDeHoy<T>[] {
+  if (ramas.length !== 1) return ramas.slice();
+  const r = ramas[0];
+  const cols: RamaDeHoy<T>[] = Array.from({ length: Math.min(max, r.decisiones.length) }, () => ({ producto: r.producto, decisiones: [] }));
+  r.decisiones.forEach((d, i) => cols[i % cols.length].decisiones.push(d));
+  return cols;
+}
+
+const POR_TACTICA: Record<Tactica, (res: string, tipo: TipoDecision) => string> = {
+  surf: (res) => `subir lo que trae ${res} más baratos`,
+  sunsetting: () => 'bajar lo que se encareció',
+  stop_loss: (res) => `pausar lo que gasta sin traer ${res}`,
+  revive: () => 'prender lo que volvió a andar',
+  calidad: () => 'pausar lo que trae leads que no agendan',
+  ganador: (_res, tipo) => (tipo === 'variaciones_hook' ? 'probar ganchos nuevos de tu video ganador' : 'probar textos nuevos de tu anuncio ganador'),
+  manual: () => 'lo que piden tus reglas',
+};
+
+const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} y ${xs[xs.length - 1]}`);
+
+/** La pastilla de arriba del árbol («AdAmigo · applied to 6 ad accounts»). */
+export function pildoraDeHoy(ds: readonly Pick<Decision, 'estado'>[], productos: number): string {
+  const abiertas = ds.filter((d) => d.estado !== 'aplicada').length;
+  const en = productos > 1 ? ` en ${productos} productos` : '';
+  if (abiertas) return `${abiertas} ${abiertas === 1 ? 'cambio' : 'cambios'} para hoy${en}`;
+  return `${ds.length === 1 ? 'Aplicado' : `${ds.length} cambios aplicados`}${en}`;
+}
+
+/** El mensaje de MaKo al pie (el «Done. I moved 20% of budget...» de la 04): qué propone o qué hizo, y que se deshace. */
+export function mensajeDeHoy(ds: readonly Pick<Decision, 'estado' | 'tactica' | 'tipo'>[], kpi: KpiMediaBuyer): string {
+  const res = RESULTADO[kpi];
+  const abiertas = ds.filter((d) => d.estado !== 'aplicada');
+  const de = (xs: readonly Pick<Decision, 'tactica' | 'tipo'>[]) => enLista([...new Set(xs.map((d) => POR_TACTICA[d.tactica](res, d.tipo)))]);
+  const cierre = 'Cada cambio queda en Actividad: puedes deshacer cualquiera.';
+  if (abiertas.length) return `Hoy te propongo ${de(abiertas)}. ${cierre}`;
+  return `Listo: ${de(ds)}. ${cierre}`;
+}

@@ -36,7 +36,7 @@ export function contarActivos(r: TacticasResueltas, encendido: boolean, propios:
   return AGENTES.filter((a) => estadoDeAgente(a, r) !== 'pausado').length + propios.filter((p) => p.estado === 'activo').length;
 }
 
-export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, propios, onTacticas, onPropio, onBorrarPropio, onCerrar }: {
+export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, propios, onTacticas, onPropio, onBorrarPropio, onCerrar, pie }: {
   resueltas: TacticasResueltas;
   config: ConfigTacticas;
   pilotoPermitido: boolean;
@@ -47,6 +47,8 @@ export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, pr
   onPropio: (a: AgentePropio) => Promise<boolean>;
   onBorrarPropio: (id: string) => Promise<void>;
   onCerrar: () => void;
+  /** Lo que va al pie (los links a Ajustes y Automatizaciones: el panel cuelga de la tuerca). */
+  pie?: ReactNode;
 }) {
   const caja = useRef<HTMLDivElement>(null);
   const [ocupado, setOcupado] = useState<string | null>(null);
@@ -133,6 +135,7 @@ export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, pr
           ))}
         </ul>
       )}
+      {pie && <div className="aa-ag-pie">{pie}</div>}
     </div>
   );
 }

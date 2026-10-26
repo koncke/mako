@@ -13,7 +13,7 @@ import {
   COSTO_SUPUESTO, configDelArranque, entradaDelArranque, leerRespuesta, mensajesDeArranque, pasoDeArranque, sanearRespuestas, tramoDe,
   type ProductoArranque, type RespuestasArranque,
 } from '../lib/media-buyer/arranque';
-import { lienzo, mapaDeProductos, porProducto, productoDeAccion } from '../lib/media-buyer/productos';
+import { lienzo, mapaDeProductos, productoDeAccion } from '../lib/media-buyer/productos';
 import { cambioDe, impactoEsperado, pestanaAutopilot, queHace } from '../app/ads-manager/mb-modelo';
 import { fmtDinero } from '../lib/format';
 
@@ -88,25 +88,6 @@ test('lo que llega del navegador se sanea: lo desconocido se va y los números r
 });
 
 const F = [{ id: 1, nombre: 'Funnel principal', producto: 'Mentoría 1 a 1', esDefault: true }, { id: 2, nombre: 'Funnel curso', producto: null, esDefault: false }];
-
-test('la cuenta por producto: sin asignaciones no se inventa nada; un conjunto gana a su campaña; lo sin asignar no suma', () => {
-  const s = [
-    { campana: '030 · Mentoría', adset_name: 'Pymes', spend_usd: 60, leads_crm: 10, agendas: 3, cierres: 1 },
-    { campana: '030 · Mentoría', adset_name: 'Retargeting', spend_usd: 40, leads_crm: 2, agendas: 1, cierres: 0 },
-    { campana: 'Sin asignar', adset_name: null, spend_usd: 99, leads_crm: 9, agendas: 9, cierres: 9 },
-  ];
-  assert.deepEqual(porProducto(s, [], F, 'lead', 10), []);
-  const asig = [
-    { tipo: 'campana' as const, id: 'c1', nombre: '030 · Mentoría', funnelId: null },
-    { tipo: 'conjunto' as const, id: 's2', nombre: 'Retargeting', funnelId: 2 },
-  ];
-  const r = porProducto(s, asig, F, 'lead', 10);
-  assert.deepEqual(r.map((x) => [x.nombre, x.gasto, x.resultados, x.costo, x.tono]), [
-    ['Mentoría 1 a 1', 60, 10, 6, 'bien'],
-    ['Funnel curso', 40, 2, 20, 'mal'],
-  ]);
-  assert.equal(porProducto(s, asig, F, 'agenda', null)[0].resultados, 3, 'cuenta el resultado que se busca');
-});
 
 test('el lienzo: cada campaña en el producto de su asignación (o el de sus conjuntos), los productos sin campañas también, y lo sin asignar aparte', () => {
   const campanas = [

@@ -18,42 +18,11 @@ import { nombreVisible } from '@/lib/lead-funnel-reglas';
 export type SenalDeProducto = { campana: string | null; adset_name: string | null; spend_usd: number; leads_crm: number; agendas: number; cierres: number };
 export type FunnelDeProducto = { id: number; nombre: string; producto: string | null; esDefault: boolean };
 export type AsignadaDeProducto = { tipo: 'campana' | 'conjunto'; id: string; nombre: string; funnelId: number | null };
-export type CuentaDeProducto = { id: string; nombre: string; gasto: number; resultados: number; costo: number | null; tono: 'bien' | 'mal' | null };
 
 /** Cómo se llama un funnel en pantalla: la regla de la casa, en UN lugar (tests/inbox-agregar-al-crm.test.ts). */
 export const etiquetaDeFunnel = (f: Pick<FunnelDeProducto, 'nombre' | 'producto'>): string => nombreVisible(f);
 
 const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase();
-
-function funnelDe(asignadas: readonly AsignadaDeProducto[], funnels: readonly FunnelDeProducto[]) {
-  const def = funnels.find((f) => f.esDefault) ?? null;
-  const vivo = (id: number | null) => (id == null ? def : funnels.find((f) => f.id === id) ?? null);
-  const porCampana = new Map<string, FunnelDeProducto | null>();
-  const porConjunto = new Map<string, FunnelDeProducto | null>();
-  for (const a of asignadas) (a.tipo === 'conjunto' ? porConjunto : porCampana).set(norm(a.nombre), vivo(a.funnelId));
-  return (s: Pick<SenalDeProducto, 'campana' | 'adset_name'>): FunnelDeProducto | null =>
-    porConjunto.get(norm(s.adset_name)) ?? porCampana.get(norm(s.campana)) ?? null;
-}
-
-/** El gasto y los resultados del CRM de cada producto, el que más gasta primero. */
-export function porProducto(senales: readonly SenalDeProducto[], asignadas: readonly AsignadaDeProducto[], funnels: readonly FunnelDeProducto[], kpi: KpiMediaBuyer, objetivo: number | null): CuentaDeProducto[] {
-  if (!asignadas.length) return [];
-  const de = funnelDe(asignadas, funnels);
-  const acc = new Map<number, { f: FunnelDeProducto; gasto: number; resultados: number }>();
-  for (const s of senales) {
-    const f = de(s);
-    if (!f) continue;
-    const x = acc.get(f.id) ?? { f, gasto: 0, resultados: 0 };
-    x.gasto += s.spend_usd;
-    x.resultados += kpi === 'venta' ? s.cierres : kpi === 'agenda' ? s.agendas : s.leads_crm;
-    acc.set(f.id, x);
-  }
-  return [...acc.values()].map(({ f, gasto, resultados }) => {
-    const costo = resultados > 0 ? Math.round((gasto / resultados) * 100) / 100 : null;
-    const tono = costo == null || !objetivo ? null : costo <= objetivo ? 'bien' : costo > objetivo * 1.2 ? 'mal' : null;
-    return { id: String(f.id), nombre: etiquetaDeFunnel(f), gasto: Math.round(gasto * 100) / 100, resultados, costo, tono } as CuentaDeProducto;
-  }).sort((a, b) => b.gasto - a.gasto);
-}
 
 /**
  * El producto de cada entidad de la cuenta, para la etiqueta de cada acción: por id (campañas y conjuntos asignados) y por

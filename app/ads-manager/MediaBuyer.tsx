@@ -1,16 +1,20 @@
 'use client';
 
 // =============================================================================
-// Media Buyer — la pantalla (/ads-manager), con la estructura de AdAmigo y los colores de MaKo (25/10/2026)
+// Media Buyer — la pantalla (/ads-manager): la captura 04 de AdAmigo con los colores de MaKo (25/10/2026 noche)
 // =============================================================================
-// Martín, 25/10/2026 ~18:50, después de ver 12 apps: «Me gusta el de "AdAmigo" implementalo de punta en punta... Lo que más
-// me interesa es que en diseño se vea muy bien». La de Madgicx (14:10: «Esto de aca no se entiende nada») se reemplaza.
-// De AdAmigo (docs/media-buyer/referencias/adamigo/), de arriba abajo:
-//   1. las pestañas Resumen · Autopilot (N) · Campañas · Biblioteca, y a la derecha «N activos» (sus agentes) y la tuerca;
-//   2. Autopilot: la cabecera «Te preparé N acciones nuevas para hoy» con su barra de aplicadas y «Ajustar IA»; las
-//      subpestañas Hoy · Programadas · Implementadas · Bloqueadas; y cada acción como tarjeta (Autopilot.tsx);
-//   3. a la derecha, la cuenta del mes (con los números del CRM, por producto) y los anuncios nuevos para revisar.
-// Una cuenta NUEVA no ve nada de eso en cero: ve la charla del arranque con MaKo, como Offer (ArranqueMediaBuyer.tsx).
+// Martín eligió, entre 12 apps, la captura 04 de AdAmigo (docs/media-buyer/referencias/otras-apps/04-adamigo-aplicado-y-
+// deshacer.png) y la 2 para empezar. La primera versión copió otra pantalla de AdAmigo (Autopilot, con Qué · Por qué ·
+// Impacto y cinco botones por tarjeta) y la rechazó: «Una cantidad de botones y texto impresionante... no se parece en nada».
+// De arriba abajo, HOY es:
+//   1. la caja del chat de MaKo, para darle una orden en una línea (Hoy.tsx → CajaDeOrden);
+//   2. el árbol: «MaKo · 3 cambios para hoy», las ramas por producto del CRM y una tarjeta chica por cambio, con «Aplicar»
+//      (Arbol.tsx); y al pie, el mensaje de MaKo con el porqué en una línea y «Aplicar los N»;
+//   3. al tocar una tarjeta, su detalle en una hoja (la tarjeta entera de Autopilot.tsx: el porqué, los números, editar el
+//      monto, descartar, preguntar).
+// Arriba, sólo Hoy · Campañas · Biblioteca, «Actividad» (lo hecho con su Deshacer) y la tuerca (los agentes y los ajustes).
+// Una cuenta NUEVA, o un día sin cambios, ve la captura 2: «¿En qué te ayudo hoy?» con cuatro sugerencias y la caja; «Lanzar
+// una campaña» abre la charla del arranque con la calculadora (ArranqueMediaBuyer.tsx).
 // Lo que escribe va a /api/media-buyer (y todo, también por la API de MaKo); lo que decide, a lib/media-buyer/*.
 // =============================================================================
 
@@ -18,26 +22,28 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Alert, Button, Modal, Select, Switch, TextField, Toast, useToast } from '@/app/_ui';
 import { MakoEnLaTab } from '@/app/_chat/MakoEnLaTab';
-import type { ConfigMediaBuyer, Decision, MetasDelMes, Tactica } from '@/lib/media-buyer/tipos';
+import { Criatura } from '@/app/_components/Criatura';
+import type { ConfigMediaBuyer, Decision, MetasDelMes } from '@/lib/media-buyer/tipos';
 import type { CupoMediaBuyer } from '@/lib/media-buyer/plan';
 import { resolverTacticas } from '@/lib/media-buyer/tacticas';
 import type { ProductoArranque, RespuestasArranque } from '@/lib/media-buyer/arranque';
 import { productoDeAccion, type AnuncioDestacado } from '@/lib/media-buyer/productos';
 import { CTAS, NOMBRE_CTA, errorDeTextos, type ConjuntoParaSubir, type Cta, type TextosCreativo } from '@/lib/media-buyer/creativos';
 import { subirAlStaging } from './creativeUpload';
-import { NOMBRE_TACTICA, hace, pestanaAutopilot, type PestanaAA } from './mb-modelo';
-import { AlertasProtect, AnunciosNuevos, CabeceraHoy, Ic, Nada, PanelCuenta, Subpestanas, TarjetaAccion, type ProductoEnCuenta } from './Autopilot';
+import { NOMBRE_TACTICA, deHoy, rotuloDe } from './mb-modelo';
+import { AlertasProtect, Ic, TarjetaAccion } from './Autopilot';
 import type { Alerta } from '@/lib/media-buyer/protect';
 import { ArranqueMediaBuyer } from './ArranqueMediaBuyer';
 import { LienzoCampanas, type Lienzo } from './Lienzo';
 import { Biblioteca } from './Biblioteca';
-import { PanelAgentes, contarActivos } from './Agentes';
-import { Resumen } from './Resumen';
+import { PanelAgentes } from './Agentes';
+import { ArbolDeHoy } from './Arbol';
+import { CajaDeOrden, ListaActividad, NuevoChat, NumerosDelMes, type Sugerencia } from './Hoy';
 import type { AgentePropio } from '@/lib/media-buyer/agentes-propios';
 
 type Config = ConfigMediaBuyer & { ultimaCorrida: string | null; ultimaCorridaInfo: Record<string, unknown> | null; existeTabla: boolean };
 type EstadoZernio = { tieneClave: boolean; cuenta: string | null; conectado: boolean };
-export type Vista = 'resumen' | 'autopilot' | 'campanas' | 'biblioteca';
+export type Vista = 'hoy' | 'campanas' | 'biblioteca';
 
 /** Lo del arranque que sale del servidor: los productos del CRM, lo medido de los anuncios y lo que ya respondió. */
 export type DatosArranque = {
@@ -50,25 +56,23 @@ async function api<T = Record<string, unknown>>(body: Record<string, unknown>): 
   return j as T & { ok: boolean; error?: string };
 }
 
-const hoyLocal = () => new Date().toDateString();
+const VISTAS: Array<[Vista, string]> = [['hoy', 'Hoy'], ['campanas', 'Campañas'], ['biblioteca', 'Biblioteca']];
 
-export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, productos, productoDe, mejores, agentes: agentesIniciales = [], decisionInicial = null, productoInicial = null, vistaInicial = null, lienzoInicial = null }: {
+export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, productoDe, mejores, agentes: agentesIniciales = [], decisionInicial = null, productoInicial = null, vistaInicial = null, lienzoInicial = null }: {
   nombre: string;
   inicial: { config: Config; decisiones: Decision[]; existeTabla: boolean; cupo: CupoMediaBuyer };
   metas: MetasDelMes | null;
   tieneMeta: boolean;
   arranque: DatosArranque;
-  /** La cuenta por producto (los funnels del CRM con sus campañas): la columna de la derecha. */
-  productos: ProductoEnCuenta[];
-  /** El producto de cada entidad de la cuenta (campaña, conjunto o anuncio → el nombre del funnel), para la etiqueta. */
+  /** El producto de cada entidad de la cuenta (campaña, conjunto o anuncio → el nombre del funnel): las ramas del árbol. */
   productoDe: Record<string, string>;
   /** Los anuncios que más resultados trajeron al CRM este mes (la Biblioteca). */
   mejores: AnuncioDestacado[];
   /** Los agentes propios del negocio (una regla escrita en palabras). */
   agentes?: AgentePropio[];
-  /** `?decision=<id>`: la acción que abre un link (un aviso, MaKo), en su pestaña. */
+  /** `?decision=<id>`: la acción que abre un link (un aviso, MaKo): se abre su detalle. */
   decisionInicial?: string | null;
-  /** `?producto=<id>`: abre Campañas en ese producto (las filas de producto de la columna derecha llevan ahí). */
+  /** `?producto=<id>`: abre Campañas en ese producto. */
   productoInicial?: string | null;
   /** La pestaña con que abre (`?vista=`), y el lienzo ya leído si lo hay. */
   vistaInicial?: Vista | null;
@@ -78,18 +82,20 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   const [decisiones, setDecisiones] = useState<Decision[]>(inicial.decisiones);
   const [cupo, setCupo] = useState<CupoMediaBuyer>(inicial.cupo);
   const tacticas = useMemo(() => resolverTacticas(config.tacticas, { piloto: config.modo === 'piloto', pilotoPermitido: cupo.piloto }), [config.tacticas, config.modo, cupo.piloto]);
-  const automatica = useCallback((t: Tactica) => t !== 'manual' && tacticas[t]?.estado === 'automatica', [tacticas]);
-  const deLink = decisionInicial ? inicial.decisiones.find((d) => d.id === decisionInicial) ?? null : null;
-  const [vista, setVista] = useState<Vista>(vistaInicial ?? (productoInicial ? 'campanas' : 'autopilot'));
-  const [sub, setSub] = useState<PestanaAA>(deLink ? pestanaAutopilot(deLink, automatica) : 'hoy');
+  const [vista, setVista] = useState<Vista>(vistaInicial ?? (productoInicial ? 'campanas' : 'hoy'));
+  const [abierta, setAbierta] = useState<string | null>(decisionInicial && inicial.decisiones.some((d) => d.id === decisionInicial) ? decisionInicial : null);
   const [descartando, setDescartando] = useState<Decision | null>(null);
   const [subiendo, setSubiendo] = useState(false);
-  const [analizando, setAnalizando] = useState(false);
   const [ocupada, setOcupada] = useState<string | null>(null);
+  const [aplicandoTodas, setAplicandoTodas] = useState(false);
   const [zernio, setZernio] = useState<EstadoZernio | null>(null);
   const [pedidoMako, setPedidoMako] = useState<{ texto: string; vez: number } | null>(null);
   const [agentes, setAgentes] = useState<AgentePropio[]>(agentesIniciales);
   const [verAgentes, setVerAgentes] = useState(false);
+  const [verActividad, setVerActividad] = useState(false);
+  const [verAlertas, setVerAlertas] = useState(false);
+  // La charla del arranque: la abre «Lanzar una campaña», o vuelve sola si quedó a medias.
+  const [arrancando, setArrancando] = useState(() => Object.keys(arranque.respuestas ?? {}).length > 0);
   const { toast, show, clear } = useToast();
 
   const recargar = useCallback(async () => {
@@ -101,24 +107,14 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
     if (r.ok) setZernio({ tieneClave: r.tieneClave, cuenta: r.cuenta, conectado: r.conectado });
   }, []);
   useEffect(() => { void leerZernio(); }, [leerZernio]);
-  useEffect(() => {
-    if (deLink) document.getElementById(`accion-${deLink.id}`)?.scrollIntoView({ block: 'center' });
-  }, [deLink]);
 
-  const porSub = useMemo(() => {
-    const g: Record<PestanaAA, Decision[]> = { hoy: [], programadas: [], implementadas: [], bloqueadas: [] };
-    for (const d of decisiones) g[pestanaAutopilot(d, automatica)].push(d);
-    g.implementadas.sort((a, b) => ((b.aplicadaAt ?? '') < (a.aplicadaAt ?? '') ? -1 : 1));
-    return g;
-  }, [decisiones, automatica]);
-  const cuenta = useMemo(() => ({ hoy: porSub.hoy.length, programadas: porSub.programadas.length, implementadas: porSub.implementadas.length, bloqueadas: porSub.bloqueadas.length }), [porSub]);
-  const aplicadasHoy = useMemo(() => porSub.implementadas.filter((d) => d.aplicadaAt && new Date(d.aplicadaAt).toDateString() === hoyLocal()).length, [porSub.implementadas]);
-  const agentesActivos = contarActivos(tacticas, config.encendido, agentes);
+  const hoy = useMemo(() => deHoy(decisiones), [decisiones]);
   // Protect: lo que dejó la última corrida en su resumen (lib/media-buyer/protect.ts). Sin leer Meta al abrir.
   const alertas = useMemo(() => {
     const a = (config.ultimaCorridaInfo as { alertas?: unknown } | null)?.alertas;
     return Array.isArray(a) ? (a as Alerta[]).filter((x) => x && typeof x.titulo === 'string') : [];
   }, [config.ultimaCorridaInfo]);
+  const graves = alertas.filter((a) => a.gravedad === 'alta');
 
   const accion = useCallback(async (d: Decision, body: Record<string, unknown>, ok: string) => {
     setOcupada(d.id);
@@ -138,72 +134,106 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   }, [show]);
 
   const analizar = useCallback(async () => {
-    setAnalizando(true);
     const r = await api<{ resumen?: { nuevas?: number } }>({ op: 'analizar' });
-    setAnalizando(false);
     if (r.ok) {
       const n = r.resumen?.nuevas ?? 0;
-      show(n ? `${n} ${n === 1 ? 'acción nueva' : 'acciones nuevas'}` : 'Nada nuevo para hoy', undefined, 'good');
-      setSub('hoy');
+      show(n ? `${n} ${n === 1 ? 'cambio nuevo' : 'cambios nuevos'}` : 'Nada nuevo para hoy', undefined, 'good');
     } else show(r.error ?? 'MaKo no pudo leer la cuenta.', undefined, 'bad');
     await recargar();
   }, [recargar, show]);
 
-  const preguntar = (d: Decision) => setPedidoMako({ texto: `Media Buyer: explícame la acción «${d.titulo}» (${NOMBRE_TACTICA[d.tactica]}). ${d.titular}.`, vez: Date.now() });
-  const productoDeDecision = (d: Decision) => productoDeAccion(productoDe, d);
-  const actualizado = config.ultimaCorrida ? `Miré tu cuenta ${hace(config.ultimaCorrida)}` : 'Todavía no miré tu cuenta';
+  const pedir = (texto: string) => setPedidoMako({ texto: `Media Buyer: ${texto}`, vez: Date.now() });
+  const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
+  const aplicar = (d: Decision, extra: Record<string, unknown> = {}) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicado');
 
-  // Lo que MaKo (el chat) ve de esta pantalla: las acciones de hoy, en texto.
+  const aplicarTodas = async () => {
+    setAplicandoTodas(true);
+    let bien = 0;
+    let mal = 0;
+    for (const d of hoy.filter((x) => x.estado === 'abierta')) {
+      const r = await api({ op: 'lanzar', id: d.id });
+      if (r.ok) bien++; else mal++;
+    }
+    setAplicandoTodas(false);
+    show(mal ? `Apliqué ${bien}; ${mal} no se pudieron (mira su detalle)` : `${bien} cambios aplicados`, undefined, mal ? 'warn' : 'good');
+    await recargar();
+  };
+
+  const sugerencia = (s: Sugerencia) => {
+    if (s === 'lanzar') { if (nueva) setArrancando(true); else pedir('quiero lanzar una campaña nueva.'); return; }
+    if (s === 'disenar') { if (nueva) pedir('quiero diseñar un anuncio nuevo.'); else setVista('biblioteca'); return; }
+    if (s === 'como') { pedir('¿cómo vienen mis anuncios este mes?'); return; }
+    if (config.encendido && conectada) void analizar(); else pedir('busca oportunidades en mi cuenta de Meta.');
+  };
+
+  // Lo que MaKo (el chat) ve de esta pantalla: los cambios de hoy, en texto.
   const pantalla = useMemo(() => [
     `Media Buyer · modo ${config.modo === 'piloto' ? 'piloto automático' : 'propone y apruebo'} · ${config.encendido ? 'encendido' : 'apagado'}`,
-    ...porSub.hoy.slice(0, 12).map((d) => `- ${d.titulo} (${NOMBRE_TACTICA[d.tactica]}): ${d.titular}`),
-  ].join('\n'), [config.encendido, config.modo, porSub.hoy]);
+    ...hoy.slice(0, 12).map((d) => `- [${d.estado}] ${d.titulo} (${NOMBRE_TACTICA[d.tactica]}): ${d.titular}`),
+  ].join('\n'), [config.encendido, config.modo, hoy]);
 
-  const tarjeta = (d: Decision) => (
-    <TarjetaAccion key={d.id} d={d} kpi={config.kpi} producto={productoDeDecision(d)} ocupada={ocupada === d.id} encendido={config.encendido}
-      ajustesHref={d.tactica === 'manual' ? '/ads-manager/ajustes' : `/ads-manager/automatizaciones?t=${d.tactica}`}
-      onAplicar={(extra) => accion(d, { op: 'lanzar', ...extra }, d.tipo.startsWith('variaciones') ? 'Anuncios creados' : 'Aplicada')}
-      onBorrar={() => setDescartando(d)} onPreguntar={() => preguntar(d)}
-      onDeshacer={() => accion(d, { op: 'deshacer' }, 'Deshecha')}
-      onReabrir={() => accion(d, { op: 'reabrir' }, 'Abierta otra vez')}
-      onCalificar={(n) => accion(d, { op: 'calificar', estrellas: n }, 'Gracias')}
-      onHooksAVideo={async (elegidas) => {
-        const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: d.id, elegidas });
-        if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
-        else show(r.error ?? 'No se pudo.', undefined, 'bad');
-      }} />
+  // ── El detalle de una tarjeta: la tarjeta entera (el porqué, los números, editar, descartar, preguntar), en una hoja.
+  const detalle = abierta ? decisiones.find((d) => d.id === abierta) ?? null : null;
+  const hoja = detalle && (
+    <Modal titulo={detalle.entidadNombre} encabezado={rotuloDe(detalle)} ancho={560} onCerrar={() => setAbierta(null)}>
+      <div className="aa aa-hoja">
+        <TarjetaAccion d={detalle} kpi={config.kpi} producto={producto(detalle)} ocupada={ocupada === detalle.id} encendido={config.encendido}
+          ajustesHref={detalle.tactica === 'manual' ? '/ads-manager/ajustes' : `/ads-manager/automatizaciones?t=${detalle.tactica}`}
+          onAplicar={async (extra) => { const ok = await aplicar(detalle, extra); if (ok) setAbierta(null); return ok; }}
+          onBorrar={() => { setDescartando(detalle); setAbierta(null); }}
+          onPreguntar={() => { pedir(`explícame el cambio «${detalle.titulo}» (${NOMBRE_TACTICA[detalle.tactica]}). ${detalle.titular}.`); setAbierta(null); }}
+          onDeshacer={() => void accion(detalle, { op: 'deshacer' }, 'Deshecho')}
+          onReabrir={() => void accion(detalle, { op: 'reabrir' }, 'Abierto otra vez')}
+          onCalificar={(n) => void accion(detalle, { op: 'calificar', estrellas: n }, 'Gracias')}
+          onHooksAVideo={async (elegidas) => {
+            const r = await api<{ cargados: number }>({ op: 'hooks_a_video', id: detalle.id, elegidas });
+            if (r.ok) show(r.cargados ? `${r.cargados} ${r.cargados === 1 ? 'guion' : 'guiones'} en Video Generator` : 'Ya estaban en Video Generator', undefined, 'good');
+            else show(r.error ?? 'No se pudo.', undefined, 'bad');
+          }} />
+      </div>
+    </Modal>
+  );
+
+  const siempre = (
+    <>
+      {hoja}
+      {descartando && (
+        <DescartarModal onCerrar={() => setDescartando(null)}
+          onDescartar={async (motivo) => { const d = descartando; setDescartando(null); await accion(d, { op: 'descartar', motivo }, 'Descartado'); }} />
+      )}
+      <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
+      <Toast state={toast} onClose={clear} />
+    </>
   );
 
   if (nueva) {
     return (
       <div className="aa">
-        <ArranqueMediaBuyer nombre={nombre} conectada={conectada} cuenta={zernio?.cuenta ?? config.cuentaPublicitaria} {...arranque} inicial={arranque.respuestas}
-          onConectado={() => { void leerZernio(); void recargar(); }}
-          onGuardar={(respuestas) => { void api({ op: 'arranque', respuestas }); }}
-          onTerminar={async (cambio) => { if (await guardarConfig(cambio)) await analizar(); }}
-          onPreguntar={(texto) => setPedidoMako({ texto: `Media Buyer: ${texto}`, vez: Date.now() })} />
-        <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla="Media Buyer · arranque (la charla para empezar)" encimaDeModales />
-        <Toast state={toast} onClose={clear} />
+        {arrancando
+          ? <ArranqueMediaBuyer nombre={nombre} conectada={conectada} cuenta={zernio?.cuenta ?? config.cuentaPublicitaria} {...arranque} inicial={arranque.respuestas}
+              onConectado={() => { void leerZernio(); void recargar(); }}
+              onGuardar={(respuestas) => { void api({ op: 'arranque', respuestas }); }}
+              onTerminar={async (cambio) => { if (await guardarConfig(cambio)) await analizar(); }}
+              onPreguntar={pedir} />
+          : <NuevoChat titulo="¿En qué te ayudo hoy?" bajada="Muevo tu presupuesto de Meta hacia lo que vende." onSugerencia={sugerencia} onPedir={pedir} />}
+        {siempre}
       </div>
     );
   }
 
-  const lista = porSub[sub];
   return (
     <div className="aa">
-      {/* ── 1. Las pestañas de arriba (adamigo-3: Overview · Autopilot · Campaigns · Library) ── */}
-      <nav className="aa-top" role="tablist" aria-label="Media Buyer">
-        {([['resumen', 'Resumen', Ic.resumen], ['autopilot', 'Autopilot', Ic.autopilot], ['campanas', 'Campañas', Ic.campanas], ['biblioteca', 'Biblioteca', Ic.biblioteca]] as const).map(([v, t, ic]) => (
-          <button key={v} type="button" role="tab" className="aa-tab" aria-selected={vista === v} onClick={() => setVista(v)}>
-            {ic()}{t}{v === 'autopilot' && cuenta.hoy > 0 && <span className="aa-badge">{cuenta.hoy}</span>}
-          </button>
-        ))}
+      <nav className="aa-top" aria-label="Media Buyer">
+        <div role="tablist" className="aa-tabs">
+          {VISTAS.map(([v, t]) => (
+            <button key={v} type="button" role="tab" className="aa-tab" aria-selected={vista === v} onClick={() => setVista(v)}>{t}</button>
+          ))}
+        </div>
         <div className="aa-top-der">
-          <button type="button" className="aa-activos" aria-expanded={verAgentes} onClick={() => setVerAgentes((x) => !x)}>
-            {Ic.robot()}{agentesActivos} {agentesActivos === 1 ? 'activo' : 'activos'}<span className="aa-punto" data-off={agentesActivos ? '0' : '1'} />
-          </button>
+          <button type="button" className="aa-link" onClick={() => setVerActividad(true)}>Actividad</button>
+          <button type="button" className="aa-ic" aria-expanded={verAgentes} title="Agentes y ajustes" aria-label="Agentes y ajustes" onClick={() => setVerAgentes((x) => !x)}>{Ic.tuerca()}</button>
           {verAgentes && (
             <PanelAgentes resueltas={tacticas} config={config.tacticas} pilotoPermitido={cupo.piloto}
               sinPiloto={cupo.recomendacionesDia != null ? 'El automático es de MaKo Pro.' : 'Tu plan todavía no trae el automático.'}
@@ -215,65 +245,64 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
                 show(r.error ?? 'No se pudo guardar.', undefined, 'bad');
                 return false;
               }}
-              onBorrarPropio={async (id) => { const r = await api<{ agentes: AgentePropio[] }>({ op: 'agente_borrar', agenteId: id }); if (r.ok) setAgentes(r.agentes); }} />
+              onBorrarPropio={async (id) => { const r = await api<{ agentes: AgentePropio[] }>({ op: 'agente_borrar', agenteId: id }); if (r.ok) setAgentes(r.agentes); }}
+              pie={<><Link href="/ads-manager/ajustes" className="aa-link">Ajustes</Link><Link href="/ads-manager/automatizaciones" className="aa-link">Automatizaciones</Link></>} />
           )}
-          <Link href="/ads-manager/ajustes" className="aa-ic" title="Ajustes del Media Buyer" aria-label="Ajustes del Media Buyer">{Ic.tuerca()}</Link>
         </div>
       </nav>
 
-      {vista === 'autopilot' && (
-        <div className="aa-grid">
-          <div>
-            <CabeceraHoy pendientes={cuenta.hoy} aplicadasHoy={aplicadasHoy} actualizado={actualizado} ajustesHref="/ads-manager/ajustes"
-              alertasGraves={alertas.filter((a) => a.gravedad === 'alta').length} />
-            <Subpestanas actual={sub} cuenta={cuenta} onCambiar={setSub} />
-            {sub === 'hoy' && (
-              <>
-                <AlertasProtect alertas={alertas} onPreguntar={(a) => setPedidoMako({ texto: `Media Buyer · Protect: ${a.titulo}. ${a.detalle} ¿Qué hago?`, vez: Date.now() })} />
-                {porSub.hoy.length > 0 && <><h2 className="aa-seccion">Necesita tu aprobación</h2><div className="aa-lista">{porSub.hoy.map(tarjeta)}</div></>}
-                {porSub.programadas.length > 0 && <><h2 className="aa-seccion">Programadas para aplicar</h2><div className="aa-lista">{porSub.programadas.slice(0, 3).map(tarjeta)}</div></>}
-                {!porSub.hoy.length && !porSub.programadas.length && (
-                  <Nada>Nada para aprobar. {actualizado}. <button type="button" className="aa-sec" style={{ marginLeft: 'auto' }} disabled={analizando || !config.encendido} onClick={() => void analizar()}>{analizando ? 'Mirando…' : 'Mirar ahora'}</button></Nada>
-                )}
-              </>
+      {vista === 'hoy' && (hoy.length
+        ? (
+          <div className="aa-hoy">
+            <CajaDeOrden placeholder="Pídele un cambio a MaKo" onPedir={pedir} />
+            {graves.length > 0 && (
+              <button type="button" className="aa-aviso" onClick={() => setVerAlertas(true)}>
+                {graves[0].titulo}{graves.length > 1 ? ` y ${graves.length - 1} más` : ''}
+              </button>
             )}
-            {sub !== 'hoy' && (lista.length ? <div className="aa-lista" style={{ marginTop: 18 }}>{lista.map(tarjeta)}</div>
-              : <Nada>{sub === 'programadas' ? 'El piloto automático no tiene nada en cola.' : sub === 'implementadas' ? 'Todavía no apliqué nada.' : 'Nada frenado ni descartado.'}</Nada>)}
+            <ArbolDeHoy decisiones={hoy} productoDe={producto} kpi={config.kpi} ocupada={ocupada} encendido={config.encendido}
+              avatar={<Criatura nombre="MaKo" size={18} estrella />} aplicandoTodas={aplicandoTodas}
+              onAbrir={(d) => setAbierta(d.id)} onAplicar={(d) => void aplicar(d)} onAplicarTodas={() => void aplicarTodas()} />
           </div>
-          <aside className="aa-rail">
-            {metas && <PanelCuenta metas={metas} kpi={config.kpi} objetivo={config.objetivo} productos={productos} />}
-            <AnunciosNuevos decisiones={[...porSub.hoy, ...porSub.programadas]} onAbrir={(d) => { setSub(pestanaAutopilot(d, automatica)); setTimeout(() => document.getElementById(`accion-${d.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30); }} />
-          </aside>
-        </div>
-      )}
-
-      {vista === 'resumen' && (
-        <Resumen metas={metas} config={config} productos={productos} implementadas={porSub.implementadas} tacticas={tacticas} propios={agentes}
-          onAgentes={() => setVerAgentes(true)} onVerHechas={() => { setVista('autopilot'); setSub('implementadas'); }} />
-      )}
+        )
+        : <NuevoChat titulo="Hoy no hay cambios"
+            bajada={!config.encendido ? 'Estoy apagado: préndeme en la tuerca para que mire tu cuenta.' : 'Todo anda dentro de tu objetivo. Vuelvo a mirar mañana.'}
+            onSugerencia={sugerencia} onPedir={pedir} />)}
 
       {vista === 'campanas' && (
-        <LienzoCampanas kpi={config.kpi} objetivo={config.objetivo} abiertas={[...porSub.hoy, ...porSub.programadas]} productoInicial={productoInicial} inicial={lienzoInicial}
-          show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')}
-          onVerAcciones={(d) => { setVista('autopilot'); setSub(pestanaAutopilot(d, automatica)); setTimeout(() => document.getElementById(`accion-${d.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30); }} />
+        <>
+          {metas && <NumerosDelMes metas={metas} kpi={config.kpi} objetivo={config.objetivo} />}
+          <LienzoCampanas kpi={config.kpi} objetivo={config.objetivo} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial}
+            show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')} onVerAcciones={(d) => setAbierta(d.id)} />
+        </>
       )}
 
       {vista === 'biblioteca' && (
         <Biblioteca kpi={config.kpi} mejores={mejores}
-          paraRevisar={[...porSub.hoy, ...porSub.programadas].filter((d) => d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook')}
-          lanzadas={porSub.implementadas.filter((d) => d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios')}
-          onAbrir={(d) => { setVista('autopilot'); setSub(pestanaAutopilot(d, automatica)); setTimeout(() => document.getElementById(`accion-${d.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 30); }}
-          onSubir={() => setSubiendo(true)}
-          onPedir={(texto) => setPedidoMako({ texto, vez: Date.now() })} />
+          paraRevisar={hoy.filter((d) => d.estado === 'abierta' && (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook'))}
+          lanzadas={decisiones.filter((d) => d.estado === 'aplicada' && (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios'))}
+          onAbrir={(d) => setAbierta(d.id)} onSubir={() => setSubiendo(true)} onPedir={(texto) => setPedidoMako({ texto, vez: Date.now() })} />
       )}
 
-      {descartando && (
-        <DescartarModal onCerrar={() => setDescartando(null)}
-          onDescartar={async (motivo) => { const d = descartando; setDescartando(null); await accion(d, { op: 'descartar', motivo }, 'Descartada'); }} />
+      {verActividad && (
+        <Modal titulo="Actividad" ancho={620} onCerrar={() => setVerActividad(false)}>
+          <div className="aa aa-hoja">
+            <ListaActividad decisiones={decisiones} ocupada={ocupada}
+              onDeshacer={(d) => void accion(d, { op: 'deshacer' }, 'Deshecho')}
+              onReabrir={(d) => void accion(d, { op: 'reabrir' }, 'Abierto otra vez')}
+              onAbrir={(d) => { setVerActividad(false); setAbierta(d.id); }} />
+          </div>
+        </Modal>
       )}
-      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); setVista('autopilot'); setSub('implementadas'); void recargar(); }} />}
-      <MakoEnLaTab tab="Media Buyer" pedido={pedidoMako} pantalla={pantalla} encimaDeModales />
-      <Toast state={toast} onClose={clear} />
+      {verAlertas && (
+        <Modal titulo="Protect" ancho={560} onCerrar={() => setVerAlertas(false)}>
+          <div className="aa aa-hoja">
+            <AlertasProtect alertas={alertas} onPreguntar={(a) => { setVerAlertas(false); pedir(`Protect: ${a.titulo}. ${a.detalle} ¿Qué hago?`); }} />
+          </div>
+        </Modal>
+      )}
+      {subiendo && <SubirCreativosModal onCerrar={() => setSubiendo(false)} onListo={(msg) => { setSubiendo(false); show(msg, undefined, 'good'); void recargar(); }} />}
+      {siempre}
     </div>
   );
 }

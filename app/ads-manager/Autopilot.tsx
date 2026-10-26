@@ -14,14 +14,13 @@
 
 import { useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Criatura } from '@/app/_components/Criatura';
-import type { Decision, KpiMediaBuyer, MetasDelMes } from '@/lib/media-buyer/tipos';
+import type { Decision, KpiMediaBuyer } from '@/lib/media-buyer/tipos';
 import type { Alerta } from '@/lib/media-buyer/protect';
-import { fmtDinero, fmtNum } from '@/lib/format';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
+import { TUERCA } from '@/app/_ui/icono-tuerca';
 import {
-  AGENTE_DE, NOMBRE_AGENTE, cambioDe, hace, impactoEsperado, monto, queHace, verboLanzar,
-  type Agente, type PestanaAA,
+  AGENTE_DE, NOMBRE_AGENTE, cambioDe, hace, impactoEsperado, queHace, verboLanzar,
+  type Agente,
 } from './mb-modelo';
 
 // ── Los íconos de línea (el trazo de AdAmigo, que es el de Lucide) ──
@@ -29,12 +28,7 @@ const sv = (d: ReactNode, w = 1.7) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={w} strokeLinecap="round" strokeLinejoin="round" aria-hidden>{d}</svg>
 );
 export const Ic = {
-  resumen: () => sv(<><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>),
-  autopilot: () => sv(<><rect x="3" y="4" width="18" height="16" rx="2" /><path d="m8 12 3 3 5-6" /></>),
-  campanas: () => sv(<><path d="M3 11v2a1 1 0 0 0 1 1h3l5 4V6L7 10H4a1 1 0 0 0-1 1z" /><path d="M16 9a3 3 0 0 1 0 6M19 6a7 7 0 0 1 0 12" /></>),
-  biblioteca: () => sv(<><path d="m12 3 9 5-9 5-9-5 9-5z" /><path d="m3 13 9 5 9-5" /></>),
-  robot: () => sv(<><rect x="4" y="8" width="16" height="11" rx="2" /><path d="M12 4v4M9 13h.01M15 13h.01M9 16h6" /></>),
-  tuerca: () => sv(<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></>),
+  tuerca: () => sv(<path d={TUERCA} />),
   info: () => sv(<><circle cx="12" cy="12" r="9" /><path d="M12 16v-4M12 8h.01" /></>),
   check: () => sv(<path d="M20 6 9 17l-5-5" />, 2),
   checkCirculo: () => sv(<><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>),
@@ -53,64 +47,6 @@ const ICONO_AGENTE: Record<Agente, () => ReactNode> = {
 export function EtiquetaAgente({ d }: { d: Pick<Decision, 'tactica'> }) {
   const a = AGENTE_DE[d.tactica];
   return <span className="aa-agente">{ICONO_AGENTE[a]()}{NOMBRE_AGENTE[a]}</span>;
-}
-
-// ── La cabecera de hoy ───────────────────────────────────────────────────────
-
-export function CabeceraHoy({ pendientes, aplicadasHoy, actualizado, ajustesHref, alertasGraves = 0 }: {
-  pendientes: number; aplicadasHoy: number; actualizado: string; ajustesHref: string;
-  /** Las alertas graves de Protect: con alguna, la cuenta NO está «en orden». */
-  alertasGraves?: number;
-}) {
-  const total = pendientes + aplicadasHoy;
-  return (
-    <section className="aa-hero" aria-label="Lo de hoy">
-      <div className="aa-hero-txt">
-        {pendientes > 0 ? (
-          <>
-            <h1>Te preparé <b>{pendientes} {pendientes === 1 ? 'acción nueva' : 'acciones nuevas'}</b> para hoy</h1>
-            <p>Revísalas, pregúntame lo que quieras y aplícalas con un toque. Toma <b>{Math.max(2, pendientes)} min</b>.</p>
-          </>
-        ) : alertasGraves > 0 ? (
-          <>
-            <h1>Hay <b>{alertasGraves} {alertasGraves === 1 ? 'cosa' : 'cosas'}</b> para mirar en tu cuenta</h1>
-            <p>No hay nada para aprobar, pero algo se rompió. {actualizado}.</p>
-          </>
-        ) : (
-          <>
-            <h1>Hoy tu cuenta está <b>en orden</b></h1>
-            <p>Vuelvo a mirarla mañana temprano. {actualizado}.</p>
-          </>
-        )}
-        {total > 0 && (
-          <>
-            <div className="aa-barra" aria-hidden><i style={{ width: `${Math.round((aplicadasHoy / total) * 100)}%` }} /></div>
-            <span className="aa-barra-txt">{aplicadasHoy}/{total} {total === 1 ? 'aplicada' : 'aplicadas'}</span>
-          </>
-        )}
-      </div>
-      <Link href={ajustesHref} className="aa-ajustar" title="Ajustar cómo trabaja MaKo">
-        <Criatura nombre="MaKo" size={46} estrella />
-        <span>Ajustar IA</span>
-      </Link>
-    </section>
-  );
-}
-
-// ── Las subpestañas ──────────────────────────────────────────────────────────
-
-export const NOMBRE_SUB: Record<PestanaAA, string> = { hoy: 'Hoy', programadas: 'Programadas', implementadas: 'Implementadas', bloqueadas: 'Bloqueadas' };
-
-export function Subpestanas({ actual, cuenta, onCambiar }: { actual: PestanaAA; cuenta: Record<PestanaAA, number>; onCambiar: (p: PestanaAA) => void }) {
-  return (
-    <nav className="aa-sub" role="tablist" aria-label="Acciones">
-      {(['hoy', 'programadas', 'implementadas', 'bloqueadas'] as PestanaAA[]).map((p) => (
-        <button key={p} type="button" role="tab" aria-selected={actual === p} onClick={() => onCambiar(p)}>
-          {NOMBRE_SUB[p]}{cuenta[p] > 0 && <small>{cuenta[p]}</small>}
-        </button>
-      ))}
-    </nav>
-  );
 }
 
 // ── La tarjeta de acción ─────────────────────────────────────────────────────
@@ -227,73 +163,6 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
   );
 }
 
-// ── La columna de la derecha ─────────────────────────────────────────────────
-
-export type ProductoEnCuenta = { id: string; nombre: string; resultados: number; costo: number | null; tono: 'bien' | 'mal' | null; href: string };
-
-const NOMBRE_KPI: Record<KpiMediaBuyer, { varios: string; costo: string }> = {
-  lead: { varios: 'Leads', costo: 'Costo por lead' }, agenda: { varios: 'Agendas', costo: 'Costo por agenda' }, venta: { varios: 'Ventas', costo: 'Costo por venta' },
-};
-
-export function PanelCuenta({ metas, kpi, objetivo, productos }: { metas: MetasDelMes; kpi: KpiMediaBuyer; objetivo: number | null; productos: ProductoEnCuenta[] }) {
-  const fmt = (u: number) => (metas.convierte ? fmtDinero(u) : fmtDinero(u, metas.moneda));
-  const res = kpi === 'venta' ? metas.resultados.ventas : kpi === 'agenda' ? metas.resultados.agendas : metas.resultados.leads;
-  const costo = res > 0 ? metas.gasto / res : null;
-  const n = NOMBRE_KPI[kpi];
-  const filas: Array<[string, string, string | null]> = [
-    ['Gasto en Meta', fmt(metas.gasto), null],
-    [n.varios, fmtNum(res), 'del CRM'],
-    [n.costo, costo != null ? fmt(costo) : '—', objetivo ? `objetivo ${fmt(objetivo)}` : null],
-    ...(kpi !== 'agenda' ? [['Agendas', fmtNum(metas.resultados.agendas), 'del CRM'] as [string, string, string]] : []),
-    ...(kpi !== 'venta' ? [['Ventas', fmtNum(metas.resultados.ventas), 'del CRM'] as [string, string, string]] : []),
-    ['Cobrado', fmt(metas.caja), 'del CRM'],
-  ];
-  return (
-    <section className="aa-panel" aria-label="Tu cuenta">
-      <h2>Tu cuenta — <em>este mes</em></h2>
-      <p>{metas.diasQuedan === 1 ? 'Queda 1 día' : `Quedan ${metas.diasQuedan} días`} · los resultados salen de tu CRM</p>
-      <table className="aa-kpis">
-        <thead><tr><th>Métrica</th><th>Valor</th></tr></thead>
-        <tbody>{filas.map(([k, v, s]) => <tr key={k}><td>{k}</td><td>{v}{s && <small>{s}</small>}</td></tr>)}</tbody>
-      </table>
-      {productos.length > 0 && (
-        <div className="aa-prods" aria-label="Por producto">
-          {productos.map((p) => (
-            <Link key={p.id} href={p.href} className="aa-prod">
-              <b>{p.nombre}</b>
-              <strong>{p.costo != null ? fmt(p.costo) : '—'}</strong>
-              <span>{p.resultados} {n.varios.toLowerCase()}</span>
-              <em data-tono={p.tono ?? undefined}>{n.costo.toLowerCase()}</em>
-            </Link>
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-/** «New ads ready for your review»: las variaciones abiertas, para revisar de un vistazo. Sin ninguna, no se dibuja. */
-export function AnunciosNuevos({ decisiones, onAbrir }: { decisiones: Decision[]; onAbrir: (d: Decision) => void }) {
-  const tiles = decisiones.flatMap((d) => (d.variaciones ?? []).filter((v) => v.elegida).map((v) => ({ d, v }))).slice(0, 4);
-  if (!tiles.length) return null;
-  return (
-    <section className="aa-panel" aria-label="Anuncios nuevos para revisar">
-      <h2>Anuncios nuevos para revisar</h2>
-      <p>Textos y ganchos nuevos de tus ganadores, listos para lanzar.</p>
-      <div className="aa-ads">
-        {tiles.map(({ d, v }) => (
-          <button key={`${d.id}-${v.id}`} type="button" className="aa-ad" data-texto={d.anuncioBase?.miniatura ? '0' : '1'} onClick={() => onAbrir(d)}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            {d.anuncioBase?.miniatura && <img src={d.anuncioBase.miniatura} alt="" loading="lazy" />}
-            {!d.anuncioBase?.miniatura && <small>{v.gancho ? 'Gancho nuevo' : 'Texto nuevo'}</small>}
-            <span>{v.gancho ?? v.textoPrincipal}</span>
-          </button>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 /** Protect: lo roto en la cuenta (lib/media-buyer/protect.ts), arriba de las acciones. Sin alertas no se dibuja. */
 export function AlertasProtect({ alertas, onPreguntar }: { alertas: Alerta[]; onPreguntar: (a: Alerta) => void }) {
   if (!alertas.length) return null;
@@ -319,4 +188,3 @@ export function Nada({ children }: { children: ReactNode }) {
   return <p className="aa-nada">{Ic.chispa()}{children}</p>;
 }
 
-export function montoCorto(m: number | null | undefined, moneda: string | null): string { return monto(m, moneda); }

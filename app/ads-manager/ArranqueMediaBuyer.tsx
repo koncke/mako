@@ -106,7 +106,6 @@ export function ArranqueMediaBuyer({ nombre, conectada, cuenta, productos, costo
       {/* La bienvenida de AdAmigo («New Chat · What can I help you with today?») y los tramos que faltan. */}
       <header className="aa-arranque-cab">
         <h1>Tu media buyer</h1>
-        <p>Miro tu cuenta todos los días, muevo el presupuesto hacia lo que vende y te muestro cada cambio antes de hacerlo.</p>
         <ol className="aa-tramos" aria-label="Para empezar">
           {TRAMOS.map((t, i) => <li key={t} data-estado={i < tramo ? 'hecho' : i === tramo ? 'ahora' : 'falta'}><span aria-hidden>{i < tramo ? '✓' : i + 1}</span>{t}</li>)}
         </ol>
