@@ -9,7 +9,7 @@
 //   2. el umbral: una pregunta larga no trae cualquier fila que comparta UNA palabra;
 //   3. ningún texto del buscador ni del Second Brain pide su Gemini, y el aviso de lo no indexado lleva a su GPT;
 //   4. el buscador ya no descarta lo que no tiene vector, y el goteo re-embebe lo del negocio desde la búsqueda;
-//   5. la migración de `embedding_modelo` va SIN número (la numera el Cerebro).
+//   5. la migración de `embedding_modelo` es la 0337 (la numeró el Cerebro el 25/10/2026) y es aditiva.
 //
 // Probado rompiéndolo (25/10/2026, una rotura por vez, restaurada): ver docs/hallazgos-ia.md («El buscador de conocimiento sin
 // Gemini»).
@@ -64,11 +64,16 @@ test('4. el buscador no descarta lo que no tiene vector, y el goteo re-embebe lo
   assert.match(k, /after\(\(\) => runWithWorkspace\(ws, \(\) => reembeberLoQueFalta\(GOTEO_DE_A\)\)/);
 });
 
-test('5. la migración de `embedding_modelo` va sin número, y no está en supabase/migrations', () => {
-  assert.ok(existsSync(new URL('../supabase/sin-numero/mako_knowledge_modelo.sql', import.meta.url)), 'falta la migración sin número');
-  const sql = leer('supabase/sin-numero/mako_knowledge_modelo.sql');
+test('5. la migración de `embedding_modelo` es la 0337, una sola y aditiva', () => {
+  assert.ok(existsSync(new URL('../supabase/migrations/0337_mako_knowledge_modelo.sql', import.meta.url)), 'falta la migración 0337');
+  const sql = leer('supabase/migrations/0337_mako_knowledge_modelo.sql');
   assert.match(sql, /alter table mako_knowledge add column if not exists embedding_modelo text/);
   assert.match(sql, /notify pgrst, 'reload schema';/);
+  // Aditiva: ni borra, ni cambia el tipo, ni toca el vector (las 77 filas de 1536 de producción se marcan, no se reescriben).
+  assert.doesNotMatch(sql, /\b(drop|truncate|delete from|alter column)\b/i);
+  assert.doesNotMatch(sql, /set\s+embedding\s*=/i);
   const numeradas = readdirSync(new URL('../supabase/migrations/', import.meta.url));
-  assert.ok(!numeradas.some((f) => /embedding_modelo|mako_knowledge_modelo/.test(f)), 'la migración se numeró sola: la numera el Cerebro');
+  assert.deepEqual(numeradas.filter((f) => /embedding_modelo|mako_knowledge_modelo/.test(f)), ['0337_mako_knowledge_modelo.sql'], 'la columna está en otra migración también');
+  assert.equal(numeradas.filter((f) => f.startsWith('0337_')).length, 1, 'otra migración tomó el 0337');
+  assert.ok(!existsSync(new URL('../supabase/sin-numero/', import.meta.url)), 'quedó la copia sin número');
 });
