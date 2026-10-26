@@ -312,7 +312,7 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
     `Título: ${f.title?.trim() || '(sin título)'}`,
     `Fecha: ${f.call_date ?? f.started_at?.slice(0, 10) ?? 'desconocida'}`,
     `Duración: ${f.duration_min ?? '?'} min`,
-    `Quien dio la sesión: ${f.closer?.trim() || m.recorded_by?.name?.trim() || 'desconocido'}`,
+    `Quien dio la sesión: ${f.closer?.trim() || m.anfitrion?.nombre?.trim() || 'desconocido'}`,
   ].join('\n');
   const clienteTxt = cliente
     ? [`Nombre: ${cliente.nombre || '(sin nombre)'}`, cliente.empresa ? `Empresa: ${cliente.empresa}` : null].filter(Boolean).join('\n')
@@ -358,7 +358,9 @@ async function analizarUna(f: FilaCola, ctx: { deadline: number; testigo: boolea
 
   let analisis: AnalisisEntrega;
   try {
-    analisis = verificarCitas(parseAnalisisEntrega(texto), items);
+    // Los turnos de lib/grabadores traen el segundo como número; verificarCitas lee el `timestamp` de Fathom (un número
+    // suelto también vale, segundosDe).
+    analisis = verificarCitas(parseAnalisisEntrega(texto), items.map((t) => ({ text: t.texto, timestamp: t.segundo == null ? null : String(t.segundo) })));
   } catch (e) {
     // Medio JSON es el TOPE, no la sesión: no gasta intento, queda anotado y la próxima vuelta
     // va con el doble. Si se corta también con el doble, ya no es el tope.
