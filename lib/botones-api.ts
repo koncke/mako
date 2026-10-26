@@ -17,8 +17,10 @@
 // Meta) ni un email con diseño (su HTML se perdería): esos, en el lienzo.
 //
 // ⚠️ CAMBIAR EL TEXTO SUELTA LAS VARIANTES (`variantes: []`): son otras formas de decir el texto VIEJO, y el motor sortea
-// entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts). Con cuatro, a cuatro de cada cinco leads les llegaba lo
-// que ya no decía. `setSecuenciaPasos` respeta el `[]` explícito; la clave ausente conserva las de antes.
+// entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts; sólo el WhatsApp no oficial: un DM no sortea, pero las
+// suelta igual porque son del texto viejo). Con cuatro, a cuatro de cada cinco leads les llegaba lo que ya no decía.
+// `setSecuenciaPasos` respeta el `[]` explícito; la clave ausente conserva las de antes. La misma regla que la pantalla
+// (`variantesTrasCambio`, lib/mensaje-partes.ts).
 // =============================================================================
 
 import { claseDe, idDe, validarGrafo, type PasoGrafo } from './flujo-grafo';

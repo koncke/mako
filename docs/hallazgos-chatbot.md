@@ -7261,29 +7261,39 @@ Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de 
 los botones. No se vio en pantalla. (Cerrados el 25/10: el texto de un WhatsApp o email en un flujo con ramas, con
 `cambiar_texto_mensaje`, y la pregunta de crear con IA por HTTP, que vuelve con `faltan`.)
 
+Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
+lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
+tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
+
 ## ⚠️ Cambiar el texto de un mensaje dejaba sus VARIANTES del texto viejo, y el motor las sorteaba (25/10/2026)
 
 **El síntoma (encontrado al cerrar el texto por la API, no en un cliente):** las variantes («↻ N», lib/secuencias-variantes.ts)
-son otras formas de decir UN texto, y el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts). Si
-la API cambia el cuerpo y las variantes quedan, a 4 de cada 5 leads les llega lo que el mensaje ya no dice. «Probar» muestra
-el cuerpo nuevo, así que la prueba no lo ve. Le pasaba al texto de un DM de `cambiar_botones_mensaje` (3a443b08f), que
-`generarVariantes` también arma.
+son otras formas de decir UN texto, y el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts; SÓLO
+el WhatsApp no oficial: un DM o un email no sortean). Si el texto cambia y las variantes quedan, a 4 de cada 5 leads les
+llega lo que el mensaje ya no dice. «Probar» muestra el cuerpo nuevo, así que la prueba no lo ve.
 
 **⚠️ El diagnóstico obvio («que el cambio mande `variantes: []`») no alcanzaba:** `setSecuenciaPasos` (lib/nutricion.ts) sólo
 tomaba las que llegaban si había AL MENOS una; con `[]` volvían a ponerse las guardadas por el id del nodo. lib/guion-audio.ts
 ya daba por hecho que un `[]` explícito las borraba (al pasar a voz o a archivo), y no era así: volver a texto las traía de
 nuevo, y borrar la última en el editor no se guardaba.
 
-**La regla.** En el guardado, la clave AUSENTE conserva las de antes y un `[]` EXPLÍCITO es «ya no tiene». Cambiar el texto
-por la API manda `[]` y lo dice («se quitan sus N variantes del texto anterior»); el mismo texto no suelta nada.
+**⚠️ Y no era sólo la API (la revisión adversarial del tren-k, el Cerebro):** el mismo hueco estaba en main por la PANTALLA y
+por Editar con IA. `aplicarPartes` con un solo texto, la ➤ y el «al salir» de un mensaje único, el «Usar» del ✦
+(EditorMensajeWhatsApp), el editor de Instagram y `parcheMensaje` (lib/flujo-ia.ts) cambiaban el cuerpo sin mirar las
+variantes. Y la tarjeta A/B: `conRamaBCopiada` copiaba a B las de A; al cambiarle el texto a B, en 10.000 envíos el texto nuevo
+salió 1.939 veces, y el juez comparaba A contra casi A. Con el `[]` honrado apareció una regresión chica: el 🗑 + «Deshacer»
+volvía el texto sin sus variantes (antes el guardado las reponía).
+
+**La regla.** En el guardado, la clave AUSENTE conserva las de antes y un `[]` EXPLÍCITO es «ya no tiene». Todo lo que cambia el
+texto pasa por `variantesTrasCambio` (lib/mensaje-partes.ts): otra cosa que un texto, o un texto que CAMBIA, → `[]`; el mismo
+texto no toca la clave; «Deshacer» repone las del paso de antes. La API usa la misma regla (`conCuerpo`, lib/botones-api.ts) y
+lo dice. La copia de B nace sin variantes, y la firma de cada rama las cuenta (sin variantes y `[]` firman igual).
 `editar_pasos_secuencia_mensajes` sigue avisando «conserva N variantes del texto viejo» en vez de soltarlas (sin hacer).
 
-Vive en: lib/nutricion.ts (`setSecuenciaPasos`, las variantes) · lib/botones-api.ts (`conCuerpo`, `textoParaGuardar`) ·
-lib/api-mako/areas/chatbot.*.ts (`cambiar_texto_mensaje`) · tests/api-mako-texto-mensaje.
-
-Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
-lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
-tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
+Vive en: lib/nutricion.ts (`setSecuenciaPasos`) · lib/mensaje-partes.ts (`variantesTrasCambio`) ·
+app/automations/EditorMensajeWhatsApp.tsx y EditorMensajeSocial.tsx · lib/flujo-ia.ts (`parcheMensaje`) ·
+lib/flujo-conversacion.ts (`conRamaBCopiada`) · lib/pruebas/tarjeta-ab.ts · lib/botones-api.ts · tests/variantes-al-cambiar-texto ·
+api-mako-texto-mensaje · pruebas-tarjeta-ab.
 
 ## La tarjeta «A/B TEST»: una clase nueva con todas sus puertas (tanda A3 de las pruebas A/B, 25/10/2026)
 
