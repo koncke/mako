@@ -207,3 +207,12 @@ test('lo que lee la IA no lleva lo que descartó sin su motivo, y la huella camb
 //   9. `estadoDe` con «ahora-no» → siempre `{ ve: true }`         → rojo «(c) «No aplica» no vuelve nunca; «Ahora no»…».
 //  10. `leerRedaccion` sin `esGenerico`                          → rojo «la IA redacta…».
 // También se invirtió la condición entera de `sostiene` (sentido al revés): rojos en 7 de los 10 tests.
+// Después de la revisión del tren-l (26/10/2026), ocho más, con el mismo arnés:
+//  11. `funcionaron` sin `tiposMedidos`                          → rojo «12.».
+//  12. `funcionaron` sin el caso de la muestra chica             → rojo «12.».
+//  13. `estadoDe` mirando el tipo apagado ANTES que la reabierta → rojo «16.».
+//  14. `decisionVigente` siempre false                           → rojo «15.».
+//  15. `decisionVigente` con «Ahora no» vigente para siempre      → rojo «15.».
+//  16. `anotarDecision` sin el tope en bytes                     → rojo «10.».
+//  17. el tope en bytes tirando las NUEVAS (`slice(0, -1)`)       → rojo «10.».
+//  18. `leerRedaccion` guardando sólo la clave principal          → rojo «la IA redacta…» (14).

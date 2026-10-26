@@ -62,10 +62,14 @@ test('3. el motor no manda nada hacia afuera, y redacta sólo con la IA del nego
   for (const rel of ['lib/recomendaciones.ts', 'lib/recomendaciones-senales.ts', 'lib/recomendaciones-reglas.ts']) {
     const src = fuente(rel);
     assert.doesNotMatch(src, /\b(sendText|enviarTexto|enviarYEspejar|sendEmail|crearDesdePlantilla|crearBorrador|dispararEvento|avisar)\(/, `${rel} manda algo`);
-    // Una escritura sobre una TABLA (`.from('x')…insert(`): el `.delete()` de un Map (el caché) no cuenta.
-    assert.doesNotMatch(src, /\.from\([^)]*\)[^;]{0,200}\.(insert|update|delete|upsert)\(/, `${rel} escribe en una tabla`);
+    // Una escritura sobre una TABLA (`.from('x')…insert(`): el `.delete()` de un Map (el caché) no cuenta. La única permitida
+    // es SU memoria en app_settings (abajo): desde la revisión del tren-l se compara por `updated_at` sin pasar por un helper.
+    assert.doesNotMatch(src, /\.from\((?!'app_settings'\))[^)]*\)[^;]{0,200}\.(insert|update|delete|upsert)\(/, `${rel} escribe en una tabla`);
   }
   const motor = fuente('lib/recomendaciones.ts');
+  const escrituras = [...motor.matchAll(/\.from\('app_settings'\)[^;]{0,300}?\.(insert|update|delete|upsert)\([^;]*;/g)].map((m) => m[0]);
+  assert.equal(escrituras.length, 1, 'el motor escribe app_settings en más de un lugar');
+  assert.match(escrituras[0], /\.eq\('key', CLAVE_MEMORIA\)\.eq\('updated_at', updatedAt\)/, 'la única escritura es la de SU memoria, con compare-and-set');
   assert.match(motor, /async function puedeRedactar\(ws: number\)[\s\S]{0,300}claveDeIAPropia\(ws\)/);
   assert.match(motor, /const redacta = ws != null && \(await puedeRedactar\(ws\)\)/);
   const cat = CATALOGO_MODELOS.find((f) => f.feature === 'mako-recomienda');
@@ -109,3 +113,6 @@ test('4. la API: leer y decidir, del admin, y decidir se confirma', () => {
 //   7. `/automations?id=`, `/landing-generator?url=` y `/bandeja`          → rojo «5. cada link…» (las tres).
 // La primera versión del chequeo de escrituras daba rojo SIN romper nada: confundía el `.delete()` del caché (un Map) con un
 // borrado en la base. Ahora mira sólo `.from(…)…insert|update|delete|upsert(`.
+// Desde la revisión del tren-l la memoria se escribe directo (compare-and-set por `updated_at`), y el chequeo permite SÓLO esa
+// escritura de app_settings. Roto otra vez (26/10/2026): la memoria sin `.eq('updated_at', …)`, un `from('leads').update` y
+// una segunda escritura de app_settings → rojo «3. el motor…» las tres.

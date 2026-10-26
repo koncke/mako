@@ -221,3 +221,9 @@ test('Second Brain: «Aprende solo» apagado con conversaciones de las que apren
 // La primera pasada dejó VERDES las roturas 1, 2 y 3: el ruido sin lead caía en el número de otra conversación, la del borde
 // de la lectura quedaba afuera de la ventana por la fecha y no por el borde, y la comparación nunca se probó con un lado chico.
 // Se corrigió el test (no el código) y las diez dieron rojo.
+// Después de la revisión del tren-l (26/10/2026), cinco más:
+//  11. `tiposMedidos` sin lo que depende de los leads             → rojo «12. qué tipos se MIDIERON…».
+//  12. `tiposMedidos` sin mirar las fallas                        → rojo «12. qué tipos se MIDIERON…».
+//  13. «muda» sin el primer envío (cuenta a todos los inscritos)  → rojo «automatizaciones…».
+//  14. «muda» sin el margen de 2 días                             → rojo «automatizaciones…».
+//  15. un envío FALLADO contado como recibido                     → rojo «automatizaciones…».
