@@ -4910,9 +4910,95 @@ la Zernio del negocio».
   cancelled` y `configuredStatus: ACTIVE`**: leer sólo el interruptor propio da por prendido a un anuncio que ya no existe
   (avisado al Media Buyer). Sin entrega, los insights siguen vacíos: las filas reales recién con un negocio que gaste.
 
-**Sin hacer:** el árbol de `_getMetaHealth` por Zernio (`/v1/ads/accounts/live` + `/v1/ads/tree`), el
-reproductor del anuncio, `campanasYConjuntos` del selector del CRM, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de
-insights, `account_currency`, o de la cuenta), y las escrituras de `lib/meta-write.ts` / `lib/meta-ads-create.ts` fuera del
-Media Buyer.
+**Sin hacer:** el reproductor del anuncio, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de insights,
+`account_currency`, o de la cuenta) y `lib/meta-ads-create.ts`. El árbol, el selector del CRM y las escrituras de
+`lib/meta-write.ts` se hicieron el 26/10 (la entrada de abajo).
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Un negocio SIN token administra sus campañas por Zernio: primero el árbol, después las escrituras (26/10/2026)
+
+**Vive en:** `lib/meta-escribir-zernio.ts` (las escrituras) · `lib/meta-write.ts` (`escribirEnMeta`, la rama) ·
+`lib/meta-via.ts` (`arbolPorZernio`) · `lib/meta-health.ts` (`edgesPorZernio`, `campanasYConjuntosCrudos`) ·
+`lib/api-mako/areas/ads.helpers.ts` (`estadoVivoMeta`) · lo puro, en `lib/zernio-meta-cuerpo.ts` · la prueba,
+`scripts/prueba-zernio-escribir.mts`.
+
+- ⚠️ **El diagnóstico obvio («faltan las escrituras por Zernio») era la mitad.** Un negocio conectado sólo por Zernio tenía el
+  árbol de la salud VACÍO: las tres edges (`campaigns`, `adsets`, `ads`) pedían el token, fallaban suave y el árbol salía
+  `parcial`. Toda propuesta de la API (`proponer_estado_*`, `_presupuesto_*`, `_renombrar_*`, `_eliminar_*`) busca la entidad
+  en ese árbol antes de escribir: contestaba «No encuentro esa campaña» aunque `metaWrite` hubiera sabido escribir. Primero el
+  árbol, después la escritura.
+- **El árbol por Zernio se arma de DOS lecturas** (no hay una sola que lo traiga): campañas y conjuntos EN VIVO de
+  `GET /v1/ads/accounts/live` (con su interruptor propio y su presupuesto) y los anuncios de la lista SINCRONIZADA `GET /v1/ads`
+  (Zernio no lee en vivo los anuncios de una cuenta). La lista guarda lo borrado (`status: cancelled`, a veces con
+  `configuredStatus: ACTIVE`): un anuncio entra sólo si su conjunto está vivo. Lo que no hay por Zernio: el `created_time` de
+  campañas y conjuntos, y las recomendaciones de Meta (su `/ads/recommendations` es sólo de Google). El aprendizaje sale de un
+  pedido por conjunto (`GET /ads/ad-sets/{id}?fields=learning_stage_info`), sólo de los que entregan, hasta 20.
+- **De quién es un id, por Zernio:** `GET /ads/campaigns/{id}` y `/ads/ad-sets/{id}` son el paso directo de Meta (`fields=
+  account_id,configured_status,effective_status`, con `accountId`); un anuncio, `GET /ads/{id}?live=true`
+  (`platformAdAccountId`). Una campaña que la conexión no ve vuelve como el **400** de Meta, no como un 404: para el negocio, no
+  existe. Medido: un id ajeno rebotó con 404 sin escribir.
+- ⚠️ **Zernio contesta 200 al pausar un anuncio BORRADO** (medido el 26/10 en la cuenta de MaKo): con el token, Meta lo
+  rechazaba. Antes de escribir se mira si la entidad está borrada (`siYaEstaBorrada`): borrarla otra vez ya está hecho;
+  cualquier otra escritura rebota.
+- ⚠️ **Borrar el ÚLTIMO anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña** (su OpenAPI lo dice; medido
+  el 26/10: el anuncio, el conjunto y la campaña quedaron `DELETED` con un solo DELETE). Con el token no pasaba. La API lo avisa
+  en el resumen antes del «sí».
+- ⚠️ **La `Idempotency-Key` devuelve la respuesta ORIGINAL aunque lo creado ya no exista.** El script de prueba usaba una clave
+  por día: la segunda vuelta recibió los ids de la campaña de la primera, ya borrada, y no creó nada. La clave protege el
+  reintento de UNA creación; dos creaciones a propósito llevan dos claves.
+- **Una campaña «vacía» se puede pausar por Zernio si alguna vez tuvo anuncios** (Zernio la encuentra por sus anuncios
+  guardados). El 404 que midió el Media Buyer es de la campaña que NACIÓ vacía (`POST /ads/campaigns`); ahí el texto propio
+  dice que se le agregue un anuncio o se borre.
+- **El tope de anuncios activos gratis de Zernio** (`ads_allowance_exceeded`, por cuenta de Zernio sin medio de pago) frena
+  prender y subir presupuesto: el error dice que se cargue el medio de pago en Zernio. No es de Meta.
+- **Medido de punta a punta el 26/10 en `act_1426493815659364`, gasto 0:** crear (campaña, conjunto y anuncio en pausa; el
+  conjunto y el anuncio nacen prendidos y se pausaron en el acto por `metaWrite`), el árbol y el selector de campañas por
+  Zernio (presupuesto 1 USD leído como 1), renombrar los tres niveles, presupuesto 1 → 2 → 1, prender y pausar la campaña y el
+  anuncio, y borrar el conjunto, la campaña vacía y el anuncio; por `metaWrite` y por los runners de la API de MaKo y el doer.
+  La cuenta quedó con 0 campañas y 0 conjuntos.
+- ⚠️ **Para correr la API de MaKo en un script** (fuera de Next), `getMetaHealth` pide dos cosas que pone el servidor:
+  `globalThis.__incrementalCache` (una vacía alcanza) y `globalThis.AsyncLocalStorage` (el de `node:async_hooks`). Sin ellas,
+  «incrementalCache missing» o «AsyncLocalStorage accessed in runtime where it is not available»: no es el código.
+- **`lib/meta-ads-create.ts` por Zernio, sin otro parser:** `GET /ads/campaigns/{id}`, `/ads/ad-sets/{id}` y
+  `/ads/creatives/{id}` son el paso directo de Meta con `fields` tal cual, ANIDADOS incluidos (`adsets.limit(10){…}` en una
+  campaña): una sola puerta (`leerObjetoMeta`) elige la vía y devuelve la forma de la Graph API. El anuncio sale del guardado de
+  Zernio (`/ads/{id}?live=true`: cuenta, nombre, entrega, el id del creativo) más su creativo por el paso directo. Medido el 26/10
+  en la cuenta de MaKo: la cuenta, los píxeles, los datos de campaña y conjunto, el público (lectura), leer y cambiar los textos
+  del anuncio (releído cambiado), y agregar un anuncio con la imagen de otro y otro reusando su post, los dos nacidos en pausa.
+- ⚠️ **`GET /ads/images` corta en 100 por página** (`limit=200` → 400 «Too big»). Un `catch(() => null)` lo convertía en «la
+  imagen no tiene dirección pública»: **el diagnóstico obvio era el equivocado**, la imagen estaba. Un fallo de Zernio sube tal
+  cual.
+- ⚠️ **La misma `Idempotency-Key` con OTRO cuerpo** contesta «already used with a different request». La clave por nombre de
+  anuncio chocaba en cuanto cambiaba el creativo del original; ahora sale del cuerpo entero y una ventana de 10 minutos.
+- **Formularios por Zernio:** `GET /ads/lead-forms` lista los de la página de la conexión (la OpenAPI no declara la forma de cada
+  uno: vino el crudo de Meta, `id`, `name`, `status`); `POST /ads/lead-forms` los crea con el contenido en
+  `platformSpecificData`, que se arma DESDE `paramsFormulario` (mismas preguntas y pantalla final, sin una segunda copia de la
+  regla); `DELETE /ads/lead-forms/{id}` los archiva. Zernio parsea estricto: un campo con el nombre de la Graph API es un 400.
+- **Editar el público por Zernio NO está hecho:** `PUT /ads/ad-sets/{id}` recibe SU forma de segmentación (`TargetingSpec`,
+  con fusión de claves), no el crudo de Meta que arma `editarPublicoConjunto`. Sin token, se dice así (`sinPublicoPorZernio`).
+- **Un negocio sin token ya no oye «configura META_ACCESS_TOKEN»:** el token está deprecado y no se pide. Lo que todavía no
+  tiene camino por Zernio dice eso y manda al Administrador de anuncios (`cred`, lib/meta-ads-create.ts).
+- **«Crear una campaña» no tiene pantalla, ni con token ni con Zernio.** El asistente se borró con la vista vieja del Ads
+  Manager (25/10); las rutas `campaign-create`, `adset-add`, `ad-add` y `ad-edit` no las llama ninguna pantalla, y la API de
+  MaKo no declara crear campañas. Lo único que crea desde la app es «Subir creativos» del Media Buyer (un anuncio por archivo
+  en un conjunto que ya existe, por Zernio).
+
+**Sin hacer (con dónde vive):** lo de `lib/meta-ads-create.ts` que sigue con el token: crear campaña y conjunto
+(`createCampaign`, `createAdSet`, `addAdsetToCampaign`; el anuncio en un conjunto YA va por Zernio) y las subidas
+(`uploadAdImage`/`uploadAdVideo`, la ruta `creative-upload`), editar el público (`editarPublicoConjunto`), `formularioBase` (la web
+de la página; listar y CREAR formularios ya van por Zernio, medidos en la página de MaKo: el de prueba quedó ARCHIVADO, porque un
+formulario no se borra; una página distinta de la de la conexión no tiene camino por Zernio), crear públicos (`createCustomAudience`; LISTARLOS ya va por Zernio, `GET /ads/audiences` con el id de Meta, pero la cuenta de
+MaKo no tiene ninguno: la forma de cada fila sale de la OpenAPI, SIN medir con datos), los eventos del píxel y las
+conversiones (`listPixelEvents`, `listCustomConversions`; los píxeles ya van por Zernio), el alcance (`alcanceGeo`; BUSCAR intereses y lugares ya va por Zernio, `/ads/targeting/search`, con los ids de Meta y el
+mismo `lugarDesdeBusqueda` y `ordenarLugares`, medido con «Córdoba» y «marketing digital»),
+identidades (`paginasDeGanadores`, `getInstagramActorId`; `identidadesMeta` ya va por Zernio, `GET /ads/instagram-accounts`,
+medido con la conexión de MaKo: la identidad `page_backed` es la página usada como Instagram, no una cuenta, y queda afuera), `getAdsAprobacionPendiente` y `generatePreviews`.
+Zernio tiene endpoint para cada una (`/ads/images`, `/ads/videos`, `/ads/lead-forms`, `/ads/audiences`, `/ads/interests`,
+`/ads/targeting/*`, `/ads/preview`). Fuera de ese archivo: el barrido de leads (`pollMetaLeads`, lib/meta-leads.ts →
+`GET /v1/ads/leads`) y el reproductor (`app/api/anuncios/video/route.ts`: dibuja el plugin de video de facebook.com que sale del `embed_html`, y
+Zernio no lo da; su `/ads/{adId}/media` trae el .mp4 directo, así que hacerlo por Zernio cambia lo que dibuja la pantalla,
+app/dashboard/graficos/ReproductorAnuncio.tsx). Duplicar campañas y
+conjuntos tampoco existe en MaKo (con token, en ningún lado; el Media Buyer duplica anuncios por Zernio).
+
+*26/10/2026, chat «Zernio y CAPI» (`claude5`).*

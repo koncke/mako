@@ -3688,6 +3688,10 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   forma de Meta (`insightsPorZernio`, `conjuntosVivosPorZernio`, `cuentaCrudaPorZernio`, `creativosPorZernio`); `via: 'token'` →
   la Graph API como siempre. Un fallo de Zernio se reintenta por el token SÓLO para LEER y sólo si el negocio lo conserva
   (`canal.respaldo`).
+- **Escribir en Meta pasa por `metaWrite`** (lib/meta-write.ts): con `via: 'zernio'` va por la Zernio del negocio
+  (lib/meta-escribir-zernio.ts: lee de quién es el id y si está borrado ANTES de escribir) y NUNCA por el token de respaldo. Un
+  `graphPost` nuevo con el token deja afuera a todo negocio sin token: si hace falta escribir otra cosa, se le suma su rama de
+  Zernio. Borrar el último anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña: se avisa antes del «sí».
 - **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
 - **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
 - **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.

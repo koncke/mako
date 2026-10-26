@@ -143,6 +143,314 @@ export function paginaDeConjuntos(body: unknown): { filas: ConjuntoVivo[]; after
   return { filas, after, moneda: typeof b.currency === 'string' ? b.currency : null };
 }
 
+// ── El árbol de la cuenta (campañas, conjuntos y anuncios), con la forma de la Graph API ──
+
+/** Una fila con la forma de las edges de la Graph API (`/{act}/campaigns`, `/adsets`, `/ads`): lo que lee `toNodo` (lib/meta-health.ts). */
+export type FilaGraph = Record<string, unknown>;
+
+/** Lo que Meta ya no muestra en sus edges: lo borrado y lo archivado. En `/v1/ads` de Zernio se queda (status `cancelled`). */
+const FUERA_DEL_ARBOL = new Set(['DELETED', 'ARCHIVED']);
+
+/** El `status` normalizado de Zernio → el `effective_status` de Meta, para un anuncio sin `platformStatus` (filas viejas). */
+const ESTADO_DE_ZERNIO: Record<string, string> = {
+  active: 'ACTIVE', paused: 'PAUSED', pending_review: 'PENDING_REVIEW', rejected: 'DISAPPROVED', error: 'WITH_ISSUES', cancelled: 'DELETED',
+};
+
+const texto = (v: unknown): string | null => (typeof v === 'string' && v ? v : typeof v === 'number' ? String(v) : null);
+const monto = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+
+/**
+ * El árbol de la cuenta con la forma de la Graph API, armado con lo que da Zernio (25/10/2026): las campañas y los conjuntos
+ * EN VIVO (`GET /v1/ads/accounts/live`) y los anuncios de la lista sincronizada (`GET /v1/ads`, Zernio no tiene lectura en vivo
+ * de los anuncios de una cuenta). Así `_getMetaHealth` no cambia su parser.
+ *
+ * ⚠️ Los presupuestos de Zernio vienen en UNIDADES de la moneda; las filas de la Graph API, en la unidad MÍNIMA (centavos),
+ * y `toNodo` las divide. Por eso pasan por `aMinima` (el `aUnidadMeta` de siempre), o el presupuesto quedaría 100 veces más chico.
+ * ⚠️ Un anuncio entra sólo si su conjunto está vivo: la lista de Zernio guarda lo que se borró (y su estado puede tener hasta una
+ * hora de atraso), y un anuncio de una campaña borrada se pintaría como prendido.
+ * Lo que Zernio no trae: el aprendizaje de cada conjunto (va aparte, `aprendizaje`), el `created_time` de campañas y conjuntos,
+ * y las recomendaciones de Meta (su `/ads/recommendations` es sólo de Google).
+ */
+export function arbolDesdeZernio(p: {
+  live: unknown;
+  anuncios: readonly unknown[];
+  aMinima: (monto: number, moneda: string) => number;
+  aprendizaje?: ReadonlyMap<string, unknown>;
+}): { moneda: string; campaigns: FilaGraph[]; adsets: FilaGraph[]; ads: FilaGraph[] } | null {
+  if (!p.live || typeof p.live !== 'object') return null;
+  const l = p.live as { currency?: unknown; campaigns?: unknown; adSets?: unknown };
+  const moneda = texto(l.currency);
+  if (!moneda || !Array.isArray(l.campaigns) || !Array.isArray(l.adSets)) return null;
+  const minima = (v: unknown) => { const n = monto(v); return n == null ? null : p.aMinima(n, moneda); };
+
+  // El objetivo de la campaña sólo viene en sus anuncios (`platformObjective`).
+  const objetivo = new Map<string, string>();
+  for (const raw of p.anuncios) {
+    const a = (raw ?? {}) as { platformCampaignId?: unknown; platformObjective?: unknown };
+    const c = texto(a.platformCampaignId); const o = texto(a.platformObjective);
+    if (c && o && !objetivo.has(c)) objetivo.set(c, o);
+  }
+
+  const campaigns: FilaGraph[] = [];
+  for (const raw of l.campaigns) {
+    const c = (raw ?? {}) as Record<string, unknown>;
+    const id = texto(c.platformCampaignId);
+    if (!id) continue;
+    campaigns.push({
+      id, name: texto(c.campaignName) ?? undefined,
+      effective_status: texto(c.platformCampaignStatus) ?? texto(c.configuredStatus) ?? undefined,
+      configured_status: texto(c.configuredStatus) ?? undefined,
+      daily_budget: minima(c.dailyBudget), lifetime_budget: minima(c.lifetimeBudget), budget_remaining: minima(c.budgetRemaining),
+      objective: objetivo.get(id),
+    });
+  }
+
+  const adsets: FilaGraph[] = [];
+  const conjuntosVivos = new Set<string>();
+  for (const raw of l.adSets) {
+    const s = (raw ?? {}) as Record<string, unknown>;
+    const id = texto(s.platformAdSetId);
+    if (!id) continue;
+    conjuntosVivos.add(id);
+    adsets.push({
+      id, name: texto(s.adSetName) ?? undefined, campaign_id: texto(s.platformCampaignId) ?? undefined,
+      effective_status: texto(s.platformAdSetStatus) ?? texto(s.configuredStatus) ?? undefined,
+      configured_status: texto(s.configuredStatus) ?? undefined,
+      daily_budget: minima(s.dailyBudget), lifetime_budget: minima(s.lifetimeBudget), budget_remaining: minima(s.budgetRemaining),
+      learning_stage_info: p.aprendizaje?.get(id),
+    });
+  }
+
+  const ads: FilaGraph[] = [];
+  const vistos = new Set<string>();
+  for (const raw of p.anuncios) {
+    const a = (raw ?? {}) as Record<string, unknown>;
+    const id = texto(a.platformAdId);
+    const conjunto = texto(a.platformAdSetId);
+    if (!id || !conjunto || !conjuntosVivos.has(conjunto) || vistos.has(id)) continue;
+    const estado = (texto(a.platformStatus) ?? ESTADO_DE_ZERNIO[texto(a.status) ?? ''] ?? 'UNKNOWN').toUpperCase();
+    const interruptor = texto(a.configuredStatus)?.toUpperCase() ?? null;
+    if (FUERA_DEL_ARBOL.has(estado) || (interruptor && FUERA_DEL_ARBOL.has(interruptor)) || a.status === 'cancelled') continue;
+    vistos.add(id);
+    // El rechazo de Meta, con la forma de `issues_info` (lo que lee `parseIssues`).
+    const motivo = texto(a.rejectionReason);
+    const conProblema = a.reviewStatus === 'rejected' || a.reviewStatus === 'with_issues' || a.status === 'rejected' || a.status === 'error';
+    ads.push({
+      id, name: texto(a.name) ?? undefined, adset_id: conjunto, campaign_id: texto(a.platformCampaignId) ?? undefined,
+      effective_status: estado, configured_status: interruptor ?? undefined, created_time: texto(a.platformCreatedAt) ?? undefined,
+      ...(conProblema ? { issues_info: [{ error_summary: a.reviewStatus === 'with_issues' || a.status === 'error' ? 'Anuncio con problemas' : 'Anuncio rechazado', error_message: motivo ?? '' }] } : {}),
+    });
+  }
+  return { moneda, campaigns, adsets, ads };
+}
+
+/** Una página de `GET /v1/ads` (la lista sincronizada): los anuncios y si queda otra. null si no trae lista. */
+export function paginaDeAnuncios(body: unknown): { anuncios: unknown[]; hayMas: boolean } | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as { ads?: unknown; pagination?: { page?: unknown; pages?: unknown } };
+  if (!Array.isArray(b.ads)) return null;
+  const page = monto(b.pagination?.page); const pages = monto(b.pagination?.pages);
+  return { anuncios: b.ads, hayMas: page != null && pages != null && page < pages };
+}
+
+// ── Formularios de leads por Zernio ──────────────────────────────────────────
+
+export type FormularioZernio = { id: string; name: string; status?: string };
+
+/**
+ * Una página de `GET /v1/ads/lead-forms` (los formularios de la página de la conexión). La OpenAPI no declara la forma de cada
+ * formulario (`items: object`): se lee tolerante (`id` o `formId`, `name`, `status`) y se dejan afuera los archivados y borrados,
+ * como con el token (Meta no deja usarlos en un anuncio). null si no trae la lista.
+ */
+export function formulariosDeZernio(body: unknown): { formularios: FormularioZernio[]; cursor: string | null } | null {
+  if (!body || typeof body !== 'object') return null;
+  const b = body as { forms?: unknown; pagination?: { hasMore?: unknown; cursor?: unknown } };
+  if (!Array.isArray(b.forms)) return null;
+  const formularios: FormularioZernio[] = [];
+  for (const raw of b.forms) {
+    const f = (raw ?? {}) as Record<string, unknown>;
+    const id = texto(f.id) ?? texto(f.formId) ?? texto(f.platformFormId);
+    if (!id || !/^\d+$/.test(id)) continue;
+    const status = texto(f.status)?.toUpperCase();
+    if (status === 'ARCHIVED' || status === 'DELETED') continue;
+    formularios.push({ id, name: texto(f.name) ?? id, ...(status ? { status } : {}) });
+  }
+  const cursor = b.pagination?.hasMore === true ? texto(b.pagination.cursor) : null;
+  return { formularios, cursor };
+}
+
+/**
+ * El cuerpo de `POST /v1/ads/lead-forms` (Meta: el contenido va en `platformSpecificData`) armado DESDE los parámetros de la Graph
+ * API que ya arma `paramsFormulario` (lib/meta-formularios.ts): las preguntas, su orden, la privacidad y la pantalla final son las
+ * MISMAS por los dos caminos, sin una segunda copia de esas reglas.
+ */
+export function cuerpoFormularioZernio(accountId: string, p: Record<string, string>): Record<string, unknown> {
+  const privacidad = JSON.parse(p.privacy_policy) as { url: string; link_text?: string };
+  const final = JSON.parse(p.thank_you_page) as { title?: string; body?: string; button_type?: string; button_text?: string; website_url?: string };
+  return {
+    accountId, name: p.name, privacyPolicyUrl: privacidad.url,
+    platformSpecificData: {
+      questions: JSON.parse(p.questions) as unknown[],
+      ...(privacidad.link_text ? { privacyPolicyLinkText: privacidad.link_text } : {}),
+      ...(p.follow_up_action_url ? { followUpActionUrl: p.follow_up_action_url } : {}),
+      ...(p.locale ? { locale: p.locale } : {}),
+      ...(final.title ? { thankYouTitle: final.title } : {}),
+      ...(final.body ? { thankYouBody: final.body } : {}),
+      ...(final.button_text ? { thankYouButtonText: final.button_text } : {}),
+      ...(final.button_type ? { thankYouButtonType: final.button_type } : {}),
+      ...(final.website_url ? { thankYouWebsiteUrl: final.website_url } : {}),
+      isOptimizedForQuality: p.is_optimized_for_quality === 'true',
+    },
+  };
+}
+
+/**
+ * Las páginas e Instagram con los que la conexión puede publicar (`GET /v1/ads/instagram-accounts`), con la forma de
+ * `identidadesMeta` (lib/meta-identidad.ts): toda página que lista Zernio es de la conexión, así que puede anunciar; el Instagram
+ * de cada página es el de empresa (o el conectado); los de la cuenta publicitaria son los `ad_account`. null si no trae las listas.
+ */
+export function identidadesDeZernio(body: unknown): {
+  paginas: Array<{ id: string; nombre: string; puedeAnunciar: boolean; instagram: { id: string; username: string | null } | null }>;
+  instagramCuenta: Array<{ id: string; username: string | null }>;
+} | null {
+  const b = (body ?? {}) as { accounts?: unknown; pages?: unknown };
+  if (!Array.isArray(b.accounts) || !Array.isArray(b.pages)) return null;
+  const ig = (r: unknown) => {
+    const o = (r ?? {}) as { igUserId?: unknown; username?: unknown };
+    const id = texto(o.igUserId);
+    return id ? { id, username: texto(o.username) } : null;
+  };
+  const paginas = b.pages.flatMap((raw) => {
+    const p = (raw ?? {}) as { pageId?: unknown; name?: unknown; instagramBusinessAccount?: unknown; connectedInstagramAccount?: unknown };
+    const id = texto(p.pageId);
+    return id ? [{ id, nombre: texto(p.name) ?? id, puedeAnunciar: true, instagram: ig(p.instagramBusinessAccount) ?? ig(p.connectedInstagramAccount) }] : [];
+  });
+  const instagramCuenta = b.accounts.flatMap((raw) => {
+    const a = (raw ?? {}) as { source?: unknown };
+    const x = ig(raw);
+    return x && a.source === 'ad_account' ? [x] : [];
+  });
+  return { paginas, instagramCuenta };
+}
+
+/**
+ * Un resultado de `GET /v1/ads/targeting/search?dimension=geo` (normalizado por Zernio: `id`, `name`, `type`, `countryCode`, `path`
+ * del lugar padre al país) con la forma de un resultado de `adgeolocation` de Meta, para que lo lea el MISMO `lugarDesdeBusqueda`
+ * (lib/meta-geo.ts). El `id` es la `key` de Meta (medido el 26/10/2026: «Ciudad de Córdoba» → 84740, la misma de siempre). La
+ * provincia sale del primer padre; el id de la provincia y la ciudad de un código postal no vienen.
+ */
+export function lugarCrudoDeZernio(r: unknown): Record<string, unknown> {
+  const o = (r ?? {}) as { id?: unknown; name?: unknown; type?: unknown; countryCode?: unknown; path?: unknown };
+  const padres = Array.isArray(o.path) ? o.path.filter((x): x is string => typeof x === 'string') : [];
+  const tipo = texto(o.type);
+  return {
+    key: tipo === 'country' ? texto(o.countryCode) ?? texto(o.id) : texto(o.id), name: texto(o.name), type: tipo,
+    country_code: texto(o.countryCode), region: tipo !== 'region' && tipo !== 'country' && padres.length > 1 ? padres[0] : null,
+  };
+}
+
+/** Un interés de `GET /v1/ads/targeting/search?dimension=interest` con la forma que devuelve `searchInterests`. */
+export function interesDeZernio(r: unknown): { id: string; name: string; audience: number | null; topic: string | null } | null {
+  const o = (r ?? {}) as { id?: unknown; name?: unknown; audienceSize?: unknown; path?: unknown };
+  const id = texto(o.id);
+  if (!id) return null;
+  const path = Array.isArray(o.path) ? o.path.filter((x): x is string => typeof x === 'string') : [];
+  // El «tema» de Meta es el primer nivel debajo de «Intereses» (el `topic` de la búsqueda con el token).
+  return { id, name: texto(o.name) ?? id, audience: monto(o.audienceSize), topic: path.length > 2 ? path[1] : null };
+}
+
+/** El `subtype` de Meta de cada tipo de público de Zernio (lo que muestra MaKo al elegir uno). */
+const SUBTIPO_DE_PUBLICO: Record<string, string> = {
+  customer_list: 'CUSTOM', website: 'WEBSITE', website_retargeting: 'WEBSITE', engagement: 'ENGAGEMENT', meta_engagement: 'ENGAGEMENT', lookalike: 'LOOKALIKE',
+};
+
+/**
+ * Los públicos personalizados de `GET /v1/ads/audiences`, con la forma que ya devuelve `listCustomAudiences`: el id es el de META
+ * (`platformAudienceId`, el que va en una segmentación; el `id` de Zernio es otro y es null en los que no creó Zernio). Los
+ * `saved_targeting` no son públicos de Meta (son segmentaciones guardadas en Zernio): no van. null si no trae la lista.
+ */
+export function publicosDeZernio(body: unknown): Array<{ id: string; name: string; subtype?: string; count: number | null }> | null {
+  const b = (body ?? {}) as { audiences?: unknown };
+  if (!Array.isArray(b.audiences)) return null;
+  const out: Array<{ id: string; name: string; subtype?: string; count: number | null }> = [];
+  for (const raw of b.audiences) {
+    const a = (raw ?? {}) as Record<string, unknown>;
+    const id = texto(a.platformAudienceId);
+    if (!id || a.type === 'saved_targeting') continue;
+    const subtype = SUBTIPO_DE_PUBLICO[texto(a.type) ?? ''];
+    out.push({ id, name: texto(a.name) ?? id, ...(subtype ? { subtype } : {}), count: monto(a.size) });
+  }
+  return out;
+}
+
+// ── Escribir en Meta por Zernio: de quién es la entidad, y el fallo dicho para la persona ──
+
+export type NivelMeta = 'campaign' | 'adset' | 'ad';
+
+/** Lo que se lee de una campaña, un conjunto o un anuncio antes de escribirle: su cuenta publicitaria y sus dos estados. */
+export type EntidadZernio = { cuenta: string | null; configurado: string | null; efectivo: string | null };
+
+/**
+ * De qué cuenta es una entidad y cómo está, leído de lo que devuelve Zernio: `GET /ads/campaigns/{id}` y `/ads/ad-sets/{id}`
+ * son el paso directo de Meta (`campaign` / `adSet` con los campos pedidos: `account_id`, `configured_status`, `effective_status`);
+ * `GET /ads/{id}?live=true` es el anuncio guardado por Zernio con los interruptores releídos de Meta (`platformAdAccountId`,
+ * `configuredStatus`, `platformStatus`). null si no trae la entidad.
+ */
+export function entidadDeZernio(nivel: NivelMeta, body: unknown): EntidadZernio | null {
+  const b = (body ?? {}) as { campaign?: Record<string, unknown> | null; adSet?: Record<string, unknown> | null; ad?: Record<string, unknown> | null };
+  const mayus = (v: unknown) => texto(v)?.toUpperCase() ?? null;
+  if (nivel === 'ad') {
+    const a = b.ad;
+    if (!a || typeof a !== 'object') return null;
+    // ⚠️ Un anuncio BORRADO vuelve con `configuredStatus: ACTIVE` (docs/hallazgos-ads.md): lo que dice que no está es la entrega.
+    const efectivo = mayus(a.platformStatus) ?? (a.status === 'cancelled' ? 'DELETED' : null);
+    return { cuenta: texto(a.platformAdAccountId), configurado: efectivo === 'DELETED' ? 'DELETED' : mayus(a.configuredStatus), efectivo };
+  }
+  const e = nivel === 'campaign' ? b.campaign : b.adSet;
+  if (!e || typeof e !== 'object') return null;
+  return { cuenta: texto(e.account_id), configurado: mayus(e.configured_status) ?? mayus(e.status), efectivo: mayus(e.effective_status) };
+}
+
+/**
+ * Qué hacer con una entidad que Meta ya borró. Zernio NO da error al pausar un anuncio borrado (contesta 200: medido el 26/10/2026
+ * en la cuenta de MaKo), y con el token Meta sí lo rechazaba. Borrarla otra vez ya está hecho; cualquier otra escritura, no existe.
+ */
+export function siYaEstaBorrada(e: EntidadZernio, op: string): 'hecho' | 'no_existe' | null {
+  if (e.configurado !== 'DELETED' && e.efectivo !== 'DELETED') return null;
+  return op === 'delete' ? 'hecho' : 'no_existe';
+}
+
+/**
+ * Un fallo de Zernio al escribir, dicho para la persona, con el status que contesta MaKo. Lo que tiene arreglo del lado del
+ * negocio dice dónde se arregla: el tope de anuncios activos gratis de SU Zernio (`ads_allowance_exceeded`: prender o subir
+ * presupuesto con la cuenta de Zernio sin medio de pago), la cuenta publicitaria no elegida en la conexión, la conexión
+ * vencida. El resto lleva el mensaje de Meta que Zernio trae adentro (`platformError`).
+ */
+export function falloDeEscrituraZernio(
+  status: number,
+  body: { error?: string; code?: string; platformError?: unknown } | null,
+  mensaje: string,
+): { status: number; message: string; code?: number; error_subcode?: number } {
+  const pe = (body?.platformError ?? null) as { code?: unknown; error_subcode?: unknown; message?: unknown; error_user_msg?: unknown; error_user_title?: unknown } | null;
+  const code = Number(pe?.code); const sub = Number(pe?.error_subcode);
+  const meta = {
+    ...(Number.isFinite(code) && code > 0 ? { code } : {}),
+    ...(Number.isFinite(sub) && sub > 0 ? { error_subcode: sub } : {}),
+  };
+  if (body?.code === 'ads_allowance_exceeded') {
+    return { status: 409, message: 'Tu cuenta de Zernio llegó al tope de anuncios activos gratis: carga un medio de pago en Zernio para prender anuncios o subir presupuestos.' };
+  }
+  if (body?.code === 'ad_account_not_selected') {
+    return { status: 409, message: 'Tu conexión de Facebook en Zernio no tiene elegida esta cuenta publicitaria. Vuelve a conectar en Integraciones → Zernio y elígela.' };
+  }
+  if (status === 409 && !pe) return { status: 409, message: 'La conexión de Facebook en Zernio necesita reconectarse: hazlo en Integraciones → Zernio.' };
+  const deMeta = texto(pe?.error_user_msg) ?? texto(pe?.message);
+  if (status === 404) return { status: 404, message: deMeta ?? 'Eso no está en la cuenta de Meta de este negocio (o ya se borró).', ...meta };
+  const texto_ = deMeta ?? body?.error ?? mensaje;
+  if (esFalloDePermiso(status, texto_) || meta.error_subcode === 4841013 || meta.code === 200) return { status: 403, message: texto_, ...meta };
+  return { status: 502, message: texto_, ...meta };
+}
+
 // ── CAPI por Zernio ──────────────────────────────────────────────────────────
 
 /** El `actionSource` de Zernio. El de MaKo es el de Meta (`website`, `system_generated`, `email`, `app`). */
