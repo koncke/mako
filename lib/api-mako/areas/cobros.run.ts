@@ -38,6 +38,7 @@ import { getTenantDb, wsSuperAdmin } from '@/lib/workspace';
 import { venderPlan, ventaValida, previaDeLaVenta, compradorEnLaPlataforma, cobroAbiertoDelPlan, cuentaDelComprador } from '@/lib/vender-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
+import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
 import { PREFIJO_FLUJO } from '../canal';
 
@@ -724,7 +725,7 @@ export const RUNNERS: Runners = {
           cobrado_por_mes: v.cobrado, cuotas_vencidas: v.vencido,
         },
         clientes: filas.map((f) => ({
-          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: capaDef(f.capa).nombre, estado: f.estado,
+          ws: f.ws, nombre: f.nombre, segmentos: f.segmentos, agencia: f.agencia, plan: nombreDePlan(f.capa), estado: f.estado,
           mrr_usd: f.mrrUsd, en_prueba: f.prueba, en_riesgo: f.riesgo, por_que_en_riesgo: f.motivoRiesgo,
           dias_sin_entrar: f.sinEntrar, leads: f.leads, dias_sin_leads: f.sinLeads, onboarding_hecho: f.onboardingHecho,
           sesiones_agente_30_dias: f.sesionesAgente, pago_pendiente: f.pagoPendiente, desde: f.creado.slice(0, 10),

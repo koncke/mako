@@ -12,9 +12,8 @@ import { useMemo, useState } from 'react';
 import { ButtonLink } from '@/app/_ui/Button';
 import { CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
-import { capaDef } from '@/lib/capas';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
-import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, type Segmento } from '@/lib/clientes-plataforma-reglas';
+import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, nombreDePlan, type Segmento } from '@/lib/clientes-plataforma-reglas';
 
 type Grupo = 'todos' | Segmento;
 const GRUPOS: ReadonlyArray<{ id: Grupo; rotulo: string }> = [
@@ -114,7 +113,7 @@ export function CustomersM({ vista }: { vista: VistaClientes }) {
             <FilaDatoM k="Estado" v={estadoEnUnaPalabra(c).rotulo} />
             <FilaDatoM k="Última vez" v={vista.actividadLeida ? haceTxt(c.sinEntrar) : '—'} />
             <FilaDatoM k="Leads" v={c.leads == null ? '—' : c.leads.toLocaleString('es-AR')} />
-            <FilaDatoM k="Plan" v={capaDef(c.capa).nombre} />
+            <FilaDatoM k="Plan" v={nombreDePlan(c.capa)} />
             <FilaDatoM k="Grupo" v={grupoTxt(c)} />
             <FilaDatoM k="Plata" v={c.mrrUsd > 0 ? `${usdTxt(c.mrrUsd)} por mes` : c.prueba ? 'En prueba gratis' : 'Plan a mano'} />
             {c.pagoPendiente && <FilaDatoM k="Pago" v="Tiene un pago esperando" />}

@@ -22,10 +22,9 @@ import Link from '@/app/_ui/Link';
 import { Banner } from '@/app/_ui';
 import { Marca } from '@/app/_components/Marca';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
-import { capaDef } from '@/lib/capas';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
 import {
-  ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, type Segmento,
+  ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, nombreDePlan, type Segmento,
 } from '@/lib/clientes-plataforma-reglas';
 
 type Grupo = 'todos' | Segmento;
@@ -146,7 +145,7 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
             <button key={f.ws} type="button" role="row" className="cu-fila" data-mrr={conMrr} data-abierta={abierto === f.ws} onClick={() => setAbierto(f.ws)}>
               <span className="cu-quien" role="cell">
                 <Marca icono={null} foto={null} nombre={f.nombre} tam={30} color={colorDe(f.nombre)} />
-                <span><b>{f.nombre}</b><small>{capaDef(f.capa).nombre}</small></span>
+                <span><b>{f.nombre}</b><small>{nombreDePlan(f.capa)}</small></span>
               </span>
               <span role="cell" className="cu-grupo">{grupoTxt(f)}</span>
               <span role="cell" className="cu-vez" data-tono={vez(f.sinEntrar)}>{vista.actividadLeida ? <><i />{haceTxt(f.sinEntrar)}</> : '—'}</span>
@@ -223,7 +222,7 @@ function Plata({ vista }: { vista: VistaClientes }) {
 function Ficha({ f, actividadLeida, onCerrar }: { f: FilaCliente; actividadLeida: boolean; onCerrar: () => void }) {
   const e = estadoEnUnaPalabra(f);
   const filas: Array<[string, ReactNode]> = [
-    ['Plan', capaDef(f.capa).nombre],
+    ['Plan', nombreDePlan(f.capa)],
     ['Grupo', grupoTxt(f)],
     ['Configuración', f.onboardingHecho ? 'Terminada' : 'Sin terminar'],
     ['Plata', f.mrrUsd > 0 ? `${usdTxt(f.mrrUsd)} por mes` : f.prueba ? 'En prueba gratis' : 'Plan a mano'],
@@ -260,7 +259,7 @@ const CSS = `
 .cu{ display:flex; flex-direction:column; gap:18px; }
 .cu h2{ margin:0; font-size:14px; font-weight:650; color:var(--dim); letter-spacing:0; display:flex; align-items:center; gap:8px; }
 .cu-gris{ margin:0; font-size:13.5px; color:var(--faint); line-height:1.5; }
-.cu-arriba{ display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(300px, 1fr); gap:16px; align-items:stretch; }
+.cu-arriba{ display:grid; grid-template-columns:minmax(0, 1.35fr) minmax(300px, 1fr); gap:16px; align-items:start; }
 .cu-caja{ background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; min-width:0; display:flex; flex-direction:column; gap:14px; }
 .cu-plata-vacia{ display:flex; flex-direction:column; gap:6px; align-items:flex-start; }
 .cu-plata-linea{ margin:6px 0 0; font-size:22px; font-weight:750; letter-spacing:-.02em; color:var(--ink); }
@@ -276,7 +275,7 @@ const CSS = `
 .cu-vencido{ margin:8px 0 0; font-size:13px; font-weight:650; color:var(--bad); }
 .cu-link{ font-size:13.5px; font-weight:650; color:var(--primary); text-decoration:none; }
 .cu-link:hover{ text-decoration:underline; }
-.cu-tres{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; border-top:1px solid var(--border); padding-top:14px; margin-top:auto; }
+.cu-tres{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; border-top:1px solid var(--border); padding-top:14px; }
 .cu-n{ display:flex; flex-direction:column; gap:2px; min-width:0; }
 .cu-n b{ font-size:24px; font-weight:800; letter-spacing:-.02em; color:var(--ink); font-variant-numeric:tabular-nums; }
 .cu-n span{ font-size:12.5px; color:var(--dim); }
@@ -308,6 +307,7 @@ const CSS = `
 .cu-fila[data-mrr="true"]{ grid-template-columns:minmax(220px, 2.2fr) minmax(130px, 1.3fr) 130px 80px 100px 120px; }
 .cu-fila:last-of-type{ border-bottom:0; }
 .cu-fila:hover, .cu-fila[data-abierta="true"]{ background:var(--surface-2); }
+.cu-cab .cu-num{ font-size:inherit; }
 .cu-cab{ cursor:default; background:var(--surface-2); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); font-weight:700; padding-block:9px; }
 .cu-quien{ display:flex; align-items:center; gap:11px; min-width:0; }
 .cu-quien > span{ display:flex; flex-direction:column; min-width:0; }

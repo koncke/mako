@@ -13,7 +13,7 @@
 .m-customers-barras i { display: block; width: 100%; background: var(--primary); border-radius: 5px 5px 2px 2px; }
 .m-customers-barras i[data-cero="true"] { background: var(--border); }
 .m-customers-barras span { font-size: 11px; color: var(--faint); }
-.m-customers-chips { display: flex; gap: 8px; overflow-x: auto; margin: 0 0 12px; padding-bottom: 2px; scrollbar-width: none; }
+.m-customers-chips { display: flex; gap: 8px; overflow-x: auto; margin: 18px 0 12px; padding-bottom: 2px; scrollbar-width: none; }
 .m-customers-chips button { flex: none; min-height: 40px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
   padding: 0 14px; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
 .m-customers-chips button span { color: var(--faint); font-weight: 700; }
