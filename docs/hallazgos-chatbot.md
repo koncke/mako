@@ -7258,10 +7258,84 @@ Zernio, y el login de Instagram). Después alguien comenta desde OTRA cuenta de 
   aut-2510. Una medición de la API se hace sobre la rama que se va a subir.
 
 **Sin hacer:** el DM de verdad (arriba). «Probar» no simula el texto de respaldo («Escríbeme «…»») de una cuenta que rechaza
-los botones. Por la API, el texto de un mensaje de WhatsApp o email en un flujo CON ramas no se puede cambiar
-(`editar_pasos_secuencia_mensajes` lo rechaza). Por HTTP directo, la pregunta de crear con IA llega como el texto del error,
-sin `faltan` (`aplicarEnElActo` lo resume en una frase). No se vio en pantalla.
+los botones. No se vio en pantalla. (Cerrados el 25/10: el texto de un WhatsApp o email en un flujo con ramas, con
+`cambiar_texto_mensaje`, y la pregunta de crear con IA por HTTP, que vuelve con `faltan`.)
+
+## ⚠️ Cambiar el texto de un mensaje dejaba sus VARIANTES del texto viejo, y el motor las sorteaba (25/10/2026)
+
+**El síntoma (encontrado al cerrar el texto por la API, no en un cliente):** las variantes («↻ N», lib/secuencias-variantes.ts)
+son otras formas de decir UN texto, y el motor sortea entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts). Si
+la API cambia el cuerpo y las variantes quedan, a 4 de cada 5 leads les llega lo que el mensaje ya no dice. «Probar» muestra
+el cuerpo nuevo, así que la prueba no lo ve. Le pasaba al texto de un DM de `cambiar_botones_mensaje` (3a443b08f), que
+`generarVariantes` también arma.
+
+**⚠️ El diagnóstico obvio («que el cambio mande `variantes: []`») no alcanzaba:** `setSecuenciaPasos` (lib/nutricion.ts) sólo
+tomaba las que llegaban si había AL MENOS una; con `[]` volvían a ponerse las guardadas por el id del nodo. lib/guion-audio.ts
+ya daba por hecho que un `[]` explícito las borraba (al pasar a voz o a archivo), y no era así: volver a texto las traía de
+nuevo, y borrar la última en el editor no se guardaba.
+
+**La regla.** En el guardado, la clave AUSENTE conserva las de antes y un `[]` EXPLÍCITO es «ya no tiene». Cambiar el texto
+por la API manda `[]` y lo dice («se quitan sus N variantes del texto anterior»); el mismo texto no suelta nada.
+`editar_pasos_secuencia_mensajes` sigue avisando «conserva N variantes del texto viejo» en vez de soltarlas (sin hacer).
+
+Vive en: lib/nutricion.ts (`setSecuenciaPasos`, las variantes) · lib/botones-api.ts (`conCuerpo`, `textoParaGuardar`) ·
+lib/api-mako/areas/chatbot.*.ts (`cambiar_texto_mensaje`) · tests/api-mako-texto-mensaje.
 
 Vive en: lib/flujo-ia.ts · lib/simulador-grafo.ts · app/automations/PanelProbar.tsx · app/automations/SimuladorSocial.tsx ·
 lib/automatizaciones-del-lead-reglas.ts · app/crm/automatizacion-lead.ts · lib/botones-api.ts · lib/api-mako/areas/chatbot.*.ts ·
 tests/editar-ia-botones · probar-botones · ficha-espera-toque · api-mako-botones.
+
+## La tarjeta «A/B TEST»: una clase nueva con todas sus puertas (tanda A3 de las pruebas A/B, 25/10/2026)
+
+**El pedido:** Martín, 25/10: «Lo mismo con Automations, podemos poner una tarjeta que sea "Prueba A/B"». El diseño está en
+docs/diseno-pruebas-ab.md (3.1, con la crítica D). El motor de las pruebas vive en lib/pruebas/ (docs/hallazgos-pruebas.md).
+
+**⚠️ El diseño obvio era el equivocado:** una condición del catálogo. No se puede pegar a otra condición, tiene «Si no»,
+elige la primera fila que se cumple y el motor la vuelve a mirar antes de mandar. Es una clase nueva, `nodo: 'ab'`, con
+`ramas_ab` (letra, porcentaje, salida). Se usó un campo aparte y no `ramas` con `pct`: así lo de la condición (sus filas,
+el «Si no») no la ve, y lo que tiene que verla tiene que nombrarla.
+
+**⚠️ La trampa más peligrosa:** `claseDe` devuelve `'mensaje'` para lo que no conoce. Antes de que la clase existiera en
+todas partes, la tarjeta se guardaba y se mandaba como un WhatsApp vacío. Por eso entró todo en un commit.
+
+**⚠️ La TRANSPARENCIA es lo que cuida a los clientes:** «Su reunión sigue en pie» → A/B → «Mañana es tu reunión». Si
+`condicionDeArriba` mira sólo el padre directo, la condición no se vuelve a evaluar, y sale el recordatorio de una reunión
+cancelada. Suben por la tarjeta: `condicionDeArriba` y `condicionSigueLlevando`, `minutosAntesDeReunion`, el carril
+(`esHiloDelCarril`), `mensajeAnteriorDe`, `esperaAntesDe` (la ventana de Meta) y la forma: CONDITION → A/B → CONDITION
+son dos pegadas.
+
+**⚠️ Encontrado de paso, de los botones de Instagram (24/10):** al pegar una copia o llevarla a otro negocio, `conDestinos`
+(lib/flujo-copia.ts) no rehacía las flechas de los botones. Quedaban apuntando a las tarjetas del ORIGINAL. Ahora sí, y las
+ramas de la prueba también.
+
+**Las puertas, revisadas una por una** (barrido de los ~84 `=== 'condicion'` / `!== 'condicion'` / `case 'condicion'`, más
+los switch y las listas de clases). Qué se hizo en cada una:
+- **Tratan la prueba como una bifurcación** (sus ramas se excluyen): `puertosDe`, `siguienteDe`, `contarParalelos`,
+  `cruces` (con el contexto: dos ramas que se juntan no chocan), `insertarNodo` / `sinSalida` (la A toma lo que seguía),
+  `borrarNodo` (borrarla es quedarse con A), `conectarPuerto` (el puerto es la letra), `necesitaHechos`,
+  `ramaDeQuienContesto`, `destinoAlContestar` (por la A), `ultimoMensajeDelCamino` y `haySeguimiento` (por la A),
+  `esMulti` y la tarjeta del lienzo (`grafoDeSecuencia`), `textosParaElGrupo`, y en «Probar» `correrHilo` (evento
+  `ab`), `elegirComoLead` (sin escenario, la A) y `escenariosDePrueba` (uno por rama).
+- **La atraviesan:** las siete del párrafo de la transparencia.
+- **La rechazan:** `pasosDelEvento` (un evento de MaKo no reparte leads), `responderConGrafo` (no corre en «Si
+  responde»), `validarGrafo` (una por automatización, nunca en «Si responde»), `duplicar`, `crearSuelta`, `pegarTarjetas`
+  (una por automatización), `opcionesDelMas` / `opcionesSueltas` (el ＋ no ofrece una segunda) y «Duplicar» del lienzo.
+- **La nombran (listas y tipos):** `ClaseNodo`, `claseDe`, `PasoGrafo.nodo`, `NODOS`, `CamposFlujo` / `camposDelFlujo`
+  (la quinta puerta), `normalizar`, `esControl`, `esLineal`, `esFlujoExplicito` (sin ella, el armado de audios del
+  onboarding pisaba el flujo), `NOMBRE_CONTROL`, `TITULO`, `tituloDeTarjeta`, `trozoDe`, `QueAgregar`, `MENU_MAS`,
+  `ICONOS_MAS`, `nodoNuevo`, `TipoNodo`, `filaALaDerecha`, `ALTO_EDITOR_CONTROL`, `tinteDeControl`, `EditorDeNodo`, la
+  ficha de la API, la descripción de la tarjeta para el lead (`automatizaciones-del-lead-reglas`), y en la IA
+  `ClaseEditable`, `aIA`, `TipoTarjeta`, `TIPOS`, `NodoIA`, `nodoDe` y el armado. **Se me pasó `CLASE_DE_TIPO`** (el tipo
+  de cada tarjeta de la IA a su clase, en Editar con IA): sin `prueba_ab`, «cambia este mensaje por una prueba A/B» se
+  ignoraba en silencio en vez de avisar «Esa tarjeta no cambia de tipo». Ningún test lo veía; lo cazó el tsc acotado
+  (`Record<TipoTarjeta, …>`). Una lista revisada a mano no reemplaza al compilador.
+- **Revisadas y sin cambio** (son SÓLO de la condición: filas, «Si no», hechos, el catálogo): `esResultadoDe`,
+  `resultadosDe`, `todosLosParalelos`, `elegirSalida`, `antiguedadDeEntrada`, `conectarParalelo`,
+  `promoverResultados`, `condicionARespuesta`, `filasDelFlujo`, `sanearRama`, `usaContesto`, `preguntaContesto`,
+  `miraLaReunion` (ya subía por todo lo que no es espera), `filasConParalelo`, `agregarRama` / `quitarRama` (la prueba
+  tiene las suyas), `quitarPuerto`, `conectar`, `repartosDe`, `equipo-contesto`, `rasgosDelFlujo`, `preferirEsperas`,
+  `seguimientosConNoContesto`, `seguimientoQueFalta`, `agregarTramos`, `validarIA`, `legadoAGrafo`, el motor de los
+  eventos (lib/flujo-pasos.ts, lib/flujos.ts: nunca le llega) y los scripts de una vez.
+
+**Sin hacer:** la dimensión «rama» en los gráficos del Dashboard. Métricas muestra la prueba en una franja fija arriba de la
+hoja, como el aviso de Closing, y el gráfico por rama es del área del Dashboard. Tampoco se probó la tarjeta en pantalla.

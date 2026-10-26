@@ -22,28 +22,33 @@ const RAIZ = join(__dirname, '..');
 const leer = (p: string) => readFileSync(join(RAIZ, p), 'utf8');
 const clients = FAMILIAS.flatMap((f) => f.bloques.flat()).find((t) => t.key === 'customer-success');
 
-test('1. la fila Clients dice que adentro están los cursos y la comunidad', () => {
+test('1. la fila Classroom (era Clients, 25/10/2026) dice que adentro están el curso, la comunidad y los clientes', () => {
   assert.ok(clients, 'falta la fila Clients');
-  assert.match(clients.bajada ?? '', /cursos/i);
+  assert.match(clients.bajada ?? '', /curso/i);
+  assert.match(clients.bajada ?? '', /clientes/i);
   assert.match(clients.bajada ?? '', /comunidad/i);
   assert.deepEqual(clients.adentro, ['cs-curso', 'cs-comunidad']);
   for (const k of clients.adentro ?? []) assert.ok(SIN_FILA.some((x) => x.key === k), `«${k}» no está en SIN_FILA`);
 });
 
-test('2. el buscador lleva «curso», «cursos», «clases» y «comunidad» a Classroom y Community, dentro de Clients', () => {
+test('2. el buscador lleva «curso», «cursos», «clases» y «comunidad» a Classroom y Community, dentro de la tab Classroom', () => {
   // La lista como la arma la barra (Sidebar.tsx → BuscadorNav): cada tab, sus secciones y lo de adentro.
   const destinos: Destino[] = FAMILIAS.flatMap((f) => f.bloques.flat()).flatMap((t) => [
     { item: t, donde: null },
     ...(t.secciones ?? []).map((s) => ({ item: s, donde: t.label })),
     ...(t.adentro ?? []).map((k) => SIN_FILA.find((x) => x.key === k)).filter((x): x is NavItem => !!x).map((item) => ({ item, donde: t.label })),
   ]);
-  for (const [q, key] of [['curso', 'cs-curso'], ['cursos', 'cs-curso'], ['Clases', 'cs-curso'], ['comunidad', 'cs-comunidad'], ['classroom', 'cs-curso']] as const) {
+  for (const [q, key] of [['curso', 'cs-curso'], ['cursos', 'cs-curso'], ['Clases', 'cs-curso'], ['comunidad', 'cs-comunidad']] as const) {
     const r = buscarDestinos(q, destinos);
     assert.equal(r[0]?.item.key, key, `«${q}» no lleva a ${key}`);
-    assert.equal(r[0]?.donde, 'Clients', `«${q}»: falta «Clients» al lado`);
+    assert.equal(r[0]?.donde, 'Classroom', `«${q}»: falta «Classroom» al lado`);
   }
-  // Y la fila Clients aparece también, por lo que dice abajo.
-  assert.ok(buscarDestinos('curso', destinos).some((d) => d.item.key === 'customer-success'), '«curso» no muestra Clients');
+  // «classroom» encuentra primero la TAB, que desde el 25/10/2026 se llama así; abre el curso, igual que su sub-tab.
+  const classroom = buscarDestinos('classroom', destinos);
+  assert.equal(classroom[0]?.item.key, 'customer-success');
+  assert.equal(classroom[0]?.item.href, '/classroom', '«classroom» no abre el curso');
+  // La tab y su curso son desde el 25/10/2026 el MISMO lugar (/classroom): el buscador lo muestra una vez, no dos.
+  assert.equal(buscarDestinos('curso', destinos).filter((d) => d.item.href === '/classroom').length, 1, '«curso»: el curso, una sola vez');
 });
 
 test('3. la barra pinta la línea de abajo y le pasa al buscador lo de adentro de cada tab', () => {

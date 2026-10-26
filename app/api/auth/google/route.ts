@@ -12,11 +12,18 @@
 // access_denied) y NO PUEDE ENTRAR. O sea: un scope sensible acá cierra la puerta
 // de calle. La agenda se conecta aparte, desde /api/integraciones/google-calendar,
 // donde es opt-in y su bloqueo solo afecta a esa integración, no al login.
+//
+// 25/10/2026 — LA AGENDA AL ENTRAR, DETRÁS DE UN INTERRUPTOR (Martín: «cuando se registran con Google ya le podríamos
+// preguntar esos permisos»). Con GOOGLE_LOGIN_CON_AGENDA=1 el login suma los scopes de la agenda y el offline; sin
+// él, todo como arriba. Se prende recién con la app verificada: lo de arriba sigue siendo cierto hasta ese día
+// (lib/google-login-agenda.ts).
 // =============================================================================
 
 import { NextResponse, type NextRequest } from 'next/server';
 import crypto from 'node:crypto';
 import { destinoSeguro } from '@/lib/auth-session';
+import { GCAL_SCOPE } from '@/lib/google-calendar';
+import { loginPideAgenda, scopesDelLogin } from '@/lib/google-login-agenda';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,13 +42,16 @@ export async function GET(req: NextRequest) {
   auth.searchParams.set('client_id', clientId);
   auth.searchParams.set('redirect_uri', redirectUri);
   auth.searchParams.set('response_type', 'code');
-  auth.searchParams.set('scope', 'openid email profile');
+  const conAgenda = loginPideAgenda();
+  auth.searchParams.set('scope', scopesDelLogin(conAgenda, GCAL_SCOPE));
   auth.searchParams.set('state', state);
   // SIN access_type=offline: acá no hay nada que refrescar (identidad se usa una
   // vez y listo) y pedirlo devolvería un refresh_token SIN permiso de agenda que
   // el callback guardaría como si fuera el de Calendar — la integración quedaría
   // "conectada" y reventaría al primer uso. El offline vive donde corresponde, en
-  // /api/integraciones/google-calendar, que sí pide el scope.
+  // /api/integraciones/google-calendar, que sí pide el scope. Con el interruptor de la agenda prendido el login también
+  // la pide, y el callback guarda el token sólo si Google otorgó la agenda entera (`otorgoLaAgenda`).
+  if (conAgenda) auth.searchParams.set('access_type', 'offline');
   // Auth incremental: conserva los permisos ya otorgados en vez de pisarlos.
   auth.searchParams.set('include_granted_scopes', 'true');
   // select_account (no consent): deja elegir cuenta sin forzar la pantalla de

@@ -97,7 +97,7 @@ const DEF = TAB_ONBOARDINGS[TAB_CLIENTES];
 test('el catálogo: la key del nav, prefijo propio y el orden de PASOS_CLIENTES', () => {
   assert.ok(DEF, 'la tab Clientes no tiene onboarding en el catálogo');
   assert.equal(TAB_CLIENTES, 'customer-success');
-  assert.equal(DEF.href, '/clients');
+  assert.equal(DEF.href, '/classroom/clients');
   assert.deepEqual(DEF.pasos.map((p) => p.key), [...PASOS_CLIENTES], 'el catálogo y PASOS_CLIENTES dicen órdenes distintos: el orden es una guarda');
   for (const p of DEF.pasos) assert.match(p.key, /^cs_/, `«${p.key}» sin prefijo: colisiona vía KEY_PASOS_COMPARTIDOS`);
   assert.ok(DEF.pasos.every((p) => !p.opcional), 'los tres deciden si la tab está lista');

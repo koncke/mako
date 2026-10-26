@@ -104,7 +104,9 @@ for (const [archivo, abre, cierra] of [
     // (cuarta tanda, punto 16) y las partes de un mensaje (punto 15) en el mismo merge por id.
     // ~5.650 el 11/10/2026 (undécima tanda): Publicar valida también los datos (`problemasDeTokens`).
     // ~6.520 el 17/10/2026 (#869): la vista previa de los links se guarda como la línea (`vistaPreviaAlGuardar`).
-    assert.ok(bloque.length < 6_800, `el recorte mide ${bloque.length}: está mirando otra cosa`);
+    // ~6.880 el 25/10/2026 (aut-2510): un `[]` explícito de variantes las borra, y Publicar revisa la prueba A/B
+    // de la tarjeta (`revisarLaPruebaAlGuardar`). Sigue siendo el mismo bloque: `limpio` → el `update`.
+    assert.ok(bloque.length < 7_400, `el recorte mide ${bloque.length}: está mirando otra cosa`);
     const linea = bloque.split('\n').find((l) => /\bproveedor:/.test(l)) ?? '';
     assert.match(linea, /proveedorDelPaso\(/, `${archivo} decide el proveedor por su cuenta: ${linea.trim()}`);
   });

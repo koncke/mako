@@ -4831,8 +4831,38 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   deshizo (estado `deshecha`) y se leyó 1 en vivo. La corrida entera en `soloProponer` dio `ok`, fuente Zernio, USD, 0
   propuestas (la cuenta no tiene entrega). La campaña de prueba se borró y se verificó que ya no está.
 
-**Sin hacer, con su archivo:** medir lo que escribe a nivel ANUNCIO (prender, pausar, variaciones de texto, hook y video)
-espera a que Martín cargue un método de pago en la cuenta de MaKo (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
+- ⚠️ **`billingStatus: ok` de Zernio NO quiere decir que Meta deje crear un anuncio.** Segunda prueba, el mismo 25/10, en
+  la «Cuenta 1» de Elévate (Mauricio; Martín: «hazlo en la cuenta de Mauricio, que si tiene metodo de pago»): activa,
+  `billingStatus: ok`, y Meta igual frenó el anuncio con el mismo 1359188 («Update payment method»). La ventana de Facebook
+  ya lo avisaba con un botón «Añadir método de pago». **El diagnóstico obvio («esta cuenta sí tiene pago, ahí anda») era el
+  equivocado:** la única prueba de que una cuenta deja crear anuncios es crear uno (en pausa).
+- ⚠️ **Lo que Zernio deshace al fallar no incluye la imagen:** queda en la biblioteca de la cuenta («ad_image.jpg»), y
+  Zernio no tiene cómo borrar imágenes (`/ads/images` sólo lista y sube). En una cuenta de cliente hay que avisar para que
+  la quite a mano. Para probar sin dejar nada, comparar la cuenta antes y después (`foto` / `comparar` del script: el
+  interruptor y el presupuesto de cada campaña y conjunto, en vivo).
+
+- **A nivel ANUNCIO, medido de punta a punta en la cuenta de MaKo** (Martín cargó la tarjeta el 25/10): el anuncio de prueba
+  se creó en pausa; el Media Buyer lo prendió, lo pausó y deshizo, cada paso leído en Meta; las variaciones de texto y de
+  hook se lanzaron (una de dos elegida) y su deshacer las borró (`DELETED` en Meta). La campaña se borró y la cuenta quedó
+  como en la foto de antes. Gasto 0 e impresiones 0: el árbol de Zernio guarda lo borrado con sus métricas, y eso lo prueba.
+- ⚠️ **El árbol de Zernio tiene el interruptor de los ANUNCIOS con hasta una hora de atraso.** Recién pausado por el Media
+  Buyer, el árbol seguía diciendo «prendido», y «prender» se frenó con «Ya estaba prendido en Meta» (y la decisión quedó
+  vencida). **El diagnóstico obvio («ya estaba prendido») era el equivocado:** Meta decía pausado. Zernio lo documenta («los
+  estados son los que guardó; se refrescan en 15 a 60 minutos; quien actúa sobre un interruptor pase `live=true`»). Ahora
+  `lanzar` y `deshacer` releen el anuncio con `GET /ads/{adId}?live=true` antes de decidir (`conAnuncioEnVivo`, con test);
+  campañas y conjuntos ya venían en vivo. Lo que el motor PROPONE sobre un anuncio sigue saliendo del árbol: puede proponer
+  algo que ya se hizo, y al lanzar se ve y queda vencida.
+- ⚠️ **`POST /ads/create` con `status: PAUSED` pausa sólo la CAMPAÑA:** el conjunto y el anuncio nacen prendidos. No entrega
+  (la campaña manda), pero para dejar todo en pausa hay que pausar el conjunto aparte.
+- **`billingStatus` tampoco se actualiza al cargar la tarjeta:** siguió diciendo `missing` con la tarjeta ya cargada y Meta
+  dejando crear. Es un dato guardado, no una lectura: no sirve para decidir en ningún sentido.
+- ⚠️ **Un anuncio BORRADO trae `configuredStatus: ACTIVE`** (lo vio el chat «Zernio y CAPI» en los de esta prueba): lo borrado
+  se queda en el árbol (`status: cancelled`) y, leyendo sólo el interruptor, contaba como PRENDIDO (Stop Loss o Ganador lo
+  podían tomar). Marcarlo «pausado» tampoco sirve: Revive propondría prenderlo. Ahora `arbolDesdeZernio` lo deja como
+  `DELETED` (ni prendido ni pausado, y sigue en el árbol para que su gasto de antes sume), y la lectura en vivo del anuncio
+  mira `status` y la entrega antes que el interruptor. Con test, roto a propósito.
+
+**Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
 (`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
@@ -4872,6 +4902,13 @@ la Zernio del negocio».
   real. ⚠️ Con la clave de Zernio y sin token, un fallo NO cae al `META_ACCESS_TOKEN` del entorno (sería el de otro negocio):
   los tres llamadores piden `accesoDeMeta` y cortan sin acceso. Los links vencen (imagen ~24 h, video ~12 días): se bajan en
   el momento.
+
+- **El nivel anuncio, medido el 25/10 en la cuenta de MaKo** (con la tarjeta cargada; la campaña de prueba del Media Buyer, en
+  pausa): el conjunto en vivo da presupuesto diario **1** (USD en unidades: la conversión no multiplica ni divide), y el anuncio
+  en pausa trae imagen, miniatura y su post (`effectiveObjectStoryId` sobre la página «Hola MaKo»), así que el permalink sale
+  igual que con el token; las finanzas traen el medio de pago. ⚠️ **Un anuncio BORRADO sale en `/ads/tree` con `status:
+  cancelled` y `configuredStatus: ACTIVE`**: leer sólo el interruptor propio da por prendido a un anuncio que ya no existe
+  (avisado al Media Buyer). Sin entrega, los insights siguen vacíos: las filas reales recién con un negocio que gaste.
 
 **Sin hacer:** el árbol de `_getMetaHealth` por Zernio (`/v1/ads/accounts/live` + `/v1/ads/tree`), el
 reproductor del anuncio, `campanasYConjuntos` del selector del CRM, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de

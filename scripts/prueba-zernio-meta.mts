@@ -134,8 +134,9 @@ if (paso === 'conectar') {
     const pixel = est.pixel ?? (pixeles.length === 1 ? pixeles[0].id : null);
     if (!pixel) { console.error(`No hay UN píxel claro: ${JSON.stringify(pixeles)}.`); process.exit(6); }
     linea('píxel', pixel);
-    const { eventoParaZernio, resultadoConversionZernio } = await import('../lib/zernio-meta-cuerpo');
-    const ev = eventoParaZernio({ eventName: 'Lead', segundos: Math.floor(Date.now() / 1000), eventId: `prueba-zernio:${Date.now()}`, email: 'prueba@hola-mako.com', phone: null, leadId: null });
+    const { eventoParaZernio, resultadoConversionZernio, EVENTO_DE_PRUEBA_CAPI } = await import('../lib/zernio-meta-cuerpo');
+    // NO un «Lead»: Zernio no reenvía el `testCode` (25/10/2026) y un Lead de prueba entra al píxel como un contacto real.
+    const ev = eventoParaZernio({ eventName: EVENTO_DE_PRUEBA_CAPI, segundos: Math.floor(Date.now() / 1000), eventId: `prueba-zernio:${Date.now()}`, email: 'prueba@hola-mako.com', phone: null, leadId: null });
     const body = await zFetch<unknown>(canal.clave, '/ads/conversions', {
       method: 'POST', body: JSON.stringify({ accountId: canal.accountId, destinationId: pixel, testCode: codigo, events: [ev] }),
     }, 30_000).catch((e) => ({ error: String(e) }));

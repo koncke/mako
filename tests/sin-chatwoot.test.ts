@@ -107,7 +107,6 @@ const PUEDEN_NOMBRARLO: Record<string, string> = {
   'app/vsl/_detalle/features.ts': 'copy pública de /vsl/<slug>: las secciones del inbox oficial y del reporte por WhatsApp se reescriben aparte',
   'lib/flujos-tipos.ts': "el evento 'lead.wa_entrante' quedó sin emisor (lo emitía el webhook borrado)",
   // Historia.
-  'app/admin/dev/_historial.generado.ts': HISTORIA,
   'app/admin/dev/areas.ts': HISTORIA,
   'app/admin/dev/chatbot/bitacora.ts': HISTORIA,
   'app/admin/dev/crm/auditoria.ts': HISTORIA,

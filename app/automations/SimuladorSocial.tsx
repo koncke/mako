@@ -83,10 +83,10 @@ export function SimuladorSocial({ canal, mensajes, typing, onEnviarTexto, negoci
               {m.tipo === 'audio' && <span style={{ fontSize: 12, color: 'var(--warn)' }}>Nota de voz: no sale por {NOMBRE_CANAL[canal]}</span>}
               {/* El pie de un archivo va como su propio mensaje: así llega por Instagram (lib/canal-zernio.ts). */}
               {m.texto && m.tipo !== 'audio' && <BurbujaSocial canal={canal} saliente={!delNegocio}>{m.texto}</BurbujaSocial>}
-              {delNegocio && botones?.get(m.id)?.botones.length ? (
+              {delNegocio && botones?.get(String(m.id))?.botones.length ? (
                 <div data-botones-dm="" style={{ display: 'flex', flexDirection: 'column', gap: 4, width: '100%', minWidth: 180 }}>
-                  {botones.get(m.id)!.botones.map((b) => (
-                    <button key={b.id} type="button" disabled={!onTocar} onClick={() => onTocar?.(m.id, b)} title={b.url ? `Abre ${b.url}` : 'Tócalo como el lead'}
+                  {botones.get(String(m.id))!.botones.map((b) => (
+                    <button key={b.id} type="button" disabled={!onTocar} onClick={() => onTocar?.(String(m.id), b)} title={b.url ? `Abre ${b.url}` : 'Tócalo como el lead'}
                       style={{ padding: '8px 12px', borderRadius: 12, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: canal === 'instagram' ? '#5B51D8' : '#0084FF', fontWeight: 600, fontSize: 13, cursor: onTocar ? 'pointer' : 'default', fontFamily: 'inherit' }}>
                       {b.titulo}{b.url ? ' ↗' : ''}
                     </button>

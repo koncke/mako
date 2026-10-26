@@ -22,7 +22,9 @@ import { createHash, timingSafeEqual } from 'node:crypto';
  * fila de ruteo guarda el hash. Las demás de `ROUTING_CREDS` son identificadores públicos (un id
  * de página, un tipo de evento) y van tal cual.
  */
-export const RUTEO_POR_HASH: ReadonlySet<string> = new Set(['HOTMART_HOTTOK', 'SKOOL_WEBHOOK_CLAVE']);
+// VACÍO desde el 25/10/2026: las dos que lo usaban (Hotmart y Skool) se fueron con el Leads Scraper. El mecanismo queda: es
+// el mismo de los tokens de la API de MaKo (`hashDeRuteo`), y la próxima fuente que sólo traiga un secreto entra acá.
+export const RUTEO_POR_HASH: ReadonlySet<string> = new Set<string>([]);
 
 /** sha256 en hex del valor SIN espacios a los lados (como lo guarda y lo manda cada lado). */
 export function hashDeRuteo(valor: string): string {

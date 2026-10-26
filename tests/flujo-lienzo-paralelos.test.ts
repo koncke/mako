@@ -319,7 +319,8 @@ test('⚠️ el tinte de las tarjetas de control usa SÓLO tokens que se redefin
   const oscuro = css.slice(css.indexOf('[data-tema="oscuro"] {'), css.indexOf('}', css.indexOf('[data-tema="oscuro"] {')));
   for (const t of tokens) assert.match(oscuro, new RegExp(`\\n\\s*${t}:`), `${t} no se redefine en oscuro: en oscuro queda un rectángulo pastel`);
   // La condición, en el primario; la etiqueta, con SU color como `ChipEtiqueta` (color+24, color+66).
-  assert.match(fn, /n\.tipo === 'condicion'\) return \{ fondo: 'var\(--primary-bg\)', borde: 'var\(--primary-weak\)'/);
+  // (Tanda A3: la prueba A/B es lógica como la condición, con el mismo tinte.)
+  assert.match(fn, /n\.tipo === 'condicion' \|\| n\.tipo === 'ab'\) return \{ fondo: 'var\(--primary-bg\)', borde: 'var\(--primary-weak\)'/);
   assert.match(fn, /return \{ fondo: `\$\{n\.color\}24`, borde: `\$\{n\.color\}66`/);
   assert.match(fn, /\/\^#\[0-9a-f\]\{6\}\$\/i\.test\(n\.color\)/, 'un color que no es #rrggbb + «24» no pinta');
   assert.match(fn, /if \(n\.familia !== 'control'\) return null;/, 'el tinte se le aplicó a /mensajes');

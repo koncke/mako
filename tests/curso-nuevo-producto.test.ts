@@ -39,7 +39,7 @@ const sinComentarios = (src: string) => src
   .replace(/\{\s*\}/g, '{}');
 
 const APP = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-const SHELL = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+const SHELL = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
 const NUEVO = sinComentarios(leer('app/customer-success/curso/NuevoProducto.tsx'));
 
 // ⚠️ SE MUDÓ A LA CABECERA DE CLIENTS el 24/10/2026 (f28 de la llamada con Leandro: un curso es un producto, y hay UN
@@ -78,7 +78,7 @@ test('crea con la CADENA del CRM (producto → oferta → embudo), nunca con ups
 test('al crearlo se navega DURO al curso nuevo, con el ?ws= de la pestaña; con error, el diálogo se queda', () => {
   assert.match(NUEVO, /const ws = useWs\(\);/);
   assert.match(NUEVO, /window\.location\.href = conWs\(rutaDelCurso\(r\.productoId\), ws\);/);
-  assert.match(NUEVO, /const rutaDelCurso = \(id: number\) => `\/clients\/classroom\?producto=\$\{id\}`;/);
+  assert.match(NUEVO, /const rutaDelCurso = \(id: number\) => `\/classroom\?producto=\$\{id\}`;/);
   assert.doesNotMatch(NUEVO, /router\.refresh\(\)/, 'un refresh llega tarde para lo que cambió QUÉ EXISTE');
   // Un error no cierra el diálogo: se dice y se puede corregir el nombre.
   assert.match(NUEVO, /if \(!r\.ok\) \{ setError\(r\.error\); setCreando\(false\); return; \}/);

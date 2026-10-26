@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
 
 
   // MAKO PARTNERS (23/10/2026, lib/partners-programa.ts): el referido queda en su negocio con sus dos bienvenidas, y con su
-  // 2º mes pagado, el crédito al partner (una sola vez: el índice único de partner_creditos). Nunca tira.
+  // 2º mes pagado, lo que gana el partner: el 100% de su primer mes (una sola vez: el índice único de partner_creditos). Nunca tira.
   const partners = Date.now() - t0 < maxDuration * 1000 - RESERVA_MS ? await acreditarReferidos().catch((e) => ({ error: msg(e) })) : null;
   if (partners && 'acreditados' in partners && (partners.atados || partners.acreditados)) console.log(`[cron:cobros-reconciliar] MaKo Partners: ${JSON.stringify(partners)}`);
 

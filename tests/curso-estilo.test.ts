@@ -261,7 +261,7 @@ test('el color: un toque en la paleta cancela el «otro» pendiente, y un guarda
   const f = src.slice(i, src.indexOf('const guardarTexto', i));
   assert.ok(f.length > 200, 'no encontré guardarAjuste');
   // El «otro» vive en «Personalizar» desde el 24/10/2026 (f27): un color de la paleta cancela el pendiente ahí.
-  const pers = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+  const pers = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
   const elegir = pers.slice(pers.indexOf('const elegirAcento = '), pers.indexOf('const probarOtro = '));
   assert.match(elegir, /window\.clearTimeout\(timer\.current\);/, 'un color de la paleta no cancela el «otro» pendiente');
   // Lo que se vuelve es lo que el server CONFIRMÓ, nunca lo de pantalla (un tono a mitad de camino).

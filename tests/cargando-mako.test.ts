@@ -58,7 +58,7 @@ test('aparece a los 150 ms (MS_APARECE) y la barra dice «cargando» también co
 });
 
 /** Las tabs de la barra de escritorio y de /m que cargan del server: cada una con su loading.tsx y ESTE loader. */
-const TABS_ESCRITORIO = ['automations', 'plan', 'dashboard', 'chats', 'calendario', 'clients', 'offer', 'web-generator', 'ads-manager', 'video-editor', 'image-editor', 'ads-writer'];
+const TABS_ESCRITORIO = ['automations', 'plan', 'dashboard', 'chats', 'calendario', 'classroom', 'offer', 'web-generator', 'ads-manager', 'video-editor', 'image-editor', 'ads-writer'];
 const TABS_MOVIL = ['ads', 'automations', 'calendario', 'chats', 'crm', 'cs', 'curso', 'dashboard', 'hoy', 'inbox', 'landing', 'mas', 'plan', 'second-brain', 'video'];
 
 test('cada tab grande tiene su loading.tsx con CargandoMako (escritorio y /m)', () => {

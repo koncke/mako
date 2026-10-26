@@ -208,7 +208,9 @@ test('el botón de verdad arranca de nuevo el MISMO recorrido, de verdad; ↻ vu
 test('lo del OTRO canal ni se dibuja ni sale: el filtro vive en el panel, y lo real mira el canal', () => {
   const src = PANEL();
   const avanzar = src.slice(src.indexOf('function avanzar() {'), src.indexOf('const arrancarRefs = () => {'));
-  assert.ok(avanzar.length > 0 && avanzar.length < 3200, `el recorte de avanzar mide ${avanzar.length}`);
+  // (25/10/2026, tanda A3 de las pruebas A/B: 3200 → 3300 por el caso de la tarjeta A/B, que vive en su ayudante
+  // `seguirPruebaAB`: en `avanzar` queda una línea.)
+  assert.ok(avanzar.length > 0 && avanzar.length < 3300, `el recorte de avanzar mide ${avanzar.length}`);
   // (Quinta tanda, punto 1: en el medio se marca «ya le escribimos», salga por el canal que salga.)
   // (Sexta tanda: el canal de un paso sale de UNA función, `canalDelPaso`, la misma del contacto.)
   assert.match(avanzar, /const delPaso: CanalProbar = canalDelPaso\(paso\);\s+huboMensaje\.current = true;\s+if \(delPaso !== ctx\.current\.canal\) \{ luego\(0, avanzar\); return; \}/);

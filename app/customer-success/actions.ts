@@ -164,7 +164,7 @@ export async function crearClienteAction(datos: {
   // desde el curso y la API de MaKo): createLead, ganado y «Sin cobro», con su chequeo de duplicados.
   const r = await crearClienteGanado(datos, await autorActual());
   // Con el lead YA creado (lo de «Sin cobro» falló), la cartera igual tiene que mostrarlo.
-  if (r.ok || r.leadId) revalidatePath('/clients');
+  if (r.ok || r.leadId) revalidatePath('/classroom/clients');
   if (r.ok) revalidatePath('/crm');
   return r;
 }
@@ -179,7 +179,7 @@ export async function autoasignarAction(): Promise<
   const no = await puedeUsarCs(); if (no) return { ok: false, error: no };
   try {
     const r = await autoasignar();
-    if (r.ok) revalidatePath('/clients');
+    if (r.ok) revalidatePath('/classroom/clients');
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo.' };
@@ -235,7 +235,7 @@ export async function guardarImagenClienteAction(leadId: number, cambio: {
       .select('avatar_url, portada, portada_y, avatar_y, icono').single();
     if (error) return { ok: false, error: error.message };
 
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     const fila = data as { avatar_url: string | null; portada: string | null; portada_y: number | null; avatar_y: number | null; icono: string | null };
     // Se devuelve LO QUE QUEDÓ GUARDADO, no lo que se pidió: si el saneo descartó la
     // URL, la pantalla tiene que enterarse en vez de pintar algo que la base no tiene.
@@ -295,7 +295,7 @@ export async function guardarDatosClienteAction(leadId: number, cambio: {
     const despues = await getLead(leadId).catch(() => null);
     await logLeadChanges(leadId, antes, despues, await autorActual()).catch(() => {});
 
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     const fila = data as { nombre: string | null; empresa: string | null };
     // Lo que QUEDÓ guardado, no lo que se pidió: mismo criterio que las imágenes.
     return { ok: true, nombre: fila.nombre ?? '', empresa: fila.empresa };
@@ -325,8 +325,8 @@ export async function crearCuentaMakoAction(leadId: number, email: string): Prom
     const pagador = await getUsuarioActual().then((u) => u?.email ?? null).catch(() => null);
     const r = await abrirCuentaDePartner({ agenciaWs, nombre: cliente.nombre.trim() || `Cliente ${leadId}`, email, leadId, pagador });
     if (!r.ok) return { ok: false, error: r.error };
-    revalidatePath('/clients');
-    revalidatePath('/partners');
+    revalidatePath('/classroom/clients');
+    revalidatePath('/agency');
     return { ok: true, clienteWs: r.clienteWs, estado: 'pendiente', link: r.link, sinLink: r.sinLink };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo abrir la cuenta.' };
@@ -360,7 +360,7 @@ export async function moverEntregaAction(leadId: number, productoId: number, eta
     if (!m.ok) return { ok: false, error: m.motivo ?? 'No se pudo mover.' };
     // ⚠️ SÓLO SE REVALIDA SI ALGO CAMBIÓ. Un movimiento idempotente que igual
     // revalida tira las 78 KB del trabajo de la cartera por un gesto que no movió nada.
-    if (m.cambio) revalidatePath('/clients');
+    if (m.cambio) revalidatePath('/classroom/clients');
     return { ok: true, desde: m.desde, relojPrevio: m.relojPrevio, hacia: m.hacia, rotulo: m.rotulo, producto: m.producto, cambio: m.cambio };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
@@ -416,7 +416,7 @@ export async function moverEntregaLoteAction(productoId: number, movs: Array<{ l
       if (r.cambio) alguno = true;
       resultados.push({ leadId, ok: true, desde: r.desde, relojPrevio: r.relojPrevio, hacia: r.hacia, cambio: r.cambio });
     }
-    if (alguno) revalidatePath('/clients');
+    if (alguno) revalidatePath('/classroom/clients');
     return { ok: true, resultados };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo mover.' };
@@ -433,7 +433,7 @@ export async function sacarDeEntregaAction(leadId: number, productoId: number): 
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
     const r = await sacarClienteDeEntrega(leadId, productoId, await autorActual());
     if (!r.ok) return { ok: false, error: r.motivo ?? 'No se pudo sacar de la entrega.' };
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     return { ok: true, etapa: r.etapa };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo sacar de la entrega.' };
@@ -466,7 +466,7 @@ export async function quitarDeProductoAction(leadId: number, productoId: number)
     // 23/10/2026: la usa también la API de MaKo (quitar_cliente_de_servicio).
     const r = await quitarClienteDeProducto(leadId, productoId, await autorActual());
     if (!r.ok) return r;
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     return r;
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo quitar.' };
@@ -485,7 +485,7 @@ export async function volverAProductoAction(leadId: number, productoId: number, 
     if (!(await clienteDelWorkspace(leadId))) return { ok: false, error: 'Ese cliente no es tuyo.' };
     const r = await volverClienteAProducto(leadId, productoId, etapa, reloj, await autorActual());
     if (!r.ok) return r;
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo devolver.' };
@@ -529,7 +529,7 @@ export async function ordenarEtapaAction(productoId: number, etapa: string, lead
       { onConflict: 'workspace_id,producto_id,etapa' },
     );
     if (error) return { ok: false, error: error.message };
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar el orden.' };
@@ -572,7 +572,7 @@ export async function guardarEtapasEntregaAction(
     if (!(prods ?? []).length) return { ok: false, error: 'Ese producto no es tuyo.' };
     const ok = await guardarEtapasEntrega(productoId, etapas, fases);
     if (!ok) return { ok: false, error: 'Esas etapas no se pudieron guardar. Revisa que ninguna quede sin nombre.' };
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     return { ok: true };
   } catch (e) {
     return { ok: false, error: e instanceof Error ? e.message : 'No se pudo guardar.' };
@@ -602,7 +602,7 @@ export async function crearServicioAction(nombre: string): Promise<
   try {
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede crear un producto.' };
     const { productoId } = await crearProductoConFunnel(nombre);
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     revalidatePath('/crm');
     return { ok: true, productoId };
   } catch (e) {
@@ -632,7 +632,7 @@ export async function renombrarServicioAction(productoId: number, nombreCrudo: s
     // lados» de arriba: «desvincula lo que hace que se ponga automáticamente el nombre de ese
     // CRM al nombre de un curso». El CRM tiene nombre propio (lib/funnels.ts → renombrarFunnel).
     await renombrarProducto(productoId, nombre);
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     revalidatePath('/crm');
     return { ok: true, nombre };
   } catch (e) {
@@ -660,7 +660,7 @@ export async function eliminarServicioAction(productoId: number): Promise<
     // API de MaKo), con la regla pura en ./eliminar-programa.ts.
     const r = await eliminarPrograma(productoId);
     if (!r.ok) return r;
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     revalidatePath('/crm');
     // `deshacer`: lo que se hizo, para el «Deshacer» de la cabecera de Clients (`restaurarServicioAction`).
     return { ok: true, deshacer: r.deshacer };
@@ -702,7 +702,7 @@ export async function restaurarServicioAction(productoId: number, deshacer: Desh
     if (!(await adminDeWorkspaceActual())) return { ok: false, error: 'Sólo un administrador puede restaurar un producto.' };
     const r = await restaurarPrograma(productoId, deshacer);
     if (!r.ok) return r;
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     revalidatePath('/crm');
     return { ok: true };
   } catch (e) {
@@ -725,7 +725,7 @@ export async function duplicarServicioAction(productoId: number): Promise<
     const sesion = await getUsuarioActual();
     const r = await duplicarPrograma(ws, productoId, sesion?.nombre || sesion?.email || null);
     if (!r.ok) return r;
-    revalidatePath('/clients');
+    revalidatePath('/classroom/clients');
     revalidatePath('/crm');
     return r;
   } catch (e) {

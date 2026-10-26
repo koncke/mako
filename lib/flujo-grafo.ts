@@ -165,6 +165,18 @@
 //   · `juntarPasosIA` es LA PUERTA PARA LO VIEJO (al abrir, al guardar y en la API): junta las tarjetas del
 //     medio en la primera, sube al nodo lo que era del caso y SACA del array a las demás. El motor no se
 //     reescribe: `expandirPasoIA` ya juntaba; ahora toma objetivo, voz y ejemplos del nodo.
+//
+// ── TANDA A3 DE LAS PRUEBAS A/B (25/10/2026): LA TARJETA «A/B TEST» (docs/diseno-pruebas-ab.md 3.1, con la crítica D) ─────
+// Martín: «Lo mismo con Automations, podemos poner una tarjeta que sea "Prueba A/B"». Una clase NUEVA (`nodo: 'ab'`), no una
+// condición del catálogo (era el diseño obvio, y el equivocado: una condición no se pega a otra, tiene «Si no», elige la
+// primera fila que se cumple y el motor la vuelve a mirar antes de mandar):
+//   · `ramas_ab`: de 2 a 4 ramas, cada una con su letra (A es el control, «Sin cambio»), su porcentaje (suman 100, de a 5,
+//     10 o más cada una) y su salida. El puerto de una rama es su letra. Sin «Si no» ni flechas en paralelo.
+//   · Se EXCLUYEN como los resultados de una condición: a cada lead le toca UNA rama (la de su asignación, lib/pruebas/), y
+//     dos ramas pueden volver a juntarse más adelante. `esBifurcacion()` es la pregunta para lo que vale para las dos.
+//   · Es TRANSPARENTE para lo que sube buscando una guarda: la condición de arriba de un mensaje y el ancla de la reunión
+//     (lib/nutricion-grafo-motor.ts) y las reglas de forma (lib/flujo-forma.ts). Si no, un recordatorio perdía su guarda.
+//   · UNA por automatización, nunca dentro de «Si responde» ni de un AI Step.
 // =============================================================================
 
 // El catálogo de condiciones importa sólo TIPOS de acá: el ciclo no existe en runtime.
@@ -364,7 +376,17 @@ export function textoSiAgendaCerca(e: Espera | undefined): string | null {
 /** Un salto: a otra automatización (se lo inscribe) o a otra tarjeta de ésta. */
 export type DestinoIrA = { secuencia_id: number } | { nodo: string };
 
-export type ClaseNodo = 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio';
+/** Las letras de las ramas de una tarjeta «A/B TEST» (A es el control). */
+export const CLAVES_AB = ['A', 'B', 'C', 'D'] as const;
+export type ClaveAB = (typeof CLAVES_AB)[number];
+/** Una rama de la tarjeta «A/B TEST»: su letra (que es su puerto), su porcentaje y a dónde sigue. */
+export type RamaAB = { clave: ClaveAB; pct: number; siguiente: string | null; nombre?: string };
+export const MIN_RAMAS_AB = 2;
+export const MAX_RAMAS_AB = 4;
+export const MIN_PCT_AB = 10;
+export const PASO_PCT_AB = 5;
+
+export type ClaseNodo = 'mensaje' | 'accion' | 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio' | 'ab';
 
 /**
  * El id del nodo de INICIO: el CRON cuando tiene flechas en paralelo. Es el mismo string que
@@ -391,9 +413,11 @@ export type PasoGrafo = {
    * (además de su `siguiente`). Ausente o vacío = una sola salida, como siempre.
    */
   paralelos?: string[];
-  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio';
+  nodo?: 'esperar' | 'condicion' | 'respuesta' | 'ir_a' | 'inicio' | 'ab';
   espera?: Espera;
   ramas?: RamaCondicion[];
+  /** Sólo la tarjeta «A/B TEST» (tanda A3): sus ramas, cada una con su letra, su porcentaje y su salida. */
+  ramas_ab?: RamaAB[];
   casos?: CasoRespuesta[];
   /**
    * Sólo «Si responde»: la persona le BORRÓ la flecha del CRON (10/10/2026, «Una condición normal»: la
@@ -494,13 +518,27 @@ export const esGrafo = (pasos: readonly PasoGrafo[]): boolean =>
   pasos.some((p) => typeof p?.id === 'string' && p.id.length > 0);
 
 export function claseDe(p: PasoGrafo): ClaseNodo {
-  if (p.nodo === 'esperar' || p.nodo === 'condicion' || p.nodo === 'respuesta' || p.nodo === 'ir_a' || p.nodo === 'inicio') return p.nodo;
+  if (p.nodo === 'esperar' || p.nodo === 'condicion' || p.nodo === 'respuesta' || p.nodo === 'ir_a' || p.nodo === 'inicio' || p.nodo === 'ab') return p.nodo;
   const a = p.accion;
   if (a != null && typeof a === 'object' && !Array.isArray(a)) return 'accion';
   return 'mensaje';
 }
 
 export const esNodoMensaje = (p: PasoGrafo): boolean => claseDe(p) === 'mensaje';
+
+/**
+ * ¿Es una BIFURCACIÓN: una tarjeta cuyas salidas se EXCLUYEN (a cada lead le toca una sola)? La condición y la tarjeta
+ * «A/B TEST» (tanda A3). Es la pregunta para lo que vale para las dos: contar caminos, cruces, insertar antes. Lo que es
+ * SÓLO de la condición (sus filas, el «Si no», los hechos) sigue preguntando por 'condicion'.
+ */
+export const esBifurcacion = (p: PasoGrafo | null | undefined): boolean => {
+  if (!p) return false;
+  const c = claseDe(p);
+  return c === 'condicion' || c === 'ab';
+};
+
+/** Las ramas de una tarjeta «A/B TEST», tal como están guardadas (vacío si no es una). */
+export const ramasABDe = (p: PasoGrafo | null | undefined): RamaAB[] => (p && claseDe(p) === 'ab' && Array.isArray(p.ramas_ab) ? p.ramas_ab : []);
 
 /** ¿Es un AI STEP? Un «Si responde» con sus casos adentro (`paso_ia`, novena tanda). */
 export const esPasoIA = (p: PasoGrafo | null | undefined): boolean => !!p && claseDe(p) === 'respuesta' && p.paso_ia === true;
@@ -666,6 +704,9 @@ export function contarParalelos(pasos: readonly PasoGrafo[]): number {
         const principal = r === RESULTADO_SI_NO ? p.si_no : (p.ramas ?? []).find((x) => x.id === r)?.siguiente;
         v = Math.max(v, abre(principal) + masLosSuyos(paralelosDeResultado(p, r)));
       }
+    } else if (c === 'ab') {
+      // Las ramas de una prueba se excluyen, como los resultados de una condición: cuenta la que más abre.
+      for (const r of ramasABDe(p)) v = Math.max(v, abre(r.siguiente));
     } else if (c === 'ir_a') {
       v = p.destino && 'nodo' in p.destino ? abre(p.destino.nodo) : 0;
     } else if (c !== 'respuesta') {
@@ -706,7 +747,7 @@ export function siguienteDe(pasos: readonly PasoGrafo[], i: number): string | nu
   const p = pasos[i];
   if (!p) return null;
   const c = claseDe(p);
-  if (c === 'condicion' || c === 'respuesta' || c === 'ir_a') return null;
+  if (c === 'condicion' || c === 'respuesta' || c === 'ir_a' || c === 'ab') return null;
   if (p.siguiente !== undefined) return p.siguiente ?? null;
   // El inicio va al FINAL del array: «el de abajo» no existe o es cualquier cosa. Su salida
   // principal es la explícita o ninguna.
@@ -734,6 +775,9 @@ export function puertosDe(pasos: readonly PasoGrafo[], i: number): Puerto[] {
     }
     case 'respuesta':
       return [...(p.casos ?? []).map((c) => ({ puerto: c.id, destino: c.siguiente ?? null })), { puerto: 'si_no', destino: p.si_no ?? null }];
+    case 'ab':
+      // Una fila por rama, en el orden de sus letras; el puerto ES la letra.
+      return ramasABDe(p).map((r) => ({ puerto: r.clave, destino: r.siguiente ?? null }));
     case 'ir_a':
       return [];
     default:
@@ -1079,6 +1123,11 @@ export function normalizar<P extends PasoGrafo>(pasos: readonly P[]): P[] {
       // Sólo una condición tiene «Si no» con flechas: en otra clase el campo no significa nada.
       delete out.paralelos_si_no;
     }
+    // LA TARJETA «A/B TEST» (tanda A3): sus ramas, con la letra, el porcentaje entero y el nombre recortado. Como en una
+    // condición, una salida que apunta a una tarjeta que no existe NO se toca: cambia por dónde sigue el lead y la tiene
+    // que ver `validarGrafo`. En otra clase el campo no significa nada y se va.
+    if (c === 'ab') out.ramas_ab = ramasABDe(p).map(ramaABLimpia);
+    else delete out.ramas_ab;
     if (c === 'respuesta') {
       const idsCasos = idsDeCasos(ids[i], p.casos ?? []);
       out.casos = (p.casos ?? []).map((x, k) => ({ ...x, id: idsCasos[k], siguiente: x.siguiente ?? null }));
@@ -1110,6 +1159,32 @@ export function idsDeCasos(nodo: string, casos: readonly { readonly id?: string 
     vistos.add(id);
     return id;
   });
+}
+
+/** Una rama de la tarjeta «A/B TEST» como se guarda: la letra, el porcentaje entero, la salida y el nombre (si tiene). */
+function ramaABLimpia(r: RamaAB): RamaAB {
+  const nombre = typeof r.nombre === 'string' ? r.nombre.trim().slice(0, TOPE_NOMBRE_RAMA_AB) : '';
+  return { clave: r.clave, pct: Math.round(Number(r.pct) || 0), siguiente: r.siguiente ?? null, ...(nombre ? { nombre } : {}) };
+}
+export const TOPE_NOMBRE_RAMA_AB = 40;
+
+/**
+ * LO QUE TIENE MAL UNA TARJETA «A/B TEST» (tanda A3). Al GUARDAR, lo que rompe el dato: más de 4 ramas, letras que no son
+ * A, B, C, D en orden. Al PUBLICAR, además lo incompleto: menos de 2 ramas, porcentajes que no suman 100, que no van de
+ * a 5 o que bajan de 10. Lo mismo que pide el editor (`EditorPruebaAB`).
+ */
+export function problemasDeTarjetaAB(p: PasoGrafo, id: string, publicar: boolean): string[] {
+  const err: string[] = [];
+  const ramas = ramasABDe(p);
+  if (ramas.length > MAX_RAMAS_AB) err.push(`la prueba A/B ${id} tiene más de ${MAX_RAMAS_AB} ramas`);
+  if (ramas.some((r, k) => r.clave !== CLAVES_AB[k])) err.push(`las ramas de la prueba A/B ${id} van con las letras A, B, C y D en orden`);
+  if (!publicar) return err;
+  if (ramas.length < MIN_RAMAS_AB) err.push(`la prueba A/B ${id} necesita al menos ${MIN_RAMAS_AB} ramas`);
+  const suma = ramas.reduce((s, r) => s + (Number(r.pct) || 0), 0);
+  if (ramas.length >= MIN_RAMAS_AB && suma !== 100) err.push(`los porcentajes de la prueba A/B ${id} suman ${suma}: tienen que sumar 100`);
+  if (ramas.some((r) => !(Number(r.pct) >= MIN_PCT_AB))) err.push(`cada rama de la prueba A/B ${id} lleva ${MIN_PCT_AB} % o más`);
+  if (ramas.some((r) => Number(r.pct) % PASO_PCT_AB !== 0)) err.push(`los porcentajes de la prueba A/B ${id} van de a ${PASO_PCT_AB}`);
+  return err;
 }
 
 // ── Validar: lo que NO se guarda ──────────────────────────────────────────────────
@@ -1197,6 +1272,7 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
         }
       }
     }
+    if (c === 'ab') err.push(...problemasDeTarjetaAB(p, ids[i], publicar));
     if (c === 'respuesta' && (p.casos?.length ?? 0) > TOPE_CASOS) err.push(`«Si responde» tiene más de ${TOPE_CASOS} casos`);
     // El AI STEP se valida en su forma COMPACTA (lo que se guarda), con sus propios motivos: nombran la
     // tarjeta por su id para que Publicar la abra (`tarjetaDelError`) y el caso por su nombre.
@@ -1217,6 +1293,15 @@ function erroresDeForma(pasos: readonly PasoGrafo[], publicar: boolean): string[
       if (pt.destino && !existe.has(pt.destino)) err.push(`la tarjeta ${ids[i]} sigue en ${pt.destino}, que no existe`);
     }
   });
+  // UNA PRUEBA A/B POR AUTOMATIZACIÓN (tanda A3): la prueba vive en `pruebas` con la automatización como lugar
+  // (`auto:<secuencia>`), y dos tarjetas se repartirían la misma gente. Y NUNCA DONDE SE CONTESTA: «Si responde» (y el AI
+  // Step) corre en el momento, en UN hilo, y lo que mueve una respuesta se prueba con otro diseño (crítica, punto 20).
+  const abs = pasos.map((p, i) => (p && claseDe(p) === 'ab' ? ids[i] : null)).filter((x): x is string => x != null);
+  if (abs.length > 1) err.push(`una automatización tiene UNA prueba A/B (tiene ${abs.length}: ${abs.join(', ')})`);
+  if (abs.length) {
+    const hilo = hiloDe(pasos);
+    for (const id of abs) if (hilo.get(id) === HILO_RESPUESTA) err.push(`la prueba A/B ${id} cuelga de «Si responde»: va en la salida`);
+  }
   // «Si responde» de los de siempre sigue siendo UNO y no se mezcla con AI Step (las dos formas escuchan el
   // mismo mensaje: el motor no sabría cuál contesta).
   // ⚠️ UNDÉCIMA TANDA: UN AI STEP POR MEDIO (`TOPE_AI_STEP_POR_MEDIO`). Al guardar cuentan los que ESCUCHAN (lo
@@ -1409,6 +1494,16 @@ function llegadasPorTarjeta(pasos: readonly PasoGrafo[], conCtx: boolean): Map<s
     llegadas.set(id, lista);
     const i = indicePorId(pasos, id);
     const p = pasos[i];
+    if (claseDe(p) === 'ab') {
+      // Las ramas de una prueba se excluyen como los resultados de una condición: el contexto lo dice, así dos ramas que
+      // vuelven a juntarse no «chocan».
+      for (const r of ramasABDe(p)) {
+        const otro = ctx && ctx.has(id) && ctx.get(id) !== r.clave;
+        const nuevo: ReadonlyMap<string, string> | null = !ctx || otro ? null : new Map([...ctx, [id, r.clave]]);
+        empujar(r.siguiente, camino, nuevo, enResp);
+      }
+      continue;
+    }
     if (claseDe(p) === 'condicion') {
       for (const res of resultadosDe(p)) {
         // La condición ya estaba en el camino (un ciclo): en otra vuelta puede salir por otro lado.
@@ -1838,6 +1933,8 @@ export function conectarPuerto<P extends PasoGrafo>(pasos: readonly P[], id: str
     }
     if (p.ramas?.some((r) => r.id === puerto)) return { ...p, ramas: p.ramas.map((r) => (r.id === puerto ? { ...r, siguiente: destino } : r)) };
     if (p.casos?.some((c) => c.id === puerto)) return { ...p, casos: p.casos.map((c) => (c.id === puerto ? { ...c, siguiente: destino } : c)) };
+    // Una rama de la prueba A/B (tanda A3): su puerto es su letra.
+    if (claseDe(p) === 'ab' && ramasABDe(p).some((r) => r.clave === puerto)) return { ...p, ramas_ab: ramasABDe(p).map((r) => (r.clave === puerto ? { ...r, siguiente: destino } : r)) };
     return p;
   });
 }
@@ -1980,7 +2077,9 @@ export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugarIn: 
   return out.map((p) => {
     if (p.id !== n.id) return p;
     if (c === 'condicion' && p.ramas?.length) return { ...p, ramas: p.ramas.map((r, k) => (k === 0 ? { ...r, siguiente: antes } : r)) };
-    if (c === 'respuesta' || c === 'ir_a' || c === 'condicion') return p;
+    // Una prueba A/B en una flecha: lo que seguía es la A (el control, «Sin cambio»); la B la arma el lienzo.
+    if (c === 'ab' && p.ramas_ab?.length) return { ...p, ramas_ab: p.ramas_ab.map((r, k) => (k === 0 ? { ...r, siguiente: antes } : r)) };
+    if (c === 'respuesta' || c === 'ir_a' || c === 'condicion' || c === 'ab') return p;
     return { ...p, siguiente: antes };
   });
 }
@@ -1989,7 +2088,8 @@ export function insertarNodo<P extends PasoGrafo>(pasos: readonly P[], lugarIn: 
 function sinSalida<P extends PasoGrafo>(n: P): P {
   const c = claseDe(n);
   if (c === 'condicion' && n.ramas?.length) return { ...n, ramas: n.ramas.map((r, k) => (k === 0 ? { ...r, siguiente: null } : r)) };
-  if (c === 'respuesta' || c === 'ir_a' || c === 'condicion') return n;
+  if (c === 'ab' && n.ramas_ab?.length) return { ...n, ramas_ab: n.ramas_ab.map((r, k) => (k === 0 ? { ...r, siguiente: null } : r)) };
+  if (c === 'respuesta' || c === 'ir_a' || c === 'condicion' || c === 'ab') return n;
   return { ...n, siguiente: null };
 }
 
@@ -2019,7 +2119,19 @@ export function borrarNodo<P extends PasoGrafo>(pasos: readonly P[], id: string)
   // tenerlas; si no, se van con su subárbol (el deshacer del lienzo las devuelve).
   let heredan: string[] = [];
   if (c === 'condicion' || c === 'respuesta') for (const d of soloDe(base, id)) quitar.add(d);
-  else {
+  else if (c === 'ab') {
+    // BORRAR LA PRUEBA ES QUEDARSE CON A (tanda A3): lo que seguía por la A (el control, el camino de antes) pasa a colgar
+    // de sus padres, y se va lo que colgaba SÓLO de las otras ramas. Lo que también se alcanza por A (dos ramas que se
+    // juntan más abajo) se queda.
+    const ramas = ramasABDe(p);
+    reemplazo = ramas[0]?.siguiente ?? null;
+    const solo = soloDe(base, id);
+    const sigue = reemplazo ? new Set([reemplazo, ...descendientes(base, reemplazo)]) : new Set<string>();
+    for (const r of ramas.slice(1)) {
+      if (!r.siguiente) continue;
+      for (const x of [r.siguiente, ...descendientes(base, r.siguiente)]) if (solo.has(x) && !sigue.has(x)) quitar.add(x);
+    }
+  } else {
     reemplazo = siguienteDe(base, i);
     const par = paralelosDe(p);
     // Sin salida principal, la PRIMERA flecha en paralelo pasa a ser la que la reemplaza.

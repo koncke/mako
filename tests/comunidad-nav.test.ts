@@ -19,34 +19,35 @@ import { CAPAS, tabEnCapa, type CapaId } from '../lib/capas';
 import { TAB_ONBOARDINGS } from '../lib/tab-onboarding-catalogo';
 import { PASOS_COMUNIDAD, TAB_COMUNIDAD, cambiosDeOnboarding, lineaOnboarding, pasosDeLosDatos } from '../app/customer-success/comunidad/onboarding-comunidad';
 
-// Desde el 17/10/2026 Community es una sub-tab de Clients (/clients/community): no es fila de la barra, pero su key sigue
+// Desde el 17/10/2026 Community es una sub-tab de Clients (/classroom/community): no es fila de la barra, pero su key sigue
 // en nav.ts (SIN_FILA) porque la pantalla del teléfono la pide. Se busca entre TODOS los ítems.
 const todos = TODOS_LOS_ITEMS;
 const item = todos.find((i) => i.key === 'cs-comunidad');
 
-// Desde el 17/10/2026 Customer Success dejó de ser familia: «Clients» es UNA tab de Operate (/clients) con sus sub-tabs
+// Desde el 17/10/2026 Customer Success dejó de ser familia: «Clients» es UNA tab de Operate (/classroom/clients) con sus sub-tabs
 // adentro de la pantalla (docs/diseno-clients.md), y Community es una de ellas.
 test('«Community» (key cs-comunidad) es una sub-tab de Clients, y Clients es la fila de Operate', () => {
   assert.ok(item, 'falta el ítem cs-comunidad');
   assert.equal(item.label, 'Community');
-  assert.equal(item.href, '/clients/community');
+  assert.equal(item.href, '/classroom/community');
   assert.ok(NOMBRES_ICONO.includes(item.icon), `el ícono «${item.icon}» no existe: dibujaría un punto`);
   assert.ok(!FAMILIAS.flatMap(itemsDe).some((i) => i.key === 'cs-comunidad'), 'Community volvió a ser una fila de la barra');
-  // Desde el 17/10/2026 noche Clients es una fila de Sales (la sidebar del prototipo).
+  // Desde el 17/10/2026 noche Clients es una fila de Sales (la sidebar del prototipo); desde el 25/10/2026 se llama Classroom.
   const clients = FAMILIAS.find((f) => f.key === 'sales')?.bloques.flat().find((i) => i.key === 'customer-success');
-  assert.equal(clients?.href, '/clients', 'Clients no está en Sales');
+  assert.equal(clients?.href, '/classroom', 'Classroom no está en Sales');
+  assert.equal(clients?.label, 'Classroom');
 });
 
 test('se enciende sólo en su ruta: ni Clientes ni Curso se encienden ahí, ni ella en las de ellos', () => {
   const clientes = todos.find((i) => i.key === 'customer-success')!;
   const curso = todos.find((i) => i.key === 'cs-curso')!;
-  assert.equal(item!.match('/clients/community'), true);
+  assert.equal(item!.match('/classroom/community'), true);
   assert.equal(item!.match('/customer-success/comunidad'), true, 'la ruta vieja (redirige) no se reconoce');
-  assert.equal(item!.match('/clients'), false);
-  assert.equal(item!.match('/clients/classroom'), false);
+  assert.equal(item!.match('/classroom/clients'), false);
+  assert.equal(item!.match('/classroom'), false);
   // La fila de la barra es Clients: se enciende en todas sus sub-tabs.
-  assert.equal(clientes.match('/clients/community'), true, 'en Community la barra no marca Clients');
-  assert.equal(curso.match('/clients/community'), false);
+  assert.equal(clientes.match('/classroom/community'), true, 'en Community la barra no marca Clients');
+  assert.equal(curso.match('/classroom/community'), false);
   const keys = todos.map((i) => i.key);
   assert.equal(new Set(keys).size, keys.length, 'hay keys de ítem repetidas en la barra');
 });
@@ -69,7 +70,7 @@ test('el catálogo tiene la tab con los pasos EN EL MISMO ORDEN que la regla', (
   const def = TAB_ONBOARDINGS[TAB_COMUNIDAD];
   assert.ok(def, 'falta cs-comunidad en el catálogo de onboardings');
   assert.equal(def.key, TAB_COMUNIDAD);
-  assert.equal(def.href, '/clients/community');
+  assert.equal(def.href, '/classroom/community');
   assert.deepEqual(def.pasos.map((p) => p.key), [...PASOS_COMUNIDAD]);
   assert.deepEqual(def.pasos.filter((p) => !p.opcional).map((p) => p.key), ['comunidad_post'], 'el único obligatorio es el primer post');
 });

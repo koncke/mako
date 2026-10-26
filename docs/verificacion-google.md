@@ -15,6 +15,14 @@ carpeta de arriba del repo). Falta que Martín cree la cuenta del revisor y cont
 El borrador de la respuesta está en `verificacion-google-meta-21-10.md`, en esa misma carpeta.
 La marca quedó verificada y publicada el 10/10 ([requisitos oficiales](https://developers.google.com/identity/protocols/oauth2/production-readiness/sensitive-scope-verification)).
 
+**Lo que espera esta verificación desde el 25/10/2026: la agenda AL ENTRAR con Google.** Martín pidió sacar la tarjeta
+de Google Calendar de /integraciones y pedir sus permisos al registrarse con Google. Está hecho detrás de un interruptor,
+`GOOGLE_LOGIN_CON_AGENDA=1` (lib/google-login-agenda.ts), **apagado**: con la app sin verificar, sumar calendar.readonly y
+calendar.events al login le mostraría «Google no verificó esta app» a TODO el que entra con Google y gastaría el tope de
+100 usuarios. Para prenderlo: (1) la verificación aprobada; (2) la política de privacidad reescrita (hoy promete dos
+consentimientos separados: app/privacidad/page.tsx); (3) la variable en Vercel. Los scopes son los mismos que se están
+verificando; lo que cambia es el MOMENTO en que se piden (NO MEDIDO si Google pide verlo en un video nuevo).
+
 ## Lo que pidió Google el 11/10, y por qué falló el primer video
 
 El mail pide cuatro cosas: un video con la pantalla de permisos y **todos los scopes desplegados y

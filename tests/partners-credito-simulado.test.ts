@@ -8,7 +8,7 @@
 // Corre `acreditarReferidos` (lib/partners-programa.ts) REAL contra una base EN MEMORIA (lib/supabase.ts simulado) y con
 // los mails anotados en vez de enviados (lib/invitaciones.ts simulado). Nada toca la base de producción ni manda un mail.
 //   1. un negocio entra con el link de otro y paga su primer mes → quedan atados y salen las DOS bienvenidas; sin crédito;
-//   2. paga su segundo mes → se acredita su primer mes, a precio de lista, y sale el aviso al partner;
+//   2. paga su segundo mes → gana el 100% de su primer mes, a precio de lista, y sale el aviso al partner;
 //   3. el cron vuelve a correr → nada se repite (ni crédito ni mails);
 //   4. el tablero del partner y el panel del super admin cuentan lo mismo.
 //
@@ -54,6 +54,8 @@ const tablas = {
   pagos: [{ id: 1, workspace_id: 9, cobro_id: 1, pagado: true, fecha_pago: '2026-10-25' },
     { id: 10, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-10-25' }, { id: 11, workspace_id: 9, cobro_id: 2, pagado: true, fecha_pago: '2026-11-25' }],
   partner_creditos: [],
+  // Estudio Sol se hizo partner (el alta, 25/10/2026): el panel del programa cuenta las ALTAS, no los códigos.
+  app_settings: [{ workspace_id: 10, key: 'partners.alta', value: JSON.stringify({ at: '2026-10-20T10:00:00Z', cuantos: '3-5', como: ['clientes'], cobro: 'estudio.sol.mp' }) }],
 };
 function from(tabla) {
   const st = { filtros: [], op: 'select', valores: null, orden: null, lim: null, rango: null, single: false, head: false, devolver: false };
@@ -136,8 +138,8 @@ type Salida = {
   creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number }>;
   atado: number | null;
   atadoPlataforma: number | null;
-  tablero: { link: string | null; referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { acumuladoUsd: number; saldoUsd: number } };
-  programa: { conLink: number; referidos: number; acreditadoUsd: number; partners: Array<{ ws: number; nombre: string; referidos: number; acreditadoUsd: number }> };
+  tablero: { link: string | null; referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number } };
+  programa: { partners: number; referidos: number; ganadoUsd: number; aPagarUsd: number; lista: Array<{ ws: number; nombre: string; referidos: number; ganadoUsd: number; aCobrarUsd: number; cobro: string | null }> };
 };
 
 let salida: Salida | null = null;
@@ -162,12 +164,13 @@ test('primer mes pagado: quedan atados y salen las DOS bienvenidas (a los admins
   assert.match(bienvenidas.find((m) => m.tag === 'partners-bienvenida')!.asunto, /de parte de Estudio Sol/);
 });
 
-test('segundo mes pagado: se acredita su primer mes a precio de lista, y el partner recibe el aviso', () => {
+test('segundo mes pagado: gana el 100% de su primer mes a precio de lista, y el partner recibe el aviso', () => {
   const s = correr();
   assert.deepEqual(s.r2, { vistos: 2, atados: 0, acreditados: 1 });
   assert.deepEqual(s.creditos.map((c) => [c.referidor_ws, c.referido_ws, c.tipo, c.monto_usd]), [[10, 20, 'referido', 97]]);
   const aviso = s.mails.slice(s.mails1, s.mails2);
   assert.deepEqual(aviso.map((m) => `${m.tag}→${m.to}`), ['partners-credito→sol@ejemplo.com']);
+  assert.match(aviso[0].asunto, /^Ganaste US\$\s?97/, 'en dinero: «Ganaste US$ 97», no «crédito»');
 });
 
 test('el cron vuelve a correr: nada se repite (ni el crédito, ni un mail)', () => {
@@ -181,11 +184,13 @@ test('el tablero del partner y el panel del super admin cuentan lo mismo', () =>
   const s = correr();
   assert.equal(s.tablero.link, 'https://hola-mako.com/r/estudio-sol');
   assert.deepEqual(s.tablero.referidos.map((r) => [r.nombre, r.estado, r.mesesPagados]), [['Inmobiliaria del Parque', 'acreditado', 2]]);
-  assert.equal(s.tablero.resumen.acumuladoUsd, 97);
+  assert.equal(s.tablero.resumen.ganadoUsd, 97);
+  assert.equal(s.tablero.resumen.aCobrarUsd, 97, 'todavía nadie se lo transfirió');
   assert.equal(s.programa.referidos, 1, 'Coach Laura (código de la plataforma) no cuenta');
-  assert.equal(s.programa.conLink, 1, 'la plataforma no es un negocio con su link');
-  assert.equal(s.programa.acreditadoUsd, 97);
-  assert.deepEqual(s.programa.partners.map((p) => [p.nombre, p.referidos, p.acreditadoUsd]), [['Estudio Sol', 1, 97]]);
+  assert.equal(s.programa.partners, 1, 'partners = los que terminaron el alta (la plataforma tiene código y no cuenta)');
+  assert.equal(s.programa.ganadoUsd, 97);
+  assert.equal(s.programa.aPagarUsd, 97);
+  assert.deepEqual(s.programa.lista.map((p) => [p.nombre, p.referidos, p.ganadoUsd, p.aCobrarUsd, p.cobro]), [['Estudio Sol', 1, 97, 97, 'estudio.sol.mp']]);
 });
 
 // Roturas (24/10/2026; base 4 / 0), cada una restaurada (pasan / fallan):

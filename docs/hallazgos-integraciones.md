@@ -5,6 +5,47 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## /integraciones limpia: sacar una tarjeta NO es sacar la integración, y el Leads Scraper era una sola cosa (25/10/2026)
+
+**Vive en:** `lib/integraciones-catalogo.ts` (`oculto`), `app/integraciones/IntegracionesBoard.tsx` (`?abrir=`),
+`app/integraciones/TusCuentasIA.tsx`, `lib/google-login-agenda.ts`, `app/api/auth/google/route.ts` y su callback.
+Guards: `tests/integraciones-limpieza-25-10.test.ts`, `tests/leads-scraper-retirado.test.ts`.
+
+- **Ocultar una tarjeta rompía su link EN SILENCIO.** El `?abrir=<key>` del tablero buscaba la key en la lista VISIBLE: con
+  las cuatro IA y Google Calendar en `oculto`, `?abrir=anthropic` o `?abrir=google` (que mandan los avisos, la API de MaKo y
+  MaKo en WhatsApp) no abría nada, sin error. Ahora una `oculto` abre el modal suelto (`useConectarIntegracion`). **Regla:
+  `oculto` saca la tarjeta, no la integración; su modal (`getIntegracion` no mira `oculto`), su estado en la API
+  (`getIntegraciones({ conOcultas: true })`) y su link tienen que seguir andando.**
+- **Ocultar algo pone rojo a un test ajeno que lo usaba de EJEMPLO.** `integraciones-visibles` tomaba a `anthropic` como «la
+  tarjeta de Inteligencia que el super admin ve»: rojo desde el commit que la ocultó, y no lo dijo nadie hasta correrlo.
+  Antes de ocultar, `git grep` de la key en `tests/`.
+- **Las filas nuevas salían apiladas y centradas, y no era la grilla:** `.tci-clave` ya existía más abajo en
+  `tus-cuentas-ia.css` (reglas viejas sin dueño, `flex-direction: column`) y le ganaba a la nueva. Un nombre de clase se
+  busca antes de usarlo; las nuevas son `.tci-api`.
+- **«Depreca Hotmart, Skool... Elimina Apify» no eran tres tarjetas: era el Leads Scraper entero** (14/10). Dos webhooks que
+  entraban gente al CRM, el ruteo por hash, la pantalla `/crm/prospectos` con su renglón del «⋯» y del clic derecho, dos
+  operaciones de la API y un `funnel-de-entrada` que sólo existía para ellos. Medido antes, sólo leyendo: **0** claves (ni de
+  la plataforma), 0 filas de ruteo, 0 leads con ese origen, 0 búsquedas. Salió todo; las tablas de la mig 0289 quedan
+  (vacías) y `RUTEO_POR_HASH` queda vacío pero vivo (es el mismo mecanismo de los tokens de la API).
+- **Apify tenía una segunda vida que no es la integración:** la lectura de un @ de Instagram que paga la PLATAFORMA
+  (`lib/instagram-perfil-server.ts`, 22/10). Quedó DORMIDA: no hay clave en ningún lado y la tarjeta para cargarla se fue.
+  Su respaldo con la clave del negocio (`credDelCliente('APIFY_TOKEN')`) ya no se puede cargar.
+- **El login con Google NUNCA pidió la agenda, y dos comentarios decían que sí** (el callback y `GoogleCalendarPanel`):
+  `guardarCalendarBestEffort` estaba dormido. Ahora la pide con `GOOGLE_LOGIN_CON_AGENDA=1`, apagado: la app de Google no
+  está verificada (`docs/verificacion-google.md`) y los scopes del calendario son SENSIBLES → «Google no verificó esta app»
+  a todo el que entra y cada uno cuenta contra el tope de 100. **Trampa del consentimiento granular:** la persona puede
+  destildar el calendario y Google igual manda un refresh_token; el callback guarda sólo si el `scope` de la respuesta trae
+  la agenda ENTERA (`otorgoLaAgenda`).
+
+**Quedó SIN hacer:**
+- Prender `GOOGLE_LOGIN_CON_AGENDA`: recién con la verificación aprobada (Martín contesta el hilo de Google con el video
+  youtu.be/0-i4bJ8w5fo y arma la cuenta de revisor en el ws3) y **antes** reescribir `app/privacidad/page.tsx` (promete dos
+  consentimientos separados, el del login y el de la agenda).
+- La lectura de un @ por Apify de la plataforma (`lib/instagram-perfil-server.ts`): sacarla o reemplazarla lo decide el CRM.
+- El nombre y el logo de Zernio: los lleva el chat de Zernio.
+
+*25/10/2026, chat «Settings» (claude5), rama integraciones-2510.*
+
 ## Los links a cada conexión: `?abrir=` y `?servicio=` abren el modal, y el login perdía la query (25/10/2026)
 
 **Vive en:** `app/integraciones/IntegracionesBoard.tsx`, `proxy.ts` (`denegar`), `lib/integraciones-catalogo.ts`,
@@ -1796,6 +1837,37 @@ llegue al píxel (con `testCode`, a «Probar eventos»); el `permissionLevel` qu
   O sea: el camino anda; que las filas sean las de Meta directo NO se pudo comparar (sin entrega no hay filas). Se probó SIN
   guardar la conexión en producción: con el código viejo desplegado, la cuenta guardada metía al negocio de MaKo en los crons
   de Meta con el token del botón (sin `ads_read`). `guardar --si` va después del deploy.
+- **Con el deploy (main 9c684f88c, 25/10 14:54) se guardó la conexión en el negocio de MaKo** (`META_ZERNIO_CUENTA`, la cuenta,
+  el píxel; la página «Hola MaKo» ya estaba). Medido con las funciones REALES de producción, sin el script: `integracionConectada`
+  da Meta conectada, `fetchMetaInsights` y `fetchAdsetBudgets` leen por Zernio (cero filas, cero errores), la salud da activa y
+  en verde, CAPI sale por la conexión de Facebook al píxel, y `ver_conexion_meta` de la API lo devuelve todo sin tokens. Desde
+  ahí los crons de Meta corren para el negocio de MaKo por Zernio. Lo que sigue sin medir: filas reales (la cuenta nunca gastó)
+  y CAPI (falta el código de «Probar eventos»).
+
+- **CAPI por Zernio, PROBADO el 25/10 (~20:35 UTC) con el código de «Probar eventos» TEST96217** sobre el píxel de MaKo
+  (`1869323014511830`), con la conexión de permiso «Control total»: dos Lead de prueba, uno por el script (`capi --si`:
+  `eventsReceived: 1`, `eventsFailed: 0`, fbtrace `AW5-rkSpUET8ixrvKTtm9R8`) y otro por el camino entero de la app
+  (`probar_capi_meta` → `sendMetaCAPIEvent` → Zernio: recibidos 1). Con eso se prendió `ZERNIO_META_PROBADO`. Sigue sin medir si
+  alcanza «Administrar campañas» (`advertise`): por eso el botón pide «Control total».
+- ⚠️ **El diagnóstico obvio («no aparecen en Probar eventos → CAPI no llegó») era el equivocado: llegaron, como eventos REALES.**
+  `/{pixel}/stats` (por Zernio, `tracking-tags/{id}/stats`) mostró 2 «Lead» en la franja de las 20:00 UTC con la clave de match
+  `email` y NADA más (ni cookies, ni `fbp`, ni navegador): son los de prueba (sólo llevaban `prueba@hola-mako.com`); uno de la
+  landing trae cookies. O sea: **Zernio no reenvía el `testCode`** aunque su doc dice «Meta `test_event_code` passthrough». El
+  píxel de MaKo quedó con 3 Lead falsos (los de las 20:35 y 20:36 en la franja de las 20:00 UTC, el de las 21:41 en la de las 21:00, los tres con match `email` y nada más) (sin campañas corriendo: no movieron ninguna optimización; lo que entra por CAPI no se
+  borra). **La regla:** una prueba de CAPI nunca manda un evento que cuente (`EVENTO_DE_PRUEBA_CAPI = 'PruebaMaKo'`), y para ver
+  si un evento llegó, `aggregation=match_keys` de las estadísticas del píxel dice QUÉ lo identificó (un evento de servidor con sólo
+  email es el nuestro). El reclamo a Zernio, redactado para que Martín decida.
+  **Verificado en la pantalla de Meta** (el Cerebro, en el Administrador de eventos del píxel): «Información general» → «Cliente
+  potencial · Activo · API de conversiones · 2», y nada en «Probar eventos». **Para la próxima:** la API de Zernio no tiene otro
+  campo para el código de prueba (sólo `testCode`; `platformData` va únicamente a `custom_data`, no a la raíz del evento), así que
+  una prueba de CAPI por Zernio va contra un PÍXEL DE PRUEBA, nunca contra uno con anuncios que optimizan por Lead; y si se prueba
+  en un píxel real, con un evento propio (`PruebaMaKo`), nunca con uno estándar.
+- **La deprecación del token (25/10, tarde):** el corte para ADMINISTRAR anuncios es una fecha (`CORTE_TOKEN_META`, `null` hasta
+  que sale el aviso) y un solo freno (`frenoDelTokenMeta`) en las puertas que escriben con el token; leer no se corta. ⚠️ **Una
+  conexión hecha desde la tarjeta de Zernio no llegaba a MaKo:** sólo el modal de Meta guardaba la conexión de anuncios en el
+  negocio, y el link del aviso abre la tarjeta de Zernio. Ahora la guarda la pieza común (`conectada-meta`), venga del botón que
+  venga. ⚠️ **El logo de Zernio no era el suyo:** iba una «Z» sobre violeta #6D4AFF; su ícono oficial es la marca blanca sobre
+  #EB3514 (zernio.com/icon.svg).
 
 **Sin hacer, con su archivo:** lo que sigue leyendo SÓLO por el token (el inventario entero está en el relevo): el árbol de
 `/integraciones` y de la API (`lib/meta-health.ts`, `_getMetaHealth`: las ramas de campañas, conjuntos y anuncios fallan
@@ -1829,3 +1901,34 @@ no tocó en su rama.
 
 **Probado:** los cuatro pings contra las APIs REALES con claves inventadas contestan «inválido» con el motivo. Un ping que
 diga «válido» necesita una cuenta real de cada uno: queda para cuando Martín conecte una.
+
+## Conectar por Zernio la cuenta publicitaria de OTRO portfolio: un perfil aparte, y la vuelta que se tragaba el error (25/10/2026)
+
+**Vive en:** `lib/zernio-ads.ts` (`urlConectarAnunciosZernio`, `conexionAnunciosZernio`) · `lib/zernio-redes.ts`
+(`retornoDeZernio`, `errorDeVueltaAjena`) · `app/_components/ConectarViaZernio.tsx` (la vuelta de página entera).
+
+Para probar el Media Buyer en la cuenta de un cliente (Mauricio, con permiso de Martín) hubo que conectar su cuenta a la
+Zernio de la plataforma. Costó tres clics de Martín; esto es lo que no se ve en la doc de un vistazo.
+
+- **El diagnóstico obvio era «Martín no marcó las cuentas», y era el equivocado.** Las marcó. Zernio conecta los anuncios
+  con el inicio de sesión para empresas de Meta: el permiso es de UN portfolio (el que se elige primero), y las cuentas de
+  otro portfolio no entran aunque la persona las vea. La conexión de la plataforma es del portfolio de MaKo.
+- ⚠️ **Zernio guarda UNA conexión de anuncios por perfil, y un login nuevo en el mismo perfil la RECONECTA** (si comparte
+  alguna cuenta, cambia el alcance por el nuevo; si no comparte ninguna, lo rechaza con `reconnect_mismatch`). Conectar la
+  cuenta de un cliente en el perfil de MaKo podía cambiar o tirar la de MaKo, que el CAPI usa con «Control total». El
+  camino seguro: un perfil de Zernio aparte (`POST /v1/profiles`), sólo para eso, y borrarlo al terminar.
+- ⚠️ **La vuelta se tragaba el error.** `/ads-manager` (y toda pantalla con `ConectarViaZernio`) saca de la barra lo que
+  agrega Zernio, y si la pestaña no había empezado el login (un link abierto suelto) no decía nada: Martín aceptó dos veces
+  y nadie supo que no había conectado. Ahora un `error=` igual se dice, con el texto de MaKo y no el de la URL
+  (`errorDeVueltaAjena`; un éxito ajeno sigue sin hacer nada). Para un link armado a mano, volver a una página que no toca
+  la barra (la landing) deja leer `connected=metaads` o el `error=`.
+- **El estado de pago de cada cuenta sin leer el token del cliente:** `GET /v1/ads/accounts` trae `billingStatus`
+  (`ok` o `missing`), `accountStatus` y `minimumDailyBudget`. La de MaKo dice `missing`. ⚠️ Pero `ok` no alcanza: la
+  «Cuenta 1» de Elévate decía `ok` y Meta igual frenó el anuncio por el método de pago (docs/hallazgos-ads.md).
+- **Borrar el perfil de prueba:** primero `DELETE /v1/accounts/{id}` (desconecta; Zernio da un período de gracia) y después
+  `DELETE /v1/profiles/{id}`. Verificado el 25/10: quedó sólo el Default, con la conexión de MaKo intacta.
+
+**Sin hacer:** el botón de conectar no deja elegir el perfil de Zernio (siempre el Default del negocio): conectar un
+segundo portfolio en un mismo negocio hoy se hace por script.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*

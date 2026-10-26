@@ -105,6 +105,10 @@ export const TABLAS_DE_INQUILINO = [
   // El libro del recolector del Second Brain (mig 0333): vaciar o borrar el negocio se lleva lo que ya leyó.
   'second_brain_recolectado',
   'pipeline_stages', 'plan_dependencias', 'plan_propuestas', 'plan_proyectos',
+  // Las pruebas A/B (mig «pruebas_ab», sin número todavía, 25/10/2026): la prueba, sus ramas, quién vio qué, las lecturas y
+  // el porqué. No van en TENANT_TABLES: las lee y escribe lib/pruebas/store.ts con el cliente de servicio y el ws explícito
+  // (la página pública de una landing y el cron no tienen sesión). Sin la migración, el reset avisa y sigue.
+  'prueba_asignaciones', 'prueba_historial', 'prueba_lecturas', 'prueba_variantes', 'pruebas',
   // Las reuniones de Fathom que el cron descartó por tipo, con su motivo (mig 0300, 16/10/2026), y
   // los trabajos de «Re-priorizar todo» (mig 0301, el mismo día).
   'plan_repriorizaciones', 'plan_reprios', 'plan_reuniones_descartadas', 'plan_tareas', 'producto_entrega', 'productos',

@@ -10,12 +10,33 @@
 // EL TEXTO (25/10, el Cerebro: «editarlos (texto del mensaje, títulos y destino de cada botón), por la misma puerta que el
 // lienzo»): `editar_pasos_secuencia_mensajes` es sólo WhatsApp y email, y sin ramas; un DM con botones vive en un flujo con
 // ramas. Sólo el de un DM de Instagram o Messenger, y sólo de un mensaje de UNA parte: el de varias se edita en el lienzo.
+//
+// EL DE UN WHATSAPP O UN EMAIL EN UN FLUJO CON RAMAS (`textoParaGuardar`, `cambiar_texto_mensaje`, 25/10, el Cerebro: «ciérralo…
+// Usa la misma puerta (`publicarPasos`) y la misma ruta por tarjeta»): lo mismo para una tarjeta de WhatsApp o email. No toca
+// lo que por acá no se ve: una nota de voz o un archivo, uno de varias partes, el WhatsApp oficial (una plantilla que aprobó
+// Meta) ni un email con diseño (su HTML se perdería): esos, en el lienzo.
+//
+// ⚠️ CAMBIAR EL TEXTO SUELTA LAS VARIANTES (`variantes: []`): son otras formas de decir el texto VIEJO, y el motor sortea
+// entre el cuerpo y ellas (`textoDelPaso`, lib/nutricion-canal.ts). Con cuatro, a cuatro de cada cinco leads les llegaba lo
+// que ya no decía. `setSecuenciaPasos` respeta el `[]` explícito; la clave ausente conserva las de antes.
 // =============================================================================
 
 import { claseDe, idDe, validarGrafo, type PasoGrafo } from './flujo-grafo';
 import { botonesDe, normalizarTitulo, urlValida, TOPE_BOTONES, TOPE_TITULO_BOTON, type BotonSocial } from './botones-social';
 import { esCanalSocial } from './canal-social';
 import { partesExplicitas } from './mensaje-partes';
+import { proveedorDelPaso } from './nutricion-canal';
+
+/** Lo que de un mensaje miran estas funciones y el grafo no tipa. */
+type CamposDelMensaje = { variantes?: string[] | null; cuerpo_html?: string | null; asunto?: string | null; tipo?: string | null; audio_id?: unknown; proveedor?: string | null; template_wa?: string | null };
+const camposDe = (p: PasoGrafo): CamposDelMensaje => p as unknown as CamposDelMensaje;
+/** El paso con el texto nuevo, sin las variantes del viejo (y cuántas eran, para decirlo). */
+function conCuerpo(p: PasoGrafo, cuerpo: string): { paso: PasoGrafo; sueltas: number } {
+  // El mismo texto no suelta nada: las variantes siguen siendo de ESE texto.
+  const sueltas = cuerpo === String(p.cuerpo ?? '').trim() ? 0 : (camposDe(p).variantes ?? []).length;
+  return { paso: { ...p, cuerpo, ...(sueltas ? { variantes: [] } : {}) } as PasoGrafo, sueltas };
+}
+const yVariantes = (n: number): string => (n ? ` (se quitan sus ${n} variantes del texto anterior)` : '');
 
 /** Lo que pide quien llama: el título y UNA cosa, «sigue» (una tarjeta) o «link» (una dirección). */
 export type BotonPedido = { titulo?: unknown; sigue?: unknown; link?: unknown };
@@ -40,7 +61,8 @@ export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string,
   if (cuerpo && partesExplicitas(p)) return { ok: false, error: `El mensaje ${tarjeta} son varios mensajes seguidos: su texto se edita en el lienzo de Automations.` };
   if (lista == null) {
     const botones = botonesDe(p);
-    return conTexto(pasos, i, { ...p, cuerpo: cuerpo! }, botones, `Texto del mensaje ${tarjeta} de «${nombre}»: «${corto(cuerpo!)}»`);
+    const c = conCuerpo(p, cuerpo!);
+    return conTexto(pasos, i, c.paso, botones, `Texto del mensaje ${tarjeta} de «${nombre}»: «${corto(cuerpo!)}»${yVariantes(c.sueltas)}`);
   }
   if (lista.length > TOPE_BOTONES) return { ok: false, error: `Instagram muestra hasta ${TOPE_BOTONES} botones.` };
   const ids = new Set(pasos.map((q, k) => idDe(q, k)));
@@ -73,8 +95,41 @@ export function botonesParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string,
   const que = botones.length
     ? botones.map((b) => (b.url ? `«${b.titulo}» abre ${b.url}` : `«${b.titulo}» sigue en ${b.siguiente}`)).join(' · ')
     : 'sin botones';
-  return conTexto(pasos, i, cuerpo ? { ...paso, cuerpo } : paso, botones,
-    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}`);
+  const c = cuerpo ? conCuerpo(paso, cuerpo) : { paso, sueltas: 0 };
+  return conTexto(pasos, i, c.paso, botones,
+    `${cuerpo ? `Texto («${corto(cuerpo)}») y botones` : 'Botones'} del mensaje ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}`);
+}
+
+/**
+ * Los pasos con el texto (y/o el asunto, en un email) nuevo de UN mensaje de WhatsApp o email, o el error en palabras. Para
+ * un flujo con ramas, que `editar_pasos_secuencia_mensajes` no toca. `nombre` es el de la automatización (para los errores).
+ */
+export function textoParaGuardar(pasos: readonly PasoGrafo[], tarjeta: string, nombre: string, nuevo: { texto?: string; asunto?: string }):
+  { ok: true; pasos: PasoGrafo[]; resumen: string } | { ok: false; error: string } {
+  const i = pasos.findIndex((p, k) => idDe(p, k) === tarjeta);
+  if (i < 0) return { ok: false, error: `«${nombre}» no tiene una tarjeta «${tarjeta}». Pide los ids con ficha_secuencia_mensajes.` };
+  const p = pasos[i];
+  const m = camposDe(p);
+  if (claseDe(p) !== 'mensaje') return { ok: false, error: `La tarjeta ${tarjeta} no es un mensaje.` };
+  if (esCanalSocial(p.canal)) return { ok: false, error: 'Un DM de Instagram o Messenger se cambia con cambiar_botones_mensaje.' };
+  const email = p.canal === 'email';
+  const cuerpo = nuevo.texto?.trim();
+  const asunto = nuevo.asunto?.trim();
+  if (nuevo.texto === undefined && nuevo.asunto === undefined) return { ok: false, error: 'Pasa el texto, el asunto (en un email) o los dos.' };
+  if (nuevo.asunto !== undefined && !email) return { ok: false, error: 'El asunto es de un email: esa tarjeta es un WhatsApp.' };
+  if (nuevo.texto !== undefined && !cuerpo) return { ok: false, error: 'El texto del mensaje no puede quedar vacío.' };
+  if (nuevo.asunto !== undefined && !asunto) return { ok: false, error: 'El asunto no puede quedar vacío.' };
+  if (cuerpo) {
+    if (m.tipo === 'audio' || m.tipo === 'media') return { ok: false, error: `El mensaje ${tarjeta} es una nota de voz o un archivo: se cambia en el lienzo de Automations.` };
+    if (partesExplicitas(p)) return { ok: false, error: `El mensaje ${tarjeta} son varios mensajes seguidos: su texto se edita en el lienzo de Automations.` };
+    if (!email && proveedorDelPaso(m) === 'oficial') return { ok: false, error: `El mensaje ${tarjeta} sale por el WhatsApp oficial, con una plantilla que aprobó Meta: se cambia en el lienzo de Automations.` };
+    if (email && m.cuerpo_html) return { ok: false, error: `El email ${tarjeta} tiene diseño: su texto se cambia en el editor del email, en Automations (por aquí se perdería el diseño).` };
+  }
+  const c = cuerpo ? conCuerpo(p, cuerpo) : { paso: p, sueltas: 0 };
+  const paso = (asunto ? { ...c.paso, asunto } : c.paso) as PasoGrafo;
+  const que = [cuerpo ? `texto «${corto(cuerpo)}»` : '', asunto ? `asunto «${corto(asunto)}»` : ''].filter(Boolean).join(' y ');
+  const r = conTexto(pasos, i, paso, [], `${email ? 'Email' : 'WhatsApp'} ${tarjeta} de «${nombre}»: ${que}${yVariantes(c.sueltas)}`);
+  return r.ok ? { ok: true, pasos: r.pasos, resumen: r.resumen } : r;
 }
 
 const corto = (t: string): string => (t.length > 60 ? `${t.slice(0, 59)}…` : t);

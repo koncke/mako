@@ -22,7 +22,7 @@ import { SIN_NOMBRE_ALUMNO, SIN_NOMBRE_ALUMNO_EN_LISTA } from '../lib/curso-nomb
 const leer = (p: string) => readFileSync(join(import.meta.dirname, '..', p), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const APP = sinComentarios(leer('app/customer-success/curso/CursoApp.tsx'));
-const SHELL = sinComentarios(leer('app/clients/ClientsShell.tsx'));
+const SHELL = sinComentarios(leer('app/classroom/ClientsShell.tsx'));
 const tramo = (src: string, desde: string, hasta: string) => {
   const i = src.indexOf(desde);
   const j = src.indexOf(hasta, i + desde.length);

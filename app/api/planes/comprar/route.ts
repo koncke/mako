@@ -16,7 +16,8 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { codigoRefLimpio, leerPedidoCompra } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoRefLimpio, leerPedidoCompra } from '@/lib/compra-plan-reglas';
+import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
 import { COOKIE_REF } from '@/lib/partners-reglas';
@@ -40,8 +41,14 @@ export async function POST(req: NextRequest) {
   if (!leido.ok) return leido.bot ? Response.json({ ok: true }) : Response.json({ error: leido.error }, { status: 400 });
   const pedido = leido.pedido;
   if (!rateLimit(`planes-comprar:email:${pedido.email}`, 6, HORA)) return Response.json({ error: 'Demasiados intentos con ese email. Prueba en un rato.' }, { status: 429 });
-  // El código de partner: el PRIMERO vale (revisión del 23/10, media 14): la cookie que dejó /r/<código> gana sobre el `?ref=`.
-  const ref = codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value) ?? pedido.ref;
+  // El código de partner (`codigoDeLaCompra`): el que escribió en el carrito; si no, el PRIMERO que lo trajo (revisión del
+  // 23/10, media 14: la cookie que dejó /r/<código> gana sobre el `?ref=`). Uno escrito que no es de ningún partner se le dice
+  // (no se guarda un código que nunca va a contar); si no se pudo leer, la compra sigue con él y el cron no lo cuenta.
+  if (pedido.codigoEscritoMal) return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
+  if (pedido.codigoEscrito && !(await esCodigoDePartner(pedido.codigoEscrito).catch(() => true))) {
+    return Response.json({ error: TEXTO_CODIGO_NO_EXISTE, campo: 'codigo' }, { status: 400 });
+  }
+  const ref = codigoDeLaCompra({ escrito: pedido.codigoEscrito, cookie: codigoRefLimpio(req.cookies.get(COOKIE_REF)?.value), url: pedido.ref });
 
   // «Lo quiero» sin pasarela (24/10/2026, sin Calendly): el pedido queda en el CRM de MaKo, con el plan, el origen y el
   // código de partner, y se da de alta a mano (lib/compra-plan.ts, `pedirPlanSinPasarela`). No abre ningún pago.

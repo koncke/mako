@@ -38,6 +38,24 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un archivo con CRLF puede chocar ENTERO al mezclar, y el choque real es de una línea (25/10/2026)
+
+**Vive en:** `scripts/mezcla-eol.sh` (la salida) · el repo corre con `core.autocrlf=true` (`.gitattributes`).
+
+- **Síntoma:** al armar el tren-k, `lib/integraciones-catalogo.ts` (Landings contra Zernio) salió en conflicto de la línea 1
+  a la 345: el archivo entero de un lado contra el archivo entero del otro. Después pasó lo mismo con
+  `app/_components/ServicioVisual.tsx`, `app/configuraciones/plan/PlanPanel.tsx` y la bitácora del Ops Center.
+- **El diagnóstico obvio era el equivocado.** Parecía que una rama había reescrito el archivo y había que elegir uno de los
+  dos a mano, perdiendo lo del otro. Las tres versiones (base, nuestra, la de ellos) tenían CRLF en todas sus líneas; la
+  causa exacta de que git las viera enteras distintas no quedó medida.
+- **Lo que anduvo:** pasar las tres versiones a LF y mezclarlas con `git merge-file`. `integraciones-catalogo.ts` salió
+  limpio, con sólo las 7 líneas que sumaba Landings; en los otros quedó el choque real, de 2 a 15 líneas.
+- **Regla:** ante un conflicto que abarca el archivo entero, antes de elegir un lado:
+  `sh scripts/mezcla-eol.sh <archivo>...` con el merge en curso. Deja limpio lo que es sólo fin de línea, y el resto con
+  sus marcadores. Lo escribe con el fin de línea que tenía HEAD.
+
+*25/10/2026, el Cerebro (claude5).*
+
 ## Un merge limpio puede dejar el mismo import dos veces, y los tests no lo ven (25/10/2026)
 
 **Vive en:** cualquier merge de dos ramas que suman el mismo import en líneas distintas (lo vio el tren del 25/10 con
@@ -70,6 +88,17 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
   - un pesado arranca con 2,5 GB libres (antes 1,5) y con 40 s entre admisiones;
   - como mucho 2 workflows a la vez;
   - una tanda de 3 o más tests, o con comodín, sin `--test-concurrency` cuenta como pesada.
+- **El tren no conseguía RAM nunca (25/10, ~18:20 a 19:10):** con 10 chats trabajando la RAM libre no pasó de 3,5 GB en una
+  hora, y cada tanda del chequeo de tipos del pre-push pide 5,3. Subirlo igual, a las 18:14, trabó la PC. Esperar no alcanza:
+  cada chat que termina un pesado arranca otro.
+  - **Regla:** el que sube el tren pone `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`). Mientras esté,
+    la guardia hace esperar lo pesado y los workflows de las OTRAS sesiones; lo liviano pasa. No se corta a nadie: la RAM
+    se libera sola a medida que terminan los de antes. Vence sola en `hasta`, así un script caído no traba a nadie.
+  - El script que sube la pone, espera 5,5 GB, empuja y la saca al salir (`trap`).
+  - **Trampa:** la guardia mira el comando, y `node scripts/tests-afectados.mjs` no decía nada pesado. Arrancó con la reserva
+    puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
+    `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
+    esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;

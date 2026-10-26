@@ -24,7 +24,6 @@ export const MARCA = 'MaKo';
 const EXTRA: Record<string, string> = {
   '/marketing/salud': 'Salud de Meta',
   '/martinkoncke': 'Plan',
-  '/conocimiento': 'Conocimiento',
   '/integraciones': 'Integraciones',
   '/comercial': 'Dashboard',
   '/marketing': 'Dashboard',

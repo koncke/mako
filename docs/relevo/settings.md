@@ -36,8 +36,23 @@ el lugar, Escape, prueba de aviso, «No molestar», invitar, «⋯», detalle de
 origin/main y los mismos datos (docs/hallazgos-ui.md). Capturas: carpeta de notas del Cerebro, `settings-capturas/`.
 **No se miró en la app levantada** (sin RAM para un build): falta recorrerlo en producción después del deploy.
 
-## Pendiente (detalle en docs/hallazgos-ajustes.md, «SIN HACER»)
+## Integraciones de punta a punta (segunda tanda, rama `integraciones-2510`)
+
+Pedido de Martín (25/10 tarde, docs/feedback-25-10-tarde.md), por el Cerebro. Lo que quedó:
+- **Nombres reales:** Resend, Anthropic API, OpenAI API, Gemini API, Groq API (catálogo de tarjetas y de campos). Zernio lo
+  lleva su chat. El Pixel de MaKo lleva la estrella de MaKo.
+- **Las IA fuera de la grilla:** `oculto` en el catálogo; viven en «Tus cuentas de IA» → «Claves de API» (las cuatro, con su
+  estado). Anthropic y OpenAI abren «¿Cómo la conectas?» (clave o computadora, el MISMO tutorial de MaKo Desktop) con un «?»
+  que dice en una línea que no es lo mismo; Gemini y Groq abren directo el modal de la clave, sin «Pronto».
+- **Hotmart, Skool y Apify:** salieron enteros (el Leads Scraper: webhooks, /crm/prospectos, dos operaciones de la API).
+  Medido antes: 0 uso. Guard: tests/leads-scraper-retirado.test.ts.
+- **Google Calendar:** sin tarjeta (`oculto`); se conecta en Calendario y el CRM; las 7 agendas conectadas siguen. El login
+  con Google la pide con `GOOGLE_LOGIN_CON_AGENDA=1`, APAGADO hasta que Google verifique la app.
+- **Sin conectar en gris** (`data-sin-conectar`), y `?abrir=<key>` de una oculta abre su modal suelto.
+- Guards: tests/integraciones-limpieza-25-10.test.ts. Hallazgos: docs/hallazgos-integraciones.md (la primera entrada).
+
+## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
 - Seguridad › cerrar las demás sesiones: pide una migración (la sesión es un JWT sin estado).
-- Integraciones: el tablero entero, cuando Zernio termine con Meta y CAPI.
-- La tuerca en el título del índice: espera el nombre del ícono del chat Ops Center.
-- Recorrer las nueve en producción (1280 y 390) apenas se despliegue.
+- Prender `GOOGLE_LOGIN_CON_AGENDA`: con la verificación de Google aprobada y la política de privacidad reescrita.
+- La lectura de un @ por Apify de la plataforma (lib/instagram-perfil-server.ts), dormida: la decide el CRM.
+- Recorrer Settings e Integraciones en producción (1280 y 390) apenas se despliegue.

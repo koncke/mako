@@ -43,6 +43,13 @@ body:has(.planes-root) { background: #F4F6F9; }
 .planes-atras { display: block; margin: 16px auto 0; background: none; border: 0; padding: 4px 8px; color: #2F6FED; font: inherit;
   font-size: 14px; cursor: pointer; }
 .planes-error { margin-top: 14px; color: #B42318; font-size: 14px; }
+/* El código de referido del carrito (25/10/2026): un renglón chico que abre el campo, como el «Add promo code» de Stripe. */
+.planes-codigo-abrir { display: block; margin: 16px 0 0; padding: 0; background: none; border: 0; color: #2F6FED; font: inherit;
+  font-size: 14px; font-weight: 600; cursor: pointer; text-align: left; }
+.planes-codigo-abrir:hover { text-decoration: underline; }
+.planes-opcional { font-weight: 400; color: #5B6472; }
+.planes-form .planes-codigo-error { margin-top: 6px; }
+.planes-form input[aria-invalid=true] { border-color: #B42318; }
 .planes-nota { margin-top: 14px; color: #5B6472; font-size: 13px; text-align: center; }
 .planes-trampa { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .planes-volver { display: inline-block; margin-bottom: 16px; color: #2F6FED; font-size: 14px; text-decoration: none; }

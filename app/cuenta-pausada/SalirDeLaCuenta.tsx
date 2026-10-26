@@ -10,7 +10,7 @@ export function SalirDeLaCuenta({ esAgencia }: { esAgencia: boolean }) {
     <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
       {esAgencia && (
         <button type="button" style={boton}
-          onClick={async () => { await fetch('/api/agencia/entrar', { method: 'DELETE' }).catch(() => null); window.location.href = '/partners'; }}>
+          onClick={async () => { await fetch('/api/agencia/entrar', { method: 'DELETE' }).catch(() => null); window.location.href = '/agency'; }}>
           Volver a tu agencia
         </button>
       )}

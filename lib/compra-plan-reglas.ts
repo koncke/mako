@@ -103,7 +103,24 @@ export type PedidoCompra = {
    * pedirlo, toda compra en línea empieza con los 7 días gratis.
    */
   sinPrueba: boolean;
+  /**
+   * El código de referido que la persona ESCRIBIÓ en el carrito (25/10/2026, Martín: «es importante que en la compra, en el
+   * carrito, esté la opción de poner código de referido»). Escrito a mano, gana sobre la cookie y el `?ref=`: es quien paga
+   * diciendo quién lo trajo. `codigoEscritoMal`: escribió algo que no puede ser un código (se le dice, no se descarta).
+   */
+  codigoEscrito: string | null;
+  codigoEscritoMal: boolean;
 };
+
+/** Lo que se le dice a quien escribe un código de referido que no es de ningún partner. */
+export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revísalo, o deja el campo vacío para seguir.';
+
+/**
+ * Qué código de partner vale en una compra: el que ESCRIBIÓ en el carrito; si no escribió ninguno, el de la cookie de
+ * /r/<código> (el primer link que abrió, revisión del 23/10: la cookie gana sobre el `?ref=` de la URL); y si no, el `?ref=`.
+ */
+export const codigoDeLaCompra = (p: { escrito: string | null; cookie: string | null; url: string | null }): string | null =>
+  p.escrito ?? p.cookie ?? p.url;
 
 /** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
 export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
@@ -132,6 +149,8 @@ export function leerPedidoCompra(body: unknown): { ok: true; pedido: PedidoCompr
     pedido: {
       plan, nombre, email, pasarela, origen: origenLimpio(b.origen), ref: codigoRefLimpio(b.ref), whatsapp, quiero,
       diagnostico: diagnosticoLimpio(b.diagnostico), periodo, sinPrueba: b.sinPrueba === true,
+      codigoEscrito: codigoRefLimpio(b.codigo),
+      codigoEscritoMal: typeof b.codigo === 'string' && b.codigo.trim() !== '' && codigoRefLimpio(b.codigo) == null,
     },
   };
 }

@@ -26,12 +26,12 @@ const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').repl
 test('1. qué ruta pasa por qué puerta, y ninguna otra', () => {
   const casos: Array<[string, RedireccionCrm]> = [
     ['/crm', { tipo: 'tab' }], ['/crm/new', { tipo: 'tab' }], ['/crm/3445', { tipo: 'tab' }],
-    ['/crm/prospectos', { tipo: 'prospectos' }],
+    // /crm/prospectos se fue el 25/10/2026 con el Leads Scraper: sin página, sin puerta (cae en «ninguna otra», abajo).
     ['/crm/3445/resumen', { tipo: 'resumen', leadId: 3445 }],
     ['/crm/revisar', { tipo: 'pide-sesion' }], ['/crm/revisar/8f2c-ab', { tipo: 'pide-sesion' }],
   ];
   for (const [ruta, esperado] of casos) assert.deepEqual(redireccionDelLayoutCrm(ruta), esperado, ruta);
-  for (const r of ['/crm/abc', '/crm/revisar/x/y', '/crm/abc/resumen', '/crm/3445/resumen/extra', '/crmx', '/general']) {
+  for (const r of ['/crm/prospectos', '/crm/abc', '/crm/revisar/x/y', '/crm/abc/resumen', '/crm/3445/resumen/extra', '/crmx', '/general']) {
     assert.equal(redireccionDelLayoutCrm(r), null, `${r} no redirige: el layout no hace nada`);
   }
   assert.equal(redireccionDelLayoutCrm(null), null, 'sin el header del proxy no se adivina');
@@ -43,7 +43,6 @@ const PUERTAS: Record<string, string[]> = {
   'app/crm/page.tsx': ["await requireCapa('crm');", 'await guardOnboarding();'],
   'app/crm/new/page.tsx': ["await requireCapa('crm');", 'await guardOnboarding();'],
   'app/crm/[id]/page.tsx': ["await requireCapa('crm');", 'await guardOnboarding();'],
-  'app/crm/prospectos/page.tsx': ["await requireRolWs(['closer', 'setter'], { nav: 'crm' });"],
   'app/crm/[id]/resumen/page.tsx': ["await requireCapa('crm');", 'redirect(destinoDelResumen(leadId, wsDueno));'],
   'app/crm/revisar/page.tsx': ["if (!sesion) redirect(await rutaConWs('/inicio'));"],
   'app/crm/revisar/[id]/page.tsx': ["if (!sesion) redirect(await rutaConWs('/inicio'));"],
@@ -54,7 +53,7 @@ test('2. el layout usa la misma puerta de cada página, y ellas conservan la suy
   const lay = sinComentarios(leer('app/crm/layout.tsx'));
   assert.match(lay, /const r = redireccionDelLayoutCrm\(ruta\);/);
   assert.match(lay, /if \(r\?\.tipo === 'tab'\) \{\n\s*await requireCapa\('crm'\);\n\s*await guardOnboarding\(\);\n\s*\}/, 'la misma puerta y en el mismo orden que /crm');
-  assert.match(lay, /if \(r\?\.tipo === 'prospectos'\) await requireRolWs\(\['closer', 'setter'\], \{ nav: 'crm' \}\);/);
+  assert.doesNotMatch(lay, /prospectos/, 'la puerta de prospectos sigue en el layout (la página se fue el 25/10/2026)');
   assert.match(lay, /if \(r\?\.tipo === 'pide-sesion' && !\(await getUsuarioActual\(\)\)\) redirect\(await rutaConWs\('\/inicio'\)\);/);
   assert.match(lay, /if \(r\?\.tipo === 'resumen'\) \{[\s\S]{0,120}await requireCapa\('crm'\);[\s\S]{0,300}workspaceDeLeadParaAdmin\(r\.leadId\)/, 'el dueño del lead se busca después de la puerta del CRM');
   assert.doesNotMatch(lay.slice(lay.indexOf("r?.tipo === 'resumen'")), /guardOnboarding/, 'el resumen NO pide el onboarding: se abre desde un WhatsApp');
@@ -71,7 +70,6 @@ const CUBIERTAS: Record<string, string> = {
   'app/crm/page.tsx': '/crm',
   'app/crm/new/page.tsx': '/crm/new',
   'app/crm/[id]/page.tsx': '/crm/12',
-  'app/crm/prospectos/page.tsx': '/crm/prospectos',
   'app/crm/[id]/resumen/page.tsx': '/crm/12/resumen',
   'app/crm/revisar/page.tsx': '/crm/revisar',
   'app/crm/revisar/[id]/page.tsx': '/crm/revisar/abc',

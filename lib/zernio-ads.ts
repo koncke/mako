@@ -308,6 +308,20 @@ export async function crearCampanaVaciaPorZernio(ws: number, c: { accountId: str
   return { campaignId: String(r.campaignId) };
 }
 
+/**
+ * El interruptor PROPIO de un anuncio, leído de Meta AHORA (`GET /ads/{adId}?live=true`). ⚠️ Medido el 25/10/2026: Zernio
+ * guarda el estado de los anuncios y lo refresca cada 15 a 60 minutos (su doc: «Controllers that act on a switch should pass
+ * live=true»); recién pausado, el árbol seguía diciendo prendido y «prender» se frenó con «Ya estaba prendido en Meta».
+ */
+export async function anuncioEnVivoPorZernio(ws: number, adId: string): Promise<{ configurado: string | null; entrega: string | null; estado: string | null }> {
+  const clave = await claveZernioAnuncios(ws);
+  if (!clave) throw new ZernioError('Este negocio no tiene su clave de Zernio', 0, null);
+  const r = await zAds<{ ad?: { status?: string | null; configuredStatus?: string | null; platformStatus?: string | null } | null }>(clave, `/ads/${encodeURIComponent(adId)}?live=true`);
+  const a = r.ad ?? null;
+  // ⚠️ Un anuncio BORRADO vuelve con `configuredStatus: ACTIVE`: lo que dice que está borrado es `status` (cancelled) o la entrega (DELETED).
+  return { configurado: a?.configuredStatus ? a.configuredStatus.toUpperCase() : null, entrega: a?.platformStatus ? a.platformStatus.toUpperCase() : null, estado: a?.status ?? null };
+}
+
 /** Borra una campaña (con lo que tenga adentro) por la Zernio del negocio. `accountId` hace falta si quedó vacía. */
 export async function borrarCampanaPorZernio(ws: number, campaignId: string, accountId?: string): Promise<void> {
   const clave = await claveZernioAnuncios(ws);
