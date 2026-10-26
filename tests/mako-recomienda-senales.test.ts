@@ -151,7 +151,16 @@ test('objeciones: lo que dice la gente y la oferta no contesta; sin oferta no se
   const sinCuotas = senalesDeObjeciones(hechos, ['precio'], 'Curso de 497 USD. Garantía de 7 días.');
   const precio = sinCuotas.find((s) => s.objeto === 'objecion:precio')!;
   assert.ok(precio);
-  assert.match(precio.dato, /3 de 5 conversaciones y 1 de 1 ventas perdidas hablan de el precio o la forma de pago, y tu oferta no lo contesta/);
+  assert.match(precio.dato, /3 de 5 conversaciones y 1 de 1 ventas perdidas hablan del precio o la forma de pago, y tu oferta no lo contesta/);
+  // Las llamadas de venta analizadas suman, y se dice en cuántas no se respondió.
+  const llamadas = [
+    { objeciones: [{ texto: 'Me parece caro', respondida: false }] },
+    { objeciones: [{ texto: '¿Se puede en cuotas?', respondida: true }] },
+    { objeciones: [{ texto: 'No tengo tiempo ahora', respondida: false }] },
+  ];
+  const conLlamadas = senalesDeObjeciones(hechos, ['precio'], 'Curso de 497 USD.', llamadas).find((s) => s.objeto === 'objecion:precio')!;
+  assert.match(conLlamadas.dato, /3 de 5 conversaciones, 2 de 3 llamadas \(en 1 no se respondió\) y 1 de 1 ventas perdidas hablan del precio/);
+  assert.match(conLlamadas.fuente, /llamadas de venta analizadas/);
   assert.ok(!sinCuotas.some((s) => s.objeto === 'objecion:confianza'), 'con garantía, la confianza no sale (y además nadie la pidió)');
   assert.equal(senalesDeObjeciones(hechos, ['precio'], 'Curso de 497 USD, en 3 cuotas sin interés').find((s) => s.objeto === 'objecion:precio'), undefined, 'si la oferta lo contesta, calla');
   assert.deepEqual(senalesDeObjeciones(hechos, ['precio'], null), [], 'sin oferta no se dice «no lo contesta»');

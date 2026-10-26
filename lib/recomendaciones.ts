@@ -37,8 +37,8 @@ import {
 } from './recomendaciones-reglas';
 import {
   senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, senalesDeAutomatizaciones,
-  senalesDeLandings, senalesDeObjeciones, type EnvioSenal, type InscripcionSenal, type LeadSenal, type MensajeSenal, type PaginaSenal,
-  type SecuenciaSenal,
+  senalesDeLandings, senalesDeObjeciones, type EnvioSenal, type InscripcionSenal, type LeadSenal, type LlamadaSenal, type MensajeSenal,
+  type PaginaSenal, type SecuenciaSenal,
 } from './recomendaciones-senales';
 
 export const FEATURE_RECOMIENDA = 'mako-recomienda';
@@ -152,10 +152,24 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
   });
 
   await leer('objeciones', async () => {
-    const [kn, oferta] = await Promise.all([
+    const desdeLlamadas = new Date(ahora.getTime() - 120 * DIA).toISOString().slice(0, 10);
+    const [kn, oferta, llamadasCrudas] = await Promise.all([
       leerTodo<{ cuerpo: string | null }>(db, 'mako_knowledge', 'cuerpo', { orden: 'id', filtros: (q) => q.eq('fuente', FUENTE_WHATSAPP) }),
       ofertaPrincipal(await getAnswers()),
+      // Las llamadas de venta analizadas (closing_analyses): cada objeción con su cita y si se respondió. La PK es
+      // (workspace_id, recording_id): se pagina por recording_id.
+      // Sólo las de venta ya analizadas (el mismo corte que lib/insights-llamada.ts).
+      leerTodo<{ objections: unknown }>(db, 'closing_analyses', 'recording_id, objections', {
+        orden: 'recording_id', eq: { status: 'analizada', category: 'venta' }, filtros: (q) => q.gte('call_date', desdeLlamadas).not('objections', 'is', null),
+      }),
     ]);
+    const llamadas: LlamadaSenal[] = llamadasCrudas.map((l) => ({
+      objeciones: (Array.isArray(l.objections) ? l.objections : []).flatMap((o: unknown) => {
+        const x = o as { quote?: unknown; note?: unknown; handled?: unknown };
+        const texto = [x.quote, x.note].filter((t): t is string => typeof t === 'string').join(' — ');
+        return texto ? [{ texto, respondida: x.handled === true }] : [];
+      }),
+    })).filter((l) => l.objeciones.length > 0);
     const hechos = kn.map((k) => hechosDeLaEntrada(String(k.cuerpo ?? ''))).filter((h) => h.length > 0);
     const motivos = (leads ?? []).filter((l) => l.estado_lead === 'perdido' && l.motivo_perdida?.trim()).map((l) => String(l.motivo_perdida));
     const c = oferta.campos;
@@ -164,7 +178,7 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
       ...(o?.bonos ?? []).map((b) => `${b.nombre} ${b.porque}`)];
     const texto = partes.filter((x): x is string => typeof x === 'string' && x.trim().length > 0).join('\n');
     // Sin oferta cargada no se afirma «tu oferta no lo contesta»: no hay oferta que lo conteste ni que no.
-    out.senales.push(...senalesDeObjeciones(hechos, motivos, oferta.origen === 'sin-fila' && !texto.trim() ? null : texto));
+    out.senales.push(...senalesDeObjeciones(hechos, motivos, oferta.origen === 'sin-fila' && !texto.trim() ? null : texto, llamadas));
   });
 
   await leer('second-brain', async () => {

@@ -2757,3 +2757,28 @@ sección. Interruptores: env `RECOLECTOR_SECOND_BRAIN` (`off`/`seco`) y el de ca
 lib/recolector.ts · lib/recolector-reglas.ts · app/api/cron/second-brain-recolector/route.ts · app/second-brain/AprendeSolo.tsx
 · app/second-brain/recolector-actions.ts · supabase/migrations/0333_second_brain_recolectado.sql ·
 tests/second-brain-recolector.test.ts · tests/second-brain-recolector-simulado.test.ts.
+
+## ¿Guarda «todo el contexto, todo el tiempo»? No: dibuja mucho y recuerda casi nada (26/10/2026)
+
+Martín (26/10): «Revisa si el second brain realmente esta guardando todo el contexto de absolutamente todo, todo el tiempo».
+Auditado en el código de c8f1c4a57 (chat «MaKo recomienda», cuenta 5); la tabla completa, en
+[diseno-mako-recomienda.md](diseno-mako-recomienda.md) §1.
+
+- **«El Second Brain» son tres cosas, y se confunden:** el MAPA (`construirCerebro`, ~21 fuentes, se calcula en cada pedido y no
+  lo lee ningún chat), la MEMORIA (`mako_knowledge`: lo único que el chat consulta solo, 4 resultados por turno) y las
+  HERRAMIENTAS del turno (traen datos si el modelo se acuerda de pedirlos). Que una fuente salga en el mapa no dice nada de si
+  MaKo la recuerda al contestar.
+- **De lo que el negocio vive, a la memoria entra una sola fuente: WhatsApp**, y en un cliente viene apagada («Aprende solo») y
+  sin el Gemini del negocio no se indexa. **No entran:** las llamadas de venta analizadas (`closing_analyses`, con las objeciones
+  y si se respondieron), lo que el dueño le cuenta a MaKo en la app (`chart_chats`) o por WhatsApp (`mako_doer_conv`), las
+  conclusiones de Offer (`offer_sesiones`: el mapa usa sólo la fecha), los envíos de las automatizaciones, las visitas de las
+  landings, las decisiones del Media Buyer ni los emails e Instagram.
+- **El diagnóstico obvio era el equivocado:** «para que MaKo recomiende hay que meter todo en la memoria». Lo que se cuenta
+  (velocidad de respuesta, no-show, conversión) se lee donde vive; un resumen en la memoria pierde el número. La memoria sirve
+  para lo que la gente DIJO. El motor de recomendaciones lee directo (docs/hallazgos-recomendaciones.md).
+- **La medición por negocio quedó pendiente:** el clasificador de permisos negó «Production Reads» (sólo lo habilita Martín). El
+  comando de sólo lectura está listo: `scripts/medir-second-brain.mjs`. La pregunta que contesta primero: ¿cuántos clientes tienen
+  «Aprende solo» prendido? Si son cero, el Second Brain de los clientes no aprende nada de lo que viven.
+
+**Sin hacer:** el recolector de Fathom (las objeciones de las llamadas a la memoria, con la cuenta de cada negocio: el diseño del
+recolector §5) y el de los chats con MaKo (lo que el dueño cuenta). Los dos con el molde de lib/recolector.ts.

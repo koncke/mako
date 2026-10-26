@@ -630,4 +630,40 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain?panel=mapa',
   },
+  {
+    fecha: '26 oct', hora: '01:50', chat: 'Cerebro', sesion: 'local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que MaKo sea realmente inteligente y recomiende en todos lados, sin cuota',
+    pedido: 'Lo que mas me interesa que trabajes durante toda la noche es que MaKo sea realmente inteligente... Y comience a dar recomendaciones en todos lados, en el Ops Center, cuando uno esta haciendo una automatización, al crear una offer, landing, MaKo en WhatsApp (que no funciona muy bien, no guarda contexto), o lo que sea realmente, donde sea que haya un mako... Pero estas recomendaciones y MaKo "pensando" deben ser reales, no le presetees que cada ratito debe de hacer recomendaciones basura para cumplir con su "cuota", tiene que ser posta inteligente... Revisa como lo hacen otras apps o skills, revisa como lo harias tu mismo si te digo que seas mi asesor de marketing... Aprovecha realmente el Second Brain... Revisa si el second brain realmente esta guardando todo el contexto de absolutamente todo, todo el tiempo, para que justamente esto nos sirva...',
+    puntos: [
+      'Lo pasó el Cerebro al chat «MaKo recomienda» (cuenta 5), con la auditoría del Second Brain, la investigación, el motor y las pantallas.',
+    ],
+    revisar: '/second-brain',
+  },
+  {
+    fecha: '26 oct', hora: '02:59', chat: 'MaKo recomienda', sesion: 'local_4f26fc4d-a57e-4238-ae44-ec63106b0d7e', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo recomienda sólo con un dato de tu negocio, y si no tiene nada que decir, se calla',
+    puntos: [
+      'Cada recomendación sale de algo que MaKo midió en tu negocio: cuánto tardas en contestar a un lead nuevo, cuánta gente espera respuesta, cuántos faltan a las llamadas, por qué pierdes ventas, qué automatización falla o nadie contesta, qué página no convierte y qué objeción repite la gente y tu oferta no contesta.',
+      'Te dice qué hacer, qué cambia y el porqué con el número. Si nada pasa su umbral, no aparece nada: no hay cuota.',
+      'Aprende: «No aplica» no vuelve, «Ahora no» vuelve en 14 días si sigue siendo cierto, y lo que aceptas lo mide a los 10 días (si sigue igual, te lo dice).',
+      'Aparece en el Cerebro del Ops Center, en el chat de Automations, en Offer y en el Web Generator, plegada en el bloque de preguntas; por WhatsApp, cuando le preguntas «¿qué me recomiendas?». «Hacerlo» no ejecuta nada: te lleva a la pantalla o te deja el pedido escrito.',
+      'La auditoría: el Second Brain dibuja mucho y recuerda casi nada (a la memoria sólo entra WhatsApp, y en los clientes viene apagado). Todo en docs/diseno-mako-recomienda.md.',
+      'Falta medirlo con los datos de producción: el permiso de lectura lo tiene que dar Martín.',
+    ],
+    commits: [
+      { sha: '88d16d29d', msg: 'MaKo recomienda: un motor que sólo habla con un dato del negocio, y lo muestra donde hay un MaKo', lineas: 2052, archivos: 20 },
+    ],
+    archivos: [
+      'lib/recomendaciones-reglas.ts — cuándo existe una recomendación, cómo se calla y cómo aprende',
+      'lib/recomendaciones-senales.ts — lo que se mide, con sus umbrales',
+      'lib/recomendaciones.ts — la lectura del negocio, la memoria y la redacción con su IA',
+      'app/_chat/RecomendacionesDeMako.tsx — el bloque de preguntas en cada pantalla',
+      'app/api/mako/recomendaciones/route.ts — la ruta (del admin)',
+      'lib/api-mako/areas/mako.def.ts — que_recomienda_mako y decidir_recomendacion',
+      'tests/mako-recomienda-*.test.ts — reglas, señales, superficies y el turno; 26 roturas, cada una cae',
+    ],
+    revisar: '/second-brain',
+  },
 ];

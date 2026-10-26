@@ -69,7 +69,8 @@ export function noPideRespuesta(texto: string | null | undefined): boolean {
   const t = (texto ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^[!.¡¿?\s]+|[!.¡¿?\s]+$/g, '').trim();
   if (!t) return true;
   if (!/[a-z0-9]/.test(t)) return true; // sólo emojis o signos
-  return /^(ok(a|ey|is)?|okk+|gracias( a vos| a ti| igual| mil)?|muchas gracias|mil gracias|dale|listo|perfecto|genial|joya|buenisimo|excelente|de nada|igualmente|sale|vale|bueno|si|no|chau|adios|saludos|👍|🙏)$/.test(t);
+  // «gracias a <quien sea>» y «cha[ou]» (chau y chao) cubren las formas de cada país sin listarlas una por una.
+  return /^(ok(a|ey|is)?|okk+|gracias( a \S+| igual| mil)?|muchas gracias|mil gracias|dale|listo|perfecto|genial|joya|buenisimo|excelente|de nada|igualmente|sale|vale|bueno|si|no|cha[ou]|adios|saludos|👍|🙏)$/.test(t);
 }
 
 /**
@@ -348,28 +349,38 @@ export const OBJECIONES = [
     hacer: 'Dale en la oferta algo para mostrarle a quien decide con él (un resumen de una página o un video corto)' },
 ] as const;
 
+/** Las objeciones de UNA llamada de venta analizada (closing_analyses.objections): lo que se dijo y si se respondió. */
+export type LlamadaSenal = { objeciones: ReadonlyArray<{ texto: string; respondida: boolean }> };
+
 /**
- * Una objeción que aparece en lo que MaKo aprendió de las conversaciones (los hechos del Second Brain, uno por contacto) o
- * en los motivos de pérdida, y que el texto de la oferta no contesta. `textoOferta` null = no hay oferta que leer: no se
- * afirma que «no la contesta».
+ * Una objeción que aparece en lo que MaKo aprendió de las conversaciones (los hechos del Second Brain, uno por contacto), en
+ * las llamadas de venta analizadas (con si se respondió) o en los motivos de pérdida, y que el texto de la oferta no contesta.
+ * `textoOferta` null = no hay oferta que leer: no se afirma que «no la contesta».
  */
-export function senalesDeObjeciones(hechosPorContacto: readonly string[][], motivos: readonly string[], textoOferta: string | null): Senal[] {
+export function senalesDeObjeciones(hechosPorContacto: readonly string[][], motivos: readonly string[], textoOferta: string | null, llamadas: readonly LlamadaSenal[] = []): Senal[] {
   if (textoOferta == null) return [];
   const U = UMBRALES.objecion;
-  const n = hechosPorContacto.length + motivos.length;
+  const n = hechosPorContacto.length + motivos.length + llamadas.length;
   if (!n) return [];
   const out: Senal[] = [];
   for (const o of OBJECIONES) {
     const enCharlas = hechosPorContacto.filter((h) => h.some((x) => o.dice.test(x))).length;
     const enMotivos = motivos.filter((m) => o.dice.test(m)).length;
-    const veces = enCharlas + enMotivos;
+    const conEsta = llamadas.filter((l) => l.objeciones.some((x) => o.dice.test(x.texto)));
+    const sinResponder = conEsta.filter((l) => l.objeciones.some((x) => o.dice.test(x.texto) && !x.respondida)).length;
+    const veces = enCharlas + enMotivos + conEsta.length;
     if (veces < U.vecesMinimo || o.contesta.test(textoOferta)) continue;
-    const partes = [enCharlas ? `${enCharlas} de ${hechosPorContacto.length} conversaciones` : '', enMotivos ? `${enMotivos} de ${motivos.length} ventas perdidas` : ''].filter(Boolean);
+    const partes = [
+      enCharlas ? `${enCharlas} de ${hechosPorContacto.length} conversaciones` : '',
+      conEsta.length ? `${conEsta.length} de ${llamadas.length} llamadas${sinResponder ? ` (en ${sinResponder} no se respondió)` : ''}` : '',
+      enMotivos ? `${enMotivos} de ${motivos.length} ventas perdidas` : '',
+    ].filter(Boolean);
+    const de = [enCharlas ? 'tus conversaciones de WhatsApp' : '', conEsta.length ? 'tus llamadas de venta analizadas' : '', enMotivos ? 'los motivos de pérdida de tu CRM' : ''].filter(Boolean);
     out.push({
-      tipo: 'objecion-sin-respuesta', objeto: `objecion:${o.id}`, superficies: ['offer', 'landing', 'ops-center'],
-      dato: `${partes.join(' y ')} hablan de ${o.nombre}, y tu oferta no lo contesta`,
+      tipo: 'objecion-sin-respuesta', objeto: `objecion:${o.id}`, superficies: ['offer', 'landing', 'ops-center', 'whatsapp'],
+      dato: `${partes.join(', ').replace(/, ([^,]*)$/, ' y $1')} hablan ${o.nombre.startsWith('el ') ? `del ${o.nombre.slice(3)}` : `de ${o.nombre}`}, y tu oferta no lo contesta`,
       valor: veces / n, umbral: U.parte, sentido: 'mayor', n, nMinimo: U.vecesMinimo,
-      fuente: 'lo que MaKo aprendió de tus conversaciones de WhatsApp y los motivos de pérdida de tu CRM', impacto: 0.8,
+      fuente: de.join(', ').replace(/, ([^,]*)$/, ' y $1'), impacto: 0.8,
       hacer: o.hacer, cambia: 'La duda que más se repite deja de frenar la venta',
       accion: { tipo: 'link', etiqueta: 'Abrir la oferta', href: '/offer' },
     });

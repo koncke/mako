@@ -10509,3 +10509,14 @@ Ninguna pantalla, agente ni LLM declara un ganador mirando los números por su c
 y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las ramas tienen el n que `planDePrueba` calculó ANTES
 de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
 puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.
+
+## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
+
+Martín: «estas recomendaciones y MaKo "pensando" deben ser reales, no le presetees que cada ratito debe de hacer recomendaciones
+basura para cumplir con su "cuota"». Toda pantalla o canal que sugiera algo usa el motor de lib/recomendaciones*.ts: una
+recomendación nueva es una `Senal` (lib/recomendaciones-senales.ts) que mide el CÓDIGO sobre la tabla donde vive el dato, con
+`umbral` y `nMinimo` en `UMBRALES` y su `error` mirado (lo que no se pudo leer no es cero), sin nombres ni textos de personas en
+el `dato`. Ninguna pantalla rellena cuando la lista viene vacía; ningún prompt ordena «da N recomendaciones». La IA del negocio
+sólo redacta: el porqué lo escribe el código y `leerRedaccion` descarta lo que no cite una señal o traiga un número ajeno. Se
+muestran en el bloque de preguntas (`RecomendacionesDeMako` → `BloqueDePreguntas`), nunca en una lista suelta, y «Hacerlo» no
+ejecuta nada. tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
