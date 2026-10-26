@@ -62,8 +62,10 @@ function bloque(src: string, nombre: string): string {
   // 13/10/2026: chatCheapCascade son 13.384 caracteres y leerDocumentoIA 4.213.
   // Con el tope en 9.000 —el número que se me ocurrió primero— este test salía
   // ROJO sobre un recorte correcto, y en un clon compartido eso es un test rojo
-  // para todas las sesiones.
-  assert.ok(b.length < 20_000, `el recorte de ${nombre} salió enorme: está mirando otra cosa`);
+  // para todas las sesiones. Y pasó otra vez el 26/10/2026: chatCheapCascade ya medía
+  // 19.707 en main y la reserva de plazo para el respaldo (tests/ia-saturacion.test.ts)
+  // la llevó a 21.548. Un recorte desbocado es el resto del archivo (más de 100.000).
+  assert.ok(b.length < 40_000, `el recorte de ${nombre} salió enorme: está mirando otra cosa`);
   return b;
 }
 

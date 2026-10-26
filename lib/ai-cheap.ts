@@ -38,6 +38,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
+import { anotarSaturado, fallaDeSaturacion, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -89,7 +90,7 @@ function cfgDe(nombre: ProvName): Omit<Prov, 'key' | 'clave'> {
       // API nativa (ver sttGemini), y por eso encabeza la cascada de STT. 1M de contexto.
       // `gemini-flash-latest` = alias oficial al Flash GA vigente (no 404ea como los ids
       // pineados que se van retirando). Pisable con GEMINI_MODEL.
-      return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: process.env.GEMINI_MODEL || 'gemini-flash-latest', sttModel: '' };
+      return { nombre, base: 'https://generativelanguage.googleapis.com/v1beta/openai', chatModel: modeloPorDefecto('gemini'), sttModel: '' };
     // ── IA GRATIS extra para rotar (todas OpenAI-compatibles) ─────────────────
     // ⚠️ LOS IDS DE MODELO CADUCAN, Y CUANDO CADUCAN LA KEY QUEDA MUERTA EN SILENCIO.
     // Medido el 12/8/2026 pegándole a cada cuenta cargada: las SEIS keys de Cerebras y
@@ -435,7 +436,16 @@ const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
 function modelosAProbar(prov: ProvName, pedido?: string, conRespaldo = true): Array<string | undefined> {
   if (!conRespaldo) return [pedido];
   const respaldos = (MODELOS_RESPALDO[prov] ?? []).filter((m) => m !== pedido);
-  return [pedido, ...respaldos];
+  // ⚠️ UN MODELO SATURADO VA AL FINAL (26/10/2026, la réplica del ws9 con 17 de 20 secciones sin IA): si en los últimos
+  // minutos dio «high demand» o colgó con un plazo razonable, se prueba primero el respaldo y el saturado queda de última
+  // opción. Sin esto, cada tanda volvía a empezar por el colgado y se comía su plazo (lib/ia-saturacion.ts).
+  return primeroLosSanos(prov, [pedido, ...respaldos], modeloPorDefecto(prov));
+}
+
+/** El modelo de chat por default de un proveedor (el que usa `chatCheap` cuando no se pide uno). Lo que no sea Gemini no
+ *  rota de modelo (no tiene respaldos), así que no hace falta su nombre. */
+function modeloPorDefecto(prov: ProvName): string {
+  return prov === 'gemini' ? process.env.GEMINI_MODEL || 'gemini-flash-latest' : '';
 }
 
 /**
@@ -564,7 +574,13 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),
   });
   let { esfuerzo, aire } = p.nombre === 'gemini' ? esfuerzoParaGemini(model, pedido) : { esfuerzo: pedido, aire: 0 };
-  let res = await pedir(esfuerzo, aire);
+  // Un modelo que cuelga con un plazo razonable queda SATURADO unos minutos (lib/ia-saturacion.ts): el próximo pedido
+  // empieza por su respaldo. El error sigue su camino igual.
+  let res: Response;
+  try { res = await pedir(esfuerzo, aire); } catch (e) {
+    if (fallaDeSaturacion(e instanceof Error ? `${e.name} ${e.message}` : String(e), opts.timeoutMs ?? 30000)) anotarSaturado(p.nombre, model);
+    throw e;
+  }
   let data = await res.json().catch(() => ({}));
   // El 400 del pensar: UNA vez, y se recuerda para ese modelo. Un `low` que también falla sale como error, abajo.
   if (p.nombre === 'gemini' && !res.ok && esfuerzo === 'minimal' && rechazaElEsfuerzo(res.status, leerErrorProveedor(data, res.status).mensaje)) {
@@ -578,6 +594,8 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     // ⚠️ GEMINI MANDA EL ERROR EN UN ARRAY (`[{ error: {…} }]`): leído como `data.error.message` llegaba «HTTP 400»
     // pelado y el clasificador no tenía qué leer (15/10/2026: así se escondió el 400 de 'minimal'). `leerErrorProveedor`
     // lee los dos.
+    // «high demand» (503) es del MODELO, no de la cuenta: queda saturado unos minutos (lib/ia-saturacion.ts).
+    if (fallaDeSaturacion(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`, 0)) anotarSaturado(p.nombre, model);
     throw new Error(`chatCheap(${rotulo(p)}): ${leerErrorProveedor(data, res.status).mensaje}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
@@ -689,7 +707,14 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
   const avisar = (): void => { try { opts.alIntentar?.(); } catch { /* el aviso no frena nada */ } };
   // El timeout de UN intento: el de siempre, o lo que queda del plazo si es menos.
-  const plazoDeIntento = (): number => Math.min(opts.timeoutMs ?? 30_000, quedan());
+  // ⚠️ `reservar` (26/10/2026): con OTRA opción esperando (otro modelo, otra cuenta, otro proveedor), el intento deja lugar
+  // para ella (`MIN_INTENTO_MS`). Sin esto, un primer intento colgado se comía el plazo entero de la tanda (42 s en las
+  // secciones del Web Generator) y el respaldo sano nunca llegaba a probarse: la réplica del ws9 dejó 17 de 20 secciones
+  // sin IA con 105 s de plazo sin usar. Sin `hastaMs` no cambia nada (el plazo que queda es infinito).
+  const plazoDeIntento = (reservar = false): number => {
+    const q = quedan();
+    return Math.min(opts.timeoutMs ?? 30_000, reservar && Number.isFinite(q) ? Math.max(MIN_INTENTO_MS, q - MIN_INTENTO_MS) : q);
+  };
   const sinTiempo = (): string => {
     opts.erroresOut?.push(`sin tiempo: el plazo del pedido vence en ${Math.max(0, Math.round(quedan() / 1000))} s`);
     return '';
@@ -728,7 +753,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     const { conClaveDelNegocio } = await import('./anthropic');
     const r = await conClaveDelNegocio({
       system: opts.system, user: opts.user, json: opts.json, maxTokens: opts.maxTokens,
-      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(),
+      // Detrás de su Claude siempre está la cascada: le deja lugar.
+      feature: opts.feature, motivo: opts.motivo, timeoutMs: plazoDeIntento(true),
     }).catch(() => null);
     if (r && 'texto' in r) {
       const t = opts.json ? soloElJson(r.texto) : r.texto;
@@ -761,7 +787,8 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
      //   gemini-flash-lite-latest → 200, perfecto
      // O sea: Google tenía caído el alias que la app fija, y al lado había un modelo
      // sano de la MISMA cuenta. Sin este eje, el cliente no podía subir un documento.
-     for (const model of modelosAProbar(prov, opts.modelos?.[prov], !opts.sinRespaldoDeModelo)) {
+     const modelos = modelosAProbar(prov, opts.modelos?.[prov], !opts.sinRespaldoDeModelo);
+     for (const [nroModelo, model] of modelos.entries()) {
       // El ESFUERZO viaja por toda la cascada. Sin esto, una feature con effort alto
       // ruteada a la IA barata corría en 'minimal' apenas cambiaba de proveedor.
       const base = { system: opts.system, user: opts.user, maxTokens: opts.maxTokens, temperature: opts.temperature, feature: opts.feature, motivo: `${opts.motivo ?? ''} · fallback ${rotulo(inst)}`, provider: prov, clave: inst.clave, model, esfuerzo: opts.esfuerzo };
@@ -782,19 +809,23 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
       // 4 documentos se cayeron; minutos después la MISMA key contestaba 200 tres de tres.
       // No era cuota, no era la key: era Google saturado y nadie atrás.
       const ultimoRecurso = !otraCuenta && prov === orden[orden.length - 1];
+      // ¿Queda OTRA opción después de ésta (otro modelo de esta cuenta, otra cuenta, otro proveedor)? Entonces el intento le
+      // deja lugar (`plazoDeIntento(true)`) y una saturación no se reintenta acá: se pasa a la opción siguiente.
+      const hayOtraOpcion = nroModelo < modelos.length - 1 || otraCuenta || prov !== orden[orden.length - 1];
       const maxIntentos = ultimoRecurso ? 3 : 1;
       for (let intento = 0; intento <= maxIntentos; intento++) {
         // ⏱ Sin plazo para un intento entero, no se arranca NINGUNO más: ni éste, ni otra
         // cuenta, ni otro modelo. `return` sale de los tres bucles de una.
         if (quedan() < MIN_INTENTO_MS) return sinTiempo();
+        const plazo = plazoDeIntento(hayOtraOpcion);
         try {
           avisar();
-          let t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: opts.json });
+          let t = await chatCheap({ ...base, timeoutMs: plazo, json: opts.json });
           // La capa OpenAI-compat de Gemini a veces devuelve contenido VACÍO con
           // response_format json_object (el modelo native anda; el /chat/completions no).
           // Reintentamos la MISMA cuenta SIN el flag: `validar`/parseJsonLoose de los
           // callers tolera fences/markdown igual, así que no perdemos nada.
-          if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: false });
+          if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(hayOtraOpcion), json: false });
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
           if (t.trim() && (!opts.validar || opts.validar(t))) return t;
@@ -823,6 +854,10 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           // Un modelo RETIRADO (404) no se reintenta ni un segundo: no va a volver. Se
           // pasa derecho al modelo siguiente, que es justo para lo que existe la lista.
           if (/\b404\b|no longer available|not_found/i.test(m)) break;
+          // ⚠️ UN MODELO SATURADO NO SE REINTENTA si hay a dónde ir (26/10/2026): «high demand» o un cuelgue con plazo
+          // razonable no se arreglan en 1,5 s, y el reintento colgaba otra vez con el plazo de la opción siguiente. `chatCheap`
+          // ya lo anotó saturado: la opción que sigue (y el próximo pedido) empieza por el respaldo.
+          if (hayOtraOpcion && fallaDeSaturacion(m, plazo)) break;
           if (intento < maxIntentos && transitorio && !(esCuota && otraCuenta)) {
             // Espera creciente: 1,5s · 6s · 13,5s. Un 503 de saturación no se arregla en el
             // mismo segundo, y volver enseguida es gastar el intento sin darle tiempo.
@@ -1315,6 +1350,8 @@ export async function chatCheapTools(
       // EXCEPCIÓN («The operation was aborted due to timeout»), y salía del turno sin
       // pasar por ningún reintento. Medido esa misma noche en la tercera Gemini de la red.
       let excepcion: string | null = null;
+      // El plazo de ESTE intento: con él se decide si un timeout dice algo del modelo (lib/ia-saturacion.ts).
+      const plazoPaso = rotacion.plazoDelIntentoMs(opts.timeoutMs ?? 45000);
       try {
         res = await fetch(`${p.base}/chat/completions`, {
           method: 'POST',
@@ -1361,6 +1398,9 @@ export async function chatCheapTools(
       // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
       // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
+      // «high demand» o un cuelgue con plazo razonable: el modelo queda saturado unos minutos para TODO el proceso
+      // (lib/ia-saturacion.ts). Este turno rota igual (la rotación de abajo); el próximo empieza por el respaldo.
+      if (fallaDeSaturacion(detalle, plazoPaso)) anotarSaturado(p.nombre, model);
       // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
       // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
       if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {
