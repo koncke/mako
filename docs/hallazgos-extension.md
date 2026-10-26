@@ -120,6 +120,11 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
 · la lectura de la tabla en extension/wa-fichas.js · `conNombre` y `gruposEnWhatsappDichos` (app/crm/enriquecer-cliente.ts)
 · tests/wa-fichas-071.test.ts (1, 2 y 5b).
 
+- **Trampa del test (26/10, push de tren-l):** el test carga las reglas JS con `runInNewContext` y las tipa con un `type
+  Reglas` escrito a mano. La 0.71.1 sumó parámetros (`verificados`, `contactos`) y el test los usó, pero el tipo espejo
+  seguía con los viejos: `tsx` no mira tipos, así que el test pasaba en verde y recién el chequeo de tipos del push lo frenó
+  (5 errores TS2554). **Regla:** quien le suma un parámetro a una función de `wa-fichas-reglas.js` actualiza el `type
+  Reglas` del test en el mismo commit.
 - **Síntoma:** Martín corrió la 0.71.0 sobre los 221 de «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador»: «De 221, tu
   WhatsApp tiene el nombre de 0… 0 nombres completados», con el grupo encontrado (247). Y él: «literalmente hay muchos que
   tienen toda la info».

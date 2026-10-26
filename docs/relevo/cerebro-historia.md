@@ -2,6 +2,59 @@
 
 ---
 
+## Estado del relevo del 26/10 ~02:15 (claude5) — reemplazado el 26/10 a las 08:15
+
+### Estado al escribir (26/10 ~02:15)
+
+- **`main` = `c8f1c4a57` (tren-k), desplegado y sirviendo en hola-mako.com desde ~01:40.** Entraron las variantes de
+  Automations, la tarjeta «Prueba A/B», Meta por Zernio prendido, las landings editables, los alojadores de video (Wistia,
+  Bunny, Vimeo, Cloudflare), la limpieza de Integraciones, Partners, Agency, Customers, Classroom, las conexiones sin
+  Gemini, el «Completado» rediseñado, la extensión 0.71 y 9 arreglos de la revisión.
+- **El tren siguiente es `tren-l`,** en `C:/dev/wt-push-q` (por ahora sólo la cosecha de Closing). Puntas para juntar:
+  crm-ext-2510 (scraper de WhatsApp), integraciones-2510 (Settings sin General, Criterio ni Método), landings-2510-b (el
+  cierre de las landings, `ccb2e8e75` en adelante), aut-2510 (`7faa975da`), Ops Center (Avance agrupado, audios, formato
+  como Claude), mediabuyer-2510 (la foto de perfil como AdAmigo), zernio-2510 (`CORTE_TOKEN_META='2026-11-03'`), agencias
+  (Customers y la sidebar del super admin), mako-wa-conexiones, mako-inteligente y grabadores. Voz y desktop-voz entran
+  sólo con MaKo Desktop 0.5.0 publicado.
+- **El plan de la noche del 26/10** (memoria `noche-26-10-cinco-puntos`): MaKo inteligente → chat mako-inteligente; el
+  scraper de WhatsApp → CRM; la llamada de Leila → hecha (el informe quedó en este chat; `docs/hallazgos-closing.md`);
+  otros grabadores → Grabadores; Motion y el Image Editor → **SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con
+  otra cuenta**: rama LOCAL `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta
+  `respaldo/motion-imagen-2610`; worktree `C:/dev/wt-motion-imagen`). El relevo `docs/relevo/motion-imagen.md` y su cosecha
+  (`docs/hallazgos-motion.md`, una regla de AGENTS.md sobre `lib/motion`) viven SÓLO en esa rama: no están en main porque
+  hablan de código que main no tiene. Al retomarla: toca archivos del Web Generator que Landings cambió después (mezclar
+  main primero), y el bloque motion tiene que estar desplegado antes de que una landing lo use (un editor viejo lo borra
+  al autoguardar).
+- **Web Generator de punta a punta → chat Landings** (pedido de Martín del 26/10 ~02:00): textos y botones que no se
+  editan, secciones que no se reordenan, video, SVG y Calendly que no aparecen, botones flotantes que se van al hacer
+  scroll, el menú de clic derecho que no se cierra, «Aplicar» del analizador y replicar una landing de la competencia.
+  «TODO debe ser editable, absolutamente todo».
+- **Leila (ws11):** su análisis de llamadas falló 168 veces en silencio porque su Claude se quedó sin crédito (lo tiene
+  Grabadores). Para venderle Pro, primero hay que saber cuánto paga de GoHighLevel y de CapCut: lo demás que MaKo
+  reemplaza no llega a los US$97.
+- **Aviso del token de Meta:** tarea programada `aviso-token-meta-lunes`, el 27/10 a las 10:00 (ws 1, 13, 14, 15 y 19,
+  con el sha `c8f1c4a57…`). Los textos y el script están en `~/.claude/operaciones/avisos/`.
+- **La RAM del tren:** `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`) hace esperar a los pasos pesados
+  de los otros chats, y `MAKO_TIPOS_RAM_MIN_GB=4.4` baja a mano el piso del respaldo de tipos. Archivar chats NO libera RAM.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. **Qué landings se publican.** Las 14 con el cierre nuevo están en https://claude.ai/artifact/4hKutkW7PX1sPMMHDC72YR
+   y la pregunta está en el Centro. `--subir` escribe en el ws9.
+2. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+3. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+4. **La RAM:** memoria `pc-de-martin-hardware` (32 GB; 64 GB si en su PC corre también el Claude de Leandro).
+5. **La lectura de producción del chat mako-inteligente:** el clasificador se la frenó y la aprueba Martín en ese chat.
+   El Cerebro no la hace por él.
+6. **La extensión:** recargarla en chrome://extensions y tocar «Usar aquí» en WhatsApp Web.
+
+Las migraciones 0332, 0333, 0335, 0336 y 0337 (`mako_knowledge_modelo`, 25/10 20:56) están todas aplicadas con su sí.
+
+---
+
 ## Estado del relevo del 25/10 ~09:50 (claude5) — reemplazado el 26/10 a las 02:15
 
 ### Estado al escribir (25/10 ~09:50)

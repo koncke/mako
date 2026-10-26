@@ -91,7 +91,8 @@ test('3. el turno la usa y la ruta y el motor la pasan', () => {
   assert.match(turno, /input = conEntidadPorDefecto\(porId\(name\), input, desde\);/);
   // Antes del contexto que ata la pantalla, que sigue siendo lo último (tests/mako-analyst-lead.test.ts).
   assert.match(turno, /\$\{ctxDesde \? `\\n\\n\$\{ctxDesde\}` : ''\}\$\{ctxAtado \? /);
-  assert.match(turno, /appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), aGuardar\)/);
+  // 32f430356 (24/10) renombró la const `aGuardar` a `conElPedido`: tapaba la función `aGuardar` de lib/chat-bloques.
+  assert.match(turno, /appendMessage\(s\.id, 'user', conDesde\(textoMemoria, desde\), conElPedido\)/);
   const ruta = sinComentarios(leer('app/api/mako/chat/route.ts'));
   assert.match(ruta, /desde: sanearDesde\(body\.desde\), ia \}\);/, 'el cuerpo, saneado');
   assert.match(ruta, /sanearDesde\(\(\(\) => \{ try \{ return JSON\.parse\(String\(form\.get\('desde'\)/, 'y el form, con archivos');
