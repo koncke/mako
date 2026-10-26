@@ -87,11 +87,13 @@ test('los caminos del ARRANQUE piden la red de plataforma', () => {
 
 test('la red corre DESPUÉS de las keys del cliente, nunca antes', () => {
   const casc = sinComentarios(bloque(AI, 'chatCheapCascade'));
-  const iCliente = casc.indexOf('const instancias = await provsDe(prov);');
+  // Las cuentas del cliente se cargan UNA vez antes del lazo (`instanciasDe`, revisión del tren-l) y el lazo las recorre.
+  const iCarga = casc.indexOf('[p, await provsDe(p)]');
+  const iCliente = casc.indexOf('const instancias = instanciasDe.get(prov) ?? [];');
   const iRed = casc.indexOf('if (opts.redDePlataforma) {');
-  assert.ok(iCliente > 0, 'no encuentro el recorrido de las keys del cliente');
+  assert.ok(iCarga > 0 && iCliente > 0, 'no encuentro el recorrido de las keys del cliente');
   assert.ok(iRed > 0, 'la cascada no tiene red de plataforma');
-  assert.ok(iCliente < iRed, 'la red quedó ANTES de las keys del cliente: le gastaría la cuota de la agencia a todos');
+  assert.ok(iCarga < iRed && iCliente < iRed, 'la red quedó ANTES de las keys del cliente: le gastaría la cuota de la agencia a todos');
 });
 
 test('la red usa la key de la PLATAFORMA, no la del cliente', () => {
