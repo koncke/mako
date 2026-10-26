@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { arbolDesdeZernio, paginaDeAnuncios, entidadDeZernio, falloDeEscrituraZernio, siYaEstaBorrada, formulariosDeZernio, cuerpoFormularioZernio, publicosDeZernio, identidadesDeZernio, lugarCrudoDeZernio, interesDeZernio } from '../lib/zernio-meta-cuerpo';
+import { arbolDesdeZernio, paginaDeAnuncios, entidadDeZernio, falloDeEscrituraZernio, siYaEstaBorrada, formulariosDeZernio, cuerpoFormularioZernio, publicosDeZernio, identidadesDeZernio, lugarCrudoDeZernio, interesDeZernio, vinoBorrado } from '../lib/zernio-meta-cuerpo';
 import { lugarDesdeBusqueda } from '../lib/meta-geo';
 import { paramsFormulario } from '../lib/meta-formularios';
 
@@ -196,6 +196,23 @@ test('de quién es y cómo está: campaña y conjunto del paso directo de Meta, 
   assert.equal(entidadDeZernio('ad', { ad: null }), null);
 });
 
+test('crear un anuncio que Zernio devuelve BORRADO (la misma clave en el mismo tramo) no es «creado»: se pide otra vez con otra clave', () => {
+  // La forma de anuncioEnVivoPorZernio: un borrado vuelve con el interruptor ACTIVE, así que se mira el estado y la entrega.
+  assert.equal(vinoBorrado({ estado: 'cancelled', entrega: null }), true);
+  assert.equal(vinoBorrado({ estado: 'paused', entrega: 'DELETED' }), true);
+  assert.equal(vinoBorrado({ estado: 'paused', entrega: 'IN_PROCESS' }), false);
+  // Si no se pudo releer, no se inventa un borrado (y no se crea otro de más).
+  assert.equal(vinoBorrado(null), false);
+  const m = leer('../lib/meta-ads-create.ts');
+  const crear = m.slice(m.indexOf('async function anuncioPorZernioDelNegocio('), m.indexOf('export async function crearAnuncioEnConjunto('));
+  const iCrear = crear.indexOf('crearAnuncioPorZernio(z.ws, cuerpo, clave)');
+  const iRelee = crear.indexOf('vinoBorrado(await anuncioEnVivoPorZernio(z.ws, r.adId)');
+  const iOtra = crear.indexOf('crearAnuncioPorZernio(z.ws, cuerpo, `${clave}:otra:');
+  assert.ok(iCrear > 0 && iRelee > iCrear && iOtra > iRelee, 'después de crear se relee, y si vino borrado se pide con OTRA clave');
+  // Una sola vez: no hay un bucle que cree anuncios de más.
+  assert.equal((crear.match(/crearAnuncioPorZernio\(/g) ?? []).length, 2);
+});
+
 test('lo que Meta ya borró: pausarlo no es un éxito (Zernio contesta 200), y borrarlo otra vez ya está hecho', () => {
   const borrado = { cuenta: 'act_42', configurado: 'DELETED', efectivo: 'DELETED' };
   assert.equal(siYaEstaBorrada(borrado, 'status'), 'no_existe');
@@ -267,7 +284,8 @@ test('lib/meta-ads-create.ts: un negocio por Zernio lee por SU Zernio y crea el 
   const crear = m.slice(m.indexOf('async function anuncioPorZernioDelNegocio('), m.indexOf('export async function crearAnuncioEnConjunto('));
   assert.ok(crear.indexOf("cuentaDelObjeto(adsetId, 'adset')") > 0 && crear.indexOf("cuentaDelObjeto(adsetId, 'adset')") < crear.indexOf('crearAnuncioPorZernio('));
   assert.match(crear, /const firma = createHash\('sha256'\)\.update\(JSON\.stringify\(cuerpo\)\)/);
-  assert.match(crear, /crearAnuncioPorZernio\(z\.ws, cuerpo, `mako:\$\{adsetId\}:\$\{firma\}:/, 'la clave de idempotencia por nombre devuelve el anuncio borrado o choca con otro cuerpo');
+  assert.match(crear, /const clave = `mako:\$\{adsetId\}:\$\{firma\}:/, 'la clave de idempotencia por nombre devuelve el anuncio borrado o choca con otro cuerpo');
+  assert.match(crear, /crearAnuncioPorZernio\(z\.ws, cuerpo, clave\)/);
   // Sin token y por Zernio, el error no manda a configurar el token deprecado.
   assert.match(m, /name === 'META_ACCESS_TOKEN' && \(await canalZernio\(\)\)/);
   // La biblioteca de imágenes: Zernio corta en 100 por página.

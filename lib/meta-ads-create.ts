@@ -29,7 +29,7 @@ import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type Formu
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { OWNER_WS, wsObligatorio } from './workspace';
-import { conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
+import { anuncioEnVivoPorZernio, conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
 import type { CanalMeta } from './meta-via';
 import { ZERNIO_ANUNCIOS_PROBADO, cuerpoAnuncioEnConjunto, rutaDelAnuncio } from './zernio-ads-cuerpo';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
@@ -1659,7 +1659,15 @@ async function anuncioPorZernioDelNegocio(z: Extract<CanalMeta, { via: 'zernio' 
     });
   }
   const firma = createHash('sha256').update(JSON.stringify(cuerpo)).digest('hex').slice(0, 24);
-  const r = await crearAnuncioPorZernio(z.ws, cuerpo, `mako:${adsetId}:${firma}:${Math.floor(Date.now() / 600_000)}`).catch((e) => { throw errorDeZernio(e); });
+  const clave = `mako:${adsetId}:${firma}:${Math.floor(Date.now() / 600_000)}`;
+  let r = await crearAnuncioPorZernio(z.ws, cuerpo, clave).catch((e) => { throw errorDeZernio(e); });
+  // Con la misma clave, Zernio devuelve el anuncio de la primera vez AUNQUE ya se haya borrado: crear, borrar y volver a pedir lo
+  // mismo dentro del tramo decía «creado» sobre uno borrado (revisión del tren-m, 26/10/2026). Se relee y, si vino borrado, se pide
+  // UNA vez más con otra clave (es una creación nueva a propósito, no un reintento del mismo pedido).
+  const { vinoBorrado } = await import('./zernio-meta-cuerpo');
+  if (vinoBorrado(await anuncioEnVivoPorZernio(z.ws, r.adId).catch(() => null))) {
+    r = await crearAnuncioPorZernio(z.ws, cuerpo, `${clave}:otra:${Date.now()}`).catch((e) => { throw errorDeZernio(e); });
+  }
   return { ad_id: r.adId, creative_id: null, via: 'zernio' };
 }
 

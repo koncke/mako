@@ -421,6 +421,16 @@ export function siYaEstaBorrada(e: EntidadZernio, op: string): 'hecho' | 'no_exi
 }
 
 /**
+ * ¿Lo que Zernio devolvió al crear es un anuncio YA BORRADO? Con la misma `Idempotency-Key` devuelve la respuesta de la primera vez
+ * aunque ese anuncio ya no exista (medido el 26/10/2026): crear, borrar y volver a pedir lo mismo en el mismo tramo daba «creado»
+ * sobre uno borrado. Se mira releyéndolo en vivo (`anuncioEnVivoPorZernio`): `status: cancelled` o la entrega `DELETED`.
+ * ⚠️ El interruptor (`configuredStatus`) NO sirve: un anuncio borrado vuelve con `ACTIVE`.
+ */
+export function vinoBorrado(v: { estado: string | null; entrega: string | null } | null): boolean {
+  return !!v && (v.estado === 'cancelled' || v.entrega === 'DELETED');
+}
+
+/**
  * Un fallo de Zernio al escribir, dicho para la persona, con el status que contesta MaKo. Lo que tiene arreglo del lado del
  * negocio dice dónde se arregla: el tope de anuncios activos gratis de SU Zernio (`ads_allowance_exceeded`: prender o subir
  * presupuesto con la cuenta de Zernio sin medio de pago), la cuenta publicitaria no elegida en la conexión, la conexión

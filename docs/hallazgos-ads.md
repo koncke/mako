@@ -4947,6 +4947,9 @@ la Zernio del negocio».
 - ⚠️ **La `Idempotency-Key` devuelve la respuesta ORIGINAL aunque lo creado ya no exista.** El script de prueba usaba una clave
   por día: la segunda vuelta recibió los ids de la campaña de la primera, ya borrada, y no creó nada. La clave protege el
   reintento de UNA creación; dos creaciones a propósito llevan dos claves.
+  Lo mismo al crear un ANUNCIO (revisión del tren-m): crear, borrar y volver a pedir lo mismo dentro del tramo de 10 minutos de la
+  clave devolvía el borrado y MaKo decía «creado». Ahora se relee en vivo y, si vino borrado (`cancelled` o entrega `DELETED`;
+  el interruptor no sirve, vuelve `ACTIVE`), se pide UNA vez más con otra clave (`vinoBorrado`, lib/zernio-meta-cuerpo.ts).
 - **Una campaña «vacía» se puede pausar por Zernio si alguna vez tuvo anuncios** (Zernio la encuentra por sus anuncios
   guardados). El 404 que midió el Media Buyer es de la campaña que NACIÓ vacía (`POST /ads/campaigns`); ahí el texto propio
   dice que se le agregue un anuncio o se borre.
