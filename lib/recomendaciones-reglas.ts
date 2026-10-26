@@ -254,14 +254,16 @@ export function estadoDe(m: MemoriaRecs, s: Senal, ahora: Date): EstadoClave {
  * no se afirma ninguna mejora. Una señal con poca muestra no «mejoró»: no se puede decir (cuenta como sigue igual).
  */
 export function funcionaron(m: MemoriaRecs, senales: readonly Senal[], ahora: Date, tiposMedidos: ReadonlySet<string> = new Set()): Array<{ clave: string; aceptadaEl: string; antes: number }> {
-  const vigentes = new Set(senales.filter((s) => sostiene(s) || !(s.n >= s.nMinimo)).map(claveDe));
+  // Mejoró sólo lo que ESTÁ hoy, con muestra, y debajo del umbral (verificación del tren-m, hallazgo 12): una señal que no se
+  // emite porque no hay datos (la línea de WhatsApp desconectada, la asistencia sin marcar, una página sin visitas) no mejoró.
+  const mejoradas = new Set(senales.filter((s) => s.nMinimo > 0 && s.n >= s.nMinimo && !sostiene(s)).map(claveDe));
   const vistas = new Set<string>();
   const out: Array<{ clave: string; aceptadaEl: string; antes: number }> = [];
   for (let i = m.decisiones.length - 1; i >= 0; i--) {
     const d = m.decisiones[i];
     if (vistas.has(d.clave)) continue;
     vistas.add(d.clave);
-    if (d.d !== 'hecha' || vigentes.has(d.clave) || !tiposMedidos.has(d.tipo)) continue;
+    if (d.d !== 'hecha' || !mejoradas.has(d.clave) || !tiposMedidos.has(d.tipo)) continue;
     if (ahora.getTime() - Date.parse(d.en) < DIAS_HECHA * DIA) continue;
     out.push({ clave: d.clave, aceptadaEl: d.en, antes: d.valor });
   }

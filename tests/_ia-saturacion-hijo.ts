@@ -69,26 +69,47 @@ async function main() {
     pg.db.credenciales.push({ workspace_id: ws, clave: 'GEMINI_API_KEY', valor_enc: cifrarSecreto(`gemini-${ws}-${'k'.repeat(40)}`, ws, 'GEMINI_API_KEY'), servicio: 'GEMINI_API_KEY' });
   }
 
+  const { conSoloSuIA } = await import('../lib/solo-su-ia');
   const out: Record<string, unknown> = {};
-  const cascada = (o: { ws?: number; hastaMs?: number; maxTokens?: number; timeoutMs?: number; listaPorDefault?: boolean } = {}) => runWithWorkspace(o.ws ?? PLATAFORMA, () => ai.chatCheapCascade({
+  type Op = { ws?: number; hastaMs?: number; maxTokens?: number; timeoutMs?: number; listaPorDefault?: boolean; red?: boolean; pii?: boolean };
+  const pedido = (o: Op) => () => ai.chatCheapCascade({
     system: 's', user: 'las secciones de la réplica', feature: 'landing-editor', ...(o.listaPorDefault ? {} : { provs: ['gemini' as const] }), timeoutMs: o.timeoutMs ?? 88_800,
     ...(o.maxTokens ? { maxTokens: o.maxTokens } : {}), ...(o.hastaMs ? { hastaMs: o.hastaMs } : {}),
-  }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`));
+    ...(o.red ? { redDePlataforma: true } : {}), ...(o.pii ? { pii: true } : {}),
+  }).catch((e) => `tiró: ${e instanceof Error ? e.message : String(e)}`);
+  const cascada = (o: Op = {}) => runWithWorkspace(o.ws ?? PLATAFORMA, pedido(o));
+  // Un cliente SIN «sólo su IA» (el AI Step que corre desde el CRON): ahí la red de la plataforma sí podría correr.
+  const cascadaSinD6b = (o: Op) => runWithWorkspace(o.ws ?? CLIENTE, () => conSoloSuIA(false, pedido(o)));
   const reset = (latest: 'cuelga' | '503', lite: 'ok' | '503' = 'ok') => { sat.olvidarSaturados(); pedidos = []; flashLatest = latest; flashLite = lite; };
 
   // A. Una tanda GRANDE y sana-o-colgada (7.400 tokens) con 42 s de plazo: el intento pide TODO el plazo (sin reservar), y su
   //    corte no marca al modelo: no tuvo el plazo que su tamaño pedía (88,8 s).
   reset('cuelga');
   out.A = { respuesta: await cascada({ hastaMs: Date.now() + 42_000, maxTokens: 7_400 }), pedidos, saturadoDespues: sat.estaSaturado('gemini', 'gemini-flash-latest') };
-  // A2. Un pedido CHICO (sin maxTokens: 30 s esperados) que cuelga sus 30 s enteros: eso sí es un modelo colgado.
+  // A2. Un pedido CHICO (sin maxTokens: 30 s esperados) que cuelga sus 30 s enteros: en ESTE pedido no se reintenta (se pasa al
+  //     respaldo), pero un timeout NUNCA marca al modelo para el proceso (verificación del tren-m, hallazgo 17).
   reset('cuelga');
   out.A2 = { respuesta: await cascada({ timeoutMs: 30_000 }), pedidos, saturadoDespues: sat.estaSaturado('gemini', 'gemini-flash-latest') };
-  // B. Enseguida, otro pedido: el modelo saturado va al FINAL, así que empieza por el respaldo.
-  pedidos = [];
-  out.B = { respuesta: await cascada({ hastaMs: Date.now() + 42_000 }), pedidos };
   // C. flash-latest contesta 503 «high demand»: no se reintenta, se pasa al respaldo, y queda saturado.
   reset('503');
   out.C = { respuesta: await cascada({ hastaMs: Date.now() + 42_000 }), pedidos, saturadoDespues: sat.estaSaturado('gemini', 'gemini-flash-latest') };
+  // B. Enseguida, otro pedido: el modelo saturado va al FINAL, así que empieza por el respaldo.
+  pedidos = [];
+  out.B = { respuesta: await cascada({ hastaMs: Date.now() + 42_000 }), pedidos };
+  // H. Una RÉPLICA (`conMemoriaDelPedido`): la tanda 1 se cuelga con su plazo entero; la tanda 2 de la misma réplica empieza
+  //    por el respaldo. Afuera de la réplica, el pedido siguiente empieza por flash-latest como siempre.
+  reset('cuelga');
+  const h: Record<string, unknown> = {};
+  await sat.conMemoriaDelPedido(async () => {
+    await cascada({ hastaMs: Date.now() + 42_000, maxTokens: 7_400 });
+    h.tanda1 = pedidos; pedidos = [];
+    await cascada({ hastaMs: Date.now() + 42_000, maxTokens: 7_400 });
+    h.tanda2 = pedidos; pedidos = [];
+  });
+  await cascada({ hastaMs: Date.now() + 42_000, maxTokens: 7_400 });
+  h.afuera = pedidos;
+  h.saturadoDespues = sat.estaSaturado('gemini', 'gemini-flash-latest');
+  out.H = h;
   // D. Sin plazo del que llama: el intento pide su timeout de siempre.
   reset('cuelga');
   out.D = { respuesta: await cascada(), pedidos };
@@ -104,6 +125,13 @@ async function main() {
   // F2. Lo mismo en un cliente con SU Gemini sola (corre con «sólo su IA»: su lista es openai y gemini, y su OpenAI no existe).
   reset('503', '503');
   out.F2 = { respuesta: await cascada({ ws: CLIENTE, hastaMs: Date.now() + 20_000, listaPorDefault: true }), pedidos };
+  // G. Con la red de la plataforma PEDIDA pero que no corre (verificación del tren-m, hallazgo 18): un pedido con datos de
+  //    clientes (el AI Step que le contesta a un lead), y el super admin (que ya probó sus keys). flash-lite es la última opción
+  //    real: su 503 se reintenta.
+  reset('503', '503');
+  out.G = { respuesta: await cascadaSinD6b({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true, pii: true }), pedidos };
+  reset('503', '503');
+  out.G2 = { respuesta: await cascada({ hastaMs: Date.now() + 20_000, listaPorDefault: true, red: true }), pedidos };
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

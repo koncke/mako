@@ -52,6 +52,7 @@
 import 'server-only';
 import { htmlDePagina } from '../landing-fetch';
 import { getWorkspaceActual } from '../workspace';
+import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
 import { tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
@@ -102,7 +103,9 @@ export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
   const receta = configDeReplica(formato, url);
   if (receta.via === 'fiel') return replicarFiel(url, receta);
   const texto = typeof p.texto === 'string' ? p.texto.trim().slice(0, MAX_TEXTO) : '';
-  return replicarComoBloques(url, receta, { lectura: p.lectura, texto });
+  // Con memoria de cuelgues PROPIA (lib/ia-saturacion.ts): el modelo que se colgó en una tanda va al final de la lista en las
+  // tandas que siguen y en la segunda vuelta de ESTA réplica, sin degradar a ningún otro pedido.
+  return conMemoriaDelPedido(() => replicarComoBloques(url, receta, { lectura: p.lectura, texto }));
 }
 
 async function crearLanding(titulo: string, contenido: LandingContenido, config: Partial<ConfigLanding>): Promise<{ id: number; titulo: string } | ResultadoReplicar> {
@@ -198,7 +201,8 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
   await correr(tandas, '1ª vuelta');
   // ⚠️ UNA SEGUNDA VUELTA para lo que quedó sin IA, mientras quede plazo para una tanda entera (26/10/2026). El caso: la réplica
   // del ws9 dejó 17 de 20 secciones sin IA en 135 s con un plazo de 240, porque `gemini-flash-latest` estaba saturado. La
-  // cascada ya lo anotó (lib/ia-saturacion.ts): esta vuelta empieza por el modelo de respaldo. Una sola: lo que vuelva a
+  // cascada ya lo anotó (lib/ia-saturacion.ts: el 503 para el proceso, el cuelgue para esta réplica): esta vuelta empieza
+  // por el modelo de respaldo. Una sola: lo que vuelva a
   // fallar queda con el texto de la original, como siempre, y lo dice el aviso.
   const faltan = tandas.map((t) => t.filter((i) => !porIndice.has(i))).filter((t) => t.length > 0);
   if (faltan.length) await correr(faltan, '2ª vuelta');

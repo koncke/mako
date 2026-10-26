@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sostiene } from '../lib/recomendaciones-reglas';
 import {
-  FUENTE_DEL_TIPO, UMBRALES, errorLimpio, noPideRespuesta, senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, tiposMedidos,
+  DIAS_LECTURA_WA, FILTRO_PERSONAS_WA, FUENTE_DEL_TIPO, UMBRALES, errorLimpio, noPideRespuesta, senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, tiposMedidos,
   senalesDeAutomatizaciones, senalesDeLandings, senalesDeObjeciones, type LeadSenal, type MensajeSenal,
 } from '../lib/recomendaciones-senales';
 
@@ -42,14 +42,22 @@ test('respuesta lenta: cuenta las conversaciones NUEVAS de leads, con el umbral 
   assert.equal(s.valor, 6 / 12);
   assert.match(s.dato, /^6 de 12 personas/);
   assert.equal(sostiene(s), true);
+  // El filtro de la consulta deja pasar las mismas conversaciones que cuentan acá: personas, ni grupos ni estados.
+  const pasa = (jid: string) => FILTRO_PERSONAS_WA.split(',').some((f) => new RegExp(`${f.replace('chat_jid.like.*', '').replace(/\./g, '\\.')}$`).test(jid));
+  assert.deepEqual(['5491100@s.whatsapp.net', '5491100@c.us', '123@lid', '1203630000@g.us', 'status@broadcast', '1@newsletter'].map(pasa), [true, true, true, false, false, false]);
   // Un grupo y una charla sin lead (el WhatsApp personal del dueño) no cuentan.
   const ruido = [...charla(5 * D, null, 999, '1203630000@g.us'), ...charla(5 * D, null, null, '5491199999@s.whatsapp.net')];
   assert.equal(senalRespuestaLenta([...msgs, ...ruido], AHORA, DESDE)!.n, 12);
   // Una que empezó hace 20 minutos todavía está a tiempo.
   assert.equal(senalRespuestaLenta([...msgs, ...charla(20 * 60_000, null)], AHORA, DESDE)!.n, 12);
-  // Con la lectura cortada por el tope (empezó hace 6 días), una conversación de hace 5,5 días puede tener historia antes de lo
-  // leído: no se cuenta como nueva.
-  assert.equal(senalRespuestaLenta([...msgs, ...charla(5.5 * D, null)], AHORA, new Date(AHORA.getTime() - 6 * D))!.n, 12);
+  // Con la lectura cortada por el tope, se exige la misma SEMANA leída sin nada antes que con la lectura completa
+  // (DIAS_LECTURA_WA - dias, verificación del tren-m, hallazgo 11): cortada hace 13 días, las de hace 5 cuentan y una de hace
+  // 6,5 (con 6,5 días leídos antes) no. Con un día de margen, contaba.
+  assert.equal(senalRespuestaLenta([...msgs, ...charla(6.5 * D, null)], AHORA, new Date(AHORA.getTime() - 13 * D))!.n, 12);
+  // Cortada hace 6 días, ninguna tiene una semana leída antes: no se afirma nada.
+  assert.equal(senalRespuestaLenta([...msgs, ...charla(5.5 * D, null)], AHORA, new Date(AHORA.getTime() - 6 * D)), null);
+  // Con la lectura completa, el margen es la ventana: no cambia nada.
+  assert.equal(DIAS_LECTURA_WA - UMBRALES.respuestaLenta.dias, 7);
   // Con menos de la muestra mínima, la señal existe pero no sostiene nada (las 4 primeras conversaciones: 8 mensajes).
   assert.equal(sostiene(senalRespuestaLenta(msgs.slice(0, 8), AHORA, DESDE)!), false);
 });

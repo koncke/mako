@@ -49,8 +49,9 @@ DIJO, no lo que se puede contar.
 
 - **«Nueva» se decide contra el BORDE DE LO LEÍDO, no contra la ventana.** WhatsApp se lee con tope (6.000 mensajes): con el
   tope lleno, lo leído empieza más tarde que los 21 días, y una conversación que parece empezar en ese borde puede tener historia
-  antes. Se descarta lo que cae a menos de un día del borde real (`desdeReal` en lib/recomendaciones.ts). ⚠️ En la primera
-  versión esta regla **no corría nunca**: ver «El borde que nunca se activaba», abajo.
+  antes. Se exige la misma SEMANA leída sin nada antes que con la lectura completa (`DIAS_LECTURA_WA - dias`, contra
+  `desdeReal` en lib/recomendaciones.ts); si no alcanza, no se afirma nada. ⚠️ En la primera versión esta regla **no corría
+  nunca**, y en la segunda el margen era de un día: ver las dos revisiones, abajo.
 - **«Esperando respuesta» no cuenta «gracias», «ok» ni un emoji** (`noPideRespuesta`). La primera versión dejaba pasar
   «¡Gracias!»: el `¡` del principio no se limpiaba (sólo los signos del final).
 - **El no-show se cuenta sobre las llamadas MARCADAS.** Lo sin marcar no es ni asistió ni faltó; contarlo como asistió esconde
@@ -107,6 +108,29 @@ reglas puras y una base de mentira sin los límites de PostgREST.
 **La regla que queda:** un test con una base de mentira no ve los límites del servidor real (las 1000 filas, el largo de la URL).
 Lo que depende de ellos se prueba con la cuenta escrita en el test (el PATCH que sale, la lectura paginada en el fuente), no con
 el resultado de la base de mentira.
+
+## La verificación del tren-m: tres arreglos a medias y uno que abrió otra falla (26/10/2026)
+
+El Cerebro pasó un verificador sobre los arreglos de arriba: 5 de 9 cerrados. Lo que seguía abierto en este motor:
+
+- **11, a medias: el tope se lo comían los grupos, y un día de margen no alcanza.** La consulta traía todo `wa_mensajes`: una
+  línea con grupos llena 6.000 mensajes en días, y lo leído empezaba ayer. Ahora la consulta pide sólo personas
+  (`FILTRO_PERSONAS_WA`, el mismo criterio que `esPersona`). Y con el tope lleno, un «ok, gracias» a una charla de hace cuatro
+  días caía a más de un día del borde y contaba como primer contacto sin respuesta: el margen es ahora el mismo que tiene la
+  lectura completa (7 días).
+- **12, a medias: una señal que NO SE EMITE no es una mejora.** Sin datos, varias señales devuelven `null` (la línea
+  desconectada, la asistencia sin marcar, una página sin visitas): la fuente se leyó bien, el tipo contaba como medido, y salía
+  «Lo que mejoró» sin ningún número. Ahora mejoró sólo lo que ESTÁ hoy, con muestra y debajo del umbral. Los tipos que callan
+  cuando están bien (esperando respuesta, fallas, objeciones) ya no figuran como mejorados: es lo conservador.
+- **14, el arreglo abrió otra falla del mismo tipo.** Para que una decisión valiera para todas las señales de una recomendación,
+  el servidor sumaba las claves de la redacción GUARDADA. Pero después de cualquier decisión la huella cambia y la pantalla
+  muestra las tarjetas de las reglas (una señal cada una), mientras la redacción vieja sigue juntando dos: un «No aplica» en la
+  tarjeta de una señal callaba PARA SIEMPRE otra que la persona no vio. **La regla:** se decide sobre lo que la persona VIO.
+  La pantalla manda sus claves y se usan ésas; sin claves (la API), la redacción sólo si es la que se muestra hoy
+  (`redaccionVigente`, la MISMA función que decide qué se dibuja).
+
+**La regla que queda:** un arreglo que «completa» una decisión con datos guardados tiene que probar que esos datos son los que
+la persona tenía delante. Si dibujar y decidir leen el mismo dato por dos caminos, terminan viendo cosas distintas.
 
 ## Montar algo en una pantalla que es de otro chat: dos trampas (26/10/2026)
 

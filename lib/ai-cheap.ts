@@ -38,7 +38,7 @@ import { corregirMarca } from '@/lib/mako-gramatica';
 import { salidaDegenerada } from '@/lib/stt-degenerado';
 import { crearRotacion, leerErrorProveedor, tipoDeFallo } from '@/lib/ia-rotacion-modelo';
 import { aprenderSinMinimal, esfuerzoParaGemini, rechazaElEsfuerzo } from '@/lib/gemini-esfuerzo';
-import { anotarSaturado, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
+import { anotarColgadoEnElPedido, anotarSaturado, esSaturacion as dijoSaturado, esTimeout, fallaDeSaturacion, plazoEsperadoMs, primeroLosSanos } from '@/lib/ia-saturacion';
 import { CATALOGO_MODELOS } from '@/lib/model-catalogo';
 
 export type ProvName = 'groq' | 'openai' | 'gemini' | 'cerebras' | 'mistral' | 'openrouter';
@@ -574,11 +574,12 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     signal: AbortSignal.timeout(opts.timeoutMs ?? 30000),
   });
   let { esfuerzo, aire } = p.nombre === 'gemini' ? esfuerzoParaGemini(model, pedido) : { esfuerzo: pedido, aire: 0 };
-  // Un modelo que cuelga con un plazo razonable queda SATURADO unos minutos (lib/ia-saturacion.ts): el próximo pedido
-  // empieza por su respaldo. El error sigue su camino igual.
+  // Un modelo que se CORTÓ por plazo queda anotado sólo en el pedido en curso (`conMemoriaDelPedido`, lib/ia-saturacion.ts):
+  // un timeout no distingue un modelo colgado de un pedido grande o de un plazo chico, y marcarlo para el proceso degradaba a
+  // todos los negocios (verificación del tren-m, hallazgo 17). El error sigue su camino igual.
   let res: Response;
   try { res = await pedir(esfuerzo, aire); } catch (e) {
-    if (fallaDeSaturacion(e instanceof Error ? `${e.name} ${e.message}` : String(e), opts.timeoutMs ?? 30000, plazoEsperadoMs(opts.maxTokens))) anotarSaturado(p.nombre, model);
+    if (esTimeout(e instanceof Error ? `${e.name} ${e.message}` : String(e))) anotarColgadoEnElPedido(p.nombre, model);
     throw e;
   }
   let data = await res.json().catch(() => ({}));
@@ -595,7 +596,7 @@ export async function chatCheap(opts: { system: string; user: string; json?: boo
     // pelado y el clasificador no tenía qué leer (15/10/2026: así se escondió el 400 de 'minimal'). `leerErrorProveedor`
     // lee los dos.
     // «high demand» (503) es del MODELO, no de la cuenta: queda saturado unos minutos (lib/ia-saturacion.ts).
-    if (fallaDeSaturacion(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`, 0, Infinity)) anotarSaturado(p.nombre, model);
+    if (dijoSaturado(`HTTP ${res.status} ${leerErrorProveedor(data, res.status).mensaje}`)) anotarSaturado(p.nombre, model);
     throw new Error(`chatCheap(${rotulo(p)}): ${leerErrorProveedor(data, res.status).mensaje}${extra}`);
   }
   // Registrar el gasto (barato, no descuenta del saldo de Claude) con descripción.
@@ -761,11 +762,19 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
   }
   // Las cuentas de cada proveedor, UNA vez: con ellas se sabe cuál es de verdad la última opción (revisión del tren-l, hallazgo
   // 18: un proveedor de la lista SIN clave contaba como «otra opción», y la última opción real perdía su reintento). La red de
-  // la plataforma también es una opción, si el que llama la pidió y el negocio no corre con «sólo su IA».
+  // la plataforma también es una opción, pero sólo si CORRE: con los mismos cortes que tiene abajo (verificación del tren-m):
+  // «sólo su IA», datos de clientes (`pii`: el AI Step que le contesta a un lead) y el super admin, que ya probó sus keys.
+  // El crédito de Claude del onboarding no cuenta: sin él sólo se suma un reintento, no se pierde ninguna opción.
   const instanciasDe = new Map(await Promise.all((orden as ProvName[]).map(async (p) => [p, await provsDe(p)] as const)));
   const conClave = (orden as ProvName[]).filter((p) => (instanciasDe.get(p) ?? []).length > 0);
   const ultimoProv = conClave[conClave.length - 1];
-  const hayRed = !!opts.redDePlataforma && !soloSuIA();
+  const llevaPII = opts.pii ?? CATALOGO_MODELOS.some((f) => f.feature === opts.feature && f.pii === true);
+  let hayRed = false;
+  if (opts.redDePlataforma && !soloSuIA() && !llevaPII) {
+    const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
+    const sa = await wsSuperAdmin().catch(() => null);
+    hayRed = sa != null && (await getWorkspaceActual().catch(() => null)) !== sa;
+  }
   for (const prov of orden as ProvName[]) {
     // DOS ejes de rotación, y este es el de adentro: todas las CUENTAS cargadas de
     // este proveedor antes de pasar al siguiente. El free tier se agota por cuenta,
@@ -1353,8 +1362,6 @@ export async function chatCheapTools(
       // EXCEPCIÓN («The operation was aborted due to timeout»), y salía del turno sin
       // pasar por ningún reintento. Medido esa misma noche en la tercera Gemini de la red.
       let excepcion: string | null = null;
-      // El plazo de ESTE intento: con él se decide si un timeout dice algo del modelo (lib/ia-saturacion.ts).
-      const plazoPaso = rotacion.plazoDelIntentoMs(opts.timeoutMs ?? 45000);
       try {
         res = await fetch(`${p.base}/chat/completions`, {
           method: 'POST',
@@ -1401,9 +1408,11 @@ export async function chatCheapTools(
       // El status va adelante: los clasificadores de río abajo (fallo-ia-texto) leen
       // `\b429\b` y `HTTP 503`, y el texto del proveedor no siempre los trae.
       const detalle = status && !leido.mensaje.startsWith(`HTTP ${status}`) ? `HTTP ${status} · ${leido.mensaje}` : leido.mensaje;
-      // «high demand» o un cuelgue con plazo razonable: el modelo queda saturado unos minutos para TODO el proceso
-      // (lib/ia-saturacion.ts). Este turno rota igual (la rotación de abajo); el próximo empieza por el respaldo.
-      if (fallaDeSaturacion(detalle, plazoPaso, opts.timeoutMs ?? 45000)) anotarSaturado(p.nombre, model);
+      // «high demand»: el modelo queda saturado unos minutos para TODO el proceso (lib/ia-saturacion.ts). Este turno rota igual
+      // (la rotación de abajo); el próximo empieza por el respaldo. Un timeout NO: la red de MaKo en WhatsApp corta a los 10 s y
+      // un paso sano tarda más (verificación del tren-m, hallazgo 17); queda anotado sólo en el pedido en curso.
+      if (dijoSaturado(detalle)) anotarSaturado(p.nombre, model);
+      else if (esTimeout(detalle)) anotarColgadoEnElPedido(p.nombre, model);
       // Un modelo de OpenAI que rechaza un campo de salida: se aprende el OTRO formato y se repite el paso una sola vez
       // (lib/ai-cheap-techo.ts, `aprenderFormatoSiLoRechaza`). Si el otro también falla, sigue la rotación de siempre.
       if (p.nombre === 'openai' && status === 400 && aprenderFormatoSiLoRechaza(model, leido.mensaje)) {

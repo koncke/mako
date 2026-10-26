@@ -8,11 +8,14 @@
 // tandas sanas y las marcaba «saturadas» para todos, y un proveedor SIN clave contaba como «otra opción». Lo que se fija acá:
 //   1. lo puro de lib/ia-saturacion.ts: qué es saturación (un 429 no), y que un timeout cuenta sólo con el plazo COMPLETO que
 //      el tamaño del pedido necesitaba;
-//   2. la cascada REAL (tests/_ia-saturacion-hijo.ts): el intento pide todo su plazo; un corte de una tanda grande no marca a
-//      nadie; un cuelgue con el plazo completo o un 503 sí, sin reintento si hay a dónde ir, y el pedido siguiente empieza por
-//      el respaldo; la ÚLTIMA opción real (sin contar proveedores sin clave) sí insiste;
-//   3. el turno con herramientas (MaKo en WhatsApp) también anota la saturación;
-//   4. la réplica del Web Generator da una segunda vuelta a lo que quedó sin IA.
+//   2. la cascada REAL (tests/_ia-saturacion-hijo.ts): el intento pide todo su plazo; un TIMEOUT nunca marca al modelo para el
+//      proceso (sólo un 503 lo hace), y un cuelgue con el plazo completo pasa al respaldo en el mismo pedido; adentro de una
+//      réplica (`conMemoriaDelPedido`) la tanda siguiente empieza por el respaldo; la ÚLTIMA opción real (sin proveedores sin
+//      clave, y sin una red que no corre por `pii` o por ser el super admin) sí insiste;
+//   3. el turno con herramientas (MaKo en WhatsApp) anota el 503, nunca el timeout;
+//   4. la réplica del Web Generator da una segunda vuelta a lo que quedó sin IA, con su memoria de cuelgues.
+// La verificación del tren-m reabrió el 17 y el 18: el timeout del que llama (10 s en la red de MaKo en WhatsApp) marcaba al
+// modelo para todos, y una red pedida que no corría (`pii`, super admin) contaba como «otra opción».
 //
 // Probado rompiéndolo (26/10/2026): al pie del archivo.
 // =============================================================================
@@ -64,7 +67,8 @@ type Vuelta = { respuesta?: string; pedidos: Pedido[]; saturadoDespues?: boolean
 const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', join(RAIZ, 'tests', '_ia-saturacion-hijo.ts')], {
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
-const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2', Vuelta> & { error?: string };
+const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as Record<'A' | 'A2' | 'B' | 'C' | 'D' | 'E' | 'F' | 'F2' | 'G' | 'G2', Vuelta>
+  & { H: { tanda1: Pedido[]; tanda2: Pedido[]; afuera: Pedido[]; saturadoDespues: boolean }; error?: string };
 const LATEST = 'gemini-flash-latest', LITE = 'gemini-flash-lite-latest';
 const modelos = (v: Vuelta) => v.pedidos.map((p) => p.modelo);
 
@@ -74,9 +78,19 @@ test('2. una tanda GRANDE pide todo su plazo (sin reservar) y su corte NO marca 
   assert.equal(R.A.saturadoDespues, false, 'una tanda sana y lenta quedó marcada saturada para todos los negocios del proceso');
 });
 
-test('2. un cuelgue con el plazo completo o un 503 SÍ marcan, no se reintentan, y el pedido siguiente empieza por el respaldo', () => {
-  assert.equal(R.A2.saturadoDespues, true);
+test('2. un TIMEOUT nunca marca al modelo para el proceso; en su pedido, colgado con el plazo entero, pasa al respaldo', () => {
+  assert.equal(R.A2.saturadoDespues, false, 'un timeout marcó al modelo para todos los negocios del proceso');
   assert.deepEqual(modelos(R.A2), [LATEST, LITE], 'colgado con su plazo entero: no se reintenta, se pasa al respaldo');
+});
+
+test('2. adentro de una réplica, el cuelgue de una tanda hace empezar a la siguiente por el respaldo; afuera, nada', () => {
+  assert.equal(R.H.tanda1[0]?.modelo, LATEST);
+  assert.equal(R.H.tanda2[0]?.modelo, LITE, `la tanda 2 de la misma réplica empezó por ${R.H.tanda2[0]?.modelo}`);
+  assert.equal(R.H.afuera[0]?.modelo, LATEST, 'el cuelgue de una réplica se le pegó a otro pedido');
+  assert.equal(R.H.saturadoDespues, false);
+});
+
+test('2. un 503 SÍ marca, no se reintenta, y el pedido siguiente empieza por el respaldo', () => {
   assert.equal(R.B.pedidos[0]?.modelo, LITE, `empezó por ${R.B.pedidos[0]?.modelo}`);
   assert.equal(R.B.respuesta, `respuesta de ${LITE}`);
   assert.deepEqual(modelos(R.C), [LATEST, LITE], 'el 503 «high demand» no se reintenta en el mismo modelo');
@@ -93,9 +107,23 @@ test('2. la ÚLTIMA opción real insiste: un proveedor de la lista sin clave no 
   }
 });
 
-test('3. el turno con herramientas (MaKo en WhatsApp) también anota la saturación', () => {
+test('2. una red de la plataforma PEDIDA que no corre no es «otra opción»: con datos de clientes, y en el super admin', () => {
+  for (const [nombre, v] of [['el AI Step de un lead (pii)', R.G], ['el super admin', R.G2]] as const) {
+    assert.deepEqual(modelos(v), [LATEST, LITE, LITE], `${nombre}: la red no corre y el 503 de su última opción no se reintentó (${modelos(v).join(', ')})`);
+  }
+  // `hayRed` mira los mismos cortes que la red de abajo.
+  const casc = fuente('lib/ai-cheap.ts');
+  assert.match(casc, /if \(opts\.redDePlataforma && !soloSuIA\(\) && !llevaPII\) \{/);
+  assert.match(casc, /hayRed = sa != null && \(await getWorkspaceActual\(\)\.catch\(\(\) => null\)\) !== sa;/);
+});
+
+test('3. el turno con herramientas (MaKo en WhatsApp) anota el 503, y NINGÚN camino anota un timeout para el proceso', () => {
   assert.equal(R.E.saturadoDespues, true);
   assert.deepEqual(modelos(R.E), [LATEST, LITE], 'rota al respaldo en el mismo turno');
+  // Todo `anotarSaturado(` de la cascada va detrás de lo que el proveedor DICE (`dijoSaturado`), nunca de un timeout.
+  const lineas = fuente('lib/ai-cheap.ts').split('\n').filter((l) => /anotarSaturado\(/.test(l) && !/^import /.test(l));
+  assert.equal(lineas.length, 2, 'chatCheap y chatCheapTools');
+  for (const l of lineas) assert.match(l, /if \(dijoSaturado\(/, `anota sin que el proveedor lo diga: ${l.trim()}`);
 });
 
 test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que quedaron sin IA', () => {
@@ -103,6 +131,7 @@ test('4. la réplica del Web Generator da UNA segunda vuelta a las secciones que
   assert.match(src, /await correr\(tandas, '1ª vuelta'\);/);
   assert.match(src, /const faltan = tandas\.map\(\(t\) => t\.filter\(\(i\) => !porIndice\.has\(i\)\)\)\.filter\(\(t\) => t\.length > 0\);/);
   assert.match(src, /if \(faltan\.length\) await correr\(faltan, '2ª vuelta'\);/);
+  assert.match(src, /return conMemoriaDelPedido\(\(\) => replicarComoBloques\(/, 'la réplica no tiene su memoria de cuelgues');
   // Las dos vueltas respetan el mismo plazo total (una tanda entera tiene que entrar).
   assert.match(src, /if \(Date\.now\(\) - t0 \+ TANDA_MS > PLAZO_BLOQUES_MS\) continue;/);
 });

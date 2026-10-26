@@ -27,11 +27,19 @@ const salida = execFileSync(process.execPath, ['--conditions=react-server', '--i
   cwd: RAIZ, encoding: 'utf8', maxBuffer: 8 * 1024 * 1024, timeout: 180_000, stdio: ['ignore', 'pipe', 'ignore'],
 });
 const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO@@'.length)) as {
-  error?: string; bytesAntes: number; r1: { ok: boolean }; patches1: string[]; ultimas1: string[]; total1: number; r2: { ok: boolean }; patches2: number; total2: number;
+  error?: string; bytesAntes: number; senalesTipos: string[];
+  r1: { ok: boolean }; patches1: string[]; ultimas1: string[]; total1: number;
+  r2: { ok: boolean }; patches2: number; ultimas2: string[]; total2: number;
+  r3: { ok: boolean }; patches3: number; total3: number;
 };
+const S1 = 'respuesta-lenta|negocio', S2 = 'esperando-respuesta|negocio';
+
+test('11. los grupos no se comen el tope de lectura: con 6.100 mensajes de grupos de ayer, las charlas con leads se leen', () => {
+  assert.equal(R.error, undefined, String(R.error));
+  assert.ok(R.senalesTipos.includes('respuesta-lenta') && R.senalesTipos.includes('esperando-respuesta'), `señales: ${R.senalesTipos.join(', ')}`);
+});
 
 test('10. con una memoria grande (más de 20 KB) la decisión se guarda, y la escritura compara `updated_at`, nunca el valor', () => {
-  assert.equal(R.error, undefined, String(R.error));
   assert.ok(R.bytesAntes > 20_000, `la memoria de prueba pesa ${R.bytesAntes} bytes`);
   assert.deepEqual(R.r1, { ok: true });
   assert.equal(R.patches1.length, 1);
@@ -39,23 +47,31 @@ test('10. con una memoria grande (más de 20 KB) la decisión se guarda, y la es
   assert.doesNotMatch(R.patches1[0], /value=eq\./, 'el JSON entero viaja en la URL: a unas 35 decisiones ya no entra');
 });
 
-test('14. decidir sobre una recomendación que junta varias señales decide sobre TODAS (aunque llegue sólo la principal)', () => {
-  assert.deepEqual(R.ultimas1.slice(-2), ['respuesta-lenta|negocio=no-aplica', 'esperando-respuesta|negocio=no-aplica']);
-  assert.equal(R.total1, 82, '80 viejas + las dos claves');
+test('14. la pantalla manda la tarjeta que se VIO: con una redacción vieja guardada, no se decide sobre otra señal', () => {
+  assert.deepEqual(R.ultimas1, [`landing-no-convierte|landing:https://negocio-de-prueba.com/pagina-79=ahora-no`, `${S1}=ahora-no`], 'se anotó algo sobre una señal que la persona no vio');
+  assert.equal(R.total1, 81);
+});
+
+test('14. sin claves (la API), se expande sólo con la redacción que SE MUESTRA hoy (la misma huella)', () => {
+  assert.deepEqual(R.r2, { ok: true });
+  assert.equal(R.patches2, 1);
+  assert.deepEqual(R.ultimas2, [`${S1}=no-aplica`, `${S2}=no-aplica`]);
+  assert.equal(R.total2, 83);
 });
 
 test('15. la misma decisión otra vez, mientras sigue vigente, no escribe nada y contesta ok', () => {
-  assert.deepEqual(R.r2, { ok: true }, 'la pantalla tiene que poder sacar la tarjeta igual');
-  assert.equal(R.patches2, 0, 'repetir la decisión volvió a escribir');
-  assert.equal(R.total2, 82);
+  assert.deepEqual(R.r3, { ok: true }, 'la pantalla tiene que poder sacar la tarjeta igual');
+  assert.equal(R.patches3, 0, 'repetir la decisión volvió a escribir');
+  assert.equal(R.total3, 83);
 });
 
-test('11. WhatsApp se lee PAGINADO (PostgREST corta en 1000 sin avisar), del más nuevo al más viejo y con la PK al final', () => {
+test('11. WhatsApp se lee PAGINADO (PostgREST corta en 1000 sin avisar), sólo PERSONAS, del más nuevo al más viejo y con la PK al final', () => {
   const src = fuente('lib/recomendaciones.ts');
   assert.doesNotMatch(src, /from\('wa_mensajes'\)[^;]*\.limit\(/, 'un `.limit(N)` no sube el techo de 1000: el borde de lo leído nunca se activaba');
   assert.match(src, /leerPorPaginas<MensajeSenal>\(db, 'wa_mensajes', 'id, [^']*'/);
   assert.match(src, /orden: \[\{ col: 'wa_timestamp', asc: false \}, \{ col: 'id', asc: false \}\]/);
   assert.match(src, /return msgs\.length < MAX_MENSAJES;/, 'el tope se corta en el call-site, devolviendo false');
+  assert.match(src, /\.or\(FILTRO_PERSONAS_WA\)/);
 });
 
 // ── Probado rompiéndolo (26/10/2026) ─────────────────────────────────────────────────────────────────────────────────

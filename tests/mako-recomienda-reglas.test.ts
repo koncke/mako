@@ -89,6 +89,10 @@ test('12. «Lo que mejoró» sólo con lo que se MIDIÓ: otra pantalla, una fuen
   assert.deepEqual(funcionaron(m, [], AHORA), [], 'sin decir qué se midió, ninguna mejora');
   // Con la muestra debajo del mínimo, la señal no se sostiene por FALTA de datos, no porque haya bajado.
   assert.deepEqual(funcionaron(m, [senal({ n: 3 })], AHORA, new Set(['respuesta-lenta'])), [], 'poca muestra no es «mejoró»');
+  // La fuente se leyó bien pero la señal NO SE EMITIÓ (sin datos: la línea de WhatsApp desconectada, la asistencia sin
+  // marcar): tampoco es una mejora (verificación del tren-m, hallazgo 12). Mejoró sólo lo que está, medido y debajo del umbral.
+  assert.deepEqual(funcionaron(m, [], AHORA, new Set(['respuesta-lenta'])), [], 'sin la señal hoy, «Lo que mejoró» sin ningún dato');
+  assert.equal(funcionaron(m, [senal({ valor: 0.05 })], AHORA, new Set(['respuesta-lenta'])).length, 1);
 });
 
 test('16. una clave REABIERTA se ve aunque su tipo siga apagado por otras «No aplica»', () => {

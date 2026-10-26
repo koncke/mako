@@ -5184,6 +5184,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   propia capacidad. Medido esa noche: `gemini-flash-latest` 503 y `gemini-flash-lite-latest` 200
   en 560 ms. Y el mensaje al cliente no le pide una key que no lo arregla (`esSaturacion`,
   `lib/fallo-ia-texto.ts`).
+- **Lo que se aprende para TODO el proceso sale de lo que el proveedor DICE, nunca de un
+  timeout** (`anotarSaturado`, lib/ia-saturacion.ts). Un corte por plazo no distingue un modelo
+  colgado de un pedido grande o de un plazo chico del que llama (la red de MaKo en WhatsApp corta
+  a los 10 s): marcarlo degradaba a todos los negocios. Un cuelgue se recuerda en el PEDIDO
+  (`conMemoriaDelPedido`). Y «queda otra opción» se calcula con los MISMOS cortes del camino que
+  la ejecuta (`hayRed` mira `pii`, «sólo su IA» y el super admin, como la red).
 - **La red de plataforma va DESPUÉS de las keys del cliente, gratis, empezando por OTRO proveedor
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los

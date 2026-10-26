@@ -7,19 +7,23 @@
 // `gemini-flash-latest` colgado se los comía enteros: `gemini-flash-lite-latest` —el respaldo de MODELOS_RESPALDO, medido que
 // contesta cuando el otro da «high demand»— nunca llegaba a probarse. Y la tanda siguiente volvía a empezar por el colgado.
 //
-// Lo que se aprende acá: un modelo que contestó 503 «high demand» (o «overloaded», «UNAVAILABLE»), o que no contestó en un
-// plazo razonable, queda SATURADO unos minutos. Mientras tanto `modelosAProbar` (lib/ai-cheap.ts) lo pone AL FINAL de la
-// lista: se prueba primero el respaldo sano, y el saturado igual queda como última opción.
+// Lo que se aprende acá: un modelo que contestó 503 «high demand» (o «overloaded», «UNAVAILABLE») queda SATURADO unos
+// minutos. Mientras tanto `modelosAProbar` (lib/ai-cheap.ts) lo pone AL FINAL de la lista: se prueba primero el respaldo
+// sano, y el saturado igual queda como última opción.
 //
 // ⚠️ LA SATURACIÓN ES DE GOOGLE, NO DE UN NEGOCIO: por eso la memoria es del proceso entero y la comparten todos los
 //    workspaces (no guarda ningún dato de nadie, sólo «este modelo no contesta»). Un 429 NO es saturación: es la cuota de UNA
 //    cuenta, y lo resuelve otra cuenta, no otro modelo.
-// ⚠️ UN TIMEOUT CUENTA SÓLO SI EL INTENTO TUVO TODO EL PLAZO QUE SU TAMAÑO PEDÍA (`plazoEsperadoMs`, la misma fórmula con que
-//    lib/anthropic.ts escala el timeout por `maxTokens`). Revisión del tren-l, hallazgo 17: con un umbral fijo de 25 s, una
-//    tanda grande y SANA cortada por el plazo del que llama marcaba al modelo «saturado» para todos los negocios del proceso.
+// ⚠️ UN TIMEOUT NUNCA MARCA AL MODELO PARA EL PROCESO: sólo lo que el proveedor DICE (503, «high demand», «overloaded»). Un
+//    corte por plazo no distingue un modelo colgado de un pedido grande o de un plazo chico del que llama (10 s en la red de
+//    MaKo en WhatsApp): con un umbral (fijo de 25 s, y después el timeout del que llama) un pedido SANO marcaba al modelo para
+//    todos los negocios (revisión del tren-l y verificación del tren-m, hallazgo 17). El cuelgue se recuerda en el PEDIDO
+//    (`conMemoriaDelPedido`): una réplica entera, por ejemplo, empieza sus tandas siguientes por el respaldo.
 //
 // Puro (sin `server-only`): lo prueba tests/ia-saturacion.test.ts. El molde es lib/gemini-esfuerzo.ts.
 // =============================================================================
+
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 /** Cuánto dura «saturado»: lo que tarda un bache de Google en pasar, medido en los casos de docs/hallazgos-ia.md. */
 export const VENTANA_SATURADO_MS = 3 * 60_000;
@@ -43,7 +47,10 @@ export function esSaturacion(mensaje: string): boolean {
 /** ¿El error es un plazo vencido (el `AbortSignal.timeout` de un pedido)? */
 export const esTimeout = (mensaje: string): boolean => /aborted due to timeout|TimeoutError|timed? ?out/i.test(mensaje);
 
-/** ¿Este fallo dice que el modelo está saturado? Un timeout, sólo si el intento tuvo todo el plazo que necesitaba. */
+/**
+ * ¿Este fallo dice que no vale la pena reintentar el MISMO modelo en este pedido? Un timeout, sólo si el intento tuvo todo el
+ * plazo que su tamaño necesitaba. Es para el corte LOCAL de la cascada; al proceso sólo lo marca `esSaturacion`.
+ */
 export function fallaDeSaturacion(mensaje: string, plazoDelIntentoMs: number, plazoNecesarioMs: number): boolean {
   return esSaturacion(mensaje) || (esTimeout(mensaje) && plazoDelIntentoMs >= plazoNecesarioMs);
 }
@@ -65,9 +72,27 @@ export function estaSaturado(prov: string, modelo: string, ahora = Date.now()): 
  * `undefined` en la lista es «el modelo por default del proveedor», que se llama `porDefecto`. Nunca saca a ninguno.
  */
 export function primeroLosSanos<T extends string | undefined>(prov: string, modelos: readonly T[], porDefecto: string, ahora = Date.now()): T[] {
-  const sat = (m: T) => estaSaturado(prov, m ?? porDefecto, ahora);
+  const sat = (m: T) => estaSaturado(prov, m ?? porDefecto, ahora) || colgadoEnElPedido(prov, m ?? porDefecto);
   return [...modelos.filter((m) => !sat(m)), ...modelos.filter(sat)];
 }
+
+// ── Los cuelgues, en el PEDIDO (no en el proceso) ────────────────────────────────────────────────────────────────────
+
+/** `proveedor:modelo` que se colgaron (timeout) adentro de un pedido largo: una réplica, con sus tandas y su segunda vuelta. */
+const DEL_PEDIDO = new AsyncLocalStorage<Set<string>>();
+
+/**
+ * Corre `fn` con una memoria de cuelgues PROPIA: lo que se cuelgue adentro va al final de la lista sólo para lo que sigue
+ * adentro de `fn` (las otras tandas de la misma réplica), nunca para otro pedido ni otro negocio.
+ */
+export const conMemoriaDelPedido = <T>(fn: () => Promise<T>): Promise<T> => DEL_PEDIDO.run(new Set(), fn);
+
+/** Un intento que se cortó por plazo: sólo cuenta adentro de `conMemoriaDelPedido` (afuera no hace nada). */
+export function anotarColgadoEnElPedido(prov: string, modelo: string): void {
+  if (modelo) DEL_PEDIDO.getStore()?.add(clave(prov, modelo));
+}
+
+export const colgadoEnElPedido = (prov: string, modelo: string): boolean => DEL_PEDIDO.getStore()?.has(clave(prov, modelo)) === true;
 
 /** Sólo para los tests. */
 export function olvidarSaturados(): void { SATURADOS.clear(); }

@@ -37,7 +37,7 @@ import {
   senalesQueHablan, ultimaDecision, type Decision, type DecisionGuardada, type MemoriaRecs, type Recomendacion, type Senal, type Superficie,
 } from './recomendaciones-reglas';
 import {
-  senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, senalesDeAutomatizaciones,
+  DIAS_LECTURA_WA, FILTRO_PERSONAS_WA, senalEsperando, senalMotivoPerdida, senalNoShow, senalRespuestaLenta, senalSecondBrainSinAprender, senalesDeAutomatizaciones,
   senalesDeLandings, senalesDeObjeciones, tiposMedidos, type EnvioSenal, type FuenteRec, type InscripcionSenal, type LeadSenal,
   type LlamadaSenal, type MensajeSenal, type PaginaSenal, type SecuenciaSenal,
 } from './recomendaciones-senales';
@@ -87,7 +87,7 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
 
   let conversacionesConLead = 0;
   await leer('whatsapp', async () => {
-    const desdeLectura = new Date(ahora.getTime() - 21 * DIA);
+    const desdeLectura = new Date(ahora.getTime() - DIAS_LECTURA_WA * DIA);
     // ⚠️ PAGINADO, no un `.limit(6000)`: PostgREST corta en 1000 en silencio (lib/supabase-paginado.ts) y con eso el borde de
     // abajo nunca se activaba: una charla vieja cuyo primer mensaje retenido era del lead contaba como «te escribió por
     // primera vez» (revisión del tren-l, hallazgo 11). Del más nuevo al más viejo, con `id` al final (la PK) para un orden
@@ -96,7 +96,8 @@ export async function senalesDelNegocio(superficie: Superficie, ahora = new Date
     await leerPorPaginas<MensajeSenal>(db, 'wa_mensajes', 'id, chat_jid, wa_timestamp, from_me, lead_id, tipo, texto', (filas) => {
       msgs.push(...filas);
       return msgs.length < MAX_MENSAJES;
-    }, { orden: [{ col: 'wa_timestamp', asc: false }, { col: 'id', asc: false }], filtros: (q) => q.gte('wa_timestamp', desdeLectura.toISOString()) });
+    // Sólo conversaciones con PERSONAS (verificación del tren-m, hallazgo 11): una línea con grupos llenaba el tope en días.
+    }, { orden: [{ col: 'wa_timestamp', asc: false }, { col: 'id', asc: false }], filtros: (q) => q.gte('wa_timestamp', desdeLectura.toISOString()).or(FILTRO_PERSONAS_WA) });
     if (msgs.length > MAX_MENSAJES) msgs.length = MAX_MENSAJES;
     // Con el tope lleno, lo leído empieza más tarde que los 21 días: la ventana real es la de lo leído.
     const desdeReal = msgs.length >= MAX_MENSAJES ? new Date(msgs[msgs.length - 1].wa_timestamp) : desdeLectura;
@@ -258,13 +259,19 @@ export type ResultadoDecidir = { ok: true } | { ok: false; error: string; status
 const MAX_CLAVES = 8;
 
 /**
- * Todas las claves de una recomendación: la principal, las que mandó la pantalla y las que juntó la redacción guardada de la
- * IA (revisión del tren-l, hallazgo 14). La redacción guardada se lee del setting, que comparten todas las instancias.
+ * Las claves de la recomendación que la persona VIO (revisión del tren-l, hallazgo 14, y verificación del tren-m):
+ *   · si la pantalla mandó las suyas, ésas y nada más: son las de la tarjeta que tenía delante;
+ *   · si no (la API, una pantalla vieja), las que juntó la redacción de la IA sólo si es la que se MUESTRA hoy
+ *     (`redaccionVigente`: la misma huella, vigente y el negocio con su IA). Con una redacción vieja, la tarjeta de las reglas
+ *     tenía UNA señal, y un «No aplica» sobre ella callaba para siempre otra que la persona ni vio.
+ * Reabrir es por clave: no se expande.
  */
-async function clavesDeLaRecomendacion(superficie: Superficie, clave: string, enviadas: readonly string[] = []): Promise<string[]> {
-  const guardada = leerRedaccionGuardada(await getSetting(claveRedaccion(superficie)).catch(() => null));
-  const rec = guardada?.recs.find((r) => r.clave === clave);
-  return [...new Set([clave, ...(rec?.claves ?? []), ...enviadas])].slice(0, MAX_CLAVES);
+async function clavesDeLaRecomendacion(o: { ws: number; superficie: Superficie; clave: string; enviadas: readonly string[]; senales: readonly Senal[] | null; m: MemoriaRecs; ahora: Date }): Promise<string[]> {
+  if (o.enviadas.length || !o.senales) return [...new Set([o.clave, ...o.enviadas])].slice(0, MAX_CLAVES);
+  const huella = huellaDe(o.superficie, senalesQueHablan(o.senales, o.m, o.superficie, o.ahora), o.m);
+  const guardada = await redaccionVigente(await puedeRedactar(o.ws), o.superficie, huella, o.ahora.getTime());
+  const rec = guardada?.recs.find((r) => r.clave === o.clave);
+  return [...new Set([o.clave, ...(rec?.claves ?? [])])].slice(0, MAX_CLAVES);
 }
 
 /**
@@ -275,20 +282,24 @@ async function clavesDeLaRecomendacion(superficie: Superficie, clave: string, en
 export async function decidirRecomendacion(o: { superficie: Superficie; clave: string; claves?: readonly string[]; d: Decision; motivo?: string | null; quien: string }): Promise<ResultadoDecidir> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { ok: false, error: 'Elige una cuenta primero.', status: 400 };
-  const claves = await clavesDeLaRecomendacion(o.superficie, o.clave, o.claves);
   // Reabrir no pide que la señal siga hoy: pide que haya algo callado con esa clave. Lo demás, que la recomendación exista.
   let hoy: Map<string, Senal> | null = null;
+  let senalesHoy: Senal[] | null = null;
   if (o.d !== 'reabierta') {
     const { senales, fallas } = await senalesDelNegocio(o.superficie);
+    senalesHoy = senales;
     hoy = new Map(senales.map((s) => [claveDe(s), s]));
     if (!hoy.has(o.clave)) return fallas.length
       ? { ok: false, error: 'No pude leer los datos de esa recomendación. Intenta de nuevo.', status: 503 }
       : { ok: false, error: 'Esa recomendación ya no está (el dato cambió).', status: 404 };
   }
+  // Las claves se fijan con la PRIMERA memoria leída (la que había cuando la persona miró): un reintento no las cambia.
+  let claves: string[] | null = null;
   for (let intento = 0; intento < 3; intento++) {
     const leida = await leerMemoriaDelNegocio();
     if (!leida) return { ok: false, error: 'No pude leer lo que ya decidiste. Intenta de nuevo.', status: 503 };
     const ahora = new Date();
+    claves ??= await clavesDeLaRecomendacion({ ws, superficie: o.superficie, clave: o.clave, enviadas: o.claves ?? [], senales: senalesHoy, m: leida.m, ahora });
     let m = leida.m;
     let escribe = false;
     for (const k of claves) {
@@ -341,6 +352,16 @@ const leerRedaccionGuardada = (crudo: string | null): Redaccion | null => {
     return typeof j?.huella === 'string' && Array.isArray(j.recs) && typeof j.en === 'string' ? j : null;
   } catch { return null; }
 };
+
+/**
+ * La redacción de la IA que se MUESTRA en esa superficie con esta huella, o null (entonces se muestran las reglas). La usan lo
+ * que se dibuja (`recomendacionesDe`) y lo que se decide (`clavesDeLaRecomendacion`): las dos tienen que ver la MISMA.
+ */
+async function redaccionVigente(redacta: boolean, superficie: Superficie, huella: string, ahora = Date.now()): Promise<Redaccion | null> {
+  if (!redacta) return null;
+  const g = leerRedaccionGuardada(await getSetting(claveRedaccion(superficie)).catch(() => null));
+  return g && g.huella === huella && ahora - Date.parse(g.en) < VIGENCIA_REDACCION_MS ? g : null;
+}
 
 /** Caché en memoria por negocio y superficie (cada instancia la suya): abrir una tab cinco veces no relee cinco veces. */
 const cache = new Map<string, { hasta: number; r: RecomendacionesDe }>();
@@ -412,8 +433,8 @@ export async function recomendacionesDe(superficie: Superficie, o: { ahora?: Dat
     const reglas = elegirSinIA(lectura.senales, memoria.m, superficie, ahora);
     const redacta = ws != null && (await puedeRedactar(ws));
     const huella = huellaDe(superficie, habla, memoria.m);
-    const guardada = redacta ? leerRedaccionGuardada(await getSetting(claveRedaccion(superficie)).catch(() => null)) : null;
-    if (guardada && guardada.huella === huella && Date.now() - Date.parse(guardada.en) < VIGENCIA_REDACCION_MS) {
+    const guardada = await redaccionVigente(redacta, superficie, huella);
+    if (guardada) {
       r = { ...base, recomendaciones: guardada.recs, funcionaron: funciono, descartadas: callado, redaccion: guardada.recs.length ? 'ia' : 'nada' };
     } else {
       if (redacta && o.alDespues) o.alDespues(() => redactarYGuardar(superficie, habla, memoria.m, huella));

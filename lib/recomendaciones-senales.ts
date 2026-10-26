@@ -66,6 +66,15 @@ export type MensajeSenal = { chat_jid: string; wa_timestamp: string; from_me: bo
 /** ¿Es una conversación con una persona? (ni grupo, ni canal, ni estados). Igual que el recolector. */
 const esPersona = (jid: string): boolean => /@(s\.whatsapp\.net|c\.us|lid)$/.test(jid) && !/^status@/.test(jid);
 
+/**
+ * Los días de WhatsApp que se leen (lib/recomendaciones.ts). Más que la ventana de `respuestaLenta`: la diferencia es el margen
+ * que garantiza que una conversación «nueva» no tenga historia antes (verificación del tren-m, hallazgo 11). Con el tope de
+ * mensajes lleno, lo leído empieza después y se exige el mismo margen contra ese borde: si no alcanza, no se afirma nada.
+ */
+export const DIAS_LECTURA_WA = 21;
+/** Las conversaciones con PERSONAS, en la consulta (`.or(…)` de PostgREST, `*` es su `%`): los grupos no se comen el tope. */
+export const FILTRO_PERSONAS_WA = 'chat_jid.like.*@s.whatsapp.net,chat_jid.like.*@c.us,chat_jid.like.*@lid';
+
 /** Un mensaje que no pide respuesta («gracias», «ok», un emoji solo): no cuenta como alguien esperando. */
 export function noPideRespuesta(texto: string | null | undefined): boolean {
   const t = (texto ?? '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/^[!.¡¿?\s]+|[!.¡¿?\s]+$/g, '').trim();
@@ -111,9 +120,10 @@ export function senalRespuestaLenta(msgs: readonly MensajeSenal[], ahora: Date, 
   for (const lista of conversaciones(msgs).values()) {
     const primero = lista[0];
     const t0 = Date.parse(primero.wa_timestamp);
-    // Es nueva sólo si lo primero leído es de la persona, cae en la ventana y no está pegado al borde de la lectura
-    // (un mensaje en el borde puede tener historia antes que no se leyó).
-    if (primero.from_me || t0 < desdeVentana || t0 - desdeLectura.getTime() < DIA) continue;
+    // Es nueva sólo si lo primero leído es de la persona, cae en la ventana y tiene antes una SEMANA leída sin nada
+    // (`DIAS_LECTURA_WA - dias`): un mensaje cerca del borde puede tener historia antes que no se leyó. Un día de margen no
+    // alcanzaba: un «ok, gracias» a una charla de hace cuatro días contaba como primer contacto sin respuesta.
+    if (primero.from_me || t0 < desdeVentana || t0 - desdeLectura.getTime() < (DIAS_LECTURA_WA - U.dias) * DIA) continue;
     if (ahora.getTime() - t0 < U.horas * HORA) continue;
     n++;
     const resp = lista.find((m) => m.from_me && Date.parse(m.wa_timestamp) >= t0);
