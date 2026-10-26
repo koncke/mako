@@ -2,6 +2,24 @@
 
 Lo que vive en app/perfil, app/configuraciones, app/m/cuenta, app/m/configuraciones y lib/ajustes-secciones.ts.
 
+**Settings en el teléfono (26/10/2026): la foto de una persona es una URL, y la leen TODOS los avatares.**
+- **Un emoji de perfil no se puede guardar como texto:** `usuarios.foto_url` lo dibujan como `<img>` la barra, el equipo, los
+  chats y el teléfono. Para que el selector de la app (`IdentidadPicker`: emoji · íconos · subir · quitar) sirva para el perfil
+  sin tocar ningún avatar, el emoji se guarda COMO IMAGEN (un SVG en `data:`, marcado para leerlo de vuelta) y el ícono como su
+  URL de Iconify (lib/foto-perfil.ts). El selector sube a `/api/perfil/avatar` (`subirA`), no al bucket de portadas: ése
+  procesa una banda de 1600×420.
+- **Un control que no guarda nada se lee como roto:** el encuadre de la foto del selector no tiene dónde vivir en el perfil, así
+  que va apagado (`conEncuadre={false}`), igual que `conEmoji={false}` en el workspace.
+- **«Tu negocio» como una sola fila hacía parecer que faltaban secciones:** estaban todas en /m/configuraciones, detrás de un
+  toque. Ahora son filas de Settings, armadas por el server con la lista de la computadora (`seccionesNegocio`).
+- **«Prompts» salió del índice**; su pantalla sigue en /configuraciones/prompts con su puerta (sólo la agencia). Con ella se fue
+  la bandera `metodo` de `DisponiblesNegocio`, que ya no gobernaba ninguna sección.
+
+**Quedó SIN hacer:** la entrada a los prompts de MaKo para el super admin. Hoy sólo se abre por su link: dónde va (el menú de la
+foto, Platform) lo decide el chat de la barra (app/_components/nav.ts es de ese chat).
+
+*26/10/2026, chat «Settings» (claude5). Guard: tests/settings-movil-26-10.test.ts.*
+
 **Sacar «General» y «Método» (26/10/2026): una sección son varios datos, y cada uno tiene su destino.**
 - **El diagnóstico obvio era el equivocado:** «General era sólo del super admin, no la usa nadie». Medido en producción, sólo
   leyendo: la zona del negocio (`mako.timezone`) la tienen 13 negocios, el horario del negocio 2 (Mauricio y el de prueba) y el

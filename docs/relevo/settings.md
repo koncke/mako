@@ -65,7 +65,20 @@ link». Lo que quedó:
   (`ver_`/`configurar_horario_envio`), sin la mención a Settings › General. Docs, snapshot y plugin regenerados.
 - Guard: tests/settings-sin-general-ni-metodo.test.ts (13 roturas cazadas). Hallazgos: docs/hallazgos-ajustes.md (la primera).
 
+## Settings en el teléfono (cuarta tanda, 26/10, rama `settings-movil-2610` desde origin/main ede2bbaab)
+
+Pedido de Martín desde su Android. Lo que quedó:
+- **El sol/luna en la cabecera** de Settings (`InterruptorModo` variante «cabecera»); sin la fila «Modo oscuro» ni «Tema» en Perfil.
+- **«Tu negocio» directo** en la lista (Equipo, Integraciones, Identidades fiscales, Tu plan), no una fila que abría otra pantalla.
+- **«Cerrar sesión»** sola, en rojo, con el ícono de salir (`CerrarSesion` variante «fila»).
+- **Los desplegables que se cerraban solos:** era el teclado (`resizes-content` + el Dropdown cerraba en todo `resize`). Ahora
+  reubica, y al tacto el buscador no se enfoca solo. Ver docs/hallazgos-ui.md (la primera entrada).
+- **La foto de perfil** grande abre `IdentidadPicker` (emoji · íconos · subir · quitar); el emoji y el ícono se guardan como imagen.
+- **«CEO»** de ejemplo en Cargo. **«Prompts»** fuera del índice (la pantalla sigue en /configuraciones/prompts).
+- Guard: tests/settings-movil-26-10.test.ts.
+
 ## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
+- La entrada del super admin a los prompts de MaKo (hoy sólo por su link): dónde va lo decide el chat de la barra.
 - El criterio de reuniones de Mauricio sigue prendido: apagarlo es un cambio de dato (no se hizo).
 - Seguridad › cerrar las demás sesiones: pide una migración (la sesión es un JWT sin estado).
 - Prender `GOOGLE_LOGIN_CON_AGENDA`: con la verificación de Google aprobada y la política de privacidad reescrita.
