@@ -101,7 +101,11 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    caja del chat + el árbol de cambios por producto + una línea al pie; cuenta nueva = la captura 2). Las comparaciones lado a
    lado, en las notas del Cerebro (`media-buyer-adamigo/`). El Cerebro las vio («ahora sí se parece a la 04 y a la 2») y se
    las mostró a Martín, que la aprobó el 26/10 («Me gusta como esta quedando el media buyer, pon la foto de perfil, tal como lo
-   pone AdAmigo»): la caja lleva la foto de quien pide (MiFoto; sin foto, su inicial) y entra en el tren siguiente. Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
+   pone AdAmigo»): la caja lleva la foto de quien pide (MiFoto; sin foto, su inicial) y entra en el tren siguiente.
+   **La revisión adversarial de tren-l (26/10) encontró 10 fallas**; están arregladas en 08009e9b5, cada una con su test en
+   `tests/media-buyer-revision-l.test.ts` (roto una vez por falla). La más seria: con «Aplicar» en cada tarjeta, los textos de la
+   IA salían sin que nadie los leyera; ahora se lanzan sólo desde su hoja. Antes de prender el Media Buyer en un negocio que no
+   sea MaKo, que esa punta esté en main. Detalle en hallazgos-ads → «La revisión adversarial de tren-l». Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
    9). Sigue: Protect, Ajustes y Automatizaciones con esta densidad.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
