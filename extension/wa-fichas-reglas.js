@@ -169,7 +169,60 @@
    * 237 con teléfono y UNO con nombre, porque es un grupo de anuncios donde nadie escribe (17 mensajes guardados, todos del
    * sistema) y WhatsApp sólo conoce el nombre de quien le escribió. Sin este número, «1 completado» se lee como que no anda.
    */
-  function buscarGrupos(grupos, participantes, nombres, contactos, verificados) {
+  /** El grupo con ese nombre: igual (sin acentos ni emojis), y si no, el ÚNICO que lo contiene. null si no está o es ambiguo. */
+  function grupoNombrado(grupos, nombre) {
+    const lista = (Array.isArray(grupos) ? grupos : []).filter((g) => g && typeof g.id === 'string' && textoUtil(g.subject));
+    const buscado = asuntoComparable(nombre);
+    if (!buscado) return null;
+    const iguales = lista.filter((g) => asuntoComparable(g.subject) === buscado);
+    const contienen = iguales.length ? iguales : lista.filter((g) => asuntoComparable(g.subject).includes(buscado));
+    return contienen.length === 1 ? contienen[0] : iguales[0] || null;
+  }
+
+  /**
+   * LOS NOMBRES QUE FIRMAN LOS MENSAJES DE UN GRUPO (0.73.5): autor → `notifyName` (el nombre que la persona se puso, que
+   * WhatsApp manda con cada mensaje). Leandro (26/10): en un grupo cerrado donde la gente ESCRIBE, «había un montón de
+   * personas que tenían nombres y no extrajo nada». El de los 221 de Martín era de anuncios (nadie escribe): esta fuente nunca
+   * se había probado. El último mensaje de cada autor gana (es el nombre de hoy).
+   */
+  function nombresDeMensajes(registros) {
+    const m = new Map();
+    for (const r of Array.isArray(registros) ? registros : []) {
+      if (!r || typeof r !== 'object') continue;
+      const autor = typeof r.author === 'string' ? r.author : r.author && typeof r.author._serialized === 'string' ? r.author._serialized : null;
+      const nombre = textoUtil(r.notifyName);
+      if (autor && /@(lid|c\.us|s\.whatsapp\.net)$/.test(autor) && nombre) m.set(autor.replace(/:\d+@/, '@'), nombre);
+    }
+    return m;
+  }
+
+  /** Suma esos nombres a las fichas de los pedidos (por su `@lid` o su `@c.us`), sólo donde no había ninguno. */
+  function sumarNotify(fichas, pedidos, notify) {
+    const out = (Array.isArray(fichas) ? fichas : []).map((f) => ({ ...f }));
+    let conNotify = 0;
+    if (!notify || typeof notify.get !== 'function' || !notify.size) return { fichas: out, conNotify };
+    const porTel = new Map(out.map((f) => [sufijo(f.telefono), f]));
+    for (const p of Array.isArray(pedidos) ? pedidos : []) {
+      const tel = String((p && typeof p === 'object' ? p.telefono : p) || '').replace(/\D/g, '');
+      if (tel.length < 8) continue;
+      const lid = p && typeof p === 'object' && typeof p.lid === 'string' ? p.lid : null;
+      const nombre = (lid && notify.get(lid)) || notify.get(`${tel}@c.us`) || notify.get(`${tel}@s.whatsapp.net`) || null;
+      if (!nombre) continue;
+      const f = porTel.get(sufijo(tel));
+      if (f) {
+        if (f.agenda || f.pushname || f.empresa) continue;
+        f.pushname = nombre;
+      } else {
+        const n = { telefono: tel, agenda: null, pushname: nombre, empresa: null, esEmpresa: false, grupos: [] };
+        out.push(n);
+        porTel.set(sufijo(tel), n);
+      }
+      conNotify++;
+    }
+    return { fichas: out, conNotify };
+  }
+
+  function buscarGrupos(grupos, participantes, nombres, contactos, verificados, notify) {
     const lista = (Array.isArray(grupos) ? grupos : []).filter((g) => g && typeof g.id === 'string' && textoUtil(g.subject));
     const cuantos = new Map();
     for (const p of Array.isArray(participantes) ? participantes : []) {
@@ -182,9 +235,14 @@
       if (typeof id === 'string' && (textoUtil(c.name) || textoUtil(c.pushname) || textoUtil(c.notifyName) || textoUtil(c.verifiedName) || textoUtil(c.displayNameLID))) conNombreDe.set(id, true);
     }
     const nombrados = new Map();
+    const firmados = new Map();
+    const base = new Map();
+    const conNotifyDe = notify && typeof notify.has === 'function' ? notify : new Map();
     for (const p of Array.isArray(participantes) ? participantes : []) {
       if (!p || typeof p.groupId !== 'string' || !Array.isArray(p.participants)) continue;
-      nombrados.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x))).length);
+      nombrados.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x)) || conNotifyDe.has(idDe(x))).length);
+      firmados.set(p.groupId, p.participants.filter((x) => conNotifyDe.has(idDe(x))).length);
+      base.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x))).length);
     }
     const out = [];
     for (const n of Array.isArray(nombres) ? nombres.slice(0, 20) : []) {
@@ -196,6 +254,10 @@
       out.push({
         nombre: String(n).slice(0, 120), encontrado: !!g, participantes: g ? (cuantos.get(g.id) ?? null) : null,
         conNombre: g && Array.isArray(contactos) ? (nombrados.get(g.id) ?? 0) : null,
+        // Cuántos de ellos firman algún mensaje con su nombre (0.73.5).
+        conNotify: g ? (firmados.get(g.id) ?? 0) : null,
+        // Y cuántos tenían nombre SIN los mensajes (el «antes» de la 0.73.5).
+        sinMensajes: g && Array.isArray(contactos) ? (base.get(g.id) ?? 0) : null,
       });
     }
     return out;
@@ -353,7 +415,7 @@
     return p.web || p.instagram || p.email || p.direccion || p.rubro || p.descripcion || p.redes.length ? p : null;
   }
 
-  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, buscarGrupos, fichasDe, esTelefonoDibujado, nombresDeFilas, sumarVistos, perfilDeInfo };
+  const api = { telefonoDeJid, sufijo, textoUtil, indexar, indexarLids, asuntoComparable, grupoNombrado, buscarGrupos, fichasDe, esTelefonoDibujado, nombresDeFilas, sumarVistos, nombresDeMensajes, sumarNotify, perfilDeInfo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.MakoWaFichas = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);

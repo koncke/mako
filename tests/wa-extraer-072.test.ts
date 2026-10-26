@@ -77,7 +77,7 @@ test('1. las reglas: un «~nombre» con su teléfono al lado es un nombre; lo vi
   assert.equal(reglas.sumarVistos([], ['5215555550001'], new Map([['9999999999', 'Otro']])).fichas.length, 0);
   // Y el script de WhatsApp Web lo usa con lo que le pasa el worker.
   const script = sinComentarios(leer('extension/wa-fichas.js'));
-  assert.match(script, /const vistos = MakoWaFichas\.nombresDeFilas\(filasVistas\);\n\s+const \{ fichas, enPantalla \} = MakoWaFichas\.sumarVistos\(MakoWaFichas\.fichasDe\(indice, pedidos, porLid\), pedidos, vistos\);/);
+  assert.match(script, /const vistos = MakoWaFichas\.nombresDeFilas\(filasVistas\);\n\s+const sumadas = MakoWaFichas\.sumarVistos\(MakoWaFichas\.fichasDe\(indice, pedidos, porLid\), pedidos, vistos\);/);
   assert.match(script, /const vistas = Array\.isArray\(msg\.vistas\) \? msg\.vistas\.slice\(0, 5000\) : \[\];/);
 });
 
@@ -541,6 +541,34 @@ test('7c. de a TANDAS desde la pantalla: empresas primero, tope 60, 12 por pedid
   const popup = sinComentarios(leer('extension/popup.js'));
   assert.match(popup, /\{ texto: 'Leo sus perfiles', pasos: \['perfiles'\] \}/);
   assert.match(popup, /a\.conteo\.lastChild\.textContent = `de \$\{miles\(e\.perfilesTotal\)\} perfiles`;/);
+});
+
+// ── 8. Los nombres que FIRMAN los mensajes de un grupo (0.73.5) ───────────────────────────────────────────────────────
+// Leandro (26/10): en un grupo cerrado donde la gente escribe, «había un montón de personas que tenían nombres y no extrajo
+// nada». El grupo de los 221 de Martín era de anuncios: esa fuente (`notifyName` de cada mensaje) nunca se había probado.
+test('8. el `notifyName` de los mensajes: por autor, el último gana, y sólo llena lo vacío; y se lee SÓLO de ese grupo', () => {
+  const r = reglas as Reglas & {
+    nombresDeMensajes(x: unknown): Map<string, string>;
+    sumarNotify(f: unknown[], p: unknown[], n: Map<string, string>): { fichas: Array<Record<string, unknown>>; conNotify: number };
+    grupoNombrado(g: unknown[], n: string): { id: string } | null;
+  };
+  const mapa = r.nombresDeMensajes([
+    { author: '301234567890001@lid', notifyName: 'Ana' }, { author: '301234567890001@lid', notifyName: 'Ana Ríos' },
+    { author: { _serialized: '5491155550002:12@c.us' }, notifyName: 'Beto' }, { author: '120363@g.us', notifyName: 'grupo' },
+    { author: '301234567890003@lid', notifyName: '🙂' }, null,
+  ]);
+  assert.deepEqual([...mapa], [['301234567890001@lid', 'Ana Ríos'], ['5491155550002@c.us', 'Beto']]);
+  const fichas = [{ telefono: '5491155550002', agenda: 'Roberto (agenda)', pushname: null, empresa: null, esEmpresa: false, grupos: [] }];
+  const pedidos = [{ telefono: '5215555550001', lid: '301234567890001@lid' }, { telefono: '5491155550002', lid: null }];
+  const x = r.sumarNotify(fichas, pedidos, mapa);
+  assert.deepEqual(plano(x.fichas).map((f) => [f.telefono, f.agenda, f.pushname]), [['5491155550002', 'Roberto (agenda)', null], ['5215555550001', null, 'Ana Ríos']]);
+  assert.equal(x.conNotify, 1, 'pisó el nombre de la agenda');
+  assert.equal(r.grupoNombrado([{ id: '1@g.us', subject: 'INFRAGROWTH AI COMMUNITY' }, { id: '2@g.us', subject: 'Otro' }], 'Infragrowth AI')!.id, '1@g.us');
+  // El script lee los mensajes de ESE grupo por un rango de claves (sin recorrer la tabla entera) y con tope.
+  const script = sinComentarios(leer('extension/wa-fichas.js'));
+  assert.match(script, /store\.openCursor\(IDBKeyRange\.bound\(`false_\$\{gid\}_`, `false_\$\{gid\}_\\uffff`\)\)/);
+  assert.match(script, /if \(!c \|\| n >= 30000\) \{ listo\(\); return; \}/);
+  assert.match(script, /if \(v\.notifyName\) \{ diag\.conNombre\+\+; registros\.push\(\{ author: v\.author, notifyName: v\.notifyName \}\); \}/, 'saca del mensaje algo más que el autor y su nombre');
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026), contra una base de 8 / 0, de a una y restaurando de una copia:
