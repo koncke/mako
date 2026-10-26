@@ -27,7 +27,7 @@ import { canalKeyDeSesion } from '@/lib/mako-turno-app-reglas';
 import { linkApp } from '@/lib/app-url';
 import { linkPantalla } from '../link';
 import { decidirRecomendacion, leerMemoriaDelNegocio, recomendacionesDe, senalesDelNegocio } from '@/lib/recomendaciones';
-import { claveDe, deSenal, decisionVigente, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
+import { claveDe, clavesValidas, deSenal, decisionVigente, esDecision, esSuperficie, ultimaDecision, type Superficie } from '@/lib/recomendaciones-reglas';
 
 const num = (input: Record<string, unknown>, k: string): number | null => {
   const v = input[k];
@@ -353,7 +353,8 @@ export const RUNNERS: Runners = {
       return json({
         pantalla: superficie,
         recomendaciones: r.recomendaciones.map((x) => ({
-          clave: x.clave, hacer: x.hacer, cambia: x.cambia, porque: x.porque, de_donde: x.fuentes,
+          // `claves`: todas las señales que junta (la IA puede juntar varias). Decidir sobre ésta las manda TODAS, y nada más.
+          clave: x.clave, claves: x.claves?.length ? x.claves : [x.clave], hacer: x.hacer, cambia: x.cambia, porque: x.porque, de_donde: x.fuentes,
           ...(x.accion?.tipo === 'link' ? { abrir: linkPantalla(x.accion.href) } : {}),
           ...(x.accion?.tipo === 'chat' ? { pedido_para_mako: x.accion.pedido } : {}),
           ...(x.seguimiento ? { ya_la_acepto_el: x.seguimiento.aceptadaEl.slice(0, 10), y_sigue_igual: true } : {}),
@@ -380,21 +381,30 @@ export const RUNNERS: Runners = {
         if (!previa || (previa.d !== 'no-aplica' && previa.d !== 'ahora-no')) return { error: 'Esa recomendación no está descartada.' };
         return { payload: { pantalla: superficie, clave, decision }, resumen: `Volver a mostrar la recomendación que se descartó el ${previa.en.slice(0, 10)}` };
       }
-      // «Ya estaba así» sólo mientras esa decisión SIGUE callándola: pasado un «Ahora no» o una «Hecha», la recomendación
-      // vuelve y callarla otra vez es nuevo (la misma regla que la ruta, `decisionVigente`).
-      if (decisionVigente(previa, decision, new Date())) return { error: 'Ya estaba anotada así.', yaEstaba: true };
+      // Las señales que juntaba la recomendación que se MOSTRÓ (las `claves` de que_recomienda_mako): sin ellas, sólo la
+      // principal. El servidor no completa nada (verificación del tren-m: completaba con lo que había AL DECIDIR).
+      const otras = clavesValidas(input.claves).filter((k) => k !== clave);
+      const ahora = new Date();
+      // «Ya estaba así» sólo mientras esa decisión SIGUE callándolas a todas: pasado un «Ahora no» o una «Hecha», la
+      // recomendación vuelve y callarla otra vez es nuevo (la misma regla que la ruta, `decisionVigente`).
+      if ([clave, ...otras].every((k) => decisionVigente(ultimaDecision(memoria.m, k), decision, ahora))) return { error: 'Ya estaba anotada así.', yaEstaba: true };
       const { senales, fallas } = await senalesDelNegocio(superficie);
       const s = senales.find((x) => claveDe(x) === clave);
       if (!s) return { error: fallas.length ? 'No pude leer los datos de esa recomendación. Intenta de nuevo.' : 'Esa recomendación ya no está (el dato cambió). Pide de nuevo que_recomienda_mako.' };
-      const hacer = deSenal(s, superficie).hacer;
+      // El resumen NOMBRA todo lo que se va a anotar: la persona confirma sobre lo que lee, no sobre una clave.
+      const juntas = [s, ...otras.map((k) => senales.find((x) => claveDe(x) === k)).filter((x): x is NonNullable<typeof x> => !!x)];
+      const hacer = juntas.map((x) => `«${deSenal(x, superficie).hacer}»`).join(' y ');
       const que = decision === 'hecha' ? 'Anotar como hecha' : decision === 'ahora-no' ? 'Callar por 14 días' : 'No volver a recomendar';
-      return { payload: { pantalla: superficie, clave, decision, ...(motivo ? { motivo } : {}) }, resumen: `${que}: «${hacer}»${motivo ? ` (motivo: «${motivo}»)` : ''}` };
+      return {
+        payload: { pantalla: superficie, clave, claves: juntas.map(claveDe), decision, ...(motivo ? { motivo } : {}) },
+        resumen: `${que}: ${hacer}${motivo ? ` (motivo: «${motivo}»)` : ''}`,
+      };
     },
     ejecutar: async (p, ctx) => {
       const superficie = esSuperficie(p.pantalla) ? p.pantalla : 'ops-center';
       if (!esDecision(p.decision) || typeof p.clave !== 'string') return { ok: false, resumen: 'La decisión llegó incompleta.' };
       const r = await decidirRecomendacion({
-        superficie, clave: p.clave, d: p.decision, motivo: typeof p.motivo === 'string' ? p.motivo : null,
+        superficie, clave: p.clave, claves: clavesValidas(p.claves), d: p.decision, motivo: typeof p.motivo === 'string' ? p.motivo : null,
         quien: ctx.quien?.email || ctx.actor || ctx.canal,
       });
       return r.ok ? { ok: true, resumen: 'Listo: quedó anotado.' } : { ok: false, resumen: r.error };

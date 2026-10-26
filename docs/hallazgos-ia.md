@@ -7056,7 +7056,12 @@ test no traía ninguna palabra de saturación).
 - **La red «pedida» no es la red que «corre».** `hayRed` miraba `redDePlataforma` y «sólo su IA», pero abajo la red además se
   corta con datos de clientes (`pii`) y en el super admin. El AI Step que le contesta a un lead va con `pii: true`: con sólo su
   Gemini, la cascada creía que quedaba la red, no reintentaba el 503 de su última opción y el lead iba a hand-off. **La regla:**
-  «otra opción» se calcula con los MISMOS cortes del camino que la ejecuta.
+  «otra opción» se le pregunta a la MISMA función que la ejecuta. ⚠️ La primera corrección copió los cortes a mano y se olvidó
+  del más grande: `provsGratisDePlataforma` devuelve `[]` fuera del super admin (la red no corre para ningún negocio desde el
+  22/10), y el bloque de la red sólo entra afuera del super admin. O sea, la red gratis no corre NUNCA para un cliente, y
+  `hayRed` daba true para cualquiera sin datos de clientes: un negocio con sólo su Gemini perdía el reintento que producción
+  tenía. Ahora `hayRed` llama a `provsGratisDePlataforma` (hoy da false siempre), y el crédito de lo interno de MaKo se mide
+  igual: `hayCreditoDeLaPlataforma` es la misma cuenta que hace su puerta (claves cargadas, sin pausa, sin agotar).
 - ⚠️ Lo que decía esta entrada en la segunda versión era falso: «la segunda vuelta empieza por el respaldo porque el cuelgue con
   plazo completo lo anotó». Una tanda de 7.400 tokens con 42 s nunca tuvo los 88,8 s «necesarios»: no se anotaba, y la segunda
   vuelta volvía a empezar por el colgado. Ahora lo anota la memoria del pedido.
@@ -7069,16 +7074,20 @@ sin respaldo A PROPÓSITO (no se degradan): para ellas el arreglo es sólo que e
 último recurso es el crédito de Claude de la plataforma, SÓLO para lo interno de MaKo. Tres líneas más en `CREDITO_HABILITADO_PARA`
 (lib/veto-claude.ts) con `soloLaPlataforma`: `landing-editor` (generar y replicar), `landing-editor-ia` (editar) y
 `landing-analyst` (el analizador). Cómo no gasta de más:
-- **Nunca primero:** la cascada lo llama DESPUÉS del lazo de las gratis (sus Gemini y el respaldo de modelo, con sus reintentos),
-  y sólo si queda un intento entero de plazo. La red de la plataforma no corría en el super admin: sin esto, ahí no había nada.
+- **Nunca primero:** la cascada lo llama DESPUÉS del lazo de las gratis (sus Gemini y el respaldo de modelo), y sólo si queda un
+  intento entero de plazo. La red de la plataforma no corría en el super admin: sin esto, ahí no había nada. Con el crédito
+  esperando, el 503 de `flash-lite` NO se reintenta (cuenta como «otra opción», si está de verdad): los tres reintentos le
+  dejaban 15-17 s, que no alcanzan para una tanda.
 - **El mismo tope:** el `maxTokens` de la tarea viaja tal cual (sin él, la puerta pedía 1.024).
 - **Registrado:** cada llamada queda en `anthropic_usage` con la marca del crédito y «último recurso: las gratis no contestaron»
   en el motivo; lib/costos-ia.ts no la suma como gasto de MaKo y la cuenta aparte (`delCredito`), para que se vea cuánto se usa.
+  ⚠️ También la que se CORTA: un timeout después de mandar no traía `usage` y no dejaba fila, pero Anthropic puede haber cobrado.
+  Ahora queda con 0 tokens, la marca y «puede haber gastado hasta N tokens de salida».
 - **Un negocio no:** el veto pide `esLaPlataforma`, la puerta (`conCreditoDeLaPlataforma`) lo mira ANTES de leer las claves, y
   la cascada sólo entra en el espacio de MaKo. Tres frenos, y el test rompe cada uno.
 
-⚠️ Lo que sigue sin resolver: el crédito recibe el plazo que QUEDA. Si los reintentos de `flash-lite` se comen la tanda (un
-cuelgue, no un 503), no llega a probarse en esa tanda; sí en la segunda vuelta de la réplica.
+⚠️ Lo que sigue sin resolver: el crédito recibe el plazo que QUEDA. Si un CUELGUE (no un 503) de las gratis se come la tanda,
+no llega a probarse en esa tanda; sí en la segunda vuelta de la réplica.
 Y sin la reserva, un `flash-latest` COLGADO (no un 503) se sigue comiendo el plazo de LA tanda en que se cuelga: esa sección
 sale en la segunda vuelta, que empieza por el respaldo porque el cuelgue quedó en la memoria de la réplica.
 

@@ -126,11 +126,13 @@ El Cerebro pasó un verificador sobre los arreglos de arriba: 5 de 9 cerrados. L
   el servidor sumaba las claves de la redacción GUARDADA. Pero después de cualquier decisión la huella cambia y la pantalla
   muestra las tarjetas de las reglas (una señal cada una), mientras la redacción vieja sigue juntando dos: un «No aplica» en la
   tarjeta de una señal callaba PARA SIEMPRE otra que la persona no vio. **La regla:** se decide sobre lo que la persona VIO.
-  La pantalla manda sus claves y se usan ésas; sin claves (la API), la redacción sólo si es la que se muestra hoy
-  (`redaccionVigente`, la MISMA función que decide qué se dibuja).
+  ⚠️ La primera corrección todavía completaba por la API con la redacción «vigente», pero vigente AL DECIDIR, no la que leyó el
+  chat. **Ahora el servidor no completa nada:** las claves las manda quien mostró la tarjeta (la pantalla, o el chat con las
+  `claves` que devuelve que_recomienda_mako), `decidir_recomendacion` las nombra todas en el resumen que la persona confirma, y
+  sin claves se anota sólo la principal.
 
-**La regla que queda:** un arreglo que «completa» una decisión con datos guardados tiene que probar que esos datos son los que
-la persona tenía delante. Si dibujar y decidir leen el mismo dato por dos caminos, terminan viendo cosas distintas.
+**La regla que queda:** una decisión se toma sobre lo que la persona tenía delante, y eso lo sabe sólo quien se lo mostró. El
+servidor no «completa» con lo que tiene guardado: aunque lo guardado sea el mismo dato, puede no ser el que se vio.
 
 ## Montar algo en una pantalla que es de otro chat: dos trampas (26/10/2026)
 

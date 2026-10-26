@@ -20,15 +20,13 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { decidirRecomendacion, recomendacionesDe } from '@/lib/recomendaciones';
-import { esDecision, esSuperficie, MAX_MOTIVO } from '@/lib/recomendaciones-reglas';
+import { clavesValidas, esClaveDeRecomendacion, esDecision, esSuperficie, MAX_MOTIVO } from '@/lib/recomendaciones-reglas';
 
 export const dynamic = 'force-dynamic';
 // La redacción de la IA corre en after() con su propio plazo (45 s): la ruta tiene que vivir eso.
 export const maxDuration = 90;
 
 const json = (cuerpo: Record<string, unknown>, status = 200) => Response.json(cuerpo, { status });
-/** La clave es `tipo|objeto` (lib/recomendaciones-reglas.ts, `claveDe`): corta, sin saltos ni nada raro. */
-const CLAVE = /^[a-z0-9-]{2,40}\|[^\n\r]{1,300}$/;
 
 async function quien(): Promise<{ ws: number; admin: boolean; actor: string } | { error: string; status: number }> {
   const sesion = await getUsuarioActual();
@@ -69,13 +67,13 @@ export async function POST(req: NextRequest) {
     const superficie = b?.superficie;
     const clave = typeof b?.clave === 'string' ? b.clave : '';
     if (!esSuperficie(superficie) || superficie === 'whatsapp') return json({ ok: false, error: 'Esa pantalla no existe.' }, 400);
-    if (!CLAVE.test(clave)) return json({ ok: false, error: 'Esa recomendación no existe.' }, 400);
+    if (!esClaveDeRecomendacion(clave)) return json({ ok: false, error: 'Esa recomendación no existe.' }, 400);
     const decision = b?.decision;
     if (!esDecision(decision)) return json({ ok: false, error: 'Elige qué hacer con la recomendación.' }, 400);
     const motivo = typeof b?.motivo === 'string' ? b.motivo.slice(0, MAX_MOTIVO) : null;
-    // Las OTRAS claves de la recomendación (la IA puede juntar varias señales en una): cada una con la misma forma que la
-    // principal, y pocas. El server además las saca de la redacción guardada (`clavesDeLaRecomendacion`).
-    const claves = Array.isArray(b?.claves) ? (b.claves as unknown[]).filter((k): k is string => typeof k === 'string' && CLAVE.test(k)).slice(0, 8) : [];
+    // Las OTRAS claves de la recomendación (la IA puede juntar varias señales en una), tal como las mostró la tarjeta: cada una
+    // con la misma forma que la principal, y pocas. El server no agrega ninguna: se decide sobre lo que se vio.
+    const claves = clavesValidas(b?.claves);
     const r = await runWithWorkspace(q.ws, () => conSuIADelNegocio(q.ws, () => decidirRecomendacion({ superficie, clave, claves, d: decision, motivo, quien: q.actor })));
     if (!r.ok) return json({ ok: false, error: r.error }, r.status);
     return json({ ok: true });

@@ -19264,6 +19264,7 @@ PROPONE anotar lo que la persona decidió sobre una recomendación de que_recomi
 | Parámetro | Tipo | Obligatorio | Descripción |
 | --- | --- | --- | --- |
 | `clave` | string | sí | la clave de la recomendación, tal cual vino de que_recomienda_mako. |
+| `claves` | string[] | no | TODAS las claves de esa recomendación (su campo claves en que_recomienda_mako): la decisión vale para todas. Sin ellas, sólo la clave. |
 | `decision` | string (hecha \\| ahora-no \\| no-aplica \\| reabierta) | sí | hecha, ahora-no, no-aplica o reabierta. |
 | `motivo` | string | no | por qué no aplica, con las palabras de la persona («ya lo hago a mano», «esa página es de prueba»). |
 | `pantalla` | string (ops-center \\| automations \\| offer \\| landing \\| whatsapp) | no | la pantalla de la que vino (la misma que se le pasó a que_recomienda_mako). Sin ella, todo el negocio. |

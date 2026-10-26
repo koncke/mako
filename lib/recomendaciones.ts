@@ -259,20 +259,12 @@ export type ResultadoDecidir = { ok: true } | { ok: false; error: string; status
 const MAX_CLAVES = 8;
 
 /**
- * Las claves de la recomendación que la persona VIO (revisión del tren-l, hallazgo 14, y verificación del tren-m):
- *   · si la pantalla mandó las suyas, ésas y nada más: son las de la tarjeta que tenía delante;
- *   · si no (la API, una pantalla vieja), las que juntó la redacción de la IA sólo si es la que se MUESTRA hoy
- *     (`redaccionVigente`: la misma huella, vigente y el negocio con su IA). Con una redacción vieja, la tarjeta de las reglas
- *     tenía UNA señal, y un «No aplica» sobre ella callaba para siempre otra que la persona ni vio.
- * Reabrir es por clave: no se expande.
+ * Las claves de la recomendación que la persona VIO, y nada más (revisión del tren-l, hallazgo 14, y las dos verificaciones del
+ * tren-m): las manda quien MOSTRÓ la tarjeta (la pantalla, o el chat con las `claves` de que_recomienda_mako). Sin ellas, sólo
+ * la principal: completarlas en el servidor con la redacción guardada decidía sobre lo que había AL DECIDIR, no sobre lo que se
+ * vio, y un «No aplica» callaba para siempre una señal que la persona no tuvo delante.
  */
-async function clavesDeLaRecomendacion(o: { ws: number; superficie: Superficie; clave: string; enviadas: readonly string[]; senales: readonly Senal[] | null; m: MemoriaRecs; ahora: Date }): Promise<string[]> {
-  if (o.enviadas.length || !o.senales) return [...new Set([o.clave, ...o.enviadas])].slice(0, MAX_CLAVES);
-  const huella = huellaDe(o.superficie, senalesQueHablan(o.senales, o.m, o.superficie, o.ahora), o.m);
-  const guardada = await redaccionVigente(await puedeRedactar(o.ws), o.superficie, huella, o.ahora.getTime());
-  const rec = guardada?.recs.find((r) => r.clave === o.clave);
-  return [...new Set([o.clave, ...(rec?.claves ?? [])])].slice(0, MAX_CLAVES);
-}
+const clavesDeLaRecomendacion = (clave: string, enviadas: readonly string[] = []): string[] => [...new Set([clave, ...enviadas])].slice(0, MAX_CLAVES);
 
 /**
  * Anota lo que la persona decidió sobre una recomendación, sobre TODAS sus claves y en una sola escritura (compare-and-set:
@@ -282,24 +274,20 @@ async function clavesDeLaRecomendacion(o: { ws: number; superficie: Superficie; 
 export async function decidirRecomendacion(o: { superficie: Superficie; clave: string; claves?: readonly string[]; d: Decision; motivo?: string | null; quien: string }): Promise<ResultadoDecidir> {
   const ws = await getWorkspaceActual();
   if (ws == null) return { ok: false, error: 'Elige una cuenta primero.', status: 400 };
+  const claves = clavesDeLaRecomendacion(o.clave, o.claves);
   // Reabrir no pide que la señal siga hoy: pide que haya algo callado con esa clave. Lo demás, que la recomendación exista.
   let hoy: Map<string, Senal> | null = null;
-  let senalesHoy: Senal[] | null = null;
   if (o.d !== 'reabierta') {
     const { senales, fallas } = await senalesDelNegocio(o.superficie);
-    senalesHoy = senales;
     hoy = new Map(senales.map((s) => [claveDe(s), s]));
     if (!hoy.has(o.clave)) return fallas.length
       ? { ok: false, error: 'No pude leer los datos de esa recomendación. Intenta de nuevo.', status: 503 }
       : { ok: false, error: 'Esa recomendación ya no está (el dato cambió).', status: 404 };
   }
-  // Las claves se fijan con la PRIMERA memoria leída (la que había cuando la persona miró): un reintento no las cambia.
-  let claves: string[] | null = null;
   for (let intento = 0; intento < 3; intento++) {
     const leida = await leerMemoriaDelNegocio();
     if (!leida) return { ok: false, error: 'No pude leer lo que ya decidiste. Intenta de nuevo.', status: 503 };
     const ahora = new Date();
-    claves ??= await clavesDeLaRecomendacion({ ws, superficie: o.superficie, clave: o.clave, enviadas: o.claves ?? [], senales: senalesHoy, m: leida.m, ahora });
     let m = leida.m;
     let escribe = false;
     for (const k of claves) {

@@ -182,3 +182,8 @@ test('5. lo interno de MaKo: el crédito de Claude de la plataforma es el ÚLTIM
 //  19. una llamada al crédito ANTES del lazo de las gratis            → rojo «5.» (contestó el crédito con una gratis sana).
 // Y en tests/veto-claude-credito-plataforma.test.ts: la puerta leyendo las claves para un negocio, y el veto con
 // `esLaPlataforma === false` (sin saber, dejaba pasar) → rojo «lo interno de MaKo usa el crédito SÓLO…».
+// Segunda verificación del tren-m (26/10/2026):
+//  20. `hayRed` = la red PEDIDA, sin preguntarle a `provsGratisDePlataforma` → rojo «2. una red … PEDIDA…» (G3: un negocio sin PII).
+//  21. el crédito sin contar como otra opción                           → rojo «5.» (flash-lite reintentaba antes del crédito).
+//  22. el crédito contado aunque no haya claves                         → rojo «2. la ÚLTIMA opción real…» y «2. una red…» (G2).
+//  23. un corte del crédito sin su fila de uso                          → rojo «5.» (P_corte).

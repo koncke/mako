@@ -139,6 +139,7 @@ export const DEFS: readonly OperacionDef[] = [
     descripcion: 'PROPONE anotar lo que la persona decidió sobre una recomendación de que_recomienda_mako (queda pendiente hasta el «sí»): hecha (lo hizo o lo va a hacer: MaKo mide después si cambió), ahora-no (la calla 14 días), no-aplica (no vuelve más; con el motivo, MaKo aprende y no la repite con otras palabras) o reabierta (deshace un descarte). La clave sale de que_recomienda_mako (de recomendaciones o de descartadas). Vale para todo el equipo. Solo el administrador.',
     parametros: [
       { nombre: 'clave', tipo: 'string', obligatorio: true, max: 340, descripcion: 'la clave de la recomendación, tal cual vino de que_recomienda_mako.' },
+      { nombre: 'claves', tipo: 'string[]', max: 8, descripcion: 'TODAS las claves de esa recomendación (su campo claves en que_recomienda_mako): la decisión vale para todas. Sin ellas, sólo la clave.' },
       { nombre: 'decision', tipo: 'string', obligatorio: true, enum: DECISIONES, descripcion: 'hecha, ahora-no, no-aplica o reabierta.' },
       { nombre: 'motivo', tipo: 'string', max: 280, descripcion: 'por qué no aplica, con las palabras de la persona («ya lo hago a mano», «esa página es de prueba»).' },
       { nombre: 'pantalla', tipo: 'string', enum: SUPERFICIES, descripcion: 'la pantalla de la que vino (la misma que se le pasó a que_recomienda_mako). Sin ella, todo el negocio.' },

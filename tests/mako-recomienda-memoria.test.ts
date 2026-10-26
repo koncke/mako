@@ -30,8 +30,9 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   error?: string; bytesAntes: number; senalesTipos: string[];
   r1: { ok: boolean }; patches1: string[]; ultimas1: string[]; total1: number;
   r2: { ok: boolean }; ultimas2: string[]; total2: number;
-  r3: { ok: boolean }; patches3: number; ultimas3: string[]; total3: number;
-  r4: { ok: boolean }; patches4: number; total4: number;
+  r3: { ok: boolean }; ultimas3: string[]; total3: number;
+  r4: { ok: boolean }; patches4: number; ultimas4: string[]; total4: number;
+  r5: { ok: boolean }; patches5: number; total5: number;
 };
 const S1 = 'respuesta-lenta|negocio', S2 = 'esperando-respuesta|negocio';
 
@@ -59,17 +60,34 @@ test('14. si la pantalla manda las claves de la tarjeta, se usan ésas', () => {
   assert.equal(R.total2, 82);
 });
 
-test('14. sin claves (la API), se expande con la redacción que SE MUESTRA hoy (la misma huella)', () => {
+test('14. sin claves (la API), sólo la principal: el servidor no completa con la redacción, ni con la vigente', () => {
   assert.deepEqual(R.r3, { ok: true });
-  assert.equal(R.patches3, 1);
-  assert.deepEqual(R.ultimas3, [`${S1}=no-aplica`, `${S2}=no-aplica`]);
-  assert.equal(R.total3, 84);
+  assert.deepEqual(R.ultimas3, [`${S1}=hecha`, `${S1}=no-aplica`], 'se decidió sobre una señal que no llegó en las claves');
+  assert.equal(R.total3, 83);
+});
+
+test('14. con las claves que mostró que_recomienda_mako, se decide sobre todas', () => {
+  assert.deepEqual(R.r4, { ok: true });
+  assert.equal(R.patches4, 1);
+  assert.deepEqual(R.ultimas4, [`${S1}=no-aplica`, `${S2}=no-aplica`]);
+  assert.equal(R.total4, 84);
 });
 
 test('15. la misma decisión otra vez, mientras sigue vigente, no escribe nada y contesta ok', () => {
-  assert.deepEqual(R.r4, { ok: true }, 'la pantalla tiene que poder sacar la tarjeta igual');
-  assert.equal(R.patches4, 0, 'repetir la decisión volvió a escribir');
-  assert.equal(R.total4, 84);
+  assert.deepEqual(R.r5, { ok: true }, 'la pantalla tiene que poder sacar la tarjeta igual');
+  assert.equal(R.patches5, 0, 'repetir la decisión volvió a escribir');
+  assert.equal(R.total5, 84);
+});
+
+test('14. la API: que_recomienda_mako devuelve las claves, decidir las recibe, las nombra en el resumen y se las pasa al motor', () => {
+  const run = fuente('lib/api-mako/areas/mako.run.ts');
+  assert.match(run, /claves: x\.claves\?\.length \? x\.claves : \[x\.clave\]/, 'que_recomienda_mako no devuelve las claves');
+  assert.match(run, /const otras = clavesValidas\(input\.claves\)/);
+  assert.match(run, /const hacer = juntas\.map\(\(x\) => `«\$\{deSenal\(x, superficie\)\.hacer\}»`\)\.join\(' y '\);/, 'el resumen no nombra todo lo que calla');
+  assert.match(run, /payload: \{ pantalla: superficie, clave, claves: juntas\.map\(claveDe\)/);
+  assert.match(run, /decidirRecomendacion\(\{\s*superficie, clave: p\.clave, claves: clavesValidas\(p\.claves\)/, 'ejecutar no le pasa las claves al motor');
+  const def = fuente('lib/api-mako/areas/mako.def.ts');
+  assert.match(def, /\{ nombre: 'claves', tipo: 'string\[\]', max: 8,/);
 });
 
 test('11. WhatsApp se lee PAGINADO (PostgREST corta en 1000 sin avisar), sólo PERSONAS, del más nuevo al más viejo y con la PK al final', () => {
@@ -94,3 +112,6 @@ test('11. WhatsApp se lee PAGINADO (PostgREST corta en 1000 sin avisar), sólo P
 //   8. `redaccionVigente` sin comparar la huella                    → rojo «14. con una redacción VIEJA…».
 // La primera corrida del arnés dio rojo SIN romper nada: `out.patches1` guardaba la referencia al arreglo y el paso 2 le
 // sumaba su PATCH. Ahora se copia.
+// Segunda verificación del tren-m (26/10/2026), con el arnés de cinco pasos:
+//   9. `ejecutar` de decidir_recomendacion sin pasarle las claves al motor → rojo «14. la API…».
+//  10. que_recomienda_mako sin devolver las claves                   → rojo «14. la API…».

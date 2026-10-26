@@ -177,6 +177,10 @@ export function decisionVigente(previa: DecisionGuardada | null, d: Decision, ah
 }
 
 export const claveDe = (s: Pick<Senal, 'tipo' | 'objeto'>): string => `${s.tipo}|${s.objeto}`;
+/** ¿Tiene la forma de una clave (`tipo|objeto`)? Lo que llega de afuera (la pantalla, el chat) pasa por acá. */
+export const esClaveDeRecomendacion = (k: unknown): k is string => typeof k === 'string' && /^[a-z0-9-]{2,40}\|[^\n\r]{1,300}$/.test(k);
+/** Las otras claves que manda quien mostró la tarjeta: con forma de clave y pocas. */
+export const clavesValidas = (x: unknown): string[] => (Array.isArray(x) ? x.filter(esClaveDeRecomendacion).slice(0, 8) : []);
 
 const DIA = 86_400_000;
 

@@ -84,18 +84,23 @@ async function main() {
   out.r2 = await decidir({ d: 'hecha', claves: [S1] });
   out.ultimas2 = ultimas(2);
   out.total2 = memoria().decisiones.length;
-  // 3. Por la API, con la redacción que SE MUESTRA hoy: se decide sobre las dos.
+  // 3. Por la API SIN claves, aunque la redacción vigente junte S1 y S2: sólo S1. El servidor no completa nada (segunda
+  //    verificación del tren-m: completaba con lo que había AL DECIDIR, no con lo que mostró el chat).
   refrescar();
-  patches = [];
   out.r3 = await decidir({ d: 'no-aplica' });
-  out.patches3 = patches.length;
   out.ultimas3 = ultimas(2);
   out.total3 = memoria().decisiones.length;
-  // 4. La MISMA decisión otra vez (otra pestaña con la lista vieja): no escribe nada y contesta ok.
+  // 4. Con las claves que mostró que_recomienda_mako: se decide sobre las dos (S1 ya estaba así: se anota S2).
   patches = [];
-  out.r4 = await decidir({ d: 'no-aplica' });
+  out.r4 = await decidir({ d: 'no-aplica', claves: [S1, S2] });
   out.patches4 = patches.length;
+  out.ultimas4 = ultimas(2);
   out.total4 = memoria().decisiones.length;
+  // 5. La MISMA decisión otra vez (otra pestaña con la lista vieja): no escribe nada y contesta ok.
+  patches = [];
+  out.r5 = await decidir({ d: 'no-aplica', claves: [S1, S2] });
+  out.patches5 = patches.length;
+  out.total5 = memoria().decisiones.length;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

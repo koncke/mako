@@ -10534,6 +10534,7 @@ recomendación nueva es una `Senal` (lib/recomendaciones-senales.ts) que mide el
 el `dato`. Ninguna pantalla rellena cuando la lista viene vacía; ningún prompt ordena «da N recomendaciones». La IA del negocio
 sólo redacta: el porqué lo escribe el código y `leerRedaccion` descarta lo que no cite una señal o traiga un número ajeno. Se
 muestran en el bloque de preguntas (`RecomendacionesDeMako` → `BloqueDePreguntas`), nunca en una lista suelta, y «Hacerlo» no
-ejecuta nada. Una decisión vale para TODAS las señales de la recomendación (`claves`), repetirla mientras sigue vigente no
+ejecuta nada. Una decisión vale para TODAS las señales de la tarjeta que se VIO (`claves`, que manda quien la mostró: la
+pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada), repetirla mientras sigue vigente no
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
