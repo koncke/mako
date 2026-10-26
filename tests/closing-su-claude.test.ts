@@ -20,6 +20,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { falloDeSuCuenta } from '../lib/closing-ia-caida-reglas';
 
 const RAIZ = join(__dirname, '..');
 type Corrida = { r: { ok: boolean; model?: string; error?: string }; pedidos: Array<{ host: string; clave: string; model: string }> };
@@ -41,12 +42,17 @@ test('2. si su clave falla, se dice, y la de MaKo no se toca', () => {
   assert.match(R.ws11.r.error ?? '', /^Tu clave de Claude no pudo analizar la llamada/);
   assert.ok(R.ws11.pedidos.every((p) => !/PLATAFORMA/.test(p.clave)), 'la clave de la plataforma no se usa');
   assert.equal(R.ws11.pedidos.length, 1);
+  // 26/10/2026: y el texto REAL que devuelve se reconoce como de SU cuenta, que es lo que corta la vuelta y le avisa al dueño
+  // UNA vez en vez de dejar una fila en error por llamada (tests/closing-ia-caida.test.ts).
+  assert.equal(falloDeSuCuenta(R.ws11.r.error), 'sin crédito');
 });
 
 test('3. sin clave y con el permiso vencido: «Conecta tu Claude para el Closing Analyst», sin gastar nada', () => {
   assert.equal(R.ws13.r.ok, false);
   assert.match(R.ws13.r.error ?? '', /^Conecta tu Claude para el Closing Analyst/);
   assert.deepEqual(R.ws13.pedidos, []);
+  // Sin clave no es «su cuenta se cayó»: eso lo frena el cron antes (`conQueAnalizaElClosing`) y lo dice el Dashboard.
+  assert.equal(falloDeSuCuenta(R.ws13.r.error), null);
 });
 
 // ── Lo que encontró la revisión adversarial de IA5/IA12 (22/10/2026) ──────────────────────────────────────────────────

@@ -22,6 +22,7 @@ import { correrRonda } from '@/lib/cron-workspaces';
 // Los workspaces con CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI…: lib/grabadores, 26/10/2026).
 import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 import { checkCronAuth } from '@/lib/cron-auth';
+import { iaDelNegocioCaida } from '@/lib/closing-ia-caida';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -77,7 +78,10 @@ export async function GET(request: NextRequest) {
     // ⚠️ UNO POR RONDA, a propósito: una llamada al modelo reserva 135 s de los
     // 300 del techo, y con dos este drenaje se come el presupuesto entero y el
     // backlog de `syncClosingCalls` no corre nunca. Son 10 rondas por día.
-    const insights = await drenarInsightsDeLlamada({ deadline, max: 1 }).catch((e) => {
+    // ⚠️ CON SU CLAUDE CAÍDO (sin crédito, clave borrada: lib/closing-ia-caida.ts) el drenaje no corre: fallaría igual. La
+    // prueba de si volvió la hace `syncClosingCalls` con UNA llamada, y el dueño ya está avisado.
+    const caida = await iaDelNegocioCaida();
+    const insights = caida ? null : await drenarInsightsDeLlamada({ deadline, max: 1 }).catch((e) => {
       console.error(`[cron:closing-sync] insights de llamada: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     });

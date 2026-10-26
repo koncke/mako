@@ -37,6 +37,8 @@ import { isoToFechaTijuana } from './calendly';
 import { listarTodasLasReuniones, leerReunion, type FalloGrabador } from './grabadores';
 import { duracionMin, emailsExternos, transcripcionConSegundos, type Reunion, type TurnoReunion } from './grabadores/reunion';
 import { CLAVES_CUENTA_GRABADOR, nombreDeGrabador } from './grabadores/catalogo';
+import { falloDeSuCuenta, queHacerConSuIa, type FalloDeSuCuenta } from './closing-ia-caida-reglas';
+import { anotarIaCaida, anotarQueVolvio, iaDelNegocioCaida } from './closing-ia-caida';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tipos
@@ -695,7 +697,7 @@ async function upsertRow(row: ClosingAnalysisRow): Promise<void> {
 export async function processCandidate(
   meta: Reunion,
   leadsByEmail: Map<string, LeadMatch>,
-): Promise<{ status: ClosingStatus; category: ClosingCategory }> {
+): Promise<{ status: ClosingStatus; category: ClosingCategory; suCuenta?: FalloDeSuCuenta }> {
   const lead = matchMeetingToLead(meta, leadsByEmail);
   let m: Reunion = meta;
   try {
@@ -710,6 +712,11 @@ export async function processCandidate(
   }
   const res = await analyzeMeeting(m, lead);
   if (!res.ok) {
+    // ⚠️ LO QUE FALLA EN SU CUENTA DE CLAUDE NO DEJA UNA FILA EN ERROR (26/10/2026, docs/hallazgos-closing.md). Sin crédito,
+    // la clave borrada o sin permiso: el ws11 juntó 168 filas así en tres semanas, sin que nadie se enterara. La llamada
+    // queda sin procesar (la próxima vuelta la toma) y quien llama corta y le avisa al dueño UNA vez (`anotarIaCaida`).
+    const suCuenta = falloDeSuCuenta(res.error);
+    if (suCuenta) return { status: 'error', category: 'sin_clasificar', suCuenta };
     await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
     return { status: 'error', category: 'sin_clasificar' };
   }
@@ -811,8 +818,17 @@ export async function analizarLlamadasDeLead(leadId: number): Promise<{ encontra
     let m: Reunion = meta;
     try { m = await leerReunion(meta, meta); } catch { /* seguimos con la metadata */ }
     const res = await analyzeMeeting(m, lead);
-    if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis, res.model)); analizadas++; }
-    else {
+    if (res.ok) { await upsertRow(analyzedRow(m, lead, res.analysis, res.model)); analizadas++; await anotarQueVolvio(); }
+    else if (falloDeSuCuenta(res.error)) {
+      // Su cuenta de Claude no puede (sin crédito, clave borrada, sin permiso): sin fila en error, se le avisa UNA vez y no
+      // se sigue con las demás, que fallarían igual. Lo que se le dice acá es el paso para arreglarlo.
+      const suCuenta = falloDeSuCuenta(res.error)!;
+      const ws = await getWorkspaceActual();
+      if (ws != null) await anotarIaCaida(ws, suCuenta, mias.length - analizadas - yaEstaban);
+      fallidas++;
+      ultimoError = queHacerConSuIa(suCuenta);
+      break;
+    } else {
       await upsertRow({ ...descartadaRow(m, lead, 'sin_clasificar'), status: 'error', error: res.error });
       fallidas++;
       ultimoError = res.error ?? null;
@@ -836,8 +852,11 @@ export type SyncResult = {
   otras: number;        // interna / sin_clasificar resueltas por Claude
   errores: number;
   restantes: number;
-  /** por qué paró: drenó la cola · tope de llamadas · no entraba otra llamada entera · N fallos seguidos. */
-  corto_por: 'cola' | 'max' | 'tiempo' | 'errores';
+  /** por qué paró: drenó la cola · tope de llamadas · no entraba otra llamada entera · N fallos seguidos · la cuenta de Claude
+   *  del negocio no puede (sin crédito, clave borrada, sin permiso: `ia_del_negocio` dice cuál). */
+  corto_por: 'cola' | 'max' | 'tiempo' | 'errores' | 'ia_del_negocio';
+  /** Lo que le pasa a su cuenta de Claude, si cortó por eso (y ya se le avisó al dueño, una vez por incidente). */
+  ia_del_negocio?: FalloDeSuCuenta;
   ms: number;
   /** Los grabadores que no contestaron (las llamadas de los otros se procesaron igual). */
   fallos?: FalloGrabador[];
@@ -964,11 +983,24 @@ export async function syncClosingCalls(opts: { max?: number; deadline?: number; 
   let erroresSeguidos = 0;
   const MAX_ERRORES_SEGUIDOS = 3;
   let intentadas = 0;
+  // ¿Su cuenta de Claude ya estaba caída? Entonces esta vuelta es UNA prueba: la primera llamada dice si volvió (y sigue)
+  // o si sigue caída (y corta sin dejar fila). No hace falta otra regla: el corte de abajo es el mismo.
+  let caida = await iaDelNegocioCaida();
   for (const m of candidatas) {
     if (analizadasEnCorrida >= max) { result.corto_por = 'max'; break; }
     if (!entraOtraLlamada()) { result.corto_por = 'tiempo'; break; }
     intentadas++;
-    const { status, category } = await processCandidate(m, leadsByEmail);
+    const { status, category, suCuenta } = await processCandidate(m, leadsByEmail);
+    if (suCuenta) {
+      // Las demás fallarían igual: se corta, la llamada queda sin procesar y el dueño se entera UNA vez.
+      const ws = await getWorkspaceActual();
+      if (ws != null) await anotarIaCaida(ws, suCuenta, candidatas.length - intentadas + 1);
+      intentadas--;
+      result.corto_por = 'ia_del_negocio';
+      result.ia_del_negocio = suCuenta;
+      break;
+    }
+    if (status !== 'error' && caida) { await anotarQueVolvio(); caida = null; }
     if (status === 'error') {
       result.errores++;
       erroresSeguidos++;
@@ -995,7 +1027,14 @@ export async function analyzeOne(recordingId: number): Promise<ClosingStatus> {
   const [{ reuniones: meetings }, leadsByEmail] = await Promise.all([listarTodasLasReuniones(), getLeadsByEmail()]);
   const meta = meetings.find((m) => m.clave === recordingId);
   if (!meta) throw new Error(`Grabación ${recordingId} no encontrada en tus grabadores`);
-  return (await processCandidate(meta, leadsByEmail)).status;
+  const r = await processCandidate(meta, leadsByEmail);
+  // Su cuenta de Claude no pudo: no quedó fila en error, así que el motivo y el paso para arreglarlo van en el error.
+  if (r.suCuenta) {
+    const ws = await getWorkspaceActual();
+    if (ws != null) await anotarIaCaida(ws, r.suCuenta, 1);
+    throw new Error(`Tu clave de Claude no pudo analizar la llamada (${r.suCuenta}). ${queHacerConSuIa(r.suCuenta)}`);
+  }
+  return r.status;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

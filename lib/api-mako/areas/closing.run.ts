@@ -22,6 +22,8 @@ import { getClosingViewData, reviseAnalysis, analizarLlamadasDeLead, type Closin
 import { estadoDelAnalisis, arrancarAnalisis, cerrarAnalisis } from '@/lib/closing-job';
 import { resumenDeCorrida } from '@/lib/closing-job-estado';
 import { hayGrabadorConectado, leerTranscripcionPorClave } from '@/lib/grabadores';
+import { iaDelNegocioCaida } from '@/lib/closing-ia-caida';
+import { queHacerConSuIa } from '@/lib/closing-ia-caida-reglas';
 import { adjuntarFathomAuto } from '@/lib/fathom-auto';
 import { redactarFollowUpPostLlamada } from '@/lib/post-llamada';
 import { getResumenLead, linkResumenLead } from '@/lib/lead-resumen';
@@ -132,9 +134,12 @@ export const RUNNERS: Runners = {
       // «¿Estás analizando mis fathom?» (Florencia, ws21, 22/10/2026) llega acá: sin Fathom no entran grabaciones nuevas, y
       // eso se dice como dato (`falta`) y no con unos contadores en cero que parecen «no tuviste llamadas». Si no se pudo
       // leer, no se afirma que falta.
-      const [data, sinFathom] = await Promise.all([getClosingViewData(), exigirFathom().catch(() => null)]);
+      const [data, sinFathom, caida] = await Promise.all([getClosingViewData(), exigirFathom().catch(() => null), iaDelNegocioCaida()]);
       const salida = json({
         ...(sinFathom ? { fathom_conectado: false, fathom: `${sinFathom.error} Dilo así: lo que ves abajo es lo que entró antes.` } : {}),
+        // SU CLAUDE NO PUEDE ANALIZAR (26/10/2026, lib/closing-ia-caida.ts): las llamadas nuevas no se están analizando, y es
+        // de su cuenta (sin crédito, clave borrada, sin permiso). Se dice primero, con el paso para arreglarlo.
+        ...(caida ? { ia_del_negocio: { problema: caida.motivo, desde: caida.desde, que_hacer: queHacerConSuIa(caida.motivo), avisado: !!caida.avisadoAt, nota: 'Las llamadas nuevas no se analizan hasta que se arregle; después se analizan solas.' } } : {}),
         kpis: {
           score_promedio_0a10: data.kpis.scorePromedio,
           llamadas_con_score: data.kpis.conScore,

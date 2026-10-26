@@ -50,6 +50,7 @@ import { datosFormularioMeta } from '../lib/meta-form-aviso';
 import { datosReunionesAlPlan } from '../lib/reunion-plan-aviso';
 import { datosDelReporte } from '../lib/reporte-destino';
 import { datosOfertaLista } from '../lib/oferta-lista';
+import { datosIaCaida } from '../lib/closing-ia-caida-reglas';
 import { datosCuentaFrenada } from '../lib/alerta-critica-texto';
 import { detalleDelAviso } from '../lib/calcom';
 import { VARIABLES_LEAD, VARIABLES_NEGOCIO, esVariableConocida } from '../lib/template-vars';
@@ -152,6 +153,8 @@ function porFuente(): Record<FuenteDato, Set<string>> {
     oferta: set(datosOfertaLista({ nombre: 'Método Lumen', version: 1, link: 'https://hola-mako.com/offer' })),
     // 16/10/2026: y la cuenta publicitaria frenada, que pasa el cron de las alertas (`datosCuentaFrenada`), con el motivo.
     anuncios: set(datosCuentaFrenada({ statusLabel: 'Deshabilitada', disableReason: 'Riesgo de pago', entregaFrenada: true }, 205, 2)),
+    // 26/10/2026: y la cuenta de Claude del negocio que no pudo analizar sus llamadas, que pasa el Closing (`datosIaCaida`).
+    iacaida: set(datosIaCaida({ motivo: 'sin crédito', desdeDia: '8 de octubre', pendientes: 12, link: 'https://hola-mako.com/integraciones?abrir=anthropic' })),
   };
 }
 
