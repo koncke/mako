@@ -2540,6 +2540,43 @@ escribir nada: `ver_landing_creada` devolvía **0 secciones con texto** y `cambi
   De paso, el diagnóstico de una página de MaKo ahora tiene texto para analizar.
 - Test: tests/api-mako-landing-diseno-editable.test.ts, probado rompiéndolo (4 roturas, cada una cae).
 
+## configurar_seccion_landing contestaba «listo» en una sección de diseño y no cambiaba nada (25/10/2026, claude5)
+
+En una sección de «Diseño editable» (las páginas de MaKo), el estilo de la sección (fondo, ancho, acento, alto) se guardaba
+en los atributos de la tarjeta, que lo publicado de esas secciones no lee (render.ts las publica a sangre, su HTML tal cual).
+**La API decía que lo había cambiado, quedaba una versión nueva en el historial, y en la página no cambiaba nada.**
+
+Ahora, en una sección de diseño, configurar_seccion_landing cambia SÓLO el fondo, y lo hace en su HTML
+(lib/editor-landing/fondo-de-diseno.ts):
+- un color, un degradado, o fondo "tema" (o restablecer) para volver exacto al del diseño;
+- lo demás contesta un error que dice que es parte del diseño.
+ver_secciones_landing trae el `fondo` que se ve (leído del `style` y de las reglas simples de la hoja) y `fondo_cambiado`.
+
+**Regla:** una operación de la API sobre un dato que lo publicado no lee tiene que fallar diciendo por qué. Nunca debe
+contestar «listo». Antes de exponer un atributo, mirar que el render de ESE tipo de sección lo use.
+
+## Los íconos por la API: 75 en la #32, ninguno con nombre, y el «texto junto» que mentía (25/10/2026, claude5)
+
+Martín, 25/10: «Los íconos también por la API». La API no leía ni cambiaba ninguno. Ahora:
+- ver_secciones_landing trae los `iconos` de cada sección (n, el nombre en la biblioteca y el texto junto a él);
+- cambiar_icono_landing cambia uno por número o por el de hoy;
+- ver_iconos_landing busca en la biblioteca del editor.
+
+**Lo que no era obvio:**
+- **Los íconos de la #32 no tienen nombre.** Son `<svg>` de otra familia (trazo, `stroke="currentColor"`) y su color está
+  en el `style` (`color:#2F6FED`). Uno que pone MaKo (el editor o la API) se reconoce por el `d` de su único `path`, que es el
+  de la biblioteca. Al cambiar uno hay que conservar `style`, `width` y `class`. Si no, pierde el color: es lo que ya hacía el
+  control «Ícono» del editor.
+- **El texto «junto» al ícono mentía de dos maneras.** Un tramo de HTML cortado a mitad de una etiqueta se leía como texto
+  (salía `<div style="aspect-ratio:1;border`). Y el texto que sigue, juntado entero, ya era de la tarjeta de al lado («Arma tu
+  embudo Despega»). Ahora se corta en el último `>`, se toma el PRIMER texto que sigue (o el del botón que lo contiene), y
+  si no hay, el último de antes. Ocho íconos de una grilla en «¿Qué es MaKo?» quedan sin texto: se eligen por número.
+- **En una sección de bloques**, el ícono es el atributo `icono` de cada ítem de un «Diseño optimizado». Sólo se ofrecen los
+  que se ven (`mostrarIconos`, o un diseño de `CON_ICONOS`, css.ts). Cambiar uno apagado sería otro «listo» sin efecto.
+
+Lo que quedó SIN hacer: el enlace de la agenda (`[data-calendly]`) por la API. En el editor ya se cambia desde el control
+«Video».
+
 ## La guarda de la doc decía «no está en git» con la doc al día: el MEGA de `execFileSync` (25/10/2026)
 
 - **Síntoma:** `node --import tsx scripts/generar-api-doc.mjs --check` (corre en el pre-push y en Actions) dijo

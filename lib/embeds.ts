@@ -87,6 +87,8 @@ export const PROVEEDORES_EMBED = {
   panda: { nombre: 'Panda Video', clase: 'video' },
   wistia: { nombre: 'Wistia', clase: 'video' },
   bunny: { nombre: 'Bunny', clase: 'video' },
+  // 25/10/2026, «otros alojadores de video» (Martín): el reproductor de Cloudflare Stream, que el Pixel mide desde la v27.
+  cloudflare: { nombre: 'Cloudflare Stream', clase: 'video' },
   fathom: { nombre: 'Fathom', clase: 'video', pista: 'Usa el link de Compartir de Fathom.' },
   calendly: { nombre: 'Calendly', clase: 'agenda', alto: 700 },
   calcom: { nombre: 'Cal.com', clase: 'agenda', alto: 700 },
@@ -189,9 +191,10 @@ export function atributosDeIframe(e: Embed): Array<[string, string]> {
 export const HOSTS_IFRAME: readonly string[] = [
   'www.youtube-nocookie.com', 'player.vimeo.com', 'www.loom.com', 'drive.google.com', 'fast.wistia.net',
   'iframe.mediadelivery.net', 'fathom.video', 'calendly.com', 'cal.com', 'calendar.google.com', 'tidycal.com',
+  'iframe.videodelivery.net',
 ];
-/** Los que van por dominio: Panda (un subdominio por biblioteca) y HubSpot (uno por región). */
-export const DOMINIOS_IFRAME: readonly string[] = ['tv.pandavideo.com', 'tv.pandavideo.com.br', 'hubspot.com'];
+/** Los que van por dominio: Panda (un subdominio por biblioteca), HubSpot (uno por región) y Cloudflare Stream (uno por cuenta). */
+export const DOMINIOS_IFRAME: readonly string[] = ['tv.pandavideo.com', 'tv.pandavideo.com.br', 'hubspot.com', 'cloudflarestream.com'];
 
 // ── Reconocer una dirección ──────────────────────────────────────────────────
 
@@ -302,6 +305,13 @@ export function reconocerUrl(u: URL): Reconocido | null {
     const ok = (partes[0] === 'embed' || partes[0] === 'play') && partes.length === 3 && /^\d{1,10}$/.test(partes[1]) && RE_UUID.test(partes[2]);
     const id = ok ? `${partes[1]}/${partes[2].toLowerCase()}` : null;
     return r('bunny', id, id ? `https://iframe.mediadelivery.net/embed/${id}` : null);
+  }
+  if (host === 'iframe.videodelivery.net' || host === 'watch.videodelivery.net' || host === 'iframe.cloudflarestream.com' || /^customer-[a-z0-9]{1,40}\.cloudflarestream\.com$/.test(host)) {
+    // Cloudflare Stream: `iframe.videodelivery.net/<uid>` y el de la cuenta `customer-<código>.cloudflarestream.com/<uid>/iframe`
+    // (o `/watch`, el link para ver). El reproductor es el mismo: se arma el de la cuenta si vino su dominio.
+    const uid = /^[0-9a-f]{32}$/i.test(partes[0] ?? '') && (partes.length === 1 || (partes.length === 2 && (partes[1] === 'iframe' || partes[1] === 'watch'))) ? partes[0].toLowerCase() : null;
+    const cliente = host.startsWith('customer-') ? host : null;
+    return r('cloudflare', uid, uid ? (cliente ? `https://${cliente}/${uid}/iframe` : `https://iframe.videodelivery.net/${uid}`) : null);
   }
   if (host === 'fathom.video' || host === 'www.fathom.video' || host === 'app.fathom.video') {
     // `/share/<token>` (el link de Compartir) y `/embed/<token>` (su reproductor): el MISMO token. El
@@ -457,6 +467,70 @@ export function lecturaDePanda(data: unknown): LecturaPanda | null {
   }
   return null;
 }
+
+// ── Lo que dicen los reproductores de Wistia, Bunny Stream y Cloudflare Stream (25/10/2026) ─────────
+
+/** Los alojadores (además de Panda) cuyo reproductor dice por postMessage cuánto se vio. */
+export type ProveedorMedible = 'wistia' | 'bunny' | 'cloudflare';
+export const esProveedorMedible = (p: unknown): p is ProveedorMedible => p === 'wistia' || p === 'bunny' || p === 'cloudflare';
+
+/**
+ * Un mensaje del reproductor de Wistia, Bunny Stream o Cloudflare Stream, leído, con el MISMO contrato que
+ * `lecturaDePanda` (duración, avance, corte), para medir una clase. MEDIDO el 25/10/2026 en Chrome con un video real de
+ * cada uno (los de su documentación; docs/hallazgos-landing.md → «Otros alojadores de video»):
+ *   · Wistia avisa SOLO: un texto JSON `{ method: '_trigger', args: [nombre, …] }` con `timechange` (los segundos),
+ *     `transmit-stats` (un JSON con `media_duration`), `pause` y `end`.
+ *   · Bunny habla player.js y sólo después de suscribirse (`suscripcionPlayerJs`): `timeupdate` trae
+ *     `{ seconds, duration }`, y `pause` y `ended` no traen nada. `ready` es el saludo (`listo`: hay que suscribirse).
+ *   · Cloudflare manda todo solo, como objeto: `propertyChange` de `duration` y `currentTime`, y `event` con `pause`
+ *     y `ended`.
+ * Puede devolver dos lecturas (el `timeupdate` de Bunny trae la duración y el avance juntos).
+ */
+export type LecturaAlojador = LecturaPanda | { tipo: 'listo' };
+
+export function lecturaDeAlojador(proveedor: ProveedorMedible, data: unknown): LecturaAlojador[] {
+  const seg = (v: unknown): number | null => {
+    const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN;
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  let d: unknown = data;
+  if (typeof d === 'string') { try { d = JSON.parse(d); } catch { return []; } }
+  if (!d || typeof d !== 'object') return [];
+  const o = d as Record<string, unknown>;
+  if (proveedor === 'wistia') {
+    if (o.method !== '_trigger' || !Array.isArray(o.args)) return [];
+    const [n, x] = o.args as unknown[];
+    if (n === 'timechange') { const t = seg(x); return t == null ? [] : [{ tipo: 'avance', seg: t }]; }
+    if (n === 'transmit-stats') {
+      let st: unknown = x;
+      if (typeof st === 'string') { try { st = JSON.parse(st); } catch { return []; } }
+      const dur = seg((st as { media_duration?: unknown } | null)?.media_duration);
+      return dur && dur > 0 ? [{ tipo: 'duracion', seg: dur }] : [];
+    }
+    return n === 'pause' || n === 'end' ? [{ tipo: 'corte', seg: null }] : [];
+  }
+  if (proveedor === 'bunny') {
+    if (o.context !== 'player.js') return [];
+    if (o.event === 'ready') return [{ tipo: 'listo' }];
+    if (o.event === 'timeupdate') {
+      const v = (o.value ?? {}) as { seconds?: unknown; duration?: unknown };
+      const t = seg(v.seconds), dur = seg(v.duration);
+      return [...(dur && dur > 0 ? [{ tipo: 'duracion' as const, seg: dur }] : []), ...(t == null ? [] : [{ tipo: 'avance' as const, seg: t }])];
+    }
+    return o.event === 'pause' || o.event === 'ended' ? [{ tipo: 'corte', seg: null }] : [];
+  }
+  if (o.__privateUnstableMessageType === 'propertyChange') {
+    if (o.property === 'duration') { const dur = seg(o.value); return dur && dur > 0 ? [{ tipo: 'duracion', seg: dur }] : []; }
+    if (o.property === 'currentTime') { const t = seg(o.value); return t == null ? [] : [{ tipo: 'avance', seg: t }]; }
+    return [];
+  }
+  if (o.__privateUnstableMessageType === 'event' && (o.eventName === 'pause' || o.eventName === 'ended')) return [{ tipo: 'corte', seg: null }];
+  return [];
+}
+
+/** Lo que se le manda al reproductor de Bunny (player.js) para que avise el tiempo, la pausa y el fin: texto JSON. */
+export const suscripcionPlayerJs = (): string[] =>
+  ['timeupdate', 'pause', 'ended'].map((n) => JSON.stringify({ context: 'player.js', version: '0.0.11', method: 'addEventListener', value: n, listener: `mko-${n}` }));
 
 /**
  * El `src` del reproductor de Panda para una CLASE: con `autoplay=false`. Medido: sin el parámetro, un

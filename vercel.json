@@ -59,6 +59,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/videos-daily",
+      "schedule": "35 13 * * *"
+    },
+    {
       "path": "/api/cron/panda-daily",
       "schedule": "45 13 * * *"
     },

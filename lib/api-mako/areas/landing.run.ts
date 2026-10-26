@@ -42,6 +42,7 @@ import { textoDelVacio } from '@/lib/replay-ficha';
 import { tzActual } from '@/lib/timezone';
 import { linkApp } from '@/lib/app-url';
 import { catalogoPanda, fetchPandaDailyStat, fetchPandaRangeStats } from '@/lib/panda';
+import { alojadoresConectados, catalogoDeVideos } from '@/lib/alojadores-video-api';
 import { urlsDescubiertas, getComportamiento, borrarAnalisis } from '@/lib/landing-analyst';
 import { listarDrafts, borrarDraft } from '@/lib/landing-writer';
 import { specAMarkdown, objetivoLabel } from '@/lib/landing-spec';
@@ -446,6 +447,23 @@ export const RUNNERS: Runners = {
         videos: todos.slice(0, limite).map(([id, v]) => ({ id, titulo: v.titulo, reproductor: v.player, redirige_a: v.redirigeA })),
         total: todos.length, afuera: Math.max(0, todos.length - limite),
         nota: 'Una lista vacía con Panda conectado puede ser que la API de Panda no respondió, y si Panda falló a mitad del listado el total puede estar incompleto (no se distingue). redirige_a null = no redirige o no se pudo leer el detalle. Hasta 2000 videos (20 páginas).',
+      });
+    },
+  },
+
+  // Los videos de todos los alojadores conectados (25/10/2026, «otros alojadores de video»), con el id del Pixel.
+  listar_videos_alojados: {
+    leer: async (input) => {
+      const filtro = str(input, 'alojador');
+      const limite = num(input, 'limite') ?? 100;
+      const [{ videos, fallas }, otros, panda] = await Promise.all([catalogoDeVideos(), alojadoresConectados(), pandaConectado()]);
+      const todos = videos.filter((v) => !filtro || v.alojador === filtro);
+      return json({
+        conectados: [...(panda ? ['panda'] : []), ...otros],
+        videos: todos.slice(0, limite).map((v) => ({ id: v.id, alojador: v.alojador, titulo: v.titulo, reproductor: v.player, duracion_seg: v.duracion, reproducciones: v.reproducciones })),
+        total: todos.length, afuera: Math.max(0, todos.length - limite),
+        ...(fallas.length ? { no_se_pudo_leer: fallas } : {}),
+        nota: 'El id es el que manda el Pixel (vimeo:…, w:… de Wistia, bunny:…, cfs:… de Cloudflare; el de Panda va sin prefijo). duracion_seg y reproducciones en null = el alojador no las da en su listado (las reproducciones por persona están en tracking_lead). Un alojador sin conectar no aparece: se conecta en Integraciones.',
       });
     },
   },

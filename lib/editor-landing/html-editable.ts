@@ -102,6 +102,8 @@ export const CSS_BASE_LIBRE = [
   '.gm-libre [hidden]:where(:not([hidden="until-found"])) { display: none !important; }',
   '}',
   '.gm-libre-seccion { display: contents; }',
+  // El ancla de una sección de diseño (render.ts): una caja de alto 0, con el mismo aire arriba que una de bloques.
+  '.gm-libre-seccion > .gm-ancla-seccion { display: block; height: 0; scroll-margin-top: 5em; }',
 ].join('\n');
 
 /**

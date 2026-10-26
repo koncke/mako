@@ -91,7 +91,7 @@ const ESPECIALES: readonly VarianteOptimizado[] = ['tiempo-dos-lados', 'ciclo', 
 /** El resto va en «rejilla»: linea-superior, numeros-grandes, estadisticas-circulares, estrellas, galeria, imagenes-texto, imagenes-circulares, equipo, nombre-rol, iconos-texto, iconos-grandes. */
 
 /** Los que existen para mostrar íconos: el interruptor «mostrar íconos» no los apaga. */
-const CON_ICONOS: readonly VarianteOptimizado[] = ['vinetas-iconos', 'cajas-iconos', 'etapas-iconos', 'iconos-texto', 'iconos-izquierda', 'iconos-grandes'];
+export const CON_ICONOS: readonly VarianteOptimizado[] = ['vinetas-iconos', 'cajas-iconos', 'etapas-iconos', 'iconos-texto', 'iconos-izquierda', 'iconos-grandes'];
 
 // Columnas por cantidad exacta de ítems (2..12), por modo.
 const REJILLA: Record<number, number> = { 2: 2, 3: 3, 4: 4, 5: 3, 6: 3, 7: 4, 8: 4, 9: 3, 10: 5, 11: 4, 12: 4 };

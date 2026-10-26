@@ -16,6 +16,8 @@
 //   elegir     → copia la foto elegida al bucket. El navegador manda el ID, nunca una URL.
 //   desdeUrl   → baja una imagen o un video de un enlace con la baranda SSRF y lo copia.
 //   biblioteca → lo verificado del workspace (la raíz de `<ws>/`, sin la carpeta de subidas).
+//   videosAlojados → los videos de los alojadores conectados (Panda, Vimeo, Wistia, Bunny, Cloudflare), para elegir uno
+//                en «Insertar» (25/10/2026). Nunca falla por un alojador caído: lo dice en `fallas`.
 //
 // La puerta es la misma que la de los documentos: admin del workspace y la tab en su capa.
 // =============================================================================
@@ -33,6 +35,7 @@ import {
 import type { PedidoImagenes } from '@/lib/editor-landing/api-tipos';
 // La biblioteca vive en lib desde la corrección de la tanda 7: la misma la lee listar_imagenes_landing de la API.
 import { bibliotecaDeImagenes } from '@/lib/editor-landing/server';
+import { catalogoDeVideos } from '@/lib/alojadores-video-api';
 
 export const dynamic = 'force-dynamic';
 // «Desde un enlace» puede bajar un video de hasta 100 MB (con su propio plazo de 90 s).
@@ -184,6 +187,13 @@ export async function POST(req: NextRequest) {
       case 'biblioteca': {
         const r = await bibliotecaDeImagenes(ws);
         return r.ok ? Response.json(r) : mal(r.error, r.status);
+      }
+      case 'videosAlojados': {
+        const { videos, fallas } = await runWithWorkspace(ws, () => catalogoDeVideos());
+        return Response.json({
+          ok: true, fallas,
+          videos: videos.slice(0, 300).map((v) => ({ id: v.id, alojador: v.alojador, titulo: v.titulo, player: v.player, portada: v.portada, duracion: v.duracion })),
+        });
       }
       default: return mal('Acción desconocida');
     }

@@ -469,6 +469,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/landings/diagnostico', 'ver_diagnostico_landing'],
   ['GET', '/landing/landings/piezas', 'detectar_piezas_landing'],
   ['GET', '/landing/panda/videos', 'listar_videos_panda'],
+  // Los de todos los alojadores conectados (25/10/2026).
+  ['GET', '/landing/videos-alojados', 'listar_videos_alojados'],
   ['GET', '/landing/panda/videos/{videoId}/metricas', 'ver_metricas_video_panda'],
   ['GET', '/landing/pixel/codigo', 'ver_codigo_pixel'],
   ['GET', '/landing/pixel/estado', 'ver_estado_pixel'],
@@ -489,10 +491,14 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/landing/busqueda/fotos', 'buscar_fotos_landing'],
   // La biblioteca de imágenes y videos del negocio (corrección de la tanda 7): URLs públicas del bucket de las landings.
   ['GET', '/landing/imagenes', 'listar_imagenes_landing'],
+  // La biblioteca de íconos del editor (25/10/2026): lo que pide cambiar_icono_landing.
+  ['GET', '/landing/iconos', 'ver_iconos_landing'],
   ['DELETE', '/landing/documentos/{id}', 'borrar_landing_creada'],
   // Las animaciones (15/10/2026, el panel «Animar»): PATCH porque cambia sólo lo que se pasa (el interruptor, el estilo o una sección).
   ['PATCH', '/landing/documentos/{id}/animaciones', 'cambiar_animacion_landing'],
   ['PATCH', '/landing/documentos/{id}/botones', 'configurar_boton_landing'],
+  ['PATCH', '/landing/documentos/{id}/iconos', 'cambiar_icono_landing'],
+  ['PATCH', '/landing/documentos/{id}/imagenes', 'cambiar_imagen_landing'],
   ['POST', '/landing/documentos/{id}/comentarios-de-afuera', 'pasar_comentarios_a_copia_landing'],
   ['GET', '/landing/documentos/{id}/configuracion', 'ver_configuracion_landing'],
   ['PATCH', '/landing/documentos/{id}/configuracion', 'configurar_landing'],

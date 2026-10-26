@@ -80,6 +80,8 @@ cambiar_estado_comentario_landing
 cambiar_estilo_texto_video
 cambiar_fecha_tarea_plan
 cambiar_ficha_funnel
+cambiar_icono_landing
+cambiar_imagen_landing
 cambiar_like_comentario_comunidad
 cambiar_like_post_comunidad
 cambiar_moneda_negocio
@@ -401,6 +403,7 @@ listar_temas_landing
 listar_trabajos_flow
 listar_triggers_email
 listar_versiones_landing
+listar_videos_alojados
 listar_videos_detectados
 listar_videos_landing
 listar_videos_panda
@@ -617,6 +620,7 @@ ver_funnel
 ver_glosario_negocio
 ver_grabaciones_prueba
 ver_horario_envio
+ver_iconos_landing
 ver_integracion
 ver_integraciones
 ver_landing_creada

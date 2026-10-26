@@ -323,7 +323,12 @@ export type PedidoImagenes =
   | { accion: 'buscar'; q: string; pagina?: number; orientacion?: 'horizontal' | 'vertical' | 'cuadrada' }
   | { accion: 'elegir'; id: string }
   | { accion: 'desdeUrl'; url: string }
-  | { accion: 'biblioteca' };
+  | { accion: 'biblioteca' }
+  // Los videos de los alojadores conectados (25/10/2026, «otros alojadores de video»): para elegir uno en «Insertar».
+  | { accion: 'videosAlojados' };
+
+/** Un video de un alojador conectado, como lo ve el panel «Insertar» (lib/alojadores-video.ts). */
+export type VideoAlojadoVista = { id: string; alojador: string; titulo: string; player: string; portada: string | null; duracion: number | null };
 
 /** Lo que MaKo entiende por «subir una imagen» desde cualquier pantalla del editor. */
 export const TIPOS_IMAGEN = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'] as const;

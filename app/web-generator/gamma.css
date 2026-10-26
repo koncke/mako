@@ -375,8 +375,11 @@
 .gma-ag-estado { font-size: 12px; color: var(--gma-tenue); white-space: nowrap; }
 .gma-ag-volver { font-size: 16px; line-height: 1; }
 /* La barra ÚNICA lleva el título. Sin «Guardado» al lado (24/10/2026, Martín: «extiende mas la sección del titulo para que se
-   lea»): no se achica por debajo de 160 px (antes llegaba a 64 y se leía «Landin…»); lo que cede es el formato del medio. */
-.gma-herramientas .gma-titulo { flex: 0 0 auto; max-width: 320px; min-width: 160px; }
+   lea»): no se achica por debajo de 160 px (antes llegaba a 64 y se leía «Landin…»).
+   ⚠️ PERO SÍ SE ACHICA HASTA 160 (25/10/2026): con `flex: 0 0 auto` no cedía nada, y el formato del medio que «cedía» está
+   vacío sin un texto elegido. Medido en producción a 1280: la barra pedía 872 px en 848, el «⋯» (Menú del documento)
+   quedaba cortado afuera y la app entera se corría 15 px al abrir «Páginas» (su `overflow-x: hidden` se scrolleaba). */
+.gma-herramientas .gma-titulo { flex: 0 1 auto; max-width: 320px; min-width: 160px; }
 .gma-izq-cabeza {
   flex: none;
   height: 48px;

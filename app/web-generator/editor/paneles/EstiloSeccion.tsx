@@ -37,7 +37,7 @@ import { useEditorState, type Editor } from '@tiptap/react';
 import type { Node as PMNode } from '@tiptap/pm/model';
 import { useCapaModal } from '@/app/_components/pila-modales';
 import {
-  DEGRADADOS, NODO, tituloDeTarjeta,
+  DEGRADADOS, NODO, TOPES, tituloDeTarjeta,
   type AttrsTarjeta, type Degradado, type DisenoTarjeta, type JsonNodo,
 } from '@/lib/editor-landing/doc';
 import { attrsTarjeta } from '@/lib/editor-landing/especificacion';
@@ -46,6 +46,7 @@ import { useEditorLanding } from '../contexto';
 import { diapositivaFija } from '@/lib/editor-landing/api-tipos';
 import { EntradaColor, EstilosGmp, Icono, Segmentado, posicionJunto, useFijo, type OpcionSeg } from '../dialogos/piezas-gma';
 import { ESTILO_RESTABLECIDO } from '@/lib/editor-landing/reglas-pantalla';
+import { conFondoDeDiseno, fondoPuestoDe, fondoVisibleDe, type FondoDeDiseno } from '@/lib/editor-landing/fondo-de-diseno';
 
 /** A qué se ancla: el botón que lo abrió, o un rectángulo ya medido. */
 export type AnclaEstilo = HTMLElement | DOMRect | null;
@@ -77,6 +78,37 @@ export function escribirEstilo(editor: Editor, id: string, cambios: Partial<Attr
     return true;
   });
 }
+
+/**
+ * El fondo de una sección de «Diseño editable» (las páginas de MaKo), en el HTML de su diseño, que es lo que se publica
+ * (lib/editor-landing/fondo-de-diseno.ts; `null` vuelve al del diseño). UNA transacción deshacible. Devuelve false si
+ * no cambió nada o si el HTML pasaría el tope (el saneo del server vaciaría la sección).
+ */
+export function escribirFondoDeDiseno(editor: Editor, id: string, fondo: FondoDeDiseno | null, css: string): boolean {
+  return editor.commands.command(({ tr, state }) => {
+    const t = buscarTarjeta(state.doc, id);
+    if (!t) return false;
+    let cambio = false;
+    let grande = false;
+    t.node.forEach((hijo, offset) => {
+      if (hijo.type.name !== NODO.htmlEditable) return;
+      const html = typeof hijo.attrs.html === 'string' ? hijo.attrs.html : '';
+      const nuevo = conFondoDeDiseno(html, fondo, css);
+      if (nuevo === html) return;
+      if (nuevo.length > TOPES.htmlEditable) { grande = true; return; }
+      tr.setNodeMarkup(t.pos + 1 + offset, undefined, { ...hijo.attrs, html: nuevo });
+      cambio = true;
+    });
+    return cambio && !grande;
+  });
+}
+
+/** ¿La sección es SÓLO diseño editable? Esa se publica a sangre: su estilo de sección no llega (render.ts). */
+const esDeDiseno = (n: PMNode): boolean => {
+  let todos = n.childCount > 0;
+  n.forEach((h) => { if (h.type.name !== NODO.htmlEditable) todos = false; });
+  return todos;
+};
 
 // «Restablecer estilo»: vive en lib/editor-landing/reglas-pantalla.ts desde el 17/10/2026 (la API de MaKo lo tenía copiado).
 export { ESTILO_RESTABLECIDO };
@@ -190,6 +222,45 @@ function PuntoEnfoque({ src, x, y, onCambiar }: { src: string; x: number; y: num
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Los colores: la paleta del tema, los degradados de doc.ts y un color libre (las dos variantes del popover)
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ColoresDeSeccion({ paleta, color, degradado, colorLibre, onColor, onDegradado, onLibre }: {
+  paleta: string[];
+  /** El elegido (para marcarlo), o null. */
+  color: string | null;
+  degradado: Degradado | null;
+  colorLibre: string;
+  onColor: (c: string) => void;
+  onDegradado: (k: Degradado) => void;
+  onLibre: (hex: string) => void;
+}) {
+  const propio = color && !paleta.includes(color.toLowerCase()) ? color : null;
+  return (
+    <>
+      <div className="gmp-colores" style={{ marginTop: 8 }}>
+        {paleta.map((c) => (
+          <button key={c} type="button" className="gmp-color" title={c} aria-label={`Color ${c}`} style={{ background: c }}
+            aria-pressed={color?.toLowerCase() === c} onClick={() => onColor(c)} />
+        ))}
+        {propio && (
+          <button type="button" className="gmp-color" title={propio} aria-label={`Color ${propio}`} style={{ background: propio }} aria-pressed />
+        )}
+      </div>
+      <div className="gmp-colores" style={{ marginTop: 8 }}>
+        {(Object.keys(DEGRADADOS) as Degradado[]).map((k) => (
+          <button key={k} type="button" className="gmp-color" title={NOMBRE_DEGRADADO[k]} aria-label={`Degradado ${NOMBRE_DEGRADADO[k]}`}
+            style={{ background: DEGRADADOS[k] }} aria-pressed={degradado === k} onClick={() => onDegradado(k)} />
+        ))}
+      </div>
+      <div style={{ marginTop: 8 }}>
+        <EntradaColor etiqueta="Color personalizado" valor={colorLibre} onCambiar={onLibre} />
+      </div>
+    </>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // El popover
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -211,7 +282,7 @@ const CSS_ESTILO = [
 ].join('\n');
 
 export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: string; ancla: AnclaEstilo; onCerrar: () => void }) {
-  const { editor, tema, elegirImagen, config } = useEditorLanding();
+  const { editor, tema, elegirImagen, config, avisar } = useEditorLanding();
   // T3: en una diapositiva de forma fija el ancho no cambia nada (css.ts, 15b): no se ofrece.
   const sinAncho = diapositivaFija(config);
   const capa = useCapaModal(true, { anidada: true });
@@ -229,14 +300,20 @@ export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: strin
       if (!e) return null;
       const t = buscarTarjeta(e.state.doc, tarjetaId);
       if (!t) return null;
-      return { attrs: attrsTarjeta(t.node.attrs), titulo: tituloDeTarjeta(t.node.toJSON() as JsonNodo) };
+      // Una sección de diseño: el HTML de su diseño (el primero), que es donde va su fondo.
+      const diseno = esDeDiseno(t.node) ? String(t.node.firstChild?.attrs.html ?? '') : null;
+      return { attrs: attrsTarjeta(t.node.attrs), titulo: tituloDeTarjeta(t.node.toJSON() as JsonNodo), diseno };
     },
   });
   const a = estado?.attrs ?? null;
+  const diseno = estado?.diseno ?? null;
+  const puesto = diseno !== null ? fondoPuestoDe(diseno) : null;
+  const colorPuesto = puesto && 'color' in puesto ? puesto.color : null;
 
   // Si la sección desaparece (la borraron, se deshizo su alta), el popover se cierra solo.
   useEffect(() => { if (editor && estado === null) cerrar(); }, [editor, estado, cerrar]);
   useEffect(() => { if (a?.fondo === 'color' && a.fondoColor) setColorLibre(a.fondoColor); }, [a?.fondo, a?.fondoColor]);
+  useEffect(() => { if (colorPuesto) setColorLibre(colorPuesto); }, [colorPuesto]);
 
   const cambiar = useCallback((cambios: Partial<AttrsTarjeta>) => {
     if (editor) escribirEstilo(editor, tarjetaId, cambios);
@@ -288,11 +365,39 @@ export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: strin
   const vars = varsDeTema(tema);
   const conImagen = a.diseno !== 'sin' && !!a.imagenSrc;
   const paleta = [...new Set(tema.paleta.map((c) => c.toLowerCase()))].filter((c) => HEX.test(c)).slice(0, 8);
-  const colorPropio = a.fondo === 'color' && a.fondoColor && !paleta.includes(a.fondoColor.toLowerCase()) ? a.fondoColor : null;
+  const estiloPop: CSSProperties = { zIndex: capa.z, left: pos?.left ?? -9999, top: pos?.top ?? -9999, display: capa.visible ? 'block' : 'none' };
+
+  // UNA SECCIÓN DE DISEÑO (las páginas de MaKo; 25/10/2026, Martín: «tampoco puedo editar el color del bg de cada
+  // sección»): se publica a sangre, su HTML tal cual, y el estilo de la sección no llega. El popover es sólo «Color de
+  // sección», con los MISMOS colores, y escribe en el HTML del diseño. «Del diseño» lo vuelve exacto a como vino.
+  if (diseno !== null) {
+    const css = config.diseno?.css ?? '';
+    const original = fondoVisibleDe(conFondoDeDiseno(diseno, null, css), css) ?? fondoVisibleDe('<div class="gm-libre"></div>', css);
+    const poner = (f: FondoDeDiseno | null) => {
+      if (editor && !escribirFondoDeDiseno(editor, tarjetaId, f, css) && conFondoDeDiseno(diseno, f, css) !== diseno) avisar('Sección muy grande');
+    };
+    return createPortal(
+      <div ref={ref} className="gma gmp gmp-pop" role="dialog" aria-label="Color de sección" style={estiloPop}>
+        <EstilosGmp extra={{ href: 'gmp-estilo-seccion', css: CSS_ESTILO }} />
+        <div className="gmp-pop-cab">
+          <h3 className="gmp-pop-tit">Color de sección</h3>
+          <button type="button" className="gmp-x" onClick={cerrar} aria-label="Cerrar" title="Cerrar"><Icono nombre="cerrar" tam={16} /></button>
+        </div>
+        <div className="gmp-colores" role="group" aria-label="Color de sección">
+          <button type="button" className="gmp-color-tema" aria-pressed={!puesto} onClick={() => poner(null)}>
+            <i style={{ background: original ?? 'transparent' }} />Del diseño
+          </button>
+        </div>
+        <ColoresDeSeccion paleta={paleta} color={colorPuesto} degradado={puesto && 'degradado' in puesto ? puesto.degradado : null} colorLibre={colorLibre}
+          onColor={(c) => poner({ color: c })} onDegradado={(k) => poner({ degradado: k })}
+          onLibre={(hex) => { setColorLibre(hex); poner({ color: hex }); }} />
+      </div>,
+      document.body,
+    );
+  }
 
   return createPortal(
-    <div ref={ref} className="gma gmp gmp-pop" role="dialog" aria-label="Editar estilo de sección"
-      style={{ zIndex: capa.z, left: pos?.left ?? -9999, top: pos?.top ?? -9999, display: capa.visible ? 'block' : 'none' }}>
+    <div ref={ref} className="gma gmp gmp-pop" role="dialog" aria-label="Editar estilo de sección" style={estiloPop}>
       <EstilosGmp extra={{ href: 'gmp-estilo-seccion', css: CSS_ESTILO }} />
       <div className="gmp-pop-cab">
         <h3 className="gmp-pop-tit">Editar estilo de sección</h3>
@@ -349,27 +454,11 @@ export function EstiloSeccion({ tarjetaId, ancla, onCerrar }: { tarjetaId: strin
           <i style={{ background: tema.colores.acento }} />Acento
         </button>
       </div>
-      <div className="gmp-colores" style={{ marginTop: 8 }}>
-        {paleta.map((c) => (
-          <button key={c} type="button" className="gmp-color" title={c} aria-label={`Color ${c}`} style={{ background: c }}
-            aria-pressed={a.fondo === 'color' && a.fondoColor?.toLowerCase() === c}
-            onClick={() => cambiar({ fondo: 'color', fondoColor: c, fondoDegradado: null })} />
-        ))}
-        {colorPropio && (
-          <button type="button" className="gmp-color" title={colorPropio} aria-label={`Color ${colorPropio}`} style={{ background: colorPropio }} aria-pressed />
-        )}
-      </div>
-      <div className="gmp-colores" style={{ marginTop: 8 }}>
-        {(Object.keys(DEGRADADOS) as Degradado[]).map((k) => (
-          <button key={k} type="button" className="gmp-color" title={NOMBRE_DEGRADADO[k]} aria-label={`Degradado ${NOMBRE_DEGRADADO[k]}`}
-            style={{ background: DEGRADADOS[k] }} aria-pressed={a.fondo === 'degradado' && a.fondoDegradado === k}
-            onClick={() => cambiar({ fondo: 'degradado', fondoDegradado: k, fondoColor: null })} />
-        ))}
-      </div>
-      <div style={{ marginTop: 8 }}>
-        <EntradaColor etiqueta="Color personalizado" valor={colorLibre}
-          onCambiar={(hex) => { setColorLibre(hex); cambiar({ fondo: 'color', fondoColor: hex, fondoDegradado: null }); }} />
-      </div>
+      <ColoresDeSeccion paleta={paleta} color={a.fondo === 'color' ? a.fondoColor : null} degradado={a.fondo === 'degradado' ? a.fondoDegradado : null}
+        colorLibre={colorLibre}
+        onColor={(c) => cambiar({ fondo: 'color', fondoColor: c, fondoDegradado: null })}
+        onDegradado={(k) => cambiar({ fondo: 'degradado', fondoDegradado: k, fondoColor: null })}
+        onLibre={(hex) => { setColorLibre(hex); cambiar({ fondo: 'color', fondoColor: hex, fondoDegradado: null }); }} />
 
       {sinAncho ? null : <>
         <p className="gmp-sub">Ancho</p>

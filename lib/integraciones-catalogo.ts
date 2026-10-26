@@ -97,6 +97,13 @@ export const DEFS: Def[] = [
   // nombre del proveedor, en docs/hallazgos-customer-success.md. Con esto la
   // categoría «Contenido» quedó sin tarjetas: el tablero no dibuja una vacía.
   { key: 'panda', nombre: 'Panda Video', categoria: 'Datos', descripcion: 'Métricas de reproducción del VSL.', envs: ['PANDA_API_KEY'] },
+  // Los otros alojadores de video (25/10/2026, Martín: «Implementa otros alojadores de video, no solo panda»): su lista
+  // de videos (para nombrarlos y elegirlos en el editor y en los cursos) y, Wistia y Bunny, sus números por día. Cuánto
+  // vio cada persona lo mide el Pixel en todos por igual (lib/alojadores-video.ts). Las claves, en CLAVES_ALOJADOR.
+  { key: 'vimeo', nombre: 'Vimeo', categoria: 'Datos', descripcion: 'Tus videos de Vimeo, para elegirlos en tus páginas y tus cursos.', envs: ['VIMEO_TOKEN'] },
+  { key: 'wistia', nombre: 'Wistia', categoria: 'Datos', descripcion: 'Tus videos de Wistia y cuántas veces los reproducen por día.', envs: ['WISTIA_TOKEN'] },
+  { key: 'bunny', nombre: 'Bunny Stream', categoria: 'Datos', descripcion: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.', envs: ['BUNNY_STREAM_KEY', 'BUNNY_STREAM_LIBRARY'] },
+  { key: 'cloudflare', nombre: 'Cloudflare Stream', categoria: 'Datos', descripcion: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.', envs: ['CLOUDFLARE_STREAM_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'] },
   { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
   // cliente conecte (y su credencial no puede vivir dentro de la propia base).

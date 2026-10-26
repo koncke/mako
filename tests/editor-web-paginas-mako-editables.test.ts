@@ -100,8 +100,9 @@ test('un clic adentro del diseño ACTIVA su sección, y su barrita suma negrita 
   const vista = sinComentarios(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx'));
   assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\s*setActivo\(true\);\s*marcarSeccion\(\);/);
   assert.match(vista, /if \(n\.type\.name === NODO\.tarjeta\) \{ const id = String\(n\.attrs\.id \?\? ''\); if \(id\) c\.marcarActiva\(id\); return; \}/);
-  assert.match(vista, /onClick=\{\(\) => formato\('bold'\)\}/);
-  assert.match(vista, /onClick=\{\(\) => formato\('italic'\)\}/);
+  // Desde el 25/10/2026 la barrita va con íconos y el nombre en el tooltip (`boton(nombre, ícono, acción)`).
+  assert.match(vista, /boton\('Negrita', <Icono nombre="negrita" \/>, \(\) => formato\('bold'\)\)/);
+  assert.match(vista, /boton\('Cursiva', <Icono nombre="cursiva" \/>, \(\) => formato\('italic'\)\)/);
   // El editor le da al contexto la forma de activar una sección sin mover el cursor ni el scroll.
   const editor = sinComentarios(leer('app/web-generator/editor/EditorLanding.tsx'));
   assert.match(editor, /marcarActiva: setTarjetaActiva,/);

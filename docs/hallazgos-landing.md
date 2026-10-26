@@ -4600,3 +4600,81 @@ Lo que quedó SIN hacer:
   crudo hasta la próxima escritura. Un email en el PATH (`/gracias/ana@x.com`) no se cubre.
 - Falsos positivos aceptados: `?name=marketing-avanzado` (Calendly usa `name` para la persona) y una UTM con un `@`
   (`utm_campaign=Promo@Black.Friday`).
+
+## Otros alojadores de video: lo que mide el Pixel en cada uno, medido con un video real (25/10/2026, claude5)
+
+Pedido de Martín (por el Cerebro): «Implementa otros alojadores de video, no solo panda, como Vimeo u otros... Y asegurate
+de que funcionen bien». Lo medí con un video REAL de cada alojador (los de su propia documentación), en Chrome sin ventana,
+haciendo clic para reproducir y clic para pausar. Se repite con `scripts/pixel-alojadores-real.mts`.
+
+| Alojador | Antes (v26) | Con la v27 |
+|---|---|---|
+| Panda, Vimeo, Wistia | play, avance y pausa | igual |
+| YouTube como lo da YouTube (`/embed/ID?si=…`) | play, avance y pausa | igual |
+| YouTube con `enablejsapi=1` en una página SIN la API de YouTube | **nada** | play, avance y pausa |
+| Bunny Stream | **nada** | play, avance y pausa |
+| Cloudflare Stream (`customer-…/<uid>/iframe` e `iframe.videodelivery…/<uid>`) | **nada** | play, avance y pausa |
+
+**Lo que no era obvio:**
+- **Bunny habla player.js y NO manda nada sin suscripción.** Al cargar avisa `ready` (como texto JSON), y recién al
+  pedirle `addEventListener` (también como texto JSON) manda `play`, `pause`, `ended` y `timeupdate` con segundos y
+  duración. Un Bunny que cargó antes que el Pixel ya avisó su `ready` a nadie: se lo suscribe al arrancar.
+- **Cloudflare manda TODO sin que se lo pidan**, como objeto (`__privateUnstableMessageType`: `event` y `propertyChange`).
+  Su librería oficial sólo escucha: no hay a qué suscribirse. Lo leí en su SDK y lo confirmé con el video.
+- **El YouTube que ya trae `enablejsapi=1` no medía nada.** El Pixel sólo lo escuchaba, para no romperle la API propia
+  a la página, pero ese iframe no habla si nadie le pide. Ahora: si a los 6 s nadie le habló y en la página no hay API de
+  YouTube (`window.YT` ni su script), se le pide. Si después aparece una, `ytCeder` se lo devuelve.
+- **El mismo video en dos iframes comparte su estado** (el Pixel lleva el estado POR VIDEO): el segundo play sale como
+  «retoma». Pasa con dos copias del mismo VSL en una página; en una prueba, usar videos distintos.
+- **Una prueba que sólo mira los eventos después del clic «pierde» el play de Panda**, porque arranca solo al cargar (sale
+  con `auto: true`). Hay que mirar todo lo del video desde que cargó la página.
+- **El dominio no se escribe entero en el snippet** (`mediadelivery\\.net` con la barra): el analizador de piezas busca
+  los dominios en el texto de la página, y el snippet se delataría a sí mismo. Lo cuida tests/landing-snippet-emitido.test.ts.
+- **El id que arma el Pixel y el que arma el analizador tienen que ser el mismo** (`bunny:<guid>`, `cfs:<uid>`), si no el
+  mismo video sale dos veces en la pantalla que los nombra. tests/alojadores-video-pixel.test.ts corre la función del
+  snippet sobre las mismas URLs que el analizador.
+
+**La duración de cada video, sin la API de Panda (tanda 2, el mismo día).** Hasta acá salía SÓLO de Panda
+(`getDuracionesVsl`, lib/leads.ts), así que los segundos de un video de cualquier otro alojador no se volvían porcentaje ni
+en la ficha del lead ni en «Cuánto ven el video». Cada evento con porcentaje trae los segundos: duración = segundos × 100 /
+porcentaje (`duracionesDeEventos`, lib/vsl-retencion.ts). Con los eventos reales del video de Cloudflare da 29,8 s, y su
+reproductor dice 30. Sólo con porcentaje desde 25, porque el redondeo a entero en un 5 % es un 10 % de error. Se toma la
+mediana y no el promedio: una posición rara no la corre.
+- **La trampa que habría pasado callada: «la única duración conocida».** Los hitos `sNN` de Panda llegan sin porcentaje y,
+  con un solo video en juego, se les presta la única duración conocida. Esa regla contaba TODAS las duraciones:
+  agregando las de otros alojadores, una página con un solo VSL de Panda y un video de YouTube en otra página se quedaba
+  sin respaldo, y su retención volvía a «—». **Regla:** «la única» es la única DE PANDA (un id sin alojador), en los dos
+  resolvedores (lib/leads.ts y lib/graficos-datos-extra.ts, que es una copia).
+
+**El catálogo de cada alojador (tanda 3, el mismo día).** Lo que da la API de cada uno, leído en su documentación, decide
+qué se puede prometer: **las estadísticas por día de Vimeo son sólo de Enterprise** (se piden a soporte); Cloudflare da
+MINUTOS vistos (GraphQL), no reproducciones; Wistia y Bunny dan reproducciones y tiempo por día. Lo que TODOS dan es el
+catálogo: título, reproductor, portada y duración (lib/alojadores-video.ts, puro, y lib/alojadores-video-api.ts con la
+clave). Por eso lo parejo por persona es el Pixel, y el catálogo sirve para nombrar y elegir videos
+(`videosDetectados` y `listar_videos_alojados`). **Las formas están probadas contra la documentación, no contra una
+cuenta de verdad:** hace falta la clave de una cuenta real de cada alojador.
+
+**Elegir un video del catálogo en el editor (tanda 4).** El panel «Insertar» (y el control «Video» de una sección de
+diseño) muestra «Tus videos», los de todos los alojadores conectados. Un clic inserta su reproductor, y sólo si
+`embedDe` lo sabe insertar. Lo pide a la ruta del editor (`videosAlojados` en /api/landing-generator/imagenes), con la
+misma puerta y con el negocio explícito (`runWithWorkspace`). Sin alojadores conectados no se dibuja nada, y la agenda de
+un diseño no ofrece videos. No se pudo ver con clics acá: hay que mirarlo cuando despliegue.
+
+Las tarjetas de Integraciones para cada clave quedaron hechas (docs/hallazgos-integraciones.md → «Vimeo, Wistia, Bunny
+Stream y Cloudflare Stream como integraciones»).
+
+**Los números por día de Wistia y Bunny (tanda 6, decidido por el Cerebro).** El cron `app/api/cron/videos-daily` escribe
+una fila por día con la forma de Panda (`video_*`). Lo leen el funnel, la serie del VSL, sus fuentes y el Dashboard, que
+pasaron de «sólo Panda» a todas las plataformas de video (`PLATAFORMAS_VIDEO`, lib/types.ts).
+- **Sólo el VSL que el negocio marcó, no toda la cuenta.** Panda escribe sólo los ids que se le configuraron. Leer todos los
+  videos de Wistia o Bunny habría metido las clases de un curso en el paso «vio el VSL» del funnel. Sin VSL de ese
+  alojador, el negocio se omite: no es un error.
+- **Bunny no dice en qué unidad viene su tiempo visto** («total watch time»). Se guarda crudo en `raw_payload` y el tiempo
+  medio queda en null, en vez de inventar segundos o minutos. Wistia sí: horas vistas sobre reproducciones.
+- **La base no los aceptaba:** el CHECK de `marketing_metrics_daily.plataforma` sólo admitía meta, youtube y panda.
+  La migración es la 0336 (`supabase/migrations/0336_alojadores_video_plataforma.sql`, número del Cerebro), APLICADA en
+  producción el 25/10/2026 19:27 con el sí de Martín. Antes de aplicarla, el insert rebotaba y el cron lo decía en su respuesta.
+- Los tests del funnel, /general, los gráficos y los crons pasan con las lecturas nuevas.
+
+Lo que quedó SIN hacer: probar el catálogo, los pings y los números con una cuenta real de cada alojador (cuando Martín
+conecte una); aplicar la migración; mirar con clics «Tus videos» del editor cuando despliegue.
