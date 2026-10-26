@@ -21,8 +21,9 @@
 //   · Español neutro, con «tú» (AGENTS.md y tests/puente-panel-copy.test.ts: el voseo no pasa, ni en un script).
 //   · Sólo lo que MaKo hace HOY. El media buyer que mueve el presupuesto todavía no está en producción: la portada C («del
 //     anuncio a la llamada») y el control de los límites esperan (docs/hallazgos-editor-landing.md).
-//   · La garantía de 14 días está decidida (docs/ofertas-mako.md), pero /reembolsos dice que el mes pagado no se devuelve:
-//     hasta que Planes la escriba ahí, la landing no la promete (`GARANTIA`).
+//   · NO hay garantía de devolución (Martín, 25/10 ~10:20: fuera la de 14 y 30 días). Hay una prueba GRATIS de 7 días con
+//     tarjeta y cobro el día 8: el botón, la línea de abajo, el cierre y la pregunta de la cancelación salen de
+//     `PRUEBA_DIAS` (lib/planes-mako.ts, de Planes), y los que van a la vista llevan su marca (`data-mako-prueba`).
 //
 // Uso (desde la raíz del repo; `--conditions=react-server` por los módulos server-only del publicador):
 //   node --conditions=react-server --import tsx scripts/landings-mako-v2.mts --salida <carpeta>      → los JSON, sin subir
@@ -36,13 +37,11 @@ import { join } from 'node:path';
 import { CONFIG_DEFAULT, type ConfigLanding } from '../lib/editor-landing/api-tipos';
 import { NODO, ATTRS_TARJETA_DEFAULT, type JsonNodo, type LandingContenido } from '../lib/editor-landing/doc';
 import { PIXEL_META_MAKO } from '../lib/meta-pixel-mako';
-import { PLANES_MAKO_DEFAULT } from '../lib/planes-mako';
-import { precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
+import { PLANES_MAKO_DEFAULT, PRUEBA_DIAS } from '../lib/planes-mako';
+import { botonDePrueba, lineaDePrueba, precioDesde, precioUsd } from '../lib/editor-landing/precios-en-landing';
 
 const APP = 'https://hola-mako.com';
 
-/** La garantía va en la landing cuando /reembolsos la diga (hoy: el mes pagado no se devuelve). */
-export const GARANTIA: string | null = null;
 
 /** Las dos portadas que salen hoy. La C («del anuncio a la llamada») sale con el media buyer en producción. */
 export const PORTADAS = {
@@ -91,34 +90,41 @@ const precioDe = (id: string): string => {
   return precioUsd(p.precioUsd);
 };
 const DESDE = precioUsd(precioDesde(PLANES_HOY) ?? 0);
-const desde = () => `<span data-mako-desde="">${DESDE}</span>`;
-const pro = () => `<span data-mako-precio="pro">${precioDe('pro')}</span>`;
+export const desde = () => `<span data-mako-desde="">${DESDE}</span>`;
+export const pro = () => `<span data-mako-precio="pro">${precioDe('pro')}</span>`;
 
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-const planes = (slug: string) => `${APP}/planes?landing=${slug}`;
+export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+export const planes = (slug: string) => `${APP}/planes?landing=${slug}`;
 
 /** La estrella de MaKo (la de la criatura y el logo). */
 const ESTRELLA = '<svg width="18" height="18" viewBox="-12 -12 24 24" aria-hidden="true"><path d="M0 -11 C1.5 -4.5 4.5 -1.5 11 0 C4.5 1.5 1.5 4.5 0 11 C-1.5 4.5 -4.5 1.5 -11 0 C-4.5 -1.5 -1.5 -4.5 0 -11 Z" fill="#F2B01E"></path></svg>';
 
-const encabezado = (etiqueta: string, titulo: string, bajada?: string, serif?: string) => `
+export const encabezado = (etiqueta: string, titulo: string, bajada?: string, serif?: string) => `
     <div class="mkv-cabeza">
       <p class="mkv-etiqueta">${esc(etiqueta)}</p>
       <h2 class="mkv-h2">${esc(titulo)}${serif ? ` <em class="mkv-serif">${esc(serif)}</em>` : ''}</h2>
       ${bajada ? `<p class="mkv-bajada">${esc(bajada)}</p>` : ''}
     </div>`;
 
-const botones = (slug: string) => `
+export const botones = (slug: string) => `
       <div class="mkv-botones">
-        <a class="mkv-btn" href="${planes(slug)}">Empezar con MaKo</a>
+        <a class="mkv-btn" href="${planes(slug)}"><span data-mako-prueba="boton">${esc(botonDePrueba(PRUEBA_DIAS))}</span></a>
         <a class="mkv-btn mkv-btn-borde" href="#planes">Ver los planes</a>
       </div>
-      <p class="mkv-antiriesgo">Desde ${desde()} al mes · ${GARANTIA ? `${esc(GARANTIA)} · ` : ''}Sin permanencia · Usas tu propia IA</p>`;
+      <p class="mkv-antiriesgo">Desde ${desde()} al mes · <span data-mako-prueba="linea">${esc(lineaDePrueba(PRUEBA_DIAS))}</span></p>`;
+
+/** Los días de la prueba y el día del primer cobro, marcados (hola-mako.com los pone de la fuente). */
+const diasPrueba = () => `<span data-mako-prueba="dias">${PRUEBA_DIAS}</span>`;
+const diaDelCobro = () => `<span data-mako-prueba="cobro">${PRUEBA_DIAS + 1}</span>`;
+
+/** Cómo funciona la prueba: lo mismo que dice /planes (app/planes/Vitrina.tsx), de la misma fuente. */
+export const COMO_FUNCIONA_LA_PRUEBA = `Tienes ${PRUEBA_DIAS} días gratis con el plan que elijas. Pones tu tarjeta al empezar y no se te cobra nada hasta el día ${PRUEBA_DIAS + 1}. Si te das de baja antes, desde «Tu plan», no se te cobra nada.`;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Las secciones (en el orden de la investigación, §6a)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function nav(slug: string): string {
+export function nav(slug: string): string {
   return `<header class="mkv mkv-nav"><div class="mkv-in mkv-nav-in">
     <a class="mkv-logo" href="${APP}/"><span class="mkv-logo-marca">${ESTRELLA}</span><span class="mkv-logo-nombre">MaKo</span></a>
     <nav class="mkv-nav-links"><a href="#equipo">Cómo funciona</a><a href="#planes">Precios</a><a href="#preguntas">Preguntas</a></nav>
@@ -158,7 +164,7 @@ function portada(cual: Portada): string {
   </div></section>`;
 }
 
-function caso(): string {
+export function caso(): string {
   return `<section class="mkv mkv-sec" id="resultados"><div class="mkv-in">
     ${encabezado('Resultados reales', 'Lo que pasó cuando Mauricio lo probó.', 'Mauricio vende su programa con anuncios, un video de venta y llamadas. Con MaKo vio en una sola pantalla qué anuncio le traía a los clientes que pagaban y por qué se ganaba o se perdía cada llamada.')}
     <div class="mkv-caso">
@@ -207,7 +213,7 @@ function equipo(): string {
   </div></section>`;
 }
 
-function circuito(): string {
+export function circuito(): string {
   const pasos: Array<[string, string]> = [
     ['Llega el contacto', 'Desde tu anuncio, con su origen.'],
     ['MaKo conversa', 'Contesta y califica por WhatsApp.'],
@@ -237,7 +243,7 @@ function arranque(): string {
   </div></section>`;
 }
 
-function tuIa(): string {
+export function tuIa(): string {
   const puntos: Array<[string, string]> = [
     ['Lo que gastas, lo ves en tu proveedor', 'Sin créditos de MaKo ni una billetera aparte: pagas lo que consume tu clave.'],
     ['Tus claves, cifradas', 'Se guardan cifradas y sólo las usa tu negocio.'],
@@ -268,7 +274,7 @@ function ahorro(): string {
   </div></section>`;
 }
 
-function precios(slug: string): string {
+export function precios(slug: string): string {
   // El lugar de las columnas (app/vsl/PreciosLanding.tsx, con su título): lo de adentro es el respaldo del editor.
   return `<section class="mkv mkv-sec mkv-sec-noche" id="planes"><div class="mkv-in">
     <div class="mkv-planes" data-mako-planes="">
@@ -306,8 +312,10 @@ function fundador(): string {
   </div></section>`;
 }
 
-function preguntas(): string {
-  const qa: Array<[string, string]> = [
+const CLAVES_PREGUNTAS = ['tecnologia', 'cierra', 'equivoca', 'numero', 'bloqueo', 'ia', 'equipo', 'permanencia', 'datos', 'chatgpt'] as const;
+
+/** Las preguntas frecuentes, con clave: la principal usa todas; cada landing de funcionalidad o avatar, las suyas. */
+export const PREGUNTAS: Record<string, [string, string]> = Object.fromEntries(([
     ['¿Necesito saber de tecnología o escribir prompts?', 'No. Le cuentas a MaKo qué vendes y a quién, y arma tu oferta, tus páginas y tus mensajes. Tú revisas y apruebas.'],
     ['¿La IA cierra la venta?', 'No. MaKo contesta, pregunta lo justo y agenda la llamada. La venta la cierras tú, y después MaKo te dice qué pasó en cada llamada.'],
     ['¿Qué pasa si la IA se equivoca?', 'Todas las conversaciones quedan en tu bandeja y puedes tomar cualquiera cuando quieras. Tú decides qué mensajes salen solos.'],
@@ -315,10 +323,17 @@ function preguntas(): string {
     ['¿Me pueden bloquear el WhatsApp?', 'La conexión por QR no es la oficial de WhatsApp: si mandas mensajes masivos a gente que no te escribió, WhatsApp puede bloquear el número. Úsala para contestar y hacer seguimiento, no para mandar en masa.'],
     ['¿Cuánto me sale la IA?', 'Lo que consuma tu clave de Claude, ChatGPT o Gemini, pagado directo a tu proveedor. MaKo no le pone recargo. Con Gemini puedes empezar gratis, con un tope por día.'],
     ['¿Reemplaza a mi equipo o a mi agencia?', 'Hace lo repetido: contestar, hacer seguimiento, armar piezas y ordenar tareas. Tu equipo entra con su propio usuario.'],
-    ['¿Tengo permanencia? ¿Cómo cancelo?', 'No hay permanencia. Te das de baja cuando quieras desde tu cuenta, en Configuración del negocio, y no se te cobra el mes siguiente.'],
+    ['¿Cómo funciona la prueba? ¿Cómo cancelo?', `${COMO_FUNCIONA_LA_PRUEBA} No hay permanencia: pasas a otro plan o te das de baja cuando quieras.`],
     ['¿Mis datos entrenan a la IA?', 'MaKo no entrena modelos con tus datos. La IA es la tuya: lo que pide pasa por tu propia cuenta de Claude, ChatGPT o Gemini.'],
     ['¿En qué se diferencia de ChatGPT?', 'ChatGPT conversa contigo. MaKo trabaja dentro de tu negocio: tu CRM, tu WhatsApp, tus anuncios y tu agenda, con tu propia IA.'],
-  ];
+] as Array<[string, string]>).map((qa, i) => [CLAVES_PREGUNTAS[i], qa]));
+
+function preguntas(): string {
+  return preguntasCon(CLAVES_PREGUNTAS.map((k) => PREGUNTAS[k]));
+}
+
+/** La sección de preguntas con estas (en este orden): la primera, abierta. */
+export function preguntasCon(qa: ReadonlyArray<[string, string]>): string {
   return `<section class="mkv mkv-sec" id="preguntas"><div class="mkv-in mkv-faq">
     <div class="mkv-faq-cabeza"><p class="mkv-etiqueta">Preguntas frecuentes</p><h2 class="mkv-h2">Antes de empezar.</h2></div>
     <div class="mkv-faq-lista">
@@ -327,15 +342,15 @@ function preguntas(): string {
   </div></section>`;
 }
 
-function cierre(slug: string): string {
+export function cierre(slug: string): string {
   return `<section class="mkv mkv-cierre" id="empezar"><div class="mkv-in mkv-centro">
     <h2 class="mkv-h1 mkv-h1-chico">Tú cierras.<br><em class="mkv-serif">Del resto se encarga MaKo.</em></h2>
-    <p class="mkv-portada-bajada">${GARANTIA ? `${esc(GARANTIA)}. ` : ''}Empieza hoy. Si no te sirve, te das de baja desde tu cuenta, cuando quieras.</p>
+    <p class="mkv-portada-bajada">Empieza con ${diasPrueba()} días gratis. Si no te sirve, te das de baja antes del día ${diaDelCobro()} y no se te cobra nada.</p>
     ${botones(slug)}
   </div></section>`;
 }
 
-function pie(): string {
+export function pie(): string {
   const col = (t: string, links: Array<[string, string]>) => `<div><p class="mkv-pie-titulo">${esc(t)}</p>${links.map(([x, h]) => `<a href="${h.startsWith('http') ? h : APP + h}">${esc(x)}</a>`).join('')}</div>`;
   return `<footer class="mkv mkv-pie"><div class="mkv-in mkv-pie-in">
     <div class="mkv-pie-marca"><span class="mkv-logo-marca">${ESTRELLA}</span><span class="mkv-logo-nombre">MaKo</span><p class="mkv-mini">Tu equipo de ventas con IA, en español.</p></div>
@@ -415,6 +430,9 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
 .mkv-chat .mkv-burbuja { font-size: 13.5px; line-height: 1.4; padding: 9px 12px; border-radius: 14px; margin-top: 8px; max-width: 92%; }
 .mkv-burbuja-el { background: var(--tarjeta); }
 .mkv-burbuja-mako { background: #DCF8C6; margin-left: auto; }
+.mkv-chat-grande { max-width: 560px; padding: 22px; }
+.mkv-chat-grande .mkv-burbuja { font-size: 15px; padding: 11px 14px; }
+.mkv-chat-final { margin-top: 14px; display: inline-block; padding: 7px 12px; border-radius: 999px; background: #E9F6EE; color: var(--verde); font-size: 13.5px; font-weight: 600; }
 /* Las secciones */
 .mkv-sec { padding: 96px 0; }
 .mkv-sec-gris { background: #EFF1F4; }
@@ -436,6 +454,8 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
 .mkv-caso-datos { display: flex; flex-direction: column; gap: 16px; }
 .mkv-cifra { font-size: clamp(24px, 2.6vw, 32px); line-height: 1.1; letter-spacing: -.03em; font-weight: 750; margin-bottom: 10px; }
 .mkv-firma { font-size: 14px; color: var(--gris2); font-weight: 500; }
+.mkv-prueba { padding: 40px; text-align: center; }
+.mkv-prueba .mkv-texto { max-width: 560px; margin: 0 auto; }
 /* El circuito */
 .mkv-pasos { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; counter-reset: none; }
 .mkv-paso { background: var(--tarjeta); border-radius: 20px; padding: 22px 18px; position: relative; }
@@ -451,6 +471,10 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
 .mkv-tabla td:last-child, .mkv-tabla th:last-child { text-align: right; white-space: nowrap; }
 .mkv-tabla-total td { font-weight: 700; }
 .mkv-tabla-mako td { background: #EEF4FF; font-weight: 700; color: var(--azul2); border-bottom: 0; }
+.mkv-tabla-3 td:last-child, .mkv-tabla-3 th:last-child { text-align: left; white-space: normal; }
+.mkv-tabla-3 td:first-child { font-weight: 600; }
+.mkv-tabla-mako-celda { background: #F4F8FF; color: var(--azul2); font-weight: 600; }
+.mkv-tabla-3 tr:last-child td { border-bottom: 0; }
 .mkv-nota { margin-top: 14px; font-size: 13.5px; color: var(--gris); line-height: 1.5; }
 /* Los precios */
 .mkv-planes { padding: 8px 0; }
@@ -513,12 +537,19 @@ export const CSS_MAKO_V2 = `@import url('https://fonts.googleapis.com/css2?famil
 
 /**
  * El documento de Web Generator de una portada: una tarjeta por sección, cada una un «Diseño editable». El saneo se importa
- * acá adentro: lleva `server-only`, y así las secciones se pueden leer desde un test (tests/landings-mako-v2.test.ts).
+ * aquí adentro: lleva `server-only`, y así las secciones se pueden leer desde un test (tests/landings-mako-v2.test.ts).
  */
-export async function documentoMakoV2(cual: Portada): Promise<{ titulo: string; contenido: LandingContenido; config: ConfigLanding }> {
-  const { sanearHtmlEditable } = await import('../lib/editor-landing/html-editable-seguro');
+export async function documentoMakoV2(cual: Portada): Promise<DocumentoLanding> {
   const p = PORTADAS[cual];
-  const tarjetas: JsonNodo[] = seccionesDe(cual).map(([id, crudo], i) => {
+  return documentoDeSecciones(p.titulo, p.seo, 'Tu equipo de ventas con IA, en español: anuncios, WhatsApp, agenda, páginas y CRM en un solo lugar, con tu propia IA.', seccionesDe(cual));
+}
+
+export type DocumentoLanding = { titulo: string; contenido: LandingContenido; config: ConfigLanding };
+
+/** Un documento de Web Generator con estas secciones, cada una un «Diseño editable», con la hoja de MaKo. */
+export async function documentoDeSecciones(titulo: string, seoTitulo: string, seoDescripcion: string, secciones: ReadonlyArray<[string, string]>): Promise<DocumentoLanding> {
+  const { sanearHtmlEditable } = await import('../lib/editor-landing/html-editable-seguro');
+  const tarjetas: JsonNodo[] = secciones.map(([id, crudo], i) => {
     const html = sanearHtmlEditable(crudo);
     if (!html) throw new Error(`la sección ${id} quedó vacía al sanear (¿pasa el tope?)`);
     return {
@@ -528,19 +559,11 @@ export async function documentoMakoV2(cual: Portada): Promise<{ titulo: string; 
     };
   });
   return {
-    titulo: p.titulo,
+    titulo,
     contenido: { v: 1, paginas: [{ id: 'pinicio', titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: tarjetas } }] },
     config: {
       ...CONFIG_DEFAULT,
-      sitio: {
-        ...CONFIG_DEFAULT.sitio,
-        nombre: 'MaKo',
-        seoTitulo: p.seo,
-        seoDescripcion: 'Tu equipo de ventas con IA, en español: anuncios, WhatsApp, agenda, páginas y CRM en un solo lugar, con tu propia IA.',
-        indexar: true,
-        metaPixelId: PIXEL_META_MAKO,
-        marcaMako: false,
-      },
+      sitio: { ...CONFIG_DEFAULT.sitio, nombre: 'MaKo', seoTitulo, seoDescripcion, indexar: true, metaPixelId: PIXEL_META_MAKO, marcaMako: false },
       pagina: { ...CONFIG_DEFAULT.pagina, animaciones: false },
       diseno: { css: CSS_MAKO_V2 },
     },

@@ -408,6 +408,9 @@ export default function TiraSecciones({ revision, onCerrar }: {
   return (
     <div className="gma-tira" data-vista={vista} aria-label="Secciones">
       <div className="gma-tira-cabeza">
+        {/* Vuelve al chat con la flecha de arriba a la izquierda, como «Páginas» y el chat (25/10/2026). */}
+        <button type="button" className="gma-izq-volver gma-tip" data-tip="Volver al chat" aria-label="Volver al chat" onClick={onCerrar}>←</button>
+        <span className="gma-izq-titulo">{muchos.charAt(0).toUpperCase() + muchos.slice(1)}</span>
         <button type="button" className="gma-herr-boton gma-tip" data-tip="Vista de tira de imágenes" aria-label="Vista de tira de imágenes"
           aria-pressed={vista === 'miniaturas'} onClick={() => cambiarVista('miniaturas')}>
           <Ico n="diseno" t={14} />
@@ -415,10 +418,6 @@ export default function TiraSecciones({ revision, onCerrar }: {
         <button type="button" className="gma-herr-boton gma-tip" data-tip="Vista de lista" aria-label="Vista de lista"
           aria-pressed={vista === 'lista'} onClick={() => cambiarVista('lista')}>
           <Ico n="lista" t={14} />
-        </button>
-        <span className="gma-tira-cabeza-sep" />
-        <button type="button" className="gma-herr-boton gma-tip" data-tip={`Cerrar tira de ${muchos}`} aria-label={`Cerrar tira de ${muchos}`} onClick={onCerrar}>
-          <Ico n="cerrar" t={14} />
         </button>
       </div>
       <button type="button" className="gma-tira-agregar" onClick={() => insertarTarjetas([tarjetaVacia()], tarjetaActiva)}>

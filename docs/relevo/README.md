@@ -57,10 +57,12 @@ hablan entre sí por `SendMessage` (no cruza carpetas de config) — pasan por e
 | Integraciones | `Leé docs/relevo/integraciones.md y seguimos desde ahí.` |
 | API de MaKo | `Leé docs/relevo/api-mako.md y seguimos desde ahí.` |
 | Media Buyer (la tab /ads-manager desde el 25/10) | `Leé docs/relevo/media-buyer.md y seguimos desde ahí.` |
+| Zernio y CAPI (Meta por la Zernio del negocio, el token de Meta deprecado, desde el 25/10) | `Leé docs/relevo/zernio-capi.md y seguimos desde ahí.` |
 | Ads Manager (historia: la vista que reemplazó el Media Buyer) | `Leé docs/relevo/ads-manager.md y seguimos desde ahí.` |
 | Ciberseguridad | `Leé docs/relevo/ciberseguridad.md y docs/relevo/seguridad-aislamiento.md y seguimos desde ahí.` |
 | Chats (la bandeja única de todos los canales) | `Leé docs/diseno-chats.md y seguimos desde ahí.` |
 | IA del cliente («Tu ChatGPT», su Claude en su PC, la ola 3 con Codex) | `Leé docs/relevo/ia-del-cliente.md y seguimos desde ahí.` |
+| MaKo Desktop (el instalador, la firma y «Conecta MaKo»; la app con todas las tabs) | `Leé docs/relevo/mako-desktop.md y seguimos desde ahí.` |
 | Leads Scraper | `Leé docs/diseno-leads-scraper.md y seguimos desde ahí.` |
 | Lector de reuniones | `Leé docs/relevo/lector-reuniones.md y seguimos desde ahí.` |
 | Tareas de llamada con Mauricio | `Leé docs/relevo/tareas-llamada-mauricio.md y seguimos desde ahí.` |

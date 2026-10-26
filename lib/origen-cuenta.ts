@@ -15,8 +15,8 @@
 
 export const CLAVE_ORIGEN_CUENTA = 'cuenta.origen';
 
-export const AVATARES = ['inmobiliarias', 'infoproductores', 'coaches'] as const;
-export const FUNCIONALIDADES = ['landings', 'automatizaciones', 'dashboards', 'contenidos', 'avatares-ia'] as const;
+export const AVATARES = ['inmobiliarias', 'infoproductores', 'coaches', 'agencias'] as const;
+export const FUNCIONALIDADES = ['landings', 'automatizaciones', 'dashboards', 'contenidos', 'avatares-ia', 'media-buyer', 'closing', 'cursos'] as const;
 export type AvatarOrigen = (typeof AVATARES)[number];
 export type FuncionalidadOrigen = (typeof FUNCIONALIDADES)[number];
 
@@ -35,6 +35,22 @@ export const LANDINGS_MAKO: Readonly<Record<string, { avatar: AvatarOrigen | nul
   inmobiliarias: { avatar: 'inmobiliarias', funcionalidad: null },
   infoproductores: { avatar: 'infoproductores', funcionalidad: null },
   coaches: { avatar: 'coaches', funcionalidad: null },
+  // Las de la investigación de cómo venden los demás (25/10/2026, scripts/landings-mako-v2.mts y -funnels.mts): documentos
+  // nuevos, al lado de los de arriba (que pueden estar en anuncios corriendo).
+  'mako-equipo': { avatar: null, funcionalidad: null },
+  'mako-todo-junto': { avatar: null, funcionalidad: null },
+  'mako-paginas-de-venta': { avatar: null, funcionalidad: 'landings' },
+  'mako-setter': { avatar: null, funcionalidad: 'automatizaciones' },
+  'mako-tableros': { avatar: null, funcionalidad: 'dashboards' },
+  'mako-creativos': { avatar: null, funcionalidad: 'contenidos' },
+  'mako-avatares': { avatar: null, funcionalidad: 'avatares-ia' },
+  'mako-media-buyer': { avatar: null, funcionalidad: 'media-buyer' },
+  'mako-closing': { avatar: null, funcionalidad: 'closing' },
+  'mako-cursos': { avatar: null, funcionalidad: 'cursos' },
+  'mako-coaches': { avatar: 'coaches', funcionalidad: null },
+  'mako-infoproductores': { avatar: 'infoproductores', funcionalidad: null },
+  'mako-inmobiliarias': { avatar: 'inmobiliarias', funcionalidad: null },
+  'mako-agencias': { avatar: 'agencias', funcionalidad: null },
 };
 
 export type UtmOrigen = { source: string | null; medium: string | null; campaign: string | null; content: string | null };

@@ -177,9 +177,14 @@ test('al conectar, la persona acepta con un toque que es SU Claude y SU cuenta, 
   assert.match(lib, /consentimiento: \(data\.consentimiento as string \| null\) \?\? null, consentimiento_at: ahora,/, 'queda en la PC');
   // La pantalla: el código se pide recién después del toque.
   const p = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(p, /if \(paso === 4 && acepto && !codigo\) void pedirCodigo\(\);/);
+  // Desde el 25/10/2026 el toque es el botón «Conectar»: acepta (el texto va justo abajo) y recién ahí se pide el código.
+  // Nadie más lo pide: ni un efecto al abrir la pantalla.
+  const conectar = p.slice(p.indexOf('const conectar = () => {'), p.indexOf('const esperando ='));
+  assert.match(conectar, /^const conectar = \(\) => \{\n\s*setAcepto\(true\);/);
+  assert.equal((p.match(/pedirCodigo\(\)/g) ?? []).length, 1, 'el código se pide en otro lugar que el toque');
+  assert.ok(conectar.includes('pedirCodigo()'), 'el código se pide fuera del toque');
   assert.match(p, /body: JSON\.stringify\(\{ acepto: CONSENTIMIENTO_DE\[ia\]\.version \}\)/);
-  assert.match(p, /\{CONSENTIMIENTO_DE\[ia\]\.texto\}/);
+  assert.match(p, /onClick=\{conectar\}>Conectar<\/button>\s*<p className="tci-tutorial__linea">\{CONSENTIMIENTO_DE\[ia\]\.texto\}<\/p>/, 'lo que se acepta no está junto al botón');
   const mig = leer('supabase/migrations/0321_ia_pc_consentimiento.sql');
   assert.match(mig, /alter table ia_pc_dispositivos add column if not exists consentimiento_at timestamptz;/);
 });

@@ -718,7 +718,7 @@ export const USER_NAV: NavItem[] = [
   // `perfil` (la ven todos los roles) con otro nombre: abre «Perfil», la primera sección, y se enciende en TODAS las de Settings.
   // «Business settings» e «Integrations» quedan como SECCIONES de Settings (`soloSeccion`): no se dibujan en el menú, y sus keys
   // siguen siendo la puerta de sus páginas (`requireRolWs([], { nav: 'configuraciones' })`, las capas).
-  { key: 'perfil', label: 'Settings', href: '/perfil', icon: 'config', rolesWs: ['closer', 'setter'], match: (p) => starts('/perfil')(p) || starts('/configuraciones')(p) || starts('/equipo')(p) || starts('/metodo')(p) || starts('/integraciones')(p) },
+  { key: 'perfil', label: 'Settings', href: '/perfil', icon: 'tuerca', rolesWs: ['closer', 'setter'], match: (p) => starts('/perfil')(p) || starts('/configuraciones')(p) || starts('/equipo')(p) || starts('/metodo')(p) || starts('/integraciones')(p) },
   { key: 'integraciones', label: 'Integrations', href: '/integraciones', icon: 'integraciones', soloSeccion: true, match: (p) => starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // La API de MaKo (08/10/2026): el catálogo, los tokens de cada integración y su uso.
   // Al lado de Integraciones porque es lo mismo visto desde afuera: con qué se conecta
@@ -734,7 +734,7 @@ export const USER_NAV: NavItem[] = [
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.
-  { key: 'configuraciones', label: 'Business settings', href: '/configuraciones', icon: 'config', soloSeccion: true, match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) || starts('/integraciones')(p) || starts('/marketing/salud')(p) },
+  { key: 'configuraciones', label: 'Business settings', href: '/configuraciones', icon: 'tuerca', soloSeccion: true, match: (p) => starts('/configuraciones')(p) || starts('/metodo')(p) || starts('/equipo')(p) || starts('/integraciones')(p) || starts('/marketing/salud')(p) },
   // Acá NO va «Admin» ni «Contexto de MaKo». Los dos eran `adminOnly`, o sea que
   // solo los veía el super admin — que ahora tiene su propia familia Admin en la
   // barra, con Clientes adentro. Repetirlos detrás del avatar era darle dos

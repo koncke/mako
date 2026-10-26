@@ -18,6 +18,8 @@ import { getTenantDb } from './workspace';
 import { monedaCuentaMeta, registrarMonedaMeta } from './moneda-meta';
 import { desdeUnidadMeta } from './presupuesto-cambio';
 import type { MarketingMetricRow, MetaInsightRaw, MetaAdsetRaw } from './types';
+// Desde el 25/10/2026 Meta se lee primero por la Zernio del negocio (lib/meta-via.ts); el token de Meta es el respaldo.
+import { canalMeta, conjuntosVivosPorZernio, creativosPorZernio, insightsPorZernio } from './meta-via';
 
 const GRAPH_BASE = 'https://graph.facebook.com';
 const MAX_BACKOFF_ATTEMPTS = 5;
@@ -140,6 +142,40 @@ async function fetchPageWithBackoff(
   return body;
 }
 
+/** Los campos de insights del cron diario: los mismos por Meta directo y por Zernio (que los pasa tal cual). */
+export const CAMPOS_INSIGHTS: readonly string[] = [
+  // En qué moneda viene `spend`: la de la CUENTA, que no siempre es MXN (ws13, ws14 y
+  // ws15 cobran en USD). Se guarda acá, en el mismo pedido de siempre, para que todo
+  // gasto en la base tenga su moneda conocida (lib/moneda-meta.ts).
+  'account_currency',
+  'adset_id',
+  'adset_name',
+  'campaign_id',
+  'campaign_name',
+  'account_id',
+  'ad_id',
+  'ad_name',
+  'impressions',
+  'reach',
+  'frequency',
+  'clicks',
+  'inline_link_clicks',
+  'ctr',
+  'cpc',
+  'cpm',
+  'spend',
+  'actions',
+  'cost_per_action_type',
+  // Métricas de video (Fase 1 v2) — vienen como arrays {action_type, value};
+  // se toma el action_type 'video_view'
+  'video_thruplay_watched_actions',
+  'video_p25_watched_actions',
+  'video_p50_watched_actions',
+  'video_p75_watched_actions',
+  'video_p100_watched_actions',
+  'video_avg_time_watched_actions',
+];
+
 /**
  * Llama Meta Insights y devuelve TODOS los insights del día especificado
  * (un objeto por adset del Ad Account configurado). Maneja paginación
@@ -150,42 +186,27 @@ async function fetchPageWithBackoff(
 export async function fetchMetaInsights(
   fecha: string,
 ): Promise<MetaInsightRaw[]> {
+  // Por Zernio (paso directo a los insights de Meta: las MISMAS filas, el mismo parser). Si Zernio falla y el negocio
+  // conserva su token de Meta, se lee por el token como siempre. Si no lo conserva, el error sube: el cron no borra el
+  // día (`upsertMetrics` sólo corre con filas leídas) y el workspace queda en rojo en la respuesta del cron.
+  const canal = await canalMeta();
+  if (canal.via === 'zernio') {
+    try {
+      const filas = await insightsPorZernio(canal, {
+        level: 'ad', fields: CAMPOS_INSIGHTS, desde: fecha, hasta: fecha, actionBreakdowns: ['action_type'],
+      });
+      await registrarMonedaMeta(filas.find((r) => r.account_currency)?.account_currency, canal.adAccountId);
+      return filas;
+    } catch (e) {
+      if (!canal.respaldo) throw e;
+      console.error(`[meta] insights por Zernio fallaron (ws${canal.ws}), sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const adAccountId = await getEnv('META_AD_ACCOUNT_ID');
   const apiVersion = await getEnv('META_API_VERSION');
   const token = await getEnv('META_ACCESS_TOKEN');
 
-  const fields = [
-    // En qué moneda viene `spend`: la de la CUENTA, que no siempre es MXN (ws13, ws14 y
-    // ws15 cobran en USD). Se guarda acá, en el mismo pedido de siempre, para que todo
-    // gasto en la base tenga su moneda conocida (lib/moneda-meta.ts).
-    'account_currency',
-    'adset_id',
-    'adset_name',
-    'campaign_id',
-    'campaign_name',
-    'account_id',
-    'ad_id',
-    'ad_name',
-    'impressions',
-    'reach',
-    'frequency',
-    'clicks',
-    'inline_link_clicks',
-    'ctr',
-    'cpc',
-    'cpm',
-    'spend',
-    'actions',
-    'cost_per_action_type',
-    // Métricas de video (Fase 1 v2) — vienen como arrays {action_type, value};
-    // se toma el action_type 'video_view'
-    'video_thruplay_watched_actions',
-    'video_p25_watched_actions',
-    'video_p50_watched_actions',
-    'video_p75_watched_actions',
-    'video_p100_watched_actions',
-    'video_avg_time_watched_actions',
-  ].join(',');
+  const fields = CAMPOS_INSIGHTS.join(',');
 
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}/insights`);
   url.searchParams.set('level', 'ad');
@@ -373,10 +394,27 @@ function bestImage(c: NonNullable<CreativeResponse['creative']>): string | null 
  * - se refresca siempre (las URLs de Meta expiran).
  * Falla suave por anuncio: si una llamada falla, loguea y sigue.
  */
-export async function fetchAdCreatives(adIds: string[]): Promise<Map<string, CreativeInfo>> {
+export async function fetchAdCreatives(adIds: string[], fecha?: string): Promise<Map<string, CreativeInfo>> {
   const out = new Map<string, CreativeInfo>();
   const unique = [...new Set(adIds.filter(Boolean))];
   if (unique.length === 0) return out;
+
+  // Por Zernio: UN árbol del día en vez de un pedido por anuncio. Lo que no venga en el árbol queda sin creativo (falla
+  // suave, como acá abajo).
+  const canal = fecha ? await canalMeta() : null;
+  if (canal?.via === 'zernio' && fecha) {
+    try {
+      const z = await creativosPorZernio(canal, fecha);
+      for (const id of unique) {
+        const c = z.get(id);
+        if (c) out.set(id, { thumbnail_url: c.imagen, permalink: c.permalink, sin_enlace: c.permalink === null });
+      }
+      return out;
+    } catch (e) {
+      if (!canal.respaldo) throw e;
+      console.error(`[meta] creativos por Zernio fallaron (ws${canal.ws}), sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
 
   const apiVersion = await getEnv('META_API_VERSION');
   const token = await getEnv('META_ACCESS_TOKEN');
@@ -503,6 +541,19 @@ export async function upsertMetrics(
  * @returns número de adsets guardados
  */
 export async function fetchAdsetBudgets(fecha: string): Promise<number> {
+  // Por Zernio, los conjuntos EN VIVO: el presupuesto ya viene en unidades de la moneda (no pasa por `desdeUnidadMeta`).
+  const canal = await canalMeta();
+  if (canal.via === 'zernio') {
+    try {
+      const { filas } = await conjuntosVivosPorZernio(canal);
+      return await guardarPresupuestos(filas.map((a) => ({
+        fecha, adset_id: a.adset_id, adset_name: a.adset_name, daily_budget_mxn: a.presupuesto_diario, status: a.status,
+      })));
+    } catch (e) {
+      if (!canal.respaldo) throw e;
+      console.error(`[meta] conjuntos por Zernio fallaron (ws${canal.ws}), sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
   const adAccountId = await getEnv('META_AD_ACCOUNT_ID');
   const apiVersion = await getEnv('META_API_VERSION');
   const token = await getEnv('META_ACCESS_TOKEN');
@@ -548,6 +599,13 @@ export async function fetchAdsetBudgets(fecha: string): Promise<number> {
       status: a.effective_status ?? a.status ?? null,
     }));
 
+  return guardarPresupuestos(rows);
+}
+
+type FilaPresupuesto = { fecha: string; adset_id: string; adset_name: string | null; daily_budget_mxn: number | null; status: string | null };
+
+/** Escribe el snapshot del día en `adset_budget_daily` (lo mismo venga de Meta o de Zernio). */
+async function guardarPresupuestos(rows: FilaPresupuesto[]): Promise<number> {
   if (rows.length === 0) return 0;
 
   const supabase = await getTenantDb();

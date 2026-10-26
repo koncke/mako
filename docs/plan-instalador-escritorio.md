@@ -103,6 +103,38 @@ Lo compra y lo valida Martín: nosotros no cargamos tarjetas, documentos ni clav
 
 El aviso de SmartScreen no se va enseguida: Windows arma la reputación con semanas de instalaciones limpias.
 
+### Qué cambia con la firma, y cuándo deja de salir «no es seguro» (25/10/2026, con fuentes en docs/hallazgos-ia.md)
+
+Martín, 25/10: «me dice que no es seguro, que podemos hacer para que no salga eso?». Son tres avisos distintos:
+
+| Dónde | Sin firma (hoy) | Firmado con el IV de Martín |
+|---|---|---|
+| Chrome, al bajar | «archivo sospechoso / poco común» (Safe Browsing, por reputación de descarga) | igual al principio; baja a medida que se descarga |
+| Windows, al abrir (SmartScreen) | «Windows protegió su PC», **Editor: desconocido**, «Ejecutar de todas formas» | **Editor: Martín Koncke**; el cartel sigue hasta que el certificado junta reputación |
+| Windows 11 con Smart App Control | **bloqueado**, sin «Ejecutar de todas formas» | se puede instalar |
+| Mac (Gatekeeper) | Ajustes › Privacidad y seguridad › «Abrir igualmente» | firmada y notarizada: un «¿Abrir?» común |
+
+- **Cuánto tarda:** Microsoft no da un número («varias semanas y cientos de instalaciones limpias»). Un desarrollador con un OV
+  nuevo lo vio irse a los ~7 meses; otros, en días. **Un EV no lo acelera desde 2024.**
+- **Qué lo acelera:** firmar TODAS las versiones con el mismo certificado (las nuevas heredan la reputación); no tocar el .exe
+  después de firmarlo (lo garantiza `publicar-binarios`); y, si el aviso sigue, mandar el instalador firmado a
+  https://www.microsoft.com/wdsi/filesubmission («Software developer» › producto «Microsoft Defender SmartScreen»). Lo manda
+  Martín con su cuenta Microsoft.
+- **Lo que NO sirve para él:** Azure Artifact Signing (personas sólo en EE. UU. y Canadá) y comprar un EV.
+- **Otra salida, sin hacer:** la Microsoft Store (cuenta individual gratis desde 2025, con DNI y selfie). Instalar desde la
+  Store no muestra SmartScreen; para quien baja de hola-mako.com no cambia nada.
+
+### Cómo se verifica
+
+- **Nosotros, antes de subir:** con la firma cargada, `publicar-binarios` pasa los dos .exe por `Get-AuthenticodeSignature` y
+  no sube nada si Windows no la acepta o le falta la marca de tiempo. Dice «Windows dice «Martín Koncke», con marca de tiempo».
+- **A mano, sobre cualquier .exe** (el que se baja de MaKo): `node scripts/ia-pc/firmar-windows.mjs verificar <archivo.exe>`.
+  Sale con 0 sólo con firma válida y marca de tiempo.
+- **Martín, sin consola:** clic derecho en `MaKo-Setup-<versión>.exe` › Propiedades › Firmas digitales: «Martín Koncke», con
+  la fecha de la marca de tiempo.
+- **La Mac, en una Mac** (la de Mauricio): `spctl -a -vvv -t exec /Applications/MaKo.app` tiene que decir
+  `source=Notarized Developer ID`; sin Mac, `rcodesign verify MaKo.app` mira la firma (no la notarización).
+
 ## Firmar la Mac: lo que hace Martín (Apple Developer, Developer ID y notarización)
 
 Firmada y notarizada, macOS abre MaKo.app con un «¿Abrirla?» común, sin pasar por Ajustes. Se firma DESDE ESTA PC con
@@ -139,6 +171,15 @@ la cuenta de Martín, y nosotros no cargamos tarjetas, documentos ni claves.
 
 Con la app firmada, la pantalla todavía dice la línea de «Abrir igualmente» (`AVISO_GATEKEEPER`). Se saca en la versión que
 salga firmada.
+
+## El diseño de MaKo en el instalador (25/10/2026)
+
+Martín: «el instalador de MaKo debe estar personalizado con el diseño de mako». La estructura es la de VS Code (también Inno
+Setup): la imagen grande en la bienvenida y el final, la chica arriba a la derecha, el ícono de MaKo en el instalador, el
+desinstalador y los accesos. Son dos toques: «Instalar» (en la bienvenida) y «Finalizar» (con «Conectar con MaKo» marcado). Claro
+u oscuro según Windows, textos en tú. Las imágenes salen de la marca con `node scripts/ia-pc/marca.mjs` (installer/marca/); la
+Mac lleva el mismo ícono (MaKo.icns) en la app y en sus ventanas. Para mirarlo sin instalarlo en esta PC:
+`powershell -File scripts/ia-pc/vista-instalador.ps1 [-Oscuro]`.
 
 ## Por partes
 

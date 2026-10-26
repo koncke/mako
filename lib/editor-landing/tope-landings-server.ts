@@ -12,6 +12,7 @@ import { getSupabaseServer } from '../supabase';
 import { getWorkspace, wsSuperAdmin } from '../workspace';
 import { suscripcionDeMakoDe } from '../cobros';
 import { topeParaDominio, topeParaPublicar } from './tope-landings';
+import { frenoDePrueba } from '../prueba-uso';
 import { falla, type FallaHttp } from './server';
 
 /** null = puede; si no, la falla con el cartel del tope. `cual`: publicar una landing o conectarle un dominio. */
@@ -32,6 +33,11 @@ export async function frenoDeTope(ws: number, cual: 'publicar' | 'dominio', yaCu
       const r = await cuantas().not('dominio', 'is', null);
       if (r.error) return null;
       count = r.count;
+    }
+    // LA PRUEBA GRATIS (25/10/2026): publicar va hasta 1 página mientras dure (lib/topes-plan.ts, `TOPES_PRUEBA`).
+    if (cual === 'publicar') {
+      const prueba = await frenoDePrueba(ws, 'web.landings_publicadas', { usadas: count ?? 0 });
+      if (!prueba.ok) return falla(prueba.texto, 402);
     }
     const pedido = { ws, wsPlataforma: plataforma, capa: String(w.capa ?? ''), cobradoPorPasarela: true, usadas: count ?? 0, yaCuenta };
     const r = cual === 'publicar' ? topeParaPublicar(pedido) : topeParaDominio(pedido);

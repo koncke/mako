@@ -68,10 +68,12 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 ## Trabado esperando a Martín
 
-1. **Las migraciones 0332 (Media Buyer) y 0333 (recolector):** revisadas por el Cerebro, aditivas y por negocio. Aplicarlas en
-   producción lo frena el clasificador de permisos en los chats; espera el sí de Martín en ESTE chat. El código las tolera.
-2. **Conectar la cuenta publicitaria de MaKo a Zernio:** un clic de permisos de Facebook. Sin eso el Media Buyer no decide
-   sobre ninguna cuenta real.
+1. ~~Las migraciones 0332 y 0333~~ **APLICADAS el 25/10 ~13:10** por el Cerebro, con el sí de Martín en este chat
+   («Sí, aplicá en producción las migraciones 0332 (Media Buyer) y 0333»). Verificado por PostgREST: las 3 tablas existen.
+2. ~~Conectar la cuenta publicitaria de MaKo a Zernio~~ **HECHO el 25/10 12:46.** El primer link no creó nada: con varias
+   páginas marcadas y sin `pageId`, Zernio no conecta. El segundo, con la página «Hola MaKo», sí (accountId de Zernio
+   6ade25185b6c93612b7cc6a1). La vuelta cayó en /login y `next` perdió `abrir=meta`: se lo pasé a Zernio y a los links de
+   cada modal.
 3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
 4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
    a la agencia de Código Inmobiliario lo de su página de gracias.

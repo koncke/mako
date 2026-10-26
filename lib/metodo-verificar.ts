@@ -60,6 +60,11 @@ function haceCuanto(iso: string | undefined): string | null {
 // ── un ping barato por servicio, con el estilo de auth real de cada lib ─────
 const PINGS: Record<string, (v: Valores) => Promise<ResultadoVerificacion>> = {
   async meta(v) {
+    // Conectado por Zernio (25/10/2026) y sin token: se prueba por ahí (lib/meta-conexion-zernio.ts).
+    if (!v.META_ACCESS_TOKEN && v.META_ZERNIO_CUENTA) {
+      const { pingMetaPorZernio } = await import('./meta-conexion-zernio');
+      return pingMetaPorZernio(v);
+    }
     const ver = process.env.META_API_VERSION || 'v24.0';
     // ⚠️ Normaliza IGUAL que el guardado (lib/meta-cuenta-id.ts), y esa igualdad
     // es el punto: cuando cada lado normalizaba por su cuenta, este ping daba
@@ -565,8 +570,13 @@ export async function verificarServicio(
   if (hostDelRequest && secretoDeStorage) {
     return { ok: false, error: 'Para probar con una URL nueva, completa también las credenciales secretas de este servicio.' };
   }
-  if (faltan.length) {
-    return { ok: false, error: `Falta completar: ${faltan.join(', ')}.` };
+  // Meta por Zernio: la conexión reemplaza al token (`metaConectadaConCampos`). Sin esto, un negocio conectado por Zernio no
+  // podía guardar ni su píxel: el tilde decía «Falta completar: Access token».
+  const porZernio = servicio.key === 'meta' && !!valores.META_ZERNIO_CUENTA && !valores.META_ACCESS_TOKEN;
+  const etiquetaToken = servicio.campos.find((c) => c.env === 'META_ACCESS_TOKEN')?.label;
+  const faltanDeVerdad = porZernio ? faltan.filter((l) => l !== etiquetaToken) : faltan;
+  if (faltanDeVerdad.length) {
+    return { ok: false, error: `Falta completar: ${faltanDeVerdad.join(', ')}.` };
   }
 
   try {
