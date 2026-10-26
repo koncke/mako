@@ -64,7 +64,8 @@ test('3. los participantes: el teléfono sale de phoneNumber (el id es un @lid),
   // Con su @lid (24/10/2026): la agenda de la línea guarda a muchos contactos por ahí, y de ahí sale el nombre (test 9).
   assert.deepEqual(r.participantes, [
     { telefono: '5491100000001', nombre: 'Ana', lid: '11111111111111@lid' },
-    { telefono: '5491100000002', nombre: null, lid: '22222222222222@lid' },
+    // El admin del grupo, marcado («Ignorar admins», Martín 26/10/2026).
+    { telefono: '5491100000002', nombre: null, lid: '22222222222222@lid', admin: true },
     { telefono: '5491100000003', nombre: 'Beto', lid: null },
   ]);
   assert.equal(r.sinNumero, 1, 'el que sólo trae un @lid no se trae: se cuenta');
@@ -76,11 +77,13 @@ test('4. lo que llega del navegador se valida, y la etiqueta de origen viene con
   assert.equal(esJidDeGrupo('120363000000000001@g.us'), true);
   assert.equal(esJidDeGrupo('5491100000000-1600000000@g.us'), true);
   for (const malo of ['120363@g.us/../x', 'x@g.us', '5491100000001@s.whatsapp.net', '', null, 3]) assert.equal(esJidDeGrupo(malo), false, String(malo));
-  // La elige la persona («Formación de Jan», «Evento Cancún»); viene con el nombre del grupo, limpio.
+  // ES el nombre del grupo (Martín, 26/10/2026: «que se llame exactamente igual»), sólo sin los espacios de más.
   assert.equal(etiquetaDeGrupo('  Formación de   Jan '), 'Formación de Jan');
   assert.equal(etiquetaDeGrupo(''), 'Grupo de WhatsApp');
-  // Entra en el tope de una etiqueta del CRM (40, `TOPE_NOMBRE_ETIQUETA`): más largo, se cortaba sin decirlo.
-  assert.equal(etiquetaDeGrupo('x'.repeat(100)).length, 40);
+  // ENTERO: el de los 221 de Martín tiene 47 y con el tope de 40 salía cortado. El de un grupo llega a 100 (mig 0339).
+  const largo = '16, 17 y 18 de JUNIO | RETO del Anuncio Ganador';
+  assert.equal(etiquetaDeGrupo(largo), largo);
+  assert.equal(etiquetaDeGrupo('x'.repeat(100)).length, 100);
 });
 
 test('4b. por defecto: el CRM «Prospección» si existe, y ahí «Tibio» si no manda nada', () => {
@@ -148,16 +151,23 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   assert.doesNotMatch(traerSrv, /agregarAProducto|traidos\.push\(existente\)/, 'el que ya estaba se suma al funnel o se etiqueta');
   assert.match(server, /origen_lead: ORIGEN_LEAD\.grupo_whatsapp\.id/, 'nace con su origen: es lo que lo deja quieto (test 7)');
   assert.match(server, /const r = await ponerEtiquetaLote\(ids, id, \{ autor \}\);/, 'la etiqueta en LOTE (no dispara)');
-  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok\) return origen;[\s\S]{0,4000}for \(let i = 0; i < quienes\.length; i \+= PARALELO\)/, 'la etiqueta se mira ANTES de traer a nadie');
+  // Con una elegida a mano (la API) frena; con la del nombre del grupo (la pantalla, sin campo para elegir otra desde el
+  // 26/10/2026) trae igual, sin etiqueta, y lo dice (`sinEtiqueta`).
+  assert.match(server, /const origen = await etiquetaDeOrigen\([^\n]*\);\n {2}if \(!origen\.ok && p\.etiqueta\?\.trim\(\)\) return origen;[\s\S]{0,4000}for \(let i = 0; i < quienes\.length; i \+= PARALELO\)/, 'la etiqueta se mira ANTES de traer a nadie');
+  assert.match(server, /const etiqueta = traidos\.length && origen\.ok \? await etiquetarDelGrupo\(traidos, origen, p\.autor\)/, 'con una etiqueta que tiene una automatización, igual la pone');
+  assert.match(server, /sinEtiqueta: origen\.ok \? null : origen\.sinEtiqueta,/, 'trae sin la etiqueta y no lo dice');
   // De a cuatro a la vez desde el 25/10/2026 (medido: ~135 ms por lead, uno detrás del otro), con el tope de tiempo entre cada cuatro.
   assert.match(server, /if \(p\.hasta != null && Date\.now\(\) > p\.hasta\) \{ pendientes = quienes\.slice\(i\)\.map\(\(q\) => q\.telefono\); break; \}\n {4}await Promise\.all\(quienes\.slice\(i, i \+ PARALELO\)\.map\(uno\)\);/);
-  assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
+  assert.match(server, /if \(secuenciasDeEtiqueta\(vistas, e\.id\)\.length\) \{\n\s+return \{ ok: false,/, 'una etiqueta con automatización: el barrido inscribe al grupo');
   assert.match(acciones, /hasta: Date\.now\(\) \+ 45_000,/, 'con tope también desde la pantalla');
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
   assert.match(pantalla, /const tanda = cola\.splice\(0, TANDA_GRUPO\);/, 'de a tandas');
   assert.match(pantalla, /if \(r\.pendientes\.length >= tanda\.length\) \{[^}]*break; \}\n {6}cola\.unshift\(\.\.\.r\.pendientes\);/, 'lo que cortó por tiempo vuelve a la cola (y sin avance, para)');
-  assert.match(pantalla, /const usables = etapas\.filter\(\(e\) => !e\.manda\);/, 'las etapas que mandan no se ofrecen');
-  assert.match(pantalla, /\{ texto: 'No les manda nada', tono: 'gris' as const \},/, 'la pantalla lo dice, siempre');
+  // Desde el 26/10/2026 no se elige etapa: la de ENTRADA del server, que es la primera que no manda nada (`etapasParaTraer`).
+  // El «No les manda nada» ya no se dibuja (Martín: «Elimina los textos innecesarios»), pero sigue siendo así.
+  assert.match(pantalla, /setEntrada\(r\.etapas\.find\(\(e\) => e\.key === r\.entrada\) \?\? null\);/, 'entran a otra etapa que la de entrada');
+  assert.match(pantalla, /etapa: entrada\?\.key \?\? '',/);
+  assert.match(server, /const entrada = lista\.find\(\(e\) => e\.key === primera && !e\.manda\)\?\.key \?\? lista\.find\(\(e\) => !e\.manda\)\?\.key \?\? null;/, 'la entrada puede ser una que manda');
   assert.match(leer('app/crm/CrmBoard.tsx'), /\.\.\.\(puedeCrearCrm \? \{ onTraerGrupo: \(\) => setNuevoLead\(\{ \.\.\.nuevoLead, traer: 'grupo' \}\) \} : \{\}\),/, 'sólo el admin ve la opción');
   // La API de MaKo: admin, SÓLO en la app (por WhatsApp el rol es siempre 'admin'), por chat, y corta a tiempo.
   const def = leer('lib/api-mako/areas/crm.def.ts');
@@ -305,8 +315,8 @@ test('10. «Completar nombres»: a los que YA están, sólo el nombre de relleno
   // Desde la 0.70 de la extensión, con la extensión el camino es «Completar desde mi WhatsApp» (tests/wa-fichas-extension.test.ts).
   // Sin ella, «Completar nombres» ya NO corre este camino del server (25/10/2026, f12 de la llamada con Leandro: «ese botón te
   // debería decir instala la extensión de Maco y que ahí directamente comience»): lo fija tests/crm-completar-con-extension.test.ts.
-  // En el «⋯» del molde desde el 24/10/2026 (sólo con gente que ya está y sin nada corriendo).
-  assert.match(pantalla, /\.\.\.\(extWa !== 'si' \? \[\{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: completarNombres \}\] : \[\]\),/);
+  // Desde el 26/10/2026 no hay «Completar nombres»: los nombres van solos dentro de «Extraer» (tests/wa-extraer-072.test.ts).
+  assert.doesNotMatch(pantalla.replace(/^[ \t]*\/\/.*$/gm, ''), /Completar nombres/);
   assert.match(pantalla, /const mas: OpcionMas\[\] = trayendo \|\| !yaEstan \? \[\] : \[/);
   assert.doesNotMatch(pantalla, /completarNombresDeGrupoAction/, 'la pantalla volvió al camino que completaba «algunos o ninguno» sin decir por qué');
   assert.match(pantalla, /<MoldeTraer\b/);

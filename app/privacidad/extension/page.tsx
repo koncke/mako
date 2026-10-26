@@ -20,7 +20,7 @@ export const metadata = {
   description: 'Qué datos usa la extensión de MaKo, y cuáles no.',
 };
 
-const ACTUALIZADO = '25 de octubre de 2026';
+const ACTUALIZADO = '26 de octubre de 2026';
 
 export default function Page() {
   return (
@@ -59,10 +59,10 @@ export default function Page() {
           con `completarFichasDelGrupo` (app/crm/grupo-wa-server.ts: qué se escribe). Si uno cambia, esta página también. */}
       <H>En WhatsApp Web</H>
       <p>
-        Sólo cuando tú lo pides desde MaKo (el botón «Completar desde mi WhatsApp» de tus
-        contactos), la extensión lee lo que <strong>tu WhatsApp Web ya guardó en tu
-        navegador</strong> sobre los teléfonos que MaKo le pasa, que son los de contactos que
-        ya están en tu CRM: el nombre con el que los tienes agendados, el nombre que cada uno
+        Sólo cuando tú lo pides desde MaKo («Extraer» en un grupo de WhatsApp, o «Completar ›
+        Desde mi WhatsApp» en tus contactos), la extensión lee lo que <strong>tu WhatsApp Web
+        ya guardó en tu navegador</strong> sobre los teléfonos que MaKo le pasa, que son los de
+        contactos de tu CRM: el nombre con el que los tienes agendados, el nombre que cada uno
         se puso en WhatsApp, si es una cuenta de empresa y el nombre de la empresa, y en qué
         grupos tuyos está. Si esos contactos vinieron de un grupo, MaKo le pasa también el
         nombre de ese grupo y el identificador con que WhatsApp los conoce en él, para
@@ -70,7 +70,16 @@ export default function Page() {
       </p>
       <p>
         Si WhatsApp Web no está abierto, la extensión lo <strong>abre en otra pestaña</strong> de
-        tu navegador y espera a que cargue tus chats. Abrirlo no abre ningún chat.
+        tu navegador y espera a que cargue tus chats. Si ya está abierto, usa esa pestaña: nunca
+        abre una segunda.
+      </p>
+      <p>
+        Desde el 26 de octubre de 2026, mientras corre lo que pediste, la extensión trae esa
+        pestaña al frente y <strong>abre el grupo, a la vista</strong>, como lo harías tú: lo
+        busca por su nombre, abre su información y recorre la lista de miembros, leyendo el
+        nombre y el teléfono que WhatsApp muestra de cada uno. <strong>Abrir el grupo marca
+        como leídos los mensajes de ese grupo</strong> (no los de cada persona). No escribe en
+        ningún chat. Al terminar cierra esa información y borra la búsqueda.
       </p>
       <p>
         <strong>A tu cuenta de MaKo viaja sólo eso, y sólo de esos teléfonos.</strong> El
@@ -79,9 +88,8 @@ export default function Page() {
         de trabajo.
       </p>
       <p>
-        En WhatsApp Web la extensión <strong>sólo lee</strong>: no hace clic, no abre chats, no
-        envía mensajes, no marca nada como leído y no se comunica con los servidores de
-        WhatsApp.
+        Fuera de eso, en WhatsApp Web la extensión <strong>sólo lee</strong>: no abre otros chats,
+        no envía mensajes y no se comunica con los servidores de WhatsApp.
       </p>
 
       {/* ⚠️ ESTA LISTA ES EL CONTRATO PÚBLICO, Y SE MIDIÓ CONTRA EL CÓDIGO.
@@ -142,7 +150,8 @@ export default function Page() {
         <li>No envía tu token de Google a ningún servidor, incluido el de MaKo.</li>
         <li>
           No lee tu correo, tus archivos ni tu historial de navegación. De tu WhatsApp Web sólo
-          lee lo de los teléfonos que MaKo le pide, cuando tú lo pides (ver arriba).
+          lee lo de los teléfonos que MaKo le pide y la lista de miembros del grupo que pediste,
+          cuando tú lo pides (ver arriba).
         </li>
         {/* ⚠️ ESTA LISTA SALE DE `host_permissions` DEL manifest.json, y ya se quedó
             vieja una vez: Google mudó Flow de labs.google a flow.google.com y acá
@@ -163,9 +172,9 @@ export default function Page() {
         <li>
           No cambia lo que ves en ninguna página. En Google Flow (<code>labs.google</code> y{' '}
           <code>flow.google.com</code>) agrega un script propio para poder hacer, con tu
-          sesión, los mismos pedidos que harías tú a mano; en WhatsApp Web sólo lee lo que ya
-          está guardado en tu navegador (ver arriba); en cualquier otro sitio no hace
-          absolutamente nada.
+          sesión, los mismos pedidos que harías tú a mano; en WhatsApp Web, mientras extrae un
+          grupo, muestra arriba un aviso de MaKo que dice qué está haciendo (ver arriba); en
+          cualquier otro sitio no hace absolutamente nada.
         </li>
       </ul>
 
@@ -196,7 +205,8 @@ export default function Page() {
         </li>
         <li>
           <strong>web.whatsapp.com</strong> — leer, cuando lo pides desde MaKo, lo que tu
-          WhatsApp Web ya guardó sobre los teléfonos de tus contactos del CRM.
+          WhatsApp Web ya guardó sobre los teléfonos de tus contactos del CRM, y recorrer la
+          lista de miembros del grupo que pediste.
         </li>
         <li>
           <strong>hola-mako.com</strong> — recibir los pedidos de tu cuenta de MaKo y

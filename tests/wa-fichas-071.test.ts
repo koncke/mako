@@ -137,8 +137,9 @@ async function alScript(existe: boolean, msg: unknown) {
 }
 
 test('2. el script de WhatsApp Web: el «ping» no abre la base; el pedido con @lid y grupos los contesta', async () => {
-  assert.deepEqual(await alScript(true, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: true }, abiertas: 0 }, 'el ping abrió la base');
-  assert.deepEqual(await alScript(false, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: false }, abiertas: 0 });
+  // `recorre` (0.72.0): si está también wa-recorrer.js; acá no se cargó, y el worker se lo pone (tests/wa-extraer-072.test.ts).
+  assert.deepEqual(await alScript(true, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: true, recorre: false }, abiertas: 0 }, 'el ping abrió la base');
+  assert.deepEqual(await alScript(false, { tipo: 'WA_FICHAS_PING' }), { respuesta: { ok: true, base: false, recorre: false }, abiertas: 0 });
   const { respuesta } = await alScript(true, { tipo: 'WA_FICHAS', pedidos: [{ telefono: '5491155550002', lid: '301234567890002@lid' }], grupos: ['Formación de Jan'] });
   const r = respuesta as { ok: boolean; fichas: Array<{ telefono: string; pushname: string }>; grupos: unknown[] };
   assert.equal(r.ok, true);
@@ -217,7 +218,7 @@ test('4. el worker abre WhatsApp Web si no hay, le pone el script si es de antes
   // b) Pestaña de antes de instalar: el ping falla, se le pone el script y contesta; sin recargarla.
   const b = cargarWorker({ tabs: [{ id: 7, url: 'https://web.whatsapp.com/', status: 'complete' }], pings: ['falla', { ok: true, base: true }] });
   assert.equal(plano(await b.correr()).motivo, null);
-  assert.deepEqual(plano(b.registro.inyectados), [{ target: { tabId: 7 }, files: ['wa-fichas-reglas.js', 'wa-fichas.js'] }]);
+  assert.deepEqual(plano(b.registro.inyectados), [{ target: { tabId: 7 }, files: ['wa-fichas-reglas.js', 'wa-fichas.js', 'wa-recorrer.js'] }]);
   assert.deepEqual(b.registro.recargadas, [], 'recargó la pestaña de WhatsApp sin hacer falta');
   // c) Descartada por Chrome: la despierta.
   const c = cargarWorker({ tabs: [{ id: 8, url: 'https://web.whatsapp.com/', discarded: true }], pings: [{ ok: true, base: true }] });
@@ -246,7 +247,7 @@ test('5. el cableado: el worker cuenta los pasos y repone el puente; el puente n
   assert.match(puente, /globalThis\.__makoPuenteCargado = true;/);
   const pide = puente.slice(puente.indexOf("window.addEventListener('MAKO_WA_FICHAS_PIDO'"));
   assert.match(pide.slice(0, 300), /if \(huerfano\(\)\) return;/, 'un puente huérfano contesta «no encontré la extensión»');
-  assert.match(pide, /chrome\.runtime\.sendMessage\(\{ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos \}/);
+  assert.match(pide, /chrome\.runtime\.sendMessage\(\{ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos, visible, titulo \}/);
   assert.match(puente, /new CustomEvent\('MAKO_WA_FICHAS_AVANCE', \{ detail: \{ id: msg\.id, paso: msg\.paso, texto: msg\.texto \} \}\)/);
   // La barra del lote: tocar la opción sin la extensión abre la instalación y espera; al aparecer, arranca sola.
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
@@ -255,22 +256,14 @@ test('5. el cableado: el worker cuenta los pasos y repone el puente; el puente n
   assert.match(barra, /const extWa = useExtensionFichas\(\);/, 'la barra no se entera de la extensión en vivo');
   // Corto, para que entre al lado de los botones (en el Chrome de Martín, 25/10, salía «cuando esté, emp…»).
   assert.match(barra, /\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión: empieza sola\n/);
-  assert.match(barra, /alAvanzar: \(texto, paso\) => setAvance\(avanceCorto\(paso, texto\)\),/, 'el paso de la extensión, largo y cortado con «…»');
+  // Desde la 0.72.0 el paso de la extensión no va a la barra sino al desplegable (tests/wa-extraer-072.test.ts).
+  assert.doesNotMatch(barra, /avanceCorto|setAvance\(`Completando/, 'volvió el «extrayendo» de la barra del lote');
   assert.match(barra, /if \(f\.motivo === 'sin_sesion'\) enfocarWhatsappWeb\(\);/, 'sin la sesión, no lleva a WhatsApp Web');
   assert.match(barra, /resumenDeFichas\(t\.pedidos\.length, fichas, a\) \+ gruposEnWhatsappDichos\(f\.grupos\)/, 'el final no dice qué grupo encontró');
 });
 
-test('5b. el avance en la barra del lote: frases que entran enteras, nunca cortadas', async () => {
-  const { avanceCorto } = await import('../app/crm/enriquecer-cliente');
-  assert.equal(avanceCorto('abriendo', 'Abriendo WhatsApp Web en otra pestaña…'), 'Abriendo WhatsApp Web…');
-  assert.equal(avanceCorto('abriendo', 'Despertando la pestaña de WhatsApp Web…'), 'Despertando WhatsApp Web…');
-  assert.equal(avanceCorto('cargando', 'Esperando que WhatsApp Web cargue tus chats…'), 'Esperando tus chats de WhatsApp…');
-  assert.equal(avanceCorto('leyendo', 'Buscando el grupo «Formación de Jan» en tu WhatsApp Web…'), 'Buscando «Formación de Jan»…');
-  const largo = 'Buscando el grupo «PROSPECCIÓN · Círculo TIBIO de emprendedores 2026» en tu WhatsApp Web…';
-  assert.equal(avanceCorto('leyendo', largo), 'Buscando el grupo en tu WhatsApp…', 'un nombre que no entra se corta en vez de decirse sin él');
-  assert.equal(avanceCorto('leyendo', 'Buscando 3 grupos en tu WhatsApp Web…'), 'Buscando los grupos en tu WhatsApp…');
-  assert.equal(avanceCorto('otro', 'Completando 37 de 180…'), 'Completando 37 de 180…');
-  for (const t of ['Abriendo WhatsApp Web…', 'Esperando tus chats de WhatsApp…', 'Buscando el grupo en tu WhatsApp…']) assert.ok([...t].length <= 44, t);
+test('5b. el final dice de cuántos sabe el nombre WhatsApp', async () => {
+  // (Las frases cortas del avance en la barra se fueron con la 0.72.0: ese avance vive en el desplegable.)
   // El final dice de cuántos sabe el nombre WhatsApp: sin eso, «1 completado» en un grupo de anuncios se lee como que no anda.
   const { gruposEnWhatsappDichos } = await import('../app/crm/enriquecer-cliente');
   assert.equal(gruposEnWhatsappDichos([{ nombre: 'RETO', encontrado: true, participantes: 247, conNombre: 1 }]), ' El grupo «RETO» está en tu WhatsApp: de sus 247, WhatsApp sabe el nombre de 1.');
@@ -285,8 +278,8 @@ test('6. el servidor: el grupo sale del historial del lead; y las versiones de l
   assert.equal(EVENTO_TRAIDO_DE_GRUPO, 'Traído de un grupo de WhatsApp');
   const { VERSION_FICHAS } = await import('../lib/wa-fichas-cliente');
   const man = JSON.parse(leer('extension/manifest.json')) as { version: string };
-  assert.equal(VERSION_FICHAS, '0.71.0');
-  // La 0.71.1 (26/10/2026) suma `alDiaConSuCarpeta`; la pantalla sigue pidiendo la 0.71.0, que ya lee fichas así.
+  // La 0.72.0 (26/10/2026): «Extraer» a la vista; la 0.71 ignoraba `visible` y la pantalla la pide.
+  assert.equal(VERSION_FICHAS, '0.72.0');
   const { esMasVieja } = await import('../lib/version-comparar');
   assert.ok(!esMasVieja(man.version, VERSION_FICHAS), 'la pantalla pide una versión más nueva que el paquete');
   assert.match(leer('lib/extension-version.ts'), new RegExp(`EXTENSION_VERSION = '${man.version.replace(/\./g, '\\.')}'`), 'el ZIP no se rearmó (node scripts/zip-extension.mjs)');

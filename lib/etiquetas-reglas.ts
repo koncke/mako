@@ -15,8 +15,11 @@
 // Las etiquetas de una tarjeta TAG (una o VARIAS) se leen por UNA función: la del editor (también pura).
 import { etiquetasDelPaso, paramsConEtiquetas, PARAM_ETIQUETAS } from './editor-acciones';
 
-/** El tope del nombre. El mismo número lo exige el CHECK de la mig 0224. */
-export const TOPE_NOMBRE_ETIQUETA = 40;
+/**
+ * El tope del nombre. El mismo número lo exige el CHECK de la mig 0339 (era 40, de la 0224): la etiqueta de origen de
+ * «Extraer de un grupo de WhatsApp» es el nombre del grupo tal cual, y el de un grupo llega a 100 (Martín, 26/10/2026).
+ */
+export const TOPE_NOMBRE_ETIQUETA = 100;
 
 /**
  * Los colores que ofrece el CRUD: la paleta Nord de la casa (docs/branding-mako.md) más el azul

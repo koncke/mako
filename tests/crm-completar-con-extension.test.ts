@@ -10,6 +10,9 @@
 //   2. «Completar nombres» con la extensión lee su WhatsApp Web; sin ella (o vieja) el pie dice «Instala…» con «Instalar», y
 //      al aparecer la extensión arranca sola; el texto no promete lo que no pasa (en una pestaña ya abierta, recargar);
 //   3. «Completar nombres» también en el pie: después de traer y cuando hay gente que ya está.
+// ⚠️ DESDE EL 26/10/2026 NO HAY «COMPLETAR NOMBRES» (Martín: «Quiero que al extraer de WhatsApp en el CRM, automáticamente
+// ejecute esto. Que no me diga "Completar nombres"»): los nombres van dentro de «Extraer» (tests/wa-extraer-072.test.ts). De
+// acá queda lo de la extensión: en vivo, y sin ella el pie pide instalarla y los nombres arrancan solos al aparecer.
 // PROBADO ROMPIÉNDOLO: ver el pie.
 // Correr: node --import tsx --test tests/crm-completar-con-extension.test.ts
 // =============================================================================
@@ -33,29 +36,26 @@ test('1. la extensión, en vivo: el atributo de mako-puente.js y al volver a la 
   assert.match(p, /const extWa = useExtensionFichas\(\);/);
 });
 
-test('2. sin la extensión: lo dice, con «Instalar», y arranca sola al aparecer', () => {
+test('2. sin la extensión: «Extraer» trae igual, el pie pide instalarla, y los nombres arrancan solos al aparecer', () => {
   const p = sinComentarios(leer('app/crm/TraerDeGrupoWA.tsx'));
   assert.doesNotMatch(p, /completarNombresDeGrupoAction/, 'volvió el camino que completaba «algunos o ninguno» sin decir por qué');
-  assert.match(p, /if \(extWa === 'si'\) \{ setEsperaExt\(null\); void leerDeWhatsappWeb\(\); return; \}\n\s*setErr\(null\); setHecho\(null\); setEsperaExt\('pide'\);/);
-  assert.match(p, /const arrancarAlInstalar = useEffectEvent\(\(\) => \{ setEsperaExt\(null\); void leerDeWhatsappWeb\(\); \}\);/);
+  assert.match(p, /if \(!conExt && extWa !== 'si' && \(nuevosHechos > 0 \|\| yaEstan > 0\)\) setEsperaExt\('pide'\);/, 'sin la extensión no pide instalarla');
+  assert.match(p, /const arrancarAlInstalar = useEffectEvent\(\(\) => \{ setEsperaExt\(null\); void extraer\(true\); \}\);/);
   assert.match(p, /useEffect\(\(\) => \{ if \(esperaExt && extWa === 'si'\) arrancarAlInstalar\(\); \}, \[esperaExt, extWa\]\);/, 'no arranca solo al instalarla');
-  assert.match(p, /esperaExt === 'pide' \? \{ texto: `\$\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión de MaKo para completar los nombres\.`, tono: 'neutro' as const, accion: instalar \}/);
+  assert.match(p, /esperaExt === 'pide' \? \{ texto: `\$\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión de MaKo para los nombres\.`, tono: 'neutro' as const, accion: instalar \}/);
   assert.match(p, /window\.open\('\/extension\/instalar', '_blank', 'noopener'\)/);
-  // Honesto: Chrome no mete la extensión en una pestaña ya abierta, así que se dice qué hacer si no arranca.
-  assert.match(p, /esperaExt === 'fue' \? \{ texto: 'Cuando la extensión esté, empieza sola\. Si no arranca, recarga esta pestaña\.'/);
-  // En el «⋯», el mismo camino con y sin la extensión.
-  assert.match(p, /\.\.\.\(extWa !== 'si' \? \[\{ id: 'nombres', texto: 'Completar nombres', icono: 'persona' as const, onElegir: completarNombres \}\] : \[\]\),/);
+  assert.match(p, /esperaExt === 'fue' \? \{ texto: 'Cuando la extensión esté, los nombres empiezan solos\.'/);
 });
 
-test('3. «Completar nombres» en el pie: después de traer, y con gente que ya está', () => {
+test('3. no hay «Completar nombres»: ni en el «⋯» ni en el pie (van solos dentro de «Extraer»)', () => {
   const p = sinComentarios(leer('app/crm/TraerDeGrupoWA.tsx'));
-  assert.match(p, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{fallidos\}\$\{cola2\}`\);\n\s*setTrasTraer\(true\);/);
-  assert.match(p, /hecho \? \{ texto: hecho, tono: 'ok' as const, \.\.\.\(trasTraer && ofrecer \? \{ accion: completarAca \} : \{\}\) \}/);
-  assert.match(p, /: ofrecer \? \{ texto: `\$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'está' : 'están'\} en tu CRM\.`, tono: 'neutro' as const, accion: completarAca \}/);
-  assert.match(p, /const ofrecer = !trayendo && yaEstan > 0;/);
+  assert.doesNotMatch(p, /Completar nombres|Completar desde mi WhatsApp|completarAca|leerDeWhatsappWeb/);
+  assert.match(p, /const mas: OpcionMas\[\] = trayendo \|\| !yaEstan \? \[\] : \[\n\s+\{ id: 'empresa', texto: 'Datos de empresa',/, 'en el «⋯» quedó algo más que «Datos de empresa»');
 });
 
 // PROBADO ROMPIÉNDOLO (25/10/2026), contra una base de 3 / 0, de a una y restaurando de una copia:
 //   · sin el efecto que arranca al aparecer la extensión                                   → 2 / 1
 //   · el pie sin «Completar nombres» cuando hay gente que ya está                          → 2 / 1
 //   · el hook sin mirar el atributo (sólo al volver a la pestaña)                          → 2 / 1
+// Y el 26/10/2026, con «Extraer» (base 3 / 0): un «Completar nombres» de vuelta en el «⋯» → 2 / 1; sin el `setEsperaExt('pide')`
+// al terminar sin la extensión → 2 / 1.

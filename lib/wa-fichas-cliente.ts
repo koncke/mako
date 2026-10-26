@@ -17,7 +17,12 @@ import { esMasVieja } from './version-comparar';
  * guarda para un `@lid` (`displayNameLID`: en el WhatsApp de Martín, 6.252 nombres contra 786 en los campos de antes), busca por
  * `@lid` y por grupo, y abre WhatsApp Web sola. Con la 0.70 se completaba una fracción: se pide actualizarla.
  */
-export const VERSION_FICHAS = '0.71.0';
+export const VERSION_FICHAS = '0.72.0';
+// ⚠️ 0.72.0 (26/10/2026), Martín: «Quiero que el scraper, con la extensión me redirija a la tab de whatsapp y se vea que está
+// interactuando o buscando... Y que se despliegue la extensión y que allí se vea la animación de la extracción». Con
+// `visible`, la extensión pone al frente la pestaña de WhatsApp Web que ya está, abre su desplegable con el avance y el
+// registro, y RECORRE el grupo (lo que se ve en la lista de miembros suma nombres que la base no tiene). La 0.71 ignoraba
+// `visible`: se pide la 0.72.
 
 /** ¿La extensión de ESTE navegador lee fichas? 'no' = no está; 'vieja' = está, sin esto (hay que actualizarla). */
 export function extensionLeeFichas(): 'si' | 'vieja' | 'no' {
@@ -40,7 +45,9 @@ export type PedidoFichaWa = string | { telefono: string; lid: string | null };
 /** Sin noticias de la extensión por este tiempo, se da por muda (cada paso que cuenta el worker lo vuelve a contar). */
 export const SILENCIO_FICHAS_MS = 30_000;
 /** El tope total: abrir WhatsApp Web y esperar sus chats lleva hasta ~2 min en el peor caso del worker. */
-export const TOPE_FICHAS_MS = 4 * 60_000;
+export const TOPE_FICHAS_MS = 12 * 60_000;
+// (Desde la 0.72 el recorrido de un grupo grande, a la vista, lleva minutos: el tope de verdad es el silencio, y cada fila que
+// baja la lista es un aviso.)
 /** Un «no encontré la extensión» se espera este rato antes de creerle: puede ser el puente huérfano de una versión vieja. */
 const GRACIA_EXTENSION_MS = 1500;
 
@@ -50,10 +57,16 @@ const GRACIA_EXTENSION_MS = 1500;
  */
 export function pedirFichasDeWhatsappWeb(
   pedidos: readonly PedidoFichaWa[],
-  o: { grupos?: readonly string[]; alAvanzar?: (texto: string, paso: string) => void; silencioMs?: number } = {},
+  o: {
+    grupos?: readonly string[]; alAvanzar?: (texto: string, paso: string) => void; silencioMs?: number;
+    /** «Extraer» a la vista (0.72.0): la pestaña de WhatsApp al frente, el desplegable y su registro, con este título. */
+    visible?: boolean; titulo?: string;
+    /** El id del pedido (el mismo que después cuenta `avisarExtraccion`); sin él, uno nuevo. */
+    id?: string;
+  } = {},
 ): Promise<RespuestaFichas> {
   return new Promise((resolve) => {
-    const id = `w${Date.now()}${Math.random()}`;
+    const id = o.id ?? nuevoIdExtraccion();
     const silencio = o.silencioMs ?? SILENCIO_FICHAS_MS;
     let terminado = false;
     let gracia: ReturnType<typeof setTimeout> | null = null;
@@ -92,7 +105,9 @@ export function pedirFichasDeWhatsappWeb(
     window.addEventListener('MAKO_WA_FICHAS_AVANCE', avance);
     const telefonos = pedidos.map((p) => (typeof p === 'string' ? p : p.telefono));
     const conLid = pedidos.map((p) => (typeof p === 'string' ? { telefono: p, lid: null } : p));
-    window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', { detail: { id, telefonos, pedidos: conLid, grupos: [...(o.grupos ?? [])] } }));
+    window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', {
+      detail: { id, telefonos, pedidos: conLid, grupos: [...(o.grupos ?? [])], ...(o.visible ? { visible: true, titulo: o.titulo ?? '' } : {}) },
+    }));
   });
 }
 
@@ -107,6 +122,35 @@ function gruposDe(v: unknown): GrupoEnWhatsapp[] {
       conNombre: typeof o.conNombre === 'number' ? o.conNombre : null,
     }];
   });
+}
+
+/** Un id para un pedido a la extensión (y su fila del registro, si es a la vista). */
+export function nuevoIdExtraccion(): string {
+  return `w${Date.now()}${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Lo que una extracción a la vista cuenta de su lado de MaKo: números y textos cortos (nunca nombres de nadie). */
+export type AvisoExtraccion = {
+  fase?: 'guardando'; estado?: 'corriendo' | 'listo' | 'error' | 'parado'; texto?: string;
+  guardados?: number; total?: number; nombres?: number; empresas?: number; nuevos?: number;
+};
+
+/**
+ * Le cuenta al desplegable de la extensión cómo sigue una extracción (0.72.0): «guardando N de M» y el final. Así el avance y
+ * el resultado viven en la extensión y no en un aviso de MaKo (Martín, 26/10: «no me gusta que salga el cartel negro abajo y
+ * el "extrayendo" arriba... quiero que todo eso salga en la extensión, en el desplegable»).
+ */
+export function avisarExtraccion(id: string, a: AvisoExtraccion): void {
+  if (typeof window === 'undefined' || !id) return;
+  window.dispatchEvent(new CustomEvent('MAKO_WA_EXTRACCION', { detail: { id, ...a } }));
+}
+
+/** El «Parar» del desplegable para ESTA extracción. Devuelve cómo dejar de escuchar. */
+export function alPararExtraccion(id: string, fn: () => void): () => void {
+  if (typeof window === 'undefined') return () => {};
+  const al = (ev: Event) => { if (((ev as CustomEvent).detail as { id?: unknown } | null)?.id === id) fn(); };
+  window.addEventListener('MAKO_WA_PARAR', al);
+  return () => window.removeEventListener('MAKO_WA_PARAR', al);
 }
 
 /** «Ir a WhatsApp Web»: la extensión pone esa pestaña al frente, o abre una (para iniciar la sesión). */
@@ -124,6 +168,7 @@ export function motivoDeFichas(motivo: string): string {
     case 'sin_respuesta_wa': return 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar.';
     case 'extension': return 'No encontré la extensión de MaKo en este navegador.';
     case 'sin_respuesta': return 'La extensión no contestó. Recarga esta página y vuelve a tocar.';
+    case 'parado': return 'La paraste.';
     default: return 'No pude leer tu WhatsApp Web.';
   }
 }

@@ -472,7 +472,11 @@ export async function etapasParaTraer(funnelId: number): Promise<{ etapas: Array
  * `quedan`: los que no se llegaron a traer porque se acabó el tiempo (`hasta`): pedirlo de nuevo sigue (los traídos ya están).
  * `pendientes`: sus teléfonos, para que la pantalla los vuelva a pedir (son de los que ELLA mandó: no suma ningún dato).
  */
-export type ResultadoTraer = { ok: true; creados: number; sumados: number; yaEstaban: number; salteados: number; quedan: number; pendientes: string[]; etiqueta: string | null; errores: string[] }
+export type ResultadoTraer = {
+  ok: true; creados: number; sumados: number; yaEstaban: number; salteados: number; quedan: number; pendientes: string[]; etiqueta: string | null; errores: string[];
+  /** Por qué se trajeron SIN la etiqueta del grupo (la que existe con ese nombre tiene una automatización); null = con ella. */
+  sinEtiqueta?: string | null;
+}
   | { ok: false; error: string };
 
 /**
@@ -492,8 +496,10 @@ export async function traerDelGrupo(p: {
   const quienes = p.telefonos === 'todos' ? leidos.participantes : leidos.participantes.filter((x) => pedidos.has(x.telefono));
   if (!quienes.length) return { ok: true, creados: 0, sumados: 0, yaEstaban: 0, salteados: 0, quedan: 0, pendientes: [], etiqueta: null, errores: [] };
   // La etiqueta se mira ANTES de traer a nadie: una que ya tiene una automatización no se usa (ver `etiquetaDeOrigen`).
+  // ⚠️ Con una elegida a mano (la API de MaKo), una que no sirve frena. Con la del nombre del grupo (la pantalla, desde el
+  // 26/10/2026: ya no hay campo para elegir otra), se trae igual SIN etiqueta y se dice por qué: frenar era un callejón.
   const origen = await etiquetaDeOrigen(p.etiqueta?.trim() || p.nombreGrupo);
-  if (!origen.ok) return origen;
+  if (!origen.ok && p.etiqueta?.trim()) return origen;
 
   const { etapas } = await etapasParaTraer(p.funnelId);
   const destino = etapas.find((e) => e.key === p.etapa);
@@ -542,13 +548,16 @@ export async function traerDelGrupo(p: {
   }
   // Si la etiqueta falla, volver a traer ya no la repara (los recién creados quedan «ya están» y no se vuelven a cargar): se dice
   // a cuántos les faltó y cómo ponérsela; el detalle de la base, sólo al log (la revisión del 24/10/2026).
-  const etiqueta = traidos.length ? await etiquetarDelGrupo(traidos, origen, p.autor).catch((e) => {
+  const etiqueta = traidos.length && origen.ok ? await etiquetarDelGrupo(traidos, origen, p.autor).catch((e) => {
     console.error('[grupo-wa] no pude poner la etiqueta de origen:', msg(e));
     errores.push(`La etiqueta «${origen.nombre}» no se pudo poner a ${traidos.length}: ponla desde la barra de lote del CRM`);
     return null;
   }) : null;
   // `sumados` queda en 0 desde el 24/10 (el que ya está no se carga): el campo sigue para la pantalla y la API.
-  return { ok: true, creados, sumados: 0, yaEstaban, salteados, quedan: pendientes.length, pendientes: p.telefonos === 'todos' ? [] : pendientes, etiqueta, errores };
+  return {
+    ok: true, creados, sumados: 0, yaEstaban, salteados, quedan: pendientes.length, pendientes: p.telefonos === 'todos' ? [] : pendientes, etiqueta, errores,
+    sinEtiqueta: origen.ok ? null : origen.sinEtiqueta,
+  };
 }
 
 /**
@@ -557,14 +566,17 @@ export async function traerDelGrupo(p: {
  *    dispara, pero el BARRIDO de la hora (`leadsConEtiqueta`, lib/nutricion.ts) inscribe a todo lead que la tenga, y el grupo
  *    entero recibía esa secuencia al rato. Se rechaza antes de traer a nadie. Una nueva no tiene ninguna.
  */
-export async function etiquetaDeOrigen(elegida: string): Promise<{ ok: true; nombre: string; id: number | null } | { ok: false; error: string }> {
+export async function etiquetaDeOrigen(elegida: string): Promise<{ ok: true; nombre: string; id: number | null } | { ok: false; error: string; sinEtiqueta: string }> {
   const nombre = etiquetaDeGrupo(elegida);
-  const todas = await listarEtiquetas({ incluirArchivadas: true });
-  const e = todas.find((t) => claveNombre(t.nombre) === claveNombre(nombre)) ?? null;
+  // La que EXISTE con ese nombre, viva (Martín, 26/10: «con las etiquetas que ya existen»). Una archivada no cuenta: el índice
+  // único de la mig 0224 es entre las no archivadas, así que se crea otra con el mismo nombre (antes frenaba con «está archivada»).
+  const todas = await listarEtiquetas();
+  const e = todas.find((t) => !t.archivada_at && claveNombre(t.nombre) === claveNombre(nombre)) ?? null;
   if (!e) return { ok: true, nombre, id: null };
-  if (e.archivada_at) return { ok: false, error: `«${e.nombre}» está archivada: elige otra etiqueta.` };
   const vistas = (await getSecuenciasActivas()).flatMap((s) => vistasPorDisparador(s));
-  if (secuenciasDeEtiqueta(vistas, e.id).length) return { ok: false, error: `«${e.nombre}» tiene una automatización activa: elige otra etiqueta.` };
+  if (secuenciasDeEtiqueta(vistas, e.id).length) {
+    return { ok: false, error: `«${e.nombre}» tiene una automatización activa: elige otra etiqueta.`, sinEtiqueta: `«${e.nombre}» tiene una automatización activa` };
+  }
   return { ok: true, nombre: e.nombre, id: e.id };
 }
 
