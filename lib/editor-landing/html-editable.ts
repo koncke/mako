@@ -31,9 +31,23 @@
 //    política de la página publicada (pagina-publica.ts): si se toca una coma, el hash cambia solo.
 // =============================================================================
 
-import { NODO, TOPES, textoDeHtmlEditable, type JsonNodo } from './doc';
+import { NODO, TOPES, textoDeHtmlEditable, tituloDeTarjeta, type JsonNodo } from './doc';
 
 export { textoDeHtmlEditable };
+
+/**
+ * El nombre corto de una sección (su franja al reordenar en el editor, 26/10/2026): en una de diseño, el primer título
+ * (h1–h3) de su HTML, porque su primer texto suele ser una etiqueta chica o el menú; en una de bloques, su título.
+ */
+export function rotuloDeSeccion(t: JsonNodo): string {
+  const html = (t.content ?? []).find((n) => n.type === NODO.htmlEditable)?.attrs?.html;
+  if (typeof html === 'string') {
+    const h = /<h[1-3]\b[^>]*>([\s\S]*?)<\/h[1-3]>/i.exec(html)?.[1] ?? '';
+    const texto = h.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+    if (texto) return texto.slice(0, 80);
+  }
+  return tituloDeTarjeta(t).trim().slice(0, 80);
+}
 
 /** La raíz de una página libre (y de la vista de una sección en el editor). */
 export const CLASE_LIBRE = 'gm-libre';

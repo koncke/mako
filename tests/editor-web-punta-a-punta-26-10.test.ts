@@ -22,7 +22,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TAMANOS_TEXTO } from '../lib/editor-landing/doc';
+import { NODO, TAMANOS_TEXTO } from '../lib/editor-landing/doc';
+import { rotuloDeSeccion } from '../lib/editor-landing/html-editable';
 import { TAM_EN_DISENO, alineacionDe, tipoDeEtiqueta, tipoPermitidoEnDiseno } from '../app/web-generator/editor/acciones-diseno';
 import { activarDiseno, disenoActivo, soltarDiseno } from '../app/web-generator/editor/puente-diseno';
 import { hexDeRgb } from '../app/web-generator/editor/botones-diseno';
@@ -117,6 +118,12 @@ test('3. reordenar: mientras se arrastra, las secciones son franjas y se suelta 
   assert.ok(arranca > 0, 'el arrastre no achica las secciones');
   assert.ok(arranca > t.indexOf('g.arrastrando = true;'), 'se achican sólo cuando ya es un arrastre (un clic abre el menú)');
   assert.match(t.slice(t.indexOf('const terminarArrastre')), /document\.body\.removeAttribute\('data-gm-reordenando'\);/);
+  // Cada franja con su nombre (medido en producción: la parte de arriba de un diseño es su margen, en blanco).
+  assert.match(css, /'body\[data-gm-reordenando\] \.ProseMirror > \.gm-tarjeta\[data-rotulo\]::before \{ content: attr\(data-rotulo\);/);
+  assert.match(t, /if \(rotulo\) sec\.setAttribute\('data-rotulo', rotulo\); else sec\.removeAttribute\('data-rotulo'\);/);
+  const diseno = (html: string) => ({ type: NODO.tarjeta, attrs: { id: 'tA' }, content: [{ type: NODO.htmlEditable, attrs: { html } }] });
+  assert.equal(rotuloDeSeccion(diseno('<p>Solo 5 cupos</p><h2>¿Qué es <em>MaKo</em>… &amp; por qué?</h2>')), '¿Qué es MaKo… & por qué?', 'el título, no la etiqueta chica');
+  assert.equal(rotuloDeSeccion({ type: NODO.tarjeta, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Precios' }] }] }), 'Precios');
 });
 
 test('4 y 7. el video y la agenda, REALES encima de su lugar, y sin el mouse hasta que se eligen', () => {

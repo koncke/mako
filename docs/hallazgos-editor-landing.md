@@ -3173,7 +3173,8 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
 - **Arrastrar por la mitad de la sección no sirve con secciones de 2.000 px.** «Mover arriba/abajo» del menú andaba. El
   arrastre del ⋮ no movía nada, porque la mitad de la sección vecina quedaba unos 900 px fuera de la pantalla. Mientras se
   arrastra, cada sección se ve como una franja de 132 px (`body[data-gm-reordenando]`): entran todas y se suelta donde
-  se ve.
+  se ve. Medido en producción: la franja de un diseño es casi siempre su margen de arriba, en blanco, así que cada una
+  lleva el nombre de su sección encima (`data-rotulo`, el primer h1–h3 de su HTML: `rotuloDeSeccion`).
 - **Controles que se van con el hover:** la barrita del diseño estaba 12 px por arriba y se iba con el `mouseleave` al
   cruzar ese aire. Ahora se queda mientras su diseño es el activo y va pegada arriba de lo que se ve (un ancla `sticky`
   de alto 0, que no mueve nada). El ⋮ de la sección también va `sticky` y tarda medio segundo en irse. `pointer-events`
