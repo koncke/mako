@@ -60,8 +60,9 @@ Martín (22/10) pidió el sistema de referidos con «la página de MaKo Partners
 meses gratis. Eso **reemplaza** la regla de docs/referidos.md §6 («nunca antes de 20 referidos pagando: no panel, no pestaña, no
 página pública»), que era una recomendación de la corrida del 10/10 y no una decisión de Martín.
 
-- **Un referido es una compra que CREÓ la cuenta con el código** (`cobros.ref_codigo` + `alta_estado = hecha`): quien ya tenía
-  MaKo nunca cuenta, y el primer código que lo trajo vale (`/r/<código>` no pisa la cookie; el cron toma la compra más vieja).
+- **Un referido es una compra que CREÓ la cuenta con el código** (`cobros.ref_codigo` + `alta_estado = hecha`; desde el 25/10
+  también el cobro de «Empezar mi plan ya» que reemplaza a esa prueba, `COMPRA_QUE_TRAJO`): quien ya tenía MaKo nunca
+  cuenta, y el primer código que lo trajo vale (`/r/<código>` no pisa la cookie; el cron toma la compra más vieja).
 - **El crédito es un renglón del libro** (`partner_creditos`), con índice único por (referidor, referido): dos corridas del
   cron no acreditan dos veces. Las bienvenidas salen una vez: su marca es haber escrito `workspaces.referido_por_ws` con
   compare-and-set sobre null.
@@ -89,8 +90,8 @@ lectura):** hasta el commit que sigue a bf60e15ef, el código NO quedaba en ning
 query); /r arma /planes de cero y descarta las UTM del link del partner; el webhook de Calendly no guarda el payload crudo
 ni tiene columna de partner; el alta a mano («Nuevo cliente» en /admin) no tiene campo de partner ni crea un cobro; «Vender
 un plan» (/admin/cobros, sólo con pasarela) no lleva `ref_codigo`, y /pagar/<token> no lee la cookie aunque sea el mismo
-navegador. **El único que escribe `cobros.ref_codigo` es el checkout** (lib/compra-plan.ts), y sin pasarela devuelve 503
-antes de escribir nada.
+navegador. **`cobros.ref_codigo` lo escribe el checkout** (lib/compra-plan.ts), y sin pasarela devuelve 503 antes de escribir
+nada; desde el 25/10 también «Empezar mi plan ya» (lib/empezar-plan.ts), que COPIA el de la prueba (no trae uno nuevo).
 
 **Lo que se arregló:** sin campaña (por /r siempre es así), el código viaja a la agenda como `utm_source=mako-partners`,
 `utm_medium=referido`, `utm_campaign=<código>` (`agendaConOrigen`, lib/compra-plan-reglas.ts). Queda en la reserva de
@@ -99,7 +100,8 @@ Con campaña gana la campaña. Un comprador que no pasó por /r (lo recomendaron
 es lo que escriba en «¿Cómo llegaste a MaKo?» del onboarding (`onboarding.encuesta` del negocio; no pregunta QUIÉN).
 
 **Reconstruir a mano una comisión (no hay pantalla: es SQL):** `acreditarReferidos` lee SÓLO cobros de la plataforma con
-`ref_codigo`, `alta_ws`, `alta_estado = 'hecha'` y estado pagado; acredita con 2 filas de `pagos` pagado=true cuyo
+`ref_codigo`, `alta_ws`, `alta_estado = 'hecha'` (o, desde el 25/10, `creado_por` `empezar-ya:<prueba>`: `COMPRA_QUE_TRAJO`)
+y estado pagado; acredita con 2 filas de `pagos` pagado=true cuyo
 `cobro_id` sea un cobro de la plataforma con ese `alta_ws`. No mira la pasarela.
 - **A (el sistema lo reconoce solo):** un cobro en el ws 9 con `tipo = 'unico'` (con `'suscripcion'` el negocio pasa a «MaKo
   le cobra por la pasarela»: topes, «Tu plan», «Darme de baja» contra una pasarela que no intervino, y mora si se prende el
@@ -302,3 +304,24 @@ de una agencia y el del super admin llevan un botón a /agency). Pagar a los par
 automáticos). La landing pública y los mails nuevos no se probaron contra producción. **Vive en:** app/partners/ ·
 app/agency/ · lib/partners-*.ts · lib/api-mako/areas/negocio.* (`ver_mi_programa_partners`, `hacerme_partner`,
 `cambiar_cobro_partners`, `ver_programa_partners`, `registrar_pago_partner`).
+
+## «En camino» contaba para siempre al que se fue, y «Empezar mi plan ya» dejaba al partner sin cobrar (25/10/2026, revisión del tren)
+
+- **«Empezar mi plan ya» perdía el código.** Abre un cobro NUEVO y, al cobrarse, la prueba queda 'anulado'; el cobro nuevo no
+  llevaba `ref_codigo` y el programa sólo aceptaba alta 'hecha': el partner no cobraba nunca. Ahora el cobro nuevo copia el
+  código de la prueba (sólo si la prueba CREÓ la cuenta) sin marcarse 'hecha' (le abriría el cambio de email del acceso), y
+  `acreditarReferidos` y `resumenDelPrograma` aceptan `COMPRA_QUE_TRAJO` (alta 'hecha' o `creado_por` `empezar-ya:*`), con el
+  MISMO filtro. Un link abierto antes del arreglo y todavía sin pagar se reusa y recibe el código ahí. **Vive en:**
+  lib/empezar-plan.ts · lib/partners-programa.ts.
+- **El diagnóstico obvio era el equivocado: «`estadoDelReferido` no da 'se-fue' con 0 meses».** Se arregló eso y el panel
+  seguía igual, porque `vigente` salía de `workspaces.estado` y **con el corte de acceso APAGADO**
+  (`CORTE_DE_ACCESO_PRENDIDO = false`, lib/plan-acceso-reglas.ts) `revisarAccesosPorPago` sale en la primera línea: nadie
+  pausa a nadie, y el que canceló la prueba sin pagar queda 'activo' para siempre. El test pasaba porque su fixture ponía el
+  negocio 'pausado' a mano, algo que producción no produce. **La regla:** que un cliente se fue lo dicen SUS COBROS, no el
+  estado del negocio (`seFueSegunSusCobros`, lib/partners-reglas.ts: la prueba caída, dada de baja o anulada, y ningún otro
+  cobro vivo). Un fixture que pone a mano un estado que sólo escribe un cron apagado prueba un mundo que no existe.
+
+**Sin hacer:** un referido SIN prueba (compra directa, p. ej. Stripe) que paga un mes y cancela sigue «en camino» mientras su
+negocio no se pause: `seFueSegunSusCobros` sólo decide cuando hay una prueba caída (un plan anual dado de alta a mano puede
+no tener suscripción, y no se quiso dar por ido a quien paga). **Vive en:** lib/partners-reglas.ts (`seFueSegunSusCobros`) ·
+lib/partners-programa.ts (`mesesPagadosDe`, `tableroDe`) · tests/partners-empezar-ya.test.ts · tests/partners-referidos.test.ts.

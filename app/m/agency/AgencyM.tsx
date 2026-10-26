@@ -60,6 +60,10 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
   const [ocupado, setOcupado] = useState(false);
   // ⚠️ «hecho» es su propio estado y no `link !== null`: sin link la cuenta YA se abrió, y un segundo envío chocaría con el
   // email ya usado (la lección de PartnersM).
+  // ⚠️ «PAGA TU CLIENTE» SIN LINK DEL PRIMER MES (25/10/2026): su acceso NO salió (lib/partners.ts) y la cuenta espera la
+  // firma de MaKo, como si pagara la agencia: es «Le llega su acceso cuando MaKo la habilite», igual que la computadora.
+  // Decía «Le llegó su acceso. Al terminar su configuración, le aparece el pago.»: el acceso no salió y no hay cobro. Y el
+  // pie del alta dice los dos caminos: mientras MaKo no pueda cobrarle, toda alta con «Mi cliente» queda pedida.
   const [hecho, setHecho] = useState<{ link: string | null; paga: QuienPaga; acceso: string | null } | null>(null);
   const [mal, setMal] = useState<string | null>(null);
 
@@ -166,7 +170,7 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
       <SheetM abierto={alta} onCerrar={() => setAlta(false)}
         titulo={hecho === null ? 'Nuevo cliente' : hecho.paga === 'agencia' && hecho.link ? 'Su primer mes' : 'Cuenta abierta'} ocupado={ocupado}
         pie={hecho === null ? (
-          <PieM consecuencia={paga === 'agencia' ? `Pagas tú: US$${usd} al mes.` : `Paga tu cliente: US$${usd} al mes, al terminar su configuración.`}>
+          <PieM consecuencia={paga === 'agencia' ? `Pagas tú: US$${usd} al mes.` : `Paga tu cliente, US$${usd} al mes: si MaKo ya puede cobrarle, al terminar su configuración; si no, su cuenta espera a que MaKo la habilite.`}>
             <Button variant="primary" size="lg" full disabled={!nombre.trim() || !emailUtilizable(email) || ocupado} onClick={() => void crear()}>
               {ocupado ? 'Abriendo…' : 'Abrir su cuenta'}
             </Button>
@@ -188,7 +192,7 @@ export function AgencyM({ cuentas, usd, pagaSugerida, puedeAbrir, superAdmin, cu
               opciones={[{ id: 'agencia', label: 'Yo, ahora' }, { id: 'cliente', label: 'Mi cliente' }]} />
             {mal && <p className="m-agency-mal" role="alert">{mal}<ReportarASoporte /></p>}
           </div>
-        ) : hecho.paga === 'cliente' ? (
+        ) : hecho.paga === 'cliente' && hecho.link ? (
           <p className="m-agency-nota">{hecho.acceso ?? 'Le llegó su acceso.'} Al terminar su configuración, le aparece el pago.</p>
         ) : hecho.link ? null : (
           <p className="m-agency-nota">Le llega su acceso cuando MaKo la habilite.</p>

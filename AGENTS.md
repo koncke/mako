@@ -7439,6 +7439,12 @@ En los dos casos **la primera hipótesis correcta es la medición, no el código
 barata de comprobar y es la que más veces gana. La señal: un resultado redondo e inesperado
 (cero de diecisiete, 25 de 25) sobre algo que se acaba de escribir.
 
+**Romper un guard también es INVERTIR la condición, no sólo sacarla.** Medido el 25/10/2026 en la revisión del tren-k:
+`tests/agency.test.ts` buscaba el TEXTO `cobro.ok` en el `if` que manda el acceso, y con `paga === 'cliente' && !cobro.ok`
+(el acceso sale sólo SIN link, lo contrario de lo pedido) seguía en verde. Sacar la condición daba rojo, así que la tabla de
+«probado rompiéndolo» parecía completa. Un guard sobre una condición se fija exacta (`/^if \(paga === 'cliente' && cobro\.ok\) \{/`)
+y se prueba con la condición sacada Y con la condición invertida.
+
 # Si lo que cambió es QUÉ EXISTE, se navega DURO: `router.refresh()` llega tarde
 
 `router.refresh()` es para «los datos de esta pantalla cambiaron». Cuando lo que cambia es el

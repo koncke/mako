@@ -13,6 +13,9 @@
 //   · `interesDeFuncionalidad` no reconoce «crm»                                 -> 8 / 1
 //   · el onboarding no siembra el origen                                         -> 8 / 1
 //   · (25/10) el que canceló la prueba con 0 meses vuelve a dar 'registrado'     -> 8 / 1
+//   · (25/10, ronda 2) los cobros del lugar no se miran (`seFueSegunSusCobros` da false siempre)   -> 8 / 1
+//   · (25/10, ronda 2) «ningún otro cobro vivo» no se mira (la prueba caída alcanza)               -> 8 / 1
+//   · (25/10, ronda 2) la baja pedida no se mira, o un pago único cobrado no cuenta como vivo      -> 8 / 1
 // =============================================================================
 
 import { test } from 'node:test';
@@ -21,6 +24,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   PAGOS_PARA_ACREDITAR, codigoDesdeNombre, correspondeAcreditar, gananciaDelReferido, estadoDelReferido, linkDePartner, porGanar, resumenDelLibro,
+  seFueSegunSusCobros,
 } from '../lib/partners-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -54,6 +58,20 @@ test('el estado de cada referido en el tablero', () => {
     { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: false }), gananciaUsd: 97 },
     { estado: estadoDelReferido({ mesesPagados: 0, acreditado: false, vigente: true }), gananciaUsd: 47 },
   ]), 47, 'sólo el que sigue');
+});
+
+test('se fue según SUS COBROS: la prueba caída y ningún otro cobro vivo (ronda 2: con el corte apagado nadie lo pausa)', () => {
+  const prueba = (extra: Record<string, unknown>) => ({ tipo: 'suscripcion', alta_capa: 'completo', creado_por: 'planes:pro:prueba', estado: 'pendiente', suscripcion_estado: 'activa', ...extra });
+  const plan = (extra: Record<string, unknown>) => ({ tipo: 'suscripcion', creado_por: 'empezar-ya:5', estado: 'pagado', suscripcion_estado: 'activa', ...extra });
+  assert.equal(seFueSegunSusCobros([prueba({})]), false, 'sigue en su prueba');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' })]), true, 'canceló la prueba y nunca pagó');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'pagado', suscripcion_estado: 'cancelada' })]), true, 'pagó el día 8 y canceló: no hay 2º mes');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'anulado', suscripcion_estado: 'cancelada' }), plan({})]), false, '«Empezar mi plan ya» pagado: sigue');
+  assert.equal(seFueSegunSusCobros([prueba({ estado: 'anulado', suscripcion_estado: 'cancelada' }), plan({ suscripcion_estado: 'cancelada' })]), true);
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), plan({ estado: 'pendiente', suscripcion_estado: null })]), true, 'un link abierto y sin pagar no lo trae de vuelta');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), plan({ motivo: 'Baja pedida el 25/10' })]), true, 'con la baja pedida no se cobra más');
+  assert.equal(seFueSegunSusCobros([prueba({ suscripcion_estado: 'cancelada' }), { tipo: 'unico', estado: 'pagado', suscripcion_estado: null }]), false, 'un pago único cobrado (a mano) sigue');
+  assert.equal(seFueSegunSusCobros([plan({ suscripcion_estado: 'cancelada' })]), false, 'sin una prueba caída no decide: queda workspaces.estado');
 });
 
 test('el libro: lo ganado, lo transferido y lo que queda a cobrar, en dinero (sin meses ni revendedor)', () => {

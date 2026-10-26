@@ -21,6 +21,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { DEFS, defsVisibles } from '../lib/integraciones-catalogo';
+import { servicioDeLink } from '../lib/integracion-en-tab';
+import { rutaMovil } from '../lib/movil-rutas';
 import { INTERRUPTOR_AGENDA_EN_LOGIN, loginPideAgenda, otorgoLaAgenda, scopesDelLogin } from '../lib/google-login-agenda';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -142,19 +144,72 @@ test('8. «Costo de MaKo»: la caja de cada IA y «Regístralos →» abren el m
   assert.match(board, /onOpenService=\{\(key\) => setModal\(\{ t: 'svc', key \}\)\}/);
   assert.match(board, /const svcByKey = \(key: string\): Integracion \| null => integraciones\.find\(\(x\) => x\.key === key\)\s*\?\? sinTarjeta\.find\(\(x\) => x\.key === key\) \?\? SYNTHETIC\[key\] \?\? null;/,
     'svcByKey no busca en las que no tienen tarjeta: la caja de Claude no abre nada');
-  // Y nadie las dibuja: `sinTarjeta` sólo la lee svcByKey.
-  assert.equal((board.match(/sinTarjeta\./g) ?? []).length, 1, '`sinTarjeta` se usa para algo más que abrir el modal');
+  // Y nadie las dibuja: las tarjetas, sus dos secciones y las categorías del desplegable salen SÓLO de `integraciones` (la
+  // grilla, sin las `oculto`). Contar los usos de `sinTarjeta` (lo de antes, 25/10/2026) no probaba eso y trababa a quien
+  // la lea para otra cosa: el permiso de Google (test 10).
+  assert.match(board, /const conectadasVis = integraciones\.filter\(/, 'las conectadas de la grilla salen de otra lista');
+  assert.match(board, /const sinConectarVis = integraciones\.filter\(/, 'las sin conectar de la grilla salen de otra lista');
+  assert.match(board, /const catalogo = verTodas \|\| filtrando \|\| pedidaOculta \? sinConectarVis : sinConectarVis\.slice\(0, TOPE_CATALOGO\);/);
+  assert.deepEqual(board.match(/grilla\([^)]*\)\}/g), ['grilla(conectadasVis)}', 'grilla(catalogo)}'], 'se dibuja una grilla de otra lista');
+  assert.match(board, /\.\.\.\[\.\.\.new Set\(integraciones\.map\(\(i\) => i\.categoria\)\)\]/, 'el desplegable de categorías sale de otra lista');
+  assert.doesNotMatch(board, /sinTarjeta\.(map|filter|forEach)\(/, 'las que no tienen tarjeta se están dibujando (25/10/2026, revisión del tren)');
 });
 
-test('9. si falla la vuelta de Google, se reabre el modal suelto (el botón «Conectar» está)', () => {
-  const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
+/** El efecto que reabre el modal suelto de Google a la vuelta del OAuth (`?gcal=`). */
+const efectoVueltaGoogle = (board: string) => {
   const ini = board.indexOf('const gcalReabierto = useRef<string | null>(null);');
   assert.ok(ini > 0, 'no se encontró la reapertura del modal de Google');
-  const efecto = board.slice(ini, board.indexOf('}, [gcalParam, integraciones, abrirSuelta]);', ini));
-  assert.match(efecto, /if \(GCAL_MSG\[gcalParam\]\?\.kind !== 'err' \|\| integraciones\.some\(\(i\) => i\.key === 'google'\)\) return;/,
-    'con un «ok» (o con Google en la grilla) no se reabre nada');
-  assert.match(efecto, /gcalReabierto\.current = gcalParam;\s*abrirSuelta\('google', gcalParam\);/, 'un error de Google deja la pantalla sin botón');
+  const fin = board.indexOf('}, [gcalParam, integraciones, abrirSuelta, gcalIncompleta]);', ini);
+  assert.ok(fin > ini, 'el efecto no depende del permiso de Google (llega después): no se reabriría con él');
+  return board.slice(ini, fin);
+};
+
+test('9. si falla la vuelta de Google, se reabre el modal suelto (el botón «Conectar» está)', () => {
+  const efecto = efectoVueltaGoogle(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')));
+  assert.match(efecto, /if \(integraciones\.some\(\(i\) => i\.key === 'google'\)\) return;/, 'con Google en la grilla lo dice su tarjeta');
+  assert.match(efecto, /const fallo = GCAL_MSG\[gcalParam\]\?\.kind === 'err';/);
+  assert.match(efecto, /gcalReabierto\.current = gcalParam;\s*abrirSuelta\('google', fallo \? gcalParam : null\);/, 'un error de Google deja la pantalla sin botón');
   assert.match(efecto, /if \(gcalReabierto\.current === gcalParam\) return;/, 'se reabriría en cada render');
+});
+
+test('10. la vuelta `?gcal=ok` con el permiso a medias no festeja: lee el permiso y reabre el modal que dice qué falta', () => {
+  // El caso: abre /integraciones?abrir=google (el link de MaKo), toca «Conectar» y destilda la casilla de escritura del
+  // calendario. El callback vuelve con `?gcal=ok` igual, y la franja decía «Ya se usa ... para mover reuniones al reagendarlas».
+  const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
+  assert.match(board, /const googleConToken = \[\.\.\.integraciones, \.\.\.sinTarjeta\]\.some\(\(i\) => i\.key === 'google' && i\.estado === 'conectada'\);/,
+    'Google ya no está en la grilla: mirando sólo `integraciones`, el permiso no se pide nunca y `gcalIncompleta` da siempre false');
+  assert.match(board, /const gcalIncompleta = !!gcal\?\.puede && gcal\.conectado && !gcal\.puedeMover;/);
+  // La franja verde se calla a medias Y mientras el permiso no se sabe (si no, se lee hasta que Google contesta).
+  assert.match(board, /const gcalSinLeer = googleConToken && gcal === null;/);
+  assert.match(board, /\{gcalMsg && !\(gcalMsg\.kind === 'ok' && \(gcalIncompleta \|\| gcalSinLeer\)\) && \(/, 'la franja festeja un permiso a medias');
+  // Y sin tarjeta que lo cuente, se reabre el modal (dice «Faltan permisos para mover reuniones» y trae el botón), sin el
+  // motivo «ok» (`fallo ? gcalParam : null`, test 9), que adentro festejaría lo mismo. Con el permiso completo, no.
+  const efecto = efectoVueltaGoogle(board);
+  assert.match(efecto, /if \(!fallo && !\(gcalParam === 'ok' && gcalIncompleta\)\) return;/, 'un «ok» a medias no reabre nada (o reabre todos los «ok»)');
+});
+
+test('11. en el teléfono, el link de una sin tarjeta abre SU hoja (el caso de Florencia), y la lista sigue sin ellas', () => {
+  // MaKo manda /integraciones?abrir=<key> por WhatsApp; en un teléfono el proxy lo lleva a la pantalla del teléfono, con el
+  // mismo `abrir`. Desde ahí, «Conectar en la computadora» abre el modal suelto de esa key (no la grilla entera).
+  for (const key of SIN_TARJETA) {
+    assert.equal(rutaMovil(`/integraciones?abrir=${key}`), `/m/configuraciones/integraciones?abrir=${key}`);
+    assert.equal(servicioDeLink(`/integraciones?abrir=${key}`), key, `«Conectar en la computadora» de ${key} no abriría su modal`);
+  }
+  const page = sinComentarios(leer('app/m/configuraciones/integraciones/page.tsx'));
+  assert.match(page, /await Promise\.all\(\[getIntegraciones\(\), getIncidentes\(30\)/, 'la lista del teléfono volvió a traer las `oculto`');
+  assert.match(page, /const suelta = abrir && !lista\.some\(\(i\) => i\.key === abrir\) && DEFS\.some\(\(d\) => d\.key === abrir && d\.oculto\)\s*\? await getIntegracion\(abrir\)\.catch\(\(\) => null\) : null;/,
+    'el link de una IA o de Google no trae su integración: no se abre ninguna hoja');
+  assert.match(page, /suelta=\{suelta \? aM\(suelta\) : null\}/, 'la pantalla no recibe la pedida');
+  assert.match(page, /const integraciones = lista\.map\(aM\);/);
+  assert.match(page, /const conectadas = integraciones\.filter\(/);
+  assert.match(page, /const sinConectar = integraciones\.filter\(/);
+  const m = sinComentarios(leer('app/m/configuraciones/integraciones/IntegracionesM.tsx'));
+  assert.match(m, /\[\.\.\.conectadas, \.\.\.sinConectar\]\.find\(\(i\) => i\.key === abrir\)\s*\?\? \(suelta\?\.key === abrir \? suelta : null\)\);/,
+    'la hoja de la pedida no se abre');
+  // Y no es una fila: las filas salen sólo de `conectadas` y `sinConectar`.
+  assert.equal((m.match(/<FilaM key=\{i\.key\}/g) ?? []).length, 2);
+  assert.match(m, /\{conectadas\.map\(\(i\) => \(\s*<FilaM key=\{i\.key\}/);
+  assert.match(m, /\{sinConectar\.map\(\(i\) => \(\s*<FilaM key=\{i\.key\}/);
 });
 
 // ── ROTURAS (25/10/2026) ───────────────────────────────────────────────────────
@@ -182,3 +237,25 @@ test('9. si falla la vuelta de Google, se reabre el modal suelto (el botón «Co
 //   I18. un error de Google no reabre el modal suelto                → 9. la vuelta de Google
 //   I19. sin la ref (se reabriría en cada render)                    → 9.
 //   I20. se reabre también con un «ok»                               → 9.
+// Segunda vuelta de la revisión (25/10/2026), base 11 / 0; cada una 10 / 1 (I26, 9 / 2) y restaurado 11 / 0 (script con
+// reemplazo exacto, CRLF):
+//   I21. googleConToken mira sólo `integraciones` (el permiso no se pide) → 10. `?gcal=ok` a medias
+//   I22. la franja sin `gcalSinLeer` (festeja hasta que Google contesta)   → 10.
+//   I23. el efecto reabre con TODO «ok» (sin `gcalIncompleta`)            → 10.
+//   I24. el efecto no reabre un «ok» a medias (sólo errores, lo de antes) → 10.
+//   I25. el modal reabierto con el motivo «ok» (`abrirSuelta('google', gcalParam)`) → 9.
+//   I26. sin `gcalIncompleta` en las dependencias del efecto              → 9. (y 10.)
+//   I27. una tarjeta de la grilla sale de `[...integraciones, ...sinTarjeta]` → 8.
+//   I28. el teléfono no busca la pedida, o no se la pasa a la pantalla    → 11. el caso de Florencia
+//   I29. el teléfono busca la pedida sólo si NO es `oculto` (invertida)   → 11.
+//   I30. la hoja no mira `suelta`                                         → 11.
+//   I31. el teléfono lista con `getIntegraciones({ conOcultas: true })`   → 11.
+//   I32. la pedida se dibuja como fila de «Conectadas»                    → 11.
+
+test('12. los textos al cliente: el permiso de Google no inventa la causa y el teléfono no nombra la variable (25/10/2026)', () => {
+  const board = leer('app/integraciones/IntegracionesBoard.tsx');
+  const m = leer('app/m/configuraciones/integraciones/IntegracionesM.tsx');
+  assert.doesNotMatch(board, /se autorizó cuando solo pedíamos leerla/, 'el aviso culpa a una autorización vieja aunque se haya destildado la casilla recién');
+  assert.match(board, /deja marcada la casilla para ver y editar tus eventos/, 'el aviso no dice qué tildar en la pantalla de Google');
+  assert.match(m, /abierta\.detalle && !abierta\.detalle\.startsWith\('Falta configurar'\)/, 'la hoja del teléfono muestra «Falta configurar: ANTHROPIC_API_KEY»');
+});

@@ -141,6 +141,8 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
       </>
     );
   } else {
+    // «Mi cliente» dice los DOS caminos (25/10/2026): mientras MaKo no tenga Mercado Pago conectado o le falte el precio
+    // en pesos, toda alta así termina en «Cuenta pedida», sin acceso. Prometía «Le llega su acceso ya».
     cuerpo = (
       <>
         {leadId == null && (
@@ -163,7 +165,7 @@ export function ModalNuevoCliente({ leadId = null, nombre: nombreInicial = '', e
           </label>
           <label className="nc-op" data-on={paga === 'cliente'}>
             <input type="radio" name="nc-paga" checked={paga === 'cliente'} onChange={() => setPaga('cliente')} />
-            <span><b>Mi cliente</b><small>Le llega su acceso ya, y al terminar su configuración le aparece el pago.</small></span>
+            <span><b>Mi cliente</b><small>Si MaKo ya puede cobrarle, le llega su acceso y paga al terminar su configuración. Si no, su cuenta espera a que MaKo la habilite.</small></span>
           </label>
         </fieldset>
         {mal && <p className="nc-mal" role="alert">{mal}<ReportarASoporte /></p>}

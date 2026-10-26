@@ -114,10 +114,14 @@ async function cursosDe(ids: readonly number[]): Promise<Array<{ productoId: num
   return clases.filter(([, cs]) => cs.length > 0).map(([id]) => ({ productoId: id, nombre: nombre.get(id) ?? 'Producto' }));
 }
 
-/** Quién paga, dicho para el resumen que confirma una persona. */
+/**
+ * Quién paga, dicho para el resumen que confirma una persona. Si paga el cliente, los DOS caminos (25/10/2026): sin link
+ * del primer mes (MaKo sin Mercado Pago, sin precio en pesos, la pasarela caída) su acceso no sale y la cuenta espera la
+ * firma de MaKo (lib/partners.ts). Prometía «le llega su acceso ya».
+ */
 const textoQuienPaga = (paga: 'agencia' | 'cliente'): string =>
   paga === 'cliente'
-    ? `${ROTULO_QUIEN_PAGA.cliente}: le llega su acceso ya y, al terminar su onboarding, le aparece el pago.`
+    ? `${ROTULO_QUIEN_PAGA.cliente}: si MaKo ya puede cobrarle, le llega su acceso y, al terminar su onboarding, le aparece el pago; si no, su cuenta espera a que MaKo la habilite.`
     : `${ROTULO_QUIEN_PAGA.agencia}: queda esperando el pago de su primer mes, con tu tarjeta.`;
 
 /**
@@ -129,9 +133,13 @@ async function abrirYContar(ctx: Ctx, p: { nombre: string; email: string; leadId
   const r = await abrirCuentaDePartner({ agenciaWs: ctx.ws, nombre: p.nombre, email: p.email, leadId: p.leadId, pagador, paga: p.paga });
   if (!r.ok) return { ok: false, resumen: r.error };
   if (r.link && r.paga === 'agencia') ctx.aPersona?.(`Link de su primer mes: ${r.link}`);
-  const resumen = r.paga === 'cliente'
-    ? (r.acceso?.enviado ? 'Quedó su cuenta abierta y le llegó su acceso. Al terminar su onboarding le aparece el pago.' : 'Quedó su cuenta abierta, pero su acceso no salió: reenvíaselo desde Agency Dashboard.')
-    : (r.link ? 'Quedó su cuenta abierta. El link de su primer mes también está en Agency Dashboard.' : 'Quedó su cuenta abierta, esperando que MaKo la habilite.');
+  // ⚠️ «PAGA TU CLIENTE» SIN LINK DEL PRIMER MES (25/10/2026): su acceso NO salió (lib/partners.ts) y la cuenta espera la
+  // firma de MaKo, como si pagara la agencia. Decía «su acceso no salió: reenvíaselo desde Agency Dashboard»: falso, e
+  // imposible con la cuenta pendiente (no hay «Reenviar el acceso» y /api/agencia/reinvitar lo rechaza). Con link y el
+  // mail caído, tampoco: el aviso es a mano, como en la computadora (`avisoInvitacion`).
+  const resumen = r.paga === 'cliente' && r.link
+    ? (r.acceso?.enviado ? 'Quedó su cuenta abierta y le llegó su acceso. Al terminar su onboarding le aparece el pago.' : 'Quedó su cuenta abierta, pero el mail de su acceso no salió: avísale tú que entre a MaKo con Google desde ese email. Al terminar su onboarding le aparece el pago.')
+    : (r.link ? 'Quedó su cuenta abierta. El link de su primer mes también está en Agency Dashboard.' : 'Quedó su cuenta abierta, esperando que MaKo la habilite: ahí le llega su acceso.');
   return { ok: true, resumen, datos: { clienteWs: r.clienteWs, paga: r.paga } };
 }
 

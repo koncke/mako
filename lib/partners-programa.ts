@@ -31,7 +31,7 @@ import { PLANES_MAKO_DEFAULT } from './planes-mako';
 import {
   CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, PAGOS_PARA_ACREDITAR, altaLimpia, codigoDesdeNombre, cobroLimpio, contarPrograma,
   correspondeAcreditar, estadoDelReferido, esRobot, gananciaDelReferido, ganadoPorMes, leerAlta, leerVisitas, linkDePartner,
-  porGanar, precioDeListaPorMes, resumenDelLibro, sumarVisita,
+  porGanar, precioDeListaPorMes, resumenDelLibro, seFueSegunSusCobros, sumarVisita,
   type AltaPartner, type EstadoReferido, type Renglon, type Resumen,
 } from './partners-reglas';
 import { cuotasDeLugares, cobrosDeLugares } from './plan-acceso';
@@ -199,8 +199,12 @@ async function comprasConCodigo(plataforma: number, codigo: string): Promise<Com
   return (data ?? []) as CompraConCodigo[];
 }
 
-/** Meses pagados (cuotas cobradas) de cada negocio, con los cobros de la plataforma que pagan su lugar. */
-async function mesesPagadosDe(plataforma: number, wss: readonly number[]): Promise<Map<number, number>> {
+/**
+ * Meses pagados (cuotas cobradas) de cada negocio, con los cobros de la plataforma que pagan su lugar. Con `idos`, anota
+ * ahí los que se FUERON según esos mismos cobros (`seFueSegunSusCobros`, 25/10/2026, ronda 2: con el corte de acceso
+ * apagado, `workspaces.estado` sigue 'activo' aunque haya cancelado la prueba sin pagar, y el tablero lo contaba «en camino»).
+ */
+async function mesesPagadosDe(plataforma: number, wss: readonly number[], idos?: Set<number>): Promise<Map<number, number>> {
   const out = new Map<number, number>();
   if (!wss.length) return out;
   const cobros = (await cobrosDeLugares(plataforma)).filter((c) => c.alta_ws != null && wss.includes(Number(c.alta_ws)));
@@ -210,6 +214,7 @@ async function mesesPagadosDe(plataforma: number, wss: readonly number[]): Promi
     const ws = dueno.get(p.cobro_id);
     if (ws != null) out.set(ws, (out.get(ws) ?? 0) + 1);
   }
+  if (idos) for (const ws of wss) if (seFueSegunSusCobros(cobros.filter((c) => Number(c.alta_ws) === ws))) idos.add(ws);
   return out;
 }
 
@@ -233,8 +238,9 @@ export async function tableroDe(ws: number): Promise<Tablero> {
     const porWs = new Map<number, CompraConCodigo>();
     for (const c of compras) if (!porWs.has(Number(c.alta_ws))) porWs.set(Number(c.alta_ws), c);
     const wss = [...porWs.keys()];
+    const idos = new Set<number>();
     const [meses, nombres] = await Promise.all([
-      mesesPagadosDe(plataforma, wss).catch(() => new Map<number, number>()),
+      mesesPagadosDe(plataforma, wss, idos).catch(() => new Map<number, number>()),
       wss.length ? db.from('workspaces').select('id, nombre, estado').in('id', wss) : Promise.resolve({ data: [] }),
     ]);
     const filas = new Map(((nombres.data ?? []) as Array<{ id: number; nombre: string; estado: string }>).map((w) => [Number(w.id), w]));
@@ -246,7 +252,8 @@ export async function tableroDe(ws: number): Promise<Tablero> {
       return {
         ws: rws, nombre: w?.nombre ?? 'Un negocio', desde: c.created_at, mesesPagados: m, plan: nombreDelPlan(c.plan_mako),
         gananciaUsd: precio != null ? gananciaDelReferido(precio) : null,
-        estado: estadoDelReferido({ mesesPagados: m, acreditado: acreditados.has(rws), vigente: w?.estado === 'activo' }),
+        // Vigente: su negocio sin pausar Y sus cobros vivos (`idos`): con el corte apagado, nadie pausa al que se fue sin pagar.
+        estado: estadoDelReferido({ mesesPagados: m, acreditado: acreditados.has(rws), vigente: w?.estado === 'activo' && !idos.has(rws) }),
       };
     }).sort((a, b) => b.desde.localeCompare(a.desde));
   }
@@ -286,7 +293,7 @@ export type ResumenPrograma = {
   partners: number;
   /** Los que se hicieron partner este mes. */
   partnersEsteMes: number;
-  /** Negocios nuevos que entraron con un link o un código (la compra que CREÓ la cuenta, como cuenta `acreditarReferidos`). */
+  /** Negocios nuevos que entraron con un link o un código (la compra que los trajo, `COMPRA_QUE_TRAJO`, como `acreditarReferidos`). */
   referidos: number;
   /** Lo que ganaron los partners, lo que MaKo ya les transfirió y lo que falta transferir. */
   ganadoUsd: number; pagadoUsd: number; aPagarUsd: number;
@@ -306,7 +313,8 @@ export async function resumenDelPrograma(): Promise<ResumenPrograma> {
   const [altas, codigos, compras, libro] = await Promise.all([
     db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_ALTA_PARTNERS).limit(TOPE),
     db.from('partner_codigos').select('workspace_id, codigo').limit(TOPE),
-    // El MISMO filtro que `acreditarReferidos`: la compra que creó la cuenta, pagada (o devuelta después).
+    // El MISMO filtro que `acreditarReferidos`: la compra que TRAJO al negocio (`COMPRA_QUE_TRAJO`: la que creó la cuenta o
+    // la de «Empezar mi plan ya» que la reemplaza), pagada (o devuelta después).
     db.from('cobros').select('ref_codigo, alta_ws, created_at').eq('workspace_id', plataforma).not('ref_codigo', 'is', null)
       .or(COMPRA_QUE_TRAJO).not('alta_ws', 'is', null).in('estado', ['pagado', 'reembolsado'])
       .order('created_at', { ascending: true }).limit(TOPE),

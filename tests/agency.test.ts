@@ -22,9 +22,13 @@
 //   · la página de /agency deja entrar al cliente de una agencia (sin `agenciaDeCliente`)      → 1 fallo (2)
 //   · el CRM vuelve a llevar a /partners?cuenta=                                              → 1 fallo (2)
 //   · `buscarUsuarioPorEmail` va DESPUÉS de `crearWorkspace`                                  → 1 fallo (3)
-//   · el acceso sale aunque pague la agencia (sin el `if (paga === 'cliente')`)                → 1 fallo (3)
+//   · el acceso sale aunque pague la agencia (sin el `if (paga === 'cliente')`)                → 2 fallos (3)
 //   · el acceso sale aunque pague el cliente SIN link del primer mes (sin `&& cobro.ok`)      → 1 fallo (3)
-//   · el modal vuelve a decir «Le llegó su acceso» sin link (sin `&& hecho.link`)            → 1 fallo (3)
+//   · la guarda del acceso invertida (`&& !cobro.ok`; `|| cobro.ok`)                          → 1 fallo; 2 fallos (3)
+//   · el modal vuelve a decir «Le llegó su acceso» sin link (sin `&& hecho.link`, o `!hecho.link`) → 1 fallo (3)
+//   · el teléfono, lo mismo (sin `&& hecho.link`, o `&& !hecho.link`)                         → 1 fallo (3)
+//   · la API, lo mismo (sin `&& r.link`, o `&& !r.link`), o vuelve «reenvíaselo»              → 1 fallo (3)
+//   · «Mi cliente» vuelve a prometer «Le llega su acceso ya» (computadora, teléfono o API)    → 1 fallo (3)
 //   · `cartelDePago` deja cerrar el primer mes (`cerrable: true`)                             → 1 fallo (4)
 //   · /api/agencia/mi-pago contesta al super admin (sin `s.rol === 'admin'`)                  → 1 fallo (4)
 //   · el resumen de `abrirYContar` lleva el link                                              → 1 fallo (6)
@@ -152,8 +156,9 @@ test('abrir: el email, la agencia, el lead, el email libre ANTES de crear, nace 
     assert.ok(i >= 0, `falta, o está fuera de orden: ${paso}`);
     desde = i;
   }
-  // El acceso sale YA sólo si paga el cliente (tiene que hacer su onboarding); si paga la agencia, al habilitarse.
-  assert.match(guardaDelAcceso(abrir), /^if \(paga === 'cliente'[ )]/);
+  // El acceso sale YA sólo si paga el cliente (tiene que hacer su onboarding); si paga la agencia, al habilitarse. El
+  // `paga === 'cliente'` es un Y (o va solo): con un `||` saldría también si paga la agencia (25/10/2026).
+  assert.match(guardaDelAcceso(abrir), /^if \(paga === 'cliente'(?: && |\) \{)/);
   // Si paga el cliente, el link del primer mes va a SU email (y la renovación se la pide a él).
   assert.match(abrir, /email: paga === 'cliente' \? correo : p\.pagador/);
   assert.doesNotMatch(cuerpo(lib, 'leadParaPartners'), /estado_lead/, 'un lead de cualquier etapa, no sólo un ganado');
@@ -171,18 +176,55 @@ test('«paga tu cliente» sin link del primer mes: su acceso NO sale, y el modal
   // para siempre. Sin link queda esperando la firma, y lib/agencia-habilitar.ts le manda el acceso al habilitarla.
   const abrir = cuerpo(leer('lib/partners.ts'), 'abrirCuentaDePartner');
   assert.equal(abrir.split('invitarPorEmail(').length - 1, 1, 'un solo lugar manda el acceso');
-  assert.match(guardaDelAcceso(abrir), /cobro\.ok/, 'el acceso del cliente, sólo con el link del primer mes');
+  // La condición EXACTA (25/10/2026): un `/cobro\.ok/` suelto aceptaba `&& !cobro.ok` y `|| cobro.ok`.
+  assert.equal(guardaDelAcceso(abrir).trim(), "if (paga === 'cliente' && cobro.ok) {", 'el acceso del cliente, sólo con el link del primer mes');
   assert.match(cuerpo(leer('lib/agencia-habilitar.ts'), 'avisarClienteAprobado'), /if \(admin\.invitacion_enviada_at\) return/,
     'la habilitación manda el acceso a quien todavía no lo recibió');
   // El modal: «le llegó su acceso» sólo con link; sin él, «Cuenta pedida», como si pagara la agencia.
   const modal = leer('app/agency/NuevoCliente.tsx');
   const rama = modal.match(/\} else if \((hecho && hecho\.paga === 'cliente'[^)]*)\) \{/);
   assert.ok(rama, 'la rama de «paga tu cliente»');
-  assert.match(rama[1], /hecho\.link/, 'sin link no es «le llegó su acceso»: cae en «Cuenta pedida»');
+  assert.equal(rama[1], "hecho && hecho.paga === 'cliente' && hecho.link", 'sin link no es «le llegó su acceso»: cae en «Cuenta pedida»');
   const pedida = modal.slice(modal.indexOf('} else if (hecho) {'));
   assert.match(pedida, /'Cuenta pedida'/);
   assert.match(pedida, /Le llega su acceso cuando MaKo la habilite\./);
   assert.doesNotMatch(modal, /Todavía no hay link de pago/);
+});
+
+test('«paga tu cliente» sin link: el teléfono y la API tampoco dicen «le llegó su acceso» ni «reenvíaselo», y la opción dice los dos caminos (25/10/2026)', () => {
+  // El teléfono decía «Le llegó su acceso. Al terminar su configuración, le aparece el pago.» y la API «su acceso no
+  // salió: reenvíaselo desde Agency Dashboard»: el acceso no salió, no hay cobro, y con la cuenta pendiente no hay
+  // «Reenviar el acceso» (sólo con `estado === 'aprobado'`). Sin link es «Le llega su acceso cuando MaKo la habilite».
+  const app = leer('app/m/agency/AgencyM.tsx');
+  const rama = app.match(/\) : ([^?]*?) \? \(\s*<p className="m-agency-nota">\{hecho\.acceso \?\? /);
+  assert.ok(rama, 'la nota de «paga tu cliente» en el teléfono');
+  assert.equal(rama[1], "hecho.paga === 'cliente' && hecho.link", 'el teléfono: «le llegó su acceso» sólo con link');
+  const sinLink = app.search(/\) : hecho\.link \? null : \(\s*<p className="m-agency-nota">Le llega su acceso cuando MaKo la habilite\.<\/p>/);
+  assert.ok(sinLink > (rama.index ?? 0), 'sin link, el teléfono cae en «Le llega su acceso cuando MaKo la habilite»');
+
+  const run = leer('lib/api-mako/areas/cs.run.ts');
+  const ini = run.indexOf('async function abrirYContar(');
+  const contar = run.slice(ini, run.indexOf('\n}\n', ini));
+  const cond = contar.match(/const resumen = ([^?]*?)\s*\?\s*\(r\.acceso\?\.enviado \?/);
+  assert.ok(cond, 'el resumen de abrirYContar');
+  assert.equal(cond[1], "r.paga === 'cliente' && r.link", 'la API: «le llegó su acceso» sólo con link');
+  assert.match(contar, /: \(r\.link \? '[^']*' : 'Quedó su cuenta abierta, esperando que MaKo la habilite: ahí le llega su acceso\.'\);/);
+  assert.doesNotMatch(contar, /reenv/i, 'con la cuenta pendiente no hay cómo reenviar el acceso');
+
+  // Antes del alta no se sabe si habrá link: la promesa dice los dos caminos, en la computadora, el teléfono y la API.
+  const modal = leer('app/agency/NuevoCliente.tsx');
+  assert.match(modal, /<b>Mi cliente<\/b><small>Si MaKo ya puede cobrarle, le llega su acceso y paga al terminar su configuración\. Si no, su cuenta espera a que MaKo la habilite\.<\/small>/);
+  assert.match(app, /`Paga tu cliente, US\$\$\{usd\} al mes: si MaKo ya puede cobrarle, al terminar su configuración; si no, su cuenta espera a que MaKo la habilite\.`/);
+  const quienPaga = run.slice(run.indexOf('const textoQuienPaga'), run.indexOf(';\n', run.indexOf('const textoQuienPaga')));
+  assert.match(quienPaga, /si MaKo ya puede cobrarle, le llega su acceso y, al terminar su onboarding, le aparece el pago; si no, su cuenta espera a que MaKo la habilite\./);
+  for (const id of ['llevar_a_partners', 'abrir_cuenta_cliente_agency']) {
+    const d = DEFS.find((x) => x.id === id)!;
+    assert.match(d.descripcion, /o el cliente \(si MaKo ya puede cobrarle, le llega su acceso[^)]*; si no, su cuenta espera a que MaKo la habilite y ahí le llega su acceso\)/, id);
+    assert.match(d.escribe ?? '', /; si paga el cliente y el link salió, le manda su acceso$/, id);
+  }
+  const textos: Array<[string, string]> = [['computadora', modal], ['teléfono', app], ['API', quienPaga],
+    ...['llevar_a_partners', 'abrir_cuenta_cliente_agency'].map((id): [string, string] => [id, DEFS.find((x) => x.id === id)!.descripcion])];
+  for (const [donde, src] of textos) assert.doesNotMatch(src, /acceso ya/i, `${donde}: «le llega su acceso ya» no es cierto sin link`);
 });
 
 test('quién paga: sólo «cliente» es el cliente; lo demás es la agencia (lo que pasaba antes de poder elegir)', () => {
