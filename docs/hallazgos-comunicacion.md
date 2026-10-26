@@ -91,7 +91,8 @@ conversación y lo que sabe del negocio, como cuando le hablás a Claude». Vive
   `que_recomienda_mako`, «lo de la landing no aplica» no podía armar `decidir_recomendacion`. Se guardan los ids y los
   nombres (hasta 10) POR HERRAMIENTA, cada una con su hora (`unirRefs`): si cada turno pisara lo anterior, las `clave` se
   perdían apenas corría otra herramienta en el medio. Las últimas seis, vencen a las 14 h, y un turno sin nada con id no
-  toca nada. El nombre de una recomendación viene en `hacer`, no en `titulo`.
+  toca nada. El nombre de una recomendación viene en `hacer`, no en `titulo`; y entran TODAS las listas con id de la salida, no
+  sólo la primera (la `clave` de una descartada, en `descartadas`, es la que pide una «reabierta»).
 - ⚠️ **La memoria del grupo NO va al system de la red de la plataforma** (`baseRed`): nombra leads y lo que se habló, y
   la red corre sin datos de clientes.
 - **El conocimiento del negocio (Second Brain) se busca por el tema** (`consultaDelTurno`). Con «y eso?» solo,

@@ -233,13 +233,17 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
 
 test('10. de lo que devuelve una herramienta quedan sus ids y sus nombres (las `clave` de lo que MaKo recomendó también)', () => {
   // La forma de `que_recomienda_mako` (lib/api-mako/areas/mako.run.ts de «MaKo inteligente», 93d54117f): `clave` y `hacer`.
+  // La forma exacta, de su chat: { pantalla, recomendaciones: [{ clave, hacer, cambia, porque[], de_donde[], abrir?, … }],
+  // lo_que_mejoro: [{ clave, aceptada_el }], descartadas: [{ clave, como, cuando, motivo? }], nota? }.
   const rec = JSON.stringify({ pantalla: 'whatsapp', recomendaciones: [
-    { clave: 'leads-esperando', hacer: 'Contestar a los 4 leads que esperan respuesta', cambia: 'responder antes', porque: 'hace 6 h', de_donde: ['wa_mensajes'] },
-    { clave: 'landing-sin-pixel', hacer: 'Poner el píxel en la landing del webinar', cambia: 'medir', porque: '0 eventos', de_donde: ['landing'] },
-  ], lo_que_mejoro: [], descartadas: [] });
+    { clave: 'leads-esperando', hacer: 'Contestar a los 4 leads que esperan respuesta', cambia: 'responder antes', porque: ['hace 6 h'], de_donde: ['wa_mensajes'] },
+    { clave: 'landing-sin-pixel', hacer: 'Poner el píxel en la landing del webinar', cambia: 'medir', porque: ['0 eventos'], de_donde: ['landing'], abrir: 'https://hola-mako.com/web-generator' },
+  ], lo_que_mejoro: [], descartadas: [{ clave: 'subir-precio', como: 'no-aplica', cuando: '2026-10-20', motivo: 'ya lo subí en septiembre' }] });
   assert.deepEqual(referenciasDeLaSalida('que_recomienda_mako', rec), { herramienta: 'que_recomienda_mako', items: [
     { id: 'leads-esperando', nombre: 'Contestar a los 4 leads que esperan respuesta' },
     { id: 'landing-sin-pixel', nombre: 'Poner el píxel en la landing del webinar' },
+    // La descartada también: su `clave` es la que pide una «reabierta».
+    { id: 'subir-precio', nombre: 'ya lo subí en septiembre [descartadas]' },
   ] });
   // Una lista suelta, una adentro de otro objeto, un objeto solo y la salida de error del runner.
   assert.deepEqual(referenciasDeLaSalida('listar_tareas_plan', JSON.stringify([{ id: 12, titulo: 'Llamar a Norma' }, { id: 13, titulo: 'Mandar el presupuesto' }]))?.items.map((x) => x.id), ['12', '13']);
@@ -247,7 +251,7 @@ test('10. de lo que devuelve una herramienta quedan sus ids y sus nombres (las `
   assert.deepEqual(referenciasDeLaSalida('x', { content: JSON.stringify([{ lead_id: 5, nombre: 'Ana' }]), isError: false })?.items, [{ id: '5', nombre: 'Ana' }]);
   // Lo que no tiene ids no deja nada: un texto, JSON sin ids, una lista de números.
   for (const s of ['Listo, la pausé.', JSON.stringify({ ok: true, total: 14 }), JSON.stringify([1, 2, 3])]) assert.equal(referenciasDeLaSalida('x', s), null, s);
-  // Hasta diez cosas: una lista de 300 leads no es contexto.
+  // Hasta diez cosas por lista: una lista de 300 leads no es contexto.
   assert.equal(referenciasDeLaSalida('listar_leads', JSON.stringify(Array.from({ length: 300 }, (_, i) => ({ id: i, nombre: `L${i}` }))))?.items.length, 10);
 });
 

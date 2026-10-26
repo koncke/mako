@@ -235,10 +235,13 @@ export type RefDelTurno = { herramienta: string; items: Array<{ id: string; nomb
 export const CLAVE_REFS = (jid: string) => `mako.doer.refs.${jid}`;
 /** Lo que se mostró hace más que esto ya no es «la segunda» de nadie: la misma ventana que la charla. */
 export const VIGENCIA_REFS_MS = 14 * 3600_000;
+/** Cuántas cosas por lista, y en total por herramienta. */
 const ITEMS_MAX = 10;
+const ITEMS_TOTAL = 14;
 const CLAVES_ID = ['clave', 'id', 'lead_id', 'tarea_id', 'campana_id', 'landing_id', 'pendiente_id'] as const;
 // `hacer`: lo que dice una recomendación de `que_recomienda_mako` (lib/api-mako/areas/mako.run.ts, «MaKo inteligente»).
-const CLAVES_NOMBRE = ['titulo', 'nombre', 'hacer', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa'] as const;
+// `motivo` y `como`: los de una recomendación descartada (`descartadas`), que no trae otro nombre.
+const CLAVES_NOMBRE = ['titulo', 'nombre', 'hacer', 'title', 'name', 'resumen', 'texto', 'asunto', 'etapa', 'motivo', 'como'] as const;
 /** Cuántas herramientas se recuerdan a la vez: las últimas, cada una con lo último que mostró. */
 const HERRAMIENTAS_MAX = 6;
 
@@ -251,20 +254,21 @@ function itemDe(o: unknown): { id: string; nombre: string } | null {
   const nombre = CLAVES_NOMBRE.map((k) => comoTexto(r[k])).find(Boolean) ?? '';
   return { id, nombre: enUnaLinea(nombre, 70) };
 }
-/** La primera lista de cosas con id, en la salida o adentro (`{ tareas: [...] }`, `{ ok, datos: { items } }`); si no hay lista,
- *  la cosa con id que haya (`{ ok, landing: { id, nombre } }`). */
-function listaConIds(v: unknown, prof = 0): Array<{ id: string; nombre: string }> | null {
+/**
+ * TODAS las listas de cosas con id de la salida, en orden, con el nombre de su campo (`{ recomendaciones: [...], descartadas:
+ * [...] }`: la `clave` de una descartada es la que pide una «reabierta»). Si no hay ninguna lista, la cosa con id que haya
+ * (`{ ok, landing: { id, nombre } }`).
+ */
+function listasConIds(v: unknown, donde = '', prof = 0): Array<{ donde: string; items: Array<{ id: string; nombre: string }> }> {
   if (Array.isArray(v)) {
     const items = v.map(itemDe).filter((x): x is { id: string; nombre: string } => !!x);
-    return items.length ? items : null;
+    return items.length ? [{ donde, items: items.slice(0, ITEMS_MAX) }] : [];
   }
-  if (!v || typeof v !== 'object' || prof > 2) return null;
+  if (!v || typeof v !== 'object' || prof > 2) return [];
+  const listas = Object.entries(v as Record<string, unknown>).flatMap(([k, hijo]) => listasConIds(hijo, k, prof + 1));
+  if (listas.length) return listas;
   const solo = itemDe(v);
-  for (const hijo of Object.values(v as Record<string, unknown>)) {
-    const l = listaConIds(hijo, prof + 1);
-    if (l) return l;
-  }
-  return solo ? [solo] : null;
+  return solo ? [{ donde, items: [solo] }] : [];
 }
 
 /** Lo que mostró una herramienta, si mostró cosas con id. Un texto que no es JSON, o JSON sin ids, no deja nada. */
@@ -272,8 +276,10 @@ export function referenciasDeLaSalida(herramienta: string, salida: unknown): Ref
   const crudo = typeof salida === 'string' ? salida : salida && typeof salida === 'object' && 'content' in (salida as object) ? (salida as { content: unknown }).content : salida;
   let v: unknown = crudo;
   if (typeof crudo === 'string') { try { v = JSON.parse(crudo); } catch { return null; } }
-  const items = listaConIds(v);
-  return items?.length ? { herramienta, items: items.slice(0, ITEMS_MAX) } : null;
+  const listas = listasConIds(v);
+  // Con más de una lista, cada cosa dice de cuál viene («[descartadas]»): la primera va sin marca.
+  const items = listas.flatMap((l, i) => l.items.map((it) => (i > 0 && l.donde ? { id: it.id, nombre: `${it.nombre}${it.nombre ? ' ' : ''}[${l.donde}]` } : it)));
+  return items.length ? { herramienta, items: items.slice(0, ITEMS_TOTAL) } : null;
 }
 
 /** Lo guardado, vigente: cada herramienta con su hora (o la del guardado, en el formato de antes), sin lo vencido. */
