@@ -96,7 +96,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     // 17/10/2026 noche, la sidebar del prototipo: lo diario, Sales, Marketing y Create, en el orden de la sidebar.
     ['dashboard', 'graphics', 'diario', false],
     ['calendario', 'calendario', 'sales', false], ['automations', 'setting', 'sales', false],
-    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true],
+    ['cs', 'customer-success', 'sales', false], ['partners', 'partners', null, true], ['agency', 'agency', null, true],
     ['offer', 'offer', 'marketing', false], ['landing', 'landing-writer', 'marketing', false], ['ads', 'ads-manager', 'marketing', false],
     ['video', 'video-generator', 'create', false], ['image', 'image-editor', 'create', false], ['copywriting', 'ads-writer', 'create', false],
     ['mako', 'mako', null, false],

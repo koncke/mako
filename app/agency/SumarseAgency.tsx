@@ -10,6 +10,7 @@
 
 import { useState } from 'react';
 import { Modal } from '@/app/_ui';
+import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useRouter } from '@/app/_ui/Link';
 import { CUANTOS_CLIENTES, QUIEN_PAGA_HOY } from '@/lib/agency-reglas';
 import { sumarmeComoAgencyAction } from './actions';
@@ -75,7 +76,7 @@ export function SumarseAgency({ onCerrar }: { onCerrar: () => void }) {
         </div>
       )}
       {ocupado && <p className="sa-nota">Sumándote…</p>}
-      {error && <p className="sa-error" role="alert">{error}</p>}
+      {error && <p className="sa-error" role="alert">{error}<ReportarASoporte /></p>}
     </Modal>
   );
 }
