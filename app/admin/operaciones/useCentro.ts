@@ -46,9 +46,11 @@ import type { LecturaCredito } from '@/lib/credito-api';
 import { pasosDelChat, type PasoDelTurno, type PasosPorChat } from '@/lib/centro-pasos';
 import { claveDeLinea, estabilizarLista, minutoDe, mismoValor } from '@/lib/centro-estable';
 import { SIN_MARCAS, TOPE_REENVIO, aplicarMarca, armarConCita, armarReenvio, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
-import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, textoParaMandar, type Borrador } from '@/lib/centro-caja';
+import { ESPERA_LOCAL_MS, ESPERA_REMOTA_MS, borradorQueVale, claveDeBorrador, leerBorrador, notaQueSale, textoParaMandar, type Borrador } from '@/lib/centro-caja';
 import { guardarAdjuntos, leerAdjuntosGuardados } from './adjuntos-guardados';
 import { barrerEnviadasViejas, recordarEnviadas } from './fotos-enviadas';
+import { recordarVozEnviada } from './voces-enviadas';
+import type { NotaGrabada } from '@/app/_chat/nota-que-se-manda';
 import { textoDeRespuesta, type PreguntaChat } from '@/lib/centro-preguntas-chat';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import { TEXTO_SOLO_ADJUNTOS, copiar, subirAdjuntos, useFirma } from './mandar';
@@ -109,7 +111,9 @@ const trabajoDe = (p: Pedido): TrabajoP => ({
   texto: p.texto, estado: p.estado, motivo: p.motivo, entregado_at: p.entregado_at, cerrado_at: p.cerrado_at, cierre: p.cierre,
   ...(p.adjuntos?.length ? { adjuntos: p.adjuntos } : {}),
   ...(p.fotos?.length ? { fotos: p.fotos } : {}),
+  ...(p.voz ? { voz: p.voz } : {}),
 });
+
 
 export function useCentro(d: DatosCentro, avisar: Avisar) {
   const { base, sub, tabs, responder, deshacer } = d;
@@ -537,6 +541,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     if (dir) void guardarAdjuntos(dir, quedan.map((x) => x.file));
   };
   /** Después de mandar: la caja queda vacía. */
+  // La nota de voz que la caja grabó y transcribió (26/10/2026): sale como nota (VozEnviada.tsx), con su texto.
+  const notas = useRef<Record<string, NotaGrabada>>({});
+  const notaGrabada = (clave: string, n: NotaGrabada) => { notas.current[clave] = n; };
+
   const vaciarAdjuntos = (clave: string) => {
     for (const a of adjuntosRef.current[clave] ?? []) URL.revokeObjectURL(a.url);
     ponerAdjuntos(clave, []);
@@ -547,6 +555,8 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     // Con la cita arriba si responde a un mensaje (lib/centro-mensajes.ts → armarConCita): la PC entrega sólo lo firmado.
     const texto = armarConCita(citas[c.clave] ?? null, textoParaMandar(borradorDe(c.clave)));
     const archivos = adjuntosRef.current[c.clave] ?? [];
+    const nota = notaQueSale(notas.current[c.clave], borradorDe(c.clave));
+    delete notas.current[c.clave];
     const d = destinoDeChat(c);
     if (!d.sesion || !envioDe(c).puede || enviando || (!texto.trim() && !archivos.length)) return;
     setEnviando(true);
@@ -559,12 +569,15 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     }
     // El modelo y el esfuerzo sólo viajan a un chat de la app (lib/centro-cuentas.ts → aceptaModelo).
     const como = aceptaModelo(d.sesion) ? { modelo, esfuerzo } : {};
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', como, subidos);
+    const voz = nota ? { segundos: Math.max(1, Math.round(nota.segundos)) } : null;
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', como, subidos, voz);
     setEnviando(false);
     if (!r.ok) { avisar(r.error, 'bad'); return; }
+    // La nota se escucha en el acto en este navegador, y su MP3 sube para escucharla en otro (voces-enviadas.ts).
+    if (nota) recordarVozEnviada(r.id, nota.audio);
     anotarEnviado({
       id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto: texto.trim() || TEXTO_SOLO_ADJUNTOS,
-      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+      estado: 'escrito', motivo: null, cierre: null, ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}), ...(voz ? { voz } : {}),
     });
     // Las fotos se ven en el acto en este navegador, y su miniatura sube al servidor para verla en otro dispositivo
     // (FotosEnviadas.tsx: el bucket borra el original al entregar). `subidos` va en el orden de `archivos`.
@@ -683,7 +696,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     marcasDe, marcar, citaDe, citar, reenviar, nombresCuentas, renombrarCuenta, leerCreditoApi, cambiarCreditoDelNegocio, pasosDe,
     lineasDe, previas, enCursos, yaSinVer, yaVistos, marcarYaVisto, avisos, pendientesTicketera, refrescar, responderAca, deshacerAca,
     envioDe, borradorDe, borradorDeLista, ponerBorrador, limpiarBorrador, enviando, mandar, anotarEnviado, copiarConAviso, crearClave, copiarClave,
-    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos,
+    adjuntosDe, puedeAdjuntar, sumarAdjuntos, quitarAdjunto, vaciarAdjuntos, notaGrabada,
     /** Se pegó una imagen en un chat que todavía no recibe adjuntos. */
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     /** «Pegar» del «+» sin nada que pegar (20/10/2026). */

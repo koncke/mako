@@ -223,6 +223,27 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-avance { display: block; max-width: 100%; padding: 6px 10px; border: 0; border-radius: 10px; background: color-mix(in srgb, var(--ink) 5%, transparent); font: inherit; font-size: var(--fs-sm); color: var(--dim); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .co-avance:hover { color: var(--ink); }
 .co-avance__abierto { display: block; margin-top: 6px; }
+/* Los «Avance» seguidos, en UNA burbuja (25/10/2026, Hilo.tsx → Avances): arriba el último, entero; abajo los anteriores, una
+   fila cada uno con su flecha (la de los desplegables de las preguntas), su hora y su primera oración. */
+.co-avances { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.co-avances__rotulo { margin: 0; font-size: var(--fs-meta); font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--faint); }
+.co-avances__ultimo { font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.co-avances__ultimo--plegado { max-height: 9em; overflow: hidden; cursor: pointer; border-radius: 6px;
+  -webkit-mask-image: linear-gradient(#000 70%, transparent); mask-image: linear-gradient(#000 70%, transparent); }
+.co-avances__ultimo--plegado:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-avances__lista { display: flex; flex-direction: column; gap: 1px; margin: 2px 0 0; padding: 6px 0 0; list-style: none; border-top: 1px solid var(--border); }
+.co-avances__item { display: flex; align-items: baseline; gap: 8px; width: 100%; min-width: 0; padding: 6px; border: 0; border-radius: 8px;
+  background: none; font: inherit; font-size: var(--fs-sm); color: var(--dim); text-align: left; cursor: pointer; }
+.co-avances__item:hover { background: var(--velo-hover); color: var(--ink); }
+.co-avances__item:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.co-avances__flecha { flex: none; width: 12px; font-size: 12px; color: var(--dim); }
+.co-avances__hora { flex: none; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--faint); }
+/* La oración entera, en los renglones que hagan falta: nunca un corte por ancho (Martín, 25/10: «que no haya nunca un limite de caracteres»). */
+.co-avances__linea { min-width: 0; overflow-wrap: anywhere; }
+.co-avances__abierto { padding: 2px 6px 8px 24px; font-size: var(--fs-sm); line-height: 1.5; overflow-wrap: anywhere; }
+.co-avances__mas { align-self: flex-start; margin: 0 0 0 6px; padding: 4px 0; border: 0; background: none; font: inherit;
+  font-size: var(--fs-meta); font-weight: 600; color: var(--primary); cursor: pointer; }
+@media (hover: none) and (pointer: coarse) { .co-avances__item { min-height: 40px; padding-block: 10px; } }
 .co-mas {
   display: block;
   width: 100%;
@@ -433,9 +454,18 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-el__md { white-space: normal; }
 .co-el__md > :first-child { margin-top: 0; }
 .co-el__md > :last-child { margin-bottom: 0; }
-.co-el__dl { margin: 4px 0 0; display: grid; grid-template-columns: max-content 1fr; gap: 2px 10px; font-size: var(--fs-sm); }
-.co-el__dl dt { color: var(--faint); }
-.co-el__dl dd { margin: 0; overflow-wrap: anywhere; }
+/* El cierre de un chat, como una respuesta de Claude (26/10/2026, Hilo.tsx → CierreDelChat): cada parte con su rótulo ARRIBA
+   de su texto (la tabla de dos columnas dejaba la de la derecha angostísima en el teléfono). En la computadora, si todas son
+   cortas, el rótulo al lado. La prueba, chica y gris al pie. */
+.co-cierre { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+.co-cierre__rotulo { margin: 0 0 3px; font-size: var(--fs-meta); font-weight: 600; color: var(--faint); }
+.co-cierre__texto { font-size: var(--fs-sm); line-height: 1.6; overflow-wrap: anywhere; }
+@media (min-width: 641px) {
+  .co-cierre--corto { display: grid; grid-template-columns: max-content 1fr; gap: 6px 14px; }
+  .co-cierre--corto .co-cierre__parte { display: contents; }
+  .co-cierre--corto .co-cierre__rotulo { margin: 0; line-height: 1.6; }
+}
+.co-cierre__prueba { margin: 10px 0 0; font-size: 11px; line-height: 1.4; color: var(--faint); overflow-wrap: anywhere; }
 
 .co-vacio {
   margin: auto;
@@ -1465,6 +1495,14 @@ a.co-link:hover { color: var(--primary-strong); }
 .co-burbuja--con-adjuntos { padding-top: 4px; padding-inline: 4px; }
 .co-burbuja--con-adjuntos > :not(.co-fotos):not(.co-doc-enviado) { margin-inline: 8px; }
 .co-burbuja--con-adjuntos > .co-burbuja__pie { margin-right: 8px; }
+/* La nota de voz de Martín (26/10/2026, VozEnviada.tsx): el reproductor de la casa (AudioPlay, 240 px como en el chat con MaKo)
+   y, si se abrió desde el menú, la transcripción debajo. Mientras el audio llega, un reproductor quieto del mismo tamaño. */
+.co-voz { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.co-voz__quieto { display: flex; align-items: center; gap: 9px; width: 240px; max-width: 100%; height: 40px; }
+.co-voz__play { flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--primary); opacity: .45; }
+.co-voz__barra { flex: 1; height: 4px; border-radius: 2px; background: var(--border); }
+.co-voz__dur { flex: none; font-size: var(--fs-meta); font-variant-numeric: tabular-nums; color: var(--dim); }
+.co-voz__transcripcion { display: block; padding-top: 6px; border-top: 1px solid var(--border); font-size: var(--fs-sm); line-height: 1.5; color: var(--dim); overflow-wrap: anywhere; }
 .co-fotos { display: grid; gap: 3px; width: min(300px, 62vw); margin-bottom: 4px; border-radius: 12px; overflow: hidden; }
 .co-fotos--2, .co-fotos--4 { grid-template-columns: 1fr 1fr; }
 .co-fotos--3 { grid-template-columns: 1fr 1fr; }

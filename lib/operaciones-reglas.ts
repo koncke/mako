@@ -90,6 +90,8 @@ export type PayloadPedido = {
   esfuerzo?: Esfuerzo | null;
   /** Las fotos y los PDF que van con el trabajo (17/10/2026). Ausente = sin adjuntos: el texto firmado es el de siempre. */
   adjuntos?: AdjuntoPedido[];
+  /** Lo mandó como NOTA DE VOZ (26/10/2026): `texto` es su transcripción. Ausente = escrito («Las notas de voz enviadas»). */
+  voz?: VozDelPedido;
 };
 
 // ── Los adjuntos de un trabajo (17/10/2026) ──────────────────────────────────────────────────────────────────────────
@@ -303,6 +305,50 @@ export function miniaturasVencidas(objetos: ReadonlyArray<{ name?: string | null
   });
 }
 
+// ── Las notas de voz enviadas (26/10/2026) ───────────────────────────────────────────────────────────────────────────
+// Martín, desde el Centro, con captura de su nota de voz dibujada como texto: «Y esto fue un audio, se deberia mandar el
+// audio directamente... Y de ultima en los 3 puntitos ver la transcripción». Lo que se graba en la caja se sigue
+// TRANSCRIBIENDO y el chat recibe ese texto, como siempre (app/_chat/nota-que-se-manda.ts). Lo nuevo:
+//   · el trabajo FIRMA que fue una nota (`voz: { segundos }`). Los dos validadores (este y el del cartero) dejan pasar una
+//     clave que no conocen, así que la PC lo entrega igual y no hace nada con él: no hace falta un cartero nuevo;
+//   · el navegador que la grabó sube el MP3, y queda del lado del servidor como la miniatura de una foto: bucket privado,
+//     URL firmada de 10 minutos, sólo para quien puede operar, 14 días (lib/operaciones-adjuntos.ts → «Las notas de voz»);
+//   · la burbuja dibuja el reproductor de la casa (AudioPlay) y la transcripción va en el menú del mensaje.
+// ⚠️ EL AUDIO NUNCA VA A LA PC: no es un adjunto (no está en `adjuntos`), y el cartero sólo baja lo que nombra `adjuntos`.
+export type VozDelPedido = { segundos: number };
+/** Lo que dura como mucho una nota (lo mismo que se transcribe sin cortar no pasa de unos minutos). */
+export const MAX_SEGUNDOS_VOZ = 60 * 60;
+/** Lo que pesa como mucho el MP3 de una nota: lo que entra en un POST a Vercel (~4,5 MB). A 96 kbps son ~5 minutos. */
+export const MAX_BYTES_VOZ = 4 * 1024 * 1024;
+/** Los segundos de una nota, enteros y en su rango (null = no vale). */
+export function segundosDeVoz(x: unknown): number | null {
+  if (typeof x !== 'number' || !Number.isFinite(x)) return null;
+  const s = Math.round(x);
+  return s >= 1 && s <= MAX_SEGUNDOS_VOZ ? s : null;
+}
+/** La nota de voz de un texto firmado (null = no lo fue, o no se lee). */
+export function vozDeFirmado(firmado: string | null | undefined): VozDelPedido | null {
+  try {
+    const o = JSON.parse(firmado ?? '') as { voz?: { segundos?: unknown } | null };
+    const segundos = o?.voz && typeof o.voz === 'object' ? segundosDeVoz(o.voz.segundos) : null;
+    return segundos ? { segundos } : null;
+  } catch {
+    return null;
+  }
+}
+/** ¿Es un MP3? Por los BYTES: la etiqueta ID3, o un cuadro MPEG (la sincronía de 11 bits). Lo que arma la caja es un MP3. */
+export function esMp3(b: Uint8Array): boolean {
+  if (b.length < 4) return false;
+  if (b[0] === 0x49 && b[1] === 0x44 && b[2] === 0x33) return true;
+  return b[0] === 0xff && (b[1] & 0xe0) === 0xe0 && (b[1] & 0x06) !== 0;
+}
+/** null si el audio vale para ESE trabajo (que FIRMÓ ser una nota); si no, el motivo (lo que contesta la ruta). */
+export function problemaDeVoz(bytes: Uint8Array, voz: VozDelPedido | null): string | null {
+  if (!voz) return 'Ese mensaje no es una nota de voz.';
+  if (!bytes.length || bytes.length > MAX_BYTES_VOZ) return 'La nota pesa demasiado.';
+  return esMp3(bytes) ? null : 'Solo una nota de voz.';
+}
+
 // ── Abrir un chat de terminal con un clic (17/10/2026, docs/diseno-nuevo-chat-un-clic.md) ──────────────────────────────
 // Martín: «un clic + el permiso de la PC», nunca pegar un comando en PowerShell. Es un trabajo firmado como cualquiera,
 // con `destino: 'nuevo'`: la `cuenta` dice en qué terminal, el `titulo` es el nombre del chat y el `texto` su primer
@@ -347,13 +393,16 @@ export function armarFirmable(p: PayloadPedido): string {
     ...(p.esfuerzo ? { esfuerzo: p.esfuerzo } : {}),
     // Los adjuntos, sólo si hay: sin ellos, el texto firmado es el de siempre.
     ...(p.adjuntos?.length ? { adjuntos: p.adjuntos.map((a) => ({ ref: a.ref, nombre: a.nombre, mime: a.mime, bytes: a.bytes, sha256: a.sha256 })) } : {}),
+    // La nota de voz, sólo si lo fue: sin ella, el texto firmado es el de siempre.
+    ...(p.voz ? { voz: { segundos: p.voz.segundos } } : {}),
   });
 }
 
 export function nuevoPayload(entrada: {
   id: string; texto: string; destino: string; cuenta: string | null; titulo: string | null; alcance: Alcance;
-  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[];
+  modelo?: Modelo | null; esfuerzo?: Esfuerzo | null; adjuntos?: readonly AdjuntoPedido[]; voz?: VozDelPedido | null;
 }, ahora: number): PayloadPedido {
+  const segundos = entrada.voz ? segundosDeVoz(entrada.voz.segundos) : null;
   return {
     v: VERSION_PEDIDO,
     id: entrada.id,
@@ -367,6 +416,7 @@ export function nuevoPayload(entrada: {
     modelo: entrada.modelo ?? null,
     esfuerzo: entrada.esfuerzo ?? null,
     ...(entrada.adjuntos?.length ? { adjuntos: [...entrada.adjuntos] } : {}),
+    ...(segundos ? { voz: { segundos } } : {}),
   };
 }
 

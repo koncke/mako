@@ -69,8 +69,14 @@ const celdas = (t: string) => t.replace(/^\|/, '').replace(/\|$/, '').split('|')
 const ES_FILA_TABLA = /^\|.*\|$/;
 const ES_SEPARADOR_TABLA = /^\|[\s:|-]+\|$/;
 
-export function Markdown({ text, compacto = false, enlaces = false }: { text: string; compacto?: boolean; enlaces?: boolean }) {
+/**
+ * `aire` (26/10/2026, Martín: «Que se parezca a Claude las respuestas»): el espacio de una respuesta de Claude, entre
+ * párrafos y entre los ítems de una lista. Lo usan las respuestas de los chats del Ops Center; lo demás queda como estaba.
+ */
+export function Markdown({ text, compacto = false, enlaces = false, aire = false }: { text: string; compacto?: boolean; enlaces?: boolean; aire?: boolean }) {
   const lines = text.split('\n');
+  const lista = { margin: aire ? '2px 0 10px' : '4px 0', display: 'flex', flexDirection: 'column' as const, gap: aire ? 6 : 3 };
+  const item = { lineHeight: aire ? 1.6 : 1.5 };
   const blocks: ReactNode[] = [];
   let bullets: string[] = [];
   let numeradas: string[] = [];
@@ -80,12 +86,12 @@ export function Markdown({ text, compacto = false, enlaces = false }: { text: st
   const flush = () => {
     if (bullets.length) {
       const items = bullets;
-      blocks.push(<ul key={`ul-${blocks.length}`} style={{ margin: '4px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces)}</li>)}</ul>);
+      blocks.push(<ul key={`ul-${blocks.length}`} style={{ ...lista, paddingLeft: 20 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `li-${blocks.length}-${i}`, enlaces)}</li>)}</ul>);
       bullets = [];
     }
     if (numeradas.length) {
       const items = numeradas;
-      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ margin: '4px 0', paddingLeft: 22, display: 'flex', flexDirection: 'column', gap: 3 }}>{items.map((b, i) => <li key={i} style={{ lineHeight: 1.5 }}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces)}</li>)}</ol>);
+      blocks.push(<ol key={`ol-${blocks.length}`} start={desde} style={{ ...lista, paddingLeft: 22 }}>{items.map((b, i) => <li key={i} style={item}>{renderInline(b, `ol-${blocks.length}-${i}`, enlaces)}</li>)}</ol>);
       numeradas = [];
     }
     if (tabla.length) {
@@ -146,8 +152,8 @@ export function Markdown({ text, compacto = false, enlaces = false }: { text: st
     if (t === '') return;
     if (/^---+$/.test(t)) { blocks.push(<hr key={idx} style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '8px 0' }} />); return; }
     const h = t.match(/^(#{1,6})\s+(.*)$/);
-    if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`, enlaces)}</div>); return; }
-    blocks.push(<p key={idx} style={{ margin: compacto ? '2px 0' : '3px 0', lineHeight: 1.55 }}>{renderInline(t, `p-${idx}`, enlaces)}</p>);
+    if (h) { const lvl = h[1].length; blocks.push(<div key={idx} style={{ fontWeight: 600, fontSize: lvl === 1 ? 16 : lvl === 2 ? 15 : 14, color: 'var(--ink)', margin: aire ? '12px 0 4px' : '6px 0 2px' }}>{renderInline(h[2], `h-${idx}`, enlaces)}</div>); return; }
+    blocks.push(<p key={idx} style={{ margin: aire ? '0 0 10px' : compacto ? '2px 0' : '3px 0', lineHeight: aire ? 1.6 : 1.55 }}>{renderInline(t, `p-${idx}`, enlaces)}</p>);
   });
   // Un bloque de código sin cerrar se dibuja igual (lo que llegó hasta ahí).
   if (codigo) blocks.push(<pre key="pre-fin" style={{ ...CODIGO_EN_LINEA, margin: '6px 0', padding: '8px 10px', borderRadius: 8, overflowX: 'auto', whiteSpace: 'pre', lineHeight: 1.45 }}>{(codigo as string[]).join('\n')}</pre>);

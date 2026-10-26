@@ -55,6 +55,7 @@ import { CajaChat } from '@/app/_chat/CajaChat';
 import type { Centro } from '@/app/admin/operaciones/useCentro';
 import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/PiezasCentro';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
+import { alternarTranscripcion } from '@/app/admin/operaciones/voces-enviadas';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
 import { SIN_MARCAS } from '@/lib/centro-mensajes';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -318,6 +319,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     setMenuWA(null);
     if (!elegido) return;
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); void centro.marcar(elegido, { tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
+    if (id === 'transcripcion') { if (m.trabajo) alternarTranscripcion(m.trabajo.id); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
     if (id === 'copiar') { void copiar(m.texto).then((ok) => toast(ok ? 'Copiado' : 'No pude copiar')); return; }
     if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
@@ -368,7 +370,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
       <div className="m-operaciones-caja">
         {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026), la misma de la computadora: en el teléfono Enter baja de
             renglón y se manda con el botón. Arriba, la cita del mensaje que se responde; en el «+», con qué corre. */}
-        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
+        <CajaChat texto={texto} onTexto={ponerTexto} onMandar={mandar} onNota={(n) => centro?.notaGrabada(elegido.clave, n)} enviando={enviando} placeholder={`Escribe a ${elegido.titulo}`}
           adjuntos={adjuntos} campo={caja} seguir={seguirHoja} altoMax={null} onErrorMic={(m) => toast(m)} fila="m-operaciones-caja__fila"
           arriba={cita ? <CitaCaja cita={cita} onQuitar={() => centro.citar(elegido.clave, null)} verTodo={verTodo} /> : null}
           mas={centro ? (cerrar) => <><SelectoresDeEnvio centro={centro} chat={elegido} /><TareasVinculadas tareas={centro.tareasDe(elegido)} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></> : undefined} />

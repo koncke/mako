@@ -24,6 +24,8 @@ import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio,
 import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
+import { alternarTranscripcion } from './voces-enviadas';
+import type { NotaGrabada } from '@/app/_chat/nota-que-se-manda';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -56,7 +58,7 @@ export type WaDeConversacion = {
 };
 
 export function Conversacion({
-  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onCrearClave, onCopiarClave, onVolver,
+  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onNota, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
   preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
 }: {
@@ -111,6 +113,8 @@ export function Conversacion({
   onTexto: (t: string) => void;
   enviando: boolean;
   onMandar: () => void;
+  /** La nota de voz que grabó la caja, antes de que salga su transcripción: sale como nota (useCentro.ts → notaGrabada). */
+  onNota?: (n: NotaGrabada) => void;
   onCrearClave: () => void;
   onCopiarClave: () => void;
   onVolver: () => void;
@@ -192,6 +196,7 @@ export function Conversacion({
     setMenuWA(null);
     if (!wa) return;
     if (id.startsWith('reaccion:')) { const e = id.slice('reaccion:'.length); wa.onMarcar({ tipo: 'reaccion', id: m.id, emoji: marcas.reacciones[m.id] === e ? null : e }); return; }
+    if (id === 'transcripcion') { if (m.trabajo) alternarTranscripcion(m.trabajo.id); return; }
     if (id === 'responder') { accionesWA.responder(m); return; }
     if (id === 'copiar') { wa.onCopiar(m.texto); return; }
     if (id === 'reenviar' || id === 'info') { setPanelWA({ tipo: id, m }); return; }
@@ -235,7 +240,7 @@ export function Conversacion({
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
                 responde (con su ✕, WhatsApp); en el «+», con qué corre y las tareas del chat. */}
-            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} enviando={enviando}
+            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onNota={onNota} enviando={enviando}
               placeholder={`Escribe a ${chat.titulo}`} tituloMandar="Firmar y mandar (Enter)" enterManda
               adjuntos={adjuntos} campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic}
               arriba={wa?.cita ? <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} /> : null}

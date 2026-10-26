@@ -28,6 +28,7 @@ import { destinoDeDecision } from './decisiones-aviso';
 import { textoDeRespuesta, type Decision } from '../app/admin/runway/decisiones';
 import { usoDeCuenta, type Cuota } from './centro-uso';
 import { estaAbierta, preguntaDeTrabajo, resumenDeRespuesta, seContestaEnLaApp, type PreguntaChat } from './centro-preguntas-chat';
+import { listasEnRenglones } from './respuesta-como-claude';
 
 export type EstadoChat = 'trabajando' | 'abierto' | 'cerrado' | 'sin_dato';
 
@@ -87,6 +88,8 @@ export type TrabajoP = {
   adjuntos?: string[];
   /** De esos, los que son FOTOS (23/10/2026): sólo su burbuja le pide la miniatura al servidor (FotosEnviadas.tsx). */
   fotos?: string[];
+  /** Lo mandó como NOTA DE VOZ (26/10/2026): se dibuja el reproductor y `texto` (su transcripción) va en el menú. */
+  voz?: { segundos: number };
 };
 
 const normal = (s: string) => s.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/\s+/g, ' ').trim();
@@ -327,11 +330,16 @@ export type CompletadoDeChat = { clave: string; titulo: string; cuenta: string |
  * la API de MaKo (lib/api-mako/areas/operaciones.run.ts, «Todo MaKo se debe poder utilizar por API», Martín, 25/10/2026). El más
  * nuevo primero. Ni los Runners ni la nube (no son chats de Martín que cierran).
  */
-export function completadosDeLasCuentas(
-  carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>,
-  ultimos: Readonly<Record<string, readonly TurnoChat[]>>,
-  vistos: Readonly<YaVistos>,
-): CompletadoDeChat[] {
+/** Un chat de la lista, juntado por su nombre (todas sus sesiones, de todas las cuentas), con lo que necesita la API. */
+export type ChatPorNombre = { clave: string; titulo: string; cuenta: string | null; locales: string[] };
+
+/** Los chats de las cuentas juntados por su nombre, como la lista del Ops Center (sin el Runner ni lo de la nube). Lo usan los
+ *  «Completado» y los mensajes de un chat por la API: las dos miran el MISMO chat que la pantalla. */
+export function chatsPorNombre(carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>): ChatPorNombre[] {
+  return [...gruposPorNombre(carteros)].map(([g, x]) => ({ clave: `nombre:${g}`, titulo: x.titulo, cuenta: x.cuenta, locales: [...new Set(x.locales)] }));
+}
+
+function gruposPorNombre(carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>) {
   const grupos = new Map<string, { titulo: string; cuenta: string | null; locales: string[]; actividad: number }>();
   for (const k of carteros) {
     for (const ch of k.chats) {
@@ -345,8 +353,16 @@ export function completadosDeLasCuentas(
       if (actividad > ya.actividad) { if (g !== 'cerebro') ya.titulo = ch.titulo; ya.cuenta = k.cuenta; ya.actividad = actividad; }
     }
   }
+  return grupos;
+}
+
+export function completadosDeLasCuentas(
+  carteros: ReadonlyArray<{ cuenta: string; chats: readonly ChatCartero[] }>,
+  ultimos: Readonly<Record<string, readonly TurnoChat[]>>,
+  vistos: Readonly<YaVistos>,
+): CompletadoDeChat[] {
   const out: CompletadoDeChat[] = [];
-  for (const [g, x] of grupos) {
+  for (const [g, x] of gruposPorNombre(carteros)) {
     const clave = `nombre:${g}`;
     const lineas: LineaChat[] = x.locales.flatMap((l) => (ultimos[l] ?? []).map((t) => ({ tipo: 'turno' as const, instante: Date.parse(t.at), turno: t })));
     const t = completadoSinVer(lineas, vistos[clave]);
@@ -604,6 +620,108 @@ export function turnosParaOtro(lineas: readonly LineaChat[]): Set<string> {
     else if (deOtro && !esYaEsta(l.turno.texto)) out.add(l.turno.uuid);
   }
   return out;
+}
+
+// ── Los «Avance» seguidos, en UNA burbuja (25/10/2026) ───────────────────────────────────────────────────────────────
+// Martín, desde el Centro y con captura del chat «Cerebro» en el teléfono: «me llegan una cantidad impresionante de mensajes de
+// "avance", podrían agruparlos todos en 1 de ultima y que dentro tenga varios desplegables». Una fila entera (muñeco, burbuja y
+// hora) por cada uno: siete seguidos llenaban la pantalla.
+
+/** Dos o más «Avance» seguidos de un chat, del mismo día: una burbuja (app/admin/operaciones/Hilo.tsx → Avances). */
+export type GrupoDeAvances = { tipo: 'avances'; instante: number; avances: readonly LineaChat[] };
+/** Lo que dibuja el hilo: una línea, o un grupo de avances. */
+export type PiezaDelHilo = LineaChat | GrupoDeAvances;
+/** ¿Es un «Avance»? Un turno que el chat le escribió a OTRO chat (`turnosParaOtro`): lo que se dibuja plegado. */
+export const esAvance = (l: LineaChat): boolean => l.tipo === 'turno' && l.plegado === true;
+const diaDeAR = (t: number) => Math.floor((t - 3 * 3_600_000) / 86_400_000);
+
+/**
+ * Junta en un grupo los «Avance» que van uno detrás del otro en lo que se dibuja (`lineasDeConversacion`), del mismo día.
+ * Cualquier otra línea corta el grupo: una pregunta, un «Completado» (un «Ya está» nunca es un avance), lo que escribió
+ * Martín. El cambio de día también, porque entre medio va la píldora del día. Uno solo queda como estaba.
+ * ⚠️ NO SACA NI AGREGA NADA: es cómo se dibujan. Lo «sin ver», el «Completado» y lo que dice la fila miran las LÍNEAS, no esto.
+ */
+export function agruparAvances(lineas: readonly LineaChat[]): PiezaDelHilo[] {
+  const out: PiezaDelHilo[] = [];
+  let tanda: LineaChat[] = [];
+  const cerrar = () => {
+    if (tanda.length >= 2) out.push({ tipo: 'avances', instante: tanda[tanda.length - 1].instante, avances: tanda });
+    else out.push(...tanda);
+    tanda = [];
+  };
+  for (const l of lineas) {
+    if (esAvance(l)) {
+      if (tanda.length && diaDeAR(tanda[0].instante) !== diaDeAR(l.instante)) cerrar();
+      tanda.push(l);
+    } else {
+      cerrar();
+      out.push(l);
+    }
+  }
+  cerrar();
+  return out;
+}
+
+/**
+ * Lo que dice un chat para la API (`ver_mensajes_operaciones`), con lo MISMO que la conversación de la pantalla
+ * (`historialDelChat`): sus turnos, sus preguntas, y lo que Martín le mandó desde el Ops Center. El trabajo que contesta una
+ * pregunta va ADENTRO de ella; uno con la marca de una pregunta que no se conoce sale como trabajo, para no perderlo. El turno
+ * que la PC guardó de un trabajo no se repite: `lineasDeConversacion` lo saca.
+ * ⚠️ SIN LAS PREGUNTAS, LA API CONTABA OTRA CONVERSACIÓN (26/10/2026, la revisión del tren-m): la respuesta de Martín no salía
+ *    por ningún lado (su trabajo se descartaba y su turno lo saca `lineasDeConversacion`), y dos tandas de avances que la
+ *    pregunta separa en la pantalla salían juntas.
+ */
+export function lineasParaLaApi(turnos: readonly TurnoChat[], trabajos: readonly TrabajoP[], preguntas: readonly PreguntaChat[] = []): LineaChat[] {
+  const out: LineaChat[] = [];
+  const conocidas = new Set(preguntas.map((p) => p.id));
+  const respuestaDe = new Map<string, TrabajoP>();
+  for (const w of trabajos) { const id = preguntaDeTrabajo(w.texto); if (id && conocidas.has(id)) respuestaDe.set(id, w); }
+  const contestan = new Set([...respuestaDe.values()].map((w) => w.id));
+  for (const u of turnos) { const t = fecha(u.at); if (t != null) out.push({ tipo: 'turno', instante: t, turno: u }); }
+  for (const p of preguntas) { const t = fecha(p.at); if (t != null) out.push({ tipo: 'pregunta', instante: t, pregunta: p, trabajo: respuestaDe.get(p.id) ?? null }); }
+  for (const w of trabajos) {
+    const t = fecha(w.created_at);
+    if (t != null && !contestan.has(w.id)) out.push({ tipo: 'trabajo', instante: t, trabajo: w });
+  }
+  return out.sort((x, y) => x.instante - y.instante);
+}
+
+/**
+ * Una pieza de la conversación como la devuelve la API (`ver_mensajes_operaciones`): lo de Martín y lo del chat, un avance
+ * suelto, o un grupo con el último entero y los anteriores del más nuevo al más viejo, cada uno con su primera oración (lo
+ * que se ve en la fila cerrada) y su texto entero (lo que se ve al abrirla). Una nota de voz de Martín dice que es un audio,
+ * con lo que dura y su transcripción aparte (26/10/2026). Ningún turno queda afuera.
+ */
+export function piezaParaLaApi(p: PiezaDelHilo, chat: string) {
+  // Lo del chat, como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
+  const delChat = (t: TurnoChat) => (t.rol === 'el' ? listasEnRenglones(t.texto) : t.texto);
+  if (p.tipo === 'avances') {
+    const turnos = p.avances.flatMap((l) => (l.tipo === 'turno' ? [l.turno] : []));
+    const ultimo = turnos[turnos.length - 1];
+    return {
+      tipo: 'avances' as const, cantidad: turnos.length, at: ultimo.at,
+      ultimo: { at: ultimo.at, texto: delChat(ultimo) },
+      anteriores: turnos.slice(0, -1).reverse().map((t) => ({ at: t.at, resumen: primeraOracion(t.texto), texto: delChat(t) })),
+    };
+  }
+  if (p.tipo === 'turno') {
+    return { tipo: p.plegado ? ('avance' as const) : ('mensaje' as const), de: p.turno.rol === 'yo' ? 'Martín' : chat, at: p.turno.at, texto: delChat(p.turno) };
+  }
+  if (p.tipo === 'pregunta') {
+    // Lo que contestó Martín: lo que guardó la pregunta, o el texto de su trabajo sin la marca si no se llegó a guardar.
+    const q = p.pregunta;
+    const respuesta = q.respuesta ? resumenDeRespuesta(q, q.respuesta) : p.trabajo ? (p.trabajo.texto ?? '').replace(/\[pregunta [0-9a-f-]{36}\]\s*/, '').trim() : null;
+    return {
+      tipo: 'pregunta' as const, de: chat, at: q.at, pregunta: q.pregunta, opciones: q.opciones.map((o) => o.titulo),
+      respuesta, abierta: !q.respuesta && !p.trabajo && estaAbierta(q),
+    };
+  }
+  if (p.tipo === 'trabajo') {
+    const w = p.trabajo;
+    if (w.voz) return { tipo: 'audio' as const, de: 'Martín', at: w.created_at, segundos: w.voz.segundos, transcripcion: w.texto ?? '' };
+    return { tipo: 'mensaje' as const, de: 'Martín', at: w.created_at, texto: w.texto ?? '', ...(w.adjuntos?.length ? { adjuntos: w.adjuntos } : {}) };
+  }
+  return { tipo: p.tipo, at: new Date(p.instante).toISOString() };
 }
 
 /** La primera oración de un texto, sin el formato del Markdown, para el renglón plegado de un turno («Avance: …»). */
