@@ -323,7 +323,7 @@ export function bloqueLoQueMostraste(guardado: string | null | undefined, ahoraM
     `- ${r.herramienta} (${hace(r.at!)}):`,
     ...r.items.map((it, i) => `  ${i + 1}) ${it.id}${it.nombre ? ` «${it.nombre}»` : ''}`),
   ]);
-  return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');
+  return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descarta esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');
 }
 
 /** La consulta al conocimiento del negocio (Second Brain): el mensaje y, si sigue un hilo, el pedido. «y eso?» solo no

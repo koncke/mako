@@ -190,7 +190,7 @@ function Plata({ vista }: { vista: VistaClientes }) {
       <div className="cu-plata-vacia">
         <h2>Lo que entra por mes</h2>
         <p className="cu-plata-linea">Todavía no entró plata por MaKo.</p>
-        <p className="cu-gris">Tus clientes tienen el plan dado a mano. Cuando alguien pague por la pasarela, aparece acá con su tendencia.</p>
+        <p className="cu-gris">Tus clientes tienen el plan dado a mano. Cuando alguien pague por la pasarela, aparece aquí con su tendencia.</p>
         <Link className="cu-link" href="/customers?tab=billing">Vender un plan →</Link>
         {vencidas}
       </div>
