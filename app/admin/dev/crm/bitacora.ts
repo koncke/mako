@@ -3677,7 +3677,7 @@ export const BITACORA: Hito[] = [
       'Probado en tu WhatsApp: busca a cada uno, abre «Info. del contacto» y vuelve. En las pruebas apareció que un detector leía toda la pantalla en vez del panel de esa persona: no se guardó nada (esa parte no estaba desplegada) y ahora sólo lee el panel que muestra el teléfono de esa persona.',
       'Sin la extensión, «Extraer» no arranca: sale el aviso de instalarla y, cuando está, empieza sola.',
       'Para grupos donde la gente escribe (lo de Leandro): ahora también lee el nombre con el que cada uno firma sus mensajes. Falta medirlo en un grupo tuyo con conversación.',
-      '⚠️ Tu extensión quedó apagada después de muchas recargas seguidas: hay que tocar «Recargar» en chrome://extensions (también para Flow).',
+      '⚠️ Tu extensión dejó de cargar por un solo carácter invisible que Chrome no acepta en un archivo (no por las recargas, como dije primero). Ya está arreglado, y un control nuevo no deja que vuelva a pasar.',
     ],
     commits: [
       { sha: '666fe43e1', msg: 'Extensión 0.73.0: «Extraer» entra al perfil de cada contacto y lee sus links, redes y correo', lineas: 461, archivos: 17 },

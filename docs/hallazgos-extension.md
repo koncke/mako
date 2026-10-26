@@ -230,10 +230,15 @@ Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales
 - ⚠️ **Chrome mata el service worker si UN pedido pasa de 5 minutos**: 60 perfiles en el pedido de fichas (~5 min) terminaron
   en «La extensión no contestó» (0.73.1), sin avance ni respuesta. **Regla:** nada de un pedido largo; la pantalla pide los
   perfiles de a 12 (~1 min cada uno) con el mismo id (`perfilesEnTandas`).
-- ⚠️ **Recargar la extensión muchas veces seguidas la DESCARGA**: después de ~10 recargas solas en una hora (0.72.0 → 0.73.6,
-  varias con minutos de diferencia), la 0.73.6 no volvió: sin ícono en la barra, sin el puente en hola-mako.com, con la
-  carpeta sana. Lo más probable, el freno de Chrome a las extensiones que se recargan demasiado. Hace falta «Recargar» a mano
-  en chrome://extensions. **Regla:** al iterar en vivo, juntar los cambios y recargar de a una, con espacio entre una y otra.
+- ⚠️ **La 0.73.6 no cargó por UN carácter, y el diagnóstico obvio fue el equivocado:** «se recargó demasiadas veces» (~10
+  recargas solas en una hora; lo dije yo y no era). El Cerebro leyó chrome://extensions: «No se ha podido cargar el archivo
+  "wa-fichas.js" para el script de contenido. No está codificado con UTF-8.» El archivo ERA UTF-8 válido, pero traía un
+  U+FFFF LITERAL en `IDBKeyRange.bound('false_', 'false_<U+FFFF>')`: Chrome rechaza los NO CARACTERES (U+FFFE/U+FFFF de cada
+  plano, U+FDD0–U+FDEF) en un content script, y python, `file` y `node --check` lo dan por bueno. Se coló porque la
+  herramienta de edición convirtió la secuencia de escape en el carácter (y un reemplazo por bash se comió la barra otra
+  vez). Sin ícono, sin el puente en hola-mako.com, y también sin Flow. **Regla:** la secuencia de escape, nunca el carácter;
+  y para escribirla desde un script, armar la barra con `chr(92)`. Lo frena tests/extension-sin-no-caracteres.test.ts
+  (probado con este mismo caso). Igual: al iterar en vivo, juntar los cambios y copiar a su carpeta una sola vez.
 - **La «carpeta de Martín» (Escritorio\mako-puente) es un ENLACE** a dashboard-marketing-main/dashboard-marketing/extension:
   un clon en `main` muy atrasado. Cada copia «a su carpeta» queda ahí como archivos modificados o sin seguir. Nadie commitea
   en ese clon.
