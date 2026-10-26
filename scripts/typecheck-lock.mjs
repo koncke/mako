@@ -182,6 +182,14 @@ const RAM_ESPERA_MAX_MS = 15 * 60 * 1000;
  * La salida de emergencia es explícita y queda escrita: MAKO_TYPECHECK_SIN_ESPERA=1.
  */
 async function esperarRam() {
+  // DIRECTO A LAS TANDAS (26/10/2026, el Cerebro): en esta PC el tsc entero pide 6,3 GB y con la app de Claude abierta
+  // nunca los hay; los 15 minutos de espera eran tiempo muerto mientras la RAM bajaba (el push de las 06:52 llegó con 4,6 y
+  // la tanda 1 ya no tuvo sus 4,4). Con MAKO_TIPOS_SOLO_TANDAS=1 se sale con 99 en el acto y el pre-push pasa al respaldo
+  // por tandas (scripts/tipos-respaldo-push.mjs), que chequea TODO el repo igual. Opt-in: sin la variable, nada cambia.
+  if (process.env.MAKO_TIPOS_SOLO_TANDAS === '1') {
+    process.stderr.write('  [typecheck] MAKO_TIPOS_SOLO_TANDAS=1: no espero al tsc entero, voy derecho a las tandas.\n');
+    return false;
+  }
   const hasta = Date.now() + RAM_ESPERA_MAX_MS;
   let aviso = false;
   for (;;) {

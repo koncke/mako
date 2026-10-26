@@ -136,9 +136,11 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     arranca el tsc entero igual y lo mata el vigía.
   - **TaskStop no mata el `sh` hijo que renueva la reserva:** quedó vivo y la volvía a escribir cada minuto. Hay que matar
     los dos (`ps -ef | grep <script>`).
+  - **`MAKO_TIPOS_SOLO_TANDAS=1 git push …` (26/10, ~09:30):** el lock sale con 99 en el acto y el pre-push va derecho a las
+    tandas, que chequean todo el repo igual. Opt-in: sin la variable, nada cambia. ⚠️ El hook llama al lock del CLON
+    principal (`$REPO/scripts/typecheck-lock.mjs`), no al del worktree: el cambio se copió ahí a mano y queda en el repo con
+    este tren; si el clon se pone al día, ya lo trae.
 - **Sin hacer:**
-  - una salida opt-in que vaya derecho a las tandas sin esperar los 15 minutos del tsc entero. Vive en el
-    `scripts/typecheck-lock.mjs` del CLON principal, que usa el hook compartido de todos los worktrees: avisar antes de tocarlo;
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;
   - lo que es de Martín: pasar a 32 GB (unos USD 290; los zócalos se pueden cambiar), sacar del inicio Copilot, NVIDIA y
