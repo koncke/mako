@@ -12,7 +12,7 @@
 
 import 'server-only';
 import { getTenantDb } from '@/lib/workspace';
-import { EVENTO_TRAIDO_DE_GRUPO, TOPE_LOTE_COMPLETAR, asuntoComparable, gruposDelLote } from '@/lib/grupo-wa-reglas';
+import { EVENTO_TRAIDO_DE_GRUPO, TOPE_LOTE_COMPLETAR, asuntoComparable, grupoDelEvento, gruposDelLote } from '@/lib/grupo-wa-reglas';
 import { numeroParaWhatsApp } from '@/lib/numero-whatsapp';
 import { completarFichas, completarPerfiles, gruposDeLinea, lineasDelNegocio, participantesDelGrupo, type ResultadoFichas, type ResultadoPerfiles } from './grupo-wa-server';
 import { indiceContactos } from './importar-server';
@@ -77,6 +77,18 @@ export async function pedidosDeFichas(ids: readonly number[]): Promise<{ pedidos
     }
   }
   return { pedidos: tels.map((t) => ({ ...t, lid: lidPorSufijo.get(t.telefono.slice(-10)) ?? null })), grupos };
+}
+
+/** Los leads traídos de ese grupo (por su historial «Traído de un grupo de WhatsApp»), a lo sumo `TOPE_LOTE_COMPLETAR`. */
+export async function leadsDelGrupo(nombre: string): Promise<number[]> {
+  const db = await getTenantDb();
+  const literal = nombre.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const { data, error } = await db.from('lead_audit').select('lead_id, valor_nuevo').eq('campo', EVENTO_TRAIDO_DE_GRUPO)
+    .ilike('valor_nuevo', `«${literal}», a «%`).limit(TOPE_LOTE_COMPLETAR);
+  if (error) throw new Error(`No pude leer de qué grupo vinieron: ${error.message}`);
+  const buscado = asuntoComparable(nombre);
+  const filas = (data ?? []) as Array<{ lead_id: number; valor_nuevo: string | null }>;
+  return [...new Set(filas.filter((r) => asuntoComparable(grupoDelEvento(r.valor_nuevo)) === buscado).map((r) => Number(r.lead_id)))];
 }
 
 /** Las fichas de SU WhatsApp Web (las lee la extensión en el navegador), escritas SÓLO en los leads tildados. */

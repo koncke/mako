@@ -1311,6 +1311,16 @@ export const DEFS: readonly OperacionDef[] = [
     canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
     reversible: false, escribe: 'el nombre de los leads del grupo que tenían su número por nombre (cada cambio queda en su historial)',
   },
+  // «Completar desde mi WhatsApp» (25/10/2026): corre en el NAVEGADOR (la extensión lee el WhatsApp Web de la persona), así
+  // que por la API no se dispara. Esto dice qué haría, con los números del grupo, y cómo se dispara.
+  {
+    id: 'ver_completar_desde_whatsapp', area: 'crm', tipo: 'lectura',
+    titulo: 'Ver completar desde mi WhatsApp',
+    descripcion: 'De los traídos de un grupo de WhatsApp: cuántos tienen teléfono y a cuántos se los encuentra por su identificador en el grupo, para completarlos con lo que la persona ya ve en su WhatsApp Web (nombre, empresa, grupos en común). Eso corre en su navegador con la extensión de MaKo: se dispara desde el CRM, tildándolos y tocando Completar, Desde mi WhatsApp. Esta lectura no toca el WhatsApp de nadie. Solo el administrador.',
+    parametros: [{ nombre: 'grupo', tipo: 'string', obligatorio: true, max: 120, descripcion: 'el nombre del grupo del que vinieron, como en grupos_whatsapp.' }],
+    // Sólo el chat de MaKo, como grupos_whatsapp y sus vecinas: lo de un grupo de WhatsApp no sale por HTTP.
+    salida: 'json', canales: ['app'], costo: 'gratis', gating: TAB_ADMIN,
+  },
   // ── «Invitar al curso al ganar» (23/10/2026, P0-4 de la auditoría de la API) ─────────────────────────
   // El interruptor del «⋯» de la columna Ganado (app/crm/curso-al-ganar-actions.ts): prendido, quien pasa a Ganado en
   // ese CRM recibe sola la invitación al curso de su producto. Cierra el par venta → acceso sin que nadie invite a mano
