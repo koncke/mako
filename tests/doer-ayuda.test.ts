@@ -76,7 +76,9 @@ test('3. la guía va de a un paso, con el link sólo al principio', () => {
 test('4. al verificar: conectado → la que sigue; no conectado → el link de nuevo, y el ticket sólo si quedó propuesto', () => {
   const gpt = conexion('openai')!;
   const ok = despuesDeVerificar(gpt, true, ['openai', 'fathom'], LINK, AHORA);
-  assert.match(ok.texto, /✅ OpenAI quedó conectado/);
+  // El nombre real de la tarjeta («OpenAI API» desde el rediseño de Settings, 25/10/2026), del catálogo.
+  assert.ok(ok.texto.startsWith(`✅ ${gpt.nombre} quedó conectado.`), ok.texto);
+  assert.equal(gpt.nombre, 'OpenAI API');
   assert.match(ok.texto, /Te falta Fathom\. ¿Te guío también\? Responde «sí»/);
   assert.deepEqual(ok.siguiente, { tipo: 'oferta', servicios: ['fathom'], venceAt: AHORA + VIGENCIA_AYUDA_MS });
   assert.equal(ok.ticket, null);
