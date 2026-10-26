@@ -20,7 +20,7 @@ import { conPreciosEnHtml } from '../lib/editor-landing/precios-en-landing';
 import { conEnlacesDePaginas } from '../lib/editor-landing/html-editable';
 
 const RAIZ = join(import.meta.dirname, '..');
-// Sin CRLF: en un checkout con core.autocrlf=true el fuente llega con \r\n y las regex con \n no calzan (AGENTS.md).
+// El fin de línea, normalizado ANTES de buscar (AGENTS.md, «Fin de línea»): en un clon con autocrlf los fuentes llegan en CRLF.
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 /** El saneo lleva `server-only`: corre en un node aparte (tests/_html-editable-seguro-hijo.ts). */
 const sanear = (html: string): string => (JSON.parse(execFileSync(process.execPath,

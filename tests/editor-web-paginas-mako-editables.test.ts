@@ -20,7 +20,8 @@ import { bloquesATarjeta, tarjetaABloques, GRAMATICA_IA, type TarjetaIA } from '
 import { NODO, type JsonNodo } from '../lib/editor-landing/doc';
 
 const RAIZ = join(import.meta.dirname, '..');
-const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
+// El fin de línea, normalizado ANTES de buscar (AGENTS.md, «Fin de línea»): en un clon con autocrlf los fuentes llegan en CRLF.
+const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
 /** Un pedazo como los de la landing de MaKo: estilos en línea, un atributo con «>», un ícono, una entidad y un botón. */
