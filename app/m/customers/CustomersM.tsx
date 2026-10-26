@@ -9,11 +9,11 @@
 // sus pantallas (/m/cobros, /m/agente); administrar (plan, equipo) queda en la computadora.
 
 import { useMemo, useState } from 'react';
-import { ButtonLink } from '@/app/_ui/Button';
+import { Button } from '@/app/_ui/Button';
 import { CabeceraM, FilaDatoM, FilaM, ListaM, PieM, PildoraM, SeccionM, SheetM, VacioM, type TonoPildora } from '@/app/m/_ui';
 import { RUTA_MAS } from '@/lib/movil-rutas';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
-import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, nombreDePlan, type Segmento } from '@/lib/clientes-plataforma-reglas';
+import { ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, nombreDePlan, ultimaVezTxt, type Segmento } from '@/lib/clientes-plataforma-reglas';
 
 type Grupo = 'todos' | Segmento;
 const GRUPOS: ReadonlyArray<{ id: Grupo; rotulo: string }> = [
@@ -91,7 +91,7 @@ export function CustomersM({ vista }: { vista: VistaClientes }) {
               const e = estadoEnUnaPalabra(f);
               return (
                 <FilaM key={f.ws} avatar={f.nombre} titulo={f.nombre}
-                  segunda={`${grupoTxt(f)}${vista.actividadLeida ? ` · ${haceTxt(f.sinEntrar)}` : ''}`}
+                  segunda={`${grupoTxt(f)}${vista.actividadLeida ? ` · ${ultimaVezTxt(f)}` : ''}`}
                   pill={<PildoraM tono={tono(e.tono)}>{e.rotulo}</PildoraM>} onClick={() => abrir(f.ws)} />
               );
             })}
@@ -107,11 +107,14 @@ export function CustomersM({ vista }: { vista: VistaClientes }) {
       </SeccionM>
 
       <SheetM abierto={abierta && c != null} onCerrar={() => setAbierta(false)} titulo={c?.nombre ?? 'Cliente'}
-        pie={c ? <PieM><ButtonLink variant="primary" size="lg" full href={`/inicio?ws=${c.ws}`}>Entrar a su cuenta</ButtonLink></PieM> : undefined}>
+        // ⚠️ RECARGA ENTERA, no un Link (revisión del tren, hallazgo 3): app/m/layout.tsx no se vuelve a ejecutar al navegar,
+        // y es el que dibuja el chip «Viendo a X», la barra y los avisos del cliente. Con un Link, Martín operaba la cuenta
+        // del cliente dentro del cromo de la plataforma. Igual que AgencyM y PartnersApp.
+        pie={c ? <PieM><Button variant="primary" size="lg" full onClick={() => { window.location.href = `/inicio?ws=${c.ws}`; }}>Entrar a su cuenta</Button></PieM> : undefined}>
         {c && (
           <ListaM>
             <FilaDatoM k="Estado" v={estadoEnUnaPalabra(c).rotulo} />
-            <FilaDatoM k="Última vez" v={vista.actividadLeida ? haceTxt(c.sinEntrar) : '—'} />
+            <FilaDatoM k="Última vez" v={vista.actividadLeida ? ultimaVezTxt(c) : '—'} />
             <FilaDatoM k="Leads" v={c.leads == null ? '—' : c.leads.toLocaleString('es-AR')} />
             <FilaDatoM k="Plan" v={nombreDePlan(c.capa)} />
             <FilaDatoM k="Grupo" v={grupoTxt(c)} />

@@ -32,6 +32,18 @@
 //   · `pagoPendiente` cuenta una prueba gratis                                                   → 1 fallo (la plata)
 //   · «sin uso» sin mirar el onboarding                                                          → 1 fallo (la plata)
 //   · «Administrar» no abre la ficha en Accounts (`abrirInicial` ignorado)                       → 1 fallo (el rediseño)
+// La revisión adversarial del tren (siete fallas en b26a8ac40; el último test). Cada rotura, sola:
+//   · /api/auth/me deja de marcar el uso (sin `marcarUso(sesion)`)                               → 1 fallo
+//   · `marcarUso` sin el tope de 12 horas (sin el `.lt('ultimo_login', antes)`)                    → 1 fallo
+//   · «Entrar a su cuenta» del teléfono vuelve a ser un Link                                     → 1 fallo
+//   · un onboarding que no se pudo leer vuelve a ser «no lo terminó» (`?? false`)                → 1 fallo
+//   · `sinUso` con `onboardingHecho` sin el `=== true`                                            → 1 fallo
+//   · una de las lecturas vuelve a `.limit(5000)` sin paginar                                    → 1 fallo
+//   · la flecha vuelve a comparar el mes en curso (`comparacionCerrada` sin el `slice(0, -1)`)    → 1 fallo
+//   · la flecha vuelve pegada al número de arriba                                                → 1 fallo
+//   · los clientes de agencia vuelven a quedar «Sin uso» (sin `!deAgencia.has(w.id)`)            → 1 fallo
+//   · la ficha vuelve a decir «Nunca» de un cliente que opera su agencia (`haceTxt(f.sinEntrar)`)  → 1 fallo
+//   · `ver_clientes_de_mako` sin el chequeo del super admin en la app                            → 1 fallo
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -42,8 +54,8 @@ import { masCompleto, rutaEscritorio, rutaMovil } from '../lib/movil-rutas';
 import { puedeVerItem } from '../lib/nav-visibilidad';
 import { DEFS } from '../lib/api-mako/areas/cobros.def';
 import {
-  cobradoPorMes, enPrueba, enRiesgo, estadoEnUnaPalabra, factura, haceTxt, kpisDeClientes, mrrDe, pagoPendiente, paraMirar, segmentosDe, sinUso,
-  type CobroMrr,
+  cobradoPorMes, comparacionCerrada, enPrueba, enRiesgo, estadoEnUnaPalabra, factura, haceTxt, kpisDeClientes, mrrDe, pagoPendiente, paraMirar,
+  segmentosDe, sinUso, ultimaVezTxt, type CobroMrr,
 } from '../lib/clientes-plataforma-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -240,5 +252,57 @@ test('la API: dos lecturas, sólo la plataforma y su admin, sin HTTP; el runner 
     const i = run.indexOf(`${id}: {`);
     assert.ok(i > 0, `falta el runner de ${id}`);
     assert.match(run.slice(i, i + 300), /if \(ctx\.ws !== \(await wsSuperAdmin\(\)\)\) return fallo\(/, `${id}: el runner no repregunta`);
+  }
+});
+
+// ── 7. La revisión adversarial del tren (26/10/2026, siete fallas en b26a8ac40) ───────────────────────────────────
+
+test('la revisión del tren: el uso de verdad, el teléfono que recarga, el «no pude leer», el paginado, la flecha, las agencias y el super admin', () => {
+  // 2. «La última vez que entró» se marca en cada pantalla, sin esperarla, y como mucho una vez cada 12 horas.
+  const me = leer('app/api/auth/me/route.ts');
+  const marca = me.indexOf('marcarUso(sesion);');
+  assert.ok(marca > me.indexOf('if (!sesion) return') && marca < me.indexOf('Promise.all('), '/api/auth/me no marca el uso (o lo marca sin sesión)');
+  assert.doesNotMatch(me, /await marcarUso/, 'la respuesta no espera una escritura');
+  const uso = leer('lib/ultimo-uso.ts');
+  assert.match(uso, /\.update\(\{ ultimo_login: ahora \}\)[\s\S]*?\.eq\('id', Number\(sesion\.sub\)\)[\s\S]*?\.lt\('ultimo_login', antes\)/,
+    'sin el tope de 12 horas en la consulta, cada pantalla es una escritura (y `.lt` deja quieto el null de quien nunca entró)');
+  // 3. En el teléfono, «Entrar a su cuenta» recarga entera: el layout de /m es el que dibuja «Viendo a X».
+  const movil = leer('app/m/customers/CustomersM.tsx');
+  assert.doesNotMatch(movil, /ButtonLink[^>]*href=\{`\/inicio\?ws=/, 'un Link deja el cromo del super admin');
+  assert.match(movil, /window\.location\.href = `\/inicio\?ws=\$\{c\.ws\}`/);
+  // 4. Un onboarding que no se pudo leer es `null`: ni «Sin empezar», ni «Sin uso», ni «Para mirar».
+  const servidor = leer('lib/clientes-plataforma.ts');
+  assert.match(servidor, /onboardingHecho: hechos \? hechos\.has\(w\.id\) : null,/);
+  const ahora = Date.parse('2026-10-26T12:00:00Z');
+  const sinLeer = { estado: 'activo', creado: '2026-08-01T00:00:00Z', prueba: false, pagoPendiente: false, motivoRiesgo: null, sinEntrar: 40, onboardingHecho: null } as const;
+  assert.deepEqual(estadoEnUnaPalabra(sinLeer), { rotulo: 'Activo', tono: 'good' });
+  assert.deepEqual(paraMirar([{ ...sinLeer, ws: 1, nombre: 'X' }], ahora), []);
+  assert.equal(sinUso({ sinEntrar: 40, sinLeads: null, onboardingHecho: null }), false);
+  assert.match(leer('app/customers/CustomersApp.tsx'), /\['Configuración', f\.onboardingHecho == null \? '—'/);
+  // 5. Las lecturas que crecen con el uso, paginadas (PostgREST corta en 1000 sin avisar y sin orden).
+  assert.doesNotMatch(servidor, /\.limit\(\d{4,}\)/, 'un `.limit()` grande no pasa el techo de 1000');
+  for (const tabla of ['usuarios', 'agente_sesiones', 'pagos', 'partner_codigos']) {
+    assert.match(servidor, new RegExp(String.raw`(leerPorPaginas|leerTodo)<[^>]*>\(\s*getSupabaseServer\(\), '${tabla}'`), `${tabla}: sin paginar`);
+  }
+  // 6. La flecha compara sólo meses cerrados, nombra los dos, y no va pegada al MRR.
+  const serie = (usd: number[]) => usd.map((u, i) => ({ mes: `2026-${String(5 + i).padStart(2, '0')}`, usd: u }));
+  assert.deepEqual(comparacionCerrada(serie([0, 0, 0, 200, 500, 100])), { mes: '2026-09', contra: '2026-08', pct: 150 }, 'octubre está a medias');
+  assert.equal(comparacionCerrada(serie([0, 0, 0, 0, 500, 100])), null, 'contra un mes en cero no hay %');
+  assert.equal(comparacionCerrada(null), null);
+  assert.equal(comparacionCerrada(serie([300, 100])), null, 'con un solo mes cerrado no hay contra qué');
+  const app = leer('app/customers/CustomersApp.tsx');
+  assert.match(app, /<p className="cu-plata-num">\{usdTxt\(numero\)\}<\/p>/, 'nada pegado al número de arriba');
+  assert.doesNotMatch(app, /% vs \{MES/);
+  // 7. A un cliente de agencia lo opera su agencia con su propia sesión: nunca «Sin uso», y su «Última vez» lo dice.
+  assert.match(servidor, /const porUso = actividadLeida && !deAgencia\.has\(w\.id\) && sinUso\(actividad\);/);
+  assert.equal(ultimaVezTxt({ sinEntrar: null, segmentos: ['de-agencia'] }), 'Lo opera su agencia');
+  assert.equal(ultimaVezTxt({ sinEntrar: 3, segmentos: ['de-agencia'] }), 'Hace 3 días', 'si su equipo entra, se dice');
+  assert.equal(ultimaVezTxt({ sinEntrar: null, segmentos: ['cliente'] }), 'Nunca');
+  assert.doesNotMatch(app + movil, /haceTxt\((f|c)\.sinEntrar\)/, 'la «Última vez» se dice con ultimaVezTxt en las dos pantallas');
+  // 8. En la app, el super admin GLOBAL (como la pantalla), no el admin del workspace de la plataforma.
+  const run = leer('lib/api-mako/areas/cobros.run.ts');
+  for (const id of ['ver_clientes_de_mako', 'ver_agentes_de_clientes']) {
+    const i = run.indexOf(`${id}: {`);
+    assert.match(run.slice(i, i + 400), /if \(ctx\.canal === 'app' && !\(await esSuperAdmin\(\)\)\) return fallo\(/, `${id}: sin el super admin`);
   }
 });

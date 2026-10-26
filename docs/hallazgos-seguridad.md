@@ -505,6 +505,22 @@ Dos corolarios del mismo arreglo:
 
 ## Guards, roles y sesión
 
+### «La última vez que entró» no era la última vez: `ultimo_login` sólo lo escribía el login (26/10/2026)
+
+- **Síntoma (revisión del tren, b26a8ac40):** en Customers, equipos que trabajan todos los días salían «Hace 15 días» y
+  «En riesgo». La columna «La última vez que entró» de Equipo mentía igual.
+- **Causa:** `registrarLogin` (Google, contraseña, 2FA) es lo único que escribía `usuarios.ultimo_login`, y la sesión
+  dura 30 días sin renovarse. Era la fecha del último login, no la del último uso.
+- **Arreglo:** `marcarUso` (lib/ultimo-uso.ts) lo marca desde GET /api/auth/me, que corre en cada pantalla, y no la
+  hace esperar. Lo que no es obvio:
+  - el tope de 12 horas va en la consulta, con `.lt('ultimo_login', antes)`, y no en memoria. Con varias instancias, una
+    memoria por instancia escribiría de más;
+  - **`.lt` no coincide con null**, así que quien nunca entró sigue en null. app/pagar/acceso.ts y
+    app/api/pagar/email/route.ts dependen de eso: sólo se le cambia el email a quien todavía no entró;
+  - el super admin mirando a un cliente marca SU fila, porque el `sub` es suyo.
+
+**Vive en:** lib/ultimo-uso.ts · app/api/auth/me/route.ts · *26/10/2026, chat «Agencias y clientes» (claude5).*
+
 ### ⚠️ El 2FA del login YA está escrito a medias, y tiene tres trampas antes de retomarlo (14/10/2026)
 
 **No se arranca de cero.** La mig `0266_segundo_factor.sql` está en `main` y aplicada en prod (seis tablas

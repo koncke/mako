@@ -273,7 +273,7 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // ── Customers del super admin (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12) ─────────────────────────
   // La vista Customers (app/customers) por chat: los clientes de MaKo por segmento con su MRR, y en qué trabajan en su
-  // Claude Code (lo que era /admin/agente). Sólo la plataforma y su admin; sin HTTP: son datos de todos los negocios.
+  // Claude Code (lo que era /admin/agente). Sólo la plataforma y, en la app, el super admin global (el runner lo pregunta); sin HTTP: son datos de todos los negocios.
   {
     id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los clientes de MaKo',

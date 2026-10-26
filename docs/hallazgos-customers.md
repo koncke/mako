@@ -53,6 +53,35 @@ diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEE
   `/m/agente` por su key (`lib/movil-rutas.ts`). Si se borran, el teléfono las pierde sin dar error.
 - `/customers` está también en `SOLO_ADMIN` del proxy: dos cerrojos, y además el de cada action.
 
+## La revisión adversarial del tren: siete fallas en b26a8ac40 (26/10/2026)
+
+Todas venían de lo mismo: **el rediseño pasó a depender de la actividad, y la actividad tenía huecos que la plata no
+tenía.** Lo que queda para código nuevo:
+
+- **«Sin uso» mentía con equipos que trabajan todos los días.** `ultimo_login` sólo lo escribía el login y la sesión dura
+  30 días: entre el día 14 y el 30, un equipo activo salía «En riesgo». Ahora lo marca cada pantalla (lib/ultimo-uso.ts;
+  el detalle, en [hallazgos-seguridad.md](hallazgos-seguridad.md)).
+- **Un «no pude leer» no es «no lo terminó».** `hechos?.has(w.id) ?? false` convertía una lectura fallida en «Sin
+  empezar» para todos y llenaba «Para mirar». Ahora `onboardingHecho` es `boolean | null`, y `null` no dispara «Sin
+  empezar», ni «Sin uso», ni «Para mirar». La ficha dice «—» y la nota de la API lo explica. **Regla:** en las reglas de
+  Customers un dato leído se compara con `=== true` o `=== false`, nunca con `!`: el `!` le da a `null` un valor.
+- **Los clientes de una agencia salían «Sin uso: nadie entró nunca».** El diagnóstico obvio era que nadie los usaba. Lo
+  que pasa es que la agencia entra con SU sesión (/api/agencia/entrar) y esa entrada no queda en ninguna fila del
+  cliente. Nunca están en riesgo por falta de uso (`!deAgencia.has(w.id)`), y si su equipo no entró nunca, su «Última
+  vez» dice «Lo opera su agencia» (`ultimaVezTxt`, la misma en la tabla, la ficha y el teléfono).
+- **La flecha del MRR comparaba el mes en curso con el anterior completo**, y quedaba pegada al MRR: todos los principios
+  de mes marcaba «↓ 80%». Ahora compara sólo los dos últimos meses CERRADOS (`comparacionCerrada`) y va en su propia
+  línea, con los dos meses nombrados: «Cobrado en sep: ↑ 20% contra ago».
+- **Cuatro lecturas con `.limit(5000)` cortaban en 1000** sin avisar y sin orden: usuarios, agente_sesiones, pagos y
+  partner_codigos. Ahora van por `leerPorPaginas` o `leerTodo` (lib/supabase-paginado.ts), ordenadas por una columna única.
+- **Entrar a la cuenta de un cliente desde el teléfono** va con recarga entera, no con un Link
+  ([hallazgos-mobile.md](hallazgos-mobile.md)). **La API** pide el super admin global en la app, no el admin del
+  workspace de la plataforma ([hallazgos-api-mako.md](hallazgos-api-mako.md)).
+
+**Vive en:** lib/clientes-plataforma-reglas.ts (`ultimaVezTxt`, `comparacionCerrada`) · lib/clientes-plataforma.ts ·
+lib/ultimo-uso.ts · app/customers/CustomersApp.tsx · app/m/customers/CustomersM.tsx · lib/api-mako/areas/cobros.run.ts ·
+tests/customers.test.ts (el último test: 11 roturas, cada una da 1 fallo).
+
 ## Lo que quedó SIN hacer
 
 - **El MRR mes a mes de verdad:** lo que se dibuja es lo COBRADO por mes (las cuotas pagadas de la plataforma). El MRR
@@ -60,3 +89,8 @@ diseño, con qué se copia de cada una, en [customers/referencias/otras-apps/LEE
 - **Las fichas de agencia con sus clientes adentro** (la 11 de HighLevel): hoy la agencia y sus clientes son filas sueltas
   en sus chips.
 - **Administrar desde el teléfono** (cambiar el plan, el equipo): queda en la computadora.
+- **Sin paginar, porque crecen con los negocios y no con el uso:** `onboardingsHechos` (un `.in(ids)` de app_settings) y
+  `leadsDe` (una consulta por negocio). Con más de 1000 negocios, la primera corta en silencio: ahí van por
+  `leerPorPaginas` (lib/clientes-plataforma.ts).
+- **Lo que hace una agencia dentro de su cliente no se anota en ningún lado.** Por eso un cliente de agencia nunca entra en
+  «Sin uso»: para saber si la agencia lo dejó, hay que marcar su entrada (/api/agencia/entrar) en la fila del cliente.

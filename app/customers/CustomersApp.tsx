@@ -24,7 +24,7 @@ import { Marca } from '@/app/_components/Marca';
 import { colorDe } from '@/app/_components/TarjetaEntidad';
 import type { FilaCliente, VistaClientes } from '@/lib/clientes-plataforma';
 import {
-  ETIQUETA_PARA_MIRAR, estadoEnUnaPalabra, haceTxt, nombreDePlan, type Segmento,
+  ETIQUETA_PARA_MIRAR, comparacionCerrada, estadoEnUnaPalabra, haceTxt, nombreDePlan, ultimaVezTxt, type Segmento,
 } from '@/lib/clientes-plataforma-reglas';
 
 type Grupo = 'todos' | Segmento;
@@ -64,7 +64,7 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
     const t = q.trim().toLowerCase();
     const base = grupo === 'todos' ? deMaKo : filas.filter((f) => f.segmentos.includes(grupo));
     // Los que piden atención primero; después, los que entraron más hace poco.
-    const orden = (f: FilaCliente) => (f.riesgo ? 0 : !f.onboardingHecho ? 1 : 2);
+    const orden = (f: FilaCliente) => (f.riesgo ? 0 : f.onboardingHecho === false ? 1 : 2);
     return base.filter((f) => !t || f.nombre.toLowerCase().includes(t))
       .sort((a, b) => orden(a) - orden(b) || (a.sinEntrar ?? 1e9) - (b.sinEntrar ?? 1e9) || a.nombre.localeCompare(b.nombre, 'es'));
   }, [filas, deMaKo, grupo, q]);
@@ -148,7 +148,7 @@ export function CustomersApp({ vista, abiertoInicial = null }: {
                 <span><b>{f.nombre}</b><small>{nombreDePlan(f.capa)}</small></span>
               </span>
               <span role="cell" className="cu-grupo">{grupoTxt(f)}</span>
-              <span role="cell" className="cu-vez" data-tono={vez(f.sinEntrar)}>{vista.actividadLeida ? <><i />{haceTxt(f.sinEntrar)}</> : '—'}</span>
+              <span role="cell" className="cu-vez" data-tono={vez(f.sinEntrar)}>{vista.actividadLeida ? <><i />{ultimaVezTxt(f)}</> : '—'}</span>
               <span role="cell" className="cu-num">{f.leads == null ? '—' : f.leads.toLocaleString('es-AR')}</span>
               {conMrr && <span role="cell" className="cu-num">{f.mrrUsd > 0 ? usdTxt(f.mrrUsd) : '—'}</span>}
               <span role="cell"><span className="cu-estado" data-tono={e.tono}>{e.rotulo}</span></span>
@@ -177,9 +177,10 @@ function Numero({ valor, rotulo }: { valor: number; rotulo: string }) {
 function Plata({ vista }: { vista: VistaClientes }) {
   const { kpis, cobrado, vencido } = vista;
   const ultimo = cobrado?.[cobrado.length - 1]?.usd ?? 0;
-  const anterior = cobrado?.[cobrado.length - 2]?.usd ?? 0;
   const numero = kpis.mrrUsd > 0 ? kpis.mrrUsd : ultimo;
-  const cambio = anterior > 0 ? Math.round(((ultimo - anterior) / anterior) * 100) : null;
+  // ⚠️ La flecha compara sólo meses CERRADOS y nunca va pegada al MRR (revisión del tren, hallazgo 6): el mes en curso está
+  // a medias, y «US$ 500 ↓ 80%» al lado del MRR se leía como que el MRR se cayó.
+  const cambio = comparacionCerrada(cobrado);
   const maximo = Math.max(1, ...(cobrado ?? []).map((m) => m.usd));
   const vencidas = vencido && vencido.cuotas > 0
     ? <p className="cu-vencido">{vencido.cuotas} {vencido.cuotas === 1 ? 'cuota vencida' : 'cuotas vencidas'} · {usdTxt(vencido.usd)}</p> : null;
@@ -198,10 +199,12 @@ function Plata({ vista }: { vista: VistaClientes }) {
   return (
     <div>
       <h2>{kpis.mrrUsd > 0 ? 'Ingreso mensual (MRR)' : 'Lo que entró este mes'}</h2>
-      <p className="cu-plata-num">
-        {usdTxt(numero)}
-        {cambio != null && <span data-tono={cambio >= 0 ? 'good' : 'bad'}>{cambio >= 0 ? '↑' : '↓'} {Math.abs(cambio)}% vs {MES[new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1]}</span>}
-      </p>
+      <p className="cu-plata-num">{usdTxt(numero)}</p>
+      {cambio && (
+        <p className="cu-cambio" data-tono={cambio.pct >= 0 ? 'good' : 'bad'}>
+          Cobrado en {MES[Number(cambio.mes.slice(5, 7)) - 1]}: {cambio.pct >= 0 ? '↑' : '↓'} {Math.abs(cambio.pct)}% contra {MES[Number(cambio.contra.slice(5, 7)) - 1]}
+        </p>
+      )}
       {kpis.mrrUsd > 0 && <p className="cu-gris">{kpis.pagan} {kpis.pagan === 1 ? 'negocio paga' : 'negocios pagan'} por la pasarela{kpis.sinDolares ? ` · ${kpis.sinDolares} sin su valor en dólares` : ''}</p>}
       {cobrado && (
         <div className="cu-barras" aria-label="Lo que entró cada mes">
@@ -224,7 +227,7 @@ function Ficha({ f, actividadLeida, onCerrar }: { f: FilaCliente; actividadLeida
   const filas: Array<[string, ReactNode]> = [
     ['Plan', nombreDePlan(f.capa)],
     ['Grupo', grupoTxt(f)],
-    ['Configuración', f.onboardingHecho ? 'Terminada' : 'Sin terminar'],
+    ['Configuración', f.onboardingHecho == null ? '—' : f.onboardingHecho ? 'Terminada' : 'Sin terminar'],
     ['Plata', f.mrrUsd > 0 ? `${usdTxt(f.mrrUsd)} por mes` : f.prueba ? 'En prueba gratis' : 'Plan a mano'],
   ];
   if (f.pagoPendiente) filas.push(['Pago', 'Tiene un pago esperando']);
@@ -241,7 +244,7 @@ function Ficha({ f, actividadLeida, onCerrar }: { f: FilaCliente; actividadLeida
         </div>
         <div className="cu-ficha-tres">
           <div><span>Cliente desde</span><b>{fechaLarga(f.creado)}</b></div>
-          <div><span>Última vez</span><b>{actividadLeida ? haceTxt(f.sinEntrar) : '—'}</b></div>
+          <div><span>Última vez</span><b>{actividadLeida ? ultimaVezTxt(f) : '—'}</b></div>
           <div><span>Leads</span><b>{f.leads == null ? '—' : f.leads.toLocaleString('es-AR')}</b></div>
         </div>
         <dl className="cu-ficha-datos">
@@ -272,6 +275,9 @@ const CSS = `
 .cu-barra-mes i{ display:block; width:100%; max-width:42px; background:var(--primary); border-radius:6px 6px 2px 2px; }
 .cu-barra-mes i[data-cero="true"]{ background:var(--border); }
 .cu-barra-mes span{ font-size:11.5px; color:var(--faint); }
+.cu-cambio{ margin:2px 0 0; font-size:13.5px; font-weight:650; }
+.cu-cambio[data-tono="good"]{ color:var(--good); }
+.cu-cambio[data-tono="bad"]{ color:var(--bad); }
 .cu-vencido{ margin:8px 0 0; font-size:13px; font-weight:650; color:var(--bad); }
 .cu-link{ font-size:13.5px; font-weight:650; color:var(--primary); text-decoration:none; }
 .cu-link:hover{ text-decoration:underline; }

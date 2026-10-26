@@ -10,12 +10,16 @@ import { getUsuarioActual } from '@/lib/auth';
 import { getCapaActual, getWorkspaceActual, getRolWsEfectivo, estaImpersonando } from '@/lib/workspace';
 import { rutaDeSalida } from '@/lib/agencia-cartera';
 import { vistaDeOtro } from '@/lib/vista-de-otro';
+import { marcarUso } from '@/lib/ultimo-uso';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const sesion = await getUsuarioActual();
   if (!sesion) return NextResponse.json({ ok: true, autenticado: false });
+  // «La última vez que entró» de verdad (26/10/2026): cada pantalla la marca, una vez cada 12 horas como mucho y sin
+  // esperarla. Sin esto sólo se escribía al loguearse, y la sesión dura 30 días (lib/ultimo-uso.ts).
+  marcarUso(sesion);
 
   // ¿Un admin está "viendo como" un cliente, EN ESTA PESTAÑA?
   //

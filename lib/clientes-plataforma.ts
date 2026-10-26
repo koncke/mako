@@ -13,6 +13,7 @@
 
 import 'server-only';
 import { getSupabaseServer } from './supabase';
+import { leerPorPaginas, leerTodo } from './supabase-paginado';
 import { listarWorkspaces, wsSuperAdmin } from './workspace';
 import { agenciasHabilitadas, todasLasCarteras } from './agencia';
 import { esCarteraVigente } from './agencia-cartera';
@@ -48,7 +49,8 @@ export type FilaCliente = {
   sinLeads: number | null;
   /** Cuántos leads tiene. `null` = no se pudo leer. */
   leads: number | null;
-  onboardingHecho: boolean;
+  /** `null` = no se pudo leer (y se dice en `avisos`): no es «no lo terminó». */
+  onboardingHecho: boolean | null;
   /** Sesiones del agente (su Claude Code) en los últimos 30 días. */
   sesionesAgente: number;
   /** Un link de cobro de su lugar sin pagar (el primer mes, una renovación por autorizar o un cobro que falló). */
@@ -72,22 +74,23 @@ export type VistaClientes = {
 
 /** Quién tiene su link de Partners (el código nace al unirse). */
 async function partnersConLink(): Promise<Set<number>> {
-  const { data, error } = await getSupabaseServer().from('partner_codigos').select('workspace_id').limit(5000);
-  if (error) throw new Error(error.message);
-  return new Set(((data ?? []) as Array<{ workspace_id: number }>).map((f) => Number(f.workspace_id)));
+  // ⚠️ PAGINADO (revisión del tren, hallazgo 5): `.limit(5000)` no pasa el techo de 1000 de PostgREST y el corte llega
+  // sin error y sin orden (AGENTS.md, lib/supabase-paginado.ts). Las cuatro lecturas de acá crecen con el uso.
+  const filas = await leerTodo<{ workspace_id: number }>(getSupabaseServer(), 'partner_codigos', 'workspace_id', { orden: 'workspace_id' });
+  return new Set(filas.map((f) => Number(f.workspace_id)));
 }
 
 /** El último ingreso de alguien de cada negocio. */
 async function ultimosIngresos(): Promise<Map<number, string>> {
-  const { data, error } = await getSupabaseServer().from('usuarios').select('workspace_id, ultimo_login').not('workspace_id', 'is', null).limit(5000);
-  if (error) throw new Error(error.message);
   const out = new Map<number, string>();
-  for (const u of (data ?? []) as Array<{ workspace_id: number; ultimo_login: string | null }>) {
-    if (!u.ultimo_login) continue;
-    const ws = Number(u.workspace_id);
-    const prev = out.get(ws);
-    if (!prev || u.ultimo_login > prev) out.set(ws, u.ultimo_login);
-  }
+  await leerPorPaginas<{ workspace_id: number; ultimo_login: string | null }>(getSupabaseServer(), 'usuarios', 'workspace_id, ultimo_login', (filas) => {
+    for (const u of filas) {
+      if (!u.ultimo_login) continue;
+      const ws = Number(u.workspace_id);
+      const prev = out.get(ws);
+      if (!prev || u.ultimo_login > prev) out.set(ws, u.ultimo_login);
+    }
+  }, { filtros: (q) => q.not('workspace_id', 'is', null), orden: 'id' });
   return out;
 }
 
@@ -119,22 +122,21 @@ async function leadsDe(ids: readonly number[]): Promise<Map<number, { n: number;
 /** Sesiones del agente de cada negocio en los últimos 30 días. */
 async function sesionesDelAgente(ahoraMs: number): Promise<Map<number, number>> {
   const desde = new Date(ahoraMs - 30 * 86_400_000).toISOString();
-  const { data, error } = await getSupabaseServer().from('agente_sesiones').select('workspace_id').gte('created_at', desde).limit(5000);
-  if (error) throw new Error(error.message);
   const out = new Map<number, number>();
-  for (const s of (data ?? []) as Array<{ workspace_id: number }>) out.set(Number(s.workspace_id), (out.get(Number(s.workspace_id)) ?? 0) + 1);
+  await leerPorPaginas<{ workspace_id: number }>(getSupabaseServer(), 'agente_sesiones', 'workspace_id', (filas) => {
+    for (const s of filas) out.set(Number(s.workspace_id), (out.get(Number(s.workspace_id)) ?? 0) + 1);
+  }, { filtros: (q) => q.gte('created_at', desde), orden: 'id' });
   return out;
 }
 
 /** Las cuotas del CRM de la plataforma: lo que entró (con su fecha) y lo que venció sin pagarse. */
 async function cuotasDeLaPlataforma(plataforma: number, ahoraMs: number): Promise<{ entrados: PagoEntrado[]; vencido: { cuotas: number; usd: number } }> {
-  const { data, error } = await getSupabaseServer().from('pagos').select('pagado, fecha_pago, fecha_esperada, monto_usd')
-    .eq('workspace_id', plataforma).limit(5000);
-  if (error) throw new Error(error.message);
+  const data = await leerTodo<{ pagado: boolean; fecha_pago: string | null; fecha_esperada: string | null; monto_usd: number | null }>(
+    getSupabaseServer(), 'pagos', 'pagado, fecha_pago, fecha_esperada, monto_usd', { eq: { workspace_id: plataforma }, orden: 'id' });
   const hoy = new Date(ahoraMs).toISOString().slice(0, 10);
   const entrados: PagoEntrado[] = [];
   const vencido = { cuotas: 0, usd: 0 };
-  for (const p of (data ?? []) as Array<{ pagado: boolean; fecha_pago: string | null; fecha_esperada: string | null; monto_usd: number | null }>) {
+  for (const p of data) {
     const usd = typeof p.monto_usd === 'number' && Number.isFinite(p.monto_usd) ? p.monto_usd : null;
     if (p.pagado && p.fecha_pago) entrados.push({ fecha: p.fecha_pago, usd });
     else if (!p.pagado && p.fecha_esperada && p.fecha_esperada < hoy) { vencido.cuotas += 1; vencido.usd += usd ?? 0; }
@@ -185,10 +187,13 @@ export async function vistaDeClientes(ahoraMs: number = Date.now()): Promise<Vis
     const actividad = {
       sinEntrar: ingresos ? diasDesde(ingresos.get(w.id), ahoraMs) : null,
       sinLeads: l ? diasDesde(l.ultimo, ahoraMs) : null,
-      onboardingHecho: hechos?.has(w.id) ?? false,
+      // `null` si no se pudo leer (hallazgo 4): sin el dato no se afirma ni «Sin empezar» ni «Terminada».
+      onboardingHecho: hechos ? hechos.has(w.id) : null,
     };
     const porCobro = enRiesgo(w.estado, cs);
-    const porUso = actividadLeida && sinUso(actividad);
+    // ⚠️ NO DE LOS CLIENTES DE UNA AGENCIA (hallazgo 7): la agencia entra a su cuenta con su propia sesión (/api/agencia/entrar)
+    // y la base no anota esa entrada, así que «nadie de su equipo entró» es lo normal aunque la agencia la opere todos los días.
+    const porUso = actividadLeida && !deAgencia.has(w.id) && sinUso(actividad);
     const motivoRiesgo: MotivoRiesgo | null = w.estado === 'pausado' ? 'pausado' : porCobro ? 'cobro' : porUso ? 'sin-uso' : null;
     return {
       ws: w.id, nombre: w.nombre, capa: w.capa, estado: w.estado, creado: w.created_at,

@@ -110,7 +110,8 @@ export type Actividad = {
   sinEntrar: number | null;
   /** Días desde su último lead. `null` = no tiene leads. */
   sinLeads: number | null;
-  onboardingHecho: boolean;
+  /** `null` = no se pudo leer (revisión del tren, hallazgo 4): no es «no lo terminó». */
+  onboardingHecho: boolean | null;
 };
 
 /**
@@ -118,7 +119,7 @@ export type Actividad = {
  * no lo terminó no está «yéndose»: está empezando, y eso lo dice el onboarding pendiente.
  */
 export const sinUso = (a: Actividad): boolean =>
-  a.onboardingHecho && (a.sinEntrar == null || a.sinEntrar >= DIAS_SIN_ENTRAR_RIESGO);
+  a.onboardingHecho === true && (a.sinEntrar == null || a.sinEntrar >= DIAS_SIN_ENTRAR_RIESGO);
 
 /** Una línea corta: «Hoy», «Hace 3 días», «Hace 2 meses», «Nunca». */
 export function haceTxt(dias: number | null): string {
@@ -155,7 +156,9 @@ export const DIAS_NUEVO = 30;
 
 export type FilaParaMirar = {
   ws: number; nombre: string; estado: string; creado: string; prueba: boolean; pagoPendiente: boolean;
-  motivoRiesgo: 'pausado' | 'cobro' | 'sin-uso' | null; sinEntrar: number | null; onboardingHecho: boolean;
+  motivoRiesgo: 'pausado' | 'cobro' | 'sin-uso' | null; sinEntrar: number | null;
+  /** `null` = no se pudo leer: ni «Sin empezar» ni «Activo» por eso. */
+  onboardingHecho: boolean | null;
 };
 export type ItemParaMirar = { ws: number; nombre: string; motivo: MotivoParaMirar; texto: string };
 
@@ -171,7 +174,7 @@ export function paraMirar(filas: readonly FilaParaMirar[], ahoraMs: number): Ite
     else if (f.motivoRiesgo === 'sin-uso') {
       motivo = 'sin-uso';
       texto = f.sinEntrar == null ? 'Nadie de su equipo entró nunca' : `Nadie de su equipo entra hace ${f.sinEntrar} días`;
-    } else if (!f.onboardingHecho && alta != null && alta >= DIAS_SIN_EMPEZAR) { motivo = 'sin-empezar'; texto = 'No terminó su configuración'; }
+    } else if (f.onboardingHecho === false && alta != null && alta >= DIAS_SIN_EMPEZAR) { motivo = 'sin-empezar'; texto = 'No terminó su configuración'; }
     else if (f.prueba) { motivo = 'prueba'; texto = 'Está probando MaKo'; }
     else if (alta != null && alta < DIAS_NUEVO) { motivo = 'nuevo'; texto = alta === 0 ? 'Se sumó hoy' : alta === 1 ? 'Se sumó ayer' : `Se sumó hace ${alta} días`; }
     if (motivo) out.push({ ws: f.ws, nombre: f.nombre, motivo, texto });
@@ -184,9 +187,31 @@ export function paraMirar(filas: readonly FilaParaMirar[], ahoraMs: number): Ite
 export function estadoEnUnaPalabra(f: Pick<FilaParaMirar, 'estado' | 'prueba' | 'motivoRiesgo' | 'onboardingHecho'>): { rotulo: string; tono: 'bad' | 'warn' | 'info' | 'good' | 'neutral' } {
   if (f.estado === 'pausado') return { rotulo: 'Pausado', tono: 'neutral' };
   if (f.motivoRiesgo) return { rotulo: 'En riesgo', tono: f.motivoRiesgo === 'cobro' ? 'bad' : 'warn' };
-  if (!f.onboardingHecho) return { rotulo: 'Sin empezar', tono: 'warn' };
+  if (f.onboardingHecho === false) return { rotulo: 'Sin empezar', tono: 'warn' };
   if (f.prueba) return { rotulo: 'En prueba', tono: 'info' };
   return { rotulo: 'Activo', tono: 'good' };
+}
+
+/**
+ * «La última vez que entró» de un cliente, como la dicen la tabla, la ficha y el teléfono. A un cliente de agencia que
+ * nadie de su equipo usa no se le dice «Nunca» (revisión del tren, hallazgo 7): lo opera su agencia con su propia sesión,
+ * y la base no anota esa entrada.
+ */
+export const ultimaVezTxt = (f: { sinEntrar: number | null; segmentos: readonly Segmento[] }): string =>
+  f.sinEntrar == null && f.segmentos.includes('de-agencia') ? 'Lo opera su agencia' : haceTxt(f.sinEntrar);
+
+/**
+ * La comparación de lo cobrado, SÓLO entre meses cerrados (revisión del tren, hallazgo 6): el mes en curso está a medias,
+ * y compararlo con el anterior completo marca una caída todos los principios de mes. Devuelve el último mes cerrado, el
+ * anterior a él y el % (null si el anterior es 0 o no hay dos meses cerrados).
+ */
+export function comparacionCerrada(cobrado: ReadonlyArray<{ mes: string; usd: number }> | null): { mes: string; contra: string; pct: number } | null {
+  if (!cobrado || cobrado.length < 3) return null;
+  const cerrados = cobrado.slice(0, -1);
+  const ult = cerrados[cerrados.length - 1];
+  const ant = cerrados[cerrados.length - 2];
+  if (!ult || !ant || ant.usd <= 0) return null;
+  return { mes: ult.mes, contra: ant.mes, pct: Math.round(((ult.usd - ant.usd) / ant.usd) * 100) };
 }
 
 // ── Lo cobrado por mes (la tendencia) ──────────────────────────────────────────────────────────────────────────────
