@@ -25,7 +25,11 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir, freemem } from 'node:os';
 
 export const TANDAS = 3;
-export const HEAP_MB = 4096;
+// El heap de cada tanda. 26/10/2026: con tren-m (Grabadores, MaKo recomienda, el Scraper) la tanda 1 «se quedó sin heap» en
+// 4096 MB: el programa entero creció. `MAKO_TIPOS_HEAP_MB` lo sube a mano (entre 4096 y 8192); el piso de RAM sube con él,
+// así que sólo sirve con RAM libre de verdad (después de reiniciar la app de Claude, o con la PC a 32 GB).
+const HEAP_A_MANO_MB = Number(process.env.MAKO_TIPOS_HEAP_MB);
+export const HEAP_MB = Number.isFinite(HEAP_A_MANO_MB) && HEAP_A_MANO_MB >= 4096 ? Math.min(HEAP_A_MANO_MB, 8192) : 4096;
 export const SALIDA_SIN_CHEQUEAR = 99;
 // El piso de RAM de cada tanda: el heap (+0,1 de overhead) + la zona roja del vigía (0,9) + margen. ≈ 5,3 GB.
 // 26/10/2026 (el Cerebro): con la app de Claude abierta la PC dejó de pasar los 4,5 GB disponibles aunque se archivaran cuatro
