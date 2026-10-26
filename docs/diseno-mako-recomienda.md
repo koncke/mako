@@ -234,6 +234,8 @@ Juntarlos en el Ops Center es un paso aparte (§6).
    al turno siguiente (`mako.doer.refs.<jid>`, rama wa-contexto-2610).
 4. **«Lo que mejoró» en pantalla** (hoy sólo por la API).
 5. **Un tope diario para todo MaKo** (la investigación sugiere 3 por día; criterio, no fuente).
-6. **Decisión de Martín:** ¿un resumen semanal por WhatsApp con lo que MaKo recomienda?
+6. ~~Un resumen semanal por WhatsApp con lo que MaKo recomienda~~ — **NO** (decidido por el Cerebro el 26/10/2026). Un envío
+   con calendario es una recomendación de cuota, lo contrario de lo que pidió Martín, y MaKo en WhatsApp reacciona: no avisa.
+   Las recomendaciones salen donde ya hay un MaKo, cuando el dueño está ahí.
 
 **Relacionado:** `docs/diseno-second-brain-recolector.md` · `docs/sugerencias-mako-crm.md` · `docs/hallazgos-recomendaciones.md`.
