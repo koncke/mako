@@ -2667,15 +2667,22 @@ async function abrirDesplegable(windowId) {
 }
 
 /** Terminada a la vista: unos segundos para ver el final y de vuelta a MaKo, si la persona sigue en WhatsApp Web. */
-function volverAMako(viva) {
+// ⚠️ A LA PESTAÑA EXACTA DESDE LA QUE SE TOCÓ «EXTRAER» (Martín, 26/10/2026: «tiene que identificar cuál tab es, porque
+// puede tener varios CRM abiertos u otras tab de MaKo. Por eso, que identifique dónde fue que le dio click»). `viva.origen`
+// es la pestaña que MANDÓ el pedido (el `sender.tab` del mensaje), nunca «la primera de hola-mako.com». Al terminar, y
+// también si se corta. Si esa pestaña ya no está, no se elige otra: queda dicho en el registro (`volver: 'sin_pestana'`) y el
+// desplegable lo muestra.
+function volverAMako(viva, id) {
   if (!viva || viva.origen == null || viva.waTab == null) return;
   setTimeout(async () => {
     try {
-      const wa = await chrome.tabs.get(viva.waTab);
-      if (!wa || !wa.active) return;
-      const mako = await chrome.tabs.get(viva.origen);
+      const wa = await chrome.tabs.get(viva.waTab).catch(() => null);
+      // Si la persona ya se fue de WhatsApp Web a otra cosa, no se la saca de ahí.
+      if (wa && !wa.active) return;
+      const mako = await chrome.tabs.get(viva.origen).catch(() => null);
+      if (!mako) { if (id) void anotarExtraccion(id, { volver: 'sin_pestana' }); return; }
       await alFrente(mako);
-    } catch { /* la pestaña ya no está */ }
+    } catch { /* nada */ }
   }, 4000);
 }
 
@@ -3026,6 +3033,8 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         extraccionesVivas.set(pedidoId, viva);
         await anotarExtraccion(pedidoId, {
           titulo: typeof msg.titulo === 'string' ? msg.titulo.slice(0, 160) : grupos[0] || 'Tus contactos', grupos: grupos.slice(0, 5),
+          // La pestaña desde la que se tocó «Extraer» (el desplegable vuelve a ésa con «Ver en MaKo»).
+          origenTab: origen ?? null,
           total: Array.isArray(msg.pedidos) ? msg.pedidos.length : 0, fase: 'abriendo', estado: 'corriendo',
         }, true);
         await chrome.storage.local.set({ popupVista: { pantalla: 'extraccion', id: pedidoId } }).catch(() => {});
@@ -3036,6 +3045,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           if (visible) {
             void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: lista.motivo });
             extraccionesVivas.delete(pedidoId);
+            volverAMako(viva, pedidoId);
             if (lista.motivo === 'sin_sesion' && lista.tab) await alFrente(lista.tab);
           }
           responder({ ok: false, motivo: lista.motivo });
@@ -3059,6 +3069,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         if (viva.parado) {
           void anotarExtraccion(pedidoId, { estado: 'parado', fase: 'parado' });
           extraccionesVivas.delete(pedidoId);
+          volverAMako(viva, pedidoId);
           responder({ ok: false, motivo: 'parado' });
           return;
         }
@@ -3071,7 +3082,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
           vistas,
         }), 90000);
         if (r && r.tope) {
-          if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'sin_respuesta_wa' }); extraccionesVivas.delete(pedidoId); }
+          if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'sin_respuesta_wa' }); extraccionesVivas.delete(pedidoId); volverAMako(viva, pedidoId); }
           responder({ ok: false, motivo: 'sin_respuesta_wa' });
           return;
         }
@@ -3079,7 +3090,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         // Si el desplegable se abrió (o por qué no), también a la pantalla: es lo primero que hay que saber si «no se ve».
         responder(r ? (visible ? { ...r, desplegable: desplegable === true ? 'abierto' : desplegable } : r) : { ok: false, motivo: 'sin_respuesta' });
       } catch (e) {
-        if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'recargar_whatsapp_web' }); extraccionesVivas.delete(pedidoId); }
+        if (visible) { void anotarExtraccion(pedidoId, { estado: 'error', fase: 'error', motivo: 'recargar_whatsapp_web' }); extraccionesVivas.delete(pedidoId); volverAMako(viva, pedidoId); }
         responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
       } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
     })();
@@ -3144,7 +3155,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     if (c.estado && c.estado !== 'corriendo') {
       const viva = extraccionesVivas.get(id);
       extraccionesVivas.delete(id);
-      if (c.estado === 'listo') volverAMako(viva);
+      volverAMako(viva, id);
     }
     responder?.({ ok: true });
     return false;

@@ -1099,17 +1099,20 @@ function armarExtraccion(cuerpo, e, estado) {
     cuerpo.appendChild(nodo('div', 'tenue', MOTIVO[e.motivo] || e.texto || 'No se pudo. Vuelve a tocar «Extraer» en MaKo.'));
   }
   if (e.noEncontrado) cuerpo.appendChild(nodo('div', 'tenue', `No encontré «${e.noEncontrado}» entre tus chats.`));
+  if (e.volver === 'sin_pestana') cuerpo.appendChild(nodo('div', 'tenue', 'La pestaña de MaKo desde la que extrajiste ya no está abierta.'));
   cuerpo.appendChild(nodo('div', 'tenue', cuandoFue(e.cuando)));
   const b = nodo('button', '', 'Ver en MaKo');
   b.type = 'button';
-  b.addEventListener('click', () => void abrirMakoEn('/crm'));
+  // A la pestaña desde la que se tocó «Extraer» (puede haber varios CRM abiertos); si ya no está, el CRM.
+  b.addEventListener('click', () => void abrirMakoEn('/crm', e.origenTab));
   cuerpo.appendChild(b);
   return out;
 }
 
-/** La pestaña de MaKo que ya está, al frente; si no hay, una en `ruta`. */
-async function abrirMakoEn(ruta) {
-  const t = await pestanaDeMako();
+/** La pestaña `preferida` (la de origen de una extracción), si sigue abierta; si no, la de MaKo que ya está; si no, una en `ruta`. */
+async function abrirMakoEn(ruta, preferida) {
+  const propia = preferida != null ? await chrome.tabs.get(preferida).catch(() => null) : null;
+  const t = propia || await pestanaDeMako();
   if (t) {
     await chrome.tabs.update(t.id, { active: true }).catch(() => {});
     await chrome.windows.update(t.windowId, { focused: true }).catch(() => {});

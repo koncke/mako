@@ -200,7 +200,8 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
   const atender = ctx.atender as (m: unknown, s: unknown, r: (x: unknown) => void) => boolean;
   const pedir = (m: Record<string, unknown>, origen = 5) => new Promise<unknown>((resolve) => { atender(m, { tab: { id: origen } }, (x) => resolve(plano(x))); setTimeout(() => resolve('sin respuesta'), 2000); });
   const mandar = (m: Record<string, unknown>) => atender(m, {}, () => {});
-  return { reg, pedir, mandar };
+  const cambiarTabs = (t: Array<Record<string, unknown>>) => { c.tabs.splice(0, c.tabs.length, ...t); };
+  return { reg, pedir, mandar, cambiarTabs };
 }
 const dormir = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -264,6 +265,37 @@ test('3b. sin `visible` (la 0.71) no toca nada a la vista; el «Parar» llega a 
   assert.ok(p.reg.aTabs.some(([id, m]) => id === 5 && m.tipo === 'WA_FICHAS_PARAR'), 'el «Parar» no llegó a MaKo');
   // Y mientras corre, la extensión no se recarga sola a la mitad (`hayTrabajoEnCurso` mira `fichasEnVuelo`).
   assert.match(leer('extension/background.js'), /if \(fichasEnVuelo > 0\) return true;/);
+});
+
+test('3d. vuelve a la pestaña EXACTA desde la que se tocó «Extraer» (con dos CRM y otra de MaKo abiertas), también si se corta', async () => {
+  // Martín, 26/10: «tiene que identificar cuál tab es, porque puede tener varios CRM abiertos u otras tab de MaKo».
+  const pestanas = () => [
+    { id: 5, url: 'https://hola-mako.com/crm', windowId: 1, active: false },
+    { id: 6, url: 'https://hola-mako.com/crm', windowId: 2, active: true },
+    { id: 8, url: 'https://hola-mako.com/video-generator', windowId: 1, active: false },
+    { id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 },
+  ];
+  for (const final of ['listo', 'error', 'parado']) {
+    const w = cargarWorker({ tabs: pestanas() });
+    await w.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 'v1', visible: true, grupos: ['G'], pedidos: [] }, 6);
+    w.mandar({ tipo: 'WA_EXTRACCION', id: 'v1', estado: final });
+    await dormir(30);
+    assert.deepEqual(w.reg.activadas, [7, 6], `con «${final}» no volvió a la pestaña desde la que se tocó (la 6)`);
+    assert.deepEqual(w.reg.enfocadas, [1, 2], 'no enfocó la ventana de esa pestaña');
+    assert.equal((w.reg.storage.extracciones as Array<Record<string, unknown>>)[0].origenTab, 6, 'el registro no guarda la pestaña de origen');
+  }
+  // La pestaña de origen ya no está: no elige otra; lo deja dicho para el desplegable.
+  const sin = cargarWorker({ tabs: pestanas() });
+  await sin.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 'v2', visible: true, grupos: ['G'], pedidos: [] }, 6);
+  // Se cerró la 6 mientras extraía (WhatsApp sigue al frente).
+  sin.cambiarTabs(pestanas().filter((t) => t.id !== 6).map((t) => (t.id === 7 ? { ...t, active: true } : t)));
+  sin.mandar({ tipo: 'WA_EXTRACCION', id: 'v2', estado: 'listo' });
+  await dormir(30);
+  assert.deepEqual(sin.reg.activadas, [7], 'eligió otra pestaña de MaKo al azar');
+  assert.equal((sin.reg.storage.extracciones as Array<Record<string, unknown>>)[0].volver, 'sin_pestana');
+  const popup = sinComentarios(leer('extension/popup.js'));
+  assert.match(popup, /b\.addEventListener\('click', \(\) => void abrirMakoEn\('\/crm', e\.origenTab\)\);/, '«Ver en MaKo» va a cualquier pestaña de MaKo');
+  assert.match(popup, /if \(e\.volver === 'sin_pestana'\)/);
 });
 
 test('3c. el manifest y las versiones: el recorrido en WhatsApp Web, aislado; y la pantalla pide la 0.72', async () => {
@@ -610,3 +642,5 @@ test('8. el `notifyName` de los mensajes: por autor, el último gana, y sólo ll
 //   · una publicación de una red queda como web                                            → 13 / 1
 //   · una web que no es http(s) entra (el server)                                          → 13 / 1
 // Y las tandas (0.73.2), contra 14 / 0: un solo pedido de 60 → 13 / 1; una tanda que falla no corta → 13 / 1.
+// Y la vuelta a la pestaña exacta (0.74.0), contra 16 / 0: volver sólo con «listo» → 15 / 1; volver a «la primera pestaña de
+// hola-mako.com» en vez de la que mandó el pedido → 15 / 1.
