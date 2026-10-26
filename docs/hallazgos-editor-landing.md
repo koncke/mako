@@ -3140,3 +3140,47 @@ Lo que quedó SIN hacer:
   Déjanos tus datos y te escribimos» y `hablarAntes()` lleva al pedido que ya existe, el del Acelerador (el Cerebro, 26/10).
   Se cambia en ese único lugar.
 - **Publicar.** Espera el sí de Martín, después de ver las vistas previas (`--subir`, en producción).
+
+## El editor web de punta a punta con las páginas de MaKo: lo que un iframe sin scripts no deja ver (26/10/2026, claude5)
+
+Martín pidió probar el editor de punta a punta y listó siete cosas: el menú del clic derecho que no se cierra, la barra
+de texto gris, los botones, las secciones que no se acomodan, el video, los botones flotantes que se van, la animación de
+MaKo y el Calendly. Se reprodujeron en producción sobre una COPIA de la landing principal (#44) y sobre una creada desde
+cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de MaKo es un «Diseño editable», un iframe
+`sandbox="allow-same-origin"` SIN scripts.
+
+- **Un clic adentro de un diseño no existe para la página.** Los menús y paneles se cierran con un `pointerdown` en el
+  `document` de la página, y el clic pasa en el documento del iframe. Como en una landing de MaKo casi todo «otro lado»
+  es otro iframe, el menú no se cerraba nunca. El diseño reenvía su `pointerdown` al marco, igual que ya hacía con el
+  clic derecho. **Regla:** un panel nuevo se cierra con `pointerdown` en captura. AskAgent usaba `mousedown` y no se
+  enteraba.
+- **El sandbox se HEREDA.** Un iframe de Panda o de Calendly ADENTRO del diseño tampoco puede correr scripts, aunque lleve
+  su propio `sandbox` abierto. Por eso se veía la ficha y no el video. Lo real va en una capa ENCIMA de su lugar, en la
+  página, con el `sandbox` de los insertados. Medido: el reproductor de Panda carga ahí. La capa no recibe el mouse hasta
+  que se elige el elemento, así el primer clic elige y el segundo ya es del reproductor.
+- **El diagnóstico obvio era el equivocado (los botones).** Se pensaba que el texto de un botón de diseño no se podía
+  escribir: medido, sí se podía (el `<a>` es editable adentro del `contentEditable`). Lo que faltaba era un control: al
+  elegirlo sólo aparecía «Enlace», un ícono chico, y nada para sus colores. Ahora aparece «Botón» con su nombre a la vista:
+  texto, a dónde lleva y los dos colores. El color va con `!important`, porque la hoja de un diseño lo escribe así
+  (`.mkv-btn { color: #fff !important }`) y un estilo sin él no gana. En una landing creada desde cero el botón ya andaba.
+- **«El SVG de MaKo» es un canvas que dibuja un script** (`/vsl-assets/mako-anim.js`). El iframe es del mismo origen: la
+  página carga el mismo dibujante y pinta en SU canvas, sólo mientras se ve. El `width`/`height` que el dibujo le pone
+  al canvas se saca antes de guardar: si no, el diseño quedaba «con cambios» sin que nadie tocara nada.
+- **La barra «Texto» quedaba gris porque lee la selección de ProseMirror**, y el cursor de un diseño está en su iframe.
+  `puente-diseno.ts` le dice qué documento tiene el cursor, y `acciones-diseno.ts` hace ahí lo mismo con
+  `execCommand`. Medido: funciona con el foco en el botón de la barra, y «deshacer» del iframe lo vuelve atrás. Los
+  estilos que no son una etiqueta HTML (antetítulo, grande, pequeño, tareas) y la etiqueta no se ofrecen en un diseño.
+- **Arrastrar por la mitad de la sección no sirve con secciones de 2.000 px.** «Mover arriba/abajo» del menú andaba. El
+  arrastre del ⋮ no movía nada, porque la mitad de la sección vecina quedaba unos 900 px fuera de la pantalla. Mientras se
+  arrastra, cada sección se ve como una franja de 132 px (`body[data-gm-reordenando]`): entran todas y se suelta donde
+  se ve.
+- **Controles que se van con el hover:** la barrita del diseño estaba 12 px por arriba y se iba con el `mouseleave` al
+  cruzar ese aire. Ahora se queda mientras su diseño es el activo y va pegada arriba de lo que se ve (un ancla `sticky`
+  de alto 0, que no mueve nada). El ⋮ de la sección también va `sticky` y tarda medio segundo en irse. `pointer-events`
+  no tiene transición; `visibility` sí, con retardo, y mientras se ve se puede apretar.
+- **Tests que fijaban nombres:** `setActivo(true)` en el `mousedown`, `boton('Enlace'…)` y el `className` de la
+  barrita. Se respetaron los nombres; sólo se cambió la activación, que ahora es el puente.
+
+Lo que quedó SIN hacer (en este documento cuando se haga):
+- Los clics en producción de todo esto, cuando se despliegue la punta (sobre la copia #44 y la #45).
+- «Aplicar» del analizador de otras landings y «Replicar» con una landing de la competencia: siguen en esta tanda.

@@ -98,7 +98,7 @@ test('la IA ve los TEXTOS de una sección de diseño y los cambia sin tocar la f
 
 test('un clic adentro del diseño ACTIVA su sección, y su barrita suma negrita y cursiva', () => {
   const vista = sinComentarios(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx'));
-  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\s*setActivo\(true\);\s*marcarSeccion\(\);/);
+  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\s*activarDiseno\(\{ doc: d, guardar: \(\) => guardarVivo\.current\(\) \}\);\s*marcarSeccion\(\);/);
   assert.match(vista, /if \(n\.type\.name === NODO\.tarjeta\) \{ const id = String\(n\.attrs\.id \?\? ''\); if \(id\) c\.marcarActiva\(id\); return; \}/);
   // Desde el 25/10/2026 la barrita va con íconos y el nombre en el tooltip (`boton(nombre, ícono, acción)`).
   assert.match(vista, /boton\('Negrita', <Icono nombre="negrita" \/>, \(\) => formato\('bold'\)\)/);
