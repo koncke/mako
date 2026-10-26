@@ -63,11 +63,36 @@ export function coberturaDeFichas(fichas: readonly FichaWa[]): { conNombre: numb
  */
 export function gruposEnWhatsappDichos(grupos: readonly GrupoEnWhatsapp[]): string {
   if (!grupos.length) return '';
-  const partes = grupos.slice(0, 3).map((g) => (g.encontrado
-    ? `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`
-    : `el grupo «${g.nombre}» no está en tu WhatsApp Web`));
+  // Con cuántos sabe el NOMBRE (26/10/2026): en un grupo de anuncios nadie escribe y WhatsApp no conoce sus nombres (en el de
+  // Martín, 1 de 247); sin el número, «1 completado» se lee como que la extensión no anda.
+  const partes = grupos.slice(0, 3).map((g) => (!g.encontrado
+    ? `el grupo «${g.nombre}» no está en tu WhatsApp Web`
+    : g.participantes != null && g.conNombre != null
+      ? `el grupo «${g.nombre}» está en tu WhatsApp: de sus ${miles(g.participantes)}, WhatsApp sabe el nombre de ${miles(g.conNombre)}`
+      : `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`));
   const texto = partes.join(' · ');
   return ` ${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`;
+}
+
+/** Lo más largo que entra en la barra del lote al lado de los botones (medido en el Chrome de Martín, 1536 px: ~48). */
+const ENTRA_EN_LA_BARRA = 44;
+
+/**
+ * El paso que cuenta la extensión, dicho para la barra del lote, que es angosta (25/10/2026: «Buscando el grupo «…» en tu
+ * WhatsApp Web…» salía cortado con «…»). NO SE CORTA NADA (Martín, 25/10: «que no haya nunca un límite de caracteres, en todo
+ * caso achica el mensaje»): se elige una frase más corta. El grupo va con su nombre si entra entero; si no, sin él (el aviso
+ * final lo nombra).
+ */
+export function avanceCorto(paso: string, texto: string): string {
+  if (paso === 'abriendo') return texto.startsWith('Despertando') ? 'Despertando WhatsApp Web…' : texto.startsWith('Recargando') ? 'Recargando WhatsApp Web…' : 'Abriendo WhatsApp Web…';
+  if (paso === 'cargando') return 'Esperando tus chats de WhatsApp…';
+  if (paso === 'leyendo') {
+    const grupo = /«(.+)»/.exec(texto)?.[1] ?? null;
+    if (!grupo) return /grupos/.test(texto) ? 'Buscando los grupos en tu WhatsApp…' : 'Leyendo tu WhatsApp Web…';
+    const conNombre = `Buscando «${grupo}»…`;
+    return [...conNombre].length <= ENTRA_EN_LA_BARRA ? conNombre : 'Buscando el grupo en tu WhatsApp…';
+  }
+  return texto;
 }
 
 /** El aviso al terminar «Completar desde mi WhatsApp»: la cobertura, lo escrito, y si paró o se cortó. */

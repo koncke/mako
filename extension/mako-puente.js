@@ -270,6 +270,12 @@ chrome.runtime.onMessage.addListener((msg) => {
   return false;
 });
 
+// La pantalla vio una extensión vieja: el worker mira si su carpeta ya trae la nueva y, si sí, se recarga (0.71.1).
+window.addEventListener('MAKO_EXTENSION_REVISAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  try { chrome.runtime.sendMessage({ tipo: 'REVISAR_CARPETA' }, () => void chrome.runtime.lastError); } catch { /* nada */ }
+});
+
 // «Ir a WhatsApp Web» (para iniciar la sesión): el worker pone esa pestaña al frente, o abre una.
 window.addEventListener('MAKO_WA_ENFOCAR', (ev) => {
   if (!ev || ev.target !== window || huerfano()) return;

@@ -114,10 +114,39 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   `diagnostico` (tablas y cantidades). Los campos de cada tabla se leyeron con `getAll` en modo lectura e imprimiendo sólo
   las claves; la herramienta del navegador bloquea en la salida los nombres de campo largos que parecen base64.
 
+## Los 221 del grupo de Martín: WhatsApp no tiene sus nombres (26/10/2026, medido)
+
+**Vive en:** `buscarGrupos` (extension/wa-fichas-reglas.js, cuenta `conNombre`) · `gruposEnWhatsappDichos`
+(app/crm/enriquecer-cliente.ts) · tests/wa-fichas-071.test.ts (1 y 5b).
+
+- **MEDIDO en su WhatsApp Web** (sólo lectura, sólo cantidades), el grupo de donde vinieron los 221 («16, 17 y 18 de JUNIO |
+  RETO del Anuncio Ganador»): 247 participantes, 237 con teléfono, **1 con nombre**, ni en `name`/`pushname` ni en
+  `displayNameLID`. El grupo guarda 17 mensajes, todos del sistema: es de anuncios y nadie escribe, y WhatsApp sólo conoce el
+  nombre de quien le escribió.
+- **El diagnóstico obvio era el equivocado:** «el scraper no anda». Anda; el dato no existe en su WhatsApp. Ninguna tabla lo
+  tiene (ni `message`: ningún `notifyName` del grupo), y abrir la info del grupo para que WhatsApp lo pida es abrir el chat
+  (da el «visto»): no se hace. Para un grupo así, los nombres llegan cuando escriben; «Datos de empresa» trae el de las
+  cuentas de empresa.
+- **Regla:** el final dice de cuántos sabe el nombre WhatsApp («de sus 247, WhatsApp sabe el nombre de 1»). Sin ese número,
+  «1 completado» se lee como que la extensión está rota.
+
+## Una descomprimida no se actualiza sola: la 0.71.1 sí (26/10/2026)
+
+- La 0.71.0 quedó copiada en la carpeta de Martín y su Chrome siguió con la 0.70.0 toda la noche: hace falta tocar «Recargar»
+  en chrome://extensions, que no se puede manejar desde Claude in Chrome, y la 0.70.0 no tiene ningún camino vivo a
+  `chrome.runtime.reload()` (la única llamada está en `quizasReiniciarNoUsar`, sin llamadores desde el 01/09).
+- Desde la 0.71.1, `alDiaConSuCarpeta` (extension/background.js) mira el manifest de SU carpeta (un `fetch` de un recurso
+  propio lee el disco en una descomprimida) y, si trae una versión más nueva que la que corre, se recarga UNA vez por versión;
+  nunca de la tienda ni con un trabajo de Flow o una lectura de fichas en curso. Al arrancar, después de cada latido y cuando
+  la pantalla ve una extensión vieja (`MAKO_EXTENSION_REVISAR`). No es el reinicio que se sacó el 01/09: aquel comparaba
+  contra producción y se reiniciaba aunque la carpeta no hubiera cambiado.
+- ⚠️ Sin verificar en vivo que el `fetch` lea el disco y no una copia en memoria (no se pudo: su Chrome sigue en la 0.70.0).
+  Lo dice la primera vez que la carpeta traiga una versión nueva con la 0.71.1 corriendo.
+
 ## Sin hacer
 
-- **La cobertura real sobre los 221 con la 0.71** (cuántos con nombre por `displayNameLID` y por `@lid`): sale de la primera
-  corrida de Martín con la 0.71 desplegada (la pantalla la dice al terminar).
+- **La corrida completa en el Chrome de Martín con la 0.71** (con capturas): lista en las notas del Cerebro
+  (capturas-completar-wa/CORRIDA-COMPLETA.md). Por lo medido, en el grupo de los 221 va a completar 1.
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).

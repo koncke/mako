@@ -29,7 +29,7 @@ export function extensionLeeFichas(): 'si' | 'vieja' | 'no' {
 
 export type DiagnosticoFichas = { base: boolean; stores?: string[]; contactos?: number; grupos?: number; participantes?: number; pedidos?: number; conFicha?: number };
 /** Un grupo que MaKo nombró, buscado en el WhatsApp Web de la persona: si está y cuántos son (nunca quiénes). */
-export type GrupoEnWhatsapp = { nombre: string; encontrado: boolean; participantes: number | null };
+export type GrupoEnWhatsapp = { nombre: string; encontrado: boolean; participantes: number | null; conNombre: number | null };
 export type RespuestaFichas =
   | { ok: true; fichas: unknown[]; grupos: GrupoEnWhatsapp[]; diagnostico: DiagnosticoFichas | null }
   | { ok: false; motivo: string; error?: string };
@@ -102,7 +102,10 @@ function gruposDe(v: unknown): GrupoEnWhatsapp[] {
   return v.flatMap((g) => {
     const o = (g ?? {}) as Record<string, unknown>;
     if (typeof o.nombre !== 'string') return [];
-    return [{ nombre: o.nombre.slice(0, 120), encontrado: o.encontrado === true, participantes: typeof o.participantes === 'number' ? o.participantes : null }];
+    return [{
+      nombre: o.nombre.slice(0, 120), encontrado: o.encontrado === true, participantes: typeof o.participantes === 'number' ? o.participantes : null,
+      conNombre: typeof o.conNombre === 'number' ? o.conNombre : null,
+    }];
   });
 }
 

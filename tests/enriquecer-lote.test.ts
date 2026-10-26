@@ -237,7 +237,7 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   assert.match(barra, /\{largo && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
   assert.match(barra, /onClick=\{largo \? undefined : onLimpiar\}/, 'limpiar la selección a mitad desmonta la barra con su «Parar»');
   // La extensión lee SÓLO los teléfonos de los tildados (con su `@lid` y sus grupos, desde el 25/10/2026), y cuenta cada paso.
-  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,400}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, alAvanzar: \(texto\) => setAvance\(texto\),/);
+  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,400}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, alAvanzar: \(texto, paso\) => setAvance\(avanceCorto\(paso, texto\)\),/);
   // Más de 5.000 tildados: la pregunta dice que se toman los primeros (nunca un corte callado).
   assert.equal([...barra.matchAll(/n > TOPE_LOTE_COMPLETAR \? ` Se toman los primeros/g)].length, 2);
 });
