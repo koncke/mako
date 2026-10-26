@@ -1244,6 +1244,44 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
     url: 'https://www.mercadopago.com/developers/panel/app',
     urlLabel: 'Mercado Pago → Tus integraciones',
   },
+  // Los alojadores de video con DOS campos (25/10/2026): la ayuda del servicio dice cómo conectarlo; la de cada campo,
+  // qué va EN ese campo (tests/tutoriales-legibles.test.ts).
+  BUNNY_STREAM_KEY: {
+    pasos: [
+        'Para qué sirve: con esta clave MaKo lista los videos de tu biblioteca y trae cuántas veces los reproducen por día.',
+        'En dash.bunny.net abre "Stream" y entra a la biblioteca donde están tus videos.',
+        'En el menú de la biblioteca toca "API" y copia "API Key". Es la de la BIBLIOTECA, no la de tu cuenta.',
+      ],
+    url: 'https://dash.bunny.net/stream',
+    urlLabel: 'Bunny → Stream → tu biblioteca → API',
+  },
+  BUNNY_STREAM_LIBRARY: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo cuál de tus bibliotecas de Bunny tiene los videos.',
+        'En la misma pantalla "API" de tu biblioteca, copia "Video Library ID": es un número.',
+        'También está en el link de cada video: /embed/<este número>/…',
+      ],
+    url: 'https://dash.bunny.net/stream',
+    urlLabel: 'Bunny → Stream → tu biblioteca → API',
+  },
+  CLOUDFLARE_STREAM_TOKEN: {
+    pasos: [
+        'Para qué sirve: con este token MaKo lista tus videos de Cloudflare Stream para elegirlos en tus páginas y tus cursos.',
+        'En dash.cloudflare.com abre "My Profile" → "API Tokens" → "Create Token" → "Create Custom Token".',
+        'En "Permissions" elige "Account" → "Stream" → "Read", crea el token y cópialo: Cloudflare lo muestra una sola vez.',
+      ],
+    url: 'https://dash.cloudflare.com/profile/api-tokens',
+    urlLabel: 'Cloudflare → My Profile → API Tokens',
+  },
+  CLOUDFLARE_ACCOUNT_ID: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo en qué cuenta de Cloudflare están tus videos.',
+        'En el panel de Cloudflare entra a "Stream".',
+        'En la columna de la derecha copia "Account ID": son 32 letras y números.',
+      ],
+    url: 'https://dash.cloudflare.com',
+    urlLabel: 'Cloudflare → Stream',
+  },
 };
 
 /**
