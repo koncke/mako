@@ -18,6 +18,7 @@
 import { after, type NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getRolWsEfectivo, getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
+import { conSuIADelNegocio } from '@/lib/ia-del-negocio';
 import { decidirRecomendacion, recomendacionesDe } from '@/lib/recomendaciones';
 import { esDecision, esSuperficie, MAX_MOTIVO } from '@/lib/recomendaciones-reglas';
 
@@ -46,10 +47,12 @@ export async function GET(req: NextRequest) {
     const q = await quien();
     if ('error' in q) return json({ ok: false, error: q.error }, q.status);
     if (!q.admin) return json({ ok: true, recomendaciones: [], funcionaron: [], descartadas: [], fallas: [], notas: [], redaccion: 'nada' });
-    const r = await runWithWorkspace(q.ws, () => recomendacionesDe(superficie, {
-      // after() ata el contexto del pedido (el workspace y «sólo su IA», lib/solo-su-ia.ts); se fija igual, por las dudas.
+    // ADENTRO de «sólo su IA» (D6b, tests/d6b-rutas.test.ts: lo que llama el navegador del Ops Center prende el contexto): con
+    // su Claude o su GPT, la redacción va a la suya y nunca a la Gemini gratis. after() ata ese contexto (lib/solo-su-ia.ts);
+    // el workspace se fija igual, por las dudas.
+    const r = await runWithWorkspace(q.ws, () => conSuIADelNegocio(q.ws, () => recomendacionesDe(superficie, {
       alDespues: (fn) => after(() => runWithWorkspace(q.ws, fn)),
-    }));
+    })));
     return json({ ok: true, ...r });
   } catch (e) {
     console.error('[api/mako/recomendaciones] GET', e instanceof Error ? e.message : String(e));
@@ -70,7 +73,7 @@ export async function POST(req: NextRequest) {
     const decision = b?.decision;
     if (!esDecision(decision)) return json({ ok: false, error: 'Elige qué hacer con la recomendación.' }, 400);
     const motivo = typeof b?.motivo === 'string' ? b.motivo.slice(0, MAX_MOTIVO) : null;
-    const r = await runWithWorkspace(q.ws, () => decidirRecomendacion({ superficie, clave, d: decision, motivo, quien: q.actor }));
+    const r = await runWithWorkspace(q.ws, () => conSuIADelNegocio(q.ws, () => decidirRecomendacion({ superficie, clave, d: decision, motivo, quien: q.actor })));
     if (!r.ok) return json({ ok: false, error: r.error }, r.status);
     return json({ ok: true });
   } catch (e) {
