@@ -77,7 +77,17 @@ Pedido de Martín desde su Android. Lo que quedó:
 - **«CEO»** de ejemplo en Cargo. **«Prompts»** fuera del índice (la pantalla sigue en /configuraciones/prompts).
 - Guard: tests/settings-movil-26-10.test.ts.
 
+## La agenda al entrar con Google, lista para prender (quinta tanda, 26/10, rama `google-agenda-2610`)
+
+Google aprobó la app (Martín, 26/10). La política de privacidad lee el MISMO interruptor que el login y dice lo que hace hoy
+(app/privacidad/page.tsx). Guard: tests/privacidad-agenda-login.test.ts.
+
+**EL PASO QUE FALTA (configuración de producción, no código):** poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel → Production y
+redesplegar. Lo pide el Cerebro a Martín cuando esta rama esté en main. Con eso, el login pide el calendario (destildable) y
+la política pasa sola a «una sola vez, al entrar».
+
 ## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
+- `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (arriba).
 - La entrada del super admin a los prompts de MaKo (hoy sólo por su link): dónde va lo decide el chat de la barra.
 - El criterio de reuniones de Mauricio sigue prendido: apagarlo es un cambio de dato (no se hizo).
 - Seguridad › cerrar las demás sesiones: pide una migración (la sesión es un JWT sin estado).

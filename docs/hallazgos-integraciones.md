@@ -5,6 +5,25 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## La política de privacidad lee el MISMO interruptor que el login (26/10/2026)
+
+**Vive en:** `app/privacidad/page.tsx` (`loginPideAgenda`) · `lib/google-login-agenda.ts` · `app/api/auth/google/route.ts` y su
+callback. Guard: `tests/privacidad-agenda-login.test.ts`.
+
+- **Google aprobó la app** (Martín, 26/10). Prender la agenda al entrar es poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel; la
+  política prometía «dos momentos separados» y tenía que cambiar ANTES.
+- **El diagnóstico obvio era reescribir el texto y listo.** Pero el interruptor se prende en Vercel cuando la rama ya está en
+  main: un texto fijo mentiría en el medio (diría «una sola vez» con el login todavía en dos, o al revés). La página lee el
+  MISMO interruptor en el server y dice lo que el login hace HOY. **Regla: un texto legal que describe un comportamiento
+  detrás de un interruptor lee ese interruptor.**
+- Cada promesa de la versión «al entrar» quedó atada a su línea de código en el test: destildable (`otorgoLaAgenda`), sólo
+  quien administra (`rolWs !== 'admin'`), sin pisar la agenda de otra persona (`googleCalendarDueno`).
+
+**Quedó SIN hacer:** poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (producción). Lo pide el Cerebro a Martín cuando esta rama
+esté en main.
+
+*26/10/2026, chat «Settings» (claude5), rama google-agenda-2610.*
+
 ## Los grabadores de reuniones: una reunión, venga de donde venga (26/10/2026)
 
 **Vive en:** `lib/grabadores/` (la capa: `reunion.ts` la forma común y la clave, `index.ts` la puerta, un lector por
