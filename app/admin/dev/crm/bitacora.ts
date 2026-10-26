@@ -3618,4 +3618,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '11:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'El Scraper, con lo que ya tiene la extensión para Flow',
+    pedido: '«Y revisa las cosas que tenemos en la extensión de Flow para replicarlas en Scraper, por ejemplo, si el usuario no tiene abierto la pestaña de WhatsApp web que la abra sola, si el usuario no escaneo el QR, que la extensión le diga y se quede esperando unos minutos... Aprovecha lo que tenemos»',
+    puntos: [
+      'Y sobre el «visto»: «No importa si marca como "leido" la extensión». Lo pasó el Cerebro.',
+    ],
+  },
+  {
+    fecha: '26 oct', hora: '11:45', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Si WhatsApp Web pide el QR, la extensión te lo dice y te espera',
+    puntos: [
+      'Si no tenés WhatsApp Web abierto, lo abre sola; si ya está, usa ese (nunca abre otro). Eso ya lo hacía, igual que con Flow.',
+      'Si te pide escanear el QR, pone esa pestaña al frente, el desplegable te dice cómo («WhatsApp › Dispositivos vinculados › Vincular un dispositivo») y te espera cinco minutos. Cuando lo escaneás, sigue sola.',
+      'En el Scraper del desplegable, arriba de tus extracciones, dice cómo está tu WhatsApp Web, con un botón para abrirlo o ir a él, como lo hace con Flow.',
+      'El QR lo probé con tests, no en tu Chrome: para verlo habría que cerrarte la sesión. Con tu sesión abierta lo probé y no se confunde.',
+      'Extensión 0.72.3, ya en tu carpeta y puesta sola.',
+    ],
+    commits: [
+      { sha: 'be19b8c91', msg: 'Extensión 0.72.3: el Scraper copia lo de Flow — si WhatsApp Web pide el QR lo dice y espera unos minutos, y el desplegable dice cómo está', lineas: 232, archivos: 14 },
+    ],
+    archivos: [
+      'extension/wa-recorrer.js — cómo está WhatsApp Web (lista, QR o cargando)',
+      'extension/background.js — la espera del QR y el estado para el desplegable',
+      'extension/popup.js — el QR en la extracción y el estado arriba del registro',
+      'tests/wa-extraer-072.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];

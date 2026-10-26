@@ -189,6 +189,14 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   política de privacidad (/privacidad/extension); antes decía «no hace clic, no abre chats, no marca nada como leído».
 - **Sólo el pedido que empieza crea su fila del registro** (`anotarExtraccion(..., crear)`): un aviso con un id que no está
   (de antes de recargarse la extensión) creaba una «extracción» fantasma. Encontrado probando, 0.72.2.
+- **El QR, como Flow (0.72.3):** Martín pidió «replicar» lo de Flow en el Scraper. Abrir la pestaña si falta y reusar la que
+  hay YA estaba (`pestanaDeWhatsappLista`, el mismo molde que `prepararEscenario`). Lo que faltaba era MIRAR LA PANTALLA: con
+  la sesión cerrada `model-storage` puede seguir ahí, así que «hay base» no es «hay sesión». `estadoDeSesion` (en
+  wa-recorrer.js: wa-fichas.js no toca la pantalla, y su test lo exige) dice 'lista' (está `#side`), 'qr' (el lienzo, el
+  `data-ref` o el texto) o 'cargando'; con el QR, la pestaña al frente y CINCO minutos de espera, contándolo. El desplegable
+  dice cómo está WhatsApp Web arriba del registro (`WA_ESTADO`, sólo mira). ⚠️ La pantalla del QR NO se midió en vivo
+  (cerrarle la sesión a Martín no se hace): si WhatsApp cambia ese dibujo, el síntoma es esperar el minuto de «cargando» y
+  decir `sin_sesion`. Medido en vivo que con la sesión abierta NO se confunde (2 s, sin pasar por «qr»).
 - **Probar sin desplegar la pantalla:** el mismo pedido que manda MaKo se dispara desde SU pestaña de hola-mako.com con
   `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
   ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
@@ -199,6 +207,8 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   los nombres): la extensión 0.72.2 ya corre en su Chrome y se probó a la vista (notas del Cerebro, capturas-extraer-072). Al
   desplegar: Nuevo lead › Scraper › el grupo › «Extraer N», y mirar que el desplegable termine en «N nombres en MaKo».
 - **El desplegable en su estado final («listo»)** no se capturó: vuelve a MaKo a los 4 s y se cierra. Se ve en su registro.
+- **La pantalla del QR, medida:** la primera vez que un cliente (o un perfil aparte) llegue con la sesión cerrada, mirar que
+  el desplegable diga «Escanea el QR» y no «cargando».
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).
