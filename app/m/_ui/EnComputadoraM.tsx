@@ -10,7 +10,7 @@
 // pestaña (`conWs`). Nunca un link pelado: el desvío la taparía con «Esta pantalla se usa en la computadora».
 //
 // La usan More (una tab de la sidebar sin pantalla del teléfono, lib/movil-rutas.ts → SOLO_ESCRITORIO / EN_CAMINO) y
-// las pantallas que tienen una sección de escritorio sin versión del teléfono (Configuración del negocio › Método).
+// las pantallas que tienen una sección de escritorio sin versión del teléfono (hoy, «Prompts»; hasta el 26/10/2026 también «Método»).
 // Para una línea gris al FINAL de una pantalla («Pagos e historial · En la computadora»), sin hoja, está ComputadoraM.
 // =============================================================================
 

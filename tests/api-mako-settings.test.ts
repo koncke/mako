@@ -23,7 +23,9 @@ const leer = (r: string) => readFileSync(join(__dirname, '..', r), 'utf8').repla
 const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 const DE_LA_PERSONA = ['ver_avisos_celular', 'ver_mi_seguridad', 'editar_mi_perfil', 'configurar_aviso_celular', 'fijar_no_molestar', 'configurar_notificaciones_inapp'];
-const DEL_NEGOCIO = ['ver_horario_envio', 'ver_criterio_reuniones', 'renombrar_negocio', 'configurar_horario_envio', 'guardar_criterio_reuniones'];
+// El criterio de reuniones salió el 26/10/2026 con «General» (pantalla y API; quien lo tenía lo sigue usando con su valor).
+const DEL_NEGOCIO = ['ver_horario_envio', 'renombrar_negocio', 'configurar_horario_envio'];
+const RETIRADAS = ['ver_criterio_reuniones', 'guardar_criterio_reuniones'];
 
 /** El cuerpo de un runner: desde su nombre hasta el siguiente runner del objeto. */
 function runner(src: string, id: string): string {
@@ -53,9 +55,9 @@ test('toda escritura se confirma, y lo que no tiene vuelta lo dice', () => {
     assert.ok(d.confirmacion === 'chat' || d.confirmacion === 'pantalla', `${id}: escribe sin confirmación`);
     assert.ok(d.escribe, `${id}: no dice qué escribe`);
   }
-  // El criterio se reemplaza ENTERO y lo de antes no queda en ningún lado: no es reversible por la API.
-  const c = porId('guardar_criterio_reuniones')!;
-  assert.ok(esAccion(c) && c.reversible === false);
+  // Las del criterio ya no están: ni en el registro ni en la REST.
+  for (const id of RETIRADAS) assert.equal(porId(id), undefined, `${id} volvió al registro`);
+  assert.doesNotMatch(leer('lib/api-mako/rest.ts'), /criterio_reuniones|criterio-reuniones/, 'una ruta REST del criterio volvió');
 });
 
 test('cada una escribe con la MISMA función que su pantalla', () => {
@@ -67,7 +69,6 @@ test('cada una escribe con la MISMA función que su pantalla', () => {
     fijar_no_molestar: [/await setNotifPush\(\{ \.\.\.p, silencio: s \}\)/, /normalizarSilencio\(/],
     configurar_notificaciones_inapp: [/await setNotifInApp\(siguiente\)/],
     configurar_horario_envio: [/horarioParaGuardar\(/, /await setSetting\(KEY_HORARIO_ENVIO, r\.valor\)/],
-    guardar_criterio_reuniones: [/await guardarCriterio\(texto\)/],
   };
   for (const [id, res] of Object.entries(usa)) {
     const cuerpo = runner(run, id);

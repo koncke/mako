@@ -70,7 +70,8 @@ export const AREA_INFO: Record<Area, { titulo: string; tab: string; ruta: string
   // `contenido`: un token con escritura en Content Machine no crea ni cambia diseños, y los tokens que ya existen no la tienen.
   imagen: { titulo: 'Image Editor (diseños)', tab: 'Image', ruta: '/image-editor' },
   integraciones: { titulo: 'Integraciones', tab: 'Integraciones', ruta: '/integraciones' },
-  equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Configuraciones', ruta: '/configuraciones' },
+  // `/configuraciones` redirige desde el 26/10/2026 (se fue «General»): la cuenta empieza en el Perfil de Settings.
+  equipo: { titulo: 'Cuenta, equipo y notificaciones', tab: 'Settings', ruta: '/perfil' },
   // La CLAVE del área (`cs`) no cambia: la usan los tokens y los permisos. El título sí, porque es lo que MaKo lee y
   // dice (el prompt de los pedidos, la referencia, el permiso de un token): desde el 17/10/2026 Clientes, Curso y
   // Comunidad son UNA tab, Clients (docs/diseno-clients.md), y el 24/10 MaKo le mandó a Leandro a buscar los cursos en
