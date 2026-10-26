@@ -208,8 +208,46 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   `window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_PIDO', …))` (el puente lo toma igual), con `pedidos: []` para no leer
   ni guardar datos de nadie. Así se probó la mitad de la extensión en su Chrome real antes del despliegue.
 
+## Los PERFILES de cada contacto (26/10/2026, 0.73.0 → 0.73.6): cinco cosas medidas en vivo, y dos que casi rompen todo
+
+**Vive en:** `leerPerfiles`, `abrirPerfil`, `panelDeContacto(dig)` (extension/wa-recorrer.js) · `perfilDeInfo` (reglas) ·
+`WA_PERFILES_PEDIDO` (background.js) · `perfilesEnTandas`, `candidatosDePerfil`, `sumarPerfiles` (lib/wa-fichas-cliente.ts)
+· `perfilLimpio` + `completarFichas` (lib/grupo-wa-reglas.ts, app/crm/grupo-wa-server.ts) · tests/wa-extraer-072 (7 a 8).
+
+Martín: «podría entrar a cada perfil y fijarse si tiene links, redes sociales, email». Y del visto: «No importa».
+- **El camino que anda** (medido): en «Busca miembros», el buscador encuentra a cada uno escribiendo `+<número>`; tocar la
+  fila abre SIEMPRE un menú («Info. del contacto», «Confirmar código de seguridad», «Enviar mensaje a…»); «Info. del contacto»
+  abre el panel a la derecha. ~4 s por perfil con la pausa de persona.
+- **El texto de cada opción del menú trae pegado el nombre de su ícono** («ic-info…Info. del contacto»): con `^Info` no se
+  encontró ninguna (60 de 60 «sin_ver», 0.73.0). Se busca en cualquier parte del texto. **Regla:** en WhatsApp Web, matchear
+  el texto de un botón sin anclar al principio.
+- ⚠️ **El panel del contacto no es `[role="complementary"]` ni `section`** (11 de 12 «sin_panel», 0.73.2). Y el primer
+  arreglo (0.73.3) **leyó TODA la pantalla**: tomó como título la opción «Info. del contacto» del MENÚ, todavía abierto, y
+  subió hasta el contenedor de la app; los 12 «perfiles» salieron con la web y el correo de OTROS chats. No se guardó nada
+  porque el server no estaba desplegado. **Regla:** un lector de pantalla que va a ESCRIBIR en un lead valida que lo que lee
+  es de esa persona: el título no está en un menú, diálogo ni lista; el panel no contiene #side ni #main; y muestra el
+  teléfono pedido (`panelDeContacto(dig)`). Sin eso, no se lee.
+- ⚠️ **Chrome mata el service worker si UN pedido pasa de 5 minutos**: 60 perfiles en el pedido de fichas (~5 min) terminaron
+  en «La extensión no contestó» (0.73.1), sin avance ni respuesta. **Regla:** nada de un pedido largo; la pantalla pide los
+  perfiles de a 12 (~1 min cada uno) con el mismo id (`perfilesEnTandas`).
+- ⚠️ **Recargar la extensión muchas veces seguidas la DESCARGA**: después de ~10 recargas solas en una hora (0.72.0 → 0.73.6,
+  varias con minutos de diferencia), la 0.73.6 no volvió: sin ícono en la barra, sin el puente en hola-mako.com, con la
+  carpeta sana. Lo más probable, el freno de Chrome a las extensiones que se recargan demasiado. Hace falta «Recargar» a mano
+  en chrome://extensions. **Regla:** al iterar en vivo, juntar los cambios y recargar de a una, con espacio entre una y otra.
+- **La «carpeta de Martín» (Escritorio\mako-puente) es un ENLACE** a dashboard-marketing-main/dashboard-marketing/extension:
+  un clon en `main` muy atrasado. Cada copia «a su carpeta» queda ahí como archivos modificados o sin seguir. Nadie commitea
+  en ese clon.
+- Lo de Leandro (los nombres de un grupo donde la gente escribe): la fuente es el `notifyName` de cada mensaje (0.73.5,
+  `mensajesDeGrupos` por el rango de claves `false_<grupo>_…`). ⚠️ Sin medir todavía: en INFRAGROWTH el rango no trajo
+  ningún mensaje y WhatsApp Web guarda sólo 2 participantes de ese grupo; la 0.73.6 dice la forma de una clave para saber
+  si no hay mensajes o la clave es otra.
+
 ## Sin hacer
 
+- **Los perfiles, de punta a punta**: la 0.73.4+ lee el panel de ese contacto (los tres seguros); falta una corrida que
+  guarde, con el server desplegado (b9d0e22c5 y siguientes), y mirar qué campos trae de verdad.
+- **Lo de Leandro, medido**: un grupo con conversación de Martín (Networking SINDEMEX tiene mensajes de hoy) con la 0.73.6:
+  `mensajes.forma` y `leidos`, y `sinMensajes` contra `conNombre`. Y la versión de la extensión de Leandro.
 - **Los «@usuario» de la lista de miembros** (visto el 26/10 en «09,10,11 de Agosto»: filas como «@MiguelCarrenoDonado /
   Michelangelo Marketer»): WhatsApp ya muestra nombres de usuario, sin teléfono a la vista. `nombresDeFilas` sólo toma el
   «~nombre» con su teléfono, así que esas filas no suman. Medir cuántas son y si el `@lid` las cruza antes de construir.

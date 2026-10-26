@@ -26,6 +26,11 @@ aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Ex
   nuevos · 41 nombres · 41 empresas, en Lead entrante con la etiqueta del grupo (verificado en una ficha). El desplegable no se
   abrió en esa corrida (clic por CDP: sin el foco del sistema); en la de otra pestaña, a la misma hora, sí. Capturas y GIF:
   notas del Cerebro, capturas-extraer-prod.
+- **Después, los perfiles y lo de Leandro (666fe43e1 → db8aae187, 0.73.0 → 0.73.6):** «Extraer» abre la información de
+  cada uno (de a uno, de a tandas de 12 pedidas por la pantalla, tope 60, empresas primero) y guarda links, redes y correo
+  sólo en lo vacío; sin la extensión, pop-up de instalar y no arranca; los nombres que firman los mensajes del grupo
+  (notifyName). ⚠️ La extensión de Martín quedó DESCARGADA tras ~10 recargas: falta «Recargar» a mano. Sin probar todavía:
+  la corrida que guarda perfiles (server sin desplegar) y lo de Leandro (sin medir).
 - **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
   espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
   tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.

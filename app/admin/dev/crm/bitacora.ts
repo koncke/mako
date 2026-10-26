@@ -3661,4 +3661,35 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '26 oct', hora: '12:45', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Que el scraper entre a cada perfil, que pida la extensión, y lo de Leandro',
+    pedido: '«Creo que el scraper solo esta extrayendo los nombres, cuando podría entrar a cada perfil y fijarse si tiene links, redes sociales, email, etc...» · «si no tiene la extensión que no lo deje scrapear, que le salte el pop-up para instalar la extension» · «Leandro al final sí extrajo otra vez en el grupo grupo cerrado Infraer AI y hizo todo el proceso de extracción, había un montón de personas que tenían nombres y no extrajo nada, no extrajo el nombre. No entiendo por qué.»',
+    puntos: ['Los tres, pasados por el Cerebro.'],
+  },
+  {
+    fecha: '26 oct', hora: '13:15', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El perfil de cada contacto, el pop-up de la extensión y los nombres de quien escribe',
+    puntos: [
+      '«Extraer» ahora entra a la información de cada uno (de a uno, como una persona, hasta 60 por vez, las empresas primero) y guarda la web, el Instagram, otras redes y el correo, sólo donde el lead no tiene nada.',
+      'Probado en tu WhatsApp: busca a cada uno, abre «Info. del contacto» y vuelve. En las pruebas apareció que un detector leía toda la pantalla en vez del panel de esa persona: no se guardó nada (esa parte no estaba desplegada) y ahora sólo lee el panel que muestra el teléfono de esa persona.',
+      'Sin la extensión, «Extraer» no arranca: sale el aviso de instalarla y, cuando está, empieza sola.',
+      'Para grupos donde la gente escribe (lo de Leandro): ahora también lee el nombre con el que cada uno firma sus mensajes. Falta medirlo en un grupo tuyo con conversación.',
+      '⚠️ Tu extensión quedó apagada después de muchas recargas seguidas: hay que tocar «Recargar» en chrome://extensions (también para Flow).',
+    ],
+    commits: [
+      { sha: '666fe43e1', msg: 'Extensión 0.73.0: «Extraer» entra al perfil de cada contacto y lee sus links, redes y correo', lineas: 461, archivos: 17 },
+      { sha: '3017d0be3', msg: 'Extensión 0.73.4: el perfil sólo se lee del panel de ESE contacto; sin la extensión, pop-up de instalar', lineas: 113, archivos: 8 },
+      { sha: 'cf077cf1c', msg: 'Extensión 0.73.5: los nombres que FIRMAN los mensajes del grupo', lineas: 168, archivos: 10 },
+    ],
+    archivos: [
+      'extension/wa-recorrer.js — abrir el perfil de cada uno y leerlo sólo si es de esa persona',
+      'lib/wa-fichas-cliente.ts — los perfiles de a tandas',
+      'extension/wa-fichas.js — los nombres de los mensajes del grupo',
+      'app/crm/TraerDeGrupoWA.tsx — el pop-up de instalar la extensión',
+    ],
+    revisar: '/crm',
+  },
 ];
