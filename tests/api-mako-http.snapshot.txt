@@ -274,7 +274,6 @@ generar_subtitulos_video
 guardar_borrador_plantilla
 guardar_campo_perfil
 guardar_capacidad
-guardar_criterio_reuniones
 guardar_cuotas
 guardar_deal_details
 guardar_diagnostico_fase
@@ -595,7 +594,6 @@ ver_conexion_meta
 ver_configuracion_landing
 ver_contexto_video
 ver_creacion
-ver_criterio_reuniones
 ver_cuadrante_retencion
 ver_cuenta_meta
 ver_cuotas_ia

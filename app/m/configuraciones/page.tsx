@@ -29,8 +29,6 @@ export const dynamic = 'force-dynamic';
 
 /** Lo que dice la hoja de una sección que se usa en la computadora. */
 const EN_LA_COMPUTADORA: Record<string, string> = {
-  general: 'El horario de envío se arma por día y hora, y el criterio de reuniones es un texto largo: se editan en la computadora.',
-  metodo: 'Las credenciales de la plataforma son claves largas que se copian de cada servicio y se pegan: se cargan en la computadora.',
   prompts: 'Los prompts de MaKo son textos largos, con su historial y sus variables: se editan en la computadora.',
 };
 

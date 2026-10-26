@@ -1,40 +1,16 @@
 // =============================================================================
-// /metodo — conexión guiada de integraciones: tokens + tutorial por servicio
+// /metodo — ya no es una pantalla: redirige a /integraciones (26/10/2026)
 // =============================================================================
-// Solo admin: gestiona las credenciales del workspace (tokens globales). El
-// proxy ya bloquea la ruta, este guard es defensa en profundidad + redirect
-// limpio.
+// Martín, 26/10/2026: «Elimina "Método" no entiendo eso... Si para eso ya tenemos "Integraciones"». Era la lista de las
+// credenciales con su tutorial, y cada una ya tenía su tarjeta en /integraciones con el MISMO formulario (las IA, en «Tus
+// cuentas de IA»): no se pierde nada. Las rutas de guardar y probar (/api/metodo, /api/metodo/verificar) siguen, porque las usa
+// el resto de la casa. Los links viejos (y el ?ws= de quien mira un cliente) caen en Integraciones.
 
 import { redirect } from 'next/navigation';
-import { getSesionAdmin } from '@/lib/auth';
-import { MetodoWizard } from './MetodoWizard';
-import { rutaConWs, getWorkspaceActual, wsSuperAdmin } from '@/lib/workspace';
-import { serviciosPara } from '@/lib/metodo-catalogo';
-import { TITULO_NEGOCIO } from '@/lib/ajustes-secciones';
-import { gruposDeAjustes } from '@/lib/ajustes-negocio';
-import { AjustesPagina } from '../_ui/Ajustes';
+import { conLaQuery } from '@/lib/ajustes-secciones';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
-export default async function MetodoPage() {
-  const admin = await getSesionAdmin();
-  if (!admin) redirect(await rutaConWs('/inicio'));
-  // El catálogo se resuelve ACÁ (server) y viaja por props, ya filtrado: un cliente
-  // no tiene por qué recibir las credenciales de la plataforma ni siquiera en el
-  // JSON. Ver el comentario en MetodoWizard.
-  //
-  // La pregunta es por el WORKSPACE, no por el usuario: el super admin sigue siendo
-  // admin dentro del workspace de un cliente, y ahí `soloPlataforma` no le
-  // corresponde — es la misma regla que en lib/integraciones.ts.
-  const ws = await getWorkspaceActual().catch(() => null);
-  const esPlataforma = ws != null && ws === (await wsSuperAdmin().catch(() => -1));
-  // Desde el 15/10/2026 es la última sección de «Configuración del negocio» (sólo para la agencia).
-  return (
-    // La columna de lectura de Linear (sin `amplio`): una lista de servicios no necesita el ancho de un tablero. El título lo pone
-    // el wizard, que también dibuja el del detalle de cada servicio (25/10/2026).
-    <AjustesPagina lugar={TITULO_NEGOCIO} grupos={await gruposDeAjustes(undefined, 'metodo')} activa="metodo">
-      <MetodoWizard servicios={serviciosPara(esPlataforma)} embebido />
-    </AjustesPagina>
-  );
+export default async function MetodoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  redirect(conLaQuery('/integraciones', await searchParams));
 }
