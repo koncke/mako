@@ -4915,6 +4915,41 @@ main; el cambio está escrito en las notas del Cerebro, `media-buyer-prueba-grat
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
 
+### La segunda vuelta: la captura 04, no la pantalla Autopilot (25/10/2026, noche)
+
+Martín, al ver la primera versión «AdAmigo»: «Lo que me pasaste de media buyer no me gusta... Una cantidad de botones y texto
+impresionante... Te pedí mucho atención al diseño» y «Y la captura que me habias pasado de Adamigo no se parece en nada».
+
+- ⚠️ **El diagnóstico obvio («hay que achicar la tarjeta y sacar botones») era el equivocado.** Martín había elegido UNA
+  captura, la 04 (`docs/media-buyer/referencias/otras-apps/04-adamigo-aplicado-y-deshacer.png`: la orden en el chat, una
+  pastilla, un árbol de tarjetas chicas y un mensaje al pie), y se copió OTRA pantalla de la misma app (Autopilot, con Qué ·
+  Por qué · Impacto y cinco botones por tarjeta). La regla: se copia la captura elegida, no el resto de la app de donde sale,
+  y antes de mostrarla se pone AL LADO de la referencia, a la misma altura (las comparaciones quedan en las notas del Cerebro,
+  `media-buyer-adamigo/`). Es el segundo rechazo por lo mismo (el de las 14:10, a la de Madgicx).
+- **HOY es la 04** (`app/ads-manager/Arbol.tsx`, `Hoy.tsx`): la caja del chat arriba, «MaKo · N cambios para hoy», las ramas
+  por producto del CRM y una tarjeta chica por cambio (el producto, «Meta · la campaña», «Aplicar» o «Aplicado», un rótulo,
+  la entidad y «$30 → $36 / día +20%»). El porqué va en UNA línea al pie y en el detalle que se abre al tocar la tarjeta (la
+  tarjeta entera de antes, en una hoja). Una cuenta nueva y un día sin cambios ven la captura 2: «¿En qué te ayudo hoy?» con
+  cuatro sugerencias; «Lanzar una campaña» abre el arranque con la calculadora. Fuera de la primera pantalla: la tabla del mes,
+  la columna derecha, las subpestañas, «N activos», «Ajustar IA» y la barra (los agentes cuelgan de la tuerca; lo hecho, de
+  «Actividad»). Lo fija `tests/media-buyer-hoy.test.ts`, que renderiza la tarjeta y cuenta UN botón a la vista (roto tres
+  veces a propósito: otro botón, el porqué en la tarjeta, «Aplicar los N» con uno solo).
+- **Las ramas del árbol sin medir nada:** el hueco entre columnas va en % del ancho (`column-gap: 2.4%`), así el centro de
+  cada columna se calcula exacto y el abanico es un SVG con `preserveAspectRatio="none"` y `vector-effect: non-scaling-stroke`
+  (la línea queda de 1,5 px a cualquier ancho). Con el hueco en px habría que medir: a 1.000 px de ancho y 24 px de hueco, el
+  centro de una columna de costado se corre 8 px.
+- **Toda la tarjeta abre el detalle sin anidar botones:** un botón invisible que la cubre, debajo de «Aplicar»; lo demás va
+  con `pointer-events: none`. Un `role="button"` en la tarjeta con «Aplicar» adentro sería un botón dentro de otro.
+- **La caja nueva tiene que nombrar el hook como la casa:** `tests/app-de-escritorio-todos-los-chats.test.ts` busca
+  literalmente `const appEscritorio = useAppDeEscritorio()` y `bloqueo={appEscritorio.bloqueo}`; con otro nombre de variable
+  da rojo aunque la caja se bloquee bien.
+
+**Sin hacer, con su archivo:** Campañas (`Lienzo.tsx`) y Biblioteca (`Biblioteca.tsx`) siguen con la densidad de la primera
+vuelta; Ajustes y Automatizaciones, con `mb.css`; las alertas de Protect son una línea arriba del árbol y su hoja; «Aplicar
+los N» lanza de a uno desde el navegador (no hay una operación «lanzar varias» en `/api/media-buyer`).
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
 ## Las lecturas de Meta del cron, de la salud y del modal del anuncio, por Zernio; y CAPI por la misma conexión (25/10/2026)
 
 **Vive en:** `lib/meta-ads.ts` (`fetchMetaInsights`, `fetchAdCreatives`, `fetchAdsetBudgets`) · `lib/meta-health.ts`

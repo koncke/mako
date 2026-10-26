@@ -16,7 +16,7 @@
 import type { Hito, Parte } from '../_registro/tipos';
 
 export const PARTES: Parte[] = [
-  { titulo: 'El Media Buyer reemplaza a la réplica de Meta Ads Manager', detalle: 'Primero con la estructura de Madgicx · AI Marketer y, desde el 25/10 a la tarde, con la de AdAmigo (la eligió Martín): Resumen · Autopilot · Campañas por producto · Biblioteca, cada acción con Qué · Por qué · Impacto esperado, con los colores de MaKo · el arranque como la charla de Offer, con la calculadora adentro · el teléfono (/m/ads) con las mismas piezas · faltan Ajustes y Automatizaciones con la estética nueva', estado: 'sigue' },
+  { titulo: 'El Media Buyer reemplaza a la réplica de Meta Ads Manager', detalle: 'Primero con la estructura de Madgicx; desde el 25/10 a la noche, la captura 04 de AdAmigo que eligió Martín: la caja del chat arriba, el árbol de cambios por producto del CRM con tarjetas chicas («Aplicar», el cambio y su %) y el porqué en una línea al pie · la cuenta nueva es la captura 2 («¿En qué te ayudo hoy?») y de ahí el arranque con la calculadora · el teléfono, el mismo árbol en columna · faltan Campañas, Biblioteca, Ajustes y Automatizaciones con la estética nueva', estado: 'sigue' },
   { titulo: 'Los agentes y Protect', detalle: 'Cada acción la firma un agente de MaKo (Estratega, Media Buyer, Diseñador de creativos, Protect) y el panel «N activos» los pausa o los pone en automático · los agentes propios: una regla en palabras que la IA del negocio mira cada día o cada lunes, y que nunca lanza sola · Protect avisa arriba lo roto (rechazado, gasto disparado, leads que no llegan al CRM, tope) · todo también por la API', estado: 'hecha' },
   { titulo: 'El agente: seis tácticas con su porqué', detalle: 'Surf, Sunsetting, Stop Loss y Revive (Madgicx) + Calidad de leads y Ganador (salen del CRM) · cada decisión con la tabla Condición · Valor · Por qué y el antes → después · 72 h sin tocar lo nuevo, un cambio de presupuesto por día', estado: 'hecha' },
   { titulo: 'Topes, modos y deshacer', detalle: 'Apagado por defecto · «propone» o «piloto automático» por negocio · subida máxima por día, presupuesto máximo de la cuenta e interruptor, mirados al escribir con la cuenta en vivo · deshacer sólo si nadie lo tocó después', estado: 'hecha' },
@@ -499,6 +499,26 @@ export const BITACORA: Hito[] = [
       'lib/media-buyer/agentes.ts · agentes-propios.ts · agentes-ia.ts · protect.ts · productos.ts · arranque.ts · vista.ts',
       'lib/api-mako/areas/ads.def.ts — modo_agente, agente propio, Biblioteca',
       'lib/format.ts — fmtDinero, el único formato de plata',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '19:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'No era la pantalla de AdAmigo que eligió: la captura 04, con mucho menos',
+    pedido: '«Lo que me pasaste de media buyer no me gusta... Una cantidad de botones y texto impresionante... Te pedí mucho atención al diseño» · «Y la captura que me habias pasado de Adamigo no se parece en nada»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «hay que sacar botones», y era el equivocado**: había elegido UNA captura de AdAmigo (la 04: un pedido, un árbol de tarjetas chicas y un mensaje) y se copió otra pantalla de la misma app. Ahora se copia la captura elegida y se compara al lado antes de mostrarla.',
+      'Hoy es la 04: arriba la caja de MaKo, debajo los cambios del día como tarjetas chicas por producto, cada una con su cambio («$30 → $36 / día +20%») y un solo botón, «Aplicar». El porqué va en una línea al pie y en el detalle que se abre al tocar la tarjeta.',
+      'Una cuenta nueva ve la captura 2: «¿En qué te ayudo hoy?» con cuatro sugerencias; «Lanzar una campaña» abre la charla con la calculadora. Los agentes y los ajustes quedan detrás de la tuerca, y lo hecho con su «Deshacer», en «Actividad».',
+      'Un test cuenta los botones de la tarjeta: si alguien le suma otro o le vuelve a poner el porqué, da rojo.',
+    ],
+    archivos: [
+      'app/ads-manager/Arbol.tsx — el árbol y la tarjeta chica',
+      'app/ads-manager/Hoy.tsx — la caja de órdenes, «¿En qué te ayudo hoy?», Actividad',
+      'app/ads-manager/MediaBuyer.tsx · app/m/ads/MediaBuyerM.tsx — la pantalla y el teléfono',
+      'tests/media-buyer-hoy.test.ts — un botón por tarjeta',
     ],
     revisar: '/ads-manager',
   },

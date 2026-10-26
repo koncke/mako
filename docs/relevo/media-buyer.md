@@ -32,7 +32,7 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
 | Variaciones con la IA del negocio | `lib/media-buyer/variaciones.ts` · `variaciones-prompt.ts` (puro) |
 | Config y registro (tablas de la 0332) | `lib/media-buyer/store.ts` · `supabase/migrations/0332_media_buyer.sql` |
 | Lo que escribe por Zernio | `lib/zernio-ads.ts` (la parte del 25/10) |
-| La pantalla (estructura de AdAmigo desde el 25/10 tarde) | `app/ads-manager/MediaBuyer.tsx` (las pestañas) · `aa.css` · `Resumen.tsx` · `Autopilot.tsx` (cabecera, tarjeta de acción, panel de la cuenta, alertas) · `Lienzo.tsx` (Campañas por producto) · `Biblioteca.tsx` · `Agentes.tsx` (el panel «N activos») · `ArranqueMediaBuyer.tsx` (la charla de Offer con la calculadora) · `mb-modelo.ts` |
+| La pantalla (la captura 04 de AdAmigo desde el 25/10 noche) | `app/ads-manager/MediaBuyer.tsx` (Hoy · Campañas · Biblioteca, la hoja del detalle) · `Arbol.tsx` (el árbol y la tarjeta chica) · `Hoy.tsx` (la caja, «¿En qué te ayudo hoy?», Actividad, los números del mes) · `Autopilot.tsx` (la tarjeta entera del detalle, las alertas) · `Lienzo.tsx` · `Biblioteca.tsx` · `Agentes.tsx` (cuelga de la tuerca) · `ArranqueMediaBuyer.tsx` · `aa.css` · `mb-modelo.ts` |
 | El teléfono | `app/m/ads/MediaBuyerM.tsx` (las mismas piezas en una columna) · `mb-m.css` |
 | Lo que la pantalla lee además de la config (productos, mejores anuncios, arranque, agentes propios) | `lib/media-buyer/vista.ts` · `productos.ts` y `arranque.ts` (puros, con test) |
 | Los agentes de MaKo y los propios, y Protect | `lib/media-buyer/agentes.ts` · `agentes-propios.ts` (puros) · `agentes-ia.ts` · `protect.ts` (puro) · en la corrida, `corrida.ts` |
@@ -96,6 +96,11 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    (`modo_agente_media_buyer`, `agente_media_buyer`, `borrar_agente_media_buyer`, `ver_biblioteca_media_buyer`).
    El Cerebro lo sube cuando este chat le diga «esta punta entra». Falta: Ajustes y Automatizaciones con la estética nueva
    (siguen con `mb.css`), y la `<FranjaPrueba>` de Planes (con 2b).
+   **Rechazada el mismo 25/10 ~19:40** («Una cantidad de botones y texto impresionante... la captura que me habias pasado de
+   Adamigo no se parece en nada»): había elegido la captura 04 y se copió otra pantalla. **Rehecha como la 04** (Hoy = la
+   caja del chat + el árbol de cambios por producto + una línea al pie; cuenta nueva = la captura 2). Las comparaciones lado a
+   lado, en las notas del Cerebro (`media-buyer-adamigo/`). El Cerebro las revisa antes de mostrárselas a Martín. Sigue la
+   lista: Campañas, Biblioteca, Protect y la API, con la misma densidad.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»
    y se filma desde ahí; `validate_only` por el token de Meta; el Stop Loss intradía; la API de MaKo para «subir creativos»
