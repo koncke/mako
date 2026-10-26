@@ -106,11 +106,20 @@
         const r = await p.abrirPerfil(nombreGrupo, c.telefono, t.espera);
         if (r.busqueda && !diag.busqueda) diag.busqueda = r.busqueda;
         if (r.menu && !diag.menu) diag.menu = r.menu;
-        if (!r.ok) { fallo(r.motivo || 'no_abrio'); await p.volverDelPerfil(); continue; }
+        const tel = String(c.telefono).replace(/\D/g, '');
+        // El nombre de la fila, aunque el panel no se haya podido leer.
+        if (r.nombreFila) diag.conNombreFila = (diag.conNombreFila || 0) + 1;
+        if (!r.ok) {
+          fallo(r.motivo || 'no_abrio');
+          if (r.nombreFila) perfiles.push({ telefono: tel, perfil: null, nombre: r.nombreFila });
+          await p.volverDelPerfil();
+          continue;
+        }
         diag.abiertos++;
         if (!diag.forma) diag.forma = p.forma(r.info);
         const perfil = raiz.MakoWaFichas.perfilDeInfo(p.leerPerfil(r.info));
-        if (perfil) { perfiles.push({ telefono: String(c.telefono).replace(/\D/g, ''), perfil }); diag.conDatos++; }
+        if (perfil) diag.conDatos++;
+        if (perfil || r.nombreFila) perfiles.push({ telefono: tel, perfil: perfil || null, nombre: r.nombreFila || null });
         await p.volverDelPerfil();
       } catch (e) {
         fallo('error');
@@ -314,6 +323,12 @@
           if (fila) { busqueda = variante === dig ? 'digitos' : variante.startsWith('+') ? 'con_mas' : 'ultimos_10'; break; }
         }
         if (!fila) return { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' };
+        // EL NOMBRE DE LA FILA (0.73.8): buscada por su número, la fila dice cómo lo ve WhatsApp («~ Nombre» el que se puso,
+        // o el de la agenda). Es la fuente de un grupo donde la gente escribe (lo de Leandro): MEDIDO el 26/10, los mensajes
+        // ya no guardan el nombre del que escribe en ningún campo legible (va en `msgRowOpaqueData`). Vale aunque el panel falle.
+        const tituloFila = ((fila.querySelector('[data-testid="cell-frame-title"]') || {}).textContent || '').trim();
+        const nombreFila = /^~/.test(tituloFila) ? { pushname: tituloFila.replace(/^~\s*/, '') }
+          : tituloFila && !raiz.MakoWaFichas.esTelefonoDibujado(tituloFila) && !/^@/.test(tituloFila) ? { agenda: tituloFila } : null;
         this.abrir(fila);
         await dormir(500);
         // Un menú («Info. del contacto», «Enviar mensaje a…»): medido el 26/10, tocar la fila lo abre siempre. Se toca la opción
@@ -321,11 +336,11 @@
         const opciones = opcionesDeMenu();
         const menu = opciones.map(enmascarar).slice(0, 8);
         const ver = opciones.find((x) => VER_PERFIL.test((x.textContent || '').trim()));
-        if (!ver) return { ok: false, motivo: opciones.length ? 'sin_ver' : 'sin_menu', busqueda, menu };
+        if (!ver) return { ok: false, motivo: opciones.length ? 'sin_ver' : 'sin_menu', busqueda, menu, nombreFila };
         clic(ver);
         const panel = await esperar(() => panelDeContacto(dig), espera);
-        if (!panel) return { ok: false, motivo: 'sin_panel', busqueda, menu };
-        return { ok: true, info: panel, busqueda, menu };
+        if (!panel) return { ok: false, motivo: 'sin_panel', busqueda, menu, nombreFila };
+        return { ok: true, info: panel, busqueda, menu, nombreFila };
       },
       leerPerfil(panel) {
         const textos = String(panel.innerText || panel.textContent || '').split('\n').map((x) => x.trim()).filter(Boolean).slice(0, 200);

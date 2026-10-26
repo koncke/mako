@@ -468,7 +468,10 @@ test('7b. de a uno, con tope y pausa: busca, abre, lee, vuelve; cuenta cada paso
   const abiertos: string[] = [];
   let vueltas = 0;
   const p = {
-    abrirPerfil: async (_g: string, tel: string) => (tel.endsWith('0009') ? { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' } : { ok: true, info: { tel }, busqueda: 'con_mas', menu: ['Mensaje a ~aaa', 'Ver ~aaa'] }),
+    abrirPerfil: async (_g: string, tel: string) => (tel.endsWith('0009') ? { ok: false, motivo: 'sin_fila', busqueda: 'ninguna' }
+      // La fila de éste dice su nombre, pero su panel no se pudo leer: el nombre igual vale (0.73.8, lo de Leandro).
+      : tel.endsWith('0005') ? { ok: false, motivo: 'sin_panel', busqueda: 'con_mas', nombreFila: { pushname: 'Quinto' } }
+      : { ok: true, info: { tel }, busqueda: 'con_mas', menu: ['Mensaje a ~aaa', 'Ver ~aaa'], nombreFila: tel.endsWith('0002') ? { pushname: 'Segundo' } : null }),
     leerPerfil: (info: { tel: string }) => { abiertos.push(info.tel); return info.tel.endsWith('0001') ? { textos: ['hola@sol.com'], links: [] } : { textos: ['Disponible'], links: [] }; },
     volverDelPerfil: async () => { vueltas++; },
     forma: () => ({ lineas: ['Info. del contacto'] }),
@@ -476,12 +479,16 @@ test('7b. de a uno, con tope y pausa: busca, abre, lee, vuelve; cuenta cada paso
   };
   const avisos: Array<Record<string, unknown>> = [];
   const candidatos = ['5215555550001', '5215555550002', '5215555550009', '5215555550004', '5215555550005'].map((telefono) => ({ telefono, nombre: null }));
-  const r = await rec.leerPerfiles('Formación de Jan', candidatos, p, (paso, d) => avisos.push({ paso, ...d }), () => false, { tope: 4, pausaMin: 0, pausaMax: 0 });
+  const r = await rec.leerPerfiles('Formación de Jan', candidatos, p, (paso, d) => avisos.push({ paso, ...d }), () => false, { tope: 5, pausaMin: 0, pausaMax: 0 });
   assert.deepEqual(abiertos, ['5215555550001', '5215555550002', '5215555550004'], 'pasó el tope, o abrió al que no encontró');
-  assert.deepEqual(plano(r.perfiles), [{ telefono: '5215555550001', perfil: { web: null, instagram: null, email: 'hola@sol.com', direccion: null, rubro: null, descripcion: null, redes: [] } }]);
-  assert.deepEqual(plano(r.diag), { intentados: 4, abiertos: 3, conDatos: 1, fallos: { sin_fila: 1 }, forma: { lineas: ['Info. del contacto'] }, menu: ['Mensaje a ~aaa', 'Ver ~aaa'], busqueda: 'con_mas' });
-  assert.equal(vueltas, 4, 'no volvió del perfil (ni del que falló): el siguiente se busca con el panel abierto');
-  assert.deepEqual(avisos.slice(0, 2).map((a) => [a.paso, a.hechos, a.total]), [['perfiles', 0, 4], ['perfiles', 1, 4]]);
+  assert.deepEqual(plano(r.perfiles), [
+    { telefono: '5215555550001', perfil: { web: null, instagram: null, email: 'hola@sol.com', direccion: null, rubro: null, descripcion: null, redes: [] }, nombre: null },
+    { telefono: '5215555550002', perfil: null, nombre: { pushname: 'Segundo' } },
+    { telefono: '5215555550005', perfil: null, nombre: { pushname: 'Quinto' } },
+  ], 'el nombre de la fila se perdió (o el del que no abrió su panel)');
+  assert.deepEqual(plano(r.diag), { intentados: 5, abiertos: 3, conDatos: 1, fallos: { sin_fila: 1, sin_panel: 1 }, forma: { lineas: ['Info. del contacto'] }, menu: ['Mensaje a ~aaa', 'Ver ~aaa'], busqueda: 'con_mas', conNombreFila: 2 });
+  assert.equal(vueltas, 5, 'no volvió del perfil (ni del que falló): el siguiente se busca con el panel abierto');
+  assert.deepEqual(avisos.slice(0, 2).map((a) => [a.paso, a.hechos, a.total]), [['perfiles', 0, 5], ['perfiles', 1, 5]]);
   assert.match(String(avisos[0].texto), /^Leyendo el perfil de \+5215555550001…$/);
   // Parado: no abre el siguiente.
   let n = 0;
@@ -501,9 +508,17 @@ test('7c. de a TANDAS desde la pantalla: empresas primero, tope 60, 12 por pedid
     { telefono: '5215555550002', agenda: null, pushname: null, empresa: 'Panadería Sol', esEmpresa: true, grupos: [] },
     { telefono: '5215555550003', agenda: null, pushname: 'Beto', empresa: null, esEmpresa: false, grupos: [] },
   ];
+  // Las empresas primero, después los que NO tienen nombre (0.73.8: la fila del buscador lo dice), al final los que sí.
   assert.deepEqual(candidatosDePerfil(pedidos, fichas), [
-    { telefono: '5215555550002', nombre: 'Panadería Sol' }, { telefono: '5215555550003', nombre: 'Beto' }, { telefono: '5215555550001', nombre: null },
+    { telefono: '5215555550002', nombre: 'Panadería Sol' }, { telefono: '5215555550001', nombre: null }, { telefono: '5215555550003', nombre: 'Beto' },
   ], 'las empresas no van primero, o se repitió un teléfono');
+  // El nombre de la fila: el de la agenda gana al que la persona se puso, y nunca pisa uno que ya había.
+  const conNombres = sumarPerfiles(fichas, [
+    { telefono: '5215555550003', perfil: null, nombre: { pushname: 'Otro Beto' } },
+    { telefono: '5215555550001', perfil: null, nombre: { agenda: 'Ana (agenda)', pushname: 'Ana' } },
+    { telefono: '5215555550009', perfil: null, nombre: { pushname: '🙂' } },
+  ]);
+  assert.deepEqual(conNombres.map((f) => [f.telefono, f.agenda, f.pushname]), [['5215555550002', null, null], ['5215555550003', null, 'Beto'], ['5215555550001', 'Ana (agenda)', null]]);
   // Lo que vuelve del navegador se limpia: una web que no es http(s) no entra; sin ficha, la gana.
   const sumadas = sumarPerfiles(fichas, [{ telefono: '5215555550001', perfil: { web: 'https://a.mx' } }, { telefono: '5215555550002', perfil: { web: 'javascript:alert(1)', email: 'x@y.co' } }, { telefono: '', perfil: {} }]);
   assert.deepEqual(sumadas.map((f) => [f.telefono, f.perfil?.web ?? null, f.perfil?.email ?? null]), [['5215555550002', null, 'x@y.co'], ['5215555550003', null, null], ['5215555550001', 'https://a.mx', null]]);

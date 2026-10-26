@@ -11,7 +11,7 @@
 // cada paso (`MAKO_WA_FICHAS_AVANCE`): por eso esto ya no corta a los 20 s fijos, sino cuando pasan 30 s SIN noticias.
 
 import { esMasVieja } from './version-comparar';
-import { perfilLimpio, type FichaWa } from './grupo-wa-reglas';
+import { nombreUtil, perfilLimpio, type FichaWa } from './grupo-wa-reglas';
 
 /**
  * La versión de la extensión que pide la pantalla para leer fichas. La 0.71.0 (25/10/2026) lee el nombre donde WhatsApp Web lo
@@ -179,7 +179,9 @@ export function candidatosDePerfil(
     vistos.add(suf(tel));
     const f = porTel.get(suf(tel));
     const nombre = f ? f.agenda ?? f.empresa ?? f.pushname ?? null : null;
-    out.push({ telefono: tel, nombre, orden: f?.esEmpresa ? 0 : nombre ? 1 : 2 });
+    // Las empresas primero (web, correo, dirección), después los que NO tienen nombre (la fila del buscador lo dice: lo de
+    // Leandro), al final los que ya lo tienen.
+    out.push({ telefono: tel, nombre, orden: f?.esEmpresa ? 0 : nombre ? 2 : 1 });
   }
   return out.sort((a, b) => a.orden - b.orden).map(({ telefono, nombre }) => ({ telefono, nombre }));
 }
@@ -193,10 +195,15 @@ export function sumarPerfiles(fichas: readonly FichaWa[], perfiles: unknown): Fi
     const o = (x ?? {}) as Record<string, unknown>;
     const tel = String(o.telefono ?? '').replace(/\D/g, '');
     const perfil = perfilLimpio(o.perfil);
-    if (tel.length < 8 || tel.length > 15 || !perfil) continue;
-    const f = porTel.get(suf(tel));
-    if (f) f.perfil = perfil;
-    else { const n: FichaWa = { telefono: tel, agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: [], perfil }; out.push(n); porTel.set(suf(tel), n); }
+    // El nombre que mostró la fila al buscarlo (0.73.8): el de la agenda o el que la persona se puso. Sólo donde no hay.
+    const nf = (o.nombre ?? {}) as Record<string, unknown>;
+    const agenda = nombreUtil(nf.agenda);
+    const pushname = nombreUtil(nf.pushname);
+    if (tel.length < 8 || tel.length > 15 || (!perfil && !agenda && !pushname)) continue;
+    let f = porTel.get(suf(tel));
+    if (!f) { f = { telefono: tel, agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: [] }; out.push(f); porTel.set(suf(tel), f); }
+    if (perfil) f.perfil = perfil;
+    if (!f.agenda && !f.pushname && !f.empresa) { if (agenda) f.agenda = agenda; else if (pushname) f.pushname = pushname; }
   }
   return out;
 }
