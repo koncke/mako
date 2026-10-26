@@ -27,7 +27,7 @@ import { DEFS } from '../lib/integraciones-catalogo';
 const RAIZ = join(__dirname, '..');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
-test('1. sin IA: «Conecta tu Claude, tu GPT o tu Gemini», y el botón y el link abren su Claude', () => {
+test('1. sin IA: «Conecta tu Claude, tu GPT o tu Gemini», y el botón abre su Claude (el link del grupo, su GPT)', () => {
   const m = mensajeIAFallo({ hayIA: false, motivo: null, tema: 'generar las razones' });
   assert.match(m, /No hay ninguna IA conectada, así que MaKo no puede generar las razones\. Conecta tu Claude, tu GPT o tu Gemini en Integraciones\./);
   // SU Gemini sí; «Gemini gratis» (la de la plataforma) no.
@@ -36,7 +36,9 @@ test('1. sin IA: «Conecta tu Claude, tu GPT o tu Gemini», y el botón y el lin
   assert.equal(FALTA_TU_IA, 'Tu Claude, tu GPT o tu Gemini');
   assert.equal(SERVICIO_IA, 'anthropic');
   assert.equal(iaParaConectar([]), 'anthropic', 'sin ninguna IA, su Claude');
-  assert.equal(linkKeysIA('https://hola-mako.com'), 'https://hola-mako.com/integraciones?abrir=anthropic');
+  // El de WhatsApp abre su GPT desde el 25/10/2026 (lib/fallo-ia-texto.ts, `CUBREN_EL_TURNO`): en el grupo su Claude no
+  // corre los turnos con herramientas ni escucha notas de voz.
+  assert.equal(linkKeysIA('https://hola-mako.com'), 'https://hola-mako.com/integraciones?abrir=openai');
 });
 
 test('2. «con Gemini alcanza» no queda en el código de la app', () => {

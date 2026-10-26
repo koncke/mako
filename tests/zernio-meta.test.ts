@@ -268,12 +268,14 @@ test('la página de los anuncios: una conocida se manda sola, varias se pregunta
   const p = (id: string, nombre: string | null = null) => ({ id, nombre });
   // La que eligió la persona gana siempre.
   assert.deepEqual(paginaParaConectar({ elegida: '222222', delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: null }), { pageId: '222222', preguntar: false, sugerida: '222222' });
-  // Una sola conocida (la de la conexión vieja, o la de su Facebook en Zernio): se deduce.
+  // La del negocio (la eligió una persona: en la conexión vieja o con elegir_pagina_meta) gana, aunque haya otras.
   assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: '1315098941694049', candidatas: [], sugeridaDeZernio: null }), { pageId: '1315098941694049', preguntar: false, sugerida: '1315098941694049' });
-  assert.equal(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111', 'Hola MaKo')], sugeridaDeZernio: null }).pageId, '111111');
-  // Varias: se pregunta, con la sugerida de su Facebook en Zernio (o la que ya tenía).
-  assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: '333333' }), { pageId: null, preguntar: true, sugerida: '333333' });
-  assert.equal(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: null }).sugerida, '111111');
+  assert.equal(paginaParaConectar({ elegida: null, delNegocio: '111111', candidatas: [p('111111'), p('333333')], sugeridaDeZernio: '333333' }).pageId, '111111');
+  // Una sola conocida (la de su Facebook en Zernio): se deduce.
+  assert.equal(paginaParaConectar({ elegida: null, delNegocio: null, candidatas: [p('111111', 'Hola MaKo')], sugeridaDeZernio: null }).pageId, '111111');
+  // Varias y ninguna del negocio: se pregunta, con la sugerida de su Facebook en Zernio.
+  assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: null, candidatas: [p('111111'), p('333333')], sugeridaDeZernio: '333333' }), { pageId: null, preguntar: true, sugerida: '333333' });
+  assert.equal(paginaParaConectar({ elegida: null, delNegocio: null, candidatas: [p('111111'), p('333333')], sugeridaDeZernio: null }).sugerida, null);
   // Ninguna: sin página (si tiene una sola, Zernio usa ésa; si vuelve sin conexión, la pantalla pregunta).
   assert.deepEqual(paginaParaConectar({ elegida: null, delNegocio: null, candidatas: [], sugeridaDeZernio: null }), { pageId: null, preguntar: false, sugerida: null });
   // Un id que no es de página no cuenta.
@@ -300,4 +302,30 @@ test('la página viaja hasta Zernio sólo para los anuncios, el servidor la dedu
   assert.match(ui, /z\.conectar\('metaads', \{ reconectarId: estado\?\.conexion \?\? null, pageId \}\)/);
   // Con varias páginas, no se puede abrir la ventana sin elegir una.
   assert.match(ui, /disabled=\{z\.fase === 'abriendo' \|\| guardando \|\| \(hayQueElegir && !paginaLista\)\}/);
+});
+
+test('Meta por Zernio se usa por la API de MaKo: leer, elegir (con su «sí») y probar CAPI', async () => {
+  const { DEFS } = await import('../lib/api-mako/areas/integraciones.def');
+  const ids = ['ver_conexion_meta', 'elegir_cuenta_meta', 'elegir_pixel_meta', 'elegir_pagina_meta', 'probar_capi_meta'];
+  const run = leer('../lib/api-mako/areas/integraciones.run.ts');
+  for (const id of ids) {
+    const d = DEFS.find((x) => x.id === id);
+    assert.ok(d, `${id} no está declarada`);
+    assert.equal(d!.gating?.rolMinimo, 'admin', `${id}: lo de Meta lo toca sólo un admin del negocio`);
+    assert.ok(!id.includes('zernio'), `${id}: el id no lleva «zernio» (tests/sin-instagram.test.ts)`);
+    assert.match(run, new RegExp(`\n  ${id}: \{`), `${id} no tiene runner`);
+  }
+  for (const id of ['elegir_cuenta_meta', 'elegir_pixel_meta', 'elegir_pagina_meta']) {
+    const d = DEFS.find((x) => x.id === id)!;
+    assert.equal(d.tipo, 'accion');
+    assert.equal((d as { confirmacion?: string }).confirmacion, 'chat', `${id}: elegir se confirma con un «sí»`);
+  }
+  // La lectura dice SI hay token del píxel, nunca su valor.
+  assert.match(run, /token_del_pixel_cargado: !!tokenPixel/);
+  // El código de prueba viaja hasta Zernio (`testCode`) y hasta Meta directo (`test_event_code`).
+  assert.match(run, /sendMetaCAPIEvent\(\{[\s\S]{0,200}testCode: codigo/);
+  const capi = leer('../lib/meta-capi.ts');
+  assert.match(capi, /\.\.\.\(testCode \? \{ testCode \} : \{\}\)/);
+  assert.match(capi, /\.\.\.\(params\.testCode \? \{ test_event_code: params\.testCode \} : \{\}\)/);
+  assert.match(capi, /enviarPorZernio\(canal, destino\.id, ev, params\.testCode\)/);
 });

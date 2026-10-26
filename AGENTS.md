@@ -2473,6 +2473,12 @@ para un tablero de trabajos y su estado, lo que usa la gente que mira corridas (
 GitHub Actions, Linear); para una bandeja, un cliente de correo o de chat. Si no aparece
 ninguna, ése es justamente el caso del punto 2.
 
+⚠️ **Settings ya tiene su referencia: los ajustes de LINEAR (25/10/2026).** Una sección o pestaña nueva de Settings se arma
+con el molde (app/_ui/Ajustes.tsx): el título SIN bajada, secciones de nombre + tarjeta con `FilaAjustes` (el nombre a la
+izquierda, el control a la derecha: interruptor, select con `SELECT_AJUSTES`, campo, botón de texto o la flecha a su
+detalle), y guarda al instante, sin «Guardar». Nada de un párrafo por sección: Martín rechazó dos versiones seguidas por eso
+(«textos previo a la configuración que están muy de sobra»). Qué se copió de dónde: docs/settings/referencia.md.
+
 # La pantalla dice QUÉ pasó; el PORQUÉ va al código
 
 Pedido tres veces el mismo día y la tercera con todas las letras: **«el mensaje del botón de

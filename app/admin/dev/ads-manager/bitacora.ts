@@ -24,7 +24,7 @@ export const PARTES: Parte[] = [
   { titulo: 'Subir creativos nuevos a un conjunto', detalle: 'Un modal: el conjunto, los archivos al staging con su barra, los textos del mejor anuncio del conjunto (editables) y publicar · un anuncio por archivo, por la Zernio del negocio (con su token propio Meta rechaza el creativo nuevo, 1885183) · queda en «Hechas» con su «Deshacer», que los borra', estado: 'hecha' },
   { titulo: 'MaKo Esencial: 2 recomendaciones por día, sin piloto', detalle: 'Decisión del Cerebro (25/10, el cupo de entrada de AdAmigo) · el número sale de la tabla de topes de Planes · sólo al Esencial que paga por la pasarela · lo que no entra no gasta IA y entra primero lo que cuida la plata · espera que Planes saque la tab del candado de Pro', estado: 'sigue' },
   { titulo: 'Automatizaciones: cada táctica por su cuenta', detalle: 'El «Automation Overview» de Madgicx en /ads-manager/automatizaciones: qué hizo (prendió, pausó, subió, bajó) en 7 o 30 días, y cada táctica apagada / propone / automática con sus umbrales (el recomendado al lado) y las campañas que cubre · el piloto lanza sólo las automáticas · también por la API · faltan las reglas propias con Y/O', estado: 'sigue' },
-  { titulo: 'MaKo opera el Media Buyer', detalle: 'ver_media_buyer, lanzar, deshacer, descartar, analizar, modo y topes en la API de MaKo · lo que mueve plata se confirma en pantalla y no corre en un flujo', estado: 'hecha' },
+  { titulo: 'MaKo opera el Media Buyer', detalle: 'Todo lo que hace la pantalla, por la API de MaKo y por HTTP (25/10): ver las tres pestañas, lanzar con monto y variaciones, deshacer, descartar, reabrir, calificar, los hooks al video, el modo, los topes, las metas, la cuenta y cada táctica · lo que mueve plata se confirma en pantalla y no corre en un flujo · falta subir creativos (archivos)', estado: 'sigue' },
   { titulo: 'Probarlo de punta a punta en la cuenta de MaKo', detalle: 'Medido el 25/10 por Zernio en act_1426493815659364, en «propone»: una decisión real lanzada (recortada por el tope), leída en Meta y deshecha · lo del ANUNCIO (prender, pausar, variaciones) espera un método de pago en la cuenta (Martín)', estado: 'sigue' },
 ];
 
@@ -421,6 +421,25 @@ export const BITACORA: Hito[] = [
       'lib/zernio-ads.ts — la campaña vacía, el accountId y la moneda en vivo',
       'lib/media-buyer/senales.ts — lo que sólo trae la lectura en vivo se suma al árbol',
       'lib/media-buyer/datos.ts — sin META_AD_ACCOUNT_ID se va por Zernio',
+    ],
+    revisar: '/ads-manager',
+  },
+  {
+    fecha: '25 oct', hora: '14:40', chat: 'Media Buyer', cuenta: 'claude5',
+    sesion: 'local_b55d80d8-f4bc-4ebd-a3d5-a2a6a6b81393',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Todo el Media Buyer, por la API de MaKo',
+    pedido: '«Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API»',
+    puntos: [
+      '⚠️ **El diagnóstico obvio era «lo que mueve plata no puede salir por HTTP», y era el equivocado**: la API ya trata lo que cuesta dinero como una propuesta que se confirma en la pantalla, aun con un token con escritura. Lanzar, deshacer, el modo, los topes y las tácticas salen ahora por HTTP con su URL.',
+      'Lo que faltaba: ver Hechas y Descartadas (con estrellas y motivo, 30 días como la pantalla), lanzar con el monto editado y las variaciones elegidas, reabrir, calificar, llevar los hooks al Video Generator, las metas del mes, la cuenta publicitaria y las campañas para elegir en una táctica.',
+      'Un test lee los botones de la pantalla y pide la operación de cada uno, y que cada ajuste se pueda cambiar por la API. Roto a propósito cuatro veces antes de darlo por bueno.',
+      'Queda afuera, escrito: subir creativos (los archivos los sube el navegador).',
+    ],
+    archivos: [
+      'lib/api-mako/areas/ads.def.ts / ads.run.ts — las operaciones del Media Buyer',
+      'lib/api-mako/rest.ts — sus URLs',
+      'tests/media-buyer-api.test.ts — cada botón con su operación',
     ],
     revisar: '/ads-manager',
   },

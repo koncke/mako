@@ -79,7 +79,7 @@ import {
   nombreDeDiseno, nombreDeObjetivo, yaPublicadaAsi, resumenPublicar, urlDeLanding, formatoParaApi,
   estaPublicada, direccionParaPublicar, siFallaNuestra, comentariosParaApi, nombreDeEstado, urlPublicaParaApi,
   botonesDeLanding, elegirBotonDePago, conProductoEnBoton, resumenCobrar, type BotonDeLanding,
-  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi,
+  pedidoDePresentacion, analiticaParaApi, resumenDespublicar, rechazosParaApi, versionesParaApi, NOTA_ALCANCE,
   type FilaPublicable, type DisponibilidadSlug,
 } from './landing-editor.helpers';
 
@@ -534,10 +534,17 @@ export const RUNNERS: Runners = {
         ventana: { desde: c.primer_evento, hasta: c.ultimo_evento, alcance: 'toda la historia del Pixel' },
         de_donde_vienen: c.top_referrers.map((r) => ({ origen: r.ref, visitas: r.n })),
         visitantes_compartidos: c.visitantes_compartidos,
+        // Pixel v26: sólo en las páginas del Web Generator del negocio (últimos 30 días). null = no se mide, nunca 0.
+        alcance_por_seccion: c.alcance_secciones
+          ? c.alcance_secciones.secciones.map((x) => ({ titulo: x.titulo, porcentaje: x.pct }))
+          : null,
+        alcance_medido_desde: c.alcance_secciones?.desde ?? null,
+        alcance_visitantes: c.alcance_secciones?.visitantes ?? null,
         nota: [
           'llegaron_al_50 y llegaron_al_final en null = no se pudo medir, NUNCA es 0. «Al final» es 90% o más.',
           'con_eventos_de_video cuenta a toda persona con algún evento de video, incluidos los que arrancaron solos (autoplay): no es intención de ver.',
           'agendaron = visitantes de esta página con una llamada agendada; no se verifica el orden, pudieron agendar antes de visitar.',
+          NOTA_ALCANCE,
           c.visitantes_compartidos ? 'Estos visitantes también entraron a otras páginas del negocio: la profundidad del video puede ser de la otra.' : null,
           c.hay_datos ? null : 'hay_datos false puede ser que el Pixel nunca reportó esta URL o que la lectura falló: esta función no distingue.',
         ].filter(Boolean).join(' '),

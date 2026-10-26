@@ -165,8 +165,17 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       (`dominioDelVisitante`, como el «auto» de Google Analytics). Las cookies de antes no se juntan solas: cada
  *       host conserva su visitante viejo hasta que vence; desde acá, uno solo.
  *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: PIXEL_MINIMO_AVISO sigue en 22 (con la línea de /m.js llega sola).
+ *  26 — QUÉ SECCIÓN SE VE (25/10/2026, el primer paso del Landing AI, docs/diseno-pruebas-ab.md L1). Pedido de Martín:
+ *       «al detectar si una sección no es vista que haga variaciones». Sólo en las páginas que arma MaKo (Web
+ *       Generator): las secciones de bloques (`section.gm-tarjeta#t-<id>`) y las de «Diseño editable»
+ *       (`.gm-libre-seccion[data-seccion]`, que con `display: contents` no tienen caja: se mide la unión de sus
+ *       hijos). Vista = la mitad de la sección o de la pantalla (lo menor) durante 1 s. Viaja UN evento acumulado,
+ *       `secciones`, con los ids en `detalle`, en los hitos del scroll y al irse: 8 por visita como mucho.
+ *       ⚠️ NO ENTRA A `getTrackingEvents` (la ficha del lead): ahí se lee con `.limit(120)` antes de filtrar.
+ *       ⚠️ TAMPOCO SE LE PIDE A NADIE QUE REPEGUE: las páginas del Web Generator cargan la línea de /m.js, y a una
+ *       página de afuera no le agrega nada (ULTIMA_PARA_TODAS sigue en 22).
  */
-export const SNIPPET_VERSION = 25;
+export const SNIPPET_VERSION = 26;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -219,6 +228,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  26: 'cuánta gente ve cada sección de las páginas que haces con el Web Generator de MaKo: en qué sección deja de leer, una por una',
   25: 'que la misma persona cuente una sola vez aunque entre a tu página con www y sin www',
   24: 'que MaKo lea tu página como la ve un visitante —lo que hay dentro de cada desplegable, a dónde lleva cada botón y si tu agenda carga— cuando la analizas o la replicas',
   23: 'una línea de instalación que se actualiza sola: la pegas una vez y cada mejora del Pixel te llega sin volver a pegar nada',
@@ -2866,6 +2876,8 @@ export function landingSnippet(token: string): string {
         if (scrollMax >= h && h > scrollHito) {
           scrollHito = h;
           enviar({ tipo_evento: 'scroll', porcentaje: h });
+          // Las secciones viajan en los MISMOS momentos (v26): ningun disparador nuevo.
+          mandarSecciones();
         }
       }
     } catch (e) {}
@@ -2881,6 +2893,9 @@ export function landingSnippet(token: string): string {
     try {
       if (scrollTimer) { clearTimeout(scrollTimer); scrollTimer = 0; }
       mirarScroll();
+      // Al irse, las secciones vistas desde el ultimo hito (antes del corte de abajo,
+      // que es del scroll: una seccion nueva puede no mover el porcentaje).
+      mandarSecciones();
       if (scrollFinales >= 3 || scrollMax <= scrollHito) return;
       scrollFinales++;
       scrollHito = scrollMax;
@@ -2897,6 +2912,118 @@ export function landingSnippet(token: string): string {
   // primera linea de cada visita.
   if (document.readyState === 'complete') setTimeout(mirarScroll, 500);
   else window.addEventListener('load', function () { setTimeout(mirarScroll, 500); });
+
+  // ── SECCIONES (v26) ─────────────────────────────────────────────────────────
+  // QUE SECCIONES DE LA PAGINA VIO LA PERSONA. El scroll dice hasta donde bajo en
+  // la pagina ENTERA; para saber que una seccion no se ve (y probarle otra
+  // version) hace falta saber cuales vio. Solo existen en las paginas que arma
+  // MaKo, y en cualquier otra esto no encuentra nada y no manda nada:
+  //   · las de bloques: section.gm-tarjeta con id «t-» + el id de la seccion;
+  //   · las de «Diseno editable»: .gm-libre-seccion con data-seccion. Van con
+  //     display: contents, que NO TIENE CAJA: se mide la union de sus hijos.
+  //
+  // VISTA = lo visible ocupa al menos la mitad de la seccion O la mitad de la
+  // pantalla, lo que sea MENOR, durante 1 s seguido. Con «la mitad de la seccion»
+  // sola, una seccion mas alta que dos pantallas no se contaria nunca.
+  //
+  // ⚠️ UN SOLO EVENTO ACUMULADO, CON TECHO. 'secciones' lleva en 'detalle' los ids
+  // vistos HASTA AHORA, separados por un espacio y cortados en 300 (el tope del
+  // beacon), y sale solo cuando el scroll cruza uno de sus hitos y al irse, y solo
+  // si hay ids nuevos: 8 por visita como mucho. Un evento por seccion eran hasta 30
+  // por visita, el doble del techo de todo lo demas junto.
+  // Las miradas van con el MISMO freno que el scroll: una cada 400 ms.
+  var SECC_MS = 1000;
+  var seccVistas = [];     // los ids vistos, en el orden en que se vieron
+  var seccMandadas = 0;    // cuantos ya viajaron
+  var seccEnvios = 0;
+  var seccEspera = {};     // id -> el reloj de su segundo
+  var seccTimer = 0;
+  function seccionesDeLaPagina() {
+    var out = [];
+    try {
+      var b = document.querySelectorAll('section.gm-tarjeta[id^="t-"]');
+      for (var i = 0; i < b.length && out.length < 60; i++) out.push({ id: b[i].id.slice(2), els: [b[i]] });
+      var l = document.querySelectorAll('.gm-libre-seccion[data-seccion]');
+      for (var j = 0; j < l.length && out.length < 60; j++) {
+        var hijos = [];
+        for (var k = 0; k < l[j].children.length && k < 40; k++) hijos.push(l[j].children[k]);
+        out.push({ id: l[j].getAttribute('data-seccion') || '', els: hijos });
+      }
+    } catch (e) {}
+    return out;
+  }
+  // La regla, sola y sin DOM (la prueba tests/landing-snippet-emitido.test.ts).
+  function seccionVista(arriba, abajo, vh) {
+    var alto = abajo - arriba;
+    if (!(alto > 0) || !(vh > 0)) return false;
+    var visible = Math.min(abajo, vh) - Math.max(arriba, 0);
+    return visible > 0 && visible >= Math.min(alto, vh) / 2;
+  }
+  function cajaDeSeccion(els) {
+    var arriba = Infinity, abajo = -Infinity;
+    for (var i = 0; i < els.length; i++) {
+      var r = els[i] && els[i].getBoundingClientRect ? els[i].getBoundingClientRect() : null;
+      if (!r || !(r.height > 0) || !(r.width > 0)) continue;
+      if (r.top < arriba) arriba = r.top;
+      if (r.bottom > abajo) abajo = r.bottom;
+    }
+    return arriba < abajo ? { arriba: arriba, abajo: abajo } : null;
+  }
+  function seccionYaVista(id) {
+    for (var i = 0; i < seccVistas.length; i++) if (seccVistas[i] === id) return true;
+    return false;
+  }
+  function seccionEnPantalla(els) {
+    if (document.visibilityState === 'hidden') return false;
+    var c = cajaDeSeccion(els);
+    return !!c && seccionVista(c.arriba, c.abajo, window.innerHeight || (document.documentElement || {}).clientHeight || 0);
+  }
+  function mirarSecciones() {
+    try {
+      var ss = seccionesDeLaPagina();
+      for (var i = 0; i < ss.length; i++) {
+        var s = ss[i];
+        if (!/^[A-Za-z0-9_-]{1,40}$/.test(s.id) || seccionYaVista(s.id)) continue;
+        var en = seccionEnPantalla(s.els);
+        if (en && !seccEspera[s.id]) {
+          // El segundo se confirma con OTRA mirada al cumplirse: si la persona siguio
+          // de largo, ya no esta en pantalla y no cuenta.
+          (function (id, els) {
+            seccEspera[id] = setTimeout(function () {
+              seccEspera[id] = 0;
+              try { if (!seccionYaVista(id) && seccionEnPantalla(els)) seccVistas.push(id); } catch (e) {}
+            }, SECC_MS);
+          })(s.id, s.els);
+        } else if (!en && seccEspera[s.id]) {
+          clearTimeout(seccEspera[s.id]);
+          seccEspera[s.id] = 0;
+        }
+      }
+    } catch (e) {}
+  }
+  function mandarSecciones() {
+    try {
+      if (seccVistas.length <= seccMandadas || seccEnvios >= 8) return;
+      var d = '';
+      for (var i = 0; i < seccVistas.length; i++) {
+        var sig = d ? d + ' ' + seccVistas[i] : seccVistas[i];
+        if (sig.length > 300) break;
+        d = sig;
+      }
+      seccMandadas = seccVistas.length;
+      if (!d) return;
+      seccEnvios++;
+      enviar({ tipo_evento: 'secciones', detalle: d });
+    } catch (e) {}
+  }
+  window.addEventListener('scroll', function () {
+    if (seccTimer) return;
+    seccTimer = setTimeout(function () { seccTimer = 0; mirarSecciones(); }, 400);
+  }, { passive: true });
+  // Lo que se ve sin mover un dedo (el hero) cuenta igual: la primera mirada espera
+  // al 'load', como la del scroll, para medir la pagina con sus imagenes puestas.
+  if (document.readyState === 'complete') setTimeout(mirarSecciones, 500);
+  else window.addEventListener('load', function () { setTimeout(mirarSecciones, 500); });
 
   // ── AGENDÓ ────────────────────────────────────────────────────────────────
   // ⚠️ EL EVENTO QUE FALTABA, y para un negocio que vende por llamada es EL

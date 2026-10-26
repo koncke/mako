@@ -4748,6 +4748,13 @@ copiada de una app que ya exista. La referencia es Madgicx · AI Marketer (captu
   decía «lead, agenda o venta» y «dólares»: «editá la venta de Juan: 1500 dólares» dejó de traer `editar_venta_lead`
   (tests/ops-center-clasificador-app.test.ts). Se reescribió sin esas raíces. Ya estaba en AGENTS.md para los ids; vale
   igual para la descripción.
+- **«Lo que mueve plata no puede salir por HTTP» era el diagnóstico equivocado** (Martín, 25/10: «todo MaKo se debe poder
+  utilizar por API»). Lanzar, deshacer, el modo, los topes y las tácticas habían quedado `SIN_HTTP` por miedo a que un
+  token escribiera solo. No hacía falta: `lib/api-mako/rutas-http.ts` ya trata `costo: 'dinero'` como PROPUESTA aun con
+  un token detallado (devuelve el link a la pantalla). Ahora todo el Media Buyer sale por HTTP con su URL REST, y
+  `tests/media-buyer-api.test.ts` fija que cada `op` de `/api/media-buyer` tenga su operación (o su porqué en `FALTA`) y
+  que cada campo de la config se pueda cambiar por la API. Lo único afuera: subir creativos (los archivos los sube el
+  navegador al staging).
 - **Las dos tablas nuevas van en `TABLAS_DE_INQUILINO` y la 0332 tiene que estar ANTES del deploy**: el reset del cliente
   de prueba borra de cada tabla de esa lista y una que no existe da error. Hasta que se aplique, el código las tolera
   (PGRST205) y la pantalla dice que el registro no está.
@@ -4826,8 +4833,8 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
 
 **Sin hacer, con su archivo:** medir lo que escribe a nivel ANUNCIO (prender, pausar, variaciones de texto, hook y video)
 espera a que Martín cargue un método de pago en la cuenta de MaKo (relevo: `docs/relevo/media-buyer.md`); filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
-ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos» y
-«hooks al video»; `validate_only` antes de
+ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
+(`FALTA` en `tests/media-buyer-api.test.ts`); `validate_only` antes de
 escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss intradía (hoy decide con el día de ayer
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 

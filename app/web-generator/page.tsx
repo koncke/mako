@@ -48,6 +48,7 @@ import { consultaDerecha, derechaDeQuery, esPanelPelado, landingMasReciente, typ
 import { redirect } from 'next/navigation';
 import { rutaConWs } from '@/lib/workspace';
 import { Inicio } from './Inicio';
+import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -104,6 +105,7 @@ export default async function LandingGeneratorPage({ searchParams }: { searchPar
     <Pagina ancho="completo" densidad="compacta" style={{ padding: 0 }}>
       <style dangerouslySetInnerHTML={{ __html: CSS_CONTENIDO }} />
       {fuentes && <link rel="stylesheet" href={fuentes} />}
+      <FranjaPrueba cosas={['web.landings_publicadas']} style={{ margin: '12px 16px 0' }} />
       <Inicio
         docs={docs}
         errorLista={errorLista}

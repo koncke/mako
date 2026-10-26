@@ -25,7 +25,7 @@ import { getSupabaseServer } from '../supabase';
 import { getUsuarioActual } from '../auth';
 import { getSettingEstricto, cambiarSettingSi } from '../settings';
 import { baseLandings, basesLandings, urlPublicaLanding, urlVistaLanding } from '../app-url';
-import { leerTodo, leerPorPaginas } from '../supabase-paginado';
+import { leerTodo, leerPorPaginas, type ConsultaPaginada } from '../supabase-paginado';
 import { tzDeWorkspace } from '../timezone';
 import { hoyEnTz } from '../date-utils';
 import type { LandingSpec } from '../landing-spec';
@@ -40,6 +40,8 @@ import { sanearEditablesDe } from './html-editable-seguro';
 import { sanearTemaPropio } from './temas';
 import { specADoc } from './spec-a-doc';
 import { soltarDominioDeVercel } from './dominios';
+import { TIPO_EVENTO_SECCIONES, alcanceDeSecciones, seccionesDeLaFoto, type AlcanceSecciones, type FilaSecciones, type FilaVisita } from './alcance-secciones';
+import { slugDeUrlLanding } from './origen-landings';
 import { dominioDeLectura, dominioQueSirve } from './dominios-reglas';
 import type { EstadoCobroLanding } from './pago-landing';
 import {
@@ -907,9 +909,10 @@ export function rutasDeFoto(publicado: unknown): string[] {
  *     cruzadas por la URL NORMALIZADA — el `ilike` sólo trae candidatos.
  *   · Los leads son los de esos visitantes (`leads.visitor_id`) creados en la ventana: el formulario
  *     de la landing entra al CRM por el opt-in del Pixel, que guarda el visitante.
- *   · `alcancePorSeccion` es `null`: el Pixel mide la profundidad de la PÁGINA por hitos (25/50/75/100,
- *     lib/landing-pulso.ts), no qué sección vio cada persona. Repartir ese porcentaje entre secciones
- *     sería inventar un dato con cara de medido; null = no medido, NUNCA 0.
+ *   · `alcancePorSeccion` sale del evento `secciones` del Pixel v26 (25/10/2026): qué porcentaje de los visitantes
+ *     de cada página VIO cada sección, desde que se mide (lib/editor-landing/alcance-secciones.ts). Sin ningún
+ *     evento todavía, `null` = no medido, NUNCA 0. Antes de la v26 era siempre null: el Pixel medía la profundidad
+ *     de la PÁGINA por hitos, y repartir ese porcentaje entre secciones habría sido inventar un dato.
  */
 export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>> {
   const ws = await wsOFalla();
@@ -934,6 +937,7 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
 
     const fechas: string[] = [];
     const visitantes = new Set<string>();
+    const filasVisitas: FilaVisita[] = [];
     await leerPorPaginas<{ id: number; visitor_id: string | null; landing_url: string | null; created_at: string }>(
       db, 'landing_visits', 'id, visitor_id, landing_url, created_at',
       (filas) => {
@@ -941,6 +945,7 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
           if (!esUrlMedida(v.landing_url, medidas)) continue;
           fechas.push(v.created_at);
           if (v.visitor_id) visitantes.add(v.visitor_id);
+          filasVisitas.push({ visitor_id: v.visitor_id, landing_url: v.landing_url, created_at: v.created_at });
         }
       },
       { eq: { workspace_id: ws }, orden: 'id', filtros: (q) => q.gte('created_at', desde).is('prueba', null).ilike('landing_url', prefiltroVisitas(slug)) },
@@ -972,6 +977,13 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
     } catch (e) {
       console.warn(`[landing analitica] no pude leer los rechazos del pago de la landing ${id}: ${msg(e)}`);
     }
+    // El alcance por sección (Pixel v26). Si la lectura falla, null («No medido»): las visitas se muestran igual.
+    let alcance: AlcanceSecciones | null = null;
+    try {
+      alcance = await alcanceDeLanding(db, ws, { slug, publicado: f.publicado }, desde, filasVisitas);
+    } catch (e) {
+      console.warn(`[landing analitica] no pude leer el alcance por sección de la landing ${id}: ${msg(e)}`);
+    }
     return {
       ok: true,
       analitica: {
@@ -981,7 +993,8 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
         visitantes30: visitantes.size,
         leads30: leadIds.size,
         porDia: visitasPorDia(fechas, hoyEnTz(tz), DIAS_ANALITICA, tz),
-        alcancePorSeccion: null,
+        alcancePorSeccion: alcance ? alcance.porSeccion : null,
+        alcanceMedido: alcance ? { desde: alcance.desde, visitantes: alcance.visitantes } : null,
         enAnalyst: (analizadas ?? []).length > 0,
         rechazosPago,
       },
@@ -989,6 +1002,69 @@ export async function analitica(idRaw: unknown): Promise<Resultado<'analitica'>>
   } catch (e) {
     return falla(msg(e), 500);
   }
+}
+
+/**
+ * El alcance por sección de UNA landing publicada (Pixel v26): lo usan `analitica` (con las visitas que ya leyó) y el
+ * Landing Analyst (`getComportamiento`, que las lee acá). Las URLs van POR PÁGINA, como las arma `urlsAMedir`.
+ * Lanza si la lectura falla: quien llama decide (las dos dejan «No medido»).
+ */
+export async function alcanceDeLanding(
+  db: Awaited<ReturnType<typeof getTenantDb>>,
+  ws: number,
+  f: { slug: string | null; publicado: unknown },
+  desde: string,
+  visitas?: readonly FilaVisita[],
+): Promise<AlcanceSecciones | null> {
+  if (!f.slug || !slugValido(f.slug)) return null;
+  const slug = f.slug;
+  const bases = basesLandings();
+  const paginas = seccionesDeLaFoto(f.publicado)
+    .map((p) => ({ claves: new Set(urlsAMedir(bases, slug, [p.ruta])), secciones: p.secciones }))
+    .filter((p) => p.claves.size > 0 && p.secciones.length > 0);
+  if (!paginas.length) return null;
+  const medidas = new Set(paginas.flatMap((p) => [...p.claves]));
+  const prefiltro = (q: ConsultaPaginada) =>
+    q.gte('created_at', desde).is('prueba', null).ilike('landing_url', prefiltroVisitas(slug));
+
+  const eventos: FilaSecciones[] = [];
+  await leerPorPaginas<FilaSecciones & { id: number }>(
+    db, 'vsl_events', 'id, visitor_id, landing_url, detalle, created_at',
+    (filas) => { for (const e of filas) if (esUrlMedida(e.landing_url, medidas)) eventos.push(e); },
+    { eq: { workspace_id: ws, tipo_evento: TIPO_EVENTO_SECCIONES }, orden: 'id', filtros: prefiltro },
+  );
+  if (!eventos.length) return null;
+
+  let filas = visitas;
+  if (!filas) {
+    const leidas: FilaVisita[] = [];
+    await leerPorPaginas<FilaVisita & { id: number }>(
+      db, 'landing_visits', 'id, visitor_id, landing_url, created_at',
+      (fs) => { for (const v of fs) if (esUrlMedida(v.landing_url, medidas)) leidas.push(v); },
+      { eq: { workspace_id: ws }, orden: 'id', filtros: prefiltro },
+    );
+    filas = leidas;
+  }
+  return alcanceDeSecciones(paginas, filas, eventos);
+}
+
+/**
+ * El alcance por sección de la página del Web Generator de ESTE negocio que sirve esa URL, en los últimos 30 días (lo
+ * suma el Landing Analyst a su análisis). null si la URL no es de una landing publicada del negocio en hola-mako.site
+ * (una de afuera no tiene secciones que medir) o si todavía no se mide. Un dominio propio todavía no se resuelve acá.
+ */
+export async function alcanceDeLandingPorUrl(url: string): Promise<AlcanceSecciones | null> {
+  const ws = await getWorkspaceActual();
+  if (!ws) return null;
+  const slug = slugDeUrlLanding(url, basesLandings());
+  if (!slug) return null;
+  const db = await getTenantDb();
+  const { data, error } = await db.from('landing_docs').select('slug, publicado')
+    .eq('workspace_id', ws).eq('slug', slug).not('publicado', 'is', null).limit(1).maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) return null;
+  const desde = new Date(Date.now() - DIAS_ANALITICA * 86_400_000).toISOString();
+  return alcanceDeLanding(db, ws, data as { slug: string | null; publicado: unknown }, desde);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

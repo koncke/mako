@@ -1,6 +1,9 @@
 -- =============================================================================
 -- 0334_prueba_de_plan — la prueba gratis de 7 días de un plan de MaKo (25/10/2026)
 -- =============================================================================
+-- ✅ APLICADA EN PRODUCCIÓN el 25/10/2026 (Martín: «Sí, aplicá en producción la migración 0334 de la prueba gratis»). La
+-- aplicó el Cerebro y verificó que PostgREST ve `cobros.prueba_huella` y `cobros.prueba_aviso_at`.
+--
 -- Martín (25/10/2026, ~10:20): «quiero implementar la prueba gratuita de 7 días... para darte de alta en la prueba
 -- gratuita debes poner la tarjeta, tal cual como una suscripción, y se te cobra automático luego de esos 7 días». Y el
 -- Cerebro: una prueba por negocio, por tarjeta y por email, y un aviso por email 2 días antes del cobro.

@@ -29,7 +29,8 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const DOER = sinComentarios(readFileSync(join(RAIZ, 'lib/mako-doer-in.ts'), 'utf8')).replace(/\r\n/g, '\n');
 
 test('1. con su IA, los candidatos del doer son su Gemini y su OpenAI (IA16: su Gemini es su IA)', () => {
-  assert.match(DOER, /const suIA = \(await negocioConSuIA\(wsData\)\)\.suIA;/);
+  // Con `conPc` a mano desde el 25/10/2026: el cartel de un negocio con su computadora y sin clave no dice «no tiene su IA».
+  assert.match(DOER, /const iaDelNegocio = await negocioConSuIA\(wsData\);\s*const suIA = iaDelNegocio\.suIA;/);
   assert.match(DOER, /const cands = suIA \? \[\.\.\.PROVS_SU_IA\] : \[pinL\.provider, 'openai'\]/);
   assert.match(DOER, /import \{ PROVS_SU_IA \} from '@\/lib\/solo-su-ia';/);
   assert.match(DOER, /const pinL = pin && pin\.provider !== 'anthropic' \? pin : suIA \? \{ provider: 'openai'/, 'con su IA y sin pin barato, el loop corre igual (con su OpenAI)');

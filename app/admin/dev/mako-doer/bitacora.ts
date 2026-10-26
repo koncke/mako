@@ -587,4 +587,22 @@ export const BITACORA: Hito[] = [
       'docs/hallazgos-infra.md — la cosecha corregida',
     ],
   },
+  {
+    fecha: '25 oct', hora: '13:55', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El cartel del grupo cuando falta una conexión: sin Gemini, con la computadora no miente, un link por cada cosa y el texto guardado',
+    puntos: [
+      'Martín, 25/10, por Florencia (ws21): «le sigue diciendo que debe conectar su IA de Gemini, cuando dijimos que todo eso se hace con la app de escritorio de MaKo y conectado a su claude o GPT». Tanda 1 de docs/conexiones-y-ayuda.md.',
+      '⚠️ **El diagnóstico obvio —«que instale MaKo Desktop»— era el equivocado:** el grupo no pasa por la computadora (D6a), y con la computadora conectada y sin clave el cartel decía «tu negocio todavía no tiene su IA conectada». El doer tiraba `conPc` en el texto y en el audio. Ahora: «tu Claude está en tu computadora y te contesta en la app», con el link del chat y el de su GPT.',
+      '**En el grupo se ofrece su GPT por clave, nunca Gemini y tampoco su Claude:** su Claude entra sólo en turnos sin herramientas (WA1) y no escucha. `ia_lenta` y `sin_respaldo` sin «son gratis» ni «otro Gemini»; con su GPT como la que falló, no se le ofrece nada.',
+      '**Un link por cada cosa que falta:** su GPT, MaKo Desktop y, si pregunta por sus llamadas, Fathom (`conexionesDelPedido`). Si Fathom no se pudo leer, no se dice que falta.',
+      '⚠️ **`recordUsage` cortaba el motivo a 200:** el texto del cartel no quedaba en ningún lado. Ahora va entero en la fila `cartel-ia` que lee el vigía, y el cartel del audio deja la suya.',
+    ],
+    archivos: [
+      'lib/fallo-ia-texto.ts — los textos, `enlaceA`, `conexionesDelPedido`, `motivoDelCartel` (puro)',
+      'lib/mako-doer-in.ts — `conPc` en los dos caminos, lo que falta y la fila del vigía',
+      'lib/anthropic-usage.ts — el motivo de `cartel-ia` hasta 1500',
+      'tests/doer-cartel-sin-ia.test.ts — 9 tests, 11 roturas con su fallo; y los que fijaban Gemini, a la regla nueva',
+    ],
+  },
 ];

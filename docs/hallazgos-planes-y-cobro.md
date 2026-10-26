@@ -1513,7 +1513,7 @@ días». Lo trajo el Cerebro con el reparto (topes, antiabuso, aviso). Chat «Pl
 - **Rojo previo, no de esto:** tests/pago-link-anulado.test.ts «anular cierra el link también en Mercado Pago» recorta
   `anularCobro` y la rama de MP vive en `cerrarLinkEnLaPasarela` desde antes: falla igual en el commit anterior.
 
-**Sin hacer (de la prueba, al cerrar D2):** los topes en cada pantalla y «empezar el plan ya» quedaron hechos en D3 (abajo). La mig 0334 la aplica Martín (aditiva; el código anda sin ella, sin el freno
+**Sin hacer (de la prueba, al cerrar D2):** los topes en cada pantalla y «empezar el plan ya» quedaron hechos en D3 (abajo). La mig 0334 quedó APLICADA en producción el 25/10 con el OK de Martín (antes de eso, el código andaba sin ella, sin el freno
 por tarjeta). **Vive en:** lib/prueba-plan-reglas.ts · lib/prueba-plan.ts · lib/cobros.ts (`activarPruebaSiAutorizo`,
 `suscripcionDeMakoDe`, `darDeBajaMiPlan`, `reconciliarCobros`) · lib/compra-plan.ts (`puedeEmpezarPrueba`,
 `iniciarCompraDePlan`) · lib/plan-acceso-reglas.ts (`pruebaDelLugar`) · lib/plan-esencial.ts · app/pagar/[token]/listo ·
@@ -1551,3 +1551,29 @@ teléfono no tiene «Empezar mi plan ya». **Vive en:** lib/topes-plan.ts · lib
 app/_ui/EmpezarPlanYa.tsx · lib/cobros.ts (`cerrarPruebaAlEmpezarYa`) · app/video-generator/video-action.ts ·
 app/ai-avatar/actions.ts · app/video-editor/avatar/actions.ts · lib/editor-landing/tope-landings-server.ts · app/crm/actions.ts ·
 app/configuraciones/plan · tests/prueba-topes.test.ts.
+
+### El cartel de la versión de prueba (como Madgicx) y la prueba en la API (25/10/2026)
+
+Martín: «Me gusta el cartel de "limited version" de 7 días de madgicx para implementar en la prueba gratuita de MaKo». Las
+capturas: docs/media-buyer/referencias/madgicx/prueba-limitada/ (rama mediabuyer-2510, 71e097476).
+
+- **Madgicx no esconde pantallas en la prueba: limita CANTIDADES.** Por eso no hay pantalla de «esto no está en la prueba»: el
+  cartel fijo al pie de la barra lateral («Versión de prueba · quedan N días», lo que se cobra después, «Pasar al plan ya»), y una
+  franja arriba de cada pantalla con tope («Usaste 1 de 3 videos armados de la prueba»). El texto del tope habla igual: «Se
+  habilita con tu plan».
+- **Una lectura para todo** (`resumenDePrueba`, lib/prueba-uso.ts): la dibujan el cartel, la franja y «Tu plan» del teléfono, y la
+  lee la API (`ver_mi_prueba`). En el navegador el cartel y la franja comparten UNA llamada por página (app/_ui/usePrueba.ts).
+- **Trampa: la regla `react-hooks/purity` frena `Date.now()` en el render**, también en un componente del servidor (el layout del
+  teléfono). Los días se cuentan al LEER la prueba (`estadoDePrueba` trae `dias`), no al dibujarla.
+- **Los colores son los tokens de MaKo** (`--primary` → `--primary-strong`, `--on-primary`): en el oscuro el degradé se aclara y el
+  texto pasa a oscuro solo. El violeta de Madgicx no entra (un test lo frena).
+- **La API** (Martín, 25/10: «todo MaKo se debe poder utilizar por API»), en el área `negocio`: `ver_mi_prueba` (GET
+  /negocio/plan/prueba), `empezar_mi_plan_ya` (POST /negocio/plan/prueba/fin, se confirma en una pantalla: mueve plata);
+  `ver_mi_plan` dice «en prueba gratis» y `dar_de_baja_mi_plan` cancela la prueba sin cobro. EMPEZAR una prueba no va a la API:
+  es la compra pública de /planes, de un negocio que todavía no existe. Una operación nueva con ruta REST necesita su recurso:
+  va bajo `/negocio/plan/…`, que ya tiene título.
+
+**Sin hacer:** el Media Buyer (otra rama) tiene que dibujar la misma franja con su tope y negar el piloto en la prueba
+(`estadoDePrueba`). Lo que se cobra después se parte en dos renglones («US$ / 97/mes») en una barra angosta. **Vive en:**
+app/_components/CartelPrueba.tsx · app/_ui/FranjaPrueba.tsx · app/_ui/usePrueba.ts · app/api/plan/prueba · app/m/_prueba/PruebaM.tsx ·
+lib/prueba-uso.ts (`resumenDePrueba`) · lib/api-mako/areas/negocio.* · tests/prueba-cartel.test.ts.

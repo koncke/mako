@@ -79,6 +79,11 @@ export type CAPIEventParams = {
   eventSourceUrl?: string;
   /** Por defecto 'system_generated'; usar 'website' para deduplicar con el pixel. */
   actionSource?: CAPIDataEntry['action_source'];
+  /**
+   * El código de «Probar eventos» del Administrador de eventos (`TEST…`): el evento se ve en esa pestaña y NO cuenta en los
+   * datos del píxel. Sólo para probar (`probar_capi_meta` de la API de MaKo); un envío real nunca lo lleva.
+   */
+  testCode?: string;
 };
 
 /** Por qué no entró. Cada motivo es una acción distinta, así que no se funden. */
@@ -242,7 +247,7 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
       eventName: params.eventName, segundos: t.segundos, eventId: params.eventId, actionSource: params.actionSource,
       eventSourceUrl: params.eventSourceUrl, email: params.email, phone: params.phone, leadId, externalId: params.externalId, customData,
     });
-    const r = await enviarPorZernio(canal, destino.id, ev);
+    const r = await enviarPorZernio(canal, destino.id, ev, params.testCode);
     if (r.ok) return { ok: true, recibidos: r.recibidos };
     if (!r.permiso || !hayToken) return { ok: false, motivo: r.motivo, detalle: r.detalle };
     console.warn(`[capi] ${params.eventName}: Zernio sin permiso sobre el píxel (${r.detalle}) — sigo con el token del píxel`);
@@ -275,6 +280,7 @@ export async function sendMetaCAPIEvent(params: CAPIEventParams): Promise<CAPIRe
       body: JSON.stringify({
         data: [entry],
         access_token: accessToken,
+        ...(params.testCode ? { test_event_code: params.testCode } : {}),
       }),
     });
 
@@ -318,11 +324,12 @@ async function enviarPorZernio(
   canal: Extract<CanalMeta, { via: 'zernio' }>,
   destinoId: string,
   ev: EventoZernio,
+  testCode?: string,
 ): Promise<{ ok: true; recibidos: number } | { ok: false; motivo: CAPIMotivo; detalle: string; permiso: boolean }> {
   try {
     const body = await zFetch<unknown>(canal.clave, '/ads/conversions', {
       method: 'POST',
-      body: JSON.stringify({ accountId: canal.accountId, destinationId: destinoId, events: [ev] }),
+      body: JSON.stringify({ accountId: canal.accountId, destinationId: destinoId, events: [ev], ...(testCode ? { testCode } : {}) }),
     }, 30_000);
     const r = resultadoConversionZernio(body);
     if (r.ok) {
