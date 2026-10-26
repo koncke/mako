@@ -8,8 +8,12 @@ import type { Runners, SalidaLectura } from '../tipos';
 import { leerCarteros, listarPedidos } from '@/lib/operaciones';
 import { leerTurnos, leerUltimosTurnos } from '@/lib/centro-turnos-db';
 import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
-import { completadoSinVer, completadosDeLasCuentas, pedidoDelCompletado, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat } from '@/lib/centro-chats';
+import {
+  agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado, piezaParaLaApi, sinMarkdown,
+  yaEstaDelChat, type CompletadoDeChat, type LineaChat,
+} from '@/lib/centro-chats';
 import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido } from '@/lib/operaciones-reglas';
+import { cierreComoClaude, listasEnRenglones } from '@/lib/respuesta-como-claude';
 
 const json = (o: unknown): string => JSON.stringify(o);
 const cuentaN = (c: string | null) => (c ? `cuenta ${c.replace('claude', '')}` : 'cuenta desconocida');
@@ -38,8 +42,10 @@ export const RUNNERS: Runners = {
           cuenta: cuentaN(p.destino_cuenta),
           estado: ROTULO[p.estado],
           texto: p.texto.length > 300 ? `${p.texto.slice(0, 300)}…` : p.texto,
+          ...(p.voz ? { audio: { segundos: p.voz.segundos } } : {}),
           motivo: p.motivo,
-          cierre: p.cierre,
+          // Como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
+          cierre: p.cierre ? cierreComoClaude(p.cierre) : null,
         })),
         nota: pedidos.length
           ? 'Escrito ≠ entregado ≠ hecho ≠ comprobado: «entregado» quiere decir que salió hacia el chat, no que lo terminó.'
@@ -80,7 +86,7 @@ export const RUNNERS: Runners = {
           chat: c.titulo, cuenta: cuentaN(c.cuenta), termino: new Date(c.instante).toISOString(),
           titulo: n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado',
           pedido: t ? pedidoDelCompletado(lineas, t) : null,
-          respuesta: t?.texto ?? null,
+          respuesta: t ? listasEnRenglones(t.texto) : null,
           revisar: n?.revisar?.pagina ?? null,
         };
       }));
@@ -89,6 +95,28 @@ export const RUNNERS: Runners = {
         nota: detalle.length
           ? 'Cada uno sigue diciendo «Completado» hasta que Martín lo da por visto (en la pantalla, «Ya lo vi»; por aquí, `marcar_visto_operaciones`).'
           : chat ? `«${chat}» no dice «Completado».` : 'Ningún chat dice «Completado»: todo lo terminado ya está visto.',
+      });
+    },
+  },
+  ver_mensajes_operaciones: {
+    leer: async (input): Promise<SalidaLectura> => {
+      const chat = typeof input.chat === 'string' ? input.chat.trim() : '';
+      if (!chat) return json({ error: 'Falta el chat: su nombre, como en el Ops Center («Cerebro», «CRM»).' });
+      const limite = typeof input.limite === 'number' && input.limite >= 1 ? Math.min(100, Math.floor(input.limite)) : 30;
+      const { carteros } = await leerCarteros();
+      const chats = chatsPorNombre(carteros);
+      const c = chats.find((x) => normal(x.titulo) === normal(chat) || x.clave === `nombre:${normal(chat)}`);
+      if (!c) return json({ error: `No encontré el chat «${chat}».`, chats: chats.map((x) => x.titulo).slice(0, 40) });
+      // Lo MISMO que dibuja la pantalla: sus turnos y lo que Martín le mandó desde el Ops Center (`lineasParaLaApi`), la
+      // conversación (`lineasDeConversacion`) y los avances seguidos en un grupo (`agruparAvances`, 25/10/2026). Los turnos
+      // enteros: ninguno se pierde adentro de un grupo. Una nota de voz sale como audio, con su transcripción (26/10/2026).
+      const [turnos, pedidos] = await Promise.all([leerTurnos(c.locales), listarPedidos(100)]);
+      const lineas = lineasParaLaApi(turnos, pedidos.filter((p) => c.locales.includes(p.destino)));
+      const piezas = agruparAvances(lineasDeConversacion(lineas)).slice(-limite);
+      return json({
+        chat: c.titulo, cuenta: cuentaN(c.cuenta),
+        mensajes: piezas.map((p) => piezaParaLaApi(p, c.titulo)),
+        nota: 'Un grupo («avances») es una sola burbuja en la pantalla: `ultimo` se ve entero y `anteriores` (del más nuevo al más viejo) se abren tocándolos.',
       });
     },
   },

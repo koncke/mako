@@ -269,7 +269,7 @@ export function ChatDelCentro({ centro: k, chat, onVolver }: { centro: Centro; c
         onSumar: (fs) => void k.sumarAdjuntos(chat.clave, fs), onQuitar: (id) => k.quitarAdjunto(chat.clave, id), onNoPuede: k.sinAdjuntos, onSinImagen: k.sinImagen,
       }}
       enviando={k.enviando} resumenEnvio={resumenDeEnvio(k, chat)}
-      onMandar={() => void k.mandar(chat)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
+      onMandar={() => void k.mandar(chat)} onNota={(n) => k.notaGrabada(chat.clave, n)} onCrearClave={() => void k.crearClave()} onCopiarClave={k.copiarClave}
       onVolver={onVolver}
       selectores={<SelectoresDeEnvio centro={k} chat={chat} />}
     />

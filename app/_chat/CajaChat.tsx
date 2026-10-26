@@ -35,7 +35,7 @@ import { BotonMandar } from '@/app/admin/operaciones/Microfono';
 import { BotonEmojis } from '@/app/admin/operaciones/Emojis';
 import { LinksDeLaCaja, ResalteDeLinks, hayLinks } from '@/app/admin/operaciones/ConLinks';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { useNotaQueSeManda, type NotaQueSeManda } from './nota-que-se-manda';
+import { useNotaQueSeManda, type NotaGrabada, type NotaQueSeManda } from './nota-que-se-manda';
 
 export type PropsCajaChat = {
   texto: string;
@@ -84,6 +84,9 @@ export type PropsCajaChat = {
      *  en el medio se perdía). Lo ya grabado se sigue viendo. */
     apagada?: boolean;
   };
+  /** Sin `voz`, la nota que se transcribe y sale (26/10/2026): la pantalla que la quiere recibe su MP3, lo que dura y su
+   *  transcripción antes de mandar, para mandarla como nota de voz (el Ops Center). */
+  onNota?: (n: NotaGrabada) => void;
   /** La línea de estado debajo de la caja, con lo que dice la pantalla («Leyendo «X»…»). Sin esto, no se dibuja (la pantalla
    *  puede tener la suya afuera, como el Ops Center). */
   estado?: string | null;
@@ -107,7 +110,7 @@ export function CajaChat(p: PropsCajaChat) {
 }
 
 function CajaConNota(p: PropsCajaChat) {
-  const nota = useNotaQueSeManda({ texto: p.texto, onTexto: p.onTexto, onMandar: p.onMandar, onError: p.onErrorMic });
+  const nota = useNotaQueSeManda({ texto: p.texto, onTexto: p.onTexto, onMandar: p.onMandar, onError: p.onErrorMic, onNota: p.onNota });
   return <Caja p={p} grabacion={nota.grabacion} nota={nota} />;
 }
 

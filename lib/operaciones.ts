@@ -32,8 +32,8 @@ import { createHash, createPublicKey, randomBytes, randomUUID, verify } from 'no
 import { getSupabaseServer } from './supabase';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from './claves-en-el-chat';
 import {
-  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, sanearAcuses, sanearChats,
-  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido,
+  CUENTA_RE, DESTINO_NUEVO, POR_VUELTA, TOMADO_VENCE_MS, UUID_RE, claveIdDe, sanearAbre, estadoDeCierre, fotosDeFirmado, leerFirmable, nombresDeAdjuntos, vozDeFirmado, sanearAcuses, sanearChats,
+  sanearCierres, sanearClaves, sanearEntregables, sanearTurnos, todosLosChats, type ChatCartero, type Cierre, type EstadoPedido, type VozDelPedido,
 } from './operaciones-reglas';
 import { cuentaDeLaSemana, sanearCuota, type Cuota } from './centro-uso';
 import { guardarTurnos } from './centro-turnos-db';
@@ -73,6 +73,8 @@ export type Pedido = {
   adjuntos?: string[];
   /** De esos, los que son fotos (23/10/2026): su miniatura se puede pedir al servidor (lib/operaciones-adjuntos.ts). */
   fotos?: string[];
+  /** Lo mandó como nota de voz (26/10/2026): `texto` es su transcripción, y el MP3 se pide al servidor. */
+  voz?: VozDelPedido;
 };
 
 export type Cartero = {
@@ -107,11 +109,12 @@ export async function listarPedidos(limite = 100): Promise<Pedido[]> {
   const { data, error } = await getSupabaseServer()
     .from(T_PEDIDOS).select(`${COLS}, firmado`).order('created_at', { ascending: false }).limit(limite);
   if (error) throw new Error(`no pude leer la cola: ${error.message}`);
-  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, y cuáles son fotos.
+  // El texto firmado no sale de acá: sólo los nombres de sus adjuntos, si tiene, cuáles son fotos, y si fue una nota de voz.
   return (data ?? []).map(({ firmado, ...p }) => {
     const adjuntos = nombresDeAdjuntos(firmado as string | null);
     const fotos = fotosDeFirmado(firmado as string | null).map((f) => f.nombre);
-    return (adjuntos.length ? { ...p, adjuntos, ...(fotos.length ? { fotos } : {}) } : p) as Pedido;
+    const voz = vozDeFirmado(firmado as string | null);
+    return { ...p, ...(adjuntos.length ? { adjuntos, ...(fotos.length ? { fotos } : {}) } : {}), ...(voz ? { voz } : {}) } as Pedido;
   });
 }
 

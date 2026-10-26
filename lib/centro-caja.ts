@@ -134,3 +134,11 @@ export function borradorQueVale(local: Borrador | null, remoto: Borrador | null)
 export type Scroll = { scrollHeight: number; scrollTop: number; clientHeight: number };
 /** ¿Está abajo del todo (con un margen de unos renglones)? */
 export const estaAbajo = (s: Scroll, margen = 48): boolean => s.scrollHeight - s.scrollTop - s.clientHeight <= margen;
+
+/**
+ * ¿Lo que se manda es ESA nota de voz (26/10/2026)? Sólo si la caja dice lo mismo que se transcribió
+ * (app/_chat/nota-que-se-manda.ts → onNota): si dice otra cosa, o la nota es de antes, lo que sale es texto. Pura (test).
+ */
+export function notaQueSale<N extends { texto: string }>(nota: N | null | undefined, borrador: string): N | null {
+  return nota && nota.texto.trim() && nota.texto.trim() === borrador.trim() ? nota : null;
+}

@@ -1795,6 +1795,15 @@ código nuevo:
     `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
     Lo que el chat le CONTESTA a otro chat va plegado en una línea, «Avance: …» (`turnosParaOtro`), menos un «Ya está»; y la fila
     dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
+    Los avances seguidos van en UNA burbuja (`agruparAvances`, 25/10/2026): se agrupa DESPUÉS de `lineasDeConversacion`, nunca
+    sobre los turnos crudos (los de otro chat no se ven y cortaban cada tanda), y es sólo dibujo: lo «sin ver», el «Completado» y
+    la fila cuentan LÍNEAS. La API (`ver_mensajes_operaciones`) devuelve el mismo agrupado (tests/avances-agrupados.test.ts).
+    Una nota de voz de Martín se dibuja como AUDIO (VozEnviada.tsx, 26/10/2026), con la transcripción en el menú del mensaje:
+    el trabajo firma `voz` y el chat recibe el texto, como siempre (tests/voz-enviada.test.ts). Lo que es sólo para dibujar
+    puede ir firmado como una clave nueva y opcional, probado con el cartero que la deja pasar.
+    Lo que dice un chat (sus turnos, el «Ya está», el cierre) se dibuja como una respuesta de Claude: `<Markdown aire>` sobre
+    `listasEnRenglones(texto)` (lib/respuesta-como-claude.ts), y la API devuelve ese mismo texto. Nunca `conFormato` (es de un
+    renglón) ni una tabla de rótulos en el teléfono (tests/respuestas-como-claude.test.ts).
     La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
     nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
     Todo lo que espera a Martín arriba de la caja va en UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`): la Ticketera, lo
