@@ -12,7 +12,9 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { aplicablesEnLote, leerMonto } from '../app/ads-manager/mb-modelo';
 import { ArbolDeHoy, TarjetaChica } from '../app/ads-manager/Arbol';
-import { presupuestoYaCambiado } from '../lib/media-buyer/topes';
+import { TarjetaAccion } from '../app/ads-manager/Autopilot';
+import { presupuestoYaCambiado, seEstaCreando } from '../lib/media-buyer/topes';
+import { montoDelTexto } from '../lib/media-buyer/monto';
 import { mezclarTacticas } from '../lib/media-buyer/tacticas';
 import { resumenParaAgente } from '../lib/media-buyer/agentes-propios';
 import { leerRespuesta, opcionesDe, pasoDeArranque, type RespuestasArranque } from '../lib/media-buyer/arranque';
@@ -158,7 +160,7 @@ test('7 · una cuenta en pesos: el gasto ya llega en dólares y la alerta de gas
 
 test('8 · no se deshace lo que se está creando, y lo creado tarde no queda prendido sobre una decisión deshecha', () => {
   const ej = sinComentarios(leer('lib/media-buyer/ejecutar.ts'));
-  assert.match(ej, /if \(!d\.creados\.length\) return \{ ok: false, error: 'Todavía se están creando los anuncios/);
+  assert.match(ej, /if \(seEstaCreando\(d\)\) return \{ ok: false, error: 'Todavía se están creando los anuncios/);
   assert.match(ej, /const guardada = await reclamar\(ws, d\.id, \['aplicada'\], \{ creados/);
   assert.match(ej, /if \(!guardada\) \{\s*for \(const ad of creados\) await borrarAnuncioPorZernio/);
 });
@@ -174,4 +176,39 @@ test('9 · lo de los agentes propios cuenta en el cupo del plan; las subidas a m
     { clave: `propia:ag1:adset:3:2026-10-25`, tactica: 'manual' as const },
   ];
   assert.equal(recomendadasHoy(ds, hoy), 2);
+});
+
+// ── La verificación de tren-m (26/10/2026): lo que quedó abierto de 0, 4 y 8 ──────────────────────────────────────────────
+
+test('0 · el TÍTULO que escribe la IA también se ve: en la hoja y entero en la confirmación del chat', () => {
+  const conTitulo = D({ ...VARS, variaciones: [{ id: 't1', textoPrincipal: 'Texto 1', titulo: 'Agenda tu llamada hoy', elegida: true }] });
+  const html = renderToStaticMarkup(createElement(TarjetaAccion, {
+    d: conTitulo, kpi: 'lead', producto: null, ocupada: false, encendido: true, ajustesHref: '#',
+    onAplicar: async () => true, onBorrar: () => {}, onPreguntar: () => {}, onDeshacer: () => {}, onReabrir: () => {}, onCalificar: () => {}, onHooksAVideo: () => {},
+  }));
+  assert.match(html, /Título: <!-- -->Agenda tu llamada hoy|Título: Agenda tu llamada hoy/);
+  const api = sinComentarios(leer('lib/api-mako/areas/ads.run.ts'));
+  assert.match(api, /\[v\.gancho, v\.textoPrincipal, v\.titulo \? `Título: \$\{v\.titulo\}` : null\]/, 'la confirmación lleva gancho, texto y título, enteros');
+  assert.doesNotMatch(api, /\(v\.gancho \?\? v\.textoPrincipal\)\.slice\(0, 120\)/);
+});
+
+test('4 · el arranque y los Ajustes leen «$1,000» como mil (las pastillas salen de fmtDinero)', () => {
+  const x = { productos: [], r: { kpi: 'lead' as const }, costoMedido: null };
+  assert.deepEqual(leerRespuesta('inversion', '$1,000 al mes', x), { inversionMes: 1000 });
+  assert.deepEqual(leerRespuesta('ticket', 'US$ 1,500', x), { ticket: 1500 });
+  assert.deepEqual(leerRespuesta('ticket', 'US$ 1.500', x), { ticket: 1500 });
+  assert.deepEqual(leerRespuesta('costo', '7,50', x), { costo: { valor: 7.5, supuesto: false } });
+  assert.equal(montoDelTexto('entre 500 y 1000'), 500, 'el primer monto, no los dígitos pegados');
+  const aj = sinComentarios(leer('app/ads-manager/Ajustes.tsx'));
+  assert.match(aj, /const num = \(s: string\): number \| null => \(s\.trim\(\) === '' \? null : leerMonto\(s\) \?\? Number\.NaN\);/);
+});
+
+test('8 · «se está creando» vence a los 10 minutos, y lanzar no relanza una subida de creativos', () => {
+  const ahora = Date.parse('2026-10-26T12:00:00Z');
+  assert.equal(seEstaCreando({ creados: [], aplicadaAt: '2026-10-26T11:58:00Z' }, ahora), true);
+  assert.equal(seEstaCreando({ creados: [], aplicadaAt: '2026-10-26T11:40:00Z' }, ahora), false, 'vieja y vacía: se cortó, se puede deshacer');
+  assert.equal(seEstaCreando({ creados: ['ad1'], aplicadaAt: '2026-10-26T11:59:00Z' }, ahora), false);
+  const ej = sinComentarios(leer('lib/media-buyer/ejecutar.ts'));
+  assert.match(ej, /if \(seEstaCreando\(d\)\) return \{ ok: false/);
+  assert.match(ej, /if \(d\.tipo === 'crear_anuncios'\) return \{ ok: false/);
 });

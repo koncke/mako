@@ -1028,7 +1028,9 @@ export const RUNNERS: Runners = {
       // Los textos de la IA salen sólo leídos: la confirmación los lista y van explícitos (sin esto, las que marcó el Diseñador).
       const salen = d.variaciones?.length ? (variaciones ?? d.variaciones.filter((v) => v.elegida).map((v) => v.id)) : null;
       if (salen && !salen.length) return { error: 'Esa decisión no tiene ningún texto elegido: pasa los ids en variaciones.' };
-      const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id)).map((v) => `«${(v.gancho ?? v.textoPrincipal).slice(0, 120)}»`).join(' · ') : '';
+      // Lo que sale ENTERO (gancho, texto y título): la confirmación es lo único que se lee antes de que se publique.
+      const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id))
+        .map((v) => `«${[v.gancho, v.textoPrincipal, v.titulo ? `Título: ${v.titulo}` : null].filter(Boolean).join(' / ')}»`).join(' · ') : '';
       const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, salen ? `${salen.length} ${salen.length === 1 ? 'texto' : 'textos'}` : null].filter(Boolean).join(', ');
       return { payload: { decisionId: id, presupuesto, variaciones: salen }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}` };
     },

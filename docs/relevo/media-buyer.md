@@ -105,7 +105,22 @@ su porqué, la tabla de números que la disparó y su deshacer. Las lanza una pe
    **La revisión adversarial de tren-l (26/10) encontró 10 fallas**; están arregladas en 08009e9b5, cada una con su test en
    `tests/media-buyer-revision-l.test.ts` (roto una vez por falla). La más seria: con «Aplicar» en cada tarjeta, los textos de la
    IA salían sin que nadie los leyera; ahora se lanzan sólo desde su hoja. Antes de prender el Media Buyer en un negocio que no
-   sea MaKo, que esa punta esté en main. Detalle en hallazgos-ads → «La revisión adversarial de tren-l». Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
+   sea MaKo, que esa punta esté en main. Detalle en hallazgos-ads → «La revisión adversarial de tren-l».
+   **La verificación de tren-m (26/10)** cerró 9 de 10; lo que quedaba de 0 (el título de la IA, a la vista), 4 (el monto en
+   el arranque y en Ajustes) y 8 (la guarda de «se está creando» con tiempo) está arreglado con sus roturas. Quedan
+   ANOTADOS, sin hacer (detalle en las notas del Cerebro, `verificacion-tren-m.md`, bloque [mb]):
+   - **1 · un cambio de presupuesto que no es decisión del Media Buyer no se ve** (por chat, `proponer_presupuesto_*` en
+     `lib/api-mako/areas/ads.run.ts`, o la tabla): `presupuestoYaCambiado` (`lib/media-buyer/topes.ts`) mira sólo decisiones,
+     así que «el mismo % sobre el de hoy» puede componer con un cambio a mano, y el piloto lo hace sin que nadie lo vea. Es el
+     diseño de antes («subir 20%, no llevarlo a 60»): decidir si comparar contra el presupuesto de cuando se propuso.
+   - **2 · la mezcla de tácticas es por táctica, no por campo** (`mezclarTacticas`, `lib/media-buyer/tacticas.ts`): una pestaña
+     vieja que cambia el estado de un agente pisa los umbrales o las campañas que otro cambió en ESA táctica. Arreglo: mezclar
+     campo por campo (estado, parametros, campanas) y que el panel mande sólo `{ estado }`.
+   - **9 · los agentes propios gastan IA de más** (`lib/media-buyer/corrida.ts` → `propuestasDeAgentesPropios`, antes de
+     calcular los lugares): con el cupo lleno por el motor, a un agente se le pregunta en cada corrida y su respuesta se
+     descarta. Arreglo: no preguntar si `lugares` ya es 0, o anotar que el agente miró hoy aunque no entre.
+   - Y un efecto del freno de ×5 de la falla 4: una baja deliberada de 80% o más ya no se puede hacer desde MaKo (el mensaje
+     culpa al separador de miles). Después, Campañas y Biblioteca con el mismo árbol (capturas 8 y
    9). Sigue: Protect, Ajustes y Automatizaciones con esta densidad.
 3. **Lo que quedó sin hacer:** filmar SOLO el hook nuevo (depende del puente a Flow, que corre en el navegador del cliente):
    hoy «Filmarlos en Video Generator» deja cada hook + el cuerpo del ganador como guion en la celda «Hooks del Media Buyer»

@@ -117,7 +117,8 @@ export function TarjetaAccion({ d, kpi, producto, ocupada, encendido, ajustesHre
                 <label key={v.id} className="aa-var" data-on={on ? '1' : '0'}>
                   <input type="checkbox" checked={on} disabled={!abierta}
                     onChange={() => setElegidas((s) => { const n = new Set(s); if (n.has(v.id)) n.delete(v.id); else n.add(v.id); return n; })} />
-                  <span>{v.gancho && <b>{v.gancho}</b>}<p>{v.textoPrincipal}</p></span>
+                  {/* Lo que sale ENTERO: el gancho, el texto y el título del anuncio (el headline también lo escribe la IA). */}
+                  <span>{v.gancho && <b>{v.gancho}</b>}<p>{v.textoPrincipal}</p>{v.titulo && <em className="aa-var-titulo">Título: {v.titulo}</em>}</span>
                 </label>
               );
             })}

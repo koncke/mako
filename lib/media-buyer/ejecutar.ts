@@ -17,7 +17,7 @@
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
 import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
-import { aplicarTopes, presupuestoYaCambiado } from './topes';
+import { aplicarTopes, presupuestoYaCambiado, seEstaCreando } from './topes';
 import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
 import { fmtDinero } from '@/lib/format';
 import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
@@ -109,6 +109,9 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
   const fmt = fmtUnidad(datos);
 
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook') return lanzarVariaciones(ws, d, quien, datos, opts.elegidas);
+  // Una subida de creativos se lanza desde «Subir creativos» (lib/media-buyer/subir.ts): por acá caía en el camino de
+  // presupuesto, quedaba «aplicada» sin crear nada y no se podía deshacer (verificación de tren-m, falla 8).
+  if (d.tipo === 'crear_anuncios') return { ok: false, error: 'Los creativos se vuelven a subir desde «Subir creativos».' };
 
   const nodo = datos.arbol.find((n) => n.id === d.entidadId);
   if (!nodo) {
@@ -266,7 +269,7 @@ export async function deshacer(ws: number, id: string, quien: string): Promise<R
 
   if (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios') {
     // «aplicada» con `creados` vacío es una a MITAD de su lanzamiento (los ids se guardan todos juntos al final).
-    if (!d.creados.length) return { ok: false, error: 'Todavía se están creando los anuncios: prueba de nuevo en unos segundos.' };
+    if (seEstaCreando(d)) return { ok: false, error: 'Todavía se están creando los anuncios: prueba de nuevo en unos segundos.' };
     const tomada = await reclamar(ws, id, ['aplicada'], { estado: 'deshecha', deshecha_por: quien.slice(0, 200), deshecha_at: new Date().toISOString() });
     if (!tomada) return { ok: false, error: 'Otra persona ya la está deshaciendo.' };
     const errores: string[] = [];
