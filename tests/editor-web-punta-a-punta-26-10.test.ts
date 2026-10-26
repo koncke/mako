@@ -22,7 +22,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TAMANOS_TEXTO } from '../lib/editor-landing/doc';
+import { NODO, TAMANOS_TEXTO } from '../lib/editor-landing/doc';
+import { rotuloDeSeccion } from '../lib/editor-landing/html-editable';
 import { TAM_EN_DISENO, alineacionDe, tipoDeEtiqueta, tipoPermitidoEnDiseno } from '../app/web-generator/editor/acciones-diseno';
 import { activarDiseno, disenoActivo, soltarDiseno } from '../app/web-generator/editor/puente-diseno';
 import { hexDeRgb } from '../app/web-generator/editor/botones-diseno';
@@ -117,6 +118,12 @@ test('3. reordenar: mientras se arrastra, las secciones son franjas y se suelta 
   assert.ok(arranca > 0, 'el arrastre no achica las secciones');
   assert.ok(arranca > t.indexOf('g.arrastrando = true;'), 'se achican sólo cuando ya es un arrastre (un clic abre el menú)');
   assert.match(t.slice(t.indexOf('const terminarArrastre')), /document\.body\.removeAttribute\('data-gm-reordenando'\);/);
+  // Cada franja con su nombre (medido en producción: la parte de arriba de un diseño es su margen, en blanco).
+  assert.match(css, /'body\[data-gm-reordenando\] \.ProseMirror > \.gm-tarjeta\[data-rotulo\]::before \{ content: attr\(data-rotulo\);/);
+  assert.match(t, /if \(rotulo\) sec\.setAttribute\('data-rotulo', rotulo\); else sec\.removeAttribute\('data-rotulo'\);/);
+  const diseno = (html: string) => ({ type: NODO.tarjeta, attrs: { id: 'tA' }, content: [{ type: NODO.htmlEditable, attrs: { html } }] });
+  assert.equal(rotuloDeSeccion(diseno('<p>Solo 5 cupos</p><h2>¿Qué es <em>MaKo</em>… &amp; por qué?</h2>')), '¿Qué es MaKo… & por qué?', 'el título, no la etiqueta chica');
+  assert.equal(rotuloDeSeccion({ type: NODO.tarjeta, content: [{ type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: 'Precios' }] }] }), 'Precios');
 });
 
 test('4 y 7. el video y la agenda, REALES encima de su lugar, y sin el mouse hasta que se eligen', () => {
@@ -124,7 +131,7 @@ test('4 y 7. el video y la agenda, REALES encima de su lugar, y sin el mouse has
   assert.match(v, /d\.querySelectorAll\('iframe\[data-gmx-vista\]'\)\.forEach\(\(f, i\) => sumar\(f, f\.getAttribute\('src'\) \?\? '', i\)\);/);
   assert.match(v, /d\.querySelectorAll\('\[data-calendly\]'\)\.forEach\(\(el, i\) => sumar\(el, el\.getAttribute\('data-calendly'\) \?\? '', 1000 \+ i\)\);/);
   // La capa sale de `embedDe` (lo que el saneo deja insertar) y con el sandbox de los insertados, no uno abierto.
-  assert.match(v, /const e = embedDe\(texto\);\n\s*if \(!e\) return;/);
+  assert.match(v, /const e = embedDe\(texto\);\n\s*const l = e \? lugar\(el\) : null;\n\s*if \(e && l\) out\.push\(\{ clave: `\$\{i\}:\$\{e\.src\}`, tipo: 'embed', src: e\.src,/);
   assert.match(v, /<iframe key=\{v\.clave\} className="gmx-vivo" src=\{v\.src\} title=\{v\.titulo\} sandbox=\{SANDBOX_EMBED\} allow=\{ALLOW_EMBED\}/);
   assert.match(v, /pointerEvents: esActivo && !!elegidoEl && \(elegidoEl === v\.el \|\| v\.el\.contains\(elegidoEl\)\) \? 'auto' : 'none'/);
   // La ficha de abajo se sigue sacando al guardar.
@@ -144,13 +151,18 @@ test('5. la barrita del diseño se queda mientras es el activo, y el ⋮ va pega
   assert.match(sinComentarios(leer('app/web-generator/editor/nodos/TarjetaVista.tsx')), /className="gma gmc gmc-lado"[^>]*>\s*<div className="gmc-lado-in">/);
 });
 
-test('6. la red de MaKo se dibuja en el editor, y su tamaño de dibujo no se guarda', () => {
+test('6. la red de MaKo se dibuja en el editor, en un canvas de la PÁGINA encima del suyo', () => {
   const r = sinComentarios(leer('app/web-generator/editor/red-de-mako.ts'));
   assert.match(r, /const SRC = '\/vsl-assets\/mako-anim\.js';/);
   assert.ok(existsSync(join(RAIZ, 'public', 'vsl-assets', 'mako-anim.js')), 'el dibujante de la red no está en public/');
   assert.match(leer('public/vsl-assets/mako-anim.js'), /window\.MakoAnim/);
-  assert.match(r, /doc\.querySelectorAll<HTMLCanvasElement>\('canvas\[data-animacion="mako-red"\]'\)/);
+  // Medido en producción y en Chrome sin ventana: lo que se pinta en el canvas DEL IFRAME (sin scripts) no se ve.
+  assert.doesNotMatch(r, /doc\.querySelectorAll/, 'la red vuelve a pintarse en el canvas del iframe (no se ve)');
   const v = sinComentarios(leer(VISTA));
-  assert.match(v, /pararRed\.current = animarRedDeMako\(d, marco\.current\);/);
+  assert.match(v, /d\.querySelectorAll\('canvas\[data-animacion="mako-red"\]'\)\.forEach\(\(el, i\) => \{/);
+  assert.match(v, /<canvas key=\{v\.clave\} className="gmx-vivo-red" aria-hidden="true" style=\{\{ left: v\.x, top: v\.y, width: v\.w, height: v\.h \}\} \/>/);
+  assert.match(v, /animarRedDeMako\(\(\) => Array\.from\(marco\.current\?\.parentElement\?\.querySelectorAll<HTMLCanvasElement>\('canvas\.gmx-vivo-red'\)/);
+  assert.match(v, /'\.gmx-editable-vivo>canvas\.gmx-vivo-red\{position:absolute;display:block;pointer-events:none;z-index:2\}'/);
+  // Si un diseño viejo guardó el tamaño de dibujo en su canvas, se saca al guardar.
   assert.match(v, /copia\.querySelectorAll\('canvas\[data-animacion\]'\)\.forEach\(\(el\) => \{ el\.removeAttribute\('width'\); el\.removeAttribute\('height'\); \}\);/);
 });

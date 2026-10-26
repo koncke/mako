@@ -50,6 +50,7 @@ import { CSS_NODOS } from '../extensiones/estilos-nodos';
 import { Flotante, FilaMenu, Ico, SepMenu, sinRobarFoco } from '../extensiones/piezas';
 import { opcionesLanding } from '../extensiones/plugins';
 import { attrsDeRaiz } from '../extensiones/comun';
+import { rotuloDeSeccion } from '@/lib/editor-landing/html-editable';
 
 /** Los modos del Ask Agent (AskAgent.tsx, paquete I2): editar la sección, probar diseños, agregar una. */
 type ModoAgente = ModoAskAgent;
@@ -93,12 +94,16 @@ export default function TarjetaVista(props: NodeViewProps & { selectionInside?: 
   const estiloSeccion = attrsDeRaiz(spec).style;
   const estiloFondo = (spec.slice(1).find((h) => Array.isArray(h) && (attrsDeRaiz(h as typeof spec).class ?? '') === 'gm-tarjeta-fondo') as typeof spec | undefined);
   const cssFondo = estiloFondo ? attrsDeRaiz(estiloFondo).style : undefined;
+  // El rótulo de la franja mientras se reordena (estilos-nodos.ts): sin él, la franja de una sección de diseño es su
+  // margen de arriba, en blanco, y no se sabe cuál es cuál (medido en producción el 26/10/2026).
+  const rotulo = rotuloDeSeccion(node.toJSON() as JsonNodo);
   useLayoutEffect(() => {
     const sec = fondoRef.current?.parentElement;
     if (!sec) return;
     if (estiloSeccion) sec.setAttribute('style', estiloSeccion); else sec.removeAttribute('style');
     if (activa) sec.setAttribute('data-activa', 'si'); else sec.removeAttribute('data-activa');
-  }, [estiloSeccion, activa]);
+    if (rotulo) sec.setAttribute('data-rotulo', rotulo); else sec.removeAttribute('data-rotulo');
+  }, [estiloSeccion, activa, rotulo]);
 
   // ── Escribir atributos: UNA transacción por gesto, cada una su paso de deshacer ──
   const setAttrs = useCallback((cambios: Partial<AttrsTarjeta>, cerrar = true) => {

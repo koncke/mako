@@ -35,7 +35,7 @@
 // aparece», «La animación... de MaKo no aparece»). Adentro de un iframe sin scripts no corren, ni los de un iframe de
 // adentro (el sandbox se hereda). Por eso, desde afuera: cada reproductor y cada agenda va REAL en una capa encima de
 // su lugar (`vivos`: no recibe el mouse hasta que se elige, y el segundo clic ya es del reproductor), y la red de MaKo
-// se pinta en su canvas (../red-de-mako.ts).
+// en un canvas de esta página encima del suyo (../red-de-mako.ts: lo que se pinta en el canvas del iframe NO se ve).
 //
 // ⚠️ Lo que escribe esta vista NO recarga el iframe (se perdería el cursor): el documento se rearma sólo cuando
 //    el `html` cambia por OTRO camino (deshacer, «Código», la IA). `emitido` guarda lo último que salió de acá.
@@ -86,6 +86,7 @@ export const CSS_EDITABLE: string = [
   '.gmx-nv .gmx-nv-marco.gmx-editable-vivo>iframe{pointer-events:auto}',
   '.gmx-nv-ancla{position:sticky;top:56px;height:0;z-index:6}',
   '.gmx-editable-vivo>iframe.gmx-vivo{position:absolute;display:block;border:0;border-radius:12px;background:#000;z-index:2}',
+  '.gmx-editable-vivo>canvas.gmx-vivo-red{position:absolute;display:block;pointer-events:none;z-index:2}',
   '.gmx-codigo{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace!important;font-size:12.5px!important;line-height:1.5!important;min-height:420px!important;white-space:pre;tab-size:2;overflow:auto;resize:vertical;width:100%}',
 ].join('\n');
 
@@ -112,21 +113,30 @@ function ponerFichas(d: Document) {
   });
 }
 
-/** Un reproductor o una agenda REAL, encima de su lugar en el diseño. */
-type Vivo = { clave: string; src: string; titulo: string; x: number; y: number; w: number; h: number; el: Element };
+/**
+ * Un reproductor o una agenda REAL (`embed`), o el lienzo de la red de MaKo (`red`, ../red-de-mako.ts: lo que se pinta en
+ * el canvas del iframe no se ve), encima de su lugar en el diseño.
+ */
+type Vivo = { clave: string; tipo: 'embed' | 'red'; src: string; titulo: string; x: number; y: number; w: number; h: number; el: Element };
 
-/** Los reproductores y las agendas del documento, con su lugar (en px del iframe, que es el del marco). */
+/** Lo vivo del documento, con su lugar (en px del iframe, que es el del marco). */
 function vivosDe(d: Document): Vivo[] {
   const out: Vivo[] = [];
+  const lugar = (el: Element) => {
+    const r = el.getBoundingClientRect();
+    return r.width < 8 || r.height < 8 ? null : { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+  };
   const sumar = (el: Element, texto: string, i: number) => {
     const e = embedDe(texto);
-    if (!e) return;
-    const r = el.getBoundingClientRect();
-    if (r.width < 8 || r.height < 8) return;
-    out.push({ clave: `${i}:${e.src}`, src: e.src, titulo: e.proveedor || 'Insertado', x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height), el });
+    const l = e ? lugar(el) : null;
+    if (e && l) out.push({ clave: `${i}:${e.src}`, tipo: 'embed', src: e.src, titulo: e.proveedor || 'Insertado', ...l, el });
   };
   d.querySelectorAll('iframe[data-gmx-vista]').forEach((f, i) => sumar(f, f.getAttribute('src') ?? '', i));
   d.querySelectorAll('[data-calendly]').forEach((el, i) => sumar(el, el.getAttribute('data-calendly') ?? '', 1000 + i));
+  d.querySelectorAll('canvas[data-animacion="mako-red"]').forEach((el, i) => {
+    const l = lugar(el);
+    if (l) out.push({ clave: `red:${i}`, tipo: 'red', src: '', titulo: 'La red de MaKo', ...l, el });
+  });
   return out;
 }
 const mismosVivos = (a: Vivo[], b: Vivo[]) =>
@@ -156,7 +166,6 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const reloj = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** El documento que se cargó por última vez (el que se suelta del puente al irse). */
   const docRef = useRef<Document | null>(null);
-  const pararRed = useRef<() => void>(() => {});
   const editable = editor.isEditable;
   // Lo que leen las escuchas del iframe, que se ponen UNA vez al cargar: siempre lo último.
   const vivo = useRef({ ctx, editor, getPos });
@@ -241,7 +250,14 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     medir();
   }, [guardar, medir]);
   // Al irse: guarda, para la red y suelta el puente si este diseño era el activo.
-  useEffect(() => () => { guardar(); pararRed.current(); soltarDiseno(docRef.current); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { guardar(); soltarDiseno(docRef.current); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // La red de MaKo: mientras el diseño tenga una, se pintan sus canvas de esta página (../red-de-mako.ts).
+  const conRed = vivos.some((v) => v.tipo === 'red');
+  useEffect(() => {
+    if (!conRed) return;
+    // Los canvas de la red están en el marco, al lado del iframe.
+    return animarRedDeMako(() => Array.from(marco.current?.parentElement?.querySelectorAll<HTMLCanvasElement>('canvas.gmx-vivo-red') ?? []));
+  }, [conRed]);
   // El cursor volvió a un bloque de ProseMirror: este diseño deja de ser el activo (y su barrita se va).
   useEffect(() => {
     const volver = () => soltarDiseno(docRef.current);
@@ -261,8 +277,6 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
     d.head.appendChild(estilo);
     if (editable) d.body.setAttribute('contenteditable', 'true');
     ponerFichas(d);
-    pararRed.current();
-    if (marco.current) pararRed.current = animarRedDeMako(d, marco.current);
     d.addEventListener('input', conRespiro);
     d.addEventListener('load', medir, true);
     d.addEventListener('keydown', (e) => {
@@ -444,8 +458,11 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
       <div className="gmx-nv-marco gmx-editable-vivo gm-editable" contentEditable={false}>
         <iframe ref={marco} sandbox="allow-same-origin" srcDoc={doc} title="Diseño editable" referrerPolicy="no-referrer"
           onLoad={alCargar} style={{ height: alto + 'px' }} />
-        {/* Los reproductores y las agendas, REALES, encima de su lugar. Sin el mouse hasta que se eligen. */}
-        {vivos.map((v) => (
+        {/* Los reproductores y las agendas, REALES, encima de su lugar. Sin el mouse hasta que se eligen. La red de MaKo, un
+            canvas de esta página que se pinta (el del iframe no se ve). */}
+        {vivos.map((v) => v.tipo === 'red' ? (
+          <canvas key={v.clave} className="gmx-vivo-red" aria-hidden="true" style={{ left: v.x, top: v.y, width: v.w, height: v.h }} />
+        ) : (
           <iframe key={v.clave} className="gmx-vivo" src={v.src} title={v.titulo} sandbox={SANDBOX_EMBED} allow={ALLOW_EMBED}
             referrerPolicy={REFERRER_EMBED} loading="lazy"
             style={{ left: v.x, top: v.y, width: v.w, height: v.h, pointerEvents: esActivo && !!elegidoEl && (elegidoEl === v.el || v.el.contains(elegidoEl)) ? 'auto' : 'none' }} />

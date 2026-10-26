@@ -3163,9 +3163,16 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
   elegirlo sólo aparecía «Enlace», un ícono chico, y nada para sus colores. Ahora aparece «Botón» con su nombre a la vista:
   texto, a dónde lleva y los dos colores. El color va con `!important`, porque la hoja de un diseño lo escribe así
   (`.mkv-btn { color: #fff !important }`) y un estilo sin él no gana. En una landing creada desde cero el botón ya andaba.
-- **«El SVG de MaKo» es un canvas que dibuja un script** (`/vsl-assets/mako-anim.js`). El iframe es del mismo origen: la
-  página carga el mismo dibujante y pinta en SU canvas, sólo mientras se ve. El `width`/`height` que el dibujo le pone
-  al canvas se saca antes de guardar: si no, el diseño quedaba «con cambios» sin que nadie tocara nada.
+- **«El SVG de MaKo» es un canvas que dibuja un script** (`/vsl-assets/mako-anim.js`). **El diagnóstico obvio era el
+  equivocado:** la primera versión cargaba el dibujante en la página y pintaba en el canvas DEL IFRAME, que es del mismo
+  origen. En producción el canvas tenía el dibujo (17.143 píxeles opacos) y la pantalla lo mostraba en blanco. Medido en
+  Chrome sin ventana: un iframe con `sandbox` sin `allow-scripts` NO presenta lo que se le pinta desde afuera; el mismo
+  iframe sin `sandbox`, sí. Ahora la red va como el video: un canvas de LA PÁGINA encima del lugar del canvas del diseño
+  (`vivos`, tipo `red`), y se pinta ése, sólo mientras se ve. El `width`/`height` que una versión vieja pudo dejar en
+  el canvas del diseño se saca antes de guardar.
+- **Una captura de la pestaña con el panel del navegador OCULTO no prueba lo de adentro de un iframe**: una página de
+  fondo no repinta (Calendly cargó, con 4 subframes, y la captura lo mostraba negro). Para una prueba visual, el panel a la
+  vista, o un Chrome sin ventana con la misma estructura.
 - **La barra «Texto» quedaba gris porque lee la selección de ProseMirror**, y el cursor de un diseño está en su iframe.
   `puente-diseno.ts` le dice qué documento tiene el cursor, y `acciones-diseno.ts` hace ahí lo mismo con
   `execCommand`. Medido: funciona con el foco en el botón de la barra, y «deshacer» del iframe lo vuelve atrás. Los
@@ -3173,7 +3180,8 @@ cero (#45, plantilla sin IA). Casi todo tenía la misma raíz: cada sección de 
 - **Arrastrar por la mitad de la sección no sirve con secciones de 2.000 px.** «Mover arriba/abajo» del menú andaba. El
   arrastre del ⋮ no movía nada, porque la mitad de la sección vecina quedaba unos 900 px fuera de la pantalla. Mientras se
   arrastra, cada sección se ve como una franja de 132 px (`body[data-gm-reordenando]`): entran todas y se suelta donde
-  se ve.
+  se ve. Medido en producción: la franja de un diseño es casi siempre su margen de arriba, en blanco, así que cada una
+  lleva el nombre de su sección encima (`data-rotulo`, el primer h1–h3 de su HTML: `rotuloDeSeccion`).
 - **Controles que se van con el hover:** la barrita del diseño estaba 12 px por arriba y se iba con el `mouseleave` al
   cruzar ese aire. Ahora se queda mientras su diseño es el activo y va pegada arriba de lo que se ve (un ancla `sticky`
   de alto 0, que no mueve nada). El ⋮ de la sección también va `sticky` y tarda medio segundo en irse. `pointer-events`
