@@ -153,6 +153,10 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   nunca de la tienda ni con un trabajo de Flow o una lectura de fichas en curso. Al arrancar, después de cada latido y cuando
   la pantalla ve una extensión vieja (`MAKO_EXTENSION_REVISAR`). No es el reinicio que se sacó el 01/09: aquel comparaba
   contra producción y se reiniciaba aunque la carpeta no hubiera cambiado.
+- ⚠️ **Un ciclo andando también es trabajo** (0.71.2, la revisión adversarial de tren-l): la alarma corre
+  `ciclo().then(alDiaConSuCarpeta)`, y con otro ciclo ya en marcha `ciclo()` vuelve en el acto y la recarga corría en
+  paralelo, cortando el POST a /api/flow/puente con los trabajos ya «tomados» (el cliente veía «generando…» diez minutos).
+  `hayTrabajoEnCurso` mira `corriendo` primero, y la recarga queda para la próxima alarma.
 - ⚠️ Sin verificar en vivo que el `fetch` lea el disco y no una copia en memoria (no se pudo: su Chrome sigue en la 0.70.0).
   Lo dice la primera vez que la carpeta traiga una versión nueva con la 0.71.1 corriendo.
 

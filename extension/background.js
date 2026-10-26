@@ -841,6 +841,12 @@ async function anotarVersionEsperada(esperada) {
  */
 let fichasEnVuelo = 0;
 async function hayTrabajoEnCurso() {
+  // ⚠️ UN CICLO ANDANDO TAMBIEN ES TRABAJO (26/10/2026, la revision adversarial de tren-l). La alarma corre
+  // `ciclo().then(alDiaConSuCarpeta)`, y si ya habia un ciclo (un DESPERTAR, el onUpdated de Flow, el encadenado o un
+  // REVISAR_CARPETA), `ciclo()` vuelve en el acto y la recarga corria EN PARALELO: cortaba el POST a /api/flow/puente despues
+  // de que el server tomara los trabajos y antes de que se abriera su registro, y el cliente veia «generando…» diez minutos.
+  // Asi la recarga espera a la proxima alarma (`recargaPorCarpeta` todavia no se escribio).
+  if (corriendo) return true;
   if (fichasEnVuelo > 0) return true;
   try { return (await registrosInterfaz()).some((r) => FASES_EN_CURSO.includes(r.fase)); } catch { return true; }
 }
