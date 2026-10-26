@@ -99,6 +99,13 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     puesta y levantó dos tandas de ~1 GB (la RAM libre bajó de 2,9 a 1,1 GB). Ahora `tests-afectados`, `antes-de-subir`,
     `tipos-por-tandas` y `tipos-respaldo-push` cuentan como pesados cuando se CORREN con `node` (un `cat` o un `grep` de
     esos archivos sigue liviano). Lo que ya estaba corriendo no se frena: hay que esperar a que termine.
+  - **Archivar chats quietos NO libera RAM (26/10, 00:30):** se archivaron cuatro y la RAM disponible siguió en 4,5 GB. Un
+    chat quieto ya está casi entero en disco (los procesos de Claude: 7,7 GB privados contra 3,7 en RAM). El diagnóstico
+    obvio, «hay demasiados chats abiertos», era el equivocado; con la app de Claude abierta ése es el techo.
+  - **La zona roja del piso no protege la PC, protege la tanda.** Con el vigía PRENDIDO, una tanda que la toca muere y el
+    push sale con 99 («sin chequear», nunca un verde falso). Lo que trabó la PC a las 18:14 fue subir con el vigía en PAUSA.
+    `MAKO_TIPOS_RAM_MIN_GB=4.4 git push …` baja el piso de las tandas (nunca debajo del heap + 0,3) para intentarlo igual.
+    **Sólo con el vigía corriendo**: sin él, quedar sin RAM es el colgón del 11/10.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;

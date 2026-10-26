@@ -158,7 +158,7 @@ test('⚠️ resolverControl devuelve las flechas de una espera AUNQUE la resolu
   assert.deepEqual(ya.repartos, [{ destino: 'x', desdeMs: AHORA }], 'las flechas de una espera vencida se perdían');
   // La reunión es en 3 h: la espera frena y sus flechas arrancan cuando vence.
   const frena = resolverControl(E, 0, { hechos: null, ahoraMs: AHORA, reunionMs: AHORA + 3 * HORA });
-  assert.deepEqual(frena.tipo !== 'faltan_hechos' && frena.repartos, [{ destino: 'x', desdeMs: AHORA + 2 * HORA }]);
+  assert.deepEqual(frena.tipo !== 'faltan_hechos' && frena.tipo !== 'falta_rama_ab' && frena.repartos, [{ destino: 'x', desdeMs: AHORA + 2 * HORA }]);
   // Una espera SIN siguiente y con flechas: este camino termina, las flechas arrancan al vencer.
   const sola = resolverControl([ctl('e', { nodo: 'esperar', espera: { modo: 'tiempo', minutos: 60 }, siguiente: null, paralelos: ['x'] }), msg('x', { siguiente: null })], 0, { hechos: null, ahoraMs: AHORA, reunionMs: null });
   assert.equal(sola.tipo, 'fin');
@@ -294,7 +294,7 @@ for (const [nombre, F] of [['#198', F198], ['#212', F212]] as const) {
       assert.deepEqual(repartosDe(F, i), [], `${nombre}: la tarjeta ${p.id} repartía`);
       for (const hechos of [H(), H({ agendo: true }), H({ creadoMs: AHORA - 100 * HORA })]) {
         const r = resolverControl(F, i, { hechos, ahoraMs: AHORA, reunionMs: AHORA + 48 * HORA });
-        if (r.tipo !== 'faltan_hechos') assert.deepEqual(r.repartos, [], `${nombre}: resolver desde ${p.id} trajo repartos`);
+        if (r.tipo !== 'faltan_hechos' && r.tipo !== 'falta_rama_ab') assert.deepEqual(r.repartos, [], `${nombre}: resolver desde ${p.id} trajo repartos`);
       }
       for (const campos of camposPosibles) {
         for (const alcance of [undefined, 'hilo', 'inscripcion'] as const) {

@@ -38,6 +38,8 @@ document.documentElement.setAttribute('data-mako-puente', manifiesto.version);
 // instaló desde Google. El service worker ya razonaba así (`if (manifest.
 // update_url) return` en background.js); lo que faltaba era decírselo a la web.
 document.documentElement.setAttribute('data-mako-puente-tienda', manifiesto.update_url ? '1' : '0');
+// Para que el worker no lo vuelva a correr en esta pestaña al instalarse o actualizarse (`reponerPuenteEnMako`, 25/10/2026).
+globalThis.__makoPuenteCargado = true;
 
 /** Cuántos ms se espera a que la página conteste el pedido de token. */
 const ESPERA_MS = 12000;
@@ -238,16 +240,38 @@ function esperarEnlace() {
 // leads. Este script es el mensajero: pasa el pedido al service worker, que lo lleva a la pestaña de WhatsApp Web, y
 // devuelve la respuesta por evento con el MISMO `id` (dos pedidos en vuelo no se pisan). Sólo de esta página, como el aviso
 // de trabajo.
+// ⚠️ UN PUENTE HUÉRFANO NO CONTESTA (25/10/2026). Al actualizar la extensión, el script viejo de esta pestaña sigue vivo pero
+// sin la extensión detrás (`chrome.runtime.id` vacío): si contestaba «no encontré la extensión», le ganaba de mano al nuevo.
+const huerfano = () => { try { return !chrome.runtime || !chrome.runtime.id; } catch { return true; } };
 window.addEventListener('MAKO_WA_FICHAS_PIDO', (ev) => {
   if (!ev || ev.target !== window) return;
+  if (huerfano()) return;
   const d = (ev.detail && typeof ev.detail === 'object') ? ev.detail : {};
   const id = typeof d.id === 'string' ? d.id : '';
   const telefonos = Array.isArray(d.telefonos) ? d.telefonos.filter((t) => typeof t === 'string').slice(0, 5000) : [];
+  // Desde la 0.71.0: cada teléfono con el `@lid` del lead si MaKo lo sabe, y los nombres de los grupos de donde vinieron.
+  const pedidos = Array.isArray(d.pedidos)
+    ? d.pedidos.filter((p) => p && typeof p.telefono === 'string').slice(0, 5000).map((p) => ({ telefono: p.telefono, lid: typeof p.lid === 'string' ? p.lid : null }))
+    : undefined;
+  const grupos = Array.isArray(d.grupos) ? d.grupos.filter((g) => typeof g === 'string').slice(0, 20) : [];
   const contestar = (r) => window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS', { detail: { id, ...(r || { ok: false, motivo: 'sin_respuesta' }) } }));
   try {
-    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', telefonos }, (r) => {
+    chrome.runtime.sendMessage({ tipo: 'WA_FICHAS_PEDIDO', id, telefonos, pedidos, grupos }, (r) => {
       if (chrome.runtime.lastError) { contestar({ ok: false, motivo: 'extension' }); return; }
       contestar(r);
     });
   } catch { contestar({ ok: false, motivo: 'extension' }); }
+});
+
+// El avance que cuenta el worker («Abriendo WhatsApp Web…», «Buscando el grupo…»), a la pantalla, con el `id` del pedido.
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.tipo !== 'WA_FICHAS_AVANCE') return false;
+  window.dispatchEvent(new CustomEvent('MAKO_WA_FICHAS_AVANCE', { detail: { id: msg.id, paso: msg.paso, texto: msg.texto } }));
+  return false;
+});
+
+// «Ir a WhatsApp Web» (para iniciar la sesión): el worker pone esa pestaña al frente, o abre una.
+window.addEventListener('MAKO_WA_ENFOCAR', (ev) => {
+  if (!ev || ev.target !== window || huerfano()) return;
+  try { chrome.runtime.sendMessage({ tipo: 'WA_ENFOCAR' }, () => void chrome.runtime.lastError); } catch { /* sin extensión: nada */ }
 });

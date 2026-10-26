@@ -164,7 +164,8 @@ test('6. el camino: sólo el admin, la línea y el funnel del negocio, nada que 
   const ops = def.slice(def.indexOf("id: 'grupos_whatsapp'"), def.indexOf("id: 'ver_cobro_etapa'"));
   assert.ok(ops.includes("id: 'traer_contactos_de_grupo'"), 'las dos, antes de los cobros');
   assert.match(ops.slice(ops.indexOf("id: 'traer_contactos_de_grupo'")), /confirmacion: 'chat'/);
-  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 3, 'las tres (con completar_nombres_de_grupo), sólo en la app');
+  // 25/10/2026: la cuarta es `ver_completar_desde_whatsapp` (el avance de «Completar desde mi WhatsApp», crm-ext-2510).
+  assert.equal([...ops.matchAll(/canales: \['app'\], costo: 'gratis', gating: TAB_ADMIN,/g)].length, 4, 'las cuatro (con completar_nombres_de_grupo y ver_completar_desde_whatsapp), sólo en la app');
   const run = leer('lib/api-mako/areas/crm.run.ts');
   assert.match(run, /telefonos: 'todos', autor: autorDe\(ctx\), hasta: Date\.now\(\) \+ 45_000,\n {8}etiqueta:/);
   assert.match(run, /if \(!funnels\.some\(\(f\) => f\.id === funnelId\)\) return \{ error:/, 'la API, tampoco un funnel ajeno');

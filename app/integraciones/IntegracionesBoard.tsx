@@ -300,7 +300,10 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   //
   // El permiso real solo lo sabe Google (hay que refrescar el token para leer sus
   // scopes), así que se pregunta UNA vez al abrir la pantalla — nunca por tile.
-  const googleConToken = integraciones.some((i) => i.key === 'google' && i.estado === 'conectada');
+  // ⚠️ Google Calendar ya no es una tarjeta (25/10/2026): su estado viene en `sinTarjeta`. Mirando sólo la grilla, `gcal`
+  // no se pedía nunca, `gcalIncompleta` daba siempre false y una vuelta `?gcal=ok` con la casilla de escritura destildada
+  // en la pantalla de Google festejaba «Ya se usa ... para mover reuniones», que no pasa.
+  const googleConToken = [...integraciones, ...sinTarjeta].some((i) => i.key === 'google' && i.estado === 'conectada');
   const [gcal, setGcal] = useState<GoogleCalendarStatus | null>(null);
   useEffect(() => {
     if (!googleConToken) { setGcal(null); return; }
@@ -328,20 +331,28 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   // re-consent fallaba (Google no reemitió el refresh_token, o saltó el CSRF), la
   // pantalla se recargaba idéntica y el usuario apretaba "Conectar" en loop.
   const gcalMsg = GCAL_MSG[searchParams.get('gcal') ?? ''] ?? null;
+  // Con token y el permiso todavía sin leer, el «conectado» espera (25/10/2026): si no, se lee un instante (hasta que
+  // Google contesta) aunque después resulte a medias.
+  const gcalSinLeer = googleConToken && gcal === null;
 
   // ⚠️ Y SI FALLÓ, EL BOTÓN TIENE QUE ESTAR (25/10/2026). Google Calendar ya no es una tarjeta: se conecta en el modal
   // suelto (`?abrir=google`, el link que manda MaKo). Si el OAuth volvía con un error, la franja de abajo pedía «Vuelve a
   // apretar "Conectar Google Calendar"» y en la pantalla no había ni tarjeta ni modal con ese botón. Se reabre el suelto
   // UNA vez por resultado (la ref), que dice adentro qué pasó y trae el botón; la franja queda, como antes.
+  // Y un «ok» con el permiso a medias (destildó la casilla de escritura) también: la franja se calla y no hay tarjeta que
+  // diga lo que falta; lo dice el modal («Faltan permisos para mover reuniones») y trae el botón. Sin el motivo «ok», que
+  // adentro festejaría lo mismo.
   const gcalParam = searchParams.get('gcal');
   const gcalReabierto = useRef<string | null>(null);
   useEffect(() => {
     if (!gcalParam) { gcalReabierto.current = null; return; }
     if (gcalReabierto.current === gcalParam) return;
-    if (GCAL_MSG[gcalParam]?.kind !== 'err' || integraciones.some((i) => i.key === 'google')) return;
+    if (integraciones.some((i) => i.key === 'google')) return;
+    const fallo = GCAL_MSG[gcalParam]?.kind === 'err';
+    if (!fallo && !(gcalParam === 'ok' && gcalIncompleta)) return;
     gcalReabierto.current = gcalParam;
-    abrirSuelta('google', gcalParam);
-  }, [gcalParam, integraciones, abrirSuelta]);
+    abrirSuelta('google', fallo ? gcalParam : null);
+  }, [gcalParam, integraciones, abrirSuelta, gcalIncompleta]);
 
   // El toast global (y el chip de la sidebar) linkean con ?ops=1 → abrimos el
   // historial de operaciones. Consumimos el flag al instante (router.replace) para
@@ -577,8 +588,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
           respuesta a lo último que hizo el usuario antes de volver a esta pantalla. */}
       {/* El "conectado ✓" se calla si el permiso igual quedó a medias (se destildó la
           casilla de escritura en la pantalla de Google): festejar ahí sería el mismo
-          verde mentiroso que estamos sacando. La tarjeta de Google cuenta lo que falta. */}
-      {gcalMsg && !(gcalMsg.kind === 'ok' && gcalIncompleta) && (
+          verde mentiroso que estamos sacando. Lo que falta lo cuenta el modal de Google, que se reabre (25/10/2026: ya no
+          hay tarjeta). Y espera a saber el permiso (`gcalSinLeer`). */}
+      {gcalMsg && !(gcalMsg.kind === 'ok' && (gcalIncompleta || gcalSinLeer)) && (
         <div role="status" style={{ marginTop: 18, borderRadius: 12, padding: '12px 17px', fontSize: 13.5, fontWeight: 600, lineHeight: 1.5, background: gcalMsg.kind === 'ok' ? 'var(--good-bg)' : 'var(--bad-bg)', color: gcalMsg.kind === 'ok' ? 'var(--good)' : 'var(--bad)' }}>
           {gcalMsg.txt}
         </div>
@@ -1817,9 +1829,11 @@ function PermisoGoogleCalendar({ conectada, estado }: { conectada: boolean; esta
     <div style={{ marginBottom: 15, padding: '12px 14px', borderRadius: 11, background: 'var(--warn-bg)', border: '1px solid var(--warn-fill)' }}>
       <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--warn)', marginBottom: 4 }}>Faltan permisos para mover reuniones</div>
       <p style={{ margin: 0, fontSize: 12.5, color: 'var(--dim)', lineHeight: 1.5 }}>
-        La agenda{estado.email ? ` de ${estado.email}` : ''} se autorizó cuando solo pedíamos leerla: tus reuniones se detectan, pero «Reagendar»
-        actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
-        Toca «Conectar Google Calendar» aquí abajo y Google te va a pedir el permiso que falta.
+        {/* 25/10/2026 (revisión del tren): no se inventa la causa. Pasa al conectar con la casilla de editar eventos sin
+            tildar, o con una agenda que se autorizó cuando sólo pedíamos leerla. */}
+        Google autorizó la agenda{estado.email ? ` de ${estado.email}` : ''} sin el permiso para editar eventos: tus reuniones se detectan, pero
+        «Reagendar» actualiza el CRM y no mueve el evento ni le avisa al invitado. Por eso figura como <b>no conectada</b>.
+        Toca «Conectar Google Calendar» aquí abajo y, en la pantalla de Google, deja marcada la casilla para ver y editar tus eventos.
       </p>
     </div>
   );

@@ -13,7 +13,9 @@
 //   2. pagado el 1º mes del cobro nuevo (la prueba, anulada): quedan atados y salen las bienvenidas;
 //   3. pagado el 2º: el partner gana el 100% del primer mes, y el tablero y el panel del super admin lo cuentan;
 //   4. una prueba que NO creó la cuenta no pasa su código (el programa es para clientes nuevos);
-//   5. el que canceló la prueba sin pagar nada figura «se fue», no «en camino».
+//   5. el que canceló la prueba sin pagar nada figura «se fue», no «en camino», AUNQUE su negocio siga 'activo' (con el corte
+//      de acceso apagado nadie lo pausa: ronda 2); el que sigue en su prueba, sí está «en camino»;
+//   6. un link de «Empezar mi plan ya» abierto ANTES de este arreglo (sin código) se reusa, y ahora con el código.
 //
 // Correr: node --import tsx --test --test-concurrency=1 tests/partners-empezar-ya.test.ts
 // Probado rompiéndolo (25/10/2026): al pie del archivo.
@@ -43,7 +45,9 @@ const tablas = {
     { id: 10, nombre: 'Estudio Sol', estado: 'activo', referido_por_ws: null },
     { id: 20, nombre: 'Inmobiliaria del Parque', estado: 'activo', referido_por_ws: null },
     { id: 40, nombre: 'Coach Laura', estado: 'activo', referido_por_ws: null },
-    { id: 50, nombre: 'Gimnasio Norte', estado: 'pausado', referido_por_ws: null },
+    // 'activo', como en producción: con CORTE_DE_ACCESO_PRENDIDO = false nadie pausa al que canceló la prueba (ronda 2).
+    { id: 50, nombre: 'Gimnasio Norte', estado: 'activo', referido_por_ws: null },
+    { id: 60, nombre: 'Estudio Luna', estado: 'activo', referido_por_ws: null },
   ],
   usuarios: [
     { workspace_id: 10, email: 'sol@ejemplo.com', nombre: 'Sol Díaz', rol_ws: 'admin' },
@@ -58,6 +62,11 @@ const tablas = {
     prueba(6, 40, 'estudio-sol', { alta_estado: 'ya_tenia_cuenta' }),
     // Gimnasio Norte entró con el link, canceló la prueba antes del día 8 y nunca pagó.
     prueba(7, 50, 'estudio-sol', { suscripcion_estado: 'cancelada' }),
+    // Estudio Luna entró con el link y sigue en su prueba; abrió «Empezar mi plan ya» antes del arreglo: un link sin código.
+    prueba(8, 60, 'estudio-sol'),
+    { id: 80, workspace_id: 9, tipo: 'suscripcion', alta_ws: 60, alta_capa: null, creado_por: 'empezar-ya:8', ref_codigo: null, alta_estado: null,
+      estado: 'pendiente', suscripcion_estado: null, plan_mako: 'pro', proveedor: 'mercadopago', concepto: 'MaKo Pro', monto: 97, moneda: 'USD',
+      monto_usd: 97, lead_id: 160, email: 'ws60@ejemplo.com', nombre: 'Negocio 60', token: 'tok-80', created_at: '2026-10-22T09:00:00Z', pagado_at: null, cliente_ws: null },
   ],
   pagos: [],
   partner_creditos: [],
@@ -144,6 +153,9 @@ const AHORA = Date.parse('2026-10-22T10:00:00Z');
 
 const e20 = await empezarPlanAhora(20, 'Pablo Ríos', AHORA);
 const e40 = await empezarPlanAhora(40, 'Laura', AHORA);
+const e60 = await empezarPlanAhora(60, 'Luna', AHORA);
+const reusado60 = { ...tablas.cobros.find((c) => c.id === 80) };
+const nuevos60 = tablas.cobros.filter((c) => c.alta_ws === 60 && String(c.creado_por).startsWith('empezar-ya:')).length;
 const nuevoDe = (w) => tablas.cobros.find((c) => c.alta_ws === w && String(c.creado_por).startsWith('empezar-ya:'));
 const nuevo20 = { ...nuevoDe(20) };
 const nuevo40 = { ...nuevoDe(40) };
@@ -156,15 +168,18 @@ for (const w of [20, 40]) {
 }
 const r1 = await acreditarReferidos();
 const mails1 = mails.length;
+// El tablero con el 1º mes pagado: la prueba del Parque está anulada, pero su cobro nuevo sigue vivo.
+const tablero1 = await tableroDe(10);
 // El 2º mes.
 for (const w of [20, 40]) tablas.pagos.push({ id: tablas.pagos.length + 1, workspace_id: 9, cobro_id: nuevoDe(w).id, pagado: true, fecha_pago: '2026-11-22' });
 const r2 = await acreditarReferidos();
 const tablero = await tableroDe(10);
 const programa = await resumenDelPrograma();
 console.log(JSON.stringify({
-  e20, e40, nuevo20, nuevo40, r1, r2, mails, mails1, creditos: tablas.partner_creditos,
+  e20, e40, e60, reusado60, nuevos60, nuevo20, nuevo40, r1, r2, mails, mails1, creditos: tablas.partner_creditos,
   atado20: tablas.workspaces.find((w) => w.id === 20).referido_por_ws,
   atado40: tablas.workspaces.find((w) => w.id === 40).referido_por_ws,
+  tablero1: { referidos: tablero1.referidos, resumen: tablero1.resumen },
   tablero: { referidos: tablero.referidos, resumen: tablero.resumen },
   programa: { referidos: programa.referidos, ganadoUsd: programa.ganadoUsd, aPagarUsd: programa.aPagarUsd },
 }));
@@ -172,12 +187,14 @@ console.log(JSON.stringify({
 
 type Cobro = { id: number; alta_ws: number | null; ref_codigo: string | null; alta_estado: string | null; plan_mako: string | null; creado_por: string };
 type Corrida = { vistos: number; atados: number; acreditados: number };
+type Tablero = { referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number; porGanarUsd: number } };
 type Salida = {
-  e20: { ok: boolean; link?: string }; e40: { ok: boolean; link?: string }; nuevo20: Cobro; nuevo40: Cobro;
+  e20: { ok: boolean; link?: string }; e40: { ok: boolean; link?: string }; e60: { ok: boolean; link?: string }; reusado60: Cobro; nuevos60: number;
+  nuevo20: Cobro; nuevo40: Cobro;
   r1: Corrida; r2: Corrida; mails: Array<{ to: string; tag: string }>; mails1: number;
   creditos: Array<{ referidor_ws: number; referido_ws: number; tipo: string; monto_usd: number }>;
   atado20: number | null; atado40: number | null;
-  tablero: { referidos: Array<{ ws: number; nombre: string; estado: string; mesesPagados: number }>; resumen: { ganadoUsd: number; aCobrarUsd: number; porGanarUsd: number } };
+  tablero1: Tablero; tablero: Tablero;
   programa: { referidos: number; ganadoUsd: number; aPagarUsd: number };
 };
 
@@ -229,11 +246,24 @@ test('una prueba que NO creó la cuenta no pasa su código: el programa es para 
   assert.ok(!s.mails.some((m) => m.to === 'laura@ejemplo.com'));
 });
 
-test('el que canceló la prueba sin pagar nada figura «se fue», no como plata en camino', () => {
+test('el que canceló la prueba sin pagar nada figura «se fue» aunque su negocio siga activo; el que sigue en prueba, «en camino»', () => {
   const s = correr();
   const gimnasio = s.tablero.referidos.find((r) => r.ws === 50);
-  assert.deepEqual(gimnasio && [gimnasio.estado, gimnasio.mesesPagados], ['se-fue', 0]);
-  assert.equal(s.tablero.resumen.porGanarUsd, 0, 'ni el Parque (ya ganado) ni el gimnasio (se fue) están «en camino»');
+  assert.deepEqual(gimnasio && [gimnasio.estado, gimnasio.mesesPagados], ['se-fue', 0], "su negocio sigue 'activo': lo dicen sus cobros");
+  const luna = s.tablero.referidos.find((r) => r.ws === 60);
+  assert.deepEqual(luna && [luna.estado, luna.mesesPagados], ['registrado', 0], 'sigue en su prueba');
+  assert.equal(s.tablero.resumen.porGanarUsd, 97, 'sólo Estudio Luna: ni el Parque (ya ganado) ni el gimnasio (se fue)');
+  // Con la prueba ANULADA por «Empezar mi plan ya» y el cobro nuevo pagado, el Parque sigue: no «se fue».
+  const parque1 = s.tablero1.referidos.find((r) => r.ws === 20);
+  assert.deepEqual(parque1 && [parque1.estado, parque1.mesesPagados], ['primer-pago', 1]);
+});
+
+test('un link de «Empezar mi plan ya» abierto antes del arreglo (sin código) se reusa, y ahora lleva el código', () => {
+  const s = correr();
+  assert.deepEqual(s.e60, { ok: true, link: 'https://hola-mako.com/pagar/tok-80' }, 'el mismo link: no se abren dos');
+  assert.equal(s.nuevos60, 1);
+  assert.equal(s.reusado60.ref_codigo, 'estudio-sol', 'pagado, el partner cobra');
+  assert.equal(s.reusado60.alta_estado, null);
 });
 
 // Roturas (25/10/2026; base 5 / 0), cada una restaurada (pasan / fallan):
@@ -242,3 +272,9 @@ test('el que canceló la prueba sin pagar nada figura «se fue», no como plata 
 //   · `resumenDelPrograma` vuelve a exigir alta 'hecha' (como estaba)                          -> 4 / 1
 //   · `estadoDelReferido` con 0 meses y sin lugar vuelve a 'registrado' (como estaba)          -> 4 / 1
 //   · el código se copia aunque la prueba no haya creado la cuenta                             -> 2 / 3
+// Ronda 2 (25/10/2026; base 6 / 0; el gimnasio en 'activo', como en producción):
+//   · `tableroDe` vuelve a sacar `vigente` sólo de workspaces.estado (como estaba)             -> 5 / 1
+//   · invertida: `vigente` = activo Y `idos.has` (en vez de !idos.has)                         -> 5 / 1
+//   · `seFueSegunSusCobros` no mira «ningún otro cobro vivo» (la prueba caída alcanza)          -> 5 / 1
+//   · `seFueSegunSusCobros` da false siempre                                                   -> 5 / 1
+//   · el link reusado no recibe el código (como estaba), o con la condición invertida          -> 5 / 1

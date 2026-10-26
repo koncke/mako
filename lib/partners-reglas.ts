@@ -15,6 +15,9 @@
 //   · El origen que vale es el PRIMERO; sólo clientes nuevos; nadie se refiere a sí mismo.
 // =============================================================================
 
+import { esBajaPedida } from './cobros-reglas';
+import { esPruebaDePlan } from './prueba-plan-reglas';
+
 /** La cookie que deja /r/<código>: quién mandó el link. El PRIMERO vale (no se pisa), 60 días. */
 export const COOKIE_REF = 'mako_ref';
 export const DIAS_COOKIE_REF = 60;
@@ -49,6 +52,28 @@ export function estadoDelReferido(p: { mesesPagados: number; acreditado: boolean
   if (p.acreditado) return 'acreditado';
   if (!p.vigente && p.mesesPagados < PAGOS_PARA_ACREDITAR) return 'se-fue';
   return p.mesesPagados >= 1 ? 'primer-pago' : 'registrado';
+}
+
+/** Lo que `seFueSegunSusCobros` mira de cada cobro del lugar (los de la plataforma con su `alta_ws`). */
+export type CobroDelReferido = {
+  tipo: string; estado: string; suscripcion_estado: string | null;
+  motivo?: string | null; creado_por?: string | null; alta_capa?: string | null;
+};
+
+/**
+ * ¿El referido se fue, según SUS COBROS? (25/10/2026, revisión del tren, ronda 2). El `vigente` de `estadoDelReferido` salía
+ * sólo de `workspaces.estado`, pero con el corte de acceso APAGADO (`CORTE_DE_ACCESO_PRENDIDO`, lib/plan-acceso-reglas.ts)
+ * nadie pausa a nadie: el que canceló la prueba y nunca pagó queda 'activo' para siempre, y su primer mes seguía «en camino».
+ * Se fue = su prueba se cayó (dada de baja o anulada) y no le queda NINGÚN otro cobro vivo: una suscripción que la pasarela
+ * sigue cobrando (autorizada, sin anular, sin baja pedida) o un pago único cobrado. «Empezar mi plan ya» anula la prueba pero
+ * deja vivo el cobro nuevo: ése sigue. Sin una prueba caída no decide nada (queda `workspaces.estado`).
+ */
+export function seFueSegunSusCobros(cobros: ReadonlyArray<CobroDelReferido>): boolean {
+  const pruebaCaida = (c: CobroDelReferido) => esPruebaDePlan(c) && (c.suscripcion_estado === 'cancelada' || c.estado === 'anulado');
+  const vivo = (c: CobroDelReferido) => (c.tipo === 'suscripcion'
+    ? c.suscripcion_estado === 'activa' && c.estado !== 'anulado' && !esBajaPedida(c.motivo)
+    : c.estado === 'pagado');
+  return cobros.some(pruebaCaida) && !cobros.some((c) => !pruebaCaida(c) && vivo(c));
 }
 
 /** La píldora de cada negocio en el panel (y en el teléfono). */

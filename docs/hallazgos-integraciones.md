@@ -36,6 +36,17 @@ Guards: `tests/integraciones-limpieza-25-10.test.ts`, `tests/leads-scraper-retir
   a todo el que entra y cada uno cuenta contra el tope de 100. **Trampa del consentimiento granular:** la persona puede
   destildar el calendario y Google igual manda un refresh_token; el callback guarda sólo si el `scope` de la respuesta trae
   la agenda ENTERA (`otorgoLaAgenda`).
+- **`oculto` rompió en silencio CUATRO lugares más, y los encontró la revisión adversarial del tren (25/10, noche):**
+  - `link_configurar_integracion` validaba la key contra la grilla y contestaba «no existe» para las IA y Google: MaKo
+    no podía mandarle a nadie el link para conectarlas (justo el caso de Florencia);
+  - las cajas de «Costo de MaKo» buscaban el modal en la grilla y no abrían nada;
+  - el teléfono (`/m/configuraciones/integraciones?abrir=<key>`, adonde reescribe el link en un celular) leía la lista sin
+    `conOcultas`: el link llegaba a una lista sin la conexión y sin hoja abierta;
+  - `googleConToken` miraba la grilla: el permiso de Google no se leía nunca, y la vuelta con la casilla de editar
+    destildada festejaba «Google Calendar conectado».
+  **Regla:** todo lugar que lee la lista para saber qué EXISTE (validar, abrir, buscar un estado), y no para dibujarla,
+  usa `conOcultas` o `getIntegracion(key)`. Antes de ocultar algo: `git grep` de `getIntegraciones(` y de
+  `integraciones.(find|some)`, y cada pantalla que lee `?abrir=` resuelve las `oculto` aparte.
 
 **Quedó SIN hacer:**
 - Prender `GOOGLE_LOGIN_CON_AGENDA`: recién con la verificación aprobada (Martín contesta el hilo de Google con el video

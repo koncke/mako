@@ -3549,4 +3549,37 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '25 oct', hora: '22:48', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: '«Completar desde mi WhatsApp» tiene que andar de punta a punta',
+    pedido: '«Si me dice "Instala la extensión de MaKo", si le apreto debería automáticamente salirme el desplegable. Tampoco funcionó la extensión... Si ya sabe el nombre del grupo debería buscarlos dentro. Y en el proceso tampoco pasó nada, no hay ninguna acción que el usuario vea para saber que está corriendo bien... Soluciona eso y pruebalo de punta a punta, que funcione bien.»',
+    puntos: [
+      'Con dos capturas: 221 leads de un grupo tildados, «Desde mi WhatsApp» gris, y el aviso «La extensión no contestó» sin ninguna señal de avance. Lo pasó el Cerebro.',
+    ],
+  },
+  {
+    fecha: '25 oct', hora: '22:48', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Completar desde mi WhatsApp»: abre lo que falta, busca el grupo y muestra cada paso',
+    puntos: [
+      '«Desde mi WhatsApp» ya no está gris: si falta la extensión, abre cómo instalarla y empieza sola cuando está.',
+      'Si WhatsApp Web no está abierto, la extensión lo abre en otra pestaña y espera a que carguen tus chats. Si hace falta iniciar sesión, te lleva ahí.',
+      'Busca a cada uno dentro del grupo del que vino. En tu WhatsApp todos los de los grupos figuran por un código interno y 4 de cada 10 sin su teléfono: ahora se los encuentra igual, y el nombre se lee de donde WhatsApp lo guarda.',
+      'Mientras corre se ve cada paso («Abriendo WhatsApp Web…», «Buscando el grupo…», «Completando 37 de 180…») y al final dice qué encontró y si el grupo está.',
+      'Extensión 0.71.0. Ya copiada en tu carpeta de la extensión: falta tocar «Recargar» en chrome://extensions. La pantalla nueva entra con el próximo despliegue.',
+    ],
+    commits: [
+      { sha: '9b20f8090', msg: 'CRM · «Completar desde mi WhatsApp» de punta a punta: la extensión 0.71.0 abre WhatsApp Web, busca el grupo y cuenta cada paso', lineas: 937, archivos: 21 },
+      { sha: '7f01eab7d', msg: 'API de MaKo · ver_completar_desde_whatsapp: qué haría «Completar desde mi WhatsApp» con los traídos de un grupo, y cómo se dispara', lineas: 45, archivos: 3 },
+    ],
+    archivos: [
+      'extension/background.js — abre, despierta y repara WhatsApp Web, y cuenta los pasos',
+      'extension/wa-fichas-reglas.js · wa-fichas.js — el nombre de displayNameLID, por @lid y por grupo',
+      'app/crm/AccionesLoteLeads.tsx — la opción que instala, el avance y el final',
+      'app/crm/enriquecer-lote-server.ts — de qué grupo vino cada uno y su @lid',
+      'tests/wa-fichas-071.test.ts',
+    ],
+    revisar: '/crm',
+  },
 ];

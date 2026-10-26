@@ -50,7 +50,7 @@ function correr(pasos: PasoGrafo[], estado: EstadoSim): { eventos: EventoSim[]; 
 const ver = (ev: EventoSim[]) => ev.map((e) => (
   e.t === 'mensaje' ? `${e.paso.canal === 'email' ? '✉' : '💬'}${e.paso.cuerpo}`
     : e.t === 'condicion' ? `◇${e.opciones.map((o) => o.texto).join('|')}`
-      : e.t === 'fin' ? `■${e.texto}` : e.texto));
+      : e.t === 'fin' ? `■${e.texto}` : e.t === 'ab' ? '⑂' : e.texto));
 
 const sinCursor = (e: EstadoSim) => e.hilos.map((h) => [h.cursor, h.reloj]);
 

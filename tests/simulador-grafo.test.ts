@@ -41,7 +41,7 @@ function correr(pasos: PasoGrafo[], estado: EstadoSim): { eventos: EventoSim[]; 
 }
 
 /** Lo que se ve, en una línea por evento. */
-const ver = (ev: EventoSim[]) => ev.map((e) => (e.t === 'mensaje' ? `💬${e.paso.cuerpo}` : e.t === 'condicion' ? `◇${e.opciones.map((o) => o.texto).join('|')}` : e.t === 'fin' ? `■${e.texto}` : e.texto));
+const ver = (ev: EventoSim[]) => ev.map((e) => (e.t === 'mensaje' ? `💬${e.paso.cuerpo}` : e.t === 'condicion' ? `◇${e.opciones.map((o) => o.texto).join('|')}` : e.t === 'fin' ? `■${e.texto}` : e.t === 'ab' ? '⑂' : e.texto));
 
 // Un flujo con una condición de dos ramas, una espera, una acción y un «Si responde» con un caso.
 const FLUJO: PasoGrafo[] = [
