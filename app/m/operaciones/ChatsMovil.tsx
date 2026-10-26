@@ -57,7 +57,8 @@ import { SelectoresDeEnvio, resumenDeEnvio } from '@/app/admin/operaciones/Pieza
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from '@/app/admin/operaciones/MensajeWA';
 import { alternarTranscripcion } from '@/app/admin/operaciones/voces-enviadas';
 import type { Responder } from '@/app/admin/operaciones/PreguntaChat';
-import { SIN_MARCAS } from '@/lib/centro-mensajes';
+import { SIN_MARCAS, idDeLinea } from '@/lib/centro-mensajes';
+import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
 /**
@@ -283,13 +284,12 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
     const { centro: k, elegido: c } = ultimos.current;
     if (c) void k.marcarYaVisto(c.clave, instante);
   }, []);
-  /** Responder sobre un «Ya está» (la C): la caja arranca con «Sobre «…»: ». */
-  const feedback = useCallback((titulo: string) => {
+  /** Responder sobre un «Ya está» (26/10/2026, Martín: «que no escriba en el chat, que se mencione arriba en el chat, como cuando
+   *  le doy a responder cualquier mensaje»): la cita «↩» de ese mensaje arriba de la caja, como en la computadora. */
+  const feedback = useCallback((t: TurnoChat) => {
     const { centro: k, elegido: c } = ultimos.current;
     if (!c) return;
-    const t = k.borradorDe(c.clave);
-    const prefijo = `Sobre «${titulo}»: `;
-    k.ponerBorrador(c.clave, t.startsWith(prefijo) ? t : prefijo + t);
+    k.citar(c.clave, { de: c.titulo, texto: t.texto, id: idDeLinea({ tipo: 'turno', instante: Date.parse(t.at), turno: t }) });
     enfocarCaja();
   }, []);
   const responderPregunta = useCallback<Responder>((p, e, o) => {
@@ -477,7 +477,7 @@ export function ChatsM({ chats, carteros, pedidos, trabajos, pushes, ahora, espe
                 BloqueDePreguntas): la Ticketera, lo que pregunta el chat y lo de la app de Claude. Y sus «Completado» sin ✓, en
                 el mismo marco y de a uno (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
             <BloqueCompletado key={`ya-${elegido.clave}`} chat={elegido} lineas={lineas} yaVisto={centro.yaVistos?.[elegido.clave] ?? null} onYaVisto={yaVistoCb}
-              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
+              hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={feedback} />
             <BloqueDePreguntas key={`b-${elegido.clave}`} chat={elegido.clave} ticketera={preguntas} responderTicketera={responder}
               delChat={bloque} onResponder={responderPregunta} deLaApp={deLaApp} />
           </div>

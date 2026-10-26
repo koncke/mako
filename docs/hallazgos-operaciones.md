@@ -3102,3 +3102,31 @@ Y el hilo lo dibujaba con `conFormato`, que es de un renglón: aunque trajera li
 
 **Vive en:** `lib/respuesta-como-claude.ts` · `app/_components/Markdown.tsx` (`aire`) · `app/admin/operaciones/Hilo.tsx`
 (`CierreDelChat`, `MarkdownDeTurno`) · `Avance.tsx` · `centro.css` (`.co-cierre*`) · `tests/respuestas-como-claude.test.ts`
+
+## «Responder sobre esto» es la CITA de responder un mensaje, y el pedido de un «Completado» pueden ser varios mensajes (26/10/2026)
+
+**El síntoma:** Martín, desde el Centro: «El "Completado" le falta el botón de "Responder sobre esto". Y cuando le doy, que no
+escriba en el chat, que se mencione arriba en el chat, como cuando le doy a responder cualquier mensaje» y «si necesitas poner
+más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas de mensaje con mi foto de perfil».
+
+**Lo que no era obvio:**
+- El botón no faltaba en todos lados: estaba en la tarjeta del hilo (Avance.tsx) y el rediseño del 25/10 lo sacó del bloque a
+  propósito (tests/completado-arriba.test.ts, el 9, lo prohibía). Y donde estaba, ESCRIBÍA «Sobre «…»: » en el campo. Lo que
+  Martín llama «responder» es la cita «↩» de MensajeWA.tsx: `onCitar` con el id del mensaje (`idDeLinea`, `t:<uuid>`), que
+  `armarConCita` le pone arriba a lo que sale y que se toca para ir al mensaje.
+- Con más de un mensaje de Martín arriba, en el teléfono la respuesta quedaba debajo del scroll del bloque (alto tope
+  `min(40dvh, 340px)`): con varios, cada mensaje se achica a 3 renglones desde los 110 caracteres.
+
+**La regla:**
+- Responder algo en el Ops Center es SIEMPRE la cita arriba de la caja, nunca texto pegado en el campo.
+- Lo que respondía un «Completado» es todo lo que Martín dijo en su tramo (`pedidosDelCompletado`, los últimos 4), cada mensaje
+  en su globo con su foto. La API lo trae igual (`contexto` en `ver_completados_operaciones`).
+- Si lo relevó el Cerebro, el prompt de Martín ya viene adentro del relevo: es lo que va entre «…» después de «textual:» o
+  «textuales:» (`promptsDeMartin`, con las comillas de adentro balanceadas, porque Martín también escribe «»). Va ESO con su
+  foto, no la frase del relevo (09:14). Las demás comillas del relevo («Completado», un botón) no son de Martín: sin «textual»,
+  queda el relevo con el nombre del chat. Depende de que el Cerebro siga citando así: si deja de hacerlo, se ve el relevo, no se
+  pierde nada.
+- Cuándo terminó va al lado de «Completado», con la forma del hilo («Hoy · 12:30»): las dos salen de `lib/centro-fechas.ts`.
+
+**Vive en:** `lib/centro-chats.ts` (`pedidosDelCompletado`) · `app/admin/operaciones/BloqueCompletado.tsx` · `Avance.tsx` ·
+`Conversacion.tsx` y `app/m/operaciones/ChatsMovil.tsx` (`responderSobre` / `feedback`) · `tests/completado-responder-y-contexto.test.ts`

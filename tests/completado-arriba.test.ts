@@ -21,8 +21,9 @@
 // La cuarta vuelta (25/10, ~15:20), Martín al verlo en producción: «Rediseña bien la tarjeta de "completado"... Mira la cantidad
 // de botones juntos... Y si tengo varios "completados" pendientes, para eso ya tenemos la opción de "espera tu respuesta" tipo
 // modular con varias preguntas con las flechitas». Esto fija también:
-//   9. UNA acción («Ya lo vi») y UNA secundaria («Revisar»); sin «Ver todo», sin la tarea del Plan ni «Responder sobre esto»: el
-//      texto se abre tocándolo, y responder es escribir en la caja;
+//   9. UNA acción («Ya lo vi») y las secundarias («Revisar» y, desde el 26/10, «Responder sobre esto»: Martín la pidió de vuelta,
+//      y cita el «Completado» arriba de la caja, tests/completado-responder-y-contexto.test.ts); sin «Ver todo» ni la tarea del
+//      Plan: el texto se abre tocándolo;
 //  10. varios sin ver, de a uno, con las flechas y los puntos de las preguntas, del más viejo al más nuevo; con una pregunta,
 //      su tira dice cuántos;
 //  11. sin pedido, no queda el hueco.
@@ -34,7 +35,7 @@
 // La tercera vuelta (base 8/0): `leerTurnos` con `unirTurnos` a secas → 1 rojo (7); `turnosDeLaConversacion` sin el «Ya está» de
 // antes → 1 rojo (7); sin el mensaje de otro chat → 2 rojos (7, 8); lo de otro chat con la foto de Martín → 1 rojo (8); lo de
 // Martín de ANTES del tramo ganándole al del Cerebro → 2 rojos (7, 8); el título sin su mayúscula → 1 rojo (8).
-// La cuarta vuelta (base 11/0): de vuelta «Responder sobre esto» → 1 rojo (9); de vuelta un «Ver todo» en la respuesta → 1 rojo
+// La cuarta vuelta (base 11/0): de vuelta «Responder sobre esto» → 1 rojo (9; desde el 26/10 lo pidió Martín y el 9 lo pide); de vuelta un «Ver todo» en la respuesta → 1 rojo
 // (6); sólo el último sin ver en vez de todos → 1 rojo (10); el más nuevo primero → 1 rojo (10); el hueco del pedido sin pedido
 // → 1 rojo (11).
 import test from 'node:test';
@@ -215,21 +216,22 @@ test('8. lo que respondía: lo de Martín en el tramo; si no, lo del chat que se
 
 const leerBloque = () => leer('app/admin/operaciones/BloqueCompletado.tsx');
 
-test('9. UNA acción y una secundaria: «Ya lo vi» y «Revisar»; sin «Ver todo», sin la tarea del Plan ni «Responder sobre esto»', () => {
-  const html = renderToStaticMarkup(createElement(BloqueCompletado, { chat: CHAT, lineas, yaVisto: T1, onYaVisto: () => {}, hayPreguntas: false }));
+test('9. UNA acción y las secundarias: «Ya lo vi», «Revisar» y «Responder sobre esto»; sin «Ver todo» ni la tarea del Plan', () => {
+  const html = renderToStaticMarkup(createElement(BloqueCompletado, { chat: CHAT, lineas, yaVisto: T1, onYaVisto: () => {}, hayPreguntas: false, onResponderSobre: () => {} }));
   assert.equal((html.match(/co-chip--primario/g) ?? []).length, 1, 'una sola acción principal');
-  assert.match(html, /<div class="co-preg__ya-pie"><a [^>]*class="co-chip co-preg__ya-revisar"[^>]*>.*Revisar<\/a><button type="button" class="co-chip co-chip--primario co-preg__ya-visto"/,
-    'abajo: «Revisar» (la secundaria) y «Ya lo vi» (la principal)');
-  assert.doesNotMatch(html, /Ver todo|Responder sobre esto|co-ya__plan|co-ya__check/, 'nada más: el resto queda en la tarjeta del hilo');
+  assert.match(html, /<div class="co-preg__ya-pie"><button type="button" class="co-chip co-preg__ya-responder">.*Responder sobre esto<\/button><span class="co-preg__ya-acciones"><a [^>]*class="co-chip co-preg__ya-revisar"[^>]*>.*Revisar<\/a><button type="button" class="co-chip co-chip--primario co-preg__ya-visto"/,
+    'abajo: «Responder sobre esto» y «Revisar» (las secundarias) y «Ya lo vi» (la principal)');
+  assert.doesNotMatch(html, /Ver todo|co-ya__plan|co-ya__check/, 'nada más: la tarea del Plan queda en la tarjeta del hilo');
   // Sin página que revisar, sólo «Ya lo vi».
   const sinRuta = renderToStaticMarkup(createElement(BloqueCompletado, {
     chat: { clave: 'nombre:zzz', sesion: null, titulo: 'Zzz' }, lineas: [turno('s', '2026-10-25T11:00:00.000Z', 'Ya está: algo')], yaVisto: null, onYaVisto: () => {}, hayPreguntas: false,
   }));
   assert.doesNotMatch(sinRuta, /Revisar/);
   assert.match(sinRuta, /Ya lo vi<\/button>/);
-  // Y los que lo montan no le pasan la tarea ni «Responder sobre esto».
+  // Y los que lo montan no le pasan la tarea; «Responder sobre esto», sí (26/10/2026).
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
-    assert.doesNotMatch(leer(f), /<BloqueCompletado [^/]*(tareas=|onFeedback=)/, `${f}: el bloque no lleva la tarea ni «Responder sobre esto»`);
+    assert.doesNotMatch(leer(f), /<BloqueCompletado [^/]*(tareas=|onFeedback=)/, `${f}: el bloque no lleva la tarea`);
+    assert.match(leer(f), /<BloqueCompletado [^/]*onResponderSobre=/, `${f}: el bloque sin «Responder sobre esto»`);
   }
 });
 

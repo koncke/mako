@@ -1946,4 +1946,19 @@ export const BITACORA: Hito[] = [
     ],
     archivos: ['lib/respuesta-como-claude.ts · app/_components/Markdown.tsx — aire', 'app/admin/operaciones/Hilo.tsx — CierreDelChat · Avance.tsx · centro.css', 'lib/api-mako/areas/operaciones.run.ts', 'tests/respuestas-como-claude.test.ts'],
   },
+  {
+    fecha: '26 oct', hora: '12:45', chat: CH, sesion: SESION_OPS5, cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El «Completado»: responder con la cita, tus mensajes en varias cajitas, y con fecha y hora',
+    pedido: '«El "Completado" le falta el botón de "Responder sobre esto". Y cuando le doy, que no escriba en el chat, que se mencione arriba en el chat, como cuando le doy a responder cualquier mensaje.» y «Y en "completado" si necesitas poner más de 1 mensaje mio, para que se entienda el contexto, hazlo. No todo en el mismo mensaje, sino varias cajitas de mensaje con mi foto de perfil.» (desde el Centro de Operaciones, 26/10 08:54 y 08:55).',
+    puntos: [
+      '**Responder sobre esto:** vuelve al «Completado», a la izquierda de «Revisar» y «Ya lo vi».',
+      '**Como responder un mensaje:** lo cita arriba de la caja y no escribe nada en el campo. Igual en la tarjeta del hilo, en la computadora y en el teléfono.',
+      '**Tus mensajes:** si el pedido fueron varios, cada uno va en su cajita con tu foto, del más viejo al más nuevo. Con varios, los largos se achican y se abren tocándolos.',
+      '**Por la API:** el «Completado» trae esos mismos mensajes.',
+      '**Tu prompt, aunque lo haya pasado el Cerebro:** se ve lo que escribiste, con tu foto, y no «El Cerebro me pasó el pedido de Martín» (pedido de las 09:14).',
+      '**Con fecha y hora:** al lado de «Completado», como en los mensajes del chat: «Hoy · 12:30» (pedido de las 09:15).',
+    ],
+    archivos: ['lib/centro-chats.ts — pedidosDelCompletado · app/admin/operaciones/BloqueCompletado.tsx · Avance.tsx · Conversacion.tsx · app/m/operaciones/ChatsMovil.tsx · centro.css', 'lib/api-mako/areas/operaciones.run.ts — contexto', 'tests/completado-responder-y-contexto.test.ts · completado-arriba.test.ts'],
+  },
 ];
