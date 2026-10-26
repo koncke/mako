@@ -12,6 +12,23 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El desplegable que se abre y se cierra solo en el teléfono era el TECLADO (26/10/2026)
+
+**Vive en:** `app/components/Dropdown.tsx` (`onResize`, el foco del buscador) · `app/m/layout.tsx` (`interactive-widget`).
+Guard: `tests/settings-movil-26-10.test.ts` #1.
+
+- **Síntoma:** Martín, en su Android, dentro de la hoja de Perfil: «no puedo apretar ningún desplegable, se abre y se cierra
+  automáticamente».
+- **El diagnóstico obvio era el equivocado:** un doble toque, un clic que se propaga al documento o la hoja (`SheetM`) que se
+  come el gesto. Con toques de verdad en el banco (CDP `Input.dispatchTouchEvent`) el menú abría y QUEDABA abierto.
+- **La causa:** /m declara `interactive-widget: resizes-content`, así que en el teléfono el TECLADO achica la ventana y manda
+  `resize`, y el Dropdown cerraba en todo `resize` (para no quedar despegado del botón). El de la zona horaria enfoca su
+  buscador al abrir → teclado → resize → cerrado en el mismo gesto. Y cualquiera, tocado con el teclado ya abierto (venías de
+  escribir en «Cargo»), se cerraba cuando el teclado se iba. Se reprodujo achicando el alto de la ventana con el menú abierto.
+- **La regla:** en la casa un `resize` no es «el usuario se fue»; en el teléfono es el teclado. Un menú flotante se REUBICA
+  con `resize` y se cierra sólo con un scroll afuera o un toque afuera. Y al tacto el buscador no se enfoca solo: el teclado
+  tapa media lista justo cuando se va a elegir con el dedo.
+
 ## Sacar MaKo Context, AI Models y Dev: lo que se iba con ellas sin que nadie lo supiera (25/10/2026)
 
 Martín (puntos 13 a 15): «Elimina /contexto... Elimina /modelos-ia... Elimina "dev", ya no lo necesitamos». Medido ANTES

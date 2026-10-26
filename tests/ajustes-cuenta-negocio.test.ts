@@ -28,7 +28,7 @@ import { USER_NAV } from '../app/_components/nav';
 const raiz = join(__dirname, '..');
 const leer = (r: string) => readFileSync(join(raiz, r), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/\/\*[\s\S]*?\*\//g, '');
-const TODAS = { integraciones: true, metodo: true, plan: true };
+const TODAS = { integraciones: true, plan: true };
 
 test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   // 24/10/2026 (Martín): «Perfil primero en lugar de Información personal» y «Elimina la tab de Tus cuentas de IA».
@@ -37,12 +37,13 @@ test('las dos listas: el orden y los rótulos que aprobó Martín', () => {
   // «Notificaciones» del negocio salió del índice el 25/10/2026 (estaba dos veces): vive en la de «Tu cuenta», abajo.
   // «General» y «Método» salieron el 26/10/2026 (Martín: «Elimina la tab General...», «Elimina Método... Si para eso ya tenemos
   // Integraciones»): la zona del negocio es una fila de Perfil; las credenciales, las tarjetas de Integraciones.
-  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan', 'Prompts']);
+  assert.deepEqual(seccionesNegocio(TODAS).map((s) => s.label), ['Equipo', 'Integraciones', 'Identidades fiscales', 'Tu plan']);
+  // «Prompts» también salió el 26/10/2026 (Martín: «sobra la de prompts en super admin»): su pantalla sigue, sin entrada acá.
   assert.ok(!seccionesNegocio(TODAS).some((s) => s.key === 'general' || s.key === 'metodo'), 'volvió General o Método al índice');
-  // Sin Integraciones (no lo compró) y sin lo de la plataforma («Prompts»: no es la agencia).
-  assert.deepEqual(seccionesNegocio({ integraciones: false, metodo: false, plan: true }).map((s) => s.key), ['equipo', 'fiscal', 'plan']);
+  // Sin Integraciones (no lo compró).
+  assert.deepEqual(seccionesNegocio({ integraciones: false, plan: true }).map((s) => s.key), ['equipo', 'fiscal', 'plan']);
   // En el workspace de la PLATAFORMA no hay «Tu plan»: la plataforma no tiene un plan de MaKo (15/10/2026).
-  assert.ok(!seccionesNegocio({ integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
+  assert.ok(!seccionesNegocio({ integraciones: true, plan: false }).some((s) => s.key === 'plan'));
   // Mirando a un cliente, «Tu cuenta» muestra su perfil; lo tuyo sólo si es donde estás parado.
   assert.deepEqual(seccionesCuenta(true, 'info').map((s) => s.key), ['info']);
   assert.deepEqual(seccionesCuenta(true, 'seguridad').map((s) => s.key), ['info', 'seguridad']);

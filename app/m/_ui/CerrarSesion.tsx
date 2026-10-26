@@ -11,9 +11,15 @@
 
 import { useState } from 'react';
 import { Button } from '@/app/_ui/Button';
+import { Icon } from '@/app/_components/icons';
 import { soltarDeEstaCuenta } from '@/lib/push-cliente';
+import { FilaM } from './FilaM';
 
-export function CerrarSesion({ variante = 'tertiary' }: { variante?: 'secondary' | 'tertiary' }) {
+/**
+ * `fila` (26/10/2026, Martín: «"cerrar sesión" en rojo y aparte del texto, un ícono»): una fila de lista en rojo, con el ícono
+ * de salir, para ponerla SOLA en su lista (Settings del teléfono). La salida es la misma.
+ */
+export function CerrarSesion({ variante = 'tertiary' }: { variante?: 'secondary' | 'tertiary' | 'fila' }) {
   const [saliendo, setSaliendo] = useState(false);
   const salir = async () => {
     setSaliendo(true);
@@ -23,6 +29,14 @@ export function CerrarSesion({ variante = 'tertiary' }: { variante?: 'secondary'
     try { await fetch('/api/auth/logout', { method: 'POST' }); } catch { /* igual se va al login */ }
     window.location.href = '/login';
   };
+  if (variante === 'fila') {
+    return (
+      <FilaM navegacion chevron={false} deshabilitada={saliendo} onClick={() => void salir()}
+        leading={<span className="m-icono m-salir__ico" aria-hidden><Icon name="logout" size={18} /></span>}
+        titulo={<span className="m-salir">Cerrar sesión</span>}
+        riel={saliendo ? <span className="mk-spin" aria-hidden /> : undefined} />
+    );
+  }
   return (
     <Button variant={variante} size="md" full onClick={salir} loading={saliendo}>
       Cerrar sesión

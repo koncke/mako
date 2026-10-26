@@ -62,11 +62,9 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   assert.match(sinComentarios(leer('app/admin/page.tsx')), /redirect\('\/customers'\);/, 'el super admin entra por su grilla');
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
   assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView \/>;/);
-  // Los prompts: una sección de Settings con la regla de Método, y la misma puerta.
-  const conMetodo = seccionesNegocio({ integraciones: true, metodo: true, plan: true }).map((s) => s.key);
-  const sinMetodo = seccionesNegocio({ integraciones: true, metodo: false, plan: true }).map((s) => s.key);
-  assert.ok(conMetodo.includes('prompts'), 'falta Settings › Prompts');
-  assert.ok(!sinMetodo.includes('prompts'), 'un negocio ve los prompts de la plataforma');
+  // Los prompts: salieron del índice de Settings el 26/10/2026 (Martín: «sobra la de prompts en super admin»), pero su
+  // pantalla sigue, con la misma puerta (sólo la agencia).
+  assert.ok(!seccionesNegocio({ integraciones: true, plan: true }).some((s) => s.key === 'prompts'), 'volvió Settings › Prompts');
   const prompts = sinComentarios(leer('app/configuraciones/prompts/page.tsx'));
   assert.match(prompts, /if \(!\(await getSesionAdmin\(\)\)\) redirect\(/);
   assert.match(prompts, /<PromptsMaKo \/>\s*<Configuraciones embedded \/>/, 'la persona y los prompts de cada pantalla, los dos');

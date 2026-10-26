@@ -68,8 +68,6 @@ export function seccionesCuenta(deOtro: boolean, activa?: string): SeccionAjuste
 export type DisponiblesNegocio = {
   /** Lo compró el negocio (la capa). */
   integraciones: boolean;
-  /** Lo de la PLATAFORMA, sólo la agencia (`getSesionAdmin`): hoy, «Prompts». Se llama así por «Método», que salió el 26/10/2026. */
-  metodo: boolean;
   /** «Tu plan»: el plan de MaKo de un NEGOCIO. La plataforma misma no tiene uno (en producción decía «SuperAdmin —
    *  Acordado con MaKo — para darte de baja, escríbenos», 15/10/2026). */
   plan: boolean;
@@ -91,9 +89,9 @@ const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] 
   { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },
   // «Método» SALIÓ el 26/10/2026 (Martín: «Elimina "Método" no entiendo eso... Si para eso ya tenemos "Integraciones"»): cada una
   // de sus credenciales tiene su tarjeta en Integraciones (las IA, en «Tus cuentas de IA»). /metodo redirige ahí.
-  // Lo que eran «Prompts» y «Configuración» de MaKo Context (/contexto, que se fue el 25/10/2026): con qué instrucciones
-  // piensa MaKo. Es de la PLATAFORMA: la regla `metodo` (sólo la agencia) y su puerta (app/configuraciones/prompts).
-  { key: 'prompts', label: 'Prompts', href: '/configuraciones/prompts', icono: 'texto', descripcion: 'Con qué instrucciones piensa MaKo.', si: 'metodo' },
+  // «Prompts» SALIÓ del índice el 26/10/2026 (Martín: «sobra la de prompts en super admin, y no se si lo tienen los usuarios,
+  // pero no deberían»; los usuarios nunca la vieron: era `si: 'metodo'`, sólo la agencia). Su pantalla sigue en
+  // /configuraciones/prompts, con su puerta (sólo la agencia): se abre por su link, no desde Settings.
 ];
 
 export function seccionesNegocio(d: DisponiblesNegocio): SeccionAjustes[] {

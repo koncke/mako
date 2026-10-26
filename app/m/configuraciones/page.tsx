@@ -29,7 +29,7 @@ export const dynamic = 'force-dynamic';
 
 /** Lo que dice la hoja de una sección que se usa en la computadora. */
 const EN_LA_COMPUTADORA: Record<string, string> = {
-  prompts: 'Los prompts de MaKo son textos largos, con su historial y sus variables: se editan en la computadora.',
+  // (General y Método salieron el 26/10/2026, y Prompts del índice el mismo día: hoy toda sección del negocio tiene pantalla acá.)
 };
 
 const icono = (n: NombreIconoMenu) => <span className="m-icono" aria-hidden><IconoMenu nombre={n} size={18} /></span>;

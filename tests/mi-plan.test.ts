@@ -126,11 +126,11 @@ test('la pantalla: dos pasos (el botón y la confirmación), sin el portal de St
 });
 
 test('la sección, la API y los textos legales', () => {
-  const plan = seccionesNegocio({ integraciones: false, metodo: false, plan: true }).find((s) => s.key === 'plan');
+  const plan = seccionesNegocio({ integraciones: false, plan: true }).find((s) => s.key === 'plan');
   assert.equal(plan?.href, '/configuraciones/plan', 'la sección no está en Configuración del negocio');
   // La plataforma no tiene un plan de MaKo: ni la sección en su índice, ni la página (visto en producción el 15/10/2026:
   // decía «SuperAdmin — Acordado con MaKo — para darte de baja, escríbenos»).
-  assert.ok(!seccionesNegocio({ integraciones: true, metodo: true, plan: false }).some((s) => s.key === 'plan'));
+  assert.ok(!seccionesNegocio({ integraciones: true, plan: false }).some((s) => s.key === 'plan'));
   assert.match(fuente('lib/ajustes-negocio.ts'), /plan: ws != null && ws !== plataforma,/);
   assert.match(fuente('app/configuraciones/plan/page.tsx'), /if \(ws == null \|\| ws === \(await wsSuperAdmin\(\)\)\) redirect\('\/configuraciones'\);/);
   assert.equal(porId('ver_mi_plan')?.gating?.rolMinimo, 'admin');

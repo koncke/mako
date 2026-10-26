@@ -389,7 +389,7 @@ export const DEFS: readonly OperacionDef[] = [
     escribe: 'usuarios.nombre y usuarios.perfil (teléfono, cargo, empresa, web, bio, zona) de la persona',
     parametros: [
       { nombre: 'nombre', tipo: 'string', max: 80, descripcion: 'nombre y apellido.' },
-      { nombre: 'cargo', tipo: 'string', max: 80, descripcion: 'cargo, por ejemplo Fundadora. «-» lo vacía.' },
+      { nombre: 'cargo', tipo: 'string', max: 80, descripcion: 'cargo, por ejemplo CEO. «-» lo vacía.' },
       { nombre: 'telefono', tipo: 'string', max: 25, descripcion: 'teléfono personal CON código de país (+52…). «-» lo vacía.' },
       { nombre: 'empresa', tipo: 'string', max: 120, descripcion: 'empresa (dato personal; el nombre del negocio se cambia con renombrar_negocio). «-» lo vacía.' },
       { nombre: 'web', tipo: 'string', max: 200, descripcion: 'sitio web. «-» lo vacía.' },

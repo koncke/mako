@@ -54,8 +54,16 @@ export type CambioIdentidad = {
 };
 
 export function IdentidadPicker({
-  emoji, icono, y, ancla = null, titulo = 'Ícono', conEmoji = true, onElegir, onCerrar,
+  emoji, icono, y, ancla = null, titulo = 'Ícono', conEmoji = true, conEncuadre = true, subirA = '/api/portadas', onElegir, onCerrar,
 }: {
+  /**
+   * `false` = sin el encuadre de la foto en «Subir». Como `conEmoji`: la regla de dónde se guarda cada cosa es del CALL SITE.
+   * La foto de perfil (`usuarios.foto_url`) no tiene dónde guardar el encuadre, y un control que se usa y no guarda nada se lee
+   * como roto (26/10/2026).
+   */
+  conEncuadre?: boolean;
+  /** A dónde sube «Subir» (devuelve `{ ok, url }`). La foto de perfil va a su bucket (/api/perfil/avatar), no al de portadas. */
+  subirA?: string;
   /** El glifo que hay hoy (la columna `emoji` de un proyecto). */
   emoji?: string | null;
   /** El ícono o la foto que hay hoy (la columna `icono`), si la eligieron. */
@@ -176,7 +184,7 @@ export function IdentidadPicker({
         )}
         {pest === 'iconos' && <Iconos actual={icono} onElegir={(v) => onElegir({ icono: v, y: null })} />}
         {pest === 'subir' && (
-          <Subir foto={urlPortada(icono)} y={y}
+          <Subir foto={conEncuadre ? urlPortada(icono) : null} y={y} subirA={subirA}
             onSubida={(url) => onElegir({ icono: url, y: null })}
             onEncuadrar={(v) => onElegir({ y: v })} />
         )}
@@ -252,9 +260,10 @@ function Iconos({ actual, onElegir }: { actual?: string | null; onElegir: (v: st
  * encuadre que se ajusta sobre un cuadrado grande y después se recorta en un
  * círculo de 62 px es encuadrar otra cosa.
  */
-function Subir({ foto, y, onSubida, onEncuadrar }: {
+function Subir({ foto, y, subirA, onSubida, onEncuadrar }: {
   foto: string | null;
   y?: number | null;
+  subirA: string;
   onSubida: (url: string) => void;
   onEncuadrar: (y: number) => void;
 }) {
@@ -273,7 +282,7 @@ function Subir({ foto, y, onSubida, onEncuadrar }: {
     try {
       const fd = new FormData();
       fd.append('file', f);
-      const r = await fetch('/api/portadas', { method: 'POST', body: fd });
+      const r = await fetch(subirA, { method: 'POST', body: fd });
       const j: { ok: boolean; url?: string; error?: string } = await r.json();
       if (!j.ok || !j.url) { setMal(j.error || 'No pude subirla.'); return; }
       onSubida(j.url);
