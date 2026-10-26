@@ -181,7 +181,12 @@ async function cuentaDelObjeto(id: string, tipo: 'campaign' | 'adset' | 'ad'): P
     const { anuncioMetaPorZernio } = await import('./meta-via');
     return (await anuncioMetaPorZernio(z, id).catch((e) => { throw errorDeZernio(e, 'leer'); })).account_id;
   }
-  return (await leerObjetoMeta(tipo, id, 'account_id')).account_id;
+  if (tipo !== 'ad') return (await leerObjetoMeta(tipo, id, 'account_id')).account_id;
+  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${id}`);
+  url.searchParams.set('fields', 'account_id');
+  url.searchParams.set('access_token', accessToken);
+  return (await graphGet(url.toString())).account_id;
 }
 
 /** Mapea cualquier error a la respuesta JSON que el cliente ya entiende. */
