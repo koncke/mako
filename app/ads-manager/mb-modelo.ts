@@ -283,3 +283,25 @@ export function mensajeDeHoy(ds: readonly Pick<Decision, 'estado' | 'tactica' | 
   if (abiertas.length) return `Hoy te propongo ${de(abiertas)}. ${cierre}`;
   return `Listo: ${de(ds)}. ${cierre}`;
 }
+
+// ── CAMPAÑAS como la 04: las ramas son los productos y cada tarjeta, una campaña ──────────────────────────────────────
+
+const UNO_RES: Record<KpiMediaBuyer, string> = { lead: 'lead', agenda: 'agenda', venta: 'venta' };
+
+/** La pastilla de Campañas: «6 campañas en 3 productos». */
+export function pildoraDeCampanas(campanas: number, productos: number): string {
+  const c = `${campanas} ${campanas === 1 ? 'campaña' : 'campañas'}`;
+  return productos > 1 ? `${c} en ${productos} productos` : c;
+}
+
+/** El mensaje al pie de Campañas: el producto más barato y el más caro, y qué hacer con lo que no tiene producto. */
+export function mensajeDeCampanas(productos: readonly { nombre: string; costo: number | null }[], sinProducto: number, kpi: KpiMediaBuyer, fmt: (n: number) => string): string {
+  const res = RESULTADO[kpi];
+  const con = productos.filter((p): p is { nombre: string; costo: number } => p.costo != null).sort((a, b) => a.costo - b.costo);
+  const partes: string[] = [];
+  if (con.length >= 2) partes.push(`«${con[0].nombre}» trae los ${res} más baratos (${fmt(con[0].costo)}) y «${con[con.length - 1].nombre}», los más caros (${fmt(con[con.length - 1].costo)}).`);
+  else if (con.length === 1) partes.push(`«${con[0].nombre}»: ${fmt(con[0].costo)} por ${UNO_RES[kpi]} este mes.`);
+  if (sinProducto) partes.push(sinProducto === 1 ? 'Una campaña no tiene producto: tócala para asignarle uno.' : `${sinProducto} campañas no tienen producto: tócalas para asignarles uno.`);
+  else partes.push('Toca una campaña para ver sus números o cambiarla de producto.');
+  return partes.join(' ');
+}

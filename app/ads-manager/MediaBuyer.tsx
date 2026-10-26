@@ -143,6 +143,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
   }, [recargar, show]);
 
   const pedir = (texto: string) => setPedidoMako({ texto: `Media Buyer: ${texto}`, vez: Date.now() });
+  const avatar = <Criatura nombre="MaKo" size={18} estrella />;
   const producto = (d: Decision) => productoDeAccion(productoDe, d);
   const conectada = tieneMeta || !!zernio?.conectado;
   const nueva = config.existeTabla && (!conectada || (!config.encendido && !config.ultimaCorrida));
@@ -261,7 +262,7 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
               </button>
             )}
             <ArbolDeHoy decisiones={hoy} productoDe={producto} kpi={config.kpi} ocupada={ocupada} encendido={config.encendido}
-              avatar={<Criatura nombre="MaKo" size={18} estrella />} aplicandoTodas={aplicandoTodas}
+              avatar={avatar} aplicandoTodas={aplicandoTodas}
               onAbrir={(d) => setAbierta(d.id)} onAplicar={(d) => void aplicar(d)} onAplicarTodas={() => void aplicarTodas()} />
           </div>
         )
@@ -270,18 +271,17 @@ export function MediaBuyer({ nombre, inicial, metas, tieneMeta, arranque, produc
             onSugerencia={sugerencia} onPedir={pedir} />)}
 
       {vista === 'campanas' && (
-        <>
+        <div className="aa-pagina">
           {metas && <NumerosDelMes metas={metas} kpi={config.kpi} objetivo={config.objetivo} />}
-          <LienzoCampanas kpi={config.kpi} objetivo={config.objetivo} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial}
+          <LienzoCampanas kpi={config.kpi} abiertas={hoy.filter((d) => d.estado === 'abierta')} productoInicial={productoInicial} inicial={lienzoInicial} avatar={avatar}
             show={(msg, onUndo, tono) => show(msg, onUndo, tono ?? 'good')} onVerAcciones={(d) => setAbierta(d.id)} />
-        </>
+        </div>
       )}
 
       {vista === 'biblioteca' && (
-        <Biblioteca kpi={config.kpi} mejores={mejores}
-          paraRevisar={hoy.filter((d) => d.estado === 'abierta' && (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook'))}
-          lanzadas={decisiones.filter((d) => d.estado === 'aplicada' && (d.tipo === 'variaciones_texto' || d.tipo === 'variaciones_hook' || d.tipo === 'crear_anuncios'))}
-          onAbrir={(d) => setAbierta(d.id)} onSubir={() => setSubiendo(true)} onPedir={(texto) => setPedidoMako({ texto, vez: Date.now() })} />
+        <div className="aa-pagina">
+          <Biblioteca kpi={config.kpi} mejores={mejores} avatar={avatar} onSubir={() => setSubiendo(true)} onPedir={(texto) => setPedidoMako({ texto, vez: Date.now() })} />
+        </div>
       )}
 
       {verActividad && (

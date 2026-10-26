@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { cambioCorto, columnasDeHoy, deHoy, mensajeDeHoy, pildoraDeHoy, ramasDeHoy, rotuloDe } from '../app/ads-manager/mb-modelo';
+import { cambioCorto, columnasDeHoy, deHoy, mensajeDeCampanas, mensajeDeHoy, pildoraDeCampanas, pildoraDeHoy, ramasDeHoy, rotuloDe } from '../app/ads-manager/mb-modelo';
 import { ArbolDeHoy, TarjetaChica } from '../app/ads-manager/Arbol';
 import type { Decision } from '../lib/media-buyer/tipos';
 
@@ -94,4 +94,13 @@ test('el árbol: una tarjeta por cambio, la pastilla arriba y «Aplicar los N» 
   assert.match(html, />Aplicar los 2</);
   const uno = renderToStaticMarkup(createElement(ArbolDeHoy, { ...props, decisiones: [ds[0]] }));
   assert.doesNotMatch(uno, /Aplicar los/);
+});
+
+test('Campañas: la pastilla, y al pie el producto más barato y el más caro, o qué hacer con lo que no tiene producto', () => {
+  const f = (n: number) => `$${n}`;
+  assert.equal(pildoraDeCampanas(6, 3), '6 campañas en 3 productos');
+  assert.equal(pildoraDeCampanas(1, 1), '1 campaña');
+  const ps = [{ nombre: 'Curso', costo: 14 }, { nombre: 'Mentoría', costo: 8 }, { nombre: 'Comunidad', costo: null }];
+  assert.equal(mensajeDeCampanas(ps, 0, 'lead', f), '«Mentoría» trae los leads más baratos ($8) y «Curso», los más caros ($14). Toca una campaña para ver sus números o cambiarla de producto.');
+  assert.equal(mensajeDeCampanas([{ nombre: 'Curso', costo: 14 }], 2, 'agenda', f), '«Curso»: $14 por agenda este mes. 2 campañas no tienen producto: tócalas para asignarles uno.');
 });
