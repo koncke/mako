@@ -82,7 +82,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'ver_secciones_landing', area: 'landing', tipo: 'lectura',
     titulo: 'Secciones y bloques de una landing',
-    descripcion: 'El mapa de una landing o presentación del editor del Web Generator: sus páginas (id, ruta, inicio) y sus secciones en orden (id, posición, título, oculta, fondo, imagen de acento, íconos con su n) con sus bloques (posición, tipo —título, texto, botones, formulario, agenda, video, imagen…— y texto corto). Un «diseño editable» (las páginas de MaKo) suma sus botones, imágenes y videos. Úsala antes de cambiar una sección o un bloque: piden su id y su posición. El texto entero, en ver_landing_creada.',
+    descripcion: 'Mapa de una landing o presentación: páginas (id, ruta) y secciones en orden (id, título, oculta, fondo, íconos) con sus bloques (posición, tipo —texto, botones, formulario, agenda, video, imagen— y texto corto; un «diseño editable» suma botones, imágenes y videos). Úsala antes de cambiar una sección o un bloque. El texto entero: ver_landing_creada.',
     parametros: [P_ID, { nombre: 'pagina', rotulo: 'Página', tipo: 'string', max: 64, descripcion: 'El id de una página: sólo ésa. Sin él, todas.' }],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_WRITER,
   },
@@ -326,21 +326,21 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_formulario_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar el formulario de una landing',
-    descripcion: `El formulario de una landing del editor del Web Generator (lo que se envía entra al CRM): los campos (la lista entera, en orden), el texto del botón, el mensaje de éxito y a dónde lleva después de enviar. Sin «seccion», el único formulario de la landing. ${VERSION}`,
+    descripcion: `El formulario de una landing (lo enviado entra al CRM): los campos, el botón, el mensaje de éxito y a dónde lleva después. Sin «seccion», el único de la landing. ${VERSION}`,
     parametros: [
       P_ID, P_SECCION_OPCIONAL,
       {
-        nombre: 'campos', rotulo: 'Campos', tipo: 'object[]', max: TOPES.camposFormulario, descripcion: 'Los campos, en orden (reemplazan a los de hoy).',
+        nombre: 'campos', rotulo: 'Campos', tipo: 'object[]', max: TOPES.camposFormulario, descripcion: 'En orden (reemplazan a los de hoy).',
         campos: [
-          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO, descripcion: 'nombre, email, telefono, empresa, texto, textoLargo u opciones (nombre, email y telefono, una vez cada uno).' },
-          { nombre: 'etiqueta', tipo: 'string', max: 120, descripcion: 'Lo que dice arriba del campo. Sin ella, la de su tipo.' },
-          { nombre: 'requerido', tipo: 'boolean', descripcion: 'true si es obligatorio.' },
+          { nombre: 'tipo', tipo: 'string', obligatorio: true, enum: TIPOS_CAMPO, descripcion: 'nombre, email y telefono, una vez cada uno.' },
+          { nombre: 'etiqueta', tipo: 'string', max: 120, descripcion: 'Sin ella, la de su tipo.' },
+          { nombre: 'requerido', tipo: 'boolean', descripcion: 'Obligatorio.' },
           { nombre: 'opciones', tipo: 'string[]', max: 12, descripcion: 'Sólo opciones: entre 2 y 12.' },
         ],
       },
-      { nombre: 'boton', rotulo: 'Botón', tipo: 'string', max: 60, descripcion: 'El texto del botón («Quiero mi lugar»).' },
-      { nombre: 'exito', rotulo: 'Mensaje de éxito', tipo: 'string', max: 300, descripcion: 'Lo que ve la persona al enviar.' },
-      { nombre: 'redirigir', rotulo: 'Después de enviar', tipo: 'string', max: 2000, descripcion: 'Un enlace https al que lleva después de enviar ("" = no lleva a ningún lado).' },
+      { nombre: 'boton', rotulo: 'Botón', tipo: 'string', max: 60, descripcion: 'Su texto («Quiero mi lugar»).' },
+      { nombre: 'exito', rotulo: 'Mensaje de éxito', tipo: 'string', max: 300, descripcion: 'Lo que ve al enviar.' },
+      { nombre: 'redirigir', rotulo: 'Después de enviar', tipo: 'string', max: 2000, descripcion: 'Enlace https al que lleva ("" = ninguno).' },
     ],
     canales: TODOS, costo: 'gratis', gating: G_WRITER,
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
