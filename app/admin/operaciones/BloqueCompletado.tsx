@@ -22,15 +22,24 @@
 //     nombre y el ícono de chats, nunca con la foto de Martín. Sin pedido, no queda el hueco;
 //   · la flecha lo pliega a su tira; uno NUEVO lo vuelve a abrir (`usePlegado` recuerda por los turnos);
 //   · con una pregunta esperando, la pregunta manda: los «Completado» quedan en su tira, arriba de ella, hasta que se abran.
+// La quinta vuelta (26/10, 08:54 y 08:55), Martín: «El "Completado" le falta el botón de "Responder sobre esto". Y cuando le doy,
+// que no escriba en el chat, que se mencione arriba en el chat, como cuando le doy a responder cualquier mensaje» y «si necesitas
+// poner más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas de mensaje con mi foto de perfil»:
+//   · «Responder sobre esto» vuelve, como la SECUNDARIA de la izquierda, y cita el «Completado» arriba de la caja (la cita «↩»
+//     de responder un mensaje, MensajeWA.tsx): no escribe nada en el campo. Lo mismo hace el de la tarjeta del hilo;
+//   · arriba de la respuesta, TODO lo que le dijo Martín en ese tramo (`pedidosDelCompletado`), cada mensaje en su globo con su foto;
+//   · la respuesta, como una respuesta de Claude (lib/respuesta-como-claude.ts).
 
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react';
 import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
+import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
 import {
-  CUERPO_PLEGABLE_EN_BLOQUE, DETALLE_PLEGABLE_EN_BLOQUE, completadosSinVer, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, pedidoDelCompletado,
+  CUERPO_PLEGABLE_EN_BLOQUE, DETALLE_PLEGABLE_EN_BLOQUE, completadosSinVer, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, pedidosDelCompletado,
   sinMarkdown, yaEstaDelChat, type LineaChat,
 } from '@/lib/centro-chats';
+import { listasEnRenglones } from '@/lib/respuesta-como-claude';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { TABS_DEL_MENU, type ChatDelYaEsta } from './Avance';
 import { MiFoto } from './MiFoto';
@@ -93,15 +102,15 @@ function Respuesta({ t }: { t: TurnoChat }) {
       {partes ? (<>
         <SeAbreTocando abierto={abierto} abrir={() => setAbierto(true)}
           clase={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}>
-          <Markdown text={partes.detalle} enlaces />
+          <Markdown text={listasEnRenglones(partes.detalle)} enlaces aire />
         </SeAbreTocando>
-        {partes.cola && <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={partes.cola} enlaces /></div>}
-      </>) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}
+        {partes.cola && <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={listasEnRenglones(partes.cola)} enlaces aire /></div>}
+      </>) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={listasEnRenglones(cuerpo)} enlaces aire /></div>}
     </div>
   );
 }
 
-export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPreguntas }: {
+export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPreguntas, onResponderSobre }: {
   chat: ChatDelYaEsta;
   /** La conversación del chat: de ahí salen sus «Ya está» sin el ✓ (`completadosSinVer`). */
   lineas: readonly LineaChat[];
@@ -110,6 +119,8 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
   onYaVisto?: (instante: number) => void;
   /** Hay una pregunta esperando en el bloque de preguntas: la pregunta manda, y esto va en su tira. */
   hayPreguntas: boolean;
+  /** «Responder sobre esto»: cita ESE «Completado» arriba de la caja, como responder un mensaje (no escribe en el campo). */
+  onResponderSobre?: (t: TurnoChat) => void;
 }) {
   const todos = completadosSinVer(lineas, yaVisto);
   const ids = todos.map((x) => ({ id: x.uuid }));
@@ -138,7 +149,7 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
       </button>
     );
   }
-  const pedido = pedidoDelCompletado(lineas, t);
+  const pedidos = pedidosDelCompletado(lineas, t);
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
   return (
     <div className="co-preg co-preg--arriba co-preg--completado" role="group" aria-label={`Completado: ${titulo}`}>
@@ -150,12 +161,21 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
         <Plegar onPlegar={() => { setPlegado(true); setAbiertoConPreguntas(null); }} que={todos.length > 1 ? 'los completados' : 'el completado'} />
       </div>
       <div className="co-preg__ya-cuerpo">
-        {pedido && <Pedido key={`p-${t.uuid}`} texto={pedido.texto} de={pedido.de} />}
+        {pedidos.length > 0 && (
+          <div className="co-preg__ya-pedidos">
+            {pedidos.map((p, k) => <Pedido key={`p-${t.uuid}-${k}`} texto={p.texto} de={p.de} />)}
+          </div>
+        )}
         <p className="co-preg__ya-de">{`Respuesta de ${chat.titulo}`}</p>
         <Respuesta key={t.uuid} t={t} />
       </div>
-      {(destino || (onYaVisto && Number.isFinite(instante))) && (
+      {(destino || onResponderSobre || (onYaVisto && Number.isFinite(instante))) && (
         <div className="co-preg__ya-pie">
+          {onResponderSobre && (
+            <button type="button" className="co-chip co-preg__ya-responder" onClick={() => onResponderSobre(t)}>
+              <IconoMenu nombre="cita" size={15} />Responder sobre esto
+            </button>
+          )}
           {destino && (
             <Link className="co-chip co-preg__ya-revisar" href={destino.href}>
               <Icon name="eye" size={15} />{destino.via === 'tab' ? 'Revisar en su tab' : 'Revisar'}

@@ -11,7 +11,7 @@ import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
 import { leerPreguntas } from '@/lib/centro-preguntas-chat-db';
 import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
-  piezaParaLaApi, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat, type YaVistos,
+  pedidosDelCompletado, piezaParaLaApi, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat, type YaVistos,
 } from '@/lib/centro-chats';
 import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido, type TurnoChat } from '@/lib/operaciones-reglas';
 import { cierreComoClaude, listasEnRenglones } from '@/lib/respuesta-como-claude';
@@ -37,6 +37,8 @@ function resumen(lineas: readonly LineaChat[], t: TurnoChat) {
     titulo: n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado',
     pedido: p?.texto ?? null,
     pidio: p ? p.de ?? 'Martín' : null,
+    // Como el bloque (26/10/2026): TODO lo que le dijo Martín en ese tramo, cada mensaje por su lado, del más viejo al más nuevo.
+    contexto: pedidosDelCompletado(lineas, t).map((x) => ({ de: x.de ?? 'Martín', texto: x.texto })),
     // Como se dibuja (26/10/2026): un «1) … 2) …» corrido, en renglones (lib/respuesta-como-claude.ts).
     respuesta: listasEnRenglones(t.texto),
     revisar: n?.revisar?.pagina ?? null,

@@ -122,7 +122,7 @@ export type VivoDelHilo = {
 
 /** Lo del «Ya está» de un chat (17/10/2026, la C): sus tareas del Plan y responder sobre lo que dijo. */
 export type ExtrasDelHilo = {
-  tareas?: readonly TareaDelChat[]; onFeedback?: (titulo: string) => void;
+  tareas?: readonly TareaDelChat[]; onFeedback?: (t: TurnoChat) => void;
   /** El ✓ de los «Completado» (18/10/2026): hasta qué «Ya está» lo vio Martín, y cómo se marca uno. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
 };

@@ -22,7 +22,7 @@ import type { TurnoChat } from '@/lib/operaciones-reglas';
 import { preguntasDeLaApp, preguntasParaElBloque } from '@/lib/centro-chats';
 import { historialDelChat, tandaHasta, yaEstaSinVer, nombreCuenta, textoDeEnvio, trabajaSinEscribir, type CarteroP, type ChatCentro, type Envio, type LineaChat, type TrabajoP } from '@/lib/centro-chats';
 import { Modal } from '@/app/_ui';
-import { SIN_MARCAS, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
+import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
 import { alternarTranscripcion } from './voces-enviadas';
 import type { NotaGrabada } from '@/app/_chat/nota-que-se-manda';
@@ -138,10 +138,11 @@ export function Conversacion({
   const estado = textoDeEnvio(envio);
   const cuenta = nombreCuenta(chat.cuenta);
   const meta = chat.viejo && chat.vistoAt != null ? `${ESTADO_CHAT[chat.estado]} ${hace(chat.vistoAt, ahora)}` : ESTADO_CHAT[chat.estado];
-  /** Responder sobre un «Ya está»: la caja arranca con «Sobre «…»: » y queda lista para escribir. */
-  const responderSobre = (titulo: string) => {
-    const prefijo = `Sobre «${titulo}»: `;
-    onTexto(texto.startsWith(prefijo) ? texto : prefijo + texto);
+  /** Responder sobre un «Ya está» (26/10/2026, Martín: «que no escriba en el chat, que se mencione arriba en el chat, como
+   *  cuando le doy a responder cualquier mensaje»): la cita «↩» de ese mensaje arriba de la caja, y el campo como estaba. */
+  const responderSobre = (t: TurnoChat) => {
+    if (!wa) return;
+    wa.onCitar({ de: chat.titulo, texto: t.texto, id: idDeLinea({ tipo: 'turno', instante: Date.parse(t.at), turno: t }) });
     enfocarCaja();
   };
   const enfocarCaja = () => window.setTimeout(() => { const el = caja.current; if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); } }, 0);
@@ -152,7 +153,7 @@ export function Conversacion({
   useLayoutEffect(() => { ultimos.current = { onResponder, responderSobre, wa, chat, onYaVisto }; });
   const yaVistoCb = useCallback((instante: number) => ultimos.current.onYaVisto?.(instante), []);
   const responderPregunta = useCallback<NonNullable<typeof onResponder>>((p, e, o) => ultimos.current.onResponder?.(p, e, o) ?? Promise.resolve(null), []);
-  const feedback = useCallback((titulo: string) => ultimos.current.responderSobre(titulo), []);
+  const feedback = useCallback((t: TurnoChat) => ultimos.current.responderSobre(t), []);
   const animo = animoDe(chat, espera);
   const dato = trabajaSinEscribir(chat, lineas) ?? [cuenta, meta].filter(Boolean).join(' · ');
   const quien = useMemo(() => ({ titulo: chat.titulo, aspecto, animo, dato }), [chat.titulo, aspecto, animo, dato]);
@@ -231,7 +232,7 @@ export function Conversacion({
             AskUserQuestion, que se contesta en la app de Claude. Lo contestado se va de acá y queda en la conversación.
             Y sus «Completado» sin ✓, en el mismo marco y de a uno (BloqueCompletado.tsx, 25/10/2026): con una pregunta, en su tira. */}
         <BloqueCompletado key={`ya-${chat.clave}`} chat={chat} lineas={lineas} yaVisto={yaVisto} onYaVisto={onYaVisto ? yaVistoCb : undefined}
-          hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} />
+          hayPreguntas={bloque.length + deLaApp.length + preguntas.length > 0} onResponderSobre={wa ? feedback : undefined} />
         <BloqueDePreguntas key={`b-${chat.clave}`} chat={chat.clave} ticketera={preguntas} responderTicketera={responder}
           delChat={bloque} onResponder={onResponder ? responderPregunta : undefined} deLaApp={deLaApp} />
         {/* Una clave pegada no sale (mandar.ts): se dice apenas aparece, con el botón a /integraciones. */}

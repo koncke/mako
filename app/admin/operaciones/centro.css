@@ -920,7 +920,10 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
 .co-preg--completado .co-preg__pasos + .co-preg__plegar { margin-left: 0; }
 .co-preg__ya-cuerpo { max-height: min(40dvh, 340px); overflow-y: auto; }
 .co-preg__ya-respuesta { display: flex; flex-direction: column; gap: 6px; padding: 0 2px 2px; }
-.co-preg__ya-pie { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
+.co-preg__ya-pie { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
+/* «Responder sobre esto» (26/10/2026): la secundaria de la izquierda; «Revisar» y «Ya lo vi», a la derecha. */
+.co-preg__ya-responder { margin-right: auto; }
+.co-preg__ya-responder svg { flex: none; }
 .co-preg__ya-revisar { text-decoration: none; }
 .co-preg__ya-revisar svg, .co-preg__ya-visto svg { flex: none; }
 /* Se abre TOCÁNDOLO (sin «Ver todo»): el desvanecido dice que sigue; el foco, para el teclado. */
@@ -932,6 +935,9 @@ html[data-eo-nacio] .eo-cria { animation: eo-flota 3.2s ease-in-out infinite; }
    chat con su nombre); achicado a 3 renglones si es largo, y se abre tocándolo. Y la respuesta, con su rótulo y su detalle
    plegado más corto que en el hilo. */
 .co-preg__ya-pedido { display: flex; justify-content: flex-end; margin: 2px 0 10px; }
+/* Varios mensajes de Martín (26/10/2026): uno debajo del otro, cada uno en su globo con su foto, como en el hilo. */
+.co-preg__ya-pedidos { display: flex; flex-direction: column; gap: 6px; margin: 2px 0 10px; }
+.co-preg__ya-pedidos > .co-preg__ya-pedido { margin: 0; }
 .co-preg__ya-pedido .co-yo { max-width: min(85%, 560px); }
 .co-preg__ya-pedido-texto { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .co-preg__ya-pedido-texto--corto { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }

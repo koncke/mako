@@ -1568,16 +1568,13 @@ export const nombreDeOtroChat = (de: string | null): string => de?.trim().replac
  */
 export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): PedidoDelCompletado | null {
   const hasta = Date.parse(ya.at);
-  let desde = -Infinity;
-  for (const l of lineas) {
-    if (l.instante < hasta && l.instante > desde && l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto)) desde = l.instante;
-  }
+  const desde = desdeDelTramo(lineas, hasta);
   let martin: { instante: number; texto: string } | null = null;
   let otro: { instante: number; texto: string; de: string | null } | null = null;
   for (const l of lineas) {
     if (!(l.instante < hasta)) continue;
-    const suyo = l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '';
-    if (suyo.trim() && (!martin || l.instante > martin.instante)) martin = { instante: l.instante, texto: suyo.trim() };
+    const suyo = deMartin(l);
+    if (suyo && (!martin || l.instante > martin.instante)) martin = { instante: l.instante, texto: suyo };
     if (l.tipo === 'turno' && l.turno.rol === 'otro' && l.instante > desde && l.turno.texto.trim() && (!otro || l.instante > otro.instante)) {
       otro = { instante: l.instante, texto: l.turno.texto.trim(), de: l.turno.de };
     }
@@ -1585,6 +1582,37 @@ export function pedidoDelCompletado(lineas: readonly LineaChat[], ya: Pick<Turno
   if (martin && martin.instante > desde) return { texto: martin.texto, de: null };
   if (otro) return { texto: otro.texto, de: nombreDeOtroChat(otro.de) };
   return martin ? { texto: martin.texto, de: null } : null;
+}
+
+/** Dónde empieza el tramo que cierra un «Ya está»: el «Ya está» de antes del chat (-Infinity = no hay). */
+function desdeDelTramo(lineas: readonly LineaChat[], hasta: number): number {
+  let desde = -Infinity;
+  for (const l of lineas) {
+    if (l.instante < hasta && l.instante > desde && l.tipo === 'turno' && l.turno.rol === 'el' && esYaEsta(l.turno.texto)) desde = l.instante;
+  }
+  return desde;
+}
+/** Lo que dijo Martín en una línea: un turno suyo (en la app o por la caja) o un trabajo firmado. Un turno que trajo un trabajo
+ *  no cuenta: ese trabajo ya está, con su texto. '' = no es suyo. */
+const deMartin = (l: LineaChat): string =>
+  (l.tipo === 'turno' && l.turno.rol === 'yo' && !l.turno.trabajo ? l.turno.texto : l.tipo === 'trabajo' ? l.trabajo.texto ?? '' : '').trim();
+
+/** Cuántos mensajes de Martín muestra como mucho un «Completado»: los últimos de su tramo. */
+export const TOPE_PEDIDOS_DEL_COMPLETADO = 4;
+
+/**
+ * TODO lo que le dijo Martín en el tramo que cierra ese «Completado», del más viejo al más nuevo, cada uno por su lado (26/10/2026,
+ * Martín: «si necesitas poner más de 1 mensaje mio, para que se entienda el contexto, hazlo. No todo en el mismo mensaje, sino
+ * varias cajitas de mensaje con mi foto de perfil»). Los últimos `TOPE_PEDIDOS_DEL_COMPLETADO`. Si Martín no le dijo nada en
+ * el tramo, lo de `pedidoDelCompletado` (lo de otro chat, o lo último de Martín de antes): uno solo, o ninguno.
+ */
+export function pedidosDelCompletado(lineas: readonly LineaChat[], ya: Pick<TurnoChat, 'at'>): PedidoDelCompletado[] {
+  const hasta = Date.parse(ya.at);
+  const desde = desdeDelTramo(lineas, hasta);
+  const suyos = lineas.filter((l) => l.instante > desde && l.instante < hasta).sort((a, b) => a.instante - b.instante).map(deMartin).filter(Boolean);
+  if (suyos.length) return suyos.slice(-TOPE_PEDIDOS_DEL_COMPLETADO).map((texto) => ({ texto, de: null }));
+  const uno = pedidoDelCompletado(lineas, ya);
+  return uno ? [uno] : [];
 }
 
 /** Los «Ya está» de la conversación de un chat, como hechos de Review (lo más nuevo arriba lo ordena `porRevisar`). */
