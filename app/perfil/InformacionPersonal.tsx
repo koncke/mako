@@ -30,6 +30,7 @@ import { Toast, useToast } from '../_ui/Toast';
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
 import { opcionesDeZona } from '@/app/configuraciones/HorarioEnvioPanel';
+import { getHorarioEnvioAction, saveZonaHorarioAction } from '@/app/configuraciones/horario-actions';
 import { aplicarModo } from '@/app/_components/InterruptorModo';
 import { ATTR_MODO } from '@/lib/temas-candidatos';
 import { zonaCanonica } from '@/lib/zona-negocio-reglas';
@@ -135,6 +136,8 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
   const [nombreNegocio, setNombreNegocio] = useState(negocio?.nombre ?? '');
   const { toast, show, clear } = useToast();
   const [zonaNav, setZonaNav] = useState<string | null>(null);
+  /** La zona del NEGOCIO (`mako.timezone`), para quien lo administra: null = no se pudo leer o no corresponde. */
+  const [zonaNegocio, setZonaNegocio] = useState<{ zona: string; puedeEditar: boolean } | null>(null);
   const [oscuro, setOscuro] = useState(false);
 
   useEffect(() => {
@@ -173,6 +176,25 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
       router.refresh();
       return true;
     } catch { setError('No se pudo guardar'); return false; }
+  };
+
+  // La zona del negocio se lee sólo para quien ve el nombre del negocio (el admin): a los demás no les corresponde.
+  const conNegocioArriba = muestraNegocio(negocio);
+  useEffect(() => {
+    if (!conNegocioArriba) return;
+    let vivo = true;
+    getHorarioEnvioAction().then((d) => { if (vivo) setZonaNegocio({ zona: d.zona, puedeEditar: d.puedeEditar }); }).catch(() => { /* sin la fila */ });
+    return () => { vivo = false; };
+  }, [conNegocioArriba]);
+  const guardarZonaNegocio = async (tz: string) => {
+    if (!zonaNegocio || tz === zonaNegocio.zona) return;
+    const antes = zonaNegocio;
+    setError(null);
+    setZonaNegocio({ ...antes, zona: tz });
+    const r = await saveZonaHorarioAction(tz).catch(() => ({ ok: false, error: 'No se pudo guardar' } as const));
+    if (!r.ok) { setZonaNegocio(antes); setError(r.error || 'No se pudo guardar'); return; }
+    setZonaNegocio({ ...antes, zona: ('zona' in r && r.zona) || tz });
+    show('Guardado', undefined, 'good');
   };
 
   /** El teléfono se guarda al salir de la fila (el número o el país), si cambió. */
@@ -292,6 +314,15 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
           <Dropdown value={perfil.timezone} options={zonas} width={300} search ariaLabel="Zona horaria" buttonStyle={SELECT_AJUSTES}
             onChange={(v) => { if (v !== perfil.timezone) void persistir({ timezone: v }); }} />
         </FilaCampo>
+        {/* LA ZONA DEL NEGOCIO (26/10/2026, Martín: «La zona horaria, para el resto, ponlo dentro de "Perfil"»): la hora en que
+            MaKo manda, reporta y agenda para todo el negocio. Vivía en Settings › General, que se fue; la de cada automatización
+            se ve en su tuerca. A quien puede cambiar el nombre del negocio, con la MISMA acción que la tuerca. */}
+        {conNegocio && zonaNegocio && (
+          <FilaCampo titulo="Zona del negocio">
+            <Dropdown value={zonaNegocio.zona} options={opcionesDeZona(zonaNegocio.zona, zonaNav)} width={300} search ariaLabel="Zona del negocio"
+              buttonStyle={SELECT_AJUSTES} disabled={!zonaNegocio.puedeEditar} onChange={(v) => void guardarZonaNegocio(v)} />
+          </FilaCampo>
+        )}
         {/* El tema es de ESTE navegador (el botón de la barra): mirando a un cliente no es un dato suyo. */}
         {!vista.deOtro && (
           <FilaCampo titulo="Tema">

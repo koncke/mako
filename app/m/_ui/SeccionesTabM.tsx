@@ -1,7 +1,7 @@
 // =============================================================================
 // SeccionesTabM — la barra de SECCIONES de una tab unificada, en el teléfono (17/10/2026)
 // =============================================================================
-// En escritorio, una tab con `secciones` (nav.ts: Automations › MaKo Messages, Offer › Strategy, Video › Editor · Create
+// En escritorio, una tab con `secciones` (nav.ts: Offer › Strategy, Video › Editor · Create
 // with AI · Reels, Image, Copywriting, AI Avatar…) dibuja arriba de la pantalla la barra de secciones
 // (app/_components/SeccionesTab.tsx), con la regla de la sidebar (`seccionesVisibles`). El teléfono destila eso mismo:
 // las secciones que esta persona ve Y que tienen pantalla en el teléfono (`rutaMovil`), cada una como link, en el orden y

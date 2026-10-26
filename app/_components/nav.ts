@@ -264,9 +264,13 @@ const HERRAMIENTAS = {
   // ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los
   // grupos»). El número de MaKo es una línea más del chip «Canales» de Chats para el super admin (docs/diseno-chats.md
   // §8.5); /agencia sigue respondiendo para sus links (`?canal=1`, la alerta de la voz caída) y marca Chats en la barra.
-  // Los ~48 mensajes que MaKo le puede mandar al dueño: se ven como llegan, se editan y se prenden/apagan. Su casa:
-  // Automations (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). «Plantillas» a secas no se entiende solo.
-  mensajes: { key: 'mensajes', label: 'MaKo Messages', seccion: 'MaKo Messages', href: '/mensajes', icon: 'mako', adminOnly: true, match: starts('/mensajes') },
+  // ⚠️ «MaKo Messages» (/mensajes) YA NO ES UNA SECCIÓN (26/10/2026, Martín: «En Automations de Super Admin tengo "MaKo
+  // Messages" elimina eso»). Era el editor de la BASE de los avisos al dueño, y la base no existe en producción (medido:
+  // ninguna fila `mako.plantillas.base`): desde el 10/10 no le cambiaba nada a nadie. Los avisos siguen saliendo con lo que
+  // tiene cada negocio (lib/avisos.ts lee su store; de una pantalla, sólo lo toca el detalle de la bandeja de correo:
+  // docs/hallazgos-comunicacion.md, «Nueve avisos de Notificaciones no le salen a nadie»), y los
+  // mensajes de la plataforma son automatizaciones (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). /mensajes y
+  // /m/mensajes redirigen a Automations.
   // En qué trabaja cada cliente en SU Claude Code. Es información de CLIENTES: su casa es Clients.
   agente: { key: 'admin-agente', label: 'Client Agents', seccion: 'Agents', href: '/admin/agente', icon: 'mako', adminOnly: true, match: starts('/admin/agente') },
   // La estrategia de MaKo en UNA pantalla (10/10/2026): la oferta, a dónde va cada dólar, el CAC, la adquisición, la
@@ -334,10 +338,10 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
         {
           key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo',
-          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) || starts('/mensajes')(p),
+          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)),
+          // Una sola sección desde el 26/10/2026 (salió «MaKo Messages»): queda por la llave `setting` del setter.
           secciones: [
             { key: 'setting', label: 'Automations', seccion: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
-            HERRAMIENTAS.mensajes,
           ],
         },
         // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre

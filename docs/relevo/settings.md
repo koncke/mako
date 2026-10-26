@@ -51,7 +51,22 @@ Pedido de Martín (25/10 tarde, docs/feedback-25-10-tarde.md), por el Cerebro. L
 - **Sin conectar en gris** (`data-sin-conectar`), y `?abrir=<key>` de una oculta abre su modal suelto.
 - Guards: tests/integraciones-limpieza-25-10.test.ts. Hallazgos: docs/hallazgos-integraciones.md (la primera entrada).
 
+## Sin «General» ni «Método» (tercera tanda, 26/10, sobre tren-k)
+
+Pedido de Martín por el Cerebro: «Elimina la tab General... Elimina Método... fijate el icono de integraciones... Parece un
+link». Lo que quedó:
+- **General salió:** la zona del negocio es una fila de Perfil («Zona del negocio», para quien administra); el horario vive en la
+  tuerca de cada automatización; el criterio de reuniones, sin pantalla ni API, sigue leído con su valor (sólo lo tiene
+  Mauricio). /configuraciones redirige (el `?tab=` de los avisos sigue cayendo en su lugar).
+- **Método salió:** cada credencial ya tenía su tarjeta en Integraciones. /metodo redirige ahí con la query. «Prompts» sigue con
+  la regla de la plataforma (`metodo`).
+- **Integraciones con un enchufe** (`enchufe`, en el set de iconos-menu), en la computadora y en el teléfono.
+- **API:** salen `ver_criterio_reuniones` y `guardar_criterio_reuniones` (y sus rutas REST); el horario del negocio sigue
+  (`ver_`/`configurar_horario_envio`), sin la mención a Settings › General. Docs, snapshot y plugin regenerados.
+- Guard: tests/settings-sin-general-ni-metodo.test.ts (13 roturas cazadas). Hallazgos: docs/hallazgos-ajustes.md (la primera).
+
 ## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
+- El criterio de reuniones de Mauricio sigue prendido: apagarlo es un cambio de dato (no se hizo).
 - Seguridad › cerrar las demás sesiones: pide una migración (la sesión es un JWT sin estado).
 - Prender `GOOGLE_LOGIN_CON_AGENDA`: con la verificación de Google aprobada y la política de privacidad reescrita.
 - La lectura de un @ por Apify de la plataforma (lib/instagram-perfil-server.ts), dormida: la decide el CRM.

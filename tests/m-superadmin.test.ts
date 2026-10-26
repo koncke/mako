@@ -1,5 +1,5 @@
 // =============================================================================
-// Las herramientas del super admin en el teléfono: MaKo Messages, Billing y Client Agents
+// Las herramientas del super admin en el teléfono: Billing y Client Agents (MaKo Messages salió el 26/10/2026)
 // =============================================================================
 // 17/10/2026, «Mobile 2» (Martín: «Implementa completamente MaKo Mobile en todas las tabs»). Las tres son de la
 // plataforma (nav.ts → HERRAMIENTAS). Lo que fija este archivo es lo invisible:
@@ -21,6 +21,8 @@
 //
 // 25/10/2026: AI Models y MaKo Context se fueron, en la computadora y en el teléfono (Martín, puntos 13 y 14). Lo que sabe
 // MaKo está en Classroom › Methodology y los prompts en Settings › Prompts; las rutas viejas redirigen (next.config.ts).
+// 26/10/2026: salió MaKo Messages (Martín: «elimina eso»); lo fija tests/mensajes-mako-retirado.test.ts. Con ella se fueron
+// sus casos de acá (la fila, la puerta, la lectura del server y la barra de secciones de Automations).
 // =============================================================================
 
 import test from 'node:test';
@@ -28,7 +30,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { SECCIONES_MAS, masCompleto, rutaEscritorio, rutaInterna, rutaMovil } from '../lib/movil-rutas';
-import { seccionesDeTabM } from '../app/m/_ui/SeccionesTabM';
 import { cabeceraPorRuta } from '../app/m/_ui/cabecera';
 
 const RAIZ = join(__dirname, '..');
@@ -36,7 +37,6 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 
 const TRES = [
-  { escritorio: '/mensajes', movil: '/m/mensajes', pagina: 'app/mensajes/page.tsx', titulo: 'MaKo Messages' },
   // Billing y Client Agents (17/10/2026, la tanda que siguió), del menú de la foto del super admin.
   { escritorio: '/admin/cobros', movil: '/m/cobros', pagina: 'app/admin/cobros/page.tsx', titulo: 'Billing' },
   { escritorio: '/admin/agente', movil: '/m/agente', pagina: 'app/admin/agente/page.tsx', titulo: 'Client Agents' },
@@ -60,36 +60,6 @@ test('la MISMA puerta que escritorio: getSesionAdmin antes de leer nada', () => 
     const puerta = movil.indexOf('if (!(await getSesionAdmin())) redirect(');
     assert.ok(puerta > 0, `${t.movil}: sin la puerta del super admin`);
     assert.ok(puerta < movil.indexOf('requireMovil('), `${t.movil}: la puerta va antes que todo`);
-  }
-});
-
-test('las MISMAS rutas de datos que la computadora', () => {
-  const mensajes = leer('app/m/mensajes/MensajesM.tsx');
-  assert.match(mensajes, /const RUTA = '\/api\/admin\/plantillas'/);
-  assert.match(mensajes, /action: 'enabled', id: p\.id, enabled/);
-  // Abren con lo que leyó el SERVER, con la MISMA función que su ruta, y se montan con `key` nuevo en cada pasada del
-  // server (refrescar trae lo nuevo). Si el server no leyó, la pantalla la pide como la computadora.
-  const lecturas: [string, string, RegExp][] = [
-    ['mensajes', 'app/api/admin/plantillas/route.ts', /enElStoreDeLaPestana/],
-  ];
-  for (const [carpeta, ruta, lectura] of lecturas) {
-    const pagina = leer(`app/m/${carpeta}/page.tsx`);
-    assert.match(pagina, lectura, `${carpeta}: otra lectura que su ruta`);
-    assert.match(leer(ruta), lectura, `${ruta}: la ruta dejó de usar la lectura compartida`);
-    assert.match(pagina, /key=\{Date\.now\(\)\} iniciales=\{iniciales\}/, `${carpeta}: refrescar no trae lo nuevo`);
-  }
-  for (const f of ['app/m/mensajes/MensajesM.tsx']) {
-    assert.match(leer(f), /useEffect\(\(\) => \{ if \(iniciales == null\) void cargar\(\); \}, \[cargar, iniciales\]\);/, `${f}: sin lo del server, no lo pide`);
-  }
-});
-
-test('MaKo Messages se alcanza por la barra de secciones de Automations, y sólo la ve el super admin', () => {
-  const ids = (adminShell: boolean, rolWs: string) => seccionesDeTabM('automatizaciones', { adminShell, rolWs, capa: 'completo' }).map((s) => s.id);
-  assert.deepEqual(ids(true, 'admin'), ['setting', 'mensajes']);
-  assert.deepEqual(ids(false, 'admin'), ['setting'], 'el admin de un cliente no ve los mensajes de la plataforma');
-  assert.deepEqual(ids(false, 'setter'), ['setting']);
-  for (const f of ['app/m/automations/page.tsx', 'app/m/mensajes/page.tsx']) {
-    assert.match(leer(f), /<SeccionesTabM tab="automatizaciones" activa="(setting|mensajes)"/, `${f}: sin la barra de secciones`);
   }
 });
 

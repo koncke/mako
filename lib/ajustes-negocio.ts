@@ -15,12 +15,8 @@ export async function disponiblesNegocio(): Promise<DisponiblesNegocio> {
   const [sesion, capa, ws, plataforma] = await Promise.all([getUsuarioActual(), getCapaActual(), getWorkspaceActual(), wsSuperAdmin()]);
   const superAdmin = sesion?.rol === 'admin';
   return {
-    // Horario y Criterio de reuniones: la pantalla de antes los mostraba sólo si `/api/auth/me` decía
-    // `rol === 'admin'` (el de la plataforma), aunque sus acciones aceptan al admin del negocio. Se
-    // conserva lo que se VE hasta que Martín decida (15/10/2026): mostrarlos a un cliente es un cambio.
-    general: superAdmin,
     integraciones: tabEnCapa('integraciones', capa),
-    // /metodo se cuida con `getSesionAdmin()`, que es esta misma pregunta.
+    // Lo de la plataforma («Prompts»): sólo la agencia, la pregunta de `getSesionAdmin()`.
     metodo: superAdmin,
     // La plataforma no tiene un plan de MaKo: «Tu plan» es de cada negocio.
     plan: ws != null && ws !== plataforma,

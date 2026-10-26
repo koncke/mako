@@ -104,8 +104,7 @@ test('CRM · Chats · Ops Center · Plan · More; More por las familias de la si
     ['curso', 'cs-curso', null, true], ['comunidad', 'cs-comunidad', null, true],
     // 17/10/2026, «Mobile 2»: las pantallas del menú de la foto, ocultas (More arma su fila desde USER_NAV).
     ['tickets', 'tickets', null, true], ['configuraciones', 'configuraciones', null, true],
-    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio).
-    ['mensajes', 'mensajes', null, true],
+    // Las del super admin (su página pregunta `getSesionAdmin`, como la de escritorio). MaKo Messages salió el 26/10/2026.
     ['api-mako', 'api-mako', null, true], ['conocimientos', 'conocimientos', null, true],
     ['cobros', 'admin-cobros', null, true], ['agente', 'admin-agente', null, true],
     // 17/10/2026, las tabs de CREACIÓN: Image es fila (debajo de Video, como en la sidebar); las demás, ocultas

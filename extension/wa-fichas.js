@@ -58,19 +58,20 @@ async function fichasPedidas(pedidos, nombresGrupos) {
   const db = await abrirModelStorage();
   if (!db) return { ok: false, motivo: 'sin_base', diagnostico: { base: false } };
   try {
-    const [contactos, grupos, participantes] = await Promise.all([
-      leerStore(db, 'contact'), leerStore(db, 'group-metadata'), leerStore(db, 'participant'),
+    // `verified-business-name`: el nombre de las cuentas de empresa (26/10/2026, 0.71.1; ver wa-fichas-reglas.js).
+    const [contactos, grupos, participantes, verificados] = await Promise.all([
+      leerStore(db, 'contact'), leerStore(db, 'group-metadata'), leerStore(db, 'participant'), leerStore(db, 'verified-business-name'),
     ]);
-    const indice = MakoWaFichas.indexar(contactos, grupos, participantes);
+    const indice = MakoWaFichas.indexar(contactos, grupos, participantes, verificados);
     const conLid = Array.isArray(pedidos) && pedidos.some((p) => p && typeof p === 'object' && p.lid);
-    const porLid = conLid ? MakoWaFichas.indexarLids(contactos, grupos, participantes) : null;
+    const porLid = conLid ? MakoWaFichas.indexarLids(contactos, grupos, participantes, verificados) : null;
     const fichas = MakoWaFichas.fichasDe(indice, pedidos, porLid);
     // El diagnóstico: QUÉ hay (nombres de stores y cantidades), nunca datos de nadie.
     const diagnostico = {
       base: true, stores: Array.from(db.objectStoreNames), contactos: contactos.length, grupos: grupos.length,
       participantes: participantes.length, pedidos: Array.isArray(pedidos) ? pedidos.length : 0, conFicha: fichas.length,
     };
-    const enGrupos = Array.isArray(nombresGrupos) && nombresGrupos.length ? MakoWaFichas.buscarGrupos(grupos, participantes, nombresGrupos) : [];
+    const enGrupos = Array.isArray(nombresGrupos) && nombresGrupos.length ? MakoWaFichas.buscarGrupos(grupos, participantes, nombresGrupos, contactos, verificados) : [];
     return { ok: true, fichas, grupos: enGrupos, diagnostico };
   } finally {
     try { db.close(); } catch { /* nada */ }

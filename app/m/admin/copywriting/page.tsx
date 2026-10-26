@@ -9,7 +9,7 @@
 // por texto con su fuente debajo y tres líneas del cuerpo; guardar uno nuevo es una hoja que sube).
 //
 // Quién: la puerta de escritorio, `getSesionAdmin()` (el rol GLOBAL admin, como app/admin/copywriting/page.tsx y la
-// ruta), ANTES de leer nada, como las demás herramientas del super admin en el teléfono (/m/mensajes). No es
+// ruta), ANTES de leer nada, como las demás herramientas del super admin en el teléfono (/m/cobros). No es
 // `requireMovil({ navKey })`: la key 'admin-copywriting' es de ADMIN_NAV, no de TODOS_LOS_ITEMS, y `puedeVerKey` diría
 // que no a todos. Su fila de SECCIONES_MAS es oculta y `superAdmin` (lib/movil-creacion.ts): le da la cabecera (vuelve a
 // More) y el título; se llega por la barra de secciones de Copywriting, que sólo el super admin ve con «Method».

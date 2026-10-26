@@ -357,7 +357,8 @@ export const DEFS: readonly OperacionDef[] = [
   // ── Settings por la API (25/10/2026) ──────────────────────────────────────────
   // Martín, 25/10: «Todo, todo siempre tiene que ir a la API, todo MaKo se debe poder utilizar por API». Lo que Settings deja ver
   // o cambiar y no tenía operación: el perfil propio (escribir), el nombre del negocio, los avisos al celular con «No molestar»,
-  // el pop-up y el sonido (escribir), el horario de envío, el criterio de reuniones y el estado de la seguridad (leer). Lo de la
+  // el pop-up y el sonido (escribir), el horario de envío y el estado de la seguridad (leer). (El criterio de reuniones salió con
+  // «General» el 26/10/2026: sin pantalla y sin API; quien lo tenía lo sigue usando con su valor.) Lo de la
   // PERSONA es SOLO_APP, como ver_perfil y ver_notificaciones_inapp: sin una sesión no hay de quién es. Lo que NO va, y por qué,
   // en docs/settings/referencia.md («La API»).
   {
@@ -377,14 +378,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_horario_envio', area: 'equipo', tipo: 'lectura',
     titulo: 'Horario de oficina del negocio',
-    descripcion: 'El horario en que las automatizaciones le escriben a los contactos del negocio (Settings › General): si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.',
-    parametros: [],
-    salida: 'json', canales: TODOS, costo: 'gratis', gating: ADMIN,
-  },
-  {
-    id: 'ver_criterio_reuniones', area: 'equipo', tipo: 'lectura',
-    titulo: 'Criterio de compromisos de las reuniones',
-    descripcion: 'El texto con el que MaKo decide qué de cada reunión es un compromiso (va al Plan) y qué es ruido (Settings › General). Vacío = carga todo lo que parezca una tarea. Úsala antes de cambiarlo o para explicar por qué una tarea de una reunión entró o no.',
+    descripcion: 'El horario de oficina DEL NEGOCIO: el que usan las automatizaciones que no tienen uno propio (cada una lo cambia en su tuerca de Automations). si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: ADMIN,
   },
@@ -459,16 +453,6 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'desde', tipo: 'number', minimo: 0, maximo: 23.5, descripcion: 'hora en que abre, en medias horas (9 = 09:00).' },
       { nombre: 'hasta', tipo: 'number', minimo: 0.5, maximo: 24, descripcion: 'hora en que cierra, en medias horas (21 = 21:00).' },
       { nombre: 'dias', tipo: 'string[]', enum: ['lunes', 'martes', 'miercoles', 'jueves', 'viernes', 'sabado', 'domingo'], descripcion: 'los días en que escribe. Reemplaza los de antes.' },
-    ],
-    canales: TODOS, costo: 'gratis', gating: ADMIN,
-  },
-  {
-    id: 'guardar_criterio_reuniones', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: false,
-    titulo: 'Cambiar el criterio de las reuniones',
-    descripcion: 'PROPONE reemplazar ENTERO el criterio con el que MaKo decide qué de cada reunión es un compromiso (queda pendiente hasta el «sí»). Lee antes ver_criterio_reuniones y manda el texto completo nuevo: lo de antes no se guarda en ningún lado. Vacío (o «-») = carga todo lo que parezca una tarea.',
-    escribe: 'el criterio de compromisos del negocio (lib/plan-criterio.ts)',
-    parametros: [
-      { nombre: 'texto', tipo: 'string', max: 24000, obligatorio: true, descripcion: 'el criterio completo nuevo. «-» lo vacía.' },
     ],
     canales: TODOS, costo: 'gratis', gating: ADMIN,
   },

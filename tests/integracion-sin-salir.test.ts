@@ -92,6 +92,8 @@ const QUEDAN: Record<string, { porque: string; pendiente?: true }> = {
   'app/landing-analyst/LandingAnalystApp.tsx': { porque: 'ver el código del Pixel (la landing)' },
   'app/landing-analyst/PulsoPaginas.tsx': { porque: 'copiar la línea del Pixel (la landing)' },
   'app/marketing/salud/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones' },
+  'app/metodo/page.tsx': { porque: 'un alias de ruta que redirige a /integraciones: la sección «Método» se fue el 26/10/2026' },
+  'app/onboarding/OnboardingForm.tsx': { porque: 'el último paso del onboarding lleva a la grilla ENTERA (conectar varias, no una); hasta el 26/10/2026 iba a /metodo' },
   'app/general/bloques/Norte.tsx': { porque: 'el «Conectar» del semáforo SIN FUENTES no nombra una integración: va a la grilla (abd91fdb, docs/hallazgos-objectives.md)' },
   'app/m/configuraciones/integraciones/page.tsx': { porque: 'el teléfono (Mobile 2, 17/10): todavía no tiene el modal de conectar, así que «Conectar» abre ESA integración en la computadora (?abrir=)' },
 };

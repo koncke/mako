@@ -31,8 +31,8 @@ const COMPU = 'Editar el lienzo y crear automatizaciones';
 export default async function AutomationsPagina() {
   const ctx = await requireMovil({ navKey: 'setting' });
   const lectura = await leerAutomations({ conNumeros: puedeVerKey('chat-analyst', ctx.rol, ctx.capa) });
-  // La barra de secciones de escritorio (17/10/2026): al super admin, Automations · MaKo Messages (los mensajes de MaKo
-  // SON automatizaciones, AGENTS.md). A los demás no les dibuja nada: ven una sola sección.
+  // La barra de secciones de escritorio (17/10/2026). Desde el 26/10/2026 Automations tiene UNA sección (salió «MaKo
+  // Messages», app/_components/nav.ts), así que no dibuja nada; queda por si vuelve a tener más de una.
   const secciones = (
     <SeccionesTabM tab="automatizaciones" activa="setting"
       vista={{ adminShell: ctx.sesion.rol === 'admin' && !ctx.impersonando, rolWs: ctx.rol ?? '', capa: ctx.capa ?? '' }} />

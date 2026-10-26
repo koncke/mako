@@ -116,6 +116,10 @@ const nextConfig: NextConfig = {
       { source: '/modelos-ia', destination: '/admin/operaciones', permanent: false },
       { source: '/admin/dev', destination: '/admin/operaciones', permanent: false },
       { source: '/admin/dev/:path*', destination: '/admin/operaciones', permanent: false },
+      // «MaKo Messages» salió de Automations el 26/10/2026 (Martín: «elimina eso»; app/_components/nav.ts dice por qué). Sus
+      // links caen en Automations, en la computadora y en el teléfono.
+      { source: '/mensajes', destination: '/automations', permanent: false },
+      { source: '/m/mensajes', destination: '/m/automations', permanent: false },
       // hola-mako.com/extension → la ficha en la Chrome Web Store.
       //
       // El link de Google no se puede acortar: el id (`gapbem…`) es un hash de la

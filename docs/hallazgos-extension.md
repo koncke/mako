@@ -114,10 +114,53 @@ tests/wa-fichas-071.test.ts (8 de 8 roturas cazadas).
   `diagnostico` (tablas y cantidades). Los campos de cada tabla se leyeron con `getAll` en modo lectura e imprimiendo sólo
   las claves; la herramienta del navegador bloquea en la salida los nombres de campo largos que parecen base64.
 
+## Los 221 del grupo de Martín: el nombre de una cuenta de EMPRESA vive en `verified-business-name` (26/10/2026, 0.71.1)
+
+**Vive en:** `verificadosPorLid` y los `verificados` de `indexar`/`indexarLids`/`buscarGrupos` (extension/wa-fichas-reglas.js)
+· la lectura de la tabla en extension/wa-fichas.js · `conNombre` y `gruposEnWhatsappDichos` (app/crm/enriquecer-cliente.ts)
+· tests/wa-fichas-071.test.ts (1, 2 y 5b).
+
+- **Síntoma:** Martín corrió la 0.71.0 sobre los 221 de «16, 17 y 18 de JUNIO | RETO del Anuncio Ganador»: «De 221, tu
+  WhatsApp tiene el nombre de 0… 0 nombres completados», con el grupo encontrado (247). Y él: «literalmente hay muchos que
+  tienen toda la info».
+- **Dónde vive el nombre de una cuenta de empresa:** en la tabla `verified-business-name` de `model-storage`, por `@lid`
+  (`{ id: '…@lid', name, isSmb, level }`, 6.312 filas en su WhatsApp Web). NO en `contact`: ahí esos contactos no tienen
+  `name`, `pushname`, `verifiedName` ni `displayNameLID`. Es lo que WhatsApp Web muestra de una empresa que nunca le escribió.
+  En ese grupo tiene a 83 de los 247 (81 con teléfono). La 0.71.0 no leía esa tabla.
+- **El diagnóstico obvio fue el equivocado DOS veces:**
+  1. «No se arma el puente `@lid` ↔ teléfono» (el +, el 9, el 521): no. Medido con los teléfonos de los 221, el cruce da
+     221 de 221 por teléfono;
+  2. «El dato no existe en su WhatsApp» (lo que decía esta entrada antes): tampoco. Se había medido sólo en `contact`, en
+     `message` (ningún `notifyName`) y en las tablas de `@lid`; el nombre estaba en una tabla aparte, que se vio recién al
+     contar en la memoria de la página (`verifiedName` en 83 de los modelos de contacto) y buscar de dónde lo cargaba.
+  **Regla:** antes de decir «el dato no está», contar en la memoria de la página (`window.require('WAWebContactCollection')`,
+  sólo leer) y buscar la tabla que lo alimenta; la extensión lee la tabla, nunca la memoria (sigue en el mundo aislado).
+- **Ensayo con el código real sobre sus datos** (sólo lectura, sólo cantidades): la lógica de la 0.71.0 da 0, igual que su
+  aviso y con los mismos 17 «en 2 o más grupos»; la de la 0.71.1 da **77 de 221**, todos con su nombre de empresa.
+- **Los otros 144 siguen sin nombre, y eso sí es el dato:** el grupo es de anuncios (17 mensajes guardados, todos del
+  sistema) y WhatsApp sólo conoce el nombre de quien le escribió o de una empresa. Para tenerlo habría que abrir la info del
+  grupo, que es abrir el chat (da el «visto»): no se hace. Llegan cuando escriben.
+- **Regla del final:** dice de cuántos sabe el nombre WhatsApp, contando la tabla de empresas («de sus 247, WhatsApp sabe el
+  nombre de 83»). Sin ese número, un resultado bajo se lee como que la extensión está rota.
+
+## Una descomprimida no se actualiza sola: la 0.71.1 sí (26/10/2026)
+
+- La 0.71.0 quedó copiada en la carpeta de Martín y su Chrome siguió con la 0.70.0 toda la noche: hace falta tocar «Recargar»
+  en chrome://extensions, que no se puede manejar desde Claude in Chrome, y la 0.70.0 no tiene ningún camino vivo a
+  `chrome.runtime.reload()` (la única llamada está en `quizasReiniciarNoUsar`, sin llamadores desde el 01/09).
+- Desde la 0.71.1, `alDiaConSuCarpeta` (extension/background.js) mira el manifest de SU carpeta (un `fetch` de un recurso
+  propio lee el disco en una descomprimida) y, si trae una versión más nueva que la que corre, se recarga UNA vez por versión;
+  nunca de la tienda ni con un trabajo de Flow o una lectura de fichas en curso. Al arrancar, después de cada latido y cuando
+  la pantalla ve una extensión vieja (`MAKO_EXTENSION_REVISAR`). No es el reinicio que se sacó el 01/09: aquel comparaba
+  contra producción y se reiniciaba aunque la carpeta no hubiera cambiado.
+- ⚠️ Sin verificar en vivo que el `fetch` lea el disco y no una copia en memoria (no se pudo: su Chrome sigue en la 0.70.0).
+  Lo dice la primera vez que la carpeta traiga una versión nueva con la 0.71.1 corriendo.
+
 ## Sin hacer
 
-- **La cobertura real sobre los 221 con la 0.71** (cuántos con nombre por `displayNameLID` y por `@lid`): sale de la primera
-  corrida de Martín con la 0.71 desplegada (la pantalla la dice al terminar).
+- **La corrida completa en el Chrome de Martín con la 0.71.1** (con capturas): lista en las notas del Cerebro
+  (capturas-completar-wa/CORRIDA-COMPLETA.md). Por el ensayo, en el grupo de los 221 completa 77; falta que Martín toque
+  «Recargar» una vez (corre la 0.71.0, que no se recarga sola).
 - **El panel del contacto** (categoría, web, correo, estado, catálogo): `business-profile` no los trae (sólo bots). Medir
   antes de construir.
 - **El rubro filtrable en el CRM**: hoy no llega por ningún camino gratis (las tablas no traen la categoría).

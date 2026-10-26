@@ -340,15 +340,8 @@ test('5. Configuraciones › Notificaciones ya no monta la lista de mensajes (ni
   assert.doesNotMatch(fuente('app/configuraciones/page.tsx'), /mensajesEnChatbot/);
 });
 
-// Mudado de tests/chatbot-mensajes-mako.test.ts (borrado el 11/10/2026): /mensajes sigue editando en el lugar.
-test('5. sin `enlaceEditar` (el catálogo de la agencia en /mensajes) se sigue editando en el lugar', () => {
-  const pv = fuente('app/agencia/PlantillasView.tsx');
-  // La rama de siempre sigue: el «Editar» abre el detalle acá mismo.
-  assert.match(pv, /onClick=\{\(\) => setVista\('editar'\)\} title="Editar plantilla"/);
-  // /mensajes no lo pasa: es el catálogo entero de la agencia.
-  assert.doesNotMatch(fuente('app/mensajes/MensajesMaKo.tsx'), /enlaceEditar/);
-  assert.match(fuente('app/mensajes/MensajesMaKo.tsx'), /<PlantillasView iniciales=\{iniciales\} \/>/);
-});
+// El caso 5 (/mensajes, el catálogo de la agencia, se editaba en el lugar) se fue con la pantalla el 26/10/2026: «MaKo
+// Messages» salió de Automations (tests/mensajes-mako-retirado.test.ts).
 
 // ── 6. El CRON del emisor, dibujado ──────────────────────────────────────────────
 

@@ -43,7 +43,7 @@
 - **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
-- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `ver_criterio_reuniones` · `renombrar_negocio` · `configurar_horario_envio` · `guardar_criterio_reuniones`
+- **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `configurar_horario_envio`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
 - **Comunidad** (`comunidad`): `listar_comunidades` · `ver_comunidad` · `estado_onboarding_comunidad` · `listar_posts_comunidad` · `ver_post_comunidad` · `buscar_en_comunidad` · `publicar_post_comunidad` · `editar_post_comunidad` · `borrar_post_comunidad` · `fijar_post_comunidad` · `cerrar_comentarios_post_comunidad` · `seguir_post_comunidad` · `votar_encuesta_comunidad` · `cambiar_like_post_comunidad` · `comentar_post_comunidad` · `editar_comentario_comunidad` · `borrar_comentario_comunidad` · `cambiar_like_comentario_comunidad` · `ver_comentarios_clase_comunidad` · `comentar_clase_comunidad` · `crear_categoria_comunidad` · `editar_categoria_comunidad` · `borrar_categoria_comunidad` · `ordenar_categorias_comunidad` · `nombrar_niveles_comunidad` · `editar_about_comunidad` · `ajustar_comunidad` · `ver_ranking_comunidad` · `listar_miembros_comunidad` · `ver_miembro_comunidad` · `listar_sacados_comunidad` · `sacar_alumno_comunidad` · `admitir_alumno_comunidad` · `ver_calendario_comunidad` · `exportar_evento_ics_comunidad` · `crear_evento_comunidad` · `editar_evento_comunidad` · `borrar_evento_comunidad` · `ver_avisos_comunidad` · `marcar_avisos_leidos_comunidad` · `editar_perfil_comunidad`
 - **Calendario** (`calendario`): `listar_eventos_calendario` · `crear_evento_calendario` · `link_agenda_llamada` · `anticipacion_agenda` · `ver_proximas_recurrentes`
@@ -15962,7 +15962,7 @@ curl -L \
 
 ## Cuenta, equipo y notificaciones — `equipo`
 
-Tab **Configuraciones** (`/configuraciones`). 8 lecturas · 8 acciones.
+Tab **Settings** (`/perfil`). 7 lecturas · 7 acciones.
 
 ### `GET /api/v1/equipo/negocio` — Datos del negocio
 
@@ -16238,7 +16238,7 @@ curl -L \
 
 ### `GET /api/v1/equipo/negocio/horario-envio` — Horario de oficina del negocio
 
-El horario en que las automatizaciones le escriben a los contactos del negocio (Settings › General): si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.
+El horario de oficina DEL NEGOCIO: el que usan las automatizaciones que no tienen uno propio (cada una lo cambia en su tuerca de Automations). si está prendido, de qué hora a qué hora, qué días, y la zona horaria del negocio. Apagado = escriben a cualquier hora. Úsala antes de cambiarlo o para explicar por qué un mensaje salió (o no) a cierta hora.
 
 - **Ruta por operación:** `GET /api/v1/equipo/ver_horario_envio`
 - **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
@@ -16255,27 +16255,6 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/equipo/negocio/horario-envio"
-```
-
-### `GET /api/v1/equipo/negocio/criterio-reuniones` — Criterio de compromisos de las reuniones
-
-El texto con el que MaKo decide qué de cada reunión es un compromiso (va al Plan) y qué es ruido (Settings › General). Vacío = carga todo lo que parezca una tarea. Úsala antes de cambiarlo o para explicar por qué una tarea de una reunión entró o no.
-
-- **Ruta por operación:** `GET /api/v1/equipo/ver_criterio_reuniones`
-- **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
-- **Token clásico:** alcance mínimo lectura
-- **Devuelve:** json
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-
-_Sin parámetros._
-
-```bash
-curl -L \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  "https://hola-mako.com/api/v1/equipo/negocio/criterio-reuniones"
 ```
 
 ### `PATCH /api/v1/equipo/negocio` — Cambiar el nombre del negocio
@@ -16335,35 +16314,6 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/equipo/negocio/horario-envio"
-```
-
-### `PUT /api/v1/equipo/negocio/criterio-reuniones` — Cambiar el criterio de las reuniones
-
-PROPONE reemplazar ENTERO el criterio con el que MaKo decide qué de cada reunión es un compromiso (queda pendiente hasta el «sí»). Lee antes ver_criterio_reuniones y manda el texto completo nuevo: lo de antes no se guarda en ningún lado. Vacío (o «-») = carga todo lo que parezca una tarea.
-
-- **Ruta por operación:** `POST /api/v1/equipo/guardar_criterio_reuniones`
-- **Token detallado:** permiso `equipo=write` (Lectura y escritura en «Cuenta, equipo y notificaciones»)
-- **Token clásico:** alcance mínimo proponer
-- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
-- **Con el token clásico:** queda **pendiente** (202, vence a las 2 h). La confirma una persona en la bandeja de MaKo o por WhatsApp; un token clásico con alcance `ejecutar` puede confirmarla con `POST /api/v1/mako/confirmar_accion`.
-- **Escribe:** el criterio de compromisos del negocio (lib/plan-criterio.ts)
-- **Reversible:** no
-- **Costo:** gratis
-- **Solo el administrador del workspace.**
-
-| Parámetro | Tipo | Obligatorio | Descripción |
-| --- | --- | --- | --- |
-| `texto` | string | sí | el criterio completo nuevo. «-» lo vacía. |
-
-```bash
-curl -L \
-  -X PUT \
-  -H "Accept: application/json" \
-  -H "Authorization: Bearer <TU-TOKEN>" \
-  -H "X-MaKo-Api-Version: 2026-10-08" \
-  -H "Content-Type: application/json" \
-  "https://hola-mako.com/api/v1/equipo/negocio/criterio-reuniones" \
-  -d '{"texto":"TEXTO"}'
 ```
 
 ## Curso (módulos y clases) — `curso`

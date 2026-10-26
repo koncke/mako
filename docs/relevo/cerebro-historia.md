@@ -2,6 +2,48 @@
 
 ---
 
+## Estado del relevo del 25/10 ~09:50 (claude5) — reemplazado el 26/10 a las 02:15
+
+### Estado al escribir (25/10 ~09:50)
+
+- **`main` = `75b367235`, subido con tipos en verde.** Producción servía `44def1637` (desplegado a las 09:19); el despliegue de
+  `75b367235` (la tanda 2 del Media Buyer) quedó en marcha. La noche del 24 al 25 subieron cuatro trenes: lo de la llamada con
+  Leandro (CRM, Clients, Automations, Calendario), los botones de Instagram, el Media Buyer (`/ads-manager`, copiado de Madgicx,
+  apagado), la landing nueva SIN publicar, el recolector del Second Brain, Ops Center (los que esperan arriba, sin «1 de 3»,
+  `unirPreguntas`) y Planes (Acelerador con promesa y garantía, Partners meses + US$300, anual, garantía 14/30, pesos).
+- **Chats de la cuenta 5, todos sin nada en cola salvo Ops Center:** Ops Center hace el «Completado» como bloque arriba de la
+  caja (pedido de Martín del 25/10 09:32). Media Buyer espera a Martín (abajo). Landings tiene la tanda 2 de landings por
+  funcionalidad y avatar (§6b de docs/como-venden-otros.md) sin empezar.
+- **Instalado por el Cerebro:** el hook `sin-ask.mjs` (un AskUserQuestion se vuelve `cartero preguntar`; lo toman los chats que
+  se abren desde ahora), el cartero 1.18.1, y la guardia de RAM más estricta (`memoria.mjs`, respaldo `.antes-25-10`).
+- **Decisiones de venta del 25/10:** memoria `decisiones-venta-25-10`. Media Buyer reemplaza al Ads Manager: memoria
+  `media-buyer-ia-reemplaza-ads-manager`.
+- **Los informes:** docs/ram-de-la-pc.md (lo que más rinde: 32 GB) y docs/como-venden-otros.md (80 productos con landing).
+- **Sin repartir:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 (el cartero como servicio), el cobro
+  (Paddle/Creem + Mercado Pago, cuando Martín aplique), la extensión que no inyecta mako-puente.js en una pestaña ya abierta
+  (lo vio CRM), y si el portal del ALUMNO también saca el desplegable de «Tus programas» (pregunta para Martín).
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. ~~Las migraciones 0332 y 0333~~ **APLICADAS el 25/10 ~13:10** por el Cerebro, con el sí de Martín en este chat
+   («Sí, aplicá en producción las migraciones 0332 (Media Buyer) y 0333»). Verificado por PostgREST: las 3 tablas existen.
+   **0335 (pruebas A/B) y 0336 (alojadores de video): APLICADAS el 25/10 19:27**, con el sí de Martín. Verificado: las 5
+   tablas `prueba*` con RLS sin políticas y anon bloqueado (42501), y el CHECK de `marketing_metrics_daily.plataforma` con
+   wistia, bunny, vimeo y cloudflare. El SQL vino de aut-2510 @ cdfb8e14b (todavía como XXXX) y de landings-2510-b @ 2f393680d.
+2. ~~Conectar la cuenta publicitaria de MaKo a Zernio~~ **HECHO el 25/10 12:46.** El primer link no creó nada: con varias
+   páginas marcadas y sin `pageId`, Zernio no conecta. El segundo, con la página «Hola MaKo», sí (accountId de Zernio
+   6ade25185b6c93612b7cc6a1). La vuelta cayó en /login y `next` perdió `abrir=meta`: se lo pasé a Zernio y a los links de
+   cada modal.
+3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
+4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+5. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+6. **La RAM a 32 GB** (2 SODIMM DDR4-3200 de 16 GB, ~USD 290), sacar del inicio Copilot/NVIDIA/MEGA y reiniciar.
+
+---
+
 ## Relevo del 24/10/2026 noche (claude1 para claude5) — cumplido y reemplazado el 24/10 a las 21:30 por el de claude5
 
 # ⏩⏩ SI SOS LA CUENTA 5 («Ananda»), EMPEZÁ ACÁ

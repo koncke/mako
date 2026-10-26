@@ -14,8 +14,8 @@
 // 15.244 participantes son `@lid` (ninguno `@c.us`); el 63 % de esos contactos trae `phoneNumber` y el resto NO. Y el nombre
 // casi nunca está en `name`/`pushname` (786) sino en `displayNameLID` (6.252). Por eso: `displayNameLID` es un nombre más, y
 // un pedido puede traer el `@lid` del lead (lo sabe Evolution, app/crm/enriquecer-lote-server.ts) para encontrar a los que
-// WhatsApp Web no tiene con su teléfono. `lid-pn-mapping` y `lid-display-name-mapping` existen pero estaban VACÍAS. Leer esa base no toca la interfaz ni la red: no marca nada como leído, no abre chats, no le avisa a
-// nadie. Y de la agenda de Martín sólo sale lo de los teléfonos que MaKo pide (leads que ya están en su CRM).
+// WhatsApp Web no tiene con su teléfono. `lid-pn-mapping` y `lid-display-name-mapping` existen pero estaban VACÍAS.
+// Leer esa base no toca la interfaz ni la red: no marca nada como leído, no abre chats, no le avisa a nadie. Y de la agenda de Martín sólo sale lo de los teléfonos que MaKo pide (leads que ya están en su CRM).
 //
 // Script clásico (los content scripts de MV3 no son módulos): deja `MakoWaFichas` en el global y, en node, lo exporta para
 // los tests (tests/wa-fichas-extension.test.ts).
@@ -51,18 +51,37 @@
   }
 
   /**
-   * EL ÍNDICE de lo que WhatsApp Web tiene guardado: por los últimos 10 dígitos de cada teléfono, lo que se sabe de esa persona
-   * y en qué grupos de Martín está. Un `@lid` se traduce con el contacto que trae su `phoneNumber`.
+   * EL NOMBRE VERIFICADO de las cuentas de empresa, por `@lid`, de la tabla `verified-business-name` ({ id: '…@lid', name }).
+   * ⚠️ MEDIDO el 26/10/2026 en el WhatsApp Web de Martín: en el grupo de los 221, NINGUNO tenía nombre en `contact` (ni `name`,
+   * ni `pushname`, ni `displayNameLID`) y la 0.71.0 completó 0; pero 83 de los 247 tenían su nombre de empresa en ESTA tabla
+   * (6.312 filas), que no se leía. Es lo que WhatsApp muestra de una cuenta de empresa que nunca le escribió.
    */
-  function indexar(contactos, grupos, participantes) {
+  function verificadosPorLid(verificados) {
+    const m = new Map();
+    for (const v of Array.isArray(verificados) ? verificados : []) {
+      const id = idDe(v);
+      const nombre = v ? textoUtil(v.name) : null;
+      if (typeof id === 'string' && nombre) m.set(id, nombre);
+    }
+    return m;
+  }
+
+  /**
+   * EL ÍNDICE de lo que WhatsApp Web tiene guardado: por los últimos 10 dígitos de cada teléfono, lo que se sabe de esa persona
+   * y en qué grupos de Martín está. Un `@lid` se traduce con el contacto que trae su `phoneNumber`. `verificados`: las filas de
+   * `verified-business-name` (el nombre de una cuenta de empresa).
+   */
+  function indexar(contactos, grupos, participantes, verificados) {
     const porLid = new Map();
     const porSufijo = new Map();
+    const verificado = verificadosPorLid(verificados);
     const juntar = (k, c) => {
       const prev = porSufijo.get(k) || { agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: new Set() };
+      const deEmpresa = textoUtil(c.verifiedName) || verificado.get(idDe(c)) || null;
       prev.agenda = prev.agenda || textoUtil(c.name);
       prev.pushname = prev.pushname || textoUtil(c.pushname) || textoUtil(c.notifyName) || textoUtil(c.displayNameLID);
-      prev.empresa = prev.empresa || textoUtil(c.verifiedName);
-      prev.esEmpresa = prev.esEmpresa || c.isBusiness === true || !!textoUtil(c.verifiedName);
+      prev.empresa = prev.empresa || deEmpresa;
+      prev.esEmpresa = prev.esEmpresa || c.isBusiness === true || !!deEmpresa;
       porSufijo.set(k, prev);
     };
     for (const c of Array.isArray(contactos) ? contactos : []) {
@@ -97,8 +116,9 @@
    * LO DE CADA `@lid`, tenga o no teléfono en WhatsApp Web: su nombre y en qué grupos está. Es para los pedidos que traen el
    * `@lid` del lead (el 37 % de los participantes de Martín no tiene `phoneNumber` en su WhatsApp Web).
    */
-  function indexarLids(contactos, grupos, participantes) {
+  function indexarLids(contactos, grupos, participantes, verificados) {
     const porLid = new Map();
+    const verificado = verificadosPorLid(verificados);
     const de = (lid) => porLid.get(lid) || { agenda: null, pushname: null, empresa: null, esEmpresa: false, grupos: new Set() };
     for (const c of Array.isArray(contactos) ? contactos : []) {
       if (!c || typeof c !== 'object') continue;
@@ -106,10 +126,16 @@
       if (typeof id !== 'string' || !id.endsWith('@lid')) continue;
       const prev = de(id);
       prev.agenda = prev.agenda || textoUtil(c.name);
+      const deEmpresa = textoUtil(c.verifiedName) || verificado.get(id) || null;
       prev.pushname = prev.pushname || textoUtil(c.pushname) || textoUtil(c.notifyName) || textoUtil(c.displayNameLID);
-      prev.empresa = prev.empresa || textoUtil(c.verifiedName);
-      prev.esEmpresa = prev.esEmpresa || c.isBusiness === true || !!textoUtil(c.verifiedName);
+      prev.empresa = prev.empresa || deEmpresa;
+      prev.esEmpresa = prev.esEmpresa || c.isBusiness === true || !!deEmpresa;
       porLid.set(id, prev);
+    }
+    // Un @lid con nombre de empresa y sin ficha en `contact` también cuenta.
+    for (const [id, nombre] of verificado) {
+      if (porLid.has(id)) continue;
+      porLid.set(id, { agenda: null, pushname: null, empresa: nombre, esEmpresa: true, grupos: new Set() });
     }
     const asunto = new Map();
     for (const g of Array.isArray(grupos) ? grupos : []) {
@@ -135,13 +161,28 @@
 
   /**
    * LOS GRUPOS QUE MaKo NOMBRA (los leads vinieron de ahí), buscados en el WhatsApp Web de la persona: igual al nombre (sin
-   * acentos ni emojis), y si no, el ÚNICO que lo contiene. Devuelve cuántos son en WhatsApp Web; nunca a quiénes.
+   * acentos ni emojis), y si no, el ÚNICO que lo contiene. Devuelve cuántos son en WhatsApp Web y de cuántos sabe el NOMBRE
+   * (`conNombre`, con los `contactos`); nunca a quiénes.
+   * ⚠️ MEDIDO el 26/10/2026 en el grupo de Martín de donde vinieron los 221 («RETO del Anuncio Ganador»): 247 participantes,
+   * 237 con teléfono y UNO con nombre, porque es un grupo de anuncios donde nadie escribe (17 mensajes guardados, todos del
+   * sistema) y WhatsApp sólo conoce el nombre de quien le escribió. Sin este número, «1 completado» se lee como que no anda.
    */
-  function buscarGrupos(grupos, participantes, nombres) {
+  function buscarGrupos(grupos, participantes, nombres, contactos, verificados) {
     const lista = (Array.isArray(grupos) ? grupos : []).filter((g) => g && typeof g.id === 'string' && textoUtil(g.subject));
     const cuantos = new Map();
     for (const p of Array.isArray(participantes) ? participantes : []) {
       if (p && typeof p.groupId === 'string') cuantos.set(p.groupId, Array.isArray(p.participants) ? p.participants.length : 0);
+    }
+    const conNombreDe = new Map();
+    for (const id of verificadosPorLid(verificados).keys()) conNombreDe.set(id, true);
+    for (const c of Array.isArray(contactos) ? contactos : []) {
+      const id = idDe(c);
+      if (typeof id === 'string' && (textoUtil(c.name) || textoUtil(c.pushname) || textoUtil(c.notifyName) || textoUtil(c.verifiedName) || textoUtil(c.displayNameLID))) conNombreDe.set(id, true);
+    }
+    const nombrados = new Map();
+    for (const p of Array.isArray(participantes) ? participantes : []) {
+      if (!p || typeof p.groupId !== 'string' || !Array.isArray(p.participants)) continue;
+      nombrados.set(p.groupId, p.participants.filter((x) => conNombreDe.has(idDe(x))).length);
     }
     const out = [];
     for (const n of Array.isArray(nombres) ? nombres.slice(0, 20) : []) {
@@ -150,7 +191,10 @@
       const iguales = lista.filter((g) => asuntoComparable(g.subject) === buscado);
       const contienen = iguales.length ? iguales : lista.filter((g) => asuntoComparable(g.subject).includes(buscado));
       const g = contienen.length === 1 ? contienen[0] : iguales[0] || null;
-      out.push({ nombre: String(n).slice(0, 120), encontrado: !!g, participantes: g ? (cuantos.get(g.id) ?? null) : null });
+      out.push({
+        nombre: String(n).slice(0, 120), encontrado: !!g, participantes: g ? (cuantos.get(g.id) ?? null) : null,
+        conNombre: g && Array.isArray(contactos) ? (nombrados.get(g.id) ?? 0) : null,
+      });
     }
     return out;
   }

@@ -75,11 +75,27 @@ test('1. las reglas: displayNameLID es un nombre, el @lid encuentra al que no ti
   assert.deepEqual(plano(r.fichasDe(indice, ['5491155550002'], porLid)), []);
   // Los grupos: el nombre sin acentos ni emojis; contesta sólo si está y cuántos son, nunca a quiénes.
   assert.deepEqual(plano(r.buscarGrupos(GRUPOS, PARTICIPANTES, ['Formacion de Jan', 'afiliados', 'No existe'])), [
-    { nombre: 'Formacion de Jan', encontrado: true, participantes: 3 },
-    { nombre: 'afiliados', encontrado: true, participantes: 1 },
-    { nombre: 'No existe', encontrado: false, participantes: null },
+    { nombre: 'Formacion de Jan', encontrado: true, participantes: 3, conNombre: null },
+    { nombre: 'afiliados', encontrado: true, participantes: 1, conNombre: null },
+    { nombre: 'No existe', encontrado: false, participantes: null, conNombre: null },
   ]);
+  // Con los contactos, de cuántos del grupo WhatsApp sabe el NOMBRE (en el grupo de Martín, 1 de 247: es de anuncios).
+  const sinNombre = [...CONTACTOS, { id: '301234567890009@lid', phoneNumber: '5491155550009@c.us' }];
+  const conUnoMudo = [{ groupId: '120363000000000001@g.us', participants: [...PARTICIPANTES[0].participants, '301234567890009@lid'] }];
+  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, conUnoMudo, ['Formación de Jan'], sinNombre)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 3 }]);
   assert.ok(!JSON.stringify(r.buscarGrupos(GRUPOS, PARTICIPANTES, ['Afiliados'])).includes('@lid'), 'salió un participante');
+  // ⚠️ EL NOMBRE DE EMPRESA DE `verified-business-name` (26/10/2026): en el grupo de los 221 de Martín, ninguno tenía nombre en
+  // `contact` (la 0.71.0 completó 0) y 83 lo tenían ahí, por su @lid. Con teléfono y con @lid, y cuenta en `conNombre`.
+  const mudo = { id: '301234567890007@lid', phoneNumber: '5491155550007@c.us' };                        // sin nombre en `contact`
+  const VERIFICADOS = [{ id: '301234567890007@lid', name: 'Panadería Sol', isSmb: true }, { id: 'roto', name: 'x' }, { id: '301234567890008@lid', name: '123' }];
+  const conMudo = [...CONTACTOS, mudo];
+  const gruposMudo = [{ groupId: '120363000000000001@g.us', participants: [...PARTICIPANTES[0].participants, '301234567890007@lid'] }];
+  const porTel = plano(r.fichasDe(r.indexar(conMudo, GRUPOS, gruposMudo, VERIFICADOS), ['5491155550007'])) as Array<{ empresa: string | null; esEmpresa: boolean; grupos: string[] }>;
+  assert.deepEqual(porTel.map((f) => [f.empresa, f.esEmpresa, f.grupos]), [['Panadería Sol', true, ['Formación de Jan 🚀']]], 'el nombre de empresa de verified-business-name no se lee por teléfono');
+  const soloLid = plano(r.fichasDe(r.indexar([], GRUPOS, gruposMudo, VERIFICADOS), [{ telefono: '5491155550007', lid: '301234567890007@lid' }], r.indexarLids([], GRUPOS, gruposMudo, VERIFICADOS))) as Array<{ empresa: string | null }>;
+  assert.deepEqual(soloLid.map((f) => f.empresa), ['Panadería Sol'], 'el nombre de empresa no se lee por @lid');
+  assert.deepEqual(plano(r.buscarGrupos(GRUPOS, gruposMudo, ['Formación de Jan'], conMudo, VERIFICADOS)), [{ nombre: 'Formación de Jan', encontrado: true, participantes: 4, conNombre: 4 }]);
+  assert.match(leer('extension/wa-fichas.js'), /leerStore\(db, 'verified-business-name'\)/, 'el script no lee la tabla de nombres de empresa');
   // La misma regla de nombre en la extensión y en el servidor (el servidor busca el grupo en su línea con la suya).
   for (const s of ['Formación de Jan 🚀', '  CÍRCULO  tibio #3 ', 'Ñandú · Afiliados']) assert.equal(r.asuntoComparable(s), asuntoTs(s), s);
 });
@@ -127,7 +143,7 @@ test('2. el script de WhatsApp Web: el «ping» no abre la base; el pedido con @
   const r = respuesta as { ok: boolean; fichas: Array<{ telefono: string; pushname: string }>; grupos: unknown[] };
   assert.equal(r.ok, true);
   assert.deepEqual(r.fichas.map((f) => [f.telefono, f.pushname]), [['5491155550002', 'Lucía Ríos']]);
-  assert.deepEqual(r.grupos, [{ nombre: 'Formación de Jan', encontrado: true, participantes: 3 }]);
+  assert.deepEqual(r.grupos, [{ nombre: 'Formación de Jan', encontrado: true, participantes: 3, conNombre: 3 }]);
 });
 
 test('3. el cliente de la página: espera mientras hay avance, y un puente huérfano no le gana a la respuesta viva', async () => {
@@ -234,12 +250,31 @@ test('5. el cableado: el worker cuenta los pasos y repone el puente; el puente n
   assert.match(puente, /new CustomEvent\('MAKO_WA_FICHAS_AVANCE', \{ detail: \{ id: msg\.id, paso: msg\.paso, texto: msg\.texto \} \}\)/);
   // La barra del lote: tocar la opción sin la extensión abre la instalación y espera; al aparecer, arranca sola.
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
-  assert.match(barra, /setEsperaExt\(true\);\n\s+window\.open\('\/extension\/instalar', '_blank', 'noopener'\);/);
+  assert.match(barra, /setEsperaExt\(true\);\n[\s\S]{0,300}window\.open\('\/extension\/instalar', '_blank', 'noopener'\);/);
   assert.match(barra, /useEffect\(\(\) => \{ if \(esperaExt && extWa === 'si'\) arrancarAlInstalar\(\); \}, \[esperaExt, extWa\]\);/, 'no arranca sola al instalarla');
   assert.match(barra, /const extWa = useExtensionFichas\(\);/, 'la barra no se entera de la extensión en vivo');
-  assert.match(barra, /la extensión de MaKo: cuando esté, empieza sola\./);
+  // Corto, para que entre al lado de los botones (en el Chrome de Martín, 25/10, salía «cuando esté, emp…»).
+  assert.match(barra, /\{extWa === 'vieja' \? 'Actualiza' : 'Instala'\} la extensión: empieza sola\n/);
+  assert.match(barra, /alAvanzar: \(texto, paso\) => setAvance\(avanceCorto\(paso, texto\)\),/, 'el paso de la extensión, largo y cortado con «…»');
   assert.match(barra, /if \(f\.motivo === 'sin_sesion'\) enfocarWhatsappWeb\(\);/, 'sin la sesión, no lleva a WhatsApp Web');
   assert.match(barra, /resumenDeFichas\(t\.pedidos\.length, fichas, a\) \+ gruposEnWhatsappDichos\(f\.grupos\)/, 'el final no dice qué grupo encontró');
+});
+
+test('5b. el avance en la barra del lote: frases que entran enteras, nunca cortadas', async () => {
+  const { avanceCorto } = await import('../app/crm/enriquecer-cliente');
+  assert.equal(avanceCorto('abriendo', 'Abriendo WhatsApp Web en otra pestaña…'), 'Abriendo WhatsApp Web…');
+  assert.equal(avanceCorto('abriendo', 'Despertando la pestaña de WhatsApp Web…'), 'Despertando WhatsApp Web…');
+  assert.equal(avanceCorto('cargando', 'Esperando que WhatsApp Web cargue tus chats…'), 'Esperando tus chats de WhatsApp…');
+  assert.equal(avanceCorto('leyendo', 'Buscando el grupo «Formación de Jan» en tu WhatsApp Web…'), 'Buscando «Formación de Jan»…');
+  const largo = 'Buscando el grupo «PROSPECCIÓN · Círculo TIBIO de emprendedores 2026» en tu WhatsApp Web…';
+  assert.equal(avanceCorto('leyendo', largo), 'Buscando el grupo en tu WhatsApp…', 'un nombre que no entra se corta en vez de decirse sin él');
+  assert.equal(avanceCorto('leyendo', 'Buscando 3 grupos en tu WhatsApp Web…'), 'Buscando los grupos en tu WhatsApp…');
+  assert.equal(avanceCorto('otro', 'Completando 37 de 180…'), 'Completando 37 de 180…');
+  for (const t of ['Abriendo WhatsApp Web…', 'Esperando tus chats de WhatsApp…', 'Buscando el grupo en tu WhatsApp…']) assert.ok([...t].length <= 44, t);
+  // El final dice de cuántos sabe el nombre WhatsApp: sin eso, «1 completado» en un grupo de anuncios se lee como que no anda.
+  const { gruposEnWhatsappDichos } = await import('../app/crm/enriquecer-cliente');
+  assert.equal(gruposEnWhatsappDichos([{ nombre: 'RETO', encontrado: true, participantes: 247, conNombre: 1 }]), ' El grupo «RETO» está en tu WhatsApp: de sus 247, WhatsApp sabe el nombre de 1.');
+  assert.equal(gruposEnWhatsappDichos([{ nombre: 'Otro', encontrado: false, participantes: null, conNombre: null }]), ' El grupo «Otro» no está en tu WhatsApp Web.');
 });
 
 test('6. el servidor: el grupo sale del historial del lead; y las versiones de las dos puntas coinciden', async () => {
@@ -251,9 +286,59 @@ test('6. el servidor: el grupo sale del historial del lead; y las versiones de l
   const { VERSION_FICHAS } = await import('../lib/wa-fichas-cliente');
   const man = JSON.parse(leer('extension/manifest.json')) as { version: string };
   assert.equal(VERSION_FICHAS, '0.71.0');
-  assert.equal(man.version, VERSION_FICHAS, 'la pantalla pide una versión que el paquete no es');
+  // La 0.71.1 (26/10/2026) suma `alDiaConSuCarpeta`; la pantalla sigue pidiendo la 0.71.0, que ya lee fichas así.
+  const { esMasVieja } = await import('../lib/version-comparar');
+  assert.ok(!esMasVieja(man.version, VERSION_FICHAS), 'la pantalla pide una versión más nueva que el paquete');
   assert.match(leer('lib/extension-version.ts'), new RegExp(`EXTENSION_VERSION = '${man.version.replace(/\./g, '\\.')}'`), 'el ZIP no se rearmó (node scripts/zip-extension.mjs)');
   assert.ok(existsSync(join(raiz, `public/mako-puente-${man.version}.zip`)), 'falta el ZIP de la versión nueva');
+});
+
+/** `alDiaConSuCarpeta` de background.js, de verdad, con un `chrome` y un `fetch` de mentira. */
+function cargarAlDia(o: { corre: string; carpeta: string; tienda?: boolean; intentada?: string; trabajo?: boolean }) {
+  const bg = leer('extension/background.js');
+  const desde = bg.indexOf('let fichasEnVuelo = 0;');
+  const funcion = bg.slice(desde, bg.indexOf('/** Sin llamadores desde el 01/09/2026.', desde));
+  const comparar = bg.slice(bg.indexOf('function esMasVieja(a, b) {'), bg.indexOf('\n}\n', bg.indexOf('function esMasVieja(a, b) {')) + 3);
+  const registro = { recargas: 0, guardado: null as unknown };
+  const storage: Record<string, unknown> = o.intentada ? { recargaPorCarpeta: o.intentada } : {};
+  const ctx: Record<string, unknown> = {
+    console: { log() {} },
+    FASES_EN_CURSO: ['generando'],
+    registrosInterfaz: async () => (o.trabajo ? [{ fase: 'generando' }] : [{ fase: 'listo' }]),
+    fetch: async () => ({ json: async () => ({ version: o.carpeta }) }),
+    chrome: {
+      runtime: { getManifest: () => ({ version: o.corre, ...(o.tienda ? { update_url: 'https://clients2.google.com' } : {}) }), getURL: (p: string) => `chrome-extension://x/${p}`, reload: () => { registro.recargas++; } },
+      storage: { local: { get: async (k: string) => ({ [k]: storage[k] }), set: async (x: Record<string, unknown>) => { Object.assign(storage, x); registro.guardado = x; } } },
+    },
+  };
+  runInNewContext(`${comparar}\n${funcion}\nglobalThis.alDia = alDiaConSuCarpeta;`, ctx);
+  return { registro, correr: ctx.alDia as () => Promise<void> };
+}
+
+test('7. la extensión se pone al día con su carpeta SOLA: una vez por versión, nunca de la tienda ni a mitad de un trabajo', async () => {
+  // Martín no estaba para tocar «Recargar» (25/10): la 0.71.0 quedó en su carpeta y su Chrome siguió con la 0.70.0.
+  const a = cargarAlDia({ corre: '0.71.1', carpeta: '0.71.2' });
+  await a.correr();
+  assert.equal(a.registro.recargas, 1, 'la carpeta trae una versión nueva y no se recargó');
+  assert.deepEqual(plano(a.registro.guardado), { recargaPorCarpeta: '0.71.2' });
+  for (const [por, o] of [
+    ['la carpeta es la misma versión (el reinicio viejo: recargarse no sirve)', { corre: '0.71.1', carpeta: '0.71.1' }],
+    ['la carpeta es más vieja', { corre: '0.71.1', carpeta: '0.70.0' }],
+    ['viene de la tienda (ahí actualiza Chrome)', { corre: '0.71.1', carpeta: '0.71.2', tienda: true }],
+    ['ya lo intentó con esta versión (si no la levanta, no queda en bucle)', { corre: '0.71.1', carpeta: '0.71.2', intentada: '0.71.2' }],
+    ['hay un trabajo de Flow en curso', { corre: '0.71.1', carpeta: '0.71.2', trabajo: true }],
+  ] as const) {
+    const x = cargarAlDia(o);
+    await x.correr();
+    assert.equal(x.registro.recargas, 0, `se recargó aunque ${por}`);
+  }
+  // Se mira al arrancar, después de cada latido y cuando la pantalla ve una extensión vieja (MAKO_EXTENSION_REVISAR).
+  const bg = sinComentarios(leer('extension/background.js'));
+  assert.match(bg, /\nvoid alDiaConSuCarpeta\(\);/);
+  assert.match(bg, /if \(a\.name === 'ciclo'\) void ciclo\(\)\.then\(\(\) => alDiaConSuCarpeta\(\)\);/);
+  assert.match(bg, /if \(msg\?\.tipo === 'REVISAR_CARPETA'\) \{\n\s+void alDiaConSuCarpeta\(\)/);
+  assert.match(sinComentarios(leer('extension/mako-puente.js')), /window\.addEventListener\('MAKO_EXTENSION_REVISAR'[\s\S]{0,200}tipo: 'REVISAR_CARPETA'/);
+  assert.match(sinComentarios(leer('app/crm/AccionesLoteLeads.tsx')), /window\.dispatchEvent\(new CustomEvent\('MAKO_EXTENSION_REVISAR'\)\);\n\s+window\.open\('\/extension\/instalar'/);
 });
 
 // PROBADO ROMPIÉNDOLO (25/10/2026), contra una base de 27 / 0 (éste, enriquecer-lote y wa-fichas-extension), de a una y

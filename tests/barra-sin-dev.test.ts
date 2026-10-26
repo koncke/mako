@@ -63,8 +63,8 @@ test('3. lo que se editaba SÓLO ahí tiene casa: Methodology, Prompts y las bib
   const metodologia = sinComentarios(leer('app/classroom/methodology/page.tsx'));
   assert.match(metodologia, /if \(!\(await getSesionAdmin\(\)\)\) notFound\(\);\s*return <ConocimientoView \/>;/);
   // Los prompts: una sección de Settings con la regla de Método, y la misma puerta.
-  const conMetodo = seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: true }).map((s) => s.key);
-  const sinMetodo = seccionesNegocio({ general: true, integraciones: true, metodo: false, plan: true }).map((s) => s.key);
+  const conMetodo = seccionesNegocio({ integraciones: true, metodo: true, plan: true }).map((s) => s.key);
+  const sinMetodo = seccionesNegocio({ integraciones: true, metodo: false, plan: true }).map((s) => s.key);
   assert.ok(conMetodo.includes('prompts'), 'falta Settings › Prompts');
   assert.ok(!sinMetodo.includes('prompts'), 'un negocio ve los prompts de la plataforma');
   const prompts = sinComentarios(leer('app/configuraciones/prompts/page.tsx'));

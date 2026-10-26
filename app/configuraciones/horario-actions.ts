@@ -1,7 +1,8 @@
 'use server';
 
 // =============================================================================
-// El HORARIO DE ENVÍO del negocio — leer y guardar (Configuraciones › Horario)
+// El HORARIO DE ENVÍO del negocio — leer y guardar (lo usan la tuerca de cada automatización y, la zona, Perfil; la pantalla
+// Configuraciones › Horario se fue el 26/10/2026)
 // =============================================================================
 // Decisión de Martín (09/10/2026, sexta tanda): por defecto las automatizaciones mandan a cualquier
 // hora y cada negocio puede ponerles un horario acá. El porqué y las reglas, en lib/horario-envio.ts;

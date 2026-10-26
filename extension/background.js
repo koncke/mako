@@ -827,6 +827,39 @@ async function anotarVersionEsperada(esperada) {
   } catch { /* saber la version nunca puede romper al que ya funciona */ }
 }
 
+/**
+ * AL DIA CON SU CARPETA (26/10/2026, 0.71.1). Una instalacion DESCOMPRIMIDA no se actualiza sola: reemplazar los archivos de
+ * la carpeta no cambia nada hasta tocar «Recargar» en chrome://extensions. El 25/10 la 0.71.0 quedo COPIADA en la carpeta de
+ * Martin y su Chrome siguio con la 0.70.0 toda la noche, porque Martin no estaba para tocarlo (y chrome://extensions no se
+ * puede manejar desde afuera). Esto mira el manifest de la CARPETA (un `fetch` de un recurso propio lee el disco en una
+ * instalacion descomprimida) y, si es MAS NUEVO que el que corre, se recarga UNA vez por version.
+ * ⚠️ NO ES EL REINICIO VIEJO de arriba (01/09/2026): aquel comparaba contra lo que servia produccion y se reiniciaba aunque la
+ * carpeta no hubiera cambiado, que es justo cuando reiniciar no sirve. Este se recarga solo si la carpeta YA trae otra
+ * version; y la alarma se rearma sola al volver (`onInstalled` y el `asegurarAlarma` de arriba del archivo).
+ * Guardas: nunca de la tienda (ahi actualiza Chrome), nunca con un trabajo de Flow o una lectura de fichas en curso, y una
+ * sola vez por version de la carpeta (si la recarga no la levanta, no queda en bucle).
+ */
+let fichasEnVuelo = 0;
+async function hayTrabajoEnCurso() {
+  if (fichasEnVuelo > 0) return true;
+  try { return (await registrosInterfaz()).some((r) => FASES_EN_CURSO.includes(r.fase)); } catch { return true; }
+}
+async function alDiaConSuCarpeta() {
+  try {
+    const corre = chrome.runtime.getManifest();
+    if (corre.update_url) return;
+    const r = await fetch(chrome.runtime.getURL('manifest.json'), { cache: 'no-store' });
+    const enCarpeta = String((await r.json()).version || '');
+    if (!enCarpeta || !esMasVieja(corre.version, enCarpeta)) return;
+    const { recargaPorCarpeta } = await chrome.storage.local.get('recargaPorCarpeta');
+    if (recargaPorCarpeta === enCarpeta) return;
+    if (await hayTrabajoEnCurso()) return;
+    await chrome.storage.local.set({ recargaPorCarpeta: enCarpeta });
+    console.log(`[mako] la carpeta trae la ${enCarpeta} y corre la ${corre.version}: recargando para leerla`);
+    chrome.runtime.reload();
+  } catch { /* actualizarse nunca puede romper al que ya funciona */ }
+}
+
 /** Sin llamadores desde el 01/09/2026. Se deja el porque arriba, no el codigo. */
 async function quizasReiniciarNoUsar(esperada, hayTrabajoEnCurso) {
   try {
@@ -2791,8 +2824,10 @@ async function reponerPuenteEnMako() {
 chrome.runtime.onInstalled.addListener(() => { void asegurarAlarma(); void reponerPuenteEnMako(); });
 chrome.runtime.onStartup.addListener(() => { void asegurarAlarma(); });
 void asegurarAlarma();
+// La carpeta puede traer una version nueva (`alDiaConSuCarpeta`): se mira al arrancar y despues de cada latido.
+void alDiaConSuCarpeta();
 
-chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo(); });
+chrome.alarms.onAlarm.addListener((a) => { if (a.name === 'ciclo') void ciclo().then(() => alDiaConSuCarpeta()); });
 
 // ⚠️ Y NO SE ESPERA AL PROXIMO LATIDO PARA CONTAR LA BUENA NOTICIA.
 //
@@ -2876,6 +2911,12 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
   // que está corriendo bien». Ahora el worker resuelve lo que antes era un error para la persona: si no hay WhatsApp Web lo
   // ABRE (en otra pestaña), si la pestaña está dormida la despierta, si no tiene el script se lo pone, y espera a que cargue los
   // chats; y le cuenta cada paso a la pestaña de MaKo que pidió (`WA_FICHAS_AVANCE`, con el mismo `id`).
+  // La pantalla de MaKo vio una extension vieja: si la carpeta ya trae la nueva, recargarse ahora y no al proximo latido.
+  if (msg?.tipo === 'REVISAR_CARPETA') {
+    void alDiaConSuCarpeta().then(() => responder({ ok: true }));
+    return true;
+  }
+
   if (msg?.tipo === 'WA_FICHAS_PEDIDO') {
     const origen = _s?.tab?.id;
     const pedidoId = typeof msg.id === 'string' ? msg.id : '';
@@ -2883,6 +2924,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
       if (origen == null) return;
       chrome.tabs.sendMessage(origen, { tipo: 'WA_FICHAS_AVANCE', id: pedidoId, paso, texto }).catch(() => {});
     };
+    fichasEnVuelo++;
     void (async () => {
       try {
         const lista = await pestanaDeWhatsappLista(avisar);
@@ -2899,7 +2941,7 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
         responder(r ?? { ok: false, motivo: 'sin_respuesta' });
       } catch (e) {
         responder({ ok: false, motivo: 'recargar_whatsapp_web', error: String(e?.message || e) });
-      }
+      } finally { fichasEnVuelo = Math.max(0, fichasEnVuelo - 1); }
     })();
     return true;
   }
