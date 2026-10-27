@@ -3148,3 +3148,29 @@ hipótesis, y con ese mensaje no se puede confirmar desde el teléfono.
 4. Si falla, el aviso dice cuál de las cuatro fue; si es «(NombreDelError)», ése es el dato.
 
 **Vive en:** `app/admin/operaciones/leer-adjunto.ts` (`ERROR_SUBIDA`, `porQueFallo`) · `mandar.ts` · `tests/feedback-2710-tanda1.test.ts`
+
+## Una pregunta contestada en la app siguió un día en el Ops Center: el Runner volvió y subió sólo lo último (27/10/2026)
+
+**El síntoma:** Martín: «Creo que esta pregunta era vieja, y sigue apareciendo. La respondi desde claude app». Era el `ask` de un
+wrap_up del Cerebro del 26/10, contestado en la app ese día.
+
+**La causa:** el Runner de esa cuenta estuvo parado 27 horas (el corte del 97%). Al volver, `turnosDeLaVuelta` (cartero.mjs) toma
+de cada chat sus turnos nuevos con `ultimosQueEntran`: si no entran todos en la vuelta, se queda con los ÚLTIMOS y la marca avanza
+igual. Los de antes no suben nunca. La respuesta de Martín (un `yo`) era de los de antes, y la regla de wrap_up pedía un `yo` u
+`otro` para superarla.
+
+**El diagnóstico obvio era el equivocado:** «falta que suba el turno de Martín». Aunque suba, un hueco largo lo puede volver a
+perder. La regla no puede depender de eso.
+
+**La regla:** una pregunta de wrap_up la supera también un turno del PROPIO chat de después (`superarPreguntas`), pasado el margen de
+su mensaje de cierre (`MARGEN_CIERRE_WRAP_UP_MS`, 5 minutos: el cierre llega segundos después del wrap_up, en el mismo turno). Un
+chat sólo vuelve a escribir después de recibir algo, y la app de Claude también saca el recuadro de próximo paso cuando el chat
+escribe de nuevo. Las de `preguntar` no cambian: se contestan en el Ops Center, o el chat las retira (`cartero retirar <id>`, desde
+la 1.17.4).
+
+**Lo que quedó SIN hacer:** que la vuelta no pierda turnos. Con un hueco largo, `ultimosQueEntran` deja afuera los más viejos de un
+chat y avanza la marca: tendría que subir de lo más viejo a lo más nuevo y avanzar sólo hasta lo que subió. Es un cambio del cartero
+(una instalación). Vive en `scripts/operaciones/cartero.mjs` (`turnosDeLaVuelta`, `ultimosQueEntran`).
+
+**Vive en:** `lib/centro-preguntas-chat.ts` (`superarPreguntas`) · `lib/centro-preguntas-chat-db.ts` (`superarConTurnos`) ·
+`tests/preguntas-superadas-hueco.test.ts`
