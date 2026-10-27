@@ -7098,3 +7098,26 @@ proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sost
 `chatCheap`, `chatCheapTools`) · lib/editor-landing/replicar.ts (la segunda vuelta y la memoria de la réplica) ·
 tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
 *2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
+
+## MaKo inventaba funciones, y el pedido no le llegaba a nadie (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-14): MaKo le describió «un bloque de Instagram con tope de comentarios» que no existe.
+Automations ya lo frenaba (`lugarInventado`, lib/flujo-ia-intencion.ts) y ofrecía un botón; los otros chats, nada.
+
+**Lo obvio era el equivocado:** agrandar `lugarInventado` con más palabras. Un detector de frases inventadas sólo ve las
+inventadas que alguien ya vio; la próxima trae otro nombre. **La regla:** el modelo dice que no existe y lo MARCA
+(`[[no-existe: …]]`, `REGLA_NO_EXISTE` de lib/no-existe.ts, y `reglaNoExisteEn(campo)` para los chats que contestan en
+JSON); el CÓDIGO saca la marca, levanta el pedido sin preguntar y escribe la línea con el número (lib/no-existe-server.ts).
+Así el modelo nunca promete ni inventa un número de ticket, y la persona nunca ve la marca.
+
+- **Dónde va:** el Ops Center (`turnoApp`: también el teléfono, el CRM y el Analyst del lead), Offer y el onboarding, «Discutir»
+  del Web Generator, los chats del Image Editor y del Video Editor, y Automations (su `falta` sale sola; el botón «Pedírselo al
+  equipo» queda de respaldo si el ticket no salió). tests/mako-no-existe.test.ts exige la regla y el procesado en cada uno.
+- **Trampa:** los editores de imagen y video se quedaban con la PRIMERA línea de `resumen`: la marca se saca ANTES de cortar.
+- **Un pedido es UN ticket:** `refDeNoExiste` (negocio, chat y el pedido sin mayúsculas ni tildes).
+- **WhatsApp** (mako-wa-conexiones, P3) usa el mismo criterio para lo que FALLA (ahí se propone el ticket, hay algo que
+  confirmar); lo que no existe en el grupo puede usar `conPedidoDeNoExiste` con `actor: whatsapp:…` y `canal: 'whatsapp'`.
+
+**Sin hacer:** la corrida con el MODELO REAL (`scripts/probar-no-existe.mts`): el clasificador de permisos negó leer las claves
+locales («Credential Exploration»), así que la corre quien tenga el permiso. El Dashboard no se tocó: no es un chat donde se
+pidan funciones (arma análisis de los datos).

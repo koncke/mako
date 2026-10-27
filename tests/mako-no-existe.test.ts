@@ -102,4 +102,12 @@ test('3. CADA chat de MaKo en la app lleva la regla y procesa la marca (la perso
 });
 
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
-// (lo completa la corrida de las roturas)
+// Cada cambio a mano, corrido y restaurado de memoria:
+//   1. `sacarNoExiste` dejando la marca en el texto                 → rojo «1. la marca sale…» y «2. una respuesta…».
+//   2. `refDeNoExiste` sin normalizar (mayúsculas y tildes)        → rojo «1. el mismo pedido…».
+//   3. el ticket sin `ref` (cada vez uno nuevo)                    → rojo «2.» (los dos).
+//   4. el Ops Center sin la regla en el system                     → rojo «3.».
+//   5. el Image Editor cortando la primera línea ANTES de sacar la marca → rojo «3.».
+//   6. Automations esperando el botón (sin `ticketDeNoExiste`)    → rojo «3.».
+// La primera corrida dio rojo SIN romper nada en dos: una marca de dos letras pasaba con el espacio del principio (`pedido.length
+// >= 3` después de recortar), y el ancla de Offer encontraba el `actualizarSesion` de OTRA función, antes.
