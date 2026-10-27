@@ -140,6 +140,7 @@ import {
 } from '@/lib/probar-grupo';
 import { TEXTO_SOLO_AUDIO } from '@/lib/mako-tarjeta';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { iniciales } from '@/lib/unicode-seguro';
 
 /**
  * El tamaño que pide «Probar»: ancho y bajo (decisión 11 de la segunda tanda). La cuenta vive en
@@ -336,7 +337,8 @@ function SobreGmail() {
 function Inicial({ nombre }: { nombre: string }) {
   return (
     <span aria-hidden style={{ width: 32, height: 32, borderRadius: '50%', flex: 'none', background: 'var(--primary)', color: 'var(--on-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
-      {(nombre.trim()[0] ?? '·').toUpperCase()}
+      {/* La primera LETRA (lib/unicode-seguro): `trim()[0]` partía un emoji y daba React #418. */}
+      {iniciales(nombre, 1, '·')}
     </span>
   );
 }
