@@ -40,12 +40,19 @@ export const CUENTAS = {
   // La 5 entra el 24/10/2026 a las 20:30, cuando la 1 llegó al 94% semanal. Martín la llamó «Ananda»; el gmail de la
   // suscripción no se declaró. Corre en la app (`~/.claude`); su semana renueva el martes a las 15:00 de Argentina.
   claude5: { n: 5, nombre: 'Ananda', ventana: '—', config: '~\\.claude (app)' },
-  // Una sesión en la NUBE (claude.ai/code): no lee `~/.claude/cuenta-activa.txt`, así que no sabe cuál de las cinco la abrió y
-  // firma `nube` (docs/relevo/nube.md → «Cómo se sube»). `n: 0` = sin número: la pantalla dice «Nube», no «Cuenta 0».
-  nube: { n: 0, nombre: 'Sesión en la nube', ventana: '—', config: '—' },
 } as const;
 
-export type Cuenta = keyof typeof CUENTAS;
+/**
+ * Una sesión de Claude Code en la nube (claude.ai/code) firma `Claude-Cuenta: nube` (docs/relevo/nube.md): no se sabe con cuál
+ * de las cuentas de Martín corre, y no se adivina. Su hito firma `nube` (27/10/2026). ⚠️ NO va en `CUENTAS`: el Uso del Ops
+ * Center (lib/centro-uso.ts) lista cada fila de ahí como una cuenta con su cuota, y «nube» no tiene cuota ni Runner.
+ */
+export const FIRMA_NUBE = { n: 'nube', nombre: 'sesión en la nube', ventana: '—', config: '—' } as const;
+
+export type Cuenta = keyof typeof CUENTAS | 'nube';
+
+/** Lo que se pinta de la cuenta de un hito: una de las de `CUENTAS`, o la firma de la nube. */
+export const cuentaDeHito = (c: Cuenta) => (c === 'nube' ? FIRMA_NUBE : CUENTAS[c]);
 
 /** Quién produjo la entrada. Define el color, el avatar y el rótulo. */
 export type Actor = 'martin' | 'claude';
