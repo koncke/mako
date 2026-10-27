@@ -681,7 +681,7 @@ export function turnosDeLineas(lineas, pendiente = null) {
     if (m) {
       const cuerpo = m[2].trim();
       // El aviso de una respuesta de la Ticketera lo arma la PC (mensajeAviso): no es una conversación.
-      if (!cuerpo || /^Martín contestó tu tarjeta/.test(cuerpo) || /^Un cliente levantó el ticket #/.test(cuerpo)) continue;
+      if (!cuerpo || /^Martín contestó tu tarjeta/.test(cuerpo) || /^Un cliente levantó el ticket #/.test(cuerpo) || esAvisoDeRegla(cuerpo)) continue;
       const trabajo = /^Pedido de Martín desde el Centro de Operaciones/.test(cuerpo) ? (/ cierre ([0-9a-f-]{36}) /.exec(cuerpo)?.[1] ?? null) : null;
       const de = /\bname="([^"]{1,60})"/.exec(m[1])?.[1] ?? /\bfrom="([^"]{1,60})"/.exec(m[1])?.[1] ?? null;
       turnos.push(trabajo
@@ -1327,6 +1327,8 @@ export const esElCerebro = (titulo) => String(titulo ?? '').normalize('NFD').rep
  */
 /** Las reglas de Martín que este cartero conoce (copia de lib/tickets-reglas.ts → APROBADOS_POR_REGLA, test diferencial). */
 export const REGLAS_CONOCIDAS = ['Mauricio', 'Leandro', 'Leila'];
+/** ¿Es el aviso de un ticket aprobado por regla (`mensajeTicket` con la regla)? Como el de siempre, no es lo que dijo un chat. */
+export const esAvisoDeRegla = (cuerpo) => REGLAS_CONOCIDAS.some((r) => cuerpo.startsWith(`${r} levantó el ticket #`) && cuerpo.includes('APROBADO POR REGLA'));
 
 export function mensajeTicket(numero, repo, regla = null) {
   if (!Number.isInteger(numero) || numero <= 0 || numero > 1e9) throw new Error('número de ticket inválido');

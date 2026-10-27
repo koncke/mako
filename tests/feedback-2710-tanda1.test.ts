@@ -91,6 +91,7 @@ test('4. los adjuntos: ninguna falla dice «No pude subir los adjuntos» a secas
 // PROBADO ROMPIÉNDOLO (27/10/2026, base 4/0): Leila sin «hasta un día» → 1 rojo (1); `estimaMasDeUnDia` siempre false → 1 rojo (1);
 // el cartero con cualquier nombre → 1 rojo (2); la lista del cartero sin Leila → 1 rojo (2); el servidor sin mandar la regla → 1
 // rojo (2); el aviso sin Chrome → 1 rojo (3); `porQueFallo` sin la red → 1 rojo (4); un catch de vuelta a `fallo` → 1 rojo (4).
+// El 5 y el 6 (base 6/0): la lista del cartero sin Leila → 2 rojos (2 y 6). El 5 lo cubre su propio assert de cada versión.
 
 test('5. después de instalar, la pantalla dice dónde queda MaKo y cómo saber si quedó, con lo que es verdad para la versión', async () => {
   // Leila (27/10): «instalé supuestamente el MaKo Desktop, pero no lo encuentro en mi compu».
@@ -105,4 +106,14 @@ test('5. después de instalar, la pantalla dice dónde queda MaKo y cómo saber 
   assert.match(iss, /Name: "\{userprograms\}\\MaKo"/);
   assert.match(iss, /Name: "\{userdesktop\}\\MaKo"/);
   assert.match(leer('app/integraciones/TusCuentasIA.tsx'), /\{descargado && <p className="tci-instalar__texto" data-donde-queda="">\{dondeQueda\(\)\}<\/p>\}/);
+});
+
+test('6. las tres listas de la regla coinciden, y el aviso por regla no se muestra como lo que dijo un chat', async () => {
+  const c = await cartero();
+  const { REGLAS_CONOCIDAS: delServidor, mensajeTicket } = await import('../lib/tickets-aviso');
+  const deMaKo = Object.values(APROBADOS_POR_REGLA).map((r) => r.nombre).sort();
+  assert.deepEqual([...delServidor].sort(), deMaKo, 'la copia del servidor no es la de MaKo');
+  assert.deepEqual([...c.REGLAS_CONOCIDAS].sort(), deMaKo);
+  assert.equal(c.esAvisoDeRegla(mensajeTicket(7, 'C:/r', 'Leila')), true, 'el aviso de Leila aparece como un mensaje del chat');
+  assert.equal(c.esAvisoDeRegla('Leila levantó el ticket #7 en la reunión'), false, 'un texto cualquiera no es el aviso');
 });
