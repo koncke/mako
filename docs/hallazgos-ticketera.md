@@ -547,3 +547,22 @@ evidente» también para un pedido de Leandro. Lo corrige lo que lee el Cerebro,
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `clasificar`) · `lib/tickets-db.ts` (`crearTicket`) ·
 `lib/tickets-cierre.ts` (`avisarUno`) · `scripts/tickets.ts` (`ver`) · `app/tickets/bandeja/BandejaTickets.tsx` · `tests/tickets-por-regla.test.ts`
+
+## Leila con vía libre «hasta un día», y la regla le llega al Cerebro por un nombre que el cartero ya conoce (27/10/2026)
+
+**Lo decidido:** Martín le dio a Leila (ws 11) la vía libre en la llamada del 26/10, y el Cerebro la configuró así: lo que el
+triage estima en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`).
+
+**Lo que no era obvio:**
+- «Más de un día» no lo puede estimar el triage con una IA (no paga IA, es una decisión). Se estima con reglas
+  (`estimaMasDeUnDia`): un pedido que nombra algo grande (integrarse con otro servicio, una pantalla o una app nueva, rehacer
+  algo entero) o de más de 1500 caracteres. Un bug o una pregunta, nunca. En la duda va a Martín.
+- El cartero no toma texto de MaKo para el mensaje que le escribe al Cerebro (si MaKo estuviera comprometida, lo peor tiene
+  que ser que no llegue). La regla viaja como un NOMBRE, y el cartero 1.20.0 la usa sólo si está en `REGLAS_CONOCIDAS`, su copia
+  de `APROBADOS_POR_REGLA` (test diferencial). Sumar a alguien a la regla pide sumarlo en las DOS listas y una instalación.
+
+**Lo que quedó SIN hacer:** instalar el cartero 1.20.0 en cada PC. Hasta entonces el Cerebro recibe el texto de «bug evidente», y
+lo corrige `scripts/tickets.ts ver`.
+
+**Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `estimaMasDeUnDia`) · `lib/tickets-runner.ts` · `scripts/operaciones/cartero.mjs`
+(`mensajeTicket`, `REGLAS_CONOCIDAS`) · `tests/feedback-2710-tanda1.test.ts`

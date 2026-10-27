@@ -7098,3 +7098,18 @@ proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sost
 `chatCheap`, `chatCheapTools`) · lib/editor-landing/replicar.ts (la segunda vuelta y la memoria de la réplica) ·
 tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
 *2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
+
+## «Chrome me lo marca como malware»: antes del aviso del sistema está el de Chrome, y el botón desaparece al tocarlo (27/10/2026)
+
+**El síntoma:** Leandro, en la llamada del 26/10: Chrome le frenó el instalador de MaKo como peligroso, y el botón de descargar no
+decía nada.
+
+**Lo que no era obvio:**
+- La ayuda decía sólo lo del sistema («Windows protegió su PC», Gatekeeper en Mac), pero ANTES pasa Chrome: con un programa sin
+  firmar y nuevo, frena la descarga. `AVISO_CHROME` va primero en `avisoAlAbrir`. Lo que lo destraba de verdad es la firma
+  (scripts/ia-pc/firmar-windows.mjs, lista), y el certificado lo compra Martín.
+- Un «Descargando…» en el botón no se ve nunca: las tres pantallas que lo usan lo CAMBIAN por «Ya lo instalé: conectar» en el
+  mismo clic. El estado va en lo que queda: el título de la tarjeta y la frase de la caja dicen «Se está descargando».
+
+**Vive en:** `lib/ia-pc-reglas.ts` (`AVISO_CHROME`) · `app/integraciones/CuentasYDispositivos.tsx` (`avisoAlAbrir`) · `TusCuentasIA.tsx` ·
+`app/_chat/app-de-escritorio.ts`

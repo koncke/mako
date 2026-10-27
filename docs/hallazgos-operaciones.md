@@ -3130,3 +3130,21 @@ más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas
 
 **Vive en:** `lib/centro-chats.ts` (`pedidosDelCompletado`) · `app/admin/operaciones/BloqueCompletado.tsx` · `Avance.tsx` ·
 `Conversacion.tsx` y `app/m/operaciones/ChatsMovil.tsx` (`responderSobre` / `feedback`) · `tests/completado-responder-y-contexto.test.ts`
+
+## Los adjuntos que fallan dicen qué falló, y cómo lo prueba Martín en su Android (27/10/2026, ticket #8)
+
+**Lo que no era obvio:** el arreglo del 25/10 (13afc5c29: leer el archivo al elegirlo, no al mandar) separó leer, la red y el
+servidor, pero dejó cinco salidas al «No pude subir los adjuntos: vuelve a mandarlo» de siempre: un `catch` general en cada
+subida, un no de MaKo sin su porqué, y una respuesta con otra cantidad de archivos. La causa de Android sigue siendo una
+hipótesis, y con ese mensaje no se puede confirmar desde el teléfono.
+
+**La regla:** ninguna falla dice «no pude» a secas. `porQueFallo` (leer-adjunto.ts) la nombra: un archivo que ya no se lee
+(`NotReadableError`, el `content://` que se soltó), la red, o lo demás con el NOMBRE del error, que es lo que hay que mandar.
+
+**Cómo probarlo en el Android de Martín** (Chrome, el Ops Center abierto en un chat):
+1. «+» › una foto de la galería.
+2. Ir a otra app unos minutos (WhatsApp, la cámara).
+3. Volver y tocar «Firmar y mandar».
+4. Si falla, el aviso dice cuál de las cuatro fue; si es «(NombreDelError)», ése es el dato.
+
+**Vive en:** `app/admin/operaciones/leer-adjunto.ts` (`ERROR_SUBIDA`, `porQueFallo`) · `mandar.ts` · `tests/feedback-2710-tanda1.test.ts`
