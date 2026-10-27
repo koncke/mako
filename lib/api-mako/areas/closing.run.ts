@@ -139,7 +139,7 @@ export const RUNNERS: Runners = {
         ...(sinFathom ? { fathom_conectado: false, fathom: `${sinFathom.error} Dilo así: lo que ves abajo es lo que entró antes.` } : {}),
         // SU CLAUDE NO PUEDE ANALIZAR (26/10/2026, lib/closing-ia-caida.ts): las llamadas nuevas no se están analizando, y es
         // de su cuenta (sin crédito, clave borrada, sin permiso). Se dice primero, con el paso para arreglarlo.
-        ...(caida ? { ia_del_negocio: { problema: caida.motivo, desde: caida.desde, que_hacer: queHacerConSuIa(caida.motivo), avisado: !!caida.avisadoAt, nota: 'Las llamadas nuevas no se analizan hasta que se arregle; después se analizan solas.' } } : {}),
+        ...(caida ? { ia_del_negocio: { problema: caida.motivo, desde: caida.desde, que_hacer: queHacerConSuIa(caida.motivo), avisado: !!caida.avisadoAt, esperan: caida.pendientes ?? null, nota: 'Las llamadas nuevas no se analizan hasta que se arregle; después se analizan solas. La suscripción de Claude no sirve para esto (Anthropic no deja que otra app use sus tokens); el crédito de API de Claude Max, sí.' } } : {}),
         kpis: {
           score_promedio_0a10: data.kpis.scorePromedio,
           llamadas_con_score: data.kpis.conScore,

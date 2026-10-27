@@ -12,6 +12,26 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El dueño de una tarea no puede salir sólo de la etiqueta del hablante (27/10/2026)
+
+- **Síntoma:** el Plan puso «Comprar el certificado SSL» a nombre de Leandro (era de Martín), y el resumen de la
+  llamada con Aaron (876825880) invirtió quién cierra para quién. Tres borradores del ws9 quedaron con dueños mal.
+- **Causa:** Fathom cruza las etiquetas de quién habla (docs/hallazgos-closing.md → «Fathom puede cruzar quién
+  habla»). Cuando el modelo pone de dueño a quien la etiqueta dice que lo dijo («yo me encargo»), la única prueba es
+  esa etiqueta.
+- **Lo obvio que no alcanza:** pedirle al modelo que no le crea a la etiqueta. El prompt ya lo pedía (la prueba del
+  pronombre, `dichoPor`), pero «yo» es de quien habla, y quién habla es la etiqueta: no hay regla que la corrija.
+- **Regla (`lib/tarea-dueno.ts`, `duenoPorLaEtiqueta`):** dueño = `dichoPor`, en una reunión con dos voces o más
+  (`hablantesDelTexto`), viaja marcado (`duenoDudoso`). Lo que encontró el juez del criterio también (su dueño ES quien
+  dijo la cita). La pantalla pregunta «¿Es de X?» con un click para confirmarlo, cambiar el dueño también lo resuelve,
+  y en la tab de una persona no se envía ni se carga en su plan hasta que no quede ninguna marcada.
+- **Trampa:** la marca tiene que viajar por TODOS los caminos (el reparto del cron, la lectura en segundo plano, la
+  ruta del modal, `limpiarTarea` y los dos modales al guardar). Uno que la copie mal la borra en silencio en el
+  autosave siguiente: tests/plan-dueno-por-etiqueta.test.ts los mira a todos.
+- **Sin hacer:** los tres borradores pendientes del ws9 (propmvn5jk0zn4wsz, propmvpmpjspdh5oi, propmvq00r7ecld37) se
+  leyeron antes de esto: no traen la marca. Se corrigen a mano en el modal, o con «Volver a analizar» después del
+  deploy. El resumen de la reunión (el de Fathom) no se toca: lo escribe Fathom.
+
 ## Leer los proyectos del tablero por su NOMBRE pide `nucleo()`, y ampliar una tarea puede comerse su detalle (16/10/2026)
 
 Lo encontró la revisión del Plan adentro del Centro de Operaciones (docs/hallazgos-operaciones.md → «El Plan adentro de

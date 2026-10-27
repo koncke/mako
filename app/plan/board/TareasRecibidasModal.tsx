@@ -124,13 +124,13 @@ type FilaConProp = FilaTarea & { propId: string; proyectoPropuesto?: string; ori
  * es justo «ya no es de nadie más».
  */
 export function filaAlServer(
-  f: Pick<FilaConProp, 'orig' | 'titulo' | 'detalle' | 'prioridad' | 'dueño' | 'dueñoEmail' | 'esDeOtro' | 'minuto' | 'minutos' | 'incluir' | 'enriquece' | 'ampliar' | 'omitir'>,
+  f: Pick<FilaConProp, 'orig' | 'titulo' | 'detalle' | 'prioridad' | 'dueño' | 'dueñoEmail' | 'esDeOtro' | 'dueñoDudoso' | 'minuto' | 'minutos' | 'incluir' | 'enriquece' | 'ampliar' | 'omitir'>,
   proyecto: string | undefined,
 ): Record<string, unknown> {
   return {
     ...f.orig,
     titulo: f.titulo, detalle: f.detalle, prioridad: f.prioridad, proyecto,
-    dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro,
+    dueno: f.dueño, duenoEmail: f.dueñoEmail, esDeOtro: f.esDeOtro, duenoDudoso: f.dueñoDudoso || undefined,
     minuto: f.minuto, minutos: f.minutos, incluir: f.incluir,
     // El resultado del cruce viaja con la tarea: es lo que evita rehacerlo.
     enriquece: f.enriquece, ampliar: f.ampliar, omitir: f.omitir,
@@ -229,7 +229,7 @@ export function TareasRecibidasModal({ props: todos, labels, existentes, onListo
       // tablero, `proyectoId` queda null y —sin guardar esto— el nombre se perdía al
       // aplicar: la tarea entraba SIN proyecto aunque el server sabe crearlo por nombre.
       proyectoPropuesto: (t.proyecto ?? '').trim(),
-      dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, minuto: t.minuto, minutos: t.minutos,
+      dueño: t.dueno, dueñoEmail: t.duenoEmail, esDeOtro: t.esDeOtro, dueñoDudoso: t.duenoDudoso, minuto: t.minuto, minutos: t.minutos,
       // Lo que dijo el criterio de compromisos, si el workspace tiene uno. Viaja hasta
       // la fila para poder DIBUJARLO: el borrador ya lo trae guardado, y sin copiarlo
       // acá la persona ve filas destildadas sin ninguna razón al lado.

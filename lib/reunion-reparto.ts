@@ -40,6 +40,8 @@ export type TareaExtraida = {
   dueño?: string;
   dueñoEmail?: string;
   esDeOtro?: boolean;
+  /** El dueño no es seguro (la etiqueta del hablante, o dos partes que no coinciden): lib/tarea-dueno.ts. */
+  atribucionDudosa?: boolean;
 };
 
 /** Lo que va al borrador. Las tres respuestas, separadas. */
@@ -52,6 +54,8 @@ export type RepartoTarea = {
   esDeOtro?: boolean;
   /** ¿Se le puede mandar de verdad? Lo que el gate viejo confundía con `esDeOtro`. */
   repartible?: boolean;
+  /** El dueño no es seguro: la pantalla lo pregunta y no deja mandarla hasta que se confirme (27/10/2026). */
+  duenoDudoso?: true;
 };
 
 const norm = (s: string | undefined | null): string => (s ?? '').trim().toLowerCase();
@@ -89,6 +93,7 @@ export function repartoDeTarea(t: TareaExtraida, conCuenta: Set<string>): Repart
     // dueño la ve y decide. Lo único que falta en ese caso es el botón de mandársela.
     esDeOtro: t.esDeOtro || undefined,
     repartible: t.esDeOtro && sePuedeMandar ? true : undefined,
+    duenoDudoso: t.atribucionDudosa ? true : undefined,
   };
 }
 
