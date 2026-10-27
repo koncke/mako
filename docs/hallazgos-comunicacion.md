@@ -51,6 +51,51 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## MaKo en el grupo, fallas medidas del 20 al 27/10: decía hecho lo que no hizo, no veía fotos, no levantaba el ticket, no listaba y corría el modelo más flojo (27/10/2026)
+
+La lectura del Cerebro (sólo lectura de `mako_doer_conv`, `anthropic_usage` y el grupo Makito, contra main bbb459f33).
+Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/doer-modelo.ts` y `lib/doer-hilo.ts`.
+
+- **Decía hecho lo que no hizo** («He reportado el error al equipo… solo queda esperar su respuesta», con el ticket sólo
+  propuesto; «Te lo dejo anotado»; «Ya quedó registrado»; «Ya te abrí la agenda de Google»). El doer llamaba a
+  `sanearSalida` SIN respaldo, así que el control de «hecho» de la app (1.5) no corría en WhatsApp.
+  · Ahora el doer cuenta lo que el turno ESCRIBIÓ de verdad (`escribioDelTurno`): una herramienta que escribe, sin error y
+    que no sea una propuesta. Con `enElGrupo`, el «hecho» sin respaldo no sale: se saca la oración y se dice la verdad
+    (`FALTA_EL_SI` si quedó propuesto).
+  · El vocabulario sumó «he + participio», «dejo + participio» y «ya quedó + participio», con las excepciones «he estado»,
+    «he intentado» y «quedó agendada para el lunes».
+  ⚠️ Una propuesta no respalda: el ticket propuesto escribe una fila en `mako_acciones_pendientes`, pero no está hecho.
+- **No veía fotos ni PDF** («No puedo ver imágenes directamente»). El bloque nativo lo ve sólo Claude: el camino de su GPT o
+  su Gemini (`chatCheapTools` → `bloqueATexto`) se queda con el texto. Ahora el código lo LEE antes (`archivoATexto`, como la
+  app) y lo leído viaja como texto (`textoDelAdjunto`).
+- **Ante un bug contestaba como un manual** («puede deberse a la grabación», con su Claude sin crédito avisado a las 15:31).
+  El reporte caía en charlar o en la duda, y `levantar_ticket` viaja sólo en «actuar». Ahora `reportaFalla` suma el ticket
+  y `bloqueDeLaFalla` nombra la IA del negocio que viene fallando (`estadoDeSusClaves`: su último fallo es más nuevo que su
+  último «anduvo»).
+  ⚠️ Trampa repetida: el `\b` de JavaScript es ASCII («se colgó» no tiene borde después de la «ó»). Los bordes van con
+  `\p{L}`.
+- **«¿Cuáles son? sus nombres» después de los no-shows** («no se lista nominalmente…»). «no-shows» no nombraba ningún
+  área, así que `listar_leads_embudo_maduro` (métricas) no viajaba nunca, ni en la pregunta ni en el seguimiento. El área
+  de métricas suma «no-shows», «asistencia» y «sin marcar», y el hilo cuenta «cuáles son», «quiénes» y «sus nombres».
+- **El modelo más flojo**: 38 de 42 turnos con Gemini fueron flash-lite, y un negocio corría fijo en `gpt-4o-mini`.
+  · El doer fijaba `gpt-4o-mini` para su ChatGPT, mientras la app usa desde el 23/10 el que elige el admin o
+    `MODELO_SU_OPENAI_DEFAULT`. Ahora `pinDelDoer` hace lo mismo que la app e ignora un pin a Groq, que no contesta texto
+    desde IA16.
+  · Bajar de modelo (flash-latest → flash-lite) queda escrito: una fila `rebote:<modelo>` con el motivo, que no cuenta como
+    «su clave anduvo».
+
+**Sin hacer (de la misma lectura):**
+- El webhook no guarda los grupos (MK-01) y los audios de Makito (MK-02).
+- Agendar en el grupo de Pablo, contra una agenda real (MK-06).
+- La agenda del día y el contacto compartido por teléfono (P6).
+- El vigía (P10), el acuse a otra persona y el pushName (P8), la latencia (P11) y «Conectar otro canal» (Leandro).
+- «misma pregunta, mismo número» sólo está cubierto porque ahora viaja la herramienta: si el modelo elige otro rango de
+  fechas, el número cambia.
+
+*27/10/2026, chat «MaKo en WhatsApp: conexiones» (claude5).*
+
+---
+
 ## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
 
 **La trampa.** Un aviso pasa por DOS cortes, y la pantalla sólo muestra uno:
