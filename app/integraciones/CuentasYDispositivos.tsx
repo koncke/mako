@@ -26,7 +26,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ClaudeMark } from '@/app/_components/icons';
 import { SvcIcon } from '@/app/_components/ServicioVisual';
 import { hace } from '@/lib/progreso-reglas';
-import { AVISO_CHROME, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
+import { AVISO_CHROME, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, dondeQuedaMaKo, dondeEsta, estadoDeLaPc, yaPaso, type CuentaIA, type CuentasIA, type DispositivoIA } from '@/lib/ia-pc-reglas';
 
 /** «22/10»: cuándo se conectó un dispositivo (en la zona de quien mira). */
 const fechaCorta = (iso: string) => new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' });
@@ -206,6 +206,11 @@ export function DescargarMaKo({ className, onClick, texto, children }: { classNa
 export function avisoAlAbrir(): string {
   const sistemas = sistemasDeEstaPc();
   return `${AVISO_CHROME} ${sistemas[0] === 'mac' ? AVISO_GATEKEEPER : AVISO_SMARTSCREEN}`;
+}
+
+/** Dónde queda MaKo después de instalarlo, y cómo saber si quedó (27/10/2026, Leila: «no lo encuentro en mi compu»). */
+export function dondeQueda(): string {
+  return dondeQuedaMaKo(sistemasDeEstaPc()[0]);
 }
 
 /** «¿Es una Mac? Descárgalo para Mac» (o Windows): el instalador del OTRO sistema, a un toque. */

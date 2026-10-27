@@ -91,3 +91,18 @@ test('4. los adjuntos: ninguna falla dice «No pude subir los adjuntos» a secas
 // PROBADO ROMPIÉNDOLO (27/10/2026, base 4/0): Leila sin «hasta un día» → 1 rojo (1); `estimaMasDeUnDia` siempre false → 1 rojo (1);
 // el cartero con cualquier nombre → 1 rojo (2); la lista del cartero sin Leila → 1 rojo (2); el servidor sin mandar la regla → 1
 // rojo (2); el aviso sin Chrome → 1 rojo (3); `porQueFallo` sin la red → 1 rojo (4); un catch de vuelta a `fallo` → 1 rojo (4).
+
+test('5. después de instalar, la pantalla dice dónde queda MaKo y cómo saber si quedó, con lo que es verdad para la versión', async () => {
+  // Leila (27/10): «instalé supuestamente el MaKo Desktop, pero no lo encuentro en mi compu».
+  const { dondeQuedaMaKo, VERSION_CON_ACCESOS } = await import('../lib/ia-pc-reglas');
+  assert.match(dondeQuedaMaKo('windows', VERSION_CON_ACCESOS), /«MaKo» en el menú Inicio y en el escritorio/);
+  assert.match(dondeQuedaMaKo('windows', '0.5.0'), /menú Inicio/);
+  assert.match(dondeQuedaMaKo('windows', '0.4.2'), /trabaja en segundo plano/, 'la 0.4.2 no tiene accesos: no se promete un menú Inicio');
+  assert.match(dondeQuedaMaKo('mac', '0.4.2'), /Aplicaciones/);
+  for (const s of ['windows', 'mac'] as const) assert.match(dondeQuedaMaKo(s, '0.4.3'), /no se instaló|está conectada/, 'sin cómo saber si quedó');
+  // Los accesos del instalador existen (installer/windows/mako.iss).
+  const iss = leer('installer/windows/mako.iss');
+  assert.match(iss, /Name: "\{userprograms\}\\MaKo"/);
+  assert.match(iss, /Name: "\{userdesktop\}\\MaKo"/);
+  assert.match(leer('app/integraciones/TusCuentasIA.tsx'), /\{descargado && <p className="tci-instalar__texto" data-donde-queda="">\{dondeQueda\(\)\}<\/p>\}/);
+});
