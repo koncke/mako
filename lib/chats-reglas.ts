@@ -397,9 +397,9 @@ export function enFunnelYEtapa(c: Pick<ChatResumen, 'etapaKey' | 'funnels'>, fun
     if (funnel != null) return false;
     return !etapa || c.etapaKey === etapa;
   }
-  const aca = c.funnels.filter((x) => x.funnelId === id);
-  if (funnel != null && !aca.length) return false;
-  return !etapa || aca.some((x) => x.etapaKey === etapa);
+  const enEse = c.funnels.filter((x) => x.funnelId === id);
+  if (funnel != null && !enEse.length) return false;
+  return !etapa || enEse.some((x) => x.etapaKey === etapa);
 }
 
 /** La clave de un conteo por etapa de UN funnel: `<funnelId>:<etapa>`. */

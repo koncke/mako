@@ -257,3 +257,20 @@ test('una cuota se edita sin trámites: cobrada a mano, con recordatorio o con l
   const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
   assert.match(ui, /\{lead\.venta_tipo !== 'suscripcion' && \(\s*<Button variant="secondary" size="sm" onClick=\{\(\) => setArmando\(true\)\}>/, '«Armar el plan» volvió a esconderse');
 });
+
+// ── #13 · el plan quincenal de Leila (ws11) ───────────────────────────────────
+
+test('el plan libre: cada quincena en los días 1 y 15, más de 6 cuotas, y un 31 que cae en el último día', async () => {
+  const { fechasDelPlan } = await import('../lib/pagos-campo');
+  assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 4, cada: 'quincena', dias: [1, 15] }), ['2026-11-01', '2026-11-15', '2026-12-01', '2026-12-15']);
+  assert.deepEqual(fechasDelPlan({ desde: '2026-11-02', cantidad: 2, cada: 'quincena' }), ['2026-11-15', '2026-12-01'], 'la primera no cae antes de «desde»');
+  assert.equal(fechasDelPlan({ desde: '2026-11-01', cantidad: 24, cada: 'quincena', dias: [1, 15] }).length, 24, 'más de 6 cuotas');
+  assert.deepEqual(fechasDelPlan({ desde: '2026-01-31', cantidad: 3, cada: 'mes', dias: [31] }), ['2026-01-31', '2026-02-28', '2026-03-31']);
+  assert.deepEqual(fechasDelPlan({ desde: '2026-11-03', cantidad: 3, cada: 'semana' }), ['2026-11-03', '2026-11-10', '2026-11-17']);
+  assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 61, cada: 'mes', dias: [1] }), [], 'el tope de 60');
+  assert.deepEqual(fechasDelPlan({ desde: '2026-11-01', cantidad: 2, cada: 'quincena', dias: [1] }), [], 'una quincena son dos días');
+  const ui = fuente('app/crm/lead-view/ficha/pagos/bloques-cobro.tsx');
+  assert.match(ui, /const libre = cada !== 'mes' \|\| cantidad > 6 \|\| \(dia != null && dia > 28\);/, 'el plan sigue atado a 1-6 cuotas y un día del 1 al 28');
+  assert.match(ui, /await guardarCuotasAction\(l\.id, cuotas, \{/, 'el plan libre no se guarda por lista');
+  assert.match(ui, /<option value="quincena">Quincena<\/option>/);
+});

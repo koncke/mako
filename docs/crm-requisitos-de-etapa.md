@@ -59,3 +59,9 @@ Los requisitos se definen en UN lugar: `lib/stage-requirements.ts` (`stepsForSta
 - **El diálogo de Calendly** sólo sale para las etapas `agenda` / `agendaj2` con el tipo de evento cargado: una etapa de reunión
   propia, Cal.com o un evento vinculado no lo ofrecen (`app/crm/page.tsx`).
 - **«Agendar» desde el tablero carga sólo la fecha, sin hora**, y deja una hora vieja de Calendly si la había (`setMeetingManual`).
+- **R1 y R2 fijas** (doc de Joan del 25/09: «quitar la lógica de R1 y R2 del CRM: sólo fases propias»). Hoy un funnel puede no
+  tener reuniones (sus etapas `reunion` las marca el negocio) y nada de arriba se pide en un funnel sin ellas. Lo que sigue
+  pidiendo R1: al conectar Calendly, «Tipo de evento de R1» es **obligatorio** (`lib/metodo-catalogo.ts`) porque es lo que
+  arma el ruteo del webhook (sin él, ninguna reserva entra al CRM, y se midió que pasaba). La alternativa que ya existe es
+  vincular el evento a una etapa (`lib/agenda-evento-etapa.ts`): si Martín quiere sacar la R1 de Calendly, el ruteo tiene que
+  salir de los eventos vinculados. Es del chat de Integraciones.

@@ -19,7 +19,7 @@ import { Button, Confirm, Toast, useToast } from '@/app/_ui';
 import { cobradoDelLead, esCuotaDeBaja, esCuotaDevuelta, noEsDeuda, type CuotaParaCobrado } from '@/lib/cobrado-lead';
 import { estadoDeCuenta, movimientosDelLead, renglonDeCuota, usd } from '@/lib/pagos-vistazo';
 import { cobrosDelTrato, cobrosSinLosDe } from '@/lib/pagos-crm';
-import { ajustarSobre, type PlanUniforme } from '@/lib/pagos-campo';
+import { ajustarSobre, fechasDelPlan, TOPE_CUOTAS_PLAN, type CadaPlan, type PlanUniforme } from '@/lib/pagos-campo';
 import { planEnLead } from '@/lib/muestra-pagos';
 import { fechaEnPalabras } from '@/lib/date-utils';
 import { marcaDato } from '@/lib/datos-aviso';
@@ -346,9 +346,13 @@ export function Cuotas(props: PropsBloque) {
 }
 
 /**
- * El plan uniforme: cobro inicial, cuota, cuántas (1 a 6) y qué día del mes (1 a 28). Va por `ajustarPlanAction`:
- * la cuota que existe se actualiza POR ID, la que falta se agrega y la que sobra se quita sólo si no tiene link ni
- * recordatorio; las cobradas no se tocan, y NO gana el lead. Deshacer devuelve las cuotas y el plan de antes.
+ * El plan: cobro inicial, cuota, cuántas, cada cuánto y qué día(s).
+ *   · El UNIFORME (cada mes, 1 a 6 cuotas, un día del 1 al 28: los CHECK de las columnas del plan) va por `ajustarPlanAction`:
+ *     la cuota que existe se actualiza POR ID, la que falta se agrega y la que sobra se quita sólo si no tiene link ni
+ *     recordatorio; las cobradas no se tocan, y NO gana el lead. Deshacer devuelve las cuotas y el plan de antes.
+ *   · El LIBRE (27/10/2026, ticket #13 de Leila: «$300 cada quincena, los días 1 y 15», y Martín: «no tiene LIBERTAD»):
+ *     cada quincena o cada semana, más de 6 cuotas o un día 29 a 31. Arma la lista (`fechasDelPlan`, lib/pagos-campo.ts) y
+ *     reemplaza las impagas que se vieron por esa lista (`guardarCuotasAction`); las cobradas y las protegidas quedan.
  */
 function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: string; deshacer?: () => void } | null) => void }) {
   const l = ctx.lead;
@@ -356,14 +360,43 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
   // persona cambió contra esto, y el server lo escribe encima de lo que tiene (`ajustarSobre`). Mandar los cuatro
   // campos volvía a escribir un valor que otra pantalla había cambiado en el medio (revisión del 16/10/2026).
   const [antes] = useState<PlanUniforme>(() => ({ cobro_inicial_usd: l.cobro_inicial_usd, monto_cuota_usd: l.monto_cuota_usd, total_cuotas: l.total_cuotas, dia_de_pago: l.dia_de_pago }));
-  const [plan, setPlan] = useState({ inicial: l.cobro_inicial_usd ? String(l.cobro_inicial_usd) : '', cuota: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '' });
+  const [plan, setPlan] = useState({ inicial: l.cobro_inicial_usd ? String(l.cobro_inicial_usd) : '', cuota: l.monto_cuota_usd ? String(l.monto_cuota_usd) : '', cantidad: l.total_cuotas ? String(l.total_cuotas) : '', dia: l.dia_de_pago ? String(l.dia_de_pago) : '', dia2: '15', desde: ctx.hoy });
+  const [cada, setCada] = useState<CadaPlan>('mes');
   const [err, setErr] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const n = (s: string): number | null => (s.trim() === '' ? null : Number(s.replace(',', '.')));
   const nuevo: Partial<PlanUniforme> = { cobro_inicial_usd: n(plan.inicial), monto_cuota_usd: n(plan.cuota), total_cuotas: n(plan.cantidad), dia_de_pago: n(plan.dia) };
   const cambiado = Object.fromEntries((Object.keys(nuevo) as Array<keyof PlanUniforme>).filter((k) => (nuevo[k] ?? null) !== (antes[k] ?? null)).map((k) => [k, nuevo[k]])) as Partial<PlanUniforme>;
+  const cantidad = n(plan.cantidad) ?? 0;
+  const dia = n(plan.dia);
+  // ¿Entra en el plan uniforme? Cada mes, 1 a 6 cuotas, un día del 1 al 28. Si no, es el libre.
+  const libre = cada !== 'mes' || cantidad > 6 || (dia != null && dia > 28);
   const v = ajustarSobre(antes, nuevo);
+  const fechas = libre ? fechasDelPlan({ desde: plan.desde, cantidad, cada, dias: cada === 'quincena' ? [dia ?? 1, n(plan.dia2) ?? 15] : cada === 'mes' ? [dia ?? 1] : undefined }) : [];
+  const inicial = n(plan.inicial) ?? 0;
+  const cuota = n(plan.cuota) ?? 0;
+  const guardarLibre = () => {
+    if (!(cuota > 0)) { setErr('La cuota tiene que ser mayor a cero.'); return; }
+    if (!(cantidad >= 1 && cantidad <= TOPE_CUOTAS_PLAN)) { setErr(`Las cuotas van de 1 a ${TOPE_CUOTAS_PLAN}.`); return; }
+    if (!fechas.length) { setErr(cada === 'quincena' ? 'Elige los dos días de cada mes (del 1 al 31).' : 'Revisa el día y la fecha de la primera.'); return; }
+    if (inicial < 0) { setErr('El cobro inicial no puede ser negativo.'); return; }
+    const cuotas = [...(inicial > 0 ? [{ monto: inicial, fecha: plan.desde }] : []), ...fechas.map((f) => ({ monto: cuota, fecha: f }))];
+    if (cuotas.length > TOPE_CUOTAS_PLAN) { setErr(`Son ${cuotas.length} con el cobro inicial: hasta ${TOPE_CUOTAS_PLAN} en total.`); return; }
+    // Las impagas que se ven son las que se reemplazan: una que no se vio no se borra (`reconciliarCuotas`).
+    const vistos = ctx.data.pagos.filter((q) => !q.pagado && !noEsDeuda(q)).map((q) => q.id);
+    start(async () => {
+      const r = await guardarCuotasAction(l.id, cuotas, {
+        cobro_inicial_usd: inicial > 0 ? inicial : null, monto_cuota_usd: cuota,
+        // Las columnas del plan tienen sus CHECK (1 a 6, día 1 a 28): lo que no entra va vacío, y las cuotas dicen el resto.
+        total_cuotas: cantidad <= 6 ? cantidad : null, dia_de_pago: cada === 'mes' && dia != null && dia <= 28 ? dia : null,
+      }, vistos, ctx.crm?.id ?? null);
+      if (!r.ok) { setErr(r.error); return; }
+      ctx.releer();
+      onListo({ texto: r.sinTocar ? `Plan guardado · no se tocó: ${r.sinTocar}` : `Plan guardado: ${cuotas.length} cuotas` });
+    });
+  };
   const guardar = () => {
+    if (libre) { guardarLibre(); return; }
     if (!v.ok) { setErr(v.error); return; }
     if (!Object.keys(cambiado).length) { onListo(null); return; }
     start(async () => {
@@ -377,21 +410,43 @@ function ArmarPlan({ ctx, onListo }: { ctx: CtxFicha; onListo: (m: { texto: stri
       });
     });
   };
-  const campo = (k: keyof typeof plan, rot: string, ayuda?: string) => (
-    <label style={{ display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--dim)' }}>
+  const etiqueta: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: 'var(--dim)' };
+  const campo = (k: 'inicial' | 'cuota' | 'cantidad' | 'dia' | 'dia2', rot: string, ayuda?: string) => (
+    <label style={etiqueta}>
       {rot}
       <input className="mk-input" type="number" inputMode="decimal" min={0} value={plan[k]} onChange={(e) => setPlan({ ...plan, [k]: e.target.value })} placeholder={ayuda} />
     </label>
   );
+  const total = libre ? inicial + cuota * fechas.length : v.ok ? (v.plan.cobro_inicial_usd ?? 0) + (v.plan.monto_cuota_usd ?? 0) * (v.plan.total_cuotas ?? 0) : null;
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 14, borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface-2)' }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: 10 }}>
         {campo('inicial', 'Cobro inicial (USD)')}
         {campo('cuota', 'Cada cuota (USD)')}
-        {campo('cantidad', 'Cuántas cuotas', '1 a 6')}
-        {campo('dia', 'Día de pago', '1 a 28')}
+        {campo('cantidad', 'Cuántas cuotas', `1 a ${TOPE_CUOTAS_PLAN}`)}
+        <label style={etiqueta}>
+          Cada
+          <select className="mk-input" value={cada} onChange={(e) => setCada(e.target.value as CadaPlan)}>
+            <option value="mes">Mes</option>
+            <option value="quincena">Quincena</option>
+            <option value="semana">Semana</option>
+          </select>
+        </label>
+        {cada === 'mes' && campo('dia', 'Día de pago', '1 a 31')}
+        {cada === 'quincena' && campo('dia', 'Primer día', '1')}
+        {cada === 'quincena' && campo('dia2', 'Segundo día', '15')}
+        {libre && (
+          <label style={etiqueta}>
+            Desde
+            <input className="mk-input" type="date" value={plan.desde} onChange={(e) => setPlan({ ...plan, desde: e.target.value })} />
+          </label>
+        )}
       </div>
-      {v.ok && <span style={{ fontSize: 13, color: 'var(--dim)' }}>Total del plan: {usd((v.plan.cobro_inicial_usd ?? 0) + (v.plan.monto_cuota_usd ?? 0) * (v.plan.total_cuotas ?? 0))}</span>}
+      {total != null && total > 0 && (
+        <span style={{ fontSize: 13, color: 'var(--dim)' }}>
+          Total del plan: {usd(total)}{libre && fechas.length ? ` · la primera el ${fechaEnPalabras(fechas[0], ctx.hoy)}, la última el ${fechaEnPalabras(fechas[fechas.length - 1], ctx.hoy)}` : ''}
+        </span>
+      )}
       {err && <Aviso tono="rojo">{err}</Aviso>}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
         <Button variant="secondary" size="sm" onClick={() => onListo(null)} disabled={pending}>Cancelar</Button>

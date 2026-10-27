@@ -853,3 +853,51 @@ export function avisoMonedaPorOmision(monedaDelNegocio: string | null | undefine
   if (!m || m === MONEDA_POR_DEFECTO) return '';
   return ` Queda en dólares (USD) porque no se dijo otra moneda, y la moneda del negocio es ${m}: si se cobró en ${m}, dímelo antes de confirmar.`;
 }
+
+// =============================================================================
+// EL PLAN LIBRE (27/10/2026, ticket #13 de Leila, ws11: «Plan de pagos quincenal (días 1 y 15)»)
+// =============================================================================
+// El plan uniforme (`ajustarSobre`) es de 1 a 6 cuotas y UN día del mes, del 1 al 28: son los CHECK de la mig 0014 sobre las
+// columnas del plan del lead. Leila necesitaba $300 cada quincena, los días 1 y 15, y «no se puede armar». Martín (27/10):
+// «no tiene LIBERTAD». El plan libre no pasa por esas columnas: arma la LISTA de cuotas (cualquier cantidad, hasta el tope de
+// 60 de `guardarCuotasAction`) cada mes, cada quincena o cada semana, en los días que se elijan, y la guarda por lista.
+// =============================================================================
+
+export type CadaPlan = 'mes' | 'quincena' | 'semana';
+export const TOPE_CUOTAS_PLAN = 60;
+
+const diasDelMes = (y: number, m0: number): number => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+const iso = (y: number, m0: number, d: number): string => new Date(Date.UTC(y, m0, d)).toISOString().slice(0, 10);
+
+/**
+ * Las fechas de `cantidad` cuotas desde `desde` (AAAA-MM-DD, incluido), en UTC y sin horas:
+ *   · `mes`: el día `dias[0]` de cada mes (un 31 cae en el último día de un mes más corto);
+ *   · `quincena`: los dos días de `dias` de cada mes (por defecto el 1 y el 15), en orden;
+ *   · `semana`: cada 7 días desde `desde`.
+ * La primera es la primera de esas fechas que no cae antes de `desde`. Fuera de rango (cantidad < 1 o > 60, fecha mala,
+ * días fuera de 1..31) → [].
+ */
+export function fechasDelPlan(p: { desde: string; cantidad: number; cada: CadaPlan; dias?: readonly number[] }): string[] {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.desde ?? '');
+  const n = Math.floor(Number(p.cantidad));
+  if (!m || !Number.isFinite(n) || n < 1 || n > TOPE_CUOTAS_PLAN) return [];
+  const y0 = Number(m[1]), m0 = Number(m[2]) - 1, d0 = Number(m[3]);
+  if (p.cada === 'semana') {
+    const base = Date.UTC(y0, m0, d0);
+    return Array.from({ length: n }, (_, i) => new Date(base + i * 7 * 86400000).toISOString().slice(0, 10));
+  }
+  const defecto = p.cada === 'quincena' ? [1, 15] : [d0];
+  const dias = [...new Set((p.dias && p.dias.length ? p.dias : defecto).map((d) => Math.floor(Number(d))))].sort((a, b) => a - b);
+  if (!dias.length || dias.some((d) => !Number.isFinite(d) || d < 1 || d > 31)) return [];
+  if (p.cada === 'mes' && dias.length !== 1) return [];
+  if (p.cada === 'quincena' && dias.length !== 2) return [];
+  const out: string[] = [];
+  for (let k = 0; out.length < n && k < TOPE_CUOTAS_PLAN * 2 + 2; k++) {
+    const y = y0 + Math.floor((m0 + k) / 12), mm = (m0 + k) % 12;
+    for (const d of dias) {
+      const f = iso(y, mm, Math.min(d, diasDelMes(y, mm)));
+      if (f >= p.desde && out.length < n && !out.includes(f)) out.push(f);
+    }
+  }
+  return out;
+}

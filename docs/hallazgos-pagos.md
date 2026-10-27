@@ -1285,6 +1285,12 @@ tampoco el $ en el total de la columna cuando es suscripción».
   Martín lo pidió al revés: ahora suma la mensualidad (la misma «/mes» de la tarjeta); sólo suscripciones, «$444/mes»; mezclado,
   la suma y el `title` separa las dos (`app/crm/total-columna.ts`).
 
-**Sin hacer:** el plan uniforme sigue de 1 a 6 cuotas y el día de pago de 1 a 28 (CHECK de la mig 0014: subirlo pide una
-migración; «+ Agregar una cuota» no tiene ese tope) · editar una cobrada no deja su línea en el historial con la palabra
-«pago» (dice «vencimiento», `lineasDeCuotas`).
+- **El plan quincenal (ticket #13, Leila: «$300 cada quincena, los días 1 y 15»).** El plan uniforme es de 1 a 6 cuotas y UN
+  día del 1 al 28, y no por una regla de negocio: son los CHECK de la mig 0014 sobre las COLUMNAS del plan del lead. Las
+  cuotas son filas de `pagos` y no tienen ese tope. El plan LIBRE (cada mes, quincena o semana; días a elección; hasta 60) arma
+  la lista (`fechasDelPlan`, lib/pagos-campo.ts) y la guarda por `guardarCuotasAction` con las columnas del plan en lo que
+  entra (lo que no, vacío: `planComoEstaba` recorta igual). Sin migración. El plan uniforme sigue por `ajustarPlanAction`.
+
+**Sin hacer:** el plan libre no tiene Deshacer (el uniforme sí) · el editor del plan sigue escondido para una suscripción (el
+caso de Nadia, lead 2605: primero se pasa la venta a «Pago único») · editar una cobrada deja su línea en el historial como
+«vencimiento» (`lineasDeCuotas`).
