@@ -36,7 +36,8 @@ export const LARGO_SEGUIMIENTO = 180;
 const VERBO_CON_PRONOMBRE = /\b(?:paus|public|mand|cambi|pas|borr|sub|baj|pon|hac|agreg|muev|mov|cancel|archiv|duplic|envi|respond|contest|agend|reagend|activ|desactiv|prend|apag|renombr|edit|corrig|correg|arregl|elimin|quit|sac|copi|guard|program|reprogram|asign|marc|cerr|abr|mostr|muestr|dej|llam|escrib|reenvi|recuerd|record|avis|carg|actualiz|termin|complet|fij|resum|analiz|revis|mir|busc|despublic|repet|repit)[a-záéíóúñ]{0,4}(?:la|lo|le|las|los|les|me|nos|selo|sela|selos|selas|melo|mela)\b/i;
 
 /** Una referencia a algo de la charla: «la segunda», «la del webinar», «esa», «esos 5», «también», «de vuelta». */
-const REFERENCIA = /\b(?:(?:la|el|las|los|lo)\s+(?:primer[ao]?s?|segund[ao]s?|tercer[ao]?s?|cuart[ao]s?|[uú]ltim[ao]s?|otr[ao]s?|de|del|que|mism[ao]s?)|es[aeo]s?|aquel(?:la|lo)?s?|tambi[eé]n|de vuelta|otra vez|lo mismo)\b/i;
+// «¿cuáles son?», «¿quiénes?», «sus nombres» (27/10/2026, Código Inmobiliario): piden el detalle detrás del número de recién.
+const REFERENCIA = /\b(?:(?:la|el|las|los|lo)\s+(?:primer[ao]?s?|segund[ao]s?|tercer[ao]?s?|cuart[ao]s?|[uú]ltim[ao]s?|otr[ao]s?|de|del|que|mism[ao]s?)|es[aeo]s?|aquel(?:la|lo)?s?|tambi[eé]n|de vuelta|otra vez|lo mismo|(?:los|sus)\s+nombres|cu[aá]les(?:\s+son)?|qui[eé]nes(?:\s+son)?)(?![\p{L}])/iu;
 
 /** Una muletilla no es una respuesta: «mmm», «eh», «bueno», «ok» después de «¿Quieres que la pause?» no la pausan. */
 const MULETILLA = /^(?:m+|e+h*|a+h*|uh+|hmm+|bueno+|ok+|okey|ya|aj[aá]|ahí va|ah[ií] va)[\s.!…,]*$/i;

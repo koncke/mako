@@ -1405,7 +1405,9 @@ export const AREA_KEYWORDS: Readonly<Record<Area, RegExp>> = {
   // El EDITOR del Dashboard por la API (11/10/2026): «agrega un gráfico», «mi hoja de Marketing», «el informe de
   // Ana», «el AI Analyst». «plantilla» sola NO: es la palabra de las plantillas de WhatsApp (área whatsapp), y con
   // ella cada mensaje sobre una plantilla de Meta traía ~20 operaciones del Dashboard; va atada a una hoja.
-  metricas: /\b(m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada|gr[aá]ficos?|hojas?\b|informes?\b|plantillas? (?:de |del |para )?(?:la |una |mi )?(?:hoja|dashboard|informe|marketing|comercial|closing|landing|productividad|ads analyst)|ai analyst|an[aá]lisis de (?:la|mi|una) hoja)/i,
+  // «no-shows», «asistencia», «sin marcar» (27/10/2026, Código Inmobiliario): sin ellas, «¿cuántos no-shows tuve?» no
+  // nombraba el área y `listar_leads_embudo_maduro` (los nombres detrás del número) no viajaba nunca.
+  metricas: /\b(no[- ]?shows?|asistencias?|sin marcar|m[eé]tricas?|n[uú]meros|inversi[oó]n|gast[oóé]|cac\b|roas|dashboard|ingresos?|facturaci|cu[aá]nto (vend|invert|gast|cobr)|cascada|gr[aá]ficos?|hojas?\b|informes?\b|plantillas? (?:de |del |para )?(?:la |una |mi )?(?:hoja|dashboard|informe|marketing|comercial|closing|landing|productividad|ads analyst)|ai analyst|an[aá]lisis de (?:la|mi|una) hoja)/i,
   experimentos: /\b(experimentos?|hip[oó]tesis|retro\b|retrospectiva|conclusi[oó]n)/i,
   landing: /\b(landing|p[aá]gina|p[ií]xel|pixel|tracking|vsl)/i,
   closing: /\b(llamadas?|closing|closers?|transcri|fathom|objeci[oó]n)/i,

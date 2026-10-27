@@ -68,6 +68,8 @@ const SEGUIMIENTOS: Array<[string, string, string, string]> = [
   // El de Florencia (ws21, 22/10, literal) y lo que le contesta MaKo desde el 25/10.
   ['Estas analizando mis fathom?', 'Para analizar tus reuniones de Fathom primero hay que conectarlo 👇 https://hola-mako.com/integraciones?abrir=fathom', 'ya lo conecté, analizá la última', 'panorama_closing'],
   ['¿cuántos leads entraron esta semana?', 'Entraron 14 leads esta semana; 5 vienen de la campaña del webinar.', 'mandales un mensaje a esos 5', 'recomendar_mensajes_whatsapp'],
+  // Código Inmobiliario, 26/10: pidió los nombres de los no-shows y MaKo contestó «no se lista nominalmente…».
+  ['¿cuántos no-shows tuve este mes?', 'Este mes tuviste 25 no-shows y 14 reuniones sin marcar.', '¿cuáles son? pasame sus nombres', 'listar_leads_embudo_maduro'],
 ];
 
 test('1. lo medido: el seguimiento SOLO no llegaba con su herramienta', () => {
@@ -90,6 +92,8 @@ test('2. con el hilo, cada seguimiento sigue el pedido y trae la herramienta que
   assert.deepEqual(turno(SEGUIMIENTOS[2][0], SEGUIMIENTOS[2][1], SEGUIMIENTOS[2][2]).areas, ['landing']);
   assert.deepEqual(turno(SEGUIMIENTOS[1][0], SEGUIMIENTOS[1][1], SEGUIMIENTOS[1][2]).areas, ['ads']);
   assert.deepEqual(turno(SEGUIMIENTOS[0][0], SEGUIMIENTOS[0][1], SEGUIMIENTOS[0][2]).areas, ['plan']);
+  // La pregunta sola por los no-shows ya trae la que lista (el área de métricas los nombra desde el 27/10).
+  assert.ok(turno('hola', 'Hola', '¿cuántos no-shows tuve este mes?', false).nombres.includes('listar_leads_embudo_maduro'));
   // Una acción del hilo PROPONE: por WhatsApp sigue pasando por el «sí» (lo que no cambia de esta red).
   const pausa = turno(SEGUIMIENTOS[1][0], SEGUIMIENTOS[1][1], SEGUIMIENTOS[1][2]);
   assert.equal(pausa.veredicto.intencion, 'actuar');
@@ -235,10 +239,10 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
   assert.match(doer, /const conMemoria = baseDelSystem === base \? \[ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
-  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
+  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*escribioDelTurno\+\+;\n)?\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
   assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(jid\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
-  assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}\$\{conMemoria\}`;/);
+  assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}(?:\$\{ctxFalla\})?\$\{conMemoria\}`;/);
   assert.match(doer, /armarSystem\(toolsRed, [^\n]*, baseRed\)/);
   // La marca de contexto le dice que resuelva lo que señala con lo de arriba.
   assert.match(doer, /si el último mensaje se refiere a algo de acá \(«pausala», «la segunda», «esos 5», el dato que pediste\), resuélvelo con esto y no vuelvas a preguntar lo que ya te dijeron/);
@@ -280,7 +284,7 @@ test('11. lo que mostraste vuelve al turno siguiente con los ids, y deja de vale
   const ahora = Date.parse('2026-10-26T12:00:00Z');
   const guardado = JSON.stringify({ at: ahora - 3 * 60_000, refs: [{ herramienta: 'que_recomienda_mako', items: [{ id: 'leads-esperando', nombre: 'Contestar a los 4 leads' }, { id: 'landing-sin-pixel', nombre: 'Poner el píxel' }] }] });
   const b = bloqueLoQueMostraste(guardado, ahora);
-  assert.match(b, /^LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR \(los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»/);
+  assert.match(b, /^LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR \(los ids, para resolver «esa», «la segunda», «esos 5», «descarta esa»/);
   assert.match(b, /- que_recomienda_mako \(hace 3 min\):\n  1\) leads-esperando «Contestar a los 4 leads»\n  2\) landing-sin-pixel «Poner el píxel»/);
   assert.equal(bloqueLoQueMostraste(JSON.stringify({ at: ahora - VIGENCIA_REFS_MS - 1, refs: JSON.parse(guardado).refs }), ahora), '', 'lo de ayer sigue siendo «la segunda»');
   for (const g of [null, '', 'no es json', JSON.stringify({ at: ahora, refs: [] })]) assert.equal(bloqueLoQueMostraste(g, ahora), '');
