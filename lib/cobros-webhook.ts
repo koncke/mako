@@ -96,6 +96,25 @@ async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, qui
 }
 
 /**
+ * La venta de un Payment Link propio del negocio: se relee la sesión y, si está pagada y vino de un link, va el Purchase por CAPI
+ * (lib/meta-capi.ts, Zernio primero). El cobro en el CRM, todavía no (lo arma el chat de Pagos): el evento queda «ignorado» con lo que
+ * se hizo en el motivo. Un fallo de Meta no se reintenta acá (sería otra compra si el id cambiara; con el mismo id, Meta deduplica).
+ */
+async function compraDeUnLinkPropio(ws: number, key: string, sesionId: string, ev: EventoStripe): Promise<ResultadoEvento> {
+  const s = await leerCheckoutStripe(key, sesionId);
+  if (!s.ok) throw errorDelProveedor('Stripe', 'la sesión de pago', s);
+  const { compraDeLaSesion, EVENTO_COMPRA } = await import('./meta-capi-payload');
+  const compra = compraDeLaSesion(s);
+  if (!compra) return ignorado('no es un cobro de MaKo');
+  const { sendMetaCAPIEvent } = await import('./meta-capi');
+  const r = await sendMetaCAPIEvent({
+    eventName: EVENTO_COMPRA, email: compra.email, phone: compra.phone, eventId: compra.eventId,
+    eventTime: ev.creado ?? new Date(), customData: { value: compra.value, currency: compra.currency },
+  });
+  return ignorado(r.ok ? 'venta de un Payment Link propio: Purchase enviado a Meta' : `venta de un Payment Link propio: Meta no recibió el Purchase (${r.motivo})`);
+}
+
+/**
  * Un evento de Stripe ya verificado (firma del webhook de ESE negocio) y ya reclamado en
  * `pasarela_eventos`. Devuelve lo que queda en la fila; tira lo que la ruta tiene que clasificar.
  */
@@ -120,6 +139,9 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
 
   if (objeto === 'checkout') {
     const b = await cobroStripe(ws, ev, aviso.buscar, quien);
+    // Una venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): no es un cobro de MaKo, pero ES una compra, y
+    // a Meta no le llegaba. Se le manda el Purchase con el id de la sesión (el mismo que manda el navegador en la página de gracias).
+    if ('ignorar' in b && b.ignorar.cobroId == null && b.ignorar.motivo === 'no es un cobro de MaKo') return compraDeUnLinkPropio(ws, key, id, ev);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerCheckoutStripe(key, id);

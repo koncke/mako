@@ -141,6 +141,26 @@ export function falloEnRespuesta(body: unknown): string | null {
 export const EVENTOS_CALIFICADO = ['SubmitApplication', 'QualifiedLead'] as const;
 
 /**
+ * La COMPRA (27/10/2026, MAU-10: Mauricio vende con un Payment Link de SU Stripe y a Meta no le llegaba ninguna). El `event_id` es el
+ * id de la sesión de Stripe: es lo único que tienen igual el servidor (el webhook) y el navegador (la página de gracias, a la que el
+ * Payment Link vuelve con `?session_id={CHECKOUT_SESSION_ID}`). Con el mismo `Purchase` + el mismo id, Meta cuenta UNA compra.
+ */
+export const EVENTO_COMPRA = 'Purchase';
+export const eventIdCompra = (sesionId: string): string => `purchase:${sesionId}`;
+
+/**
+ * Qué se le manda a Meta de una sesión de Stripe pagada que salió de un Payment Link propio del negocio. null = no es una compra para
+ * avisar (no está pagada, no vino de un link, o le falta el monto o la moneda: un Purchase sin valor no optimiza y confunde).
+ */
+export function compraDeLaSesion(s: {
+  id: string; pagoEstado: string | null; paymentLink?: string | null; monto: number | null; moneda: string | null;
+  email: string | null; telefono?: string | null;
+}): { eventId: string; value: number; currency: string; email: string | null; phone: string | null } | null {
+  if (s.pagoEstado !== 'paid' || !s.paymentLink || s.monto == null || !(s.monto > 0) || !s.moneda) return null;
+  return { eventId: eventIdCompra(s.id), value: s.monto, currency: s.moneda, email: s.email, phone: s.telefono ?? null };
+}
+
+/**
  * La clave de deduplicación de la calificación de un lead.
  *
  * ⚠️ ESTABLE POR LEAD, Y ESO ES EL ARREGLO. `lib/leads.ts` dispara comparando el
