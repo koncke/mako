@@ -333,6 +333,9 @@ export const SIN_GROSERIA = 'Perdón, me expresé mal. ¿Seguimos?';
 /** `sinRespaldo`: lo que dice HECHO y el código no respalda (lleva la nota). */
 export type Saneo = { texto: string; promesas: string[]; groserias: string[]; sinRespaldo?: string[] };
 
+/** El `model` de la fila `saneo-doer` cuando lo que se sacó dice HECHO algo que el turno no hizo (lo lee el vigía). */
+export const SANEO_HECHO = 'saneo:hecho';
+
 /**
  * Lo que respalda, en el chat de la app, una frase que dice HECHO (1.5; las revisiones del 21/10/2026). En ese chat el
  * turno no ejecuta nada: lo que escribe deja una tarjeta o una pantalla, y se hace al confirmar. El respaldo lo pone el

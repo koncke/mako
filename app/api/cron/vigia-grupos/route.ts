@@ -57,8 +57,8 @@ import { leerTodo } from '@/lib/supabase-paginado';
 import { crearTicket } from '@/lib/tickets-db';
 import { identidadDelSistema } from '@/lib/errores-app';
 import {
-  ESPERA_RESPUESTA_MS, incidentesDe, incidentesDeErrores, lineaDe,
-  type FilaConv, type FilaError, type FilaUso, type Incidente,
+  ESPERA_RESPUESTA_MS, incidentesDe, incidentesDeErrores, incidentesDeVencidas, lineaDe,
+  type FilaConv, type FilaError, type FilaPendiente, type FilaUso, type Incidente,
 } from '@/lib/vigia-mako-grupos';
 import { leerEstado, tituloDeTicket, vistosTrasLaVuelta, type EstadoVigia } from '@/lib/vigia-grupos-estado';
 
@@ -105,6 +105,7 @@ export async function GET(request: NextRequest) {
     let conv: FilaConv[];
     let usos: FilaUso[];
     let errs: FilaError[];
+    let pend: FilaPendiente[];
     try {
       conv = await leerTodo<FilaConv>(db, 'mako_doer_conv', 'id, workspace_id, grupo_jid, role, content, created_at', {
         orden: ['created_at', 'id'], filtros: (q) => q.gte('created_at', leerDesde),
@@ -116,6 +117,12 @@ export async function GET(request: NextRequest) {
       errs = await leerTodo<FilaError>(db, 'errores_app', 'id, origen, titulo, veces, primera_vez, ultima_vez, afectados, ticket_id', {
         orden: ['primera_vez', 'id'], filtros: (q) => q.gte('primera_vez', leerDesde),
       });
+      // Las propuestas que vencieron sin el «sí» (P10). Por `vence_at` y hasta ahora: la marca nunca pasa de lo último
+      // leído, así que lo que vence entre dos vueltas cae en la siguiente.
+      pend = await leerTodo<FilaPendiente>(db, 'mako_acciones_pendientes', 'id, workspace_id, grupo_jid, tipo, resumen, estado, vence_at, origen', {
+        orden: ['vence_at', 'id'],
+        filtros: (q) => q.gte('vence_at', leerDesde).lte('vence_at', new Date(ahora).toISOString()).in('estado', ['pendiente', 'vencida']),
+      });
     } catch (e) {
       // El código 2 del script: no pude leer, y por eso la marca se queda donde estaba.
       return Response.json(
@@ -124,7 +131,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const nuevos: Incidente[] = [...incidentesDe(conv, usos, ahora), ...incidentesDeErrores(errs)]
+    const nuevos: Incidente[] = [...incidentesDe(conv, usos, ahora), ...incidentesDeVencidas(pend, ahora), ...incidentesDeErrores(errs)]
       .filter((i) => !estado.vistos.includes(i.clave));
 
     const ultimo = [...conv, ...usos].map((f) => f.created_at).sort().pop();
@@ -139,7 +146,7 @@ export async function GET(request: NextRequest) {
 
     if (m === 'seco') {
       return Response.json({
-        ok: true, modo: 'seco', desde: estado.marca, leidos: { conv: conv.length, usos: usos.length, errores: errs.length },
+        ok: true, modo: 'seco', desde: estado.marca, leidos: { conv: conv.length, usos: usos.length, pendientes: pend.length, errores: errs.length },
         incidentes: nuevos.length, abririaTickets: paraTicket.length, marcaAvanzo: false,
         muestra: nuevos.slice(0, 10).map((i) => ({ clave: i.clave, titulo: tituloDeTicket(i, nombreWs), linea: lineaDe(i, nombreWs) })),
       });
@@ -175,7 +182,7 @@ export async function GET(request: NextRequest) {
 
     return Response.json({
       ok: true, modo: 'on', desde: estado.marca, hasta: marca,
-      leidos: { conv: conv.length, usos: usos.length, errores: errs.length },
+      leidos: { conv: conv.length, usos: usos.length, pendientes: pend.length, errores: errs.length },
       incidentes: nuevos.length, tickets: abiertos.length, sinTicket: paraTicket.length - abiertos.length,
       marcaAvanzo: marca !== estado.marca,
     });

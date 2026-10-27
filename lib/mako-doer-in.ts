@@ -53,7 +53,7 @@ import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
-import { sanearSalida, promesasDe } from '@/lib/doer-salida';
+import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
@@ -2194,10 +2194,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         corrioHerramientas: corridasDelTurno > 0, finDeTurno: true,
         enElGrupo: { respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno.size > 0 },
       });
-      if (saneo.promesas.length || saneo.groserias.length) {
-        const que = [saneo.promesas.length ? `promesa sin hacer: «${saneo.promesas.join('», «')}»` : '', saneo.groserias.length ? `grosería: ${saneo.groserias.join(', ')}` : ''].filter(Boolean).join(' · ');
+      // ⚠️ El «hecho» sin respaldo del grupo (`sinRespaldo`) también: sin él en la condición, `sanearSalida` lo sacaba y
+      // el texto saneado no se mandaba (27/10/2026). Su fila es `saneo:hecho`, la que el vigía cuenta como «hecho sin acción».
+      const sinRespaldo = saneo.sinRespaldo ?? [];
+      if (saneo.promesas.length || saneo.groserias.length || sinRespaldo.length) {
+        const que = [sinRespaldo.length ? `hecho sin acción: «${sinRespaldo.join('», «')}»` : '', saneo.promesas.length ? `promesa sin hacer: «${saneo.promesas.join('», «')}»` : '', saneo.groserias.length ? `grosería: ${saneo.groserias.join(', ')}` : ''].filter(Boolean).join(' · ');
         console.error(`[mako-doer-in] ws=${wsData} SANEADA (${que}) · ${intencion.intencion} · ${tools.length} herramientas, ${corridasDelTurno} corridas · ruta «${ruta.motivo}»`);
-        void recordUsage('saneo-doer', saneo.promesas.length ? 'saneo:promesa' : 'saneo:voz', {}, `ws${wsData} · ${intencion.intencion} · ${tools.length} tools · ${corridasDelTurno} corridas · ${que}`.slice(0, 200), 'mako', 1).catch(() => {});
+        void recordUsage('saneo-doer', sinRespaldo.length ? SANEO_HECHO : saneo.promesas.length ? 'saneo:promesa' : 'saneo:voz', {}, `ws${wsData} · ${intencion.intencion} · ${tools.length} tools · ${corridasDelTurno} corridas · ${que}`.slice(0, 200), 'mako', 1).catch(() => {});
         respuesta = saneo.texto;
       }
     }
