@@ -122,7 +122,8 @@ export function FilaDispositivo({ d, ahora, onDesconectar, children }: { d: Disp
 /**
  * Una cuenta conectada: arriba, como el selector de cuentas de Google, el logo, «Cuenta N» y debajo su email y su plan; su uso
  * en dos filas (la ventana y cuándo se reinicia, la barra, el %: la fila de claude.ai › Configuración › Uso, ver tus-cuentas-ia.css);
- * y abajo sus dispositivos, una fila cada uno.
+ * y abajo sus dispositivos, una fila cada uno. El plan dice «Suscripción Max», o «Suscripción» sin plan (27/10/2026, Leila: al
+ * lado de «Claves de API», «Max» solo no decía que es la suscripción, la que contesta desde la computadora).
  */
 export function BloqueCuenta({ cuenta, ahora, onDesconectar, nuevoDispositivo }: {
   cuenta: CuentaIA; ahora: number; onDesconectar?: (d: DispositivoIA) => Promise<unknown> | void; nuevoDispositivo?: ReactNode;
@@ -134,7 +135,7 @@ export function BloqueCuenta({ cuenta, ahora, onDesconectar, nuevoDispositivo }:
         {cuenta.proveedor === 'chatgpt' ? <SvcIcon k="openai" size={14} box={22} radius={6} /> : <ClaudeMark size={20} />}
         <div className="tci-nombres">
           <h3 className="tci-bloque__titulo">{titulo}</h3>
-          <span className="tci-email">{cuenta.email ?? (cuenta.proveedor === 'chatgpt' ? 'Tu cuenta de ChatGPT' : 'Tu cuenta de Claude')}{cuenta.plan && <span className="tci-plan">{cuenta.plan}</span>}</span>
+          <span className="tci-email">{cuenta.email ?? (cuenta.proveedor === 'chatgpt' ? 'Tu cuenta de ChatGPT' : 'Tu cuenta de Claude')}<span className="tci-plan">{cuenta.plan ? `Suscripción ${cuenta.plan}` : 'Suscripción'}</span></span>
         </div>
       </div>
       <Barra titulo="Sesión de 5 horas" pct={cuenta.usado5h} repone={cuenta.repone} ahora={ahora} />

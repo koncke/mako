@@ -345,42 +345,64 @@ function ConectarTuIA({ esAdmin, admin, listo: puedeComputadora, onComputadora, 
  * LAS CLAVES DE API (25/10/2026, Martín, docs/feedback-25-10-tarde.md: «elimina las IA dentro de las integraciones, para eso
  * tenemos el bloque que dice "Tus cuentas de IA" arriba del todo. Ahí solo agrega a Groq y listo»). Las cuatro IA que eran
  * tarjetas de /integraciones viven acá, con su NOMBRE REAL (el del catálogo, lib/integraciones-catalogo.ts) y su estado. La
- * fila de Anthropic API y la de OpenAI API abren «¿Cómo la conectas?» (la clave o tu computadora, el MISMO tutorial de
- * siempre); Gemini API y Groq API no tienen computadora: abren directo el modal de la clave, sin un «Pronto».
+ * fila de Anthropic API y la de OpenAI API llevaban a «¿Cómo la conectas?» (la clave o tu computadora).
+ *
+ * LA CLAVE NO ES LA SUSCRIPCIÓN (27/10/2026, Leila en la llamada con Martín): «Anthropic API · Conectada» arriba y su Claude Max
+ * abajo se leían como lo mismo, y no sabía con cuál contestaba MaKo. Cada fila es SÓLO la clave: dice «Clave cargada» o «Sin
+ * clave» y abre el modal de SU clave (ya no la elección con la computadora, que vive en «Nueva cuenta»). La suscripción lleva su
+ * nombre en cada cuenta («Suscripción Max», CuentasYDispositivos.tsx), y el «?» del título dice la diferencia, el MISMO de
+ * «¿Cómo la conectas?».
+ *
+ * GEMINI YA NO SE OFRECE (25/10/2026, lib/conectar-ia-reglas.ts → IAS_DEL_CLIENTE): su fila sale. Salvo donde ya está cargada
+ * (once negocios, medido el 27/10): MaKo la sigue usando (escuchar audios, lib/ai-cheap.ts), así que ahí se ve, para cambiarla o
+ * quitarla, y dice que ya no se ofrece. Sacarla de la vista sería esconder una clave en uso.
  */
-const CLAVES_API: ReadonlyArray<{ key: 'anthropic' | 'openai' | 'gemini' | 'groq'; ia?: IaDelCliente }> = [
-  { key: 'anthropic', ia: 'claude' }, { key: 'openai', ia: 'chatgpt' }, { key: 'gemini' }, { key: 'groq' },
-];
+const CLAVES_API = ['anthropic', 'openai', 'groq', 'gemini'] as const;
+/** Las que ya no se ofrecen: sólo se ven si el negocio ya las tiene cargadas. */
+const CLAVES_RETIRADAS: ReadonlySet<string> = new Set(['gemini']);
 const nombreDeClave = (key: string): string => DEFS_INTEGRACIONES.find((d) => d.key === key)?.nombre ?? key;
+/** Lo que dice cada fila: la clave, nunca «Conectada» a secas (se leía como la suscripción). */
+const estadoDeClave = (cargada: boolean, retirada: boolean): string =>
+  (cargada ? (retirada ? 'Cargada · ya no se ofrece' : 'Clave cargada') : 'Sin clave');
 
-function ClavesDeApi({ esAdmin, onElegir }: { esAdmin: boolean; onElegir: (ia: IaDelCliente) => void }) {
+function ClavesDeApi({ esAdmin }: { esAdmin: boolean }) {
   // El estado de cada una, con la MISMA cuenta que la grilla (`integracionAction` → getIntegracion). Sólo quien administra
-  // conecta una clave (es del negocio): a los demás, la lista sin acciones.
+  // conecta una clave (es del negocio): a los demás, la lista sin acciones (y sin las retiradas: no se sabe si están).
   const [estados, setEstados] = useState<Record<string, { conectada: boolean; detalle: string }>>({});
+  const idAyuda = useId();
   const leer = useCallback(async () => {
-    const r = await Promise.all(CLAVES_API.map((c) => integracionAction(c.key).catch(() => null)));
+    const r = await Promise.all(CLAVES_API.map((key) => integracionAction(key).catch(() => null)));
     const e: Record<string, { conectada: boolean; detalle: string }> = {};
-    r.forEach((x, i) => { if (x?.ok) e[CLAVES_API[i].key] = { conectada: x.integracion.estado === 'conectada', detalle: x.integracion.detalle }; });
+    r.forEach((x, i) => { if (x?.ok) e[CLAVES_API[i]] = { conectada: x.integracion.estado === 'conectada', detalle: x.integracion.detalle }; });
     setEstados(e);
   }, []);
   useEffect(() => { if (esAdmin) void leer(); }, [esAdmin, leer]);
-  const fila = (c: (typeof CLAVES_API)[number]) => {
-    const st = estados[c.key];
+  const fila = (key: (typeof CLAVES_API)[number]) => {
+    const st = estados[key];
+    const retirada = CLAVES_RETIRADAS.has(key);
+    if (retirada && !st?.conectada) return null;
     const contenido = (
       <>
-        <SvcIcon k={c.key} size={13} box={22} radius={6} />
-        <span className="tci-api__nombre">{nombreDeClave(c.key)}</span>
-        {st && <span className="tci-api__estado" data-conectada={st.conectada || undefined}>{st.conectada ? 'Conectada' : 'Sin conectar'}</span>}
+        <SvcIcon k={key} size={13} box={22} radius={6} />
+        <span className="tci-api__nombre">{nombreDeClave(key)}</span>
+        {st && (
+          <span className="tci-api__estado" data-conectada={(st.conectada && !retirada) || undefined} data-retirada={retirada || undefined}>
+            {estadoDeClave(st.conectada, retirada)}
+          </span>
+        )}
       </>
     );
-    if (!esAdmin) return <div key={c.key} className="tci-api" role="listitem">{contenido}</div>;
-    if (c.ia) return <button key={c.key} type="button" className="tci-api" role="listitem" onClick={() => onElegir(c.ia!)}>{contenido}</button>;
-    return <BotonIntegracion key={c.key} servicio={c.key} className="tci-api" onConectado={() => void leer()}>{contenido}</BotonIntegracion>;
+    if (!esAdmin) return <div key={key} className="tci-api" role="listitem">{contenido}</div>;
+    return <BotonIntegracion key={key} servicio={key} className="tci-api" onConectado={() => void leer()}>{contenido}</BotonIntegracion>;
   };
   return (
-    <section className="tci-bloque" aria-label="Claves de API">
+    <section className="tci-bloque" aria-label="Claves de API" aria-describedby={idAyuda}>
       <BrandDefs />
-      <h3 className="tci-bloque__titulo">Claves de API</h3>
+      <h3 className="tci-bloque__titulo tci-bloque__titulo--ayuda">
+        Claves de API
+        <span className="tci-ayuda tci-ayuda--titulo" title={NO_ES_LO_MISMO} aria-hidden>?</span>
+      </h3>
+      <span id={idAyuda} hidden>{NO_ES_LO_MISMO}</span>
       <div className="tci-apis" role="list">{CLAVES_API.map(fila)}</div>
     </section>
   );
@@ -488,7 +510,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
         <div className="tci-cab">
           <div>
             <h2 id="tci-titulo" className="tci-titulo">Tus cuentas de IA</h2>
-            <p className="tci-bajada">Tu Ops Center contesta con tu Claude, tu GPT o tu Gemini.</p>
+            <p className="tci-bajada">Tu Ops Center contesta con tu Claude o tu GPT.</p>
           </div>
         </div>
       )}
@@ -510,7 +532,7 @@ export function TusCuentasIA({ sinCabecera = false, computadora = false }: { sin
           bien diseñado de "Instalar MaKo desktop"»): sin ninguna computadora, ni cuentas ni «Nueva cuenta». */}
       {vacia && !eligiendo && !tutorial && <InstalarDesktop onConectar={() => abrirTutorialEn(4)} />}
       {/* Las claves de API, siempre (con o sin computadora): las cuatro IA que salieron de la grilla de /integraciones. */}
-      {(estado || leido) && !eligiendo && !tutorial && <ClavesDeApi esAdmin={!!estado?.esAdmin} onElegir={setEligiendo} />}
+      {(estado || leido) && !eligiendo && !tutorial && <ClavesDeApi esAdmin={!!estado?.esAdmin} />}
       {(estado || leido) && !vacia && !eligiendo && !tutorial && (
         <>
           <NuevaCuenta onElegir={setEligiendo} vacia={vacia} />
@@ -596,7 +618,6 @@ export function TarjetaTusCuentasIA() {
         <span className="tci-destacada__logos" aria-hidden>
           <span className="tci-destacada__logo"><LogoClaude size={16} /></span>
           <SvcIcon k={SERVICIO_DE_CLAVE.chatgpt} size={13} box={26} radius={8} />
-          <SvcIcon k={SERVICIO_DE_CLAVE.gemini} size={13} box={26} radius={8} />
         </span>
         <span className="tci-destacada__texto">
           <span className="tci-destacada__titulo">Tus cuentas de IA</span>

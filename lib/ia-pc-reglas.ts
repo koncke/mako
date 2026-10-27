@@ -912,7 +912,7 @@ export function resumenDeCuentas(
   if (!estado) return { linea: leido ? 'No pude leer tus cuentas: ábrelas para volver a intentar.' : 'Leyendo tus cuentas…', tono: 'apagado' };
   const cuentas = estado.grupos?.cuentas.length ?? 0;
   const sinCuenta = estado.grupos?.sinCuenta.length ?? 0;
-  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude, tu GPT o tu Gemini: con eso contesta tu Ops Center.', tono: 'ojo' };
+  if (!cuentas && !sinCuenta) return { linea: 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.', tono: 'ojo' };
   if (!cuentas) return { linea: 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.', tono: 'ojo' };
   const enLinea = estado.pcs.filter((p) => p.enLinea && p.cuentas.length > 0).length;
   const deCuentas = `${cuentas} ${cuentas === 1 ? 'cuenta' : 'cuentas'}`;
