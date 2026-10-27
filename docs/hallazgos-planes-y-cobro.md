@@ -878,28 +878,6 @@ Sin él (o sin la Mercado Pago de MaKo conectada) la cuenta queda como siempre: 
 
 ---
 
-### Los clientes BONIFICADOS: preparado y apagado (MK-08, 27/10/2026)
-
-**El hueco:** Joan (Código Inmobiliario) contó en el grupo Makito que de sus 5 clientes pagan 2. Lo de arriba cobra los
-US$47 por CADA cliente y los renueva solo, y no existía un cliente por el que MaKo no le cobra a su agencia. Qué se le
-cobra a Joan lo decide Martín; mientras, quedó la forma de marcarlo, con el interruptor APAGADO
-(`BONIFICADOS_PRENDIDO`, lib/agencia-cobro-reglas.ts). Apagado, nadie es bonificado, la lista ni se lee y la API contesta
-que no está prendido.
-
-- **La lista vive en la PLATAFORMA** (`app_settings` `agencia.bonificados`), no en la cuenta del cliente como
-  `agency.quien_paga`: lo que decide cuánto se le cobra a alguien no puede estar donde ese alguien escribe. Sin migración.
-- **Hay tres lugares que cobran y los tres la miran:** el link del primer mes (`linkPrimerMes`), el cron que crea la
-  renovación (`renovacionesDeAgencia`) y lo que ve la agencia (`cobrosDeClientesDeAgencia`, que también alimenta el
-  cartel de pago del cliente y la API de la agencia).
-- **«No pude leer la lista» no es «no hay bonificados».** Se lee con `getSettingEstricto`: si la lectura falla, esa vuelta
-  del cron no crea ninguna renovación y la agencia no ve links. Con `getSetting`, un 5xx de Supabase le habría cobrado a un
-  cliente que Martín bonificó.
-- **Bonificar no cancela lo que ya está en la pasarela.** Una renovación que la agencia ya autorizó se sigue cobrando hasta
-  que se cancela en Cobros, y el resumen de la API lo dice.
-- **Para prenderlo:** `BONIFICADOS_PRENDIDO = true` y el primer test de tests/agencia-bonificados.test.ts, en el mismo
-  commit. Se marca por la API (`bonificar_cliente_de_agencia`, sólo el super admin, confirmada en pantalla). Botón en
-  Customers todavía no hay.
-
 ## Quien deja de pagar deja de entrar, y el plan corta también la API (17/10/2026)
 
 ⚠️ **APAGADO desde la revisión adversarial del 17/10** (interruptor en `false`; los defectos que la frenaron y lo que hay que arreglar, en docs/relevo/pagos.md → «APAGADOS»).

@@ -40,8 +40,6 @@ import { getSesionAdmin } from '@/lib/auth';
 import { vistaDeClientes } from '@/lib/clientes-plataforma';
 import { nombreDePlan } from '@/lib/clientes-plataforma-reglas';
 import { leerSesionesAgente } from '@/lib/agente-sesiones';
-import { marcarBonificado } from '@/lib/agencia-cobro';
-import { BONIFICADOS_PRENDIDO } from '@/lib/agencia-cobro-reglas';
 import { PREFIJO_FLUJO } from '../canal';
 
 const NO_SUPER_ADMIN = 'Sólo el super admin vende planes de MaKo.';
@@ -687,36 +685,6 @@ export const RUNNERS: Runners = {
         nota: 'Los mensajes textuales están en Customers › Agents.',
       });
     },
-  },
-
-  // Bonificar un cliente de agencia (MK-08, 27/10/2026): ver cobros.def.ts. Como vender_plan_mako, el super admin GLOBAL al
-  // confirmar y al ejecutar, y nunca desde un flujo. Apagado (`BONIFICADOS_PRENDIDO`), ni siquiera propone.
-  bonificar_cliente_de_agencia: {
-    preparar: async (input, ctx) => {
-      if (!BONIFICADOS_PRENDIDO) return { error: 'Los clientes bonificados todavía no están prendidos: falta que Martín decida qué se le cobra a cada agencia.' };
-      if (ctx.canalKey?.startsWith(PREFIJO_FLUJO)) return { error: 'Una automatización no bonifica clientes: se pide por el chat.' };
-      if (ctx.ws !== (await wsSuperAdmin())) return { error: 'Bonificar un cliente de agencia es sólo de la plataforma.' };
-      const clienteWs = n(input.clienteWs);
-      if (clienteWs == null || !Number.isSafeInteger(clienteWs) || clienteWs <= 0) return { error: 'Falta el número de cuenta del cliente (clienteWs).' };
-      if (typeof input.bonificado !== 'boolean') return { error: 'Falta decir si queda bonificado (true) o si se le vuelve a cobrar (false).' };
-      const bonificado = input.bonificado;
-      return {
-        payload: { clienteWs, bonificado },
-        resumen: bonificado
-          ? `Bonificar al cliente ${clienteWs}: MaKo deja de cobrarle a su agencia por él (sin link del primer mes ni renovación). Una renovación ya autorizada se cancela aparte, en Cobros.`
-          : `Volver a cobrarle a la agencia del cliente ${clienteWs}: su próximo mes se cobra como el de los demás.`,
-      };
-    },
-    faltaParaConfirmar: async () => ((await esSuperAdmin()) ? null : 'Sólo el super admin bonifica clientes de agencia.'),
-    ejecutar: (payload, ctx) => seguro('bonificar el cliente', async () => {
-      if (!(await esSuperAdmin())) return { ok: false, resumen: 'Sólo el super admin bonifica clientes de agencia.' };
-      if (ctx.ws !== (await wsSuperAdmin())) return { ok: false, resumen: 'Bonificar un cliente de agencia es sólo de la plataforma.' };
-      const p = payload as { clienteWs: number; bonificado: boolean };
-      const r = await marcarBonificado(Number(p.clienteWs), p.bonificado === true);
-      if (!r.ok) return { ok: false, resumen: r.motivo };
-      const que = r.bonificado ? 'queda bonificado: MaKo no le cobra a su agencia por él' : 'vuelve a cobrarse: su agencia paga su mes';
-      return { ok: true, resumen: `${r.cambio ? 'Listo' : 'Ya estaba así'}: el cliente ${p.clienteWs} ${que}.`, datos: { clienteWs: p.clienteWs, bonificado: r.bonificado } };
-    }),
   },
 
   // «Vender un plan» (23/10/2026, P0-8): ver cobros.def.ts. El MISMO camino que /admin/cobros (`venderPlan`, lib/vender-plan.ts).
