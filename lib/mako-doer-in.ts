@@ -45,7 +45,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
+import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { sanearSalida, promesasDe } from '@/lib/doer-salida';
@@ -984,9 +984,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           void enviarAGrupoJid(jid, 'Me llegó tu archivo pero WhatsApp no me deja bajarlo. ¿Me lo reenvías?', 0);
           return { engaged: false, skip: 'adjunto sin base64' };
         }
-        mediaBlocks = bloquesDeAdjuntos([{ tipo: adjunto.tipo, mime: adjunto.mime, base64: b64 }], textoDirecto || adjunto.caption);
-        // Para la memoria guardamos un placeholder de texto.
-        texto = placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto);
+        // ⚠️ LO LEE EL CÓDIGO ANTES DEL TURNO (27/10/2026, Leila: «No puedo ver imágenes directamente»). El bloque nativo lo ve
+        // sólo Claude: el camino de su GPT o su Gemini (`chatCheapTools` → `bloqueATexto`) se queda con el texto y la imagen
+        // no llegaba. El mismo lector que el chat de la app (lib/mako-turno-app.ts) y el importador: su IA mira la foto o el
+        // PDF y lo que dice viaja como texto, junto al bloque.
+        const leida = await archivoATexto(
+          new File([Buffer.from(b64, 'base64')], adjunto.nombre || (adjunto.tipo === 'image' ? 'imagen.jpg' : 'archivo.pdf'), { type: adjunto.mime }),
+          { feature: 'MaKo en WhatsApp · adjunto' },
+        ).catch(() => null);
+        const loQueDice = textoDelAdjunto(leida?.texto, adjunto.tipo);
+        mediaBlocks = bloquesDeAdjuntos([{ tipo: adjunto.tipo, mime: adjunto.mime, base64: b64 }], [textoDirecto || adjunto.caption, loQueDice].filter(Boolean).join('\n\n'));
+        // Para la memoria, el placeholder y el comienzo de lo que decía: «¿qué decía la foto?» se contesta en el turno siguiente.
+        texto = [placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto), loQueDice ? loQueDice.slice(0, 600) : ''].filter(Boolean).join('\n');
       }
     }
 

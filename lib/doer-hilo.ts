@@ -326,6 +326,20 @@ export function bloqueLoQueMostraste(guardado: string | null | undefined, ahoraM
   return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descarta esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');
 }
 
+// ── LO QUE DICE UNA FOTO O UN PDF (27/10/2026) ──────────────────────────────────────────────────────────────────────
+
+/** Hasta cuánto de lo leído viaja al turno (es INPUT): una captura o un PDF corto entran enteros. */
+export const TOPE_LECTURA_ADJUNTO = 6000;
+
+/** Lo que leyó el código de una imagen o un PDF, como texto para el turno. Sin lectura, lo dice: el modelo no puede
+ *  inventar lo que no vio (la imagen nativa sólo la ve Claude). */
+export function textoDelAdjunto(leido: string | null | undefined, tipo: 'image' | 'document' | 'texto'): string {
+  const que = tipo === 'image' ? 'la imagen' : 'el archivo';
+  const t = (leido ?? '').trim();
+  if (!t) return `(No pude leer ${que} que mandaste: si es importante, escríbeme lo que dice.)`;
+  return `[Lo que dice ${que} que mandaste]\n${t.length > TOPE_LECTURA_ADJUNTO ? `${t.slice(0, TOPE_LECTURA_ADJUNTO)}…` : t}`;
+}
+
 /** La consulta al conocimiento del negocio (Second Brain): el mensaje y, si sigue un hilo, el pedido. «y eso?» solo no
  *  encuentra nada. */
 export function consultaDelTurno(mensaje: string, hilo: string | null): string {
