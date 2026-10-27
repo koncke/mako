@@ -7349,3 +7349,16 @@ los switch y las listas de clases). Qué se hizo en cada una:
 
 **Sin hacer:** la dimensión «rama» en los gráficos del Dashboard. Métricas muestra la prueba en una franja fija arriba de la
 hoja, como el aviso de Closing, y el gráfico por rama es del área del Dashboard. Tampoco se probó la tarjeta en pantalla.
+
+## El primer mensaje de una etapa, después de contestar, cuando mueve una persona (27/10/2026)
+
+**Vive en:** `enrolarPorEvento` y `mandarDespuesDeContestar` (lib/nutricion.ts) · tests/mover-etapa-rapido.
+
+Leila (llamada con Martín): «está tardando muchísimo en mover una etapa». Mover a una etapa con automatización inscribía
+al lead y corría la VÍA RÁPIDA adentro de la acción: MaKo escribía el mensaje y el WhatsApp no oficial dejaba el HTTP
+abierto de 1 a 11 s por el tipeo, y la ficha esperaba todo eso con la ruedita. Ahora, con `ctx.persona` (lo movió una
+persona desde el CRM), en qué automatizaciones entró y por qué no volvió a una se decide en el acto (el aviso de la
+pantalla no cambia), y el envío más su línea en el historial salen con `after()`, con el workspace fijado y en la fila de
+lo que sigue después de responder (el mismo molde que `seguirDespuesDeResponder`). Fuera de un pedido (un script) se manda
+en el acto, como siempre. Si la función muere antes de mandar, la fila ya está vencida y la toma el tick.
+**Regla:** lo que mueve una persona no espera un envío; el envío no cambia el «entró / no entró».

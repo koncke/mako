@@ -92,6 +92,7 @@ import {
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
+import { TANDA_ETIQUETAS_LOTE } from '@/lib/etiquetas-reglas';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
 import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
@@ -294,20 +295,37 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     if (ocupadoAhora.current) return; // mientras corre «Completar», nada más (también desde el clic derecho)
     start(async () => {
       try {
-        const r = await loteEtiqueta('poner_lote', ids, e.id);
-        if (!r.ok) {
-          onListo({ texto: r.error || 'No se pudo', hubo: false });
+        // DE A TANDAS (27/10/2026, Leila: «quedaron 79 sin etiqueta»; Martín: «no tiene que haber limitaciones»). La ruta toma
+        // `TANDA_ETIQUETAS_LOTE` por pedido y antes se le mandaban todos juntos. Si una tanda falla, se para y se DICE cuántos
+        // quedaron sin la etiqueta.
+        const puestos: number[] = [];
+        let yaEstaban = 0, sinSincronizar = 0, hechos = 0;
+        let corte: string | null = null;
+        for (const tanda of enTandas(ids, TANDA_ETIQUETAS_LOTE)) {
+          const r = await loteEtiqueta('poner_lote', tanda, e.id)
+            .catch((x: unknown): LoteEtiqueta => ({ ok: false, error: x instanceof Error ? x.message : 'No se pudo' }));
+          if (!r.ok) { corte = r.error || 'No se pudo'; break; }
+          puestos.push(...(r.cambiados ?? []));
+          yaEstaban += r.yaEstaban ?? 0;
+          sinSincronizar += r.sinSincronizar ?? 0;
+          hechos += tanda.length;
+        }
+        if (corte != null && !hechos) {
+          onListo({ texto: corte, hubo: false });
         } else {
-          const puestos = r.cambiados ?? [];
-          const ya = r.yaEstaban ? ` · ${r.yaEstaban} ya ${r.yaEstaban === 1 ? 'la tenía' : 'la tenían'}` : '';
-          const fuera = r.sinSincronizar ? ` · ${r.sinSincronizar} sin sincronizar` : '';
+          const ya = yaEstaban ? ` · ${yaEstaban} ya ${yaEstaban === 1 ? 'la tenía' : 'la tenían'}` : '';
+          const fuera = sinSincronizar ? ` · ${sinSincronizar} sin sincronizar` : '';
+          const faltan = ids.length - hechos;
+          const cortado = corte != null ? ` · se cortó: ${faltan} ${faltan === 1 ? 'quedó' : 'quedaron'} sin la etiqueta (${corte})` : '';
           onListo({
-            texto: puestos.length ? `«${e.nombre}» a ${puestos.length}${ya}${fuera}` : `Ya la tenían${fuera}`,
+            texto: (puestos.length ? `«${e.nombre}» a ${puestos.length}${ya}` : 'Ya la tenían') + fuera + cortado,
             hubo: puestos.length > 0,
             deshacer: puestos.length
               ? async () => {
-                const q = await loteEtiqueta('sacar_lote', puestos, e.id);
-                if (!q.ok) throw new Error(q.error || 'No se pudo deshacer');
+                for (const tanda of enTandas(puestos, TANDA_ETIQUETAS_LOTE)) {
+                  const q = await loteEtiqueta('sacar_lote', tanda, e.id);
+                  if (!q.ok) throw new Error(q.error || 'No se pudo deshacer');
+                }
               }
               : undefined,
           });
@@ -352,8 +370,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             hubo: n > 0,
             deshacer: n
               ? async () => {
-                const q = await quitarLoteDeProductoAction(agregados, funnelId);
-                if (!q.ok) throw new Error(q.error);
+                // El deshacer, también de a tandas: el server toma hasta 2.000 por pedido.
+                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
+                  const q = await quitarLoteDeProductoAction(tanda, funnelId);
+                  if (!q.ok) throw new Error(q.error);
+                }
               }
               : undefined,
           });
@@ -473,15 +494,18 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       }
       // El PERFIL de cada uno (0.73.2), de a tandas, en el grupo de donde vinieron (el primero, si son varios).
       const limpias = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
-      const fichas = t.grupos.length
-        ? (await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })).fichas
-        : limpias;
+      const pf = t.grupos.length
+        ? await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })
+        : null;
+      const fichas = pf ? pf.fichas : limpias;
+      // Si los perfiles se cortaron, se dice al final (antes no quedaba rastro).
+      const cortePerfiles = pf?.corte && pf.corte !== 'parado' ? ` Los perfiles: ${motivoDeFichas(pf.corte)}` : '';
       avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
       const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeLeadsAction({ ids: deEstos, fichas: tanda }), {
         parar: () => parar.current,
         alAvanzar: (guardados, total) => avisarExtraccion(id, { fase: 'guardando', guardados, total }),
       });
-      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0, enLaExtension: true };
+      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos) + cortePerfiles, hubo: a.nombres + a.empresas > 0, enLaExtension: true };
       avisarExtraccion(id, {
         estado: a.parado ? 'parado' : a.error ? 'error' : 'listo', nombres: a.nombres, empresas: a.empresas, perfiles: a.perfiles ?? 0,
         texto: a.error ?? `De ${miles(t.pedidos.length)} leads del CRM.`,

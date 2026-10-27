@@ -161,7 +161,7 @@ test('2b. sin el grupo, parado, o con la lista trabada: lo dice y no se queda co
 });
 
 // ── 3. El worker, ejecutado ──────────────────────────────────────────────────────────────────────────────────────────
-function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: boolean }) {
+function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: boolean; escala?: number; recorrer?: (m: Record<string, unknown>) => Promise<unknown> }) {
   const bg = leer('extension/background.js');
   const ayudas = bg.slice(bg.indexOf('const WA_WEB = '), bg.indexOf('/** Abre Flow, o enfoca la pestana que ya esta. */'));
   const esperar = bg.slice(bg.indexOf('function esperarCarga(tabId) {'), bg.indexOf('\n}\n', bg.indexOf('function esperarCarga(tabId) {')) + 3);
@@ -180,7 +180,7 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
       sendMessage: async (id: number, m: Record<string, unknown>) => {
         reg.aTabs.push([id, plano(m)]);
         if (m.tipo === 'WA_FICHAS_PING') return { ok: true, base: true, recorre: true };
-        if (m.tipo === 'WA_RECORRER') return { ok: true, encontrado: true, total: 2, filas: [{ titulo: '~ Lucía', secundario: '+52 1 55 5555 0001' }] };
+        if (m.tipo === 'WA_RECORRER') return c.recorrer ? c.recorrer(m) : { ok: true, encontrado: true, total: 2, filas: [{ titulo: '~ Lucía', secundario: '+52 1 55 5555 0001' }] };
         if (m.tipo === 'WA_FICHAS') return { ok: true, fichas: [{ telefono: '5215555550001', pushname: 'Lucía' }], grupos: [], diagnostico: { base: true } };
         if (m.tipo === 'WA_PERFILES') return { ok: true, perfiles: [{ telefono: '5215555550001', perfil: { web: 'https://lucia.mx' } }], diag: { intentados: 1, abiertos: 1, conDatos: 1, fallos: {} } };
         return undefined;
@@ -195,7 +195,10 @@ function cargarWorker(c: { tabs: Array<Record<string, unknown>>; sinPopup?: bool
       set: async (o: Record<string, unknown>) => { Object.assign(reg.storage, plano(o)); },
     } },
   };
-  const ctx: Record<string, unknown> = { chrome: fakeChrome, setTimeout: (f: () => void) => setTimeout(f, 0), clearTimeout, console };
+  // Con `escala`, los tiempos del worker corren `escala` veces más rápido (el latido de 10 s, en 10 ms con escala 1000).
+  const ctx: Record<string, unknown> = c.escala
+    ? { chrome: fakeChrome, setTimeout: (f: () => void, ms?: number) => setTimeout(f, (ms || 0) / c.escala!), clearTimeout, setInterval: (f: () => void, ms: number) => setInterval(f, ms / c.escala!), clearInterval, console }
+    : { chrome: fakeChrome, setTimeout: (f: () => void) => setTimeout(f, 0), clearTimeout, setInterval, clearInterval, console };
   runInNewContext(`${esperar}\n${ayudas}\nlet fichasEnVuelo = 0;\nglobalThis.atender = (msg, _s, responder) => {\n${bloques}\n  return false;\n};`, ctx);
   const atender = ctx.atender as (m: unknown, s: unknown, r: (x: unknown) => void) => boolean;
   const pedir = (m: Record<string, unknown>, origen = 5) => new Promise<unknown>((resolve) => { atender(m, { tab: { id: origen } }, (x) => resolve(plano(x))); setTimeout(() => resolve('sin respuesta'), 2000); });
@@ -298,6 +301,87 @@ test('3d. vuelve a la pestaña EXACTA desde la que se tocó «Extraer» (con dos
   assert.match(popup, /if \(e\.volver === 'sin_pestana'\)/);
 });
 
+test('3e. mientras WhatsApp Web tarda, un LATIDO cada 10 s; «ocupado» se dice; y al terminar, el recorrido se PARA (MEDIDO 27/10)', async () => {
+  const tabs = () => [{ id: 5, url: 'https://hola-mako.com/crm', windowId: 1, active: true }, { id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }];
+  // a. Un recorrido de «150 s» (150 ms a escala): la pantalla recibe latidos sin texto (su espera de 30 s no se corta).
+  const lento = cargarWorker({ tabs: tabs(), escala: 1000, recorrer: () => new Promise((ok) => setTimeout(() => ok({ ok: true, encontrado: true, total: 1, filas: [] }), 150)) });
+  const r = await lento.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 'l1', visible: true, grupos: ['G'], pedidos: [] }) as { ok: boolean };
+  assert.equal(r.ok, true);
+  const latidos = lento.reg.aTabs.filter(([id, m]) => id === 5 && m.tipo === 'WA_FICHAS_AVANCE' && m.paso === 'latido');
+  assert.ok(latidos.length >= 2, `sin latidos mientras esperaba (${latidos.length}): la pantalla se rinde a los 30 s`);
+  assert.ok(latidos.every(([, m]) => m.texto === undefined), 'el latido cambió lo que dice la pantalla');
+  const despues = latidos.length;
+  await dormir(40);
+  assert.equal(lento.reg.aTabs.filter(([id, m]) => id === 5 && m.paso === 'latido').length, despues, 'el latido siguió después de contestar');
+
+  // b. Otro recorrido sigue en esa pestaña: «ocupado», dicho; ni se lee la base ni se sigue como si nada.
+  const ocup = cargarWorker({ tabs: tabs(), recorrer: async () => ({ ok: false, motivo: 'ocupado', filas: [] }) });
+  const o = await ocup.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 'o1', visible: true, grupos: ['G'], pedidos: [] }) as { ok: boolean; motivo: string };
+  assert.deepEqual([o.ok, o.motivo], [false, 'ocupado'], 'con otro recorrido andando siguió como si nada');
+  assert.ok(!ocup.reg.aTabs.some(([, m]) => m.tipo === 'WA_FICHAS'), 'leyó la base con el recorrido ocupado');
+  await dormir(20);
+  const fo = (ocup.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
+  assert.deepEqual([fo.estado, fo.motivo], ['error', 'ocupado']);
+
+  // c. La pantalla se rinde (o la para) mientras el recorrido anda: se le manda PARAR, y el worker no sigue ni pisa el registro.
+  let soltar: (x: unknown) => void = () => {};
+  // A escala: con los tiempos instantáneos del arnés, el tope del recorrido vencía antes y el PARAR salía por ese lado.
+  const colgado = cargarWorker({ tabs: tabs(), escala: 1000, recorrer: () => new Promise((ok) => { soltar = ok; }) });
+  const pendiente = colgado.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 'c1', visible: true, grupos: ['G'], pedidos: [] });
+  await dormir(20);
+  colgado.mandar({ tipo: 'WA_EXTRACCION', id: 'c1', estado: 'error', texto: 'La extensión no contestó.' });
+  assert.ok(colgado.reg.aTabs.some(([id, m]) => id === 7 && m.tipo === 'WA_RECORRER_PARAR' && m.id === 'c1'), 'el recorrido quedó andando en WhatsApp Web');
+  soltar({ ok: false, motivo: 'parado', filas: [] });
+  const c = await pendiente as { ok: boolean; motivo: string };
+  assert.deepEqual([c.ok, c.motivo], [false, 'parado']);
+  assert.ok(!colgado.reg.aTabs.some(([, m]) => m.tipo === 'WA_FICHAS'), 'siguió leyendo la base de una extracción terminada');
+  await dormir(20);
+  assert.equal((colgado.reg.storage.extracciones as Array<Record<string, unknown>>)[0].estado, 'error', 'pisó el registro de la extracción terminada');
+});
+
+test('3f. con la pestaña de WhatsApp OCULTA, la búsqueda se escribe de una vez (Chrome frena cada pausa a 1 por minuto)', async () => {
+  const rec = requerir(join(raiz, 'extension', 'wa-recorrer.js')) as { pantallaWhatsapp(d: unknown): { escribirBusqueda(t: string): Promise<boolean> } };
+  const escribir = async (hidden: boolean) => {
+    const escritos: string[] = [];
+    const caja = { tagName: 'INPUT', focus() {}, select() {} };
+    const doc = {
+      hidden,
+      querySelector: (q: string) => (q === 'input[data-tab="3"]' ? caja : null),
+      querySelectorAll: () => [],
+      execCommand: (cmd: string, _u: boolean, v?: string) => { if (cmd === 'insertText') escritos.push(String(v)); return true; },
+    };
+    assert.equal(await rec.pantallaWhatsapp(doc).escribirBusqueda('Grupo G'), true);
+    return escritos;
+  };
+  assert.deepEqual(await escribir(true), ['Grupo G'], 'oculta, escribió letra por letra: con Chrome tapado tarda minutos');
+  assert.deepEqual(await escribir(false), ['G', 'r', 'u', 'p', 'o', ' ', 'G'], 'a la vista ya no se ve que busca');
+});
+
+test('3g. cada etapa con su segundo y la duración total; y si WhatsApp Web corre OCULTA (Chrome tapado), se anota y se dice (27/10)', async () => {
+  const w = cargarWorker({ tabs: [{ id: 5, url: 'https://hola-mako.com/crm', windowId: 1, active: true }, { id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }] });
+  await w.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 't1', visible: true, grupos: ['G'], pedidos: [] });
+  w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 't1', paso: 'recorriendo', vistos: 11, total: 126, oculta: true });
+  await dormir(20);
+  let fila = (w.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
+  assert.equal(fila.oculta, true, 'no quedó anotado que WhatsApp Web corría oculta');
+  assert.equal(fila.vecesOculta, 1);
+  const alCrm = w.reg.aTabs.filter(([id, m]) => id === 5 && m.tipo === 'WA_FICHAS_AVANCE' && m.paso === 'recorriendo').map(([, m]) => m.texto);
+  assert.match(String(alCrm[alCrm.length - 1]), /Chrome quedó tapado por otra ventana/, 'la pantalla de MaKo no dice por qué se arrastra');
+  // A la vista otra vez: la marca se apaga (el desplegable vuelve a lo de siempre).
+  w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 't1', paso: 'recorriendo', vistos: 60, total: 126, oculta: false });
+  w.mandar({ tipo: 'WA_EXTRACCION', id: 't1', estado: 'listo' });
+  await dormir(20);
+  fila = (w.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
+  assert.equal(fila.oculta, false);
+  // Los tiempos: el segundo en que empezó cada fase, y la duración al terminar.
+  const tiempos = fila.tiempos as Record<string, number>;
+  assert.ok(tiempos && ['abriendo', 'leyendo', 'recorriendo'].every((f) => typeof tiempos[f] === 'number'), `faltan tiempos por etapa: ${JSON.stringify(tiempos)}`);
+  assert.equal(typeof fila.duracion, 'number', 'no quedó cuánto tardó todo');
+  const popup = sinComentarios(leer('extension/popup.js'));
+  assert.match(popup, /e\.fase === 'qr' \? TEXTO_QR : e\.oculta \? TEXTO_OCULTA :/, 'el desplegable no dice que Chrome está tapado');
+  assert.match(sinComentarios(leer('extension/wa-recorrer.js')), /oculta: document\.hidden === true/);
+});
+
 test('3c. el manifest y las versiones: el recorrido en WhatsApp Web, aislado; y la pantalla pide la 0.72', async () => {
   const man = JSON.parse(leer('extension/manifest.json')) as { version: string; content_scripts: Array<{ matches: string[]; js: string[]; world?: string }> };
   const wa = man.content_scripts.filter((c) => c.matches.some((m) => m.includes('web.whatsapp.com')));
@@ -374,7 +458,7 @@ test('5. «Extraer»: arranca la extensión en el acto, sin «Entran a», sin «
   assert.match(board, /if \(r\.enLaExtension\) \{ router\.refresh\(\); return; \}/, 'volvió el aviso de abajo en la barra del lote');
   const barra = sinComentarios(leer('app/crm/AccionesLoteLeads.tsx'));
   assert.match(barra, /grupos: t\.grupos, visible: true, titulo, id,/);
-  assert.match(barra, /r = \{ texto: resumenDeFichas\(t\.pedidos\.length, fichas, a\) \+ gruposEnWhatsappDichos\(f\.grupos\), hubo: a\.nombres \+ a\.empresas > 0, enLaExtension: true \};/);
+  assert.match(barra, /r = \{ texto: resumenDeFichas\(t\.pedidos\.length, fichas, a\) \+ gruposEnWhatsappDichos\(f\.grupos\) \+ cortePerfiles, hubo: a\.nombres \+ a\.empresas > 0, enLaExtension: true \};/);
   // Sin la extensión el desplegable no tiene nada: ese aviso sí queda.
   assert.match(barra, /enLaExtension: f\.motivo !== 'extension' && f\.motivo !== 'sin_respuesta'/);
 });
@@ -465,7 +549,7 @@ test('6c. el desplegable dice cómo está WhatsApp Web, como con Flow, y SÓLO m
   assert.match(popup, /ir\('Ir a WhatsApp Web'\)/);
   assert.match(popup, /void enviar\(\{ tipo: 'WA_ENFOCAR' \}\)/, 'el botón no usa el camino que nunca abre una segunda pestaña');
   // Durante la extracción, con el QR, la línea de abajo del título dice qué hacer.
-  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : e\.fase === 'perfiles' && e\.ahora \? e\.ahora : TEXTO_A_LA_VISTA;/);
+  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : e\.oculta \? TEXTO_OCULTA : e\.fase === 'perfiles' && e\.ahora \? e\.ahora : TEXTO_A_LA_VISTA;/);
   assert.match(popup, /\{ texto: 'Abro tu WhatsApp', pasos: \['abriendo', 'cargando', 'qr'\] \}/);
 });
 
@@ -488,6 +572,19 @@ test('7. el perfil leído: la web, el Instagram, las otras redes y el correo; lo
   // Lo de WhatsApp no es una web, y un jid no es un correo.
   assert.equal(r.perfilDeInfo({ textos: ['5491155550001@s.whatsapp.net'], links: ['https://wa.me/549115555', 'https://chat.whatsapp.com/abc'] }), null);
   assert.equal(r.perfilDeInfo({ textos: ['Hola, estoy usando WhatsApp', 'Disponible'], links: [] }), null, 'un perfil sin nada inventó algo');
+  // ⚠️ La web escrita SIN «https://» (MEDIDO 27/10: así estaba en el primer panel de empresa, y WhatsApp no la dibuja como link).
+  const sinHttp = (t: string[]) => r.perfilDeInfo({ textos: t, links: [] });
+  assert.equal(sinHttp(['Info. y número de teléfono', 'www.consultoriasol.co', '+57 300 000 0000'])?.web, 'https://www.consultoriasol.co', 'no vio la web escrita sin «https://»');
+  assert.equal(sinHttp(['Pedidos en tiendasol.com.mx/pedidos.'])?.web, 'https://tiendasol.com.mx/pedidos');
+  assert.equal(sinHttp(['WWW.MiTienda.Store'])?.web, 'https://WWW.MiTienda.Store');
+  assert.equal(sinHttp(['Síguenos: instagram.com/tienda_sol'])?.instagram, 'tienda_sol', 'un Instagram sin «https://» no se leyó como Instagram');
+  assert.equal(sinHttp(['Síguenos: instagram.com/tienda_sol'])?.web, null, 'el Instagram quedó como su web');
+  // Lo que NO es una web: no se inventa.
+  assert.equal(sinHttp(['Lunes a viernes.De 9 a 18', 'Gracias.Me encanta', 'S.A. de C.V.', 'Versión 2.5', 'Dr.Juan Pérez']), null, 'inventó una web');
+  const correo = sinHttp(['Escríbenos: ventas@agencia.com', 'ventas.mx@gmail.com']);
+  assert.equal(correo?.web, null, 'tomó el dominio de un correo como su web');
+  assert.equal(correo?.email, 'ventas@agencia.com');
+  assert.equal(sinHttp(['wa.me/5215555550001']), null, 'un link de WhatsApp quedó como web');
   assert.equal(r.perfilDeInfo(null), null);
 });
 
@@ -582,8 +679,15 @@ test('7c. de a TANDAS desde la pantalla: empresas primero, tope 60, 12 por pedid
   const server = leer('app/crm/grupo-wa-server.ts');
   assert.match(server, /if \(f\.perfil\) \{\n\s+const \{ data \} = await db\.from\('leads'\)\.select\(`id, \$\{CAMPOS_DEL_PERFIL\.join\(', '\)\}`\)\.eq\('id', id\)\.maybeSingle\(\);\n\s+const escritos = data \? await completarCamposVacios\(id, parcheDePerfil\(/, 'el perfil pisa lo que el lead ya tiene');
   // Las dos pantallas los piden ANTES de guardar (se guarda todo junto).
-  assert.match(leer('app/crm/TraerDeGrupoWA.tsx'), /const pf = await perfilesEnTandas\(pedidos,[\s\S]{0,300}a = await guardarFichasEnTandas\(fichas,/);
-  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /await perfilesEnTandas\(t\.pedidos\.map[\s\S]{0,400}const a = await guardarFichasEnTandas\(fichas,/);
+  assert.match(leer('app/crm/TraerDeGrupoWA.tsx'), /const pf = await perfilesEnTandas\(pedidos,[\s\S]{0,500}a = await guardarFichasEnTandas\(fichas,/);
+  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /await perfilesEnTandas\(t\.pedidos\.map[\s\S]{0,700}const a = await guardarFichasEnTandas\(fichas,/);
+  // Y si los perfiles se cortaron, las dos lo DICEN al final (27/10: antes quedaba «0 nombres» y nada más).
+  const traer = leer('app/crm/TraerDeGrupoWA.tsx');
+  assert.match(traer, /if \(pf\.corte && pf\.corte !== 'parado'\) cortePerfiles = motivoDeFichas\(pf\.corte\);/, 'un corte de los perfiles quedó mudo');
+  assert.match(traer, /cortePerfiles \? ` Los perfiles: \$\{cortePerfiles\}` : ''/);
+  assert.match(leer('app/crm/AccionesLoteLeads.tsx'), /const cortePerfiles = pf\?\.corte && pf\.corte !== 'parado' \? ` Los perfiles: \$\{motivoDeFichas\(pf\.corte\)\}` : '';/);
+  const { motivoDeFichas } = await import('../lib/wa-fichas-cliente');
+  assert.match(motivoDeFichas('ocupado'), /terminando otra extracción/, '«ocupado» sin su texto: cae en «No pude leer tu WhatsApp Web»');
   // El desplegable: la fase y su conteo.
   const popup = sinComentarios(leer('extension/popup.js'));
   assert.match(popup, /\{ texto: 'Leo sus perfiles', pasos: \['perfiles'\] \}/);
@@ -593,6 +697,46 @@ test('7c. de a TANDAS desde la pantalla: empresas primero, tope 60, 12 por pedid
 // ── 8. Los nombres que FIRMAN los mensajes de un grupo (0.73.5) ───────────────────────────────────────────────────────
 // Leandro (26/10): en un grupo cerrado donde la gente escribe, «había un montón de personas que tenían nombres y no extrajo
 // nada». El grupo de los 221 de Martín era de anuncios: esa fuente (`notifyName` de cada mensaje) nunca se había probado.
+test('7d. los datos de una EMPRESA llegan después de abrir su panel: se espera a que aparezcan, y se lee el panel como quedó (MEDIDO 27/10)', async () => {
+  const rec = requerir(join(raiz, 'extension', 'wa-recorrer.js')) as {
+    pantallaWhatsapp(d: unknown): { esperarDatos(panel: unknown, tel: string, tope?: number): Promise<{ innerText: string }>; leerPerfil(panel: unknown): { textos: string[] } };
+  };
+  (globalThis as Record<string, unknown>).MakoWaFichas = reglas;
+  const doc = { querySelector: () => null, querySelectorAll: () => [], body: null };
+  const pant = rec.pantallaWhatsapp(doc);
+  // Una cuenta de empresa: abre sin datos, y el correo y la web llegan a los 400 ms.
+  const panel = { innerText: 'Info. del contacto\nSol Panadería\nEsta es una cuenta de empresa.', querySelectorAll: () => [] };
+  setTimeout(() => { panel.innerText += '\nhola@sol.com\nhttps://sol.mx'; }, 400);
+  const t0 = Date.now();
+  const leido = await pant.esperarDatos(panel, '5215555550001', 3000);
+  const p = (reglas as Reglas & { perfilDeInfo(i: unknown): Record<string, unknown> | null }).perfilDeInfo(pant.leerPerfil(leido));
+  assert.deepEqual([p?.email, p?.web], ['hola@sol.com', 'https://sol.mx'], 'leyó la empresa antes de que llegaran sus datos (la 0.74.0: 0 de 60)');
+  assert.ok(Date.now() - t0 < 2500, 'esperó de más con los datos ya a la vista');
+  // Una empresa que no tiene ningún dato: espera hasta el tope, no para siempre.
+  const t1 = Date.now();
+  await pant.esperarDatos({ innerText: 'Info. del contacto\nEsta es una cuenta de empresa.' }, '5215555550002', 900);
+  assert.ok(Date.now() - t1 < 1600, 'una empresa sin datos colgó la lectura');
+  // Una persona (no empresa): con el panel quieto, sigue enseguida.
+  const t2 = Date.now();
+  await pant.esperarDatos({ innerText: 'Info. del contacto\nAna' }, '5215555550003', 3000);
+  assert.ok(Date.now() - t2 < 1200, 'esperó los datos de empresa en una persona');
+  // Y `leerPerfiles` lee el panel que devolvió la espera, no el de antes.
+  const conLeer = requerir(join(raiz, 'extension', 'wa-recorrer.js')) as {
+    leerPerfiles(g: string, c: unknown[], p: unknown, avisar: () => void, parado: () => boolean, o?: Record<string, number>): Promise<unknown>;
+  };
+  const leidos: unknown[] = [];
+  const fresco = { fresco: true };
+  await conLeer.leerPerfiles('G', [{ telefono: '5215555550001', nombre: null }], {
+    abrirPerfil: async () => ({ ok: true, info: { viejo: true } }),
+    esperarDatos: async () => fresco,
+    forma: () => ({}),
+    leerPerfil: (x: unknown) => { leidos.push(x); return { textos: [], links: [] }; },
+    volverDelPerfil: async () => {},
+    cerrar: () => {},
+  }, () => {}, () => false, { tope: 1, pausaMin: 0, pausaMax: 0 });
+  assert.deepEqual(leidos, [fresco], 'leyó el panel de antes de esperar sus datos');
+});
+
 test('8. el `notifyName` de los mensajes: por autor, el último gana, y sólo llena lo vacío; y se lee SÓLO de ese grupo', () => {
   const r = reglas as Reglas & {
     nombresDeMensajes(x: unknown): Map<string, string>;

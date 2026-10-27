@@ -364,6 +364,12 @@
   const NO_ES_CUENTA = new Set(['p', 'reel', 'reels', 'stories', 'explore', 'tv', 'share', 'sharer', 'watch', 'shorts', 'home', 'intent', 'hashtag', 'search']);
   const URL_RE = /\bhttps?:\/\/[^\s<>"'«»]+/gi;
   const EMAIL_RE = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g;
+  // ⚠️ LA WEB ESCRITA SIN «https://» (MEDIDO 27/10/2026, 0.74.0, 60 perfiles del grupo de agosto, 0 con datos): el primer panel
+  // de empresa decía su web en el texto de la info («www.algo.co») y WhatsApp no la dibuja como link; URL_RE pedía el
+  // «https://» y no la veía. Con «www.», cualquier terminación; sin «www.», sólo en minúsculas y con una terminación que no es
+  // una palabra («viernes.De 9 a 18», «Gracias.Me encanta», «S.A.» no son webs: no se inventa). Nunca el dominio de un correo
+  // (lo frena la arroba de antes) ni el de un link que ya trae su «https://» (lo frena la barra).
+  const DOMINIO_RE = /(?<![@\w.\/-])(?:[wW]{3}\.[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}|(?:[a-z0-9-]+\.)+(?:com|net|org|info|biz|io|ai|co|mx|ar|cl|pe|ec|uy|py|bo|ve|br|uk|us|lat|shop|store|online|site|tech|digital|agency|studio|academy|xyz|website|marketing|consulting|travel|coach)(?:\.[a-z]{2})?)(?:\/[^\s<>"'«»]*)?(?![\w@-])/g;
   /** Una red (instagram, facebook...) y su cuenta, de un link; null si no es una red o es una ruta que no es una cuenta. */
   function redDe(url) {
     for (const [red, re] of REDES) {
@@ -384,7 +390,9 @@
     const textos = (info && Array.isArray(info.textos) ? info.textos : []).map((t) => String(t || '')).filter(Boolean).slice(0, 200);
     const links = (info && Array.isArray(info.links) ? info.links : []).map((t) => String(t || '')).filter((u) => /^https?:\/\//i.test(u)).slice(0, 50);
     const todo = textos.join('\n');
-    const urls = Array.from(new Set([...links, ...(todo.match(URL_RE) || [])].map((u) => u.replace(/[).,;:!?]+$/, ''))));
+    // Y las escritas sin «https://» (DOMINIO_RE), con el «https://» puesto.
+    const sueltas = (todo.match(DOMINIO_RE) || []).map((u) => `https://${u}`);
+    const urls = Array.from(new Set([...links, ...(todo.match(URL_RE) || []), ...sueltas].map((u) => u.replace(/[).,;:!?]+$/, ''))));
     const redes = [];
     let web = null;
     for (const u of urls) {
