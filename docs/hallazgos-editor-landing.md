@@ -3236,3 +3236,73 @@ publicar, y tres cosas se iban sin aviso:
   número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
 
 Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).
+
+## Lo que se edita a mano, también por prompt: lo que faltaba y por qué no llegaba (27/10/2026, claude5)
+
+Martín (27/10): «si una persona quiere editar lo que sea debería poder. Con prompts en mako». Se cruzó cada control del
+editor con el comando de la API que lo cambia. La tabla está en docs/relevo/landing-generator.md. Faltaban tres:
+
+- **El formato de un texto.** La barra «Texto» (negrita, cursiva, subrayado, tachado, color, tamaño, alineación) no tenía
+  comando. Ahora está `dar_formato_texto_landing`.
+- **Los colores de un botón de diseño.** Ahora `configurar_boton_landing` acepta `color` y `colorTexto`.
+- **La imagen de un bloque y la de un ítem de un «diseño optimizado».** `cambiar_imagen_landing` sólo encontraba las de
+  un «Diseño editable». Para cambiar las otras había que agregar una imagen nueva y borrar la vieja. Ahora
+  `ver_secciones_landing` da la dirección de cada imagen de bloque, para poder nombrarla.
+
+Las trampas:
+
+- **Un bloque y un diseño no tienen los mismos colores.** Un bloque usa los del tema (`acento`, `paleta-1`…), y un
+  botón de bloque elige su `estilo`. Un diseño trae su propia hoja: ahí un color del tema no existe y el color va en hex.
+  Cada lado rechaza lo del otro y dice por qué. El color de un botón de diseño se escribe con `!important` en su `style`.
+  `conDeclaracion` (html-editable-elementos.ts) reemplaza la declaración; no la apila.
+- **El tamaño en un diseño no es el de un bloque.** Los escalones de la barra en un diseño (`TAM_EN_DISENO`,
+  app/web-generator/editor/acciones-diseno.ts: l 1.125em, xl 1.375em) son distintos de los de un bloque (css.ts: l 1.25em,
+  xl 1.5em). La API copia los del diseño en `TAM_DISENO` (landing-contenido.helpers.ts), porque lib no importa de app.
+  Si cambia uno, hay que cambiar el otro.
+- **El diagnóstico obvio era el presupuesto, y al principio no lo era.** «pon en negrita «Aprende a vender» en mi
+  landing» llegaba por WhatsApp sin la herramienta. El clasificador lo leía como `pensar`: la frase citada dejaba
+  «landing» a más de 3 palabras del verbo, y «negrita» no era una pieza de la landing. Ahora son piezas (negrita, cursiva,
+  subrayado, tachado, alineación, tamaño, letra). Y un verbo de formato (subrayá, tachá, centrá, resaltá, alineá) cuenta
+  con la landing nombrada.
+- **Después sí era el presupuesto.** Las palabras del formato estaban sólo en la descripción, que suma 1 punto. Así
+  empataba con una docena de operaciones declaradas antes y quedaba afuera. Ahora van en el título (2 puntos):
+  «Negrita, cursiva, subrayado, tachado o centrado». Ver docs/hallazgos-api-mako.md → «El presupuesto del turno de la app».
+- **Lo citado es texto de la landing.** «subrayá «Agenda tu llamada»» se cortaba por «llamada», una palabra de otra área
+  (las llamadas). Con un verbo de formato, lo citado se saca antes de buscar otra área (`sinCitas`, lib/mako-intencion.ts).
+
+Tests:
+- tests/api-mako-landing-contenido.test.ts
+- tests/api-mako-landing-diseno-editable.test.ts
+- tests/mako-intencion-landing.test.ts
+
+Probados rompiéndolos, una falla por vez: cada rotura la atrapa su test.
+
+Sin hacer:
+- **La red de MaKo.** Es el dibujo animado de una sección de las páginas de MaKo. No se cambia ni a mano ni por prompt,
+  porque es parte del diseño. El efecto de entrada de su sección sí: `cambiar_animacion_landing`.
+- **La prueba por prompt en producción.** Espera el deploy de esta punta.
+
+## «Replicar y adaptar»: el diseño de afuera con el texto del negocio, y la réplica con animaciones (27/10/2026, claude5)
+
+Leila, en la llamada (ticket 876470842-27): «Replicar y adaptar». Ya existía «Replica esta landing», con el texto de la
+original. Ahora el cuadro de crear tiene las dos opciones en la pastilla del link, y el panel «Replicar landing» también
+(«Tal cual» y «Adaptada a tu oferta»). Por prompt: `replicar_landing` con `adaptar`.
+
+- **Cómo adapta sin tocar el diseño.** En «Landing», el esquema sigue en «Conservar»: salen las mismas secciones en el
+  mismo orden, y el estilo y las imágenes de la original se ponen igual que siempre. La que reescribe es la tanda de
+  secciones, con `modoTexto: 'generar'` y `INSTRUCCION_ADAPTAR` (replicar-reglas.ts). El contexto del negocio ya
+  viajaba en cada tanda (`buildLandingBrief`). En «Presentación», la instrucción va en las dos tandas.
+- **Trampa: la sección que no pasa por la IA queda con el texto de la OTRA.** La réplica sin IA usa el texto de la
+  original (`tarjetaDesdeEsquema`). En una copia «tal cual» eso está bien. En una adaptada es el texto del competidor
+  dentro de la landing del negocio. El aviso lo dice con esas palabras («quedó con el texto de la original: adáptala con
+  MaKo»), no con el «quedó sin diseño» de siempre.
+- La copia adaptada se llama «Adaptada de <dominio>», no con el título del competidor. La «Página web» (la copia
+  idéntica) no se adapta: el server contesta con `probar: 'landing'`, y la pantalla no ofrece ese formato con adaptar.
+
+**La réplica de una landing con animaciones (ticket 876825880-07): el diagnóstico obvio era el equivocado.** «La copia
+fiel saca los scripts» no es cierto. `sinRastreadores` (replicar-reglas.ts) saca sólo los rastreadores conocidos
+(`RE_RASTREADOR`), y los demás scripts viajan a la copia. Lo que sí no corre es lo atado al scroll de la página, y eso
+ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, no existe en el DNS (ENOTFOUND, con y
+sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
+
+Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.

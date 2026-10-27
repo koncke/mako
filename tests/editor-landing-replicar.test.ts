@@ -188,10 +188,10 @@ test('Importar: baja la URL TAL CUAL, acepta la lectura del navegador y contesta
 
 test('Replicar: el formato y la lectura llegan a replicar(), y la copia idéntica baja la URL tal cual', () => {
   const ruta = sinComentarios(leer('app/api/landing-generator/replicar/route.ts'));
-  assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto \}\)/);
+  assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto, adaptar: body\.adaptar \}\)/);
   const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
   assert.match(rep, /htmlDePagina\(url, \{ talCual: true \}\)/);
-  assert.match(rep, /configDeReplica\(formato, url\)/);
+  assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);
   assert.match(rep, /crear\(\{ accion: 'crear', titulo, contenido, config \}\)/, 'la landing nace con el formato y el origen de su receta');
   assert.doesNotMatch(rep, /buscarYCopiar|fuenteImagenes: 'stock'/);
 });
@@ -244,7 +244,7 @@ test('replicar_landing: acción por chat, reversible, con la puerta de /web-gene
   assert.deepEqual([...d.canales].sort(), ['app', 'whatsapp'], 'por bloques tarda hasta 240 s: más que el techo de 60 s de la ruta HTTP');
   const formato = d.parametros.find((p) => p.nombre === 'formato');
   assert.deepEqual([...(formato?.enum ?? [])], [...FORMATOS_REPLICAR], 'la MISMA lista que la pantalla');
-  assert.deepEqual(d.parametros.map((p) => p.nombre), ['url', 'formato', 'texto']);
+  assert.deepEqual(d.parametros.map((p) => p.nombre), ['url', 'formato', 'texto', 'adaptar'], '«adaptar»: 27/10/2026, «Replicar y adaptar»');
   const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
   const i = run.search(/^ {2}replicar_landing: \{/m);
   const bloque = run.slice(i, i + 4000);

@@ -225,7 +225,7 @@ export const RELEVANCIA_LANDING: Readonly<Record<PedidoDeLanding['tipo'], string
 };
 
 /** El voseo con tilde de estos verbos, en el texto CRUDO: se marca con «§» antes de normalizar (la tilde se pierde). */
-const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté|animá|activá|desactivá|prendé|apagá|encendé|usá)(?=[\s,.;:!?"')]|$)/gi;
+const VOSEO_LANDING = /(^|[\s,.;:!¡¿?"'(])(publicá|despublicá|subí|creá|armá|hacé|generá|diseñá|montá|prepará|replicá|copiá|cloná|analizá|revisá|auditá|diagnosticá|evaluá|sacá|quitá|bajá|cambiá|agregá|añadí|poné|ocultá|escondé|mostrá|mové|borrá|eliminá|editá|traducí|duplicá|conectá|verificá|compartí|actualizá|modificá|reemplazá|corregí|arreglá|sumá|meté|animá|activá|desactivá|prendé|apagá|encendé|usá|subrayá|tachá|centrá|resaltá|alineá)(?=[\s,.;:!?"')]|$)/gi;
 const PRON_LANDING = '(?:mela|melo|nosla|noslo|la|lo|las|los|me|nos)';
 /** El verbo inequívoco: con la tilde marcada o con el pronombre pegado. */
 const verboFuerte = (raices: string) => `\\b(?:${raices})(?:§|${PRON_LANDING}\\b)`;
@@ -283,11 +283,21 @@ const RAICES_EDITAR = 'cambia|agrega|anade|anadi|pon|pone|quita|saca|oculta|esco
 const MODAL_EDITAR = 'cambiar|agregar|anadir|poner|quitar|sacar|ocultar|esconder|mostrar|mover|borrar|eliminar|editar|traducir|duplicar|conectar|verificar|compartir|subir|actualizar|modificar|reemplazar|corregir|arreglar|sumar|meter|crear|armar'
   + '|cambies|agregues|anadas|pongas|quites|saques|ocultes|escondas|muestres|muevas|borres|elimines|edites|traduzcas|dupliques|conectes|verifiques|compartas|subas|actualices|modifiques|reemplaces|corrijas|arregles|sumes|metas|crees|armes';
 /** Una pieza de la landing (o la landing misma). */
-const PIEZA_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?|secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion)\\b';
+const PIEZA_LANDING = '(?:landings?|landing ?pages?|paginas?|sitios?|webs?|presentacion(?:es)?|secci(?:on|ones)|titular(?:es)?|titulos?|subtitulos?|botone?s?|formularios?|temas?|dominios?|videos?|vsl|agendas?|calendario|links?|enlaces?|textos?|imagen(?:es)?|fotos?|colores?|fuentes?|tipografias?|precios?|testimonios?|preguntas|faq|bloques?|encabezado|portada|hero|pie|footer|menu|logo|cta|direccion'
+  // El formato de un texto (27/10/2026): «pon en negrita el título de mi landing».
+  + '|negritas?|cursivas?|italicas?|subrayad[oa]s?|tachad[oa]s?|alineacion|tamanos?|letras?)\\b';
 /** Un objeto de OTRA área: entre el verbo y la pieza, o justo después de ella («el titular del anuncio»). */
 const OTRO_QUE_EDITAR = '(?:anuncios?|campanas?|posts?|publicacion(?:es)?|reels?|historias?|stor(?:y|ies)|e-?mails?|correos?|mails?|guion(?:es)?|copys?|automatizacion(?:es)?|flujos?|reunion(?:es)?|llamadas?|tareas?|creativos?|banners?|flyers?|disenos?|leads?|notas?|etiquetas?|etapas?|closer|setter|grupos?|chats?)\\b';
 const ART = `(?:${SEP_LANDING}(?:el|la|los|las|mi|mis|tu|tus|su|sus|este|esta|ese|esa))?`;
 const NO_DE_OTRO = `(?!${SEP_LANDING}(?:de|del|para|en)${ART}${SEP_LANDING}${OTRO_QUE_EDITAR})`;
+/**
+ * Los verbos que SON un formato (27/10/2026): «subrayá «Aprende a vender» en mi landing». La frase entre comillas deja
+ * la pieza a más de 3 palabras, así que no pasa por PEDIDO_EDITAR: va con la landing nombrada y sin otra área en el medio.
+ */
+const VERBOS_FORMATO = 'subraya|tacha|centra|resalta|alinea';
+/** Lo citado es el texto de la landing: «subrayá «Agenda tu llamada»» no habla de una llamada. */
+const sinCitas = (n: string): string => n.replace(/«[^»]*»|"[^"]*"|“[^”]*”/g, ' «» ');
+const PEDIDO_FORMATO = new RegExp(`^(?!.*\\b${OTRO_QUE_EDITAR})(?:.*\\b(?:${VERBOS_FORMATO})(?:§|${PRON_EDITAR}\\b)|(?:${VERBOS_FORMATO})\\b)`);
 const PEDIDO_EDITAR = new RegExp(`(?:${[
   `\\b(?:${RAICES_EDITAR})(?:§|${PRON_EDITAR}\\b)`, `\\bmostra§`,
   `^(?:${RAICES_EDITAR}|muestra)\\b(?![\\s,]+de\\b)`,
@@ -344,7 +354,7 @@ export function esPedidoDeLanding(texto: string): PedidoDeLanding | null {
   if (PEDIDO_REPLICAR.test(n)) return { tipo: 'replicar' };
   if (PEDIDO_ANALIZAR.test(n) || (PEDIDO_ANALIZAR_PARTE.test(n) && nombraLaLanding(n))) return { tipo: 'analizar' };
   if (PEDIDO_CREAR.test(n) || QUIERO_UNA_LANDING.test(n)) return { tipo: 'crear' };
-  if (PEDIDO_EDITAR.test(n) && nombraLaLanding(n)) return { tipo: 'editar' };
+  if ((PEDIDO_EDITAR.test(n) || PEDIDO_FORMATO.test(sinCitas(n))) && nombraLaLanding(n)) return { tipo: 'editar' };
   return null;
 }
 

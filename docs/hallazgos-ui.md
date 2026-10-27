@@ -134,6 +134,18 @@ cuadros un poco redondeados... Unifica ese diseño».
   rama veía la otra: una estaba en tren-j y la otra no. Al juntarlas quedó una (`inicialesPorLetra` llama a ésta). Antes de
   crear una pieza compartida, buscarla también en la rama del tren (`git grep <nombre> tren-j`), no sólo en main.
 
+- ⚠️ **La guarda no conoce `nombre.trim()[0]` (27/10/2026, lo que quedaba del ticket #10).** Barre `split(/\s+/)…w[0]` y
+  `${p[0][0]}…`, pero no la forma de una sola inicial. El panel de comentarios del Web Generator la tenía (arreglado, con su
+  guarda acotada: tests/web-generator-iniciales.test.ts). **Sin hacer, cada una en su área:**
+  - app/automations/PanelProbar.tsx:339
+  - app/automations/social-ui.tsx:108
+  - app/calendario/ListaLlamadas.tsx:187 (`charAt(0)`)
+  - app/classroom/ClientsShell.tsx:335
+  - app/m/_ui/formato.ts:29 (el email)
+  - app/_components/ServicioVisual.tsx:106
+
+  Cuando estén, la forma `.trim()[0]` / `.charAt(0)` va a la guarda de `app/`.
+
 **Vive en:** `lib/unicode-seguro.ts` (`iniciales`) · `lib/iniciales.ts` (`inicialesPorLetra`, la llama) · `tests/iniciales-con-emoji.test.ts` · `tests/iniciales-hidratacion.test.ts`
 
 ## Settings a todo el ancho y en dos columnas; el teléfono que scrolleaba de costado (25/10/2026)

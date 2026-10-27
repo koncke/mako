@@ -2671,6 +2671,12 @@ app recibía cambiar_imagen_landing y NO configurar_formulario_landing.
 `scripts/presupuesto-turno-app.mts "frase"` (posición, entra o no, largo, acumulado). Una palabra nueva en una descripción
 también MUEVE el orden. El margen es chico: el de WhatsApp quedó en 11.860 de 12.000 para «quítale la animación».
 
+**Las palabras que la eligen van en el TÍTULO (27/10/2026).** Una operación nueva con sus palabras sólo en la descripción
+suma 1 punto por palabra y empata con las ya declaradas. En un empate gana la declarada antes, así que queda afuera aunque
+la frase la nombre. Pasó con dar_formato_texto_landing y «pon en negrita… en mi landing». El id y el título pesan el doble.
+El registro limita el título a 3–6 palabras (tests/api-mako-registro.test.ts): entran las palabras de la frase, no un
+nombre largo. Medido con el turno que corre: tests/mako-intencion-landing.test.ts.
+
 ## `FallaPlan.disponibles` es `unknown`: los tests pasan y el pre-push frena (25/10/2026, claude5)
 
 `planConfigurarBoton` (lib/api-mako/areas/landing-contenido.helpers.ts) sumaba los botones de los diseños a la lista

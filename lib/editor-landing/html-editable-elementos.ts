@@ -12,7 +12,7 @@
 // ⚠️ PURO, sin DOM: lo prueba tests/html-editable-elementos.test.ts.
 // =============================================================================
 
-import { conTextos, decodificar, textosDeHtmlEditable } from './html-editable-textos';
+import { codificar, conTextos, decodificar, textosDeHtmlEditable } from './html-editable-textos';
 import { ICONOS, existeIcono, svgIcono } from './iconos';
 
 /** Un atributo entre comillas dobles o simples, o sin comillas: lo que puede traer una etiqueta. */
@@ -102,11 +102,15 @@ function enLaEnesima(html: string, re: RegExp, n: number, cambio: (completo: str
  * su texto. El texto sólo si el botón tiene UN texto: uno con título y bajada (las tarjetas de funcionalidades) se cambia
  * con cambiar_texto_landing, que sabe cuál de los dos.
  */
-export function conEnlaceDeDiseno(html: string, n: number, cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string }): string | Falla {
+export function conEnlaceDeDiseno(html: string, n: number, cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string; fondo?: string; colorTexto?: string }): string | Falla {
   return enLaEnesima(html, ENLACE, n, (completo, m) => {
     let tag = apertura(completo);
     let adentro = m[1];
     if (cambio.destino !== undefined) tag = conAtributo(tag, 'href', cambio.destino);
+    // Los colores del botón (27/10/2026, lo mismo que «Botón» del editor: botones-diseno.ts), con !important: la hoja de un
+    // diseño suele escribir el color del botón así y un estilo sin él no ganaría.
+    if (cambio.fondo !== undefined) tag = conAtributo(tag, 'style', conDeclaracion(atributoDe(tag, 'style'), ['background', 'background-color', 'background-image'], `background:${cambio.fondo} !important`));
+    if (cambio.colorTexto !== undefined) tag = conAtributo(tag, 'style', conDeclaracion(atributoDe(tag, 'style'), ['color'], `color:${cambio.colorTexto} !important`));
     const nueva = cambio.nuevaPestana ?? (atributoDe(tag, 'target') === '_blank');
     if (cambio.nuevaPestana !== undefined || cambio.destino !== undefined) {
       tag = conAtributo(conAtributo(tag, 'target', nueva ? '_blank' : null), 'rel', nueva ? 'noopener noreferrer' : null);
@@ -120,6 +124,12 @@ export function conEnlaceDeDiseno(html: string, n: number, cambio: { destino?: s
     }
     return rearmar(completo, m[1], tag, adentro);
   });
+}
+
+/** Un `style` sin las declaraciones de `fuera` y con `nueva` al final. */
+export function conDeclaracion(estilo: string | null, fuera: readonly string[], nueva: string): string {
+  const quedan = (estilo ?? '').split(';').map((d) => d.trim()).filter((d) => d && !fuera.includes(d.split(':')[0].trim().toLowerCase()));
+  return [...quedan, nueva].join(';');
 }
 
 /** El HTML con la imagen `n` mostrando `src` (sin `srcset`, que mostraría la vieja en otras pantallas). */
@@ -220,4 +230,77 @@ export function conIconoDeDiseno(html: string, n: number, nombre: string): strin
     }
     return tag + nuevo.slice(apertura(nuevo).length);
   });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El formato de una frase (27/10/2026: lo mismo que la barra «Texto» del editor, por la API)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type FormatoDeTexto = {
+  negrita?: boolean; cursiva?: boolean; subrayado?: boolean; tachado?: boolean;
+  /** Un color en hex. */
+  color?: string;
+  /** El tamaño, relativo al texto donde está (`0.875em`, `1.375em`…). */
+  tamano?: string;
+  alinea?: 'left' | 'center' | 'right';
+};
+
+/** Lo de adentro de estas no es texto de la página (un ícono, un estilo). */
+const CRUDOS = new Set(['script', 'style', 'svg', 'noscript', 'template', 'textarea', 'title']);
+/** Las etiquetas que no se cierran (no entran a la pila de las que contienen el texto). */
+const SUELTAS = new Set(['br', 'hr', 'img', 'source', 'input', 'meta', 'link', 'col', 'wbr', 'area', 'base', 'embed', 'track']);
+/** Las que pueden tomar la alineación de su texto. */
+const CAJAS_DE_TEXTO = new Set(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'blockquote', 'figcaption', 'td', 'th', 'div', 'a', 'span', 'section']);
+
+/** El `style` del `span` que envuelve la frase; vacío si sólo se alinea. */
+export function estiloDeFormato(f: FormatoDeTexto): string {
+  const d: string[] = [];
+  if (f.negrita) d.push('font-weight:700');
+  if (f.cursiva) d.push('font-style:italic');
+  const linea = [f.subrayado && 'underline', f.tachado && 'line-through'].filter(Boolean).join(' ');
+  if (linea) d.push(`text-decoration-line:${linea}`);
+  if (f.color) d.push(`color:${f.color}`);
+  if (f.tamano) d.push(`font-size:${f.tamano}`);
+  return d.join(';');
+}
+
+/**
+ * El HTML con `buscar` (tal cual, en UN pedazo de texto) envuelto en un `span` con el formato, y con la alineación en la
+ * caja de texto que lo contiene. Devuelve cuántas veces lo hizo (0 = no está entero en un pedazo). Lo demás vuelve igual.
+ */
+export function conFormatoEnDiseno(html: string, buscar: string, f: FormatoDeTexto): { html: string; veces: number } {
+  const estilo = estiloDeFormato(f);
+  const partes = html.split(/(<[^>]*>)/);
+  const pila: { tag: string; i: number }[] = [];
+  const alinear = new Set<number>();
+  let crudo = 0;
+  let veces = 0;
+  for (let i = 0; i < partes.length; i++) {
+    const p = partes[i];
+    if (i % 2 === 1) {
+      const m = /^<(\/?)([a-z][a-z0-9-]*)/i.exec(p);
+      if (!m) continue;
+      const tag = m[2].toLowerCase();
+      if (m[1]) {
+        const k = pila.map((x) => x.tag).lastIndexOf(tag);
+        if (k >= 0) pila.length = k;
+        if (CRUDOS.has(tag) && crudo > 0) crudo--;
+      } else if (!SUELTAS.has(tag) && !p.endsWith('/>')) {
+        pila.push({ tag, i });
+        if (CRUDOS.has(tag)) crudo++;
+      }
+      continue;
+    }
+    if (crudo > 0 || !p) continue;
+    const texto = decodificar(p);
+    if (!texto.includes(buscar)) continue;
+    veces += texto.split(buscar).length - 1;
+    if (estilo) partes[i] = texto.split(buscar).map(codificar).join(`<span style="${escAttr(estilo)}">${codificar(buscar)}</span>`);
+    if (f.alinea) {
+      const caja = [...pila].reverse().find((x) => CAJAS_DE_TEXTO.has(x.tag));
+      if (caja) alinear.add(caja.i);
+    }
+  }
+  for (const i of alinear) partes[i] = conAtributo(partes[i], 'style', conDeclaracion(atributoDe(partes[i], 'style'), ['text-align'], `text-align:${f.alinea}`));
+  return { html: veces ? partes.join('') : html, veces };
 }

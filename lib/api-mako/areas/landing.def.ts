@@ -424,6 +424,7 @@ export const DEFS: readonly OperacionDef[] = [
       { nombre: 'url', rotulo: 'Página', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección completa de la página a replicar, con o sin https (se baja tal cual, con su www).' },
       { nombre: 'formato', rotulo: 'Formato', tipo: 'string', obligatorio: true, enum: FORMATOS_REPLICAR, descripcion: 'presentacion = diapositivas 16:9 con el texto condensado; landing = secciones editables con el texto tal cual; web = la copia idéntica de la página.' },
       { nombre: 'texto', rotulo: 'Texto', tipo: 'string', max: 30000, descripcion: 'El contenido de la página pegado por el dueño, de arriba a abajo, cuando MaKo no la puede leer sola. Reemplaza la bajada. Sólo con «presentacion» o «landing».' },
+      { nombre: 'adaptar', rotulo: 'Adaptar', tipo: 'boolean', descripcion: 'Replicar y adaptar: el diseño de la original con el texto reescrito para la oferta del negocio. No con «web».' },
     ],
     canales: SIN_HTTP, costo: 'ia', gating: G_WRITER, lenta: true,
     escribe: 'una fila nueva en landing_docs: el borrador de la landing replicada, sin publicar (va a la papelera como cualquier otra); en «presentacion» y «landing», si ese estilo no estaba, un tema propio en app_settings landing.temas, y las imágenes de la original en el bucket landing-imagenes',

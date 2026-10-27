@@ -25,7 +25,7 @@
 // =============================================================================
 
 import type { OperacionDef, Gating, Parametro } from '../tipos';
-import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO } from '@/lib/editor-landing/doc';
+import { TOPES, DEGRADADOS, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA, FONDOS_TARJETA, VARIANTES_BOTON, TIPOS_CAMPO, TAMANOS_TEXTO } from '@/lib/editor-landing/doc';
 import { PROPORCIONES } from '@/lib/editor-landing/api-tipos';
 import { REDONDECES } from '@/lib/editor-landing/temas';
 // Las listas que aceptan las operaciones: las MISMAS que validan los planes (landing-contenido.helpers.ts).
@@ -246,6 +246,26 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
     escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
   },
   {
+    id: 'dar_formato_texto_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
+    titulo: 'Negrita, cursiva, subrayado, tachado o centrado',
+    descripcion: `Negrita, cursiva, subrayado, tachado, color, tamaño o alineación de una frase EXACTA de una landing (bloques y «Diseño editable»), como la barra «Texto» del editor. Si aparece más de una vez pide la sección o todas:true. ${VERSION}`,
+    parametros: [
+      P_ID,
+      { nombre: 'buscar', rotulo: 'Texto', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La frase, tal cual.' },
+      { nombre: 'negrita', rotulo: 'Negrita', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'cursiva', rotulo: 'Cursiva', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'subrayado', rotulo: 'Subrayado', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'tachado', rotulo: 'Tachado', tipo: 'boolean', descripcion: 'true.' },
+      { nombre: 'color', rotulo: 'Color', tipo: 'string', max: 20, descripcion: 'Hex (#e11d48) o del tema (acento, titulo…).' },
+      { nombre: 'tamano', rotulo: 'Tamaño', tipo: 'string', enum: [...TAMANOS_TEXTO], descripcion: 'De xs a 2xl.' },
+      { nombre: 'alinea', rotulo: 'Alineación', tipo: 'string', enum: ['izquierda', 'centro', 'derecha'], descripcion: 'Del párrafo.' },
+      P_SECCION_OPCIONAL,
+      { nombre: 'todas', rotulo: 'Todas', tipo: 'boolean', descripcion: 'Todas las veces que aparece.' },
+    ],
+    canales: TODOS, costo: 'gratis', gating: G_WRITER,
+    escribe: 'el contenido de la landing (landing_docs) y una versión «Antes de un cambio de MaKo» en su historial',
+  },
+  {
     id: 'acomodar_seccion_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Mover, ocultar o borrar una sección',
     descripcion: `Acomoda una sección de una landing del editor del Web Generator: mover (a otra posición de su página), duplicar (la copia va debajo), ocultar (no se presenta ni se publica), mostrar o borrar. ${VERSION}`,
@@ -348,13 +368,15 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'configurar_boton_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar un botón de una landing',
-    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. También los botones y enlaces de una sección de «Diseño editable» (las páginas de MaKo): su texto, a dónde llevan (también un ancla del diseño, #nombre) y la pestaña; su estilo es parte del diseño. Con varios botones iguales, «seccion» o todos:true. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
+    descripcion: `Cambia UN botón de una landing del editor del Web Generator, nombrado por su texto de hoy: lo que dice, a dónde lleva, su estilo y si abre en otra pestaña. También los botones y enlaces de una sección de «Diseño editable» (las páginas de MaKo): su texto, a dónde llevan (también un ancla del diseño, #nombre), la pestaña y sus colores. Con varios botones iguales, «seccion» o todos:true. Para que cobre un producto está cobrar_producto_landing. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'boton', rotulo: 'Botón', tipo: 'string', obligatorio: true, max: 120, descripcion: 'El texto de hoy del botón (de ver_secciones_landing o ver_cobro_landing).' },
       { nombre: 'texto', rotulo: 'Texto nuevo', tipo: 'string', max: 120, descripcion: 'Lo que pasa a decir.' },
       { nombre: 'destino', rotulo: 'Destino', tipo: 'string', max: 2000, descripcion: 'A dónde lleva: https://…, #t-<id de sección>, mailto: o tel: ("" = a ningún lado).' },
       { nombre: 'estilo', rotulo: 'Estilo', tipo: 'string', enum: VARIANTES_BOTON, descripcion: 'primario, secundario o contorno.' },
+      { nombre: 'color', rotulo: 'Color', tipo: 'string', max: 7, descripcion: 'Diseño: el fondo, en hex.' },
+      { nombre: 'colorTexto', rotulo: 'Color del texto', tipo: 'string', max: 7, descripcion: 'Diseño: en hex.' },
       { nombre: 'nuevaPestana', rotulo: 'Otra pestaña', tipo: 'boolean', descripcion: 'true abre el destino en otra pestaña.' },
       { ...P_SECCION_OPCIONAL, descripcion: 'El id de la sección (de ver_secciones_landing), cuando el mismo botón está en más de una.' },
       { nombre: 'todos', rotulo: 'Todos', tipo: 'boolean', descripcion: 'true cambia todos los botones de una sección de diseño con ese texto (por ejemplo, cinco «Agenda tu llamada»).' },
@@ -365,7 +387,7 @@ export const DEFS_EDITOR: readonly OperacionDef[] = [
   {
     id: 'cambiar_imagen_landing', area: 'landing', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Cambiar una imagen de una landing',
-    descripcion: `Cambia UNA imagen de una sección de «Diseño editable» de una landing del editor del Web Generator (las páginas de MaKo), nombrada por su dirección de hoy (o el final de ella, como «caso-martin.jpg») o por su texto alternativo (de ver_secciones_landing). La imagen nueva se copia a la biblioteca de la landing al confirmar. Para la imagen de acento de una sección está configurar_seccion_landing. ${VERSION}`,
+    descripcion: `Cambia UNA imagen de una landing del editor del Web Generator (también las de las páginas de MaKo), nombrada por su dirección de hoy (o el final, como «caso-martin.jpg») o su texto alternativo (de ver_secciones_landing). La nueva se copia a la biblioteca de la landing al confirmar. La imagen de acento de una sección: configurar_seccion_landing. ${VERSION}`,
     parametros: [
       P_ID,
       { nombre: 'actual', rotulo: 'Imagen de hoy', tipo: 'string', obligatorio: true, max: 2000, descripcion: 'La dirección de hoy de la imagen, un pedazo que la distinga, o su texto alternativo.' },

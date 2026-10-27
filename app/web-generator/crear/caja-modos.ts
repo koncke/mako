@@ -89,7 +89,7 @@ export const TOPE_TEXTO = 60_000;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** El link pegado o soltado: la dirección TAL CUAL (con su www y su query) y su acción (null = es una referencia). */
-export type LinkCaja = { url: string; accion: AccionLink | null; formato: FormatoReplicar };
+export type LinkCaja = { url: string; accion: AccionLink | null; formato: FormatoReplicar; adaptar?: boolean };
 
 /** Un archivo adjunto: leyéndose, leído (con su texto) o que no se pudo leer. `vista`: la imagen, para su miniatura. */
 export type ArchivoCaja = { id: string; nombre: string; imagen: boolean; vista?: string } & (
@@ -247,6 +247,21 @@ export function borrarAlInicio(e: EstadoCaja): EstadoCaja | null {
 
 export const cambiarFormato = (e: EstadoCaja, formato: FormatoReplicar): EstadoCaja => (e.link ? { ...e, link: { ...e.link, formato } } : e);
 
+/**
+ * Lo que dice la pastilla del link (27/10/2026): «Analiza esta landing», «Replica esta landing» o «Replica y adapta» (Replicar
+ * con `adaptar`, el texto reescrito con la oferta del negocio). Adaptar una copia idéntica no se puede: pasa a «Landing».
+ */
+export type PastillaLink = AccionLink | 'adaptar';
+export const pastillaDe = (l: LinkCaja): PastillaLink | null => (l.accion === 'replicar' && l.adaptar ? 'adaptar' : l.accion);
+export function elegirPastilla(e: EstadoCaja, p: PastillaLink): EstadoCaja {
+  const sigue = elegirModo(e, p === 'adaptar' ? 'replicar' : p);
+  if (!sigue.link) return sigue;
+  const adaptar = p === 'adaptar';
+  const { adaptar: _a, ...link } = sigue.link;
+  void _a;
+  return { ...sigue, link: adaptar ? { ...link, adaptar: true, formato: link.formato === 'web' ? FORMATO_INICIAL : link.formato } : link };
+}
+
 /** Un link arrastrado desde otra pestaña: la `text/uri-list` (sin comentarios) o un texto que es SÓLO un link. */
 export function linkSoltado(uriList: string, plano: string): string | null {
   const uri = uriList.split(/\r?\n/).map((s) => s.trim()).find((s) => s && !s.startsWith('#'));
@@ -344,7 +359,7 @@ export function alEnviar(e: EstadoCaja, c: ComoGenerar, escritoLink = ''): Envio
   }
   const l = e.link;
   if (l?.accion === 'analizar') return { que: 'accion', accion: { que: 'analizar', url: l.url } };
-  if (l?.accion === 'replicar') return { que: 'accion', accion: { que: 'replicar', url: l.url, formato: l.formato } };
+  if (l?.accion === 'replicar') return { que: 'accion', accion: { que: 'replicar', url: l.url, formato: l.formato, ...(l.adaptar ? { adaptar: true } : {}) } };
   const base = { modo: c.modo, params: c.params };
   if (e.archivos.length) {
     const partes = e.archivos.map((a) => (a.estado === 'listo' ? { nombre: a.nombre, texto: a.texto } : null));
