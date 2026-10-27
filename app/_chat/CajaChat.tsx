@@ -299,7 +299,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {nota?.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>}
       {/* Lo adjuntado que no se pudo tomar o leer, con el porqué (./adjuntos-que-se-leen.ts). */}
       {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
-      {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}</p>}
+      {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}
     </>
   );
 }

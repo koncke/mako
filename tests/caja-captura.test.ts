@@ -61,7 +61,7 @@ test('4. un navegador que no deja leer, aunque diga que sí, no rompe la caja', 
 test('5. la caja la ofrece al enfocar, sólo donde adjunta, y la anota al pegarla o descartarla', () => {
   const c = readFileSync(join(import.meta.dirname, '..', 'app/_chat/CajaChat.tsx'), 'utf8').replace(/\r\n/g, '\n');
   assert.match(c, /onFocus=\{ofrecerCaptura\}/, 'el campo no ofrece la captura al enfocarlo');
-  assert.match(c, /if \(!p\.adjuntos\?\.puede \|\| quieto \|\| captura\) return;/, 'la ofrece donde no se puede adjuntar');
-  assert.match(c, /CAPTURAS_VISTAS\.add\(firmaDeCaptura\(captura\.file\)\);\n\s*if \(pegar\) p\.adjuntos\?\.onSumar\(\[captura\.file\]\);/, 'pegarla o descartarla no la anota como vista');
+  assert.match(c, /if \(!adjuntos\?\.puede \|\| quieto \|\| captura\) return;/, 'la ofrece donde no se puede adjuntar');
+  assert.match(c, /CAPTURAS_VISTAS\.add\(firmaDeCaptura\(captura\.file\)\);\n\s*if \(pegar\) adjuntos\?\.onSumar\(\[captura\.file\]\);/, 'pegarla o descartarla no la anota como vista');
   assert.match(c, />Pegar la captura<\/button>/);
 });
