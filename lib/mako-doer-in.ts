@@ -46,6 +46,7 @@ import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueDeLaFalla, reportaFalla } from '@/lib/doer-falla';
+import { pinDelDoer } from '@/lib/doer-modelo';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
@@ -1553,8 +1554,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // `model` explícito, que el veto corta: el Claude del negocio no se probaba nunca.
       const iaDelNegocio = await negocioConSuIA(wsData);
       const suIA = iaDelNegocio.suIA;
-      // El loop de las baratas corre con su pin; con su IA y sin pin barato, con su OpenAI.
-      const pinL = pin && pin.provider !== 'anthropic' ? pin : suIA ? { provider: 'openai', model: 'gpt-4o-mini' } : null;
+      // El loop de las baratas corre con su pin; con su IA y sin pin barato, con su OpenAI y el modelo que la app le da por
+      // defecto al admin (lib/doer-modelo.ts, 27/10/2026): antes, `gpt-4o-mini` fijo.
+      const pinL = pinDelDoer(pin, suIA);
 
       // COSTO (feedback jul-19): el grueso del gasto del doer es el INPUT de los turnos
       // de tool-use (tools + historial + resultados). En Groq el input es ~gratis PERO el
