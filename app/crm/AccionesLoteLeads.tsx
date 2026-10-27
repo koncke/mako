@@ -473,15 +473,18 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
       }
       // El PERFIL de cada uno (0.73.2), de a tandas, en el grupo de donde vinieron (el primero, si son varios).
       const limpias = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
-      const fichas = t.grupos.length
-        ? (await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })).fichas
-        : limpias;
+      const pf = t.grupos.length
+        ? await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })
+        : null;
+      const fichas = pf ? pf.fichas : limpias;
+      // Si los perfiles se cortaron, se dice al final (antes no quedaba rastro).
+      const cortePerfiles = pf?.corte && pf.corte !== 'parado' ? ` Los perfiles: ${motivoDeFichas(pf.corte)}` : '';
       avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
       const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeLeadsAction({ ids: deEstos, fichas: tanda }), {
         parar: () => parar.current,
         alAvanzar: (guardados, total) => avisarExtraccion(id, { fase: 'guardando', guardados, total }),
       });
-      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0, enLaExtension: true };
+      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos) + cortePerfiles, hubo: a.nombres + a.empresas > 0, enLaExtension: true };
       avisarExtraccion(id, {
         estado: a.parado ? 'parado' : a.error ? 'error' : 'listo', nombres: a.nombres, empresas: a.empresas, perfiles: a.perfiles ?? 0,
         texto: a.error ?? `De ${miles(t.pedidos.length)} leads del CRM.`,

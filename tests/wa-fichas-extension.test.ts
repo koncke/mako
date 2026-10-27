@@ -232,7 +232,8 @@ test('7. el puente: página → mako-puente → worker → pestaña de WhatsApp 
   const enWorker = worker.slice(desde, worker.indexOf('\n  }\n', desde)); // SÓLO este bloque: el return del siguiente no cuenta
   assert.ok(worker.includes("tipo === 'WA_FICHAS_PEDIDO'"), 'el worker no atiende el pedido');
   // Desde la 0.71.0 (25/10/2026) la pestaña la busca (y abre, despierta o repara) `pestanaDeWhatsappLista`, afuera del bloque.
-  assert.match(enWorker, /const lista = await pestanaDeWhatsappLista\(avisar\);/, 'el worker le pregunta a otra pestaña');
+  // Con su latido a la pantalla mientras espera (0.74.1): la pestaña es la misma.
+  assert.match(enWorker, /const lista = await conLatido\(pestanaDeWhatsappLista\(avisar\), origen, pedidoId\);/, 'el worker le pregunta a otra pestaña');
   assert.match(worker, /const esPestanaDeWhatsapp = \(t\) => !!t && t\.id != null && typeof t\.url === 'string' && t\.url\.startsWith\('https:\/\/web\.whatsapp\.com\/'\);/);
   // ⚠️ Sin barra-asterisco en el código del worker: los tests de la extensión quitan comentarios con una regex que, ante esa
   // secuencia dentro de un texto, se come el resto del archivo (y esos tests dan rojo por razones que no son las suyas).

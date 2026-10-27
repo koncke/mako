@@ -230,6 +230,8 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
     let t: Awaited<ReturnType<typeof traerTandas>> | null = null;
     let a: AvanceFichas | null = null;
     let fallaWa = '';
+    // Si los perfiles se cortaron (WhatsApp Web ocupado, sin respuesta), se dice: antes quedaba en «0 nombres» sin más.
+    let cortePerfiles = '';
     try {
       const fichasP = conExt ? pedirFichasDeWhatsappWeb(pedidos, { grupos: [grupo.nombre], visible: true, titulo: grupo.nombre, id }) : null;
       t = tels.length ? await traerTandas(tels) : null;
@@ -240,6 +242,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
           // Y el PERFIL de cada uno (0.73.2): de a tandas, antes de guardar, así se guarda todo junto.
           const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x), { grupo: grupo.nombre, id, parar: () => parar.current });
           const fichas = pf.fichas;
+          if (pf.corte && pf.corte !== 'parado') cortePerfiles = motivoDeFichas(pf.corte);
           avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
           a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeGrupoAction({ linea, jid, fichas: tanda }), {
             parar: () => parar.current,
@@ -273,6 +276,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         t?.sinEtiqueta ? ` Sin la etiqueta: ${t.sinEtiqueta}.` : '',
         corte ? ` ${corte}${t && t.quedan > 0 ? ` Quedaron ${miles(t.quedan)}: vuelve a tocar «Extraer».` : ''}` : '',
         fallaWa ? ` Los nombres: ${fallaWa}` : '',
+        cortePerfiles ? ` Los perfiles: ${cortePerfiles}` : '',
       ].join('');
       if (!fallaWa && conExt) {
         avisarExtraccion(id, {
