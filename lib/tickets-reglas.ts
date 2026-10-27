@@ -51,6 +51,11 @@ export const TOPES = { titulo: 140, descripcion: 4000, nota: 2000, respuesta: 20
 
 /** Cuántos tickets puede levantar una persona por día: más que eso es un bucle o un abuso, no soporte. */
 export const TOPE_POR_DIA = 10;
+/**
+ * Cuántos reportes por día puede mandar alguien de AFUERA del negocio (el alumno de un curso, desde su portal: 27/10/2026).
+ * Se le cuentan a él, no al dueño a quien le llegan: si no, un alumno le gastaba el tope del día al dueño.
+ */
+export const TOPE_POR_DIA_TERCERO = 3;
 /** Cuántos arreglos automáticos salen por día, en total: protegen la ventana de 5 horas del Cerebro. */
 export const TOPE_ARREGLOS_POR_DIA = 8;
 
@@ -240,8 +245,10 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
 /**
  * Clasifica un ticket. Puro y determinista: el mismo ticket da siempre el mismo veredicto, y cada veredicto dice por
  * qué. `apagado` = Martín apagó el arreglo automático; `arreglosHoy` = cuántos salieron hoy (el tope del día).
+ * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
+ * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; aprobadoPorRegla?: string | null } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   const error = e.contexto.error?.trim();
@@ -299,6 +306,11 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   if (autoArreglo && (opts.arreglosHoy ?? 0) >= TOPE_ARREGLOS_POR_DIA) {
     autoArreglo = false;
     porque.push(`Ya salieron ${TOPE_ARREGLOS_POR_DIA} arreglos automáticos hoy: espera a Martín.`);
+  }
+  // ── de afuera del negocio (27/10/2026): el texto lo escribió un tercero sin cuenta, así que lo decide Martín, siempre ──
+  if (opts.deTercero) {
+    porque.push('Lo reportó alguien de afuera del negocio (un alumno de su curso): no se arregla solo, lo decide Martín.');
+    return { v: 1, tipo, autoArreglo: false, confianza, prioridad, porque };
   }
   // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
   const regla = opts.aprobadoPorRegla?.trim() || null;

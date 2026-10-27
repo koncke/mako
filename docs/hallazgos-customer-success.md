@@ -6057,3 +6057,44 @@ guarda de ventana y origen.
 **Medido con el reproductor REAL de cada uno** (el lector compilado, en Chrome sin ventana, clic para reproducir y para
 pausar): Wistia dio 77 s de duración, 33 avances y la pausa; Bunny, 22,7 s, 39 avances, el saludo y la pausa; Cloudflare,
 29,9 s, 32 avances y la pausa. La columna `video_tipo` no cambia: van como `url` (su CHECK, mig 0202).
+
+## El alumno reporta a soporte con su token, y le llega al dueño del curso (27/10/2026, 874749710-18)
+
+**Síntoma** (Leandro, llamada del 24/10): el alumno no tenía cómo reportar. El 24/10 (f33) «Reportar a Soporte» se escondió
+en el portal porque /api/soporte/reportar pide la sesión de MaKo y le contestaba «no autenticado».
+
+⚠️ **Los dos caminos obvios eran los equivocados.** Abrir /api/soporte/reportar sin sesión deja a cualquiera llenar una
+Ticketera, y el ticket no sería de nadie (el alumno no es un usuario: no tiene email de MaKo ni Ticketera). Darle sesión al
+alumno es justo lo que lib/alumno-sesion.ts evita. Lo que sirve es lo que ya hacen /progreso y /tarea: el token del portal en el
+CUERPO como credencial, y el ticket a nombre del DUEÑO del negocio de la firma (`emailDuenoWorkspace`).
+
+**Arreglo.** `/api/compartido/curso/soporte` (pública de escritura, exacta; tope por IP antes de leer y por alumno después,
+mismo origen). El botón es el de siempre: `SoporteDelAlumnoCtx` (lo pone PortalAlumno con su token; la vista previa del
+equipo, null) lo manda por esa ruta. Desde /mi-curso es el mismo token, traducido de la cookie. Lo que hubo que cuidar del lado
+de la Ticketera (la regla de Leandro, el tope del dueño, el token con puntos en la pantalla) está en
+[hallazgos-ticketera.md](hallazgos-ticketera.md) → «Un ticket que levanta alguien de AFUERA del negocio».
+
+**Las reglas que quedan:**
+- **El token del portal no abre más que el reporte**: la ruta sólo CREA el ticket y contesta su número; del cuerpo sólo lee el
+  token y lo que sanea el reporte. El negocio sale de la firma, el dueño de la base, la pantalla la pone el servidor.
+- La regla del 24/10 («un botón que llama a una ruta con sesión no va donde no hay sesión») sigue: en el portal, el botón
+  NO llama a una ruta con sesión, llama a la del alumno.
+
+**Quedó SIN hacer, y dónde:**
+- **Nada se probó contra la base ni en el navegador**: no hay un alumno de prueba con acceso vivo a mano, y probarlo en el
+  ws10 le abre un ticket a Leandro. El `like` sobre `tickets.ref` (el tope del alumno) no se midió contra producción.
+- **El dueño no recibe un aviso al llegar el reporte**: lo ve en su Ticketera y le llega el de «resuelto». Avisarle por su
+  grupo o por mail es un aviso nuevo de la plataforma (una fila en el ws 9: escribe en producción, pide el sí de Martín).
+- **El alumno no ve qué pasó con su reporte**: no tiene Ticketera. Lo sabe el dueño.
+
+**Vive en:** `app/api/compartido/curso/soporte/route.ts` · `app/_ui/ReportarASoporte.tsx` (`SoporteDelAlumnoCtx`) ·
+`app/compartido/curso/[token]/PortalAlumno.tsx` · `lib/rutas-publicas.ts` (PUBLICOS_ESCRITURA) ·
+`tests/curso-soporte-alumno.test.ts`, `tests/curso-portal.test.ts` y `tests/curso-sacar-del-programa.test.ts`
+
+## El sello de un programa sin portada se caía con un emoji en el nombre (27/10/2026, ticket #10)
+
+`Sello` (app/classroom/ClientsShell.tsx) sacaba la inicial con `p.nombre.trim()[0]`: con «🎸 Fiesta Music» es media pieza del
+emoji, el HTML del server sale con «�» y React tira #418 (el Classroom entero, no el sello). Ahora `iniciales(p.nombre, 1, '·')`
+(lib/unicode-seguro.ts). Por qué la guarda de toda la app no lo vio, en [hallazgos-calendario.md](hallazgos-calendario.md) →
+«Un lead con emoji en el nombre tiraba /calendario entero». `tests/calendario-classroom-iniciales.test.ts` barre
+app/classroom, app/customer-success, app/_cursos, app/_comunidad, app/compartido/curso, app/mi-curso y app/conocimientos.

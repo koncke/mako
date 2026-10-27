@@ -76,13 +76,15 @@ test('el portal tiene UNA frase de entrada: el link, /mi-curso y la comunidad de
   assert.match(ca, /if \(!r\.ok && r\.error === SIN_ACCESO_PORTAL && !mirada\.current\) \{ mirada\.current = true; router\.refresh\(\); \}/);
 });
 
-test('«Reportar a Soporte» no se dibuja en el portal del alumno (contestaba «no autenticado»); en la vista previa sí', () => {
+test('«Reportar a Soporte» en el portal del alumno manda con SU token (ya no «no autenticado»); la vista previa, con sesión', () => {
+  // El 24/10 se escondió (contestaba «no autenticado»); desde el 27/10 (874749710-18) reporta con el token de su portal y le
+  // llega al dueño del curso. La ruta y el ticket, en tests/curso-soporte-alumno.test.ts.
   const r = leer('app/_ui/ReportarASoporte.tsx');
-  assert.match(r, /export const SinSoporteCtx = createContext\(false\);/);
-  assert.match(r, /const sinSoporte = useContext\(SinSoporteCtx\);/);
-  assert.match(r, /if \(sinSoporte\) return null;\n  return \(\n    <span ref=\{ref\} data-soporte=""/);
+  assert.match(r, /export const SoporteDelAlumnoCtx = createContext<string \| null>\(null\);/);
+  assert.match(r, /const alumno = useContext\(SoporteDelAlumnoCtx\);/);
+  assert.doesNotMatch(r, /return null;\n  return \(\n    <span ref=\{ref\} data-soporte=""/, 'el botón se vuelve a esconder en el portal');
   const portal = leer('app/compartido/curso/[token]/PortalAlumno.tsx');
-  assert.match(portal, /<SinSoporteCtx\.Provider value=\{!vistaPrevia\}>/);
+  assert.match(portal, /<SoporteDelAlumnoCtx\.Provider value=\{vistaPrevia \? null : token\}>/);
 });
 
 test('el modal de Sacar dice lo que pasa: el curso y la comunidad', () => {
@@ -95,7 +97,8 @@ test('el modal de Sacar dice lo que pasa: el curso y la comunidad', () => {
 // ── ROTURAS ──────────────────────────────────────────────────────────────────────
 // Medido el 24/10/2026 contra este archivo (6 tests) y tests/comunidad-moderacion.test.ts, cada una sola:
 //   `accesoTrasSacar` sin cortar al sacar lo único que veía · `accesoTrasAdmitir` habilitando cualquier corte · la tabla
-//   de Avance del Classroom listando a los sacados · «Reportar a Soporte» dibujándose sin sesión · el baneo escrito con
+//   de Avance del Classroom listando a los sacados · «Reportar a Soporte» escondido de nuevo en el portal (27/10: antes,
+//   «dibujándose sin sesión») · el baneo escrito con
 //   otro instante que el corte · la comunidad del alumno con su frase vieja · admitir tocando el curso de alguien que
 //   no estaba fuera → cada una, 1 fallo y 24 pases (25 tests entre los dos archivos). Script:
 //   scratchpad de la sesión «Clients» del 24/10, romper-sacar.mjs (restaura de una copia en memoria).
