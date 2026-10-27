@@ -2782,3 +2782,19 @@ Auditado en el código de c8f1c4a57 (chat «MaKo recomienda», cuenta 5); la tab
 
 **Sin hacer:** el recolector de Fathom (las objeciones de las llamadas a la memoria, con la cuenta de cada negocio: el diseño del
 recolector §5) y el de los chats con MaKo (lo que el dueño cuenta). Los dos con el molde de lib/recolector.ts.
+
+## Los íconos de verdad cuando MaKo nombra un botón, en todos los chats (27/10/2026, claude5)
+
+**Síntoma:** Leandro (ticket 874749710-12): MaKo le decía «tocá Configuraciones» y no se sabía cuál era. Automations dibujaba
+la tuerca en su globo (8ed7f23aa); los demás chats, nada.
+
+**La regla:** el ícono no lo elige el modelo ni un chat: sale de la BARRA. app/_chat/iconos-de-botones.ts arma «nombre visible →
+ícono» con los `label` e `icon` de app/_components/nav.ts, más los botones que no son tab (la tuerca de Configuraciones), y el
+renderizador compartido (`Markdown` con `iconos`) dibuja el ícono cuando MaKo NOMBRA el botón entre «». Una palabra suelta no es
+un botón. Lo piden los mensajes de MaKo de `HiloMako` (los chats de la caja única) y el hilo de Offer en el teléfono.
+
+**Trampa:** hay dos «Ops Center» en la barra (el del negocio, con el cerebro, y el del super admin, con otro ícono). El catálogo
+toma lo que ve el NEGOCIO primero: MaKo le habla a él.
+
+Todos los chats de MaKo de la app dibujan con `HiloMako` (Ops Center, Automations, Offer, Web Generator, Image y Video Editor).
+**Sin hacer:** no se vio en pantalla.
