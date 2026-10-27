@@ -60,7 +60,7 @@ import { nuevoId, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
 import {
-  baseDeDocumento, configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
+  ERROR_ADAPTAR_WEB, baseDeDocumento, configDeReplica, contenidoDeCopiaFiel, copiaFiel, formatoReplicar, urlParaReplicar,
   type ConfigReplica, type FormatoReplicar, type RespuestaReplicar,
 } from './replicar-reglas';
 import { estiloDeLectura, hojasDeHtml, temaDeEstilo, type EstiloOriginal } from './estilo-original';
@@ -92,7 +92,7 @@ const falla = (error: string, status = 400, probar?: FormatoReplicar): Resultado
  * Lo que llega del pedido, sin forma confiable. `formato` manda; sin él, el `modo` viejo (tanda 2).
  * `lectura` / `texto` reemplazan la bajada (sólo por bloques).
  */
-export type EntradaReplicar = { url: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown };
+export type EntradaReplicar = { url: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown };
 
 /** Replica la landing de `url` en una landing nueva del workspace de la sesión. */
 export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
@@ -100,13 +100,18 @@ export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
   if (!url) return falla('Pega un enlace válido.');
   const formato = formatoReplicar(p.formato, p.modo);
   if (!formato) return falla('Elige el formato: Presentación, Landing o Página web.');
-  const receta = configDeReplica(formato, url);
+  // «Replicar y adaptar» (27/10/2026): sólo por bloques; la copia idéntica ofrece «Landing».
+  if (p.adaptar === true && formato === 'web') return falla(ERROR_ADAPTAR_WEB, 400, 'landing');
+  const receta = configDeReplica(formato, url, { adaptar: p.adaptar === true });
   if (receta.via === 'fiel') return replicarFiel(url, receta);
   const texto = typeof p.texto === 'string' ? p.texto.trim().slice(0, MAX_TEXTO) : '';
   // Con memoria de cuelgues PROPIA (lib/ia-saturacion.ts): el modelo que se colgó en una tanda va al final de la lista en las
   // tandas que siguen y en la segunda vuelta de ESTA réplica, sin degradar a ningún otro pedido.
   return conMemoriaDelPedido(() => replicarComoBloques(url, receta, { lectura: p.lectura, texto }));
 }
+
+/** El dominio de la página, sin `www.` (el nombre de una copia adaptada). */
+const hostDe = (url: string): string => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch { return url; } };
 
 async function crearLanding(titulo: string, contenido: LandingContenido, config: Partial<ConfigLanding>): Promise<{ id: number; titulo: string } | ResultadoReplicar> {
   const r = await crear({ accion: 'crear', titulo, contenido, config });
@@ -188,7 +193,7 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
         const indices = lista[siguiente++];
         if (Date.now() - t0 + TANDA_MS > PLAZO_BLOQUES_MS) continue;
         try {
-          const r = await pedirSecciones({ esquema: esq, indices, params });
+          const r = await pedirSecciones({ esquema: esq, indices, params: receta.paramsSecciones ?? params });
           if (r.ok) r.tarjetas.forEach((t, k) => porIndice.set(indices[k], t));
           else console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`);
         } catch (err) {
@@ -239,15 +244,19 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
   const animadas = anim ? conAnimaciones(puesto.tarjetas, anim.porSeccion) : { tarjetas: puesto.tarjetas, propias: 0 };
 
   const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: animadas.tarjetas } }] };
-  const creada = await crearLanding(esq.titulo, contenido, config);
+  // Adaptada, ya no es la de la original: no lleva su nombre.
+  const creada = await crearLanding(receta.adaptar ? `Adaptada de ${hostDe(url)}` : esq.titulo, contenido, config);
   if ('ok' in creada) return creada;
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato}${receta.adaptar ? ' adaptada' : ''} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
-    sinIA ? (sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.`) : '',
+    // Adaptada, la que no pasó por la IA quedó con el texto de la ORIGINAL: eso es lo que hay que decir.
+    sinIA && receta.adaptar
+      ? (sinIA === 1 ? `Una ${una} quedó con el texto de la original: adáptala con MaKo.` : `${sinIA} ${varias} quedaron con el texto de la original: adáptalas con MaKo.`)
+      : sinIA ? (sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.`) : '',
     !estilo ? 'Sin el estilo de la original.' : !tema.ok && tema.tope ? 'Llegaste al tope de temas.' : '',
     noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',

@@ -130,6 +130,13 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
     «pon en negrita…», «subrayá…» y «centrá…» llegan como pedido sobre la landing. La tabla está al final de este archivo.
     Falta la prueba por prompt en producción, sobre la copia #44, después del deploy. Detalle:
     docs/hallazgos-editor-landing.md → «Lo que se edita a mano, también por prompt».
+  - **El feedback de las llamadas (27/10).**
+    - «Replicar y adaptar» (Leila): hecho, en la pastilla del link, en el panel y por prompt.
+    - Las iniciales del panel de comentarios: hechas.
+    - La landing principal (#32): la frase central nueva va como BORRADOR de la #32. Publicar es de Martín.
+    - La réplica con animaciones: espera la dirección real, porque sendipro.com no existe en el DNS.
+
+    Detalle: docs/hallazgos-editor-landing.md → «Replicar y adaptar».
   - **El cierre con los planes (26/10): hecho, SIN publicar.** Las dos portadas y las doce cierran con Esencial y Pro
     (Pro destacado), «Empezar mis 7 días gratis» al carrito de /planes y «¿Prefieres hablar antes? Déjanos tus datos y te
     escribimos» debajo. Las vistas previas y las fotos están en la carpeta de notas del Cerebro (`landings-cierre-2610`). El link de abajo

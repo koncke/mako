@@ -3281,3 +3281,28 @@ Sin hacer:
 - **La red de MaKo.** Es el dibujo animado de una sección de las páginas de MaKo. No se cambia ni a mano ni por prompt,
   porque es parte del diseño. El efecto de entrada de su sección sí: `cambiar_animacion_landing`.
 - **La prueba por prompt en producción.** Espera el deploy de esta punta.
+
+## «Replicar y adaptar»: el diseño de afuera con el texto del negocio, y la réplica con animaciones (27/10/2026, claude5)
+
+Leila, en la llamada (ticket 876470842-27): «Replicar y adaptar». Ya existía «Replica esta landing», con el texto de la
+original. Ahora el cuadro de crear tiene las dos opciones en la pastilla del link, y el panel «Replicar landing» también
+(«Tal cual» y «Adaptada a tu oferta»). Por prompt: `replicar_landing` con `adaptar`.
+
+- **Cómo adapta sin tocar el diseño.** En «Landing», el esquema sigue en «Conservar»: salen las mismas secciones en el
+  mismo orden, y el estilo y las imágenes de la original se ponen igual que siempre. La que reescribe es la tanda de
+  secciones, con `modoTexto: 'generar'` y `INSTRUCCION_ADAPTAR` (replicar-reglas.ts). El contexto del negocio ya
+  viajaba en cada tanda (`buildLandingBrief`). En «Presentación», la instrucción va en las dos tandas.
+- **Trampa: la sección que no pasa por la IA queda con el texto de la OTRA.** La réplica sin IA usa el texto de la
+  original (`tarjetaDesdeEsquema`). En una copia «tal cual» eso está bien. En una adaptada es el texto del competidor
+  dentro de la landing del negocio. El aviso lo dice con esas palabras («quedó con el texto de la original: adáptala con
+  MaKo»), no con el «quedó sin diseño» de siempre.
+- La copia adaptada se llama «Adaptada de <dominio>», no con el título del competidor. La «Página web» (la copia
+  idéntica) no se adapta: el server contesta con `probar: 'landing'`, y la pantalla no ofrece ese formato con adaptar.
+
+**La réplica de una landing con animaciones (ticket 876825880-07): el diagnóstico obvio era el equivocado.** «La copia
+fiel saca los scripts» no es cierto. `sinRastreadores` (replicar-reglas.ts) saca sólo los rastreadores conocidos
+(`RE_RASTREADOR`), y los demás scripts viajan a la copia. Lo que sí no corre es lo atado al scroll de la página, y eso
+ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, no existe en el DNS (ENOTFOUND, con y
+sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
+
+Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.

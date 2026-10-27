@@ -1544,4 +1544,20 @@ export const BITACORA: Hito[] = [
       'lib/mako-intencion.ts — cuándo un mensaje es un pedido sobre la landing',
     ],
   },
+  {
+    fecha: '27 oct', hora: '18:40', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar una landing de afuera y adaptarla a tu oferta',
+    pedido: 'Leila, en la llamada: «Replicar y adaptar»',
+    puntos: [
+      'Al pegar el link de otra landing, eliges «Replica esta landing» o «Replica y adapta a tu oferta».',
+      'Adaptada, la copia mantiene el diseño de la original y el texto habla de lo que tú vendes.',
+      'Lo que no se pudo adaptar te lo dice al abrir la copia, para que lo termines con MaKo.',
+      'En los comentarios del editor, un nombre que empieza con un emoji ya no rompe la pantalla.',
+    ],
+    archivos: [
+      'lib/editor-landing/replicar-reglas.ts — cómo se replica y cómo se adapta',
+      'app/web-generator/crear/Replicar.tsx — el panel «Replicar landing»',
+    ],
+  },
 ];
