@@ -1528,4 +1528,20 @@ export const BITACORA: Hito[] = [
       'lib/editor-landing/precios-en-landing.ts — los precios de hoy en la landing',
     ],
   },
+  {
+    fecha: '27 oct', hora: '17:50', chat: 'Landings', sesion: 'local_4b99db4c-3ebd-4559-a580-0abe37310f9b', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo que editas a mano en una landing también se lo puedes pedir a MaKo',
+    pedido: '«Y asegurate de que funcione bien la API con todos los comandos, si una persona quiere editar lo que sea debería poder. Con prompts en mako»',
+    puntos: [
+      'Pídele a MaKo negrita, cursiva, subrayado, tachado, color, tamaño o centrado para una frase de tu landing.',
+      'En las páginas de MaKo, también el color de un botón y el de su texto.',
+      'Cualquier imagen de la landing se cambia pidiéndola, no sólo las de las páginas de MaKo.',
+      'Por WhatsApp, «pon en negrita…», «subrayá…» o «centrá el título…» llegan como un pedido sobre tu landing.',
+    ],
+    archivos: [
+      'lib/api-mako/areas/landing-editor.def.ts — los comandos de la landing',
+      'lib/mako-intencion.ts — cuándo un mensaje es un pedido sobre la landing',
+    ],
+  },
 ];

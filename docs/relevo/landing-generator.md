@@ -124,6 +124,12 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
     después del deploy. COPIAS DE PRUEBA en producción, sin publicar: #44 (copia de la principal), #45 (desde cero) y
     #46 (réplica de 100ads.ai): a la papelera al terminar los clics. Detalle: docs/hallazgos-editor-landing.md → «El
     editor web de punta a punta».
+  - **Todo lo de a mano, también por prompt (27/10, Martín: «si una persona quiere editar lo que sea debería poder. Con
+    prompts en mako»).** Se sumaron tres comandos: el formato de un texto (`dar_formato_texto_landing`), los colores de
+    un botón de diseño (`configurar_boton_landing`) y la imagen de un bloque (`cambiar_imagen_landing`). Por WhatsApp,
+    «pon en negrita…», «subrayá…» y «centrá…» llegan como pedido sobre la landing. La tabla está al final de este archivo.
+    Falta la prueba por prompt en producción, sobre la copia #44, después del deploy. Detalle:
+    docs/hallazgos-editor-landing.md → «Lo que se edita a mano, también por prompt».
   - **El cierre con los planes (26/10): hecho, SIN publicar.** Las dos portadas y las doce cierran con Esencial y Pro
     (Pro destacado), «Empezar mis 7 días gratis» al carrito de /planes y «¿Prefieres hablar antes? Déjanos tus datos y te
     escribimos» debajo. Las vistas previas y las fotos están en la carpeta de notas del Cerebro (`landings-cierre-2610`). El link de abajo
@@ -691,3 +697,39 @@ Sí / Después, «borra la otra landing» con las dos más recientes y la Papele
 - No tocar: el modelo muerto de OpenRouter en `MODELO_DOCS` (lib/ai-cheap.ts) lo arregla Onboarding.
 - De otros chats: Automations engancha su chat y su función de `objetosDeTab`; el Centro, el chat del Second Brain;
   los chats de Image Editor, Dashboard y Video Editor llaman a la ruta (el de Video Editor manda `objetos`).
+
+## Lo que se edita a mano en una landing ↔ el comando que lo cambia por prompt (27/10/2026)
+
+Viven en lib/api-mako/areas/landing-editor.def.ts y landing.def.ts. Todos los que escriben pasan por la confirmación
+del chat y dejan la versión de antes en el historial. Publicar pide siempre el sí del dueño.
+
+| Lo que se edita a mano | El comando |
+|---|---|
+| Un texto: títulos, párrafos, viñetas, botones, y los de un «Diseño editable» | `cambiar_texto_landing` |
+| Su formato: negrita, cursiva, subrayado, tachado, color, tamaño, alineación | `dar_formato_texto_landing` (27/10) |
+| Un botón: lo que dice, a dónde lleva (enlace, ancla #, otra página) y si abre otra pestaña | `configurar_boton_landing` |
+| El estilo de un botón de bloque, o los colores de uno de diseño | `configurar_boton_landing`: `estilo`, o `color` y `colorTexto` (27/10) |
+| Que un botón cobre o deje de cobrar | `cobrar_producto_landing` · `quitar_cobro_landing` |
+| Agregar una sección | `agregar_seccion_landing` |
+| El orden de las secciones; duplicar, ocultar, mostrar o borrar una | `acomodar_seccion_landing` |
+| El estilo de una sección: el fondo (también el de un diseño), el ancho, la alineación, el alto y la imagen de acento | `configurar_seccion_landing` |
+| Los botones flotantes de una sección (la barrita: estilo, mover, duplicar, borrar, editar con IA) | `configurar_seccion_landing` · `acomodar_seccion_landing` · `editar_landing_con_ia` |
+| Agregar un bloque: título, texto, viñetas, cita, botón, pago, formulario, video, agenda, imagen, separador | `agregar_bloque_landing` |
+| Mover, duplicar o borrar un bloque | `acomodar_bloque_landing` |
+| El video: Panda, YouTube, Vimeo, Loom, Wistia o un archivo (también el de un diseño) | `poner_enlace_landing` |
+| La agenda: Calendly o Cal.com | `poner_enlace_landing` |
+| El formulario: los campos, el botón, el mensaje y a dónde lleva | `configurar_formulario_landing` |
+| Una imagen: de un diseño, de un bloque o de un ítem de un diseño optimizado | `cambiar_imagen_landing` (bloque e ítem: 27/10) · `buscar_fotos_landing` · `listar_imagenes_landing` |
+| Un ícono | `cambiar_icono_landing` · `ver_iconos_landing` |
+| Las animaciones de la landing y el efecto de entrada de una sección | `cambiar_animacion_landing` |
+| La red de MaKo (el dibujo animado de una sección de las páginas de MaKo) | Ninguno. No se edita ni a mano: es parte del diseño |
+| Los colores y las fuentes (el tema, y un tema propio) | `cambiar_tema_landing` · `guardar_tema_landing` · `borrar_tema_landing` |
+| Las páginas: agregar, renombrar, cambiar la ruta, mover, duplicar, borrar o hacerla la de inicio | `acomodar_pagina_landing` |
+| La configuración de la página: formato, imagen de fondo, ancho y alineación de todas las secciones | `configurar_landing` |
+| El sitio: nombre, título y descripción para buscadores, Píxel de Meta, «Hecho con MaKo», ícono | `configurar_sitio_landing` |
+| La barra de arriba y el pie | `configurar_navegacion_landing` |
+| El dominio | `conectar_dominio_landing` · `verificar_dominio_landing` · `quitar_dominio_landing` |
+| Las versiones | `guardar_version_landing` · `restaurar_version_landing` |
+| Los comentarios del equipo | `resolver_comentario_equipo_landing` · `aplicar_comentario_landing` · `aplicar_todos_comentarios_landing` |
+| Publicar y despublicar | `publicar_landing` · `despublicar_landing` |
+| Cualquier otra cosa, dicha libre | `editar_landing_con_ia` |
