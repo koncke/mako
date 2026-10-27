@@ -343,12 +343,6 @@ function idiomaDe(v: unknown): string {
 //     `playing` (iOS en ahorro de energía no reproduce solo); se pausa fuera de pantalla y con la pestaña
 //     oculta; con «menos movimiento» o «ahorro de datos» no se carga; y con el primer `playing` aparece
 //     la pausa (WCAG 2.2.2: lo que se mueve solo más de 5 s). No depende del interruptor «Animaciones».
-// (g) LOS MOTION GRAPHICS (`.gm-motion`, lib/editor-landing/motion.ts): sus animaciones son CSS y corren solas al
-//     pintarse (sin JavaScript se ven igual, y un crawler ve el estado final). Lo que NO está en pantalla al cargar
-//     queda con `gm-mo-espera` (CSS_MOTION: sin animación = el estado final) y se le saca al entrar, que reinicia la
-//     animación desde cero: así se ve entrar al llegar y no termina antes de que alguien baje. Lo que ya está en
-//     pantalla no se toca (ni un parpadeo). Sin IntersectionObserver o con «menos movimiento», nada. No depende del
-//     interruptor «Animaciones»: el bloque ES una animación que la persona eligió poner.
 //
 // ⚠️ ES UN STRING QUE SE SIRVE: sin barras invertidas, sin backticks y sin `${` adentro
 // (AGENTS.md, «el fuente y lo que se sirve no son el mismo texto»), y sin regex. Su hash
@@ -467,30 +461,6 @@ export const SCRIPT_PAGINA = [
   "    if (d.readyState === 'complete') arrancar(); else if (w.addEventListener) w.addEventListener('load', arrancar);",
   '  }',
   '  try { fondosEnVideo(); } catch (e) {}',
-  // (g) Los motion graphics: antes del interruptor (no dependen de él) y en su propio try, como el video.
-  '  function motionAlEntrar() {',
-  "    var todos = d.querySelectorAll('.gm-motion'), lista = [];",
-  "    for (var i = 0; i < todos.length; i++) if (todos[i] && todos[i].classList && todos[i].classList.contains && todos[i].classList.contains('gm-motion')) lista.push(todos[i]);",
-  '    if (!lista.length) return;',
-  "    try { if (w.matchMedia && w.matchMedia('(prefers-reduced-motion: reduce)').matches) return; } catch (e) {}",
-  '    var IOm = w.IntersectionObserver;',
-  '    if (!IOm) return;',
-  '    var altoM = w.innerHeight || (d.documentElement && d.documentElement.clientHeight) || 0;',
-  '    var ojoM = new IOm(function (es) {',
-  '      for (var j = 0; j < es.length; j++) {',
-  '        if (!es[j].isIntersecting) continue;',
-  "        es[j].target.classList.remove('gm-mo-espera');",
-  '        ojoM.unobserve(es[j].target);',
-  '      }',
-  "    }, { rootMargin: '0px 0px -6% 0px', threshold: 0 });",
-  '    for (var k = 0; k < lista.length; k++) {',
-  '      var r = lista[k].getBoundingClientRect ? lista[k].getBoundingClientRect() : null;',
-  '      if (r && r.top < altoM && r.bottom > 0) continue;',
-  "      lista[k].classList.add('gm-mo-espera');",
-  '      ojoM.observe(lista[k]);',
-  '    }',
-  '  }',
-  '  try { motionAlEntrar(); } catch (e) {}',
   "  if (!d.body || d.body.getAttribute('data-gm-animar') !== '1') return;",
   '  var IO = w.IntersectionObserver;',
   '  if (!IO) return;',

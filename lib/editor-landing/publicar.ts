@@ -32,7 +32,6 @@ import { slugValido, rutaValida } from './doc';
 import { htmlDePagina } from './render';
 import { temaPorId, urlFuentes } from './temas';
 import { CSS_CONTENIDO } from './css';
-import { familiasMotionDe, urlFuentesConMotion } from './motion';
 import { hojaDeDiseno, tieneEditables } from './html-editable';
 import { TEXTO_PIDE_CONTRASENA, fuentesHtmlLibre, pideContrasena } from './html-libre';
 import { productosDePago } from './pago-landing';
@@ -127,9 +126,7 @@ export function armarFoto(f: Pick<FilaDoc, 'id' | 'titulo' | 'contenido' | 'conf
     return { ruta: p.ruta, titulo: meta.titulo, descripcion: meta.descripcion, html };
   });
   return {
-    // Las fuentes del tema y las de los motion graphics, en UN link (las del motor no son las del tema: sin cargarlas,
-    // el bloque caería a la letra del título de la landing).
-    v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentesConMotion(urlFuentes([tema]), familiasMotionDe(publicables.map((p) => p.doc))), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables),
+    v: 1, paginas, css: CSS_CONTENIDO, fuentes: urlFuentes([tema]), config, version: f.version, publicadoAt, htmlLibre: fuentesHtmlLibre(publicables),
     // «Diseño editable» (html-editable.ts): la base y la hoja del documento, congeladas con el HTML que las usa.
     ...(tieneEditables(publicables) ? { cssDiseno: hojaDeDiseno(config.diseno?.css ?? '') } : {}),
     ...(publicadoAt !== null ? { pagos: productosDePago(publicables) } : {}),

@@ -40,7 +40,6 @@ import GraficoVista from '../nodos/GraficoVista';
 import InsertadoVista from '../nodos/InsertadoVista';
 import HtmlLibreVista from '../nodos/HtmlLibreVista';
 import HtmlEditableVista from '../nodos/HtmlEditableVista';
-import MotionVista from '../nodos/MotionVista';
 import { extensionesBase, PLACEHOLDER_GENERAL, PLACEHOLDER_TITULO, type VistasNodos } from './esquema';
 import { aplicarAttrs, attrsDeRaiz } from './comun';
 import ExtensionBarra from './barra';
@@ -143,7 +142,6 @@ export function extensionesLanding(op: OpcionesExtensiones): Extensions {
     [NODO.insertado]: ReactNodeViewRenderer(InsertadoVista),
     [NODO.htmlLibre]: ReactNodeViewRenderer(HtmlLibreVista),
     [NODO.htmlEditable]: ReactNodeViewRenderer(HtmlEditableVista),
-    [NODO.motion]: ReactNodeViewRenderer(MotionVista),
   };
   return [...extensionesBase({ ...op, vistas }), ExtensionBarra, AnimacionSecciones];
 }

@@ -126,7 +126,6 @@ configurar_boton_landing
 configurar_formulario_landing
 configurar_horario_envio
 configurar_landing
-configurar_motion_landing
 configurar_navegacion_landing
 configurar_reporte
 configurar_seccion_landing

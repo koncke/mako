@@ -18,10 +18,9 @@ export const ACCIONES_BLOQUE = ['mover', 'duplicar', 'borrar'] as const;
 export const ACCIONES_PAGINA = ['agregar', 'renombrar', 'mover', 'duplicar', 'borrar', 'inicio'] as const;
 /**
  * agregar_bloque_landing. Los de texto llevan su texto; los de MaKo (agenda, video, pago, formulario) entran
- * como los inserta el menú «/»; el motion graphic, como el titular animado con ese texto (su plantilla y sus campos se
- * cambian con configurar_motion_landing). Lo demás del catálogo se arma en el editor o con editar_landing_con_ia.
+ * como los inserta el menú «/». Lo demás del catálogo se arma en el editor o con editar_landing_con_ia.
  */
-export const BLOQUES_API = ['titulo', 'subtitulo', 'texto', 'vinetas', 'numerada', 'cita', 'boton', 'pago', 'formulario', 'agenda', 'video', 'imagen', 'separador', 'motion'] as const;
+export const BLOQUES_API = ['titulo', 'subtitulo', 'texto', 'vinetas', 'numerada', 'cita', 'boton', 'pago', 'formulario', 'agenda', 'video', 'imagen', 'separador'] as const;
 
 /** generar_landing_con_ia y configurar_landing: lo que la persona llama al documento. */
 export const FORMATOS_IA = ['landing', 'presentacion'] as const;

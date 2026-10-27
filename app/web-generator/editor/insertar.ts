@@ -38,7 +38,6 @@ import { undoDepth } from '@tiptap/pm/history';
 import type { IdBloque } from '@/lib/editor-landing/catalogo-bloques';
 import { bloquePorId } from '@/lib/editor-landing/catalogo-bloques';
 import { HTML_EDITABLE_NUEVO } from '@/lib/editor-landing/html-editable';
-import { valoresPorDefecto } from '@/lib/motion/plantillas';
 import {
   NODO, nuevoId, parrafo, titulo, tarjetaVacia, tituloDeTarjeta,
   type CampoFormulario, type JsonNodo, type TipoGrafico, type TonoRecuadro, type VarianteOptimizado,
@@ -228,8 +227,6 @@ export function bloqueJson(id: IdBloque, extra: { url?: string | null } = {}): J
     // ── Incrustaciones: entran vacías y su NodeView pide el enlace o el código ──
     // «Video de YouTube…» entra con la pista de video (pide «el enlace de tu video»); «Insertar», sin pista.
     case 'video-enlace': return { type: NODO.insertado, attrs: { src: '', proveedor: 'youtube', alto: null } };
-    // «Motion graphic»: nace como el titular con su texto de ejemplo (se cambia en «Editar»), horizontal.
-    case 'motion': return { type: NODO.motion, attrs: { plantilla: 'titular', valores: valoresPorDefecto('titular'), formato: '16:9' } };
     case 'insertar':
       return { type: NODO.insertado, attrs: { src: '', proveedor: '', alto: null } };
     // Con id desde que nace (T6): la publicada sirve cada bloque desde /l/html/<docId>/<id>.

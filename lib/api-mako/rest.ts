@@ -520,8 +520,6 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['POST', '/landing/documentos/{id}/secciones/{seccion}/acomodos', 'acomodar_seccion_landing'],
   ['POST', '/landing/documentos/{id}/secciones/{seccion}/bloques', 'agregar_bloque_landing'],
   ['POST', '/landing/documentos/{id}/secciones/{seccion}/bloques/{bloque}/acomodos', 'acomodar_bloque_landing'],
-  // El motion graphic de una sección (26/10/2026): `bloque` va en el cuerpo (es opcional: el único de la sección).
-  ['PATCH', '/landing/documentos/{id}/secciones/{seccion}/motion', 'configurar_motion_landing'],
   ['PATCH', '/landing/documentos/{id}/sitio', 'configurar_sitio_landing'],
   ['PUT', '/landing/documentos/{id}/tema', 'cambiar_tema_landing'],
   ['PATCH', '/landing/documentos/{id}/textos', 'cambiar_texto_landing'],

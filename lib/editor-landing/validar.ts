@@ -40,7 +40,6 @@ import { CONFIG_DEFAULT, FORMATOS, PROPORCIONES, type BotonNav, type ConfigLandi
 import { OBJETIVOS_LANDING, type ObjetivoLanding } from '../landing-spec';
 import { sanearEstilo } from './animaciones';
 import { cssDisenoLimpio } from './html-editable';
-import { normalizarAttrsMotion } from './motion';
 import {
   NORMALIZAR_MARCAS, NORMALIZAR_NODOS, attrsFormulario, attrsTarjeta, hrefPermitido, idValido, obj,
   srcImagen, textoLimpio,
@@ -52,7 +51,7 @@ import {
 
 const INLINE = ['text', 'hardBreak'] as const;
 const TEXTO = ['paragraph', 'heading', 'bulletList', 'orderedList', 'taskList', 'blockquote', 'horizontalRule', 'table'] as const;
-const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre, NODO.htmlEditable, NODO.motion] as const;
+const ATOMOS = [NODO.imagen, NODO.video, NODO.insertado, NODO.formulario, NODO.grafico, NODO.espaciador, NODO.htmlLibre, NODO.htmlEditable] as const;
 /** Lo que puede ir suelto en una sección. */
 export const BLOQUES_TARJETA: readonly string[] = [...TEXTO, NODO.columnas, NODO.optimizado, NODO.botones, NODO.recuadro, NODO.desplegable, ...ATOMOS];
 /** En una columna: todo menos otras columnas. */
@@ -388,14 +387,6 @@ function sanearNodo(h: Record<string, unknown>, ctx: Ctx, prof: number, donde: s
     if (typeof crudo.html === 'string' && crudo.html.length > TOPES.htmlEditable) {
       descartar(ctx, `diseño editable de ${crudo.html.length} caracteres en ${donde} (tope ${TOPES.htmlEditable}): queda vacío`);
     }
-  } else if (tipo === NODO.motion) {
-    // Lo guarda una PERSONA (el panel del editor): el saneo NO estricto de motion.ts, que no corta ni rechaza un texto
-    // por largo. Los motivos son los del motor, campo por campo (un color que no es #rrggbb, un campo de otra
-    // plantilla, un obligatorio vacío); `valores` y `plantilla` no se comparan enteros, que anotaría el objeto de nuevo.
-    attrsConMotivo(tipo, crudo, ctx, donde, ['valores', 'plantilla', 'formato']);
-    const m = normalizarAttrsMotion(crudo);
-    for (const motivo of m.descartes) descartar(ctx, `motion graphic (${donde}): ${motivo}`);
-    attrs = m.attrs;
   } else if (tipo === NODO.boton) {
     attrs = attrsConMotivo(tipo, crudo, ctx, donde, ['href']);
     if (crudo.href !== undefined && crudo.href !== '' && !attrs.href) descartar(ctx, `destino de botón no permitido «${recorte(crudo.href)}» en ${donde}: queda sin destino`);

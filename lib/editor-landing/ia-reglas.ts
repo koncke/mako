@@ -35,9 +35,6 @@ import {
   enLista, esHex, nuevoId, textoDe, titulo, parrafo, tarjeta,
   type JsonNodo, type JsonMarca,
 } from './doc';
-import { attrsMotion } from './motion';
-import { formatearNumero } from '../motion/escena';
-import { datosDeBarras } from '../motion/plantillas';
 import {
   TEXTO_POR_SECCION, FUENTES_IMAGEN, ACCIONES_TEXTO,
   type ParamsGeneracion, type Esquema, type SeccionEsquema, type AccionTexto, type TextoPorSeccion,
@@ -671,29 +668,12 @@ function cifraRespaldada(valor: string, fuente: string): boolean {
 const vaciar = (n: JsonNodo): JsonNodo => ({ ...n, content: [{ type: 'paragraph' }] });
 
 /**
- * ¿La prueba de este motion graphic está en el material? La cita de un testimonio, el número de una cifra y los
- * números de las barras. Un número se busca como se escribe (1250, 4.5) y como lo DIBUJA el bloque («1.250», «4,5»):
- * en «Editar con IA» el material trae el texto del bloque original (textoDe), que es el dibujado.
- */
-function motionRespaldado(n: JsonNodo, fuente: string): boolean {
-  const { plantilla, valores } = attrsMotion(n.attrs);
-  const numero = (x: number) => Number.isFinite(x)
-    && [String(x), String(x).replace('.', ','), ...[0, 1, 2].map((d) => formatearNumero(x, d))].some((t) => cifraRespaldada(t, fuente));
-  if (plantilla === 'testimonio') return citaRespaldada(String(valores.cita ?? ''), fuente);
-  if (plantilla === 'cifra') return numero(Number(valores.numero));
-  if (plantilla === 'barras') return datosDeBarras(String(valores.datos ?? '')).every((d) => numero(d.valor));
-  return true;
-}
-
-/**
  * Lo que la regla «nunca inventes testimonios ni cifras» permite chequear en
  * código (AGENTS.md: «Una regla en un prompt no es una regla»):
  *   · una cita (`blockquote`, o un ítem de los diseños de citas) cuyo arranque no
  *     está en el material → se VACÍA (queda el bloque con su placeholder);
  *   · el `valor` de un ítem de estadísticas cuyos números no están en el material
- *     → se vacía el valor;
- *   · un motion graphic de testimonio, cifra o barras cuya cita o cuyos números no
- *     están en el material → se quita (queda un párrafo vacío).
+ *     → se vacía el valor.
  * El material es todo lo que la persona dio: su pedido, el texto pegado o
  * importado, el esquema que editó y el brief del negocio. Una cifra que solo vive
  * en el copy de un párrafo NO se chequea: sin estructura, distinguir «3 pasos» de
@@ -703,9 +683,6 @@ export function quitarPruebaInventada(t: JsonNodo, material: string): { tarjeta:
   const fuente = normalizar(material) + ' ' + String(material ?? '').replace(/\s+/g, ' ');
   let quitados = 0;
   const caminar = (n: JsonNodo, enCitas: boolean, enCifras: boolean): JsonNodo => {
-    // Un motion graphic sin respaldo se va ENTERO (queda un párrafo vacío): vaciarle la cita o la cifra dejaría el
-    // texto de ejemplo de la plantilla en su lugar, que es otra prueba inventada.
-    if (n.type === NODO.motion && !motionRespaldado(n, fuente)) { quitados++; return { type: 'paragraph' }; }
     if (n.type === 'blockquote' || (enCitas && n.type === NODO.optimizadoItem)) {
       const texto = textoDe(n, ' ');
       if (texto.trim() && !citaRespaldada(texto, fuente)) { quitados++; return vaciar(n); }

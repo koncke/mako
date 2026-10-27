@@ -32,7 +32,7 @@
 //     opción «encoger al desbordar» de PowerPoint recién se aplica cuando alguien edita.
 // =============================================================================
 
-import { DEGRADADOS, NODO, textoDe, type JsonNodo, type JsonMarca } from './doc';
+import { DEGRADADOS, NODO, type JsonNodo, type JsonMarca } from './doc';
 import { attrsTarjeta, hrefPermitido, srcImagen } from './especificacion';
 import { varsDeFondoPropio, varsDeTema, type Tema } from './temas';
 import { descargar, nombreArchivo, type SeccionElegida } from './exportar-html';
@@ -264,12 +264,6 @@ function recorrer(n: JsonNodo, r: Recorrido, nivel = 0): void {
     case NODO.grafico:
       if (typeof a.titulo === 'string' && a.titulo.trim()) agregar(r, 'parrafo', [{ texto: a.titulo.trim(), negrita: true }], nivel);
       return;
-    // Un motion graphic no se anima en una diapositiva: va su texto (el que se lee en la página), en negrita.
-    case NODO.motion: {
-      const t = textoDe(n).trim();
-      if (t) agregar(r, 'parrafo', [{ texto: t, negrita: true }], nivel);
-      return;
-    }
     case NODO.imagen: {
       const src = srcImagen(a.src);
       if (src) r.imagenes.push(src);
