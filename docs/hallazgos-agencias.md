@@ -94,3 +94,26 @@ La historia anterior de la cartera (de cuando vivía en /partners), en [hallazgo
     dos veces y muestra lo que quedó. La segunda vez tiene que decir «ya estaba aplicada».
   - **Para que Mauricio la use**, ws1 tiene que ser Agency y cada cliente tener su cuenta de MaKo: la plantilla se le
     aplica a una cuenta, no a un cliente del CRM.
+
+## La plantilla Inmobiliaria: sin reuniones, y su hoja del Dashboard (MK-15, 27/10/2026)
+
+- **El pedido:** Joan (Código Inmobiliario, documento «DeadlinesMakoxJJ», 25/09 y 05/10). Sus clientes captan
+  propiedades con campañas a formulario y cierran en persona: «me pone lo de R1 Y R2. En el caso de los inmobiliarios
+  esa lógica no se utiliza». El Dashboard estaba pensado para un VSL (Impresión → Click → Landing → VSL) y no les sirve.
+- **El funnel:** Formulario → Calificado → Tasación / pre listing → Captación, sin ninguna etapa de reunión. La
+  tasación es una etapa propia (la clave `st0`, como las que acuña el editor del CRM) con `kind: 'paso'` y
+  `marcadaComo: 'etapa'`. Se llega a ella moviendo el lead a mano, como a `conversando`: `pipeline_stage` manda sobre lo
+  derivado cuando la etapa está en el funnel (`etapaVigenteDe`), y `kind: 'paso'` no pide requisitos.
+  ⚠️ `agenda` con `kind: 'reunion'` (lo que hace la plantilla `presencial`) traía justo las R1 que Joan no quiere.
+- **La hoja del Dashboard (`HOJA_INMOBILIARIA`):** Inversión, Impresiones, Clics y Formularios arriba; el embudo de
+  marketing y el comercial (Leads → Calificados → Captaciones) al lado; y los leads por etapa, que es donde se ven las
+  tasaciones.
+- ⚠️ **Joan pidió Alcance, Visualizaciones y Clics salientes, y MaKo no los guarda.** El alcance existe sólo en vivo y
+  sin total (la fuente `audiencia`), y las visualizaciones de video y los clics salientes no se sincronizan de Meta. La
+  hoja trae Impresiones y Clics, con esos nombres: rotular «Alcance» a las impresiones sería un número falso con el
+  nombre correcto. **Sin hacer:** sumar esas tres métricas a la sincronización de Meta; es del área de Ads.
+- **El Dashboard es por persona** (lib/graficos-tablero.ts). La hoja va primera en el informe de cada persona del equipo
+  de la cuenta, con el compare-and-set de la API, así que a quien está editando su informe no se le pisa. A quien la
+  archivó no se le revive (`conHojaDeModelo`).
+- **Lo que pidió Joan y queda afuera de la plantilla:** el WhatsApp único al inmobiliario cuando entra un formulario (es
+  una automatización) y el filtro por creativo.

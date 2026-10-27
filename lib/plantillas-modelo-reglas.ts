@@ -10,12 +10,16 @@
 //   · EL FUNNEL del CRM, con las etapas de cómo vende ese modelo;
 //   · EL TABLERO: el objetivo del trimestre (la meta que importa, la MCI de su método) y los KPIs semanales que la
 //     mueven (Objectives y KPIs de MaKo). Sin números: la meta y el compromiso los pone el cliente, nunca la plantilla;
-//   · LA GUÍA para cargar sus datos, como tareas de un proyecto de su Plan: la ve su equipo y se tilda.
+//   · LA GUÍA para cargar sus datos, como tareas de un proyecto de su Plan: la ve su equipo y se tilda;
+//   · y, la que la trae (Inmobiliaria, MK-15), UNA HOJA DEL DASHBOARD con sus números en el orden en que los mira.
 //
 // Lo que gobierna, y no se ve en los datos:
 //   · ⚠️ LAS ETAPAS USAN LAS CLAVES CANÓNICAS (lead, conversando, agenda, agendaj2, facturando, ganado), con su rótulo.
 //     Una clave inventada no la conoce `deriveStageKey` y el CRM dibuja al lead en la primera columna (lo mismo que
-//     FUNNEL_TEMPLATES en lib/pipeline.ts, que es el molde).
+//     FUNNEL_TEMPLATES en lib/pipeline.ts, que es el molde). La única excepción es una etapa a la que se llega SÓLO
+//     moviendo el lead a mano, como `conversando`: lleva la clave que acuña el editor del CRM (`st0`), `kind: 'paso'` y
+//     la marca de que NO es una reunión (`marcadaComo: 'etapa'`). `pipeline_stage` manda sobre lo derivado cuando la
+//     etapa está en el funnel (`etapaVigenteDe`, lib/funnel-etapas.ts), y `kind: 'paso'` no pide requisitos.
 //   · APLICARLA DOS VECES NO DUPLICA NADA: lo que ya existe con el mismo nombre se deja como está (`queFalta`).
 //
 // Sin `server-only`: lo usan la pantalla, la API y los tests.
@@ -23,8 +27,11 @@
 
 import { DEFAULT_STAGES, type Stage, type StageKind } from './pipeline';
 import type { FuenteId, MetricaObjetivo, UnidadObjetivo } from './objectives-modelo';
+import { ARMADO } from './graficos-plantillas-analysts';
+import type { PlantillaHoja } from './graficos-plantillas';
+import { MAX_HOJAS, type Hoja, type Tablero } from './graficos-catalogo';
 
-export const MODELOS_CLIENTE = ['tienda-b2c', 'b2b-crm', 'manufactura'] as const;
+export const MODELOS_CLIENTE = ['tienda-b2c', 'b2b-crm', 'manufactura', 'inmobiliaria'] as const;
 export type ModeloCliente = (typeof MODELOS_CLIENTE)[number];
 
 export const esModeloCliente = (v: unknown): v is ModeloCliente =>
@@ -44,6 +51,8 @@ export type PlantillaModelo = {
   /** El proyecto del Plan donde queda la guía. */
   proyecto: string;
   guia: PasoDeGuia[];
+  /** La hoja del Dashboard que suma, si la trae. */
+  hoja?: PlantillaHoja;
 };
 
 const CONVERSANDO: Stage = { key: 'conversando', label: 'Conversación abierta', dot: '#1FA855', tone: 'teal', kind: 'paso' };
@@ -60,6 +69,39 @@ const GUIA_COMUN: PasoDeGuia[] = [
   { titulo: 'Cargar tus productos o servicios', detalle: 'En el CRM, en el desplegable de arriba → «Nuevo producto»: carga lo que vendes con su precio. Con eso el CRM sabe qué se vendió y cuánto.' },
   { titulo: 'Revisar el tablero una vez por semana', detalle: 'Una reunión corta, siempre el mismo día: cada uno dice qué se comprometió, qué hizo y qué va a hacer la semana que viene. Anota los números de los KPIs a mano en Objectives.', recurrente: true },
 ];
+
+/**
+ * La hoja de una inmobiliaria (MK-15, Joan: «DeadlinesMakoxJJ», 25/09 y 05/10). El Dashboard de sus clientes estaba
+ * pensado para un VSL (Impresión → Click → Landing → VSL, la hoja Marketing) y no les sirve: venden con campañas a
+ * FORMULARIO y cierran en persona. Pidió, en este orden:
+ *   · marketing: Inversión → Alcance → Visualizaciones → Clics salientes → Formularios;
+ *   · comercial: Leads → Calificados → Tasaciones/Pre listing → Captaciones.
+ * ⚠️ SÓLO LO QUE MaKo GUARDA, con su nombre de verdad: el alcance existe sólo en vivo y sin total (la fuente `audiencia`),
+ *    y las visualizaciones de video y los clics salientes no se sincronizan de Meta. Van Impresiones y Clics, que sí, y
+ *    se llaman así: rotular «Alcance» a las impresiones sería un número falso con el nombre correcto. Las tasaciones
+ *    son una etapa del funnel: las cuenta «Leads por etapa».
+ */
+const { kpi } = ARMADO;
+export const HOJA_INMOBILIARIA: PlantillaHoja = {
+  id: 'inmobiliaria', nombre: 'Inmobiliaria', emoji: '🏠',
+  linea: 'De la pauta a la captación: lo invertido, los formularios, los calificados y las captaciones.',
+  armar: (id) => ({
+    id: id('inmobiliaria'), nombre: 'Inmobiliaria', emoji: '🏠', subtitulo: 'De la pauta a la captación.',
+    controles: [{ id: id('in-periodo'), tipo: 'periodo', preset: 'ult30' }],
+    componentes: [
+      // 1 · Marketing, en el orden de Joan
+      kpi(id('in-inversion'), 'negocio', 'gasto', 'Inversión', 'lo invertido en Meta', 0, 0, { comparar: true }),
+      kpi(id('in-impresiones'), 'negocio', 'impresiones', 'Impresiones', 'veces que se vieron tus anuncios', 3, 0),
+      kpi(id('in-clics'), 'negocio', 'clics', 'Clics', 'en tus anuncios', 6, 0),
+      kpi(id('in-formularios'), 'meta', 'leads', 'Formularios', 'leads de tus anuncios', 9, 0, { comparar: true }),
+      // 2 · Los dos embudos, uno al lado del otro
+      { id: id('in-embudo-mk'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'negocio', metricas: ['impresiones', 'clics', 'leads'], titulo: 'Embudo de marketing', x: 0, y: 4, w: 6, h: 12 },
+      { id: id('in-embudo-co'), clase: 'grafico', tipo: 'embudo_vertical', fuente: 'leads', metricas: ['leads', 'calificados', 'cierres'], titulo: 'Embudo comercial', x: 6, y: 4, w: 6, h: 12 },
+      // 3 · Dónde está cada lead hoy: acá se ven las tasaciones y los pre listing
+      { id: id('in-etapas'), clase: 'grafico', tipo: 'barras', fuente: 'leads', dimension: 'etapa', metricas: ['leads'], titulo: 'Leads por etapa', x: 0, y: 16, w: 12, h: 10 },
+    ],
+  }),
+};
 
 export const PLANTILLAS_MODELO: Readonly<Record<ModeloCliente, PlantillaModelo>> = {
   'tienda-b2c': {
@@ -145,6 +187,35 @@ export const PLANTILLAS_MODELO: Readonly<Record<ModeloCliente, PlantillaModelo>>
       ...GUIA_COMUN.filter((p) => p.titulo !== 'Cargar tus productos o servicios'),
     ],
   },
+  inmobiliaria: {
+    id: 'inmobiliaria',
+    nombre: 'Inmobiliaria',
+    para: 'Capta propiedades con campañas a formulario y cierra en persona.',
+    // Sin R1 ni R2 ni Calendly (Joan: «en el caso de los inmobiliarios esa lógica no se utiliza»).
+    funnel: {
+      nombre: 'Captaciones',
+      pipeline: [
+        etapa('lead', 'entrada', 'Formulario'),
+        etapa('conversando', 'paso', 'Calificado'),
+        { key: 'st0', label: 'Tasación / pre listing', dot: '#C8870C', tone: 'orange', kind: 'paso', marcadaComo: 'etapa' },
+        etapa('ganado', 'cierre', 'Captación'),
+      ],
+    },
+    objetivo: { titulo: 'Captar más propiedades este trimestre', metrica: 'cierres', unidad: 'cantidad' },
+    kpis: [
+      { nombre: 'Leads', unidad: 'cantidad', fuente: 'auto', fuenteId: 'leads_nuevos' },
+      { nombre: 'Leads calificados', unidad: 'cantidad', fuente: 'manual' },
+      { nombre: 'Tasaciones o pre listing presentadas', unidad: 'cantidad', fuente: 'manual' },
+      { nombre: 'Captaciones', unidad: 'cantidad', fuente: 'auto', fuenteId: 'cierres' },
+    ],
+    proyecto: 'Arranque · Inmobiliaria',
+    guia: [
+      { titulo: 'Conectar los formularios de Meta', detalle: 'En Integraciones, conecta Facebook: cada formulario de tus campañas entra solo al CRM, en «Formulario».' },
+      { titulo: 'Conectar tu calendario', detalle: 'En Calendario, conecta tu Google Calendar para anotar las tasaciones y las visitas.' },
+      ...GUIA_COMUN.filter((p) => p.titulo !== 'Cargar tus productos o servicios'),
+    ],
+    hoja: HOJA_INMOBILIARIA,
+  },
 };
 
 /** Para comparar nombres: sin tildes, sin mayúsculas y sin espacios de más. */
@@ -169,7 +240,23 @@ export function queFalta(p: PlantillaModelo, hay: LoQueHay): LoQueFalta {
   };
 }
 
-export type ResumenPlantilla = { funnel: boolean; objetivo: boolean; kpis: number; pasos: number };
+/**
+ * El informe de una persona con la hoja de la plantilla PRIMERA (es lo que vino a mirar), o por qué no se toca:
+ * `ya-estaba` si la tiene o si la ARCHIVÓ (borrarla fue su decisión: aplicar la plantilla otra vez no se la revive),
+ * `lleno` si ya tiene el máximo de hojas. Un informe sin hojas (`enBlanco`) queda con ésta sola.
+ */
+export function conHojaDeModelo(t: Tablero, h: Hoja): { tablero: Tablero } | { motivo: 'ya-estaba' | 'lleno' } {
+  const es = (x: Hoja) => x.plantilla != null && x.plantilla === h.plantilla;
+  if ((!t.enBlanco && t.hojas.some(es)) || (t.archivadas ?? []).some(es)) return { motivo: 'ya-estaba' };
+  if (t.enBlanco) {
+    const { enBlanco: _vacio, ...resto } = t;
+    return { tablero: { ...resto, hojas: [h] } };
+  }
+  if (t.hojas.length >= MAX_HOJAS) return { motivo: 'lleno' };
+  return { tablero: { ...t, hojas: [h, ...t.hojas] } };
+}
+
+export type ResumenPlantilla = { funnel: boolean; objetivo: boolean; kpis: number; pasos: number; hojas: number };
 
 /** Lo que se le dice a la persona después de aplicarla: lo creado, y si no había nada que crear, eso. */
 export function resumenDePlantilla(p: PlantillaModelo, hecho: ResumenPlantilla): string {
@@ -180,6 +267,7 @@ export function resumenDePlantilla(p: PlantillaModelo, hecho: ResumenPlantilla):
     partes.push(hecho.objetivo ? `el objetivo del trimestre${k}` : `${hecho.kpis} ${hecho.kpis === 1 ? 'KPI' : 'KPIs'}`);
   }
   if (hecho.pasos) partes.push(`${hecho.pasos} ${hecho.pasos === 1 ? 'paso' : 'pasos'} de la guía en su Plan («${p.proyecto}»)`);
+  if (hecho.hojas && p.hoja) partes.push(`la hoja «${p.hoja.nombre}» en el Dashboard de ${hecho.hojas === 1 ? 'una persona' : `${hecho.hojas} personas`}`);
   if (!partes.length) return `La plantilla ${p.nombre} ya estaba aplicada: no faltaba nada.`;
   const lista = partes.length === 1 ? partes[0] : `${partes.slice(0, -1).join(', ')} y ${partes[partes.length - 1]}`;
   return `Listo: ${lista}.`;

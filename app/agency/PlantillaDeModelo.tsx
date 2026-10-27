@@ -56,7 +56,7 @@ export function PlantillaDeModelo({ clienteWs, onError }: { clienteWs: number; o
 
 const CSS = `
 .pm{ margin:0 0 14px; }
-.pm-opciones{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+.pm-opciones{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
 .pm-op{ display:flex; flex-direction:column; gap:3px; text-align:left; border:1px solid var(--border); background:var(--surface);
   border-radius:12px; padding:10px 12px; font:inherit; color:var(--ink); cursor:pointer; }
 .pm-op b{ font-size:14px; font-weight:700; }

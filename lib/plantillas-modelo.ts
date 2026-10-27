@@ -16,6 +16,9 @@
 //     índice único: un segundo principal tiraría).
 //   · Sin IA y sin números: la meta del objetivo y el compromiso de cada KPI quedan en 0 («sin datos», nunca un rojo
 //     inventado) hasta que el cliente pone los suyos, que es el primer paso de la guía.
+//   · ⚠️ EL DASHBOARD ES POR PERSONA (lib/graficos-tablero.ts): la hoja de la plantilla (Inmobiliaria) se suma al informe
+//     de CADA persona del equipo de la cuenta, primera, con el compare-and-set de la API (`guardarTableroSi`). A quien
+//     está editando su informe en ese momento no se le pisa (se dice), y a quien la archivó no se le revive.
 // =============================================================================
 
 import 'server-only';
@@ -24,8 +27,11 @@ import { crearFunnel, leerFunnels } from './funnels';
 import { listKpis, listObjectives, quarterActual, upsertKpi, upsertObjective } from './objectives';
 import { agregarTareasPlanOwner, crearPlanProyecto, listPlanBoard } from './plan-board';
 import { esAgencia, puedeEntrarAhora } from './agencia';
+import { equipoDe } from './usuarios';
+import { guardarTableroSi, leerTableroVersionado } from './graficos-tablero';
+import { instanciarPlantilla } from './graficos-plantillas';
 import {
-  PLANTILLAS_MODELO, nombreComparable, queFalta, resumenDePlantilla, type ModeloCliente, type ResumenPlantilla,
+  PLANTILLAS_MODELO, conHojaDeModelo, nombreComparable, queFalta, resumenDePlantilla, type ModeloCliente, type ResumenPlantilla,
 } from './plantillas-modelo-reglas';
 
 export type ResultadoPlantilla = { ok: true; resumen: string; hecho: ResumenPlantilla } | { ok: false; error: string };
@@ -56,7 +62,7 @@ export async function aplicarPlantillaModelo(modelo: ModeloCliente, quien: 'user
   const falta = queFalta(p, { funnels: hay.funnels.map((f) => f.nombre), objetivos: hay.objetivos.map((o) => o.titulo), kpis: hay.kpis, tareas: hay.tareas });
 
   // 2. Lo que falta, en orden. Si algo se corta a la mitad, aplicarla de nuevo completa lo que quedó.
-  const hecho: ResumenPlantilla = { funnel: false, objetivo: false, kpis: 0, pasos: 0 };
+  const hecho: ResumenPlantilla = { funnel: false, objetivo: false, kpis: 0, pasos: 0, hojas: 0 };
   try {
     if (falta.funnel) {
       await crearFunnel({ nombre: p.funnel.nombre, pipeline: p.funnel.pipeline, plantilla: `modelo:${p.id}`, esDefault: !hay.funnels.some((f) => f.esDefault) });
@@ -96,7 +102,26 @@ export async function aplicarPlantillaModelo(modelo: ModeloCliente, quien: 'user
     const a_medias = hecho.funnel || hecho.objetivo || hecho.kpis || hecho.pasos;
     return { ok: false, error: `${a_medias ? `${resumenDePlantilla(p, hecho)} Y después ` : ''}se cortó: ${msg(e)}. Aplicarla otra vez completa lo que faltó sin duplicar.` };
   }
-  return { ok: true, resumen: resumenDePlantilla(p, hecho), hecho };
+
+  // 3. La hoja del Dashboard, en el informe de cada persona del equipo (sólo la plantilla que la trae).
+  const sinHoja: string[] = [];
+  if (p.hoja) {
+    let equipo: Awaited<ReturnType<typeof equipoDe>> = [];
+    try { equipo = (await equipoDe(ws)).filter((u) => u.estado !== 'suspendido'); } catch (e) { sinHoja.push(`no pude leer su equipo (${msg(e)})`); }
+    for (const u of equipo) {
+      try {
+        const leido = await leerTableroVersionado(String(u.id));
+        const r = conHojaDeModelo(leido.tablero, instanciarPlantilla(p.hoja));
+        if ('motivo' in r) { if (r.motivo === 'lleno') sinHoja.push(`${u.nombre} ya tiene el máximo de hojas`); continue; }
+        const g = await guardarTableroSi(String(u.id), r.tablero, leido.version);
+        if (g.ok) hecho.hojas++; else sinHoja.push(`${u.nombre} estaba editando su Dashboard`);
+      } catch (e) {
+        sinHoja.push(`no pude leer el Dashboard de ${u.nombre} (${msg(e)})`);
+      }
+    }
+  }
+  const resumen = resumenDePlantilla(p, hecho);
+  return { ok: true, resumen: sinHoja.length ? `${resumen} Sin la hoja: ${sinHoja.join('; ')}. Aplicarla otra vez se la suma.` : resumen, hecho };
 }
 
 /**
