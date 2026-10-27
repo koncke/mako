@@ -2087,3 +2087,29 @@ los anuncios (`claveZernioAnuncios`, lib/zernio-ads.ts, del Media Buyer) y la co
 docs/relevo/zernio-capi.md.
 
 *27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## MaKo le dijo a Joan que el token de Meta «seguía igual»: el tutorial ya estaba arreglado, y no alcanzó (27/10/2026)
+
+**Vive en:** `lib/conexiones-catalogo.ts` (`META_POR_ZERNIO`, `importanteDe`) · `lib/api-mako/areas/integraciones.run.ts`
+(`linkIntegracion`, `como_conectar`, `ver_integracion`, `ver_integraciones`) · `lib/mako-doer-in.ts` (`DEEP_LINKS`, la guía) ·
+`lib/hechos-mako.ts` · `lib/capas.ts` (`POSTERGABLE_TXT`). Lo fija tests/meta-sin-token.test.ts con la pregunta textual de Joan.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: el tutorial del token ya se había retirado esa mañana.** MaKo igual contestó «Sí» y
+  mandó a `?abrir=meta` porque lo que sabe de conectar Meta NO sale del tutorial: el prompt traía «Meta Ads: …?abrir=meta» (el
+  catálogo arma la ruta con la key de la tarjeta), los `DEEP_LINKS` del doer traían «Salud de la cuenta de Meta: …?abrir=meta», la
+  guía de WhatsApp y `como_conectar` tomaban el tutorial del MODAL de Meta (cuyo primer paso todavía decía «El token de Meta se
+  retira…»: la palabra token confirmaba la pregunta), `ver_conexion_meta` devolvía `via: 'token_de_meta'` y `ver_integraciones`
+  listaba «Access token» como campo que falta. Cinco lugares, ninguno era el tutorial.
+- **La regla:** una tarjeta que se conecta en OTRA (Meta, en la de Zernio) lo declara en el catálogo (`ruta`, `pasos`,
+  `aclaracion`), y quien guía toma `c.pasos` ANTES que el tutorial del modal. Los links de la API salen del catálogo
+  (`linkIntegracion` → `conexion(key).ruta`), nunca de `?abrir=<key>` armado a mano. `?abrir=meta` queda para ver la cuenta, el
+  píxel y la salud. Y lo que se retiró no se nombra: «ya no hace falta el token» igual le hace buscar un token a quien lee rápido.
+- Conectar «Anuncios de Meta» desde la tarjeta de Zernio guarda la conexión de Meta igual que el botón del modal de Meta
+  (`conectada-meta`), y el servidor deduce la página si no viene (`paginaParaConectar`): por eso la ruta puede ser la de Zernio.
+
+**Sin hacer (con dónde vive):** el «simple login de Facebook» lo es sólo para un negocio con su API key de Zernio pegada: sin ella,
+la fila «Anuncios de Meta» no aparece (app/integraciones/ConectarRedes.tsx, abajo de la clave; BYOK desde el 23/10, lib/zernio.ts).
+Los pasos lo dicen en una línea. Y el test cubre el camino del CÓDIGO con la pregunta de Joan (la conexión, el link, los pasos, el
+prompt), no la frase que arma el modelo.
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*

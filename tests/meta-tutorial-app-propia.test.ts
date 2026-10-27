@@ -3,8 +3,8 @@
 // =============================================================================
 // Hasta el 26/10 este tutorial enseñaba a sacar el token de Meta con la app propia del negocio (23/10/2026: crear la
 // app, el usuario del sistema, el token con 8 permisos). Joan se perdió ahí dando de alta sus negocios («tenía 45
-// pasos pero estaba muy resumido»), y el token se retira el 03/11 (`CORTE_TOKEN_META`): ahora avisa el corte y lleva a
-// «Conectar con Facebook» (Meta por la Zernio del negocio).
+// pasos pero estaba muy resumido»), y el token se retira el 03/11 (`CORTE_TOKEN_META`): lleva a «Conectar con Facebook» (Meta
+// por la Zernio del negocio). Desde el 27/10 ni lo nombra (Martín: «ya no existe TOKEN de meta»); el corte va en la nota del campo.
 //
 // ⚠️ Y SIGUE SIN PEDIR PUBLICAR LA APP: Martín lo prohibió el 16/09 («no me menciones más que el cliente tenga que
 // publicar su app, esa no es opción»).
@@ -23,15 +23,16 @@ const pasos = (): string[] => {
   return [...bloque.matchAll(/^\s*'((?:[^'\\]|\\.)*)',?$/gm)].map((m) => m[1]);
 };
 
-test('el tutorial avisa el corte del token con la MISMA fecha que el código, y lleva a «Conectar con Facebook»', () => {
+test('el tutorial lleva a «Conectar con Facebook» sin nombrar el token; el corte lo dice la nota del campo, con la fecha del código', () => {
   const p = pasos();
   assert.ok(p.length >= 3 && p.length <= 5, `${p.length} pasos`);
+  assert.match(p[0], /con tu Facebook, por Zernio/);
+  assert.ok(p.some((x) => /"Conectar con Facebook"/.test(x)), 'no lleva al botón de la conexión por Zernio');
+  // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». Ningún paso lo nombra.
+  assert.deepEqual(p.filter((x) => /token/i.test(x)), []);
+  // El corte lo ve sólo quien tenía el token: en la nota de su campo, con la misma fecha que el código.
   assert.ok(CORTE_TOKEN_META, 'sin fecha de corte no hay nada que avisar');
   const [, mes, dia] = CORTE_TOKEN_META!.split('-');
-  assert.match(p[0], new RegExp(`se retira el .*${dia}/${mes}`), 'la fecha del tutorial no es la de CORTE_TOKEN_META');
-  assert.match(p[0], /Zernio/);
-  assert.ok(p.some((x) => /"Conectar con Facebook"/.test(x)), 'no lleva al botón de la conexión por Zernio');
-  // La nota del campo dice lo mismo, con la misma fecha.
   assert.match(meta, new RegExp(`env: 'META_ACCESS_TOKEN'[^\n]*nota: 'Se retira el [a-z]+ ${dia}/${mes}`));
 });
 

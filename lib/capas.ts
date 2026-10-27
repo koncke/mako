@@ -85,7 +85,9 @@ export function esPostergable(v: unknown): v is PasoOnboarding {
  * es una frase que se queda vieja en una de las dos.
  */
 export const POSTERGABLE_TXT: Record<(typeof PASOS_POSTERGABLES)[number], { que: string; donde: string; ruta: string }> = {
-  integraciones: { que: 'Conectar tus cuentas de publicidad', donde: 'Integraciones', ruta: '/integraciones' },
+  // El paso de Meta (27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook»): se conecta
+  // en la tarjeta de Zernio, la misma ruta que el catálogo de conexiones (lib/conexiones-catalogo.ts, tests/meta-sin-token.test.ts).
+  integraciones: { que: 'Conectar Meta con tu Facebook (Zernio)', donde: 'Integraciones', ruta: '/integraciones?abrir=zernio' },
   tabs: { que: 'Verificar tu teléfono para los reportes', donde: 'Perfil', ruta: '/perfil' },
 };
 

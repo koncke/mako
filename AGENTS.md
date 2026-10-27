@@ -1475,7 +1475,10 @@ los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión
 catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
 veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
 correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
-el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts. **Meta es la excepción
+(27/10/2026): se conecta en la tarjeta de Zernio** (`?abrir=zernio`, «con tu Facebook, por Zernio»: ya no existe el token de
+Meta); `?abrir=meta` es para ver la cuenta, el píxel y la salud, nunca para conectar. Sale del catálogo (`META_POR_ZERNIO`):
+nadie escribe ese link a mano. Lo fija tests/meta-sin-token.test.ts.
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`

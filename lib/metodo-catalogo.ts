@@ -207,7 +207,8 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
     campos: [
       // El token de Meta se RETIRA (27/10/2026, corte `CORTE_TOKEN_META`, lib/zernio-meta-cuerpo.ts): con Zernio prendido no se pide, y
       // sólo lo ve el negocio que ya lo tenía («Ver la conexión anterior»). La nota y el tutorial ya no enseñan a sacarlo.
-      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, placeholder: 'EAAG…', nota: 'Se retira el lunes 03/11. Conecta con Facebook (Zernio) arriba: hasta ese día queda de respaldo.' },
+      // `retirado` (27/10/2026): la API de MaKo tampoco lo lista como «falta» (ver_integracion), y el modal ya lo escondía.
+      { env: 'META_ACCESS_TOKEN', label: 'Access token', secreto: true, retirado: true, placeholder: 'EAAG…', nota: 'Se retira el lunes 03/11. Conecta con Facebook (Zernio) arriba: hasta ese día queda de respaldo.' },
       { env: 'META_AD_ACCOUNT_ID', label: 'ID de cuenta publicitaria', auto: true, placeholder: 'act_1234567890', nota: 'Lo completa MaKo al pegar el token; si tienes varias cuentas, eliges una. A mano, va con act_ adelante.' },
       { env: 'META_PAGE_ACCESS_TOKEN', label: 'Token de la página', secreto: true, opcional: true, auto: true, placeholder: 'EAAG…', nota: 'Lo saca MaKo del "Access token". Trae los contactos de tus formularios de Facebook e Instagram.' },
       { env: 'META_PIXEL_ID', label: 'ID del píxel', opcional: true, auto: true, placeholder: '1234567890', nota: 'Lo completa MaKo al pegar el token. Si tienes más de un píxel, te pregunta cuál.' },
@@ -245,10 +246,12 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       // y lleva a «Conectar con Facebook», que pide la key de Zernio si falta. El de antes (crear la app, el usuario del
       // sistema, el token con 8 permisos) está en el historial de git.
       // ⚠️ Sigue valiendo la regla de Martín del 16/09: ningún paso pide publicar ni activar una app.
+      // 27/10/2026, Martín: «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». El tutorial ya no nombra
+      // el token (el corte del 03/11 lo dice sólo la nota del campo, que ve quien lo tenía): conectar es con Facebook.
       pasos: [
-        'El token de Meta se retira el lunes 03/11: desde ese día MaKo administra tus anuncios sólo por Zernio.',
+        'Meta se conecta con tu Facebook, por Zernio: no hay que crear ninguna app ni copiar nada de Meta.',
         'Arriba, en esta misma ventana, toca "Conectar con Facebook".',
-        'Si te pide tu key de Zernio: en zernio.com → "Settings" → "API Keys" toca "Create API Key" y pégala.',
+        'Si te pide tu API key de Zernio: sácala en zernio.com → "Settings" → "API Keys" y pégala.',
         'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
       ],
     },

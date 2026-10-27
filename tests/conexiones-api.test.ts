@@ -33,7 +33,8 @@ test('1. el catálogo tiene toda tarjeta y lo que no es tarjeta, con rutas de co
   for (const d of DEFS) {
     const c = conexion(d.key);
     assert.ok(c, `la tarjeta «${d.key}» no está en el catálogo de conexiones`);
-    assert.equal(c!.ruta, `/integraciones?abrir=${d.key}`, `la ruta de «${d.key}» no abre su modal`);
+    // Meta se conecta en la tarjeta de Zernio (27/10/2026, tests/meta-sin-token.test.ts): es la única que abre OTRO modal.
+    assert.equal(c!.ruta, `/integraciones?abrir=${d.key === 'meta' ? 'zernio' : d.key}`, `la ruta de «${d.key}» no abre su modal`);
     assert.equal(c!.nombre, d.nombre);
   }
   assert.equal(conexion('pc')?.ruta, '/perfil/ia?computadora=1', 'la computadora no abre «Conecta MaKo»');
