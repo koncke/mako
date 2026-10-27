@@ -50,6 +50,17 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 - **Subagentes de un Workflow:** casi todos los lectores recibieron una negación de «Production Reads» y siguieron por
   otro camino; el de la Ticketera no pudo leer nada. Cada lector tiene que devolver qué no pudo leer.
 
+## «No pude saber qué despliegue sirve hola-mako.com» con el despliegue sano: salió una versión nueva del CLI de Vercel (27/10/2026)
+
+- **Síntoma:** el aviso Meta → Zernio (`scripts/avisar-arreglo-al-grupo.mts`) dio «vercel inspect no dio su url» en 4
+  de 5 negocios, y en el quinto se quedó sin tiempo. A mano, `npx --yes vercel@65.3.1 inspect hola-mako.com` andaba.
+- **Causa:** el script llamaba `npx --no-install vercel`, sin versión. npx busca la ÚLTIMA publicada; ese día salió la
+  65.4.0, que no estaba en la caché, y `--no-install` la rechaza con un error por stderr y nada útil por stdout. El
+  diagnóstico obvio («Vercel no responde» o «el deploy no está») era el equivocado.
+- **Regla:** todo llamado al CLI de Vercel desde un script va con la versión FIJA (`vercel@65.3.1`) y `--yes` de npx.
+- **Y el tope:** el envío al ws1 tarda ~134 s en frío (el chequeo de Vercel recorre los commits de main); con 180 s por
+  negocio, el primero de la vuelta se cortaba sin decir nada (`rc=null`). Un tope por negocio de 300 s.
+
 ## El host de `DATABASE_URL` es sólo IPv6, y una corrida larga se corta a mitad (27/10/2026)
 
 - Los lectores del 27/10 vieron ENOENT / ENETUNREACH a mitad de una corrida desde la PC de Martín: no es la base,
