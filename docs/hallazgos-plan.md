@@ -7384,3 +7384,20 @@ código de antes reproduce el síntoma exacto) y 5 roturas.
 **Para diagnosticar el próximo:** el texto crudo de un dictado dice qué hizo el reconocedor. Un prefijo que crece es
 acumulado-tratado-como-pedazo; una frase entera repetida es el `onend` final pegado otra vez; palabras sueltas repetidas
 serían interinos sumados.
+
+## Un parte armado con el TABLERO dio por pendientes cuatro arreglos que ya estaban en producción (27/10/2026)
+
+- **Síntoma:** el parte del 18/10 para Código Inmobiliario (docs/feedback-18-10.md, punto 13) listó como «por hacer» #847,
+  #853, #863 y #882. Las cuatro tenían su commit el 17/10, un día antes. El 27/10 seguían «por hacer» nueve tarjetas de esa
+  reunión con el código en producción. El cruce entero está en
+  [codigo-inmobiliario-revision-16-10.md](codigo-inmobiliario-revision-16-10.md).
+- **Causa:** una tarjeta no se cierra cuando su commit llega a main. Se cierra cuando alguien escribe su «Ya está» en el
+  Plan, y los chats que arreglaron esas cuatro cerraron otras de la misma tanda y no éstas.
+- **Regla:** antes de decirle a un cliente qué falta, se cruza cada tarjeta con main y con lo que sirve producción:
+  - `git log origin/main --grep="#NNN"`. Cuatro de 36 commits no nombran su tarjeta (#843, #855, #885, #889): ésas se
+    buscan por lo que hacen;
+  - el despliegue que sirve el dominio: `vercel inspect hola-mako.com` da el id pero NO el commit. El commit sale de
+    `GET /v13/deployments/<id>` (`meta.githubCommitSha`, con el token de .env.local), y cada arreglo tiene que ser su
+    ancestro (`git merge-base --is-ancestor`);
+  - que el código siga vivo: los archivos del commit en ese sha. Si falta uno, se mira si lo borró un revert o un
+    reemplazo (`git log --diff-filter=DR -1 -- <archivo>`).

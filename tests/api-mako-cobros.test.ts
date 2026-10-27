@@ -73,7 +73,8 @@ test('el área `cobros` existe, va antes de `mako` y tiene exactamente sus opera
   assert.deepEqual(AREA_INFO.cobros, { titulo: 'Cobros (Stripe y Mercado Pago)', tab: 'CRM', ruta: '/crm' });
   // ⚠️ Cambiado A PROPÓSITO el 23/10/2026: suma vender_plan_mako (P0-8 de la auditoría), sólo de la plataforma.
   // ⚠️ Y el 25/10/2026 las dos lecturas de Customers (la vista del super admin), también sólo de la plataforma.
-  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes'].sort());
+  // ⚠️ Y el 27/10/2026 bonificar_cliente_de_agencia (MK-08), sólo de la plataforma y apagada hasta que Martín decida.
+  assert.deepEqual(porArea('cobros').map((d) => d.id).sort(), [...IDS, ...IDS_PAGOS_CAMPO, 'vender_plan_mako', 'ver_clientes_de_mako', 'ver_agentes_de_clientes', 'bonificar_cliente_de_agencia'].sort());
   for (const id of [...IDS, ...IDS_PAGOS_CAMPO]) assert.ok(!/^proponer_/.test(id), `«${id}»: con proponer_ viaja la receta que pide un «sí»`);
 });
 

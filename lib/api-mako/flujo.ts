@@ -85,7 +85,7 @@ export function ctxDeFlujo(ws: number, origen: string, nombre: string): Ctx {
 // confirma el super admin. Su runner además lo rechaza desde un flujo (un paso viejo o importado).
 // El Media Buyer (25/10/2026): lo que mueve plata en la cuenta de Meta lo confirma una persona o el piloto automático que el
 // negocio prendió, nunca un paso de una automatización (docs/diseno-ads-autopilot.md, «Seguridad e inquilinos»).
-export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako',
+export const NO_EN_FLUJOS: ReadonlySet<string> = new Set(['crear_automatizacion_con_ia', 'vender_plan_mako', 'bonificar_cliente_de_agencia',
   'lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer',
   'cuenta_media_buyer', 'modo_agente_media_buyer']);
 
