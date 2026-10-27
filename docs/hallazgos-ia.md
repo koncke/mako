@@ -7113,3 +7113,18 @@ decía nada.
 
 **Vive en:** `lib/ia-pc-reglas.ts` (`AVISO_CHROME`) · `app/integraciones/CuentasYDispositivos.tsx` (`avisoAlAbrir`) · `TusCuentasIA.tsx` ·
 `app/_chat/app-de-escritorio.ts`
+
+## MaKo no lee los chats de Claude o ChatGPT del cliente: no hay nada que ignorar todavía (27/10/2026)
+
+**El pedido:** Leila, en la llamada del 26/10 (Fathom 876470842, 00:06:52–00:08:01): tiene chats y proyectos PERSONALES en su
+Claude y su ChatGPT y no los quiere en el contexto de MaKo. Martín le prometió un botón para ignorar cada chat.
+
+**Medido:** MaKo no los lee. `mako-pc` (scripts/ia-pc/mako-pc.mjs) tiene como regla no tocar `~/.claude` ni el Keychain: sólo corre
+`claude` con lo que MaKo le pide. Y lo único que lee chats (`leerTurnos`, `leerCarteros`) es el Ops Center de MaKo, con los chats de
+las cuentas del equipo, no los de un cliente. Lo personal de Leila no entra al Second Brain ni al contexto. El botón no se armó.
+
+**La regla:** si algún día MaKo empieza a leer los chats o los proyectos del cliente (para usarlos como contexto), eso nace con el
+botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede deshacer. Leer `~/.claude` del cliente es una decisión de
+Martín: hoy la regla de `mako-pc` es no tocarlo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`
