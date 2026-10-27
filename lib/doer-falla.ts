@@ -18,7 +18,7 @@ import type { EstadoSuClave, ProvSuClave } from './su-clave-reglas';
  * ¿Cuenta que algo de MaKo no anda? «no puede analizar la llamada», «no me deja agendar», «sigue sin funcionar», «tras 4
  * intentos», «dejó de andar», «y tú eres el servicio técnico». ⚠️ Un lead que no contesta no es una falla de MaKo: eso lo
  * decide el modelo con la nota (`bloqueDeLaFalla`), que pide distinguirlo; acá sólo se abre la puerta del ticket. Los bordes
- * son de letra (`\p{L}`), no ``: el de JavaScript es ASCII y «se colgó» no tenía borde después de la «ó».
+ * son de letra (`\p{L}`), no `\b`: el de JavaScript es ASCII y «se colgó» no tenía borde después de la «ó».
  */
 const FALLA = new RegExp([
   String.raw`(?<!\p{L})no\s+(?:me\s+|te\s+|le\s+|lo\s+|la\s+)?(?:funciona|anda|carga|deja|puede|pudo|pude|sale|llega|abre|guarda|analiza|responde|aparece|muestra|conecta|sincroniza)(?!\p{L})`,
