@@ -51,6 +51,8 @@ export type NodoMB = {
   presupuestoDia: number | null;
   nivelPresupuesto: 'campaign' | 'adset' | null;
   creada: string | null;
+  /** Meta lo RETUVO hasta que un admin lo apruebe (la «aprobación de pares», 2446984): no entrega. Sólo lo trae el token. */
+  retenido?: boolean;
 };
 
 export type SenalMB = {

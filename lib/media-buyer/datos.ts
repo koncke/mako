@@ -23,6 +23,7 @@ import { leerTodo } from '@/lib/supabase-paginado';
 import { conversorDeGasto, type ConversorGasto } from '@/lib/presupuesto-cambio';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { leerArbolMetaEnVivo } from '@/lib/meta-health';
+import { esAprobacionPendiente } from '@/lib/meta-health-ui';
 import { conexionAnunciosZernio, arbolPorZernio, enVivoPorZernio } from '@/lib/zernio-ads';
 import type { ConexionAnunciosZernio } from '@/lib/zernio-ads-cuerpo';
 import { normalizarCuentaMeta } from '@/lib/meta-cuenta-id';
@@ -38,6 +39,8 @@ export type FuenteArbol = 'meta' | 'zernio';
 export type DatosCuenta = {
   fuente: FuenteArbol;
   adAccountId: string | null;
+  /** El nombre de la cuenta como lo muestra Meta (sólo por el token): para decir QUÉ cuenta se lee. */
+  cuentaNombre?: string | null;
   moneda: string | null;
   arbol: NodoMB[];
   corta: SenalMB[];
@@ -60,7 +63,7 @@ export class SinCuentaParaOperar extends Error {
 
 // ── El árbol, de Meta o de Zernio ───────────────────────────────────────────
 
-async function arbolDeMeta(ws: number): Promise<{ arbol: NodoMB[]; moneda: string | null; parcial: boolean }> {
+async function arbolDeMeta(ws: number): Promise<{ arbol: NodoMB[]; moneda: string | null; parcial: boolean; cuentaNombre: string | null }> {
   const h = await leerArbolMetaEnVivo(ws);
   const nodo = (n: (typeof h.campaigns)[number]): NodoMB => ({
     id: n.id, nombre: n.name, nivel: n.level, parentId: n.parentId,
@@ -68,8 +71,9 @@ async function arbolDeMeta(ws: number): Promise<{ arbol: NodoMB[]; moneda: strin
     presupuestoDia: n.dailyBudgetMxn ?? null,
     nivelPresupuesto: n.budgetLevel ?? null,
     creada: n.createdTime ?? null,
+    ...(n.issues?.some(esAprobacionPendiente) ? { retenido: true } : {}),
   });
-  return { arbol: [...h.campaigns, ...h.adsets, ...h.ads].map(nodo), moneda: h.account.currency ?? null, parcial: h.parcial };
+  return { arbol: [...h.campaigns, ...h.adsets, ...h.ads].map(nodo), moneda: h.account.currency ?? null, parcial: h.parcial, cuentaNombre: h.account.nombre ?? null };
 }
 
 // ── La lectura entera ───────────────────────────────────────────────────────
@@ -99,6 +103,7 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   let fuente: FuenteArbol = 'meta';
   let arbol: NodoMB[] = [];
   let moneda: string | null = null;
+  let cuentaNombre: string | null = null;
   let metricasZernio: FilaMetrica[] | null = null;
   let parcial = false;
   // El token de Meta sirve si el negocio tiene su cuenta en Integraciones (META_AD_ACCOUNT_ID). Si la cuenta sólo está en los
@@ -108,7 +113,7 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
   if (token) {
     try {
       const m = await arbolDeMeta(ws);
-      arbol = m.arbol; moneda = m.moneda; parcial = m.parcial;
+      arbol = m.arbol; moneda = m.moneda; parcial = m.parcial; cuentaNombre = m.cuentaNombre;
     } catch (e) {
       errMeta = e instanceof Error ? e.message : String(e);
     }
@@ -170,7 +175,7 @@ export async function leerDatosCuenta(ws: number, hoy: string = hoyEnTijuana()):
     .reduce((s, n) => s + aU(n.presupuestoDia!), 0);
 
   const ultimoDia = metricas.reduce<string | null>((m, r) => (Number(r.spend ?? 0) > 0 && (!m || r.fecha > m) ? r.fecha : m), null);
-  return { fuente, adAccountId: act ?? conexion?.adAccountId ?? null, moneda, arbol, corta, larga, crm, conversor, conexion, totalActivo, parcial, ultimoDia, avisos };
+  return { fuente, adAccountId: act ?? conexion?.adAccountId ?? null, cuentaNombre, moneda, arbol, corta, larga, crm, conversor, conexion, totalActivo, parcial, ultimoDia, avisos };
 }
 
 // ── «Metas del mes» (la tarjeta de la derecha): sólo la base, sin pegarle a Meta ──
