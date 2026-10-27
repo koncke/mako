@@ -300,8 +300,25 @@ Agosto»: sus 108 ya estaban en el CRM, así que no crea leads y sólo llena lo 
   restaurarla al terminar. `open_application("Google Chrome")` NO trae su ventana: abre otra suelta (el selector de perfiles),
   que hay que cerrar.
 
+## El tiempo de cada etapa y la pestaña oculta, en el registro (27/10/2026, 0.74.3) · el aviso de extensión vieja en toda la app
+
+**Vive en:** `anotarExtraccion` y `WA_RECORRER_AVANCE` (extension/background.js) · el `oculta` de wa-recorrer.js · el
+desplegable · `AvisoExtensionVieja` (app/_components) · tests/wa-extraer-072 (3g), aviso-extension-vieja-app.
+
+- Leandro: «se tarda mucho»; con Aaron se trabó; la corrida del 26/10 quedó en «11 de 126». **Medido el 27/10** en el
+  Chrome de Martín: a la vista, el recorrido de 126 miembros tarda ~15 s y cada perfil ~4,4 s (60 en ~4,5 min); con
+  Chrome TAPADO, escribir el nombre del grupo seguía diez minutos después. El trabón es la pestaña oculta (ver «La corrida
+  que GUARDA perfiles»). Ahora cada fila del registro guarda en qué segundo empezó cada etapa (`tiempos`) y cuánto tardó
+  (`duracion`), y si WhatsApp Web corrió oculta (`oculta`, `vecesOculta`); el desplegable y la pantalla de MaKo dicen
+  «Chrome quedó tapado por otra ventana y así va lento: tráelo al frente». Un «tarda» se lee en el registro de quien lo dijo.
+- **Leila estaba en la 0.70 con la 0.74 vigente.** El aviso de extensión vieja vivía sólo en las pantallas de video; ahora
+  va en la esquina de toda la app (con sesión), y lleva al instructivo. Que se actualice SOLA pide la tienda de Chrome al
+  día (`VERSION_EN_TIENDA`, lib/extension-tienda.ts): una descomprimida no se actualiza nunca. Es un paso de Martín.
+
 ## Sin hacer
 
+- **Cuántos llegan sin teléfono** (Aaron: WhatsApp esconde números en grupos): medirlo en un grupo con la pantalla de
+  «Traer de grupo» (`sinNumero`) y en el registro, antes de construir nada.
 - **La 0.74.2 en vivo (la espera de los datos de empresa)**: copiada a su carpeta el 27/10, sin correr: Chrome se cerró
   (RAM libre 0,7 GB) antes de la corrida. Probarla en un grupo que NADIE abrió (sin la memoria de WhatsApp), con todos ya en
   el CRM para no crear leads: «16, 17 y 18 de JUNIO» (247) o «19, 20, 21 de Octubre» (158). Medir `conDatos` y `esperaMs`.

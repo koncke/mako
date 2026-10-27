@@ -11397,3 +11397,38 @@ crm-completar-con-extension, enriquecer-lote (6).
   detrás.
 
 *25/10/2026, chat «CRM» (`claude5`).*
+
+## Feedback de Leila, Leandro y Aaron (27/10/2026): mover lento, la ficha que no carga, los topes y «Traer de grupo»
+
+**Vive en:** `MoverEtapaConfirm.tsx` y `lib/nutricion.ts` (mover) · `LeadEditModal.tsx`, `lib/pagina-vieja.ts` y el
+`?abrir=` de `CrmBoard.tsx` (la ficha) · `AccionesLoteLeads.tsx`, `app/api/crm/etiquetas/route.ts`, `campanas-actions.ts`
+y `lib/campana-config.ts` (los topes) · `TraerDeGrupoWA.tsx` · `problemasDePipeline` (lib/pipeline.ts) · tests/
+mover-etapa-rapido, pagina-vieja, crm-lotes-sin-tope, funnel-ganado-intermedio, grupo-wa (12c).
+
+- **«Tarda muchísimo en mover una etapa» (Leila): el diagnóstico obvio era el equivocado.** El tablero ya movía la tarjeta
+  en el acto (también «Agenda» desde el 22/10). Lo que esperaba era la FICHA: «Mover a…» espera a `setLeadStageAction` con
+  la ruedita, y ésta esperaba el PRIMER MENSAJE de la automatización de la etapa (la vía rápida: MaKo escribiéndolo y el
+  WhatsApp no oficial con el HTTP abierto de 1 a 11 s por el tipeo). La sospecha del Cerebro (`moverEtapaEnProducto`)
+  era una de las dos puertas: las dos pasan por `enrolarPorEvento`. Ahora, si lo mueve una persona, el envío sale
+  DESPUÉS de contestar (`after`, lib/nutricion.ts); el aviso de en qué automatización entró no cambia. Detalle en
+  hallazgos-chatbot. ⚠️ Sin medir en vivo todavía: medirlo en su Chrome cuando esté desplegado.
+- **La ficha de un lead recién extraído no cargaba sin F5 (Leila): tampoco era el tablero.** La hipótesis era que el
+  tablero no recargaba su lista; sí la recargaba. Lo que F5 cambia es la VERSIÓN: una extracción dura minutos, con
+  despliegues en el medio, y una pestaña de antes de un despliegue llama a server actions que ya no existen. La ficha
+  (`LeadEditModal`) guarda en memoria las que ya abrió y SE CALLABA el error: las de antes abrían, una recién extraída
+  decía «No se pudo cargar el lead». **Regla:** un error de server action que se calla porque hay algo en memoria esconde
+  una página vieja; la ficha ahora se recarga sola UNA vez en la versión nueva y abre ese lead (`?abrir=`), y si ya se
+  recargó hace un minuto, lo dice con «Recargar». ⚠️ No reproducido en vivo (pide un despliegue en el medio).
+- **Los topes callados de las acciones en lote:** mover y borrar ya iban de a tandas con `pendientes` (24/10). Etiquetar
+  NO: la ruta rechazaba más de 200 y la barra le mandaba todos juntos («quedaron 79 sin etiqueta»). Ahora va de a tandas
+  de 200 (el número vive en `TANDA_ETIQUETAS_LOTE`) y si se corta dice cuántos quedaron sin la etiqueta. Las campañas
+  recortaban en 200 SIN DECIRLO (`sanear` y `MAX_ASIGNADAS`): sin tope por lote, y el mapa con un techo de 5.000.
+  **Regla:** un tope POR PEDIDO es legítimo si la pantalla manda de a tandas; un tope para la persona, no.
+- **«Datos de empresa» del Scraper, por la extensión:** la misma extracción a la vista sobre los que ya están, con TODOS los
+  perfiles en una pasada (sin el tope de 60 de «Extraer» ni el de 120 por día de Evolution). El camino por Evolution, con
+  su cupo, sigue en el server y en la barra del tablero (leads que no vinieron de un grupo).
+- **«Traer de grupo», pulido:** el cartel de éxito dice cuántos, a qué etapa y con qué etiqueta, con «Ver en el CRM»; el
+  pie dice «Están todos tus grupos · N» cuando llega la lista completa; entre los nuevos, primero los que tienen nombre.
+- **La etapa de Ganado usada como paso del medio (MK-19):** la renombraron «Calificado» y cada lead que caía ahí quedaba
+  como CLIENTE (su clave es `ganado`). Los avisos del funnel lo tocaban de costado (el tipo, el orden) sin decir la
+  consecuencia. Ahora se marca si hay etapas abiertas después de ella o si su nombre es de un paso y no de una venta.
