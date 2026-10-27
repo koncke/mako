@@ -8761,7 +8761,8 @@ error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo
 
 Aaron (asesor técnico, llamada del 26/10): *«cada vez que tú conectas un número, se agrega al contenedor y va acaparando
 más la RAM»*. Medido en **sólo lectura**: lecturas a Evolution, el fuente de Evolution 2.3.7 y el de Baileys 7.0.0-rc.9
-(la versión que fija su `package.json`). No se cambió nada en Railway ni en las líneas.
+(la versión que fija su `package.json`). No se cambió nada en Railway ni en las líneas. **La RAM no se pudo medir** (abajo):
+lo que sigue es una ESTIMACIÓN con los supuestos a la vista, y cuando haya métricas de Railway sólo se corrigen los números.
 
 **Lo que hay (27/10, ~17:30 ART):**
 - **18 instancias** (eran 16 el 23/10): 11 `open`, 2 `close` y **5 `connecting` que nunca se vincularon** — `ws3`, `ws15`,
@@ -8775,42 +8776,81 @@ más la RAM»*. Medido en **sólo lectura**: lecturas a Evolution, el fuente de 
 **Lo que dice el fuente y no se ve en ningún panel:**
 1. **Un solo proceso para todas las líneas.** La imagen es `node:24-alpine` con `node dist/main`, sin
    `--max-old-space-size`. Un OOM o un crash corta las 11 líneas juntas, y el reinicio las reconecta juntas.
-2. **Vincular un número con mucho historial es un pico en el proceso de TODOS.** El handler `messaging-history.set` hace, en
-   CADA tanda del historial, `message.findMany({ select: { key: true }, where: { instanceId } })` — todas las claves de la
-   línea, para descartar duplicados — y después un `createMany` con la tanda entera, sin partir. Medido en V8 (sólo el lado
-   de JS, sin el motor de Prisma): **46 MB por tanda con 83 mil mensajes, 71 MB con 169 mil**. Y como cada tanda relee lo que
-   entró en las anteriores, la carga crece con el historial (cuadrática en lecturas a la base).
-3. **`syncFullHistory: true` apaga `groupsIgnore` en el socket.** `shouldIgnoreJid` devuelve `false` para todo grupo si
+2. **El tope que manda es el heap de V8, no la RAM del contenedor.** Sin `--max-old-space-size`, Node le da al heap ~¼ de la
+   memoria que ve el proceso, con techo ~4 GB (medido en esta PC: 15,7 GB → `heap_size_limit` 4,19 GB, Node 24.17). Baileys es
+   JavaScript puro: casi todo lo que cuesta una línea vive ahí. En un contenedor de 8 GB (el máximo por réplica del plan
+   Hobby) son **~2 GB de heap para todas las líneas juntas**, aunque sobren 6 GB.
+3. **Una pérdida chica pero que no se libera.** La primera tanda de historial que recibe una línea desde que arrancó el
+   proceso lee TODAS sus claves (`message.findMany({ select: { key: true } })`) y guarda los ids en un `Set` dentro de
+   `chatwootImport`, que sólo lo borra al importar a Chatwoot — apagado acá —. Queda hasta el próximo reinicio. Medido en V8:
+   **12,8 MB con 169 mil mensajes, 78,5 MB si las 13 líneas con historial lo retienen**, más una copia de ese `Set` en cada
+   tanda siguiente. Para un número recién vinculado nace vacío (la base todavía no tiene nada): el que pesa es el que se arma
+   después de un reinicio, si a la línea le llega cualquier aviso de historial.
+4. **`syncFullHistory: true` apaga `groupsIgnore` en el socket.** `shouldIgnoreJid` devuelve `false` para todo grupo si
    `syncFullHistory` está prendido, ANTES de mirar `groupsIgnore`. Baileys descifra cada mensaje de grupo (claves de grupo,
-   sesiones de cada participante) y recién `messages.upsert` lo tira. Se paga en CPU y memoria por cada grupo de cada línea,
-   aunque la app no los use.
-4. ⚠️ **El diagnóstico obvio era el equivocado: «`syncFullHistory` sólo pesa al vincular».** Lo dice el comentario de
-   `setSettings` y es cierto para el historial (`requireFullSync`, en `generateRegistrationNode`), pero Baileys también lo lee
-   en `getWebInfo`, que arma el payload de CADA login. Apagarlo en una línea ya vinculada no le saca el historial, pero cambia
-   cómo se presenta el dispositivo en el próximo login. No es «sin riesgo», y por eso no se tocó.
+   sesiones de cada participante) y recién `messages.upsert` lo tira. Se paga en CPU y memoria por cada grupo de cada línea.
+5. ⚠️ **Dos diagnósticos obvios que eran los equivocados.**
+   - *«`syncFullHistory` sólo pesa al vincular».* Lo dice el comentario de `setSettings` y es cierto para el historial
+     (`requireFullSync`, en `generateRegistrationNode`), pero Baileys también lo lee en `getWebInfo`, que arma el payload de
+     CADA login. Apagarlo en una línea ya vinculada cambia cómo se presenta el dispositivo en el próximo login: no es «sin
+     riesgo», y por eso no se tocó.
+   - *«Cada tanda del historial relee todas las claves de la línea»* (lo escribí yo en `4a322c36a`, leyendo un resumen del
+     fuente). Las lee UNA vez y las retiene (punto 3): es otra forma de costo, chica y permanente en vez de grande y pasajera.
+     Se corrigió leyendo el handler entero y `chatwoot-import-helper.ts`. **Un resumen de un archivo de 176 mil caracteres no
+     alcanza para afirmar cómo se comporta un bucle.**
 
-**Lo que NO se pudo medir: la RAM.** Evolution 2.3.7 no expone `/metrics` (404) ni memoria por instancia, y en esta PC no hay
-sesión de Railway (ni CLI, ni token, ni login en ningún navegador). La RAM por línea sale del gráfico **Memory** del servicio
-en Railway: `ws22` y `ws20` se vincularon el **21/10 a las 18:25 y 19:18 UTC**. El escalón de esa hora es lo que cuesta una
-línea abierta con 90-145 mil mensajes; el pico del rato, lo que cuesta vincularla.
+**La estimación** (supuestos; se corrige con Railway):
 
-**El techo, como fórmula** hasta tener el número: `líneas = (memoria del contenedor − base del proceso − pico de vincular la
-línea más grande) / memoria por línea abierta`. Hay un segundo techo que no sube con el plan: el heap de V8 del único proceso.
+| Pieza | Estimado | De dónde sale |
+|---|---|---|
+| Base del proceso (Nest, Prisma, protobuf de WhatsApp) | ~0,2-0,3 GB | plantillas de Railway: 0,5-0,8 GB en reposo con Postgres y Redis incluidos |
+| Por línea abierta | **80-150 MB** | piso: el único dato de campo hallado (80 MB por instancia, de un desarrollador; no queda claro que fuera Evolution); techo: lo que suma acá el `Set` (hasta 13 MB medido) y los grupos que se descifran. Los «200-500 MB» de proveedores son publicidad de la competencia y no se usaron |
+| Pico de vincular un número con ~150 mil mensajes | ~0,3-0,5 GB, pasajero | cada tanda llega decodificada, se copia a `messagesRaw` y se serializa entera para un `createMany` sin partir |
 
-**Opciones para escalar** (Railway, leído el 27/10: RAM US$10/GB-mes, CPU US$20/vCPU-mes, volumen US$0,15/GB-mes):
+**El techo:** `líneas = (heap − base − pico de vincular) / costo por línea`.
+
+| Heap | Techo estimado | Hoy (11 abiertas) |
+|---|---|---|
+| ~2 GB (contenedor de 8 GB) | **9-16 líneas** | ya en la zona: vincular otro número con mucho historial es el riesgo |
+| ~4 GB (contenedor de 16 GB o sin límite) | 22-41 líneas | margen |
+| 6 GB (`NODE_OPTIONS=--max-old-space-size=6144` en un contenedor de 8 GB) | 35-66 líneas | margen |
+
+Lo que manda es **qué límite tiene el contenedor** (`MEMORY_LIMIT_GB` en Railway). ⚠️ Subir `--max-old-space-size` acá SÍ
+es lo correcto, al revés que con el `tsc` de la PC (la sección del 13-14/10): en un contenedor dedicado nadie compite por esa
+RAM, y sin subirlo el proceso muere con 6 GB libres. Es un cambio en Railway: pide el sí de Martín.
+
+**Opciones para escalar** (Railway, leído el 27/10: RAM US$10/GB-mes, CPU US$20/vCPU-mes, volumen US$0,15/GB-mes). Una
+línea cuesta en RAM ~US$0,80-1,50 por mes: **el problema no es la plata, es que todo está en un proceso**.
 
 | Opción | Costo | Qué cambia | QR |
 |---|---|---|---|
-| Seguir en uno y bajar el pico: historial de N meses, o ninguno, para los números NUEVOS | 0 | Es una decisión de producto: el historial enseña la forma de escribir del dueño, da los nombres de los contactos y evita nutrir a quien ya se le hablaba (`lib/evolution.ts`, `setSettings`) | no |
-| 2-3 contenedores de Evolution con el mismo Postgres (`DATABASE_CONNECTION_CLIENT_NAME` distinto, según la doc de Evolution; verificar al armarlo) | la base de cada proceso más la RAM de sus líneas | MaKo guarda en qué servidor vive cada línea (columna en `evolution_instancias` y `evFetch` por línea). Una caída corta un grupo, no todos | no para las nuevas; mudar una vieja es la receta sin QR de arriba |
-| Una API sobre whatsmeow (Go) | menos RAM por línea (no medido acá) | Reescribir `lib/evolution.ts` y el espejo: `findMessages`, `findContacts`, `findChats` y `getBase64FromMediaMessage` no existen igual | **sí: re-escanear las 11** |
+| Subir el heap (`NODE_OPTIONS`) | 0 | Una variable en Railway; corre el techo, no saca el punto único de falla | no |
+| Historial de N meses, o ninguno, para los números NUEVOS | 0 | Decisión de producto: el historial enseña la forma de escribir del dueño, da los nombres de los contactos y evita nutrir a quien ya se le hablaba (`lib/evolution.ts`, `setSettings`) | no |
+| 2-3 contenedores de Evolution con el mismo Postgres (`DATABASE_CONNECTION_CLIENT_NAME` distinto, según la doc de Evolution; verificar al armarlo) | ~US$3-5/mes cada uno de base, más la RAM de sus líneas | MaKo guarda en qué servidor vive cada línea (columna en `evolution_instancias` y `evFetch` por línea). Una caída corta un grupo, no todos | no para las nuevas; mudar una vieja es la receta sin QR de arriba |
+| Evolution Go (whatsmeow; su repositorio es de la organización de Evolution) | ~US$5-10/mes según su plantilla de Railway; menos RAM por línea (no medido) | API propia, no la de v2: reescribir `lib/evolution.ts` y el espejo (`findMessages`, `findContacts`, `findChats`, `getBase64FromMediaMessage`). Postgres opcional, sin las integraciones de la versión de Node | **sí: re-escanear las 11** |
 | API oficial (Cloud API) | por mensaje de plantilla | No reemplaza: ver «Las opciones, medidas» en la sección de Railway (grupos, historial, alta por link) | otro número |
 
+**La medición, lista para cuando haya sesión de Railway** (Martín entra con su clic de OAuth en el navegador integrado; un
+token NO se pega en un chat):
+1. Proyecto → servicio de Evolution → **Metrics**, 7 días, y además la pestaña **Usage** (lo que cuesta este mes).
+2. `read_network_requests` con filtro `graphql`: la consulta `metrics` que usa el panel se repite con 30 días y
+   `MEMORY_USAGE_GB` + `MEMORY_LIMIT_GB` + `CPU_USAGE`. Sólo lectura.
+3. Los momentos que dan los números (UTC, `createdAt` de cada instancia): vínculos de `ws18` 16/10 11:57, `ws21` 18/10
+   23:10, **`ws22` 21/10 18:25 y `ws20` 21/10 19:18** (dos historiales grandes en una hora: el pico de vincular), y el
+   reinicio de Evolution del **19/10 ~11:57** (la memoria antes y después es lo acumulado contra la base).
+4. Con eso: escalón de cada vínculo = costo por línea; pico del 21/10 = costo de vincular; `MEMORY_LIMIT_GB` = qué fila de
+   la tabla del techo es la verdadera. Se reemplazan los estimados de esta sección y nada más.
+
 **Sin hacer:**
-- La RAM por línea: falta acceso de lectura a Railway (pedido al Cerebro el 27/10).
-- Borrar las 5 instancias `connecting` sin dueño: es escritura en producción, pide el sí de Martín.
+- La medición de arriba (espera el login de Martín).
+- `NODE_OPTIONS` en Railway y borrar las 5 instancias `connecting` sin dueño: cambios en producción, piden el sí de Martín.
 - Limpiar la instancia de un «Agregar otro número» que nadie escaneó: `conectar()` no lo hace.
 
+**Fuentes de afuera** (27/10): docs.railway.com/reference/pricing/plans · railway.com/deploy/evolution-go-whatsapp ·
+railway.com/deploy/multi-client-whatsapp-api-self-hosted-evolution--evolution-api-multi-instance ·
+tabnews.com.br (el dato de 80 MB por instancia).
+
 **Vive en:** `lib/evolution.ts` (`setSettings`, `permitirGruposEnInstancia`, `conectar`) · Evolution 2.3.7
-`src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) · Baileys
-7.0.0-rc.9 `src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*
+`src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) y
+`src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts` (`repositoryMessagesCache`) · Baileys 7.0.0-rc.9
+`src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*
