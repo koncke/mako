@@ -63,7 +63,7 @@ test('4. desplegado, el aviso va a su grupo por el camino del equipo, con la pru
   const bloque = cierre.slice(cierre.indexOf('if (aprobadoPorRegla(ws)'));
   assert.ok(bloque.length > 20, 'el cierre no mira la regla');
   assert.match(bloque, /f\.canal !== 'whatsapp' && f\.estado === 'resuelto'\) \{\s*const hito = desplegados\.get\(f\.id\)/, 'sin la prueba del despliegue, o repetido por WhatsApp');
-  assert.match(bloque, /avisarArregloAlGrupo\(\{ ws, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera' \}\)/);
+  assert.match(bloque, /avisarArregloAlGrupo\(\{ ws, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera', ws1Seguro: ws === 1 \}\)/);
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026, base 4/0): la regla ignorada → 3 rojos (1, 2 y 3); sin mirar lo delicado → 1 rojo (2); sin lo que

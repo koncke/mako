@@ -172,8 +172,11 @@ export type Confianza = 'alta' | 'media' | 'baja';
 // decisión de Martín no se ve en el texto: el chat que lo trabaja lo frena y le pregunta (scripts/tickets.ts ver lo dice).
 // Leila (ws 11, 26/10/2026, en la llamada con Martín; lo configuró el Cerebro): la misma vía libre, pero lo que el triage estima
 // en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`, `estimaMasDeUnDia`). Sus arreglos se avisan en su grupo como los de Leandro.
+// Mauricio (ws 1, 27/10/2026, MAU-09): Martín se lo prometió por WhatsApp, «todos los pedidos que entren de tu parte los
+// implemente directamente, que no pregunte». El 100%, como Leandro.
 export type ReglaDeAprobacion = { nombre: string; hastaUnDia?: boolean };
 export const APROBADOS_POR_REGLA: Readonly<Record<number, ReglaDeAprobacion>> = {
+  1: { nombre: 'Mauricio' },
   10: { nombre: 'Leandro' },
   11: { nombre: 'Leila', hastaUnDia: true },
 };

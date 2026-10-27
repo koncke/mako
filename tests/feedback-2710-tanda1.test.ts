@@ -26,8 +26,13 @@ const sinComentarios = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace
 const cartero = () => import('../scripts/operaciones/cartero.mjs');
 const e = (titulo: string, descripcion = ''): EntradaTriage => ({ tipoDeclarado: null, declaradoPor: 'persona', titulo, descripcion, contexto: sanearContexto({}) });
 
-test('1. Leila tiene la vía libre, pero lo que el triage estima en más de un día va a Martín', () => {
+test('1. Leila tiene la vía libre, pero lo que el triage estima en más de un día va a Martín; Mauricio, el 100%', () => {
   assert.equal(aprobadoPorRegla(11), 'Leila');
+  // Mauricio (ws 1, MAU-09): «todos los pedidos que entren de tu parte los implemente directamente, que no pregunte».
+  assert.deepEqual(reglaDelNegocio(1), { nombre: 'Mauricio' });
+  assert.equal(clasificar(e('Quiero que el CRM se integre con HubSpot'), { aprobadoPorRegla: 'Mauricio', hastaUnDia: reglaDelNegocio(1)?.hastaUnDia }).autoArreglo, true);
+  assert.equal(clasificar(e('No me deja cobrar con tarjeta'), { aprobadoPorRegla: 'Mauricio' }).autoArreglo, false, 'lo delicado salió sin Martín');
+  assert.match(leer('lib/tickets-cierre.ts'), /ws1Seguro: ws === 1 \}\);/, 'su aviso no llega a su grupo: el ws 1 está protegido');
   assert.deepEqual(reglaDelNegocio(11), { nombre: 'Leila', hastaUnDia: true });
   assert.equal(reglaDelNegocio(10)?.hastaUnDia, undefined, 'Leandro: el 100%');
   const chico = clasificar(e('Quiero que el botón de exportar diga «Descargar»'), { aprobadoPorRegla: 'Leila', hastaUnDia: true });

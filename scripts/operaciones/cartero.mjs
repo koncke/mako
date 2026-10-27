@@ -96,7 +96,7 @@ import { spawnSync } from 'node:child_process';
 //         un tope técnico de 200.000 (`TOPE_TURNO`, la copia del servidor), y la vuelta tiene un presupuesto de texto
 //         (`MAX_TEXTO_VUELTA`) para no pasar el límite del cuerpo: lo que no entra sale en la siguiente. Se instala DESPUÉS
 //         de desplegar el servidor que los acepta (lib/operaciones-reglas.ts): al revés, el servidor viejo los cortaba igual.
-// 1.20.0: el ticket de un negocio APROBADO POR REGLA de Martín (Leandro, Leila: 26/10/2026) llega al Cerebro con su texto:
+// 1.20.0: el ticket de un negocio APROBADO POR REGLA de Martín (Leandro, Leila, Mauricio: 26 y 27/10/2026) llega al Cerebro con su texto:
 //         que lo ejecute sea bug, pedido o pregunta, sin devolvérselo a Martín. La regla viene de MaKo como un NOMBRE, y sólo se
 //         usa si está en `REGLAS_CONOCIDAS`: de MaKo no se toma texto para el mensaje. Un servidor de antes no la manda (el
 //         texto de siempre).
@@ -1326,7 +1326,7 @@ export const esElCerebro = (titulo) => String(titulo ?? '').normalize('NFD').rep
  * compara las dos.
  */
 /** Las reglas de Martín que este cartero conoce (copia de lib/tickets-reglas.ts → APROBADOS_POR_REGLA, test diferencial). */
-export const REGLAS_CONOCIDAS = ['Leandro', 'Leila'];
+export const REGLAS_CONOCIDAS = ['Mauricio', 'Leandro', 'Leila'];
 
 export function mensajeTicket(numero, repo, regla = null) {
   if (!Number.isInteger(numero) || numero <= 0 || numero > 1e9) throw new Error('número de ticket inválido');
