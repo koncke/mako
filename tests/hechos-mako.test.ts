@@ -43,7 +43,9 @@ test('MaKo sabe que ya no usa Clarity, y no manda a nadie a conectarlo', () => {
 test('La base del link la pone el CÓDIGO, no el modelo', () => {
   // En la primera prueba de esto, MaKo contestó bien y linkeó a
   // `https://tu-dashboard.com/integraciones`: un dominio inventado.
-  assert.ok(H.includes('https://hola-mako.com/integraciones?abrir=meta'), 'la URL no llega armada');
+  // Meta va a la tarjeta de Zernio desde el 27/10/2026 (tests/meta-sin-token.test.ts).
+  assert.ok(H.includes('https://hola-mako.com/integraciones?abrir=zernio'), 'la URL no llega armada');
+  assert.ok(!H.includes('abrir=meta'), 'el prompt manda a conectar Meta en su tarjeta');
   const src = leer('../lib/hechos-mako.ts');
   assert.ok(!/hola-mako\.com/.test(src), 'el dominio quedó hardcodeado en el módulo');
   assert.match(leer('../lib/mako-context.ts'), /hechosMako\(APP_BASE_URL\)/,

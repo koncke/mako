@@ -349,7 +349,7 @@ const DEEP_LINKS = `LINKS A LA APP: cuando el detalle completo vive en una tab, 
 - Marketing / anuncios: ${APP_URL}/dashboard · Ads Manager: ${APP_URL}/ads-manager
 - Experimentos (lo que se está probando y lo que el dato ya confirmó): ${APP_URL}/dashboard · se piden con «Editar con MaKo» («probemos…»)
 - Plan / tareas: ${APP_URL}/plan · Nutrición y email: ${APP_URL}/email
-- Salud de la cuenta de Meta: ${APP_URL}/integraciones?abrir=meta
+- Conectar Meta (sus anuncios): con su Facebook, por Zernio: ${APP_URL}/integraciones?abrir=zernio · el método de antes se retiró: no lo expliques ni lo nombres
 - Conectar algo (su GPT, Fathom, sus redes con Zernio, su computadora…): el link de esa conexión, de «DÓNDE SE CONECTA CADA COSA», o la herramienta como_conectar. Nunca la pantalla de Integraciones a secas.
 Ej: "Con Jesús la R1 se ve floja en el cierre. El análisis completo lo tienes aquí → ${APP_URL}/dashboard?hoja=closing".`;
 
@@ -400,7 +400,8 @@ async function atenderAyuda(ws: number, jid: string, texto: string, actor: strin
   }
   const c = conexion(estado.servicios[0]);
   if (!c) { await guardar(null); return null; }
-  const pasos = servicioMetodo(c.key)?.tutorial.pasos ?? c.pasos ?? [];
+  // Los de la conexión primero: Meta se conecta en la tarjeta de Zernio y trae esos pasos (27/10/2026); su tutorial es el de su modal.
+  const pasos = c.pasos ?? servicioMetodo(c.key)?.tutorial.pasos ?? [];
   const link = linkApp(c.ruta, ws);
   if (r === 'problema') {
     const t = ticketPorProblema(c, estado.tipo === 'guia' ? estado.paso : 0, texto);

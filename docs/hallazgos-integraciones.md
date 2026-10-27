@@ -2079,3 +2079,61 @@ Zernio de la plataforma. Costó tres clics de Martín; esto es lo que no se ve e
 segundo portfolio en un mismo negocio hoy se hace por script.
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
+
+## El cobro de Zernio, YouTube sin clave y el tutorial del token que se va (27/10/2026)
+
+**Vive en:** `lib/zernio-redes.ts` (`avisoDeCobroZernio`, `textoAvisoCobro`) · `lib/zernio-conectar.ts` (`urlConectarViaZernio`) ·
+`app/_components/ConectarViaZernio.tsx` (el aviso) · `lib/metodo-catalogo.ts` (`retirado`, YouTube, el tutorial de Meta) ·
+`lib/youtube.ts` (`claveDeYoutube`).
+
+- ⚠️ **Zernio cobra por cuenta ACTIVA de toda su cuenta (el equipo), no por perfil:** 1 a 2 gratis; de la 3.ª a la 10.ª, US$6 por
+  mes cada una, prorrateado por día (su tabla de precios, leída el 27/10). La página de Facebook, el Instagram y la conexión de
+  anuncios (`metaads`) cuentan UNA vez cada una; las ocultas y desconectadas no cuentan. Sin tarjeta, la 3.ª da 402
+  `free_tier_exceeded`. Una línea fija en la tarjeta («desde la 3.ª se paga») no alcanzó: a Leila le cobró US$16. Ahora el servidor
+  cuenta TODA la cuenta (`/accounts` sin `profileId`) antes de pedir el link y, si la que viene se paga, contesta `cobro`; la
+  pantalla pregunta y «Conectar igual» vuelve con `aceptaCobro`. Sólo con la clave del negocio (con la de MaKo paga MaKo) y nunca
+  al reconectar. Volver a entrar con una red que ya tiene cuenta no avisa: Zernio conserva el id y no suma.
+- **YouTube no necesita la clave de cada negocio:** las vistas de un video son PÚBLICAS y leerlas cuesta 1 unidad de las 10.000
+  diarias de la clave de MaKo (`claveDeYoutube`: la del negocio si la tiene, si no la de la plataforma; buscar tutoriales ya hacía
+  eso, era una copia). La tarjeta ya no pide la clave (`retirado`: sólo se ve si estaba cargada), «conectado» es tener el video del
+  VSL, y el canal se conecta con el login de Zernio. Medido antes: el único negocio con YouTube es Mauricio Bustos, con la clave Y el
+  video cargados como credenciales, así que sigue conectado y en el cron.
+- **El tutorial del token de Meta ya no enseña a sacarlo** (Joan se perdió ahí: «tenía 45 pasos pero estaba muy resumido»): avisa
+  el corte del 03/11 con la MISMA fecha que `CORTE_TOKEN_META` (un test lo cruza) y lleva a «Conectar con Facebook».
+- **Los negocios de Joan, medidos (sólo lectura):** Brigitte Eberlin usa el token (gasto y leads en 30 días; ya está en el aviso del
+  27/10); Pablo Chávez, Sergio Arriata y Patricia Contreras lo tienen cargado sin pautar desde MaKo, y Sergio y Patricia no tienen
+  píxel (no les sale ningún evento a Meta, con token o sin él). «Calificado» sale por la misma puerta de CAPI que se midió por Zernio.
+
+**Sin hacer (con dónde vive):** varias claves de Zernio en un negocio (de distintos emails), eligiendo cuál usa cada red. No es un
+campo más: cada clave es otro equipo de Zernio con su propio perfil, su propio webhook y su propio secreto de firma, así que tocan
+el canal (`cfg`/`asegurarWebhook`, lib/zernio.ts; la verificación del webhook, app/api/webhooks/zernio/route.ts; el ruteo por perfil),
+los anuncios (`claveZernioAnuncios`, lib/zernio-ads.ts, del Media Buyer) y la conexión (`contexto`, lib/zernio-conectar.ts). Plan en
+docs/relevo/zernio-capi.md.
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## MaKo le dijo a Joan que el token de Meta «seguía igual»: el tutorial ya estaba arreglado, y no alcanzó (27/10/2026)
+
+**Vive en:** `lib/conexiones-catalogo.ts` (`META_POR_ZERNIO`, `importanteDe`) · `lib/api-mako/areas/integraciones.run.ts`
+(`linkIntegracion`, `como_conectar`, `ver_integracion`, `ver_integraciones`) · `lib/mako-doer-in.ts` (`DEEP_LINKS`, la guía) ·
+`lib/hechos-mako.ts` · `lib/capas.ts` (`POSTERGABLE_TXT`). Lo fija tests/meta-sin-token.test.ts con la pregunta textual de Joan.
+
+- ⚠️ **El diagnóstico obvio era el equivocado: el tutorial del token ya se había retirado esa mañana.** MaKo igual contestó «Sí» y
+  mandó a `?abrir=meta` porque lo que sabe de conectar Meta NO sale del tutorial: el prompt traía «Meta Ads: …?abrir=meta» (el
+  catálogo arma la ruta con la key de la tarjeta), los `DEEP_LINKS` del doer traían «Salud de la cuenta de Meta: …?abrir=meta», la
+  guía de WhatsApp y `como_conectar` tomaban el tutorial del MODAL de Meta (cuyo primer paso todavía decía «El token de Meta se
+  retira…»: la palabra token confirmaba la pregunta), `ver_conexion_meta` devolvía `via: 'token_de_meta'` y `ver_integraciones`
+  listaba «Access token» como campo que falta. Cinco lugares, ninguno era el tutorial.
+- **La regla:** una tarjeta que se conecta en OTRA (Meta, en la de Zernio) lo declara en el catálogo (`ruta`, `pasos`,
+  `aclaracion`), y quien guía toma `c.pasos` ANTES que el tutorial del modal. Los links de la API salen del catálogo
+  (`linkIntegracion` → `conexion(key).ruta`), nunca de `?abrir=<key>` armado a mano. `?abrir=meta` queda para ver la cuenta, el
+  píxel y la salud. Y lo que se retiró no se nombra: «ya no hace falta el token» igual le hace buscar un token a quien lee rápido.
+- Conectar «Anuncios de Meta» desde la tarjeta de Zernio guarda la conexión de Meta igual que el botón del modal de Meta
+  (`conectada-meta`), y el servidor deduce la página si no viene (`paginaParaConectar`): por eso la ruta puede ser la de Zernio.
+
+**Sin hacer (con dónde vive):** el «simple login de Facebook» lo es sólo para un negocio con su API key de Zernio pegada: sin ella,
+la fila «Anuncios de Meta» no aparece (app/integraciones/ConectarRedes.tsx, abajo de la clave; BYOK desde el 23/10, lib/zernio.ts).
+Los pasos lo dicen en una línea. Y el test cubre el camino del CÓDIGO con la pregunta de Joan (la conexión, el link, los pasos, el
+prompt), no la frase que arma el modelo.
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*

@@ -68,6 +68,8 @@ type Campo = {
   auto?: boolean;
   /** Lo escribe SÓLO el servidor (un id de ruteo de la pasarela): ni «cargarlos a mano» lo abre. */
   derivado?: boolean;
+  /** Ya no se pide: se ve sólo si el negocio lo tenía cargado (ver CampoCredencial.retirado). */
+  retirado?: boolean;
   /** Nº de CUENTA de esta API key (1 = la de siempre). Las de la 2 en adelante
    *  llegan plegadas: se muestran si ya están cargadas o si pedís agregar otra. */
   slot?: number;
@@ -799,6 +801,8 @@ export default function ServicioConfigForm({ servicioKey, onEstado, onFacts, onG
         {servicio.campos.filter((c) => (!c.auto || (manual && !c.derivado)) && ((c.slot ?? 1) === 1 || c.configurado || extrasAbiertas.includes(c.env)))
           // Con Zernio activo el token de Meta no se pide: se ve sólo si el negocio lo tenía y abrió «la conexión anterior».
           .filter((c) => !(servicio.key === 'meta' && metaZernio.activo && c.env === 'META_ACCESS_TOKEN' && !(c.configurado && verTokenMeta)))
+          // Un campo retirado (la clave de YouTube, 27/10/2026) no se pide: queda sólo para quien ya lo tenía.
+          .filter((c) => !c.retirado || c.configurado)
           .map((c) => {
           const tipeado = !!(valores[c.env] ?? '').trim();
           const sem = semaforo(c, tipeado);

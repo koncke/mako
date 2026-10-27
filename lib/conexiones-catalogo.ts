@@ -42,8 +42,13 @@ export type Conexion = {
   quien: 'admin' | 'cualquiera';
   /** Cómo se sabe que quedó: probar la credencial guardada, que la computadora esté en línea, o el permiso de Google. */
   verifica: 'probar_conexion' | 'pc_en_linea' | 'google' | null;
-  /** Los pasos de lo que NO es una tarjeta (las tarjetas traen su tutorial de lib/metodo-catalogo.ts). */
+  /**
+   * Los pasos de lo que NO es una tarjeta (las tarjetas traen su tutorial de lib/metodo-catalogo.ts), o los de una tarjeta que se
+   * conecta en OTRA (Meta, en la de Zernio): ganan sobre el tutorial, que es el de su propio modal.
+   */
   pasos?: readonly string[];
+  /** Cómo se conecta, cuando no es lo que la persona espera (Meta: «con tu Facebook, por Zernio»). Va en el prompt y en la API. */
+  aclaracion?: string;
   /** No se le ofrece a nadie: se explica sólo si la persona lo pide por su nombre (Gemini, Martín 25/10/2026). */
   noSeOfrece?: true;
   /** Sólo la ve el negocio de la plataforma (GitHub). */
@@ -72,7 +77,9 @@ const SINONIMOS: Record<string, readonly string[]> = {
   gemini: ['gemini', 'ai studio'],
   groq: ['groq'],
   zernio: ['zernio', 'instagram', 'facebook', 'redes', 'mis redes', 'messenger'],
-  meta: ['meta ads', 'token de meta', 'ads manager'],
+  // «token de meta» y «access token» se quedan A PROPÓSITO (27/10/2026): quien pregunta por el token de antes tiene que caer en
+  // Meta, que lo manda a conectar por Zernio (`META_POR_ZERNIO`).
+  meta: ['meta ads', 'token de meta', 'access token', 'app de meta', 'anuncios de meta', 'facebook ads', 'ads manager', 'cuenta publicitaria'],
   email: ['email', 'correo', 'mails', 'resend'],
   google: ['google calendar', 'calendario de google', 'mi agenda de google', 'google'],
   calendly: ['calendly'],
@@ -106,11 +113,32 @@ const SINONIMOS: Record<string, readonly string[]> = {
  */
 const NO_SE_OFRECEN = new Set(['gemini', 'groq']);
 
+/**
+ * META SE CONECTA EN LA TARJETA DE ZERNIO (27/10/2026). Joan preguntó en el grupo de Código Inmobiliario (ws13) si el proceso de
+ * conectar «la app de Meta, generar el access token» seguía igual, y MaKo le contestó «Sí» con el link a `?abrir=meta`. Martín:
+ * «ya no existe TOKEN de meta, todo por zernio con un simple login de facebook». La tarjeta de Meta Ads sigue (la cuenta, el
+ * píxel, la salud), pero CONECTAR es en la de Zernio: «Anuncios de Meta» → «Conectar» (app/integraciones/ConectarRedes.tsx), que
+ * guarda la conexión de Meta igual que el botón del modal de Meta (`conectada-meta`, app/_components/ConectarViaZernio.tsx).
+ * Los pasos usan los rótulos de esa pantalla; la API key de Zernio, sólo si el negocio no la tiene (sin ella la fila no aparece).
+ * tests/meta-sin-token.test.ts los fija con la pregunta textual de Joan.
+ */
+const META_POR_ZERNIO = {
+  ruta: rutaDeTarjeta('zernio'),
+  aclaracion: 'con tu Facebook, por Zernio',
+  pasos: [
+    'Desde tu computadora, abre el link: es la tarjeta de Zernio.',
+    'Si te pide la "API key de Zernio": sácala en zernio.com → "Settings" → "API Keys" y pégala.',
+    'En "Redes", toca "Conectar" en "Anuncios de Meta" y entra con tu Facebook.',
+    'Acepta en la ventana de Facebook y, si tienes varias páginas, elige la de tus anuncios.',
+  ],
+} as const;
+
 const deTarjeta = (d: Def): Conexion => ({
   key: d.key,
   nombre: d.nombre,
   sinonimos: SINONIMOS[d.key] ?? [],
-  ruta: rutaDeTarjeta(d.key),
+  ruta: d.key === 'meta' ? META_POR_ZERNIO.ruta : rutaDeTarjeta(d.key),
+  ...(d.key === 'meta' ? { aclaracion: META_POR_ZERNIO.aclaracion, pasos: META_POR_ZERNIO.pasos } : {}),
   destraba: d.descripcion,
   donde: 'computadora',
   quien: 'admin',
@@ -213,8 +241,16 @@ export const EN_EL_PROMPT = ['openai', 'pc', 'ia', 'fathom', 'zernio', 'meta', '
 
 /** Las líneas «· nombre: link» de `EN_EL_PROMPT`, con la base que pone el código (nunca el modelo). */
 export function conexionesParaElPrompt(base: string): string {
-  return EN_EL_PROMPT.map((k) => conexion(k)).filter((c): c is Conexion => !!c).map((c) => `  - ${c.nombre}: ${base}${c.ruta}`).join('\n');
+  return EN_EL_PROMPT.map((k) => conexion(k)).filter((c): c is Conexion => !!c)
+    .map((c) => `  - ${c.nombre}${c.aclaracion ? ` (${c.aclaracion})` : ''}: ${base}${c.ruta}`).join('\n');
 }
+
+/**
+ * Lo que el MODELO tiene que respetar de una conexión con `aclaracion` (Meta). «No lo nombres»: la respuesta a Joan que confirmó el
+ * proceso del token salió de explicar lo de antes; una que dice «ya no hace falta el token» igual le hace buscar un token.
+ */
+export const importanteDe = (c: Conexion): string | null =>
+  c.aclaracion ? `Se conecta ${c.aclaracion}, y sólo así: lo de antes se retiró. No lo expliques ni lo nombres: pasa el link y los pasos.` : null;
 
 /**
  * La línea que el CÓDIGO le agrega a la persona cuando le falta una conexión (`falta.servicio` de una operación, la API de

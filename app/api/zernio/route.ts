@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
           adAccountId: typeof body.adAccountId === 'string' ? body.adAccountId : null,
           pageId: typeof body.pageId === 'string' ? body.pageId : null,
           flujo: typeof body.flujo === 'string' ? body.flujo : null,
+          // La persona ya vio el aviso del cobro de Zernio y tocó «Conectar igual».
+          aceptaCobro: body.aceptaCobro === true,
         });
         return Response.json(r);
       }

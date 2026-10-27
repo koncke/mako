@@ -148,6 +148,19 @@ docs/hallazgos-ads.md → «Un negocio SIN token administra sus campañas por Ze
    píxel, `getInstagramActorId` y `paginasDeGanadores`, aprobación (`/ads/{id}/review`). Las identidades (`identidadesMeta`) ya
    van por `/ads/instagram-accounts` (26/10, medido).
 
+## Varias claves de Zernio en un negocio (pedido del 27/10, SIN HACER)
+
+Leila (876470842-23): «se pueden cargar varias claves de Zernio (de distintos emails) eligiendo cuál usa cada red». Hecho el 27/10:
+el aviso antes de conectar la cuenta que se paga. Lo de varias claves, no, porque cada clave es OTRO equipo de Zernio:
+1. El catálogo: `ZERNIO_API_KEY` con cuentas (el mecanismo `slot` + email de las claves de IA, lib/metodo-catalogo.ts) y un ajuste
+   `zernio.clave_por_red` (red → número de cuenta).
+2. Quién pide la clave tiene que saber la red: `cfg(ws)` (lib/zernio.ts, el canal), `claveZernioAnuncios(ws)` (lib/zernio-ads.ts,
+   del Media Buyer, y `canalMeta`), `contexto(ws)` (lib/zernio-conectar.ts).
+3. Cada equipo tiene su perfil, su webhook y su secreto de firma: `asegurarWebhook` por clave, y el webhook
+   (app/api/webhooks/zernio/route.ts) tiene que probar la firma con el secreto del equipo que manda (hoy uno por negocio), y el ruteo
+   por perfil (`RUTEO_PERFIL`) ya admite varios perfiles por negocio.
+4. Medir con dos cuentas de Zernio reales antes de prenderlo (nunca primero en un cliente).
+
 ## Lo que no se puede (o no tiene salida simple)
 
 - **Business Discovery de Instagram** (leer el perfil público de un @ que no es tuyo): Zernio no lo expone.
