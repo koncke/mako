@@ -81,6 +81,8 @@ import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
 import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pistaDesde, type Desde } from '@/lib/chat-desde';
 import { enSegundoPlano } from '@/lib/chat-trabajos';
+import { REGLA_NO_EXISTE } from '@/lib/no-existe';
+import { conPedidoDeNoExiste } from '@/lib/no-existe-server';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
@@ -685,7 +687,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
-    const system = `${base}\n\n${VOZ_APP}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
+    const system = `${base}\n\n${VOZ_APP}\n\n${REGLA_NO_EXISTE}${bloqueTools}${ctxHoy}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxDesde ? `\n\n${ctxDesde}` : ''}${ctxAtado ? `\n\n${ctxAtado}` : ''}`;
 
     // ── Las herramientas ───────────────────────────────────────────────────────
     const runRegistro = runnerDelRegistro(ctx);
@@ -928,6 +930,15 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       });
       if (saneo.groserias.length) console.warn(`[mako-turno-app] ws=${ws} sesión=${s.id}: le saqué una grosería (${saneo.groserias.join(', ')})`);
       respuesta = saneo.texto;
+    }
+    // LO QUE NO EXISTE EN MaKo (lib/no-existe.ts, ticket 874749710-14 de Leandro): la marca nunca le llega a la persona, el
+    // pedido sale solo a la Ticketera, y la línea que lo dice la escribe el código.
+    if (respuesta) {
+      const ne = await conPedidoDeNoExiste(respuesta, {
+        ws, actor: persona.actor, chat: desde?.tab ? `ops-center (desde ${desde.tab})` : 'ops-center', pedido: textoPersona,
+        ...(desde?.pantalla ? { ruta: desde.pantalla } : {}),
+      });
+      respuesta = [ne.texto, ne.linea].filter(Boolean).join('\n\n') || null;
     }
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
     // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.

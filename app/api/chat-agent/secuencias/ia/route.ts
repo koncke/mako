@@ -69,6 +69,9 @@ import {
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
+import { getUsuarioActual } from '@/lib/auth';
+import { lineaDelPedido } from '@/lib/no-existe';
+import { ticketDeNoExiste } from '@/lib/no-existe-server';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -280,9 +283,21 @@ export async function POST(req: NextRequest) {
         const { ctx, pedido: pedidoEditar } = aplicarRespuestas({ ...leido.ctx, disparadorActual }, pedido, respuestas);
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
-        // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo; el globo ofrece pasárselo al equipo (./falta/route.ts).
-        const contestar = async (respuesta: string, falta?: string) => {
+        // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo. Desde el 27/10/2026 (ticket 874749710-14 de Leandro) el
+        // pedido sale SOLO a la Ticketera, como en todos los chats de MaKo (lib/no-existe-server.ts), y la línea que lo dice la
+        // escribe el código. El botón «Pedírselo al equipo» (./falta/route.ts) queda sólo si no se pudo levantar.
+        const contestar = async (respuestaIA: string, faltaPedida?: string) => {
           if (req.signal.aborted) return;
+          let respuesta = respuestaIA;
+          let falta = faltaPedida;
+          if (falta) {
+            const sesion = await getUsuarioActual().catch(() => null);
+            const id = sesion?.email ? await ticketDeNoExiste(falta, {
+              ws, actor: sesion.email, nombre: sesion.nombre ?? '', chat: `automations «${nombreSec || `#${secuenciaId}`}»`,
+              ruta: `/automations?sec=${secuenciaId}`, pedido,
+            }) : null;
+            if (id) { respuesta = `${respuesta.trim()}\n\n${lineaDelPedido(id)}`; falta = undefined; }
+          }
           await anotar([mensajeChat('mako', respuesta, 'app', falta ? { falta } : {})]);
           send({
             t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
