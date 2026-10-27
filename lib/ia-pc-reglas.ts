@@ -343,8 +343,12 @@ export function reponeDelTope(l: { usadoSemana?: number; repone?: string; repone
 // conecta la PC con su código, lo deja arrancando solo al prender la computadora y lo prende. Bajado por PowerShell o
 // curl, el programa no lleva la marca de «descargado de internet», así que SmartScreen y Gatekeeper no lo frenan.
 
-/** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs). */
-export const VERSION_PC = '0.4.2';
+/** La versión del programa que sirven los instaladores (la misma que `VERSION` de scripts/ia-pc/mako-pc.mjs).
+ *  0.4.3 (27/10/2026; el código, del 24/10: b10eb3b04): «MaKo» en el menú Inicio y en el escritorio de Windows (`mako-pc abrir`,
+ *  installer/windows/mako.iss → [Icons]; Leila: «no lo encuentro en mi compu») y entrar con OTRA cuenta de Claude (Leandro).
+ *  ⚠️ SE SUBE JUNTO CON LOS BINARIOS: la descarga sirve el instalador de esta versión, y sin sus archivos en el bucket `ia-pc`
+ *  contesta «No pude preparar la descarga» (IA1, 22/10). Primero `publicar-binarios --aplicar`, después se despliega esto. */
+export const VERSION_PC = '0.4.3';
 export const SISTEMAS_PC = ['windows', 'mac'] as const;
 export type SistemaPc = (typeof SISTEMAS_PC)[number];
 /** Los archivos que sube scripts/ia-pc/publicar-binarios.mts al bucket privado `ia-pc` (comprimidos: entran en 50 MB). */

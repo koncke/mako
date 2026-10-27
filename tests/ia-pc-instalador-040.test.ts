@@ -59,9 +59,9 @@ test('1. conectar sin terminal ni código a la vista: dos pantallas, un botón c
 });
 
 test('2. «Descargar» pide la sesión, baja el instalador con su nombre, y si falta lo dice', () => {
-  assert.equal(VERSION_PC, '0.4.2');
-  assert.equal(archivoDelInstalador(), 'mako-pc-0.4.2-windows-setup.exe');
-  assert.equal(nombreDelInstalador(), 'MaKo-Setup-0.4.2.exe');
+  assert.equal(VERSION_PC, '0.4.3'); // 0.4.3 (27/10/2026): los accesos «MaKo» y otra cuenta de Claude
+  assert.equal(archivoDelInstalador(), 'mako-pc-0.4.3-windows-setup.exe');
+  assert.equal(nombreDelInstalador(), 'MaKo-Setup-0.4.3.exe');
   const r = sinComentarios(leer('app/api/ia-pc/descargar/route.ts'));
   const get = r.slice(r.indexOf('export async function GET('));
   assert.ok(get.indexOf('await personaDelRequest()') > 0 && get.indexOf('await personaDelRequest()') < get.indexOf('createSignedUrl'), 'firma sin mirar la sesión');
