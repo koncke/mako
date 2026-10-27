@@ -7098,3 +7098,39 @@ proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sost
 `chatCheap`, `chatCheapTools`) · lib/editor-landing/replicar.ts (la segunda vuelta y la memoria de la réplica) ·
 tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
 *2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*
+
+## Con la computadora del cliente APAGADA: qué deja de andar y qué no (27/10/2026, Infra)
+
+Aaron (llamada del 26/10) preguntó qué pasa con la PC del usuario apagada. Leído en el código (no probado apagando una PC):
+
+**Cómo lo sabe el servidor.** La PC late cada 30 s (`LATIDO_MS`); a los **90 s sin latido** está «Sin conexión»
+(`EN_LINEA_MS`, lib/ia-pc-reglas.ts). Con más de 90 s apagada, el turno **ni se encola**: falla como `'apagada'` y va al
+respaldo (lib/mako-turno-app.ts). Si se apagó dentro de esos 90 s, se encola y vence a los 35 s sin que nadie lo tome
+(`SIN_TOMAR_MS`) o a los 75 s sin latido si ya lo había tomado (`SIN_LATIDO_MS`). **No espera a que vuelva** y no se le avisa al
+dueño cuando vuelve: lo que pidió con la PC apagada no se hace después.
+
+⚠️ **El diagnóstico obvio era el equivocado: «si la PC está apagada, contesta otra IA».** Una PC conectada cuenta como «su
+IA» AUNQUE ESTÉ APAGADA (`negocioConPc` mira que esté activa, no que lata; `negocioConSuIA` en lib/ia-del-negocio.ts). El
+negocio sigue en D6b, «sólo su IA»: nunca Groq, nunca la cascada barata, nunca el Claude de MaKo (salvo el crédito de Claude
+que Martín le asigna a un negocio, que entra como su clave: lib/anthropic.ts). El respaldo es SU clave, si tiene.
+
+| Qué | Con la PC apagada |
+|---|---|
+| El chat de la app en Automático | Contesta su clave (OpenAI, Gemini o su Claude). Sin clave: «Tu computadora está apagada: préndela y mándamelo de nuevo» |
+| El chat con «Tu computadora» elegida en el «+» | Error, sin respaldo: eligió ésa |
+| «Tu computadora» en el selector | **Se sigue ofreciendo**: `pcDe` no mira si está en línea (lib/chat-ia.ts) |
+| El grupo de WhatsApp del dueño | Su OpenAI y después su Claude, por clave; sin clave, el cartel de «préndela» |
+| Notas de voz | Nunca usaron la PC: las escucha su OpenAI o Gemini |
+| Leads, Automations, nutrición, avisos, crons, Plan, reuniones | Nunca dependieron de la PC (`tests/ia-pc-nunca-a-leads.test.ts`) |
+| Descargar e instalar el programa | Es del servidor: URL firmada de 600 s del bucket privado `ia-pc` |
+
+**Y no toca Storage.** El programa de la PC sólo habla con `/api/ia-pc/*`: no sube ni baja nada de ningún bucket, así que
+los buckets públicos no tienen nada que ver con que la PC esté prendida. Fuera de `ia-pc`, lo que sí necesita una PC prendida
+es lo que corre en una extensión o un worker: el puente a Google Flow y el montaje de video.
+
+**Sin hacer:** sacar «Tu computadora» del selector mientras no late (o marcarla «apagada»); avisarle al dueño lo que pidió
+con la PC apagada.
+
+**Vive en:** lib/ia-pc-reglas.ts (`LATIDO_MS`, `EN_LINEA_MS`, `SIN_TOMAR_MS`, `SIN_LATIDO_MS`, `pcUsable`) · lib/ia-pc.ts
+(`encolarTurno`, `negocioConPc`, `pcDe`) · lib/mako-turno-app.ts · lib/chat-ia.ts · scripts/ia-pc/mako-pc.mjs ·
+*27/10/2026, chat «Infra» (claude5)*

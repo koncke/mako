@@ -5826,6 +5826,18 @@ dos horas después la 0199 ya no conectaba: la red cambió, el código no.
 - Se aplicó pasándole a `apply-migration.mjs` la URL del pooler sólo para ese proceso, armada a
   partir de `DATABASE_URL` sin imprimirla.
 
+**27/10/2026: el pooler es el camino de TODOS los scripts, no un arreglo a mano.** Aaron lo marcó como riesgo, y el
+síntoma era peor que «no conecta»: con la red de la PC entrando y saliendo de IPv6, un script largo conectaba y **moría a
+mitad de corrida, al reconectar** (`ENOENT` / `ENETUNREACH`), con la mitad del trabajo hecho. Medido el 27/10 desde esta PC:
+la directa da `lookup` v6 `ENOENT` y v4 `ENOTFOUND`; el pooler, 3 direcciones IPv4 y `select 1` en 2,4 s.
+- **La regla:** un script que abre Postgres lo hace con `postgres(urlDeLaBase(), …)` (`scripts/url-de-la-base.mjs`), que
+  deriva la URL del pooler de `DATABASE_URL` sin imprimirla. Se pasaron los 79 scripts que leían `DATABASE_URL`, y
+  `tests/url-de-la-base.test.ts` barre `scripts/` para que uno nuevo no vuelva a la directa (probado rompiéndolo).
+- `MAKO_DB_DIRECTA=1` vuelve a la directa para una corrida; `SUPABASE_POOLER_HOST` cambia el host si el cluster deja de ser
+  `aws-1`. Una `DATABASE_URL` que no es la directa de Supabase (una base local) pasa tal cual.
+- Los scripts que importan `postgres` por `createRequire` desde OTRO clon (`curso-aplicar-694`, `curso-marcar-por-area`)
+  importan el helper por ruta relativa al script: es puro y no depende del `node_modules` del clon.
+
 Y una menor del mismo rato: **`vercel ls` escribe la tabla de deploys en STDERR.** Un
 `npx vercel ls 2>/dev/null | grep …` contesta vacío sobre una lista llena, y un bucle que espera
 «Ready» así no termina nunca.
@@ -8335,6 +8347,9 @@ lanzamiento es el 25/10.
   «apagalo»**.
 - **n8n**: ningún uso en el código vivo.
 
+> **27/10/2026:** ya son 18 instancias y 1,05 M de mensajes. Lo que pesa en RAM, el techo y lo que cuesta escalar están en
+> «Evolution: TODOS los números en UN proceso de Node», más abajo.
+
 ### Las sesiones están persistidas, en DOS lugares — leído del código fuente, no supuesto
 
 `docs/rotacion-credenciales.md` dejaba abierto «comprobar que Evolution guarda las sesiones
@@ -8741,3 +8756,61 @@ consola de cada pedido: el `console.log`/`warn` de la función, en orden. Sirve 
 salió como salió sin reproducirlo (ej.: una réplica que dejó 17 de 20 secciones sin IA mostraba cada tanda con su
 error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo, `VERCEL_TEAM_SLUG`
 (`/v2/teams/<slug>` da el id; `/v9/projects` el del proyecto «mako»). Nunca imprimir el token.
+
+## Evolution: TODOS los números en UN proceso de Node — lo medido, el techo y lo que cuesta escalar (27/10/2026, Infra)
+
+Aaron (asesor técnico, llamada del 26/10): *«cada vez que tú conectas un número, se agrega al contenedor y va acaparando
+más la RAM»*. Medido en **sólo lectura**: lecturas a Evolution, el fuente de Evolution 2.3.7 y el de Baileys 7.0.0-rc.9
+(la versión que fija su `package.json`). No se cambió nada en Railway ni en las líneas.
+
+**Lo que hay (27/10, ~17:30 ART):**
+- **18 instancias** (eran 16 el 23/10): 11 `open`, 2 `close` y **5 `connecting` que nunca se vincularon** — `ws3`, `ws15`,
+  `ws13_7ny3qw` y dos de «Agregar otro número» del 26/10 (`ws10_6dkz1i`, `ws1_rv347e`). `conectar({ nueva: true })` crea la
+  instancia antes del QR, y si nadie escanea queda ahí: no hay limpieza.
+- **1.046.927 mensajes, y 864.518 (82,6 %) son historial ANTERIOR al vínculo**: lo bajó `syncFullHistory: true`. `ws20`:
+  143.532 viejos y 1.413 nuevos en 6 días; `ws22`: 87.916 y 597. El tráfico vivo de toda la casa son ~180 mil mensajes en
+  tres meses (el más activo, `ws11`, ~890 por día). La base de Evolution es, sobre todo, el pasado de los teléfonos.
+- Grupos por línea: de 5 a 124 (`ws11` 124, `ws1` 97, `ws10` 69, `ws9` 61).
+
+**Lo que dice el fuente y no se ve en ningún panel:**
+1. **Un solo proceso para todas las líneas.** La imagen es `node:24-alpine` con `node dist/main`, sin
+   `--max-old-space-size`. Un OOM o un crash corta las 11 líneas juntas, y el reinicio las reconecta juntas.
+2. **Vincular un número con mucho historial es un pico en el proceso de TODOS.** El handler `messaging-history.set` hace, en
+   CADA tanda del historial, `message.findMany({ select: { key: true }, where: { instanceId } })` — todas las claves de la
+   línea, para descartar duplicados — y después un `createMany` con la tanda entera, sin partir. Medido en V8 (sólo el lado
+   de JS, sin el motor de Prisma): **46 MB por tanda con 83 mil mensajes, 71 MB con 169 mil**. Y como cada tanda relee lo que
+   entró en las anteriores, la carga crece con el historial (cuadrática en lecturas a la base).
+3. **`syncFullHistory: true` apaga `groupsIgnore` en el socket.** `shouldIgnoreJid` devuelve `false` para todo grupo si
+   `syncFullHistory` está prendido, ANTES de mirar `groupsIgnore`. Baileys descifra cada mensaje de grupo (claves de grupo,
+   sesiones de cada participante) y recién `messages.upsert` lo tira. Se paga en CPU y memoria por cada grupo de cada línea,
+   aunque la app no los use.
+4. ⚠️ **El diagnóstico obvio era el equivocado: «`syncFullHistory` sólo pesa al vincular».** Lo dice el comentario de
+   `setSettings` y es cierto para el historial (`requireFullSync`, en `generateRegistrationNode`), pero Baileys también lo lee
+   en `getWebInfo`, que arma el payload de CADA login. Apagarlo en una línea ya vinculada no le saca el historial, pero cambia
+   cómo se presenta el dispositivo en el próximo login. No es «sin riesgo», y por eso no se tocó.
+
+**Lo que NO se pudo medir: la RAM.** Evolution 2.3.7 no expone `/metrics` (404) ni memoria por instancia, y en esta PC no hay
+sesión de Railway (ni CLI, ni token, ni login en ningún navegador). La RAM por línea sale del gráfico **Memory** del servicio
+en Railway: `ws22` y `ws20` se vincularon el **21/10 a las 18:25 y 19:18 UTC**. El escalón de esa hora es lo que cuesta una
+línea abierta con 90-145 mil mensajes; el pico del rato, lo que cuesta vincularla.
+
+**El techo, como fórmula** hasta tener el número: `líneas = (memoria del contenedor − base del proceso − pico de vincular la
+línea más grande) / memoria por línea abierta`. Hay un segundo techo que no sube con el plan: el heap de V8 del único proceso.
+
+**Opciones para escalar** (Railway, leído el 27/10: RAM US$10/GB-mes, CPU US$20/vCPU-mes, volumen US$0,15/GB-mes):
+
+| Opción | Costo | Qué cambia | QR |
+|---|---|---|---|
+| Seguir en uno y bajar el pico: historial de N meses, o ninguno, para los números NUEVOS | 0 | Es una decisión de producto: el historial enseña la forma de escribir del dueño, da los nombres de los contactos y evita nutrir a quien ya se le hablaba (`lib/evolution.ts`, `setSettings`) | no |
+| 2-3 contenedores de Evolution con el mismo Postgres (`DATABASE_CONNECTION_CLIENT_NAME` distinto, según la doc de Evolution; verificar al armarlo) | la base de cada proceso más la RAM de sus líneas | MaKo guarda en qué servidor vive cada línea (columna en `evolution_instancias` y `evFetch` por línea). Una caída corta un grupo, no todos | no para las nuevas; mudar una vieja es la receta sin QR de arriba |
+| Una API sobre whatsmeow (Go) | menos RAM por línea (no medido acá) | Reescribir `lib/evolution.ts` y el espejo: `findMessages`, `findContacts`, `findChats` y `getBase64FromMediaMessage` no existen igual | **sí: re-escanear las 11** |
+| API oficial (Cloud API) | por mensaje de plantilla | No reemplaza: ver «Las opciones, medidas» en la sección de Railway (grupos, historial, alta por link) | otro número |
+
+**Sin hacer:**
+- La RAM por línea: falta acceso de lectura a Railway (pedido al Cerebro el 27/10).
+- Borrar las 5 instancias `connecting` sin dueño: es escritura en producción, pide el sí de Martín.
+- Limpiar la instancia de un «Agregar otro número» que nadie escaneó: `conectar()` no lo hace.
+
+**Vive en:** `lib/evolution.ts` (`setSettings`, `permitirGruposEnInstancia`, `conectar`) · Evolution 2.3.7
+`src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) · Baileys
+7.0.0-rc.9 `src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*

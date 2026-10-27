@@ -2318,6 +2318,35 @@ la foto está a la vista igual—. No hizo falta un script contra producción: *
 con el código viejo**, y el cron corre recién con el nuevo. Un objeto que NO es de este lead y este negocio no se borra
 nunca (`rutaDeFotoGuardada` exige el prefijo).
 
+### 27/10: ningún bucket se LISTA con la clave pública, y lo que todavía se puede adivinar
+
+Aaron (llamada del 26/10) marcó los buckets públicos. Medido en producción en **sólo lectura**:
+- **La lista que circulaba estaba mal.** Los públicos son CINCO: `avatars`, `portadas`, `landing-imagenes`, `image-editor` y
+  **`video-clips`** (que no estaba). `graficos` y `stock` no son buckets: los gráficos del Dashboard van a `portadas`
+  (`app/api/graficos/imagen/route.ts:33`) y las fotos del buscador al bucket de quien las pide (`lib/imagenes-stock.ts`).
+- **Listar con la clave anon devuelve 0 en los 20 buckets**, también dentro de una carpeta, contra 1-22 entradas con la
+  service role en los mismos. La causa: `storage.objects` y `storage.buckets` tienen RLS prendido y **cero políticas**. Sólo
+  la service role (el servidor) lista. Un `[]` no prueba nada solo; el control con la service role es lo que lo vuelve dato.
+- Entonces el riesgo de un bucket público es **adivinar el nombre**, no enumerarlo. Formas medidas (con los dígitos tapados):
+  `landing-imagenes` e `image-editor` llevan UUID; `video-clips`, UUID salvo 4 tomas de prueba `prueba-montaje-ws<N>-<N>/`;
+  `portadas`, `ws<N>/<milisegundos>-<6 al azar>`; `avatars`, 147 fotos de leads con 128 bits al azar, 4 fotos del equipo
+  `avatar-<milisegundos>.png` y **UNA foto de un lead con la ruta vieja, adivinable**.
+- ⚠️ **Esa foto es huérfana: la mudanza no la va a tocar nunca.** Es de un lead del ws 13 que ya no existe (subida el 13/10,
+  ninguna fila la apunta). El cron muda lo que una fila apunta, así que una foto de un lead borrado se queda en la ruta
+  adivinable para siempre. Borrarla es escritura en producción: pide el sí de Martín.
+
+**Qué debe seguir público:** `landing-imagenes` (la ven las landings publicadas, sin login) y `video-clips` (el worker de
+montaje no tiene credencial y baja las tomas por su URL pública: `app/api/montaje/worker/route.ts`). `portadas` (tapas de
+1600×420 e imágenes de gráficos del Dashboard) e `image-editor` se dibujan dentro de la app y podrían ir por URL firmada,
+pero antes hay que mirar si algo compartido por link las usa. Para `avatars`, la decisión (c) de arriba ya cerró lo que
+importaba.
+
+**Sin hacer:** borrar la foto huérfana; ver si borrar un lead borra su foto (si no, cada lead borrado deja la suya, ahora
+con nombre al azar); pasar `image-editor` a privado si se decide.
+
+**Vive en:** `app/api/perfil/avatar/route.ts:47` · `app/api/portadas/route.ts:130` · `app/api/graficos/imagen/route.ts:86` ·
+`lib/imagenes-stock.ts:506` · `lib/fotos-contacto-ruta.ts` · *27/10/2026, chat «Infra» (claude5)*
+
 ### El tope de pedidos: lo que un 429 rompe
 
 - **El opt-in de una landing no reintenta**: el snippet lo manda una vez, con `keepalive`, y no mira la respuesta. Un 429

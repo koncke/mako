@@ -10,13 +10,14 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { mkdirSync, writeFileSync, existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 const KEY = process.env.FATHOM_API_KEY;
-const CONN = process.env.DATABASE_URL;
+const CONN = urlDeLaBase();
 const OUT = resolve(process.cwd(), 'scripts/_closing_work');
 mkdirSync(OUT, { recursive: true });
 

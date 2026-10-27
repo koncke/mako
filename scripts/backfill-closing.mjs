@@ -17,13 +17,14 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 const FATHOM = process.env.FATHOM_API_KEY;
 const ANTHROPIC = process.env.ANTHROPIC_API_KEY;
-const CONN = process.env.DATABASE_URL;
+const CONN = urlDeLaBase();
 if (!FATHOM || !ANTHROPIC || !CONN) { console.error('Faltan FATHOM_API_KEY / ANTHROPIC_API_KEY / DATABASE_URL'); process.exit(1); }
 
 const args = process.argv.slice(2);

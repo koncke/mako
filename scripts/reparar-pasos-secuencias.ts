@@ -41,11 +41,12 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { writeFileSync } from 'node:fs';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const ESCRIBIR = process.argv.includes('--escribir');
 const ARCHIVO = resolve(process.cwd(), '.respaldo-pasos-secuencias.json');
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 /**
  * Decodifica hasta llegar a un ARRAY, o se abstiene. Una capa de más es el bug

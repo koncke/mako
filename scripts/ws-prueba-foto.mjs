@@ -23,6 +23,7 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
@@ -46,7 +47,7 @@ if (!['guardar', 'comparar', 'restaurar'].includes(accion) || !Number.isInteger(
 if (ws === 1) { console.error('El ws 1 es Mauricio, un cliente real: no se recorre ni se restaura.'); process.exit(2); }
 if (!process.env.DATABASE_URL) { console.error('falta DATABASE_URL en .env.local'); process.exit(2); }
 
-const sql = postgres(process.env.DATABASE_URL, { max: 1, prepare: false, onnotice: () => {} });
+const sql = postgres(urlDeLaBase(), { max: 1, prepare: false, onnotice: () => {} });
 const q = (id) => `"${String(id).replace(/"/g, '""')}"`;
 
 /** Las tablas del inquilino, medidas AHORA (una tabla nueva entra sola). `workspaces` va aparte. */
