@@ -44,6 +44,14 @@
 //                        `plantilla-accountability` (Next + Supabase + Vercel, uno
 //                        por cliente). Ahí entra el EQUIPO del cliente a capturar
 //                        evidencia. No es MaKo y no va a serlo.
+//   ⚠️ CAMBIÓ EL 14/10/2026 (MAU-01, aplicado el 27/10): Martín propuso en sus audios
+//      hacer la base de cada cliente COMO PLANTILLA DENTRO DE MaKo, y es lo que vale
+//      (decisión del Cerebro, 27/10). Un cliente con su propia cuenta de MaKo recibe,
+//      en un clic desde el Agency Dashboard, la plantilla de su modelo (tienda B2C,
+//      B2B con CRM o manufactura): su funnel, su tablero —el objetivo del trimestre y
+//      los KPIs semanales, en Objectives— y la guía para cargar sus datos en su Plan
+//      (`lib/plantillas-modelo-reglas.ts`). La app de `plantilla-accountability` queda
+//      para los clientes que no tienen cuenta de MaKo.
 //
 // ── HISTORIA (agosto). Whop era la tercera pieza: ahí el cliente veía los videos
 // y ahí estaban su acceso y su cobro. Salió el 06/10. Lo de abajo se conserva
@@ -101,7 +109,8 @@ export type Grupo = { titulo: string; pasos: Paso[] };
 export const PIEZAS: { que: string; quien: string; detalle: string }[] = [
   { que: 'MaKo', quien: 'Mauricio', detalle: 'Su cartera, el kanban de la entrega por etapas, la tab Curso y el seguimiento de cada cliente.' },
   { que: 'El curso', quien: 'El cliente, por su link', detalle: 'Ve las clases, manda sus tareas y pasa de etapa al terminarlas. Entra con su link o por `/mi-curso`, con su propia cookie: nunca con una cuenta de MaKo.' },
-  { que: 'El tablero', quien: 'El equipo del cliente', detalle: 'Una app propia por cliente, del repo `plantilla-accountability`. Capturan evidencia y ven su semáforo. No es MaKo.' },
+  // ⚠️ Desde el 14/10/2026 (MAU-01): con cuenta de MaKo, el tablero es el de su cuenta (Objectives), armado por la plantilla de su modelo.
+  { que: 'El tablero', quien: 'El equipo del cliente', detalle: 'Con su cuenta de MaKo: el objetivo y los KPIs de su cuenta, armados por la plantilla de su modelo desde el Agency Dashboard. Sin cuenta: una app propia, del repo `plantilla-accountability`.' },
 ];
 
 export const URGENTE: Grupo[] = [
@@ -147,6 +156,19 @@ export const URGENTE: Grupo[] = [
         que: 'El cron manda el previo y el posterior de cada llamada anotada, con lo que le falta de su etapa.',
         yaEsta: ['`app/api/cron/curso-sesiones/` (cada hora) + `lib/curso-mensajes.ts`.'],
         falta: ['Las llamadas se anotan a mano en la ficha: falta sincronizarlas con Calendly.', 'Lo que pidió Mauricio el 8/9: los compromisos de la junta, sacados del Fathom, en el aviso de después.'],
+      },
+      {
+        // MAU-01 (Mauricio, 14/10/2026): «una base tipo copy paste que disminuya mi intervención de iniciar de cero».
+        titulo: 'La base de cada cliente según su modelo, en un clic', estado: 'sigue',
+        que: 'La plantilla de su modelo (tienda B2C, B2B con CRM, manufactura): funnel, tablero y la guía para cargar sus datos en su Plan.',
+        yaEsta: [
+          '`lib/plantillas-modelo-reglas.ts` (las tres) y `lib/plantillas-modelo.ts` (aplicarla sin duplicar): «Plantilla del negocio» en la ficha de cada cuenta del Agency Dashboard, en la computadora y en el teléfono, y `aplicar_plantilla_de_modelo` por la API.',
+        ],
+        falta: [
+          'Probarla en el ws3: es escritura en producción y la corre el Cerebro (`scripts/tmp-captura-customers/probar-plantilla-ws3.mts`, en el worktree de Agencias).',
+          'Que Mauricio sea Agency y sus clientes tengan su cuenta: la plantilla se aplica a una cuenta, no a un cliente del CRM.',
+        ],
+        ojo: 'Sin números: la meta del objetivo y el compromiso de cada KPI los pone el cliente (el primer paso de la guía). Un número de la plantilla pintaría un rojo que nadie eligió.',
       },
       {
         titulo: 'Recordarle las clases que tiene que ver', estado: 'cola',
