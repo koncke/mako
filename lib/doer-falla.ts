@@ -36,6 +36,24 @@ export function reportaFalla(texto: string): boolean {
   return FALLA.test(texto || '');
 }
 
+/**
+ * ¿Pide VER su agenda? «abrime la agenda de google», «mostrame el calendario de esta semana», «tengo algo a las 15?» (27/10/2026,
+ * P6: Código Inmobiliario recibió un link a calendar.google.com, y «Ya te abrí la agenda de Google», teniendo `agenda_del_dia`).
+ * Es una LECTURA: si el turno no la trae, viaja igual (como el ticket ante una falla). Un pedido de AGENDAR no es esto: ése
+ * lo lleva el clasificador con sus herramientas.
+ */
+const VER_AGENDA = new RegExp([
+  String.raw`(?<!\p{L})(?:mi\s+|la\s+|el\s+)?(?:agenda|calendario)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:tengo|hay)\s+(?:algo|alguna?\s+(?:reuni[oó]n|cita|llamada)|reuniones|citas|llamadas)(?!\p{L})`,
+  String.raw`(?<!\p{L})qu[eé]\s+tengo\s+(?:hoy|ma[ñn]ana|el|esta|a\s+las)(?!\p{L})`,
+].join('|'), 'iu');
+// «agenda» con artículo o posesivo («la agenda», «mi agenda») es el SUSTANTIVO, no el imperativo «agendá».
+const AGENDAR = /(?<!\p{L})(?<!(?:la|mi|tu|su|una|esa|esta|de)\s+)(?:re)?agend(?:a|á|ar|ame|ale|ales|alo|ala|ámelo|ámela|emos|é)(?!\p{L})/iu;
+export function pideVerAgenda(texto: string): boolean {
+  const t = texto || '';
+  return VER_AGENDA.test(t) && !AGENDAR.test(t);
+}
+
 const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'tu Claude', openai: 'tu GPT', gemini: 'tu Gemini' };
 
 /** Las claves del negocio que están FALLANDO ahora: su último fallo es más nuevo que su último «anduvo». */

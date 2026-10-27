@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, clavesQueFallan, reportaFalla } from '../lib/doer-falla';
+import { bloqueDeLaFalla, clavesQueFallan, pideVerAgenda, reportaFalla } from '../lib/doer-falla';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -39,7 +39,15 @@ test('2. la causa: su IA que viene fallando se dice primero; la que falló y des
 
 test('3. el doer: con un reporte, el ticket viaja aunque el turno no sea «actuar», y la nota va al system', () => {
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const reporta = reportaFalla\(sinPrefijoDeLote\(texto\)\);\n\s*const tools = reporta && !turno\.tools\.some\(\(t\) => t\.name === LEVANTAR_TICKET\) \? \[\.\.\.turno\.tools, \.\.\.TICKET_TOOLS\] : turno\.tools;/);
+  assert.match(doer, /const reporta = reportaFalla\(sinPrefijoDeLote\(texto\)\);\n\s*const conTicket = reporta && !turno\.tools\.some\(\(t\) => t\.name === LEVANTAR_TICKET\) \? \[\.\.\.turno\.tools, \.\.\.TICKET_TOOLS\] : turno\.tools;/);
+  assert.match(doer, /const tools = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
   assert.match(doer, /const ctxFalla = reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : '';/);
   assert.match(doer, /\$\{ctxFalla\}\$\{conMemoria\}`;/);
+});
+
+test('4. pedir VER la agenda trae agenda_del_dia (P6: mandaba a calendar.google.com); pedir agendar, no es esto', () => {
+  for (const f of ['abrime la agenda de google', 'mostrame el calendario de esta semana', 'tengo algo a las 15?', '¿qué tengo hoy?', 'pasame mi agenda'])
+    assert.ok(pideVerAgenda(f), `«${f}»`);
+  for (const f of ['agendame una reunión con Juan mañana', 'reagendá la de las 15', '¿cuántos leads entraron?'])
+    assert.ok(!pideVerAgenda(f), `«${f}»`);
 });
