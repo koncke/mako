@@ -582,17 +582,17 @@ export async function getConversacionesNoOficial(
     }
   }
 
-  // Nombre del contacto de WhatsApp (evolution_contactos, del evento contacts.upsert)
-  // para las convs que quedaron solo con el número (sin lead ni push_name entrante).
+  // EL NOMBRE DE LA AGENDA (evolution_contactos: la libreta del teléfono, de findContacts y contacts.upsert) le GANA al que
+  // el contacto se puso en WhatsApp (`push_name`): es como lo tiene agendado el negocio (27/10/2026, Martín: «en general no
+  // está tomando en cuenta el nombre que lo tenía agendado»). Hasta acá sólo llenaba las que quedaban con el número. El
+  // nombre del lead del CRM sigue ganando en Chats (`agruparPorContacto`).
   // Con `catch`: la agenda es un ADORNO del inbox (sin ella se ve el número), y
   // desde que la lectura pasó a paginar de verdad puede lanzar. Una agenda que
   // no se pudo leer no puede dejar al dueño sin inbox.
   const nombresContacto = await esperar(agendaP);
   if (nombresContacto.size) for (const c of convs) {
-    if (c.nombre === c.telefono || c.nombre === c.chatJid.replace(/@.*/, '') || c.nombre === 'Você') {
-      const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));
-      if (n) c.nombre = n;
-    }
+    const n = nombresContacto.get((c.telefono || '').replace(/\D/g, '').slice(-10));
+    if (n) c.nombre = n;
   }
 
   // #9: sumar los leads en 'Nutrición - Manual' que TODAVÍA no tienen mensajes,
@@ -872,7 +872,9 @@ export async function sincronizarDesdeEvolution(linea?: string | null): Promise<
     // webhook de contacts.upsert disparara alguna vez. Best-effort, como el
     // resto del importador.
     if (ch.pushName || ch.profilePicUrl) {
-      await upsertContacto(chatJid, ch.pushName ?? null, ch.profilePicUrl ?? null).catch(() => {});
+      // ⚠️ El nombre de findChats es el que el contacto se puso a sí mismo: NO pisa el de la agenda que se acaba de guardar
+      // (27/10/2026, Martín: «no está tomando en cuenta el nombre que lo tenía agendado»). Sólo llena el que falta.
+      await upsertContacto(chatJid, ch.pushName ?? null, ch.profilePicUrl ?? null, { nombreSiFalta: true }).catch(() => {});
     }
     // Mismo cuidado que en guardarMensajeUpsert: un chatJid que sigue en @lid no
     // tiene número real conocido — guardar su ID como teléfono es peor que nada.

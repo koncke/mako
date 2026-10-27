@@ -193,8 +193,11 @@ test('una cuota con un link vivo o un recordatorio corriendo lo dice, no ofrece 
   // Revisión del 16/10/2026: el server no deja editar una cuota con un recordatorio en curso («córtalo para editarla»)
   // ni cambiar el monto con un link sin pagar, y la tab no tenía dónde cortarlo: un callejón sin salida.
   assert.match(COBRO, /proteccionesDeCuotasAction\(lead\.id\)\.then\(\(p\) => \{ if \(vivo\) setProtegidas\(p\); \}\)/);
-  assert.match(COBRO, /const montoEditable = r\.editable && !prot\.includes\('link'\) && !prot\.includes\('recordatorio'\);/);
-  assert.match(COBRO, /const fechaEditable = r\.editable && !prot\.includes\('recordatorio'\);/);
+  // Desde el 27/10/2026 («no tiene LIBERTAD») lo que la protegía ya no esconde el campo: el server corta el recordatorio y
+  // anula el link al editar (tests/crm-feedback-27-10.test.ts). La cobrada A MANO también se edita en el lugar.
+  assert.match(COBRO, /const cobradaAMano = r\.estado === 'cobrada' && r\.accion === 'deshacer';/);
+  assert.match(COBRO, /const montoEditable = r\.editable \|\| cobradaAMano;/);
+  assert.match(COBRO, /const fechaEditable = r\.editable \|\| cobradaAMano;/);
   assert.match(COBRO, /\{montoEditable && !editando\s*\? <EnLinea valor=\{String\(Number\(q\.monto_usd\)\)\}/);
   assert.match(COBRO, /\{r\.accion === 'marcar' && prot\.includes\('recordatorio'\) && <Button[^\n]*onClick=\{\(\) => cortar\(q\)\}>Cortar el recordatorio<\/Button>/);
   assert.match(COBRO, /await cortarRecordatoriosCuotaAction\(lead\.id, q\.id\)/);

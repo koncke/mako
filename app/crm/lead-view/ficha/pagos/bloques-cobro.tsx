@@ -254,9 +254,13 @@ export function Cuotas(props: PropsBloque) {
         {lista.map((q) => {
           const r = renglonDeCuota(q, ctx.hoy);
           const prot = protegidas[q.id] ?? [];
-          // Con un recordatorio corriendo no se edita nada; con un link vivo, el monto no (el link cobra ese monto).
-          const montoEditable = r.editable && !prot.includes('link') && !prot.includes('recordatorio');
-          const fechaEditable = r.editable && !prot.includes('recordatorio');
+          // ⚠️ TODO SE EDITA EN EL LUGAR (27/10/2026, Martín: «Los pagos funcionan mal, no tiene LIBERTAD»). Antes, con un
+          // recordatorio corriendo no se editaba nada, con un link vivo el monto no, y una cobrada había que desmarcarla
+          // primero. Ahora el server corta el recordatorio, anula el link si cambia el monto y corrige la cobrada a mano en
+          // el lugar (`editarCuota`, lib/pagos.ts). Lo que cobró la pasarela no: es lo que entró.
+          const cobradaAMano = r.estado === 'cobrada' && r.accion === 'deshacer';
+          const montoEditable = r.editable || cobradaAMano;
+          const fechaEditable = r.editable || cobradaAMano;
           const saliendo = quitando.has(q.id);
           return (
             <div key={q.id} aria-busy={saliendo || undefined} style={{ ...renglon, borderColor: BORDE[r.estado] ?? 'var(--border)', opacity: saliendo ? 0.55 : r.estado === 'devuelta' || r.estado === 'baja' ? 0.7 : 1 }}>
@@ -269,12 +273,16 @@ export function Cuotas(props: PropsBloque) {
                     : r.montoTexto}
                 </span>
                 <span style={{ fontSize: 13, color: TONO_UI[r.tono] === 'bad' ? 'var(--bad)' : TONO_UI[r.tono] === 'warn' ? 'var(--warn)' : 'var(--dim)' }}>
-                  {fechaEditable && !editando
+                  {fechaEditable && !editando && cobradaAMano
+                    // La cobrada: el día del pago («cobrada el …»), y lo demás del renglón como estaba.
+                    ? <>cobrada el <EnLinea valor={(q.fecha_pago ?? '').slice(0, 10)} tipo="fecha" vacio="sin fecha" titulo={`Edita el día del pago de ${r.nombre.toLowerCase()}`}
+                      estilo={{ fontSize: 13, color: 'inherit' }} onGuardar={(v) => editar(q, { fecha: v || null })} />{r.cuando.includes(' · ') ? ` · ${r.cuando.split(' · ').slice(1).join(' · ')}` : ''}</>
+                    : fechaEditable && !editando
                     ? <EnLinea valor={q.fecha_esperada ?? ''} tipo="fecha" vacio="sin fecha" titulo={`Edita el vencimiento de ${r.nombre.toLowerCase()}`}
                       estilo={{ fontSize: 13, color: 'inherit' }} onGuardar={(v) => editar(q, { fecha: v || null })} />
                     : r.cuando}
                 </span>
-                {fechaEditable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
+                {r.editable && r.estado !== 'futura' && r.estado !== 'sin-fecha' && <span style={{ fontSize: 12.5, color: r.estado === 'vencida' ? 'var(--bad)' : 'var(--warn)' }}>{r.cuando.split(' · ')[1]}</span>}
                 {prot.includes('link') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--primary)' }}>Link enviado</span>}
                 {prot.includes('recordatorio') && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--warn)' }}>Recordatorio en curso</span>}
               </div>
@@ -321,7 +329,9 @@ export function Cuotas(props: PropsBloque) {
           ? <ArmarPlan ctx={ctx} onListo={(m) => { setArmando(false); if (m) show(m.texto, m.deshacer); }} />
           : (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {(conPlan || vivas.filter((q) => !q.pagado).length === 0) && lead.venta_tipo !== 'suscripcion' && (
+              {/* Siempre a mano (27/10/2026: «no tiene LIBERTAD»): con cuotas sueltas sin plan el botón se escondía; si el
+                  plan no se puede armar encima de lo que hay, el server lo dice en el mismo lugar. */}
+              {lead.venta_tipo !== 'suscripcion' && (
                 <Button variant="secondary" size="sm" onClick={() => setArmando(true)}>{conPlan ? 'Cambiar el plan' : 'Armar el plan'}</Button>
               )}
               <Button variant="tertiary" size="sm" onClick={cobrar.agregarCuota}>+ Agregar una cuota</Button>

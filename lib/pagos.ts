@@ -17,6 +17,7 @@ import { leerTodo, type ConsultaPaginada } from './supabase-paginado';
 import { VENTA_SIN_COBRO, ventaTipoDe, type VentaTipo } from './venta-tipo';
 import { faltaColumnaFunnel } from './funnels-elegidos';
 import { pasaAGanado } from './crm-curso-al-ganar-reglas';
+import { etapaContradiceElEstado } from './pipeline';
 import { centavos, diferenciaPendiente, type RestoDeCobro } from './pagos-diferencia';
 import {
   aplicarObligacion, avisoPlanUniforme, cuotasDelPlan, esCampoLeadDeal, esSeccionDeal, etiquetaDePago, fusionarCampo, pagoEnMoneda, patchDeVenta,
@@ -574,8 +575,13 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
   // ⚠️ ESTE UPDATE TAMBIÉN GANA: no pasa por updateLead, así que el enganche «al ganar» (la
   // invitación automática al curso, lib/crm-curso-al-ganar.ts) se llama acá. Por eso se lee
   // el estado de ANTES: sólo la transición invita, y guardar las cuotas de un ganado no.
-  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id, fecha_cierre').eq('id', leadId).maybeSingle();
+  const { data: antes } = await supabase.from('leads').select('estado_lead, funnel_id, fecha_cierre, pipeline_stage').eq('id', leadId).maybeSingle();
   const leadUpdate: Record<string, unknown> = { estado_lead: 'ganado', cerro: true };
+  // ⚠️ Y SI LA TARJETA TENÍA SU COLUMNA GUARDADA (Perdido, o una etapa abierta), VUELVE A LA DERIVACIÓN (27/10/2026, el
+  // lead 2371): ganaba acá y la tarjeta seguía en «Perdido» mientras Customer Success lo contaba como cliente
+  // (`etapaContradiceElEstado`, lib/pipeline.ts). Sólo en la transición: re-guardar el plan de un ganado no la toca.
+  const previa = antes as { estado_lead?: string | null; pipeline_stage?: string | null } | null;
+  if (previa && previa.estado_lead !== 'ganado' && etapaContradiceElEstado(previa.pipeline_stage, 'ganado')) leadUpdate.pipeline_stage = null;
   if (p.total_usd != null) leadUpdate.monto_cierre_usd = p.total_usd;
   if (p.duracion_meses != null) leadUpdate.duracion_meses = p.duracion_meses;
   // ⚠️ LO QUE GANA LLEVA SU FECHA DE CIERRE (21/10/2026, quinta revisión): una suscripción ganada desde el asistente con
@@ -605,12 +611,19 @@ export async function saveLeadPlanManual(leadId: number, p: PlanManual): Promise
 }
 
 /**
- * Edita UNA cuota impaga por su id: el monto, el vencimiento o los dos, sin borrar ni reinsertar nada (el link,
- * el recordatorio y el dedup siguen apuntando a la misma cuota). Lo que no se puede, lo dice:
- *   · una cuota cobrada se corrige desde el pago (desmarcarla), no acá: su monto es lo que entró;
- *   · con un link sin pagar, el monto no cambia (el link cobraría otro); la fecha sí;
- *   · con un recordatorio corriendo, nada: el recordatorio lleva el monto y la fecha de ESTA cuota.
- * Devuelve el antes y el después (para el historial y para Deshacer, que llama a esta misma función).
+ * Edita UNA cuota por su id: el monto, la fecha o los dos, sin borrar ni reinsertar nada (el link, el recordatorio y el
+ * dedup siguen apuntando a la misma cuota). En una impaga la fecha es el VENCIMIENTO; en una cobrada a mano, el DÍA DEL
+ * PAGO. Devuelve el antes y el después (para el historial y para Deshacer, que llama a esta misma función).
+ *
+ * ⚠️ SIN TRÁMITES (27/10/2026, Martín: «Los pagos funcionan mal, no tiene LIBERTAD»). Hasta acá se rechazaba y había que
+ * hacer otra cosa antes: «desmárcala primero» (una cobrada), «córtalo para editarla» (un recordatorio corriendo), «anúlalo
+ * para cambiar el monto» (un link sin pagar). Ahora se edita, y lo que quedaba viejo se arregla solo:
+ *   · una cobrada A MANO se corrige en el lugar (monto y día del pago) y lo cobrado del lead se recalcula;
+ *   · un recordatorio corriendo se corta (llevaba el monto y la fecha de antes) y la cobranza la vuelve a tomar con los
+ *     nuevos (`olvidarAvisosDeCuotas`);
+ *   · un link sin pagar, si cambia el MONTO, se anula (cobraría el viejo); si cambia sólo la fecha, sigue.
+ * Lo único que no se toca: lo que cobró la PASARELA (su monto es lo que entró por Stripe o Mercado Pago; se corrige
+ * devolviéndolo), una cuota devuelta y la de un cliente dado de baja.
  */
 export async function editarCuota(
   leadId: number,
@@ -622,10 +635,10 @@ export async function editarCuota(
   const { data, error } = await db.from('pagos').select('*').eq('id', pagoId).eq('lead_id', leadId).maybeSingle();
   if (error) throw new Error(`Error leyendo la cuota ${pagoId}: ${error.message}`);
   if (!data) throw new Error('Esa cuota no existe en este lead.');
-  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at?: string | null };
-  if (q.pagado) throw new Error('Esa cuota ya está cobrada: para corregirla, desmárcala primero.');
+  const q = data as { numero: number; monto_usd: number; fecha_esperada: string | null; fecha_pago?: string | null; pagado: boolean; proveedor: string | null; cobro_id: number | null; baja_at?: string | null };
   if (esCuotaDevuelta(q)) throw new Error('Esa cuota se devolvió: no se edita.');
   if (esCuotaDeBaja(q)) throw new Error('El cliente se dio de baja: deshaz la baja para editar esa cuota.');
+  if (q.pagado) return editarCuotaCobrada(leadId, pagoId, q, cambio);
   const antes = { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_esperada };
   const despues = { ...antes };
   if (cambio.monto !== undefined) {
@@ -641,13 +654,59 @@ export async function editarCuota(
   const cambiaFecha = despues.fecha_esperada !== antes.fecha_esperada;
   if (!cambiaMonto && !cambiaFecha) return { antes, despues, numero: q.numero };
   const prot = (await proteccionesDeCuotas(leadId, [pagoId])).get(pagoId) ?? [];
-  if (prot.includes('recordatorio')) throw new Error('Tiene un recordatorio de cobro en curso: córtalo para editarla.');
-  if (prot.includes('link') && cambiaMonto) throw new Error('Tiene un link de pago sin pagar: anúlalo para cambiar el monto.');
   const { data: hecho, error: e2 } = await db.from('pagos').update({ monto_usd: despues.monto_usd, fecha_esperada: despues.fecha_esperada })
     .eq('id', pagoId).eq('lead_id', leadId).eq('pagado', false).select('id');
   if (e2) throw new Error(`Error guardando la cuota ${pagoId}: ${e2.message}`);
   if (!hecho?.length) throw new Error('La cuota cambió mientras tanto (¿se cobró?). Recarga la ficha.');
+  // Lo que protegía a la cuota se arregla DESPUÉS de guardarla (si el guardado falla, queda como estaba). Nunca tumba la
+  // edición: lo peor es un recordatorio o un link con lo de antes, que es lo que pasaba siempre.
+  const ws = prot.length ? await getWorkspaceActual() : null;
+  if (ws != null && prot.includes('recordatorio')) {
+    try {
+      const { cerrarCorridasDeCuota } = await import('./flujo-corridas');
+      await cerrarCorridasDeCuota(ws, pagoId);
+    } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude cortar su recordatorio:`, e instanceof Error ? e.message : e); }
+  }
+  if (ws != null && prot.includes('link') && cambiaMonto) {
+    try {
+      const { anularLinksDeCuota } = await import('./cobros');
+      await anularLinksDeCuota(ws, pagoId, 'MaKo (cambió el monto de la cuota)');
+    } catch (e) { console.error(`[pagos] cuota ${pagoId}: no pude anular su link:`, e instanceof Error ? e.message : e); }
+  }
   await olvidarAvisosDeCuotas(cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]));
+  return { antes, despues, numero: q.numero };
+}
+
+/**
+ * Corrige una cuota COBRADA A MANO en el lugar (27/10/2026): el monto que entró y el día del pago (`cambio.fecha`). Lo que
+ * cobró la pasarela no: ése es el monto que entró por Stripe o Mercado Pago. Lo cobrado del lead se recalcula. En `antes` y
+ * `despues`, `fecha_esperada` es el DÍA DEL PAGO (el Deshacer manda lo mismo de vuelta por `editarCuota`).
+ */
+async function editarCuotaCobrada(
+  leadId: number,
+  pagoId: number,
+  q: { numero: number; monto_usd: number; fecha_pago?: string | null; proveedor: string | null; cobro_id: number | null },
+  cambio: { monto?: number | null; fecha?: string | null },
+): Promise<{ antes: { monto_usd: number; fecha_esperada: string | null }; despues: { monto_usd: number; fecha_esperada: string | null }; numero: number }> {
+  if (q.proveedor || q.cobro_id != null) throw new Error('Esa cuota la cobró la pasarela: su monto es lo que entró. Si hay que corregirla, devuélvela desde su link.');
+  const antes = { monto_usd: Number(q.monto_usd), fecha_esperada: q.fecha_pago ? String(q.fecha_pago).slice(0, 10) : null };
+  const despues = { ...antes };
+  if (cambio.monto !== undefined) {
+    const m = Number(cambio.monto);
+    if (!Number.isFinite(m) || m <= 0) throw new Error('El monto tiene que ser mayor a cero.');
+    despues.monto_usd = centavos(m);
+  }
+  if (cambio.fecha !== undefined) {
+    if (cambio.fecha == null || !/^\d{4}-\d{2}-\d{2}$/.test(cambio.fecha)) throw new Error('El día del pago tiene que ser AAAA-MM-DD.');
+    despues.fecha_esperada = cambio.fecha;
+  }
+  if (Math.abs(despues.monto_usd - antes.monto_usd) < 0.005 && despues.fecha_esperada === antes.fecha_esperada) return { antes, despues, numero: q.numero };
+  const db = await getTenantDb();
+  const { data: hecho, error } = await db.from('pagos').update({ monto_usd: despues.monto_usd, fecha_pago: despues.fecha_esperada })
+    .eq('id', pagoId).eq('lead_id', leadId).eq('pagado', true).select('id');
+  if (error) throw new Error(`Error guardando la cuota ${pagoId}: ${error.message}`);
+  if (!hecho?.length) throw new Error('La cuota cambió mientras tanto (¿se desmarcó?). Recarga la ficha.');
+  await sincronizarTotalCobrado(leadId);
   return { antes, despues, numero: q.numero };
 }
 

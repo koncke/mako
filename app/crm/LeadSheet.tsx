@@ -146,7 +146,8 @@ export function LeadSheet({ data, onClose, initialTab, solucionarAlAbrir, verDat
   const [moverDirecto, setMoverDirecto] = useState<string | null>(null);
   const pickStage = (k: string) => {
     if (!k || k === stageKey) return;
-    if (pideWizardAlElegir(stages, k)) setMoveTo(k); else setMoverDirecto(k);
+    if (pideWizardAlElegir(stages, k, { fechaJ1: lead.fecha_junta_1, fechaJ2: lead.fecha_junta_2, asistioJ1: lead.asistio_j1, asistioJ2: lead.asistio_j2 })) setMoveTo(k);
+    else setMoverDirecto(k);
   };
 
   const doDelete = () => {

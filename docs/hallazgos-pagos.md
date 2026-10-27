@@ -1266,3 +1266,25 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
 - **Medido para el diseño:** la `post_pago` del ws1 está ARCHIVADA (a quien paga no le llega bienvenida); el ws10 también
   tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
   `marketing_attributions` en null) y son anteriores al Pixel en la página.
+
+## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
+
+Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan
+tampoco el $ en el total de la columna cuando es suscripción».
+
+- **Cada «no se puede» mandaba a hacer otra cosa antes**: una cobrada, «desmárcala primero»; con un recordatorio corriendo,
+  «córtalo para editarla»; con un link sin pagar, «anúlalo para cambiar el monto». Y en la pantalla el campo directamente no
+  aparecía (`montoEditable` / `fechaEditable` lo escondían por la protección). Ahora `editarCuota` (lib/pagos.ts) edita y
+  arregla lo que quedaba viejo DESPUÉS de guardar: corta el recordatorio (llevaba el monto y la fecha de antes; la cobranza la
+  vuelve a tomar con `olvidarAvisosDeCuotas`), anula el link si cambió el monto, y una cobrada A MANO se corrige en el lugar
+  (monto y día del pago) con lo cobrado del lead recalculado (`sincronizarTotalCobrado`). Lo único que no: lo que cobró la
+  PASARELA (es lo que entró), una devuelta y la de un cliente dado de baja.
+- **«Armar el plan» se escondía** con cuotas sueltas sin plan: ahora está siempre (salvo suscripción), y si no se puede armar
+  encima de lo que hay, el server lo dice en el mismo lugar.
+- **El total de Ganado no sumaba las suscripciones** (decisión del 12/10: «un total no puede mezclar una vez con por mes»).
+  Martín lo pidió al revés: ahora suma la mensualidad (la misma «/mes» de la tarjeta); sólo suscripciones, «$444/mes»; mezclado,
+  la suma y el `title` separa las dos (`app/crm/total-columna.ts`).
+
+**Sin hacer:** el plan uniforme sigue de 1 a 6 cuotas y el día de pago de 1 a 28 (CHECK de la mig 0014: subirlo pide una
+migración; «+ Agregar una cuota» no tiene ese tope) · editar una cobrada no deja su línea en el historial con la palabra
+«pago» (dice «vencimiento», `lineasDeCuotas`).

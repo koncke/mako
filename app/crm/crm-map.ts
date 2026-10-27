@@ -128,7 +128,8 @@ export function mapToCrmLead(
      * tablero que miente y uno que avisa.
      */
     stageFuera: huerfano ? override : null,
-    name: l.nombre,
+    // Un lead puede nacer SIN nombre desde un chat (27/10/2026: nunca con el teléfono de nombre): la tarjeta lo dice.
+    name: l.nombre?.trim() || 'Sin nombre',
     email: l.email ?? '',
     company: l.empresa ?? 'Sin empresa',
     origin: origenLegible(l, campMap),

@@ -56,7 +56,7 @@ test('Borradores y Bloqueados aparecen sólo con algo adentro; las fijas, siempr
   const cero = { abiertas: 0, nuevos: 0 };
   const c: ConteosBandeja = {
     todos: { abiertas: 5, nuevos: 2 }, mios: cero, sinAsignar: cero, mako: cero, borradores: cero, bloqueados: cero,
-    porCanal: { whatsapp: cero, instagram: cero, messenger: cero, email: cero }, porCuenta: {}, porEtapa: {},
+    porCanal: { whatsapp: cero, instagram: cero, messenger: cero, email: cero }, porCuenta: {}, porEtapa: {}, porFunnel: {}, porEtapaEnFunnel: {},
   };
   assert.deepEqual(bandejasVisibles(c).map((b) => b.id), ['todos', 'mios', 'sin-asignar', 'mako']);
   assert.deepEqual(conteoDeBandeja(c, 'todos'), { n: 2, nuevos: true }, 'la píldora de una bandeja cuenta lo NUEVO');

@@ -9,12 +9,13 @@ import { getTenantDb } from '@/lib/workspace';
 import { leerTodo } from '@/lib/supabase-paginado';
 import { jidToNumero } from '@/lib/evolution';
 import { normalizarTelefono } from '@/lib/leads';
+import { nombreUsable } from '@/lib/contacto-lead';
 
 const digs = (s: string | null) => (s || '').replace(/\D/g, '');
 
 // Upsert desde contacts.upsert. Solo pisamos con valores no vacíos (el evento a
 // veces trae solo el nombre o solo la foto).
-export async function upsertContacto(remoteJid: string, nombre: string | null, fotoUrl: string | null): Promise<void> {
+export async function upsertContacto(remoteJid: string, nombre: string | null, fotoUrl: string | null, opts?: { nombreSiFalta?: boolean }): Promise<void> {
   // @lid es un alias interno de Meta para contactos no agendados (Android), NO
   // un número: jidToNumero() le pela el "@lid" igual que a cualquier otro jid, y
   // ese ID de 15 dígitos quedaba guardado como si fuera el teléfono — así
@@ -23,9 +24,17 @@ export async function upsertContacto(remoteJid: string, nombre: string | null, f
   if (!remoteJid || remoteJid.endsWith('@g.us') || remoteJid.startsWith('status@') || remoteJid.endsWith('@lid')) return;
   const tel = digs(normalizarTelefono(jidToNumero(remoteJid)) || jidToNumero(remoteJid));
   if (!tel) return;
-  const nom = nombre && nombre !== 'Você' ? nombre : null;
+  // ⚠️ UN «NOMBRE» HECHO DE DÍGITOS ES EL TELÉFONO (27/10/2026): Evolution le pone su número de nombre a un contacto sin
+  // nombre, y guardado acá terminaba como el nombre del lead («en NOMBRE se pone el teléfono»).
+  let nom = nombreUsable(nombre, tel);
   if (!nom && !fotoUrl) return;
   const supabase = await getTenantDb();
+  // `nombreSiFalta`: el nombre que el contacto se puso a sí mismo (findChats) no pisa el de la agenda ya guardado.
+  if (nom && opts?.nombreSiFalta) {
+    const { data } = await supabase.from('evolution_contactos').select('nombre').eq('telefono', tel).limit(1);
+    if (nombreUsable(((data ?? []) as Array<{ nombre: string | null }>)[0]?.nombre, tel)) nom = null;
+    if (!nom && !fotoUrl) return;
+  }
   const patch: Record<string, unknown> = { telefono: tel, updated_at: new Date().toISOString() };
   if (nom) patch.nombre = nom;
   if (fotoUrl) patch.foto_url = fotoUrl;
@@ -45,7 +54,7 @@ export async function upsertContactosLote(
     if (!c.remoteJid || c.remoteJid.endsWith('@g.us') || c.remoteJid.startsWith('status@') || c.remoteJid.endsWith('@lid')) continue;
     const tel = digs(normalizarTelefono(jidToNumero(c.remoteJid)) || jidToNumero(c.remoteJid));
     if (!tel) continue;
-    const nom = c.nombre && c.nombre !== 'Você' ? c.nombre : null;
+    const nom = nombreUsable(c.nombre, tel);
     if (!nom && !c.fotoUrl) continue;
     // Una fila por teléfono: el upsert falla si el lote trae la misma clave dos veces.
     const prev = porTel.get(tel) ?? { telefono: tel, updated_at: ahora };
@@ -74,6 +83,27 @@ export async function getFotoContacto(telefono: string): Promise<string | null> 
     .limit(1);
   const fila = ((data ?? []) as Array<{ foto_url: string | null }>)[0];
   return fila?.foto_url ?? null;
+}
+
+/**
+ * EL NOMBRE CON QUE LO TIENE AGENDADO el negocio (la libreta de su teléfono, `evolution_contactos.nombre`), por los últimos
+ * 10 dígitos; null si no hay o es el número (27/10/2026: el alta desde Chats no lo miraba). Tira si no pudo leer.
+ */
+export async function getNombreContacto(telefono: string | null | undefined): Promise<string | null> {
+  const k = digs(telefono ?? '').slice(-10);
+  if (k.length < 8) return null;
+  const supabase = await getTenantDb();
+  const { data, error } = await supabase
+    .from('evolution_contactos').select('telefono, nombre')
+    .not('nombre', 'is', null)
+    .like('telefono', `%${k}`)
+    .limit(5);
+  if (error) throw new Error(`evolution_contactos (nombre): ${error.message}`);
+  for (const r of (data ?? []) as Array<{ telefono: string; nombre: string | null }>) {
+    const n = nombreUsable(r.nombre, r.telefono);
+    if (n) return n;
+  }
+  return null;
 }
 
 /** Teléfonos (últimos 10) que TIENEN foto de perfil guardada. */
@@ -106,7 +136,8 @@ export async function getNombresContacto(): Promise<Map<string, string>> {
   );
   for (const r of filas) {
     const k = digs(r.telefono).slice(-10);
-    if (k && r.nombre && !m.has(k)) m.set(k, r.nombre);
+    const n = nombreUsable(r.nombre, r.telefono);
+    if (k && n && !m.has(k)) m.set(k, n);
   }
   return m;
 }
