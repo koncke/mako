@@ -1328,7 +1328,7 @@ export const AREAS: AreaDev[] = [
     slug: 'file-storage', titulo: 'File Storage', familia: 'Infra', grupo: 'Datos',
     estado: 'listo',
     alcance: 'Los buckets privados de Supabase Storage y las URLs firmadas de vida corta: nada se sirve directo, cada descarga pasa por un route handler que autoriza primero.',
-    vive: ['lib/archivero.ts', 'lib/branding.ts', 'lib/persona.ts', 'lib/evolution-media.ts', 'lib/setting-audios.ts', 'lib/reset-workspace.ts', 'app/api/ads-manager/creative-upload/route.ts', 'app/api/ads-manager/creative-signurl/route.ts'],
+    vive: ['lib/archivero.ts', 'lib/branding.ts', 'lib/persona.ts', 'lib/evolution-media.ts', 'lib/setting-audios.ts', 'lib/reset-workspace.ts', 'app/api/ads-manager/creative-signurl/route.ts'],
   },
   {
     slug: 'caching-revalidation', titulo: 'Caching & Revalidation', familia: 'Infra', grupo: 'Datos',

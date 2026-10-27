@@ -119,7 +119,7 @@ export type CreativeSource = 'upload' | 'existing';
 
 export type Creative = {
   source: CreativeSource;
-  // source === 'upload': se resuelve con /api/ads-manager/creative-upload
+  // source === 'upload': lo resolvía /api/ads-manager/creative-upload (borrada el 27/10/2026 con el Ads Manager viejo)
   media_type?: 'image' | 'video';
   image_hash?: string | null; // de act_<id>/adimages
   video_id?: string | null; // de act_<id>/advideos
@@ -174,7 +174,7 @@ export type CampaignSpec = {
   identidad?: { pageId: string; instagramId: string | null } | null;
 };
 
-// Resultado de subir un creativo (lo devuelve /api/ads-manager/creative-upload).
+// Resultado de subir un creativo (lo devolvía /api/ads-manager/creative-upload, borrada el 27/10/2026).
 export type UploadResult = {
   media_type: 'image' | 'video';
   image_hash?: string | null;

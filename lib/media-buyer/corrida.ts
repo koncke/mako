@@ -14,7 +14,7 @@ import 'server-only';
 import { hoyEnTijuana } from '@/lib/date-utils';
 import { proponer, objetivoRecomendado, type DecisionPrevia } from './motor';
 import { leerConfig, leerDecisiones, guardarPropuestas, vencerViejas, marcarCorrida, MediaBuyerSinTabla, cupoDe } from './store';
-import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
+import { lugaresParaPropios, modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { resolverTacticas } from './tacticas';
 import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio } from './datos';
 import { prepararVariaciones } from './variaciones';
@@ -116,8 +116,11 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   const yaGuardadas = new Set(decisiones.map((d) => d.clave));
   // Los agentes PROPIOS (una regla escrita en palabras, agentes-propios.ts): la IA del negocio la mira contra la cuenta y
   // deja acciones con la táctica `manual`, que el piloto no lanza nunca (abajo, `automaticas`). Entran al cupo al final.
-  const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas });
-  const { orden, lugares } = ordenDelCupo([...props, ...propios.propuestas].filter((p) => !yaGuardadas.has(p.clave)), recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
+  // Se les pregunta sólo si queda lugar en el cupo después de lo nuevo del motor, que entra antes (falla 9 de tren-m).
+  const yaHoy = recomendadasHoy(decisiones, hoy);
+  const libres = lugaresParaPropios(props.filter((p) => !yaGuardadas.has(p.clave)).length, yaHoy, cupo.recomendacionesDia);
+  const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas, lugares: libres });
+  const { orden, lugares } = ordenDelCupo([...props, ...propios.propuestas].filter((p) => !yaGuardadas.has(p.clave)), yaHoy, cupo.recomendacionesDia);
   let quedan = lugares;
   let fueraDelCupo = 0;
   const sinVariaciones: string[] = [];

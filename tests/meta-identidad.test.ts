@@ -56,11 +56,8 @@ test('la identidad elegida llega a todo lo que publica, y se valida antes de cre
   // El creativo nuevo, el formulario y el objeto promocionado usan la página efectiva.
   assert.match(lib, /return \{ page_id: await paginaDe\(identidad\), video_data \};/);
   assert.match(lib, /return \{ page_id: await paginaDe\(identidad\) \};/);
-  const ruta = leer('app/api/ads-manager/campaign-create/route.ts');
-  assert.match(ruta, /validarIdentidad\(spec\.identidad/);
-  // Desde el 23/10 la ruta crea el anuncio con `crearAnuncioEnConjunto` (Meta o Zernio): la identidad viaja
-  // hasta las DOS salidas — el creativo de Meta y el cuerpo de Zernio (página e Instagram elegidos).
-  assert.match(ruta, /crearAnuncioEnConjunto\(adsetId, ad, spec\.identidad\)/);
+  // (27/10/2026: la ruta campaign-create, que validaba la identidad elegida, se borró con el Ads Manager viejo; queda la lib.)
+  // La identidad viaja hasta las DOS salidas — el creativo de Meta y el cuerpo de Zernio (página e Instagram elegidos).
   assert.match(lib, /createAdCreative\(ad\.creative, ad\.name, identidad\)/);
   assert.match(lib, /paginaDe\(identidad\),\s*getInstagramActorId\(identidad\),/);
 });

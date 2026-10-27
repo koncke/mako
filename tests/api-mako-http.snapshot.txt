@@ -461,6 +461,7 @@ poner_filtro_video
 poner_fundido_video
 poner_transicion_video
 posponer_item_plan_retro
+preparar_subida_media_buyer
 probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
@@ -553,6 +554,7 @@ sembrar_kpis_sugeridos
 separar_audio_video
 silenciar_clip_video
 snapshot_funnel_experimentos
+subir_creativos_media_buyer
 sugerencias_crm
 sugerir_kpis
 sugerir_productos

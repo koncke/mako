@@ -52,5 +52,13 @@ export function ordenDelCupo<T extends { tactica: Tactica }>(nuevas: readonly T[
 export const recomendadasHoy = (decisiones: readonly { clave: string; tactica: Tactica }[], hoy: string): number =>
   decisiones.filter((d) => (d.tactica !== 'manual' || d.clave.startsWith('propia:')) && d.clave.endsWith(`:${hoy}`)).length;
 
+/**
+ * Cuántos lugares del cupo de HOY quedan para los agentes propios: lo nuevo del motor entra antes (`PRIORIDAD`, `manual` va
+ * última). Con cero, preguntarle a un agente es gastar la IA del negocio en una respuesta que se descarta en cada corrida
+ * (verificación de tren-m, falla 9). Sin cupo (Pro), siempre hay lugar.
+ */
+export const lugaresParaPropios = (nuevasDelMotor: number, yaHoy: number, cupo: number | null): number =>
+  cupo == null ? Infinity : Math.max(0, cupo - yaHoy - nuevasDelMotor);
+
 export const textoCupo = (n: number): string =>
   `Tu plan trae ${n} ${n === 1 ? 'recomendación' : 'recomendaciones'} por día. Pasa a MaKo Pro para tenerlas todas y el piloto automático.`;

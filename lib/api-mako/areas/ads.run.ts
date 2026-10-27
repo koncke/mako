@@ -20,15 +20,21 @@ import { leerConfig as leerConfigMB, leerDecisiones as leerDecisionesMB, leerDec
 import { modoEfectivo as modoEfectivoMB } from '@/lib/media-buyer/plan';
 import { ORDEN_TACTICAS, TACTICAS, resolverTacticas, validarTacticas, type TacticaAuto } from '@/lib/media-buyer/tacticas';
 import { lanzar as lanzarMB, deshacer as deshacerMB } from '@/lib/media-buyer/ejecutar';
+import { revisarMontoEditado } from '@/lib/media-buyer/monto';
+import { fmtDinero } from '@/lib/format';
 import { leerDatosCuenta as leerDatosCuentaMB, SinCuentaParaOperar as SinCuentaMB } from '@/lib/media-buyer/datos';
 import { llevarHooksAlVideo as llevarHooksAlVideoMB } from '@/lib/media-buyer/hooks-video';
 import { analizarCuenta as analizarCuentaMB } from '@/lib/media-buyer/corrida';
 import type { Decision as DecisionMB } from '@/lib/media-buyer/tipos';
-import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambiarAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
+import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_DE_ESTADO, cambioDeAgente, estadoDeAgente, type AgenteMako, type EstadoAgente } from '@/lib/media-buyer/agentes';
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
 import { campanasRetenidas } from '@/lib/media-buyer/productos';
+import { conjuntosDe as conjuntosDeMB, plantillaDelConjunto as plantillaDelConjuntoMB, revisarSubida as revisarSubidaMB, subirCreativos as subirCreativosMB } from '@/lib/media-buyer/subir';
+import { leerPedidoDeSubida, NOMBRE_CTA as NOMBRE_CTA_SUBIDA } from '@/lib/media-buyer/creativos';
+import { esPathDeStaging } from '@/lib/ads-staging';
+import { barrerStagingViejo, faltanEnStaging, firmarSubidaDeStaging } from '@/lib/ads-staging-firma';
 import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
@@ -1019,6 +1025,14 @@ export const RUNNERS: Runners = {
       if (!['abierta', 'fallida', 'bloqueada'].includes(d.estado)) return { error: `Esa decisión ya está ${d.estado}.` };
       const presupuesto = num(input, 'presupuesto');
       if (presupuesto != null && d.despues?.presupuesto == null) return { error: 'Esa decisión no cambia un presupuesto: no lleva monto.' };
+      // Lo mismo que «Editar» en la pantalla (monto.ts → revisarMontoEditado): subir cinco veces o más no sale; bajar 80% o más
+      // sí, y la confirmación de la pantalla lo dice con todas las letras, que es lo que confirma la persona (va `confirmarBaja`).
+      let baja: string | null = null;
+      if (presupuesto != null) {
+        const rev = revisarMontoEditado(presupuesto, d.antes?.presupuesto ?? null, { fmt: (n) => fmtDinero(n, d.moneda) });
+        if (!rev.ok && !rev.confirmar) return { error: rev.error };
+        if (!rev.ok) baja = rev.error;
+      }
       const variaciones = Array.isArray(input.variaciones) ? input.variaciones.filter((x): x is string => typeof x === 'string').slice(0, 20) : null;
       if (variaciones && !d.variaciones?.length) return { error: 'Esa decisión no tiene variaciones para elegir.' };
       if (variaciones) {
@@ -1033,11 +1047,18 @@ export const RUNNERS: Runners = {
       const textos = salen ? d.variaciones!.filter((v) => salen.includes(v.id))
         .map((v) => `«${[v.gancho, v.textoPrincipal, v.titulo ? `Título: ${v.titulo}` : null].filter(Boolean).join(' / ')}»`).join(' · ') : '';
       const extra = [presupuesto != null ? `con ${presupuesto} por día` : null, salen ? `${salen.length} ${salen.length === 1 ? 'texto' : 'textos'}` : null].filter(Boolean).join(', ');
-      return { payload: { decisionId: id, presupuesto, variaciones: salen }, resumen: `Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}` };
+      return {
+        payload: { decisionId: id, presupuesto, variaciones: salen, ...(baja ? { confirmarBaja: true } : {}) },
+        resumen: `${baja ? `⚠️ ${baja} ` : ''}Lanzar: ${d.titulo}${extra ? ` (${extra})` : ''}. ${d.titular}.${textos ? ` Salen: ${textos}` : ''}`,
+      };
     },
     ejecutar: async (payload, ctx) => {
       const quien = quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)';
-      const opts = { presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto), elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined };
+      const opts = {
+        presupuesto: payload.presupuesto == null ? undefined : Number(payload.presupuesto),
+        elegidas: Array.isArray(payload.variaciones) ? (payload.variaciones as string[]) : undefined,
+        bajaConfirmada: payload.confirmarBaja === true,
+      };
       const r = await lanzarMB(ctx.ws, String(payload.decisionId), { nombre: quien, origen: 'persona' }, opts);
       return r.ok ? { ok: true, resumen: `Lanzada: ${r.decision.titulo}.${r.ajuste ? ` ${r.ajuste}` : ''}` } : { ok: false, resumen: r.error };
     },
@@ -1265,15 +1286,14 @@ export const RUNNERS: Runners = {
       if (input.umbrales != null) cambio.parametros = input.umbrales;
       if (Array.isArray(input.campanas)) cambio.campanas = input.campanas.length ? input.campanas : null;
       if (!Object.keys(cambio).length) return { error: 'No pasaste nada para cambiar.', faltan: ['estado', 'umbrales', 'campanas'] };
-      const config = await leerConfigMB(ctx.ws);
-      const actual = config.tacticas[t] ?? {};
-      const tacticas = { ...config.tacticas, [t]: { ...actual, ...cambio, parametros: { ...(actual.parametros ?? {}), ...((cambio.parametros as Record<string, number>) ?? {}) } } };
-      const v = validarTacticas(tacticas);
+      // Sólo lo que se cambia: se confirma más tarde, y el servidor lo mezcla campo por campo con lo guardado en ese momento
+      // (tacticas.ts → mezclarTacticas). Con la táctica entera, la confirmación pisaba lo que otro cambió en el medio (falla 2).
+      const v = validarTacticas({ [t]: cambio });
       if (!v.ok) return { error: v.error };
       if (v.valor[t]?.estado === 'automatica' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
       const partes = [
         estado ? `queda ${estado === 'automatica' ? 'automática' : estado}` : null,
-        cambio.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
+        v.valor[t]?.parametros ? `umbrales: ${Object.entries(v.valor[t]?.parametros ?? {}).map(([k, x]) => `${k} ${x}`).join(', ')}` : null,
         'campanas' in cambio ? (cambio.campanas ? `cubre ${(cambio.campanas as string[]).length} campañas` : 'cubre toda la cuenta') : null,
       ].filter(Boolean);
       return { payload: { tacticas: v.valor }, resumen: `${TACTICAS[t].nombre}: ${partes.join(' · ')}.` };
@@ -1291,8 +1311,7 @@ export const RUNNERS: Runners = {
       if (!AGENTES_MAKO.includes(a)) return { error: 'agente tiene que ser estratega, media_buyer, disenador o protect.', faltan: ['agente'] };
       if (!(estado in TACTICA_DE_ESTADO)) return { error: 'estado tiene que ser pausado, propone o automatico.', faltan: ['estado'] };
       if (estado === 'automatico' && !(await cupoMB(ctx.ws)).piloto) return { error: new PlanSinPiloto().message };
-      const config = await leerConfigMB(ctx.ws);
-      const v = validarTacticas(cambiarAgente(config.tacticas, a, TACTICA_DE_ESTADO[estado]));
+      const v = validarTacticas(cambioDeAgente(a, TACTICA_DE_ESTADO[estado]));
       if (!v.ok) return { error: v.error };
       const que = estado === 'pausado' ? 'queda pausado' : estado === 'propone' ? 'propone y espera a una persona' : 'lanza solo, dentro de los topes';
       return { payload: { tacticas: v.valor }, resumen: `${NOMBRE_AGENTE[a]} ${que}.` };
@@ -1352,6 +1371,87 @@ export const RUNNERS: Runners = {
         mejores: (vista?.mejores ?? []).map((a) => ({ adId: a.adId, nombre: a.nombre, campana: a.campana, gastoMes: a.gasto, resultadosMes: a.resultados, costoMes: a.costo })),
         lanzados: decisiones.filter((d) => d.estado === 'aplicada' && (esVariacion(d) || d.tipo === 'crear_anuncios')).map(corta),
       });
+    },
+  },
+  preparar_subida_media_buyer: {
+    leer: async (input, ctx) => {
+      // Lo mismo que «Subir creativos» de la pantalla: los conjuntos y los textos de partida (/api/media-buyer → subir_preparar)
+      // y una firma por archivo (creative-signurl), con las MISMAS funciones (lib/media-buyer/subir.ts, lib/ads-staging-firma.ts).
+      let datos: Awaited<ReturnType<typeof leerDatosCuentaMB>>;
+      try { datos = await leerDatosCuentaMB(ctx.ws); } catch (e) {
+        if (e instanceof SinCuentaMB) return J({ conectada: false, nota: e.message });
+        throw e;
+      }
+      const conjuntos = conjuntosDeMB(datos);
+      const adsetId = str(input, 'adsetId');
+      if (adsetId && !conjuntos.some((c) => c.id === adsetId)) return J({ error: 'Ese conjunto no está en tu cuenta publicitaria.', conjuntos });
+      const plantilla = adsetId ? await plantillaDelConjuntoMB(ctx.ws, datos, adsetId) : null;
+      const nombres = (Array.isArray(input.nombres) ? input.nombres : []).filter((x): x is string => typeof x === 'string' && !!x.trim()).slice(0, 10);
+      const subidas: Array<{ nombre: string; path: string; subirA: string; cabeceras: Record<string, string> }> = [];
+      for (const nombre of nombres) {
+        const f = await firmarSubidaDeStaging(nombre);
+        if (!f.ok) throw new Error(`No pude preparar la subida de «${nombre}»: ${f.error}`);
+        // La apikey es la pública (la anon, la misma que lleva el navegador): el gateway de Supabase la pide además del token.
+        subidas.push({ nombre, path: f.path, subirA: f.signedUrl, cabeceras: { 'x-upsert': 'true', ...(f.apikey ? { apikey: f.apikey, authorization: `Bearer ${f.apikey}` } : {}) } });
+      }
+      // Cada firma barre lo que sobra del staging, como la de la pantalla.
+      if (subidas.length) after(() => barrerStagingViejo());
+      return J({
+        conectada: true,
+        zernio: !!datos.conexion,
+        ...(datos.conexion ? {} : { nota: 'Para publicar creativos nuevos conecta la cuenta por Zernio (con el token propio, Meta los rechaza: error 1885183).' }),
+        conjuntos,
+        ...(plantilla ? { textosDePartida: { ...plantilla.textos, deAnuncio: plantilla.deAnuncio } } : {}),
+        subidas,
+        ...(subidas.length ? { comoSubir: 'Un PUT por archivo a subirA, con esas cabeceras y el archivo como cuerpo. Después, subir_creativos_media_buyer con cada path. El archivo se borra a las 6 horas si no se publica.' } : {}),
+      });
+    },
+  },
+  subir_creativos_media_buyer: {
+    preparar: async (input, ctx) => {
+      // El pedido se lee como lo lee la pantalla (lib/media-buyer/creativos.ts → leerPedidoDeSubida), y lo que va a fallar falla
+      // ACÁ (revisarSubida y el staging), antes de que una persona lo confirme: confirmar no vuelve a `pendiente`.
+      const p = leerPedidoDeSubida({
+        adSetId: str(input, 'adsetId'), archivos: input.archivos, activo: input.activo,
+        textos: { textoPrincipal: input.textoPrincipal, titulo: input.titulo, cta: input.cta, link: input.link, formularioId: input.formularioId },
+      });
+      if (!p.adSetId) return { error: 'Falta el conjunto: su id numérico (de preparar_subida_media_buyer).', faltan: ['adsetId'] };
+      const ajenos = p.archivos.filter((a) => !esPathDeStaging(a.path));
+      if (ajenos.length) return { error: `Esos archivos no se subieron con preparar_subida_media_buyer: ${ajenos.map((a) => a.path || a.nombre).join(', ')}.` };
+      if (p.archivos.length > 10) return { error: 'Son hasta 10 archivos por subida.' };
+      const rev = await revisarSubidaMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos });
+      if (!rev.ok) return { error: rev.error };
+      let faltan: string[];
+      try { faltan = await faltanEnStaging(rev.archivos.map((a) => a.path)); } catch (e) { return { error: e instanceof Error ? e.message : String(e) }; }
+      if (faltan.length) return { error: `No encuentro ${faltan.join(', ')}: súbelo a la URL de preparar_subida_media_buyer (el archivo se borra a las 6 horas).` };
+      const t = p.textos;
+      const n = rev.archivos.length;
+      const destino = t.formularioId ? `el formulario ${t.formularioId}` : t.link;
+      return {
+        payload: {
+          adsetId: p.adSetId, archivos: rev.archivos, activo: p.activo,
+          textoPrincipal: t.textoPrincipal, titulo: t.titulo, cta: t.cta, link: t.link, formularioId: t.formularioId,
+        },
+        // Lo que se publica, ENTERO: la confirmación es lo único que se lee antes de que salga.
+        resumen: `Subir ${n} ${n === 1 ? 'creativo' : 'creativos'} a «${rev.conjunto.nombre}»${rev.campana ? ` (${rev.campana})` : ''}, ${p.activo ? 'activos: gastan del presupuesto del conjunto' : 'en pausa'}. `
+          + `Archivos: ${rev.archivos.map((a) => a.nombre).join(', ')}. Texto: «${t.textoPrincipal}». Título: «${t.titulo}». Botón: ${NOMBRE_CTA_SUBIDA[t.cta]}. Destino: ${destino}. `
+          + 'Confírmalo antes de 6 horas: después los archivos se borran.',
+      };
+    },
+    ejecutar: async (payload, ctx) => {
+      const p = leerPedidoDeSubida({
+        adSetId: payload.adsetId, archivos: payload.archivos, activo: payload.activo,
+        textos: { textoPrincipal: payload.textoPrincipal, titulo: payload.titulo, cta: payload.cta, link: payload.link, formularioId: payload.formularioId },
+      });
+      if (!p.adSetId) return { ok: false, resumen: 'Falta el conjunto.' };
+      const r = await subirCreativosMB(ctx.ws, { adSetId: p.adSetId, archivos: p.archivos, textos: p.textos, activo: p.activo }, quienChatea(ctx)?.nombre ?? 'MaKo (a pedido)', 'la API de MaKo');
+      if (!r.ok) return { ok: false, resumen: r.error };
+      const n = r.creados.length;
+      return {
+        ok: true,
+        resumen: `${n === 1 ? 'Subido 1 anuncio' : `Subidos ${n} anuncios`}${r.errores.length ? `; no salieron: ${r.errores.join(' · ')}` : ''}. Se deshace con deshacer_decision_media_buyer.`,
+        datos: { decisionId: r.decisionId, anuncios: r.creados },
+      };
     },
   },
 };

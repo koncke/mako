@@ -17,8 +17,8 @@
 import 'server-only';
 import { metaWrite } from '@/lib/meta-write';
 import { anuncioEnVivoPorZernio, cambiarEstadoPorZernio, cambiarPresupuestoPorZernio, variacionPorZernio, borrarAnuncioPorZernio, leerErrorDeZernio } from '@/lib/zernio-ads';
-import { aplicarTopes, presupuestoYaCambiado, seEstaCreando } from './topes';
-import { saltoPresupuesto } from '@/lib/presupuesto-cambio';
+import { aplicarTopes, presupuestoCambioDesdeLaPropuesta, presupuestoYaCambiado, seEstaCreando } from './topes';
+import { revisarMontoEditado } from './monto';
 import { fmtDinero } from '@/lib/format';
 import { leerConfig, leerDecision, leerDecisiones, reclamar, actualizar } from './store';
 import { leerDatosCuenta, fmtUnidad, type DatosCuenta } from './datos';
@@ -27,7 +27,7 @@ import type { NodoMB } from './motor';
 import { BORRADO, estaBorrado } from './senales';
 
 export type Quien = { nombre: string; origen: 'piloto' | 'persona' };
-export type ResultadoLanzar = { ok: true; decision: Decision; ajuste: string | null } | { ok: false; error: string };
+export type ResultadoLanzar = { ok: true; decision: Decision; ajuste: string | null } | { ok: false; error: string; confirmar?: 'baja' };
 
 /** La inversa de `aUnidad` (unidad del gasto → moneda de la cuenta), calculada con UN punto de la curva: la conversión es lineal. */
 const deUnidadDe = (d: DatosCuenta) => (u: number): number => {
@@ -97,7 +97,7 @@ async function escribir(ws: number, datos: DatosCuenta, nivel: NivelMeta, id: st
  * Lanza una decisión. `presupuesto` = el monto que la persona editó en «Editar» (moneda de la cuenta); `elegidas` = las
  * variaciones tildadas. `datos` = una lectura fresca que ya tiene quien llama (el piloto lanza varias seguidas).
  */
-export async function lanzar(ws: number, id: string, quien: Quien, opts: { presupuesto?: number; elegidas?: string[]; datos?: DatosCuenta } = {}): Promise<ResultadoLanzar> {
+export async function lanzar(ws: number, id: string, quien: Quien, opts: { presupuesto?: number; elegidas?: string[]; datos?: DatosCuenta; bajaConfirmada?: boolean } = {}): Promise<ResultadoLanzar> {
   const config = await leerConfig(ws);
   if (!config.existeTabla) return { ok: false, error: 'Falta aplicar la migración del Media Buyer: sin el registro no se lanza nada (no se podría deshacer).' };
   if (!config.encendido) return { ok: false, error: 'El Media Buyer está apagado: préndelo en Ajustes para lanzar decisiones.' };
@@ -133,18 +133,17 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
     return { ok: false, error: `Ya estaba ${d.despues.estado === 'PAUSED' ? 'pausado' : 'prendido'} en Meta.` };
   }
 
-  // El cambio que se escribe. Si el presupuesto cambió desde que MaKo lo propuso, se aplica el MISMO porcentaje sobre
-  // el de hoy (la decisión era «subir 20%», no «llevarlo a 60»). Lo que editó la persona manda.
+  // El cambio que se escribe. Si el presupuesto cambió desde que MaKo lo propuso, la decisión está vieja y se cierra: la
+  // próxima corrida la vuelve a mirar con el de hoy (verificación de tren-m, falla 1). Lo que editó la persona manda.
   let despues: EstadoEntidad = { ...d.despues };
   let ajuste: string | null = null;
   if (d.despues.presupuesto != null) {
     if (actual.presupuesto == null) return { ok: false, error: 'En Meta ya no tiene presupuesto diario propio (se pasó a la campaña o a uno de por vida).' };
     if (opts.presupuesto != null) {
-      if (!(opts.presupuesto > 0)) return { ok: false, error: 'El presupuesto tiene que ser mayor que cero.' };
-      // Un monto cinco veces más grande o más chico que el de hoy es casi siempre un separador de miles mal leído («1,500»
-      // como 1,5): no se escribe (revisión de tren-l, falla 4). Bajar no pasa por ningún tope, así que éste es el único freno.
-      const salto = saltoPresupuesto(opts.presupuesto, actual.presupuesto);
-      if (salto) return { ok: false, error: `${fmtDinero(opts.presupuesto, datos.moneda)} es ${salto.veces} veces ${salto.sube ? 'más' : 'menos'} que el de hoy: revisa el monto (sin separador de miles).` };
+      // Un monto cinco veces más grande que el de hoy no sale; una baja de 80% o más, sólo confirmada (monto.ts →
+      // revisarMontoEditado). Bajar no pasa por ningún tope, así que la confirmación es el único freno de una baja.
+      const rev = revisarMontoEditado(opts.presupuesto, actual.presupuesto, { bajaConfirmada: opts.bajaConfirmada === true, fmt: (n) => fmtDinero(n, datos.moneda) });
+      if (!rev.ok) return { ok: false, error: rev.error, ...(rev.confirmar ? { confirmar: rev.confirmar } : {}) };
       despues = { presupuesto: Math.round(opts.presupuesto * 100) / 100 };
     } else if (presupuestoYaCambiado(d, (await leerDecisiones(ws, 7)).decisiones)) {
       // Otra decisión ya cambió el presupuesto de esta entidad desde que MaKo propuso ésta: aplicar el mismo porcentaje sobre
@@ -152,9 +151,12 @@ export async function lanzar(ws: number, id: string, quien: Quien, opts: { presu
       const motivo = 'El presupuesto ya se cambió con otra decisión desde que MaKo propuso ésta.';
       await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: motivo });
       return { ok: false, error: motivo };
-    } else if (d.antes.presupuesto && Math.abs(actual.presupuesto - d.antes.presupuesto) / d.antes.presupuesto > 0.01) {
-      despues = { presupuesto: Math.round(actual.presupuesto * (d.despues.presupuesto / d.antes.presupuesto) * 100) / 100 };
-      ajuste = 'El presupuesto había cambiado desde la propuesta: se aplicó el mismo porcentaje sobre el de hoy.';
+    } else if (presupuestoCambioDesdeLaPropuesta(d.antes.presupuesto, actual.presupuesto)) {
+      // Un cambio que no es una decisión del Media Buyer (el chat, la tabla, a mano en Meta) no lo ve `presupuestoYaCambiado`:
+      // aplicar «el mismo porcentaje sobre el de hoy» lo componía, y el piloto lo hacía sin que nadie lo viera.
+      const motivo = `El presupuesto cambió desde que MaKo lo propuso (de ${fmtDinero(d.antes.presupuesto!, datos.moneda)} a ${fmtDinero(actual.presupuesto, datos.moneda)} por día): lo vuelve a mirar mañana.`;
+      await reclamar(ws, id, ['abierta', 'fallida', 'bloqueada'], { estado: 'vencida', error: motivo });
+      return { ok: false, error: motivo };
     }
   }
 

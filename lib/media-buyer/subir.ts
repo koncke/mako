@@ -69,8 +69,14 @@ export async function plantillaDelConjunto(ws: number, datos: DatosCuenta, adSet
 
 export type ResultadoSubida = { ok: true; creados: string[]; errores: string[]; decisionId: string | null } | { ok: false; error: string };
 
-/** Crea un anuncio por archivo en el conjunto, por la Zernio del negocio, y lo deja registrado para poder deshacerlo. */
-export async function subirCreativos(ws: number, x: { adSetId: string; archivos: ArchivoSubido[]; textos: TextosCreativo; activo: boolean }, quien: string): Promise<ResultadoSubida> {
+export type SubidaRevisada = { ok: true; datos: DatosCuenta; conjunto: NodoMB; campana: string | null; archivos: ArchivoSubido[] } | { ok: false; error: string };
+
+/**
+ * Lo que se puede saber de una subida SIN escribir: el registro, los textos, los archivos (sólo paths del staging, hasta 10),
+ * la Zernio del negocio y que el conjunto sea de su cuenta. La llaman `subirCreativos` (la pantalla y el «sí» de la API) y la
+ * API de MaKo al PROPONER (subir_creativos_media_buyer): lo que va a fallar falla antes de que una persona lo confirme.
+ */
+export async function revisarSubida(ws: number, x: { adSetId: string; archivos: ArchivoSubido[]; textos: TextosCreativo }): Promise<SubidaRevisada> {
   const config = await leerConfig(ws);
   if (!config.existeTabla) return { ok: false, error: 'Falta aplicar la migración del Media Buyer: sin el registro no se publica nada (no se podría deshacer).' };
   const errTextos = errorDeTextos(x.textos);
@@ -83,6 +89,15 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
   const conjunto = datos.arbol.find((n) => n.id === x.adSetId && n.nivel === 'adset');
   if (!conjunto) return { ok: false, error: 'Ese conjunto no está en tu cuenta publicitaria.' };
   const campana = conjunto.parentId ? datos.arbol.find((n) => n.id === conjunto.parentId)?.nombre ?? null : null;
+  return { ok: true, datos, conjunto, campana, archivos };
+}
+
+/** Crea un anuncio por archivo en el conjunto, por la Zernio del negocio, y lo deja registrado para poder deshacerlo. */
+export async function subirCreativos(ws: number, x: { adSetId: string; archivos: ArchivoSubido[]; textos: TextosCreativo; activo: boolean }, quien: string, desde = 'el Media Buyer'): Promise<ResultadoSubida> {
+  const rev = await revisarSubida(ws, x);
+  if (!rev.ok) return rev;
+  const { datos, conjunto, campana, archivos } = rev;
+  const conexion = datos.conexion!;
 
   // El registro ANTES de escribir (como lanzar una decisión): si algo se corta a mitad, queda qué se creó.
   const [d] = await guardarPropuestas(ws, [{
@@ -90,7 +105,7 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
     entidadId: x.adSetId, entidadNombre: conjunto.nombre, campanaNombre: campana,
     titulo: `Subir ${archivos.length} ${archivos.length === 1 ? 'creativo' : 'creativos'} a «${conjunto.nombre}»`,
     titular: `${archivos.length} ${archivos.length === 1 ? 'anuncio nuevo' : 'anuncios nuevos'} ${x.activo ? 'activos' : 'en pausa'}, con los textos del conjunto`,
-    porque: [`Lo subió ${quien} desde el Media Buyer.`, 'Cada archivo es un anuncio nuevo en el mismo conjunto: hereda su presupuesto y su público.'],
+    porque: [`Lo subió ${quien} desde ${desde}.`, 'Cada archivo es un anuncio nuevo en el mismo conjunto: hereda su presupuesto y su público.'],
     numeros: [], antes: {}, despues: {},
   }], datos.moneda);
   if (!d) return { ok: false, error: 'No pude registrar la subida.' };
@@ -103,7 +118,7 @@ export async function subirCreativos(ws: number, x: { adSetId: string; archivos:
     try {
       const { data, error } = await db.storage.from(ADS_CREATIVES_BUCKET).createSignedUrl(a.path, 3600);
       if (error || !data?.signedUrl) throw new Error(`no pude leer «${a.nombre}» del staging`);
-      const cuerpo = cuerpoCreativoEnConjunto({ conexion: datos.conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i), archivo: a, urlDescarga: data.signedUrl, textos: x.textos, activo: x.activo });
+      const cuerpo = cuerpoCreativoEnConjunto({ conexion, adSetId: x.adSetId, nombre: nombreDeAnuncio(a.nombre, i), archivo: a, urlDescarga: data.signedUrl, textos: x.textos, activo: x.activo });
       const r = await crearAnuncioPorZernio(ws, cuerpo, `mb-subir:${ws}:${a.path}`, a.tipo === 'video' ? 240_000 : 90_000);
       creados.push(r.adId);
     } catch (e) {

@@ -1,7 +1,7 @@
 // =============================================================================
 // meta-publicar-errores — por qué Meta no dejó publicar, dicho con dueño y salida
 // =============================================================================
-// Puro (sin server-only): lo usa /api/ads-manager/campaign-create y se prueba.
+// Puro (sin server-only): lo usa la API de MaKo al publicar (lib/api-mako/areas/ads.run.ts) y se prueba.
 //
 // Los tres rechazos se REPRODUJERON el 2026-09-11 sobre la cuenta de Código
 // Inmobiliario (ws13), con una campaña y un conjunto de leads de prueba en PAUSA

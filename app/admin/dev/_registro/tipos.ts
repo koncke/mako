@@ -40,6 +40,9 @@ export const CUENTAS = {
   // La 5 entra el 24/10/2026 a las 20:30, cuando la 1 llegó al 94% semanal. Martín la llamó «Ananda»; el gmail de la
   // suscripción no se declaró. Corre en la app (`~/.claude`); su semana renueva el martes a las 15:00 de Argentina.
   claude5: { n: 5, nombre: 'Ananda', ventana: '—', config: '~\\.claude (app)' },
+  // Una sesión de Claude Code en la nube (claude.ai/code) firma `Claude-Cuenta: nube` (docs/relevo/nube.md): no se sabe con
+  // cuál de las cuentas de Martín corre, y no se adivina. Sin esta fila, su hito no tenía con qué firmar (27/10/2026).
+  nube: { n: 'nube', nombre: 'sesión en la nube', ventana: '—', config: '—' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;

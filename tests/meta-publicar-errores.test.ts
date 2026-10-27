@@ -49,8 +49,8 @@ test('cada rechazo nombra a Meta primero, dice que no es de MaKo y da la salida'
 });
 
 test('publicar usa la traducción de los rechazos', () => {
-  const ruta = sinComentarios(leer('app/api/ads-manager/campaign-create/route.ts'));
-  assert.match(ruta, /explicarRechazoPublicacion\(/);
+  // (27/10/2026: campaign-create se borró con el Ads Manager viejo; publicar por la API de MaKo traduce igual.)
+  assert.match(sinComentarios(leer('lib/api-mako/areas/ads.run.ts')), /explicarRechazoPublicacion\(/);
 
   // El wizard de «Nueva campaña» (que no dejaba llegar a 1487888 ni a 1885499) se borró el 25/10/2026 con la réplica de
   // Meta Ads Manager: publicar ahora es del Media Buyer, por Zernio.

@@ -5171,3 +5171,58 @@ app/dashboard/graficos/ReproductorAnuncio.tsx). Duplicar campañas y
 conjuntos tampoco existe en MaKo (con token, en ningún lado; el Media Buyer duplica anuncios por Zernio).
 
 *26/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Las fallas que quedaban de tren-m, la pantalla como Hoy, las rutas viejas y subir creativos por la API (27/10/2026)
+
+**Vive en:** `lib/media-buyer/topes.ts` (`presupuestoCambioDesdeLaPropuesta`) · `lib/media-buyer/ejecutar.ts` ·
+`lib/media-buyer/monto.ts` (`revisarMontoEditado`) · `lib/media-buyer/tacticas.ts` (`mezclarTacticas`) ·
+`lib/media-buyer/agentes.ts` (`cambioDeAgente`) · `lib/media-buyer/plan.ts` (`lugaresParaPropios`) · `lib/media-buyer/corrida.ts` ·
+`app/ads-manager/Ajustes.tsx` · `Automatizaciones.tsx` · `Autopilot.tsx` (`AlertasProtect`) · `aa.css` ·
+`app/api/ads-manager/creative-signurl/route.ts` · `lib/ads-staging-firma.ts` · `lib/media-buyer/subir.ts` (`revisarSubida`) ·
+`lib/media-buyer/creativos.ts` (`leerPedidoDeSubida`) · `lib/api-mako/validar.ts` (`distintoAlRevisar`). Lo hizo una sesión en la
+nube; tests: `tests/media-buyer-verificacion-m.test.ts`, `media-buyer-pantalla-m.test.ts` y `media-buyer-subir-api.test.ts`, cada
+pieza probada rompiéndola.
+
+- **Falla 1, el presupuesto que cambió por otro lado.** `presupuestoYaCambiado` mira sólo las decisiones del Media Buyer: un
+  cambio a mano, por chat (`proponer_presupuesto_*`) o desde el Administrador no se veía, y «el mismo % sobre el de hoy» componía.
+  Ahora, al lanzar, el presupuesto en vivo se compara con el de cuando se propuso (`antes.presupuesto`, tolerancia 1%): si cambió,
+  la decisión **vence** con el motivo y la corrida de mañana la vuelve a mirar. No se escala: un número que alguien movió a
+  propósito no se sabe si se movió por la misma razón.
+- **Falla 2, la mezcla de tácticas.** `mezclarTacticas` mezclaba por táctica: una pestaña vieja que cambiaba el estado de un
+  agente mandaba la táctica entera y pisaba los umbrales o las campañas que otra había cambiado. Ahora mezcla campo por campo
+  (los umbrales, por id; `campanas: null` es «toda la cuenta») y el panel de agentes y la API mandan sólo `{ estado }`.
+- **Falla 9, la IA que se gastaba de más.** Con el cupo del Esencial lleno por el motor, a cada agente propio se le preguntaba en
+  cada corrida y su respuesta se descartaba. `lugaresParaPropios` (cupo − lo de hoy − lo nuevo del motor) se calcula antes, y con
+  0 no se llama a la IA.
+- **La baja de 80% o más.** El freno de ×5 de la falla 4 también frenaba una baja deliberada, y el mensaje culpaba al separador
+  de miles. Ahora `revisarMontoEditado` separa: subir 5 veces o más no sale (eso SÍ suele ser un separador mal leído); bajar 5
+  veces o más pide una confirmación que lo dice («Bajarlo de $100 a $15 por día es 85% menos») con «Bajar a $15 por día» y «No
+  bajar». Por la API, `lanzar_decision_media_buyer` pone el aviso en el resumen que se confirma (`confirmarBaja` en el payload).
+- ⚠️ **Ajustes BORRABA un monto que no entendía.** La versión de Madgicx mandaba `Number.NaN` «para que lo rechace el servidor»,
+  y `JSON.stringify(NaN)` es `null`: el servidor recibía «sin tope» y lo guardaba. Ahora el monto ilegible no sale y lo dice un
+  aviso (`conMonto`). La regla: un valor que se quiere rechazar no se codifica como un valor que JSON no tiene.
+- **La pantalla.** Ajustes y Automatizaciones con el molde de Settings de la casa (`app/_ui/Ajustes.tsx`: nombre a la izquierda,
+  control a la derecha, guarda al instante); Automatizaciones, una fila por táctica con su estado y su detalle (el interruptor
+  vive en el detalle, y `?t=surf` lo abre: antes el link del lápiz no abría nada). Protect como la lista de Actividad (un punto,
+  el título y un botón). Campañas y Biblioteca con la caja del chat arriba, como Hoy, y los números del mes en una línea del pie
+  del árbol (`lineaDelMes`). `mb.css` y `mb-paleta.css` borrados: el modal de subir creativos usaba clases de `mb.css` que en
+  `/ads-manager` no se cargaban (sólo las subpáginas la importaban), así que se veía sin estilos. Pasó a `aa.css`.
+- **Las quince rutas viejas de `app/api/ads-manager`, borradas** (las usaba sólo el Ads Manager borrado el 25/10; queda
+  `creative-signurl`). ⚠️ **El diagnóstico obvio («nadie las llama, se borran») era la mitad:** `creative-upload` era la que
+  BARRÍA el staging en cada subida, y sin ella nada limpiaba el bucket. El barrido pasó a la firma (cada subida empieza
+  firmando). Quedaron sin call site `estadoVideo` y `generatePreviews` de `lib/meta-ads-create.ts` y `montadosDelWorkspace` /
+  `tomasDelWorkspace` de `lib/creativo-mako-fuentes.ts`: no se borraron (el último lo sigue leyendo el Video Editor para resolver
+  una referencia). Después de borrar rutas, en una PC: `npx next typegen`.
+- **Subir creativos por la API de MaKo.** Estaba en `FALTA` («por la API no hay cómo mandar un video»). Entró en los dos pasos de
+  la pantalla: `preparar_subida_media_buyer` (lectura, sólo HTTP: los conjuntos, los textos de partida del conjunto y una URL
+  firmada por archivo para un PUT) y `subir_creativos_media_buyer` (acción de plata, confirmada en `/mako/revisar`). La firma
+  (`lib/ads-staging-firma.ts`), el pedido (`leerPedidoDeSubida`) y la revisión (`revisarSubida`) son las MISMAS funciones que usa
+  la pantalla. Al proponer se mira que cada archivo esté en el staging (`faltanEnStaging`, de a uno por su nombre: la carpeta
+  es de todos los negocios y no se lista entera).
+- ⚠️ **`fijoAlRevisar` no protegía una lista de objetos.** `aplicarPropuestaGenerica` comparaba con `String()`, y
+  `String([{…}])` es «[object Object]» para cualquier lista del mismo largo: los archivos de una subida se podían cambiar al
+  revisar bajo el resumen de otros. `distintoAlRevisar` compara una lista de objetos (o un objeto) entera; lo demás, como siempre.
+- **Lo que queda sin hacer:** un video tarda minutos en Zernio y la confirmación de `/mako/revisar` tiene 300 s, igual que la
+  pantalla (`/api/media-buyer`): con varios videos en una subida se puede cortar a mitad (lo creado queda registrado y se
+  deshace). El path del staging no lleva el negocio (es `nueva/<ms>-<azar>-<nombre>`): lo protege el azar, no un dueño. No se
+  midió contra una cuenta real (las escrituras las mide el Cerebro en la PC).

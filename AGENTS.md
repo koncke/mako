@@ -6710,7 +6710,8 @@ esa fila. El duplicado real no es el doble clic: es la respuesta que se pierde (
   contesta desde la fila si algo se creó y publica lo nuevo si no—, pero esa respuesta puede hablar
   del payload de ANTES: no se pinta como éxito de lo que está en pantalla ni se le recorta. Vive
   FUERA del componente: en un ref, cerrar y reabrir el modal la perdía. Molde: `claveAMandar` /
-  `trasRespuesta` + `claveAbierta` (app/ads-manager/creativeUpload.ts).
+  `trasRespuesta` (lib/meta-idempotencia.ts); la clave abierta guardada fuera del componente (`claveAbierta`) vivía en el
+  Ads Manager viejo, borrado el 27/10/2026.
 - **La fila es lo único que lee un reintento, así que los persist TERMINALES reescriben todo lo
   que hay en memoria**: los intermedios tragan su error. Y un rollback cuenta sólo si el proveedor
   CONFIRMÓ el borrado — «(revertido)» sin confirmar es lo que hace crear otra encima.

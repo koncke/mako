@@ -8,62 +8,43 @@
 //
 // Con eso, una ruta que se olvide del workspace no mezcla clientes — pierde el
 // registro en silencio, porque el insert es best-effort. Este test es la red para
-// ese olvido. Son asserts sobre el fuente (las rutas no se pueden importar en node:test).
+// ese olvido. Son asserts sobre el fuente.
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const leer = (p: string) => readFileSync(join(process.cwd(), p), 'utf8').replace(/\r/g, '');
 
-// adset-add se sumó el 07/10/2026 (tarea #59): hasta ahí no dejaba registro, y un corte
-// con un segundo clic dejaba dos conjuntos sin que nada lo supiera. El modo simple de
-// ad-add también registra desde ese día.
-//   ROTO A PROPÓSITO (07/10/2026): sacando `workspace_id: wsDraft,` del insert de
-//   adset-add, pass 3 / fail 1 — el de adset-add.
-//
-// ⚠️ Se miran TODOS los inserts y TODOS los updates de cada ruta, no el primero (revisión
-// de la #59). ad-add tiene dos de cada uno —el modo simple, arriba, y el lote—, y desde que
-// el simple registra, su insert pasó a ser el primero del archivo: el del lote quedó sin
-// red. Medido sobre una copia de HEAD (código y tests): sin el workspace en el insert del
-// lote, y aparte sin el `.eq` en su persist, pass 11 / fail 0 las dos veces (este archivo y
-// tests/ads-video-procesando.test.ts). Y sin el workspace el insert falla
-// por not null: con la clave puesta eso es un 503 a TODA publicación del lote.
-// [ruta, cuántos inserts, cuántos updates]: si mañana aparece otro, el número lo dice.
-const RUTAS: Array<[string, number, number]> = [
-  ['app/api/ads-manager/campaign-create/route.ts', 1, 1],
-  ['app/api/ads-manager/ad-add/route.ts', 2, 2],
-  ['app/api/ads-manager/adset-add/route.ts', 1, 1],
-];
-for (const [ruta, nInserts, nUpdates] of RUTAS) {
-  test(`${ruta}: cada registro lleva el workspace, y cada update filtra por él`, () => {
-    const src = leer(ruta);
-    const inserts = [...src.matchAll(/\.from\('meta_campaign_drafts'\)\.insert\(/g)];
-    assert.equal(inserts.length, nInserts, 'cuántos inserts tiene la ruta');
-    for (const m of inserts) {
-      // Hasta el cierre del objeto: `}).select(`.
+// ⚠️ Hasta el 27/10/2026 este test miraba tres rutas a mano (campaign-create, ad-add, adset-add), las que escribían la tabla.
+// Se borraron con el Ads Manager viejo (docs/hallazgos-ads.md → «Las rutas viejas de app/api/ads-manager»), y una lista de
+// rutas que ya no existen no protege a la próxima que escriba: ahora se BARRE app/ y lib/. Todo insert lleva su
+// `workspace_id:` a la vista y todo update filtra por `.eq('workspace_id'`. El 27/10 nadie inserta (abrirRegistro recibe el
+// insert de quien lo llama) y el único update es `reclamarFila`, que filtra.
+//   ROTO A PROPÓSITO (27/10/2026): sacando `.eq('workspace_id', ws)` de reclamarFila, pass 1 / fail 1 — éste.
+const fuentes = execFileSync('git', ['ls-files', 'app', 'lib'], { encoding: 'utf8' }).split('\n').filter((f) => /\.(ts|tsx)$/.test(f));
+
+test('cada registro de meta_campaign_drafts lleva el workspace, y cada update filtra por él', () => {
+  assert.ok(fuentes.length > 500, `el barrido tiene que mirar el repo (vio ${fuentes.length} archivos)`);
+  let updates = 0;
+  for (const f of fuentes) {
+    const src = leer(f);
+    if (!src.includes("from('meta_campaign_drafts')")) continue;
+    for (const m of src.matchAll(/\.from\('meta_campaign_drafts'\)\s*\.insert\(/g)) {
       const i = m.index ?? 0;
-      const fila = src.slice(i, src.indexOf('}).select(', i));
-      assert.match(fila, /workspace_id: wsDraft,/, `el insert de la posición ${i} tiene que escribir el workspace explícito`);
+      assert.match(src.slice(i, src.indexOf(')', src.indexOf('}', i))), /workspace_id:/, `${f}: el insert de la posición ${i} escribe el workspace`);
     }
-    //   ROTO A PROPÓSITO (2026-09-11): sacando esa línea de campaign-create, pass 2 / fail 1 —
-    //   el insert habría fallado por not null y la campaña no habría dejado ningún registro.
-    const updates = [...src.matchAll(/\.from\('meta_campaign_drafts'\)\.update\(/g)];
-    assert.equal(updates.length, nUpdates, 'cuántos updates tiene la ruta');
-    for (const m of updates) {
+    for (const m of src.matchAll(/\.from\('meta_campaign_drafts'\)\s*\.update\(/g)) {
+      updates++;
       const i = m.index ?? 0;
-      const sentencia = src.slice(i, src.indexOf(';', i));
-      assert.match(sentencia, /\.eq\('workspace_id', wsDraft\)/, `el update de la posición ${i} tiene que filtrar por workspace`);
+      assert.match(src.slice(i, src.indexOf(';', i)), /\.eq\('workspace_id', /, `${f}: el update de la posición ${i} filtra por workspace`);
     }
-    // (17/10/2026: sin workspace TIRA, no cae al ws1 — tests/sin-fallback-owner-ws.test.ts.)
-    assert.match(src, /const wsDraft = await wsObligatorio\(\);/);
-  });
-}
-//   ROTO A PROPÓSITO (07/10/2026), con este barrido, de a una: sin el workspace en el
-//   insert del lote de ad-add → pass 3 / fail 1 (el de ad-add); sin el `.eq` del persist
-//   del lote → pass 3 / fail 1 (el de ad-add).
+  }
+  assert.ok(updates >= 1, 'reclamarFila (lib/meta-idempotencia.ts) es un update de la tabla: si el barrido no lo ve, no mira nada');
+});
 
 test('la tabla está en TENANT_TABLES: cualquier lectura por getTenantDb queda scopeada', () => {
   assert.match(leer('lib/workspace.ts'), /'meta_campaign_drafts'/);

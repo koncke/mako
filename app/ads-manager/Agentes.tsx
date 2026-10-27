@@ -14,7 +14,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import type { AgentePropio } from '@/lib/media-buyer/agentes-propios';
 import type { ConfigTacticas, TacticasResueltas } from '@/lib/media-buyer/tacticas';
-import { NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, estadoDeAgente, type Agente } from './mb-modelo';
+import { NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, cambioDeAgente, estadoDeAgente, type Agente } from './mb-modelo';
 import { EtiquetaAgente, Ic } from './Autopilot';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
 
@@ -36,9 +36,8 @@ export function contarActivos(r: TacticasResueltas, encendido: boolean, propios:
   return AGENTES.filter((a) => estadoDeAgente(a, r) !== 'pausado').length + propios.filter((p) => p.estado === 'activo').length;
 }
 
-export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, propios, onTacticas, onPropio, onBorrarPropio, onCerrar, pie }: {
+export function PanelAgentes({ resueltas, pilotoPermitido, sinPiloto, propios, onTacticas, onPropio, onBorrarPropio, onCerrar, pie }: {
   resueltas: TacticasResueltas;
-  config: ConfigTacticas;
   pilotoPermitido: boolean;
   /** Por qué no hay automático (el plan, la prueba gratis): va en el rayo apagado. */
   sinPiloto: string;
@@ -63,8 +62,8 @@ export function PanelAgentes({ resueltas, config, pilotoPermitido, sinPiloto, pr
 
   const cambiar = async (a: Propio, estado: 'apagada' | 'propone' | 'automatica') => {
     setOcupado(a);
-    // Sólo las tácticas de ESTE agente: el servidor las mezcla con lo guardado (una copia vieja no pisa a las demás).
-    await onTacticas(Object.fromEntries(TACTICAS_DE[a].map((t) => [t, { ...(config[t] ?? {}), estado }])));
+    // Sólo el ESTADO de las tácticas de este agente: el servidor lo mezcla campo por campo con lo guardado (falla 2 de tren-m).
+    await onTacticas(cambioDeAgente(a, estado));
     setOcupado(null);
   };
 

@@ -44,7 +44,7 @@ import { linkPantalla } from '@/lib/api-mako/link';
 import { runWithWorkspace, getTenantDb } from '@/lib/workspace';
 import { porId, gatingOk } from './registro';
 import { runnerDe } from './runners';
-import { validarInput } from './validar';
+import { distintoAlRevisar, validarInput } from './validar';
 import { vistaDe } from './vista';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal, puedeConfirmar, PREFIJO_APP, PREFIJO_FLUJO } from './canal';
 import { esAccion, type AccionDef, type Ctx, type Ejecutado } from './tipos';
@@ -148,7 +148,7 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
       if (!p.fijoAlRevisar || !editado || !(p.nombre in editado)) continue;
       const nuevo = editado[p.nombre];
       if (nuevo == null || nuevo === '') { editado = { ...editado, [p.nombre]: base[p.nombre] }; continue; }
-      if (String(nuevo) !== String(base[p.nombre])) {
+      if (distintoAlRevisar(nuevo, base[p.nombre])) {
         return { ok: false, resumen: `«${p.rotulo ?? p.nombre}» no se puede cambiar al revisar: el resumen es de ése. Si es otro, pídeselo de nuevo a MaKo.` };
       }
     }

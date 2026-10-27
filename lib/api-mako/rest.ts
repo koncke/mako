@@ -276,6 +276,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/ads/media-buyer/metas', 'metas_media_buyer'],
   ['PUT', '/ads/media-buyer/modo', 'modo_media_buyer'],
   ['PATCH', '/ads/media-buyer/topes', 'topes_media_buyer'],
+  ['GET', '/ads/media-buyer/subidas', 'preparar_subida_media_buyer'],
+  ['POST', '/ads/media-buyer/conjuntos/{adsetId}/creativos', 'subir_creativos_media_buyer'],
   ['GET', '/ads/motivos-venta-llamada', 'listar_motivos_venta_llamada'],
   ['GET', '/ads/pixeles', 'listar_pixeles_meta'],
   ['GET', '/ads/pixeles/{pixel}/eventos', 'listar_eventos_pixel_meta'],

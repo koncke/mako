@@ -9,7 +9,8 @@
 // Lo que no tiene producto va en su propia rama, y cada tarjeta lleva a lo sumo UN botón: «Asignar» (sin producto) o
 // «N cambios» (los del día sobre esa campaña). Al tocarla se abre su hoja: los números, la pieza del CRM para cambiarla de
 // producto (ProductoCelda.tsx: la MISMA de la tabla de campañas del CRM, ninguna segunda implementación) y sus cambios.
-// Lo pide al abrir la pestaña (`op: 'lienzo'`): lee la cuenta en vivo.
+// Lo pide al abrir la pestaña (`op: 'lienzo'`): lee la cuenta en vivo. Arriba va la caja del chat (como Hoy: la 04 de AdAmigo)
+// y los números del mes son la primera línea del pie (27/10/2026: eran tres tarjetas entre la pestaña y el árbol).
 // =============================================================================
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
@@ -32,8 +33,10 @@ export type Lienzo = {
 };
 const RES: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'lead'], agenda: ['agendas', 'agenda'], venta: ['ventas', 'venta'] };
 
-export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null }: {
+export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null, mes = null }: {
   kpi: KpiMediaBuyer;
+  /** Los números del mes en una línea (mb-modelo.ts → lineaDelMes): la primera del pie. */
+  mes?: { texto: string; tono: 'bien' | 'mal' | null } | null;
   /** Los cambios abiertos de hoy: cada campaña dice cuántos tiene. */
   abiertas: Decision[];
   /** `?producto=<id>`: abre la hoja de la primera campaña de ese producto. */
@@ -117,6 +120,7 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
       <Ramas etiqueta="Tus campañas por producto" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
         columnas={columnas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
         pie={<div className="aa-pie-texto">
+          {mes && <p className="aa-pie-mes" data-tono={mes.tono ?? undefined}>{mes.texto}</p>}
           <p>{todas.length ? mensajeDeCampanas(l.productos.filter((p) => p.campanas.length), l.sinProducto.length, kpi, (n) => fmt(n)) : l.aviso ?? 'Meta no devolvió campañas de esta cuenta.'}</p>
           {todas.length > 0 && l.aviso && <p>{l.aviso}</p>}
           {cuenta && (
