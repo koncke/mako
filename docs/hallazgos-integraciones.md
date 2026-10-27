@@ -5,6 +5,30 @@ credenciales y el reparto entre lo que paga la casa y lo que paga el cliente.
 
 ---
 
+## La clave de API no es la suscripción, y Gemini no se saca de la vista (27/10/2026)
+
+**Vive en:** `app/integraciones/TusCuentasIA.tsx` (`ClavesDeApi`, `estadoDeClave`, `CLAVES_RETIRADAS`) ·
+`app/integraciones/CuentasYDispositivos.tsx` (`BloqueCuenta`, el chip «Suscripción») · `app/integraciones/tus-cuentas-ia.css`.
+Guard: `tests/clave-y-suscripcion-27-10.test.ts`.
+
+- **El síntoma (Leila, en la llamada con Martín):** «Anthropic API · Conectada» arriba y «Cuenta 1 · Max» abajo se leían como
+  lo mismo, sin saber con cuál contestaba MaKo. La causa no era sólo la palabra: la FILA de la clave abría «¿Cómo la conectas?»
+  (computadora o clave), así que en los hechos era la puerta de Claude entero, y su estado sólo hablaba de la clave. Regla: una
+  fila de «Claves de API» es SÓLO la clave («Clave cargada» / «Sin clave», abre el modal de SU clave); la elección con la
+  computadora vive en «Nueva cuenta», y cada cuenta de la computadora dice «Suscripción Max».
+- **⚠️ El obvio («Gemini ya no se ofrece → sacar su fila») era el equivocado.** Su clave está cargada en 11 negocios (medido el
+  27/10: qué negocio tiene qué clave, sin leer ningún valor) y MaKo la sigue usando (escuchar audios, la cascada barata:
+  `lib/ai-cheap.ts`). Sacarla de la vista deja una clave EN USO sin dónde cambiarla ni quitarla. Regla: una IA retirada se ve
+  SÓLO si está cargada, sin el verde de «lista», y dice «ya no se ofrece» (`CLAVES_RETIRADAS`).
+- **Trampa de CSS:** `.tci-ayuda` es absoluta (la de las opciones grandes) y está DESPUÉS en el archivo; un modificador de una
+  sola clase pierde y el «?» se va a la esquina de la página. Con dos clases (`.tci-ayuda.tci-ayuda--titulo`) gana.
+- **Trampa del test de voseo** (`tests/ia-pc-ola2.test.ts`, «de tú, no de vos»): `\b(abrí|…)\b` sin la bandera `u` toma la `í`
+  como no-letra, así que «abrían» en un COMENTARIO da positivo. Si salta sin un voseo a la vista, buscar una palabra que
+  EMPIECE con una de la lista.
+- **SIN HACER:** los errores de la IA que todavía dicen «conecta tu Claude, tu GPT o tu Gemini» (`lib/ai-cheap.ts`, `lib/persona.ts`)
+  y la descripción de Groq en `lib/integraciones-catalogo.ts` (son de otras áreas); y la fila no se relee si se QUITA la clave en
+  su modal (`onConectado` sólo avisa al conectar).
+
 ## La política de privacidad lee el MISMO interruptor que el login (26/10/2026)
 
 **Vive en:** `app/privacidad/page.tsx` (`loginPideAgenda`) · `lib/google-login-agenda.ts` · `app/api/auth/google/route.ts` y su

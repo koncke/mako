@@ -33,6 +33,23 @@ arregladas, y donde el rescate lo sabía, lo dice.
 
 ---
 
+## «Se puso todo difuminado y MaKo me pide un código» (Leandro, 24/10): NO es el 2FA de MaKo (27/10/2026, sin reproducir)
+
+**Vive en:** `app/login/2fa/page.tsx` y `app/login/page.tsx` (fondo liso) · `app/perfil/seguridad/SeguridadCuenta.tsx` (en la
+página, sin modal) · `lib/mfa-obligatorio.ts` · `app/integraciones/TusCuentasIA.tsx` (el tutorial de MaKo Desktop).
+
+- **El síntoma** (docs/feedback-24-10.md, f24, min 33:28 y 35:12): «envié algo y se me puso todo difuminado y me quedé solo en la
+  pantalla (...) MaKo me está pidiendo un código». Le estaba escribiendo a MaKo en el chat. Martín lo dio por bueno como seguridad.
+- **⚠️ El obvio («es el 2FA: que el modal diga por qué pide el código») no cierra con el código.** Ninguna pantalla de MaKo que
+  pide el código del 2FA difumina: el segundo paso y el login son una página entera de fondo liso (`#14161B`), y Seguridad lo pide
+  en la misma página. Ningún negocio exige el 2FA por fecha (`mfa_obligatorio_desde` vacío en todos, leído el 27/10, sólo esa
+  columna). No hay bloqueo por inactividad ni nada que pida el código a mitad del uso: el 2FA sólo aparece al ENTRAR.
+- **Lo que sí difumina o pide un código alrededor del chat:** el modal «Tus cuentas de IA» (`mk-modal__fondo`, `blur(2px)`) con el
+  tutorial de MaKo Desktop (en Windows el código de emparejar viaja solo por `mako://`; no se escribe); ya en la computadora, el
+  login de Claude muestra un código que se pega en la página de MaKo; y, fuera de MaKo, el permiso de Windows (UAC) oscurece
+  toda la pantalla al instalar.
+- **SIN HACER:** saber cuál fue pide ver la grabación en esos minutos. No se cambió código por una causa sin confirmar.
+
 ## «La app de escritorio entró a la cuenta de Mauricio sin login»: era el perfil de Chrome de Mauricio, no el emparejamiento (25/10/2026)
 
 Martín, 25/10 ~12:00: «la app de desktop jamás me pidió login, eso esta muy mal, entró directo a la cuenta de Mauricio cuando
