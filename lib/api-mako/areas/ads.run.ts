@@ -28,6 +28,7 @@ import { AGENTES_MAKO, AGENTE_DE, NOMBRE_AGENTE, QUE_HACE, TACTICAS_DE, TACTICA_
 import { agenteDeClave } from '@/lib/media-buyer/agentes-propios';
 import { leerAgentesPropios, guardarAgentePropio, borrarAgentePropio } from '@/lib/media-buyer/agentes-ia';
 import { lienzoMediaBuyer, vistaMediaBuyer } from '@/lib/media-buyer/vista';
+import { campanasRetenidas } from '@/lib/media-buyer/productos';
 import type { Alerta as AlertaMB } from '@/lib/media-buyer/protect';
 import { after } from 'next/server';
 import type { Ctx, Ejecutado, Preparado, Runners, SalidaLectura } from '../tipos';
@@ -1235,10 +1236,15 @@ export const RUNNERS: Runners = {
       const config = await leerConfigMB(ctx.ws);
       const lz = await lienzoMediaBuyer(ctx.ws, config.kpi, config.objetivo, undefined, d).catch(() => null);
       const deLienzo = (c: { id: string; nombre: string; gasto: number; resultados: number; costo: number | null }) => ({ id: c.id, nombre: c.nombre, gastoMes: c.gasto, resultadosMes: c.resultados, costoMes: c.costo });
+      const retenidas = campanasRetenidas(d.arbol);
       return J({
-        conectada: true, fuente: d.fuente, cuenta: d.adAccountId, moneda: d.moneda, avisos: d.avisos,
+        conectada: true, fuente: d.fuente, cuenta: d.adAccountId, cuentaNombre: d.cuentaNombre ?? null, moneda: d.moneda, avisos: d.avisos,
+        // MK-03 (27/10/2026): un borrador del Administrador no existe para la API. Que MaKo no conteste «no la encuentro».
+        borradores: 'Un borrador del Administrador de anuncios no llega por la API: si falta una campaña, está sin publicar o en otra cuenta (compara el número).',
+        ...(lz?.aviso ? { aviso: lz.aviso } : {}),
         campanas: d.arbol.filter((n) => n.nivel === 'campaign' && n.configurado !== 'DELETED').map((c) => ({
           ...fila(c),
+          ...(retenidas.has(c.id) ? { retenidaEnMeta: 'Meta la retuvo: no entrega hasta que un admin la publique en el Administrador de anuncios.' } : {}),
           conjuntos: d.arbol.filter((s) => s.nivel === 'adset' && s.parentId === c.id && s.configurado !== 'DELETED').map(fila),
         })),
         ...(lz ? {
