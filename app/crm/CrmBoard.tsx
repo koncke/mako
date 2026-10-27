@@ -2194,7 +2194,7 @@ export function CrmBoard({
       for (const tanda of enTandasDe(ids)) {
         const r = await enAutomatizacionesAction(tanda).catch(() => null);
         if (!vivo || r === null) return;
-        for (const [k, v] of Object.entries(r)) if (v.length) out.set(Number(k), v);
+        for (const [k, v] of Object.entries(r)) if (v?.length) out.set(Number(k), v);
       }
       if (vivo) setEnAut(out);
     })();
@@ -4053,7 +4053,7 @@ export function CrmBoard({
                     )}
                     <button type="button" onClick={() => elegirQhEtapa(o.to)} style={btnOpcion(activo)}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, fontWeight: 700 }}>
-                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category].c }} />
+                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category]?.c ?? 'var(--dim)' }} />
                         {o.label}
                       </div>
                       {o.sub && o.sub !== o.label && (

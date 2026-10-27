@@ -234,7 +234,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
   const [fathom, setFathom] = useState<FathomLink[]>(() => lead.fathom);
   /** El link de UNA reunión en `fathom` (el mismo reparto que la ficha: `etiquetaEsR2`). */
-  const linkDe = (r2: boolean) => fathom.find((f) => f.url.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
+  // ⚠️ `url?.`: un link de `fathom_links` con la forma vieja (sin `url`, o sólo el rótulo) rompía la pantalla entera con
+  // «Cannot read properties of undefined (reading 'trim')» (ticket #14, 27/10/2026). Los otros lectores ya lo guardaban.
+  const linkDe = (r2: boolean) => fathom.find((f) => f.url?.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
   const [fathomOmitido, setFathomOmitido] = useState(false);
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
   const [reprogR1, setReprogR1] = useState('');
@@ -694,7 +696,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
             ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
           }),
           ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
-          ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
+          ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url?.trim() || f.label?.trim()) } : {}),
           // Suscripción: el monto NO va a monto_cierre_usd (no infla el revenue único);
           // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
           // Sin cobro (#747): no hay paso de monto, así que el tipo viaja por su propio
@@ -882,7 +884,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (r.asistioJ2 != null) { setAsistioJ2(r.asistioJ2); ok.add('asistenciaR2'); }
       if (r.fathomR1 || r.fathomR2) {
         setFathom((prev) => {
-          const links = prev.filter((f) => f.url.trim());
+          const links = prev.filter((f) => f.url?.trim());
           for (const nuevo of [r.fathomR1, r.fathomR2]) {
             if (nuevo && !links.some((l) => l.url === nuevo.url)) links.push(nuevo);
           }
@@ -897,8 +899,8 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       // confirmación en vez del alta manual completa.
       setAutoR2NoEncontrada(!r.fechaJ2 && r.asistioJ2 == null && !lead.fechaJ2);
       setAutoReporte([
-        ...(r.encontrado.length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
-        ...r.faltante.map((f) => `A mano: ${f}`),
+        ...((r.encontrado ?? []).length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
+        ...(r.faltante ?? []).map((f) => `A mano: ${f}`),
       ]);
     } finally {
       setAutoBusy(false);
@@ -1358,7 +1360,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           if (pide('asistenciaR2')) filas.push(['Asistió R2', asistioJ2 ? 'Sí' : 'No']);
         }
       }
-      if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url?.trim()).length} link(s)`]);
       if (pide('producto')) filas.push(['Producto', productoElegido === 'otro' ? 'Otro / personalizado' : (productos ?? []).find((p) => p.id === productoElegido)?.nombre ?? '—']);
       if (pide('ventaTipo') && sinCobro) filas.push(['Venta', 'Sin cobro']);
       if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
