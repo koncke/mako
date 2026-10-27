@@ -57,6 +57,14 @@ Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, tex
   ⚠️ **Sin medir contra los datos de Mauricio** (la lectura de producción quedó frenada): el mecanismo está probado con
   instantes construidos; falta mirar en su base qué leads quedaron con el día corrido.
 
+- **El ticket #14 («La pantalla CRM se rompió», ws9, sin stack ni la propiedad).** No se reprodujo (la rama sin desplegar y
+  sin sesión en producción): se buscó lo que lee `undefined` con datos REALES del ws9, y el primer dibujado del tablero está
+  bien guardado (etapas huérfanas a `stages[0]`, filtros guardados saneados). Los que leen `.trim()` (el `reading` probable):
+  `fathom_links` con la forma vieja (sin `url`) en el asistente de mover (`f.url.trim()`, en un updater de estado: lo atrapa el
+  límite de error y cae la pantalla), y el orden por nombre de una columna con un lead sin nombre. **Regla:** lo que viene de
+  una columna jsonb se normaliza al mapearlo (`fathomDeFila`, app/crm/crm-map.ts), no en cada lector. ⚠️ El ticket es de las
+  20:14 UTC y el commit del 27/10 de las 22:17: lo desplegado tenía `name: l.nombre` sin default.
+
 **Lo que quedó SIN hacer, con su archivo:**
 - El arreglo de la fila 2371 (pide el sí de Martín; la consulta va al Cerebro).
 - Los pasos que siguen trabando el asistente (producto obligatorio, motivo con detalle, cuotas que suman): para que Martín

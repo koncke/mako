@@ -3717,4 +3717,74 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '27 oct', hora: '18:20', chat: 'CRM y Chats', cuenta: 'claude5',
+    actor: 'martin', tipo: 'prompt',
+    titulo: 'Pagos con libertad, sin contrato, la R1 a mano, el nombre de la agenda, los «⋯» y las fotos',
+    pedido: '«Los pagos funcionan mal, no tiene LIBERTAD... No se cargan tampoco el $ en el total de la columna cuando es suscripción.» · «Me sigue exigiendo CONTRATO, eso hay que eliminarlo... Lo mismo que mover a alguien a R1, solo funciona con llamada de Calendly o Cal, pero no si la agendé a mano, por defecto la busca... Tengo que ver todos los "forms" viejos que quedaron, como el del contrato o las agendas, para actualizarlo.» · «Cuando agrego un lead al CRM desde "chats" no se agrega con el NOMBRE que lo tenia agendado» · «se duplica en CHATS hasta que doy refresh» · «Los 3 puntitos del chat, no debería decir nada de "Cerrar" o posponer, ahí deberían haber otras opciones, entre esas, la de agregar al CRM» · «en NOMBRE se pone el telefono» · «Las fotos de perfil dentro del CRM no cargan y en CHATS si»',
+    puntos: ['Pasado por el Cerebro, con lo de Mauricio (el filtro de Chats por funnel, las fechas de Google, el filtro de Calendly y el lead 2371).'],
+  },
+  {
+    fecha: '27 oct', hora: '19:17', chat: 'CRM y Chats', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Pagos sin trámites, sin contrato al mover, la R1 cargada a mano y Chats con el nombre de la agenda',
+    puntos: [
+      'Pagos: una cuota se edita en el lugar aunque tenga un recordatorio o un link (se cortan solos), y una cobrada a mano se corrige sin desmarcarla. El total de Ganado suma la mensualidad de las suscripciones.',
+      'Mover a Ganado ya no pide el contrato. Mover a R1 con la reunión cargada a mano se mueve directo, y la fecha que cargaste le gana a Calendly. Todo lo que pide un movimiento, para que lo revises: docs/crm-requisitos-de-etapa.md.',
+      'Chats: el lead nace con el nombre con que lo tenías agendado (nunca el teléfono), no se duplica, el «⋯» trae «Agregar al CRM» y «Abrir ficha» (cerrar y posponer quedan al lado de «Cerrar»), y el CRM muestra la misma foto de WhatsApp.',
+      'Para Mauricio: el filtro de Chats elige el funnel (el del Sprint) y sus etapas, con números; la búsqueda de reuniones usa el día del CRM y sólo los eventos de Calendly del CRM; y un lead que gana sin moverse ya no queda en la columna de Perdido.',
+      'Sin ver en pantalla todavía: se mira en el Cliente de Prueba cuando esté desplegado. El lead 2371 de Mauricio se corrige con tu sí.',
+    ],
+    commits: [
+      { sha: '199ffe093', msg: 'CRM y Chats · el feedback del 27/10', lineas: 1612, archivos: 42 },
+    ],
+    archivos: [
+      'lib/pagos.ts — editarCuota sin trámites',
+      'app/crm/total-columna.ts — la mensualidad en el total',
+      'app/crm/StageMoveDialog.tsx · app/crm/mover-etapa.ts · lib/auto-reuniones.ts — el contrato, la R1 y el día',
+      'app/chats/agregar-al-crm.ts · lib/contacto-lead.ts · lib/evolution-contactos.ts — el nombre y la foto',
+      'lib/chats.ts · app/chats/FiltrosChats.tsx — el filtro por funnel',
+      'lib/pipeline.ts · lib/leads.ts — el estado y la columna, juntos',
+      'tests/crm-feedback-27-10.test.ts · tests/estado-contra-columna.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+  },
+  {
+    fecha: '27 oct', hora: '20:20', chat: 'CRM y Chats', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'El plan de pagos quincenal: cualquier cantidad de cuotas, en los días que elijas',
+    puntos: [
+      'Ticket #13 (Leila): «Armar el plan» ahora deja elegir cada mes, cada quincena o cada semana, los días (por ejemplo el 1 y el 15) y hasta 60 cuotas. Antes eran de 1 a 6 y un solo día del mes.',
+      'El plan de Nadia (lead 2605) se rehace desde su ficha cuando esté desplegado: hay que pasar su venta a «Pago único» y armar las quincenas de $300. Falta que Leila diga cuántas.',
+    ],
+    commits: [
+      { sha: '617c2fc02', msg: 'Pagos · el plan libre (ticket #13)', lineas: 189, archivos: 14 },
+    ],
+    archivos: [
+      'lib/pagos-campo.ts — fechasDelPlan',
+      'app/crm/lead-view/ficha/pagos/bloques-cobro.tsx — «Armar el plan»',
+    ],
+    revisar: '/crm?ws=3',
+    tickets: [13],
+  },
+  {
+    fecha: '27 oct', hora: '20:50', chat: 'CRM y Chats', cuenta: 'claude5',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'El CRM ya no se rompe con un link de grabación viejo ni con un lead sin nombre',
+    puntos: [
+      'Ticket #14: «La pantalla CRM se rompió». No se pudo ver el error en pantalla; se buscó en el código qué puede romperla con tus datos.',
+      'Dos cosas lo hacían: una grabación de Fathom guardada con la forma vieja (sin el link) rompía al mover un lead, y ordenar una columna por nombre rompía con los leads que entraron de un grupo sin nombre.',
+      'Arreglado eso y cuatro lugares más del mismo tipo.',
+    ],
+    commits: [
+      { sha: '8ac4970ea', msg: 'CRM · ticket #14: los accesos sin guarda que rompen /crm', lineas: 100, archivos: 6 },
+    ],
+    archivos: [
+      'app/crm/crm-map.ts — los links de Fathom, normalizados',
+      'app/crm/orden-kanban.ts — el orden por nombre sin nombre',
+      'tests/crm-ticket-14.test.ts',
+    ],
+    revisar: '/crm?ws=3',
+    tickets: [14],
+  },
 ];
