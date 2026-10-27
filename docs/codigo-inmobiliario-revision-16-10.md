@@ -50,7 +50,7 @@ no escribe en el Plan.
 | 863 | El evaluador del Web Generator dice «nada que señalar» | En producción | 48024bb0a |
 | 864 | Un texto largo pegado en el chat | En producción: queda como documento adjunto | 233b57297 |
 | 865 | Offer no lee un documento largo entero | En producción: lo lee por partes | 93981ff46 |
-| 866 | El link de Mercado Pago al cargar un cliente | **Hecho, y en discusión:** el código cobra US$47 por cada cliente. Joan dice que pagan 2 de 5 (MK-08, lo decide Martín) | b6dd0a6be |
+| 866 | El link de Mercado Pago al cargar un cliente | Hecho: el código cobra US$47 por cada cliente. Joan dice que pagan 2 de 5; Martín lo dejó afuera de esto (MK-08) | b6dd0a6be |
 | 867 | El mes corre desde que termina el onboarding | Hecho, con la misma salvedad que #866 | b6dd0a6be |
 | 868 | Las automatizaciones de Brigitte | En producción: un lead de formulario dispara sus automatizaciones entre por donde entre | 04e704dcb |
 | 880 | Las plantillas de la ficha, más simples | En producción (se revirtió y se volvió a aplicar el mismo día) | c3f0d449e · 7400c8dd4 |
@@ -74,9 +74,8 @@ no escribe en el Plan.
 
 ## Lo que queda abierto
 
-- **El cobro por cliente (MK-08):** el código cobra US$47 por cada cliente. La forma de marcar un cliente como bonificado
-  está preparada y APAGADA (`BONIFICADOS_PRENDIDO`, docs/hallazgos-planes-y-cobro.md). No se leyó la cartera ni los cobros
-  de Joan en producción: el permiso de este chat no lo dejó.
+- **El cobro por cliente (MK-08) queda afuera.** Martín, 27/10: «No te preocupes por el tema de "plata", ni del plan de
+  Joan». No se tocó nada de cobros.
 - **#845, #885 y el mensaje programado** esperan a Martín o a un uso real.
 - **Nueve tarjetas «por hacer» con el código en producción:** cerrarlas en el Plan (ver arriba).
 
@@ -106,4 +105,4 @@ no escribe en el Plan.
 >
 > Si algo de esto no te anda como te digo, mándame una captura y lo vemos.
 
-*Sobre el cobro de los clientes (#866 y #867) el mensaje no dice nada a propósito: lo define Martín (MK-08).*
+*Sobre el cobro de los clientes (#866 y #867) el mensaje no dice nada a propósito: Martín lo dejó afuera (MK-08).*

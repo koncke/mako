@@ -6,10 +6,7 @@
 //   · `linkPrimerMes`: lo crea `crearCuentaMakoAction` (app/customer-success/actions.ts) al abrirle la cuenta;
 //   · `renovacionesDeAgencia`: el cron de cobros (cada 30 min) crea la suscripción mensual cuando el cliente termina el
 //     onboarding, y anota cuando la agencia la autorizó;
-//   · `cobrosDeClientesDeAgencia`: lo que la pantalla de la agencia muestra en cada cliente;
-//   · los BONIFICADOS (MK-08, 27/10/2026, APAGADO: `BONIFICADOS_PRENDIDO`): `clientesBonificados` y `marcarBonificado`.
-//     Los tres de arriba los respetan. ⚠️ «No pude leer la lista» NO es «no hay bonificados»: con eso se le cobraría a
-//     uno que Martín bonificó. Quien no la puede leer no cobra (el link y el cron) o no muestra (la pantalla).
+//   · `cobrosDeClientesDeAgencia`: lo que la pantalla de la agencia muestra en cada cliente.
 //
 // ⚠️ TODO COBRO ES DE LA PLATAFORMA (`wsSuperAdmin()`), con su Mercado Pago: lo que se cobra es el lugar en MaKo. Un
 //    negocio no se cobra a sí mismo; `crearCobro` rechaza `paraCliente` fuera de la plataforma.
@@ -20,14 +17,14 @@
 import 'server-only';
 import { getSupabaseServer } from './supabase';
 import { runWithWorkspace, wsSuperAdmin } from './workspace';
-import { cambiarSettingSi, getSetting, getSettingEstricto, setSetting } from './settings';
+import { getSetting, setSetting } from './settings';
 import { anotarAutorizacionMp, crearCobro, linkDelCobro, pasarelasConectadas } from './cobros';
 import { COLS_COBRO, cobroDeFila } from './cobros-tipos';
 import { estadoDeLoGuardado } from './onboarding-contrato';
 import { ONBOARDING_KEY } from './onboarding-state';
 import {
-  BONIFICADOS_PRENDIDO, KEY_BONIFICADOS, KEY_PRECIO_CLIENTE_AGENCIA, cobrosParaLaAgencia, conBonificado, desdeDelMes,
-  inicioDeRenovacion, sanearBonificados, sanearPrecioClienteAgencia, sinLosBonificados, type CobroDeCliente, type PrecioClienteAgencia,
+  KEY_PRECIO_CLIENTE_AGENCIA, cobrosParaLaAgencia, desdeDelMes, inicioDeRenovacion, sanearPrecioClienteAgencia,
+  type CobroDeCliente, type PrecioClienteAgencia,
 } from './agencia-cobro-reglas';
 
 export async function precioClienteDeAgencia(): Promise<PrecioClienteAgencia> {
@@ -41,44 +38,6 @@ export async function guardarPrecioClienteDeAgencia(p: unknown): Promise<PrecioC
   const plataforma = await wsSuperAdmin();
   await runWithWorkspace(plataforma, () => setSetting(KEY_PRECIO_CLIENTE_AGENCIA, JSON.stringify(limpio)));
   return limpio;
-}
-
-/**
- * Los clientes por los que MaKo no le cobra a su agencia. Apagado, vacío sin leer nada. Un error de lectura TIRA
- * (`getSettingEstricto`): quien llama decide no cobrar, nunca cobrar a ciegas.
- */
-export async function clientesBonificados(): Promise<Set<number>> {
-  if (!BONIFICADOS_PRENDIDO) return new Set();
-  const plataforma = await wsSuperAdmin();
-  return new Set(sanearBonificados(await runWithWorkspace(plataforma, () => getSettingEstricto(KEY_BONIFICADOS))));
-}
-
-export type ResultadoBonificar = { ok: true; bonificado: boolean; cambio: boolean } | { ok: false; motivo: string };
-
-/**
- * Marca (o desmarca) a un cliente de agencia como bonificado. Lo llama la API (`bonificar_cliente_de_agencia`), que ya
- * preguntó por el super admin. Sólo un workspace que es cliente de una agencia (con su fila en `agencia_clientes`, no
- * revocada). Con compare-and-set: dos marcas a la vez no se pisan.
- * ⚠️ No toca lo que ya existe en la pasarela: una renovación que la agencia ya autorizó se sigue cobrando hasta que se
- * cancela en Cobros (lo dice el resumen de la API).
- */
-export async function marcarBonificado(clienteWs: number, bonificado: boolean): Promise<ResultadoBonificar> {
-  if (!BONIFICADOS_PRENDIDO) return { ok: false, motivo: 'Los clientes bonificados todavía no están prendidos: falta que Martín decida qué se le cobra a cada agencia.' };
-  if (!Number.isSafeInteger(clienteWs) || clienteWs <= 0) return { ok: false, motivo: 'Ese no es un número de cuenta.' };
-  const { data, error } = await getSupabaseServer().from('agencia_clientes').select('estado').eq('cliente_ws', clienteWs);
-  if (error) return { ok: false, motivo: `No pude revisar de qué agencia es: ${error.message}` };
-  if (!((data ?? []) as Array<{ estado: string }>).some((f) => f.estado !== 'revocado')) return { ok: false, motivo: 'Esa cuenta no es cliente de ninguna agencia: a ella no se le cobra por cliente.' };
-  const plataforma = await wsSuperAdmin();
-  return runWithWorkspace(plataforma, async () => {
-    for (let intento = 0; intento < 3; intento++) {
-      const antes = await getSettingEstricto(KEY_BONIFICADOS);
-      const lista = sanearBonificados(antes);
-      const ya = lista.includes(clienteWs);
-      if (ya === bonificado) return { ok: true as const, bonificado, cambio: false };
-      if (await cambiarSettingSi(KEY_BONIFICADOS, antes, JSON.stringify(conBonificado(lista, clienteWs, bonificado)))) return { ok: true as const, bonificado, cambio: true };
-    }
-    return { ok: false as const, motivo: 'Alguien estaba cambiando la lista a la vez: vuelve a pedirlo.' };
-  });
 }
 
 /** La ficha de la agencia en el CRM de MaKo: el lead de la plataforma que apunta a su cuenta (`leads.cliente_ws`). */
@@ -107,7 +66,6 @@ async function faltaParaCobrar(plataforma: number): Promise<{ motivo: string } |
  */
 export async function linkPrimerMes(p: { agenciaWs: number; clienteWs: number; nombreCliente: string; email: string | null; creadoPor: string }): Promise<ResultadoLinkCliente> {
   try {
-    if ((await clientesBonificados()).has(p.clienteWs)) return { ok: false, motivo: 'Este cliente está bonificado: MaKo no le cobra a su agencia por él.' };
     const plataforma = await wsSuperAdmin();
     const falta = await faltaParaCobrar(plataforma);
     if ('motivo' in falta) return { ok: false, motivo: falta.motivo };
@@ -151,15 +109,9 @@ export async function renovacionesDeAgencia(): Promise<{ creadas: number; autori
   let autorizadas = 0;
   let errores = 0;
   const falta = await faltaParaCobrar(plataforma);
-  // Sin la lista de bonificados, esta vuelta no crea ninguna renovación: la próxima (30 min) lo vuelve a intentar.
-  let bonificados: Set<number> | null = null;
-  try { bonificados = await clientesBonificados(); } catch (e) {
-    errores++;
-    console.error('[agencia-cobro] no pude leer los bonificados: esta vuelta no crea renovaciones:', e instanceof Error ? e.message : String(e));
-  }
-  for (const f of (bonificados ? primeros.data ?? [] : []) as FilaPrimerMes[]) {
+  for (const f of (primeros.data ?? []) as FilaPrimerMes[]) {
     const clienteWs = Number(f.cliente_ws);
-    if (conRenovacion.has(clienteWs) || !f.lead_id || bonificados?.has(clienteWs)) continue;
+    if (conRenovacion.has(clienteWs) || !f.lead_id) continue;
     try {
       const { data: on, error } = await db.from('app_settings').select('value').eq('workspace_id', clienteWs).eq('key', ONBOARDING_KEY).maybeSingle();
       if (error) throw new Error(error.message);
@@ -203,8 +155,7 @@ export async function cobrosDeClientesDeAgencia(agenciaWs: number): Promise<Retu
       .order('created_at', { ascending: false }).limit(300);
     if (error) throw new Error(error.message);
     const filas = (data ?? []) as Array<Omit<CobroDeCliente, 'link'> & { token: string }>;
-    const porCliente = cobrosParaLaAgencia(filas.map(({ token, ...f }) => ({ ...f, cliente_ws: Number(f.cliente_ws), link: linkDelCobro(token) })));
-    return sinLosBonificados(porCliente, await clientesBonificados());
+    return cobrosParaLaAgencia(filas.map(({ token, ...f }) => ({ ...f, cliente_ws: Number(f.cliente_ws), link: linkDelCobro(token) })));
   } catch (e) {
     console.error(`[agencia-cobro] cobros de los clientes de la agencia ${agenciaWs}:`, e instanceof Error ? e.message : String(e));
     return {};

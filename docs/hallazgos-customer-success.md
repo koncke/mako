@@ -6057,3 +6057,23 @@ guarda de ventana y origen.
 **Medido con el reproductor REAL de cada uno** (el lector compilado, en Chrome sin ventana, clic para reproducir y para
 pausar): Wistia dio 77 s de duración, 33 avances y la pausa; Bunny, 22,7 s, 39 avances, el saludo y la pausa; Cloudflare,
 29,9 s, 32 avances y la pausa. La columna `video_tipo` no cambia: van como `url` (su CHECK, mig 0202).
+
+## Un video de Drive se ve en el editor y no en el alumno (MAU-19, 27/10/2026)
+
+- **El pedido:** Mauricio sube los videos de su curso a un Drive (7 de 61 de la fase 0) y Martín le dijo que él los
+  conectaba. Conectar uno ya era pegar el link en la clase («Agregar video» acepta Drive). Lo que lo hacía depender de
+  alguien no se veía: **él está logueado en su Google, así que en el editor el video se reproduce aunque el archivo sea
+  privado.** El alumno entra sin esa cuenta y ve «Necesitas acceso».
+- **Ahora:** al guardar un video NUEVO de Drive, MaKo le pregunta a Drive sin sesión, como un alumno
+  (lib/drive-acceso.ts). Si no es público, no guarda y dice cómo compartirlo (Compartir → Acceso general → «Cualquier
+  persona con el enlace»). Lo hacen los tres guardados de una clase (`guardarClase`, `guardarCampoClase`,
+  `guardarLeccion`), que son también los de la API (`editar_clase_curso`).
+- **Lo medido sin sesión, sin seguir redirecciones:** un archivo público da 200 con el `<title>` «<nombre> - Google
+  Drive»; un id que no existe da 404. ⚠️ **Un archivo privado NO se midió** (no había uno a mano): se lee como privado
+  el 3xx a accounts.google.com y el 401/403. Todo lo demás es «no sé», y con «no sé» se guarda: si Drive cambia su
+  respuesta, el chequeo deja de frenar, pero no frena videos buenos. Lo primero que hay que hacer con un archivo
+  privado real es confirmar que dé `privado`.
+- **El paso, para Mauricio:** en Drive, clic derecho en el video → Compartir → Acceso general: «Cualquier persona con el
+  enlace» → Copiar vínculo. En MaKo: Classroom → la clase → «Agregar video» → pegar → Usar → Guardar. También se puede
+  pedir por el chat: «ponle este video a la clase X».
+- **Cargar los 7 videos en el ws1 es escritura en producción:** la hace el Cerebro, con el sí de Martín.

@@ -271,19 +271,6 @@ export const DEFS: readonly OperacionDef[] = [
     ],
     canales: ['whatsapp', 'app'], costo: 'externo', gating: { rolMinimo: 'admin', soloPlataforma: true },
   },
-  // ── Los clientes BONIFICADOS de una agencia (MK-08, 27/10/2026): lib/agencia-cobro.ts. APAGADO (`BONIFICADOS_PRENDIDO`)
-  // hasta que Martín decida qué se le cobra a Joan; mientras, el runner contesta que no está prendido.
-  {
-    id: 'bonificar_cliente_de_agencia', area: 'cobros', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/mako/revisar', reversible: true,
-    titulo: 'Bonificar un cliente de agencia',
-    descripcion: 'Sólo para la plataforma: PROPONE marcar a un cliente de una agencia como bonificado (o volver a cobrarle): MaKo deja de cobrarle a su agencia por ese cliente. No se crea el link del primer mes ni la renovación mensual, y ni la agencia ni el cliente ven un pago pendiente. Se confirma en una pantalla. Una renovación que la agencia ya autorizó no se cancela sola: se cancela en Cobros. Todavía no está prendido: hasta que Martín decida qué se cobra, contesta que no está disponible.',
-    escribe: 'la lista de clientes bonificados de la plataforma (app_settings agencia.bonificados)',
-    parametros: [
-      { nombre: 'clienteWs', rotulo: 'Cliente', tipo: 'number', entero: true, obligatorio: true, fijoAlRevisar: true, minimo: 1, descripcion: 'el número de cuenta del cliente de la agencia (el ws de ver_clientes_de_mako).' },
-      { nombre: 'bonificado', rotulo: 'Bonificado', tipo: 'boolean', obligatorio: true, fijoAlRevisar: true, descripcion: 'true para bonificarlo; false para volver a cobrarle a su agencia.' },
-    ],
-    canales: ['whatsapp', 'app'], costo: 'gratis', gating: { rolMinimo: 'admin', soloPlataforma: true },
-  },
   // ── Customers del super admin (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12) ─────────────────────────
   // La vista Customers (app/customers) por chat: los clientes de MaKo por segmento con su MRR, y en qué trabajan en su
   // Claude Code (lo que era /admin/agente). Sólo la plataforma y, en la app, el super admin global (el runner lo pregunta); sin HTTP: son datos de todos los negocios.
