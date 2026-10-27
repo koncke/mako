@@ -9833,6 +9833,9 @@ Y un selector de línea PARA MANDAR (el número de salida de la automatización 
 «Probar») lee `RUTA_LINEAS` (app/automations/SalidaWhatsApp.tsx, `para=mandar`): en la plataforma el envío pone la de
 MaKo primero y por defecto, y con la lista del negocio la pantalla decía una línea y salía por otra (27/10/2026,
 docs/hallazgos-comunicacion.md). La bandeja y las operaciones de la línea siguen con las del negocio.
+Y un campo que se EDITA no muestra lo saneado (27/10/2026, ticket #12: el `trim` de `botonesDe` en cada tecla volvía
+«Obtener recurso» «Obtenerrecurso»): sanear es para lo que sale (el motor, Publicar), no para lo que se está escribiendo
+(`botonesDe(…, { comoSeEscribe: true })`, docs/hallazgos-chatbot.md).
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa

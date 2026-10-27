@@ -25,6 +25,11 @@ Ticketera. Hechos, con test y probados rompiéndolos (la cosecha, en docs/hallaz
   escriba MaKo). Unir tarjetas ya se veía desde el 15/10: «Conectar a una tarjeta» es la primera opción del «+»
   (50f263134). Sin mirar en pantalla que el texto entre en una tarjeta angosta.
 
+- **Ticket #12 de Leandro, los espacios en el nombre de un botón:** era el `trim` del saneo en cada tecla
+  (`botonesDe(…, { comoSeEscribe: true })` en el editor). La otra mitad, responder en público el comentario, va aparte:
+  Zernio la tiene (`POST /v1/inbox/comments/{postId}` con `commentId`). El hito con `tickets: [12, 11]` sale cuando estén las dos.
+- **MAU-33:** una cuenta de anuncios frenada varios días avisa una vez por día (56be0692d).
+
 **Medido, sin escribir (lo decide el Cerebro):**
 - **4. La #266 de Brigitte (ws15).** La espera de 1 h y el recordatorio se fueron con un Publicar de la pantalla el
   23/10 a las 14:05Z. No fue MaKo, ni la API, ni la IA. Quién lo hizo no se sabe: no hay registro. Devolvérselos es

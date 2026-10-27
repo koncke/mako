@@ -27,6 +27,20 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## El nombre de un botón perdía los espacios: no era la barra espaciadora, era el saneo en cada tecla (27/10/2026)
+
+Ticket #12 de Leandro (ws10): «Obtener recurso» quedaba «Obtenerrecurso» al tipear, y pegando sí andaba. **El obvio («el
+lienzo se queda con la barra espaciadora») era el equivocado:** ningún `keydown` del lienzo mira el espacio.
+- **La causa:** el editor (app/automations/EditorMensajeSocial.tsx) dibujaba `botonesDe(paso)`, la lista SANEADA, y ésa
+  hace `trim` del título. En cada tecla «Obtener » volvía como «Obtener» y la «r» siguiente quedaba pegada. Pegando, el
+  espacio queda en el medio y el `trim` no lo toca.
+- **Lo mismo hacía dos cosas más:** vaciar el campo para reescribirlo borraba el botón (sin título «se cae»), y vaciar el link
+  lo pasaba a «Sigue el flujo».
+- **El arreglo:** `botonesDe(…, { comoSeEscribe: true })` para el editor; el motor y Publicar siguen con la saneada.
+  tests/botones-titulo-como-se-escribe.test.ts simula el tipeo letra por letra (3 roturas).
+- **La regla, en AGENTS.md:** un campo que se edita no muestra lo saneado. Sanear es para lo que sale, no para lo que se
+  está escribiendo.
+
 ## Una pregunta en «Editar» cambiaba el lienzo: no era el modelo, era NUESTRA revisión (27/10/2026)
 
 **El síntoma** (874749710-11, Leandro el 24/10 y Martín con Aaron el 26/10): en «Editar», una pregunta terminaba

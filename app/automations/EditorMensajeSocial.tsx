@@ -351,9 +351,10 @@ export function EditorMensajeSocial({ paso, canal, onChange, negocio, adjuntos, 
         <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           {vista}
           {/* LOS BOTONES (24/10/2026, como ManyChat): debajo del último mensaje, como los ve la persona. Con algo escrito: los
-              botones van debajo de un texto. */}
+              botones van debajo de un texto. `comoSeEscribe` (27/10/2026, ticket #12): saneada, la lista se comía el espacio
+              del final en cada tecla. */}
           {partes.length > 0 && (
-            <BotonesSocial botones={botonesDe(paso)} deshabilitado={ocupado}
+            <BotonesSocial botones={botonesDe(paso, undefined, { comoSeEscribe: true })} deshabilitado={ocupado}
               onCambio={(b) => onChange({ botones: b.length ? b : undefined })} />
           )}
         </div>
