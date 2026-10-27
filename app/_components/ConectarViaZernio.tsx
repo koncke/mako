@@ -37,6 +37,7 @@
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button } from '@/app/_ui';
+import { Modal } from '@/app/_ui/Modal';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useConectarIntegracion } from './ConectarIntegracion';
 import {
@@ -47,7 +48,7 @@ import {
 
 export type FaseZernio = 'listo' | 'abriendo' | 'esperando' | 'conectado' | 'error';
 /** `pageId`: la página de los anuncios de Meta (`metaads`): con varias concedidas y sin ella, Zernio no crea la conexión. */
-export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null };
+export type ExtraZernio = { reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; aceptaCobro?: boolean };
 
 /** Lo que contesta POST /api/zernio (las acciones de esta pieza). */
 type RespuestaApi = {
@@ -117,6 +118,8 @@ export function useConectarViaZernio(opts: {
   const [error, setError] = useState<string | null>(null);
   const [pagoUrl, setPagoUrl] = useState<string | null>(null);
   const [nota, setNota] = useState<string | null>(null);
+  // El aviso del cobro de Zernio (27/10/2026): la red y lo que se iba a pedir, para repetirlo con `aceptaCobro` desde un clic NUEVO.
+  const [avisoCobro, setAvisoCobro] = useState<{ red: RedZernio; extra: ExtraZernio; texto: string } | null>(null);
   const vivo = useRef(true);
   const corrida = useRef(0);
   const adelantar = useRef(false);
@@ -206,6 +209,8 @@ export function useConectarViaZernio(opts: {
         if (optsRef.current.keyAca) { fallar(`${MENSAJES_DE_MOTIVO[motivo]} Está arriba, en esta misma pantalla.`, null); return; }
         setFase('listo'); ponerNota(MENSAJES_DE_MOTIVO[motivo]); abrirIntegracion('zernio'); return;
       }
+      // Ésta se paga en SU Zernio: se pregunta antes de abrir Facebook. «Conectar igual» es otro clic (la ventana se abre sin bloqueo).
+      if (motivo === 'cobro') { setFase('listo'); setAvisoCobro({ red: redElegida, extra, texto: res.error || MENSAJES_DE_MOTIVO.cobro }); return; }
       fallar(res.error || MENSAJES_DE_MOTIVO[motivo], res.pagoUrl ?? null);
       return;
     }
@@ -345,7 +350,28 @@ export function useConectarViaZernio(opts: {
     return () => window.removeEventListener('pageshow', alVolver);
   }, []);
 
-  return { fase, red, error, pagoUrl, nota, conectar, modal };
+  const modalTodo = (
+    <>
+      {modal}
+      {avisoCobro && (
+        // `anidada`: se abre desde el modal de Zernio o el de Meta y es parte de la misma tarea (el de atrás no se apaga).
+        <Modal titulo="Esta cuenta se paga en tu Zernio" ancho={440} anidada onCerrar={() => setAvisoCobro(null)}
+          pie={(
+            <>
+              <Button size="sm" variant="secondary" onClick={() => setAvisoCobro(null)}>Cancelar</Button>
+              <Button size="sm" variant="primary" data-conectar-igual
+                onClick={() => { const a = avisoCobro; setAvisoCobro(null); conectar(a.red, { ...a.extra, aceptaCobro: true }); }}>
+                Conectar igual
+              </Button>
+            </>
+          )}>
+          <p data-aviso-cobro-zernio style={{ margin: 0, fontSize: 13.5, lineHeight: 1.5, color: 'var(--ink)' }}>{avisoCobro.texto}</p>
+        </Modal>
+      )}
+    </>
+  );
+
+  return { fase, red, error, pagoUrl, nota, conectar, modal: modalTodo };
 }
 
 // ── La pantalla ──────────────────────────────────────────────────────────────
