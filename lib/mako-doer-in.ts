@@ -1214,6 +1214,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const tools = pideVerAgenda(sinPrefijoDeLote(texto)) && !conTicket.some((t) => t.name === AGENDA_DEL_DIA) ? [...conTicket, ...AGENDA_TOOLS] : conTicket;
     const { ofrece } = turno;
     const ctxFalla = reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '';
+    // Un contacto compartido se busca POR TELÉFONO antes de proponer un lead (P6: el de Leila terminó en un lead nuevo).
+    const contactosCompartidos = contactosDelMensaje(data.message);
+    const ctxContacto = contactosCompartidos.length
+      ? await (await import('@/lib/contacto-compartido')).contextoDeContactos(contactosCompartidos).catch(() => '')
+      : '';
     if (turno.delRegistro.length) console.log(`[doer] ws=${wsData} +${turno.delRegistro.length} del registro (${turno.areas.join(', ')})${sinCalendly ? ' · sin Calendly' : ''}`);
 
     /**
@@ -1271,7 +1276,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
       // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
       // del turno: la red de la plataforma corre sin datos de clientes.
-      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
     };
     const system = armarSystem(tools);

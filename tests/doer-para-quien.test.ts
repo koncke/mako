@@ -40,5 +40,5 @@ test('4. el doer: lo saltea antes del turno (leyendo la memoria sólo si hace fa
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /if \(!esMedia && !nombraAMaKo\(textoDirecto\) && !vigentes\.length\) \{\n\s*const menciones = mencionesDe\(/);
   assert.match(doer, /if \(!pregunto\) return \{ engaged: false, skip: `no es para MaKo \(\$\{candidato\}\)` \};/);
-  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), ctxYaSeHablo, ctxMostrado\]/);
+  assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxContacto, )?ctxYaSeHablo, ctxMostrado\]/);
 });
