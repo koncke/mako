@@ -35,6 +35,8 @@ export type MensajeChatMako = {
    * rojo; `avisos` son lo que MaKo reparó solo, en gris. Con algo acá el mensaje no dice «Listo».
    */
   noHecho?: string[];
+  /** Qué IA lo contestó, en palabras («Con tu Claude», lib/quien-contesto.ts). Ausente en los mensajes de antes del 27/10. */
+  ia?: string;
   /** Los nombres de lo que adjuntó con el «+» (23/10/2026, AU4): el hilo los muestra; el texto leído no se guarda acá. */
   adjuntos?: string[];
   /**
@@ -147,6 +149,8 @@ export function sanearMensaje(raw: unknown): MensajeChatMako | null {
   }
   if (typeof raw.tarjeta === 'string' && raw.tarjeta.trim()) m.tarjeta = raw.tarjeta.trim().slice(0, TOPE_TARJETA_CHAT);
   if (raw.de === 'mako' && typeof raw.falta === 'string' && raw.falta.trim()) m.falta = raw.falta.replace(/\s+/g, ' ').trim().slice(0, TOPE_FALTA);
+  // Qué IA lo contestó (27/10/2026): sólo en los de MaKo, y corto («Con el crédito de Claude de MaKo» es el más largo).
+  if (raw.de === 'mako' && typeof raw.ia === 'string' && raw.ia.trim()) m.ia = raw.ia.replace(/\s+/g, ' ').trim().slice(0, 60);
   return m;
 }
 

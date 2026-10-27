@@ -81,9 +81,20 @@ export function pideCambio(texto: string): boolean {
  * A propósito sin «cuándo» ni «dónde» («cuando contesta, mándale el link» es una orden) ni «puedo» («puedo agregar un audio»
  * es un pedido amable): ante la duda, edita.
  */
-const RX_ARRANCA_PREGUNTA = /^(existen?|hay (algun|alguna|algo|forma|manera|un tope|un limite|tope|limite)|se puede|es posible|como (hago|se|puedo|funciona)|cuant[oa]s?|cual(es)? (es|son)|que (pasa|significa|hace|es)|por que|para que sirve|sirve)\b/;
+// ⚠️ MÁS ARRANQUES DESDE EL 27/10/2026 (874749710-11, «le volvió a pasar a Martín con Aaron»): «a cuántos les llega», «desde
+// qué número sale», «quiero saber…», «explícame…», «cómo levanto un ticket» (Leandro, ws10, 25/10) iban a editar. «Cómo» +
+// una primera persona («cómo levanto», «cómo lo hago») pregunta; «como te dije» no (termina en «e»).
+const RX_ARRANCA_PREGUNTA = /^(existen?|hay (algun|alguna|algo|forma|manera|un tope|un limite|tope|limite)|se puede|es posible|como (hago|se|puedo|funciona|\p{L}+o)|cuant[oa]s?|cual(es)? (es|son)|que (pasa|pasaria|significa|hace|es|tal|dice|manda|sale)|por que|para que sirve|sirve|a (quien|quienes|cuant[oa]s?)|quien(es)?|en que|desde (que|donde)|con que|(quiero|quisiera|me gustaria|necesito) saber|sabes|me (puedes|podes|podrias) (decir|explicar|contar)|esta bien|te parece|tiene sentido|conviene|explica(me|melo|nos)?|dime|decime|cuentame|contame)\b/u;
 /** «se puede agregar…», «es posible sacarle…»: con un verbo de cambio detrás es un pedido, no una pregunta. */
 const RX_PIDE_PREGUNTANDO = new RegExp(`^(?:se puede|es posible)\\s+(?:\\w+\\s+)?(?:${alt(RAICES)})`);
+/**
+ * LO QUE SE DICE ANTES DE LA PREGUNTA (27/10/2026): «Hola MaKo, …», «Una pregunta: …», «Y en Instagram?…». No la cambia, y
+ * con eso adelante ningún arranque de `RX_ARRANCA_PREGUNTA` se reconocía. «Hola» solo queda vacío: no es una pregunta.
+ */
+const RX_MULETILLA = /^(?:(?:y|pero|hola|buenas|buen dia|oye|oiga|che|mako|maco|a ver|una pregunta|otra pregunta|pregunta|una consulta|consulta|una duda|duda)(?![\p{L}])[\s,:;.!¡¿-]*)+/u;
+const sinMuletilla = (t: string): string => t.replace(RX_MULETILLA, '');
+/** Lo que va entre comillas es un TEXTO para el lead («Que el último diga "¿Te late?"»): sus signos no son del pedido. */
+const sinLoCitado = (t: string): string => t.replace(/[«"“][^«»"“”\n]*[»"”]/g, ' ');
 
 /**
  * UNA PREGUNTA DICTADA, SIN SIGNOS (24/10/2026, f18 de la llamada con Leandro): la hizo por AUDIO en «Editar» («Existe un
@@ -94,8 +105,20 @@ const RX_PIDE_PREGUNTANDO = new RegExp(`^(?:se puede|es posible)\\s+(?:\\w+\\s+)
 export function esPreguntaDictada(texto: string): boolean {
   const crudo = String(texto ?? '').trim();
   if (!crudo || crudo.includes('\n') || crudo.length > 300) return false;
-  const t = plano(crudo);
+  const t = sinMuletilla(plano(crudo));
   return RX_ARRANCA_PREGUNTA.test(t) && !RX_PIDE_PREGUNTANDO.test(t) && !pideCambio(crudo);
+}
+
+/**
+ * UNA PREGUNTA CON SIGNOS, ESTÉN DONDE ESTÉN (27/10/2026, 874749710-11). Hasta acá contaba sólo la que ARRANCA con «¿» o
+ * TERMINA en «?», y sin mirar si pedía algo: «y en instagram? porque no me aparece en la configuración.» (Leandro, ws10,
+ * 25/10) iba al modelo de editar, y «¿Le agregás un audio al final?» al de contestar (no se hacía). Ahora: un «?» o un «¿»
+ * fuera de lo citado, sin un pedido de cambio (`pideCambio`, «¿se puede agregar…?»).
+ */
+export function esPreguntaConSignos(texto: string): boolean {
+  const fuera = sinLoCitado(String(texto ?? '').trim());
+  if (!/[¿?]/.test(fuera)) return false;
+  return !pideCambio(fuera) && !RX_PIDE_PREGUNTANDO.test(sinMuletilla(plano(fuera).replace(/^[¿¡\s]+/, '')));
 }
 
 /**

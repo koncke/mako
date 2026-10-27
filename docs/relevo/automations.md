@@ -4,7 +4,41 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 24/10/2026 noche, cuenta 5 (claude5, «Ananda»), rama `aut-2510`
+## LO ÚLTIMO: 27/10/2026 tarde, cuenta 5 (claude5, «Ananda»), rama `aut-2510`: la tanda de 12 del Cerebro
+
+La tanda salió de las llamadas 874749710 (Leandro), 876470842 (Leila) y 876825880 (Aaron), del grupo Makito y de la
+Ticketera. Hechos, con test y probados rompiéndolos (la cosecha, en docs/hallazgos-chatbot.md, -ia, -comunicacion y -ui):
+
+- **3. Las iniciales** de un DM y del globo de «Probar» salen de `iniciales` (e77ee8d5e). Quedan seis lugares de otras
+  áreas, anotados en hallazgos-ui.md.
+- **5. El chat dice qué IA contestó** («Con tu Claude», «Con la Gemini de MaKo (respaldo)»). El orden de la cascada ya era
+  el pedido.
+- **6. Una pregunta en «Editar» se contesta.** Con o sin signos, con saludo adelante y con el «?» en el medio. Probado con
+  Claude y Gemini reales: `scripts/arnes-pregunta-en-editar.mts`.
+- **10. «Sale desde».** En el Super Admin, los selectores muestran las mismas líneas con las que se manda.
+- **9. El número compartido de Leandro: no.** Las automatizaciones le escriben sólo a leads del CRM; a quien escribe y no es
+  lead nadie le contesta solo. MaKo lo sabe contestar en el chat del lienzo (`LO_QUE_NO_ES_TARJETA`). El texto para su grupo
+  se lo pasé al Cerebro.
+- **7. El chat de Joan (ws13), descartado con evidencia.** El 15/10 era el incidente de Gemini (230323411). El 16/10, «un dato
+  de la reunión sin un esperar», que a0feecde9 (17/10) enseñó a corregir. Joan no volvió a pedirlo.
+- **11. La tarjeta de mensaje dice «tal cual»** (el cuadro: «Escribe lo que le llega, tal cual»; el ✦ ofrece que lo
+  escriba MaKo). Unir tarjetas ya se veía desde el 15/10: «Conectar a una tarjeta» es la primera opción del «+»
+  (50f263134). Sin mirar en pantalla que el texto entre en una tarjeta angosta.
+
+**Medido, sin escribir (lo decide el Cerebro):**
+- **4. La #266 de Brigitte (ws15).** La espera de 1 h y el recordatorio se fueron con un Publicar de la pantalla el
+  23/10 a las 14:05Z. No fue MaKo, ni la API, ni la IA. Quién lo hizo no se sabe: no hay registro. Devolvérselos es
+  escribir en su negocio.
+- **1 y 2. Los avisos al grupo y «Completa el disparador».** Para probarlos hay que crear y activar automatizaciones en el
+  ws3, o sea escribir en producción. Falta el sí del Cerebro.
+
+**Sigue:**
+- 8. Proponer los textos con el conocimiento del negocio.
+- 12. Versiones con «restaurar» y un centro de errores.
+
+**Sin investigar:** el 26/10, el chat del lienzo del ws9 (#700) contestó «Gemini está saturado» dos veces (hallazgos-ia.md).
+
+## Antes: 24/10/2026 noche, cuenta 5 (claude5, «Ananda»), rama `aut-2510`
 
 Martín: «eso si es un bug, el goteo debe comenzar a contar desde que se envia el primer mensaje», y sobre la cuenta de
 anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al grupo de mako».

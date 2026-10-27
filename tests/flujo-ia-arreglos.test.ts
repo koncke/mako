@@ -371,8 +371,9 @@ test('crear: el disparador que quedó PUESTO viaja en `listo` y la tarjeta CRON 
   assert.ok(pone > 0 && ok > pone && ok < ruta.indexOf('} catch (e) {', ok), 'sólo si ponerDisparador no tiró');
   // El core lo devuelve (`disparador: puesto`) y la ruta lo manda en `listo` (décima tanda).
   // 20/10/2026: con el texto de «Creé…» y, si es un Recurrente, su horario (la tarjeta CRON lo siembra igual).
-  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto, texto,\n\s*\.\.\.\(rec && puesto \? \{ cron: rec\.cron \} : \{\}\),\n\s*\};/);
-  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador, texto: r\.texto, \.\.\.\(r\.cron \? \{ cron: r\.cron \} : \{\}\) \}\);/);
+  // 27/10/2026: y con qué IA lo escribió (`quien` en el core, `ia` en el `listo`; tests/automations-quien-contesto.test.ts).
+  assert.match(ruta, /etiquetasNuevas: creadas, disparador: puesto, texto,\n\s*\.\.\.\(rec && puesto \? \{ cron: rec\.cron \} : \{\}\),\n\s*quien: g\.quien \?\? null,\n\s*\};/);
+  assert.match(ruta, /etiquetasNuevas: r\.etiquetasNuevas, disparador: r\.disparador, texto: r\.texto, \.\.\.\(r\.cron \? \{ cron: r\.cron \} : \{\}\), \.\.\.\(ia \? \{ ia \} : \{\}\) \}\);/);
   const perfil = sinComentarios(leer('app/automations/SecuenciaPerfil.tsx'));
   // Sexta tanda (varios CRON): lo puesto se pinta en el PRIMERO de la lista (`useDisparadores`).
   // Verificado sacando el `sembrarPrimero` (09/10/2026, cuatro archivos, base 71 / 0): 70 / 1, cae éste.

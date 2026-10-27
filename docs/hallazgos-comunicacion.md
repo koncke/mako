@@ -51,6 +51,31 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Probar» decía una línea y salía por otra, en la plataforma: los SELECTORES leían otra lista que el envío (27/10/2026)
+
+**El síntoma** (876825880-06): la prueba por WhatsApp le llegó a Aaron desde el número de MaKo, y la pantalla decía la
+línea de Martín. Aaron: «De otro número, el de Mac».
+
+**La causa.** En la plataforma, el ENVÍO y el estado usan `lineasParaMandar` (lib/evolution.ts): la de MaKo va primero y
+por defecto, según la decisión del 15/10 (lib/linea-plataforma.ts). Los SELECTORES leían `?lineas=1`, que es
+`listarLineas` y no trae la de MaKo:
+- el «De» de «Probar»;
+- el número de salida de la automatización;
+- el número de un mensaje.
+
+Así, la línea que se veía como «la de por defecto» (la de Martín, valor '') no era la que salía. Y elegirla mandaba
+`linea: ''`, que el server resuelve a la de MaKo: **desde «Probar» no se podía probar por la línea de Martín.**
+
+**El arreglo:**
+- `?lineas=1&para=mandar` (`lineasParaMandarAqui`) para todo lo de Automations (`RUTA_LINEAS`, app/automations/SalidaWhatsApp.tsx);
+- la bandeja sigue con las del negocio: no ve ni opera la de MaKo;
+- «Sale desde» en el menú, en el renglón de la prueba y en el title del botón.
+
+Fuera de la plataforma no cambia nada (`deMaKo` es null).
+
+**La regla:** lo que ofrece elegir una línea PARA MANDAR lee las mismas líneas que el envío (`para=mandar`); lo que opera la
+línea (QR, desconectar, la bandeja) lee las del negocio (tests/linea-plataforma.test.ts).
+
 ## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
 
 **La trampa.** Un aviso pasa por DOS cortes, y la pantalla sólo muestra uno:
@@ -11234,5 +11259,16 @@ Medido al investigar por qué MaKo no veía el gasto del ws1 (docs/hallazgos-ads
 - **Lo que pidió Martín (24/10, 20 puntos, #4): «para esto tenemos las notificaciones de advertencia al grupo de mako».** El
   camino anda: el cron vive (marca reescrita en la última hora), la #261 de SuperAdmin está prendida, el ws1 tiene grupo y le
   llegaron 26. Lo que NO hace hoy es seguir avisando: con el techo agotado, una cuenta frenada nueve días calla desde el día 2.
-- **SIN hacer, decisión de producto de Martín (el Cerebro lo reparte):** si un incidente abierto varios días vuelve a avisar
-  (por ejemplo, una vez por día), y separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).
+- **HECHO el 27/10/2026 (MAU-33; decidido por el Cerebro: «un incidente abierto varios días avisa una vez por día, y uno
+  resuelto avisa "ya está"»).** El techo de la automatización («Aviso número ≤ 3») ahora se cuenta por DÍA del incidente
+  (`ventana`, lib/alerta-critica-texto.ts), sin tocar la fila de la #261:
+  - el primer día, cada hora hasta el techo, como antes;
+  - desde el segundo, uno por día (`tocaAvisar`), y si ese día no llegó, reintenta a la hora;
+  - el «ya está» mira lo que llegó en TODO el incidente (`total`, `llegoAlguno`), no el último día;
+  - «hace 12 días» y no «hace 288 h».
+  La marca vieja de Mauricio (25, sin `ventana`) cuenta como del día 0: al desplegar, su cuenta frenada vuelve a avisar una
+  vez por día. tests/alerta-critica.test.ts (5 roturas en rojo).
+- **El aviso de cancelación doble de Guillermo Wong (MAU-33) era del 13/10:** 17:21:59 y 17:22:35, el mismo texto. Fue una
+  reentrega de Calendly, y el freno (`claveCancelada`, 24 h) entró el 17/10 en 6904a447f. Desde ese día los avisos de
+  cancelación salen por su automatización y no quedan en `notificaciones`: no hay dato después que lo confirme, ni ningún doble.
+- **SIN hacer:** separar la cuenta compartida ws1/ws4 (P1: quitar «Cliente de Diseño»).

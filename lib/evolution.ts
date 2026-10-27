@@ -856,6 +856,16 @@ export async function lineasParaMandar(ws: number): Promise<{ lineas: LineaRow[]
   return { lineas: [deMako, ...propias.filter((l) => l.instance_name !== deMaKo).map((l) => ({ ...l, es_default: false }))], deMaKo };
 }
 
+/**
+ * LAS LÍNEAS PARA MANDAR DEL NEGOCIO EN CURSO, para los selectores de Automations (27/10/2026, la llamada con Aaron,
+ * 876825880-06: la prueba «le llegó desde el número de MaKo» y la pantalla decía la línea de Martín). El envío y el estado
+ * ya usaban `lineasParaMandar`; los selectores leían `listarLineas`, sin la de MaKo, y en la plataforma mostraban como «la de
+ * por defecto» una que no era la que sale. Fuera de la plataforma, son las del negocio, como siempre.
+ */
+export async function lineasParaMandarAqui(): Promise<LineaRow[]> {
+  return (await lineasParaMandar(await wsEstricto())).lineas;
+}
+
 /** Elegir la línea de un envío sin tirar: el motivo vuelve como el error del envío. */
 // `numeroLinea`: el número del dueño de esa línea (`evolution_instancias.numero`), de donde sale el país con que se completa
 // un teléfono sin código de país (lib/numero-whatsapp.ts). null si la fila no lo tiene (la de MaKo tampoco).

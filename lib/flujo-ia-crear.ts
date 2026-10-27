@@ -50,6 +50,7 @@ import { KEY_LINK_VIDEO } from '@/lib/audios-paso';
 import { eventTypeDeReunion } from '@/lib/calendly-agenda';
 import { marcasDeVoseo } from '@/lib/puestas-data';
 import type { PasoGrafo } from '@/lib/flujo-grafo';
+import type { QuienContesto } from '@/lib/quien-contesto';
 import {
   FEATURE_CREAR_IA, LISTA_BLANCA_IA, CREAR_IA_SYSTEM_TEMPLATE, PROVS_CREAR_IA, PROVS_GRATIS_PIN, MODELOS_CREAR_IA, salidaParaIA, falloDeIA,
   disparadoresParaIA, numerosEn, normNombre,
@@ -242,8 +243,10 @@ async function pasada<R extends { avisos: string[] }>(p: {
   provs: ProvName[]; modelos: Partial<Record<ProvName, string>>; errores: string[]; erroresRed: string[];
   pararEnRevision?: boolean;
   alIntentar?: () => void;
-}): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null }> {
-  const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null };
+}): Promise<{ bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null; quien: QuienContesto | null }> {
+  const out: { bueno: R | null; crudos: string[]; ultimo: string[] | null; ultimoR: R | null; quien: QuienContesto | null } = { bueno: null, crudos: [], ultimo: null, ultimoR: null, quien: null };
+  // Quién escribió lo que se aceptó (lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
+  const quien: Partial<QuienContesto> = {};
   // ⚠️ LA SALIDA SE DIMENSIONA PARA QUE GROQ ENTRE (`salidaParaIA`): con 6000 fijos la cascada lo
   // salteaba siempre, y era el único proveedor que le contestaba al ws1.
   const maxTokens = salidaParaIA(tokensAprox(p.system) + tokensAprox(p.user), techoDeEntrada('groq'));
@@ -256,6 +259,7 @@ async function pasada<R extends { avisos: string[] }>(p: {
     // 429 pasa a Groq.
     sinRespaldoDeModelo: true,
     erroresOut: p.errores,
+    quienOut: quien,
     // ⚠️ LA RED DE PLATAFORMA (15/10/2026, AGENTS.md: «todo camino de IA que use un cliente necesita su red»): con las
     // keys del negocio caídas, las gratis de la agencia, empezando por otro proveedor, y el uso queda anotado como «⚠ red
     // de plataforma». Hasta hoy no estaba: un negocio con UNA key de Gemini (Joan, ws17) se quedaba sin el chat del lienzo.
@@ -271,6 +275,7 @@ async function pasada<R extends { avisos: string[] }>(p: {
       return true;
     },
   }).catch((e) => { p.errores.push(msg(e)); return ''; });
+  if (out.bueno && quien.proveedor && quien.de) out.quien = quien as QuienContesto;
   return out;
 }
 
@@ -332,7 +337,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   motivo?: string;
   /** El número de cada pedido a un proveedor, al arrancarlo (1, 2, …), contando los tres escalones (#847). */
   alIntento?: (n: number) => void;
-}): Promise<{ r: R } | FalloIA> {
+}): Promise<{ r: R; quien?: QuienContesto | null } | FalloIA> {
   const { provs, modelos } = await proveedores();
   let intentos = 0;
   const alIntentar = p.alIntento ? () => { intentos += 1; p.alIntento!(intentos); } : undefined;
@@ -347,7 +352,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   const motivo = p.motivo?.trim() || 'Crear una automatización con IA';
 
   const uno = await pasada({ ...p, motivo, hastaMs, provs, modelos, errores, erroresRed, pararEnRevision: true, alIntentar });
-  if (uno.bueno) return { r: uno.bueno };
+  if (uno.bueno) return { r: uno.bueno, quien: uno.quien };
   let ultimo = uno.ultimo;
   let ultimoR = uno.ultimoR;
 
@@ -355,17 +360,19 @@ export async function generar<R extends { avisos: string[] }>(p: {
   if (uno.crudos.length && quedan() > MIN_PARA_OTRO_MS) {
     const crudo = uno.crudos[uno.crudos.length - 1];
     console.error('[secuencias/ia] JSON inválido del modelo (2000):', crudo.slice(0, 2000));
+    const quienCopia: Partial<QuienContesto> = {};
     const copia = await chatCheapCascade({
       system: 'Recibes un texto que pretende ser un JSON pero tiene errores de sintaxis. Devuelve EXACTAMENTE el mismo contenido como JSON válido: mismas claves, mismos valores, mismo orden. No agregues, no quites, no comentes. Solo el JSON.',
       user: crudo.slice(0, 60_000), json: true, maxTokens: 8000, temperature: 0,
       feature: FEATURE_CREAR_IA, motivo: `reparar el JSON · ${motivo}`, provs, modelos, hastaMs, erroresOut: errores, alIntentar,
-      sinRespaldoDeModelo: true, redDePlataforma: true, erroresPlataformaOut: erroresRed,
+      sinRespaldoDeModelo: true, redDePlataforma: true, erroresPlataformaOut: erroresRed, quienOut: quienCopia,
       validar: (t) => { try { parseJsonObject(t); return true; } catch { return false; } },
     }).catch((e) => { errores.push(msg(e)); return ''; });
     if (copia) {
       try {
         const tr = p.traducir(parseJsonObject(copia));
-        if (!tr.errores.length) return { r: tr.r };
+        // Se dice quién lo pasó en limpio: el primero escribió un JSON roto y no quedó anotado.
+        if (!tr.errores.length) return { r: tr.r, quien: quienCopia.proveedor && quienCopia.de ? quienCopia as QuienContesto : null };
         ultimo = tr.errores;
         ultimoR = tr.r;
       } catch { /* sigue al reintento o al error */ }
@@ -376,7 +383,7 @@ export async function generar<R extends { avisos: string[] }>(p: {
   if (ultimo && quedan() > MIN_PARA_OTRO_MS) {
     const corregir = `${p.user}\n\nTU RESPUESTA ANTERIOR TENÍA ESTOS PROBLEMAS. Corrígelos y devuelve el JSON COMPLETO:\n${ultimo.slice(0, 12).map((e) => `- ${e}`).join('\n')}`;
     const dos = await pasada({ ...p, user: corregir, motivo: `Corregir · ${motivo}`, hastaMs, provs, modelos, errores, erroresRed, alIntentar });
-    if (dos.bueno) return { r: dos.bueno };
+    if (dos.bueno) return { r: dos.bueno, quien: dos.quien };
     if (dos.ultimo) { ultimo = dos.ultimo; ultimoR = dos.ultimoR; }
   }
 

@@ -4156,6 +4156,8 @@ export type ListoIA = {
   cron?: CronAviso | null;
   /** Crear: lo que dijo MaKo («Creé «X»: sale … Manda «…»»), armado por el server con lo guardado (`textoDeCreada`). */
   texto?: string;
+  /** Qué IA lo contestó, en palabras («Con tu Claude», lib/quien-contesto.ts, 27/10/2026); ausente si no se sabe. */
+  ia?: string;
 } & Partial<ExtrasEdicionIA>;
 
 /**

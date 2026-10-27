@@ -31,6 +31,7 @@ import { credDelCliente, credWs, credWsEstricta } from '@/lib/credenciales';
 import { ordenarCuentas, ordenarPorCuota, anotarRebote429 } from '@/lib/ia-cuotas';
 import { clavesAProbar, clavesDe, sinCopiasDeLaPlataforma } from '@/lib/ia-keys';
 import { clavesCargadas } from '@/lib/ia-keys-ws';
+import type { QuienContesto } from '@/lib/quien-contesto';
 import { PROVS_SU_IA, conD6bDelPedido, d6bDecidida, pasaPorLaPuerta, proveedorPermitido, soloSuIA } from '@/lib/solo-su-ia';
 import { mensajeIAFallo, motivoDeErroresCascada } from '@/lib/ia-mensajes';
 import { conSuIASinClave, CON_SU_IA_SIN_VISION } from '@/lib/fallo-ia-texto';
@@ -718,7 +719,13 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
    * Se llama justo ANTES de cada pedido a un proveedor (17/10/2026, tarjeta #847: «que diga en qué está»). Con eso quien
    * espera sabe que el anterior no sirvió y se está probando otro. Un aviso que tira no frena la cascada.
    */
-  alIntentar?: () => void }): Promise<string> {
+  alIntentar?: () => void;
+  /**
+   * QUIÉN ESCRIBIÓ LO QUE SE ACEPTÓ (27/10/2026, lib/quien-contesto.ts): si viene, se completa antes de devolver el texto (el
+   * chat de Automations dice «Con tu Claude»). Sin él, nada cambia.
+   */
+  quienOut?: Partial<QuienContesto> }): Promise<string> {
+  const anotarQuien = (q: QuienContesto) => { if (opts.quienOut) Object.assign(opts.quienOut, q); };
   // D6b decidido por el negocio en curso (IA6, lib/solo-su-ia.ts → `conD6bDelPedido`), si nadie lo decidió antes.
   if (pasaPorLaPuerta(opts.feature)) return conD6bDelPedido(opts.feature, () => chatCheapCascade(opts));
   const quedan = (): number => (opts.hastaMs ?? Number.POSITIVE_INFINITY) - Date.now();
@@ -770,7 +777,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     }).catch(() => null);
     if (r && 'texto' in r) {
       const t = opts.json ? soloElJson(r.texto) : r.texto;
-      if (t && (!opts.validar || opts.validar(t))) return t;
+      if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'negocio' }); return t; }
       opts.erroresOut?.push('anthropic/ANTHROPIC_API_KEY: la respuesta no tenía la forma pedida');
     } else if (r && 'error' in r) {
       opts.erroresOut?.push(`anthropic/ANTHROPIC_API_KEY: ${r.error}`);
@@ -862,7 +869,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
           if (!t.trim() && opts.json && quedan() >= MIN_INTENTO_MS) t = await chatCheap({ ...base, timeoutMs: plazoDeIntento(), json: false });
           // `validar`: solo aceptamos salida que sirve (ej. JSON parseable con la forma esperada).
           // Si un modelo devuelve texto no vacío pero inútil (JSON roto), pasamos al próximo.
-          if (t.trim() && (!opts.validar || opts.validar(t))) return t;
+          if (t.trim() && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: prov, modelo: model ?? null, de: 'negocio' }); return t; }
           // ⚠️ EL DESCARTE QUEDA ESCRITO, como cualquier otro fallo. Un `break` mudo deja
           // `erroresOut` vacío cuando TODOS los proveedores contestaron 200 y la salida no
           // sirvió, y el caller no puede distinguir «contestó y lo tiramos nosotros» de «no
@@ -923,7 +930,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
     }).catch(() => null);
     if (c && 'texto' in c) {
       const t = opts.json ? soloElJson(c.texto) : c.texto;
-      if (t && (!opts.validar || opts.validar(t))) return t;
+      if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
       opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma (último recurso): la respuesta no tenía la forma pedida');
     } else if (c && 'error' in c) {
       opts.erroresPlataformaOut?.push(c.error);
@@ -963,7 +970,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
         }).catch(() => null);
         if (c && 'texto' in c) {
           const t = opts.json ? soloElJson(c.texto) : c.texto;
-          if (t && (!opts.validar || opts.validar(t))) return t;
+          if (t && (!opts.validar || opts.validar(t))) { anotarQuien({ proveedor: 'anthropic', de: 'credito' }); return t; }
           opts.erroresPlataformaOut?.push('crédito de Claude de la plataforma: la respuesta no tenía la forma pedida');
         } else if (c && 'error' in c) {
           // De la PLATAFORMA, nunca a la lista del cliente.
@@ -1009,6 +1016,7 @@ export async function chatCheapCascade(opts: { system: string; user: string; jso
             });
             if (t && (!opts.validar || opts.validar(t))) {
               console.error(`[ai-cheap] ws=${wsActual} resolvió con la RED DE PLATAFORMA (${rotulo({ ...cfgDe(r.provider), key: '', clave: r.clave })}): sus propias keys no pudieron`);
+              anotarQuien({ proveedor: r.provider, modelo: model ?? null, de: 'plataforma' });
               return t;
             }
           } catch (e) {

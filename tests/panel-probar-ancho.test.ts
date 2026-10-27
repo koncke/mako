@@ -347,15 +347,15 @@ test('«Probar» 3: en la bandeja no va «Fin» (ni las esperas ni las acciones)
   assert.match(src, /sistema\('Ya salió · no se reenvía', null, true\)/);
 });
 
-test('«Probar» 2: el desplegable pide «De» (el emisor, con «Vincular nuevo») ARRIBA y «Para» abajo', () => {
+test('«Probar» 2: el desplegable pide «Sale desde» (el emisor, con «Vincular nuevo») ARRIBA y «Para» abajo', () => {
   const menu = (p: Partial<Parameters<typeof MenuDestinos>[0]>) => renderToStaticMarkup(createElement(MenuDestinos, {
     esEmail: false, guardados: { telefonos: ['5491125052605'], emails: [] }, onElegir: () => {},
     nuevo: false, onNuevo: () => {}, onProbarNuevo: () => {}, error: null,
     formTelefono: createElement('i', null, 'FORM-TEL'), formEmail: createElement('i', null, 'FORM-MAIL'), puedeProbarNuevo: false, ...p,
   }));
   const html = menu({ emisor: { opciones: [{ valor: '', rotulo: '+5215511111111', color: 'var(--good)' }, { valor: 'mako_ws1_b', rotulo: 'Ventas' }], elegido: 'mako_ws1_b', onElegir: () => {}, onVincular: () => {} } });
-  const iDe = html.indexOf('>De<'); const iPara = html.indexOf('>Para<');
-  assert.ok(iDe > 0 && iPara > iDe, 'falta «De» arriba de «Para»');
+  const iDe = html.indexOf('>Sale desde<'); const iPara = html.indexOf('>Para<');
+  assert.ok(iDe > 0 && iPara > iDe, 'falta «Sale desde» arriba de «Para»');
   assert.ok(html.indexOf('>Ventas<') > iDe && html.indexOf('>Ventas<') < iPara, 'las líneas van en «De»');
   assert.ok(html.indexOf('Vincular nuevo') > iDe && html.indexOf('Vincular nuevo') < iPara, '«Vincular nuevo» va en «De»');
   assert.ok(html.indexOf('+54 91125052605') > iPara, 'los guardados van en «Para»');
@@ -365,7 +365,7 @@ test('«Probar» 2: el desplegable pide «De» (el emisor, con «Vincular nuevo�
   // «No pude leer» no es «no hay»; sin emisor, el menú es el de antes (sin «De»).
   assert.match(menu({ emisor: { opciones: 'error', elegido: null, onElegir: () => {}, onVincular: () => {} } }), /No pude leer tus números[\s\S]*Vincular nuevo/);
   assert.match(menu({ esEmail: true, emisor: { opciones: [], elegido: null, onElegir: () => {}, onVincular: () => {} } }), /Sin remitente[\s\S]*Vincular nuevo/);
-  assert.doesNotMatch(menu({}), />De<|Vincular nuevo/);
+  assert.doesNotMatch(menu({}), />Sale desde<|Vincular nuevo/);
   // Íconos, no emojis ni el ＋ de texto, en los renglones de crear.
   assert.doesNotMatch(menu({ emisor: { opciones: [], elegido: null, onElegir: () => {}, onVincular: () => {} } }), /＋/);
 });

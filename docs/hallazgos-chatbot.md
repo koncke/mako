@@ -27,6 +27,71 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Una pregunta en «Editar» cambiaba el lienzo: no era el modelo, era NUESTRA revisión (27/10/2026)
+
+**El síntoma** (874749710-11, Leandro el 24/10 y Martín con Aaron el 26/10): en «Editar», una pregunta terminaba
+cambiando tarjetas. **El diagnóstico obvio era el equivocado**: «el modelo de editar edita». Medido con el modelo real
+(`scripts/arnes-pregunta-en-editar.mts`: Claude sonnet-5 y Gemini flash-lite, el mismo `system` y `user` que arma la ruta,
+sin la base): ante una pregunta, el modelo de editar CONTESTA casi siempre. Lo que lo empujaba a editar era
+`errorDeRespuestaEnEditar` (lib/flujo-ia-intencion.ts): con `esPregunta` en false rechaza la respuesta («En modo EDITAR no
+se contesta…») y el reintento de `generar` lo obliga a cambiar algo. En el arnés salieron así «como levanto un ticket»,
+«MaKo, a cuántos les llega esto» y «desde qué número sale».
+
+**Por qué no se reconocía la pregunta** (`esPreguntaDirecta`): contaba sólo empezar con «¿» o terminar en «?», sin mirar si
+pedía algo. Se escapaban:
+- el «?» en el medio: «y en instagram? porque no me aparece en la configuración.» (Leandro, ws10, 25/10, del chat real);
+- un saludo adelante: «Hola MaKo, ¿qué hace…? Gracias», «MaKo, a cuántos…», «Una pregunta, …»;
+- arranques que no estaban: «a cuántos / a quién», «desde qué», «quiero saber», «explícame», «cómo levanto».
+
+Y al revés: «¿Le agregás un audio al final?» empezaba con «¿» y se CONTESTABA en vez de hacerse.
+
+**La regla que queda.** En «Editar», es pregunta un «¿» o un «?» FUERA de lo citado (lo que va entre comillas es texto para
+el lead), o un arranque de pregunta después de la muletilla. En los dos casos, SIN un pedido de cambio (`pideCambio`,
+`RX_PIDE_PREGUNTANDO`). Lo que va a explicar sólo devuelve `{"respuesta"}` y la ruta devuelve el borrador tal cual: con el
+camino bien elegido, el lienzo no se puede tocar. Y en «Editar», «no tengo (audios guardados…)» vale como respuesta, igual
+que «no se puede»: rechazarla mandaba al reintento a armar otra cosa.
+
+**Trampas del arnés.**
+- Una espera del lienzo es una tarjeta `esperar` (`espera.minutos`), no un `delay_horas` en el mensaje. Con `delay_horas`,
+  los dos modelos ven dos mensajes seguidos y contestan «sale sin demora».
+- Al prompt de editar, Claude a veces contesta en prosa, sin JSON, cuando no puede hacerlo. En la app lo frena el `validar`
+  de `generar` y prueba el siguiente proveedor.
+
+**La frase del 26/10 no quedó guardada.** En el ws9, esa noche el único turno del lienzo es un pedido («agrégale una
+notificación…», #700), que contestó dos veces «Gemini está saturado» (ver hallazgos-ia.md, 27/10). Tests:
+tests/chat-mako-pregunta-en-editar.test.ts. Roturas, base 3 / 0: la regla vieja → 1 / 2; sin `sinMuletilla`, sin
+`sinLoCitado`, sin `pideCambio` en los signos, sin «a (quien|cuantos)» o con «no tengo» como error → 2 / 1 cada una.
+
+## El chat de Joan (MK-12): el 15/10 era el incidente de Gemini; el 16/10, el error que el 17/10 aprendió a corregir (27/10/2026)
+
+Medido en los chats del lienzo (sólo lectura). **15/10, 14:02Z, ws13 (Código Inmobiliario):** el mismo pedido dos veces y,
+a los 12 s, «Falló de nuestro lado, no de tus keys. Prueba más tarde.», sin una sola fila de IA. Era el incidente de esa mañana:
+desde el 14/10 20:31Z Gemini contestaba 400 «Thinking level MINIMAL is not supported» y el error llegaba pelado. Lo arregló
+230323411 (15/10, 14:47Z), que nombra a «Joan (ws17)»: los chats que fallaron son del ws13. **16/10, 21:26Z, el siguiente
+intento llegó a los modelos** (Gemini, y la red de Groq y de Gemini) y falló por OTRA cosa: «MaKo armó el flujo pero quedó mal:
+Un texto usa un dato de la reunión sin un esperar con antes de reunión…». El pedido era «cuando llegue un lead… un aviso al grupo
+de WhatsApp con los datos del formulario, el día y la hora»: el modelo leyó «el día y la hora» como los de una REUNIÓN. Es el
+mismo pedido que el ítem 1 (el aviso al grupo de un lead de formulario). **Ya atendido:** a0feecde9 (17/10, #847) hizo que ese
+error le diga al modelo el arreglo de UNA tarjeta («Su reunión sigue en pie» delante), nombrando este mismo caso de Joan; antes
+los cuatro proveedores lo repetían. Joan no volvió a pedirlo desde el lienzo: no está confirmado por ella.
+
+## Quién cambió una automatización NO se puede saber: no hay registro de Publicar (27/10/2026)
+
+#266 «Un Lead Entró 2», de Brigitte Eberlin (ws15), perdió el 23/10 a las 14:05:22Z la espera de 1 h y el recordatorio
+«🚨 *RECORDATORIO IMPORTANTE*: Entró {{nombre}}, lo contactaron?». Quedó `entrada → WhatsApp`. Medido en producción (sólo
+lectura, P12):
+- ese minuto no hubo IA de «Editar» (`anthropic_usage`), ni acción de la API de MaKo sobre la 266
+  (`mako_acciones_pendientes`), ni borrador;
+- fue un **Publicar de la pantalla**;
+- `nutricion_secuencias` guarda `updated_at` y nada más, así que **quién** publicó no se sabe.
+
+**La regla:** antes de decir «lo cambió X», se miran `anthropic_usage` y `mako_acciones_pendientes` de ese minuto; si no
+hay nada, fue la pantalla y no se sabe quién.
+
+**Lo que falta:**
+- un registro de publicaciones (quién, cuándo, qué tarjetas cambió), en la pantalla y en la API;
+- devolverle a la 266 la espera y el recordatorio. Es una escritura en el negocio de Brigitte: la pide el Cerebro.
+
 ## La prueba A/B como CONDICIÓN era el diseño obvio y el equivocado; y lo que una bifurcación nueva rompe en silencio (25/10/2026)
 
 **Vive en:** `lib/flujo-grafo.ts`, `lib/flujo-forma.ts`, `lib/nutricion-grafo-motor.ts`, `lib/nutricion.ts`.

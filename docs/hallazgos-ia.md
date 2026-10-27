@@ -4,6 +4,29 @@ Lo que hay que saber antes de tocar los prompts (`lib/mako-prompts.ts`,
 `lib/prompt-registry.ts`), el ruteo de modelos (`lib/model-registry.ts`), la cascada barata
 (`lib/ai-cheap.ts`) o el doer (`lib/mako-doer-*.ts`). **No es un changelog.**
 
+## «El respaldo de Automations es Gemini»: el orden ya era el pedido, faltaba decir quién contestó (27/10/2026)
+
+El Cerebro (876825880-04): «primero la IA que eligió el admin del negocio; Gemini sólo como último respaldo, y el chat dice
+qué IA contestó». **El obvio, «cambiar el orden de la cascada», era el equivocado.** `chatCheapCascade` (lib/ai-cheap.ts) ya
+va en este orden: su Claude, sus claves (con D6b: su ChatGPT y su Gemini), el crédito de Claude y la red de MaKo al final.
+Gemini ya queda último para quien eligió otra IA.
+
+**Lo que faltaba era decirlo:**
+- `quienOut` (opcional) anota el proveedor y de quién era la cuenta en cada `return t` de la cascada;
+- `textoDeQuienContesto` (lib/quien-contesto.ts) lo pasa a palabras;
+- el globo de MaKo de Automations lo dibuja al pie: «Con tu Claude», «Con el crédito de Claude de MaKo», «Con la Gemini de
+  MaKo (respaldo)».
+
+**«Con tu X» es honesto** porque `provsDe` ya saca, con `soloLasPropias`, las «propias» que son copia de una clave de la
+plataforma.
+
+**La regla:** un `return t` nuevo en la cascada lleva su `anotarQuien` (tests/automations-quien-contesto.test.ts los cuenta:
+5).
+
+**Sin investigar:** el 26/10 a las 23:38Z, el chat del lienzo del ws9 (#700, «Una Cuota Venció») contestó dos veces «Gemini
+está saturado. Prueba en un rato.». En esa hora, el ws9 sólo registra IA de Gemini (dictado y Landing Analyst). Falta saber
+por qué ese pedido no cayó al crédito de Claude.
+
 ## El buscador de conocimiento sin Gemini: con la IA del negocio, o por palabras (25/10/2026)
 
 El Cerebro, 25/10/2026, cerrando la excepción que había quedado abierta (abajo, «Ningún cartel le ofrece Gemini»): «Embebe

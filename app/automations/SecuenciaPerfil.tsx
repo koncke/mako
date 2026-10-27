@@ -69,6 +69,7 @@ import { ConectarMedio, useEstadoMedios } from './ConectarMedio';
 import { medioDelError, medioQueFrena, mediosQueUsa, type Medio } from '@/lib/medios-automatizacion';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { MetricasAutomatizacion } from './MetricasAutomatizacion';
+import { RUTA_LINEAS } from './SalidaWhatsApp';
 
 // El wizard son ~1.800 líneas y sólo se abre UNA vez por workspace (la primera vez que
 // se tilda la IA): no tiene por qué viajar en el bundle de cada apertura del lienzo.
@@ -943,7 +944,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
     let vivo = true;
     void (async () => {
       try {
-        const j = await (await fetch('/api/whatsapp/evolution/mensajes?lineas=1', { cache: 'no-store' })).json();
+        const j = await (await fetch(RUTA_LINEAS, { cache: 'no-store' })).json();
         if (vivo && j.ok) setLineasWa(j.lineas ?? []);
       } catch { /* sin lista, no se ofrece elegir */ }
     })();
@@ -957,7 +958,7 @@ export function SecuenciaPerfil({ secuencia, etiquetaEtapa, rolAdmin, audios, ne
   const elegirLineaDesdeEditor = async (linea: string | null) => {
     if (linea && !lineasWa.some((l) => l.linea === linea)) {
       try {
-        const j = await (await fetch('/api/whatsapp/evolution/mensajes?lineas=1', { cache: 'no-store' })).json();
+        const j = await (await fetch(RUTA_LINEAS, { cache: 'no-store' })).json();
         if (j.ok) setLineasWa(j.lineas ?? []);
       } catch { /* sin lista nueva, se guarda igual: el server valida la línea */ }
     }

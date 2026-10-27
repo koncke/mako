@@ -69,6 +69,7 @@ import {
 } from '@/lib/flujo-ia-preguntas';
 import { sanearChat, type EventoPreguntaIA, type MensajeChatMako, type PreguntaMako } from '@/lib/automatizacion-chat';
 import { leerChat, agregarAlChat } from '@/lib/automatizacion-chat-db';
+import { textoDeQuienContesto } from '@/lib/quien-contesto';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -254,8 +255,10 @@ export async function POST(req: NextRequest) {
           }
           // Sin id el chat lo volcó `crearConIA` al nacer la fila; con id, lo cierra la ruta.
           // Lo que dice MaKo lo armó el core con lo guardado (20/10/2026: cuándo sale, a quién y qué manda).
-          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos })]);
-          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}) });
+          // Y QUÉ IA LO ESCRIBIÓ (27/10/2026, lib/quien-contesto.ts): el chat lo dice («Con tu Claude»).
+          const ia = textoDeQuienContesto(r.quien);
+          await anotar([mensajeChat('mako', r.texto, 'app', { avisos: r.avisos, ...(ia ? { ia } : {}) })]);
+          send({ t: 'listo', modo, secuenciaId: r.secuenciaId, pasos: r.pasos, nombre: r.nombre, orden: r.orden, avisos: r.avisos, etiquetasNuevas: r.etiquetasNuevas, disparador: r.disparador, texto: r.texto, ...(r.cron ? { cron: r.cron } : {}), ...(ia ? { ia } : {}) });
           return;
         }
 
@@ -281,12 +284,13 @@ export async function POST(req: NextRequest) {
 
         /** MaKo CONTESTÓ (una pregunta): al chat, y el borrador vuelve tal cual, sin una tarjeta tocada. */
         // `falta` (24/10/2026, f23): lo que pidió y no está en MaKo; el globo ofrece pasárselo al equipo (./falta/route.ts).
-        const contestar = async (respuesta: string, falta?: string) => {
+        // `ia`: qué IA lo contestó (lib/quien-contesto.ts); lo que se contesta sin el modelo no lo lleva.
+        const contestar = async (respuesta: string, falta?: string, ia?: string | null) => {
           if (req.signal.aborted) return;
-          await anotar([mensajeChat('mako', respuesta, 'app', falta ? { falta } : {})]);
+          await anotar([mensajeChat('mako', respuesta, 'app', { ...(falta ? { falta } : {}), ...(ia ? { ia } : {}) })]);
           send({
             t: 'listo', modo, secuenciaId: secuenciaId!, pasos: base, nombre: nombreSec, orden: [], avisos: [], etiquetasNuevas: [],
-            resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}),
+            resumen: respuesta, cambiadas: [], quitadas: [], ...(falta ? { falta } : {}), ...(ia ? { ia } : {}),
           });
         };
         // ⚠️ UNA PREGUNTA NO PASA POR EDITAR (15/10/2026, lib/flujo-ia-consulta.ts): «¿Qué hace esta automatización? No
@@ -316,7 +320,7 @@ export async function POST(req: NextRequest) {
             send({ t: 'error', error: g.error, ...(g.link ? { link: g.link } : {}) });
             return;
           }
-          await contestar(g.r.respuesta, g.r.falta);
+          await contestar(g.r.respuesta, g.r.falta, textoDeQuienContesto(g.quien));
           return;
         }
 
@@ -343,8 +347,9 @@ export async function POST(req: NextRequest) {
           return;
         }
         const r = g.r;
+        const ia = textoDeQuienContesto(g.quien);
         // La capa 2 de la consulta: el modelo de editar contestó en vez de cambiar (`deIAEdicion` no aplicó nada).
-        if (r.respuesta) { await contestar(r.respuesta, r.falta); return; }
+        if (r.respuesta) { await contestar(r.respuesta, r.falta, ia); return; }
         send({ t: 'fase', fase: 'revision', reparadas: r.avisos.length });
 
         // Cancelado mientras el modelo escribía: no queda nada escrito.
@@ -372,6 +377,7 @@ export async function POST(req: NextRequest) {
           avisos: ordenados, cambios: { cambiadas: r.cambiadas.length, quitadas: r.quitadas.length, agregadas: r.agregadas.length },
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(noHecho.length ? { noHecho } : {}),
+          ...(ia ? { ia } : {}),
         })]);
         send({
           t: 'listo', modo, secuenciaId: secuenciaId!, pasos, nombre: nombreSec,
@@ -380,6 +386,7 @@ export async function POST(req: NextRequest) {
           ...(r.pregunta ? { pregunta: r.pregunta } : {}),
           ...(disparadores ? { disparadores } : {}),
           ...(noHecho.length ? { noHecho } : {}),
+          ...(ia ? { ia } : {}),
         });
       } catch (err) {
         console.error(`[api:secuencias/ia] ${msg(err)}`);

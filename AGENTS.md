@@ -5245,7 +5245,8 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   En `chatCheapCascade` lo decide la marca `pii` del catálogo (`lib/model-catalogo.ts`) o `opts.pii`: con
   datos de clientes, si nada que no entrene contesta, se corta, y el mensaje dice que conecte su Claude
   (no «Claude vetado» ni «falló»: molde, el `catch` de `lib/lead-insights.ts`). Una feature nueva que lea leads, conversaciones o llamadas se marca
-  `pii: true`. Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
+  `pii: true`. Un `return` nuevo de `chatCheapCascade` con lo aceptado lleva su `anotarQuien` (`quienOut`, 27/10/2026): el chat
+  de Automations dice qué IA contestó (tests/automations-quien-contesto.test.ts los cuenta). Y un camino con su PROPIA red (un bucle sobre `provsGratisDePlataforma`) aplica la
   misma regla él mismo: el corte de la cascada no lo cubre. Si la red manda HERRAMIENTAS de la API, «¿lee datos de
   clientes?» lo contesta el registro (`leeDatosDeClientes`: `DATOS_DE_CLIENTES_POR_AREA` y la marca `datosDeClientes`
   de cada operación), y se corta por lo que el turno PIDE, no por lo que viaja (molde: `turnoParaLaRed`,
@@ -9828,6 +9829,10 @@ veces: hay que agregarlo a `lib/lienzo-grafo.ts`, al constructor del grafo
 ya costó las `variantes` borradas en silencio. Y al revés (25/10/2026): quien cambia el TEXTO de un
 mensaje manda `variantes: []` —son formas de decir el texto viejo, y el motor las sortea—; la clave
 ausente las conserva (docs/hallazgos-chatbot.md).
+Y un selector de línea PARA MANDAR (el número de salida de la automatización o de un mensaje, el «Sale desde» de
+«Probar») lee `RUTA_LINEAS` (app/automations/SalidaWhatsApp.tsx, `para=mandar`): en la plataforma el envío pone la de
+MaKo primero y por defecto, y con la lista del negocio la pantalla decía una línea y salía por otra (27/10/2026,
+docs/hallazgos-comunicacion.md). La bandeja y las operaciones de la línea siguen con las del negocio.
 
 **La regla: si la capacidad nueva sigue siendo «este nodo manda un mensaje», es un `tipo`
 adentro del paso y una rama en el motor.** Nodo nuevo sólo cuando el nodo hace OTRA cosa
