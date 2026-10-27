@@ -3717,4 +3717,22 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '27 oct', hora: '18:10', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: '«Extraer» ya guarda la web y el correo de cada perfil',
+    puntos: [
+      'En tu Chrome, con el grupo «Anuncio Ganador - 09,10,11 de Agosto» (todos ya estaban en tu CRM, así que no creó leads): guardó la web, el correo o las redes de 25, sólo donde el lead no tenía nada. Se ve en la ficha de cada uno.',
+      'La primera vez dio 0: los datos de una empresa aparecen un instante después de abrir su panel y la extensión leía antes. Ahora los espera. Esa última parte todavía no se probó en vivo.',
+      'Si la pantalla de MaKo deja de esperar, lo que la extensión estaba haciendo en WhatsApp Web se para; y si algo quedó a medias, ahora lo dice (antes decía «0 nombres» y nada más).',
+      'Mientras la extensión trabaja, deja a la vista la ventana de Chrome: si otra ventana la tapa (la de Claude, por ejemplo), Chrome la frena.',
+    ],
+    archivos: [
+      'extension/wa-recorrer.js — espera los datos de la empresa antes de leer',
+      'extension/wa-fichas-reglas.js — la web escrita sin «https://»',
+      'extension/background.js — el latido, el «ocupado» y el parar',
+      'app/crm/TraerDeGrupoWA.tsx — dice si los perfiles se cortaron',
+    ],
+    revisar: '/crm',
+  },
 ];

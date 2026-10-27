@@ -6,6 +6,19 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω28. 27/10/2026 (chat «CRM», cuenta `claude5`): la corrida que GUARDA perfiles, y la extensión 0.74.1 / 0.74.2
+
+Misma rama `crm-extraer-2610`. Lo medido y las causas, en hallazgos-extension («La corrida que GUARDA perfiles»).
+- **Hecho y verificado en su Chrome:** «Extraer» del grupo de agosto (108, todos ya en el CRM: no crea leads) guardó el perfil
+  de 25 (21 webs, 18 correos, 1 Instagram, 2 redes) sólo en lo vacío; visto en la ficha de un lead. Volvió a la pestaña de
+  origen. Capturas: notas del Cerebro, capturas-perfiles-guardados.
+- **0.74.1:** la web escrita sin «https://»; un latido a la pantalla cada 10 s mientras WhatsApp Web tarda; cuando la
+  pantalla da la extracción por terminada, el recorrido se para; «ocupado» y el corte de los perfiles se dicen; con la pestaña
+  oculta, la búsqueda se escribe de una vez.
+- **0.74.2 (sin probar en vivo):** espera los datos de una cuenta de empresa (llegan después de abrir el panel). Copiada a su
+  carpeta; Chrome se cerró antes de correrla.
+- ⚠️ La app de Claude es SIEMPRE VISIBLE y tapa a Chrome: sus pestañas quedan ocultas y frenadas. Ver la regla en hallazgos.
+
 ## 0-Ω27. 26/10/2026 (chat «CRM», cuenta `claude5`): «Extraer» de un grupo, a la vista, con el desplegable (extensión 0.72)
 
 Rama `crm-extraer-2610` (desde origin/main ede2bbaab) en C:/dev/wt-crm-2510. Pedido textual en la bitácora. Lo medido y lo
