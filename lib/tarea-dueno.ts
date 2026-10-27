@@ -121,6 +121,38 @@ export function resolverDueño(o: DueñoCrudo, yo: Yo, participantes: Participan
 }
 
 // =============================================================================
+// El dueño que sale SÓLO de la etiqueta del hablante es dudoso
+// =============================================================================
+// 27/10/2026 (Cerebro, de las llamadas de Martín y del grupo de Leila; docs/hallazgos-closing.md → «Fathom puede cruzar
+// quién habla»): Fathom etiqueta mal quién habla, y el Plan creyó la etiqueta. «Comprar el certificado SSL» salió a nombre
+// de Leandro (era de Martín). Cuando el dueño que eligió el modelo ES quien la etiqueta dice que lo dijo («yo me
+// encargo»), la única prueba del dueño es esa etiqueta, que puso un robot. No hay regla que la corrija —ni el pronombre:
+// «yo» es de quien habla, y quién habla es la etiqueta—, así que se DECLARA: la tarea viaja marcada y la persona confirma
+// el dueño antes de que se le mande a nadie. Con una sola voz (una nota de voz, un dictado) no hay nada que cruzar.
+
+/** Las voces distintas de una transcripción con renglones «[reloj] Nombre: texto» (lib/grabadores/reunion.ts). */
+export function hablantesDelTexto(texto: string): number {
+  const voces = new Set<string>();
+  for (const m of texto.matchAll(/^\[[^\]\n]{1,40}\]\s*([^:\n]{1,80}):/gm)) {
+    const n = normNombre(m[1]);
+    if (n) voces.add(n);
+  }
+  return voces.size;
+}
+
+/**
+ * ¿El dueño de esta tarea sale SÓLO de la etiqueta del hablante? Sí, cuando el modelo puso de dueño a la misma persona
+ * que dijo que lo dijo (`dichoPor`), en una reunión con dos voces o más. Mismo nombre, o uno que arranca igual que el otro
+ * («Leandro» y «Leandro Gómez»). Sin `dichoPor` no se afirma nada.
+ */
+export function duenoPorLaEtiqueta(t: { dueño?: unknown; dichoPor?: unknown }, hablantes: number): boolean {
+  if (hablantes < 2) return false;
+  const d = normNombre(String(t.dueño ?? '')), h = normNombre(String(t.dichoPor ?? ''));
+  if (!d || !h || d === normNombre(OTRA_PERSONA)) return false;
+  return d === h || d.startsWith(`${h} `) || h.startsWith(`${d} `);
+}
+
+// =============================================================================
 // Un rótulo de persona sale de algo DICHO o de alguien CONOCIDO, nunca de un rol inferido
 // =============================================================================
 // 15/10/2026: una transcripción rotuló a la segunda voz de un audio «su socio». Nadie lo dijo

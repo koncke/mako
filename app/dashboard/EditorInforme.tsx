@@ -302,7 +302,7 @@ function nuevoElementoEn(t: TipoElemento, componentes: Componente[], dueno: Graf
 export function EditorInforme({
   inicial, datosIniciales, lecturaFallo, hoy, hojaInicial, versionInicial = null,
   hojaAgregada = null, aviso = null, soloLectura = false, llamadaInicial = null, compartido = null, sinPaginas = false, informe = 'dashboard', probarInicial = null,
-  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, cabeceraPropia = null, avisoFijo = null,
+  senales = null, unido = null, plantillasInicial = false, avisoClosing = null, accionClosing = 'Conectar Claude', cabeceraPropia = null, avisoFijo = null,
 }: {
   inicial: Tablero;
   datosIniciales: Record<string, DatosGrafico>;
@@ -317,6 +317,8 @@ export function EditorInforme({
   aviso?: string | null;
   /** «Conecta tu Claude»: el Closing Analyst no tiene con qué analizar (./aviso-closing.ts). Fijo arriba de la hoja Closing. */
   avisoClosing?: string | null;
+  /** El texto del botón del aviso (./aviso-closing.ts, `accionDeLaHojaClosing`): conectar Claude, o abrir la que ya tiene. */
+  accionClosing?: string;
   /**
    * UN AVISO FIJO arriba de la hoja, de quien monta el editor (la misma franja `lk-aviso-hoja` que el de Closing): la prueba
    * A/B de una automatización en sus Métricas (app/automations/MetricasAutomatizacion.tsx, tanda A3, 25/10/2026).
@@ -1484,7 +1486,7 @@ export function EditorInforme({
             {avisoClosing && !closingConectado && esHojaClosing(hoja) && !dueno && !enBlanco && !compartido && (
               <div className="lk-aviso-hoja lk-no-arrastrar lk-sin-imprimir" role="status" onClick={(e) => e.stopPropagation()}>
                 <span>{avisoClosing}</span>
-                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>Conectar Claude</BotonIntegracion>}
+                {!soloLectura && <BotonIntegracion servicio={SERVICIO_CLAUDE} className="lk-aviso-hoja__accion" onConectado={() => setClosingConectado(true)}>{accionClosing}</BotonIntegracion>}
               </div>
             )}
             {avisoFijo && !dueno && !enBlanco && (
