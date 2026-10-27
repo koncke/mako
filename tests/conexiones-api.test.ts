@@ -155,8 +155,9 @@ test('7. `ver_ia_del_negocio` y `como_conectar` existen y salen por los tres can
   }
   assert.ok(leer('./api-mako-http.snapshot.txt').split('\n').includes('como_conectar'), 'el snapshot de HTTP no se regeneró');
   const run = sinComentarios(leer('../lib/api-mako/areas/integraciones.run.ts'));
-  assert.match(run, /pasos: s\.tutorial\.pasos,/, 'ver_integracion no trae los pasos del tutorial');
-  assert.match(run, /pasos: tarjeta\?\.tutorial\.pasos \?\? c\.pasos \?\? \[\],/, 'como_conectar no trae los pasos');
+  // Los de la conexión ganan (27/10/2026: Meta se conecta en la tarjeta de Zernio, tests/meta-sin-token.test.ts).
+  assert.match(run, /pasos: cx\?\.pasos \?\? s\.tutorial\.pasos,/, 'ver_integracion no trae los pasos del tutorial');
+  assert.match(run, /pasos: c\.pasos \?\? tarjeta\?\.tutorial\.pasos \?\? \[\],/, 'como_conectar no trae los pasos');
   // ver_ia_del_negocio: nunca una clave, y no le ofrece Gemini.
   const via = run.slice(run.indexOf('ver_ia_del_negocio: {'), run.indexOf('como_conectar: {'));
   assert.doesNotMatch(via, /valor|descifrar|valor_enc/, 'ver_ia_del_negocio lee el valor de una clave');

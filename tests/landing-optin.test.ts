@@ -988,14 +988,18 @@ test('«qué es cada video» es un PASO de la prueba, no un formulario colgado',
     /const candidatosVideo = \[\.\.\.detectadosVideo, \.\.\.deLaPagina\]/.test(panel),
     'la puerta tiene que mirar los eventos Y los videos que el analizador ve en la página',
   );
-  assert.ok(/const sinNombre = candidatosVideo\.filter/.test(panel), 'falta detectar los videos sin nombre');
+  // La puerta que se abre SOLA mira sólo la página que se prueba (27/10/2026, MAU-14: la de gracias de Mauricio le pedía los videos
+  // de la principal), con las dos fuentes de ESA página. El lápiz sigue con todos (tests/videos-de-la-pagina.test.ts).
+  assert.ok(/const deEstaPrueba: VideoDetectado\[\] = \[\.\.\.detectadosDeEstaPagina\(detectadosVideo, url\), \.\.\.deLaPagina\];/.test(panel),
+    'la puerta tiene que mirar los eventos de ESTA página Y los videos que el analizador ve en ella');
+  assert.ok(/const sinNombre = deEstaPrueba\.filter/.test(panel), 'falta detectar los videos sin nombre');
   assert.ok(
     /const hayVideos = candidatosVideo\.length > 0/.test(panel),
     'el lápiz para corregir la identificación mira la misma lista que la puerta, o se abre una y la otra no',
   );
   // Tanda 6 (14/10/2026): la condición se lee ANTES de abrir la ventana de la prueba (que se abre en el clic,
   // sin ningún `await` antes): con el paso de los videos por delante no hace falta ventana.
-  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel) && /if \(vaAVideos\) \{ setPaso\('videos'\); return; \}/.test(panel),
+  assert.ok(/const vaAVideos = paso !== 'videos' && sinNombre\.length > 0;/.test(panel) && /if \(vaAVideos\) \{ setSoloEstaPagina\(true\); setPaso\('videos'\); return; \}/.test(panel),
     'con videos sin nombre, «Probar» tiene que preguntar ANTES de los pasos');
   // ⚠️ Y «Siguiente» NO exige contestar: un paso que bloquea sobre algo opcional
   // convierte la prueba en un trámite. La pregunta vuelve sola la próxima vez,
