@@ -5222,6 +5222,10 @@ pieza probada rompiéndola.
 - ⚠️ **`fijoAlRevisar` no protegía una lista de objetos.** `aplicarPropuestaGenerica` comparaba con `String()`, y
   `String([{…}])` es «[object Object]» para cualquier lista del mismo largo: los archivos de una subida se podían cambiar al
   revisar bajo el resumen de otros. `distintoAlRevisar` compara una lista de objetos (o un objeto) entera; lo demás, como siempre.
+- ⚠️ **La firma de una sesión en la nube NO va en `CUENTAS`** (`app/admin/dev/_registro/tipos.ts`). Para firmar el hito se sumó
+  una fila «nube» y el Uso del Ops Center pasó a listar SEIS cuentas: `lib/centro-uso.ts` toma cada fila de esa tabla como una
+  cuenta con su cuota. Lo cazaron dos tests de `tests/centro-uso.test.ts` en la corrida contra la base; la firma vive aparte
+  (`FIRMA_NUBE`, `cuentaDeHito`). Una tabla que se usa para dos cosas no se amplía por una sola.
 - **Lo que queda sin hacer:** un video tarda minutos en Zernio y la confirmación de `/mako/revisar` tiene 300 s, igual que la
   pantalla (`/api/media-buyer`): con varios videos en una subida se puede cortar a mitad (lo creado queda registrado y se
   deshace). El path del staging no lleva el negocio (es `nueva/<ms>-<azar>-<nombre>`): lo protege el azar, no un dueño. No se
