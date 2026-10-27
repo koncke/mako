@@ -51,6 +51,42 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## MaKo en WhatsApp afirma lo que no hizo, y el webhook nunca guardó un grupo (27/10/2026)
+
+Sale de una lectura del Cerebro (sólo lectura sobre `mako_doer_conv`, `anthropic_usage` y el store de Evolution, del
+20 al 27/10 y del grupo Makito desde el 27/09), verificada contra el código de main `bbb459f33`. Las causas son de
+código, probables: el chat que arregla cada una la reproduce primero.
+
+- **El webhook no guarda NINGÚN grupo; el obvio «ya lo guarda desde el 27/09» era el equivocado.**
+  `app/api/webhooks/evolution/route.ts` (~195-266) separa los grupos antes y sólo pasa los mensajes 1-a-1 a
+  `guardarMensajeUpsert`: la puerta de la lista blanca (`lib/evolution-mensajes.ts` ~174) nunca se alcanza, y
+  `tests/grupos-guardados.test.ts` prueba esa puerta, no la ruta. `wa_mensajes` tiene 0 filas de grupos. Regla: «se
+  guarda» se prueba con la fila que dejó un mensaje real, y el test entra por la RUTA.
+- **La media del CDN de WhatsApp dura ~15-17 días, no ~30.** Medido el 27/10: lo del 28/09 al 10/10 da «Failed to
+  fetch stream»; lo del 12/10 en adelante, no. `lib/grupos-guardados.ts` dice 30. Se perdieron 51 audios de Makito
+  (1.458 s); 21 (12 al 23/10) quedaron fuera del repo, en la carpeta de la sesión del Cerebro
+  (`feedback/makito-audios-2026-10/`, con su transcripción), hasta que vayan a un bucket. Regla: la media se baja
+  en el momento del webhook.
+- **Trampa: la línea de voz de Martín cae en el ws1, que es de un CLIENTE (Mauricio).** `wsDeInstancia` manda la
+  instancia sin dueño al `OWNER_WS` (route.ts ~274-278). Lo de la línea personal de Martín nunca va al ws1.
+- **MaKo afirma acciones que no hizo** («He reportado el error al equipo…», «Te lo dejo anotado», «Ya te abrí la
+  agenda»): en WhatsApp `sanearSalida` corre sin `hecho` (`lib/mako-doer-in.ts` ~2134), así que
+  `afirmacionesDeHecho` no se aplica; y `VERBOS_HECHO` (`lib/doer-salida.ts`) no cubre «he + participio», «dejo»,
+  registrar, reportar ni abrir. Un `levantar_ticket` PROPUESTO espera otro «sí» mientras el texto ya lo da por hecho.
+- **En WhatsApp no ve imágenes ni PDF; en la app sí.** El doer arma los bloques de media sin `archivoATexto`
+  (mako-doer-in.ts ~987) y `bloqueATexto` (`lib/ai-cheap.ts`) descarta lo que no es texto.
+- **Contesta casi siempre con el modelo más flojo.** 38 de 42 turnos con Gemini fueron flash-lite; un negocio con
+  OpenAI queda fijo en gpt-4o-mini por un pin (mako-doer-in.ts ~1533) que no siguió a `903f79543` (la app ya usa el
+  modelo que eligió el admin). Las etiquetas «opus/sonnet» del router no llegan a un modelo de ese nivel. Por qué cae
+  flash-latest sólo está en los logs de Vercel: desde la base no se ve.
+- **El vigía (MaKo Alert) cuenta poco:** 4 incidentes en una semana con más de 20. No mira propuestas vencidas ni
+  tickets, y QUEJA/NO_PUEDE no atrapan quejas indirectas («y tú eres el servicio técnico», «no se lista
+  nominalmente…»).
+
+**Sin hacer** (repartido el 27/10 al chat «MaKo en WhatsApp: conexiones, ayuda y tickets»): todo lo de arriba, más
+números que cambian entre dos preguntas iguales (Código Inmobiliario), no usar `agenda_del_dia`, duplicar un lead por
+un contacto compartido, contestar acuses y charlas entre personas, y agendar en el ws18 probado contra una agenda real.
+
 ## ⚠️ Nueve avisos de Notificaciones no le salen a nadie: el interruptor de la pantalla y el del store son dos cortes distintos (26/10/2026)
 
 **La trampa.** Un aviso pasa por DOS cortes, y la pantalla sólo muestra uno:

@@ -4,6 +4,18 @@ Lo que no se deduce leyendo el código. El diseño, con lo que se copió de qui�
 
 ---
 
+## Leer la Ticketera de producción pide el sí de Martín, también al Cerebro (27/10/2026)
+
+- El 27/10 el clasificador de permisos negó `scripts/tickets.ts pendientes` y toda lectura de `tickets` /
+  `ticket_eventos` al Cerebro y a sus subagentes, aunque Martín había pedido «revisa los tickets». Una revisión de
+  tickets necesita su sí escrito en el chat del Cerebro (o que él corra `pendientes`). Un lector que no pudo leer lo
+  tiene que decir: el de ese día sacó los estados de los docs, y pueden estar viejos.
+- `scripts/tickets.ts` lee el `.env.local` del cwd: desde un worktree sin `.env.local` (como `C:/dev/wt-push-q`)
+  falla; se corre con cwd en el clon principal.
+- `pendientes` no muestra el historial: el estado y el porqué de un ticket salen de `ver <n>`.
+- Tickets arreglados en código pero SIN hito `tickets: [n]` no se cierran solos: el #5 y el #6 (Mauricio, «Claude
+  vetado» y «sin proveedor gratis», desplegados el 24/10) hay que cerrarlos a mano.
+
 ## La Ticketera del cliente es un CHAT con MaKo, y todo error tiene «Reportar a Soporte» (23/10/2026)
 
 Martín (22/10): «Mira la ticketera, se ve bastante feo... Cuando podría tener el mismo diseño que un chat y que los usuarios le

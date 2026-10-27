@@ -35,6 +35,14 @@ Una entrada por tema; lo que quedó sin hacer dice dónde vive.
 - En la llamada con Leila del 05/10 las etiquetas de quién habla venían cruzadas: frases de ella
   firmadas por Martín y al revés. Una cita se atribuye por lo que dice, no por la etiqueta.
 - Todo lo que dependa de «qué dijo el cliente» (objeciones, puntajes del Closing) hereda ese error.
+- **El Plan también lo hereda (27/10/2026).** De la llamada con Leandro (874749710) la propuesta del Plan puso
+  «Comprar el certificado SSL» a nombre de Leandro: es de Martín. La extracción elige el dueño por la etiqueta del
+  hablante. Las 3 propuestas del ws9 de esas llamadas (`propmvn5jk0zn4wsz`, `propmvpmpjspdh5oi`,
+  `propmvq00r7ecld37`) siguen pendientes: no se aplican sin corregir dueños. Sin hacer: que la extracción no confíe en
+  la etiqueta (o marque el dueño como dudoso) — repartido al chat de Grabadores.
+- **El RESUMEN de Fathom también se equivoca de sentido.** El de la llamada con Aaron (876825880) invierte quién trae
+  y quién cobra (Aaron trae clientes y cobra US$300 por cada Acelerador de 1.500 que se cierra). Un acuerdo de plata
+  se lee en el transcript, nunca en el resumen.
 
 ## El análisis falla en silencio cuando la IA del cliente se queda sin crédito (26/10/2026)
 

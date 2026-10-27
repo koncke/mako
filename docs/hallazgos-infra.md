@@ -38,6 +38,24 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
+
+- **Mensajes entre chats:** después de 10 `SendMessage` a otros chats sin un mensaje de Martín en el chat del
+  Cerebro, el resto se corta («Paused until your user's next message»). Al repartir mucho feedback: un solo mensaje
+  por chat, los de cliente roto primero, y lo que no salió anotado para el próximo turno de Martín.
+- **Abrir chats nuevos:** `start_session` «user_asked» se rechaza en un turno que arrancó por un evento automático (la
+  notificación de un Workflow): sólo queda proponerlos como tarjeta. Se abren en el turno de Martín.
+- **Pedirle a otro chat una lectura de producción** que ese chat tenía pendiente de aprobación lo niega el
+  clasificador («laundering»): no se le pide a un chat lo que a otro no se le aprobó.
+- **Subagentes de un Workflow:** casi todos los lectores recibieron una negación de «Production Reads» y siguieron por
+  otro camino; el de la Ticketera no pudo leer nada. Cada lector tiene que devolver qué no pudo leer.
+
+## El host de `DATABASE_URL` es sólo IPv6, y una corrida larga se corta a mitad (27/10/2026)
+
+- Los lectores del 27/10 vieron ENOENT / ENETUNREACH a mitad de una corrida desde la PC de Martín: no es la base,
+  es la red IPv6 del host. Sin hacer: un respaldo por el pooler IPv4 en los scripts que leen la base (propuesto al
+  chat de Infra).
+
 ## Un rojo del tren que ya estaba en main (26/10/2026)
 
 - **Síntoma:** `tests-afectados` de tren-l dio rojo en cinco tests cuyos fuentes el tren no tocó: zernio-conectar-redes,
