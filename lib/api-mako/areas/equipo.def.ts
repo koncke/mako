@@ -104,7 +104,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'listar_avisos_disponibles', area: 'equipo', tipo: 'lectura',
     titulo: 'Avisos de WhatsApp que existen',
-    descripcion: 'Todos los avisos que MaKo puede mandar al grupo de WhatsApp del negocio (id y título), con `en_configuraciones`: si figura en la pantalla Configuraciones › Notificaciones. Que no figure NO quiere decir que no llegue (el recordatorio de reunión llega y no figura). Son los ids que acepta configurar_aviso_whatsapp. Úsala antes de silenciar un aviso o para encontrar el id de «los recordatorios de reunión». Con `completo: true` agrega cuándo llega y la categoría.',
+    descripcion: 'Todos los avisos que MaKo puede mandar al grupo de WhatsApp del negocio (id y título), con `en_configuraciones`: si figura en la pantalla Settings › Notificaciones. Que no figure NO quiere decir que no llegue (el recordatorio de reunión llega y no figura). Son los ids que acepta configurar_aviso_whatsapp. Úsala antes de silenciar un aviso o para encontrar el id de «los recordatorios de reunión». Con `completo: true` agrega cuándo llega y la categoría.',
     parametros: [
       { nombre: 'completo', tipo: 'boolean', descripcion: 'true para sumar a cada aviso cuándo llega y su categoría.' },
     ],
@@ -113,7 +113,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'esta_aviso_activo', area: 'equipo', tipo: 'lectura',
     titulo: 'Si un aviso sale por WhatsApp',
-    descripcion: 'Dice si un aviso concreto está prendido para este negocio (el interruptor que mira el envío de cualquier aviso; si nunca se tocó, está prendido) y si figura en la pantalla Configuraciones › Notificaciones. Úsala para explicar por qué un evento no llegó al grupo o antes de silenciarlo. Ojo: la agencia tiene además un apagador general por plantilla que esta lectura no ve.',
+    descripcion: 'Dice si un aviso concreto está prendido para este negocio (el interruptor que mira el envío de cualquier aviso; si nunca se tocó, está prendido) y si figura en la pantalla Settings › Notificaciones. Úsala para explicar por qué un evento no llegó al grupo o antes de silenciarlo. Ojo: la agencia tiene además un apagador general por plantilla que esta lectura no ve.',
     parametros: [
       { nombre: 'aviso', tipo: 'string', max: 80, obligatorio: true, descripcion: 'id del aviso (de listar_avisos_disponibles), por ejemplo reunion-nuevo-agendado.' },
     ],
@@ -212,7 +212,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'quitar_destinatario_notificaciones', area: 'equipo', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Sacar un destinatario de los reportes',
-    descripcion: 'PROPONE sacar un teléfono o un email de la lista que recibe los reportes y avisos del negocio (queda pendiente hasta el «sí»). Tiene que ser uno de los que ya están (ver_destinatarios_notificaciones). Deja de recibir por ese canal pero NO sale del grupo de WhatsApp. El teléfono PRINCIPAL (el primero) no se quita por aquí: cambiarlo mueve a dónde llega la apertura diaria y quién es el dueño para MaKo, y volver a agregarlo lo deja al final; eso se hace en Configuraciones › Notificaciones. Pasa telefono o email.',
+    descripcion: 'PROPONE sacar un teléfono o un email de la lista que recibe los reportes y avisos del negocio (queda pendiente hasta el «sí»). Tiene que ser uno de los que ya están (ver_destinatarios_notificaciones). Deja de recibir por ese canal pero NO sale del grupo de WhatsApp. El teléfono PRINCIPAL (el primero) no se quita por aquí: cambiarlo mueve a dónde llega la apertura diaria y quién es el dueño para MaKo, y volver a agregarlo lo deja al final; eso se hace en Settings › Notificaciones. Pasa telefono o email.',
     escribe: 'app_settings notif_telefonos / notif_emails y sus espejos (nunca el teléfono principal)',
     parametros: [
       { nombre: 'telefono', tipo: 'string', max: 30, descripcion: 'uno de los teléfonos actuales, con lada.' },

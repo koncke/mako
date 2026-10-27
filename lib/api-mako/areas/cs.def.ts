@@ -35,7 +35,7 @@
 // `tests/api-mako-http.snapshot.txt` no lista ninguna operación de `cs`.
 //
 // ⚠️ EL CURSO VOLVIÓ, Y ES OTRO (06/10/2026). El de la plataforma externa se fue (ver
-// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Customer Success ›
+// abajo); el que vive EN MaKo —las clases y tareas que se cargan en Classroom ›
 // Curso, mig 0202— es de cualquier negocio, y `ver_avance_curso_cs` lo lee. Es una
 // LECTURA y nada más: nunca llama a `linkDeAcceso` (lib/curso-datos.ts), que CREA la
 // fila del acceso del cliente. Mandarle el link sigue siendo un botón de la ficha.
@@ -85,7 +85,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_avance_curso_cs', area: 'cs', tipo: 'lectura',
     titulo: 'Ver el avance en el curso',
-    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Clients › Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
+    descripcion: 'Cómo va cada cliente con el CURSO de su servicio (las clases y tareas cargadas en Classroom): en qué etapa de la entrega está, cuántas tareas de esa etapa envió y cuáles le faltan, cuánto vio de los videos medibles, y su acceso al portal (si lo tiene, si se le cortó, cuántas veces entró y cuándo fue la última). Con leadId, el detalle de ese cliente en cada producto con curso; sin leadId, una fila por cliente y producto de toda la cartera. ⚠️ Un video de Drive o Loom «sin medir» no es «no lo vio», y pct_visto null no es 0. Es una lectura: no crea el acceso ni le manda nada al cliente.',
     parametros: [
       { nombre: 'leadId', tipo: 'number', entero: true, minimo: 1, descripcion: 'id del cliente (de ver_cartera_cs). Sin él, el resumen de toda la cartera.' },
     ],

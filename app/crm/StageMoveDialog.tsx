@@ -1166,7 +1166,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       pregunta = paso === 'setter' ? '¿Quién es el Setter?' : '¿Quién es el Closer?';
       sub = paso === 'setter' ? 'El que agendó la reunión. Elígelo de tu equipo.' : 'El que corrió la llamada de venta. Elígelo de tu equipo.';
       // Setter/Closer SIEMPRE un desplegable del equipo del workspace (con foto) —
-      // nunca texto libre (dato sensible, vive en Configuraciones › Equipo).
+      // nunca texto libre (dato sensible, vive en Settings › Equipo).
       const opts: DropdownOption[] = [
         { value: '', label: 'Sin asignar' },
         ...equipo.map((m) => ({ value: m.nombre, label: m.nombre, avatar: m.foto_url ?? null })),
@@ -1184,7 +1184,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         </div>
       ) : (
         <div style={{ background: 'var(--surface-2)', border: '1px solid var(--border-strong)', borderRadius: 12, padding: '16px 18px', fontSize: 13.5, color: 'var(--dim)', lineHeight: 1.5, textAlign: 'left' }}>
-          Todavía no tienes equipo configurado. Agrega a tus setters y closers en <b>Configuraciones › Equipo</b> y después vas a poder asignarlos aquí. Por ahora puedes continuar sin asignar.
+          Todavía no tienes equipo configurado. Agrega a tus setters y closers en <b>Settings › Equipo</b> y después vas a poder asignarlos aquí. Por ahora puedes continuar sin asignar.
         </div>
       );
       break;

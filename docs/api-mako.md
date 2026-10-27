@@ -16140,7 +16140,7 @@ curl -L \
 
 ### `GET /api/v1/equipo/notificaciones/avisos` — Avisos de WhatsApp que existen
 
-Todos los avisos que MaKo puede mandar al grupo de WhatsApp del negocio (id y título), con `en_configuraciones`: si figura en la pantalla Configuraciones › Notificaciones. Que no figure NO quiere decir que no llegue (el recordatorio de reunión llega y no figura). Son los ids que acepta configurar_aviso_whatsapp. Úsala antes de silenciar un aviso o para encontrar el id de «los recordatorios de reunión». Con `completo: true` agrega cuándo llega y la categoría.
+Todos los avisos que MaKo puede mandar al grupo de WhatsApp del negocio (id y título), con `en_configuraciones`: si figura en la pantalla Settings › Notificaciones. Que no figure NO quiere decir que no llegue (el recordatorio de reunión llega y no figura). Son los ids que acepta configurar_aviso_whatsapp. Úsala antes de silenciar un aviso o para encontrar el id de «los recordatorios de reunión». Con `completo: true` agrega cuándo llega y la categoría.
 
 - **Ruta por operación:** `GET /api/v1/equipo/listar_avisos_disponibles`
 - **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
@@ -16162,7 +16162,7 @@ curl -L \
 
 ### `GET /api/v1/equipo/notificaciones/avisos/{aviso}` — Si un aviso sale por WhatsApp
 
-Dice si un aviso concreto está prendido para este negocio (el interruptor que mira el envío de cualquier aviso; si nunca se tocó, está prendido) y si figura en la pantalla Configuraciones › Notificaciones. Úsala para explicar por qué un evento no llegó al grupo o antes de silenciarlo. Ojo: la agencia tiene además un apagador general por plantilla que esta lectura no ve.
+Dice si un aviso concreto está prendido para este negocio (el interruptor que mira el envío de cualquier aviso; si nunca se tocó, está prendido) y si figura en la pantalla Settings › Notificaciones. Úsala para explicar por qué un evento no llegó al grupo o antes de silenciarlo. Ojo: la agencia tiene además un apagador general por plantilla que esta lectura no ve.
 
 - **Ruta por operación:** `GET /api/v1/equipo/esta_aviso_activo`
 - **Token detallado:** permiso `equipo=read` (Solo lectura en «Cuenta, equipo y notificaciones»)
@@ -16435,7 +16435,7 @@ Tab **Classroom** (`/classroom`). 4 lecturas · 17 acciones.
 
 ### `GET /api/v1/curso/cursos` — Listar los cursos
 
-Los productos de este negocio que pueden tener curso (los mismos que muestra Clients › Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
+Los productos de este negocio que pueden tener curso (los mismos que muestra Classroom), con cuántos módulos y clases tiene cada uno. Empieza por aquí para conseguir el productoId.
 
 - **Ruta por operación:** `GET /api/v1/curso/listar_cursos`
 - **Token detallado:** permiso `curso=read` (Solo lectura en «Curso (módulos y clases)»)

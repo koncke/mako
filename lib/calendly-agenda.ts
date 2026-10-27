@@ -75,7 +75,7 @@ export type HuecoCalendly = {
 /** Con `token`, ése (23/10/2026: quien llama lo leyó, y con varias cuentas por proveedor elige cuál); sin él, el del negocio. */
 async function headers(token?: string): Promise<Record<string, string>> {
   const t = token ?? await credWs('CALENDLY_API_TOKEN');
-  if (!t) throw new CalendlyAgendaError('Este negocio no tiene el token de Calendly cargado (Configuraciones › Integraciones).');
+  if (!t) throw new CalendlyAgendaError('Este negocio no tiene el token de Calendly cargado (Settings › Integrations).');
   return { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' };
 }
 
@@ -213,7 +213,7 @@ export async function detalleEventTypeCalendly(token: string, uri: string): Prom
 export async function eventTypeDeReunion(tipo: 'R1' | 'R2'): Promise<EventTypeCalendly> {
   const configurado = await credWs(tipo === 'R1' ? 'CALENDLY_EVENT_TYPE_J1' : 'CALENDLY_EVENT_TYPE_J2');
   if (!configurado?.trim()) {
-    throw new CalendlyAgendaError(`No está configurado el event type de la ${tipo} en Calendly (Configuraciones › Integraciones › Calendly).`);
+    throw new CalendlyAgendaError(`No está configurado el event type de la ${tipo} en Calendly (Settings › Integrations › Calendly).`);
   }
   const tipos = await listarEventTypes();
   const match = tipos.find((t) => mismoEventType(t.uri, configurado) || mismoEventType(t.nombre, configurado));
