@@ -70,7 +70,9 @@ export type CampoCredencial = {
   /**
    * true → la pantalla ya NO lo pide: se ve sólo si el negocio lo tenía cargado (para verlo, cambiarlo o quitarlo). Va con
    * `opcional`. Existe por la clave de YouTube (27/10/2026): las vistas del VSL son públicas y MaKo las lee con su clave, y
-   * el canal se conecta con el login de Zernio; pedirle a cada negocio una clave de Google Cloud era el laberinto.
+   * el canal se conecta con el login de Zernio; pedirle a cada negocio una clave de Google Cloud era el laberinto. El token de
+   * Meta también lo es (la misma tarde) y NO es `opcional`, a propósito: `opcional` lo leen los lectores de «conectado», y
+   * Meta ya cuenta conectada con la conexión de Zernio (`metaConectadaConCampos`). La API de MaKo tampoco lo lista si falta.
    */
   retirado?: boolean;
   /**
