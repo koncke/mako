@@ -131,9 +131,12 @@ export function FiltrosChats({
   }
   // El email: un renglón, el canal entero (el negocio tiene un solo dominio), en cuanto haya una conversación.
   if (chats.some((c) => c.canales.some((i) => i.canal === 'email'))) canales.push(conCanal('email', null, 'Email'));
-  const opcionesCanal: DropdownOption[] = [...canales];
+  // «Conectar un canal» va ARRIBA, después de «Todos los canales» (27/10/2026, Leandro: «¿cómo conecto otro número de
+  // teléfono?»): al final de la lista quedaba debajo de cada línea, red y email, y no se veía.
+  const opcionesCanal: DropdownOption[] = esAdmin
+    ? [canales[0], { value: 'conectar', label: 'Conectar un canal', crear: true }, ...canales.slice(1)]
+    : [...canales];
   if (esAdmin) {
-    opcionesCanal.push({ value: 'conectar', label: 'Conectar un canal', crear: true });
     for (const l of lineas) {
       opcionesCanal.push({ value: `adm:${l.linea}`, label: `Administrar ${rotuloWhatsapp(l.rotulo, lineas.length > 1)}`, sutil: true });
     }
