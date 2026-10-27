@@ -2969,3 +2969,19 @@ con la capa como 4.º argumento) · `lib/persona-reglas.ts` · `lib/api-mako/are
 
 *23/10/2026 · chat «API de MaKo» (claude2), agente de la revisión de la API · leído en el código y probado con tests; no
 se corrió contra la base.*
+
+## «Que redefina mi avatar con los clientes ganados... no funciona al preguntar» (27/10/2026, claude5, MAU-02 de Mauricio)
+
+**Dos causas, y la obvia era la segunda.** Lo obvio era «la IA arma mal el avatar». Lo primero que fallaba era el TURNO: la frase
+de Mauricio caía en «consultar» y con eso sólo viajan lecturas, así que `generar_avatares` (una acción) nunca llegaba al modelo.
+**La regla:** un pedido nuevo se prueba con el turno que corre (`clasificarIntencion` + `herramientasDelTurno`), con la frase como
+la escribió la persona; ahora `PIDE_AVATAR` (lib/mako-intencion.ts) lo vuelve un pedido del área negocio. El avatar de un VIDEO
+(AI Avatar) o el de un guion de anuncios no entra en esa regla.
+
+**La segunda:** `generarAvatares` (lib/avatares.ts) nunca miraba a quién le vendió de verdad: el perfil, el panorama y la fase.
+Ahora suma los leads GANADOS del CRM, agregados (lib/avatares-ganados.ts): cuántos, el ticket, el sexo, el ingreso estimado, lo
+más contestado en el formulario por pregunta y por dónde entraron. Sin nombres, emails, teléfonos ni empresas (las preguntas de
+contacto del formulario no viajan), con 3 ganados como mínimo, y el pedido va con `pii` (sólo IA que no entrena).
+
+**Sin hacer:** «probado en el ws3» con datos de verdad: leer producción lo tiene negado el clasificador de permisos de esta
+sesión. tests/avatares-ganados.test.ts lo prueba con datos armados.

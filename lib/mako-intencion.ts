@@ -924,6 +924,13 @@ const RELEVANCIA_CORRIGE_RECOMENDACION = 'decidir recomendacion descartar que re
  * Es una CONSULTA (`que_recomienda_mako`): sin signo de pregunta, en WhatsApp caía en `capturar` (una idea para el Plan), y en la
  * app, ante la duda, en `actuar` (con la escritura). En una consulta MaKo ofrece; la persona decide.
  */
+/**
+ * PIDE ARMAR O REDEFINIR EL AVATAR (27/10/2026, MAU-02 de Mauricio: «que redefina o defina mi avatar considerando los clientes
+ * que son ganados... no funciona al preguntar»). Caía en «consultar» y sólo viajaban lecturas: `generar_avatares` (que ahora
+ * lee los ganados, lib/avatares-ganados.ts) nunca llegaba. Sobre el texto normalizado (sin tildes).
+ */
+const PIDE_AVATAR = /\b(?:redefin|defin|arm|gener|crea|hac|haz|rehac|actualiz|mejor|ajust|cambi|rearm|regener)\w*\s+(?:\S+\s+){0,3}?(?:avatar(?:es)?|cliente ideal|buyer persona)\b/;
+const RELEVANCIA_PIDE_AVATAR = 'generar avatares afinar avatares listar avatares negocio';
 const PIDE_RECOMENDACION = /\bque (?:me |nos )?(?:recomend|recomiend|suger|sugier|aconsej)\w*|\b(?:dame|danos|pasame|tenes|tienes|hay) (?:alguna?s? |un |unos |tu |tus )?(?:consejos?|recomendaci\w*|sugerenci\w*)|\bque (?:deberia|tendria que|me conviene) (?:mejorar|cambiar|hacer)\b/;
 const RELEVANCIA_PIDE_RECOMENDACION = 'que recomienda recomendaciones mako';
 /** Lo que suma un «movela al viernes»: reagendar, leer el día («qué tengo», el título de
@@ -1106,6 +1113,12 @@ export function clasificarIntencion(
   //            («no me recomiendes eso porque…»), y llega con `decidir_recomendacion` para que quede una tarjeta que se confirma.
   if (CORRIGE_RECOMENDACION.test(nPersona)) {
     return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'corrige una recomendación de MaKo', areas: ['mako'], relevancia: RELEVANCIA_CORRIGE_RECOMENDACION };
+  }
+  // 3-bis-av) PIDE ARMAR O REDEFINIR EL AVATAR (MAU-02, ver `PIDE_AVATAR`): un pedido, con `generar_avatares` (que propone y se
+  //           confirma en su pantalla).
+  // El avatar de un VIDEO (AI Avatar) o el de un guion de anuncios es otro: ésos siguen su camino.
+  if (PIDE_AVATAR.test(nPersona) && !/\b(?:videos?|clips?|reels?|ai avatar|voz|voces|escenas?|guion(?:es)?|anuncios?)\b/.test(nPersona)) {
+    return { intencion: 'actuar', dudosa: false, ...deLaApp, porque: 'pide armar o redefinir el avatar', areas: ['negocio'], relevancia: RELEVANCIA_PIDE_AVATAR };
   }
   // 3-bis-rec2) PIDE UNA RECOMENDACIÓN (ver `PIDE_RECOMENDACION`): una consulta, con las áreas que nombre además («¿qué me
   //             recomiendas para la landing?» trae también las de la landing). Un pedido concreto que viene con ella gana su regla.
