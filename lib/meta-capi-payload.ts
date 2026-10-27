@@ -147,6 +147,11 @@ export const EVENTOS_CALIFICADO = ['SubmitApplication', 'QualifiedLead'] as cons
  */
 export const EVENTO_COMPRA = 'Purchase';
 export const eventIdCompra = (sesionId: string): string => `purchase:${sesionId}`;
+/**
+ * El id de una sesión de pago de Stripe (`cs_test_…`, `cs_live_…`): el `session_id` con el que el Payment Link vuelve a la página de
+ * gracias. El Pixel de MaKo (lib/landing-token.ts, v28) lleva la MISMA expresión escrita a mano; tests/compra-navegador.test.ts las cruza.
+ */
+export const SESION_PAGO_RE = /^cs_(test|live)_[A-Za-z0-9]{10,200}$/;
 
 /**
  * Qué se le manda a Meta de una sesión de Stripe pagada que salió de un Payment Link propio del negocio. null = no es una compra para
