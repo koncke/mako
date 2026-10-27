@@ -1,0 +1,191 @@
+// =============================================================================
+// Fuera de Argentina se cobra con Stripe; Mercado Pago, sólo en su país (27/10/2026)
+// =============================================================================
+// La llamada con Leila (Fathom 876470842, 18): en vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y
+// MP la rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de otro país»; terminó pagando por Binance.
+//
+// EL DIAGNÓSTICO: Stripe andaba, pero /planes NUNCA la ofrecía. `monedasDeLaPlataforma` salta toda pasarela que no arma la
+// prueba gratis con tarjeta (`PASARELAS_CON_PRUEBA`), y esa lista era sólo ['mercadopago']. Así, cualquiera, de cualquier
+// país, salía al checkout de la Mercado Pago argentina. Lo que se cuida acá:
+//   · Stripe arma la prueba: `trial_period_days` y la tarjeta siempre, también en la sesión que se rehace al vencer;
+//   · la prueba de Stripe se ACTIVA como la de MP (checkout completo + `trialing`), con su huella (`card.fingerprint`) y el
+//     día del primer cobro que dice Stripe; un link de una prueba ya empezada no abre otra suscripción;
+//   · la pasarela según el país: Mercado Pago sólo en el de su cuenta, y ahí la única; afuera, Stripe; sin país, las dos.
+//
+// Probado rompiéndolo (27/10/2026): al pie del archivo.
+// Correr: node --import tsx --test tests/planes-stripe-afuera.test.ts
+// =============================================================================
+
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import Module from 'node:module';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pasarelasDelPais, paisDelVisitante } from '../lib/compra-plan-reglas';
+import { compartenHuella, huellaMp, huellaStripe, partesDeHuella, PASARELAS_CON_PRUEBA } from '../lib/prueba-plan-reglas';
+import { confirmarFactura } from '../lib/cobros-eventos';
+
+type Cargador = (pedido: string, padre: unknown, esMain: boolean) => unknown;
+const M = Module as unknown as { _load: Cargador };
+const cargarOriginal = M._load;
+M._load = ((pedido: string, padre: unknown, esMain: boolean) =>
+  pedido === 'server-only' ? {} : Reflect.apply(cargarOriginal, Module, [pedido, padre, esMain])) as Cargador;
+const api = () => import('../lib/stripe-api');
+
+const RAIZ = join(import.meta.dirname, '..');
+const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
+/** El cuerpo de una función de un archivo (hasta la función siguiente). */
+function cuerpo(rel: string, nombre: string): string {
+  const src = fuente(rel);
+  const i = src.search(new RegExp(`\\n(?:export )?async function ${nombre}\\(`));
+  assert.ok(i >= 0, `no encontré ${nombre} en ${rel}`);
+  const resto = src.slice(i + 1);
+  const fin = resto.search(/\n(?:export )?(?:async )?function |\nexport const |\n\/\*\*/);
+  return fin > 0 ? resto.slice(0, fin) : resto;
+}
+
+// ── fetch de mentira (como tests/stripe-api.test.ts) ─────────────────────────────────────────────────────────────
+
+type Llamada = { url: URL; metodo: string; cuerpo: string | null };
+let llamadas: Llamada[] = [];
+let contestar: (l: Llamada) => Response = () => json(500, {});
+const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
+globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
+  const url = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
+  const l: Llamada = { url, metodo: (init.method ?? 'GET').toUpperCase(), cuerpo: typeof init.body === 'string' ? init.body : null };
+  llamadas.push(l);
+  return contestar(l);
+}) as typeof fetch;
+const form = (l: Llamada) => new URLSearchParams(l.cuerpo ?? '');
+const KEY = 'sk_test_51MaKoPruebaAbcdefghijklmn';
+const TOKEN = 'TokenDelCobroDeMaKo0123456789abc';
+const base = {
+  idem: 'mako-cobro-7', concepto: 'MaKo Pro', email: 'ana@mx.com', token: TOKEN, ws: 9, cobroId: 7, monto: 97, moneda: 'USD',
+  successUrl: 'https://mako.test/pagar/x/listo', cancelUrl: 'https://mako.test/pagar/x/listo?cancelado=1',
+};
+const sesion = () => json(200, { id: 'cs_test_1', url: 'https://checkout.stripe.com/c/pay/cs_test_1', expires_at: 2_000_000_000 });
+
+// ── Stripe arma la prueba ────────────────────────────────────────────────────────────────────────────────────────
+
+test('Stripe ARMA la prueba: 7 días con la tarjeta siempre; sin prueba, nada de eso', async () => {
+  const { crearCheckoutStripe } = await api();
+  assert.deepEqual([...PASARELAS_CON_PRUEBA], ['mercadopago', 'stripe']);
+  llamadas = []; contestar = sesion;
+  await crearCheckoutStripe(KEY, { ...base, tipo: 'suscripcion', diasDePrueba: 7 });
+  const f = form(llamadas[0]);
+  assert.equal(f.get('mode'), 'subscription');
+  assert.equal(f.get('subscription_data[trial_period_days]'), '7', 'el primer cobro, a los 7 días');
+  assert.equal(f.get('payment_method_collection'), 'always', 'la prueba es CON tarjeta');
+  assert.equal(f.get('subscription_data[metadata][mako_cobro]'), TOKEN, 'la metadata sigue llegando a cada factura');
+  llamadas = [];
+  await crearCheckoutStripe(KEY, { ...base, tipo: 'suscripcion' });
+  assert.equal(form(llamadas[0]).get('subscription_data[trial_period_days]'), null, 'una suscripción sin prueba cobra hoy');
+  assert.equal(form(llamadas[0]).get('payment_method_collection'), null);
+  llamadas = [];
+  await crearCheckoutStripe(KEY, { ...base, tipo: 'unico', diasDePrueba: 7 });
+  assert.ok(![...form(llamadas[0]).keys()].some((k) => k.includes('trial') || k === 'payment_method_collection'), 'un pago único no tiene prueba');
+});
+
+test('leer la prueba en Stripe: la suscripción con su tarjeta, el día del primer cobro y la huella', async () => {
+  const { leerPruebaStripe } = await api();
+  llamadas = [];
+  contestar = () => json(200, {
+    id: 'sub_1', status: 'trialing', trial_end: 1_762_000_000, metadata: { mako_cobro: TOKEN },
+    default_payment_method: { id: 'pm_1', card: { fingerprint: 'Xt5EWLLDS7FJjR1c' } },
+  });
+  const r = await leerPruebaStripe(KEY, 'sub_1');
+  assert.equal(llamadas[0].metodo, 'GET');
+  assert.equal(llamadas[0].url.pathname, '/v1/subscriptions/sub_1');
+  assert.equal(llamadas[0].url.searchParams.get('expand[]'), 'default_payment_method', 'sin expandir, la tarjeta llega como un id y no hay huella');
+  assert.deepEqual(r, { ok: true, id: 'sub_1', estado: 'trialing', finPrueba: new Date(1_762_000_000 * 1000).toISOString(), huella: 'Xt5EWLLDS7FJjR1c', referencia: TOKEN });
+  contestar = () => json(200, { id: 'sub_2', status: 'active', default_payment_method: 'pm_2' });
+  const sinTarjeta = await leerPruebaStripe(KEY, 'sub_2');
+  assert.ok(sinTarjeta.ok && sinTarjeta.huella === null && sinTarjeta.finPrueba === null);
+});
+
+test('la HUELLA de Stripe es la de la tarjeta, y se compara con el mismo filtro que la de Mercado Pago', () => {
+  const a = huellaStripe('Xt5EWLLDS7FJjR1c');
+  assert.equal(a, 'st:-|card:Xt5EWLLDS7FJjR1c');
+  assert.deepEqual(partesDeHuella(a), { cuenta: null, tarjeta: 'Xt5EWLLDS7FJjR1c' });
+  assert.ok(compartenHuella(a, huellaStripe('Xt5EWLLDS7FJjR1c')), 'la misma tarjeta, otra prueba');
+  assert.ok(!compartenHuella(a, huellaStripe('OtraTarjeta123')));
+  assert.ok(!compartenHuella(a, huellaMp({ pagadorId: '-', tarjetaId: null })), 'un «-» de cuenta no es una coincidencia');
+  assert.equal(huellaStripe(null), null);
+  assert.equal(huellaStripe('fp;drop table'), null, 'nada raro entra a un filtro de la base');
+});
+
+test('la factura en cero del inicio de la prueba NO es un pago (no se asienta un mes cobrado)', () => {
+  const f = { id: 'in_1', estado: 'paid', montoPagado: 0, moneda: 'USD', motivo: 'subscription_create', suscripcion: 'sub_1' };
+  assert.deepEqual(confirmarFactura('aprobado', f), { ok: false, motivo: 'factura en cero: no hay plata que registrar' });
+  assert.equal(confirmarFactura('aprobado', { ...f, id: 'in_2', montoPagado: 97, motivo: 'subscription_cycle' }).ok, true, 'el día 8 sí');
+});
+
+// ── El cableado (lib/cobros.ts es `server-only`: se lee del fuente) ─────────────────────────────────────────────────
+
+test('la prueba sale del COBRO: también la sesión que se rehace al vencer la trae', () => {
+  assert.match(cuerpo('lib/cobros.ts', 'crearCheckout'), /diasDePrueba: esPruebaDePlan\(c\) \? PRUEBA_DIAS : null,/);
+  const crear = cuerpo('lib/cobros.ts', 'crearCobro');
+  assert.match(crear, /const pruebaStripe = p\.pasarela === 'stripe' && esPruebaDePlan\(\{ tipo: p\.tipo \?\? '', alta_capa: altaCapa, creado_por: p\.creadoPor \}\);/);
+  assert.match(crear, /\(p\.pasarela !== 'mercadopago' && !pruebaStripe\)/, 'la prueba de Stripe puede llevar su día de cobro');
+});
+
+test('un link de una prueba de Stripe ya empezada NO abre una segunda suscripción', () => {
+  const f = cuerpo('lib/cobros.ts', 'urlParaPagar');
+  const guardia = f.indexOf("if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };");
+  const completa = f.indexOf("if (s.ok && s.estado === 'complete') return { error: 'ya_pagado' };");
+  const rehace = f.indexOf('const r = await crearCheckout(c, { stripe, mp: null }, vuelta);');
+  assert.ok(guardia > 0 && completa > guardia && rehace > completa, 'las dos guardias, antes de rehacer la sesión');
+});
+
+test('la ACTIVACIÓN de Stripe: checkout completo de ESTE cobro, suscripción en prueba, y el día del cobro de Stripe', () => {
+  const s = cuerpo('lib/cobros.ts', 'pruebaAutorizadaStripe');
+  assert.match(s, /if \(!s\.ok \|\| s\.estado !== 'complete' \|\| s\.referencia !== c\.token \|\| !s\.subscription\) return null;/);
+  assert.match(s, /if \(!sub\.ok \|\| sub\.estado !== 'trialing' \|\| \(sub\.referencia != null && sub\.referencia !== c\.token\)\) return null;/);
+  assert.match(s, /huella: huellaStripe\(sub\.huella\), finPrueba: sub\.finPrueba,/);
+  assert.match(s, /cancelar: \(\) => cancelarSuscripcionStripe\(stripe\.key, sub\.id, idemBaja\(c\.id\)\)/);
+  const f = cuerpo('lib/cobros.ts', 'activarPruebaSiAutorizo');
+  assert.ok(!/c\.proveedor !== 'mercadopago'/.test(f), 'antes, una prueba de Stripe no se activaba nunca');
+  assert.match(f, /\{ suscripcion_estado: 'activa', proveedor_suscripcion_id: s\.id, \.\.\.\(s\.finPrueba \? \{ inicio_at: s\.finPrueba \} : \{\}\) \}/,
+    'el aviso de 2 días antes y «Tu plan» leen el día que dice Stripe');
+});
+
+// ── La pasarela según el país ────────────────────────────────────────────────────────────────────────────────────
+
+const MP = { pasarela: 'mercadopago' as const, moneda: 'ARS', monto: 140_000 };
+const ST = { pasarela: 'stripe' as const, moneda: 'USD', monto: 97 };
+
+test('Mercado Pago SÓLO en su país, y ahí la única; afuera, Stripe; sin saber el país, las dos', () => {
+  assert.deepEqual(pasarelasDelPais('MX', [MP, ST]), [ST], 'la clienta de México: Stripe, nunca la MP argentina');
+  assert.deepEqual(pasarelasDelPais('US', [MP, ST]), [ST]);
+  assert.deepEqual(pasarelasDelPais('AR', [MP, ST]), [MP], 'en Argentina, en pesos (sin el recargo de la tarjeta internacional)');
+  assert.deepEqual(pasarelasDelPais('AR', [ST]), [ST], 'en Argentina sin precio en pesos: Stripe');
+  assert.deepEqual(pasarelasDelPais('MX', [MP]), [], 'desde México con sólo la MP argentina: no se cobra en línea (se pide)');
+  assert.deepEqual(pasarelasDelPais(null, [MP, ST]), [MP, ST], 'sin país, elige la persona');
+  assert.deepEqual(pasarelasDelPais('MX', [{ ...MP, moneda: 'MXN' }, ST]), [{ ...MP, moneda: 'MXN' }], 'una MP de México cobra en México');
+});
+
+test('el país es el encabezado de Vercel, dos letras; lo que no ubica es «no se sabe»', () => {
+  assert.equal(paisDelVisitante('MX'), 'MX');
+  assert.equal(paisDelVisitante(' ar '), 'AR');
+  for (const x of [null, undefined, '', 'XX', 'T1', 'MEX', 'M1']) assert.equal(paisDelVisitante(x), null, String(x));
+});
+
+test('el país viaja: /planes, la página del plan y la compra lo leen de Vercel, y la oferta lo aplica', () => {
+  assert.match(cuerpo('lib/compra-plan.ts', 'ofertaDelPlan'), /return \{ plan, pasarelas: pasarelasDelPais\(opts\.pais \?\? null, pasarelas\) \};/);
+  assert.match(cuerpo('lib/compra-plan.ts', 'ofertasDeLosPlanes'), /cobrable: pasarelasDelPais\(pais, monedas\.filter\(\(m\) => precioEn\(plan, m\.moneda\) != null\)\)\.length > 0,/);
+  const enc = "paisDelVisitante(req.headers.get('x-vercel-ip-country'))";
+  assert.ok(fuente('app/api/planes/comprar/route.ts').includes(`pais: ${enc}`), 'la compra');
+  assert.ok(fuente('app/planes/[plan]/page.tsx').includes("pais: paisDelVisitante((await headers()).get('x-vercel-ip-country'))"), 'la página del plan');
+  assert.ok(fuente('app/planes/page.tsx').includes("ofertasDeLosPlanes(paisDelVisitante((await headers()).get('x-vercel-ip-country')))"), '/planes');
+  // Pidió Mercado Pago desde México y Stripe sirve: se le ofrece Stripe, no «todavía no cobramos en línea».
+  assert.match(cuerpo('lib/compra-plan.ts', 'iniciarCompraDePlan'), /if \(eleccion\.motivo === 'elegir' \|\| \(eleccion\.motivo === 'no-sirve' && pasarelas\.length\)\) return \{ ok: false, status: 409/);
+});
+
+// Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (10 pases, 0 fallos), restaurando el texto con un
+// script (nunca git). Rota (pases / fallos):
+//   · PASARELAS_CON_PRUEBA sin Stripe (el bug de la clienta de México)        → 9 / 1
+//   · sin `trial_period_days`                                                  → 9 / 1
+//   · sin la guarda de la segunda suscripción en `urlParaPagar`               → 9 / 1
+//   · Mercado Pago para todos los países                                       → 9 / 1
+//   · «XX» tomado como un país                                                 → 9 / 1
+//   · sin expandir la tarjeta (sin huella)                                     → 9 / 1

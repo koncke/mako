@@ -29,12 +29,14 @@ import { avisarDePlataforma } from './invitaciones';
 import { formatoMonto } from './pasarela-moneda';
 import { PLANES_MAKO_DEFAULT } from './planes-mako';
 import {
-  CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, PAGOS_PARA_ACREDITAR, altaLimpia, codigoDesdeNombre, cobroLimpio, contarPrograma,
+  CLAVE_ALTA_PARTNERS, CLAVE_VISITAS_PARTNERS, PAGOS_PARA_ACREDITAR, TEXTO_CODIGO_INVALIDO, altaLimpia, codigoDesdeNombre, codigoNuevoValido, cobroLimpio, contarPrograma,
   correspondeAcreditar, estadoDelReferido, esRobot, gananciaDelReferido, ganadoPorMes, leerAlta, leerVisitas, linkDePartner,
   porGanar, precioDeListaPorMes, resumenDelLibro, seFueSegunSusCobros, sumarVisita,
   type AltaPartner, type EstadoReferido, type Renglon, type Resumen,
 } from './partners-reglas';
 import { cuotasDeLugares, cobrosDeLugares } from './plan-acceso';
+import { esEsencialDe } from './plan-esencial';
+import { textoSoloPro } from './topes-plan';
 
 const msg = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 const mesDe = (ms: number): string => new Date(ms).toISOString().slice(0, 7);
@@ -70,10 +72,67 @@ export async function codigoSiExiste(ws: number): Promise<string | null> {
   return data ? (data as { codigo: string }).codigo : null;
 }
 
-/** El negocio dueño de un código. */
+// ── LOS CÓDIGOS ANTERIORES (27/10/2026, mig 0340): un partner puede cambiar su código, y lo de antes sigue contando ──────
+// Los links /r/<viejo> que ya mandó, la cookie de quien ya entró y los cobros con `ref_codigo = <viejo>` son SUYOS: cada
+// lectura que va de un código a un negocio mira primero el actual (`partner_codigos`) y después los que dejó
+// (`partner_codigos_anteriores`). Sin la migración, la tabla no existe: los anteriores son ninguno y cambiar no se ofrece.
+
+/** El negocio que usaba ese código antes de cambiarlo, o null (también sin la mig 0340). */
+async function wsDeCodigoAnterior(codigo: string): Promise<number | null> {
+  const { data, error } = await getSupabaseServer().from('partner_codigos_anteriores').select('workspace_id').eq('codigo', codigo).maybeSingle();
+  return !error && data ? Number((data as { workspace_id: number }).workspace_id) : null;
+}
+
+/** Los códigos que el negocio dejó de usar (ninguno sin la mig 0340). */
+async function codigosAnterioresDe(ws: number): Promise<string[]> {
+  const { data, error } = await getSupabaseServer().from('partner_codigos_anteriores').select('codigo').eq('workspace_id', ws).limit(50);
+  return error ? [] : ((data ?? []) as Array<{ codigo: string }>).map((x) => x.codigo);
+}
+
+/** El negocio dueño de un código: el actual, o el que lo usaba antes de cambiarlo. */
 async function wsDelCodigo(codigo: string): Promise<number | null> {
   const { data } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
-  return data ? Number((data as { workspace_id: number }).workspace_id) : null;
+  return data ? Number((data as { workspace_id: number }).workspace_id) : wsDeCodigoAnterior(codigo);
+}
+
+/**
+ * El código que vale HOY para un link: el mismo si es el actual de alguien; el actual de su dueño si es uno que dejó; null si
+ * no es de nadie. Lo usa /r/<código>: quien entra por un link viejo queda con la cookie del código nuevo.
+ */
+export async function codigoVigente(codigo: string): Promise<string | null> {
+  const db = getSupabaseServer();
+  const { data, error } = await db.from('partner_codigos').select('codigo').eq('codigo', codigo).maybeSingle();
+  if (error) throw new Error(`No pude leer el código ${codigo}: ${error.message}`);
+  if (data) return codigo;
+  const ws = await wsDeCodigoAnterior(codigo);
+  return ws == null ? null : codigoSiExiste(ws);
+}
+
+/**
+ * Cambiar el código (Leila, Fathom 876470842-06): único entre los actuales y los anteriores de OTROS, atómico en la base
+ * (`cambiar_codigo_partner`, mig 0340). El viejo sigue acreditándole. Sólo un partner (con alta) y nunca la plataforma.
+ */
+export async function cambiarCodigoPartner(ws: number, crudo: unknown): Promise<{ ok: true; codigo: string; link: string } | { ok: false; error: string }> {
+  try {
+    if (ws === (await wsSuperAdmin())) return { ok: false, error: 'MaKo no es partner de sí mismo.' };
+    const v = codigoNuevoValido(crudo);
+    if (!v.ok) return v;
+    if (!(await altaDePartner(ws).catch(() => null))) return { ok: false, error: 'Todavía no eres partner: primero hazte partner en MaKo Partners.' };
+    const { data, error } = await getSupabaseServer().rpc('cambiar_codigo_partner', { p_ws: ws, p_nuevo: v.codigo });
+    if (error) {
+      // Sin la mig 0340 la función no existe: no se cambia nada (cambiar sin guardar el viejo le haría perder lo que ya mandó).
+      console.warn(`[partners] no pude cambiar el código del negocio ${ws}: ${error.message}`);
+      return { ok: false, error: 'Todavía no se puede cambiar el código. Prueba más tarde.' };
+    }
+    const r = String(data);
+    if (r === 'ocupado') return { ok: false, error: 'Ese código ya lo usa otro partner. Prueba con otro.' };
+    if (r === 'sin_codigo') return { ok: false, error: 'Todavía no tienes código. Prueba otra vez en un minuto.' };
+    if (r !== 'ok' && r !== 'igual') return { ok: false, error: TEXTO_CODIGO_INVALIDO };
+    return { ok: true, codigo: v.codigo, link: linkDePartner(APP_BASE_URL, v.codigo) };
+  } catch (e) {
+    console.warn(`[partners] no pude cambiar el código del negocio ${ws}: ${msg(e)}`);
+    return { ok: false, error: 'No pudimos cambiar tu código. Prueba otra vez en un minuto.' };
+  }
 }
 
 /**
@@ -84,8 +143,9 @@ async function wsDelCodigo(codigo: string): Promise<number | null> {
 export async function esCodigoDePartner(codigo: string): Promise<boolean> {
   const { data, error } = await getSupabaseServer().from('partner_codigos').select('workspace_id').eq('codigo', codigo).maybeSingle();
   if (error) throw new Error(`No pude leer el código ${codigo}: ${error.message}`);
-  if (!data) return false;
-  return Number((data as { workspace_id: number }).workspace_id) !== (await wsSuperAdmin());
+  // Un código que el partner DEJÓ (27/10/2026) también vale: quien lo tiene anotado de antes no se queda afuera.
+  const ws = data ? Number((data as { workspace_id: number }).workspace_id) : await wsDeCodigoAnterior(codigo);
+  return ws != null && ws !== (await wsSuperAdmin());
 }
 
 // ── El setting del negocio, con el cliente de servicio (/r/<código> no tiene sesión) ──────────────────────────────────
@@ -109,19 +169,25 @@ export async function altaDePartner(ws: number): Promise<AltaPartner | null> {
   return leerAlta(await leerSetting(ws, CLAVE_ALTA_PARTNERS));
 }
 
-export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string };
+/** `soloPro`: el negocio paga Esencial y hacerse partner es de Pro (la pantalla muestra «Pasar a Pro»). */
+export type ResultadoAlta = { ok: true; codigo: string; link: string; alta: AltaPartner } | { ok: false; error: string; soloPro?: true };
 
 /**
  * Terminar el alta (el último paso del onboarding corto, o `hacerme_partner` por la API): guarda lo que contestó y le da su
  * link (`codigoDe`: lo crea la primera vez y devuelve el mismo después). Hacerlo dos veces no duplica nada: se queda con la
  * fecha del primer alta y con las respuestas nuevas. La plataforma nunca es partner.
+ *
+ * SÓLO MaKo Pro (27/10/2026, Martín en la llamada con Leila, Fathom 876470842-15; lib/topes-plan.ts, `FUNCIONES_SOLO_PRO`): un
+ * Esencial que paga por la pasarela no se hace partner (ni nace su código). Quien YA era partner sigue siéndolo: volver a
+ * terminar el alta no le saca nada. Ante la duda (no se pudo leer el plan), sin candado (lib/plan-esencial.ts).
  */
 export async function hacermePartner(ws: number, respuestas: unknown): Promise<ResultadoAlta> {
   try {
     if (ws === (await wsSuperAdmin())) return { ok: false, error: 'MaKo no es partner de sí mismo.' };
+    const antes = await altaDePartner(ws).catch(() => null);
+    if (!antes && (await esEsencialDe(ws))) return { ok: false, error: textoSoloPro('partners'), soloPro: true };
     const codigo = await codigoDe(ws);
     if (!codigo) return { ok: false, error: 'No pudimos crear tu link. Prueba otra vez en un minuto.' };
-    const antes = await altaDePartner(ws).catch(() => null);
     const alta = altaLimpia({ ...(respuestas && typeof respuestas === 'object' ? respuestas : {}), at: antes?.at });
     await guardarSetting(ws, CLAVE_ALTA_PARTNERS, JSON.stringify(alta));
     return { ok: true, codigo, link: linkDePartner(APP_BASE_URL, codigo), alta };
@@ -191,10 +257,10 @@ type CompraConCodigo = { alta_ws: number; monto_usd: number | null; plan_mako: s
  */
 const COMPRA_QUE_TRAJO = 'alta_estado.eq.hecha,creado_por.like.empezar-ya:*';
 
-/** Los cobros de la plataforma comprados con ESTE código, ya con su negocio (los referidos). */
-async function comprasConCodigo(plataforma: number, codigo: string): Promise<CompraConCodigo[]> {
+/** Los cobros de la plataforma comprados con ESTOS códigos (el actual y los que dejó), ya con su negocio (los referidos). */
+async function comprasConCodigo(plataforma: number, codigos: readonly string[]): Promise<CompraConCodigo[]> {
   const { data, error } = await getSupabaseServer().from('cobros').select('alta_ws, monto_usd, plan_mako, meses, created_at')
-    .eq('workspace_id', plataforma).eq('ref_codigo', codigo).eq('alta_estado', 'hecha').not('alta_ws', 'is', null).order('created_at', { ascending: true }).limit(500);
+    .eq('workspace_id', plataforma).in('ref_codigo', [...codigos]).eq('alta_estado', 'hecha').not('alta_ws', 'is', null).order('created_at', { ascending: true }).limit(500);
   if (error) throw new Error(`No pude leer los referidos: ${error.message}`);
   return (data ?? []) as CompraConCodigo[];
 }
@@ -234,7 +300,8 @@ export async function tableroDe(ws: number): Promise<Tablero> {
 
   let referidos: Referido[] = [];
   if (codigo) {
-    const compras = (await comprasConCodigo(plataforma, codigo)).filter((c) => Number(c.alta_ws) !== ws);
+    // Con los códigos que dejó (27/10/2026): lo que trajo antes de cambiarlo sigue siendo suyo.
+    const compras = (await comprasConCodigo(plataforma, [codigo, ...(await codigosAnterioresDe(ws))])).filter((c) => Number(c.alta_ws) !== ws);
     const porWs = new Map<number, CompraConCodigo>();
     for (const c of compras) if (!porWs.has(Number(c.alta_ws))) porWs.set(Number(c.alta_ws), c);
     const wss = [...porWs.keys()];
@@ -310,9 +377,11 @@ export async function resumenDelPrograma(): Promise<ResumenPrograma> {
   const TOPE = 5000;
   const plataforma = await wsSuperAdmin();
   const db = getSupabaseServer();
-  const [altas, codigos, compras, libro] = await Promise.all([
+  const [altas, codigos, anteriores, compras, libro] = await Promise.all([
     db.from('app_settings').select('workspace_id, value').eq('key', CLAVE_ALTA_PARTNERS).limit(TOPE),
     db.from('partner_codigos').select('workspace_id, codigo').limit(TOPE),
+    // Los que cada partner dejó (mig 0340): una compra con el código viejo sigue contando para él. Sin la migración, ninguno.
+    db.from('partner_codigos_anteriores').select('workspace_id, codigo').limit(TOPE),
     // El MISMO filtro que `acreditarReferidos`: la compra que TRAJO al negocio (`COMPRA_QUE_TRAJO`: la que creó la cuenta o
     // la de «Empezar mi plan ya» que la reemplaza), pagada (o devuelta después).
     db.from('cobros').select('ref_codigo, alta_ws, created_at').eq('workspace_id', plataforma).not('ref_codigo', 'is', null)
@@ -331,8 +400,9 @@ export async function resumenDelPrograma(): Promise<ResumenPrograma> {
   const renglones = (libro.data ?? []) as Array<Renglon & { referidor_ws: number; created_at: string }>;
   // La cuenta es pura (lib/partners-reglas.ts, `contarPrograma`): un negocio nuevo cuenta UNA vez, para el primer código
   // que lo trajo, como `acreditarReferidos`, y nunca para sí mismo.
+  const listaAnteriores = anteriores.error ? [] : (anteriores.data ?? []) as Array<{ workspace_id: number; codigo: string }>;
   const c = contarPrograma({
-    plataforma, altas: [...altaDe.keys()], codigos: listaCodigos,
+    plataforma, altas: [...altaDe.keys()], codigos: [...listaCodigos, ...listaAnteriores],
     compras: (compras.data ?? []) as Array<{ ref_codigo: string; alta_ws: number }>, libro: renglones,
   });
   const wss = [...c.porPartner.keys()];

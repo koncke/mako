@@ -56,14 +56,15 @@ import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, leerPruebaStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
 import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './cuentas-pago-server';
 import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
-import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
+import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, huellaStripe, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
+import { PRUEBA_DIAS } from './planes-mako';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -349,10 +350,12 @@ export async function crearCobro(ws: number, p: {
     if (!Number.isInteger(agenciaWs) || !Number.isInteger(clienteWs) || agenciaWs <= 0 || clienteWs <= 0 || agenciaWs === clienteWs) return { ok: false, error: 'Agencia o cliente inválidos.' };
     paraCliente = { agenciaWs, clienteWs };
   }
-  // Un primer cobro diferido sólo existe en una suscripción de Mercado Pago: es el parámetro que MP documenta al crearla.
+  // Un primer cobro diferido: en una suscripción de Mercado Pago (`start_date`, el parámetro que MP documenta al crearla), o la
+  // PRUEBA GRATIS de un plan de MaKo por Stripe (27/10/2026: `trial_period_days`, que arma `crearCheckout` al ver la prueba).
   const inicioAt = p.inicioAt ?? null;
-  if (inicioAt && (p.tipo !== 'suscripcion' || p.pasarela !== 'mercadopago' || !Number.isFinite(Date.parse(inicioAt)))) {
-    return { ok: false, error: 'Sólo una suscripción de Mercado Pago empieza a cobrar más adelante.' };
+  const pruebaStripe = p.pasarela === 'stripe' && esPruebaDePlan({ tipo: p.tipo ?? '', alta_capa: altaCapa, creado_por: p.creadoPor });
+  if (inicioAt && (p.tipo !== 'suscripcion' || (p.pasarela !== 'mercadopago' && !pruebaStripe) || !Number.isFinite(Date.parse(inicioAt)))) {
+    return { ok: false, error: 'Sólo una suscripción de Mercado Pago (o la prueba de un plan de MaKo) empieza a cobrar más adelante.' };
   }
 
   return runWithWorkspace(ws, async () => {
@@ -518,6 +521,9 @@ async function crearCheckout(
       idem: idemCobro(c.id, vuelta), tipo: c.tipo, concepto: c.concepto, monto: c.monto, moneda: c.moneda,
       email: c.email, token: c.token, ws: c.workspace_id, cobroId: c.id,
       successUrl: linkDeRetorno(c.token), cancelUrl: `${linkDeRetorno(c.token)}?cancelado=1`,
+      // LA PRUEBA GRATIS (27/10/2026): sale del COBRO y no del pedido, así la sesión que se rehace al vencer (`urlParaPagar`)
+      // también la trae. Sin esto, abrir el link al día siguiente cobraba el primer mes en el acto.
+      diasDePrueba: esPruebaDePlan(c) ? PRUEBA_DIAS : null,
     });
     return r.ok ? { ok: true, ref: r.id, url: r.url, venceAt: r.venceAt } : { ok: false, error: r.error };
   }
@@ -564,7 +570,14 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
   }
   const stripe = await credStripe(c.workspace_id, cuenta);
   if (!stripe) return { error: 'desconectada' };
+  // ⚠️ UNA PRUEBA DE STRIPE YA EMPEZADA (27/10/2026) sigue `pendiente` hasta el primer cobro: rehacer su sesión vencida abría
+  // una SEGUNDA suscripción con otra prueba. Activada, o con la sesión ya completa (la vuelta la activa), va a /listo.
+  if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };
   if (c.url_proveedor && !urlPorVencer(c.url_vence_at, Date.now())) return { url: c.url_proveedor };
+  if (esPruebaDePlan(c) && c.proveedor_ref) {
+    const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+    if (s.ok && s.estado === 'complete') return { error: 'ya_pagado' };
+  }
   const vuelta = Math.max(1, Math.floor((Date.parse(c.url_vence_at ?? '') || 0) / 60_000));
   const r = await crearCheckout(c, { stripe, mp: null }, vuelta);
   if (!r.ok) return { error: 'pasarela', detalle: r.error };
@@ -1419,36 +1432,37 @@ async function huellaYaUsada(plataforma: number, cobroId: number, huella: string
 }
 
 /**
- * LA PRUEBA GRATIS, AL AUTORIZARLA (25/10/2026): la persona cargó la tarjeta en Mercado Pago y la suscripción quedó
- * `authorized`, con el primer cobro el día 8 (`start_date`). Se anota la suscripción activa y su huella, y se da de alta la
- * cuenta en ese momento. Si esa cuenta de MP o esa tarjeta ya usó una prueba, se CANCELA la suscripción en el acto (no se
- * cobra nada) y el cobro queda anulado con el motivo. La llaman la página de vuelta del pago y el cron. Nunca tira.
+ * LA PRUEBA GRATIS, AL AUTORIZARLA (25/10/2026; Stripe desde el 27/10): la persona cargó la tarjeta y la suscripción quedó
+ * autorizada sin cobrar nada (`pruebaAutorizadaMp` / `pruebaAutorizadaStripe`). Se anota la suscripción activa y su huella, y
+ * se da de alta la cuenta en ese momento. Si esa cuenta de MP o esa tarjeta ya usó una prueba, se CANCELA la suscripción en el
+ * acto (no se cobra nada) y el cobro queda anulado con el motivo. La llaman la página de vuelta del pago y el cron. Nunca tira.
  */
 export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'rechazada' | null> {
-  if (!esPruebaDePlan(c) || c.estado !== 'pendiente' || c.suscripcion_estado || c.proveedor !== 'mercadopago' || !c.proveedor_ref) return null;
+  if (!esPruebaDePlan(c) || c.estado !== 'pendiente' || c.suscripcion_estado || !c.proveedor_ref) return null;
   try {
     const plataforma = await wsSuperAdmin();
     if (c.workspace_id !== plataforma) return null;
-    const mp = await credMp(plataforma, await cuentaVivaDelCobro(plataforma, c));
-    if (!mp) return null;
-    const s = await leerSuscripcionMp(mp.token, c.proveedor_ref);
-    if (!s.ok || s.estado !== 'authorized' || s.cobradorId !== mp.userId || s.referencia !== c.token) return null;
-    const huella = huellaMp({ pagadorId: s.pagadorId, tarjetaId: s.tarjetaId });
+    const s = c.proveedor === 'stripe' ? await pruebaAutorizadaStripe(c, plataforma) : await pruebaAutorizadaMp(c, plataforma);
+    if (!s) return null;
+    const pasarela = NOMBRE_PASARELA[c.proveedor];
+    const huella = s.huella;
     if (huella && await huellaYaUsada(plataforma, c.id, huella)) {
       // Primero se corta el cobro en la pasarela: si no se pudo, no se anula nada y el cron lo vuelve a intentar.
-      const corte = await cancelarSuscripcionMp(mp.token, s.id, idemBaja(c.id));
+      const corte = await s.cancelar();
       if (!corte.ok) {
-        console.error(`[cobros] prueba repetida ${c.id}: Mercado Pago no canceló la suscripción: ${corte.error}`);
+        console.error(`[cobros] prueba repetida ${c.id}: ${pasarela} no canceló la suscripción: ${corte.error}`);
         return null;
       }
       await actualizar(plataforma, c.id, {
         estado: 'anulado', suscripcion_estado: 'cancelada', proveedor_suscripcion_id: s.id,
-        motivo: `${PREFIJO_PRUEBA_RECHAZADA} esa cuenta de Mercado Pago o esa tarjeta ya usó su prueba gratis.`,
+        motivo: `${PREFIJO_PRUEBA_RECHAZADA} ${s.quien} ya usó su prueba gratis.`,
       }, { estado: ['pendiente'] });
-      if (c.lead_id) await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Prueba gratis', 'Rechazada: esa cuenta de Mercado Pago o esa tarjeta ya había usado su prueba. No se le cobró nada.', 'Mercado Pago')).catch(() => {});
+      if (c.lead_id) await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Prueba gratis', `Rechazada: ${s.quien} ya había usado su prueba. No se le cobró nada.`, pasarela)).catch(() => {});
       return 'rechazada';
     }
-    const r = await actualizar(plataforma, c.id, { suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id }, { estado: ['pendiente'] });
+    // El día del primer cobro que dice Stripe (cuenta desde que completó el checkout, no desde que se armó el link) es el
+    // `inicio_at` de verdad: el aviso de 2 días antes, «Tu plan» y la vigencia lo leen de ahí. MP no lo dice: queda el de crearlo.
+    const r = await actualizar(plataforma, c.id, { suscripcion_estado: 'activa', proveedor_suscripcion_id: s.id, ...(s.finPrueba ? { inicio_at: s.finPrueba } : {}) }, { estado: ['pendiente'] });
     if (!r) return null;
     if (huella) {
       const { error } = await getSupabaseServer().from('cobros').update({ prueba_huella: huella }).eq('id', c.id).eq('workspace_id', plataforma);
@@ -1458,13 +1472,52 @@ export async function activarPruebaSiAutorizo(c: Cobro): Promise<'activada' | 'r
     const inicio = await inicioDeLaPrueba(c).catch(() => null);
     if (c.lead_id) {
       await runWithWorkspace(plataforma, () => logLeadEvent(c.lead_id!, 'Prueba gratis',
-        `Empezó su prueba de ${c.concepto}: ${inicio ? `se le cobra ${formatoMonto(c.monto, c.moneda)} el ${diaDelCobro(inicio)}` : 'Mercado Pago le cobra al terminar'}.`, 'Mercado Pago')).catch(() => {});
+        `Empezó su prueba de ${c.concepto}: ${inicio ? `se le cobra ${formatoMonto(c.monto, c.moneda)} el ${diaDelCobro(inicio)}` : `${pasarela} le cobra al terminar`}.`, pasarela)).catch(() => {});
     }
     return 'activada';
   } catch (e) {
     console.error(`[cobros] no pude activar la prueba del cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
     return null;
   }
+}
+
+/** Una prueba autorizada en la pasarela: su suscripción, la huella de quien la autorizó y cómo cortarla si es repetida. */
+type PruebaAutorizada = {
+  id: string; huella: string | null; finPrueba: string | null;
+  /** Quién ya la usó, como se dice en el motivo y en el historial: «esa tarjeta». */
+  quien: string;
+  cancelar: () => Promise<{ ok: true } | { ok: false; error: string }>;
+};
+
+/** Mercado Pago: la suscripción `authorized`, de la cuenta de MaKo y de ESTE cobro, con el primer cobro el día 8 (`start_date`). */
+async function pruebaAutorizadaMp(c: Cobro, plataforma: number): Promise<PruebaAutorizada | null> {
+  const mp = await credMp(plataforma, await cuentaVivaDelCobro(plataforma, c));
+  if (!mp || !c.proveedor_ref) return null;
+  const s = await leerSuscripcionMp(mp.token, c.proveedor_ref);
+  if (!s.ok || s.estado !== 'authorized' || s.cobradorId !== mp.userId || s.referencia !== c.token) return null;
+  return {
+    id: s.id, huella: huellaMp({ pagadorId: s.pagadorId, tarjetaId: s.tarjetaId }), finPrueba: null,
+    quien: 'esa cuenta de Mercado Pago o esa tarjeta', cancelar: () => cancelarSuscripcionMp(mp.token, s.id, idemBaja(c.id)),
+  };
+}
+
+/**
+ * Stripe (27/10/2026): el checkout de ESTE cobro, COMPLETO, y su suscripción en `trialing` (la tarjeta cargada, nada cobrado).
+ * El checkout completo sin pago (`no_payment_required`) el webhook lo ignora a propósito: no hay plata que asentar, y la
+ * factura en cero del inicio tampoco cuenta (`confirmarFactura`, lib/cobros-eventos.ts). La prueba entra por acá, como la de
+ * Mercado Pago, y el primer cobro (el día 8) por `invoice.paid` como cualquier factura de la suscripción.
+ */
+async function pruebaAutorizadaStripe(c: Cobro, plataforma: number): Promise<PruebaAutorizada | null> {
+  const stripe = await credStripe(plataforma, await cuentaVivaDelCobro(plataforma, c));
+  if (!stripe || !c.proveedor_ref) return null;
+  const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+  if (!s.ok || s.estado !== 'complete' || s.referencia !== c.token || !s.subscription) return null;
+  const sub = await leerPruebaStripe(stripe.key, s.subscription);
+  if (!sub.ok || sub.estado !== 'trialing' || (sub.referencia != null && sub.referencia !== c.token)) return null;
+  return {
+    id: sub.id, huella: huellaStripe(sub.huella), finPrueba: sub.finPrueba,
+    quien: 'esa tarjeta', cancelar: () => cancelarSuscripcionStripe(stripe.key, sub.id, idemBaja(c.id)),
+  };
 }
 
 /**

@@ -82,7 +82,8 @@ test('/planes arma el botón con la regla y decide por plan con la misma cuenta 
   const tarjetas = fuente('app/planes/Tarjetas.tsx');
   assert.match(tarjetas, /const boton = botonDelPlan\(\{ id: p\.id, nombre: p\.nombre, cobrable: p\.cobrable, sufijo \}\);/);
   assert.match(fuente('app/planes/Vitrina.tsx'), /<TarjetasPlanes planes=\{planes\} sufijo=\{sufijo\} \/>/);
-  assert.match(pagina, /ofertasDeLosPlanes\(\)/);
+  // Con el país de quien mira (27/10/2026): Mercado Pago sólo en el suyo (tests/planes-stripe-afuera.test.ts).
+  assert.match(pagina, /ofertasDeLosPlanes\(paisDelVisitante\(/);
   const lib = fuente('lib/compra-plan.ts');
   const ofertas = lib.slice(lib.indexOf('export async function ofertasDeLosPlanes'), lib.indexOf('export async function ofertasDeLosPlanes') + 700);
   assert.match(ofertas, /precioEn\(plan, m\.moneda\) != null/);

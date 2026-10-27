@@ -11,10 +11,11 @@
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 import { ofertaDelPlan } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
-import { origenLimpio, codigoRefLimpio, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
+import { origenLimpio, codigoRefLimpio, paisDelVisitante, TEXTO_SIN_PASARELA, PREGUNTAS_DE_LA_PUERTA } from '@/lib/compra-plan-reglas';
 import { MESES_GRATIS_ANUAL, PROGRAMA_ACELERADOR, PRUEBA_DIAS } from '@/lib/planes-mako';
 import { formatoMonto } from '@/lib/pasarela-moneda';
 import { CSS_PLANES } from '../estilo';
@@ -47,8 +48,12 @@ export default async function PlanPage({ params, searchParams }: {
       </Ficha>
     );
   }
-  // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`.
-  const oferta = await ofertaDelPlan(id, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
+  // Una pasarela en modo prueba sólo la ve el super admin (la prueba de humo): lib/compra-plan.ts, `ofertaDelPlan`. Mercado
+  // Pago sólo a quien está en su país (27/10/2026: a una clienta de México le rechazó el pago); afuera, Stripe.
+  const oferta = await ofertaDelPlan(id, {
+    conPrueba: (await getSesionAdmin().catch(() => null)) != null,
+    pais: paisDelVisitante((await headers()).get('x-vercel-ip-country')),
+  });
   if (!oferta) notFound();
   const { plan, pasarelas } = oferta;
   // EL ANUAL (25/10/2026) se pide siempre, aunque haya pasarela: el checkout cobra por mes, y nunca se cobra un mes en lugar

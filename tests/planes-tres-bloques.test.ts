@@ -16,8 +16,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
-import { NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
+import { FUNCIONES_SOLO_PRO, TOPES, TABS_SOLO_PRO } from '../lib/topes-plan';
+import { GRUPOS_COMPARACION, NOMBRE_FUNCION_PRO, NOMBRE_TAB_PRO, filasDeComparacion } from '../lib/planes-comparacion';
 import { HORAS_SEMANA_1, MESES_GRATIS_ANUAL, PLANES_MAKO_DEFAULT, PROGRAMA_ACELERADOR, PRUEBA_DIAS, precioEnPesos, textoDespuesDeLaPrueba } from '../lib/planes-mako';
 import { botonAnualDelPlan, leerPedidoCompra, TEXTO_ANUAL_SE_PIDE } from '../lib/compra-plan-reglas';
 import { avisoAltaAMano } from '../lib/plan-esencial-reglas';
@@ -35,8 +35,11 @@ const numero = (celda: unknown): number | null => {
 test('la comparación dice EXACTAMENTE los topes del código, en Esencial (completo) y en Pro y el Acelerador (agencia)', () => {
   const filas = filasDeComparacion();
   const porTope: Array<[string, keyof (typeof TOPES)['completo']]> = [
-    ['Embudos de venta en tu CRM', 'crm.funnels'], ['Contactos en tu CRM', 'crm.leads'], ['Números de WhatsApp, más Instagram', 'chats.lineas_whatsapp'],
-    ['Automatizaciones de mensajes activas', 'automations.activas'], ['Páginas de venta publicadas', 'web.landings_publicadas'], ['Personas de tu equipo', 'equipo.usuarios'],
+    ['Tableros de ventas, para ver en qué paso está cada cliente', 'crm.funnels'], ['Contactos guardados (interesados y clientes)', 'crm.leads'],
+    ['Números de WhatsApp conectados, más tu Instagram', 'chats.lineas_whatsapp'], ['Seguimientos automáticos activos a la vez', 'automations.activas'],
+    ['Páginas web para vender, publicadas', 'web.landings_publicadas'], ['Personas de tu equipo, cada una con su acceso', 'equipo.usuarios'],
+    ['Dominios propios para tus páginas (tunegocio.com)', 'web.dominios'], ['Cuentas para cobrar con Mercado Pago o Stripe', 'cobros.cuentas'],
+    ['Ideas por día para mejorar tus anuncios', 'ads.recomendaciones_dia'],
   ];
   for (const [que, t] of porTope) {
     const f = filas.find((x) => x.que === que);
@@ -56,6 +59,20 @@ test('lo que es sólo de Pro sale de TABS_SOLO_PRO: no en Esencial, sí en Pro y
   }
   const asesoria = filas.find((x) => /asesoría grupal/.test(x.que));
   assert.deepEqual([asesoria?.esencial, asesoria?.pro, asesoria?.acelerador], [false, false, true], 'la asesoría es sólo del programa');
+  // Y lo que es de Pro sin ser una tab (27/10/2026): el scraper de WhatsApp y MaKo Partners, que el candado hace cumplir.
+  for (const fn of FUNCIONES_SOLO_PRO) {
+    const f = filas.find((x) => x.que === NOMBRE_FUNCION_PRO[fn]);
+    assert.ok(f, `falta ${fn}`);
+    assert.deepEqual([f!.esencial, f!.pro, f!.acelerador], [false, true, true], fn);
+  }
+});
+
+test('la tabla se entiende sin saber nada de MaKo (Leila, 27/10): ni jerga de marketing, ni filas largas, y todos los grupos', () => {
+  const filas = filasDeComparacion();
+  const JERGA = /media buyer|piloto autom|\btopes?\b|\bembudos?\b|\bCRM\b|scraper|\bautomatizaci/i;
+  for (const f of filas.filter((x) => x.esencial !== false || x.pro !== false)) assert.doesNotMatch(f.que, JERGA, f.que);
+  for (const f of filas) assert.ok(f.que.length <= 62, `«${f.que}» es largo: una línea en el teléfono`);
+  assert.deepEqual([...new Set(filas.map((f) => f.grupo))], [...GRUPOS_COMPARACION], 'cada grupo con sus filas, en orden y seguidas');
 });
 
 test('el tercer bloque es el Acelerador: 1.500 en 3 cuotas de 500, y no es un plan de la pasarela', () => {
@@ -264,7 +281,8 @@ test('PESOS y Mercado Pago a la vista, y un precio en pesos sólo si el plan lo 
 test('el MEDIA BUYER en Esencial: propone, 2 recomendaciones por día, del tope del plan', () => {
   assert.equal(TOPES.completo['ads.recomendaciones_dia'], 2);
   assert.equal(TOPES.agencia['ads.recomendaciones_dia'], null);
-  const f = filasDeComparacion().find((x) => /media buyer/.test(x.que));
+  // Dicha sin «media buyer» desde el 27/10/2026 (Leila: «Una persona que no sabe no entiende…»).
+  const f = filasDeComparacion().find((x) => x.que === 'Ideas por día para mejorar tus anuncios');
   assert.ok(f, 'la fila en la comparación');
   assert.deepEqual([f!.grupo, f!.esencial, f!.pro, f!.acelerador], ['Anuncios y contenido', '2', 'Sin tope', 'Sin tope']);
   const esencial = PLANES_MAKO_DEFAULT.find((x) => x.id === 'esencial')!;

@@ -113,8 +113,10 @@ test('el PANEL del partner (Tolt): visitas, negocios, lo ganado y lo que tiene a
   for (const k of kpis) { const i = p.indexOf(`<span className="pp-kpi-etq">${k}</span>`); assert.ok(i > ultimo, k); ultimo = i; }
   assert.match(p, /<div className="pp-kpi destacado"><span className="pp-kpi-etq">A cobrar<\/span>/, 'lo que tiene a cobrar, destacado');
   assert.match(p, /<BarrasPorMes datos=\{tablero\.porMes\}/);
-  assert.match(p, /<Copiable etiqueta="Tu link" valor=\{tablero\.link\} \/>/);
-  assert.match(p, /<Copiable etiqueta="Tu código, para poner al pagar" valor=\{tablero\.codigo\} \/>/);
+  // Desde el 27/10/2026 el link y el código son los VIVOS (`ref`): «Cambiar» el código los cambia sin recargar.
+  assert.match(p, /<Copiable etiqueta="Tu link" valor=\{ref\.link\} \/>/);
+  assert.match(p, /<CodigoEditable codigo=\{ref\.codigo\} onCambio=\{setRef\} \/>/);
+  assert.match(p, /<Copiable etiqueta="Tu código, para poner al pagar" valor=\{codigo\}/);
   assert.match(p, /https:\/\/wa\.me\/\?text=/);
   assert.match(p, /const r = await cambiarCobroPartnerAction\(valor\)/);
   const b = fuente('app/partners/BarrasPorMes.tsx');

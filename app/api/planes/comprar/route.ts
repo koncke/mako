@@ -16,7 +16,7 @@ import type { NextRequest } from 'next/server';
 import { APP_BASE_URL } from '@/lib/app-url';
 import { clientIp, rateLimit } from '@/lib/rate-limit';
 import { origenDelPago } from '@/lib/editor-landing/pago-pedido';
-import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoRefLimpio, leerPedidoCompra } from '@/lib/compra-plan-reglas';
+import { TEXTO_CODIGO_NO_EXISTE, codigoDeLaCompra, codigoRefLimpio, leerPedidoCompra, paisDelVisitante } from '@/lib/compra-plan-reglas';
 import { esCodigoDePartner } from '@/lib/partners-programa';
 import { iniciarCompraDePlan, pedirPlanSinPasarela } from '@/lib/compra-plan';
 import { getSesionAdmin } from '@/lib/auth';
@@ -56,8 +56,12 @@ export async function POST(req: NextRequest) {
     const q = await pedirPlanSinPasarela({ ...pedido, ref });
     return q.ok ? Response.json({ ok: true, pedido: true }) : Response.json({ error: q.error }, { status: q.status });
   }
-  // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`.
-  const r = await iniciarCompraDePlan({ ...pedido, ref }, { conPrueba: (await getSesionAdmin().catch(() => null)) != null });
+  // Con las claves de PRUEBA conectadas, sólo el super admin compra (la prueba de humo): ver `ofertaDelPlan`. Mercado Pago,
+  // sólo desde su país (27/10/2026: desde México rechazaba el pago); el país lo pone Vercel, no el formulario.
+  const r = await iniciarCompraDePlan({ ...pedido, ref }, {
+    conPrueba: (await getSesionAdmin().catch(() => null)) != null,
+    pais: paisDelVisitante(req.headers.get('x-vercel-ip-country')),
+  });
   if (!r.ok) return Response.json({ error: r.error, ...(r.elegir ? { elegir: r.elegir } : {}), ...(r.sinPrueba ? { sinPrueba: true } : {}) }, { status: r.status });
   return Response.json({ ok: true, link: r.link });
 }

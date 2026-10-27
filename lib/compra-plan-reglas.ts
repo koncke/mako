@@ -169,6 +169,33 @@ export function pasarelaDeLaCompra(p: {
 }
 
 // =============================================================================
+// LA PASARELA SEGÚN EL PAÍS (27/10/2026, llamada con Leila, Fathom 876470842)
+// =============================================================================
+// En vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y MP la rechazó: «No se puede continuar con este
+// pago. La cuenta del vendedor es de otro país». Mercado Pago cobra sólo dentro del país de SU cuenta (la de MaKo es
+// argentina: cobra en ARS). Así que Mercado Pago se ofrece sólo a quien está en ese país, y ahí es la ÚNICA (en pesos, sin
+// el recargo de la tarjeta internacional: docs/estrategia-financiera-mako.md); en el resto del mundo, Stripe. Sin saber el
+// país (sin el encabezado de Vercel: local, o una IP que Vercel no ubica), las dos, y elige la persona.
+
+/** El país de cada sitio de Mercado Pago, por la moneda en que cobra su cuenta. */
+const PAIS_DE_MERCADO_PAGO: Readonly<Record<string, string>> = { ARS: 'AR', MXN: 'MX', BRL: 'BR', CLP: 'CL', COP: 'CO', PEN: 'PE', UYU: 'UY' };
+
+/** El país del visitante (el encabezado `x-vercel-ip-country`, dos letras), o null si no se sabe. */
+export function paisDelVisitante(encabezado: string | null | undefined): string | null {
+  const p = String(encabezado ?? '').trim().toUpperCase();
+  // XX = Vercel no lo ubicó; T1 = Tor (convención de Cloudflare, por si el encabezado viene de un proxy).
+  return /^[A-Z]{2}$/.test(p) && p !== 'XX' && p !== 'T1' ? p : null;
+}
+
+/** Las pasarelas que se le ofrecen a quien está en `pais` (ver arriba). Mantiene el orden y los datos de cada opción. */
+export function pasarelasDelPais<T extends { pasarela: Pasarela; moneda: string }>(pais: string | null, opciones: readonly T[]): T[] {
+  if (!pais) return [...opciones];
+  const deSuPais = (o: T) => o.pasarela === 'mercadopago' && PAIS_DE_MERCADO_PAGO[o.moneda.toUpperCase()] === pais;
+  const locales = opciones.filter(deSuPais);
+  return locales.length ? locales : opciones.filter((o) => o.pasarela !== 'mercadopago');
+}
+
+// =============================================================================
 // SIN PASARELA (23/10/2026): lo que no se puede cobrar no se muestra como si se pudiera
 // =============================================================================
 // Hasta que Martín conecte la pasarela de MaKo (/integraciones?ws=9), ningún plan se puede pagar en línea. /planes

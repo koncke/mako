@@ -37,6 +37,7 @@ import {
   participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
+import { ROTULO_PASAR_A_PRO } from '@/lib/plan-esencial-reglas';
 
 const SANS = "'Geist', sans-serif";
 const MONO = "'Geist Mono', monospace";
@@ -75,6 +76,8 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   const [sel, setSel] = useState<ReadonlySet<string>>(new Set());
   const [q, setQ] = useState('');
   const [err, setErr] = useState<string | null>(null);
+  /** El candado de Pro: a dónde lleva «Pasar a Pro» (null = no hay candado). */
+  const [pasarAPro, setPasarAPro] = useState<string | null>(null);
   const [avance, setAvance] = useState<string | null>(null);
   const [hecho, setHecho] = useState<string | null>(null);
   /** Cada vuelta relee el grupo (después de extraer, los traídos pasan a «Ya está»). */
@@ -106,7 +109,7 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
     let vivo = true;
     void abrirTraerDeGrupoAction(funnel).then((r) => {
       if (!vivo) return;
-      if (!r.ok) { setErr(r.error); setLineas([]); return; }
+      if (!r.ok) { setErr(r.error); setPasarAPro(r.pasarAPro ?? null); setLineas([]); return; }
       setLineas(r.lineas);
       setEntrada(r.etapas.find((e) => e.key === r.entrada) ?? null);
       // La principal, salvo que esté sin conectar y haya otra conectada (24/10/2026: una segunda línea a medio conectar
@@ -336,7 +339,11 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
     return (
       <div>
         <p style={{ ...nota, padding: 0 }}>{err ?? 'Conecta una línea de WhatsApp para extraer los contactos de un grupo.'}</p>
-        <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button type="button" onClick={onAtras} style={btnAtras}>← Atrás</button>
+          {/* El candado de Pro (27/10/2026, ./grupo-wa-actions.ts): un Esencial lo ve con «Pasar a Pro», que lleva a «Tu plan». */}
+          {pasarAPro && <a href={pasarAPro} style={btnPro}>{ROTULO_PASAR_A_PRO}</a>}
+        </div>
       </div>
     );
   }
@@ -476,6 +483,10 @@ const btnAtras: CSSProperties = {
   color: 'var(--ink)', fontFamily: SANS, fontSize: 14, fontWeight: 600, cursor: 'pointer',
 };
 /** «Ignorar admins»: chico, con borde fino; azul cuando está puesto. */
+const btnPro: CSSProperties = {
+  flex: 'none', padding: '10px 16px', borderRadius: 10, border: '1px solid var(--primary)', background: 'var(--primary)',
+  color: 'var(--on-primary)', fontFamily: SANS, fontSize: 14, fontWeight: 600, textDecoration: 'none',
+};
 const btnSutil: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 5, height: 28, padding: '0 10px', borderRadius: 999, border: '1px solid var(--border)',
   background: 'transparent', fontFamily: SANS, fontSize: 12.5, fontWeight: 500, cursor: 'pointer',

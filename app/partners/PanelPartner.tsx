@@ -19,7 +19,8 @@ import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { DIAS_COOKIE_REF, PAGO_HOY, PAGOS_PARA_ACREDITAR, RUTA_LANDING_PARTNERS, TEXTO_ESTADO_REFERIDO, TOPE_COBRO, textoSinReferidos } from '@/lib/partners-reglas';
 import type { Tablero } from '@/lib/partners-programa';
 import { BarrasPorMes } from './BarrasPorMes';
-import { cambiarCobroPartnerAction } from './actions';
+import { RecursosPartner } from './RecursosPartner';
+import { cambiarCobroPartnerAction, cambiarCodigoPartnerAction } from './actions';
 
 export const CSS_PANEL = `
 .pp-hola { margin: 2px 0 18px; }
@@ -86,15 +87,48 @@ const mas = (n: number) => (n > 0 ? `+${n} este mes` : 'Este mes, todavía ningu
 /** El tono de la píldora de cada negocio: verde lo ganado, ámbar lo que está por ganarse, gris lo demás. */
 export const tonoDelEstado = (e: keyof typeof TEXTO_ESTADO_REFERIDO): '' | 'good' | 'warn' => (e === 'acreditado' ? 'good' : e === 'primer-pago' ? 'warn' : '');
 
-/** Un campo de sólo lectura con «Copiar» (el link, el código). */
-function Copiable({ etiqueta, valor }: { etiqueta: string; valor: string }) {
+/** Un campo de sólo lectura con «Copiar» (el link, el código), y una acción al lado si la tiene («Cambiar»). */
+function Copiable({ etiqueta, valor, accion }: { etiqueta: string; valor: string; accion?: { texto: string; onClick: () => void } }) {
   const [ok, setOk] = useState(false);
   const copiar = async () => { try { await navigator.clipboard.writeText(valor); setOk(true); setTimeout(() => setOk(false), 2000); } catch { /* seleccionable */ } };
   return (
     <div className="pp-campo">
       <div><small>{etiqueta}</small><input readOnly value={valor} aria-label={etiqueta} onFocus={(e) => e.currentTarget.select()} /></div>
+      {accion && <button type="button" className="pp-texto" onClick={accion.onClick}>{accion.texto}</button>}
       <button type="button" className="pp-copiar" onClick={copiar}>{ok ? 'Copiado' : 'Copiar'}</button>
     </div>
+  );
+}
+
+/**
+ * El código, con «Cambiar» (27/10/2026, Leila en la llamada con Martín). El nuevo es único (lo dice la base) y lo de antes
+ * sigue contando: el link y el código viejos le acreditan igual (lib/partners-programa.ts, `cambiarCodigoPartner`).
+ */
+function CodigoEditable({ codigo, onCambio }: { codigo: string; onCambio: (r: { codigo: string; link: string }) => void }) {
+  const [editando, setEditando] = useState(false);
+  const [valor, setValor] = useState(codigo);
+  const [guardando, setGuardando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  if (!editando) {
+    return <Copiable etiqueta="Tu código, para poner al pagar" valor={codigo} accion={{ texto: 'Cambiar', onClick: () => { setValor(codigo); setError(null); setEditando(true); } }} />;
+  }
+  const guardar = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (guardando) return;
+    setGuardando(true); setError(null);
+    const r = await cambiarCodigoPartnerAction(valor).catch(() => ({ ok: false as const, error: 'No pudimos conectarnos. Prueba otra vez.' }));
+    setGuardando(false);
+    if (r.ok) { onCambio({ codigo: r.codigo, link: r.link }); setEditando(false); } else setError(r.error);
+  };
+  return (
+    <form onSubmit={guardar}>
+      <div className="pp-edit">
+        <input value={valor} maxLength={32} onChange={(e) => setValor(e.target.value)} placeholder="tu-codigo" aria-label="Tu código nuevo" autoFocus />
+        <button type="submit" className="pp-copiar" disabled={guardando || !valor.trim()}>{guardando ? 'Guardando…' : 'Guardar'}</button>
+        <button type="button" className="pp-texto" onClick={() => setEditando(false)} disabled={guardando}>Cancelar</button>
+      </div>
+      {error ? <p className="pp-error" role="alert">{error}</p> : <p className="pp-nota" style={{ margin: '-4px 0 10px' }}>Tu link y tu código de antes siguen contando para ti.</p>}
+    </form>
   );
 }
 
@@ -141,6 +175,8 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
   cobraEnLinea?: boolean;
   emailMako: string;
 }) {
+  // El link y el código vivos: «Cambiar» el código cambia los dos sin recargar (y los recursos de abajo, que los llevan).
+  const [ref, setRef] = useState<{ codigo: string | null; link: string | null }>({ codigo: tablero?.codigo ?? null, link: tablero?.link ?? null });
   const acciones = (
     <>
       {agencia && <ButtonLink href="/agency" variant="secondary">Agency Dashboard</ButtonLink>}
@@ -152,7 +188,7 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
   }
   const r = tablero.resumen;
   const mes = PAGOS_PARA_ACREDITAR === 2 ? 'segundo' : `${PAGOS_PARA_ACREDITAR}º`;
-  const textoWa = tablero.link ? `Te recomiendo MaKo para vender más con tu negocio: ${tablero.link}` : '';
+  const textoWa = ref.link ? `Te recomiendo MaKo para vender más con tu negocio: ${ref.link}` : '';
   return (
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS_PANEL }} />
@@ -174,17 +210,19 @@ export function PanelPartner({ tablero, nombreNegocio, agencia = false, cobraEnL
         </section>
         <section className="pp-caja" aria-labelledby="pp-comparte">
           <div className="pp-caja-cab"><h3 id="pp-comparte">Comparte</h3><span>Tu link dura {DIAS_COOKIE_REF} días</span></div>
-          {tablero.link && tablero.codigo
+          {ref.link && ref.codigo
             ? (
               <>
-                <Copiable etiqueta="Tu link" valor={tablero.link} />
-                <Copiable etiqueta="Tu código, para poner al pagar" valor={tablero.codigo} />
+                <Copiable etiqueta="Tu link" valor={ref.link} />
+                <CodigoEditable codigo={ref.codigo} onCambio={setRef} />
                 <a className="pp-wa" href={`https://wa.me/?text=${encodeURIComponent(textoWa)}`} target="_blank" rel="noopener noreferrer">Compartir por WhatsApp</a>
               </>
             )
             : <ErrorState titulo="Todavía no tienes tu link" detalle="Prueba otra vez en un minuto." />}
         </section>
       </div>
+      {/* Los recursos para revender (27/10/2026, compromiso de Martín con Leila): el PDF de venta y los mensajes, con su link. */}
+      {ref.link && ref.codigo && <RecursosPartner link={ref.link} codigo={ref.codigo} nombreNegocio={nombreNegocio} />}
       <section className="pp-caja" aria-labelledby="pp-negocios" style={{ marginBottom: 14 }}>
         <div className="pp-caja-cab"><h3 id="pp-negocios">Tus negocios</h3><span>Ganas su primer mes cuando pagan el {mes}</span></div>
         {tablero.referidos.length === 0

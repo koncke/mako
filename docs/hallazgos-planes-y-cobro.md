@@ -1577,3 +1577,69 @@ capturas: docs/media-buyer/referencias/madgicx/prueba-limitada/ (rama mediabuyer
 (`estadoDePrueba`). Lo que se cobra después se parte en dos renglones («US$ / 97/mes») en una barra angosta. **Vive en:**
 app/_components/CartelPrueba.tsx · app/_ui/FranjaPrueba.tsx · app/_ui/usePrueba.ts · app/api/plan/prueba · app/m/_prueba/PruebaM.tsx ·
 lib/prueba-uso.ts (`resumenDePrueba`) · lib/api-mako/areas/negocio.* · tests/prueba-cartel.test.ts.
+
+## Fuera de Argentina se cobra con Stripe; Mercado Pago, sólo en su país (27/10/2026)
+
+La llamada con Leila (Fathom 876470842-18): en vivo, una clienta de México recibió el link de la Mercado Pago de MaKo y MP la
+rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de otro país»; terminó pagando por Binance. Chat
+«Planes, pagos y Partners», cuenta 5.
+
+- **El diagnóstico obvio era el equivocado: «falta conectar Stripe».** Stripe podía estar conectada en el ws9 y /planes igual
+  NUNCA la ofrecía: `monedasDeLaPlataforma` (lib/compra-plan.ts) salta toda pasarela que no arma la prueba gratis con tarjeta,
+  y `PASARELAS_CON_PRUEBA` era `['mercadopago']` desde el 25/10 (la prueba se armó sobre el `start_date` de MP). Así,
+  cualquiera, de cualquier país, salía al checkout de la Mercado Pago argentina. Un cobro de Stripe que ya pasó salió por otra
+  puerta (el «Vender un plan» de /admin/cobros no mira esa lista). No se pudo medir el ws9 (la lectura de producción la frenó
+  el clasificador): si Stripe NO está conectada ahí, fuera de Argentina el plan se PIDE (nombre, email y WhatsApp), que es
+  mejor que un pago que rebota.
+- **Stripe arma la prueba con `subscription_data.trial_period_days`** y `payment_method_collection: always`. La prueba sale del
+  COBRO (`esPruebaDePlan(c)` en `crearCheckout`), no del pedido: la sesión de Stripe vence a las 23 h y `urlParaPagar` la
+  rehace; sin eso, abrir el link al día siguiente cobraba el primer mes en el acto.
+- **Trampa: una prueba de Stripe sigue `pendiente` hasta el día 8, y rehacer su sesión abría una SEGUNDA suscripción.**
+  `urlParaPagar` manda a /listo a una prueba ya activada o con la sesión `complete`.
+- **El checkout de Stripe sin pago (`no_payment_required`) el webhook lo ignora a propósito**, como el aviso de autorizada de MP:
+  la prueba se activa en la vuelta del pago y en el cron (`pruebaAutorizadaStripe`: sesión `complete` de ESTE cobro y suscripción
+  `trialing`). La factura de US$ 0 del inicio no se asienta (`confirmarFactura`: «factura en cero»); el día 8 entra por
+  `invoice.paid` (`subscription_cycle`) como cualquier factura.
+- **La huella en Stripe es `card.fingerprint`** (expandiendo `default_payment_method`), con el mismo formato que la de MP
+  (`st:-|card:<fp>`): la compara el mismo filtro. **El día del primer cobro lo dice Stripe** (`trial_end`, cuenta desde que
+  completó el checkout): se escribe en `inicio_at` al activar, y el aviso de 2 días antes, «Tu plan» y la vigencia lo leen de
+  ahí. El «límite conocido» de MP (menos días si autoriza tarde) no existe en Stripe.
+- **La pasarela según el país** (`pasarelasDelPais`, lib/compra-plan-reglas.ts): Mercado Pago sólo en el país de SU cuenta (por
+  su moneda: ARS → AR) y ahí la única (en pesos, sin el recargo de la tarjeta internacional); afuera, Stripe; sin país, las dos y
+  elige la persona («Mercado Pago (desde Argentina, en pesos)»). El país es el encabezado `x-vercel-ip-country` (XX y T1 = no se
+  sabe): lo leen /planes, /planes/<plan> y la compra, nunca el formulario. Pedir MP desde México con Stripe disponible contesta
+  «¿Con qué quieres pagar?» con Stripe, no «no cobramos en línea». Las landings (app/page.tsx, /vsl) NO leen el país: ahí
+  «Empezar» sale si alguna pasarela cobra, y el país se aplica al entrar al plan.
+
+**Sin hacer:** el cron no recupera el cobro del día 8 de una prueba de Stripe si se pierde el `invoice.paid` (lee la sesión, que
+queda en `no_payment_required`; MP sí, buscando el pago por referencia). «Empezar mi plan ya» en Stripe abre otra suscripción
+como en MP, aunque Stripe podría terminar la prueba (`trial_end=now`). Medir en el ws9 si Stripe está conectada y en modo real.
+**Vive en:** lib/prueba-plan-reglas.ts (`PASARELAS_CON_PRUEBA`, `huellaStripe`) · lib/stripe-api.ts (`diasDePrueba`,
+`leerPruebaStripe`) · lib/cobros.ts (`crearCheckout`, `urlParaPagar`, `activarPruebaSiAutorizo`, `pruebaAutorizadaStripe`) ·
+lib/compra-plan-reglas.ts (`pasarelasDelPais`, `paisDelVisitante`) · lib/compra-plan.ts · app/planes · app/api/planes/comprar ·
+tests/planes-stripe-afuera.test.ts.
+
+## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
+
+Leila (Fathom 876470842-16), sobre «Piloto automático: tu media buyer aplica los cambios solo, dentro de tus topes»: «Una
+persona que no sabe no entiende…». Y Aaron (876825880-01): faltaba el scraper de WhatsApp. Martín, ya decidido
+(876470842-15): el scraper y hacerse partner, sólo en Pro.
+
+- **La guarda del 24/10 (`INTERNO`) miraba nombres de tabs, no jerga de marketing:** «media buyer», «embudo», «topes», «CRM» y
+  «piloto automático» pasaban. Ahora cada fila dice lo que la persona consigue («Ideas por día para mejorar tus anuncios»,
+  «MaKo aplica las mejoras solo, sin pasarse de tu presupuesto») y un test frena esa jerga y las filas de más de 62 caracteres
+  (una línea en el teléfono). Faltaban también los videos, el dominio propio y cobrar (con su tope de verdad: `web.dominios`,
+  `cobros.cuentas`).
+- **El scraper no es una tab: el candado no podía ir en `TABS_SOLO_PRO`.** Va en `FUNCIONES_SOLO_PRO` (lib/topes-plan.ts) con
+  `textoSoloPro`, y lo mira CADA acción de app/crm/grupo-wa-actions.ts (no sólo la de abrir) y cada operación de la API de
+  grupos; la pantalla muestra el texto con «Pasar a Pro». La vitrina lo dice desde la misma lista.
+- **Partners:** `hacermePartner` frena al Esencial ANTES de crear el código; quien ya era partner sigue siéndolo. La página
+  (computadora y teléfono) muestra la landing con «Pasar a Pro», y `hacerme_partner` por la API no propone lo que va a frenar.
+- **Como todo candado de Pro, sólo a quien paga Esencial por la pasarela** (`esEsencialDe`): un alta a mano recibe más, nunca
+  menos.
+
+**Sin hacer:** «Datos de empresa» sobre leads tildados (app/crm/AccionesLoteLeads.tsx, `enriquecer-actions.ts`) usa el mismo
+núcleo que el grupo y NO tiene candado: no trae contactos nuevos. Si Martín lo cuenta como scraper, va con `candadoDePro`.
+**Vive en:** lib/planes-comparacion.ts · lib/topes-plan.ts · app/crm/grupo-wa-actions.ts · app/crm/TraerDeGrupoWA.tsx ·
+lib/api-mako/areas/crm.run.ts · lib/partners-programa.ts · app/partners/page.tsx · app/m/partners/page.tsx ·
+tests/planes-tres-bloques.test.ts · tests/scraper-partners-solo-pro.test.ts.
