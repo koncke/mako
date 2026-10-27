@@ -103,6 +103,9 @@ import PanelDiagnostico from './diagnostico/PanelDiagnostico';
 import { CrearConIA } from './crear/CrearConIA';
 import { ReplicarUnaPagina } from './crear/Replicar';
 import { claveDeLanding } from '@/lib/landing-url';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { itemsRenglonLanding } from './menu-contextual-landings';
 import {
   CSS_GP, DialogoBorradores, DialogoGamma, Filtros, Ico, ItemMenu, MenuFlotante, MiniaturaLanding, MuestraTema, SeparadorMenu,
   TileTema, URL_FUENTE_CHROME, haceCuanto, irDuro, pedirDocs, useAviso,
@@ -224,6 +227,8 @@ export function Inicio(props: PropsInicio) {
   }, [idRenombrando]);
 
   const cerrarMenu = useCallback(() => setMenu(null), []);
+  // El clic derecho (y mantener presionado) de un renglón: lo mismo que su «⋯» (menu-contextual-landings.ts), por `clave`.
+  const menuCtx = useMenuContextual<string>();
   const cerrarDialogo = useCallback(() => setDialogo(null), []);
   const cerrarDiagnostico = useCallback(() => setDerecha({ tipo: 'crear' }), []);
   const cerrarBorradores = useCallback(() => setBorradores(null), []);
@@ -454,7 +459,7 @@ export function Inicio(props: PropsInicio) {
     const icono = <Ico n={ICONO_FILA[f.tipo]} t={16} />;
     const nombre = <span className="gp-doc-nombre">{f.nombre}</span>;
     return (
-      <li key={f.clave} className="gp-doc" data-activo={activo ? 'si' : undefined} data-menu={abierto ? 'si' : undefined}>
+      <li key={f.clave} className="gp-doc" data-activo={activo ? 'si' : undefined} data-menu={abierto ? 'si' : undefined} {...menuCtx.propsDe(f.clave)}>
         {f.tipo === 'analizada' ? (
           <button type="button" className="gp-doc-abrir" title={f.url} aria-label={`${TEXTO_TIPO[f.tipo]}: ${f.nombre}`} aria-current={activo ? 'true' : undefined} onClick={() => abrirDiagnostico(f)}>
             {icono}{nombre}
@@ -571,6 +576,22 @@ export function Inicio(props: PropsInicio) {
   }
 
   const mf = menu?.fila;
+  const filaCtx = menuCtx.abierto ? filas.find((x) => x.clave === menuCtx.abierto?.de) ?? null : null;
+  /** Lo que hace cada renglón del clic derecho: las MISMAS llamadas que el «⋯» de abajo. */
+  const elegirEnRenglon = (f: FilaPanel, id: string) => {
+    if (id === 'diagnostico') { abrirDiagnostico(f); return; }
+    if (f.tipo === 'analizada') {
+      if (id === 'abrir_pagina') window.open(f.url, '_blank', 'noopener,noreferrer');
+      else if (id === 'eliminar') setDialogo({ tipo: 'eliminarAnalizada', url: f.url, nombre: f.nombre });
+      return;
+    }
+    if (id === 'abrir') router.push(`/web-generator/${f.doc.id}`);
+    else if (id === 'renombrar') setRenombrando({ id: f.doc.id, texto: f.doc.titulo });
+    else if (id === 'duplicar') void duplicar(f.doc);
+    else if (id === 'copiar_enlace') void copiarEnlace(f.doc);
+    else if (id === 'archivar') void archivar(f.doc);
+    else if (id === 'eliminar') setDialogo({ tipo: 'eliminarDoc', doc: f.doc });
+  };
 
   return (
     <div className={props.embebido ? 'gma gp gp-panel gp-embebido' : 'gma gp gp-panel'}>
@@ -619,6 +640,13 @@ export function Inicio(props: PropsInicio) {
       <div ref={contenidoRef} className="gp-contenido" data-vista={modoCaja ? 'crear' : derecha.tipo}>
         {contenido}
       </div>
+
+      {/* ── El clic derecho de un renglón (lo mismo que el «⋯» de abajo) ── */}
+      {menuCtx.abierto && filaCtx && (
+        <MenuContextual key={menuCtx.abierto.n} punto={{ x: menuCtx.abierto.x, y: menuCtx.abierto.y }} porDedo={menuCtx.abierto.porDedo}
+          items={itemsRenglonLanding(filaCtx)} etiqueta={`Opciones de ${filaCtx.nombre}`} onCerrar={menuCtx.cerrar}
+          onElegir={(id) => elegirEnRenglon(filaCtx, id)} />
+      )}
 
       {/* ── El «⋯» de un renglón ── */}
       {menu && mf && (

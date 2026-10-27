@@ -21,6 +21,9 @@ import type { ResumenPrograma } from '@/lib/partners-programa';
 import { BarrasPorMes } from './BarrasPorMes';
 import { CSS_PANEL, fecha, usd } from './PanelPartner';
 import { marcarPagoPartnerAction } from './actions';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { itemsPartnerPrograma } from './menu-contextual-partners';
 
 const CSS = `
 .pg-kpis { grid-template-columns: repeat(5, minmax(0, 1fr)); }
@@ -43,6 +46,9 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
   const { confirm, confirmNode } = useConfirm();
   const { toast, show, clear } = useToast();
   const [pagando, setPagando] = useState<number | null>(null);
+  // El clic derecho (y mantener presionado) de una fila: su «Marcar pagado» (menu-contextual-partners.ts). Antes del return
+  // temprano: un hook no puede quedar detrás de él.
+  const menu = useMenuContextual<number>();
   const acciones = (
     <>
       <ButtonLink href="/agency" variant="secondary">Agencias</ButtonLink>
@@ -65,6 +71,7 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
     show(r.ok ? r.resumen : r.error, undefined, r.ok ? 'good' : 'bad');
     if (r.ok) router.refresh();
   };
+  const delMenu = menu.abierto ? programa.lista.find((x) => x.ws === menu.abierto?.de) ?? null : null;
   return (
     <Pagina>
       <style dangerouslySetInnerHTML={{ __html: CSS_PANEL + CSS }} />
@@ -95,7 +102,7 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
               </thead>
               <tbody>
                 {programa.lista.map((p) => (
-                  <tr key={p.ws}>
+                  <tr key={p.ws} {...menu.propsDe(p.ws, itemsPartnerPrograma(p, pagando === p.ws).length > 0)}>
                     <td className="pg-quien"><b>{p.nombre}</b>{p.codigo && <span>/r/{p.codigo}</span>}</td>
                     <td className="ocultable"><span>{p.desde ? fecha(p.desde) : '—'}</span></td>
                     <td className="num">{p.referidos}</td>
@@ -114,6 +121,11 @@ export function ProgramaPartners({ programa, cobraEnLinea = true }: {
             </table>
           )}
       </section>
+      {menu.abierto && delMenu && (
+        <MenuContextual key={menu.abierto.n} punto={{ x: menu.abierto.x, y: menu.abierto.y }} porDedo={menu.abierto.porDedo}
+          items={itemsPartnerPrograma(delMenu, pagando === delMenu.ws)} etiqueta={`Acciones de ${delMenu.nombre}`} onCerrar={menu.cerrar}
+          onElegir={(id) => { if (id === 'marcar_pagado') void pagar(delMenu); }} />
+      )}
       {confirmNode}
       <Toast state={toast} onClose={clear} />
     </Pagina>

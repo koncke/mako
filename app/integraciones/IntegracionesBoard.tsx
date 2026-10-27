@@ -72,6 +72,9 @@ const MONO = "'Geist Mono', monospace";
 // build del cliente, que es exactamente el guard que queremos.
 import type { Integracion } from '@/lib/integraciones';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { itemsIntegracion } from './menu-contextual-integraciones';
 // Incidente con período: startedAt → resolvedAt (null = en curso). Viene del server.
 type Incidente = { id: number; service: string; severidad: string; statusLabel: string; disableReason: string | null; entregaFrenada: boolean; detalle: string | null; startedAt: string; resolvedAt: string | null };
 
@@ -234,6 +237,9 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
   const searchParams = useSearchParams();
   const [usage, setUsage] = useState<Resumen | null>(null);
   const [modal, setModal] = useState<{ t: 'svc'; key: string } | { t: 'hist' } | null>(null);
+  // El clic derecho (y mantener presionado) de una tarjeta: abrirla, como su clic (menu-contextual-integraciones.ts).
+  const menuTarjeta = useMenuContextual<{ key: string; nombre: string; conectada: boolean }>();
+  const tarjetaDelMenu = menuTarjeta.abierto?.de.key ?? null;
   // Las que NO tienen tarjeta en la grilla (`oculto`: las cuatro IA, que viven en «Tus cuentas de IA», y Google Calendar,
   // que se conecta desde Calendario) siguen abriéndose con su link: el MISMO modal que usan las demás pestañas.
   const { abrir: abrirSuelta, modal: modalSuelto } = useConectarIntegracion();
@@ -538,7 +544,7 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
     return (
       // Sin conectar, más apagada (25/10/2026, Martín: «para que se diferencien»): app/globals.css, `[data-sin-conectar]`.
       <button key={i.key} id={`svc-${i.key}`} type="button" className="int-tarjeta" data-sin-conectar={conectada || motivo ? undefined : ''}
-        onClick={() => setModal({ t: 'svc', key: i.key })}>
+        onClick={() => setModal({ t: 'svc', key: i.key })} {...menuTarjeta.propsDe({ key: i.key, nombre: i.nombre, conectada })}>
         <span style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
           <SvcIcon k={i.key} box={36} radius={10} size={21} />
           <span className="int-pildora">{i.categoria}</span>
@@ -631,6 +637,12 @@ export function IntegracionesBoard({ integraciones, sinTarjeta = [], health, met
 
       {/* ═══ HISTORIAL DE PROBLEMAS ═══ */}
       <ProblemasHistorial incidentes={incidentes} nombreDe={(s) => svcByKey(s)?.nombre ?? s} />
+
+      {menuTarjeta.abierto && (
+        <MenuContextual key={menuTarjeta.abierto.n} punto={{ x: menuTarjeta.abierto.x, y: menuTarjeta.abierto.y }} porDedo={menuTarjeta.abierto.porDedo}
+          items={itemsIntegracion(menuTarjeta.abierto.de.conectada)} etiqueta={`Acciones de ${menuTarjeta.abierto.de.nombre}`} onCerrar={menuTarjeta.cerrar}
+          onElegir={(id) => { if (id === 'abrir' && tarjetaDelMenu) setModal({ t: 'svc', key: tarjetaDelMenu }); }} />
+      )}
 
       {/* ═══ MODALES ═══ */}
       {modalSuelto}

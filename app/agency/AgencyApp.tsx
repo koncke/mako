@@ -28,6 +28,9 @@ import type { CarteraPartner, CuentaPartner } from '@/lib/partners';
 import { ROTULO_QUIEN_PAGA, quienPagaSugerido, type PerfilAgency } from '@/lib/agency-reglas';
 import { avisoInvitacion, type ResultadoInvitacion } from '@/lib/invitacion-aviso';
 import { EquipoDeCuenta } from '@/app/partners/EquipoDeCuenta';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual } from '@/app/_ui/useMenuContextual';
+import { ROTULO_ACCION_CUENTA, accionDeCuenta, itemsCuentaAgency } from './menu-contextual-agency';
 import { ModalNuevoCliente } from './NuevoCliente';
 
 type Segmento = 'todas' | 'activas' | 'por-pagar' | 'revocadas';
@@ -145,21 +148,25 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
     } catch { show('No se pudo entrar.', undefined, 'bad'); }
   };
 
-  const accionDe = (c: CuentaPartner): ReactNode => {
-    // Lo que paga la agencia, a la vista; lo que paga su cliente lo ve él (su cartel): acá sólo se dice que espera.
-    if (c.cobro?.pagar && c.paga === 'agencia') {
-      const url = c.cobro.pagar;
-      return <button type="button" className="ad-acc ad-acc--fuerte" onClick={() => setPago({ url, renovacion: false, desde: null })}>Pagar su mes</button>;
-    }
-    if (c.cobro?.renovacion && !c.cobro.renovacion.activada && c.paga === 'agencia') {
-      const r = c.cobro.renovacion;
-      return <button type="button" className="ad-acc ad-acc--fuerte" onClick={() => setPago({ url: r.link, renovacion: true, desde: r.desde })}>Activar renovación</button>;
-    }
-    if (c.estado === 'aprobado' || superAdmin) {
-      return <button type="button" className="ad-acc" onClick={() => void entrar(c.ws)}>Inspeccionar</button>;
-    }
-    return null;
+  /**
+   * Lo que hace el botón de una cuenta (el de su fila, el de su ficha y el de su clic derecho). Cuál le toca lo decide
+   * `accionDeCuenta` (menu-contextual-agency.ts): lo que paga la agencia, a la vista; lo que paga su cliente lo ve él (su
+   * cartel): acá sólo se dice que espera.
+   */
+  const hacerAccion = (c: CuentaPartner) => {
+    const a = accionDeCuenta(c, superAdmin);
+    if (a === 'pagar' && c.cobro?.pagar) setPago({ url: c.cobro.pagar, renovacion: false, desde: null });
+    else if (a === 'renovacion' && c.cobro?.renovacion) setPago({ url: c.cobro.renovacion.link, renovacion: true, desde: c.cobro.renovacion.desde });
+    else if (a === 'inspeccionar') void entrar(c.ws);
   };
+  const accionDe = (c: CuentaPartner): ReactNode => {
+    const a = accionDeCuenta(c, superAdmin);
+    if (!a) return null;
+    return <button type="button" className={a === 'inspeccionar' ? 'ad-acc' : 'ad-acc ad-acc--fuerte'} onClick={() => hacerAccion(c)}>{ROTULO_ACCION_CUENTA[a]}</button>;
+  };
+  // El clic derecho (y mantener presionado) de una fila: abrir su ficha y su botón (menu-contextual-agency.ts).
+  const menu = useMenuContextual<number>();
+  const cuentaDelMenu = menu.abierto ? cuentas.find((c) => c.ws === menu.abierto?.de) ?? null : null;
 
   const acciones = (
     <span className="ad-cab">
@@ -212,7 +219,7 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
                 {visibles.map((c) => {
                   const e = estadoDe(c);
                   return (
-                    <div key={c.ws} className="ad-fila" role="row">
+                    <div key={c.ws} className="ad-fila" role="row" {...menu.propsDe(c.ws)}>
                       <button type="button" className="ad-abrir" onClick={() => setAbiertaWs(c.ws)} aria-label={`Abrir la cuenta de ${c.nombre}`}>
                         <Marca icono={null} foto={null} nombre={c.nombre} tam={36} color={colorDe(c.nombre)} />
                         <span className="ad-txt"><b>{c.nombre}</b><span>{c.plan ?? 'Cuenta de MaKo'}{c.lead ? ' · en tu CRM' : ''}</span></span>
@@ -230,6 +237,13 @@ export function AgencyApp({ cartera, cuentaInicial, leadNuevo, puedeAbrir, super
             </>
           )}
         </>
+      )}
+
+      {menu.abierto && cuentaDelMenu && (
+        <MenuContextual key={menu.abierto.n} punto={{ x: menu.abierto.x, y: menu.abierto.y }} porDedo={menu.abierto.porDedo}
+          items={itemsCuentaAgency(accionDeCuenta(cuentaDelMenu, superAdmin))} etiqueta={`Acciones de ${cuentaDelMenu.nombre}`}
+          onCerrar={menu.cerrar}
+          onElegir={(id) => { if (id === 'abrir') setAbiertaWs(cuentaDelMenu.ws); else hacerAccion(cuentaDelMenu); }} />
       )}
 
       {abierta && (

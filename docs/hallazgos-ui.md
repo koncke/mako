@@ -12,6 +12,51 @@ minar 1038 mensajes del dueño, no de releer el código de hoy. Cada entrada dic
 corrida y fecha viene; antes de actuar sobre una, verificá contra el código: varias ya
 están arregladas. El registro de corridas está en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El clic derecho en las listas: UN hook, y el dedo que cerraba el menú que acababa de abrir (27/10/2026, f26)
+
+**Vive en:** `app/_ui/useMenuContextual.ts` · `app/_ui/MenuContextual.tsx` (`porDedo`) · `app/_ui/ui.css` (`[data-con-menu]`) ·
+`app/{chats,customers,offer,integraciones,partners,agency,automations,web-generator}/menu-contextual-*.ts`.
+Guard: `tests/clic-derecho-listas.test.ts` (12 tests, 30 roturas cazadas).
+
+- **Pedido:** Leandro (ws10, llamada del 24/10, f26): «el click derecho casi que en toda la app se tiene que poder usar».
+  El CRM y el Classroom ya lo tenían; se sumó a Chats, Customers, Offer («Tu oferta»), Integraciones, Partners (la tabla
+  del programa y el Agency Dashboard), Automations y el Panel del Web Generator, con la pieza de la casa.
+- **Un clic derecho por lista es UN hook, no ocho `onContextMenu`.** Las guardas ya estaban pagadas en el CRM (un evento
+  de React sube por los portales, escribiendo va el del navegador, con un modal abierto ninguno, el teclado llega sin
+  punto). Copiadas ocho veces, la novena sale sin una. `useMenuContextual` las tiene y cada lista sólo dice QUÉ ofrece.
+  En una fila, el filtro de portales es `currentTarget.contains(target)`: más simple que enumerar roles.
+- ⚠️ **Mantener presionado es una CARRERA con Android.** Android dispara su propio `contextmenu` al mantener (~450 ms,
+  medido en el Ops Center), antes o después del reloj según el teléfono. Si llega antes, abre él con el punto del dedo
+  (`dondeAbre`); si llega después, es el ECO del que ya abrimos. Y `MenuContextual` se cierra con todo `contextmenu` de
+  afuera (es su regla para el segundo clic derecho): el eco cerraba el menú que el dedo acababa de abrir. Con `porDedo`,
+  hasta que baje OTRO toque ni el eco lo cierra ni el clic de levantar el dedo elige: el menú abre BAJO el dedo, con su
+  primer renglón ahí. iOS no dispara `contextmenu`: abre el reloj (550 ms), y el CSS saca el globo de los links.
+- **El clic que sigue al mantener se traga en la fila** (`onClickCapture`): sin eso, levantar el dedo abría la
+  conversación o la landing además del menú.
+- **Sin «⋯», el menú ofrece lo que el elemento YA hace**, y nada más: abrir, el botón de su fila (Agency: «Pagar su mes»,
+  «Activar renovación» o «Inspeccionar», decidido ahora por una sola función, `accionDeCuenta`), los links de su ficha
+  (Customers), sus dos botones («Tu oferta»). Una tarjeta de Integraciones ofrece sólo abrirla: lo de cada conexión vive
+  en su modal, y copiarlo al menú sería una segunda copia de cada una.
+- ⚠️ **Dos listas que dicen lo mismo, cruzadas por test mientras tanto.** En Chats y en el Web Generator el «⋯» sigue con
+  su Dropdown / MenuFlotante: otros chats estaban tocando esas tabs y el pedido era sólo sumar el clic derecho. AGENTS pide
+  UN menú; hasta que el «⋯» lo abra, el test cruza rótulo por rótulo y, en el Web Generator, la LLAMADA de cada renglón.
+  En Automations no hizo falta: el «⋯» ya salía de una función pura (`opcionesDeFila`) y el menú la usa.
+- **El tsc acotado de la nube muere sin decir por qué** («código undefined») con los 2560 MB de heap por defecto al
+  importar IntegracionesBoard o SimuladorWhatsApp: con 6000 corre (1 min 38 s). Los 16 errores que da son de arrastre
+  (`opencut-wasm` sin compilar por `npm ci --ignore-scripts`, el `<style jsx>` de Compartir.tsx), ninguno de lo tocado.
+
+### Lo que quedó sin hacer
+
+- Que el «⋯» de Chats y del Web Generator abran ESTE menú (sus chats).
+- Offer: el selector de arriba (funnels, ofertas, conversaciones) es el Dropdown de la casa; un clic derecho en sus
+  renglones es cambiar el desplegable de toda la app. Sin hacer.
+- La lista de landings de la tarjeta del editor (`editor/paneles/PanelLandings.tsx`) no tiene «⋯»: sin menú. Tampoco
+  la tabla del partner (`PanelPartner`), que no tiene acciones por negocio.
+- El teléfono (/m) tiene sus propias listas y no se tocó: mantener presionado vale en las pantallas de computadora con
+  dedo (un iPad, «Versión de computadora»).
+- Sin mirar en un navegador (la nube no levanta la app con datos): el eco en un Android real, el globo de iOS sobre el
+  link de un renglón del Web Generator, y el segundo clic derecho con un menú ya abierto.
+
 ## El desplegable que se abre y se cierra solo en el teléfono era el TECLADO (26/10/2026)
 
 **Vive en:** `app/components/Dropdown.tsx` (`onResize`, el foco del buscador) · `app/m/layout.tsx` (`interactive-widget`).

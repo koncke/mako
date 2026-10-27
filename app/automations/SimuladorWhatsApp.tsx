@@ -83,6 +83,9 @@ import { TOPE_NOMBRE_SECUENCIA, nombreParaGuardar, type Objetivo } from '@/lib/s
 import { muelles as calcularMuelles, MUELLE } from '@/lib/lienzo-grafo';
 import { enviosDePasos, pasaFiltroLista, type FilaFiltrable } from '@/lib/chatbot-lista-filtro';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
+import { MenuContextual } from '@/app/_ui/MenuContextual';
+import { useMenuContextual, type PropsMenuFila } from '@/app/_ui/useMenuContextual';
+import { itemsFilaAutomatizacion } from './menu-contextual-automations';
 // El modal de las estrellas, DIFERIDO: arrastra las server actions de app/creaciones, y la lista (y sus tests, que
 // importan `opcionesDeFila`) no tiene por qué cargarlas hasta que alguien elige «Publicar en Creaciones».
 const PublicarCreacion = lazy(() => import('@/app/creaciones/PublicarCreacion').then((m) => ({ default: m.PublicarCreacion })));
@@ -760,11 +763,19 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
    * UNA FILA DE LA LISTA, la MISMA para todas (11/10/2026: «debe ser IDENTICO»): el `ItemLista`, el «⋯» de siempre
    * (`opcionesDeFila`, con Renombrar, Duplicar y Copiar flujo) y la selección de siempre.
    */
+  /**
+   * EL CLIC DERECHO (y mantener presionado) DE UNA FILA (Leandro, 24/10/2026): las opciones de su «⋯» (`opcionesDeFila`),
+   * con «Abrir» arriba, y lo que hace cada una es `accionFila`, la del «⋯» (menu-contextual-automations.ts). Sólo donde
+   * hay «⋯»: un admin, en una fila que no se está creando ni renombrando.
+   */
+  const menuFila = useMenuContextual<number>();
+  const filaDelMenu = menuFila.abierto ? lista.find((x) => x.id === menuFila.abierto?.de) ?? null : null;
   const filaDeLista = (j: SecuenciaDto) => {
     const creando = esFilaCreando(j);
     return (
       <div key={creando ? j.clave : j.id}>
         <ItemLista on={j.id === selId} activa={j.activa} emoji={emojiSecuencia(j)} nombre={nombreDe(j)} creando={creando}
+          clicDerecho={menuFila.propsDe(j.id, rolAdmin && !creando && renombrando !== j.id)}
           sinPublicar={sinPublicarDe(j, j.id === selId && sinPublicar)}
           onClick={() => elegir(j.id)}
           editarNombre={renombrando === j.id && rolAdmin && !creando
@@ -968,6 +979,13 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
         />
       )}
 
+      {menuFila.abierto && filaDelMenu && (
+        <MenuContextual key={menuFila.abierto.n} punto={{ x: menuFila.abierto.x, y: menuFila.abierto.y }} porDedo={menuFila.abierto.porDedo}
+          items={itemsFilaAutomatizacion(opcionesDeFila(filaDelMenu.activa, sinPublicarDe(filaDelMenu, filaDelMenu.id === selId && sinPublicar)), ocupada === filaDelMenu.id)}
+          etiqueta={`Opciones de ${filaDelMenu.nombre}`} onCerrar={menuFila.cerrar}
+          onElegir={(id) => { if (id === 'abrir') elegir(filaDelMenu.id); else void accionFila(filaDelMenu, id); }} />
+      )}
+
       {/* Eliminar ARCHIVA: la confirmación de la casa, una frase pegada al botón. */}
       {aPublicar && (
         <Suspense fallback={null}>
@@ -1015,10 +1033,12 @@ export function SimuladorWhatsApp({ secuencias, objetivos, etiquetaEtapa, negoci
  * RENOMBRANDO (undécima tanda, punto 5: `editarNombre`): el mismo emoji y, en lugar del botón, un campo con el
  * nombre (`CampoNombre`); el «⋯» se esconde mientras tanto.
  */
-function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPublicar, editarNombre }: {
+function ItemLista({ on, activa, emoji, nombre, onClick, menu, clicDerecho, creando, sinPublicar, editarNombre }: {
   on: boolean; activa: boolean; emoji: string; nombre: string; onClick: () => void;
   /** El «⋯» de la fila. Sin él (la que se está creando, quien no es admin), nada. */
   menu?: ReactNode;
+  /** El clic derecho y mantener presionado de la fila entera (`useMenuContextual`): lo mismo que el «⋯». */
+  clicDerecho?: PropsMenuFila;
   /** La fila que el server está creando: en vez del emoji, el giro. */
   creando?: boolean;
   /** Tiene cambios sin publicar (`sinPublicarDe`): un punto ámbar al final del nombre. */
@@ -1042,7 +1062,7 @@ function ItemLista({ on, activa, emoji, nombre, onClick, menu, creando, sinPubli
     </span>
   );
   return (
-    <div className={`chb-fila${on ? ' is-on' : ''}`}
+    <div className={`chb-fila${on ? ' is-on' : ''}`} {...clicDerecho}
       style={{ display: 'flex', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderStyle: 'solid', marginBottom: 2 }}>
       {editarNombre ? (
         <div style={{ flex: 1, minWidth: 0, display: 'flex', gap: 10, alignItems: 'center', padding: '10px', opacity: activa ? 1 : 0.55 }}>
