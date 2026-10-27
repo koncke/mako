@@ -106,10 +106,18 @@ export function afirmaHechoDe(texto: string, { soloPorMi = false }: { soloPorMi?
  * también subjuntivo («¿querés que te mande el resumen?»), y la tercera revisión los vio llevar la nota en las ofertas con
  * las que MaKo propone cada acción. «hice» no tiene otro tiempo igual. «dejé» va aparte (`DEJE_HECHO`).
  */
-const PRETERITOS = 'mandé|envié|agendé|creé|armé|cargué|publiqué|cambié|moví|borré|guardé|configuré|programé|anoté|actualicé|subí|edité|agregué|eliminé|activé|pausé|prendí|apagué|inscribí|asigné|cancelé|confirmé|respondí|escribí|marqué|reprogramé|avisé|hice';
+const PRETERITOS = 'mandé|envié|agendé|creé|armé|cargué|publiqué|cambié|moví|borré|guardé|configuré|programé|anoté|actualicé|subí|edité|agregué|eliminé|activé|pausé|prendí|apagué|inscribí|asigné|cancelé|confirmé|respondí|escribí|marqué|reprogramé|avisé|hice|abrí|registré|reporté|levanté|notifiqué';
 const PRETERITO = new RegExp(`(?<!\\p{L})(?:${PRETERITOS})(?!\\p{L})`, 'u');
-/** «te dejé agendada la reunión» dice hecho; «te dejé la tarjeta» habla de lo que dejó para confirmar. */
-const DEJE_HECHO = /(?<!\p{L})dejé(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+/** «te dejé agendada la reunión» y «te lo dejo anotado» dicen hecho; «te dejé la tarjeta» habla de lo que dejó para confirmar. */
+const DEJE_HECHO = /(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+/**
+ * «He reportado el error al equipo», «le he avisado» (27/10/2026, Leila): el pretérito perfecto, en primera persona. Sin los
+ * que no dicen nada hecho («he estado revisando», «he intentado», «he visto»).
+ */
+const HE_HECHO = /(?<!\p{L})he\s+(?!(?:estado|sido|tenido|podido|querido|intentado|tratado|pensado|visto|notado|le[ií]do)(?!\p{L}))\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+/** «Ya quedó registrado que le escribiste», «ya quedó agendado el recordatorio» (27/10/2026): con el «ya», MaKo lo da por
+ *  hecho; sin él («quedó agendada para el lunes») puede ser lo que leyó, y se deja. */
+const YA_QUEDO = /(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
 /** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
 const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
@@ -183,7 +191,7 @@ export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false }: { 
     if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
     // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
     const dicho = o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)).toLowerCase();
-    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho);
+    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho) || HE_HECHO.test(dicho) || YA_QUEDO.test(dicho);
   }).map((o) => o.tal.trim());
 }
 
@@ -315,6 +323,8 @@ export const SIN_HACER_LO_DEMAS = 'Lo demás no lo llegué a hacer en este mensa
  * falla en lo obvio (AGENTS.md). Un falso positivo cuesta esta nota, no una respuesta. ⚠️ No pide repetirlo.
  */
 export const NOTA_SIN_RESPALDO = 'No veo esa acción en este chat: revísala antes de darla por hecha.';
+/** En el grupo, cuando lo que se daba por hecho quedó PROPUESTO (un ticket, una agenda) y espera el «sí» (27/10/2026). */
+export const FALTA_EL_SI = 'Eso todavía no está hecho: contesta «sí» y lo hago.';
 /** La de una promesa de algo inmediato que el turno no hizo (el chat de la app; la oración tampoco se borra). */
 export const NOTA_SIN_HACER = 'Esto no lo hice en este mensaje: si lo necesitas, pídemelo.';
 /** Lo que va cuando la respuesta entera era grosera. */
@@ -350,7 +360,7 @@ export type RespaldoDeHecho = {
  * UNA nota como máximo: primero `NOTA_SIN_RESPALDO` (dice hecho algo que el código no respalda), si no `NOTA_SIN_HACER`
  * (promete algo inmediato sin haber corrido nada). Las groserías sí se sacan: no dicen nada de lo hecho.
  */
-export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloquesDebajo = false, finDeTurno = false }: {
+export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, bloquesDebajo = false, finDeTurno = false, enElGrupo }: {
   corrioHerramientas: boolean;
   /** También lo que dice HECHO sin respaldo («Listo, ya lo armé»): el chat de la app (1.5). */
   hecho?: RespaldoDeHecho;
@@ -361,7 +371,29 @@ export function sanearSalida(texto: string, { corrioHerramientas, hecho, bloques
    *  prometer un después (`esperasAlFinal`). ⚠️ El aviso de un ticket cerrado (lib/tickets-cierre.ts) no lo pasa: lo
    *  libre ahí lo escribe Martín, y su «en breve te confirmo» lo cumple él. */
   finDeTurno?: boolean;
+  /**
+   * EL GRUPO DE WHATSAPP (27/10/2026): lo que dice HECHO sin que el turno lo haya hecho NO sale. «He reportado el error al
+   * equipo… solo queda esperar su respuesta» (Leila, con el ticket sólo propuesto), «Te lo dejo anotado» (sin tarea), «Ya te
+   * abrí la agenda de Google». En la app se marca con una nota (`hecho`); en el grupo no hay tarjeta que lo corrija después,
+   * así que se saca esa oración y se dice la verdad: `FALTA_EL_SI` si quedó propuesto, si no `SIN_HACER`.
+   * `respaldado`: el turno escribió algo de verdad (no una propuesta). `propuesto`: dejó una propuesta esperando el «sí».
+   */
+  enElGrupo?: { respaldado: boolean; propuesto: boolean };
 }): Saneo {
+  // Lo que dice hecho sin respaldo, fuera del texto ANTES de todo lo demás (la promesa, la grosería): lo de abajo trabaja
+  // sobre lo que queda, y la verdad va al final.
+  const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero) : [];
+  if (sinRespaldoGrupo.length) {
+    const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o).length > 0);
+    const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : SIN_HACER;
+    const resto = queda ? sanearSalida(queda, { corrioHerramientas, bloquesDebajo, finDeTurno }) : null;
+    const yaLoDice = !!resto && (resto.texto.includes(SIN_HACER) || resto.texto.includes(SIN_HACER_LO_DEMAS));
+    return {
+      texto: resto ? (yaLoDice ? resto.texto : `${resto.texto}\n\n${verdad}`) : verdad,
+      promesas: resto?.promesas ?? [], groserias: resto?.groserias ?? groseriasDe(textoEntero), sinRespaldo: sinRespaldoGrupo,
+    };
+  }
+  const texto = textoEntero;
   const groserias = groseriasDe(texto);
   if (hecho) {
     // La grosería se saca y lo demás QUEDA, aunque sea corto: «Sí, ya te la agendé.» no puede irse con ella (la cuarta

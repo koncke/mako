@@ -61,7 +61,7 @@ import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
 import { RUTA_CHATS, PARAM_CHATS } from '@/lib/chats-links';
 import { provsGratisDePlataforma, provsDe, rotulo, nroCuenta, transcribirAudio, SttSinEscucha, chatCheap, chatCheapTools, cheapDisponible, CASCADA_STT } from '@/lib/ai-cheap';
 import { paraWhatsApp, agendaQueSigue, agendaSeCierra, agendaVigente, contextoAgendaAbierta, bloqueAgendaGoogle, herramientasQueSiguen, ACCIONES_AGENDA } from '@/lib/agenda-sin-ia';
-import { crearMemoDeAcciones } from '@/lib/turno-sin-duplicar';
+import { crearMemoDeAcciones, hizoAlgo } from '@/lib/turno-sin-duplicar';
 // El MISMO lector que usa el importador del tablero. Que WhatsApp tenga su propia idea
 // de qué formatos existen es cómo un .txt terminó rebotando (ver AGENTS.md, "Una cosa,
 // un lugar").
@@ -1331,16 +1331,21 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * al intento nuevo, que sigue desde ahí (lib/turno-sin-duplicar.ts). Cada corrida
      * empieza con `nuevoIntento()`: sin eso, todo es «el mismo intento» y no se ataja nada.
      */
-    const memo = crearMemoDeAcciones((n) => {
+    /** Una herramienta que ESCRIBE (no una lectura): la del memo del turno y la del respaldo de un «ya lo hice». */
+    const escribeDeVerdad = (n: string): boolean => {
       const d = porId(n);
       return d ? d.tipo !== 'lectura' : NOMBRES_ACCION.has(n) && !n.startsWith('listar_');
-    });
+    };
+    const memo = crearMemoDeAcciones(escribeDeVerdad);
     /**
      * CUÁNTAS HERRAMIENTAS CORRIERON EN EL TURNO. Las mira el saneo de la salida: una promesa («déjame ver el plan») en
      * un turno que no corrió NINGUNA no se cumple nunca (lib/doer-salida.ts). Cuenta también lo que el memo devuelve de
      * un intento anterior: eso SÍ se hizo. Lo de UN intento se mide como la diferencia antes y después de la llamada.
      */
     let corridasDelTurno = 0;
+    /** Lo que el turno ESCRIBIÓ de verdad (no una lectura, no una propuesta que espera el «sí», no un error): es lo único que
+     *  respalda un «ya lo hice» en el grupo (`enElGrupo` de `sanearSalida`, 27/10/2026). */
+    let escribioDelTurno = 0;
     /**
      * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
@@ -1360,6 +1365,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       memo.anotar(name, out);
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
+      else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
@@ -2131,7 +2137,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
       // `finDeTurno`: con herramientas corridas, lo ÚLTIMO de la respuesta tampoco promete un después («Lo analizo y en
       // breves te digo qué cambiar»): la espera la dice el código, antes y sólo si lleva tiempo (24/10/2026).
-      const saneo = sanearSalida(respuesta, { corrioHerramientas: corridasDelTurno > 0, finDeTurno: true });
+      const saneo = sanearSalida(respuesta, {
+        corrioHerramientas: corridasDelTurno > 0, finDeTurno: true,
+        enElGrupo: { respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno.size > 0 },
+      });
       if (saneo.promesas.length || saneo.groserias.length) {
         const que = [saneo.promesas.length ? `promesa sin hacer: «${saneo.promesas.join('», «')}»` : '', saneo.groserias.length ? `grosería: ${saneo.groserias.join(', ')}` : ''].filter(Boolean).join(' · ');
         console.error(`[mako-doer-in] ws=${wsData} SANEADA (${que}) · ${intencion.intencion} · ${tools.length} herramientas, ${corridasDelTurno} corridas · ruta «${ruta.motivo}»`);
