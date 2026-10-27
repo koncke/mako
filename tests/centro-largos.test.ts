@@ -51,7 +51,7 @@ test('2. la caja ofrece más de 8000 sólo si el Runner de esa cuenta lo acepta'
   assert.equal(aceptaTextoLargo(null), false);
   const motor = leer('app/admin/operaciones/useCentro.ts');
   assert.match(motor, /aceptaTextoLargo\(k\.version\)\) \? MAX_TEXTO_LARGO : MAX_TEXTO/, 'el tope sale de la versión del Runner');
-  assert.match(motor, /titulo: c\.titulo, tope: topeDe\(c\) \}, texto, 'solo_esto', como, subidos\)/, 'la caja lo usa al mandar');
+  assert.match(motor, /titulo: c\.titulo, tope: topeDe\(c\) \}, texto, 'solo_esto', como, subidos, voz\)/, 'la caja lo usa al mandar');
   assert.match(leer('app/admin/operaciones/mandar.ts'), /const tope = d\.tope \?\? MAX_TEXTO;/, 'sin tope, el de siempre');
 });
 

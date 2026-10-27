@@ -144,8 +144,24 @@ export async function vocabularioParaEscribir(cual: 'angulos' | 'avatares'): Pro
  * las del `ws` que se le pasa, que tiene que ser el MISMO que después borra — leer el
  * estado en una cuenta y borrar en otra es decidir con el dato de otro cliente.
  * Deuda: lib/meta-write.ts no exporta una lectura así.
+ *
+ * Por la conexión de Facebook (26/10/2026) si el negocio conectó Meta por Zernio: ahí hace falta el `nivel` (cada nivel tiene
+ * su endpoint), y un anuncio se relee con `live=true` (el estado guardado de Zernio tiene hasta una hora de atraso).
  */
-export async function estadoVivoMeta(id: string, ws: number): Promise<{ configurado: string | null; efectivo: string | null } | { error: string }> {
+export async function estadoVivoMeta(id: string, ws: number, nivel?: 'campaign' | 'adset' | 'ad'): Promise<{ configurado: string | null; efectivo: string | null } | { error: string }> {
+  const { canalMeta } = await import('@/lib/meta-via');
+  const canal = await canalMeta(ws);
+  if (canal.via === 'zernio') {
+    if (!soloDigitos(id) || !nivel) return { error: 'id o nivel inválido.' };
+    try {
+      const { entidadPorZernio } = await import('@/lib/meta-escribir-zernio');
+      const e = await entidadPorZernio(canal, nivel, id);
+      if (!e.configurado && !e.efectivo) return { error: 'Meta no devolvió el estado actual.' };
+      return { configurado: e.configurado, efectivo: e.efectivo };
+    } catch (err) {
+      return { error: `No pude leer el estado actual por la conexión de Facebook (${err instanceof Error ? err.message : 'error'}).` };
+    }
+  }
   const ver = process.env.META_API_VERSION;
   const token = await credWs('META_ACCESS_TOKEN', ws);
   if (!ver || !token) return { error: 'Meta no está configurado: no pude leer el estado actual.' };

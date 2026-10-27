@@ -69,7 +69,8 @@ export function Automatizaciones({ config: inicial, decisiones, cupo }: { config
 
   const guardarTactica = useCallback(async (t: TacticaAuto, cambio: ConfigTactica): Promise<boolean> => {
     setGuardando(t);
-    const tacticas: ConfigTacticas = { ...config.tacticas, [t]: { ...(config.tacticas[t] ?? {}), ...cambio } };
+    // Sólo la táctica tocada: el servidor la mezcla con lo guardado (revisión de tren-l, falla 2).
+    const tacticas: ConfigTacticas = { [t]: { ...(config.tacticas[t] ?? {}), ...cambio } };
     const r = await api<{ config: Config }>({ op: 'config', cambio: { tacticas } });
     setGuardando(null);
     if (r.ok) { setConfig((c) => ({ ...c, tacticas: r.config.tacticas })); show('Guardado', undefined, 'good'); return true; }

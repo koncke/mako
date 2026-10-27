@@ -16,6 +16,7 @@
 // =============================================================================
 
 import 'server-only';
+import { createHash } from 'node:crypto';
 import { META_PAGE_ID } from './config';
 import { credWs } from './credenciales';
 import { esDeLaCuenta, normalizarCuentaMeta } from './meta-cuenta-id';
@@ -28,7 +29,8 @@ import { erroresFormulario, paramsFormulario, sitioLimpio, urlValida, type Formu
 import { getSetting } from './settings';
 import { hayQuePreguntar, identidadPorDefecto, type Identidad, type InstagramOpcion, type PaginaOpcion } from './meta-identidad';
 import { OWNER_WS, wsObligatorio } from './workspace';
-import { conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
+import { anuncioEnVivoPorZernio, conexionAnunciosZernio, crearAnuncioPorZernio, cambiarTextosPorZernio, leerErrorDeZernio } from './zernio-ads';
+import type { CanalMeta } from './meta-via';
 import { ZERNIO_ANUNCIOS_PROBADO, cuerpoAnuncioEnConjunto, rutaDelAnuncio } from './zernio-ads-cuerpo';
 import { estadoDeVideoStatus, faltaMiniatura, type EstadoVideo, type VideosSinProcesar } from './campana-videos';
 import {
@@ -96,6 +98,11 @@ async function cred(name: string): Promise<string> {
   // seis) → por credWs daría null y apagaría Ads Manager para todos los clientes.
   const v = name === 'META_API_VERSION' ? process.env[name] : await credWs(name, ws);
   if (!v || v.startsWith('PENDING')) {
+    // Un negocio que conectó Meta por Zernio no tiene token, y el token está DEPRECADO (no se pide): mandarlo a «configurar el
+    // token» es mandarlo a lo que ya no existe. Se dice qué falta de verdad (26/10/2026).
+    if (name === 'META_ACCESS_TOKEN' && (await canalZernio())) {
+      throw new MetaWriteError('Esto todavía no se puede hacer por la conexión de Facebook (Zernio). Hazlo desde el Administrador de anuncios de Meta y avísale a Soporte.');
+    }
     throw new MetaWriteError(`${name} no está configurado para este workspace (Integraciones → Meta Ads).`);
   }
   // Las filas viejas pueden traer el id pelado: normaliza el guardado, no la base.
@@ -164,8 +171,17 @@ async function exigirDeLaCuenta(accountIdDelObjeto: unknown): Promise<void> {
   if (!esDeLaCuenta(accountIdDelObjeto, await cred('META_AD_ACCOUNT_ID'))) throw new FueraDeLaCuentaError();
 }
 
-/** El `account_id` de un objeto, para comprobarlo antes de escribirle. Si Meta no contesta, tira: sin saberlo no se escribe. */
-async function cuentaDelObjeto(id: string): Promise<unknown> {
+/**
+ * El `account_id` de un objeto, para comprobarlo antes de escribirle. Si Meta no contesta, tira: sin saberlo no se escribe.
+ * `tipo` hace falta por Zernio (cada nivel tiene su lectura); con el token, el id solo alcanza.
+ */
+async function cuentaDelObjeto(id: string, tipo: 'campaign' | 'adset' | 'ad'): Promise<unknown> {
+  const z = await canalZernio();
+  if (z && tipo === 'ad') {
+    const { anuncioMetaPorZernio } = await import('./meta-via');
+    return (await anuncioMetaPorZernio(z, id).catch((e) => { throw errorDeZernio(e, 'leer'); })).account_id;
+  }
+  if (tipo !== 'ad') return (await leerObjetoMeta(tipo, id, 'account_id')).account_id;
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${id}`);
   url.searchParams.set('fields', 'account_id');
@@ -238,6 +254,36 @@ async function graphGet(url: string): Promise<Record<string, unknown>> {
   }
   if (!res.ok) throw new MetaWriteError(`HTTP ${res.status} de Meta sin error body`);
   return data;
+}
+
+/** El canal de Zernio del negocio (si conectó Meta por «Conectar con Facebook»), o null: va por el token como siempre. */
+async function canalZernio(): Promise<Extract<CanalMeta, { via: 'zernio' }> | null> {
+  const { canalMeta } = await import('./meta-via');
+  const c = await canalMeta(await wsDeLaCuenta());
+  return c.via === 'zernio' ? c : null;
+}
+
+/**
+ * Una campaña, un conjunto o un creativo con `fields`, por donde le corresponde al negocio (26/10/2026): por su Zernio (el paso
+ * directo de Meta, la MISMA forma) si conectó por ahí, con el token de respaldo si Zernio falla y lo conserva; si no, por la Graph
+ * API. Es la puerta de las lecturas de este archivo que piden un objeto por su id.
+ */
+async function leerObjetoMeta(tipo: 'campaign' | 'adset' | 'creative', id: string, fields: string): Promise<Record<string, unknown>> {
+  const z = await canalZernio();
+  if (z) {
+    try {
+      const { objetoMetaPorZernio } = await import('./meta-via');
+      return await objetoMetaPorZernio(z, tipo, id, fields);
+    } catch (e) {
+      if (!z.respaldo) throw errorDeZernio(e, 'leer');
+      console.warn(`[meta-ads-create] ${tipo} ${id} por Zernio falló, sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${id}`);
+  url.searchParams.set('fields', fields);
+  url.searchParams.set('access_token', accessToken);
+  return graphGet(url.toString());
 }
 
 /**
@@ -458,6 +504,20 @@ export async function paginasDeGanadores(adIds: string[]): Promise<Record<string
  * contesta, esto tira y el wizard no pregunta: se publica con la credencial, como antes.
  */
 export async function identidadesMeta(): Promise<{ paginas: PaginaOpcion[]; instagramCuenta: InstagramOpcion[]; porDefecto: Identidad | null; preguntar: boolean }> {
+  // Por Zernio (26/10/2026): las páginas e Instagram que la conexión puede usar, con la MISMA regla para elegir y para preguntar.
+  const z = await canalZernio();
+  if (z) {
+    try {
+      const { zernioGet } = await import('./meta-via');
+      const { identidadesDeZernio } = await import('./zernio-meta-cuerpo');
+      const i = identidadesDeZernio(await zernioGet(z, `/ads/instagram-accounts?${new URLSearchParams({ accountId: z.accountId, adAccountId: z.adAccountId }).toString()}`));
+      if (!i) throw new MetaWriteError('Zernio contestó sin las páginas de la conexión.');
+      const credPage = await pageId().catch(() => null);
+      return { ...i, porDefecto: identidadPorDefecto(i.paginas, i.instagramCuenta, credPage), preguntar: hayQuePreguntar(i.paginas, i.instagramCuenta) };
+    } catch (e) {
+      if (!z.respaldo) throw e instanceof MetaWriteError ? e : errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, tk, adAccountId] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN'), cred('META_AD_ACCOUNT_ID')]);
   const credPage = await pageId().catch(() => null);
   const u1 = new URL(`${GRAPH_BASE}/${apiVersion}/me/accounts`);
@@ -533,6 +593,17 @@ async function tokenDePagina(otraPagina?: string | null): Promise<string> {
  * Las archivadas y borradas no se ofrecen: Meta no deja usarlas en un anuncio.
  */
 export async function listLeadForms(pagina?: string | null): Promise<Array<{ id: string; name: string; status?: string }>> {
+  // Por Zernio (26/10/2026): los formularios de la página de la conexión (Zernio la resuelve por la cuenta de Facebook ligada).
+  // Otra página elegida en el asistente no tiene camino por ahí: va por el token si lo hay.
+  const z = await canalZernio();
+  if (z && !pagina) {
+    try {
+      const { formulariosPorZernio } = await import('./meta-via');
+      return await formulariosPorZernio(z);
+    } catch (e) {
+      if (!z.respaldo) throw errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(pagina), pagina ? Promise.resolve(pagina) : pageId()]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${page}/leadgen_forms`);
   url.searchParams.set('fields', 'id,name,status');
@@ -593,6 +664,17 @@ export async function formularioBase(pagina?: string | null): Promise<{ sitio: s
 export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: string | null): Promise<{ id: string; name: string }> {
   const errores = erroresFormulario(f);
   if (errores.length) throw new MetaWriteError(errores[0]);
+  // Por Zernio (26/10/2026): en la página de la conexión, con los MISMOS parámetros (las preguntas, la privacidad y la pantalla final).
+  // Otra página elegida en el asistente no tiene camino por ahí.
+  const z = await canalZernio();
+  if (z) {
+    if (pagina && pagina !== (await credWs('META_PAGE_ID', z.ws))) throw new MetaWriteError('Por la conexión de Facebook (Zernio) el formulario se crea en la página conectada. Elige esa página.');
+    const { cuerpoFormularioZernio } = await import('./zernio-meta-cuerpo');
+    const { crearFormularioPorZernio } = await import('./meta-escribir-zernio');
+    const r = await crearFormularioPorZernio(z, cuerpoFormularioZernio(z.accountId, paramsFormulario(f))).catch((e) => { throw errorDeZernio(e, 'publicar'); });
+    if (!r.id) throw new MetaWriteError('Zernio no devolvió el formulario creado. Antes de volver a intentar, mira tu Biblioteca de formularios en Meta: puede haberse creado igual.');
+    return { id: r.id, name: f.nombre.trim() };
+  }
   await sinCorteDelToken();
   const [apiVersion, token, page] = await Promise.all([cred('META_API_VERSION'), tokenDePagina(pagina), pagina ? Promise.resolve(pagina) : pageId()]);
   const body = new URLSearchParams(paramsFormulario(f));
@@ -628,6 +710,22 @@ export async function crearFormularioInstantaneo(f: FormularioNuevo, pagina?: st
  * dólares) y que el público está en México.
  */
 export async function cuentaMeta(): Promise<{ accountId: string; name: string; currency: string; monedaLeida: boolean; country: string | null; timezoneName: string | null }> {
+  // Por Zernio (26/10/2026): la cuenta de la lista de la conexión (moneda y zona horaria; el país sale de la zona, como siempre).
+  const z = await canalZernio();
+  if (z) {
+    const { cuentasPorZernio } = await import('./meta-conexion-zernio');
+    try {
+      const c = (await cuentasPorZernio(z.clave, z.accountId)).find((x) => x.id === z.adAccountId);
+      if (!c) throw new MetaWriteError(`La conexión de Facebook no ve la cuenta publicitaria ${z.adAccountId}. Vuelve a conectar en Integraciones → Zernio.`);
+      const leida = !!c.moneda;
+      return {
+        accountId: z.adAccountId, name: c.nombre ?? '', currency: leida ? c.moneda! : MONEDA_META_POR_DEFECTO, monedaLeida: leida,
+        country: paisDeCuentaMeta({ timezone_name: c.zonaHoraria ?? undefined }), timezoneName: c.zonaHoraria ?? null,
+      };
+    } catch (e) {
+      if (!z.respaldo || e instanceof MetaWriteError) throw e instanceof MetaWriteError ? e : errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}`);
   url.searchParams.set('fields', 'name,currency,timezone_name,business_country_code');
@@ -658,6 +756,27 @@ export async function cuentaMeta(): Promise<{ accountId: string; name: string; c
  */
 export async function searchLugares(q: string, pais?: string | null): Promise<LugarMeta[]> {
   if (q.trim().length < 2) return [];
+  const cc = pais && /^[A-Z]{2}$/.test(pais) ? pais : null;
+  // Por Zernio (26/10/2026): la misma búsqueda doble (el país de la cuenta y el mundo) y el MISMO orden (`ordenarLugares`); cada
+  // resultado pasa a la forma de Meta y lo lee el mismo `lugarDesdeBusqueda`.
+  const z = await canalZernio();
+  if (z) {
+    try {
+      const { zernioGet } = await import('./meta-via');
+      const { lugarCrudoDeZernio } = await import('./zernio-meta-cuerpo');
+      const buscarZ = async (limit: number, countryCode?: string): Promise<LugarMeta[]> => {
+        const p = new URLSearchParams({ accountId: z.accountId, dimension: 'geo', geoType: 'all', q: q.trim(), locale: 'es_LA', limit: String(limit) });
+        if (countryCode) p.set('countryCode', countryCode);
+        const r = await zernioGet(z, `/ads/targeting/search?${p.toString()}`) as { results?: unknown };
+        if (!Array.isArray(r.results)) throw new MetaWriteError('Zernio contestó sin resultados de lugares.');
+        return r.results.map((x) => lugarDesdeBusqueda(lugarCrudoDeZernio(x))).filter((l): l is LugarMeta => l !== null);
+      };
+      const [locales, mundo] = await Promise.all([cc ? buscarZ(25, cc) : Promise.resolve([]), buscarZ(15)]);
+      return ordenarLugares(q, locales, mundo);
+    } catch (e) {
+      if (!z.respaldo) throw e instanceof MetaWriteError ? e : errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const buscar = async (limit: number, countryCode?: string): Promise<LugarMeta[]> => {
     const url = new URL(`${GRAPH_BASE}/${apiVersion}/search`);
@@ -672,7 +791,6 @@ export async function searchLugares(q: string, pais?: string | null): Promise<Lu
     const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
     return arr.map(lugarDesdeBusqueda).filter((l): l is LugarMeta => l !== null);
   };
-  const cc = pais && /^[A-Z]{2}$/.test(pais) ? pais : null;
   const [locales, mundo] = await Promise.all([cc ? buscar(25, cc) : Promise.resolve([]), buscar(15)]);
   return ordenarLugares(q, locales, mundo);
 }
@@ -714,6 +832,19 @@ export async function alcanceGeo(geo: Pick<Targeting, 'geo_locations' | 'exclude
 }
 
 export async function listCustomAudiences(): Promise<Array<{ id: string; name: string; subtype?: string; count?: number | null }>> {
+  // Por Zernio (26/10/2026): los públicos de la cuenta, con el id de META (el que va en una segmentación).
+  const z = await canalZernio();
+  if (z) {
+    try {
+      const { zernioGet } = await import('./meta-via');
+      const { publicosDeZernio } = await import('./zernio-meta-cuerpo');
+      const p = publicosDeZernio(await zernioGet(z, `/ads/audiences?${new URLSearchParams({ accountId: z.accountId, adAccountId: z.adAccountId, platform: 'facebook' }).toString()}`));
+      if (!p) throw new MetaWriteError('Zernio contestó sin la lista de públicos.');
+      return p;
+    } catch (e) {
+      if (!z.respaldo) throw e instanceof MetaWriteError ? e : errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, adAccountId, tk] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const base = `${GRAPH_BASE}/${apiVersion}/${adAccountId}/customaudiences`;
   const fetchWith = (fields: string) => { const url = new URL(base); url.searchParams.set('fields', fields); url.searchParams.set('limit', '200'); url.searchParams.set('access_token', tk); return graphGet(url.toString()); };
@@ -837,6 +968,14 @@ export async function createCustomAudience(input: { tipo: AudienceTipo; dias: nu
 
 /** Pixels de la cuenta (para elegir cuál medir en conversiones web). */
 export async function listPixels(): Promise<Array<{ id: string; name: string }>> {
+  // Por Zernio (26/10/2026): los destinos de la Conversions API que ve la conexión, los mismos que se eligen al conectar.
+  const z = await canalZernio();
+  if (z) {
+    const { pixelesPorZernio } = await import('./meta-conexion-zernio');
+    try { return (await pixelesPorZernio(z.clave, z.accountId)).map((p) => ({ id: p.id, name: p.nombre ?? p.id })); } catch (e) {
+      if (!z.respaldo) throw errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, adAccountId, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_AD_ACCOUNT_ID'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adAccountId}/adspixels`);
   url.searchParams.set('fields', 'id,name');
@@ -949,6 +1088,19 @@ export async function listPixelEvents(pixelId: string): Promise<string[]> {
 /** Busca intereses por texto → ids reales que Meta acepta en el targeting. */
 export async function searchInterests(q: string): Promise<Array<{ id: string; name: string; audience?: number | null; topic?: string | null }>> {
   if (!q.trim()) return [];
+  // Por Zernio (26/10/2026): la búsqueda de Meta, con los ids de Meta (los que van en la segmentación), en español.
+  const z = await canalZernio();
+  if (z) {
+    try {
+      const { zernioGet } = await import('./meta-via');
+      const { interesDeZernio } = await import('./zernio-meta-cuerpo');
+      const r = await zernioGet(z, `/ads/targeting/search?${new URLSearchParams({ accountId: z.accountId, dimension: 'interest', q: q.trim(), locale: 'es_LA', limit: '20' }).toString()}`) as { results?: unknown };
+      if (!Array.isArray(r.results)) throw new MetaWriteError('Zernio contestó sin resultados de intereses.');
+      return r.results.map(interesDeZernio).filter((x): x is NonNullable<ReturnType<typeof interesDeZernio>> => x !== null);
+    } catch (e) {
+      if (!z.respaldo) throw e instanceof MetaWriteError ? e : errorDeZernio(e, 'leer');
+    }
+  }
   const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
   const url = new URL(`${GRAPH_BASE}/${apiVersion}/search`);
   url.searchParams.set('type', 'adinterest');
@@ -1272,11 +1424,20 @@ function esCreativoDinamico(afs: Record<string, unknown>): boolean {
  * NO el image_hash; el hash vive en creative.image_hash (top-level) o en
  * asset_feed_spec.images[].hash. Sin el hash el creativo nuevo saldría SIN imagen. */
 export async function getAdForEdit(adId: string): Promise<AdEditData> {
-  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
-  url.searchParams.set('fields', 'account_id,name,effective_status,issues_info,creative{id,image_hash,object_story_spec,asset_feed_spec,effective_object_story_id,object_story_id}');
-  url.searchParams.set('access_token', accessToken);
-  const data = await graphGet(url.toString());
+  const CREATIVO = 'id,image_hash,object_story_spec,asset_feed_spec,effective_object_story_id,object_story_id';
+  // Por Zernio (26/10/2026): el anuncio guardado + su creativo por el paso directo de Meta, con la misma forma que la Graph API.
+  const z = await canalZernio();
+  let data: Record<string, unknown>;
+  if (z) {
+    const { anuncioMetaPorZernio } = await import('./meta-via');
+    data = await anuncioMetaPorZernio(z, adId, CREATIVO).catch((e) => { throw errorDeZernio(e, 'leer'); });
+  } else {
+    const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
+    const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adId}`);
+    url.searchParams.set('fields', `account_id,name,effective_status,issues_info,creative{${CREATIVO}}`);
+    url.searchParams.set('access_token', accessToken);
+    data = await graphGet(url.toString());
+  }
   await exigirDeLaCuenta(data.account_id);
   const name = String(data.name ?? '');
   const status = String(data.effective_status ?? '');
@@ -1329,9 +1490,10 @@ export async function updateAdCopy(adId: string, edited: { primary_text?: string
   if (!current.editable || !current.creative) throw new MetaWriteError(current.reason ?? 'Este anuncio no permite editar textos aquí.');
   // Cambiar textos CREA un creativo nuevo, y con la app en desarrollo del cliente choca con el 1885183
   // igual que publicar: con su Zernio de anuncios conectada, lo hace Zernio (23/10/2026).
-  const conexion = await conexionZernioDelWs();
+  // Un negocio por Zernio (sin token) cambia los textos por su Zernio siempre: no hay otro camino (26/10/2026).
+  const conexion = (await canalZernio()) ?? (await conexionZernioDelWs());
   if (conexion) {
-    await exigirDeLaCuenta(await cuentaDelObjeto(adId));
+    await exigirDeLaCuenta(await cuentaDelObjeto(adId, 'ad'));
     await cambiarTextosPorZernio(await wsDeLaCuenta(), adId, edited).catch((e) => { throw errorDeZernio(e); });
     return { creative_id: null };
   }
@@ -1387,11 +1549,7 @@ export async function deleteEntity(id: string): Promise<boolean> {
 // que el usuario toca; así NO se pierde nada que el editor no maneje (geo por ciudad/
 // región, idioma/locales, behaviors/demographics, exclusiones, etc.).
 export async function getAdsetTargeting(adsetId: string): Promise<{ name: string; optimization_goal: string; targeting: Record<string, unknown> }> {
-  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adsetId}`);
-  url.searchParams.set('fields', 'account_id,name,optimization_goal,targeting');
-  url.searchParams.set('access_token', accessToken);
-  const data = await graphGet(url.toString());
+  const data = await leerObjetoMeta('adset', adsetId, 'account_id,name,optimization_goal,targeting');
   await exigirDeLaCuenta(data.account_id);
   return { name: String(data.name ?? ''), optimization_goal: String(data.optimization_goal ?? ''), targeting: (data.targeting ?? {}) as Record<string, unknown> };
 }
@@ -1399,7 +1557,8 @@ export async function getAdsetTargeting(adsetId: string): Promise<{ name: string
 /** Actualiza la segmentación del conjunto. Recibe el objeto de targeting COMPLETO
  * (crudo de Meta con los cambios superpuestos) y lo re-envía tal cual. */
 export async function updateAdsetTargeting(adsetId: string, targeting: Record<string, unknown>): Promise<void> {
-  await exigirDeLaCuenta(await cuentaDelObjeto(adsetId));
+  await sinPublicoPorZernio();
+  await exigirDeLaCuenta(await cuentaDelObjeto(adsetId, 'adset'));
   await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
 }
 
@@ -1409,6 +1568,7 @@ export async function updateAdsetTargeting(adsetId: string, targeting: Record<st
  * faltaba para que la API de MaKo pudiera editar un público: con la ruta, un targeting parcial borraba el resto.
  */
 export async function editarPublicoConjunto(adsetId: string, entrada: EntradaPublico): Promise<{ name: string }> {
+  await sinPublicoPorZernio();
   const actual = await getAdsetTargeting(adsetId);
   const targeting = aplicarCambiosDePublico(actual.targeting, cambiosDesdeEntrada(actual.targeting, entrada));
   await graphPost(adsetId, { targeting: JSON.stringify(targeting) });
@@ -1421,11 +1581,7 @@ export async function editarPublicoConjunto(adsetId: string, entrada: EntradaPub
 
 /** Datos del conjunto para saber si el anuncio nuevo necesita formulario o URL. */
 export async function getAdsetForAdd(adsetId: string): Promise<{ name: string; optimization_goal: string; needsForm: boolean }> {
-  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${adsetId}`);
-  url.searchParams.set('fields', 'account_id,name,optimization_goal');
-  url.searchParams.set('access_token', accessToken);
-  const data = await graphGet(url.toString());
+  const data = await leerObjetoMeta('adset', adsetId, 'account_id,name,optimization_goal');
   await exigirDeLaCuenta(data.account_id);
   const opt = String(data.optimization_goal ?? '');
   return { name: String(data.name ?? ''), optimization_goal: opt, needsForm: opt === 'LEAD_GENERATION' };
@@ -1455,10 +1611,64 @@ async function conexionZernioDelWs(): Promise<Awaited<ReturnType<typeof conexion
  * nombra) y conserva el subcode de Meta que viene adentro (`platformError`), así la traducción de
  * rechazos de siempre (lib/meta-publicar-errores.ts) lo reconoce igual que si viniera de Meta.
  */
-function errorDeZernio(e: unknown): unknown {
+function errorDeZernio(e: unknown, que: 'publicar' | 'leer' = 'publicar'): unknown {
   const z = leerErrorDeZernio(e);
   if (!z) return e;
-  return new MetaWriteError(`Zernio no pudo publicar: ${z.mensaje}`, undefined, z.subcode ?? undefined);
+  return new MetaWriteError(`Zernio no pudo ${que === 'leer' ? 'leerlo en Meta' : 'publicar'}: ${z.mensaje}`, undefined, z.subcode ?? undefined);
+}
+
+/**
+ * Editar el público de un conjunto por Zernio NO está hecho (26/10/2026): su `PUT /ads/ad-sets/{id}` no recibe el `targeting`
+ * crudo de Meta sino SU forma (`TargetingSpec`, con sus nombres y su fusión de claves), y lo que este archivo arma es el crudo
+ * entero con los cambios superpuestos. Mapear uno al otro sin perder lo que el editor no maneja es trabajo aparte
+ * (docs/hallazgos-ads.md). Hasta entonces, un negocio sin token lo oye dicho así, no como «configura el token».
+ */
+async function sinPublicoPorZernio(): Promise<void> {
+  const z = await canalZernio();
+  if (z && !z.respaldo) throw new MetaWriteError('Por la conexión de Facebook (Zernio) todavía no se puede editar el público de un conjunto. Edítalo en el Administrador de anuncios de Meta.');
+}
+
+/**
+ * El anuncio por la Zernio del negocio que conectó Meta por ahí (26/10/2026): no hay token por donde ir, así que TODO anuncio sale
+ * por Zernio, también el que reusa el post de un ganador (su creativo tal cual, `existingCreativeId`). En pausa (la forma «attach»
+ * pausa el anuncio mismo). La clave de idempotencia sale del CUERPO entero y de una ventana de 10 minutos (medido el 26/10): con la
+ * misma clave Zernio devuelve el anuncio de la primera vez AUNQUE ya se haya borrado, y con la misma clave y otro cuerpo contesta
+ * «already used with a different request». Así, el mismo pedido repetido no duplica; uno distinto, o uno igual más tarde, crea.
+ */
+async function anuncioPorZernioDelNegocio(z: Extract<CanalMeta, { via: 'zernio' }>, adsetId: string, ad: AdSpec, identidad?: Identidad | null): Promise<{ ad_id: string; creative_id: string | null; via: 'zernio' }> {
+  await exigirDeLaCuenta(await cuentaDelObjeto(adsetId, 'adset'));
+  const c = ad.creative;
+  const conexion = { accountId: z.accountId, adAccountId: z.adAccountId };
+  let cuerpo: Record<string, unknown>;
+  if (c.source === 'existing') {
+    if (!c.source_ad_id || !/^\d+$/.test(c.source_ad_id)) throw new MetaWriteError('Falta el anuncio ganador a reusar.');
+    const { anuncioMetaPorZernio } = await import('./meta-via');
+    const fuente = await anuncioMetaPorZernio(z, c.source_ad_id).catch((e) => { throw errorDeZernio(e, 'leer'); });
+    await exigirDeLaCuenta(fuente.account_id);
+    const creativo = (fuente.creative as { id?: string } | undefined)?.id;
+    if (!creativo) throw new MetaWriteError('El anuncio ganador no tiene un creativo reutilizable. Prueba con otro o sube un creativo.');
+    cuerpo = { accountId: conexion.accountId, adAccountId: conexion.adAccountId, adSetId: adsetId, name: ad.name, status: 'PAUSED', adStatus: 'PAUSED', existingCreativeId: creativo };
+  } else {
+    const { urlDeImagenPorZernio } = await import('./meta-via');
+    // Sin `catch` que lo trague: un fallo de Zernio acá salía como «la imagen no tiene dirección pública» (medido el 26/10).
+    const imagenUrl = c.media_type !== 'video' && c.image_hash ? await urlDeImagenPorZernio(z, c.image_hash).catch((e) => { throw errorDeZernio(e, 'leer'); }) : null;
+    if (c.media_type !== 'video' && c.image_hash && !imagenUrl) throw new MetaWriteError('No encontré esa imagen en la biblioteca de tu cuenta de Meta: súbela de nuevo.');
+    cuerpo = cuerpoAnuncioEnConjunto({
+      conexion, adSetId: adsetId, nombre: ad.name, creative: c,
+      pageId: await paginaDe(identidad).catch(() => null), instagramAccountId: identidad?.instagramId ?? null, imagenUrl,
+    });
+  }
+  const firma = createHash('sha256').update(JSON.stringify(cuerpo)).digest('hex').slice(0, 24);
+  const clave = `mako:${adsetId}:${firma}:${Math.floor(Date.now() / 600_000)}`;
+  let r = await crearAnuncioPorZernio(z.ws, cuerpo, clave).catch((e) => { throw errorDeZernio(e); });
+  // Con la misma clave, Zernio devuelve el anuncio de la primera vez AUNQUE ya se haya borrado: crear, borrar y volver a pedir lo
+  // mismo dentro del tramo decía «creado» sobre uno borrado (revisión del tren-m, 26/10/2026). Se relee y, si vino borrado, se pide
+  // UNA vez más con otra clave (es una creación nueva a propósito, no un reintento del mismo pedido).
+  const { vinoBorrado } = await import('./zernio-meta-cuerpo');
+  if (vinoBorrado(await anuncioEnVivoPorZernio(z.ws, r.adId).catch(() => null))) {
+    r = await crearAnuncioPorZernio(z.ws, cuerpo, `${clave}:otra:${Date.now()}`).catch((e) => { throw errorDeZernio(e); });
+  }
+  return { ad_id: r.adId, creative_id: null, via: 'zernio' };
 }
 
 /** La URL pública de una imagen subida a la cuenta (`act_<id>/adimages` por hash), o null. */
@@ -1480,6 +1690,8 @@ async function urlDeImagen(hash: string): Promise<string | null> {
  * `creative_id` es null por Zernio: el creativo lo arma Zernio y no lo devuelve.
  */
 export async function crearAnuncioEnConjunto(adsetId: string, ad: AdSpec, identidad?: Identidad | null): Promise<{ ad_id: string; creative_id: string | null; via: 'meta' | 'zernio' }> {
+  const z = await canalZernio();
+  if (z) return anuncioPorZernioDelNegocio(z, adsetId, ad, identidad);
   const conexion = ad.creative.source === 'existing' ? null : await conexionZernioDelWs();
   if (rutaDelAnuncio(ad.creative, conexion) === 'zernio' && conexion) {
     const c = ad.creative;
@@ -1501,11 +1713,8 @@ export async function crearAnuncioEnConjunto(adsetId: string, ad: AdSpec, identi
  * En campañas de conversión, HEREDA la conversión de un conjunto existente (así el nuevo
  * conjunto optimiza por lo mismo sin pedirle al usuario el pixel/evento de nuevo). */
 export async function getCampaignBasics(campaignId: string): Promise<{ name: string; objective: Objective; budgetLevel: BudgetLevel; optimization: string; needsForm: boolean; needsConv: boolean; conversion?: AdSetSpec['conversion'] }> {
-  const [apiVersion, accessToken] = await Promise.all([cred('META_API_VERSION'), cred('META_ACCESS_TOKEN')]);
-  const url = new URL(`${GRAPH_BASE}/${apiVersion}/${campaignId}`);
-  url.searchParams.set('fields', 'account_id,name,objective,daily_budget,lifetime_budget');
-  url.searchParams.set('access_token', accessToken);
-  const data = await graphGet(url.toString());
+  // Los conjuntos van ANIDADOS en el mismo pedido (26/10/2026): así sale igual por el token y por el paso directo de Zernio.
+  const data = await leerObjetoMeta('campaign', campaignId, 'account_id,name,objective,daily_budget,lifetime_budget,adsets.limit(10){optimization_goal,promoted_object}');
   await exigirDeLaCuenta(data.account_id);
   const objective = String(data.objective ?? 'OUTCOME_LEADS') as Objective;
   const hasCampBudget = data.daily_budget != null || data.lifetime_budget != null;
@@ -1515,9 +1724,7 @@ export async function getCampaignBasics(campaignId: string): Promise<{ name: str
   let optimization = objetivoDef(objective).optimization_goal;
   let conversion: AdSetSpec['conversion'];
   try {
-    const u = new URL(`${GRAPH_BASE}/${apiVersion}/${campaignId}/adsets`);
-    u.searchParams.set('fields', 'optimization_goal,promoted_object'); u.searchParams.set('limit', '10'); u.searchParams.set('access_token', accessToken);
-    const d = await graphGet(u.toString());
+    const d = (data.adsets ?? {}) as { data?: unknown };
     const arr = Array.isArray(d.data) ? (d.data as Array<Record<string, unknown>>) : [];
     if (arr[0]?.optimization_goal) optimization = String(arr[0].optimization_goal);
     for (const a of arr) {

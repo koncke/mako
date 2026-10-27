@@ -171,6 +171,7 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'panel único',
   'app/_components/MakoChat.tsx': 'panel único',
   'app/whatsapp/WhatsAppAdvisor.tsx': 'pendiente, de Chats',
+  'app/ads-manager/ArranqueMediaBuyer.tsx': 'panel único',
 };
 const DIBUJA_PANEL = /<PanelDeChat\b/;
 

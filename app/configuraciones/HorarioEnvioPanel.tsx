@@ -35,8 +35,6 @@ import { ZONAS_POR_PAIS } from '@/lib/disparadores';
 import { PAISES, flagUrl } from '@/lib/paises';
 import { zonaCanonica } from '@/lib/zona-negocio-reglas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
-import { FilaAjustes, SELECT_AJUSTES } from '@/app/_ui/Ajustes';
-import { Switch } from '@/app/_ui/Toggle';
 
 const SANS = "'Geist', sans-serif";
 const card: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 18 };
@@ -111,16 +109,12 @@ export type FuenteHorario = {
 export const AVISO_ZONA_NEGOCIO = 'El huso vale para todo el negocio.';
 const FUENTE_NEGOCIO: FuenteHorario = { leer: () => getHorarioEnvioAction(), guardar: (h) => saveHorarioEnvioAction(h) };
 
-export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO, filas = false }: {
+// (Del 25 al 26/10/2026 tuvo una cara en filas para Settings › General, `filas`. «General» se fue: el horario vive en la tuerca
+// de cada automatización, y la zona del negocio en Perfil.)
+export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO }: {
   onGuardado?: (h: HorarioEnvio) => void;
   onSucio?: (sucio: boolean) => void;
   fuente?: FuenteHorario;
-  /**
-   * EN FILAS DE SETTINGS (25/10/2026, Settings › General copiada de Linear, docs/settings/referencia.md): el mismo horario,
-   * pero como filas de la tarjeta de quien lo monta (nombre a la izquierda, control a la derecha), sin su recuadro propio. La
-   * tuerca de Automations sigue con el recuadro de siempre.
-   */
-  filas?: boolean;
 }) {
   const [h, setH] = useState<HorarioEnvio | null>(null);
   const [zona, setZona] = useState('');
@@ -146,9 +140,7 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
   // otros no (AGENTS.md, el «Minified React error #300»).
   useEffect(() => { onSucio?.(enVuelo); }, [enVuelo, onSucio]);
 
-  if (!h) return filas
-    ? <FilaAjustes titulo={aviso || 'Cargando…'} />
-    : <p style={{ fontSize: 13.5, color: aviso ? 'var(--bad)' : 'var(--dim)', fontFamily: SANS }}>{aviso || 'Cargando…'}</p>;
+  if (!h) return <p style={{ fontSize: 13.5, color: aviso ? 'var(--bad)' : 'var(--dim)', fontFamily: SANS }}>{aviso || 'Cargando…'}</p>;
 
   const problemaDe = (x: HorarioEnvio): string | null =>
     x.activo && x.hasta <= x.desde ? 'Cierra antes de abrir.' : x.activo && !x.dias.length ? 'Elige al menos un día.' : null;
@@ -186,19 +178,18 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
   const alternarDia = (d: DiaSemana) => cambiar({ dias: h.dias.includes(d) ? h.dias.filter((x) => x !== d) : [...h.dias, d].sort((a, b) => a - b) });
 
   const off = !puedeEditar;
-  // UN selector de huso y UNA escritura (`cambiarZona`) para las dos caras (tests/automations-config-revision.test.ts).
+  // UN selector de huso y UNA escritura (`cambiarZona`) (tests/automations-config-revision.test.ts).
   const selectorZona = (ancho: number | string) => (
-    <Dropdown value={zona} options={opcionesDeZona(zona, navegador)} width={ancho} search ariaLabel="Huso horario" disabled={off} buttonStyle={filas ? SELECT_AJUSTES : undefined} onChange={cambiarZona} />
+    <Dropdown value={zona} options={opcionesDeZona(zona, navegador)} width={ancho} search ariaLabel="Huso horario" disabled={off} onChange={cambiarZona} />
   );
   const dias = (
     <div role="group" aria-label="Días" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
       {DIAS_PANTALLA.map((d) => {
         const on = h.dias.includes(d.dia);
-        const lado = filas ? 32 : 38;
         return (
           <button key={d.dia} type="button" disabled={off} aria-pressed={on} aria-label={d.nombre} title={d.nombre} onClick={() => alternarDia(d.dia)}
             style={{
-              width: lado, height: lado, borderRadius: '50%', fontFamily: SANS, fontSize: filas ? 12.5 : 13.5, fontWeight: 700,
+              width: 38, height: 38, borderRadius: '50%', fontFamily: SANS, fontSize: 13.5, fontWeight: 700,
               border: `1px solid ${on ? 'var(--primary)' : 'var(--border-strong)'}`,
               background: on ? 'var(--primary)' : 'var(--surface)', color: on ? '#fff' : 'var(--dim)',
               cursor: off ? 'default' : 'pointer',
@@ -207,26 +198,6 @@ export function HorarioEnvioPanel({ onGuardado, onSucio, fuente = FUENTE_NEGOCIO
       })}
     </div>
   );
-  if (filas) {
-    return (
-      <>
-        <FilaAjustes titulo="Horario de oficina" detalle="MaKo le escribe a tus contactos sólo en este horario"
-          fin={<Switch checked={h.activo} disabled={off} onChange={(v) => cambiar({ activo: v })} />} />
-        {h.activo && (
-          <FilaAjustes titulo="Horas" ancho fin={(
-            <span className="aj-horario">
-              <Dropdown value={String(h.desde)} options={DESDE} width={118} ariaLabel="Desde" disabled={off} onChange={(v) => cambiar({ desde: Number(v) })} buttonStyle={SELECT_AJUSTES} />
-              a
-              <Dropdown value={String(h.hasta)} options={HASTA} width={118} ariaLabel="Hasta" disabled={off} onChange={(v) => cambiar({ hasta: Number(v) })} buttonStyle={SELECT_AJUSTES} />
-            </span>
-          )} />
-        )}
-        {h.activo && <FilaAjustes titulo="Días" ancho fin={dias} />}
-        <FilaAjustes titulo="Zona horaria" ancho fin={selectorZona(300)} />
-        {aviso && <div className="aj-dest__nota" role="alert" style={{ color: 'var(--bad)' }}>{aviso}<ReportarASoporte /></div>}
-      </>
-    );
-  }
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, fontFamily: SANS }}>

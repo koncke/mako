@@ -20,7 +20,8 @@ import { bloquesATarjeta, tarjetaABloques, GRAMATICA_IA, type TarjetaIA } from '
 import { NODO, type JsonNodo } from '../lib/editor-landing/doc';
 
 const RAIZ = join(import.meta.dirname, '..');
-const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8');
+// El fin de línea, normalizado ANTES de buscar (AGENTS.md, «Fin de línea»): en un clon con autocrlf los fuentes llegan en CRLF.
+const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (src: string) => src.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
 
 /** Un pedazo como los de la landing de MaKo: estilos en línea, un atributo con «>», un ícono, una entidad y un botón. */
@@ -98,7 +99,7 @@ test('la IA ve los TEXTOS de una sección de diseño y los cambia sin tocar la f
 
 test('un clic adentro del diseño ACTIVA su sección, y su barrita suma negrita y cursiva', () => {
   const vista = sinComentarios(leer('app/web-generator/editor/nodos/HtmlEditableVista.tsx'));
-  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\s*setActivo\(true\);\s*marcarSeccion\(\);/);
+  assert.match(vista, /d\.addEventListener\('mousedown', \(e\) => \{\s*activarDiseno\(\{ doc: d, guardar: \(\) => guardarVivo\.current\(\) \}\);\s*marcarSeccion\(\);/);
   assert.match(vista, /if \(n\.type\.name === NODO\.tarjeta\) \{ const id = String\(n\.attrs\.id \?\? ''\); if \(id\) c\.marcarActiva\(id\); return; \}/);
   // Desde el 25/10/2026 la barrita va con íconos y el nombre en el tooltip (`boton(nombre, ícono, acción)`).
   assert.match(vista, /boton\('Negrita', <Icono nombre="negrita" \/>, \(\) => formato\('bold'\)\)/);

@@ -78,6 +78,8 @@ export const TABLAS_DE_INQUILINO = [
   'email_entrantes', 'email_mensajes', 'evolution_contactos',
   'evolution_instancias', 'evolution_labels', 'evolution_stage_labels', 'experimento_tareas',
   'experimentos', 'flow_puentes', 'flow_trabajos', 'flujo_corridas', 'formatos',
+  // De la clave de una reunión a su grabador (mig «reuniones_de_cualquier_grabador», sin número, 26/10/2026).
+  'grabador_reuniones',
   'funnel_config', 'funnel_ofertas', 'funnels',
   // La IA del cliente en SU computadora (migs 0320 y 0321, 21/10/2026): los códigos, las PC y los turnos, por negocio.
   // `ia_pc_llamadas` no tiene `workspace_id`: se va con su turno (on delete cascade). No van en TENANT_TABLES: las lee

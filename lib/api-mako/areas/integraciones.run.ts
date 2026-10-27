@@ -37,6 +37,7 @@ import { permisoCalendarioGoogle, googleCalendarConectado } from '@/lib/google-c
 import { cuotasProveedores, cuentasDe } from '@/lib/ia-cuotas';
 import { getUsageSummary } from '@/lib/anthropic-usage';
 import { tabActivacion, TABS_ACTIVACION } from '@/lib/tab-activacion';
+import { hayGrabadorConectado } from '@/lib/grabadores';
 import { tokenAgenteVisible } from '@/lib/agente-token';
 import { linkPantalla } from '../link';
 import { OWNER_WS } from '@/lib/workspace';
@@ -509,7 +510,9 @@ export const RUNNERS: Runners = {
       // Las disponibles salen del catálogo, no de una copia: la copia seguía ofreciendo
       // 'whatsapp' después de que esa entrada se fue con el WhatsApp oficial (09/10/2026).
       if (!t) return fallo(`La tab «${key}» no tiene activación declarada.`, Object.keys(TABS_ACTIVACION));
-      const conectada = t.servicio ? await integracionConectada(t.servicio, ctx.ws).catch(() => null) : null;
+      // La del Closing se prende con CUALQUIER grabador (lib/grabadores, 26/10/2026), no sólo con el Fathom que nombra.
+      const conectada = t.servicio === 'fathom' ? await hayGrabadorConectado(ctx.ws).catch(() => null)
+        : t.servicio ? await integracionConectada(t.servicio, ctx.ws).catch(() => null) : null;
       return J({
         tab: t.key, titulo: t.titulo,
         integracion: t.servicio ?? null,

@@ -200,8 +200,15 @@ test('TODA llamada a dispararEvento del repo lleva el ws del evento', () => {
 test('en cada WEBHOOK que dispara, el ws es una sola variable y corta si es null antes del evento', () => {
   const archivos = [...new Set(llamadasDelRepo().map((x) => x.archivo))].filter((a) => a.startsWith('app/api/webhooks/'));
   // (Eran 5 el 06/10; desde el 09/10/2026 son 4: el webhook de Chatwoot se borró. Desde el 17/10/2026 son 3: el de los
-  // formularios de Meta dispara por lib/meta-lead-nuevo.ts, que también llama el poll; se mide abajo.)
-  assert.ok(archivos.length >= 3, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 3 el 17/10)`);
+  // formularios de Meta dispara por lib/meta-lead-nuevo.ts, que también llama el poll; se mide abajo. Desde el 26/10/2026
+  // son 2: el de Fathom dispara por lib/grabadores/al-terminar.ts, que comparten los otros grabadores; se mide abajo.)
+  assert.ok(archivos.length >= 2, `sólo ${archivos.length} webhooks disparan: el barrido perdió archivos (eran 2 el 26/10)`);
+  // El de los grabadores: `ws` es el PARÁMETRO (un número, nunca null: cada webhook corta antes), y viaja a mano.
+  const alTerminar = sinComentarios(leer('lib/grabadores/al-terminar.ts'));
+  assert.match(alTerminar, /export async function alTerminarReunion\(ws: number,/);
+  assert.match(alTerminar, /dispararEvento\('reunion\.ocurrio', \{ ws, leadId: lead\.id/);
+  const fathom = sinComentarios(leer('app/api/webhooks/fathom/route.ts'));
+  assert.ok(fathom.indexOf('if (ws == null) {') > 0 && fathom.indexOf('if (ws == null) {') < fathom.indexOf('alTerminarReunion('), 'el webhook de Fathom llega a la reunión sin cortar por «sin workspace»');
   // El de Meta: el `ws` resuelto, cortado si es null ANTES de lo inmediato, y pasado a mano.
   const meta = sinComentarios(leer('app/api/webhooks/meta-leads/route.ts'));
   const corteMeta = meta.indexOf('if (ws == null) {');

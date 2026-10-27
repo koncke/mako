@@ -14,10 +14,9 @@ export const revalidate = 0;
 
 export default async function AgenciaPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   if (!(await getSesionAdmin())) redirect('/login');
-  // Las plantillas se mudaron a /mensajes, que sí se puede nombrar en la barra
-  // (el `match` del nav ve solo el pathname, así que una tab en `?tab=` es
-  // inalcanzable como destino). Los links guardados siguen llegando.
+  // Las plantillas se mudaron a /mensajes, y «MaKo Messages» salió el 26/10/2026 (app/_components/nav.ts): los links
+  // guardados de `?tab=plantillas` caen en Automations.
   const { tab } = await searchParams;
-  if (tab === 'plantillas') redirect(await rutaConWs('/mensajes'));
+  if (tab === 'plantillas') redirect(await rutaConWs('/automations'));
   return <AgenciaTabs />;
 }

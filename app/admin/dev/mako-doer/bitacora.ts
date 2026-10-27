@@ -654,4 +654,22 @@ export const BITACORA: Hito[] = [
       'tests/ia-pc-nunca-a-leads.test.ts (7, 5 roturas) y tests/doer-cartel-sin-ia.test.ts (7, 3 roturas)',
     ],
   },
+  {
+    fecha: '26 oct', hora: '02:00', chat: 'MaKo en WhatsApp: conexiones', sesion: 'local_68bd90bc-b11c-49c9-8642-f69aca1f3ce7', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'MaKo en WhatsApp sigue la conversación: un seguimiento sigue el pedido, y lo de antes vuelve como hecho',
+    puntos: [
+      '«No guarda contexto» no era la memoria: el modelo veía la charla, pero lo que podía hacer salía del último mensaje solo.',
+      '«pausala», «publicá la del webinar» o «mandales a esos 5» llegaban sin con qué hacerlo; ahora siguen el pedido que MaKo ya contestó.',
+      'Lo de más de 14 horas vuelve como hechos con su fecha, y también lo que MaKo propuso en el grupo y cómo terminó.',
+      'Lo que mostraron sus herramientas (los ids) llega al turno siguiente: «descartá esa» sabe cuál es.',
+      'La lectura de producción quedó frenada por un permiso: el script para medirla queda en el repo.',
+    ],
+    archivos: [
+      'lib/doer-hilo.ts — el seguimiento y lo que ya se habló',
+      'lib/mako-doer-in.ts — el turno con el hilo y los hechos en su system',
+      'scripts/medir-hilo-whatsapp.mts — la medición, de sólo lectura',
+      'tests/doer-hilo.test.ts — 34 roturas, todas caen',
+    ],
+  },
 ];

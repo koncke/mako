@@ -6,45 +6,37 @@
 // con timestamps clicables. Devuelve líneas con t_seconds ya calculados.
 //
 // Puerta (../puerta.ts): admin o closer y el Dashboard en la capa. Es lo que se dijo
-// en una llamada: un setter no lo lee. Sin Fathom contesta vacío (lo decide acá).
+// en una llamada: un setter no lo lee. Sin un grabador conectado contesta vacío (lo decide acá).
+// De cualquier grabador (lib/grabadores, 26/10/2026): el de esa llamada, por su clave.
 // =============================================================================
 
 import type { NextRequest } from 'next/server';
-import { fetchRecordingTranscript } from '@/lib/fathom-api';
-import { integracionConectada } from '@/lib/credenciales';
+import { hayGrabadorConectado, leerTranscripcionPorClave } from '@/lib/grabadores';
 import { puertaClosing } from '../puerta';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
-
-function toSeconds(ts: string | null | undefined): number {
-  if (!ts) return 0;
-  const p = String(ts).split(':').map(Number);
-  if (p.some((n) => Number.isNaN(n))) return 0;
-  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
-  if (p.length === 2) return p[0] * 60 + p[1];
-  return p[0] || 0;
-}
 
 export async function GET(req: NextRequest) {
   const cerrada = await puertaClosing({ fathom: false });
   if (cerrada) return cerrada;
   const idRaw = req.nextUrl.searchParams.get('recording_id');
   const recordingId = Number(idRaw);
-  // Fase 1: los transcripts vienen del Fathom global del dueño → otros vacío benigno.
-  if (!(await integracionConectada('fathom'))) {
+  // Sin un grabador conectado no hay de dónde leer: vacío benigno, como siempre.
+  if (!(await hayGrabadorConectado())) {
     return Response.json({ ok: true, recording_id: Number.isFinite(recordingId) ? recordingId : 0, count: 0, lines: [] });
   }
-  if (!Number.isFinite(recordingId) || recordingId <= 0) {
+  // La clave de la reunión: Fathom, positiva; los demás grabadores, negativa (lib/grabadores/reunion.ts).
+  if (!Number.isSafeInteger(recordingId) || recordingId === 0) {
     return Response.json({ ok: false, error: 'recording_id requerido' }, { status: 400 });
   }
   try {
-    const items = await fetchRecordingTranscript(recordingId);
+    const items = await leerTranscripcionPorClave(recordingId);
     const lines = items
       .map((it) => ({
-        t_seconds: toSeconds(it.timestamp),
-        speaker: it.speaker?.display_name ?? null,
-        text: (it.text ?? '').trim(),
+        t_seconds: it.segundo ?? 0,
+        speaker: it.hablante,
+        text: (it.texto ?? '').trim(),
       }))
       .filter((l) => l.text);
     return Response.json({ ok: true, recording_id: recordingId, count: lines.length, lines });

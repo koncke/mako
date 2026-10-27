@@ -49,8 +49,22 @@ export const CSS_NODOS = [
 
   // La columna de la sección, por FUERA del módulo a la izquierda. Arranca en el borde de la
   // sección y el aire va como padding: con un margin, cruzar el hueco apagaba el hover.
-  '.gmc-lado { position: absolute; top: 0; right: 100%; padding: 2px 6px 0 0; display: flex; flex-direction: column; gap: 4px; opacity: 0; pointer-events: none; transition: opacity 0.12s ease; z-index: 6; }',
-  '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; pointer-events: auto; }',
+  // (26/10/2026, Martín: «Muchos botones flotantes que paso el scroll, no me dan tiempo a llegar a apretarlos y
+  // desaparecen»): la columna ocupa el alto de la sección y su botón va PEGADO arriba de lo que se ve (`sticky`), así no
+  // se queda arriba de una sección de 2.000 px; y al salir tarda medio segundo en irse (`visibility` con retardo:
+  // mientras se ve, se puede apretar).
+  '.gmc-lado { position: absolute; top: 0; bottom: 0; right: 100%; padding: 2px 6px 0 0; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.15s ease 0.5s, visibility 0s linear 0.65s; z-index: 6; }',
+  '.gmc-lado-in { position: sticky; top: 12px; display: flex; flex-direction: column; gap: 4px; pointer-events: auto; }',
+  '.gm-tarjeta:hover > .gmc-lado, .gm-tarjeta[data-activa="si"] > .gmc-lado, .gmc-lado[data-abierto] { opacity: 1; visibility: visible; transition-delay: 0s; }',
+  // REORDENAR (26/10/2026, Martín: «Las secciones no se pueden acomodar»): el lugar se decide por la MITAD de cada sección,
+  // y con secciones de 2.000 px esa mitad quedaba fuera de la pantalla. Mientras se arrastra el ⋮ (TarjetaVista), cada
+  // sección se ve como una franja de su parte de arriba: entran todas y se suelta donde se ve.
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta { max-height: 132px; overflow: hidden; }',
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta::after { content: ""; position: absolute; inset: auto 0 0 0; height: 48px; background: linear-gradient(transparent, rgba(255,255,255,.92)); pointer-events: none; z-index: 5; }',
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta > .gmc-mini, body[data-gm-reordenando] .ProseMirror > .gm-tarjeta > .gmc-entre { display: none; }',
+  // Cada franja con el nombre de su sección (`data-rotulo`, TarjetaVista): la parte de arriba de un diseño suele ser su
+  // margen, en blanco.
+  'body[data-gm-reordenando] .ProseMirror > .gm-tarjeta[data-rotulo]::before { content: attr(data-rotulo); position: absolute; left: 16px; top: 50%; transform: translateY(-50%); z-index: 6; max-width: 70%; padding: 6px 12px; border-radius: 8px; background: rgba(18,21,27,.84); color: #fff; font: 600 14px/1.3 system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }',
   // En una diapositiva a sangre (ancho completo) no hay lugar afuera: la columna va adentro, arriba a la izquierda, y lo
   // mismo en la vista de teléfono o tableta (el marco recorta lo que sale: `overflow: hidden` en gamma.css).
   // ⚠️ Una LANDING en escritorio la lleva AFUERA (24/10/2026): todas sus secciones van a sangre (css.ts, 15c) y adentro,

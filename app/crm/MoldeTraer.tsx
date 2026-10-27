@@ -47,8 +47,8 @@ export function MoldeTraer({ arriba, pasos, fuente, destino, resumen, mas = [], 
   fuente?: ReactNode;
   /** A dónde: la fila «Entran a». */
   destino?: ReactNode;
-  /** La línea de resumen. */
-  resumen?: { texto: string; chips?: readonly ChipResumen[] };
+  /** La línea de resumen. `extra`: un control chico a la derecha («Ignorar admins», 26/10/2026). */
+  resumen?: { texto: string; chips?: readonly ChipResumen[]; extra?: ReactNode };
   /** El «⋯» de la fila de arriba: lo que no es el camino principal. Vacío = no se dibuja. */
   mas?: readonly OpcionMas[];
   estado?: EstadoPie | null;
@@ -106,6 +106,7 @@ export function MoldeTraer({ arriba, pasos, fuente, destino, resumen, mas = [], 
               {c.texto}
             </span>
           ))}
+          {resumen.extra}
         </div>
       )}
       {menu && (

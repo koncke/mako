@@ -54,7 +54,6 @@ import { invitarPorEmail } from '@/lib/invitaciones';
 import { getSettingEstricto, setSetting } from '@/lib/settings';
 import { getSupabaseServer } from '@/lib/supabase';
 import { KEY_HORARIO_ENVIO, HORARIO_SUGERIDO, DIAS_PANTALLA, horaTexto, horarioParaGuardar, sanearHorario, type DiaSemana } from '@/lib/horario-envio';
-import { criterioDelWorkspace, guardarCriterio, TOPE_CRITERIO } from '@/lib/plan-criterio';
 import { estadoMfa } from '@/lib/mfa';
 import { tieneContrasena } from '@/lib/contrasena';
 import { limpiarNombreNegocio } from '@/lib/nombre-negocio';
@@ -594,7 +593,7 @@ export const RUNNERS: Runners = {
       const i = await identidadFiscalPorId(Number(payload.id));
       if (!i) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       await guardarIdentidadFiscal(i.id, { nombre: i.nombre, id_fiscal: i.id_fiscal, domicilio: i.domicilio, correo: i.correo, es_default: true });
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return `«${i.nombre}» es ahora la identidad fiscal predeterminada.`;
     }),
   },
@@ -738,7 +737,7 @@ export const RUNNERS: Runners = {
       const id = typeof payload.id === 'number' ? payload.id : null;
       if (id && !(await identidadFiscalPorId(id))) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       const nuevoId = await guardarIdentidadFiscal(id, { nombre, id_fiscal: s(f.id_fiscal), domicilio: s(f.domicilio), correo: s(f.correo), es_default: f.es_default === true });
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return { ok: true, resumen: id ? `Identidad fiscal «${nombre}» actualizada.` : `Identidad fiscal «${nombre}» creada.`, datos: { id: nuevoId } };
     }),
   },
@@ -754,7 +753,7 @@ export const RUNNERS: Runners = {
       const i = await identidadFiscalPorId(Number(payload.id));
       if (!i) return { ok: false, resumen: 'Esa identidad fiscal ya no existe.' };
       await borrarIdentidadFiscal(i.id);
-      invalidar('/configuraciones');
+      invalidar('/configuraciones/fiscal');
       return `Identidad fiscal «${i.nombre}» borrada.`;
     }),
   },
@@ -868,7 +867,7 @@ export const RUNNERS: Runners = {
   },
   // ── Settings por la API (25/10/2026): lo que la pantalla deja ver o cambiar ──────────────────────
   // Cada una usa la MISMA función que su pantalla (setPerfil, limpiarNombreNegocio + actualizarWorkspace, setNotifPush,
-  // setNotifInApp, horarioParaGuardar + setSetting, guardarCriterio, estadoMfa): una segunda implementación se separa sola.
+  // setNotifInApp, horarioParaGuardar + setSetting, estadoMfa): una segunda implementación se separa sola.
   ver_avisos_celular: {
     leer: async (_input, ctx) => {
       if (ctx.canal !== 'app') return errorLectura('Los avisos al celular son de la persona logueada: solo se ven desde la app.');
@@ -918,13 +917,6 @@ export const RUNNERS: Runners = {
         dias: DIAS_PANTALLA.filter((d) => h.dias.includes(d.dia)).map((d) => d.nombre), zona,
         nota: h.activo ? `Escriben sólo en ese horario, en hora de ${zona}.` : 'Apagado: escriben a cualquier hora (lo de arriba es lo guardado para cuando se prenda).',
       });
-    },
-  },
-
-  ver_criterio_reuniones: {
-    leer: async () => {
-      const t = (await criterioDelWorkspace()) ?? '';
-      return json({ texto: t, caracteres: t.length, tope: TOPE_CRITERIO, nota: t ? 'Es el texto entero.' : 'Vacío: MaKo carga todo lo que parezca una tarea.' });
     },
   },
 
@@ -1109,31 +1101,8 @@ export const RUNNERS: Runners = {
       const r = horarioParaGuardar(payload.horario);
       if (!r.ok) return { ok: false, resumen: r.error };
       await setSetting(KEY_HORARIO_ENVIO, r.valor);
-      invalidar('/configuraciones');
+      invalidar('/automations');
       return 'Horario de oficina guardado.';
-    }),
-  },
-
-  guardar_criterio_reuniones: {
-    preparar: async (input): Promise<Preparado> => {
-      const crudo = typeof input.texto === 'string' ? input.texto : '';
-      const texto = crudo.trim() === VACIAR ? '' : crudo;
-      if (texto.length > TOPE_CRITERIO) return { error: `El criterio tiene ${texto.length} caracteres; el tope es ${TOPE_CRITERIO}.` };
-      const antes = (await criterioDelWorkspace()) ?? '';
-      if (antes === texto) return { error: 'El criterio ya es ése.', yaEstaba: true };
-      return {
-        payload: { texto },
-        resumen: texto
-          ? `Reemplazar el criterio de las reuniones (${antes.length} → ${texto.length} caracteres). Texto nuevo:\n${texto}`
-          : 'Vaciar el criterio de las reuniones: MaKo va a cargar todo lo que parezca una tarea.',
-      };
-    },
-    ejecutar: async (payload) => escribir(async () => {
-      const texto = typeof payload.texto === 'string' ? payload.texto : '';
-      if (texto.length > TOPE_CRITERIO) return { ok: false, resumen: 'El criterio pasa el tope.' };
-      await guardarCriterio(texto);
-      invalidar('/configuraciones');
-      return texto ? 'Criterio de las reuniones guardado.' : 'Criterio de las reuniones vaciado.';
     }),
   },
 };

@@ -13,14 +13,19 @@
 // Lo que cambió de FUNCIÓN (inventario en docs/settings/referencia.md):
 //   · Zona horaria con la lista entera de países (la de Horario de envío), la del navegador sugerida primero. Antes, 6 fijas.
 //     Ahora gobierna algo: el «No molestar» de Notificaciones se mide en ESTA zona (lib/notif-catalogo.ts → enSilencio).
-//   · Tema (claro u oscuro): la misma preferencia del botón de la barra (`aplicarModo`), de este navegador.
+//   · (Tema salió el 26/10/2026, Martín: «no quiero otra vez el modo oscuro allí»: es el sol/luna de la barra, y en el
+//     teléfono el de la cabecera de Settings.)
+//   · LA FOTO (26/10/2026, Martín: «elimina los 2 botones, hazla más grande y que se pueda clickear en la foto para eliminarla
+//     o cambiarla, que funcione como las demás fotos de perfil que tenemos en la app, incluso que se pueda poner un emoji»):
+//     grande, y tocarla abre `IdentidadPicker`, el MISMO de los clientes y los proyectos (emoji · íconos · subir · quitar).
+//     Lo elegido se guarda como imagen en `foto_url` (lib/foto-perfil.ts dice por qué).
 //   · «Empresa» NO se ofrece a quien ve «Nombre del negocio» (el admin): una cambiaba el nombre en toda la app y la otra no
 //     cambiaba nada visible (docs/hallazgos-ajustes.md). Lo guardado no se borra; a un closer o setter se le sigue ofreciendo.
 //
 // Los datos llegan del server (lib/perfil.ts → leerPerfil) en el primer render. Se guarda por POST /api/perfil, el de siempre.
 // En una «vista de otro» (la agencia o el super admin parados en un cliente) el perfil es el del CLIENTE, y se rotula.
 
-import { useEffect, useRef, useState, type ChangeEvent, type FocusEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FocusEvent, type ReactNode } from 'react';
 import type { Perfil, VistaPerfil } from '@/lib/perfil';
 import { DIAL_DEFAULT, splitTelefono, unirTelefono } from '@/lib/paises';
 import { Dropdown } from '../components/Dropdown';
@@ -30,8 +35,9 @@ import { Toast, useToast } from '../_ui/Toast';
 import { useRouter } from '@/app/_ui/Link';
 import { guardarNombreNegocioAction } from '@/app/configuraciones/negocio-actions';
 import { opcionesDeZona } from '@/app/configuraciones/HorarioEnvioPanel';
-import { aplicarModo } from '@/app/_components/InterruptorModo';
-import { ATTR_MODO } from '@/lib/temas-candidatos';
+import { getHorarioEnvioAction, saveZonaHorarioAction } from '@/app/configuraciones/horario-actions';
+import { IdentidadPicker } from '@/app/_components/IdentidadPicker';
+import { emojiDeFoto, fotoDeCambio } from '@/lib/foto-perfil';
 import { zonaCanonica } from '@/lib/zona-negocio-reglas';
 import { NOMBRE_NEGOCIO_MAX, muestraNegocio, type NegocioDelPerfil } from '@/lib/nombre-negocio';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -42,7 +48,8 @@ type Campo = 'nombre' | 'cargo' | 'empresa' | 'web' | 'bio';
 // Inventado: un placeholder con el nombre de un cliente real (era el de Mauricio y su negocio) se le
 // muestra a todos los workspaces, y también en la hoja del teléfono (/m/cuenta).
 const EJEMPLO: Record<Campo | 'negocio', string> = {
-  nombre: 'Ana Torres', cargo: 'Fundadora', empresa: 'Estudio Norte', negocio: 'Estudio Norte', web: 'https://…', bio: 'A qué te dedicas',
+  // «CEO», nunca «Fundadora» (26/10/2026, Martín: «en cargo, no pongas "Fundadora" en femenino, pon CEO»).
+  nombre: 'Ana Torres', cargo: 'CEO', empresa: 'Estudio Norte', negocio: 'Estudio Norte', web: 'https://…', bio: 'A qué te dedicas',
 };
 
 /** Lo que se guarda del teléfono: «+» y los dígitos con el código de país (la forma del resto de la app), o vacío. */
@@ -128,22 +135,17 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
   // ⚠️ EL TELÉFONO CON EL PAÍS PRIMERO (12/10/2026: «en todos lados que se configure telefono es así»). La lada y el número
   // viven aparte mientras se escribe, y lo que se guarda sale como «+» y los dígitos con el código de país.
   const [tel, setTel] = useState(() => { const { lada, resto } = splitTelefono(inicial.telefono ?? ''); return { lada: lada || DIAL_DEFAULT, numero: resto }; });
-  const [subiendo, setSubiendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement | null>(null);
+  /** El selector de la foto, anclado a la foto (null = cerrado). */
+  const [fotoAncla, setFotoAncla] = useState<HTMLElement | null>(null);
   const router = useRouter();
   const [nombreNegocio, setNombreNegocio] = useState(negocio?.nombre ?? '');
   const { toast, show, clear } = useToast();
   const [zonaNav, setZonaNav] = useState<string | null>(null);
-  const [oscuro, setOscuro] = useState(false);
+  /** La zona del NEGOCIO (`mako.timezone`), para quien lo administra: null = no se pudo leer o no corresponde. */
+  const [zonaNegocio, setZonaNegocio] = useState<{ zona: string; puedeEditar: boolean } | null>(null);
 
-  useEffect(() => {
-    setZonaNav(zonaDelNavegador());
-    const sync = () => setOscuro(document.documentElement.getAttribute(ATTR_MODO) === 'oscuro');
-    sync();
-    window.addEventListener('mako-modo', sync);
-    return () => window.removeEventListener('mako-modo', sync);
-  }, []);
+  useEffect(() => { setZonaNav(zonaDelNavegador()); }, []);
 
   const persistir = async (cambio: Partial<Perfil>): Promise<boolean> => {
     setError(null);
@@ -175,6 +177,25 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
     } catch { setError('No se pudo guardar'); return false; }
   };
 
+  // La zona del negocio se lee sólo para quien ve el nombre del negocio (el admin): a los demás no les corresponde.
+  const conNegocioArriba = muestraNegocio(negocio);
+  useEffect(() => {
+    if (!conNegocioArriba) return;
+    let vivo = true;
+    getHorarioEnvioAction().then((d) => { if (vivo) setZonaNegocio({ zona: d.zona, puedeEditar: d.puedeEditar }); }).catch(() => { /* sin la fila */ });
+    return () => { vivo = false; };
+  }, [conNegocioArriba]);
+  const guardarZonaNegocio = async (tz: string) => {
+    if (!zonaNegocio || tz === zonaNegocio.zona) return;
+    const antes = zonaNegocio;
+    setError(null);
+    setZonaNegocio({ ...antes, zona: tz });
+    const r = await saveZonaHorarioAction(tz).catch(() => ({ ok: false, error: 'No se pudo guardar' } as const));
+    if (!r.ok) { setZonaNegocio(antes); setError(r.error || 'No se pudo guardar'); return; }
+    setZonaNegocio({ ...antes, zona: ('zona' in r && r.zona) || tz });
+    show('Guardado', undefined, 'good');
+  };
+
   /** El teléfono se guarda al salir de la fila (el número o el país), si cambió. */
   const guardarTelefono = async (t = tel) => {
     const valor = telefonoGuardable(t);
@@ -191,19 +212,11 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
     void guardarTelefono();
   };
 
-  const onFile = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    setError(null); setSubiendo(true);
-    try {
-      const fd = new FormData();
-      fd.append('file', file);
-      const j = await (await fetch('/api/perfil/avatar', { method: 'POST', body: fd })).json();
-      if (!j.ok) { setError(j.error ?? 'No se pudo subir la foto'); return; }
-      await persistir({ avatarUrl: j.url as string }); // ya, para que se vea en la barra
-    } catch (e2) { setError(e2 instanceof Error ? e2.message : String(e2)); }
-    finally { setSubiendo(false); }
+  /** Lo que se eligió en el selector, guardado YA (para que se vea en la barra). Un encuadre no toca la foto. */
+  const elegirFoto = (c: { emoji?: string; icono?: string | null; y?: number | null }) => {
+    const nueva = fotoDeCambio(c);
+    if (nueva == null || nueva === (ultimo.current.avatarUrl ?? '')) return;
+    void persistir({ avatarUrl: nueva });
   };
 
   const titulo = vista.deOtro ? `Perfil de ${vista.cuenta || 'esta cuenta'}` : 'Perfil';
@@ -232,21 +245,21 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
       {error && <div className="aj-error" role="alert">{error}<ReportarASoporte /></div>}
 
       <GrupoAjustes>
-        <input ref={fileRef} type="file" accept="image/*" onChange={onFile} style={{ display: 'none' }} />
+        {/* Sin «Subir», «Cambiar» ni «Quitar»: la foto MISMA, grande, abre el selector (todo eso está adentro). */}
         <FilaAjustes titulo="Foto" fin={(
-          <>
-            <button type="button" className="aj-boton" data-variante="texto" disabled={subiendo} onClick={() => fileRef.current?.click()}>
-              {subiendo ? 'Subiendo…' : perfil.avatarUrl ? 'Cambiar' : 'Subir'}
-            </button>
-            {perfil.avatarUrl && !subiendo && (
-              <button type="button" className="aj-boton" data-variante="texto" onClick={() => void persistir({ avatarUrl: '' })}>Quitar</button>
-            )}
-            <button type="button" className="aj-foto" onClick={() => fileRef.current?.click()} aria-label="Cambiar la foto" style={{ border: 'none', padding: 0, cursor: 'pointer' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" /> : letra}
-            </button>
-          </>
+          <button type="button" className="aj-foto aj-foto--grande" aria-label={perfil.avatarUrl ? 'Cambiar o quitar la foto' : 'Poner una foto'}
+            aria-haspopup="dialog" aria-expanded={!!fotoAncla}
+            onClick={(e) => setFotoAncla(fotoAncla ? null : e.currentTarget)}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {perfil.avatarUrl ? <img src={perfil.avatarUrl} alt="" /> : letra}
+            <span className="aj-foto__lapiz" aria-hidden>✎</span>
+          </button>
         )} />
+        {fotoAncla && (
+          <IdentidadPicker titulo="Foto de perfil" ancla={fotoAncla} conEncuadre={false} subirA="/api/perfil/avatar"
+            emoji={emojiDeFoto(perfil.avatarUrl)} icono={emojiDeFoto(perfil.avatarUrl) ? null : perfil.avatarUrl || null}
+            onElegir={elegirFoto} onCerrar={() => setFotoAncla(null)} />
+        )}
         <FilaCampo titulo="Nombre">
           <CampoEnLinea etiqueta="Nombre" valor={perfil.nombre} placeholder={EJEMPLO.nombre} onGuardar={guardarCampo('nombre')} />
         </FilaCampo>
@@ -292,12 +305,13 @@ export function InformacionPersonal({ inicial, vista, sinTitulo = false, negocio
           <Dropdown value={perfil.timezone} options={zonas} width={300} search ariaLabel="Zona horaria" buttonStyle={SELECT_AJUSTES}
             onChange={(v) => { if (v !== perfil.timezone) void persistir({ timezone: v }); }} />
         </FilaCampo>
-        {/* El tema es de ESTE navegador (el botón de la barra): mirando a un cliente no es un dato suyo. */}
-        {!vista.deOtro && (
-          <FilaCampo titulo="Tema">
-            <Dropdown value={oscuro ? 'oscuro' : 'claro'} width={160} ariaLabel="Tema" buttonStyle={SELECT_AJUSTES}
-              options={[{ value: 'claro', label: 'Claro' }, { value: 'oscuro', label: 'Oscuro' }]}
-              onChange={(v) => aplicarModo(v === 'oscuro')} />
+        {/* LA ZONA DEL NEGOCIO (26/10/2026, Martín: «La zona horaria, para el resto, ponlo dentro de "Perfil"»): la hora en que
+            MaKo manda, reporta y agenda para todo el negocio. Vivía en Settings › General, que se fue; la de cada automatización
+            se ve en su tuerca. A quien puede cambiar el nombre del negocio, con la MISMA acción que la tuerca. */}
+        {conNegocio && zonaNegocio && (
+          <FilaCampo titulo="Zona del negocio">
+            <Dropdown value={zonaNegocio.zona} options={opcionesDeZona(zonaNegocio.zona, zonaNav)} width={300} search ariaLabel="Zona del negocio"
+              buttonStyle={SELECT_AJUSTES} disabled={!zonaNegocio.puedeEditar} onChange={(v) => void guardarZonaNegocio(v)} />
           </FilaCampo>
         )}
       </GrupoAjustes>

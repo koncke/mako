@@ -1037,6 +1037,29 @@ export const PLANTILLAS_PLATAFORMA: readonly PlantillaAutomatizacion[] = [
       mako('rp_una_mk', '📝 Leí tu reunión *{{plan_titulo}}*\n👥 Con {{plan_con}}\n🗓️ {{plan_cuando}}\n\nSaqué *{{plan_tuyas}}* y te las dejé en el plan para que las confirmes:\n{{plan_link}}\n👥 Y {{plan_de_otros}}, para repartir.\nOtras {{plan_fuera}} no las cargué porque tu criterio las deja afuera. Están ahí, destildadas y con el motivo, por si me equivoqué.\n⚠️ De {{plan_a_medias}} no pude leer todo: puede faltar contenido. Sigo sola con lo que falta.\n\nEntras, revisas y con un toque quedan cargadas. — MaKo', null),
     ],
   },
+  {
+    // EL CLAUDE DEL NEGOCIO NO PUEDE ANALIZAR SUS LLAMADAS (26/10/2026, docs/hallazgos-closing.md): el ws11 juntó 168 análisis
+    // en error en tres semanas porque su clave se quedó sin crédito, y nadie se enteró. Lo emite el Closing UNA vez por
+    // incidente (lib/closing-ia-caida.ts). Cada motivo con su texto LITERAL y su paso para arreglarlo; la CONDITION elige.
+    // Nace PRENDIDA: es lo único que le dice al negocio que el Closing dejó de andar.
+    id: 'mako-closing-ia-caida',
+    nombre: 'Se Cayó el Claude de un Negocio',
+    emoji: '⚠️',
+    linea: 'Le avisa a un negocio que su Claude no puede analizar sus llamadas (sin crédito, clave borrada o sin permiso).',
+    origen: 'el Closing (lib/closing-ia-caida.ts), una vez por incidente y no una por llamada',
+    objetivo: 'clientes',
+    soloPlataforma: true,
+    cron: { fijo: TRIGGER_AVISO_MAKO, evento: 'closing_ia_caida' },
+    pasos: [
+      condicion('ic_motivo', [
+        [[{ campo: 'dato:ia_caida_motivo', valor: 'sin crédito' }], 'ic_credito_mk'],
+        [[{ campo: 'dato:ia_caida_motivo', valor: 'clave inválida' }], 'ic_clave_mk'],
+      ], 'ic_permiso_mk'),
+      mako('ic_credito_mk', '⚠️ *Tus llamadas de venta no se están analizando*\nTu clave de Claude se quedó sin crédito (desde el {{ia_caida_desde}}), y el Closing la usa para analizar cada llamada.\n\n👉 Cárgale crédito en console.anthropic.com → Billing. Apenas tenga, las {{ia_caida_pendientes}} que esperan se analizan solas.\n{{ia_caida_link}} — MaKo', null),
+      mako('ic_clave_mk', '⚠️ *Tus llamadas de venta no se están analizando*\nTu clave de Claude dejó de funcionar (desde el {{ia_caida_desde}}): puede que la hayas borrado o rotado.\n\n👉 Pega una nueva en Tus cuentas de IA. Apenas funcione, las {{ia_caida_pendientes}} que esperan se analizan solas.\n{{ia_caida_link}} — MaKo', null),
+      mako('ic_permiso_mk', '⚠️ *Tus llamadas de venta no se están analizando*\nTu cuenta de Claude no deja usar tu clave (desde el {{ia_caida_desde}}).\n\n👉 Revisa sus permisos en console.anthropic.com, o pega otra clave en Tus cuentas de IA. Apenas funcione, las {{ia_caida_pendientes}} que esperan se analizan solas.\n{{ia_caida_link}} — MaKo', null),
+    ],
+  },
 ];
 
 export const PLANTILLAS_REEMPLAZADAS: Readonly<Record<string, string | null>> = {

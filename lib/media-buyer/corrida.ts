@@ -18,6 +18,8 @@ import { modoEfectivo, ordenDelCupo, recomendadasHoy, textoCupo } from './plan';
 import { resolverTacticas } from './tacticas';
 import { leerDatosCuenta, SinCuentaParaOperar, fmtUnidad, presupuestoMinimoCuenta, diasAntes, cuentaDelNegocio } from './datos';
 import { prepararVariaciones } from './variaciones';
+import { propuestasDeAgentesPropios } from './agentes-ia';
+import { alertasProtect, type Alerta } from './protect';
 import { lanzar } from './ejecutar';
 import { crearNotificacion } from '@/lib/notificaciones';
 import type { Decision, Propuesta } from './tipos';
@@ -36,6 +38,10 @@ export type ResumenCorrida = {
   lanzadas?: number;
   fallidas?: string[];
   sinVariaciones?: string[];
+  /** Lo que no pudieron mirar los agentes propios (su IA no contestó, por ejemplo). */
+  agentes?: string[];
+  /** Protect: lo que se rompió en la cuenta (protect.ts). Queda en `ultimaCorridaInfo` y la pantalla lo muestra. */
+  alertas?: Alerta[];
   /** Las que el motor vio y no entraron en el cupo del plan de hoy (MaKo Esencial: lib/media-buyer/plan.ts). */
   fueraDelCupo?: number;
   avisos?: string[];
@@ -108,7 +114,10 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
   // EL CUPO DEL PLAN (Esencial: 2 por día) se mira ANTES de escribirlas: lo que no entra hoy no gasta IA, y mañana el motor
   // lo vuelve a ver si sigue igual. Entra primero lo que cuida la plata (plan.ts → ordenDelCupo).
   const yaGuardadas = new Set(decisiones.map((d) => d.clave));
-  const { orden, lugares } = ordenDelCupo(props.filter((p) => !yaGuardadas.has(p.clave)), recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
+  // Los agentes PROPIOS (una regla escrita en palabras, agentes-propios.ts): la IA del negocio la mira contra la cuenta y
+  // deja acciones con la táctica `manual`, que el piloto no lanza nunca (abajo, `automaticas`). Entran al cupo al final.
+  const propios = await propuestasDeAgentesPropios(ws, { hoy, datos, kpi: config.kpi, objetivo, fmt: fmtUnidad(datos), yaHoy: yaGuardadas });
+  const { orden, lugares } = ordenDelCupo([...props, ...propios.propuestas].filter((p) => !yaGuardadas.has(p.clave)), recomendadasHoy(decisiones, hoy), cupo.recomendacionesDia);
   let quedan = lugares;
   let fueraDelCupo = 0;
   const sinVariaciones: string[] = [];
@@ -143,6 +152,19 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
     }
   }
 
+  // Protect (el de AdAmigo): lo roto en la cuenta. Las graves van al aviso del negocio, aparte de las recomendaciones.
+  const alertas = alertasProtect({
+    arbol: datos.arbol, corta: datos.corta, larga: datos.larga, totalActivo: datos.totalActivo, presupuestoMaxDia: config.presupuestoMaxDia,
+    fmt: fmtUnidad(datos),
+  });
+  const graves = alertas.filter((a) => a.gravedad === 'alta');
+  if (graves.length) {
+    await crearNotificacion({
+      ws, tipo: 'media_buyer', severidad: 'warn', origen: 'media-buyer', link: '/ads-manager',
+      titulo: `Protect: ${graves[0].titulo}`, descripcion: graves.map((a) => a.detalle).join(' · ').slice(0, 400),
+    }).catch(() => null);
+  }
+
   // El aviso: lo que propone un cron no dispara nada solo (docs/hallazgos-ads.md, «El Autopilot»: «una propuesta de
   // madrugada espera sin que nadie se entere»). Va al feed de avisos del negocio, el de la campanita y el Inbox del teléfono.
   const esperan = nuevas.length - automaticas.length;
@@ -158,7 +180,9 @@ async function correr(ws: number, hoy: string, cuentasVistas: Set<string> | unde
 
   return {
     estado: 'ok', objetivo, objetivoEsRecomendado: config.objetivo == null,
-    propuestas: props.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
+    propuestas: props.length + propios.propuestas.length, nuevas: nuevas.length, lanzadas, fallidas, sinVariaciones, fueraDelCupo,
+    ...(propios.avisos.length ? { agentes: propios.avisos } : {}),
+    alertas,
     avisos: fueraDelCupo && cupo.recomendacionesDia != null ? [...datos.avisos, textoCupo(cupo.recomendacionesDia)] : datos.avisos,
     fuente: datos.fuente,
   };

@@ -175,7 +175,6 @@ function noSeAplica(c: ComentarioConLanding | null, id: number): string | null {
   if (!c) return noExisteComentario(id);
   if (c.docId == null) return 'Ese comentario es de una página de afuera: no se aplica por aquí. Primero se replica (replicar_landing) y se pasan los comentarios a la copia (pasar_comentarios_a_copia_landing), y se aplica el de la copia; o en el Web Generator → Diagnóstico, «Aplicar» hace las dos cosas.';
   if (c.estado !== 'pendiente') return `Ese comentario ya está ${nombreDeEstado(c.estado)}: no hay nada que aplicar.`;
-  if (!c.seccionId) return 'No sé en qué sección de la landing está ese comentario (su cita no se encontró): no se puede aplicar solo. Propón el cambio en el chat o hazlo en el editor.';
   return null;
 }
 /** Lo que mira publicar_landing de la fila. Con el contenido: lo que publicar() rechazaría por él se dice en preparar(). */

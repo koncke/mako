@@ -88,7 +88,8 @@ test('la página del Dashboard: Focus sólo para quien veía /general, y cada ed
 test('el editor dibuja la tira con las hojas que hay en pantalla, y «Templates» abre la galería en el lugar', () => {
   const src = leer('app/dashboard/EditorInforme.tsx');
   assert.match(src, /const pestanas = unido \? \(esGeneral \? pestanasDelDashboard\(propias, unido\.otras\) : pestanasDelDashboard\(unido\.otras, propias\)\) : null;/);
-  assert.match(src, /<PestanasDashboard pestanas=\{pestanas\} actual=\{hoja\.id\} informe=\{informe\} onIr=\{irAHoja\}/);
+  // 32f430356 (tipos, 24/10) le pasa a la tira `informeGeneralODashboard` (el mismo informe, con el tipo de los dos del Dashboard).
+  assert.match(src, /<PestanasDashboard pestanas=\{pestanas\} actual=\{hoja\.id\} informe=\{informeGeneralODashboard\} onIr=\{irAHoja\}/);
   assert.match(src, /onTemplates=\{esGeneral \|\| !guardable \? null : \(\) => \{ setMenu\(null\); setNuevaHoja\(true\); \}\}/);
   assert.match(src, /const \[nuevaHoja, setNuevaHoja\] = useState\(\(\) => plantillasInicial && /);
 });

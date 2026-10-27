@@ -63,7 +63,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Detalle de una integración',
     descripcion: 'Para UNA integración: para qué sirve, si está conectada, qué campos pide (cuáles son obligatorios, cuáles ya están cargados, cuáles quedaron ilegibles y hay que volver a pegar, cuáles completa MaKo sola), los pasos del tutorial oficial para sacar la credencial y el paso que hay que hacer del otro lado (por ejemplo, la URL de webhook que se pega en Fathom). Nunca devuelve los valores. Úsala ante «¿qué me falta para conectar X?».',
     parametros: [
-      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, email, gemini, groq, fathom, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
+      { nombre: 'servicio', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración (meta, email, gemini, groq, fathom, tldv, fireflies, zoom, otter, calendly, calcom, panda, youtube, elevenlabs…), tal como sale en ver_integraciones.', ejemplo: 'fathom' },
     ],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: G_ADMIN,
   },
@@ -72,7 +72,7 @@ export const DEFS: readonly OperacionDef[] = [
     titulo: 'Probar la conexión de integración',
     descripcion: 'Prueba una integración con las credenciales YA guardadas: hace el pedido más barato al proveedor y dice si anda y, si no, el motivo (key inválida, falta un campo, el servicio no respondió en 8 s). No acepta credenciales nuevas: para cargarlas, pasa el link de link_configurar_integracion. Google Calendar y el Pixel de MaKo no se prueban aquí (usa ver_estado_google_calendar).',
     parametros: [
-      { nombre: 'servicioKey', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, gemini…).', ejemplo: 'gemini' },
+      { nombre: 'servicioKey', tipo: 'string', obligatorio: true, max: 40, descripcion: 'key de la integración a probar, tal como sale en ver_integraciones (meta, fathom, tldv, fireflies, zoom, gemini…).', ejemplo: 'gemini' },
     ],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_ADMIN,
   },

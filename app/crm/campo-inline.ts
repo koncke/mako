@@ -16,6 +16,7 @@
 // «Editar deal →».
 
 import type { FathomLink } from '@/lib/leads';
+import { grabadorDelLink } from '@/lib/grabadores/catalogo';
 import { usuarioDeTexto } from '@/lib/instagram-buscar';
 
 /**
@@ -283,8 +284,15 @@ const ISO_DIA = /^\d{4}-\d{2}-\d{2}$/;
  * Importa porque el link es lo que siguen el reparto de grabaciones y el Closing
  * Analyst: con un texto cualquiera, el bloque de la reunión dibuja un «Abrir →»
  * que no abre nada y el análisis queda huérfano.
+ *
+ * ¿Es el link de una grabación? De CUALQUIER grabador (26/10/2026, lib/grabadores/catalogo.ts): Fathom, Loom, tl;dv,
+ * Fireflies, Zoom, Otter, Read AI, Meet. Hasta ese día sólo fathom.video, y un cliente que graba con Loom no podía pegar
+ * su link en el lead. El mismo rigor que tenía la regex de Fathom: https y el dominio exacto (un `fathom.video.otro.tld` no
+ * pasa).
  */
-export const FATHOM_URL = /^https:\/\/([a-z0-9-]+\.)*fathom\.video\//i;
+export const esLinkDeGrabacion = (s: string): boolean => grabadorDelLink(s) != null;
+/** Lo que se le dice a quien pega otra cosa. */
+export const ERROR_LINK_GRABACION = 'El link tiene que ser de un grabador de reuniones (Fathom, Loom, tl;dv, Fireflies, Zoom…), con https://.';
 
 /** Los dos slots fijos de `fathom_links`: una llamada de VENTA por reunión. */
 export const ETIQUETA_FATHOM: Record<'fathom_r1' | 'fathom_r2', string> = {
@@ -337,7 +345,7 @@ export function valorDeCampo(campo: CampoInline, v: ValorInline): string | numbe
   }
   if (!s) return null;
   if (gesto === 'enlace') {
-    if (!FATHOM_URL.test(s)) throw new Error('El link tiene que ser una URL de Fathom (https://fathom.video/…).');
+    if (!esLinkDeGrabacion(s)) throw new Error(ERROR_LINK_GRABACION);
     return s.slice(0, 500);
   }
   if (gesto === 'texto') return s.slice(0, 500);

@@ -1033,7 +1033,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         const r2 = paso === 'fathomR2';
         cuerpo = (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <input aria-label={`Link de Fathom de la ${r2 ? 'Reunión 2' : 'Reunión 1'}`} value={linkDe(r2)} onChange={(e) => { const url = e.target.value; setFathomOmitido(false); setFathom((arr) => ponerLinkFathom(arr, r2 ? 'fathom_r2' : 'fathom_r1', url || null, etiquetaEsR2)); }} placeholder="https://fathom.video/…" autoFocus style={{ ...compInput, textAlign: 'left' }} />
+            <input aria-label={`Link de la grabación de la ${r2 ? 'Reunión 2' : 'Reunión 1'}`} value={linkDe(r2)} onChange={(e) => { const url = e.target.value; setFathomOmitido(false); setFathom((arr) => ponerLinkFathom(arr, r2 ? 'fathom_r2' : 'fathom_r1', url || null, etiquetaEsR2)); }} placeholder="https://… (Fathom, Loom, tl;dv, Zoom…)" autoFocus style={{ ...compInput, textAlign: 'left' }} />
             <button type="button" onClick={() => setFathomOmitido(true)} style={{ alignSelf: 'flex-start', padding: 8, borderRadius: 9, border: '1px solid ' + (fathomOmitido ? 'var(--warn-fill)' : 'var(--border-strong)'), background: fathomOmitido ? 'var(--warn-bg)' : 'transparent', color: fathomOmitido ? 'var(--warn)' : 'var(--dim)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>{fathomOmitido ? 'Sin grabación ✓' : 'No se grabó (omitir)'}</button>
           </div>
         );

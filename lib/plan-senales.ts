@@ -20,6 +20,7 @@ import 'server-only';
 
 import { getTenantDb, getWorkspaceActual } from './workspace';
 import { integracionConectada } from './credenciales';
+import { hayGrabadorConectado } from './grabadores';
 import { getSetting } from './settings';
 import { getDiagnosticoFase } from './fase-store';
 import type { CanalId } from './fase-diagnostico';
@@ -101,7 +102,8 @@ export async function leerSenales(): Promise<Senales> {
       // 09/10/2026 preguntaba por la integración 'whatsapp', que era Chatwoot y se borró: con
       // esa pregunta la señal quedaba en false para siempre y la tarea no se cerraba nunca.
       import('./evolution').then((m) => m.listarLineas()).then((ls) => ls.some((l) => l.estado === 'conectado')).catch(() => false),
-      integracionConectada('fathom').catch(() => false),
+      // «fathom-conectado» = un grabador de reuniones, cualquiera (lib/grabadores, 26/10/2026).
+      hayGrabadorConectado().catch(() => false),
       // ⚠️ YA NO alcanza con «hay fila»: la mig 0170 le dio un funnel a TODOS los
       // workspaces, así que contar filas daría verde para los 9 — el mismo falso
       // positivo de antes, por otro camino. Lo que la señal pregunta es si el

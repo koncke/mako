@@ -254,7 +254,8 @@ test('el server guarda la versión de antes ANTES de guardar, con la versión qu
   assert.match(aplicar, /if \(!v\.ok\) return falla\('No pude guardar la versión de antes/);
   assert.match(aplicar, /if \(esperada && a\.doc\.version !== esperada\) return falla\([^)]*409, \{ conflicto: true \}\)/);
   assert.match(aplicar, /instruccion: instruccionDeSugerencias\(elegidas\.map\(\(s\) => s\.hallazgo\)\)/);
-  assert.match(aplicar, /alcance: 'seccion'/);
+  // La sección del comentario; sin sección, la landing entera (26/10/2026).
+  assert.match(aplicar, /alcance: enSeccion \? 'seccion' : 'landing'/);
   assert.match(aplicar, /cambiarEstado\(\{ id: s\.id, estado: 'resuelta' \}\)/);
   assert.match(aplicar, /elegidas\.some\(\(s\) => s\.estado !== 'pendiente'\)/);
   assert.match(aplicar, /elegidas\.some\(\(s\) => s\.seccionId !== seccionId\)/, 'UNA sección por pedido');
@@ -377,10 +378,11 @@ test('la API aplica por el MISMO server que el botón, y dice en preparar lo que
   assert.equal((bloque.match(/noSeAplica\(c, id\)/g) ?? []).length, 2, 'en preparar y otra vez al confirmar');
   assert.doesNotMatch(bloque, /editar\(|guardarVersion\(|\.from\(/, 'ninguna segunda implementación');
   assert.match(run, /if \(c\.docId == null\) return 'Ese comentario es de una página de afuera/);
-  assert.match(run, /if \(!c\.seccionId\) return 'No sé en qué sección/);
+  // 26/10/2026 (Martín: «que si le doy al botón de aplicar lo haga»): sin sección también se aplica, a toda la landing.
+  assert.doesNotMatch(run, /if \(!c\.seccionId\) return/, 'sin sección se aplica a toda la landing, no se rechaza');
 });
 
-test('la lista de la API: con id, los pendientes primero por severidad, y sólo se aplica lo de una nuestra con sección', () => {
+test('la lista de la API: con id, los pendientes primero por severidad, y se aplica lo pendiente de una nuestra (con sección o sin)', () => {
   const xs = [
     sug(1, 's1', 'resuelta'),
     sug(2, 's1', 'pendiente', hallazgo('h2', { severidad: 'baja' })),
@@ -390,7 +392,7 @@ test('la lista de la API: con id, los pendientes primero por severidad, y sólo 
   ];
   const r = comentariosParaApi(xs, { deNuestra: true });
   assert.deepEqual(r.comentarios.map((c) => c.id), [5, 3, 2, 1, 4]);
-  assert.deepEqual(r.comentarios.map((c) => c.se_puede_aplicar), [true, false, true, false, false]);
+  assert.deepEqual(r.comentarios.map((c) => c.se_puede_aplicar), [true, true, true, false, false]);
   assert.deepEqual([r.pendientes, r.resueltos, r.descartados, r.total], [3, 1, 1, 5]);
   assert.ok(comentariosParaApi(xs, { deNuestra: false }).comentarios.every((c) => !c.se_puede_aplicar), 'de afuera no se aplica por la API');
   assert.deepEqual(comentariosParaApi(xs, { deNuestra: true, estado: 'resuelta' }).comentarios.map((c) => c.id), [1]);

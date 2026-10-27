@@ -92,6 +92,7 @@ export function datosDelEvento(sub: unknown): ContextoDatos {
     ...(ev.trae.includes('oferta') ? { conOferta: true } : {}),
     ...(ev.trae.includes('anuncios') ? { conAnuncios: true } : {}),
     ...(ev.trae.includes('reunionplan') ? { conReunionPlan: true } : {}),
+    ...(ev.trae.includes('iacaida') ? { conIaCaida: true } : {}),
   };
 }
 

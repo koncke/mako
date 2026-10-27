@@ -15,6 +15,9 @@
 //    primero se le pone (`onTexto`) y recién cuando la caja lo recibe de vuelta se manda (`listaParaMandar`). Así cada
 //    pantalla manda lo transcrito por su camino de siempre (el Ops Center lo FIRMA en el dispositivo), sin tocar ninguna.
 // ⚠️ Nada transcrito queda a medias: si la transcripción falla o viene vacía, se dice y no se manda nada.
+// ⚠️ LA NOTA, A LA PANTALLA QUE LA QUIERA (26/10/2026, el Ops Center: «se deberia mandar el audio directamente»): con
+//    `onNota`, la pantalla recibe el MP3, lo que dura y su transcripción ANTES de que el texto llegue a la caja, para mandar
+//    el texto como nota de voz (app/admin/operaciones/useCentro.ts → mandar). Las demás no cambian.
 
 import { useEffect, useRef, useState } from 'react';
 import { useGrabacionVoz, type GrabacionVoz } from '@/app/whatsapp/_shared/VoiceRecorder';
@@ -33,6 +36,9 @@ export function textoDeLaNota(r: { ok: true; texto: string } | { ok: false; erro
   return t ? { texto: t } : { error: 'No se escuchó nada en la nota. Grábala de nuevo.' };
 }
 
+/** Una nota grabada y transcrita, como se la da la caja a la pantalla (`onNota`). */
+export type NotaGrabada = { audio: Blob; segundos: number; texto: string };
+
 export type NotaQueSeManda = {
   grabacion: GrabacionVoz;
   /** Pasando a texto lo grabado: la caja gira y no deja escribir. */
@@ -41,11 +47,12 @@ export type NotaQueSeManda = {
   error: string | null;
 };
 
-export function useNotaQueSeManda({ texto, onTexto, onMandar, onError }: {
+export function useNotaQueSeManda({ texto, onTexto, onMandar, onError, onNota }: {
   texto: string;
   onTexto: (t: string) => void;
   onMandar: () => void;
   onError?: (m: string) => void;
+  onNota?: (n: NotaGrabada) => void;
 }): NotaQueSeManda {
   const [pendiente, setPendiente] = useState<string | null>(null);
   const [transcribiendo, setTranscribiendo] = useState(false);
@@ -54,7 +61,7 @@ export function useNotaQueSeManda({ texto, onTexto, onMandar, onError }: {
   const mandar = useRef(onMandar);
   useEffect(() => { mandar.current = onMandar; });
   const decir = (m: string) => { setError(m); onError?.(m); };
-  const grabacion = useGrabacionVoz(async (blob) => {
+  const grabacion = useGrabacionVoz(async (blob, secs) => {
     setError(null);
     setTranscribiendo(true);
     try {
@@ -62,6 +69,7 @@ export function useNotaQueSeManda({ texto, onTexto, onMandar, onError }: {
       try { mp3 = await notaEnMp3(blob); } catch (e) { decir(e instanceof Error ? e.message : 'No se pudo procesar el audio.'); return; }
       const r = textoDeLaNota(await transcribirNota(mp3, 90_000, 'chat'));
       if ('error' in r) { decir(r.error); return; }
+      onNota?.({ audio: mp3, segundos: secs, texto: r.texto });
       setPendiente(r.texto);
       onTexto(r.texto);
     } finally {

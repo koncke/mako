@@ -23,6 +23,7 @@ import 'server-only';
 
 import { runWithWorkspace } from './workspace';
 import { extraerTareasDeReunion, cacheKeyReunion, type ProyectoRef, type Yo, type TareaCandidata, type Participante, type DudaTermino } from './plan-fathom';
+import { refDeReunion, type GrabadorId } from './grabadores/reunion';
 import { glosarioTexto } from './glosario';
 import { getSetting, setSetting } from './settings';
 import { marcarProcesado, marcarFallado, marcarSinCompromisos, estadoDePropuesta, type PropuestaTarea } from './plan-propuesta';
@@ -78,6 +79,8 @@ export function tareasDeLaExtraccion(tareas: TareaCandidata[], proyectos: Proyec
  */
 export async function completarBorradorDeReunion(opts: {
   ws: number; borradorId: string; recordingId: number; titulo: string | null;
+  /** De qué grabador es (lib/grabadores, 26/10/2026). Sin esto, la clave lo dice (Fathom: positiva). */
+  ref?: { grabador: GrabadorId; id: string };
   proyectos: ProyectoRef[]; yo: Yo; uso?: string; hasta: number;
   /** «Volver a analizar»: de cero, sin la marca de una lectura a medias. Sin esto, lo ya leído no se relee. */
   reanalizar?: boolean;
@@ -96,12 +99,12 @@ export async function completarBorradorDeReunion(opts: {
       if (opts.reanalizar) await cerrarParcial(recordingId);
       const previa = opts.reanalizar ? null : await leerParcial(recordingId);
       const antes: PropuestaTarea[] = previa ? (await estadoDePropuesta(borradorId).catch(() => null))?.tareas ?? [] : [];
-      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso, hasta: opts.hasta, previa });
+      const out = await extraerTareasDeReunion(recordingId, proyectos, yo, { glosario, usoMotivo: opts.uso, hasta: opts.hasta, previa, ref: opts.ref });
       const partesFallidas = out.partesFallidas ?? 0;
       const leidasTotal = unirLeidas(previa && previa.partes === out.partes ? previa.leidas : [], out.leidas ?? []);
       // La marca de la lectura a medias: lo leído (con o sin tareas) no se vuelve a leer.
       if (partesFallidas && out.partes && out.leidas?.length) {
-        await anotarParcial(recordingId, { partes: out.partes, leidas: out.leidas, ref: `fathom:${recordingId}`, fresca: !previa });
+        await anotarParcial(recordingId, { partes: out.partes, leidas: out.leidas, ref: opts.ref ? refDeReunion(opts.ref) : `fathom:${recordingId}`, fresca: !previa });
       } else if (!partesFallidas && (!previa || lecturaCompleta(out.partes ?? 0, leidasTotal))) {
         await cerrarParcial(recordingId);
       }

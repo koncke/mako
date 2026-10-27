@@ -95,7 +95,7 @@ import { temaPorId, urlFuentes } from '@/lib/editor-landing/temas';
 import { tarjetasDe } from '@/lib/editor-landing/doc';
 import { formatoDe, proporcionDe, type LandingCompleta, type TemaPropio } from '@/lib/editor-landing/api-tipos';
 import {
-  RUTA_APLICAR_DIAGNOSTICO, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
+  RUTA_APLICAR_DIAGNOSTICO, TOPES_DIAGNOSTICO, claveChatDeComentario, contextoDeComentario, gruposParaAplicar, objetivoDe,
   ordenarParaRecorrido, pilaTrasAplicar, pilaTrasDeshacer, sePuedeDeshacer, tarjetaDeRecorrido,
   type Aplicacion, type EstadoSugerencia, type PedidoAplicarDiagnostico, type PedidoDiagnostico, type RespuestaAplicar,
   type RespuestaAplicarDiagnostico, type RespuestaDiagnostico, type RespuestaListaDiagnostico, type RespuestaPasar, type Sugerencia,
@@ -449,7 +449,10 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
    */
   const aplicarTodos = useCallback(async (base: readonly Sugerencia[]) => {
     if (docId == null || trabajando.current || colaCorriendo.current) return;
-    const { grupos } = gruposParaAplicar(base, ordenRef.current);
+    const { grupos: porSeccion, sinUbicar } = gruposParaAplicar(base, ordenRef.current);
+    // Los que no están en una sección, al final y a toda la landing (diagnostico-aplicar.ts, «SIN SECCIÓN»).
+    const grupos: Array<{ seccionId: string | null; ids: number[] }> = [...porSeccion];
+    for (let i = 0; i < sinUbicar.length; i += TOPES_DIAGNOSTICO.aplicarDeUnaVez) grupos.push({ seccionId: null, ids: sinUbicar.slice(i, i + TOPES_DIAGNOSTICO.aplicarDeUnaVez) });
     if (!grupos.length) return;
     trabajando.current = true;
     setTodos({ hecho: 0, total: grupos.length });
@@ -587,8 +590,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
     unaVez.current = null;
     if (u.todos) { void aplicarTodos(sugerencias); return; }
     const elegida = sugerencias.find((x) => u.ids?.includes(x.id) && x.estado === 'pendiente');
-    if (elegida?.seccionId) void aplicarUno(elegida);
-    else if (u.ids?.length) avisar('No ubiqué esa sección');
+    // Sin sección también: se aplica a toda la landing (antes: «No ubiqué esa sección» y no pasaba nada).
+    if (elegida) void aplicarUno(elegida);
   }, [cargando, sugerencias, aplicarTodos, aplicarUno, avisar]);
 
   // ── Preguntar a MaKo ───────────────────────────────────────────────────────
@@ -609,7 +612,8 @@ function PanelInterno({ docId, url, copia = null, onCerrar, onAnalizada }: Props
   const nombre = deNuestra ? (doc?.titulo || 'Landing') : hostDe(urlVista ?? '');
   const enCurso = Object.values(arreglos).some((a) => a?.fase === 'aplicando' || a?.fase === 'en-cola' || a?.fase === 'deshaciendo');
   const ocupado = !!todos || replicando || abriendoCopia || Object.values(arreglos).some((a) => a?.fase === 'deshaciendo');
-  const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra ? !!s.seccionId : !!urlPegada);
+  // En una nuestra, también sin sección: va a toda la landing (diagnostico-aplicar.ts). De afuera, replica primero.
+  const puedeAplicar = (s: Sugerencia) => s.estado === 'pendiente' && (deNuestra || !!urlPegada);
   const aplicables = pendientes.filter(puedeAplicar).length;
   const visibles = sugerencias.filter((s) => s.estado === filtro
     || (filtro === 'pendiente' && recientes.includes(s.id) && arreglos[s.id]?.fase === 'aplicado'));

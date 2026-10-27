@@ -102,7 +102,8 @@ test('5. el modelo no lee el porqué como algo que dijo (un cartel de la platafo
   assert.deepEqual(bloquesGuardados([{ k: 'bloque', b: { t: 'porque', conectar: '/robar?x=1' } }]), [{ t: 'porque' }]);
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /const previos = \(await getSessionMessagesConBloques\(s\.id\)\)\.filter\(\(m\) => !\(m\.role === 'assistant' && esPorQueGuardado\(m\.bloques\)\)\);/);
-  assert.match(turno, /const historial = historialParaModelo\(previos, 12\);/, 'el historial del modelo sale de `previos`, ya sin el porqué');
+  // 32f430356 (tipos, 24/10) le puso un alias tipado a `previos`: mismo arreglo, así que se sigue el alias hasta el historial.
+  assert.match(turno, /const hilo: readonly ChartMsg\[\] = previos;\s*const historial = historialParaModelo\(hilo, 12\);/, 'el historial del modelo sale de `previos`, ya sin el porqué');
 });
 
 // PROBADO ROMPIÉNDOLO (22/10/2026, base 2/0):

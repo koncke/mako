@@ -3,7 +3,7 @@
 <sub>Esta sección se PISA en cada relevo y no pasa de ~90 líneas. Lo viejo, tal cual se escribió, está en
 `cerebro-historia.md` (arriba de todo, el relevo del 24/10 de claude1 para la cuenta 5, ya cumplido).</sub>
 
-## ⏩ LEER PRIMERO — 25/10/2026 ~09:50, cuenta 5 «Ananda» (claude5)
+## ⏩ LEER PRIMERO — 26/10/2026 ~12:20, cuenta 5 «Ananda» (claude5)
 
 **Si sos una cuenta NUEVA**, Martín te escribe «Hola, eres la Nª cuenta, la voy a llamar X. Continúa con todo» y con eso
 alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
@@ -26,26 +26,27 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 5. **`/admin/dev`:** sumá la cuenta a `CUENTAS` (`app/admin/dev/_registro/tipos.ts`): sin la fila, un hito firmado por
    ella rompe la pantalla.
 
-## Estado al escribir (25/10 ~09:50)
+## Estado al escribir (26/10 ~12:20)
 
-- **`main` = `75b367235`, subido con tipos en verde.** Producción servía `44def1637` (desplegado a las 09:19); el despliegue de
-  `75b367235` (la tanda 2 del Media Buyer) quedó en marcha. La noche del 24 al 25 subieron cuatro trenes: lo de la llamada con
-  Leandro (CRM, Clients, Automations, Calendario), los botones de Instagram, el Media Buyer (`/ads-manager`, copiado de Madgicx,
-  apagado), la landing nueva SIN publicar, el recolector del Second Brain, Ops Center (los que esperan arriba, sin «1 de 3»,
-  `unirPreguntas`) y Planes (Acelerador con promesa y garantía, Partners meses + US$300, anual, garantía 14/30, pesos).
-- **Chats de la cuenta 5, todos sin nada en cola salvo Ops Center:** Ops Center hace el «Completado» como bloque arriba de la
-  caja (pedido de Martín del 25/10 09:32). Media Buyer espera a Martín (abajo). Landings tiene la tanda 2 de landings por
-  funcionalidad y avatar (§6b de docs/como-venden-otros.md) sin empezar.
-- **Instalado por el Cerebro:** el hook `sin-ask.mjs` (un AskUserQuestion se vuelve `cartero preguntar`; lo toman los chats que
-  se abren desde ahora), el cartero 1.18.1, y la guardia de RAM más estricta (`memoria.mjs`, respaldo `.antes-25-10`).
-- **Decisiones de venta del 25/10:** memoria `decisiones-venta-25-10`. Media Buyer reemplaza al Ads Manager: memoria
-  `media-buyer-ia-reemplaza-ads-manager`.
-- **Los informes:** docs/ram-de-la-pc.md (lo que más rinde: 32 GB) y docs/como-venden-otros.md (80 productos con landing).
-- **Sin repartir:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 (el cartero como servicio), el cobro
-  (Paddle/Creem + Mercado Pago, cuando Martín aplique), la extensión que no inyecta mako-puente.js en una pestaña ya abierta
-  (lo vio CRM), y si el portal del ALUMNO también saca el desplegable de «Tus programas» (pregunta para Martín).
-- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
-  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+- **`main` = `781d069b3` (tren-m), subido a las 12:1x.** Trae: Zernio sin token (`CORTE_TOKEN_META = '2026-11-03'`), MaKo
+  en WhatsApp siguiendo la conversación, el Completado del Centro (responder, tus mensajes con foto, el prompt tal cual, la
+  fecha), los avances agrupados y la voz del Ops Center, Settings en el teléfono, Customers rediseñado y la barra del super
+  admin, tl;dv/Fireflies/Zoom/Otter y el aviso de la IA caída, los arreglos del Media Buyer, Notificaciones sin los 9 avisos
+  que no salían, MaKo recomienda (con el Claude de la plataforma de último recurso en lo interno del ws9), el Scraper nuevo
+  con la extensión 0.72.3, y los arreglos de Web Generator de después de la prueba en producción.
+- **Migraciones:** 0338 (grabador_reuniones) y 0339 (etiquetas hasta 100) APLICADAS el 26/10 con el sí de Martín en el chat.
+- **Falta después del deploy:** `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=closing_ia_caida` (escribe la
+  fila del aviso en el ws9: pide el sí de Martín EN EL CHAT); que Landings mire en producción la animación de MaKo y las
+  franjas con nombre; que CRM pruebe «Extraer» de punta a punta con la pantalla nueva.
+- **El push ya no entra con 4 GB de heap por tanda:** se sube con `MAKO_TIPOS_SOLO_TANDAS=1 MAKO_TIPOS_HEAP_MB=5120
+  MAKO_TIPOS_RAM_MIN_GB=5.4` y ~5,5 GB libres (cerrando Chrome). Detalle en docs/hallazgos-infra.md.
+- **Reclamo a Zernio:** mandado el 26/10 10:25 desde equipo@hola-mako.com (Resend 01a17862-…); la respuesta llega a equipo@.
+- **Leila:** memoria `leila-apps-y-pro-97` (con su planilla: ahorro hoy ~US$94, en 2 semanas ~US$122, con GHL ~US$219;
+  Partner: 1 Pro por mes = su MaKo gratis).
+- **Motion y el Image Editor:** suspendidos, en la rama LOCAL `motion-imagen-2610` @ `7e7a49d96` (etiqueta
+  `respaldo/motion-imagen-2610`), con su relevo adentro.
+- **Prometido por Martín (26/10):** un VidIQ y un Submagic dentro de MaKo en máximo 2 semanas.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat.
 
 ## Lo que NO se vuelve a discutir
 
@@ -68,20 +69,13 @@ alcanza. No preguntes: hacé esto en orden (en la cuenta 5 tardó 10 minutos).
 
 ## Trabado esperando a Martín
 
-1. ~~Las migraciones 0332 y 0333~~ **APLICADAS el 25/10 ~13:10** por el Cerebro, con el sí de Martín en este chat
-   («Sí, aplicá en producción las migraciones 0332 (Media Buyer) y 0333»). Verificado por PostgREST: las 3 tablas existen.
-   **0335 (pruebas A/B) y 0336 (alojadores de video): APLICADAS el 25/10 19:27**, con el sí de Martín. Verificado: las 5
-   tablas `prueba*` con RLS sin políticas y anon bloqueado (42501), y el CHECK de `marketing_metrics_daily.plataforma` con
-   wistia, bunny, vimeo y cloudflare. El SQL vino de aut-2510 @ cdfb8e14b (todavía como XXXX) y de landings-2510-b @ 2f393680d.
-2. ~~Conectar la cuenta publicitaria de MaKo a Zernio~~ **HECHO el 25/10 12:46.** El primer link no creó nada: con varias
-   páginas marcadas y sin `pageId`, Zernio no conecta. El segundo, con la página «Hola MaKo», sí (accountId de Zernio
-   6ade25185b6c93612b7cc6a1). La vuelta cayó en /login y `next` perdió `abrir=meta`: se lo pasé a Zernio y a los links de
-   cada modal.
-3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
-4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
-   a la agencia de Código Inmobiliario lo de su página de gracias.
-5. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
-6. **La RAM a 32 GB** (2 SODIMM DDR4-3200 de 16 GB, ~USD 290), sacar del inicio Copilot/NVIDIA/MEGA y reiniciar.
+1. **Las landings:** no se publica ninguna hasta que diga los cambios (contestó «Ninguna todavía» el 26/10).
+2. **El aviso closing_ia_caida:** su sí en el chat para crear la fila del ws9.
+3. **Las lecturas de producción** que el clasificador frenó: las aprueba en los chats MaKo inteligente, MaKo en WhatsApp y
+   Grabadores.
+4. **Leila:** preguntarle qué es Diwep y cuánto paga de GoHighLevel antes de mandarle el mensaje.
+5. **La RAM a 32 GB** (memoria `pc-de-martin-hardware`), o minutos de Actions: el chequeo de tipos ya no entra en 4 GB.
+6. **La limpieza de P6** y **la pasarela** (Paddle y Creem).
 
 ## Fechas
 

@@ -175,7 +175,8 @@ test('el doer: ninguna escritura a Meta queda cerrada al ws1, y todas exigen adm
   assert.match(DEF, /const G_META_ADMIN: Gating = \{[^}]*rolMinimo: 'admin'[^}]*\}/);
   const RUN = sinComentarios(leer('lib/api-mako/areas/ads.run.ts'));
   assert.ok(!RUN.includes('OWNER_WS'), 'un ctx.ws !== OWNER_WS en un runner vuelve a cerrar la escritura');
-  assert.match(RUN, /estadoVivoMeta\(String\(p\.id\), ctx\.ws\)/, 'el estado que decide un borrado se lee en la cuenta que borra');
+  // El nivel va desde el 26/10/2026: por la conexión de Facebook (Zernio) cada nivel tiene su lectura.
+  assert.match(RUN, /estadoVivoMeta\(String\(p\.id\), ctx\.ws(, level)?\)/, 'el estado que decide un borrado se lee en la cuenta que borra');
   const HELP = sinComentarios(leer('lib/api-mako/areas/ads.helpers.ts'));
   assert.ok(!HELP.includes('envCred'), 'estadoVivoMeta con envCred lee la cuenta del ws1');
 });

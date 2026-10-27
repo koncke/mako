@@ -1,0 +1,21 @@
+/* Customers en el teléfono. TODAS las clases con el nombre ENTERO de la carpeta (app/m/_ui/LEEME.md §5). */
+.m-customers-tres { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0 0 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 12px; }
+.m-customers-tres > div { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.m-customers-tres b { font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.m-customers-tres span { font-size: var(--fs-sm); color: var(--dim); text-align: center; }
+.m-customers-plata { margin: 0 0 18px; display: flex; flex-direction: column; gap: 4px; }
+.m-customers-plata > b { font-size: 30px; font-weight: 800; letter-spacing: -.02em; color: var(--ink); }
+.m-customers-rot { font-size: var(--fs-sm); color: var(--dim); font-weight: 600; }
+[data-m] .m-customers-gris { margin: 0; font-size: var(--fs-md); color: var(--dim); }
+.m-customers-barras { display: flex; align-items: flex-end; gap: 8px; height: 72px; margin-top: 8px; }
+.m-customers-barras > div { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 4px; }
+.m-customers-barras i { display: block; width: 100%; background: var(--primary); border-radius: 5px 5px 2px 2px; }
+.m-customers-barras i[data-cero="true"] { background: var(--border); }
+.m-customers-barras span { font-size: 11px; color: var(--faint); }
+.m-customers-chips { display: flex; gap: 8px; overflow-x: auto; margin: 18px 0 12px; padding-bottom: 2px; scrollbar-width: none; }
+.m-customers-chips button { flex: none; min-height: 40px; border: 1px solid var(--border); background: var(--surface); border-radius: 999px;
+  padding: 0 14px; font: inherit; font-size: var(--fs-sm); font-weight: 600; color: var(--dim); }
+.m-customers-chips button span { color: var(--faint); font-weight: 700; }
+.m-customers-chips button[data-on="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+.m-customers-chips button[data-on="true"] span { color: var(--surface); opacity: .75; }

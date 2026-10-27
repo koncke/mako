@@ -123,5 +123,6 @@ test('el prompt ya no pide 600 caracteres, y pide lo dicho y los pedidos de una 
   // Y el cableado: cada tarea del modelo pasa por la limpieza, con el control armado una vez por reunión.
   assert.match(src, /const limpio = limpiarLoDicho\(/, 'coerceCandidatas dejó de limpiar lo que no se dijo');
   assert.match(src, /coerceCandidatas\(obj, proyectos, yo, participantes, dicho, control\)/);
-  assert.match(src, /const alias = aliasDelDueno\(meta\?\.recorded_by, yo\);/);
+  // 26/10/2026: quien grabó sale de la reunión de CUALQUIER grabador (`anfitrion`, lib/grabadores), no del `recorded_by` de Fathom.
+  assert.match(src, /const alias = aliasDelDueno\(meta\?\.anfitrion \? \{ name: meta\.anfitrion\.nombre, email: meta\.anfitrion\.email \} : null, yo\);/);
 });

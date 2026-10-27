@@ -175,6 +175,10 @@ test('4. el content script: sin base NO la crea (ni la abre); con base, lee en m
   assert.ok(!JSON.stringify(resp).includes('hola'), 'salió un mensaje');
   assert.deepEqual(resp.diagnostico, {
     base: true, stores: ['contact', 'group-metadata', 'participant', 'message'], contactos: 6, grupos: 2, participantes: 3, pedidos: 1, conFicha: 1,
+    // 0.72.0: cuántos nombres se vieron al recorrer el grupo, y cuántas fichas ganaron uno así (sin recorrer: 0).
+    vistos: 0, enPantalla: 0,
+    // 0.73.5: los nombres que firman los mensajes de los grupos nombrados (acá no se nombró ninguno).
+    mensajes: { tabla: false, clave: null, leidos: 0, conNombre: 0, conAutor: 0, campos: {}, autores: 0, sumados: 0 },
   }, 'el diagnóstico: cantidades y nombres de tablas, nunca datos de nadie');
 
   const otro = await pedirAlContentScript(con.api, { tipo: 'OTRA_COSA' });
@@ -203,7 +207,8 @@ test('6. el manifest: el permiso de WhatsApp Web, el content script aislado (no 
   const wa = man.content_scripts.filter((c) => c.matches.some((m) => m.includes('web.whatsapp.com')));
   assert.equal(wa.length, 1, 'un solo content script en WhatsApp Web');
   assert.deepEqual(wa[0].matches, ['https://web.whatsapp.com/*'], 'el de WhatsApp Web no se comparte con otros sitios');
-  assert.deepEqual(wa[0].js, ['wa-fichas-reglas.js', 'wa-fichas.js'], 'las reglas ANTES del script que las usa');
+  // Y el recorrido a la vista (0.72.0), después: usa las reglas (`asuntoComparable`).
+  assert.deepEqual(wa[0].js, ['wa-fichas-reglas.js', 'wa-fichas.js', 'wa-recorrer.js'], 'las reglas ANTES del script que las usa');
   assert.equal(wa[0].world, undefined, 'en el mundo MAIN la página de WhatsApp vería (y podría tocar) el script');
   for (const c of man.content_scripts) {
     if (!c.matches.some((m) => m.includes('web.whatsapp.com'))) assert.ok(!c.js.some((j) => j.startsWith('wa-fichas')), 'las fichas corren en otro sitio');
@@ -259,20 +264,23 @@ test('8. el server: sólo leads que ya existen, por los caminos de completar, si
   assert.match(acciones, /completarFichasDelGrupo\(\{[\s\S]{0,200}hasta: Date\.now\(\) \+ 40_000/, 'la acción no le pone techo de tiempo');
 });
 
-test('9. la pantalla: la dispara la persona, con avance y «Parar», y lo que el server no guardó vuelve a la cola', () => {
+test('9. la pantalla: «Extraer» la dispara la persona, con «Parar», y lo que el server no guardó vuelve a la cola', () => {
+  // Desde el 26/10/2026 las fichas van DENTRO de «Extraer» (tests/wa-extraer-072.test.ts tiene el resto).
   const ui = leer('app/crm/TraerDeGrupoWA.tsx');
-  const ini = ui.indexOf('const leerDeWhatsappWeb');
+  const ini = ui.indexOf('const extraer = async');
   const cuerpo = ui.slice(ini, ui.indexOf('\n  };\n', ini));
-  assert.match(cuerpo, /if \(leyendoWa\) \{ pararWa\.current = true; return; \}/, 'el mismo botón para');
+  assert.ok(cuerpo.length > 500, 'no encontré `extraer`');
   // La cola, los pendientes al frente y el corte sin avance viven en la máquina compartida (sus pruebas, con dobles, en
-  // tests/enriquecer-lote.test.ts); acá, que la pantalla la use con su «Parar» y su avance.
-  assert.match(cuerpo, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeGrupoAction\(\{ linea, jid, fichas: tanda \}\), \{\n\s+parar: \(\) => pararWa\.current,/);
-  assert.match(cuerpo, /setAvance\(`Guardando /, 'sin avance visible');
-  assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm\)/, 'pide fichas de gente que no está en el CRM');
+  // tests/enriquecer-lote.test.ts); acá, que la pantalla la use con su «Parar» y su avance (al desplegable).
+  assert.match(cuerpo, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeGrupoAction\(\{ linea, jid, fichas: tanda \}\), \{\n\s+parar: \(\) => parar\.current,/);
+  assert.match(cuerpo, /alAvanzar: \(guardadas, total\) => avisarExtraccion\(id, \{ fase: 'guardando', guardados: guardadas, total \}\),/, 'sin avance visible');
+  assert.match(cuerpo, /filter\(\(p\) => p\.enElCrm \|\| vanAEstar\.has\(p\.telefono\)\)/, 'pide fichas de gente que no va a estar en el CRM');
   // El corte va ADENTRO del resumen: releer el grupo (`setVuelta`) limpia `err`, y ahí se perdía (la revisión del 24/10).
-  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}\$\{gruposEnWhatsappDichos\(r\.grupos\)\}`\);/, 'un corte callado');
-  // «Parar» va en el pie del molde, al lado del avance (24/10/2026): el mismo llamado que lo arrancó lo para.
-  assert.match(ui, /const parar = leyendoWa \? \{ texto: 'Parar', onClick: \(\) => void leerDeWhatsappWeb\(\) \}/);
+  assert.match(cuerpo, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/, 'un corte callado');
+  assert.match(cuerpo, /const corte = t\?\.corte \|\| a\?\.error \|\| \(a\?\.parado \? 'La paraste\.' : ''\);/);
+  // «Parar» en el pie, al lado del avance, y también desde el desplegable (`alPararExtraccion`).
+  assert.match(ui, /const pararAccion = extrayendo \? \{ texto: 'Parar', onClick: \(\) => \{ parar\.current = true; setAvance\('Parando…'\); \} \}/);
+  assert.match(cuerpo, /const soltar = alPararExtraccion\(id, \(\) => \{ parar\.current = true; \}\);/);
   assert.doesNotMatch(cuerpo, /useEffect|setInterval/, 'corre solo');
 });
 
@@ -286,9 +294,13 @@ test('10. la política de privacidad dice lo que hace: cada sitio del manifest, 
     assert.ok(veces >= 2, `${dominio}: tiene que estar en «No accede a ningún sitio fuera de…» y en «Por qué pide cada permiso» (está ${veces})`);
   }
   assert.match(pol, /<H>En WhatsApp Web<\/H>/);
-  assert.match(pol, /no hace clic, no abre chats, no\s+envía mensajes, no marca nada como leído/);
+  // 26/10/2026 (0.72.0): «Extraer» ABRE el grupo a la vista (wa-recorrer.js), y eso marca como leídos sus mensajes: se dice.
+  assert.match(pol, /<strong>abre el grupo, a la vista<\/strong>/);
+  assert.match(pol, /<strong>Abrir el grupo marca\s+como leídos los mensajes de ese grupo<\/strong>/);
+  assert.match(pol, /nunca\s+abre una segunda/);
+  assert.doesNotMatch(pol, /no hace clic|no marca nada como leído/, 'la política promete lo que ya no es cierto');
   // 25/10/2026 (0.71.0): la extensión puede ABRIR WhatsApp Web, y recibe el nombre del grupo y el `@lid` de cada contacto.
   assert.match(pol, /Si WhatsApp Web no está abierto, la extensión lo <strong>abre en otra pestaña<\/strong>/);
   assert.match(pol, /el\s+nombre de ese grupo y el identificador con que WhatsApp los conoce en él/);
-  assert.match(pol, /const ACTUALIZADO = '25 de octubre de 2026'/, 'la política cambió y la fecha no');
+  assert.match(pol, /const ACTUALIZADO = '26 de octubre de 2026'/, 'la política cambió y la fecha no');
 });

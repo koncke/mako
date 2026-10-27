@@ -6,6 +6,41 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω27. 26/10/2026 (chat «CRM», cuenta `claude5`): «Extraer» de un grupo, a la vista, con el desplegable (extensión 0.72)
+
+Rama `crm-extraer-2610` (desde origin/main ede2bbaab) en C:/dev/wt-crm-2510. Pedido textual en la bitácora. Lo medido y lo
+aprendido, en hallazgos-extension («Extraer» a la vista) y hallazgos-crm («Extraer» de un grupo).
+- Hecho: «Extraer N» (no «Traer») arranca la extensión en el acto: su pestaña de WhatsApp al frente (nunca una segunda), el
+  desplegable abierto con la animación, el grupo recorrido a la vista, y los nombres guardados solos (sin «Completar
+  nombres»). Sin «Entran a» (el CRM que se mira, su entrada que no manda nada), sin los chips de texto, «Ignorar admins», la
+  etiqueta = el nombre del grupo (mig 0339: tope 100). La barra del lote, sin «extrayendo» ni cartel negro. El desplegable con
+  navegación (Inicio: Scraper | Flow → registro → extracción) y su registro (las últimas 30).
+- **Probado en su Chrome** (la extensión 0.72.2 ya corre ahí: se recarga sola desde la carpeta): disparado desde su pestaña de
+  MaKo, sin pedir ni guardar datos de nadie. Entró al grupo de los 221, recorrió los 247, el desplegable se abrió solo con la
+  animación, WhatsApp quedó como estaba y volvió a MaKo. `vistos: 40` (nombres con teléfono que la base no tenía). Capturas y
+  GIF: notas del Cerebro, capturas-extraer-072.
+- **Falta:** desplegar la pantalla (y la mig 0339 ANTES) y la corrida con la pantalla nueva: crear los leads con su etiqueta y
+  guardar los nombres. ⚠️ Abrir el grupo marca como leídos sus mensajes (dicho en la política).
+- **No reviertas** (aviso del Cerebro, 26/10): los tests crm-auto-sla-etapa y lead-quieto (Automations, aut-2510); no se tocaron.
+- **En producción (781d069b3, 26/10 12:22):** «Extraer 105» de «Anuncio Ganador - 09,10,11 de Agosto» en su Chrome: 105
+  nuevos · 41 nombres · 41 empresas, en Lead entrante con la etiqueta del grupo (verificado en una ficha). El desplegable no se
+  abrió en esa corrida (clic por CDP: sin el foco del sistema); en la de otra pestaña, a la misma hora, sí. Capturas y GIF:
+  notas del Cerebro, capturas-extraer-prod.
+- **Después, los perfiles y lo de Leandro (666fe43e1 → db8aae187, 0.73.0 → 0.73.6):** «Extraer» abre la información de
+  cada uno (de a uno, de a tandas de 12 pedidas por la pantalla, tope 60, empresas primero) y guarda links, redes y correo
+  sólo en lo vacío; sin la extensión, pop-up de instalar y no arranca; los nombres que firman los mensajes del grupo
+  (notifyName: MEDIDO que los mensajes no lo traen; la fuente real es la lista de miembros y la fila del buscador, 0.73.8).
+  ⚠️ La 0.73.6 no cargó por un U+FFFF literal en wa-fichas.js (no por las recargas, como dije primero): el
+  Cerebro lo arregló en su carpeta y el guard nuevo lo frena. Sin probar todavía:
+  la corrida que guarda perfiles (server sin desplegar) y lo de Leandro (sin medir).
+- **Después (be19b8c91, 0.72.3), lo de Flow en el Scraper:** si WhatsApp Web pide el QR lo dice, pone la pestaña al frente y
+  espera cinco minutos; el desplegable dice cómo está WhatsApp Web (con «Abrir» / «Ir a WhatsApp Web»). El QR probado sólo con
+  tests (su sesión está abierta); en vivo, que con la sesión abierta no se confunde. Martín: el «visto» no importa.
+- **Después (68fc2c238, 0.74.0), la vuelta a la pestaña exacta:** al terminar «Extraer» (o si se corta) vuelve a la pestaña
+  desde la que se tocó (`sender.tab`), no a otra de MaKo; si ya no está, el desplegable lo dice. Probado en su Chrome con dos
+  CRM y Ads Writer abiertos (volvió al CRM desde el que se pidió) y con el test roto a propósito. Corre en su Chrome (su
+  carpeta); para los demás, cuando la rama llegue a main.
+
 ## 0-Ω26. 25/10/2026 (chat «CRM», cuenta `claude5`): «Completar desde mi WhatsApp» de punta a punta, extensión 0.71.0
 
 Rama `crm-ext-2510` (desde origin/main 5785115b6; `crm-2510` ya estaba entera en main) en C:/dev/wt-crm-2510. Pedido textual
@@ -17,6 +52,12 @@ en la bitácora. Lo medido y lo aprendido, en hallazgos-extension («No contest�
   scratchpad de la sesión). **Falta:** que Martín toque «Recargar» en chrome://extensions (desde acá no se puede manejar esa
   página) y la prueba de punta a punta en su Chrome con la pantalla desplegada (antes del despliegue, la pantalla vieja).
 - ⚠️ Al medir se abrió una segunda pestaña de WhatsApp Web y le sacó la sesión a la de Martín («Usar aquí»).
+- **26/10 madrugada:** en producción (c8f1c4a57) probado el paso 1 en su Chrome con la 0.70.0 (la opción ya no es gris, abre
+  la instalación, la barra espera; el texto cortado, arreglado en 96246ee92). La 0.71.1 (`alDiaConSuCarpeta`) se recarga sola
+  cuando la carpeta trae una versión nueva: desde ahí, no hace falta tocar «Recargar». MEDIDO: el grupo de los 221 tiene 247
+  participantes; el nombre de las cuentas de empresa vive en `verified-business-name` (83), que la 0.71.0 no leía: Martín
+  corrió la 0.71.0 y dio 0; con la 0.71.1 el ensayo da 77 de 221 (hallazgos-extension). Falta que toque «Recargar» una vez.
+  Corrida completa lista en las notas del Cerebro (capturas-completar-wa/CORRIDA-COMPLETA.md).
 
 ## 0-Ω25. 24-25/10/2026, noche (chat «CRM», cuenta `claude5` «Ananda»): los puntos 12 a 21 del 24/10
 

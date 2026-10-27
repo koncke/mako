@@ -101,6 +101,7 @@ import {
 } from '../diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pedidos a las rutas: viven en ../../cliente (una sola copia; había cuatro). Se re-exportan
@@ -1008,6 +1009,8 @@ export function PanelAgente() {
             El placeholder entra en UN renglón (24/10/2026, Martín: «mira como se bugea el placeholder del chat con un salto de
             linea»: «Envía un mensaje al / agente…» no cabía al lado del «+», los emojis y el micrófono). Es el del Ops Center,
             «Escribe a <quién>». */}
+        {/* Lo que MaKo recomienda sobre las páginas con sus visitas y lo que dice la gente (26/10/2026): el bloque, plegado. */}
+        <RecomendacionesDeMako superficie="landing" alPedir={setTexto} />
         <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
           apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo}
           arriba={cita ? <CitaAgente cita={cita} onQuitar={() => setCita(null)} /> : null} />

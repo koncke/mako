@@ -79,7 +79,11 @@ Notification schedule), porque MaKo manda avisos al celular a toda hora.
 ### Instalar la app (/perfil/instalar) — tanda 2
 - ✅ Teléfono (QR y pasos), computadora, extensión. ⏳ La app de escritorio y su descarga son del chat «MaKo Desktop».
 
-### General (/configuraciones) — tanda 2
+### General (/configuraciones) — tanda 2 · ❌ SALIÓ el 26/10/2026
+- **Ya no existe** (Martín: «Elimina la tab General... El huso horario ya se configura en cada Automatización. La zona horaria,
+  para el resto, ponlo dentro de Perfil. y Criterio de reuniones eliminalo»). La zona del negocio es una fila de Perfil; el
+  horario, la tuerca de cada automatización; el criterio, sin pantalla ni API (quien lo tenía lo sigue usando). /configuraciones
+  redirige. Lo de abajo es historia.
 - ✅ Horario de envío (prendido, horas, días, zona del negocio) y criterio de reuniones. Sólo la ve el super admin (decisión
   pendiente de Martín, docs/hallazgos-ajustes.md). El nombre del negocio está en Perfil; la moneda, en Identidades fiscales.
 - ➕ El horario en filas de Linear; el criterio en su tarjeta, con «Guardar» (es el único dato de Settings que lo tiene: un
@@ -95,6 +99,8 @@ Notification schedule), porque MaKo manda avisos al celular a toda hora.
   Se rediseña el marco de la pantalla.
 
 ### Identidades fiscales (/configuraciones/fiscal) y Método (/metodo) — tanda 3
+- ❌ **Método salió el 26/10/2026** (Martín: «Elimina Método no entiendo eso... Si para eso ya tenemos Integraciones»): cada
+  credencial tiene su tarjeta en Integraciones (las IA, en «Tus cuentas de IA»); /metodo redirige ahí. Lo de Método abajo es historia.
 - ✅ Alta, edición y la identidad por defecto; las credenciales de la plataforma.
 
 ### Tu plan (/configuraciones/plan)
@@ -111,7 +117,7 @@ una sesión no hay de quién es.
 | Perfil | `ver_perfil`, `quien_soy` | **`editar_mi_perfil`** (nombre, cargo, teléfono, empresa, web, «sobre ti», zona), **`renombrar_negocio`** |
 | Notificaciones | `ver_notificaciones_inapp`, **`ver_avisos_celular`**, `ver_destinatarios_notificaciones`, `ver_preferencias_notificaciones` | **`configurar_notificaciones_inapp`**, **`configurar_aviso_celular`**, **`fijar_no_molestar`**, `agregar_/quitar_destinatario_notificaciones`, `configurar_aviso_whatsapp` |
 | Seguridad | **`ver_mi_seguridad`** | — (ver abajo) |
-| General | **`ver_horario_envio`**, **`ver_criterio_reuniones`**, `ver_zona_horaria_workspace` | **`configurar_horario_envio`**, **`guardar_criterio_reuniones`**, `fijar_zona_horaria_workspace` |
+| Perfil › Zona del negocio (era General) | **`ver_horario_envio`** (el horario del negocio, que usan las automatizaciones sin uno propio), `ver_zona_horaria_workspace` | **`configurar_horario_envio`**, `fijar_zona_horaria_workspace` · el criterio de reuniones salió el 26/10/2026 (`ver_`/`guardar_criterio_reuniones` retiradas) |
 | Equipo | `listar_equipo`, `buscar_miembro_equipo` | `invitar_miembro_equipo`, `cambiar_rol_miembro`, `suspender_miembro`, `reenviar_invitacion`, `eliminar_miembro` |
 | Identidades fiscales | `listar_identidades_fiscales`, `ver_moneda_negocio` | `guardar_/borrar_identidad_fiscal`, `hacer_default_identidad_fiscal`, `cambiar_moneda_negocio` |
 | Tu plan | `ver_mi_plan` | `dar_de_baja_mi_plan` (chat Planes) |

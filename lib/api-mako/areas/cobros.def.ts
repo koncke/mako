@@ -273,11 +273,11 @@ export const DEFS: readonly OperacionDef[] = [
   },
   // ── Customers del super admin (25/10/2026, docs/feedback-25-10-tarde.md puntos 10 y 12) ─────────────────────────
   // La vista Customers (app/customers) por chat: los clientes de MaKo por segmento con su MRR, y en qué trabajan en su
-  // Claude Code (lo que era /admin/agente). Sólo la plataforma y su admin; sin HTTP: son datos de todos los negocios.
+  // Claude Code (lo que era /admin/agente). Sólo la plataforma y, en la app, el super admin global (el runner lo pregunta); sin HTTP: son datos de todos los negocios.
   {
     id: 'ver_clientes_de_mako', area: 'cobros', tipo: 'lectura',
     titulo: 'Ver los clientes de MaKo',
-    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados o con un cobro que falló). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR y desde cuándo. Con segmento, sólo ese.',
+    descripcion: 'Sólo para la plataforma: los clientes de MaKo, como la vista Customers. Arriba, los números: el ingreso mensual (MRR, la suma de las suscripciones activas cobradas por la pasarela, en dólares; sin las pruebas gratis ni los planes dados a mano), cuántos pagan, lo que entró cada mes (6 meses) y las cuotas vencidas, los clientes activos, los nuevos en 30 días y los que están en riesgo (pausados, con un cobro que falló, o sin que nadie de su equipo entre hace 14 días). Después, cada negocio con su segmento: partner (tiene su link de MaKo Partners), agency (plan Pro y se sumó como Agency), cliente (el resto) o de-agencia (cliente de una agencia: lo factura su agencia), su plan, su estado, su MRR, por qué está en riesgo, cuántos días hace que no entra nadie, cuántos leads tiene y cuándo llegó el último, si terminó su onboarding, sus sesiones del agente en 30 días, si tiene un pago esperando y desde cuándo es cliente. Con segmento, sólo ese.',
     parametros: [
       { nombre: 'segmento', rotulo: 'Segmento', tipo: 'string', enum: ['partner', 'agency', 'cliente', 'de-agencia'], descripcion: 'sólo los de ese segmento. Sin esto, todos.' },
     ],

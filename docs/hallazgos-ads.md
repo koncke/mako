@@ -4861,6 +4861,15 @@ script es `scripts/media-buyer-medir-zernio.mts` (cada paso que escribe pide `--
   podían tomar). Marcarlo «pausado» tampoco sirve: Revive propondría prenderlo. Ahora `arbolDesdeZernio` lo deja como
   `DELETED` (ni prendido ni pausado, y sigue en el árbol para que su gasto de antes sume), y la lectura en vivo del anuncio
   mira `status` y la entrega antes que el interruptor. Con test, roto a propósito.
+- ⚠️ **Zernio contesta 200 al pausar un anuncio BORRADO** (medido por el chat «Zernio y CAPI», 26/10/2026), sin error. Marcarlo
+  `DELETED` no alcanzaba: `lanzar` y `deshacer` seguían hasta escribir y la decisión quedaba «aplicada» sobre algo que ya no
+  existe (una acción propuesta cuando estaba prendido y borrada a mano antes de lanzarla). **El diagnóstico obvio («ya lo
+  marcamos borrado, no se toca») era el equivocado**: la marca sólo se leía para el interruptor. Ahora los dos se frenan ante
+  `DELETED` antes de escribir (`lanzar` la cierra como vencida, «Se borró en Meta»); lo fija `tests/media-buyer-senales.test.ts`.
+- **Con la MISMA `Idempotency-Key`, Zernio devuelve lo creado la primera vez aunque ya esté borrado** (el mismo chat, 26/10).
+  Al Media Buyer no le pega: sus claves son `mb:<decisión>:<variación>` y `mb-subir:<ws>:<path>`, y una decisión deshecha no
+  se relanza (reabrir toma sólo descartadas o vencidas) y cada subida tiene un path nuevo. Quien arme una clave con el NOMBRE
+  del anuncio (`crearAnuncioEnConjunto`, `mako:<conjunto>:<nombre>`) recrea uno borrado: el chat de Zernio le puso una ventana.
 
 **Sin hacer, con su archivo:** filmar SÓLO el gancho nuevo (hoy queda como guion en el Video Generator y se filma desde
 ahí; depende del puente a Flow, `docs/diseno-ads-autopilot.md` → «Material»); la API de MaKo para «subir creativos»
@@ -4869,6 +4878,138 @@ escribir por el token de Meta (`lib/meta-write.ts` no lo soporta); el Stop Loss 
 cerrado); las rutas viejas de `app/api/ads-manager/*` que sólo usaba la vista borrada (quedan sin pantalla).
 
 *25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### El rediseño con la estructura de AdAmigo (25/10/2026, tarde)
+
+Martín, textual: «Me gusta el de "AdAmigo" implementalo de punta en punta, revisa si es que tienen funcionalidades que nos
+faltan... en el onboarding, me imagino a la calculadora... todo con el chat de MaKo, como Offer... en el lienzo, recuerda
+que tenemos varios CRM, varios productos, se debe poder interactuar... Lo que más me interesa es que en diseño se vea muy
+bien». La pantalla pasó de Madgicx a AdAmigo (`app/ads-manager/aa.css`, todo token de la casa): Resumen · Autopilot ·
+Campañas (por producto) · Biblioteca, el panel «N activos» de los agentes, y el arranque como charla de Offer.
+
+- ⚠️ **Un reset `.aa button { … }` le gana a `.mk-btn`** (una clase y un elemento pesan más que una clase): los botones de la
+  casa salían sin fondo dentro de la pantalla nueva. **El diagnóstico obvio («falta importar ui.css») era el equivocado.**
+  El reset va con especificidad cero, `:where(.aa) :where(button)`, y entonces cualquier clase de la casa le gana.
+- ⚠️ **Los números del lienzo y de la Biblioteca se cruzan por el NOMBRE de la campaña**, no por su id: `getSenalesRecon`
+  trae `campana` (el nombre) y no el id de Meta. Una campaña renombrada este mes parte sus números en dos (la vieja queda
+  sin producto). La regla: `norm()` del nombre en las dos puntas (`lib/media-buyer/productos.ts`); el arreglo de fondo es
+  sumar el id de campaña a las señales, y queda SIN hacer.
+- **El producto de una campaña** es el de SU asignación del CRM; si no tiene, el de su primer conjunto asignado
+  (`CampanaAsignada.campanaId`); si tampoco, «Sin producto». Una asignación sin funnel va al default; la de un funnel que
+  ya no existe queda «Sin producto»: nunca se inventa uno.
+- ⚠️ **La tabla de decisiones tiene un CHECK sobre `tactica`** (`surf … manual`): un agente propio no puede guardar
+  `tactica: 'propio'`. Va como `manual` con la clave `propia:<id>:<nivel>:<entidad>:<día>` (`agenteDeClave` la lee), y la
+  corrida NUNCA lanza sola una `manual`: lo que la IA del negocio entendió de una regla espera siempre a una persona.
+  La IA no puede inventar entidades: sólo ids que están en la cuenta, con su nivel, y ±50% de presupuesto por paso.
+- **Un agente de MaKo no tiene estado propio: es el de sus tácticas** (`lib/media-buyer/agentes.ts`). Pausarlo apaga todas;
+  «automático» si alguna lanza sola. Así no hay dos verdades (el panel de agentes y la página de Automatizaciones).
+- **Las alertas de Protect no tienen tabla**: salen en cada corrida (rechazado, gasto que se dispara, leads de Meta que no
+  llegan al CRM, tope de la cuenta) y se guardan en `ultimaCorridaInfo.alertas`; las graves, además, en una notificación.
+  «Se disparó el gasto» es el gasto diario de 3 días por encima de 1,8 veces el de 7 días, y de US$ 20 para arriba.
+- **Un solo formato de plata: `fmtDinero` (`lib/format.ts`)**, con dos decimales debajo de 100 («US$ 7.80») y sin
+  decimales arriba. La pantalla mezclaba «US$ 7.8», «$7.80» y «7,80 USD» (el Cerebro lo marcó en la captura).
+- **Las pestañas en el teléfono entran sin íconos y repartidas** (`justify-content: space-between`, sin `overflow`): con
+  ícono, una pestaña salía cortada («Bloqu») a 390 px y no se veía que corría.
+- **Para mirar la pantalla sin servidor**, se renderiza estática con `renderToStaticMarkup` y hooks de módulo que cambian
+  `next/navigation`, el chat de la tab y las server actions por stubs: una server action importada en un componente de
+  cliente arrastra `server-only` y la carga revienta.
+- **Por la API**: `modo_agente_media_buyer` (mueve plata: pantalla, `dinero`, `NO_EN_FLUJOS`), `agente_media_buyer` y
+  `borrar_agente_media_buyer` (gratis, se confirman en el chat), `ver_biblioteca_media_buyer`, y `ver_media_buyer` /
+  `ver_campanas_media_buyer` ahora traen agentes, alertas y las campañas por producto.
+
+**Sin hacer, con su archivo:** sin piloto en la prueba gratis y la `<FranjaPrueba>` (esperan a que `planes-2510` esté en
+main; el cambio está escrito en las notas del Cerebro, `media-buyer-prueba-gratis.py`); el id de campaña en las señales
+(`lib/queries.ts` → `getSenalesRecon`); Ajustes y Automatizaciones siguen con la estética de Madgicx
+(`app/ads-manager/mb.css`); la Biblioteca muestra el texto de las variaciones, no la imagen del anuncio que generarían.
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### La segunda vuelta: la captura 04, no la pantalla Autopilot (25/10/2026, noche)
+
+Martín, al ver la primera versión «AdAmigo»: «Lo que me pasaste de media buyer no me gusta... Una cantidad de botones y texto
+impresionante... Te pedí mucho atención al diseño» y «Y la captura que me habias pasado de Adamigo no se parece en nada».
+
+- ⚠️ **El diagnóstico obvio («hay que achicar la tarjeta y sacar botones») era el equivocado.** Martín había elegido UNA
+  captura, la 04 (`docs/media-buyer/referencias/otras-apps/04-adamigo-aplicado-y-deshacer.png`: la orden en el chat, una
+  pastilla, un árbol de tarjetas chicas y un mensaje al pie), y se copió OTRA pantalla de la misma app (Autopilot, con Qué ·
+  Por qué · Impacto y cinco botones por tarjeta). La regla: se copia la captura elegida, no el resto de la app de donde sale,
+  y antes de mostrarla se pone AL LADO de la referencia, a la misma altura (las comparaciones quedan en las notas del Cerebro,
+  `media-buyer-adamigo/`). Es el segundo rechazo por lo mismo (el de las 14:10, a la de Madgicx).
+- **HOY es la 04** (`app/ads-manager/Arbol.tsx`, `Hoy.tsx`): la caja del chat arriba, «MaKo · N cambios para hoy», las ramas
+  por producto del CRM y una tarjeta chica por cambio (el producto, «Meta · la campaña», «Aplicar» o «Aplicado», un rótulo,
+  la entidad y «$30 → $36 / día +20%»). El porqué va en UNA línea al pie y en el detalle que se abre al tocar la tarjeta (la
+  tarjeta entera de antes, en una hoja). Una cuenta nueva y un día sin cambios ven la captura 2: «¿En qué te ayudo hoy?» con
+  cuatro sugerencias; «Lanzar una campaña» abre el arranque con la calculadora. Fuera de la primera pantalla: la tabla del mes,
+  la columna derecha, las subpestañas, «N activos», «Ajustar IA» y la barra (los agentes cuelgan de la tuerca; lo hecho, de
+  «Actividad»). Lo fija `tests/media-buyer-hoy.test.ts`, que renderiza la tarjeta y cuenta UN botón a la vista (roto tres
+  veces a propósito: otro botón, el porqué en la tarjeta, «Aplicar los N» con uno solo).
+- **Las ramas del árbol sin medir nada:** el hueco entre columnas va en % del ancho (`column-gap: 2.4%`), así el centro de
+  cada columna se calcula exacto y el abanico es un SVG con `preserveAspectRatio="none"` y `vector-effect: non-scaling-stroke`
+  (la línea queda de 1,5 px a cualquier ancho). Con el hueco en px habría que medir: a 1.000 px de ancho y 24 px de hueco, el
+  centro de una columna de costado se corre 8 px.
+- **Toda la tarjeta abre el detalle sin anidar botones:** un botón invisible que la cubre, debajo de «Aplicar»; lo demás va
+  con `pointer-events: none`. Un `role="button"` en la tarjeta con «Aplicar» adentro sería un botón dentro de otro.
+- **La caja nueva tiene que nombrar el hook como la casa:** `tests/app-de-escritorio-todos-los-chats.test.ts` busca
+  literalmente `const appEscritorio = useAppDeEscritorio()` y `bloqueo={appEscritorio.bloqueo}`; con otro nombre de variable
+  da rojo aunque la caja se bloquee bien.
+
+- **Campañas y Biblioteca, con el MISMO árbol** (`Ramas` y `TarjetaRama` en `Arbol.tsx`): en Campañas las ramas son los
+  productos (con «Sin producto» como una rama más) y cada tarjeta, una campaña con su gasto, sus resultados del CRM y su costo;
+  su único botón es «Asignar» o «N cambios», y al tocarla se abre la hoja con `ProductoCelda` (la del CRM). En Biblioteca, cada
+  tarjeta es uno de los anuncios que más trajeron, con «Variaciones». Lo nuevo para revisar ya está en Hoy y lo lanzado, en
+  Actividad: no se repite.
+- ⚠️ **Cuatro columnas no entran en el ancho de la 04** (1.040 px): con tres productos y «Sin producto», el nombre de la
+  campaña se cortaba. Quedan tres columnas; la cuarta rama baja de fila con su rótulo y sin el punto de la rama.
+
+**Sin hacer, con su archivo:** Ajustes y Automatizaciones, con `mb.css`; las alertas de Protect son una línea arriba del árbol
+y su hoja; «Aplicar los N» lanza de a uno desde el navegador (no hay una operación «lanzar varias» en `/api/media-buyer`).
+
+*25/10/2026, chat «Media Buyer» (`claude5`).*
+
+### La revisión adversarial de tren-l: diez fallas, con su test (26/10/2026)
+
+El detalle (escenario, por qué no se pudo refutar) está en las notas del Cerebro, `revision-tren-l-2.md`, hallazgos 0 a 9. Lo
+fija `tests/media-buyer-revision-l.test.ts`, roto una vez por falla. Lo que queda como regla:
+
+- ⚠️ **Lo que la IA escribe para el público sale sólo LEÍDO (falla 0).** Copiar el «Applied» de la 04 puso «Aplicar» en cada
+  tarjeta, también en las de textos nuevos: la IA publicaba y prendía copy que nadie leyó (y la hoja mostraba 2 de 4 y lanzaba
+  las 4). **El diagnóstico obvio («el botón es el de la referencia») era el equivocado:** en la 04 el botón cambia
+  presupuestos; un texto nuevo es otra cosa. Ahora esa tarjeta dice «Ver textos», «Aplicar los N» no cuenta variaciones, la hoja
+  muestra todas, y el servidor no lanza textos de una persona sin `elegidas` explícitas (la API los lista en la confirmación).
+- ⚠️ **La pantalla escribe «1,250» y el campo leía la coma como decimal (falla 4):** «1,500» salía 1,5 por día, y bajar no pasa
+  por ningún tope. `leerMonto` (mb-modelo.ts) entiende los separadores de miles, y el servidor no escribe un salto de 5 veces
+  o más (`saltoPresupuesto`, el que ya usaba el chat).
+- **«El mismo porcentaje sobre el de hoy» compone (falla 1):** dos bajas abiertas sobre la misma entidad (el motor de dos días,
+  o el motor y un agente propio) dejaban −36% con dos de −20%. Si otra decisión ya cambió el presupuesto después de proponerse
+  ésta, se cierra como vencida (`presupuestoYaCambiado`, topes.ts); el lote dice lo que se ajustó o se frenó.
+- **Una config JSON se guarda MEZCLANDO (falla 2):** el panel de agentes mandaba todas las tácticas con la copia de cuando se
+  abrió la página y podía volver a poner en automático algo que otro apagó. El servidor mezcla táctica por táctica
+  (`mezclarTacticas`) y cada pantalla manda sólo la que tocó; pasaba igual con Automatizaciones, ya en producción.
+- ⚠️ **`getSetting` devuelve null cuando Supabase falla (falla 3):** una lista de agentes leída como vacía se escribía encima
+  (editar uno durante un error pasajero dejaba ése solo). Lo que escribe lee estricto y guarda con compare-and-set por
+  `updated_at`: comparar el JSON entero viaja en la URL y se rompe pasados unos KB (`docs/hallazgos-infra.md`).
+- **Monedas mezcladas en lo que lee la IA (falla 5):** el gasto en dólares y el presupuesto en pesos, los dos con «$». Ahora el
+  presupuesto va en la moneda de la cuenta con su equivalente al lado.
+- **El arranque ofrecía el piloto a quien no lo tiene (falla 6):** el guardado se cortaba entero y la charla quedaba en «listo»
+  con el Media Buyer apagado. El arranque conoce el plan, y un guardado fallido vuelve a preguntar el modo.
+- ⚠️ **Protect pasaba a dólares lo que ya estaba en dólares (falla 7):** en una cuenta en pesos la alerta de gasto no saltaba
+  nunca. **El test pasaba porque usaba una conversión que no convierte;** el nuevo usa la tasa de verdad.
+- **Deshacer mientras se crean las variaciones (falla 8):** quedaba «deshecha» con los anuncios prendidos. No se deshace una con
+  `creados` vacío, y lo creado tarde se guarda sólo si sigue «aplicada» (si no, se borra).
+- **El cupo de Esencial no contaba lo de los agentes propios (falla 9):** cada «Analizar» de más dejaba otras tantas.
+
+**La verificación de tren-m** cerró 9 de 10 y encontró lo que el arreglo dejó abierto:
+- **«Lo que se tilda es lo que sale» no incluía el TÍTULO:** la IA también escribe el headline del anuncio, y ni la hoja ni la
+  confirmación del chat lo mostraban (la del chat, además, cortaba el gancho a 120 caracteres). Ahora salen enteros.
+- ⚠️ **El mismo «1,500 → 1,5» vivía en dos lugares más:** el arranque (sus pastillas salen de `fmtDinero`: «$1,000 al mes» se
+  leía 1 y quedaba un tope de 1 por día) y los Ajustes, ya en producción (un objetivo «1,500» quedaba en 1,5 y el Stop Loss se
+  disparaba con US$3). **Arreglar el campo que se vio no alcanzaba:** se buscó toda lectura de monto del área. `leerMonto` y
+  `montoDelTexto` viven ahora en `lib/media-buyer/monto.ts`; código nuevo que lea un monto escrito pasa por ahí.
+- **Una guarda sin tiempo es una trampa:** «aplicada» con `creados` vacío quedaba trabada para siempre (una subida de creativos
+  reintentada por el camino equivocado, o un lanzamiento cortado). `seEstaCreando` vence a los 10 minutos, y `lanzar` ya no
+  toma una subida de creativos.
+
+*26/10/2026, chat «Media Buyer» (`claude5`).*
 
 ## Las lecturas de Meta del cron, de la salud y del modal del anuncio, por Zernio; y CAPI por la misma conexión (25/10/2026)
 
@@ -4910,9 +5051,98 @@ la Zernio del negocio».
   cancelled` y `configuredStatus: ACTIVE`**: leer sólo el interruptor propio da por prendido a un anuncio que ya no existe
   (avisado al Media Buyer). Sin entrega, los insights siguen vacíos: las filas reales recién con un negocio que gaste.
 
-**Sin hacer:** el árbol de `_getMetaHealth` por Zernio (`/v1/ads/accounts/live` + `/v1/ads/tree`), el
-reproductor del anuncio, `campanasYConjuntos` del selector del CRM, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de
-insights, `account_currency`, o de la cuenta), y las escrituras de `lib/meta-write.ts` / `lib/meta-ads-create.ts` fuera del
-Media Buyer.
+**Sin hacer:** el reproductor del anuncio, `monedaDesdeMeta` (con Zernio la moneda sale de la fila de insights,
+`account_currency`, o de la cuenta) y `lib/meta-ads-create.ts`. El árbol, el selector del CRM y las escrituras de
+`lib/meta-write.ts` se hicieron el 26/10 (la entrada de abajo).
 
 *25/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Un negocio SIN token administra sus campañas por Zernio: primero el árbol, después las escrituras (26/10/2026)
+
+**Vive en:** `lib/meta-escribir-zernio.ts` (las escrituras) · `lib/meta-write.ts` (`escribirEnMeta`, la rama) ·
+`lib/meta-via.ts` (`arbolPorZernio`) · `lib/meta-health.ts` (`edgesPorZernio`, `campanasYConjuntosCrudos`) ·
+`lib/api-mako/areas/ads.helpers.ts` (`estadoVivoMeta`) · lo puro, en `lib/zernio-meta-cuerpo.ts` · la prueba,
+`scripts/prueba-zernio-escribir.mts`.
+
+- ⚠️ **El diagnóstico obvio («faltan las escrituras por Zernio») era la mitad.** Un negocio conectado sólo por Zernio tenía el
+  árbol de la salud VACÍO: las tres edges (`campaigns`, `adsets`, `ads`) pedían el token, fallaban suave y el árbol salía
+  `parcial`. Toda propuesta de la API (`proponer_estado_*`, `_presupuesto_*`, `_renombrar_*`, `_eliminar_*`) busca la entidad
+  en ese árbol antes de escribir: contestaba «No encuentro esa campaña» aunque `metaWrite` hubiera sabido escribir. Primero el
+  árbol, después la escritura.
+- **El árbol por Zernio se arma de DOS lecturas** (no hay una sola que lo traiga): campañas y conjuntos EN VIVO de
+  `GET /v1/ads/accounts/live` (con su interruptor propio y su presupuesto) y los anuncios de la lista SINCRONIZADA `GET /v1/ads`
+  (Zernio no lee en vivo los anuncios de una cuenta). La lista guarda lo borrado (`status: cancelled`, a veces con
+  `configuredStatus: ACTIVE`): un anuncio entra sólo si su conjunto está vivo. Lo que no hay por Zernio: el `created_time` de
+  campañas y conjuntos, y las recomendaciones de Meta (su `/ads/recommendations` es sólo de Google). El aprendizaje sale de un
+  pedido por conjunto (`GET /ads/ad-sets/{id}?fields=learning_stage_info`), sólo de los que entregan, hasta 20.
+- **De quién es un id, por Zernio:** `GET /ads/campaigns/{id}` y `/ads/ad-sets/{id}` son el paso directo de Meta (`fields=
+  account_id,configured_status,effective_status`, con `accountId`); un anuncio, `GET /ads/{id}?live=true`
+  (`platformAdAccountId`). Una campaña que la conexión no ve vuelve como el **400** de Meta, no como un 404: para el negocio, no
+  existe. Medido: un id ajeno rebotó con 404 sin escribir.
+- ⚠️ **Zernio contesta 200 al pausar un anuncio BORRADO** (medido el 26/10 en la cuenta de MaKo): con el token, Meta lo
+  rechazaba. Antes de escribir se mira si la entidad está borrada (`siYaEstaBorrada`): borrarla otra vez ya está hecho;
+  cualquier otra escritura rebota.
+- ⚠️ **Borrar el ÚLTIMO anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña** (su OpenAPI lo dice; medido
+  el 26/10: el anuncio, el conjunto y la campaña quedaron `DELETED` con un solo DELETE). Con el token no pasaba. La API lo avisa
+  en el resumen antes del «sí».
+- ⚠️ **La `Idempotency-Key` devuelve la respuesta ORIGINAL aunque lo creado ya no exista.** El script de prueba usaba una clave
+  por día: la segunda vuelta recibió los ids de la campaña de la primera, ya borrada, y no creó nada. La clave protege el
+  reintento de UNA creación; dos creaciones a propósito llevan dos claves.
+  Lo mismo al crear un ANUNCIO (revisión del tren-m): crear, borrar y volver a pedir lo mismo dentro del tramo de 10 minutos de la
+  clave devolvía el borrado y MaKo decía «creado». Ahora se relee en vivo y, si vino borrado (`cancelled` o entrega `DELETED`;
+  el interruptor no sirve, vuelve `ACTIVE`), se pide UNA vez más con otra clave (`vinoBorrado`, lib/zernio-meta-cuerpo.ts).
+- **Una campaña «vacía» se puede pausar por Zernio si alguna vez tuvo anuncios** (Zernio la encuentra por sus anuncios
+  guardados). El 404 que midió el Media Buyer es de la campaña que NACIÓ vacía (`POST /ads/campaigns`); ahí el texto propio
+  dice que se le agregue un anuncio o se borre.
+- **El tope de anuncios activos gratis de Zernio** (`ads_allowance_exceeded`, por cuenta de Zernio sin medio de pago) frena
+  prender y subir presupuesto: el error dice que se cargue el medio de pago en Zernio. No es de Meta.
+- **Medido de punta a punta el 26/10 en `act_1426493815659364`, gasto 0:** crear (campaña, conjunto y anuncio en pausa; el
+  conjunto y el anuncio nacen prendidos y se pausaron en el acto por `metaWrite`), el árbol y el selector de campañas por
+  Zernio (presupuesto 1 USD leído como 1), renombrar los tres niveles, presupuesto 1 → 2 → 1, prender y pausar la campaña y el
+  anuncio, y borrar el conjunto, la campaña vacía y el anuncio; por `metaWrite` y por los runners de la API de MaKo y el doer.
+  La cuenta quedó con 0 campañas y 0 conjuntos.
+- ⚠️ **Para correr la API de MaKo en un script** (fuera de Next), `getMetaHealth` pide dos cosas que pone el servidor:
+  `globalThis.__incrementalCache` (una vacía alcanza) y `globalThis.AsyncLocalStorage` (el de `node:async_hooks`). Sin ellas,
+  «incrementalCache missing» o «AsyncLocalStorage accessed in runtime where it is not available»: no es el código.
+- **`lib/meta-ads-create.ts` por Zernio, sin otro parser:** `GET /ads/campaigns/{id}`, `/ads/ad-sets/{id}` y
+  `/ads/creatives/{id}` son el paso directo de Meta con `fields` tal cual, ANIDADOS incluidos (`adsets.limit(10){…}` en una
+  campaña): una sola puerta (`leerObjetoMeta`) elige la vía y devuelve la forma de la Graph API. El anuncio sale del guardado de
+  Zernio (`/ads/{id}?live=true`: cuenta, nombre, entrega, el id del creativo) más su creativo por el paso directo. Medido el 26/10
+  en la cuenta de MaKo: la cuenta, los píxeles, los datos de campaña y conjunto, el público (lectura), leer y cambiar los textos
+  del anuncio (releído cambiado), y agregar un anuncio con la imagen de otro y otro reusando su post, los dos nacidos en pausa.
+- ⚠️ **`GET /ads/images` corta en 100 por página** (`limit=200` → 400 «Too big»). Un `catch(() => null)` lo convertía en «la
+  imagen no tiene dirección pública»: **el diagnóstico obvio era el equivocado**, la imagen estaba. Un fallo de Zernio sube tal
+  cual.
+- ⚠️ **La misma `Idempotency-Key` con OTRO cuerpo** contesta «already used with a different request». La clave por nombre de
+  anuncio chocaba en cuanto cambiaba el creativo del original; ahora sale del cuerpo entero y una ventana de 10 minutos.
+- **Formularios por Zernio:** `GET /ads/lead-forms` lista los de la página de la conexión (la OpenAPI no declara la forma de cada
+  uno: vino el crudo de Meta, `id`, `name`, `status`); `POST /ads/lead-forms` los crea con el contenido en
+  `platformSpecificData`, que se arma DESDE `paramsFormulario` (mismas preguntas y pantalla final, sin una segunda copia de la
+  regla); `DELETE /ads/lead-forms/{id}` los archiva. Zernio parsea estricto: un campo con el nombre de la Graph API es un 400.
+- **Editar el público por Zernio NO está hecho:** `PUT /ads/ad-sets/{id}` recibe SU forma de segmentación (`TargetingSpec`,
+  con fusión de claves), no el crudo de Meta que arma `editarPublicoConjunto`. Sin token, se dice así (`sinPublicoPorZernio`).
+- **Un negocio sin token ya no oye «configura META_ACCESS_TOKEN»:** el token está deprecado y no se pide. Lo que todavía no
+  tiene camino por Zernio dice eso y manda al Administrador de anuncios (`cred`, lib/meta-ads-create.ts).
+- **«Crear una campaña» no tiene pantalla, ni con token ni con Zernio.** El asistente se borró con la vista vieja del Ads
+  Manager (25/10); las rutas `campaign-create`, `adset-add`, `ad-add` y `ad-edit` no las llama ninguna pantalla, y la API de
+  MaKo no declara crear campañas. Lo único que crea desde la app es «Subir creativos» del Media Buyer (un anuncio por archivo
+  en un conjunto que ya existe, por Zernio).
+
+**Sin hacer (con dónde vive):** lo de `lib/meta-ads-create.ts` que sigue con el token: crear campaña y conjunto
+(`createCampaign`, `createAdSet`, `addAdsetToCampaign`; el anuncio en un conjunto YA va por Zernio) y las subidas
+(`uploadAdImage`/`uploadAdVideo`, la ruta `creative-upload`), editar el público (`editarPublicoConjunto`), `formularioBase` (la web
+de la página; listar y CREAR formularios ya van por Zernio, medidos en la página de MaKo: el de prueba quedó ARCHIVADO, porque un
+formulario no se borra; una página distinta de la de la conexión no tiene camino por Zernio), crear públicos (`createCustomAudience`; LISTARLOS ya va por Zernio, `GET /ads/audiences` con el id de Meta, pero la cuenta de
+MaKo no tiene ninguno: la forma de cada fila sale de la OpenAPI, SIN medir con datos), los eventos del píxel y las
+conversiones (`listPixelEvents`, `listCustomConversions`; los píxeles ya van por Zernio), el alcance (`alcanceGeo`; BUSCAR intereses y lugares ya va por Zernio, `/ads/targeting/search`, con los ids de Meta y el
+mismo `lugarDesdeBusqueda` y `ordenarLugares`, medido con «Córdoba» y «marketing digital»),
+identidades (`paginasDeGanadores`, `getInstagramActorId`; `identidadesMeta` ya va por Zernio, `GET /ads/instagram-accounts`,
+medido con la conexión de MaKo: la identidad `page_backed` es la página usada como Instagram, no una cuenta, y queda afuera), `getAdsAprobacionPendiente` y `generatePreviews`.
+Zernio tiene endpoint para cada una (`/ads/images`, `/ads/videos`, `/ads/lead-forms`, `/ads/audiences`, `/ads/interests`,
+`/ads/targeting/*`, `/ads/preview`). Fuera de ese archivo: el barrido de leads (`pollMetaLeads`, lib/meta-leads.ts →
+`GET /v1/ads/leads`) y el reproductor (`app/api/anuncios/video/route.ts`: dibuja el plugin de video de facebook.com que sale del `embed_html`, y
+Zernio no lo da; su `/ads/{adId}/media` trae el .mp4 directo, así que hacerlo por Zernio cambia lo que dibuja la pantalla,
+app/dashboard/graficos/ReproductorAnuncio.tsx). Duplicar campañas y
+conjuntos tampoco existe en MaKo (con token, en ningún lado; el Media Buyer duplica anuncios por Zernio).
+
+*26/10/2026, chat «Zernio y CAPI» (`claude5`).*

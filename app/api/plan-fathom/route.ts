@@ -1,8 +1,10 @@
 // =============================================================================
-// /api/plan-fathom — extraer tareas del plan desde una reunión de Fathom (G3)
+// /api/plan-fathom — extraer tareas del plan desde una reunión grabada (G3)
 // =============================================================================
-// POST { action:'reuniones' }                         → { ok, reuniones:[…], borradores, descartadas (las «Sin leer») }
-// POST { action:'extraer', recordingId, proyectos:[{id,emoji,nombre}], uso? }
+// De CUALQUIER grabador conectado (Fathom, Loom, tl;dv, Fireflies, Zoom…: lib/grabadores, 26/10/2026); la ruta quedó
+// con el nombre de cuando sólo había Fathom.
+// POST { action:'reuniones' }                         → { ok, reuniones:[…], borradores, descartadas (las «Sin leer»), fallos }
+// POST { action:'extraer', recordingId, ref?, proyectos:[{id,emoji,nombre}], uso? }  (ref = «loom:abc»; sin ella, la clave)
 //      → con caché: { ok, tareas:[…], cached:true, borradorId } (al instante, sin IA)
 //      → sin caché: { ok, procesando:true, borradorId } — la lectura sigue en `after()` (16/10/2026)
 // POST { action:'estado-borrador', id, conReunion? }  → el sondeo del modal
@@ -26,6 +28,8 @@ import { completarBorradorDeReunion, tareasDeLaExtraccion, extrasDeLectura } fro
 import { tomarLectura, leyendoAhora } from '@/lib/reunion-leyendo';
 import { listarDescartadas, marcarDescartadaLeida } from '@/lib/reunion-descartadas';
 import { wsObligatorio } from '@/lib/workspace';
+import { claveDeReunion, leerRef, refDeReunion, type GrabadorId } from '@/lib/grabadores/reunion';
+import { refDeClave, refsDeClaves, grabadoresConectados } from '@/lib/grabadores';
 
 export const dynamic = 'force-dynamic';
 // 300s porque una reunión larga se extrae POR PARTES (lib/plan-fathom → trocear): son
@@ -59,7 +63,7 @@ const proyectosDe = (raw: unknown): ProyectoRef[] =>
  * marcar la reunión como leída y guardar las correcciones sobre esa misma fila.
  */
 async function asegurarBorrador(
-  recordingId: number,
+  reunion: { grabador: GrabadorId; id: string },
   titulo: string | null,
   proyectos: ProyectoRef[],
   tareas: TareaCandidata[],
@@ -70,8 +74,8 @@ async function asegurarBorrador(
     const proyCliente = await proyectoQueManda(cli);
     const mias = tareas.filter((t) => !t.esDeOtro).length;
     return await crearPropuesta({
-      ref: `fathom:${recordingId}`,
-      origen: 'fathom',
+      ref: refDeReunion(reunion),
+      origen: reunion.grabador,
       fuenteTitulo: titulo ?? undefined,
       resumen: `MaKo leyó «${titulo ?? 'la reunión'}» y sacó ${mias} compromiso${mias === 1 ? '' : 's'} tuyo${mias === 1 ? '' : 's'}.`,
       // El map vive en UN lugar desde el 16/10/2026 (`tareasDeLaExtraccion`): lo comparte con la
@@ -104,10 +108,17 @@ async function conCliente(payload: Record<string, unknown>, titulo: string | nul
   return Response.json({ ok: true, ...payload, ...(await clienteParaElModal(cli, participantes)) });
 }
 
+/** GET → { ok, grabadores }: los grabadores conectados del negocio (el botón de reuniones del Plan dibuja su logo). */
+export async function GET() {
+  const sesion = await getUsuarioActual();
+  if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
+  try { return Response.json({ ok: true, grabadores: await grabadoresConectados() }); }
+  catch (e) { return Response.json({ ok: false, error: msg(e) }, { status: 500 }); }
+}
+
 export async function POST(req: NextRequest) {
-  // Cualquier usuario logueado puede extraer de SU Fathom: la key sale de
-  // credWs('FATHOM_API_KEY') que ya está scopeada por workspace (el dueño usa la de
-  // la agencia; cada cliente, la suya). Si el workspace no tiene key, falla lindo.
+  // Cualquier usuario logueado puede extraer de SUS grabadores: las claves son del workspace
+  // (lib/grabadores; el dueño usa las de la agencia, cada cliente las suyas). Sin claves, falla lindo.
   const sesion = await getUsuarioActual();
   if (!sesion) return Response.json({ ok: false, error: 'No autorizado' }, { status: 401 });
   const yo: Yo = { nombre: sesion.nombre ?? '', email: sesion.email ?? '' };
@@ -174,7 +185,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let body: { action?: string; recordingId?: number; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; reanalizar?: boolean; id?: string; conReunion?: boolean };
+  let body: { action?: string; recordingId?: number; ref?: string; proyectos?: ProyectoRef[]; uso?: string; titulo?: string; cursor?: string; recordedAfter?: string; termino?: string; definicion?: string; reanalizar?: boolean; id?: string; conReunion?: boolean };
   try { body = await req.json(); } catch { return Response.json({ ok: false, error: 'body inválido' }, { status: 400 }); }
   const uso = String(body.uso ?? '').trim() || undefined;
 
@@ -184,25 +195,32 @@ export async function POST(req: NextRequest) {
       // pide más con nextCursor. recordedAfter = filtro por fecha (ISO), opcional.
       const cursor = typeof body.cursor === 'string' && body.cursor ? body.cursor : undefined;
       const recordedAfter = typeof body.recordedAfter === 'string' && esFechaValida(body.recordedAfter) ? body.recordedAfter : undefined;
-      const { reuniones, nextCursor } = await listReunionesRecientes({ cursor, recordedAfter });
+      const { reuniones: conReunion, nextCursor, fallos } = await listReunionesRecientes({ cursor, recordedAfter });
+      // Al navegador va la ficha, sin la reunión entera que trajo el grabador (sólo la usa el server).
+      const reuniones = conReunion.map(({ reunion: _r, ...r }) => r);
       // Qué salió YA de cada una de estas reuniones (mismo request, mismo workspace).
       // Sin esto, el selector ofrece "Extraer →" en una reunión de la que MaKo ya sacó
       // 61 tareas: el usuario paga tokens para que le muestren lo que ya tiene.
-      const borradores = await resumenPropuestasPorRefs(reuniones.map((r) => `fathom:${r.recordingId}`)).catch(() => ({}));
+      const borradores = await resumenPropuestasPorRefs(reuniones.map((r) => r.ref)).catch(() => ({}));
       // LAS QUE EL CRON NO LEYÓ (mig 0300, 16/10/2026): las que descartó por tipo (ventas u «otra»)
       // y las que iban al plan y fallaron, con su motivo, para la lista corta «Sin leer» con «Leer
       // igual». Sólo en la primera página (no depende del cursor) y sin las que ya tienen borrador
       // (se leyeron después, por otro lado o en un reintento). `null` = no se pudo leer: la lista no
       // aparece, en vez de decir «ninguna» sobre una lectura que falló.
-      let descartadas: Awaited<ReturnType<typeof listarDescartadas>> = null;
+      let descartadas: Array<NonNullable<Awaited<ReturnType<typeof listarDescartadas>>>[number] & { ref: string }> | null = null;
       if (!cursor) {
         const todas = await listarDescartadas();
         if (todas) {
-          const conBorrador = await resumenPropuestasPorRefs(todas.map((d) => `fathom:${d.recordingId}`)).catch(() => ({} as Record<string, unknown>));
-          descartadas = todas.filter((d) => !conBorrador[`fathom:${d.recordingId}`]);
+          // La ref de cada una sale de su clave (Fathom: su número; los demás, `grabador_reuniones`). La que no se puede
+          // volver a abrir no se ofrece: «Leer igual» no tendría qué leer.
+          const refs = await refsDeClaves(todas.map((d) => d.recordingId)).catch(() => new Map<number, string>());
+          const conRef = todas.flatMap((d) => { const ref = refs.get(d.recordingId); return ref ? [{ ...d, ref }] : []; });
+          const conBorrador = await resumenPropuestasPorRefs(conRef.map((d) => d.ref)).catch(() => ({} as Record<string, unknown>));
+          descartadas = conRef.filter((d) => !conBorrador[d.ref]);
         }
       }
-      return Response.json({ ok: true, reuniones, nextCursor, borradores, descartadas });
+      // `fallos`: los grabadores que no contestaron (las reuniones de los otros vienen igual).
+      return Response.json({ ok: true, reuniones, nextCursor, borradores, descartadas, ...(fallos?.length ? { fallos } : {}) });
     }
     // ── ¿Ya terminó de leer? El modal pregunta cada pocos segundos mientras la lectura
     // corre en segundo plano. Es barato (una fila) y NO hace trabajo: solo mira.
@@ -233,7 +251,8 @@ export async function POST(req: NextRequest) {
       // cliente va y, si no lo sabe, las opciones para preguntar—. Sólo si el modal lo pide
       // (`conReunion`): son lecturas del CRM que el resto de los sondeos no necesita.
       let reunion: Record<string, unknown> = {};
-      const rid = est.ref?.startsWith('fathom:') ? Number(est.ref.slice(7)) : NaN;
+      const deLaRef = leerRef(est.ref);
+      const rid = deLaRef ? claveDeReunion(deLaRef.grabador, deLaRef.id) : NaN;
       if (body.conReunion === true && est.estado === 'pendiente' && Number.isFinite(rid)) {
         const ex = await extrasDeLectura(rid);
         const participantes = ex?.participantes ?? [];
@@ -256,8 +275,13 @@ export async function POST(req: NextRequest) {
     // modal viejo que todavía lo pida recibe «acción desconocida» y carga igual: el cruce es una
     // ayuda, no un paso (`aplicarPropuestas` tiene su propio anti-duplicado).
     if (body.action === 'extraer') {
-      const recordingId = Number(body.recordingId);
+      // DE QUÉ GRABADOR ES (26/10/2026): la `ref` que manda el modal («loom:abc»); sin ella, la clave (un modal viejo
+      // manda sólo el recording_id de Fathom, y sigue andando igual).
+      const porRef = leerRef(body.ref);
+      const recordingId = porRef ? claveDeReunion(porRef.grabador, porRef.id) : Number(body.recordingId);
       if (!Number.isFinite(recordingId)) return Response.json({ ok: false, error: 'Falta la reunión.' }, { status: 400 });
+      const reunion = porRef ?? await refDeClave(recordingId).catch(() => null);
+      if (!reunion) return Response.json({ ok: false, error: 'No sé de qué grabador es esa reunión. Ábrela otra vez desde la lista.' }, { status: 400 });
       const proyectos = proyectosDe(body.proyectos);
       // El título viaja desde el modal porque es la SEGUNDA vía para reconocer al
       // cliente (Fathom devuelve como participante solo al que grabó en media agenda) y
@@ -284,7 +308,7 @@ export async function POST(req: NextRequest) {
               // plan_propuestas no se persistía NUNCA — por más veces que la extrajeras
               // se veía la lista y al salir no quedaba nada. crearPropuesta es
               // idempotente por `ref`, así que llamarla de más no duplica.
-              const borradorId = await asegurarBorrador(recordingId, titulo, proyectos, prev.tareas as TareaCandidata[], (prev.participantes ?? []) as Participante[]);
+              const borradorId = await asegurarBorrador(reunion, titulo, proyectos, prev.tareas as TareaCandidata[], (prev.participantes ?? []) as Participante[]);
               return conCliente({ tareas: prev.tareas, participantes: prev.participantes ?? [], cached: true, borradorId }, titulo);
             }
           } catch { /* cache corrupto → re-extrae */ }
@@ -300,13 +324,13 @@ export async function POST(req: NextRequest) {
       // ⚠️ UNA LECTURA A LA VEZ (lib/reunion-leyendo.ts): el cron y el webhook también leen. Si otro
       // la está leyendo, no se lanza una segunda: ése llena este mismo borrador al terminar
       // (`crearPropuesta` llena una fila 'procesando').
-      const ref = `fathom:${recordingId}`;
+      const ref = refDeReunion(reunion);
       const previo = (await resumenPropuestasPorRefs([ref]).catch(() => ({} as Record<string, never>)))[ref];
       if (previo?.estado === 'procesando' && await leyendoAhora(recordingId)) {
         return Response.json({ ok: true, procesando: true, borradorId: previo.id });
       }
       const leyendo = `Leyendo «${(titulo ?? 'la reunión').slice(0, 120)}»…`;
-      const borradorId = await crearPropuesta({ ref, origen: 'fathom', estado: 'procesando', tareas: [], resumen: leyendo, fuenteTitulo: titulo ?? undefined });
+      const borradorId = await crearPropuesta({ ref, origen: reunion.grabador, estado: 'procesando', tareas: [], resumen: leyendo, fuenteTitulo: titulo ?? undefined });
       // `crearPropuesta` revive 'descartada' y 'fallado' a 'procesando'. Una que estaba pendiente o
       // aplicada («Volver a analizar») se pone a mano: si no, el sondeo la vería «lista» con lo viejo.
       if (previo && (previo.estado === 'pendiente' || previo.estado === 'aplicada')) await ponerProcesando(borradorId, leyendo);
@@ -319,7 +343,7 @@ export async function POST(req: NextRequest) {
       const hasta = Date.now() + 285_000;
       // «Volver a analizar» (`reanalizar`) lee de cero; si no, sigue la lectura a medias donde quedó (revisión de B5, 17/10/2026).
       const reanalizar = body.reanalizar === true;
-      after(() => completarBorradorDeReunion({ ws, borradorId, recordingId, titulo, proyectos, yo, uso, hasta, reanalizar }));
+      after(() => completarBorradorDeReunion({ ws, borradorId, recordingId, ref: reunion, titulo, proyectos, yo, uso, hasta, reanalizar }));
       return Response.json({ ok: true, procesando: true, borradorId });
     }
     return Response.json({ ok: false, error: 'acción desconocida' }, { status: 400 });

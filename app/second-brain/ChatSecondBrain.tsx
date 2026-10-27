@@ -77,6 +77,7 @@ import { TusCuentasIA } from '@/app/integraciones/TusCuentasIA';
 import { VolverDelGrafo } from './volver';
 import { useChatCliente } from './useChatCliente';
 import { CajaDelCliente, HiloDelCliente, UsoDelCliente, estadoDelCliente } from './PiezasCliente';
+import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 import { SUBS_VISIBLES, edadCorta, esFilaDe, jefeDelGrupo, type ElegidoChat } from '@/lib/chat-mako-reglas';
 import { aspectoDeChat } from '@/lib/centro-munecos';
 import { tocarEnLaBarra, type EntradaBarra } from '@/lib/ops-center-navegar';
@@ -477,7 +478,11 @@ function Cuerpo({ veMapa, mapa, chatInicial, offerInicial = null, antesInicial =
             <MenuMensajeWA abierto={k.menuWA} marcas={k.marcas} onCerrar={() => k.setMenuWA(null)} onElegir={k.elegirEnMenu} sin={['reenviar']} />
             {k.infoWA && <Modal titulo="Info del mensaje" onCerrar={() => k.setInfoWA(null)} ancho={460}><InfoMensaje m={k.infoWA} /></Modal>}
           </>}
-          caja={<div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>}
+          caja={<>
+            {/* Lo que MaKo recomienda a todo el negocio (26/10/2026), sólo en el Cerebro: en el bloque de preguntas, plegado. */}
+            {k.esJefe && <RecomendacionesDeMako superficie="ops-center" alPedir={k.setTexto} />}
+            <div className="co-caja"><CajaDelCliente k={k} campo={caja} seguir={seguirHilo} /></div>
+          </>}
           estado={estadoDelCliente(k)}>
           <HiloDelCliente k={k} />
         </PanelDeChat>

@@ -17,7 +17,7 @@ import type { GrupoEnWhatsapp } from '@/lib/wa-fichas-cliente';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : 'error');
 
-export type AvanceFichas = { nombres: number; empresas: number; guardadas: number; total: number; parado: boolean; error: string | null };
+export type AvanceFichas = { nombres: number; empresas: number; guardadas: number; total: number; parado: boolean; error: string | null; perfiles?: number };
 
 /**
  * Guarda las fichas que leyó la extensión, de a `TANDA_FICHAS`. `guardar` es la acción del server (la del grupo o la del lote);
@@ -28,9 +28,9 @@ export async function guardarFichasEnTandas(
   fichas: readonly FichaWa[], guardar: (tanda: FichaWa[]) => Promise<ResultadoFichas>,
   o: { parar: () => boolean; alAvanzar?: (guardadas: number, total: number) => void },
 ): Promise<AvanceFichas> {
-  let nombres = 0, empresas = 0, guardadas = 0;
+  let nombres = 0, empresas = 0, guardadas = 0, perfiles = 0;
   let cola = [...fichas];
-  const fin = (parado: boolean, error: string | null): AvanceFichas => ({ nombres, empresas, guardadas, total: fichas.length, parado, error });
+  const fin = (parado: boolean, error: string | null): AvanceFichas => ({ nombres, empresas, guardadas, total: fichas.length, parado, error, perfiles });
   while (cola.length) {
     if (o.parar()) return fin(true, null);
     const tanda = cola.slice(0, TANDA_FICHAS);
@@ -38,7 +38,7 @@ export async function guardarFichasEnTandas(
     let g: ResultadoFichas;
     try { g = await guardar(tanda); } catch (e) { return fin(false, `${msg(e)} · quedaron ${miles(cola.length)} sin guardar.`); }
     if (!g.ok) return fin(false, `${g.error} · quedaron ${miles(cola.length)} sin guardar.`);
-    nombres += g.nombres; empresas += g.empresas;
+    nombres += g.nombres; empresas += g.empresas; perfiles += g.perfiles ?? 0;
     const quedan = new Set(g.pendientes);
     const vuelven = tanda.filter((x) => quedan.has(x.telefono));
     if (vuelven.length === tanda.length) return fin(false, `Se cortó guardando: quedaron ${miles(cola.length)} sin guardar. Vuelve a tocar para seguir.`);
@@ -63,12 +63,19 @@ export function coberturaDeFichas(fichas: readonly FichaWa[]): { conNombre: numb
  */
 export function gruposEnWhatsappDichos(grupos: readonly GrupoEnWhatsapp[]): string {
   if (!grupos.length) return '';
-  const partes = grupos.slice(0, 3).map((g) => (g.encontrado
-    ? `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`
-    : `el grupo «${g.nombre}» no está en tu WhatsApp Web`));
+  // Con cuántos sabe el NOMBRE (26/10/2026): en un grupo de anuncios nadie escribe y WhatsApp no conoce sus nombres (en el de
+  // Martín, 1 de 247); sin el número, «1 completado» se lee como que la extensión no anda.
+  const partes = grupos.slice(0, 3).map((g) => (!g.encontrado
+    ? `el grupo «${g.nombre}» no está en tu WhatsApp Web`
+    : g.participantes != null && g.conNombre != null
+      ? `el grupo «${g.nombre}» está en tu WhatsApp: de sus ${miles(g.participantes)}, WhatsApp sabe el nombre de ${miles(g.conNombre)}`
+      : `el grupo «${g.nombre}» está en tu WhatsApp${g.participantes != null ? ` (${miles(g.participantes)})` : ''}`));
   const texto = partes.join(' · ');
   return ` ${texto.charAt(0).toUpperCase()}${texto.slice(1)}.`;
 }
+
+// (`avanceCorto`, el paso de la extensión dicho para la barra del lote, se fue el 26/10/2026 con la 0.72.0: ese avance ahora
+// vive en el desplegable de la extensión, que tiene lugar para la frase entera.)
 
 /** El aviso al terminar «Completar desde mi WhatsApp»: la cobertura, lo escrito, y si paró o se cortó. */
 export function resumenDeFichas(pedidos: number, fichas: readonly FichaWa[], a: AvanceFichas): string {

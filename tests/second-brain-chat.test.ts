@@ -122,8 +122,9 @@ test('los adjuntos: se abren por su mensaje mirando de quién es, no quedan suel
   assert.ok(deQuien > 0 && deQuien < cuerpoUrl.indexOf('urlFirmadaDeAdjunto('), 'de quién es la conversación, ANTES de firmar');
   assert.match(cuerpoUrl, /sanearBloques\(persona\.ws, m\.bloques\)/, 'el path se sanea con el workspace de la persona');
   assert.match(turno, /mensajes: mensajes\.map\(\(m\) => aMensajeChat\(persona\.ws, m\)\)/, 'abrir no devuelve las filas crudas (con el path)');
-  // Con la nota de voz (OC7), lo que se guarda es `aGuardar`: los adjuntos y, al final, la nota.
-  assert.match(turno, /if \(aGuardar\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
+  // Con la nota de voz (OC7), lo que se guarda es `conElPedido` (antes `aGuardar`, renombrado en 32f430356: tapaba la
+  // función de lib/chat-bloques): los adjuntos y, al final, la nota.
+  assert.match(turno, /if \(conElPedido\.length && !msg\.conBloques\) await borrarAdjuntos\(/, 'un mensaje que quedó sin sus bloques suelta los binarios');
   // Revisión del 16/10/2026: el MaKo Analyst de un lead usa este mismo turno, y su PDF es del lead. Guardar (y El
   // Archivero) es SÓLO de quien lo pide: el Second Brain y el teléfono.
   assert.match(turno, /adjuntos\.length && entrada\.guardarAdjuntos \? await subirAdjuntos\(/, 'subir sólo si quien llama lo pide');

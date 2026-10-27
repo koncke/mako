@@ -2,6 +2,149 @@
 
 ---
 
+## Estado del relevo del 26/10 ~08:15 (claude5) — reemplazado el 26/10 a las 12:20
+
+### Estado al escribir (26/10 ~08:15)
+
+- **`main` = `ede2bbaab` (tren-l), desplegado y sirviendo en hola-mako.com desde las 08:02.** Entraron Settings sin
+  General ni Método (la zona del negocio en Perfil, el enchufe en Integraciones), Automations sin «MaKo Messages», la
+  extensión 0.71.2 (los nombres de empresa de `verified-business-name` y la recarga sola que no corta un trabajo), el
+  cierre de las landings con los planes y los 7 días, el editor de Web Generator de punta a punta (los 7 puntos de
+  Martín, más el tachado, el enlace a otra página y los precios con formato que se perdían al guardar), «Aplicar» del
+  analizador y Replicar, y el Media Buyer con la foto de perfil como la captura 04.
+- **Landings hace los clics en producción** sobre las copias #44, #45 y #46 (sin publicar) y trae las capturas.
+- **El tren siguiente es `tren-m`,** en `C:/dev/wt-push-q`, armado sobre `ede2bbaab`: Media Buyer `7b50660e8` (las 10
+  fallas de la revisión), Zernio `d2116184e` (un negocio sin token administra sus campañas; `CORTE_TOKEN_META =
+  '2026-11-03'`), Ops Center `738ffba0d` (avances en una burbuja, la voz como audio, respuestas como Claude), MaKo en
+  WhatsApp `fd6c7ac1c` (sigue la conversación), Customers `6fe3bc7ac`, Grabadores `24752ffdd` (tl;dv, Fireflies, Zoom y
+  Otter; el aviso cuando la IA del negocio se cae). Todas pasaron por la revisión adversarial y sus arreglos.
+  **MaKo recomienda NO va:** la verificación de sus arreglos dio 5 de 9 cerrados y una falla nueva (la cascada todavía
+  marca saturado un modelo sano para todos); respaldo en la etiqueta `respaldo/tren-m-con-recomienda`.
+- **Revisiones de esta noche:** detalle en `%APPDATA%/Claude/side-session-notes/local_3f1a66d3-690f-4ebc-bd98-7dcf1cf14bb8/`
+  (`revision-tren-l-2.md`, `revision-tren-m.md`). Las tres juntas confirmaron 40 fallas invisibles; todas arregladas.
+- **Motion y el Image Editor:** SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con otra cuenta: rama LOCAL
+  `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta `respaldo/motion-imagen-2610`; worktree
+  `C:/dev/wt-motion-imagen`). Su relevo y su cosecha viven SÓLO en esa rama. Al retomarla: mezclar main primero (Landings
+  cambió el Web Generator) y desplegar el bloque motion antes de que una landing lo use.
+- **Leila (ws11):** memoria `leila-apps-y-pro-97`. Su análisis de llamadas falló 168 veces en silencio por su crédito de
+  Claude; el aviso nuevo va en tren-m.
+- **Aviso del token de Meta:** tarea programada `aviso-token-meta-lunes`, el 27/10 a las 10:00 (ws 1, 13, 14, 15 y 19).
+- **La RAM del push:** esperar SIN reservar y reservar recién con 4,5 GB (scratchpad `push-oportunista.sh`; la lección, en
+  docs/hallazgos-infra.md). Archivar chats NO libera RAM; reiniciar la app de Claude, sí.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. **Qué landings se publican.** Las 14 con el cierre nuevo están en https://claude.ai/artifact/4hKutkW7PX1sPMMHDC72YR
+   y la pregunta está en el Centro. `--subir` escribe en el ws9.
+2. **La 0338 de Grabadores y su aviso:** la pregunta está en el Centro. Ya no depende del orden con el deploy.
+3. **La IA paga de último recurso para lo interno de MaKo** (Claude de la plataforma u OpenAI): pregunta en el Centro.
+4. **El reclamo a Zernio** por el `testCode` (Ana, hasta US$1, o el mail): pregunta en el Centro.
+5. **Las lecturas de producción** que el clasificador frenó: las aprueba Martín en los chats MaKo inteligente, MaKo en
+   WhatsApp y Grabadores. El Cerebro no las hace por ellos.
+6. **La extensión:** tocar «Recargar» en chrome://extensions para estrenar la 0.71.2.
+7. **La limpieza de P6**, **la pasarela** (Paddle y Creem) y **la RAM** (memoria `pc-de-martin-hardware`).
+
+Las migraciones 0332, 0333, 0335, 0336 y 0337 están todas aplicadas con su sí.
+
+---
+
+## Estado del relevo del 26/10 ~02:15 (claude5) — reemplazado el 26/10 a las 08:15
+
+### Estado al escribir (26/10 ~02:15)
+
+- **`main` = `c8f1c4a57` (tren-k), desplegado y sirviendo en hola-mako.com desde ~01:40.** Entraron las variantes de
+  Automations, la tarjeta «Prueba A/B», Meta por Zernio prendido, las landings editables, los alojadores de video (Wistia,
+  Bunny, Vimeo, Cloudflare), la limpieza de Integraciones, Partners, Agency, Customers, Classroom, las conexiones sin
+  Gemini, el «Completado» rediseñado, la extensión 0.71 y 9 arreglos de la revisión.
+- **El tren siguiente es `tren-l`,** en `C:/dev/wt-push-q` (por ahora sólo la cosecha de Closing). Puntas para juntar:
+  crm-ext-2510 (scraper de WhatsApp), integraciones-2510 (Settings sin General, Criterio ni Método), landings-2510-b (el
+  cierre de las landings, `ccb2e8e75` en adelante), aut-2510 (`7faa975da`), Ops Center (Avance agrupado, audios, formato
+  como Claude), mediabuyer-2510 (la foto de perfil como AdAmigo), zernio-2510 (`CORTE_TOKEN_META='2026-11-03'`), agencias
+  (Customers y la sidebar del super admin), mako-wa-conexiones, mako-inteligente y grabadores. Voz y desktop-voz entran
+  sólo con MaKo Desktop 0.5.0 publicado.
+- **El plan de la noche del 26/10** (memoria `noche-26-10-cinco-puntos`): MaKo inteligente → chat mako-inteligente; el
+  scraper de WhatsApp → CRM; la llamada de Leila → hecha (el informe quedó en este chat; `docs/hallazgos-closing.md`);
+  otros grabadores → Grabadores; Motion y el Image Editor → **SUSPENDIDO por Martín el 26/10 ~02:00, para seguirlo con
+  otra cuenta**: rama LOCAL `motion-imagen-2610` @ `7e7a49d96` (WIP, sin pushear; respaldo en la etiqueta
+  `respaldo/motion-imagen-2610`; worktree `C:/dev/wt-motion-imagen`). El relevo `docs/relevo/motion-imagen.md` y su cosecha
+  (`docs/hallazgos-motion.md`, una regla de AGENTS.md sobre `lib/motion`) viven SÓLO en esa rama: no están en main porque
+  hablan de código que main no tiene. Al retomarla: toca archivos del Web Generator que Landings cambió después (mezclar
+  main primero), y el bloque motion tiene que estar desplegado antes de que una landing lo use (un editor viejo lo borra
+  al autoguardar).
+- **Web Generator de punta a punta → chat Landings** (pedido de Martín del 26/10 ~02:00): textos y botones que no se
+  editan, secciones que no se reordenan, video, SVG y Calendly que no aparecen, botones flotantes que se van al hacer
+  scroll, el menú de clic derecho que no se cierra, «Aplicar» del analizador y replicar una landing de la competencia.
+  «TODO debe ser editable, absolutamente todo».
+- **Leila (ws11):** su análisis de llamadas falló 168 veces en silencio porque su Claude se quedó sin crédito (lo tiene
+  Grabadores). Para venderle Pro, primero hay que saber cuánto paga de GoHighLevel y de CapCut: lo demás que MaKo
+  reemplaza no llega a los US$97.
+- **Aviso del token de Meta:** tarea programada `aviso-token-meta-lunes`, el 27/10 a las 10:00 (ws 1, 13, 14, 15 y 19,
+  con el sha `c8f1c4a57…`). Los textos y el script están en `~/.claude/operaciones/avisos/`.
+- **La RAM del tren:** `~/.claude/guardia/reserva-tren` (JSON `{sesion, hasta, motivo}`) hace esperar a los pasos pesados
+  de los otros chats, y `MAKO_TIPOS_RAM_MIN_GB=4.4` baja a mano el piso del respaldo de tipos. Archivar chats NO libera RAM.
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. **Qué landings se publican.** Las 14 con el cierre nuevo están en https://claude.ai/artifact/4hKutkW7PX1sPMMHDC72YR
+   y la pregunta está en el Centro. `--subir` escribe en el ws9.
+2. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+3. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+4. **La RAM:** memoria `pc-de-martin-hardware` (32 GB; 64 GB si en su PC corre también el Claude de Leandro).
+5. **La lectura de producción del chat mako-inteligente:** el clasificador se la frenó y la aprueba Martín en ese chat.
+   El Cerebro no la hace por él.
+6. **La extensión:** recargarla en chrome://extensions y tocar «Usar aquí» en WhatsApp Web.
+
+Las migraciones 0332, 0333, 0335, 0336 y 0337 (`mako_knowledge_modelo`, 25/10 20:56) están todas aplicadas con su sí.
+
+---
+
+## Estado del relevo del 25/10 ~09:50 (claude5) — reemplazado el 26/10 a las 02:15
+
+### Estado al escribir (25/10 ~09:50)
+
+- **`main` = `75b367235`, subido con tipos en verde.** Producción servía `44def1637` (desplegado a las 09:19); el despliegue de
+  `75b367235` (la tanda 2 del Media Buyer) quedó en marcha. La noche del 24 al 25 subieron cuatro trenes: lo de la llamada con
+  Leandro (CRM, Clients, Automations, Calendario), los botones de Instagram, el Media Buyer (`/ads-manager`, copiado de Madgicx,
+  apagado), la landing nueva SIN publicar, el recolector del Second Brain, Ops Center (los que esperan arriba, sin «1 de 3»,
+  `unirPreguntas`) y Planes (Acelerador con promesa y garantía, Partners meses + US$300, anual, garantía 14/30, pesos).
+- **Chats de la cuenta 5, todos sin nada en cola salvo Ops Center:** Ops Center hace el «Completado» como bloque arriba de la
+  caja (pedido de Martín del 25/10 09:32). Media Buyer espera a Martín (abajo). Landings tiene la tanda 2 de landings por
+  funcionalidad y avatar (§6b de docs/como-venden-otros.md) sin empezar.
+- **Instalado por el Cerebro:** el hook `sin-ask.mjs` (un AskUserQuestion se vuelve `cartero preguntar`; lo toman los chats que
+  se abren desde ahora), el cartero 1.18.1, y la guardia de RAM más estricta (`memoria.mjs`, respaldo `.antes-25-10`).
+- **Decisiones de venta del 25/10:** memoria `decisiones-venta-25-10`. Media Buyer reemplaza al Ads Manager: memoria
+  `media-buyer-ia-reemplaza-ads-manager`.
+- **Los informes:** docs/ram-de-la-pc.md (lo que más rinde: 32 GB) y docs/como-venden-otros.md (80 productos con landing).
+- **Sin repartir:** P3 (la app de escritorio con todas las tabs, Mac y Linux), P7 (el cartero como servicio), el cobro
+  (Paddle/Creem + Mercado Pago, cuando Martín aplique), la extensión que no inyecta mako-puente.js en una pestaña ya abierta
+  (lo vio CRM), y si el portal del ALUMNO también saca el desplegable de «Tus programas» (pregunta para Martín).
+- **Ojo con el tope de mensajes:** la app frena a 10 mensajes del Cerebro a otros chats sin un mensaje de Martín EN ESTE chat
+  (los del Ops Center no cuentan como suyos). De noche se gasta rápido: guardar los últimos para lo que traba un tren.
+
+### Trabado esperando a Martín
+
+1. ~~Las migraciones 0332 y 0333~~ **APLICADAS el 25/10 ~13:10** por el Cerebro, con el sí de Martín en este chat
+   («Sí, aplicá en producción las migraciones 0332 (Media Buyer) y 0333»). Verificado por PostgREST: las 3 tablas existen.
+   **0335 (pruebas A/B) y 0336 (alojadores de video): APLICADAS el 25/10 19:27**, con el sí de Martín. Verificado: las 5
+   tablas `prueba*` con RLS sin políticas y anon bloqueado (42501), y el CHECK de `marketing_metrics_daily.plataforma` con
+   wistia, bunny, vimeo y cloudflare. El SQL vino de aut-2510 @ cdfb8e14b (todavía como XXXX) y de landings-2510-b @ 2f393680d.
+2. ~~Conectar la cuenta publicitaria de MaKo a Zernio~~ **HECHO el 25/10 12:46.** El primer link no creó nada: con varias
+   páginas marcadas y sin `pageId`, Zernio no conecta. El segundo, con la página «Hola MaKo», sí (accountId de Zernio
+   6ade25185b6c93612b7cc6a1). La vuelta cayó en /login y `next` perdió `abrir=meta`: se lo pasé a Zernio y a los links de
+   cada modal.
+3. **Publicar la landing nueva** (Landings se lo pregunta en su chat; `--subir` escribe en el ws9).
+4. **La limpieza de P6:** la corre Martín (lo decidió el 25/10 09:01). El comando está en el cierre af96b761. Después, avisarle
+   a la agencia de Código Inmobiliario lo de su página de gracias.
+5. **La pasarela:** aplicar a Paddle y a Creem el mismo día. Stripe no: Argentina no es país habilitado.
+6. **La RAM a 32 GB** (2 SODIMM DDR4-3200 de 16 GB, ~USD 290), sacar del inicio Copilot/NVIDIA/MEGA y reiniciar.
+
+---
+
 ## Relevo del 24/10/2026 noche (claude1 para claude5) — cumplido y reemplazado el 24/10 a las 21:30 por el de claude5
 
 # ⏩⏩ SI SOS LA CUENTA 5 («Ananda»), EMPEZÁ ACÁ

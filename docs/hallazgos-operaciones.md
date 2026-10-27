@@ -3001,3 +3001,132 @@ quedó en «escrito» porque el turno del Cerebro estaba trabado, y la línea de
 - Y la de AGENTS.md, con el caso: a Martín no se le pregunta con AskUserQuestion. Desde el teléfono, no tiene respuesta posible.
 
 **Vive en:** `app/admin/operaciones/PreguntasDelChat.tsx` (`CuerpoDeLaApp`) · `app/admin/operaciones/centro.css` · `lib/centro-chats.ts` (`estadoDelEnvio`, `POR_QUE_TRABADO`) · `tests/ops-pregunta-app-movil.test.ts`
+
+## Los «Avance» se juntan sobre lo que se DIBUJA, no sobre los turnos (25/10/2026)
+
+**El síntoma:** Martín, con captura del chat «Cerebro» en el teléfono: «me llegan una cantidad impresionante de mensajes de
+"avance", podrían agruparlos todos en 1 de ultima y que dentro tenga varios desplegables». Entre las 21:33 y las 23:10 hubo 20
+avances, cada uno con su fila entera (muñeco, burbuja y hora).
+
+**Por qué el Cerebro es el que más tiene:** un avance es lo que un chat dice después de un mensaje de OTRO chat y antes del
+próximo de Martín (`turnosParaOtro`). El Cerebro casi siempre le contesta a otro chat, así que casi todo lo suyo es avance.
+
+**El diagnóstico obvio era el equivocado:** «juntar los turnos del chat que vienen seguidos». En esos 100 minutos los 20 avances
+venían intercalados con 7 mensajes de otros chats («CRM → Cerebro: …», «Landings: punta nueva…»). Si se agrupa sobre los
+turnos crudos, cada uno de esos mensajes corta: quedan 8 tandas en vez de una, cuatro de un solo avance (medido con los turnos
+reales). Esos mensajes NO se dibujan
+(`lineasDeConversacion` los saca), así que en la pantalla los avances SÍ están seguidos. Se agrupa sobre lo que dibuja el hilo.
+
+**La regla:**
+- `agruparAvances` (lib/centro-chats.ts) corre DESPUÉS de `lineasDeConversacion`, en el hilo (Hilo.tsx, el mismo de la
+  computadora y del teléfono) y en la API (`ver_mensajes_operaciones`). Corta lo que se dibuja y no es avance: lo que escribe
+  Martín, un «Ya está» (nunca es avance), una pregunta. Y el cambio de día en Argentina, porque entre medio va la píldora del día.
+- Es SÓLO cómo se dibuja: no saca ni agrega líneas. Lo «sin ver», el «Completado» y el texto de la fila siguen mirando las
+  líneas. El test lo fija mirando que nadie más use `agruparAvances`.
+- La API arma lo MISMO que `historialDelChat`, PREGUNTAS incluidas (`lineasParaLaApi`, revisión del tren-m, 26/10): sin ellas, lo que contestó Martín no salía por ningún lado (su trabajo se descartaba y su turno lo saca `lineasDeConversacion`) y dos tandas que la pregunta separa salían juntas. Lo que no trae (la Ticketera, los pedidos del Plan) lo dice su descripción.
+- La paginación («Ver N mensajes anteriores») cuenta líneas: una tanda que cae en el corte se ve partida hasta que se cargan
+  las de antes, y ahí se junta.
+
+**Una trampa del entorno:** `generar-api-doc.mjs` dice «ya estaba al día» con una operación nueva del área `operaciones`. No falló:
+el área es `SIN_HTTP` y la referencia pública (docs/api-mako.md) y el snapshot listan sólo lo de HTTP.
+
+**Lo que quedó SIN hacer:**
+- Un avance anterior que queda detrás de «Ver los otros N» no está en la página: un link a su ancla (`co-turno-<uuid>`, el de
+  «Tareas vinculadas») no lo encuentra hasta tocar «Ver los otros». Vive en `app/admin/operaciones/Hilo.tsx` (`Avances`).
+- La API no saca lo que Martín eliminó para él (`sinOcultos` con `leerMarcasDe`): la pantalla sí. Vive en
+  `lib/api-mako/areas/operaciones.run.ts` (`ver_mensajes_operaciones`).
+
+**Vive en:** `lib/centro-chats.ts` (`agruparAvances`, `piezaParaLaApi`, `chatsPorNombre`) · `app/admin/operaciones/Hilo.tsx`
+(`Avances`, `AvanceAnterior`) · `app/admin/operaciones/centro.css` (`.co-avances*`) · `lib/api-mako/areas/operaciones.def.ts` ·
+`tests/avances-agrupados.test.ts`
+
+## La nota de voz de Martín se dibuja como audio, y la marca va FIRMADA sin un cartero nuevo (26/10/2026)
+
+**El síntoma:** Martín, con captura del chat «Cerebro» en el teléfono: «Y esto fue un audio, se deberia mandar el audio
+directamente... Y de ultima en los 3 puntitos ver la transcripción». Su nota de voz de las 00:41 salía como una burbuja de
+texto con la transcripción.
+
+**La causa:** desde el 24/10 la caja graba y TRANSCRIBE (app/_chat/nota-que-se-manda.ts), y lo que sale es el texto. El audio
+no quedaba en ningún lado: el trabajo no sabía que había sido una nota.
+
+**El diagnóstico obvio era el equivocado:** «para marcar una nota hay que tocar el cartero» (el texto firmado se valida en la
+PC). Los DOS validadores (`leerFirmable` del servidor y el del cartero) miran sólo las claves que conocen y dejan pasar las
+demás, así que `voz: { segundos }` va adentro de lo firmado y la PC entrega el texto igual. No hace falta un cartero nuevo ni
+esperar que se instale. El test lo fija con el cartero de verdad (`c.leerFirmable` y `c.mensaje`).
+
+**La regla:**
+- Lo que es sólo para que lo DIBUJE el Ops Center puede ir firmado como una clave nueva y opcional. Antes de sumarla, se
+  prueba con el cartero que la deja pasar y que el chat no recibe nada distinto.
+- El audio queda del lado del servidor como la miniatura de una foto: bucket privado, URL firmada y sólo detrás de
+  `puedeOperar`. Se guarda sólo el de un trabajo que FIRMÓ ser una nota, y sólo si los bytes son un MP3.
+- La URL de una nota dura una HORA, no los 10 minutos de la foto: la foto se dibuja una vez, el audio se pide al tocar ▶. La
+  burbuja pide otra a los 50 minutos.
+- La barrida de 14 días mira cada carpeta por su lado (`operaciones-enviados` y `operaciones-voces`), y borra sólo nombres
+  que son un uuid: el audio se llama por el id del trabajo.
+- Sin el audio (no subió, o pasaron los 14 días), la burbuja dice la transcripción: un ▶ que no suena no le sirve a nadie.
+
+**Lo que quedó SIN hacer:**
+- Una nota de más de ~5 minutos (4 MB a 96 kbps, lo que entra en un POST a Vercel) no sube: se ve su transcripción. Vive en
+  `lib/operaciones-reglas.ts` (`MAX_BYTES_VOZ`). Para más, la subida directa al storage, como los adjuntos grandes.
+- Citar una nota (Responder) cita su transcripción, no «🎤 Nota de voz» como WhatsApp. Vive en `lib/centro-mensajes.ts`.
+
+**Vive en:** `lib/operaciones-reglas.ts` («Las notas de voz enviadas») · `lib/operaciones-adjuntos.ts` (`guardarVozEnviada`,
+`vocesEnviadasDe`) · `app/api/operaciones/adjuntos/route.ts` (`?voz=`, `?voces=`) · `app/admin/operaciones/VozEnviada.tsx` ·
+`voces-enviadas.ts` · `useCentro.ts` (`notaGrabada`) · `tests/voz-enviada.test.ts`
+
+## El cierre «muro de texto» no era el cartero: el chat lo escribe en un renglón, y la tabla no entra en un teléfono (26/10/2026)
+
+**El síntoma:** Martín, con captura del cierre «Comprobado · 00:43» del chat «Cerebro» en el teléfono: «Mira que feo el formato
+de las respuestas, mejora eso... Que se parezca a Claude las respuestas». Un «1) … 2) … 6)» corrido en un párrafo, y abajo una
+tabla Decidido/Comprobado/Sigue con la columna de la derecha angostísima.
+
+**El diagnóstico obvio era el equivocado:** «el cartero se come los saltos de línea». No: `cartero cierre --hecho "…"` guarda el
+argumento tal cual (scripts/operaciones/cartero.mjs → `cierre`), y el servidor sólo le saca los espacios de los bordes
+(`sanearCierres` → `corto`). Medido con el cierre real (sacado de la transcripción del chat): el «1) … 6)» venía en UN renglón.
+Y el hilo lo dibujaba con `conFormato`, que es de un renglón: aunque trajera listas, no las armaba.
+
+**La regla:**
+- Lo que dice un chat se dibuja con el Markdown de la casa en modo `aire` (app/_components/Markdown.tsx), después de
+  `listasEnRenglones` (lib/respuesta-como-claude.ts): un «1) … 2) …» corrido es una lista si los números van seguidos desde
+  el 1. La API devuelve ese MISMO texto (`cierreComoClaude`, `piezaParaLaApi`, la respuesta de un «Completado»).
+- El espacio entre párrafos va como prop (`aire`) y no en centro.css: el Markdown pone sus márgenes en `style`, y el CSS no
+  los pisa sin `!important`.
+- Un rótulo va ARRIBA de su texto. La columna (`.co-cierre--corto`) sólo en la computadora (`min-width: 641px`) y sólo si
+  todas las partes son cortas: una tabla de dos columnas en 390 px deja la de la derecha en dos palabras por renglón.
+
+**Lo que quedó SIN hacer:**
+- Cada parte del cierre se corta a 600 caracteres en el cartero Y en el servidor, sin aviso. Va contra «que no haya nunca un
+  limite de caracteres» (25/10). Vive en `scripts/operaciones/cartero.mjs` (`cierre`, `slice(0, 600)`) y
+  `lib/operaciones-reglas.ts` (`sanearCierres`). Cambiarlo pide un cartero nuevo instalado en cada PC.
+- `ver_pedidos_operaciones` corta el texto de un pedido a 300 caracteres con «…». Vive en `lib/api-mako/areas/operaciones.run.ts`.
+
+**Vive en:** `lib/respuesta-como-claude.ts` · `app/_components/Markdown.tsx` (`aire`) · `app/admin/operaciones/Hilo.tsx`
+(`CierreDelChat`, `MarkdownDeTurno`) · `Avance.tsx` · `centro.css` (`.co-cierre*`) · `tests/respuestas-como-claude.test.ts`
+
+## «Responder sobre esto» es la CITA de responder un mensaje, y el pedido de un «Completado» pueden ser varios mensajes (26/10/2026)
+
+**El síntoma:** Martín, desde el Centro: «El "Completado" le falta el botón de "Responder sobre esto". Y cuando le doy, que no
+escriba en el chat, que se mencione arriba en el chat, como cuando le doy a responder cualquier mensaje» y «si necesitas poner
+más de 1 mensaje mio, para que se entienda el contexto, hazlo... varias cajitas de mensaje con mi foto de perfil».
+
+**Lo que no era obvio:**
+- El botón no faltaba en todos lados: estaba en la tarjeta del hilo (Avance.tsx) y el rediseño del 25/10 lo sacó del bloque a
+  propósito (tests/completado-arriba.test.ts, el 9, lo prohibía). Y donde estaba, ESCRIBÍA «Sobre «…»: » en el campo. Lo que
+  Martín llama «responder» es la cita «↩» de MensajeWA.tsx: `onCitar` con el id del mensaje (`idDeLinea`, `t:<uuid>`), que
+  `armarConCita` le pone arriba a lo que sale y que se toca para ir al mensaje.
+- Con más de un mensaje de Martín arriba, en el teléfono la respuesta quedaba debajo del scroll del bloque (alto tope
+  `min(40dvh, 340px)`): con varios, cada mensaje se achica a 3 renglones desde los 110 caracteres.
+
+**La regla:**
+- Responder algo en el Ops Center es SIEMPRE la cita arriba de la caja, nunca texto pegado en el campo.
+- Lo que respondía un «Completado» es todo lo que Martín dijo en su tramo (`pedidosDelCompletado`, los últimos 4), cada mensaje
+  en su globo con su foto. La API lo trae igual (`contexto` en `ver_completados_operaciones`).
+- Si lo relevó el Cerebro, el prompt de Martín ya viene adentro del relevo: es lo que va entre «…» después de «textual:» o
+  «textuales:» (`promptsDeMartin`, con las comillas de adentro balanceadas, porque Martín también escribe «»). Va ESO con su
+  foto, no la frase del relevo (09:14). Las demás comillas del relevo («Completado», un botón) no son de Martín: sin «textual»,
+  queda el relevo con el nombre del chat. Depende de que el Cerebro siga citando así: si deja de hacerlo, se ve el relevo, no se
+  pierde nada.
+- Cuándo terminó va al lado de «Completado», con la forma del hilo («Hoy · 12:30»): las dos salen de `lib/centro-fechas.ts`.
+
+**Vive en:** `lib/centro-chats.ts` (`pedidosDelCompletado`) · `app/admin/operaciones/BloqueCompletado.tsx` · `Avance.tsx` ·
+`Conversacion.tsx` y `app/m/operaciones/ChatsMovil.tsx` (`responderSobre` / `feedback`) · `tests/completado-responder-y-contexto.test.ts`

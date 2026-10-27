@@ -183,7 +183,7 @@ test('la puerta: entran el admin y el closer, con el Dashboard en la capa; un se
   assert.equal(reglaDePuerta('otro_rol', true, true)?.status, 403, 'en positivo: un rol nuevo no entra por olvido');
   assert.equal(reglaDePuerta(null, true, true)?.status, 401);
   assert.equal(reglaDePuerta('admin', false, true)?.status, 404, 'sin la tab Dashboard, la pantalla no existe');
-  assert.deepEqual(reglaDePuerta('admin', true, false), { status: 403, error: 'Conecta Fathom en Integraciones' });
+  assert.deepEqual(reglaDePuerta('admin', true, false), { status: 403, error: 'Conecta tu grabador de reuniones (Fathom, tl;dv, Fireflies, Zoom…) en Integraciones' });
 });
 
 const RUTAS = ['llamada', 'sync', 'analyze', 'revise', 'transcript'] as const;

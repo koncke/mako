@@ -53,6 +53,10 @@ anuncios de Mauricio: «para esto tenemos las notificaciones de advertencia al g
   el lugar a `editar_pasos_secuencia_mensajes` y a `cambiar_crons_secuencia` (tests/ops-center-clasificador-app). Una
   operación nueva va AL FINAL del área y se mide con esas frases antes de entregar (AGENTS.md). Crear con IA por HTTP
   devuelve la pregunta como 400 con `faltan`, y la pérdida esperada del juez quedó sólo al tope.
+- **«MaKo Messages» salió de Automations del super admin (26/10, Martín: «elimina eso»):** /mensajes y /m/mensajes redirigen a
+  Automations. Era el editor de la base de los avisos, que no existe en producción; los avisos siguen saliendo con el store de
+  cada negocio. Los 9 avisos de Notificaciones que nacían apagados salieron de la lista (Martín, 26/10: «Sacarlos de
+  Notificaciones»). Detalle en docs/hallazgos-comunicacion.md.
 - **Las variantes del texto viejo (25/10, la revisión del tren-k):** todo lo que cambia el texto de un mensaje (los dos
   editores, Editar con IA, la API) pasa por `variantesTrasCambio` (lib/mensaje-partes.ts) y las suelta; la rama B de una
   prueba nace sin las de A y la firma las cuenta; el «Deshacer» del 🗑 las devuelve.

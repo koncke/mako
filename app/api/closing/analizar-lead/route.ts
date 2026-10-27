@@ -19,7 +19,8 @@ import { after, type NextRequest } from 'next/server';
 import { analizarLlamadasDeLead } from '@/lib/closing';
 import { arrancarAnalisis, cerrarAnalisis } from '@/lib/closing-job';
 import { resumenDeCorrida } from '@/lib/closing-job-estado';
-import { integracionConectada } from '@/lib/credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from '@/lib/grabadores';
 import { getLead } from '@/lib/leads';
 import { getWorkspaceActual, runWithWorkspace } from '@/lib/workspace';
 
@@ -29,8 +30,8 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  if (!(await integracionConectada('fathom'))) {
-    return Response.json({ ok: false, error: 'Fathom no está conectado en este workspace.' }, { status: 403 });
+  if (!(await hayGrabadorConectado())) {
+    return Response.json({ ok: false, error: 'No hay un grabador de reuniones conectado en este workspace (Fathom, tl;dv, Fireflies, Zoom, Read AI).' }, { status: 403 });
   }
 
   let body: { lead_id?: number | string };

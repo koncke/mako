@@ -198,7 +198,8 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   assert.match(barra, /\{pide\?\.tipo === 'whatsapp' && \(\n\s+<Confirm/);
   assert.match(barra, /\{pide\?\.tipo === 'empresa' && \(\n\s+<Confirm[\s\S]{0,200}message=\{preguntaDePerfiles\(pide\.cuenta,/);
   // Las corridas: con las máquinas compartidas, la pregunta cerrada ANTES (si no, tapa el avance y el «Parar»).
-  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+setEsperaExt\(false\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\('Buscando de qué grupos vinieron…'\)\) return;/);
+  // Desde la 0.72.0 (26/10/2026) «Desde mi WhatsApp» no escribe en la barra: su avance va al desplegable de la extensión.
+  assert.match(barra, /const correrWhatsapp = async \(\) => \{\n\s+cerrar\(\);\n\s+setEsperaExt\(false\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\(''\)\) return;\n\s+setEnExtension\(true\);/);
   assert.match(barra, /const correrEmpresa = async \(cuenta: CuentaPerfiles\) => \{\n\s+cerrar\(\);\n\s+const deEstos = \[\.\.\.ids\];\n\s+if \(!empezarLargo\(`Consultando perfiles: 0 de/);
   assert.match(barra, /await guardarFichasEnTandas\(fichas, \(tanda\) => completarFichasDeLeadsAction\(\{ ids: deEstos, fichas: tanda \}\), \{\n\s+parar: \(\) => parar\.current,/);
   assert.match(barra, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeLeadsAction\(\{ ids: deEstos, hechas, saltear \}\), \{\n\s+parar: \(\) => parar\.current,/);
@@ -233,11 +234,12 @@ test('8. la barra de lote del tablero: «Completar» sólo para el admin, con pr
   assert.match(board, /\{\(elegidos\.length > 0 \|\| completandoLote\) && \(/, 'el tablero desmonta la barra (con su «Parar») si se vacía la selección por otro camino');
   assert.match(board, /onCorriendo=\{setCompletandoLote\}/);
   assert.match(board, /\} : undefined, r\.tono\);/, 'el aviso de un lote a medias sale como un «listo» de 3 s');
-  assert.match(barra, /setAvance\(`Completando \$\{miles\(guardados\)\} de \$\{miles\(total\)\}…`\)/);
-  assert.match(barra, /\{largo && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
+  // El «Completando N de M» de la barra pasó al desplegable (0.72.0); el «Parar» de la barra sigue para «Datos de empresa».
+  assert.match(barra, /alAvanzar: \(guardados, total\) => avisarExtraccion\(id, \{ fase: 'guardando', guardados, total \}\),/);
+  assert.match(barra, /\{largo && !enExtension && \(\n\s+<button type="button" data-parar-completar onClick=\{\(\) => \{ parar\.current = true;/, 'sin «Parar»');
   assert.match(barra, /onClick=\{largo \? undefined : onLimpiar\}/, 'limpiar la selección a mitad desmonta la barra con su «Parar»');
   // La extensión lee SÓLO los teléfonos de los tildados (con su `@lid` y sus grupos, desde el 25/10/2026), y cuenta cada paso.
-  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,400}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, alAvanzar: \(texto\) => setAvance\(texto\),/);
+  assert.match(barra, /const t = await pedidosDeFichasAction\(deEstos\);[\s\S]{0,600}pedirFichasDeWhatsappWeb\(t\.pedidos\.map\(\(p\) => \(\{ telefono: p\.telefono, lid: p\.lid \}\)\), \{\n\s+grupos: t\.grupos, visible: true, titulo, id,/);
   // Más de 5.000 tildados: la pregunta dice que se toman los primeros (nunca un corte callado).
   assert.equal([...barra.matchAll(/n > TOPE_LOTE_COMPLETAR \? ` Se toman los primeros/g)].length, 2);
 });
@@ -260,21 +262,22 @@ test('8b. el núcleo de perfiles: candado por línea, y el corte por tiempo deja
 
 test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo, en gris, sin casilla, y el pie lo cuenta', () => {
   const ui = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(ui, /setSel\(new Set\(r\.participantes\.filter\(\(p\) => !p\.enElCrm\)\.map\(\(p\) => p\.telefono\)\)\);/, 'arranca con los que ya están tildados');
+  // Sin los admins si se pidió «Ignorar admins» (26/10/2026).
+  assert.match(ui, /setSel\(new Set\(r\.participantes\.filter\(\(p\) => !p\.enElCrm && !\(sinAdminsAhora\.current && p\.admin\)\)\.map\(\(p\) => p\.telefono\)\)\);/, 'arranca con los que ya están tildados');
   assert.match(ui, /return \[\.\.\.pasan\.filter\(\(p\) => !p\.enElCrm\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que ya están no van abajo');
   assert.match(ui, /const todos = nuevos\.length > 0 && nuevos\.every\(\(p\) => sel\.has\(p\.telefono\)\);/);
   assert.match(ui, /setSel\(todos \? new Set\(\) : new Set\(nuevos\.map\(\(p\) => p\.telefono\)\)\)/, '«tildar todos» tilda también a los que ya están');
   assert.match(ui, /if \(p\.enElCrm\) return; \/\/ ya está: no se trae, no se tilda/);
-  assert.match(ui, /const tels = \[\.\.\.sel\]\.filter\(\(t\) => !yaEnElCrm\.has\(t\)\);/, 'se mandan a traer los que ya están');
+  assert.match(ui, /const tels = soloNombres \? \[\] : \[\.\.\.sel\]\.filter\(\(t\) => !yaEnElCrm\.has\(t\)\);/, 'se mandan a traer los que ya están');
   // El renglón gris: sin casilla y con el rótulo que dice cuántos.
   const gris = ui.slice(ui.indexOf('if (p.enElCrm) {'), ui.indexOf('const on = sel.has(p.telefono);'));
   assert.ok(gris.length > 100, 'no encontré los renglones de los que ya están');
   assert.doesNotMatch(gris, /type="checkbox"|onClick=/, 'el que ya está tiene casilla o se puede tildar');
   assert.match(gris, /color: 'var\(--faint\)'/, 'no va en gris');
-  assert.match(gris, /`Ya están en tu CRM · \$\{miles\(yaEstan\)\} · no se traen`/);
-  // La línea de resumen del molde (24/10/2026): «86 para traer» · «135 ya están».
-  assert.match(ui, /texto: `\$\{miles\(sel\.size\)\} para traer`,/);
-  assert.match(ui, /\{ texto: `\$\{miles\(yaEstan\)\} ya \$\{yaEstan === 1 \? 'está' : 'están'\}`, tono: 'gris' as const \}/);
+  assert.match(gris, /`Ya están en tu CRM · \$\{miles\(yaEstan\)\}`/);
+  // La línea de resumen (26/10/2026, Martín: «Elimina los textos innecesarios»): sólo «86 para extraer», sin los chips.
+  assert.match(ui, /texto: `\$\{miles\(sel\.size\)\} para extraer`,/);
+  assert.doesNotMatch(ui, /tono: 'gris' as const/, 'volvieron los chips «ya están · sin número · no les manda nada»');
   // Y el server tampoco los vuelve a cargar (la API de MaKo trae «todos»): ni funnel ni etiqueta.
   const server = leer('app/crm/grupo-wa-server.ts');
   assert.match(server, /if \(existente !== undefined\) \{ yaEstaban\+\+; return; \}/);
@@ -290,10 +293,12 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   assert.match(op, /A los que ya son leads del CRM no los toca/);
   // El modal: un corte va al resumen, que releer el grupo no borra.
   const modal = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumenDeFichas\(tels\.length, fichas, a\)\}\$\{gruposEnWhatsappDichos\(r\.grupos\)\}`\);/, 'el corte de «Completar desde mi WhatsApp» se borra al releer el grupo');
+  // Desde el 26/10/2026 los nombres van dentro de «Extraer»: el corte de los dos (traer y guardar) va al mismo resumen.
+  assert.match(modal, /const corte = t\?\.corte \|\| a\?\.error \|\| \(a\?\.parado \? 'La paraste\.' : ''\);/, 'el corte de los nombres se borra al releer el grupo');
+  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/);
   assert.doesNotMatch(modal, /if \(a\.error\) setErr\(a\.error\);/);
-  assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Traer» va a err y se borra al releer');
-  assert.match(modal, /Se cortó: \$\{corte\} Quedaron \$\{miles\(tels\.length - hechos\)\} sin traer: vuelve a tocar «Traer» para seguir\./);
+  assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Extraer» va a err y se borra al releer');
+  assert.match(modal, /corte \? ` \$\{corte\}\$\{t && t\.quedan > 0 \? ` Quedaron \$\{miles\(t\.quedan\)\}: vuelve a tocar «Extraer»\.` : ''\}` : '',/);
 });
 
 test('10. un aviso largo se puede leer: el Toast le da tiempo según el largo, y uno a medias se queda', () => {

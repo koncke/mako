@@ -51,7 +51,45 @@ Pedido de Martín (25/10 tarde, docs/feedback-25-10-tarde.md), por el Cerebro. L
 - **Sin conectar en gris** (`data-sin-conectar`), y `?abrir=<key>` de una oculta abre su modal suelto.
 - Guards: tests/integraciones-limpieza-25-10.test.ts. Hallazgos: docs/hallazgos-integraciones.md (la primera entrada).
 
+## Sin «General» ni «Método» (tercera tanda, 26/10, sobre tren-k)
+
+Pedido de Martín por el Cerebro: «Elimina la tab General... Elimina Método... fijate el icono de integraciones... Parece un
+link». Lo que quedó:
+- **General salió:** la zona del negocio es una fila de Perfil («Zona del negocio», para quien administra); el horario vive en la
+  tuerca de cada automatización; el criterio de reuniones, sin pantalla ni API, sigue leído con su valor (sólo lo tiene
+  Mauricio). /configuraciones redirige (el `?tab=` de los avisos sigue cayendo en su lugar).
+- **Método salió:** cada credencial ya tenía su tarjeta en Integraciones. /metodo redirige ahí con la query. «Prompts» sigue con
+  la regla de la plataforma (`metodo`).
+- **Integraciones con un enchufe** (`enchufe`, en el set de iconos-menu), en la computadora y en el teléfono.
+- **API:** salen `ver_criterio_reuniones` y `guardar_criterio_reuniones` (y sus rutas REST); el horario del negocio sigue
+  (`ver_`/`configurar_horario_envio`), sin la mención a Settings › General. Docs, snapshot y plugin regenerados.
+- Guard: tests/settings-sin-general-ni-metodo.test.ts (13 roturas cazadas). Hallazgos: docs/hallazgos-ajustes.md (la primera).
+
+## Settings en el teléfono (cuarta tanda, 26/10, rama `settings-movil-2610` desde origin/main ede2bbaab)
+
+Pedido de Martín desde su Android. Lo que quedó:
+- **El sol/luna en la cabecera** de Settings (`InterruptorModo` variante «cabecera»); sin la fila «Modo oscuro» ni «Tema» en Perfil.
+- **«Tu negocio» directo** en la lista (Equipo, Integraciones, Identidades fiscales, Tu plan), no una fila que abría otra pantalla.
+- **«Cerrar sesión»** sola, en rojo, con el ícono de salir (`CerrarSesion` variante «fila»).
+- **Los desplegables que se cerraban solos:** era el teclado (`resizes-content` + el Dropdown cerraba en todo `resize`). Ahora
+  reubica, y al tacto el buscador no se enfoca solo. Ver docs/hallazgos-ui.md (la primera entrada).
+- **La foto de perfil** grande abre `IdentidadPicker` (emoji · íconos · subir · quitar); el emoji y el ícono se guardan como imagen.
+- **«CEO»** de ejemplo en Cargo. **«Prompts»** fuera del índice (la pantalla sigue en /configuraciones/prompts).
+- Guard: tests/settings-movil-26-10.test.ts.
+
+## La agenda al entrar con Google, lista para prender (quinta tanda, 26/10, rama `google-agenda-2610`)
+
+Google aprobó la app (Martín, 26/10). La política de privacidad lee el MISMO interruptor que el login y dice lo que hace hoy
+(app/privacidad/page.tsx). Guard: tests/privacidad-agenda-login.test.ts.
+
+**EL PASO QUE FALTA (configuración de producción, no código):** poner `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel → Production y
+redesplegar. Lo pide el Cerebro a Martín cuando esta rama esté en main. Con eso, el login pide el calendario (destildable) y
+la política pasa sola a «una sola vez, al entrar».
+
 ## Pendiente (detalle en docs/hallazgos-ajustes.md y docs/hallazgos-integraciones.md, «SIN HACER»)
+- `GOOGLE_LOGIN_CON_AGENDA=1` en Vercel (arriba).
+- La entrada del super admin a los prompts de MaKo (hoy sólo por su link): dónde va lo decide el chat de la barra.
+- El criterio de reuniones de Mauricio sigue prendido: apagarlo es un cambio de dato (no se hizo).
 - Seguridad › cerrar las demás sesiones: pide una migración (la sesión es un JWT sin estado).
 - Prender `GOOGLE_LOGIN_CON_AGENDA`: con la verificación de Google aprobada y la política de privacidad reescrita.
 - La lectura de un @ por Apify de la plataforma (lib/instagram-perfil-server.ts), dormida: la decide el CRM.

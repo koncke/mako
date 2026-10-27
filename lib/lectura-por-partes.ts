@@ -21,6 +21,7 @@
 // =============================================================================
 
 import { mismaTarea } from './tareas-dedup';
+import { claveDeReunion, esRefDeReunion, leerRef } from './grabadores/reunion';
 
 /**
  * Lo que se deja libre al final del plazo para ESCRIBIR lo leído (el borrador, el cruce, el candado). Sin esto, la
@@ -107,7 +108,8 @@ export function leerMarca(raw: string | null | undefined): MarcaParcial | null {
     const partes = Number(o.partes);
     if (!Number.isInteger(partes) || partes < 1) return null;
     const leidas = unirLeidas([], Array.isArray(o.leidas) ? o.leidas.map(Number) : []).filter((i) => i < partes);
-    const refs = Array.isArray(o.refs) ? o.refs.filter((r): r is string => typeof r === 'string' && r.startsWith('fathom:')).slice(0, 20) : [];
+    // Las refs de una reunión de CUALQUIER grabador («fathom:123», «loom:abc»; lib/grabadores/reunion.ts).
+    const refs = Array.isArray(o.refs) ? o.refs.filter((r): r is string => typeof r === 'string' && esRefDeReunion(r)).slice(0, 20) : [];
     return { partes, leidas, refs, ts: String(o.ts ?? '') };
   } catch { return null; }
 }
@@ -135,8 +137,10 @@ export function saltearSi(marca: Pick<MarcaParcial, 'partes' | 'leidas'> | null 
  * («fathom:123:partes-3-4»). Determinista a propósito: si la función se muere después de crear el borrador y antes de
  * actualizar la marca, la vuelta siguiente lee las mismas partes y `crearPropuesta` devuelve el que ya existe.
  */
-export function refDelResto(recordingId: number, leidas: readonly number[]): string {
-  return `fathom:${recordingId}:partes-${unirLeidas([], leidas).map((i) => i + 1).join('-')}`;
+export function refDelResto(reunion: number | string, leidas: readonly number[]): string {
+  // Un número suelto es un recording_id de Fathom (lo de antes de los otros grabadores); si no, la ref de la reunión.
+  const base = typeof reunion === 'number' ? `fathom:${reunion}` : reunion.split(':').slice(0, 2).join(':');
+  return `${base}:partes-${unirLeidas([], leidas).map((i) => i + 1).join('-')}`;
 }
 
 /**
@@ -148,8 +152,13 @@ export function sinLasYaPropuestas<T extends { titulo: string }>(nuevas: readonl
   return nuevas.filter((t) => !ya.some((y) => mismaTarea(y.titulo, t.titulo)));
 }
 
-/** El recordingId de una `ref` de reunión: «fathom:123» y también la de un borrador que la completa. */
+/**
+ * La CLAVE de una reunión desde su `ref` (lib/grabadores/reunion.ts): «fathom:123» → 123, y la de un borrador que la
+ * completa también; «loom:abc» → su clave negativa. Lo que no es de una reunión: undefined.
+ */
 export function recordingDeRef(ref: string | null | undefined): number | undefined {
-  const m = /^fathom:(\d+)(?::|$)/.exec(ref ?? '');
-  return m ? Number(m[1]) : undefined;
+  const r = leerRef(ref);
+  if (!r) return undefined;
+  const clave = claveDeReunion(r.grabador, r.id);
+  return Number.isFinite(clave) ? clave : undefined;
 }

@@ -44,9 +44,13 @@ export function ordenDelCupo<T extends { tactica: Tactica }>(nuevas: readonly T[
   return { orden, lugares: cupo == null ? Infinity : Math.max(0, cupo - yaHoy) };
 }
 
-/** Lo que el agente recomendó HOY: su clave termina en el día (motor.ts: `táctica:nivel:entidad:día`). Las subidas a mano no cuentan. */
+/**
+ * Lo que el Media Buyer recomendó HOY: su clave termina en el día (motor.ts: `táctica:nivel:entidad:día`). Las subidas a mano
+ * no cuentan; lo de los agentes propios SÍ (táctica `manual`, clave `propia:…`): ocupan el cupo de la corrida, y sin contarlos
+ * cada «Analizar» de más dejaba otras tantas (revisión de tren-l, falla 9).
+ */
 export const recomendadasHoy = (decisiones: readonly { clave: string; tactica: Tactica }[], hoy: string): number =>
-  decisiones.filter((d) => d.tactica !== 'manual' && d.clave.endsWith(`:${hoy}`)).length;
+  decisiones.filter((d) => (d.tactica !== 'manual' || d.clave.startsWith('propia:')) && d.clave.endsWith(`:${hoy}`)).length;
 
 export const textoCupo = (n: number): string =>
   `Tu plan trae ${n} ${n === 1 ? 'recomendación' : 'recomendaciones'} por día. Pasa a MaKo Pro para tenerlas todas y el piloto automático.`;

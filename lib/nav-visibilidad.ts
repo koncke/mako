@@ -32,6 +32,8 @@ export function puedeVerItem(it: NavItem, v: VistaNav): boolean {
     && (!rolCliente || (it.rolesWs as string[] | undefined)?.includes(v.rolWs) === true)
     // `soloCapas` (MaKo Partners, 17/10/2026): el ADMIN de un workspace de esas capas, o el super admin.
     && (!it.soloCapas || v.adminShell || (it.soloCapas.includes(v.capa) && !rolCliente))
+    // `noEnPlataforma` (26/10/2026): Partners y Agency, fuera de la barra del super admin; sus programas los mira en Customers.
+    && !(it.noEnPlataforma && v.adminShell)
     && tabEnCapa(it.key, v.capa || undefined);
 }
 

@@ -12,7 +12,7 @@
 // la PC decide si la acepta.
 
 import { useCallback, useEffect, useState } from 'react';
-import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo } from '@/lib/operaciones-reglas';
+import { MAX_NOMBRE_ADJUNTO, MAX_TEXTO, MIMES_ADJUNTO, armarFirmable, mimeDeArchivoCentro, nuevoPayload, type AdjuntoPedido, type Alcance, type Esfuerzo, type MimeAdjunto, type Modelo, type VozDelPedido } from '@/lib/operaciones-reglas';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
 import { TEXTO_SOLO_ADJUNTOS } from '@/lib/centro-caja';
 import { AVISO_CLAVE_EN_EL_CENTRO, hayClave } from '@/lib/claves-en-el-chat';
@@ -47,7 +47,8 @@ export function useFirma(sub: string) {
     }
   }, [sub]);
 
-  const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance, como: ComoCorre = {}, adjuntos: readonly AdjuntoPedido[] = []): Promise<ResultadoMandar> => {
+  /** `voz`: lo que se manda es la transcripción de una nota de voz (26/10/2026). Va firmado; la PC entrega el texto igual. */
+  const mandar = useCallback(async (d: DestinoTrabajo, texto: string, alcance: Alcance, como: ComoCorre = {}, adjuntos: readonly AdjuntoPedido[] = [], voz: VozDelPedido | null = null): Promise<ResultadoMandar> => {
     if (!clave) return { ok: false, error: 'Crea tu Token para comenzar a chatear' };
     if (!texto.trim() && !adjuntos.length) return { ok: false, error: 'Escribe algo para mandarlo' };
     // Un tope en un texto que escribe una persona RECHAZA, no recorta (AGENTS.md).
@@ -58,7 +59,7 @@ export function useFirma(sub: string) {
     try {
       const payload = nuevoPayload({
         id: crypto.randomUUID(), texto: texto.trim() || TEXTO_SOLO_ADJUNTOS, destino: d.sesion, cuenta: d.cuenta, titulo: d.titulo, alcance,
-        modelo: como.modelo ?? null, esfuerzo: como.esfuerzo ?? null, adjuntos,
+        modelo: como.modelo ?? null, esfuerzo: como.esfuerzo ?? null, adjuntos, voz,
       }, Date.now());
       const firmado = armarFirmable(payload);
       const firma = await firmar(clave, firmado);

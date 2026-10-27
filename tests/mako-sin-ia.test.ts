@@ -164,7 +164,8 @@ test('la grilla: «Conectada» sólo si MaKo la puede usar como del negocio; una
   assert.match(src, /ws === wsSA\) return null/, 'la plataforma usa las suyas');
   // Y el modal lo dice: el campo se ve lleno y no es suyo.
   // Rota: el `alerta` del modal sin la copia → este test falla.
-  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : null;/);
+  // 26/10/2026: y si no, el texto de una tarjeta que no se conecta (Loom «Sin API», lib/grabadores) — nunca «Falta configurar».
+  assert.match(sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx')), /let alerta: string \| null = i\.detalle === POR_QUE_IA_DE_MAKO \|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \? i\.detalle : i\.sinConexion\?\.texto \?\? null;/);
 });
 
 test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resuelve el equipo (la baranda)', () => {
@@ -194,8 +195,8 @@ test('un negocio cuya IA fuera el entorno: ni botón ni «pega tu key»; lo resu
   assert.match(integ, /\.\.\.\(v === 'equipo' \? \{ soloServidor: true \} : \{\}\)/, 'sin el formulario del modal');
   const board = sinComentarios(leer('app/integraciones/IntegracionesBoard.tsx'));
   assert.match(board, /const mostrarForm = i\.soloServidor === false;/);
-  assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
-  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO;/, 'no es un pendiente suyo');
+  assert.match(board, /\) : i\.estado === 'falta' && i\.key !== 'google' && !delEquipo && !i\.sinConexion && \(/, 'sin «Falta configurar: GEMINI_API_KEY»');
+  assert.match(board, /\|\| i\.detalle === POR_QUE_LA_CONFIGURA_MAKO \|\| !!i\.sinConexion;/, 'no es un pendiente suyo');
 });
 
 test('la IA de la plataforma sale de la PLATAFORMA, no del ws1: hidratación, lecturas, guardar y la migración', () => {

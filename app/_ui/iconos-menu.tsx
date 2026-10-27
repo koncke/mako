@@ -65,6 +65,8 @@ const TRAZOS = {
   pausar: <path d="M9 5.5v13M15 5.5v13" />,
   mover: <><path d="M4.5 12h15" /><path d="m15 7.5 4.5 4.5-4.5 4.5" /></>,
   link: <><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1" /><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1" /></>,
+  // Un enchufe (26/10/2026): «Integraciones» se lee como conexiones, no como un link (Martín: «Parece un link»).
+  enchufe: <><path d="M9 3v4.5M15 3v4.5" /><path d="M6.5 7.5h11v3a5.5 5.5 0 0 1-11 0v-3Z" /><path d="M12 16v5" /></>,
   ver: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z" /><circle cx="12" cy="12" r="2.8" /></>,
   ocultar: <><path d="M4 4l16 16" /><path d="M9.9 6A9.6 9.6 0 0 1 12 5.5C18 5.5 21.5 12 21.5 12a17 17 0 0 1-2.6 3.4M6.6 7.7C3.9 9.4 2.5 12 2.5 12S6 18.5 12 18.5a9 9 0 0 0 4.1-1" /></>,
   buscar: <><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.4-4.4" /></>,

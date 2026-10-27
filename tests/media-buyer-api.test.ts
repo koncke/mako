@@ -32,7 +32,16 @@ const DE_LA_PANTALLA: Record<string, string[]> = {
   hooks_a_video: ['hooks_al_video_media_buyer'],
   campanas: ['ver_campanas_media_buyer'],
   subir_preparar: ['ver_campanas_media_buyer'],
+  // La charla del arranque guarda lo respondido para seguir donde quedó; lo que DEJA es config (el resultado, el modo, el
+  // tope diario y las metas del mes), y eso sale por la API.
+  arranque: ['modo_media_buyer', 'topes_media_buyer', 'metas_media_buyer'],
+  lienzo: ['ver_campanas_media_buyer'],
+  agente: ['agente_media_buyer'],
+  agente_borrar: ['borrar_agente_media_buyer'],
 };
+
+/** Lo que la pantalla muestra sin una `op` propia (sale de la página o de `config`), con su lectura o acción de la API. */
+const SIN_OP = ['ver_biblioteca_media_buyer', 'modo_agente_media_buyer'];
 
 /** Lo que todavía NO está en la API, con el porqué. Sumar acá es decidirlo: queda escrito. */
 const FALTA: Record<string, string> = {
@@ -40,7 +49,7 @@ const FALTA: Record<string, string> = {
 };
 
 /** Lo que mueve plata en la cuenta de Meta: se confirma en una pantalla y nunca corre como paso de una automatización. */
-const MUEVEN_PLATA = ['lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer', 'cuenta_media_buyer'];
+const MUEVEN_PLATA = ['lanzar_decision_media_buyer', 'deshacer_decision_media_buyer', 'modo_media_buyer', 'topes_media_buyer', 'automatizacion_media_buyer', 'cuenta_media_buyer', 'modo_agente_media_buyer'];
 
 const opsDeLaPantalla = (): string[] => {
   const src = leer('app/api/media-buyer/route.ts');
@@ -58,7 +67,7 @@ test('cada botón del Media Buyer (una op de /api/media-buyer) tiene su operaci�
 });
 
 test('cada operación del Media Buyer existe, sale por HTTP y tiene su URL REST', () => {
-  const ids = [...new Set(['ver_media_buyer', 'ver_automatizaciones_media_buyer', ...Object.values(DE_LA_PANTALLA).flat()])];
+  const ids = [...new Set(['ver_media_buyer', 'ver_automatizaciones_media_buyer', ...SIN_OP, ...Object.values(DE_LA_PANTALLA).flat()])];
   for (const id of ids) {
     const d = porId(id);
     assert.ok(d, `${id} no está en el registro`);
@@ -88,7 +97,7 @@ test('cada ajuste de la config del Media Buyer se puede cambiar por la API', () 
 test('ver_media_buyer devuelve las tres pestañas de la pantalla, con las estrellas, el motivo, las metas y la cuenta', () => {
   const src = leer('lib/api-mako/areas/ads.run.ts');
   const ver = src.slice(src.indexOf('  ver_media_buyer: {'), src.indexOf('  lanzar_decision_media_buyer: {'));
-  for (const campo of ['abiertas:', 'hechas:', 'descartadas:', 'estrellas:', 'motivoDescarte:', 'metas:', 'cuentaPublicitaria:']) {
+  for (const campo of ['abiertas:', 'hechas:', 'descartadas:', 'estrellas:', 'motivoDescarte:', 'metas:', 'cuentaPublicitaria:', 'agentes:', 'agentesPropios:', 'alertas:', 'agente: firma(d)']) {
     assert.ok(ver.includes(campo), `ver_media_buyer no devuelve ${campo}`);
   }
   assert.match(ver, /leerDecisionesMB\(ctx\.ws, 30\)/, 'los mismos 30 días que la pantalla');

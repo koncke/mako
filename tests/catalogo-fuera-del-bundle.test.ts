@@ -22,7 +22,7 @@
 // Correr: npm test
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = new URL('..', import.meta.url).pathname.replace(/^\/([A-Za-z]:)/, '$1');
@@ -113,14 +113,9 @@ test('los que lo importaban lo reciben por props', () => {
   // El tercero era app/instagram/OnboardingInstagram.tsx (el tutorial de Zernio por
   // props). Se borró el 06/10/2026 con la tab Instagram: tests/sin-instagram.test.ts.
 
-  const wizard = leer(join(RAIZ, 'app', 'metodo', 'MetodoWizard.tsx'));
-  assert.ok(/servicios: SERVICIOS_METODO/.test(wizard), 'el wizard tiene que recibir el catálogo por props');
-
-  // ⚠️ Y la página se lo pasa FILTRADO. Sin esto el arreglo es solo de peso: el
-  // cliente dejaría de cargar 145 KB pero seguiría recibiendo, en el JSON de la
-  // página, las credenciales de plataforma que no le corresponden.
+  // El segundo era el asistente de /metodo (MetodoWizard), que recibía el catálogo FILTRADO por props. Se fue el 26/10/2026
+  // con la sección «Método» (Martín: «Si para eso ya tenemos Integraciones»): /metodo redirige y no le pasa nada a nadie.
+  assert.equal(existsSync(join(RAIZ, 'app', 'metodo', 'MetodoWizard.tsx')), false, 'volvió el asistente de Método');
   const page = leer(join(RAIZ, 'app', 'metodo', 'page.tsx'));
-  assert.ok(/serviciosPara\(/.test(page), 'el catálogo tiene que viajar filtrado, no entero');
-  assert.ok(/wsSuperAdmin\(\)/.test(page),
-    'el filtro se decide por WORKSPACE, no por sesión: el super admin sigue siéndolo dentro del workspace de un cliente');
+  assert.doesNotMatch(page, /metodo-catalogo/, '/metodo volvió a leer el catálogo: si vuelve a ser una pantalla, que lo pase filtrado');
 });

@@ -522,3 +522,28 @@ Lo que falla por WhatsApp no trae `hilo`, así que no dice dónde.
 | Borrar el mazo de las preguntas de los chats | app/tickets/decisiones, app/admin/runway | Cuando ande el formulario de opciones dentro de cada chat (Ops Center). El mazo de los tickets (22/10) no depende de él: tiene sus reglas y su hoja |
 | Lo que no es IA de la fila del ws1 sigue siendo el entorno | lib/credenciales.ts (`wsDelEntorno`) | La IA ya se separó el 18/10 (Martín). Meta, Calendly, Fathom y las settings de plataforma en el ws1 quedan para otra decisión ([hallazgos-integraciones.md](hallazgos-integraciones.md)) |
 | El doer de WhatsApp cuenta las copias como keys del negocio | lib/mako-doer-in.ts (`contarKeysIA`) | Cuenta `clavesCargadas`, con las copias de la plataforma: en el ws1 nunca daría `sin_keys`. Leído en el código, no medido. Es del chat «MaKo en WhatsApp» |
+
+## Un negocio aprobado por regla (Leandro) va por el arreglo automático, no por una firma de Martín (26/10/2026)
+
+**El pedido:** Martín, desde el Centro: «los tickets que vengan de Leandro pasen 100% sin mi aprobación... y tú después le tienes
+que ir avisando... por el grupo de WhatsApp de MaKo los tickets que ya van siendo resueltos».
+
+**Lo que no era obvio:** «como aprobado por Martín» NO puede ser el camino de «Aprobar»: ese firma un pedido en el dispositivo
+de Martín, y el servidor no firma por él. El camino que ya existía sin Martín es el del arreglo automático (`despacho:
+'runner'`): el Runner le escribe al Cerebro un texto FIJO con el número. Ese texto dice «bug evidente» y que un pedido se
+devuelva a Martín, y cambiarlo pide un cartero nuevo en cada PC. Por eso la regla viaja en el triage (`regla`) y la lee el
+Cerebro en `scripts/tickets.ts ver`, que le dice que NO lo reclasifique.
+
+**La regla:**
+- `APROBADOS_POR_REGLA` (lib/tickets-reglas.ts) es la lista: hoy, el ws 10 (Leandro). Su ticket va al arreglo automático sea bug,
+  pedido o pregunta, y lleva la marca «Aprobado por regla: Leandro» en la bandeja y en lo que lee el Cerebro.
+- Sigue esperando a Martín lo delicado (`zonaSensible`), lo que escribe en producción (`ESCRIBE_EN_PRODUCCION`) y todo con el
+  interruptor apagado. Lo que choca con una decisión de Martín no se ve en el texto: lo frena el chat que lo trabaja.
+- El tope de 8 arreglos por día no lo frena (Martín pidió el 100%). Al quedar desplegado (el hito con `tickets: [n]` en ESE build),
+  el aviso va a su grupo de MaKo por `avisarArregloAlGrupo` (lib/tickets-cierre.ts), salvo que el ticket haya venido por WhatsApp.
+
+**Lo que quedó SIN hacer:** el texto fijo del cartero (`mensajeTicket`, scripts/operaciones/cartero.mjs) sigue diciendo «bug
+evidente» también para un pedido de Leandro. Lo corrige lo que lee el Cerebro, no el texto; cambiarlo pide un cartero nuevo.
+
+**Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `clasificar`) · `lib/tickets-db.ts` (`crearTicket`) ·
+`lib/tickets-cierre.ts` (`avisarUno`) · `scripts/tickets.ts` (`ver`) · `app/tickets/bandeja/BandejaTickets.tsx` · `tests/tickets-por-regla.test.ts`

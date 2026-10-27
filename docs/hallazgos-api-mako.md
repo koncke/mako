@@ -2330,6 +2330,11 @@ que generaliza:
   /admin/cobros exige `getSesionAdmin`; por la API alcanzaba con ser admin del ws de la plataforma. Una acción que la
   pantalla reserva al super admin lleva `faltaParaConfirmar` y el mismo chequeo en `ejecutar()` (`esSuperAdmin`, con
   `try`: fuera de un request no hay cookies y eso es un «no»). Al PROPONER no se exige: por WhatsApp no hay sesión.
+- **Vale también para las LECTURAS (26/10/2026).** `ver_clientes_de_mako` y `ver_agentes_de_clientes` muestran datos de
+  todos los negocios, que /customers sólo le enseña al super admin, y se quedaron en el `soloPlataforma`. La revisión del
+  tren lo encontró: alguien con rol admin en el equipo de MaKo los leía por el chat. Ahora en la app preguntan
+  `ctx.canal === 'app' && !(await esSuperAdmin())`. Por WhatsApp habla el grupo de la plataforma, que no tiene cookies, y
+  un flujo corre con canal 'app' pero sin sesión, así que tampoco pasa.
 - **Un paso «⚡ Acción» de un flujo se confirma solo (`aplicarEnElActo`).** Lo que tiene que confirmar una persona
   concreta va en `NO_EN_FLUJOS` (lib/api-mako/flujo.ts) Y el runner lo rechaza por `PREFIJO_FLUJO`: el lienzo no lo
   ofrece, pero un paso viejo o importado lo correría igual.
@@ -2673,3 +2678,13 @@ de `elegirBoton` con `[...(elegido.disponibles ?? [])]`. Los tests corren con ts
 El tsc acotado del tren lo marcó como TS2488, porque `FallaPlan.disponibles` se declara `unknown` y no se puede iterar.
 **Regla:** para leer `disponibles` de una falla, normalizar con `Array.isArray(x) ? x.map(String) : []`. Un verde de
 tests no es un verde de tipos.
+
+## El test de «vender un plan» falla al CARGAR si un runner nuevo va detrás del suyo (26/10/2026, claude5)
+
+- **Síntoma:** `tests/api-mako-vender-plan.test.ts` daba «el recorte mide 7509: está mirando otra cosa», y fallaba el
+  archivo entero (0 tests corridos).
+- **Causa:** el test recorta `vender_plan_mako` desde su clave hasta el cierre del objeto (`\n};`) y exige menos de
+  7000 caracteres. Los runners de Customers estaban DETRÁS, y cuando crecieron con el rediseño el recorte pasó el techo.
+  No era el runner de vender un plan el que estaba mal.
+- **Regla:** en lib/api-mako/areas/cobros.run.ts, un runner nuevo va ANTES de `vender_plan_mako`. El bloque de Customers
+  se movió ahí, con un comentario que lo dice.

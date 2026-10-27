@@ -8,17 +8,19 @@
 import 'server-only';
 import { getCapaActual, getRolWsEfectivo } from '@/lib/workspace';
 import { tabEnCapa } from '@/lib/capas';
-import { integracionConectada } from '@/lib/credenciales';
+// «¿Puede leer reuniones?» = CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI: lib/grabadores, 26/10/2026).
+import { hayGrabadorConectado } from '@/lib/grabadores';
 import { reglaDePuerta } from './puerta-regla';
 
 /**
  * `null` = entra. Si no, la respuesta que hay que devolver tal cual.
- * @param opts.fathom  exige Fathom conectado (todas menos el transcript, que contesta vacío sin él).
+ * @param opts.fathom  exige un grabador conectado (todas menos el transcript, que contesta vacío sin él). Se llama `fathom`
+ *                     de cuando Fathom era el único.
  */
 export async function puertaClosing(opts: { fathom: boolean }): Promise<Response | null> {
   const rol = await getRolWsEfectivo();
   if (rol == null) return cerrar(reglaDePuerta(rol, false, null));
-  const [capa, fathom] = await Promise.all([getCapaActual(), opts.fathom ? integracionConectada('fathom') : Promise.resolve(null)]);
+  const [capa, fathom] = await Promise.all([getCapaActual(), opts.fathom ? hayGrabadorConectado() : Promise.resolve(null)]);
   return cerrar(reglaDePuerta(rol, tabEnCapa('graphics', capa), fathom));
 }
 

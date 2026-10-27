@@ -1811,6 +1811,15 @@ código nuevo:
     `lineasDeConversacion`. Algo nuevo que dibuje turnos pasa por ahí. Lo que tiene que leer Martín se lo dice el chat a él.
     Lo que el chat le CONTESTA a otro chat va plegado en una línea, «Avance: …» (`turnosParaOtro`), menos un «Ya está»; y la fila
     dice «Espera tu respuesta» SÓLO con una pregunta abierta: un «Ya está» sin su ✓ dice «Completado» (22/10/2026).
+    Los avances seguidos van en UNA burbuja (`agruparAvances`, 25/10/2026): se agrupa DESPUÉS de `lineasDeConversacion`, nunca
+    sobre los turnos crudos (los de otro chat no se ven y cortaban cada tanda), y es sólo dibujo: lo «sin ver», el «Completado» y
+    la fila cuentan LÍNEAS. La API (`ver_mensajes_operaciones`) devuelve el mismo agrupado (tests/avances-agrupados.test.ts).
+    Una nota de voz de Martín se dibuja como AUDIO (VozEnviada.tsx, 26/10/2026), con la transcripción en el menú del mensaje:
+    el trabajo firma `voz` y el chat recibe el texto, como siempre (tests/voz-enviada.test.ts). Lo que es sólo para dibujar
+    puede ir firmado como una clave nueva y opcional, probado con el cartero que la deja pasar.
+    Lo que dice un chat (sus turnos, el «Ya está», el cierre) se dibuja como una respuesta de Claude: `<Markdown aire>` sobre
+    `listasEnRenglones(texto)` (lib/respuesta-como-claude.ts), y la API devuelve ese mismo texto. Nunca `conFormato` (es de un
+    renglón) ni una tabla de rótulos en el teléfono (tests/respuestas-como-claude.test.ts).
     La criatura de la cabecera y la de la fila cuentan con UN número, `avisos` (useCentro.ts), en la computadora y en el teléfono:
     nunca `esperaDe` suelto, que no cuenta el «Completado» sin ✓ (tests/ops-center-bloque-y-estado.test.ts, 6).
     Todo lo que espera a Martín arriba de la caja va en UN bloque (PreguntasDelChat.tsx → `BloqueDePreguntas`): la Ticketera, lo
@@ -3629,6 +3638,27 @@ largos»). Vale para `tutorial.pasos` y para `AYUDA_CAMPO[*].pasos` (`lib/metodo
 Lo fija `tests/tutoriales-legibles.test.ts`. Su extractor lleva un piso: buscaba 6 espacios, los pasos están a 8, y
 pasaba en verde leyendo cero líneas.
 
+# Una reunión grabada se lee de `lib/grabadores`, nunca de un grabador
+
+Desde el 26/10/2026 MaKo lee reuniones de Fathom, tl;dv, Fireflies, Zoom y Otter (Martín: «Así no solo se puede grabar con
+fathom»). Todo lo que lee reuniones —el Plan, el Closing, Customer Success, el CRM, la API— pasa por `lib/grabadores`
+(`hayGrabadorConectado`, `listarReunionesRecientes`, `leerReunion`, `leerTranscripcionPorClave`) y lee la forma común
+(`Reunion`, lib/grabadores/reunion.ts). **Importar `lib/fathom-api.ts` fuera de `lib/grabadores/` es volver a dejar
+afuera a todos los demás**, y preguntar `integracionConectada('fathom')` para decir «¿puede leer reuniones?» también.
+- La reunión se guarda por su CLAVE: Fathom, su `recording_id`; los demás, negativa (`claveDeReunion`). La ref en texto es
+  `refDeReunion` («fathom:123», «tldv:abc»), nunca armada a mano con «fathom:» delante.
+- Un grabador nuevo: su lector en `lib/grabadores/<grabador>.ts` (la forma, en `formas.ts`, sobre el ejemplo de SU doc),
+  los cuatro registros de una integración, su línea en `catalogo.ts` con lo que da DE VERDAD, y si avisa, su webhook
+  llama `leerYTerminar` (la reunión se pide por la API; lo que trae el aviso no es contenido). Lo que no da, su tarjeta lo
+  dice (`conectable: false`): Loom no tiene API. El porqué y lo medido: docs/hallazgos-integraciones.md.
+- **Lo que procesa una reunión pregunta `leTocaA` antes** (revisión del tren m, 26/10/2026): la MISMA reunión grabada por
+  dos grabadores tiene dos claves, y sin preguntar se analiza, se engancha y dispara eventos dos veces. Lo que se dispara
+  por la reunión de un lead lleva `claveDeReunionDelLead` como `dedupKey`, nunca el link ni la clave del grabador.
+- **Un «no se sabe» de `invitadoHablo` NO es «asistió»** salvo con un grabador que atribuye voces (`anotaLaAsistencia`):
+  tl;dv y Fireflies sacan los invitados del calendario, así que con ellos un no-show quedaba «asistió».
+- **Lo que «falla en su cuenta» lo decide DE DÓNDE vino el error, no su texto**: la clave de la plataforma y el crédito de
+  MaKo contestan lo mismo que la del negocio («Your credit balance is too low»). Sólo `deSuClave` se le avisa al negocio.
+
 # Para conectar una integración JAMÁS se sale de la tab: el modal de /integraciones se abre AHÍ
 
 Martín, 14/10/2026, textual: **«Esto significa también el botón de "Conectar" si no lo tiene conectado debería saltar el
@@ -3688,6 +3718,10 @@ sigue de respaldo para los negocios que ya lo tenían. Código nuevo que lea o e
   forma de Meta (`insightsPorZernio`, `conjuntosVivosPorZernio`, `cuentaCrudaPorZernio`, `creativosPorZernio`); `via: 'token'` →
   la Graph API como siempre. Un fallo de Zernio se reintenta por el token SÓLO para LEER y sólo si el negocio lo conserva
   (`canal.respaldo`).
+- **Escribir en Meta pasa por `metaWrite`** (lib/meta-write.ts): con `via: 'zernio'` va por la Zernio del negocio
+  (lib/meta-escribir-zernio.ts: lee de quién es el id y si está borrado ANTES de escribir) y NUNCA por el token de respaldo. Un
+  `graphPost` nuevo con el token deja afuera a todo negocio sin token: si hace falta escribir otra cosa, se le suma su rama de
+  Zernio. Borrar el último anuncio de un conjunto que creó Zernio se lleva el conjunto y la campaña: se avisa antes del «sí».
 - **Las unidades:** Zernio da presupuestos y saldos en UNIDADES de la moneda; Meta, en la unidad mínima. Nunca se mezclan.
 - **CAPI por Zernio:** la identidad va EN CLARO (Zernio la hashea) y el `eventId` es obligatorio (lib/zernio-meta-cuerpo.ts).
 - **«Meta conectada»** es `metaConectadaConCampos` (token + cuenta, o la conexión de Zernio + cuenta), en los TRES lectores.
@@ -4516,6 +4550,15 @@ aplica en memoria DESPUÉS de paginar por `id`. Las otras formas de truncar sin 
 qué tablas ya pasaron las 1000, en [docs/hallazgos-infra.md](docs/hallazgos-infra.md) → «El
 techo de 1000 filas no da error».
 
+- **Un `if (filas.length >= N)` detrás de un `.limit(N)` con N mayor que 1000 es una rama
+  MUERTA**: nunca llega a N. En MaKo recomienda (26/10/2026) esa rama era el «borde de lo
+  leído» de WhatsApp, y conversaciones viejas contaban como primeros contactos lentos. Un tope
+  propio va en el `onPagina` de `leerPorPaginas`, que devuelve `false` al llegar.
+- **Los filtros de PostgREST viajan en la URL**: un compare-and-set con
+  `.eq('value', <el JSON leído>)` anda hasta que el valor pasa unos KB y desde ahí no guarda
+  NADA, para siempre (la memoria de MaKo recomienda, a unas 35 decisiones). Lo que crece se
+  compara por `updated_at` o una revisión (`lib/automatizacion-chat-db.ts`, `despuesDe`).
+
 # Contar filas no es contar cosas — cruzá por clave
 
 Dos conteos que no coinciden invitan a restar y llamar «faltante» a la diferencia. Casi
@@ -5175,6 +5218,12 @@ voz con un mensaje que le pedía cargar otra key. Dos reglas al escribir un cami
   propia capacidad. Medido esa noche: `gemini-flash-latest` 503 y `gemini-flash-lite-latest` 200
   en 560 ms. Y el mensaje al cliente no le pide una key que no lo arregla (`esSaturacion`,
   `lib/fallo-ia-texto.ts`).
+- **Lo que se aprende para TODO el proceso sale de lo que el proveedor DICE, nunca de un
+  timeout** (`anotarSaturado`, lib/ia-saturacion.ts). Un corte por plazo no distingue un modelo
+  colgado de un pedido grande o de un plazo chico del que llama (la red de MaKo en WhatsApp corta
+  a los 10 s): marcarlo degradaba a todos los negocios. Un cuelgue se recuerda en el PEDIDO
+  (`conMemoriaDelPedido`). Y «queda otra opción» se calcula con los MISMOS cortes del camino que
+  la ejecuta (`hayRed` mira `pii`, «sólo su IA» y el super admin, como la red).
 - **La red de plataforma va DESPUÉS de las keys del cliente, gratis, empezando por OTRO proveedor
   que el que falló, y con el motivo «⚠ red de plataforma»** (`provsGratisDePlataforma`; el molde
   es `transcribirAudio` en `lib/ai-cheap.ts`). Y los errores de la red viajan SEPARADOS de los
@@ -10509,6 +10558,20 @@ Ninguna pantalla, agente ni LLM declara un ganador mirando los números por su c
 y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las ramas tienen el n que `planDePrueba` calculó ANTES
 de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
 puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.
+
+## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
+
+Martín: «estas recomendaciones y MaKo "pensando" deben ser reales, no le presetees que cada ratito debe de hacer recomendaciones
+basura para cumplir con su "cuota"». Toda pantalla o canal que sugiera algo usa el motor de lib/recomendaciones*.ts: una
+recomendación nueva es una `Senal` (lib/recomendaciones-senales.ts) que mide el CÓDIGO sobre la tabla donde vive el dato, con
+`umbral` y `nMinimo` en `UMBRALES` y su `error` mirado (lo que no se pudo leer no es cero), sin nombres ni textos de personas en
+el `dato`. Ninguna pantalla rellena cuando la lista viene vacía; ningún prompt ordena «da N recomendaciones». La IA del negocio
+sólo redacta: el porqué lo escribe el código y `leerRedaccion` descarta lo que no cite una señal o traiga un número ajeno. Se
+muestran en el bloque de preguntas (`RecomendacionesDeMako` → `BloqueDePreguntas`), nunca en una lista suelta, y «Hacerlo» no
+ejecuta nada. Una decisión vale para TODAS las señales de la tarjeta que se VIO (`claves`, que manda quien la mostró: la
+pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada), repetirla mientras sigue vigente no
+escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
+tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
 
 ## Un motion graphic se arma con lib/motion: una coreografía, dos dibujantes (26/10/2026)
 

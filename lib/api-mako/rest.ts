@@ -258,9 +258,13 @@ export const RUTAS_REST: readonly RutaRest[] = [
   // El Media Buyer (25/10/2026): TODO lo que hace su pantalla (tests/media-buyer-api.test.ts). Lo que mueve plata (lanzar,
   // deshacer, el modo, los topes, una táctica, la cuenta) cuesta «dinero»: por HTTP propone y devuelve el link a la pantalla.
   ['GET', '/ads/media-buyer', 'ver_media_buyer'],
+  ['PUT', '/ads/media-buyer/agentes/{agente}', 'modo_agente_media_buyer'],
+  ['POST', '/ads/media-buyer/agentes-propios', 'agente_media_buyer'],
+  ['DELETE', '/ads/media-buyer/agentes-propios/{agenteId}', 'borrar_agente_media_buyer'],
   ['POST', '/ads/media-buyer/analisis', 'analizar_cuenta_media_buyer'],
   ['GET', '/ads/media-buyer/automatizaciones', 'ver_automatizaciones_media_buyer'],
   ['PATCH', '/ads/media-buyer/automatizaciones/{tactica}', 'automatizacion_media_buyer'],
+  ['GET', '/ads/media-buyer/biblioteca', 'ver_biblioteca_media_buyer'],
   ['GET', '/ads/media-buyer/campanas', 'ver_campanas_media_buyer'],
   ['PUT', '/ads/media-buyer/cuenta', 'cuenta_media_buyer'],
   ['POST', '/ads/media-buyer/decisiones/{decisionId}/descarte', 'descartar_decision_media_buyer'],
@@ -649,8 +653,6 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/equipo/negocio', 'renombrar_negocio'],
   ['GET', '/equipo/negocio/horario-envio', 'ver_horario_envio'],
   ['PATCH', '/equipo/negocio/horario-envio', 'configurar_horario_envio'],
-  ['GET', '/equipo/negocio/criterio-reuniones', 'ver_criterio_reuniones'],
-  ['PUT', '/equipo/negocio/criterio-reuniones', 'guardar_criterio_reuniones'],
   ['GET', '/equipo/notificaciones', 'ver_preferencias_notificaciones'],
   ['GET', '/equipo/notificaciones/avisos', 'listar_avisos_disponibles'],
   ['GET', '/equipo/notificaciones/avisos/{aviso}', 'esta_aviso_activo'],
@@ -773,7 +775,10 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/mako/pendientes/{id}', 'ver_pendiente'],
   ['POST', '/mako/pendientes/{id}/confirmacion', 'confirmar_accion'],
   ['GET', '/mako/propuestas', 'listar_propuestas_revisar'],
-  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],];
+  ['GET', '/mako/propuestas/{id}', 'ver_propuesta_accion'],
+  // MaKo recomienda (26/10/2026): la lista de hoy y lo que se decide sobre una (GitHub: POST a la colección de decisiones).
+  ['GET', '/mako/recomendaciones', 'que_recomienda_mako'],
+  ['POST', '/mako/recomendaciones/decisiones', 'decidir_recomendacion'],];
 
 type Compilada = { metodo: MetodoRest; ruta: string; operacion: string; segs: string[] };
 const COMPILADAS: Compilada[] = RUTAS_REST.map(([metodo, ruta, operacion]) => ({ metodo, ruta, operacion, segs: ruta.split('/').filter(Boolean) }));

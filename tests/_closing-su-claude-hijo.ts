@@ -26,6 +26,8 @@ const pedidos: Array<{ host: string; clave: string; model: string }> = [];
 const ANALISIS = JSON.stringify({ outcome: 'avanzó', scores: {}, notas: 'ok' });
 /** Un bache SÓLO en la lectura de las claves de la plataforma (las filas del ws9): la frontera no se puede leer. */
 let bacheEnLaFrontera = false;
+/** La clave de la PLATAFORMA y el crédito que paga MaKo, sin crédito (revisión del tren m, 26/10/2026). */
+let sinCreditoLaPlataforma = false;
 globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) => {
   const u = new URL(typeof entrada === 'string' ? entrada : entrada instanceof URL ? entrada.href : entrada.url);
   if (u.host === 'supa.test' && bacheEnLaFrontera && u.pathname.endsWith('/credenciales') && u.searchParams.get('workspace_id') === 'eq.9') {
@@ -37,6 +39,7 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   let model = '';
   try { model = JSON.parse(String(init.body ?? '{}')).model ?? ''; } catch { /* multipart */ }
   pedidos.push({ host: u.host, clave, model });
+  if (u.host === 'api.anthropic.com' && sinCreditoLaPlataforma && /PLATAFORMA|CREDITO/.test(clave)) return new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }), { status: 400 });
   if (u.host === 'api.anthropic.com' && clave.includes('ROTA')) return new Response(JSON.stringify({ type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } }), { status: 400 });
   if (u.host === 'api.anthropic.com') return new Response(JSON.stringify({ content: [{ type: 'text', text: ANALISIS }], usage: { input_tokens: 50, output_tokens: 20 }, stop_reason: 'end_turn' }), { status: 200, headers: { 'content-type': 'application/json' } });
   return new Response(JSON.stringify({ error: { message: 'red de mentira' } }), { status: 500 });
@@ -57,7 +60,9 @@ async function main() {
   poner(10, CREDITO);
   poner(9, CREDITO, 'ANTHROPIC_CREDITO_CUENTA2');
   pg.db.app_settings.push({ workspace_id: 3, key: 'ia.su_claude.modelo', value: 'sonnet' }, { workspace_id: 10, key: 'ia.su_claude.modelo', value: 'sonnet' });
-  const reunion = { title: 'R2 con Juan', transcript: [{ speaker: { display_name: 'Closer' }, text: 'Hola Juan, ¿cómo va?', timestamp: '00:00:01' }], calendar_invitees: [], recorded_by: { name: 'Closer' } } as never;
+  // 26/10/2026: `analyzeMeeting` lee una `Reunion` de cualquier grabador (lib/grabadores); ésta viene de Fathom.
+  const { deFathom } = await import('../lib/grabadores/reunion');
+  const reunion = deFathom({ recording_id: 1, title: 'R2 con Juan', transcript: [{ speaker: { display_name: 'Closer' }, text: 'Hola Juan, ¿cómo va?', timestamp: '00:00:01' }], calendar_invitees: [], recorded_by: { name: 'Closer' } } as never);
   const out: Record<string, unknown> = {};
   for (const ws of [3, 11]) {
     pedidos.length = 0;
@@ -110,6 +115,17 @@ async function main() {
     antesDel13: { ws1: await runWithWorkspace(1, conQueAnalizaElClosing), ws3: await runWithWorkspace(3, conQueAnalizaElClosing), ws13: await runWithWorkspace(13, conQueAnalizaElClosing) },
     despuesDel13,
   };
+  // (e) Revisión del tren m (26/10/2026): la clave de la PLATAFORMA (el ws1 tiene una copia) o el crédito que paga MaKo (el
+  //     ws10) sin crédito NO es «de su cuenta». El error tiene la misma forma que el de la clave del negocio; lo que los
+  //     separa es `deSuClave`, y sin la marca el Closing le pedía al negocio que cargara crédito en una cuenta ajena.
+  sinCreditoLaPlataforma = true;
+  const plataforma: Record<string, unknown> = {};
+  for (const ws of [1, 10]) {
+    pedidos.length = 0;
+    plataforma[`ws${ws}`] = { r: await runWithWorkspace(ws, () => analyzeMeeting(reunion, null)), pedidos: [...pedidos] };
+  }
+  sinCreditoLaPlataforma = false;
+  out.plataformaSinCredito = plataforma;
   out.gasto = pg.db.anthropic_usage.map((f) => ({ ws: f.workspace_id, model: f.model, motivo: f.motivo }));
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }

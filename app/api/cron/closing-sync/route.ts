@@ -19,7 +19,11 @@ import { syncClosingCalls, conQueAnalizaElClosing, RESERVA_LLAMADA_MS, type Sync
 import { adjuntarFathomAutoThrottled } from '@/lib/fathom-auto';
 import { drenarInsightsDeLlamada } from '@/lib/insights-llamada';
 import { correrRonda } from '@/lib/cron-workspaces';
+// Los workspaces con CUALQUIER grabador conectado (Fathom, tl;dv, Fireflies, Zoom, Read AI…: lib/grabadores, 26/10/2026).
+import { GRABADORES_QUE_SE_LEEN } from '@/lib/grabadores';
 import { checkCronAuth } from '@/lib/cron-auth';
+import { iaDelNegocioCaida } from '@/lib/closing-ia-caida';
+import { seguimientosQueEsperaban } from '@/lib/grabadores/seguimiento-pendiente';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
@@ -41,7 +45,7 @@ export async function GET(request: NextRequest) {
   const denied = checkCronAuth(request);
   if (denied) return denied;
 
-  const ronda = await correrRonda('fathom', async (ws, deadline) => {
+  const ronda = await correrRonda(GRABADORES_QUE_SE_LEEN, async (ws, deadline) => {
     // EN POSITIVO: se analiza SI este cliente tiene con qué. El análisis corre con la
     // key del PROPIO workspace (lib/anthropic.ts → credWs) y sin fila propia credWs
     // devuelve null: el env es solo del dueño. Sin este guard, cada llamada tira
@@ -75,7 +79,10 @@ export async function GET(request: NextRequest) {
     // ⚠️ UNO POR RONDA, a propósito: una llamada al modelo reserva 135 s de los
     // 300 del techo, y con dos este drenaje se come el presupuesto entero y el
     // backlog de `syncClosingCalls` no corre nunca. Son 10 rondas por día.
-    const insights = await drenarInsightsDeLlamada({ deadline, max: 1 }).catch((e) => {
+    // ⚠️ CON SU CLAUDE CAÍDO (sin crédito, clave borrada: lib/closing-ia-caida.ts) el drenaje no corre: fallaría igual. La
+    // prueba de si volvió la hace `syncClosingCalls` con UNA llamada, y el dueño ya está avisado.
+    const caida = await iaDelNegocioCaida();
+    const insights = caida ? null : await drenarInsightsDeLlamada({ deadline, max: 1 }).catch((e) => {
       console.error(`[cron:closing-sync] insights de llamada: ${e instanceof Error ? e.message : String(e)}`);
       return null;
     });
@@ -86,6 +93,11 @@ export async function GET(request: NextRequest) {
       );
     }
     const res = await syncClosingCalls({ deadline });
+    // EL SEGUIMIENTO QUE ESPERABA LA TRANSCRIPCIÓN (revisión del tren m, 26/10/2026): tl;dv avisa antes de tenerla, y el
+    // aviso de la transcripción no dice de qué negocio es. Lo anotó `alTerminarReunion`; acá, UNO por ronda, si ya está.
+    // Con su Claude caído no: el borrador lo redacta su Claude.
+    const seguimiento = caida ? null : await seguimientosQueEsperaban({ deadline, reservaMs: RESERVA_LLAMADA_MS });
+    if (seguimiento?.esperan || seguimiento?.redactado) console.log(`[cron:closing-sync] ws=${ws} seguimientos que esperaban la transcripción: ${seguimiento.redactado ? '1 redactado, ' : ''}${seguimiento.esperan} esperan`);
     console.log(
       `[cron:closing-sync] ws=${ws} fathom=${res.total_fathom} ya=${res.ya_procesadas} cand=${res.candidatas} ` +
       `analizadas=${res.analizadas} ventas=${res.ventas} servicio=${res.servicio} otras=${res.otras} ` +

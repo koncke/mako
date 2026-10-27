@@ -49,7 +49,7 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
   const c = sinComentarios(leer('app/_chat/CajaChat.tsx'));
   assert.match(c, /return p\.voz \? <CajaConVoz \{\.\.\.p\} voz=\{p\.voz\} \/> : <CajaConNota \{\.\.\.p\} \/>;/);
   assert.doesNotMatch(c, /grabacion=\{null\}/, 'ninguna caja sin grabación: el micrófono ya no dicta en un chat');
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic \}\);/,
+  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: p\.texto, onTexto: p\.onTexto, onMandar: p\.onMandar, onError: p\.onErrorMic, onNota: p\.onNota \}\);/,
     'manda con el `onMandar` de la pantalla (el Ops Center lo firma en el dispositivo)');
   assert.match(c, /const enviando = !!p\.enviando \|\| transcribiendo;/, 'mientras se pasa a texto, la caja está saliendo');
   // Con «Reportar a Soporte» desde el 24/10/2026: un error es un aviso (tests/reportar-a-soporte.test.ts).

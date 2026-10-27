@@ -82,12 +82,15 @@ test('si Zernio no contesta, se publica por Meta como siempre; y no se ofrece ha
   assert.match(lib, /const conexion = ad\.creative\.source === 'existing' \? null : await conexionZernioDelWs\(\);/);
   // Un rechazo que vuelve por Zernio nombra a Zernio y conserva el subcode de Meta: la traducción de
   // rechazos de siempre (meta-publicar-errores) lo reconoce igual.
-  assert.match(lib, /const z = leerErrorDeZernio\(e\);\n\s*if \(!z\) return e;\n\s*return new MetaWriteError\(`Zernio no pudo publicar: \$\{z\.mensaje\}`, undefined, z\.subcode \?\? undefined\);/);
+  // (26/10/2026: el mismo texto dice «leerlo en Meta» cuando lo que falló por Zernio es una lectura.)
+  assert.match(lib, /const z = leerErrorDeZernio\(e\);\n\s*if \(!z\) return e;\n\s*return new MetaWriteError\(`Zernio no pudo \$\{que === 'leer' \? 'leerlo en Meta' : 'publicar'\}: \$\{z\.mensaje\}`, undefined, z\.subcode \?\? undefined\);/);
   // Y meta-ads-create no importa el cliente de Zernio: lo lee por lib/zernio-ads (tests/sin-instagram.test.ts).
   assert.doesNotMatch(lib, /from '\.\/zernio'/);
   assert.match(lib, /crearAnuncioPorZernio\([^\n]*\)\.catch\(\(e\) => \{ throw errorDeZernio\(e\); \}\);/);
   // Con el interruptor apagado, NINGÚN anuncio sale por Zernio aunque el negocio tenga clave y conexión (ws11 y
-  // ws13 ya tienen su clave): la ruta nueva no corre hasta la prueba.
+  // ws13 ya tienen su clave): la ruta nueva no corre hasta la prueba. La excepción (26/10/2026) es el negocio que conectó
+  // Meta POR Zernio («Conectar con Facebook», `canalMeta` → zernio): sin token no hay otro camino, y se midió en la cuenta de
+  // MaKo (tests/zernio-meta-escribir.test.ts).
   assert.match(lib, /async function conexionZernioDelWs\(\)[^{]*\{[\s\S]{0,400}?if \(!ZERNIO_ANUNCIOS_PROBADO\) return null;/);
   // La prueba que decide no corrió: hasta entonces la pantalla no ofrece conectar Zernio para anuncios.
   assert.equal(ZERNIO_ANUNCIOS_PROBADO, false);

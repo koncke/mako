@@ -144,6 +144,7 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // silencio»: el día que alguien las prenda, pagan Opus sin que nadie lo haya decidido.
   // Para devolverlas a Claude hace falta una fila en CLAUDE_PERMITIDO con su fecha.
   { feature: 'second-brain-recolector', label: 'Second Brain: lo que MaKo aprende de tu WhatsApp', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'El recolector (lib/recolector.ts): resume cada conversación de WhatsApp en hechos para el Second Brain, cada hora y sólo lo nuevo. Extraer hechos de un chat no pide juicio fino → Gemini Flash, con la IA del negocio (sin la suya, no corre).' },
+  { feature: 'mako-recomienda', label: 'MaKo recomienda: redactar lo que sale de tus datos', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'lib/recomendaciones.ts (26/10/2026): la IA del negocio redacta y elige entre señales que MIDIÓ el código (números, muestras, fuentes); el código descarta lo que cite una señal que no existe, traiga un número ajeno o sea un consejo genérico. Una vez por huella de las señales (no en cada apertura) y sólo con la IA del negocio: sin la suya, salen las reglas.' },
   { feature: 'lead_insights', label: 'Insight 360 del lead', grupo: 'Análisis', def: GEMINI(), pii: true, recomendado: GEMINI(), nota: 'Síntesis multi-fuente sobre PII. Bajó a Gemini con el veto: no corría desde julio y su permiso pago no lo revisaba nadie.' },
   { feature: 'experimentos', label: 'Experimentos / Retro del negocio', grupo: 'Análisis', def: GEMINI(), recomendado: GEMINI(), nota: 'El análisis más pesado del producto. Bajó a Gemini con el veto: sin corridas desde el 5/7. Si vuelve a hacer falta Opus, va con fila y fecha en lib/veto-claude.ts.' },
   // El Dashboard (11/10/2026): las dos van GRATIS y sin fallback pago. Lo que sale se VE (una hoja que
@@ -215,6 +216,9 @@ export const CATALOGO_MODELOS: FeatureModelo[] = [
   // El Media Buyer (25/10/2026, lib/media-buyer/variaciones.ts): las variaciones de texto y de hook del anuncio que más
   // resultados trajo. Corre con la IA DEL NEGOCIO (su Claude, su GPT o su Gemini): sin la suya no hay variaciones.
   { feature: 'media-buyer-variaciones', label: 'Variaciones del anuncio ganador (Media Buyer)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe cuatro variaciones de texto o de gancho del ganador, en la voz del negocio y en español neutro. Sin PII: textos de un anuncio publicado y el perfil del negocio.' },
+  // Los agentes PROPIOS del Media Buyer (25/10/2026, lib/media-buyer/agentes-ia.ts): una regla escrita por el negocio, mirada
+  // contra los números de su cuenta. También con la IA DEL NEGOCIO. Lo que deja siempre espera a una persona.
+  { feature: 'media-buyer-agentes', label: 'Agentes propios (Media Buyer)', grupo: 'Copywriting', def: GEMINI(), nota: 'Mira una regla del negocio («pausa lo que pase de $15 por lead») contra los números de 7 días de su cuenta y propone acciones. Sin PII: nombres de campañas y números agregados.' },
   { feature: 'landing-writer', label: 'Escribir la landing (Web Generator)', grupo: 'Copywriting', def: GEMINI(), nota: 'Escribe la estructura y el copy de la página entera desde el funnel, el perfil y —si lo hay— el Diagnóstico de esa página. Voz de marca sin PII.' },
   // El editor copiado de Gamma (lib/editor-landing/ia.ts, docs/diseno-editor-landing.md D5).
   // Dos features y no una: generar (esquema + secciones, lo más voluminoso) y editar (texto,

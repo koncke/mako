@@ -105,6 +105,12 @@ export type NavItem = {
    */
   soloCapas?: readonly string[];
   /**
+   * NO se dibuja en la barra del super admin (su shell, sin mirar a un cliente); los negocios la ven como siempre (26/10/2026,
+   * Martín: «Yo como SuperAdmin, no necesito "Agency" o "Partners" en la sidebar»). Lo que él mira de esos programas está en
+   * Customers. Cosmético, como todo acá: la ruta sigue abriendo.
+   */
+  noEnPlataforma?: true;
+  /**
    * El ícono es una CRIATURA del Ops Center (app/admin/operaciones/Muneco.tsx), no un dibujo de icons.tsx: el nombre
    * del empleado cuyo muñeco se dibuja («Ops Center», «Second Brain»). Es el mismo muñeco que tiene ese chat en el
    * Centro, porque el aspecto sale del nombre (lib/centro-munecos.ts → aspectoDe). Se mueve: flota y parpadea.
@@ -264,9 +270,13 @@ const HERRAMIENTAS = {
   // ser igual que el resto. Y que simplemente pueda cambiar entre mi número y el de MaKo y ver entre los chats los
   // grupos»). El número de MaKo es una línea más del chip «Canales» de Chats para el super admin (docs/diseno-chats.md
   // §8.5); /agencia sigue respondiendo para sus links (`?canal=1`, la alerta de la voz caída) y marca Chats en la barra.
-  // Los ~48 mensajes que MaKo le puede mandar al dueño: se ven como llegan, se editan y se prenden/apagan. Su casa:
-  // Automations (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). «Plantillas» a secas no se entiende solo.
-  mensajes: { key: 'mensajes', label: 'MaKo Messages', seccion: 'MaKo Messages', href: '/mensajes', icon: 'mako', adminOnly: true, match: starts('/mensajes') },
+  // ⚠️ «MaKo Messages» (/mensajes) YA NO ES UNA SECCIÓN (26/10/2026, Martín: «En Automations de Super Admin tengo "MaKo
+  // Messages" elimina eso»). Era el editor de la BASE de los avisos al dueño, y la base no existe en producción (medido:
+  // ninguna fila `mako.plantillas.base`): desde el 10/10 no le cambiaba nada a nadie. Los avisos siguen saliendo con lo que
+  // tiene cada negocio (lib/avisos.ts lee su store; de una pantalla, sólo lo toca el detalle de la bandeja de correo:
+  // docs/hallazgos-comunicacion.md, «Nueve avisos de Notificaciones no le salen a nadie»), y los
+  // mensajes de la plataforma son automatizaciones (AGENTS.md → «Un Mensaje de MaKo ES una automatización»). /mensajes y
+  // /m/mensajes redirigen a Automations.
   // En qué trabaja cada cliente en SU Claude Code. Es información de CLIENTES: su casa es Clients.
   agente: { key: 'admin-agente', label: 'Client Agents', seccion: 'Agents', href: '/admin/agente', icon: 'mako', adminOnly: true, match: starts('/admin/agente') },
   // La estrategia de MaKo en UNA pantalla (10/10/2026): la oferta, a dónde va cada dólar, el CAC, la adquisición, la
@@ -334,10 +344,10 @@ export const FAMILIAS: NavFamilia[] = [
         { key: 'calendario', label: 'Calendar', href: '/calendario', icon: 'calendario', match: starts('/calendario') },
         {
           key: 'automatizaciones', label: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo',
-          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) || starts('/mensajes')(p),
+          match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)),
+          // Una sola sección desde el 26/10/2026 (salió «MaKo Messages»): queda por la llave `setting` del setter.
           secciones: [
             { key: 'setting', label: 'Automations', seccion: 'Automations', href: RUTA_AUTOMATIONS, icon: 'flujo', rolesWs: ['setter'], match: (p) => starts(RUTA_AUTOMATIONS)(p) || RUTAS_VIEJAS_AUTOMATIONS.some((r) => starts(r)(p)) },
-            HERRAMIENTAS.mensajes,
           ],
         },
         // «Classroom» desde el 25/10/2026 (Martín: «La tab de "clients" pasa a llamarse "Classroom". También su ruta.»): abre
@@ -604,11 +614,11 @@ export const USER_NAV: NavItem[] = [
   // a su tablero (/partners/referidos) — con `soloCapas: ['agencia']` un cliente sólo llegaba tipeando la URL. Sin
   // `rolesWs`, el closer y el setter no la ven (`puedeVerItem`). La página reparte: la agencia, su cartera; el resto, sus
   // referidos (app/partners/page.tsx).
-  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', match: starts('/partners') },
+  { key: 'partners', label: 'MaKo Partners', href: '/partners', icon: 'comunidad', noEnPlataforma: true, match: starts('/partners') },
   // Agency Dashboard (25/10/2026, docs/feedback-25-10-tarde.md punto 9: «otra tab abajo de "Partners"»): la landing para
   // sumarse como Agency (sólo con el plan Pro activo) y, ya sumada, las cuentas de MaKo de sus clientes. La cartera vivía
   // en /partners; Partners quedó para los referidos. Sin `rolesWs`: sólo el admin, como Partners (app/agency/page.tsx).
-  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', match: starts('/agency') },
+  { key: 'agency', label: 'Agency Dashboard', href: '/agency', icon: 'users', noEnPlataforma: true, match: starts('/agency') },
   // «Onboarding» salió de acá el 15/10/2026: el hub de diez pestañas que abría se retiró y sus secciones se
   // editan en Second Brain (lib/secciones-negocio.ts), que ya está en la barra. /onboarding sigue siendo el
   // wizard del primer ingreso, y a ése no se entra desde un menú: lo manda lib/tab-access.ts.

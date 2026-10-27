@@ -36,6 +36,8 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   limpiarNombreEtiqueta, claveNombre, colorValido, esListaDelSistema, catalogoCelular,
   planSincronizarCatalogo, usoEnPasos, etiquetaDeSegmento, TOPE_NOMBRE_ETIQUETA,
@@ -48,7 +50,12 @@ test('el nombre se limpia y su clave es la del índice único (mayúsculas y bor
   assert.equal(limpiarNombreEtiqueta('Seguimiento\n\tsemanal'), 'Seguimiento semanal');
   assert.equal(limpiarNombreEtiqueta('\u200EFavoritos'), 'Favoritos');
   assert.equal(limpiarNombreEtiqueta(42), '');
-  assert.equal(limpiarNombreEtiqueta('x'.repeat(80)).length, TOPE_NOMBRE_ETIQUETA);
+  assert.equal(limpiarNombreEtiqueta('x'.repeat(150)).length, TOPE_NOMBRE_ETIQUETA);
+  // 100 desde la mig 0339 (26/10/2026): la etiqueta de origen de un grupo de WhatsApp es su nombre entero, y llega a 100.
+  // El check de la base y el tope del código, el mismo número.
+  assert.equal(TOPE_NOMBRE_ETIQUETA, 100);
+  const sql0339 = readFileSync(join(import.meta.dirname, '..', 'supabase', 'migrations', '0339_etiqueta_nombre_100.sql'), 'utf8');
+  assert.ok(sql0339.includes(`check (length(btrim(nombre)) between 1 and ${TOPE_NOMBRE_ETIQUETA})`), 'la mig 0339 y TOPE_NOMBRE_ETIQUETA no dicen el mismo tope');
   assert.equal(claveNombre(' Cualificado '), claveNombre('cualificado'));
   assert.notEqual(claveNombre('Calificado'), claveNombre('Cualificado'));
   assert.equal(colorValido('#5e81ac'), '#5E81AC');

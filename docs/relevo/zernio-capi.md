@@ -88,6 +88,16 @@ Conectar en sí («Conectar con Facebook») es un clic de una persona: por la AP
 3. Con las tres en verde y su resultado escrito en `docs/hallazgos-integraciones.md`: prender `ZERNIO_META_PROBADO`. Desde ahí
    un negocio nuevo conecta Meta sólo con «Conectar con Facebook».
 
+## El reclamo a Zernio: `testCode` de CAPI no llega a Meta (ENVIADO, no reenviar)
+
+Zernio no reenvía el `testCode` de `POST /v1/ads/conversions` (medido el 25/10/2026: los Lead de prueba entraron al píxel de MaKo
+como eventos reales; por eso las pruebas mandan `PruebaMaKo`). El reclamo SALIÓ el 26/10/2026 a las 10:25 (13:25 UTC): lo mandó el
+Cerebro por mail, con el sí de Martín, desde MaKo <equipo@hola-mako.com> (Resend, reply-to equipo@) a support@zernio.com, con el
+borrador de las notas tal cual (sólo la cuenta, el píxel y los traceId de MaKo). Id de Resend: `01a17862-f17d-7398-bef6-a9ac5a522643`.
+La respuesta llega a equipo@hola-mako.com (lo reenvía Porkbun). **No mandarlo otra vez** (ni por mail ni por su API de soporte,
+«Ana»): si Zernio contesta que lo arregló, se prueba con `probar_capi_meta` y un código de «Probar eventos» antes de volver a
+mandar un Lead de prueba.
+
 ## El inventario: lo que MaKo hace con el token de Meta y lo que cubre Zernio
 
 Medido en el código el 25/10/2026 (un agente de lectura, archivo por archivo) y en la OpenAPI de Zernio v1.356.1. `permiso`:
@@ -103,16 +113,40 @@ lo que pide la conexión (`advertise` = «Administrar campañas»; `full` = «Co
 | Desgloses de audiencia | lib/meta-desgloses.ts | `GET /v1/ads/insights` con `breakdowns` | advertise | **Por Zernio** |
 | CAPI (Lead, calificado, Schedule) | lib/meta-capi.ts | `POST /v1/ads/conversions` | **sin medir** (full seguro) | **Por Zernio**, token del píxel de respaldo |
 | Píxeles de la conexión | `listPixels` | `/v1/accounts/{id}/conversion-destinations`, `tracking-tags` | advertise | Al conectar (lib/meta-conexion-zernio.ts); el selector de campañas, no |
-| Árbol (campañas, conjuntos, anuncios) | `_getMetaHealth` | `/v1/ads/accounts/live` + `/v1/ads/tree` | advertise | **No** (las ramas fallan suave: `parcial`) |
-| Escrituras (pausar, presupuesto, nombre, borrar) | lib/meta-write.ts | `PUT …/status`, `PUT /ads/campaigns|ad-sets/{id}`, `DELETE` | advertise | Sólo el Media Buyer (lib/media-buyer/ejecutar.ts) |
-| Crear campañas y anuncios | lib/meta-ads-create.ts | `POST /v1/ads/create` | advertise | Media Buyer; el resto apagado (`ZERNIO_ANUNCIOS_PROBADO`) |
-| Formularios de leads | `listLeadForms` / `crearFormularioInstantaneo` | `GET/POST /v1/ads/lead-forms` | página con leads | **No** |
+| Árbol (campañas, conjuntos, anuncios) | `_getMetaHealth`, `campanasYConjuntos` | `/v1/ads/accounts/live` + `/v1/ads` (la lista) | advertise | **Por Zernio** (26/10, medido) |
+| Escrituras (pausar, presupuesto, nombre, borrar) | lib/meta-write.ts | `PUT …/status`, `PUT /ads/campaigns|ad-sets/{id}`, `PUT /ads/{id}`, `DELETE` | advertise | **Por Zernio** (26/10, medido en los 3 niveles; lib/meta-escribir-zernio.ts) |
+| Crear campañas y anuncios | lib/meta-ads-create.ts | `POST /v1/ads/create`, `/ads/images`, `/ads/videos` | advertise | El ANUNCIO en un conjunto, **por Zernio** (26/10, medido: con imagen y reusando un post); campaña y conjunto nuevos, **no**. Ninguna pantalla crea campañas |
+| Leer y cambiar textos, datos de campaña y conjunto, público (lectura), cuenta, píxeles | `getAdForEdit`, `updateAdCopy`, `getCampaignBasics`, `getAdsetForAdd`, `getAdsetTargeting`, `cuentaMeta`, `listPixels` | paso directo `GET /ads/campaigns|ad-sets|creatives/{id}`, `/ads/{id}`, `/ads/accounts`, `conversion-destinations` | advertise | **Por Zernio** (26/10, medido) |
+| Públicos personalizados | `listCustomAudiences` / `createCustomAudience` | `GET/POST /v1/ads/audiences` | advertise | Listar, **por Zernio** (la cuenta de MaKo no tiene: forma sin medir con datos); crear, **no** |
+| Editar el público | `editarPublicoConjunto` | `PUT /ads/ad-sets/{id}` con `TargetingSpec` (otra forma) | advertise | **No** (sin token lo dice) |
+| Formularios de leads | `listLeadForms` / `crearFormularioInstantaneo` | `GET/POST /v1/ads/lead-forms` | página con leads | **Por Zernio** listar y crear (26/10, medido; el de prueba quedó archivado) |
 | Leads de formularios | webhook de Meta + `pollMetaLeads` | `lead.received` (hecho) + `GET /v1/ads/leads?since=` | página con leads | Webhook sí (23/10); el barrido, **no** |
 | Video del anuncio (transcripción) | lib/transcribe.ts | `GET /v1/ads/{adId}/media`: links directos y firmados de cada video e imagen del anuncio | advertise | **Por Zernio** (los tres llamadores piden `accesoDeMeta`) — y es la salida al `source` que Meta dejó de dar (hallazgos-ads, «Meta dejó de devolver `source`»): sin medir con un video real |
 | Reproductor del anuncio | app/api/anuncios/video/route.ts | `GET /v1/ads/{adId}/preview` (un `<iframe>` por ubicación) o `/media` | advertise | **No** |
 | Perfil de Instagram (@ de un lead) | lib/instagram-perfil-server.ts, instagram-buscar | — (Business Discovery no está en Zernio) | — | **No hay salida simple** |
 | Recomendaciones de la cuenta | `fetchAccountRecommendations` | — (`/v1/ads/recommendations` es sólo de Google) | — | **No hay salida**: sin token quedan las sugerencias propias de MaKo |
 | Onboarding | no pide Meta desde el 16/10 (chat de arranque) | — | — | La regla de «conectada» ya ve Zernio |
+
+## Sin token: leer, editar, borrar y crear anuncios (26/10/2026, pedido del Cerebro antes del corte del 03/11)
+
+Hecho y medido en la cuenta de MaKo (`scripts/prueba-zernio-escribir.mts`: `crear`, `arbol`, `editar`, `anuncios`, `formulario`,
+`borrar`, `borrar-niveles`; cada paso que escribe pide `--si`, todo en pausa, gasto 0). El detalle y las trampas, en
+docs/hallazgos-ads.md → «Un negocio SIN token administra sus campañas por Zernio».
+
+**La tanda C (lo que sigue por el token), en el orden de valor y con lo que ya se sabe:**
+1. Editar el público (`editarPublicoConjunto`): `PUT /ads/ad-sets/{id}` con `targeting` en la forma de Zernio (`TargetingSpec`,
+   fusiona claves). Hace falta un traductor del crudo de Meta a esa forma que no pierda lo que el editor no maneja.
+2. Crear campaña y conjunto: no hay pantalla que lo pida (decisión de producto, del Cerebro con el Media Buyer). Por Zernio sería
+   `POST /ads/create` (forma «legacy», o `existingCampaignId`); recordar que nacen prendidos el conjunto y el anuncio.
+3. El barrido de leads (`pollMetaLeads`): `GET /ads/leads?accountId&since=` sale del caché de Zernio, que se llena con SU webhook;
+   la forma del REST NO es la del webhook (lib/zernio-lead.ts lo avisa): medir con un lead de prueba
+   (`POST /ads/lead-forms/{id}/test-leads`) sabiendo que un lead en el negocio de MaKo dispara sus avisos.
+4. El reproductor: `/ads/{adId}/media` da el .mp4; la pantalla (app/dashboard/graficos/ReproductorAnuncio.tsx) dibuja el plugin de
+   facebook.com del `embed_html`. Cambia lo que dibuja: coordinar con quien tenga el Dashboard.
+5. Crear públicos (`POST /ads/audiences`), el alcance (`/ads/targeting/reach-estimate`; buscar intereses y lugares ya va por
+   `/ads/targeting/search`, 26/10, medido), conversiones y eventos del
+   píxel, `getInstagramActorId` y `paginasDeGanadores`, aprobación (`/ads/{id}/review`). Las identidades (`identidadesMeta`) ya
+   van por `/ads/instagram-accounts` (26/10, medido).
 
 ## Lo que no se puede (o no tiene salida simple)
 

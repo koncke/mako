@@ -35,6 +35,7 @@ import {
   REACCIONES, TOPE_REENVIO, buscarCitado, idDeLinea, idDelElemento, mensajeDeLinea, opcionesDelMensaje, renglonDeCita,
   type Cita, type IdMensaje, type MarcasChat, type MensajeWA, type OpcionMensaje,
 } from '@/lib/centro-mensajes';
+import { transcripcionAbierta } from './voces-enviadas';
 
 export type { MensajeWA } from '@/lib/centro-mensajes';
 
@@ -272,7 +273,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
   const { m } = abierto;
   const actual = marcas.reacciones[m.id] ?? null;
   const iconos: Record<string, ItemMenuContextual['icono']> = {
-    responder: 'cita', reenviar: 'enviar', copiar: 'copiar', info: 'ver', fijar: 'fijar', eliminar: 'borrar',
+    responder: 'cita', reenviar: 'enviar', copiar: 'copiar', info: 'ver', fijar: 'fijar', eliminar: 'borrar', transcripcion: 'texto',
     destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
   };
   const items: EntradaMenuContextual[] = [
@@ -281,7 +282,7 @@ export function MenuMensajeWA({ abierto, marcas, onCerrar, onElegir, sin = [] }:
       enLinea: REACCIONES.map((e) => ({ id: `reaccion:${e}`, label: actual === e ? `Quitar ${e}` : `Reaccionar con ${e}`, icono: <span className="co-wa__emoji" data-actual={actual === e ? 'true' : undefined}>{e}</span> })),
     },
     null,
-    ...opcionesDelMensaje(m, marcas).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
+    ...opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? '')).filter((o) => !sin.includes(o.id)).flatMap((o): EntradaMenuContextual[] => [
       ...(o.id === 'eliminar' ? [null] : []),
       { id: o.id, label: o.label, icono: iconos[o.id], peligro: o.id === 'eliminar' },
     ]),
@@ -330,6 +331,7 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [] }: {
   const iconos: Record<string, ReactNode> = {
     responder: <IconoMenu nombre="cita" />, reenviar: <IconoMenu nombre="enviar" />, copiar: <IconoMenu nombre="copiar" />,
     info: <IconoMenu nombre="ver" />, fijar: <IconoMenu nombre="fijar" />, eliminar: <IconoMenu nombre="borrar" />,
+    transcripcion: <IconoMenu nombre="texto" />,
     destacar: <EstrellaWA llena={marcas.destacados.includes(m.id)} size={17} />,
   };
   return createPortal(
@@ -354,7 +356,7 @@ export function HojaMensajeWA({ m, marcas, onCerrar, onElegir, sin = [] }: {
               </button>
               <button type="button" role="menuitem" className="co-wa-hoja__accion" onClick={(e) => { if (vale(e)) setConfirmar(false); }}><span>Cancelar</span></button>
             </>
-          ) : opcionesDelMensaje(m, marcas).filter((o) => !sin.includes(o.id)).map((o) => (
+          ) : opcionesDelMensaje(m, marcas, transcripcionAbierta(m.trabajo?.id ?? '')).filter((o) => !sin.includes(o.id)).map((o) => (
             <button key={o.id} type="button" role="menuitem" className={`co-wa-hoja__accion${o.id === 'eliminar' ? ' co-wa-hoja__accion--peligro' : ''}`} onClick={elegir(o.id)}>
               <span>{o.label}</span>{iconos[o.id]}
             </button>

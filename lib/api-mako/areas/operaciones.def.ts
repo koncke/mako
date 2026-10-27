@@ -51,6 +51,18 @@ export const DEFS: readonly OperacionDef[] = [
     salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
   },
   {
+    id: 'ver_mensajes_operaciones', area: 'operaciones', tipo: 'lectura',
+    // La charla de Martín con los chats del Ops Center de la plataforma: no lee leads, conversaciones, llamadas ni cobros.
+    datosDeClientes: false,
+    titulo: 'Mensajes de un chat del Ops Center',
+    descripcion: 'La conversación de un chat del Ops Center como se ve en la pantalla, la más reciente al final: lo que le mandó Martín (desde el Ops Center o la app de Claude), lo que contestó el chat, y sus preguntas con sus opciones y lo que contestó Martín (`abierta` si espera). Una nota de voz de Martín sale como `audio`, con lo que dura y su transcripción aparte. Los «Avance» seguidos (lo que el chat le contestó a otro chat) van juntos en un grupo: el último entero y los anteriores con su hora y su primera oración, como la burbuja de la pantalla. NO trae las decisiones de la Ticketera ni los pedidos del Plan que también se ven en ese chat. En qué está cada envío: `ver_pedidos_operaciones`.',
+    parametros: [
+      { nombre: 'chat', rotulo: 'Chat', tipo: 'string', obligatorio: true, descripcion: 'el nombre del chat («Cerebro», «CRM»).' },
+      { nombre: 'limite', rotulo: 'Cuántos', tipo: 'number', entero: true, minimo: 1, maximo: 100, descripcion: 'cuántos mensajes o grupos, los últimos (default 30).' },
+    ],
+    salida: 'json', canales: SIN_HTTP, costo: 'gratis', gating: PLATAFORMA,
+  },
+  {
     id: 'marcar_visto_operaciones', area: 'operaciones', tipo: 'accion', confirmacion: 'chat', reversible: false,
     titulo: 'Dar por visto un Completado',
     descripcion: 'Le pone el ✓ al último «Completado» de un chat del Ops Center, y con él a los de antes (el ✓ es «hasta éste»), como «Ya lo vi» en el último de la pantalla: el chat deja de decir «Completado» y el bloque de arriba de su caja se va. No le manda nada al chat. Antes, `ver_completados_operaciones` dice cuáles esperan.',

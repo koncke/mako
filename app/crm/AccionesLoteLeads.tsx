@@ -94,7 +94,7 @@ import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
-import { enfocarWhatsappWeb, motivoDeFichas, pedirFichasDeWhatsappWeb } from '@/lib/wa-fichas-cliente';
+import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { completarFichasDeLeadsAction, completarPerfilesDeLeadsAction, pedidosDeFichasAction } from './enriquecer-actions';
 import { correrPerfiles, gruposEnWhatsappDichos, guardarFichasEnTandas, preguntaDePerfiles, resumenDeFichas, resumenDePerfiles } from './enriquecer-cliente';
@@ -133,6 +133,11 @@ export type ResultadoLote = {
   deshacer?: () => Promise<void>;
   /** El tono del aviso: `warn` cuando quedó a medias (paró, se cortó o faltan), para que no se lea como un «listo». */
   tono?: 'warn';
+  /**
+   * El resultado ya se mostró en el desplegable de la extensión (0.72.0): el padre NO pone su aviso abajo (Martín, 26/10/2026:
+   * «no me gusta que salga el cartel negro abajo y el "extrayendo" arriba... quiero que todo eso salga en la extensión»).
+   */
+  enLaExtension?: boolean;
 };
 
 const btnIcono: CSSProperties = { cursor: 'pointer' };
@@ -245,6 +250,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
    * cuando la extensión aparece en esta pestaña (la 0.71.0 se repone sola en las pestañas de MaKo abiertas), arranca sola.
    */
   const [esperaExt, setEsperaExt] = useState(false);
+  /** «Desde mi WhatsApp» corriendo a la vista: su avance y su «Parar» están en el desplegable de la extensión (0.72.0). */
+  const [enExtension, setEnExtension] = useState(false);
   const n = elegidos.length;
   const ids = elegidos.map((l) => l.id);
   idsAhora.current = ids;
@@ -371,6 +378,8 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     if (v === 'whatsapp') {
       if (extWa === 'si') { setPide({ tipo: 'whatsapp' }); return; }
       setEsperaExt(true);
+      // Si la carpeta de una extensión descomprimida ya trae la nueva, se recarga sola (0.71.1+): ni hace falta instalar.
+      window.dispatchEvent(new CustomEvent('MAKO_EXTENSION_REVISAR'));
       window.open('/extension/instalar', '_blank', 'noopener');
       return;
     }
@@ -424,43 +433,64 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
   // ⚠️ CADA PASO SE VE (25/10/2026). Martín: «en el proceso tampoco pasó nada, no hay ninguna acción que el usuario vea para
   // saber que está corriendo bien». De qué grupos vinieron, lo que cuenta la extensión («Abriendo WhatsApp Web…», «Buscando el
   // grupo «X»…»), «Completando N de M…» y un final que dice qué encontró y qué no.
+  // ⚠️ DESDE LA 0.72.0 (26/10/2026) EL AVANCE Y EL FINAL VIVEN EN LA EXTENSIÓN. Martín: «no me gusta que salga el cartel negro
+  // abajo y el "extrayendo" arriba en la topbar de selección múltiple, quiero que todo eso salga en la extensión, en el
+  // desplegable». El pedido va «a la vista»: la pestaña de WhatsApp al frente, el desplegable abierto con cada paso, y el
+  // grupo de donde vinieron, recorrido. La barra no dice nada mientras tanto; sólo si falla ANTES de la extensión (sin
+  // teléfonos, sin la extensión) queda el aviso de siempre, porque en el desplegable no hay nada.
   const correrWhatsapp = async () => {
     cerrar();
     setEsperaExt(false);
     const deEstos = [...ids];
-    if (!empezarLargo('Buscando de qué grupos vinieron…')) return;
+    if (!empezarLargo('')) return;
+    setEnExtension(true);
+    const id = nuevoIdExtraccion();
+    const soltar = alPararExtraccion(id, () => { parar.current = true; });
     let r: ResultadoLote = { texto: 'No se pudo', hubo: false };
     let entera = false;
     try {
       const t = await pedidosDeFichasAction(deEstos);
       if (!t.ok) { r = { texto: t.error, hubo: false }; return; }
       if (!t.pedidos.length) { r = { texto: `Ninguno de los ${cuantos} tiene teléfono.`, hubo: false }; return; }
-      setAvance('Pidiéndole a la extensión de MaKo…');
+      const titulo = t.grupos.length === 1 ? t.grupos[0] : `${miles(t.pedidos.length)} leads del CRM`;
       const f = await pedirFichasDeWhatsappWeb(t.pedidos.map((p) => ({ telefono: p.telefono, lid: p.lid })), {
-        grupos: t.grupos, alAvanzar: (texto) => setAvance(texto),
+        grupos: t.grupos, visible: true, titulo, id,
       });
       if (!f.ok) {
         // Sin la sesión iniciada, la pestaña que abrió la extensión va al frente: ahí está el código para escanear.
         if (f.motivo === 'sin_sesion') enfocarWhatsappWeb();
-        r = { texto: motivoDeFichas(f.motivo), hubo: false };
+        // Sin la extensión, el desplegable no tiene nada: el aviso de siempre. Con ella, el error ya está allá.
+        r = { texto: motivoDeFichas(f.motivo), hubo: false, enLaExtension: f.motivo !== 'extension' && f.motivo !== 'sin_respuesta' };
+        if (r.enLaExtension) avisarExtraccion(id, { estado: f.motivo === 'parado' ? 'parado' : 'error', texto: r.texto });
         return;
       }
       // Qué tablas tiene su WhatsApp Web, sin datos de nadie: si WhatsApp cambia cómo guarda, esto dice por qué no volvió nada.
       console.info('[wa-fichas]', f.diagnostico);
       if (f.diagnostico && !f.diagnostico.contactos) {
-        r = { texto: 'No encontré contactos guardados en tu WhatsApp Web. Recarga esa pestaña, espera a que carguen tus chats y vuelve a tocar.', hubo: false };
+        r = { texto: 'No encontré contactos guardados en tu WhatsApp Web. Recarga esa pestaña, espera a que carguen tus chats y vuelve a tocar.', hubo: false, enLaExtension: true };
+        avisarExtraccion(id, { estado: 'error', texto: r.texto });
         return;
       }
-      const fichas = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      // El PERFIL de cada uno (0.73.2), de a tandas, en el grupo de donde vinieron (el primero, si son varios).
+      const limpias = f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x);
+      const fichas = t.grupos.length
+        ? (await perfilesEnTandas(t.pedidos.map((p) => ({ telefono: p.telefono })), limpias, { grupo: t.grupos[0], id, parar: () => parar.current })).fichas
+        : limpias;
+      avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
       const a = await guardarFichasEnTandas(fichas, (tanda) => completarFichasDeLeadsAction({ ids: deEstos, fichas: tanda }), {
         parar: () => parar.current,
-        alAvanzar: (guardados, total) => setAvance(`Completando ${miles(guardados)} de ${miles(total)}…`),
+        alAvanzar: (guardados, total) => avisarExtraccion(id, { fase: 'guardando', guardados, total }),
       });
-      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0 };
+      r = { texto: resumenDeFichas(t.pedidos.length, fichas, a) + gruposEnWhatsappDichos(f.grupos), hubo: a.nombres + a.empresas > 0, enLaExtension: true };
+      avisarExtraccion(id, {
+        estado: a.parado ? 'parado' : a.error ? 'error' : 'listo', nombres: a.nombres, empresas: a.empresas, perfiles: a.perfiles ?? 0,
+        texto: a.error ?? `De ${miles(t.pedidos.length)} leads del CRM.`,
+      });
       entera = !a.parado && !a.error;
     } catch (e) {
       r = { texto: e instanceof Error ? e.message : 'No se pudo', hubo: false };
-    } finally { terminarLargo(r, entera, deEstos); }
+      avisarExtraccion(id, { estado: 'error', texto: r.texto });
+    } finally { soltar(); setEnExtension(false); terminarLargo(r, entera, deEstos); }
   };
 
   /** «Datos de empresa» sobre los tildados, después de la pregunta con la cuenta. El tope del día lo cuenta el server. */
@@ -558,12 +588,14 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             style={{ flex: 'none', minWidth: 24, fontFamily: MONO, fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1 }}>
             {n}
           </span>
-          {avance && <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
+          {avance && <span role="status" title={avance} style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{avance}</span>}
           {/* Esperando la extensión que se fue a instalar: se dice, con cómo dejar de esperar. */}
           {esperaExt && !largo && (
             <>
-              <span role="status" style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo: cuando esté, empieza sola.
+              {/* Corto, para que entre al lado de los botones (en el Chrome de Martín salía «cuando esté, emp…»); lo completo, al pasar. */}
+              <span role="status" title={`${extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión de MaKo en la otra pestaña: cuando esté, esto empieza solo.`}
+                style={{ fontFamily: SANS, fontSize: 12.5, color: 'var(--dim)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                {extWa === 'vieja' ? 'Actualiza' : 'Instala'} la extensión: empieza sola
               </span>
               <button type="button" onClick={() => setEsperaExt(false)}
                 style={{ flex: 'none', height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
@@ -571,8 +603,9 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
               </button>
             </>
           )}
-          {/* «Parar» de «Completar»: frena entre una tanda y la siguiente, y lo dice para que no parezca que no oyó. */}
-          {largo && (
+          {/* «Parar» de «Completar»: frena entre una tanda y la siguiente, y lo dice para que no parezca que no oyó. Con la
+              extensión a la vista, el «Parar» está en su desplegable (0.72.0). */}
+          {largo && !enExtension && (
             <button type="button" data-parar-completar onClick={() => { parar.current = true; setAvance('Parando al terminar esta tanda…'); }}
               style={{ flex: 'none', height: 30, padding: '0 12px', borderRadius: 8, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--ink)', fontFamily: SANS, fontSize: 12.5, fontWeight: 600, cursor: 'pointer' }}>
               Parar

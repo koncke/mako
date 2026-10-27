@@ -18,12 +18,18 @@
 // públicos y que cerrar sesión no invalida la cookie del lado del servidor. Todas
 // se midieron. Cuando alguna se arregle, se corrige acá EN EL MISMO COMMIT.
 //
+// ⚠️ LO QUE PIDE EL LOGIN DEPENDE DE UN INTERRUPTOR (26/10/2026, la app de Google quedó verificada): con
+// GOOGLE_LOGIN_CON_AGENDA=1 el ingreso con Google pide también el calendario, en la MISMA pantalla y destildable
+// (lib/google-login-agenda.ts). Esta página lee el MISMO interruptor (`loginPideAgenda`) y dice lo que el login hace
+// HOY: prendido, un solo consentimiento; apagado, los dos momentos de antes. Así no promete nada que no pase.
+//
 // Es pública sin login: `/privacidad` ya está en PUBLICOS de lib/rutas-publicas.ts
 // como prefijo (lo puso la página de la extensión), así que esta ruta lo hereda.
 
 import { EMAIL_MAKO } from '@/lib/app-url';
 import { RAZON_SOCIAL_MAKO } from '@/lib/titular-mako';
 import { H, H3, Ojo, LegalShell } from '@/app/_legal/LegalShell';
+import { loginPideAgenda } from '@/lib/google-login-agenda';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,6 +51,8 @@ const JURISDICCION = 'la República Argentina';
 const EDAD_MINIMA = 18;
 
 export default function Page() {
+  // Lo mismo que lee app/api/auth/google/route.ts: la página describe el login que corre HOY.
+  const agendaAlEntrar = loginPideAgenda();
   return (
     <LegalShell
       titulo="Política de privacidad — MaKo"
@@ -81,8 +89,12 @@ export default function Page() {
       <H id="tus-datos">Qué datos tuyos guardamos</H>
       <H3>Al crear la cuenta</H3>
       <p>
-        Se entra <strong>solo con Google</strong>. Ese acceso pide únicamente los permisos de
-        identidad (<code>openid email profile</code>) y de ahí se guardan cuatro cosas: tu{' '}
+        Se entra <strong>solo con Google</strong>.{' '}
+        {agendaAlEntrar
+          ? <>Ese acceso pide los permisos de identidad (<code>openid email profile</code>) y, en la misma pantalla de Google, tu
+            calendario (más abajo, en «Google»: lo puedes destildar y entras igual). De la identidad se guardan cuatro cosas: tu{' '}</>
+          : <>Ese acceso pide únicamente los permisos de identidad (<code>openid email profile</code>) y de ahí se guardan
+            cuatro cosas: tu{' '}</>}
         <strong>correo</strong>, tu <strong>nombre</strong>, la <strong>dirección de tu foto</strong>{' '}
         de perfil de Google y la <strong>fecha de tu último ingreso</strong>. No se guarda tu
         contraseña — MaKo nunca la ve.
@@ -145,7 +157,10 @@ export default function Page() {
       </Ojo>
 
       <H id="google">Google: qué permisos pedimos y qué hacemos con ellos</H>
-      <p>MaKo pide permisos de Google en dos momentos distintos y separados a propósito.</p>
+      {agendaAlEntrar
+        ? <p>MaKo te pide los permisos de Google <strong>una sola vez, al entrar</strong>, en la pantalla de Google. El calendario
+          es opcional: ahí mismo lo puedes destildar y entras igual.</p>
+        : <p>MaKo pide permisos de Google en dos momentos distintos y separados a propósito.</p>}
 
       <H3>1. Entrar (siempre)</H3>
       <p>
@@ -153,7 +168,17 @@ export default function Page() {
         saber quién eres y no pedirte otra contraseña.
       </p>
 
-      <H3>2. Conectar tu agenda (opcional, solo si aprietas el botón)</H3>
+      {agendaAlEntrar
+        ? <>
+            <H3>2. Tu agenda (en la misma pantalla, y la puedes destildar)</H3>
+            <p>
+              Si la dejas marcada y administras el espacio de trabajo, MaKo guarda el acceso a tu agenda,{' '}
+              <strong>salvo que ese espacio ya tenga conectada la agenda de otra persona</strong> (no la pisa). Si destildas
+              el calendario, entras igual y no se guarda nada de él. También puedes conectarla después, desde Calendario, con
+              su botón. Lo que se pide es esto:
+            </p>
+          </>
+        : <H3>2. Conectar tu agenda (opcional, solo si aprietas el botón)</H3>}
       <ul>
         <li>
           <code>calendar.readonly</code> — <strong>leer tu calendario</strong>. Se usa para tres
@@ -402,7 +427,7 @@ export default function Page() {
         <li><code>mako_session</code> — tu sesión, firmada. Dura 30 días.</li>
         <li><code>mako_email</code> — tu correo, para pintar tu nombre sin consultar al servidor.</li>
         <li><code>oauth_state</code> y <code>oauth_next</code> — protegen el ingreso con Google y recuerdan a dónde ibas. Duran 10 minutos.</li>
-        <li><code>gcal_state</code> — lo mismo para conectar tu agenda. Dura 10 minutos.</li>
+        <li><code>gcal_state</code> — lo mismo para conectar tu agenda con su botón. Dura 10 minutos.</li>
         <li><code>meta_state</code> y <code>meta_volver</code> — lo mismo para conectar Meta, y la pantalla a la que vuelves. Duran 10 minutos; <code>meta_resultado</code> dice cómo terminó y dura 2.</li>
         <li><code>mako_ws</code> — solo si tu cuenta administra varios espacios de trabajo, para saber cuál estás mirando.</li>
       </ul>

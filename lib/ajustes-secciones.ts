@@ -8,8 +8,8 @@
 // Google (myaccount.google.com), Notion y Linear hacen el mismo corte (relevado el 15/10/2026).
 //
 // Cada sección es una RUTA, como en Google (/security, /personal-info): un link copiado abre la misma
-// sección, y las rutas que ya existían (/perfil/seguridad, /integraciones, /equipo, /metodo) siguen
-// siendo las mismas, sin redirecciones. La lista vive ACÁ y no en cada pantalla: el índice de la
+// sección, y las rutas que ya existían (/perfil/seguridad, /integraciones, /equipo) siguen
+// siendo las mismas, sin redirecciones. (/configuraciones y /metodo redirigen desde el 26/10/2026: sus secciones se fueron.) La lista vive ACÁ y no en cada pantalla: el índice de la
 // computadora y las filas del celular salen de esto, en el mismo orden y con los mismos rótulos.
 // =============================================================================
 
@@ -66,31 +66,32 @@ export function seccionesCuenta(deOtro: boolean, activa?: string): SeccionAjuste
 
 /** Qué secciones del negocio puede ver quien mira. Lo resuelve el server (lib/ajustes-negocio.ts). */
 export type DisponiblesNegocio = {
-  /** Horario y Criterio de reuniones: hoy, sólo el super admin (la misma regla que tenía la pantalla). */
-  general: boolean;
   /** Lo compró el negocio (la capa). */
   integraciones: boolean;
-  /** Las credenciales de la plataforma: sólo la agencia (`getSesionAdmin`). */
-  metodo: boolean;
   /** «Tu plan»: el plan de MaKo de un NEGOCIO. La plataforma misma no tiene uno (en producción decía «SuperAdmin —
    *  Acordado con MaKo — para darte de baja, escríbenos», 15/10/2026). */
   plan: boolean;
 };
 
 const SECCIONES_NEGOCIO: (SeccionAjustes & { si?: keyof DisponiblesNegocio })[] = [
-  { key: 'general', label: 'General', href: '/configuraciones', icono: 'configurar', descripcion: 'A qué hora escribe MaKo y qué entra al tablero.', si: 'general' },
+  // «General» SALIÓ el 26/10/2026 (Martín: «Elimina la tab "General" de configuraciones... El huso horario ya se configura en cada
+  // Automatización. La zona horaria, para el resto, ponlo dentro de "Perfil". y "Criterio de reuniones" eliminalo»). La zona del
+  // negocio es una fila de Perfil; el horario de oficina, la tuerca de cada automatización; el criterio quedó con su valor.
+  // /configuraciones redirige a la primera sección.
   { key: 'equipo', label: 'Equipo', href: '/equipo', icono: 'equipo', descripcion: 'Quién trabaja en tu negocio y qué ve cada uno.' },
-  { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'link', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
+  // El enchufe desde el 26/10/2026 (Martín: «Fijate el icono de integraciones... Parece un link»): se lee «conexiones».
+  { key: 'integraciones', label: 'Integraciones', href: '/integraciones', icono: 'enchufe', descripcion: 'WhatsApp, Meta, tu web y todo lo que se conecta.', si: 'integraciones' },
   // «Notificaciones» del negocio SALIÓ del índice el 25/10/2026 (Martín la vio DOS veces, «Perfil, Notificaciones, Instalar App,
   // Equipo, Notificaciones...»): a quién le avisa MaKo lo del negocio vive en la de «Tu cuenta», abajo, para quien administra.
   // /configuraciones/notificaciones redirige ahí (los avisos viejos con `?tab=notif` caen en esa ruta).
   { key: 'fiscal', label: 'Identidades fiscales', href: '/configuraciones/fiscal', icono: 'dinero', descripcion: 'Los datos con los que facturas, y en qué moneda.' },
   // El botón «Darme de baja», como todo SaaS (15/10/2026): /reembolsos y /terminos remiten acá.
   { key: 'plan', label: 'Tu plan', href: '/configuraciones/plan', icono: 'repetir', descripcion: 'Tu plan de MaKo y cómo darte de baja.', si: 'plan' },
-  { key: 'metodo', label: 'Método', href: '/metodo', icono: 'llave', descripcion: 'Las credenciales de la plataforma.', si: 'metodo' },
-  // Lo que eran «Prompts» y «Configuración» de MaKo Context (/contexto, que se fue el 25/10/2026): con qué instrucciones
-  // piensa MaKo. Es de la PLATAFORMA, como Método: la misma regla (`metodo`) y la misma puerta (app/configuraciones/prompts).
-  { key: 'prompts', label: 'Prompts', href: '/configuraciones/prompts', icono: 'texto', descripcion: 'Con qué instrucciones piensa MaKo.', si: 'metodo' },
+  // «Método» SALIÓ el 26/10/2026 (Martín: «Elimina "Método" no entiendo eso... Si para eso ya tenemos "Integraciones"»): cada una
+  // de sus credenciales tiene su tarjeta en Integraciones (las IA, en «Tus cuentas de IA»). /metodo redirige ahí.
+  // «Prompts» SALIÓ del índice el 26/10/2026 (Martín: «sobra la de prompts en super admin, y no se si lo tienen los usuarios,
+  // pero no deberían»; los usuarios nunca la vieron: era `si: 'metodo'`, sólo la agencia). Su pantalla sigue en
+  // /configuraciones/prompts, con su puerta (sólo la agencia): se abre por su link, no desde Settings.
 ];
 
 export function seccionesNegocio(d: DisponiblesNegocio): SeccionAjustes[] {
@@ -122,8 +123,9 @@ export function rutaDeTabVieja(tab: string | null | undefined): string | null {
     case 'notif': return '/configuraciones/notificaciones';
     case 'fiscal': return '/configuraciones/fiscal';
     case 'equipo': return '/equipo';
+    // «General» se fue el 26/10/2026: el horario es de cada automatización y la zona del negocio está en Perfil.
     case 'criterio':
-    case 'horario': return '/configuraciones';
+    case 'horario': return '/perfil';
     default: return null;
   }
 }

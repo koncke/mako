@@ -116,6 +116,18 @@ tandas chicas, en la rama `landings-2510` (worktree `C:/dev/wt-landings-2510`), 
   `--doc-equipo <id>` para no duplicar) va después de desplegar app/vsl/Landing.tsx. Detalle: docs/hallazgos-editor-landing.md
   → «La landing principal con lo que hace la competencia».
 - **Sigue:**
+  - **El editor de punta a punta (26/10, prioridad de Martín): primera punta.** El menú que no se cerraba, la barra
+    «Texto» en los diseños, «Botón», reordenar con franjas, la barrita y el ⋮ que se quedan, el video y Calendly reales
+    encima de su lugar, y la red de MaKo. Test: tests/editor-web-punta-a-punta-26-10.test.ts (probado rompiéndolo, 8 de
+    8). Segunda punta: «Aplicar» de un comentario sin sección (a toda la landing) y la réplica sin IA con botones y
+    desplegables de verdad (tests/editor-web-analizador-replicar-26-10.test.ts). Falta: los clics en producción
+    después del deploy. COPIAS DE PRUEBA en producción, sin publicar: #44 (copia de la principal), #45 (desde cero) y
+    #46 (réplica de 100ads.ai): a la papelera al terminar los clics. Detalle: docs/hallazgos-editor-landing.md → «El
+    editor web de punta a punta».
+  - **El cierre con los planes (26/10): hecho, SIN publicar.** Las dos portadas y las doce cierran con Esencial y Pro
+    (Pro destacado), «Empezar mis 7 días gratis» al carrito de /planes y «¿Prefieres hablar antes? Déjanos tus datos y te
+    escribimos» debajo. Las vistas previas y las fotos están en la carpeta de notas del Cerebro (`landings-cierre-2610`). El link de abajo
+    lleva al pedido que ya existe (`hablarAntes()`; si Martín quiere WhatsApp, va ahí). Falta su sí para publicar.
   - **Tanda 2 de la landing: hecha, SIN publicar.** `scripts/landings-mako-v2-funnels.mts`: doce documentos `mako-…`
     (media buyer y avatares en pausa). Publicar con `--subir`, que pide el permiso de Martín.
   - **La prueba gratis de 7 días** (Martín, 25/10 ~10:20; reemplaza a la garantía): la línea bajo el botón, el botón y las

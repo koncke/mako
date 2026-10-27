@@ -21,6 +21,7 @@ import Link from '@/app/_ui/Link';
 import { Icon } from '@/app/_components/icons';
 import { ADMIN_NAV, MAKO_NAV, TODOS_LOS_ITEMS } from '@/app/_components/nav';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
+import { listasEnRenglones } from '@/lib/respuesta-como-claude';
 import { CUERPO_PLEGABLE, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, tieneCheck, yaEstaDelChat, type ChatCentro } from '@/lib/centro-chats';
 import { ROTULO_TAREA, type TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { TurnoChat } from '@/lib/operaciones-reglas';
@@ -46,7 +47,8 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
    *  lo vio, y cómo lo marca. Sin `onYaVisto`, la tarjeta no lleva ✓. */
   yaVisto?: number | null; onYaVisto?: (instante: number) => void;
   /** Responder sobre este «Ya está»: la caja de abajo arranca con «Sobre «…»: » (Conversacion.tsx). */
-  onFeedback?: (titulo: string) => void;
+  /** «Responder sobre esto» (26/10/2026): cita ESTE «Ya está» arriba de la caja, como responder un mensaje. */
+  onFeedback?: (t: TurnoChat) => void;
 }) {
   const [n] = yaEstaDelChat([{ tipo: 'turno', instante: Date.parse(t.at), turno: t }]);
   const destino = n ? destinoDeReview(n, chat, TABS_DEL_MENU) : null;
@@ -84,13 +86,13 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
       {tituloEntero && <p className="co-ya__titulo">{conFormato(tituloEntero, 'ya-t')}</p>}
       {plegable ? (
         <>
-          <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={plegable.detalle} enlaces /></div>
+          <div className={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}><Markdown text={listasEnRenglones(plegable.detalle)} enlaces aire /></div>
           <button type="button" className="co-chip co-ya__mas" aria-expanded={abierto} onClick={() => setAbierto((v) => !v)}>
             {abierto ? 'Ver menos' : 'Ver todo'}
           </button>
-          {plegable.cola && <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={plegable.cola} enlaces /></div>}
+          {plegable.cola && <div className="co-ya__md co-el__md co-ya__cola"><Markdown text={listasEnRenglones(plegable.cola)} enlaces aire /></div>}
         </>
-      ) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={cuerpo} enlaces /></div>}
+      ) : cuerpo && <div className="co-ya__md co-el__md"><Markdown text={listasEnRenglones(cuerpo)} enlaces aire /></div>}
       {(destino || suyas.length > 0) && (
         <div className="co-ya__links">
           {destino && (
@@ -110,7 +112,7 @@ export function YaEstaMensaje({ t, chat, tareas = [], onFeedback, yaVisto, onYaV
       )}
       {onFeedback && (
         <div className="co-ya__pie">
-          <button type="button" className="co-chip" onClick={() => onFeedback(titulo)}>Responder sobre esto</button>
+          <button type="button" className="co-chip" onClick={() => onFeedback(t)}>Responder sobre esto</button>
         </div>
       )}
     </article>

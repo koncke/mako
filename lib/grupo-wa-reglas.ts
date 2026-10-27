@@ -33,7 +33,11 @@ export type GrupoWA = { jid: string; nombre: string; tamano: number | null };
  * Un participante que se puede traer: su teléfono (sólo dígitos, con el código de país), su nombre si se conoce, y su `@lid`
  * (el alias interno de WhatsApp: con él la agenda de la línea guarda a muchos contactos, y por ahí también sale el nombre).
  */
-export type ParticipanteWA = { telefono: string; nombre: string | null; lid?: string | null };
+export type ParticipanteWA = {
+  telefono: string; nombre: string | null; lid?: string | null;
+  /** Admin del grupo (Evolution: `admin: 'admin' | 'superadmin'`). «Ignorar admins» (Martín, 26/10/2026) los destilda. */
+  admin?: boolean;
+};
 
 /** El tope para listar los grupos hablando con WhatsApp; pasado, los de la base de Evolution. */
 export const TOPE_GRUPOS_MS = 15_000;
@@ -128,7 +132,8 @@ export function participantesDe(json: unknown, propio?: string | null): { partic
     if (vistos.has(telefono) || (propioDig && telefono === propioDig)) continue;
     vistos.add(telefono);
     const lid = typeof o.id === 'string' && o.id.endsWith('@lid') ? o.id : typeof o.lid === 'string' && o.lid.endsWith('@lid') ? o.lid : null;
-    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid });
+    const admin = o.admin === 'admin' || o.admin === 'superadmin' || o.admin === true;
+    participantes.push({ telefono, nombre: nombreUtil(o.name) ?? nombreUtil(o.notify) ?? nombreUtil(o.pushName), lid, ...(admin ? { admin: true } : {}) });
   }
   return { participantes, sinNumero };
 }
@@ -173,9 +178,11 @@ export function esNombreDeRelleno(nombre: string | null | undefined): boolean {
 }
 
 /**
- * La etiqueta de ORIGEN de los que se traen. La elige la persona («Formación de Jan», «Evento Cancún»: el Cerebro, 23/10/2026,
- * para la base de venta de Martín), y viene con el nombre del grupo. Entra en el tope de una etiqueta del CRM
- * (`TOPE_NOMBRE_ETIQUETA`, 40): más larga, `limpiarNombreEtiqueta` la cortaba sin decirlo.
+ * La etiqueta de ORIGEN de los que se traen: EL NOMBRE DEL GRUPO, tal cual (Martín, 26/10/2026: «al agregarse al CRM siempre
+ * con una etiqueta con el nombre del grupo donde vinieron. Con las etiquetas que ya existen... y tampoco quiero cambiar el
+ * nombre del grupo, que se llame exactamente igual»). Hasta el 26/10 la pantalla la dejaba editar. Entra entera en el tope de
+ * una etiqueta (`TOPE_NOMBRE_ETIQUETA`, 100 desde la mig 0338: el asunto de un grupo de WhatsApp llega a 100); sólo se le
+ * sacan los espacios de más.
  */
 export function etiquetaDeGrupo(nombre: string): string {
   return limpiarNombreEtiqueta(nombre) || 'Grupo de WhatsApp';
@@ -239,7 +246,11 @@ export function etapasQueDisparan(
 // consulta es tráfico en la RED de una línea no oficial (lib/fotos-contacto.ts): se hace de a una y despacio.
 
 /** Lo que sirve del perfil de empresa de un número. null = no es una cuenta de empresa (o no contestó). */
-export type PerfilEmpresa = { rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null };
+export type PerfilEmpresa = {
+  rubro: string | null; descripcion: string | null; web: string | null; instagram: string | null; email: string | null; direccion: string | null;
+  /** Las otras redes que no tienen columna en el lead («facebook: https://…»), leídas del perfil en WhatsApp Web (0.73.0). */
+  redes?: string[];
+};
 
 /** La cuenta de Instagram de un link (`instagram.com/<usuario>`), sin las rutas que no son una cuenta. */
 function instagramDe(s: string | null | undefined): string | null {
@@ -281,7 +292,7 @@ export function parcheDePerfil(lead: Partial<Record<CampoDelPerfil, string | nul
 
 /** El renglón del historial con lo que no tiene columna: el rubro y la descripción. null si no trae ninguno. */
 export function lineaDePerfil(p: PerfilEmpresa): string | null {
-  const partes = [p.rubro, p.descripcion].filter((x): x is string => !!x);
+  const partes = [p.rubro, p.descripcion, ...(p.redes ?? [])].filter((x): x is string => !!x);
   return partes.length ? `Perfil de empresa en WhatsApp: ${partes.join(' · ')}` : null;
 }
 
@@ -292,7 +303,34 @@ export function lineaDePerfil(p: PerfilEmpresa): string | null {
 // empresa si es una cuenta de empresa, y en qué grupos suyos está.
 
 /** Una ficha como la manda la extensión. Viene del NAVEGADOR: entrada no confiable, se limpia con `fichaLimpia`. */
-export type FichaWa = { telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[] };
+export type FichaWa = {
+  telefono: string; agenda: string | null; pushname: string | null; empresa: string | null; esEmpresa: boolean; grupos: string[];
+  /** Lo que dijo SU PERFIL al abrirlo en WhatsApp Web (0.73.0, «Extraer»): links, redes, correo. Limpio (`perfilLimpio`). */
+  perfil?: PerfilEmpresa | null;
+};
+
+/**
+ * El perfil que mandó el NAVEGADOR (no confiable): cada campo, un texto útil y con forma (la web un http(s), el correo un
+ * correo, el Instagram una cuenta), y a lo sumo 6 redes. null si no queda nada: un perfil vacío no inventa datos.
+ */
+export function perfilLimpio(x: unknown): PerfilEmpresa | null {
+  if (!x || typeof x !== 'object') return null;
+  const o = x as Record<string, unknown>;
+  const corto = (v: unknown, tope: number) => { const t = texto(v); return t && [...t].length <= tope ? t : null; };
+  const web = corto(o.web, 300);
+  const email = corto(o.email, 200);
+  const instagram = corto(o.instagram, 30);
+  const p: PerfilEmpresa = {
+    rubro: corto(o.rubro, 120),
+    descripcion: corto(o.descripcion, 600),
+    web: web && /^https?:\/\/[^\s]+$/i.test(web) ? web : null,
+    instagram: instagram && /^[A-Za-z0-9._]{1,30}$/.test(instagram) ? instagram : null,
+    email: email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ? email : null,
+    direccion: corto(o.direccion, 300),
+    redes: (Array.isArray(o.redes) ? o.redes : []).map((r) => corto(r, 300)).filter((r): r is string => !!r && /^[a-z]+: https?:\/\//.test(r)).slice(0, 6),
+  };
+  return p.rubro || p.descripcion || p.web || p.instagram || p.email || p.direccion || p.redes?.length ? p : null;
+}
 
 /** La ficha limpia: teléfono en dígitos, textos útiles y cortos, a lo sumo 50 grupos. null si no sirve. */
 export function fichaLimpia(x: unknown): FichaWa | null {
@@ -301,7 +339,8 @@ export function fichaLimpia(x: unknown): FichaWa | null {
   const telefono = String(o.telefono ?? '').replace(/\D/g, '');
   if (telefono.length < 8 || telefono.length > 15) return null;
   const grupos = (Array.isArray(o.grupos) ? o.grupos : []).map((g) => texto(g)?.slice(0, 120) ?? null).filter((g): g is string => !!g).slice(0, 50);
-  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos };
+  const perfil = perfilLimpio(o.perfil);
+  return { telefono, agenda: nombreUtil(o.agenda), pushname: nombreUtil(o.pushname), empresa: nombreUtil(o.empresa), esEmpresa: o.esEmpresa === true, grupos, ...(perfil ? { perfil } : {}) };
 }
 
 /**

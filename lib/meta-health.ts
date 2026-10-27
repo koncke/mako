@@ -18,7 +18,7 @@
 // las señales que sí tenemos (status de cuenta, rechazos, aprendizaje, pausas).
 // =============================================================================
 
-import { canalMeta, cuentaCrudaPorZernio } from './meta-via';
+import { arbolPorZernio, canalMeta, cuentaCrudaPorZernio } from './meta-via';
 import { META_BALANCE_ALERTA_MXN } from './config';
 import { conversorDeGasto, desdeUnidadMeta, montoCuenta, MONEDA_META_POR_DEFECTO } from './presupuesto-cambio';
 import { parseRecosCuenta } from './meta-recos-cuenta';
@@ -350,9 +350,8 @@ export type ConjuntoMeta = { id: string; nombre: string; estado: string; campana
 export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; conjuntos: ConjuntoMeta[]; cuenta: CuentaLeida }> {
   // La cuenta va con las campañas (23/10/2026): el selector dice QUÉ cuenta leyó, porque «la que
   // creé no aparece» fue otra cuenta o un borrador sin publicar (docs/hallazgos-ads.md).
-  const [campRaw, adsetRaw, cuentaRaw, acct] = await Promise.all([
-    (async () => graphGetAll(await edgeUrl('campaigns', 'id,name,effective_status,created_time')))(),
-    (async () => graphGetAll(await edgeUrl('adsets', 'id,name,campaign_id,effective_status')))(),
+  const [[campRaw, adsetRaw], cuentaRaw, acct] = await Promise.all([
+    campanasYConjuntosCrudos(),
     // Sólo el nombre: es un dato para leer, no para decidir. Si falla, va el número solo.
     fetchAccountRaw().catch(() => null),
     getEnv('META_AD_ACCOUNT_ID'),
@@ -367,6 +366,27 @@ export async function campanasYConjuntos(): Promise<{ campanas: CampanaMeta[]; c
       .filter((c) => c.id),
     cuenta: { id: acct, nombre: txt(cuentaRaw?.name).trim() || null },
   };
+}
+
+/**
+ * Las campañas y los conjuntos crudos (forma de la Graph API). Por la conexión de Facebook si el negocio conectó por Zernio
+ * (26/10/2026; sin `created_time`, que Zernio no trae: la campaña sale con `creada` null), con el token de respaldo si Zernio falla.
+ */
+async function campanasYConjuntosCrudos(): Promise<[Record<string, unknown>[], Record<string, unknown>[]]> {
+  const canal = await canalMeta();
+  if (canal.via === 'zernio') {
+    try {
+      const a = await arbolPorZernio(canal, { anuncios: false });
+      return [a.campaigns, a.adsets];
+    } catch (e) {
+      if (!canal.respaldo) throw e;
+      console.error(`[meta-health] campañas por Zernio fallaron (ws${canal.ws}), sigo por el token: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+  return Promise.all([
+    (async () => graphGetAll(await edgeUrl('campaigns', 'id,name,effective_status,created_time')))(),
+    (async () => graphGetAll(await edgeUrl('adsets', 'id,name,campaign_id,effective_status')))(),
+  ]);
 }
 
 /** Un presupuesto de Meta (en la unidad mínima de la moneda) → el monto en la moneda de la cuenta. */
@@ -605,6 +625,31 @@ export async function leerArbolMetaEnVivo(ws: number): Promise<MetaHealth> {
   return runWithWorkspace(ws, () => _getMetaHealth());
 }
 
+type Edges = [PromiseSettledResult<Record<string, unknown>[]>, PromiseSettledResult<Record<string, unknown>[]>, PromiseSettledResult<Record<string, unknown>[]>, PromiseSettledResult<Reco[]>];
+
+/**
+ * Las tres edges por la conexión de Facebook (26/10/2026, lib/meta-via.ts → `arbolPorZernio`): un negocio sin token tenía el
+ * árbol VACÍO, y con él la API de MaKo no encontraba ninguna campaña para pausar, presupuestar o borrar. null = no es por
+ * Zernio, o Zernio falló y el negocio conserva su token (se lee por ahí, como siempre). Sin respaldo, las tres salen
+ * rechazadas: el árbol queda `parcial`, nunca «no tienes campañas». Las recomendaciones de Meta no tienen camino por Zernio
+ * (las de cuenta salen por el token si lo hay; `fetchAccountRecommendations` no tira).
+ */
+async function edgesPorZernio(): Promise<Edges | null> {
+  const canal = await canalMeta();
+  if (canal.via !== 'zernio') return null;
+  try {
+    const a = await arbolPorZernio(canal);
+    return [
+      { status: 'fulfilled', value: a.campaigns }, { status: 'fulfilled', value: a.adsets }, { status: 'fulfilled', value: a.ads },
+      { status: 'fulfilled', value: await fetchAccountRecommendations() },
+    ];
+  } catch (e) {
+    console.error(`[meta-health] árbol por Zernio falló (ws${canal.ws})${canal.respaldo ? ', sigo por el token' : ''}: ${e instanceof Error ? e.message : String(e)}`);
+    if (canal.respaldo) return null;
+    return [{ status: 'rejected', reason: e }, { status: 'rejected', reason: e }, { status: 'rejected', reason: e }, { status: 'fulfilled', value: [] }];
+  }
+}
+
 async function _getMetaHealth(): Promise<MetaHealth> {
   // ANTES del primer pedido: la tabla del Ads Manager decide con esto si una lectura ya
   // ve un presupuesto recién escrito (presupuestosVigentes). `fetchedAtISO`, que se pone
@@ -618,7 +663,7 @@ async function _getMetaHealth(): Promise<MetaHealth> {
   // Edges en paralelo, tolerante: si una falla, sigue con lo que haya.
   // MaKo "le pregunta a Meta primero": pedimos recommendations en cada nivel +
   // el edge de cuenta, y las combinamos con las sugerencias derivadas.
-  const [campR, adsetR, adR, accRecoR] = await Promise.allSettled([
+  const [campR, adsetR, adR, accRecoR] = (await edgesPorZernio()) ?? await Promise.allSettled([
     (async () => graphGetAll(await edgeUrl('campaigns', 'name,effective_status,configured_status,daily_budget,lifetime_budget,objective,recommendations,created_time')))(),
     (async () => graphGetAll(await edgeUrl('adsets', 'name,campaign_id,effective_status,configured_status,daily_budget,lifetime_budget,budget_remaining,learning_stage_info,recommendations,created_time')))(),
     (async () => graphGetAll(await edgeUrl('ads', 'name,adset_id,campaign_id,effective_status,configured_status,issues_info,recommendations,created_time')))(),

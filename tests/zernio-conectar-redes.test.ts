@@ -422,7 +422,8 @@ test('la pantalla: la ventana se abre EN el clic, los mensajes se aceptan sólo 
   // Un error que no se arregla esperando se dice YA; los demás, si se repiten 3 veces seguidas (no se espera 4 minutos a algo que no va a llegar).
   assert.match(bucle, /if \(fallosSeguidos >= FALLOS_SEGUIDOS\) \{ cerrar\(\); fallar\(j\?\.error \|\| MENSAJES_DE_MOTIVO\[motivo\], j\?\.pagoUrl \?\? null\); return; \}/);
   // El error de la ventana se dice con lo que trajo y la ventana NO se cierra (la landing queda unos segundos para que se alcance a leer).
-  assert.match(bucle, /if \(errorDeVentana\) \{ fallar\(textoDeErrorDeRetorno\(errorDeVentana\.error, errorDeVentana\.mensaje\), null\); return; \}/);
+  // 2a6a166d8 (tipos, 24/10) pasó el `let errorDeVentana` a `deLaVentana.msg` para que tipara: mismo camino.
+  assert.match(bucle, /if \(deLaVentana\.msg\) \{ fallar\(textoDeErrorDeRetorno\(deLaVentana\.msg\.error, deLaVentana\.msg\.mensaje\), null\); return; \}/);
   const iGracia = bucle.indexOf('if (graciaCumplida) {');
   assert.ok(iGracia > 0);
   const deLaGracia = bucle.slice(iGracia, bucle.indexOf('\n        }\n', iGracia));

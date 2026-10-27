@@ -21,6 +21,7 @@ import type { NextRequest } from 'next/server';
 import { getUsuarioActual } from '@/lib/auth';
 import { getSetting } from '@/lib/settings';
 import { cacheKeyReunion, listReunionesRecientes, type Participante } from '@/lib/plan-fathom';
+import { refTextoDeClave } from '@/lib/grabadores';
 import { resolverDestinatarios, enviarTareasAPersona, cargarTareasEnPlanDe, type TareaDeOtro, type ReunionRef } from '@/lib/reunion-destinatarios';
 
 export const dynamic = 'force-dynamic';
@@ -44,9 +45,9 @@ async function participantesDe(recordingId: number): Promise<Participante[]> {
         ? (prev.participantes as Participante[]).filter((p) => p && typeof p.email === 'string')
         : [];
       if (arr.length) return arr;
-    } catch { /* cache corrupto → preguntamos a Fathom */ }
+    } catch { /* cache corrupto → preguntamos al grabador */ }
   }
-  // Respaldo: buscar la reunión en Fathom (metadata liviana, sin transcript).
+  // Respaldo: buscar la reunión en los grabadores (metadata liviana, sin transcript).
   try {
     const { reuniones } = await listReunionesRecientes({ limit: 40 });
     return reuniones.find((r) => r.recordingId === recordingId)?.participantes ?? [];
@@ -125,7 +126,8 @@ export async function POST(req: NextRequest) {
     if (!tareas.length) return Response.json({ ok: false, error: 'No hay tareas para mandar.' }, { status: 400 });
     const reunion = reunionDe(body.reunion);
     const de = sesion.nombre || sesion.email || '';
-    const ref = `fathom:${recordingId}`;
+    // La ref de la reunión, de su grabador (Fathom: «fathom:<n>», la de siempre).
+    const ref = (await refTextoDeClave(recordingId).catch(() => null)) ?? `fathom:${recordingId}`;
 
     if (action === 'cargar') {
       const r = await cargarTareasEnPlanDe({ dest, de, tareas, reunion, ref });

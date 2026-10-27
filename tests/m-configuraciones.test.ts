@@ -34,7 +34,7 @@ const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\
   .replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
 const CLAVES = Object.keys(SECCIONES_NEGOCIO_M).filter((k): k is SeccionNegocioM => k in SECCIONES_NEGOCIO_M);
 /** Todas las secciones que existen (con todo disponible): de ahí sale el índice de las dos pantallas. */
-const TODAS = seccionesNegocio({ general: true, integraciones: true, metodo: true, plan: true });
+const TODAS = seccionesNegocio({ integraciones: true, plan: true });
 
 test('cada sección con pantalla es la MISMA ruta de escritorio que dice lib/ajustes-secciones.ts', () => {
   for (const k of CLAVES) {

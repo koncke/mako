@@ -63,6 +63,17 @@ export const DEFS: Def[] = [
   // no funciona — es el error clásico que la skill add-provider-integration advierte.
   { key: 'github', nombre: 'GitHub', categoria: 'Desarrollo', descripcion: 'Lee los commits de main para proponer cerrar las tareas de desarrollo ya hechas.', envs: ['GITHUB_TOKEN', 'GITHUB_REPO'], soloPlataforma: true },
   { key: 'fathom', nombre: 'Fathom', categoria: 'Reuniones', descripcion: 'Grabaciones y transcripciones de llamadas (Closing).', envs: ['FATHOM_API_KEY'] },
+  // Los otros grabadores de reuniones (26/10/2026, Martín: «implementa otras integraciones de grabadores de reuniones,
+  // como Loom, etc... Así no solo se puede grabar con fathom»). Lo que da cada uno se midió (lib/grabadores/catalogo.ts):
+  // los que se conectan, con sus claves; Loom, Read AI y Google Meet, sin claves: su tarjeta dice por qué (`sinConexion`,
+  // lib/integraciones.ts). Las claves, iguales a las que leen sus lectores (lib/grabadores/<grabador>.ts; test).
+  { key: 'tldv', nombre: 'tl;dv', categoria: 'Reuniones', descripcion: 'Tus reuniones grabadas con tl;dv: MaKo las lee, saca las tareas y analiza las de venta.', envs: ['TLDV_API_KEY', 'TLDV_HOST_EMAIL'] },
+  { key: 'fireflies', nombre: 'Fireflies.ai', categoria: 'Reuniones', descripcion: 'Tus reuniones grabadas con Fireflies: MaKo las lee, saca las tareas y analiza las de venta.', envs: ['FIREFLIES_API_KEY'] },
+  { key: 'zoom', nombre: 'Zoom', categoria: 'Reuniones', descripcion: 'Las grabaciones en la nube de tu Zoom, con su transcripción.', envs: ['ZOOM_ACCOUNT_ID', 'ZOOM_CLIENT_ID', 'ZOOM_CLIENT_SECRET'] },
+  { key: 'otter', nombre: 'Otter.ai', categoria: 'Reuniones', descripcion: 'Tus conversaciones de Otter (plan Enterprise).', envs: ['OTTER_API_KEY'] },
+  { key: 'loom', nombre: 'Loom', categoria: 'Reuniones', descripcion: 'Loom no tiene API: pega el link del Loom en el lead y sube su transcripción en el Plan.', envs: [] },
+  { key: 'readai', nombre: 'Read AI', categoria: 'Reuniones', descripcion: 'Tus reuniones de Read AI: se conectan con su inicio de sesión, que llega pronto.', envs: [] },
+  { key: 'meet', nombre: 'Google Meet', categoria: 'Reuniones', descripcion: 'Las transcripciones de Meet: piden un permiso de Google que llega pronto.', envs: [] },
   { key: 'calendly', nombre: 'Calendly', categoria: 'Reuniones', descripcion: 'Agenda de reuniones (R1/R2) y asistencia.', envs: ['CALENDLY_API_TOKEN'] },
   // ⚠️ Cal.com es OTRO producto, no una variante de Calendly: otra empresa, otra API,
   // otra firma y otro payload. Un cliente que vende por Cal.com no tenía por dónde

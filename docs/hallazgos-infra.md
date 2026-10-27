@@ -38,6 +38,26 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Un rojo del tren que ya estaba en main (26/10/2026)
+
+- **Síntoma:** `tests-afectados` de tren-l dio rojo en cinco tests cuyos fuentes el tren no tocó: zernio-conectar-redes,
+  ops-sin-silencio, ops-center-estrella-desde, second-brain-chat y dashboard-focus. Tres chats los reportaron como «de main».
+- **El diagnóstico obvio era el equivocado:** parecía que un merge había borrado el manejo de error de la ventana de Zernio
+  (`errorDeVentana` ya no existe en el código). Los cinco salían de DOS commits de tipos del 24/10, que renombraron sin
+  tocar tests/: 2a6a166d8 (`errorDeVentana` → `deLaVentana.msg`) y 32f430356 (`aGuardar` → `conElPedido`, porque la const
+  tapaba la función `aGuardar` de lib/chat-bloques; un alias `hilo` tipado sobre `previos`; `informe` →
+  `informeGeneralODashboard`). El comportamiento es el mismo; lo que quedó vieja es la regex. Arreglados en tren-m, cada
+  uno con el commit que lo explica al lado.
+- **Por qué nadie lo vio en tres días:** `tests-afectados` corre sólo los tests que tocan los archivos del cambio. Un test
+  de regex sobre fuentes queda rojo en main hasta que otro tren toca un archivo vecino.
+- **Regla:** antes de culpar al tren por un rojo, mirar si el test y los fuentes que lee cambiaron en el tren
+  (`git diff --quiet <base> HEAD -- <archivo>`). Si no cambiaron, el rojo es de main: va a su dueño y no frena el tren.
+  Quien arregla tipos renombrando, busca el nombre viejo en tests/ (`git grep`) en el mismo commit.
+- **Y el fin de línea:** en `C:/dev/wt-push-q` (core.autocrlf=true) los fuentes llegan en CRLF. Un test que lee un fuente
+  sin normalizar `\r\n` a `\n` da rojo ahí y verde en el worktree de su autor (pasó con editor-web-punta-a-punta-26-10).
+  Esta misma línea salió rota en tren-l: se escribió con un heredoc de Bash, que se come las barras invertidas. Un texto
+  con `\` se escribe con Edit, no con un heredoc.
+
 ## Un archivo con CRLF puede chocar ENTERO al mezclar, y el choque real es de una línea (25/10/2026)
 
 **Vive en:** `scripts/mezcla-eol.sh` (la salida) · el repo corre con `core.autocrlf=true` (`.gitattributes`).
@@ -106,6 +126,26 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
     push sale con 99 («sin chequear», nunca un verde falso). Lo que trabó la PC a las 18:14 fue subir con el vigía en PAUSA.
     `MAKO_TIPOS_RAM_MIN_GB=4.4 git push …` baja el piso de las tandas (nunca debajo del heap + 0,3) para intentarlo igual.
     **Sólo con el vigía corriendo**: sin él, quedar sin RAM es el colgón del 11/10.
+  - **La reserva no hace SUBIR la RAM (26/10, 04:40 a 05:55):** el push de tren-l esperó 75 minutos con la reserva puesta y
+    la RAM disponible BAJÓ de 4,0 a 3,0 GB, porque los chats retienen memoria aunque estén quietos y siguen creciendo con
+    cada turno liviano. Mientras tanto, la reserva frenaba los chequeos de todos. **Regla:** esperar SIN reservar, mirando
+    cada minuto, y reservar recién cuando hay lugar (≥ 4,5 GB) para pushear en el acto. Así salió a las 06:52 y a las 07:36.
+  - **Los 15 minutos del tsc entero son tiempo muerto en esta PC:** el lock (`scripts/typecheck-lock.mjs`) espera hasta 15
+    minutos a tener 6,3 GB, que la PC con la app de Claude abierta nunca tiene. En el intento de las 06:52 la RAM cayó de
+    4,6 a 3,7 GB en esa espera, y la tanda 1 ya no tuvo sus 4,4 (salida 99). `MAKO_TYPECHECK_SIN_ESPERA=1` no sirve:
+    arranca el tsc entero igual y lo mata el vigía.
+  - **TaskStop no mata el `sh` hijo que renueva la reserva:** quedó vivo y la volvía a escribir cada minuto. Hay que matar
+    los dos (`ps -ef | grep <script>`).
+  - **`MAKO_TIPOS_SOLO_TANDAS=1 git push …` (26/10, ~09:30):** el lock sale con 99 en el acto y el pre-push va derecho a las
+    tandas, que chequean todo el repo igual. Opt-in: sin la variable, nada cambia. ⚠️ El hook llama al lock del CLON
+    principal (`$REPO/scripts/typecheck-lock.mjs`), no al del worktree: el cambio se copió ahí a mano y queda en el repo con
+    este tren; si el clon se pone al día, ya lo trae.
+  - **Con tren-m, 4 GB de heap por tanda ya no alcanzan (26/10, ~11:40):** la tanda 1 «se quedó sin heap». No es un error del
+    código: el programa entero creció. `MAKO_TIPOS_HEAP_MB=5120` (scripts/tipos-respaldo-push.mjs, entre 4096 y 8192) pasó las
+    tres tandas, pero pide ~5,4 GB libres: salió recién cuando Martín cerró Chrome (5,5 a 5,8 GB). El siguiente salto de
+    tamaño ya no entra en esta PC con la app de Claude abierta: o 32 GB, o Actions con minutos.
+  - **Una punta entregada «sin tipos» los trae al push:** los 2 errores de lib/closing-entrega.ts eran de Grabadores
+    (`recorded_by` de Fathom contra la Reunion nueva). Sus tests pasaban porque tsx no mira tipos.
 - **Sin hacer:**
   - que el vigía vea los `grep`/`find` huérfanos (uno ocupó 1 GB durante 13 minutos);
   - `--test-concurrency=2` en `npm test`;
@@ -8693,3 +8733,11 @@ m/calendario, m/chats, m/crm, m/cs, m/curso, m/hoy, m/inbox, m/landing, m/mas, m
 web-generator, plan, second-brain, dashboard y m/dashboard.
 
 *25/10/2026, chat «Landings» (`claude5`).*
+
+## Los logs de consola de UN pedido, en producción (26/10/2026, claude5)
+
+`GET https://api.vercel.com/logs/request-logs` (con `requestPath` exacto) trae, además de la duración, los mensajes de
+consola de cada pedido: el `console.log`/`warn` de la función, en orden. Sirve para saber por qué un pedido largo
+salió como salió sin reproducirlo (ej.: una réplica que dejó 17 de 20 secciones sin IA mostraba cada tanda con su
+error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo, `VERCEL_TEAM_SLUG`
+(`/v2/teams/<slug>` da el id; `/v9/projects` el del proyecto «mako»). Nunca imprimir el token.

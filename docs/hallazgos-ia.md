@@ -6990,3 +6990,111 @@ corre. Lo que queda sin hacer: que la etapa de tests de `antes-de-subir` reinten
 por plazo (scripts/antes-de-subir.mjs).
 
 **Vive en:** tests/ia-pc-binarios.test.ts · tests/ia-pc-segunda-revision.test.ts · *2026-10-24, chat «IA del cliente» (claude1)*
+
+## La réplica del ws9 sin IA: había a dónde caer, y el plazo no dejaba llegar (26/10/2026)
+
+**Síntoma** (Landings, logs de Vercel, 05:52 UTC): `/api/landing-generator/replicar` en el espacio de MaKo dejó 17 de 20
+secciones de la réplica de una página SIN IA, en 135 s. Errores: «gemini · cuenta 3: The operation was aborted due to timeout»
+y «gemini · cuenta 4: This model is currently experiencing high demand».
+
+**El diagnóstico obvio era el equivocado:** «la cascada de Gemini no tiene a dónde caer». En el ws9 es cierto que no hay OTRA IA:
+la OpenAI de MaKo no tiene crédito (decisión de Martín, 22/10), Claude está vetado para `landing-editor` (no está en la lista
+blanca; el crédito de la plataforma es sólo para el onboarding), Groq quedó para las notas de voz y Cerebras, Mistral y
+OpenRouter se fueron. Pero la cascada SÍ tenía una salida gratis: el respaldo de modelo, `gemini-flash-lite-latest`
+(`MODELOS_RESPALDO`, medido el 16/08 y el 07/10 que contesta cuando `flash-latest` da «high demand»). **Nunca llegaba a probarse:**
+
+- Cada tanda de 3 secciones tiene 42 s de IA (`PLAZOS.secciones.ia`, lib/editor-landing/ia.ts) y el intento recibía TODO lo que
+  quedaba (`plazoDeIntento`). Un `flash-latest` colgado se comía los 42 s; el respaldo no tenía tiempo.
+- Un timeout o un 503 es «transitorio» y se reintentaba en el MISMO modelo (espera de 1,5 s y otro cuelgue).
+- La tanda siguiente volvía a empezar por el colgado: nadie recordaba que ese modelo estaba saturado.
+- Y la réplica terminó en 135 s con un plazo de 240: sobraban 105 s y no había segunda vuelta.
+
+**Lo que cambió** (vale para TODO lo que pasa por la cascada, no sólo el Web Generator):
+
+1. **Un modelo saturado no se reintenta si hay a dónde ir**: «high demand», «overloaded» o 503 (`esSaturacion`). Un 429 NUNCA
+   cuenta: es la cuota de UNA cuenta, y la arregla otra cuenta.
+2. **El modelo que DIJO estar saturado queda anotado 3 minutos en el proceso** (lib/ia-saturacion.ts, el molde de
+   lib/gemini-esfuerzo.ts) y `modelosAProbar` lo pone AL FINAL: el pedido siguiente, de cualquier negocio, empieza por el
+   respaldo. La saturación es de Google, no de un negocio: la memoria compartida no guarda ningún dato de nadie. Anotan
+   `chatCheap` y el turno con herramientas (MaKo en WhatsApp), SÓLO con el 503; los tres lazos que rotan modelos (texto,
+   herramientas y audio) leen el orden.
+3. **Un cuelgue (timeout) queda anotado en el PEDIDO, no en el proceso** (`conMemoriaDelPedido`): la réplica entera corre con
+   su memoria, y la tanda siguiente y la segunda vuelta de ESA réplica empiezan por el respaldo.
+4. **La réplica da UNA segunda vuelta** a las secciones que quedaron sin IA, mientras quede plazo para una tanda entera.
+
+**Medido** con la cascada real contra un Google de mentira (tests/_ia-saturacion-hijo.ts): un 503 pasa al respaldo sin
+reintentar el mismo modelo y el pedido siguiente empieza por `flash-lite`; un timeout no marca a nadie; adentro de una réplica,
+la tanda que sigue a un cuelgue empieza por el respaldo, y afuera no; la última opción real sí reintenta su 503, también con una
+red pedida que no corre. 12 roturas, cada una cae (la de «un 429 no cuenta» dio verde la primera vez: el mensaje de cuota del
+test no traía ninguna palabra de saturación).
+
+### La primera versión tenía dos errores que vio la revisión del tren-l (26/10/2026)
+
+- **Reservarle 15 s a la opción siguiente convertía un pedido LENTO en uno SATURADO, para todos los negocios.** El intento pedía
+  lo que quedaba menos `MIN_INTENTO_MS`: una tanda de 3 secciones (7.400 tokens, 42 s de plazo) quedaba con 26,8 s, se cortaba
+  sana a los 27-30 s (lo normal para ese tamaño: el hero solo tarda 16-21 s) y, como 26,8 s pasaba el umbral fijo de 25 s, el
+  corte anotaba `flash-latest` como saturado. Tres minutos de todo el proceso empezando por `flash-lite`, sin que Google tuviera
+  nada. **La regla:** un timeout cuenta como saturación sólo si el intento tuvo TODO el plazo que su tamaño necesitaba
+  (`fallaDeSaturacion(mensaje, plazoDelIntento, plazoEsperadoMs(maxTokens))`, la misma fórmula que escala `chatClaude`). Y la
+  reserva se sacó: lo que hace llegar al respaldo es el 503 que no se reintenta y el modelo anotado, no recortarle el plazo al
+  primero.
+- **«Hay otra opción» contaba proveedores SIN clave.** `orden` sale de `ordenarPorCuota`, que no mira si el proveedor tiene
+  cuentas: un negocio con sólo su Gemini tiene `['gemini', 'openai']`, y en `flash-lite` (su última opción real) el código creía
+  que quedaba OpenAI. Su 503 no se reintentaba y la cascada devolvía vacío en dos pedidos. **La regla:** las cuentas de cada
+  proveedor se cargan UNA vez antes del lazo (`instanciasDe`), y «otra opción» es otro modelo, otra cuenta, otro proveedor CON
+  clave o la red de la plataforma cuando de verdad corre. `ultimoRecurso` usa lo mismo: tenía el error desde antes.
+
+### Y la segunda versión, dos más que vio la verificación del tren-m (26/10/2026)
+
+- **Ningún umbral de plazo separa un modelo colgado de un pedido sano.** La segunda versión contaba un timeout si el intento
+  tuvo «su plazo necesario», y en el turno con herramientas el necesario era el timeout DEL QUE LLAMA: la red de MaKo en
+  WhatsApp corta a los 10 s (lib/mako-doer-in.ts), un paso sano tarda 12, y eso marcaba `flash-latest` 3 minutos para TODOS los
+  negocios. Lo mismo con los 30 s por default de `chatCheap` (pasos sanos medidos de 32 s) y con lib/graficos-ia-red.ts y
+  lib/offer-ia.ts, que recortan el plazo. **Lo obvio era afinar el umbral; la regla es otra: al proceso lo marca sólo lo que
+  el proveedor DICE (503, «high demand», «overloaded»), nunca un timeout.** El cuelgue se recuerda donde no daña a nadie: en
+  el pedido (`conMemoriaDelPedido`, con `AsyncLocalStorage`), que en la réplica abarca todas sus tandas.
+- **La red «pedida» no es la red que «corre».** `hayRed` miraba `redDePlataforma` y «sólo su IA», pero abajo la red además se
+  corta con datos de clientes (`pii`) y en el super admin. El AI Step que le contesta a un lead va con `pii: true`: con sólo su
+  Gemini, la cascada creía que quedaba la red, no reintentaba el 503 de su última opción y el lead iba a hand-off. **La regla:**
+  «otra opción» se le pregunta a la MISMA función que la ejecuta. ⚠️ La primera corrección copió los cortes a mano y se olvidó
+  del más grande: `provsGratisDePlataforma` devuelve `[]` fuera del super admin (la red no corre para ningún negocio desde el
+  22/10), y el bloque de la red sólo entra afuera del super admin. O sea, la red gratis no corre NUNCA para un cliente, y
+  `hayRed` daba true para cualquiera sin datos de clientes: un negocio con sólo su Gemini perdía el reintento que producción
+  tenía. Ahora `hayRed` llama a `provsGratisDePlataforma` (hoy da false siempre), y el crédito de lo interno de MaKo se mide
+  igual: `hayCreditoDeLaPlataforma` es la misma cuenta que hace su puerta (claves cargadas, sin pausa, sin agotar).
+- ⚠️ Lo que decía esta entrada en la segunda versión era falso: «la segunda vuelta empieza por el respaldo porque el cuelgue con
+  plazo completo lo anotó». Una tanda de 7.400 tokens con 42 s nunca tuvo los 88,8 s «necesarios»: no se anotaba, y la segunda
+  vuelta volvía a empezar por el colgado. Ahora lo anota la memoria del pedido.
+
+**Otras áreas con la misma cascada:** no hay otra forma «sin salida»: todas pasan por `chatCheapCascade`, `chatCheapTools` o la
+rotación del audio, y las tres arman la lista con `modelosAProbar`. Las features con `fallback: []` o `sinRespaldoDeModelo` siguen
+sin respaldo A PROPÓSITO (no se degradan): para ellas el arreglo es sólo que el intento no se coma el plazo.
+
+**Lo que decidió Martín (26/10/2026, en el Centro: «1. Claude de la plataforma»):** el ws9 no tenía una segunda IA, y ahora su
+último recurso es el crédito de Claude de la plataforma, SÓLO para lo interno de MaKo. Tres líneas más en `CREDITO_HABILITADO_PARA`
+(lib/veto-claude.ts) con `soloLaPlataforma`: `landing-editor` (generar y replicar), `landing-editor-ia` (editar) y
+`landing-analyst` (el analizador). Cómo no gasta de más:
+- **Nunca primero:** la cascada lo llama DESPUÉS del lazo de las gratis (sus Gemini y el respaldo de modelo), y sólo si queda un
+  intento entero de plazo. La red de la plataforma no corría en el super admin: sin esto, ahí no había nada. Con el crédito
+  esperando, el 503 de `flash-lite` NO se reintenta (cuenta como «otra opción», si está de verdad): los tres reintentos le
+  dejaban 15-17 s, que no alcanzan para una tanda.
+- **El mismo tope:** el `maxTokens` de la tarea viaja tal cual (sin él, la puerta pedía 1.024).
+- **Registrado:** cada llamada queda en `anthropic_usage` con la marca del crédito y «último recurso: las gratis no contestaron»
+  en el motivo; lib/costos-ia.ts no la suma como gasto de MaKo y la cuenta aparte (`delCredito`), para que se vea cuánto se usa.
+  ⚠️ También la que se CORTA: un timeout después de mandar no traía `usage` y no dejaba fila, pero Anthropic puede haber cobrado.
+  Ahora queda con 0 tokens, la marca y «puede haber gastado hasta N tokens de salida».
+- **Un negocio no:** el veto pide `esLaPlataforma`, la puerta (`conCreditoDeLaPlataforma`) lo mira ANTES de leer las claves, y
+  la cascada sólo entra en el espacio de MaKo. Tres frenos, y el test rompe cada uno.
+
+⚠️ Lo que sigue sin resolver: el crédito recibe el plazo que QUEDA. Si un CUELGUE (no un 503) de las gratis se come la tanda,
+no llega a probarse en esa tanda; sí en la segunda vuelta de la réplica.
+Y sin la reserva, un `flash-latest` COLGADO (no un 503) se sigue comiendo el plazo de LA tanda en que se cuelga: esa sección
+sale en la segunda vuelta, que empieza por el respaldo porque el cuelgue quedó en la memoria de la réplica.
+
+**Trampa del arnés:** el timer de `AbortSignal.timeout` no mantiene vivo a Node. Con un pedido colgado como única espera, el
+proceso hijo terminaba con código 0 sin imprimir nada (un `setInterval` lo sostiene mientras corre).
+
+**Vive en:** lib/ia-saturacion.ts (`conMemoriaDelPedido`) · lib/ai-cheap.ts (`plazoDeIntento`, `modelosAProbar`, `hayRed`,
+`chatCheap`, `chatCheapTools`) · lib/editor-landing/replicar.ts (la segunda vuelta y la memoria de la réplica) ·
+tests/ia-saturacion.test.ts · tests/_ia-saturacion-hijo.ts ·
+*2026-10-26, chat «MaKo recomienda» (claude5), a pedido del Cerebro*

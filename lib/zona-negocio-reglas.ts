@@ -19,7 +19,8 @@
 // corre en el navegador). El test es tests/zona-negocio.test.ts.
 //
 // QUIÉN DECIDE LA ZONA (`decidirZona`), en orden de autoridad:
-//   · 'persona'    — alguien la eligió en Configuraciones › Horario o se la pidió a MaKo. Gana siempre,
+//   · 'persona'    — alguien la eligió (Perfil › «Zona del negocio» o la tuerca de una automatización; hasta el 26/10/2026,
+//                    Configuraciones › Horario) o se la pidió a MaKo. Gana siempre,
 //                    y sólo otra persona la cambia.
 //   · 'navegador'  — el navegador de un ADMIN PROPIO del negocio (nunca el del super admin mirando un
 //                    cliente con ?ws=, ni una agencia, un setter o un closer). La PRIMERA detección gana:

@@ -483,6 +483,117 @@ export const SERVICIOS_METODO: ServicioMetodo[] = [
       ],
     },
   },
+  // Los otros grabadores de reuniones (26/10/2026, lib/grabadores): leen lo mismo que Fathom, por la misma capa. Lo que da
+  // cada API se midió ese día (docs/hallazgos-integraciones.md → «Los grabadores de reuniones»). Loom, Read AI y Google Meet
+  // no están acá: no piden nada (su tarjeta dice por qué no se conectan; lib/integraciones.ts, `sinConexion`).
+  {
+    key: 'tldv',
+    nombre: 'tl;dv',
+    categoria: 'Reuniones',
+    paraQue: 'Apenas termina una reunión grabada con tl;dv, MaKo la lee: saca las tareas al Plan y analiza las llamadas de venta.',
+    // El correo es OBLIGATORIO: es lo que rutea el aviso al negocio (como FATHOM_HOST_EMAIL; tests/webhook-ruteo-obligatorio).
+    campos: [
+      { env: 'TLDV_API_KEY', label: 'API key', secreto: true, nota: 'Con esta key MaKo trae tus reuniones de tl;dv y lo que se habló en cada una.' },
+      { env: 'TLDV_HOST_EMAIL', label: 'Email de la cuenta que graba', placeholder: 'tu@tudominio.com', nota: 'El correo con el que entras a tl;dv. Sin él, el aviso de cada reunión llega y se descarta.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tl;dv',
+      porque: 'Es por donde tl;dv avisa al terminar una reunión. Sin esto, la reunión entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/tldv',
+      donde: 'En tl;dv: "Settings" → "Webhooks" → "Configure New Webhook", en la dirección de destino.',
+      ojo: [
+        'Elige el evento "MeetingReady": es el que dice quién organizó la reunión.',
+      ],
+    },
+    tutorial: {
+      url: 'https://tldv.io/app/settings/personal-settings/api-keys',
+      urlLabel: 'tl;dv → API Keys',
+      pasos: [
+        'En tldv.io, con la cuenta que organiza las reuniones: "Settings" → "Personal Settings" → "API Keys".',
+        'Toca "Create API Key" y pégala en "API key". Sólo anda con el plan Pro o Business.',
+        'En "Email de la cuenta que graba" escribe el correo con el que entras a tl;dv.',
+        'En "Webhooks" pega la dirección del recuadro amarillo con el evento "MeetingReady".',
+      ],
+    },
+  },
+  {
+    key: 'fireflies',
+    nombre: 'Fireflies.ai',
+    categoria: 'Reuniones',
+    paraQue: 'Cuando Fireflies termina de transcribir una reunión, MaKo la lee: saca las tareas al Plan y analiza las de venta.',
+    campos: [
+      { env: 'FIREFLIES_API_KEY', label: 'API key', secreto: true, nota: 'Con esta key MaKo trae tus reuniones de Fireflies y lo que se habló en cada una.' },
+      { env: 'FIREFLIES_WEBHOOK_SECRET', label: 'Contraseña del webhook', secreto: true, opcional: true, sinEsto: 'Sin ella, tus reuniones entran en la vuelta de cada hora y no al terminar.', nota: 'El "Signing Secret" que escribes en el webhook de Fireflies. Con él, la reunión llega al terminar.' },
+      { env: 'FIREFLIES_HOST_EMAIL', label: 'Email de la cuenta que graba', opcional: true, placeholder: 'tu@tudominio.com', nota: 'El correo de tu cuenta de Fireflies: así MaKo sabe quién es de la casa en cada reunión.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en Fireflies',
+      porque: 'Es por donde Fireflies avisa al terminar de transcribir. Sin esto, la reunión entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/fireflies',
+      donde: 'En app.fireflies.ai: "Integrations" → "Webhooks", en "Webhook URL".',
+      ojo: [
+        'Escribe un "Signing Secret" largo: sin él, MaKo no sabe de qué negocio es el aviso.',
+      ],
+    },
+    tutorial: {
+      url: 'https://app.fireflies.ai/integrations/custom/fireflies',
+      urlLabel: 'Fireflies → API',
+      pasos: [
+        'En app.fireflies.ai, con la cuenta que graba: "Integrations" → "Fireflies API".',
+        'Copia tu API key y pégala en "API key".',
+        'En "Webhooks" pega la dirección del recuadro amarillo y escribe un "Signing Secret".',
+        'Pega ese mismo secreto en "Contraseña del webhook".',
+      ],
+    },
+  },
+  {
+    key: 'zoom',
+    nombre: 'Zoom',
+    categoria: 'Reuniones',
+    paraQue: 'Cuando Zoom termina de transcribir una grabación en la nube, MaKo la lee: saca las tareas al Plan y analiza las de venta.',
+    campos: [
+      { env: 'ZOOM_ACCOUNT_ID', label: 'Account ID', placeholder: 'AbCdEf12GhIj', nota: 'El "Account ID" de tu app Server-to-Server OAuth de Zoom (en "App Credentials").' },
+      { env: 'ZOOM_CLIENT_ID', label: 'Client ID', nota: 'El "Client ID" de esa misma app.' },
+      { env: 'ZOOM_CLIENT_SECRET', label: 'Client Secret', secreto: true, nota: 'El "Client Secret" de esa app: con los tres, MaKo lee tus grabaciones en la nube.' },
+      { env: 'ZOOM_WEBHOOK_SECRET', label: 'Secret Token', secreto: true, opcional: true, sinEsto: 'Sin él, tus grabaciones entran en la vuelta de cada hora y no al terminar.', nota: 'El "Secret Token" de la app (en "Feature"). Con él, la grabación llega al terminar.' },
+    ],
+    pasoExterno: {
+      titulo: 'Pega esta dirección en tu app de Zoom',
+      porque: 'Es por donde Zoom avisa cuando la transcripción está lista. Sin esto, entra en la vuelta de cada hora.',
+      valor: '{{APP_URL}}/api/webhooks/zoom',
+      donde: 'En marketplace.zoom.us, tu app → "Feature" → "Event Subscriptions", en "Event notification endpoint URL".',
+      ojo: [
+        'Suma los eventos "Recording Transcript files have completed" y "All Recordings have completed".',
+        'Guarda primero el "Secret Token" en MaKo: Zoom valida la dirección apenas la pegas.',
+      ],
+    },
+    tutorial: {
+      url: 'https://marketplace.zoom.us/develop/create',
+      urlLabel: 'Zoom → Build App',
+      pasos: [
+        'En marketplace.zoom.us, con la cuenta dueña de las grabaciones: "Develop" → "Build App" → "Server-to-Server OAuth".',
+        'En "Scopes" suma los de grabaciones en la nube ("cloud_recording:read") y los de reuniones pasadas.',
+        'Copia "Account ID", "Client ID" y "Client Secret" de "App Credentials" en sus campos.',
+        'Activa la app con "Activate": sin eso, Zoom no entrega el permiso.',
+      ],
+    },
+  },
+  {
+    key: 'otter',
+    nombre: 'Otter.ai',
+    categoria: 'Reuniones',
+    paraQue: 'MaKo lee tus conversaciones de Otter cada hora: saca las tareas al Plan y analiza las llamadas de venta.',
+    campos: [
+      { env: 'OTTER_API_KEY', label: 'API key', secreto: true, nota: 'Sólo existe en el plan Enterprise de Otter. Con ella MaKo trae tus conversaciones.' },
+    ],
+    tutorial: {
+      pasos: [
+        'En otter.ai, con una cuenta del plan Enterprise: "Integrations" → pestaña "Developer".',
+        'Toca "Create key" y copia la key: se ve UNA vez (puedes tener hasta 2).',
+        'Pégala en "API key": MaKo lee tus conversaciones en la vuelta de cada hora.',
+      ],
+    },
+  },
   {
     key: 'panda',
     nombre: 'Panda Video',
@@ -1019,6 +1130,32 @@ const AYUDA_CAMPO: Record<string, { pasos: string[]; url?: string; urlLabel?: st
       ],
     url: 'https://fathom.video/customize#api-access-header',
     urlLabel: 'Fathom → API Access',
+  },
+  // Los grabadores (26/10/2026): «qué pongo ACÁ» en los campos que no son la API key.
+  TLDV_HOST_EMAIL: {
+    pasos: [
+        'Para qué sirve: le dice a MaKo que la reunión es tuya. Sin esto, el aviso de tl;dv se descarta sin error.',
+        'Escribe el correo de la cuenta de tl;dv que organiza las reuniones: el mismo con el que entras a tldv.io.',
+        'Escríbelo tal cual, sin espacios. Las mayúsculas no importan.',
+      ],
+  },
+  FIREFLIES_WEBHOOK_SECRET: {
+    pasos: [
+        'Para qué sirve: tus reuniones llegan apenas Fireflies termina de transcribir, y no en la vuelta de cada hora.',
+        'En app.fireflies.ai: "Integrations" → "Webhooks". Pega la dirección del recuadro amarillo.',
+        'En "Signing Secret" escribe una contraseña larga, y escribe la MISMA en este campo.',
+      ],
+    url: 'https://app.fireflies.ai/integrations/api/webhook',
+    urlLabel: 'Fireflies → Webhooks',
+  },
+  ZOOM_WEBHOOK_SECRET: {
+    pasos: [
+        'Para qué sirve: tus grabaciones llegan apenas Zoom termina la transcripción.',
+        'En marketplace.zoom.us, tu app → "Feature": copia el "Secret Token" y pégalo en este campo.',
+        'Guárdalo ANTES de pegar la dirección en Zoom: Zoom la valida en el momento, con este token.',
+      ],
+    url: 'https://marketplace.zoom.us/user/build',
+    urlLabel: 'Zoom → tus apps',
   },
   PANDA_API_KEY: {
     pasos: [
