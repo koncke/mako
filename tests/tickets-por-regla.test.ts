@@ -52,7 +52,8 @@ test('2. lo delicado, lo que escribe en producción y el interruptor apagado sig
 test('3. la marca se guarda y se ve; el alta la toma del negocio', () => {
   const t = clasificar(e('Quiero que se pueda exportar'), { aprobadoPorRegla: 'Leandro' });
   assert.equal(leerTriage(JSON.parse(JSON.stringify(t)))?.regla, 'Leandro', 'la regla se pierde al leer lo guardado');
-  assert.match(sinComentarios(leer('lib/tickets-db.ts')), /clasificar\([^;]*aprobadoPorRegla: aprobadoPorRegla\(n\.identidad\.ws\) \}\);/);
+  // Desde el 27/10 también con `hastaUnDia` (Leila): tests/feedback-2710-tanda1.test.ts.
+  assert.match(sinComentarios(leer('lib/tickets-db.ts')), /clasificar\([^;]*aprobadoPorRegla: reglaDelNegocio\(n\.identidad\.ws\)\?\.nombre \?\? null, hastaUnDia: reglaDelNegocio\(n\.identidad\.ws\)\?\.hastaUnDia \}\);/);
   assert.match(leer('app/tickets/bandeja/BandejaTickets.tsx'), /t\.triage\.regla \? `aprobado por regla: \$\{t\.triage\.regla\}`/, 'la bandeja no la muestra');
   assert.match(leer('scripts/tickets.ts'), /APROBADO POR REGLA \(\$\{triage\.regla\}\)[\s\S]*?NO lo reclasifiques/, 'el Cerebro no sabe que no lo devuelva');
 });

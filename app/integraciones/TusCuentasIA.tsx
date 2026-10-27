@@ -550,7 +550,8 @@ function InstalarDesktop({ onConectar }: { onConectar: () => void }) {
   return (
     <div className="tci-instalar" data-instalar-desktop="">
       <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={28} /></span>
-      <h3 className="tci-instalar__titulo">{descargado ? 'Ábrelo y sigue los pasos' : 'MaKo, en tu computadora'}</h3>
+      {/* Tocado, dice que se está bajando (27/10/2026, Leandro: el botón no decía nada) y qué hacer si Chrome lo frena. */}
+      <h3 className="tci-instalar__titulo" aria-live="polite">{descargado ? 'Se está descargando: cuando termine, ábrelo' : 'MaKo, en tu computadora'}</h3>
       <p className="tci-instalar__texto">{descargado ? avisoAlAbrir() : 'Desde ahí tu Ops Center contesta con tu Claude.'}</p>
       {descargado
         ? <button type="button" className="tci-instalar__boton" onClick={onConectar}><Icon name="check" size={18} />Ya lo instalé: conectar</button>

@@ -368,6 +368,12 @@ export const archivoDelInstaladorMac = (version: string = VERSION_PC): string =>
 export const nombreDelInstaladorMac = (version: string = VERSION_PC): string => `MaKo-${version}-Mac.zip`;
 /** La UNA línea para cuando macOS frena la app sin firmar (la firma de Apple espera el D-U-N-S). */
 export const AVISO_GATEKEEPER = 'Si macOS dice que no puede comprobarla: Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente.';
+/**
+ * Lo que pasa ANTES de abrirlo (27/10/2026, la llamada con Leandro: «Chrome me lo marca como malware»): mientras el instalador
+ * no esté firmado con el certificado (scripts/ia-pc/firmar-windows.mjs, lo compra Martín), Chrome frena la descarga de un
+ * programa nuevo. Se dice qué tocar, en la misma línea que el aviso del sistema (`avisoAlAbrir`).
+ */
+export const AVISO_CHROME = 'Si Chrome lo frena («podría ser peligroso»): abre tus descargas (Ctrl+J) y toca «Conservar».';
 
 /**
  * El ejecutable de MaKo.app: copia el programa de ESTA Mac (chip de Apple o Intel) a ~/.mako-pc/bin —donde lo busca el

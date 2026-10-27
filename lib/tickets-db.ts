@@ -20,7 +20,7 @@ import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import {
-  TOPE_POR_DIA, aprobadoPorRegla, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
+  TOPE_POR_DIA, reglaDelNegocio, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
@@ -229,7 +229,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, aprobadoPorRegla: aprobadoPorRegla(n.identidad.ws) });
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref: n.ref ?? null,

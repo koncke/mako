@@ -11,12 +11,15 @@ import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getSupabaseServer } from './supabase';
 import type { ChatCartero } from './operaciones-reglas';
+import { leerTriage } from './tickets-reglas';
 import { ENTREGA_MAX_INTENTOS, ENTREGA_TOMADO_VENCE_MS, TICKETS_POR_VUELTA, VERSION_CARTERO_TICKETS, esElCerebro, necesitaEntrega, versionAlMenos, type FilaEntrega } from './tickets-aviso';
 
 const T = 'tickets';
 
 /** Lo que el Runner entrega: el id del intento (va al acuse), el número del ticket y a qué sesión. */
-export type TicketParaEntregar = { id: string; numero: number; destino: string };
+/** `regla` (27/10/2026): el nombre de la regla de Martín que lo aprobó («Leandro», «Leila»). El cartero 1.20.0 lo usa SÓLO si
+ *  está en su propia lista (scripts/operaciones/cartero.mjs → REGLAS_CONOCIDAS): de MaKo no toma texto para el mensaje. */
+export type TicketParaEntregar = { id: string; numero: number; destino: string; regla?: string };
 
 /**
  * Los bugs del triage que ESTE Runner tiene que entregarle al Cerebro ahora. Sólo si el chat «Cerebro» está abierto en
@@ -31,7 +34,7 @@ export async function ticketsParaElCartero(
   if (!cerebro) return [];
   const db = getSupabaseServer();
   const { data: filas, error } = await db.from(T)
-    .select('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos')
+    .select('id, estado, despacho, aviso_id, aviso_estado, aviso_at, aviso_intentos, triage')
     .eq('despacho', 'runner').eq('estado', 'en_curso').lt('aviso_intentos', ENTREGA_MAX_INTENTOS)
     .order('created_at', { ascending: true }).limit(50);
   if (error) throw new Error(error.message);
@@ -50,7 +53,8 @@ export async function ticketsParaElCartero(
     q = f.aviso_id ? q.eq('aviso_id', f.aviso_id as string) : q.is('aviso_id', null);
     const { data, error: eUp } = await q.select('id');
     if (eUp) throw new Error(eUp.message);
-    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local });
+    const regla = leerTriage(f.triage)?.regla;
+    if (data && data[0]) out.push({ id, numero: Number(f.id), destino: cerebro.local, ...(regla ? { regla } : {}) });
     if (out.length >= TICKETS_POR_VUELTA) break;
   }
   return out;
