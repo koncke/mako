@@ -14,8 +14,9 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 const titulo = (t: string) => console.log(`\n${'─'.repeat(74)}\n${t}\n${'─'.repeat(74)}`);
 
 async function existe(t: string) {

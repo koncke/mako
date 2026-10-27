@@ -43,6 +43,7 @@ function retirado(motivo: string): void { console.error(motivo); process.exit(1)
 retirado('Retirado en la undécima: los CRON «(de antes)» los rehace scripts/undecima-flujos.mts (una etapa y una CONDITION). --aplicar se niega y el simulacro no corre: no se vuelve a usar.');
 
 import { config } from 'dotenv';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const arg = (n: string): string | null => {
   const a = process.argv.find((x) => x.startsWith(`--${n}=`));
@@ -69,7 +70,7 @@ const { hechosDeLead, catalogoDeLead } = await import('../lib/nutricion-grafo-mo
 const { abrirFlujo } = await import('../lib/flujo-legado');
 const postgres = (await import('postgres')).default;
 
-const DB = process.env.DATABASE_URL ?? '';
+const DB = urlDeLaBase() ?? '';
 if (!DB) throw new Error('falta DATABASE_URL (pasa --env=<ruta del .env.local>)');
 
 const AHORA = Date.now();

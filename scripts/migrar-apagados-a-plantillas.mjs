@@ -19,9 +19,10 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const APLICAR = process.argv.includes('--apply');
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
 
 const prefs = await sql`select workspace_id, value from app_settings where key = 'notification_prefs'`;
 let total = 0;

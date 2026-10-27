@@ -15,13 +15,14 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
 config({ path: resolve(process.cwd(), '.env.local') });
 
 const APPLY = process.argv.includes('--apply');
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 if (!conn) { console.error('Falta DATABASE_URL en .env.local'); process.exit(1); }
 
 const normUrl = (u) => (u ?? '').trim().replace(/[?#].*$/, '').replace(/\/+$/, '').toLowerCase();

@@ -17,9 +17,10 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { writeFileSync } from 'node:fs';
 
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 if (!conn) { console.error('Falta DATABASE_URL (corre con: node --env-file=<.env.local> scripts/medir-second-brain.mjs)'); process.exit(1); }
 const iJson = process.argv.indexOf('--json');
 const salidaJson = iJson > 0 ? process.argv[iJson + 1] : null;

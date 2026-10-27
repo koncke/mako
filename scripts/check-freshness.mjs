@@ -1,9 +1,10 @@
 // Solo-lectura: frescura de datos por plataforma. NO escribe nada.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 try {
   const fresh = await sql`
     SELECT plataforma, max(fecha) AS ultima, count(*) FILTER (WHERE fecha >= current_date - 14)::int AS filas_14d

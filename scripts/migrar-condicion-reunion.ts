@@ -23,6 +23,7 @@ import { config } from 'dotenv';
 import { resolve } from 'node:path';
 config({ path: process.env.ENV_FILE ?? resolve(process.cwd(), '.env.local') });
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import {
   normalizar, padresDe, claseDe, idDe, indicePorId, insertarNodo, nuevoId, gruposDeRama, validarGrafo, leerPuertoParalelo, raicesSalida,
   type PasoGrafo, type RamaCondicion, type FilaCondicion,
@@ -106,7 +107,7 @@ function migrar(crudos: unknown): { pasos: PasoGrafo[] | null; cambios: string[]
 }
 
 async function main(): Promise<void> {
-  const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+  const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
   const filas = await sql<Array<{ id: number; workspace_id: number; nombre: string; activa: boolean; trigger_tipo: string; etapa: string | null; etapas: unknown; disparadores: unknown; pasos: unknown; pasos_borrador: unknown }>>`
     select id, workspace_id, nombre, activa, trigger_tipo, etapa, etapas, disparadores, pasos, pasos_borrador
     from nutricion_secuencias where archivada_at is null order by workspace_id, id`;

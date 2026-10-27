@@ -6402,6 +6402,11 @@ no hay lista de excusas (eran las dos de cohortes, y se cerraron).
 correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
 no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
 
+⚠️ **Un script que abre Postgres pasa por `urlDeLaBase()`** (27/10/2026): `postgres(urlDeLaBase(), …)` con
+`import { urlDeLaBase } from './url-de-la-base.mjs'`. `DATABASE_URL` es la conexión directa, sólo IPv6: desde la PC de Martín
+muere al arrancar o, peor, al reconectar a mitad de corrida. El helper la cambia por el pooler (IPv4, modo sesión; `MAKO_DB_DIRECTA=1`
+vuelve a la directa). Lo barre `tests/url-de-la-base.test.ts`. Detalle: docs/hallazgos-infra.md → «La conexión directa a la base es sólo IPv6».
+
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 
 Cuando una función parte una colección en «lo que se ve» y «lo que no», la segunda mitad
