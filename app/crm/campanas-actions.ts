@@ -205,11 +205,8 @@ export type Movido = { id: number; a: number };
 
 type PorProducto = { id: number | null; nombre: string; n: number };
 
-/** Tope de un lote: el mismo del mapa, que no guarda más de eso. */
-const TOPE_LOTE = 200;
-
-/** Los ítems que se pueden tocar: id de Meta, sin repetir, y con tope. Lo que no pasa se
- *  descarta acá y no llega a escribir nada. */
+/** Los ítems que se pueden tocar: id de Meta y sin repetir. Lo que no pasa se descarta acá y no llega a escribir nada.
+ *  SIN TOPE desde el 27/10/2026: cortaba en 200 sin decirlo (el mapa guarda hasta `MAX_ASIGNADAS`, lib/campana-config.ts). */
 function sanear(items: unknown): Item[] {
   const out: Item[] = [];
   for (const x of Array.isArray(items) ? items : []) {
@@ -221,7 +218,6 @@ function sanear(items: unknown): Item[] {
       nombre: String(it.nombre ?? '').slice(0, 200),
       ...(it.campanaId && esIdMeta(it.campanaId) ? { campanaId: it.campanaId.trim() } : {}),
     });
-    if (out.length >= TOPE_LOTE) break;
   }
   return out;
 }
@@ -436,7 +432,7 @@ export async function deshacerLoteAction(
   agregados: Movido[],
 ): Promise<{ ok: true; asignadas: CampanaAsignada[] } | { ok: false; error: string }> {
   if ((await getRolWsEfectivo()) !== 'admin') return { ok: false, error: SOLO_ADMIN };
-  const lista = (Array.isArray(previos) ? previos : []).filter((p) => esIdMeta(p?.id)).slice(0, TOPE_LOTE);
+  const lista = (Array.isArray(previos) ? previos : []).filter((p) => esIdMeta(p?.id));
   if (!lista.length) return { ok: false, error: 'Ese id no es de Meta.' };
   try {
     let nueva = await leerCampanasAsignadasEstricto();
@@ -493,7 +489,7 @@ export async function quitarLoteAction(
     // Estricta por lo mismo que al asignar, y acá es peor: con `[]` por una lectura
     // caída se guardaría «[]» y se borraría la configuración ENTERA.
     const actuales = await leerCampanasAsignadasEstricto();
-    const lista = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => esIdMeta(x)))].slice(0, TOPE_LOTE);
+    const lista = [...new Set((Array.isArray(ids) ? ids : []).filter((x) => esIdMeta(x)))];
     const previos = lista.map((id) => ({ id, antes: actuales.find((a) => a.id === id) ?? null }));
     let nueva = actuales;
     for (const id of lista) nueva = sinCampana(nueva, id);

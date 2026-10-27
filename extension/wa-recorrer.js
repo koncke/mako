@@ -461,7 +461,7 @@
       const avisar = (paso, datos) => {
         const n = datos || {};
         p.decir(`${n.texto || 'Leyendo perfiles…'} · no toques nada`);
-        try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
+        try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso, oculta: document.hidden === true }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
       };
       const tope = Math.max(0, Math.min(Number(msg.tope) || 60, 200));
       const desde = Math.max(0, Number(msg.desde) || 0);
@@ -481,7 +481,9 @@
       p.decir(paso === 'recorriendo'
         ? `Leyendo los miembros${n.total ? `: ${Math.min(n.vistos, n.total)} de ${n.total}` : `: ${n.vistos}`} · no toques nada`
         : `${n.texto || 'Trabajando…'} · no toques nada`);
-      try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
+      // ⚠️ `oculta`: la pestaña no se ve (Chrome tapado por otra ventana, o la persona en otra app). Chrome la frena (1 por
+      // segundo; a los 5 minutos, 1 por minuto) y la lista se arrastra: MEDIDO el 27/10/2026, el trabón de «11 de 126».
+      try { chrome.runtime.sendMessage(Object.assign({ tipo: 'WA_RECORRER_AVANCE', id, paso, oculta: document.hidden === true }, n), () => void chrome.runtime.lastError); } catch { /* nada */ }
     };
     enCurso = recorrerGrupo(msg.grupo.slice(0, 120), p, avisar, () => parados.has(id))
       .then((r) => { p.decir(r.ok ? 'Listo' : 'Terminé'); p.sacarCartel(1600); responder(r); })

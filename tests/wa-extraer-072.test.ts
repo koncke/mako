@@ -357,6 +357,31 @@ test('3f. con la pestaña de WhatsApp OCULTA, la búsqueda se escribe de una vez
   assert.deepEqual(await escribir(false), ['G', 'r', 'u', 'p', 'o', ' ', 'G'], 'a la vista ya no se ve que busca');
 });
 
+test('3g. cada etapa con su segundo y la duración total; y si WhatsApp Web corre OCULTA (Chrome tapado), se anota y se dice (27/10)', async () => {
+  const w = cargarWorker({ tabs: [{ id: 5, url: 'https://hola-mako.com/crm', windowId: 1, active: true }, { id: 7, url: 'https://web.whatsapp.com/', status: 'complete', windowId: 1 }] });
+  await w.pedir({ tipo: 'WA_FICHAS_PEDIDO', id: 't1', visible: true, grupos: ['G'], pedidos: [] });
+  w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 't1', paso: 'recorriendo', vistos: 11, total: 126, oculta: true });
+  await dormir(20);
+  let fila = (w.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
+  assert.equal(fila.oculta, true, 'no quedó anotado que WhatsApp Web corría oculta');
+  assert.equal(fila.vecesOculta, 1);
+  const alCrm = w.reg.aTabs.filter(([id, m]) => id === 5 && m.tipo === 'WA_FICHAS_AVANCE' && m.paso === 'recorriendo').map(([, m]) => m.texto);
+  assert.match(String(alCrm[alCrm.length - 1]), /Chrome quedó tapado por otra ventana/, 'la pantalla de MaKo no dice por qué se arrastra');
+  // A la vista otra vez: la marca se apaga (el desplegable vuelve a lo de siempre).
+  w.mandar({ tipo: 'WA_RECORRER_AVANCE', id: 't1', paso: 'recorriendo', vistos: 60, total: 126, oculta: false });
+  w.mandar({ tipo: 'WA_EXTRACCION', id: 't1', estado: 'listo' });
+  await dormir(20);
+  fila = (w.reg.storage.extracciones as Array<Record<string, unknown>>)[0];
+  assert.equal(fila.oculta, false);
+  // Los tiempos: el segundo en que empezó cada fase, y la duración al terminar.
+  const tiempos = fila.tiempos as Record<string, number>;
+  assert.ok(tiempos && ['abriendo', 'leyendo', 'recorriendo'].every((f) => typeof tiempos[f] === 'number'), `faltan tiempos por etapa: ${JSON.stringify(tiempos)}`);
+  assert.equal(typeof fila.duracion, 'number', 'no quedó cuánto tardó todo');
+  const popup = sinComentarios(leer('extension/popup.js'));
+  assert.match(popup, /e\.fase === 'qr' \? TEXTO_QR : e\.oculta \? TEXTO_OCULTA :/, 'el desplegable no dice que Chrome está tapado');
+  assert.match(sinComentarios(leer('extension/wa-recorrer.js')), /oculta: document\.hidden === true/);
+});
+
 test('3c. el manifest y las versiones: el recorrido en WhatsApp Web, aislado; y la pantalla pide la 0.72', async () => {
   const man = JSON.parse(leer('extension/manifest.json')) as { version: string; content_scripts: Array<{ matches: string[]; js: string[]; world?: string }> };
   const wa = man.content_scripts.filter((c) => c.matches.some((m) => m.includes('web.whatsapp.com')));
@@ -524,7 +549,7 @@ test('6c. el desplegable dice cómo está WhatsApp Web, como con Flow, y SÓLO m
   assert.match(popup, /ir\('Ir a WhatsApp Web'\)/);
   assert.match(popup, /void enviar\(\{ tipo: 'WA_ENFOCAR' \}\)/, 'el botón no usa el camino que nunca abre una segunda pestaña');
   // Durante la extracción, con el QR, la línea de abajo del título dice qué hacer.
-  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : e\.fase === 'perfiles' && e\.ahora \? e\.ahora : TEXTO_A_LA_VISTA;/);
+  assert.match(popup, /a\.tenue\.textContent = e\.fase === 'qr' \? TEXTO_QR : e\.oculta \? TEXTO_OCULTA : e\.fase === 'perfiles' && e\.ahora \? e\.ahora : TEXTO_A_LA_VISTA;/);
   assert.match(popup, /\{ texto: 'Abro tu WhatsApp', pasos: \['abriendo', 'cargando', 'qr'\] \}/);
 });
 

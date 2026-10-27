@@ -7,6 +7,7 @@ import { ImpersonationBanner } from './_components/ImpersonationBanner';
 import { AlertaVozMaKo } from './_components/AlertaVozMaKo';
 import { MakoConfirmGate } from './_components/MakoConfirmGate';
 import { AvisoPixelViejo } from './_components/AvisoPixelViejo';
+import { AvisoExtensionVieja } from './_components/AvisoExtensionVieja';
 import { AvisoMoraPlan } from './_components/AvisoMoraPlan';
 import { CartelPagoCliente } from './_components/CartelPagoCliente';
 import { EsquinaAvisos } from './_components/EsquinaAvisos';
@@ -267,6 +268,8 @@ export default async function RootLayout({
                   pisarse. Ver app/_components/EsquinaAvisos.tsx. */}
               <EsquinaAvisos>
                 <AvisoPixelViejo />
+                {/* La extensión de MaKo instalada y vieja, en cualquier pantalla (27/10/2026: Leila en la 0.70 con la 0.74). */}
+                {sesion && <AvisoExtensionVieja />}
                 {/* La renovación del plan de MaKo que no entró: cuánto, cuándo se pausa, y a pagar (23/10/2026). */}
                 {sesion && <AvisoMoraPlan />}
                 <MakoConfirmGate />

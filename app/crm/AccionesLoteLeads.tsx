@@ -92,6 +92,7 @@ import {
 import { agregarLoteAProductoAction, quitarLoteDeProductoAction } from './lead-funnel-actions';
 import { TANDA_LOTE, colaDelAviso, correrEnTandas } from './lote-tandas';
 import { TANDA_AGREGAR, enTandas } from './traer-seleccion';
+import { TANDA_ETIQUETAS_LOTE } from '@/lib/etiquetas-reglas';
 import { SelectorEtiqueta, type Etiqueta } from '@/app/_components/etiquetas-cliente';
 import { TOPE_LOTE_COMPLETAR, TOPE_PERFILES_DIA, fichaLimpia, minutosDePerfiles, type FichaWa } from '@/lib/grupo-wa-reglas';
 import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
@@ -294,20 +295,37 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
     if (ocupadoAhora.current) return; // mientras corre «Completar», nada más (también desde el clic derecho)
     start(async () => {
       try {
-        const r = await loteEtiqueta('poner_lote', ids, e.id);
-        if (!r.ok) {
-          onListo({ texto: r.error || 'No se pudo', hubo: false });
+        // DE A TANDAS (27/10/2026, Leila: «quedaron 79 sin etiqueta»; Martín: «no tiene que haber limitaciones»). La ruta toma
+        // `TANDA_ETIQUETAS_LOTE` por pedido y antes se le mandaban todos juntos. Si una tanda falla, se para y se DICE cuántos
+        // quedaron sin la etiqueta.
+        const puestos: number[] = [];
+        let yaEstaban = 0, sinSincronizar = 0, hechos = 0;
+        let corte: string | null = null;
+        for (const tanda of enTandas(ids, TANDA_ETIQUETAS_LOTE)) {
+          const r = await loteEtiqueta('poner_lote', tanda, e.id)
+            .catch((x: unknown): LoteEtiqueta => ({ ok: false, error: x instanceof Error ? x.message : 'No se pudo' }));
+          if (!r.ok) { corte = r.error || 'No se pudo'; break; }
+          puestos.push(...(r.cambiados ?? []));
+          yaEstaban += r.yaEstaban ?? 0;
+          sinSincronizar += r.sinSincronizar ?? 0;
+          hechos += tanda.length;
+        }
+        if (corte != null && !hechos) {
+          onListo({ texto: corte, hubo: false });
         } else {
-          const puestos = r.cambiados ?? [];
-          const ya = r.yaEstaban ? ` · ${r.yaEstaban} ya ${r.yaEstaban === 1 ? 'la tenía' : 'la tenían'}` : '';
-          const fuera = r.sinSincronizar ? ` · ${r.sinSincronizar} sin sincronizar` : '';
+          const ya = yaEstaban ? ` · ${yaEstaban} ya ${yaEstaban === 1 ? 'la tenía' : 'la tenían'}` : '';
+          const fuera = sinSincronizar ? ` · ${sinSincronizar} sin sincronizar` : '';
+          const faltan = ids.length - hechos;
+          const cortado = corte != null ? ` · se cortó: ${faltan} ${faltan === 1 ? 'quedó' : 'quedaron'} sin la etiqueta (${corte})` : '';
           onListo({
-            texto: puestos.length ? `«${e.nombre}» a ${puestos.length}${ya}${fuera}` : `Ya la tenían${fuera}`,
+            texto: (puestos.length ? `«${e.nombre}» a ${puestos.length}${ya}` : 'Ya la tenían') + fuera + cortado,
             hubo: puestos.length > 0,
             deshacer: puestos.length
               ? async () => {
-                const q = await loteEtiqueta('sacar_lote', puestos, e.id);
-                if (!q.ok) throw new Error(q.error || 'No se pudo deshacer');
+                for (const tanda of enTandas(puestos, TANDA_ETIQUETAS_LOTE)) {
+                  const q = await loteEtiqueta('sacar_lote', tanda, e.id);
+                  if (!q.ok) throw new Error(q.error || 'No se pudo deshacer');
+                }
               }
               : undefined,
           });
@@ -352,8 +370,11 @@ export function AccionesLoteLeads({ elegidos, stages, productos, equipo, funnelA
             hubo: n > 0,
             deshacer: n
               ? async () => {
-                const q = await quitarLoteDeProductoAction(agregados, funnelId);
-                if (!q.ok) throw new Error(q.error);
+                // El deshacer, también de a tandas: el server toma hasta 2.000 por pedido.
+                for (const tanda of enTandas(agregados, TANDA_AGREGAR)) {
+                  const q = await quitarLoteDeProductoAction(tanda, funnelId);
+                  if (!q.ok) throw new Error(q.error);
+                }
               }
               : undefined,
           });

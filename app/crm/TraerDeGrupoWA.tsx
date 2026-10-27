@@ -25,15 +25,15 @@
 
 import { Fragment, useEffect, useEffectEvent, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Dropdown, type DropdownOption } from '@/app/components/Dropdown';
-import { TANDA_GRUPO, TOPE_PERFILES_DIA, minutosDePerfiles, fichaLimpia, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
-import { correrPerfiles, guardarFichasEnTandas, preguntaDePerfiles, resumenDePerfiles, type AvanceFichas, type AvancePerfiles } from './enriquecer-cliente';
+import { TANDA_GRUPO, etiquetaDeGrupo, fichaLimpia, minutosDeLaPasada, type FichaWa, type GrupoWA, type ParticipanteWA } from '@/lib/grupo-wa-reglas';
+import { guardarFichasEnTandas, type AvanceFichas } from './enriquecer-cliente';
 import { alPararExtraccion, avisarExtraccion, enfocarWhatsappWeb, motivoDeFichas, nuevoIdExtraccion, pedirFichasDeWhatsappWeb, perfilesEnTandas } from '@/lib/wa-fichas-cliente';
 import { useExtensionFichas } from './usar-extension-fichas';
 import { miles } from './traer-seleccion';
 import { CAMPO_TRAER, MoldeTraer, type OpcionMas } from './MoldeTraer';
 import { Confirm } from '@/app/_ui';
 import {
-  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, completarPerfilesDeGrupoAction, gruposDeLineaAction,
+  abrirTraerDeGrupoAction, completarFichasDeGrupoAction, gruposDeLineaAction,
   participantesDeGrupoAction, traerDeGrupoAction,
 } from './grupo-wa-actions';
 import type { LineaGrupos } from './grupo-wa-server';
@@ -55,13 +55,15 @@ const leerSinAdmins = () => { try { return window.localStorage.getItem(CLAVE_SIN
 type Participante = ParticipanteWA & { enElCrm: boolean };
 type Etapa = { key: string; label: string; manda: boolean };
 
-export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
+export function TraerDeGrupoWA({ destino, onAtras, onTraidos, onCerrar }: {
   /** El funnel que se mira: ahí entran (`null` = el del negocio). Martín, 26/10: «siempre en el CRM en el que estoy parado». */
   destino: number | null;
   /** Volver al alta. No cierra el modal. */
   onAtras: () => void;
   /** Terminó UN grupo: el padre relee el tablero (el modal sigue abierto para el siguiente). */
   onTraidos: (resumen: string) => void;
+  /** Cierra el modal entero: el «Ver en el CRM» del cartel de éxito (Leila, 26/10/2026). */
+  onCerrar?: () => void;
 }) {
   const funnel = destino;
   const [lineas, setLineas] = useState<LineaGrupos[] | null>(null);
@@ -77,13 +79,14 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   const [err, setErr] = useState<string | null>(null);
   const [avance, setAvance] = useState<string | null>(null);
   const [hecho, setHecho] = useState<string | null>(null);
+  /** El último «Extraer» trajo algo: el cartel ofrece «Ver en el CRM». */
+  const [verCrm, setVerCrm] = useState(false);
+  /** Cuántos grupos tiene la línea, cuando ya llegó la lista COMPLETA (Leila, 26/10/2026: que «Cargando grupos…» avise). */
+  const [todosGrupos, setTodosGrupos] = useState<number | null>(null);
   /** Cada vuelta relee el grupo (después de extraer, los traídos pasan a «Ya está»). */
   const [vuelta, setVuelta] = useState(0);
-  const [completando, setCompletando] = useState(false);
-  /** «Datos de empresa»: la cuenta que se muestra en la pregunta antes de consultar (null = sin pregunta abierta), y si corre. */
-  const [cuentaPerfiles, setCuentaPerfiles] = useState<{ pendientes: number; total: number; quedanHoy: number; estaCorrida: number } | null>(null);
-  const [perfilando, setPerfilando] = useState(false);
-  const pararPerfiles = useRef(false);
+  /** «Datos de empresa»: de cuántos, en la pregunta antes de arrancar (null = sin pregunta abierta). */
+  const [pideEmpresa, setPideEmpresa] = useState<number | null>(null);
   /** «Extraer» corriendo, y el pedido de parar (lo mira cada tanda; llega del pie o del «Parar» del desplegable). */
   const [extrayendo, setExtrayendo] = useState(false);
   const parar = useRef(false);
@@ -124,14 +127,14 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   useEffect(() => {
     if (!linea) return;
     let vivo = true;
-    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null); setBuscandoTodos(false);
+    setGrupos(null); setJid(''); setGente(null); setSel(new Set()); setErr(null); setBuscandoTodos(false); setTodosGrupos(null);
     void gruposDeLineaAction(linea).then((r) => {
       if (!vivo) return;
       if (!r.ok) { setErr(r.error); setGrupos([]); return; }
       setGrupos(r.grupos);
-      if (!r.refrescar) return;
+      if (!r.refrescar) { setTodosGrupos(r.grupos.length); return; }
       setBuscandoTodos(true);
-      void gruposDeLineaAction(linea, true).then((c) => { if (vivo && c.ok) setGrupos(c.grupos); })
+      void gruposDeLineaAction(linea, true).then((c) => { if (vivo && c.ok) { setGrupos(c.grupos); setTodosGrupos(c.grupos.length); } })
         .catch(() => {}).finally(() => { if (vivo) setBuscandoTodos(false); });
     }).catch(() => { if (vivo) { setErr('WhatsApp no contestó.'); setGrupos([]); } });
     return () => { vivo = false; };
@@ -162,12 +165,14 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
     const t = q.trim().toLowerCase();
     const dig = t.replace(/\D/g, '');
     const pasan = (gente ?? []).filter((p) => !t || (p.nombre ?? '').toLowerCase().includes(t) || (!!dig && p.telefono.includes(dig)));
-    return [...pasan.filter((p) => !p.enElCrm), ...pasan.filter((p) => p.enElCrm)];
+    // Y entre los nuevos, PRIMERO LOS QUE TIENEN NOMBRE (Leila, 26/10/2026): son a los que se les puede hablar por su nombre.
+    const nuevosAhora = pasan.filter((p) => !p.enElCrm);
+    return [...nuevosAhora.filter((p) => !!p.nombre), ...nuevosAhora.filter((p) => !p.nombre), ...pasan.filter((p) => p.enElCrm)];
   }, [gente, q]);
   const nuevos = (gente ?? []).filter((p) => !p.enElCrm);
   const adminsNuevos = nuevos.filter((p) => p.admin).length;
   const todos = nuevos.length > 0 && nuevos.every((p) => sel.has(p.telefono));
-  const trayendo = extrayendo || completando;
+  const trayendo = extrayendo;
   /** ¿La extensión de este navegador lee las fichas de WhatsApp Web? (el atributo lo pone extension/mako-puente.js). En vivo. */
   const extWa = useExtensionFichas();
   const yaEstan = (gente ?? []).filter((p) => p.enElCrm).length;
@@ -211,10 +216,10 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
    * «EXTRAER». Arranca la extensión en el acto (a la vista, con el desplegable) mientras se crean los leads; al volver los
    * nombres, se guardan solos. `soloNombres`: los que ya están (la extensión recién instalada, o nadie nuevo tildado).
    */
-  const extraer = async (soloNombres = false) => {
+  const extraer = async (soloNombres = false, o?: { todosLosPerfiles?: boolean }) => {
     if (!grupo || trayendo || !entrada) return;
     if (extWa !== 'si') { setPideExt(true); return; }
-    setErr(null); setHecho(null); setEsperaExt(null);
+    setErr(null); setHecho(null); setVerCrm(false); setEsperaExt(null);
     const id = nuevoIdExtraccion();
     parar.current = false;
     const soltar = alPararExtraccion(id, () => { parar.current = true; });
@@ -240,7 +245,9 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
         if (f.ok) {
           console.info('[wa-fichas]', f.diagnostico);
           // Y el PERFIL de cada uno (0.73.2): de a tandas, antes de guardar, así se guarda todo junto.
-          const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x), { grupo: grupo.nombre, id, parar: () => parar.current });
+          // «Datos de empresa» (`todosLosPerfiles`): TODOS, en una pasada; un «Extraer», los primeros `TOPE_PERFILES`.
+          const pf = await perfilesEnTandas(pedidos, f.fichas.map(fichaLimpia).filter((x): x is FichaWa => !!x),
+            { grupo: grupo.nombre, id, parar: () => parar.current, ...(o?.todosLosPerfiles ? { tope: pedidos.length } : {}) });
           const fichas = pf.fichas;
           if (pf.corte && pf.corte !== 'parado') cortePerfiles = motivoDeFichas(pf.corte);
           avisarExtraccion(id, { fase: 'guardando', guardados: 0, total: fichas.length });
@@ -259,14 +266,17 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
       soltar();
       const nuevosHechos = t?.creados ?? 0;
       const nombres = a?.nombres ?? 0;
+      // EL CARTEL DE ÉXITO (Leila, 26/10/2026): cuántos, a qué etapa y con qué etiqueta, y «Ver en el CRM».
+      const titular = nuevosHechos
+        ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'lead nuevo' : 'leads nuevos'} en «${entrada.label}»${t?.sinEtiqueta ? '' : ` con la etiqueta «${etiquetaDeGrupo(grupo.nombre)}»`}`
+        : '';
       const partes = [
-        nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'nuevo' : 'nuevos'}` : '',
         a ? `${miles(nombres)} ${nombres === 1 ? 'nombre' : 'nombres'}` : '',
         a?.empresas ? `${miles(a.empresas)} ${a.empresas === 1 ? 'empresa' : 'empresas'}` : '',
         a?.perfiles ? `${miles(a.perfiles)} con datos de su perfil` : '',
         t?.errores.length ? `${miles(t.errores.length)} no se ${t.errores.length === 1 ? 'pudo' : 'pudieron'}` : '',
       ].filter(Boolean);
-      const resumen = partes.join(' · ') || (t ? 'Nadie para extraer' : 'Sin nombres nuevos');
+      const resumen = [titular, ...partes].filter(Boolean).join(' · ') || (t ? 'Nadie para extraer' : 'Sin nombres nuevos');
       // Los que no se pudieron, por su NOMBRE (la revisión de privacidad, 23/10/2026): un número sin nombre no se puede buscar.
       const errores = t?.errores ?? [];
       const fallidos = errores.length ? ` No se pudieron: ${errores.slice(0, 5).join(', ')}${errores.length > 5 ? '…' : ''}.` : '';
@@ -284,50 +294,25 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
           texto: nuevosHechos ? `${miles(nuevosHechos)} ${nuevosHechos === 1 ? 'lead nuevo' : 'leads nuevos'} en «${entrada.label}», con la etiqueta del grupo.` : 'Ya estaban todos en tu CRM.',
         });
       }
-      setHecho(`«${grupo.nombre}»: ${resumen}.${cola}`);
+      setHecho(titular ? `${resumen}.${cola}` : `«${grupo.nombre}»: ${resumen}.${cola}`);
+      setVerCrm(nuevosHechos > 0 || nombres > 0 || (a?.perfiles ?? 0) > 0);
       setExtrayendo(false); setAvance(null);
-      if (nuevosHechos || nombres) onTraidos(resumen);
+      if (nuevosHechos || nombres || (a?.perfiles ?? 0) > 0) onTraidos(resumen);
       setVuelta((n) => n + 1);
     }
   };
   const arrancarAlInstalar = useEffectEvent(() => { setEsperaExt(null); void extraer(); });
   useEffect(() => { if (esperaExt && extWa === 'si') arrancarAlInstalar(); }, [esperaExt, extWa]);
 
-  // «DATOS DE EMPRESA» (24/10/2026, Martín: «muchos no sólo tienen nombre, sino que incluso links»). Lo que dice el perfil de
-  // empresa de WhatsApp de cada uno que ya está (web, Instagram, correo, dirección), sólo en lo vacío. No le llega nada a nadie.
-  // Cada consulta es tráfico en la red de su línea: primero la CUENTA (cuántos faltan, cuántos hace esta vez y en cuánto, cuántos
-  // quedan hoy), después la pregunta, y recién ahí consulta. Con tope por corrida y por día (lib/grupo-wa-reglas.ts).
-  const contarPerfiles = async () => {
-    // Para entre una llamada y la siguiente (cada una, hasta ~40 s): se dice, para que no parezca que no oyó.
-    if (perfilando) { pararPerfiles.current = true; setAvance('Parando al terminar esta tanda…'); return; }
-    if (!grupo || trayendo) return;
-    setErr(null); setHecho(null); setCompletando(true); setAvance('Contando…');
-    try {
-      const c = await completarPerfilesDeGrupoAction({ linea, jid, soloContar: true })
-        .catch((e) => ({ ok: false as const, error: e instanceof Error ? e.message : 'error' }));
-      if (!c.ok) { setErr(c.error); return; }
-      if (!c.pendientes) { setHecho(`«${grupo.nombre}»: ya se consultaron los ${miles(c.total)} que están.`); return; }
-      if (!c.estaCorrida) { setErr(`Hoy ya se hicieron las ${miles(TOPE_PERFILES_DIA)} consultas de esta línea (cuidan tu WhatsApp de un bloqueo). Faltan ${miles(c.pendientes)}: tócalo mañana.`); return; }
-      setCuentaPerfiles({ pendientes: c.pendientes, total: c.total, quedanHoy: c.quedanHoy, estaCorrida: c.estaCorrida });
-    } finally { setCompletando(false); setAvance(null); }
-  };
-
-  const traerPerfiles = async () => {
-    const cuenta = cuentaPerfiles;
-    setCuentaPerfiles(null);
-    if (!grupo || trayendo || !cuenta) return;
-    setErr(null); setHecho(null); setCompletando(true); setPerfilando(true); pararPerfiles.current = false;
-    let a: AvancePerfiles;
-    try {
-      // La misma máquina que la barra de lote del tablero (./enriquecer-cliente.ts): suma `hechas`, saltea a los que no
-      // contestaron, para con «Parar» y dice por qué no siguió.
-      a = await correrPerfiles(cuenta, (hechas, saltear) => completarPerfilesDeGrupoAction({ linea, jid, hechas, saltear }), {
-        parar: () => pararPerfiles.current,
-        alAvanzar: (hechas, meta) => setAvance(`Revisando perfiles: ${miles(hechas)} de ${miles(meta)}…`),
-      });
-    } finally { setCompletando(false); setPerfilando(false); setAvance(null); }
-    setHecho(`«${grupo.nombre}»: ${resumenDePerfiles(a)}`);
-    if (a.completados) { onTraidos(`${miles(a.completados)} con datos de empresa`); setVuelta((n) => n + 1); }
+  // «DATOS DE EMPRESA», POR LA EXTENSIÓN Y EN UNA PASADA (27/10/2026; el Cerebro, sobre la llamada con Leandro 874749710-07:
+  // «el tope de 120 por día se mantiene mientras vaya por Evolution»). Antes consultaba el perfil de empresa por la línea
+  // (Evolution), de a 120 por día para cuidarla de un bloqueo, y traía poco. La extensión abre el perfil de cada uno en SU
+  // WhatsApp Web, como una persona, y lee la web, el correo, el Instagram y las redes: es la misma extracción a la vista,
+  // sobre los que ya están, con TODOS los perfiles y sin tope por día. Sólo llena lo vacío. No le llega nada a nadie.
+  const datosDeEmpresa = () => {
+    if (!grupo || trayendo || !entrada) return;
+    if (extWa !== 'si') { setPideExt(true); return; }
+    setPideEmpresa(yaEstan);
   };
 
   const opcionesLinea: DropdownOption[] = (lineas ?? []).map((l) => ({ value: l.linea, label: l.conectada ? l.etiqueta : `${l.etiqueta} · sin conectar` }));
@@ -353,11 +338,10 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
   //   · abajo, sólo «Atrás» y «Extraer N»; a la izquierda, lo que está pasando, en una línea.
   // La lista sigue siendo lo único que scrollea (`VistaConPie`, 24/10: «los botones de abajo no pueden estar a la mitad»).
   const mas: OpcionMas[] = trayendo || !yaEstan ? [] : [
-    { id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: () => void contarPerfiles() },
+    { id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: datosDeEmpresa },
   ];
   // Lo que corre se para desde el pie (y «Extraer», también desde el desplegable de la extensión).
-  const pararAccion = extrayendo ? { texto: 'Parar', onClick: () => { parar.current = true; setAvance('Parando…'); } }
-    : perfilando ? { texto: 'Parar', onClick: () => void contarPerfiles() } : undefined;
+  const pararAccion = extrayendo ? { texto: 'Parar', onClick: () => { parar.current = true; setAvance('Parando…'); } } : undefined;
   const irAInstalar = () => {
     setPideExt(false); setEsperaExt('fue');
     // Una descomprimida vieja con la nueva en su carpeta se pone al día sola con esto (0.71.1+).
@@ -368,8 +352,9 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
     : avance ? { texto: avance, tono: 'neutro' as const, ...(pararAccion ? { accion: pararAccion } : {}) }
     : lineas && !entrada ? { texto: 'Ninguna etapa de este CRM se puede usar al extraer: todas mandan algo o cierran el trato.', tono: 'mal' as const }
     : esperaExt === 'fue' ? { texto: 'Cuando la extensión esté, la extracción empieza sola.', tono: 'neutro' as const, accion: { texto: 'Cancelar', onClick: () => setEsperaExt(null) } }
-    : hecho ? { texto: hecho, tono: 'ok' as const }
+    : hecho ? { texto: hecho, tono: 'ok' as const, ...(verCrm && onCerrar ? { accion: { texto: 'Ver en el CRM', onClick: onCerrar } } : {}) }
     : buscandoTodos ? { texto: 'Buscando el resto de tus grupos…', tono: 'neutro' as const }
+    : !jid && todosGrupos != null ? { texto: `Están todos tus grupos · ${miles(todosGrupos)}`, tono: 'ok' as const }
     : null;
 
   return (
@@ -466,10 +451,10 @@ export function TraerDeGrupoWA({ destino, onAtras, onTraidos }: {
             : 'Para extraer de un grupo, MaKo entra a tu WhatsApp Web con su extensión. Instálala y la extracción empieza sola.'}
           onConfirm={irAInstalar} onCancel={() => setPideExt(false)} />
       )}
-      {cuentaPerfiles && (
-        <Confirm tone="primary" title="¿Traer los datos de empresa?" confirmLabel={`Consultar ${miles(cuentaPerfiles.estaCorrida)}`}
-          message={preguntaDePerfiles(cuentaPerfiles, minutosDePerfiles(cuentaPerfiles.estaCorrida))}
-          onConfirm={() => void traerPerfiles()} onCancel={() => setCuentaPerfiles(null)} />
+      {pideEmpresa != null && (
+        <Confirm tone="primary" title="¿Leer los datos de empresa?" confirmLabel={`Leer ${miles(pideEmpresa)} perfiles`}
+          message={`Tu extensión abre el perfil de los ${miles(pideEmpresa)} en tu WhatsApp Web: unos ${miles(minutosDeLaPasada(pideEmpresa))} min. No les llega nada.`}
+          onConfirm={() => { setPideEmpresa(null); void extraer(true, { todosLosPerfiles: true }); }} onCancel={() => setPideEmpresa(null)} />
       )}
     </MoldeTraer>
   );

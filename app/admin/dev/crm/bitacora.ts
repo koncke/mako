@@ -3735,4 +3735,27 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/crm',
   },
+  {
+    fecha: '27 oct', hora: '19:30', chat: 'CRM', sesion: 'local_9208f597-8883-41ae-943d-89f9d8040c08', cuenta: 'claude5',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Lo de Leila, Leandro y Aaron: mover rápido, la ficha que no cargaba, sin topes y «Traer de grupo»',
+    puntos: [
+      'Mover de etapa desde la ficha ya no espera el primer mensaje de la automatización: ese mensaje sale después, y el aviso de en qué automatización entró sigue igual.',
+      'Si la página quedó de antes de una actualización de MaKo, la ficha de un lead se recarga sola y lo abre (antes decía «No se pudo cargar» hasta apretar F5).',
+      'Etiquetar a muchos ya no se corta en 200: va de a tandas y, si algo se corta, dice cuántos quedaron sin la etiqueta. Las campañas tampoco recortan en 200.',
+      '«Traer de grupo»: al terminar dice cuántos entraron, a qué etapa y con qué etiqueta, con «Ver en el CRM»; avisa cuando llegaron todos tus grupos; primero los que tienen nombre.',
+      '«Datos de empresa» ahora va por la extensión, todos en una pasada y sin el tope de 120 por día.',
+      'Si la etapa de Ganado se usa como un paso del medio (por ejemplo «Calificado»), el editor del funnel lo marca: cada lead ahí cuenta como cliente.',
+      'Si tu extensión quedó vieja, lo dice en cualquier pantalla. Y la extensión anota cuánto tarda cada etapa y avisa si Chrome quedó tapado.',
+    ],
+    archivos: [
+      'lib/nutricion.ts — el primer mensaje, después de contestar',
+      'app/crm/LeadEditModal.tsx y lib/pagina-vieja.ts — la ficha de una página vieja',
+      'app/crm/AccionesLoteLeads.tsx — etiquetar de a tandas',
+      'app/crm/TraerDeGrupoWA.tsx — el cartel, los grupos y «Datos de empresa»',
+      'lib/pipeline.ts — la etapa de Ganado como paso del medio',
+      'app/_components/AvisoExtensionVieja.tsx — el aviso en toda la app',
+    ],
+    revisar: '/crm',
+  },
 ];

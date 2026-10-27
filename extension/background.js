@@ -2631,6 +2631,8 @@ async function pestanaDeWhatsappLista(avisar) {
 // WhatsApp Web que YA está (⚠️ nunca una segunda: le cierra la sesión; sólo se abre una si no hay ninguna), abre el
 // desplegable y recorre el grupo (wa-recorrer.js). Cada paso queda en `extracciones` (storage), que el desplegable dibuja.
 const TOPE_REGISTRO = 30;
+/** Lo que se dice si WhatsApp Web corre oculta (Chrome tapado): la pantalla de MaKo y el desplegable. */
+const TEXTO_OCULTA = 'Chrome quedó tapado por otra ventana y así va lento: tráelo al frente.';
 /** Las extracciones en curso: de qué pestaña de MaKo vino cada una, y en qué pestaña de WhatsApp corre. */
 const extraccionesVivas = new Map();
 let colaRegistro = Promise.resolve();
@@ -2646,8 +2648,18 @@ function anotarExtraccion(id, cambios, crear = false) {
     const i = lista.findIndex((e) => e.id === id);
     const ahora = Date.now();
     const limpio = Object.fromEntries(Object.entries(cambios || {}).filter(([, v]) => v !== undefined));
-    if (i < 0) { if (!crear) return; lista.unshift({ id, cuando: ahora, estado: 'corriendo', ...limpio, actualizado: ahora }); }
-    else lista[i] = { ...lista[i], ...limpio, actualizado: ahora };
+    // ⚠️ EL TIEMPO DE CADA ETAPA, MEDIDO EN CADA CORRIDA (27/10/2026; Leandro: «se tarda mucho», y con Aaron se trabó): en qué
+    // segundo empezó cada fase (`tiempos`) y cuánto tardó todo (`duracion`). Así un «tarda» se lee en el registro de quien lo
+    // dijo, no se adivina.
+    const conTiempos = (e) => {
+      const seg = Math.round((ahora - (e.cuando || ahora)) / 1000);
+      const out = { ...e };
+      if (typeof limpio.fase === 'string' && limpio.fase && (out.tiempos || {})[limpio.fase] == null) out.tiempos = { ...(out.tiempos || {}), [limpio.fase]: seg };
+      if (typeof limpio.estado === 'string' && limpio.estado !== 'corriendo' && out.duracion == null) out.duracion = seg;
+      return out;
+    };
+    if (i < 0) { if (!crear) return; lista.unshift(conTiempos({ id, cuando: ahora, estado: 'corriendo', ...limpio, actualizado: ahora })); }
+    else lista[i] = conTiempos({ ...lista[i], ...limpio, actualizado: ahora });
     await chrome.storage.local.set({ extracciones: lista.slice(0, TOPE_REGISTRO) });
   }).catch(() => {});
   return colaRegistro;
@@ -3164,10 +3176,14 @@ chrome.runtime.onMessage.addListener((msg, _s, responder) => {
     const viva = extraccionesVivas.get(id);
     if (!viva) return false;
     const n = (x) => (typeof x === 'number' && Number.isFinite(x) ? x : undefined);
-    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined });
-    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre) });
+    // Si WhatsApp Web corre OCULTA (Chrome tapado), se anota y se dice: es por qué se arrastra, y se arregla trayendo Chrome.
+    const oculta = msg.oculta === true;
+    if (msg.paso === 'perfiles') void anotarExtraccion(id, { fase: 'perfiles', perfilesHechos: n(msg.hechos), perfilesTotal: n(msg.total), ahora: typeof msg.texto === 'string' ? msg.texto.slice(0, 160) : undefined, oculta });
+    else void anotarExtraccion(id, { fase: String(msg.paso || ''), miembros: n(msg.total), vistos: n(msg.vistos), conNombre: n(msg.conNombre), oculta });
+    if (oculta) void anotarExtraccion(id, { vecesOculta: (viva.vecesOculta = (viva.vecesOculta || 0) + 1) });
     if (viva.origen != null) {
-      const texto = msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
+      const texto = oculta ? TEXTO_OCULTA
+        : msg.paso === 'recorriendo' ? 'Leyendo los miembros del grupo…' : msg.paso === 'perfiles' ? 'Leyendo los perfiles…' : typeof msg.texto === 'string' ? msg.texto : '';
       chrome.tabs.sendMessage(viva.origen, { tipo: 'WA_FICHAS_AVANCE', id, paso: String(msg.paso || ''), texto }).catch(() => {});
     }
     return false;

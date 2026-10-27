@@ -57,7 +57,7 @@ test('3. el Scraper: completar y datos de empresa en el «⋯», y su «Parar» 
   const g = leer('app/crm/TraerDeGrupoWA.tsx');
   const sinComentarios = g.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
   assert.doesNotMatch(sinComentarios, />\s*\{?[^<]*Completar desde mi WhatsApp[^<]*<\/button>|>Datos de empresa<|← Atrás<\/button>\s*\{\/\*/, 'volvieron los botones sueltos al pie');
-  assert.match(g, /\{ id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: \(\) => void contarPerfiles\(\) \}/);
+  assert.match(g, /\{ id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: datosDeEmpresa \}/);
   assert.match(g, /accion: parar/, 'lo que corre no se puede parar');
 });
 
