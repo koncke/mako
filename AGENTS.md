@@ -2383,7 +2383,9 @@ input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin
 porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
 daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
 compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
-MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee. Lo mismo en PANTALLA: una inicial sale de `iniciales`
+(lib/unicode-seguro.ts), nunca de `charAt(0)` ni `trim()[0]`: con un nombre que empieza con un emoji es medio emoji, el HTML del
+server sale con «�» y React tira la pantalla entera con #418 (/calendario y el Classroom, 27/10/2026).
 
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
@@ -4092,6 +4094,10 @@ Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `
 en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
 en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
 `reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
+En una pantalla SIN sesión de MaKo (el portal del alumno) el botón no se esconde: manda con la credencial de esa pantalla
+(`SoporteDelAlumnoCtx`, /api/compartido/curso/soporte) y el ticket es del dueño. Un ticket que levanta alguien de afuera del
+negocio va con `tercero` en `crearTicket`: nunca va solo al arreglo (ni por la regla del negocio) y su tope es suyo
+(docs/hallazgos-ticketera.md, 27/10/2026).
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 

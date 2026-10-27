@@ -26,6 +26,11 @@ import { tituloDe as tituloDeLaTab } from './titulo-tab';
 export const ROTULO_REPORTAR = 'Reportar a Soporte';
 export const ROTULO_MANDADO = 'Lo mandamos al equipo';
 export const RUTA_REPORTAR = '/api/soporte/reportar';
+/**
+ * La del ALUMNO de un curso (27/10/2026): no tiene sesión de MaKo, así que manda el token de su portal en el cuerpo
+ * (app/api/compartido/curso/soporte/route.ts). El reporte le llega al DUEÑO del curso, en su Ticketera.
+ */
+export const RUTA_REPORTAR_ALUMNO = '/api/compartido/curso/soporte';
 /** Lo más que se lee de un aviso: un error es una frase, no la pantalla. */
 export const TOPE_ERROR = 300;
 export const TOPE_ACCION = 60;
@@ -98,12 +103,14 @@ export const limpio = (v: unknown, tope: number): string => sinNombres(sinDatos(
  * La pantalla: la de `rutaSinDatos` (sin los valores de la query que no son números) y además sin los tokens del CAMINO
  * (/pagar/<token>, /compartido/<token>, /l/vista/<token>: un segmento largo de letras y números, o con @) ni los números que
  * pueden ser un teléfono o un código (más de 9 cifras, o la clave es code, otp, tel…).
+ * ⚠️ CON PUNTOS TAMBIÉN (27/10/2026): el token del portal del alumno es `c1.<ws>.<lead>.<versión>.<firma>`, y sin el punto en
+ *    la lista el segmento pasaba ENTERO al ticket: la credencial del alumno, a la vista del equipo.
  */
 export function rutaSoporte(ruta: string): string {
   const r = rutaSinDatos(ruta);
   if (!r) return '';
   const [camino, query = ''] = r.split('?');
-  const c = camino.split('/').map((s) => (s.includes('@') || (/^[A-Za-z0-9_-]{16,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s)) ? ':token' : s)).join('/');
+  const c = camino.split('/').map((s) => (s.includes('@') || (/^[A-Za-z0-9_.-]{16,}$/.test(s) && /\d/.test(s) && /[A-Za-z]/.test(s)) ? ':token' : s)).join('/');
   const q = query.split('&').filter(Boolean).map((par) => {
     const [k, v = ''] = par.split('=');
     return /^\d{1,9}$/.test(v) && !/^(code|otp|tel|telefono|phone|pin|token)$/i.test(k) ? par : `${k}=…`;
@@ -182,6 +189,34 @@ export function ticketDelReporte(r: ReporteSoporte): { titulo: string; descripci
     ...(r.navegador ? { navegador: r.navegador } : {}), ...(r.pantalla ? { pantalla: r.pantalla } : {}), ...(r.idioma ? { idioma: r.idioma } : {}),
   };
   return { titulo, descripcion, contexto };
+}
+
+// ── El reporte del ALUMNO de un curso (27/10/2026) ─────────────────────────────────────────────────────────────────
+// Leandro (llamada del 24/10, 874749710-18): su alumno no tenía cómo reportar. Lo manda desde su portal con el token de su
+// link y le llega al DUEÑO del curso: el ticket es del dueño (lo ve en su Ticketera y el equipo de MaKo en la bandeja), dice
+// que lo reportó un alumno y desde dónde, y nombra al alumno por su FICHA (/crm/<id>), no por su nombre: el dueño lo abre y
+// sabe quién es, y el nombre de un cliente de su cliente no viaja en el texto del ticket.
+
+/** La pantalla del portal, la pone el SERVIDOR: el camino del link lleva el token del alumno (su credencial entera). */
+export function rutaDelPortal(ruta: string | undefined): '/mi-curso' | '/compartido/curso/:token' {
+  return /^\/mi-curso(?:[/?#]|$)/.test(ruta ?? '') ? '/mi-curso' : '/compartido/curso/:token';
+}
+
+/** De quién se cuenta el tope del día y con qué empieza la `ref` de sus reportes: el alumno de ESE negocio. */
+export const claveDelAlumno = (ws: number, leadId: number): string => `alumno:${ws}:${leadId}`;
+
+/** El ticket del reporte de un alumno: el del botón de siempre, con la pantalla del portal y quién lo mandó. */
+export function ticketDelAlumno(r: ReporteSoporte, quien: { leadId: number; area: string | null }): { titulo: string; descripcion: string; contexto: Record<string, unknown> } {
+  const ruta = rutaDelPortal(r.ruta);
+  const t = ticketDelReporte({ ...r, ruta });
+  const frase = r.error.replace(/[.\s]+$/, '');
+  const quienEs = quien.area ? `el líder del área de tu alumno (ficha /crm/${quien.leadId})` : `tu alumno (ficha /crm/${quien.leadId})`;
+  return {
+    titulo: `Portal del curso: ${frase}`.slice(0, 120),
+    descripcion: [`Lo reportó ${quienEs} desde su portal del curso, con «Reportar a Soporte».`, ...t.descripcion.split('\n').slice(1)]
+      .join('\n').replace(/^Pantalla: .*$/m, `Pantalla: el portal del curso (${ruta})`),
+    contexto: { ...t.contexto, ruta, chat: { donde: 'portal-alumno' } },
+  };
 }
 
 /** La huella del día: la misma persona, la misma pantalla (como patrón) y el mismo mensaje, el mismo día (UTC). */

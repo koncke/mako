@@ -61,7 +61,7 @@ import { apiDelAlumno } from '@/app/_comunidad/api';
 import Reproductor from './Reproductor';
 import TareaAlumno from './TareaAlumno';
 import { VistaPreviaCtx, useVistaPrevia } from './vista-previa';
-import { SinSoporteCtx } from '@/app/_ui/ReportarASoporte';
+import { SoporteDelAlumnoCtx } from '@/app/_ui/ReportarASoporte';
 import { SIN_NOMBRE_ALUMNO, SIN_NOMBRE_ALUMNO_EN_LISTA } from '@/lib/curso-nombre';
 import { CSS_PORTAL } from './estilos';
 import {
@@ -99,9 +99,9 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
   useEffect(() => { sembrar({}); }, []);
 
   return (
-    // El alumno no tiene sesión de MaKo: «Reportar a Soporte» le contestaba «no autenticado» (f33). La vista previa
-    // del equipo sí la tiene.
-    <SinSoporteCtx.Provider value={!vistaPrevia}>
+    // El alumno no tiene sesión de MaKo: «Reportar a Soporte» manda con el token de su portal y le llega al dueño del curso
+    // (874749710-18). La vista previa del equipo sí tiene sesión: reporta por la ruta de siempre.
+    <SoporteDelAlumnoCtx.Provider value={vistaPrevia ? null : token}>
     <VistaPreviaCtx.Provider value={vistaPrevia}>
       <style dangerouslySetInnerHTML={{ __html: CSS_PORTAL }} />
       {producto ? (
@@ -123,7 +123,7 @@ export default function PortalAlumno({ token, vista, vistaPrevia = false, urlsAd
         <Pagina><EmptyState titulo="Todavía no hay clases." /></Pagina>
       )}
     </VistaPreviaCtx.Provider>
-    </SinSoporteCtx.Provider>
+    </SoporteDelAlumnoCtx.Provider>
   );
 }
 

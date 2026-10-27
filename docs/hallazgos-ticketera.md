@@ -559,3 +559,27 @@ evidente» también para un pedido de Leandro. Lo corrige lo que lee el Cerebro,
 
 **Vive en:** `lib/tickets-reglas.ts` (`APROBADOS_POR_REGLA`, `clasificar`) · `lib/tickets-db.ts` (`crearTicket`) ·
 `lib/tickets-cierre.ts` (`avisarUno`) · `scripts/tickets.ts` (`ver`) · `app/tickets/bandeja/BandejaTickets.tsx` · `tests/tickets-por-regla.test.ts`
+
+## Un ticket que levanta alguien de AFUERA del negocio: el alumno de un curso (27/10/2026, 874749710-18)
+
+El alumno reporta desde su portal y el ticket le llega al DUEÑO del curso (el lado del portal, en
+[hallazgos-customer-success.md](hallazgos-customer-success.md) → «El alumno reporta a soporte con su token»). Lo que hay que
+saber antes de abrir otra puerta así:
+
+- **El ticket es del dueño, no del alumno.** Lo del cliente se lee por (workspace, email): un ticket a nombre de
+  `alumno:<lead>` no lo vería nadie más que Martín en la bandeja. El dueño lo ve en su Ticketera y le llega el aviso cuando se
+  resuelve; la descripción dice que lo reportó un alumno y su ficha (`/crm/<id>`), nunca su nombre.
+- ⚠️ **La regla de Leandro abría el arreglo automático a cualquiera con el link de su curso.** `aprobadoPorRegla(ws)` mira sólo
+  el negocio: un alumno del ws 10 que escribiera «dejó de andar» mandaba SU texto al Runner. `crearTicket` con `tercero` pasa
+  `deTercero` al triage, que corta antes de la regla: lo decide Martín, siempre.
+- ⚠️ **El tope del día se le gastaba al dueño.** Se cuenta por (workspace, email) y el email es el del dueño: unos pocos alumnos
+  lo dejaban sin tickets el día. El de un tercero se cuenta por el comienzo de su `ref` (`alumno:<ws>:<lead>:`,
+  `TOPE_POR_DIA_TERCERO` = 3), y `crearTicket` rechaza una `ref` que no empieza con su clave.
+- ⚠️ **`rutaSoporte` dejaba pasar el token del portal entero.** Reconocía un token como un segmento de letras, números, `_` y
+  `-`; el del portal es `c1.<ws>.<lead>.<versión>.<firma>`, con puntos, y pasaba tal cual a la pantalla del ticket: la
+  credencial del alumno a la vista del equipo y del Cerebro. Ahora el punto cuenta, y además la ruta del alumno pone la pantalla
+  del portal ella misma (`rutaDelPortal`).
+
+**Vive en:** `lib/tickets-db.ts` (`crearTicket`, `tercero`) · `lib/tickets-reglas.ts` (`clasificar`, `deTercero`,
+`TOPE_POR_DIA_TERCERO`) · `lib/soporte-reporte.ts` (`rutaSoporte`, `ticketDelAlumno`, `claveDelAlumno`) ·
+`tests/curso-soporte-alumno.test.ts` (6 roturas, cada una cae)

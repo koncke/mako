@@ -257,6 +257,9 @@ export const PUBLICOS_ESCRITURA = [
   // (mig 0217: una sola ruta, también para leer, así el token no queda en la URL).
   '/api/compartido/curso/entrega',
   '/api/compartido/comunidad',
+  // «Reportar a Soporte» del alumno (27/10/2026): el mismo token del portal en el CUERPO; sólo CREA un ticket para el dueño
+  // del curso, con tope por IP y por alumno, y mira el Origin ella misma.
+  '/api/compartido/curso/soporte',
   // Los datos de un informe del Dashboard compartido por link (11/10/2026). NO escribe: es POST para que el
   // token del link viaje en el CUERPO y no en la URL, igual que la comunidad. La credencial entera es ese
   // token (revalidado contra la fila viva en cada pedido) y la ruta no lee la cookie de sesión.
