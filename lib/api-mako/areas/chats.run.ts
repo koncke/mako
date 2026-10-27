@@ -256,7 +256,7 @@ export const RUNNERS: Runners = {
       // Al buscar, todas: quien busca a una persona la quiere encontrar aunque su conversación esté cerrada.
       const mostrar: MostrarChats = enLista(MOSTRAR_CHAT, mostrarPedido) ? mostrarPedido : buscar ? 'todas' : 'abiertas';
       const coinciden = filtrarChats(r.chats, {
-        vista, canal, cuenta: canal === 'whatsapp' ? linea : null, etapa: str(input, 'etapa'),
+        vista, canal, cuenta: canal === 'whatsapp' ? linea : null, funnel: null, etapa: str(input, 'etapa'),
         mostrar, orden: 'recientes', sinResponder: input.soloSinResponder === true,
       }, { nombre: usuario?.nombre ?? '' });
       const limite = num(input, 'limite') ?? 40;
