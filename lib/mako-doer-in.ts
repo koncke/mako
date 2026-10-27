@@ -47,6 +47,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueDeLaFalla, reportaFalla } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
+import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { linksConWs } from '@/lib/links-con-ws';
@@ -2057,6 +2058,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           if (cartel === 'sin_keys') {
             respuesta = `${respuesta}\n\n${OFERTA_AYUDA}`;
             await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai', ...faltan], Date.now()))).catch(() => {});
+          }
+          // ── EL GASTO DE META NO NECESITA IA (27/10/2026, MAU-04: «cuanto llevo gastado de octubre en meta ads ?» → «la IA lo
+          // rebota por límite»). El dato está en `marketing_metrics_daily` y el estado de la cuenta en Meta: va PRIMERO, y el
+          // aviso de la IA después (lib/gasto-meta.ts). Si no se pudo leer, el aviso solo, como antes.
+          if (esPreguntaDeGastoMeta(sinPrefijoDeLote(texto))) {
+            const gasto = await (await import('@/lib/gasto-meta-server')).respuestaDeGastoMeta(sinPrefijoDeLote(texto)).catch(() => null);
+            if (gasto) respuesta = `${gasto}\n\n${respuesta}`;
           }
           console.error(`[mako-doer-in] ws=${wsData} fallo de IA (${causa}, ${nKeys} keys, ${ee?.probadas ?? '?'} probadas, ${ee?.contestaron ?? 0} contestaron): ${errsIA.join(' · ').slice(0, 400)}`);
           if (errsPlat.length) console.error(`[mako-doer-in] ws=${wsData} y NUESTRA red de plataforma: ${errsPlat.join(' · ').slice(0, 400)}`);
