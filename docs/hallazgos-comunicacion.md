@@ -84,12 +84,43 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
   · Bajar de modelo (flash-latest → flash-lite) queda escrito: una fila `rebote:<modelo>` con el motivo, que no cuenta como
     «su clave anduvo».
 
-**Sin hacer (de la misma lectura):**
-- El webhook no guarda los grupos (MK-01) y los audios de Makito (MK-02).
-- Agendar en el grupo de Pablo, contra una agenda real (MK-06).
-- La agenda del día y el contacto compartido por teléfono (P6).
-- El vigía (P10), el acuse a otra persona y el pushName (P8), la latencia (P11) y «Conectar otro canal» (Leandro).
-- «misma pregunta, mismo número» sólo está cubierto porque ahora viaja la herramienta: si el modelo elige otro rango de
+**Tanda 2 (la misma lectura).**
+- **⚠️ El arreglo del «hecho» no llegaba al grupo** (lo encontró el vigía, P10). `sanearSalida` sacaba la oración, pero el doer
+  aplicaba el saneo SÓLO si además había una promesa o una grosería. «He reportado el error al equipo…», sola, salía igual.
+  · Ahora el «hecho» sin respaldo entra en esa condición y deja su fila, `saneo:hecho`.
+  · **Regla: un tipo nuevo de saneo va en la condición del doer, con su fila, y el test lee esa condición.** Que el test de
+    la función pase no prueba que quien la llama use lo que devuelve.
+- **El vigía contó 4 incidentes en una semana con más de 20.** Le faltaban cuatro cosas:
+  · las propuestas que vencieron sin el «sí» (`mako_acciones_pendientes`). ⚠️ `estado = 'vencida'` lo pone
+    `vencerExpiradas` recién cuando alguien lee ESE grupo, así que una `pendiente` con `vence_at` pasado también venció;
+  · el «hecho» que se atajó (`saneo:hecho`);
+  · las quejas indirectas («y tú eres el servicio técnico», «tras 4 intentos», «Esto habla solo»);
+  · las evasivas de MaKo («no se lista nominalmente», «puede deberse a»).
+  Sigue a base de palabras: una queja sin ninguna de ellas no se ve.
+- **«¿Cuánto llevo gastado de octubre en Meta?»** (MAU-04) lo contesta el código desde `marketing_metrics_daily`, sin la IA
+  (`lib/gasto-meta*.ts`).
+  · ⚠️ `spend` está en la moneda de la cuenta; `spend_usd` no es lo que ve el cliente.
+  · Si Meta frenó la cuenta (`getMetaAccountHealth`; el estado 3 es saldo impago), se dice eso. «Sin sincronizar» era el
+    diagnóstico equivocado: los datos estaban, la cuenta no gastaba.
+- **El webhook no guardaba los grupos de la lista** (MK-01). Ahora se guardan en el workspace de la PLATAFORMA
+  (`wsSuperAdmin`) y nunca en `OWNER_WS`, que es el ws1, un cliente.
+  · La media se pide a la instancia en el momento del webhook. ⚠️ La línea de voz de MaKo, por donde entra Makito, no manda
+    el base64 (`webhookBase64` apagado), y el CDN de WhatsApp deja de servir la media a los 15 a 17 días, no a los 30 que se
+    creía (MK-02): pedirla después es perderla.
+- **Contestaba un acuse o una charla entre personas, y llamaba «Martín» a quien no era** (P8). Ahora un acuse o una
+  @mención a otro no abre turno, salvo que MaKo haya preguntado algo, y el `pushName` llega al modelo.
+- **Mandaba a calendar.google.com teniendo `agenda_del_dia`, y un contacto compartido terminaba en un lead nuevo** (P6).
+  · Pedir VER la agenda trae la herramienta. ⚠️ «la agenda» o «mi agenda» es el sustantivo, no «agendá».
+  · `buscar_leads` compara el texto tal cual («+54 9 11…» contra «5491…»). El contacto ahora se busca por
+    `telefono_normalizado` (los últimos 10 dígitos) antes de proponer nada (`lib/contacto-compartido*.ts`).
+
+**Sin hacer:**
+- **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
+  Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3
+  tiene Google conectado: si no lo tiene, el script sale con 3. El mensaje a Joan está redactado y no se mandó.
+- **MK-02.** `scripts/subir-makito-recuperado.mts --aplicar` (21 audios) espera el sí de Martín.
+- **P11, la latencia desde el 24/10:** sin medir. Necesita leer producción, y el clasificador lo negó.
+- **«Misma pregunta, mismo número»** sólo está cubierto porque ahora viaja la herramienta: si el modelo elige otro rango de
   fechas, el número cambia.
 
 *27/10/2026, chat «MaKo en WhatsApp: conexiones» (claude5).*
