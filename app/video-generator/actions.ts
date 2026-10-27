@@ -22,6 +22,7 @@ import {
 import {
   componerTema, type PedidoVideo,
 } from './video-pedido';
+import { lugarDelPedido } from './estudio/composer';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
@@ -58,6 +59,11 @@ export async function generarPlanAction(
 
   const guionTexto = (input.guionTexto ?? '').trim();
   if (!guionTexto) return { ok: false, error: 'Elige uno de tus guiones antes de generar.' };
+
+  // El lugar elegido en el estudio, con la MISMA regla que la pantalla (estudio/composer.ts → lugarDelPedido): un lugar que
+  // no existe o que no sirve con la cámara de este formato no se guarda. Antes de gastar la llamada al modelo.
+  const lugar = input.lugar === undefined ? null : lugarDelPedido(puesta, input.lugar);
+  if (lugar && !lugar.ok) return lugar;
 
   try {
     const anterior = input.anteriorId
@@ -109,6 +115,8 @@ export async function generarPlanAction(
       guionId: input.guionId || undefined,
       plan: { ...out.plan, acentoEsVoseante: acento.id === 'ar' },
       at: new Date().toISOString(),
+      // Con el lugar decidido al crear, el wizard no lo vuelve a preguntar después del guion (estudio/proyectos.ts).
+      ...(lugar?.ok ? { lugarEnElAlta: true as const, ...(lugar.escenarioId ? { escenarioId: lugar.escenarioId } : {}) } : {}),
     };
     const historial = await guardarEnHistorial(item);
     return { ok: true, item, historial };

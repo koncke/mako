@@ -16,16 +16,17 @@ import { guionesDisponibles } from './guiones-datos';
 import { puestasOfrecidas } from '@/lib/puestas-data';
 import { leerAnuncios } from './anuncios-datos';
 import { leerSaldoGuardado, costoPorClip } from './saldo-datos';
-import { VideoGeneratorApp } from './VideoGeneratorApp';
+import type { ReactNode } from 'react';
+import { EstudioVideo } from './estudio/EstudioVideo';
+import { Pagina } from '@/app/_ui';
 import { onboardingRequeridoPara, getEstadoTab } from '@/lib/tab-onboarding-state';
 import { puentearPasosCopyGen } from '@/lib/copygen-puente';
 import { redirect } from 'next/navigation';
 import { PuertaVideoGen } from './PuertaVideoGen';
 import { EditorVideoDisponible } from './editor-video';
 import { veEditorVideo } from '@/app/video-editor/acceso';
-// El interruptor del tema, en el HTML del servidor: corre antes del primer
-// pintado y evita el fogonazo blanco. Ver TemaOscuroScript.
-import { TemaOscuroScript } from '@/app/_components/TemaOscuroScript';
+// ⚠️ SIN `TemaOscuroScript` desde el 27/10/2026: el estudio va en los colores de MaKo (los tokens, claro u oscuro según
+// elija la persona: el interruptor de la barra), no en el negro de Flow que la tab forzaba.
 import { FranjaPrueba } from '@/app/_ui/FranjaPrueba';
 
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,7 @@ export default async function Page() {
   const ws = await getWorkspaceActual();
   // Agencia sin impersonar: no hay workspace del que leer. La vista igual se
   // sirve (las actions cortan con su propio error si intenta operar).
-  if (ws == null) return <><TemaOscuroScript /><VideoGeneratorApp historialInicial={[]} contexto={null} puente={null} guiones={[]} anuncios={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} /></>;
+  if (ws == null) return <Estudio><EstudioVideo historialInicial={[]} anunciosIniciales={[]} contexto={null} puente={null} guiones={[]} saldo={{ creditos: null, at: null, tier: '' }} costoClip={{ creditos: 15, medido: false }} /></Estudio>;
 
   const [historial, contexto, puente, guiones, anuncios, saldo, costoClip, editorVideo] = await Promise.all([
     leerHistorial(),
@@ -110,17 +111,24 @@ export default async function Page() {
   const primeraFrase = (guiones[0]?.hablado ?? guiones[0]?.texto ?? '')
     .split(/(?<=[.!?])\s+/)[0]?.trim().slice(0, 120) ?? '';
 
+  // EL ESTUDIO (27/10/2026, copiado de Arcads): los proyectos al costado, el anuncio en el centro y MaKo a la derecha, en
+  // UNA ruta (app/video-generator/estudio/EstudioVideo.tsx).
+  // LA PRUEBA GRATIS (25/10/2026, copiada de Madgicx): cuánto usó de lo que la prueba topa, arriba del CENTRO del estudio
+  // (arriba de la página empujaba las tres columnas fuera de la ventana). El onboarding de la tab no gasta: no la lleva.
   const app = (
     <EditorVideoDisponible si={editorVideo}>
-      <VideoGeneratorApp
-        historialInicial={historial}
-        contexto={contexto}
-        puente={puente}
-        guiones={guiones}
-        anuncios={anuncios}
-        saldo={saldo}
-        costoClip={costoClip}
-      />
+      <Estudio>
+        <EstudioVideo
+          historialInicial={historial}
+          anunciosIniciales={anuncios}
+          contexto={contexto}
+          puente={puente}
+          guiones={guiones}
+          saldo={saldo}
+          costoClip={costoClip}
+          franja={<FranjaPrueba cosas={['prueba.videos', 'prueba.tomas', 'prueba.imagenes']} style={{ margin: '12px 24px 0' }} />}
+        />
+      </Estudio>
     </EditorVideoDisponible>
   );
 
@@ -145,9 +153,6 @@ export default async function Page() {
 
   return (
     <>
-      <TemaOscuroScript />
-      {/* LA PRUEBA GRATIS (25/10/2026, copiada de Madgicx): cuánto usó de lo que la prueba topa en esta pantalla. */}
-      <FranjaPrueba cosas={['prueba.videos', 'prueba.tomas', 'prueba.imagenes']} style={{ margin: '12px 16px 0' }} />
       {faltaOnboarding ? (
         <PuertaVideoGen
           fotos={contexto.fotos}
@@ -165,5 +170,18 @@ export default async function Page() {
         </PuertaVideoGen>
       ) : app}
     </>
+  );
+}
+
+/**
+ * El marco del estudio: la página a alto completo, sin padding y sin scroll propio (scrollea cada columna).
+ * ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES (el molde de app/dashboard/page.tsx): `Pagina` trae `flex: 1`
+ * (base 0%), que en la columna del layout ANULA el alto, y entonces scrollea el documento y no las columnas.
+ */
+function Estudio({ children }: { children: ReactNode }) {
+  return (
+    <Pagina ancho="completo" densidad="compacta" style={{ padding: 0, flex: 'none', height: '100dvh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+      {children}
+    </Pagina>
   );
 }

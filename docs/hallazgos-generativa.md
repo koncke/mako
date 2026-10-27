@@ -7194,3 +7194,56 @@ cliente** (el Chrome de Martín no estaba conectado a esta cuenta). Lo que se mi
 - si «Upload» usa `input.click()`, `showPicker()` u otra cosa.
 Y sin construir: cuando la cara guardada (`KEY_CARAS_FLOW`) no está en el proyecto, nada la vuelve a
 subir sola (`video-action.ts`, `caraEnFlow`); la persona ve «Tu foto no está en este proyecto de Flow».
+
+## El estudio de video copiado de Arcads (27/10/2026)
+
+*Sesión en la nube, a pedido del Cerebro. Martín: «implementar Video Generator, que nos quedó a medias... Tiene una cantidad
+de pestañas absurdas, el diseño, que se parezca a una app que tomemos de referencia».*
+
+**La referencia: Arcads** (arcads.ai), la app de anuncios UGC con actores de IA. Se eligió porque resuelve el MISMO problema
+(un guion, una persona que lo dice a cámara, un anuncio vertical) en un solo panel: el guion arriba, el actor elegido de una
+biblioteca de videos, «Generate», y los proyectos en una lista al costado. HeyGen y Captions se descartaron: el primero es un
+editor de escenas por diapositiva y el segundo, un editor de lo ya grabado. Las pantallas se vieron por su centro de ayuda
+(la app pide cuenta paga y la red de la nube bloquea casi todo lo que no es el buscador):
+[Getting started](https://help.arcads.ai/en/articles/14531683-getting-started-with-arcads),
+[un actor que habla](https://help.arcads.ai/en/articles/13239650-how-to-create-a-talking-actor-video-no-product),
+[un anuncio UGC](https://help.arcads.ai/en/articles/17595045-how-do-i-make-an-ai-ugc-ad-in-arcads),
+[la guía de la plataforma](https://help.arcads.ai/en/articles/15503340-everything-you-can-do-on-arcads-complete-platform-guide).
+
+**Qué se copió:** una ruta y tres columnas (`app/video-generator/estudio/`). A la izquierda, «Nuevo anuncio» y los proyectos
+(en curso con en qué anda cada uno, y los terminados con su miniatura); en el centro, el anuncio nuevo en UNA pantalla
+(guion, formato como biblioteca de videos, lugar como chips y un solo botón con su consecuencia) o el anuncio abierto; a la
+derecha, MaKo. Abrir, crear o cambiar de proyecto no cambia de ruta: el abierto viaja en `?plan=` con `history.replaceState`
+(Next lo sincroniza con `useSearchParams`) y se conserva el `?ws=` (`urlConPlan`).
+
+**Lo que se sacó:** el catálogo de guiones como pantalla aparte, la galería de formatos aparte, el paso del lugar después
+del guion (si se eligió al crear: `lugarEnElAlta`), la «previa volante» del onboarding (`PreviaVolante.tsx`) y el negro
+forzado de la tab (`TemaOscuroScript`): el estudio va en los tokens de MaKo, claro u oscuro. `VideoGeneratorApp.tsx` se
+borró (lo reemplaza `EstudioVideo.tsx`).
+
+**Lo que no se ve en el código:**
+- **El chat es el de la app, no el de Web Generator.** El pedido decía «como en Web Generator», pero el motor de ese chat es
+  de landings. Lo que se reusó es lo que comparten los dos, el chat único (PanelDeChat + `useChatCliente`, el motor del Ops
+  Center), montado como el del Second Brain: una conversación por persona (`mako-movil:<persona>:video-generator`), el
+  anuncio abierto como entidad (`anuncio` en lib/chat-desde.ts, que mete su `planId`) y, al terminar cada turno, el estudio
+  relee los proyectos y abre el anuncio que MaKo haya creado (`proyectoNuevo`).
+- **Los runners del chat llaman a las server actions de la tab**, y eso contradice el encabezado de video.run.ts («fuera de
+  un navegador contestan "solo el administrador"»). No lo contradice: es cierto para WhatsApp y HTTP. En la app, el turno y
+  la confirmación de la tarjeta corren en un pedido del navegador de la persona, con su cookie, y el registro corre adentro
+  de `runWithWorkspace(ctx.ws)`. Por eso las 21 operaciones salen sólo por `['app']`, están en `NO_EN_FLUJOS` y su runner
+  rechaza además la clave de un flujo (`soloDesdeLaApp`).
+- **Las acciones se cargan con `import()` al usarlas.** El registro (lib/api-mako/runners.ts) lo importan WhatsApp, los
+  crons y los webhooks; con un import fijo, cada una de esas rutas cargaba el Video Generator entero.
+- **`generarTomaAction` contesta `ok: true` SIN filmar** sobre una toma ya filmada o en vuelo (su freno de plata). Por chat
+  eso sería un «listo» que no hizo nada: `porQueNoFilmar` (estudio/filmar.ts) pregunta antes de proponer y otra vez al
+  confirmar (`faltaParaConfirmar`), y el runner mira la marca que dejó la acción, no su `ok`.
+- **El inventario botón ↔ operación son las server actions exportadas** (estudio/inventario.ts): un botón nuevo sin su
+  operación o su motivo no pasa tests/video-estudio-api.test.ts. Lo que queda por motivo: los sondeos de la pantalla, los
+  prompts técnicos (el chat no los muestra), lo que lleva un archivo de la computadora y el onboarding.
+
+**Medido en la nube y no en vivo:** la nube no tiene la base ni Flow. Nada de esto se vio con un puente conectado: la prueba
+en vivo está en docs/relevo/video-generator.md, paso a paso. Y dos rojos que no son de este cambio, medidos en una copia
+limpia de HEAD: `tests/ops-center-clasificador-app.test.ts` (el import de `MAKO_ACCION_TOOLS` por `--input-type=module`
+falla igual en HEAD en Linux) y 14 errores de tipos en `app/video-editor/_opencut/wasm` (el paquete wasm no está compilado
+en el contenedor).
+

@@ -45,7 +45,10 @@ const PANTALLAS = [
   // Video Editor, el botón y la pantalla del editor que importa el anuncio y reemplaza
   // la URL. El resto de app/video-editor lo barre entero tests/video-editor-integracion.test.ts.
   'app/video-generator/PasoMontaje.tsx',
-  'app/video-generator/VideoGeneratorApp.tsx',
+  // El estudio (27/10/2026) reemplazó a VideoGeneratorApp.tsx: proyectos en la barra y el anuncio nuevo en una pantalla.
+  'app/video-generator/estudio/EstudioVideo.tsx',
+  'app/video-generator/estudio/Composer.tsx',
+  'app/video-generator/estudio/BarraProyectos.tsx',
   'app/video-generator/editor-video.tsx',
   'app/video-editor/desde/ImportarDesde.tsx',
 ];

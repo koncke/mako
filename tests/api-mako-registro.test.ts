@@ -66,7 +66,7 @@ test('el registro cargó sin problemas (ids únicos, snake_case, alias que no pi
 // Tanda 7 (15/10/2026): el resto del editor del Web Generator (crear y editar con IA, el contenido, el tema, el
 // sitio, el dominio…) vive en landing-editor.run.ts, del área `landing` (sus runners se suman a RUNNERS).
 // Y los tickets al equipo de MaKo (17/10/2026) viven en tickets.run.ts, del área `mako`.
-const RUNS_DE_AREA: Partial<Record<string, readonly string[]>> = { metricas: ['metricas', 'dashboard'], landing: ['landing', 'landing-editor'], mako: ['mako', 'tickets'] };
+const RUNS_DE_AREA: Partial<Record<string, readonly string[]>> = { metricas: ['metricas', 'dashboard'], landing: ['landing', 'landing-editor'], mako: ['mako', 'tickets'], video: ['video', 'video-estudio'] };
 const runsDe = (a: string): readonly string[] => RUNS_DE_AREA[a] ?? [a];
 
 test('toda def tiene su runner en el .run.ts de su área, y todo runner tiene def', () => {

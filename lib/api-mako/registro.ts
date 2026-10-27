@@ -51,6 +51,7 @@ import { DEFS as closing } from './areas/closing.def';
 import { DEFS as negocio } from './areas/negocio.def';
 import { DEFS as contenido } from './areas/contenido.def';
 import { DEFS as video } from './areas/video.def';
+import { DEFS as videoEstudio } from './areas/video-estudio.def';
 import { DEFS as imagen } from './areas/imagen.def';
 import { DEFS as integraciones } from './areas/integraciones.def';
 import { DEFS as equipo } from './areas/equipo.def';
@@ -68,7 +69,7 @@ import { DEFS as tickets } from './areas/tickets.def';
 /** Por área, en el orden de la barra. El orden es el del catálogo y la referencia. */
 const POR_AREA: Record<Area, readonly OperacionDef[]> = {
   general, plan, crm, ads, chats, whatsapp, email, chatbot, metricas: [...metricas, ...dashboard], experimentos,
-  landing, closing, negocio, contenido, video, imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
+  landing, closing, negocio, contenido, video: [...video, ...videoEstudio], imagen, integraciones, equipo, cs, curso, comunidad, creaciones, operaciones, cobros, calendario, mako: [...mako, ...tickets],
 };
 
 export const REGISTRO: readonly OperacionDef[] = AREAS.flatMap((a) => POR_AREA[a]);

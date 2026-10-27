@@ -40,6 +40,9 @@ export const CUENTAS = {
   // La 5 entra el 24/10/2026 a las 20:30, cuando la 1 llegó al 94% semanal. Martín la llamó «Ananda»; el gmail de la
   // suscripción no se declaró. Corre en la app (`~/.claude`); su semana renueva el martes a las 15:00 de Argentina.
   claude5: { n: 5, nombre: 'Ananda', ventana: '—', config: '~\\.claude (app)' },
+  // Una sesión en la NUBE (claude.ai/code): no lee `~/.claude/cuenta-activa.txt`, así que no sabe cuál de las cinco la abrió y
+  // firma `nube` (docs/relevo/nube.md → «Cómo se sube»). `n: 0` = sin número: la pantalla dice «Nube», no «Cuenta 0».
+  nube: { n: 0, nombre: 'Sesión en la nube', ventana: '—', config: '—' },
 } as const;
 
 export type Cuenta = keyof typeof CUENTAS;

@@ -75,6 +75,12 @@ export type PedidoVideo = {
   guionTexto: string;
   /** Feedback sobre el plan anterior (regenerar). */
   feedback?: string;
+  /**
+   * DÓNDE se graba, elegido en el estudio al crear (27/10/2026, app/video-generator/estudio/composer.ts): el id de un lugar
+   * de lib/escenarios-data.ts, o `'mako'` («Que lo elija MaKo»). Ausente = no se preguntó al crear, y el wizard lo pregunta
+   * después del guion como siempre.
+   */
+  lugar?: string;
 };
 
 /**
