@@ -231,13 +231,14 @@ test('8. el conocimiento del negocio se busca por el tema de la charla, no sólo
 test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el tema y los hechos sólo en su system', () => {
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /const memoria = await memoriaDelGrupo\(wsData, jid, \{ turnos: 12, dias: DIAS_DE_HECHOS \}\);\n\s*const historial = memoria\.reciente;/);
-  assert.doesNotMatch(doer, /historialGrupo\(wsData/, 'el doer volvió a leer la memoria sin lo de antes');
+  // (`historialGrupo(wsData, jid, 1)` sí: es el último turno, para saber si un «ok» contesta una pregunta, lib/doer-para-quien.ts.)
+  assert.doesNotMatch(doer, /const historial = await historialGrupo\(/, 'el doer volvió a leer la memoria sin lo de antes');
   assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n\s*const intencion = conHilo\.veredicto;/);
   assert.match(doer, /veredicto: intencion, texto, contextoDelSi, hilo: conHilo\.hilo,/, 'las herramientas no reciben el hilo');
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
-  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
+  assert.match(doer, /const conMemoria = baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*escribioDelTurno\+\+;\n)?\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);

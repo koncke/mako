@@ -44,7 +44,8 @@ import { listarPendientes, confirmarPendiente } from '@/lib/api-mako/acciones';
 import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
-import { guardarTurno, memoriaDelGrupo } from '@/lib/mako-doer-conv';
+import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
+import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo } from '@/lib/doer-para-quien';
 import { bloqueDeLaFalla, reportaFalla } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -860,6 +861,18 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const abierta = modo === 'ventana' ? await ventanaVigente(OPS, jid) : false;
     const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || abierta || vigentes.length > 0;
     if (!esMedia && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
+    // ── LO QUE NO ES PARA MaKo, NI EN «LIBRE» (27/10/2026, lib/doer-para-quien.ts) ──────────────────────────────────────
+    // Un «ok» o un «gracias» sueltos, o una @mención a otra persona: ~16 de 58 turnos contestaban eso. El 👍 ya salió. Con una
+    // pregunta de MaKo recién hecha (el «ok» es un sí) o algo pendiente, corre como siempre: la memoria se lee sólo entonces.
+    if (!esMedia && !nombraAMaKo(textoDirecto) && !vigentes.length) {
+      const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
+      const candidato = noEsParaMaKo({ texto: textoDirecto, menciones, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
+      if (candidato) {
+        const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
+        const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
+        if (!pregunto) return { engaged: false, skip: `no es para MaKo (${candidato})` };
+      }
+    }
 
     // Marcar tratado + renovar la ventana (sliding) ANTES de responder.
     if (msgId) await runWithWorkspace(OPS, () => setSetting(KEY_LAST(jid), msgId));
@@ -1251,7 +1264,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const ctxAgenda = agendaAbierta && tools.some((t) => herramientasQueSiguen(agendaAbierta).includes(t.name)) ? contextoAgendaAbierta(agendaAbierta) : '';
       // ⚠️ La memoria del grupo NO va al system de la red de la plataforma (`baseRed`): nombra leads y lo que se habló, y la red
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
-      const conMemoria = baseDelSystem === base ? [ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
+      // del turno: la red de la plataforma corre sin datos de clientes.
+      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
     };
     const system = armarSystem(tools);
