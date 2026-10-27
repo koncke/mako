@@ -175,9 +175,31 @@ export type Confianza = 'alta' | 'media' | 'baja';
 // para que Martín lo vea igual. SIGUE ESPERANDO A MARTÍN lo que toca una zona delicada (cobros, accesos, borrados, envíos) o
 // pide una migración o una escritura en producción, y todo si Martín apagó el arreglo automático. Lo que choca con una
 // decisión de Martín no se ve en el texto: el chat que lo trabaja lo frena y le pregunta (scripts/tickets.ts ver lo dice).
-export const APROBADOS_POR_REGLA: Readonly<Record<number, string>> = { 10: 'Leandro' };
+// Leila (ws 11, 26/10/2026, en la llamada con Martín; lo configuró el Cerebro): la misma vía libre, pero lo que el triage estima
+// en MÁS DE UN DÍA de trabajo va a Martín (`hastaUnDia`, `estimaMasDeUnDia`). Sus arreglos se avisan en su grupo como los de Leandro.
+// Mauricio (ws 1, 27/10/2026, MAU-09): Martín se lo prometió por WhatsApp, «todos los pedidos que entren de tu parte los
+// implemente directamente, que no pregunte». El 100%, como Leandro.
+export type ReglaDeAprobacion = { nombre: string; hastaUnDia?: boolean };
+export const APROBADOS_POR_REGLA: Readonly<Record<number, ReglaDeAprobacion>> = {
+  1: { nombre: 'Mauricio' },
+  10: { nombre: 'Leandro' },
+  11: { nombre: 'Leila', hastaUnDia: true },
+};
+/** La regla del negocio (null = sus tickets los decide Martín, como siempre). */
+export const reglaDelNegocio = (ws: number | null | undefined): ReglaDeAprobacion | null => (ws != null && APROBADOS_POR_REGLA[ws]) || null;
 /** El nombre de la regla del negocio (null = sus tickets los decide Martín, como siempre). */
-export const aprobadoPorRegla = (ws: number | null | undefined): string | null => (ws != null && APROBADOS_POR_REGLA[ws]) || null;
+export const aprobadoPorRegla = (ws: number | null | undefined): string | null => reglaDelNegocio(ws)?.nombre ?? null;
+/** Lo que pide algo grande: una integración, una pantalla o una app nueva, rehacer algo entero. */
+const MAS_DE_UN_DIA = [/\b(integr\w* con|conect\w* con|nuev[oa]s? (tab|seccion|pantalla|app|aplicacion|plataforma|modulo|panel)|redise\w+|desde cero|reescrib\w+|todo el (sistema|crm|sitio|panel)|app (movil|nueva|propia)|marketplace|otro idioma|multi ?idioma|sistema (de|para))\b/];
+/**
+ * ¿El triage estima que esto lleva MÁS DE UN DÍA de trabajo? Sin IA, como el resto del triage: un pedido que nombra algo grande,
+ * o uno muy largo (más de 1500 caracteres suele ser un proyecto, no un ajuste). Un bug o una pregunta, nunca: se arreglan o se
+ * contestan en el día. En la duda va a Martín, que es lo que pidió Leila (lo grande se acuerda antes).
+ */
+export function estimaMasDeUnDia(tipo: TipoTicket, e: Pick<EntradaTriage, 'titulo' | 'descripcion'>): boolean {
+  if (tipo !== 'pedido') return false;
+  return `${e.titulo}\n${e.descripcion}`.length > 1500 || hay(MAS_DE_UN_DIA, norm(`${e.titulo}\n${e.descripcion}`));
+}
 /** Lo que, aun aprobado por regla, escribe en producción: eso lo decide Martín. */
 const ESCRIBE_EN_PRODUCCION = [/\b(migraci\w*|base de datos|tabla(s)?|corr\w+ (los|mis) datos|arregl\w+ (los|mis) datos|carg\w+ (los|mis) (datos|contactos|leads)|import\w+ (los|mis)|cambi\w+ (mi|el) plan)\b/];
 
@@ -248,7 +270,7 @@ const cita = (s: string, n = 120) => (s.length > n ? `${s.slice(0, n).trim()}…
  * `deTercero` = lo escribió alguien de AFUERA del negocio (el alumno de un curso, 27/10/2026): nunca va solo al arreglo, ni
  * con la regla del negocio. La regla es de Leandro y su equipo, no de cualquiera que tenga el link de su curso.
  */
-export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null } = {}): Triage {
+export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglosHoy?: number; deTercero?: boolean; aprobadoPorRegla?: string | null; hastaUnDia?: boolean } = {}): Triage {
   const texto = norm(`${e.titulo}\n${e.descripcion}`);
   const porque: string[] = [];
   const error = e.contexto.error?.trim();
@@ -315,7 +337,8 @@ export function clasificar(e: EntradaTriage, opts: { apagado?: boolean; arreglos
   // ── aprobado por regla (26/10/2026): todo lo de ese negocio, salvo lo delicado, lo que escribe en producción y el interruptor ──
   const regla = opts.aprobadoPorRegla?.trim() || null;
   if (regla && !autoArreglo) {
-    const delicado = zonaSensible(e) ?? (hay(ESCRIBE_EN_PRODUCCION, texto) ? 'pide una migración o una escritura en producción' : null);
+    const delicado = zonaSensible(e) ?? (hay(ESCRIBE_EN_PRODUCCION, texto) ? 'pide una migración o una escritura en producción' : null)
+      ?? (opts.hastaUnDia && estimaMasDeUnDia(tipo, e) ? 'el triage lo estima en más de un día de trabajo' : null);
     if (opts.apagado) porque.push(`Aprobado por regla (${regla}), pero el arreglo automático está apagado: espera a Martín.`);
     else if (delicado) porque.push(`Aprobado por regla (${regla}), pero ${delicado}: eso lo decide Martín.`);
     else {

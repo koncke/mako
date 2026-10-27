@@ -368,6 +368,32 @@ export const archivoDelInstaladorMac = (version: string = VERSION_PC): string =>
 export const nombreDelInstaladorMac = (version: string = VERSION_PC): string => `MaKo-${version}-Mac.zip`;
 /** La UNA línea para cuando macOS frena la app sin firmar (la firma de Apple espera el D-U-N-S). */
 export const AVISO_GATEKEEPER = 'Si macOS dice que no puede comprobarla: Ajustes del Sistema › Privacidad y seguridad › Abrir igualmente.';
+/**
+ * Lo que pasa ANTES de abrirlo (27/10/2026, la llamada con Leandro: «Chrome me lo marca como malware»): mientras el instalador
+ * no esté firmado con el certificado (scripts/ia-pc/firmar-windows.mjs, lo compra Martín), Chrome frena la descarga de un
+ * programa nuevo. Se dice qué tocar, en la misma línea que el aviso del sistema (`avisoAlAbrir`).
+ */
+export const AVISO_CHROME = 'Si Chrome lo frena («podría ser peligroso»): abre tus descargas (Ctrl+J) y toca «Conservar».';
+
+/**
+ * DÓNDE QUEDA MaKo DESPUÉS DE INSTALARLO (27/10/2026, Leila: «instalé supuestamente el MaKo Desktop, pero no lo encuentro en mi
+ * compu»). El acceso «MaKo» del menú Inicio y del escritorio (installer/windows/mako.iss → [Icons]) llegó con la 0.4.3
+ * (b10eb3b04, 24/10), que todavía NO se publicó: con la 0.4.2 en Windows no hay nada que abrir, porque trabaja en segundo plano.
+ * La pantalla dice lo que es verdad para la versión que se baja, y cómo saber si quedó. Con la 0.4.3 publicada (VERSION_PC), dice
+ * lo del menú Inicio sin tocar nada más.
+ */
+export const VERSION_CON_ACCESOS = '0.4.3';
+const numeros = (v: string) => v.split('.').map((n) => Number(n) || 0);
+const alMenos = (v: string, minimo: string) => {
+  const [a, b] = [numeros(v), numeros(minimo)];
+  for (let i = 0; i < Math.max(a.length, b.length); i++) if ((a[i] ?? 0) !== (b[i] ?? 0)) return (a[i] ?? 0) > (b[i] ?? 0);
+  return true;
+};
+export function dondeQuedaMaKo(sistema: 'windows' | 'mac', version: string = VERSION_PC): string {
+  if (sistema === 'mac') return 'Queda en Aplicaciones como «MaKo». Si no aparece ahí, no se instaló: ábrelo de nuevo desde tus descargas.';
+  if (alMenos(version, VERSION_CON_ACCESOS)) return 'Queda como «MaKo» en el menú Inicio y en el escritorio. Si no aparece ahí, no se instaló: ábrelo de nuevo desde tus descargas.';
+  return 'No se abre como un programa: trabaja en segundo plano. Quedó instalado cuando aquí dice que tu computadora está conectada.';
+}
 
 /**
  * El ejecutable de MaKo.app: copia el programa de ESTA Mac (chip de Apple o Intel) a ~/.mako-pc/bin —donde lo busca el

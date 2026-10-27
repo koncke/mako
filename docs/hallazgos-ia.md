@@ -7134,3 +7134,33 @@ con la PC apagada.
 **Vive en:** lib/ia-pc-reglas.ts (`LATIDO_MS`, `EN_LINEA_MS`, `SIN_TOMAR_MS`, `SIN_LATIDO_MS`, `pcUsable`) · lib/ia-pc.ts
 (`encolarTurno`, `negocioConPc`, `pcDe`) · lib/mako-turno-app.ts · lib/chat-ia.ts · scripts/ia-pc/mako-pc.mjs ·
 *27/10/2026, chat «Infra» (claude5)*
+
+## «Chrome me lo marca como malware»: antes del aviso del sistema está el de Chrome, y el botón desaparece al tocarlo (27/10/2026)
+
+**El síntoma:** Leandro, en la llamada del 26/10: Chrome le frenó el instalador de MaKo como peligroso, y el botón de descargar no
+decía nada.
+
+**Lo que no era obvio:**
+- La ayuda decía sólo lo del sistema («Windows protegió su PC», Gatekeeper en Mac), pero ANTES pasa Chrome: con un programa sin
+  firmar y nuevo, frena la descarga. `AVISO_CHROME` va primero en `avisoAlAbrir`. Lo que lo destraba de verdad es la firma
+  (scripts/ia-pc/firmar-windows.mjs, lista), y el certificado lo compra Martín.
+- Un «Descargando…» en el botón no se ve nunca: las tres pantallas que lo usan lo CAMBIAN por «Ya lo instalé: conectar» en el
+  mismo clic. El estado va en lo que queda: el título de la tarjeta y la frase de la caja dicen «Se está descargando».
+
+**Vive en:** `lib/ia-pc-reglas.ts` (`AVISO_CHROME`) · `app/integraciones/CuentasYDispositivos.tsx` (`avisoAlAbrir`) · `TusCuentasIA.tsx` ·
+`app/_chat/app-de-escritorio.ts`
+
+## MaKo no lee los chats de Claude o ChatGPT del cliente: no hay nada que ignorar todavía (27/10/2026)
+
+**El pedido:** Leila, en la llamada del 26/10 (Fathom 876470842, 00:06:52–00:08:01): tiene chats y proyectos PERSONALES en su
+Claude y su ChatGPT y no los quiere en el contexto de MaKo. Martín le prometió un botón para ignorar cada chat.
+
+**Medido:** MaKo no los lee. `mako-pc` (scripts/ia-pc/mako-pc.mjs) tiene como regla no tocar `~/.claude` ni el Keychain: sólo corre
+`claude` con lo que MaKo le pide. Y lo único que lee chats (`leerTurnos`, `leerCarteros`) es el Ops Center de MaKo, con los chats de
+las cuentas del equipo, no los de un cliente. Lo personal de Leila no entra al Second Brain ni al contexto. El botón no se armó.
+
+**La regla:** si algún día MaKo empieza a leer los chats o los proyectos del cliente (para usarlos como contexto), eso nace con el
+botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede deshacer. Leer `~/.claude` del cliente es una decisión de
+Martín: hoy la regla de `mako-pc` es no tocarlo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`

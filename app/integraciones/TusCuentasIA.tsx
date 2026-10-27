@@ -24,7 +24,7 @@ import { integracionAction } from './servicio-actions';
 import { BrandDefs, SvcIcon } from '@/app/_components/ServicioVisual';
 import { ABRIR_IA, AVISO_GATEKEEPER, AVISO_SMARTSCREEN, CONSENTIMIENTO_DE, PROGRAMA_IA_PC, abreEnlacesMako, cuentasDeLaIA, resumenDeCuentas, type CuentaPc, type CuentasIA, type SistemaPc, type ProveedorPc } from '@/lib/ia-pc-reglas';
 import { IAS_DEL_CLIENTE, NOMBRE_IA, SERVICIO_DE_CLAVE, comoConectar, dondeSacarLaClave, iaDeLaPcPara, notaDeConectar, type IaDelCliente } from '@/lib/conectar-ia-reglas';
-import { CuentasYDispositivos, DescargarElOtro, DescargarMaKo, NuevoDispositivo, avisoAlAbrir } from './CuentasYDispositivos';
+import { CuentasYDispositivos, DescargarElOtro, DescargarMaKo, NuevoDispositivo, avisoAlAbrir, dondeQueda } from './CuentasYDispositivos';
 import { Icon } from '@/app/_components/icons';
 import { Criatura } from '@/app/_components/Criatura';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -572,8 +572,11 @@ function InstalarDesktop({ onConectar }: { onConectar: () => void }) {
   return (
     <div className="tci-instalar" data-instalar-desktop="">
       <span className="tci-instalar__icono" aria-hidden><Icon name="computadora" size={28} /></span>
-      <h3 className="tci-instalar__titulo">{descargado ? 'Ábrelo y sigue los pasos' : 'MaKo, en tu computadora'}</h3>
+      {/* Tocado, dice que se está bajando (27/10/2026, Leandro: el botón no decía nada) y qué hacer si Chrome lo frena. */}
+      <h3 className="tci-instalar__titulo" aria-live="polite">{descargado ? 'Se está descargando: cuando termine, ábrelo' : 'MaKo, en tu computadora'}</h3>
       <p className="tci-instalar__texto">{descargado ? avisoAlAbrir() : 'Desde ahí tu Ops Center contesta con tu Claude.'}</p>
+      {/* Dónde queda y cómo saber si quedó (27/10/2026, Leila: «instalé supuestamente el MaKo Desktop, pero no lo encuentro»). */}
+      {descargado && <p className="tci-instalar__texto" data-donde-queda="">{dondeQueda()}</p>}
       {descargado
         ? <button type="button" className="tci-instalar__boton" onClick={onConectar}><Icon name="check" size={18} />Ya lo instalé: conectar</button>
         : <DescargarMaKo className="tci-instalar__boton" texto="Instalar MaKo desktop" onClick={() => setDescargado(true)}><Icon name="descargar" size={18} /></DescargarMaKo>}

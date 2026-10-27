@@ -98,7 +98,7 @@ test('4. lo de un tercero nunca va solo al arreglo, tampoco con la regla de Lean
     assert.match(t.porque.join(' '), /Lo reportó alguien de afuera del negocio/);
   }
   const db = sinComentarios(leer('lib/tickets-db.ts'));
-  assert.match(db, /clasificar\([^;]*deTercero: !!tercero, aprobadoPorRegla: aprobadoPorRegla\(n\.identidad\.ws\) \}\);/);
+  assert.match(db, /clasificar\([^;]*deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio\(n\.identidad\.ws\)\?\.nombre \?\? null/);
 });
 
 test('5. la ruta: el token sólo CREA el reporte; el negocio sale de la firma, el dueño de la base, y con topes', () => {
