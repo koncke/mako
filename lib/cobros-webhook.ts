@@ -110,6 +110,8 @@ async function compraDeUnLinkPropio(ws: number, key: string, sesionId: string, e
   const r = await sendMetaCAPIEvent({
     eventName: EVENTO_COMPRA, email: compra.email, phone: compra.phone, eventId: compra.eventId,
     eventTime: ev.creado ?? new Date(), customData: { value: compra.value, currency: compra.currency },
+    // Al píxel del sitio (no al conjunto de datos de CRM) y como evento de la página: así deduplica con el del navegador.
+    soloPixel: true, actionSource: 'website',
   });
   return ignorado(r.ok ? 'venta de un Payment Link propio: Purchase enviado a Meta' : `venta de un Payment Link propio: Meta no recibió el Purchase (${r.motivo})`);
 }

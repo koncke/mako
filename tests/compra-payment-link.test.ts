@@ -12,7 +12,7 @@ import { readFileSync } from 'node:fs';
 import { compraDeLaSesion, eventIdCompra, EVENTO_COMPRA } from '../lib/meta-capi-payload';
 
 const leer = (p: string): string => readFileSync(new URL(p, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-const sesion = { id: 'cs_test_123', pagoEstado: 'paid', paymentLink: 'plink_1', monto: 297, moneda: 'USD', email: 'a@b.com', telefono: '+5491100000000' };
+const sesion = { id: 'cs_test_123', pagoEstado: 'paid', paymentLink: 'plink_1', monto: 297, moneda: 'USD', email: 'a@b.com', telefono: '+5491100000000', modo: 'real' as const };
 
 test('una sesión pagada de un Payment Link es una compra, con el id de la sesión como event_id', () => {
   assert.equal(EVENTO_COMPRA, 'Purchase');
@@ -26,6 +26,9 @@ test('no es una compra para avisar: sin pagar, sin link, o sin monto o moneda', 
   assert.equal(compraDeLaSesion({ ...sesion, monto: null }), null);
   assert.equal(compraDeLaSesion({ ...sesion, monto: 0 }), null);
   assert.equal(compraDeLaSesion({ ...sesion, moneda: null }), null);
+  // Una venta de prueba no entra al píxel como una compra de verdad.
+  assert.equal(compraDeLaSesion({ ...sesion, modo: 'prueba' }), null);
+  assert.equal(compraDeLaSesion({ ...sesion, modo: undefined }), null);
 });
 
 test('el webhook manda el Purchase SÓLO para la venta que no es de MaKo, y con lo releído de Stripe', () => {
@@ -37,6 +40,10 @@ test('el webhook manda el Purchase SÓLO para la venta que no es de MaKo, y con 
   const iRelee = f.indexOf('leerCheckoutStripe(key, sesionId)');
   assert.ok(iRelee > 0 && iRelee < f.indexOf('sendMetaCAPIEvent('), 'el Purchase sale de la sesión RELEÍDA, no del evento');
   assert.match(f, /eventName: EVENTO_COMPRA[\s\S]*eventId: compra\.eventId[\s\S]*customData: \{ value: compra\.value, currency: compra\.currency \}/);
+  // Al píxel del sitio, nunca al conjunto de datos de CRM, y como evento de la página (deduplica con el del navegador).
+  assert.match(f, /soloPixel: true, actionSource: 'website',/);
+  const capi = leer('../lib/meta-capi.ts');
+  assert.match(capi, /destinoCAPI\(soloPixel \? null : await credWs\('META_CRM_DATASET_ID'\), await credWs\('META_PIXEL_ID'\)\)/);
   // La relectura trae el link y el teléfono.
   const s = leer('../lib/stripe-api.ts');
   assert.match(s, /paymentLink: idDe\(b\.payment_link\),/);

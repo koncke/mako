@@ -4693,6 +4693,9 @@ que CORRE el bloque emitido con un `fbq` de mentira.
 - **El `event_id` es el id de la sesión de Stripe (`purchase:cs_…`), no el del pago:** es lo único que tienen igual el webhook y
   la página de gracias. Con varias cuentas de Stripe la sesión vive en una sola (en las otras, 404) y una de prueba no existe para
   la clave real: se busca con la clave del mismo modo.
+- **La compra va al píxel del SITIO y sólo en modo real** (`soloPixel` en lib/meta-capi.ts; `modo` en `compraDeLaSesion`): con un
+  conjunto de datos de CRM cargado, `destinoCAPI` lo prefiere y la compra salía ahí con los campos del CRM; y una venta con
+  `sk_test` entraba al píxel como una compra de verdad. Las dos las había anticipado docs/diseno-venta-externa-stripe.md §5.
 - **El snippet no se delata:** `fbq` sólo con `'Purchase'`, nunca con `init` ni `Schedule` (lo que lee el analizador:
   `pixelesMetaDe`, `scheduleDelNavegador`), y el comentario no nombra dominios de cobro (`RE_CHECKOUT`).
 
