@@ -43,7 +43,7 @@ test('1b. el doer le pasa el texto y los adjuntos, y la nota de voz se transcrib
 
 test('2. el system de la red va LEAN: sin el conocimiento propio (el glosario trae nombres)', () => {
   const src = sinComentarios(leer('lib/mako-doer-in.ts'));
-  assert.match(src, /const baseRed = await runWithWorkspace\(wsData, \(\) => buildSystemPrompt\(\{[^}]*lean: true \}\)\);/);
+  assert.match(src, /const baseRed = await runWithWorkspace\(wsData, \(\) => buildSystemPrompt\(\{[^}]*lean: true(?:, canal: 'grupo')? \}\)\);/);
   assert.match(src, /const systemRed = armarSystem\(toolsRed, [^;]*, baseRed\);/);
   // Y el modo lean de buildSystemPrompt no lee el conocimiento.
   const ctx = leer('lib/mako-context.ts');
