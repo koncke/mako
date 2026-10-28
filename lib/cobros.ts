@@ -1758,19 +1758,19 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     await cerrarPruebaAlEmpezarYa(c);
     const faltaCuota = !!c.lead_id && c.monto_usd != null && !!c.proveedor_pago_id && !conCuota.has(c.id);
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
-    if (faltaCuota || faltaAlta) {
-      try {
-        if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
-        else await runWithWorkspace(ws, () => altaSiCorresponde(c));
-        cambiados++;
-      } catch (e) {
-        errores++;
-        console.error(`[cobros] reparar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
-      }
-    }
     // La compra a Meta de una VENTA EXTERNA que no salió (28/10/2026, la verificación de 3ca2d8328): el aviso la mandaba recién
-    // al final, y una venta cortada en la cuota la perdía aunque este cron reparara la cuota. Una vez por venta; nunca tira.
+    // al final, y una venta cortada en la cuota la perdía aunque este cron reparara la cuota. No depende de la cuota (la plata
+    // ya está asentada en el cobro), así que va antes del `continue`. Una vez por venta; nunca tira.
     if (esCobroExterno(c)) await compraExternaQueFalto(c);
+    if (!faltaCuota && !faltaAlta) continue;
+    try {
+      if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
+      else await runWithWorkspace(ws, () => altaSiCorresponde(c));
+      cambiados++;
+    } catch (e) {
+      errores++;
+      console.error(`[cobros] reparar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    }
   }
 
   for (const c of pendientes) {
