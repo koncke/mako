@@ -18,7 +18,9 @@
 
 import 'server-only';
 import { construirCerebro } from './cerebro-grafo';
-import { CAPA_FUNCIONES, funcionesDeMako, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES } from './cerebro-funciones';
+import {
+  CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, PUENTE_FUNCIONES,
+} from './cerebro-funciones';
 import { conCapa } from './cerebro-union';
 import { grafoGuardado, guardarGrafo } from './cerebro-cache-chat';
 import type { Cerebro } from './cerebro-modelo';
@@ -30,6 +32,22 @@ export async function grafoParaChat(): Promise<Cerebro<string>> {
   const ws = await getWorkspaceActual().catch(() => null);
   if (ws == null) return (await armar(null)).grafo;
   return grafoGuardado<Cerebro<string>>(ws) ?? guardarGrafo(ws, armar(ws));
+}
+
+/**
+ * Para el Web Generator (lib/landing-writer.ts → `buildLandingBrief`): en la plataforma, todas las funciones en una línea y
+ * la que vende esta landing ENTERA (por id, con profundidad 0: «Hace» y «No hace» incluidos), sacadas de la capa sin armar el
+ * negocio. En un cliente, null: sus landings venden SU negocio. Nunca tira.
+ */
+export async function funcionesParaLanding(p: { pedido: string; pagina?: string }): Promise<{ catalogo: string; funcion: string } | null> {
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null || ws !== (await wsSuperAdmin())) return null;
+    const f = funcionQueVende(p);
+    return { catalogo: catalogoCorto(), funcion: f ? funcionEntera(funcionesDeMako(), f) : '' };
+  } catch {
+    return null;
+  }
 }
 
 async function armar(ws: number | null): Promise<{ grafo: Cerebro<string>; completo: boolean }> {

@@ -19,7 +19,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
-  CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, idFuncion, menciones, PUENTE_FUNCIONES,
+  bloquesDeFuncion, CAPA_FUNCIONES, catalogoCorto, funcionEntera, funcionesDeMako, funcionQueVende, ID_RAIZ_FUNCIONES, idFuncion, menciones,
+  PUENTE_FUNCIONES, REGLA_FUNCION, ROTULO_MARCA, ROTULO_PERFIL,
 } from '../lib/cerebro-funciones';
 import { funcionDeKey, funcionesMako } from '../lib/funciones-mako';
 import { esEstructura } from '../lib/cerebro-areas';
@@ -149,8 +150,42 @@ test('7. el catálogo corto nombra todas las que se venden con lo que reemplazan
   const u = conCapa(negocio, funcionesDeMako(), { id: CAPA_FUNCIONES, nombre: 'Lo que hace MaKo', raiz: ID_RAIZ_FUNCIONES, motivo: PUENTE_FUNCIONES });
   const chats = funcionEntera(u, funcionDeKey('chats')!);
   assert.match(chats, /No hace:\n\s+- Llamadas de voz/);
+  // Los vecinos van aparte, con el porqué: no la raíz ni el negocio.
+  assert.match(chats, /Se conecta con:\n- CRM: Cada contacto es un lead del CRM/);
+  assert.doesNotMatch(chats.split('Se conecta con:')[1], /Lo que hace MaKo|MaKo\n/);
   assert.ok(tokensDe(chats) <= 900, `Chats entera pesa ${tokensDe(chats)} tokens`);
   assert.equal(funcionEntera(negocio, funcionDeKey('chats')!), '', 'un negocio sin la capa (un cliente) recibió la función');
+});
+
+test('8. el brief del Web Generator en la plataforma: todas las funciones, la que vende entera antes del perfil, y el perfil pasa a ser la marca', () => {
+  // Un cliente: el brief de siempre.
+  assert.deepEqual(bloquesDeFuncion(null), { antes: [], rotuloPerfil: ROTULO_PERFIL });
+  // La plataforma sin una función elegida: sólo el catálogo corto (que «Discutir» no niegue una que existe).
+  const sinFuncion = bloquesDeFuncion({ catalogo: catalogoCorto(), funcion: '' });
+  assert.equal(sinFuncion.antes.length, 1);
+  assert.match(sinFuncion.antes[0], /LAS FUNCIONES DE MAKO[\s\S]*Chats \(en vez de respond\.io\)/);
+  assert.equal(sinFuncion.rotuloPerfil, ROTULO_PERFIL);
+  // Con la función: entera, con la regla de no prometer lo que no hace, y el perfil como la marca que la vende.
+  const con = bloquesDeFuncion({ catalogo: catalogoCorto(), funcion: funcionEntera(funcionesDeMako(), funcionDeKey('chats')!) });
+  assert.match(con.antes[1], /LA FUNCIÓN DE MAKO QUE VENDE ESTA LANDING[\s\S]*No hace:[\s\S]*Llamadas de voz/);
+  assert.ok(con.antes[1].includes(REGLA_FUNCION));
+  assert.equal(con.rotuloPerfil, ROTULO_MARCA);
+});
+
+test('9. el brief y el editor lo usan: la función va antes del perfil, Editar y Discutir pasan la página, y sólo en la plataforma', () => {
+  const brief = fuente('lib/landing-writer.ts');
+  const cuerpo = brief.slice(brief.indexOf('export async function buildLandingBrief('), brief.indexOf('export async function diagnosticoDe('));
+  assert.match(cuerpo, /funcionesParaLanding\(\{ pedido, pagina: opts\.pagina \}\)/);
+  const i = cuerpo.indexOf('...deFuncion.antes,');
+  assert.ok(i > 0 && i < cuerpo.indexOf('### FUNNEL'), 'la función no va antes del funnel y del perfil');
+  assert.match(cuerpo, /`### \$\{deFuncion\.rotuloPerfil\}\\n\$\{perfilTxt\}`/, 'el perfil no cambia de rótulo con una función');
+  const ia = fuente('lib/editor-landing/ia.ts');
+  assert.match(ia, /buildLandingBrief\(instruccion, \{ pagina: originales\.map\(\(t\) => textoDe\(t\)\)\.join\('\\n'\) \}\)/, 'Editar no pasa la página');
+  assert.match(ia, /buildLandingBrief\(pregunta, \{ pagina: tarjetas\.map\(\(t\) => textoDe\(t\)\)\.join\('\\n'\) \}\)/, 'Discutir no pasa la página');
+  const chat = fuente('lib/cerebro-para-chat.ts');
+  const fl = chat.slice(chat.indexOf('export async function funcionesParaLanding('), chat.indexOf('async function armar('));
+  assert.match(fl, /if \(ws == null \|\| ws !== \(await wsSuperAdmin\(\)\)\) return null;/, 'las funciones de MaKo le llegarían al brief de un cliente');
+  assert.match(fl, /funcionEntera\(funcionesDeMako\(\), f\)/, 'la función no viaja entera');
 });
 
 test('10. la caché del grafo de los chats: cada negocio el suyo, una acción la borra, y lo incompleto o lo que tira no queda', async () => {
@@ -205,3 +240,6 @@ test('11. lo que lo borra y lo que avisa: cada acción ejecutada, y cada lectura
 //  18. se vende lo que sólo ve el super admin                                 → rojo el 6 y el 7.
 //  (28/10, la verificación de 0c80dd3ce) V5. confirmar sin borrar la caché, V8. una lectura que se cae callada → rojo el 11;
 //  V6. lo incompleto queda, V7. invalidar no borra → rojo el 10; V11. Partners en la capa de la plataforma → rojo el 1.
+//  (28/10, el Web Generator) W1. la función sin la regla de no prometer, W2. el perfil sigue como protagonista → rojo el 8;
+//  W3. la función después del funnel, W4. Editar sin la página, W5. las funciones de MaKo al brief de un cliente → rojo el 9;
+//  W6. la función sin sus vecinos → rojo el 7.

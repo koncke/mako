@@ -147,9 +147,40 @@ export function catalogoCorto(fs: readonly FuncionMako[] = lasQueSeVenden()): st
   return fs.map((f) => `${f.nombre}${f.reemplaza ? ` (en vez de ${f.reemplaza})` : ''}`).join(' · ');
 }
 
+export const ROTULO_PERFIL = 'PERFIL DEL NEGOCIO (oferta, promesa, precio, garantía)';
+export const ROTULO_MARCA = 'LA MARCA QUE LA VENDE (sólo contexto: la landing no vende la marca en general)';
+export const REGLA_FUNCION = 'La landing vende ESTA función: lo que figura en «No hace» no se promete, y las otras funciones de MaKo se nombran sólo como lo que la acompaña.';
+
+/**
+ * Lo que el brief del Web Generator suma en la plataforma (lib/landing-writer.ts → `buildLandingBrief`): todas las funciones
+ * en una línea (que «Discutir» no niegue una que existe) y, si la landing vende una, esa función ENTERA antes del perfil,
+ * con la regla de no prometer lo que no hace. Con una función, el perfil del negocio pasa a ser la marca que la vende. En
+ * un cliente (`fn` null) el brief queda como siempre.
+ */
+export function bloquesDeFuncion(fn: { catalogo: string; funcion: string } | null): { antes: string[]; rotuloPerfil: string } {
+  if (!fn) return { antes: [], rotuloPerfil: ROTULO_PERFIL };
+  return {
+    antes: [
+      `### LAS FUNCIONES DE MAKO (existen todas: no niegues ninguna ni inventes otra)\n${fn.catalogo}`,
+      fn.funcion ? `### LA FUNCIÓN DE MAKO QUE VENDE ESTA LANDING\n${fn.funcion}\n\n${REGLA_FUNCION}` : '',
+    ].filter(Boolean),
+    rotuloPerfil: fn.funcion ? ROTULO_MARCA : ROTULO_PERFIL,
+  };
+}
+
 /** La función entera (qué hace, qué no y qué reemplaza), del grafo que se le pase: el de los chats o el de las funciones. */
 export function funcionEntera(grafo: Pick<Cerebro<string>, 'negocio' | 'nodos' | 'aristas' | 'taxonomia'>, f: Pick<FuncionMako, 'key'>, presupuesto = 900): string {
   const id = idFuncion(f.key);
   const nodo = grafo.nodos.find((n) => n.id === id || n.id === `${CAPA_FUNCIONES}:${id}`);
-  return nodo ? recuperar(grafo, { ids: [nodo.id], profundidad: 0, presupuesto }).texto : '';
+  if (!nodo) return '';
+  // Entera por id con profundidad 0 (el cuerpo con «Hace» y «No hace» sólo viaja así), y los vecinos APARTE, en una línea
+  // cada uno con el porqué de la arista: con profundidad 1 la función llegaba cortada.
+  const porId = new Map(grafo.nodos.map((n) => [n.id, n]));
+  const vecinos = grafo.aristas
+    .filter((a) => (a.de === nodo.id || a.a === nodo.id) && a.de !== ID_RAIZ_FUNCIONES && a.a !== ID_RAIZ_FUNCIONES)
+    .map((a) => ({ otro: porId.get(a.de === nodo.id ? a.a : a.de), motivo: a.motivo }))
+    .filter((v) => v.otro && v.otro.tipo === 'Función')
+    .map((v) => `- ${v.otro!.etiqueta}: ${v.motivo}`);
+  const texto = recuperar(grafo, { ids: [nodo.id], profundidad: 0, presupuesto }).texto;
+  return vecinos.length ? `${texto}\n\nSe conecta con:\n${vecinos.join('\n')}` : texto;
 }
