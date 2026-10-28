@@ -164,13 +164,41 @@ export function resumenDeMolde(m: MoldeSeccion): string {
   ].filter(Boolean).join(' · ');
 }
 
+/** Las imágenes de una sección de la original, como las deja leer el estilo (`ImagenOriginal`, estilo-original.ts). */
+export type ImagenesDeSeccion = { cantidad: number; fondo: boolean };
+
+/**
+ * CÓMO ESTÁ ACOMODADA una sección (28/10/2026, Martín: «cómo está acomodado»), con lo que se puede saber sin mirar la
+ * página: dónde lleva imágenes (una junto al texto, de fondo, una galería) y si sus subtítulos son tarjetas. Va en el
+ * molde: sin el diseño de la original, la réplica deja el HUECO de la imagen donde la otra tenía una (la llena la
+ * persona). Vacío si no hay nada que decir.
+ */
+export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null): string {
+  const partes: string[] = [];
+  if (img?.fondo) partes.push('imagen de fondo');
+  else if (img && img.cantidad >= 3) partes.push(`${img.cantidad} imágenes (galería o logos)`);
+  else if (img && img.cantidad === 2) partes.push('dos imágenes');
+  else if (img && img.cantidad === 1) partes.push('una imagen junto al texto');
+  if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo`);
+  if (m.desplegables >= 2) partes.push('preguntas desplegables');
+  return partes.join(', ');
+}
+
+/** Las imágenes de cada sección de la réplica: las de las partes de la original que le tocan (`partesDeCadaSeccion`). */
+export function imagenesPorSeccion(partes: readonly (readonly number[])[], imagenes: readonly { seccion: number; fondo: boolean }[]): (ImagenesDeSeccion | null)[] {
+  return partes.map((ps) => {
+    const suyas = imagenes.filter((im) => ps.includes(im.seccion));
+    return suyas.length ? { cantidad: suyas.filter((im) => !im.fondo).length || suyas.length, fondo: suyas.some((im) => im.fondo) } : null;
+  });
+}
+
 /**
  * El molde de la página entera, como lo lee la IA en la tanda de secciones: una línea por sección, con su número y su
- * título (la tanda se ubica por el título), la forma y el largo. Con tope de caracteres: va adentro de las
- * instrucciones (`MAX_INSTRUCCIONES`, 5.000) junto con los ángulos.
+ * título (la tanda se ubica por el título), la forma, el largo y cómo está acomodada (`acomodos`, si se leyó el estilo).
+ * Con tope de caracteres: va adentro de las instrucciones (`MAX_INSTRUCCIONES`, 5.000) junto con los ángulos.
  */
-export function textoDeMolde(moldes: readonly MoldeSeccion[], tope = 1_600): string {
-  const lineas = moldes.map((m, i) => `${i + 1}. «${m.titulo.slice(0, 50)}»: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)`);
+export function textoDeMolde(moldes: readonly MoldeSeccion[], tope = 1_600, acomodos: readonly string[] = []): string {
+  const lineas = moldes.map((m, i) => `${i + 1}. «${m.titulo.slice(0, 50)}»: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)${acomodos[i] ? `; ${acomodos[i]}` : ''}`);
   const out: string[] = [];
   let largo = 0;
   for (const l of lineas) {

@@ -3360,13 +3360,28 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
   tarjetas altas antes de «Replicar» (en Replicar va de a dos), y un chip con `--gp-azul-50` no cambia en el modo
   oscuro (va con los tokens `activo`).
 
+- **Un test que lee el fuente como TEXTO da verde sobre un archivo que no compila.** Un script de edición convirtió el
+  `'
+'` de un `.join` en un salto de línea real dentro del string, y el test de replicar (que hace `readFileSync` +
+  regex) siguió en 10/10. Lo cazó `tests-afectados --rapido`, por los tests que IMPORTAN replicar.ts. **Regla:** después
+  de editar con un script, transpilar cada archivo tocado (`esbuild.transformSync`); el test de replicar lo hace ahora
+  (test 0). Y escribir el reemplazo con el editor, no con escapes anidados (bash → python → TS).
+- **«Cómo está acomodado» con lo que ya se lee:** el estilo trae las imágenes de cada parte de la página
+  (`ImagenOriginal.seccion`, `fondo`); con los subtítulos del molde alcanza para decir «una imagen junto al texto»,
+  «imagen de fondo», «6 imágenes (galería o logos)» o «3 tarjetas con su subtítulo» (`acomodoDeSeccion`). Va al final
+  de cada línea del molde. Sin el diseño, el estilo se lee igual, pero SÓLO para eso: nada de él pasa a la copia
+  (`const estilo = partes.diseno ? estiloLeido : null`), y la IA deja el hueco de la imagen donde la otra tenía una.
+- **El Diagnóstico de una de afuera copiaba todo directo** (el menú «Replicar» con los tres formatos). Ahora el menú
+  arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
+  formatos directos quedan como «copia completa».
+
 Lo que quedó SIN hacer:
 - Medir los ángulos y la reescritura con IA de verdad: el ws3 no tiene (pregunta hecha al Cerebro, 28/10).
 - Recorrer el flujo entero en la app (leer en la ventana del clic una SPA como adcreative.ai/es, replicar, abrir el
   editor): no entró el build en la RAM; queda para cuando haya memoria o en producción en el ws3.
-- «Cómo está acomodado» (el layout de cada sección: tarjetas en fila, imagen a un costado) todavía no viaja como molde:
-  la IA ve el texto de la sección y elige el diseño. La lectura del navegador trae las cajas de cada parte
-  (`estilo.secciones`): de ahí saldría.
+- La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
+  qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
+  cajas.
 
 Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: siete roturas, cada una caza), y los de Replicar
 que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).

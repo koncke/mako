@@ -16,8 +16,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { transformSync } from 'esbuild';
 import {
-  esquemaDeReplica, fidelidadDeEstructura, juntarHasta, moldeDeEsquema, moldeDeSeccion, nivelDeSeccion, resumenDeMolde, textoDeMolde,
+  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, juntarHasta, moldeDeEsquema, moldeDeSeccion, nivelDeSeccion,
+  resumenDeMolde, textoDeMolde,
 } from '../lib/editor-landing/replicar-estructura';
 import {
   PARTES_ADAPTAR, PARTES_INICIALES, PARTES_TODAS, TOPE_INSTRUCCION, alternarParte, formatoConPartes, instruccionDePartes,
@@ -51,6 +53,12 @@ const renglonesDe = (e: { secciones: { titulo: string; puntos: string[] }[] }) =
 //   R5 sin el filtro de números de sección en sanearAngulos ....... 8 / 1 (5)
 //   R6 el registro del prompt con otra variable ................... 8 / 1 (5b)
 //   R7 la ruta sin `partes`, `tema` y `angulos` ................... 8 / 1 (6)
+// Y con los tests 0, 2b y 4b (base 10 / 0 y 12 / 0):
+//   R8 sin vaciar las cifras ajenas ............................... 9 / 1 (4b)
+//   R9 replicar.ts sin `quitarPruebaDeLaOriginal` ................. 9 / 1 (4b)
+//   R10 el acomodo sin las tarjetas ............................... 11 / 1 (2b)
+//   R11 un string sin cerrar en replicar.ts ....................... 11 / 1 (0)
+//   R12 el Diagnóstico sin «Elegir qué replicar…» ................. 11 / 1 (6)
 test('1. la estructura: se corta en el nivel de sección, lo de adentro queda como subtítulo y no se pierde nada', () => {
   const texto = paginaLarga();
   const h3 = texto.split('\n').filter((l) => l.startsWith('### ')).length;
@@ -130,6 +138,24 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
   assert.equal(nombreDeCopia(PARTES_TODAS, 'otra.com', 'Su título'), 'Su título');
   assert.equal(nombreDeCopia(PARTES_ADAPTAR, 'otra.com', 'Su título'), 'Adaptada de otra.com');
   assert.equal(nombreDeCopia(PARTES_INICIALES, 'otra.com', 'Su título'), 'Basada en otra.com');
+});
+
+test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus subtítulos son tarjetas', () => {
+  const m = moldeDeSeccion({ titulo: 'Beneficios', puntos: ['### Rápido', 'a', '### Barato', 'b', '### Fácil', 'c'] });
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: false }), 'una imagen junto al texto, 3 tarjetas o pasos con su subtítulo');
+  assert.equal(acomodoDeSeccion(m, { cantidad: 1, fondo: true }), 'imagen de fondo, 3 tarjetas o pasos con su subtítulo');
+  assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Logos', puntos: ['x'] }), { cantidad: 6, fondo: false }), '6 imágenes (galería o logos)');
+  assert.equal(acomodoDeSeccion(moldeDeSeccion({ titulo: 'Solo', puntos: ['x'] }), null), '');
+  // Las imágenes de cada sección de la réplica: las de SUS partes de la original.
+  const imgs = imagenesPorSeccion([[0], [1, 2], []], [{ seccion: 0, fondo: true }, { seccion: 2, fondo: false }, { seccion: 2, fondo: false }, { seccion: 5, fondo: false }]);
+  assert.deepEqual(imgs, [{ cantidad: 1, fondo: true }, { cantidad: 2, fondo: false }, null]);
+  // En el molde, al final de la línea de su sección.
+  assert.match(textoDeMolde([m], 1_600, ['una imagen junto al texto']), /^1\. «Beneficios»: 3 subtítulos · 3 párrafos \(~\d+ palabras\); una imagen junto al texto$/);
+  // replicar.ts lee el estilo también sin el diseño (sólo para el acomodo), y sin el diseño nada de él pasa a la copia.
+  const rep = fuente('lib/editor-landing/replicar.ts');
+  assert.match(rep, /const usaEstilo = partes\.diseno \|\| \(partes\.estructura && !partes\.texto && recetaFormato\.formato === 'landing'\);/);
+  assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
+  assert.match(rep, /molde: moldes \? textoDeMolde\(moldes, undefined, acomodos\) : undefined,/);
 });
 
 test('4. la instrucción: reglas primero, datos al final, con tope; y la receta de cada combinación', () => {
@@ -235,7 +261,24 @@ test('4b. la réplica escrita de nuevo no se queda con las citas ni las cifras d
   assert.match(fuente('lib/editor-landing/replicar.ts'), /const f = quitarPruebaDeLaOriginal\(t, original\);/);
 });
 
+// El 28/10/2026 un `'\n'` escrito por un script quedó como un salto de línea DENTRO de un string de replicar.ts: este test
+// lee los fuentes como texto y dio verde sobre un archivo que no compilaba (lo cazó tests-afectados, por los que lo importan).
+test('0. los archivos de replicar compilan (un test que lee el fuente como texto no lo prueba)', () => {
+  for (const f of [
+    'lib/editor-landing/replicar.ts', 'lib/editor-landing/replicar-partes.ts', 'lib/editor-landing/replicar-estructura.ts',
+    'lib/editor-landing/replicar-angulos.ts', 'lib/editor-landing/replicar-lectura.ts', 'lib/editor-landing/replicar-lectura-tipos.ts',
+    'lib/editor-landing/ia-reglas.ts', 'lib/editor-landing/ia.ts', 'app/api/landing-generator/replicar/leer/route.ts',
+    'app/web-generator/crear/Replicar.tsx', 'app/web-generator/diagnostico/PanelDiagnostico.tsx',
+  ]) {
+    assert.doesNotThrow(() => transformSync(readFileSync(join(RAIZ, f), 'utf8'), { loader: f.endsWith('x') ? 'tsx' : 'ts' }), f);
+  }
+});
+
 test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', () => {
+  // El Diagnóstico de una de afuera ofrece «Elegir qué replicar…»: abre la lectura y las partes (el Panel, en el clic).
+  const dg = fuente('app/web-generator/diagnostico/PanelDiagnostico.tsx');
+  assert.match(dg, /<ItemMenu icono="paginas" texto="Elegir qué replicar…" onClick=\{\(\) => \{ setMenuReplicar\(null\); onReplicarPorPartes\(urlPegada\); \}\} \/>/);
+  assert.match(fuente('app/web-generator/Inicio.tsx'), /onReplicarPorPartes=\{\(u\) => abrirDerechaEnElClic\(\{ tipo: 'replicar', url: u, auto: true \}\)\}/);
   const ruta = fuente('app/api/landing-generator/replicar/route.ts');
   assert.match(ruta, /partes: body\.partes, tema: body\.tema, angulos: body\.angulos/);
   const leer = fuente('app/api/landing-generator/replicar/leer/route.ts');
@@ -245,7 +288,7 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   const rep = fuente('lib/editor-landing/replicar.ts');
   assert.match(rep, /const partes = partesDePedido\(p\.partes, p\.adaptar === true\);/);
   assert.match(rep, /if \(!formatoConPartes\(formato, partes\)\) return falla\(ERROR_WEB_PARCIAL, 400, 'landing'\);/);
-  assert.match(rep, /!partes\.diseno \? Promise\.resolve\(null\)/, 'sin el diseño no se lee el estilo de la original');
+  assert.match(rep, /!usaEstilo \? Promise\.resolve\(null\)/, 'sin el diseño ni la estructura reescrita no se lee el estilo de la original');
   assert.match(rep, /partes\.diseno \? await temaParaLaCopia\(estilo, url\)/);
   assert.match(rep, /pedirEsquema\(\{ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params \}\)/);
   assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);

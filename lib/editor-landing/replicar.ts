@@ -83,7 +83,9 @@ import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, formatoConPartes, instruccionDePartes, listaDePartes, nombreDeCopia, partesDePedido,
   recetaDePartes, type PartesReplica,
 } from './replicar-partes';
-import { esquemaDeReplica, fidelidadDeEstructura, lineaDeFidelidad, moldeDeEsquema, textoDeMolde } from './replicar-estructura';
+import {
+  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, textoDeMolde,
+} from './replicar-estructura';
 import { sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
 import { TEMAS } from './temas';
@@ -192,10 +194,13 @@ type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema
 async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, partes: PartesReplica, entrada: EntradaBloques): Promise<ResultadoReplicar> {
   const t0 = Date.now();
   const base = recetaFormato.params ?? {};
-  // El estilo de la original, EN PARALELO con el esquema y SÓLO si se pidió el diseño: el de la lectura del navegador si
-  // vino (los estilos computados de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira.
-  const leido = partes.diseno ? estiloDeLectura(entrada.lectura) : null;
-  const estiloP: Promise<EstiloOriginal | null> = !partes.diseno ? Promise.resolve(null) : leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
+  // El estilo de la original, EN PARALELO con el esquema: el de la lectura del navegador si vino (los estilos computados
+  // de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira. Se lee con el diseño (el tema, las
+  // imágenes, las animaciones) y también con la estructura escrita de nuevo: ahí sólo dice DÓNDE van las imágenes (el
+  // acomodo de cada sección, en el molde), y nada de su diseño pasa a la copia.
+  const usaEstilo = partes.diseno || (partes.estructura && !partes.texto && recetaFormato.formato === 'landing');
+  const leido = usaEstilo ? estiloDeLectura(entrada.lectura) : null;
+  const estiloP: Promise<EstiloOriginal | null> = !usaEstilo ? Promise.resolve(null) : leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
   // Los ÁNGULOS (cuando el texto se escribe de nuevo): los de la lectura que vio la persona, o se leen ahora. Si la IA no
   // los lee, la réplica sigue: con la estructura, el texto de la original ya los trae sección por sección.
   let angulos: Angulos | null = null;
@@ -227,8 +232,17 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   // ángulo van en la tanda de secciones. `adaptar`: la sección que no pasa por la IA queda con el texto de la ORIGINAL.
   const mismasSecciones = partes.estructura && recetaFormato.formato === 'landing';
   const moldes = mismasSecciones ? moldeDeEsquema(esq) : null;
+  // Cómo está acomodada cada sección (dónde lleva imágenes, si sus subtítulos son tarjetas): con el estilo leído.
+  const estiloLeido = await estiloP;
+  const acomodos = moldes
+    ? (() => {
+      const asigM = estiloLeido ? asignarSecciones(esq.secciones, estiloLeido.secciones) : [];
+      const imgs = estiloLeido ? imagenesPorSeccion(partesDeCadaSeccion(asigM, estiloLeido.secciones.length), estiloLeido.imagenes) : [];
+      return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null));
+    })()
+    : [];
   const instruccionSecciones = instruccionDePartes(partes, {
-    molde: moldes ? textoDeMolde(moldes) : undefined,
+    molde: moldes ? textoDeMolde(moldes, undefined, acomodos) : undefined,
     angulos: angulos ? textoDeAngulos(angulos, { esquema: esq, porSeccion: mismasSecciones }) : undefined,
   });
   // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
@@ -239,7 +253,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     ...(partes.estructura && !partes.texto ? { adaptar: true as const } : {}),
     paramsSecciones: recetaDePartes(recetaFormato.formato, base, partes, { esquema: instruccionEsquema, secciones: instruccionSecciones }).paramsSecciones,
   };
-  const estilo = await estiloP;
+  const estilo = partes.diseno ? estiloLeido : null;
   // Qué sección de la réplica es cuál de la original (por el título), y la primera imagen de cada una
   // a NUESTRO bucket mientras la IA arma las secciones.
   const asig = estilo ? asignarSecciones(esq.secciones, estilo.secciones) : [];
@@ -279,8 +293,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
 
   // Con el texto escrito de nuevo, lo que la IA dejó TEXTUAL de la original (sus citas y sus cifras) se vacía, y las frases
   // iguales se cuentan (28/10/2026, `quitarPruebaDeLaOriginal`): «de la referencia no pasa nada propio» no es sólo un prompt.
-  const original = receta.adaptar ? esq.secciones.flatMap((s) => [s.titulo, ...s.puntos]).join('
-') : '';
+  const original = receta.adaptar ? esq.secciones.flatMap((s) => [s.titulo, ...s.puntos]).join(' ') : '';
   let pruebaQuitada = 0;
   let frasesIguales = 0;
   const tarjetas = esq.secciones.map((s, i) => {

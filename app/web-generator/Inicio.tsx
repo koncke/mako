@@ -527,6 +527,7 @@ export function Inicio(props: PropsInicio) {
         copia={derecha.url ? copiaParaAplicar(derecha.url, lista) : null}
         onCerrar={cerrarDiagnostico}
         onAnalizada={sumarAnalizada}
+        onReplicarPorPartes={(u) => abrirDerechaEnElClic({ tipo: 'replicar', url: u, auto: true })}
       />
     );
   } else if (derecha.tipo === 'ia') {

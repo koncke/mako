@@ -49,6 +49,7 @@ import { MOTIVOS_EN_NAVEGADOR } from '../lib/editor-landing/lectura-tipos';
 import {
   FORMATOS_REPLICAR, NOMBRE_FORMATO_REPLICAR, configDeReplica, formatoReplicar,
 } from '../lib/editor-landing/replicar-reglas';
+import { PARTES_REPLICA } from '../lib/editor-landing/replicar-partes';
 import { porId } from '../lib/api-mako/registro';
 import { esAccion } from '../lib/api-mako/tipos';
 
@@ -245,7 +246,9 @@ test('replicar_landing: acción por chat, reversible, con la puerta de /web-gene
   assert.deepEqual([...d.canales].sort(), ['app', 'whatsapp'], 'por bloques tarda hasta 240 s: más que el techo de 60 s de la ruta HTTP');
   const formato = d.parametros.find((p) => p.nombre === 'formato');
   assert.deepEqual([...(formato?.enum ?? [])], [...FORMATOS_REPLICAR], 'la MISMA lista que la pantalla');
-  assert.deepEqual(d.parametros.map((p) => p.nombre), ['url', 'formato', 'texto', 'adaptar'], '«adaptar»: 27/10/2026, «Replicar y adaptar»');
+  assert.deepEqual(d.parametros.map((p) => p.nombre), ['url', 'formato', 'texto', 'adaptar', 'partes'], '«adaptar»: 27/10/2026, «Replicar y adaptar»; «partes»: 28/10/2026, qué se replica');
+  const partes = d.parametros.find((p) => p.nombre === 'partes');
+  assert.deepEqual([...(partes?.enum ?? [])], [...PARTES_REPLICA], 'las MISMAS partes que la pantalla (replicar-partes.ts)');
   const run = sinComentarios(leer('lib/api-mako/areas/landing.run.ts'));
   const i = run.search(/^ {2}replicar_landing: \{/m);
   const bloque = run.slice(i, i + 4000);
