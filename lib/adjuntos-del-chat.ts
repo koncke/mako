@@ -44,3 +44,21 @@ export async function leerLosArchivos(adjuntos: readonly AdjuntoListo[], feature
   }
   return { lecturas, noLeidos };
 }
+
+/** El cuerpo de un pedido que puede traer archivos: el JSON de siempre, o el multipart con `datos` (JSON) y `adjuntos`. */
+export async function cuerpoYArchivos(req: Request): Promise<
+  { ok: true; body: Record<string, unknown>; adjuntos: AdjuntoListo[] } | { ok: false; error: string; status: number }
+> {
+  let body: unknown;
+  let adjuntos: AdjuntoListo[] = [];
+  if (traeArchivos(req)) {
+    const p = await pedidoConArchivos(req);
+    if (!p.ok) return p;
+    adjuntos = p.adjuntos;
+    try { body = JSON.parse(p.campos.datos ?? '{}'); } catch { body = null; }
+  } else {
+    try { body = await req.json(); } catch { body = null; }
+  }
+  if (!body || typeof body !== 'object') return { ok: false, error: 'Pedido inválido.', status: 400 };
+  return { ok: true, body: body as Record<string, unknown>, adjuntos };
+}

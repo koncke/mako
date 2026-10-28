@@ -41,9 +41,7 @@ pantalla que manda el audio como audio sigue con `voz` (el CRM, el Cerebro del c
 
 ### Lo que quedó SIN hacer
 
-- **Adjuntos** en el Image Editor (`app/image-editor/mako/chat/acciones.ts`) y el Video Editor
-  (`app/video-editor/_opencut/chat/`): sus servidores reciben sólo texto. Están como «pendiente» en `lib/cajas-de-chat.ts`
-  y el test pide sacarlos de ahí cuando se cableen. (El asesor, Editar con MaKo y MakoChat ya adjuntan: ver abajo.)
+- (Los adjuntos de todas las cajas de MaKo ya están: ver «Los chats que leen TEXTO también adjuntan», abajo.)
 - **Adjuntos en el chat nuevo del Ops Center** (`app/admin/operaciones/ChatNuevoPiezas.tsx`): el primer mensaje abre el chat
   en la PC con un texto (`abrirChat` → el Runner).
 - **La nota del chat nuevo no sobrevive a salir de él** antes de que salga (`ChatNuevo.tsx` → `mandarNota`): a propósito,
@@ -78,4 +76,11 @@ La caja: `useAdjuntosDelChat` (app/_chat/); el cuerpo, `cuerpoConArchivos` (los 
 - **Lo de siempre:** las pantallas leían con `r.json()`, y el 413 de Vercel (archivos de más) llega en TEXTO: el «unexpected
   JSON» del 27/10. Ahora leen el texto y dicen «Pesa demasiado».
 - **Una sugerencia o una nota de voz no se llevan los archivos de la caja:** sólo el envío desde la caja (`texto === undefined`).
+- **El Image y el Video Editor (tanda 3, lo mínimo: sus paneles los tocan también otros chats).** Arman el pedido con una
+  PLANTILLA editable (`renderPrompt`) y cortan la instrucción: la lectura no entra a la plantilla, va aparte al final del pedido
+  ya armado (`conLaLecturaAparte`), como dato. **Trampa:** sus rutas corren el motor adentro de `runWithWorkspace`, y leer una
+  foto usa la IA DEL NEGOCIO: la lectura va adentro también, no antes. `cuerpoYArchivos` (lib/adjuntos-del-chat.ts) devuelve
+  el cuerpo de siempre (JSON o el multipart) y los archivos.
+- **Sin hacer:** en los editores, si un archivo no se pudo leer pero había texto u otro archivo, no se avisa (sólo se corta
+  con 422 cuando no hay nada legible ni escrito). Y el chat nuevo del Ops Center sigue sin adjuntos (`lib/cajas-de-chat.ts`).
 

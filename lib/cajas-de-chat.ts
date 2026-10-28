@@ -23,9 +23,6 @@ export type CajaDeChat = {
   falta?: Partial<Record<Falta, string>>;
 };
 
-/** Lo que falta porque todavía no se hizo (no porque no corresponda): se saca de acá cuando se cablea (el test lo pide). */
-const PENDIENTE_SERVIDOR = 'pendiente: su servidor recibe sólo texto (28/10/2026); hay que sumar los archivos de punta a punta';
-
 export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   { archivo: 'app/admin/operaciones/Conversacion.tsx', chat: 'Ops Center, computadora' },
   { archivo: 'app/m/operaciones/ChatsMovil.tsx', chat: 'Ops Center, teléfono' },
@@ -50,8 +47,8 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   { archivo: 'app/_components/MakoChat.tsx', chat: 'MaKo con sesiones (ChartIA, Diagnóstico; los archivos los lee /api/chart-insights)' },
   { archivo: 'app/whatsapp/WhatsAppAdvisor.tsx', chat: 'el asesor de WhatsApp de un lead (los archivos los lee el servidor: lib/adjuntos-del-chat.ts)' },
   { archivo: 'app/dashboard/PanelEditarMako.tsx', chat: 'Editar con MaKo (Dashboard; la lectura de los archivos va al prompt como dato)' },
-  { archivo: 'app/image-editor/mako/chat/PanelMakoIA.tsx', chat: 'Image Editor', falta: { adjuntos: PENDIENTE_SERVIDOR } },
-  { archivo: 'app/video-editor/_opencut/chat/PanelChat.tsx', chat: 'Video Editor', falta: { adjuntos: PENDIENTE_SERVIDOR } },
+  { archivo: 'app/image-editor/mako/chat/PanelMakoIA.tsx', chat: 'Image Editor (la lectura de los archivos va aparte de la instrucción)' },
+  { archivo: 'app/video-editor/_opencut/chat/PanelChat.tsx', chat: 'Video Editor (la lectura de los archivos va aparte de la instrucción)' },
   {
     archivo: 'app/ads-manager/ArranqueMediaBuyer.tsx', chat: 'el arranque del Media Buyer',
     falta: { adjuntos: 'no corresponde: es un arranque guionado, el texto es la respuesta del paso', voz: 'no corresponde: ídem' },
