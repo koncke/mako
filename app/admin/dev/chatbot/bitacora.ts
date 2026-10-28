@@ -3047,4 +3047,21 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "28 oct", hora: "15:30", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Instagram y Messenger: «El usuario hace clic en un anuncio» ya se puede elegir",
+    puntos: [
+      "Estaba apagado, como en ManyChat. Ahora se elige como cualquier otro disparador.",
+      "La automatización arranca con el primer mensaje de quien llegó por el anuncio.",
+      "MaKo lo usa cuando le pedís algo con «anuncio» o «publicidad».",
+    ],
+    archivos: [
+      "lib/disparadores.ts — los eventos de Instagram y Messenger",
+      "lib/flujo-ia-crear.ts — cuándo lo ve MaKo",
+      "tests/disparadores.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

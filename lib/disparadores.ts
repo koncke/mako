@@ -146,14 +146,19 @@ export const CLASES_DISPARADOR: ReadonlyArray<{ clase: ClaseDisparador; label: s
 export type EventoCanal = { subtipo: string; label: string; apagado?: string };
 
 /**
- * LOS DE INSTAGRAM, COMO LOS OFRECE MANYCHAT (CRON punto 6, con la captura). El clic en un anuncio
- * ManyChat lo muestra apagado (Meta lo habilita por cuenta y por campaña): acá también.
+ * LOS DE INSTAGRAM, COMO LOS OFRECE MANYCHAT (CRON punto 6, con la captura). El clic en un anuncio nació apagado, como lo
+ * muestra ManyChat (Meta lo habilita por cuenta y por campaña).
+ * ⚠️ PRENDIDO EL 28/10/2026 (la llamada con Teo: Martín vendió Automations como «ManyChat 2.0», y el Cerebro lo pidió): el
+ * webhook YA lo producía (`subtipoDeReferral`, lib/canal-social.ts: un mensaje con `metadata.referral.ad_id`), sólo la
+ * pantalla lo escondía. Ojo: Meta manda primero el post del anuncio SIN referral (cuenta como «envía un mensaje») y el
+ * referral en el mensaje que sigue; por eso arranca con el primer texto de la persona, no con el toque. Nunca se probó con
+ * un anuncio de verdad.
  */
 export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación o Reel' },
   { subtipo: 'historia', label: 'El usuario responde a tu historia' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
-  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Instagram', apagado: 'Todavía no' },
+  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Instagram' },
   { subtipo: 'en_vivo', label: 'El usuario comenta en tu En vivo' },
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
 ];
@@ -167,7 +172,8 @@ export const EVENTOS_INSTAGRAM: readonly EventoCanal[] = [
  * tests/disparadores-canal-social.test.ts cruza las dos tablas.
  */
 export const EVENTOS_MESSENGER: readonly EventoCanal[] = [
-  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Facebook', apagado: 'Todavía no' },
+  // El de Facebook, prendido con el de Instagram (28/10/2026): el webhook lo produce igual (`referral.received` también).
+  { subtipo: 'anuncio', label: 'El usuario hace clic en un anuncio de Facebook' },
   { subtipo: 'comentario', label: 'El usuario comenta tu publicación' },
   { subtipo: 'dm', label: 'El usuario envía un mensaje' },
   { subtipo: 'ref', label: 'El usuario hace clic en un enlace de referencia' },
@@ -1189,7 +1195,15 @@ export type EntradaCronIA = {
   productos: readonly ProductoParaDisparo[];
   etiquetas: readonly EtiquetaParaDisparo[];
   conectados: CanalesConectadosIA;
+  /**
+   * Ofrecer el «clic en un anuncio» (prendido el 28/10/2026): SÓLO si el pedido habla de anuncios (`PIDE_ANUNCIO`). Son dos
+   * opciones más (Instagram y Messenger) y el prompt de Crear con IA está en el techo de Groq (tests/crear-ia-tercera).
+   */
+  anuncio?: boolean;
 };
+
+/** ¿El pedido habla de anuncios? Entonces la IA ve el CRON «clic en un anuncio» (`opcionesCronIA`). */
+export const PIDE_ANUNCIO = /\banuncios?\b|\bads?\b|publicidad/i;
 
 /** El título de la sección de cada clase: el rótulo de su botón en la primera pantalla del CRON. */
 const tituloDeClase = (clase: ClaseDisparador): string => CLASES_DISPARADOR.find((c) => c.clase === clase)?.label ?? clase;
@@ -1233,7 +1247,8 @@ export function opcionesCronIA(e: EntradaCronIA): Array<{ title: string; options
   });
   for (const clase of CLASES_DE_EVENTOS) {
     if (e.conectados[clase] !== true) continue;
-    const options = eventosParaIA(clase).map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
+    const options = eventosParaIA(clase).filter((ev) => ev.subtipo !== 'anuncio' || e.anuncio === true)
+      .map((ev) => ({ value: valorEventoIA(clase, ev.subtipo), label: ev.label }));
     if (options.length) out.push({ title: tituloDeClase(clase), options });
   }
   return out;

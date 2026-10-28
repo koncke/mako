@@ -15,6 +15,9 @@
   está pausada): el cambio que le falta está en «Para el Cerebro» de docs/relevo/automations-nube-2710.md.
 - **Leila 2: los que YA están en la etapa.** No entraban por la ventana de 90 días sobre el último hito (mover de etapa no
   es un hito). Al activar una «llega a etapa», la pantalla cuenta y ofrece «Incluirlas». Sin medir en la base de Leila.
+- **Lo prometido a Teo (cola del Cerebro):** el CRON «clic en un anuncio» prendido (Instagram y Messenger; la IA lo ve sólo
+  si el pedido habla de anuncios). Faltan: quién contesta el PRIMER DM (decisión), «Crear con IA» de Instagram, el asistente
+  por WhatsApp (Agenda del día, «te toca cobrar») y la primera prueba A/B real en el ws3 (espera el sí).
 - Sigue, en este orden: Leila 1 (el `?ws=`, ya en el commit WIP 922af2d5d) y Mauricio (MAU-07 y MAU-08). El relevo de la
   nube (docs/relevo/automations-nube-2710.md) tiene el detalle.
 

@@ -37,7 +37,7 @@ import {
 } from '@/lib/setting-secuencias';
 import { guardarDisparadores } from '@/lib/disparadores-guardar';
 import { estadoCanalesDisparo } from '@/lib/disparadores-canales';
-import { opcionesCronIA, disparadorDeValorIA, recurrenteDeValorIA, type CanalesConectadosIA } from '@/lib/disparadores';
+import { opcionesCronIA, disparadorDeValorIA, recurrenteDeValorIA, PIDE_ANUNCIO, type CanalesConectadosIA } from '@/lib/disparadores';
 import { catalogosDe, etapasDeCondicion } from '@/lib/condiciones-catalogos';
 import { catalogosRemotos } from '@/lib/condiciones-catalogo-datos';
 import { listarEtiquetas, crearEtiqueta } from '@/lib/etiquetas';
@@ -161,6 +161,8 @@ export async function armarContexto(ws: number, pedido: string): Promise<{ ctx: 
   // pantalla y en la API (`preparar` llama a esta misma función): las dos ven las MISMAS opciones.
   const disparadores = disparadoresParaIA(opcionesCronIA({
     productos: prods, etiquetas: etiquetas.map((e) => ({ id: e.id, nombre: e.nombre, archivada_at: e.archivada_at })), conectados,
+    // El «clic en un anuncio» sólo si el pedido habla de anuncios (28/10/2026): el techo de Groq.
+    anuncio: PIDE_ANUNCIO.test(pedido),
   }));
   // LAS CONDICIONES: el MISMO catálogo que arma el editor (`catalogosDe`), con las etapas y los productos como se los
   // pasa el lienzo (`etapasDeCondicion`).

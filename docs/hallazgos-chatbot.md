@@ -27,6 +27,23 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## «Clic en un anuncio»: el webhook ya lo producía, sólo la pantalla lo escondía (28/10/2026, lo prometido a Teo)
+
+**El pedido** (el Cerebro, de la llamada con Teo): Martín vendió Automations como «ManyChat 2.0», y el disparador «El usuario
+hace clic en un anuncio» estaba apagado («Todavía no»), copiado de cómo lo muestra ManyChat.
+
+**Lo medido:** el canal ya lo producía (`subtipoDeReferral`, lib/canal-social.ts: un mensaje con `metadata.referral.ad_id`
+es `anuncio`, y `DISPARADORES_SOCIALES` lo tenía `disponible`). Prenderlo fue sacar el `apagado` de Instagram y de Messenger;
+la tienda de Facebook sigue apagada (Zernio no la avisa). Ojo: Meta manda primero el post del anuncio SIN referral (cuenta
+como «envía un mensaje») y el referral en el mensaje que sigue: arranca con el primer texto de la persona.
+
+**La trampa:** dos opciones más en la lista del CRON que recibe «Crear con IA» pasaban el techo de Groq (~4.021 tokens
+contra 4.000, tests/crear-ia-tercera y editar-ia-cambiar-quitar). El «El usuario » ya lo sacaba `bloqueDisparadores`: no
+había de dónde recortar. La IA lo ve SÓLO si el pedido habla de anuncios (`PIDE_ANUNCIO`), como las reglas de los botones.
+
+**Sin hacer:** nunca se probó con un anuncio de verdad; editar una automatización que ya tiene ese CRON, con un pedido que
+no nombra anuncios, no lo ve en la lista.
+
 ## Las palabras clave del comentario: el PRIMER CRON se rearma de las columnas y perdía lo nuevo (28/10/2026, ticket #17)
 
 **El pedido** (Leandro, ws10, por audio): «cuando alguien comente la palabra fiesta o la palabra guía… que se responda el
