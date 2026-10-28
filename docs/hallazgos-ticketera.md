@@ -789,6 +789,12 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   guarda y el «me falta el monto» la apagaba y abría un ticket por una regla: `laUltimaFueGuarda` (lib/no-pude.ts) deja que sólo
   una guarda la prenda y que la apaguen una escritura, un error o una tragada. El costo: guarda + lectura + un «no pude» de otra
   cosa queda como regla.
+- **Y la guarda misma se adivinaba por el texto** (la verificación de 2cb1cf67e, D4): cualquier `ok:false` sin isError, o un
+  «❌ …», era guarda. Fallas NUESTRAS tenían esa forma y no abrían ticket: la pendiente que no se pudo guardar
+  (`crearRunnerAcciones`, lib/mako-doer-acciones.ts, que `traducirLegado` hace 400) y el 400 de las pasarelas (cobros.run.ts).
+  **La regla:** es guarda sólo lo que MARCA quien lo produce, `{ ok:false, error, guarda:true }` (lib/api-mako/ejecutar.ts y el
+  runner del doer lo ponen, lo hace el chat de WhatsApp); `esGuardaDeHerramienta` no mira el texto. Sin la marca, lo peor es un
+  ticket de más. Lo tragado sí se sigue leyendo por el texto: nadie lo marca.
 **Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) todavía no pasa la señal (va
 con mako-wa-conexiones). Los chats que pasan por `conPedidoDeNoExiste` (Offer, el «Discutir» del Web Generator, el Video y el
 Image Editor) NO corren herramientas: Offer llama a `chatCheapTools` con la lista vacía y los demás piden un JSON. No hay guarda
