@@ -556,7 +556,14 @@ El `tsc` completo pide 3-5 GB y lo corre GitHub Actions (ver «El typecheck NO c
 build»). Para chequear lo que tocaste, el ACOTADO: `node scripts/tsc-acotado.mjs <archivos>` o
 `--rama` (lo que cambió la rama contra el merge-base con `origin/main`; contra `origin/main` a
 secas entran los archivos que movió main, con la versión vieja de la rama). ~2,5 GB de heap y
-segundos. **No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
+segundos.
+
+**UN tsc por PC (28/10/2026, la app de Claude se cayó con todos los chats adentro por tres tsc acotados a la vez).** El
+acotado toma el MISMO lock que el push y antes-de-subir (`os.tmpdir()/mako-typecheck.lock`) y espera su turno solo: no
+lo esquives ni lances dos tuyos en paralelo. Si tu rama todavía no tiene esa versión del script, envolvelo:
+`node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` (y lo mismo para `tests-afectados.mjs`).
+
+**No se arma el tsconfig a mano**: el script ya trae las trampas que daban rojos que no
 eran del código:
 
 - `"files"` con la lista **y** `"include": []`. Sin el include vacío, `extends` hereda el del

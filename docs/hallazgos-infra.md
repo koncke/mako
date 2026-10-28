@@ -38,6 +38,27 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La app de Claude se cayó con todos los chats adentro: tres tsc acotados a la vez, y el acotado no tomaba el lock (28/10/2026)
+
+**Síntoma.** A las 18:34 la app se cerró y se reabrió a las 18:38: los nueve chats y los dos workflows del Cerebro quedaron
+cortados a mitad. Al volver había 6,5 GB en procesos de node: un tsc acotado de Motion de 2,8 GB HUÉRFANO (su chat ya no
+existía), dos tsc acotados de Copywriter EN PARALELO (1,7 + 1,4 GB) y una barredora de tipos.
+
+**Por qué** (el diagnóstico obvio, «los chats no respetan la regla de un proceso pesado por vez», era el equivocado: la
+regla estaba en cada encargo y no la puede cumplir nadie que no vea a los demás): `scripts/typecheck-lock.mjs`, el
+respaldo de tipos del push y antes-de-subir comparten un lock por máquina (`os.tmpdir()/mako-typecheck.lock`), pero
+`scripts/tsc-acotado.mjs`, que es lo que corre cada chat para su VERDE, no lo tomaba. Y un tsc acotado de un chat que se
+cae sigue vivo comiendo RAM.
+
+**La red:**
+- `scripts/tsc-acotado.mjs` toma el MISMO lock: espera su turno hasta 20 min (después corre igual y lo dice) y saca el lock
+  de un proceso muerto. Con `MAKO_TURNO_TOMADO=1` no se espera a sí mismo.
+- Mientras eso no llega a cada worktree (los chats corren el script de SU rama), `C:/dev/con-turno.mjs` envuelve cualquier
+  comando pesado con el mismo lock: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` o `… tests-afectados.mjs …`.
+- Después de una caída, antes de retomar nada, se cortan los node huérfanos y los duplicados (`Get-CimInstance
+  Win32_Process` con su padre: un padre que no existe es un huérfano).
+---
+
 ## La pausa del Cerebro, por archivo: pedida por mensaje no frenaba a nadie (28/10/2026)
 
 **Síntoma.** Para subir tren-v el Cerebro pausó los chats por mensaje («nada de tests hasta mi seguí»). El push cayó dos
