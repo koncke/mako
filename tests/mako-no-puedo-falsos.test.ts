@@ -30,7 +30,8 @@ import { herramientasDelChat } from '../lib/mako-turno-app-reglas';
 import { herramientasDelTurno, lineaDeOfrecibles } from '../lib/doer-herramientas';
 import { afirmacionesDeHecho } from '../lib/doer-salida';
 import { contextoDeEdicion, pistaDeEdicion, PISTA_DATO_DE_COBRO, PISTA_EDICION_FICHA } from '../lib/mako-analyst-lead-reglas';
-import type { Vista } from '../lib/api-mako/registro';
+import { porId, type Vista } from '../lib/api-mako/registro';
+import { esDestructiva } from '../lib/relevancia-app';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -116,7 +117,8 @@ test('4. los datos fiscales: cargarlos trae editar_dato_deal, y con la constanci
   assert.equal(turno.ofrecibles?.[0], 'editar_dato_deal', `lo primero para ofrecer es ${turno.ofrecibles?.[0]}`);
   assert.match(lineaDeOfrecibles(['editar_dato_deal']), /nunca digas que no se puede: contesta y OFRÉCELA/);
   const app = fuente('lib/mako-turno-app.ts');
-  assert.match(app, /const ctxOfrece = turno\.ofrece && turno\.ofrecibles\?\.length \? `\\n\\n\$\{lineaDeOfrecibles\(turno\.ofrecibles\)\}` : '';/);
+  // Y en modo «analizar» no (la revisión del 28/10/2026): con el «sí» lo que escribe tampoco viaja.
+  assert.match(app, /const ctxOfrece = turno\.ofrece && turno\.ofrecibles\?\.length && desde\?\.modo !== 'analizar' \? `\\n\\n\$\{lineaDeOfrecibles\(turno\.ofrecibles\)\}` : '';/);
   assert.match(app, /\$\{bloqueTools\}\$\{ctxOfrece\}/, 'el system de la app no dice lo que se puede ofrecer');
 });
 
@@ -126,6 +128,60 @@ test('5. «Anotado» sin haber escrito nada se nota: el chat no tiene con qué �
   }
   for (const m of ['Queda guardado como borrador: confírmalo en la tarjeta.', 'Si quieres, lo dejo anotado.', 'No quedó guardado.', 'Tu horario anotado en el perfil es de 9 a 18.']) {
     assert.deepEqual(afirmacionesDeHecho(m), [], `«${m}» se tomó como un hecho`);
+  }
+});
+
+// ── La revisión del Cerebro sobre la tanda A (28/10/2026, C:/dev/revisiones/2810-mi-tandaA-y-base.md) ──────────────────────
+
+test('6. «no puedo» sin un objeto de la app SIGUE contestando la propuesta pendiente: viaja cancelar_accion', () => {
+  const vista: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 13, rol: 'admin', tabs: null };
+  for (const m of ['no puedo a esa hora', 'no puedo', 'No consigo turno']) {
+    const veredicto = clasificarIntencion(m, { hayPendientes: true, hayPendienteDeAgenda: true, makoPregunto: true });
+    assert.equal(veredicto.intencion, 'confirmar', `«${m}» con una reunión propuesta dejó de ser un «no»`);
+    const t = herramientasDelTurno({ veredicto, texto: m, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes: true, contextoDelSi: null }).tools.map((x) => x.name);
+    assert.ok(t.includes('cancelar_accion'), `«${m}»: no viaja cancelar_accion`);
+  }
+  // La queja con objeto de la app no la toma como un «no».
+  assert.notEqual(clasificarIntencion('No me deja editar el lead', { hayPendientes: true }).intencion, 'confirmar');
+});
+
+test('7. «quincena» y la mensualidad: sólo el plan de pagos de un lead; la agenda y las preguntas no', () => {
+  // La agenda le gana al plan aunque nombre un pago: «la llamada del cobro quincenal» es una reunión que se mueve.
+  assert.equal(esPedidoDeCobro('Cambiá la llamada del cobro quincenal de Ana al martes'), null, 'la agenda no le ganó al plan de pagos');
+  for (const m of ['Mové la reunión con Pedro a la segunda quincena', 'cambiá la reunión de la quincena al lunes']) {
+    assert.equal(esPedidoDeCobro(m), null, `«${m}» se tomó como un cobro`);
+    assert.ok(herramientas(m, 'app').includes('proponer_mover_reunion'), `«${m}» perdió las de agenda`);
+  }
+  for (const m of ['las ventas de la quincena son 12, ¿cómo vamos?', 'esta quincena son 3 reuniones', 'los leads de esta quincena son 45',
+    'Pasá para la próxima quincena lo de revisar los anuncios', 'me cobraron mal la mensualidad, son 47 no 97', '¿cuánto es la mensualidad de Ana?']) {
+    assert.equal(esPedidoDeCobro(m), null, `«${m}» se tomó como un cobro`);
+  }
+  assert.equal(clasificarIntencion('las ventas de la quincena son 12, ¿cómo vamos?', { canal: 'app' }).intencion, 'consultar');
+});
+
+test('8. lo que se ofrece en una pregunta nunca es una destructiva (reembolsar, dar de baja, despublicar)', () => {
+  const vista: Vista = { canal: 'app', alcance: 'proponer', ws: 13, rol: 'admin', tabs: null };
+  for (const texto of ['¿qué suscripciones tengo activas?', '¿cuántos cobros hubo esta semana?', '¿cuántas landings tengo publicadas?']) {
+    const veredicto = clasificarIntencion(texto, { canal: 'app' });
+    const of = herramientasDelChat({ veredicto, texto, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes: false }).ofrecibles ?? [];
+    const destructivas = of.filter((n) => { const d = porId(n); return !!d && esDestructiva(d); });
+    assert.deepEqual(destructivas, [], `«${texto}» ofrece destructivas`);
+  }
+});
+
+test('9. «Anotado» se nota; un estado LEÍDO de los datos no', () => {
+  for (const m of ['La cuota 13 quedó registrada como cobrada el 16/10 por 423,53 USD.', 'El pago de Ana quedó registrado el 16/10.',
+    'Según su ficha, el RFC quedó guardado el 20/10.', 'Actualizado al día de hoy, tienes 12 leads en Seguimiento.',
+    'Registrados esta semana: 14 leads nuevos.', 'Lo recuerdo: el lunes me dijiste que el horario es de 7:30 a 9:30.']) {
+    assert.deepEqual(afirmacionesDeHecho(m), [], `«${m}» se tomó como algo que MaKo hizo`);
+  }
+  assert.ok(afirmacionesDeHecho('¡Guardado!').length && afirmacionesDeHecho('Lo recordaré para la próxima.').length);
+});
+
+test('10. en «Editar», el estilo de los datos de pago es la VISTA', () => {
+  for (const m of ['Cambiá el color de los montos de las cuotas', 'Poné las fechas de los pagos en negrita', 'Poné el plan de pagos más grande',
+    'Mové las fechas de pago al costado', 'Cambiá el formato de las fechas de pago a dd/mm']) {
+    assert.equal(pistaDeEdicion(m), PISTA_EDICION_FICHA, `«${m}» se tomó como un dato`);
   }
 });
 
@@ -139,3 +195,8 @@ test('5. «Anotado» sin haber escrito nada se nota: el chat no tiene con qué �
 //   6. el área cobros sin los datos fiscales                         → rojo el 4.
 //   7. `ofrecibles` siempre vacío                                    → rojo el 4.
 //   8. `afirmacionesDeHecho` sin `HECHO_EN_MEMORIA`                  → rojo el 5.
+//   (28/10, la revisión) 9. la regla 1 con `QUEJA_NO_ANDA` en vez de `QUEJA_DE_LA_APP`  → rojo el 6.
+//   10. «quincena» sola como objeto del plan                          → rojo el 7.
+//   11. los ofrecibles con destructivas                               → rojo el 8.
+//   12. `HECHO_EN_MEMORIA` sin pedir la forma sin sujeto              → rojo el 9.
+//   13. `DE_LA_VISTA` sin el estilo (color, negrita, formato…)        → rojo el 10.

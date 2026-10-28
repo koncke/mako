@@ -139,7 +139,10 @@ const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar
  * en el chat no hay con qué «recordar». Se mira la oración ENTERA: en «Anotado: X es de 7:30 a 9:30» lo de antes del «:» no
  * presenta nada, ES lo que afirma.
  */
-const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|recuerdo|tendré en cuenta|tengo en cuenta)(?!\p{L})/u;
+// Sin sujeto (la revisión del 28/10/2026): «La cuota 13 quedó registrada como cobrada» o «Actualizado al día de hoy, tienes 12
+// leads» son estados LEÍDOS de los datos, no lo que MaKo dice que hizo. Sólo «Anotado.», «¡Guardado!», «Anotado:»; «(Entendido,)
+// queda guardado» al ARRANQUE; y la promesa de recordar (no «lo recuerdo», que puede ser lo que tiene en el hilo).
+const HECHO_EN_MEMORIA = /^(?:¡\s*)?(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?\s*(?:[.!:]|$)|^(?:(?:entendido|listo|perfecto|ok|dale|bien|genial)[,.!]?\s+)?(?:ya\s+)?(?:te\s+|lo\s+|la\s+)?(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})|(?<!\p{L})(?:lo|la|los|las)\s+(?:recordaré|tendré en cuenta|tengo en cuenta)(?!\p{L})/u;
 /** La parte de `HECHO_EN_MEMORIA` que puede ser lo que el turno LEYÓ («el pago quedó registrado el 5/10»): el grupo la deja con
  *  una lectura en el turno (`afirmacionesDeHecho`, `enElGrupo.leyo`). */
 const QUEDO_EN_MEMORIA = /(?<!\p{L})(?:queda|quedan|quedó)\s+(?:anotad|guardad|registrad|corregid|actualizad)[oa]s?(?!\p{L})/u;

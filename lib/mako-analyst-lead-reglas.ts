@@ -256,9 +256,10 @@ export const PISTA_EDICION_FICHA = 'Cambia la ficha del CRM (sus bloques, hojas 
  * de un lead) y no nombra la vista (un bloque, una hoja, su lugar), la pista es la del dato. «Pon las cuotas arriba de todo» y
  * «armá el bloque de cuotas con su vencimiento» siguen siendo la vista. Sin «ficha» en esta pista: esa palabra es de la vista.
  */
-export const PISTA_DATO_DE_COBRO = 'Corrige el dato de cobro de este lead: ';
+// Con «el plan de pagos»: la pista misma suma el área de cobros, aunque lo que pide sólo diga «la mensualidad».
+export const PISTA_DATO_DE_COBRO = 'Corrige el plan de pagos de este lead: ';
 export const pistaDeEdicion = (mensaje: string): string =>
-  esPedidoDeCobro(mensaje) && !nombraLaVistaDeLaFicha(mensaje) ? PISTA_DATO_DE_COBRO : PISTA_EDICION_FICHA;
+  esPedidoDeCobro(mensaje, { delLead: true }) && !nombraLaVistaDeLaFicha(mensaje) ? PISTA_DATO_DE_COBRO : PISTA_EDICION_FICHA;
 
 /** Dónde está la persona mientras edita: la hoja abierta (su clave de la API y su nombre) y el CRM de la ficha. */
 export type EdicionDeLaFicha = { tab: string; nombre: string; embudoId: number | null };

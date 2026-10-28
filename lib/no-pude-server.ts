@@ -14,7 +14,7 @@ import { cerrarAutomatico, crearTicket, identidadDe, identidadDelActor, type Ide
 import type { Canal } from './tickets-reglas';
 import { identidadDelSistema } from './errores-app';
 import {
-  CAUSAS_DEL_NEGOCIO, causaDelNoPude, lineaCortaDelTicket, lineaDelTicket, prefijoAutomatico, refDeNoPude, sacarNoPude,
+  CAUSAS_DEL_NEGOCIO, causaDelNoPude, esReglaUOpinion, lineaCortaDelTicket, lineaDelTicket, prefijoAutomatico, refDeNoPude, sacarNoPude,
   tipoDelNoPude, tituloDelNoPude, type CausaNoPude, type SenalesNoPude, type Superficie,
 } from './no-pude';
 import { sacarNoExiste } from './no-existe';
@@ -51,7 +51,7 @@ export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: De
   try {
     const identidad = await identidadParaElTicket(d);
     if (!identidad) return null;
-    const ref = refDeNoPude({ ws: d.ws, superficie: d.superficie, conv: d.conv, causa });
+    const ref = refDeNoPude({ ws: d.ws, superficie: d.superficie, conv: d.conv, causa, clave: causa === 'ejecucion' || causa === 'herramienta' || causa === 'ruteo' ? det.herramienta ?? det.operacion : det.queNoPudo });
     const pedido = (d.pedido ?? '').trim();
     const descripcion = [
       det.queNoPudo ? `Lo que MaKo dijo que no pudo: «${det.queNoPudo.slice(0, 300)}»` : '',
@@ -89,12 +89,16 @@ export async function ticketDeNoPude(causa: CausaNoPude, d: DondeNoPude, det: De
  * el ticket y la línea que lo dice. `linea` es null si no hubo ticket, si ya estaba en esta conversación, o si es del proveedor
  * o la configuración (ésos van entre paréntesis pegados al aviso de siempre: `lineaCorta`).
  */
-export async function conTicketsDeMaKo(respuesta: string, senales: Omit<SenalesNoPude, 'noExiste' | 'noPudo'>, d: DondeNoPude, det: DetalleNoPude = {}): Promise<{
+export async function conTicketsDeMaKo(respuesta: string, senales: Omit<SenalesNoPude, 'noExiste' | 'noPudo'> & { yaRegistrado?: boolean }, d: DondeNoPude, det: DetalleNoPude = {}): Promise<{
   texto: string; causa: CausaNoPude | null; ticket: TicketNoPude | null; linea: string | null; lineaCorta: string | null;
 }> {
   const ne = sacarNoExiste(respuesta);
   const np = sacarNoPude(ne.texto);
-  const causa = causaDelNoPude({ ...senales, noExiste: ne.falta, noPudo: np.noPudo });
+  // Lo que falló ya dejó su ticket (registrarError, el de la huella): sólo se sacan las marcas, sin un segundo ticket ni otra línea.
+  if (senales.yaRegistrado) return { texto: np.texto, causa: null, ticket: null, linea: null, lineaCorta: null };
+  // La negativa legítima se mira también en lo que EXPLICA la respuesta (la marca dice el qué, no el porqué; la revisión del 28/10).
+  const regla = senales.regla || (!!np.noPudo && esReglaUOpinion(np.texto));
+  const causa = causaDelNoPude({ ...senales, regla, noExiste: ne.falta, noPudo: np.noPudo });
   if (!causa) return { texto: np.texto, causa: null, ticket: null, linea: null, lineaCorta: null };
   const ticket = await ticketDeNoPude(causa, d, { ...det, queNoPudo: det.queNoPudo ?? np.noPudo ?? ne.falta, respuestaMako: det.respuestaMako ?? np.texto });
   const delNegocio = CAUSAS_DEL_NEGOCIO.has(causa);
@@ -113,13 +117,15 @@ const MIRADO = new Map<string, number>();
 const CADA_MS = 10 * 60_000;
 
 /** Cierra el ticket abierto de esa causa del negocio, si hay. Devuelve su número, o null. Nunca tira. */
-export async function cerrarSiVolvio(ws: number, causa: 'proveedor' | 'configuracion', ahora = Date.now()): Promise<number | null> {
-  const clave = `${ws}:${causa}`;
+export async function cerrarSiVolvio(ws: number, causa: 'proveedor' | 'configuracion', cuenta?: string, ahora = Date.now()): Promise<number | null> {
+  const clave = `${ws}:${causa}:${cuenta ?? ''}`;
   if (ahora - (MIRADO.get(clave) ?? 0) < CADA_MS) return null;
   MIRADO.set(clave, ahora);
   try {
     const motivo = causa === 'proveedor' ? 'La IA volvió a contestar: se cerró solo.' : 'El negocio ya tiene lo que faltaba: se cerró solo.';
-    return await cerrarAutomatico(refDeNoPude({ ws, superficie: 'ops-center', conv: '', causa }), motivo);
+    // La configuración: sólo si contestó la cuenta que falló, o si no había ninguna (la revisión del 28/10/2026).
+    const soloSi = causa === 'configuracion' && cuenta ? (h: string | null) => h === cuenta || h === 'ia:ninguna' : undefined;
+    return await cerrarAutomatico(refDeNoPude({ ws, superficie: 'ops-center', conv: '', causa }), motivo, soloSi);
   } catch (e) {
     console.error(`[no-pude] ws=${ws} cerrar ${causa}: ${e instanceof Error ? e.message : String(e)}`);
     return null;

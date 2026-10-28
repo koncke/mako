@@ -519,7 +519,7 @@ const QUEJA_CUOTA = /\bno\s+(?:me\s+)?(?:deja(?:n)?|dejo|puedo|pude|logro|consig
 /** Las cuotas DE ALGUIEN («sus cuotas», «mis cuotas»): un plan de pago, no la cuota de uso del negocio. */
 const CUOTAS_DE_ALGUIEN = /\b(?:sus|mis|tus)\s+cuotas\b/;
 /** Lo que es de la VISTA de la ficha (un bloque, una hoja, su lugar), no un dato: «pon las cuotas arriba de todo». */
-const DE_LA_VISTA = /\b(?:bloques?|hojas?|vista|estilo|columnas?|seccion(?:es)?|disenos?|arriba|abajo|ficha)\b/;
+const DE_LA_VISTA = /\b(?:bloques?|hojas?|vista|estilo|columnas?|seccion(?:es)?|disenos?|arriba|abajo|ficha|color(?:es)?|negrita|tamano|grandes?|chic[oa]s?|formato|costado|izquierda|derecha|orden|mostr\w*|ocult\w*|fuente|resalt\w*)\b/;
 /** ¿Nombra la VISTA de la ficha y no un dato? Lo usa el modo «Editar» del MaKo Analyst (lib/mako-analyst-lead-reglas.ts). */
 export const nombraLaVistaDeLaFicha = (texto: string): boolean => DE_LA_VISTA.test(norm(texto));
 /**
@@ -528,9 +528,14 @@ export const nombraLaVistaDeLaFicha = (texto: string): boolean => DE_LA_VISTA.te
  * pasar `guardar_plan_pagos` (de 1 a 6 cuotas): MaKo dijo que no existía y el pedido terminó como ticket falso. Con un verbo de
  * cambiar o un «está mal». La mensualidad de MaKo («mi mensualidad», «la de MaKo») no es esto.
  */
-const OBJETO_PLAN_DE_PAGOS = /\bplan(?:es)? de pagos?\b|\b(?:fechas?|montos?|cantidades?|importes?|valores?)(?:\s+y\s+(?:las?\s+|los?\s+)?(?:fechas?|montos?|cantidades?|importes?|valores?))?\s+del?\s+(?:los\s+|sus\s+|las\s+)?(?:pagos?|cobros?|cuotas?)\b|\bquincena(?:s|l|les)?\b|\bmensualidad(?:es)?\b/;
+// La revisión del 28/10/2026: en México «quincena» es de todos los días («la segunda quincena», «las ventas de la quincena»):
+// sólo cuenta como frecuencia de PAGO («cada quincena», «quincenal»), y la mensualidad sólo si es de ALGUIEN («la mensualidad de
+// Ana», «su mensualidad»): la de MaKo («me cobraron mal la mensualidad») no es el plan de un lead.
+const OBJETO_PLAN_DE_PAGOS = /\bplan(?:es)? de pagos?\b|\b(?:fechas?|montos?|cantidades?|importes?|valores?)(?:\s+y\s+(?:las?\s+|los?\s+)?(?:fechas?|montos?|cantidades?|importes?|valores?))?\s+del?\s+(?:los\s+|sus\s+|las\s+)?(?:pagos?|cobros?|cuotas?)\b|\b(?:cada|por)\s+quincena\b|\bquincenal(?:es|mente)?\b|\bsus?\s+mensualidad(?:es)?\b|\bmensualidad(?:es)?\s+del?\s+(?!mako\b)[a-z]/;
 const ESTA_MAL = /\b(?:esta|estan)\s+mal\b|\bno\s+(?:es|son)\s+(?:de\s+)?\d|\bson\s+\d/;
-const PLAN_DE_MAKO = /\bmako\b|\bmi\s+(?:plan|suscripcion|mensualidad)\b/;
+const PLAN_DE_MAKO = /\bmako\b|\bmi\s+(?:plan|suscripcion|mensualidad)\b|\bme\s+cobraron\b/;
+/** Lo que nombra la agenda: un pedido de agenda le gana al plan de pagos («mové la reunión a la segunda quincena»). */
+const NOMBRA_AGENDA = /\b(?:reunion(?:es)?|citas?|llamadas?|visitas?|agenda|eventos?|turnos?)\b/;
 
 // ── UN PAGO QUE LLEGÓ (17/10/2026) ──────────────────────────────────────────────────────────────
 // «Juan me pagó 500 mil pesos», «ya me pagó la cuota 2», «registrá un pago de 500 de Ana» salían `capturar`, dudosas
@@ -585,7 +590,7 @@ export const AREAS_COBROS: Readonly<Record<PedidoDeCobro['tipo'], Area[]>> = {
  * cancelar una suscripción)? Puro: lo usan el clasificador, el router y `esCargaDePlan`. Recibe
  * el texto crudo; null si no es un pedido de cobro.
  */
-export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
+export function esPedidoDeCobro(texto: string, opts: { delLead?: boolean } = {}): PedidoDeCobro | null {
   const crudo = sinPrefijoDeLote(texto || '').trim();
   if (!crudo || crudo.length > 600) return null;
   const n = norm(crudo);
@@ -596,7 +601,10 @@ export function esPedidoDeCobro(texto: string): PedidoDeCobro | null {
   // Una cuota del plan: lo suyo gana sólo si NO es uno de los cobros de arriba (un reembolso de la cuota 2 es un reembolso).
   const verboCuota = VERBO_CUOTA_PEGADO.test(n) || VERBO_CUOTA_TILDE.test(crudo) || VERBO_CUOTA_SUELTO.test(arranque) || MODAL_CUOTA.test(n) || QUEJA_CUOTA.test(n);
   const cuota = (OBJETO_CUOTA.test(n) || CUOTA_Y_SU_DATO.test(n) || (CUOTAS_DE_ALGUIEN.test(n) && !DE_LA_VISTA.test(n))) && !CUOTA_DE_USO.test(n) && verboCuota;
-  const plan = OBJETO_PLAN_DE_PAGOS.test(n) && (verboCuota || ESTA_MAL.test(n)) && !PLAN_DE_MAKO.test(n) && !DE_LA_VISTA.test(n) && !CUOTA_DE_USO.test(n);
+  // Una pregunta sin un verbo de cambiar no es un pedido («¿cuánto es la mensualidad de Ana?», «… son 12, ¿cómo vamos?»).
+  const preguntaSinVerbo = (/^[¿]/.test(crudo) || /\?\s*$/.test(crudo)) && !verboCuota;
+  // `delLead`: la ficha de UN lead («Editar» del MaKo Analyst): ahí «la mensualidad» sola es la de ese lead.
+  const plan = (OBJETO_PLAN_DE_PAGOS.test(n) || (!!opts.delLead && /\bmensualidad(?:es)?\b/.test(n))) && (verboCuota || ESTA_MAL.test(n)) && !preguntaSinVerbo && !PLAN_DE_MAKO.test(n) && !DE_LA_VISTA.test(n) && !CUOTA_DE_USO.test(n) && !NOMBRA_AGENDA.test(n);
   const verbo = VERBO_COBRO_PEGADO.test(n) || VERBO_COBRO_TILDE.test(crudo) || VERBO_COBRO_SUELTO.test(arranque) || MODAL_COBRO.test(n) || SEGUNDA_COBRO.test(n);
   // Un pago que llegó, dicho o pedido (no una pregunta): «Juan me pagó 500 mil pesos», «registrá un pago de 500».
   const esPregunta = /^[¿]/.test(crudo) || /\?\s*$/.test(crudo);
@@ -718,6 +726,12 @@ const CONFIRMACION = /^[\s¡!¿?]*(s[ií]|dale|ok(ey)?|listo|perfecto|obvio|clar
  * gracias, eso es todo»; esto sólo saca las quejas.
  */
 const QUEJA_NO_ANDA = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo|funciona|anda|sale|aparece|carga|abre|guarda|toma)\b/i;
+/**
+ * La queja con OBJETO de la app, la única que no contesta una propuesta pendiente (la revisión del 28/10/2026): «no puedo a esa
+ * hora», «no puedo» o «No consigo turno» con una reunión propuesta SON un «no» (la regla 1 los toma y viaja cancelar_accion;
+ * lib/doer-hilo.ts cuenta con eso). Sólo «no (me) deja/puedo + editar, guardar, cambiar…» o «no funciona/anda/carga + el…».
+ */
+const QUEJA_DE_LA_APP = /^[\s¡!¿?]*no\s+(?:me\s+)?(?:deja(?:n)?|dej[oó]|puedo|pude|logro|consigo)\s+(?:editar|guardar|cambiar|cargar|crear|subir|borrar|eliminar|mover|agregar|adjuntar|abrir|entrar|enviar|mandar|modificar|corregir|actualizar)\b|^[\s¡!¿?]*no\s+(?:me\s+)?(?:funciona|anda|carga|abre|guarda|aparece|sale)\s+(?:el|la|los|las|mi|su|tu|ese|esa|este|esta)\b/i;
 
 
 // ⚠️ La lista se AMPLÍA, no se reescribe. Le faltaban las aperturas rioplatenses
@@ -1102,7 +1116,7 @@ export function clasificarIntencion(
   //    y «no, movela al viernes a las 10» arrancan con una palabra de CONFIRMACION, y con
   //    una pendiente abierta se leían como un «no» — el turno llegaba sin las herramientas
   //    de agenda y corregir una propuesta sólo la cancelaba (08/10/2026).
-  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !QUEJA_NO_ANDA.test(t) && !pedidoAgenda && !pedidoLead && !pedidoCobro && !pedidoLanding) {
+  if (ctx.hayPendientes && CONFIRMACION.test(t) && t.length <= 60 && !QUEJA_DE_LA_APP.test(t) && !pedidoAgenda && !pedidoLead && !pedidoCobro && !pedidoLanding) {
     return { intencion: 'confirmar', dudosa: false, porque: 'confirmación con pendiente vigente' };
   }
 

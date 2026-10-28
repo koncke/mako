@@ -62,6 +62,42 @@ async function main() {
   for (let i = 0; i < 4; i++) await crearTicket({ identidad, tipo: 'bug', declaradoPor: 'persona', titulo: `Algo ${i}`, descripcion: 'x', canal: 'formulario', contexto: {} });
   const aMano = await crearTicket({ identidad, tipo: 'bug', declaradoPor: 'persona', titulo: 'No me carga la ficha', descripcion: 'Desde ayer.', canal: 'formulario', contexto: {} });
   out.hAMano = aMano.ok;
+
+  // ── La revisión del 28/10/2026 (C:/dev/revisiones/2810-mi-tandaA-y-base.md) ──────────────────────────────────────────
+  const r: Record<string, unknown> = {};
+  pg.db.workspaces.push({ id: 10, capa: 'cliente', nombre: 'Negocio 10' }, { id: 12, capa: 'cliente', nombre: 'Negocio 12' }, { id: 14, capa: 'cliente', nombre: 'Negocio 14' });
+  const en = (ws: number, conv: string) => ({ ws, actor: `dueno${ws}@negocio-de-prueba.com`, nombre: 'Dueño', superficie: 'ops-center' as const, conv, pedido: 'algo' });
+  const deWs = (ws: number) => pg.db.tickets.filter((t) => t.workspace_id === ws);
+  // base 3: lo que falló ya dejó su ticket (registrarError) → la marca sale, sin un segundo ticket ni línea.
+  r.yaRegistrado = await conTicketsDeMaKo('No pude crear la tarea.\n\n[[no-pude: crear la tarea]]', { yaRegistrado: true }, en(12, 'c1'));
+  r.yaRegistradoTickets = deWs(12).length;
+  // base 5: dos pedidos DISTINTOS en la misma conversación → dos tickets, cada uno con su línea.
+  r.dos1 = await conTicketsDeMaKo('No existe.\n\n[[no-existe: un registro de cumpleaños]]', {}, en(12, 'c2'));
+  r.dos2 = await conTicketsDeMaKo('No existe.\n\n[[no-existe: un tope de comentarios por canal]]', {}, en(12, 'c2'));
+  // base 7: la negativa legítima explicada en la respuesta (la marca sólo dice el qué) no abre nada.
+  r.regla = await conTicketsDeMaKo('No puedo borrarlo desde acá: el borrado se hace en tu pantalla de revisión.\n\n[[no-pude: borrar el lead de Juan]]', {}, en(12, 'c3'));
+  // base 8: la configuración se cierra sólo si contesta la cuenta que falló.
+  const conf = await ticketDeNoPude('configuracion', en(14, 'c4'), { error: 'sin crédito', herramienta: 'ia:openai' });
+  r.confOtra = await cerrarSiVolvio(14, 'configuracion', 'ia:auto');
+  r.confMisma = await cerrarSiVolvio(14, 'configuracion', 'ia:openai');
+  r.confId = conf?.id ?? null;
+  // base 9 (b): la configuración con error no va al Runner.
+  r.confDespacho = (deWs(14).find((t) => t.id === conf?.id)?.despacho as string | null) ?? null;
+  // base 9 (a): cerrar el proveedor no cierra otro automático más nuevo del negocio.
+  const prov = await ticketDeNoPude('proveedor', en(10, 'c5'), { error: '503' });
+  const texto = await ticketDeNoPude('texto', en(10, 'c6'), { queNoPudo: 'crear la tarea' });
+  r.cerroProv = await cerrarSiVolvio(10, 'proveedor');
+  r.provId = prov?.id ?? null;
+  r.textoEstado = deWs(10).find((t) => t.id === texto?.id)?.estado ?? null;
+  // base 9 (c): con el tope de los automáticos lleno, no hay línea.
+  for (let i = 0; i < 6; i++) await ticketDeNoPude('texto', en(12, `tope-${i}`), { queNoPudo: `cosa ${i}` });
+  r.topeLleno = await conTicketsDeMaKo('No pude.\n\n[[no-pude: una cosa más]]', {}, en(12, 'tope-x'));
+  // base 10: un ticket del SISTEMA (un error de la app) en el ws 10 no entra por la regla de Leandro.
+  const sis = await crearTicket({ identidad: await identidadDe(10, 'dueno10@negocio-de-prueba.com', 'Dueño'), tipo: 'bug', declaradoPor: 'sistema', sistema: true,
+    titulo: 'MaKo no pudo «crear la tarea»', descripcion: 'x', canal: 'sistema', contexto: { error: 'boom', herramienta: 'crear_tarea' }, ref: 'error:prueba:primera' });
+  const fila = sis.ok ? pg.db.tickets.find((t) => t.id === sis.id) : null;
+  r.sistemaRegla = (fila?.triage as { regla?: string } | null)?.regla ?? null;
+  out.revision = r;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

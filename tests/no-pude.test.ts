@@ -19,6 +19,8 @@ test('a. la causa sale de las señales del código, en orden, y una regla no abr
   assert.equal(causaDelNoPude({ ejecucion: true, herramienta: true }), 'ejecucion');
   assert.equal(causaDelNoPude({ herramienta: true, noPudo: 'x x x' }), 'herramienta');
   assert.equal(causaDelNoPude({ ruteo: true, noExiste: 'editar las cuotas' }), 'ruteo', 'una herramienta que existe y no viajó salió «no existe»');
+  // El ruteo SOLO no: MaKo llamó algo que no viajó y siguió con lo que tenía (la revisión del 28/10/2026).
+  assert.equal(causaDelNoPude({ ruteo: true }), null, 'un ruteo sin que MaKo dijera que no pudo abrió ticket');
   assert.equal(causaDelNoPude({ proveedor: true, noPudo: 'contestarte' }), 'proveedor');
   assert.equal(causaDelNoPude({ configuracion: true }), 'configuracion');
   assert.equal(causaDelNoPude({ noExiste: 'un tope de comentarios por canal' }), 'no-existe');
@@ -66,6 +68,9 @@ test('e. la ref: un ticket por negocio + conversación + causa; el proveedor y l
   assert.notEqual(refDeNoPude(base), refDeNoPude({ ...base, ws: 14 }), 'la ref sin el negocio');
   assert.notEqual(refDeNoPude(base), refDeNoPude({ ...base, conv: 'sesion-78' }));
   assert.notEqual(refDeNoPude(base), refDeNoPude({ ...base, causa: 'ruteo' }));
+  // Lo que falló también (la revisión del 28/10/2026): dos pedidos distintos, dos tickets; el mismo, uno.
+  assert.notEqual(refDeNoPude({ ...base, clave: 'un registro de cumpleaños' }), refDeNoPude({ ...base, clave: 'un tope por canal' }));
+  assert.equal(refDeNoPude({ ...base, clave: 'Un registro de cumpleaños' }), refDeNoPude({ ...base, clave: 'un registro de cumpleanos' }));
   assert.ok(refDeNoPude(base).startsWith('np:13:'));
   const largo = refDeNoPude({ ...base, conv: `whatsapp:${'1'.repeat(15)}@g.us-y-mucho-más-${'x'.repeat(200)}` });
   assert.ok(largo.length <= 120);
@@ -88,3 +93,5 @@ test('f. el título lo arma el código, nunca el texto del modelo', () => {
 //   2. `esReglaUOpinion` sin exclusiones (siempre false)                → rojo el b.
 //   3. `REGLA_NO_EXISTE` sin `REGLA_NO_PUDE` adentro                     → rojo el c.
 //   4. `refDeNoPude` sin el negocio                                      → rojo el e.
+//   5. el ruteo solo, sin marca, da 'ruteo' (28/10)                       → rojo el a.
+//   6. `refDeNoPude` sin lo que falló (28/10)                             → rojo el e.

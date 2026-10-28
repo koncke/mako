@@ -95,7 +95,9 @@ export function causaDelNoPude(s: SenalesNoPude): CausaNoPude | null {
   if (s.regla) return null;
   if (s.ejecucion) return 'ejecucion';
   if (s.herramienta) return 'herramienta';
-  if (s.ruteo) return 'ruteo';
+  // El ruteo cuenta sólo si MaKo además DIJO que no pudo o que no existe (la revisión del 28/10/2026): si llamó algo que no viajó
+  // y siguió con lo que tenía, no hay nada que avisar.
+  if (s.ruteo && (s.noPudo || s.noExiste)) return 'ruteo';
   if (s.proveedor) return 'proveedor';
   if (s.configuracion) return 'configuracion';
   if (s.noExiste) return 'no-existe';
@@ -114,12 +116,14 @@ export function hashCorto(s: string): string {
 export const prefijoAutomatico = (ws: number): string => `np:${ws}:`;
 
 /**
- * La clave de idempotencia: un ticket por negocio + superficie + conversación + causa. El proveedor y la configuración, uno
+ * La clave de idempotencia: un ticket por negocio + superficie + conversación + causa + lo que falló. El proveedor y la configuración, uno
  * por negocio y causa. Como mucho 120 caracteres (la columna), y la conversación va hasheada.
  */
-export function refDeNoPude(p: { ws: number; superficie: Superficie; conv: string; causa: CausaNoPude }): string {
+export function refDeNoPude(p: { ws: number; superficie: Superficie; conv: string; causa: CausaNoPude; clave?: string | null }): string {
   if (CAUSAS_DEL_NEGOCIO.has(p.causa)) return `${prefijoAutomatico(p.ws)}${p.causa}`;
-  return `${prefijoAutomatico(p.ws)}${p.superficie}:${hashCorto(p.conv)}:${p.causa}`.slice(0, 120);
+  // Con lo que falló (la revisión del 28/10/2026): dos pedidos DISTINTOS en la misma conversación son dos tickets; el mismo, uno.
+  const clave = p.clave?.trim() ? `:${hashCorto(p.clave)}` : '';
+  return `${prefijoAutomatico(p.ws)}${p.superficie}:${hashCorto(p.conv)}:${p.causa}${clave}`.slice(0, 120);
 }
 
 const ROTULO_SUPERFICIE: Record<Superficie, string> = {
