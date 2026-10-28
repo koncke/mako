@@ -67,7 +67,8 @@ test('levanta y contesta con las acciones de escritorio, y el contexto del naveg
   // Desde el 23/10/2026 es el chat de Soporte: el MISMO motor en la computadora y en el teléfono (app/tickets/soporte/useSoporte.ts).
   const motor = leer('app/tickets/soporte/useSoporte.ts');
   assert.match(motor, /levantarDesdeSoporteAction\(\{[\s\S]{0,200}?contexto: contextoDelNavegador\(movil \? 'soporte-movil' : 'soporte'\)/);
-  assert.match(motor, /contestarTicketAction\(t\.id, x\)/);
+  // Con sus archivos desde el 28/10/2026 (tests/ticketera-adjuntos.test.ts).
+  assert.match(motor, /contestarTicketAction\(t\.id, x, refs\)/);
   assert.match(leer('app/m/tickets/TicketsM.tsx'), /useSoporte\(\{ tickets, movil: true \}\)/);
   assert.match(leer('app/m/tickets/SoporteM.tsx'), /useSoporte\(\{ tickets: \[t\], inicial: t\.id, movil: true \}\)/);
   for (const f of ['app/tickets/soporte/useSoporte.ts', 'app/m/tickets/TicketsM.tsx', 'app/m/tickets/SoporteM.tsx']) {
