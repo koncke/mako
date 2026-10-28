@@ -19,7 +19,14 @@ import { corrigeUnMonto } from './doer-falla-frases';
 
 // Los detectores de lo que la persona escribe («sos el soporte», «abrime la agenda») viven aparte: nombran las formas de vos y
 // van fuera de la guarda de voseo; la nota de abajo, no (lib/doer-falla-frases.ts).
-export { reportaFalla, pideVerAgenda, corrigeUnMonto } from './doer-falla-frases';
+export { reportaFalla, pideVerAgenda, corrigeUnMonto, pideUnaFuncionalidad } from './doer-falla-frases';
+
+/**
+ * La nota del system para un turno que PIDE UNA FUNCIONALIDAD (`pideUnaFuncionalidad`): no se contesta con un consejo (ws10,
+ * Leandro, 28/10/2026: a «como lo hace manychat» MaKo le dio uno inventado). Si ya hay un ticket sobre eso, se dice en qué anda;
+ * si no existe, se dice y va la marca `[[no-existe]]`: el ticket lo abre el código (`conTicketsDeMaKo`), o dice que ya estaba.
+ */
+export const NOTA_PEDIDO_DE_FUNCION = 'LA PERSONA PIDE UNA FUNCIONALIDAD DE MaKo (que haga algo, o que lo haga como otra herramienta): NO la contestes con un consejo, un tutorial ni una estrategia. Mira con mis_tickets si ya hay un ticket sobre eso: si lo hay, dile en qué anda, con su número. Si no existe todavía, dilo en una frase y termina con la marca [[no-existe: lo que pidió, con sus palabras]]: el ticket lo abre el sistema. Si de verdad ya existe en MaKo, di dónde está.';
 
 /**
  * EL TICKET DE UNA FALLA EN EL GRUPO: «propone» (viaja `levantar_ticket` y queda esperando el «sí») o «abre» (la regla de

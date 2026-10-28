@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, comoFallaSiNoCorrio, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, comoFallaSiNoCorrio, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { errorParaTicket } from '../lib/tickets-reglas';
@@ -50,8 +50,9 @@ test('3. el doer: con un reporte, el ticket viaja aunque el turno no sea «actua
   assert.match(doer, /const reporta = reportaFalla\(sinPrefijoDeLote\(texto\)\);\n/);
   // El ticket viaja mientras `TICKET_DE_LA_FALLA` sea «propone» (con «abre», lo abre el código).
   assert.match(doer, /const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno\.some\(\(t\) => t\.name === LEVANTAR_TICKET\) \? \[\.\.\.delTurno, \.\.\.TICKET_TOOLS\] : delTurno;/);
-  assert.match(doer, /const tools = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
-  assert.match(doer, /const ctxFalla = reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : '';/);
+  assert.match(doer, /const conAgenda = pideVerAgenda\(sinPrefijoDeLote\(texto\)\) && !conTicket\.some\(\(t\) => t\.name === AGENDA_DEL_DIA\) \? \[\.\.\.conTicket, \.\.\.AGENDA_TOOLS\] : conTicket;/);
+  // (Y un pedido de funcionalidad trae sus tickets y su nota: test 16.)
+  assert.match(doer, /const ctxFalla = \(reporta \? `\\n\\n\$\{bloqueDeLaFalla\(await estadoDeSusClaves\(wsData\)\.catch\(\(\) => null\), Date\.now\(\)\)\}` : ''\)\n\s*\+ \(pideFuncion \? `\\n\\n\$\{NOTA_PEDIDO_DE_FUNCION\}` : ''\);/);
   assert.match(doer, /\$\{ctxFalla\}\$\{conMemoria\}`;/);
 });
 
@@ -176,7 +177,8 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   assert.match(doer.slice(iMarcas - 800, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
   assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
-  assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
+  // (El del audio vive en `avisarAudioSinEscuchar`, la misma para el mensaje suelto y los lotes: test 15.)
+  assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, \{ \.\.\.d, pedido: '\(nota de voz\)' \}/);
   assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
   assert.equal((doer.match(/await lineaDelCartel\('fallo_nuestro', dondeDelGrupo\(texto\)/g) ?? []).length, 2, 'falta el ticket de «ningún proveedor» o de la bloqueada');
   // La configuración se cierra sola sólo si faltaba la IA o el cupo de «auto» (el doer no elige cuenta), como en la app.
@@ -324,4 +326,42 @@ test('14. la pendiente que no entró es una falla NUESTRA: va con isError por lo
   assert.match(ej, /return r\.status === 400 \? JSON\.stringify\(cuerpo\) : \{ content: JSON\.stringify\(cuerpo\), isError: true \};/);
   // El doer, donde el runner viejo corre directo.
   assert.match(leer('lib/mako-doer-in.ts'), /: NOMBRES_ACCION\.has\(name\) \? runnerAcciones\(name, input\)\.then\(comoFallaSiNoCorrio\)/);
+});
+
+test('15. la nota de voz de un grupo: Groq de la plataforma primero, Gemini nunca, y la que no se escucha lo dice y deja ticket', () => {
+  // ws10, Leandro, 28/10/2026: Gemini cortó por tiempo, MaKo contestó sólo el texto de al lado («Tal cual como lo hace manychat»)
+  // con un consejo inventado, y el segundo audio quedó en 👍 y silencio. Con el Groq de la plataforma salían en segundos.
+  const ai = leer('lib/ai-cheap.ts');
+  assert.match(ai, /const stt = CASCADA_STT\.filter\(\(x\) => !\(o\.sinGroq && x === 'groq'\) && !\(o\.notaDeVozDelGrupo && x === 'gemini'\)\);/, 'Gemini sigue en la cadena del grupo');
+  const iCero = ai.indexOf('if (o.notaDeVozDelGrupo && !o.sinGroq) {\n    for (const p of await groqDeLaPlataforma()) {');
+  const iNegocio = ai.indexOf('for (const nombre of orden as ProvName[]) {');
+  assert.ok(iCero > 0 && iCero < iNegocio, 'el Groq de la plataforma no va primero');
+  assert.match(ai, /if \(o\.notaDeVozDelGrupo\) throw new SttSinEscucha\(errores, erroresPlataforma\);/, 'la red (con Gemini) corre para el grupo');
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.equal((doer.match(/feature: 'MaKo · nota de voz', [^}]*pii: true, notaDeVozDelGrupo: true \}/g) ?? []).length, 2, 'una de las dos transcripciones del doer no es «del grupo»');
+  // La que no se escucha: UNA función para el suelto y los dos lotes; en el lote, el audio ya no desaparece.
+  assert.match(doer, /return \{ engaged: true, reply: await avisarAudioSinEscuchar\(wsData, jid, dondeDelGrupo\('\(nota de voz\)'\), e\) \};/);
+  assert.equal((doer.match(/if \(!\('texto' in oido\)\) \{ avisoDelAudio \?\?= await avisarElAudioDelLote\(/g) ?? []).length, 2, 'un lote todavía tira el audio sin avisar');
+  assert.match(doer, /return avisoDelAudio \? \{ engaged: true, reply: avisoDelAudio \} : \{ engaged: false, skip: 'nada legible en el lote' \};/, 'el lote de un audio solo termina en silencio');
+  assert.doesNotMatch(doer, /if \(!t && audioDe\(p\)\) t = await transcribirDeMensaje/, 'volvió el audio que se tira');
+  assert.match(doer, /const avisoBase = `Me llegó tu audio pero no lo pude escuchar\. ¿Me lo puedes escribir\?/);
+  // El ticket del audio: si el que no escuchó fue el Groq de la plataforma, la causa es nuestra, no «conecta tu IA».
+  assert.match(doer, /const groqNuestro = e instanceof SttSinEscucha && e\.erroresPlataforma\.length > 0;/);
+});
+
+test('16. un pedido de FUNCIONALIDAD no se contesta con un consejo: trae sus tickets y la marca de lo que no existe', () => {
+  for (const t of [
+    'Tal cual como lo hace manychat', 'que funcione como lo hace ManyChat', 'tal cual como lo hace la otra app', 'quiero que MaKo tenga un botón para mandar audios',
+    'estaría bueno que la app avise cuando entra un lead', 'se podría agregar una función de recordatorios', 'falta una función para exportar los leads',
+    'agreguen una opción para pausar todo',
+  ]) assert.ok(pideUnaFuncionalidad(t), `«${t}» no se ve como un pedido de funcionalidad`);
+  for (const t of [
+    'quiero que le mandes el link a Juan', '¿cómo lo hace Juan para cerrar tantas ventas?', 'mandale el presupuesto a Ana', '¿cuántos leads entraron hoy?',
+    'agendá a Pedro el lunes', 'sí, hacelo como te dije',
+  ]) assert.ok(!pideUnaFuncionalidad(t), `«${t}» se toma por un pedido de funcionalidad`);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /NO la contestes con un consejo/);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /mis_tickets/);
+  assert.match(NOTA_PEDIDO_DE_FUNCION, /\[\[no-existe: /);
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /const pideFuncion = pideUnaFuncionalidad\(sinPrefijoDeLote\(texto\)\);\n\s*const tools = pideFuncion && !conAgenda\.some\(\(t\) => t\.name === MIS_TICKETS\) \? \[\.\.\.conAgenda, \.\.\.MIS_TICKETS_TOOLS\] : conAgenda;/);
 });

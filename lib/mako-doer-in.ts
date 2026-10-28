@@ -50,7 +50,7 @@ import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
-import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -104,6 +104,9 @@ const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToo
 /** La agenda del día (crm): viaja cuando el mensaje pide VER la agenda y el turno no la trajo (lib/doer-falla.ts, 27/10/2026). */
 const AGENDA_DEL_DIA = 'agenda_del_dia';
 const AGENDA_TOOLS = (() => { const d = porId(AGENDA_DEL_DIA); return d ? [aToolDef(d)] : []; })();
+/** Los tickets de la persona (lib/api-mako/areas/tickets.def.ts): viajan con un pedido de funcionalidad, para decir si ya hay uno. */
+const MIS_TICKETS = 'mis_tickets';
+const MIS_TICKETS_TOOLS = (() => { const d = porId(MIS_TICKETS); return d ? [aToolDef(d)] : []; })();
 /** Las de una corrección de monto (lib/doer-falla.ts, `HERRAMIENTAS_CORRECCION`): viajan aunque el presupuesto las deje afuera. */
 const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = porId(id); return d ? [aToolDef(d)] : []; });
 
@@ -473,6 +476,55 @@ const IA_DEL_DOER = 'ia:auto';
  * (lib/errores-app.ts), que avisa a este grupo cuando se arregla. La causa sale del `cartel`, no del texto
  * (lib/doer-falla.ts, `causaDelCartel`). La línea la escribe el código; null si no hubo ticket. Nunca tira.
  */
+/**
+ * LA NOTA DE VOZ QUE NO SE PUDO ESCUCHAR: MaKo lo dice, pide que la escriban y deja el ticket (su línea pegada). Manda el aviso
+ * al grupo y lo devuelve. UNA función para el mensaje suelto y para los dos lotes (el del turno y el del cron): en el lote, el audio
+ * que no se escuchaba DESAPARECÍA, y MaKo contestaba sólo el texto de al lado o quedaba en 👍 y silencio (ws10, Leandro, 28/10/2026).
+ */
+async function avisarAudioSinEscuchar(wsData: number, jid: string, d: DondeNoPude, e: unknown): Promise<string> {
+  const detalle = e instanceof Error ? e.message : String(e);
+  // ⚠️ ACÁ MaKo DECÍA «se me cayó la transcripción» — se comía una culpa que
+  // muy seguido no era suya: el cliente tenía UNA sola key y estaba agotada.
+  // Un mensaje que se echa la culpa además NO DICE QUÉ HACER, y la solución
+  // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
+  // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
+  // llamadas el mensaje podía contradecir a la causa que lo eligió.
+  const nKeysAudio = await contarKeysIA('audio').catch(() => 1);
+  // ⚠️ El texto se elige con los errores de SUS keys (07/10/2026): con los de la agencia, la causa la fabricarían nuestras keys
+  // (la regla de lib/fallo-ia-texto.ts). Salvo que el que no escuchó sea el Groq de la PLATAFORMA (la nota de voz de un grupo,
+  // `notaDeVozDelGrupo`): ahí el proveedor es nuestro, y «conecta tu IA» sería falso.
+  const delNegocio = e instanceof SttSinEscucha ? e.errores : [detalle];
+  const groqNuestro = e instanceof SttSinEscucha && e.erroresPlataforma.length > 0;
+  const causaAudio = groqNuestro
+    ? causaDelFallo([...delNegocio, ...(e as SttSinEscucha).erroresPlataforma], Math.max(1, nKeysAudio))
+    : causaDelFallo(delNegocio, nKeysAudio);
+  // Sin nada que escuche, ¿tiene su Claude (en su computadora o por clave)? Claude no escucha: el cartel dice eso y no
+  // «tu negocio no conectó su IA», que para él es falso (25/10/2026).
+  const conPcAudio = causaAudio === 'sin_keys' && (await negocioConSuIA(wsData)).conPc;
+  const suClaudeAudio = causaAudio === 'sin_keys' && (await cuantasClavesDeIA(['anthropic']).catch(() => 0)) > 0;
+  // El link con su `?ws=`: este aviso sale directo, sin el `linksConWs` de la respuesta de texto (24/10/2026).
+  const avisoBase = `Me llegó tu audio pero no lo pude escuchar. ¿Me lo puedes escribir?\n\n${textoFalloIA(
+    causaAudio,
+    linkApp(rutaKeysIA(), wsData),
+    'escuchar tu audio',
+    nKeysAudio,
+    delNegocio,
+    { conPc: conPcAudio, suClaude: suClaudeAudio },
+  )}`;
+  // El ticket, con la línea pegada al aviso (`lineaDelCartel`). Sin nada que escuche, la guía para conectar su GPT
+  // (lib/doer-ayuda.ts): el «sí» lo atiende el código, sin IA.
+  const errsDelTicket = groqNuestro ? [...delNegocio, ...(e as SttSinEscucha).erroresPlataforma] : delNegocio;
+  const lineaAudio = await lineaDelCartel(causaAudio, { ...d, pedido: '(nota de voz)' }, errsDelTicket.join(' · ') || detalle, 'escuchar una nota de voz');
+  const avisoConTicket = conLaLineaDelTicket(avisoBase, lineaAudio, causaDelCartel(causaAudio));
+  const aviso = causaAudio === 'sin_keys' ? `${avisoConTicket}\n\n${OFERTA_AYUDA}` : avisoConTicket;
+  if (causaAudio === 'sin_keys') await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai'], Date.now()))).catch(() => {});
+  const env = await enviarAGrupoJid(jid, aviso);
+  if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
+  // El cartel del audio también deja su fila, con el texto que le llegó: no dejaba ninguna, y el vigía no lo veía.
+  void recordUsage('cartel-ia', `cartel:${causaAudio}`, {}, motivoDelCartel([`ws${wsData}`, 'audio', `${nKeysAudio} keys`, conPcAudio ? 'con computadora' : ''], aviso, delNegocio), 'mako', 1).catch(() => {});
+  return aviso;
+}
+
 async function lineaDelCartel(cartel: string, d: DondeNoPude, error: string, operacion: string): Promise<string | null> {
   const causa = causaDelCartel(cartel);
   try {
@@ -883,10 +935,16 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // separados y que el último puede corregir al primero.
     const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
     const pideUnSi = pideUnSiEn(wsData, jid);
+    let avisoDelAudio: string | null = null;
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
-      if (!t && audioDe(p)) t = await transcribirDeMensaje(instance, p);
+      if (!t && audioDe(p)) {
+        const oido = await transcribirDeMensaje(instance, p);
+        // El audio que no se escuchó lo dice MaKo (una vez por lote) y no entra al turno: antes desaparecía sin aviso.
+        if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, oido); continue; }
+        t = oido.texto;
+      }
       // El ARCHIVO gana sobre el texto suelto del mensaje: `textoDeArchivo` ya mete
       // adentro el pedido («mako, cargá esto») junto al contenido, así que usar `t` acá
       // perdería el archivo — que es justo lo que pasaba.
@@ -895,7 +953,10 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       t = conLaMarcaDelAdjunto(p, t);
       if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instance, p, t), payload: p });
     }
-    if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
+    if (!textos.length) {
+      await marcarProcesados(cola.map((m) => m.id));
+      return avisoDelAudio ? { engaged: true, reply: avisoDelAudio } : { engaged: false, skip: 'nada legible en el lote' };
+    }
     // Para quién era cada mensaje (lib/doer-para-quien.ts): lo que era para otra persona no entra si otro es para MaKo.
     const lote = paraQuienDelLote(textos);
     // El último de lo que QUEDA (la verificación de bb41ede4a): con el último de la cola, si era para otro, el system nombraba a
@@ -986,19 +1047,34 @@ async function textoDeArchivo(instance: string, m: MsgIn): Promise<{ texto: stri
 }
 
 /** Transcribe la nota de voz de un mensaje ya encolado ('' si no se pudo). */
-async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<string> {
+/** La nota de voz de un mensaje del lote: su texto, o POR QUÉ no se escuchó (`fallo`: ninguna IA pudo; `sinAudio`: WhatsApp no
+ *  dejó bajarla). Devolvía '' en los dos casos, y el lote tiraba el audio sin decir nada (ws10, 28/10/2026). */
+async function transcribirDeMensaje(instance: string, m: MsgIn): Promise<{ texto: string } | { fallo: unknown } | { sinAudio: true }> {
   const a = audioDe(m);
-  if (!a) return '';
+  if (!a) return { texto: '' };
   let b64 = a.base64;
   const id = m.key?.id ?? '';
   if (!b64 && id) {
     const media = await fetchMediaBase64EnInstancia(instance, m.key?.remoteJid ?? '', id, !!m.key?.fromMe);
     if (media) b64 = media.base64;
   }
-  if (!b64) return '';
+  if (!b64) return { sinAudio: true };
   try {
-    return (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)', pii: true })).trim();
-  } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return ''; }
+    return { texto: (await transcribirAudio(b64, a.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz (lote)', pii: true, notaDeVozDelGrupo: true })).trim() };
+  } catch (e) { console.error('[mako-doer-in] STT lote:', e instanceof Error ? e.message : String(e)); return { fallo: e }; }
+}
+
+/** El audio de un lote que no se escuchó: el aviso (una vez por lote) y su ticket (`avisarAudioSinEscuchar`), o el «no me deja
+ *  bajarlo» si WhatsApp no lo entregó. Devuelve el aviso para que el lote no termine en 👍 y silencio. */
+async function avisarElAudioDelLote(wsData: number, jid: string, p: MsgIn, oido: { fallo: unknown } | { sinAudio: true }): Promise<string> {
+  if ('sinAudio' in oido) {
+    const aviso = 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías o me lo escribes?';
+    const env = await enviarAGrupoJid(jid, aviso, 0);
+    if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
+    return aviso;
+  }
+  const d: DondeNoPude = { ws: wsData, actor: actorDeWhatsApp(p.key?.participant, p.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido: '(nota de voz)' };
+  return avisarAudioSinEscuchar(wsData, jid, d, oido.fallo);
 }
 
 /** El JID del grupo de MaKo que el onboarding creó para ESE workspace ('' si no tiene). */
@@ -1096,46 +1172,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Si NINGUNA de las IA pudo escucharlo (Gemini→Groq→OpenAI, todas caídas o sin
       // cuota), MaKo lo dice. Antes se descartaba en silencio: mandabas el audio y no
       // pasaba nada, indistinguible de que te estuviera ignorando.
-      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo', pii: true })).trim(); }
+      try { texto = (await transcribirAudio(b64, audio.mime, { language: 'es', feature: 'MaKo · nota de voz', motivo: 'Transcribir nota de voz del grupo', pii: true, notaDeVozDelGrupo: true })).trim(); }
       catch (e) {
-        const detalle = e instanceof Error ? e.message : String(e);
-        console.error('[mako-doer-in] STT:', detalle);
-        // ⚠️ ACÁ MaKo DECÍA «se me cayó la transcripción» — se comía una culpa que
-        // muy seguido no era suya: el cliente tenía UNA sola key y estaba agotada.
-        // Un mensaje que se echa la culpa además NO DICE QUÉ HACER, y la solución
-        // estaba a dos clics. Ver lib/fallo-ia-texto.ts.
-        // Las cuentas se cuentan UNA vez: el texto también las necesita, y con dos
-        // llamadas el mensaje podía contradecir a la causa que lo eligió.
-        const nKeysAudio = await contarKeysIA('audio').catch(() => 1);
-        // ⚠️ El texto se elige con los errores de SUS keys (07/10/2026). Desde que el audio tiene
-        // red de plataforma, el error trae también los de la agencia, y con esos la causa la
-        // fabricarían nuestras keys (la regla de lib/fallo-ia-texto.ts).
-        const delNegocio = e instanceof SttSinEscucha ? e.errores : [detalle];
-        const causaAudio = causaDelFallo(delNegocio, nKeysAudio);
-        // Sin nada que escuche, ¿tiene su Claude (en su computadora o por clave)? Claude no escucha: el cartel dice eso y no
-        // «tu negocio no conectó su IA», que para él es falso (25/10/2026).
-        const conPcAudio = causaAudio === 'sin_keys' && (await negocioConSuIA(wsData)).conPc;
-        const suClaudeAudio = causaAudio === 'sin_keys' && (await cuantasClavesDeIA(['anthropic']).catch(() => 0)) > 0;
-        // El link con su `?ws=`: este aviso sale directo, sin el `linksConWs` de la respuesta de texto (24/10/2026).
-        const avisoBase = `Me llegó tu audio pero no lo pude escuchar.\n\n${textoFalloIA(
-          causaAudio,
-          linkApp(rutaKeysIA(), wsData),
-          'escuchar tu audio',
-          nKeysAudio,
-          delNegocio,
-          { conPc: conPcAudio, suClaude: suClaudeAudio },
-        )}`;
-        // El ticket, con la línea pegada al aviso (`lineaDelCartel`). Sin nada que escuche, la guía para conectar su GPT
-        // (lib/doer-ayuda.ts): el «sí» lo atiende el código, sin IA.
-        const lineaAudio = await lineaDelCartel(causaAudio, dondeDelGrupo('(nota de voz)'), delNegocio.join(' · '), 'escuchar una nota de voz');
-        const avisoConTicket = conLaLineaDelTicket(avisoBase, lineaAudio, causaDelCartel(causaAudio));
-        const aviso = causaAudio === 'sin_keys' ? `${avisoConTicket}\n\n${OFERTA_AYUDA}` : avisoConTicket;
-        if (causaAudio === 'sin_keys') await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai'], Date.now()))).catch(() => {});
-        const env = await enviarAGrupoJid(jid, aviso);
-        if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
-        // El cartel del audio también deja su fila, con el texto que le llegó: no dejaba ninguna, y el vigía no lo veía.
-        void recordUsage('cartel-ia', `cartel:${causaAudio}`, {}, motivoDelCartel([`ws${wsData}`, 'audio', `${nKeysAudio} keys`, conPcAudio ? 'con computadora' : ''], aviso, delNegocio), 'mako', 1).catch(() => {});
-        return { engaged: true, reply: aviso };
+        console.error('[mako-doer-in] STT:', e instanceof Error ? e.message : String(e));
+        // Lo dice, pide que lo escriban y deja el ticket (`avisarAudioSinEscuchar`, la misma del lote).
+        return { engaged: true, reply: await avisarAudioSinEscuchar(wsData, jid, dondeDelGrupo('(nota de voz)'), e) };
       }
       if (!texto) {
         const aviso = 'Escuché tu audio pero no le entendí nada — ¿lo repites un poco más cerca del micrófono, o me lo escribes?';
@@ -1428,9 +1469,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       : turno.tools;
     const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno.some((t) => t.name === LEVANTAR_TICKET) ? [...delTurno, ...TICKET_TOOLS] : delTurno;
     // Y pedir VER la agenda trae `agenda_del_dia` aunque el clasificador no la haya puesto (P6: mandaba a calendar.google.com).
-    const tools = pideVerAgenda(sinPrefijoDeLote(texto)) && !conTicket.some((t) => t.name === AGENDA_DEL_DIA) ? [...conTicket, ...AGENDA_TOOLS] : conTicket;
+    const conAgenda = pideVerAgenda(sinPrefijoDeLote(texto)) && !conTicket.some((t) => t.name === AGENDA_DEL_DIA) ? [...conTicket, ...AGENDA_TOOLS] : conTicket;
+    // Un PEDIDO DE FUNCIONALIDAD («como lo hace manychat», ws10, 28/10/2026) no se contesta con un consejo: viajan sus tickets
+    // para decir si ya hay uno, y la nota pide la marca de lo que no existe (el ticket lo abre el código).
+    const pideFuncion = pideUnaFuncionalidad(sinPrefijoDeLote(texto));
+    const tools = pideFuncion && !conAgenda.some((t) => t.name === MIS_TICKETS) ? [...conAgenda, ...MIS_TICKETS_TOOLS] : conAgenda;
     const { ofrece } = turno;
-    const ctxFalla = reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '';
+    const ctxFalla = (reporta ? `\n\n${bloqueDeLaFalla(await estadoDeSusClaves(wsData).catch(() => null), Date.now())}` : '')
+      + (pideFuncion ? `\n\n${NOTA_PEDIDO_DE_FUNCION}` : '');
     // Un contacto compartido se busca POR TELÉFONO antes de proponer un lead (P6: el de Leila terminó en un lead nuevo).
     const contactosCompartidos = contactosDelMensaje(data.message);
     const ctxContacto = contactosCompartidos.length
@@ -2628,10 +2674,15 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
           const instancia = cola.map((m) => String(((m.payload as { instance?: unknown }) ?? {}).instance ?? '')).find(Boolean) ?? '';
           const textos: Array<{ texto: string; para: ParaQuien; autor: string | null; leHabla: boolean; payload: MsgIn }> = [];
           const pideUnSi = pideUnSiEn(ws, jid);
+          let avisoDelAudio: string | null = null;
           for (const m of cola) {
             const p = (m.payload as MsgIn) ?? {};
             let t = m.texto.trim();
-            if (!t && audioDe(p)) t = await transcribirDeMensaje(instancia, p);
+            if (!t && audioDe(p)) {
+              const oido = await transcribirDeMensaje(instancia, p);
+              if (!('texto' in oido)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, oido); continue; }
+              t = oido.texto;
+            }
             t = conLaMarcaDelAdjunto(p, t);
             if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }

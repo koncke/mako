@@ -292,6 +292,23 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     (`traducirLegado`, como `proponerChat`) y el doer también, donde corre el runner viejo directo (`comoFallaSiNoCorrio`). Así
     deja su ticket por la huella aunque el modelo no marque [[no-pude]].
 
+**Leandro y los audios que MaKo no escuchó (ws10, 28/10/2026, 10:21-10:24).** MaKo le contestó un consejo de marketing inventado
+a «Tal cual como lo hace manychat», y a un audio de 31 s le puso 👍 y nada más.
+- **La causa:** la nota de voz fue a Gemini, que cortó por tiempo. El Gemini del ws10 es una copia de la clave de la plataforma
+  (no cuenta como propia), así que no quedaba otra IA del negocio. La red de la plataforma no corre con datos de clientes
+  (`pii`). El Groq de la plataforma (Whisper) los transcribía en segundos.
+- **⚠️ Y el lote TIRABA el audio que no se escuchaba.** `transcribirDeMensaje` devolvía '' tanto si fallaba como si no había audio,
+  y el lote lo salteaba sin decir nada. Con el texto al lado, MaKo contestaba sólo el texto; con el audio solo, «nada legible»:
+  👍 y silencio. El mensaje suelto sí tenía su aviso: el obvio, «falta el aviso», era el equivocado.
+- **Ahora:**
+  · la nota de voz de un grupo prueba primero el Groq de la plataforma (no entrena: vale con datos de clientes), después el
+    Groq o el OpenAI del negocio, y Gemini nunca (`notaDeVozDelGrupo`, lib/ai-cheap.ts; Martín: «deprequemos Gemini por los
+    grupos de WhatsApp», y el 22/10, «Groq sólo para las notas de voz»);
+  · la que no se escucha lo dice, pide que la escriban y deja ticket, con UNA función para el suelto y los dos lotes
+    (`avisarAudioSinEscuchar`), y si falló el Groq de la plataforma, la causa es nuestra, no «conecta tu IA»;
+  · un pedido de FUNCIONALIDAD («como lo hace manychat», `pideUnaFuncionalidad`) trae sus tickets (`mis_tickets`) y una nota:
+    no se contesta con un consejo; si ya hay ticket, se dice en qué anda; si no existe, va la marca `[[no-existe]]`.
+
 **Sin hacer:**
 - **En la línea del DUEÑO, el anillo es la única defensa del eco, y un error al leerlo lo vacía**: `idsEnviados` lee con
   `getSetting`, que convierte un error en null (anillo vacío), así que el eco de MaKo entra como el dueño escribiendo y se
