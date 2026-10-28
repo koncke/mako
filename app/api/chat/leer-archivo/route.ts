@@ -58,8 +58,12 @@ export async function POST(req: NextRequest) {
     try {
       const { data, error } = await storage.download(path);
       if (error || !data) return json({ ok: false, error: `No encontré «${nombre}». Vuelve a adjuntarlo.` }, 404);
+      // Lo que se mira es lo que BAJÓ (la revisión del 27/10/2026): en «subir-url» el tamaño y el tipo los declara el navegador.
+      const no = porQueNoSeAdjunta(nombre, mime || data.type, data.size);
+      if (no) return json({ ok: false, error: no }, 415);
       const file = new File([data], nombre, { type: mime || data.type });
-      const lectura = await runWithWorkspace(ws, () => conSuIADelNegocio(ws, () => archivoATexto(file, { motivo: `Chat de MaKo: leer «${nombre}»` })));
+      // `feature`: el gasto de la visión sale en el Saldo de IA como el del chat, no como «Importar al plan».
+      const lectura = await runWithWorkspace(ws, () => conSuIADelNegocio(ws, () => archivoATexto(file, { feature: 'mako-chat', motivo: `Chat de MaKo: leer «${nombre}»` })));
       const texto = lectura.texto.trim();
       if (!texto) return json({ ok: false, error: lectura.warning || `No pude sacarle texto a «${nombre}».` }, 422);
       const cortado = texto.length > TOPE_LEIDO;

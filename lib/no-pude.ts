@@ -22,6 +22,8 @@
 // PURO y sin `server-only`: lo usan los chats, lib/no-existe.ts, lib/no-pude-server.ts y tests/no-pude.test.ts.
 // =============================================================================
 
+import { esReglaUOpinion } from './no-pude-frases';
+
 /** Por qué no se pudo. El orden de `causaDelNoPude` es el de esta lista, salvo las reglas (que no abren ticket). */
 export const CAUSAS_NO_PUDE = ['ejecucion', 'herramienta', 'ruteo', 'proveedor', 'configuracion', 'no-existe', 'texto'] as const;
 export type CausaNoPude = (typeof CAUSAS_NO_PUDE)[number];
@@ -65,13 +67,8 @@ export function sacarNoPude(texto: string): { texto: string; noPudo: string | nu
 
 const norm = (s: string): string => s.toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu, '');
 
-/**
- * ¿El «no» es una REGLA de MaKo o una opinión, no una falla? (sobre el texto sin tildes). No abren ticket: confirmar por la
- * persona, su rol, un cobro o un borrado que va en su pantalla, una clave, y la opinión («no puedo asegurarte/garantizar…»).
- */
-const ES_REGLA = /\b(?:toca(?:r)? (?:la|su) tarjeta|en (?:la|su) tarjeta|lo confirma(?:s)?|confirmalo|confirmala|solo (?:el|la|un) (?:administrador|admin|duen[oa])|tu rol|su rol|no (?:tenes|tienes) permiso|por seguridad|en su pantalla|en tu pantalla|pantalla de revision|clave|token|contrasena|password)\b/;
-const ES_OPINION = /\bno (?:te )?(?:puedo|podria) (?:asegurar|garantizar|prometer|dejar pasar|recomendar|afirmar|confirmar que)\w*|^(?:asegurar|garantizar|prometer|dejar pasar|afirmar)\w*/;
-export const esReglaUOpinion = (texto: string): boolean => { const n = norm(texto); return ES_REGLA.test(n) || ES_OPINION.test(n); };
+/** Las negativas legítimas (una regla de MaKo, una opinión): el detector vive aparte, fuera de la guarda de voseo. */
+export { esReglaUOpinion };
 
 /** Lo que el turno sabe de por qué no se pudo. Todo lo pone el CÓDIGO, salvo las dos marcas (las saca el código del texto). */
 export type SenalesNoPude = {

@@ -62,6 +62,8 @@ export type PropsCajaChat = {
   adjuntos?: AdjuntosDeCaja;
   /** Esta caja no adjunta nada (ni el «+» ni lo arrastrado). Sólo donde adjuntar no tiene sentido: tiene que decir por qué. */
   sinAdjuntos?: boolean;
+  /** Cuántos caracteres lee el motor de esta pantalla (el Video y el Image Editor): lo adjuntado entra hasta ahí, con aviso. */
+  topeTexto?: number;
   /** Lo de abajo del «+» (la cuenta, el modelo, las tareas): como función recibe `cerrar`. */
   mas?: ReactNode | ((cerrar: () => void) => ReactNode);
   /** Lo que va arriba de las miniaturas: la cita de un mensaje, un texto largo pegado. */
@@ -133,7 +135,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   // TODA CAJA TOMA TODO LO QUE MaKo SABE LEER (ticket #16, ./adjuntos-que-se-leen.ts): lo que la pantalla toma (su `accept`)
   // va a SUS adjuntos; lo demás (un Word en el Second Brain, que sólo toma fotos y PDF; cualquier cosa donde la pantalla no
   // adjunta) lo lee la caja al mandar y sale con el mensaje. `sinAdjuntos`: sólo lo de la pantalla.
-  const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic });
+  const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto });
   const adjuntos = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
   const onMandar = leidos.mandar;
   // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
@@ -300,6 +302,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {/* Lo adjuntado que no se pudo tomar o leer, con el porqué (./adjuntos-que-se-leen.ts). */}
       {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
       {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}
+      {leidos.aviso && <p className="co-caja__estado" aria-live="polite">{leidos.aviso}</p>}
     </>
   );
 }

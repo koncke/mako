@@ -76,7 +76,8 @@ test('3. CADA chat de MaKo en la app lleva la regla y procesa la marca (la perso
   assert.match(app, /const np = await conTicketsDeMaKo\(respuesta, \{/, 'el Ops Center no procesa la marca');
   assert.ok(app.indexOf('conTicketsDeMaKo(respuesta') < app.indexOf("await appendMessage(s.id, 'assistant', respuesta"), 'la marca se saca DESPUÉS de guardar');
 
-  assert.match(fuente('lib/offer-ia.ts'), /\\n\\n\$\{reglaNoExisteEn\('respuesta'\)\}`;/, 'Offer sin la regla');
+  // El arranque no: no trae el catálogo de MaKo (la revisión del 27/10/2026, tests/no-existe-revision.test.ts).
+  assert.match(fuente('lib/offer-ia.ts'), /\$\{p\.arranque \? '' : `\\n\\n\$\{reglaNoExisteEn\('respuesta'\)\}`\}`;/, 'Offer sin la regla');
   const offer = fuente('app/api/offer/route.ts');
   assert.match(offer, /await conPedidoDeNoExiste\(turnoIA\.respuesta, \{/);
   const iOffer = offer.indexOf('conPedidoDeNoExiste(turnoIA.respuesta');

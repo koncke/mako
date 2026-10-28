@@ -18,7 +18,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import type { AdjuntoCaja } from '@/app/admin/operaciones/useCentro';
 import { ACCEPT_CHAT, porQueNoSeAdjunta, textoDelArchivo } from '@/lib/chat-formatos';
-import { conPegados } from '@/lib/chat-pegado';
+import { conPegadosHasta, conPegados } from '@/lib/chat-pegado';
 import { listaParaMandar } from './nota-que-se-manda';
 
 export const RUTA_LEER = '/api/chat/leer-archivo';
@@ -50,10 +50,14 @@ export type AdjuntosQueSeLeen = {
   leyendo: boolean;
   /** Por qué no salió (un archivo que no se pudo leer o no se toma). */
   error: string | null;
+  /** Lo que salió recortado por el tope de la pantalla (`tope`): se dice, no se corta callado. */
+  aviso: string | null;
 };
 
-export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError }: {
+export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError, tope }: {
   activo: boolean;
+  /** Cuántos caracteres lee el motor de la pantalla (el Video y el Image Editor, 2.000): lo leído entra hasta ahí, con aviso. */
+  tope?: number;
   texto: string;
   onTexto: (t: string) => void;
   onMandar: () => void;
@@ -62,6 +66,7 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
   const [items, setItems] = useState<AdjuntoCaja[]>([]);
   const [leyendo, setLeyendo] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [aviso, setAviso] = useState<string | null>(null);
   const [pendiente, setPendiente] = useState<string | null>(null);
   const mandarPantalla = useRef(onMandar);
   useEffect(() => { mandarPantalla.current = onMandar; });
@@ -78,6 +83,7 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
 
   const sumar = (archivos: File[]) => {
     setError(null);
+    setAviso(null);
     const nuevos: AdjuntoCaja[] = [];
     for (const f of archivos) {
       const no = porQueNoSeAdjunta(f.name, f.type, f.size);
@@ -97,6 +103,7 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
     if (!items.length) { onMandar(); return; }
     if (leyendo) return;
     setError(null);
+    setAviso(null);
     setLeyendo(true);
     void (async () => {
       const leidos: string[] = [];
@@ -112,7 +119,9 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
           return;
         }
       }
-      const nuevo = conPegados(texto, leidos);
+      // Con el tope del motor de la pantalla, lo leído entra hasta ahí con su marca de cierre, y se DICE (la revisión del 27/10).
+      const { mensaje: nuevo, afuera } = tope ? conPegadosHasta(texto, leidos, tope) : { mensaje: conPegados(texto, leidos), afuera: 0 };
+      if (afuera) setAviso(`Este chat lee hasta ${tope!.toLocaleString('es')} caracteres: lo adjuntado no entró entero (quedaron afuera ${afuera.toLocaleString('es')}).`);
       for (const x of items) if (x.url) URL.revokeObjectURL(x.url);
       setItems([]);
       setLeyendo(false);
@@ -129,5 +138,6 @@ export function useAdjuntosQueSeLeen({ activo, texto, onTexto, onMandar, onError
     mandar: activo ? mandar : onMandar,
     leyendo,
     error,
+    aviso,
   };
 }
