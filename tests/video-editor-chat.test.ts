@@ -12,7 +12,8 @@
 //     transiciones, animaciones, filtros, efectos, color, velocidad, recorte, estilo,
 //     posición, audio, revertir, congelar y los cortes por frase, tramo y muletillas);
 //   · las plantillas de anuncio: reemplazar_clip, usar_plantilla, el texto de un hueco y la
-//     lectura de la API de MaKo (tests 43-50).
+//     lectura de la API de MaKo (tests 43-50);
+//   · «Borrar silencios» desde el chat (test 51, 28/10/2026).
 //
 // Probado rompiéndolo (15/10/2026): el resultado de cada rotura está al final del archivo.
 import { test } from 'node:test';
@@ -38,6 +39,7 @@ import { PLANTILLAS, huecosDe, plantillaPorId, plantillasParaApi } from '../lib/
 import { armarLinea, paramsDeTextoDeHueco, type Medir } from '../app/video-editor/_opencut/plantillas/armar';
 import { MARCA, codificarAncla } from '../app/video-editor/_opencut/plantillas/huecos';
 import { DEFS as DEFS_VIDEO } from '../lib/api-mako/areas/video.def';
+import { sumarProgreso, type ArmadoChat } from '../app/video-editor/_opencut/chat/armado';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -917,6 +919,55 @@ test('50: la API de MaKo LISTA las plantillas (gratis, con la tab del editor) y 
   // (tests/plantillas-sugeridas-editores.test.ts).
   const run = sinComentarios(leer('lib/api-mako/areas/video.run.ts'));
   assert.ok(run.includes('\n  listar_plantillas_video: {\n    leer: async () => json(plantillasParaApi(await senalesDelNegocio().catch(() => null))),\n  },'), 'el runner de listar_plantillas_video');
+});
+
+test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo que el botón, al final y a la vista', () => {
+  // La forma: con o sin ref.
+  assert.deepEqual(validarOperacion({ op: 'borrar_silencios' }), { ok: true, op: { op: 'borrar_silencios' } });
+  assert.deepEqual(validarOperacion({ op: 'borrar_silencios', ref: 'v1' }), { ok: true, op: { op: 'borrar_silencios', ref: 'v1' } });
+  assert.equal(validarOperacion({ op: 'borrar_silencios', ref: 5 }).ok, false);
+  assert.ok(OPERACIONES_CHAT.some((o) => o.op === 'borrar_silencios'), 'la IA no la ve en el catálogo');
+  // Sin ref: cada clip con sonido de la principal (v2 es mudo y no se nombra); va ÚLTIMA aunque venga primero.
+  const r = revisar([{ op: 'borrar_silencios' }, { op: 'normalizar', ref: 'a1', activo: true }]);
+  assert.deepEqual(r.resueltas.map((x) => x.op), ['normalizar', 'borrar_silencios']);
+  const els = (r.resueltas[1] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>).els;
+  assert.deepEqual(els.map((e) => e.ref), ['v1']);
+  assert.equal(r.descartes.length, 0, motivos(r));
+  assert.deepEqual(r.cambios.at(-1), { tipo: 'quita', titulo: 'Silencios de vid1.mp4', antes: 'las pausas de 0,4 s o más (se buscan al aceptar, escuchando el audio)', despues: '' });
+  // Con ref: lo que no suena se dice; con la selección, los elegidos.
+  assert.match(motivos(revisar([{ op: 'borrar_silencios', ref: 'i1' }])), /img1\.mp4 no tiene sonido/);
+  assert.match(motivos(revisar([{ op: 'borrar_silencios', ref: 'v2' }])), /vid2\.mp4 no tiene sonido/);
+  const sel = revisarOperaciones({ operaciones: [{ op: 'borrar_silencios' }], vista: vistaRica({ elegidos: [{ trackId: 'pa', elementId: 'aud1' }] }), alcance: 'seleccion' });
+  assert.deepEqual((sel.resueltas[0] as Extract<OperacionResuelta, { op: 'borrar_silencios' }>).els.map((e) => e.ref), ['a1']);
+  // Parte los clips: con otros cortes va aparte, y lo que tarda sobre el clip de la principal también.
+  assert.match(motivos(revisar([{ op: 'cortar_tramo', inicio: 2, fin: 3 }, { op: 'borrar_silencios' }])), /borrar los silencios va en un pedido aparte/);
+  assert.match(motivos(revisar([{ op: 'normalizar', ref: 'v1', activo: true }, { op: 'borrar_silencios' }])), /normalizar vid1\.mp4 va en un pedido aparte/);
+  // El cableado: larga, por la pieza compartida con el botón y sin caer en el clip del cabezal.
+  assert.match(sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts')), /"usar_plantilla", "borrar_silencios"\]\)/);
+  const aplicar = sinComentarios(leer('app/video-editor/_opencut/chat/aplicar.ts'));
+  assert.match(aplicar, /await quitarSilencios\(editor, \{[\s\S]*?cabezal: false,/);
+  assert.match(aplicar, /correrLarga\(editor, r, op\.alProgreso\)/);
+  const runner = sinComentarios(leer('app/video-editor/_opencut/audio/borrar-silencios.ts'));
+  assert.match(runner, /const r = await quitarSilencios\(editor\);/, 'el botón no usa la misma pieza que el chat');
+  // Se ve construyéndose: cada silencio, en el orden en que se encontró, y la fase.
+  let a: ArmadoChat | null = null;
+  for (const p of [
+    { tipo: 'escuchando', titulo: 'vid1.mp4' },
+    { tipo: 'silencio', titulo: 'vid1.mp4', desde: 1, hasta: 1.6 },
+    { tipo: 'silencio', titulo: 'vid1.mp4', desde: 3, hasta: 4.2 },
+    { tipo: 'cortando' },
+    { tipo: 'listo', segundos: 1.8 },
+  ] as const) a = sumarProgreso(a, p);
+  assert.deepEqual(a, { fase: 'listo', escuchando: 'vid1.mp4', silencios: [{ titulo: 'vid1.mp4', desde: 1, hasta: 1.6 }, { titulo: 'vid1.mp4', desde: 3, hasta: 4.2 }], segundos: 1.8 });
+  const panel = sinComentarios(leer('app/video-editor/_opencut/chat/PanelChat.tsx'));
+  assert.match(panel, /<ArmadoEnVivo/);
+  assert.match(panel, /alProgreso: \(p\) => anotarProgreso\(m\.id, p\)/);
+  // La API de MaKo la tiene (AGENTS.md: «todo MaKo se debe poder utilizar por API»), al final del área y proponiendo.
+  const def = DEFS_VIDEO.find((d) => d.id === 'borrar_silencios_video');
+  assert.ok(def && def.tipo === 'accion', 'falta borrar_silencios_video en la API');
+  assert.equal(def.confirmacion, 'pantalla');
+  assert.equal(DEFS_VIDEO.at(-1)!.id, 'borrar_silencios_video', 'una operación nueva va al final de su área');
+  assert.ok(sinComentarios(leer('lib/api-mako/areas/video.run.ts')).includes("borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },"));
 });
 
 // Roturas (15/10/2026), cada una sola y restaurada desde memoria; base 21 de 21:

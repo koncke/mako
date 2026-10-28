@@ -6,7 +6,7 @@
 // que un clip suene IGUAL en los dos, todo lo que no es una ganancia pasa por
 // esta función, con el clip ya llevado a su tiempo (recorte + velocidad):
 //
-//   reducir el ruido (./dsp/ruido.ts)  →  modificador de voz (./voz.ts)
+//   reducir el ruido (./dsp/ruido.ts, con RNNoise)  →  modificador de voz (./voz.ts)
 //
 // Las GANANCIAS (volumen con ◇, «Normalizar la intensidad», fundidos) no pasan
 // por acá: se aplican al mezclar, muestra a muestra en el export y con
@@ -17,6 +17,7 @@
 import type { ParamValues } from "@/app/video-editor/_opencut/params";
 import { REDUCIR_RUIDO, claveProcesado, leerVoz } from "./claves";
 import { reducirRuido } from "./dsp/ruido";
+import { motorRnnoise } from "./dsp/rnnoise";
 import { aplicarVoz } from "./voz";
 
 /** CapCut guarda `denoise_rate 0,85` por defecto, y no lo deja cambiar. */
@@ -37,7 +38,7 @@ export async function procesarClip({
 		buffer.getChannelData(c),
 	);
 	if (params[REDUCIR_RUIDO] === true) {
-		canales = await reducirRuido({ canales, sampleRate, intensidad: INTENSIDAD_RUIDO });
+		canales = await reducirRuido({ canales, sampleRate, intensidad: INTENSIDAD_RUIDO, motor: await motorRnnoise() });
 	}
 	const voz = leerVoz(params);
 	if (voz) canales = await aplicarVoz({ canales, sampleRate, ajustes: voz });

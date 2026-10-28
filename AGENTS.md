@@ -10305,6 +10305,15 @@ módulo que importe de ahí `TICKS_PER_SECOND`, `roundMediaTime` o `addMediaTime
 `animation/`…) no carga en los tests de node. Lo que se quiera probar recibe los ticks por segundo y lo que llega
 al motor por PARÁMETRO, e importa sólo TIPOS (molde: `transcripcion/cortar.ts`, con `tps` y `dividir`).
 
+# Un .wasm de un tercero se sirve desde `public/ve/wasm/`, con su sha256 en un test, y lo carga un pegamento propio
+
+Así están el motor de OpenCut (12/10) y RNNoise (28/10, «Reducir el ruido»): el cargador de wasm del bundler en Vercel pide un
+archivo que no existe (el `?dpl=`, `wasm/opencut.ts`), un CDN en tiempo de ejecución no se usa, y el pegamento de emscripten de un
+paquete suele ser «web,worker» y no corre en los tests de node. El binario va con la versión en el nombre y su licencia al lado;
+el test fija el hash (y, si los nombres vienen minimizados, las importaciones y exportaciones que usa el pegamento). Y un
+procesamiento de audio nuevo se prueba con una VOZ (no un seno) y con una voz LIMPIA que tiene que salir intacta
+(`tests/video-editor-ruido.test.ts`; lo que costó, en docs/hallazgos-video-editor.md, «Eliminar ruido»).
+
 # Un hilo de chat que se GUARDA: lo que se guarda tiene que poder volver a usarse
 
 Desde el 16/10/2026 los chats que vivían en la memoria de la pestaña empiezan a guardarse (etapa 3 de

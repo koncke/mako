@@ -9,6 +9,11 @@
 //   · una miniatura que no se podía decodificar tumbaba la importación entera, aunque el resto se leyera bien.
 // Ahora la decisión vive acá (pura, con test): importar, importar avisando que puede verse mal, importar como audio si
 // no tiene imagen, o NO importar diciendo por qué y qué hacer. El detalle técnico viaja en el reporte a Soporte.
+//
+// ⚠️ Un .mp4 CORTADO (bajado o copiado a medias: el índice `moov` va al final y no llegó) no da error de lectura: se
+// lee como un archivo SIN PISTAS. Hasta el 28/10 eso decía «no tiene imagen; si es sólo audio, impórtalo desde Audio»,
+// que es falso (medido con un .mp4 de ffmpeg cortado antes del índice: ni imagen ni sonido). Y es una causa probable del
+// ticket: antes del arreglo del 27/10 daba justo «No se pudo importar» con el nombre.
 // =============================================================================
 
 export type ArchivoLeido = { name: string; size: number; type: string };
@@ -49,8 +54,9 @@ export function motivoDeLectura(error: unknown, archivo: ArchivoLeido): string {
   if (/quota/i.test(nombre) || /quota/i.test(msg)) {
     return 'No hay espacio en el navegador para guardarlo. Borra proyectos o archivos que no uses y vuelve a importarlo.';
   }
+  // Sin pista de video llega acá sólo si tampoco tiene sonido (con sonido entra como audio): está cortado o no es un video.
   if (/no video track/i.test(msg)) {
-    return 'El archivo no tiene imagen. Si es sólo audio, impórtalo desde Audio › Importar.';
+    return 'El archivo no tiene ni imagen ni sonido: parece incompleto, como un video que se bajó o se copió a medias. Fíjate que se reproduzca en tu computadora; si no, bájalo o cópialo de nuevo.';
   }
   if (/unsupported|unrecognizable|not supported|unknown format|no format/i.test(msg)) {
     return 'El formato del archivo no se reconoce. Expórtalo de nuevo como MP4 (H.264) e impórtalo.';

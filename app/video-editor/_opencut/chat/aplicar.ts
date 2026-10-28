@@ -16,7 +16,9 @@
 //      igual que los de la barra (imán, transiciones, fundidos, animaciones). Los cortes por
 //      tiempo o por frase van al final del lote.
 //   4. Lo que tarda (revertir, congelar, medir para normalizar, subtitular, usar una
-//      plantilla) va DESPUÉS, cada uno con su paso: procesa el archivo, transcribe o arma.
+//      plantilla, borrar los silencios) va DESPUÉS, cada uno con su paso: procesa el archivo,
+//      transcribe, arma o escucha. Lo que va haciendo se cuenta (`alProgreso`, ./armado.ts) para
+//      que se vea construyéndose.
 //      «Restaurar» deshace todos los pasos. Lo que no cambió nada se dice («No se aplica: …»),
 //      no se calla: también un reemplazo que al ejecutarse no entró.
 //
@@ -38,12 +40,14 @@ import { generarSubtitulos } from "@/app/video-editor/_opencut/subtitles/generar
 import { revertirClip } from "@/app/video-editor/_opencut/commands/timeline/element/revertir";
 import { congelarCuadro } from "@/app/video-editor/_opencut/commands/timeline/element/congelar";
 import { alternarNormalizacion } from "@/app/video-editor/_opencut/audio/normalizar";
+import { quitarSilencios, type ResultadoSilencios } from "@/app/video-editor/_opencut/audio/borrar-silencios";
 import { NORMALIZAR_OBJETIVO } from "@/app/video-editor/_opencut/audio/claves";
 import type { ClipConAudio } from "@/app/video-editor/_opencut/audio/decodificar";
 import { loadFonts } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { revisarOperaciones, vistaDeLinea, type OperacionResuelta } from "./linea";
 import { armarLote, esLarga, type OperacionLarga } from "./comandos";
 import { datosDeLinea, disponiblesChat } from "./contexto";
+import type { ProgresoChat } from "./armado";
 
 /** Lo que propuso la IA, con lo necesario para aplicarlo en la línea de tiempo correcta. */
 export type PropuestaChat = {
@@ -76,11 +80,33 @@ const NO_SE_ARMO: Record<Extract<ResultadoUsar, { ok: false }>["motivo"], string
 	error: "no se pudo cargar la plantilla",
 };
 
+/** Por qué no se borraron los silencios (audio/borrar-silencios.ts), para la persona. */
+const SIN_SILENCIOS: Record<Extract<ResultadoSilencios, { ok: false }>["motivo"], string> = {
+	"sin-clip": "el clip para borrarle los silencios ya no está",
+	ocupado: "ya se están borrando silencios",
+	"sin-audio": "el clip no tiene audio",
+	"todo-silencio": "el clip es todo silencio: no se borra entero",
+	"sin-silencios": "no hay silencios de 0,4 s o más",
+	error: "no se pudo leer el audio",
+};
+
 /**
  * Una operación larga, contra el elemento de AHORA (el lote pudo moverlo). Devuelve lo que
  * hay que decir de ella (los huecos que quedaron con su muestra, por qué no se armó…).
  */
-async function correrLarga(editor: EditorCore, r: OperacionLarga): Promise<string[]> {
+async function correrLarga(editor: EditorCore, r: OperacionLarga, alProgreso?: (p: ProgresoChat) => void): Promise<string[]> {
+	if (r.op === "borrar_silencios") {
+		// El MISMO trabajo que el botón de la barra, sobre los clips de la propuesta y nunca el del cabezal.
+		const titulos = new Map(r.els.map((el) => [el.elementId, el.titulo] as const));
+		const hecho = await quitarSilencios(editor, {
+			seleccion: r.els.map((el) => ({ trackId: el.trackId, elementId: el.elementId })),
+			cabezal: false,
+			alPaso: (paso) =>
+				alProgreso?.(paso.tipo === "cortando" ? paso : { ...paso, titulo: titulos.get(paso.elementId) ?? paso.nombre }),
+		});
+		alProgreso?.(hecho.ok ? { tipo: "listo", segundos: hecho.segundos } : { tipo: "fallo" });
+		return hecho.ok ? [] : [SIN_SILENCIOS[hecho.motivo]];
+	}
 	if (r.op === "generar_subtitulos") {
 		await generarSubtitulos(editor);
 		return [];
@@ -118,6 +144,7 @@ const QUE_NO_SE_PUDO: Record<OperacionLarga["op"], string> = {
 	normalizar: "normalizar",
 	generar_subtitulos: "generar los subtítulos",
 	usar_plantilla: "usar la plantilla",
+	borrar_silencios: "borrar los silencios",
 };
 
 /** Las fuentes de los textos de plantilla que se van a reescribir: se vuelven a partir midiendo con ELLAS. */
@@ -135,7 +162,11 @@ function fuentesDeHuecos(editor: EditorCore, p: PropuestaChat): string[] {
 }
 
 /** ACEPTAR. El orden es el contrato (ver la cabecera). */
-export async function aceptarPropuesta(editor: EditorCore, p: PropuestaChat, op: { sinVersion?: boolean } = {}): Promise<ResultadoAceptar> {
+export async function aceptarPropuesta(
+	editor: EditorCore,
+	p: PropuestaChat,
+	op: { sinVersion?: boolean; alProgreso?: (p: ProgresoChat) => void } = {},
+): Promise<ResultadoAceptar> {
 	const enSuLugar = (): { error: string } | { escena: TScene } => {
 		const proyecto = editor.project.getActiveOrNull();
 		const escena = editor.scenes.getActiveSceneOrNull();
@@ -213,7 +244,7 @@ export async function aceptarPropuesta(editor: EditorCore, p: PropuestaChat, op:
 	// 4. Lo que tarda, después y aparte: cada uno con su paso.
 	for (const r of largas) {
 		const previo = actuales();
-		const avisos = await correrLarga(editor, r);
+		const avisos = await correrLarga(editor, r, op.alProgreso);
 		descartes.push(...avisos);
 		if (actuales() !== previo) pasos++;
 		else if (!avisos.length) descartes.push(`no se pudo ${QUE_NO_SE_PUDO[r.op]}${"el" in r ? ` ${r.el.titulo}` : ""}`);
