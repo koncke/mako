@@ -138,7 +138,8 @@ test('8. los carteles del grupo dejan su ticket por su `cartel`: del negocio peg
 test('9. el doer engancha la base: las marcas después del saneo, los cuatro carteles, el cierre solo y la regla en el system', () => {
   const doer = leer('lib/mako-doer-in.ts');
   const iSaneo = doer.indexOf('const saneo = sanearSalida(');
-  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, {}, dondeDelGrupo(texto), {});');
+  // Con un error de herramienta ya registrado (la huella), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0 }, dondeDelGrupo(texto), {});');
   assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
   assert.match(doer.slice(iMarcas - 200, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
   assert.match(doer.slice(iMarcas, iMarcas + 200), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
@@ -146,7 +147,10 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
   assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
   assert.equal((doer.match(/await lineaDelCartel\('fallo_nuestro', dondeDelGrupo\(texto\)/g) ?? []).length, 2, 'falta el ticket de «ningún proveedor» o de la bloqueada');
-  assert.match(doer, /if \(respuesta && !avisoDeSistema\) await Promise\.all\(\[cerrarSiVolvio\(wsData, 'proveedor'\), cerrarSiVolvio\(wsData, 'configuracion'\)\]\);/);
+  // La configuración se cierra sola sólo si faltaba la IA o el cupo de «auto» (el doer no elige cuenta), como en la app.
+  assert.match(doer, /if \(respuesta && !avisoDeSistema\) await Promise\.all\(\[cerrarSiVolvio\(wsData, 'proveedor'\), cerrarSiVolvio\(wsData, 'configuracion', IA_DEL_DOER\)\]\);/);
+  assert.match(doer, /const IA_DEL_DOER = 'ia:auto';/);
+  assert.match(doer, /\.\.\.\(causa === 'configuracion' \? \{ herramienta: cartel === 'sin_cuota' \? IA_DEL_DOER : 'ia:ninguna' \} : \{\}\),/);
   assert.match(doer, /const reglaDeLasMarcas = tools\.length \? `\\n\\n\$\{REGLA_NO_EXISTE\}` : '';/);
   // `levantar_ticket` es para cuando la persona lo pide: lo que falla sale solo.
   assert.match(leer('lib/api-mako/areas/tickets.def.ts'), /Úsala SÓLO cuando la persona lo pide/);

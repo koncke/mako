@@ -176,6 +176,9 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   · la configuración y el proveedor van UNO por negocio, con «(ticket #n)» pegado al aviso, y se cierran solos;
   · lo nuestro (`fallo_nuestro`, «ningún proveedor», la respuesta bloqueada) va por la huella global, con su línea.
 - Los errores de las herramientas se registran aunque el modelo haya propuesto un ticket (sin `!ticketPropuesto`).
+- **Un ticket, una línea** (la revisión de la base, 28/10): con un error de herramienta ya registrado en el turno, la marca
+  sólo se saca (`yaRegistrado`). El ticket de configuración anota qué faltaba (`ia:ninguna` o el cupo de `ia:auto`), y el
+  cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
 
 **Sin hacer:**
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.

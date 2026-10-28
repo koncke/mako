@@ -471,6 +471,9 @@ function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | un
   };
 }
 
+/** La cuenta de IA del doer para el ticket de configuración: no elige una, prueba las del negocio (el «auto» de la app). */
+const IA_DEL_DOER = 'ia:auto';
+
 /**
  * LA LÍNEA DEL TICKET DE UN CARTEL (27/10/2026, Martín: «siempre que MaKo responda "No lo pude hacer" debe levantar
  * automáticamente un ticket»). Lo del negocio (su IA, su cupo, el proveedor) es UN ticket por negocio y causa, que se cierra
@@ -487,7 +490,12 @@ async function lineaDelCartel(cartel: string, d: DondeNoPude, error: string, ope
       return reg.ok && reg.ticketId ? (reg.nuevo ? lineaDelTicket(reg.ticketId) : LINEA_YA_AVISADO) : null;
     }
     if (!causa) return null;
-    const t = await ticketDeNoPude(causa, d, { operacion, error: error.slice(0, 300) });
+    // Qué faltaba, para el cierre solo (`cerrarSiVolvio`, la revisión del 28/10/2026): sin IA, cualquier respuesta lo cierra; el
+    // cupo, sólo la de «auto» (el doer no elige cuenta: es el «auto» de la app).
+    const t = await ticketDeNoPude(causa, d, {
+      operacion, error: error.slice(0, 300),
+      ...(causa === 'configuracion' ? { herramienta: cartel === 'sin_cuota' ? IA_DEL_DOER : 'ia:ninguna' } : {}),
+    });
     return t ? lineaCortaDelTicket(t.id) : null;
   } catch (e) {
     console.error(`[mako-doer-in] ws=${d.ws} el ticket del cartel ${cartel} no salió: ${e instanceof Error ? e.message : String(e)}`);
@@ -2315,7 +2323,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // nunca le llegan al grupo, el ticket sale con su causa y la línea que lo dice la escribe el código. Repetido en la misma
     // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
-      const np = await conTicketsDeMaKo(respuesta, {}, dondeDelGrupo(texto), {});
+      // Si un error de herramienta ya dejó su ticket (registrarError, arriba), sólo se sacan las marcas: un ticket, una línea.
+      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0 }, dondeDelGrupo(texto), {});
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n');
     }
 
@@ -2401,7 +2410,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // el de sin respuesta y el de la bloqueada). Ver `conLoQueQuedoPropuesto`.
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio,
     // lib/no-pude-server.ts): un turno que contestó con su IA es la prueba.
-    if (respuesta && !avisoDeSistema) await Promise.all([cerrarSiVolvio(wsData, 'proveedor'), cerrarSiVolvio(wsData, 'configuracion')]);
+    // La configuración, sólo si faltaba la IA o el cupo de «auto» (lo que el doer usa): la de una cuenta elegida en la app, no.
+    if (respuesta && !avisoDeSistema) await Promise.all([cerrarSiVolvio(wsData, 'proveedor'), cerrarSiVolvio(wsData, 'configuracion', IA_DEL_DOER)]);
     if (avisoDeSistema && respuesta && propuestasDelTurno.size) {
       respuesta = conLoQueQuedoPropuesto(respuesta, [...propuestasDelTurno.values()]);
       console.warn(`[mako-doer-in] ws=${wsData} el cartel dice ${propuestasDelTurno.size} pendiente(s) que el turno dejó antes de caerse: #${[...propuestasDelTurno.keys()].join(', #')}`);
