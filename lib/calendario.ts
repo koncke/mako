@@ -41,6 +41,8 @@ import {
   type ItemCalendario, type FilaEvento, type EntradaEvento,
 } from './calendario-modelo';
 import type { LlamadaDeVenta } from './calendario-llamadas';
+import { estaProgramadoEnLaRed, leerPublicaciones } from './calendario-publicar';
+import { esRedPublicar, rutaValida, TOPE_TEXTO, type DatosPublicacion } from './calendario-publicar-reglas';
 
 export type FallosCalendario = {
   propios?: boolean;
@@ -357,6 +359,8 @@ export async function crearEventos(entradas: readonly EntradaEvento[], tz: strin
 export async function cambiarEvento(id: string, e: EntradaEvento, tz: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const r = filaDeEntrada(e, tz);
   if (!r.ok) return r;
+  // Lo que espera a Zernio sale a esa hora con ese contenido: moverlo acá no lo mueve allá (28/10/2026). Primero se cancela.
+  if (await estaProgramadoEnLaRed(id)) return { ok: false, error: 'Está programada en la red: cancela la programación para cambiarla.' };
   const db = await getTenantDb();
   const { data, error } = await db.from('calendario_eventos').update({ ...r.fila, updated_at: new Date().toISOString() }).eq('id', id).select('id');
   if (error) throw new Error(`No pude cambiar el evento: ${error.message}`);
@@ -371,15 +375,28 @@ export async function marcarEvento(id: string, hecho: boolean): Promise<boolean>
   return !!data?.length;
 }
 
-/** Lo que se borró, entero (con su origen y su autor): el «Deshacer» lo vuelve a poner tal cual. */
-export type EventoBorrado = FilaEvento & { origen: string; creado_por: string | null };
+/**
+ * Lo que se borró, entero (con su origen y su autor): el «Deshacer» lo vuelve a poner tal cual. Con la publicación que tenía
+ * armada (la cuenta, el archivo y el texto; mig 0342), sin lo de Zernio: un evento programado no se borra.
+ */
+export type EventoBorrado = FilaEvento & {
+  origen: string; creado_por: string | null;
+  publicacion?: Pick<DatosPublicacion, 'red' | 'cuenta_red' | 'archivo' | 'archivo_tipo' | 'texto'>;
+};
 
 /** Borra un evento propio y devuelve lo que borró (para el «Deshacer», que lo vuelve a poner con el MISMO id). */
 export async function borrarEvento(id: string): Promise<EventoBorrado | null> {
+  // Uno que espera a Zernio se publicaría igual: primero se cancela (28/10/2026).
+  if (await estaProgramadoEnLaRed(id)) throw new Error('Está programada en la red: cancela la programación para borrarla.');
+  const pub = (await leerPublicaciones([id])).get(id);
   const db = await getTenantDb();
   const { data, error } = await db.from('calendario_eventos').delete().eq('id', id).select(`${COLS}, origen, creado_por`);
   if (error) throw new Error(`No pude borrar el evento: ${error.message}`);
-  return ((data ?? []) as EventoBorrado[])[0] ?? null;
+  const b = ((data ?? []) as EventoBorrado[])[0] ?? null;
+  if (b && pub && (pub.red || pub.archivo || pub.texto)) {
+    b.publicacion = { red: pub.red, cuenta_red: pub.cuenta_red, archivo: pub.archivo, archivo_tipo: pub.archivo_tipo, texto: pub.texto };
+  }
+  return b;
 }
 
 /**
@@ -405,6 +422,22 @@ export async function restaurarEvento(f: EventoBorrado): Promise<void> {
     updated_at: new Date().toISOString(),
   });
   if (error && error.code !== '23505') throw new Error(`No pude volver a poner el evento: ${error.message}`);
+  // La publicación que tenía armada, validada como todo lo demás (lo manda el navegador). Aparte: sin la 0342, el evento
+  // vuelve igual. Nunca vuelve programada: lo de Zernio se canceló antes de borrar.
+  const p = f.publicacion;
+  const ws = await getWorkspaceActual();
+  if (p && typeof p === 'object' && ws != null) {
+    const fila = {
+      red: esRedPublicar(p.red) ? p.red : null,
+      cuenta_red: typeof p.cuenta_red === 'string' && /^[A-Za-z0-9_-]{1,80}$/.test(p.cuenta_red) ? p.cuenta_red : null,
+      archivo: typeof p.archivo === 'string' && rutaValida(p.archivo, ws, f.id) ? p.archivo : null,
+      archivo_tipo: p.archivo_tipo === 'image' || p.archivo_tipo === 'video' ? p.archivo_tipo : null,
+      texto: typeof p.texto === 'string' ? p.texto.slice(0, TOPE_TEXTO) : '',
+    };
+    if (!fila.archivo) fila.archivo_tipo = null;
+    const { error: eP } = await db.from('calendario_eventos').update(fila).eq('id', f.id);
+    if (eP) console.warn(`[calendario] el evento ${f.id} volvió sin su publicación: ${eP.message}`);
+  }
 }
 
 /** Los eventos propios de un rango, para la API de MaKo (sin Google ni el CRM: lo propio y nada más). */

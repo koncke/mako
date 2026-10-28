@@ -20,6 +20,10 @@ import { tableroDeCapa } from '@/lib/tablero-de-capa';
 import { crearEventoGoogle } from '@/lib/calendario-google';
 import { cuerpoEventoGoogle, type EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import {
+  FALTA_MIGRACION_PUBLICAR, listasParaProgramar, programarPublicaciones, revisarParaProgramar, type RevisionProgramar,
+} from '@/lib/calendario-publicar';
+import { ROTULO_RED } from '@/lib/calendario-publicar-reglas';
+import {
   filaDeEntrada, sumarDias, horaDe, diaDe, esTipoEvento, esFormato, ROTULO_TIPO, ROTULO_FORMATO,
   type EntradaEvento,
 } from '@/lib/calendario-modelo';
@@ -165,6 +169,46 @@ export const RUNNERS: Runners = {
       if (!r.ok) return { ok: false, resumen: r.error };
       try { revalidatePath('/calendario'); } catch { /* fuera de un request: vence sola */ }
       return { ok: true, resumen: 'Creado en tu Google Calendar.', datos: { eventoId: r.id } };
+    },
+  },
+
+  // 28/10/2026: publica AFUERA por Zernio (lib/calendario-publicar.ts). El resumen que se confirma dice cuáles salen, a qué
+  // hora y en qué red, y cuáles no y por qué; al confirmar se programan ESAS (no se vuelven a buscar).
+  programar_publicacion: {
+    preparar: async (input): Promise<Preparado> => {
+      const [hoy, tz] = await Promise.all([hoyEnWorkspace(), zonaDelCalendario()]);
+      const pedidos = Array.isArray(input.eventos) ? input.eventos.filter((x): x is string => typeof x === 'string' && x.trim() !== '').map((x) => x.trim()) : [];
+      let ids = pedidos;
+      if (!ids.length) {
+        const r = rangoDe(input, hoy);
+        if ('error' in r) return { error: r.error };
+        const l = await listasParaProgramar(r.desde, r.hasta, tz);
+        if (l === 'sin-migracion') return { error: FALTA_MIGRACION_PUBLICAR };
+        if (!l.length) return { error: `No hay publicaciones listas entre ${r.desde} y ${r.hasta}: a cada una le falta la cuenta o el archivo (se arman en el Calendario).` };
+        ids = l;
+      }
+      const rev = await revisarParaProgramar(ids);
+      if (rev === 'sin-migracion') return { error: FALTA_MIGRACION_PUBLICAR };
+      if (!rev.listas.length) return { error: `No se puede programar ninguna: ${rev.no.map((n) => `«${n.titulo || n.id}»: ${n.motivo}`).join(' · ')}`.slice(0, 900) };
+      const linea = (l: RevisionProgramar['listas'][number]) =>
+        `${l.formato ? ROTULO_FORMATO[l.formato] : 'Post'} «${l.titulo}» en ${ROTULO_RED[l.red]}, ${diaDe(l.inicio, tz)} ${horaDe(l.inicio, tz)}`;
+      const no = rev.no.length ? ` No van: ${rev.no.map((n) => `«${n.titulo || n.id}» (${n.motivo})`).join(', ')}.` : '';
+      return {
+        payload: { eventos: rev.listas.map((l) => l.id) },
+        resumen: `Programar ${rev.listas.length === 1 ? 'una publicación' : `${rev.listas.length} publicaciones`} (salen solas a esa hora): ${rev.listas.map(linea).join('; ')}.${no}`.slice(0, 1500),
+      };
+    },
+    ejecutar: async (payload): Promise<Ejecutado> => {
+      const ids = Array.isArray(payload.eventos) ? payload.eventos.filter((x): x is string => typeof x === 'string') : [];
+      const r = await programarPublicaciones(ids);
+      if ('error' in r) return { ok: false, resumen: r.error };
+      try { revalidatePath('/calendario'); } catch { /* fuera de un request: vence sola */ }
+      const no = r.fallidas.length ? ` No se programaron: ${r.fallidas.map((f) => `«${f.titulo || f.id}» (${f.motivo})`).join(', ')}.` : '';
+      return {
+        ok: r.programadas.length > 0,
+        resumen: `${r.programadas.length ? `Programadas ${r.programadas.length}.` : 'No se programó ninguna.'}${no}`.slice(0, 1500),
+        datos: { programadas: r.programadas, fallidas: r.fallidas },
+      };
     },
   },
 };

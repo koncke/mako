@@ -246,6 +246,39 @@ UNA letra no tenía esa forma.
 barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier primera unidad recortada o sola en mayúscula;
 `charAt(0).toUpperCase() + x.slice(1)` (poner la mayúscula) no rompe y no se marca. **Vive en:** app/calendario/ListaLlamadas.tsx.
 
+## Una Publicación se programa en la red, por Zernio (28/10/2026)
+
+Martín a Teo (28/10, 00:23:08): «publicás reels e historias desde el Calendar los días y a la hora que elijas». El Cerebro:
+la decisión que este documento esperaba («ESPERA UNA DECISIÓN de Martín», abajo) es ese pedido. Chat «Zernio y CAPI».
+
+**Vive en:** `lib/calendario-publicar-reglas.ts` (puro: si se puede, el cuerpo del post, la ruta, el estado) ·
+`lib/calendario-publicar.ts` (la base, el archivo y Zernio) · `lib/zernio-publicar.ts` (los posts de Zernio, el molde de
+`8d16c6ff^:lib/zernio.ts`) · `app/calendario/PublicarEnRed.tsx` (dentro del modal) · «Crear → Programar las publicaciones
+listas» (en serie) · la operación `programar_publicacion` · mig 0342 · tests/calendario-publicar*.test.ts.
+
+- **La regla:** una Publicación con su cuenta (las conectadas en Zernio: Instagram, Facebook, TikTok, YouTube), su archivo y
+  su hora se programa con `POST /v1/posts` y sale sola. Lo programado no se mueve, no se borra ni se le cambia el archivo
+  sin cancelar antes (saldría igual a la hora vieja). Al abrir el Calendario se relee lo que ya tenía que salir.
+- ⚠️ **Las columnas nuevas se leen APARTE** (`leerPublicaciones`, que tolera que no existan). Sumarlas a `COLS` rompía la
+  lectura entera del Calendario en una base sin la 0342 (la trampa de docs/hallazgos-pagos.md, «Una columna nueva en un
+  select explícito rompe la lectura entera sin la migración»). Y el «Deshacer» de un borrado las devuelve aparte del INSERT.
+- ⚠️ **El estado de la red va APARTE de `estado`** (planeado | hecho): cambiar ese CHECK obligaba a tocar el «Deshacer», que
+  inserta una lista fija de columnas. Cuando Zernio dice «publicada», el evento además pasa a `hecho`.
+- ⚠️ **La hora es un instante:** `scheduledFor` va con su Z (Zernio ignora `timezone` si la hora trae zona). Un evento «todo
+  el día» NO se programa: nace a las 00:00 del negocio y saldría a la medianoche.
+- ⚠️ **La media se firma hasta 7 días DESPUÉS de la hora:** Zernio la lee al publicar, días después de programarla. Una firma
+  corta (la de 12 h de `wa-media`) muere antes. Bucket privado `ig-media` (mig 0136, ya en el Reset), ruta
+  `<ws>/calendario/<evento>/<al azar>` armada por el server y validada por segmentos.
+- **Una vez:** el evento se reclama (`programando`, compare-and-set) antes de pedirle a Zernio, con `x-request-id`; un 409
+  de Zernio (el mismo contenido en 24 h) es el post que ya estaba, no un error.
+- **No medido:** el cuerpo para TikTok y YouTube (`platformSpecificData`, el `title`) sale del código viejo y de la
+  documentación, sin una cuenta real. La primera publicación real la confirma el Cerebro antes (es producción).
+- **Sin hacer:** el webhook `post.published`/`post.failed` (hoy no se suscribe: el estado se relee sólo cuando alguien abre el
+  Calendario); la media que queda en `ig-media` al borrar un evento (el «Deshacer» la necesita; falta barrerla); un evento que
+  quedó `programando` porque el server murió entre Zernio y la base (si se reprograma dentro de 24 h, el 409 devuelve el mismo
+  post); por WhatsApp no se sube el archivo (la operación programa lo que ya está armado). La clave es la del negocio (`cfg`):
+  conectar sin clave de Zernio es el punto 3 del pedido.
+
 ## Lo que quedó SIN hacer
 
 - **Las TAREAS de Google** (decisión de Martín del 14/10: después de la aprobación de la verificación). Piden el permiso
@@ -265,8 +298,9 @@ barre el Calendario y el Classroom (escritorio y teléfono) buscando cualquier p
 - **La «entrega de servicio»** del pedido sale hoy sólo de la agenda de Google (las sesiones de Customer Success son
   grabaciones pasadas, no turnos futuros). Si CS agenda sesiones en MaKo, se suma como capa. Vive en `lib/calendario.ts`.
 - **Las sesiones en vivo de la comunidad del curso** (`comunidad_eventos`) no se leen todavía: son otra capa posible.
-- **Publicaciones de Instagram, TikTok, YouTube… programadas de verdad** (pedido del 14/10/2026: «poder gestionar
-  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
+- ~~**Publicaciones de Instagram, TikTok, YouTube… programadas de verdad**~~ **HECHO el 28/10/2026**: ver «Una Publicación se
+  programa en la red» (arriba). Lo que decía antes: (pedido del 14/10/2026: «poder gestionar
+  publicaciones de Instagram, TikTok, YouTube, etc»). ESPERABA UNA DECISIÓN de Martín: el 06/10 sacó el programador de
   publicaciones de la tab Instagram («C: sacar la tab», 0 filas en `contenido_posts` en toda su historia) y
   `tests/sin-instagram.test.ts` fija que Zernio se habla SÓLO desde el canal de Automations. El lib de hoy
   (lib/zernio.ts) no tiene posts; el de antes sí (`createPost`/`getPost`/`deletePost` en `8d16c6ff^:lib/zernio.ts`,

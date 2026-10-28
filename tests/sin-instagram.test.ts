@@ -97,6 +97,11 @@ const CANAL: Record<string, string> = {
   'lib/meta-capi.ts': 'las conversiones al píxel por la Zernio del negocio (`POST /v1/ads/conversions`), antes que por el token',
   'lib/meta-escribir-zernio.ts': 'pausar, prender, presupuestar, renombrar y borrar en Meta por la Zernio del negocio (un negocio sin token, 26/10/2026)',
   'lib/transcribe.ts': 'el video y la imagen de un anuncio por la Zernio del negocio (`GET /v1/ads/{adId}/media`), para transcribirlo',
+  // 28/10/2026, el Cerebro (Martín a Teo: «publicás reels e historias desde el Calendar»): una Publicación del Calendario se
+  // programa en la red. NO es la tab que se fue (no usa `contenido_posts` ni /instagram): los posts de Zernio con la clave del
+  // negocio (`cfg`), desde los eventos del Calendario (`calendario_eventos`, mig 0342).
+  'lib/zernio-publicar.ts': 'los posts de Zernio: programar, leer y cancelar una publicación del Calendario',
+  'lib/calendario-publicar.ts': 'programar en la red una Publicación del Calendario (sus cuentas, su archivo y su estado en Zernio)',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

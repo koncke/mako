@@ -41,6 +41,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useWs } from '@/app/_ui/Link';
 import { Toast, useToast } from '@/app/_ui';
+import { useConfirm } from '@/app/_ui/Confirm';
 import { Modal } from '@/app/_ui/Modal';
 import { Button } from '@/app/_ui/Button';
 import {
@@ -51,6 +52,7 @@ import type { FallosCalendario, GoogleDelCalendario } from '@/lib/calendario';
 import type { EntradaEventoGoogle } from '@/lib/calendario-google-modelo';
 import {
   crearEventosAction, cambiarEventoAction, marcarEventoAction, borrarEventoAction, restaurarEventoAction,
+  listasParaProgramarAction, programarAction, releerPublicacionesAction,
   crearEventoGoogleAction, cambiarEventoGoogleAction, borrarEventoGoogleAction, restaurarEventoGoogleAction,
 } from './actions';
 import { EventoModal, type EventoEditable } from './EventoModal';
@@ -113,6 +115,10 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
   const [movidos, setMovidos] = useState<Record<string, Movido>>({});
   const [plegados, setPlegados] = useState<Record<string, boolean>>({});
   const { toast, show, clear } = useToast(6000);
+  const { confirm, confirmNode } = useConfirm();
+
+  // Lo programado en la red cuya hora ya pasó: se relee en Zernio al abrir (sin cron). Si algo cambió, se vuelve a leer.
+  useEffect(() => { void releerPublicacionesAction().then((n) => { if (n > 0) router.refresh(); }).catch(() => { /* se relee la próxima vez */ }); }, [router]);
 
   // La lectura nueva manda: lo movido ya está donde quedó.
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -181,6 +187,22 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
     return sinLlamadasRepetidas(prendidos);
   }, [items, visibles, movidos]);
   const enVista = useMemo(() => new Set(rangoDeVista(vista, fecha).dias), [vista, fecha]);
+
+  // ── Programar en serie (28/10/2026): las publicaciones de la vista que ya tienen cuenta y archivo, de una vez ──
+  const programarListas = async () => {
+    const ds = [...enVista].sort();
+    const r0 = await listasParaProgramarAction(ds[0] ?? hoy, ds[ds.length - 1] ?? hoy).catch(() => ({ error: 'No pude leer las publicaciones.' }));
+    if (!Array.isArray(r0)) { show(r0.error, undefined, 'bad'); return; }
+    if (!r0.length) { show('No hay publicaciones listas en esta vista: a cada una le falta la cuenta o el archivo.', undefined, 'bad'); return; }
+    const cuantas = r0.length === 1 ? 'una publicación' : `${r0.length} publicaciones`;
+    if (!(await confirm(`Se programa${r0.length === 1 ? '' : 'n'} ${cuantas} de esta vista: sale${r0.length === 1 ? '' : 'n'} sola${r0.length === 1 ? '' : 's'} a su hora y la${r0.length === 1 ? '' : 's'} ven los seguidores de cada cuenta.`, { title: 'Programar en serie', confirmLabel: 'Programar', danger: false }))) return;
+    setGuardando(true);
+    const r = await programarAction(r0).catch(() => ({ error: 'No se pudo programar.' }));
+    setGuardando(false);
+    if ('error' in r) { show(r.error, undefined, 'bad'); return; }
+    show(r.fallidas.length ? `Programadas: ${r.programadas.length}. No salieron ${r.fallidas.length}: «${r.fallidas[0].titulo}» (${r.fallidas[0].motivo})` : `Programadas: ${r.programadas.length}`, undefined, r.fallidas.length ? 'bad' : undefined);
+    router.refresh();
+  };
 
   // ── Crear ──
   const borradorEn = (f: string, ini: number | null, fin: number | null): BorradorNuevo => ({
@@ -315,6 +337,7 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
       <style>{CSS_GC}</style>
       <MakoEnLaTab tab="Calendario" entidad={entidadDelItem(abierto?.t === 'tarjeta' ? abierto.item : null)} />
       {toast && <Toast state={toast} onClose={clear} />}
+      {confirmNode}
 
       {/* La barra de arriba */}
       <header className="gc-barra">
@@ -384,6 +407,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
             <div className="gc-menu-sep" />
             <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'agendar' }); }}><span>Agendar llamada</span></button>
             <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); setAbierto({ t: 'plantillas' }); }}><span>Plantilla de semana</span></button>
+            <div className="gc-menu-sep" />
+            <button type="button" role="menuitem" onClick={() => { setMenuCrear(null); void programarListas(); }}><span>Programar las publicaciones listas</span></button>
           </MenuFlotante>
         )}
 
@@ -424,7 +449,8 @@ export function CalendarioApp({ vista, fecha, hoy, tz, dias, items, fallos, goog
             void correr(() => (id ? cambiarEventoAction(id, e) : crearEventosAction([e], 'user')), id ? 'Guardado' : 'Agendado');
           }}
           onBorrar={abierto.inicial.id ? () => borrar({ id: `propio:${abierto.inicial.id}`, fuente: 'propio', capa: 'bloques', titulo: '', inicio: '', fin: null, diaCompleto: false, href: null }) : undefined}
-          onHecho={abierto.inicial.id ? (h) => marcar({ id: `propio:${abierto.inicial.id}`, fuente: 'propio', capa: 'bloques', titulo: '', inicio: '', fin: null, diaCompleto: false, href: null }, h) : undefined} />
+          onHecho={abierto.inicial.id ? (h) => marcar({ id: `propio:${abierto.inicial.id}`, fuente: 'propio', capa: 'bloques', titulo: '', inicio: '', fin: null, diaCompleto: false, href: null }, h) : undefined}
+          onCambioPublicacion={() => router.refresh()} />
       )}
       {abierto?.t === 'google' && (
         <EventoGoogleModal inicial={abierto.inicial} editables={editables} guardando={guardando} error={error}

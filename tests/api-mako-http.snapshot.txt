@@ -467,6 +467,7 @@ probar_capi_meta
 probar_conexion_integracion
 programar_analisis_dashboard
 programar_broadcast
+programar_publicacion
 proponer_agendar_reunion
 proponer_agregar_angulo
 proponer_agregar_anuncio

@@ -195,6 +195,15 @@ el árbol no tiene.
   cuota (la manda el cron). Sigue sin
   hacer: completar una venta externa pagada SIN lead que terminó en 200 (el cron sólo repara pagados con lead).
 
+## Las promesas a Teo (28/10/2026, el Cerebro: C:/dev/revisiones/2810-promesas-teo.md)
+
+1. **Publicar desde el Calendar: HECHO, con la mig 0342 sin aplicar.** Detalle y trampas en docs/hallazgos-calendario.md («Una
+   Publicación se programa en la red, por Zernio»). Antes de usarlo en un cliente: aplicar la 0342 y una primera publicación
+   real que confirme el Cerebro (el cuerpo para TikTok y YouTube no se midió con una cuenta real).
+2. La fuente de Instagram orgánico y la lectura por WhatsApp: SIN HACER.
+3. Conectar Instagram y Facebook sin pegar la clave de Zernio (la cuenta de la plataforma, un perfil por negocio): SIN HACER.
+4. La prueba de punta a punta con un Instagram real: hace falta una cuenta (la pide el Cerebro a Martín).
+
 ## Rojos que no son de esta rama
 
 `tests/zernio-conectar-redes.test.ts` → «la pantalla: la ventana se abre EN el clic…»: la regex no encuentra
