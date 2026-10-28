@@ -60,7 +60,7 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
       {s.errorTarjeta && <p className="ch-tarjeta__nota sp-tarjeta__error" role="status">{s.errorTarjeta}</p>}
       <div className="ch-tarjeta__botones">
         <button type="button" className="co-chip co-chip--primario" disabled={s.mandando} onClick={() => void s.mandarTicket()}>
-          {s.mandando ? 'Mandando…' : 'Mandárselo al equipo'}
+          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : 'Mandárselo al equipo'}
         </button>
         <span className="ch-tarjeta__nota">Como «{rotuloTipo(tipo)}». Te aviso aquí cuando conteste.</span>
       </div>
@@ -130,6 +130,8 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       placeholder={s.placeholder} tituloMandar={s.ticket ? 'Mandárselo al equipo' : 'Contárselo a MaKo'} enterManda={!movil} campo={campo} seguir={seguir}
       // Una clave pegada se tapa al guardar (lib/tickets-db.ts); antes, se le dice dónde va, como en la caja del Ops Center.
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
+      // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
+      adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />
   );
 }
