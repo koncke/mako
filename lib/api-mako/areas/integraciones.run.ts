@@ -44,7 +44,7 @@ import { OWNER_WS } from '@/lib/workspace';
 import { susClaves, type SuClaveGuardada } from '@/lib/ia-del-negocio';
 import { desconectar, listarPcDelNegocio, puedeDesconectar } from '@/lib/ia-pc';
 import { actorDeSesion } from '@/lib/ia-pc-reglas';
-import { buscarConexion, CONEXIONES, conexion } from '@/lib/conexiones-catalogo';
+import { buscarConexion, CONEXIONES, conexion, importanteDe } from '@/lib/conexiones-catalogo';
 import { conectadaSinProbar } from '@/lib/conexion-estado';
 import { canalMeta } from '@/lib/meta-via';
 import { MetaZernioError, elegirMetaPorZernio, elegirPaginaMeta, estadoMetaZernio, type EstadoMetaZernio } from '@/lib/meta-conexion-zernio';
@@ -58,7 +58,12 @@ const fallo = (error: string, disponibles?: unknown): SalidaLectura =>
 const str = (input: Record<string, unknown>, k: string): string =>
   (typeof input[k] === 'string' ? (input[k] as string).trim().toLowerCase() : '');
 const r4 = (n: number): number => Math.round(n * 10000) / 10000;
-const linkIntegracion = (key: string): string => linkPantalla(`/integraciones?abrir=${encodeURIComponent(key)}`);
+/**
+ * El link de una tarjeta, por el catálogo de conexiones: el mismo `?abrir=<key>`, salvo Meta, que desde el 27/10/2026 va a la de
+ * Zernio (se conecta con Facebook, por Zernio: lib/conexiones-catalogo.ts, `META_POR_ZERNIO`). Ningún link de acá manda a conectar
+ * Meta en `?abrir=meta`.
+ */
+const linkIntegracion = (key: string): string => linkPantalla(conexion(key)?.ruta ?? `/integraciones?abrir=${encodeURIComponent(key)}`);
 /** El link de una conexión del catálogo (lib/conexiones-catalogo.ts): su modal, «Conecta MaKo» o el QR, con el `?ws=`. */
 const linkConexion = (key: string): string | null => { const c = conexion(key); return c ? linkPantalla(c.ruta) : null; };
 /** Quién pide, como lo guarda la computadora (`persona`, `actorDeSesion`): sólo en la app hay una persona; WhatsApp es el admin. */
@@ -102,9 +107,11 @@ export const RUNNERS: Runners = {
         canalMeta(ctx.ws), estadoMetaZernio(ctx.ws), adondeVaLaCalificacion(ctx.ws).catch(() => null), credWs('META_CAPI_TOKEN', ctx.ws).catch(() => null),
       ]);
       // Por dónde sale CAPI: lo mismo que decide `sendMetaCAPIEvent` (Zernio primero; el token del píxel; el de Meta de antes).
-      const capiPor = canal.via === 'zernio' ? 'conexion_de_facebook' : tokenPixel ? 'token_del_pixel' : canal.via === 'token' ? 'token_de_meta' : null;
+      // El de antes se dice «conexion_anterior» (27/10/2026): con «token_de_meta» a la vista, el modelo le explicaba el token a quien
+      // preguntaba cómo conectar.
+      const capiPor = canal.via === 'zernio' ? 'conexion_de_facebook' : tokenPixel ? 'token_del_pixel' : canal.via === 'token' ? 'conexion_anterior' : null;
       return J({
-        via: canal.via === 'zernio' ? 'conexion_de_facebook' : canal.via === 'token' ? 'token_de_meta' : 'sin_conexion',
+        via: canal.via === 'zernio' ? 'conexion_de_facebook' : canal.via === 'token' ? 'conexion_anterior' : 'sin_conexion',
         conectar_por_facebook_abierto: est.activo,
         conectada_por_facebook: !!est.conexion,
         cuenta_elegida: est.cuenta,
@@ -118,7 +125,7 @@ export const RUNNERS: Runners = {
         link: linkIntegracion('meta'),
         nota: est.conexion
           ? 'Para cambiar algo: elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta. Para probar las conversiones: probar_capi_meta.'
-          : 'Conectar es un clic de una persona en el link («Conectar con Facebook»). Con varias páginas, elegir_pagina_meta antes.',
+          : `Conectar es un clic de una persona en el link, con su Facebook (Zernio). Con varias páginas, elegir_pagina_meta antes.${canal.via === 'token' ? ' La conexión anterior se apaga el 03/11: no la expliques, pasa el link.' : ''}`,
       });
     },
   },
@@ -187,7 +194,7 @@ export const RUNNERS: Runners = {
       const r = await sendMetaCAPIEvent({
         eventName: EVENTO_DE_PRUEBA_CAPI, email: 'prueba@hola-mako.com', phone: null, eventId: `prueba-mako:${ctx.ws}:${Date.now()}`, testCode: codigo,
       });
-      const por = canal.via === 'zernio' ? 'conexion_de_facebook' : 'token';
+      const por = canal.via === 'zernio' ? 'conexion_de_facebook' : 'conexion_anterior';
       return r.ok
         ? J({
             ok: true, recibidos: r.recibidos, por, evento: EVENTO_DE_PRUEBA_CAPI,
@@ -208,6 +215,10 @@ export const RUNNERS: Runners = {
         // es copy técnico. Se traduce a las etiquetas que la persona ve en el formulario.
         const m = /^Falta configurar: (.+)$/.exec(i.detalle);
         if (!m) return { key: i.key, nombre: i.nombre, categoria: i.categoria, estado: i.estado, detalle: i.detalle };
+        // Meta sin conectar (27/10/2026): sus campos que faltan eran «Access token» y la cuenta. No se conecta pegando nada:
+        // se dice cómo y adónde (lib/conexiones-catalogo.ts).
+        const cx = conexion(i.key);
+        if (cx?.aclaracion) return { key: i.key, nombre: i.nombre, categoria: i.categoria, estado: i.estado, detalle: `Sin conectar: se conecta ${cx.aclaracion}.`, link: linkIntegracion(i.key) };
         const campos = servicioMetodo(i.key)?.campos ?? [];
         const faltan = m[1].split(',').map((env) => campos.find((c) => c.env === env.trim())?.label ?? 'un campo');
         return { key: i.key, nombre: i.nombre, categoria: i.categoria, estado: i.estado, detalle: 'Faltan campos por configurar.', faltan_campos: faltan };
@@ -237,7 +248,10 @@ export const RUNNERS: Runners = {
       }));
       // Las cuentas EXTRA de una IA gratis son hasta 2×(MAX_KEYS−1) campos opcionales:
       // se resumen en un número en vez de listarlas una por una.
-      const principales = estados.filter(({ c }) => (c.slot ?? 1) === 1);
+      // Un campo retirado (el token de Meta, la clave de YouTube) no se lista si no está cargado: el modelo lo pedía como «falta».
+      const principales = estados.filter(({ c, e }) => (c.slot ?? 1) === 1 && (!c.retirado || e?.configurado));
+      const cx = conexion(s.key);
+      const importante = cx ? importanteDe(cx) : null;
       const extras = estados.filter(({ c }) => (c.slot ?? 1) > 1 && !esClaveDeCuenta(c.env));
       return J({
         key: s.key, nombre: s.nombre, categoria: s.categoria, para_que: s.paraQue,
@@ -251,8 +265,10 @@ export const RUNNERS: Runners = {
           lo_completa_mako: !!c.auto,
         })),
         ...(extras.length ? { cuentas_extra_cargadas: extras.filter(({ e }) => e?.configurado).length, cuentas_extra_max: extras.length } : {}),
-        // Los pasos del tutorial oficial (lib/metodo-catalogo.ts), para guiar sin inventar (25/10/2026).
-        pasos: s.tutorial.pasos,
+        // Los pasos del tutorial oficial (lib/metodo-catalogo.ts), para guiar sin inventar (25/10/2026). Los de la conexión ganan:
+        // Meta se conecta en la tarjeta de Zernio, no en su propio modal (27/10/2026).
+        pasos: cx?.pasos ?? s.tutorial.pasos,
+        ...(importante ? { importante } : {}),
         url_del_proveedor: s.tutorial.url ?? null,
         paso_externo: s.pasoExterno ? { titulo: s.pasoExterno.titulo, porque: s.pasoExterno.porque, valor: s.pasoExterno.valor, donde: s.pasoExterno.donde, ojo: s.pasoExterno.ojo ?? [] } : null,
         ilegible_significa: 'la credencial está guardada pero ya no se puede leer: hay que volver a pegarla.',
@@ -377,7 +393,10 @@ export const RUNNERS: Runners = {
         conectada: await conectadaSinProbar(c, ctx.ws),
         quien: c.quien === 'admin' ? 'La conecta quien administra el negocio.' : 'Cada persona conecta la suya.',
         donde: 'Se conecta desde la computadora: en el teléfono no se puede.',
-        pasos: tarjeta?.tutorial.pasos ?? c.pasos ?? [],
+        // Los de la conexión primero: Meta trae los de la tarjeta de Zernio, donde se conecta (27/10/2026); su tutorial es el de
+        // su propio modal.
+        pasos: c.pasos ?? tarjeta?.tutorial.pasos ?? [],
+        ...(importanteDe(c) ? { importante: importanteDe(c) } : {}),
         url_del_proveedor: tarjeta?.tutorial.url ?? null,
         paso_externo: tarjeta?.pasoExterno ? { titulo: tarjeta.pasoExterno.titulo, donde: tarjeta.pasoExterno.donde } : null,
         link: linkPantalla(c.ruta),
@@ -554,9 +573,12 @@ export const RUNNERS: Runners = {
       const tarjetas = await tarjetasDelWs(ctx.ws);
       const t = tarjetas.find((d) => d.key === key);
       if (!t) return fallo(`La integración «${key}» no existe para este negocio.`, tarjetas.map((d) => d.key));
+      const cx = conexion(t.key);
+      const importante = cx ? importanteDe(cx) : null;
       return J({
         key: t.key, nombre: t.nombre,
         url: linkIntegracion(t.key),
+        ...(importante ? { importante } : {}),
         instruccion: 'Pásale el link TAL CUAL: ahí la persona pega la credencial o autoriza con Google. Solo un admin del negocio puede abrirlo. No pidas la key por el chat.',
       });
     },

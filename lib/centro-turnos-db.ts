@@ -34,7 +34,12 @@ export async function guardarTurnos(turnos: readonly TurnoChat[], cadena?: Reado
     for (const [local, nuevos] of porChat) {
       const antes = sanearTurnos(parsear(await getSettingEstricto(PREFIJO + local)));
       // Una clave pegada en la app de Claude no queda en el Ops Center (22/10/2026): se guarda tapada.
-      const tapados = nuevos.map((t) => (hayClave(t.texto) ? { ...t, texto: taparClaves(t.texto).texto } : t));
+      // El resumen del wrap_up (cartero 1.21.0) también: es texto del chat.
+      const tapados = nuevos.map((t) => ({
+        ...t,
+        ...(hayClave(t.texto) ? { texto: taparClaves(t.texto).texto } : {}),
+        ...(t.resumen && hayClave(t.resumen) ? { resumen: taparClaves(t.resumen).texto } : {}),
+      }));
       await setSetting(PREFIJO + local, JSON.stringify(unirTurnos(antes, tapados)));
       n++;
     }

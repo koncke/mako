@@ -4678,3 +4678,28 @@ pasaron de «sólo Panda» a todas las plataformas de video (`PLATAFORMAS_VIDEO`
 
 Lo que quedó SIN hacer: probar el catálogo, los pings y los números con una cuenta real de cada alojador (cuando Martín
 conecte una); aplicar la migración; mirar con clics «Tus videos» del editor cuando despliegue.
+
+## La compra desde la página de gracias: un Purchase sin valor TAPA al del servidor (27/10/2026, Pixel v28, MAU-10)
+
+**Vive en:** `lib/landing-token.ts` (el bloque «La compra», al final del snippet) · `app/api/track/compra/route.ts` ·
+`lib/compra-navegador.ts` · `lib/meta-capi-payload.ts` (`SESION_PAGO_RE`, `eventIdCompra`). Lo fija tests/compra-navegador.test.ts,
+que CORRE el bloque emitido con un `fbq` de mentira.
+
+- ⚠️ **Lo obvio era mandar `fbq('track','Purchase')` con el `eventID` y listo, y era lo equivocado:** Meta, ante el mismo evento
+  del navegador y del servidor, se queda con el que llega PRIMERO («we generally prefer the event that is received first», su
+  página de deduplicación; la regla de «5 minutos a favor del navegador» que circula no está en esa página). El navegador suele
+  llegar antes que el aviso de Stripe, así que uno sin valor ni moneda borraba los del servidor. El Pixel le pregunta a MaKo
+  (`/api/track/compra`, que relee la sesión en Stripe) y sólo con valor y moneda manda el suyo.
+- **El `event_id` es el id de la sesión de Stripe (`purchase:cs_…`), no el del pago:** es lo único que tienen igual el webhook y
+  la página de gracias. Con varias cuentas de Stripe la sesión vive en una sola (en las otras, 404) y una de prueba no existe para
+  la clave real: se busca con la clave del mismo modo.
+- **El snippet no se delata:** `fbq` sólo con `'Purchase'`, nunca con `init` ni `Schedule` (lo que lee el analizador:
+  `pixelesMetaDe`, `scheduleDelNavegador`), y el comentario no nombra dominios de cobro (`RE_CHECKOUT`).
+
+**Sin hacer (con dónde vive):** el Payment Link del Sprint de Mauricio vuelve a sprint.mauriciobustos.com/gracias.html SIN
+`?session_id={CHECKOUT_SESSION_ID}` (medido el 24/10, docs/hallazgos-pagos.md): hasta que se agregue en Stripe («Después del pago»
+→ redirigir), el navegador no avisa nada (la compra igual le llega a Meta por el servidor). La página necesita la línea del Pixel
+de MaKo y el píxel de Meta. Y la prueba en el ws3 con Stripe en modo prueba (un link de prueba, un pago por la API).
+
+*27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+

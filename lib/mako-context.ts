@@ -24,6 +24,7 @@ import {
   MAKO_CTX_WHATSAPP_DEFAULT,
 } from './prompt-defaults';
 import { resumenDePartes } from './mensaje-partes';
+import { REGLA_NO_DESCALIFICAR } from './no-existe';
 
 // Resumen fresco de las secuencias de nutrición + borradores de plantillas, para
 // que MaKo opine con el funnel real a la vista en el chat de secuencias.
@@ -92,7 +93,7 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
       getActivePersona().catch(() => ''),
       getPromptText('mako.nucleo', MAKO_NUCLEO),
     ]);
-    return `${persona}\n\n${nucleo}`.trim();
+    return `${persona}\n\n${nucleo}\n\n${REGLA_NO_DESCALIFICAR}`.trim();
   }
 
   const [persona, perfil, faseNegocio, fase, knowledge, nombreNegocio] = await Promise.all([
@@ -106,7 +107,8 @@ export async function buildSystemPrompt(opts: { chartKey: string; titulo: string
 
   // Núcleo de formato/tono: editable desde Configuraciones (default en código).
   const nucleo = await getPromptText('mako.nucleo', MAKO_NUCLEO);
-  let base = `${persona}\n\n${nucleo}`.trim();
+  // Lo que pide la persona nunca se descalifica (crítica de Leila, 27/10/2026): fijo, después de lo editable.
+  let base = `${persona}\n\n${nucleo}\n\n${REGLA_NO_DESCALIFICAR}`.trim();
   if (perfil) base += `\n\n${rotuloDelNegocio(nombreNegocio)}:\n${perfil}`;
   // La FASE del negocio (diagnóstico de onboarding): es el Norte. MaKo prioriza
   // y aconseja según la etapa real — no le propone escalar a quien todavía no

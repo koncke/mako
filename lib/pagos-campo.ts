@@ -317,7 +317,9 @@ export type CuotaExistente = {
   protegida?: readonly Proteccion[];
 };
 
-export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null };
+/** `quedaComoEsta` (sólo en 'porId'): la que ya existe se casa por id SIN cambiarla, y si ya no existe no se inserta (lo de aparte
+ *  del plan libre, `cuotasDelPlanLibre`). */
+export type CuotaDeseada = { id?: number | null; numero?: number | null; monto_usd: number; fecha_esperada: string | null; quedaComoEsta?: boolean };
 
 /**
  *   · 'porId' — la lista viene de una pantalla con el id de cada cuota (Editar deal): la que trae id se actualiza,
@@ -366,6 +368,8 @@ export function reconciliarCuotas(
      * pago parcial, una cuota que agregó MaKo— se conserva y se avisa. Sin `vistos`, lo de siempre.
      */
     vistos?: ReadonlySet<number>;
+    /** (sólo en 'porId') El plan libre: las protegidas del plan van PRIMERO, con las protecciones de ACÁ (`protegidasPrimero`). */
+    protegidasPrimero?: boolean;
   } = {},
 ): PlanDeCuotas {
   const out: PlanDeCuotas = { actualizar: [], insertar: [], borrar: [], conservar: [] };
@@ -412,8 +416,9 @@ export function reconciliarCuotas(
   if (modo === 'porId') {
     const porId = new Map(impagas.map((q) => [q.id, q]));
     const pagadasId = new Set(existentes.filter((q) => q.pagado || q.devuelta).map((q) => q.id));
-    for (const d of validas) {
+    for (const d of opts.protegidasPrimero ? protegidasPrimero(impagas, validas, opts.vistos) : validas) {
       const q = d.id != null ? porId.get(d.id) : undefined;
+      if (d.quedaComoEsta) { if (q) libres.delete(q.id); continue; } // tal cual está, y si ya no está, nada
       if (q && libres.has(q.id)) casar(q, d);
       else if (d.id != null && pagadasId.has(d.id)) continue; // una cobrada que vino en la lista: no se toca
       else sinCasar.push(d);
@@ -490,6 +495,31 @@ export function reconciliarCuotas(
     usados.add(numero);
     max = Math.max(max, numero);
     out.insertar.push({ numero, monto_usd: d.monto_usd, fecha_esperada: d.fecha_esperada ?? null });
+  }
+  return out;
+}
+
+/**
+ * LAS PROTEGIDAS PRIMERO, CON LAS PROTECCIONES DEL SERVIDOR (revisión de 0b6d5b754, media). El plan libre le pone a cada cuota de
+ * la lista el id de una impaga que ya existe, las protegidas primero (`cuotasDelPlanLibre`), pero con las protecciones que tiene
+ * la PANTALLA: no se releen después de «Mandar link», ni si la cobranza arranca un recordatorio, y una lectura fallida da «nada
+ * protegido». Al acortar el plan, la protegida quedaba sin lugar, no se podía borrar, y la deuda se contaba dos veces (US$1.000
+ * para un plan de US$500). Acá, con lo que se acaba de leer: si una impaga del plan protegida que la pantalla vio quedó sin
+ * lugar, y una SIN proteger tiene uno, se cambian (la sin proteger es la que se borra). No toca el inicial (#0) ni lo que no es
+ * del plan. Pura.
+ */
+export function protegidasPrimero(impagas: readonly CuotaExistente[], deseadas: readonly CuotaDeseada[], vistos?: ReadonlySet<number>): CuotaDeseada[] {
+  const out = deseadas.map((d) => ({ ...d }));
+  const delPlan = impagas.filter((q) => esCuotaDelPlan(q) && q.numero !== 0 && (!vistos || vistos.has(q.id)));
+  const protegida = (q: CuotaExistente) => (q.protegida ?? []).length > 0;
+  const usadas = new Set(out.map((d) => d.id).filter((x): x is number => x != null));
+  const sueltas = delPlan.filter((q) => protegida(q) && !usadas.has(q.id)).sort((a, b) => a.numero - b.numero);
+  // Las que ceden su lugar: las sin proteger que la lista usa, de la ÚLTIMA a la primera (la protegida toma la fecha más tardía).
+  const ceden = out.map((d, i) => ({ d, i, q: delPlan.find((x) => x.id === d.id) })).filter((x) => x.q && !protegida(x.q)).reverse();
+  for (const p of sueltas) {
+    const c = ceden.shift();
+    if (!c) break;
+    out[c.i] = { ...c.d, id: p.id };
   }
   return out;
 }
@@ -852,4 +882,117 @@ export function avisoMonedaPorOmision(monedaDelNegocio: string | null | undefine
   const m = normalizarMoneda(monedaDelNegocio);
   if (!m || m === MONEDA_POR_DEFECTO) return '';
   return ` Queda en dólares (USD) porque no se dijo otra moneda, y la moneda del negocio es ${m}: si se cobró en ${m}, dímelo antes de confirmar.`;
+}
+
+// =============================================================================
+// EL PLAN LIBRE (27/10/2026, ticket #13 de Leila, ws11: «Plan de pagos quincenal (días 1 y 15)»)
+// =============================================================================
+// El plan uniforme (`ajustarSobre`) es de 1 a 6 cuotas y UN día del mes, del 1 al 28: son los CHECK de la mig 0014 sobre las
+// columnas del plan del lead. Leila necesitaba $300 cada quincena, los días 1 y 15, y «no se puede armar». Martín (27/10):
+// «no tiene LIBERTAD». El plan libre no pasa por esas columnas: arma la LISTA de cuotas (cualquier cantidad, hasta el tope de
+// 60 de `guardarCuotasAction`) cada mes, cada quincena o cada semana, en los días que se elijan, y la guarda por lista.
+// =============================================================================
+
+export type CadaPlan = 'mes' | 'quincena' | 'semana';
+export const TOPE_CUOTAS_PLAN = 60;
+
+const diasDelMes = (y: number, m0: number): number => new Date(Date.UTC(y, m0 + 1, 0)).getUTCDate();
+const iso = (y: number, m0: number, d: number): string => new Date(Date.UTC(y, m0, d)).toISOString().slice(0, 10);
+
+/**
+ * Las fechas de `cantidad` cuotas desde `desde` (AAAA-MM-DD, incluido), en UTC y sin horas:
+ *   · `mes`: el día `dias[0]` de cada mes (un 31 cae en el último día de un mes más corto);
+ *   · `quincena`: los dos días de `dias` de cada mes (por defecto el 1 y el 15), en orden;
+ *   · `semana`: cada 7 días desde `desde`.
+ * La primera es la primera de esas fechas que no cae antes de `desde`. Fuera de rango (cantidad < 1 o > 60, fecha mala,
+ * días fuera de 1..31) → [].
+ */
+export function fechasDelPlan(p: { desde: string; cantidad: number; cada: CadaPlan; dias?: readonly number[] }): string[] {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(p.desde ?? '');
+  const n = Math.floor(Number(p.cantidad));
+  if (!m || !Number.isFinite(n) || n < 1 || n > TOPE_CUOTAS_PLAN) return [];
+  const y0 = Number(m[1]), m0 = Number(m[2]) - 1, d0 = Number(m[3]);
+  if (p.cada === 'semana') {
+    const base = Date.UTC(y0, m0, d0);
+    return Array.from({ length: n }, (_, i) => new Date(base + i * 7 * 86400000).toISOString().slice(0, 10));
+  }
+  const defecto = p.cada === 'quincena' ? [1, 15] : [d0];
+  const dias = [...new Set((p.dias && p.dias.length ? p.dias : defecto).map((d) => Math.floor(Number(d))))].sort((a, b) => a - b);
+  if (!dias.length || dias.some((d) => !Number.isFinite(d) || d < 1 || d > 31)) return [];
+  if (p.cada === 'mes' && dias.length !== 1) return [];
+  if (p.cada === 'quincena' && dias.length !== 2) return [];
+  const out: string[] = [];
+  for (let k = 0; out.length < n && k < TOPE_CUOTAS_PLAN * 2 + 2; k++) {
+    const y = y0 + Math.floor((m0 + k) / 12), mm = (m0 + k) % 12;
+    for (const d of dias) {
+      const f = iso(y, mm, Math.min(d, diasDelMes(y, mm)));
+      if (f >= p.desde && out.length < n && !out.includes(f)) out.push(f);
+    }
+  }
+  return out;
+}
+
+/** Una cuota tal como la tiene la ficha, para armar el plan libre encima (`cuotasDelPlanLibre`). */
+export type CuotaParaPlanLibre = {
+  id: number; numero: number; monto_usd: number | string; fecha_esperada: string | null; pagado: boolean;
+  proveedor?: string | null; cobro_id?: number | null; baja_at?: string | null; nacio_cobrada?: boolean | null; resto_de?: number | null;
+};
+
+/**
+ * La lista que guarda el plan LIBRE encima de lo que ya hay, para `guardarCuotasAction` (POR ID, con `vistos`).
+ *
+ * ⚠️ ARMARLA DE CERO DUPLICABA PLATA (revisión adversarial de b335f972c, 27/10/2026, alta). Con el inicial de US$1.000 y
+ * 3 de 6 cuotas de US$500 cobradas, pasar la cantidad a 8 insertaba otra vez el inicial (con vencimiento HOY: la cobranza le
+ * recordaba al cliente plata que ya pagó) y 8 cuotas nuevas: US$5.000 de deuda en vez de US$2.500. Y una impaga con link o
+ * recordatorio quedaba AL LADO de las nuevas, contada dos veces. Ahora, la misma regla que el plan uniforme ('slots'):
+ *   · el inicial cobrado no se vuelve a pedir;
+ *   · la cantidad CUENTA las cuotas cobradas del plan (`esCuotaDelPlan`): se arman las que faltan, desde `desde`;
+ *   · cada impaga que ya existe toma el lugar de una de la lista POR SU ID (las protegidas primero), así no queda al lado
+ *     de una nueva: la que no se puede cambiar (un recordatorio corriendo) se conserva, y la pantalla lo dice.
+ * `fechas(n)`: las fechas de las `n` que faltan (`fechasDelPlan` con el `cada` y los días del formulario).
+ */
+export function cuotasDelPlanLibre(p: {
+  pagos: readonly CuotaParaPlanLibre[];
+  protegidas: ReadonlySet<number>;
+  inicial: number; cuota: number; cantidad: number; desde: string;
+  fechas: (n: number) => string[];
+  /** ¿El plan GUARDADO tiene cobro inicial? (el `cobro_inicial_usd` del lead o del trato al abrir). Sin inicial, el #0 que tomó un
+   *  lugar del plan es una cuota más: cobrado, cuenta como cuota (revisión de 1f02dd813). Sin esto, como si lo tuviera. */
+  planConInicial?: boolean;
+}):
+  | { ok: true; cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }>; aparte: Array<{ id: number; numero: null; monto: number; fecha: string | null; quedaComoEsta: true }>; vistos: number[]; cobradas: number; inicialCobrado: boolean; nuevas: number }
+  | { ok: false; error: string; cobradas: number; inicialCobrado: boolean } {
+  const vivas = p.pagos.filter((q) => !noEsDeuda(q));
+  // ⚠️ UN #0 COBRADO DE UN PLAN SIN INICIAL ES UNA CUOTA (revisión de 1f02dd813, media): la seña protegida que tomó un lugar del
+  // plan (300 cada quincena, 4), una vez pagada contaba como «inicial cobrado» y no como cuota, y guardar el mismo plan armaba 4
+  // nuevas: cinco cuotas de 300 para un plan de 4 (1.200 de deuda en vez de 900).
+  const conInicial0 = p.planConInicial !== false;
+  const inicialCobrado = conInicial0 && vivas.some((q) => q.pagado && q.numero === 0);
+  const cobradas = vivas.filter((q) => q.pagado && (q.numero !== 0 || !conInicial0) && esCuotaDelPlan(q)).length;
+  const nuevas = Math.floor(p.cantidad) - cobradas;
+  if (nuevas < 1) {
+    return { ok: false, cobradas, inicialCobrado, error: `Ya hay ${cobradas} cuota${cobradas === 1 ? '' : 's'} cobrada${cobradas === 1 ? '' : 's'} y cuenta${cobradas === 1 ? '' : 'n'} en la cantidad: pon más de ${cobradas}.` };
+  }
+  const fechas = p.fechas(nuevas);
+  if (fechas.length !== nuevas) return { ok: false, cobradas, inicialCobrado, error: 'Revisa el día y la fecha de la primera.' };
+  const conInicial = p.inicial > 0 && !inicialCobrado;
+  const todasImpagas = vivas.filter((q) => !q.pagado).sort((a, b) => a.numero - b.numero);
+  const vistos = todasImpagas.map((q) => q.id);
+  // ⚠️ LO QUE NO ES DEL PLAN NO TOMA LUGAR (revisión de 0b6d5b754, alta): el resto de un cobro por menos (`resto_de`, lo crea
+  // `cobrar_cuota_con_resto`) es deuda aparte, como en el plan uniforme ('slots': `lugarDe` sólo cuenta `esCuotaDelPlan`).
+  // Con lugar, protegido se quedaba con el de una cuota de US$500 y ésa se borraba (nunca se cobraba); sin proteger, se borraba
+  // el resto. Va aparte (`aparte`), con su id, su monto y su fecha tal cual: se casa sin cambio y no se borra.
+  const impagas = todasImpagas.filter((q) => esCuotaDelPlan(q));
+  // `quedaComoEsta`: el server la casa por id SIN cambiarla, y si ya no existe no la inserta (revisión de 1f02dd813, baja: un resto
+  // quitado o cambiado en el medio revivía con los valores de la pantalla).
+  const aparte = todasImpagas.filter((q) => !esCuotaDelPlan(q)).map((q) => ({ id: q.id, numero: null, monto: Number(q.monto_usd), fecha: q.fecha_esperada, quedaComoEsta: true as const }));
+  // El inicial impago que existe vuelve a ser el inicial. Sin inicial en el plan nuevo, uno sin proteger se quita (no se
+  // convierte en una cuota común llamada «Cobro inicial»); uno protegido toma un lugar, como cualquier protegida.
+  const inicialImpago = impagas.find((q) => q.numero === 0) ?? null;
+  const resto = impagas.filter((q) => q.numero !== 0 || (!conInicial && p.protegidas.has(q.id)));
+  const lugares = [...resto.filter((q) => p.protegidas.has(q.id)), ...resto.filter((q) => !p.protegidas.has(q.id))];
+  const cuotas: Array<{ id: number | null; numero: number | null; monto: number; fecha: string | null }> = [];
+  if (conInicial) cuotas.push({ id: inicialImpago?.id ?? null, numero: 0, monto: p.inicial, fecha: p.desde });
+  fechas.forEach((f, i) => cuotas.push({ id: lugares[i]?.id ?? null, numero: null, monto: p.cuota, fecha: f }));
+  return { ok: true, cuotas, aparte, vistos, cobradas, inicialCobrado, nuevas };
 }

@@ -87,8 +87,9 @@ test('B: las fotos van adentro de la burbuja, arriba del texto, y se recuerdan a
   assert.match(dibujar([trabajo('Mira esto', { adjuntos: ['captura.png'] })]), /Mira esto/);
   // El motor la recuerda DESPUÉS de saber que salió (si no salió, la caja la conserva).
   const motor = codigo('app/admin/operaciones/useCentro.ts');
-  const cuerpo = motor.slice(motor.indexOf('async function mandar('));
-  const fallo = cuerpo.indexOf("if (!r.ok) { avisar(r.error, 'bad'); return; }");
+  const cuerpo = motor.slice(motor.indexOf('  function mandar('));
+  // Desde el 27/10/2026 la firma corre en la tarea de la cola (envios-en-curso.ts): `if (!r.ok) return r;` es su fallo.
+  const fallo = cuerpo.indexOf('if (!r.ok) return r;');
   const recuerda = cuerpo.indexOf('recordarEnviadas(r.id,');
   assert.ok(fallo > 0 && recuerda > fallo, 'se recuerda con el id del trabajo que salió');
 });

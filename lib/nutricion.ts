@@ -2572,6 +2572,12 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
       } catch (e) { console.error(`[nutricion] lead ${leadId}: no pude anotar en qué automatización entró:`, e instanceof Error ? e.message : e); }
       return arrancadas;
     }
+    // ⚠️ LO MOVIÓ UNA PERSONA DESDE EL CRM: el primer paso sale DESPUÉS de contestar (`mandarDespuesDeContestar`). Leila,
+    // 26/10/2026 (Fathom 876470842): «está tardando muchísimo en mover una etapa». La pantalla esperaba a la vía rápida, que
+    // con el WhatsApp no oficial tiene el HTTP abierto de 1 a 11 s por el tipeo (ver `viaRapidaConTurno`), más lo que tarde
+    // MaKo en escribir el mensaje. En qué automatizaciones entró (y por qué no volvió a una) ya está decidido arriba: el
+    // aviso de la pantalla no cambia. Lo que se difiere es el envío y su línea en el historial.
+    if (ctx?.persona && (await mandarDespuesDeContestar(leadId, entro))) return arrancadas;
     // Vía rápida: intentamos mandar el primer paso ahora mismo, solo de este lead, con el turno
     // del negocio (si lo tiene otra corrida, lo manda el tick: `viaRapidaConTurno`).
     try { await viaRapidaConTurno(leadId); }
@@ -3658,6 +3664,36 @@ async function seguirDespuesDeResponder(leadId: number, venceMs: number): Promis
     return true;
   } catch {
     // Fuera de un pedido (un script, un test): no hay después. La hora exacta ya está en la fila.
+    return false;
+  }
+}
+
+/**
+ * LA VÍA RÁPIDA DE UN MOVIMIENTO HECHO POR UNA PERSONA, DESPUÉS DE CONTESTAR (27/10/2026). Mismo molde que
+ * `seguirDespuesDeResponder`: el workspace fijado acá, en la fila de lo que sigue después de responder (un movimiento tras
+ * otro no se pisan el turno del negocio), y si `after` no está (un script, un test) devuelve `false` y el que llama manda
+ * en el acto, como siempre. Si la función muere antes de mandar, la fila ya está vencida con su hora y la toma el tick.
+ */
+async function mandarDespuesDeContestar(leadId: number, entro: number[]): Promise<boolean> {
+  const ws = await getWorkspaceActual().catch(() => null);
+  if (ws == null) return false;
+  const mandar = async (): Promise<void> => {
+    const turno = colaDespuesDeResponder.then(() => runWithWorkspace(ws, async () => {
+      try { await viaRapidaConTurno(leadId); }
+      catch (e) { console.error(`[nutricion] envío inmediato lead ${leadId} falló (después de contestar):`, e); }
+      await anotarLaEntrada(leadId, entro);
+    }));
+    colaDespuesDeResponder = turno.then(() => undefined, () => undefined);
+    try {
+      await turno;
+    } catch (e) {
+      console.error(`[nutricion] el primer paso del lead ${leadId} no salió después de contestar (lo toma el tick):`, e);
+    }
+  };
+  try {
+    after(mandar);
+    return true;
+  } catch {
     return false;
   }
 }

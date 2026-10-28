@@ -54,7 +54,7 @@ import { entraAEtapaDeReunion } from './nutricion-familias';
 import { limpiaEtapaAlReservar } from './nutricion-etapa';
 import type { InformeMovimiento } from './reentrada';
 import type { Stage, StageDerivable } from './pipeline';
-import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
+import { DEFAULT_PIPELINE, generateFunnel, terminalEstadoFor, etapaContradiceElEstado, NUTRI_KEYS, deriveStageKey, pipelineStageOf, MAKO_SETTER } from './pipeline';
 // El funnel vive en lib/funnels.ts desde la mig 0170. Acá se usa el lector DEL
 // LEAD (no el del negocio): lo que valida un movimiento son los requisitos del
 // recorrido de ESE lead.
@@ -1012,8 +1012,17 @@ async function casaParaElAlta(supabase: SupabaseClient, pedido: number | null | 
   }
 }
 
-export async function createLead(input: LeadCreateInput & { permitirDuplicado?: boolean }): Promise<Lead> {
-  if (!input.nombre || !input.nombre.trim()) {
+export async function createLead(input: LeadCreateInput & {
+  permitirDuplicado?: boolean;
+  /**
+   * Puede nacer SIN nombre si trae por dónde contactarlo (27/10/2026, Martín: «en NOMBRE se pone el teléfono»). Lo usa el
+   * alta desde un chat: sin el nombre de la agenda ni uno que el contacto se haya puesto, el lead nace con el nombre vacío
+   * (la ficha dice «Sin nombre») y no con sus dígitos (`nombreParaAlta`, lib/contacto-lead.ts).
+   */
+  nombreOpcional?: boolean;
+}): Promise<Lead> {
+  const sinNombrePermitido = input.nombreOpcional === true && !!(input.telefono?.trim() || input.email?.trim());
+  if ((!input.nombre || !input.nombre.trim()) && !sinNombrePermitido) {
     throw new Error('Nombre es requerido');
   }
   if (!input.permitirDuplicado) {
@@ -1026,7 +1035,7 @@ export async function createLead(input: LeadCreateInput & { permitirDuplicado?: 
   // Uno ajeno (o que no se pudo comprobar) nace en el CRM del negocio, con su log (`casaDelAlta`).
   const casa = await casaParaElAlta(supabase, input.funnel_id);
   const fila: Record<string, unknown> = {
-      nombre: input.nombre.trim(),
+      nombre: (input.nombre ?? '').trim(),
       email: input.email?.trim() || null,
       telefono: input.telefono?.trim() || null,
       // Sin esto el lead manual nunca matchea su chat de WhatsApp ni el
@@ -1111,8 +1120,12 @@ export async function updateLead(
    * (`revertMoveAction`, `revertAuditChangeAction`): lo que vuelve es una foto de antes, armada con
    * `desenlaceAntesDelMovimiento` (lib/lead-desenlace.ts), no una decisión sobre la venta. Pasado por la
    * regla, volver un lead de «Facturando» de un Ganado por error le borraba el monto (17/10/2026).
+   *
+   * `etapaAparte` = el caller escribe la columna del tablero él mismo, justo después (`setPipelineStage`, el Deshacer de
+   * un movimiento con su etapa): sin esto, un cambio de estado que contradice la columna guardada la vuelve a la
+   * derivación (`etapaContradiceElEstado`, lib/pipeline.ts: el lead 2371, «ganado» en la columna de Perdido).
    */
-  opts?: { disparoDeEtapa?: boolean; desenlaceExacto?: Desenlace },
+  opts?: { disparoDeEtapa?: boolean; desenlaceExacto?: Desenlace; etapaAparte?: boolean },
 ): Promise<Lead> {
   const supabase = (await getTenantDb());
 
@@ -1208,6 +1221,12 @@ export async function updateLead(
     monto_primer_pago: merged.monto_primer_pago,
     total_cobrado_usd: merged.total_cobrado_usd,
     fecha_inicio_servicio: merged.fecha_inicio_servicio,
+    // ⚠️ EL ESTADO CAMBIÓ Y LA COLUMNA GUARDADA DICE OTRA COSA: la tarjeta vuelve a la derivación, que sale del estado
+    // nuevo (27/10/2026, el lead 2371: ganado por un camino que no mueve, con la tarjeta en «Perdido»). Sólo si el estado
+    // cambia en ESTE guardado: un lead ya descalzado no se «arregla» hacia un lado al re-guardar otro campo.
+    ...(opts?.etapaAparte !== true && merged.estado_lead !== actual.estado_lead && etapaContradiceElEstado(actual.pipeline_stage, merged.estado_lead)
+      ? { pipeline_stage: null }
+      : {}),
   };
 
   const { data, error } = await supabase
@@ -3155,7 +3174,7 @@ export async function setPipelineStage(
   // (El disparo de la etapa DERIVADA de `updateLead`, M1-b, no se cruza con este movimiento: un cambio de estado no
   // dispara, y sin cambio de estado —traiga o no `estado_lead` el `sync`— sólo una asistencia que se limpia —el
   // «Reagenda R1»— lo deja en «Agenda R1», que es justo la etapa que se escribe abajo.)
-  await updateLead(id, sync);
+  await updateLead(id, sync, { etapaAparte: true });
 
   // 2) Guardar el override de la columna del tablero. El deadline de nutrición
   //    manual solo vive mientras el lead está en 'manual'; al moverlo a cualquier

@@ -50,6 +50,7 @@ import {
 } from './offer-reglas';
 import { parsePropuestaCrm, tiposParaPrompt, type PropuestaCrm } from './onboarding-crm';
 import type { TipoCrm } from './pipeline';
+import { reglaNoExisteEn } from './no-existe';
 
 /** Las keys de las piezas con lo que es cada una: el prompt del onboarding no lleva el marco entero. */
 const clavesParaPrompt = (): string => PIEZAS.map((p) => `- ${p.key}: ${p.que}`).join('\n');
@@ -523,9 +524,11 @@ export async function turnoOffer(p: {
   arranque?: boolean;
 }): Promise<ResultadoIA<TurnoOffer>> {
   const b = bloquesComunes(p);
-  const system = p.arranque
+  // Lo que no existe en MaKo se dice y se marca (lib/no-existe.ts): la ruta saca la marca y levanta el pedido sola. El ARRANQUE
+  // no: su system no trae el catálogo de MaKo, y una integración que existe salía «no existe», con ticket (la revisión del 27/10).
+  const system = `${p.arranque
     ? await renderPrompt('offer.arranque.system', OFFER_ARRANQUE_SYSTEM_TEMPLATE, { guia: guiaDelArranque(), claves: clavesParaPrompt() })
-    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) });
+    : await renderPrompt('offer.turno.system', OFFER_TURNO_SYSTEM_TEMPLATE, { marco: b.marco, guia: guiaParaPrompt(), voz: vozParaPrompt(p.voz) })}${p.arranque ? '' : `\n\n${reglaNoExisteEn('respuesta')}`}`;
   const user = await renderPrompt('offer.turno.user', OFFER_TURNO_USER_TEMPLATE, {
     contexto: b.contexto, piezas: b.piezas, faltan: p.arranque ? faltanDelArranqueParaPrompt(p.piezas) : b.faltan, documentos: b.documentos,
     // SIN `contenidoNoConfiable`, a propósito: el bloque lo escribe el CÓDIGO (las preguntas son las de

@@ -243,7 +243,7 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
   };
   /** Saca un bloque (si es copy y no está repetido). `de`: el marco que lo juntó. Devuelve si salió. */
   const emitir = (tipo: Tipo, crudo: string, de?: Marco): boolean => {
-    const texto = decodificar(crudo).replace(/\s+/g, ' ').trim();
+    const texto = sinLetrasDobles(decodificar(crudo).replace(/\s+/g, ' ').trim());
     if (texto.length < 2 || texto.length > MAX_BLOQUE) return false;
     // Dedup: los menús y footers repiten el mismo texto muchas veces.
     const clave = `${tipo}:${texto.toLowerCase()}`;
@@ -337,7 +337,11 @@ export function extraerBloques(htmlCrudo: string): BloqueLanding[] {
     const r = rolDe(tag, attrs);
     if (r.rol === 'bloque') {
       vaciarTodo();
-      const enNav = juntador().enNav || pila[pila.length - 1].enNav || tag === 'nav' || (atributo(attrs, 'role') ?? '').toLowerCase() === 'navigation';
+      // Un <header> FIJO o pegajoso es la barra del sitio (28/10/2026, respond.io: su megamenú y el selector de idiomas
+      // viven en `<header class="fixed …">` sin <nav>, y entraban como ~80 renglones de la primera sección). Sus botones
+      // siguen pasando (`enNav` sólo calla el texto). Un <header> sin `fixed`/`sticky` puede ser el hero: ése se lee.
+      const barraFija = tag === 'header' && /(?:^|\s)(?:fixed|sticky)(?:\s|$)/.test(atributo(attrs, 'class') ?? '');
+      const enNav = juntador().enNav || pila[pila.length - 1].enNav || tag === 'nav' || barraFija || (atributo(attrs, 'role') ?? '').toLowerCase() === 'navigation';
       // Un contenedor abre su ítem; un bloque de texto (un título, la pregunta, un párrafo) usa el de arriba.
       const deArriba = pila[pila.length - 1].item;
       const item = r.textual ? deArriba : { pregunta: false, padre: deArriba };
@@ -388,6 +392,25 @@ export function textoDeBloques(bloques: readonly BloqueLanding[]): string {
 }
 
 export const contarPalabras = (t: string): number => t.split(/\s+/).filter(Boolean).length;
+
+/**
+ * Las letras de una animación «letra por letra» que la página escribe DOS veces (28/10/2026, tryholo.ai: «Holo runs your
+ * a a d d s s , e e m m a a i i l l , and S S E E O O»: un span por letra para lo que se ve y otro para la animación).
+ * Una corrida de dos o más pares de letras sueltas iguales vuelve a ser la palabra, y la puntuación se le pega. Una letra
+ * suelta que no se repite («y», «a»), o un solo par, no se toca; sin corridas, el texto vuelve igual.
+ */
+export function sinLetrasDobles(t: string): string {
+  const tokens = t.split(' ');
+  const out: string[] = [];
+  let cambio = false;
+  for (let i = 0; i < tokens.length;) {
+    let j = i;
+    let palabra = '';
+    while (j + 1 < tokens.length && [...tokens[j]].length === 1 && tokens[j] === tokens[j + 1] && /[\p{L}\p{N}]/u.test(tokens[j])) { palabra += tokens[j]; j += 2; }
+    if ([...palabra].length >= 2) { out.push(palabra); i = j; cambio = true; } else { out.push(tokens[i]); i++; }
+  }
+  return cambio ? out.join(' ').replace(/ ([,.;:!?])(?= |$)/g, '$1') : t;
+}
 
 export type CopyDeHtml = Pick<LandingExtraida, 'titulo' | 'descripcion' | 'bloques' | 'texto' | 'palabras' | 'bloqueada'>;
 

@@ -45,6 +45,11 @@ button.tci-api:hover { border-color: var(--border-strong) !important; }
 .tci-api__nombre { flex: 1; min-width: 0; font-size: var(--fs-sm); font-weight: 600; }
 .tci-api__estado { flex: none; font-size: var(--fs-meta); color: var(--faint); }
 .tci-api__estado[data-conectada] { color: var(--good); }
+/* Gemini, ya no se ofrece (27/10/2026): sólo se ve cargada, y sin el verde de «lista para usar». */
+.tci-api__estado[data-retirada] { color: var(--faint); }
+/* El «?» del título de «Claves de API»: al lado del nombre, no en la esquina como en las opciones grandes. */
+.tci-bloque__titulo--ayuda { display: flex; align-items: center; gap: 8px; }
+.tci-ayuda.tci-ayuda--titulo { position: static; flex: none; }
 /* El «?» de «Mi computadora»: chico, en la esquina; la explicación en su title. */
 .tci-grande { position: relative; }
 .tci-ayuda { position: absolute; top: 8px; right: 10px; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border-strong); display: grid; place-items: center; font-size: 11px; font-weight: 700; color: var(--dim); cursor: help; }

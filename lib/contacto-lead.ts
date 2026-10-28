@@ -136,3 +136,56 @@ export function leadsParaGuardarFoto(
   }
   return out;
 }
+
+// =============================================================================
+// El NOMBRE de un contacto que entra al CRM (27/10/2026, Martín)
+// =============================================================================
+// «Cuando agrego un lead al CRM desde "chats" no se agrega con el NOMBRE que lo tenía agendado» y «en NOMBRE se pone el
+// teléfono». El alta tomaba el nombre de la pantalla, que era el que el contacto se puso en WhatsApp (`push_name`) o, sin
+// ése, los dígitos; y el de la agenda (`evolution_contactos.nombre`, la libreta del teléfono) no se miraba nunca. Además
+// Evolution guarda como «nombre» de un contacto sin nombre su propio número: un nombre hecho de dígitos ES el teléfono.
+// =============================================================================
+
+/**
+ * ¿Ese «nombre» es en realidad un teléfono? Sin letras y con 6 dígitos o más («+52 1 55 1234 5678», «5491123456789»), o los
+ * mismos dígitos que el teléfono del contacto. Un nombre con letras nunca lo es («Juan 2», «Clínica 24 h»).
+ */
+export function esNombreDeTelefono(nombre: string | null | undefined, telefono?: string | null): boolean {
+  const n = String(nombre ?? '').trim();
+  if (!n) return false;
+  if (/\p{L}/u.test(n)) return false;
+  const dig = n.replace(/\D/g, '');
+  if (dig.length >= 6 && /^[\d\s+().\-–]+$/.test(n)) return true;
+  const tel = String(telefono ?? '').replace(/\D/g, '');
+  return dig.length >= 6 && tel.length >= 6 && (tel.endsWith(dig) || dig.endsWith(tel));
+}
+
+/** Un nombre que se puede guardar: con algo escrito, que no sea el teléfono ni «Você» (el nuestro en un saliente). */
+export function nombreUsable(nombre: string | null | undefined, telefono?: string | null): string | null {
+  const n = String(nombre ?? '').trim();
+  if (!n || n === 'Você' || esNombreDeTelefono(n, telefono)) return null;
+  return n;
+}
+
+/**
+ * EL NOMBRE CON QUE NACE UN LEAD QUE VIENE DE UN CHAT: el de la AGENDA (como lo tenía guardado la persona), si no el que se
+ * mostraba en la pantalla, si no el que el contacto se puso en WhatsApp. Ninguno → '' (vacío: la ficha dice «Sin nombre» y
+ * se completa después). NUNCA el teléfono: ya está en su campo.
+ */
+export function nombreParaAlta(c: { agenda?: string | null; pantalla?: string | null; whatsapp?: string | null; telefono?: string | null }): string {
+  return nombreUsable(c.agenda, c.telefono) ?? nombreUsable(c.pantalla, c.telefono) ?? nombreUsable(c.whatsapp, c.telefono) ?? '';
+}
+
+/**
+ * LA FOTO DE UNA TARJETA DEL CRM (27/10/2026, Martín: «las fotos de perfil dentro del CRM no cargan y en CHATS sí»): la
+ * elegida o la copia guardada (`foto`), y si no hay, la de WhatsApp EN VIVO por el mismo proxy que usa Chats
+ * (`?avatarimg=`, que mira primero lo guardado de la agenda y después a Evolution). El tablero mostraba sólo la copia del
+ * cron diario, así que un lead recién agregado (o uno sin copia) salía con iniciales. Con menos de 10 dígitos no se pide:
+ * los últimos dígitos de un número corto chocan con otro contacto. Una foto que no carga cae a las iniciales en la tarjeta.
+ */
+export function fotoDeTarjeta(foto: string | null | undefined, telefono: string | null | undefined, ws: number | null): string | null {
+  if (foto?.trim()) return foto.trim();
+  const digitos = String(telefono ?? '').replace(/\D/g, '');
+  if (digitos.length < 10) return null;
+  return conWs(`/api/whatsapp/evolution/mensajes?avatarimg=${digitos}`, ws);
+}

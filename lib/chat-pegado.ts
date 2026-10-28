@@ -34,6 +34,36 @@ export function conPegados(texto: string, pegados: readonly string[]): string {
   return partes.filter(Boolean).join('\n\n');
 }
 
+/** La línea que va adentro de un pegado recortado por el tope de la pantalla (`conPegadosHasta`). */
+export const SIGUE_CORTADO = '[…sigue: no entró entero en este chat]';
+
+/**
+ * Lo mismo, con el TOPE de la pantalla (27/10/2026, la revisión del Cerebro): el Video Editor y el Image Editor cortaban lo
+ * adjuntado a 2.000 caracteres, callados y sin la marca de cierre (partirPegados ya no lo encontraba, y MaKo trabajaba sobre
+ * un pedazo como si fuera el documento). Lo escrito va entero; los pegados entran en orden hasta el tope, cada uno CON su marca
+ * de cierre y la línea `SIGUE_CORTADO` si se recortó. Devuelve el mensaje y cuántos caracteres de lo pegado quedaron afuera
+ * (0 = entró todo), para que la caja lo diga.
+ */
+export function conPegadosHasta(texto: string, pegados: readonly string[], tope: number): { mensaje: string; afuera: number } {
+  const entero = conPegados(texto, pegados);
+  if (entero.length <= tope) return { mensaje: entero, afuera: 0 };
+  const limpios = pegados.map((p) => p.trim()).filter(Boolean);
+  const total = limpios.reduce((n, p) => n + p.length, 0);
+  let lugar = tope - conPegados(texto, []).length;
+  const entran: string[] = [];
+  for (const p of limpios) {
+    // Lo que ocupa un pegado además de su texto: las dos marcas, los saltos y, si se recorta, la línea que lo dice.
+    const marco = ABRE.length + CIERRA.length + 4 + 2;
+    if (lugar - marco >= p.length) { entran.push(p); lugar -= marco + p.length; continue; }
+    const cabe = lugar - marco - SIGUE_CORTADO.length - 1;
+    if (cabe > 0) entran.push(`${p.slice(0, cabe).trimEnd()}\n${SIGUE_CORTADO}`);
+    break;
+  }
+  const mensaje = conPegados(texto, entran);
+  const dentro = entran.reduce((n, p) => n + p.replace(`\n${SIGUE_CORTADO}`, '').length, 0);
+  return { mensaje, afuera: Math.max(0, total - dentro) };
+}
+
 /** Al revés, para dibujarlo y para archivarlo: lo escrito y los pegados. Un mensaje sin marcas es todo «texto». */
 export function partirPegados(mensaje: string): { texto: string; pegados: string[] } {
   const pegados: string[] = [];

@@ -385,16 +385,33 @@ test('12. «Datos de empresa»: a los que ya están, de a uno y despacio, compar
   const reservar = server.slice(server.indexOf('async function reservarPerfil('), server.indexOf('export async function completarPerfilesDelGrupo('));
   assert.match(reservar, /await cambiarSettingSi\(claveCupo\(linea\), raw, JSON\.stringify\(\{ dia: hoy, usadas: c\.usadas \+ 1 \}\)\)/, 'el cupo sin compare-and-set: dos corridas a la vez se pasan del tope');
   assert.match(reservar, /if \(quedanHoy\(c\) <= 0\) return false;/);
-  // La pantalla: primero la cuenta, la pregunta con la cuenta y el tiempo, «Parar», y sigue sumando `hechas`.
+  // ⚠️ LA PANTALLA YA NO VA POR ACÁ (27/10/2026; el Cerebro: «el tope de 120 por día se mantiene mientras vaya por
+  // Evolution»). «Datos de empresa» del Scraper es la extracción a la vista por la EXTENSIÓN, con todos los perfiles y sin
+  // tope por día: tests/grupo-wa.test.ts (12c). El camino por Evolution, con su cupo, queda en el server (lo de arriba).
   const pantalla = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(pantalla, /onElegir: \(\) => void contarPerfiles\(\)/);
-  assert.match(pantalla, /completarPerfilesDeGrupoAction\(\{ linea, jid, soloContar: true \}\)/);
-  assert.match(pantalla, /<Confirm tone="primary" title="¿Traer los datos de empresa\?"/);
-  // Cuántos y cuánto tarda, CORTO desde el 25/10/2026 (f13: «el texto muy largo. No me gustan textos largos»): el texto
-  // ejecutado está en tests/enriquecer-lote.test.ts (6).
-  assert.match(pantalla, /message=\{preguntaDePerfiles\(cuentaPerfiles, minutosDePerfiles\(cuentaPerfiles\.estaCorrida\)\)\}/, 'la pregunta no dice cuántos ni cuánto tarda');
-  assert.match(pantalla, /await correrPerfiles\(cuenta, \(hechas, saltear\) => completarPerfilesDeGrupoAction\(\{ linea, jid, hechas, saltear \}\), \{/);
-  assert.match(pantalla, /: perfilando \? \{ texto: 'Parar', onClick: \(\) => void contarPerfiles\(\) \} : undefined;/);
+  assert.doesNotMatch(pantalla, /completarPerfilesDeGrupoAction/, 'el Scraper volvió a consultar perfiles por la línea (120 por día)');
+});
+
+test('12c. «Datos de empresa» del Scraper: por la extensión, TODOS los perfiles en una pasada, con la pregunta de cuántos y cuánto', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const pantalla = readFileSync(join(__dirname, '..', 'app/crm/TraerDeGrupoWA.tsx'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(pantalla, /\{ id: 'empresa', texto: 'Datos de empresa', icono: 'cliente', onElegir: datosDeEmpresa \}/);
+  // Sin la extensión, el mismo pop-up de instalarla que «Extraer».
+  assert.match(pantalla, /const datosDeEmpresa = \(\) => \{\n\s+if \(!grupo \|\| trayendo \|\| !entrada\) return;\n\s+if \(extWa !== 'si'\) \{ setPideExt\(true\); return; \}\n\s+setPideEmpresa\(yaEstan\);/);
+  // El botón dice «Leer», nunca «Traer» (Martín, 26/10: «Extraer», no «Traer»).
+  assert.match(pantalla, /<Confirm tone="primary" title="¿Leer los datos de empresa\?" confirmLabel=\{`Leer \$\{miles\(pideEmpresa\)\} perfiles`\}/);
+  assert.match(pantalla, /onConfirm=\{\(\) => \{ setPideEmpresa\(null\); void extraer\(true, \{ todosLosPerfiles: true \}\); \}\}/, 'no corre la extracción sobre los que ya están');
+  // TODOS los perfiles: el tope de «Extraer» (60) no corre acá.
+  assert.match(pantalla, /\.\.\.\(o\?\.todosLosPerfiles \? \{ tope: pedidos\.length \} : \{\}\)/, 'Datos de empresa quedó con el tope de 60');
+  // El pulido (Leila, 26/10): primero los que tienen nombre; el cartel de éxito con cuántos, etapa y etiqueta, y «Ver en el
+  // CRM»; y el pie avisa cuando llegó la lista completa de grupos.
+  assert.match(pantalla, /return \[\.\.\.nuevosAhora\.filter\(\(p\) => !!p\.nombre\), \.\.\.nuevosAhora\.filter\(\(p\) => !p\.nombre\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que tienen nombre no van primero');
+  assert.match(pantalla, /leads nuevos'\} en «\$\{entrada\.label\}»\$\{t\?\.sinEtiqueta \? '' : ` con la etiqueta «\$\{etiquetaDeGrupo\(grupo\.nombre\)\}»`\}/, 'el cartel no dice etapa ni etiqueta');
+  assert.match(pantalla, /accion: \{ texto: 'Ver en el CRM', onClick: onCerrar \}/);
+  assert.match(pantalla, /texto: `Están todos tus grupos · \$\{miles\(todosGrupos\)\}`/);
+  const { minutosDeLaPasada } = await import('../lib/grupo-wa-reglas');
+  assert.deepEqual([minutosDeLaPasada(1), minutosDeLaPasada(108), minutosDeLaPasada(247)], [1, 11, 25]);
 });
 
 test('12b. el cupo de los perfiles: por día, por corrida, y los ya consultados no se repiten', () => {

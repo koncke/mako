@@ -55,6 +55,9 @@ export type PropuestaTarea = {
   // dentro del borrador para que el modal de confirmación muestre las mismas tabs
   // (Mías + una por colaborador) que la extracción manual.
   dueno?: string; duenoEmail?: string; esDeOtro?: boolean;
+  /** El dueño salió SÓLO de la etiqueta del hablante, que Fathom cruza (lib/tarea-dueno.ts, `duenoPorLaEtiqueta`): la
+   *  persona lo confirma antes de que se le mande a nadie. Se apaga cuando lo confirma o lo cambia. */
+  duenoDudoso?: boolean;
   /**
    * «Se repite para siempre» (mig 0163): la reunión de los miércoles, el seguimiento
    * diario. Viaja DESDE LA EXTRACCIÓN hasta el alta, porque una tarea tiene que poder
@@ -222,6 +225,7 @@ function limpiarTarea(t: unknown): PropuestaTarea | null {
     dueno: o.dueno ? str(o.dueno).trim().slice(0, 80) : undefined,
     duenoEmail: o.duenoEmail ? str(o.duenoEmail).trim().toLowerCase().slice(0, 160) : undefined,
     esDeOtro: o.esDeOtro === true ? true : undefined,
+    duenoDudoso: o.duenoDudoso === true ? true : undefined,
     minuto: Number.isFinite(Number(o.minuto)) && Number(o.minuto) >= 0 ? Math.round(Number(o.minuto)) : undefined,
     minutos: Array.isArray(o.minutos)
       ? [...new Set((o.minutos as unknown[]).map((x) => Math.round(Number(x))).filter((n) => Number.isInteger(n) && n >= 0))].sort((a, b) => a - b)

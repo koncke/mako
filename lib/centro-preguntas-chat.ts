@@ -219,6 +219,12 @@ export type TurnoQueSupera = { local: string; rol: string; at: string };
  * `cadena` (25/10/2026, lib/centro-chats.ts → cadenasDeSesiones): las sesiones de cada chat que el Ops Center junta en uno. Un
  * turno de CUALQUIERA de ellas cuenta: la conversación pudo seguir en otra cuenta. Sin ella, sólo la sesión que preguntó.
  */
+/**
+ * Lo que tarda en llegar el mensaje de cierre de un turno después de su wrap_up: un turno del chat que llega ANTES de esto es el
+ * mismo turno, no uno nuevo (27/10/2026).
+ */
+export const MARGEN_CIERRE_WRAP_UP_MS = 5 * 60 * 1000;
+
 export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: readonly TurnoQueSupera[], cadena?: ReadonlyMap<string, readonly string[]>): PreguntaChat[] {
   const t = (s: string) => Date.parse(s);
   const deSuChat = (x: TurnoQueSupera, p: PreguntaChat) => x.local === p.local || (cadena?.get(p.local)?.includes(x.local) ?? false);
@@ -233,8 +239,15 @@ export function superarPreguntas(preguntas: readonly PreguntaChat[], turnos: rea
       return { ...p, superada: new Date(sigue).toISOString() };
     }
     if (p.origen !== 'wrap_up' || p.tambienPreguntar || !estaAbierta(p)) return p;
+    // ⚠️ UN TURNO NUEVO DEL CHAT TAMBIÉN LA SUPERA (27/10/2026, Martín: «Creo que esta pregunta era vieja, y sigue apareciendo. La
+    //    respondi desde claude app»). La pregunta del 26/10 siguió abierta un día: el Runner estuvo parado 27 horas, y al volver la
+    //    vuelta subió sólo los ÚLTIMOS turnos de cada chat (scripts/operaciones/cartero.mjs → ultimosQueEntran), así que la respuesta
+    //    de Martín en la app (un `yo`) no subió nunca. Pero un chat sólo vuelve a escribir después de recibir algo, y la app de
+    //    Claude también saca el recuadro de próximo paso cuando el chat escribe de nuevo: lo suyo de DESPUÉS (pasado el margen de
+    //    su propio mensaje de cierre) la deja atrás aunque lo que la contestó no haya subido.
     const despues = [
       ...turnos.filter((x) => deSuChat(x, p) && (x.rol === 'yo' || x.rol === 'otro') && t(x.at) > t(p.at)).map((x) => x.at),
+      ...turnos.filter((x) => deSuChat(x, p) && x.rol === 'el' && t(x.at) > t(p.at) + MARGEN_CIERRE_WRAP_UP_MS).map((x) => x.at),
       ...preguntas.filter((q) => q.id !== p.id && q.local === p.local && q.origen === 'wrap_up' && t(q.at) > t(p.at)).map((q) => q.at),
     ].sort((a, b) => t(a) - t(b));
     if (!despues.length) return p;

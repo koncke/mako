@@ -37,6 +37,8 @@ import { zonaDelNegocio } from '@/lib/timezone';
 import { instanteDe } from '@/lib/cron-aviso';
 import { fechaHoraEnTz } from '@/lib/date-utils';
 import { VISTAS_CHAT, MOSTRAR_CHAT } from './chats.def';
+import { getNombreContacto } from '@/lib/evolution-contactos';
+import { nombreParaAlta, nombreUsable } from '@/lib/contacto-lead';
 
 const json = (o: unknown): string => JSON.stringify(o);
 const errorLectura = (msg: string): SalidaLectura => ({ content: msg, isError: true });
@@ -254,7 +256,7 @@ export const RUNNERS: Runners = {
       // Al buscar, todas: quien busca a una persona la quiere encontrar aunque su conversación esté cerrada.
       const mostrar: MostrarChats = enLista(MOSTRAR_CHAT, mostrarPedido) ? mostrarPedido : buscar ? 'todas' : 'abiertas';
       const coinciden = filtrarChats(r.chats, {
-        vista, canal, cuenta: canal === 'whatsapp' ? linea : null, etapa: str(input, 'etapa'),
+        vista, canal, cuenta: canal === 'whatsapp' ? linea : null, funnel: null, etapa: str(input, 'etapa'),
         mostrar, orden: 'recientes', sinResponder: input.soloSinResponder === true,
       }, { nombre: usuario?.nombre ?? '' });
       const limite = num(input, 'limite') ?? 40;
@@ -386,11 +388,14 @@ export const RUNNERS: Runners = {
       if (!wa) return { error: `${c.chat.nombre} sólo escribe por email: desde Chats se agrega a quien escribe por WhatsApp, Instagram o Messenger.` };
       const telefono = digitos(wa.telefono);
       if (telefono.length < 10) return { error: `La conversación con ${c.chat.nombre} no trae un teléfono con lada: agrégalo a mano en el CRM.` };
-      const nombre = str(input, 'nombre') ?? c.chat.nombre;
-      return { payload: { via: 'whatsapp', telefono, funnelId, nombre }, resumen: `Agregar a ${nombre} (${wa.destino ?? telefono}) al CRM${en}.` };
+      // El nombre que pidió la persona gana; si no pidió ninguno, el de la AGENDA (27/10/2026), y nunca el teléfono.
+      const pedido = nombreUsable(str(input, 'nombre'), telefono);
+      const nombre = pedido ?? nombreParaAlta({ agenda: await getNombreContacto(telefono).catch(() => null), pantalla: c.chat.nombre, telefono });
+      return { payload: { via: 'whatsapp', telefono, funnelId, nombre }, resumen: `Agregar a ${nombre || 'este contacto'} (${wa.destino ?? telefono}) al CRM${en}.` };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
-      const nombre = String(payload.nombre ?? 'el contacto');
+      const nombreLead = String(payload.nombre ?? '').trim();
+      const nombre = nombreLead || 'el contacto';
       const funnelId = typeof payload.funnelId === 'number' ? payload.funnelId : null;
       if (payload.via === 'social') {
         const r = await crearLeadDeConversacionSocial(Number(payload.convId), funnelId);
@@ -401,7 +406,7 @@ export const RUNNERS: Runners = {
       try {
         // Un alta a mano (la pide la persona): con el tope del plan, como la del CRM (lib/topes-crm.ts).
         await frenarAltaPorTope(ctx.ws, 'crm.leads');
-        const lead = await createLead({ nombre, telefono: String(payload.telefono ?? ''), origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa });
+        const lead = await createLead({ nombre: nombreLead, telefono: String(payload.telefono ?? ''), origen_lead: ORIGEN_LEAD.chat_whatsapp.id, funnel_id: destino.casa, nombreOpcional: true });
         return { ok: true, resumen: `Listo: ${nombre} ya es lead (#${lead.id}).`, datos: { leadId: lead.id } };
       } catch (err) {
         if (err instanceof TopeDelPlanError) return { ok: false, resumen: `${err.message} Planes: /planes.` };

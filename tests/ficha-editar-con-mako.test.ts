@@ -72,7 +72,8 @@ test('editando, el turno trae cambiar_ficha_funnel: la pista va ADELANTE del tex
   const turno = sinComentarios(leer('lib/mako-turno-app.ts'));
   assert.match(turno, /const textoClasificar = `\$\{\(entrada\.pista \?\? ''\)\.slice\(0, 120\)\}(?:\$\{pistaDesde\(desde\)\})?\$\{adjuntos\.length \? textoMemoria : textoPersona\}`;/);
   const lead = sinComentarios(leer('lib/mako-analyst-lead.ts'));
-  assert.match(lead, /pista: PISTA_EDICION_FICHA,/, 'el turno del lead no pasa la pista al editar');
+  // Desde el 27/10/2026 la elige `pistaDeEdicion`: la de la vista, salvo un dato de cobro (tests/mako-no-puedo-falsos.test.ts).
+  assert.match(lead, /pista: pistaDeEdicion\(resto\.mensaje\),/, 'el turno del lead no pasa la pista al editar');
 });
 
 test('lo que llega de la pantalla se sanea, y el CRM sale del lead, no de la pantalla', () => {

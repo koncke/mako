@@ -23,11 +23,15 @@ import { veEditorVideo } from '@/app/video-editor/acceso';
 import { tabEnCapa } from '@/lib/capas';
 import { rateLimit } from '@/lib/rate-limit';
 import { editarVideo } from '@/lib/editor-video/ia';
+import { cuerpoYArchivos, leerLosArchivos } from '@/lib/adjuntos-del-chat';
+import { lecturaDeArchivos } from '@/lib/mako-adjuntos';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 // La IA tiene 90 s (lib/editor-video/ia.ts) y una reparación del JSON con aire.
-export const maxDuration = 120;
+export const maxDuration = 300;
+/** Lo que entra de la lectura de los archivos al pedido (la línea de tiempo ya es larga). Con fotos o PDF, primero se leen. */
+const TOPE_LECTURA_EDITOR = 8_000;
 
 type Puerta = { ws: number } | { error: string; status: number };
 
@@ -50,12 +54,19 @@ export async function POST(req: NextRequest) {
   if ('error' in p) return fallo(p.error, p.status);
   if (!rateLimit(`video-editor:ia:${p.ws}`, 30, 60_000)) return fallo('Demasiados pedidos. Espera un minuto.', 429);
 
-  let body: Record<string, unknown>;
-  try { body = await req.json(); } catch { return fallo('Pedido inválido.', 400); }
-  if (!body || typeof body !== 'object') return fallo('Pedido inválido.', 400);
+  // Con fotos o PDF (28/10/2026, las cajas unificadas): vienen en multipart (lib/adjuntos-del-chat.ts).
+  const c = await cuerpoYArchivos(req);
+  if (!c.ok) return fallo(c.error, c.status);
+  const body = c.body;
 
   return runWithWorkspace(p.ws, async () => {
-    const r = await editarVideo({ instruccion: body.instruccion, linea: body.linea, alcance: body.alcance });
+    // Se leen con la IA del negocio (por eso adentro de su workspace), y su lectura va aparte de la instrucción, como dato.
+    const { lecturas, noLeidos } = await leerLosArchivos(c.adjuntos, 'video-editor-chat');
+    const escrita = String(body.instruccion ?? '').trim();
+    if (c.adjuntos.length && !lecturas.length && !escrita) return fallo(`No pude leer ${noLeidos.map((n) => `«${n}»`).join(', ')}: escribe qué quieres cambiar.`, 422);
+    const instruccion = c.adjuntos.length && !escrita ? 'Usa lo que traen estos archivos en el video.' : body.instruccion;
+    const archivos = lecturas.length ? lecturaDeArchivos(lecturas, TOPE_LECTURA_EDITOR) : undefined;
+    const r = await editarVideo({ instruccion, linea: body.linea, alcance: body.alcance, archivos });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

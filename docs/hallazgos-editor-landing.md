@@ -3236,3 +3236,268 @@ publicar, y tres cosas se iban sin aviso:
   número va al primer pedazo. Esto arregla también lo ya publicado con negrita o cursiva.
 
 Test: tests/editor-web-guardado-diseno-26-10.test.ts (probado rompiéndolo: 6 roturas, cada una 2/1).
+
+## Lo que se edita a mano, también por prompt: lo que faltaba y por qué no llegaba (27/10/2026, claude5)
+
+Martín (27/10): «si una persona quiere editar lo que sea debería poder. Con prompts en mako». Se cruzó cada control del
+editor con el comando de la API que lo cambia. La tabla está en docs/relevo/landing-generator.md. Faltaban tres:
+
+- **El formato de un texto.** La barra «Texto» (negrita, cursiva, subrayado, tachado, color, tamaño, alineación) no tenía
+  comando. Ahora está `dar_formato_texto_landing`.
+- **Los colores de un botón de diseño.** Ahora `configurar_boton_landing` acepta `color` y `colorTexto`.
+- **La imagen de un bloque y la de un ítem de un «diseño optimizado».** `cambiar_imagen_landing` sólo encontraba las de
+  un «Diseño editable». Para cambiar las otras había que agregar una imagen nueva y borrar la vieja. Ahora
+  `ver_secciones_landing` da la dirección de cada imagen de bloque, para poder nombrarla.
+
+Las trampas:
+
+- **Un bloque y un diseño no tienen los mismos colores.** Un bloque usa los del tema (`acento`, `paleta-1`…), y un
+  botón de bloque elige su `estilo`. Un diseño trae su propia hoja: ahí un color del tema no existe y el color va en hex.
+  Cada lado rechaza lo del otro y dice por qué. El color de un botón de diseño se escribe con `!important` en su `style`.
+  `conDeclaracion` (html-editable-elementos.ts) reemplaza la declaración; no la apila.
+- **El tamaño en un diseño no es el de un bloque.** Los escalones de la barra en un diseño (`TAM_EN_DISENO`,
+  app/web-generator/editor/acciones-diseno.ts: l 1.125em, xl 1.375em) son distintos de los de un bloque (css.ts: l 1.25em,
+  xl 1.5em). La API copia los del diseño en `TAM_DISENO` (landing-contenido.helpers.ts), porque lib no importa de app.
+  Si cambia uno, hay que cambiar el otro.
+- **El diagnóstico obvio era el presupuesto, y al principio no lo era.** «pon en negrita «Aprende a vender» en mi
+  landing» llegaba por WhatsApp sin la herramienta. El clasificador lo leía como `pensar`: la frase citada dejaba
+  «landing» a más de 3 palabras del verbo, y «negrita» no era una pieza de la landing. Ahora son piezas (negrita, cursiva,
+  subrayado, tachado, alineación, tamaño, letra). Y un verbo de formato (subrayá, tachá, centrá, resaltá, alineá) cuenta
+  con la landing nombrada.
+- **Después sí era el presupuesto.** Las palabras del formato estaban sólo en la descripción, que suma 1 punto. Así
+  empataba con una docena de operaciones declaradas antes y quedaba afuera. Ahora van en el título (2 puntos):
+  «Negrita, cursiva, subrayado, tachado o centrado». Ver docs/hallazgos-api-mako.md → «El presupuesto del turno de la app».
+- **Lo citado es texto de la landing.** «subrayá «Agenda tu llamada»» se cortaba por «llamada», una palabra de otra área
+  (las llamadas). Con un verbo de formato, lo citado se saca antes de buscar otra área (`sinCitas`, lib/mako-intencion.ts).
+
+Tests:
+- tests/api-mako-landing-contenido.test.ts
+- tests/api-mako-landing-diseno-editable.test.ts
+- tests/mako-intencion-landing.test.ts
+
+Probados rompiéndolos, una falla por vez: cada rotura la atrapa su test.
+
+Sin hacer:
+- **La red de MaKo.** Es el dibujo animado de una sección de las páginas de MaKo. No se cambia ni a mano ni por prompt,
+  porque es parte del diseño. El efecto de entrada de su sección sí: `cambiar_animacion_landing`.
+- **La prueba por prompt en producción.** Espera el deploy de esta punta.
+
+## «Replicar y adaptar»: el diseño de afuera con el texto del negocio, y la réplica con animaciones (27/10/2026, claude5)
+
+Leila, en la llamada (ticket 876470842-27): «Replicar y adaptar». Ya existía «Replica esta landing», con el texto de la
+original. Ahora el cuadro de crear tiene las dos opciones en la pastilla del link, y el panel «Replicar landing» también
+(«Tal cual» y «Adaptada a tu oferta»). Por prompt: `replicar_landing` con `adaptar`.
+
+- **Cómo adapta sin tocar el diseño.** En «Landing», el esquema sigue en «Conservar»: salen las mismas secciones en el
+  mismo orden, y el estilo y las imágenes de la original se ponen igual que siempre. La que reescribe es la tanda de
+  secciones, con `modoTexto: 'generar'` y `INSTRUCCION_ADAPTAR` (replicar-reglas.ts). El contexto del negocio ya
+  viajaba en cada tanda (`buildLandingBrief`). En «Presentación», la instrucción va en las dos tandas.
+- **Trampa: la sección que no pasa por la IA queda con el texto de la OTRA.** La réplica sin IA usa el texto de la
+  original (`tarjetaDesdeEsquema`). En una copia «tal cual» eso está bien. En una adaptada es el texto del competidor
+  dentro de la landing del negocio. El aviso lo dice con esas palabras («quedó con el texto de la original: adáptala con
+  MaKo»), no con el «quedó sin diseño» de siempre.
+- La copia adaptada se llama «Adaptada de <dominio>», no con el título del competidor. La «Página web» (la copia
+  idéntica) no se adapta: el server contesta con `probar: 'landing'`, y la pantalla no ofrece ese formato con adaptar.
+
+**La réplica de una landing con animaciones (ticket 876825880-07): el diagnóstico obvio era el equivocado.** «La copia
+fiel saca los scripts» no es cierto. `sinRastreadores` (replicar-reglas.ts) saca sólo los rastreadores conocidos
+(`RE_RASTREADOR`), y los demás scripts viajan a la copia. Lo que sí no corre es lo atado al scroll de la página, y eso
+ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, no existe en el DNS (ENOTFOUND, con y
+sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
+
+Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.
+
+## Replicar por partes: diseño, estructura, ángulos y texto, y la estructura que perdía secciones (28/10/2026, claude4)
+
+Martín: «una cosa es replicar el branding, otra cosa es replicar la estructura, otra cosa es replicar los ángulos de
+comunicación, los copies». «Replicar landing» lee primero la página y muestra su estructura, sus ángulos y su diseño.
+Después pregunta QUÉ replicar con cuatro partes combinables: Diseño · Estructura · Ángulos · Texto literal. El default es
+el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para SU oferta. Vive en
+`lib/editor-landing/replicar-partes.ts` (las reglas), `replicar-estructura.ts`, `replicar-angulos.ts`,
+`replicar-lectura.ts` (POST `/api/landing-generator/replicar/leer`) y `app/web-generator/crear/Replicar.tsx`.
+
+- **El diagnóstico obvio era el equivocado: «la réplica tiene las mismas secciones» no era cierto en una landing larga.**
+  «Conservar» (`esquemaConservado`, el de «Pegar texto») cortaba en CADA `#`, `##` y `###` y se quedaba con las primeras
+  20 (`MAX_SECCIONES`), sin avisar. Medido el 28/10 con el HTML real y el respaldo sin IA: 100ads.ai llegaba con 965 de
+  2.148 palabras (45%), 3 de 8 botones y SIN la garantía, las preguntas ni el cierre; gohighlevel 79%, kommo 68%,
+  hotmart 83%, leadsales 90%. Y cada tarjeta de una grilla (un `###` adentro de un `##`) salía como sección suelta.
+  **Regla:** una página LEÍDA se corta en su NIVEL DE SECCIÓN (el título más alto que aparece dos veces; un h1 solo es
+  el hero), lo de adentro queda como subtítulo `### …`, y si sobran secciones se JUNTAN las vecinas más chicas: nunca se
+  tira texto (`esquemaDeReplica`). Ahora: 100% de las palabras y de los botones en las cinco. Lo usa también «Importar»
+  con «Conservar» (ia.ts); lo pegado por la persona sigue como antes.
+- **El respaldo sin IA escribía el `###` como texto.** `tarjetaDesdeEsquema` ahora lo dibuja como subtítulo
+  (`RE_SUBTITULO_LEIDO`, ia-reglas.ts).
+- **El ws3 no tiene NINGUNA IA** (0 filas en `credenciales`), y el crédito de Claude para `landing-editor` está
+  habilitado sólo en el espacio de MaKo (`CREDITO_HABILITADO_PARA`, `soloLaPlataforma`). La cascada barata de la
+  plataforma no contestó. En el ws3 sólo se puede medir lo que no usa IA: la lectura de la estructura y del diseño, y la
+  réplica «texto literal» con el respaldo. Los ángulos y la reescritura necesitan otro negocio con IA.
+- **Medir desde un script, sin levantar la app:** `runWithWorkspace(3, …)` (lib/workspace.ts) fija el negocio. `crear` llama
+  a `cookies()` para el autor: fuera de un pedido tira «`cookies` was called outside a request scope». En el script se
+  reemplaza `next/headers` con un `Module._load` que devuelve un almacén vacío (el autor queda null). Se corre con
+  `node --env-file=<.env.local> --conditions=react-server --require <stub> --import tsx`.
+- **La instrucción de la réplica va con las REGLAS primero y los datos al final** (el molde de cada sección y los
+  ángulos), y con el tope de `instrucciones` (5.000): si algo no entra, se recorta un dato, nunca «no copies frases».
+- **Los ángulos son una lectura aparte del Landing Analyst**: el Analyst diagnostica una página PROPIA contra su tráfico
+  (veredicto, puntajes, hallazgos) y guarda una fila en `landing_analyses`; para replicar hace falta CÓMO vende una página
+  AJENA (promesa, dolores, forma de venta, objeciones, tipo de prueba y el ángulo de cada sección). No se guarda: viaja en
+  la pantalla y vuelve con el pedido de la réplica (no se paga dos veces). Su prompt es editable
+  (`landing_editor.angulos.*` en lib/prompt-registry.ts).
+- **100ads.ai cambia su h1 entre una bajada y otra** («100 anuncios en lo que dura un café» / «en lo que tardás en hacer
+  uno» / «Lo que te lleva horas, listo en 10 minutos»): prueba A/B de su portada. Medir dos veces la misma página puede
+  dar dos títulos; la estructura no cambia.
+- **El presupuesto del turno de la app:** `replicar_landing` sumó `partes` y quedó MÁS CHICA (2.464 → 2.437 caracteres,
+  `scripts/presupuesto-turno-app.mts`), recortando la descripción.
+- **`quitarPruebaInventada` deja pasar justo lo de la competencia** en una réplica reescrita: sus testimonios y sus
+  cifras «están en el material» (el material ES la página de otro). La red en código es `quitarPruebaDeLaOriginal`
+  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números se vacían, y las frases iguales a
+  la original se cuentan en el log y en el aviso. Los números se comparan ENTEROS (ver la revisión, más abajo).
+- **Mirar la pantalla sin build:** con ~10 chats, el vigía mató el `next build --debug-build-paths` de `/web-generator`
+  dos veces (2,3 y 3,4 GB privados, con 0,7 GB libres). Lo que anduvo: renderizar los componentes REALES con
+  `renderToStaticMarkup` (tsx, `NODE_PATH` al `node_modules` del worktree y `import React`), con las hojas del Panel
+  (`CSS_GP`, `CSS_PANEL`, `CSS_TIPO`, `CSS_REPLICAR`) y los datos medidos, servirlo con `python -m http.server` en
+  127.0.0.1 (un `file://` el panel del navegador lo muestra como foto y no deja medir) y medirlo a 375 px y en
+  escritorio. Encontró dos cosas: la grilla de temas compartida pide 180 px por columna y en un teléfono son seis
+  tarjetas altas antes de «Replicar» (en Replicar va de a dos), y un chip con `--gp-azul-50` no cambia en el modo
+  oscuro (va con los tokens `activo`).
+
+- **Un test que lee el fuente como TEXTO da verde sobre un archivo que no compila.** Un script de edición convirtió el
+  `'
+'` de un `.join` en un salto de línea real dentro del string, y el test de replicar (que hace `readFileSync` +
+  regex) siguió en 10/10. Lo cazó `tests-afectados --rapido`, por los tests que IMPORTAN replicar.ts. **Regla:** después
+  de editar con un script, transpilar cada archivo tocado (`esbuild.transformSync`); el test de replicar lo hace ahora
+  (test 0). Y escribir el reemplazo con el editor, no con escapes anidados (bash → python → TS).
+- **«Cómo está acomodado» con lo que ya se lee:** el estilo trae las imágenes de cada parte de la página
+  (`ImagenOriginal.seccion`, `fondo`); con los subtítulos del molde alcanza para decir «una imagen junto al texto»,
+  «imagen de fondo», «6 imágenes (galería o logos)» o «3 tarjetas con su subtítulo» (`acomodoDeSeccion`). Va al final
+  de cada línea del molde. Sin el diseño, el estilo se lee igual, pero SÓLO para eso: nada de él pasa a la copia
+  (`const estilo = partes.diseno ? estiloLeido : null`), y la IA deja el hueco de la imagen donde la otra tenía una.
+- **El molde no entraba en la instrucción.** La instrucción es UNA para todas las tandas, con tope de 5.000 caracteres.
+  Medido con ángulos de largo real: con 16 a 20 secciones (gohighlevel, leadsales, kommo) se cortaban las últimas líneas
+  del molde y del ángulo de cada sección. **Regla:** lo que es de UNA sección viaja CON la sección. `SeccionEsquema.nota`
+  (opcional, ≤ 400) lleva su ángulo, su forma y su acomodo, y `pedidoDeTanda` la escribe junto a su título. Así cada
+  tanda manda sólo las suyas. Sin nota, el pedido es el de siempre (todos los demás usos del editor).
+- **Otro tope que corta callado:** `esquemaDelPedido` deja 60 renglones por sección (`slice(0, 60)`), y la tanda pasa
+  por ahí. Ninguna sección de las cinco medidas pasa de 46. Pero `juntarHasta` puede armar una más larga al juntar
+  vecinas en una página de muchas secciones: ahí la IA no vería el final de esa sección (el respaldo sí).
+- **El Diagnóstico de una de afuera copiaba todo directo** (el menú «Replicar» con los tres formatos). Ahora el menú
+  arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
+  formatos directos quedan como «copia completa».
+
+### Las 5 landings de Martín (28/10/2026, noche): Reportei, Holo, MasterAds, Closermood y respond.io
+
+- **El diagnóstico obvio era el equivocado otra vez: no era el prompt, era la OFERTA.** Con IA (ws9, el espacio de MaKo)
+  la réplica «adaptada» seguía hablando de la competencia: Reportei quedó nombrada 11 veces en su copia, respond.io 22,
+  y 15 a 28 frases quedaban iguales a la original. El perfil del negocio del ws9 está VACÍO
+  (`buildLandingBrief` → «PERFIL DEL NEGOCIO» sin nada): la IA no tenía de qué hablar y volvía sobre lo único que tenía.
+  **Regla:** reescribir «para tu oferta» exige la oferta. La lectura dice si el negocio la tiene (`tieneOferta`), el
+  panel pide «Tu oferta» (y avisa si el perfil está vacío), la instrucción la pone PRIMERO como la que manda y nombra la
+  marca de la referencia para que no aparezca (`marcaDeUrl`), y las menciones que queden se cuentan y se dicen
+  (`mencionesDe`).
+- **Un `<header>` fijo es la barra del sitio, aunque no tenga `<nav>`.** respond.io tiene su megamenú y el selector de
+  idiomas en `<header class="fixed …">`: entraban ~80 renglones a la primera sección. El extractor lo trata como un
+  `<nav>` (sus botones pasan). En las otras 11 páginas medidas no cambió nada.
+- **Letras dobles de una animación:** tryholo.ai escribe cada letra dos veces («a a d d s s»); `sinLetrasDobles` las junta
+  (dos pares o más de letras sueltas iguales).
+- **Un testimonio entero en un `h3`** (reportei): el respaldo cortaba el subtítulo en 120 caracteres (el tope de un título
+  de sección) y se perdían 124 palabras. Va con el tope de un texto.
+- **El destino de un botón no es texto:** el lector del navegador escribe «[BOTÓN] Crear mi cuenta → envía el formulario»;
+  `palabrasDe` lo contaba como palabras de la original.
+- **Leer una página con el lector de la app SIN la app:** `scriptLector(id, 'pixel', origen)` corre en la página real si
+  `window.opener` es la propia ventana (el saludo y el «dale» van y vienen ahí). El navegador del panel no deja que una
+  página pública le pida algo a 127.0.0.1, así que se corre en un Chrome sin ventana por CDP (Node 24 trae WebSocket;
+  `--headless=new --mute-audio`). Script: notas del Cerebro, `replicar-landings-scripts/leer-cdp.mts`.
+- **Server o navegador:** en reportei y respond.io el lector del navegador anota cada link y cada pestaña como botón (167 y
+  71); el server da una estructura más limpia. El orden de la app (server primero, navegador si no puede) es el correcto.
+  MasterAds (una app que se arma en el navegador) sólo se lee en el navegador: 7 secciones, 431 palabras.
+- **Réplica «texto literal» con su tema, en el ws3 (#49 a #53):** Reportei 16/16 secciones · 39/39 títulos · 68/68 textos ·
+  8/8 botones; Holo 12/12 · 20/20 · 223/224 · 3/3; MasterAds 7/7 · 19/19 · 72/72 · 11/11; Closermood 8/8 · 21/21 · 79/79 ·
+  6/6; respond.io 8/8 · 26/26 · 82/82 · 3/3. El 100% de las palabras en las cinco (con los dos arreglos de arriba).
+- **Con «Tu oferta» (la de MaKo, en las palabras de su landing principal), en el ws9, #60 a #64**, antes → ahora:
+  menciones de la otra marca Reportei 11→3, respond.io 22→1, Closermood 4→0, Holo 2→0, MasterAds 2→0; frases iguales
+  a la original Reportei 27→9, Closermood 28→0, MasterAds 15→1. Las secciones, todas y en su orden (16, 12, 7, 8, 8).
+  El largo se respeta peor donde la página tiene decenas de renglones cortos (carruseles, sugerencias de un chat): Holo
+  53% y respond.io 65% de las palabras; MasterAds 140%. La forma de cada sección viaja en su nota; la IA (Gemini Flash
+  Lite) la sigue mejor en secciones de texto que en listas largas.
+- **Mirar una réplica sin la app:** `htmlDePagina` (render.ts) + `documentoExportable` (exportar-html.ts) son puros: con el
+  documento y el tema de la base dan la página como la publicaría MaKo. Servida en 127.0.0.1, se mide a 375 px y en
+  escritorio en el navegador del panel.
+- **En la app (build parcial + `next start`, sesión del ws3 firmada con `crearToken`):** el link de la caja abre la lectura
+  sola, «Qué replicar» arranca en el caso de Martín, y al replicar se ve armarse: las fases con su tilde, un punto por
+  sección y la lista que crece de a una (con el ws3 sin IA, las 8 secciones llegaron juntas a los 25 s y se mostraron en
+  1,6 s), y después se abre la copia. **Un bug que sólo se vio ahí:** arrancaba con las cuatro partes prendidas, porque
+  `partesDePedido(null)` es «todas» (el pedido viejo de la API) y el `?? PARTES_INICIALES` nunca entraba.
+- **Trampas del build parcial:** en `--debug-build-paths`, `[id]` es un patrón de caracteres (no matchea la carpeta
+  `[id]`) y la ruta no entra; con `app/web-generator/**` entra (pide ~4 GB: el vigía lo mató a los 3,1 con la máquina
+  llena, y anduvo en 97 s con la RAM reservada por el Cerebro). **Y aun compilada, una ruta DINÁMICA da 404:** el
+  `routes-manifest.json` de un build parcial sale sin `dynamicRoutes`. Para mirarla en local se agrega a mano
+  (`{ page: '/web-generator/[id]', regex, routeKeys: { nxtPid }, namedRegex }`) y se reinicia `next start`. Con eso la copia
+  replicada abrió en el editor: 8 secciones, 8 títulos, `contenteditable` y con foco.
+  La cookie de la sesión se pone desde una página de 127.0.0.1 en OTRO puerto (las cookies no miran el puerto), sin pasar
+  el token por ninguna herramienta.
+- **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
+  llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
+
+### La revisión adversarial de 45a8e5234 (Cerebro, 28/10/2026): siete defectos, todos arreglados
+
+Informe: `C:/dev/revisiones/2810-replicar-45a8e5234.md`. Cada uno con su test (10a a 10d) y su rotura (R16 a R27).
+
+- **El tope en el lugar equivocado colapsaba la página entera.** `nivelDeSeccion` bajaba de h1 a h2 «mientras no pase
+  del tope de 20». Una página con un h1 en el hero y otro en el cierre (Webflow, Framer) y 19 h2 o más quedaba en DOS
+  secciones, la primera con todo adentro; con 1 h1 y los mismos 20 h2 daba 20. **Regla:** el nivel de corte no mira el
+  tope. Lo que sobra lo junta `juntarHasta`, que ya estaba para eso. Un tope que decide QUÉ nivel usar en vez de cuánto
+  juntar convierte «una sección de más» en «18 secciones de menos».
+- **Comparar números como texto vacía cifras propias.** `quitarPruebaDeLaOriginal` buscaba cada número con `includes`
+  sobre la página ajena: «100%» del negocio se vaciaba porque «100» está dentro de «2.100», y «24/7» porque «24» y «7»
+  están en cualquier página. Y el aviso le echaba la culpa a la original. **Regla:** los números van como tokens enteros
+  («2.100» es 2100, con límites a los dos lados). Una cifra es de la otra si TODOS sus números están entre los de la
+  otra, y al menos uno tiene 3 cifras o más y no es redondo (100, 1000).
+- **Los botones de la copia mandaban a la competencia.** Venía de antes de esta rama: «Replicar y adaptar» ya lo hacía.
+  Ahora es el camino por defecto, y el destino no se ve en el texto del editor. La IA veía «[BOTÓN] Probar → https://
+  app.competidor.com/signup» en su tanda, y el respaldo sin IA armaba el botón con ese href. **Regla:** con el texto
+  escrito de nuevo, la tanda no ve los destinos (`sinDestinoDeBoton`). Todo enlace al dominio de la original, con
+  cualquier subdominio (`dominioBase`), pasa a «#» en todas las tarjetas, también las de respaldo
+  (`sinEnlacesALaOriginal`). Se cuenta en el aviso. Sólo se lee el destino cuando la página la lee el NAVEGADOR: el
+  server escribe «[BOTÓN] texto» sin destino.
+  **El dominio no alcanzaba (segunda pasada, 28/10):** su Calendly y su «wa.me/549…» no son de «competidor.com», y el
+  respaldo los armaba igual. La IA, además, los ve en un renglón que no es botón: «[CALENDARIO] Calendly (https://…)».
+  **Regla:** un enlace de la copia que APARECE en el texto de la original es de la competencia (`enlacesDeLaOriginal`:
+  host sin www y camino, sin consulta; uno dentro del otro también cuenta, porque la IA acorta). Un host pelado
+  («calendly.com») no alcanza, y lo que no estaba en la original (el Calendly del negocio) se queda. Corre sólo con las
+  mismas secciones, que es cuando el esquema ES el texto de la original.
+- **«Replicar y adaptar» por la API pagaba una IA más, ANTES del esquema.** Sin `partes`, el pedido viejo de adaptar
+  pasa a tener ángulos. La API no trae la lectura, así que se bajaba la página y se llamaba a la IA por los ángulos (hasta
+  60 s). Ese tiempo salía del plazo de las tandas: con la IA lenta, entraban menos tandas y quedaban más secciones con el
+  texto de la competencia. **El diagnóstico obvio («correrlos en paralelo») no hacía falta:** con la estructura, el
+  esquema no los usa, y el texto de la original ya trae los ángulos sección por sección. Ahora se leen ahí sólo SIN la
+  estructura, que es cuando el esquema los necesita.
+- **En una Presentación, la «original» del chequeo era el esquema que ya había escrito la IA.** Se vaciaban cifras
+  propias, se contaban frases «iguales» contra texto propio, y el aviso decía «quedó con el texto de la original». Ahora
+  `adaptar` (el chequeo y ese aviso) va sólo con las MISMAS secciones (Landing con estructura).
+- **La lectura y la réplica cortaban distinto un texto pegado con títulos.** La lectura usaba `esquemaDeReplica` y la
+  réplica el `esquemaConservado` de «Pegar». Se perdía el final, y el ángulo de la «sección 3» caía en otra sección.
+  Ahora el pedido de esquema lleva `corte: 'pagina'` (ia.ts). El «Pegar texto» del editor no cambia.
+- **La «Página web» de la caja pagaba ángulos al abrir y se pasaba sola a «Landing».** Ahora arranca con las cuatro
+  partes, y su lectura va sin ángulos (`angulos: false` en /leer, `conAngulos` en `leerParaReplicar`). La copia
+  idéntica no los usa.
+- **El tsc acotado de estos archivos trae 14 errores que no son de ellos:** `app/video-editor/_opencut` no resuelve
+  `opencut-wasm/opencut_wasm_bg.js` (TS7016) y de ahí salen los TS2305. Antes de creerle a un rojo del acotado, mirar si
+  el archivo es tuyo.
+
+Lo que quedó SIN hacer:
+- Leer una SPA en la ventana del clic DENTRO de la app (el camino del lector con la ventana aislada): se midió el mismo
+  lector por CDP (MasterAds), no el ida y vuelta de la ventana. Y la réplica con IA en vivo dentro de la app (en el ws3
+  no hay IA: las secciones llegaron todas juntas al final).
+- Un tope de 60 renglones por sección en `esquemaDelPedido` (la tanda): ninguna sección medida pasa de 46.
+- La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
+  qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
+  cajas.
+- De la revisión (los restos, de severidad baja): «Leer de nuevo» en Replicar.tsx vuelve a pagar los ángulos (no hay
+  caché por URL, y uno guardado no reintentaría la lectura que falló). Y sin la estructura, si la lectura volvió sin
+  ángulos, replicar.ts se los pide a la IA ANTES del esquema y ese tiempo sale del plazo de las tandas: ahí el esquema
+  sí los necesita, y correr t0 pasaría el maxDuration de 300 s.
+- Que Martín abra una copia del ws9 en PRODUCCIÓN con su sesión: el recorrido entero se vio con el build real (la #66
+  abre en el editor con sus 8 secciones), pero no en hola-mako.com, donde ningún navegador de esta máquina tiene su
+  sesión.
+
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 31 roturas, cada una caza), y los de Replicar
+que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).

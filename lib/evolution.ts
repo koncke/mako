@@ -533,6 +533,16 @@ type InstanciaResp = {
   disconnectionAt?: string | null;
 };
 
+/** El número de la línea (los dígitos de su `ownerJid`), o null si no se pudo leer. Lo usa el doer para reconocer una
+ *  @mención a la propia línea de MaKo (lib/doer-para-quien.ts, 27/10/2026). La fila se busca por NOMBRE: si Evolution
+ *  ignora el filtro, no se adopta otra. */
+export async function numeroDeInstancia(instance: string, topeMs = 2500): Promise<string | null> {
+  const r = await evFetch<Array<Record<string, unknown>>>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
+  const it = r.ok && Array.isArray(r.data) ? r.data.find((i) => (i.name ?? i.instanceName) === instance) : undefined;
+  const jid = String((it?.ownerJid as string) || (it?.owner as string) || (it?.number as string) || '');
+  return jid.replace(/@.*/, '').replace(/:.*/, '').replace(/\D/g, '') || null;
+}
+
 export async function motivoCaida(instance: string, topeMs?: number): Promise<MotivoCaida | null> {
   const r = await evFetch<InstanciaResp[]>(`/instance/fetchInstances?instanceName=${encodeURIComponent(instance)}`, undefined, topeMs);
   if (!r.ok || !Array.isArray(r.data) || !r.data[0]) return null;

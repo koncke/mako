@@ -6,6 +6,7 @@
 // =============================================================================
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
@@ -56,7 +57,7 @@ function clean(a) {
 const mmss = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
 
 async function main() {
-  const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 6 });
+  const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 6 });
   const files = existsSync(OUT) ? readdirSync(OUT).filter((f) => f.endsWith('.json')) : [];
   console.log(`Análisis a persistir: ${files.length}`);
   let venta = 0, servicio = 0, otras = 0, pendientes = 0, errs = 0;

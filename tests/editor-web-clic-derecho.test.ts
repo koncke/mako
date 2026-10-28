@@ -73,7 +73,7 @@ test('Responder en el editor: la cita va arriba de la caja del agente y sale con
   const chat = sinComentarios(leer('app/web-generator/editor/paneles/ChatAgente.tsx'));
   assert.match(chat, /enMensaje=\{enMensaje\} onCitar=\{onCitar\} \/>/, 'HiloAgente le pasa onCitar a HiloMako');
   const panel = sinComentarios(leer('app/web-generator/editor/paneles/PanelAgente.tsx'));
-  assert.match(panel, /<HiloAgente items=\{items\} corriendo=\{hilo\.corriendo\} enMensaje=\{enMensaje\} onCitar=\{citar\} \/>/);
+  assert.match(panel, /<HiloAgente items=\{nota\.conNotas\(items\)\} corriendo=\{hilo\.corriendo\} enMensaje=\{enMensaje\} onCitar=\{citar\}\s+onReintentar=\{nota\.reintentar\(\(\) => \{\}\)\} onDescartar=\{nota\.descartar\} \/>/);
   assert.match(panel, /arriba=\{cita \? <CitaAgente cita=\{cita\} onQuitar=\{\(\) => setCita\(null\)\} \/> : null\}/);
   assert.match(panel, /const conCita = armarConCita\(cita, texto\);/);
   assert.equal((panel.match(/pedir(Discusion|Edicion)\(ctxRef\.current, conCita,/g) ?? []).length, 2, 'en Editar y en Discutir');

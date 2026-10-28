@@ -52,7 +52,8 @@ test('2. lo delicado, lo que escribe en producción y el interruptor apagado sig
 test('3. la marca se guarda y se ve; el alta la toma del negocio', () => {
   const t = clasificar(e('Quiero que se pueda exportar'), { aprobadoPorRegla: 'Leandro' });
   assert.equal(leerTriage(JSON.parse(JSON.stringify(t)))?.regla, 'Leandro', 'la regla se pierde al leer lo guardado');
-  assert.match(sinComentarios(leer('lib/tickets-db.ts')), /clasificar\([^;]*aprobadoPorRegla: aprobadoPorRegla\(n\.identidad\.ws\) \}\);/);
+  // Desde el 27/10 también con `hastaUnDia` (Leila): tests/feedback-2710-tanda1.test.ts.
+  assert.match(sinComentarios(leer('lib/tickets-db.ts')), /clasificar\([^;]*aprobadoPorRegla: reglaDelNegocio\(n\.identidad\.ws\)\?\.nombre \?\? null, hastaUnDia: reglaDelNegocio\(n\.identidad\.ws\)\?\.hastaUnDia \}\);/);
   assert.match(leer('app/tickets/bandeja/BandejaTickets.tsx'), /t\.triage\.regla \? `aprobado por regla: \$\{t\.triage\.regla\}`/, 'la bandeja no la muestra');
   assert.match(leer('scripts/tickets.ts'), /APROBADO POR REGLA \(\$\{triage\.regla\}\)[\s\S]*?NO lo reclasifiques/, 'el Cerebro no sabe que no lo devuelva');
 });
@@ -62,7 +63,7 @@ test('4. desplegado, el aviso va a su grupo por el camino del equipo, con la pru
   const bloque = cierre.slice(cierre.indexOf('if (aprobadoPorRegla(ws)'));
   assert.ok(bloque.length > 20, 'el cierre no mira la regla');
   assert.match(bloque, /f\.canal !== 'whatsapp' && f\.estado === 'resuelto'\) \{\s*const hito = desplegados\.get\(f\.id\)/, 'sin la prueba del despliegue, o repetido por WhatsApp');
-  assert.match(bloque, /avisarArregloAlGrupo\(\{ ws, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera' \}\)/);
+  assert.match(bloque, /avisarArregloAlGrupo\(\{ ws, clave: `ticket:\$\{f\.id\}`, texto: textoArregloAlGrupo\(f\), prueba, origen: 'ticketera', ws1Seguro: ws === 1 \}\)/);
 });
 
 // PROBADO ROMPIÉNDOLO (26/10/2026, base 4/0): la regla ignorada → 3 rojos (1, 2 y 3); sin mirar lo delicado → 1 rojo (2); sin lo que

@@ -134,7 +134,7 @@ test('6. «Tus cuentas de IA»: la destacada, arriba, con su estado en una líne
   const cuenta = (n: number) => ({ numero: n, proveedor: 'claude' as const, email: null, plan: null, dispositivos: [] });
   assert.deepEqual(resumenDeCuentas(null, false), { linea: 'Leyendo tus cuentas…', tono: 'apagado' });
   assert.equal(resumenDeCuentas(null, true).linea, 'No pude leer tus cuentas: ábrelas para volver a intentar.');
-  assert.deepEqual(resumenDeCuentas({ pcs: [], grupos: { cuentas: [], sinCuenta: [] } }, true), { linea: 'Conecta tu Claude, tu GPT o tu Gemini: con eso contesta tu Ops Center.', tono: 'ojo' });
+  assert.deepEqual(resumenDeCuentas({ pcs: [], grupos: { cuentas: [], sinCuenta: [] } }, true), { linea: 'Conecta tu Claude o tu GPT: con eso contesta tu Ops Center.', tono: 'ojo' });
   assert.equal(resumenDeCuentas({ pcs: [{ enLinea: true, cuentas: [] }], grupos: { cuentas: [], sinCuenta: [{} as never] } }, true).linea, 'Tu computadora está conectada, pero su Claude no tiene la sesión iniciada.');
   assert.deepEqual(resumenDeCuentas({ pcs: [{ enLinea: true, cuentas: [1] }, { enLinea: false, cuentas: [1] }], grupos: { cuentas: [cuenta(1)] as never, sinCuenta: [] } }, true), { linea: '1 cuenta · 1 computadora en línea', tono: 'bien' });
   assert.deepEqual(resumenDeCuentas({ pcs: [{ enLinea: false, cuentas: [1] }], grupos: { cuentas: [cuenta(1), cuenta(2)] as never, sinCuenta: [] } }, true), { linea: '2 cuentas · ninguna computadora en línea', tono: 'ojo' });

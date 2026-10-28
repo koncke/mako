@@ -265,4 +265,21 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/video-editor',
   },
+  {
+    fecha: '27 oct', hora: '18:40', chat: 'Motion / Imagen', sesion: 'local_8acca90d-82d5-4194-a1a2-6ed3bc9958d2', cuenta: 'claude5', actor: 'claude', tipo: 'implementacion',
+    titulo: 'Importar un video: si no se puede, dice por qué y qué hacer (ticket #15)',
+    puntos: [
+      '**El ticket #15** (Leila: «No se pudo importar. ESP_Fabi sentada_limpio.mp4», sin error técnico): cualquier falla al leer el video daba ese mismo aviso con sólo el nombre, y la causa quedaba en la consola. Sin el archivo no se puede saber cuál fue; ahora el aviso dice qué pasó y qué hacer, y «Reportar a Soporte» manda el error técnico, el tipo y el peso.',
+      'Si el video no se puede leer, ya NO se suma a la biblioteca un clip roto (sin duración ni tamaño), que era lo que pasaba antes.',
+      'La miniatura que no se puede decodificar ya no tumba la importación: entra avisando que puede verse mal, como un códec que el navegador no decodifica. Un archivo sin imagen pero con sonido entra como audio.',
+      'Los porqués: archivo vacío o de la nube sin descargar (OneDrive, Google Drive, Dropbox), formato que no se reconoce, archivo incompleto o dañado, sin espacio en el navegador.',
+    ],
+    archivos: [
+      'app/video-editor/_opencut/media/importar-motivo.ts — la decisión y el porqué, puros',
+      'app/video-editor/_opencut/media/processing.ts · mediabunny.ts — la lectura y el aviso con el detalle técnico',
+      'tests/video-editor-importar-motivo.test.ts — 6 roturas',
+    ],
+    revisar: '/video-editor',
+    tickets: [15],
+  },
 ];

@@ -323,7 +323,7 @@ test('de afuera, «Aplicar» replica como Landing y lo que se aplica en la copia
   // Y con la copia que ya existe no se abre ninguna ventana (no hay nada que leer). PROBADO ROMPIÉNDOLO (15/10/2026,
   // tanda 7; base 43 / 0 con crear-panel): sin el `copia == null &&` → 42 / 1.
   assert.match(afuera, /const ventana = copia == null && pideVentana\('landing', \{ lectura \}\) && !leidaEnServer\.current \? abrirEnElClic\(\) : null;/);
-  assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada \}: Props\)/);
+  assert.match(panel, /function PanelInterno\(\{ docId, url, copia = null, onCerrar, onAnalizada, onReplicarPorPartes \}: Props\)/);
   assert.match(panel, /pedirAplicar\(\{ accion: 'pasar', url: urlPegada, docId: id, \.\.\.\(que \? \{ resolver: que \} : \{\}\) \}\)/);
   assert.match(panel, /irDuro\(`\/web-generator\?diagnostico=\$\{id\}`, ws\)/);
   assert.match(panel, /sessionStorage\.setItem\(CLAVE_UNA_VEZ/);

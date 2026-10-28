@@ -41,6 +41,7 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, areasDelMensaje, CONTRATO } from '../lib/mako-intencion';
 import { herramientasDelTurno, DE_CALENDLY, NO_MUEVEN_DE_DIA, PREGUNTA_REUNION_O_TAREA, preguntoReunionOTarea, SIN_FECHA_DE_TAREA } from '../lib/doer-herramientas';
 import { porId, visible, type Vista } from '../lib/api-mako/registro';
+import { laCorreccion } from '../lib/doer-falla';
 
 const RAIZ = join(__dirname, '..');
 const leer = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -285,6 +286,26 @@ test('«movela al viernes» sin decir qué: viajan la agenda Y el plan, y MaKo p
     if (fecha && visible(fecha, vista)) trae(m, 'cambiar_fecha_tarea_plan', r);
     else assert.ok(r.instruccion?.includes(SIN_FECHA_DE_TAREA), `«${m}»: no viaja con qué cambiarle la fecha a una tarea y el modelo no lo sabe (va a cargar una tarea nueva)`);
     assert.ok(r.instruccion?.includes(PREGUNTA_REUNION_O_TAREA), `«${m}» no lleva la pregunta: si el modelo no sabe cuál es, no tiene cómo preguntarlo`);
+  }
+});
+
+// La revisión adversarial de 82ab77cd8: «15 no 16» se leía como una corrección de monto, el pedido sumaba cobros y el
+// presupuesto dejaba afuera la agenda y el plan. Pasa por `laCorreccion` (lib/doer-falla.ts), como en el doer.
+test('una hora o una fecha corregida («a las 15 no 16») sigue siendo un pedido de agenda: sin las herramientas de cobros', () => {
+  for (const { m, espera } of [
+    { m: 'movela al viernes a las 15 no 16', espera: 'listar_tareas_plan' },
+    { m: 'cambiala para el jueves a las 11 no 12', espera: 'listar_tareas_plan' },
+    { m: 'pasala al 20/10 no 21/10', espera: 'listar_tareas_plan' },
+    { m: 'agendá a Juan el jueves a las 15 no 16', espera: 'agenda_del_dia' },
+  ]) {
+    const v = clasificarIntencion(m, {});
+    const c = laCorreccion(v, m);
+    assert.equal(c.veredicto, v, `«${m}» cambió de intención por la corrección`);
+    assert.deepEqual([...c.herramientas], [], `«${m}» suma las herramientas de cobros`);
+    const t = herramientasDelTurno({ veredicto: c.veredicto, texto: m, agendaAbierta: false, deSiempre: DE_SIEMPRE, vista, hayPendientes: false, contextoDelSi: null });
+    const nombres = t.tools.map((x) => x.name);
+    assert.ok(nombres.includes(espera), `«${m}» perdió ${espera}`);
+    for (const n of ['editar_cuota', 'editar_venta_lead']) assert.ok(!nombres.includes(n), `«${m}» trae ${n}`);
   }
 });
 

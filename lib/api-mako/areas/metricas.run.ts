@@ -173,7 +173,7 @@ export const RUNNERS: Runners = {
         'alcance_sumado es la suma del alcance DIARIO de cada anuncio: no es el alcance real de la ventana (una persona se cuenta cada día que la alcanzaron).',
         'formularios_instantaneos son los formularios de Meta; reuniones_1_con_fecha_en_ventana sale del CRM: no se dividen entre sí sin aclararlo.',
         'ctr_clics_totales_pct = clics TOTALES ÷ impresiones (incluye clics al perfil, «ver más», reacciones). ctr_link_pct = clics de link ÷ impresiones, que es el imp_click de diagnosticar_funnel: no compares uno con el otro. cpc_usd es por clic total.'];
-      if (sinMeta) notas.unshift('No hay ni una fila de Meta en la ventana (integración sin conectar o sin sincronizar): los campos de meta y el CAC salen null, que significa «no hay datos», no «no hubo inversión».');
+      if (sinMeta) notas.unshift('No hay ni una fila de Meta en la ventana: los campos de meta y el CAC salen null, que significa «no hay datos», no «no invertiste nada». El porqué NO se adivina («sin sincronizar»): la cuenta puede no estar conectada, no haber corrido ningún anuncio o estar FRENADA por Meta (saldo impago, deshabilitada). Antes de decirlo, mira ver_estado_meta.');
       else if (filasMeta == null) notas.unshift('No se pudo comprobar si hay filas de Meta en la ventana: un cero en los números de Meta puede ser «no hay datos», no «no hubo inversión».');
       const deMeta = <T,>(v: T): T | null => (sinMeta ? null : v);
       return json({

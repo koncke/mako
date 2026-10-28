@@ -46,7 +46,7 @@ import {
   MOTIVO_ANTES_DE_MAKO, esFallaPlan, ubicarSeccion, ubicarPagina, seccionesDisponibles,
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
-  planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
+  planAgregarSeccion, planCambiarTexto, planFormatoTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
   planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
@@ -449,6 +449,7 @@ export const RUNNERS_EDITOR: Runners = {
   // ── Editar el contenido ──
   agregar_seccion_landing: { ...edicion({ que: 'agregar la sección', planear: (i, d) => planAgregarSeccion(d.contenido, i) }) },
   cambiar_texto_landing: { ...edicion({ que: 'cambiar el texto', planear: (i, d) => planCambiarTexto(d.contenido, i) }) },
+  dar_formato_texto_landing: { ...edicion({ que: 'dar formato al texto', planear: (i, d) => planFormatoTexto(d.contenido, i) }) },
   acomodar_seccion_landing: { ...edicion({ que: 'acomodar la sección', planear: (i, d) => planAcomodarSeccion(d.contenido, i) }) },
   configurar_seccion_landing: { ...edicion({
     que: 'cambiar el estilo de la sección', imagenes: ['imagen'],

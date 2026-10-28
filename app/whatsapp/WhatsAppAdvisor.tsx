@@ -18,6 +18,9 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { MakoLoader } from '../_components/MakoLoader';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
+import { cuerpoConArchivos, useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
+import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -83,6 +86,8 @@ export function WhatsAppAdvisor({
   const appEscritorio = useAppDeEscritorio();
   const [pensando, setPensando] = useState(false);
   const [chatError, setChatError] = useState<string | null>(null);
+  // Fotos y PDF con la pregunta (28/10/2026, las cajas unificadas): el servidor los lee y van con el pedido.
+  const adj = useAdjuntosDelChat({ puede: !pensando, onError: setChatError });
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Cache de la última recomendación por contacto → volver a un chat no recomputa.
@@ -136,18 +141,34 @@ export function WhatsAppAdvisor({
     finally { if (grupoIdRef.current === reqId) setAnalizando(false); }
   };
 
-  const enviarChat = async (texto?: string) => {
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  // Lo de la caja sale con sus archivos (el servidor los lee: lib/adjuntos-del-chat.ts); una sugerencia o una nota, sin ellos.
+  const enviarChat = async (texto?: string, { dejarCaja = false } = {}) => {
     const txt = (texto ?? input).trim();
-    if (!txt || pensando || appEscritorio.bloqueada) return;
-    setInput(''); setChatError(null);
-    setChat((c) => [...c, { role: 'user', content: txt }]);
+    const conArchivos = texto === undefined && adj.hay;
+    if ((!txt && !conArchivos) || pensando || adj.preparando || appEscritorio.bloqueada) return;
+    const archivos = conArchivos ? adj.tomar() : [];
+    if (!dejarCaja) setInput('');
+    setChatError(null);
+    setChat((c) => [...c, { role: 'user', content: memoriaConArchivos(txt, archivos.map((f) => f.name)) }]);
     setPensando(true);
     try {
-      const j = await fetch('/api/whatsapp/advisor', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'chat', mensaje: txt, ...payloadBase() }) }).then((r) => r.json());
-      if (j.ok) setChat((j.messages ?? []).map((m: Msg) => ({ role: m.role, content: m.content })));
-      else { setChatError(j.error || 'No se pudo responder.'); }
-    } catch (e) { setChatError(e instanceof Error ? e.message : String(e)); }
-    finally { setPensando(false); }
+      const datos = { action: 'chat', mensaje: txt, ...payloadBase() };
+      let status = 0; let cuerpo = '';
+      try {
+        const r = await fetch('/api/whatsapp/advisor', archivos.length
+          ? { method: 'POST', body: cuerpoConArchivos(datos, archivos) }
+          : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(datos) });
+        status = r.status; cuerpo = await r.text();
+      } catch { /* red caída: status 0 */ }
+      // El cuerpo se lee como TEXTO: un corte de Vercel (413 con archivos de más, 504) llega en texto, no en JSON.
+      let j: { ok?: boolean; messages?: Msg[]; error?: string; aviso?: string } | null = null;
+      try { j = JSON.parse(cuerpo); } catch { /* no es JSON */ }
+      if (j?.ok) {
+        setChat((j.messages ?? []).map((m: Msg) => ({ role: m.role, content: m.content })));
+        if (j.aviso) setChatError(j.aviso);
+      } else setChatError(j?.error || (status === 413 ? ERROR_ADJUNTO.pesado : 'No llegó la respuesta: vuelve a intentarlo.'));
+    } finally { setPensando(false); }
   };
 
   const copiar = (texto: string, key: string) => {
@@ -156,6 +177,8 @@ export function WhatsAppAdvisor({
   };
 
   const ultimoEntrante = mensajes.length > 0 && !mensajes[mensajes.length - 1].saliente;
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás y sale por `enviarChat`.
+  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !adj.preparando && !appEscritorio.bloqueada, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
 
   // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
   const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
@@ -265,8 +288,8 @@ export function WhatsAppAdvisor({
               {chat.length === 0 && !pensando && (
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
               )}
-              <HiloMako items={items} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
-                tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+              <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
+                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
               {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}<ReportarASoporte /></p>}
             </div>
           </div>
@@ -274,10 +297,11 @@ export function WhatsAppAdvisor({
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8 }}>
               {SUGS_CHAT.map((s) => <button key={s} onClick={() => enviarChat(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '5px 10px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 11.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
             </div>
-            {/* La caja única (app/_chat/CajaChat.tsx): el «+», los emojis y el micrófono que dicta. */}
+            {/* La caja única (app/_chat/CajaChat.tsx): el «+» (fotos y PDF), los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
-              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando}
-                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} />
+              <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando || nota.pendientes}
+                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+                adjuntos={adj.caja} />
             </div>
           </div>
         </div>

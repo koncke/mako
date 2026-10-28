@@ -59,6 +59,7 @@ const EXENTAS: Readonly<Record<string, string>> = {
   'app/tickets/soporte/PiezasSoporte.tsx': 'la Ticketera (Soporte): le escribe al equipo de MaKo, no a su IA (23/10)',
   'app/admin/operaciones/Conversacion.tsx': 'el Ops Center del super admin: le escribe a los chats de Claude Code de la PC de Martín por el cartero, no a la IA de MaKo',
   'app/m/operaciones/ChatsMovil.tsx': 'lo mismo, en el teléfono del super admin',
+  'app/admin/operaciones/CajaChatNuevo.tsx': 'el chat nuevo del Ops Center (28/10): su primer mensaje abre un chat de Claude Code en la PC de Martín, no le escribe a la IA de MaKo',
   'app/m/offer/ComposerOfferM.tsx': 'el teléfono: ahí no se instala, así que nunca bloquea (`en-la-computadora`)',
 };
 
@@ -97,16 +98,16 @@ test('1. toda caja de MaKo se bloquea sin la app, la recibe de su motor, o dice 
 
 test('2. cada una corta también lo que no pasa por la caja (una sugerencia, un pedido de otra pantalla)', () => {
   const cortes: Readonly<Record<string, RegExp>> = {
-    'app/_components/MakoChat.tsx': /if \(!txt \|\| pensando \|\| !sessionId \|\| appEscritorio\.bloqueada\) return;/,
+    'app/_components/MakoChat.tsx': /if \(\(!txt && !conArchivos\) \|\| pensando \|\| !sessionId \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
     'app/automations/ChatMako.tsx': /if \(trabajando \|\| p\.deshabilitado \|\| sinApp\) return/,
     'app/crm/lead-view/MakoAnalystLead.tsx': /const enviar = \(e: Envio\) => \{\n\s*if \(ocupadoRef\.current \|\| !listo \|\| errorCarga \|\| appEscritorio\.bloqueada\) return;/,
     'app/crm/lead-view/ficha/GaleriaTab.tsx': /if \(pensando \|\| !texto \|\| appEscritorio\.bloqueada\) return;/,
     'app/dashboard/NuevaHoja.tsx': /if \(pensando \|\| !listo \|\| appEscritorio\.bloqueada\) return;/,
-    'app/dashboard/PanelEditarMako.tsx': /if \(!mensaje \|\| pensando \|\| appEscritorio\.bloqueada\) return;/,
-    'app/image-editor/mako/chat/PanelMakoIA.tsx': /if \(hilo\.corriendo \|\| !instruccion\.trim\(\) \|\| !disenoId \|\| appEscritorio\.bloqueada\) return;/,
-    'app/video-editor/_opencut/chat/PanelChat.tsx': /if \(hilo\.corriendo \|\| !instruccion\.trim\(\) \|\| !proyectoId \|\| appEscritorio\.bloqueada\) return;/,
+    'app/dashboard/PanelEditarMako.tsx': /if \(\(!mensaje && !conArchivos\) \|\| pensando \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
+    'app/image-editor/mako/chat/PanelMakoIA.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !archivos\.length\) \|\| !disenoId \|\| appEscritorio\.bloqueada\) return;/,
+    'app/video-editor/_opencut/chat/PanelChat.tsx': /if \(hilo\.corriendo \|\| \(!instruccion\.trim\(\) && !op\.archivos\?\.length\) \|\| !proyectoId \|\| appEscritorio\.bloqueada\) return;/,
     'app/web-generator/CajaCrear.tsx': /const enviar = \(\) => \{\n\s*if \(appEscritorio\.bloqueada\) return;/,
-    'app/whatsapp/WhatsAppAdvisor.tsx': /if \(!txt \|\| pensando \|\| appEscritorio\.bloqueada\) return;/,
+    'app/whatsapp/WhatsAppAdvisor.tsx': /if \(\(!txt && !conArchivos\) \|\| pensando \|\| adj\.preparando \|\| appEscritorio\.bloqueada\) return;/,
     'app/offer/OfferApp.tsx': /if \(id == null \|\| !s \|\| enviando\.current \|\| sinApp\) return 'volver';/,
     'app/web-generator/editor/paneles/PanelAgente.tsx': /if \(hilo\.corriendo \|\| !instruccion\.trim\(\) \|\| appEscritorio\.bloqueada\) return;/,
   };

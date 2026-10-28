@@ -12,6 +12,7 @@ import { useEffect, useState, type CSSProperties } from 'react';
 import { useRouter } from '@/app/_ui/Link';
 import { LeadSheet } from './LeadSheet';
 import { getLeadFullAction, type LeadFullData } from './actions';
+import { esPaginaVieja, recargarUnaVez, urlParaAbrirLead } from '@/lib/pagina-vieja';
 // El ancho del esqueleto es EL MISMO de la ficha (punto 14 del 12/10/2026: la ficha pasó de
 // 760 a más ancha). Con un número propio acá, la caja abría a 760 y medio segundo después
 // saltaba al ancho de la ficha — y el lead recién creado (punto 27) abre justo por este esqueleto.
@@ -62,6 +63,10 @@ export function LeadEditModal({
     setNotFound(false);
   }
 
+  // ⚠️ UNA PESTAÑA DE ANTES DE UN DESPLIEGUE (Leila, 26/10/2026: la ficha de los leads recién extraídos no cargaba sin
+  // F5; lib/pagina-vieja.ts). Los de antes abrían desde `cache` y el error se callaba; uno nuevo no está ahí. Se recarga
+  // SOLA en la versión nueva, una vez, y abre este mismo lead (`?abrir=`, CrmBoard). Si ya se recargó hace poco, el botón.
+  const [vieja, setVieja] = useState(false);
   useEffect(() => {
     let alive = true;
     getLeadFullAction(leadId)
@@ -71,7 +76,15 @@ export function LeadEditModal({
         cache.set(leadId, d);
         setData(d);
       })
-      .catch(() => { if (alive && !cache.get(leadId)) setNotFound(true); });
+      .catch((e: unknown) => {
+        if (!alive) return;
+        if (esPaginaVieja(e)) {
+          if (recargarUnaVez(`ficha-${leadId}`, urlParaAbrirLead(window.location.href, leadId))) return;
+          if (!cache.get(leadId)) { setVieja(true); setNotFound(true); }
+          return;
+        }
+        if (!cache.get(leadId)) setNotFound(true);
+      });
     return () => { alive = false; };
   }, [leadId]);
 
@@ -79,7 +92,9 @@ export function LeadEditModal({
     return (
       <div onClick={onClose} style={overlay}>
         <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: '22px 26px', fontFamily: SANS, fontSize: 14, color: 'var(--dim)' }}>
-          No se pudo cargar el lead. <button onClick={onClose} style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
+          {vieja ? 'MaKo se actualizó mientras tenías esta página abierta.' : 'No se pudo cargar el lead.'}
+          {vieja && <button onClick={() => window.location.assign(urlParaAbrirLead(window.location.href, leadId))} style={{ marginLeft: 10, background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Recargar</button>}
+          <button onClick={onClose} style={{ marginLeft: 10, background: 'none', border: 'none', color: vieja ? 'var(--dim)' : 'var(--accent)', cursor: 'pointer', fontWeight: 600 }}>Cerrar</button>
         </div>
       </div>
     );

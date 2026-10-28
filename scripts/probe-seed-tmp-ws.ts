@@ -14,11 +14,12 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { runWithWorkspace } from '../lib/workspace';
 import { seedTodoBoardSiVacio } from '../lib/todo-seeds';
 import { setDiagnosticoFase } from '../lib/fase-store';
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 async function main() {
   const slug = `tmp-probe-seed-${Date.now()}`;

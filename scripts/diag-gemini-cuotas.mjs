@@ -11,13 +11,14 @@
 //  3. si hay saldo de gemini cargado (app_settings 'saldo.gemini') → free vs GEMINI_PAGO
 //  4. el % real de cada cuenta contra LIMITES_PROVEEDOR / UMBRAL 0.9
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import crypto from 'node:crypto';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import { descifrar, versionCripto } from '../lib/cripto-credenciales.ts';
 
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 15, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 15, max: 1 });
 // Sesión en UTC: el server (Vercel) corre en UTC y `usoHoyPorCuenta` usa
 // `new Date().setHours(0,0,0,0)`, o sea medianoche UTC. Sin esto los `::date`
 // se agrupan en la zona de esta máquina y el "hoy" queda corrido un día.

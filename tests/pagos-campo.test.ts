@@ -450,7 +450,8 @@ test('las acciones ajustan sobre la base y deshacen tal cual; la API y el wizard
   // deal devuelve y muestra lo que no tocó.
   assert.match(pagos, /patchDeVenta\(fila as FilaVenta, cambio, \{ hayCobradas: cobradas > 0, impagas \}\)/);
   assert.match(fuente('../lib/api-mako/areas/cobros.run.ts'), /patchDeVenta\(fila, c, \{ hayCobradas: cobradas > 0, impagas \}\)/);
-  assert.match(acciones, /guardarCuotasPorId\([\s\S]*?\{ vistos, crm: trato \}\);/, 'guardarCuotasAction pasa los ids que vio la pantalla');
+  // Y, desde la revisión de 0b6d5b754, el orden de las protegidas del plan libre lo corrige el server (`protegidasPrimero`).
+  assert.match(acciones, /guardarCuotasPorId\([\s\S]*?\{ vistos, crm: trato, protegidasPrimero: como\?\.protegidasPrimero === true \}\);/, 'guardarCuotasAction pasa los ids que vio la pantalla');
   assert.match(acciones, /vistos: despues\.filter\(\(q\) => !q\.pagado\)\.map\(\(q\) => q\.id\)/, 'el Deshacer del ajuste lleva lo que quedó después');
   // (Las aserciones de `saveCuotasAction`, DealDetailsCard y EditarDeal se fueron el 17/10/2026 con esa pantalla: las
   // cuotas se escriben sólo por los bloques de Pagos, que ya pasan lo que vieron, arriba.)

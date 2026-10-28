@@ -13,10 +13,11 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { mismaTarea, pareceLaMisma } from '../lib/tareas-dedup';
 
 const WS = Number(process.argv[2] || 1);
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 type T = { titulo: string; esDeOtro?: boolean; dueno?: string };
 

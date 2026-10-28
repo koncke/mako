@@ -88,9 +88,10 @@ import { DialogoObjetivo } from './crear/DialogoObjetivo';
 import { OPCIONES_FORMATO } from './crear/Replicar';
 import {
   OPCIONES_MODO, TOPE_TEXTO, alEnviar, alEscribir, avisoDeTexto, borrarAlInicio, cabeArchivo, cajaDeSemilla, cambiarFormato, conArchivo, conLeido,
-  conLink, elegirModo, linkSoltado, listoParaEnviar, muestraTuTexto, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
-  type AccionLink, type ArchivoCaja, type EstadoCaja, type ModoCaja, type SemillaCaja,
+  conLink, elegirModo, elegirPastilla, linkSoltado, listoParaEnviar, muestraTuTexto, pastillaDe, placeholderDe, quitarArchivo, quitarLink, tipoDeArchivo, vistaDeCaja,
+  type ArchivoCaja, type EstadoCaja, type ModoCaja, type PastillaLink, type SemillaCaja,
 } from './crear/caja-modos';
+import { adaptaElFormato } from '@/lib/editor-landing/replicar-reglas';
 import { MODOS_TEXTO, paramsIniciales, type ModoGen } from './crear/ajustes';
 import { BotonComo, CSS_AJUSTES, PanelMasAjustes } from './crear/AjustesCaja';
 import { leerIndicaciones, type Indicacion } from './crear/recientes';
@@ -116,9 +117,11 @@ export type PropsCajaCrear = {
 };
 
 /** Qué hacer con un link (la pastilla, tanda 6, punto 5). */
-const ACCIONES_LINK: readonly OpcionDesplegable<AccionLink>[] = [
+const ACCIONES_LINK: readonly OpcionDesplegable<PastillaLink>[] = [
   { valor: 'analizar', texto: 'Analiza esta landing', icono: 'reporte' },
   { valor: 'replicar', texto: 'Replica esta landing', icono: 'copiar' },
+  // «Replicar y adaptar» (27/10/2026, Leila): el diseño de la original con el texto de tu oferta.
+  { valor: 'adaptar', texto: 'Replica y adapta a tu oferta', icono: 'varita' },
 ];
 
 /** El «+»: un archivo de texto, oficina, audio o video, o una imagen (las familias de lib/formatos-archivo.ts). */
@@ -355,9 +358,9 @@ export default function CajaCrear({
         onQuitar={() => { setEstado(quitarLink); alCampo(); }} etiquetaQuitar="Quitar el enlace" />
       {link.accion && (
         <span className="gp-cc-link-accion" onKeyDown={teclaEnPastilla}>
-          <Desplegable etiqueta="Qué hacer" valor={link.accion} onCambio={(a) => setEstado((e) => elegirModo(e, a))} opciones={ACCIONES_LINK} ancho={240} />
+          <Desplegable etiqueta="Qué hacer" valor={pastillaDe(link) ?? link.accion} onCambio={(a) => setEstado((e) => elegirPastilla(e, a))} opciones={ACCIONES_LINK} ancho={260} />
           {link.accion === 'replicar' && (
-            <Desplegable etiqueta="Formato" valor={link.formato} onCambio={(f) => setEstado((e) => cambiarFormato(e, f))} opciones={OPCIONES_FORMATO} ancho={220} />
+            <Desplegable etiqueta="Formato" valor={link.formato} onCambio={(f) => setEstado((e) => cambiarFormato(e, f))} opciones={link.adaptar ? OPCIONES_FORMATO.filter((o) => adaptaElFormato(o.valor)) : OPCIONES_FORMATO} ancho={220} />
           )}
         </span>
       )}

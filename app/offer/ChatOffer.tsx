@@ -259,7 +259,7 @@ export function ChatOffer({
 
   return (
     <div className="of-hilo" data-esquina-ocupada
-      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDrop={alSoltar}
+      onDragOver={alArrastrar} onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setEncima(false); }} onDropCapture={() => setEncima(false)} onDrop={alSoltar}
       style={{
         flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', position: 'relative',
         background: 'var(--surface)', border: '1px solid var(--border)', borderTop: '3px solid var(--primary)', borderRadius: 16, overflow: 'hidden',

@@ -135,5 +135,6 @@ test('cableado: maxDuration 420, ?ws= a mano en el XHR, fetch con corte, nunca Â
   // techo de la ruta (tests/mako-doer-plazo.test.ts). El plan dicta con el MISMO hook de siempre.
   assert.match(sinComentarios(leer('app/plan/board/CrearTareaModal.tsx')), /useDictar\(valor, onValor, onError\)/);
   // /api/plan-dictado devuelve el fallo con 200: se lee j.ok.
-  assert.match(sinComentarios(leer('app/_components/useDictar.ts')), /if \(!j\?\.ok\)/);
+  // Desde el 27/10/2026 transcribir vive en transcribir-nota.ts (sin 'use client': lo usa tambiÃ©n el motor del Ops Center).
+  assert.match(sinComentarios(leer('app/_components/transcribir-nota.ts')), /if \(!j\?\.ok\)/);
 });

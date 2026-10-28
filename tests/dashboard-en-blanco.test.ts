@@ -55,7 +55,10 @@ test('EditorInforme: en blanco, la caja «¿Qué vas a crear hoy?» con las plan
   assert.match(src, /autoabrir: conGuia && !enBlanco && !editando/);
   // Un return aparte se dibujaba SIN los <style> del editor (12/10: el texto chiquito arriba a la izquierda).
   assert.doesNotMatch(src, /if \(enBlanco\) \{\s*return \(/);
-  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informe\} senales=\{senales\} \/>\}/);
+  // La caja recibe el informe como lo conoce la galería: General o Dashboard. Las Métricas de una automatización
+  // (`automatizacion:<id>`, 2ff8e65b6) son el editor del Dashboard (32f430356): sus plantillas son las del Dashboard.
+  assert.match(src, /const informeGeneralODashboard: InformeDashboard = esGeneral \? 'general' : 'dashboard';/);
+  assert.match(src, /\{enBlanco \? \(\s*<div className="lk-en-blanco lk-en-blanco-crear" onClick=\{\(e\) => e\.stopPropagation\(\)\}>\s*\{guardable && <CrearHoja onCrear=\{crearHoja\} onRellenar=\{rellenarHoja\} enBlanco="Página 1" informe=\{informeGeneralODashboard\} senales=\{senales\} \/>\}/);
   assert.doesNotMatch(src, /Nuevo Dashboard/, 'volvió el botón en lugar de la caja');
   // En blanco el desplegable de hojas sólo existe si hay Archivados (para restaurar una).
   assert.match(src, /conHojas=\{enBlanco \? guardable && !!tablero\.archivadas\?\.length : /);

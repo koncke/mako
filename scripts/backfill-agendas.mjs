@@ -5,6 +5,7 @@
 // Uso: node scripts/backfill-agendas.mjs [desde] [hasta]   (default 2025-11-01..ayer)
 // =============================================================================
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
@@ -24,7 +25,7 @@ function actionVal(actions, type) {
   return f ? Number(f.value) || 0 : 0;
 }
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 try {
   const base = new URL(`https://graph.facebook.com/${API}/${ACCT}/insights`);
   base.searchParams.set('level', 'ad');

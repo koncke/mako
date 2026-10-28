@@ -238,7 +238,7 @@ export async function POST(req: NextRequest) {
       const tareas = est.tareas.map((t) => ({
         titulo: t.titulo, detalle: t.detalle ?? '', prioridad: t.prioridad ?? 'media',
         proyectoId: null, proyectoNombre: t.proyecto ?? '',
-        dueño: t.dueno ?? '', dueñoEmail: t.duenoEmail ?? '', esDeOtro: !!t.esDeOtro,
+        dueño: t.dueno ?? '', dueñoEmail: t.duenoEmail ?? '', esDeOtro: !!t.esDeOtro, dueñoDudoso: t.duenoDudoso,
         enriquece: t.enriquece, incluir: t.incluir, ampliar: t.ampliar,
         minuto: t.minuto, minutos: t.minutos, recurrente: t.recurrente,
       }));

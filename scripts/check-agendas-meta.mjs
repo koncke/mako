@@ -1,8 +1,9 @@
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 try {
   const top = await sql`SELECT ad_name, sum(agendas_meta)::int agendas, sum(spend)::int spend_mxn
     FROM marketing_metrics_daily WHERE plataforma='meta' AND fecha >= '2025-11-01' AND agendas_meta > 0

@@ -27,6 +27,7 @@
 
 import { confirmacionPura } from './confirmacion-pura';
 import { conexion, normalizar, type Conexion } from './conexiones-catalogo';
+import { lineaDelTicket, LINEA_YA_AVISADO } from './no-pude';
 
 /** Cuánto vale la oferta: lo que dura una charla. Después, un «sí» suelto no la revive. */
 export const VIGENCIA_AYUDA_MS = 30 * 60_000;
@@ -37,10 +38,11 @@ export type EstadoAyuda =
   | { tipo: 'oferta'; servicios: string[]; venceAt: number }
   /** Se lo está guiando con el primero de `servicios`, en el paso `paso` (desde 0). */
   | { tipo: 'guia'; servicios: string[]; paso: number; venceAt: number }
-  /** Se le ofreció el ticket, que ya quedó propuesto (`pendienteId`, lib/mako-pendientes): el «sí» lo confirma. */
+  /** Se le ofreció el ticket, que ya quedó propuesto (`pendienteId`, lib/mako-pendientes): el «sí» lo confirma. Desde el 28/10/2026 el
+   *  ticket se abre solo (`conTicket`): queda sólo para las ofertas guardadas antes, mientras viven. */
   | { tipo: 'ticket'; pendienteId: number; venceAt: number };
 
-/** Lo que el doer propone como ticket (`levantar_ticket`, lib/api-mako/areas/tickets.def.ts). */
+/** El ticket de la guía: lo que no le salió, para el que abre el código (lib/no-pude-server.ts, `ticketDeNoPude`). */
 export type TicketAOfrecer = { titulo: string; descripcion: string };
 
 export const OFERTA_AYUDA = '¿Quieres que te ayude a conectarlo? Responde «sí» y te guío paso a paso.';
@@ -116,8 +118,8 @@ export function textoDelPaso(c: Conexion, pasos: readonly string[], i: number, l
 }
 
 /**
- * Lo que se dice al verificar, lo que queda guardado si quedó conectado, y el ticket a proponer si no. El texto del «no» NO
- * ofrece el ticket: eso lo agrega `conTicket` según si la propuesta entró.
+ * Lo que se dice al verificar, lo que queda guardado si quedó conectado, y el ticket a abrir si no. El texto del «no» NO
+ * nombra el ticket: eso lo agrega `conTicket` según si se abrió.
  */
 export function despuesDeVerificar(
   c: Conexion, conectada: boolean | null, servicios: readonly string[], link: string, ahora: number, motivo?: string | null,
@@ -149,11 +151,12 @@ export function ticketPorProblema(c: Conexion, paso: number, loQueDijo: string):
 }
 
 /**
- * El texto con la oferta del ticket si la propuesta entró, o con el camino a mano si no (sin identidad, la base no contestó):
- * nunca se ofrece un «sí» que no tiene nada que confirmar.
+ * El texto con el ticket que ya se ABRIÓ (28/10/2026, la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude
+ * hacer" debe levantar automáticamente un ticket»; antes se ofrecía y esperaba un «sí»): su número, «Ya estaba avisado» si la
+ * conversación ya tenía el suyo, o el camino a mano si no se pudo abrir (sin identidad, la base no contestó).
  */
-export function conTicket(texto: string, propuesto: boolean): string {
-  const cola = propuesto ? `Si sigue sin andar, ${minuscula(OFERTA_TICKET)}` : `Si sigue sin andar, ${minuscula(TICKET_NO_SALIO)}`;
+export function conTicket(texto: string, ticket: { id: number; nuevo: boolean } | null): string {
+  const cola = ticket ? (ticket.nuevo ? lineaDelTicket(ticket.id) : LINEA_YA_AVISADO) : `Si sigue sin andar, ${minuscula(TICKET_NO_SALIO)}`;
   return [texto.trim(), cola].filter(Boolean).join('\n\n');
 }
 /** La primera letra en minúscula, después de un «¿» o un «¡» si los hay. */

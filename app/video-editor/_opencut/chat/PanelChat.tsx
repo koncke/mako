@@ -30,6 +30,9 @@ import "@/app/admin/operaciones/centro.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CajaChat } from "@/app/_chat/CajaChat";
 import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
+import { useNotaEnElActo } from "@/app/_chat/useNotaEnElActo";
+import { cuerpoConArchivos, useAdjuntosDelChat } from "@/app/_chat/useAdjuntosDelChat";
+import { ERROR_ADJUNTO, memoriaConArchivos } from "@/lib/mako-adjuntos";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -52,6 +55,8 @@ import { useAppDeEscritorio } from "@/app/_chat/useAppDeEscritorio";
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
+/** Con fotos o PDF (28/10/2026): la ruta los lee antes (una foto con la visión, ~52 s) y su `maxDuration` es 300. */
+const PLAZO_CON_ARCHIVOS_MS = 245_000;
 
 /**
  * POST /api/mako/pedidos: qué se pide (lo del proyecto abierto y lo demás, chat/pedidos.ts). Con los proyectos del
@@ -90,20 +95,18 @@ function useHilo(proyectoId: string): Hilo {
 type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
 
 /** El pedido a la ruta. Un corte de la persona no es un error (no se pinta en rojo). */
-async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
+async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
 	const plazo = new AbortController();
-	const t = setTimeout(() => plazo.abort(), PLAZO_MS);
+	const t = setTimeout(() => plazo.abort(), archivos.length ? PLAZO_CON_ARCHIVOS_MS : PLAZO_MS);
 	const alCortar = () => plazo.abort();
 	senal.addEventListener("abort", alCortar);
 	try {
-		const res = await fetch("/api/video-editor/ia", {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			body: JSON.stringify(cuerpo),
-			signal: plazo.signal,
-		});
+		const res = await fetch("/api/video-editor/ia", archivos.length
+			? { method: "POST", body: cuerpoConArchivos(cuerpo, archivos), signal: plazo.signal }
+			: { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(cuerpo), signal: plazo.signal });
 		const json = (await res.json().catch(() => null)) as Respuesta | null;
-		if (!json) return { ok: false, error: "MaKo no respondió. Vuelve a intentar." };
+		// El 413 de Vercel (archivos de más) llega en texto: no es JSON.
+		if (!json) return { ok: false, error: res.status === 413 ? ERROR_ADJUNTO.pesado : "MaKo no respondió. Vuelve a intentar." };
 		return json;
 	} catch {
 		if (senal.aborted) return { ok: false, error: "Detenido.", cortado: true };
@@ -122,11 +125,13 @@ async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | 
  * de la respuesta, con su link (chat/pedidos.ts). Sin nada del proyecto abierto, no se llama a la IA. `interpretar:
  * false` = un pedido NUESTRO (una sugerencia), que es de edición por definición y no gasta la vuelta.
  */
-async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean } = {}): Promise<void> {
+async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean; archivos?: readonly File[] } = {}): Promise<void> {
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const texto = instruccion.trim();
-	if (!proyecto || !escena || !texto) return;
+	// Las fotos o los PDF del pedido (28/10/2026): la ruta los lee y van aparte de la instrucción.
+	const archivos = op.archivos ?? [];
+	if (!proyecto || !escena || (!texto && !archivos.length)) return;
 	const proyectoId = proyecto.metadata.id;
 	if (leerHilo(proyectoId).corriendo) return;
 
@@ -134,7 +139,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	const alcanceReal = alcance === "seleccion" && elegidos.length ? "seleccion" : "video";
 	cambiarHilo(proyectoId, (h) => ({
 		corriendo: true,
-		mensajes: [...h.mensajes, conId({ de: "yo", texto, alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
+		mensajes: [...h.mensajes, conId({ de: "yo", texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === "seleccion" ? rotuloSeleccion(elegidos.length) : null })],
 	}));
 	const corte = new AbortController();
 	cortes.set(proyectoId, corte);
@@ -147,7 +152,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 	};
 
 	let paraEditar: string | null = texto;
-	if (op.interpretar !== false) {
+	if (op.interpretar !== false && texto) {
 		const ri = await pedirPedidos(texto, { id: proyectoId, nombre: proyecto.metadata.name }, corte.signal);
 		if (corte.signal.aborted) {
 			terminar({ de: "mako", texto: "Detenido." });
@@ -158,7 +163,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		paraEditar = textoActual(interp);
 		burbujas = burbujasDe(interp, proyectoId).map((b) => ({ de: "mako" as const, texto: b.texto, ...(b.links.length ? { links: b.links } : {}) }));
 	}
-	if (!paraEditar) {
+	if (!paraEditar && !archivos.length) {
 		terminar(null);
 		return;
 	}
@@ -190,7 +195,7 @@ async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "v
 		return;
 	}
 
-	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal);
+	const r = await pedirIA({ instruccion: paraEditar, linea: vista.json, alcance: alcanceReal }, corte.signal, archivos);
 	if (!r.ok) {
 		terminar({ de: "mako", texto: r.error, error: !("cortado" in r) });
 		return;
@@ -408,11 +413,18 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		return () => clearTimeout(t);
 	}, [foco, hilo.mensajes.length]);
 
-	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
-		if (hilo.corriendo || !instruccion.trim() || !proyectoId || appEscritorio.bloqueada) return;
+	/** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+	// Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): sólo los de la caja (`op.archivos`).
+	const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!proyectoId, onError: (m) => { if (m) toast.error(m); } });
+	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean; archivos?: readonly File[] } = {}) => {
+		if (hilo.corriendo || (!instruccion.trim() && !op.archivos?.length) || !proyectoId || appEscritorio.bloqueada) return;
 		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
-		setTexto("");
+		if (!op.dejarCaja) setTexto("");
 	};
+
+	// La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
+	// por `enviar`, como lo escrito.
+	const nota = useNotaEnElActo({ clave: `video:${proyectoId ?? ""}`, puede: !hilo.corriendo && !!proyectoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
 	const sugerir = (s: Sugerencia) => {
 		if (s.instruccion) {
@@ -552,8 +564,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							</div>
 						</>
 					)}
-					<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
 					{hilo.corriendo && (
 						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--cc-text-3) hover:text-(--cc-text)">
 							Detener generación
@@ -592,8 +604,9 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				</div>
 				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
 				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+						adjuntos={adj.caja} topeTexto={TOPES_CHAT.instruccion} />
 				</div>
 			</footer>
 		</section>

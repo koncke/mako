@@ -43,7 +43,8 @@ export const REDES = {
   metaads: { etiqueta: 'Anuncios de Meta', plataforma: 'metaads', ruta: 'facebook/ads', anuncios: true, params: { loginMode: 'business' }, ayuda: 'Tu cuenta publicitaria, para publicar anuncios.', visible: true },
   linkedin: { etiqueta: 'LinkedIn', plataforma: 'linkedin', ruta: 'linkedin', anuncios: false, ayuda: 'Tu perfil o tu página.', visible: false },
   tiktok: { etiqueta: 'TikTok', plataforma: 'tiktok', ruta: 'tiktok', anuncios: false, ayuda: 'Tu cuenta de TikTok.', visible: false },
-  youtube: { etiqueta: 'YouTube', plataforma: 'youtube', ruta: 'youtube', anuncios: false, ayuda: 'Tu canal.', visible: false },
+  // Visible desde el 27/10/2026 (feedback 876470842-22): el canal se conecta con el login de Zernio, no pegando una clave.
+  youtube: { etiqueta: 'YouTube', plataforma: 'youtube', ruta: 'youtube', anuncios: false, ayuda: 'Tu canal.', visible: true },
   twitter: { etiqueta: 'X', plataforma: 'twitter', ruta: 'twitter', anuncios: false, ayuda: 'Tu cuenta de X.', visible: false },
   threads: { etiqueta: 'Threads', plataforma: 'threads', ruta: 'threads', anuncios: false, ayuda: 'Tu cuenta de Threads.', visible: false },
   pinterest: { etiqueta: 'Pinterest', plataforma: 'pinterest', ruta: 'pinterest', anuncios: false, ayuda: 'Tu cuenta de Pinterest.', visible: false },
@@ -76,7 +77,7 @@ export type ConexionZernio = {
 };
 
 /** Por qué no se pudo seguir, en una palabra que la pantalla sabe leer. */
-export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
+export type MotivoZernio = 'sin-clave' | 'clave-mala' | 'clave-en-uso' | 'pausada' | 'pago' | 'limite' | 'cobro' | 'sin-perfil' | 'sin-red' | 'respuesta' | 'error';
 
 export type RespuestaConectar =
   | { ok: true; tipo: 'url'; url: string }
@@ -91,6 +92,7 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
   'pausada': 'Tu cuenta de Zernio está pausada.',
   'pago': 'Zernio pide una tarjeta para conectar otra cuenta. Las 2 primeras son gratis.',
   'limite': 'Tu plan de Zernio no deja conectar más cuentas.',
+  'cobro': 'Esta cuenta se paga en tu Zernio: desde la 3.ª, US$6 por mes cada una.',
   'sin-perfil': 'Tu cuenta de Zernio no tiene ningún perfil. Crea uno en Zernio.',
   'sin-red': 'Zernio no contestó. Prueba de nuevo.',
   'respuesta': 'Zernio contestó algo que no entendimos. Prueba de nuevo.',
@@ -107,6 +109,26 @@ export const MENSAJES_DE_MOTIVO: Readonly<Record<MotivoZernio, string>> = {
 export function lineaDeCobro(total: number | null | undefined): string {
   if (total == null || !Number.isFinite(total) || total < 0) return 'Cada red cuenta aparte en Zernio (página, Instagram, anuncios): 2 gratis, desde la 3.ª se paga.';
   return `Tienes ${total} ${total === 1 ? 'cuenta conectada' : 'cuentas conectadas'} en Zernio. Las 2 primeras son gratis; desde la 3.ª se paga.`;
+}
+
+/** Las cuentas que Zernio no cobra (su tabla de precios, leída el 27/10/2026: «1 to 2 — Free»). */
+export const CUENTAS_GRATIS_ZERNIO = 2;
+
+/**
+ * ¿Hay que avisar ANTES de abrir el login? (27/10/2026, feedback de Leila 876470842-23: Zernio le cobró US$16 y MaKo sólo lo decía en
+ * una línea fija). Zernio cobra por cuenta ACTIVA de toda la cuenta de Zernio (las ocultas y desconectadas no cuentan), y la página,
+ * el Instagram y los anuncios cuentan aparte. Se avisa si ya hay 2 o más y la red a conectar todavía no tiene una cuenta activa:
+ * volver a entrar con la misma cuenta no suma otra (Zernio conserva su id). null = no hace falta avisar.
+ */
+export function avisoDeCobroZernio(p: { conectadas: readonly ConexionZernio[]; red: RedZernio }): { cuentas: number } | null {
+  const activas = p.conectadas.filter((c) => c.activa);
+  if (activas.some((c) => c.plataforma === REDES[p.red].plataforma)) return null;
+  return activas.length >= CUENTAS_GRATIS_ZERNIO ? { cuentas: activas.length } : null;
+}
+
+/** El aviso, en una línea: cuántas hay y cuánto cuesta la que viene (de la 3.ª a la 10.ª, US$6 por mes, prorrateado por día). */
+export function textoAvisoCobro(cuentas: number): string {
+  return `Tu Zernio ya tiene ${cuentas} cuentas conectadas: ésta se paga. Zernio te cobra US$6 por mes por cada una desde la 3.ª, prorrateado por día.`;
 }
 
 // ── A dónde vuelve ───────────────────────────────────────────────────────────

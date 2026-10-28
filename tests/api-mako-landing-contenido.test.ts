@@ -58,7 +58,7 @@ import {
   MOTIVO_ANTES_DE_MAKO, descartesDe, ubicarSeccion, estructuraParaApi, planAgregarSeccion, planCambiarTexto,
   planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque, planAcomodarBloque, planPonerEnlace,
   planConfigurarFormulario, planConfigurarBoton, planQuitarCobro, planAcomodarPagina, planTema, planConfigurarLanding,
-  planConfigurarSitio, planNavegacion, planTemaPropio, pedidoGenerar, temaElegido, temaSugeridoApi, rutaLibreApi,
+  planConfigurarSitio, planNavegacion, planTemaPropio, planFormatoTexto, pedidoGenerar, temaElegido, temaSugeridoApi, rutaLibreApi,
   hacerInicioApi, ESTILO_RESTABLECIDO_API, esFallaPlan, pedidoEnBlanco, restaurarDeTema, type PlanContenido, type FallaPlan,
 } from '../lib/api-mako/areas/landing-contenido.helpers';
 
@@ -73,7 +73,7 @@ const CON_IA = ['generar_landing_con_ia', 'editar_landing_con_ia', 'diagnosticar
 const DOMINIO = ['conectar_dominio_landing', 'verificar_dominio_landing', 'quitar_dominio_landing'];
 /** Las ediciones de UNA landing por la fábrica `edicion` (versión de antes + compare-and-set). */
 const EDICIONES = [
-  'agregar_seccion_landing', 'cambiar_texto_landing', 'acomodar_seccion_landing', 'configurar_seccion_landing',
+  'agregar_seccion_landing', 'cambiar_texto_landing', 'dar_formato_texto_landing', 'acomodar_seccion_landing', 'configurar_seccion_landing',
   'agregar_bloque_landing', 'acomodar_bloque_landing', 'poner_enlace_landing', 'configurar_formulario_landing',
   'configurar_boton_landing', 'cambiar_imagen_landing', 'cambiar_icono_landing', 'quitar_cobro_landing', 'acomodar_pagina_landing', 'cambiar_tema_landing',
   'configurar_landing', 'configurar_sitio_landing', 'configurar_navegacion_landing',
@@ -392,6 +392,8 @@ test('el estilo de una sección, el formulario, los botones y quitar el cobro', 
   assert.ok(textoTodo(b.contenido).includes('Agendar mi llamada') && textoTodo(b.contenido).includes('https://calendly.com/x'));
   assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda ahora', destino: 'pago:9' })).error, /cobrar_producto_landing/);
   assert.ok(Array.isArray(falla(planConfigurarBoton(c, { boton: 'No existe' })).disponibles));
+  // Sus colores son los del tema: se elige el estilo (27/10/2026; en un diseño, color y colorTexto).
+  assert.match(falla(planConfigurarBoton(c, { boton: 'Agenda ahora', color: '#111111' })).error, /toma el color del tema/);
   const q = ok(planQuitarCobro(c, {}));
   assert.ok(!textoTodo(q.contenido).includes('pago:7'), 'el botón sigue cobrando');
   assert.equal(falla(planQuitarCobro(q.contenido, {})).yaEstaba, true);
@@ -689,6 +691,8 @@ test('por WhatsApp: los pedidos de EDITAR una landing llegan con su herramienta'
     ['cambia el tema de mi landing a uno oscuro', 'cambiar_tema_landing'],
     ['conecta el dominio promo.minegocio.com a mi landing', 'conectar_dominio_landing'],
     ['oculta la sección de precios de la landing', 'acomodar_seccion_landing'],
+    ['pon en negrita «Aprende a vender» en mi landing', 'dar_formato_texto_landing'],
+    ['cambia el color del botón Agenda ahora de mi landing a negro', 'configurar_boton_landing'],
   ];
   const sin: string[] = [];
   for (const [f, tool] of casos) {
@@ -696,4 +700,31 @@ test('por WhatsApp: los pedidos de EDITAR una landing llegan con su herramienta'
     if (!n.includes(tool)) sin.push(`${f} → sin ${tool}`);
   }
   assert.deepEqual(sin, []);
+});
+
+// ── El formato de un texto, por la API (27/10/2026) ─────────────────────────────────────────────────────────────────────
+// Martín: «si una persona quiere editar lo que sea debería poder. Con prompts en mako». La barra «Texto» no tenía comando.
+test('dar formato a un texto de bloque: sus marcas, como la barra; sólo la frase; y lo que no se puede, con por qué', () => {
+  const c = landing();
+  const r = ok(planFormatoTexto(c, { buscar: 'Aprende a vender', negrita: true, color: 'acento', tamano: 'xl', alinea: 'centro' }));
+  const titulo = ubicarSeccion(r.contenido, 'tHero')!.tarjeta.content![0];
+  assert.deepEqual(titulo, { type: 'heading', attrs: { level: 1, textAlign: 'center' }, content: [{ type: 'text', text: 'Aprende a vender', marks: [{ type: 'bold' }, { type: 'textStyle', attrs: { color: 'acento', tam: 'xl' } }] }] });
+  assert.match(r.resumen, /negrita, color acento, tamaño xl, al centro/);
+  // Sólo la frase: el resto del texto queda como estaba, a los costados.
+  const parte = ubicarSeccion(ok(planFormatoTexto(c, { buscar: 'tu llamada', cursiva: true, subrayado: true, tachado: true, seccion: 'tHero' })).contenido, 'tHero')!.tarjeta.content![1];
+  assert.deepEqual(parte.content, [txt('Agenda '), { type: 'text', text: 'tu llamada', marks: [{ type: 'italic' }, { type: 'underline' }, { type: 'strike' }] }, txt(' gratis hoy')]);
+  // Lo que ya tenía no se duplica, y el color se suma al tamaño de antes.
+  const dos = ok(planFormatoTexto(r.contenido, { buscar: 'Aprende a vender', negrita: true, color: '#e11d48' }));
+  assert.deepEqual(ubicarSeccion(dos.contenido, 'tHero')!.tarjeta.content![0].content![0].marks, [{ type: 'bold' }, { type: 'textStyle', attrs: { color: '#e11d48', tam: 'xl' } }]);
+  // Dos veces: la sección o todas, como cambiar_texto_landing.
+  assert.match(falla(planFormatoTexto(c, { buscar: 'gratis', negrita: true })).error, /aparece 2 veces/);
+  assert.equal(ok(planFormatoTexto(c, { buscar: 'gratis', negrita: true, todas: true })).datos?.veces, 2);
+  // Lo que no se puede.
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Aprende a vender' })).error, /Falta qué formato/);
+  assert.match(falla(planFormatoTexto(c, { negrita: true })).error, /Falta el texto/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Aprende a vender', color: 'rojo' })).error, /hex/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Aprende a vender', tamano: 'gigante' })).error, /xs, s, m, l, xl, 2xl/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Aprende a vender', alinea: 'arriba' })).error, /izquierda, centro o derecha/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'No está', negrita: true })).error, /No encontré/);
+  assert.match(falla(planFormatoTexto(c, { buscar: 'Aprende a vender', negrita: true, seccion: 'tNo' })).error, /sección/);
 });

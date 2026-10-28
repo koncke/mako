@@ -12,11 +12,12 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { transcribeAd, structureTranscript, type Seccion } from '../lib/transcribe';
 
 const SINCE = process.argv.find((a) => /^\d{4}-\d{2}-\d{2}$/.test(a)) || '2025-11-01';
 const REIMG = process.argv.includes('--imgs'); // reprocesar anuncios de imagen (mejor resolución/modelo)
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', connect_timeout: 10, max: 1 });
 
 type Row = { ad_id: string; status: string; tipo: string | null; transcript: string | null; secciones: Seccion[] | null };
 

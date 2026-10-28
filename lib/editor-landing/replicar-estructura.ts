@@ -1,0 +1,296 @@
+// =============================================================================
+// editor-landing/replicar-estructura — la ESTRUCTURA de una página leída: sus secciones, su molde y la fidelidad
+// =============================================================================
+// Pedido de Martín (28/10/2026, «replicar la landing de otra persona»): «lo que sí quiero replicar son los ángulos de
+// comunicación, los dolores, la forma de venta, la cantidad de párrafos, los títulos, cómo está acomodado». Esto es lo
+// PURO de la estructura (sin red ni IA, con test: tests/web-generator-replicar-partes.test.ts):
+//   · `esquemaDeReplica`: el texto de una página leída (el del extractor o el del lector del navegador: `# título`,
+//     `[BOTÓN]`, `•`, `[DESPLEGABLE]`, un bloque por renglón) → las secciones del esquema, en el orden de la página;
+//   · `moldeDeSeccion` / `moldeDeEsquema`: cuántos subtítulos, párrafos, viñetas, botones y desplegables tiene cada
+//     sección, y cuántas palabras: lo que la réplica tiene que repetir cuando se pide la estructura sin el texto;
+//   · `perfilDeTarjeta` / `fidelidadDeEstructura`: lo mismo contado en las secciones que quedaron en el editor, para
+//     MEDIR la réplica contra la original (lo usa el log de replicar.ts y el test).
+//
+// ⚠️ EL DIAGNÓSTICO OBVIO ERA EL EQUIVOCADO: «la réplica tiene las mismas secciones» no era cierto en una landing larga.
+//    `esquemaConservado` (ia-reglas.ts, el de «Pegar texto») corta en CADA `#`, `##` y `###` y se queda con las primeras
+//    20 (`MAX_SECCIONES`). Medido el 28/10/2026 con el HTML de 100ads.ai: 1 h1, 12 h2 y 20 h3 → 33 cortes, y la réplica
+//    se quedaba con 20: las 13 últimas secciones (el producto, la garantía, las preguntas, el cierre) se perdían SIN
+//    AVISO, y cada tarjeta de una grilla (un `###` adentro de un `##`) salía como una sección suelta. gohighlevel.com:
+//    19 h2 + 3 h3, y se perdían las 3 últimas. Acá se corta en el NIVEL DE SECCIÓN de la página (`nivelDeSeccion`), lo
+//    de más adentro queda adentro como subtítulo (`### …`), y si aun así sobran secciones se JUNTAN las vecinas más
+//    chicas (`juntarHasta`): nunca se tira texto.
+// =============================================================================
+
+import { MAX_SECCIONES, MAX_TITULO_SECCION, cortarPegado, esquemaConservado } from './ia-reglas';
+import { TOPES, NODO, type JsonNodo } from './doc';
+import type { Esquema, SeccionEsquema } from './api-tipos';
+
+const RE_TITULO = /^(#{1,6})\s+(.+)$/;
+const RE_BOTON = /^\[BOT[ÓO]N\]/i;
+const RE_DESPLEGABLE = /^\[(?:DESPLEGABLE|PESTAÑA)\]/i;
+const RE_VINETA = /^[•▪]\s+/;
+
+/** Las palabras de un renglón leído, sin sus marcas (`#`, `[BOTÓN]`, `•`, la flecha del destino). */
+export function palabrasDe(linea: string): number {
+  // En un botón, lo de después de la flecha es su DESTINO («→ envía el formulario»), no texto que se ve; en un desplegable
+  // es la respuesta, y cuenta (MasterAds, 28/10/2026: 8 palabras de destinos contaban como texto de la original).
+  const sinDestino = RE_BOTON.test(linea.trim()) ? linea.replace(/\s→\s[\s\S]*$/, '') : linea;
+  const t = sinDestino
+    .replace(RE_TITULO, '$2')
+    .replace(/^\[[^\]]+\]\s*/, '')
+    .replace(RE_VINETA, '')
+    .replace(/\s*→\s*(?:https?:\/\/\S+|#[\w-]+)\s*$/i, '');
+  return t.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+}
+
+/**
+ * El nivel de título en el que la página corta sus SECCIONES. El más alto (h1 antes que h2) que aparece al menos dos
+ * veces: un h1 solo es el del hero, y las secciones van en h2. Si ése es el h1 y deja menos de 4 secciones, se baja al
+ * nivel siguiente que tenga títulos (un sitio que usa h1 en el hero y en el cierre, y h2 para el resto), AUNQUE pase el
+ * tope: lo que sobra lo junta `juntarHasta`. ⚠️ Con «mientras no pase del tope» (revisión del 28/10/2026), 2 h1 y 20 h2
+ * daban DOS secciones (la primera con 20 subtítulos) y 1 h1 con 20 h2 daba 20: el salto pasaba al cruzar el tope. null =
+ * la página no trae títulos que corten (se usa el corte de siempre).
+ */
+export function nivelDeSeccion(lineas: readonly string[]): number | null {
+  const porNivel = [0, 0, 0, 0, 0, 0, 0];
+  for (const l of lineas) {
+    const m = RE_TITULO.exec(l);
+    if (m) porNivel[m[1].length]++;
+  }
+  /** Las secciones que salen cortando en `n` (todo título de nivel `n` o más alto abre una). */
+  const hasta = (n: number) => porNivel.slice(1, n + 1).reduce((a, b) => a + b, 0);
+  let nivel = 0;
+  for (let n = 1; n <= 6; n++) if (porNivel[n] >= 2) { nivel = n; break; }
+  if (!nivel) return null;
+  // Sólo con h1: un sitio que usa h1 en dos o tres bloques y h2 para el resto. Con h2 o más adentro, pocas secciones
+  // son pocas secciones (las tarjetas de adentro no se sueltan).
+  if (nivel === 1) for (let n = 2; n <= 6 && hasta(nivel) < 4; n++) if (porNivel[n]) nivel = n;
+  return nivel;
+}
+
+/** Las palabras de una sección del esquema (título y puntos). */
+const palabrasDeSeccion = (s: SeccionEsquema): number => palabrasDe(s.titulo) + s.puntos.reduce((n, p) => n + palabrasDe(p), 0);
+
+/**
+ * Junta secciones vecinas hasta que entren en `tope`: cada vez, el par de vecinas con menos palabras entre las dos (la
+ * de abajo pasa como subtítulo de la de arriba). Así lo que sobra se acomoda donde menos se nota, y no se pierde nada.
+ */
+export function juntarHasta(secciones: readonly SeccionEsquema[], tope = MAX_SECCIONES): SeccionEsquema[] {
+  const out = secciones.map((s) => ({ titulo: s.titulo, puntos: [...s.puntos] }));
+  while (out.length > tope) {
+    let mejor = 1;
+    let menor = Infinity;
+    for (let i = 1; i < out.length; i++) {
+      const p = palabrasDeSeccion(out[i - 1]) + palabrasDeSeccion(out[i]);
+      if (p < menor) { menor = p; mejor = i; }
+    }
+    const [abajo] = out.splice(mejor, 1);
+    out[mejor - 1].puntos.push(`### ${abajo.titulo}`, ...abajo.puntos);
+  }
+  return out;
+}
+
+/**
+ * El esquema de una página LEÍDA (Replicar e Importar con «Conservar»), con la estructura de la página: una sección
+ * por título de su nivel de sección, en el orden de la página, y todo el texto adentro, palabra por palabra. Los
+ * títulos de más adentro quedan como renglón `### …` (un subtítulo de la sección). Lo de antes del primer título (un
+ * antetítulo, el texto del logo) va al principio de la primera sección. Un texto con cortes `---` (lo partió la
+ * persona) o sin títulos que corten sigue por `esquemaConservado`, como siempre.
+ */
+export function esquemaDeReplica(texto: string, tituloFallback = 'Landing'): Esquema {
+  const limpio = String(texto ?? '').replace(/\r\n?/g, '\n');
+  if (cortarPegado(limpio).length > 1) return esquemaConservado(limpio, tituloFallback);
+  const lineas = limpio.split('\n').map((l) => l.trim()).filter(Boolean);
+  const nivel = nivelDeSeccion(lineas);
+  if (nivel === null) return esquemaConservado(limpio, tituloFallback);
+  const secciones: SeccionEsquema[] = [];
+  const antes: string[] = [];
+  for (const l of lineas) {
+    const m = RE_TITULO.exec(l);
+    if (m && m[1].length <= nivel) {
+      secciones.push({ titulo: m[2].trim().slice(0, MAX_TITULO_SECCION), puntos: [] });
+      continue;
+    }
+    // Más adentro que el nivel de sección: un subtítulo (siempre `###`, el que dibuja la sección como subtítulo).
+    const renglon = m ? `### ${m[2].trim()}` : l;
+    if (secciones.length) secciones[secciones.length - 1].puntos.push(renglon.slice(0, TOPES.caracteresTexto));
+    else antes.push(renglon.slice(0, TOPES.caracteresTexto));
+  }
+  if (antes.length) {
+    if (secciones.length) secciones[0].puntos.unshift(...antes);
+    else return esquemaConservado(limpio, tituloFallback);
+  }
+  const juntas = juntarHasta(secciones);
+  return { titulo: (juntas[0]?.titulo || tituloFallback).slice(0, TOPES.titulo), secciones: juntas };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// El molde: la forma de cada sección de la original
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** La forma de una sección: lo que la réplica repite cuando se pide la estructura sin el texto. */
+export type MoldeSeccion = {
+  titulo: string;
+  /** Los títulos de adentro (las tarjetas de una grilla, los pasos). */
+  subtitulos: number;
+  parrafos: number;
+  vinetas: number;
+  botones: number;
+  desplegables: number;
+  palabras: number;
+};
+
+export function moldeDeSeccion(s: SeccionEsquema): MoldeSeccion {
+  const m: MoldeSeccion = { titulo: s.titulo, subtitulos: 0, parrafos: 0, vinetas: 0, botones: 0, desplegables: 0, palabras: palabrasDe(s.titulo) };
+  for (const p of s.puntos) {
+    const t = p.trim();
+    if (RE_TITULO.test(t)) m.subtitulos++;
+    else if (RE_BOTON.test(t)) m.botones++;
+    else if (RE_DESPLEGABLE.test(t)) m.desplegables++;
+    else if (RE_VINETA.test(t)) m.vinetas++;
+    else m.parrafos++;
+    m.palabras += palabrasDe(t);
+  }
+  return m;
+}
+
+export const moldeDeEsquema = (e: Esquema): MoldeSeccion[] => e.secciones.map(moldeDeSeccion);
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+/** «2 subtítulos · 3 párrafos · 1 botón», lo que se ve en la lectura y lo que lee la IA. Vacío si no tiene nada. */
+export function resumenDeMolde(m: MoldeSeccion): string {
+  return [
+    m.subtitulos ? plural(m.subtitulos, 'subtítulo', 'subtítulos') : '',
+    m.parrafos ? plural(m.parrafos, 'párrafo', 'párrafos') : '',
+    m.vinetas ? plural(m.vinetas, 'viñeta', 'viñetas') : '',
+    m.botones ? plural(m.botones, 'botón', 'botones') : '',
+    m.desplegables ? plural(m.desplegables, 'pregunta desplegable', 'preguntas desplegables') : '',
+  ].filter(Boolean).join(' · ');
+}
+
+/** Las imágenes de una sección de la original, como las deja leer el estilo (`ImagenOriginal`, estilo-original.ts). */
+export type ImagenesDeSeccion = { cantidad: number; fondo: boolean };
+
+/**
+ * CÓMO ESTÁ ACOMODADA una sección (28/10/2026, Martín: «cómo está acomodado»), con lo que se puede saber sin mirar la
+ * página: dónde lleva imágenes (una junto al texto, de fondo, una galería) y si sus subtítulos son tarjetas. Va en el
+ * molde: sin el diseño de la original, la réplica deja el HUECO de la imagen donde la otra tenía una (la llena la
+ * persona). Vacío si no hay nada que decir.
+ */
+export function acomodoDeSeccion(m: MoldeSeccion, img: ImagenesDeSeccion | null): string {
+  const partes: string[] = [];
+  if (img?.fondo) partes.push('imagen de fondo');
+  else if (img && img.cantidad >= 3) partes.push(`${img.cantidad} imágenes (galería o logos)`);
+  else if (img && img.cantidad === 2) partes.push('dos imágenes');
+  else if (img && img.cantidad === 1) partes.push('una imagen junto al texto');
+  if (m.subtitulos >= 2) partes.push(`${m.subtitulos} tarjetas o pasos con su subtítulo`);
+  if (m.desplegables >= 2) partes.push('preguntas desplegables');
+  return partes.join(', ');
+}
+
+/** Las imágenes de cada sección de la réplica: las de las partes de la original que le tocan (`partesDeCadaSeccion`). */
+export function imagenesPorSeccion(partes: readonly (readonly number[])[], imagenes: readonly { seccion: number; fondo: boolean }[]): (ImagenesDeSeccion | null)[] {
+  return partes.map((ps) => {
+    const suyas = imagenes.filter((im) => ps.includes(im.seccion));
+    return suyas.length ? { cantidad: suyas.filter((im) => !im.fondo).length || suyas.length, fondo: suyas.some((im) => im.fondo) } : null;
+  });
+}
+
+/**
+ * La NOTA de una sección para la tanda que la escribe (28/10/2026): su ángulo, su molde y su acomodo, en una línea. Viaja
+ * CON la sección (`SeccionEsquema.nota`, `pedidoDeTanda`), así cada tanda manda sólo las suyas: en la instrucción común
+ * (5.000 caracteres para todas) una lista de 20 secciones con su ángulo no entraba (medido con gohighlevel, leadsales y
+ * kommo: se perdían las últimas).
+ */
+export function notaDeSeccion(m: MoldeSeccion, acomodo = '', angulo = ''): string {
+  const t = [angulo ? `ángulo: ${angulo}` : '', `forma: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)`, acomodo ? `acomodo: ${acomodo}` : '']
+    .filter(Boolean).join('; ');
+  return t.length > 400 ? `${t.slice(0, 399)}…` : t;
+}
+
+/**
+ * El molde de la página entera, como lo lee la IA en la tanda de secciones: UNA línea por sección, con su número y su
+ * título (la tanda se ubica por el título), su ángulo (`angulos`, «Precio: plan con garantía»), la forma, el largo y cómo
+ * está acomodada (`acomodos`, si se leyó el estilo). Va adentro de las instrucciones (`MAX_INSTRUCCIONES`, 5.000) junto con
+ * los ángulos generales: el tope lo pone quien llama con lo que sobra (medido el 28/10: con un tope fijo de 1.600 y el
+ * ángulo de cada sección en otra lista, gohighlevel, leadsales y kommo perdían las últimas secciones de las DOS listas).
+ */
+export function textoDeMolde(moldes: readonly MoldeSeccion[], tope = 1_600, acomodos: readonly string[] = [], angulos: readonly string[] = []): string {
+  const lineas = moldes.map((m, i) => `${i + 1}. «${m.titulo.slice(0, 45)}»${angulos[i] ? ` [${angulos[i]}]` : ''}: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)${acomodos[i] ? `; ${acomodos[i]}` : ''}`);
+  const out: string[] = [];
+  let largo = 0;
+  for (const l of lineas) {
+    if (largo + l.length + 1 > tope) { out.push(`… y ${lineas.length - out.length} secciones más con la misma regla.`); break; }
+    out.push(l);
+    largo += l.length + 1;
+  }
+  return out.join('\n');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La fidelidad: la réplica contra la original
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Lo mismo que el molde, contado en una sección del editor. `textos` = párrafos con texto (sueltos, de lista o de ítem). */
+export type PerfilTarjeta = { titulos: number; textos: number; botones: number; desplegables: number; palabras: number };
+
+const textoDeNodo = (n: JsonNodo): string => (n.type === 'text' ? String(n.text ?? '') : (n.content ?? []).map(textoDeNodo).join(' '));
+
+export function perfilDeTarjeta(t: JsonNodo): PerfilTarjeta {
+  const p: PerfilTarjeta = { titulos: 0, textos: 0, botones: 0, desplegables: 0, palabras: 0 };
+  const visitar = (n: JsonNodo) => {
+    if (n.type === 'heading') { if (textoDeNodo(n).trim()) p.titulos++; }
+    else if (n.type === 'paragraph') { if (textoDeNodo(n).trim()) p.textos++; }
+    else if (n.type === NODO.boton) { p.botones++; }
+    else if (n.type === NODO.desplegable) p.desplegables++;
+    if (n.type === 'text') p.palabras += String(n.text ?? '').split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+    if (n.type !== NODO.boton) for (const c of n.content ?? []) visitar(c);
+    else p.palabras += textoDeNodo(n).split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+  };
+  visitar(t);
+  return p;
+}
+
+/** La original y la réplica, sumadas y sección por sección. */
+export type Fidelidad = {
+  secciones: { original: number; copia: number };
+  titulos: { original: number; copia: number };
+  textos: { original: number; copia: number };
+  botones: { original: number; copia: number };
+  palabras: { original: number; copia: number };
+  /** Secciones (de las que están en las dos) cuyos textos están a ±1 o a ±25% de los de la original. */
+  seccionesParejas: number;
+};
+
+/**
+ * Cuánto se parece la estructura de la réplica a la de la original. Los «textos» de la original son sus párrafos,
+ * viñetas y desplegables (un desplegable cuenta su pregunta como texto aparte: en el editor es su título); los títulos,
+ * el de la sección más sus subtítulos. Es una MEDIDA para el log y el test, no un juicio: la IA puede armar una grilla
+ * de tarjetas donde había viñetas, y eso suma títulos sin estar mal.
+ */
+export function fidelidadDeEstructura(original: readonly MoldeSeccion[], copia: readonly JsonNodo[]): Fidelidad {
+  const perfiles = copia.map(perfilDeTarjeta);
+  const suma = <T>(xs: readonly T[], f: (x: T) => number) => xs.reduce((n, x) => n + f(x), 0);
+  const textosOriginal = (m: MoldeSeccion) => m.parrafos + m.vinetas + m.desplegables;
+  let parejas = 0;
+  for (let i = 0; i < Math.min(original.length, perfiles.length); i++) {
+    const a = textosOriginal(original[i]);
+    const b = perfiles[i].textos;
+    if (Math.abs(a - b) <= Math.max(1, Math.round(a * 0.25))) parejas++;
+  }
+  return {
+    secciones: { original: original.length, copia: copia.length },
+    titulos: { original: suma(original, (m) => 1 + m.subtitulos), copia: suma(perfiles, (p) => p.titulos) },
+    textos: { original: suma(original, textosOriginal), copia: suma(perfiles, (p) => p.textos) },
+    botones: { original: suma(original, (m) => m.botones), copia: suma(perfiles, (p) => p.botones) },
+    palabras: { original: suma(original, (m) => m.palabras), copia: suma(perfiles, (p) => p.palabras) },
+    seccionesParejas: parejas,
+  };
+}
+
+/** La fidelidad en una línea, para el log de la réplica. */
+export function lineaDeFidelidad(f: Fidelidad): string {
+  const par = (k: keyof Omit<Fidelidad, 'seccionesParejas'>) => `${f[k].copia}/${f[k].original}`;
+  return `secciones ${par('secciones')}, títulos ${par('titulos')}, textos ${par('textos')}, botones ${par('botones')}, palabras ${par('palabras')}, ${f.seccionesParejas} secciones parejas`;
+}

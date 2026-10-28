@@ -39,13 +39,15 @@ import {
   ponerEtiquetaLote, sacarEtiquetaLote, esEtiquetaError, type EntradaEtiqueta,
 } from '@/lib/etiquetas';
 
+import { TANDA_ETIQUETAS_LOTE } from '@/lib/etiquetas-reglas';
+
 export const dynamic = 'force-dynamic';
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const malo = (error: string, status = 400) => Response.json({ ok: false, error }, { status });
 const idOk = (v: unknown): number | null => (typeof v === 'number' && Number.isInteger(v) && v > 0 ? v : null);
-/** El tope de un lote, el mismo de las otras acciones en lote del CRM (app/crm/actions.ts). */
-const TOPE_LOTE = 200;
+/** Cuántos leads por pedido: la barra del CRM manda de a tandas de este tamaño (lib/etiquetas-reglas.ts). */
+const TOPE_LOTE = TANDA_ETIQUETAS_LOTE;
 
 async function sesion(): Promise<{ ws: number } | Response> {
   const s = await getUsuarioActual();

@@ -666,4 +666,30 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/second-brain',
   },
+  {
+    fecha: '28 oct', hora: '03:10', chat: 'MaKo inteligente: recomendaciones reales y Second Brain', sesion: 'local_4f7b9970-b8ae-47b8-973e-8de7c91ec28d', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Hecho: toda caja de chat de MaKo adjunta y arrastra cualquier documento, y MaKo lo lee',
+    pedido: 'Leila (ticket #16): «No me deja adjuntar un documento ni por arrastrar, ni por adjuntar». Martín, el mismo día: «revisa que todos los chats acepten todos los formatos».',
+    puntos: [
+      'El «+» y arrastrar toman Word, Excel, PowerPoint, PDF, texto, CSV, imágenes y audio en todas las cajas de chat de MaKo, también las que antes decían «Este chat no recibe archivos» (Media Buyer, Dashboard, los editores, Soporte).',
+      'Lo que la pantalla no toma por sí misma, la caja lo sube y MaKo lo LEE al mandar, con la IA del negocio: sale con el mensaje como un documento con su nombre.',
+      'En un editor con tope de texto, lo leído entra hasta el tope y la caja dice cuánto quedó afuera. Lo que no se pudo leer avisa con «Reportar a Soporte».',
+      'Chats (lo que se le manda a un lead) sigue mandando el archivo tal cual, sin leerlo.',
+      '**Cómo se prueba:** en /second-brain y en /video-editor, arrastrar un .docx y un .pdf a la caja y mandar. En producción desde 5b114031c.',
+    ],
+    commits: [
+      { sha: '73a762f00', msg: 'Toda caja de chat de MaKo adjunta y arrastra todos los formatos, y MaKo los lee (ticket #16 de Leila)', lineas: 546, archivos: 11 },
+      { sha: 'a8e392f70', msg: 'La caja de chat: el aviso de lo adjuntado que no se pudo leer lleva «Reportar a Soporte», y los tests fijan la forma nueva', lineas: 18, archivos: 7 },
+      { sha: '4450d71b5', msg: 'La revisión del Cerebro sobre 34b0687f0: los tres medios de «no existe» con su test rojo-verde, el tope de los editores y los bajos', lineas: 315, archivos: 18 },
+    ],
+    archivos: [
+      'app/_chat/CajaChat.tsx — la caja única adjunta sola y toma lo arrastrado',
+      'app/_chat/adjuntos-que-se-leen.ts · juntar-adjuntos.ts — qué va a la pantalla y qué se lee, con el tope',
+      'app/api/chat/leer-archivo/route.ts — lo lee con la IA del negocio',
+      'tests/chat-formatos.test.ts · chat-adjuntos-revision.test.ts — recorren todas las cajas',
+    ],
+    revisar: '/second-brain',
+    tickets: [16],
+  },
 ];

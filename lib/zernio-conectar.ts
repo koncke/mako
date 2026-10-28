@@ -25,10 +25,10 @@ import { createHash } from 'node:crypto';
 import { linkApp } from './app-url';
 import { estaImpersonando, OWNER_WS } from './workspace';
 import { wsPorIdentificadorEstricto } from './webhook-routing';
-import { asegurarWebhook, cfg, cuentasConectadas, profileIdEfectivo, RUTEO_CUENTA, RUTEO_PERFIL, zFetch, ZernioError, type ZernioCfg } from './zernio';
+import { asegurarWebhook, cfg, cuentasConectadas, profileIdEfectivo, RUTEO_CUENTA, RUTEO_PERFIL, usaCuentaPropia, zFetch, ZernioError, type ZernioCfg } from './zernio';
 import {
-  REDES, clavesDe, esFlujoValido, esRedZernio, leerCuentasDeZernio, MENSAJES_DE_MOTIVO, motivoDeRespuesta, tieneListaDeCuentas, urlDeLoginDeZernio,
-  validarVolver, volverConMarca,
+  REDES, avisoDeCobroZernio, clavesDe, esFlujoValido, esRedZernio, leerCuentasDeZernio, MENSAJES_DE_MOTIVO, motivoDeRespuesta, textoAvisoCobro,
+  tieneListaDeCuentas, urlDeLoginDeZernio, validarVolver, volverConMarca,
   type ConexionZernio, type MotivoZernio, type RedZernio, type RespuestaConectar,
 } from './zernio-redes';
 
@@ -158,7 +158,7 @@ export async function urlConectarViaZernio(
   ws: number,
   red: RedZernio,
   volver: string,
-  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null } = {},
+  opc: { modo?: 'ventana' | 'pagina'; reconectarId?: string | null; adAccountId?: string | null; pageId?: string | null; flujo?: string | null; aceptaCobro?: boolean } = {},
 ): Promise<RespuestaConectar> {
   try {
     if (!esRedZernio(red)) throw new ZernioConectarError('error', 'Esa red no se puede conectar.');
@@ -166,6 +166,16 @@ export async function urlConectarViaZernio(
     const v = validarVolver(volver);
     if (!v) throw new ZernioConectarError('error', 'La dirección de vuelta no vale.');
     const { c, profileId } = await contexto(ws);
+
+    // El cobro, ANTES del login (27/10/2026, feedback de Leila): con la clave del negocio (con la de MaKo paga MaKo), si su Zernio ya
+    // tiene 2 cuentas activas y ésta es nueva, se contesta `cobro` y la pantalla pide confirmar; vuelve con `aceptaCobro`. Se cuenta
+    // TODA la cuenta de Zernio (sin `profileId`): Zernio cobra por equipo. Si no se puede contar, no se frena (el 402 de Zernio igual
+    // avisa cuando falta la tarjeta).
+    if (!opc.reconectarId && !opc.aceptaCobro && (await usaCuentaPropia(ws).catch(() => false))) {
+      const todas = await zFetch<unknown>(c.apiKey, '/accounts?excludeHidden=true').catch(() => null);
+      const aviso = todas && tieneListaDeCuentas(todas) ? avisoDeCobroZernio({ conectadas: leerCuentasDeZernio(todas), red }) : null;
+      if (aviso) return { ok: false, motivo: 'cobro', error: textoAvisoCobro(aviso.cuentas) };
+    }
 
     // ⚠️ El `?ws=` de la vuelta sólo si un admin de la plataforma está ADENTRO de un cliente (`estaImpersonando`): pegarlo siempre lo pone en
     // «vista de cliente» de sí mismo (21/10), y no pegarlo cuando está adentro lo hace volver a SU negocio (`wsDeVuelta` no sirve acá: esta

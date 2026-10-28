@@ -81,7 +81,8 @@ test('volverConMarca y sinParamsDeVuelta: la marca de la red viaja y se consume 
 // ── 2. Las redes ─────────────────────────────────────────────────────────────
 
 test('el catálogo: Facebook, Instagram y anuncios hoy; «toString» y compañía no son redes; Messenger es la página de Facebook', () => {
-  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads']);
+  // YouTube, desde el 27/10/2026: el canal se conecta con el login de Zernio (la tarjeta ya no pide la clave de Google).
+  assert.deepEqual([...REDES_VISIBLES], ['facebook', 'instagram', 'metaads', 'youtube']);
   assert.equal(REDES.metaads.ruta, 'facebook/ads');
   assert.deepEqual(REDES.metaads.params, { loginMode: 'business' });
   assert.equal(REDES.metaads.plataforma, 'metaads');

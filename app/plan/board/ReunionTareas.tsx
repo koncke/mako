@@ -32,6 +32,8 @@ export type CandidataTarea = {
    *  mandarle las tareas a otra persona el nombre se perdía y le llegaban sueltas. */
   proyectoNombre?: string;
   dueño?: string; dueñoEmail?: string; esDeOtro?: boolean;
+  /** El dueño salió sólo de la etiqueta del hablante (lib/tarea-dueno.ts): se pregunta antes de mandarla. */
+  dueñoDudoso?: boolean;
   /** «no le sumes nada a la tarjeta»: el dueño destildó una AMPLIACIÓN. Es un campo
    *  aparte de `incluir` a propósito — `incluir: false` en una fila cruzada ya significa
    *  «no la crees», que es el estado NORMAL de una ampliación. Meterlos en la misma
@@ -120,6 +122,23 @@ const btnChico: CSSProperties = {
   border: 'none', background: 'transparent', color: 'var(--faint)',
   fontFamily: MONO, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', lineHeight: 1.6,
 };
+
+/**
+ * El dueño salió SÓLO de la etiqueta del hablante, que Fathom cruza (27/10/2026, lib/tarea-dueno.ts): se pregunta, con un
+ * click para confirmarlo. Cambiarlo con «no es mía» / «no es de…» también lo resuelve. Mientras haya una sin confirmar en
+ * la tab de una persona, no se le manda nada.
+ */
+function AvisoDuenoDudoso({ pregunta, confirmar, onConfirmar }: { pregunta: string; confirmar: string; onConfirmar: () => void }) {
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 6 }}>
+      <span title="La grabación puede cruzar quién habla, y este dueño sale sólo de eso."
+        style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--warn)', background: 'var(--surface)', border: '1px solid var(--warn)', borderRadius: 7, padding: '3px 9px', lineHeight: 1.45 }}>
+        ⚠ {pregunta}
+      </span>
+      <button type="button" onClick={onConfirmar} style={btnChico}>✓ {confirmar}</button>
+    </div>
+  );
+}
 
 /**
  * "¿De quién es esta tarea?" — el paso que faltaba. Antes "no es mía" la mandaba a una
@@ -786,6 +805,7 @@ export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: F
                 style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
             </>
           : f.detalle && <DetalleDoc texto={f.detalle} />}
+        {f.dueñoDudoso && <AvisoDuenoDudoso pregunta="¿Es tuya? La grabación puede cruzar quién habla" confirmar="es mía" onConfirmar={() => onFila({ dueñoDudoso: false })} />}
         {/* Ya existe: se NOMBRA la tarjeta entera (antes se cortaba a los 50 caracteres,
             a mitad de palabra y con la comilla sin cerrar, así que no se sabía cuál era)
             y se ofrece abrirla. Y NO se puede volver a cargar: lo que se hace es sumarle
@@ -838,7 +858,7 @@ export function FilaCandidata({ f, onFila, url, personas, onAbrirTarea }: { f: F
             onCancelar={() => setReasignando(false)}
             onElegir={(p) => {
               setReasignando(false);
-              if (p) onFila({ esDeOtro: true, incluir: false, dueño: p.nombre, dueñoEmail: p.email || undefined });
+              if (p) onFila({ esDeOtro: true, incluir: false, dueño: p.nombre, dueñoEmail: p.email || undefined, dueñoDudoso: false });
             }} />
         )}
       </div>
@@ -897,7 +917,10 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
   // Enviar SIEMPRE se puede abrir: si faltan datos, se piden adentro. Antes el botón
   // quedaba gris y mudo cuando la persona no tenía cuenta — que es justo cuando más
   // falta mandarle las tareas por mail.
-  const puedeMandar = !!reunion.recordingId;
+  // ⚠️ SALVO CON UN DUEÑO SIN CONFIRMAR (27/10/2026): la etiqueta del hablante que Fathom cruzó le mandaba a Leandro «Comprar
+  // el certificado SSL», que era de Martín. Mientras haya una tarea marcada en su tab, ni se envía ni se carga en su plan.
+  const sinConfirmar = filas.filter((f) => f.dueñoDudoso).length;
+  const puedeMandar = !!reunion.recordingId && !sinConfirmar;
 
   const enviar = async () => {
     setEnviando(true); setErr(''); setNota('');
@@ -938,10 +961,15 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingTop: slot ? 0 : 2 }}>
       <button type="button" onClick={() => descargarMd(nombre, filas, reunion)} style={ghost}>⬇ Descargar (.md)</button>
       <button type="button" onClick={() => { setAbrirEnvio(true); setErr(''); setNota(''); }} disabled={!puedeMandar || abrirEnvio}
-        title={puedeMandar ? 'Mandarle sus tareas por WhatsApp y mail' : 'No tengo el mail de esta persona en la reunión'}
+        title={puedeMandar ? 'Mandarle sus tareas por WhatsApp y mail' : sinConfirmar ? 'Primero confirma de quién es cada tarea marcada' : 'No tengo el mail de esta persona en la reunión'}
         style={{ ...ghost, opacity: puedeMandar && !abrirEnvio ? 1 : 0.5, cursor: puedeMandar && !abrirEnvio ? 'pointer' : 'default' }}>
         ✉ Enviar
       </button>
+      {sinConfirmar > 0 && (
+        <span style={{ fontSize: 12, color: 'var(--warn)', alignSelf: 'center', lineHeight: 1.45 }}>
+          Confirma de quién es {sinConfirmar === 1 ? 'la tarea marcada' : `las ${sinConfirmar} tareas marcadas`} antes de mandarlas.
+        </span>
+      )}
       {cargandoDest && <span style={{ fontSize: 12, color: 'var(--faint)', alignSelf: 'center' }}>Buscando su cuenta…</span>}
       {/* SIN destinatario: se DICE por qué. Antes el botón «Cargar en el plan de X»
           simplemente no aparecía y no había forma de saber si era porque la persona
@@ -952,7 +980,7 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
         </span>
       )}
       {dest?.puedeCargarPlan && (
-        <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan}
+        <button type="button" onClick={() => void cargarEnSuPlan()} disabled={cargando || !!linkPlan || sinConfirmar > 0}
           title={dest.esVos ? 'Te las dejo como borrador en TU plan para que las confirmes' : 'Le dejo estas tareas en su plan para que las confirme'}
           style={{ padding: '11px 18px', borderRadius: 11, border: 'none', background: linkPlan ? 'var(--border)' : 'var(--ink)', color: linkPlan ? 'var(--faint)' : 'var(--surface)', fontSize: 13.5, fontWeight: 700, cursor: cargando || linkPlan ? 'default' : 'pointer', fontFamily: SANS }}>
           {cargando ? 'Cargando…' : linkPlan ? (dest.esVos ? '✓ En tu plan' : '✓ En su plan') : dest.esVos ? 'Cargar en MI plan' : `Cargar en el plan de ${nombre.split(' ')[0]}`}
@@ -991,6 +1019,7 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
                     style={{ width: '100%', marginTop: 6, padding: '8px 10px', borderRadius: 9, border: '1px solid var(--primary)', background: 'var(--surface)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.5, outline: 'none', fontFamily: SANS, resize: 'vertical' }} />
                 </>
               : f.detalle && <DetalleDoc texto={f.detalle} />}
+            {f.dueñoDudoso && <AvisoDuenoDudoso pregunta={`¿Es de ${nombre.split(' ')[0]}? La grabación puede cruzar quién habla`} confirmar={`es de ${nombre.split(' ')[0]}`} onConfirmar={() => onFila(idx, { dueñoDudoso: false })} />}
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 7, flexWrap: 'wrap' }}>
               {/* Corregir el contexto también acá: esta tarea se la vas a MANDAR a
                   alguien, así que con más razón tiene que estar bien escrita. */}
@@ -1009,8 +1038,8 @@ function PanelPersona({ nombre, dest, cargandoDest, motivoSinDest, items, labels
                 onCancelar={() => setReasignando(null)}
                 onElegir={(p) => {
                   setReasignando(null);
-                  if (p) onFila(idx, { dueño: p.nombre, dueñoEmail: p.email || undefined });
-                  else onFila(idx, { esDeOtro: false, incluir: true, dueño: undefined, dueñoEmail: undefined });
+                  if (p) onFila(idx, { dueño: p.nombre, dueñoEmail: p.email || undefined, dueñoDudoso: false });
+                  else onFila(idx, { esDeOtro: false, incluir: true, dueño: undefined, dueñoEmail: undefined, dueñoDudoso: false });
                 }} />
             )}
           </div>

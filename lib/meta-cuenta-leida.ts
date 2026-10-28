@@ -8,8 +8,10 @@
 // así que la única lectura posible era «MaKo no las trae» (docs/hallazgos-ads.md,
 // «Creé la campaña en Meta y no me aparece en MaKo»).
 //
-// Lo usan el encabezado de /ads-manager (app/ads-manager/CampanasBrowser.tsx) y
-// el selector de campañas del CRM (app/crm/CampanasModal.tsx): los dos dicen lo
+// Lo usan la pestaña Campañas del Media Buyer (app/ads-manager/Lienzo.tsx, desde el
+// 27/10: el CampanasBrowser que lo decía se borró el 25/10 con el rediseño, y la
+// tab volvió a no decir qué cuenta leía; MK-03) y el selector de campañas del CRM
+// (app/crm/CampanasModal.tsx): los dos dicen lo
 // mismo, con el número como lo muestra Meta arriba a la izquierda (sin «act_»),
 // que es contra lo que el cliente lo compara.
 //
@@ -73,4 +75,17 @@ export function avisoSinCampanasNuevas(
   const dias = (ahora.getTime() - Date.parse(ultima)) / 86_400_000;
   if (dias < DIAS_SIN_CAMPANAS_NUEVAS) return null;
   return 'Sin campañas nuevas en esta cuenta de Meta: si creaste una, publícala o revisa que sea esta cuenta.';
+}
+
+/**
+ * Las campañas de la cuenta en el Administrador de anuncios, con una seleccionada si va `campanaId`. Es donde está
+ * «Revisar y publicar»: un BORRADOR del Administrador no existe para la API (medido el 23/10/2026: `act_<id>/addrafts`
+ * da #100 con el token de cada cliente), así que MaKo no lo puede listar; lo publica la persona ahí. `null` sin cuenta.
+ */
+export function linkCampanasEnMeta(cuentaId: string | null | undefined, campanaId?: string | null): string | null {
+  const act = numeroDeCuenta(cuentaId);
+  if (!act) return null;
+  const qs = new URLSearchParams({ act });
+  if (campanaId && /^\d+$/.test(campanaId)) qs.set('selected_campaign_ids', campanaId);
+  return `https://adsmanager.facebook.com/adsmanager/manage/campaigns?${qs.toString()}`;
 }

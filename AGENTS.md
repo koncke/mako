@@ -1475,7 +1475,10 @@ los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión
 catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
 veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
 correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
-el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts. **Meta es la excepción
+(27/10/2026): se conecta en la tarjeta de Zernio** (`?abrir=zernio`, «con tu Facebook, por Zernio»: ya no existe el token de
+Meta); `?abrir=meta` es para ver la cuenta, el píxel y la salud, nunca para conectar. Sale del catálogo (`META_POR_ZERNIO`):
+nadie escribe ese link a mano. Lo fija tests/meta-sin-token.test.ts.
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
@@ -1592,6 +1595,15 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **UN «COMPLETADO» DICE LO QUE SE TERMINÓ, NUNCA LO QUE ESTÁ EN MARCHA** (27/10/2026; Martín: «No me pongas "cosas en marcha"
+  ni nada de eso en el mensaje de COMPLETADO, literalmente pierde su funcionalidad... debe ser dopamínico: se completó una
+  funcionalidad, se debuggeó A, B, C»). El Centro muestra como COMPLETADO el último mensaje de cada turno de un chat:
+  - ese mensaje se escribe en pasado y concreto: qué funcionalidad quedó, qué se arregló, y la prueba (commit, deploy, medición);
+  - lo que sigue en curso no va en lista. Un turno que termina esperando trabajo de fondo cierra con UNA línea («Sigo con X») o
+    no escribe nada;
+  - `cartero.mjs cierre` igual: `--hecho` nombra lo TERMINADO. Un pedido que todavía no tiene nada terminado no se cierra:
+    se cierra cuando aterriza, con lo que aterrizó.
+
 - **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
   contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
   lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma
@@ -2225,6 +2237,10 @@ línea («eso lo miro y te lo paso»)», y el modelo lo dijo textual.
   espera sale sólo por `esperaDelPedido` (`lib/doer-acuse.ts`): para lo que lleva tiempo DE VERDAD, nombrando qué
   («Analizo las campañas y en breves te digo»), o si el 👍 no salió. Un caso nuevo que lleva tiempo se suma ahí
   con su test, no como un `enviarAGrupoJid` suelto. `tests/doer-acuse.test.ts` frena el acuse de texto que vuelva.
+- **Todo lo que MaKo manda a un grupo sale por `lib/mako-grupo.ts` y queda en el anillo anti-eco** (`anotarEnviadosAlGrupo`):
+  el texto por `enviarTextoVozMaKo` (que usan `enviarAGrupoJid`, el grupo SuperAdmin y la bienvenida), y `enviarAlGrupoMaKo` y
+  `enviarPartesAJid` anotan lo suyo. Un envío nuevo a un grupo pasa por ahí, o anota su id. Si no, su eco vuelve como un `fromMe`
+  que nadie mandó: el doer lo toma por el dueño escribiendo y le contesta a su propio aviso (28/10/2026). Un DM no es un grupo.
 
 ## Un jefe que arregla algo que le falló a un CLIENTE, cuando llega a producción, se lo avisa en su grupo
 
@@ -2383,7 +2399,9 @@ input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin
 porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
 daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
 compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
-MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee. Lo mismo en PANTALLA: una inicial sale de `iniciales`
+(lib/unicode-seguro.ts), nunca de `charAt(0)` ni `trim()[0]`: con un nombre que empieza con un emoji es medio emoji, el HTML del
+server sale con «�» y React tira la pantalla entera con #418 (/calendario y el Classroom, 27/10/2026).
 
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
@@ -4085,6 +4103,24 @@ MaKo pisó los nombres de 1438 contactos de Mauricio, sin historial para volver 
 - Antes de escanear o conectar algo que sincroniza datos (contactos, historial, etiquetas),
   preguntá a qué workspace van a caer.
 
+# Lo que MaKo construye se ve CONSTRUYÉNDOSE, con un pequeño delay (Martín, 28/10/2026)
+
+Martín: «Me gusta mucho como se está mostrando una animación en la extensión de MaKo cuando se hace un scraping de WhatsApp:
+se muestra cómo van bajando los contactos, cómo se va entrando uno por uno. Eso es muy dopamínico… Quiero que todas las cosas
+que se hagan en la app se le muestren al usuario mientras se van haciendo… que se replique una parte de arriba, que se vaya
+replicando la parte de abajo, que cambien los textos… No tiene que ser a la velocidad de la luz: tiene que haber un pequeño
+delay, que no sea exagerado».
+
+- **Todo lo que MaKo arma por prompt muestra el paso a paso:** replicar o generar una landing (las secciones de arriba
+  primero, después las de abajo, los textos que cambian), Automations (el flujo que se arma nodo por nodo), el Web
+  Generator, el Video y el Image Editor, los dashboards y el onboarding. El molde es el scraping de la extensión.
+- **Si el resultado llega entero de una vez, igual se revela por partes,** con una cadencia corta (fracciones de segundo
+  por paso; el total, segundos y no minutos). Ni de golpe ni lento.
+- **El paso a paso nunca frena el trabajo real ni inventa un progreso que no pasa:** lo que se muestra es lo que se armó,
+  en el orden en que se armó. Si la persona quiere, puede saltearlo.
+- **Con «reducir movimiento» del sistema (`prefers-reduced-motion`), se muestra sin animación.**
+- Una función nueva que arma algo por prompt y lo muestra recién terminado no está terminada.
+
 # Todo aviso de error lleva «Reportar a Soporte»
 
 Martín (22/10/2026): *«en toda la app, SIEMPRE que sale un error, en donde sea, debe aparecer el botón de "Reportar a Soporte"»*.
@@ -4092,6 +4128,10 @@ Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `
 en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
 en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
 `reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
+En una pantalla SIN sesión de MaKo (el portal del alumno) el botón no se esconde: manda con la credencial de esa pantalla
+(`SoporteDelAlumnoCtx`, /api/compartido/curso/soporte) y el ticket es del dueño. Un ticket que levanta alguien de afuera del
+negocio va con `tercero` en `crearTicket`: nunca va solo al arreglo (ni por la regla del negocio) y su tope es suyo
+(docs/hallazgos-ticketera.md, 27/10/2026).
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
@@ -6397,6 +6437,11 @@ no hay lista de excusas (eran las dos de cohortes, y se cerraron).
 correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
 no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
 
+⚠️ **Un script que abre Postgres pasa por `urlDeLaBase()`** (27/10/2026): `postgres(urlDeLaBase(), …)` con
+`import { urlDeLaBase } from './url-de-la-base.mjs'`. `DATABASE_URL` es la conexión directa, sólo IPv6: desde la PC de Martín
+muere al arrancar o, peor, al reconectar a mitad de corrida. El helper la cambia por el pooler (IPv4, modo sesión; `MAKO_DB_DIRECTA=1`
+vuelve a la directa). Lo barre `tests/url-de-la-base.test.ts`. Detalle: docs/hallazgos-infra.md → «La conexión directa a la base es sólo IPv6».
+
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 
 Cuando una función parte una colección en «lo que se ve» y «lo que no», la segunda mitad
@@ -6787,6 +6832,34 @@ escrita (cliente roto > plata > traba a Martín > features).
   dijo «eso está muy mal, estás cruzando workspace».
 - **Y cuando una pregunta sí corresponde, es UNA**, con opciones concretas y excluyentes, nunca una lista en
   prosa ni varias preguntas juntas.
+
+# Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026)
+
+Martín: «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un ticket». Lo que gobierna
+código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallazgos-ia.md, 27/10):
+
+- **Una superficie de MaKo que pueda contestar un fracaso engancha el ticket automático con su `causa`.** Vale para un
+  chat, un editor, WhatsApp o una acción confirmada que falla. Ofrecer la tarjeta no alcanza. Las negativas legítimas
+  (cobros, borrados, permisos o rol) no abren ticket.
+- **Un chat con catálogo de operaciones nombra en su «no se puede» lo que sólo existe como BOTÓN, y dónde está.** «No
+  puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
+- **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
+  uno de los 10 «no puedo» de Leila era algo que no existía.
+
+# En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
+
+Martín, desde el Ops Center: «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo
+puedo reproducirlo. Si tarda unos segundos después en leerlo, eso es un proceso interno». Y también: «Los procesos siempre
+se tienen que ejecutar en segundo plano: el usuario debe poder navegar por el resto de la aplicación mientras hay procesos
+ejecutándose, como la transcripción».
+
+- **Un audio, una foto o un mensaje aparecen en el chat al soltarlos, con su tilde.** Transcribir, subir, firmar o leer
+  van DESPUÉS y no frenan el envío.
+- **Un proceso no depende de que la pantalla siga abierta.** Si la persona cambia de chat o de tab, el audio igual llega.
+  Una transcripción atada al componente montado se pierde al volver atrás: le pasó a Martín el 27/10 con el Cerebro.
+- **Mientras el chat trabaja, MaKo «escribe»** (los 3 puntos).
+- **Un error dice qué falló.** «Unexpected error» de un `.json()` sobre una respuesta que no es JSON no le dice nada a
+  nadie.
 
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
@@ -10567,6 +10640,27 @@ y 35 % de ganadores. El juez decide «gana» una sola vez, cuando todas las rama
 de arrancar; antes sólo corta por daño, y un corte no es «no funciona». El test A/A (tests/pruebas-juez-aa.test.ts) es la
 puerta: un cambio en el juez que lo ponga en rojo no entra. El porqué y los números, en docs/hallazgos-pruebas.md.
 
+## Todo chat de MaKo dice lo que no existe, no lo inventa, y el pedido sale solo (27/10/2026)
+
+Ticket 874749710-14 de Leandro: MaKo le inventó un bloque que no existe. Un chat NUEVO de MaKo (o un prompt nuevo de uno que
+ya está) lleva `REGLA_NO_EXISTE` en su system (o `reglaNoExisteEn(campo)` si contesta en JSON) y pasa su texto por
+`conPedidoDeNoExiste` / `conPedidoDeNoExisteDeLaSesion` (lib/no-existe-server.ts) ANTES de guardarlo o cortarlo: la marca
+`[[no-existe: …]]` nunca le llega a la persona, el pedido entra a la Ticketera sin preguntar y la línea con el número la
+escribe el código. Súmalo a tests/mako-no-existe.test.ts. No se arregla con más frases en un detector de inventos.
+
+**Y lo que MaKo no pudo, también (27/10/2026, Martín: «siempre que MaKo responda algo como "No lo pude hacer" debe levantar
+automáticamente un ticket»).** `REGLA_NO_EXISTE` lleva adentro `REGLA_NO_PUDE` (lib/no-pude.ts): el modelo marca
+`[[no-pude: …]]`, y el código saca las dos marcas y levanta el ticket AUTOMÁTICO con su causa (`conTicketsDeMaKo`,
+lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no se pudo» pasa por ahí (o por `ticketDeNoPude` con
+su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
+título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
+Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
+`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin
+isError) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
+lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó. «La última» se lleva con
+`laUltimaFueGuarda` (una lectura que anduvo no la cambia), y una herramienta que REVIENTA cuenta como tragada (el `.catch` del
+`await`): el loop la atrapa sin pasar por `errorParaTicket`.
+
 ## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
 
 Martín: «estas recomendaciones y MaKo "pensando" deben ser reales, no le presetees que cada ratito debe de hacer recomendaciones
@@ -10580,3 +10674,13 @@ ejecuta nada. Una decisión vale para TODAS las señales de la tarjeta que se VI
 pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada), repetirla mientras sigue vigente no
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
+
+# El desenlace de un lead y la columna de su tarjeta se escriben JUNTOS (27/10/2026)
+
+El tablero lee la columna guardada (`leads.pipeline_stage`) y Customer Success, Revenue y las métricas leen `estado_lead`. Un
+camino que cambia el estado sin elegir columna dejaba dos verdades: el lead 2371 de Mauricio quedó «ganado» con la tarjeta en
+«Perdido» y CS lo contaba como cliente. **Regla para código nuevo:** el estado se cambia por `setPipelineStage` (escribe las
+dos) o por `updateLead` (si el estado cambia y la columna lo contradice, la suelta: `etapaContradiceElEstado`, lib/pipeline.ts).
+Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pagos.ts) mira lo mismo y suelta la columna; quien
+escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
+docs/hallazgos-crm.md («El feedback del 27/10/2026»).
