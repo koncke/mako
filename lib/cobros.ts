@@ -576,9 +576,21 @@ export async function urlParaPagar(c: Cobro): Promise<{ url: string } | { error:
   // una SEGUNDA suscripción con otra prueba. Activada, o con la sesión ya completa (la vuelta la activa), va a /listo.
   if (esPruebaDePlan(c) && c.suscripcion_estado) return { error: 'ya_pagado' };
   if (c.url_proveedor && !urlPorVencer(c.url_vence_at, Date.now())) return { url: c.url_proveedor };
-  if (esPruebaDePlan(c) && c.proveedor_ref) {
+  // ⚠️ LA SESIÓN ANTERIOR, ANTES DE ARMAR OTRA (28/10/2026, la verificación de 3ca2d8328): se rehace a 5 minutos de vencer, y la
+  // vieja seguía ABIERTA. Pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y, si después pagaba también
+  // la nueva, quedaban DOS suscripciones cobrando todos los meses; en un pago único, dos cobros. Completa, va a /listo;
+  // abierta, se expira primero, y si no se pudo cerrar no se arma otra.
+  if (c.proveedor_ref) {
     const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
     if (s.ok && s.estado === 'complete') return { error: 'ya_pagado' };
+    if (s.ok && s.estado === 'open') {
+      const x = await expirarCheckoutStripe(stripe.key, c.proveedor_ref);
+      if (!x.ok) {
+        const otra = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
+        if (otra.ok && otra.estado === 'complete') return { error: 'ya_pagado' };
+        return c.url_proveedor ? { url: c.url_proveedor } : { error: 'pasarela', detalle: x.error };
+      }
+    }
   }
   const vuelta = Math.max(1, Math.floor((Date.parse(c.url_vence_at ?? '') || 0) / 60_000));
   const r = await crearCheckout(c, { stripe, mp: null }, vuelta);

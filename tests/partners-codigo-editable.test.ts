@@ -19,6 +19,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { codigoNuevoValido, TEXTO_CODIGO_INVALIDO } from '../lib/partners-reglas';
+import { codigoQueCuenta } from '../lib/compra-plan-reglas';
 
 const RAIZ = join(import.meta.dirname, '..');
 const fuente = (rel: string) => readFileSync(join(RAIZ, rel), 'utf8').replace(/\r\n/g, '\n');
@@ -99,9 +100,30 @@ test('se CAMBIA desde el panel («Cambiar», con lo de antes que sigue contando)
   assert.match(run, /const r = await cambiarCodigoPartner\(ctx\.ws, payload\.codigo\);/);
 });
 
+// La verificación de 3ca2d8328 (C:/dev/revisiones/scratch-3ca2/A-refuta/r4-partners.ts): el código que trae un LINK (la cookie de
+// /r/<código> o el `?ref=` de /planes/<plan>) entraba al cobro sin mirar. Con el código editable, un partner podía ELEGIR ese
+// texto después y `acreditarReferidos` le daba el crédito de una compra que no trajo (US$97 a Beto por `promo-octubre`).
+test('el código que trajo un link se guarda sólo si es de un partner; el escrito ya se validó; si no se pudo leer, sigue', async () => {
+  const partners = new Set(['ana', 'beto']);
+  const esDe = async (x: string) => partners.has(x);
+  assert.equal(await codigoQueCuenta({ escrito: 'ana', elegido: 'ana', url: 'promo-octubre' }, esDe), 'ana', 'el escrito, tal cual');
+  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'promo-octubre', url: 'promo-octubre' }, esDe), null, 'un ?ref= de nadie no se guarda');
+  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'beto', url: 'promo-octubre' }, esDe), 'beto', 'la cookie de un partner gana');
+  assert.equal(await codigoQueCuenta({ escrito: null, elegido: 'viejo-borrado', url: 'ana' }, esDe), 'ana', 'la cookie de nadie no tapa el ?ref= de un partner');
+  assert.equal(await codigoQueCuenta({ escrito: null, elegido: null, url: null }, esDe), null);
+  // La ruta: si no se pudo leer, la compra sigue con el código (como el escrito); y a la compra va el que cuenta, nunca el crudo.
+  const ruta = fuente('app/api/planes/comprar/route.ts');
+  assert.ok(ruta.includes('const refQueCuenta = await codigoQueCuenta({ escrito: pedido.codigoEscrito, elegido: ref, url: pedido.ref }, (x) => esCodigoDePartner(x).catch(() => true));'));
+  assert.ok(ruta.includes('pedirPlanSinPasarela({ ...pedido, ref: refQueCuenta })'), 'el pedido sin pasarela');
+  assert.ok(ruta.includes('iniciarCompraDePlan({ ...pedido, ref: refQueCuenta }, {'), 'la compra');
+  assert.ok(!ruta.includes('{ ...pedido, ref }'), 'ninguna puerta guarda el código crudo');
+});
+
 // Probado rompiéndolo (27/10/2026), una rotura por vez sobre la base en verde (5 pases, 0 fallos), restaurando el texto con un
 // script (nunca git). Rota (pases / fallos):
 //   · el código viejo ya no acredita (`wsDelCodigo` sin los anteriores)        → 4 / 1
 //   · guiones en los bordes                                                    → 4 / 1
 //   · tomar el código viejo de otro (la mig sin ese chequeo)                   → 4 / 1
 //   · /r sin el código vigente                                                 → 4 / 1
+// Y el del link (28/10/2026, base 6 / 0): la ruta guarda el código crudo → 5 / 1; `codigoQueCuenta` sin mirar si es de un
+// partner → 5 / 1; la cookie de nadie tapa el `?ref=` → 5 / 1.

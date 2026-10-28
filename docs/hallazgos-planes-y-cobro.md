@@ -1635,6 +1635,13 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   activar de los últimos 2, con un seguro de 500 que, si se alcanza, lo dice. **La regla:** una lista con tope que alimenta
   una reparación corta en silencio lo que más importa; lo que no puede perderse se lee aparte. Probado de punta a punta con
   el código real (C:/dev/revisiones/scratch-3ca2/A-refuta/r1-cron-tope.ts, i50 / i50_mes2 / j50).
+- **Rehacer el link dejaba la sesión vieja ABIERTA (la verificación, 28/10).** `urlParaPagar` rehace la sesión a 5 minutos de
+  vencer y no cerraba la anterior: pagada en la pestaña vieja, la prueba no se activaba (se leía la nueva) y se cobraba el día
+  8 sin prueba; pagadas las dos, quedaban DOS suscripciones cobrando todos los meses. Ahora, en todo cobro de Stripe (no sólo
+  la prueba), la anterior completa va a /listo y la abierta se expira ANTES de armar otra; si no se pudo cerrar, no se arma.
+- **La prueba, sólo con tarjeta (`payment_method_types: ['card']`).** Sin eso, Checkout ofrecía los medios prendidos en la
+  cuenta: con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y con otro email se repetía la
+  prueba (no cobraba de más: regalaba pruebas).
 
 **Sin hacer:** «Empezar mi plan ya» en Stripe abre otra suscripción como en MP, aunque Stripe podría terminar la prueba
 (`trial_end=now`). Una renovación de Stripe (mes 2 en adelante) con el aviso perdido sigue sin cron: el cobro ya está pagado y

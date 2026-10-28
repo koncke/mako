@@ -259,8 +259,9 @@ export async function crearCheckoutStripe(
     // La metadata del Checkout NO baja sola a lo que crea: se repite en el pago o en la suscripción,
     // y de la suscripción llega a cada factura en `parent.subscription_details.metadata` (renovaciones).
     ...(sus ? { subscription_data: { metadata, ...(prueba ? { trial_period_days: prueba } : {}) } } : { payment_intent_data: { metadata } }),
-    // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado).
-    ...(prueba ? { payment_method_collection: 'always' } : {}),
+    // Con prueba, la tarjeta se pide SIEMPRE (es lo que la hace una prueba con tarjeta y no un mes regalado), y SÓLO tarjeta
+    // (28/10/2026): con Link o un débito bancario no hay `card.fingerprint`, la huella quedaba vacía y se repetía la prueba.
+    ...(prueba ? { payment_method_collection: 'always', payment_method_types: ['card'] } : {}),
     success_url: p.successUrl,
     cancel_url: p.cancelUrl,
     expires_at: Math.floor(Date.now() / 1000) + vence,

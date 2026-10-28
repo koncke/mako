@@ -122,6 +122,20 @@ export const TEXTO_CODIGO_NO_EXISTE = 'Ese código de referido no existe. Revís
 export const codigoDeLaCompra = (p: { escrito: string | null; cookie: string | null; url: string | null }): string | null =>
   p.escrito ?? p.cookie ?? p.url;
 
+/**
+ * EL CÓDIGO QUE SE GUARDA EN EL COBRO (28/10/2026, la verificación de 3ca2d8328): el escrito ya se validó (o no se pudo leer y
+ * sigue); el que trajo un LINK (`elegido`: la cookie de /r/<código> o el `?ref=`), sólo si es de un partner. Antes entraba sin
+ * mirar, y con el código editable un partner podía ELEGIR después ese texto (`promo-octubre`) y llevarse el crédito de una compra
+ * que no trajo. Una cookie de nadie no tapa el `?ref=` de un partner. `esDePartner` decide qué hacer si no puede leer.
+ */
+export async function codigoQueCuenta(
+  p: { escrito: string | null; elegido: string | null; url: string | null }, esDePartner: (codigo: string) => Promise<boolean>,
+): Promise<string | null> {
+  if (p.escrito) return p.escrito;
+  for (const x of [p.elegido, p.url]) if (x && (await esDePartner(x))) return x;
+  return null;
+}
+
 /** El texto del pedido del anual que llega como compra (sin `quiero`): no hay checkout anual, y no se cobra un mes en su lugar. */
 export const TEXTO_ANUAL_SE_PIDE = 'El plan anual se pide con tus datos: te escribimos por WhatsApp para darte de alta.';
 
