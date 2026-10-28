@@ -1331,7 +1331,7 @@ export const REGLAS_CONOCIDAS = ['Mauricio', 'Leandro', 'Leila'];
 export const esAvisoDeRegla = (cuerpo) => REGLAS_CONOCIDAS.some((r) => cuerpo.startsWith(`${r} levantó el ticket #`) && cuerpo.includes('APROBADO POR REGLA'));
 
 /**
- * @param {number} numero
+ * @param {unknown} numero  lo valida adentro (tira con 0, negativos, decimales o un string)
  * @param {string} repo
  * @param {string | null} [regla]
  */
