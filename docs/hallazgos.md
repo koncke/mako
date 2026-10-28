@@ -13,6 +13,7 @@ corrida con subagentes termina escribiendo en el documento de su área. El área
 
 | Área | Documento | Qué cubre |
 |---|---|---|
+| Centro de Operaciones | [hallazgos-operaciones.md](hallazgos-operaciones.md) | **«No me responde, dice trabajando» (27/10)**: el Runner en OTRO modo de permisos que los chats (auto contra bypass): la app retiene los mensajes hasta que alguien los apruebe, y el cartero los acusa ok igual. El Runner va en bypass |
 | MaKo (IA) | [hallazgos-ia.md](hallazgos-ia.md) | **Un «no puedo» de MaKo casi nunca es «no existe» (27/10)**: los 10 de Leila en dos días eran el catálogo del chat sin la op del botón, la regla 9-bis («No…» ≤60 → charlar), el modo «Editar» de la ficha y las cuotas sin la palabra «cuota». Antes de declarar «no existe», mirar el clasificador y el catálogo |
 | Ticketera (los tickets de los usuarios) | [hallazgos-ticketera.md](hallazgos-ticketera.md) | **Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10)**: hoy sólo lo abren el error de una herramienta y la falla de la IA nuestra; proveedor y configuración abren UNO por negocio y causa que se cierra solo; nunca por la regla de aprobación de Leila, Leandro y Mauricio |
 | Video Editor (copia de CapCut) | [hallazgos-video-editor.md](hallazgos-video-editor.md) | **«Eliminar ruido» NO se copió de ningún repo (27/10)**: es una compuerta espectral propia y CapCut usa RNNoise; medido −11,5 dB contra un piso de −27, peor en estéreo. Saltear los cuadros callados rompe la voz limpia (SNR de 73,6 a 15,4) |

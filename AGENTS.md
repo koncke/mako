@@ -1595,6 +1595,15 @@ código nuevo:
   - lo que la PC corta al subir (`TOPE_TURNO`) se dice en la tarjeta (`cortadoPorLaPC`), no se calla.
 
   Un texto nuevo que muestre un cierre sigue ese molde. Lo fija tests/centro-ops7.test.ts.
+- **UN «COMPLETADO» DICE LO QUE SE TERMINÓ, NUNCA LO QUE ESTÁ EN MARCHA** (27/10/2026; Martín: «No me pongas "cosas en marcha"
+  ni nada de eso en el mensaje de COMPLETADO, literalmente pierde su funcionalidad... debe ser dopamínico: se completó una
+  funcionalidad, se debuggeó A, B, C»). El Centro muestra como COMPLETADO el último mensaje de cada turno de un chat:
+  - ese mensaje se escribe en pasado y concreto: qué funcionalidad quedó, qué se arregló, y la prueba (commit, deploy, medición);
+  - lo que sigue en curso no va en lista. Un turno que termina esperando trabajo de fondo cierra con UNA línea («Sigo con X») o
+    no escribe nada;
+  - `cartero.mjs cierre` igual: `--hecho` nombra lo TERMINADO. Un pedido que todavía no tiene nada terminado no se cierra:
+    se cierra cuando aterriza, con lo que aterrizó.
+
 - **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
   contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
   lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma

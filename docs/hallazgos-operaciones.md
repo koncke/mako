@@ -7,6 +7,24 @@ del código.
 
 ---
 
+## «No me responde, dice trabajando»: el Runner en OTRO modo de permisos retiene los mensajes, y el acuse dice ok (27/10/2026, Cerebro)
+
+**Vive en:** el modo de la sesión «Runner» (no en el código) · `scripts/operaciones/cartero.mjs` (`acuse`) · `lib/runner.ts`
+
+- **El síntoma:** Martín escribió tres veces desde el Ops Center (23:07, 23:09 y 23:18) y el Cerebro no contestó. El chat
+  quedó en «Trabajando». El cartero anotó BUZON y ACUSE ok de los tres, y también del ticket #17.
+- ⚠️ **El diagnóstico obvio era el equivocado.** No era el ciclo del Runner (andaba: latidos cada 2 minutos), ni la
+  dirección `uds:` vieja de antes del reinicio. El Cerebro abrió el Runner nuevo en modo **auto** para no mostrarle a
+  Martín una tarjeta de permiso, y los chats están en **bypass**. Entre dos sesiones con modos distintos, la app
+  RETIENE el mensaje hasta que alguien lo apruebe (`SendMessage` contesta «holding it» y que espera la aprobación de
+  su usuario), y el Runner lo daba por entregado igual. Los mensajes del Runner viejo, que estaba en bypass, entraban
+  sin problema.
+- **La regla:** el Runner va en el MISMO modo que los chats a los que entrega (bypass). Un acuse `ok` sólo vale si el
+  resultado de `SendMessage` dice que el turno arrancó o quedó en cola; «holding it» es un `acuse … error`.
+- **Lo recuperado:** los textos estaban en el transcript del Runner (sus `SendMessage`). El buzón local ya no los tenía.
+- **SIN HACER:** que el paso b de `INSTRUCCIONES_RUNNER` (`lib/runner.ts`) diga lo de «holding it», y que el ritual
+  de la cuenta nueva abra el Runner en bypass.
+
 ## El «Completado» se perdía en el scroll: va en un bloque arriba de la caja, como las preguntas (25/10/2026)
 
 - Martín (25/10, 09:32): «Hay muchos chats que dicen "completado", pero no veo el mensaje... Tal vez sería bueno hacerlo como
