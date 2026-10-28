@@ -59,3 +59,21 @@ test('MaKo sabe contestar a quién le escriben las automatizaciones (el número 
 });
 
 // ROTURAS (27/10/2026, una por vez y restaurada; scratchpad romper-pregunta.cjs): ver docs/hallazgos-chatbot.md.
+
+test('⚠️ un pedido en VOSEO o en subjuntivo se EDITA, aunque traiga un «?» o arranque con «Está bien» (la revisión del Cerebro, 28/10)', () => {
+  // Los 7 de 8 que antes se editaban y la entrega mandaba a contestar (r3-pregunta-en-editar del refutador).
+  for (const p of [
+    'El segundo mensaje no tiene emoji? poné uno al principio', 'Está bien, poné el audio primero', 'Se entiende? escribí el segundo más corto',
+    'Queda largo? hacé el primero más corto', 'Está bien, subí la espera a 2 horas', 'El primer mensaje que diga hola, ¿cómo estás? y después el link',
+    'Está bien, que salga a las 10',
+    // El voseo con el pronombre pegado, y el «Que diga» que ya iba a contestar en la base.
+    'Queda raro? ponelo al final', 'hacele un audio más corto', 'Que el último diga ¿te quedó alguna duda?',
+  ]) assert.equal(contesta(p), false, p);
+  // Lo de tú y de -ar sigue editando, y lo prometido se sigue contestando.
+  for (const p of ['El segundo mensaje no tiene emoji? pon uno al principio', 'Está bien, agregá el audio primero', '¿Le agregás un audio al final?'])
+    assert.equal(contesta(p), false, p);
+  for (const p of [
+    'y en instagram? porque no me aparece en la configuración.', 'Hola MaKo, ¿a cuántos les llega?', 'desde qué número sale',
+    '¿qué hace esta automatización?', 'Está bien así?', '¿Hace falta que tenga teléfono?', 'por qué sale que diga hola',
+  ]) assert.equal(contesta(p), true, p);
+});

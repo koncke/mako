@@ -70,10 +70,37 @@ const RX_PEDIDO = new RegExp(
 );
 const RX_SEGUNDA = new RegExp(`\\b(?:${alt(SEGUNDA)})\\b`);
 
+/**
+ * EL VOSEO DE -ER/-IR (28/10/2026, la revisión del Cerebro: 7 de 8 pedidos de cambio en voseo que antes se editaban iban a
+ * contestar). «poné», «hacé», «escribí», «subí» pierden la tilde en `plano` y quedan «pone», «hace», «escribi», «subi», que
+ * no son imperativos de tú (el de -ar sí: «cambiá» → «cambia»). Se miran CON la tilde, que es lo que los separa de «¿qué
+ * hace?», y al principio de una frase, como `RX_IMPERATIVO`.
+ */
+const VOSEO = ['pon', 'hac', 'escrib', 'reescrib', 'sub', 'mov', 'correg', 'traduc', 'añad', 'met', 'divid', 'resum'];
+const RX_VOSEO = new RegExp(
+  `(?:^|[.,;:!¡?\\n]|\\b(?:y|pero|tambien|también|luego|despues|después|ahora|entonces|porfa|por favor|ademas|además)\\b)\\s*(?:${alt(VOSEO)})[éí](?![\\p{L}])`, 'u',
+);
+/** «ponelo», «hacele», «subila»: el voseo con un pronombre pegado (va sin tilde). */
+const RX_VOSEO_ENCLITICO = /\b(?:pone|hace|escribi|reescribi|subi|move|corregi|traduci|anadi|mete|dividi)(?:me|te|le|les|lo|la|los|las|nos)+\b/;
+/**
+ * UN PEDIDO EN SUBJUNTIVO (28/10/2026, la misma revisión): «El primer mensaje que diga hola, ¿cómo estás? y después el link»,
+ * «Está bien, que salga a las 10». El «¿…?» de adentro es el texto que se dicta, no una pregunta. No cuenta si el pedido
+ * ARRANCA como pregunta («¿hace falta que tenga teléfono?», «por qué sale que diga…»).
+ */
+const RX_SUBJUNTIVO = /\bque\s+(?:[\p{L}\d]+\s+){0,4}?(?:diga|digan|salga|salgan|sea|sean|tenga|tengan|vaya|vayan|mande|manden|espere|esperen|quede|queden|llegue|lleguen|incluya|incluyan|lleve|lleven|arranque|arranquen|empiece|empiecen|termine|terminen|pregunte|pregunten|use|usen)\b/u;
+
 /** ¿El texto pide un cambio? Las negaciones («no cambies el audio») no cuentan. */
 export function pideCambio(texto: string): boolean {
   const t = plano(texto).replace(RX_NEGADO, ' ');
-  return RX_IMPERATIVO.test(t) || RX_ENCLITICO.test(t) || RX_PEDIDO.test(t) || RX_SEGUNDA.test(t);
+  const conTildes = String(texto ?? '').normalize('NFC').toLowerCase();
+  return RX_IMPERATIVO.test(t) || RX_ENCLITICO.test(t) || RX_PEDIDO.test(t) || RX_SEGUNDA.test(t)
+    || RX_VOSEO.test(conTildes) || RX_VOSEO_ENCLITICO.test(t) || (RX_SUBJUNTIVO.test(t) && !arrancaComoPregunta(t));
+}
+
+/** ¿Arranca como pregunta? Con «¿» o con un arranque de `RX_ARRANCA_PREGUNTA` (sin la muletilla de adelante). */
+function arrancaComoPregunta(enPlano: string): boolean {
+  const t = sinMuletilla(enPlano);
+  return t.startsWith('¿') || RX_ARRANCA_PREGUNTA.test(t.replace(/^[¿¡\s]+/, ''));
 }
 
 /**
@@ -84,7 +111,7 @@ export function pideCambio(texto: string): boolean {
 // ⚠️ MÁS ARRANQUES DESDE EL 27/10/2026 (874749710-11, «le volvió a pasar a Martín con Aaron»): «a cuántos les llega», «desde
 // qué número sale», «quiero saber…», «explícame…», «cómo levanto un ticket» (Leandro, ws10, 25/10) iban a editar. «Cómo» +
 // una primera persona («cómo levanto», «cómo lo hago») pregunta; «como te dije» no (termina en «e»).
-const RX_ARRANCA_PREGUNTA = /^(existen?|hay (algun|alguna|algo|forma|manera|un tope|un limite|tope|limite)|se puede|es posible|como (hago|se|puedo|funciona|\p{L}+o)|cuant[oa]s?|cual(es)? (es|son)|que (pasa|pasaria|significa|hace|es|tal|dice|manda|sale)|por que|para que sirve|sirve|a (quien|quienes|cuant[oa]s?)|quien(es)?|en que|desde (que|donde)|con que|(quiero|quisiera|me gustaria|necesito) saber|sabes|me (puedes|podes|podrias) (decir|explicar|contar)|esta bien|te parece|tiene sentido|conviene|explica(me|melo|nos)?|dime|decime|cuentame|contame)\b/u;
+const RX_ARRANCA_PREGUNTA = /^(existen?|hay (algun|alguna|algo|forma|manera|un tope|un limite|tope|limite)|se puede|es posible|como (hago|se|puedo|funciona|\p{L}+o)|cuant[oa]s?|cual(es)? (es|son)|que (pasa|pasaria|significa|hace|es|tal|dice|manda|sale)|por que|para que sirve|sirve|a (quien|quienes|cuant[oa]s?)|quien(es)?|en que|desde (que|donde)|con que|(quiero|quisiera|me gustaria|necesito) saber|sabes|me (puedes|podes|podrias) (decir|explicar|contar)|esta bien(?!\s*[,.;:!])|te parece|tiene sentido|conviene|explica(me|melo|nos)?|dime|decime|cuentame|contame)\b/u;
 /** «se puede agregar…», «es posible sacarle…»: con un verbo de cambio detrás es un pedido, no una pregunta. */
 const RX_PIDE_PREGUNTANDO = new RegExp(`^(?:se puede|es posible)\\s+(?:\\w+\\s+)?(?:${alt(RAICES)})`);
 /**

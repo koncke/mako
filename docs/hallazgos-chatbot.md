@@ -234,6 +234,17 @@ el lead), o un arranque de pregunta después de la muletilla. En los dos casos, 
 camino bien elegido, el lienzo no se puede tocar. Y en «Editar», «no tengo (audios guardados…)» vale como respuesta, igual
 que «no se puede»: rechazarla mandaba al reintento a armar otra cosa.
 
+**⚠️ Y el «?» en cualquier lugar abrió el otro lado (la revisión del Cerebro, 28/10):** 7 de 8 pedidos de cambio en voseo
+que antes se editaban pasaron a contestarse sin tocar el lienzo («…emoji? poné uno al principio», «Está bien, subí la
+espera»). `pideCambio` era el freno y no los veía: **`plano` saca las tildes, y la tilde es lo único que separa el voseo
+de -er/-ir de otra cosa** («poné» → «pone», «hacé» → «hace», que también es «¿qué hace?»). El de -ar no se notaba
+(«cambiá» → «cambia», que ya era imperativo de tú). Ahora el voseo se mira en el texto CON tildes (`RX_VOSEO`), con
+pronombre pegado sin tilde («ponelo», `RX_VOSEO_ENCLITICO`); el pedido en subjuntivo («que el primero diga…», «que salga a
+las 10») cuenta salvo que el pedido ARRANQUE como pregunta («¿hace falta que tenga…?»); y «Está bien,» con su coma ya no
+arranca una pregunta («¿Está bien así?» sí). **La regla:** al ampliar lo que cuenta como pregunta, se prueba con los
+pedidos de cambio de los clientes en voseo, no sólo con las preguntas; normalizar para comparar puede borrar justo lo que
+distingue. tests/chat-mako-pregunta-en-editar.test.ts.
+
 **Trampas del arnés.**
 - Una espera del lienzo es una tarjeta `esperar` (`espera.minutos`), no un `delay_horas` en el mensaje. Con `delay_horas`,
   los dos modelos ven dos mensajes seguidos y contestan «sale sin demora».
