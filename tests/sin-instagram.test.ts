@@ -102,6 +102,9 @@ const CANAL: Record<string, string> = {
   // negocio (`cfg`), desde los eventos del Calendario (`calendario_eventos`, mig 0342).
   'lib/zernio-publicar.ts': 'los posts de Zernio: programar, leer y cancelar una publicación del Calendario',
   'lib/calendario-publicar.ts': 'programar en la red una Publicación del Calendario (sus cuentas, su archivo y su estado en Zernio)',
+  // 28/10/2026, el mismo pedido («por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram»): la fuente de
+  // Instagram orgánico (la cuenta, los seguidores y las publicaciones con sus métricas) por la Zernio del negocio.
+  'lib/zernio-organico.ts': 'lo orgánico de Instagram por Zernio: la cuenta, los seguidores y las publicaciones con sus métricas',
   'lib/workspace.ts': 'TENANT_TABLES',
   'lib/tablas-de-inquilino.ts': 'las tablas de un inquilino',
 };

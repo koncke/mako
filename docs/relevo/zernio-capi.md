@@ -200,7 +200,7 @@ el árbol no tiene.
 1. **Publicar desde el Calendar: HECHO, con la mig 0342 sin aplicar.** Detalle y trampas en docs/hallazgos-calendario.md («Una
    Publicación se programa en la red, por Zernio»). Antes de usarlo en un cliente: aplicar la 0342 y una primera publicación
    real que confirme el Cerebro (el cuerpo para TikTok y YouTube no se midió con una cuenta real).
-2. La fuente de Instagram orgánico y la lectura por WhatsApp: SIN HACER.
+2. La fuente de Instagram orgánico y la lectura por WhatsApp (`ver_rendimiento_redes`): HECHO; pide el complemento PAGO de Analytics de Zernio. Las plantillas del Dashboard y el reporte de agencia, SIN HACER (docs/hallazgos-integraciones.md, «Instagram orgánico por Zernio»).
 3. Conectar Instagram y Facebook sin pegar la clave de Zernio (la cuenta de la plataforma, un perfil por negocio): SIN HACER.
 4. La prueba de punta a punta con un Instagram real: hace falta una cuenta (la pide el Cerebro a Martín).
 

@@ -2137,3 +2137,26 @@ Los pasos lo dicen en una línea. Y el test cubre el camino del CÓDIGO con la p
 prompt), no la frase que arma el modelo.
 
 *27/10/2026, chat «Zernio y CAPI» (`claude5`).*
+
+## Instagram orgánico por Zernio: la primera fuente de redes orgánicas de MaKo (28/10/2026)
+
+Martín a Teo (28/10, 00:16:26): «por WhatsApp preguntás cómo vienen las últimas publicaciones de Instagram». MaKo no tenía
+ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (C:/dev/revisiones/2810-promesas-teo.md).
+
+**Vive en:** `lib/organico-reglas.ts` (puro) · `lib/zernio-organico.ts` (`rendimientoInstagram`) · la operación
+`ver_rendimiento_redes` (área contenido, canal WhatsApp) · tests/organico*.test.ts.
+
+- **Lo que Zernio da (su documentación, 28/10; no medido con una cuenta real):** `GET /v1/analytics/instagram/account-insights`
+  (alcance, vistas, cuentas que interactuaron, interacciones, me gusta, comentarios, guardados, compartidos, visitas al perfil;
+  sólo `reach` tiene serie, el resto es `total_value`; hasta 90 días), `…/follower-history` (la serie de seguidores, ganados
+  y perdidos; hasta 89 días: Meta sacó `follower_count` de sus insights) y `GET /v1/analytics` (las publicaciones con sus
+  métricas, también las que no se publicaron por Zernio: `source=all`). Los datos pueden tardar hasta 48 h.
+- ⚠️ **Es PAGO y aparte: el complemento de Analytics de Zernio.** Sin él contesta 402; MaKo lo dice en palabras («la cuenta de
+  Zernio no tiene el complemento de Analytics») en vez de «error». Prenderlo es un costo del negocio (o de la plataforma, con
+  el punto 3 del pedido): decisión de Martín.
+- ⚠️ **«No pude leer» no es «cero»:** una métrica que no vino, o una respuesta con otra forma, es null y va dicha en `faltan`;
+  las tres lecturas van a la vez y una que falla no tumba a las otras. La forma de la LISTA de `/v1/analytics` no está en su
+  documentación (sólo el ejemplo de un post): se acepta `posts`, `data` o `items`, y sin ninguna es «no sé leer», no «no hay».
+- **El id de la operación no nombra la red:** tests/sin-instagram.test.ts prohíbe `/instagram|zernio/` en los ids.
+- **Sin hacer:** las plantillas de Instagram del Dashboard (Reels, Historias, DMs) y el reporte de agencia sobre esta fuente; los
+  DMs (Zernio no los da como métrica); medir la forma real con una cuenta que tenga el complemento.

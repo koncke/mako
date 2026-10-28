@@ -664,6 +664,7 @@ ver_puente_flow
 ver_ranking_comunidad
 ver_rechazos_pago_landing
 ver_rendimiento_anuncios
+ver_rendimiento_redes
 ver_repriorizacion_plan
 ver_revenue_mensual
 ver_revenue_periodo
