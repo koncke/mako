@@ -101,7 +101,7 @@ test('3. EL RECORRIDO: cada caja de chat adjunta todo, salvo Chats (archivos a u
   assert.match(caja, /const leidos = useAdjuntosQueSeLeen\(\{ activo: !p\.sinAdjuntos,/, 'la caja no lee lo que la pantalla no toma');
   assert.match(caja, /const deLaCaja = juntarAdjuntos\(p\.adjuntos, p\.sinAdjuntos \? undefined : leidos\.adjuntos\);/);
   // Quieta (saliendo, apagada o bloqueada), los mismos sin quitar ni sumar (28/10/2026, tests/centro-nuevo-con-adjuntos.test.ts).
-  assert.match(caja, /const adjuntos = adjuntosQuietos\(deLaCaja, quieto\);/);
+  assert.match(caja, /const adjuntos = adjuntosQuietos\(deLaCaja, quieto, avisarEspera\);/);
   assert.match(caja, /onDrop=\{\(e\) => \{ if \(!adjuntos \|\| !traeArchivos\(e\.dataTransfer\)\) return; e\.stopPropagation\(\); alSoltar\(e, adjuntos\); \}\}/, 'la caja no toma lo arrastrado');
   assert.match(caja, /<ListaAdjuntos a=\{adjuntos\} apagado=\{quieto\} \/>/);
   // Lo soltado sobre la CONVERSACIÓN (PanelDeChat) va a los adjuntos de la caja, no sólo a los de la pantalla.

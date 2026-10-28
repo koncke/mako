@@ -23,6 +23,8 @@ let secuencia = 0;
 const id = (pre: string) => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
 const uuid = () => (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`);
 const saludo = (): Turno[] => [{ id: id('m'), de: 'mako', texto: SALUDO, at: new Date().toISOString() }];
+/** La caja de una conversación sin nada adjuntado (la misma lista siempre: las piezas comparan por identidad). */
+const SIN_ADJUNTOS: AdjuntoCaja[] = [];
 /** Lo que MaKo «escribe» antes de contestar en la conversación nueva (28/10/2026, el Cerebro: «Soporte: la voz en el acto y
  *  los 3 puntos»). Contesta con reglas y en el acto, pero se lo ve escribir como en todo chat de MaKo, y lo que arma se ve
  *  armándose, con un pequeño delay (Martín, 28/10). En un ticket contesta el equipo, horas después: ahí no hay puntos. */
@@ -63,11 +65,28 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   // La conversación nueva de AHORA, como estado: la clave de sus notas de voz (la revisión de chats-unificados, 28/10/2026: con «soporte:nuevo» para todas, una
   // nota grabada antes de mandar el ticket salía como primer mensaje de la conversación SIGUIENTE).
   const [idConversacion, setIdConversacion] = useState(() => ref.current);
-  const otraConversacion = () => { ref.current = uuid(); setIdConversacion(ref.current); };
+  /** De qué conversación es lo de la caja (sus notas de voz y lo adjuntado): un ticket, o la conversación nueva de ahora. */
+  const claveCaja = typeof abierto === 'number' ? `soporte:${abierto}` : `soporte:nuevo:${idConversacion}`;
+  // Lo adjuntado, POR CONVERSACIÓN (la verificación de tren-t): con una sola lista, lo adjuntado en un ticket abierto pasaba al
+  // ticket cerrado que se abría después, y ahí la caja apagada no dejaba quitarlo.
+  const [adjuntosPor, setAdjuntosPor] = useState<Record<string, AdjuntoCaja[]>>({});
+  const ponerAdjuntos = (c: string, f: (xs: AdjuntoCaja[]) => AdjuntoCaja[]) => setAdjuntosPor((m) => ({ ...m, [c]: f(m[c] ?? []) }));
+  /** Otra conversación nueva: lo adjuntado sin mandar en la de antes pasa a ésta, como lo escrito (no se pierde). */
+  const otraConversacion = () => {
+    const antes = `soporte:nuevo:${ref.current}`;
+    ref.current = uuid();
+    const ahora = `soporte:nuevo:${ref.current}`;
+    setIdConversacion(ref.current);
+    setAdjuntosPor((m) => {
+      if (!m[antes]?.length) return m;
+      const { [antes]: llevar, ...resto } = m;
+      return { ...resto, [ahora]: llevar };
+    });
+  };
   // ── Lo que se adjunta (28/10/2026, Martín: «no permite adjuntar ni archivos ni capturas ni documentos»): lib/tickets-adjuntos.ts.
   // `adjuntos`: lo elegido en la caja, antes de mandar. `delTicket`: lo que ya subió en la conversación NUEVA y viaja con el
   // ticket al levantarlo (en un ticket abierto, cada respuesta lleva los suyos).
-  const [adjuntos, setAdjuntos] = useState<AdjuntoCaja[]>([]);
+  const adjuntos = adjuntosPor[claveCaja] ?? SIN_ADJUNTOS;
   const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
   const delTicket = useRef<AdjuntoTicket[]>([]);
   // Las subidas de la conversación NUEVA que no terminaron: el ticket las espera antes de salir (revisión de 046d9e028: salía sin
@@ -84,9 +103,9 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     const mal = problemaDeAdjuntosTicket([...adjuntos.map((a) => a.file), ...validos], yaVan);
     if (mal) { setErrorAdjunto(mal); return; }
     setErrorAdjunto(null);
-    setAdjuntos((xs) => [...xs, ...validos.map((f): AdjuntoCaja => ({ id: id('a'), file: f, tipo: f.type.startsWith('image/') ? 'image' : 'document', url: URL.createObjectURL(f) }))]);
-  }, [adjuntos, abierto, turnos]);
-  const quitarAdjunto = useCallback((idA: string) => setAdjuntos((xs) => { const a = xs.find((x) => x.id === idA); if (a) URL.revokeObjectURL(a.url); return xs.filter((x) => x.id !== idA); }), []);
+    ponerAdjuntos(claveCaja, (xs) => [...xs, ...validos.map((f): AdjuntoCaja => ({ id: id('a'), file: f, tipo: f.type.startsWith('image/') ? 'image' : 'document', url: URL.createObjectURL(f) }))]);
+  }, [adjuntos, abierto, turnos, claveCaja]);
+  const quitarAdjunto = useCallback((idA: string) => ponerAdjuntos(claveCaja, (xs) => { const a = xs.find((x) => x.id === idA); if (a) URL.revokeObjectURL(a.url); return xs.filter((x) => x.id !== idA); }), [claveCaja]);
 
   const ticket = typeof abierto === 'number' ? tickets.find((t) => t.id === abierto) ?? null : null;
   // Abrió uno que todavía no llegó (el link de un aviso): se lee.
@@ -200,9 +219,9 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     } else {
       contar(t);
     }
-    if (dicho === undefined) { setTexto(''); for (const a of adjuntos) URL.revokeObjectURL(a.url); setAdjuntos([]); setErrorAdjunto(null); }
+    if (dicho === undefined) { setTexto(''); for (const a of adjuntos) URL.revokeObjectURL(a.url); ponerAdjuntos(claveCaja, () => []); setErrorAdjunto(null); }
     return true;
-  }, [texto, ticket, contar, contestar, subirEnLaNueva, adjuntos]);
+  }, [texto, ticket, contar, contestar, subirEnLaNueva, adjuntos, claveCaja]);
 
   /** Un mensaje que no salió: se manda otra vez lo MISMO (lo escrito y sus archivos), sacándolo del hilo. */
   const reintentar = useCallback((idTurno: string) => {
@@ -261,7 +280,7 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
   // por `mandar`, como lo escrito: al equipo en un ticket, a MaKo en la conversación nueva. Lo escrito y lo adjuntado quedan en la caja.
   const nota = useNotaEnElActo({
-    clave: typeof abierto === 'number' ? `soporte:${abierto}` : `soporte:nuevo:${idConversacion}`,
+    clave: claveCaja,
     puede: !mandando && !(typeof abierto === 'number' && (!ticket || !ticket.puedeResponder)),
     mandar: (t) => mandar(t),
   });

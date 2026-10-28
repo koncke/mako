@@ -746,6 +746,19 @@ había anotado como «sin hacer» era peor de lo que decía:
 respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
 (lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.
 
+### Lo adjuntado es de SU conversación (la verificación de tren-t, 28/10/2026)
+
+- **El síntoma:** una foto adjuntada en un ticket abierto aparecía en el ticket cerrado que se abría después. Ahí la caja está
+  apagada y, desde que la caja quieta no deja quitar (hallazgos-operaciones.md, «El chat nuevo lleva sus archivos»), no había
+  forma de sacarla hasta volver a un ticket abierto.
+- **La causa:** `useSoporte` tenía UNA lista de adjuntos para todo Soporte; `abrir` y `nuevo` no la tocaban. El defecto venía de
+  antes: la caja quieta sólo lo hizo visible.
+- **La regla:** lo de la caja es de su conversación, con la misma clave que sus notas de voz (`claveCaja`: `soporte:<id>` o
+  `soporte:nuevo:<conversación>`). Al empezar otra conversación nueva, lo que no se mandó pasa a la siguiente, como lo escrito.
+  Si la persona levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva.
+- **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `adjuntosPor`, `otraConversacion`) ·
+  tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación»).
+
 **La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
 - «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
   `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar

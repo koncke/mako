@@ -36,11 +36,16 @@ export function juntarAdjuntos(propio: AdjuntosDeCaja | undefined, leidos: Adjun
   };
 }
 
+/** Lo que dice la caja quieta cuando se le suelta o se le pega algo (y el panel, mientras se arrastra). */
+export const ESPERA_PARA_ADJUNTAR = 'Espera a que termine para adjuntar';
+
 /**
  * La caja QUIETA (saliendo, apagada o bloqueada) no toca lo adjuntado (28/10/2026, la revisión de 0453923ab): ni se quita nada
  * ni entra lo soltado o pegado, y se sigue viendo. Con la nota del chat nuevo pasándose a texto, quitar una foto la dejaba salir
  * firmada igual (la pantalla ya la había tomado) y lo soltado quedaba para el chat siguiente.
+ * Y NO SE TRAGA NADA CALLADA (la verificación de tren-t): dice que no toma (`puede: false`) y por qué (`espera`), así el panel no
+ * ofrece «Suelta para adjuntar» y lo soltado avisa (`onEspera`) en vez de perderse sin decir nada.
  */
-export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, quieta: boolean): AdjuntosDeCaja | undefined {
-  return quieta && a ? { ...a, onSumar: () => {}, onQuitar: () => {} } : a;
+export function adjuntosQuietos(a: AdjuntosDeCaja | undefined, quieta: boolean, onEspera?: () => void): AdjuntosDeCaja | undefined {
+  return quieta && a ? { ...a, puede: false, espera: ESPERA_PARA_ADJUNTAR, onSumar: () => {}, onQuitar: () => {}, onNoPuede: onEspera } : a;
 }

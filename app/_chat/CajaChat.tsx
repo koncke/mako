@@ -34,7 +34,7 @@ import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsa
 import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { useAdjuntosQueSeLeen } from './adjuntos-que-se-leen';
-import { adjuntosQuietos, juntarAdjuntos } from './juntar-adjuntos';
+import { ESPERA_PARA_ADJUNTAR, adjuntosQuietos, juntarAdjuntos } from './juntar-adjuntos';
 import { useAvisarAdjuntos } from './soltar-en-la-caja';
 import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pegar';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
@@ -149,7 +149,12 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   // (la ✕ se apaga) ni entra lo soltado (./juntar-adjuntos.ts → adjuntosQuietos). El navegador igual no abre lo soltado
   // (`alSoltar` lo frena antes).
   const quieto = enviando || apagado || !!p.bloqueo;
-  const adjuntos = adjuntosQuietos(deLaCaja, quieto);
+  // Y lo soltado con la caja quieta no se pierde callado (la verificación de tren-t): lo dice la pantalla (`onErrorMic`) o la
+  // caja, hasta que vuelve a tomar.
+  const [enEspera, setEnEspera] = useState(false);
+  if (enEspera && !quieto) setEnEspera(false);
+  const avisarEspera = () => { if (p.onErrorMic) p.onErrorMic(ESPERA_PARA_ADJUNTAR); else setEnEspera(true); };
+  const adjuntos = adjuntosQuietos(deLaCaja, quieto, avisarEspera);
   // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
   useAvisarAdjuntos(adjuntos);
   /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */
@@ -169,8 +174,10 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
     if (!adjuntos?.puede || quieto || captura) return;
     void capturaParaOfrecer(CAPTURAS_VISTAS).then((f) => { if (f) setCaptura({ file: f, url: URL.createObjectURL(f) }); });
   };
+  // Con la caja quieta, la captura ofrecida espera (no se dibuja ni se descarta): anotarla como vista sin pegarla la perdía
+  // para siempre (la verificación de tren-t).
   const resolverCaptura = (pegar: boolean) => {
-    if (!captura) return;
+    if (!captura || quieto) return;
     CAPTURAS_VISTAS.add(firmaDeCaptura(captura.file));
     if (pegar) adjuntos?.onSumar([captura.file]);
     setCaptura(null);
@@ -243,7 +250,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   return (
     <>
       {p.arriba}
-      {captura && (
+      {captura && !quieto && (
         <div className="co-caja__captura">
           {/* eslint-disable-next-line @next/next/no-img-element -- una URL `blob:` local, recién copiada */}
           <img className="co-caja__captura-img" src={captura.url} alt="" />
@@ -310,6 +317,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
       {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}
       {leidos.aviso && <p className="co-caja__estado" aria-live="polite">{leidos.aviso}</p>}
+      {enEspera && <p className="co-caja__estado" aria-live="polite">{ESPERA_PARA_ADJUNTAR}</p>}
     </>
   );
 }

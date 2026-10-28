@@ -3305,9 +3305,23 @@ la caja tal cual (`devolverAdjuntos`, useCentro.ts). Y la caja QUIETA (saliendo,
 soltado (`adjuntosQuietos`, app/_chat/juntar-adjuntos.ts): vale para las 17 cajas, no sólo para el chat nuevo (Soporte también
 se apaga mientras manda).
 
+**La verificación de tren-t (el Cerebro): la caja quieta se tragaba lo soltado, y lo devuelto volvía roto.** Cinco bajos, y dos
+reglas que sirven para cualquier caja:
+- **Una caja que no toma lo dice.** `adjuntosQuietos` anulaba `onSumar` pero dejaba `puede` en true: el panel ofrecía «Suelta
+  para adjuntar», el archivo no entraba y nadie avisaba. Ahora la caja quieta dice `puede: false` y por qué (`espera`, que el panel
+  muestra al arrastrar), y lo soltado avisa «Espera a que termine para adjuntar» (por `onErrorMic` de la pantalla, o en la caja).
+  Lo mismo con «Pegar la captura»: con la caja quieta ni se dibuja ni se resuelve. Antes, tocarla la anotaba como vista sin
+  pegarla, y no se volvía a ofrecer nunca.
+- **Lo que vuelve a la caja después de un `await` necesita vistas previas NUEVAS.** Si la pantalla se desmontó en el medio (se
+  salió del chat nuevo con la nota pasándose a texto), su limpieza revocó las URL de la burbuja, y `devolverArchivos` las
+  guardaba así: la miniatura volvía rota. Ahora revoca las viejas y crea otras.
+- La ✕ apagada se veía igual que la activa: con la caja quieta no se ofrece (`.co-miniatura__quitar:disabled`, centro.css).
+- La caja de Soporte, por conversación: ver hallazgos-ticketera.md, «Lo adjuntado es de SU conversación».
+- **Para probarlo:** `dibujador(...).desmontar()` (tests/hook-en-node.ts) corre las limpiezas de los efectos, como React al
+  sacar el componente.
+
 **Lo que quedó SIN hacer:**
-- Instalar el cartero 1.22.0 en la PC, DESPUÉS de desplegar el servidor que acepta el trabajo. Hasta entonces la caja del chat
-  nuevo no ofrece adjuntar.
+- (El cartero 1.22.0 ya está instalado en la PC desde el 28/10, después del servidor: tren-t, 5eea455b7.)
 - El servidor le da un chat nuevo con adjuntos a cualquier cartero que abre, sin mirar su versión (`lib/operaciones.ts`, los
   nuevos de la vuelta). Con uno de antes, el trabajo vuelve rechazado en vez de esperar al nuevo. La pantalla ya no lo manda.
 

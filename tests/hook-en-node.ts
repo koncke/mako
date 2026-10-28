@@ -47,8 +47,9 @@ export async function armarHook(raiz: string, entrada: string, vecinos: Record<s
   return import(`data:text/javascript;base64,${Buffer.from(r.outputFiles[0].text).toString('base64')}`);
 }
 
-/** Un dibujador nuevo (estado de cero) para `hook`: cada llamada es un render, y después corren sus efectos. */
-export function dibujador<P, S>(hook: (p: P) => S): { dibujar: (p: P) => S } {
+/** Un dibujador nuevo (estado de cero) para `hook`: cada llamada es un render, y después corren sus efectos. `desmontar`
+ *  corre las limpiezas de los efectos, como React al sacar el componente (28/10/2026: salir del chat nuevo a mitad de algo). */
+export function dibujador<P, S>(hook: (p: P) => S): { dibujar: (p: P) => S; desmontar: () => void } {
   const rt: RuntimeHooks = { hooks: [], idx: 0, efectos: [] };
   return {
     dibujar: (p: P) => {
@@ -58,6 +59,12 @@ export function dibujador<P, S>(hook: (p: P) => S): { dibujar: (p: P) => S } {
       const ef = rt.efectos; rt.efectos = [];
       for (const f of ef) f();
       return s;
+    },
+    desmontar: () => {
+      for (const h of rt.hooks) {
+        const e = h as { deps?: unknown; limpiar?: unknown } | null;
+        if (e && typeof e === 'object' && 'deps' in e && typeof e.limpiar === 'function') (e.limpiar as () => void)();
+      }
     },
   };
 }

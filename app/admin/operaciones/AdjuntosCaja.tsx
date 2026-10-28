@@ -34,6 +34,8 @@ export type AdjuntosDeCaja = {
   onSinImagen?: (puedeLeer: boolean) => void;
   /** Lo que ofrece «Documento» (20/10/2026, la caja única): sin esto, lo del Ops Center (fotos, PDF, Office y texto). */
   accept?: string;
+  /** Por qué no toma AHORA (la caja quieta, app/_chat/juntar-adjuntos.ts → adjuntosQuietos): el panel lo dice al arrastrar. */
+  espera?: string;
 };
 
 // Pegar una imagen: pegar.ts (sin CSS, para que su test lo importe).
