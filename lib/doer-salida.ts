@@ -108,16 +108,22 @@ export function afirmaHechoDe(texto: string, { soloPorMi = false }: { soloPorMi?
  */
 const PRETERITOS = 'mandé|envié|agendé|creé|armé|cargué|publiqué|cambié|moví|borré|guardé|configuré|programé|anoté|actualicé|subí|edité|agregué|eliminé|activé|pausé|prendí|apagué|inscribí|asigné|cancelé|confirmé|respondí|escribí|marqué|reprogramé|avisé|hice|abrí|registré|reporté|levanté|notifiqué';
 const PRETERITO = new RegExp(`(?<!\\p{L})(?:${PRETERITOS})(?!\\p{L})`, 'u');
-/** «te dejé agendada la reunión» y «te lo dejo anotado» dicen hecho; «te dejé la tarjeta» habla de lo que dejó para confirmar. */
-const DEJE_HECHO = /(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+/** «te dejé agendada la reunión» dice hecho; «te dejé la tarjeta» habla de lo que dejó para confirmar. */
+const DEJE_HECHO = /(?<!\p{L})dejé(?:\s+\p{L}+){0,2}\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
 /**
- * «He reportado el error al equipo», «le he avisado» (27/10/2026, Leila): el pretérito perfecto, en primera persona. Sin los
- * que no dicen nada hecho («he estado revisando», «he intentado», «he visto»).
+ * LO QUE EL GRUPO CORTA (27/10/2026): los participios de lo que MaKo puede decir que HIZO, los de `PRETERITOS`. Con
+ * cualquier participio, «He encontrado 2 reuniones», «He consultado tu CRM» o «Te dejo detallados los 3 leads» (lo que el
+ * turno LEYÓ: la respuesta) salían como «Eso no lo llegué a hacer» (la revisión adversarial de 92d23e11d). Precisión antes
+ * que cobertura, como el resto de este archivo.
  */
-const HE_HECHO = /(?<!\p{L})he\s+(?!(?:estado|sido|tenido|podido|querido|intentado|tratado|pensado|visto|notado|le[ií]do)(?!\p{L}))\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
-/** «Ya quedó registrado que le escribiste», «ya quedó agendado el recordatorio» (27/10/2026): con el «ya», MaKo lo da por
- *  hecho; sin él («quedó agendada para el lunes») puede ser lo que leyó, y se deja. */
-const YA_QUEDO = /(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+\p{L}+(?:ad|id)[oa]s?(?!\p{L})/u;
+const PARTICIPIO_ESCRITO = String.raw`(?:(?:mand|envi|agend|cre|arm|carg|public|cambi|borr|guard|configur|program|anot|actualiz|edit|agreg|elimin|activ|paus|apag|asign|cancel|confirm|marc|reprogram|avis|registr|report|levant|notific)ad|(?:mov|sub|prend|respond)id|escrit|hech|abiert|inscript|inscrit)[oa]s?`;
+/** «te lo dejo anotado», «te dejé agendada la reunión». */
+const DEJE_ESCRITO = new RegExp(String.raw`(?<!\p{L})(?:dejé|dejo)(?:\s+\p{L}+){0,2}\s+${PARTICIPIO_ESCRITO}(?!\p{L})`, 'u');
+/** «He reportado el error al equipo», «le he avisado» (Leila): el pretérito perfecto, en primera persona. */
+const HE_HECHO = new RegExp(String.raw`(?<!\p{L})he\s+${PARTICIPIO_ESCRITO}(?!\p{L})`, 'u');
+/** «Ya quedó registrado que le escribiste», «ya quedó agendado el recordatorio»: con el «ya», MaKo lo da por hecho; sin él
+ *  («quedó agendada para el lunes») puede ser lo que leyó, y se deja. */
+const YA_QUEDO = new RegExp(String.raw`(?<!\p{L})ya\s+(?:te\s+|le\s+|se\s+|me\s+)?qued(?:ó|o|aron)\s+${PARTICIPIO_ESCRITO}(?!\p{L})`, 'u');
 /** «acabo de cargar las 3 tareas»: el pasado reciente, en primera persona. */
 const ACABO_DE = /(?<!\p{L})acabo de (?:mandar|enviar|agendar|crear|armar|cargar|publicar|cambiar|mover|borrar|guardar|programar|anotar|actualizar|subir|agregar|eliminar|activar|pausar|cancelar|confirmar|responder|escribir|marcar|reprogramar)(?!\p{L})/u;
 /** Lo que deja una oración sin afirmar: una negación («no te agendé»), o hablar de lo que quedó para confirmar. */
@@ -183,7 +189,12 @@ function finDeLoQuePresenta(texto: string, o: Oracion, bloquesDebajo: boolean): 
  * escape una mentira está aceptado (la red fuerte es lo que el código dibuja en el hilo: el «Hecho:», la tarjeta), y una
  * nota en una respuesta que no afirma nada, no. No se le suman raíces ni formas para «ver más».
  */
-export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false }: { bloquesDebajo?: boolean } = {}): string[] {
+export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false, enElGrupo }: {
+  bloquesDebajo?: boolean;
+  /** El grupo de WhatsApp (`sanearSalida`): suma «he», «dejo» y «ya quedó» + participio de escritura. `leyo`: el turno corrió
+   *  una lectura, y «Juan ya quedó agendado para el lunes» puede ser lo que leyó (el «ya quedó» no cuenta). */
+  enElGrupo?: { leyo: boolean };
+} = {}): string[] {
   return oracionesPropias(texto).filter((o) => {
     // Lo que exime se mira CON la cita (la quinta revisión): en «Te armé el copy «¿Cansado de perder leads?» para el
     // anuncio.» el copy está a la vista, y sacar la cita se llevaba el «?» que lo decía.
@@ -191,7 +202,10 @@ export function afirmacionesDeHecho(texto: string, { bloquesDebajo = false }: { 
     if (/[¿?]/.test(tal) || NIEGA.test(tal) || DE_LO_PROPUESTO.test(tal) || CONDICION.test(tal)) return false;
     // Lo que va antes de un «:» que presenta está a la vista: se mira lo de después («Listo: pausé la campaña»).
     const dicho = o.propia.slice(finDeLoQuePresenta(texto, o, bloquesDebajo)).toLowerCase();
-    return PRETERITO.test(dicho) || DEJE_HECHO.test(dicho) || ACABO_DE.test(dicho) || HE_HECHO.test(dicho) || YA_QUEDO.test(dicho);
+    if (PRETERITO.test(dicho) || ACABO_DE.test(dicho)) return true;
+    return enElGrupo
+      ? DEJE_ESCRITO.test(dicho) || HE_HECHO.test(dicho) || (!enElGrupo.leyo && YA_QUEDO.test(dicho))
+      : DEJE_HECHO.test(dicho);
   }).map((o) => o.tal.trim());
 }
 
@@ -380,14 +394,16 @@ export function sanearSalida(textoEntero: string, { corrioHerramientas, hecho, b
    * abrí la agenda de Google». En la app se marca con una nota (`hecho`); en el grupo no hay tarjeta que lo corrija después,
    * así que se saca esa oración y se dice la verdad: `FALTA_EL_SI` si quedó propuesto, si no `SIN_HACER`.
    * `respaldado`: el turno escribió algo de verdad (no una propuesta). `propuesto`: dejó una propuesta esperando el «sí».
+   * `leyo`: corrió una lectura (`afirmacionesDeHecho`).
    */
-  enElGrupo?: { respaldado: boolean; propuesto: boolean };
+  enElGrupo?: { respaldado: boolean; propuesto: boolean; leyo?: boolean };
 }): Saneo {
   // Lo que dice hecho sin respaldo, fuera del texto ANTES de todo lo demás (la promesa, la grosería): lo de abajo trabaja
   // sobre lo que queda, y la verdad va al final.
-  const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero) : [];
+  const delGrupo = { leyo: !!enElGrupo?.leyo };
+  const sinRespaldoGrupo = enElGrupo && !enElGrupo.respaldado ? afirmacionesDeHecho(textoEntero, { enElGrupo: delGrupo }) : [];
   if (sinRespaldoGrupo.length) {
-    const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o).length > 0);
+    const queda = sinOraciones(textoEntero, (o) => afirmacionesDeHecho(o, { enElGrupo: delGrupo }).length > 0);
     const verdad = enElGrupo!.propuesto ? FALTA_EL_SI : SIN_HACER;
     const resto = queda ? sanearSalida(queda, { corrioHerramientas, bloquesDebajo, finDeTurno }) : null;
     const yaLoDice = !!resto && (resto.texto.includes(SIN_HACER) || resto.texto.includes(SIN_HACER_LO_DEMAS));

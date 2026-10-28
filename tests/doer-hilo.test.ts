@@ -240,7 +240,7 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   // Los hechos y lo que mostraste van al system del turno y NUNCA al de la red de la plataforma, que corre sin datos de clientes.
   assert.match(doer, /const conMemoria = baseDelSystem === base \? \[(?:bloqueQuienEscribe\(data\.pushName\), )?(?:ctxContacto, )?ctxYaSeHablo, ctxMostrado\]\.filter\(Boolean\)/);
   // Lo que mostraron las herramientas: se anota cada salida y se guarda al final del turno, si no fue un cartel.
-  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*escribioDelTurno\+\+;\n)?\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
+  assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n(?:[^\n]*(?:escribioDelTurno\+\+|leyoDelTurno = true);\n)*\s*\/\/ Los ids que mostró[^\n]*\n\s*const refs = referenciasDeLaSalida\(name, out\);/);
   assert.match(doer, /if \(!avisoDeSistema && refsDelTurno\.length\) await setSetting\(CLAVE_REFS\(jid\), unirRefs\(refsGuardadas, refsDelTurno, Date\.now\(\)\)\)/);
   assert.match(doer, /const refsGuardadas = await getSetting\(CLAVE_REFS\(jid\)\)\.catch\(\(\) => null\);\n\s*const ctxMostrado = bloqueLoQueMostraste\(refsGuardadas, Date\.now\(\)\);/);
   assert.match(doer, /\$\{ctxPuntos \? `\\n\\n\$\{ctxPuntos\}` : ''\}(?:\$\{ctxFalla\})?\$\{conMemoria\}`;/);

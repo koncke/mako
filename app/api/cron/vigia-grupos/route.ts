@@ -57,7 +57,7 @@ import { leerTodo } from '@/lib/supabase-paginado';
 import { crearTicket } from '@/lib/tickets-db';
 import { identidadDelSistema } from '@/lib/errores-app';
 import {
-  ESPERA_RESPUESTA_MS, incidentesDe, incidentesDeErrores, incidentesDeVencidas, lineaDe,
+  ESPERA_RESPUESTA_MS, incidentesDe, incidentesDeErrores, incidentesDeVencidas, lineaDe, SOLO_GRUPOS,
   type FilaConv, type FilaError, type FilaPendiente, type FilaUso, type Incidente,
 } from '@/lib/vigia-mako-grupos';
 import { leerEstado, tituloDeTicket, vistosTrasLaVuelta, type EstadoVigia } from '@/lib/vigia-grupos-estado';
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
       // leído, así que lo que vence entre dos vueltas cae en la siguiente.
       pend = await leerTodo<FilaPendiente>(db, 'mako_acciones_pendientes', 'id, workspace_id, grupo_jid, tipo, resumen, estado, vence_at, origen', {
         orden: ['vence_at', 'id'],
-        filtros: (q) => q.gte('vence_at', leerDesde).lte('vence_at', new Date(ahora).toISOString()).in('estado', ['pendiente', 'vencida']),
+        filtros: (q) => q.gte('vence_at', leerDesde).lte('vence_at', new Date(ahora).toISOString()).in('estado', ['pendiente', 'vencida']).like('grupo_jid', SOLO_GRUPOS),
       });
     } catch (e) {
       // El código 2 del script: no pude leer, y por eso la marca se queda donde estaba.

@@ -19,8 +19,10 @@ import { join } from 'node:path';
 import { afirmacionesDeHecho, FALTA_EL_SI, sanearSalida, SIN_HACER } from '../lib/doer-salida';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
-const enElGrupo = (texto: string, respaldado = false, propuesto = false) =>
-  sanearSalida(texto, { corrioHerramientas: respaldado || propuesto, finDeTurno: true, enElGrupo: { respaldado, propuesto } });
+const enElGrupo = (texto: string, respaldado = false, propuesto = false, leyo = false) =>
+  sanearSalida(texto, { corrioHerramientas: respaldado || propuesto || leyo, finDeTurno: true, enElGrupo: { respaldado, propuesto, leyo } });
+/** Lo que el grupo ve como hecho (el chat de la app no corta «he», «dejo» ni «ya quedó»). */
+const hechoEnElGrupo = (texto: string, leyo = false) => afirmacionesDeHecho(texto, { enElGrupo: { leyo } });
 
 const REALES = [
   'He reportado el error al equipo de MaKo. Solo queda esperar su respuesta.',
@@ -31,13 +33,13 @@ const REALES = [
 ];
 
 test('1. las cinco frases reales se ven como «hecho»', () => {
-  for (const f of REALES) assert.ok(afirmacionesDeHecho(f).length > 0, `«${f}» no se ve como hecho`);
+  for (const f of REALES) assert.ok(hechoEnElGrupo(f).length > 0, `«${f}» no se ve como hecho`);
 });
 
 test('2. sin nada que lo respalde, el «hecho» no sale al grupo y se dice la verdad', () => {
   for (const f of REALES) {
     const s = enElGrupo(f);
-    assert.deepEqual(afirmacionesDeHecho(s.texto), [], `salió igual: «${s.texto}»`);
+    assert.deepEqual(hechoEnElGrupo(s.texto), [], `salió igual: «${s.texto}»`);
     assert.ok(s.texto.endsWith(SIN_HACER), `sin la verdad al final: «${s.texto}»`);
     assert.ok(s.sinRespaldo?.length, 'no anota lo que sacó');
   }
@@ -63,14 +65,38 @@ test('5. lo que no afirma nada hecho no se toca', () => {
     'No te lo anoté todavía.',
     'He intentado abrir el archivo pero no pude.',
   ]) {
-    assert.deepEqual(afirmacionesDeHecho(f), [], `«${f}» se ve como hecho`);
+    assert.deepEqual(hechoEnElGrupo(f), [], `«${f}» se ve como hecho`);
     assert.equal(enElGrupo(f).texto, f);
   }
+});
+
+test('7. lo que el turno LEYÓ es la respuesta: «he encontrado», «he consultado», «te dejo detallados» salen tal cual', () => {
+  // La revisión adversarial de 92d23e11d: con cualquier participio, todas éstas salían como «Eso no lo llegué a hacer».
+  for (const f of [
+    'He encontrado 2 reuniones para mañana, con Juan a las 10 y con Ana a las 15.',
+    'He consultado tu CRM y tienes 14 leads en Seguimiento, 3 en Ganado.',
+    'He verificado tu cuenta de Meta y está activa.',
+    'He analizado tus métricas de octubre. El CAC subió a US$ 40.',
+    'He calculado tu CAC de octubre y quedó en US$ 40.',
+    'He buscado a Juan en el CRM y está en Seguimiento.',
+    'Te dejo detallados los 3 leads más calientes. Juan está en Propuesta.',
+  ]) {
+    assert.deepEqual(hechoEnElGrupo(f, true), [], `«${f}» se ve como hecho`);
+    assert.equal(enElGrupo(f, false, false, true).texto, f);
+  }
+  // «ya quedó + participio» sin primera persona: con una lectura en el turno, puede ser lo que leyó.
+  const leido = 'La reunión con Juan ya quedó agendada para el lunes (la agendó Ana desde Calendly).';
+  assert.equal(enElGrupo(leido, false, false, true).texto, leido);
+  // Un verbo de ESCRITURA sigue cortándose aunque el turno haya leído: leer no respalda «He agendado».
+  const s = enElGrupo('He agendado la reunión con Juan para el lunes.', false, false, true);
+  assert.ok(s.texto.endsWith(SIN_HACER), s.texto);
+  assert.ok(s.sinRespaldo?.length);
 });
 
 test('6. el doer: cuenta lo que se escribió de verdad (no lo propuesto) y le pasa el respaldo al saneo', () => {
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n\s*else if \(escribeDeVerdad\(name\) && hizoAlgo\(out\) && [^\n]*\) escribioDelTurno\+\+;/);
-  assert.match(doer, /enElGrupo: \{ respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno\.size > 0 \},/);
+  assert.match(doer, /enElGrupo: \{ respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno\.size > 0, leyo: leyoDelTurno \},/);
+  assert.match(doer, /else if \(!escribeDeVerdad\(name\)\) leyoDelTurno = true;/);
   assert.match(doer, /const memo = crearMemoDeAcciones\(escribeDeVerdad\);/);
 });

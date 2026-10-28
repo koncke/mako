@@ -25,6 +25,29 @@ export function mencionesDe(message: Record<string, unknown> | undefined): strin
   return Array.isArray(ctx?.mentionedJid) ? (ctx!.mentionedJid as unknown[]).filter((j): j is string => typeof j === 'string') : [];
 }
 
+/** A quién mencionan: `aMaKo`, si una mención es la línea que recibe; `aOtros`, las que seguro son de otra persona. */
+export type Mencionados = { aMaKo: boolean; aOtros: string[] };
+
+const ult10 = (d: string): string => d.slice(-10);
+/** Los dígitos de un jid de TELÉFONO (`549…@s.whatsapp.net`, con `:device` o sin él); null si no lo es (un `@lid`, un grupo). */
+function telefonoDelJid(jid: string): string | null {
+  const m = /^(\d{8,15})(?::\d+)?@(?:s\.whatsapp\.net|c\.us)$/.exec(jid.trim());
+  return m ? m[1] : null;
+}
+
+/**
+ * Las menciones contra el número de la línea que RECIBE (la de MaKo en ese grupo, su `ownerJid`). Elegir a MaKo con la @ manda
+ * su jid, no la palabra «mako»: sin esto, «@MaKo ¿cuántos leads entraron?» se leía como «a otro» y quedaba callado (la
+ * revisión adversarial de 92d23e11d). Un `@lid` no se compara con un teléfono, y sin el número de la línea no se sabe: esas
+ * menciones no cuentan como «a otro», y MaKo contesta como antes de P8. Se compara por los últimos 10 dígitos (el 9 de AR).
+ */
+export function quienesMencionados(menciones: readonly string[], numeroLinea: string | null): Mencionados {
+  const linea = numeroLinea ? ult10(numeroLinea.replace(/\D/g, '')) : '';
+  const aMaKo = !!linea && menciones.some((j) => { const t = telefonoDelJid(j); return !!t && ult10(t) === linea; });
+  const aOtros = linea ? menciones.filter((j) => { const t = telefonoDelJid(j); return !!t && ult10(t) !== linea; }) : [];
+  return { aMaKo, aOtros: aMaKo || aOtros.length < menciones.length ? [] : aOtros };
+}
+
 /** Por qué el mensaje NO es para MaKo, o null si lo es. */
 export function noEsParaMaKo(p: { texto: string; menciones: readonly string[]; nombraAMaKo: boolean; makoPregunto: boolean; hayPendientes: boolean }): 'acuse' | 'a-otro' | null {
   if (p.nombraAMaKo || p.hayPendientes || p.makoPregunto) return null;

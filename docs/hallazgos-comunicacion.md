@@ -122,6 +122,26 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
   vivía en el mismo archivo. Los detectores pasaron a lib/doer-falla-frases.ts, exceptuado; la nota quedó adentro de la guarda.
   **Regla: un detector que nombra formas de vos va en su propio archivo, nunca junto a un texto que lee el modelo o el cliente.**
 
+**La revisión adversarial de 92d23e11d (el Cerebro): cinco regresiones contra producción.**
+- **⚠️ El corte del «hecho» se comía las respuestas de LECTURA.** «He encontrado 2 reuniones», «He consultado tu CRM» o «Te
+  dejo detallados los 3 leads» salían como «Eso no lo llegué a hacer», y grababan `saneo:hecho`. Pasaba porque «he», «dejo» y
+  «ya quedó» aceptaban CUALQUIER participio.
+  · **Regla: el grupo corta sólo con participios de ESCRITURA** (`PARTICIPIO_ESCRITO`, los de `PRETERITOS`).
+  · «ya quedó + participio» no se corta si el turno leyó algo (`leyoDelTurno`): puede ser lo que leyó.
+  · El chat de la app quedó como en main.
+- **⚠️ Elegir a MaKo con la @ manda el JID de su línea, no la palabra «mako».** «@MaKo ¿cuántos leads?» se leía como una
+  mención «a otro», y en modo libre quedaba el 👍 sin respuesta.
+  · Ahora una mención a la línea que recibe (el `ownerJid`, por los últimos 10 dígitos) es nombrar a MaKo.
+  · Un `@lid` no se compara con un teléfono, y sin el número de la línea no se sabe: en esos casos MaKo contesta, como antes
+    de P8.
+  · El 👍 sigue la MISMA regla (`noEsParaMaKoAhora`).
+- **Lo leído de la foto entraba a `texto`, y `texto` alimenta los detectores.** La lista de un presupuesto en la imagen volvía
+  el pedido «cargar al plan». Lo leído va al bloque y a la memoria (`leidoDelAdjunto`), nunca al texto del pedido.
+- **`mako_acciones_pendientes` es de TODOS los canales** (`app:`, `app:flujo:`, `api:`). El vigía de los grupos filtra
+  `grupo_jid` a `@g.us`, en la consulta y en la función.
+- **`spend_usd` no son dólares.** Ya estaba cosechado en hallazgos-ads.md (`aUsdNum`), y el código nuevo lo usó igual. El
+  gasto del mes sale de `spend` y pasa a dólares con `aUsd`; sin tasa, se dice en su moneda.
+
 **Sin hacer:**
 - **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
   Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3

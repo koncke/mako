@@ -11,7 +11,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloquesDeAdjuntos } from '../lib/mako-adjuntos';
+import { bloquesDeAdjuntos, placeholderDeAdjunto } from '../lib/mako-adjuntos';
+import { clasificarIntencion } from '../lib/mako-intencion';
 import { textoDelAdjunto, TOPE_LECTURA_ADJUNTO } from '../lib/doer-hilo';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -42,5 +43,15 @@ test('3. el doer lee el adjunto ANTES de armar el turno, y lo deja en la memoria
   const j = doer.indexOf('mediaBlocks = bloquesDeAdjuntos(');
   assert.ok(i > 0 && j > i, 'el doer arma el turno sin leer la imagen');
   assert.match(doer.slice(j, j + 220), /\[textoDirecto \|\| adjunto\.caption, loQueDice\]\.filter\(Boolean\)/);
-  assert.match(doer, /texto = \[placeholderDeAdjunto\(adjunto\.tipo, adjunto\.caption, textoDirecto\), loQueDice \? loQueDice\.slice\(0, 600\) : ''\]/);
+  // Lo leído va a la MEMORIA, no a `texto`: los detectores del pedido leen el placeholder (la revisión de 92d23e11d).
+  assert.match(doer, /texto = placeholderDeAdjunto\(adjunto\.tipo, adjunto\.caption, textoDirecto\);\n\s*leidoDelAdjunto = loQueDice \? loQueDice\.slice\(0, 600\) : '';/);
+  assert.match(doer, /await guardarTurno\(wsData, jid, 'user', \[texto, leidoDelAdjunto\]\.filter\(Boolean\)\.join\('\\n'\), msgId\);/);
+});
+
+test('4. la lista que trae la foto no vuelve el pedido «cargar al plan»: el clasificador lee lo que escribió la persona', () => {
+  // El presupuesto de la revisión adversarial: con lo leído adentro de `texto`, «¿qué te parece?» se volvía un volcado al plan.
+  const placeholder = placeholderDeAdjunto('image', '', 'mako, ¿qué te parece?');
+  const leido = textoDelAdjunto('1. Landing US$ 300\n2. Campaña Meta US$ 500\n3. Mantenimiento US$ 100', 'image');
+  assert.equal(clasificarIntencion([placeholder, leido].join('\n'), {}).intencion, 'capturar', 'el caso ya no muestra el peligro: revisar el test');
+  assert.notEqual(clasificarIntencion(placeholder, {}).intencion, 'capturar');
 });

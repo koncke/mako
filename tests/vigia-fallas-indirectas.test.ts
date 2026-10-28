@@ -8,7 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { incidentesDe, incidentesDeVencidas, noPuedeDe, quejaDe, ROTULO_INCIDENTE, type FilaPendiente, type FilaUso } from '../lib/vigia-mako-grupos';
+import { incidentesDe, incidentesDeVencidas, noPuedeDe, quejaDe, ROTULO_INCIDENTE, SOLO_GRUPOS, type FilaPendiente, type FilaUso } from '../lib/vigia-mako-grupos';
 import { sanearSalida, SANEO_HECHO } from '../lib/doer-salida';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
@@ -56,4 +56,13 @@ test('5. una propuesta que venció sin el «sí» es un incidente; la vigente y 
   const ruta = leer('app/api/cron/vigia-grupos/route.ts');
   assert.match(ruta, /leerTodo<FilaPendiente>\(db, 'mako_acciones_pendientes'/);
   assert.match(ruta, /\.\.\.incidentesDeVencidas\(pend, ahora\)/);
+});
+
+test('5b. sólo las propuestas de un GRUPO: una tarjeta de la app, un paso de una automatización o la API no son una falla de WhatsApp', () => {
+  // La revisión adversarial de 92d23e11d: la tabla guarda también `app:<sesión>`, `app:flujo:…` y `api:<ws>`.
+  const p = (id: number, grupo_jid: string): FilaPendiente => ({ id, workspace_id: 13, grupo_jid, tipo: 'crear_tarea', resumen: 'Crear una tarea', estado: 'pendiente', vence_at: '2026-10-26T16:30:00Z', origen: 'app' });
+  const inc = incidentesDeVencidas([p(1, 'app:4567'), p(2, 'app:flujo:aviso:12'), p(3, 'api:13'), p(4, G)], Date.parse('2026-10-26T17:00:00Z'));
+  assert.deepEqual(inc.map((i) => i.clave), ['pend:4']);
+  assert.equal(SOLO_GRUPOS, '%@g.us');
+  assert.match(leer('app/api/cron/vigia-grupos/route.ts'), /\.in\('estado', \['pendiente', 'vencida'\]\)\.like\('grupo_jid', SOLO_GRUPOS\)/);
 });

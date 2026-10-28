@@ -230,12 +230,13 @@ test('el 👍 sale ANTES de procesar, sin esperarlo, y no a un eco ni a una re-e
 });
 
 test('el 👍 va sólo a lo que MaKo va a contestar (prendido y enganchado), como la regla de `procesarDoer`', () => {
-  assert.match(BUFFER, /const engancha = activo && !soloClave && \(!!audio \|\| !!adjunto \|\| \(await enganchaElTexto\(wsData, jid, texto\)\)\);/);
+  // Desde el 27/10/2026 la regla recibe a quién mencionan (una @mención a la línea de MaKo es nombrarla, tests/doer-para-quien).
+  assert.match(BUFFER, /const engancha = activo && !soloClave && \(!!audio \|\| !!adjunto \|\| \(await enganchaElTexto\(wsData, jid, texto, await mencionadosEn\(instance, data\)\)\)\);/);
   assert.match(BUFFER, new RegExp(`const reaccion = engancha \\? ${REACCION.replace(/[().]/g, '\\$&')}`));
   // La regla del texto es la de `procesarDoer`: el modo, el nombre, la ventana y las pendientes.
   const regla = cuerpo('async function enganchaElTexto(');
   for (const parte of ["=== 'libre'", 'nombraAMaKo(texto)', 'ventanaVigente(', 'pendientesVigentes(']) assert.ok(regla.includes(parte), parte);
-  assert.match(PROCESAR, /const enganchaTexto = modo === 'libre' \|\| nombraAMaKo\(textoDirecto\) \|\| abierta \|\| vigentes\.length > 0;/);
+  assert.match(PROCESAR, /const enganchaTexto = modo === 'libre' \|\| nombraAMaKo\(textoDirecto\) \|\| quien\.aMaKo \|\| abierta \|\| vigentes\.length > 0;/);
 });
 
 test('ningún acuse de texto: lo único que el lote manda por su cuenta es el aviso de la clave tapada', () => {

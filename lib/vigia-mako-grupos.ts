@@ -146,6 +146,9 @@ export function incidentesDe(conv: FilaConv[], usos: FilaUso[], ahora: number): 
   return out.sort((a, b) => a.at.localeCompare(b.at));
 }
 
+/** El `like` de `grupo_jid` que deja sólo las propuestas hechas en un grupo de WhatsApp (`incidentesDeVencidas`). */
+export const SOLO_GRUPOS = '%@g.us';
+
 /** Una fila de `mako_acciones_pendientes` (mig 0085): lo que MaKo dejó esperando el «sí». */
 export type FilaPendiente = { id: number; workspace_id: number; grupo_jid: string; tipo: string; resumen: string; estado: string; vence_at: string; origen: string | null };
 
@@ -153,9 +156,13 @@ export type FilaPendiente = { id: number; workspace_id: number; grupo_jid: strin
  * Las propuestas que vencieron sin que nadie dijera «sí» (27/10/2026, P10): el ticket de Leila quedó propuesto y ella creyó
  * que estaba levantado. `estado` 'vencida' lo pone `vencerExpiradas` recién cuando alguien lee el grupo, así que una
  * 'pendiente' con `vence_at` pasado TAMBIÉN venció. Una por propuesta, a la hora en que venció.
+ * ⚠️ SÓLO LAS DE UN GRUPO (`…@g.us`): la misma tabla guarda las tarjetas del chat de la app (`app:<sesión>`), los pasos de
+ * una automatización (`app:flujo:…`) y la API (`api:<ws>`), y una tarjeta de la app que nadie tocó no es una falla de MaKo
+ * en WhatsApp (la revisión adversarial de 92d23e11d). La ruta del cron filtra igual en la consulta (`SOLO_GRUPOS`).
  */
 export function incidentesDeVencidas(filas: readonly FilaPendiente[], ahora: number): Incidente[] {
   return filas
+    .filter((p) => p.grupo_jid?.endsWith('@g.us'))
     .filter((p) => (p.estado === 'pendiente' || p.estado === 'vencida') && Date.parse(p.vence_at) <= ahora)
     .map((p) => ({
       clave: `pend:${p.id}`, tipos: ['vencida'] as TipoIncidente[], ws: p.workspace_id, grupo: p.grupo_jid, at: p.vence_at,

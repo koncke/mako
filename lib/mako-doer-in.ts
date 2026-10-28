@@ -45,7 +45,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, quienesMencionados, type Mencionados } from '@/lib/doer-para-quien';
 import { bloqueDeLaFalla, pideVerAgenda, reportaFalla } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -57,7 +57,7 @@ import { sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
 import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN } from '@/lib/mako-grupo';
-import { enviarPresencia, fetchMediaBase64EnInstancia } from '@/lib/evolution';
+import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
@@ -549,12 +549,46 @@ export async function manejarEntranteDoer(instance: string, data: MsgIn): Promis
   return runWithWorkspace(wsData, () => bufferearYResponder(wsData, instance, tapado.mensaje, tapado));
 }
 
-/** ¿Un texto engancha a MaKo en este grupo? La regla de `procesarDoer` (`enganchaTexto`), en orden de costo: el modo y el
- *  nombre no leen nada más, la ventana es un setting y las pendientes son una consulta. */
-async function enganchaElTexto(wsData: number, jid: string, texto: string): Promise<boolean> {
-  if ((await modoDoer(OWNER_WS, jid)) === 'libre' || nombraAMaKo(texto)) return true;
-  if (await ventanaVigente(OWNER_WS, jid)) return true;
-  return (await pendientesVigentes(wsData, jid)).length > 0;
+/** El número de la línea que recibe, por instancia y por proceso (10 min; 1 min si no se pudo leer): reconocer una @mención
+ *  a MaKo no le pide a Evolution en cada mensaje. */
+const NUMERO_DE_LA_LINEA = new Map<string, { numero: string | null; hasta: number }>();
+async function numeroDeLaLinea(instance: string): Promise<string | null> {
+  const ya = NUMERO_DE_LA_LINEA.get(instance);
+  if (ya && ya.hasta > Date.now()) return ya.numero;
+  const numero = await numeroDeInstancia(instance).catch(() => null);
+  NUMERO_DE_LA_LINEA.set(instance, { numero, hasta: Date.now() + (numero ? 10 : 1) * 60_000 });
+  return numero;
+}
+
+/** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
+async function mencionadosEn(instance: string, data: MsgIn): Promise<Mencionados> {
+  const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
+  return menciones.length ? quienesMencionados(menciones, await numeroDeLaLinea(instance)) : { aMaKo: false, aOtros: [] };
+}
+
+/**
+ * Por qué un texto del grupo NO es para MaKo (un acuse puro, una @mención a otra persona), o null. La MISMA regla para el 👍 y
+ * para el turno (la revisión adversarial de 92d23e11d: el 👍 salía a un «gracias» y después no venía nada). Lo barato
+ * primero; las pendientes y la memoria (¿MaKo acaba de preguntar? el «ok» es un sí) sólo si el texto lo pide.
+ */
+async function noEsParaMaKoAhora(wsData: number, jid: string, texto: string, quien: Mencionados, hayPendientes: () => Promise<boolean>): Promise<string | null> {
+  if (nombraAMaKo(texto) || quien.aMaKo) return null;
+  const candidato = noEsParaMaKo({ texto, menciones: quien.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
+  if (!candidato || (await hayPendientes())) return null;
+  const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
+  const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
+  return pregunto ? null : candidato;
+}
+
+/** ¿Un texto engancha a MaKo en este grupo? La regla de `procesarDoer` (`enganchaTexto` y lo que no es para MaKo), en orden
+ *  de costo: el modo y el nombre no leen nada más, la ventana es un setting y las pendientes son una consulta. Una @mención a
+ *  la línea de MaKo es nombrarla. */
+async function enganchaElTexto(wsData: number, jid: string, texto: string, quien: Mencionados): Promise<boolean> {
+  let hay: Promise<boolean> | null = null;
+  const pendientes = () => (hay ??= pendientesVigentes(wsData, jid).then((v) => v.length > 0));
+  const engancha = (await modoDoer(OWNER_WS, jid)) === 'libre' || nombraAMaKo(texto) || quien.aMaKo
+    || (await ventanaVigente(OWNER_WS, jid)) || (await pendientes());
+  return engancha && !(await noEsParaMaKoAhora(wsData, jid, texto, quien, pendientes));
 }
 
 /** Lo que dejó el acuse del que ganó el candado: si ya dijo la frase de espera (el 👍 falló y el pedido se sabía largo). */
@@ -650,7 +684,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // siempre; el texto, por el modo, el nombre, la ventana o una pendiente), en orden de costo. Sale sin esperar: lo que
   // pase con él lo mira abajo, en paralelo, el que gana el candado (`acusarSiNoReacciono`).
   const activo = await doerActivo(OWNER_WS);
-  const engancha = activo && !soloClave && (!!audio || !!adjunto || (await enganchaElTexto(wsData, jid, texto)));
+  const engancha = activo && !soloClave && (!!audio || !!adjunto || (await enganchaElTexto(wsData, jid, texto, await mencionadosEn(instance, data))));
   const reaccion = engancha ? reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO).catch(() => false) : null;
 
   // La clave tapada se le dice YA, con el link a su conexión (WA2). El mensaje con la clave sigue en el grupo (MaKo no borra
@@ -862,19 +896,16 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const esMedia = !!audio || !!adjunto; // nota de voz / imagen / PDF = deliberado
     const vigentes = await pendientesVigentes(wsData, jid);
     const abierta = modo === 'ventana' ? await ventanaVigente(OPS, jid) : false;
-    const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || abierta || vigentes.length > 0;
+    // Una @mención a la línea de MaKo (elegir su contacto con la @) es nombrarla (la revisión adversarial de 92d23e11d).
+    const quien: Mencionados = esMedia ? { aMaKo: false, aOtros: [] } : await mencionadosEn(instance, data);
+    const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || quien.aMaKo || abierta || vigentes.length > 0;
     if (!esMedia && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
     // ── LO QUE NO ES PARA MaKo, NI EN «LIBRE» (27/10/2026, lib/doer-para-quien.ts) ──────────────────────────────────────
-    // Un «ok» o un «gracias» sueltos, o una @mención a otra persona: ~16 de 58 turnos contestaban eso. El 👍 ya salió. Con una
-    // pregunta de MaKo recién hecha (el «ok» es un sí) o algo pendiente, corre como siempre: la memoria se lee sólo entonces.
-    if (!esMedia && !nombraAMaKo(textoDirecto) && !vigentes.length) {
-      const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
-      const candidato = noEsParaMaKo({ texto: textoDirecto, menciones, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
-      if (candidato) {
-        const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
-        const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
-        if (!pregunto) return { engaged: false, skip: `no es para MaKo (${candidato})` };
-      }
+    // Un «ok» o un «gracias» sueltos, o una @mención a otra persona: ~16 de 58 turnos contestaban eso. Con una pregunta de
+    // MaKo recién hecha (el «ok» es un sí) o algo pendiente, corre como siempre. La MISMA regla decide el 👍 (`enganchaElTexto`).
+    if (!esMedia) {
+      const noEs = await noEsParaMaKoAhora(wsData, jid, textoDirecto, quien, async () => vigentes.length > 0);
+      if (noEs) return { engaged: false, skip: `no es para MaKo (${noEs})` };
     }
 
     // Marcar tratado + renovar la ventana (sliding) ANTES de responder.
@@ -891,6 +922,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Resolver el texto: si vino como NOTA DE VOZ, transcribir (pidiendo el base64 a
     // la instancia si el webhook no lo adjuntó inline).
     let texto = textoDirecto;
+    /** Lo que se leyó de la foto o el PDF, SÓLO para la memoria del grupo: si entraba a `texto`, la lista de un presupuesto
+     *  en la imagen se volvía «cargar al plan» (`esCargaDePlan`, el clasificador; la revisión adversarial de 92d23e11d). */
+    let leidoDelAdjunto = '';
     if (!texto && audio) {
       let b64 = audio.base64;
       if (!b64 && msgId) {
@@ -1014,8 +1048,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         ).catch(() => null);
         const loQueDice = textoDelAdjunto(leida?.texto, adjunto.tipo);
         mediaBlocks = bloquesDeAdjuntos([{ tipo: adjunto.tipo, mime: adjunto.mime, base64: b64 }], [textoDirecto || adjunto.caption, loQueDice].filter(Boolean).join('\n\n'));
-        // Para la memoria, el placeholder y el comienzo de lo que decía: «¿qué decía la foto?» se contesta en el turno siguiente.
-        texto = [placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto), loQueDice ? loQueDice.slice(0, 600) : ''].filter(Boolean).join('\n');
+        // Los detectores del pedido leen el placeholder, como antes; la memoria guarda además el comienzo de lo que decía:
+        // «¿qué decía la foto?» se contesta en el turno siguiente.
+        texto = placeholderDeAdjunto(adjunto.tipo, adjunto.caption, textoDirecto);
+        leidoDelAdjunto = loQueDice ? loQueDice.slice(0, 600) : '';
       }
     }
 
@@ -1391,6 +1427,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     /** Lo que el turno ESCRIBIÓ de verdad (no una lectura, no una propuesta que espera el «sí», no un error): es lo único que
      *  respalda un «ya lo hice» en el grupo (`enElGrupo` de `sanearSalida`, 27/10/2026). */
     let escribioDelTurno = 0;
+    /** Si corrió una LECTURA: «Juan ya quedó agendado para el lunes» puede ser lo que leyó, y el saneo del grupo lo deja. */
+    let leyoDelTurno = false;
     /**
      * LO QUE EL TURNO DEJÓ ESPERANDO UN «SÍ», por id (24/10/2026, el ws15): si el turno muere después, el cartel lo
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
@@ -1411,6 +1449,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
+      else if (!escribeDeVerdad(name)) leyoDelTurno = true;
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
@@ -1495,7 +1534,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     }
     const msgs: RichMsg[] = [...historialMarcado, { role: 'user', content: userContent }];
     // Guardar el turno del usuario ANTES de la IA (así queda aunque falle).
-    await guardarTurno(wsData, jid, 'user', texto, msgId);
+    await guardarTurno(wsData, jid, 'user', [texto, leidoDelAdjunto].filter(Boolean).join('\n'), msgId);
 
     // (el acuse instantáneo ya salió arriba; el router ya corrió arriba para el contexto)
     const recorte = texto.slice(0, 80);
@@ -2192,7 +2231,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // breves te digo qué cambiar»): la espera la dice el código, antes y sólo si lleva tiempo (24/10/2026).
       const saneo = sanearSalida(respuesta, {
         corrioHerramientas: corridasDelTurno > 0, finDeTurno: true,
-        enElGrupo: { respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno.size > 0 },
+        enElGrupo: { respaldado: escribioDelTurno > 0, propuesto: propuestasDelTurno.size > 0, leyo: leyoDelTurno },
       });
       // ⚠️ El «hecho» sin respaldo del grupo (`sinRespaldo`) también: sin él en la condición, `sanearSalida` lo sacaba y
       // el texto saneado no se mandaba (27/10/2026). Su fila es `saneo:hecho`, la que el vigía cuenta como «hecho sin acción».
