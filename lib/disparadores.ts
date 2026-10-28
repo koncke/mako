@@ -204,7 +204,7 @@ export type SubtipoMako = 'reunion_pronto' | 'lead_contesta' | 'cuota_vencida' |
   | 'whatsapp_caido' | 'whatsapp_desvinculado' | 'whatsapp_volvio' | 'reunion_grabada' | 'reporte_semanal' | 'oferta_lista'
   | 'meta_cuenta_frenada' | 'meta_cuenta_recuperada' | 'reunion_cancelada' | 'lead_fusionado' | 'curso_recordatorio'
   | 'flow_puente_ausente' | 'tracking_apagado' | 'pixel_viejo' | 'landing_cambio' | 'lead_de_landing' | 'prueba_recibida' | 'prueba_grabada' | 'lead_formulario_meta'
-  | 'reunion_tareas_al_plan' | 'closing_ia_caida';
+  | 'reunion_tareas_al_plan' | 'closing_ia_caida' | 'social_tope';
 
 /**
  * PARA QUÉ LE ESCRIBE A LA PERSONA un evento de una PERSONA (15/10/2026, docs/diseno-2fa-obligatorio.md §8): lo DECLARA
@@ -234,7 +234,7 @@ export type PropositoPersona = 'restablecer' | 'aviso' | 'codigo';
  * dejarían de salir. Ni `apagado`: eso las frenaría al guardar.
  */
 export type EventoMako = EventoCanal & {
-  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida'>; retirado?: true;
+  subtipo: SubtipoMako; aviso: string; trae: ReadonlyArray<'lead' | 'mensaje' | 'cuota' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope'>; retirado?: true;
   /**
    * UN MENSAJE DE MaKo A SUS CLIENTES (15/10/2026, el 2 de las doce: «un Mensaje de MaKo ES una automatización»): lo
    * emite el negocio X (su línea se cayó), pero lo corren las automatizaciones de la PLATAFORMA, y su tarjeta «MaKo en
@@ -335,6 +335,11 @@ export const EVENTOS_MAKO: readonly EventoMako[] = [
   // borrada o sin permiso. Lo emite el Closing (lib/closing-ia-caida.ts) UNA vez por incidente, con los datos
   // (`datosIaCaida`). El texto de cada motivo, literal, lo elige la CONDITION de su fila (`ia_caida_motivo`).
   { subtipo: 'closing_ia_caida', aviso: 'closing-ia-caida', label: 'El Claude de un negocio no puede analizar sus llamadas', trae: ['iacaida'], plataforma: true },
+  // INSTAGRAM O ZERNIO FRENAN LOS MENSAJES DE UN NEGOCIO (28/10/2026, Leandro: «que MaKo me avise antes de que se trabe»). Lo
+  // emite el motor al final de una corrida que se topó con un tope (o que se acerca al de Meta), no más de uno por hora
+  // (`avisarTopesSociales`, lib/nutricion.ts), con los datos (`datosTopeSocial`, lib/tope-social.ts). Lo que no salió no
+  // se pierde: vuelve a salir solo. El texto de «frenado» y de «cerca» lo elige la CONDITION de su fila (`tope_estado`).
+  { subtipo: 'social_tope', aviso: 'social-tope', label: 'Instagram o Zernio frenan los mensajes de un negocio', trae: ['tope'], plataforma: true },
 ];
 
 /**

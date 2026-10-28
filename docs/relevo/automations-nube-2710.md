@@ -118,5 +118,8 @@ g) Mensajes al Cerebro por mensaje cruzado, cortos: qué quedó, sha, cómo se p
     que hay que cambiarle, después del despliegue (escribir en su negocio: no lo hice): en el CRON, palabras «pruebafm»
     (o «fiesta», «guía»); sacar esa CONDITION (la tarjeta `nxwrr0r`); en «Enviado, mira tus mensajes» (`nifhef7`) prender
     «Responder en público»; y activarla. La prueba de punta a punta, en memoria y sin mandar nada, da verde.
-  - **Ticket #17:** sin probar con un comentario de verdad. El #12 (mismo texto) no lleva hito: decidí vos si
+  - **Ticket #17:** sin probar con un comentario de verdad.
+  - **El tope de Instagram (Leandro, 28/10):** el aviso sale por el evento de la plataforma `social_tope` y NO sale hasta que
+    exista su fila prendida en el ws 9: después del deploy, `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=social_tope`
+    (escribir en producción). Que no se pierdan los mensajes anda sin la fila. El #12 (mismo texto) no lleva hito: decidí vos si
     se cierra con el mismo aviso.

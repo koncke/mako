@@ -3081,4 +3081,22 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "28 oct", hora: "19:00", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "correccion",
+    titulo: "Instagram: con el tope, los mensajes esperan y MaKo avisa",
+    puntos: [
+      "Leandro preguntó si hay un límite: Instagram deja 750 respuestas a comentarios por hora y por cuenta.",
+      "Si se llega al tope, los mensajes ya no se pierden: esperan y salen solos cuando Instagram deja.",
+      "MaKo avisa al grupo una vez, con cuántos esperan y cuándo salen, y también antes de llegar al tope.",
+    ],
+    archivos: [
+      "lib/zernio-tope.ts — qué es un tope y cuánto esperar",
+      "lib/canal-zernio.ts — el envío espera en vez de perderse",
+      "lib/tope-social.ts y lib/nutricion.ts — el aviso",
+      "tests/tope-social.test.ts — probado rompiéndolo",
+    ],
+    revisar: "/automations",
+  },
 ];

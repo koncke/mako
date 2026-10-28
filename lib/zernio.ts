@@ -30,6 +30,7 @@
 // lib/webhook-routing.ts.
 
 import 'server-only';
+import { esperaDeRetryAfter, topeDeError, type TopeSocial } from './zernio-tope';
 import { credDelClienteEstricta, credWsEstricta, envCred } from './credenciales';
 import { getSupabaseServer } from './supabase';
 import { OWNER_WS } from './workspace';
@@ -82,15 +83,29 @@ export class ZernioError extends Error {
   readonly code: string | null;
   readonly type: string | null;
   readonly body: ZernioErrorBody | null;
+  /** Cuánto pide esperar Zernio antes de reintentar (`Retry-After`, 28/10/2026: el tope de Leandro). null = no lo dijo. */
+  readonly esperaMs: number | null;
+  /** Cuántos pedidos le quedan a la key en la ventana (`X-RateLimit-Remaining`). null = no lo dijo. */
+  readonly restantes: number | null;
 
-  constructor(message: string, status: number, body: ZernioErrorBody | null) {
+  constructor(message: string, status: number, body: ZernioErrorBody | null, cabeceras: { esperaMs?: number | null; restantes?: number | null } = {}) {
     super(message);
     this.name = 'ZernioError';
     this.status = status;
     this.code = body?.code ?? null;
     this.type = body?.type ?? null;
     this.body = body;
+    this.esperaMs = cabeceras.esperaMs ?? null;
+    this.restantes = cabeceras.restantes ?? null;
   }
+}
+
+// EL TOPE (28/10/2026, Leandro): lo puro vive en lib/zernio-tope.ts (lo prueba el test sin este módulo, que es server-only).
+export { esperaDeRetryAfter, ESPERA_TOPE_META_MS, ESPERA_TOPE_ZERNIO_MS, type TopeSocial } from './zernio-tope';
+
+/** ¿Este error de Zernio es un TOPE (de Zernio o de Meta)? Ver `topeDeError`. */
+export function topeDe(e: unknown): TopeSocial | null {
+  return e instanceof ZernioError ? topeDeError(e) : null;
 }
 
 // ── Config por workspace ─────────────────────────────────────────────────────
@@ -140,7 +155,12 @@ export async function zFetch<T>(apiKey: string, path: string, init?: RequestInit
   try { body = text ? JSON.parse(text) : null; } catch { body = null; }
   if (!res.ok) {
     const b: ZernioErrorBody = body != null && typeof body === 'object' ? (body as ZernioErrorBody) : { error: text.slice(0, 300) };
-    throw new ZernioError(`Zernio ${res.status}: ${b.error ?? text.slice(0, 200)}`, res.status, b);
+    // El TOPE (28/10/2026): cuánto esperar y cuánto queda, de las cabeceras (docs.zernio.com/rate-limits). Las lee `topeDe`.
+    const restantes = Number(res.headers.get('x-ratelimit-remaining'));
+    throw new ZernioError(`Zernio ${res.status}: ${b.error ?? text.slice(0, 200)}`, res.status, b, {
+      esperaMs: esperaDeRetryAfter(res.headers.get('retry-after')),
+      restantes: res.headers.get('x-ratelimit-remaining') != null && Number.isFinite(restantes) ? restantes : null,
+    });
   }
   if (body == null) throw new ZernioError(`Zernio: respuesta no-JSON en ${path}`, res.status, { error: text.slice(0, 300) });
   // ⚠️ UN 200 NO ES «SALIÓ BIEN» (AGENTS.md): si el envelope trae `success: false`, es un fallo.
@@ -466,6 +486,9 @@ export async function estadosDeSeguimiento(
  */
 export function esLimiteDeMeta(e: unknown): boolean {
   if (!(e instanceof ZernioError)) return false;
+  // ⚠️ UN TOPE NO ES «META NO DEJA» (28/10/2026): pasa solo. Sin esto, un «muchos pedidos» de Meta (un 400 `platform_error`)
+  // caía en la última regla y CERRABA el hilo: el mensaje se perdía. Lo decide `topeDe`, y quien llama reintenta.
+  if (topeDe(e)) return false;
   const d = e.body?.details as { privateReplyConsumed?: unknown } | undefined;
   return e.code === 'PLATFORM_LIMITATION' || e.code === 'not_thread_owner' || d?.privateReplyConsumed === true
     || (e.status === 400 && e.type === 'platform_error');

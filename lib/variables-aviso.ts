@@ -109,7 +109,7 @@ export function tramosConVariables(linea: string): Array<{ txt: string; esVar: b
  */
 export type FuenteDato = 'nombre' | 'ficha' | 'zona' | 'producto' | 'etiquetas' | 'pagos' | 'curso'
   | 'perfil' | 'lead_magnet' | 'momento' | 'negocio' | 'links' | 'evento' | 'cuota' | 'cobro'
-  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida';
+  | 'proxima' | 'respuestas' | 'pago' | 'escrito' | 'analisis' | 'cuenta' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope';
 
 /**
  * A quién le llega el mensaje: al lead (las automatizaciones), al equipo (MaKo en WhatsApp) o a un USUARIO de MaKo
@@ -171,7 +171,7 @@ export type VariableAviso = {
    * · `iacaida` — necesita LA CUENTA DE CLAUDE del negocio que no pudo analizar sus llamadas (el evento de la plataforma
    *               `closing_ia_caida`): lo pasa el Closing (`datosIaCaida`, lib/closing-ia-caida-reglas.ts).
    */
-  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida';
+  alcance: 'siempre' | 'lead' | 'cuota' | 'mensaje' | 'pago' | 'escrito' | 'analisis' | 'restablecer' | 'linea' | 'grabacion' | 'cancelada' | 'fusion' | 'recordatorio' | 'flow' | 'tracking' | 'pixel' | 'landing' | 'optin' | 'prueba' | 'grabaciones' | 'meta' | 'reporte' | 'oferta' | 'anuncios' | 'reunionplan' | 'iacaida' | 'tope';
   /**
    * UN DATO SECRETO (15/10/2026, docs/diseno-2fa-obligatorio.md §3 y §8): el link de restablecer la contraseña (y
    * después el código del 2FA por correo). Sale SÓLO en el mail a la persona y NUNCA se guarda: `sinSecretos` lo saca
@@ -499,6 +499,18 @@ export const VARIABLES_AVISO: VariableAviso[] = [
   { key: 'ia_caida_desde', label: 'Desde cuándo', ejemplo: '8 de octubre', alcance: 'iacaida', grupo: 'reuniones', rama: 'Su Claude no analiza', fuente: 'iacaida', soloPara: 'equipo' },
   { key: 'ia_caida_pendientes', label: 'Las llamadas que esperan', ejemplo: '12 llamadas', alcance: 'iacaida', grupo: 'reuniones', rama: 'Su Claude no analiza', fuente: 'iacaida', soloPara: 'equipo' },
   { key: 'ia_caida_link', label: 'Link para arreglarlo', ejemplo: 'https://hola-mako.com/integraciones?abrir=anthropic', alcance: 'iacaida', grupo: 'reuniones', rama: 'Su Claude no analiza', fuente: 'iacaida', soloPara: 'equipo' },
+  // ── EL TOPE de Instagram o Zernio que frenó los mensajes de un negocio (28/10/2026, el evento de la plataforma `social_tope`,
+  //    pedido de Leandro): lo pasa el motor (`datosTopeSocial`, lib/tope-social.ts). La CONDITION pregunta el ESTADO: frenado
+  //    (ya pasó, y salen solos) o cerca (se avisa ANTES del tope de Meta).
+  {
+    key: 'tope_estado', label: 'Qué pasa', ejemplo: 'frenado', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo',
+    condicion: { rotulo: ['Los mensajes están', 'Los mensajes no están'], tipo: 'opciones', opciones: [{ value: 'frenado', label: 'Frenados por un tope' }, { value: 'cerca', label: 'Cerca del tope de Meta' }] },
+  },
+  { key: 'tope_quien', label: 'Quién los frenó', ejemplo: 'Instagram', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo' },
+  { key: 'tope_canal', label: 'Por dónde', ejemplo: 'Instagram', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo' },
+  { key: 'tope_cuantos', label: 'Cuántos esperan', ejemplo: '37 mensajes', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo' },
+  { key: 'tope_espera', label: 'Cuándo salen', ejemplo: 'en 1 h', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo' },
+  { key: 'tope_limite', label: 'El tope de Meta', ejemplo: '750 por hora', alcance: 'tope', grupo: 'linea', rama: 'El tope de Instagram', fuente: 'tope', soloPara: 'equipo' },
   // ── El reporte de los lunes YA ARMADO (16/10/2026, el evento de la plataforma `reporte_semanal`): lo pasa el cron.
   //    Son los números del negocio (Meta, ventas, cobranza), por eso van en el Dashboard.
   { key: 'reporte_titulo', label: 'Título del reporte', ejemplo: 'Reporte semanal · 05/10/2026–11/10/2026', alcance: 'reporte', grupo: 'dashboard', rama: 'El reporte semanal', fuente: 'reporte', soloPara: 'equipo' },
@@ -693,6 +705,8 @@ export type ContextoDatos = {
   conReunionPlan?: boolean;
   /** La cuenta de Claude del negocio que no pudo analizar sus llamadas (el evento de la plataforma `closing_ia_caida`). */
   conIaCaida?: boolean;
+  /** El tope de Instagram o Zernio que frenó los mensajes de un negocio (el evento de la plataforma `social_tope`). */
+  conTope?: boolean;
   /** El link de restablecer la contraseña (sólo el evento `contrasena_restablecer`, y sólo al mail a la persona). */
   conRestablecer?: boolean;
 };
@@ -739,6 +753,7 @@ function alcanzaPara(a: VariableAviso['alcance'], opts: ContextoDatos): boolean 
   if (a === 'anuncios') return opts.conAnuncios === true;
   if (a === 'reunionplan') return opts.conReunionPlan === true;
   if (a === 'iacaida') return opts.conIaCaida === true;
+  if (a === 'tope') return opts.conTope === true;
   return false;
 }
 

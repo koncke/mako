@@ -52,6 +52,8 @@ import {
   TRIGGER_ETAPA, TRIGGER_ENTREGA, TRIGGER_ETIQUETA,
 } from '@/lib/nutricion-etapa';
 import { TRIGGER_RESIDUO, RESIDUO_POR_CORRIDA, RESIDUO_POR_DIA } from '@/lib/nutricion-residuo';
+// Los TOPES de Instagram y Messenger, dichos al negocio (Leandro, 28/10/2026).
+import { resumirTopes, cercaDelTopeDeMeta, datosTopeSocial, VENTANA_AVISO_TOPE_MIN, type TopeDeLaCorrida } from '@/lib/tope-social';
 // Los que YA están en la etapa al activar (Leila 2, 28/10/2026): la ventana de 90 días y lo que se cuenta.
 import { ultimoHitoMs, VENTANA_HITO_DIAS, type ExistentesEnEtapa } from '@/lib/etapa-existentes';
 import { cohorteResiduo, residuoVigente, horariosResiduo } from '@/lib/nutricion-residuo-cohorte';
@@ -4168,6 +4170,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
   const enviadoEnCorrida: EnviadoEnCorrida = new Map();
   // El workspace de la corrida, UNA vez: lo usan el nombre del negocio y cada acción.
   const wsCorrida = await getWorkspaceActual();
+  // Los TOPES de Instagram y Messenger de esta corrida, y cuántos DM salieron (28/10/2026, Leandro): al final, UN aviso.
+  const topesSociales: TopeDeLaCorrida[] = [];
+  let socialesEnviados = 0;
   // El nombre del negocio, UNA vez por corrida y no por lead: es del workspace, no de
   // la fila. Si no se puede leer, `{{negocio}}` sale crudo (no vacío) — ver
   // `valoresVariablesLead`.
@@ -5315,6 +5320,9 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             // La respuesta PÚBLICA al comentario (ticket #17): debajo del comentario, no por DM.
             ...(respondeEnComentario(paso) ? { enComentario: true } : {}),
           });
+          // Un TOPE no se pierde (vuelve a salir con el backoff de su espera) y se cuenta para el aviso de la corrida.
+          if (r.tope) topesSociales.push({ ...r.tope, canal: paso.canal });
+          if (r.ok) socialesEnviados += 1;
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
           textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
@@ -5751,9 +5759,42 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     res.esperaDespuesDeResponder = await seguirDespuesDeResponder(opts.soloLeadId, cortaSinTope);
   }
 
+  // El TOPE de Instagram o Zernio, dicho UNA vez por corrida (y no más de uno por hora): Leandro, 28/10/2026.
+  await avisarTopesSociales(wsCorrida, topesSociales, socialesEnviados);
+
   // Con el tope diario cumplido sólo corrieron acciones: el corte se sigue diciendo. Fuera del horario sólo corrió
   // el carril y «MaKo en WhatsApp» (M3 f): también se dice.
   return fueraDeHorario ? { ...res, saltado: fueraDeHorario } : presupuesto <= 0 ? { ...res, saltado: 'tope-diario' } : res;
+}
+
+/**
+ * EL AVISO DEL TOPE (28/10/2026, Leandro: «que MaKo me avise antes de que se trabe la automatización, para no encontrarme con
+ * mil mensajes sin responder»). Al final de una corrida:
+ *   · si algún DM o respuesta a un comentario se topó con el tope de Zernio o de Meta: cuántos esperan, de quién es el tope y
+ *     cuándo salen (vuelven a salir solos: `porTope`, lib/canal-zernio.ts);
+ *   · si ninguno se topó pero salieron mensajes, y lo que salió por Instagram o Messenger en la última hora ya está cerca del
+ *     tope de Meta (`cercaDelTopeDeMeta`): el aviso ANTES de llegar.
+ * UNO por estado y por hora (`reclamarEspaciado`): el motor corre cada minuto y un tope dura una hora. Sale por el evento de
+ * la plataforma `social_tope` (sin su fila en el ws 9 no sale nada: la regla del 16/10). Nunca tira.
+ */
+async function avisarTopesSociales(ws: number | null, topes: readonly TopeDeLaCorrida[], socialesEnviados: number): Promise<void> {
+  if (ws == null || (!topes.length && !socialesEnviados)) return;
+  try {
+    let resumen = resumirTopes(topes);
+    if (!resumen) {
+      const supabase = await getTenantDb();
+      const { count, error } = await supabase.from('nutricion_envios').select('id', { count: 'exact', head: true })
+        .in('canal', ['instagram', 'messenger']).eq('estado', 'enviado').gte('created_at', new Date(Date.now() - 3_600_000).toISOString());
+      if (error || !cercaDelTopeDeMeta(count ?? 0)) return;
+      resumen = { estado: 'cerca', quien: 'meta', canales: ['instagram'], cuantos: count ?? 0, esperaMs: 0 };
+    }
+    const { reclamarEspaciado } = await import('@/lib/espaciado');
+    if (!(await reclamarEspaciado(ws, 'social-tope', VENTANA_AVISO_TOPE_MIN, resumen.estado).catch(() => false))) return;
+    const { emitirEventoDePlataforma } = await import('@/lib/avisos');
+    await emitirEventoDePlataforma('social-tope', { ws, datos: datosTopeSocial(resumen) });
+  } catch (e) {
+    console.error(`[nutricion] el aviso del tope de Instagram (ws ${ws}): ${e instanceof Error ? e.message : String(e)}`);
+  }
 }
 
 // Pausa la nutrición de un lead cuando responde (webhook de Chatwoot y espejo

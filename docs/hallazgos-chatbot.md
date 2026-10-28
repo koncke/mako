@@ -27,6 +27,33 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Un tope de Meta CERRABA el hilo: el mensaje se perdía en vez de esperar (28/10/2026, Leandro)
+
+**El pedido** (Leandro, ws10, por audio): hace ~500 respuestas a comentarios y ~1.000 DMs por mes; ¿hay un límite? Y «que
+MaKo me avise ANTES de que se trabe la automatización, para no encontrarme con mil mensajes sin responder». Topes (el
+Cerebro): Meta, 750 respuestas privadas por hora y por cuenta (y 300 mensajes por segundo); Zernio, 60 pedidos por minuto con
+0-2 cuentas y 600 con 3+, con 429, `Retry-After` y `X-RateLimit-Remaining` (docs.zernio.com/rate-limits).
+
+**Lo obvio era sólo la mitad:** «falta un aviso». Medido en el código, había algo peor: un «muchos pedidos» de Meta llega como
+un 400 `platform_error`, y la última regla de `esLimiteDeMeta` («Meta no deja») lo tomaba como TERMINAL: cerraba el hilo y el
+mensaje se perdía. Y un 429 de Zernio se reintentaba en 4 h, sin mirar su `Retry-After` (que `zFetch` ni leía). Ojo: un 429
+de Zernio con `type: platform_error` («upstream platform quota») es el tope de META, no el de Zernio.
+
+**Lo hecho:** `topeDeError` (lib/zernio-tope.ts, puro) dice si es un tope y de quién, con la espera (`Retry-After`, o el minuto
+de Zernio, o la hora de Meta); `esLimiteDeMeta` lo excluye primero. Los tres envíos (DM, respuesta privada, respuesta pública)
+miran el tope ANTES que el rechazo: no cierran, no gastan la privada y vuelven a salir con su espera (`porTope`). El motor junta
+los topes de la corrida y avisa UNA vez al final (y no más de uno por estado y por hora), también ANTES del tope de Meta (600
+de 750 en la última hora), por el evento de la plataforma `social_tope` (`avisarTopesSociales`, lib/nutricion.ts).
+tests/tope-social.test.ts, 10 roturas en rojo.
+
+**Sobre 56be0692d («una cuenta frenada avisa una vez por día»):** es la cuenta PUBLICITARIA (lib/alerta-critica.ts, el evento
+`meta_cuenta_frenada`): mismo molde (evento de la plataforma con freno), otro tope. No cubría los mensajes.
+
+**Sin hacer:** el aviso no sale hasta que exista su fila en el ws 9 (`scripts/mudanza-avisos-plataforma.mts --eventos=social_tope`:
+escribir en producción, lo pide el Cerebro); la respuesta del AI Step (`contestarSolaPorRedes`) y la de «Si responde» por redes
+son de una vez: con un tope no se reintentan; `X-RateLimit-Remaining` se lee pero todavía no frena el ritmo antes del 429; el
+«cerca» cuenta lo que salió del negocio entero, no por cuenta de Instagram. Nunca corrió contra un tope real.
+
 ## El primer DM de Instagram no lo contestaba nadie: el AI Step esperaba el SEGUNDO (28/10/2026, la (a) del Cerebro)
 
 **El síntoma** (Teo, la llamada del 28/10): «la primera DM no la contesta el AI Step». Una automatización cuyo CRON es «envía

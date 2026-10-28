@@ -29,7 +29,7 @@
 import 'server-only';
 import { randomUUID } from 'node:crypto';
 import { getTenantDb, getWorkspaceActual } from './workspace';
-import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, estadosDeSeguimiento, ZernioError } from './zernio';
+import { enviarDm, responderComentario, responderComentarioEnPublico, esRechazoDelComentario, esLimiteDeMeta, estadosDeSeguimiento, topeDe, ZernioError, type TopeSocial } from './zernio';
 import {
   decidirSalida, decidirRespuestaPublica, plataformaDe, problemaDeAdjunto, tipoAdjuntoZernio, NOMBRE_CANAL, COLS_CONVERSACION_SOCIAL,
   conversacionDelPaso, conversacionDeFila, conversacionesPorLead, pedidoDeSeguimiento, canalDePlataforma, TOPE_TEXTO_SOCIAL,
@@ -67,7 +67,18 @@ export type ResultadoSocial = {
    * rechazó en una respuesta privada) y salió la línea «Escríbeme «…»». Ausente = la tarjeta no tiene.
    */
   botones?: 'botones' | 'texto';
+  /**
+   * EL TOPE que lo frenó (28/10/2026, Leandro: «que no me encuentre con mil mensajes sin responder»): el de Zernio o el de
+   * Meta. NO es terminal: el paso vuelve a salir cuando el tope lo deja (`backoffHoras` = su espera) y el motor lo cuenta
+   * para avisarle al negocio (`avisarTopesSociales`, lib/nutricion.ts).
+   */
+  tope?: TopeSocial;
 };
+
+/** El resultado de un envío que frenó un TOPE: no se pierde, vuelve a salir cuando pasa (como mínimo, en un minuto). */
+function porTope(t: TopeSocial, base: Pick<ResultadoSocial, 'salieron' | 'textos' | 'destino'>, e: unknown): ResultadoSocial {
+  return { ...base, ok: false, error: `tope de ${t.quien === 'meta' ? 'Meta' : 'Zernio'}: ${msg(e)}`, backoffHoras: Math.max(1 / 60, t.esperaMs / 3_600_000), tope: t };
+}
 
 /** La marca de una cuenta de Instagram que ya rechazó botones en una respuesta privada (lib/botones-social.ts). */
 const keyRechazaBotones = (cuentaId: string) => `zernio.botones_rechazados.${cuentaId}`;
@@ -219,6 +230,9 @@ export async function enviarPasoSocial(input: {
       await responderComentarioEnPublico(ws, { accountId: pub.cuentaId, postId: pub.postId, commentId: pub.comentarioId, texto, idempotencyKey: `${idempotencia}#publica` });
       return { ok: true, salieron: partes.length, textos: [texto], destino, ...(dejaAfuera ? { nota: 'respuesta en el comentario: sólo el texto' } : {}) };
     } catch (e) {
+      // Un TOPE primero (28/10/2026): un 422 o un 403 de Meta por «muchos pedidos» no es un rechazo, pasa solo.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
       if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true };
       return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
     }
@@ -247,6 +261,9 @@ export async function enviarPasoSocial(input: {
       const notas = [dejaAfuera ? 'respuesta privada: sólo el texto' : null, comoTexto ? 'la cuenta rechaza botones: salieron como texto' : null].filter(Boolean);
       return { ok: true, salieron: partes.length, textos: [final], destino, ...(notas.length ? { nota: notas.join('; ') } : {}), ...(botones.length ? { botones: comoTexto ? 'texto' as const : 'botones' as const } : {}) };
     } catch (e) {
+      // Un TOPE no gasta la respuesta privada (28/10/2026): vuelve a salir cuando pasa, sin marcarla usada.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
       // Meta rechazó los BOTONES porque no sigue la cuenta (1545133): la cuenta queda anotada y la próxima sale en texto.
       if (botones.length && !comoTexto && esRechazoDeBotones(e)) await anotarRechazoDeBotones(salida.cuentaId);
       // Gastada o rechazada por Meta: la respuesta privada de ESE comentario ya no existe.
@@ -286,6 +303,9 @@ export async function enviarPasoSocial(input: {
       }
       salieron = k + 1;
     } catch (e) {
+      // Un TOPE: lo que ya salió queda contado (`salieron`) y el resto sale cuando pasa, desde la parte que no salió.
+      const t = topeDe(e);
+      if (t) return porTope(t, { salieron, textos, destino }, e);
       if (esLimiteDeMeta(e)) return { ok: false, salieron, textos, destino, error: `${nombre}: ${msg(e)}`, terminal: true };
       const reintento = e instanceof ZernioError && e.status >= 400 && e.status < 500 && e.status !== 409 && e.status !== 429 ? 24 : 4;
       return { ok: false, salieron, textos, destino, error: msg(e), backoffHoras: reintento };
