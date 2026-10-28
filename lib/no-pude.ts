@@ -22,7 +22,7 @@
 // PURO y sin `server-only`: lo usan los chats, lib/no-existe.ts, lib/no-pude-server.ts y tests/no-pude.test.ts.
 // =============================================================================
 
-import { esReglaUOpinion } from './no-pude-frases';
+import { esFallaTragada, esReglaUOpinion } from './no-pude-frases';
 
 /** Por qué no se pudo. El orden de `causaDelNoPude` es el de esta lista, salvo las reglas (que no abren ticket). */
 export const CAUSAS_NO_PUDE = ['ejecucion', 'herramienta', 'ruteo', 'proveedor', 'configuracion', 'no-existe', 'texto'] as const;
@@ -72,7 +72,8 @@ export { esReglaUOpinion };
 
 /** Lo que el turno sabe de por qué no se pudo. Todo lo pone el CÓDIGO, salvo las dos marcas (las saca el código del texto). */
 export type SenalesNoPude = {
-  /** El «no» lo puso una guarda de MaKo (un 400 de una herramienta, una regla de rol, confirmar en pantalla): no hay ticket. */
+  /** El «no» lo puso una guarda de MaKo (un 400 de una herramienta, una regla de rol, confirmar en pantalla): el «no pude» no
+   *  abre ticket. Lo que NO existe sí sigue (con su ruteo, si lo hubo). */
   regla?: boolean;
   /** Una acción CONFIRMADA que falló al ejecutarse (lib/api-mako/acciones.ts). */
   ejecucion?: boolean;
@@ -92,7 +93,8 @@ export type SenalesNoPude = {
 
 /** La causa, o null si no hay ticket (una regla, una opinión, o nada que diga que no se pudo). */
 export function causaDelNoPude(s: SenalesNoPude): CausaNoPude | null {
-  if (s.regla) return null;
+  // La regla explica el «no pude», no lo que falta (base 7 de la revisión del 28/10/2026): queda lo que no existe, y su ruteo.
+  if (s.regla) return s.noExiste ? causaDelNoPude({ ruteo: s.ruteo, noExiste: s.noExiste }) : null;
   if (s.ejecucion) return 'ejecucion';
   if (s.herramienta) return 'herramienta';
   // El ruteo cuenta sólo si MaKo además DIJO que no pudo o que no existe (la revisión del 28/10/2026): si llamó algo que no viajó
@@ -103,6 +105,26 @@ export function causaDelNoPude(s: SenalesNoPude): CausaNoPude | null {
   if (s.noExiste) return 'no-existe';
   if (s.noPudo && !esReglaUOpinion(s.noPudo)) return 'texto';
   return null;
+}
+
+/**
+ * ¿La salida de una herramienta del turno es una GUARDA de MaKo? (base 7, 28/10/2026). Un 400 vuelve como TEXTO con `ok:false` y
+ * su `error`, sin isError (lib/api-mako/ejecutar.ts, `runnerDelRegistro`): un pedido que MaKo no deja hacer o al que le falta un
+ * dato. La heredada lo dice con «❌ …». Un isError (un 404, un 500) es una falla, y lo que un runner se TRAGÓ (el error técnico
+ * entre paréntesis, `esFallaTragada`) también: ninguno de los dos es una guarda.
+ */
+export function esGuardaDeHerramienta(out: unknown): boolean {
+  if (!out) return false;
+  const o = out as { isError?: unknown; content?: unknown };
+  if (typeof out === 'object' && o.isError === true) return false;
+  const t = (typeof out === 'string' ? out : typeof o.content === 'string' ? o.content : '').trim();
+  if (t.startsWith('❌')) return !esFallaTragada(t);
+  try {
+    const j = JSON.parse(t) as { ok?: unknown; error?: unknown };
+    return !!j && j.ok === false && typeof j.error === 'string' && !!j.error.trim() && !esFallaTragada(j.error);
+  } catch {
+    return false;
+  }
 }
 
 /** Un hash corto y estable (sin tildes ni mayúsculas): para no dejar un email o un jid en una columna única. */

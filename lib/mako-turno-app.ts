@@ -83,7 +83,7 @@ import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pis
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
-import { LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
+import { esGuardaDeHerramienta, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, placeholderDeAdjunto, promptDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
@@ -707,6 +707,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     let escribieron = 0;
     /** Lo que el modelo llamó y no viajó, aunque existe y la persona lo puede usar: un RUTEO (el ticket con su causa). */
     const noViajo: string[] = [];
+    /** Cuántas herramientas del turno devolvieron una GUARDA de MaKo (un 400: `esGuardaDeHerramienta`): el «no pude» es su regla. */
+    let guardas = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -736,6 +738,7 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       herramientaActual = name;
       const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
       memo.anotar(name, out);
+      if (esGuardaDeHerramienta(out)) guardas++;
       if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       if (porId(name)?.tipo === 'control' && salioBien(out)) escribieron++;
       const err = errorParaTicket(name, out);
@@ -950,7 +953,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // línea que lo dice la escribe el código. Repetido en la misma conversación: nada.
     if (respuesta) {
       // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
-      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      // Si una herramienta devolvió una GUARDA y nada falló de verdad ni hubo ruteo, el «no pude» es esa regla, la diga o no el
+      // modelo (base 7: el formato de la marca pide el QUÉ, no el porqué).
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: registroConTicket, regla: guardas > 0 && !erroresDelTurno.length && !noViajo.length }, dondeDelTurno, { operacion: noViajo[0] ?? null });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
     }
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).

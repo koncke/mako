@@ -121,6 +121,17 @@ async function main() {
   v.sinTicket = await conTicketsDeMaKo('No pude.\n\n[[no-pude: una cosa nueva]]', {}, { ...en15('v6'), ws: 16, actor: 'dueno16@negocio-de-prueba.com' });
   romperTickets = false;
   out.verificacion = v;
+
+  // ── base 7, la otra mitad (28/10/2026): la guarda de una herramienta del turno es una regla ─────────────────────────
+  // El formato de la marca pide el QUÉ, no el porqué: «No pude borrar el lead de Juan.» no dice ninguna regla. La señal la pone el
+  // turno cuando una herramienta devolvió una guarda. Otro negocio, para no tocar el tope de los de arriba.
+  const g7: Record<string, unknown> = {};
+  pg.db.workspaces.push({ id: 17, capa: 'cliente', nombre: 'Negocio 17' });
+  const en17 = (conv: string) => ({ ws: 17, actor: 'dueno17@negocio-de-prueba.com', nombre: 'Dueño', superficie: 'ops-center' as const, conv, pedido: 'algo' });
+  g7.sinSenal = await conTicketsDeMaKo('No pude borrar el lead de Juan.\n\n[[no-pude: borrar el lead de Juan]]', {}, en17('b7a'));
+  g7.guarda = await conTicketsDeMaKo('No pude borrar el lead de Juan.\n\n[[no-pude: borrar el lead de Juan]]', { regla: true }, en17('b7b'));
+  g7.guardaYNoExiste = await conTicketsDeMaKo('No pude borrarlo, y lo otro no existe.\n\n[[no-pude: borrar el lead de Juan]]\n[[no-existe: un tablero de comisiones]]', { regla: true }, en17('b7c'));
+  out.base7 = g7;
   process.stdout.write(`@@RESULTADO@@${JSON.stringify(out)}`);
 }
 

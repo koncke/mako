@@ -10642,6 +10642,9 @@ automáticamente un ticket»).** `REGLA_NO_EXISTE` lleva adentro `REGLA_NO_PUDE`
 lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no se pudo» pasa por ahí (o por `ticketDeNoPude` con
 su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
 título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
+Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
+`regla` a `conTicketsDeMaKo` cuando una devolvió una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin isError) y nada
+falló de verdad ni hubo ruteo, como lib/mako-turno-app.ts.
 
 ## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
 

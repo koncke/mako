@@ -768,3 +768,15 @@ había anotado como «sin hacer» era peor de lo que decía:
 **Sin hacer:** el barrido de los archivos huérfanos de `archivero/<ws>/tickets` (una conversación que no se levanta, una
 respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
 (lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.
+
+**La otra mitad de base 7 (28/10/2026, claude4): la guarda de una herramienta es una regla aunque el modelo no la explique.**
+- El formato de la marca pide el QUÉ («borrar el lead de Juan»), no el porqué: la red de TEXTO (`esReglaUOpinion` sobre la marca y
+  la oración que la explica) sólo ve la regla si el modelo la escribe. La señal que no depende del modelo es la salida de la
+  herramienta: un 400 vuelve como TEXTO con `ok:false` y su `error`, SIN isError (`runnerDelRegistro`, lib/api-mako/ejecutar.ts);
+  la heredada, como «❌ …». `esGuardaDeHerramienta` (lib/no-pude.ts) lo reconoce, y el turno de la app pasa `regla` cuando hubo
+  una y nada falló de verdad (isError) ni hubo ruteo: con cualquiera de los dos, el «no pude» puede ser de eso.
+- Lo que un runner se TRAGÓ también vuelve como 400 (el catch de `ejecutarOperacion` manda a 400 lo que no huele a
+  infraestructura): con el error técnico entre paréntesis (`esFallaTragada`) NO es una guarda.
+- `regla` apaga sólo el «no pude»: lo que no existe sigue, y con un ruteo es un ruteo (`causaDelNoPude`).
+**Sin hacer:** el doer de WhatsApp (lib/mako-doer-in.ts, `conTicketsDeMaKo` con `yaRegistrado`) y los chats que pasan por
+`conPedidoDeNoExiste` (Offer, Web Generator, los editores) todavía no pasan la señal: sus herramientas no corren por este turno.
