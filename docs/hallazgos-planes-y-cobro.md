@@ -1615,14 +1615,25 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   NO es un cobro de MaKo, y el de una prueba ni llega ahí: `avisoStripe` ignora antes el `checkout.session.completed` con
   `no_payment_required` (tests/cobros-eventos.test.ts). Esa rama no le manda una compra a Meta por empezar una prueba, ni
   mira el `invoice.paid` del día 8 (si otro camino, como el lead, le avisa a Meta del cobro, no está medido).
+- **El cobro del día 8 con el aviso perdido, ahora lo recupera el cron (28/10).** El cron le preguntaba a Stripe por la SESIÓN
+  del checkout, y la de una prueba queda `complete` / `no_payment_required` para siempre: lo que cobra el día 8 es una FACTURA
+  de la suscripción. Si el `invoice.paid` se perdía, la plata entraba y el cobro seguía pendiente (sin cuota ni lead ganado);
+  MP no tenía el hueco porque busca el pago por la referencia. Ahora `pagoDelLinkEnLaPasarela` lista las facturas pagadas de
+  la suscripción (`facturasPagadasStripe`) y toma la más VIEJA con plata de ESTE cobro (`primerCobroDeLaPrueba`, con el filtro
+  del aviso, `confirmarFactura`), **con el id de la factura**, el mismo que usa el `invoice.paid`: si el aviso llega después, no
+  es otra cuota. **La regla:** una pasarela que cobra DESPUÉS del checkout (prueba, cobro diferido) se reconcilia por lo que
+  cobra (la factura, el pago), nunca por la sesión, y con el id que usa su aviso. La ventana es la de siempre: 14 días desde
+  el último cambio del cobro (la activación), o sea del día 8 al 14.
 
-**Sin hacer:** el cron no recupera el cobro del día 8 de una prueba de Stripe si se pierde el `invoice.paid` (lee la sesión, que
-queda en `no_payment_required`; MP sí, buscando el pago por referencia). «Empezar mi plan ya» en Stripe abre otra suscripción
-como en MP, aunque Stripe podría terminar la prueba (`trial_end=now`). Medir en el ws9 si Stripe está conectada y en modo real.
+**Sin hacer:** «Empezar mi plan ya» en Stripe abre otra suscripción como en MP, aunque Stripe podría terminar la prueba
+(`trial_end=now`). Una renovación de Stripe (mes 2 en adelante) con el aviso perdido sigue sin cron: el cobro ya está pagado y
+el cron sólo mira pendientes (pasa igual con cualquier suscripción de Stripe, no sólo la de una prueba). Medir en el ws9 si
+Stripe está conectada y en modo real (lo mide el Cerebro, sólo leyendo).
 **Vive en:** lib/prueba-plan-reglas.ts (`PASARELAS_CON_PRUEBA`, `huellaStripe`) · lib/stripe-api.ts (`diasDePrueba`,
-`leerPruebaStripe`) · lib/cobros.ts (`crearCheckout`, `urlParaPagar`, `activarPruebaSiAutorizo`, `pruebaAutorizadaStripe`) ·
+`leerPruebaStripe`, `facturasPagadasStripe`) · lib/cobros.ts (`crearCheckout`, `urlParaPagar`, `activarPruebaSiAutorizo`,
+`pruebaAutorizadaStripe`, `pagoDelLinkEnLaPasarela`) · lib/cobros-eventos.ts (`primerCobroDeLaPrueba`) ·
 lib/compra-plan-reglas.ts (`pasarelasDelPais`, `paisDelVisitante`) · lib/compra-plan.ts · app/planes · app/api/planes/comprar ·
-tests/planes-stripe-afuera.test.ts.
+tests/planes-stripe-afuera.test.ts · tests/prueba-stripe-cobro-perdido.test.ts.
 
 ## La tabla de /planes para quien no sabe nada, y el scraper y Partners sólo en Pro (27/10/2026)
 

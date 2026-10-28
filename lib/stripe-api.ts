@@ -327,16 +327,12 @@ export type FacturaStripe = {
   suscripcion: string | null; metadata: Record<string, string>; email: string | null; modo: 'real' | 'prueba';
 };
 
-/** GET /v1/invoices/{id}. Desde basil la suscripción vive en `parent.subscription_details`. */
-export async function leerFacturaStripe(key: string, id: string): Promise<R<FacturaStripe>> {
-  const r = await llamar(key, 'GET', `/v1/invoices/${encodeURIComponent(id)}`);
-  if (!r.ok) return fallo(r);
-  const b = r.body;
+/** Una factura de Stripe. Desde basil la suscripción vive en `parent.subscription_details`. */
+function facturaDe(b: Json, id: string): FacturaStripe {
   const det = obj(obj(b.parent).subscription_details);
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const pagado = Number(b.amount_paid);
   return {
-    ok: true,
     id: str(b.id) ?? id,
     estado: str(b.status),
     montoPagado: moneda && Number.isFinite(pagado) ? deUnidadMinima(pagado, moneda) : null,
@@ -346,6 +342,33 @@ export async function leerFacturaStripe(key: string, id: string): Promise<R<Fact
     metadata: metadataDe(det.metadata),
     email: str(b.customer_email),
     modo: b.livemode === true ? 'real' : 'prueba',
+  };
+}
+
+/** GET /v1/invoices/{id}. */
+export async function leerFacturaStripe(key: string, id: string): Promise<R<FacturaStripe>> {
+  const r = await llamar(key, 'GET', `/v1/invoices/${encodeURIComponent(id)}`);
+  if (!r.ok) return fallo(r);
+  return { ok: true, ...facturaDe(r.body, id) };
+}
+
+/**
+ * Las facturas PAGADAS de una suscripción, de la más nueva a la más vieja (como las da Stripe), con el día en que se pagaron
+ * (28/10/2026). Para el cron: el cobro del día 8 de una prueba gratis es una factura, y si su `invoice.paid` se perdió, la
+ * sesión del checkout no lo dice nunca (queda en `no_payment_required`). Las primeras 20 alcanzan: el cron mira la primera
+ * con plata, y una suscripción de 20 meses ya no está pendiente.
+ */
+export async function facturasPagadasStripe(key: string, subId: string): Promise<R<{ facturas: Array<FacturaStripe & { pagadoAt: string | null }> }>> {
+  const r = await llamar(key, 'GET', '/v1/invoices', { subscription: subId, status: 'paid', limit: 20 });
+  if (!r.ok) return fallo(r);
+  const data = Array.isArray(r.body.data) ? r.body.data : [];
+  return {
+    ok: true,
+    facturas: data.map((x) => {
+      const b = obj(x);
+      const en = Number(obj(b.status_transitions).paid_at);
+      return { ...facturaDe(b, ''), pagadoAt: Number.isFinite(en) && en > 0 ? new Date(en * 1000).toISOString() : null };
+    }),
   };
 }
 

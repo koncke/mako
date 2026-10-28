@@ -258,6 +258,24 @@ export function confirmarFactura(
   return { ok: true, proveedorPagoId: f.id, monto: f.montoPagado, moneda: f.moneda, suscripcionId: f.suscripcion };
 }
 
+/**
+ * EL COBRO DEL DÍA 8 DE UNA PRUEBA DE STRIPE, para el cron (28/10/2026): de las facturas pagadas de su suscripción (la más
+ * nueva primero, como las da Stripe), la más VIEJA que es un pago de ESTE cobro, con el mismo filtro que el aviso
+ * (`confirmarFactura`: la de US$ 0 del inicio no cuenta). Con el id de la factura, como el `invoice.paid`: si el aviso llega
+ * después, no es otra cuota. Null si todavía no se cobró nada.
+ */
+export function primerCobroDeLaPrueba(
+  facturas: ReadonlyArray<{ id: string; estado: string | null; montoPagado: number | null; moneda: string | null; motivo: string | null; suscripcion: string | null; metadata: Record<string, string>; pagadoAt: string | null }>,
+  token: string,
+): { proveedorPagoId: string; monto: number | null; moneda: string | null; suscripcionId: string | null; pagadoAt: string | null } | null {
+  for (const f of [...facturas].reverse()) {
+    if (f.metadata.mako_cobro !== token) continue;
+    const conf = confirmarFactura('aprobado', f);
+    if (conf.ok) return { proveedorPagoId: conf.proveedorPagoId, monto: conf.monto, moneda: conf.moneda, suscripcionId: conf.suscripcionId, pagadoAt: f.pagadoAt };
+  }
+  return null;
+}
+
 /** La devolución RELEÍDA confirma que falló: `failed` (o `canceled`, que tampoco devolvió nada). Un aviso viejo de una que después salió, no. */
 export function confirmarDevolucionFallida(d: { estado: string | null; cargo: string | null }): Confirmacion<{ cargo: string }> {
   if (d.estado !== 'failed' && d.estado !== 'canceled') return { ok: false, motivo: `la devolución releída no falló (${d.estado ?? 'sin estado'})` };

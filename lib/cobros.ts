@@ -51,12 +51,12 @@ import {
 } from './cobros-reglas';
 import { formatoMonto } from './pasarela-moneda';
 import { esCuotaDeBaja, esCuotaDevuelta, esRenovacionFallida, PREFIJO_RENOVACION_FALLIDA } from './cobrado-lead';
-import { motivoSinDatos, type FaseContracargo } from './cobros-eventos';
+import { motivoSinDatos, primerCobroDeLaPrueba, type FaseContracargo } from './cobros-eventos';
 import { emitirDelCatalogo } from './avisos';
 import { linkResumenLead } from './lead-resumen';
 import { enrolarPorPago, type SubtipoPago } from './pago-entrante';
 import {
-  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, leerCheckoutStripe, leerPruebaStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
+  asegurarEventosStripe, cancelarSuscripcionStripe, programarBajaStripe, crearCheckoutStripe, expirarCheckoutStripe, facturasPagadasStripe, leerCheckoutStripe, leerPruebaStripe, modoDeClaveStripe, programarFinSuscripcionStripe, reembolsarStripe,
 } from './stripe-api';
 import { urlAvisoStripe } from './cobros-conexion';
 import { CUENTA_PRINCIPAL, claveDeCuenta, cuentaSinElegir, partirIdDeCuenta } from './cuentas-integracion';
@@ -1769,6 +1769,16 @@ async function pagoDelLinkEnLaPasarela(c: Cobro, stripe: CredStripe | null, mp: 
   if (c.proveedor === 'stripe' && stripe && c.proveedor_ref) {
     const s = await leerCheckoutStripe(stripe.key, c.proveedor_ref);
     if (!s.ok) throw new Error(`Stripe no contestó por el link ${c.id}: ${s.error}`);
+    // ⚠️ LA PRUEBA GRATIS (28/10/2026): su sesión queda `no_payment_required` para siempre, y lo que cobra el día 8 es una
+    // FACTURA de la suscripción. Si su `invoice.paid` se perdía, la plata entraba y el cobro seguía pendiente. Se busca la
+    // factura con el mismo id que usa el aviso (lib/cobros-eventos.ts, `primerCobroDeLaPrueba`).
+    if (s.estado === 'complete' && s.referencia === c.token) {
+      if (s.pagoEstado === 'no_payment_required' && esPruebaDePlan(c) && c.tipo === 'suscripcion' && s.subscription) {
+        const facturas = await facturasPagadasStripe(stripe.key, s.subscription);
+        if (!facturas.ok) throw new Error(`Stripe no contestó por las facturas del link ${c.id}: ${facturas.error}`);
+        return primerCobroDeLaPrueba(facturas.facturas, c.token);
+      }
+    }
     if (s.estado === 'complete' && s.pagoEstado === 'paid' && s.referencia === c.token) {
       // ⚠️ EL MISMO id QUE USA EL WEBHOOK, o la primera cuota se duplica: en una suscripción es la
       // FACTURA (después llega `invoice.paid` con ese mismo id), en un pago único el payment intent.
