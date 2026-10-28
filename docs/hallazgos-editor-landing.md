@@ -3427,15 +3427,21 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
   1,6 s), y después se abre la copia. **Un bug que sólo se vio ahí:** arrancaba con las cuatro partes prendidas, porque
   `partesDePedido(null)` es «todas» (el pedido viejo de la API) y el `?? PARTES_INICIALES` nunca entraba.
 - **Trampas del build parcial:** en `--debug-build-paths`, `[id]` es un patrón de caracteres (no matchea la carpeta
-  `[id]`) y la ruta no entra; con `app/web-generator/**` entra, pero ese build pide ~4 GB y el vigía lo mató a los 3,1.
+  `[id]`) y la ruta no entra; con `app/web-generator/**` entra (pide ~4 GB: el vigía lo mató a los 3,1 con la máquina
+  llena, y anduvo en 97 s con la RAM reservada por el Cerebro). **Y aun compilada, una ruta DINÁMICA da 404:** el
+  `routes-manifest.json` de un build parcial sale sin `dynamicRoutes`. Para mirarla en local se agrega a mano
+  (`{ page: '/web-generator/[id]', regex, routeKeys: { nxtPid }, namedRegex }`) y se reinicia `next start`. Con eso la copia
+  replicada abrió en el editor: 8 secciones, 8 títulos, `contenteditable` y con foco.
   La cookie de la sesión se pone desde una página de 127.0.0.1 en OTRO puerto (las cookies no miran el puerto), sin pasar
   el token por ninguna herramienta.
 - **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
   llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
 
 Lo que quedó SIN hacer:
-- Recorrer el flujo entero en la app (leer en la ventana del clic una SPA como adcreative.ai/es, replicar, abrir el
-  editor): no entró el build en la RAM; queda para cuando haya memoria o en producción en el ws3.
+- Leer una SPA en la ventana del clic DENTRO de la app (el camino del lector con la ventana aislada): se midió el mismo
+  lector por CDP (MasterAds), no el ida y vuelta de la ventana. Y la réplica con IA en vivo dentro de la app (en el ws3
+  no hay IA: las secciones llegaron todas juntas al final).
+- Un tope de 60 renglones por sección en `esquemaDelPedido` (la tanda): ninguna sección medida pasa de 46.
 - La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
   qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
   cajas.
