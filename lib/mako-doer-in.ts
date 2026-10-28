@@ -46,7 +46,7 @@ import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, quienesMencionados, type Mencionados } from '@/lib/doer-para-quien';
-import { bloqueDeLaFalla, pideVerAgenda, reportaFalla } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, conLaCorreccion, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -101,6 +101,8 @@ const TICKET_TOOLS = (() => { const d = porId(LEVANTAR_TICKET); return d ? [aToo
 /** La agenda del día (crm): viaja cuando el mensaje pide VER la agenda y el turno no la trajo (lib/doer-falla.ts, 27/10/2026). */
 const AGENDA_DEL_DIA = 'agenda_del_dia';
 const AGENDA_TOOLS = (() => { const d = porId(AGENDA_DEL_DIA); return d ? [aToolDef(d)] : []; })();
+/** Las de una corrección de monto (lib/doer-falla.ts, `HERRAMIENTAS_CORRECCION`): viajan aunque el presupuesto las deje afuera. */
+const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = porId(id); return d ? [aToolDef(d)] : []; });
 
 // La línea de voz de MaKo suele ser el número PROPIO del dueño: sus mensajes y los
 // de MaKo llegan los dos como fromMe. Guardamos los ids que enviamos para poder
@@ -1114,7 +1116,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // «pausala», «publicá la del webinar», «mandales un mensaje a esos 5»: el último mensaje solo cae en «sin señal clara» y
     // llegaba con 2 herramientas. Si sigue un pedido vivo (MaKo ya contestó), se lee con ese pedido y sus áreas.
     const conHilo = conElHilo(delMensaje, texto, pedidoDelHilo(historial), typeof ultimoDeMako === 'string' ? ultimoDeMako : null);
-    const intencion = conHilo.veredicto;
+    // Una corrección de monto es ACTUAR en cobros y CRM, con foto o sin ella (lib/doer-falla.ts, `conLaCorreccion`).
+    const intencion = conLaCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto));
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
@@ -1243,9 +1246,14 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // ── UN REPORTE DE FALLA TRAE EL TICKET (27/10/2026, lib/doer-falla.ts) ─────────────────────────────────────────────
     // «no puede analizar la llamada de fathom tras 4 intentos» caía en charlar o en la duda, y `levantar_ticket` viaja sólo
     // en «actuar»: MaKo contestaba como un manual. Con un reporte, el ticket viaja siempre, y la nota dice la causa si su IA
-    // viene fallando (`estadoDeSusClaves`).
+    // viene fallando (`estadoDeSusClaves`). Con `TICKET_DE_LA_FALLA` en «abre», el ticket no viaja: lo abre el código.
     const reporta = reportaFalla(sinPrefijoDeLote(texto));
-    const conTicket = reporta && !turno.tools.some((t) => t.name === LEVANTAR_TICKET) ? [...turno.tools, ...TICKET_TOOLS] : turno.tools;
+    // Una corrección de monto («son 423, no 4235», Leila) trae con qué encontrar el lead y PROPONER el cambio, aunque el
+    // presupuesto del registro las haya dejado afuera (`conLaCorreccion` ya la leyó como actuar en cobros y CRM).
+    const delTurno = corrigeUnMonto(sinPrefijoDeLote(texto))
+      ? [...turno.tools, ...CORRECCION_TOOLS.filter((c) => !turno.tools.some((t) => t.name === c.name))]
+      : turno.tools;
+    const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno.some((t) => t.name === LEVANTAR_TICKET) ? [...delTurno, ...TICKET_TOOLS] : delTurno;
     // Y pedir VER la agenda trae `agenda_del_dia` aunque el clasificador no la haya puesto (P6: mandaba a calendar.google.com).
     const tools = pideVerAgenda(sinPrefijoDeLote(texto)) && !conTicket.some((t) => t.name === AGENDA_DEL_DIA) ? [...conTicket, ...AGENDA_TOOLS] : conTicket;
     const { ofrece } = turno;

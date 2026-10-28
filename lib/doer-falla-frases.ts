@@ -31,6 +31,25 @@ export function reportaFalla(texto: string): boolean {
 }
 
 /**
+ * ¿Corrige un MONTO? «no me deja editar que son 423, no 4235» (Leila, 26/10/2026, con la foto de la cuota): MaKo dio consejos
+ * y un «He reportado el error» que nunca se mandó, y no propuso corregirlo. Con la foto el pedido era «pensar» y el seguimiento
+ * «capturar», y en ninguno viajan `editar_venta_lead` ni `editar_cuota` (la revisión del Cerebro, hallazgo 6). Dos cifras
+ * enfrentadas con un «no» («423, no 4235», «no es 4235, es 423»), o pedir corregir un monto, una cuota o la mensualidad. Las
+ * cifras de un solo dígito no cuentan: «son 3, no 4» habla de cantidades.
+ */
+const CIFRA = String.raw`\d[\d.,]*\d`;
+const CORRIGE_MONTO = new RegExp([
+  String.raw`(?<![\d\p{L}])${CIFRA}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${CIFRA}(?![\d\p{L}])`,
+  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${CIFRA}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${CIFRA}(?![\d\p{L}])`,
+  String.raw`(?<!\p{L})(?:correg|corrij|cambi|edit|arregl|modific)\p{L}*\s+(?:\p{L}+\s+){0,3}(?:montos?|cuotas?|mensualidad(?:es)?|importes?|precios?)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?|precios?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
+].join('|'), 'iu');
+
+export function corrigeUnMonto(texto: string): boolean {
+  return CORRIGE_MONTO.test(texto || '');
+}
+
+/**
  * ¿Pide VER su agenda? «abrime la agenda de google», «mostrame el calendario de esta semana», «tengo algo a las 15?» (27/10/2026,
  * P6: Código Inmobiliario recibió un link a calendar.google.com, y «Ya te abrí la agenda de Google», teniendo `agenda_del_dia`).
  * Es una LECTURA: si el turno no la trae, viaja igual (como el ticket ante una falla). Un pedido de AGENDAR no es esto: ése

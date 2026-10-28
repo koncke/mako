@@ -142,7 +142,22 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
 - **`spend_usd` no son dólares.** Ya estaba cosechado en hallazgos-ads.md (`aUsdNum`), y el código nuevo lo usó igual. El
   gasto del mes sale de `spend` y pasa a dólares con `aUsd`; sin tasa, se dice en su moneda.
 
+**Los «no pude» de Leila (la revisión del Cerebro, 27/10).**
+- **Hallazgo 5**, «No puedo ver imágenes directamente»: era una falla técnica, no un límite. Lo arregla 4bc093845 (P2).
+- **Hallazgo 6**, «no me deja editar que son 423, no 4235», con la foto de la cuota. MaKo dio consejos y un «He reportado el
+  error» que nunca se mandó: la #470 quedó vencida.
+  · ⚠️ El obvio, «falta la herramienta», era el equivocado: `editar_venta_lead` y `editar_cuota` existen. No viajaban porque
+    con la foto el pedido era «pensar», y en «pensar» las escrituras no viajan por diseño; el seguimiento era «capturar» dudosa.
+  · Ahora `corrigeUnMonto` (lib/doer-falla-frases.ts) lee el pedido como «actuar» en cobros y CRM (`conLaCorreccion`), y suma
+    `buscar_leads`, `cobranza_lead` y las dos de edición. Las dos de edición mueven plata: piden un «sí» solo.
+  · Lo de la app (la ficha en «Editar», las señales de cobros del clasificador) es de MaKo inteligente.
+
 **Sin hacer:**
+- **El ticket automático de una falla en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude
+  hacer" debe levantar automáticamente un ticket»). Hoy P3 lo PROPONE.
+  · El cambio es un solo lugar: `TICKET_DE_LA_FALLA` (lib/doer-falla.ts) de «propone» a «abre».
+  · Va recién con el enganche que arma MaKo inteligente (`conTicketsDeMaKo`, después del saneo). Sin él, la falla queda sin
+    ticket. El test 7 de tests/doer-falla.test.ts lo frena.
 - **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
   Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3
   tiene Google conectado: si no lo tiene, el script sale con 3. El mensaje a Joan está redactado y no se mandó.

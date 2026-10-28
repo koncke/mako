@@ -13,10 +13,38 @@
 // =============================================================================
 
 import type { EstadoSuClave, ProvSuClave } from './su-clave-reglas';
+import type { Area } from './api-mako/tipos';
+import type { VeredictoIntencion } from './mako-intencion';
+import { corrigeUnMonto } from './doer-falla-frases';
 
 // Los detectores de lo que la persona escribe («sos el soporte», «abrime la agenda») viven aparte: nombran las formas de vos y
 // van fuera de la guarda de voseo; la nota de abajo, no (lib/doer-falla-frases.ts).
-export { reportaFalla, pideVerAgenda } from './doer-falla-frases';
+export { reportaFalla, pideVerAgenda, corrigeUnMonto } from './doer-falla-frases';
+
+/**
+ * EL TICKET DE UNA FALLA EN EL GRUPO: «propone» (hoy: viaja `levantar_ticket` y queda esperando el «sí») o «abre» (la regla
+ * de Martín del 27/10/2026: «siempre que MaKo responda "No lo pude hacer" debe levantar automáticamente un ticket»). Con
+ * «abre», `levantar_ticket` no viaja por la falla y la nota le dice al modelo que el ticket y su línea los pone el código.
+ * ⚠️ Pasa a «abre» recién con el enganche que arma MaKo inteligente (la marca con su causa, el dedupe y el tope propio, en
+ * `conTicketsDeMaKo`, después del saneo en lib/mako-doer-in.ts): sin él, «abre» deja la falla SIN ticket. Es el único lugar.
+ */
+export const TICKET_DE_LA_FALLA: 'propone' | 'abre' = 'propone';
+
+/** Lo que trae una corrección de monto: encontrar el lead y su cobranza, y PROPONER el cambio. Mueven plata (D2): en el
+ *  grupo se confirman con un «sí» solo (lib/confirmacion-pura.ts). */
+export const HERRAMIENTAS_CORRECCION = ['buscar_leads', 'cobranza_lead', 'editar_venta_lead', 'editar_cuota'] as const;
+
+/**
+ * El pedido que corrige un monto se lee como ACTUAR en cobros y CRM (la revisión del Cerebro, hallazgo 6): con la foto era
+ * «pensar» y el seguimiento «capturar», y en los dos las escrituras no viajan (en «pensar», a propósito: se OFRECE). Un «sí» a
+ * algo pendiente (`confirmar`) queda como está.
+ */
+export function conLaCorreccion(v: VeredictoIntencion, texto: string): VeredictoIntencion {
+  if (!corrigeUnMonto(texto) || v.intencion === 'confirmar') return v;
+  const areas = [...new Set<Area>([...(v.areas ?? []), 'cobros', 'crm'])];
+  const relevancia = [v.relevancia, 'editar venta cuota monto mensualidad cobranza'].filter(Boolean).join(' ');
+  return { ...v, intencion: 'actuar', dudosa: false, areas, relevancia, porque: `corrige un monto (antes: ${v.porque})` };
+}
 
 const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'tu Claude', openai: 'tu GPT', gemini: 'tu Gemini' };
 
@@ -31,13 +59,16 @@ const hace = (iso: string, ahora: number): string => {
 };
 
 /**
- * La nota del system para un turno que REPORTA una falla: proponer el ticket (con lo que pasó) en vez de contestar como un
- * manual, y nombrar la causa si una IA del negocio está fallando. Sin `estados` (no se pudieron leer), no se afirma nada.
+ * La nota del system para un turno que REPORTA una falla: el ticket (`TICKET_DE_LA_FALLA`) en vez de contestar como un manual,
+ * y nombrar la causa si una IA del negocio está fallando. Sin `estados` (no se pudieron leer), no se afirma nada.
  */
-export function bloqueDeLaFalla(estados: readonly EstadoSuClave[] | null | undefined, ahora: number): string {
+export function bloqueDeLaFalla(estados: readonly EstadoSuClave[] | null | undefined, ahora: number, ticket: 'propone' | 'abre' = TICKET_DE_LA_FALLA): string {
   const fallan = clavesQueFallan(estados);
   const causa = fallan.length
     ? `\nLO QUE YA SABES: ${fallan.map((e) => `${NOMBRE[e.proveedor]} viene fallando (${hace(e.fallo!.at, ahora)}: «${e.fallo!.motivo}»)`).join('; ')}. Si lo que no anda depende de su IA, ÉSA es la causa: dila primero, con el link para arreglarla, y no inventes otra («puede deberse a la grabación»).`
     : '';
-  return `LA PERSONA TE CUENTA QUE ALGO NO ANDA. Si es una falla de MaKo (no de un lead ni de un tercero): no contestes como un manual de soporte. Di qué sabes de la causa, y propón levantar un ticket con levantar_ticket, con lo que pasó y cuántas veces lo intentó; queda propuesto hasta su «sí».${causa}`;
+  const elTicket = ticket === 'abre'
+    ? 'no propongas un ticket: lo abre el código, y la línea con su número también la escribe el código. No pidas un «sí» ni digas que lo reportaste.'
+    : 'propón levantar un ticket con levantar_ticket, con lo que pasó y cuántas veces lo intentó; queda propuesto hasta su «sí».';
+  return `LA PERSONA TE CUENTA QUE ALGO NO ANDA. Si es una falla de MaKo (no de un lead ni de un tercero): no contestes como un manual de soporte. Di qué sabes de la causa, y ${elTicket}${causa}`;
 }
