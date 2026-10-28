@@ -5,7 +5,7 @@
 // «cortá el principio del video» no dice qué proyecto ni cuánto, y MaKo proponía un corte por defecto en
 // silencio. La receta del editor le dice que PREGUNTE una sola cosa con opciones sacadas de los datos
 // reales. Lo que fija este archivo:
-//   · cada receta viaja con su herramienta: la del editor con sus 34 escrituras (no con las lecturas, que
+//   · cada receta viaja con su herramienta: la del editor con sus 35 escrituras (no con las lecturas, que
 //     son las que trae una pregunta), la del Generator con lo suyo, la de avatar con `ver_avatares` y la de
 //     imagen con sus escrituras;
 //   · toda operación de video o imagen del registro está en algún grupo: una operación nueva no queda sin
@@ -84,7 +84,11 @@ test('toda operación de video o imagen del registro está en un grupo (o es una
     .map((d) => d.id)
     .filter((id) => !ESCRITURAS_EDITOR_VIDEO.has(id) && !OPERACIONES_GENERADOR_VIDEO.has(id) && !ESCRITURAS_IMAGEN.has(id) && !LECTURAS_SIN_RECETA.has(id));
   assert.deepEqual(sinGrupo, [], `operaciones sin receta decidida: ${sinGrupo.join(', ')}. Súmalas a un grupo de lib/doer-recetas.ts`);
-  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 34, 'el editor tiene 34 operaciones de escritura (lib/editor-video/chat-api.ts)');
+  assert.equal(ESCRITURAS_EDITOR_VIDEO.size, 35, 'el editor tiene 35 operaciones de escritura (lib/editor-video/chat-api.ts; la 35, borrar_silencios_video, 28/10)');
+  // Leila se lo pidió a MaKo el 27/10 y la receta le hacía decir que no podía: lo que tiene operación no va en «no puede».
+  const noPuede = /no puede por chat \(([^)]*)\)/.exec(recetasDelTurno(new Set(['borrar_silencios_video']), false))?.[1] ?? '';
+  assert.ok(noPuede, 'la receta del editor ya no dice qué no se puede');
+  assert.doesNotMatch(noPuede, /silencio/i, 'la receta dice que borrar silencios no se puede, y hay borrar_silencios_video');
 });
 
 // ── Con el selector REAL del turno ───────────────────────────────────────────────────────────────────

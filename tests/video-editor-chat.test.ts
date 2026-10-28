@@ -1039,6 +1039,8 @@ test('51: «Borrar silencios» desde el chat (Leila, 27/10): el MISMO trabajo qu
 // · (50) R59 la lectura de la API pide admin · R60 no sale por HTTP · R61 lista cinco · R62 el
 //   runner devuelve otra cosa.
 // Restaurado: 51/0.
+// · (51, 28/10, base 52/0) B1 el chat cae al clip del cabezal (`cabezal: true`) · B2 borrar_silencios no va última
+//   · B3 normalizar el clip que se parte va en el mismo pedido → cada una 51/1. Restaurado: 52/0.
 //
 // Lo que NO cubre: que los comandos del motor hagan en pantalla lo que dice la fila
 // (chat/comandos.ts, chat/aplicar.ts). Eso se mira en el navegador

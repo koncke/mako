@@ -965,6 +965,9 @@ mide sobre las ventanas que traen algo; sin ninguna, manda el absoluto de −40 
   está ahí no existe para él ni para la API. Ahora es `borrar_silencios` (`borrar_silencios_video` en la API): sin
   `ref`, cada clip con sonido de la pista principal; va ÚLTIMA (escucha el audio al aceptar) y sola respecto de otros
   cortes; un clip con el audio extraído se descarta (cortar sólo el video o sólo su audio los desfasa).
+  ⚠️ **Y la receta de MaKo para el editor (`lib/doer-recetas.ts`, la que viaja en WhatsApp y el Ops Center) lo tenía en
+  su lista de «lo que no se puede por chat»**: con la operación ya hecha, MaKo seguía contestando que no podía. Una
+  capacidad nueva se saca también de esas listas (y de `NO_SE_PUEDE_CHAT`); lo vigila tests/doer-recetas-video-imagen.
 - **`objetivosDeSilencios` caía al clip del cabezal si lo pedido quedaba vacío** (todo en una pista bloqueada): para el
   chat, `cabezal: false`. El botón y el chat corren el MISMO trabajo (`quitarSilencios`); el chat además cuenta cada
   silencio que encuentra y la tarjeta lo muestra de a uno (`chat/armado.ts` + `app/_ui/ArmadoEnVivo.tsx`).
