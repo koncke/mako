@@ -118,6 +118,14 @@ y el CRON arrancaba con CUALQUIER comentario. Ahora el emoji es una palabra prop
 una lista con palabras que no se pueden leer no dispara nunca. **La regla:** un filtro que se queda sin términos al sanear
 falla CERRADO, nunca abre a todos.
 
+**⚠️ Y fallar cerrado no alcanzaba:** «?» o «...» (sin letra, número ni emoji) seguían tirándose CALLADAS en `sanearPalabras`
+al GUARDAR, y si eran las únicas lo que se guardaba era la lista vacía, que es «cualquier comentario» a propósito. El
+descarte pasa antes de que el motor pueda fallar cerrado. Ahora la ruta (`listaValida`, también la API en `preparar()`) las
+mira en lo que LLEGÓ, antes de sanear, y contesta 400 con «… no es una palabra clave: usa letras, números o un emoji»; la
+caja lo dice y no guarda (`problemaDePalabras`). **La regla:** sanear no puede convertir «lo que la persona escribió» en «el
+valor que significa todos»; eso se rechaza con aviso, no se limpia. Y el resumen que se confirma por WhatsApp
+(`textoDeUnCron`) nombra las palabras: antes «fiesta», «🔥» y ninguna se leían igual.
+
 **Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
 salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
 comentario (no se cumple nunca); no se probó con un comentario de verdad.

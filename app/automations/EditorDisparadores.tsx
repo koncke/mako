@@ -58,7 +58,7 @@ import {
   type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
 // Las palabras clave del CRON de comentario (ticket #17 de Leandro, 28/10/2026: «Tal cual como lo hace manychat»).
-import { COINCIDENCIAS, palabrasDeTexto, type Coincidencia } from '@/lib/palabras-clave';
+import { COINCIDENCIAS, palabrasDeTexto, problemaDePalabras, type Coincidencia } from '@/lib/palabras-clave';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
   nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo, detalleDisparador,
@@ -377,7 +377,12 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
   const guardadas = (d.palabras ?? []).join(', ');
   const [texto, setTexto] = useState(guardadas);
   const coincidencia: Coincidencia = d.coincidencia ?? 'contiene';
+  // Una palabra que no se lee («?») se DICE y no se guarda: tirarla callada dejaba la caja vacía, que es «cualquier comentario».
+  const [noSeLee, setNoSeLee] = useState<string | null>(null);
   const guardar = (t: string, c: Coincidencia) => {
+    const problema = problemaDePalabras(t.split(','));
+    setNoSeLee(problema);
+    if (problema) return;
     const palabras = palabrasDeTexto(t);
     setTexto(palabras.join(', '));
     if (palabras.join(',') !== (d.palabras ?? []).join(',') || c !== coincidencia) onCambiar(palabras, c);
@@ -392,7 +397,9 @@ export function PalabrasClave({ d, onCambiar, disabled }: {
         onChange={(e) => setTexto(e.target.value)}
         onBlur={() => guardar(texto, coincidencia)}
         onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar(texto, coincidencia); } }}
-        style={{ ...BOTON_CAMPO_CRON, width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: 13, padding: '0 10px', cursor: 'text' } as CSSProperties} />
+        aria-invalid={noSeLee ? true : undefined}
+        style={{ ...BOTON_CAMPO_CRON, width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: 13, padding: '0 10px', cursor: 'text', ...(noSeLee ? { borderColor: 'var(--warn)' } : {}) } as CSSProperties} />
+      {noSeLee && <div role="alert" style={{ gridColumn: '2', fontFamily: SANS, fontSize: 12.5, color: 'var(--warn)' }}>{noSeLee}</div>}
     </div>
   );
 }

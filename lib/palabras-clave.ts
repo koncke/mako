@@ -68,6 +68,25 @@ export function sanearPalabras(raw: unknown): string[] {
   return out;
 }
 
+/**
+ * Las que NO SE PUEDEN LEER: escritas, pero sin una letra, un número ni un emoji («?», «...», «👍🏽» sí se lee).
+ * ⚠️ NUNCA SE TIRAN CALLADAS (28/10/2026, la revisión del Cerebro): `sanearPalabras` las saca, y si eran todas la lista
+ * quedaba vacía, que es «cualquier comentario»: una automatización pensada para «?» contestaba EN PÚBLICO y por DM a todos.
+ * La pantalla y la ruta las rechazan con `problemaDePalabras` antes de guardar.
+ */
+export function palabrasQueNoSeLeen(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((x): x is string => typeof x === 'string' && !!x.trim() && !normalizarComentario(x)).map((x) => x.trim());
+}
+
+/** Lo que se le dice a la persona si alguna no se puede leer; null = todas se leen. */
+export function problemaDePalabras(raw: unknown): string | null {
+  const malas = palabrasQueNoSeLeen(raw);
+  if (!malas.length) return null;
+  const cuales = malas.slice(0, 3).map((p) => `«${p}»`).join(', ');
+  return `${malas.length === 1 ? `${cuales} no es una palabra clave` : `${cuales} no son palabras clave`}: usa letras, números o un emoji`;
+}
+
 export const esCoincidencia = (v: unknown): v is Coincidencia => v === 'contiene' || v === 'exacta';
 
 /**

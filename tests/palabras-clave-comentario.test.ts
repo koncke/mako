@@ -15,13 +15,15 @@
 // palabra → 5 / 1; sin texto dispara → 4 / 2; `higiene` no las guarda → 4 / 2; el primer CRON las pierde → 5 / 1; la firma
 // no las cuenta → 5 / 1; el evento no las mira → 5 / 1; el webhook no pasa el texto → 5 / 1; `hayQuienEscuche` sin el
 // texto → 5 / 1; la pantalla guarda en cada tecla → 5 / 1. (28/10, la revisión del Cerebro) con la versión de antes → 4 / 2;
-// el emoji tirado con los signos → 4 / 2; una lista que no se puede leer dispara con cualquiera → 5 / 1.
+// el emoji tirado con los signos → 4 / 2; una lista que no se puede leer dispara con cualquiera → 5 / 1. Lo que NO SE LEE
+// («?», base 7 / 0): la ruta no lo mira → 6 / 1; la pantalla guarda igual → 6 / 1; la API no dice las palabras → 6 / 1;
+// «?» se lee → 6 / 1.
 // =============================================================================
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { comentarioDispara, normalizarComentario, sanearPalabras, textoDePalabras, palabrasDeTexto, TOPE_PALABRAS } from '../lib/palabras-clave';
+import { comentarioDispara, normalizarComentario, sanearPalabras, textoDePalabras, palabrasDeTexto, problemaDePalabras, palabrasQueNoSeLeen, TOPE_PALABRAS } from '../lib/palabras-clave';
 import {
   sanearDisparador, disparadoresDe, firmaDisparador, disparaPorEvento, escuchaElEvento, textoDeDisparador, conPalabras,
   type Disparador, type SecuenciaConDisparo,
@@ -124,4 +126,30 @@ test('el cableado: lo que COMENTÓ llega del webhook al motor, y la pantalla gua
   const def = porId('cambiar_crons_secuencia')!;
   const campos = (def.parametros.find((p) => p.nombre === 'crons') as { campos?: Array<{ nombre: string }> }).campos ?? [];
   assert.ok(campos.some((c) => c.nombre === 'palabras') && campos.some((c) => c.nombre === 'coincidencia'), 'la API (y MaKo por WhatsApp) las puede poner');
+});
+
+test('⚠️ una palabra que NO SE LEE («?», «...») no se tira callada: la pantalla y la ruta la rechazan, y la API dice las palabras', () => {
+  // La revisión del Cerebro (28/10/2026): «?» se descartaba al sanear y, si era la única, el CRON quedaba para CUALQUIER
+  // comentario: respondía en público y por DM a todos. El emoji sí se lee (es una palabra clave, como en ManyChat).
+  assert.equal(problemaDePalabras(['🔥']), null);
+  assert.equal(problemaDePalabras(['🔥', 'fiesta']), null);
+  assert.equal(problemaDePalabras(['👍🏽']), null, 'con tono de piel también');
+  assert.equal(problemaDePalabras([]), null, 'vacía = cualquier comentario, a propósito');
+  assert.equal(problemaDePalabras(['fiesta', ' ']), null, 'una coma de más no es una palabra');
+  assert.deepEqual(palabrasQueNoSeLeen(['?', 'fiesta', '...']), ['?', '...']);
+  assert.match(problemaDePalabras(['?']) ?? '', /^«\?» no es una palabra clave: usa letras, números o un emoji$/);
+  assert.match(problemaDePalabras(['?', '!!']) ?? '', /no son palabras clave/);
+  // La ruta (y la API, que prepara con la misma) lo mira en lo que LLEGÓ, antes de sanear: después ya no está.
+  const g = leer('lib/disparadores-guardar.ts');
+  const lv = g.slice(g.indexOf('function listaValida('), g.indexOf('function listaValida(') + 900);
+  assert.ok(lv.indexOf('problemaDePalabras(') > 0 && lv.indexOf('problemaDePalabras(') < lv.indexOf('sanearDisparadores(entrada)'), 'listaValida rechaza antes de sanear');
+  assert.match(lv, /if \(p\) throw new TriggerInvalidoError/);
+  // La pantalla: lo dice y NO guarda (guardar la lista vacía era «cualquier comentario»).
+  const ed = leer('app/automations/EditorDisparadores.tsx');
+  assert.match(ed, /const problema = problemaDePalabras\(t\.split\(','\)\);\s*setNoSeLee\(problema\);\s*if \(problema\) return;/);
+  assert.match(ed, /\{noSeLee && <div role="alert"/);
+  // El resumen que se confirma por WhatsApp nombra las palabras («fiesta» y ninguna ya no se leen igual).
+  const run = leer('lib/api-mako/areas/chatbot.run.ts');
+  const tc = run.slice(run.indexOf('function textoDeUnCron('), run.indexOf('function textoDeUnCron(') + 1200);
+  assert.match(tc, /const palabras = conPalabras\(d\.trigger_tipo, d\.subtipo\) \? textoDePalabras\(d\.palabras, d\.coincidencia\) : '';\s*return palabras \? `\$\{evento\} \$\{palabras\}` : evento;/);
 });

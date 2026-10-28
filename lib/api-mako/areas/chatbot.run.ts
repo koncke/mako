@@ -37,7 +37,8 @@ import { valoresVariablesLead } from '@/lib/template-vars';
 import { valoresDeVariables } from '@/lib/variables-resolver';
 import { textoConDatosParaEquipo } from '@/lib/variables-del-lead';
 import { prepararDisparadores, guardarDisparadores, publicarCrons } from '@/lib/disparadores-guardar';
-import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { firmaLista, eventosDe, esClaseDeEventos, claseDeDisparador, conPalabras, TRIGGER_SOLO_GRUPO, type Disparador } from '@/lib/disparadores';
+import { textoDePalabras } from '@/lib/palabras-clave';
 import { textoCron } from '@/lib/cron-aviso';
 import { TRIGGERS } from '@/lib/email-marketing';
 import { getTenantDb } from '@/lib/workspace';
@@ -272,7 +273,12 @@ function textoDeUnCron(d: Disparador): string {
   if (d.cron) return `${textoCron(d.cron, d.cron.tz ?? null)}${d.grupo ? ' · al grupo de MaKo' : ''}${d.trigger_tipo !== TRIGGER_SOLO_GRUPO && d.trigger_tipo !== 'manual' ? ` · ${nombre}` : ''}`;
   const clase = claseDeDisparador(d);
   const evento = esClaseDeEventos(clase) ? eventosDe(clase).find((e) => e.subtipo === d.subtipo)?.label : null;
-  if (evento) return evento;
+  // Con las palabras clave del comentario (la revisión del Cerebro, 28/10/2026): sin ellas, «fiesta», «guía» y ninguna se
+  // resumían igual, y lo que se confirma por WhatsApp es sólo esto.
+  if (evento) {
+    const palabras = conPalabras(d.trigger_tipo, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
+    return palabras ? `${evento} ${palabras}` : evento;
+  }
   if (d.etapa) return `${nombre}: ${[...new Set([d.etapa, ...(d.etapas ?? [])])].join(', ')}`;
   if (d.etiqueta_id) return `${nombre} (#${d.etiqueta_id})`;
   return nombre;
