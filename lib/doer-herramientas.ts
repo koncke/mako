@@ -19,7 +19,7 @@ import { toolsDelRegistro, porId, leeDatosDeClientes, type Vista } from './api-m
 import { llevaDatosPersonales } from './mako-pedidos';
 import type { ToolDef } from './anthropic';
 import type { Area } from './api-mako/tipos';
-import { registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
+import { esDestructiva, registroParaLaApp, puertaDeDestructivas } from './relevancia-app';
 import { sinVerboAlArranque, ordenDelPedido, pideQuitar } from './mako-intencion-app';
 
 /** Las de Calendly. A un negocio sin Calendly no le sirven, y su receta («buscá el lead,
@@ -315,7 +315,8 @@ export function herramientasDelTurno<T extends { name: string }>(p: EntradaTurno
   // (lib/mako-turno-app.ts, `lineaDeOfrecibles`).
   const ofrecibles = ofrece && areas.length
     ? toolsDelRegistro({ vista: p.vista, areas, incluirAcciones: true, excluir, maxChars: PRESUPUESTO_REGISTRO_CHARS, relevanteA })
-      .map((t) => t.name).filter((n) => escribe(n) && !tools.some((t) => t.name === n)).slice(0, 4)
+      // Sin las DESTRUCTIVAS (la revisión del 28/10/2026): en una pregunta no se ofrece reembolsar, dar de baja ni despublicar.
+      .map((t) => t.name).filter((n) => { const d = porId(n); return escribe(n) && !!d && !esDestructiva(d) && !tools.some((t) => t.name === n); }).slice(0, 4)
     : [];
   return { tools, delRegistro, areas, ofrece, instruccion, ofrecibles };
 }

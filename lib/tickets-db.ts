@@ -274,7 +274,7 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { automatico: !!automatico, apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { automatico: !!automatico || n.declaradoPor === 'sistema', apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref,
@@ -305,10 +305,11 @@ export const esRefDelSistema = (ref: string | null | undefined): boolean => !!re
  * (lib/no-pude-server.ts, `cerrarSiVolvio`). Queda «resuelto» con el motivo, y el aviso al cliente sale como el de siempre.
  * Devuelve su número, o null si no había ninguno abierto.
  */
-export async function cerrarAutomatico(ref: string, motivo: string): Promise<number | null> {
+export async function cerrarAutomatico(ref: string, motivo: string, soloSi?: (herramienta: string | null) => boolean): Promise<number | null> {
   const db = getSupabaseServer();
-  const { data: ultimo } = await db.from(T).select('id, estado').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+  const { data: ultimo } = await db.from(T).select('id, estado, contexto').like('ref', `${ref}%`).order('id', { ascending: false }).limit(1).maybeSingle();
   if (!ultimo || CERRADOS.includes(ultimo.estado as EstadoTicket)) return null;
+  if (soloSi && !soloSi((ultimo.contexto as { herramienta?: string } | null)?.herramienta ?? null)) return null;
   const ahora = new Date().toISOString();
   const { error } = await db.from(T).update({ estado: 'resuelto', respuesta: motivo, resuelto_at: ahora, avisado_at: null, updated_at: ahora }).eq('id', ultimo.id);
   if (error) { console.error(`[tickets] no pude cerrar el automático #${ultimo.id}: ${error.message}`); return null; }

@@ -684,7 +684,8 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       ? `\n\n${TOOLS_APP}${recetasDelTurno(permitidas, turno.ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\n${CANAL_APP}\n\nLAS QUE TIENES EN ESTE TURNO (y ninguna otra en este turno: son una selección para este pedido, no todo lo que MaKo hace): ${tools.map((t) => t.name).join(', ')}.`
       : `\n\n${SIN_TOOLS_APP}`;
     // Lo que en una pregunta no viaja pero se ofrece (27/10/2026, `ofrecibles`): sin esto MaKo decía «no puedo».
-    const ctxOfrece = turno.ofrece && turno.ofrecibles?.length ? `\n\n${lineaDeOfrecibles(turno.ofrecibles)}` : '';
+    // En modo «analizar» no (la revisión del 28/10/2026): con el «sí» lo que escribe tampoco viaja (`herramientasDelModo`).
+    const ctxOfrece = turno.ofrece && turno.ofrecibles?.length && desde?.modo !== 'analizar' ? `\n\n${lineaDeOfrecibles(turno.ofrecibles)}` : '';
     const ctxHoy = tz ? `\n\nHOY ES ${hoyLegible(tz)} (zona ${tz}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.` : '';
     const ctxAtado = (entrada.contexto ?? '').trim();
     const ctxDesde = contextoDesde(desde);
@@ -946,11 +947,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
     // llegan a la persona, el ticket sale solo a la Ticketera con su causa (un RUTEO si llamó algo que existe y no viajó), y la
     // línea que lo dice la escribe el código. Repetido en la misma conversación: nada.
     if (respuesta) {
-      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0 }, dondeDelTurno, { operacion: noViajo[0] ?? null });
+      // Si lo que falló ya dejó su ticket (registrarError), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
+      const np = await conTicketsDeMaKo(respuesta, { ruteo: noViajo.length > 0, yaRegistrado: fallasDeMako.length > 0 }, dondeDelTurno, { operacion: noViajo[0] ?? null });
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n') || null;
     }
     // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio).
-    if (respuesta && !fallo) await Promise.all([cerrarSiVolvio(ws, 'proveedor'), cerrarSiVolvio(ws, 'configuracion')]);
+    // La configuración, sólo si contestó la MISMA cuenta que había fallado (o el negocio no tenía IA y ahora contestó una).
+    if (respuesta && !fallo) await Promise.all([cerrarSiVolvio(ws, 'proveedor'), cerrarSiVolvio(ws, 'configuracion', `ia:${ia?.cuenta ?? 'auto'}`)]);
     if (!respuesta && (propuestas.length || pantallas.length)) respuesta = TEXTO_SOLO_TARJETA;
     // La pregunta va con el mensaje de MaKo (al recargar vuelve); sin texto, el mensaje ES la pregunta.
     if (pregunta && !respuesta) respuesta = pregunta.pregunta;
@@ -988,7 +991,9 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // va al Runner (lib/tickets-reglas.ts) y se cierra solo cuando vuelve a andar. Va pegado al aviso de siempre.
       const causaSin = sinIA || deSuCuenta ? 'configuracion' : delProveedor ? 'proveedor' : null;
       if (causaSin) {
-        const t = await ticketDeNoPude(causaSin, dondeDelTurno, { operacion: sinIA ? 'una IA propia' : deSuCuenta ? 'su cuenta de IA' : null, error: fallo?.slice(0, 300) ?? null });
+        const t = await ticketDeNoPude(causaSin, dondeDelTurno, { operacion: sinIA ? 'una IA propia' : deSuCuenta ? 'su cuenta de IA' : null, error: fallo?.slice(0, 300) ?? null,
+          // Qué cuenta falló: la configuración se cierra sola sólo cuando contesta ESA (`cerrarSiVolvio`).
+          ...(causaSin === 'configuracion' ? { herramienta: sinIA ? 'ia:ninguna' : `ia:${ia?.cuenta ?? 'auto'}` } : {}) });
         if (t) aviso = `${aviso} ${lineaCortaDelTicket(t.id)}`;
       }
     }

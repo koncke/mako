@@ -40,7 +40,7 @@ test('2. un fallo de ruteo sale como ruteo, con la respuesta de MaKo, y no como 
   assert.match(String(R.ruteo.titulo), /la operación existe «Editar una cuota»/);
   assert.match(String(R.ruteo.respuestaMako), /todavía no existe/, 'el ticket no guarda lo que contestó MaKo');
   const turno = fuente('lib/mako-turno-app.ts');
-  assert.match(turno, /conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0 \}/, 'el turno de la app no le pasa el ruteo al ticket');
+  assert.match(turno, /conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: fallasDeMako\.length > 0 \}/, 'el turno de la app no le pasa el ruteo al ticket');
   assert.match(fuente('lib/offer-ia.ts'), /\$\{p\.arranque \? '' : `\\n\\n\$\{reglaNoExisteEn\('respuesta'\)\}`\}`;/, 'el arranque de Offer, sin el catálogo de MaKo, marca «no existe»');
 });
 

@@ -655,3 +655,19 @@ ticket automático (lib/no-pude*.ts); tests/no-existe-revision.test.ts los fija 
 frenaba; hace falta un pedido neutro. Y diez «no existe» en la MISMA conversación ya son un solo ticket: para medir los topes
 hacen falta conversaciones distintas. **Lo nuevo:** con el tope de los automáticos lleno, lo que sigue se anota en el último
 automático del negocio («Otro más, con el tope del día lleno»): no se pierde callado.
+
+## La revisión del 28/10/2026 de la base del ticket automático (claude4)
+
+**Lo obvio era el equivocado otra vez: «si la acción confirmada falló, ticket».** Un `ok:false` del runner casi nunca es una falla:
+«Esa decisión ya no estaba abierta», «El email dejó de estar conectado» son negativas de estado o de configuración (hay ~600 en los
+*.run.ts), y con el error en el contexto el triage las daba por «bug evidente» y las mandaba SOLAS al Runner. **La regla:** sólo abre
+ticket lo que REVENTÓ al ejecutar (el catch, `reventoAlEjecutar` en lib/api-mako/acciones.ts).
+
+Y además:
+- **Un ticket por falla:** si `registrarError` ya dejó el suyo (la huella), la marca del modelo sólo se saca (`yaRegistrado`).
+- **El ruteo solo no abre nada:** cuenta si MaKo además dijo que no pudo o que no existe.
+- **Uno por pedido distinto:** la `ref` lleva lo que falló (lo marcado, o la herramienta), no sólo la conversación y la causa.
+- **La negativa legítima se mira en la respuesta**, no sólo en la marca (la marca dice el qué, no el porqué).
+- **La configuración se cierra sola sólo si contesta la cuenta que falló** (`contexto.herramienta`, `soloSi`).
+- **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
+Cada uno con su test rojo-verde (tests/no-pude*.test.ts).

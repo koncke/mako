@@ -7239,3 +7239,13 @@ botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede des
 Martín: hoy la regla de `mako-pc` es no tocarlo.
 
 **Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`
+
+**La revisión del 28/10/2026 de los «no puedo» falsos (claude4):**
+- **En México «quincena» es de todos los días** («la segunda quincena», «las ventas de la quincena son 12»): sólo cuenta como
+  frecuencia de PAGO («cada quincena», «quincenal»), la mensualidad sólo si es de alguien («de Ana», «su»; en la ficha del lead,
+  `delLead`), una pregunta sin verbo de cambiar no es un pedido, y la agenda le gana al plan. Medir con frases de la clienta, no
+  sólo con las del ticket: la señal ancha recreaba el «no puedo» falso en la agenda.
+- **Lo que se ofrece no lleva destructivas** (reembolsar, dar de baja, despublicar) y en modo «analizar» no se ofrece nada: con el
+  «sí» lo que escribe no viaja. Un ofrecible es una promesa: tiene que pasar las mismas puertas que la herramienta.
+- **«Anotado» sin sujeto, sí; un estado LEÍDO, no** («La cuota 13 quedó registrada como cobrada» es un dato de cobranza_lead). La
+  regla de precisión de lib/doer-salida.ts ya lo decía: un estado puede ser lo que MaKo leyó.

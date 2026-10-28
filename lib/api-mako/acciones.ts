@@ -131,7 +131,8 @@ export async function proponerPantallaGenerica(def: AccionDef, input: Record<str
  */
 /** `sinAnotar`: el resultado lo anota otro (un trabajo largo, lib/chat-trabajos.ts, reescribe su «En curso»). */
 /**
- * SI UNA ACCIÓN CONFIRMADA FALLA AL EJECUTARSE, QUEDA UN TICKET (27/10/2026, lib/no-pude.ts). Sólo lo que confirmó una persona
+ * SI UNA ACCIÓN CONFIRMADA REVIENTA AL EJECUTARSE, QUEDA UN TICKET (27/10/2026, lib/no-pude.ts). Sólo el catch (la revisión del
+ * 28/10/2026): «Esa decisión ya no estaba abierta» o «El email dejó de estar conectado» son negativas, no fallas. Sólo lo que confirmó una persona
  * en un chat (la app o WhatsApp): un flujo de Automations o Mensajes (`PREFIJO_FLUJO`) avisa por su lado y la API HTTP no tiene
  * a quién decírselo. Las guardas de antes de ejecutar son reglas y no llegan acá; una negativa legítima que devuelve el runner
  * (el rol, una clave, confirmar en pantalla) tampoco abre ticket. Devuelve el número si el ticket es nuevo. Nunca tira.
@@ -179,14 +180,16 @@ export async function aplicarPropuestaGenerica(propuestaId: string, inputEditado
     const mia = await marcarAplicada(propuestaId, { en_curso: true, por: ctx.actor ?? null });
     if (!mia) return { ok: false, resumen: 'Esta propuesta ya se estaba aplicando.' };
     let r: Ejecutado;
+    /** Reventó al ejecutar (el catch): lo único que abre ticket. Un ok:false del runner es una negativa de estado o de configuración. */
+    let reventoAlEjecutar = false;
     try { r = await run.ejecutar(prep.payload, ctx); }
-    catch (err) { r = { ok: false, resumen: `No se pudo aplicar (${err instanceof Error ? err.message : 'error'}).` }; }
+    catch (err) { reventoAlEjecutar = true; r = { ok: false, resumen: `No se pudo aplicar (${err instanceof Error ? err.message : 'error'}).` }; }
     // El resultado final pisa el «en curso». Si falló, queda aplicada con el error
     // escrito: volver a `pendiente` sería invitar a un segundo click sobre algo que
     // pudo haber escrito a medias.
     await marcarResultado(propuestaId, { resumen: r.resumen, ok: r.ok, por: ctx.actor ?? null, ...(r.datos ?? {}) });
     // Si falló al ejecutarse, el ticket (`ticketSiFallo`) y su línea van con el «No se pudo».
-    const ticket = r.ok ? null : await ticketSiFallo(ctx, def.titulo, def.id, r.resumen);
+    const ticket = reventoAlEjecutar ? await ticketSiFallo(ctx, def.titulo, def.id, r.resumen) : null;
     if (ticket) r = { ...r, resumen: `${r.resumen} ${lineaDelTicket(ticket)}` };
     // El chat de donde salió se entera, con lo que dibuja el resultado: como si se hubiera confirmado en su tarjeta.
     const bloque = r.ok ? bloqueDeResultado(r.datos) : null;
@@ -320,11 +323,13 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   if (!mia) return { error: 'Esa acción ya se estaba ejecutando o ya venció.' };
 
   let r: Ejecutado;
+  /** Reventó al ejecutar (el catch): lo único que abre ticket (la revisión del 28/10/2026). */
+  let reventoAlEjecutar = false;
   try {
     r = registrada
       ? await (run as { ejecutar: (payload: Record<string, unknown>, ctx: Ctx) => Promise<Ejecutado> }).ejecutar(p.payload, ctx)
       : await ejecutarAccion(ctx.ws, p.tipo, p.payload);
-  } catch (err) { r = { ok: false, resumen: `No pude ejecutarlo (${err instanceof Error ? err.message : 'error'}).` }; }
+  } catch (err) { reventoAlEjecutar = true; r = { ok: false, resumen: `No pude ejecutarlo (${err instanceof Error ? err.message : 'error'}).` }; }
   // El detalle que el modelo no puede ver (lib/agenda-sin-ia.ts) va directo a la
   // persona. El `resumen` se guarda en la fila y vuelve al modelo: ése no lo lleva.
   if (r.paraLaPersona) ctx.aPersona?.(r.paraLaPersona);
@@ -332,7 +337,7 @@ export async function confirmarPendiente(ctx: Ctx, id: number | null) {
   await resolverPendiente(ctx.ws, p.id, r.ok ? 'ejecutada' : 'error', `${r.resumen}${quien}`);
   // Si falló al ejecutarse, el ticket (`ticketSiFallo`): su línea va en el resumen, que leen la tarjeta de la app (también por
   // detrás, `enSegundoPlano`) y `confirmar_accion` de WhatsApp. El modelo la puede repetir: no dice «no pude» (anti-bucle).
-  const ticket = r.ok ? null : await ticketSiFallo(ctx, def?.titulo ?? p.tipo, p.tipo, r.resumen);
+  const ticket = reventoAlEjecutar ? await ticketSiFallo(ctx, def?.titulo ?? p.tipo, p.tipo, r.resumen) : null;
   const resumen = ticket ? `${r.resumen} ${lineaDelTicket(ticket)}` : r.resumen;
   return { ok: r.ok, id: p.id, tipo: p.tipo, resumen, ...(ticket ? { ticket } : {}), ...(r.datos ? { datos: r.datos } : {}) };
 }

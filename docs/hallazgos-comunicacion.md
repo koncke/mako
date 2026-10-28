@@ -11284,3 +11284,8 @@ ARRANQUE («no, movela al viernes»). Y la segunda opción, la del refutador (ch
 y también rompía: «no, mejor el martes» y «No, gracias, eso es todo» pasaban a capturarse como idea en WhatsApp. **La regla:**
 `CONFIRMACION` no se toca; las reglas 1 y 9-bis la miran con `QUEJA_NO_ANDA` al lado («No me deja…», «No puedo…», «No
 funciona…», «No sale…»), que sólo saca las quejas. tests/mako-no-puedo-falsos.test.ts (el 1), con los casos de siempre.
+
+**La revisión del 28/10/2026 (claude4): la queja era demasiado ancha para la regla 1.** «no puedo a esa hora», «no puedo» o
+«No consigo turno» con una reunión propuesta SON un «no»: con `QUEJA_NO_ANDA` en la regla 1 se perdía cancelar_accion y MaKo podía
+apilar otra propuesta (lib/doer-hilo.ts cuenta con que un «no» de verdad llega como 'confirmar'). **La regla:** la regla 1 sólo deja
+pasar la queja con OBJETO de la app (`QUEJA_DE_LA_APP`: «no me deja editar…», «no funciona el…»); la 9-bis sigue sacando toda queja.

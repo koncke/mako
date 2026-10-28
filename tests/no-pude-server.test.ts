@@ -28,6 +28,10 @@ const R = JSON.parse(salida.slice(salida.indexOf('@@RESULTADO@@') + '@@RESULTADO
   error?: string; g1: Sale; g2: Sale; g3: Sale; gTickets: Tk[]; gNotas: number; regla: Sale;
   j1: { id: number; nuevo: boolean }; j2: { id: number; nuevo: boolean }; jCerrado: number | null; j3: { id: number; nuevo: boolean }; jTickets: Tk[];
   hAutomaticos: number; hAMano: boolean;
+  revision: {
+    yaRegistrado: Sale; yaRegistradoTickets: number; dos1: Sale; dos2: Sale; regla: Sale; confOtra: number | null; confMisma: number | null; confId: number | null;
+    confDespacho: string | null; cerroProv: number | null; provId: number | null; textoEstado: string | null; topeLleno: Sale; sistemaRegla: string | null;
+  };
 };
 
 test('g. tres «no pude» en la misma conversación son UN ticket; la línea la escribe el código y sale una vez', () => {
@@ -69,9 +73,35 @@ test('una negativa legítima (una regla de MaKo) no escribe nada, y la marca igu
   assert.equal(R.regla.ticket, null);
 });
 
+test('revisión 28/10: un ticket por falla, uno por pedido distinto, las reglas explicadas no abren nada', () => {
+  const v = R.revision;
+  // base 3: lo que ya registró registrarError no abre un segundo ticket ni otra línea; la marca igual sale.
+  assert.deepEqual({ texto: v.yaRegistrado.texto, ticket: v.yaRegistrado.ticket, linea: v.yaRegistrado.linea }, { texto: 'No pude crear la tarea.', ticket: null, linea: null });
+  assert.equal(v.yaRegistradoTickets, 0);
+  // base 5: dos pedidos distintos en la misma conversación, dos tickets con su línea.
+  assert.ok(v.dos1.ticket?.nuevo && v.dos2.ticket?.nuevo && v.dos1.ticket.id !== v.dos2.ticket.id, 'dos pedidos distintos cayeron en un ticket');
+  assert.match(String(v.dos2.linea), /^Quedó el ticket #\d+/);
+  // base 7: la regla explicada en la respuesta (la marca sólo dice el qué) no abre nada.
+  assert.equal(v.regla.ticket, null, 'una negativa legítima abrió ticket');
+});
+
+test('revisión 28/10: la configuración se cierra sólo con la cuenta que falló y no va al Runner; cerrar el proveedor no cierra otro', () => {
+  const v = R.revision;
+  assert.equal(v.confOtra, null, 'se cerró con otra cuenta (nadie arregló la que falló)');
+  assert.equal(v.confMisma, v.confId, 'no se cerró cuando contestó la cuenta que había fallado');
+  assert.equal(v.confDespacho, null, 'la configuración fue al Runner');
+  assert.equal(v.cerroProv, v.provId);
+  assert.notEqual(v.textoEstado, 'resuelto', 'cerrar el proveedor cerró otro automático del negocio');
+  assert.equal(v.topeLleno.linea, null, 'con el tope lleno igual dijo «Quedó el ticket»');
+  // base 10: un ticket del sistema en el ws 10 no entra por la regla de Leandro.
+  assert.equal(v.sistemaRegla, null, 'un error de la app entró por la regla del negocio');
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `clasificar` sin la rama de `automatico`                          → rojo el i.
 //   2. el tope de la persona contando las `ref` del sistema               → rojo el h.
 //   3. `crearTicket` sin buscar el último abierto de un automático        → rojo el g.
 //   4. `cerrarAutomatico` sin cerrar                                       → rojo el j.
+//   (28/10) 5. sin `yaRegistrado`, 6. la ref sin lo que falló, 7. sin mirar la regla en la respuesta, 8. la configuración sin
+//   `soloSi`, 9. cerrar por el prefijo del negocio, 10. el sistema por la regla → rojo los dos de la revisión.
