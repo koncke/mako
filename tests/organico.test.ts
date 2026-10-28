@@ -75,7 +75,7 @@ test('lo que no vino es null, nunca 0, y una lectura que falla no tumba a las ot
 });
 
 test('sin el complemento de Analytics, se dice en palabras', () => {
-  assert.deepEqual(R.b, { error: 'La cuenta de Zernio no tiene el complemento de Analytics: sin él, Zernio no entrega las métricas de Instagram.', motivo: 'sin-analytics' });
+  assert.deepEqual(R.b, { error: 'La cuenta de Zernio no tiene el complemento de Analytics: sin él, Zernio no entrega las métricas de Instagram. Se activa desde tu cuenta de Zernio (en sus planes, el complemento «Analytics») y lo paga el negocio.', motivo: 'sin-analytics' });
 });
 
 test('sin Instagram conectado se dice, y un rango de más de 89 días no llama a Zernio', () => {

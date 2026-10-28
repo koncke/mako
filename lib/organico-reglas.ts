@@ -14,7 +14,7 @@
 export type MotivoOrganico = 'sin-analytics' | 'sin-clave' | 'sin-cuenta' | 'clave-mala' | 'respuesta' | 'error';
 
 export const TEXTO_MOTIVO_ORGANICO: Record<MotivoOrganico, string> = {
-  'sin-analytics': 'La cuenta de Zernio no tiene el complemento de Analytics: sin él, Zernio no entrega las métricas de Instagram.',
+  'sin-analytics': 'La cuenta de Zernio no tiene el complemento de Analytics: sin él, Zernio no entrega las métricas de Instagram. Se activa desde tu cuenta de Zernio (en sus planes, el complemento «Analytics») y lo paga el negocio.',
   'sin-clave': 'Zernio no está conectado en este negocio.',
   'sin-cuenta': 'No hay una cuenta de Instagram conectada en Zernio.',
   'clave-mala': 'Zernio no aceptó la clave del negocio.',

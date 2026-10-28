@@ -2152,8 +2152,9 @@ ninguna fuente de redes orgánicas. Chat «Zernio y CAPI», pedido del Cerebro (
   y perdidos; hasta 89 días: Meta sacó `follower_count` de sus insights) y `GET /v1/analytics` (las publicaciones con sus
   métricas, también las que no se publicaron por Zernio: `source=all`). Los datos pueden tardar hasta 48 h.
 - ⚠️ **Es PAGO y aparte: el complemento de Analytics de Zernio.** Sin él contesta 402; MaKo lo dice en palabras («la cuenta de
-  Zernio no tiene el complemento de Analytics») en vez de «error». Prenderlo es un costo del negocio (o de la plataforma, con
-  el punto 3 del pedido): decisión de Martín.
+  Zernio no tiene el complemento de Analytics», y cómo prenderlo) en vez de «error». **Decidido (el Cerebro, 28/10):** con la
+  clave propia (lo vigente desde el 23/10) el complemento lo prende y lo paga el NEGOCIO en su cuenta de Zernio, como cada negocio
+  paga lo suyo.
 - ⚠️ **«No pude leer» no es «cero»:** una métrica que no vino, o una respuesta con otra forma, es null y va dicha en `faltan`;
   las tres lecturas van a la vez y una que falla no tumba a las otras. La forma de la LISTA de `/v1/analytics` no está en su
   documentación (sólo el ejemplo de un post): se acepta `posts`, `data` o `items`, y sin ninguna es «no sé leer», no «no hay».
@@ -2176,7 +2177,9 @@ tests/zernio-sin-respaldo.test.ts (la regla nueva).
   la plataforma prende `zernio.cuenta_de_la_plataforma` = '1' (app_settings). Nunca para el negocio de la plataforma. «No pude
   leer» el interruptor tira (no es «apagado»). La clave de «¿te sigue?» es la misma de `cfg`.
 - ⚠️ **Apagado por defecto, porque es PLATA:** con la cuenta de la plataforma, cada cuenta conectada de cada cliente (Zernio cobra
-  desde la 3.ª) y el complemento de Analytics los paga MaKo. Prenderlo es una decisión de Martín, en producción.
+  desde la 3.ª) y el complemento de Analytics los paga MaKo. **ESPERA LA DECISIÓN DE MARTÍN AL PRENDER** (el Cerebro, 28/10):
+  quién paga cada cuenta conectada y el complemento con la cuenta de la plataforma se decide al prenderlo, no antes. Hasta
+  entonces queda apagado, y la pantalla de /integraciones y el paso del onboarding esperan esa misma decisión.
 - **Los anuncios no cambian:** `claveZernioAnuncios` (lib/zernio-ads.ts) sigue con la key del negocio.
 - **Sin hacer:** en /integraciones el modal de Zernio sigue pidiendo la key (`ConectarRedes` sólo se ve con una key cargada,
   app/integraciones/ServicioConfigForm.tsx) y su nota dice «Zernio te cobra a ti»: con el interruptor prendido, hay que mostrar
