@@ -83,7 +83,7 @@ import { conDesde, conEntidadPorDefecto, contextoDesde, herramientasDelModo, pis
 import { enSegundoPlano } from '@/lib/chat-trabajos';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
-import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket } from '@/lib/no-pude';
 import { puedeVerKey } from '@/lib/movil-rutas';
 import { bloquesDeAdjuntos, pedidoConLecturas, placeholderDeAdjunto, type AdjuntoListo } from '@/lib/mako-adjuntos';
 import {
@@ -706,6 +706,13 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
      *  el «no pude» es la regla de la guarda sólo si fue lo último y nada falló (`esLaReglaDeUnaGuarda`). */
     let ultimaFueGuarda = false;
     let tragadas = 0;
+    /** «La última» después de esta salida (`laUltimaFueGuarda`): una lectura que anduvo no la cambia. */
+    const anotarLaUltima = (name: string, out: unknown): void => {
+      ultimaFueGuarda = laUltimaFueGuarda(ultimaFueGuarda, {
+        guarda: esGuardaDeHerramienta(out), tragada: esFallaTragadaDeHerramienta(out),
+        error: (out as { isError?: unknown } | null)?.isError === true, escribe: escribe(name),
+      });
+    };
     const runTool = async (name: string, input: Record<string, unknown>) => {
       // El contrato se aplica AL EJECUTAR: lo que no viajó no corre, aunque el modelo lo
       // llame (lo dice el texto, lo pide igual). Confirmar, menos que nada.
@@ -725,17 +732,20 @@ export async function turnoApp(persona: PersonaChat, sessionId: number, entrada:
       // Lo rechazado no cuenta: no corrió.
       corridas++;
       const previo = memo.previo(name);
-      if (previo) { ultimaFueGuarda = esGuardaDeHerramienta(previo.out); return previo.out as Awaited<ReturnType<typeof runRegistro>>; }
+      if (previo) { anotarLaUltima(name, previo.out); return previo.out as Awaited<ReturnType<typeof runRegistro>>; }
       // Las de siempre por sus cuerpos de siempre; TODO lo demás (incluidas las acciones
       // heredadas, que tienen gemela) por el registro: así cada acción pasa por el gating
       // de la vista de ESTA persona y deja su pendiente con la clave de ESTE chat.
       // La instrucción de una pendiente es la de WhatsApp («pide un sí»): acá se confirma en la tarjeta.
+      const correr = async () => (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input));
       // Lo que DIBUJE (`ctx.aDibujar`) queda anotado con el nombre de esta herramienta: con una pregunta, lo de una que
       // escribe se retira. Las herramientas del turno corren de a una (chatClaudeTools las espera en orden).
       herramientaActual = name;
-      const out = conInstruccionDeTarjeta(await (NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input) : runRegistro(name, input)));
+      // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por
+      // `errorParaTicket`, y la guarda de antes quedaba como «la última». Se cuenta como tragada.
+      const out = conInstruccionDeTarjeta(await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadas++; throw e; }));
       memo.anotar(name, out);
-      ultimaFueGuarda = esGuardaDeHerramienta(out);
+      anotarLaUltima(name, out);
       if (esFallaTragadaDeHerramienta(out)) tragadas++;
       if (!escribe(name) && (out as { isError?: unknown }).isError !== true) leidas++;
       if (porId(name)?.tipo === 'control' && salioBien(out)) escribieron++;

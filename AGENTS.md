@@ -10649,7 +10649,9 @@ título, nunca por la regla de aprobación de un negocio, y una negativa legíti
 Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
 `regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin
 isError) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
-lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó.
+lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó. «La última» se lleva con
+`laUltimaFueGuarda` (una lectura que anduvo no la cambia), y una herramienta que REVIENTA cuenta como tragada (el `.catch` del
+`await`): el loop la atrapa sin pasar por `errorParaTicket`.
 
 ## Una recomendación de MaKo nace de una SEÑAL medida, y sin ninguna MaKo no dice nada (26/10/2026)
 

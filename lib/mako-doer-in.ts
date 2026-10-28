@@ -34,7 +34,7 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
-import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
@@ -1610,19 +1610,30 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      *  (`esFallaTragadaDeHerramienta`): el «no pude» es la regla de la guarda sólo así (`esLaReglaDeUnaGuarda`, lib/no-pude.ts, el mismo del turno de la app). */
     let ultimaFueGuarda = false;
     let tragadasDelTurno = 0;
+    /** La «última» después de esta salida (`laUltimaFueGuarda`, lib/no-pude.ts, la misma del turno de la app): una lectura que anduvo
+     *  no la cambia. */
+    const anotarLaUltima = (name: string, out: unknown): void => {
+      ultimaFueGuarda = laUltimaFueGuarda(ultimaFueGuarda, {
+        guarda: esGuardaDeHerramienta(out), tragada: esFallaTragadaDeHerramienta(out),
+        error: (out as { isError?: unknown } | null)?.isError === true, escribe: escribeDeVerdad(name),
+      });
+    };
     const runTool = async (name: string, input: Record<string, unknown>) => {
       corridasDelTurno++;
       const previo = memo.previo(name);
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
         // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
-        ultimaFueGuarda = esGuardaDeHerramienta(previo.out);
+        anotarLaUltima(name, previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
-      const out = await (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
+      const correr = async () => (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
         : NOMBRES_ACCION.has(name) ? runnerAcciones(name, input)
         : NOMBRES_DE_SIEMPRE.has(name) ? runMakoTool(name, input)
         : runRegistro(name, input));
+      // Una herramienta que REVIENTA es una falla de verdad (la verificación de tren-t): el loop la atrapa sin pasar por
+      // `errorParaTicket`, y la guarda de antes quedaba como «la última» y le comía el ticket al «no pude». Se cuenta como tragada.
+      const out = await correr().catch((e: unknown) => { ultimaFueGuarda = false; tragadasDelTurno++; throw e; });
       memo.anotar(name, out);
       const propuesta = propuestaDeLaSalida(out);
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
@@ -1631,7 +1642,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
-      ultimaFueGuarda = esGuardaDeHerramienta(out);
+      anotarLaUltima(name, out);
       if (esFallaTragadaDeHerramienta(out)) tragadasDelTurno++;
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
