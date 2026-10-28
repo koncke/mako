@@ -44,6 +44,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { veredicto } from './tsc-bitacoras.mjs';
+import { esperarSinPausa } from './pausa-cerebro.mjs';
 
 const barra = (p) => p.replace(/\\/g, '/');
 
@@ -77,7 +78,7 @@ function archivosDeLaRama(repo) {
     .filter((f) => /\.(ts|tsx|mts)$/.test(f) && !f.endsWith('.d.ts') && existsSync(join(repo, f)));
 }
 
-function main() {
+async function main() {
   const repo = join(dirname(fileURLToPath(import.meta.url)), '..');
   const args = process.argv.slice(2);
   const heap = Number(args.find((a) => a.startsWith('--heap='))?.slice(7)) || 2560;
@@ -88,6 +89,8 @@ function main() {
       : '  [tsc-acotado] no hay archivos para chequear (pasalos como argumento, o --rama)\n');
     process.exit(0);
   }
+  // La PAUSA del Cerebro (28/10/2026): mientras sube un tren, el tsc de un chat espera (scripts/pausa-cerebro.mjs).
+  await esperarSinPausa({ quien: 'tsc-acotado' });
   const dir = mkdtempSync(join(tmpdir(), 'tsc-acotado-'));
   const config = join(dir, 'tsconfig.json');
   writeFileSync(config, JSON.stringify(armarTsconfig(repo, archivos), null, 2));

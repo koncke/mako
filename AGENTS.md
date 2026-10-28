@@ -6886,6 +6886,10 @@ que ya está solucionado».
 - **«Resuelto» es resuelto PARA EL CLIENTE.** Si se arregló la herramienta pero el dato del cliente sigue mal (el plan de
   pagos de una clienta de Leila, el 28/10), no se cierra: se dice qué falta.
 - **A Martín, un ticket se le nombra por quién y de qué trata** («Leila: no podía adjuntar un documento»), nunca por su número.
+- **Antes del aviso, se contesta lo que el error le dejó SIN RESPONDER al cliente.** El arreglo no reprocesa el pasado: el
+  28/10 Leandro mandó un audio un minuto antes de que subiera el arreglo de las notas de voz, el aviso «ya quedó solucionado»
+  salió igual, y él contestó citándolo: «No me respondiste lo de este audio». Antes de `--enviar`, mirá los mensajes de ese
+  grupo desde que empezó la falla (`mako_doer_buffer` del negocio) y respondé lo que quedó colgado; el aviso puede incluirlo.
 
 # En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
 

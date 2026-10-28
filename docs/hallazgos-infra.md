@@ -38,6 +38,29 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## La pausa del Cerebro, por archivo: pedida por mensaje no frenaba a nadie (28/10/2026)
+
+**Síntoma.** Para subir tren-v el Cerebro pausó los chats por mensaje («nada de tests hasta mi seguí»). El push cayó dos
+veces «sin RAM» y hubo que cortar a mano, en tres rondas, pruebas que los chats lanzaban igual: un tests-afectados de
+Automations, el de desktop offline y los tsc-acotado de Copywriter.
+
+**Por qué el mensaje no alcanza** (el diagnóstico obvio, «los chats no obedecen», era el equivocado):
+- un mensaje a un chat llega recién cuando TERMINA su turno, y un subagente de un workflow no lo ve nunca;
+- tests-afectados espera sólo ~1,3 GB libres (`pisoRam(1)`), y el chequeo de tipos del push pide 4,8 con 4.608 MB de heap.
+  Con 4 GB libres, la prueba del chat arranca y el push queda sin lugar.
+
+**La red:** `scripts/pausa-cerebro.mjs`. El Cerebro la prende con `node scripts/pausa-cerebro.mjs prender "<motivo>"` y la
+apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.txt`).
+- tests-afectados la toma como «no hay RAM»: respeta su tope y el candado de antes-de-subir, y `MAKO_TESTS_SIN_ESPERA` no
+  la saltea.
+- tsc-acotado espera antes de arrancar.
+- Una pausa de más de 90 minutos se da por olvidada, y nadie espera más de 60.
+- El chequeo del propio Cerebro corre con `MAKO_IGNORAR_PAUSA=1`. El hook del push no pasa por acá.
+
+**De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
+programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+---
+
 ## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
 
 - **Mensajes entre chats:** después de 10 `SendMessage` a otros chats sin un mensaje de Martín en el chat del
