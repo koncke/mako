@@ -10,7 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { esPreguntaDeGastoMeta, mesDelPedido, montoDelGasto, porQueNoGasta, textoGastoMeta } from '../lib/gasto-meta';
+import { enEsperaEnMeta, esPreguntaDeGastoMeta, mesDelPedido, montoDelGasto, porQueNoGasta, textoGastoMeta } from '../lib/gasto-meta';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const OCT = mesDelPedido('cuanto llevo gastado de octubre en meta ads ?', '2026-10-27');
@@ -48,6 +48,11 @@ test('1c. período de gracia (y revisión, liquidación): se dice el estado, nun
   const t = textoGastoMeta({ mes: OCT, gasto: usdDe(50), filasMeta: 10, ultimoDiaConGasto: '2026-10-27', cuenta: gracia });
   assert.equal(t, 'En octubre llevas US$ 50,00 en Meta Ads (del 1/10 al 27/10). Ojo: Meta tiene la cuenta «Cuenta de Leila» en espera (en período de gracia), aunque sigue entregando.');
   assert.doesNotMatch(t, /frenó|no gasta/);
+  // La revisión de riesgo (7) y la liquidación (8) no dicen si entrega: no se afirma (la revisión de 36e06b35f).
+  for (const status of [7, 8]) {
+    const e = enEsperaEnMeta({ status, statusLabel: 'En revisión', nombre: null });
+    assert.equal(e, 'Meta tiene la cuenta en espera (en revisión)');
+  }
 });
 
 test('2. el mes: el que nombra, del 1 a hoy; un mes que no llegó es del año pasado; sin mes, el actual', () => {

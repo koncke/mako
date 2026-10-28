@@ -9,10 +9,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaCorreccion, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
 import { sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
-import type { VeredictoIntencion } from '../lib/mako-intencion';
+import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const AHORA = Date.parse('2026-10-26T19:00:00Z');
@@ -61,32 +61,55 @@ test('4. pedir VER la agenda trae agenda_del_dia (P6: mandaba a calendar.google.
 
 // La revisión del Cerebro (Leila, hallazgo 6): «no me deja editar que son 423, no 4235», con la foto de la cuota. Con la foto
 // el pedido era «pensar» y el seguimiento «capturar» dudosa: `editar_venta_lead` y `editar_cuota` no viajaban nunca.
-test('5. una corrección de monto se ve; una cantidad, un horario o la etapa, no', () => {
+test('5. una corrección de monto se ve; una hora, una fecha, un teléfono, un año o una cantidad, no', () => {
   for (const f of [
-    'no me deja editar que son 423, no 4235', 'es 423 y no 4235', 'no es 4235, es 423', 'son 4.235,29 no 423,53',
+    'no me deja editar que son 423, no 4235', 'la cuota es 423 y no 4235', 'no es 4235, es 423 la mensualidad', 'son US$ 4.235,29 no 423,53',
+    '(envió una imagen) — son 423 no 4235', 'el pago es de $423 no de $4235',
     'corregí la cuota de Nadia', 'hay que cambiar el monto de la mensualidad', 'el monto está mal', 'las cuotas quedaron mal',
   ]) assert.ok(corrigeUnMonto(f), `«${f}» no se ve como corrección`);
-  for (const f of ['son 3, no 4', 'la reunión de las 15, no la de las 16', 'cambiá la etapa de Juan a Ganado', '¿cuánto llevo gastado en meta?', 'gracias'])
-    assert.ok(!corrigeUnMonto(f), `«${f}» se ve como corrección`);
+  // La revisión adversarial de 82ab77cd8: dos cifras con un «no» no son un monto.
+  for (const f of [
+    'son 3, no 4', 'la reunión de las 15, no la de las 16', 'cambiá la etapa de Juan a Ganado', '¿cuánto llevo gastado en meta?', 'gracias',
+    'movela al viernes a las 15 no 16', 'cambiala para el jueves a las 11 no 12', 'pasala al 20/10 no 21/10', 'agendá a Juan el jueves a las 15 no 16',
+    'a las 15:30 no 16:30', 'el 15/10 no 16/10', 'su número es 3764673479, no 3764673480', 'el año es 2026, no 2025', 'son 10 no 12 reuniones',
+    'el código postal es 3300 no 3301', 'el CPL es 2,5 no 3,5', 'el precio de la landing está mal', 'cambiá el precio del producto a 500',
+    'anotá: llamar a Pedro, su número es 3764673479 no 3764673480',
+    // Con plata en el mensaje, una hora o un día siguen sin ser el monto.
+    'el pago es a las 15 no 16', 'la llamada de cobranza es el 15 no 16',
+  ]) assert.ok(!corrigeUnMonto(f), `«${f}» se ve como corrección`);
 });
 
-test('6. la corrección se lee como ACTUAR en cobros y CRM, con foto o sin ella; un «sí» pendiente queda como está', () => {
+test('6. la corrección decide la intención Y las herramientas juntas: actuar en cobros con la foto; capturar, la duda, la agenda y el «sí» se respetan', () => {
+  const herr = [...HERRAMIENTAS_CORRECCION];
+  assert.deepEqual(herr, ['buscar_leads', 'cobranza_lead', 'editar_venta_lead', 'editar_cuota']);
+  // Con la foto: actuar en cobros y CRM, y las cuatro.
   const conFoto: VeredictoIntencion = { intencion: 'pensar', dudosa: false, porque: 'adjunto para interpretar' };
-  const v = conLaCorreccion(conFoto, '(envió una imagen) — no me deja editar que son 423, no 4235');
-  assert.equal(v.intencion, 'actuar');
-  assert.ok(v.areas?.includes('cobros') && v.areas.includes('crm'));
-  assert.match(v.relevancia ?? '', /editar venta cuota monto/);
-  assert.match(v.porque, /^corrige un monto \(antes: adjunto para interpretar\)$/);
-  const seguimiento: VeredictoIntencion = { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' };
-  assert.deepEqual([conLaCorreccion(seguimiento, 'son 423, no 4235').intencion, conLaCorreccion(seguimiento, 'son 423, no 4235').dudosa], ['actuar', false]);
+  const c = laCorreccion(conFoto, '(envió una imagen) — no me deja editar que son 423, no 4235');
+  assert.equal(c.veredicto.intencion, 'actuar');
+  assert.ok(c.veredicto.areas?.includes('cobros') && c.veredicto.areas.includes('crm'));
+  assert.match(c.veredicto.relevancia ?? '', /editar venta cuota monto/);
+  assert.match(c.veredicto.porque, /^corrige un monto \(antes: adjunto para interpretar\)$/);
+  assert.deepEqual([...c.herramientas], herr);
+  // Capturar y la duda quedan como están (su contrato, el candado de la adivinanza): sólo se suman las cuatro.
+  for (const v of [
+    { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' },
+    { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' },
+    { intencion: 'pensar', dudosa: true, porque: 'dudosa' },
+  ] as VeredictoIntencion[]) {
+    const r = laCorreccion(v, 'no me deja editar que son 423, no 4235');
+    assert.equal(r.veredicto, v, `${v.intencion}${v.dudosa ? ' (dudosa)' : ''} cambió de intención`);
+    assert.deepEqual([...r.herramientas], herr);
+  }
+  // Un pedido de agenda o de mover: sin el área ni la relevancia de cobros (el presupuesto es de la agenda).
+  const agenda: VeredictoIntencion = { intencion: 'actuar', dudosa: false, porque: 'agenda', relevancia: RELEVANCIA_AGENDA, areas: ['crm'] };
+  assert.equal(laCorreccion(agenda, 'la cuota es 423 no 4235').veredicto, agenda);
+  // Un «sí» a algo pendiente: nada (otra editar_cuota dejaría dos pendientes con montos opuestos), y sin corrección, nada.
   const si: VeredictoIntencion = { intencion: 'confirmar', dudosa: false, porque: 'sí a lo pendiente' };
-  assert.equal(conLaCorreccion(si, 'sí, son 423 no 4235'), si);
-  assert.equal(conLaCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), conFoto);
-  // Las que viajan: encontrar el lead, ver su cobranza y PROPONER el cambio (las dos mueven plata: un «sí» solo, D2).
-  assert.deepEqual([...HERRAMIENTAS_CORRECCION], ['buscar_leads', 'cobranza_lead', 'editar_venta_lead', 'editar_cuota']);
+  assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [] });
+  assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [] });
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const intencion = conLaCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\)\);/);
-  assert.match(doer, /const delTurno = corrigeUnMonto\(sinPrefijoDeLote\(texto\)\)\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
+  assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\)\);\n\s*const intencion = correccion\.veredicto;/);
+  assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
 test('7. el ticket de la falla se ABRE solo (Martín, 27/10): la nota pide la marca, y nunca proponerlo ni un «sí»', () => {

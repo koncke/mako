@@ -49,7 +49,7 @@ import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, quienesMencionados, type Mencionados } from '@/lib/doer-para-quien';
-import { bloqueDeLaFalla, causaDelCartel, conLaCorreccion, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -590,6 +590,13 @@ async function numeroDeLaLinea(instance: string): Promise<string | null> {
   return numero;
 }
 
+/** Las @menciones de TODO el lote, para el mensaje sintético (que es texto plano): sin ellas, en modo «ventana», una @mención
+ *  a MaKo seguida de otro mensaje recibía el 👍 y después silencio (la revisión adversarial de 36e06b35f). */
+function mencionesDelLote(cola: ReadonlyArray<{ payload: unknown }>): { contextInfo?: { mentionedJid: string[] } } {
+  const todas = [...new Set(cola.flatMap((m) => mencionesDe(((m.payload as MsgIn) ?? {}).message as Record<string, unknown> | undefined)))];
+  return todas.length ? { contextInfo: { mentionedJid: todas } } : {};
+}
+
 /** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
 async function mencionadosEn(instance: string, data: MsgIn): Promise<Mencionados> {
   const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
@@ -797,7 +804,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
       key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
       pushName: ultimo.pushName,
-      message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
+      message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))), ...mencionesDelLote(cola) },
       ...(autores.size !== 1 || autores.has('') ? { loteDeVarios: true } : {}),
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
@@ -1151,8 +1158,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // «pausala», «publicá la del webinar», «mandales un mensaje a esos 5»: el último mensaje solo cae en «sin señal clara» y
     // llegaba con 2 herramientas. Si sigue un pedido vivo (MaKo ya contestó), se lee con ese pedido y sus áreas.
     const conHilo = conElHilo(delMensaje, texto, pedidoDelHilo(historial), typeof ultimoDeMako === 'string' ? ultimoDeMako : null);
-    // Una corrección de monto es ACTUAR en cobros y CRM, con foto o sin ella (lib/doer-falla.ts, `conLaCorreccion`).
-    const intencion = conLaCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto));
+    // Una corrección de monto decide la intención y sus herramientas en un solo lugar (lib/doer-falla.ts, `laCorreccion`).
+    const correccion = laCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto));
+    const intencion = correccion.veredicto;
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
     const ruta = { ...rutaBase, motivo: `${rutaBase.motivo} → ${intencion.intencion}` };
@@ -1282,10 +1290,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // en «actuar»: MaKo contestaba como un manual. Con un reporte, el ticket viaja siempre, y la nota dice la causa si su IA
     // viene fallando (`estadoDeSusClaves`). Con `TICKET_DE_LA_FALLA` en «abre», el ticket no viaja: lo abre el código.
     const reporta = reportaFalla(sinPrefijoDeLote(texto));
-    // Una corrección de monto («son 423, no 4235», Leila) trae con qué encontrar el lead y PROPONER el cambio, aunque el
-    // presupuesto del registro las haya dejado afuera (`conLaCorreccion` ya la leyó como actuar en cobros y CRM).
-    const delTurno = corrigeUnMonto(sinPrefijoDeLote(texto))
-      ? [...turno.tools, ...CORRECCION_TOOLS.filter((c) => !turno.tools.some((t) => t.name === c.name))]
+    // Una corrección de monto («son 423, no 4235», Leila) trae con qué encontrar el lead y PROPONER el cambio, después del
+    // presupuesto del registro: las que `laCorreccion` decidió (ninguna en un «sí» pendiente).
+    const delTurno = correccion.herramientas.length
+      ? [...turno.tools, ...CORRECCION_TOOLS.filter((c) => correccion.herramientas.includes(c.name) && !turno.tools.some((t) => t.name === c.name))]
       : turno.tools;
     const conTicket = reporta && TICKET_DE_LA_FALLA === 'propone' && !delTurno.some((t) => t.name === LEVANTAR_TICKET) ? [...delTurno, ...TICKET_TOOLS] : delTurno;
     // Y pedir VER la agenda trae `agenda_del_dia` aunque el clasificador no la haya puesto (P6: mandaba a calendar.google.com).
@@ -2471,7 +2479,7 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
             const sintetico: MsgIn = {
               key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
               pushName: ultimo.pushName,
-              message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))) },
+              message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))), ...mencionesDelLote(cola) },
             };
             console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
             await procesarDoer(ws, instancia, sintetico);

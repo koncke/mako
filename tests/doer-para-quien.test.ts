@@ -73,3 +73,13 @@ test('6. el 👍 sigue la MISMA regla que el turno: a lo que no es para MaKo no 
   assert.match(doer, /await enganchaElTexto\(wsData, jid, texto, await mencionadosEn\(instance, data\)\)/);
   assert.match(doer, /const enganchaTexto = modo === 'libre' \|\| nombraAMaKo\(textoDirecto\) \|\| quien\.aMaKo \|\| abierta/);
 });
+
+test('7. el lote conserva las @menciones: una mención a MaKo seguida de otro mensaje no queda en el 👍 y silencio', () => {
+  // La revisión de 36e06b35f: el mensaje sintético del lote era texto plano, y en modo «ventana» la mención se perdía.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.equal((doer.match(/message: \{ conversation: unirMensajes\(textos\.map\(\(t\) => \(\{ texto: t \}\)\)\), \.\.\.mencionesDelLote\(cola\) \},/g) ?? []).length, 2,
+    'uno de los dos lotes (el del turno o el del cron) pierde las menciones');
+  assert.match(doer, /const todas = \[\.\.\.new Set\(cola\.flatMap\(\(m\) => mencionesDe\(/);
+  // Y lo que arma, `mencionesDe` lo lee igual que en un mensaje de WhatsApp.
+  assert.deepEqual(mencionesDe({ conversation: 'hola\nmako, ¿y los leads?', contextInfo: { mentionedJid: [`${LINEA}@s.whatsapp.net`] } }), [`${LINEA}@s.whatsapp.net`]);
+});

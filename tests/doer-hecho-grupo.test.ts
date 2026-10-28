@@ -80,6 +80,13 @@ test('7. lo que el turno LEYÓ es la respuesta: «he encontrado», «he consulta
     'He calculado tu CAC de octubre y quedó en US$ 40.',
     'He buscado a Juan en el CRM y está en Seguimiento.',
     'Te dejo detallados los 3 leads más calientes. Juan está en Propuesta.',
+    // La revisión de 36e06b35f: «hecho», «abierto» y «escrito» sin a quién también cuentan una lectura.
+    'He hecho una búsqueda en tu CRM y Juan está en Seguimiento.',
+    'He hecho la cuenta y llevas 14 leads este mes.',
+    'He escrito un resumen de la llamada con Ana.',
+    'He abierto tu agenda y mañana tienes 2 reuniones.',
+    'Hice una búsqueda en tu CRM y Juan está en Seguimiento.',
+    'Abrí tu agenda y mañana tienes 2 reuniones.',
   ]) {
     assert.deepEqual(hechoEnElGrupo(f, true), [], `«${f}» se ve como hecho`);
     assert.equal(enElGrupo(f, false, false, true).texto, f);
@@ -87,10 +94,14 @@ test('7. lo que el turno LEYÓ es la respuesta: «he encontrado», «he consulta
   // «ya quedó + participio» sin primera persona: con una lectura en el turno, puede ser lo que leyó.
   const leido = 'La reunión con Juan ya quedó agendada para el lunes (la agendó Ana desde Calendly).';
   assert.equal(enElGrupo(leido, false, false, true).texto, leido);
-  // Un verbo de ESCRITURA sigue cortándose aunque el turno haya leído: leer no respalda «He agendado».
-  const s = enElGrupo('He agendado la reunión con Juan para el lunes.', false, false, true);
-  assert.ok(s.texto.endsWith(SIN_HACER), s.texto);
-  assert.ok(s.sinRespaldo?.length);
+  // Un verbo de ESCRITURA sigue cortándose aunque el turno haya leído: leer no respalda «He agendado» ni «Le he escrito».
+  for (const f of ['He agendado la reunión con Juan para el lunes.', 'Le he escrito a Juan por WhatsApp.', 'He escrito a Ana para el lunes.']) {
+    const s = enElGrupo(f, false, false, true);
+    assert.ok(s.texto.endsWith(SIN_HACER), `«${f}» → «${s.texto}»`);
+    assert.ok(s.sinRespaldo?.length);
+  }
+  // Y sin una lectura en el turno, «Ya te abrí la agenda de Google» (P6) sigue siendo un hecho sin respaldo.
+  assert.ok(hechoEnElGrupo('Ya te abrí la agenda de Google.').length > 0);
 });
 
 test('6. el doer: cuenta lo que se escribió de verdad (no lo propuesto) y le pasa el respaldo al saneo', () => {

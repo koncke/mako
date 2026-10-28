@@ -14,7 +14,7 @@
 
 import type { EstadoSuClave, ProvSuClave } from './su-clave-reglas';
 import type { Area } from './api-mako/tipos';
-import type { VeredictoIntencion } from './mako-intencion';
+import { RELEVANCIA_AGENDA, type VeredictoIntencion } from './mako-intencion';
 import { corrigeUnMonto } from './doer-falla-frases';
 
 // Los detectores de lo que la persona escribe («sos el soporte», «abrime la agenda») viven aparte: nombran las formas de vos y
@@ -56,15 +56,26 @@ export function conLaLineaDelTicket(aviso: string, linea: string | null, causa: 
 export const HERRAMIENTAS_CORRECCION = ['buscar_leads', 'cobranza_lead', 'editar_venta_lead', 'editar_cuota'] as const;
 
 /**
- * El pedido que corrige un monto se lee como ACTUAR en cobros y CRM (la revisión del Cerebro, hallazgo 6): con la foto era
- * «pensar» y el seguimiento «capturar», y en los dos las escrituras no viajan (en «pensar», a propósito: se OFRECE). Un «sí» a
- * algo pendiente (`confirmar`) queda como está.
+ * QUÉ HACE UNA CORRECCIÓN DE MONTO CON EL TURNO, en una sola función: la intención Y las herramientas (la revisión adversarial
+ * de 82ab77cd8: se decidían en dos lugares y se probaban por separado). Con la foto, el pedido era «pensar», y ahí las
+ * escrituras no viajan a propósito (se OFRECE): por eso no llegaban `editar_venta_lead` ni `editar_cuota` (Leila, hallazgo 6).
+ *   · Sin corrección, o un «sí» a algo pendiente (`confirmar`): nada. Con una pendiente, otra `editar_cuota` dejaría dos
+ *     pendientes con montos opuestos.
+ *   · «capturar» (anotar), una duda, o un pedido de agenda o de mover: la intención queda como está, con su contrato, su
+ *     candado de «una adivinanza no crea nada» y su presupuesto (agenda_del_dia, listar_tareas_plan). Las cuatro se suman
+ *     después del presupuesto.
+ *   · Lo demás («pensar», «consultar», «charlar», o un «actuar» de otra cosa): ACTUAR en cobros y CRM, con su relevancia.
  */
-export function conLaCorreccion(v: VeredictoIntencion, texto: string): VeredictoIntencion {
-  if (!corrigeUnMonto(texto) || v.intencion === 'confirmar') return v;
+export function laCorreccion(v: VeredictoIntencion, texto: string): { veredicto: VeredictoIntencion; herramientas: readonly string[] } {
+  if (v.intencion === 'confirmar' || !corrigeUnMonto(texto)) return { veredicto: v, herramientas: [] };
+  const deAgenda = !!v.mover || (v.relevancia ?? '').includes(RELEVANCIA_AGENDA);
+  if (v.intencion === 'capturar' || v.dudosa || deAgenda) return { veredicto: v, herramientas: HERRAMIENTAS_CORRECCION };
   const areas = [...new Set<Area>([...(v.areas ?? []), 'cobros', 'crm'])];
   const relevancia = [v.relevancia, 'editar venta cuota monto mensualidad cobranza'].filter(Boolean).join(' ');
-  return { ...v, intencion: 'actuar', dudosa: false, areas, relevancia, porque: `corrige un monto (antes: ${v.porque})` };
+  return {
+    veredicto: { ...v, intencion: 'actuar', areas, relevancia, porque: `corrige un monto (antes: ${v.porque})` },
+    herramientas: HERRAMIENTAS_CORRECCION,
+  };
 }
 
 const NOMBRE: Record<ProvSuClave, string> = { anthropic: 'tu Claude', openai: 'tu GPT', gemini: 'tu Gemini' };

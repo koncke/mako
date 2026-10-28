@@ -65,10 +65,11 @@ export function porQueNoGasta(cuenta: CuentaMeta | null | undefined): string | n
   return `Meta frenó la cuenta${de} ${motivo}`;
 }
 
-/** La cuenta espera algo de Meta pero sigue entregando (período de gracia, revisión): se dice el estado. null = no. */
+/** La cuenta espera algo de Meta (período de gracia, revisión de riesgo, liquidación): se dice el estado. null = no. «Sigue
+ *  entregando» sólo en el período de gracia (9), que es lo único que se sabe: la revisión (7) y la liquidación (8) no lo dicen. */
 export function enEsperaEnMeta(cuenta: CuentaMeta | null | undefined): string | null {
   if (!cuenta || !EN_ESPERA.has(cuenta.status)) return null;
-  return `Meta tiene la cuenta${cuenta.nombre ? ` «${cuenta.nombre}»` : ''} en espera (${cuenta.statusLabel.toLowerCase()}), aunque sigue entregando`;
+  return `Meta tiene la cuenta${cuenta.nombre ? ` «${cuenta.nombre}»` : ''} en espera (${cuenta.statusLabel.toLowerCase()})${cuenta.status === 9 ? ', aunque sigue entregando' : ''}`;
 }
 
 /**

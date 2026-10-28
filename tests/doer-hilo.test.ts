@@ -234,7 +234,7 @@ test('9. el doer: la memoria partida, el turno con el hilo, la consulta con el t
   // (`historialGrupo(wsData, jid, 1)` sí: es el último turno, para saber si un «ok» contesta una pregunta, lib/doer-para-quien.ts.)
   assert.doesNotMatch(doer, /const historial = await historialGrupo\(/, 'el doer volvió a leer la memoria sin lo de antes');
   // (Desde el 27/10/2026 pasa también por la corrección de monto: tests/doer-falla.test.ts.)
-  assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n(?:\s*\/\/[^\n]*\n)*\s*const intencion = (?:conLaCorreccion\()?conHilo\.veredicto[,;]/);
+  assert.match(doer, /const conHilo = conElHilo\(delMensaje, texto, pedidoDelHilo\(historial\), typeof ultimoDeMako === 'string' \? ultimoDeMako : null\);\n(?:\s*\/\/[^\n]*\n)*\s*(?:const correccion = laCorreccion\(conHilo\.veredicto, [^\n]*\n\s*const intencion = correccion\.veredicto|const intencion = conHilo\.veredicto);/);
   assert.match(doer, /veredicto: intencion, texto, contextoDelSi, hilo: conHilo\.hilo,/, 'las herramientas no reciben el hilo');
   assert.match(doer, /query: consultaDelTurno\(texto, conHilo\.hilo\)/);
   assert.match(doer, /bloqueYaSeHablo\(\s*memoria\.antes,\s*await accionesDelGrupo\(wsData, jid, DIAS_DE_HECHOS\)/, 'lo de antes no llega a los hechos');

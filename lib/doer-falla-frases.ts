@@ -34,19 +34,34 @@ export function reportaFalla(texto: string): boolean {
  * ¿Corrige un MONTO? «no me deja editar que son 423, no 4235» (Leila, 26/10/2026, con la foto de la cuota): MaKo dio consejos
  * y un «He reportado el error» que nunca se mandó, y no propuso corregirlo. Con la foto el pedido era «pensar» y el seguimiento
  * «capturar», y en ninguno viajan `editar_venta_lead` ni `editar_cuota` (la revisión del Cerebro, hallazgo 6). Dos cifras
- * enfrentadas con un «no» («423, no 4235», «no es 4235, es 423»), o pedir corregir un monto, una cuota o la mensualidad. Las
- * cifras de un solo dígito no cuentan: «son 3, no 4» habla de cantidades.
+ * enfrentadas con un «no» («423, no 4235», «no es 4235, es 423»), o pedir corregir un monto, una cuota o la mensualidad.
+ *
+ * ⚠️ DOS CIFRAS NO SON UN MONTO (la revisión adversarial de 82ab77cd8): «movela al viernes a las 15 no 16», «pasala al 20/10
+ * no 21/10», un teléfono, «el año es 2026, no 2025» o «son 10 no 12 reuniones» se leían como corrección, y el pedido de agenda
+ * perdía `agenda_del_dia` y `listar_tareas_plan` frente a las de cobros. Ahora:
+ *   · las dos cifras valen sólo con PLATA en el mensaje (US$, $, monto, cuota, pago, mensualidad…), la foto o el PDF que la
+ *     acompaña, o «no me deja editar/cambiar/corregir» (el literal de Leila);
+ *   · la cifra es de 2 a 8 dígitos (o con miles: «4.235,29»), no pegada a «:» ni a «/» (una hora, una fecha), no un año 19xx o
+ *     20xx, y no después de «las», «la», «el», «al» o «del» (las 15, el 20);
+ *   · «precio» no cuenta: el precio de un producto o de una landing es otra herramienta.
  */
-const CIFRA = String.raw`\d[\d.,]*\d`;
-const CORRIGE_MONTO = new RegExp([
-  String.raw`(?<![\d\p{L}])${CIFRA}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${CIFRA}(?![\d\p{L}])`,
-  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${CIFRA}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${CIFRA}(?![\d\p{L}])`,
-  String.raw`(?<!\p{L})(?:correg|corrij|cambi|edit|arregl|modific)\p{L}*\s+(?:\p{L}+\s+){0,3}(?:montos?|cuotas?|mensualidad(?:es)?|importes?|precios?)(?!\p{L})`,
-  String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?|precios?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
+const CIFRA = String.raw`(?<![\d\p{L}:/.,])(?!(?:19|20)\d{2}(?![\d.,]))(?:\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{2,8}(?:[.,]\d{1,2})?)(?![\d\p{L}:/])`;
+const NO_ES_HORA_NI_FECHA = String.raw`(?<!(?:las|la|el|al|del)\s+)`;
+/** «$423», «US$ 4235»: el signo pegado a la cifra. */
+const MONEDA = String.raw`(?:(?:us)?\$\s?)?`;
+const DOS_CIFRAS = new RegExp([
+  String.raw`${NO_ES_HORA_NI_FECHA}${MONEDA}${CIFRA}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${MONEDA}${CIFRA}`,
+  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${MONEDA}${CIFRA}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${MONEDA}${CIFRA}`,
+].join('|'), 'iu');
+const HAY_PLATA = /(?:\$|(?<!\p{L})(?:usd|d[oó]lares?|pesos?|ars|mxn|montos?|cuotas?|pagos?|pagad[oa]s?|cobr\p{L}*|mensualidad(?:es)?|importes?|venta)(?!\p{L})|\(envi[oó] (?:una imagen|un pdf)|no me deja (?:editar|cambiar|corregir|modificar))/iu;
+const PIDE_CORREGIR = new RegExp([
+  String.raw`(?<!\p{L})(?:correg|corrij|cambi|edit|arregl|modific)\p{L}*\s+(?:\p{L}+\s+){0,3}(?:montos?|cuotas?|mensualidad(?:es)?|importes?)(?!\p{L})`,
+  String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
 ].join('|'), 'iu');
 
 export function corrigeUnMonto(texto: string): boolean {
-  return CORRIGE_MONTO.test(texto || '');
+  const t = texto || '';
+  return PIDE_CORREGIR.test(t) || (DOS_CIFRAS.test(t) && HAY_PLATA.test(t));
 }
 
 /**

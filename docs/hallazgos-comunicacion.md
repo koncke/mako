@@ -151,6 +151,19 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
   · Ahora `corrigeUnMonto` (lib/doer-falla-frases.ts) lee el pedido como «actuar» en cobros y CRM (`conLaCorreccion`), y suma
     `buscar_leads`, `cobranza_lead` y las dos de edición. Las dos de edición mueven plata: piden un «sí» solo.
   · Lo de la app (la ficha en «Editar», las señales de cobros del clasificador) es de MaKo inteligente.
+  · ⚠️ **Dos cifras con un «no» no son un monto** (la revisión adversarial de 82ab77cd8). «movela al viernes a las 15 no 16»,
+    «pasala al 20/10 no 21/10», un teléfono o un año se leían como corrección. El pedido de agenda perdía `agenda_del_dia` y
+    `listar_tareas_plan` frente a las de cobros. Ahora las dos cifras valen con plata en el mensaje (o la foto, o «no me deja
+    editar»); quedan afuera las cifras pegadas a «:» o «/», las de más de 8 dígitos, los años y las que van después de «las»
+    o «el».
+  · **Regla: la intención y las herramientas de un detector se deciden en UNA función, y se prueban con el turno real**
+    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. Capturar, la duda,
+    la agenda y el «sí» no cambian de intención.
+- **«He hecho», «he abierto» y «he escrito» también cuentan una lectura** (la revisión de 36e06b35f). «He hecho una búsqueda
+  en tu CRM» o «He abierto tu agenda y mañana tienes 2» salían como «Eso no lo llegué a hacer». Ahora «escrito» corta sólo
+  con a quién («le he escrito», «he escrito a Juan»), y en un turno que leyó, «hice» y «abrí» no cortan.
+- **El lote es texto plano y perdía las @menciones**: en modo «ventana», una mención a MaKo seguida de otro mensaje recibía
+  el 👍 y después silencio. Ahora el sintético lleva las menciones de todo el lote (`mencionesDelLote`).
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
 levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).
