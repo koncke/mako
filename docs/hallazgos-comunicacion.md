@@ -11650,3 +11650,8 @@ G3 (lo que llega durante un turno queda huérfano hasta el cron, 2 a 3 min tarde
 línea); G5 (la agencia escribe en 5 de 8 grupos y MaKo le contesta lo que era para el cliente); F6 (los reintentos que tiran una
 respuesta buena). «Si contacte Eli» sigue llegando como charla, sin herramientas: lo arregla F2a con el lead del aviso en la
 memoria, y F3, el «¿lo contactaron?» sin vuelta (chat de CRM).
+**Y la tanda de robustez** (la verificación del Cerebro de dda95f98d, C:/dev/revisiones/2810-verificacion-dda95f98d.md): los
+helpers de lib/api-mako/areas sin `falla` y los «No se pudieron…» con texto propio siguen saliendo como regla; la base caída
+dicha «No existe el lead» o «No encuentro la decisión» (los `.catch(() => null)` de cobros.run.ts y ads.run.ts); la acción
+confirmada que falla con un texto que no es tragado no deja ticket (`confirmarPendiente`); un audio mandado como ARCHIVO en el
+grupo va a Gemini y muestra el error técnico; dos notas de voz que Groq devuelve vacías quedan en 👍 y silencio.
