@@ -757,3 +757,14 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
 - La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
 - Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
 **La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.
+
+**El #16 de Leila, en producción y sin cerrarse (28/10/2026, claude4).** El arreglo (toda caja de chat adjunta y lee cualquier
+documento) salió en 5b114031c, pero el ticket no se iba a cerrar por DOS cosas, y la obvia era sólo una:
+- No tenía hito: el número iba en el MENSAJE del commit («(ticket #16 de Leila)»), que el cron no lee. Sólo cuenta
+  `tickets: [n]` en el hito de la bitácora del área (ahora en app/admin/dev/second-brain/bitacora.ts).
+- Seguía en «esperando_decision»: `cerrarLosDesplegados` (lib/tickets-cierre.ts) sólo toma «en_curso» y «arreglado». Un
+  ticket que un chat arregla por el pedido de Martín, sin que pase por el mazo, no lo cierra el hito hasta que alguien lo
+  apruebe; aprobado, el cron lo cierra en la vuelta siguiente porque el hito ya está desplegado. Cambiarle el estado a mano
+  es escribir en producción: pide el sí de Martín.
+**La regla:** el hito con `tickets: [n]` va en el MISMO commit del arreglo, y quien lo entrega mira el estado del ticket
+(sólo lectura) y avisa si no está «en curso».
