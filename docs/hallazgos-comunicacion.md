@@ -269,9 +269,9 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
     cuenta como lo último que vio el modelo.
   · ⚠️ **Lo que REVIENTA no pasa por la salida** (la verificación de tren-t): «la última» se anotaba después del `await`, el throw
     salía antes y la guarda vieja seguía siendo la última; el loop atrapa el throw sin `errorParaTicket`. Ahora lo que revienta
-    apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/doer-falla.ts):
+    apaga la última y cuenta como tragada. Y una LECTURA que anduvo no cambia la última (`laUltimaFueGuarda`, lib/no-pude.ts):
     «falta el monto» + `buscar_leads` + «me falta el monto» abría un ticket por una regla. El costo: guarda + lectura + un «no
-    pude» de otra cosa queda como la regla. Avisado a MaKo inteligente para el turno de la app.
+    pude» de otra cosa queda como la regla. El turno de la app quedó igual (MaKo inteligente, 5f0792446).
 
 **Sin hacer:**
 - **El anillo anti-eco no tiene tope de tiempo** (la verificación de tren-t): `enviarTextoVozMaKo` espera al anillo, y

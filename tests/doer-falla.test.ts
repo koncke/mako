@@ -9,8 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, laUltimaFueGuarda, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
-import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, sacarNoPude } from '../lib/no-pude';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
@@ -261,8 +261,9 @@ test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pu
   // El doer: cada salida actualiza la última y cuenta las tragadas, y la regla sale de la función. Los detectores son los de
   // lib/no-pude.ts (MaKo inteligente, ae1660f9a: los mismos del turno de la app), sin copia en lib/doer-falla.ts.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /import \{ esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, [^}]*\} from '@\/lib\/no-pude';/);
-  assert.doesNotMatch(leer('lib/doer-falla.ts'), /(?:function|const) (?:esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda)\b/, 'volvió la copia de los detectores');
+  // (Y `laUltimaFueGuarda`, desde 5f0792446.)
+  assert.match(doer, /import \{ esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, laUltimaFueGuarda, [^}]*\} from '@\/lib\/no-pude';/);
+  assert.doesNotMatch(leer('lib/doer-falla.ts'), /(?:function|const) (?:esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda|laUltimaFueGuarda)\b/, 'volvió la copia de los detectores');
   // Lo repetido del memo también es lo último que vio el modelo.
   assert.match(doer, /if \(previo\) \{[\s\S]{0,400}?anotarLaUltima\(name, previo\.out\);\n\s*return previo\.out/);
   assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*anotarLaUltima\(name, out\);\n\s*if \(esFallaTragadaDeHerramienta\(out\)\) tragadasDelTurno\+\+;/);
