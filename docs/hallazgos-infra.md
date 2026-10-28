@@ -84,6 +84,7 @@ apaga con `... apagar` (el archivo vive en `~/.claude/operaciones/pausa-pesados.
 
 **De paso, medido el mismo día:** con 4.096 MB de heap, la tanda 1 de 3 del respaldo de tipos «se quedó sin heap» (el
 programa creció con Copywriter). Con `MAKO_TIPOS_HEAP_MB=4608 MAKO_TIPOS_RAM_MIN_GB=4.8` pasaron las tres (102, 111 y 126 s).
+
 ---
 
 ## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
