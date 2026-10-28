@@ -127,6 +127,34 @@ export function esGuardaDeHerramienta(out: unknown): boolean {
   }
 }
 
+/**
+ * ¿La salida de una herramienta es una falla que el runner se TRAGÓ? La misma lectura que `esGuardaDeHerramienta` (texto,
+ * `content`, «❌», el `error` de un JSON), con `esFallaTragada`: el error técnico entre paréntesis. Un isError ya es una falla
+ * a la vista (`errorParaTicket`): no se cuenta dos veces.
+ */
+export function esFallaTragadaDeHerramienta(out: unknown): boolean {
+  if (!out) return false;
+  const o = out as { isError?: unknown; content?: unknown };
+  if (typeof out === 'object' && o.isError === true) return false;
+  const t = (typeof out === 'string' ? out : typeof o.content === 'string' ? o.content : '').trim();
+  if (esFallaTragada(t)) return true;
+  try {
+    const j = JSON.parse(t) as { error?: unknown };
+    return !!j && typeof j.error === 'string' && esFallaTragada(j.error);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ¿El «no pude» del turno es la regla de una guarda? (la verificación de 96e7840e8, 28/10/2026). Sólo si lo ÚLTIMO que corrió fue
+ * la guarda y nada falló en el turno, ni a la vista (`errores`) ni tragado (`tragadas`): «Falta el monto» y un reintento que se
+ * traga un error de la base es una falla; una guarda vieja y otra herramienta después, el «no pude» puede ser de otra cosa.
+ */
+export function esLaReglaDeUnaGuarda(t: { ultimaFueGuarda: boolean; errores: number; tragadas: number }): boolean {
+  return t.ultimaFueGuarda && t.errores === 0 && t.tragadas === 0;
+}
+
 /** Un hash corto y estable (sin tildes ni mayúsculas): para no dejar un email o un jid en una columna única. */
 export function hashCorto(s: string): string {
   let h = 0;
