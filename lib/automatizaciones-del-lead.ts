@@ -16,12 +16,13 @@ import 'server-only';
 import { getTenantDb, getWorkspaceActual } from '@/lib/workspace';
 import { sacarDeSecuencia } from '@/lib/nutricion-salida-manual';
 import {
-  enAutomatizacionesDe, textoDeFrenar, detalleDe, ESTADOS_VIVOS, DIAS_TERMINADAS, TOPE_NO_ENTRO,
+  enAutomatizacionesDe, textoDeFrenar, textoDeVolverAProbar, detalleDe, ESTADOS_VIVOS, DIAS_TERMINADAS, TOPE_NO_ENTRO,
   type EnAutomatizacion, type FilaInscripcion, type FilaAutomatizacion, type AutomatizacionesDelLead,
   type FilaInscripcionDetalle, type FilaEnvioDetalle, type FilaAuditDetalle, type FilaEntranteDetalle,
 } from '@/lib/automatizaciones-del-lead-reglas';
 import { zonaDelNegocio } from '@/lib/timezone';
 import { frenosDelNegocio } from '@/lib/por-que-no-sale-db';
+import { DESENLACE_VOLVER_A_PROBAR } from '@/lib/reentrada';
 
 export type { EnAutomatizacion };
 
@@ -131,6 +132,40 @@ export async function empezarDeNuevoEnAutomatizacion(leadId: number, secuenciaId
   // Y si algo frena lo primero (el horario, el envío apagado), lo dice: «empezó» no es «le salió» (lib/por-que-no-sale.ts).
   const ahora = await enAutomatizaciones([leadId]).then((m) => (m.get(leadId) ?? []).find((a) => a.secuenciaId === secuenciaId) ?? null).catch(() => null);
   return { ok: true, resumen: ahora?.frenado ? `${linea} ${ahora.frenado.texto}` : linea };
+}
+
+/**
+ * «VOLVER A PROBAR» (28/10/2026, ticket #19 de Leandro): una automatización que el lead YA TERMINÓ vuelve a correr con el
+ * PRÓXIMO evento que la arranca (otro comentario con la palabra, otro DM, moverlo de nuevo a la etapa), una vez, aunque su
+ * reentrada sea «Una sola vez». No le manda nada ahora: es lo que necesita quien prueba su automatización con su propia
+ * cuenta (comentar de nuevo y ver que contesta). Pone la marca en el desenlace de la inscripción (`DESENLACE_VOLVER_A_PROBAR`,
+ * lib/reentrada.ts) con compare-and-set sobre lo leído, y una línea en el historial firmada por quien lo pidió.
+ */
+export async function volverAProbarEnAutomatizacion(leadId: number, secuenciaId: number, autor: string, o: { soloVer?: boolean } = {}): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  const { logLeadEvent } = await import('@/lib/leads');
+  const db = await getTenantDb();
+  const [ins, sec, lead] = await Promise.all([
+    db.from('nutricion_inscripciones').select('id, estado, desenlace').eq('lead_id', leadId).eq('secuencia_id', secuenciaId).maybeSingle(),
+    db.from('nutricion_secuencias').select('nombre, archivada_at').eq('id', secuenciaId).maybeSingle(),
+    db.from('leads').select('nombre').eq('id', leadId).maybeSingle(),
+  ]);
+  const e = ins.error ?? sec.error ?? lead.error;
+  if (e) throw new Error(`volver a probar (lead ${leadId}, automatización ${secuenciaId}): ${e.message}`);
+  if (!lead.data) return { ok: false, error: 'Ese lead no existe en este negocio.' };
+  const f = ins.data as { id: number; estado: string; desenlace: string | null } | null;
+  if (!f) return { ok: false, error: 'Este lead nunca entró a esa automatización: lo próximo que la arranca ya lo hace entrar.' };
+  const v = textoDeVolverAProbar(f, sec.data as { nombre: string | null; archivada_at: string | null } | null, (lead.data as { nombre: string | null }).nombre);
+  if (!v.ok) return v;
+  // `soloVer`: la API lo pregunta al preparar, sin escribir (lo de AGENTS.md: lo que se sabe sin escribir falla en preparar()).
+  if (o.soloVer || f.desenlace === DESENLACE_VOLVER_A_PROBAR) return { ok: true, resumen: v.resumen };
+  const q = db.from('nutricion_inscripciones')
+    .update({ desenlace: DESENLACE_VOLVER_A_PROBAR, desenlace_at: new Date().toISOString() })
+    .eq('id', f.id).eq('estado', f.estado);
+  const { data: hecha, error: e2 } = await (f.desenlace == null ? q.is('desenlace', null) : q.eq('desenlace', f.desenlace)).select('id');
+  if (e2) throw new Error(`volver a probar (inscripción ${f.id}): ${e2.message}`);
+  if (!(hecha ?? []).length) return { ok: false, error: 'La automatización se movió recién: vuelve a intentarlo.' };
+  await logLeadEvent(leadId, 'Automatización', v.resumen, autor).catch((e) => console.error(`[automatizaciones-del-lead] el historial de volver a probar (lead ${leadId}):`, e instanceof Error ? e.message : e));
+  return { ok: true, resumen: v.resumen };
 }
 
 /**

@@ -12,7 +12,7 @@
 
 import { requireSesion } from '@/lib/tab-access';
 import { getUsuarioActual } from '@/lib/auth';
-import { enAutomatizaciones, frenarEnAutomatizacion, frenarLeadsEnAutomatizaciones, empezarDeNuevoEnAutomatizacion, detalleDelLead, type EnAutomatizacion } from '@/lib/automatizaciones-del-lead';
+import { enAutomatizaciones, frenarEnAutomatizacion, frenarLeadsEnAutomatizaciones, empezarDeNuevoEnAutomatizacion, volverAProbarEnAutomatizacion, detalleDelLead, type EnAutomatizacion } from '@/lib/automatizaciones-del-lead';
 import type { AutomatizacionesDelLead } from '@/lib/automatizaciones-del-lead-reglas';
 import { textoDeFrenarLote } from '@/lib/automatizaciones-del-lead-reglas';
 
@@ -76,6 +76,22 @@ export async function empezarDeNuevoEnAutomatizacionAction(leadId: number, secue
     return await empezarDeNuevoEnAutomatizacion(leadId, secuenciaId, autor);
   } catch (e) {
     return { ok: false, error: `No pude hacerlo empezar de nuevo: ${e instanceof Error ? e.message : String(e)}` };
+  }
+}
+
+/**
+ * «Volver a probar» UNA automatización que el lead ya terminó (28/10/2026, ticket #19): entra de nuevo con lo próximo que la
+ * arranca, una vez. Sólo el admin del negocio, como frenar; firma el historial con quien lo pidió.
+ */
+export async function volverAProbarEnAutomatizacionAction(leadId: number, secuenciaId: number): Promise<{ ok: true; resumen: string } | { ok: false; error: string }> {
+  const rol = await requireSesion();
+  if (rol !== 'admin') return { ok: false, error: 'Sólo el administrador puede hacerlo volver a probar.' };
+  if (!idValido(leadId) || !idValido(secuenciaId)) return { ok: false, error: 'Falta el lead o la automatización.' };
+  try {
+    const autor = (await getUsuarioActual().catch(() => null))?.email?.trim() || 'CRM';
+    return await volverAProbarEnAutomatizacion(leadId, secuenciaId, autor);
+  } catch (e) {
+    return { ok: false, error: `No pude dejarlo para volver a probar: ${e instanceof Error ? e.message : String(e)}` };
   }
 }
 

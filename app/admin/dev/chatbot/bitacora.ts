@@ -3099,4 +3099,25 @@ FEEDBACK PROBAR:
     ],
     revisar: "/automations",
   },
+  {
+    fecha: "28 oct", hora: "20:17", chat: "Automations", cuenta: "claude4",
+    sesion: "local_ea2a6e6a-dd40-48a7-96c3-25bcbf003e41",
+    actor: "claude", tipo: "implementacion",
+    titulo: "Automations: volver a probar con la misma cuenta",
+    puntos: [
+      "Leandro probó su automatización comentando con dos cuentas suyas, y no podía repetir: un lead entra una sola vez.",
+      "Ahora, en la ficha del lead, «Volver a probar»: con el próximo comentario (o mensaje) entra de nuevo, una vez.",
+      "No le manda nada al tocarlo. MaKo también lo hace si se lo piden.",
+      "Y la palabra clave: «?» o «...» ya no se guardan como «cualquier comentario»; la caja avisa.",
+    ],
+    archivos: [
+      "lib/reentrada.ts — la regla de volver a probar",
+      "lib/automatizaciones-del-lead.ts — la marca, con su historial",
+      "app/crm/lead-view/ficha/resumen/tarjeta-automatizacion.tsx — el botón",
+      "lib/palabras-clave.ts y lib/disparadores-guardar.ts — la palabra que no se lee",
+      "tests/volver-a-probar.test.ts y tests/palabras-clave-comentario.test.ts — probados rompiéndolos",
+    ],
+    revisar: "/crm",
+    tickets: [19],
+  },
 ];

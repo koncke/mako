@@ -1039,6 +1039,30 @@ export const RUNNERS: Runners = {
     },
   },
 
+  // «Volver a probar» (28/10/2026, ticket #19): el núcleo de la ficha (`volverAProbarEnAutomatizacion`), con `soloVer` al
+  // preparar (decide sin escribir) y de verdad al confirmar, que vuelve a decidir contra la base.
+  volver_a_probar_lead_secuencia: {
+    preparar: async (input) => {
+      const leadId = num(input, 'leadId'); const secuenciaId = num(input, 'secuenciaId');
+      const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+      const v = await volverAProbarEnAutomatizacion(leadId, secuenciaId, 'MaKo', { soloVer: true });
+      if (!v.ok) return { error: v.error };
+      return { payload: { leadId, secuenciaId }, resumen: `${v.resumen} No le sale nada ahora.` };
+    },
+    ejecutar: async (payload, ctx) => {
+      const leadId = Number(payload.leadId); const secuenciaId = Number(payload.secuenciaId);
+      try {
+        const { volverAProbarEnAutomatizacion } = await import('@/lib/automatizaciones-del-lead');
+        const r = await volverAProbarEnAutomatizacion(leadId, secuenciaId, ctx.actor?.trim() || 'MaKo');
+        return r.ok ? { ok: true, resumen: `Listo: ${r.resumen}`, datos: { leadId, secuenciaId } } : { ok: false, resumen: r.error };
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error('[api-mako chatbot] volver_a_probar_lead_secuencia:', msg);
+        return { ok: false, resumen: `No se pudo dejar al lead #${leadId} para volver a probar la secuencia #${secuenciaId} (${msg}).` };
+      }
+    },
+  },
+
   // El espejo de inscribir_lead_secuencia (17/10/2026). La decisión pura y la escritura (compare-and-set sobre el
   // estado leído, con getTenantDb) son UNA función (sacarDeSecuencia, lib/nutricion-salida-manual.ts): acá con
   // `soloVer`, que no escribe; al confirmar, sin él, y vuelve a decidir contra la base.

@@ -11,7 +11,7 @@
 // =============================================================================
 
 import {
-  automatizacionesDelLeadDetalleAction, empezarDeNuevoEnAutomatizacionAction, frenarEnAutomatizacionAction,
+  automatizacionesDelLeadDetalleAction, empezarDeNuevoEnAutomatizacionAction, frenarEnAutomatizacionAction, volverAProbarEnAutomatizacionAction,
 } from '@/app/automations/automatizaciones-del-lead-actions';
 import { vistaDeDetalle, type AutomatizacionesVista } from '@/app/crm/automatizacion-lead';
 
@@ -31,4 +31,9 @@ export function frenarDelBloque(leadId: number, secuenciaId: number): Promise<Re
 /** Vuelve a correr UNA automatización desde el primer paso (la regla de `reactivarInscripcion`). Sólo el admin. */
 export function empezarDeNuevoDelBloque(leadId: number, secuenciaId: number): Promise<Resultado> {
   return empezarDeNuevoEnAutomatizacionAction(leadId, secuenciaId);
+}
+
+/** Una terminada vuelve a entrar con lo próximo que la arranca, una vez (ticket #19, `volverAProbarEnAutomatizacion`). Sólo el admin. */
+export function volverAProbarDelBloque(leadId: number, secuenciaId: number): Promise<Resultado> {
+  return volverAProbarEnAutomatizacionAction(leadId, secuenciaId);
 }

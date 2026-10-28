@@ -78,7 +78,7 @@ import {
   ESTADOS_TERMINADOS, SIN_MARCAS, type JuntasLead, type FilaPrevia,
 } from '@/lib/nutricion-reinscripcion';
 // La «Reentrada» del CRON (14/10/2026, docs/diseno-mako-nada-por-detras.md §2.4-a): si un lead vuelve a entrar.
-import { reentradaDe, puedeReentrar, esReentrada, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
+import { reentradaDe, puedeReentrar, esReentrada, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, barridoEsEvento, motivoNoVuelve, lineaNoVolvio, type Reentrada, type NoEntro, type InformeMovimiento } from '@/lib/reentrada';
 // El carril del recordatorio (undécima tanda, M3): la marca del emisor de hoy, compartida.
 import { estadoDeLaMarca, envioIncierto } from '@/lib/recordatorio-lead';
 import { decidirInscripcionManual, type PorQueNoSeInscribio } from '@/lib/nutricion-inscripcion-manual';
@@ -1795,7 +1795,10 @@ async function reusablesDe(
   const out = new Map<number, { fila: FilaInsc; reunionMs: number | null; porque: string }>();
   const posibles = filas.filter((f) => {
     const modo = modoDe(f.secuencia_id);
-    return modo != null && modo !== 'una_vez' && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f));
+    if (modo == null) return false;
+    // La marcada «Volver a probar» por una persona (lib/reentrada.ts) entra a la pregunta con cualquier reentrada.
+    if (f.desenlace === DESENLACE_VOLVER_A_PROBAR) return puedeVolverAProbar(f);
+    return modo !== 'una_vez' && (ESTADOS_TERMINADOS.includes(f.estado) || soloQuedaElCarril(f));
   });
   if (!posibles.length) return out;
   const [marcas, juntas] = await Promise.all([
@@ -2605,7 +2608,8 @@ export async function enrolarPorEvento(leadId: number, evento: EventoNutricion, 
     const decididoAt = ahoraISO();
     const previas = await inscripcionesDe(supabase, [leadId], (q) => q.in('secuencia_id', elegidas.map((s) => s.id)), preparan);
     const previaDe = new Map(previas.map((f) => [f.secuencia_id, f]));
-    const modoSec = new Map(elegidas.filter(reusaInscripciones).map((s) => [s.id, reentradaDeSecuencia(s)] as const));
+    // También «Una sola vez» (con pasos): `reusablesDe` la deja afuera salvo la marcada «Volver a probar» (ticket #19).
+    const modoSec = new Map(elegidas.filter((s) => s.pasos.length > 0).map((s) => [s.id, reentradaDeSecuencia(s)] as const));
     const reusables = await reusablesDe(supabase, previas, (secId) => modoSec.get(secId) ?? null, true);
     const juntas = (preparan || elegidas.some((s) => pasoDeEntrada(s.pasos)?.ancla === 'reunion')) ? (await juntasDe(supabase, [leadId])).get(leadId) ?? null : null;
 

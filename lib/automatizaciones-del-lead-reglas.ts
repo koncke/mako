@@ -7,7 +7,7 @@ import { indiceActual } from './nutricion-grafo-motor';
 import { nombreDeTarjeta, esMako, etiquetaDeAccion } from './flujo-conversacion';
 import { idDe, claseDe, type PasoGrafo } from './flujo-grafo';
 import type { FrenoDelEnvio } from './por-que-no-sale';
-import { leerNoVolvio, ROTULO_REENTRADA, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
+import { leerNoVolvio, ROTULO_REENTRADA, DESENLACE_VOLVER_A_PROBAR, puedeVolverAProbar, type NoEntro, type InformeMovimiento, type Reentrada } from './reentrada';
 import { ESTADOS_EN_CURSO, ESTADOS_QUE_SALEN } from './nutricion-inscripcion-manual';
 import { botonesDeFlujo } from './botones-social';
 export { textoEsperaToque } from './botones-social';
@@ -106,6 +106,24 @@ export function textoDeFrenar(r:
     carrera: `${quien} cambió de paso en ${donde} mientras lo frenaba: prueba de nuevo.`,
   };
   return { ok: false, error: por[r.porque] ?? `${quien} ya no estaba corriendo en ${donde}.` };
+}
+
+/**
+ * «VOLVER A PROBAR» en palabras (ticket #19, `volverAProbarEnAutomatizacion`): si se puede y lo que pasa. No manda nada
+ * ahora: la vuelve a correr lo próximo que la arranca, una vez (lib/reentrada.ts, `DESENLACE_VOLVER_A_PROBAR`).
+ */
+export function textoDeVolverAProbar(
+  f: { estado: string; desenlace: string | null },
+  sec: { nombre: string | null; archivada_at: string | null } | null,
+  lead: string | null,
+): { ok: true; resumen: string } | { ok: false; error: string } {
+  if (!sec) return { ok: false, error: 'Esa automatización no existe en este negocio.' };
+  if (sec.archivada_at) return { ok: false, error: 'La automatización está archivada.' };
+  if (f.estado === 'cancelada' || f.desenlace === 'cancelado') return { ok: false, error: 'La frenaron: una automatización frenada no vuelve a empezar (puede ser una baja).' };
+  if (f.estado === 'handoff') return { ok: false, error: 'La charla la sigue una persona.' };
+  if (!puedeVolverAProbar(f)) return { ok: false, error: 'Todavía la está haciendo: «Volver a probar» es para una que ya terminó.' };
+  const nombre = sec.nombre?.trim() || 'la automatización';
+  return { ok: true, resumen: `${lead?.trim() || 'El lead'} puede volver a probar «${nombre}»: entra de nuevo con lo próximo que la arranca (otro comentario, otro mensaje), una vez.` };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,7 +246,9 @@ export type InscripcionDelLead = {
   proximo: { at: string; titulo: string; canal: string | null; que?: PasoEnPalabras } | null;
   frenado: FrenoDelEnvio | null;
   enviados: EnvioDelLead[];
-  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string };
+  puede: { frenar: boolean; empezarDeNuevo: boolean; porQueNo?: string; volverAProbar?: boolean };
+  /** Ya tiene «Volver a probar» puesto: entra de nuevo con lo próximo que la arranca (ticket #19). */
+  listaParaProbar?: boolean;
   /** Cuándo contestó en ESTA pasada (la línea del motor, `leerContesto`). null = no se sabe. */
   contesto?: string | null;
   /** Qué contestó, citado (`respuestaDelLead`). null = no se encontró el mensaje. */
@@ -313,7 +333,10 @@ export function detalleDe(o: {
             error: e.error?.trim().slice(0, 300) || null, que: k != null ? pasoEnPalabras(pasos[k], o.nombreDelLead ?? null) : null,
           };
         }),
-      puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}) },
+      // «Volver a probar» (ticket #19): en una que terminó (o en la que contestó), aunque esté en pausa: la marca espera.
+      puede: { frenar: vive, empezarDeNuevo: usable && reabre, ...(porQueNo ? { porQueNo } : {}),
+        volverAProbar: s.archivada_at == null && f.estado !== 'handoff' && puedeVolverAProbar(f) && f.desenlace !== DESENLACE_VOLVER_A_PROBAR },
+      ...(f.desenlace === DESENLACE_VOLVER_A_PROBAR ? { listaParaProbar: true } : {}),
       // Sólo la de esta pasada: una línea de antes de que entrara (otra vez) habla de otra vuelta.
       contesto: (() => {
         const at = s.nombre?.trim() ? contestoPorNombre.get(s.nombre.trim()) : undefined;

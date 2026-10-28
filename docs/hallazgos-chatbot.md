@@ -126,9 +126,24 @@ caja lo dice y no guarda (`problemaDePalabras`). **La regla:** sanear no puede c
 valor que significa todos»; eso se rechaza con aviso, no se limpia. Y el resumen que se confirma por WhatsApp
 (`textoDeUnCron`) nombra las palabras: antes «fiesta», «🔥» y ninguna se leían igual.
 
+**⚠️ Probar con la propia cuenta se gasta en la primera (ticket #19, medido el 28/10 en el ws10, sólo lectura):** la 680
+estuvo activa de 20:51 a 20:58; @aliensfilms comentó «Lista» (no «pruebafm») y @martin.koncke «Pruebafm»: los dos nacieron
+como lead y quedaron 'completada' en un segundo (la CONDITION del formulario no se cumplía y su «Si no» estaba vacío). Sin
+filtro, CUALQUIER comentario de quien no era lead crea el lead y lo inscribe (`hayQuienEscuche`); en pausa, ninguno (ese
+día, 30+ comentarios sin lead). Y la 680 es «Una sola vez» (sin guardar: `reentradaDe(null)`), así que el próximo comentario
+de esas dos cuentas NO vuelve a entrar: la prueba de punta a punta del deploy habría fallado callada. La pantalla de la
+reentrada se sacó el 23/10 («para eso tenemos CONDITION»). **Lo hecho:** «Volver a probar» por lead en la ficha (y
+`volver_a_probar_lead_secuencia` en la API): marca el `desenlace` de la terminada (`DESENLACE_VOLVER_A_PROBAR`) y lo próximo
+que la arranca la corre UNA vez con cualquier reentrada; el reuso limpia el desenlace. **La trampa:** `enrolarPorEvento`
+filtraba con `reusaInscripciones` ANTES de mirar la fila: «Una sola vez» nunca llegaba a `puedeReentrar`, así que una
+regla nueva ahí no alcanzaba; hubo que abrir el filtro (`modoSec` con todas las que tienen pasos) y que `reusablesDe` deje
+pasar sólo la marcada. tests/volver-a-probar.test.ts.
+
 **Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
 salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
-comentario (no se cumple nunca); no se probó con un comentario de verdad.
+comentario (no se cumple nunca); no se probó con un comentario de verdad. Elegir la publicación o el Reel (lo último que
+pidió Leandro) tampoco: el webhook ya trae el `postId` (`comentario_post_id`), pero falta el campo del CRON, su selector con
+las publicaciones de la cuenta (Zernio) y la firma; es la tanda siguiente.
 
 ## «La activé para los que están en reactivación y no pasa nada»: mover de etapa NO es un hito (28/10/2026, Leila 2)
 
