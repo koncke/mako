@@ -1620,10 +1620,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       if (propuesta) propuestasDelTurno.set(propuesta.id, propuesta);
       else if (escribeDeVerdad(name) && hizoAlgo(out) && !/"error"\s*:/.test(typeof out === 'string' ? out : '')) escribioDelTurno++;
       else if (!escribeDeVerdad(name)) leyoDelTurno = true;
-      if (esGuardaDeHerramienta(out)) guardasDelTurno++;
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
+      if (esGuardaDeHerramienta(out)) guardasDelTurno++;
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);

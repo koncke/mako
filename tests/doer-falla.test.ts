@@ -223,6 +223,6 @@ test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la co
 test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
   // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /else if \(!escribeDeVerdad\(name\)\) leyoDelTurno = true;\n\s*if \(esGuardaDeHerramienta\(out\)\) guardasDelTurno\+\+;/);
+  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*if \(esGuardaDeHerramienta\(out\)\) guardasDelTurno\+\+;/);
   assert.match(doer, /conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno\.length \}, dondeDelGrupo\(texto\), \{\}\)/);
 });
