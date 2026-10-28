@@ -19,25 +19,25 @@
 // trae SI hay (`sinLeer`), no cuántos, así que va el punto azul sin número.
 
 import { useMemo, type KeyboardEvent, type ReactNode } from 'react';
-import {
-  ArrowDownLeft, ArrowUpRight, Check, CircleCheck, LoaderCircle, RotateCcw, Search, Timer, TimerOff,
-  UserRound, UserRoundX, X,
-} from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Check, IdCard, LoaderCircle, Search, Timer, UserRound, UserRoundPlus, UserRoundX, X } from 'lucide-react';
 import { Dropdown, type DropdownGroup, type DropdownOption } from '@/app/components/Dropdown';
 import { MakoLogo } from '@/app/_components/MakoBrand';
 import type { ChatResumen, EtapaChat, LineaChat } from '@/lib/chats-tipos';
 import { MAKO_SETTER } from '@/lib/pipeline';
+import { pideProducto, type ProductoParaAlta } from '@/lib/lead-funnel-reglas';
+import { sePuedeAgregar } from './agregar-al-crm';
 import { horaDeFila, previewDe } from './lista-reglas';
-import { fechaOpcion, opcionesPosponer } from './ventana-reglas';
 import { AvatarRio } from './ventana-piezas';
 import { portalRio } from './portal';
 
-/** Lo que se puede hacer desde el «⋯» de una fila (por las rutas del plano §2.2). */
+/**
+ * Lo que se puede hacer desde el «⋯» de una fila. Desde el 27/10/2026 (Martín: «no debería decir nada de "Cerrar" o
+ * posponer, ahí deberían haber otras opciones, entre esas, la de agregar al CRM») son las del CRM: agregarlo, abrir su
+ * ficha y asignarlo. Cerrar y posponer quedan en la cabecera del chat abierto («Cerrar» y su flechita).
+ */
 export type AccionFila =
-  | { tipo: 'cerrar' }
-  | { tipo: 'reabrir' }
-  | { tipo: 'posponer'; hasta: string }
-  | { tipo: 'reanudar' }
+  | { tipo: 'agregar'; funnelId: number | null }
+  | { tipo: 'ficha' }
   | { tipo: 'asignar'; setter: string | null };
 
 type Miembro = { nombre: string; foto_url: string | null };
@@ -89,11 +89,13 @@ export function ListaChats(props: {
   onElegir: (c: ChatResumen) => void;
   etapas: EtapaChat[];
   equipo: Miembro[];
+  /** Los funnels del «Agregar al CRM» (con 2 o más, el «⋯» pregunta en cuál). `null` = no se leyeron (decide el server). */
+  productos?: ProductoParaAlta[] | null;
   onAccion: (c: ChatResumen, a: AccionFila) => void;
 }) {
   const {
     ws, chats, cargando, errorLista, fallas, lineas, onReintentar, filtros, arriba, cuerpoAlterno, modoBusca, onModoBusca, buscar,
-    onBuscar, buscandoRemoto, errorBusqueda, seleccionada, onElegir, etapas, equipo, onAccion,
+    onBuscar, buscandoRemoto, errorBusqueda, seleccionada, onElegir, etapas, equipo, productos = null, onAccion,
   } = props;
 
   const colorEtapa = useMemo(() => new Map(etapas.map((e) => [e.key, e.color])), [etapas]);
@@ -130,7 +132,7 @@ export function ListaChats(props: {
           <Fila key={c.clave} ws={ws} c={c} sel={c.clave === seleccionada} ahora={ahora}
             colorEtapa={c.etapaKey ? colorEtapa.get(c.etapaKey) ?? null : null}
             fotoAsignado={c.asignado ? fotoDe.get(c.asignado) ?? null : null}
-            equipo={equipo} onElegir={onElegir} onAccion={onAccion} />
+            equipo={equipo} productos={productos} onElegir={onElegir} onAccion={onAccion} />
         ))}
         {modoBusca && buscandoRemoto && <div className="rio-lista-pie"><LoaderCircle size={16} className="rio-girando" aria-label="Buscando" /></div>}
       </div>
@@ -177,7 +179,7 @@ export function ListaChats(props: {
 
 // ── Una fila ─────────────────────────────────────────────────────────────────────────────────
 
-function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, onElegir, onAccion }: {
+function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, productos, onElegir, onAccion }: {
   ws: number | null;
   c: ChatResumen;
   sel: boolean;
@@ -185,6 +187,7 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, onElegir, o
   colorEtapa: string | null;
   fotoAsignado: string | null;
   equipo: Miembro[];
+  productos: ProductoParaAlta[] | null;
   onElegir: (c: ChatResumen) => void;
   onAccion: (c: ChatResumen, a: AccionFila) => void;
 }) {
@@ -229,7 +232,7 @@ function Fila({ ws, c, sel, ahora, colorEtapa, fotoAsignado, equipo, onElegir, o
           </div>
         </div>
       </div>
-      <MasAcciones c={c} equipo={equipo} onAccion={onAccion} />
+      <MasAcciones c={c} equipo={equipo} productos={productos} onAccion={onAccion} />
     </div>
   );
 }
@@ -242,30 +245,27 @@ function Asignado({ nombre, foto, ws }: { nombre: string | null; foto: string | 
 }
 
 /**
- * El «⋯» de la fila (respond.io: Close · Close with notes · Snooze › · Assign › · Lifecycle ›). Va por el
- * Dropdown de la casa con el portal ADENTRO de `.rio`: la lista scrollea, y un menú `absolute` colgado
- * de la fila se cortaría en el borde del scroll. Abre hacia afuera (`align="afuera"`), sin tapar la fila.
+ * El «⋯» de la fila. Va por el Dropdown de la casa con el portal ADENTRO de `.rio`: la lista scrollea, y un menú `absolute`
+ * colgado de la fila se cortaría en el borde del scroll. Abre hacia afuera (`align="afuera"`), sin tapar la fila.
  *
- * Lo que NO trae: «Cerrar con nota» (la nota va en el botón de la cabecera del chat), «Shortcuts» y
- * «Collaborators» (no existen en MaKo) y «Lifecycle» (la etapa se cambia en la cabecera, por el mismo
- * camino que el CRM y con la ficha cuando la etapa pide datos).
+ * ⚠️ SIN CERRAR NI POSPONER (27/10/2026, Martín: «no debería decir nada de "Cerrar" o posponer, ahí deberían haber otras
+ * opciones, entre esas, la de agregar al CRM»). Era la copia del de respond.io (Close · Snooze › · Assign ›). Ahora es lo
+ * del CRM: «Agregar al CRM» (sin lead; con 2+ funnels, en cuál) o «Abrir ficha», y Asignar. Cerrar y posponer viven en la
+ * cabecera del chat abierto. Un chat sin nada que ofrecer (un grupo) no dibuja el «⋯».
  */
-function MasAcciones({ c, equipo, onAccion }: {
+function MasAcciones({ c, equipo, productos, onAccion }: {
   c: ChatResumen;
   equipo: Miembro[];
+  productos: ProductoParaAlta[] | null;
   onAccion: (c: ChatResumen, a: AccionFila) => void;
 }) {
-  const posponer = c.estado === 'abierta' ? opcionesPosponer(new Date()) : [];
-  const conversacion: DropdownOption[] = [];
-  if (c.estado === 'cerrada') conversacion.push({ value: 'reabrir', label: 'Reabrir', icono: <RotateCcw size={16} /> });
-  else conversacion.push({ value: 'cerrar', label: 'Cerrar', icono: <CircleCheck size={16} /> });
-  if (c.estado === 'pospuesta') conversacion.push({ value: 'reanudar', label: 'Reanudar', icono: <TimerOff size={16} /> });
-  const grupos: DropdownGroup[] = [{ title: '', options: conversacion }];
-  if (posponer.length) {
-    grupos.push({
-      title: 'Posponer hasta',
-      options: posponer.map((p) => ({ value: `pos:${p.key}`, label: p.label, sub: fechaOpcion(p.hasta), icono: <Timer size={16} /> })),
-    });
+  const grupos: DropdownGroup[] = [];
+  if (c.leadId != null) {
+    grupos.push({ title: '', options: [{ value: 'ficha', label: 'Abrir ficha', icono: <IdCard size={16} /> }] });
+  } else if (sePuedeAgregar(c)) {
+    grupos.push(productos && pideProducto(productos)
+      ? { title: 'Agregar al CRM en', options: productos.map((p) => ({ value: `alta:${p.id}`, label: p.nombre, icono: <UserRoundPlus size={16} /> })) }
+      : { title: '', options: [{ value: 'alta:', label: 'Agregar al CRM', icono: <UserRoundPlus size={16} /> }] });
   }
   // Asignar = el setter del lead (plano §6.2): sin lead no hay a quién asignar todavía.
   if (c.leadId != null) {
@@ -277,11 +277,12 @@ function MasAcciones({ c, equipo, onAccion }: {
     }
     grupos.push({ title: 'Asignar', options: opciones });
   }
+  if (!grupos.length) return null;
   const elegir = (v: string) => {
-    if (v === 'cerrar' || v === 'reabrir' || v === 'reanudar') { onAccion(c, { tipo: v }); return; }
-    if (v.startsWith('pos:')) {
-      const p = posponer.find((x) => x.key === v.slice(4));
-      if (p) onAccion(c, { tipo: 'posponer', hasta: p.hasta.toISOString() });
+    if (v === 'ficha') { onAccion(c, { tipo: 'ficha' }); return; }
+    if (v.startsWith('alta:')) {
+      const id = Number(v.slice(5));
+      onAccion(c, { tipo: 'agregar', funnelId: v.length > 5 && Number.isSafeInteger(id) && id > 0 ? id : null });
       return;
     }
     if (v.startsWith('asig:')) {

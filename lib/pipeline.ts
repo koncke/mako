@@ -1724,6 +1724,25 @@ export function terminalEstadoFor(stageKey: string): EstadoLead {
 }
 
 /**
+ * ¿La columna guardada del tablero (`pipeline_stage`) dice OTRO desenlace que `estado_lead`? (27/10/2026, el lead 2371 de
+ * Mauricio: «ganado» con la tarjeta en «Perdido», y Customer Success lo contaba como cliente.)
+ *
+ * ⚠️ HAY CAMINOS QUE CAMBIAN EL ESTADO SIN MOVER LA TARJETA: guardar el plan de pagos (`saveLeadPlanManual`, gana), el alta
+ * de un alumno con «usar ese» (lib/curso-alta-alumno.ts) y cualquier `updateLead` con `estado_lead`. Si la tarjeta tenía su
+ * columna guardada (la de Perdido, la de una etapa abierta), quedaba ahí: el tablero leía la columna y Customer Success,
+ * Revenue y las métricas leían el estado. Quien cambia el estado sin elegir columna vuelve la tarjeta a la derivación
+ * (`deriveStageKey`, que sale del estado): lo que se decidió último es lo que manda.
+ *
+ * Contradice cuando la columna es un desenlace distinto (Perdido con el lead ganado), una etapa abierta con el lead
+ * cerrado, o un cierre con el lead reabierto. Sin columna guardada, nunca: la derivación ya sale del estado.
+ */
+export function etapaContradiceElEstado(pipelineStage: string | null | undefined, estado: EstadoLead | null | undefined): boolean {
+  const columna = String(pipelineStage ?? '').trim();
+  if (!columna) return false;
+  return terminalEstadoFor(columna) !== (estado ?? 'abierto');
+}
+
+/**
  * LA ETAPA DE VENTA DE *ESTE* EMBUDO, o `null` si no tiene ninguna.
  *
  * ⚠️ SALE DE LAS ETAPAS QUE EL EMBUDO TIENE, NO DE UN NOMBRE CABLEADO, y ésa es la

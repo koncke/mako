@@ -20,6 +20,59 @@ código de hoy. Antes de actuar sobre una, verificá contra el código: varias y
 arregladas, y donde el rescate lo sabía, lo dice. El registro completo de las corridas está
 en [corridas-multiagente.md](corridas-multiagente.md).
 
+## El feedback del 27/10/2026: «ganado» en la columna de Perdido, el contrato, la R1 cargada a mano y el día de UTC
+
+Chat «CRM y Chats» (cuenta `claude5`), rama `crm-chats-2710`. Los pedidos, textuales, en la cabecera de
+`tests/crm-feedback-27-10.test.ts`. Lo de Chats está en hallazgos-comunicacion y lo de las cuotas en hallazgos-pagos (mismo día).
+
+- **Un lead «ganado» con la tarjeta en «Perdido» (el 2371 de Mauricio, que Customer Success contaba como cliente).** El
+  diagnóstico obvio era «un movimiento que escribió mal la etapa»: `setPipelineStage` está bien (escribe el estado Y la
+  columna). El agujero son los caminos que cambian `estado_lead` **sin elegir columna**: el plan de pagos
+  (`saveLeadPlanManual` gana con un UPDATE propio), el alta de un alumno con «usar ese» (`lib/curso-alta-alumno.ts`) y todo
+  `updateLead` con el estado. La columna guardada (`pipeline_stage`) quedaba, y el tablero lee la columna mientras CS, Revenue
+  y las métricas leen el estado. **Regla:** el estado que cambia sin columna vuelve la tarjeta a la derivación
+  (`etapaContradiceElEstado`, lib/pipeline.ts); quien escribe la columna justo después lo dice (`etapaAparte`:
+  `setPipelineStage` y el Deshacer de un movimiento con Etapa). Sólo en la TRANSICIÓN: un lead ya descalzado no se «arregla»
+  hacia un lado al re-guardar otro campo. **La fila 2371 en producción NO se tocó**: leer la base desde esta sesión lo frenó el
+  clasificador (lecturas de producción); la consulta y el arreglo, en el traspaso al Cerebro.
+- **«Me sigue exigiendo CONTRATO».** El contrato no era un requisito en ningún lado del server (`stage-requirements`, actions,
+  leads): era el paso `dealAuto` del asistente, en TODO movimiento a Ganado o Facturando, y desde el tablero salía aunque el
+  contrato ya estuviera (la tarjeta no trae `tieneContrato`). No trababa: era una pantalla siempre. Salió de los movimientos;
+  queda en «Completar datos» cuando se piden las secciones del deal. El inventario de todo lo que pide un movimiento, para que
+  Martín decida qué sigue: [crm-requisitos-de-etapa.md](crm-requisitos-de-etapa.md).
+- **«Mover a R1 sólo funciona con Calendly o Cal, no si la agendé a mano, por defecto la busca».** Tres cosas:
+  (1) `buscarReunionesAutomatico` devolvía `ext ?? lead`: una reserva vieja de Calendly PISABA la fecha cargada a mano, y el
+  asistente (y el CRM automático, `lib/crm-auto.ts`) la escribían; ahora gana la de la ficha. (2) El asistente arrancaba la
+  búsqueda solo aunque lo único que faltara fuera la FECHA de la reunión que se está agendando; ahora pregunta la fecha y
+  «Buscarla en Calendly» es un link (sin marcar nada resuelto: el paso que se mira no puede desaparecer). (3) Con la reunión ya
+  cargada y sin marcar, soltar en R1 abría igual el diálogo de Calendly; ahora se mueve directo (`reunionYaCargada`,
+  app/crm/mover-etapa.ts, por el slot de reunión: sirve también para una etapa propia).
+- **Las fechas «un día antes» y el filtro de Calendly que no bloquea (Mauricio).** La búsqueda armaba el día con
+  `.slice(0, 10)` del instante (Calendly y Fathom vienen en UTC): el día de Greenwich, cuando la clave del CRM es el de Tijuana
+  (`isoToFechaTijuana`, la del webhook; «no migrar» está escrito ahí). Corre un día para atrás o para adelante según la hora y la
+  zona. Y un evento de DÍA COMPLETO de Google («2026-10-28») pasado por un `Date` es la medianoche UTC: el 27 a la tarde en
+  México. `diaDeReunion` (lib/auto-reuniones-reglas.ts) hace las dos cosas. El filtro: el webhook sólo toma los tipos de evento
+  del CRM, pero la búsqueda traía TODAS las reuniones del invitado en la organización (un onboarding, un webinar) y la más vieja
+  pasaba por la R1; ahora usa el mismo filtro (`esEventoDelCrm`), y sin poder leerlo no usa Calendly (no adivina).
+  ⚠️ **Sin medir contra los datos de Mauricio** (la lectura de producción quedó frenada): el mecanismo está probado con
+  instantes construidos; falta mirar en su base qué leads quedaron con el día corrido.
+
+- **El ticket #14 («La pantalla CRM se rompió», ws9, sin stack ni la propiedad).** No se reprodujo (la rama sin desplegar y
+  sin sesión en producción): se buscó lo que lee `undefined` con datos REALES del ws9, y el primer dibujado del tablero está
+  bien guardado (etapas huérfanas a `stages[0]`, filtros guardados saneados). Los que leen `.trim()` (el `reading` probable):
+  `fathom_links` con la forma vieja (sin `url`) en el asistente de mover (`f.url.trim()`, en un updater de estado: lo atrapa el
+  límite de error y cae la pantalla), y el orden por nombre de una columna con un lead sin nombre. **Regla:** lo que viene de
+  una columna jsonb se normaliza al mapearlo (`fathomDeFila`, app/crm/crm-map.ts), no en cada lector. ⚠️ El ticket es de las
+  20:14 UTC y el commit del 27/10 de las 22:17: lo desplegado tenía `name: l.nombre` sin default.
+
+**Lo que quedó SIN hacer, con su archivo:**
+- El arreglo de la fila 2371 (pide el sí de Martín; la consulta va al Cerebro).
+- Los pasos que siguen trabando el asistente (producto obligatorio, motivo con detalle, cuotas que suman): para que Martín
+  decida, en [crm-requisitos-de-etapa.md](crm-requisitos-de-etapa.md).
+- El diálogo de Calendly del tablero sólo para `agenda`/`agendaj2` con el tipo cargado (`app/crm/page.tsx`): Cal.com y los
+  eventos vinculados no lo ofrecen.
+- Las fechas ya guardadas con el día de UTC no se corrigieron (no se midieron).
+
 ## «Extraer» de un grupo: dónde entran, con qué etiqueta, y por qué la etiqueta llega a 100 (26/10/2026)
 
 **Vive en:** app/crm/TraerDeGrupoWA.tsx (`extraer`, `traerTandas`) · `etiquetaDeOrigen`/`traerDelGrupo`

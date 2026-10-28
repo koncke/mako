@@ -76,7 +76,8 @@ test('⚠️ toda escritura que cambia un vencimiento olvida el dedup de esa cuo
     'la reconciliación (Editar deal, el wizard, guardar_cuotas, el plan) olvida las que reprogramó');
   const editar = bloque(PAGOS, 'export async function editarCuota(');
   const iUpd = editar.indexOf("from('pagos').update(");
-  const iOlv = editar.indexOf('await olvidarAvisosDeCuotas(cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]))');
+  // Las reprogramadas, y la del recordatorio cortado aunque no cambie la fecha (revisión de b335f972c).
+  const iOlv = editar.indexOf('const reabrir = cuotasReprogramadas([{ id: pagoId, fecha_esperada: despues.fecha_esperada, antes }]);\n  await olvidarAvisosDeCuotas(');
   assert.ok(iUpd > 0 && iOlv > iUpd, 'editarCuota olvida DESPUÉS de escribir: si la escritura falla, no se reabre nada');
   const olv = bloque(PAGOS, 'async function olvidarAvisosDeCuotas(');
   assert.match(olv, /for \(const aviso of AVISOS_DE_CUOTA\)/);

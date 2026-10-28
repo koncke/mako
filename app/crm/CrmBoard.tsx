@@ -18,6 +18,8 @@ import { rutaChatsDeLead } from '@/lib/chats-links';
 import { BotonIntegracion, VueltaDeGoogle } from '@/app/_components/ConectarIntegracion';
 import { BANDAS_KANBAN, claveFiltros, escribirFiltros, leerFiltros } from './filtros-guardados';
 import { ayudaDelTotal, textoDelTotal, totalDeColumna } from './total-columna';
+import { fotoDeTarjeta } from '@/lib/contacto-lead';
+import { reunionYaCargada } from './mover-etapa';
 import { Fragment,
   useCallback,
   useEffect,
@@ -1068,7 +1070,9 @@ export function CrmBoard({
     // resuelto, que `funnelActivo` nombra como null), y nombra a este mismo tablero.
     if (lead.deFila != null) { moverEnProducto(lead, lead.deFila, stageKey, guardarLugar); return; }
     if (stageKey === 'manual') { openManualNutri(id); return; }
-    if (esEtapaCalendly(stageKey)) { scheduleViaCalendly(lead, stageKey); return; }
+    // La reunión ya cargada (a mano o por la reserva) no pregunta por Calendly: se mueve como cualquier etapa (27/10/2026,
+    // Martín: «no si la agendé a mano, por defecto la busca»).
+    if (esEtapaCalendly(stageKey) && !reunionYaCargada(stages, stageKey, lead)) { scheduleViaCalendly(lead, stageKey); return; }
     const from = effStage(lead);
     const tr = transitionFor(from, stageKey);
     // YA NO se abre el wizard de datos al soltar (08-T22). Antes, si la etapa pedía
@@ -2202,7 +2206,7 @@ export function CrmBoard({
       for (const tanda of enTandasDe(ids)) {
         const r = await enAutomatizacionesAction(tanda).catch(() => null);
         if (!vivo || r === null) return;
-        for (const [k, v] of Object.entries(r)) if (v.length) out.set(Number(k), v);
+        for (const [k, v] of Object.entries(r)) if (v?.length) out.set(Number(k), v);
       }
       if (vivo) setEnAut(out);
     })();
@@ -3014,7 +3018,7 @@ export function CrmBoard({
                 marcada={leadDelMenu === l.id}
                 titulo={l.origin && l.origin !== l.canal ? l.origin : undefined}
                 nombre={l.name}
-                foto={l.foto}
+                foto={fotoDeTarjeta(l.foto, l.phone, wsTab)}
                 insignia={insigniaDeCanal(l.canal)}
                 /* Qué datos, en qué orden y con qué diseño: «Personalizar tarjetas» (`propsDeTarjeta`, arriba del return). */
                 {...propsDeTarjeta(l, campos, diseno)}
@@ -3736,7 +3740,7 @@ export function CrmBoard({
         return (
           <FichaRapida
             nombre={l.name}
-            foto={l.foto}
+            foto={fotoDeTarjeta(l.foto, l.phone, wsTab)}
             insignia={insigniaDeCanal(l.canal)}
             subtitulo={subtituloLead(plata, l.canal)}
             avance={i >= 0 ? { pct: ((i + 1) / camino.length) * 100, texto: `Paso ${i + 1} de ${camino.length} · ${camino[i].label}` } : null}
@@ -4062,7 +4066,7 @@ export function CrmBoard({
                     )}
                     <button type="button" onClick={() => elegirQhEtapa(o.to)} style={btnOpcion(activo)}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 14.5, fontWeight: 700 }}>
-                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category].c }} />
+                        <span aria-hidden style={{ width: 9, height: 9, borderRadius: '50%', flex: 'none', background: stageMetaOpt(stages, o.to)?.dot ?? CATEGORY[o.category]?.c ?? 'var(--dim)' }} />
                         {o.label}
                       </div>
                       {o.sub && o.sub !== o.label && (

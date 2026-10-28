@@ -10656,3 +10656,13 @@ ejecuta nada. Una decisión vale para TODAS las señales de la tarjeta que se VI
 pantalla o el chat, con las de que_recomienda_mako; el servidor no completa nada), repetirla mientras sigue vigente no
 escribe (`decisionVigente`), y «lo que mejoró» sólo cuenta los tipos que esa pantalla MIDIÓ con muestra (`tiposMedidos`).
 tests/mako-recomienda-*.test.ts; el diseño en docs/diseno-mako-recomienda.md.
+
+# El desenlace de un lead y la columna de su tarjeta se escriben JUNTOS (27/10/2026)
+
+El tablero lee la columna guardada (`leads.pipeline_stage`) y Customer Success, Revenue y las métricas leen `estado_lead`. Un
+camino que cambia el estado sin elegir columna dejaba dos verdades: el lead 2371 de Mauricio quedó «ganado» con la tarjeta en
+«Perdido» y CS lo contaba como cliente. **Regla para código nuevo:** el estado se cambia por `setPipelineStage` (escribe las
+dos) o por `updateLead` (si el estado cambia y la columna lo contradice, la suelta: `etapaContradiceElEstado`, lib/pipeline.ts).
+Un UPDATE directo que escriba `estado_lead` (como `saveLeadPlanManual`, lib/pagos.ts) mira lo mismo y suelta la columna; quien
+escribe la columna justo después pasa `etapaAparte: true`. Lo fija tests/estado-contra-columna.test.ts; el porqué, en
+docs/hallazgos-crm.md («El feedback del 27/10/2026»).

@@ -31,7 +31,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BorradorChat, ChatResumen, EtapaChat, MensajeChat } from '@/lib/chats-tipos';
 import type { ProductoParaAlta } from '@/lib/lead-funnel-reglas';
-import { crearLeadDesdeWhatsappAction } from '@/app/crm/actions';
+import { agregarChatAlCrm, sePuedeAgregar } from './agregar-al-crm';
+import { pideProducto } from '@/lib/lead-funnel-reglas';
 import { BotonAgregarAlCrm } from '@/app/whatsapp/_shared/BotonAgregarAlCrm';
 import { useConfirm } from '@/app/_ui';
 import { IconoBorrar } from '@/app/_ui/BotonBorrar';
@@ -64,7 +65,8 @@ export type VentanaChatProps = {
   onCambio: () => void;
   onAbrirFicha: (leadId: number) => void;
   /** La conversación cambió de clave (se agregó al CRM: pasa a lead:<id>). */
-  onClaveCambio: (nueva: string) => void;
+  /** `vieja`: la clave que tenía (la fila de la lista se renombra en el acto: sin eso quedaba duplicada, 27/10/2026). */
+  onClaveCambio: (nueva: string, vieja?: string) => void;
 };
 
 /** `fallas`: las fuentes del hilo que no se pudieron leer (extensión del §2.2 que escribió DATOS). */
@@ -72,7 +74,7 @@ type HiloLeido = { chat: ChatResumen | null; mensajes: MensajeChat[]; borradores
 /** Un mensaje optimista. `confirmadoEn`: el número de la última lectura que había empezado cuando salió. */
 type Pendiente = { m: MensajeChat; confirmadoEn: number | null };
 /** `asignar`, `posponer` y `cerrar` son vistas del «⋯» (con su ‹ para volver), no botones de la cabecera. */
-type Menu = 'etapa' | 'mas' | 'asignar' | 'posponer' | 'cerrar' | null;
+type Menu = 'etapa' | 'mas' | 'asignar' | 'posponer' | 'cerrar' | 'cierre' | 'agregar' | null;
 
 /** Cada cuánto se relee el hilo (con la pestaña a la vista), y cuándo se corta una lectura colgada. */
 const SONDEO_MS = 8_000;
@@ -130,7 +132,7 @@ export function VentanaChat({
       //    clave; acá se sigue dibujando con la de la lista (ver `chat` más abajo) hasta el remontaje.
       if (leido.chat?.clave && leido.chat.clave !== clave && !claveAvisada.current) {
         claveAvisada.current = true;
-        claveCambioRef.current(leido.chat.clave);
+        claveCambioRef.current(leido.chat.clave, clave);
       }
       setHilo(leido);
       setErrorLectura(null);
@@ -212,7 +214,7 @@ export function VentanaChat({
   const cerrarMenu = () => setMenu(null);
   const alternar = (m: Exclude<Menu, null>) => setMenu((a) => (a === m ? null : m));
   const cajaEtapa = useAfuera<HTMLDivElement>(menu === 'etapa', cerrarMenu);
-  const cajaMas = useAfuera<HTMLDivElement>(menu === 'mas' || menu === 'asignar' || menu === 'posponer' || menu === 'cerrar', cerrarMenu);
+  const cajaMas = useAfuera<HTMLDivElement>(menu === 'mas' || menu === 'asignar' || menu === 'posponer' || menu === 'cerrar' || menu === 'cierre' || menu === 'agregar', cerrarMenu);
   const [ocupado, setOcupado] = useState(false);
   /** Lo que el Composer recibe como adjunto (o nada, si el canal elegido no adjunta): lo usa el soltar de la conversación. */
   const adjuntosRef = useRef<AdjuntosDeCaja | undefined>(undefined);
@@ -284,31 +286,22 @@ export function VentanaChat({
   const waIdent = chat.canales.find((c) => c.canal === 'whatsapp' && !!c.telefono) ?? null;
   const socialIdent = chat.canales.find((c) => c.canal !== 'whatsapp') ?? null;
   async function agregarAlCrm(funnelId: number | null) {
-    if (creandoLead || chat.leadId) return;
+    if (creandoLead || chat.leadId || !(waIdent || socialIdent)) return;
     setCreandoLead(true);
     try {
-      let id: number | null = null;
-      if (waIdent?.telefono) {
-        const r = await crearLeadDesdeWhatsappAction(chat.nombre || waIdent.telefono, waIdent.telefono, funnelId);
-        // Con `else` y no con un ternario: así la respuesta queda estrechada al choque y se le lee el motivo.
-        if ('id' in r) id = r.id;
-        else if (r.elegir) { setProductosAlta(r.elegir); aviso.ok('Elige el funnel'); return; }
-        else if (r.coincidencias.length === 1) {
-          // Ya estaba: con UN candidato ése ES el lead de este teléfono. Con varios no se elige el primero.
-          id = r.coincidencias[0].id;
-          if (r.errorAlAgregar) aviso.error('No se pudo agregar', r.errorAlAgregar);
-        } else { aviso.error('No se pudo agregar', r.error); return; }
-      } else if (socialIdent) {
-        const j = await postJson<{ ok: boolean; leadId?: number; error?: string; elegir?: ProductoParaAlta[] }>('/api/chats/lead', { convId: Number(socialIdent.ref), funnelId });
-        if (j.ok && j.leadId) id = j.leadId;
-        else if (j.elegir?.length) { setProductosAlta(j.elegir); aviso.ok('Elige el funnel'); return; }
-        else { aviso.error('No se pudo agregar', j.error); return; }
-      } else return;
-      if (!id) return;
+      // El alta de las dos puertas (esta cabecera y el «⋯» de la fila): ./agregar-al-crm.ts.
+      const r = await agregarChatAlCrm(chat, funnelId);
+      if (!r.ok) {
+        if ('elegir' in r) { setProductosAlta(r.elegir); aviso.ok('Elige el funnel'); }
+        else aviso.error('No se pudo agregar', r.error);
+        return;
+      }
+      if (r.aviso) aviso.error(r.aviso.titulo, r.aviso.detalle);
+      const id = r.leadId;
       aviso.ok('Agregado al CRM');
       onAbrirFicha(id);
       onCambio();
-      onClaveCambio(`lead:${id}`);
+      onClaveCambio(`lead:${id}`, clave);
     } catch (e) {
       aviso.error('No se pudo agregar', e instanceof Error ? e.message : null);
     } finally { setCreandoLead(false); }
@@ -416,8 +409,9 @@ export function VentanaChat({
               )}
             </div>
           ) : waIdent || socialIdent ? (
-            // Sin lead no hay etapa: en su lugar, el alta al CRM (lo que la habilita). Es el ÚNICO «Agregar al CRM» de la
-            // pantalla (§8.2): el «⋯», el panel del contacto y el comentario lo nombran sin otro botón. Un GRUPO no se agrega
+            // Sin lead no hay etapa: en su lugar, el alta al CRM (lo que la habilita). Es el único BOTÓN «Agregar al CRM» de la
+            // pantalla (§8.2); los «⋯» (el de acá y el de cada fila) lo ofrecen como opción desde el 27/10/2026, por el mismo
+            // alta (./agregar-al-crm.ts). El panel del contacto y el comentario lo nombran sin otro botón. Un GRUPO no se agrega
             // (no tiene un teléfono que sea una persona): sin identidad que dé de alta, no hay botón.
             <div className="rio-alta-crm">{botonAlta}</div>
           ) : null}
@@ -425,6 +419,8 @@ export function VentanaChat({
 
         <div className="rio-cab-der">
           {chat.estado === 'abierta' ? (
+            // «Cerrar» y, en su flechita, Posponer y «Cerrar con nota» (27/10/2026, Martín: el «⋯» «no debería decir nada
+            // de "Cerrar" o posponer»). La flechita vive en el ancla del «⋯», para que el clic afuera cierre igual.
             <button type="button" className="rio-btn" disabled={ocupado} onClick={() => void cambiarEstado('cerrar')}>
               <Ico n="checkCirculo" s={16} />Cerrar
             </button>
@@ -440,22 +436,34 @@ export function VentanaChat({
           )}
 
           <div className="rio-ancla" ref={cajaMas}>
+            {chat.estado === 'abierta' && (
+              <button type="button" className="rio-ico-btn" onClick={() => alternar('cierre')} title="Posponer o cerrar con nota" aria-label="Posponer o cerrar con nota"
+                aria-haspopup="menu" aria-expanded={menu === 'cierre' || menu === 'posponer' || menu === 'cerrar'} disabled={ocupado}><Ico n="chevAbajo" s={16} /></button>
+            )}
             <button type="button" className="rio-ico-btn" onClick={() => alternar('mas')} title="Más acciones" aria-label="Más acciones" aria-haspopup="menu"
-              aria-expanded={menu === 'mas' || menu === 'asignar' || menu === 'posponer' || menu === 'cerrar'}><Ico n="mas" s={20} /></button>
+              aria-expanded={menu === 'mas' || menu === 'asignar' || menu === 'agregar'}><Ico n="mas" s={20} /></button>
+            {menu === 'cierre' && (
+              <div className="rio-menu rio-menu-der" role="menu">
+                <ItemMenu icono={<Ico n="reloj" s={16} />} deshabilitado={ocupado} detalle={<Ico n="chevDer" s={14} />} onClick={() => setMenu('posponer')}>Posponer</ItemMenu>
+                <ItemMenu icono={<Ico n="checkCirculo" s={16} />} deshabilitado={ocupado} onClick={() => setMenu('cerrar')}>Cerrar con nota</ItemMenu>
+              </div>
+            )}
             {menu === 'mas' && (
               <div className="rio-menu rio-menu-der" role="menu">
-                <ItemMenu icono={<Ico n="persona" s={16} />} deshabilitado={!chat.leadId || ocupado}
-                  detalle={chat.leadId ? (chat.asignado ?? 'Sin asignar') : 'Agrégalo al CRM'}
-                  onClick={() => { setBusca(''); setMenu('asignar'); }}>Asignar</ItemMenu>
-                {chat.estado === 'abierta' && (
-                  <>
-                    <ItemMenu icono={<Ico n="reloj" s={16} />} deshabilitado={ocupado} detalle={<Ico n="chevDer" s={14} />} onClick={() => setMenu('posponer')}>Posponer</ItemMenu>
-                    <ItemMenu icono={<Ico n="checkCirculo" s={16} />} deshabilitado={ocupado} onClick={() => setMenu('cerrar')}>Cerrar con nota</ItemMenu>
-                  </>
+                {/* Lo del CRM primero: agregarlo (sin lead) o abrir su ficha (27/10/2026). */}
+                {sePuedeAgregar(chat) && (
+                  <ItemMenu icono={<Ico n="ficha" s={16} />} deshabilitado={creandoLead}
+                    detalle={productosAlta && pideProducto(productosAlta) ? <Ico n="chevDer" s={14} /> : undefined}
+                    onClick={() => { if (productosAlta && pideProducto(productosAlta)) setMenu('agregar'); else { setMenu(null); void agregarAlCrm(null); } }}>
+                    {creandoLead ? 'Agregando…' : 'Agregar al CRM'}
+                  </ItemMenu>
                 )}
                 {chat.leadId != null && (
                   <ItemMenu icono={<Ico n="ficha" s={16} />} onClick={() => { setMenu(null); if (chat.leadId) onAbrirFicha(chat.leadId); }}>Abrir ficha</ItemMenu>
                 )}
+                <ItemMenu icono={<Ico n="persona" s={16} />} deshabilitado={!chat.leadId || ocupado}
+                  detalle={chat.leadId ? (chat.asignado ?? 'Sin asignar') : 'Agrégalo al CRM'}
+                  onClick={() => { setBusca(''); setMenu('asignar'); }}>Asignar</ItemMenu>
                 {waIdent && (
                   <>
                     <div className="rio-menu-sep" role="separator" />
@@ -489,9 +497,17 @@ export function VentanaChat({
                 {!candidatos.length && <div className="rio-menu-vacio">Sin resultados</div>}
               </div>
             )}
+            {menu === 'agregar' && productosAlta && (
+              <div className="rio-menu rio-menu-der" role="menu">
+                <button type="button" className="rio-menu-volver" onClick={() => setMenu('mas')}><Ico n="chevIzq" s={16} />Agregar al CRM en</button>
+                {productosAlta.map((p) => (
+                  <ItemMenu key={p.id} onClick={() => { setMenu(null); void agregarAlCrm(p.id); }}>{p.nombre}</ItemMenu>
+                ))}
+              </div>
+            )}
             {menu === 'posponer' && (
               <div className="rio-menu rio-menu-der rio-menu-posponer" role="menu">
-                <button type="button" className="rio-menu-volver" onClick={() => setMenu('mas')}><Ico n="chevIzq" s={16} />Posponer hasta</button>
+                <button type="button" className="rio-menu-volver" onClick={() => setMenu('cierre')}><Ico n="chevIzq" s={16} />Posponer hasta</button>
                 {opcionesPosponer(new Date()).map((o) => (
                   <ItemMenu key={o.key} detalle={fechaOpcion(o.hasta)} onClick={() => void cambiarEstado('posponer', { hasta: o.hasta.toISOString() })}>{o.label}</ItemMenu>
                 ))}

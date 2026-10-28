@@ -234,7 +234,9 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
   const [calificado, setCalificado] = useState<boolean | null>(move.yaRespondido?.calificado ?? lead.calificado);
   const [fathom, setFathom] = useState<FathomLink[]>(() => lead.fathom);
   /** El link de UNA reunión en `fathom` (el mismo reparto que la ficha: `etiquetaEsR2`). */
-  const linkDe = (r2: boolean) => fathom.find((f) => f.url.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
+  // ⚠️ `url?.`: un link de `fathom_links` con la forma vieja (sin `url`, o sólo el rótulo) rompía la pantalla entera con
+  // «Cannot read properties of undefined (reading 'trim')» (ticket #14, 27/10/2026). Los otros lectores ya lo guardaban.
+  const linkDe = (r2: boolean) => fathom.find((f) => f.url?.trim() && etiquetaEsR2(f.label) === r2)?.url ?? '';
   const [fathomOmitido, setFathomOmitido] = useState(false);
   // Reprogramar: la tercera salida del paso de asistencia. Vacío = no se reprograma.
   const [reprogR1, setReprogR1] = useState('');
@@ -466,16 +468,17 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
         if (asistioJ2 !== false && requeridos.has('fathomR2')) p.push('fathomR2');
       }
     }
-    // Automatización del cierre PRIMERO: en un cierre (Ganado/Facturando) se ofrece
-    // leer el CONTRATO (dealAuto) para autocompletar servicio/promesa/fiscal/
-    // obligaciones ANTES de las preguntas manuales. En "Solucionar" además pide lo
-    // que el contrato no complete. No vuelve obligatorias las secciones (respeta el
-    // cierre por reserva sin contrato firmado todavía).
+    // Las secciones del deal (servicio/promesa/fiscal/obligaciones) sólo cuando se piden («Solucionar»): ahí se ofrece
+    // leer el CONTRATO (dealAuto) para autocompletarlas antes de las preguntas a mano. No son obligatorias.
     const necesitaDeal = requeridos.has('dealServicio') || requeridos.has('dealPromesa') || requeridos.has('dealFiscal') || requeridos.has('dealObligaciones');
-    const dealCompleto = !!(lead.dealServicioOk && lead.dealPromesaOk && lead.dealFiscalOk && lead.dealObligacionesOk);
     // Lo PRIMERO de un cierre: qué compró (el producto define el tipo de venta y el monto que siguen).
     if (esCierre && !completarDatos && productos && productos.length > 0) p.push('producto');
-    if ((esCierre && !dealCompleto) || necesitaDeal) p.push('dealAuto');
+    // ⚠️ EL CONTRATO NO SE PIDE AL MOVER (27/10/2026, Martín: «Me sigue exigiendo CONTRATO, eso hay que eliminarlo»). Todo
+    // movimiento a Ganado o Facturando abría «¿Completamos el cierre con el contrato?» con «Subir contrato»: no trababa,
+    // pero era una pantalla de más en cada cierre (y desde el tablero salía aunque el contrato ya estuviera, porque la
+    // tarjeta no trae `tieneContrato`). Queda sólo en «Completar datos» cuando se piden las secciones del deal, que es
+    // donde el contrato sirve para llenarlas; el contrato se sube y se lee en la ficha › Pagos.
+    if (completarDatos && necesitaDeal) p.push('dealAuto');
     if (requeridos.has('dealServicio')) p.push('dealServicio');
     if (requeridos.has('dealPromesa')) p.push('dealPromesa');
     if (requeridos.has('dealFiscal')) p.push('dealFiscal');
@@ -523,7 +526,12 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
     // "Automático primero": si hay datos de reunión por pedir, ofrecer buscarlos.
     // Con reporte ya generado el paso se mantiene (aunque todo quede resuelto)
     // para que el usuario VEA qué se encontró antes de seguir.
-    if (autoOferta && (autoReporte !== null || filtrados.some((id) => (AUTO_RESOLUBLES as string[]).includes(id)))) {
+    // ⚠️ LA FECHA DE LA REUNIÓN QUE SE ESTÁ AGENDANDO NO SE BUSCA SOLA (27/10/2026, Martín: mover a R1 «solo funciona con
+    // llamada de Calendly o Cal, pero no si la agendé a mano, por defecto la busca»). Si lo único que la búsqueda podría
+    // traer es la FECHA (mover a R1 o a R2), se pregunta directo —cargada a mano es lo normal— y «Buscarla en Calendly»
+    // queda como un link en ese paso. La búsqueda arranca sola sólo si hay algo más que encontrar (asistencia, grabación).
+    const buscaSola = p.some((id) => (AUTO_RESOLUBLES as string[]).includes(id) && id !== 'fechaJ1' && id !== 'fechaJ2');
+    if (autoOferta && buscaSola && (autoReporte !== null || filtrados.some((id) => (AUTO_RESOLUBLES as string[]).includes(id)))) {
       filtrados.unshift('auto');
     }
     // ⚠️ «CONFIRMAR DATOS» SÓLO SI HAY MÁS DE UN PASO (Martín, 12/10/2026, punto 15: «solo si son más
@@ -537,7 +545,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (preguntas.length === 1) return preguntas;
     }
     return filtrados;
-  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, lead.dealServicioOk, lead.dealPromesaOk, lead.dealFiscalOk, lead.dealObligacionesOk, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos]);
+  }, [requeridos, esCierre, lead.fechaJ1, lead.fechaJ2, huboR1, huboR2, asistioJ1, asistioJ2, autoOferta, resueltos, autoReporte, ventaTipo, completarDatos, productos]);
 
   // Índice actual + historial REAL de pasos visitados (para que Atrás vuelva
   // al paso anterior visitado, no al índice-1 cuando hubo saltos).
@@ -688,7 +696,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
             ...(pide('asistenciaR2') ? { asistioJ2 } : { asistioJ2: move.asistioJ2 }),
           }),
           ...(pide('calificado') ? { calificado } : (to === 'ganado' ? { calificado: true } : {})),
-          ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url.trim() || f.label.trim()) } : {}),
+          ...(pide('fathomR1') || pide('fathomR2') ? { fathom: fathom.filter((f) => f.url?.trim() || f.label?.trim()) } : {}),
           // Suscripción: el monto NO va a monto_cierre_usd (no infla el revenue único);
           // va como suscripcion_monto_usd (MRR) + el tipo y el plazo.
           // Sin cobro (#747): no hay paso de monto, así que el tipo viaja por su propio
@@ -876,7 +884,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       if (r.asistioJ2 != null) { setAsistioJ2(r.asistioJ2); ok.add('asistenciaR2'); }
       if (r.fathomR1 || r.fathomR2) {
         setFathom((prev) => {
-          const links = prev.filter((f) => f.url.trim());
+          const links = prev.filter((f) => f.url?.trim());
           for (const nuevo of [r.fathomR1, r.fathomR2]) {
             if (nuevo && !links.some((l) => l.url === nuevo.url)) links.push(nuevo);
           }
@@ -891,13 +899,40 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       // confirmación en vez del alta manual completa.
       setAutoR2NoEncontrada(!r.fechaJ2 && r.asistioJ2 == null && !lead.fechaJ2);
       setAutoReporte([
-        ...(r.encontrado.length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
-        ...r.faltante.map((f) => `A mano: ${f}`),
+        ...((r.encontrado ?? []).length ? r.encontrado : ['No encontré nada en Calendly ni Fathom para este lead.']),
+        ...(r.faltante ?? []).map((f) => `A mano: ${f}`),
       ]);
     } finally {
       setAutoBusy(false);
     }
   };
+
+  // «Buscarla en Calendly» desde el paso de la fecha (27/10/2026): pone la fecha si la encuentra y dice qué pasó, sin marcar
+  // nada resuelto (el paso que se está mirando no puede desaparecer). Una vez: después queda lo que dijo.
+  const [buscandoFecha, setBuscandoFecha] = useState(false);
+  const [notaFecha, setNotaFecha] = useState<string | null>(null);
+  const buscarFecha = async (cual: 'R1' | 'R2') => {
+    setBuscandoFecha(true);
+    try {
+      const r = await autoReunionesAction(lead.id);
+      if ('error' in r) { setNotaFecha(r.error); return; }
+      const f = cual === 'R1' ? r.fechaJ1 : r.fechaJ2;
+      if (f) { if (cual === 'R1') setFechaJ1(f); else setFechaJ2(f); }
+      setNotaFecha(f ? `Encontré la ${cual} del ${f.split('-').reverse().join('/')}.` : `No encontré la ${cual} en Calendly ni Fathom: cárgala a mano.`);
+    } catch (e) {
+      setNotaFecha(e instanceof Error ? e.message : 'No pude buscarla.');
+    } finally { setBuscandoFecha(false); }
+  };
+  const buscarFechaLink = (cual: 'R1' | 'R2') => (
+    <div style={{ marginTop: 10, fontSize: 13, color: 'var(--dim)', textAlign: 'center' }}>
+      {notaFecha ?? (
+        <button type="button" disabled={buscandoFecha} onClick={() => void buscarFecha(cual)}
+          style={{ background: 'none', border: 'none', padding: 0, color: 'var(--primary)', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: SANS }}>
+          {buscandoFecha ? 'Buscando…' : 'Buscarla en Calendly'}
+        </button>
+      )}
+    </div>
+  );
 
   // ⚠️ BUSCA SOLO, no pregunta si buscar. Hasta el 27/09/2026 este paso era «¿Buscamos
   // los datos automáticamente?» con dos botones del mismo tamaño — y la respuesta ya
@@ -967,11 +1002,11 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
       break;
     case 'fechaJ1':
       pregunta = '¿Cuándo es (o fue) la Reunión 1?';
-      cuerpo = <FechaYHora fecha={fechaJ1} onFecha={setFechaJ1} hora={horaJ1} onHora={setHoraJ1} reunion="Reunión 1" />;
+      cuerpo = <>{<FechaYHora fecha={fechaJ1} onFecha={setFechaJ1} hora={horaJ1} onHora={setHoraJ1} reunion="Reunión 1" />}{buscarFechaLink('R1')}</>;
       break;
     case 'fechaJ2':
       pregunta = '¿Cuándo es (o fue) la Reunión 2?';
-      cuerpo = <FechaYHora fecha={fechaJ2} onFecha={setFechaJ2} hora={horaJ2} onHora={setHoraJ2} reunion="Reunión 2" />;
+      cuerpo = <>{<FechaYHora fecha={fechaJ2} onFecha={setFechaJ2} hora={horaJ2} onHora={setHoraJ2} reunion="Reunión 2" />}{buscarFechaLink('R2')}</>;
       break;
     // Asistencia con TRES salidas. La reunión que ya pasó y sigue sin resolver es
     // el pendiente que no se puede ignorar, así que el form tiene que ofrecer la
@@ -1325,7 +1360,7 @@ export function StageMoveDialog({ lead, stages, move, onDone, onClose, titulo, c
           if (pide('asistenciaR2')) filas.push(['Asistió R2', asistioJ2 ? 'Sí' : 'No']);
         }
       }
-      if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url.trim()).length} link(s)`]);
+      if (pide('fathomR1') || pide('fathomR2')) filas.push(['Fathom', fathomOmitido ? 'Sin grabación' : `${fathom.filter((f) => f.url?.trim()).length} link(s)`]);
       if (pide('producto')) filas.push(['Producto', productoElegido === 'otro' ? 'Otro / personalizado' : (productos ?? []).find((p) => p.id === productoElegido)?.nombre ?? '—']);
       if (pide('ventaTipo') && sinCobro) filas.push(['Venta', 'Sin cobro']);
       if (pide('monto') && esSuscripcion) filas.push(['Suscripción', totalMonto ? `$${totalMonto.toLocaleString('en-US')}/mes · ${susMeses ? `${susMeses} meses` : 'indefinida'}` : '—']);
