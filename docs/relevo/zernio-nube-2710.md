@@ -89,3 +89,14 @@ NO TOQUES: la rama zernio-2510 de lo ya entregado (no la reescribas), el worktre
 
 ## Para el Cerebro
 (anotá acá lo que necesita producción o una decisión)
+
+**28/10/2026, `claude4` en la PC (la nube quedó trabada; esto lo terminó la PC, sin etiquetas):**
+- Pendientes 1 a 3 hechos: los dos rojos no eran de la rama (verdes después de mezclar main); la pieza 1 commiteada,
+  probada rompiéndola y con un test de punta a punta nuevo (tests/venta-externa.test.ts) que encontró un agujero y quedó
+  arreglado (el reintento de un aviso cortado dejaba la venta sin lead); el event_id anotado en el diseño y la cosecha en
+  docs/hallazgos-pagos.md + docs/hallazgos.md.
+- Pendiente 4 (prueba en el ws 3): NO se puede desde acá: no hay claves `sk_test` de Stripe en el proyecto.
+- Pendientes 5 y 6 (el redirect del Payment Link de Mauricio y conectar su Stripe al ws1): de Martín. El interruptor
+  `cobros.ventas_externas` sigue apagado en todos los negocios.
+- Pendiente 7 (Pixel v28): origin/main ya está en v28; no hay choque.
+- Producción no se tocó.

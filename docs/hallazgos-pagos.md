@@ -1267,6 +1267,41 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
   tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
   `marketing_attributions` en null) y son anteriores al Pixel en la página.
 
+## La venta de un Payment Link propio ya entra como cobro externo, APAGADA (MAU-10, 27-28/10/2026)
+
+Chat «Zernio y CAPI» (`claude5` lo escribió, `claude4` lo terminó en la PC). Sigue a la entrada de arriba y al diseño
+(docs/diseno-venta-externa-stripe.md, §8 «Lo que cambió al construirlo»).
+
+**Vive en:** `lib/cobros-externos-reglas.ts` (`esVentaExterna`, `filaDeVentaExterna`, `esCobroExterno`) · `lib/cobros.ts`
+(`registrarVentaExterna`; el corte en `reembolsarCobro` y `cancelarSuscripcionCobro`) · `lib/cobros-webhook.ts`
+(`ventaExternaStripe`, `avisarCompraAMeta`, la puerta en la rama de checkout) · `lib/crm-auto-plan.ts` (T2 no mueve a quien
+pagó) · tests/venta-externa.test.ts (de punta a punta) · tests/cobros-externos-reglas.test.ts ·
+tests/venta-externa-no-toca-mako.test.ts.
+
+- **La regla:** una sesión pagada de un Payment Link del negocio, sin cobro de MaKo y sin su metadata, fuera de la
+  plataforma, en el modo del aviso y con `cobros.ventas_externas = '1'`, entra como cobro `pagado` marcado
+  `creado_por = 'externo:stripe:<plink_>'`, con su lead (el del email, si no el del teléfono, si no uno nuevo con origen
+  «stripe»), su cuota y UNA compra a Meta. El interruptor está APAGADO en todos: prenderlo en el ws1 es el paso 5.
+- ⚠️ **El diagnóstico obvio era el equivocado: «el reintento sigue desde el paso que falte».** El diseño reclamaba la venta
+  con el INSERT antes del lead para que un segundo aviso chocara con el `cs_` y siguiera desde ahí. Pero el reintento de
+  Stripe nunca llegaba al escritor: `cobroStripe` encontraba la fila por el `cs_` y la mandaba por el camino de los cobros
+  de MaKo, que decía «ya estaba pagado». Un aviso cortado entre el INSERT y el lead (la base, o el tope de 8 s del webhook,
+  que es donde más tarda: lead, trato, cuota, Meta) dejaba la venta sin lead, sin cuota y sin compra para siempre. Ahora la
+  puerta deja pasar también un cobro EXTERNO encontrado. **Para cualquier camino que reclama antes de completar: el
+  reintento tiene que llegar al mismo código que reclamó, no al que encuentra la fila.**
+- **El `event_id` es `purchase:<cs_>`, no `pi_`/`in_`** (el Cerebro, 27/10): es el único id que conoce la página de
+  gracias, y el Pixel v28 manda el del navegador con el mismo: Meta deduplica en vez de tener que prohibir uno.
+- **Los dos «rojos» de la última tanda del chat cortado no eran de la rama:** tests/pago-link-anulado.test.ts y
+  tests/sin-instagram.test.ts dan verde corridos después de mezclar main (el primero lo arregló main).
+- **Sin modo prueba, se probó con el código real:** el hijo corre `procesarEventoStripe` sobre la base, Stripe y Meta de
+  mentira; con eso salió el agujero de arriba, que ningún test que lee el fuente veía. La prueba en el ws 3 con `sk_test`
+  NO se hizo: no hay claves de prueba de Stripe en el proyecto (las credenciales viven en la base de cada negocio).
+- **Sin hacer:** el script de recuperación de ventas ya ignoradas (paso 6; un aviso ignorado no vuelve, `reclamarEvento`
+  lo da por duplicado); un fallo de Meta en el primer aviso no se reintenta (queda en el historial); `eventSourceUrl` y
+  `visitor_id` no viajan; unir la compra con la visita por el `session_id` del pageview; que el redirect del Payment Link
+  de Mauricio lleve `?session_id={CHECKOUT_SESSION_ID}` (se cambia en SU Stripe); con el interruptor apagado a mitad, el
+  reintento de una venta ya reclamada no la completa.
+
 ## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
 
 Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan

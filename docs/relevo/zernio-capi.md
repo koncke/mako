@@ -176,6 +176,20 @@ el aviso antes de conectar la cuenta que se paga. Lo de varias claves, no, porqu
 `GET /v1/ads/accounts/live` trae el interruptor propio (`configuredStatus`) de campañas y conjuntos: lo que su entrada anotó que
 el árbol no tiene.
 
+## MAU-10: la venta de un Payment Link propio (estado al 28/10/2026, `claude4` en la PC)
+
+- **Hecho, con el interruptor `cobros.ventas_externas` APAGADO en todos:** la venta de un Payment Link de SU Stripe entra
+  como cobro externo ya pagado, con su lead, su cuota y la compra a Meta (`purchase:<cs_>`, al píxel del sitio). La compra
+  va sólo al píxel y nunca en modo prueba (761061085). Lo de punta a punta lo prueba tests/venta-externa.test.ts. Detalle y
+  trampas: docs/hallazgos-pagos.md («La venta de un Payment Link propio ya entra…») y docs/diseno-venta-externa-stripe.md §8.
+- **Para el Cerebro / Martín (no lo hace este chat):**
+  1. La prueba en el ws 3 con Stripe en modo prueba: no hay claves `sk_test` en el proyecto. Hace falta conectar una
+     cuenta de Stripe de prueba al ws 3, prender el interruptor ahí y pagar un Payment Link de prueba.
+  2. Conectar el Stripe de Mauricio (ws1) y prender el interruptor en el ws1: el sí de Martín.
+  3. Que el Payment Link del Sprint de Mauricio vuelva a la página de gracias con `?session_id={CHECKOUT_SESSION_ID}`: se
+     cambia en SU Stripe («Después del pago»), no en el código.
+- **Pixel v28:** origin/main ya está en v28 (`SNIPPET_VERSION = 28`); esta rama no lo vuelve a tocar.
+
 ## Rojos que no son de esta rama
 
 `tests/zernio-conectar-redes.test.ts` → «la pantalla: la ventana se abre EN el clic…»: la regex no encuentra

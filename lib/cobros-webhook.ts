@@ -30,7 +30,7 @@ import {
   registrarVentaExterna,
 } from './cobros';
 import {
-  INTERRUPTOR_VENTAS_EXTERNAS, MOTIVO_APAGADO, esVentaExterna, filaDeVentaExterna, lineaCompraEnMeta, ventasExternasPrendidas,
+  INTERRUPTOR_VENTAS_EXTERNAS, MOTIVO_APAGADO, esCobroExterno, esVentaExterna, filaDeVentaExterna, lineaCompraEnMeta, ventasExternasPrendidas,
 } from './cobros-externos-reglas';
 import { getSettingEstricto } from './settings';
 import { getTenantDb, wsSuperAdmin } from './workspace';
@@ -192,7 +192,10 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
     const b = await cobroStripe(ws, ev, aviso.buscar, quien);
     // Una venta de un Payment Link armado en el Stripe del negocio (MAU-10, 27/10/2026): no es un cobro de MaKo, pero es plata que
     // entró. Sólo el aprobado: un pago diferido que falló sin fila no tiene nada que registrar.
-    if ('ignorar' in b && b.noEsDeMako && aviso.accion === 'aprobado') return ventaExternaStripe(ws, key, id, ev, quien);
+    // ⚠️ Y SI YA ESTÁ, TAMBIÉN (28/10/2026): un aviso que se cortó después de reclamar la venta (la base, el tope de 8 s) deja el
+    // cobro externo sin lead, y su reintento lo encuentra. Por el camino de MaKo decía «ya estaba pagado» y la venta quedaba sin
+    // lead, sin cuota y sin la compra a Meta para siempre. `registrarVentaExterna` sigue desde el paso que falte.
+    if (aviso.accion === 'aprobado' && ('ignorar' in b ? b.noEsDeMako === true : esCobroExterno(b.cobro))) return ventaExternaStripe(ws, key, id, ev, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerCheckoutStripe(key, id);
