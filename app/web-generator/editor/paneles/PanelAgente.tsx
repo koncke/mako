@@ -101,6 +101,7 @@ import {
 } from '../diff-tarjetas';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { RecomendacionesDeMako } from '@/app/_chat/RecomendacionesDeMako';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -788,6 +789,13 @@ export function PanelAgente() {
     setTexto('');
   };
 
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
+  // con la intención elegida, como lo escrito. Lo que la persona esté escribiendo mientras tanto (y sus archivos) queda en la caja.
+  const nota = useNotaEnElActo({
+    clave: `agente:${docId}`, puede: !hilo.corriendo && !!editor && !appEscritorio.bloqueada,
+    mandar: (t) => { if (intencion === 'discutir') void pedirDiscusion(ctxRef.current, t); else void pedirEdicion(ctxRef.current, t, 'landing'); },
+  });
+
   /** Entran archivos (el «+», soltados o pegados): cada uno se LEE ya, para que al mandar esté su texto. */
   const sumar = (fs: File[]) => {
     const { tomar, aviso } = queSumar(caja.current.items, fs);
@@ -1011,8 +1019,8 @@ export function PanelAgente() {
             «Escribe a <quién>». */}
         {/* Lo que MaKo recomienda sobre las páginas con sus visitas y lo que dice la gente (26/10/2026): el bloque, plegado. */}
         <RecomendacionesDeMako superficie="landing" alPedir={setTexto} />
-        <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo}
-          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo}
+        <CajaAgente campo={inputRef} texto={texto} onTexto={setTexto} onMandar={mandar} adjuntos={adj} ocupado={hilo.corriendo || nota.pendientes}
+          apagado={!editor} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
           arriba={cita ? <CitaAgente cita={cita} onQuitar={() => setCita(null)} /> : null} />
         {avisoAdj && <p className="gma-ag-aviso-adj" data-error={avisoAdj.error ? '' : undefined} role={avisoAdj.error ? 'alert' : 'status'}>{avisoAdj.texto}<ReportarASoporte /></p>}
         </div>}>
@@ -1030,7 +1038,8 @@ export function PanelAgente() {
               </div>
             </>
           )}
-          <HiloAgente items={items} corriendo={hilo.corriendo} enMensaje={enMensaje} onCitar={citar} />
+          <HiloAgente items={nota.conNotas(items)} corriendo={hilo.corriendo} enMensaje={enMensaje} onCitar={citar}
+            onReintentar={nota.reintentar(() => {})} onDescartar={nota.descartar} />
           {hilo.corriendo && <button type="button" className="gma-pb-boton" data-v="fantasma" data-t="s" onClick={detener}>Detener generación</button>}
           {hilo.mensajes.length > 0 && !hilo.corriendo && (
             <div className="gma-ag-pildoras">

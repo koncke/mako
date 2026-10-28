@@ -2853,3 +2853,74 @@ corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjunto
 **Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
 de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
 chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
+
+## «Todos los chats usan el Second Brain» era falso: lo que los prompts llaman así es el RAG (28/10/2026, Cerebro)
+
+**Vive en:** `lib/cerebro-recuperar.ts` · `lib/mako-context.ts` (`buildSystemPrompt`) · `lib/mako-doer-in.ts:1289` · `lib/editor-landing/landing-writer.ts:160-184` · `lib/mako-capacidades.ts`
+
+- **El pedido:** Martín, 28/10: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal... y que
+  sea eficiente justamente, por eso tenemos tipo grafo». Y que el del SuperAdmin conozca todas las funciones de MaKo.
+- ⚠️ **El diagnóstico obvio era el equivocado.** Ningún chat de la app lee el GRAFO. Lo que el código llama «Second Brain»
+  en los prompts (el comentario de mako-doer-in.ts:1289) es el RAG de `mako_knowledge` (`searchKnowledge`). La
+  recuperación barata del grafo existe (índice de ~300 tokens; vista local medida en 118-190), pero sólo la exponen dos
+  herramientas de la API, y el selector casi nunca las deja pasar.
+- **Lo que gasta hoy:** el turno de MaKo manda `buildSystemPrompt` entero (~2,3k tokens fijos más los datos del negocio)
+  en CADA paso del loop, hasta 8. «Buscar con MaKo» del mapa le manda hasta 250 nodos a la IA barata (~15k por búsqueda).
+- **El grafo no se guarda:** `construirCerebro()` lo arma en cada pedido (21 lecturas y un layout de d3 de 400 ticks), sin caché.
+- **Las funciones de MaKo no las ve ningún chat:** viven en la capa Construcción (`dev:<slug>`, app/admin/dev/areas.ts), que
+  sólo se DIBUJA. CAPACIDADES (la herramienta `listar_capacidades_mako`) sí llega a los chats, pero tiene 20 entradas, le
+  faltan Chats, Calendar, Classroom y los editores, y usa nombres de tab viejos.
+- **Por eso el chat del Web Generator no sabe qué hacen los Chats:** recibe funnel, perfil y 4 resultados del RAG, sin el área
+  'producto', y no tiene herramientas.
+- **La regla:** un chat trae del grafo SÓLO los nodos que necesita, pre-recuperados por el servidor con el mensaje, con un
+  presupuesto de tokens por chat. Las funciones de MaKo salen de UN catálogo (`lib/funciones-mako.ts`, con su test contra el
+  nav) que alimenta el grafo del SuperAdmin y también CAPACIDADES. Ojo: `recuperar` con profundidad 1 corta el detalle a
+  220 caracteres; el cuerpo (Hace / No hace) sólo viaja con profundidad 0.
+- **Hecho el mismo día:** el catálogo de funciones, la capa del SuperAdmin, `grafoParaChat` y el Web Generator (la entrada siguiente). **Sin hacer:** que el turno de MaKo pre-recupere del grafo. El informe completo, con la tabla de cada
+  chat, sus tokens y la crítica de completitud, está en C:/dev/revisiones/2810-second-brain-relevamiento.md.
+
+## «Lo que hace MaKo» en el Second Brain de los chats (28/10/2026, claude4, el relevamiento del Cerebro)
+
+**Síntoma:** Martín: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal». El relevamiento
+(C:/dev/revisiones/2810-second-brain-relevamiento.md) encontró que ningún chat leía el grafo.
+- **El diagnóstico obvio era el equivocado.** Lo que los prompts llaman «Second Brain» es el RAG de `mako_knowledge`
+  (`buildSystemPrompt` → `searchKnowledge`), no el grafo. La recuperación barata (lib/cerebro-recuperar.ts) sólo la usaban
+  dos herramientas de la API, y rearmaban el mapa entero CON su física (400 ticks de d3) en cada pedido.
+- **Las funciones de MaKo sólo se dibujaban:** vivían en la capa Construcción, que es la OBRA (estado, partes, hitos) y no lo
+  que se vende. Lo bueno (qué reemplaza cada una, qué no hace Chats) estaba en AGENTS.md, areas.ts y los docs de diseño.
+- **Lo que quedó:** el catálogo (lib/funciones-mako.ts, sólo el contenido; nombre, ruta y familia salen del nav), la capa
+  (lib/cerebro-funciones.ts) y `grafoParaChat()` (lib/cerebro-para-chat.ts), que es lo que ahora leen el índice, la vista local
+  y la búsqueda del Second Brain.
+- **Trampas de la recuperación, medidas:**
+  - las CLAVES de los datos también siembran (`textoDe` busca `k` y `v`): con «Reemplaza» en todas las funciones, «qué
+    reemplaza a respond.io» sembraba todas. Las claves van hechas de palabras vacías («En vez de», «Cómo está», «Quién la
+    ve»); el tipo es «Función» y no «Función de MaKo», porque «mako» está en casi cualquier pregunta;
+  - la raíz de una capa es `n1:…`, nunca `fn:raiz`: `esEstructura` sólo reconoce `raiz`, `n1:` y `area:`, y otra raíz cuenta
+    como dato y entra como semilla;
+  - «Hace» y «No hace» van en el `cuerpo`, que viaja sólo pedido por id con profundidad 0: con profundidad 1 el detalle se
+    corta y el cuerpo no va. Para leer qué NO hace una función, se pide por id.
+- **Medido** (sin base): el índice de las 20 funciones pesa ~198 tokens; «qué no hace la bandeja» trae sólo Chats (273);
+  Chats entera, con lo que hace y lo que no, 350.
+
+- **CAPACIDADES ya llegaba a los chats** (`listar_capacidades_mako`, también por REST, y el Perro): no es «nadie la llama».
+  Por eso el catálogo es la FUENTE y no otro al lado: cada capacidad cae en su función por la ruta (`funcionDeRuta`, el primer
+  ítem del nav cuyo `match` la acepta) y su tab es el nombre de esa función. Se fueron cinco nombres que la barra ya no tiene
+  («WhatsApp», «Content Machine», «General», «Integraciones», «Configuraciones»). La `ruta` se queda: es más fina que una tab
+  (`?hoja=closing`).
+
+- **La verificación de 0c80dd3ce (el Cerebro):**
+  - `listar_capacidades_mako` le daba al DUEÑO de un negocio con plan completo o agencia las funciones que sólo ve el super
+    admin (Customers con su URL, AI Avatar, Reels, Stories): el filtro miraba el plan y el rol, nunca `adminOnly`. Ahora lo
+    del super admin va sólo a la plataforma, lo `noEnPlataforma` (Partners) no va a ella, y el menú de la foto (Settings,
+    «Report a problem») no depende del plan; de los ítems del menú que abren una ruta manda el de MENOS roles (/equipo).
+  - **La caché de 3 minutos no se invalidaba nunca:** después de guardar la oferta, el chat contestaba con la vieja. Cada
+    acción ejecutada (acciones.ts) la borra, y vive en un módulo chico (lib/cerebro-cache-chat.ts) porque las acciones no
+    pueden importar el armado del grafo (cerraría un ciclo: acciones → grafo → leads → nutrición → flujo → acciones).
+  - **`construirCerebro` se traga sus lecturas caídas** (`.catch(() => [])`): un grafo PARCIAL quedaba 3 minutos. Ahora
+    cada `.catch` avisa (`vacioAvisando`) y el grafo de los chats no guarda uno así; la pantalla se degrada como siempre.
+  - El nombre de una tab con secciones es el de la tab: AI Avatar se llamaba «Create video», su primera sección.
+
+**Sin hacer:** el turno de MaKo y el Web Generator todavía no pre-recuperan (la tanda siguiente); lo que cambia una PANTALLA
+(no una acción de MaKo) se ve en el chat al vencer la caché, y en Vercel cada instancia tiene la suya; la capa no se dibuja en el mapa (los chats no la necesitan dibujada); «Buscar con
+MaKo» del mapa sigue mandando el mapa entero; el recolector no corre en el SuperAdmin (el cron filtra la capa superadmin) y
+lo de arriba de «sin el Gemini del negocio lo recolectado no se usa» quedó viejo: desde el 25/10 se busca por palabras.

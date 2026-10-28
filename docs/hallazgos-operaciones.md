@@ -3271,3 +3271,61 @@ chat y avanza la marca: tendría que subir de lo más viejo a lo más nuevo y av
 
 **Vive en:** `lib/centro-preguntas-chat.ts` (`superarPreguntas`) · `lib/centro-preguntas-chat-db.ts` (`superarConTurnos`) ·
 `tests/preguntas-superadas-hueco.test.ts`
+
+## El chat nuevo lleva sus archivos: el «no lleva adjuntos» era del trabajo firmado, no de la PC (28/10/2026)
+
+**El síntoma.** El chat nuevo del Ops Center era la única caja de MaKo que no adjuntaba (`lib/cajas-de-chat.ts`, «pendiente»), y
+tenía una caja propia (el campo, los emojis y el micrófono), no la única.
+
+**La causa.** El texto firmado de un trabajo `nuevo` no podía llevar adjuntos: los dos `leerFirmable` (el servidor y la PC) lo
+rechazaban con «un chat nuevo no lleva adjuntos». Los adjuntos bajan en `ciclo`, justo antes de dejar el trabajo en el buzón de
+un chat vivo, y un chat nuevo no va al buzón: `ciclo` lo deja en la cola y lo abre `abrir`, después.
+
+**El diagnóstico obvio era el equivocado:** «mandar los archivos en un segundo mensaje cuando el chat aparezca en la lista». El
+chat arranca con el primer mensaje y lo trabaja sin los archivos (tarda unos 2 minutos en aparecer). Y lo que espera a que
+aparezca vive en la pantalla: si Martín sale del chat nuevo antes, se pierden.
+
+**La regla.** Los adjuntos de un chat nuevo bajan en `ciclo` (cartero 1.22.0), con las tres llaves de siempre: tamaño, sha256
+firmado y tipo por los bytes. MaKo los da mientras el trabajo está `tomado` (15 minutos), y el nuevo se toma en la misma vuelta.
+`abrir` es sincrónico y no baja nada: vuelve a mirar cada archivo contra lo FIRMADO (tamaño y sha256, `adjuntosEnLaPc`), como
+vuelve a verificar la firma, y nombra sus rutas debajo del texto de Martín en el `.txt` del primer mensaje (`primerMensaje`).
+La pantalla los ofrece y los firma sólo con un cartero que los lleva (`aceptaAdjuntosEnNuevo`): uno de antes rechaza el trabajo.
+A un chat que ya existe salen como desde su caja (`mandarTextoA`, con los topes de SU Runner).
+
+**Trampa del entorno.** Las piezas del chat nuevo (`ChatNuevoPiezas.tsx`) se dibujan en un test con node, y `CajaChat` trae CSS
+por `AdjuntosCaja.tsx` (`import '@/app/_chat/chat.css'`): en node un `.css` no carga y el test entero se cae al importar. La caja
+vive en su archivo (`CajaChatNuevo.tsx`), las piezas importan de `AdjuntosCaja` sólo TIPOS, y `etiquetaDoc` pasó a
+`lib/centro-caja.ts`.
+
+**La revisión de 0453923ab (el Cerebro): la nota de voz se llevaba los archivos TARDE.** `mandarNota` los tomaba de la caja
+después del `await prepararNota` (hasta 300 s), con el `enLaCaja` del dibujo en que arrancó: lo que Martín quitaba en esos
+segundos salía firmado igual, y lo que soltaba lo borraba `vaciarAdjuntos` sin mandarlo. La regla: lo que sale con un envío se
+toma de la caja AL EMPEZAR, antes de cualquier `await`, como `mandar()`; si el envío no sigue (la nota no se entendió), vuelve a
+la caja tal cual (`devolverAdjuntos`, useCentro.ts). Y la caja QUIETA (saliendo, apagada o bloqueada) no quita ni toma lo
+soltado (`adjuntosQuietos`, app/_chat/juntar-adjuntos.ts): vale para las 17 cajas, no sólo para el chat nuevo (Soporte también
+se apaga mientras manda).
+
+**La verificación de tren-t (el Cerebro): la caja quieta se tragaba lo soltado, y lo devuelto volvía roto.** Cinco bajos, y dos
+reglas que sirven para cualquier caja:
+- **Una caja que no toma lo dice.** `adjuntosQuietos` anulaba `onSumar` pero dejaba `puede` en true: el panel ofrecía «Suelta
+  para adjuntar», el archivo no entraba y nadie avisaba. Ahora la caja quieta dice `puede: false` y por qué (`espera`, que el panel
+  muestra al arrastrar), y lo soltado avisa «Espera a que termine para adjuntar» (por `onErrorMic` de la pantalla, o en la caja).
+  Afinado después (hallazgos-chat.md, «La caja QUIETA»): la espera es sólo de la caja que SALE, y el motivo de la pantalla gana.
+  Lo mismo con «Pegar la captura»: con la caja quieta ni se dibuja ni se resuelve. Antes, tocarla la anotaba como vista sin
+  pegarla, y no se volvía a ofrecer nunca.
+- **Lo que vuelve a la caja después de un `await` necesita vistas previas NUEVAS.** Si la pantalla se desmontó en el medio (se
+  salió del chat nuevo con la nota pasándose a texto), su limpieza revocó las URL de la burbuja, y `devolverArchivos` las
+  guardaba así: la miniatura volvía rota. Ahora revoca las viejas y crea otras.
+- La ✕ apagada se veía igual que la activa: con la caja quieta no se ofrece (`.co-miniatura__quitar:disabled`, centro.css).
+- La caja de Soporte, por conversación: ver hallazgos-ticketera.md, «Lo adjuntado es de SU conversación».
+- **Para probarlo:** `dibujador(...).desmontar()` (tests/hook-en-node.ts) corre las limpiezas de los efectos, como React al
+  sacar el componente.
+
+**Lo que quedó SIN hacer:**
+- (El cartero 1.22.0 ya está instalado en la PC desde el 28/10, después del servidor: tren-t, 5eea455b7.)
+- El servidor le da un chat nuevo con adjuntos a cualquier cartero que abre, sin mirar su versión (`lib/operaciones.ts`, los
+  nuevos de la vuelta). Con uno de antes, el trabajo vuelve rechazado en vez de esperar al nuevo. La pantalla ya no lo manda.
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`ciclo` → `DESTINO_NUEVO`, `abrir`, `adjuntosEnLaPc`, `primerMensaje`) ·
+`lib/operaciones-reglas.ts` (`aceptaAdjuntosEnNuevo`) · `app/admin/operaciones/useCentro.ts` (`abrirChat`, `mandarTextoA`) ·
+`ChatNuevo.tsx` · `CajaChatNuevo.tsx` · `tests/centro-nuevo-con-adjuntos.test.ts`

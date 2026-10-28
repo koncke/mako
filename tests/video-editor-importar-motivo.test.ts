@@ -10,13 +10,14 @@
 // PROBADO ROMPIÉNDOLO (27/10/2026, base 4/0, restaurando de memoria y comparando el hash): el rechazo que sigue hasta el
 // push → 3/1; la condición de importar invertida (`||` en vez de `&&`) → 3/1; sin «como audio» → 3/1; el archivo de la
 // nube sin su motivo (por el nombre del error) → 3/1; el reporte sin la causa técnica → 3/1; la miniatura que vuelve a
-// tirar → 3/1.
+// tirar → 3/1. Y el 28/10 (base 5/0): el mensaje viejo del archivo sin pistas («impórtalo desde Audio») → 3/2 (el 2 y el 5).
 // =============================================================================
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { decidirImportacionVideo, detalleTecnico, motivoDeLectura } from '../app/video-editor/_opencut/media/importar-motivo';
+import { ALL_FORMATS, BufferSource, Input } from 'mediabunny';
 
 const MP4 = { name: 'ESP_Fabi sentada_limpio.mp4', size: 734_003_200, type: 'video/mp4' };
 const conNombre = (name: string, message: string) => Object.assign(new Error(message), { name });
@@ -49,7 +50,8 @@ test('2. el porqué dice qué pasó y qué hacer, según el error', () => {
   // Por el NOMBRE solo (el texto de Chrome cambia entre versiones y en otro idioma).
   assert.match(motivoDeLectura(conNombre('NotReadableError', ''), MP4), /no dejó leer/);
   assert.match(motivoDeLectura(conNombre('QuotaExceededError', 'quota exceeded'), MP4), /espacio en el navegador/);
-  assert.match(motivoDeLectura(new Error('No video track found in the file'), MP4), /no tiene imagen.*Audio › Importar/);
+  // Sin video y (porque llegó acá) sin sonido: cortado, no «sólo audio» (ver el 5).
+  assert.match(motivoDeLectura(new Error('No video track found in the file'), MP4), /ni imagen ni sonido.*incompleto/);
   assert.match(motivoDeLectura(new Error('Unexpected end of file while reading box moov'), MP4), /incompleto o dañado/);
   assert.match(motivoDeLectura(new Error('algo raro'), MP4), /No se pudo leer el archivo.*repórtalo/);
   // Ninguno es sólo el nombre del archivo (lo que vio Leila).
@@ -72,4 +74,27 @@ test('4. la importación: un rechazo NO suma el clip, y el reporte a Soporte lle
   const m = leer('app/video-editor/_opencut/media/mediabunny.ts');
   assert.match(m, /catch \(error\) \{\n\t+errorDecodificar = /);
   assert.match(m, /throw new SinPistaDeVideo\(audioTrack !== null\)/);
+});
+
+test('5. un .mp4 CORTADO (bajado o copiado a medias) se lee sin pistas: el porqué dice «incompleto», no «sólo audio» (28/10)', async () => {
+  // tests/fixtures/video-chico.mp4: 64×64, 1 s, H.264 + AAC, hecho con ffmpeg (testsrc2 + sine), con el índice `moov` al final.
+  const entero = readFileSync('tests/fixtures/video-chico.mp4');
+  const pistas = async (b: Uint8Array) => {
+    const input = new Input({ source: new BufferSource(b), formats: ALL_FORMATS });
+    try {
+      return { video: (await input.getPrimaryVideoTrack())?.codec ?? null, audio: (await input.getPrimaryAudioTrack())?.codec ?? null };
+    } finally {
+      input.dispose();
+    }
+  };
+  assert.deepEqual(await pistas(entero), { video: 'avc', audio: 'aac' });
+  // Cortado antes del índice, como una descarga que no terminó: el lector no tira, devuelve CERO pistas.
+  const cortado = entero.subarray(0, entero.indexOf('moov') - 4);
+  assert.deepEqual(await pistas(cortado), { video: null, audio: null });
+  // Lo que hace el editor con eso (media/mediabunny.ts → SinPistaDeVideo sin audio): no se importa, y se dice por qué.
+  const sinPistas = Object.assign(new Error('No video track found in the file'), { name: 'SinPistaDeVideo', tieneAudio: false });
+  const d = decidirImportacionVideo({ ok: false, error: sinPistas, sinImagenConAudio: false }, MP4);
+  assert.equal(d.accion, 'rechazar');
+  assert.match(d.accion === 'rechazar' ? d.motivo : '', /incompleto.*bájalo o cópialo de nuevo/);
+  assert.doesNotMatch(d.accion === 'rechazar' ? d.motivo : '', /Audio › Importar/);
 });

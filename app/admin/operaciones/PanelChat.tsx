@@ -125,7 +125,7 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
       onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = destino()?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
       onDropCapture={() => setSoltando(false)} onDrop={(e) => { setSoltando(false); alSoltar(e, destino()); }}>
-      {soltando && <div className="co-soltar" aria-hidden>{destino()?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
+      {soltando && <div className="co-soltar" aria-hidden>{destino()?.puede ? 'Suelta para adjuntar' : destino()?.espera ?? 'Este chat no recibe archivos'}</div>}
       <CabeceraDeChat {...cabecera} />
       <div className="co-cuerpo">
         <div className="co-conv">

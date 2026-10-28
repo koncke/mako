@@ -244,6 +244,8 @@ export function Conversacion({
             <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onGrabada={onGrabada} enviando={enviando}
               placeholder={`Escribe a ${chat.titulo}`} tituloMandar="Firmar y mandar (Enter)" enterManda
               adjuntos={adjuntos} campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic}
+              // La misma caja atiende todos los chats: lo que lee (un audio, un .pptx) es de SU chat (28/10/2026).
+              conversacion={chat.clave}
               arriba={wa?.cita ? <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} /> : null}
               mas={(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>} />
           </div>

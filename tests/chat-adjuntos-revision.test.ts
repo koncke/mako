@@ -36,7 +36,7 @@ test('4. lo leído entra hasta el tope del motor, con su marca de cierre, y dice
   assert.match(hook, /const \{ mensaje: nuevo, afuera \} = tope \? conPegadosHasta\(texto, leidos, tope\) : \{ mensaje: conPegados\(texto, leidos\), afuera: 0 \};/);
   assert.match(hook, /if \(afuera\) setAviso\(/);
   const caja = fuente('app/_chat/CajaChat.tsx');
-  assert.match(caja, /onError: p\.onErrorMic, tope: p\.topeTexto \}\);/);
+  assert.match(caja, /onError: p\.onErrorMic, tope: p\.topeTexto,/);
   assert.match(caja, /\{leidos\.aviso && <p className="co-caja__estado" aria-live="polite">\{leidos\.aviso\}<\/p>\}/);
   assert.match(fuente('app/video-editor/_opencut/chat/PanelChat.tsx'), /<CajaChat [\s\S]{0,500}?topeTexto=\{TOPES_CHAT\.instruccion\} \/>/);
   assert.match(fuente('app/image-editor/mako/chat/PanelMakoIA.tsx'), /<CajaChat [\s\S]{0,500}?topeTexto=\{TOPES_CHAT_IMAGEN\.instruccion\} \/>/);

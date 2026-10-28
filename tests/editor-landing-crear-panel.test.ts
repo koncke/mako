@@ -205,7 +205,8 @@ test('el Panel monta Crear con IA y Replicar a la derecha; adentro de Crear, «V
   // Tanda 7: «Volver» trae de vuelta al cuadro lo que se había mandado (`derechaDeVuelta`, con la semilla).
   assert.match(src, /onSalir=\{volverACaja\}\s+onAnalizar=\{abrirAnalizar\}/);
   assert.match(src, /const volverACaja = useCallback\(\(s\?: SemillaCaja\) => setDerecha\(derechaDeVuelta\(s\)\), \[\]\);/);
-  assert.match(src, /\} else if \(derecha\.tipo === 'replicar'\) \{\s*contenido = <ReplicarUnaPagina key=\{derecha\.url \?\? ''\} url=\{derecha\.url\} formato=\{derecha\.formato\} adaptar=\{derecha\.adaptar\} auto=\{derecha\.auto\} \/>;/);
+  // 28/10/2026: con los temas propios del negocio («Tu diseño», cuando no se copia el de la original).
+  assert.match(src, /\} else if \(derecha\.tipo === 'replicar'\) \{\s*contenido = <ReplicarUnaPagina key=\{derecha\.url \?\? ''\} url=\{derecha\.url\} formato=\{derecha\.formato\} adaptar=\{derecha\.adaptar\} auto=\{derecha\.auto\} propios=\{props\.propios\} \/>;/);
   assert.match(src, /\.gp \.gp-contenido\[data-vista="ia"\] \{ padding: 0; \}/);
   // Con el Panel montado, un <Link> a su propia ruta no le cambia la derecha (es un useState).
   const crear = fuente(CREAR);
@@ -320,10 +321,15 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(src, /setEstado\(\{\s*fase: 'falla', formato, error: f\.error, enNavegador: f\.enNavegador === true, pegable: f\.pegable === true,\s*probar: probar && probar !== formato \? probar : null, salida: sinLectura,\s*\}\);/);
   // Verificación de la tanda 6: si el server propone otro formato (`probar`, una app de Vite en «Página web»),
   // la falla lo ofrece como botón, acá y en el Diagnóstico (L5 al pie). Tanda 7: con la ventana abierta en ESE clic.
-  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{pedida \? estado\.probar : null\}\s+onProbar=\{\(f\) => \{ if \(!pedida\) return; const v = pideVentana\(f\) \? abrirEnElClic\(\) : null; setFormato\(f\); empezar\(pedida, f, v, adaptar\); \}\}/);
+  // 28/10/2026: la falla de la réplica viene DESPUÉS de leer la página: «Replicar como…» usa la lectura. La copia idéntica
+  // («Página web») abre la ventana EN ESE clic: ahí el lector saca la foto (copia-identica-script.ts).
+  assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f, f === 'web' \? abrirEnElClic\(\) : undefined\); \}\}/);
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
-  assert.match(src, /onLectura=\{\(lectura\) => void replicar\(pedida, estado\.formato, \{ lectura, adaptar \}\)\}/);
-  // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: replicar se paga).
+  // 28/10/2026: el lector (o el texto pegado) vuelve a LEER la página; la réplica sale después, de lo leído.
+  // Con la copia idéntica (las cuatro partes), sin pagar los ángulos: no los usa (revisión de 45a8e5234 y la copia idéntica).
+  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t, \.\.\.\(sonTodas\(partes\) \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: la lectura se paga).
   assert.match(src, /if \(arrancado\.current\) return;\s*arrancado\.current = true;/);
   const dg = fuente(PANEL_DG);
   assert.match(dg, /\{FORMATOS_REPLICAR\.map\(\(f\) => \(\s*<ItemMenu key=\{f\} icono=\{ICONO_FORMATO\[f\]\} texto=\{NOMBRE_FORMATO_REPLICAR\[f\]\} onClick=\{\(\) => replicar\(f\)\} \/>/);

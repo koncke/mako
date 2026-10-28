@@ -42,6 +42,7 @@
 import type { Lectura as LecturaDelServer } from './lectura-tipos';
 // El ESTILO de la página (tanda 6, d): su saneo es puro y vive con el resto del estilo.
 import { sanearEstilo, type EstiloOriginal } from './estilo-original';
+import { sanearInstantanea, type Instantanea } from './copia-identica';
 
 export type { LecturaDelServer };
 
@@ -368,7 +369,7 @@ const caminoValido = (v: unknown): v is CaminoLectura => (CAMINOS_LECTURA as rea
 /** Un mensaje del protocolo, saneado. null si no es de ESTA lectura o no tiene forma. */
 export type MensajeLectura =
   | { fase: 'hola'; camino: CaminoLectura | null }
-  | { fase: 'fin'; detalle: LecturaDetallada }
+  | { fase: 'fin'; detalle: LecturaDetallada; foto?: Instantanea }
   | { fase: 'error'; mensaje: string };
 
 /**
@@ -381,7 +382,11 @@ export function sanearMensajeLectura(data: unknown, esperado: { id: string; url:
   if (m.tipo !== TIPO_MENSAJE_LECTURA || m.id !== esperado.id || !idLecturaValido(m.id)) return null;
   if (m.fase === 'hola') return { fase: 'hola', camino: caminoValido(m.camino) ? m.camino : null };
   if (m.fase === 'error') return { fase: 'error', mensaje: linea(m.error, TOPES_LECTOR.error) || 'No pude leer la página.' };
-  if (m.fase === 'fin' && caminoValido(m.camino)) return { fase: 'fin', detalle: lecturaDe(esperado.url, m, m.camino) };
+  if (m.fase === 'fin' && caminoValido(m.camino)) {
+    // La foto de la copia idéntica (copia-identica.ts), si MaKo la pidió: viene de la página, se sanea como todo lo demás.
+    const foto = m.foto === undefined ? null : sanearInstantanea(m.foto);
+    return { fase: 'fin', detalle: lecturaDe(esperado.url, m, m.camino), ...(foto ? { foto } : {}) };
+  }
   return null;
 }
 

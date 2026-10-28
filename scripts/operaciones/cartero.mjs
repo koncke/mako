@@ -109,7 +109,15 @@ import { spawnSync } from 'node:child_process';
 //         Y un turno que termina con TRABAJO DE FONDO VIVO (una tarea en segundo plano, un Monitor, un Workflow que todavía
 //         no avisó que terminó) sube su cierre con `fondo`: el Centro no lo dibuja como «Completado», sigue «Trabajando»
 //         (Martín, 27/10 23:07: «No me pongas "cosas en marcha"... El cuadro de COMPLETADO debe ser dopamínico»).
-export const VERSION = '1.21.0';
+// 1.22.0: un chat NUEVO lleva sus adjuntos (28/10/2026, «que se pueda utilizar el chat de la misma manera en todos lados»):
+//         las fotos y los documentos del primer mensaje bajan en `ciclo`, con las mismas tres llaves de siempre (tamaño, sha256
+//         firmado y tipo por los bytes), y `abrir` los vuelve a mirar antes de nombrar sus rutas en el primer mensaje. Uno de
+//         antes rechaza el trabajo («un chat nuevo no lleva adjuntos»): la caja del chat nuevo los ofrece sólo con éste.
+// 1.22.1: el pedido dice CÓMO se escribe el cierre (28/10/2026, Martín: «Muy feas las respuestas que das por el ops Center...
+//         más claro, más directo, menos técnico, más texto formateado»). Lo lee en el teléfono: en sus palabras, sin jerga
+//         interna, un punto por renglón con viñeta y lo clave en negrita. Antes decía «en cuatro renglones» y salían cuatro
+//         párrafos densos con «tren-u», shas y versiones. Sólo cambia el texto: el servidor no lo lee.
+export const VERSION = '1.22.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -475,6 +483,8 @@ export function abrir(cfg = config(), ahora = Date.now()) {
     if (!l.ok) { acusar('no_entregado', `Vuelve a mandarlo (${l.motivo})`); continue; }
     if (l.p.id !== id || l.p.destino !== DESTINO_NUEVO || l.p.cuenta !== cuenta) { acusar('no_entregado', 'Vuelve a mandarlo: no coincide con la firma'); continue; }
     if (!puedeAbrir(cfg, cuenta)) { acusar('no_entregado', 'Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+    let rutas = [];
+    if (l.p.adjuntos) { try { rutas = adjuntosEnLaPc(id, l.p.adjuntos); } catch (e) { acusar('no_entregado', `Vuelve a mandarlo (${e.message})`); continue; } }
     const txt = path.join(APERTURAS, `${id}.txt`);
     const cmd = path.join(APERTURAS, `${id}.cmd`);
     let lanzador;
@@ -482,13 +492,35 @@ export function abrir(cfg = config(), ahora = Date.now()) {
     // «Ya abierto» se anota ANTES de lanzar, y sin pisar (`wx`): con dos Runners, el segundo no abre otra ventana.
     fs.mkdirSync(ENTREGADOS, { recursive: true });
     try { fs.writeFileSync(path.join(ENTREGADOS, id), '', { flag: 'wx' }); } catch { acusar('no_entregado', 'Ya se había abierto: no se abre dos veces'); continue; }
-    fs.writeFileSync(txt, l.p.texto);
+    fs.writeFileSync(txt, primerMensaje(l.p.texto, rutas));
     fs.writeFileSync(cmd, lanzador);
     spawnSync(ABRIDOR[0], [...ABRIDOR.slice(1), cmd], { timeout: 15_000 });
     acusar('entregado', `Se pidió abrir «${l.p.titulo}» en la terminal de la cuenta ${cuenta.replace('claude', '')}: mira que aparezca en la lista`);
   }
   return out;
 }
+
+/**
+ * Los adjuntos de un chat nuevo, ya en esta PC (1.22.0): los bajó `ciclo` (bajarAdjuntos), y `abrir` los vuelve a mirar
+ * contra lo FIRMADO —el tamaño y el sha256— antes de nombrarlos, como vuelve a verificar la firma: entre la vuelta y la
+ * apertura pasa tiempo, y la carpeta es de la PC. Tira si falta uno o no es el firmado.
+ */
+export function adjuntosEnLaPc(id, adjuntos, dir = ADJUNTOS) {
+  if (!UUID_RE.test(id)) throw new Error('id inválido');
+  return adjuntos.map((a, i) => {
+    const ruta = path.join(dir, id, nombreEnDisco(i, a.nombre, a.mime));
+    let b;
+    try { b = fs.readFileSync(ruta); } catch { throw new Error('falta un adjunto en la PC'); }
+    if (b.length !== a.bytes || crypto.createHash('sha256').update(b).digest('hex') !== a.sha256) throw new Error('un adjunto no es el firmado');
+    return ruta;
+  });
+}
+
+/** Cómo se nombran en el mensaje los adjuntos que bajó el Runner (1.9.0): el chat los abre con Read. */
+const lineasDeAdjuntos = (rutas) => ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`)];
+
+/** El primer mensaje de un chat nuevo, tal cual lo firmó Martín; con adjuntos (1.22.0), y debajo sus rutas en esta PC. */
+export const primerMensaje = (texto, rutas = []) => (rutas.length ? [texto, '', ...lineasDeAdjuntos(rutas)].join('\n') : texto);
 
 /** Las carpetas de adjuntos de más de VENCE_DIAS: el trabajo ya venció, y el chat ya los leyó o no los va a leer. */
 function limpiarAdjuntos(ahora = Date.now()) {
@@ -565,7 +597,6 @@ export function leerFirmable(texto, ahora) {
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
   if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
   if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
-  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (o.alcance !== 'solo_esto' && o.alcance !== 'de_ahora_en_mas') return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !MODELOS.includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !ESFUERZOS.includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
@@ -1339,9 +1370,12 @@ export function mensaje(p, rutas = []) {
     p.texto,
     '',
     // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
-    ...(rutas.length ? ['Adjuntos (los bajó el Runner a esta PC; ábrelos con Read):', ...rutas.map((r) => `- ${r}`), ''] : []),
+    ...(rutas.length ? [...lineasDeAdjuntos(rutas), ''] : []),
     regla,
-    '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
+    '— Al terminar, dejá el cierre. Martín lo lee en el TELÉFONO: escribile claro, directo y en sus palabras (qué cambia para él o',
+    '  para sus clientes), sin jerga interna: nada de nombres de tren, shas, versiones, refutadores, tests ni rutas de archivos.',
+    '  En cada campo, un punto por renglón con viñeta y lo clave en negrita («- **Soporte:** ya no pierde los archivos»).',
+    '  Lo técnico (un commit, un deploy, una medición) va sólo en --prueba:',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
     '— Si dejaste algo para mirar en MaKo, sumá --revisar con su ruta (por ejemplo --revisar "/crm?lead=12"): Martín lo revisa desde el Centro.',
   ].join('\n');
@@ -1538,6 +1572,11 @@ async function ciclo(cuenta, cfg = config(), propio = dirPropio(cfg), runners = 
     // Un chat nuevo (1.11.0): `ciclo` no abre nada; lo deja en la cola, y lo abre `abrir`, que vuelve a verificar todo.
     if (l.p.destino === DESTINO_NUEVO) {
       if (l.p.cuenta !== cuenta || !puedeAbrir(cfg, cuenta)) { rechazar('Prende la apertura de chats en la PC: pídeselo al Runner'); continue; }
+      // 1.22.0: sus adjuntos bajan ACÁ, como los de cualquier trabajo (MaKo los da mientras está tomado, y `abrir` no espera
+      // la red); `abrir` los vuelve a mirar antes de nombrarlos (adjuntosEnLaPc).
+      if (l.p.adjuntos) {
+        try { await bajarAdjuntos(url, cfg.token, id, l.p.adjuntos); } catch (e) { rechazar(`No pude bajar un adjunto (${e.message}): vuelve a mandarlo`); continue; }
+      }
       escribirJson(path.join(APERTURAS, `${id}.json`), { id, cuenta, firmado, firma, reclamado: new Date().toISOString() });
       log(`[${cuenta}] APERTURA ${id} → «${l.p.titulo}»`);
       continue;

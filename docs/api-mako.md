@@ -40,7 +40,7 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `borrar_silencios_video`
 - **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `configurar_horario_envio`
@@ -14087,7 +14087,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 16 lecturas · 34 acciones.
+Tab **Video Generator** (`/video-generator`). 16 lecturas · 35 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -15553,6 +15553,34 @@ curl -L \
   -H "Content-Type: application/json" \
   "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/usar-plantilla" \
   -d '{"id":"gancho"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/borrar-silencios` — Borrar los silencios
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Borrar silencios», como el botón de la barra: escucha el sonido del clip, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. Con "ref", ese video o audio; sin "ref", cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.
+
+- **Ruta por operación:** `POST /api/v1/video/borrar_silencios_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | no | Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/borrar-silencios"
 ```
 
 ## Image Editor (diseños) — `imagen`
@@ -19309,7 +19337,7 @@ curl -L \
 
 ### `GET /api/v1/mako/capacidades` — Qué se hace dentro de MaKo
 
-El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).
+El catálogo cerrado de lo que se resuelve ADENTRO de MaKo: las funciones de este negocio (qué hace cada una, qué no hace y qué app reemplaza) y, por cada capacidad, la tab, el link absoluto, qué se hace ahí y los pasos. Úsala cuando pregunten «¿qué puedes hacer?», «¿dónde hago X?» o antes de mandar a alguien a resolver algo afuera: los links salen de aquí, nunca escritos a mano. Solo trae las tabs que tiene este negocio; para un miembro del equipo en la app el filtro por rol es aproximado (no distingue closer de setter).
 
 - **Ruta por operación:** `GET /api/v1/mako/listar_capacidades_mako`
 - **Token detallado:** permiso `mako=read` (Solo lectura en «MaKo (pendientes, propuestas, chats)»)

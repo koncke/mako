@@ -34,7 +34,7 @@ import { BarraGrabacion, useGrabacionVoz, type GrabacionVoz } from '@/app/whatsa
 import { altoDelCampo, conVinetas, enterEnLista, estaAbajo } from '@/lib/centro-caja';
 import { ListaAdjuntos, MasCaja, alPegar, alSoltar, traeArchivos, type AdjuntosDeCaja } from '@/app/admin/operaciones/AdjuntosCaja';
 import { useAdjuntosQueSeLeen } from './adjuntos-que-se-leen';
-import { juntarAdjuntos } from './juntar-adjuntos';
+import { ESPERA_PARA_ADJUNTAR, adjuntosQuietos, juntarAdjuntos } from './juntar-adjuntos';
 import { useAvisarAdjuntos } from './soltar-en-la-caja';
 import { capturaParaOfrecer, firmaDeCaptura } from '@/app/admin/operaciones/pegar';
 import { BotonMandar } from '@/app/admin/operaciones/Microfono';
@@ -64,6 +64,9 @@ export type PropsCajaChat = {
   sinAdjuntos?: boolean;
   /** Cuántos caracteres lee el motor de esta pantalla (el Video y el Image Editor): lo adjuntado entra hasta ahí, con aviso. */
   topeTexto?: number;
+  /** De qué conversación es lo que la caja lee, en una pantalla con varias y UNA caja (Soporte, 28/10/2026): lo de cada una se
+   *  guarda aparte, y lo que se leía al cambiar no sale en la otra (./adjuntos-que-se-leen.ts). */
+  conversacion?: string;
   /** Lo de abajo del «+» (la cuenta, el modelo, las tareas): como función recibe `cerrar`. */
   mas?: ReactNode | ((cerrar: () => void) => ReactNode);
   /** Lo que va arriba de las miniaturas: la cita de un mensaje, un texto largo pegado. */
@@ -138,15 +141,26 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   // TODA CAJA TOMA TODO LO QUE MaKo SABE LEER (ticket #16, ./adjuntos-que-se-leen.ts): lo que la pantalla toma (su `accept`)
   // va a SUS adjuntos; lo demás (un Word en el Second Brain, que sólo toma fotos y PDF; cualquier cosa donde la pantalla no
   // adjunta) lo lee la caja al mandar y sale con el mensaje. `sinAdjuntos`: sólo lo de la pantalla.
-  const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto });
-  const adjuntos = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
+  const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto, conversacion: p.conversacion });
+  const deLaCaja = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
   const onMandar = leidos.mandar;
-  // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
-  useAvisarAdjuntos(adjuntos);
   // Pasando a texto una nota de voz, o leyendo lo adjuntado: la caja está saliendo (el botón gira y no se escribe encima).
   const transcribiendo = !!nota?.transcribiendo;
   const enviando = !!p.enviando || transcribiendo || leidos.leyendo;
   const apagado = !!p.apagado;
+  // QUIETA, LO ADJUNTADO NO SE TOCA (28/10/2026, la revisión de 0453923ab): saliendo, apagada o bloqueada, ni se quita nada
+  // (la ✕ se apaga) ni entra lo soltado (./juntar-adjuntos.ts → adjuntosQuietos). El navegador igual no abre lo soltado
+  // (`alSoltar` lo frena antes).
+  const quieto = enviando || apagado || !!p.bloqueo;
+  // Y lo soltado con la caja quieta no se pierde callado (la verificación de tren-t): lo dice la pantalla (`onErrorMic`) o la
+  // caja, hasta que vuelve a tomar.
+  // La espera es sólo de la caja que SALE (enviando, leyendo o pasando una nota): la apagada o bloqueada dice lo de siempre.
+  const [enEspera, setEnEspera] = useState(false);
+  if (enEspera && !enviando) setEnEspera(false);
+  const avisarEspera = () => { if (p.onErrorMic) p.onErrorMic(ESPERA_PARA_ADJUNTAR); else setEnEspera(true); };
+  const adjuntos = adjuntosQuietos(deLaCaja, { quieta: quieto, saliendo: enviando, onEspera: avisarEspera, pantallaDiceQueNo: !!p.adjuntos && !p.adjuntos.puede });
+  // Lo soltado sobre la conversación (PanelDeChat) también va acá (./soltar-en-la-caja.ts).
+  useAvisarAdjuntos(adjuntos);
   /** El botón: gira saliendo un mensaje o mientras MaKo trabaja. El campo sólo se apaga con `enviando` o `apagado`. */
   const girando = enviando || ocupado;
   const propio = useRef<HTMLTextAreaElement | null>(null);
@@ -156,7 +170,6 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   /** La capa que pinta los links (17/10/2026): se corre con el scroll del <textarea>. */
   const resalte = useRef<HTMLDivElement | null>(null);
   const conLinks = hayLinks(texto);
-  const quieto = enviando || apagado || !!p.bloqueo;
   // «Pegar la captura» (24/10/2026, pegar.ts → capturaParaOfrecer): al enfocar el campo, la imagen copiada que todavía no se
   // ofreció aparece arriba de la caja, como en el teclado de Android. Sólo donde la caja adjunta.
   const [captura, setCaptura] = useState<{ file: File; url: string } | null>(null);
@@ -165,8 +178,10 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
     if (!adjuntos?.puede || quieto || captura) return;
     void capturaParaOfrecer(CAPTURAS_VISTAS).then((f) => { if (f) setCaptura({ file: f, url: URL.createObjectURL(f) }); });
   };
+  // Con la caja quieta, la captura ofrecida espera (no se dibuja ni se descarta): anotarla como vista sin pegarla la perdía
+  // para siempre (la verificación de tren-t).
   const resolverCaptura = (pegar: boolean) => {
-    if (!captura) return;
+    if (!captura || quieto) return;
     CAPTURAS_VISTAS.add(firmaDeCaptura(captura.file));
     if (pegar) adjuntos?.onSumar([captura.file]);
     setCaptura(null);
@@ -239,7 +254,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   return (
     <>
       {p.arriba}
-      {captura && (
+      {captura && !quieto && (
         <div className="co-caja__captura">
           {/* eslint-disable-next-line @next/next/no-img-element -- una URL `blob:` local, recién copiada */}
           <img className="co-caja__captura-img" src={captura.url} alt="" />
@@ -249,7 +264,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
           </button>
         </div>
       )}
-      <ListaAdjuntos a={adjuntos} />
+      <ListaAdjuntos a={adjuntos} apagado={quieto} />
       {/* Lo arrastrado sobre la caja entra como adjunto (ticket #16): sin esto, soltar un documento lo ABRÍA en la pestaña. */}
       <div className={p.fila ?? 'co-caja__fila'} data-caja-adjunta={adjuntos ? '' : undefined}
         onDragOver={(e) => { if (adjuntos && traeArchivos(e.dataTransfer)) e.preventDefault(); }}
@@ -306,6 +321,7 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
       {leidos.leyendo && <p className="co-caja__estado" aria-live="polite">Leyendo lo que adjuntaste…</p>}
       {leidos.error && !p.onErrorMic && <p className="co-caja__estado" role="alert">{leidos.error}<ReportarASoporte /></p>}
       {leidos.aviso && <p className="co-caja__estado" aria-live="polite">{leidos.aviso}</p>}
+      {enEspera && <p className="co-caja__estado" aria-live="polite">{ESPERA_PARA_ADJUNTAR}</p>}
     </>
   );
 }

@@ -25,6 +25,8 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { Check, Sparkles } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
+import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import Link from '@/app/_ui/Link';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
@@ -155,10 +157,14 @@ export function PanelMakoIA() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [hilo.mensajes.length, hilo.corriendo]);
 
-  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal) => {
-    if (hilo.corriendo || !instruccion.trim() || !disenoId || appEscritorio.bloqueada) return;
-    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc);
-    setTexto('');
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
+  const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
+  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto });
+  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
+    if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, archivos);
+    if (!dejarCaja) setTexto('');
   };
 
   const sugerir = (s: Sugerencia) => {
@@ -176,6 +182,9 @@ export function PanelMakoIA() {
   };
 
   const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || elegidos > 0);
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
+  // `enviar`, como lo escrito.
+  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !hilo.corriendo && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
   // El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links, la
   // propuesta con «Original | Modificado»), en su hueco.
@@ -221,8 +230,8 @@ export function PanelMakoIA() {
               <p className={styles.saludoTexto}>Pídeme lo que quieras del diseño.</p>
             </div>
           )}
-          <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+          <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
           {hilo.corriendo && (
             <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
           )}
@@ -248,8 +257,9 @@ export function PanelMakoIA() {
         {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
             (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
         <div className="co-caja">
-          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
+          <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+            apagado={!disenoId} placeholder="Describe el cambio…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+            adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
         </div>
       </div>
     </div>

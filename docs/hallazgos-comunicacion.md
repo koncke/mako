@@ -11723,3 +11723,45 @@ la guardó con `tiene_audio=false`: el turno sólo transcribía el audio del men
 cita (de la misma línea; se prueba como de otro y como propia) y se escucha por la vía de la nota de voz del grupo (Groq), en el
 mensaje suelto y en los dos lotes; su texto entra al turno. Si de verdad no se puede, el aviso honesto con su ticket
 (`avisarAudioSinEscuchar`). NUCLEO_GRUPO dice que MaKo escucha notas de voz: nunca «no puedo escuchar audios».
+
+## Cuatro vueltas de arreglos en el grupo de WhatsApp: cada regla nueva destapó otra, y lo que las frenó fue VERIFICAR (28/10/2026, Cerebro)
+
+**Vive en:** `lib/doer-para-quien.ts` · `lib/doer-salida.ts` · `lib/doer-falla-frases.ts` · `lib/confirmacion-pura.ts`
+
+- **El síntoma:** cada arreglo de la revisión de 92d23e11d resolvió lo que decía y rompió algo vecino. Pasó cuatro veces:
+  - 36e06b35f: «He hecho una búsqueda…» se cortaba como «no lo hice»;
+  - bb41ede4a: el lote mensaje por mensaje sacaba el contexto, y un «sí» que Pedro le decía a Ana confirmaba la pendiente de
+    PLATA de MaKo;
+  - 8cb034a18: esRespuestaCorta era demasiado ancha y un pedido corto para MaKo quedaba con 👍 y silencio;
+  - 12d297208: esRespuestaCorta se angostó y dejó de cubrir «sí, hacelo», que volvió a ejecutar lo aTerceros.
+- ⚠️ **Lo que frenó cada regresión fue verificar el arreglo con los mismos scripts del refutador,** sobre los dos sha.
+  Los tests de la rama no los veían: probaban la frase del informe, no la vecina.
+- **La regla para decidir qué sube:** entre dos regresiones, la que CALLA (MaKo no contesta) es menor que la que EJECUTA
+  (una acción sin el sí de quien corresponde). El 28/10 tren-q subió con 4d1d0a010 (callaba en un lote mezclado) y no con
+  bb41ede4a (ejecutaba). La plata en un grupo pide ahora el sí de quien la pidió o «sí, MaKo» (fbd947d4f).
+- **Para lo que venga:** son reglas de texto en cadena (ver la memoria «Errores en cadena: cambiá la red»). Si otra vuelta
+  destapa otra, la salida no es otra regex: es que el modelo reciba los mensajes marcados («no es para vos») y la puerta
+  dura quede en el código, donde ya está la de plata.
+
+## MaKo en WhatsApp contesta mal: el modelo era lo que MENOS pesaba (28/10/2026, Cerebro)
+
+**Vive en:** `lib/mako-intencion.ts:1407` · `lib/mako-context.ts` (`buildSystemPrompt`) · `lib/mako-doer-in.ts` (:1290, :1761, :1897, :2116) · `lib/mako-grupo.ts` (`enviarAlGrupoMaKo`)
+
+- **El síntoma:** Martín: «no sé si es que está corriendo con una inteligencia artificial que no tiene contexto, o que tiene
+  preseteado prompts que no debería tener… o con un modelo más viejo… pero que funcione bien». Se calificaron 58 respuestas
+  reales de 8 grupos, del 21 al 28/10: 9 BIEN (16 %), 21 FLOJAS y 28 MAL. Ningún turno corrió con Claude: el 96 % fue
+  gemini-flash-lite.
+- ⚠️ **El diagnóstico obvio (el modelo flojo) era el que MENOS pesaba: 5 de 49.** Las causas, en orden:
+  - el default del clasificador en el grupo es «capturar» dudosa, que deja sólo las herramientas del Plan (35 % de los turnos,
+    todo el soporte de Leila y el caso de Leandro). La app lo había arreglado el 20/10; el grupo no;
+  - el grupo usa el prompt del DASHBOARD («consultor IA de Martín Koncke», «CIERRA PROPONIENDO UN EXPERIMENTO»): 15 de 49;
+  - el turno no ve el grupo: lo que manda el equipo o una automatización no entra a la memoria, ni los tickets del negocio, ni
+    qué hace MaKo;
+  - herramientas que devuelven el dato crudo (la hora en UTC, sin día de semana);
+  - un audio que no se pudo transcribir desaparece del lote sin marca;
+  - el camino barato del grupo va sin historial ni el system del grupo, y lo que llega durante un turno espera al cron.
+- **La regla:** un canal nuevo de MaKo tiene su PROPIO núcleo de instrucciones, y su contexto lo arma el canal (quién escribe,
+  qué mandó el equipo, qué pedidos están abiertos, qué hace MaKo). Antes de cambiar de modelo para «que conteste mejor», se
+  califican respuestas reales y se mide qué pesa. Se mide con un banco de casos sacado de las conversaciones.
+- **Sin hacer (al 28/10):** todo, por tandas, en el chat «MaKo en WhatsApp». El informe completo, con el banco de casos y los 8
+  peores ejemplos, está en C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md.

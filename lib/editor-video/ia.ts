@@ -25,6 +25,7 @@ import { chatClaude } from '../anthropic';
 import { chatCheapCascade, errorDeCascada } from '../ai-cheap';
 import { renderPrompt } from '../prompt-render';
 import { contenidoNoConfiable } from '../prompt-render-pure';
+import { conLaLecturaAparte } from '../mako-adjuntos';
 import { brandSystem } from '../landing-writer';
 import { parseJsonObject } from '../json-del-modelo';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../editor-landing/ia-reglas';
@@ -39,7 +40,7 @@ export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 /** El chat espera hasta acá a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown };
+export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string };
 
 export type ResultadoChatVideo =
   | { ok: true; resumen: string; operaciones: OperacionChat[]; descartes: string[] }
@@ -109,7 +110,7 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
       formato: FORMATO_CHAT,
     }))}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
-    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
       feature: FEATURE_CHAT_VIDEO,
       motivo: 'Editar el video con el chat',
       maxTokens: 4_000,

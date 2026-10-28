@@ -223,7 +223,8 @@ test('el pedido lleva los archivos de punta a punta: el contrato, la ruta y edit
   assert.match(leer('lib/editor-landing/api-tipos.ts'), /\{ accion: 'editar'; [^}\n]*adjuntos\?: \{ nombre: string; texto: string \}\[\] \}/);
   assert.match(sinComentarios(leer('app/api/landing-generator/ia/route.ts')), /editar\(\{ instruccion: body\.instruccion, [^\n]*adjuntos: body\.adjuntos \}\)/);
   const ia = sinComentarios(leer('lib/editor-landing/ia.ts'));
-  assert.match(ia, /const adjuntos = adjuntosDelPedido\(p\.adjuntos\);\s*const contexto = contextoConAdjuntos\(await buildLandingBrief\(instruccion\), adjuntos\);/);
+  // Desde el 28/10/2026 el brief también recibe el texto de la página (qué función de MaKo vende la landing).
+  assert.match(ia, /const adjuntos = adjuntosDelPedido\(p\.adjuntos\);\s*(?:\/\/[^\n]*\n\s*)*const contexto = contextoConAdjuntos\(await buildLandingBrief\(instruccion, \{ pagina: [^\n]*\}\), adjuntos\);/);
   // `fuente` (el respaldo de lo que la IA cite) incluye el contexto, y con él los archivos.
   assert.match(ia, /const fuente = \[originales\.map\(\(t\) => textoDe\(t\)\)\.join\('\\n'\), instruccion, contexto\]\.join\('\\n'\);/);
 });
