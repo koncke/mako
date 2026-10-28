@@ -27,7 +27,7 @@ test('una columna ordenada por nombre con un lead SIN nombre no rompe el tablero
 
 test('los links de Fathom con otra forma se normalizan antes de llegar a la pantalla', () => {
   // `fathomDeFila` vive en crm-map, que arrastra lecturas del server: se lee su cuerpo y se lo ejecuta aparte.
-  const src = readFileSync(join(RAIZ, 'app/crm/crm-map.ts'), 'utf8');
+  const src = readFileSync(join(RAIZ, 'app/crm/crm-map.ts'), 'utf8').replace(/\r\n/g, '\n'); // con CRLF (autocrlf en Windows) no aparece el cierre de la función
   const ini = src.indexOf('export function fathomDeFila(');
   const fin = src.indexOf('\n}\n', ini) + 2;
   assert.ok(ini > 0 && fin > ini, 'no está fathomDeFila');
