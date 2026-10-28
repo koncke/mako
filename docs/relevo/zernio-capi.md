@@ -3,6 +3,51 @@
 **Escrito el 25/10/2026 por el chat «Zernio y CAPI» (cuenta 5, `claude5`).** Rama `zernio-2510` (worktree
 `C:/dev/wt-zernio-2510`). La sube el Cerebro en el tren; este chat no pushea.
 
+## ESTADO DE LA CUENTA `claude4` (28/10/2026, noche) — para seguir con un «Continua»
+
+Rama `zernio-2510`, worktree `C:/dev/wt-zernio-2510`. Nada pusheado: sube el Cerebro.
+
+**Lo pedido, con sus palabras:**
+1. El Cerebro (27/10, relevo docs/relevo/zernio-nube-2710.md): terminar MAU-10, «la venta de un Payment Link propio de Mauricio
+   entra como cobro pagado al CRM», con su Purchase a Meta (`purchase:<cs_>`).
+2. La verificación de 3ca2d8328 (C:/dev/revisiones/2810-verificacion-3ca2d8328.md): el reintento cortado de una venta externa
+   (MEDIO) y la compra a Meta tras un corte en la cuota (BAJO). El cruce del `client_reference_id` (ALTO) lo hizo Planes.
+3. Martín a Teo, por el Cerebro (C:/dev/revisiones/2810-promesas-teo.md): «fíjate todas las cosas que yo le dije que ya tiene
+   MaKo y que realmente no lo tiene para implementarlo... lo del calendario que se puede hacer publicaciones directamente del
+   calendar». En orden: publicar desde el Calendar; la fuente de Instagram orgánico y su lectura por WhatsApp; conectar Instagram
+   y Facebook sin pegar una clave de Zernio; la prueba real de Instagram.
+
+**Lo hecho (commit, rama `zernio-2510`):**
+- MAU-10: `5a27268bc` (la venta externa, apagada, probada de punta a punta). Mezclado por Planes en `planes-2710`.
+- Verificación 3ca2d8328: `042e10323` (merge con Planes) y `5e7d316eb` (503 del reclamo, compra a Meta desde el cron). En el tren
+  de Planes (`a27348240`), que manda el VERDE.
+- Publicar desde el Calendar: `3a7e5198d` + `3ea0de07f` (mig 0342, `programar_publicacion`, el modal, en serie).
+- Instagram orgánico: `addf0aea8` (`ver_rendimiento_redes`) + `bef5bfcd3` (el aviso de Analytics dice cómo prenderlo).
+- Zernio sin clave: `7495db12d` (la cuenta de la plataforma con un perfil por negocio, APAGADA detrás de
+  `zernio.cuenta_de_la_plataforma`).
+- Todos con tests rojo-verde, probados rompiendo y tsc acotado sin errores propios; VERDE mandados al Cerebro, que verifica
+  `3ea0de07f` + `addf0aea8` + `7495db12d` + `bef5bfcd3` juntos.
+
+**A medias (y dónde):**
+- La pantalla de la cuenta de la plataforma: el modal de Zernio en /integraciones pide la key (`ConectarRedes`,
+  app/integraciones/ServicioConfigForm.tsx) y su nota dice «Zernio te cobra a ti»; el paso del onboarding no existe
+  (tests/sin-instagram.test.ts prohíbe un paso que nombre Instagram). Espera que Martín decida prenderla.
+- Las plantillas de Instagram del Dashboard y el reporte de agencia sobre la fuente orgánica (lib/zernio-organico.ts): sin hacer.
+
+**Falta verificar:**
+- La verificación del Cerebro de los cuatro commits de arriba, y su deploy.
+- La prueba real con Fiesta Music (negocio 10, Leandro), plan APROBADO por el Cerebro: A lecturas; B una historia que Leandro
+  igual iba a subir + programar y cancelar otra; C «pruebafm» desde @aliensfilms y @martin.koncke. NO tocar su negocio hasta el
+  aviso del Cerebro (después del deploy y de la 0342).
+- El cuerpo del post para TikTok y YouTube no se midió con una cuenta real.
+
+**Espera a Martín:**
+- Aplicar la migración 0342 (la pide el Cerebro).
+- Prender `zernio.cuenta_de_la_plataforma`: quién paga cada cuenta conectada y el complemento de Analytics con la cuenta de la
+  plataforma («espera la decisión de Martín al prender»).
+- MAU-10: conectar el Stripe de Mauricio (ws1) y prender `cobros.ventas_externas` ahí; que el Payment Link del Sprint vuelva a
+  la página de gracias con `?session_id={CHECKOUT_SESSION_ID}` (en SU Stripe); la prueba en el ws 3 con una clave `sk_test`.
+
 Martín, 25/10: «implementa zernio y depreca la conexión con API de Meta... Y también revisa el tema de CAPI y alimentar al
 pixel, como lo hariamos y deja un tutorial de como hacerlo en caso de que requiera una integración aparte».
 
