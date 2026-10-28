@@ -46,7 +46,8 @@ export type ContactoCopia = {
   monto: number;
 };
 
-export type NotaCopia = { texto: string; cuando: string; autor: string };
+/** `pendiente`: la escribió la persona sin conexión y todavía no subió (lib/sin-conexion/cola.ts → conLoPendiente). */
+export type NotaCopia = { texto: string; cuando: string; autor: string; pendiente?: boolean };
 
 export type PlanCopia = {
   /** `YYYY-MM-DD` en la zona del negocio. */
@@ -185,6 +186,13 @@ export type LlaveGuardada = {
   vistoServidor: string;
 };
 export type CopiaGuardada = { ws: number; iv: string; datos: string; version: number };
+/**
+ * Un cambio hecho sin conexión (T2), cifrado como la copia. En claro sólo el orden (`seq`) y el negocio (`ws`): el panel
+ * cuenta cuántos hay sin descifrar nada, y nada de eso dice qué se escribió.
+ */
+export type ColaGuardada = { id: string; ws: number; seq: number; iv: string; datos: string };
+/** El AAD de un cambio de la cola: la persona y su id. Un cambio pasado a otra cuenta no abre. */
+export const aadDeCola = (email: string, id: string): string => `mako-sc:v1|${normalizarEmail(email)}|cola|${id}`;
 
 /** ¿Venció? Pasó `VENCE_DIAS` sin que el servidor diera la llave. */
 export function vencida(vistoServidor: string, ahora: number = Date.now()): boolean {
@@ -230,5 +238,5 @@ export function textoDeLaCinta(p: { motivo: MotivoSinConexion; hecha: string; tz
 export const NECESITA_CONEXION = {
   whatsapp: 'Necesita conexión: WhatsApp sale desde MaKo.',
   ia: 'Necesita conexión: MaKo piensa en el servidor.',
-  escribir: 'Escribir sin conexión llega en la próxima versión. Por ahora es para leer.',
+  escribir: 'Lo que escribes aquí se sube cuando vuelva la conexión, con tu OK.',
 } as const;

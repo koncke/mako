@@ -12,7 +12,8 @@
 
 import type { Almacen } from './almacen';
 import { aBase64url, alAzar, cifrarBytes, cifrarJson, deBase64url, descifrarBytes, descifrarJson, huellaDe, importarLlave, llaveDeLaClave } from './cifra';
-import { aadDeCopia, aadDeLlave, conLoDeAntes, normalizarEmail, problemaDeClave, vencida, VERSION_COPIA, VUELTAS, type CopiaV1, type LlaveGuardada } from './reglas';
+import { aadDeCola, aadDeCopia, aadDeLlave, conLoDeAntes, normalizarEmail, problemaDeClave, vencida, VERSION_COPIA, VUELTAS, type CopiaV1, type LlaveGuardada } from './reglas';
+import { TOPE_COLA, validarOperacion, type Operacion } from './cola';
 
 /** Lo que contesta el servidor por la llave: la DEK, o que esta computadora ya no tiene permiso. */
 export type RespuestaLlave = { ok: true; llave: Uint8Array } | { ok: false; desconectada: boolean; error: string };
@@ -72,8 +73,13 @@ async function copiaAnterior(almacen: Almacen, dek: CryptoKey, email: string, ws
   try { return await descifrarJson<CopiaV1>({ iv: guardada.iv, datos: guardada.datos }, dek, aadDeCopia(email, ws)); } catch { return null; }
 }
 
+/**
+ * `llave`: la DEK abierta, para escribir en la cola mientras la pantalla está abierta. Quien la recibe la guarda en la
+ * PANTALLA (un cierre de la vista), nunca en el módulo: al bloquear se va con lo dibujado (lib/sin-conexion/cascaron.ts).
+ * `cola`: los cambios hechos sin conexión que todavía no subieron, en orden.
+ */
 export type ResultadoAbrir =
-  | { ok: true; copias: CopiaV1[]; viejas: number }
+  | { ok: true; copias: CopiaV1[]; viejas: number; llave: CryptoKey; cola: Operacion[] }
   | { ok: false; motivo: 'nada' | 'clave' | 'vencida' };
 
 export async function abrir(p: { email: string; clave: string; almacen: Almacen; ahora?: number }): Promise<ResultadoAbrir> {
@@ -87,21 +93,79 @@ export async function abrir(p: { email: string; clave: string; almacen: Almacen;
     return { ok: false, motivo: 'clave' };
   }
   // Recién con la clave correcta: alguien que prueba un email ajeno no se entera de que hubo algo (ni lo borra).
-  if (vencida(guardada.vistoServidor, p.ahora)) { await p.almacen.borrar(); return { ok: false, motivo: 'vencida' }; }
+  // ⚠️ Con cambios sin subir NO se borra (T2): perder lo que la persona escribió es peor que mostrarle una copia vieja.
+  const cola = await leerColaCon({ email: p.email, llave: dek, almacen: p.almacen });
+  if (vencida(guardada.vistoServidor, p.ahora) && !cola.length) { await p.almacen.borrar(); return { ok: false, motivo: 'vencida' }; }
+  const { copias, viejas } = await copiasYViejas({ email: p.email, llave: dek, almacen: p.almacen, ahora: p.ahora, conCola: new Set(cola.map((o) => o.ws)) });
+  return { ok: true, copias, viejas, llave: dek, cola };
+}
+
+/**
+ * Cada copia vence por SU fecha, no sólo por la última vez que el servidor dio la llave (verificación de 90d6410eb): quien
+ * dejó de tener un negocio y entra a diario por otro no puede seguir viendo el primero para siempre. La de un negocio con
+ * cambios sin subir (`conCola`) no vence: sin ella no se puede nombrar ni revisar lo que la persona escribió.
+ */
+async function copiasYViejas(p: { email: string; llave: CryptoKey; almacen: Almacen; ahora?: number; conCola?: ReadonlySet<number> }): Promise<{ copias: CopiaV1[]; viejas: number }> {
   const copias: CopiaV1[] = [];
   let viejas = 0;
   for (const c of await p.almacen.leerCopias()) {
     // Una copia de un formato que este cascarón no conoce no se abre: se cuenta, y la pantalla pide abrir MaKo con conexión.
     if (c.version !== VERSION_COPIA) { viejas++; continue; }
     let copia: CopiaV1;
-    try { copia = await descifrarJson<CopiaV1>({ iv: c.iv, datos: c.datos }, dek, aadDeCopia(p.email, c.ws)); } catch { viejas++; continue; }
-    // Cada copia vence por SU fecha, no sólo por la última vez que el servidor dio la llave: quien dejó de tener un negocio y
-    // entra a diario por otro no puede seguir viendo el primero para siempre (verificación de 90d6410eb).
-    if (vencida(copia.hecha, p.ahora)) continue;
+    try { copia = await descifrarJson<CopiaV1>({ iv: c.iv, datos: c.datos }, p.llave, aadDeCopia(p.email, c.ws)); } catch { viejas++; continue; }
+    if (vencida(copia.hecha, p.ahora) && !p.conCola?.has(c.ws)) continue;
     copias.push(copia);
   }
   copias.sort((a, b) => a.negocio.nombre.localeCompare(b.negocio.nombre));
-  return { ok: true, copias, viejas };
+  return { copias, viejas };
+}
+
+/** Las copias que abren con esta llave (la del servidor, con conexión): el panel las usa para nombrar cada cambio. */
+export async function copiasCon(p: { email: string; llave: CryptoKey; almacen: Almacen }): Promise<CopiaV1[]> {
+  return (await copiasYViejas(p)).copias;
+}
+
+// ── La cola (T2) ─────────────────────────────────────────────────────────────
+
+/** Un id nuevo para un cambio: 16 bytes al azar (es su llave de idempotencia en el servidor). */
+export const idDeCambio = (): string => aBase64url(alAzar(16));
+
+/** Suma un cambio al final de la cola, cifrado. `false` = la cola está llena (`TOPE_COLA`). */
+export async function encolar(p: { email: string; llave: CryptoKey; almacen: Almacen; op: Operacion }): Promise<boolean> {
+  const hay = await p.almacen.leerCola();
+  if (hay.length >= TOPE_COLA) return false;
+  const seq = hay.reduce((m, c) => Math.max(m, c.seq), 0) + 1;
+  const c = await cifrarJson(p.op, p.llave, aadDeCola(p.email, p.op.id));
+  await p.almacen.guardarEnCola({ id: p.op.id, ws: p.op.ws, seq, iv: c.iv, datos: c.datos });
+  return true;
+}
+
+/** La cola descifrada, en el orden en que se escribió. Lo que no abre con esta llave (de otra persona) no aparece. */
+export async function leerColaCon(p: { email: string; llave: CryptoKey; almacen: Almacen }): Promise<Operacion[]> {
+  const filas = [...(await p.almacen.leerCola().catch(() => []))].sort((a, b) => a.seq - b.seq);
+  const out: Operacion[] = [];
+  for (const f of filas) {
+    try {
+      const op = validarOperacion(await descifrarJson<unknown>({ iv: f.iv, datos: f.datos }, p.llave, aadDeCola(p.email, f.id)));
+      if (op && op.id === f.id) out.push(op);
+    } catch { /* de otra llave: no es de esta persona */ }
+  }
+  return out;
+}
+
+/**
+ * Con conexión, la cola se lee con la llave que da el servidor (sin pedir la clave). Si el servidor da OTRA llave que la
+ * envuelta (se rotó su secreto), esa llave no abre lo escrito: `otra-llave`, y la persona entra con su clave sin conexión
+ * desde «Probar» para subirlo.
+ */
+export async function colaConLaLlaveDelServidor(p: { email: string; almacen: Almacen; pedirLlave: PedirLlave }): Promise<{ ok: true; cola: Operacion[]; llave: CryptoKey } | { ok: false; motivo: 'sin-activar' | 'otra-llave' | 'sin-llave' }> {
+  const guardada = await p.almacen.leerLlave().catch(() => null);
+  if (!guardada) return { ok: false, motivo: 'sin-activar' };
+  const r = await p.pedirLlave(guardada.dispositivo);
+  if (!r.ok) return { ok: false, motivo: 'sin-llave' };
+  if (guardada.huella !== (await huellaDe(r.llave))) return { ok: false, motivo: 'otra-llave' };
+  const llave = await importarLlave(r.llave);
+  return { ok: true, llave, cola: await leerColaCon({ email: p.email, llave, almacen: p.almacen }) };
 }
 
 /** El email tal como lo comparan la base y los AAD. */
