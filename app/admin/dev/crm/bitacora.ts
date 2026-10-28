@@ -3725,7 +3725,7 @@ export const BITACORA: Hito[] = [
     puntos: ['Pasado por el Cerebro, con lo de Mauricio (el filtro de Chats por funnel, las fechas de Google, el filtro de Calendly y el lead 2371).'],
   },
   {
-    fecha: '27 oct', hora: '19:17', chat: 'CRM y Chats', cuenta: 'claude5',
+    fecha: '27 oct', hora: '19:17', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'Pagos sin trámites, sin contrato al mover, la R1 cargada a mano y Chats con el nombre de la agenda',
     puntos: [
@@ -3750,7 +3750,7 @@ export const BITACORA: Hito[] = [
     revisar: '/crm?ws=3',
   },
   {
-    fecha: '27 oct', hora: '20:20', chat: 'CRM y Chats', cuenta: 'claude5',
+    fecha: '27 oct', hora: '20:20', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude5',
     actor: 'claude', tipo: 'implementacion',
     titulo: 'El plan de pagos quincenal: cualquier cantidad de cuotas, en los días que elijas',
     puntos: [
@@ -3768,7 +3768,7 @@ export const BITACORA: Hito[] = [
     tickets: [13],
   },
   {
-    fecha: '27 oct', hora: '20:50', chat: 'CRM y Chats', cuenta: 'claude5',
+    fecha: '27 oct', hora: '20:50', chat: 'CRM y Chats', sesion: 'local_61bd6f00-153b-4b0e-8860-b021cd730759', cuenta: 'claude5',
     actor: 'claude', tipo: 'correccion',
     titulo: 'El CRM ya no se rompe con un link de grabación viejo ni con un lead sin nombre',
     puntos: [
