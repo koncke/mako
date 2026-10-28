@@ -215,7 +215,8 @@ test('el doer le pasa al ticket quién escribe y el contexto, y si algo falló l
   // El teléfono sobrevive al lote: los dos mensajes que arma el doer copian `participant`.
   assert.equal((doer.match(/fromMe: ultimo\.key\?\.fromMe, participant: ultimo\.key\?\.participant/g) ?? []).length, 2, 'un lote pierde quién escribió');
   // Viaja con las de siempre, y cada salida de herramienta se mira con `errorParaTicket`.
-  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
+  // Y desde el 28/10/2026 lo que hace MaKo (`CAPACIDADES_TOOLS`, F2c del diagnóstico del Cerebro).
+  assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS, \.\.\.CAPACIDADES_TOOLS\];/);
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
   assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
   // Si algo falló, el código REGISTRA la falla (Martín: «todo lo solucionás automáticamente»), con quién escribió, y a la

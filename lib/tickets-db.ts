@@ -340,6 +340,35 @@ export async function miTicket(ws: number, email: string, id: number): Promise<{
   return { ticket: aFila(data as Record<string, unknown>), eventos: (ev ?? []) as Evento[] };
 }
 
+/**
+ * Lo que el NEGOCIO ya le pidió o reportó al equipo, para el turno del grupo de WhatsApp (28/10/2026, el diagnóstico del
+ * Cerebro, F2b; lib/pedidos-del-negocio.ts): los abiertos y los resueltos de los últimos días, de cualquier persona del
+ * negocio (`misTickets` es de UNA persona, por su email). Lo lee el código: el modelo los ve como un bloque del system.
+ */
+export async function ticketsDelNegocio(ws: number, diasResueltos = 3, tope = 8): Promise<Lectura<FilaTicket[]>> {
+  const desde = new Date(Date.now() - diasResueltos * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await getSupabaseServer().from(T).select(COLS)
+    .eq('workspace_id', ws).or(`estado.not.in.(${CERRADOS.join(',')}),and(estado.eq.resuelto,updated_at.gte."${desde}")`)
+    .order('updated_at', { ascending: false }).limit(tope);
+  if (error) return { ok: false, faltaTabla: faltaTabla(error), error: error.message };
+  return { ok: true, datos: (data ?? []).map((f) => aFila(f as Record<string, unknown>)) };
+}
+
+/**
+ * Lo que se dijo en el GRUPO sobre un pedido que ya está abierto (la marca `[[ya-pedido: #N]]`): se suma al ticket como un
+ * comentario del cliente, en vez de abrir otro. Sólo un ticket abierto de ESE negocio; si no, nada.
+ */
+export async function sumarAlPedidoDelNegocio(ws: number, id: number, texto: string): Promise<boolean> {
+  const t = taparClaves(texto.trim()).texto;
+  if (!t) return false;
+  const db = getSupabaseServer();
+  const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).maybeSingle();
+  if (!tk || CERRADOS.includes(tk.estado as EstadoTicket)) return false;
+  await anotar(id, 'cliente', 'comentario', `Por el grupo de WhatsApp: ${t}`);
+  await db.from(T).update({ updated_at: new Date().toISOString() }).eq('id', id);
+  return true;
+}
+
 /** La persona contesta su ticket (cuando Martín le preguntó algo, o para sumar un dato). Vuelve a la bandeja. */
 export async function comentarComoCliente(ws: number, email: string, id: number, texto: string, adjuntos: readonly AdjuntoTicket[] = []): Promise<{ ok: true } | { ok: false; error: string }> {
   // Con archivos (28/10/2026, lib/tickets-adjuntos.ts) puede ir sin texto: el historial dice cuáles.

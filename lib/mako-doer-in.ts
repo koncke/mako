@@ -56,6 +56,9 @@ import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { conElNegocio } from '@/lib/nucleo-grupo';
+import { bloqueDelEquipo, CLAVE_EQUIPO_EN_EL_GRUPO } from '@/lib/doer-equipo';
+import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
+import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
 import { clasificarIntencion, areasDelMensaje, sinPrefijoDeLote, CONTRATO, avisoDeDuda, makoPreguntoAlgo, makoPidioDatos, esPedidoDeAgenda, esPedidoSobreLead, esPedidoDeCobro } from '@/lib/mako-intencion';
 import { aFormatoWhatsapp, sanearSalida, promesasDe, SANEO_HECHO } from '@/lib/doer-salida';
@@ -108,6 +111,10 @@ const AGENDA_TOOLS = (() => { const d = porId(AGENDA_DEL_DIA); return d ? [aTool
 /** Los tickets de la persona (lib/api-mako/areas/tickets.def.ts): viajan con un pedido de funcionalidad, para decir si ya hay uno. */
 const MIS_TICKETS = 'mis_tickets';
 const MIS_TICKETS_TOOLS = (() => { const d = porId(MIS_TICKETS); return d ? [aToolDef(d)] : []; })();
+/** Lo que hace MaKo (28/10/2026, el diagnóstico del Cerebro, F2c): va con las de siempre, así viaja en todo turno del grupo que
+ *  consulta, actúa o piensa (en capturar y en charla, no: `herramientasDelTurno` lo filtra por el contrato). Viajaba sólo si
+ *  el mensaje nombraba el área de MaKo, y el modelo contestaba «no existe» lo que ya existe. Es lectura y sin datos de clientes. */
+const CAPACIDADES_TOOLS = (() => { const d = porId('listar_capacidades_mako'); return d ? [aToolDef(d)] : []; })();
 /** Las de una corrección de monto (lib/doer-falla.ts, `HERRAMIENTAS_CORRECCION`): viajan aunque el presupuesto las deje afuera. */
 const CORRECCION_TOOLS = HERRAMIENTAS_CORRECCION.flatMap((id) => { const d = porId(id); return d ? [aToolDef(d)] : []; });
 
@@ -1349,6 +1356,19 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const negocio = conElNegocio(intencion, [...areasDelMensaje(sinPrefijoDeLote(texto)), ...(intencion.areas ?? [])]);
     const base = await runWithWorkspace(wsData, () => buildSystemPrompt({ chartKey: 'mako-doer', titulo: 'Hola MaKo', contexto: '', query: consultaDelTurno(texto, conHilo.hilo), canal: 'grupo', conElNegocio: negocio }));
     // LO QUE YA SE HABLÓ (y lo que MaKo propuso o hizo) de antes de la ventana: hechos con fecha, al final del system.
+    // LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO (F2a, lib/doer-equipo.ts): un bloque aparte, nunca un turno de MaKo. Sin
+    // poder leerlo, sin el bloque (el turno sigue: es contexto, no una regla).
+    const tzGrupo = await tzDeWorkspace(wsData).catch(() => TZ_DEFAULT);
+    const ctxEquipo = bloqueDelEquipo(
+      await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null), new Date(), tzGrupo,
+    );
+    // LO QUE EL NEGOCIO YA PIDIÓ (F2b, lib/pedidos-del-negocio.ts): sus tickets abiertos y los resueltos de hace poco, de
+    // cualquier persona del negocio. Sin poder leerlos, sin el bloque.
+    const leidos = await ticketsDelNegocio(wsData).catch(() => null);
+    const pedidosDelNegocio: PedidoDelNegocio[] = leidos?.ok
+      ? leidos.datos.map((t) => ({ id: t.id, titulo: t.titulo, estado: t.estado, respuesta: t.respuesta, updated_at: t.updated_at }))
+      : [];
+    const ctxPedidos = bloqueDePedidos(pedidosDelNegocio, new Date(), tzGrupo);
     const ctxYaSeHablo = bloqueYaSeHablo(
       memoria.antes,
       await accionesDelGrupo(wsData, jid, DIAS_DE_HECHOS).catch(() => []),
@@ -1441,7 +1461,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     };
     // `levantar_ticket` va con las de siempre, como en la app: es del área `mako` y ninguna palabra del pedido la trae.
     // Viaja donde viajan las acciones (en una pregunta MaKo ofrece, en `capturar` no), lo decide `herramientasDelTurno`.
-    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS];
+    const toolsDeSiempre = [...MAKO_TOOLS, ...MAKO_ACCION_TOOLS, ...TICKET_TOOLS, ...CAPACIDADES_TOOLS];
     // Las herramientas del turno salen de UNA función pura (lib/doer-herramientas.ts), la
     // misma que usa tests/agenda-whatsapp.test.ts: el test armaba el turno a mano, sin el
     // clasificador, y daba verde mientras el turno real llegaba sin la herramienta.
@@ -1534,7 +1554,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const armarSystem = (tools: typeof turno.tools, aviso = '', baseDelSystem = base): string => {
       const permitidasDelTurno = new Set(tools.map((t) => t.name));
       const bloqueTools = tools.length
-        ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y NINGUNA otra): ${tools.map((t) => t.name).join(', ')}.`
+        ? `\n\n${DOER_WA_TOOLS}${recetasDelTurno(permitidasDelTurno, ofrece)}${bloqueAgendaGoogle(tools.map((t) => t.name))}${turno.instruccion ? `\n\n${turno.instruccion}` : ''}\n\nLAS QUE TIENES EN ESTE TURNO (y ninguna otra en este turno: son una selección para este pedido, no todo lo que MaKo hace): ${tools.map((t) => t.name).join(', ')}.`
         : '\n\nEN ESTE TURNO NO TIENES HERRAMIENTAS: no puedes mirar el CRM, el plan ni las campañas. ⛔ NO inventes números, nombres ni fechas, y no los deduzcas de la conversación. Si te piden un dato del negocio, dilo en una línea: que desde este mensaje no lo puedes mirar y que te lo pida directo («¿qué tareas tengo hoy?»). ⛔ No prometas mirarlo después: no hay un después.';
       const ctxHoy = tools.length && tzHoy
         ? `\n\nHOY ES ${hoyLegible(tzHoy)} (zona ${tzHoy}). Para «mañana», «el jueves» o «la semana que viene», calcula la fecha desde aquí; las horas que te digan son de esta zona.`
@@ -1546,7 +1566,7 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // corre sin datos de clientes (`turnoParaLaRed`, `soloElTurno`).
       // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
       // del turno: la red de la plataforma corre sin datos de clientes.
-      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
+      const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxEquipo, ctxPedidos, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
       // Lo que no existe y lo que no pudo llevan su marca, y el ticket lo abre el código (lib/no-existe.ts, lib/no-pude.ts). Sólo
       // con herramientas: la regla las nombra, y un turno sin tools no puede oír hablar de ellas (DOER_WA_VOZ).
       const reglaDeLasMarcas = tools.length ? `\n\n${REGLA_NO_EXISTE}` : '';
@@ -2511,6 +2531,13 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // Después del saneo y sólo sobre el texto del MODELO (los carteles son nuestros y llevan su línea arriba): las dos marcas
     // nunca le llegan al grupo, el ticket sale con su causa y la línea que lo dice la escribe el código. Repetido en la misma
     // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
+    // [[ya-pedido: #N]] (F2b): lo de ahora es un pedido que ya está abierto. Se suma a ESE ticket y no se abre otro. La marca se
+    // saca SIEMPRE (también con un número que no es de un pedido abierto de este negocio): nunca le llega al cliente.
+    if (respuesta) {
+      const yaPedido = sacarYaPedido(respuesta, pedidosDelNegocio.filter((p) => p.estado !== 'resuelto').map((p) => p.id));
+      respuesta = yaPedido.texto;
+      for (const id of yaPedido.ids) await sumarAlPedidoDelNegocio(wsData, id, sinPrefijoDeLote(texto)).catch(() => false);
+    }
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
       // Si un error de herramienta ya dejó su ticket (registrarError, arriba), sólo se sacan las marcas: un ticket, una línea.
       // Si la última herramienta devolvió una GUARDA y nada falló de verdad (ni un error ni una falla tragada), el «no pude» es esa

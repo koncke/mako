@@ -149,7 +149,7 @@ export async function drenarInsistencias(): Promise<{ enviadas: number; cerradas
     }).eq('id', row.id).eq('enviadas', row.enviadas);  // compare-and-set: dos ticks a la vez no duplican
     if (upErr) continue;
     try {
-      await enviarAlGrupoMaKo(ws, row.texto);
+      await enviarAlGrupoMaKo(ws, row.texto, 'mako');
       enviadas++;
       if (agotada) cerradas++;
     } catch (e) {

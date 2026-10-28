@@ -79,11 +79,10 @@ export function correrBanco(deSiempre: Array<{ name: string }>, clasificar: (t: 
   });
 }
 
-/** `levantar_ticket`, como `TICKET_TOOLS` de lib/mako-doer-in.ts (va con las de siempre del doer). */
+/** Las del registro que van con las de siempre del doer (lib/mako-doer-in.ts): `TICKET_TOOLS` y `CAPACIDADES_TOOLS`. */
 export async function ticketTools(): Promise<Array<{ name: string }>> {
   const { porId, aToolDef } = await import('../lib/api-mako/registro');
-  const d = porId('levantar_ticket');
-  return d ? [aToolDef(d)] : [];
+  return ['levantar_ticket', 'listar_capacidades_mako'].flatMap((id) => { const d = porId(id); return d ? [aToolDef(d)] : []; });
 }
 
 // Corrido directo: la tabla.

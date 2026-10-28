@@ -11655,3 +11655,34 @@ helpers de lib/api-mako/areas sin `falla` y los «No se pudieron…» con texto 
 dicha «No existe el lead» o «No encuentro la decisión» (los `.catch(() => null)` de cobros.run.ts y ads.run.ts); la acción
 confirmada que falla con un texto que no es tragado no deja ticket (`confirmarPendiente`); un audio mandado como ARCHIVO en el
 grupo va a Gemini y muestra el error técnico; dos notas de voz que Groq devuelve vacías quedan en 👍 y silencio.
+
+## El turno no veía lo que pasa en el grupo: el equipo, las automatizaciones, los pedidos ni lo que hace MaKo (28/10/2026, claude4, el diagnóstico del Cerebro, tanda 2, F2)
+
+**El síntoma:** Joan preguntó si el access token de Meta «sigue siendo el mismo» tres minutos después del aviso del equipo
+«Meta se conecta sólo con Zernio», y MaKo le dijo que sí. Leandro contestó al aviso de los botones de Instagram y MaKo no tenía
+a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplicado.
+
+- **F2a, lo que se manda al grupo.** `enviarAlGrupoMaKo` sólo anotaba el anti-eco: de 30 avisos del equipo en 7 grupos, ninguno
+  llegó a un turno. Ahora la `memoria` es OBLIGATORIA (`MemoriaDelEnvio`, lib/mako-grupo.ts): 'mako' (automatizaciones,
+  insistencias) a la conversación; 'equipo' (el aviso de un arreglo, la respuesta de un ticket) al anillo del negocio
+  (lib/doer-equipo.ts), que el turno ve como el bloque «LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO»; null si quien llama ya
+  lo guarda (lib/avisos.ts, con sus partes).
+  ⚠️ **Lo del equipo NO va como turno de MaKo ('assistant'):** `ultimoDeMako` toma el último 'assistant' para saber si MaKo
+  preguntó algo. Una pregunta del equipo pasaría por pregunta de MaKo, y un «sí» del dueño se volvería una confirmación.
+- **F2b, los pedidos del negocio.** `mis_tickets` es de UNA persona (su email) y viajaba sólo si el mensaje nombraba MaKo.
+  `ticketsDelNegocio` (lib/tickets-db.ts) trae los abiertos y los resueltos de 3 días de todo el negocio, y el turno los ve como
+  «PEDIDOS ABIERTOS DE ESTE NEGOCIO» (lib/pedidos-del-negocio.ts). La marca `[[ya-pedido: #N]]` suma el mensaje a ESE ticket
+  (`sumarAlPedidoDelNegocio`: sólo uno abierto del mismo negocio) y se lleva el `[[no-existe]]` del mismo pedido, que abría el
+  duplicado. La marca se saca SIEMPRE, también con un número ajeno: nunca le llega al cliente. Va en el doer, antes de
+  `conTicketsDeMaKo`: lib/no-pude-server.ts (de MaKo inteligente) no se tocó.
+- **F2c, lo que hace MaKo.** `listar_capacidades_mako` va con las de siempre (`CAPACIDADES_TOOLS`): viaja en todo turno que
+  consulta, actúa o piensa; en capturar y en charla no (`herramientasDelTurno` lo filtra por el contrato). La lista ya no dice
+  «y NINGUNA otra» (el texto de la app: «son una selección para este pedido»), y los hechos de MaKo suman lo que traen las
+  herramientas.
+
+**Sin hacer:**
+- **El catálogo de MaKo inteligente** (lib/funciones-mako.ts y `grafoParaChat`, su 0c80dd3ce): va en tren-v y todavía no llegó a
+  origin/main. Cuando llegue, se mergea y el turno del grupo lo usa (no se arma uno propio).
+- `conTicketsDeMaKo` no compara un [[no-existe]] con los títulos abiertos si el modelo no marca [[ya-pedido]]: el duplicado
+  sigue posible si el modelo no lo reconoce.
+- F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).

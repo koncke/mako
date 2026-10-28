@@ -121,7 +121,8 @@ async function avisarUno(f: FilaAviso, desplegados: Map<number, HitoDeTicket>): 
       // de algo hecho (el cierre): «te avisamos cuando esté» de un duplicado lo cumple el código, no es una promesa suelta.
       const { sanearSalida } = await import('./doer-salida');
       const { enviarAlGrupoMaKo } = await import('./mako-grupo');
-      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto);
+      // Es la respuesta del EQUIPO a su ticket: al anillo del equipo, no como turno de MaKo (lib/doer-equipo.ts).
+      const r = await enviarAlGrupoMaKo(ws, sanearSalida(texto, { corrioHerramientas: true }).texto, 'equipo');
       if (r.ok) salio.push('whatsapp');
     } catch (e) { console.error(`[tickets] WhatsApp de #${f.id}: ${e instanceof Error ? e.message : String(e)}`); }
   }
