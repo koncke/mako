@@ -19,6 +19,8 @@ import { getSetting, getSettingEstricto, setSetting } from './settings';
 import { runWithWorkspace, OWNER_WS, getWorkspace } from './workspace';
 import { leerResultadoParticipante, jidCanonico } from './participantes-grupo';
 import { detalleEvolution, enviarPartesPorEv, type EnvioPartes, type EvFn, type PartePreparada } from './mako-tarjeta';
+import { linksConWs, partesConLinksDeWs } from './links-con-ws';
+import { APP_BASE_URL } from './app-url';
 import { reclamarEspaciado, salioReciente } from './espaciado';
 import { reclamarContactoLinea, SIN_CUPO_LINEA, VENTANA_LINEA_MIN, type AlmacenTope } from './mako-linea-tope';
 
@@ -665,7 +667,10 @@ export type EnvioGrupo = { ok: true; id: string } | { ok: false; error: string; 
 const detalleEv = detalleEvolution;
 
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
-export async function enviarAlGrupoMaKo(ws: number, texto: string): Promise<EnvioGrupo> {
+export async function enviarAlGrupoMaKo(ws: number, texto0: string): Promise<EnvioGrupo> {
+  // ⚠️ Todo link a MaKo sale con el `?ws=` de ESTE negocio (27/10/2026, Leila: «Este lead no es de esta cuenta»;
+  // lib/links-con-ws.ts): quien lo abre mirando otra cuenta llega al lead correcto. Uno que ya trae su `ws` no se toca.
+  const texto = linksConWs(texto0, ws, APP_BASE_URL);
   if (!texto.trim()) return { ok: false, error: 'texto vacío' };
   let jid: string | null;
   try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
@@ -699,7 +704,8 @@ export async function enviarPartesAlGrupoMaKo(
   let jid: string | null;
   try { jid = await grupoJidEstricto(ws); } catch (e) { return { ok: false, salieron: 0, ids: [], error: `no pude leer el grupo de MaKo: ${e instanceof Error ? e.message : String(e)}` }; }
   if (!jid) return { ok: false, salieron: 0, ids: [], error: SIN_GRUPO_MAKO, sinGrupo: true };
-  return enviarPartesAJid(jid, partes, d);
+  // Los links del texto y del pie de un archivo, con el `?ws=` de este negocio (como `enviarAlGrupoMaKo`).
+  return enviarPartesAJid(jid, partesConLinksDeWs(partes, ws, APP_BASE_URL), d);
 }
 
 /** Lo mismo, a un JID cualquiera (el chat de MaKo de /agencia manda un audio o un archivo suelto por acá). */

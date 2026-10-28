@@ -39,3 +39,26 @@ test('el doer de WhatsApp pasa TODO lo que manda al grupo por linksConWs', () =>
   const src = readFileSync('lib/mako-doer-in.ts', 'utf8').replace(/\r\n/g, '\n');
   assert.match(src, /const enviar = \[\.\.\.partes, \.\.\.paraLaPersona\]\.map\(\(t\) => linksConWs\(t, wsData, APP_URL\)\);/);
 });
+
+// ── 27/10/2026: TODO lo que sale al grupo de un negocio, no sólo lo del modelo ─────────────────────────────────────────
+// Leila (ws11) reenvió el aviso «Mira el resumen del lead: hola-mako.com/crm/482/resumen» y al abrirlo: «Este lead no es de
+// esta cuenta». El link que arma el código (`linkApp`) lleva su `ws` desde el 06/10 (e307a6a6e); uno escrito a mano en una
+// tarjeta («MaKo en WhatsApp», «Avisar al equipo») podía salir pelado. Ahora lo completa el envío al grupo
+// (lib/mako-grupo.ts). Roturas (base 4 / 0): `enviarAlGrupoMaKo` sin `linksConWs` → 3 / 1; `enviarPartesAlGrupoMaKo` sin
+// `partesConLinksDeWs` → 3 / 1; `partesConLinksDeWs` sin el pie de un archivo → 3 / 1.
+test('el link de un aviso al grupo sale con el ws del negocio: el texto y el pie de un archivo', async () => {
+  const { partesConLinksDeWs } = await import('../lib/links-con-ws');
+  assert.equal(linksConWs('📋 Mira el resumen del lead: hola-mako.com/crm/482/resumen', 11, BASE), '📋 Mira el resumen del lead: hola-mako.com/crm/482/resumen?ws=11');
+  const partes = partesConLinksDeWs([
+    { tipo: 'texto', texto: 'Entró Ana: https://hola-mako.com/crm/482/resumen' },
+    { tipo: 'audio', base64: 'x', mime: 'audio/ogg' },
+    { tipo: 'media', base64: 'x', caption: 'El PDF: hola-mako.com/crm/482' },
+  ], 11, BASE);
+  assert.deepEqual(partes.map((p) => ('texto' in p ? p.texto : 'caption' in p ? p.caption : p.tipo)), [
+    'Entró Ana: https://hola-mako.com/crm/482/resumen?ws=11', 'audio', 'El PDF: hola-mako.com/crm/482?ws=11',
+  ]);
+  // Los dos envíos al grupo de un negocio pasan por ahí.
+  const src = readFileSync('lib/mako-grupo.ts', 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /const texto = linksConWs\(texto0, ws, APP_BASE_URL\);/);
+  assert.match(src, /return enviarPartesAJid\(jid, partesConLinksDeWs\(partes, ws, APP_BASE_URL\), d\);/);
+});

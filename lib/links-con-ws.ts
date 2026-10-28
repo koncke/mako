@@ -41,3 +41,17 @@ export function linksConWs(texto: string, ws: number | null, base: string): stri
     return `${esquema ?? ''}${www ?? ''}${host}${conElWs}${cola}`;
   });
 }
+
+/**
+ * LO MISMO, PARA TODO LO QUE VA AL GRUPO DE UN NEGOCIO (27/10/2026, Leila, ws11: reenvió «Mira el resumen del lead:
+ * hola-mako.com/crm/482/resumen» y al abrirlo, «Este lead no es de esta cuenta»). `linkApp` ya pegaba el `ws` a lo que arma
+ * el código; un aviso cuyo texto escribió una persona en su tarjeta («MaKo en WhatsApp», «Avisar al equipo») podía traer el
+ * link pelado. Se completa en la SALIDA al grupo (lib/mako-grupo.ts): el texto y el pie de un archivo. Puro.
+ */
+export function partesConLinksDeWs<T extends { tipo: string; texto?: string; caption?: string }>(partes: readonly T[], ws: number | null, base: string): T[] {
+  return partes.map((p) => {
+    if (p.tipo === 'texto' && typeof p.texto === 'string') return { ...p, texto: linksConWs(p.texto, ws, base) };
+    if (typeof p.caption === 'string') return { ...p, caption: linksConWs(p.caption, ws, base) };
+    return p;
+  });
+}
