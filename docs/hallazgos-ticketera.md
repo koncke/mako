@@ -671,3 +671,15 @@ Y además:
 - **La configuración se cierra sola sólo si contesta la cuenta que falló** (`contexto.herramienta`, `soloSi`).
 - **Lo que levanta el SISTEMA** (un error de la app, `declaradoPor: 'sistema'`) tampoco entra por la regla de aprobación.
 Cada uno con su test rojo-verde (tests/no-pude*.test.ts).
+
+**La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
+- «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
+  `sinLanzar` de las áreas, `ejecutarAccion` de WhatsApp, agendar). Esos dicen el error entre paréntesis («No se pudo aplicar
+  (Error guardando setting …)»); una negativa de estado o de configuración no. `esFallaTragada` (lib/no-pude-frases.ts) los separa.
+- La regla mirada en TODA la respuesta tapaba fallas que nombran «el token» o «tu pantalla»: se mira la oración que explica la
+  marca, y la regla tiene que tener forma de regla («se confirma en tu tarjeta», «pega tu clave»), no la palabra suelta. Sólo
+  apaga el «no pude», nunca el «no existe» de la misma respuesta.
+- `yaRegistrado` sólo cuando registrarError DEJÓ ticket, y sólo apaga el «no pude».
+- La clave de un fallo son sus dos primeras palabras con peso: «crear la tarea» y «crear la tarea en el plan» son el mismo.
+- Sin ticket no hay línea: el test rompe la base para probarlo (no alcanza con el tope, que devuelve el último).
+**La regla para medir:** cada arreglo de un detector se prueba también con las frases VECINAS de las del ticket, no sólo con ésas.

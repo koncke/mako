@@ -13,6 +13,7 @@ import {
   causaDelNoPude, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
 } from '../lib/no-pude';
 import { REGLA_NO_EXISTE, reglaNoExisteEn, sacarNoExiste } from '../lib/no-existe';
+import { esFallaTragada } from '../lib/no-pude-frases';
 
 test('a. la causa sale de las señales del código, en orden, y una regla no abre ticket', () => {
   assert.equal(causaDelNoPude({ regla: true, herramienta: true, noPudo: 'mover el lead' }), null, 'una regla de MaKo abrió ticket');
@@ -85,6 +86,20 @@ test('f. el título lo arma el código, nunca el texto del modelo', () => {
   for (const c of ['ejecucion', 'herramienta', 'ruteo', 'proveedor', 'configuracion', 'no-existe', 'texto'] as const) {
     assert.ok(tituloDelNoPude(c, 'whatsapp').length <= 140);
   }
+});
+
+test('g. la falla que un runner se TRAGÓ abre ticket; una negativa de estado o de configuración no (la verificación del 28/10)', () => {
+  for (const r of ['No se pudo aplicar (Error guardando setting mako.personalidad: Error: BOOM).', 'No pude ejecutarlo (Error obteniendo lead 12: fetch failed).',
+    'No se pudo agendar (timeout).', 'No se pudo cambiar el CRM automático (Error guardando setting crm_auto_enabled: Error: BOOM).']) {
+    assert.ok(esFallaTragada(r), `«${r}» no se ve como una falla tragada`);
+  }
+  for (const r of ['Esa decisión ya no estaba abierta.', 'El email dejó de estar conectado: no se prendió el envío real.',
+    'La secuencia no existe o ya no estaba archivada.', 'No borré nada: en Meta ya no está pausada.', 'No se pudo: el lead ya está en esa etapa.']) {
+    assert.equal(esFallaTragada(r), false, `«${r}» se tomó como una falla`);
+  }
+  // El mismo fallo dicho de otra forma es la misma clave.
+  const base = { ws: 11, superficie: 'ops-center' as const, conv: 'sesion-300', causa: 'texto' as const };
+  assert.equal(refDeNoPude({ ...base, clave: 'crear la tarea' }), refDeNoPude({ ...base, clave: 'crear la tarea en el plan' }));
 });
 
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────

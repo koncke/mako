@@ -46,7 +46,7 @@ test('1. la acción confirmada que falla al ejecutarse abre su ticket: después 
   // conectado» son negativas de estado o de configuración): sólo lo que REVENTÓ al ejecutar, en los dos caminos.
   for (const f of [confirmar, aplicar]) {
     assert.match(f, /catch \(err\) \{ reventoAlEjecutar = true;/);
-    assert.match(f, /const ticket = reventoAlEjecutar \? await ticketSiFallo\(/, 'un ok:false del runner abre ticket');
+    assert.match(f, /const ticket = reventoAlEjecutar \|\| \(!r\.ok && esFallaTragada\(r\.resumen\)\) \? await ticketSiFallo\(/, 'un ok:false del runner abre ticket');
   }
 });
 
@@ -54,9 +54,9 @@ test('2. el turno de la app: las dos marcas, el ruteo, sin !ticketPropuesto, el 
   const t = fuente('lib/mako-turno-app.ts');
   assert.doesNotMatch(t, /ticketPropuesto/, 'volvió `!ticketPropuesto`: la falla depende otra vez del botón');
   assert.doesNotMatch(t, /conPedidoDeNoExiste\(/, 'el turno procesa sólo lo que no existe');
-  assert.match(t, /const np = await conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: fallasDeMako\.length > 0 \}, dondeDelTurno,/);
+  assert.match(t, /const np = await conTicketsDeMaKo\(respuesta, \{ ruteo: noViajo\.length > 0, yaRegistrado: registroConTicket \}, dondeDelTurno,/);
   assert.match(t, /if \(def && name !== 'confirmar_accion' && visible\(def, vista\) && !noViajo\.includes\(def\.titulo\)\) noViajo\.push\(def\.titulo\);/);
-  assert.match(t, /if \(r\.ok && r\.ticketId\) paraLaPersona\.push\(r\.nuevo \? lineaDelTicket\(r\.ticketId\) : LINEA_YA_AVISADO\);/);
+  assert.match(t, /if \(r\.ok && r\.ticketId\) \{ registroConTicket = true; paraLaPersona\.push\(r\.nuevo \? lineaDelTicket\(r\.ticketId\) : LINEA_YA_AVISADO\); \}/);
   assert.match(t, /const causaSin = sinIA \|\| deSuCuenta \? 'configuracion' : delProveedor \? 'proveedor' : null;/);
   // La configuración, sólo si contesta la cuenta que había fallado (la revisión del 28/10/2026).
   assert.match(t, /if \(respuesta && !fallo\) await Promise\.all\(\[cerrarSiVolvio\(ws, 'proveedor'\), cerrarSiVolvio\(ws, 'configuracion', `ia:\$\{ia\?\.cuenta \?\? 'auto'\}`\)\]\);/);

@@ -185,6 +185,36 @@ test('10. en «Editar», el estilo de los datos de pago es la VISTA', () => {
   }
 });
 
+// ── La verificación del Cerebro (28/10/2026, C:/dev/revisiones/2810-verificacion-mi-wa.md) ─────────────────────────────
+
+test('11. el plan de pagos: un «está mal» con pregunta, la llamada como contexto y «mostró/orden/grande» siguen siendo el plan', () => {
+  for (const m of ['Las fechas y cantidades de pago de Ana están mal, ¿me ayudas?',
+    'Las fechas y cantidades de pago de Ana están mal, lo vimos en la llamada: son 300 cada quincena los días 1 y 15',
+    'Corrige el plan de pagos de Ana, en la cita acordamos 300 cada quincena',
+    'Ana me mostró el comprobante, corregí su plan de pagos: son 300',
+    'Corregí el plan de pagos de Ana según la orden de compra: son 300 cada quincena',
+    'Corrige sus cuotas, la más grande es de 500']) {
+    assert.ok(esPedidoDeCobro(m), `«${m}» dejó de ser un cobro`);
+    assert.ok(herramientas(m, 'app').includes('editar_cuota') || herramientas(m, 'app').includes('editar_venta_lead'), `«${m}» no trae las de cobro`);
+  }
+  // En «Editar», «mostró» y «la orden de compra» son datos, no la vista.
+  for (const m of ['Ana me mostró el comprobante, corregí su plan de pagos: son 300', 'Corregí el plan de pagos de Ana según la orden de compra: son 300 cada quincena']) {
+    assert.equal(pistaDeEdicion(m), PISTA_DATO_DE_COBRO, `«${m}» editando se tomó como la vista`);
+  }
+});
+
+test('12. con una pendiente, la queja suelta («No anda», «No me deja») tampoco es un «no» a lo propuesto', () => {
+  for (const m of ['No anda', 'No carga', 'no sale', 'No me deja']) {
+    assert.notEqual(clasificarIntencion(m, { hayPendientes: true }).intencion, 'confirmar', `«${m}» contestó la propuesta`);
+  }
+});
+
+test('13. «Anotado, …», «Guardado, ya lo tengo», «Anotado 👍», «Anotado y guardado» y «Lo recuerdo para la próxima» se notan', () => {
+  for (const m of ['Anotado, LíderMente es de 7:30 a 9:30.', 'Guardado, ya lo tengo.', 'Anotado 👍', 'Anotado y guardado.', 'Lo recuerdo para la próxima.']) {
+    assert.ok(afirmacionesDeHecho(m).length, `«${m}» no se ve como un hecho`);
+  }
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. la 9-bis sin `!QUEJA_NO_ANDA`                                 → rojo el 1.
@@ -200,3 +230,5 @@ test('10. en «Editar», el estilo de los datos de pago es la VISTA', () => {
 //   11. los ofrecibles con destructivas                               → rojo el 8.
 //   12. `HECHO_EN_MEMORIA` sin pedir la forma sin sujeto              → rojo el 9.
 //   13. `DE_LA_VISTA` sin el estilo (color, negrita, formato…)        → rojo el 10.
+//   (verificación) 14. sin `ESTA_MAL_FUERTE` en la pregunta, 15. la agenda como contexto, 16. el estilo en todo esPedidoDeCobro → rojo el 11;
+//   17. la queja suelta fuera de `QUEJA_DE_LA_APP` → rojo el 12; 18. la forma sin sujeto sólo con [.!:] → rojo el 13.
