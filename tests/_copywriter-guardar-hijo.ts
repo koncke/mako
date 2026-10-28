@@ -46,13 +46,13 @@ async function main() {
   pg.db.workspaces.push({ id: WS, nombre: 'Prueba' });
   const out: Record<string, unknown> = {};
   await runWithWorkspace(WS, async () => {
-    // 1. Un guion de YouTube que crece: corto, 60 párrafos (más de 20 KB), y uno más. Antes, el tercero fallaba para siempre.
+    // 1. Un guion de YouTube que crece: corto, 90 párrafos (más de 20 KB), y uno más. Antes, el tercero fallaba para siempre.
     const c = await crear({ tipo: 'youtube', titulo: 'Cómo armamos un embudo' });
     if (!c.ok) throw new Error(`crear: ${c.error}`);
     const id = c.pagina.id;
     const g1 = await guardar({ id, version: 1, contenido: doc(1) });
-    const g2 = await guardar({ id, version: 2, contenido: doc(60) });
-    const g3 = await guardar({ id, version: 3, contenido: doc(61) });
+    const g2 = await guardar({ id, version: 2, contenido: doc(90) });
+    const g3 = await guardar({ id, version: 3, contenido: doc(91) });
     out.bytesGuion = String(pg.db.app_settings.find((f) => f.key === `mako.copywriter.doc.${id}`)?.value ?? '').length;
     const g4 = await guardar({ id, version: 4, contenido: doc(1) });
     out.guardados = [g1, g2, g3, g4].map((g) => (g.ok ? `ok v${g.version}` : `${g.status} ${g.error}`));
