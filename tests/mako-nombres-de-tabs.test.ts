@@ -27,6 +27,8 @@ const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(
 const TABS = new Set([...leer('app/_components/nav.ts').matchAll(/label: '([^']+)'/g)].map((m) => m[1]));
 /** Rutas que NO son de MaKo: los ajustes del sistema del teléfono o de la PC, que se le explican a la persona. */
 const DEL_SISTEMA = new Set(['Sistema', 'Ajustes', 'MaKo › Notificaciones']);
+/** Rutas ADENTRO de un editor, no de la barra: el panel «Audio» del Video Editor (app/video-editor/_opencut/media/importar-motivo.ts). */
+const DE_UN_EDITOR = new Set(['Audio › Importar']);
 const RUTA = /([A-ZÁÉÍÓÚ][A-Za-záéíóúñ]+(?: [A-Z][A-Za-z]+)?) › ([A-ZÁÉÍÓÚ][A-Za-záéíóúñ]+)/g;
 
 function archivos(dir: string): string[] {
@@ -44,7 +46,7 @@ test('toda ruta «X › Y» del código empieza por una tab de la barra de hoy',
   const malas: string[] = [];
   for (const p of [...archivos('lib'), ...archivos('app')]) {
     for (const m of sinComentarios(leer(p)).matchAll(RUTA)) {
-      if (TABS.has(m[1]) || DEL_SISTEMA.has(m[1]) || DEL_SISTEMA.has(m[0])) continue;
+      if (TABS.has(m[1]) || DEL_SISTEMA.has(m[1]) || DEL_SISTEMA.has(m[0]) || DE_UN_EDITOR.has(m[0])) continue;
       malas.push(`${relative(RAIZ, join(RAIZ, p)).split(sep).join('/')}: «${m[0]}»`);
     }
   }
