@@ -90,16 +90,33 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   assert.match(c.veredicto.relevancia ?? '', /editar venta cuota monto/);
   assert.match(c.veredicto.porque, /^corrige un monto \(antes: adjunto para interpretar\)$/);
   assert.deepEqual([...c.herramientas], herr);
-  // Capturar y la duda quedan como están (su contrato, el candado de la adivinanza): sólo se suman las cuatro.
+  // Un «capturar» EXPLÍCITO queda como está (su contrato): sólo se suman las cuatro.
+  const anotar: VeredictoIntencion = { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' };
+  assert.equal(laCorreccion(anotar, 'no me deja editar que son 423, no 4235').veredicto, anotar);
+  assert.deepEqual([...laCorreccion(anotar, 'no me deja editar que son 423, no 4235').herramientas], herr);
+  // La DUDA no (la verificación de 4d1d0a010): con plata a la vista, el seguimiento de Leila iba al camino barato sin herramientas.
   for (const v of [
     { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' },
-    { intencion: 'capturar', dudosa: false, porque: 'pidió anotarlo explícitamente' },
     { intencion: 'pensar', dudosa: true, porque: 'dudosa' },
   ] as VeredictoIntencion[]) {
     const r = laCorreccion(v, 'no me deja editar que son 423, no 4235');
-    assert.equal(r.veredicto, v, `${v.intencion}${v.dudosa ? ' (dudosa)' : ''} cambió de intención`);
+    assert.deepEqual([r.veredicto.intencion, r.veredicto.dudosa], ['actuar', false], `${v.intencion} (dudosa) quedó con la duda`);
     assert.deepEqual([...r.herramientas], herr);
   }
+  // El seguimiento SIN foto: la plata está en lo de antes (la foto y lo que contestó MaKo), no en «son 423, no 4235».
+  const antes = '(envió una imagen) — mirá\nVeo la cuota de Nadia en USD 4235,29.';
+  const seguimiento: VeredictoIntencion = { intencion: 'capturar', dudosa: true, porque: 'sin señal clara' };
+  for (const f of ['son 423, no 4235', 'pero son 423, no 4235']) {
+    const r = laCorreccion(seguimiento, f, antes);
+    assert.equal(r.veredicto.intencion, 'actuar', `«${f}» con la foto antes no se ve como corrección`);
+    assert.deepEqual([...r.herramientas], herr);
+    assert.deepEqual(laCorreccion(seguimiento, f).herramientas, [], `«${f}» sin nada antes se ve como corrección`);
+  }
+  // Con la plata sólo en lo de antes, más exigente: ni «10 no 12», ni un año.
+  for (const f of ['son 10 no 12 reuniones', 'el año es 2026, no 2025']) assert.ok(!corrigeUnMonto(f, antes), `«${f}» con plata antes`);
+  // La foto dentro de un lote, y un monto de 2000 con la plata en el mensaje (no es un año).
+  assert.ok(corrigeUnMonto('(en este mensaje mandé una imagen, pero llegó junto a otros mensajes…)\nson 423, no 4235'));
+  for (const f of ['la cuota es 2000 no 1500', 'la cuota es 1500 no 2000', 'cobrale 1990 no 1900 pesos']) assert.ok(corrigeUnMonto(f), `«${f}»`);
   // Un pedido de agenda o de mover: sin el área ni la relevancia de cobros (el presupuesto es de la agenda).
   const agenda: VeredictoIntencion = { intencion: 'actuar', dudosa: false, porque: 'agenda', relevancia: RELEVANCIA_AGENDA, areas: ['crm'] };
   assert.equal(laCorreccion(agenda, 'la cuota es 423 no 4235').veredicto, agenda);
@@ -108,7 +125,7 @@ test('6. la corrección decide la intención Y las herramientas juntas: actuar e
   assert.deepEqual(laCorreccion(si, 'sí, la cuota es 423 no 4235'), { veredicto: si, herramientas: [] });
   assert.deepEqual(laCorreccion(conFoto, '(envió una imagen) — ¿qué te parece?'), { veredicto: conFoto, herramientas: [] });
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\)\);\n\s*const intencion = correccion\.veredicto;/);
+  assert.match(doer, /const loDeAntes = historial\.slice\(-2\)\.map\([^\n]*\n\s*const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = correccion\.veredicto;/);
   assert.match(doer, /const delTurno = correccion\.herramientas\.length\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => correccion\.herramientas\.includes\(c\.name\) && !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 

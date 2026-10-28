@@ -41,27 +41,38 @@ export function reportaFalla(texto: string): boolean {
  * perdía `agenda_del_dia` y `listar_tareas_plan` frente a las de cobros. Ahora:
  *   · las dos cifras valen sólo con PLATA en el mensaje (US$, $, monto, cuota, pago, mensualidad…), la foto o el PDF que la
  *     acompaña, o «no me deja editar/cambiar/corregir» (el literal de Leila);
- *   · la cifra es de 2 a 8 dígitos (o con miles: «4.235,29»), no pegada a «:» ni a «/» (una hora, una fecha), no un año 19xx o
- *     20xx, y no después de «las», «la», «el», «al» o «del» (las 15, el 20);
+ *   · la cifra es de 2 a 8 dígitos (o con miles: «4.235,29»), no pegada a «:» ni a «/» (una hora, una fecha), y no después de
+ *     «las», «la», «el», «al» o «del» (las 15, el 20);
  *   · «precio» no cuenta: el precio de un producto o de una landing es otra herramienta.
+ * Y LO DE ANTES (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son 423, no 4235», después de la foto de la
+ * cuota) no nombra la plata. Si la plata está sólo en lo de antes (`antes`: la foto, la respuesta de MaKo), las cifras tienen que
+ * ser de 3 dígitos o más y no un año 19xx/20xx; con la plata en el mensaje, un monto de 2000 es un monto.
  */
-const CIFRA = String.raw`(?<![\d\p{L}:/.,])(?!(?:19|20)\d{2}(?![\d.,]))(?:\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{2,8}(?:[.,]\d{1,2})?)(?![\d\p{L}:/])`;
+const cifra = (minimo: number, sinAnios: boolean): string =>
+  String.raw`(?<![\d\p{L}:/.,])${sinAnios ? String.raw`(?!(?:19|20)\d{2}(?![\d.,]))` : ''}(?:\d{1,3}(?:\.\d{3})+(?:,\d{1,2})?|\d{${minimo},8}(?:[.,]\d{1,2})?)(?![\d\p{L}:/])`;
 const NO_ES_HORA_NI_FECHA = String.raw`(?<!(?:las|la|el|al|del)\s+)`;
 /** «$423», «US$ 4235»: el signo pegado a la cifra. */
 const MONEDA = String.raw`(?:(?:us)?\$\s?)?`;
-const DOS_CIFRAS = new RegExp([
-  String.raw`${NO_ES_HORA_NI_FECHA}${MONEDA}${CIFRA}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${MONEDA}${CIFRA}`,
-  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${MONEDA}${CIFRA}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${MONEDA}${CIFRA}`,
+const dosCifras = (c: string): RegExp => new RegExp([
+  String.raw`${NO_ES_HORA_NI_FECHA}${MONEDA}${c}\s*,?\s*(?:y\s+)?no\s+(?:es\s+|son\s+)?(?:de\s+)?${MONEDA}${c}`,
+  String.raw`(?<!\p{L})no\s+(?:es|son)\s+(?:de\s+)?${MONEDA}${c}\s*,?\s*(?:es|son|sino)\s+(?:de\s+)?${MONEDA}${c}`,
 ].join('|'), 'iu');
-const HAY_PLATA = /(?:\$|(?<!\p{L})(?:usd|d[oó]lares?|pesos?|ars|mxn|montos?|cuotas?|pagos?|pagad[oa]s?|cobr\p{L}*|mensualidad(?:es)?|importes?|venta)(?!\p{L})|\(envi[oó] (?:una imagen|un pdf)|no me deja (?:editar|cambiar|corregir|modificar))/iu;
+/** Con la plata en el mensaje. */
+const DOS_CIFRAS = dosCifras(cifra(2, false));
+/** Con la plata sólo en lo de antes: más exigente (ni «10 no 12», ni un año). */
+const DOS_CIFRAS_POR_LO_DE_ANTES = dosCifras(cifra(3, true));
+const HAY_PLATA = /(?:\$|(?<!\p{L})(?:usd|d[oó]lares?|pesos?|ars|mxn|montos?|cuotas?|pagos?|pagad[oa]s?|cobr\p{L}*|mensualidad(?:es)?|importes?|venta)(?!\p{L})|\(envi[oó] (?:una imagen|un pdf)|\(en este mensaje mandé (?:una imagen|un pdf)|no me deja (?:editar|cambiar|corregir|modificar))/iu;
 const PIDE_CORREGIR = new RegExp([
   String.raw`(?<!\p{L})(?:correg|corrij|cambi|edit|arregl|modific)\p{L}*\s+(?:\p{L}+\s+){0,3}(?:montos?|cuotas?|mensualidad(?:es)?|importes?)(?!\p{L})`,
   String.raw`(?<!\p{L})(?:montos?|cuotas?|mensualidad(?:es)?|importes?)\s+(?:\p{L}+\s+){0,3}(?:est[aá]n?|qued[oó]|quedaron|vino|vinieron|sali[oó])\s+mal(?!\p{L})`,
 ].join('|'), 'iu');
 
-export function corrigeUnMonto(texto: string): boolean {
+/** `antes`: lo último de la charla (lo que dijo la persona y lo que contestó MaKo), para el seguimiento que no nombra la plata. */
+export function corrigeUnMonto(texto: string, antes = ''): boolean {
   const t = texto || '';
-  return PIDE_CORREGIR.test(t) || (DOS_CIFRAS.test(t) && HAY_PLATA.test(t));
+  if (PIDE_CORREGIR.test(t)) return true;
+  if (HAY_PLATA.test(t)) return DOS_CIFRAS.test(t);
+  return !!antes && HAY_PLATA.test(antes) && DOS_CIFRAS_POR_LO_DE_ANTES.test(t);
 }
 
 /**

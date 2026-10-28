@@ -48,6 +48,30 @@ export function quienesMencionados(menciones: readonly string[], numeroLinea: st
   return { aMaKo, aOtros: aMaKo || aOtros.length < menciones.length ? [] : aOtros };
 }
 
+/** Para quién es UN mensaje: 'mako' (lo nombra, lo menciona, o trae un audio o un adjunto: es deliberado), 'acuse' o 'a-otro'
+ *  (no es para MaKo), o null (un pedido que no lo nombra: en «libre» es para MaKo). */
+export type ParaQuien = 'mako' | 'acuse' | 'a-otro' | null;
+/** Lo que el lote decidió, mensaje por mensaje: si alguno nombra a MaKo, o por qué ninguno es para MaKo (null: alguno lo es). */
+export type ParaQuienDelLote = { nombra: boolean; noEs: 'acuse' | 'a-otro' | null };
+
+/**
+ * EL LOTE SE DECIDE MENSAJE POR MENSAJE (la verificación de 4d1d0a010). Con las menciones de todos juntas, una @mención a
+ * Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍 (regresión contra producción), y una @mención a MaKo hacía
+ * contestar en ventana cerrada también lo que era para Pedro. Ahora, si algún mensaje no es para otra persona, los que sí lo
+ * son no entran al turno; y el lote lleva la decisión en vez de las menciones.
+ */
+export function paraQuienDelLote<T extends { texto: string; para: ParaQuien }>(mensajes: readonly T[]): { quedan: T[]; decision: ParaQuienDelLote } {
+  const quedan = mensajes.some((m) => m.para !== 'a-otro') ? mensajes.filter((m) => m.para !== 'a-otro') : [...mensajes];
+  const ningunoEs = quedan.every((m) => m.para === 'acuse' || m.para === 'a-otro');
+  return {
+    quedan,
+    decision: {
+      nombra: quedan.some((m) => m.para === 'mako'),
+      noEs: ningunoEs ? (quedan.some((m) => m.para === 'a-otro') ? 'a-otro' : 'acuse') : null,
+    },
+  };
+}
+
 /** Por qué el mensaje NO es para MaKo, o null si lo es. */
 export function noEsParaMaKo(p: { texto: string; menciones: readonly string[]; nombraAMaKo: boolean; makoPregunto: boolean; hayPendientes: boolean }): 'acuse' | 'a-otro' | null {
   if (p.nombraAMaKo || p.hayPendientes || p.makoPregunto) return null;

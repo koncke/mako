@@ -104,6 +104,25 @@ test('7. lo que el turno LEYÓ es la respuesta: «he encontrado», «he consulta
   assert.ok(hechoEnElGrupo('Ya te abrí la agenda de Google.').length > 0);
 });
 
+test('8. «hecho», «abierto» y «escrito» dependen de QUÉ: una escritura se corta aunque el turno haya leído; una lectura, no', () => {
+  // La verificación de 4d1d0a010: sacar «hecho» y «abierto» de la lista dejó pasar escrituras que 8644f121a cortaba.
+  for (const f of [
+    'He abierto un ticket para el equipo.', 'Abrí un ticket para el equipo.', 'He hecho el cambio de etapa de Juan a Ganado.',
+    'He hecho la reserva para el lunes.', 'Hice el cambio de etapa de Juan a Ganado.', 'Te abrí la reunión en Google Meet.',
+    'Ya te abrí la agenda de Google.', 'He escrito un mensaje a Juan por WhatsApp.',
+  ]) for (const leyo of [false, true]) {
+    const s = enElGrupo(f, false, false, leyo);
+    assert.ok(s.texto.endsWith(SIN_HACER), `«${f}» (leyó: ${leyo}) salió igual: «${s.texto}»`);
+  }
+  // Sin una lectura en el turno, lo que queda dicho con «dejé», «ya quedó hecho» o «ya quedó abierto».
+  for (const f of ['Te dejé hecho el cambio de Juan.', 'Ya quedó abierto el ticket para el equipo.', 'Ya quedó hecho el cambio.']) {
+    assert.ok(enElGrupo(f).texto.endsWith(SIN_HACER), `«${f}» salió igual`);
+  }
+  // Y lo que se hace o se abre para LEER sigue pasando (test 7).
+  for (const f of ['He hecho la cuenta y llevas 14 leads este mes.', 'He abierto tu agenda y mañana tienes 2 reuniones.', 'Abrí tu agenda y mañana tienes 2 reuniones.'])
+    assert.equal(enElGrupo(f, false, false, true).texto, f);
+});
+
 test('6. el doer: cuenta lo que se escribió de verdad (no lo propuesto) y le pasa el respaldo al saneo', () => {
   const doer = leer('lib/mako-doer-in.ts');
   assert.match(doer, /if \(propuesta\) propuestasDelTurno\.set\(propuesta\.id, propuesta\);\n\s*else if \(escribeDeVerdad\(name\) && hizoAlgo\(out\) && [^\n]*\) escribioDelTurno\+\+;/);

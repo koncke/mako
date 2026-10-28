@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, quienesMencionados, type Mencionados } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { bloqueDeLaFalla, causaDelCartel, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
@@ -187,7 +187,11 @@ async function abrirVentana(ws: number, jid: string): Promise<void> {
 
 // ── parseo del mensaje entrante ───────────────────────────────────────────────
 /** `loteDeVarios`: el lote junta mensajes de MÁS de una persona (o de alguien sin teléfono): nunca va a la computadora del dueño. */
-type MsgIn = { key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean };
+type MsgIn = {
+  key?: { remoteJid?: string; fromMe?: boolean; id?: string; participant?: string }; message?: Record<string, unknown>; pushName?: string; base64?: string; loteDeVarios?: boolean;
+  /** Un lote: para quién era cada mensaje, ya decidido (lib/doer-para-quien.ts, `paraQuienDelLote`). */
+  paraQuien?: ParaQuienDelLote;
+};
 
 function textoDe(m: MsgIn): string {
   const msg = m.message ?? {};
@@ -593,11 +597,13 @@ async function numeroDeLaLinea(instance: string): Promise<string | null> {
   return numero;
 }
 
-/** Las @menciones de TODO el lote, para el mensaje sintético (que es texto plano): sin ellas, en modo «ventana», una @mención
- *  a MaKo seguida de otro mensaje recibía el 👍 y después silencio (la revisión adversarial de 36e06b35f). */
-function mencionesDelLote(cola: ReadonlyArray<{ payload: unknown }>): { contextInfo?: { mentionedJid: string[] } } {
-  const todas = [...new Set(cola.flatMap((m) => mencionesDe(((m.payload as MsgIn) ?? {}).message as Record<string, unknown> | undefined)))];
-  return todas.length ? { contextInfo: { mentionedJid: todas } } : {};
+/** Para quién es UN mensaje del lote (lib/doer-para-quien.ts, `paraQuienDelLote`): el sintético es texto plano, así que la
+ *  decisión se toma acá, mensaje por mensaje, con sus menciones y su texto. Un audio o un adjunto son deliberados: para MaKo. */
+async function paraQuienEsElMensaje(instance: string, p: MsgIn, texto: string): Promise<ParaQuien> {
+  if (audioDe(p) || adjuntoDe(p)) return 'mako';
+  const q = await mencionadosEn(instance, p);
+  if (nombraAMaKo(texto) || q.aMaKo) return 'mako';
+  return noEsParaMaKo({ texto, menciones: q.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
 }
 
 /** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
@@ -611,9 +617,10 @@ async function mencionadosEn(instance: string, data: MsgIn): Promise<Mencionados
  * para el turno (la revisión adversarial de 92d23e11d: el 👍 salía a un «gracias» y después no venía nada). Lo barato
  * primero; las pendientes y la memoria (¿MaKo acaba de preguntar? el «ok» es un sí) sólo si el texto lo pide.
  */
-async function noEsParaMaKoAhora(wsData: number, jid: string, texto: string, quien: Mencionados, hayPendientes: () => Promise<boolean>): Promise<string | null> {
-  if (nombraAMaKo(texto) || quien.aMaKo) return null;
-  const candidato = noEsParaMaKo({ texto, menciones: quien.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
+async function noEsParaMaKoAhora(wsData: number, jid: string, texto: string, quien: Mencionados, hayPendientes: () => Promise<boolean>, delLote?: ParaQuienDelLote): Promise<string | null> {
+  if (nombraAMaKo(texto) || quien.aMaKo || delLote?.nombra) return null;
+  // Un lote ya lo decidió mensaje por mensaje (`paraQuienDelLote`): su texto unido no es un acuse, y sus menciones no viajan.
+  const candidato = delLote ? delLote.noEs : noEsParaMaKo({ texto, menciones: quien.aOtros, nombraAMaKo: false, makoPregunto: false, hayPendientes: false });
   if (!candidato || (await hayPendientes())) return null;
   const ultimo = (await historialGrupo(wsData, jid, 1).catch(() => [])).slice(-1)[0];
   const pregunto = ultimo?.role === 'assistant' && makoPreguntoAlgo(typeof ultimo.content === 'string' ? ultimo.content : null);
@@ -778,7 +785,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // VARIOS → un solo turno con todo junto. Los audios se transcriben ahora (uno por
     // uno) y el texto se arma numerado, para que el modelo entienda que fueron mensajes
     // separados y que el último puede corregir al primero.
-    const textos: string[] = [];
+    const textos: Array<{ texto: string; para: ParaQuien }> = [];
     for (const m of cola) {
       const p = (m.payload as MsgIn) ?? {};
       let t = m.texto.trim();
@@ -796,9 +803,11 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       if (otro && otro.tipo !== 'texto') {
         t = `${t ? `${t}\n` : ''}(en este mensaje mandé ${otro.tipo === 'image' ? 'una imagen' : 'un PDF'}${otro.caption ? `: «${otro.caption}»` : ''}, pero llegó junto a otros mensajes y no la pudiste mirar — pídemela suelta si la necesitas)`;
       }
-      if (t) textos.push(t);
+      if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instance, p, t) });
     }
     if (!textos.length) { await marcarProcesados(cola.map((m) => m.id)); return { engaged: false, skip: 'nada legible en el lote' }; }
+    // Para quién era cada mensaje (lib/doer-para-quien.ts): lo que era para otra persona no entra si otro es para MaKo.
+    const lote = paraQuienDelLote(textos);
     const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? data;
     // ¿Lo escribió UNA sola persona? El sintético lleva el `participant` del último: con dos autores, ése no prueba quién pidió
     // lo de arriba, y la computadora del dueño no lo atiende (docs/conexiones-y-ayuda.md, decisión 2).
@@ -807,7 +816,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // `participant`: quién escribió (el ticket lo lee, lib/doer-ticket.ts). Sin esto se perdía en todo lote.
       key: { remoteJid: jid, id: ultimo.key?.id ?? msgId, fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
       pushName: ultimo.pushName,
-      message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))), ...mencionesDelLote(cola) },
+      message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
+      paraQuien: lote.decision,
       ...(autores.size !== 1 || autores.has('') ? { loteDeVarios: true } : {}),
     };
     console.log(`[mako-doer-in] lote de ${cola.length} mensajes en ${jid} → una sola respuesta`);
@@ -937,14 +947,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     const vigentes = await pendientesVigentes(wsData, jid);
     const abierta = modo === 'ventana' ? await ventanaVigente(OPS, jid) : false;
     // Una @mención a la línea de MaKo (elegir su contacto con la @) es nombrarla (la revisión adversarial de 92d23e11d).
-    const quien: Mencionados = esMedia ? { aMaKo: false, aOtros: [] } : await mencionadosEn(instance, data);
+    // Un lote trae la decisión tomada mensaje por mensaje (`paraQuien`): el sintético no lleva menciones.
+    const quien: Mencionados = esMedia ? { aMaKo: false, aOtros: [] }
+      : data.paraQuien ? { aMaKo: data.paraQuien.nombra, aOtros: [] }
+      : await mencionadosEn(instance, data);
     const enganchaTexto = modo === 'libre' || nombraAMaKo(textoDirecto) || quien.aMaKo || abierta || vigentes.length > 0;
     if (!esMedia && !enganchaTexto) return { engaged: false, skip: 'no lo nombran / sin ventana / sin pendientes' };
     // ── LO QUE NO ES PARA MaKo, NI EN «LIBRE» (27/10/2026, lib/doer-para-quien.ts) ──────────────────────────────────────
     // Un «ok» o un «gracias» sueltos, o una @mención a otra persona: ~16 de 58 turnos contestaban eso. Con una pregunta de
     // MaKo recién hecha (el «ok» es un sí) o algo pendiente, corre como siempre. La MISMA regla decide el 👍 (`enganchaElTexto`).
     if (!esMedia) {
-      const noEs = await noEsParaMaKoAhora(wsData, jid, textoDirecto, quien, async () => vigentes.length > 0);
+      const noEs = await noEsParaMaKoAhora(wsData, jid, textoDirecto, quien, async () => vigentes.length > 0, data.paraQuien);
       if (noEs) return { engaged: false, skip: `no es para MaKo (${noEs})` };
     }
 
@@ -1162,7 +1175,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // llegaba con 2 herramientas. Si sigue un pedido vivo (MaKo ya contestó), se lee con ese pedido y sus áreas.
     const conHilo = conElHilo(delMensaje, texto, pedidoDelHilo(historial), typeof ultimoDeMako === 'string' ? ultimoDeMako : null);
     // Una corrección de monto decide la intención y sus herramientas en un solo lugar (lib/doer-falla.ts, `laCorreccion`).
-    const correccion = laCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto));
+    // Con lo último de la charla: el seguimiento de Leila sin foto («son 423, no 4235») no nombra la plata; la foto de antes, sí.
+    const loDeAntes = historial.slice(-2).map((r) => (typeof r.content === 'string' ? r.content : '')).join('\n');
+    const correccion = laCorreccion(conHilo.veredicto, sinPrefijoDeLote(texto), loDeAntes);
     const intencion = correccion.veredicto;
     // La intención viaja en el `motivo` para que quede en el Saldo de IA: sin
     // eso, un turno mal clasificado es invisible hasta que el dueño lo reclama.
@@ -2472,19 +2487,22 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
         try {
           const cola = await pendientes(jid);
           if (!cola.length) return false;
-          const textos: string[] = [];
-          for (const m of cola) {
-            let t = m.texto.trim();
-            if (!t && audioDe((m.payload as MsgIn) ?? {})) t = await transcribirDeMensaje('', (m.payload as MsgIn) ?? {});
-            if (t) textos.push(t);
-          }
           const ultimo = (cola[cola.length - 1].payload as MsgIn) ?? {};
           const instancia = String((ultimo as { instance?: string }).instance ?? '');
+          const textos: Array<{ texto: string; para: ParaQuien }> = [];
+          for (const m of cola) {
+            const p = (m.payload as MsgIn) ?? {};
+            let t = m.texto.trim();
+            if (!t && audioDe(p)) t = await transcribirDeMensaje('', p);
+            if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t) });
+          }
+          const lote = paraQuienDelLote(textos);
           if (textos.length) {
             const sintetico: MsgIn = {
               key: { remoteJid: jid, id: ultimo.key?.id ?? '', fromMe: ultimo.key?.fromMe, participant: ultimo.key?.participant },
               pushName: ultimo.pushName,
-              message: { conversation: unirMensajes(textos.map((t) => ({ texto: t }))), ...mencionesDelLote(cola) },
+              message: { conversation: unirMensajes(lote.quedan.map((m) => ({ texto: m.texto }))) },
+              paraQuien: lote.decision,
             };
             console.log(`[mako-doer-in] cron: destrabando ${cola.length} mensaje(s) de ${jid}`);
             await procesarDoer(ws, instancia, sintetico);

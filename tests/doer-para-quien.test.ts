@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, esAcusePuro, mencionesDe, noEsParaMaKo, quienesMencionados } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, esAcusePuro, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, type ParaQuien } from '../lib/doer-para-quien';
 
 const leer = (rel: string) => readFileSync(join(__dirname, '..', rel), 'utf8').replace(/\r\n/g, '\n');
 const base = { nombraAMaKo: false, makoPregunto: false, hayPendientes: false, menciones: [] as string[] };
@@ -38,8 +38,8 @@ test('3. quién escribe: su nombre de WhatsApp, y nada si no hay nombre o es un 
 
 test('4. el doer: lo saltea antes del turno (leyendo la memoria sólo si hace falta) y le pasa quién escribe al system', () => {
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /if \(!esMedia\) \{\n\s*const noEs = await noEsParaMaKoAhora\(wsData, jid, textoDirecto, quien, async \(\) => vigentes\.length > 0\);\n\s*if \(noEs\) return \{ engaged: false, skip: `no es para MaKo \(\$\{noEs\}\)` \};/);
-  assert.match(doer, /if \(nombraAMaKo\(texto\) \|\| quien\.aMaKo\) return null;/, 'una @mención a MaKo dejó de contar como nombrarla');
+  assert.match(doer, /if \(!esMedia\) \{\n\s*const noEs = await noEsParaMaKoAhora\(wsData, jid, textoDirecto, quien, async \(\) => vigentes\.length > 0, data\.paraQuien\);\n\s*if \(noEs\) return \{ engaged: false, skip: `no es para MaKo \(\$\{noEs\}\)` \};/);
+  assert.match(doer, /if \(nombraAMaKo\(texto\) \|\| quien\.aMaKo \|\| delLote\?\.nombra\) return null;/, 'una @mención a MaKo dejó de contar como nombrarla');
   assert.match(doer, /return pregunto \? null : candidato;/, 'el «ok» después de una pregunta de MaKo dejó de ser un sí');
   assert.match(doer, /\[bloqueQuienEscribe\(data\.pushName\), (?:ctxContacto, )?ctxYaSeHablo, ctxMostrado\]/);
 });
@@ -74,12 +74,28 @@ test('6. el 👍 sigue la MISMA regla que el turno: a lo que no es para MaKo no 
   assert.match(doer, /const enganchaTexto = modo === 'libre' \|\| nombraAMaKo\(textoDirecto\) \|\| quien\.aMaKo \|\| abierta/);
 });
 
-test('7. el lote conserva las @menciones: una mención a MaKo seguida de otro mensaje no queda en el 👍 y silencio', () => {
-  // La revisión de 36e06b35f: el mensaje sintético del lote era texto plano, y en modo «ventana» la mención se perdía.
+test('7. el lote se decide MENSAJE POR MENSAJE: una @mención a otro no calla lo que era para MaKo, y lo de otro no entra', () => {
+  // La revisión de 36e06b35f (el 👍 y el silencio en «ventana») y su verificación: con las menciones de todos juntas, una
+  // @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍.
+  const m = (texto: string, para: ParaQuien) => ({ texto, para });
+  // «@Pedro mirá esto» + «mako, ¿cuántos leads?»: contesta, y lo de Pedro no entra al turno.
+  const a = paraQuienDelLote([m('@Pedro mirá esto', 'a-otro'), m('mako, ¿cuántos leads entraron hoy?', 'mako')]);
+  assert.deepEqual(a.quedan.map((x) => x.texto), ['mako, ¿cuántos leads entraron hoy?']);
+  assert.deepEqual(a.decision, { nombra: true, noEs: null });
+  // «@Pedro te paso los datos» + una pregunta sin nombrar a MaKo: como un mensaje suelto, se decide por el modo.
+  assert.deepEqual(paraQuienDelLote([m('@Pedro te paso los datos', 'a-otro'), m('¿cuántos leads entraron hoy?', null)]).decision, { nombra: false, noEs: null });
+  // «@MaKo …» + «@Pedro pasame el contrato» (ventana cerrada): contesta lo de MaKo, sin lo de Pedro.
+  const b = paraQuienDelLote([m('@MaKo ¿cuántos leads?', 'mako'), m('@Pedro pasame el contrato de Juan', 'a-otro')]);
+  assert.deepEqual([b.quedan.length, b.decision.nombra], [1, true]);
+  // Todo para otro, o sólo acuses: no es para MaKo.
+  assert.deepEqual(paraQuienDelLote([m('@Pedro ¿me pasás el contrato?', 'a-otro'), m('@Pedro dale', 'a-otro')]).decision, { nombra: false, noEs: 'a-otro' });
+  assert.deepEqual(paraQuienDelLote([m('gracias', 'acuse'), m('genial', 'acuse')]).decision, { nombra: false, noEs: 'acuse' });
+  // El doer: cada mensaje se clasifica con lo suyo, el sintético lleva la decisión (no las menciones) en los dos lotes, y la regla la usa.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.equal((doer.match(/message: \{ conversation: unirMensajes\(textos\.map\(\(t\) => \(\{ texto: t \}\)\)\), \.\.\.mencionesDelLote\(cola\) \},/g) ?? []).length, 2,
-    'uno de los dos lotes (el del turno o el del cron) pierde las menciones');
-  assert.match(doer, /const todas = \[\.\.\.new Set\(cola\.flatMap\(\(m\) => mencionesDe\(/);
-  // Y lo que arma, `mencionesDe` lo lee igual que en un mensaje de WhatsApp.
-  assert.deepEqual(mencionesDe({ conversation: 'hola\nmako, ¿y los leads?', contextInfo: { mentionedJid: [`${LINEA}@s.whatsapp.net`] } }), [`${LINEA}@s.whatsapp.net`]);
+  assert.equal((doer.match(/textos\.push\(\{ texto: t, para: await paraQuienEsElMensaje\(/g) ?? []).length, 2, 'un lote no clasifica cada mensaje');
+  assert.equal((doer.match(/message: \{ conversation: unirMensajes\(lote\.quedan\.map\(\(m\) => \(\{ texto: m\.texto \}\)\)\) \},\n\s*paraQuien: lote\.decision,/g) ?? []).length, 2);
+  assert.doesNotMatch(doer, /mencionesDelLote/, 'volvieron las menciones juntas del lote');
+  assert.match(doer, /: data\.paraQuien \? \{ aMaKo: data\.paraQuien\.nombra, aOtros: \[\] \}/);
+  assert.match(doer, /noEsParaMaKoAhora\(wsData, jid, textoDirecto, quien, async \(\) => vigentes\.length > 0, data\.paraQuien\)/);
+  assert.match(doer, /const candidato = delLote \? delLote\.noEs : noEsParaMaKo\(/);
 });

@@ -157,13 +157,22 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     editar»); quedan afuera las cifras pegadas a «:» o «/», las de más de 8 dígitos, los años y las que van después de «las»
     o «el».
   · **Regla: la intención y las herramientas de un detector se deciden en UNA función, y se prueban con el turno real**
-    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. Capturar, la duda,
-    la agenda y el «sí» no cambian de intención.
-- **«He hecho», «he abierto» y «he escrito» también cuentan una lectura** (la revisión de 36e06b35f). «He hecho una búsqueda
-  en tu CRM» o «He abierto tu agenda y mañana tienes 2» salían como «Eso no lo llegué a hacer». Ahora «escrito» corta sólo
-  con a quién («le he escrito», «he escrito a Juan»), y en un turno que leyó, «hice» y «abrí» no cortan.
-- **El lote es texto plano y perdía las @menciones**: en modo «ventana», una mención a MaKo seguida de otro mensaje recibía
-  el 👍 y después silencio. Ahora el sintético lleva las menciones de todo el lote (`mencionesDelLote`).
+    (`laCorreccion`, tests/agenda-whatsapp.test.ts). Por separado, cada test pasaba y el turno salía mal. El capturar
+    explícito, la agenda y el «sí» no cambian de intención.
+  · ⚠️ **Respetar la duda fue el arreglo equivocado** (la verificación de 4d1d0a010): el seguimiento de Leila SIN foto («son
+    423, no 4235», capturar dudosa) quedaba en el camino barato sin herramientas. La duda se saca, porque el detector ya pide
+    plata a la vista, y la plata puede estar en lo de antes (la foto, la respuesta de MaKo). En ese caso las cifras tienen
+    que ser de 3 dígitos o más y no un año. Con la plata en el mensaje, un 2000 es un monto.
+- **«He hecho», «he abierto» y «he escrito» dependen de QUÉ** (la revisión de 36e06b35f y su verificación). Leer: «He hecho
+  una búsqueda», «He abierto tu agenda y mañana tienes 2», «He escrito un resumen». Escribir: «He hecho el cambio de etapa»,
+  «He abierto un ticket», «Te abrí la reunión», «He escrito un mensaje a Juan».
+  · Sacarlos de la lista entera dejó pasar las escrituras. Ahora se mira el objeto (`LO_QUE_SE_LEE`), y «te/le abrí» nunca
+    es leer.
+- ⚠️ **El lote se decide MENSAJE POR MENSAJE, no con las menciones juntas.** Unir las menciones (36e06b35f) arregló el 👍 y
+  el silencio en «ventana», pero una @mención a Pedro callaba un «mako, ¿cuántos leads?» que ya tenía su 👍: era una
+  regresión contra producción.
+  · Ahora cada mensaje se clasifica con lo suyo (`paraQuienEsElMensaje`), lo que era para otra persona no entra al turno
+    si otro mensaje es para MaKo, y el sintético lleva la decisión (`paraQuienDelLote`), no las menciones.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
 levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).
