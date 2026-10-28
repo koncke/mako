@@ -3271,3 +3271,38 @@ chat y avanza la marca: tendría que subir de lo más viejo a lo más nuevo y av
 
 **Vive en:** `lib/centro-preguntas-chat.ts` (`superarPreguntas`) · `lib/centro-preguntas-chat-db.ts` (`superarConTurnos`) ·
 `tests/preguntas-superadas-hueco.test.ts`
+
+## El chat nuevo lleva sus archivos: el «no lleva adjuntos» era del trabajo firmado, no de la PC (28/10/2026)
+
+**El síntoma.** El chat nuevo del Ops Center era la única caja de MaKo que no adjuntaba (`lib/cajas-de-chat.ts`, «pendiente»), y
+tenía una caja propia (el campo, los emojis y el micrófono), no la única.
+
+**La causa.** El texto firmado de un trabajo `nuevo` no podía llevar adjuntos: los dos `leerFirmable` (el servidor y la PC) lo
+rechazaban con «un chat nuevo no lleva adjuntos». Los adjuntos bajan en `ciclo`, justo antes de dejar el trabajo en el buzón de
+un chat vivo, y un chat nuevo no va al buzón: `ciclo` lo deja en la cola y lo abre `abrir`, después.
+
+**El diagnóstico obvio era el equivocado:** «mandar los archivos en un segundo mensaje cuando el chat aparezca en la lista». El
+chat arranca con el primer mensaje y lo trabaja sin los archivos (tarda unos 2 minutos en aparecer). Y lo que espera a que
+aparezca vive en la pantalla: si Martín sale del chat nuevo antes, se pierden.
+
+**La regla.** Los adjuntos de un chat nuevo bajan en `ciclo` (cartero 1.22.0), con las tres llaves de siempre: tamaño, sha256
+firmado y tipo por los bytes. MaKo los da mientras el trabajo está `tomado` (15 minutos), y el nuevo se toma en la misma vuelta.
+`abrir` es sincrónico y no baja nada: vuelve a mirar cada archivo contra lo FIRMADO (tamaño y sha256, `adjuntosEnLaPc`), como
+vuelve a verificar la firma, y nombra sus rutas debajo del texto de Martín en el `.txt` del primer mensaje (`primerMensaje`).
+La pantalla los ofrece y los firma sólo con un cartero que los lleva (`aceptaAdjuntosEnNuevo`): uno de antes rechaza el trabajo.
+A un chat que ya existe salen como desde su caja (`mandarTextoA`, con los topes de SU Runner).
+
+**Trampa del entorno.** Las piezas del chat nuevo (`ChatNuevoPiezas.tsx`) se dibujan en un test con node, y `CajaChat` trae CSS
+por `AdjuntosCaja.tsx` (`import '@/app/_chat/chat.css'`): en node un `.css` no carga y el test entero se cae al importar. La caja
+vive en su archivo (`CajaChatNuevo.tsx`), las piezas importan de `AdjuntosCaja` sólo TIPOS, y `etiquetaDoc` pasó a
+`lib/centro-caja.ts`.
+
+**Lo que quedó SIN hacer:**
+- Instalar el cartero 1.22.0 en la PC, DESPUÉS de desplegar el servidor que acepta el trabajo. Hasta entonces la caja del chat
+  nuevo no ofrece adjuntar.
+- El servidor le da un chat nuevo con adjuntos a cualquier cartero que abre, sin mirar su versión (`lib/operaciones.ts`, los
+  nuevos de la vuelta). Con uno de antes, el trabajo vuelve rechazado en vez de esperar al nuevo. La pantalla ya no lo manda.
+
+**Vive en:** `scripts/operaciones/cartero.mjs` (`ciclo` → `DESTINO_NUEVO`, `abrir`, `adjuntosEnLaPc`, `primerMensaje`) ·
+`lib/operaciones-reglas.ts` (`aceptaAdjuntosEnNuevo`) · `app/admin/operaciones/useCentro.ts` (`abrirChat`, `mandarTextoA`) ·
+`ChatNuevo.tsx` · `CajaChatNuevo.tsx` · `tests/centro-nuevo-con-adjuntos.test.ts`

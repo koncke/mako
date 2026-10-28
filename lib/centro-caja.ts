@@ -15,6 +15,9 @@ export const VINETA = '• ';
 /** El texto de un trabajo que sólo lleva adjuntos (el texto firmado no puede ir vacío). La burbuja no lo dibuja: una foto
  *  sola va sin epígrafe, como en WhatsApp (Hilo.tsx). */
 export const TEXTO_SOLO_ADJUNTOS = 'Te mando estos adjuntos.';
+/** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Vive acá, sin CSS, para que la burbuja
+ *  del chat nuevo (ChatNuevoPiezas.tsx, que se dibuja en un test) la use como la caja (AdjuntosCaja.tsx). */
+export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
 const ITEM_RE = /^(\s*)(•|-|\*|(\d{1,3})[.)])\s(.*)$/;
 
 /** El renglón donde está el cursor: dónde empieza y dónde termina. */

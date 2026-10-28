@@ -17,6 +17,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Icon } from '@/app/_components/icons';
 import { IconoChat } from '@/app/m/mako/iconos';
 import { ACCEPT_ADJUNTOS_CENTRO } from '@/lib/operaciones-reglas';
+import { etiquetaDoc } from '@/lib/centro-caja';
 import type { AdjuntoCaja } from './useCentro';
 import { Visor } from './Visor';
 import { imagenesDelPortapapeles } from './pegar';
@@ -39,8 +40,8 @@ export type AdjuntosDeCaja = {
 export { alPegar, alSoltar, traeArchivos } from './pegar';
 
 /** Lo que dice la miniatura de un documento: su extensión («PDF», «DOCX», «XLSX»). Decía «PDF» para todos desde que la
- *  caja toma Word, Excel y texto (18/10/2026). */
-export const etiquetaDoc = (nombre: string): string => /\.([a-z0-9]{1,5})$/i.exec(nombre)?.[1]?.toUpperCase() ?? 'DOC';
+ *  caja toma Word, Excel y texto (18/10/2026). Vive en lib/centro-caja.ts (sin CSS): la usa también el chat nuevo. */
+export { etiquetaDoc };
 
 /**
  * Lo adjuntado, arriba del texto: sólo la miniatura (sin el nombre, como Claude). Tocarla la amplía. `data-estado`: la que

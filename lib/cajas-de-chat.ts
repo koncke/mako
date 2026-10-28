@@ -26,6 +26,10 @@ export type CajaDeChat = {
 export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   { archivo: 'app/admin/operaciones/Conversacion.tsx', chat: 'Ops Center, computadora' },
   { archivo: 'app/m/operaciones/ChatsMovil.tsx', chat: 'Ops Center, teléfono' },
+  {
+    archivo: 'app/admin/operaciones/CajaChatNuevo.tsx',
+    chat: 'Ops Center, el chat nuevo (el primer mensaje decide dónde va; los archivos van con él, y a un chat nuevo los baja el cartero 1.22.0)',
+  },
   { archivo: 'app/second-brain/PiezasCliente.tsx', chat: 'MaKo de cada tab y el Cerebro del cliente (CajaDelCliente)' },
   { archivo: 'app/crm/lead-view/MakoAnalystLead.tsx', chat: 'CRM, MaKo Analyst del lead' },
   { archivo: 'app/automations/ChatMakoVista.tsx', props: 'app/automations/ChatMako.tsx', chat: 'Automations' },
@@ -62,11 +66,6 @@ export const CAJAS_DE_CHAT: readonly CajaDeChat[] = [
   },
 ];
 
-/** Las cajas que NO son CajaChat y graban una nota (`useNotaQueSeManda`): también se barren. */
-export const CAJAS_PROPIAS: readonly CajaDeChat[] = [
-  {
-    archivo: 'app/admin/operaciones/ChatNuevoPiezas.tsx', props: 'app/admin/operaciones/ChatNuevoPiezas.tsx',
-    chat: 'Ops Center, el chat nuevo (CajaChatNuevo: el primer mensaje decide dónde va)',
-    falta: { adjuntos: 'pendiente: el primer mensaje abre el chat en la PC con un texto (abrirChat → el Runner); los archivos van en el chat que se abre' },
-  },
-];
+/** Las cajas que NO son CajaChat y graban una nota (`useNotaQueSeManda`): también se barren. Ninguna desde el 28/10/2026: la
+ *  última, la del chat nuevo del Ops Center, pasó a ser la caja única (CajaChatNuevo.tsx). */
+export const CAJAS_PROPIAS: readonly CajaDeChat[] = [];

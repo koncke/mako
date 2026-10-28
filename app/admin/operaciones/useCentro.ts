@@ -19,7 +19,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
-  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
+  DESTINO_NUEVO, DESTINO_RE, MAX_TEXTO, MAX_TEXTO_LARGO, aceptaAbrir, aceptaAdjuntos, aceptaAdjuntosEnNuevo, aceptaAdjuntosGrandes, aceptaTextoLargo, problemaDeAdjuntosCaja, problemaDeNombreNuevo, tipoDeElegidoCentro, type AdjuntoPedido, type TurnoChat,
 } from '@/lib/operaciones-reglas';
 import { tieneTerminal } from '@/lib/runner';
 import { ERROR_ADJUNTO } from '@/lib/mako-adjuntos';
@@ -478,14 +478,28 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   const puedeAbrirEn = (cuenta: string) => tieneTerminal(cuenta) && carteros.some((k) => k.cuenta === cuenta && aceptaAbrir(k.version));
   /** Cómo va el último que se pidió abrir (un trabajo `nuevo` no es de ningún chat de la lista). */
   const apertura = estadoDeApertura(trabajos);
-  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string }): Promise<boolean> {
+  /** ¿Lleva adjuntos un chat NUEVO (cartero 1.22.0, 28/10/2026)? En esa cuenta, o sin cuenta en alguna de las que abren. */
+  const adjuntaEnNuevo = (cuenta?: string) => carteros.some((k) => (!cuenta || k.cuenta === cuenta) && puedeAbrirEn(k.cuenta) && aceptaAdjuntosEnNuevo(k.version));
+  async function abrirChat(b: { nombre: string; cuenta: string; texto?: string; archivos?: readonly File[] }): Promise<boolean> {
     const nombre = b.nombre.replace(/\s+/g, ' ').trim();
     if (problemaDeNombreNuevo(nombre)) { avisar('Sólo letras y números', 'bad'); return false; }
     if (!puedeAbrirEn(b.cuenta)) { avisar('Todavía no abre chats', 'bad'); return false; }
-    const texto = b.texto?.trim() || primerMensajeNuevo(nombre);
-    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto');
+    // Los archivos del primer mensaje (28/10/2026): firmados con él, los baja la PC antes de abrir el chat (cartero 1.22.0).
+    const archivos = b.archivos ?? [];
+    if (archivos.length && !adjuntaEnNuevo(b.cuenta)) { avisar('Ese Runner todavía no lleva archivos a un chat nuevo', 'bad'); return false; }
+    const texto = b.texto?.trim() || (archivos.length ? TEXTO_SOLO_ADJUNTOS : primerMensajeNuevo(nombre));
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const s = await subirAdjuntos(archivos, carteros.some((k) => k.cuenta === b.cuenta && aceptaAdjuntosGrandes(k.version)));
+      if (!s.ok) { avisar(s.error, 'bad'); return false; }
+      subidos = s.adjuntos;
+    }
+    const r = await firma.mandar({ sesion: DESTINO_NUEVO, cuenta: b.cuenta, titulo: nombre }, texto, 'solo_esto', {}, subidos);
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
-    anotarEnviado({ id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    anotarEnviado({
+      id: r.id, destino: DESTINO_NUEVO, destino_titulo: nombre, destino_cuenta: b.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null,
+      ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
     avisar('Se abre en 2 minutos', 'good');
     return true;
   }
@@ -493,14 +507,29 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
   /**
    * Mandar un texto a un chat que YA existe sin pasar por su caja: el «Nuevo chat» sin modal decidió, con el primer mensaje, que va
    * a ese chat (17/10/2026). Sale por el mismo camino firmado que la caja (`firma.mandar`) y se anota igual en su conversación.
+   * Con los archivos del primer mensaje (28/10/2026), como los manda la caja de ese chat: con su Runner y sus topes.
    */
-  async function mandarTextoA(c: ChatCentro, texto: string): Promise<boolean> {
+  async function mandarTextoA(c: ChatCentro, texto: string, archivos: readonly File[] = []): Promise<boolean> {
     const d = destinoDeChat(c);
     const envio = envioDe(c);
     if (!d.sesion || !envio.puede) { avisar(textoDeEnvio(envio) ?? 'No recibe ahora', 'bad'); return false; }
-    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto');
+    let subidos: AdjuntoPedido[] = [];
+    if (archivos.length) {
+      const grandes = grandesDe(c);
+      const problema = puedeAdjuntar(c) ? problemaDeAdjuntosCaja(archivos.map((f) => f.size), grandes) : 'Ese chat todavía no recibe archivos';
+      if (problema) { avisar(problema, 'bad'); return false; }
+      const s = await subirAdjuntos(archivos, grandes);
+      if (!s.ok) { avisar(s.error, 'bad'); return false; }
+      subidos = s.adjuntos;
+    }
+    const r = await firma.mandar({ sesion: d.sesion, cuenta: d.cuenta, titulo: c.titulo, tope: topeDe(c) }, texto, 'solo_esto', {}, subidos);
     if (!r.ok) { avisar(r.error, 'bad'); return false; }
-    anotarEnviado({ id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null });
+    // Las fotos se ven en su conversación, como las que salen de su caja.
+    if (subidos.length) recordarEnviadas(r.id, archivos, subidos);
+    anotarEnviado({
+      id: r.id, destino: d.sesion, destino_titulo: c.titulo, destino_cuenta: d.cuenta, created_at: r.creado, texto, estado: 'escrito', motivo: null, cierre: null,
+      ...(subidos.length ? { adjuntos: subidos.map((a) => a.nombre) } : {}),
+    });
     return true;
   }
 
@@ -524,9 +553,10 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     const { cuenta } = destinoDeChat(c);
     return carteros.some((k) => (!cuenta || k.cuenta === cuenta) && aceptaAdjuntosGrandes(k.version));
   };
-  const sumarAdjuntos = async (clave: string, lista: readonly File[]) => {
+  /** `conGrandes`: la caja que no es de ningún chat de la lista (la del chat nuevo) dice ella si van los topes grandes. */
+  const sumarAdjuntos = async (clave: string, lista: readonly File[], conGrandes?: boolean) => {
     if (!lista.length) return;
-    const grandes = grandesDe(chats.find((x) => x.clave === clave));
+    const grandes = conGrandes ?? grandesDe(chats.find((x) => x.clave === clave));
     // Fotos y PDF siempre; Word, Excel, PowerPoint y texto, con un Runner 1.16.0 (18/10/2026). Nunca un ejecutable.
     const validos = lista.filter((f) => tipoDeElegidoCentro(f, grandes) != null);
     if (validos.length < lista.length) avisar(grandes ? 'Solo fotos, PDF, Word, Excel, PowerPoint o texto.' : ERROR_ADJUNTO.formato, 'bad');
@@ -790,7 +820,7 @@ export function useCentro(d: DatosCentro, avisar: Avisar) {
     sinAdjuntos: () => avisar('Este chat aún no recibe imágenes', 'bad'),
     /** «Pegar» del «+» sin nada que pegar (20/10/2026). */
     sinImagen: (puedeLeer: boolean) => avisar(puedeLeer ? 'No hay una imagen copiada' : 'Este navegador no deja pegar', 'bad'),
-    puedeAbrirEn, apertura, abrirChat, mandarTextoA,
+    puedeAbrirEn, adjuntaEnNuevo, apertura, abrirChat, mandarTextoA,
     cuentaElegida, elegirCuenta, cuentasDe, destinoDeChat, modelo, setModelo, esfuerzo, setEsfuerzo,
     menu, delMenu, abrirMenu, cerrarMenu: () => setMenu(null), elegirEnMenu,
     renombrando, setRenombrando, deRenombre, renombrar, renombrarChat,

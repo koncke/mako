@@ -17,7 +17,7 @@
 //   · `listaParaMandar` que manda con la caja todavía vacía               → 1 fallo (1);
 //   · la caja sin `voz` de vuelta a `grabacion={null}` (el micrófono dicta) → 1 fallo (2);
 //   · transcribir el webm sin pasarlo a MP3                                 → 1 fallo (2);
-//   · el «Nuevo chat» con el `BotonMandar` que dicta sin nada escrito       → 1 fallo (3);
+//   · el «Nuevo chat» con el `BotonMandar` que dicta sin nada escrito       → 1 fallo (3; desde el 28/10/2026, su caja con `voz`);
 //   · la onda sin micrófono con `animation: mako-wave`                      → 1 fallo (4);
 //   · el anillo `co-escucha` de vuelta en el micrófono                      → 1 fallo (4).
 // =============================================================================
@@ -62,11 +62,11 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
 });
 
 test('3. el «Nuevo chat» del Ops Center graba igual, y ya no dicta', () => {
-  const c = sinComentarios(leer('app/admin/operaciones/ChatNuevoPiezas.tsx'));
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: n\.texto, onTexto: n\.setTexto, onMandar: \(\) => void n\.mandar\(\), onGrabada: n\.mandarNota \}\);/);
-  assert.match(c, /\{!hayQueMandar && !nota\.transcribiendo && n\.fase !== 'decidiendo' \? \(\n\s*<button type="button" className="co-enviar co-enviar--mic" onClick=\{\(\) => void nota\.grabacion\.start\(\)\}/,
-    'sin nada escrito, el botón GRABA (no el BotonMandar, que dicta)');
-  assert.match(c, /<BarraGrabacion voz=\{nota\.grabacion\}/);
+  // Desde el 28/10/2026 su caja es la ÚNICA (CajaChat, CajaChatNuevo.tsx): sin `voz`, el micrófono GRABA y la nota sale en el
+  // acto (`onGrabada`). Que la caja única grabe sin nada escrito lo fija el (2).
+  const c = sinComentarios(leer('app/admin/operaciones/CajaChatNuevo.tsx'));
+  assert.match(c, /<CajaChat texto=\{n\.texto\} onTexto=\{n\.setTexto\} onMandar=\{\(\) => void n\.mandar\(\)\} onGrabada=\{n\.mandarNota\}/);
+  assert.doesNotMatch(c, /\bvoz=\{|useNotaQueSeManda|BotonMandar/, 'ni un micrófono propio ni el botón que dicta');
 });
 
 test('4. la onda sin micrófono que escuchar queda QUIETA, y los anillos que latían siempre igual se fueron', () => {
