@@ -3118,6 +3118,6 @@ FEEDBACK PROBAR:
       "tests/volver-a-probar.test.ts y tests/palabras-clave-comentario.test.ts — probados rompiéndolos",
     ],
     revisar: "/crm",
-    tickets: [19],
+    tickets: [19, 20],
   },
 ];
