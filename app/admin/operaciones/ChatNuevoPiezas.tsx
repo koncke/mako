@@ -15,11 +15,13 @@ import { CirculoNuevo } from './NuevoChat';
 import { Muneco } from './Muneco';
 import { BotonMandar } from './Microfono';
 import { BarraGrabacion } from '@/app/whatsapp/_shared/VoiceRecorder';
-import { useNotaQueSeManda } from '@/app/_chat/nota-que-se-manda';
+import { useNotaQueSeManda, type GrabacionLista } from '@/app/_chat/nota-que-se-manda';
+import { AudioPlay } from '@/app/whatsapp/_shared/AudioPlay';
 import { BotonEmojis } from './Emojis';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 
-export type FaseChatNuevo = 'escribiendo' | 'decidiendo' | 'confirmando' | 'saliendo' | 'abriendo' | 'fallo' | 'sin_forma';
+/** `pasando`: el primer mensaje es una nota de voz y se está pasando a texto (con el texto, MaKo decide). */
+export type FaseChatNuevo = 'escribiendo' | 'pasando' | 'decidiendo' | 'confirmando' | 'saliendo' | 'abriendo' | 'fallo' | 'sin_forma';
 
 /** Lo que las piezas necesitan del motor (`useChatNuevo`). */
 export type ChatNuevo = {
@@ -27,6 +29,10 @@ export type ChatNuevo = {
   setTexto: (t: string) => void;
   /** El primer mensaje, ya mandado (null = todavía no se escribió). */
   enviado: string | null;
+  /** Si el primer mensaje es una nota de voz: se escucha arriba de su texto. */
+  nota: { url: string; secs: number } | null;
+  /** Por qué la nota no se entendió (se vuelve a la caja). */
+  errorNota: string | null;
   fase: FaseChatNuevo;
   decision: DecisionChatNuevo | null;
   /** El nombre que Martín está cambiando, si lo está cambiando. */
@@ -38,6 +44,8 @@ export type ChatNuevo = {
   apertura: string | null;
   copiarConAviso: (texto: string, aviso: string) => void | Promise<void>;
   mandar: () => void | Promise<void>;
+  /** La nota de voz grabada, en el acto (sin transcribir): ChatNuevo.tsx → mandarNota. */
+  mandarNota: (g: GrabacionLista) => void;
   reintentar: () => void;
   cambiar: () => void;
   escribirNombre: (t: string) => void;
@@ -61,8 +69,8 @@ export function CriaturaChatNuevo({ n, size = 34 }: { n: ChatNuevo; size?: numbe
 
 /** Lo que se ve en el chat: el vacío con su invitación, o el mensaje y lo que MaKo decidió con él. */
 export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
-  const { enviado, decision, fase, editando } = n;
-  if (!enviado) {
+  const { enviado, decision, fase, editando, nota } = n;
+  if (!enviado && !nota) {
     return (
       <div className="co-portada">
         <CirculoNuevo size={76} />
@@ -73,8 +81,15 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
   }
   return (
     <>
-      <div className="co-yo"><div className="co-burbuja">{enviado}</div></div>
+      {/* La nota de voz se escucha ya, y debajo, cuando llega, lo que se entendió (el globo de voz del hilo, HiloMako). */}
+      <div className="co-yo">{nota ? (
+        <div className="co-burbuja ch-voz">
+          <AudioPlay src={nota.url} duracion={nota.secs} color="var(--primary)" style={{ width: 240 }} />
+          {enviado && <span className="ch-voz__texto">{enviado}</span>}
+        </div>
+      ) : <div className="co-burbuja">{enviado}</div>}</div>
       <div className="co-nuevo-nota" role="status" aria-live="polite">
+        {fase === 'pasando' && <span>Pasando tu nota a texto…</span>}
         {fase === 'decidiendo' && <span>Decidiendo dónde va…</span>}
         {decision && fase !== 'decidiendo' && !editando && (
           <span className="co-nuevo-nota__fila">
@@ -118,12 +133,12 @@ export function CuerpoChatNuevo({ n }: { n: ChatNuevo }) {
 /**
  * La caja de escribir del chat nuevo: un campo y UN botón (WhatsApp), alineados como la del resto (`--caja-toque`). Sólo para el
  * primer mensaje: después de mandarlo, el chat de verdad toma su lugar. `movil` usa las clases de la hoja del teléfono.
- * El micrófono GRABA una nota de voz, como en toda caja de chat (24/10/2026): se transcribe y sale como el primer mensaje
- * (app/_chat/nota-que-se-manda.ts). Ya no dicta.
+ * El micrófono GRABA una nota de voz, como en toda caja de chat (24/10/2026), y sale EN EL ACTO (28/10/2026): se ve ya y se
+ * transcribe por detrás (`onGrabada` → ChatNuevo.tsx → mandarNota). Ya no dicta.
  */
 export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: boolean }) {
   const ocupado = n.fase !== 'escribiendo';
-  const nota = useNotaQueSeManda({ texto: n.texto, onTexto: n.setTexto, onMandar: () => void n.mandar() });
+  const nota = useNotaQueSeManda({ texto: n.texto, onTexto: n.setTexto, onMandar: () => void n.mandar(), onGrabada: n.mandarNota });
   const conBarra = nota.grabacion.fase === 'grabando' || !!nota.grabacion.revision;
   const hayQueMandar = !!n.texto.trim();
   const fila = conBarra ? (
@@ -158,7 +173,8 @@ export function CajaChatNuevo({ n, movil = false }: { n: ChatNuevo; movil?: bool
       )}
     </div>
   );
-  const error = nota.error && <p className="co-caja__estado" role="alert">{nota.error}<ReportarASoporte /></p>;
+  const fallo = nota.error ?? n.errorNota;
+  const error = fallo && <p className="co-caja__estado" role="alert">{fallo}<ReportarASoporte /></p>;
   return movil
     ? <div className="m-operaciones-caja">{fila}{error}</div>
     : <div className="co-caja-wrap"><div className="co-caja">{fila}{error}</div></div>;

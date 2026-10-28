@@ -11,6 +11,8 @@
 // El motor sigue siendo el suyo (/api/chart-insights, o el `endpoint` que le pasen). Lo usan el Ads Manager y Marketing
 // (`ChartIA`) y el Diagnóstico del Web Generator; el Dashboard ya no: sus gráficos le preguntan a la estrella de la tab
 // (app/dashboard/pregunta-grafico.ts).
+// LA NOTA DE VOZ SALE EN EL ACTO (28/10/2026, «que se pueda utilizar el chat de la misma manera en todos lados»): se dibuja
+// ya y se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts); sale por `enviar`, como lo escrito.
 
 import '@/app/admin/operaciones/centro.css';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -23,6 +25,7 @@ import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ChatItemMenu } from './ChatItemMenu';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
 import { useAppDeEscritorio } from '@/app/_chat/useAppDeEscritorio';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 
 const MONO = "'Geist Mono', monospace";
 const SANS = "'Geist', sans-serif";
@@ -81,6 +84,7 @@ export function MakoChat({
     return () => clearInterval(t);
   }, [pensando]);
   const items = useMemo(() => itemsDe(messages), [messages]);
+  const nota = useNotaEnElActo({ clave: `mako-chat:${endpoint}:${chartKey}:${sessionId ?? 'nuevo'}`, puede: !pensando && !!sessionId && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
   // Sugerencias efectivas: las del gráfico, o el set por defecto si no trae.
   const sugs = sugerencias.length ? sugerencias : DEFAULT_SUGERENCIAS;
 
@@ -144,10 +148,11 @@ export function MakoChat({
     }
   };
 
-  const enviar = async (texto?: string) => {
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  const enviar = async (texto?: string, { dejarCaja = false } = {}) => {
     const txt = (texto ?? input).trim();
     if (!txt || pensando || !sessionId || appEscritorio.bloqueada) return;
-    setInput('');
+    if (!dejarCaja) setInput('');
     setMessages((m) => [...m, { role: 'user', content: txt }]);
     setPensando(true); setErr(null);
     try {
@@ -207,12 +212,12 @@ export function MakoChat({
         )}
         <div className="co-caja">
           <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviar(); }} ocupado={pensando} apagado={!sessionId}
-            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+            placeholder="Pregúntale a MaKo…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} />
         </div>
       </>}
       estado="">
-      <HiloMako items={items} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
-        tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} />
+      <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={ahora} escribiendo={pensando ? { segs: desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0 } : null}
+        tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} />
       {err && <p className="co-nota co-nota--mal" role="alert">{err}<ReportarASoporte /></p>}
     </PanelDeChat>
   );

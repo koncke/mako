@@ -63,7 +63,7 @@ test('2. toda caja de chat graba: con `voz` la manda la pantalla; sin `voz`, se 
 
 test('3. el «Nuevo chat» del Ops Center graba igual, y ya no dicta', () => {
   const c = sinComentarios(leer('app/admin/operaciones/ChatNuevoPiezas.tsx'));
-  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: n\.texto, onTexto: n\.setTexto, onMandar: \(\) => void n\.mandar\(\) \}\);/);
+  assert.match(c, /const nota = useNotaQueSeManda\(\{ texto: n\.texto, onTexto: n\.setTexto, onMandar: \(\) => void n\.mandar\(\), onGrabada: n\.mandarNota \}\);/);
   assert.match(c, /\{!hayQueMandar && !nota\.transcribiendo && n\.fase !== 'decidiendo' \? \(\n\s*<button type="button" className="co-enviar co-enviar--mic" onClick=\{\(\) => void nota\.grabacion\.start\(\)\}/,
     'sin nada escrito, el botón GRABA (no el BotonMandar, que dicta)');
   assert.match(c, /<BarraGrabacion voz=\{nota\.grabacion\}/);

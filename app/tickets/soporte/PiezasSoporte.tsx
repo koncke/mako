@@ -37,7 +37,7 @@ export function HiloSoporte({ s, hilo }: { s: Soporte; hilo: RefObject<HTMLEleme
   const enMensaje = (x: { id: string }): EnMensaje | null => (x.id === s.idTarjeta && !s.ticket ? { abajo: <TarjetaTicket s={s} /> } : null);
   return (
     <HiloMako items={s.items} quien={QUIEN_SOPORTE} ahora={Date.now()} escribiendo={null} tarjeta={null} onTarjeta={() => {}}
-      onReintentar={s.reintentar} onRecargar={() => s.abrir(s.abierto)} onResponder={(t) => s.mandar(t)} enMensaje={enMensaje} />
+      onReintentar={s.reintentar} onDescartar={s.descartar} onRecargar={() => s.abrir(s.abierto)} onResponder={(t) => s.mandar(t)} enMensaje={enMensaje} />
   );
 }
 
@@ -132,6 +132,8 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
       // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
       adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
+      // La nota de voz sale en el acto y se pasa a texto por detrás (useSoporte.ts → `nota`).
+      onGrabada={s.onGrabada}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />
   );
 }

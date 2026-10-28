@@ -17,6 +17,7 @@ import { idDelBorrador, itemsDeCharla, itemsDeTicket, placeholderDe, type Turno 
 import { subirAdjuntosTicket } from './subir-adjuntos';
 import { ACCEPT_TICKET, lineaDeAdjuntos, mimeDeArchivoTicket, problemaDeAdjuntosTicket, type AdjuntoTicket } from '@/lib/tickets-adjuntos';
 import type { AdjuntoCaja } from '@/app/admin/operaciones/useCentro';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 
 let secuencia = 0;
 const id = (pre: string) => `${pre}-${Date.now().toString(36)}-${(++secuencia).toString(36)}`;
@@ -197,10 +198,17 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
   }, [borrador, mandando, tipoElegido, movil]);
 
   const items = useMemo(() => (ticket ? itemsDeTicket(ticket, extra[ticket.id]) : itemsDeCharla(turnos)), [ticket, extra, turnos]);
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
+  // por `mandar`, como lo escrito: al equipo en un ticket, a MaKo en la conversación nueva. Lo escrito y lo adjuntado quedan en la caja.
+  const nota = useNotaEnElActo({
+    clave: `soporte:${abierto}`, puede: !(typeof abierto === 'number' && (!ticket || !ticket.puedeResponder)),
+    mandar: (t) => { mandar(t); },
+  });
   const enviando = ticket ? (extra[ticket.id] ?? []).some((x) => x.estado === 'enviando') : false;
 
   return {
-    tickets, abierto, ticket, abrir, nuevo, items, texto, setTexto, mandar, reintentar, enviando,
+    tickets, abierto, ticket, abrir, nuevo, items: nota.conNotas(items), texto, setTexto, mandar, reintentar: nota.reintentar(reintentar), enviando,
+    onGrabada: nota.onGrabada, descartar: nota.descartar,
     /** La caja ofrece adjuntar: capturas, fotos, PDF y documentos (lib/tickets-adjuntos.ts). */
     adjuntosCaja: { items: adjuntos, puede: !(ticket && !ticket.puedeResponder), onSumar: sumarAdjuntos, onQuitar: quitarAdjunto, accept: ACCEPT_TICKET },
     errorAdjunto,

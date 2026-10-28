@@ -38,6 +38,7 @@ import { TURNOS_IA, type TurnoEdicion } from '@/lib/graficos-ia-edicion';
 import { Muneco } from '@/app/admin/operaciones/Muneco';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
@@ -160,14 +161,14 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
     // Sólo al cambiar de hoja: una vez que hay hilo, el del editor es la verdad.
   }, [hoja.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const enviar = async (escrito?: string) => {
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  const enviar = async (escrito?: string, { dejarCaja = false } = {}) => {
     const mensaje = (escrito ?? texto).trim().slice(0, TOPE_PEDIDO_IA);
     if (!mensaje || pensando || appEscritorio.bloqueada) return;
     const enviada = hoja;
     const historial = historialDe(hilo);
     onHilo((h) => [...h, { k: 'yo', texto: mensaje }]);
-    setTexto('');
-    setErrorDictado(null);
+    if (!dejarCaja) { setTexto(''); setErrorDictado(null); }
     const c = new AbortController();
     ctrl.current = c;
     const tope = setTimeout(() => c.abort(), TOPE_CLIENTE_MS);
@@ -266,6 +267,9 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
   const segundos = desde != null ? Math.max(0, Math.round((ahora - desde) / 1000)) : 0;
   const animo = pensando ? 'trabajando' : 'despierto';
   const items = useMemo(() => itemsDeEdicion(hilo), [hilo]);
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
+  // `enviar`, como lo escrito.
+  const nota = useNotaEnElActo({ clave: `editar-hoja:${informe}:${hoja.id}`, puede: !pensando && !appEscritorio.bloqueada, mandar: (t) => { void enviar(t, { dejarCaja: true }); } });
 
   /** Lo que sólo tiene este chat, adentro del mensaje de MaKo que lo dijo (./items-edicion.ts). */
   const enMensaje = (x: Extract<ItemHilo, { k: 'msg' }>): EnMensaje | null => {
@@ -328,7 +332,7 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
           <div className="co-caja">
             <CajaChat campo={campo} texto={texto} onTexto={(t) => { setTexto(t); setErrorDictado(null); }} onMandar={() => { void enviar(); }}
               ocupado={pensando} placeholder="Pídele un cambio a MaKo" tituloMandar="Mandar" enterManda onErrorMic={setErrorDictado}
-              bloqueo={appEscritorio.bloqueo} />
+              bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} />
           </div>
           {errorDictado && <p className="em-err">{errorDictado}</p>}
         </>}
@@ -346,8 +350,8 @@ export function PanelEditarMako({ hoja, informe, hilo, onHilo, leerHoja, onAplic
             </div>
           )}
           {/* Las filas del Ops Center, con la estrella de MaKo; mientras piensa, su «Trabajando…» con los segundos. */}
-          <HiloMako items={items} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
-            tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+          <HiloMako items={nota.conNotas(items)} quien={{ nombre: 'MaKo', aspecto: ASPECTO_MAKO }} ahora={ahora} escribiendo={pensando ? { segs: segundos } : null}
+            tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
           {pensando && <button type="button" className="em-cancelar" onClick={cancelar}>Cancelar</button>}
           <div ref={fin} />
       </PanelDeChat>

@@ -23,7 +23,7 @@ const hueco = (src: string) => src.slice(src.indexOf('const enMensaje = ('), src
 
 test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo y la caja única', () => {
   assert.match(imagen, /const QUIEN = \{ nombre: 'Image Editor' \};/);
-  assert.match(imagen, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(imagen, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
   assert.match(h, /<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptarPropuesta\(editorRef\.current, m\)\}/);
@@ -33,7 +33,7 @@ test('el Image Editor: el hilo con su criatura, la propuesta en el hueco de MaKo
 
 test('el Video Editor: igual, con el foco del link en el hueco y los colores de CapCut', () => {
   assert.match(video, /const QUIEN = \{ nombre: "Video Editor" \};/);
-  assert.match(video, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);
   assert.match(h, /<div data-mensaje=\{m\.id\} [^>]*style=\{foco === m\.id \?/, 'el foco de `?propuesta=` busca el hueco');

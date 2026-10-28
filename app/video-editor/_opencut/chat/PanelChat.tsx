@@ -30,6 +30,7 @@ import "@/app/admin/operaciones/centro.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CajaChat } from "@/app/_chat/CajaChat";
 import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
+import { useNotaEnElActo } from "@/app/_chat/useNotaEnElActo";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
@@ -408,11 +409,16 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 		return () => clearTimeout(t);
 	}, [foco, hilo.mensajes.length]);
 
-	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
+	/** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean; dejarCaja?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId || appEscritorio.bloqueada) return;
 		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
-		setTexto("");
+		if (!op.dejarCaja) setTexto("");
 	};
+
+	// La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale
+	// por `enviar`, como lo escrito.
+	const nota = useNotaEnElActo({ clave: `video:${proyectoId ?? ""}`, puede: !hilo.corriendo && !!proyectoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
 	const sugerir = (s: Sugerencia) => {
 		if (s.instruccion) {
@@ -552,8 +558,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 							</div>
 						</>
 					)}
-					<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+					<HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+						tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
 					{hilo.corriendo && (
 						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--cc-text-3) hover:text-(--cc-text)">
 							Detener generación
@@ -593,7 +599,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} />
 				</div>
 			</footer>
 		</section>

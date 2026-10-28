@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNod
 import { MakoLoader } from '../_components/MakoLoader';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
 import { ReportarASoporte } from '@/app/_ui/ReportarASoporte';
@@ -136,10 +137,12 @@ export function WhatsAppAdvisor({
     finally { if (grupoIdRef.current === reqId) setAnalizando(false); }
   };
 
-  const enviarChat = async (texto?: string) => {
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  const enviarChat = async (texto?: string, { dejarCaja = false } = {}) => {
     const txt = (texto ?? input).trim();
     if (!txt || pensando || appEscritorio.bloqueada) return;
-    setInput(''); setChatError(null);
+    if (!dejarCaja) setInput('');
+    setChatError(null);
     setChat((c) => [...c, { role: 'user', content: txt }]);
     setPensando(true);
     try {
@@ -156,6 +159,8 @@ export function WhatsAppAdvisor({
   };
 
   const ultimoEntrante = mensajes.length > 0 && !mensajes[mensajes.length - 1].saliente;
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás y sale por `enviarChat`.
+  const nota = useNotaEnElActo({ clave: `asesor-wa:${grupo.id}`, puede: !pensando && !appEscritorio.bloqueada, mandar: (t) => { void enviarChat(t, { dejarCaja: true }); } });
 
   // El hilo del Ops Center: los mensajes por su posición (no traen id), y en cada respuesta de MaKo, «Usar →» y «Copiar».
   const items = useMemo((): ItemHilo[] => chat.map((m, i) => ({ k: 'msg', id: `a${i}`, role: m.role, texto: m.content, at: null })), [chat]);
@@ -265,8 +270,8 @@ export function WhatsAppAdvisor({
               {chat.length === 0 && !pensando && (
                 <div style={{ fontSize: 12.5, color: 'var(--faint)', lineHeight: 1.5 }}>Pregúntale a MaKo sobre este lead: cómo responderle, cómo manejar una objeción, o pídele una versión distinta de un mensaje.</div>
               )}
-              <HiloMako items={items} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
-                tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+              <HiloMako items={nota.conNotas(items)} quien={MAKO} ahora={Date.now()} escribiendo={pensando ? { segs: 0 } : null}
+                tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
               {chatError && <p className="co-nota co-nota--mal" role="alert">{chatError}<ReportarASoporte /></p>}
             </div>
           </div>
@@ -274,10 +279,10 @@ export function WhatsAppAdvisor({
             <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 8 }}>
               {SUGS_CHAT.map((s) => <button key={s} onClick={() => enviarChat(s)} disabled={pensando} style={{ flex: 'none', whiteSpace: 'nowrap', padding: '5px 10px', borderRadius: 999, border: '1px solid var(--border-strong)', background: 'var(--surface)', color: 'var(--dim)', fontFamily: SANS, fontSize: 11.5, cursor: pensando ? 'default' : 'pointer', opacity: pensando ? 0.55 : 1 }}>{s}</button>)}
             </div>
-            {/* La caja única (app/_chat/CajaChat.tsx): el «+», los emojis y el micrófono que dicta. */}
+            {/* La caja única (app/_chat/CajaChat.tsx): los emojis y el micrófono que graba una nota (sale en el acto). */}
             <div className="co-caja">
               <CajaChat texto={input} onTexto={setInput} onMandar={() => { void enviarChat(); }} ocupado={pensando}
-                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} />
+                placeholder="Pregúntale a MaKo…" tituloMandar="Preguntar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada} />
             </div>
           </div>
         </div>
