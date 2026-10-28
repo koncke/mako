@@ -2836,3 +2836,20 @@ conversación suelta en los adjuntos de la caja (`ContextoSoltar`), y la caja mi
 **Sin hacer:** no se probó en pantalla (arrastrar un .docx y un .pdf en cada caja); el Ops Center de la plataforma manda los
 archivos al Runner como siempre (un audio adjunto lo lee la caja como texto). WhatsApp (no ve fotos ni PDF) es de
 mako-wa-conexiones.
+
+## La caja que adjunta sola, revisada contra producción (27/10/2026, claude4, la revisión del Cerebro)
+
+**Lo que se cortaba callado:** el Video Editor y el Image Editor mandan hasta 2.000 caracteres (`TOPES_CHAT.instruccion`) y la
+caja ahora les pega lo LEÍDO de un adjunto (hasta 40.000). Se cortaba a 2.000 sin aviso y sin la marca de cierre: el hilo ya no
+encontraba el pegado y MaKo trabajaba sobre un pedazo como si fuera el documento. **La regla:** una pantalla cuyo motor tiene
+tope se lo pasa a la caja (`topeTexto`); lo leído entra hasta ahí con su marca de cierre y la línea `SIGUE_CORTADO`
+(`conPegadosHasta`, lib/chat-pegado.ts), y la caja DICE cuánto quedó afuera. Un audio igual se transcribe entero.
+
+**De paso:** el arranque de Offer (sólo texto) adjuntaba solo: `sinAdjuntos` también va a la caja, no sólo `adjuntos: undefined`.
+leer-archivo mira el tamaño y el tipo de lo que BAJÓ (en «subir-url» los declara el navegador) y anota el gasto como del chat
+(`feature: 'mako-chat'`, no «Importar al plan»). El cartel «Suelta para adjuntar» quedaba pegado si se soltaba sobre la caja (que
+corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjuntos-revision.test.ts.
+
+**Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
+de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
+chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.

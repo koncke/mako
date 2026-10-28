@@ -642,3 +642,16 @@ la marca va primero; medir siete días antes de prender una red.
 **Vive en:** `lib/no-pude.ts` · `lib/no-pude-server.ts` · `lib/no-existe-server.ts` · `lib/tickets-db.ts` (`crearTicket`,
 `cerrarAutomatico`) · `lib/tickets-reglas.ts` (`clasificar`, `TOPE_AUTOMATICOS_POR_DIA`) · `lib/api-mako/acciones.ts`
 (`ticketSiFallo`) · `lib/mako-turno-app.ts` · tests/no-pude*.test.ts
+
+## La revisión de «no existe» contra producción: tres medios, con su test rojo-verde (27/10/2026, claude4)
+
+La revisión adversarial del Cerebro sobre 34b0687f0 confirmó tres defectos del «no existe» automático. Los cubre la base del
+ticket automático (lib/no-pude*.ts); tests/no-existe-revision.test.ts los fija y se midió ROJO sobre 34b0687f0 y VERDE encima:
+1. en el ws 10 un «no existe» que marcó el modelo nacía aprobado por la regla de Leandro y se iba al Runner;
+2. un fallo de RUTEO salía como «no existe» (y el arranque de Offer, sin el catálogo de MaKo, llevaba la regla que hace marcar);
+3. los automáticos gastaban el tope de 10 de la persona y le trababan el Soporte.
+
+**Trampas al medirlo:** «borrar los silencios» no sirve para probar la regla de aprobación: la zona delicada («borrados») ya la
+frenaba; hace falta un pedido neutro. Y diez «no existe» en la MISMA conversación ya son un solo ticket: para medir los topes
+hacen falta conversaciones distintas. **Lo nuevo:** con el tope de los automáticos lleno, lo que sigue se anota en el último
+automático del negocio («Otro más, con el tope del día lleno»): no se pierde callado.

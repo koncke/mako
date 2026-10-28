@@ -593,7 +593,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
 				<div className="co-caja">
 					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} topeTexto={TOPES_CHAT.instruccion} />
 				</div>
 			</footer>
 		</section>

@@ -262,7 +262,13 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     count = (r.data ?? []).filter((f) => !esRefDelSistema(f.ref as string | null)).length;
   }
   const tope = tercero ? TOPE_POR_DIA_TERCERO : automatico ? TOPE_AUTOMATICOS_POR_DIA : TOPE_POR_DIA;
-  if (automatico && count >= tope) return { ok: false, error: `ya hay ${tope} tickets automáticos hoy en este negocio` };
+  if (automatico && count >= tope) {
+    // Con el tope del día lleno no se pierde callado (la revisión del 27/10/2026): se anota en el último automático del negocio.
+    const { data: ultimo } = await db.from(T).select('id, estado, triage').like('ref', `${automatico}%`).order('id', { ascending: false }).limit(1).maybeSingle();
+    if (!ultimo) return { ok: false, error: `ya hay ${tope} tickets automáticos hoy en este negocio` };
+    await anotar(Number(ultimo.id), 'sistema', 'nota', `Otro más, con el tope del día lleno: ${titulo}. ${n.volvioAPasar ?? ''}`.trim());
+    return { ok: true, id: Number(ultimo.id), estado: ultimo.estado as EstadoTicket, triage: leerTriage(ultimo.triage)!, yaExistia: true };
+  }
   if (!n.sistema && count >= tope) return { ok: false, error: `Ya mandaste ${tope} ${tercero ? 'reportes' : 'tickets'} hoy: el equipo los está viendo` };
 
   const contexto = sanearContexto(n.contexto);
