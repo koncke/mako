@@ -67,6 +67,8 @@ export function tareasDeLaExtraccion(tareas: TareaCandidata[], proyectos: Proyec
     proyecto: proyCliente || (t.proyectoId ? nombreProy.get(t.proyectoId) : (t.proyectoNombre?.trim() || undefined)),
     dueno: t.dueño || undefined, duenoEmail: t.dueñoEmail || undefined,
     esDeOtro: t.esDeOtro || undefined, minuto: t.minuto, minutos: t.minutos,
+    // El dueño que no es seguro (la etiqueta del hablante, lib/tarea-dueno.ts): la pantalla lo pregunta.
+    duenoDudoso: t.atribucionDudosa || undefined,
     // «Se repite para siempre» (mig 0163): lo que no se copie acá, el modelo lo escribió para nadie.
     recurrente: t.recurrente,
   }));

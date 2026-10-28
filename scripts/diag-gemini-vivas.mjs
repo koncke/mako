@@ -2,12 +2,13 @@
 // creditos y no consume cuota de generacion: solo dice si la key EXISTE y si la API
 // esta habilitada en su proyecto. No se llama a generateContent en ningun caso.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import crypto from 'node:crypto';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import { descifrar } from '../lib/cripto-credenciales.ts';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', max: 1 });
 const sha = (s) => crypto.createHash('sha256').update(s).digest('hex').slice(0, 12);
 const creds = await sql`
   select workspace_id, clave, valor_enc from credenciales

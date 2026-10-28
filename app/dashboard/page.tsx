@@ -62,7 +62,9 @@ import { FocusDeGeneral } from './FocusDeGeneral';
 import { textoProbar } from '@/lib/experimentos-catalogo';
 import { pedidosDeHoja } from './exportar';
 import { conQueAnalizaElClosing, CONECTA_TU_CLAUDE_CLOSING } from '@/lib/closing';
-import { avisoDeClosing, esHojaClosing } from './aviso-closing';
+import { accionDeLaHojaClosing, avisoDeLaHojaClosing, esHojaClosing } from './aviso-closing';
+import { iaCaidaParaLaHoja } from '@/lib/closing-ia-caida';
+import { avisoDeIaCaida } from '@/lib/closing-ia-caida-reglas';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -157,10 +159,13 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
   // (contrato v5, «el corte en hoy en UN lugar»). La firma sale del período que pidió el gráfico.
   // La hoja «Closing» sin con qué analizar las llamadas (IA12, ./aviso-closing.ts): se pregunta sólo si el informe tiene
   // una, en paralelo con los datos. Sin poder saberlo, 'no-se': no se avisa.
-  const conClosing = !sinPaginas && (tablero.hojas.some((h) => esHojaClosing(h)) || esHojaClosing(agregar))
+  const hayHojaClosing = !sinPaginas && (tablero.hojas.some((h) => esHojaClosing(h)) || esHojaClosing(agregar));
+  const conClosing = hayHojaClosing
     ? conQueAnalizaElClosing().catch(() => 'no-se' as const)
     : Promise.resolve(null);
-  const [datos, senalesNegocio, closing] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing]);
+  // Y con SU clave caída (sin crédito, borrada: lib/closing-ia-caida.ts), la causa y el paso para arreglarlo (27/10/2026).
+  const caidaClosing = hayHojaClosing ? iaCaidaParaLaHoja() : Promise.resolve(null);
+  const [datos, senalesNegocio, closing, caida] = await Promise.all([datosDeGraficos(graficos.map(({ pedido }) => pedido)), senales, conClosing, caidaClosing]);
 
   return (
     // ⚠️ `flex: 'none'` + el alto + `overflow: hidden`, LOS TRES. Pagina trae `flex: 1` (base 0%), que en
@@ -187,7 +192,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Bus
         senales={senalesNegocio}
         unido={otrasDeGeneral ? { otras: otrasDeGeneral } : null}
         plantillasInicial={plantillas && !unica}
-        avisoClosing={avisoDeClosing(closing, CONECTA_TU_CLAUDE_CLOSING)}
+        avisoClosing={avisoDeLaHojaClosing(closing, CONECTA_TU_CLAUDE_CLOSING, avisoDeIaCaida(caida))}
+        accionClosing={accionDeLaHojaClosing(closing)}
       />
     </Pagina>
   );

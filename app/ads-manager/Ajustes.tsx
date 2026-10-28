@@ -117,7 +117,7 @@ export function Ajustes({ config, cupo }: { config: Config; cupo: CupoMediaBuyer
           <TextField label="Cuenta (act_…)" value={cuenta} onChange={(e) => setCuenta(e.target.value)} placeholder={zernio?.cuenta ?? 'act_123456789'}
             hint="Sólo si no está en Integraciones: la de Integraciones manda." />
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', fontSize: 14, color: 'var(--dim)' }}>
-            {zernio?.conectado ? <span>Conectada por Zernio: MaKo puede crear anuncios nuevos.</span> : <span>Sin Zernio, MaKo opera con tu token de Meta y no crea anuncios nuevos.</span>}
+            {zernio?.conectado ? <span>Conectada por Zernio: MaKo puede crear anuncios nuevos.</span> : <span>Conéctala con tu Facebook para que MaKo cree anuncios nuevos.</span>}
             <ConectarViaZernio red="metaads" volver="/ads-manager/ajustes" adAccountId={zernio?.cuenta ?? null} size="sm" variant="secondary" onConectado={leerZernio}>
               {zernio?.conectado ? 'Reconectar' : 'Conectar con Facebook'}
             </ConectarViaZernio>

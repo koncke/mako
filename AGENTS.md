@@ -1475,7 +1475,10 @@ los redirige). Todo texto que manda a conectar algo usa el link de ESA conexión
 catálogo único: una tarjeta nueva de `DEFS` entra sola) — **nunca «/integraciones» a secas**, que deja a la persona frente a
 veinte tarjetas buscando cuál era; si falta más de una cosa, un link por cada una. Y una operación de la API que no puede
 correr por una conexión que falta lo devuelve como dato (`falta: { servicio }`, `lib/api-mako/tipos.ts`), no en un texto suelto:
-el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts.
+el link lo pone el código. Lo fijan tests/conexiones-api.test.ts y tests/doer-cartel-sin-ia.test.ts. **Meta es la excepción
+(27/10/2026): se conecta en la tarjeta de Zernio** (`?abrir=zernio`, «con tu Facebook, por Zernio»: ya no existe el token de
+Meta); `?abrir=meta` es para ver la cuenta, el píxel y la salud, nunca para conectar. Sale del catálogo (`META_POR_ZERNIO`):
+nadie escribe ese link a mano. Lo fija tests/meta-sin-token.test.ts.
 
 El caso, del 16/08/2026: el dueño reseteó el Cliente de Prueba, que con eso quedó con el
 onboarding pendiente. Al volver a abrirlo, `guardOnboarding()` hizo `redirect('/onboarding')`
@@ -2383,7 +2386,9 @@ input syntax for type json» a todo el insert. Medido el 23/10/2026: el ws13 sin
 porque el resumen del aviso cortaba el mensaje a 120 justo en un emoji (el payload iba entero, y por eso probar con él
 daba verde). Un texto que va a la base se corta con `cortarSinPartir` (lib/unicode-seguro.ts), y lo que escribe una puerta
 compartida pasa por `datosSinMediosEmojis` (molde: `crearPendiente`). Y una puerta que no puede escribir devuelve el
-MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee.
+MOTIVO, no `null`: el porqué vivía en un `console.error` que nadie lee. Lo mismo en PANTALLA: una inicial sale de `iniciales`
+(lib/unicode-seguro.ts), nunca de `charAt(0)` ni `trim()[0]`: con un nombre que empieza con un emoji es medio emoji, el HTML del
+server sale con «�» y React tira la pantalla entera con #418 (/calendario y el Classroom, 27/10/2026).
 
 ## Y de un enlace `mako://` sale SÓLO el código, nunca el servidor
 
@@ -4092,6 +4097,10 @@ Un aviso de error nuevo es un elemento con `role="alert"` y su ÚLTIMO hijo es `
 en una lista, `<li><ReportarASoporte /></li>`). No se dibuja si el aviso está vacío o su `role` no es «alert», así que va también
 en los avisos que están siempre montados. Donde el error no es un `role="alert"` (un toast con su propia librería), se usa
 `reportarASoporte({ error })`. Lo exige tests/reportar-a-soporte.test.ts; el porqué y las trampas, en docs/hallazgos-ui.md.
+En una pantalla SIN sesión de MaKo (el portal del alumno) el botón no se esconde: manda con la credencial de esa pantalla
+(`SoporteDelAlumnoCtx`, /api/compartido/curso/soporte) y el ticket es del dueño. Un ticket que levanta alguien de afuera del
+negocio va con `tercero` en `crearTicket`: nunca va solo al arreglo (ni por la regla del negocio) y su tope es suyo
+(docs/hallazgos-ticketera.md, 27/10/2026).
 
 # Un mensaje de error dice DE QUIÉN fue y QUÉ HACER, o no sirve
 
@@ -6395,6 +6404,11 @@ no hay lista de excusas (eran las dos de cohortes, y se cerraron).
 `scripts/apply-migration.mjs` ejecuta el archivo y **no deja registro**: no hay tabla de migraciones, así que «¿se aplicó?» se contesta del catálogo, no de la memoria. `scripts/verificar-migraciones-aplicadas.mjs` (sólo lectura;
 correrlo en producción necesita el permiso de Martín) lee las migraciones en orden y lista, por migración, aplicada / a medias / AUSENTE. Una lectura tolerante («si la columna falta, no exige») es una decisión de orden de despliegue,
 no una garantía de que la migración llegó: toda migración que el código lee con esa tolerancia se verifica después de aplicarla. Detalle: docs/hallazgos-infra.md → «Una migración sin aplicar no rompe nada si el código la tolera».
+
+⚠️ **Un script que abre Postgres pasa por `urlDeLaBase()`** (27/10/2026): `postgres(urlDeLaBase(), …)` con
+`import { urlDeLaBase } from './url-de-la-base.mjs'`. `DATABASE_URL` es la conexión directa, sólo IPv6: desde la PC de Martín
+muere al arrancar o, peor, al reconectar a mitad de corrida. El helper la cambia por el pooler (IPv4, modo sesión; `MAKO_DB_DIRECTA=1`
+vuelve a la directa). Lo barre `tests/url-de-la-base.test.ts`. Detalle: docs/hallazgos-infra.md → «La conexión directa a la base es sólo IPv6».
 
 # Lo que está OCULTO se deriva de lo que se DIBUJA, nunca se enumera al lado
 

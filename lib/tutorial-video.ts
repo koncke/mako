@@ -25,8 +25,7 @@
 // =============================================================================
 
 import 'server-only';
-import { credWs } from './credenciales';
-import { wsSuperAdmin } from './workspace';
+import { claveDeYoutube } from './youtube';
 import type { VideoTutorial } from './tutorial-video-texto';
 
 // El texto vive aparte y se re-exporta para que quien use este módulo no tenga
@@ -42,14 +41,7 @@ export { textoTutorial, type VideoTutorial } from './tutorial-video-texto';
  * diarias, de sobra para esto.
  */
 async function keyYoutube(): Promise<string | null> {
-  const propia = await credWs('YOUTUBE_API_KEY').catch(() => null);
-  if (propia) return propia;
-  const ws = await wsSuperAdmin().catch(() => null);
-  if (ws != null) {
-    const plataforma = await credWs('YOUTUBE_API_KEY', ws).catch(() => null);
-    if (plataforma) return plataforma;
-  }
-  return process.env.YOUTUBE_API_KEY || null;
+  return claveDeYoutube();
 }
 
 /** Los últimos N años, en ISO. Un tutorial de una UI que ya cambió es peor que nada. */

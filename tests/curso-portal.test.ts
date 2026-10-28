@@ -342,8 +342,11 @@ const RUTAS = {
   entrega: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
   adjunto: { metodo: 'GET', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
   entrar: { metodo: 'GET', lector: 'leerAccesoCurso', resolver: 'resolverAcceso' },
+  // «Reportar a Soporte» del alumno (27/10/2026): sólo crea un ticket para el dueño del curso. Sin clase, y abre también el
+  // link del líder (reporta lo que vio en SU portal). Lo suyo, en tests/curso-soporte-alumno.test.ts.
+  soporte: { metodo: 'POST', lector: 'leerTokenPortal', resolver: 'resolverAccesoPortal' },
 } as const;
-const SIN_CLASE: ReadonlySet<string> = new Set(['entrar']);
+const SIN_CLASE: ReadonlySet<string> = new Set(['entrar', 'soporte']);
 
 test('las rutas del portal son exactamente éstas', () => {
   const hay = readdirSync(DIR_RUTAS, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort();

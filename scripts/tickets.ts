@@ -21,6 +21,7 @@
 // ⚠️ Escribe en la base de PRODUCCIÓN (DATABASE_URL de .env.local).
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 import { esTipo, ROTULO_ESTADO_CLIENTE, estadoParaElCliente, leerTriage, sanearContexto, type EstadoTicket } from '../lib/tickets-reglas';
@@ -40,7 +41,7 @@ const numeroDe = (x: string | undefined): number => {
 const fecha = (v: unknown) => (v instanceof Date ? v.toISOString().slice(0, 16).replace('T', ' ') : v ? String(v) : '—');
 
 function sql() {
-  const conn = process.env.DATABASE_URL;
+  const conn = urlDeLaBase();
   if (!conn) { console.error('Falta DATABASE_URL en .env.local (corre esto desde un clon que lo tenga).'); process.exit(1); }
   return postgres(conn, { ssl: 'require', connect_timeout: 60, max: 1 });
 }

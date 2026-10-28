@@ -68,7 +68,7 @@ import { motivoNoCobra, type MotivoNoCobra, type ProductoDePago } from '@/lib/ed
 import type { LandingContenido } from '@/lib/editor-landing/doc';
 // «Replicar» (tanda 6): el MISMO server que la ruta de la pantalla (app/api/landing-generator/replicar).
 import { replicar as replicarEnEditor } from '@/lib/editor-landing/replicar';
-import { NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
+import { ERROR_ADAPTAR_WEB, NOMBRE_FORMATO_REPLICAR, formatoReplicar, urlParaReplicar } from '@/lib/editor-landing/replicar-reglas';
 // El nombre del estilo de animación copiado (tanda 8), el del catálogo.
 import { estiloPorId } from '@/lib/editor-landing/animaciones';
 import { estadoValido, type ResumenDiagnostico, type Sugerencia } from '@/lib/editor-landing/diagnostico';
@@ -935,12 +935,15 @@ export const RUNNERS: Runners = {
       if (!formato) return { error: 'Falta el formato: presentacion, landing o web.', faltan: ['formato'] };
       const texto = str(input, 'texto');
       if (texto && formato === 'web') return { error: 'La copia idéntica («web») necesita la página, no su texto. Con el texto pegado, elige «landing» o «presentacion».' };
+      // «Replicar y adaptar» (27/10/2026): el texto se reescribe con la oferta del negocio; la copia idéntica no.
+      const adaptar = input.adaptar === true;
+      if (adaptar && formato === 'web') return { error: ERROR_ADAPTAR_WEB };
       if (texto && texto.split(/\s+/).filter(Boolean).length < 40) {
         return { error: 'El texto pegado es muy corto para armar la landing (mínimo 40 palabras). Pide el contenido completo, de arriba a abajo.' };
       }
       return {
-        payload: { url, formato, ...(texto ? { texto } : {}) },
-        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Web Generator${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
+        payload: { url, formato, ...(texto ? { texto } : {}), ...(adaptar ? { adaptar: true } : {}) },
+        resumen: `Replicar ${url} como ${NOMBRE_FORMATO_REPLICAR[formato]} en el editor del Web Generator${adaptar ? ', con el texto adaptado a la oferta del negocio' : ''}${texto ? ', con el texto pegado' : ''}: crea un borrador nuevo, sin publicar.${formato === 'web' ? '' : ' Usa IA y tarda hasta unos minutos.'}`,
       };
     },
     ejecutar: async (payload, ctx): Promise<Ejecutado> => {
@@ -948,7 +951,7 @@ export const RUNNERS: Runners = {
       const formato = formatoReplicar(payload.formato);
       if (!formato) return { ok: false, resumen: 'Ese formato no existe.' };
       try {
-        const r = await replicarEnEditor({ url, formato, texto: typeof payload.texto === 'string' ? payload.texto : undefined });
+        const r = await replicarEnEditor({ url, formato, texto: typeof payload.texto === 'string' ? payload.texto : undefined, adaptar: payload.adaptar === true });
         if (!r.ok) {
           if (r.enNavegador) {
             return {

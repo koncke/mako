@@ -455,7 +455,11 @@ test('⚠️ ningún camino del CRM MUEVE un lead de producto: todos AGREGAN (06
   const lote = limpio(leer('app/crm/AccionesLoteLeads.tsx'));
   // De a tandas desde el 24/10/2026 (el server corta en 2.000 callado: tests/crm-lote-tandas.test.ts).
   assert.match(lote, /agregarLoteAProductoAction\(tanda, funnelId\)/, 'la acción de lote «Producto» dejó de agregar');
-  assert.match(lote, /quitarLoteDeProductoAction\(agregados, funnelId\)/, 'la acción de lote «Producto» perdió su deshacer');
+  // El deshacer quita TODOS los agregados, también de a tandas desde el 27/10/2026 (5178a7d46, «lotes sin tope»: el server
+  // toma hasta 2.000 por pedido). Va colgado del `deshacer` del aviso, recorre `agregados` entero y se corta si una falla.
+  assert.match(lote,
+    /deshacer: n\s*\?\s*async \(\) => \{\s*for \(const tanda of enTandas\(agregados, TANDA_AGREGAR\)\) \{\s*const q = await quitarLoteDeProductoAction\(tanda, funnelId\);\s*if \(!q\.ok\) throw new Error\(q\.error\);/,
+    'la acción de lote «Producto» perdió su deshacer (o ya no quita a todos los agregados, de a tandas)');
   assert.match(lote, /deshacer\?: \(\) => Promise<void>/, 'el resultado de lote dejó de poder llevar UN deshacer al padre');
   assert.ok(!/tipo: 'producto'/.test(lote),
     'la barra volvió a PREGUNTAR antes de agregar: sumar es reversible y se deshace desde el aviso');

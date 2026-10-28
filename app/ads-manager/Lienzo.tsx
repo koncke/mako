@@ -23,8 +23,13 @@ import { fmtDinero, fmtNum } from '@/lib/format';
 import { Nada } from './Autopilot';
 import { Ramas, TarjetaRama, TarjetaVacia } from './Arbol';
 import { mensajeDeCampanas, pildoraDeCampanas } from './mb-modelo';
+import { etiquetaCuentaMeta, linkCampanasEnMeta, type CuentaLeida } from '@/lib/meta-cuenta-leida';
 
-export type Lienzo = { productos: ProductoDeLienzo[]; sinProducto: CampanaDeLienzo[]; moneda: string | null };
+export type Lienzo = {
+  productos: ProductoDeLienzo[]; sinProducto: CampanaDeLienzo[]; moneda: string | null;
+  /** La cuenta que se leyó y la frase si no tiene campañas nuevas (lib/media-buyer/vista.ts → lienzoMediaBuyer). */
+  cuenta?: CuentaLeida | null; aviso?: string | null;
+};
 const RES: Record<KpiMediaBuyer, [string, string]> = { lead: ['leads', 'lead'], agenda: ['agendas', 'agenda'], venta: ['ventas', 'venta'] };
 
 export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAcciones, show, inicial = null }: {
@@ -50,7 +55,7 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
   const leer = useCallback(async () => {
     const r = await fetch('/api/media-buyer', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ op: 'lienzo' }) })
       .then((x) => x.json()).catch(() => ({ ok: false, error: 'No pude leer la cuenta.' }));
-    if (r.ok) { setL({ productos: r.productos, sinProducto: r.sinProducto, moneda: r.moneda ?? null }); setError(null); }
+    if (r.ok) { setL({ productos: r.productos, sinProducto: r.sinProducto, moneda: r.moneda ?? null, cuenta: r.cuenta ?? null, aviso: r.aviso ?? null }); setError(null); }
     else setError(r.error ?? 'No pude leer la cuenta.');
   }, []);
   useEffect(() => {
@@ -74,10 +79,15 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
 
   const tarjeta = (c: CampanaDeLienzo, producto: string | null) => {
     const acc = accionesDe(c);
+    // Retenida por Meta: no entrega hasta que la publiquen en el Administrador, y eso va antes que cualquier cambio de MaKo.
+    const publicar = c.retenida ? linkCampanasEnMeta(l.cuenta?.id, c.id) : null;
     return (
-      <TarjetaRama key={c.id} titulo={c.nombre} sub={`Meta · ${c.conjuntos} ${c.conjuntos === 1 ? 'conjunto' : 'conjuntos'}${c.prendida ? '' : ' · pausada'}`}
+      <TarjetaRama key={c.id} titulo={c.nombre} estado={c.retenida ? 'retenida' : undefined}
+        sub={c.retenida ? 'Retenida en Meta: falta publicar' : `Meta · ${c.conjuntos} ${c.conjuntos === 1 ? 'conjunto' : 'conjuntos'}${c.prendida ? '' : ' · pausada'}`}
         rotulo="Este mes" abrir={`${c.nombre}: ver sus números`} onAbrir={() => setAbierta(c.id)}
-        marca={acc.length
+        marca={publicar
+          ? <a className="aa-chica-aplicar" href={publicar} target="_blank" rel="noreferrer">Publicar ↗</a>
+          : acc.length
           ? <button type="button" className="aa-chica-aplicar" data-tono="sec" onClick={() => onVerAcciones(acc[0])}>{acc.length} {acc.length === 1 ? 'cambio' : 'cambios'}</button>
           : producto == null
             ? <button type="button" className="aa-chica-aplicar" onClick={() => setAbierta(c.id)}>Asignar</button>
@@ -97,11 +107,22 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
     })),
     ...(l.sinProducto.length ? [{ clave: 'sin', cabecera: <b>Sin producto</b>, items: l.sinProducto.map((c) => tarjeta(c, null)) }] : []),
   ];
+  // MK-03 (27/10/2026): «no veo las campañas» era otra cuenta o un borrador. El pie dice QUÉ cuenta se leyó, como Meta la
+  // muestra arriba a la izquierda, y lleva a su «Revisar y publicar»: un borrador no existe para la API (lib/meta-cuenta-leida.ts).
+  const cuenta = etiquetaCuentaMeta(l.cuenta);
+  const enMeta = linkCampanasEnMeta(l.cuenta?.id);
 
   return (
     <>
-      <Ramas etiqueta="Tus campañas por producto" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)} columnas={columnas}
-        pie={<p>{mensajeDeCampanas(l.productos.filter((p) => p.campanas.length), l.sinProducto.length, kpi, (n) => fmt(n))}</p>} />
+      <Ramas etiqueta="Tus campañas por producto" avatar={avatar} pildora={pildoraDeCampanas(todas.length, l.productos.length)}
+        columnas={columnas.length ? columnas : [{ clave: 'vacia', items: [<TarjetaVacia key="vacia">Sin campañas en esta cuenta</TarjetaVacia>] }]}
+        pie={<div className="aa-pie-texto">
+          <p>{todas.length ? mensajeDeCampanas(l.productos.filter((p) => p.campanas.length), l.sinProducto.length, kpi, (n) => fmt(n)) : l.aviso ?? 'Meta no devolvió campañas de esta cuenta.'}</p>
+          {todas.length > 0 && l.aviso && <p>{l.aviso}</p>}
+          {cuenta && (
+            <p className="aa-pie-cuenta">{cuenta}{enMeta && <> · <a href={enMeta} target="_blank" rel="noreferrer" title="Un borrador de Meta no llega a MaKo hasta que lo publicas">Revisar y publicar en Meta ↗</a></>}</p>
+          )}
+        </div>} />
 
       {detalle && (
         <Modal titulo={detalle.c.nombre} encabezado={detalle.producto ?? 'Sin producto'} ancho={520} onCerrar={() => setAbierta(null)}>
@@ -118,6 +139,9 @@ export function LienzoCampanas({ kpi, abiertas, productoInicial, avatar, onVerAc
                 asignada={asignadas.find((a) => a.tipo === 'campana' && a.id === detalle.c.id)}
                 onAsignadas={(xs) => { setAsignadas(xs); void leer(); }} show={show} />
             </div>
+            {detalle.c.retenida && linkCampanasEnMeta(l.cuenta?.id, detalle.c.id) && (
+              <a className="aa-hoja-cambio" href={linkCampanasEnMeta(l.cuenta?.id, detalle.c.id)!} target="_blank" rel="noreferrer">Retenida en Meta: publícala ahí ↗</a>
+            )}
             {accionesDe(detalle.c).map((d) => (
               <button key={d.id} type="button" className="aa-hoja-cambio" onClick={() => { setAbierta(null); onVerAcciones(d); }}>{d.titulo} →</button>
             ))}

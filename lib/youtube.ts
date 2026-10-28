@@ -13,7 +13,7 @@
 import type { MarketingMetricRow } from './types';
 import { fetchYouTubeAnalyticsDaily } from './youtube-analytics';
 import { credWs } from './credenciales';
-import { getTenantDb } from './workspace';
+import { getTenantDb, wsSuperAdmin } from './workspace';
 import { configWs } from './cron-workspaces';
 
 const YOUTUBE_API_BASE = 'https://www.googleapis.com/youtube/v3';
@@ -47,12 +47,20 @@ export class YouTubeApiError extends Error {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function getEnv(name: string): Promise<string> {
-  const v = await credWs(name);
-  if (!v || v.startsWith('PENDING')) {
-    throw new Error(`Env var ${name} no definida (o aún con placeholder)`);
+/**
+ * La clave de la YouTube Data API: la del negocio si la cargó, si no la de la plataforma (27/10/2026). Las vistas de un video
+ * son PÚBLICAS: leerlas no es un dato del cliente ni le gasta nada suyo (una lectura de `videos` cuesta 1 unidad de las 10.000
+ * diarias). Por eso la tarjeta de YouTube ya no pide la clave. null si no hay ninguna.
+ */
+export async function claveDeYoutube(): Promise<string | null> {
+  const propia = await credWs('YOUTUBE_API_KEY').catch(() => null);
+  if (propia && !propia.startsWith('PENDING')) return propia;
+  const ws = await wsSuperAdmin().catch(() => null);
+  if (ws != null) {
+    const plataforma = await credWs('YOUTUBE_API_KEY', ws).catch(() => null);
+    if (plataforma && !plataforma.startsWith('PENDING')) return plataforma;
   }
-  return v;
+  return process.env.YOUTUBE_API_KEY || null;
 }
 
 function toNum(v: unknown): number | null {
@@ -92,7 +100,8 @@ type ApiResponse = {
  * Trae las estadísticas acumuladas de UN video desde YouTube Data API v3.
  */
 export async function fetchYouTubeStats(videoId: string): Promise<YouTubeStatsRaw> {
-  const apiKey = await getEnv('YOUTUBE_API_KEY');
+  const apiKey = await claveDeYoutube();
+  if (!apiKey) throw new YouTubeAuthError('No hay clave de YouTube: ni la del negocio ni la de la plataforma.');
 
   const url = new URL(`${YOUTUBE_API_BASE}/videos`);
   url.searchParams.set('part', 'snippet,statistics');

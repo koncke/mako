@@ -91,7 +91,8 @@ test('el YouTube que ya trae enablejsapi=1 se pide a los 6 s si nadie le habló 
 
 test('la versión 27 con su novedad, y la página con un código anterior y uno de esos videos se entera', () => {
   const fuente = leer('lib/landing-token.ts');
-  assert.match(fuente, /^export const SNIPPET_VERSION = 27;$/m);
+  // Al menos 27, no exactamente (la v28, 27/10/2026, la compra de la página de gracias): fijar el número de hoy rompe con la próxima.
+  assert.ok(Number(/^export const SNIPPET_VERSION = (\d+);$/m.exec(fuente)?.[1]) >= 27);
   assert.match(fuente, /^ {2}27: 'la medición de los videos de Bunny Stream y de Cloudflare Stream/m);
   assert.ok(fuente.includes("const HOSTS_DE_LA_V27 = ['video-bunny', 'video-cloudflare'];"));
   assert.ok(fuente.includes('|| (instalada < 27 && !!piezas && piezas.some((p) => HOSTS_DE_LA_V27.includes(p)))'));

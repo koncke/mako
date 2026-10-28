@@ -280,7 +280,7 @@ test('11. lo que mostraste vuelve al turno siguiente con los ids, y deja de vale
   const ahora = Date.parse('2026-10-26T12:00:00Z');
   const guardado = JSON.stringify({ at: ahora - 3 * 60_000, refs: [{ herramienta: 'que_recomienda_mako', items: [{ id: 'leads-esperando', nombre: 'Contestar a los 4 leads' }, { id: 'landing-sin-pixel', nombre: 'Poner el píxel' }] }] });
   const b = bloqueLoQueMostraste(guardado, ahora);
-  assert.match(b, /^LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR \(los ids, para resolver «esa», «la segunda», «esos 5», «descartá esa»/);
+  assert.match(b, /^LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR \(los ids, para resolver «esa», «la segunda», «esos 5», «descarta esa»/);
   assert.match(b, /- que_recomienda_mako \(hace 3 min\):\n  1\) leads-esperando «Contestar a los 4 leads»\n  2\) landing-sin-pixel «Poner el píxel»/);
   assert.equal(bloqueLoQueMostraste(JSON.stringify({ at: ahora - VIGENCIA_REFS_MS - 1, refs: JSON.parse(guardado).refs }), ahora), '', 'lo de ayer sigue siendo «la segunda»');
   for (const g of [null, '', 'no es json', JSON.stringify({ at: ahora, refs: [] })]) assert.equal(bloqueLoQueMostraste(g, ahora), '');

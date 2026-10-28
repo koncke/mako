@@ -181,7 +181,7 @@ export const LANDING_TOKEN_KEY = 'landing_token';
  *       ya traía enablejsapi=1 en una página sin la API de YouTube no medía nada (nadie le pedía): a los 6 s se le pide.
  *       Le sirve a la página que tiene uno de esos videos (HOSTS_DE_LA_V27); al resto no le cambia nada.
  */
-export const SNIPPET_VERSION = 27;
+export const SNIPPET_VERSION = 28;
 
 /** Key en app_settings donde el beacon deja la versión que el cliente TIENE puesta. */
 export const SNIPPET_VERSION_KEY = 'landing.snippet_version';
@@ -234,6 +234,7 @@ const NOVEDADES: Record<number, string> = {
   // lee la pantalla de cualquier negocio y el aviso de WhatsApp: «llega apagada»
   // era falso para los cuatro negocios con la grabación prendida (06/10/2026). Si
   // un mensaje necesita decir el estado, lo agrega quien lo arma, leyendo el dato.
+  28: 'que tu página de gracias le avise la compra a tu píxel de Meta cuando vendes con un link de pago de Stripe: con el valor y la moneda de la venta, y sin contarla dos veces con la que MaKo ya le avisa desde el servidor',
   27: 'la medición de los videos de Bunny Stream y de Cloudflare Stream —cuándo le dan play, hasta dónde lo ven y dónde lo pausan—, y la de un video de YouTube que hasta ahora no registraba nada cuando su código traía «enablejsapi=1»',
   26: 'cuánta gente ve cada sección de las páginas que haces con el Web Generator de MaKo: en qué sección deja de leer, una por una',
   25: 'que la misma persona cuente una sola vez aunque entre a tu página con www y sin www',
@@ -4012,6 +4013,33 @@ export function landingSnippet(token: string): string {
       (document.head || document.documentElement).appendChild(s);
     } catch (e) {}
   }
+
+  // ── La compra: la página de gracias se la avisa al píxel de Meta (v28) ──
+  // Cuando el pago vuelve a la página con ?session_id=cs_..., MaKo ya le avisó
+  // la compra a Meta desde el servidor. Si la página además tiene el píxel de
+  // Meta, el navegador la avisa con el MISMO id de evento (Meta cuenta una) y
+  // con el valor y la moneda que da MaKo: sin ellos no se manda, porque Meta se
+  // queda con el que llega primero y uno sin valor taparía al del servidor.
+  try {
+    var pagoSesion = new URLSearchParams(location.search).get('session_id');
+    if (pagoSesion && /^cs_(test|live)_[A-Za-z0-9]{10,200}$/.test(pagoSesion)) {
+      fetch('${APP_BASE_URL}/api/track/compra?c=' + encodeURIComponent(CUENTA) + '&s=' + encodeURIComponent(pagoSesion))
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          var c = j && j.compra;
+          if (!c || !c.eventId || !(c.value > 0) || !c.currency) return;
+          var intentos = 0;
+          (function avisarCompra() {
+            if (typeof window.fbq === 'function') {
+              window.fbq('track', 'Purchase', { value: c.value, currency: c.currency }, { eventID: c.eventId });
+              return;
+            }
+            if (++intentos < 20) setTimeout(avisarCompra, 500);
+          })();
+        })
+        .catch(function () {});
+    }
+  } catch (e) {}
 })();
 </script>`;
 }

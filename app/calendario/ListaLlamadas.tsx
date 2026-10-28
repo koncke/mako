@@ -31,6 +31,8 @@ import {
   PESTANAS_LLAMADAS, TEXTO_ESTADO_LLAMADA, avisoAlMarcar, rotuloDelDia as rotuloDia, campoDeAsistencia, cuentaPorPestana, estadoDeLlamada, llamadasDeLaPestana, sePuedeMarcar,
   type EstadoLlamada, type LlamadaDeVenta, type PestanaLlamadas,
 } from '@/lib/calendario-llamadas';
+// La inicial de la fila, de la pieza de la casa: `charAt(0)` de «🚀 Ana» es media pieza del emoji y tiraba /calendario con #418.
+import { iniciales } from '@/lib/unicode-seguro';
 import { CSS_GC } from './gc-css';
 import { PestanasCalendario } from './Pestanas';
 
@@ -184,7 +186,7 @@ export function ListaLlamadas({ llamadas, tareas, hoy, tz, ahora, fallos }: {
                       const estado: EstadoLlamada = estadoDeLlamada(l, ahora);
                       return (
                         <tr key={l.id}>
-                          <td><Link className="gl-lead" href={`/crm/${l.leadId}`}><span className="gl-ini" aria-hidden>{l.nombre.trim().charAt(0).toUpperCase() || '·'}</span>{l.nombre}</Link></td>
+                          <td><Link className="gl-lead" href={`/crm/${l.leadId}`}><span className="gl-ini" aria-hidden>{iniciales(l.nombre, 1, '·')}</span>{l.nombre}</Link></td>
                           <td><span className="gl-reunion">{l.cual}</span></td>
                           <td className="gl-cuando"><b>{rotuloDia(dia, hoy)}</b><span>{l.diaCompleto ? 'Sin hora' : horaGoogle(horaDe(l.inicio, tz))}</span></td>
                           <td className="gl-col-closer">{l.closer ?? '—'}</td>

@@ -6,6 +6,30 @@ el briefing anterior (`b5f7fb55`, 10/10 17:10) con todo verificado contra el ár
 **Rutas de esta área:** `app/crm/**`, `lib/leads.ts`, `lib/funnel*.ts`, `lib/crm*.ts`,
 `lib/lead-*.ts`, `lib/campana-*.ts`, `lib/etiquetas*.ts`, `lib/pipeline.ts`.
 
+## 0-Ω29. 27/10/2026 (chat «CRM», cuenta `claude5`): el feedback de Leila, Leandro, Aaron y el grupo Makito (del Cerebro)
+
+Misma rama. Lo aprendido, en hallazgos-crm («Feedback de Leila, Leandro y Aaron»), hallazgos-chatbot y hallazgos-extension.
+- Hecho (con tests, sin probar en vivo): mover de etapa no espera el primer mensaje; la ficha de una pestaña vieja se recarga
+  sola y abre el lead; etiquetar de a tandas sin tope y campañas sin recorte callado; «Traer de grupo» con cartel de éxito,
+  «Están todos tus grupos» y los con nombre primero; «Datos de empresa» por la extensión en una pasada; la etapa de Ganado
+  usada como paso del medio, marcada; el aviso de extensión vieja en toda la app; el registro de la extensión con el tiempo
+  de cada etapa y si corrió oculta (0.74.3).
+- **Falta:** medir mover y la ficha en vivo después del despliegue; cuántos llegan sin teléfono (Aaron); la tienda de Chrome
+  al día para que se actualice sola (Martín); lo de Skool de Leila, bloqueado hasta que reactive la suscripción.
+
+## 0-Ω28. 27/10/2026 (chat «CRM», cuenta `claude5`): la corrida que GUARDA perfiles, y la extensión 0.74.1 / 0.74.2
+
+Misma rama `crm-extraer-2610`. Lo medido y las causas, en hallazgos-extension («La corrida que GUARDA perfiles»).
+- **Hecho y verificado en su Chrome:** «Extraer» del grupo de agosto (108, todos ya en el CRM: no crea leads) guardó el perfil
+  de 25 (21 webs, 18 correos, 1 Instagram, 2 redes) sólo en lo vacío; visto en la ficha de un lead. Volvió a la pestaña de
+  origen. Capturas: notas del Cerebro, capturas-perfiles-guardados.
+- **0.74.1:** la web escrita sin «https://»; un latido a la pantalla cada 10 s mientras WhatsApp Web tarda; cuando la
+  pantalla da la extracción por terminada, el recorrido se para; «ocupado» y el corte de los perfiles se dicen; con la pestaña
+  oculta, la búsqueda se escribe de una vez.
+- **0.74.2 (sin probar en vivo):** espera los datos de una cuenta de empresa (llegan después de abrir el panel). Copiada a su
+  carpeta; Chrome se cerró antes de correrla.
+- ⚠️ La app de Claude es SIEMPRE VISIBLE y tapa a Chrome: sus pestañas quedan ocultas y frenadas. Ver la regla en hallazgos.
+
 ## 0-Ω27. 26/10/2026 (chat «CRM», cuenta `claude5`): «Extraer» de un grupo, a la vista, con el desplegable (extensión 0.72)
 
 Rama `crm-extraer-2610` (desde origin/main ede2bbaab) en C:/dev/wt-crm-2510. Pedido textual en la bitácora. Lo medido y lo
@@ -112,7 +136,8 @@ la lectura por la extensión.
 
 **Ticket #10 (25/10, primero por ser un cliente roto):** la ficha de /crm/3445 se caía con React #418. No era una fecha sin
 zona: el lead se llama «🧪 Martín…» y la marca de la cabecera cortaba el emoji por la mitad (`b6a7ede22`, la cosecha en
-hallazgos-ui). Quedan 8 copias del mismo corte en piezas de otras tabs (la lista, ahí): no son de este chat.
+hallazgos-ui). Las copias del mismo corte que quedaban en piezas de otras tabs ya no son de este chat: el Cerebro las
+repartió el 27/10/2026 a Automations, Landings y un chat nuevo de Classroom/Calendario (la lista, en hallazgos-ui).
 
 **Lo que queda del pedido:** nada de los puntos 12 a 21. Mirarlo todo en pantalla cuando esté desplegado (el Chrome de
 Martín ya tiene sesión; de a un chat por vez, en el Cliente de Prueba `?ws=3`). **Redirigir antes del loader (25/10, del Cerebro):** hecho

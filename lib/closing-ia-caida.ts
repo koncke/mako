@@ -10,9 +10,10 @@
 import 'server-only';
 import { getSetting, setSetting } from './settings';
 import { emitirEventoDePlataforma } from './avisos';
-import { zonaDelNegocio } from './timezone';
+import { TZ_DEFAULT, zonaDelNegocio } from './timezone';
 import { fechaEnPalabras, hoyEnTz } from './date-utils';
 import { linkApp } from './app-url';
+import { getWorkspaceActual } from './workspace';
 import { conClaveDelNegocio } from './anthropic';
 import { KEY_IA_CAIDA, conFallo, datosIaCaida, leerIaCaida, resultadoDeLaPrueba, tocaAvisar, type FalloDeSuCuenta, type IaCaida } from './closing-ia-caida-reglas';
 
@@ -28,7 +29,7 @@ export async function iaDelNegocioCaida(): Promise<IaCaida | null> {
  */
 export async function anotarIaCaida(ws: number, motivo: FalloDeSuCuenta, pendientes: number): Promise<{ avisado: boolean }> {
   try {
-    const marca = conFallo(await iaDelNegocioCaida(), motivo, new Date().toISOString());
+    const marca = { ...conFallo(await iaDelNegocioCaida(), motivo, new Date().toISOString()), pendientes: Math.max(0, Math.floor(pendientes)) };
     let avisado = false;
     if (tocaAvisar(marca)) {
       const tz = await zonaDelNegocio(ws);
@@ -62,4 +63,18 @@ export async function probarSiVolvio(): Promise<'volvio' | 'sigue' | 'no-se'> {
   const v = resultadoDeLaPrueba(r);
   if (v === 'volvio') await anotarQueVolvio().catch(() => {});
   return v;
+}
+
+/**
+ * Lo que la hoja «Closing» necesita para decir por qué no analiza (27/10/2026, app/dashboard/aviso-closing.ts): el
+ * incidente con su fecha en la zona del negocio y cuántas esperan. Sin incidente, null. No tira: «no pude leer» = null.
+ */
+export async function iaCaidaParaLaHoja(): Promise<{ motivo: FalloDeSuCuenta; desdeDia: string; pendientes: number | null } | null> {
+  try {
+    const c = await iaDelNegocioCaida();
+    if (!c) return null;
+    const ws = await getWorkspaceActual();
+    const tz = ws != null ? await zonaDelNegocio(ws) : TZ_DEFAULT;
+    return { motivo: c.motivo, desdeDia: fechaEnPalabras(hoyEnTz(tz, new Date(c.desde)), hoyEnTz(tz)), pendientes: c.pendientes ?? null };
+  } catch { return null; }
 }

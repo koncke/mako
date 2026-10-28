@@ -1,8 +1,9 @@
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 try {
   const [p] = await sql`SELECT count(*)::int dias, sum(youtube_views)::int total, min(fecha)::text desde, max(fecha)::text hasta
     FROM marketing_metrics_daily WHERE plataforma='youtube' AND youtube_video_id='vsl-prueba-dos'`;

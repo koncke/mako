@@ -51,7 +51,9 @@ test('2. las capacidades, los DEEP_LINKS y los carteles no tienen su propia list
   assert.match(conectar, /Tus cuentas de IA/);
   const doer = leer('lib/mako-doer-in.ts');
   const deep = doer.slice(doer.indexOf('const DEEP_LINKS'), doer.indexOf('Ej: "Con Jesús'));
-  assert.match(deep, /Salud de la cuenta de Meta: \$\{APP_URL\}\/integraciones\?abrir=meta/);
+  // Meta se conecta por Zernio (27/10/2026): ningún DEEP_LINK manda a la tarjeta de Meta Ads.
+  assert.match(deep, /Conectar Meta \(sus anuncios\): con su Facebook, por Zernio: \$\{APP_URL\}\/integraciones\?abrir=zernio/);
+  assert.doesNotMatch(deep, /abrir=meta/);
   assert.match(deep, /como_conectar/);
   assert.doesNotMatch(deep, /\$\{APP_URL\}\/integraciones(?!\?abrir=)/, 'un DEEP_LINK manda a /integraciones a secas');
   for (const k of ['openai', 'anthropic', 'fathom', 'pc'] as const) assert.equal(RUTA_CONEXION[k], conexion(k)!.ruta);

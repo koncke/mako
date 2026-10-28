@@ -145,7 +145,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'como_conectar', area: 'integraciones', tipo: 'lectura',
     titulo: 'Cómo se conecta algo',
-    descripcion: 'Cómo se conecta UNA cosa, para guiar a la persona: qué destraba, si ya está conectada, quién la conecta, que se hace desde la computadora, los pasos oficiales y el link que abre justo esa conexión. Sirve para las tarjetas de Integraciones (Fathom, Zernio, Calendly, su GPT…) y para lo que no es una tarjeta: MaKo en su computadora (MaKo Desktop), «Tus cuentas de IA» y su número de WhatsApp. Úsala ante «¿cómo conecto X?», «ayúdame a conectar…» o cuando una herramienta devolvió `falta`. Pasa los pasos de a uno y nunca pidas una clave por el chat.',
+    descripcion: 'Cómo se conecta UNA cosa, para guiar a la persona: qué destraba, si ya está conectada, quién la conecta, que se hace desde la computadora, los pasos oficiales y el link que abre justo esa conexión. Sirve para las tarjetas de Integraciones (Fathom, Zernio, Calendly, su GPT…) y para lo que no es una tarjeta: MaKo en su computadora (MaKo Desktop), «Tus cuentas de IA» y su número de WhatsApp. Meta se conecta con Facebook, por Zernio: el método de antes se retiró y no se explica. Úsala ante «¿cómo conecto X?», «ayúdame a conectar…» o cuando una herramienta devolvió `falta`. Pasa los pasos de a uno y nunca pidas una clave por el chat.',
     parametros: [
       { nombre: 'que', tipo: 'string', obligatorio: true, max: 80, descripcion: 'lo que quiere conectar, con la key de ver_integraciones o con sus palabras: «fathom», «mi claude», «instagram», «la app de escritorio», «whatsapp».', ejemplo: 'fathom' },
     ],
@@ -155,14 +155,14 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_conexion_meta', area: 'integraciones', tipo: 'lectura',
     titulo: 'Conexión de Meta del negocio',
-    descripcion: 'Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por el token de antes, y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.',
+    descripcion: 'Cómo habla MaKo con Meta para este negocio: por su conexión de «Conectar con Facebook» (Zernio) o por la conexión anterior (se apaga el 03/11), y lo que esa conexión ve: las cuentas publicitarias (y cuál está elegida), los píxeles (y cuál), la página de los anuncios (y si hay que elegirla), y por dónde salen las conversiones al píxel (CAPI). Nunca devuelve tokens. Úsala antes de elegir_cuenta_meta, elegir_pixel_meta o elegir_pagina_meta, y ante «¿por qué no conecta Meta?». No requiere parámetros.',
     parametros: [],
     salida: 'json', canales: TODOS, costo: 'externo', gating: G_ADMIN,
   },
   {
     id: 'elegir_cuenta_meta', area: 'integraciones', tipo: 'accion', confirmacion: 'chat', reversible: true,
     titulo: 'Elegir la cuenta publicitaria de Meta',
-    descripcion: 'PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Con el token de antes, la cuenta se elige en Integraciones (link_configurar_integracion).',
+    descripcion: 'PROPONE elegir con qué cuenta publicitaria trabaja MaKo (métricas, Media Buyer, publicar), entre las que ve la conexión de «Conectar con Facebook» (queda pendiente hasta el «sí»). Sólo para un negocio conectado así: mira antes ver_conexion_meta. Sin esa conexión, primero se conecta (como_conectar «meta»).',
     escribe: 'la credencial META_AD_ACCOUNT_ID del negocio, y arranca el histórico de métricas',
     parametros: [
       { nombre: 'cuenta', tipo: 'string', obligatorio: true, max: 30, descripcion: 'id de la cuenta publicitaria con act_ adelante, tal como sale en ver_conexion_meta.', ejemplo: 'act_1426493815659364' },

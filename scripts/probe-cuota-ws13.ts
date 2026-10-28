@@ -20,10 +20,11 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const WS = Number(process.argv[2] || 13);
 const HORAS = Number(process.argv[3] || 12);
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 const titulo = (t: string) => console.log(`\n${'─'.repeat(78)}\n${t}\n${'─'.repeat(78)}`);
 

@@ -30,6 +30,7 @@
 // guarda un string adentro del jsonb (AGENTS.md, «el respaldo corrompió lo que venía a proteger»).
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
@@ -38,7 +39,7 @@ import { explicarAviso, filaAviso } from '../lib/decisiones-aviso';
 import { carteroVivo, sanearChats, todosLosChats, type VistaCartero } from '../lib/operaciones-reglas';
 
 config({ path: resolve(process.cwd(), '.env.local') });
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 if (!conn) {
   console.error('Falta DATABASE_URL en .env.local');
   process.exit(1);

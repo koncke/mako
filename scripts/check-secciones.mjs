@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const sql = postgres(urlDeLaBase(), { ssl:'require', max:1 });
 const a = await sql`SELECT tipo, status, count(*)::int n, count(secciones)::int con_sec FROM ad_transcripts GROUP BY tipo,status ORDER BY n DESC`;
 console.log('tipo/status:'); for(const r of a) console.log(`  ${r.tipo||'-'} / ${r.status}: ${r.n} (con secciones: ${r.con_sec})`);
 const [v] = await sql`SELECT jsonb_array_length(secciones) n, secciones->0->>'titulo' t0 FROM ad_transcripts WHERE ad_id='120237960510320570'`;

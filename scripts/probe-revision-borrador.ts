@@ -14,11 +14,12 @@ import { resolve } from 'node:path';
 config({ path: resolve(process.cwd(), '.env.local') });
 
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { runWithWorkspace } from '../lib/workspace';
 import { crearPropuesta, getPropuesta, guardarRevision, descartarPropuesta } from '../lib/plan-propuesta';
 
 const WS = Number(process.argv[2] || 9);
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 async function main() {
   let id = '';

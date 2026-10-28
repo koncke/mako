@@ -11,13 +11,15 @@
 //     montados y se llenan cuando algo falla.
 //   · `<ReportarASoporte error="…" />` donde el error no es un `role="alert"` (el Toast, ErrorState).
 // Al tocarlo manda el ticket solo (lib/soporte-reporte.ts → /api/soporte/reportar) y dice «Lo mandamos al equipo».
+// En el portal del ALUMNO (sin sesión de MaKo) manda por /api/compartido/curso/soporte con el token de su portal, y el
+// reporte le llega al dueño del curso (`SoporteDelAlumnoCtx`, 27/10/2026).
 //
 // ⚠️ SÓLO LO QUE PASÓ: el texto del aviso, la pantalla, el último botón que tocó la persona, la hora. Nunca la pantalla
 //    entera. Lo sanea acá y otra vez el servidor (sin claves, sin emails ni teléfonos); de quién es, lo dice la sesión.
 // ⚠️ SIN CSS NI IMPORTS PESADOS: lo importan ~180 archivos y varios los cargan tests en node.
 
 import { createContext, useContext, useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ROTULO_MANDADO, ROTULO_REPORTAR, RUTA_REPORTAR, TOPE_ACCION, TOPE_ERROR, limpio } from '@/lib/soporte-reporte';
+import { ROTULO_MANDADO, ROTULO_REPORTAR, RUTA_REPORTAR, RUTA_REPORTAR_ALUMNO, TOPE_ACCION, TOPE_ERROR, limpio } from '@/lib/soporte-reporte';
 
 // ── El último botón que tocó la persona: «lo que hacía» cuando salió el error ─────────────────────────────────────────
 // Se escucha en la fase de captura, una sola vez para toda la página. Vale 2 minutos: después ya no es «lo que hacía».
@@ -53,8 +55,11 @@ export function textoDelAviso(aviso: Element): string {
 
 export type ResultadoReporte = { ok: true; id: number; yaExistia: boolean } | { ok: false; error: string };
 
-/** Manda el reporte. Lo usa el botón y lo que no puede tener uno (el aviso de un editor que se dibuja con su propia librería). */
-export async function reportarASoporte({ error, accion }: { error: string; accion?: string }): Promise<ResultadoReporte> {
+/**
+ * Manda el reporte. Lo usa el botón y lo que no puede tener uno (el aviso de un editor que se dibuja con su propia librería).
+ * `alumno` = el token del portal del alumno: sin sesión de MaKo, va por su ruta y con su token (y le llega al dueño del curso).
+ */
+export async function reportarASoporte({ error, accion, alumno }: { error: string; accion?: string; alumno?: string | null }): Promise<ResultadoReporte> {
   const cuerpo = {
     error: limpio(error, TOPE_ERROR),
     accion: limpio(accion ?? accionReciente() ?? '', TOPE_ACCION) || undefined,
@@ -66,7 +71,9 @@ export async function reportarASoporte({ error, accion }: { error: string; accio
     idioma: navigator.language,
   };
   try {
-    const r = await fetch(RUTA_REPORTAR, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(cuerpo) });
+    const r = await fetch(alumno ? RUTA_REPORTAR_ALUMNO : RUTA_REPORTAR, {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(alumno ? { t: alumno, ...cuerpo } : cuerpo),
+    });
     const j = (await r.json().catch(() => null)) as ResultadoReporte | null;
     if (j && 'ok' in j) return j;
     return { ok: false, error: 'No salió. Vuelve a tocar en un rato.' };
@@ -76,10 +83,11 @@ export async function reportarASoporte({ error, accion }: { error: string; accio
 }
 
 /**
- * `true` = acá no hay sesión de MaKo (el portal del ALUMNO): no se dibuja. La ruta del reporte pide la sesión y le
- * contestaba «no autenticado» al lado de su aviso (f33 de la llamada con Leandro, 24/10/2026). Lo pone PortalAlumno.
+ * El token del portal del ALUMNO, o null (la app, con sesión). El alumno no tiene sesión de MaKo: con la ruta de siempre le
+ * contestaba «no autenticado» (f33, 24/10/2026) y el botón se escondió; desde el 27/10 (874749710-18) reporta con su token
+ * y le llega al dueño del curso. Lo pone PortalAlumno (la vista previa del equipo no: tiene sesión).
  */
-export const SinSoporteCtx = createContext(false);
+export const SoporteDelAlumnoCtx = createContext<string | null>(null);
 
 const S_BOTON: CSSProperties = {
   display: 'inline', marginLeft: 8, padding: 0, border: 0, background: 'none', color: 'inherit', font: 'inherit',
@@ -113,16 +121,15 @@ export function ReportarASoporte({ error, accion, style }: { error?: string; acc
   const texto = (error ?? delAviso).trim();
   // Un error nuevo en el mismo aviso se puede reportar de nuevo.
   useEffect(() => { setEstado({ k: 'listo' }); }, [texto]);
-  const sinSoporte = useContext(SinSoporteCtx);
+  const alumno = useContext(SoporteDelAlumnoCtx);
 
   const mandar = async () => {
     if (estado.k === 'mandando' || !texto) return;
     setEstado({ k: 'mandando' });
-    const r = await reportarASoporte({ error: texto, accion });
+    const r = await reportarASoporte({ error: texto, accion, alumno });
     setEstado(r.ok ? { k: 'mandado', id: r.id } : { k: 'fallo', texto: r.error });
   };
 
-  if (sinSoporte) return null;
   return (
     <span ref={ref} data-soporte="" style={texto ? undefined : { display: 'none' }}>
       {estado.k === 'mandado' ? (

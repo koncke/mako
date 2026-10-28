@@ -20,7 +20,7 @@ import { getWorkspace, runWithWorkspace, wsSuperAdmin } from './workspace';
 import { buscarUsuarioPorEmail } from './usuarios';
 import { capaDef } from './capas';
 import {
-  TOPE_POR_DIA, aprobadoPorRegla, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
+  TOPE_POR_DIA, TOPE_POR_DIA_TERCERO, reglaDelNegocio, clasificar, estadoDeDecision, estadoInicial, leerTriage, motivoDecisionInvalida, sePuedeDecidir,
   type Canal, type ContextoTicket, type DecisionTicket, type EstadoTicket, type Prioridad, type TipoTicket, type Triage,
   ESTADOS, PRIORIDADES, esTipo, mismoTelefono, nombreDelActor, sanearContexto, telefonoDelActor, TOPES,
 } from './tickets-reglas';
@@ -205,6 +205,12 @@ export type NuevoTicket = {
   contexto: unknown;
   /** Clave de idempotencia: el mismo `ref` devuelve el ticket que ya existe. */
   ref?: string | null;
+  /**
+   * Lo manda alguien de AFUERA del negocio (el alumno de un curso, desde su portal: 27/10/2026). El ticket es del dueño
+   * (`identidad`), pero el tope del día se le cuenta al TERCERO (`clave`, que es el comienzo de su `ref`) y el triage no lo
+   * manda solo al arreglo (`deTercero`). Sin esto, un alumno gastaba el tope del dueño y entraba por la regla de su negocio.
+   */
+  tercero?: { clave: string };
 };
 export type Creado = { ok: true; id: number; estado: EstadoTicket; triage: Triage; yaExistia: boolean } | { ok: false; error: string };
 
@@ -219,17 +225,20 @@ export async function crearTicket(n: NuevoTicket): Promise<Creado> {
     const { data: ya } = await db.from(T).select('id, estado, triage').eq('ref', n.ref).maybeSingle();
     if (ya) return { ok: true, id: Number(ya.id), estado: ya.estado as EstadoTicket, triage: leerTriage(ya.triage)!, yaExistia: true };
   }
-  // El tope del día: más que esto es un bucle o un abuso, no soporte.
+  // El tope del día: más que esto es un bucle o un abuso, no soporte. El de un tercero se cuenta por el comienzo de su `ref`.
   const hace24 = new Date(Date.now() - 86_400_000).toISOString();
-  const { count, error: eCount } = await db.from(T).select('id', { count: 'exact', head: true })
-    .eq('workspace_id', n.identidad.ws).eq('usuario_email', n.identidad.email).gte('created_at', hace24);
+  const tercero = n.tercero ? `${n.tercero.clave}:` : null;
+  if (tercero && !n.ref?.startsWith(tercero)) return { ok: false, error: 'No pude guardarlo: vuelve a intentarlo' };
+  const delDia = db.from(T).select('id', { count: 'exact', head: true }).eq('workspace_id', n.identidad.ws).gte('created_at', hace24);
+  const { count, error: eCount } = await (tercero ? delDia.like('ref', `${tercero}%`) : delDia.eq('usuario_email', n.identidad.email));
   if (eCount) return { ok: false, error: faltaTabla(eCount) ? SIN_TABLA : 'No pude guardarlo: vuelve a intentarlo' };
-  if (!n.sistema && (count ?? 0) >= TOPE_POR_DIA) return { ok: false, error: `Ya mandaste ${TOPE_POR_DIA} tickets hoy: el equipo los está viendo` };
+  const tope = tercero ? TOPE_POR_DIA_TERCERO : TOPE_POR_DIA;
+  if (!n.sistema && (count ?? 0) >= tope) return { ok: false, error: `Ya mandaste ${tope} ${tercero ? 'reportes' : 'tickets'} hoy: el equipo los está viendo` };
 
   const contexto = sanearContexto(n.contexto);
   const [apagado, arreglosHoy] = await Promise.all([autoArregloApagado(), arreglosDeHoy()]);
   // Un negocio con la regla de Martín (Leandro, 26/10/2026: lib/tickets-reglas.ts → APROBADOS_POR_REGLA) no espera su aprobación.
-  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, aprobadoPorRegla: aprobadoPorRegla(n.identidad.ws) });
+  const triage = clasificar({ tipoDeclarado: n.tipo, declaradoPor: n.declaradoPor, titulo, descripcion, contexto }, { apagado, arreglosHoy, deTercero: !!tercero, aprobadoPorRegla: reglaDelNegocio(n.identidad.ws)?.nombre ?? null, hastaUnDia: reglaDelNegocio(n.identidad.ws)?.hastaUnDia }); // Leila (27/10)
   const estado = estadoInicial(triage);
   const { data, error } = await db.from(T).insert({
     ref: n.ref ?? null,

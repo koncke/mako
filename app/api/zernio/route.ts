@@ -47,7 +47,7 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 const ZERNIO_KEY_MALA = 'Tu key de Zernio no sirve';
 const ZERNIO_PAUSADA = 'Tu cuenta de Zernio está pausada';
 
-type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; pageId?: unknown; flujo?: unknown; accountId?: unknown };
+type Cuerpo = { action?: unknown; plataforma?: unknown; volver?: unknown; modo?: unknown; reconectarId?: unknown; adAccountId?: unknown; pageId?: unknown; flujo?: unknown; accountId?: unknown; aceptaCobro?: unknown };
 
 export async function POST(req: NextRequest) {
   const [ws, rol] = await Promise.all([getWorkspaceActual(), getRolWsEfectivo()]);
@@ -91,6 +91,8 @@ export async function POST(req: NextRequest) {
           adAccountId: typeof body.adAccountId === 'string' ? body.adAccountId : null,
           pageId: typeof body.pageId === 'string' ? body.pageId : null,
           flujo: typeof body.flujo === 'string' ? body.flujo : null,
+          // La persona ya vio el aviso del cobro de Zernio y tocó «Conectar igual».
+          aceptaCobro: body.aceptaCobro === true,
         });
         return Response.json(r);
       }

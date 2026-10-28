@@ -1890,6 +1890,18 @@ export function CrmBoard({
   const abiertoNombre = selected?.name ?? '';
   useEffect(() => { publicarLeadAbierto(abiertoId != null ? { id: abiertoId, nombre: abiertoNombre } : null); }, [abiertoId, abiertoNombre]);
   useEffect(() => () => publicarLeadAbierto(null), []);
+  // `?abrir=<id>` (27/10/2026, lib/pagina-vieja.ts): la ficha de una pestaña de antes de un despliegue se recarga sola en
+  // la versión nueva y vuelve a abrir ESE lead. Una vez; el parámetro sale de la dirección sin navegar.
+  const abrirDeUrl = useRef(sp.get('abrir'));
+  useEffect(() => {
+    const v = Number(abrirDeUrl.current);
+    if (!abrirDeUrl.current || !Number.isInteger(v) || v <= 0 || !leads.some((l) => l.id === v)) return;
+    abrirDeUrl.current = null;
+    setSelectedId(v);
+    const q = new URLSearchParams(window.location.search);
+    q.delete('abrir');
+    window.history.replaceState(null, '', `${window.location.pathname}${q.size ? `?${q}` : ''}`);
+  }, [leads]);
 
   // Leads que esperan tu validación (los que están en "Datos sin marcar").
   const pendingLeadIds = new Set(marcar.map((m) => m.leadId));
@@ -3684,6 +3696,7 @@ export function CrmBoard({
               // (Martín, 26/10/2026: «no me gusta que salga el cartel negro abajo»): el resultado ya está en el pie del modal y en
               // el desplegable de la extensión.
               onTraidos={() => router.refresh()}
+              onCerrar={() => setNuevoLead(null)}
             />
           ) : (
             <TraerDeOtroProducto

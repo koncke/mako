@@ -5039,6 +5039,12 @@ y en lo que pasa en la PC antes de que la persona diga que sí. Lo no obvio:
   `anthropic` → `ai-cheap`). La guarda que sirve no es «llega» sino «prende el contexto o está decidida»:
   tests/d6b-rutas.test.ts recorre el grafo (resolviendo `@/` y siguiendo las llamadas, no una lista a mano), y lo que
   llaman las pantallas del Ops Center (app/second-brain, app/mako, app/onboarding, app/_chat…) no puede ir afuera.
+  - **Una ruta pública del portal del ALUMNO también puede ser «del Ops Center» (27/10/2026):** el botón compartido
+    app/_ui/ReportarASoporte.tsx (lo monta el Ops Center) nombra /api/compartido/curso/soporte, y toda ruta del portal
+    llega a la cascada DE PASO por `resolverAccesoPortal` (lib/curso-datos.ts → app/customer-success/entrega.ts →
+    lib/nutricion.ts → lib/ai-cheap.ts). Como del Ops Center, `FUERA_DE_D6B` no se acepta: si no le pide nada a una IA va
+    a `SIN_IA` con lo que usa fijado (así quedó: valida el token y crea el ticket; lib/tickets-db.ts no llega a ninguna IA,
+    su triage es con reglas).
 - **lib/transcribe.ts es una SEGUNDA cascada sin el corte de D6b**: va directo a Groq y Gemini con las keys del entorno.
   Envolver una ruta que la use no la protege. Hoy la usan ads-manager, cron/transcribe-ads, mako/knowledge y
   lib/onboarding-extract (ninguna del Ops Center).
@@ -7168,3 +7174,68 @@ presupuesto de 12.000). Medirlo con `deSiempre: []` miente: libera presupuesto y
 bloques-cobro.tsx:504). Corregir un dato YA cargado del perfil desde el chat: `guardar_campo_perfil` sólo completa vacíos
 (negocio.def.ts:431), se corrige en el Archivero. WhatsApp: la edición de montos con una foto (regla 9, media → pensar) es de
 «MaKo en WhatsApp». Los datos de Nadia (lead 2605, 12 cuotas de 4235.29) son producción de ws 11: los decide Martín.
+## Con la computadora del cliente APAGADA: qué deja de andar y qué no (27/10/2026, Infra)
+
+Aaron (llamada del 26/10) preguntó qué pasa con la PC del usuario apagada. Leído en el código (no probado apagando una PC):
+
+**Cómo lo sabe el servidor.** La PC late cada 30 s (`LATIDO_MS`); a los **90 s sin latido** está «Sin conexión»
+(`EN_LINEA_MS`, lib/ia-pc-reglas.ts). Con más de 90 s apagada, el turno **ni se encola**: falla como `'apagada'` y va al
+respaldo (lib/mako-turno-app.ts). Si se apagó dentro de esos 90 s, se encola y vence a los 35 s sin que nadie lo tome
+(`SIN_TOMAR_MS`) o a los 75 s sin latido si ya lo había tomado (`SIN_LATIDO_MS`). **No espera a que vuelva** y no se le avisa al
+dueño cuando vuelve: lo que pidió con la PC apagada no se hace después.
+
+⚠️ **El diagnóstico obvio era el equivocado: «si la PC está apagada, contesta otra IA».** Una PC conectada cuenta como «su
+IA» AUNQUE ESTÉ APAGADA (`negocioConPc` mira que esté activa, no que lata; `negocioConSuIA` en lib/ia-del-negocio.ts). El
+negocio sigue en D6b, «sólo su IA»: nunca Groq, nunca la cascada barata, nunca el Claude de MaKo (salvo el crédito de Claude
+que Martín le asigna a un negocio, que entra como su clave: lib/anthropic.ts). El respaldo es SU clave, si tiene.
+
+| Qué | Con la PC apagada |
+|---|---|
+| El chat de la app en Automático | Contesta su clave (OpenAI, Gemini o su Claude). Sin clave: «Tu computadora está apagada: préndela y mándamelo de nuevo» |
+| El chat con «Tu computadora» elegida en el «+» | Error, sin respaldo: eligió ésa |
+| «Tu computadora» en el selector | **Se sigue ofreciendo**: `pcDe` no mira si está en línea (lib/chat-ia.ts) |
+| El grupo de WhatsApp del dueño | Su OpenAI y después su Claude, por clave; sin clave, el cartel de «préndela» |
+| Notas de voz | Nunca usaron la PC: las escucha su OpenAI o Gemini |
+| Leads, Automations, nutrición, avisos, crons, Plan, reuniones | Nunca dependieron de la PC (`tests/ia-pc-nunca-a-leads.test.ts`) |
+| Descargar e instalar el programa | Es del servidor: URL firmada de 600 s del bucket privado `ia-pc` |
+
+**Y no toca Storage.** El programa de la PC sólo habla con `/api/ia-pc/*`: no sube ni baja nada de ningún bucket, así que
+los buckets públicos no tienen nada que ver con que la PC esté prendida. Fuera de `ia-pc`, lo que sí necesita una PC prendida
+es lo que corre en una extensión o un worker: el puente a Google Flow y el montaje de video.
+
+**Sin hacer:** sacar «Tu computadora» del selector mientras no late (o marcarla «apagada»); avisarle al dueño lo que pidió
+con la PC apagada.
+
+**Vive en:** lib/ia-pc-reglas.ts (`LATIDO_MS`, `EN_LINEA_MS`, `SIN_TOMAR_MS`, `SIN_LATIDO_MS`, `pcUsable`) · lib/ia-pc.ts
+(`encolarTurno`, `negocioConPc`, `pcDe`) · lib/mako-turno-app.ts · lib/chat-ia.ts · scripts/ia-pc/mako-pc.mjs ·
+*27/10/2026, chat «Infra» (claude5)*
+
+## «Chrome me lo marca como malware»: antes del aviso del sistema está el de Chrome, y el botón desaparece al tocarlo (27/10/2026)
+
+**El síntoma:** Leandro, en la llamada del 26/10: Chrome le frenó el instalador de MaKo como peligroso, y el botón de descargar no
+decía nada.
+
+**Lo que no era obvio:**
+- La ayuda decía sólo lo del sistema («Windows protegió su PC», Gatekeeper en Mac), pero ANTES pasa Chrome: con un programa sin
+  firmar y nuevo, frena la descarga. `AVISO_CHROME` va primero en `avisoAlAbrir`. Lo que lo destraba de verdad es la firma
+  (scripts/ia-pc/firmar-windows.mjs, lista), y el certificado lo compra Martín.
+- Un «Descargando…» en el botón no se ve nunca: las tres pantallas que lo usan lo CAMBIAN por «Ya lo instalé: conectar» en el
+  mismo clic. El estado va en lo que queda: el título de la tarjeta y la frase de la caja dicen «Se está descargando».
+
+**Vive en:** `lib/ia-pc-reglas.ts` (`AVISO_CHROME`) · `app/integraciones/CuentasYDispositivos.tsx` (`avisoAlAbrir`) · `TusCuentasIA.tsx` ·
+`app/_chat/app-de-escritorio.ts`
+
+## MaKo no lee los chats de Claude o ChatGPT del cliente: no hay nada que ignorar todavía (27/10/2026)
+
+**El pedido:** Leila, en la llamada del 26/10 (Fathom 876470842, 00:06:52–00:08:01): tiene chats y proyectos PERSONALES en su
+Claude y su ChatGPT y no los quiere en el contexto de MaKo. Martín le prometió un botón para ignorar cada chat.
+
+**Medido:** MaKo no los lee. `mako-pc` (scripts/ia-pc/mako-pc.mjs) tiene como regla no tocar `~/.claude` ni el Keychain: sólo corre
+`claude` con lo que MaKo le pide. Y lo único que lee chats (`leerTurnos`, `leerCarteros`) es el Ops Center de MaKo, con los chats de
+las cuentas del equipo, no los de un cliente. Lo personal de Leila no entra al Second Brain ni al contexto. El botón no se armó.
+
+**La regla:** si algún día MaKo empieza a leer los chats o los proyectos del cliente (para usarlos como contexto), eso nace con el
+botón de ignorar cada uno, y lo ignorado no entra a ningún lado y se puede deshacer. Leer `~/.claude` del cliente es una decisión de
+Martín: hoy la regla de `mako-pc` es no tocarlo.
+
+**Vive en:** `scripts/ia-pc/mako-pc.mjs` (la cabecera: «no toca ~/.claude») · `lib/centro-turnos-db.ts`
