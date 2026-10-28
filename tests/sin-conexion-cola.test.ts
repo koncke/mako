@@ -168,6 +168,9 @@ test('4. la cola: cifrada, en orden, sólo de su persona, con tope; renovar la c
   // Vencida, pero con cambios sin subir: no se borra.
   const r3 = await abrir({ email: 'ana@x.com', clave: 'clave-larga', almacen: m, ahora: Date.now() + 40 * 86_400_000 });
   assert.ok(r3.ok, 'con cambios sin subir, lo guardado no se borra aunque venza');
+  // Y la copia de ese negocio tampoco vence por su fecha (verificación de 90d6410eb: cada copia vence por la suya): sin ella
+  // no se puede nombrar ni revisar lo que la persona escribió.
+  assert.equal(r3.ok && r3.copias.length, 1, 'la copia del negocio con cambios sin subir sigue');
   // El tope.
   const lleno = memoria();
   for (let i = 0; i < TOPE_COLA; i++) await lleno.guardarEnCola({ id: `x${String(i).padStart(9, '0')}`, ws: 9, seq: i, iv: '', datos: '' });
