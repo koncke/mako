@@ -39,3 +39,15 @@ export function conElAudioCitado(texto: string, transcripcion: string, segundos:
   const dur = segundos ? ` de ${segundos} s` : '';
   return `${texto.trim()}\n\n(cita una nota de voz${dur}; la escuchaste y dice: «${transcripcion.trim()}»)`.trim();
 }
+
+/**
+ * La nota de voz citada que NO entra al turno, con la marca de por qué (la verificación de 5b7a1917d): el resto del mensaje
+ * sigue. Antes, la que no se podía bajar tiraba el mensaje entero (en el lote) o lo cambiaba por un cartel que culpaba a la IA
+ * del negocio (en el suelto). `vacia`: Groq no le sacó texto (no se avisó nada: lo dice el modelo).
+ */
+export function conLaCitaSinEscuchar(texto: string, motivo: 'sin-bajar' | 'sin-escuchar' | 'vacia'): string {
+  const marca = motivo === 'vacia'
+    ? '(cita una nota de voz que salió vacía: no sabes qué dice; dilo en una línea y pide que la escriba)'
+    : `(cita una nota de voz que no pudiste ${motivo === 'sin-bajar' ? 'bajar de WhatsApp' : 'escuchar'}; ya se lo avisaste aparte: no lo repitas, contesta lo demás del mensaje)`;
+  return `${texto.trim()}\n\n${marca}`.trim();
+}

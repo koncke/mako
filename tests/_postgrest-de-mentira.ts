@@ -37,6 +37,9 @@ export function crearPostgrest(o: {
   /** Los defaults de la base para una fila nueva (ids, timestamps, columnas con default). */
   defaults?: (tabla: string, f: Fila) => Fila;
   unicos?: UnicoParcial[];
+  /** El `or=(hasta.is.null,hasta.lt.…)` del candado del grupo (`reclamar`, lib/mako-doer-buffer.ts). Sin esto, `reclamar` pierde
+   *  siempre (la entrada encola y se va): de eso dependen los hijos que no quieren correr el turno. */
+  candado?: boolean;
 }) {
   const db: Record<string, Fila[]> = Object.fromEntries(o.tablas.map((t) => [t, [] as Fila[]]));
   const sinMock = new Set<string>();
@@ -79,10 +82,15 @@ export function crearPostgrest(o: {
       }
       // `.or('clave.like.STRIPE_SECRET_KEY*,…')` (22/10/2026, las cuentas de una pasarela): `*` es el `%` de PostgREST.
       else if (k === 'or' && /^\(.+\)$/.test(v)) {
+        // `is.null` y `lt` (28/10/2026), sólo con `candado`: el del grupo pelea `hasta.is.null,hasta.lt.<ahora>`.
         const partes = v.slice(1, -1).split(',').map((p) => { const [col, op, ...r] = p.split('.'); return { col, op, x: r.join('.') }; });
-        if (partes.some((p) => p.op !== 'like' && p.op !== 'eq')) throw new Error(`filtro sin mock: ${k}=${v}`);
+        const ops = o.candado ? ['like', 'eq', 'is', 'lt'] : ['like', 'eq'];
+        if (partes.some((p) => !ops.includes(p.op) || (p.op === 'is' && p.x !== 'null'))) throw new Error(`filtro sin mock: ${k}=${v}`);
         const re = (x: string) => new RegExp(`^${x.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/_/g, '.').replace(/\*/g, '.*')}$`);
-        out.push((f) => partes.some((p) => (p.op === 'eq' ? String(f[p.col]) === p.x : re(p.x).test(String(f[p.col] ?? '')))));
+        out.push((f) => partes.some((p) => (p.op === 'eq' ? String(f[p.col]) === p.x
+          : p.op === 'is' ? f[p.col] == null
+          : p.op === 'lt' ? f[p.col] != null && String(f[p.col]) < p.x
+          : re(p.x).test(String(f[p.col] ?? '')))));
       }
       else throw new Error(`filtro sin mock: ${k}=${v}`);
     }

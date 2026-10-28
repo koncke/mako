@@ -38,7 +38,8 @@ export function bloqueDePedidos(pedidos: readonly PedidoDelNegocio[], ahora: Dat
   ].join('\n');
 }
 
-const MARCA_YA_PEDIDO = /\[\[\s*ya-pedido\s*:?\s*#?\s*(\d{1,9})?[^\]]*\]\]/gi;
+// Con guion, espacio o guion bajo («ya pedido», «ya_pedido»): la variante también le llegaba al cliente (la verificación de 5b7a1917d).
+const MARCA_YA_PEDIDO = /\[\[\s*ya[\s_-]*pedido\s*:?\s*#?\s*(\d{1,9})?[^\]]*\]\]/gi;
 
 /**
  * Saca las marcas `[[ya-pedido: #N]]` de la respuesta. `ids`: los números que SON de un pedido abierto de este negocio (los

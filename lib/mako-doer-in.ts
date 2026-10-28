@@ -48,7 +48,7 @@ import { credWs, integracionConectada } from '@/lib/credenciales';
 import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type Mencionados, type ParaQuien, type ParaQuienDelLote } from '@/lib/doer-para-quien';
 import { quienEnElGrupo } from '@/lib/confirmacion-pura';
 import { bloqueDeLaFalla, causaDelCartel, comoFallaSiNoCorrio, conLaLineaDelTicket, HERRAMIENTAS_CORRECCION, laCorreccion, NOTA_PEDIDO_DE_FUNCION, pideUnaFuncionalidad, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
@@ -56,10 +56,10 @@ import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { conElNegocio } from '@/lib/nucleo-grupo';
-import { bloqueDelEquipo, CLAVE_EQUIPO_EN_EL_GRUPO, delEquipo, respuestaAlEquipo, textoCitado, type DelEquipo } from '@/lib/doer-equipo';
+import { bloqueDelEquipo, citaDelMensaje, CLAVE_EQUIPO_EN_EL_GRUPO, CLAVE_RESPUESTAS_AVISADAS, conLaAvisada, delEquipo, esPreguntaDelEquipo, paraDelEquipo, pideAlgoAMaKo, respuestaAlEquipo, type DelEquipo } from '@/lib/doer-equipo';
 import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
 import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
-import { audioCitadoDe, conElAudioCitado } from '@/lib/audio-citado';
+import { audioCitadoDe, conElAudioCitado, conLaCitaSinEscuchar } from '@/lib/audio-citado';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
@@ -69,7 +69,7 @@ import { contactosDelMensaje, textoDeContactos } from '@/lib/vcard';
 import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
-import { getSetting, setSetting } from '@/lib/settings';
+import { getSetting, getSettingEstricto, setSetting } from '@/lib/settings';
 import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno, getWorkspace } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
@@ -761,9 +761,15 @@ async function contestaAOtroEnLaCola(wsData: number, instance: string, jid: stri
   return conLasRespuestas(textos)[i].para === 'a-otro';
 }
 
+/** Las @menciones del mensaje, adentro y en el nivel de arriba (Evolution v2 las manda arriba: la verificación de 5b7a1917d). */
+function mencionesDelMensaje(data: MsgIn): string[] {
+  const arriba = (data as { contextInfo?: unknown }).contextInfo;
+  return [...new Set([...mencionesDe(data.message as Record<string, unknown> | undefined), ...(arriba ? mencionesDe({ contextInfo: arriba }) : [])])];
+}
+
 /** A quién mencionan en el mensaje (lib/doer-para-quien.ts). Sin menciones, la línea no se lee. */
 async function mencionadosEn(instance: string, data: MsgIn): Promise<Mencionados> {
-  const menciones = mencionesDe(data.message as Record<string, unknown> | undefined);
+  const menciones = mencionesDelMensaje(data);
   return menciones.length ? quienesMencionados(menciones, await numeroDeLaLinea(instance)) : { aMaKo: false, aOtros: [] };
 }
 
@@ -799,25 +805,37 @@ async function enganchaElTexto(wsData: number, jid: string, texto: string, quien
  * ¿El mensaje le contesta al EQUIPO? (lib/doer-equipo.ts, `respuestaAlEquipo`). Lo barato primero: nombrar a MaKo gana; sin
  * cita y sin una pregunta del equipo en el anillo no se lee nada más. Sin poder leer cuándo habló MaKo, es para MaKo (como hoy).
  */
-async function contestaAlEquipo(wsData: number, instance: string, jid: string, data: MsgIn, texto: string, esTexto: boolean): Promise<DelEquipo | null> {
+async function contestaAlEquipo(wsData: number, instance: string, jid: string, data: MsgIn, texto: string, esTexto: boolean): Promise<{ delEquipo: DelEquipo; ventana: boolean } | null> {
   if (nombraAMaKo(texto) || (await mencionadosEn(instance, data)).aMaKo) return null;
-  const message = data.message as Record<string, unknown> | undefined;
-  const cita = citaDe(message);
-  const citadoTexto = textoCitado(message);
-  const citado = cita.id || citadoTexto ? { id: cita.id, texto: citadoTexto } : null;
+  // Un acuse («gracias», «ok») va por su camino: el 👍 y sin turno (la verificación de 5b7a1917d).
+  if (esTexto && esAcusePuro(texto)) return null;
+  // La cita donde venga: adentro del mensaje o en el nivel de arriba (Evolution v2, la forma real).
+  const cita = citaDelMensaje(data as never);
+  const citado = cita ? { id: cita.id, texto: cita.texto } : null;
   if (!citado && !esTexto) return null;
   const anillo = delEquipo(await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null));
-  if (!citado && !anillo.some((d) => d.texto.includes('?'))) return null;
+  if (!citado && !anillo.some((d) => esPreguntaDelEquipo(d) && !d.respondida)) return null;
   let ultima: string | null = null;
   if (!citado) {
     try { ultima = await ultimaDeMaKo(wsData, jid); } catch { return null; }
   }
-  return respuestaAlEquipo({ citado, anillo, ultimaDeMaKo: ultima, ahora: new Date(), nombraAMaKo: false, esTexto });
+  return respuestaAlEquipo({
+    citado, autor: { jid: data.key?.participant ?? null, nombre: data.pushName ?? null },
+    anillo, ultimaDeMaKo: ultima, ahora: new Date(), nombraAMaKo: false, esTexto,
+  });
 }
 
 /** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
 async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: string, a: DelEquipo): Promise<void> {
   const quien = data.pushName?.trim() || 'Alguien del negocio';
+  // Una re-entrega del mismo mensaje (Evolution reintenta, otra línea lo entrega) no repite el aviso ni el comentario.
+  const id = data.key?.id ?? '';
+  if (id) {
+    const avisadas = await runWithWorkspace(wsData, () => getSettingEstricto(CLAVE_RESPUESTAS_AVISADAS));
+    const r = conLaAvisada(avisadas, id);
+    if (r.yaEstaba) return;
+    await runWithWorkspace(wsData, () => setSetting(CLAVE_RESPUESTAS_AVISADAS, JSON.stringify(r.ids)));
+  }
   if (a.ticket && (await sumarAlPedidoDelNegocio(wsData, a.ticket, `${quien}: ${texto}`).catch(() => false))) return;
   const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;
   const { enviarAlGrupoSuperAdmin } = await import('@/lib/mako-grupo');
@@ -899,7 +917,7 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
     // `enviarAlGrupoMaKo`. Sin esto, la respuesta al equipo (abajo) no sabe que el equipo preguntó.
     if (esFirmaDelEquipo(texto)) {
       const { anotarLoDelEquipo } = await import('@/lib/mako-grupo');
-      await anotarLoDelEquipo(wsData, texto, msgId).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`));
+      await anotarLoDelEquipo(wsData, texto, msgId, undefined, paraDelEquipo(texto, mencionesDelMensaje(data))).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`));
     }
     return { engaged: false, skip: 'eco de mi propia respuesta' };
   }
@@ -908,11 +926,22 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa». Sin 👍 (dice «MaKo lo tomó»), sin turno,
   // y queda para el equipo: en su ticket si lo tenía, o un aviso al grupo de SuperAdmin. Va antes de la cola: no entra a ningún
   // lote ni al cron.
+  // La re-entrega de una respuesta al equipo ya avisada no entra: con la ventana ya cerrada, iría a MaKo (nunca pasó por la cola,
+  // que es lo que deduplica las demás).
+  if (msgId && conLaAvisada(await runWithWorkspace(wsData, () => getSetting(CLAVE_RESPUESTAS_AVISADAS)).catch(() => null), msgId).yaEstaba) {
+    return { engaged: false, skip: 'respuesta al equipo (re-entrega)' };
+  }
   const alEquipo = await contestaAlEquipo(wsData, instance, jid, data, texto, !audio && !adjunto);
   if (alEquipo) {
-    await registrarRespuestaAlEquipo(wsData, data, texto || '(una nota de voz o un archivo)', alEquipo)
+    await registrarRespuestaAlEquipo(wsData, data, texto || '(una nota de voz o un archivo)', alEquipo.delEquipo)
       .catch((e) => console.error(`[mako-doer-in] ws=${wsData} la respuesta al equipo no quedó registrada: ${e instanceof Error ? e.message : String(e)}`));
-    return { engaged: false, skip: 'respuesta al equipo' };
+    // La ventana se cierra con la PRIMERA respuesta: lo que sigue ya es para MaKo (la verificación de 5b7a1917d).
+    if (alEquipo.ventana && alEquipo.delEquipo.id) {
+      const { cerrarLaPreguntaDelEquipo } = await import('@/lib/mako-grupo');
+      await cerrarLaPreguntaDelEquipo(wsData, alEquipo.delEquipo.id).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude cerrar la pregunta del equipo: ${e instanceof Error ? e.message : String(e)}`));
+    }
+    // Si además le pide algo a MaKo, va a los dos: el equipo ya lo tiene, y MaKo contesta el pedido.
+    if (!texto || !pideAlgoAMaKo(texto)) return { engaged: false, skip: 'respuesta al equipo' };
   }
 
   // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola. Y el aviso, sólo si la clave estaba en lo
@@ -1007,7 +1036,8 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
       // La nota de voz que CITA (Leandro, 28/10/2026): con lo que dice; si no se pudo, como un audio que no se escuchó.
       const citado = await escucharElAudioCitado(instance, jid, p);
       if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
-      else if (citado && !('texto' in citado)) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, citado); continue; }
+      else if (citado && 'texto' in citado) t = conLaCitaSinEscuchar(t, 'vacia');
+      else if (citado) { avisoDelAudio ??= await avisarElAudioDelLote(wsData, jid, p, citado, true); t = conLaCitaSinEscuchar(t, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar'); }
       // El ARCHIVO gana sobre el texto suelto del mensaje: `textoDeArchivo` ya mete
       // adentro el pedido («mako, cargá esto») junto al contenido, así que usar `t` acá
       // perdería el archivo — que es justo lo que pasaba.
@@ -1150,9 +1180,11 @@ export async function escucharElAudioCitado(instance: string, jid: string, m: Ms
 
 /** El audio de un lote que no se escuchó: el aviso (una vez por lote) y su ticket (`avisarAudioSinEscuchar`), o el «no me deja
  *  bajarlo» si WhatsApp no lo entregó. Devuelve el aviso para que el lote no termine en 👍 y silencio. */
-async function avisarElAudioDelLote(wsData: number, jid: string, p: MsgIn, oido: { fallo: unknown } | { sinAudio: true }): Promise<string> {
+async function avisarElAudioDelLote(wsData: number, jid: string, p: MsgIn, oido: { fallo: unknown } | { sinAudio: true }, citado = false): Promise<string> {
   if ('sinAudio' in oido) {
-    const aviso = 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías o me lo escribes?';
+    // De la CITADA no se dice «tu audio»: puede ser de otra persona o de MaKo.
+    const aviso = citado ? 'La nota de voz que citaste no la puedo bajar de WhatsApp. ¿Me la reenvías o me la escribes?'
+      : 'Me llegó tu audio pero WhatsApp no me deja bajarlo. ¿Me lo reenvías o me lo escribes?';
     const env = await enviarAGrupoJid(jid, aviso, 0);
     if (env.ok && env.id) await registrarEnviado(OWNER_WS, jid, env.id);
     return aviso;
@@ -1275,8 +1307,12 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // pudo, lo dice MaKo con su ticket (`avisarAudioSinEscuchar`): nunca «no puedo escuchar audios».
     const citado = await escucharElAudioCitado(instance, jid, data);
     if (citado && 'texto' in citado && citado.texto) texto = conElAudioCitado(texto, citado.texto, citado.segundos);
-    else if (citado && !('texto' in citado)) {
-      return { engaged: true, reply: await avisarAudioSinEscuchar(wsData, jid, dondeDelGrupo('(nota de voz citada)'), 'fallo' in citado ? citado.fallo : new Error('WhatsApp no dejó bajar la nota de voz citada')) };
+    else if (citado && 'texto' in citado) texto = conLaCitaSinEscuchar(texto, 'vacia');
+    else if (citado) {
+      // El aviso honesto (no bajó: «WhatsApp no me deja bajarla»; no se escuchó: con su ticket), y el RESTO del mensaje sigue
+      // al turno. Antes: un cartel que culpaba a la IA del negocio, y el pedido se tiraba (la verificación de 5b7a1917d).
+      await avisarElAudioDelLote(wsData, jid, data, citado, true);
+      texto = conLaCitaSinEscuchar(texto, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar');
     }
 
     // ── LA RESPUESTA A «¿QUIERES QUE TE AYUDE?» / «¿LEVANTO UN TICKET?» (25/10/2026, lib/doer-ayuda.ts) ──────────────
@@ -2791,7 +2827,8 @@ export async function flushHuerfanos(): Promise<{ grupos: number; procesados: nu
             }
             const citado = await escucharElAudioCitado(instancia, jid, p);
             if (citado && 'texto' in citado && citado.texto) t = conElAudioCitado(t, citado.texto, citado.segundos);
-            else if (citado && !('texto' in citado)) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, citado); continue; }
+            else if (citado && 'texto' in citado) t = conLaCitaSinEscuchar(t, 'vacia');
+            else if (citado) { avisoDelAudio ??= await avisarElAudioDelLote(ws, jid, p, citado, true); t = conLaCitaSinEscuchar(t, 'sinAudio' in citado ? 'sin-bajar' : 'sin-escuchar'); }
             t = conLaMarcaDelAdjunto(p, t);
             if (t) textos.push({ texto: t, para: await paraQuienEsElMensaje(instancia, p, t, pideUnSi), autor: p.key?.participant ?? null, leHabla: await leHablaAMaKo(instancia, p, t), payload: p });
           }

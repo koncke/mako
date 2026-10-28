@@ -1,13 +1,9 @@
 // =============================================================================
 // Hijo de tests/respuesta-al-equipo.test.ts — NO es un test (no termina en .test.ts)
 // =============================================================================
-// La entrada REAL del grupo (`manejarEntranteDoer`, lib/mako-doer-in.ts) con el caso de Leila (ws11, 28/10/2026), contra un
-// PostgREST de mentira. Todo lo que sale a Evolution se ANOTA (la reacción, lo que se manda) y contesta 200.
-//   A. el equipo pregunta por la línea de MaKo (el eco, firmado): entra al anillo del equipo;
-//   B. Leila le contesta CITÁNDOLO: no es para MaKo (sin 👍, sin cola) y queda para el equipo;
-//   C. lo mismo sin citar, dentro de la ventana: igual;
-//   D. «mako, …» después de la pregunta del equipo: es para MaKo;
-//   E. de control: MaKo ya habló después de la pregunta, y un mensaje sin nombrarla es para MaKo.
+// La entrada REAL del grupo (`manejarEntranteDoer`, lib/mako-doer-in.ts) con el caso de Leila (ws11, 28/10/2026) y lo que
+// encontró la verificación de 5b7a1917d, contra un PostgREST de mentira. Los mensajes van en la forma REAL de Evolution v2
+// (`message.conversation` y el `contextInfo` en el nivel de arriba). Lo que sale a Evolution se ANOTA y contesta 200.
 // =============================================================================
 
 import { crearPostgrest } from './_postgrest-de-mentira';
@@ -38,11 +34,11 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
 }) as typeof fetch;
 
 const LEILA = '5215500000000@s.whatsapp.net';
+const SOFI = '5215500000001@s.whatsapp.net';
 const RESPUESTA = 'Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000';
 
 async function main() {
   const { FIRMA_DESARROLLADOR } = await import('../lib/aviso-arreglo-reglas');
-  const PREGUNTA = `${FIRMA_DESARROLLADOR}\nLeila, para cargar el plan de Nadia: ¿cuántas quincenas eran y en qué moneda?`;
   pg.db.workspaces.push({ id: 9, capa: 'superadmin', nombre: 'MaKo' }, { id: WS, capa: 'cliente', nombre: 'Leila' }, { id: 1, capa: 'cliente', nombre: 'Dueño' });
   pg.db.app_settings.push(
     { workspace_id: WS, key: 'mako.grupo_jid', value: JID },
@@ -53,44 +49,46 @@ async function main() {
   const out: Record<string, unknown> = {};
   const cola = () => pg.db.mako_doer_buffer.map((f) => String(f.wa_message_id));
   const reacciones = () => red.filter((x) => x.camino.includes('/message/sendReaction/')).length;
-  const alSuperAdmin = () => red.filter((x) => x.camino.includes('/message/sendText/') && x.cuerpo.includes(SA)).map((x) => (JSON.parse(x.cuerpo) as { text: string }).text);
-  const anillo = () => {
-    const f = pg.db.app_settings.find((x) => x.workspace_id === WS && x.key === 'mako.equipo.grupo');
-    return f ? (JSON.parse(String(f.value)) as Array<{ id?: string; texto: string }>).map((x) => x.id) : [];
+  const alSuperAdmin = () => red.filter((x) => x.camino.includes('/message/sendText/') && x.cuerpo.includes(SA)).length;
+  const equipo = (id: string, texto: string) => manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id, fromMe: true }, message: { conversation: `${FIRMA_DESARROLLADOR}\n${texto}` } } as never);
+  // La forma REAL de Evolution v2: `conversation` y el contextInfo (la cita) en el nivel de arriba.
+  const de = (quien: string, nombre: string, id: string, texto: string, cita?: { stanzaId: string; quotedMessage: Record<string, unknown> }) =>
+    manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id, participant: quien }, message: { conversation: texto }, ...(cita ? { contextInfo: { ...cita, participant: LINEA } } : {}), pushName: nombre } as never);
+  const paso = async (k: string, f: () => Promise<unknown>) => {
+    red.splice(0);
+    const antes = cola().length;
+    const r = await f();
+    out[k] = { r, entro: cola().length > antes, reacciones: reacciones(), superAdmin: alSuperAdmin() };
   };
 
-  // A. El equipo pregunta por la línea de MaKo: vuelve como eco, firmado.
-  out.a = await manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id: 'EQ-1', fromMe: true }, message: { conversation: PREGUNTA } } as never);
-  out.anillo = anillo();
-
-  // B. Leila le contesta CITÁNDOLO.
-  red.splice(0);
-  out.b = await manejarEntranteDoer(LINEA, {
-    key: { remoteJid: JID, id: 'LE-1', participant: LEILA },
-    message: { extendedTextMessage: { text: RESPUESTA, contextInfo: { stanzaId: 'EQ-1', participant: LEILA, quotedMessage: { conversation: PREGUNTA } } } },
-    pushName: 'Leila',
-  } as never);
-  out.bReacciones = reacciones();
-  out.bCola = cola();
-  out.bSuperAdmin = alSuperAdmin();
-
-  // C. Lo mismo, sin citar, dentro de la ventana.
-  red.splice(0);
-  out.c = await manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id: 'LE-2', participant: LEILA }, message: { conversation: RESPUESTA }, pushName: 'Leila' } as never);
-  out.cReacciones = reacciones();
-  out.cCola = cola();
-  out.cSuperAdmin = alSuperAdmin();
-
-  // D. «mako, …» después de la pregunta del equipo: es para MaKo.
-  red.splice(0);
-  out.d = await manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id: 'LE-3', participant: LEILA }, message: { conversation: 'mako, ¿cuántos leads entraron hoy?' }, pushName: 'Leila' } as never);
-  out.dCola = cola();
-
-  // E. De control: MaKo habló DESPUÉS de la pregunta del equipo; un mensaje sin nombrarla es para MaKo.
+  // 1. La pregunta del equipo, a Leila.
+  await equipo('EQ-1', 'Leila, para cargar el plan de Nadia: ¿cuántas quincenas eran y en qué moneda?');
+  // 2. OTRA persona escribe otra cosa: es para MaKo.
+  await paso('otraPersona', () => de(SOFI, 'Sofi', 'SO-1', 'Nadia arranca el lunes'));
+  // 3. Leila contesta sin citar: al equipo. La ventana se cierra.
+  await paso('respuesta', () => de(LEILA, 'Leila', 'LE-1', RESPUESTA));
+  // 4. La re-entrega del mismo mensaje: nada (ni otro aviso, ni a MaKo).
+  await paso('reentrega', () => de(LEILA, 'Leila', 'LE-1', RESPUESTA));
+  // 5. Lo siguiente de Leila, con la ventana cerrada: para MaKo.
+  await paso('despues', () => de(LEILA, 'Leila', 'LE-2', 'y Nadia arranca el lunes'));
+  // 6. Leila CITA la pregunta del equipo (forma v2, arriba): al equipo.
+  await paso('citada', () => de(LEILA, 'Leila', 'LE-3', 'Perfecto, eso mismo. Avísenme cuando esté', { stanzaId: 'EQ-1', quotedMessage: { conversation: `${FIRMA_DESARROLLADOR}\n¿cuántas quincenas eran?` } }));
+  // 7. Otra pregunta, y la respuesta que ADEMÁS pide algo: a los dos.
+  await equipo('EQ-2', 'Leila, ¿la moneda es MXN?');
+  await paso('mezclada', () => de(LEILA, 'Leila', 'LE-4', 'Son 6 quincenas en mxn. Y pásame el resumen de cobros de la semana'));
+  // 8. Un aviso del equipo sin pregunta, con un link que trae «?»: no abre ninguna ventana.
+  await equipo('EQ-3', 'Ya está: conecta Meta con Zernio desde https://hola-mako.com/integraciones?abrir=zernio&ws=11');
+  await paso('link', () => de(LEILA, 'Leila', 'LE-5', 'Si contacte Eli'));
+  // 9. El payload de Leandro con una pregunta del equipo viva: cita un AUDIO (no al equipo), es para MaKo.
+  await equipo('EQ-4', 'Leila, ¿nos confirmás si el flujo es el de pruebafm?');
+  await paso('audioCitado', () => de(LEILA, 'Leila', 'LE-6', 'No me respondiste lo de este audio', { stanzaId: 'AUD-1', quotedMessage: { audioMessage: { seconds: 94 } } }));
+  // 10. Un «gracias» con la pregunta todavía abierta: es un acuse (👍, sin turno), no una respuesta al equipo.
+  await paso('gracias', () => de(LEILA, 'Leila', 'LE-7', 'gracias'));
+  // 11. De control: MaKo habló DESPUÉS de la pregunta; un mensaje sin nombrarla es para MaKo.
   pg.db.mako_doer_conv.push({ id: ++n, workspace_id: WS, grupo_jid: JID, role: 'assistant', content: 'Hoy entraron 4 leads.', created_at: new Date(Date.now() + 1000).toISOString() });
-  red.splice(0);
-  out.e = await manejarEntranteDoer(LINEA, { key: { remoteJid: JID, id: 'LE-4', participant: LEILA }, message: { conversation: 'y cuánto llevo cobrado de Nadia?' }, pushName: 'Leila' } as never);
-  out.eCola = cola();
+  await paso('makoHablo', () => de(LEILA, 'Leila', 'LE-8', 'es el de pruebafm, sí'));
+  const anillo = pg.db.app_settings.find((x) => x.workspace_id === WS && x.key === 'mako.equipo.grupo');
+  out.anillo = anillo ? (JSON.parse(String(anillo.value)) as Array<{ id?: string; respondida?: boolean; para?: unknown }>).map((d) => ({ id: d.id, respondida: !!d.respondida, para: d.para ?? null })) : [];
   process.stdout.write(`@@EQUIPO@@${JSON.stringify(out)}\n`);
 }
 

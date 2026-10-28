@@ -83,6 +83,10 @@ test('3. F2b: los pedidos del negocio y [[ya-pedido: #N]]: al ticket de ESE nego
   assert.equal(bloqueDePedidos([], new Date(), TZ), '');
   assert.deepEqual(sacarYaPedido('Ya está pedido: #18, en curso. [[ya-pedido: #18]]', [18]), { texto: 'Ya está pedido: #18, en curso.', ids: [18] });
   assert.deepEqual(sacarYaPedido('Pedido #18. [[ya-pedido:#18]]\n[[no-existe: responder en público]]', [18]), { texto: 'Pedido #18.', ids: [18] }, 'el [[no-existe]] del mismo pedido abriría el duplicado');
+  // Con espacio o guion bajo (la verificación de 5b7a1917d): la variante también le llegaba al cliente.
+  for (const marca of ['[[ya pedido: #18]]', '[[ya_pedido: #18]]', '[[ Ya-Pedido #18 ]]']) {
+    assert.deepEqual(sacarYaPedido(`En curso. ${marca}`, [18]), { texto: 'En curso.', ids: [18] }, `«${marca}» le llega al cliente`);
+  }
   const ajeno = sacarYaPedido('Eso ya lo pediste [[ya-pedido: #99]] [[no-existe: responder comentarios]]', [18]);
   assert.deepEqual(ajeno.ids, [], 'se sumó al ticket de otro negocio o a uno cerrado');
   assert.doesNotMatch(ajeno.texto, /ya-pedido/, 'la marca le llega al cliente');
@@ -135,6 +139,7 @@ test('4. F2c: lo que hace MaKo viaja en todo turno que consulta, actúa o piensa
 //   E8 `sacarYaPedido` acepta un número que no es de un pedido abierto                   → falla el 3
 //   E9 `sumarAlPedidoDelNegocio` sin el workspace                                        → falla el 3
 //   E10 sin `CAPACIDADES_TOOLS` en las de siempre                                        → falla el 4
+//   E11 `MARCA_YA_PEDIDO` sólo con guion (`ya-pedido`)                                   → falla el 3
 
 test('5. F2c: lo que hace MaKo sale del catálogo de MaKo inteligente, compacto; Automations dice Instagram y «manychat»', () => {
   const t = funcionesParaElGrupo();

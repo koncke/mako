@@ -764,11 +764,21 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string, memoria: Memo
  * Lo que el equipo escribió en el grupo del negocio, a su anillo (lib/doer-equipo.ts). La llaman `enviarAlGrupoMaKo` y el doer
  * con el ECO de un mensaje firmado por el equipo (lo que escribe desde el panel o el teléfono, que no pasa por acá).
  */
-export async function anotarLoDelEquipo(ws: number, texto: string, id: string, ticket?: number): Promise<void> {
+export async function anotarLoDelEquipo(ws: number, texto: string, id: string, ticket?: number, para?: { jids?: string[]; nombre?: string }): Promise<void> {
   const { CLAVE_EQUIPO_EN_EL_GRUPO, conElNuevo } = await import('./doer-equipo');
   await runWithWorkspace(ws, async () => {
-    const antes = await getSetting(CLAVE_EQUIPO_EN_EL_GRUPO);
-    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conElNuevo(antes, { at: new Date().toISOString(), texto, ...(id ? { id } : {}), ...(ticket ? { ticket } : {}) })));
+    // ESTRICTA: con `getSetting`, una lectura que falla daba null y el anillo se pisaba entero (la verificación de 5b7a1917d).
+    const antes = await getSettingEstricto(CLAVE_EQUIPO_EN_EL_GRUPO);
+    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conElNuevo(antes, { at: new Date().toISOString(), texto, ...(id ? { id } : {}), ...(ticket ? { ticket } : {}), ...(para ? { para } : {}) })));
+  });
+}
+
+/** La pregunta del equipo `id` ya tiene su respuesta: su ventana se cierra (lib/doer-equipo.ts, `conLaRespondida`). */
+export async function cerrarLaPreguntaDelEquipo(ws: number, id: string): Promise<void> {
+  const { CLAVE_EQUIPO_EN_EL_GRUPO, conLaRespondida } = await import('./doer-equipo');
+  await runWithWorkspace(ws, async () => {
+    const antes = await getSettingEstricto(CLAVE_EQUIPO_EN_EL_GRUPO);
+    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conLaRespondida(antes, id)));
   });
 }
 

@@ -11710,9 +11710,21 @@ descartaba sin anotarlo. Nada distinguía una respuesta al equipo de un mensaje 
   mensaje del equipo, y una pregunta ahí callaba a Martín 6 horas en su propio grupo. La firma cuenta sólo AL PRINCIPIO
   (`esFirmaDelEquipo`) y el aviso la saca de la cita (`sinFirmaDelEquipo`).
 
-**Sin hacer:** dentro de la ventana, TODO lo que la persona escriba sin nombrar a MaKo se toma por respuesta al equipo hasta que
-MaKo hable (si contesta en tres mensajes, bien; si después le pide algo a MaKo sin nombrarla, no le contesta). Un audio sin
-citar que le contesta al equipo va a MaKo.
+⚠️ **El primer arreglo (5b7a1917d) calló a MaKo DE MÁS, y lo encontró la verificación con payloads reales:**
+- cualquier «?» abría la ventana: el de un link (`?abrir=zernio`) o el título de un ticket resuelto («¿Se puede…?»);
+- adentro de la ventana TODO texto sin «mako» callaba, de quien fuera: otra persona, otro tema, un pedido;
+- la cita en la forma REAL de Evolution v2 (`message.conversation` y el `contextInfo` en el nivel de ARRIBA) no se leía:
+  `citaDe` sólo miraba adentro del mensaje. Los tests usaban `extendedTextMessage`, que no es lo que llega.
+
+**Cómo quedó (lib/doer-equipo.ts):** pregunta = «¿» o un «?» fuera de un link; el aviso de un ticket nunca lo es salvo «el equipo
+te pregunta» (`esPreguntaDelEquipo`). La pregunta guarda a QUIÉN le habla (el nombre al principio, «Leila, …», o la @;
+`paraDelEquipo`) y la ventana vale sólo para esa persona. La cierra la PRIMERA respuesta (`respondida`). Lo que además le pide
+algo a MaKo (`pideAlgoAMaKo`, el clasificador) va a los dos. La cita se lee en todos sus lugares (`citaDelMensaje`). Una
+re-entrega no repite el aviso (`mako.equipo.respuestas`, por id). El anillo se escribe con lectura ESTRICTA: una lectura que
+falla no lo pisa.
+
+**Sin hacer:** un audio sin citar que le contesta al equipo va a MaKo. La pregunta a «todos» (sin nombre ni @) abre la ventana
+para cualquiera: la cierra la primera respuesta.
 
 ## La nota de voz CITADA no se escuchaba (28/10/2026, claude4, Leandro, ws10, en producción)
 
@@ -11723,8 +11735,20 @@ procesó el código viejo (Gemini, timeout). La cita trae el audio en `contextIn
 la guardó con `tiene_audio=false`: el turno sólo transcribía el audio del mensaje NUEVO.
 **La regla (lib/audio-citado.ts; `escucharElAudioCitado`, lib/mako-doer-in.ts):** la nota de voz citada se baja por el id de la
 cita (de la misma línea; se prueba como de otro y como propia) y se escucha por la vía de la nota de voz del grupo (Groq), en el
-mensaje suelto y en los dos lotes; su texto entra al turno. Si de verdad no se puede, el aviso honesto con su ticket
-(`avisarAudioSinEscuchar`). NUCLEO_GRUPO dice que MaKo escucha notas de voz: nunca «no puedo escuchar audios».
+mensaje suelto y en los dos lotes; su texto entra al turno. NUCLEO_GRUPO dice que MaKo escucha notas de voz: nunca «no puedo
+escuchar audios».
+
+⚠️ **El «si no se puede» obvio era el equivocado (la verificación de 5b7a1917d).** Se mandó la citada que no bajó a
+`avisarAudioSinEscuchar`, el aviso del audio que NINGUNA IA escuchó: eso arma la causa con las claves del negocio, y sin claves de
+audio dice «conecta tu GPT», deja ofrecida la ayuda, abre un ticket de CONFIGURACIÓN y corta el turno (el resto del pedido se
+tiraba). Y los lotes hacían `continue`: el mensaje entero desaparecía. Lo que pasó fue que WhatsApp no la entregó, no la IA.
+**Cómo quedó:** sin bajar, «La nota de voz que citaste no la puedo bajar de WhatsApp. ¿Me la reenvías o me la escribes?» (UNA
+vez), y el mensaje SIGUE al turno con una marca (`conLaCitaSinEscuchar`) para que el modelo no lo repita y conteste lo demás.
+
+⚠️ **La trampa del test:** el PostgREST de mentira no entendía el `or=(hasta.is.null,hasta.lt.…)` del candado del grupo
+(`reclamar`, lib/mako-doer-buffer.ts), y un error ahí es «no gané»: TODA prueba por `manejarEntranteDoer` encolaba y se iba, sin
+correr nunca el turno. Por eso ningún test vio el cartel. Con `crearPostgrest({ candado: true })` el turno corre de verdad
+(tests/_audio-citado-turno-hijo.ts: el camino suelto, con su espera de 8 s, y el lote del cron).
 
 ## Cuatro vueltas de arreglos en el grupo de WhatsApp: cada regla nueva destapó otra, y lo que las frenó fue VERIFICAR (28/10/2026, Cerebro)
 

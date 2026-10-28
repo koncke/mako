@@ -8,8 +8,11 @@
 //      y lo transcribe por la vía de la nota de voz del grupo (Groq); si Groq falla o WhatsApp no lo deja bajar, lo dice;
 //   2. la cita se lee en sus tres lugares (el mensaje, su `contextInfo`, el nivel de arriba de Evolution v2), y su texto entra
 //      al turno;
-//   3. el cableado: el mensaje suelto y los dos lotes la escuchan, y si no se pudo, el aviso honesto con su ticket (nunca «no
-//      puedo escuchar audios»); NUCLEO_GRUPO dice que MaKo escucha notas de voz.
+//   3. el cableado: el mensaje suelto y los dos lotes la escuchan, y si no se pudo, el aviso honesto (nunca «no puedo escuchar
+//      audios») y el resto del mensaje SIGUE; NUCLEO_GRUPO dice que MaKo escucha notas de voz;
+//   4. el TURNO real (tests/_audio-citado-turno-hijo.ts) cuando WhatsApp ya no entrega la citada (la verificación de 5b7a1917d:
+//      el camino suelto decía «conecta tu OpenAI», abría un ticket de configuración falso y tiraba el pedido; el lote descartaba
+//      el mensaje entero): por la entrada del grupo y por el lote del cron, el aviso honesto UNA vez y el pedido llega al modelo.
 //
 // Probado rompiéndolo (28/10/2026, una rotura por vez, restaurada): ver el pie.
 // =============================================================================
@@ -50,13 +53,34 @@ test('2. la cita se lee donde venga, y lo que dice el audio entra al turno', () 
   assert.equal(conElAudioCitado('No me respondiste lo de este audio', 'Quiero X.', 94), 'No me respondiste lo de este audio\n\n(cita una nota de voz de 94 s; la escuchaste y dice: «Quiero X.»)');
 });
 
-test('3. el cableado: el suelto y los dos lotes la escuchan; si no se pudo, el aviso honesto con ticket; MaKo escucha audios', () => {
+test('3. el cableado: el suelto y los dos lotes la escuchan; si no se pudo, el aviso honesto y el mensaje sigue; MaKo escucha audios', () => {
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   assert.equal((doer.match(/= await escucharElAudioCitado\(/g) ?? []).length, 3, 'el mensaje suelto o un lote no escucha la nota de voz citada');
-  assert.match(doer, /if \(citado && 'texto' in citado && citado\.texto\) texto = conElAudioCitado\(texto, citado\.texto, citado\.segundos\);\n\s*else if \(citado && !\('texto' in citado\)\) \{\n\s*return \{ engaged: true, reply: await avisarAudioSinEscuchar\(/);
-  assert.equal((doer.match(/else if \(citado && !\('texto' in citado\)\) \{ avisoDelAudio \?\?= await avisarElAudioDelLote\(/g) ?? []).length, 2, 'un lote calla la nota de voz citada que no se escuchó');
+  assert.match(doer, /else if \(citado\) \{\n\s*await avisarElAudioDelLote\(wsData, jid, data, citado, true\);\n\s*texto = conLaCitaSinEscuchar\(texto, 'sinAudio' in citado \? 'sin-bajar' : 'sin-escuchar'\);\n\s*\}/, 'el mensaje suelto corta el turno o no avisa');
+  assert.equal((doer.match(/else if \(citado\) \{ avisoDelAudio \?\?= await avisarElAudioDelLote\([^)]*, citado, true\); t = conLaCitaSinEscuchar\(t, 'sinAudio' in citado \? 'sin-bajar' : 'sin-escuchar'\); \}/g) ?? []).length, 2, 'un lote calla la nota de voz citada que no se escuchó');
+  assert.equal((doer.match(/else if \(citado && 'texto' in citado\) (?:texto|t) = conLaCitaSinEscuchar\((?:texto|t), 'vacia'\);/g) ?? []).length, 3, 'la citada que salió vacía se pierde');
   assert.match(doer, /notaDeVozDelGrupo: true \}\)\)\.trim\(\), segundos: c\.segundos \};/, 'la citada no va por la vía de la nota de voz del grupo');
   assert.match(NUCLEO_GRUPO, /Escuchas notas de voz: la del mensaje y la que te citan llegan transcritas\. Nunca digas que no puedes escuchar audios/);
+});
+
+test('4. el turno real, sin la citada en WhatsApp: el aviso honesto una vez y el pedido llega al modelo (suelto y lote)', () => {
+  const r = spawnSync(process.execPath, ['--import', 'tsx', '--conditions=react-server', fileURLToPath(new URL('./_audio-citado-turno-hijo.ts', import.meta.url))], { encoding: 'utf8', timeout: 280_000 });
+  const linea = (r.stdout ?? '').split('\n').find((l) => l.startsWith('@@TURNO@@'));
+  assert.ok(linea, `el hijo no contestó (status ${r.status}): ${(r.stderr ?? '').slice(-1500)}`);
+  const o = JSON.parse(linea.slice('@@TURNO@@'.length));
+  assert.equal(o.error, undefined, String(o.error));
+  const AVISO = 'La nota de voz que citaste no la puedo bajar de WhatsApp. ¿Me la reenvías o me la escribes?';
+  const MARCA = '(cita una nota de voz que no pudiste bajar de WhatsApp; ya se lo avisaste aparte: no lo repitas, contesta lo demás del mensaje)';
+  const casos = [['suelto', o.sueltoTextos, o.sueltoIA, o.sueltoTickets], ['lote', o.loteTextos, o.loteIA, o.loteTickets]] as const;
+  for (const [k, textos, alModelo, tickets] of casos) {
+    assert.deepEqual(textos, [AVISO, '¿El pago de Fabi Pedraza fue por transferencia o en efectivo?'], `${k}: lo que salió al grupo`);
+    assert.equal(alModelo.length, 1, `${k}: el pedido no llegó al modelo`);
+    assert.match(alModelo[0], /cárgame el pago de hoy de Fabi Pedraza, 423 MXN/, `${k}: el resto del pedido se tiró`);
+    assert.ok(String(alModelo[0]).includes(MARCA), `${k}: el modelo no sabe que la citada no se pudo bajar`);
+    assert.deepEqual(tickets, [], `${k}: un ticket falso`);
+  }
+  assert.deepEqual(o.sueltoAyuda, [], 'quedó ofrecida la ayuda para conectar su GPT');
+  assert.deepEqual(o.lote, { grupos: 1, procesados: 1 });
 });
 
 // ── Probado rompiéndolo (28/10/2026; cada rotura sola, restaurada después) ──────────────────────────────────────────────
@@ -65,3 +89,6 @@ test('3. el cableado: el suelto y los dos lotes la escuchan; si no se pudo, el a
 //   C3 sin `notaDeVozDelGrupo` (Gemini en la cadena)                                     → falla el 1 y el 3
 //   C4 el mensaje suelto sin escucharla                                                  → falla el 3
 //   C5 un lote calla la citada que no se escuchó                                         → falla el 3
+//   C6 el suelto vuelve a cortar con el cartel de la IA (`avisarAudioSinEscuchar`)       → falla el 3 y el 4
+//   C7 un lote vuelve a `continue` con la citada que no bajó                              → falla el 3 y el 4
+//   C8 sin la marca de la citada que no se pudo bajar (el modelo no lo sabe)              → falla el 4
