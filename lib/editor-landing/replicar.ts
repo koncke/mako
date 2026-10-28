@@ -84,9 +84,9 @@ import {
   recetaDePartes, type PartesReplica,
 } from './replicar-partes';
 import {
-  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, textoDeMolde,
+  acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
 } from './replicar-estructura';
-import { sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
+import { NOMBRE_TIPO_SECCION, sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
 import { angulosDePagina, textoDePagina } from './replicar-lectura';
 import { TEMAS } from './temas';
 
@@ -241,10 +241,16 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       return moldes.map((m, i) => acomodoDeSeccion(m, imgs[i] ?? null));
     })()
     : [];
-  const instruccionSecciones = instruccionDePartes(partes, {
-    molde: moldes ? textoDeMolde(moldes, undefined, acomodos) : undefined,
-    angulos: angulos ? textoDeAngulos(angulos, { esquema: esq, porSeccion: mismasSecciones }) : undefined,
-  });
+  // El molde, el ángulo y el acomodo de cada sección viajan CON la sección (`nota`, en su tanda): en la instrucción común
+  // (5.000 caracteres) una lista de 20 secciones no entraba. La instrucción lleva las reglas y los ángulos generales.
+  const notas = moldes
+    ? moldes.map((m, i) => {
+      const a = angulos?.secciones.find((s) => s.n === i + 1);
+      return notaDeSeccion(m, acomodos[i], a ? `${NOMBRE_TIPO_SECCION[a.tipo]}${a.angulo ? `: ${a.angulo}` : ''}` : '');
+    })
+    : null;
+  const esqTandas: Esquema = notas ? { ...esq, secciones: esq.secciones.map((s, i) => ({ ...s, nota: notas[i] })) } : esq;
+  const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined });
   // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
   const { adaptar: _adaptarDelFormato, ...delFormato } = recetaFormato;
   void _adaptarDelFormato;
@@ -272,7 +278,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
         const indices = lista[siguiente++];
         if (Date.now() - t0 + TANDA_MS > PLAZO_BLOQUES_MS) continue;
         try {
-          const r = await pedirSecciones({ esquema: esq, indices, params: receta.paramsSecciones ?? params });
+          const r = await pedirSecciones({ esquema: esqTandas, indices, params: receta.paramsSecciones ?? params });
           if (r.ok) r.tarjetas.forEach((t, k) => porIndice.set(indices[k], t));
           else console.warn(`[editor-landing/replicar] ${vuelta} tanda ${indices.join(',')} de ${url}: ${r.error}`);
         } catch (err) {

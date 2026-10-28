@@ -122,11 +122,11 @@ export function instruccionDePartes(p: PartesReplica, extra: { molde?: string; a
       ? 'REPLICAR UNA LANDING DE REFERENCIA PARA ESTE NEGOCIO. El esquema es la página de OTRO negocio.'
       : 'ARMAR UNA LANDING PARA ESTE NEGOCIO tomando cosas de una landing de referencia de OTRO negocio.',
     p.estructura
-      ? 'ESTRUCTURA (se toma): las mismas secciones, en el mismo orden y con el mismo tipo de bloque. En cada sección, la misma cantidad de títulos, subtítulos, párrafos, viñetas, botones y preguntas que la de la referencia (el MOLDE, abajo), con un largo parecido: si la referencia tiene tres tarjetas con un título y dos renglones cada una, la copia también.'
+      ? 'ESTRUCTURA (se toma): las mismas secciones, en el mismo orden y con el mismo tipo de bloque. En cada sección, la misma cantidad de títulos, subtítulos, párrafos, viñetas, botones y preguntas que la de la referencia, con un largo parecido y el mismo acomodo (si la referencia tiene tres tarjetas con un título y dos renglones cada una, la copia también; si tiene una imagen, la copia deja su hueco). Cada sección pedida trae su «Molde de la referencia».'
       : 'ESTRUCTURA (no se toma): elige las secciones y su orden para vender la oferta de ESTE negocio.',
     p.angulos
       ? (p.estructura
-        ? 'ÁNGULOS (se toman): en cada sección, el mismo ángulo que la de la referencia: el mismo dolor, el mismo deseo, la misma promesa, la misma forma de vender, la misma objeción respondida y el mismo tipo de prueba, trasladados a la oferta de ESTE negocio.'
+        ? 'ÁNGULOS (se toman): en cada sección, el mismo ángulo que la de la referencia (el de su molde): el mismo dolor, el mismo deseo, la misma promesa, la misma forma de vender, la misma objeción respondida y el mismo tipo de prueba, trasladados a la oferta de ESTE negocio.'
         : 'ÁNGULOS (se toman): usa los ángulos de comunicación de la referencia (abajo): su promesa, sus dolores, su forma de vender, las objeciones que responde y el tipo de prueba, trasladados a la oferta de ESTE negocio.')
       : (p.estructura
         ? 'ÁNGULOS (no se toman): de la referencia usa SOLO la forma. Lo que dice cada sección (los dolores, la promesa, los argumentos, las objeciones, la prueba) sale del contexto de ESTE negocio.'

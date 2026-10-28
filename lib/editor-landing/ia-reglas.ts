@@ -55,6 +55,8 @@ export const MAX_INSTRUCCIONES = 5_000;
 export const MAX_PUNTO = 300;
 export const MAX_PUNTOS = 8;
 export const MAX_TITULO_SECCION = 120;
+/** La nota de una sección del esquema (su molde y su ángulo al replicar otra página: `SeccionEsquema.nota`). */
+export const MAX_NOTA_SECCION = 400;
 /** Secciones nuevas que una edición puede agregar de una vez. */
 export const MAX_NUEVAS_POR_EDICION = 10;
 export const MAX_OPCIONES_DISENO = 3;
@@ -299,7 +301,8 @@ export function esquemaDelPedido(e: unknown): Esquema | null {
       // Topes del NODO y no del esquema generado: en «Conservar» un punto es un párrafo entero.
       const puntos = (Array.isArray(r.puntos) ? r.puntos : []).map((p) => str(p, TOPES.caracteresTexto)).filter(Boolean).slice(0, 60);
       const titulo = str(r.titulo, MAX_TITULO_SECCION);
-      return titulo || puntos.length ? { titulo, puntos } : null;
+      const nota = str(r.nota, MAX_NOTA_SECCION);
+      return titulo || puntos.length ? { titulo, puntos, ...(nota ? { nota } : {}) } : null;
     })
     .filter((s): s is SeccionEsquema => !!s)
     .slice(0, MAX_SECCIONES);
@@ -358,7 +361,8 @@ export function pedidoDeTanda(esquema: Esquema, indices: number[]): { esquema: s
     .map((i) => {
       const s = esquema.secciones[i];
       const puntos = s.puntos.length ? s.puntos.map((p) => `- ${p}`).join('\n') : '- (sin puntos: escríbela desde el título)';
-      return `[${i}] ${s.titulo}${i === 0 ? '  (es el HERO: la primera sección de la página)' : ''}${i === esquema.secciones.length - 1 ? '  (es el CIERRE: la última sección, con el llamado a la acción)' : ''}\n${puntos}`;
+      const nota = s.nota ? `\n(Molde de la referencia para esta sección: ${s.nota})` : '';
+      return `[${i}] ${s.titulo}${i === 0 ? '  (es el HERO: la primera sección de la página)' : ''}${i === esquema.secciones.length - 1 ? '  (es el CIERRE: la última sección, con el llamado a la acción)' : ''}${nota}\n${puntos}`;
     })
     .join('\n\n');
   return { esquema: `Título de la página: ${esquema.titulo}\n${mapa}`, pedidas: detalle };

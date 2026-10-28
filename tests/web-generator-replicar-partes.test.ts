@@ -19,14 +19,14 @@ import { join } from 'node:path';
 import { transformSync } from 'esbuild';
 import {
   acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, juntarHasta, moldeDeEsquema, moldeDeSeccion, nivelDeSeccion,
-  resumenDeMolde, textoDeMolde,
+  notaDeSeccion, resumenDeMolde, textoDeMolde,
 } from '../lib/editor-landing/replicar-estructura';
 import {
   PARTES_ADAPTAR, PARTES_INICIALES, PARTES_TODAS, TOPE_INSTRUCCION, alternarParte, formatoConPartes, instruccionDePartes,
   nombreDeCopia, partesDePedido, recetaDePartes,
 } from '../lib/editor-landing/replicar-partes';
 import { ANGULOS_SYSTEM_TEMPLATE, ANGULOS_USER_TEMPLATE, sanearAngulos, seccionesParaAngulos, textoDeAngulos } from '../lib/editor-landing/replicar-angulos';
-import { MAX_SECCIONES, quitarPruebaDeLaOriginal, slotsDe, tarjetaDesdeEsquema } from '../lib/editor-landing/ia-reglas';
+import { MAX_SECCIONES, esquemaDelPedido, pedidoDeTanda, quitarPruebaDeLaOriginal, slotsDe, tarjetaDesdeEsquema } from '../lib/editor-landing/ia-reglas';
 import { configDeReplica } from '../lib/editor-landing/replicar-reglas';
 
 const RAIZ = join(__dirname, '..');
@@ -59,6 +59,10 @@ const renglonesDe = (e: { secciones: { titulo: string; puntos: string[] }[] }) =
 //   R10 el acomodo sin las tarjetas ............................... 11 / 1 (2b)
 //   R11 un string sin cerrar en replicar.ts ....................... 11 / 1 (0)
 //   R12 el Diagnóstico sin «Elegir qué replicar…» ................. 11 / 1 (6)
+// Y con el 2c (base 13 / 0):
+//   R13 la tanda sin la nota ...................................... 12 / 1 (2c)
+//   R14 el saneo del pedido tira la nota .......................... 12 / 1 (2c)
+//   R15 replicar.ts manda el esquema sin notas .................... 12 / 1 (2b)
 test('1. la estructura: se corta en el nivel de sección, lo de adentro queda como subtítulo y no se pierde nada', () => {
   const texto = paginaLarga();
   const h3 = texto.split('\n').filter((l) => l.startsWith('### ')).length;
@@ -155,7 +159,26 @@ test('2b. cómo está acomodada cada sección: dónde lleva imágenes y si sus s
   const rep = fuente('lib/editor-landing/replicar.ts');
   assert.match(rep, /const usaEstilo = partes\.diseno \|\| \(partes\.estructura && !partes\.texto && recetaFormato\.formato === 'landing'\);/);
   assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
-  assert.match(rep, /molde: moldes \? textoDeMolde\(moldes, undefined, acomodos\) : undefined,/);
+  // La nota de cada sección (su ángulo, su forma y su acomodo) viaja CON la sección a su tanda.
+  assert.match(rep, /return notaDeSeccion\(m, acomodos\[i\], /);
+  assert.match(rep, /pedirSecciones\(\{ esquema: esqTandas, indices, params: receta\.paramsSecciones \?\? params \}\)/);
+});
+
+// Medido el 28/10/2026: con el molde y el ángulo de cada sección en la instrucción común (5.000 caracteres, la misma para
+// todas las tandas), gohighlevel, leadsales y kommo perdían las últimas secciones. Ahora van con cada sección.
+test('2c. la nota de cada sección viaja con ella a su tanda (y sin nota, el pedido es el de siempre)', () => {
+  const m = moldeDeSeccion({ titulo: 'Precio', puntos: ['Acceso Pro', '[BOTÓN] Comprar'] });
+  const nota = notaDeSeccion(m, 'una imagen junto al texto', 'Precio: plan con garantía');
+  assert.equal(nota, 'ángulo: Precio: plan con garantía; forma: 1 párrafo · 1 botón (~4 palabras); acomodo: una imagen junto al texto');
+  assert.ok(notaDeSeccion(m, 'x'.repeat(500)).length <= 400);
+  const esq = { titulo: 'x', secciones: [{ titulo: 'Hero', puntos: ['a'] }, { titulo: 'Precio', puntos: ['b'], nota }] };
+  const conNota = pedidoDeTanda(esq, [1]);
+  assert.match(conNota.pedidas, /^\[1\] Precio {2}\(es el CIERRE[^\n]*\n\(Molde de la referencia para esta sección: ángulo: Precio/);
+  assert.doesNotMatch(pedidoDeTanda(esq, [0]).pedidas, /Molde/, 'sin nota, como siempre');
+  // El saneo del pedido la conserva (la tanda lo pasa por `esquemaDelPedido`), con tope.
+  assert.equal(esquemaDelPedido(esq)?.secciones[1].nota, nota);
+  assert.equal(esquemaDelPedido({ titulo: 'x', secciones: [{ titulo: 'a', puntos: [], nota: 'n'.repeat(900) }] })?.secciones[0].nota?.length, 400);
+  assert.equal('nota' in (esquemaDelPedido(esq)?.secciones[0] ?? {}), false);
 });
 
 test('4. la instrucción: reglas primero, datos al final, con tope; y la receta de cada combinación', () => {

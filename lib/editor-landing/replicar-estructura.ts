@@ -193,12 +193,26 @@ export function imagenesPorSeccion(partes: readonly (readonly number[])[], image
 }
 
 /**
- * El molde de la página entera, como lo lee la IA en la tanda de secciones: una línea por sección, con su número y su
- * título (la tanda se ubica por el título), la forma, el largo y cómo está acomodada (`acomodos`, si se leyó el estilo).
- * Con tope de caracteres: va adentro de las instrucciones (`MAX_INSTRUCCIONES`, 5.000) junto con los ángulos.
+ * La NOTA de una sección para la tanda que la escribe (28/10/2026): su ángulo, su molde y su acomodo, en una línea. Viaja
+ * CON la sección (`SeccionEsquema.nota`, `pedidoDeTanda`), así cada tanda manda sólo las suyas: en la instrucción común
+ * (5.000 caracteres para todas) una lista de 20 secciones con su ángulo no entraba (medido con gohighlevel, leadsales y
+ * kommo: se perdían las últimas).
  */
-export function textoDeMolde(moldes: readonly MoldeSeccion[], tope = 1_600, acomodos: readonly string[] = []): string {
-  const lineas = moldes.map((m, i) => `${i + 1}. «${m.titulo.slice(0, 50)}»: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)${acomodos[i] ? `; ${acomodos[i]}` : ''}`);
+export function notaDeSeccion(m: MoldeSeccion, acomodo = '', angulo = ''): string {
+  const t = [angulo ? `ángulo: ${angulo}` : '', `forma: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)`, acomodo ? `acomodo: ${acomodo}` : '']
+    .filter(Boolean).join('; ');
+  return t.length > 400 ? `${t.slice(0, 399)}…` : t;
+}
+
+/**
+ * El molde de la página entera, como lo lee la IA en la tanda de secciones: UNA línea por sección, con su número y su
+ * título (la tanda se ubica por el título), su ángulo (`angulos`, «Precio: plan con garantía»), la forma, el largo y cómo
+ * está acomodada (`acomodos`, si se leyó el estilo). Va adentro de las instrucciones (`MAX_INSTRUCCIONES`, 5.000) junto con
+ * los ángulos generales: el tope lo pone quien llama con lo que sobra (medido el 28/10: con un tope fijo de 1.600 y el
+ * ángulo de cada sección en otra lista, gohighlevel, leadsales y kommo perdían las últimas secciones de las DOS listas).
+ */
+export function textoDeMolde(moldes: readonly MoldeSeccion[], tope = 1_600, acomodos: readonly string[] = [], angulos: readonly string[] = []): string {
+  const lineas = moldes.map((m, i) => `${i + 1}. «${m.titulo.slice(0, 45)}»${angulos[i] ? ` [${angulos[i]}]` : ''}: ${resumenDeMolde(m) || 'sólo el título'} (~${m.palabras} palabras)${acomodos[i] ? `; ${acomodos[i]}` : ''}`);
   const out: string[] = [];
   let largo = 0;
   for (const l of lineas) {

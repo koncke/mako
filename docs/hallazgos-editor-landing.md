@@ -3371,6 +3371,14 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
   «imagen de fondo», «6 imágenes (galería o logos)» o «3 tarjetas con su subtítulo» (`acomodoDeSeccion`). Va al final
   de cada línea del molde. Sin el diseño, el estilo se lee igual, pero SÓLO para eso: nada de él pasa a la copia
   (`const estilo = partes.diseno ? estiloLeido : null`), y la IA deja el hueco de la imagen donde la otra tenía una.
+- **El molde no entraba en la instrucción.** La instrucción es UNA para todas las tandas, con tope de 5.000 caracteres.
+  Medido con ángulos de largo real: con 16 a 20 secciones (gohighlevel, leadsales, kommo) se cortaban las últimas líneas
+  del molde y del ángulo de cada sección. **Regla:** lo que es de UNA sección viaja CON la sección. `SeccionEsquema.nota`
+  (opcional, ≤ 400) lleva su ángulo, su forma y su acomodo, y `pedidoDeTanda` la escribe junto a su título. Así cada
+  tanda manda sólo las suyas. Sin nota, el pedido es el de siempre (todos los demás usos del editor).
+- **Otro tope que corta callado:** `esquemaDelPedido` deja 60 renglones por sección (`slice(0, 60)`), y la tanda pasa
+  por ahí. Ninguna sección de las cinco medidas pasa de 46. Pero `juntarHasta` puede armar una más larga al juntar
+  vecinas en una página de muchas secciones: ahí la IA no vería el final de esa sección (el respaldo sí).
 - **El Diagnóstico de una de afuera copiaba todo directo** (el menú «Replicar» con los tres formatos). Ahora el menú
   arranca con «Elegir qué replicar…», que abre «Replicar landing» con esa página: la lee y pregunta las partes. Los
   formatos directos quedan como «copia completa».
