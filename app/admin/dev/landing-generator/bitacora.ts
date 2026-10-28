@@ -1592,4 +1592,29 @@ export const BITACORA: Hito[] = [
     ],
     revisar: '/web-generator?panel=1',
   },
+  {
+    fecha: '28 oct', hora: '11:51', chat: 'Web Generator: replicar landings', sesion: 'local_1dd40ee7-c2c9-403e-8b3d-ad1dd87b505c', cuenta: 'claude4',
+    actor: 'claude', tipo: 'implementacion',
+    titulo: 'Replicar hace primero la copia idéntica: el mismo diseño y el mismo texto, editable por sección',
+    pedido: '«Ahi revise la replica, esta horriblemente mal, no solo el diseño no se parece en nada, sino que tampoco los copy, no tiene sentido... Enfocate primero en replicar tal cual, tanto en diseño como copy y luego vemos de personalizarlo»',
+    puntos: [
+      'Replicar copia la página tal cual: el mismo diseño, el mismo texto palabra por palabra y en su idioma, con sus imágenes, sus íconos, sus fuentes y sus colores.',
+      'La copia se edita por sección, como las páginas de MaKo: el texto, las imágenes y los enlaces se tocan a la vista.',
+      'Mientras copia la ves armarse sección por sección, y al terminar se abre en el editor.',
+      'La misma copia se ve como la original en la computadora y en el teléfono.',
+      'Lo que la página hace con su programación queda quieto: un carrusel en su primera vista, un formulario que se ve pero no envía.',
+      'Con tus 5 landings: respond.io, masterads y closermood salen con el mismo alto que la original en la computadora y en el teléfono; reportei con el 100 % de su texto y holo con el 99 %.',
+    ],
+    commits: [
+      { sha: 'c592e5858', msg: 'Replicar: primero la copia idéntica (la foto de la página ya armada, editable por sección)', lineas: 1606, archivos: 26 },
+    ],
+    archivos: [
+      'lib/editor-landing/copia-identica-script.ts — la foto de la página, desde adentro (la corre el lector)',
+      'lib/editor-landing/copia-identica.ts — la hoja podada, las secciones y sus envoltorios',
+      'lib/editor-landing/replicar.ts — replicarIdentica; app/web-generator/crear/Replicar.tsx — arranca en la copia idéntica',
+      'lib/editor-landing/render.ts, html-editable.ts — los envoltorios una vez, y la copia sin la base de Tailwind',
+      'tests/web-generator-copia-identica.test.ts — probado rompiéndolo',
+    ],
+    revisar: '/web-generator?panel=1',
+  },
 ];
