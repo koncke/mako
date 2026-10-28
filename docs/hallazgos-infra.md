@@ -51,12 +51,16 @@ respaldo de tipos del push y antes-de-subir comparten un lock por máquina (`os.
 cae sigue vivo comiendo RAM.
 
 **La red:**
-- `scripts/tsc-acotado.mjs` toma el MISMO lock: espera su turno hasta 20 min (después corre igual y lo dice) y saca el lock
+- `scripts/tsc-acotado.mjs` toma el MISMO lock: espera su turno hasta 30 min (después NO corre: sale con 99) y saca el lock
   de un proceso muerto. Con `MAKO_TURNO_TOMADO=1` no se espera a sí mismo.
 - Mientras eso no llega a cada worktree (los chats corren el script de SU rama), `C:/dev/con-turno.mjs` envuelve cualquier
   comando pesado con el mismo lock: `node C:/dev/con-turno.mjs node scripts/tsc-acotado.mjs …` o `… tests-afectados.mjs …`.
+- **«Correr igual» después de esperar es otra estampida (19:15, el mismo día):** un test colgado sin timeout retuvo el turno
+  y siete trabajos de cinco chats iban a arrancar juntos a los 30 min. Sin turno, ninguno corre (99); el que tiene el turno
+  se corta a los 60 min con su árbol entero (`taskkill /T`: en Windows `kill()` deja vivos a los nietos).
 - Después de una caída, antes de retomar nada, se cortan los node huérfanos y los duplicados (`Get-CimInstance
   Win32_Process` con su padre: un padre que no existe es un huérfano).
+
 ---
 
 ## La pausa del Cerebro, por archivo: pedida por mensaje no frenaba a nadie (28/10/2026)
