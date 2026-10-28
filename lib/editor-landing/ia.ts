@@ -64,6 +64,7 @@ import { REGLAS_DIAPOSITIVAS_ESQUEMA, REGLAS_DIAPOSITIVAS_SECCIONES, REGLAS_DIAP
 import { adjuntosDelPedido, contextoConAdjuntos } from './adjuntos';
 import { REGLA_NO_EXISTE } from '../no-existe';
 import { conPedidoDeNoExisteDeLaSesion } from '../no-existe-server';
+import { esquemaDeReplica } from './replicar-estructura';
 
 /**
  * T3 (tanda 2): ¿el pedido es para una PRESENTACIÓN? Se lee del pedido CRUDO porque
@@ -222,7 +223,11 @@ function esTarjeta(n: unknown): n is JsonNodo {
  * con JavaScript o que no deja leerse a nuestro servidor. Llega del navegador sin forma confiable: la
  * sanea `sanearLectura`.
  */
-export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion> };
+/**
+ * `corte: 'pagina'` (28/10/2026): un texto pegado que es una PÁGINA (el de una réplica) se corta con `esquemaDeReplica`, como
+ * la lectura que vio la persona; sin él, «Pegar texto» corta como siempre.
+ */
+export type PedidoEsquema = { modo: 'generar' | 'pegar' | 'importar'; prompt?: string; texto?: string; url?: string; lectura?: unknown; params?: Partial<ParamsGeneracion>; corte?: 'pagina' };
 
 /**
  * El esquema de la landing. Tres puertas, como la pantalla de crear de Gamma:
@@ -282,9 +287,11 @@ export async function esquema(p: PedidoEsquema): Promise<ResultadoIA<{ esquema: 
     return invalido('Modo desconocido.');
   }
 
-  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra.
+  // «Conservar»: el texto de la persona ES el esquema, palabra por palabra. Una página LEÍDA se corta en su nivel de
+  // sección y sin tope que tire texto (`esquemaDeReplica`, 28/10/2026: con `esquemaConservado` una landing de 33 títulos
+  // perdía las 13 últimas secciones); lo pegado, como siempre.
   if (p.modo !== 'generar' && params.modoTexto === 'conservar') {
-    const e = esquemaConservado(texto, tituloFallback);
+    const e = p.modo === 'importar' || p.corte === 'pagina' ? esquemaDeReplica(texto, tituloFallback) : esquemaConservado(texto, tituloFallback);
     if (!e.secciones.length) return invalido('No encontré secciones en el texto.');
     await marcarGenerar();
     return { ok: true, esquema: e };

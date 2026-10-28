@@ -384,14 +384,18 @@ test('el lector: lee el estilo antes de tocar nada y lo manda; MaKo lo sanea y l
 
 test('replicar.ts: el estilo en paralelo, el tema propio reusado, las imágenes al bucket; la copia fiel no cambia', () => {
   const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
-  assert.match(rep, /const leido = estiloDeLectura\(entrada\.lectura\);/);
+  // 28/10/2026 (replicar por partes): el estilo se lee con el diseño, o con la estructura escrita de nuevo (sólo para el
+  // acomodo de cada sección); el tema y las imágenes, SÓLO con el diseño.
+  assert.match(rep, /const leido = usaEstilo \? estiloDeLectura\(entrada\.lectura\) : null;/);
   assert.match(rep, /leido \? Promise\.resolve\(leido\) : estiloDeLaPagina\(url\)/, 'sin lectura, el HTML que baja el server');
-  assert.match(rep, /const tema = await temaParaLaCopia\(estilo, url\);/);
+  assert.match(rep, /const tema = partes\.diseno \? await temaParaLaCopia\(estilo, url\) : /);
+  assert.match(rep, /const estilo = partes\.diseno \? estiloLeido : null;/);
   assert.match(rep, /tema: `ws:\$\{tema\.tema\.id\}`/, 'la landing nace con el tema propio');
   assert.match(rep, /\.find\(\(t\) => t\.id === tema\.id\);\s*if \(ya\) return \{ ok: true, tema: ya \};/, 'el mismo estilo replicado otra vez pisaría el tema que la persona cambió');
   // «Replicar y adaptar» (6da648600, 27/10/2026): la adaptada conserva el estilo de la original (el estilo no mira
-  // `adaptar`) y sólo cambia el nombre: ya no es la de la original, no lleva su título.
-  assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(receta\.adaptar \? `Adaptada de \$\{hostDe\(url\)\}` : esq\.titulo, contenido, config\)/);
+  // `adaptar`) y sólo cambia el nombre: ya no es la de la original, no lleva su título. Desde el 28/10 el nombre lo decide
+  // `nombreDeCopia` por las partes («Adaptada de …» con diseño y estructura; «Basada en …»; el título con el texto).
+  assert.match(rep, /const puesto = estilo \? aplicarEstilo\(tarjetas, asig, estilo, subidas, \{ fondoTema \}\)[\s\S]*crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
   const fiel = rep.slice(rep.indexOf('async function replicarFiel'), rep.indexOf('async function replicarComoBloques'));
   assert.doesNotMatch(fiel, /estilo|subirImagenes|temaParaLaCopia/, 'la Página web es la copia fiel: no cambia');
   const srv = sinComentarios(leer('lib/editor-landing/estilo-server.ts'));

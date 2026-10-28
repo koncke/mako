@@ -264,7 +264,11 @@ export type ParamsGeneracion = {
   formato?: FormatoDoc;
 };
 
-export type SeccionEsquema = { titulo: string; puntos: string[] };
+/**
+ * `nota` (28/10/2026, replicar por partes): lo que la IA tiene que respetar de ESTA sección cuando se replica otra página
+ * (su molde, su ángulo y su acomodo). Viaja con la sección en su tanda (`pedidoDeTanda`); sin ella, todo como siempre.
+ */
+export type SeccionEsquema = { titulo: string; puntos: string[]; nota?: string };
 export type Esquema = { titulo: string; secciones: SeccionEsquema[] };
 
 export const ACCIONES_TEXTO = ['mejorar', 'corregir', 'acortar', 'ampliar', 'simplificar', 'especifico', 'tono', 'traducir', 'continuar'] as const;
