@@ -152,12 +152,23 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     `buscar_leads`, `cobranza_lead` y las dos de edición. Las dos de edición mueven plata: piden un «sí» solo.
   · Lo de la app (la ficha en «Editar», las señales de cobros del clasificador) es de MaKo inteligente.
 
+**El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
+levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09fa3c3, lib/no-pude*.ts).
+- **⚠️ «La regla ya está en todo chat de MaKo» no incluía al grupo.** `REGLA_NO_EXISTE`, que lleva la de `[[no-pude]]`, no
+  estaba en el system del doer: el modelo no podía marcar nada. Ahora va con las herramientas del turno; un turno sin tools
+  no puede oír hablar de ellas (`DOER_WA_VOZ`).
+- **`levantar_ticket` viaja SIEMPRE en el grupo** (`toolsDeSiempre`). Por eso, con el interruptor en «abre», también cambió su
+  descripción: es para cuando la persona lo pide, y lo que falla sale solo.
+- **Cada cartel deja su ticket por su `cartel`, no por el texto** (`causaDelCartel`):
+  · la configuración y el proveedor van UNO por negocio, con «(ticket #n)» pegado al aviso, y se cierran solos;
+  · lo nuestro (`fallo_nuestro`, «ningún proveedor», la respuesta bloqueada) va por la huella global, con su línea.
+- Los errores de las herramientas se registran aunque el modelo haya propuesto un ticket (sin `!ticketPropuesto`).
+
 **Sin hacer:**
-- **El ticket automático de una falla en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude
-  hacer" debe levantar automáticamente un ticket»). Hoy P3 lo PROPONE.
-  · El cambio es un solo lugar: `TICKET_DE_LA_FALLA` (lib/doer-falla.ts) de «propone» a «abre».
-  · Va recién con el enganche que arma MaKo inteligente (`conTicketsDeMaKo`, después del saneo). Sin él, la falla queda sin
-    ticket. El test 7 de tests/doer-falla.test.ts lo frena.
+- **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
+- **La guía de conexión** (lib/doer-ayuda.ts, `proponerTicket`) todavía PROPONE su ticket cuando la guía no alcanza.
+- **La guarda de voseo, roja por la base:** `ES_REGLA` de lib/no-pude.ts nombra «confirmalo», «confirmala» y «tenes». Es de
+  MaKo inteligente: se arregla allá y se vuelve a mergear.
 - **MK-06, agendar y reprogramar contra una agenda real.** `scripts/probar-agendar-ws3.mts` está listo y corre en seco.
   Con `--si` escribe en producción (las pendientes y el Google del ws3), así que espera el sí de Martín. No se sabe si el ws3
   tiene Google conectado: si no lo tiene, el script sale con 3. El mensaje a Joan está redactado y no se mandó.

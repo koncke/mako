@@ -9,7 +9,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueDeLaFalla, clavesQueFallan, conLaCorreccion, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaCorreccion, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
+import { sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import type { VeredictoIntencion } from '../lib/mako-intencion';
 
@@ -33,7 +34,8 @@ test('2. la causa: su IA que viene fallando se dice primero; la que falló y des
   assert.deepEqual(clavesQueFallan([claude, gpt]).map((e) => e.proveedor), ['anthropic']);
   const b = bloqueDeLaFalla([claude, gpt], AHORA);
   assert.match(b, /^LA PERSONA TE CUENTA QUE ALGO NO ANDA\./);
-  assert.match(b, /propón levantar un ticket con levantar_ticket/);
+  // Desde el 27/10/2026 el ticket se abre solo (`TICKET_DE_LA_FALLA`): la nota pide la marca, no proponerlo (test 7).
+  assert.match(b, /termina tu respuesta con una línea aparte, exactamente así: \[\[no-pude: lo que no anda, en una frase\]\]/);
   assert.match(b, /LO QUE YA SABES: tu Claude viene fallando \(hace 3 h: «credit balance is too low»\)\. Si lo que no anda depende de su IA, ÉSA es la causa/);
   assert.doesNotMatch(b, /tu GPT/);
   // Sin nada que falle, o sin poder leerlo, no se afirma ninguna causa.
@@ -87,11 +89,42 @@ test('6. la corrección se lee como ACTUAR en cobros y CRM, con foto o sin ella;
   assert.match(doer, /const delTurno = corrigeUnMonto\(sinPrefijoDeLote\(texto\)\)\n\s*\? \[\.\.\.turno\.tools, \.\.\.CORRECCION_TOOLS\.filter\(\(c\) => !turno\.tools\.some\(\(t\) => t\.name === c\.name\)\)\]\n\s*: turno\.tools;/);
 });
 
-test('7. el ticket de la falla: «propone» hoy; con «abre», la nota no pide proponerlo ni un «sí»', () => {
-  assert.equal(TICKET_DE_LA_FALLA, 'propone', 'pasó a «abre» sin el enganche de MaKo inteligente: la falla queda sin ticket');
-  const abre = bloqueDeLaFalla(null, AHORA, 'abre');
+test('7. el ticket de la falla se ABRE solo (Martín, 27/10): la nota pide la marca, y nunca proponerlo ni un «sí»', () => {
+  assert.equal(TICKET_DE_LA_FALLA, 'abre');
+  const abre = bloqueDeLaFalla(null, AHORA);
   assert.match(abre, /^LA PERSONA TE CUENTA QUE ALGO NO ANDA\./);
-  assert.match(abre, /no propongas un ticket: lo abre el código/);
+  assert.match(abre, /\[\[no-pude: lo que no anda, en una frase\]\]/);
+  // La marca de la nota es la que saca la base (lib/no-pude.ts): si cambia una, la otra deja de abrir el ticket.
+  assert.equal(sacarNoPude('No anda el análisis de Fathom.\n[[no-pude: lo que no anda, en una frase]]').noPudo, 'lo que no anda, en una frase');
+  assert.match(abre, /no propongas un ticket, no pidas un «sí» y no digas que lo reportaste/);
   assert.doesNotMatch(abre, /levantar_ticket|queda propuesto/);
-  assert.match(bloqueDeLaFalla(null, AHORA), /propón levantar un ticket con levantar_ticket/);
+  // El otro modo sigue escrito, por si hay que volver.
+  assert.match(bloqueDeLaFalla(null, AHORA, 'propone'), /propón levantar un ticket con levantar_ticket/);
+});
+
+test('8. los carteles del grupo dejan su ticket por su `cartel`: del negocio pegado al aviso, el nuestro en su párrafo', () => {
+  for (const c of ['sin_keys', 'sin_cuota', 'sin_red_por_datos']) assert.equal(causaDelCartel(c), 'configuracion', c);
+  for (const c of ['proveedor_caido', 'ia_lenta', 'sin_respaldo']) assert.equal(causaDelCartel(c), 'proveedor', c);
+  for (const c of ['fallo_nuestro', 'mensaje_muy_largo']) assert.equal(causaDelCartel(c), 'nuestro', c);
+  assert.equal(causaDelCartel('otra_cosa'), null);
+  assert.equal(conLaLineaDelTicket('Tu IA no tiene crédito.', '(ticket #31)', 'configuracion'), 'Tu IA no tiene crédito. (ticket #31)');
+  assert.equal(conLaLineaDelTicket('No pude contestarte.', 'Quedó el ticket #32 para el equipo de MaKo.', 'nuestro'), 'No pude contestarte.\n\nQuedó el ticket #32 para el equipo de MaKo.');
+  assert.equal(conLaLineaDelTicket('No pude contestarte.', null, 'nuestro'), 'No pude contestarte.');
+});
+
+test('9. el doer engancha la base: las marcas después del saneo, los cuatro carteles, el cierre solo y la regla en el system', () => {
+  const doer = leer('lib/mako-doer-in.ts');
+  const iSaneo = doer.indexOf('const saneo = sanearSalida(');
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, {}, dondeDelGrupo(texto), {});');
+  assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
+  assert.match(doer.slice(iMarcas - 200, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
+  assert.match(doer.slice(iMarcas, iMarcas + 200), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
+  // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
+  assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
+  assert.match(doer, /respuesta = conLaLineaDelTicket\(respuesta, await lineaDelCartel\(cartel, dondeDelGrupo\(texto\), errsIA\.join\(' · '\), 'responder'\), causaDelCartel\(cartel\)\);/);
+  assert.equal((doer.match(/await lineaDelCartel\('fallo_nuestro', dondeDelGrupo\(texto\)/g) ?? []).length, 2, 'falta el ticket de «ningún proveedor» o de la bloqueada');
+  assert.match(doer, /if \(respuesta && !avisoDeSistema\) await Promise\.all\(\[cerrarSiVolvio\(wsData, 'proveedor'\), cerrarSiVolvio\(wsData, 'configuracion'\)\]\);/);
+  assert.match(doer, /const reglaDeLasMarcas = tools\.length \? `\\n\\n\$\{REGLA_NO_EXISTE\}` : '';/);
+  // `levantar_ticket` es para cuando la persona lo pide: lo que falla sale solo.
+  assert.match(leer('lib/api-mako/areas/tickets.def.ts'), /Úsala SÓLO cuando la persona lo pide/);
 });

@@ -22,13 +22,34 @@ import { corrigeUnMonto } from './doer-falla-frases';
 export { reportaFalla, pideVerAgenda, corrigeUnMonto } from './doer-falla-frases';
 
 /**
- * EL TICKET DE UNA FALLA EN EL GRUPO: «propone» (hoy: viaja `levantar_ticket` y queda esperando el «sí») o «abre» (la regla
- * de Martín del 27/10/2026: «siempre que MaKo responda "No lo pude hacer" debe levantar automáticamente un ticket»). Con
- * «abre», `levantar_ticket` no viaja por la falla y la nota le dice al modelo que el ticket y su línea los pone el código.
- * ⚠️ Pasa a «abre» recién con el enganche que arma MaKo inteligente (la marca con su causa, el dedupe y el tope propio, en
- * `conTicketsDeMaKo`, después del saneo en lib/mako-doer-in.ts): sin él, «abre» deja la falla SIN ticket. Es el único lugar.
+ * EL TICKET DE UNA FALLA EN EL GRUPO: «propone» (viaja `levantar_ticket` y queda esperando el «sí») o «abre» (la regla de
+ * Martín del 27/10/2026: «siempre que MaKo responda "No lo pude hacer" debe levantar automáticamente un ticket»). Con «abre»,
+ * `levantar_ticket` no viaja por la falla, y la nota le pide al modelo la marca `[[no-pude: …]]`: el ticket y su línea los
+ * pone el código (`conTicketsDeMaKo`, lib/no-pude-server.ts, después del saneo en lib/mako-doer-in.ts). Es el único lugar.
  */
-export const TICKET_DE_LA_FALLA: 'propone' | 'abre' = 'propone';
+export const TICKET_DE_LA_FALLA: 'propone' | 'abre' = 'abre';
+
+/** De dónde sale el ticket de un CARTEL del grupo: del negocio (uno por negocio y causa, se cierra solo), o NUESTRO (la huella
+ *  global de lib/errores-app.ts, que avisa al grupo cuando se arregla). */
+export type CausaDelCartel = 'configuracion' | 'proveedor' | 'nuestro';
+
+/**
+ * La causa del ticket de un cartel, por su `cartel` (lib/fallo-ia-texto.ts) y no por el texto (la revisión del Cerebro):
+ * le falta algo SUYO (su IA, su cupo, la red cortada por datos) → configuración; la IA no contestó (caída, lenta, sin una
+ * segunda clave) → proveedor; lo hicimos mal nosotros (descartamos lo que contestó, el mensaje no entra) → nuestro.
+ */
+export function causaDelCartel(cartel: string): CausaDelCartel | null {
+  if (cartel === 'sin_keys' || cartel === 'sin_cuota' || cartel === 'sin_red_por_datos') return 'configuracion';
+  if (cartel === 'proveedor_caido' || cartel === 'ia_lenta' || cartel === 'sin_respaldo') return 'proveedor';
+  if (cartel === 'fallo_nuestro' || cartel === 'mensaje_muy_largo') return 'nuestro';
+  return null;
+}
+
+/** El cartel con la línea del ticket: la del negocio («(ticket #n)») pegada al aviso; la nuestra, en su propio párrafo. */
+export function conLaLineaDelTicket(aviso: string, linea: string | null, causa: CausaDelCartel | null): string {
+  if (!linea) return aviso;
+  return causa === 'nuestro' ? `${aviso}\n\n${linea}` : `${aviso} ${linea}`;
+}
 
 /** Lo que trae una corrección de monto: encontrar el lead y su cobranza, y PROPONER el cambio. Mueven plata (D2): en el
  *  grupo se confirman con un «sí» solo (lib/confirmacion-pura.ts). */
@@ -68,7 +89,7 @@ export function bloqueDeLaFalla(estados: readonly EstadoSuClave[] | null | undef
     ? `\nLO QUE YA SABES: ${fallan.map((e) => `${NOMBRE[e.proveedor]} viene fallando (${hace(e.fallo!.at, ahora)}: «${e.fallo!.motivo}»)`).join('; ')}. Si lo que no anda depende de su IA, ÉSA es la causa: dila primero, con el link para arreglarla, y no inventes otra («puede deberse a la grabación»).`
     : '';
   const elTicket = ticket === 'abre'
-    ? 'no propongas un ticket: lo abre el código, y la línea con su número también la escribe el código. No pidas un «sí» ni digas que lo reportaste.'
+    ? 'termina tu respuesta con una línea aparte, exactamente así: [[no-pude: lo que no anda, en una frase]]. El ticket lo abre el sistema solo y la línea con su número la escribe el código: no propongas un ticket, no pidas un «sí» y no digas que lo reportaste.'
     : 'propón levantar un ticket con levantar_ticket, con lo que pasó y cuántas veces lo intentó; queda propuesto hasta su «sí».';
   return `LA PERSONA TE CUENTA QUE ALGO NO ANDA. Si es una falla de MaKo (no de un lead ni de un tercero): no contestes como un manual de soporte. Di qué sabes de la causa, y ${elTicket}${causa}`;
 }

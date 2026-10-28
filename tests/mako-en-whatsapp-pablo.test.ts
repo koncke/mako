@@ -27,7 +27,8 @@ import { pathToFileURL } from 'node:url';
 import { clasificarIntencion, makoPidioDatos, esPedidoDeAgenda, makoPreguntoAlgo } from '../lib/mako-intencion';
 import { herramientasDelTurno } from '../lib/doer-herramientas';
 import { promesasDe, groseriasDe, sanearSalida, SIN_HACER, SIN_HACER_LO_DEMAS } from '../lib/doer-salida';
-import { actorDeWhatsApp, LINEA_ERROR_AVISADO } from '../lib/doer-ticket';
+import { actorDeWhatsApp } from '../lib/doer-ticket';
+import { lineaDelTicket, LINEA_YA_AVISADO } from '../lib/no-pude';
 import type { Vista } from '../lib/api-mako/registro';
 
 const RAIZ = join(__dirname, '..');
@@ -194,9 +195,10 @@ test('el ticket sabe QUIÉN escribió en el grupo: el teléfono, o el nombre si 
   // Un @lid es el identificador anónimo de WhatsApp: NO es un teléfono.
   assert.equal(actorDeWhatsApp('118288712345678@lid', 'Joan Pérez'), 'whatsapp:Joan Pérez');
   assert.equal(actorDeWhatsApp(undefined, undefined), undefined);
-  // La línea que agrega el código dice lo que YA pasó (el error quedó registrado): no es una promesa, y el saneo y el
-  // vigía no la marcan. La de la app («te aviso por aquí cuando esté arreglado») sí lo sería.
-  assert.deepEqual(promesasDe(LINEA_ERROR_AVISADO), []);
+  // La línea que agrega el código dice lo que YA pasó (el ticket quedó, o ya estaba): no es una promesa, y el saneo y el
+  // vigía no la marcan. La de la app («te aviso por aquí cuando esté arreglado») sí lo sería. Desde el 27/10/2026, las de
+  // lib/no-pude.ts, las mismas en todos los chats.
+  for (const l of [lineaDelTicket(12), LINEA_YA_AVISADO]) assert.deepEqual(promesasDe(l), [], l);
   assert.ok(promesasDe('Le avisé al equipo de MaKo: te aviso por aquí cuando esté arreglado.').length > 0, 'la línea de la app no se ve como promesa: el detector se ablandó');
   // Y la promesa que reemplazaría a esa pregunta sí se ve.
   assert.ok(promesasDe('Ya le aviso al equipo de MaKo y te lo arreglo.').length > 0, '«ya le aviso… te lo arreglo» no se ve como promesa');
@@ -215,16 +217,17 @@ test('el doer le pasa al ticket quién escribe y el contexto, y si algo falló l
   assert.match(doer, /const toolsDeSiempre = \[\.\.\.MAKO_TOOLS, \.\.\.MAKO_ACCION_TOOLS, \.\.\.TICKET_TOOLS\];/);
   const rt = doer.slice(doer.indexOf('const runTool = async'), doer.indexOf('const nuevoIntento'));
   assert.match(rt, /errorParaTicket\(name, out\)/, 'las fallas de las herramientas no se registran para el ticket');
-  // Si algo falló y el modelo no levantó el ticket, el código REGISTRA la falla (Martín: «todo lo solucionás
-  // automáticamente»), con quién escribió, y a la persona se le dice sólo si entró como ticket.
-  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto'), doer.indexOf('const nPuntos'));
+  // Si algo falló, el código REGISTRA la falla (Martín: «todo lo solucionás automáticamente»), con quién escribió, y a la
+  // persona se le dice sólo si entró como ticket. Desde el 27/10/2026 aunque el modelo haya propuesto un ticket.
+  const prop = doer.slice(doer.indexOf('if (erroresDelTurno.length) {'), doer.indexOf('const nPuntos'));
+  assert.doesNotMatch(doer, /ticketPropuesto/, 'volvió `!ticketPropuesto`: la falla depende otra vez de que el modelo no proponga');
   assert.match(prop, /registrarError\(\{ origen: 'mako', nombre: e\.herramienta, mensaje: e\.error \}, quien\)/, 'si algo falló, no se registra solo');
   assert.match(prop, /identidadDelActor\(wsData, ctxApi\.actor\)/, 'la falla se registra sin quién escribió: el aviso de arreglado no sabe a qué grupo ir');
   assert.match(prop, /reg\.ok && reg\.ticketId/, 'a la persona se le dice que el equipo lo sabe aunque no haya entrado (el ruido de la IA)');
-  assert.match(prop, /LINEA_ERROR_AVISADO/, 'la falla se registra y nadie le dice a la persona');
+  assert.match(prop, /reg\.nuevo \? lineaDelTicket\(reg\.ticketId\) : LINEA_YA_AVISADO/, 'la falla se registra y nadie le dice a la persona');
   assert.doesNotMatch(prop, /runRegistro\(LEVANTAR_TICKET/, 'volvió a PREGUNTARLE a la persona en vez de registrarlo solo');
   // Y va DESPUÉS del saneo: la línea es del código, no del modelo.
-  assert.ok(doer.indexOf('if (erroresDelTurno.length && !ticketPropuesto') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
+  assert.ok(doer.indexOf('if (erroresDelTurno.length) {') > doer.indexOf('const saneo = sanearSalida('), 'la línea del ticket quedó antes del saneo');
 });
 
 // --- 2. Lo que sale ------------------------------------------------------------------------------

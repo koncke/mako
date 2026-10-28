@@ -33,7 +33,10 @@ import { avisoDePuntos, puntosDelMensaje } from '@/lib/puntos-mensaje';
 import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/mako-doer-acciones';
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
-import { actorDeWhatsApp, telefonoDelParticipante, LINEA_ERROR_AVISADO } from '@/lib/doer-ticket';
+import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
+import { lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
+import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude } from '@/lib/no-pude-server';
+import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
 import { armarPrompt, esperaDelTurno, pcUsable, RESERVA_RESPALDO_MS } from '@/lib/ia-pc-reglas';
 import { registrarError } from '@/lib/errores-app';
@@ -46,7 +49,7 @@ import type { Ctx as CtxApi } from '@/lib/api-mako/tipos';
 import { accionesDelGrupo, pendientesVigentes } from '@/lib/mako-pendientes';
 import { guardarTurno, historialGrupo, memoriaDelGrupo } from '@/lib/mako-doer-conv';
 import { bloqueQuienEscribe, mencionesDe, noEsParaMaKo, quienesMencionados, type Mencionados } from '@/lib/doer-para-quien';
-import { bloqueDeLaFalla, conLaCorreccion, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
+import { bloqueDeLaFalla, causaDelCartel, conLaCorreccion, conLaLineaDelTicket, corrigeUnMonto, HERRAMIENTAS_CORRECCION, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '@/lib/doer-falla';
 import { pinDelDoer } from '@/lib/doer-modelo';
 import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
@@ -473,6 +476,30 @@ function ctxDeLaAyuda(ws: number, jid: string, texto: string, actor: string | un
  * Propone el ticket por el registro (`levantar_ticket`), para que el «sí» del mensaje siguiente lo confirme. Devuelve el id
  * de la pendiente, o null si no entró (sin identidad, la base no contestó): entonces no se ofrece un «sí» que no confirma nada.
  */
+/**
+ * LA LÍNEA DEL TICKET DE UN CARTEL (27/10/2026, Martín: «siempre que MaKo responda "No lo pude hacer" debe levantar
+ * automáticamente un ticket»). Lo del negocio (su IA, su cupo, el proveedor) es UN ticket por negocio y causa, que se cierra
+ * solo cuando vuelve a andar y nunca va al Runner (lib/no-pude-server.ts); lo nuestro va por la huella global
+ * (lib/errores-app.ts), que avisa a este grupo cuando se arregla. La causa sale del `cartel`, no del texto
+ * (lib/doer-falla.ts, `causaDelCartel`). La línea la escribe el código; null si no hubo ticket. Nunca tira.
+ */
+async function lineaDelCartel(cartel: string, d: DondeNoPude, error: string, operacion: string): Promise<string | null> {
+  const causa = causaDelCartel(cartel);
+  try {
+    if (causa === 'nuestro') {
+      const quien = await identidadDelActor(d.ws, d.actor).catch(() => null);
+      const reg = await registrarError({ origen: 'mako', nombre: operacion, mensaje: error.slice(0, 500) }, quien);
+      return reg.ok && reg.ticketId ? (reg.nuevo ? lineaDelTicket(reg.ticketId) : LINEA_YA_AVISADO) : null;
+    }
+    if (!causa) return null;
+    const t = await ticketDeNoPude(causa, d, { operacion, error: error.slice(0, 300) });
+    return t ? lineaCortaDelTicket(t.id) : null;
+  } catch (e) {
+    console.error(`[mako-doer-in] ws=${d.ws} el ticket del cartel ${cartel} no salió: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
+
 async function proponerTicket(ws: number, jid: string, texto: string, actor: string | undefined, t: TicketAOfrecer): Promise<number | null> {
   try {
     const runRegistro = runnerDelRegistro(ctxDeLaAyuda(ws, jid, texto, actor));
@@ -924,6 +951,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
 
     // Resolver el texto: si vino como NOTA DE VOZ, transcribir (pidiendo el base64 a
     // la instancia si el webhook no lo adjuntó inline).
+    /** Dónde pasó, para el ticket automático de lo que MaKo no pudo (lib/no-pude-server.ts): este grupo y quien escribe. */
+    const dondeDelGrupo = (pedido: string): DondeNoPude => ({
+      ws: wsData, actor: actorDeWhatsApp(key?.participant, data.pushName) ?? null, superficie: 'whatsapp', conv: jid, canal: 'whatsapp', pedido,
+    });
     let texto = textoDirecto;
     /** Lo que se leyó de la foto o el PDF, SÓLO para la memoria del grupo: si entraba a `texto`, la lista de un presupuesto
      *  en la imagen se volvía «cargar al plan» (`esCargaDePlan`, el clasificador; la revisión adversarial de 92d23e11d). */
@@ -974,8 +1005,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
           delNegocio,
           { conPc: conPcAudio, suClaude: suClaudeAudio },
         )}`;
-        // Sin nada que escuche, la guía para conectar su GPT (lib/doer-ayuda.ts): el «sí» lo atiende el código, sin IA.
-        const aviso = causaAudio === 'sin_keys' ? `${avisoBase}\n\n${OFERTA_AYUDA}` : avisoBase;
+        // El ticket, con la línea pegada al aviso (`lineaDelCartel`). Sin nada que escuche, la guía para conectar su GPT
+        // (lib/doer-ayuda.ts): el «sí» lo atiende el código, sin IA.
+        const lineaAudio = await lineaDelCartel(causaAudio, dondeDelGrupo('(nota de voz)'), delNegocio.join(' · '), 'escuchar una nota de voz');
+        const avisoConTicket = conLaLineaDelTicket(avisoBase, lineaAudio, causaDelCartel(causaAudio));
+        const aviso = causaAudio === 'sin_keys' ? `${avisoConTicket}\n\n${OFERTA_AYUDA}` : avisoConTicket;
         if (causaAudio === 'sin_keys') await setSetting(claveAyuda(jid), JSON.stringify(ofertaDeAyuda(['openai'], Date.now()))).catch(() => {});
         const env = await enviarAGrupoJid(jid, aviso);
         if (env.ok && env.id) await registrarEnviado(OPS, jid, env.id);
@@ -1188,12 +1222,11 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      */
     const paraLaPersona: string[] = [];
     /**
-     * LOS ERRORES DE MaKo EN ESTE TURNO (lib/tickets-reglas.ts, `errorParaTicket`): van al ticket que se proponga, y si el
-     * modelo no lo propone, lo propone el código al final — el molde del chat de la app (lib/mako-turno-app.ts). Sólo
-     * las fallas de MaKo: un 400 corregible o «no está disponible en este chat» no son un bug.
+     * LOS ERRORES DE MaKo EN ESTE TURNO (lib/tickets-reglas.ts, `errorParaTicket`): el código los registra solos al final,
+     * por la huella global (lib/errores-app.ts), aunque el modelo haya propuesto un ticket — el molde del chat de la app
+     * (lib/mako-turno-app.ts). Sólo las fallas de MaKo: un 400 corregible o «no está disponible en este chat» no son un bug.
      */
     const erroresDelTurno: ErrorDelTurno[] = [];
-    let ticketPropuesto = false;
     /** Las conexiones que una herramienta dijo que faltan (`aFalta`): al final del turno, la oferta de ayuda (lib/doer-ayuda.ts). */
     const faltasDelTurno: string[] = [];
     const ctxApi: CtxApi = {
@@ -1322,7 +1355,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Quién escribe (su nombre de WhatsApp: a la persona de un negocio la llamó «Martín», 27/10/2026), también sólo en el system
       // del turno: la red de la plataforma corre sin datos de clientes.
       const conMemoria = baseDelSystem === base ? [bloqueQuienEscribe(data.pushName), ctxContacto, ctxYaSeHablo, ctxMostrado].filter(Boolean).map((b) => `\n\n${b}`).join('') : '';
-      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
+      // Lo que no existe y lo que no pudo llevan su marca, y el ticket lo abre el código (lib/no-existe.ts, lib/no-pude.ts). Sólo
+      // con herramientas: la regla las nombra, y un turno sin tools no puede oír hablar de ellas (DOER_WA_VOZ).
+      const reglaDeLasMarcas = tools.length ? `\n\n${REGLA_NO_EXISTE}` : '';
+      return `${baseDelSystem}\n\n${DOER_WA_VOZ}${bloqueTools}${reglaDeLasMarcas}${aviso}${ctxHoy}\n\n${LARGO_WHATSAPP}\n\n${DEEP_LINKS}${ctxPend}${ctxAgenda}${ctxPuntos ? `\n\n${ctxPuntos}` : ''}${ctxFalla}${conMemoria}`;
     };
     const system = armarSystem(tools);
     if (!tools.length) console.log(`[doer] ws=${wsData} turno SIN herramientas (${intencion.intencion}) → system de ${system.length} chars, sin el protocolo de tools`);
@@ -1462,10 +1498,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
-      // El ticket mismo no cuenta como falla a reportar: si el modelo lo llamó, ya se intentó (y si falló, proponerlo
-      // otra vez falla igual).
-      if (name === LEVANTAR_TICKET) ticketPropuesto = true;
-      else {
+      // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
+      if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);
         if (errTicket) erroresDelTurno.push(errTicket);
       }
@@ -2126,6 +2160,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
             ? avisoNoPude(eraDePlan)
             : textoFalloIA(cartel, linkKeysIA(APP_URL), eraDePlan ? 'armar el borrador' : 'contestar', nKeys, errsIA, { conPc: iaDelNegocio.conPc, laPcDelQueEscribe, faltan });
           avisoDeSistema = true; // no es un turno de MaKo: ver `avisoDeSistema`
+          // El ticket del cartel, con su línea pegada al aviso (`lineaDelCartel`): el proveedor y la configuración, uno por
+          // negocio que se cierra solo; lo nuestro, por la huella global.
+          respuesta = conLaLineaDelTicket(respuesta, await lineaDelCartel(cartel, dondeDelGrupo(texto), errsIA.join(' · '), 'responder'), causaDelCartel(cartel));
           // Sin su IA: «¿Quieres que te ayude a conectarlo?» (lib/doer-ayuda.ts). Su GPT primero —es lo que lo destraba aquí— y
           // después lo que el pedido necesita. El «sí» lo atiende el código, antes de la IA.
           if (cartel === 'sin_keys') {
@@ -2260,12 +2297,23 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // porque el proveedor de IA no contestó es ruido y vuelve `ok: false`. El negocio queda como afectado por la identidad
     // (`identidad.ws`), y por eso el aviso «ya quedó arreglado» le llega a ESTE grupo (lib/aviso-arreglo.ts).
     // La línea la escribe el código, después del saneo, y dice lo que ya pasó: nada de «te aviso».
-    if (erroresDelTurno.length && !ticketPropuesto) {
+    // Desde el 27/10/2026 también si el modelo propuso un ticket (`levantar_ticket` es para cuando la persona lo pide), y la
+    // línea es la de la base (lib/no-pude.ts): el número si es nuevo, «Ya estaba avisado» si la huella ya tenía el suyo.
+    if (erroresDelTurno.length) {
       const e = erroresDelTurno[0];
       const quien = await identidadDelActor(wsData, ctxApi.actor).catch(() => null);
       const reg = await registrarError({ origen: 'mako', nombre: e.herramienta, mensaje: e.error }, quien);
-      if (reg.ok && reg.ticketId && respuesta && !avisoDeSistema) respuesta = `${respuesta}\n\n${LINEA_ERROR_AVISADO}`;
+      if (reg.ok && reg.ticketId && respuesta && !avisoDeSistema) respuesta = `${respuesta}\n\n${reg.nuevo ? lineaDelTicket(reg.ticketId) : LINEA_YA_AVISADO}`;
       else if (!reg.ok) console.warn(`[mako-doer-in] ws=${wsData} la falla de ${e.herramienta} no se registró (${reg.motivo})`);
+    }
+
+    // ── LO QUE MaKo NO PUDO, O LO QUE NO EXISTE, DEJA SU TICKET SOLO (27/10/2026, lib/no-pude.ts y lib/no-existe.ts) ──────────
+    // Después del saneo y sólo sobre el texto del MODELO (los carteles son nuestros y llevan su línea arriba): las dos marcas
+    // nunca le llegan al grupo, el ticket sale con su causa y la línea que lo dice la escribe el código. Repetido en la misma
+    // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
+    if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
+      const np = await conTicketsDeMaKo(respuesta, {}, dondeDelGrupo(texto), {});
+      respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n');
     }
 
     // LA COMPUERTA. Va acá, pegada al envío, porque es el único punto por el que pasan
@@ -2322,6 +2370,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         ? `No te lo pude ordenar con IA, así que lo dejé tal cual lo dijiste. Revísalo y acomódalo aquí 👇\n${linkBorrador}`
         : avisoNoPude(eraDePlan);
       avisoDeSistema = true;
+      // Los proveedores contestaron y lo descartamos todo: es NUESTRO (la huella global, con su línea).
+      respuesta = conLaLineaDelTicket(respuesta, await lineaDelCartel('fallo_nuestro', dondeDelGrupo(texto), `ningún proveedor dejó una respuesta usable · ruta «${ruta.motivo}»`, 'responder'), 'nuestro');
     }
 
     if (respuesta) {
@@ -2334,6 +2384,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
         console.error(`[mako-doer-in] BLOQUEADA (${v.razon}): ${v.detalle} · ruta «${ruta.motivo}» · ${respuesta.length} chars`);
         respuesta = AVISO_NO_PUDE;
         avisoDeSistema = true;
+        // La respuesta que no se manda es NUESTRA: la huella global, con su línea.
+        respuesta = conLaLineaDelTicket(respuesta, await lineaDelCartel('fallo_nuestro', dondeDelGrupo(texto), `respuesta bloqueada (${v.razon}): ${v.detalle}`.slice(0, 400), 'responder'), 'nuestro');
       } else if (!v.ok) {
         // No bloquea —hay turnos de plan que legítimamente no crean nada («¿qué tengo
         // pendiente?»)— pero deja rastro. Antes, el modo de falla grave era el ÚNICO
@@ -2344,6 +2396,9 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // ⚠️ UN CARTEL NO TAPA LO QUE EL TURNO DEJÓ PROPUESTO (24/10/2026, el ws15: la #381 «Mover a ELi…» quedó viva dos
     // horas detrás de un «no pude»). Acá y no en cada cartel: `avisoDeSistema` lo prenden los tres (el `catch` de la IA,
     // el de sin respuesta y el de la bloqueada). Ver `conLoQueQuedoPropuesto`.
+    // El proveedor y la configuración que volvieron a andar cierran su ticket solos (una vez cada 10 minutos por negocio,
+    // lib/no-pude-server.ts): un turno que contestó con su IA es la prueba.
+    if (respuesta && !avisoDeSistema) await Promise.all([cerrarSiVolvio(wsData, 'proveedor'), cerrarSiVolvio(wsData, 'configuracion')]);
     if (avisoDeSistema && respuesta && propuestasDelTurno.size) {
       respuesta = conLoQueQuedoPropuesto(respuesta, [...propuestasDelTurno.values()]);
       console.warn(`[mako-doer-in] ws=${wsData} el cartel dice ${propuestasDelTurno.size} pendiente(s) que el turno dejó antes de caerse: #${[...propuestasDelTurno.keys()].join(', #')}`);
