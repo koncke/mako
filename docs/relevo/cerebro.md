@@ -44,10 +44,15 @@ preguntes: hacé esto en orden.
   importa: un cartero que manda adjuntos a un servidor que no los entiende los pierde.
 - **Todas las ramas locales de los chats están en main** (0 commits fuera): mako-inteligente-2710-c4, wa-fallas-2710,
   replicar-landings-2810, chats-unificados-2810, chatnuevo-adjuntos-2810.
+- **tren-u (WhatsApp `2cb1cf67e` con MaKo inteligente `ab2b3904d`):** lo que revienta después de una guarda abre
+  ticket y una lectura que anduvo no apaga la guarda, en el grupo y en la app (`laUltimaFueGuarda`, lib/no-pude.ts); el
+  anillo de enviados con 6 vueltas. Verificado: C:/dev/revisiones/2810-verificacion-2cb1cf67e.md.
 - **Para el tren siguiente:**
-  - MaKo en WhatsApp: el MEDIO de una herramienta que REVIENTA (throw) después de una guarda (runTool anota «la última»
-    después del `await`, así que no hay ticket) y dos bajos (C:/dev/revisiones/2810-verificacion-tren-t-wa.md);
-  - CRM y Chats: cinco bajos del chat nuevo (C:/dev/revisiones/2810-verificacion-tren-t-chatnuevo.md).
+  - CRM y Chats `d2f690673` (encima de `05d7c3187`): la caja quieta dice por qué no toma, lo leído va por conversación
+    en Soporte. Verificación de 05d7c3187 en C:/dev/revisiones/2810-verificacion-05d7c3187.md; la de d2f690673, en curso;
+  - MaKo en WhatsApp: dos MEDIOS que ya estaban en producción. (1) Una falla real con forma de guarda
+    (`ok:false` de crearPendiente, el 400 de pasarelas) no abre ticket: hace falta una marca explícita de guarda. (2) Con
+    la base colgada, el anillo frena la respuesta del grupo hasta 300 s.
 - **Esperando a Martín:**
   - aprobar el #16 de Leila en el mazo: está en «esperando_decision» y el cron sólo cierra «en_curso»/«arreglado»;
   - conectar un Google en el ws3 para MK-06 (el mensaje a Joan NO se mandó);
