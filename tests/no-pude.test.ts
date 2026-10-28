@@ -102,15 +102,20 @@ test('g. la falla que un runner se TRAGÓ abre ticket; una negativa de estado o 
   assert.equal(refDeNoPude({ ...base, clave: 'crear la tarea' }), refDeNoPude({ ...base, clave: 'crear la tarea en el plan' }));
 });
 
-test('h. la guarda de una herramienta del turno (un 400, sin isError) es una regla: apaga el «no pude», nunca el «no existe» (base 7)', () => {
-  // Lo que devuelve runnerDelRegistro con un 400 (lib/api-mako/ejecutar.ts): TEXTO con ok:false y su error. Y la heredada, «❌ …».
-  const guarda = JSON.stringify({ ok: false, error: 'El borrado se hace en tu pantalla de revisión.' });
-  for (const out of [guarda, { content: guarda }, JSON.stringify({ ok: false, error: 'Falta el email del lead.', faltan: ['email'] }), '❌ No encontré ese lead.']) {
+test('h. la guarda de una herramienta del turno (marcada `guarda: true` por quien la produce) es una regla: apaga el «no pude», nunca el «no existe» (base 7)', () => {
+  // El contrato con lib/api-mako/ejecutar.ts (`runnerDelRegistro`) y el doer de WhatsApp: un JSON { ok:false, error, guarda:true },
+  // como texto o en `content`. Lo marcado es guarda aunque el texto traiga paréntesis.
+  const guarda = JSON.stringify({ ok: false, error: 'El borrado se hace en tu pantalla de revisión.', guarda: true });
+  for (const out of [guarda, { content: guarda }, JSON.stringify({ ok: false, error: 'Falta el email del lead.', faltan: ['email'], guarda: true }),
+    JSON.stringify({ ok: false, error: 'No pude encontrar el lead (id 5).', guarda: true })]) {
     assert.ok(esGuardaDeHerramienta(out), `${JSON.stringify(out)} no se ve como una guarda`);
   }
-  // Una falla (isError: un 404 o un 500), un ok, un texto, y lo que un runner se TRAGÓ (el error técnico entre paréntesis): no.
-  for (const out of [{ content: guarda, isError: true }, JSON.stringify({ ok: true, id: 3 }), 'Listo, quedó movido.', '{"ok":false}', '', null, undefined,
-    JSON.stringify({ ok: false, error: 'No se pudo guardar (duplicate key value violates unique constraint).' }), '❌ No se pudo aplicar (Error guardando setting x: BOOM).']) {
+  // Sin la marca NO se adivina por el texto (la verificación de 2cb1cf67e, D4): la falla de crearPendiente y el 400 de las
+  // pasarelas tenían forma de guarda y no abrían ticket. Tampoco la heredada «❌ …», ni `faltan` solo, ni la marca con isError.
+  for (const out of [JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' }), JSON.stringify({ ok: false, error: 'No pude leer las pasarelas.' }),
+    JSON.stringify({ ok: false, error: 'El borrado se hace en tu pantalla de revisión.' }), '❌ No encontré ese lead.', JSON.stringify({ ok: false, error: 'Falta el email.', faltan: ['email'] }),
+    JSON.stringify({ ok: false, error: 'x', guarda: 'true' }), JSON.stringify({ ok: false, error: '  ', guarda: true }), JSON.stringify({ ok: true, guarda: true }),
+    { content: guarda, isError: true }, JSON.stringify({ ok: true, id: 3 }), 'Listo, quedó movido.', '{"ok":false}', '', null, undefined]) {
     assert.equal(esGuardaDeHerramienta(out), false, `${JSON.stringify(out)} se tomó como una guarda`);
   }
   // `regla` apaga el «no pude»; el «no existe» de la misma respuesta sigue, y con un ruteo es un ruteo.
@@ -167,3 +172,7 @@ test('j. «la última» guarda: una guarda la prende; una escritura, un error o 
 //  13. la tragada aunque traiga isError                                      → rojo el i.
 //  14. (28/10, verificación de tren-t) una lectura que anduvo apaga la guarda → rojo el j.
 //  15. una escritura no la apaga                                             → rojo el j.
+//  16. (28/10, D4 de 2cb1cf67e) la guarda sin la marca (adivina por el texto) → rojo el h.
+//  17. la marca como texto («"true"») vale                                    → rojo el h.
+//  18. vuelve el «❌» como guarda                                             → rojo el h.
+//  19. la marca aunque traiga isError                                        → rojo el h.

@@ -10647,8 +10647,8 @@ lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no 
 su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
 título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
 Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
-`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin
-isError) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
+`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un JSON
+`{ ok:false, error, guarda:true }` que MARCA quien lo produce; nunca se adivina por el texto) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
 lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó. «La última» se lleva con
 `laUltimaFueGuarda` (una lectura que anduvo no la cambia), y una herramienta que REVIENTA cuenta como tragada (el `.catch` del
 `await`): el loop la atrapa sin pasar por `errorParaTicket`.
