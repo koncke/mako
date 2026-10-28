@@ -1092,7 +1092,7 @@ export const RUNNERS: Runners = {
     preparar: async (input, ctx) => {
       const r = await sugerenciasDeUnCrm(ctx.ws, n(input.embudoId) ?? null);
       if (!r) return { error: 'Este negocio todavía no tiene un CRM.' };
-      if (!r.calladas) return { error: 'No pude leer lo callado de este CRM. Intenta de nuevo.' };
+      if (!r.calladas) return { error: 'No pude leer lo callado de este CRM. Intenta de nuevo.', falla: true };
       const id = String(input.sugerenciaId ?? '').trim();
       const c = r.calladas.find((x) => x.sugerencia.id === id);
       if (!c) return { error: `«${id}» no está callada en «${r.crm.nombre}».`, disponibles: r.calladas.map((x) => ({ id: x.sugerencia.id, texto: x.sugerencia.texto })) };
@@ -1428,7 +1428,7 @@ export const RUNNERS: Runners = {
       const cuenta = s(input.cuenta);
       if (cuenta) {
         let a: AgendaDelNegocio;
-        try { a = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer las cuentas de la agenda. Intenta de nuevo.' }; }
+        try { a = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer las cuentas de la agenda. Intenta de nuevo.', falla: true }; }
         const c = a.proveedores.find((x) => x.proveedor === input.proveedor && x.cuenta === cuenta && x.conectado);
         if (!c) return { error: 'Esa cuenta no está conectada.', disponibles: a.proveedores.filter((x) => x.proveedor === input.proveedor && x.conectado).map((x) => ({ cuenta: x.cuenta, nombre: x.cuentaNombre })) };
         agenda = c.cuentaNombre;
@@ -1458,7 +1458,7 @@ export const RUNNERS: Runners = {
       const d = conBasico || (descripcion === undefined && !ubicacion) ? datosDeEvento({ nombre: input.nombre, duracionMin: input.duracionMin }, true) : { ok: true as const, nombre: undefined, duracionMin: undefined };
       if (!d.ok) return { error: d.error };
       let agenda: Awaited<ReturnType<typeof listarEventosDeAgenda>>;
-      try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.' }; }
+      try { agenda = await listarEventosDeAgenda(); } catch { return { error: 'No pude leer los eventos de la agenda. Intenta de nuevo.', falla: true }; }
       const buscado = String(input.evento ?? '').trim();
       const delProveedor = agenda.eventos.filter((e) => e.proveedor === input.proveedor && e.enLaCuenta);
       const e = delProveedor.find((x) => mismoIdentificador(x.identificador, buscado))
@@ -1493,7 +1493,7 @@ export const RUNNERS: Runners = {
   desvincular_evento_etapa: {
     preparar: async (input) => {
       let v: Awaited<ReturnType<typeof buscarVinculo>>;
-      try { v = await buscarVinculo({ proveedor: input.proveedor, evento: input.evento }); } catch { return { error: 'No pude leer los vínculos. Intenta de nuevo.' }; }
+      try { v = await buscarVinculo({ proveedor: input.proveedor, evento: input.evento }); } catch { return { error: 'No pude leer los vínculos. Intenta de nuevo.', falla: true }; }
       if (!v) return { error: 'Ese evento no está vinculado a ninguna etapa.', yaEstaba: true };
       return {
         payload: { proveedor: v.proveedor, evento: v.identificador },
@@ -1598,7 +1598,7 @@ export const RUNNERS: Runners = {
         funnelId = crm.esDefault ? null : crm.embudoId;
       }
       const cfg = funnelId != null ? await getFunnelDe(funnelId) : await getFunnelDefault();
-      if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      if (cfg.origen === 'error') return { error: 'No pude leer el funnel. Intenta de nuevo.', falla: true };
       const buscada = s(input.etapa) ?? '';
       const sinAcentos = (x: string) => x.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       const col = cfg.stages.find((st) => st.key === buscada) ?? cfg.stages.find((st) => sinAcentos(st.label ?? '') === sinAcentos(buscada));
@@ -1751,7 +1751,7 @@ export const RUNNERS: Runners = {
       const dias = pedido === 0 ? null : sanearPlazo(pedido);
       if (pedido !== 0 && dias == null) return { error: `El plazo va de 1 a ${PLAZO_MAX_DIAS} días.` };
       const u = await umbralesDe(c.funnelId);
-      if (u == null) return { error: 'No pude leer el funnel. Intenta de nuevo.' };
+      if (u == null) return { error: 'No pude leer el funnel. Intenta de nuevo.', falla: true };
       const previos = u.porEtapa && typeof u.porEtapa === 'object' && !Array.isArray(u.porEtapa) ? (u.porEtapa as Record<string, unknown>) : {};
       const antes = typeof previos[col.key] === 'number' ? (previos[col.key] as number) : null;
       if (antes === dias) return { error: dias == null ? `«${col.label}» no tiene plazo.` : `«${col.label}» ya tiene ${dias} días de plazo.`, yaEstaba: true };
@@ -1850,7 +1850,7 @@ export const RUNNERS: Runners = {
       const crm = pedido != null ? crms.find((p) => p.embudoId === pedido) : crms.find((p) => p.esDefault);
       if (!crm) return { error: pedido != null ? `El CRM #${pedido} no es de este negocio.` : 'Este negocio todavía no tiene un CRM.', disponibles: crms.map((p) => ({ embudoId: p.embudoId, nombre: p.nombre })) };
       let e: { curso: boolean; prendido: boolean };
-      try { e = await estadoCursoAlGanarEstricto(crm.embudoId); } catch { return { error: 'No pude leer cómo está. Intenta de nuevo.' }; }
+      try { e = await estadoCursoAlGanarEstricto(crm.embudoId); } catch { return { error: 'No pude leer cómo está. Intenta de nuevo.', falla: true }; }
       if (prendido && !e.curso) return { error: `El producto de «${crm.nombre}» no tiene un curso con clases: no hay a qué invitar.` };
       if (e.prendido === prendido) return { error: `«Invitar al curso al ganar» ya estaba ${prendido ? 'prendida' : 'apagada'} en «${crm.nombre}».`, yaEstaba: true };
       return {
@@ -1881,7 +1881,7 @@ export const RUNNERS: Runners = {
       const ids = (Array.isArray(input.embudos) ? input.embudos : []).map((x) => Number(String(x).trim()));
       if (ids.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada embudo va por su embudoId (un número). Pide ver_campanas_funnels.' };
       let v: Awaited<ReturnType<typeof campanasParaMaKo>>;
-      try { v = await campanasParaMaKo(); } catch { return { error: 'No pude leer las campañas asignadas. Intenta de nuevo.' }; }
+      try { v = await campanasParaMaKo(); } catch { return { error: 'No pude leer las campañas asignadas. Intenta de nuevo.', falla: true }; }
       const faltan = ids.filter((id) => !v.funnels.some((f) => f.embudoId === id));
       if (faltan.length) return { error: `No existe el embudo ${faltan.join(', ')}.`, disponibles: v.funnels };
       const nombres = [...new Set(ids)].map((id) => v.funnels.find((f) => f.embudoId === id)!.crm);

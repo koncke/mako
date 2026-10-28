@@ -1144,6 +1144,10 @@ Lo que una definición tiene que declarar, y por qué no tiene default:
   `requireRolWs([])`. `gating.tab` mira la CAPA del workspace, no a la persona: sin
   `rolMinimo`, un closer lee o hace por MaKo lo que su pantalla le esconde.
 - **`tipoPendiente`** cuando la acción hereda un slug que ya hay en la base.
+- **El `error` de un `preparar` (o de un `proponer`) es una REGLA, y una falla NUESTRA lleva `falla: true`**: «No pude leer
+  las pasarelas conectadas», un `catch` que vuelve `error` lo que reventó. Sin la marca, el «no pude» de MaKo después de esa
+  falla no abre ticket; con la marca en una regla, abre uno y sale «Quedó el ticket #N» en el grupo del cliente (28/10/2026,
+  tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }`; docs/hallazgos-api-mako.md).
 - **`reversible: true` exige el camino de vuelta EN la API.** Si la descripción dice «se deshace desde el
   historial del editor» y la API no tiene una operación para leerlo o restaurarlo, es una promesa falsa para
   el modelo (14/10/2026, `aplicar_comentario_landing` → se sumaron `listar_versiones_landing` y
@@ -10683,8 +10687,8 @@ lib/no-pude-server.ts). Un chat o un camino NUEVO que le dice a la persona «no 
 su causa): una acción que falla al ejecutarse, el proveedor, la configuración. Nunca un ticket con el texto del modelo de
 título, nunca por la regla de aprobación de un negocio, y una negativa legítima (una regla de MaKo, una opinión) no abre nada.
 Una negativa legítima la dice el CÓDIGO, no sólo el texto: un chat con su propio turno que corre herramientas le pasa
-`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un 400, `ok:false` sin
-isError) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
+`regla` a `conTicketsDeMaKo` sólo cuando lo ÚLTIMO que corrió fue una guarda (`esGuardaDeHerramienta`: un JSON
+`{ ok:false, error, guarda:true }` que MARCA quien lo produce; nunca se adivina por el texto) y nada falló, ni a la vista ni tragado (`esLaReglaDeUnaGuarda` con `esFallaTragadaDeHerramienta`), ni hubo ruteo, como
 lib/mako-turno-app.ts. Contar guardas solas le come el ticket a la falla que un runner se tragó. «La última» se lleva con
 `laUltimaFueGuarda` (una lectura que anduvo no la cambia), y una herramienta que REVIENTA cuenta como tragada (el `.catch` del
 `await`): el loop la atrapa sin pasar por `errorParaTicket`.

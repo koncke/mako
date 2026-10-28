@@ -781,7 +781,7 @@ export const RUNNERS: Runners = {
       if (!soloDigitos(adsetId)) return { error: 'adsetId tiene que ser el id numérico del conjunto.' };
       if (!nombre) return { error: 'El nombre del anuncio es obligatorio.', faltan: ['nombre'] };
       let conj: { name: string; needsForm: boolean };
-      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { conj = await getAdsetForAdd(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       const opcional = (k: string) => str(input, k) || undefined;
       // Reusar un post arma el creativo con object_story_id y SIN textos
       // (lib/meta-ads-create.ts, createAdCreative): lo que venga en estos campos se tiraría en silencio.
@@ -829,7 +829,7 @@ export const RUNNERS: Runners = {
       if (!Object.keys(edited).length) return { error: 'No hay nada que cambiar: manda al menos un texto.', faltan: ['primary_text'] };
       if (edited.destination_url && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(edited.destination_url)) return { error: 'destination_url tiene que ser una URL exacta con https.' };
       let actual: Awaited<ReturnType<typeof getAdForEdit>>;
-      try { actual = await getAdForEdit(adId); } catch (err) { return { error: `No pude leer el anuncio en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { actual = await getAdForEdit(adId); } catch (err) { return { error: `No pude leer el anuncio en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       if (!actual.editable || !actual.creative) return { error: actual.reason ?? 'Este anuncio no permite editar sus textos (reusa un post o es dinámico).' };
       const antes = actual.creative as unknown as Record<string, unknown>;
       const cambios = Object.entries(edited).map(([k, v]) => `${k}: «${String(antes[k] ?? '').slice(0, 80)}» → «${v.slice(0, 80)}»`).join(' · ');
@@ -850,7 +850,7 @@ export const RUNNERS: Runners = {
       const entrada = entradaDesdeApi(input);
       if ('error' in entrada) return { error: entrada.error };
       let actual: Awaited<ReturnType<typeof getAdsetTargeting>>;
-      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).` }; }
+      try { actual = await getAdsetTargeting(adsetId); } catch (err) { return { error: `No pude leer el conjunto en Meta (${metaErrorEnvelope(err).message}).`, falla: true }; }
       // Un pin sobre un geo que MaKo no sabe re-escribir se frena ACÁ, antes del «sí» (al ejecutar tiraría igual).
       if (entrada.pin && lugaresDesdeMeta(actual.targeting.geo_locations, actual.targeting.excluded_geo_locations).noEntiendo.length) {
         return { error: 'Este conjunto tiene lugares que MaKo no sabe editar: el punto del mapa se agrega en Meta.' };

@@ -9,7 +9,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
+import { bloqueQuienEscribe, citaDe, confirmaYNombraAOtro, conLasRespuestas, esAcusePuro, esEcoDeMaKo, esRespuestaCorta, mencionesDe, noEsParaMaKo, paraQuienDelLote, quienesMencionados, sinElLlamadoAMaKo, type ParaQuien } from '../lib/doer-para-quien';
 import { confirmacionPura } from '../lib/confirmacion-pura';
 import { clasificarIntencion } from '../lib/mako-intencion';
 
@@ -224,7 +224,7 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   // El envío de texto de la línea de MaKo anota lo que sale a un GRUPO: por ahí pasan `enviarAGrupoJid`, el grupo SuperAdmin y la
   // bienvenida (la verificación de 96e7840e8: esos dos quedaban afuera).
   const texto = grupo.slice(grupo.indexOf('async function enviarTextoVozMaKo('), grupo.indexOf('async function ponerNombre('));
-  assert.match(texto, /if \(r\.ok && id && jidONumero\.endsWith\('@g\.us'\)\) await anotarEnviadosAlGrupo\(OWNER_WS, jidONumero, \[id\]\);/);
+  assert.match(texto, /if \(r\.ok && id && jidONumero\.endsWith\('@g\.us'\)\) await anotarEnviadosConTope\(OWNER_WS, jidONumero, \[id\]\);/);
   for (const f of ['export async function enviarAGrupoJid(', 'export async function enviarAlGrupoSuperAdmin(']) {
     const cuerpo = grupo.slice(grupo.indexOf(f), grupo.indexOf('\n}\n', grupo.indexOf(f)));
     assert.match(cuerpo, /await enviarTextoVozMaKo\(jid, texto/, `${f} no sale por enviarTextoVozMaKo`);
@@ -240,16 +240,50 @@ test('12. todo lo que sale por la línea de MaKo queda en el anillo anti-eco, y 
   assert.match(grupo, /const INTENTOS_DEL_ANILLO = 6;/);
   assert.match(anotar, /for \(let intento = 0; intento < INTENTOS_DEL_ANILLO; intento\+\+\) \{\n\s*if \(intento > 0\) await new Promise\(\(r\) => setTimeout\(r, 10 \+ Math\.random\(\) \* 60\)\);/);
   const maKo = grupo.slice(grupo.indexOf('export async function enviarAlGrupoMaKo('), grupo.indexOf('export async function enviarPartesAlGrupoMaKo('));
-  assert.match(maKo, /if \(id\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, \[id\]\)\.catch\(\(\) => \{\}\);/);
-  assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosAlGrupo\(OWNER_WS, jid, r\.ids\)\.catch\(\(\) => \{\}\);/);
+  assert.match(maKo, /if \(id\) await anotarEnviadosConTope\(OWNER_WS, jid, \[id\]\);/);
+  assert.match(grupo, /if \(!d\.ev && r\.ids\.length\) await anotarEnviadosConTope\(OWNER_WS, jid, r\.ids\);/);
+  // ⚠️ CON TOPE (la verificación de 2cb1cf67e): con la base colgada, el mensaje esperaba al anillo y la respuesta en partes salía
+  // 1/3 durante cinco minutos. Lo que ya salió espera hasta 3 s; la anotación sigue sola. Nadie fuera del tope espera al anillo.
+  assert.match(grupo, /export const TOPE_DEL_ANILLO_MS = 3000;/);
+  const conTope = grupo.slice(grupo.indexOf('export async function anotarEnviadosConTope('), grupo.indexOf('export async function anotarEnviadosConTope(') + 400);
+  assert.match(conTope, /const tope = new Promise<void>\(\(r\) => \{ t = setTimeout\(r, TOPE_DEL_ANILLO_MS\); \}\);\n\s*try \{ await Promise\.race\(\[anotarEnviadosAlGrupo\(ws, jid, ids\), tope\]\); \} finally \{ clearTimeout\(t\); \}/);
+  assert.equal((grupo.match(/await anotarEnviadosAlGrupo\(/g) ?? []).length, 0, 'alguien espera al anillo sin tope');
   assert.match(grupo, /const KEY_ENVIADOS = \(jid: string\) => `mako\.doer\.sent\.\$\{jid\}`;/, 'el anillo cambió de clave: el doer ya no ve lo anotado antes');
   // El doer usa ESE anillo (uno solo) y nunca toma la línea de MaKo por la del dueño.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n\s*const registrarEnviados = anotarEnviadosAlGrupo;/);
+  assert.match(doer, /const idsEnviados = idsEnviadosAlGrupo;\n[^\n]*\n\s*const registrarEnviados = anotarEnviadosConTope;/);
   assert.doesNotMatch(doer, /KEY_SENT/);
   // La voz, leída ESTRICTA (la otra convierte un error en «mako_ws1»): sin leerla no se anota ni se guarda en memoria.
   assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*const deMaKo = voz === instance;\n\s*const visto = deMaKo \? NaN :/);
   assert.match(doer, /if \(voz !== null\) LINEA_DEL_DUENO\.set\(/);
   assert.match(doer, /const voz = await instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\);\n\s*if \(voz === null \|\| voz === instance\) return;/);
   assert.doesNotMatch(doer, /instanciaVoz\(\)\.catch/, 'la voz se lee sin estricto');
+});
+
+test('13. el eco de MaKo en SU línea se saltea aunque su id no esté en el anillo: MaKo no se contesta sola', () => {
+  // La verificación de 8c1b7fa4e: con la base lenta, el id no llegaba al anillo antes del eco (~1-2 s), el webhook se lo pasaba al
+  // doer (no filtra fromMe) y MaKo le ponía 👍 y se contestaba, en bucle. En su línea no escribe ninguna persona.
+  const MAKO = 'mako_superadmin_muylqv8r';
+  const DUENO = 'linea_del_dueno';
+  const base = { msgId: 'ABC', enviados: [] as string[] };
+  // 1. El eco de MaKo en SU línea, sin el id en el anillo: es eco (no se encola, no lleva 👍, no hay turno).
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: MAKO }), true);
+  // 2. En la línea del DUEÑO manda el anillo: sin el id, es el dueño escribiendo; con el id, es eco.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: DUENO, voz: MAKO }), false);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: DUENO, voz: MAKO, enviados: ['ABC'] }), true);
+  // 3. La voz ilegible: cae al anillo, como antes.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null }), false);
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: MAKO, voz: null, enviados: ['ABC'] }), true);
+  // 4. Lo que no es fromMe (una persona del grupo) en la línea de MaKo: sigue igual, nunca es eco.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: false, instancia: MAKO, voz: MAKO, enviados: ['ABC'] }), false);
+  // Sin instancia (una cola de antes del deploy en el cron) no se compara con la voz.
+  assert.equal(esEcoDeMaKo({ ...base, fromMe: true, instancia: '', voz: '' }), false);
+  // El doer: UNA función para los dos chequeos, la voz leída estricta, y el eco cortado antes de encolar y del 👍.
+  const doer = leer('lib/mako-doer-in.ts');
+  assert.match(doer, /const \[voz, enviados\] = await Promise\.all\(\[instanciaVoz\(\{ estricto: true \}\)\.catch\(\(\) => null\), idsEnviados\(OWNER_WS, jid\)\]\);\n\s*return esEcoDeMaKo\(\{ fromMe: true, msgId: key\.id \?\? '', instancia: instance, voz, enviados \}\);/);
+  assert.equal((doer.match(/await esEcoDeMaKoAhora\(instance, jid, (?:data\.key|key)\)/g) ?? []).length, 2, 'los dos chequeos no usan la misma función');
+  assert.doesNotMatch(doer, /enviados\.includes\(msgId\)|idsEnviados\(OWNER_WS, jid\)\)\.includes\(msgId\)/, 'volvió un chequeo del eco suelto');
+  const buffer = doer.slice(doer.indexOf('async function bufferearYResponder('));
+  const iEco = buffer.indexOf('if (await esEcoDeMaKoAhora(instance, jid, data.key))');
+  assert.ok(iEco > 0 && iEco < buffer.indexOf('await encolar(jid,') && iEco < buffer.indexOf('reaccionarMensaje(jid, data.key, EMOJI_RECIBIDO)'), 'el eco se encola o lleva 👍');
 });

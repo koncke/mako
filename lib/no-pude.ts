@@ -108,29 +108,29 @@ export function causaDelNoPude(s: SenalesNoPude): CausaNoPude | null {
 }
 
 /**
- * ¿La salida de una herramienta del turno es una GUARDA de MaKo? (base 7, 28/10/2026). Un 400 vuelve como TEXTO con `ok:false` y
- * su `error`, sin isError (lib/api-mako/ejecutar.ts, `runnerDelRegistro`): un pedido que MaKo no deja hacer o al que le falta un
- * dato. La heredada lo dice con «❌ …». Un isError (un 404, un 500) es una falla, y lo que un runner se TRAGÓ (el error técnico
- * entre paréntesis, `esFallaTragada`) también: ninguno de los dos es una guarda.
+ * ¿La salida de una herramienta del turno es una GUARDA de MaKo? (base 7, 28/10/2026). Sólo si QUIEN LA PRODUCE lo dice: un JSON
+ * `{ ok:false, error, guarda:true }`, como texto o en `content`, nunca con isError (lo marcan lib/api-mako/ejecutar.ts,
+ * `runnerDelRegistro`, y el runner del doer de WhatsApp). Adivinarlo por el texto (cualquier `ok:false` sin isError, o un «❌ …»)
+ * tomaba por regla fallas nuestras con forma de guarda, que no abrían ticket: la pendiente que no se pudo guardar, las pasarelas
+ * que no se pudieron leer (la verificación de 2cb1cf67e, D4). Sin la marca, lo peor es un ticket de más.
  */
 export function esGuardaDeHerramienta(out: unknown): boolean {
   if (!out) return false;
   const o = out as { isError?: unknown; content?: unknown };
   if (typeof out === 'object' && o.isError === true) return false;
   const t = (typeof out === 'string' ? out : typeof o.content === 'string' ? o.content : '').trim();
-  if (t.startsWith('❌')) return !esFallaTragada(t);
   try {
-    const j = JSON.parse(t) as { ok?: unknown; error?: unknown };
-    return !!j && j.ok === false && typeof j.error === 'string' && !!j.error.trim() && !esFallaTragada(j.error);
+    const j = JSON.parse(t) as { ok?: unknown; error?: unknown; guarda?: unknown };
+    return !!j && j.ok === false && j.guarda === true && typeof j.error === 'string' && !!j.error.trim();
   } catch {
     return false;
   }
 }
 
 /**
- * ¿La salida de una herramienta es una falla que el runner se TRAGÓ? La misma lectura que `esGuardaDeHerramienta` (texto,
- * `content`, «❌», el `error` de un JSON), con `esFallaTragada`: el error técnico entre paréntesis. Un isError ya es una falla
- * a la vista (`errorParaTicket`): no se cuenta dos veces.
+ * ¿La salida de una herramienta es una falla que el runner se TRAGÓ? Lee el texto, el `content` (con su «❌») y el `error` de un
+ * JSON con `esFallaTragada`: el error técnico entre paréntesis. Ésta sí mira el texto: lo tragado nadie lo marca. Un isError ya es
+ * una falla a la vista (`errorParaTicket`): no se cuenta dos veces.
  */
 export function esFallaTragadaDeHerramienta(out: unknown): boolean {
   if (!out) return false;

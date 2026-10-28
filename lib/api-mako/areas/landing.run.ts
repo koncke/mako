@@ -1266,7 +1266,7 @@ export const RUNNERS: Runners = {
         const pedidos = (Array.isArray(input.productos) ? input.productos : []).map((x) => Number(String(x).trim()));
         if (pedidos.some((n) => !Number.isSafeInteger(n) || n <= 0)) return { error: 'Cada producto va por su embudoId (un número). Pide listar_landings (productosDisponibles).' };
         const asignables = await productosAsignables().catch(() => []);
-        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.' };
+        if (!asignables.length) return { error: 'No pude leer los productos del negocio. Intenta de nuevo.', falla: true };
         const faltan = pedidos.filter((id) => !asignables.some((p) => p.id === id));
         if (faltan.length) return { error: `No hay un producto con embudoId ${faltan.join(', ')}.`, disponibles: asignables.map((p) => ({ embudoId: p.id, nombre: p.nombre })) };
         productos = [...new Set(pedidos)];
@@ -1477,7 +1477,7 @@ export const RUNNERS: Runners = {
       let disp: DisponibilidadSlug | null = null;
       if (pedida || !f.slug) {
         const d = await docsEditor.slugDisponible(id, pedida ?? '');
-        if (!d.ok) { siFallaNuestra(d); return { error: `No pude revisar la dirección (${d.error}).` }; }
+        if (!d.ok) { siFallaNuestra(d); return { error: `No pude revisar la dirección (${d.error}).`, falla: true }; }
         disp = d;
       }
       const dir = direccionParaPublicar(pedida, f.slug, disp);

@@ -145,7 +145,7 @@ export const RUNNERS: Runners = {
       const chat = typeof input.chat === 'string' ? input.chat.trim() : '';
       if (!chat) return { error: 'Falta el chat: el nombre del que dice «Completado».', faltan: ['chat'] };
       const leido = await completados();
-      if (!leido) return { error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.' };
+      if (!leido) return { error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.', falla: true };
       const c = elDe(leido.lista, chat);
       if (!c) return { error: `«${chat}» no dice «Completado».`, disponibles: leido.lista.map((x) => x.titulo) };
       return { payload: { clave: c.clave, instante: c.instante, chat: c.titulo }, resumen: `Dar por visto el «Completado» de ${c.titulo}.` };

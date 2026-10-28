@@ -9,6 +9,7 @@ import { wsEnContexto, getWorkspaceActual } from '@/lib/workspace';
 import 'server-only';
 import type { Ctx, Runners } from '../tipos';
 import { listarPendientes, confirmarPendiente, cancelarPendiente, RUTA_BANDEJA } from '../acciones';
+import { esFallaTragada } from '@/lib/no-pude-frases';
 import { canalKeyDe, canalDeClave, etiquetaDeCanal } from '../canal';
 import { porId } from '../registro';
 import { vistaDe } from '../vista';
@@ -95,17 +96,24 @@ export const RUNNERS: Runners = {
       return JSON.stringify(vig.map((p) => ({ id: p.id, resumen: p.resumen, origen: p.origen, vence: p.vence })));
     },
   },
+  // ⚠️ LO QUE NO SE CONFIRMA ES UNA REGLA, y lleva la marca de guarda (la verificación de 692368a60): «No hay ninguna acción
+  // pendiente vigente», «aclara cuál», «recién la propuse», «la confirma el administrador», «ya venció», el rechazo al tercero.
+  // Un control que «salió bien» nunca pasaba por la marca de lib/api-mako/ejecutar.ts, y el «no pude» del modelo abría ticket.
   confirmar_accion: {
     correr: async (input, ctx) => {
       const r = await confirmarPendiente(ctx, num(input, 'id'));
-      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}) });
-      return r.ok ? `✅ Hecho: ${r.resumen}` : `❌ No se pudo: ${r.resumen}`;
+      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}), guarda: true });
+      if (r.ok) return `✅ Hecho: ${r.resumen}`;
+      // Lo que falló al ejecutarse ya dejó SU ticket (`ticket`, con su línea en el resumen), o es una negativa del runner: el
+      // «no pude» que lo sigue no abre otro. Sin ticket y con la falla tragada (no se pudo abrir), sí.
+      const yaAvisada = 'ticket' in r && r.ticket != null;
+      return JSON.stringify({ ok: false, error: `No se pudo: ${r.resumen}`, ...(yaAvisada || !esFallaTragada(r.resumen) ? { guarda: true } : {}) });
     },
   },
   cancelar_accion: {
     correr: async (input, ctx) => {
       const r = await cancelarPendiente(ctx, num(input, 'id'));
-      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}) });
+      if ('error' in r) return JSON.stringify({ ok: false, error: r.error, ...(r.vigentes ? { vigentes: r.vigentes } : {}), guarda: true });
       return r.resumen;
     },
   },
@@ -375,7 +383,7 @@ export const RUNNERS: Runners = {
       if (!esDecision(decision)) return { error: 'Falta qué decidió: hecha, ahora-no, no-aplica o reabierta.', faltan: ['decision'] };
       const motivo = str(input, 'motivo');
       const memoria = await leerMemoriaDelNegocio();
-      if (!memoria) return { error: 'No pude leer lo que ya decidiste. Intenta de nuevo.' };
+      if (!memoria) return { error: 'No pude leer lo que ya decidiste. Intenta de nuevo.', falla: true };
       const previa = ultimaDecision(memoria.m, clave);
       if (decision === 'reabierta') {
         if (!previa || (previa.d !== 'no-aplica' && previa.d !== 'ahora-no')) return { error: 'Esa recomendación no está descartada.' };

@@ -76,6 +76,19 @@ export function sinElLlamadoAMaKo(texto: string, numeroLinea: string | null): st
   }).join('\n');
 }
 
+/**
+ * ¿Es el ECO de algo que mandó MaKo? (todo lo que MaKo manda al grupo vuelve por el webhook como `fromMe`, y el webhook se lo pasa
+ * al doer sin filtrar). En la línea PROPIA de MaKo (`voz`, leída estricta) no escribe ninguna persona: un `fromMe` es MaKo, esté
+ * o no su id en el anillo (la verificación de 8c1b7fa4e: con la base lenta, el id no llegaba a anotarse antes del eco, MaKo se
+ * contestaba sola en el grupo de un cliente, y en bucle). En la línea del dueño (donde él también escribe `fromMe`) decide el
+ * anillo; y si la voz no se pudo leer (`voz` null), también, como antes.
+ */
+export function esEcoDeMaKo(p: { fromMe: boolean; msgId: string; instancia: string; voz: string | null; enviados: readonly string[] }): boolean {
+  if (!p.fromMe) return false;
+  if (p.voz !== null && !!p.instancia && p.voz === p.instancia) return true;
+  return !!p.msgId && p.enviados.includes(p.msgId);
+}
+
 /** El mensaje que CITA (responder a un mensaje en WhatsApp): su id y quién lo escribió, de `contextInfo`. */
 export function citaDe(message: Record<string, unknown> | undefined): { id: string | null; autor: string | null } {
   const ctx = ((message?.extendedTextMessage as { contextInfo?: { stanzaId?: unknown; participant?: unknown } } | undefined)?.contextInfo

@@ -78,7 +78,7 @@ const corto = (t: string) => extracto(t, 120);
 /** preparar() no lanza: «no pude leer» se dice como lo que es. */
 const revisando = (fn: (input: In, ctx: Ctx) => Promise<Preparado>) =>
   async (input: In, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la comunidad (${msg(e)}). Reintenta en un momento.` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisar la comunidad (${msg(e)}). Reintenta en un momento.`, falla: true }; }
   };
 
 /** ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo. */
