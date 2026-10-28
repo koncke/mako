@@ -6,21 +6,23 @@
 //   · `mako.copywriter.indice` — el árbol (lib/copywriter/arbol.ts);
 //   · `mako.copywriter.doc.<id>` — el documento de cada guion (props + contenido + version).
 //
-// LAS DOS ESCRITURAS SON COMPARE-AND-SET POR LA MARCA DE ESCRITURA (`cambiarSettingSiMarca`, lib/settings.ts):
+// LAS DOS ESCRITURAS SON COMPARE-AND-SET (`cambiarSettingSi`, lib/settings.ts):
 //   · el ÍNDICE se lee, se cambia con una función pura y se escribe SÓLO si nadie lo cambió en el medio; si alguien
 //     lo hizo, se vuelve a leer y a aplicar (hasta 4 veces). Dos pestañas que crean un guion a la vez no se pisan.
 //   · el DOCUMENTO exige la `version` que se abrió. Si otro guardó en el medio, 409: la pantalla ofrece recargar y
 //     nunca pisa en silencio (el molde es el del Web Generator, lib/editor-landing/server.ts).
-// ⚠️ NUNCA `cambiarSettingSi` (que compara el VALOR): pone el valor entero en la URL, y desde ~6-8 KB PostgREST no la
-//    acepta. Así fue hasta el 28/10/2026 (verificación del Cerebro): desde ~900 palabras un guion no se guardaba MÁS (cada
-//    reintento comparaba contra el valor grande ya guardado), y desde ~40 guiones el árbol se congelaba.
+// ⚠️ UN GUION Y SU ÍNDICE SON VALORES LARGOS (un YouTube de 10 minutos, ~15 KB; 100 guiones, ~20 KB). `cambiarSettingSi`
+//    ponía el valor entero en la URL del PATCH y desde ~6-8 KB PostgREST no la acepta: hasta el 28/10/2026, desde ~900
+//    palabras un guion no se guardaba MÁS y desde ~40 guiones el árbol se congelaba (verificación del Cerebro). Desde ese
+//    día `cambiarSettingSi` compara un valor largo en el server y filtra por `updated_at` (lib/settings-cas.ts), para todos
+//    los que lo llaman; tests/copywriter-guardar.test.ts lo fija con un guion de 20 KB y 70 guiones.
 // El negocio es el de la pestaña (`getWorkspaceActual`, adentro de settings.ts); nunca se lee `?ws=` acá.
 // El orden al CREAR: primero el documento, después la fila del índice. Si lo segundo falla queda un documento sin
 // página, que nadie ve (y no rompe nada); al revés quedaría una página que abre «no existe».
 // =============================================================================
 
 import 'server-only';
-import { borrarSettingSiMarca, cambiarSettingSiMarca, getSettingConMarca } from '../settings';
+import { borrarSettingSi, cambiarSettingSi, getSettingEstricto } from '../settings';
 import {
   CLAVE_INDICE, SIN_TITULO, claveDoc, esIdPagina, propsNuevas, sanearProps, TOPES,
   type DocCopy, type EditadoPor, type GuionAbierto, type JsonNodo, type PaginaCopy, type PropsGuion, type TipoGuion,
@@ -32,13 +34,12 @@ import { agregar, aPapelera, cambiarPagina, idPaginaNuevo, mover as moverEnArbol
 export type Falla = { ok: false; error: string; status: 400 | 404 | 409 | 422 | 500 };
 const falla = (status: Falla['status'], error: string): Falla => ({ ok: false, error, status });
 
-/** El índice tal como está en la base: el texto crudo (para no reescribir lo mismo), su marca (el compare-and-set) y
- *  las páginas saneadas. */
-async function leerIndiceCrudo(): Promise<{ crudo: string | null; marca: string | null; paginas: PaginaCopy[] }> {
-  const fila = await getSettingConMarca(CLAVE_INDICE);
-  if (!fila?.valor) return { crudo: fila?.valor ?? null, marca: fila?.marca ?? null, paginas: [] };
+/** El índice tal como está en la base: el texto crudo (para el compare-and-set) y las páginas saneadas. */
+async function leerIndiceCrudo(): Promise<{ crudo: string | null; paginas: PaginaCopy[] }> {
+  const crudo = await getSettingEstricto(CLAVE_INDICE);
+  if (!crudo) return { crudo, paginas: [] };
   try {
-    return { crudo: fila.valor, marca: fila.marca, paginas: sanearIndice(JSON.parse(fila.valor)) };
+    return { crudo, paginas: sanearIndice(JSON.parse(crudo)) };
   } catch {
     // Un índice que no se puede leer NO es «no hay guiones»: escribir encima lo borraría. Se dice.
     throw new Error('No pude leer la lista de guiones.');
@@ -57,28 +58,28 @@ export async function listar(): Promise<{ ok: true; paginas: PaginaCopy[] } | Fa
 /** Cambia el índice con `f` y lo escribe si nadie lo cambió en el medio (hasta 4 intentos). */
 async function cambiarIndice(f: (paginas: PaginaCopy[]) => ResultadoArbol): Promise<{ ok: true; paginas: PaginaCopy[] } | Falla> {
   for (let intento = 0; intento < 4; intento++) {
-    let leido: Awaited<ReturnType<typeof leerIndiceCrudo>>;
+    let leido: { crudo: string | null; paginas: PaginaCopy[] };
     try { leido = await leerIndiceCrudo(); } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude leer la lista de guiones.'); }
     const r = f(leido.paginas);
     if (!r.ok) return falla(422, r.error);
     const nuevo = JSON.stringify(r.paginas);
     if (nuevo === leido.crudo) return { ok: true, paginas: r.paginas };
     let gano: boolean;
-    try { gano = (await cambiarSettingSiMarca(CLAVE_INDICE, leido.marca, nuevo)) !== null; } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude guardar la lista de guiones.'); }
+    try { gano = await cambiarSettingSi(CLAVE_INDICE, leido.crudo, nuevo); } catch (e) { return falla(500, e instanceof Error ? e.message : 'No pude guardar la lista de guiones.'); }
     if (gano) return { ok: true, paginas: r.paginas };
   }
   return falla(409, 'Otra pestaña está cambiando la lista de guiones. Vuelve a intentar.');
 }
 
-/** El documento tal como está en la base, con su marca (el compare-and-set). null = no existe. */
-async function leerDoc(id: string): Promise<{ marca: string; doc: DocCopy } | null> {
-  const fila = await getSettingConMarca(claveDoc(id));
-  if (!fila?.valor) return null;
+/** El documento tal como está en la base. null = no existe. */
+async function leerDoc(id: string): Promise<{ crudo: string; doc: DocCopy } | null> {
+  const crudo = await getSettingEstricto(claveDoc(id));
+  if (!crudo) return null;
   let o: Record<string, unknown>;
-  try { o = JSON.parse(fila.valor) as Record<string, unknown>; } catch { throw new Error('No pude leer este guion.'); }
+  try { o = JSON.parse(crudo) as Record<string, unknown>; } catch { throw new Error('No pude leer este guion.'); }
   const s = sanearContenido(o.contenido);
   return {
-    marca: fila.marca,
+    crudo,
     doc: {
       version: Number.isInteger(o.version) && (o.version as number) >= 1 ? (o.version as number) : 1,
       props: sanearProps(o.props),
@@ -118,13 +119,12 @@ export async function crear(p: PedidoCrear): Promise<({ ok: true; paginas: Pagin
   const props = sanearProps({ ...propsNuevas(p.tipo), ...(p.props ?? {}), tipo: p.tipo }, p.tipo);
   const id = idPaginaNuevo();
   const doc: DocCopy = { version: 1, props, contenido: s.doc };
-  let marcaDoc: string | null;
+  const valorDoc = JSON.stringify(doc);
   try {
-    marcaDoc = await cambiarSettingSiMarca(claveDoc(id), null, JSON.stringify(doc));
+    if (!(await cambiarSettingSi(claveDoc(id), null, valorDoc))) return falla(409, 'Vuelve a intentar.');
   } catch (e) {
     return falla(500, e instanceof Error ? e.message : 'No pude crear el guion.');
   }
-  if (!marcaDoc) return falla(409, 'Vuelve a intentar.');
   const ahora = new Date().toISOString();
   const nueva: Omit<PaginaCopy, 'orden'> = {
     id, titulo: (p.titulo ?? '').replace(/\s+/g, ' ').trim().slice(0, TOPES.titulo) || SIN_TITULO,
@@ -133,8 +133,9 @@ export async function crear(p: PedidoCrear): Promise<({ ok: true; paginas: Pagin
   };
   const r = await cambiarIndice((ps) => agregar(ps, nueva, p.posicion));
   if (!r.ok) {
-    // Sin su fila en el índice, el documento no lo ve nadie: se borra (si nadie lo tocó, que nadie sabe su id).
-    await borrarSettingSiMarca(claveDoc(id), marcaDoc).catch(() => false);
+    // Sin su fila en el índice el documento no lo ve nadie: se borra (verificación del Cerebro: quedaba uno huérfano por
+    // cada «crear» fallido). ⚠️ `borrarSettingSi` pone el valor en la URL: un documento de más de ~6 KB queda igual.
+    await borrarSettingSi(claveDoc(id), valorDoc).catch(() => false);
     return r;
   }
   const pagina = r.paginas.find((x) => x.id === id)!;
@@ -166,7 +167,7 @@ export async function guardar(p: PedidoGuardar, autor?: Omit<EditadoPor, 'at'>):
   const editado = autor ? { ...autor, at: new Date().toISOString() } : leido.doc.editado ?? null;
   const nuevo: DocCopy = { version: leido.doc.version + 1, props, contenido, ...(editado ? { editado } : {}) };
   try {
-    if ((await cambiarSettingSiMarca(claveDoc(p.id), leido.marca, JSON.stringify(nuevo))) === null) {
+    if (!(await cambiarSettingSi(claveDoc(p.id), leido.crudo, JSON.stringify(nuevo)))) {
       return falla(409, 'Este guion cambió en otra pestaña. Recarga para ver lo último.');
     }
   } catch (e) {

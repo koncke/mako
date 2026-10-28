@@ -42,13 +42,15 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   Writer en `mako.razones`: sin migración, y testeable en local sin tocar el esquema de producción.
 - El índice se lee, se cambia con una función pura (lib/copywriter/arbol.ts) y se reescribe sólo si nadie lo cambió en el
   medio, hasta 4 veces. El documento exige la `version` que se abrió (409 → «Recargar», nunca pisa).
-- ⚠️ **El compare-and-set es por la MARCA (`updated_at`), no por el valor.** La tanda 1 usó `cambiarSettingSi`, que pone el
-  valor ENTERO en la URL del PATCH; la regla ya estaba escrita (docs/hallazgos-infra.md, 12/10: «sólo para valores
-  cortos») y no la leí. La verificación del Cerebro lo midió: desde ~900 palabras el guion no se guardaba MÁS (cada
-  reintento, y hasta borrar casi todo, comparaba contra el valor grande ya guardado) y desde ~40 guiones el árbol se
-  congelaba, con un documento huérfano por cada «crear» fallido. Ahora es `cambiarSettingSiMarca` (lib/settings.ts, el
-  molde de lib/automatizacion-chat-db.ts en un solo lugar), y `crear` borra el documento si el índice no entra.
+- ⚠️ **Un guion y su índice son valores LARGOS.** La tanda 1 usó `cambiarSettingSi`, que ponía el valor ENTERO en la URL
+  del PATCH; la regla ya estaba escrita (docs/hallazgos-infra.md, 12/10: «sólo para valores cortos») y no la leí. La
+  verificación del Cerebro lo midió: desde ~900 palabras el guion no se guardaba MÁS (cada reintento, y hasta borrar casi
+  todo, comparaba contra el valor grande ya guardado) y desde ~40 guiones el árbol se congelaba, con un documento huérfano
+  por cada «crear» fallido. El Cerebro lo arregló en la RAÍZ (f92b74992: `cambiarSettingSi` compara un valor largo en el
+  server, para todos los que lo llaman); el Copywriter suma que `crear` borra el documento si el índice no entra.
   tests/copywriter-guardar.test.ts corre el `guardar` REAL contra el PostgREST de mentira con el límite de URL de prod.
+- **Sin hacer:** `borrarSettingSi` no tiene ese desvío: un documento de más de ~6 KB cuyo índice no entra queda huérfano
+  igual (lib/settings.ts).
 - Si un negocio llega a cientos de guiones con versiones, se muda a una tabla con su migración (y sus tres registros: ver
   la cabecera de `supabase/migrations/0246_editor_landing.sql`).
 

@@ -69,11 +69,12 @@ Lo que NO se copia, y por qué:
 En `app_settings` del negocio, como los guiones del Ads Writer (`mako.razones`): **no hay migración**.
 - `mako.copywriter.indice` → la lista de páginas: `{ id, titulo, emoji, tipo, padre, orden, actualizado, papelera? }`.
 - `mako.copywriter.doc.<id>` → `{ v, version, props, contenido }`.
-- **Concurrencia optimista**: guardar manda la `version` que abrió; el server compara y escribe con
-  `cambiarSettingSiMarca` (lib/settings.ts: compare-and-set por la marca de escritura, `updated_at`). Si otro guardó en el
-  medio, 409 y la pantalla ofrece recargar: nunca pisa. ⚠️ NO con `cambiarSettingSi`, que compara el VALOR entero y lo
-  pone en la URL: desde ~6-8 KB PostgREST no la acepta (docs/hallazgos-infra.md). Así salió la tanda 1 y la verificación
-  del Cerebro lo encontró: desde ~900 palabras un guion no se guardaba más, y desde ~40 guiones el árbol se congelaba.
+- **Concurrencia optimista**: guardar manda la `version` que abrió; el server compara y escribe con `cambiarSettingSi`.
+  Si otro guardó en el medio, 409 y la pantalla ofrece recargar: nunca pisa. ⚠️ Un guion y su índice son valores LARGOS:
+  la tanda 1 salió con `cambiarSettingSi` comparando el valor entero en la URL, y desde ~6-8 KB PostgREST no la acepta
+  (docs/hallazgos-infra.md); la verificación del Cerebro lo encontró (desde ~900 palabras un guion no se guardaba más; desde
+  ~40 guiones el árbol se congelaba). El Cerebro lo arregló en la raíz (f92b74992): con un valor largo, `cambiarSettingSi`
+  compara en el server y filtra por `updated_at` (lib/settings-cas.ts). tests/copywriter-guardar.test.ts lo fija.
 - **Borrar es la Papelera** (`papelera` en el índice), con «Restaurar». No hay «borrar para siempre» en esta versión.
 - ⚠️ Si un negocio llega a cientos de guiones con versiones, esto se muda a una tabla (`copy_docs`, con su migración y sus
   tres registros). Hoy no hace falta: un guion de YouTube de 10 minutos son ~15 KB, y el índice de 100 guiones, ~20 KB.

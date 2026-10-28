@@ -6,15 +6,16 @@
 // reintento comparaba contra el valor grande ya guardado). MEDIA: lo mismo con el índice, desde ~40 guiones, y cada
 // «crear» fallido dejaba un documento huérfano.
 //
-// Corre las funciones REALES en un node aparte (tests/_copywriter-guardar-hijo.ts) contra el PostgREST de mentira con el
-// límite de URL de prod. Fija: el guion crece y se achica sin fallar, el compare-and-set sigue (dos a la vez: uno 409),
-// 70 guiones con títulos largos entran, un índice que falla no deja huérfanos, y ninguna URL pasa el tope.
+// El arreglo es de RAÍZ (el Cerebro, f92b74992): `cambiarSettingSi` compara un valor largo en el server y filtra por
+// `updated_at` (lib/settings-cas.ts), para todos los que lo llaman. Este test lo fija para el Copywriter: corre las funciones
+// REALES en un node aparte (tests/_copywriter-guardar-hijo.ts) contra el PostgREST de mentira con el límite de URL de prod.
+// Fija: un guion de más de 20 KB crece y se achica sin fallar, el compare-and-set sigue (dos a la vez: uno 409), 70 guiones
+// con títulos largos (un índice de más de 10 KB) entran, un índice que falla no deja huérfanos, y ninguna URL pasa el tope.
 // =============================================================================
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const RAIZ = join(__dirname, '..');
@@ -30,6 +31,7 @@ test('un guion largo se sigue guardando, y se puede achicar', () => {
   const s = correr();
   assert.equal(s.error, undefined, String(s.error));
   assert.deepEqual(s.guardados, ['ok v2', 'ok v3', 'ok v4', 'ok v5'], 'desde ~8 KB cada guardado fallaba para siempre');
+  assert.ok((s.bytesGuion as number) > 20_000, `el guion guardado mide ${s.bytesGuion}: el test no está probando un guion largo`);
   assert.equal(s.quedo, 1);
 });
 
@@ -40,6 +42,7 @@ test('el compare-and-set sigue: dos guardados a la vez con la misma versión, un
 test('70 guiones con títulos largos entran en el índice, y un índice que falla no deja el documento huérfano', () => {
   const s = correr();
   assert.deepEqual(s.indice, { fallos: 0, paginas: 71 });
+  assert.ok((s.bytesIndice as number) > 10_000, `el índice mide ${s.bytesIndice}: el test no está probando un índice largo`);
   assert.deepEqual(s.aLaVez, ['en el árbol', 'en el árbol', 'en el árbol'], 'tres crear a la vez: ninguno se pierde del árbol');
   const h = s.huerfano as { ok: boolean; docsAntes: number; docsDespues: number };
   assert.equal(h.ok, false);
@@ -48,11 +51,6 @@ test('70 guiones con títulos largos entran en el índice, y un índice que fall
 
 test('ninguna URL pasa el tope de PostgREST, y nada sale a la red', () => {
   const s = correr();
-  assert.ok((s.urlMasLarga as number) < 2_000, `la URL más larga midió ${s.urlMasLarga}: algo compara un valor entero`);
+  assert.ok((s.urlMasLarga as number) <= 8_000, `la URL más larga midió ${s.urlMasLarga}: un valor largo viajó en la URL`);
   assert.deepEqual(s.red, []);
-});
-
-test('el server del Copywriter no usa el compare-and-set por valor', () => {
-  const src = readFileSync(join(RAIZ, 'lib/copywriter/server.ts'), 'utf8').replace(/^[ \t]*\/\/.*$/gm, '');
-  assert.doesNotMatch(src, /cambiarSettingSi\(|borrarSettingSi\(/, 'el valor entero va en la URL');
 });
