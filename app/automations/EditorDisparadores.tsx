@@ -54,9 +54,11 @@ import {
   disparadoresDe, sanearDisparadores, firmaLista, nuevoIdDisparador, problemaDeDisparador, textoDeDisparador, deSiempreDisparador,
   valoresQuien, quienTrasTocar, valorEtiqueta, conValorEtiqueta, alternarIgnorar, textoQuien, VALOR_GRUPO,
   VALOR_ETIQUETA_AGREGADA, VALOR_ETIQUETA_QUITADA, TEXTO_ETIQUETA_AGREGADA, TEXTO_ETIQUETA_QUITADA, TEXTO_GRUPO,
-  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA,
+  TRIGGER_ETIQUETA_AGREGADA, TRIGGER_ETIQUETA_QUITADA, conPalabras,
   type ClaseDisparador, type ClaseDeEventos, type Disparador, type EstadoCanales,
 } from '@/lib/disparadores';
+// Las palabras clave del CRON de comentario (ticket #17 de Leandro, 28/10/2026: «Tal cual como lo hace manychat»).
+import { COINCIDENCIAS, palabrasDeTexto, type Coincidencia } from '@/lib/palabras-clave';
 import {
   pasosDisparo, valorDisparo, valoresDisparo, valoresTrasTocar, valorDeVarios, disparoDeValor, rotuloDisparo,
   nombreEtiqueta, PASO_PRODUCTOS, type DisparoActual, type SeccionDisparo, detalleDisparador,
@@ -364,6 +366,37 @@ export function EventosDeCanal({ clase, d, estado, onElegir, disabled }: {
   );
 }
 
+/**
+ * LAS PALABRAS CLAVE DEL COMENTARIO (ticket #17 de Leandro, 28/10/2026), como ManyChat: «fiesta, guía», con «Contiene» o «Es
+ * exactamente», sin mayúsculas ni acentos (lib/palabras-clave.ts). Se escribe libre y se guarda al salir de la caja o con
+ * Enter: guardar en cada tecla sanearía lo que se está escribiendo (la regla de AGENTS.md del `trim` en cada tecla).
+ */
+export function PalabrasClave({ d, onCambiar, disabled }: {
+  d: Disparador; onCambiar: (palabras: string[], coincidencia: Coincidencia) => void; disabled?: boolean;
+}) {
+  const guardadas = (d.palabras ?? []).join(', ');
+  const [texto, setTexto] = useState(guardadas);
+  const coincidencia: Coincidencia = d.coincidencia ?? 'contiene';
+  const guardar = (t: string, c: Coincidencia) => {
+    const palabras = palabrasDeTexto(t);
+    setTexto(palabras.join(', '));
+    if (palabras.join(',') !== (d.palabras ?? []).join(',') || c !== coincidencia) onCambiar(palabras, c);
+  };
+  return (
+    <div data-palabras-clave="" style={{ marginTop: 10, display: 'grid', gridTemplateColumns: '120px minmax(0, 1fr)', alignItems: 'center', gap: 8 }}>
+      <Dropdown value={coincidencia} width="100%" buttonStyle={BOTON_CAMPO_CRON} disabled={disabled}
+        options={COINCIDENCIAS.map((o) => ({ value: o.value, label: o.label }))}
+        onChange={(v) => guardar(texto, v === 'exacta' ? 'exacta' : 'contiene')} ariaLabel="Cómo se compara el comentario" />
+      <input type="text" value={texto} disabled={disabled} aria-label="Palabras clave del comentario"
+        placeholder="fiesta, guía (vacío = cualquier comentario)"
+        onChange={(e) => setTexto(e.target.value)}
+        onBlur={() => guardar(texto, coincidencia)}
+        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); guardar(texto, coincidencia); } }}
+        style={{ ...BOTON_CAMPO_CRON, width: '100%', boxSizing: 'border-box', fontFamily: SANS, fontSize: 13, padding: '0 10px', cursor: 'text' } as CSSProperties} />
+    </div>
+  );
+}
+
 export type PropsEditorDisparadores = {
   lista: readonly Disparador[];
   /** El CRON abierto: su id, 'nuevo' (el «＋ Nuevo CRON»), o null (el primero). */
@@ -654,6 +687,11 @@ function EditorDeClase({ d, clase, textos, estadoCanales, productos, etiquetas, 
         <div style={{ flex: 1, minWidth: 0 }}>
           <EventosDeCanal clase={clase} d={d} estado={estadoCanales} disabled={busy}
             onElegir={(subtipo) => onCambiar({ id: d.id, trigger_tipo: triggerDeCanal(clase), subtipo })} />
+          {/* LAS PALABRAS CLAVE (ticket #17): sólo con «comenta tu publicación» (o el En vivo). Vacías = cualquier comentario. */}
+          {conPalabras(d.trigger_tipo, d.subtipo) && (
+            <PalabrasClave key={d.id} d={d} disabled={busy}
+              onCambiar={(palabras, coincidencia) => onCambiar({ ...d, palabras, coincidencia })} />
+          )}
         </div>
       </div>
     );

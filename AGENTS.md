@@ -9906,6 +9906,9 @@ Y un selector de línea PARA MANDAR (el número de salida de la automatización 
 «Probar») lee `RUTA_LINEAS` (app/automations/SalidaWhatsApp.tsx, `para=mandar`): en la plataforma el envío pone la de
 MaKo primero y por defecto, y con la lista del negocio la pantalla decía una línea y salía por otra (27/10/2026,
 docs/hallazgos-comunicacion.md). La bandeja y las operaciones de la línea siguen con las del negocio.
+Y un campo nuevo del CRON (un `Disparador`) tiene SU quinta puerta: `disparadoresDe` rearma el primero de las columnas y
+le devuelve de la lista sólo lo que nombra; sin sumarlo ahí (y a `higiene` y a `firmaDisparador`) se pierde en cada lectura
+del primero, sin error (28/10/2026, las palabras clave del comentario, docs/hallazgos-chatbot.md).
 Y un campo que se EDITA no muestra lo saneado (27/10/2026, ticket #12: el `trim` de `botonesDe` en cada tecla volvía
 «Obtener recurso» «Obtenerrecurso»): sanear es para lo que sale (el motor, Publicar), no para lo que se está escribiendo
 (`botonesDe(…, { comoSeEscribe: true })`, docs/hallazgos-chatbot.md).

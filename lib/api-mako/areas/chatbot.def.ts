@@ -600,6 +600,9 @@ export const DEFS: readonly OperacionDef[] = [
           { nombre: 'ignorar', tipo: 'string[]', max: 50, descripcion: 'con etiqueta_agregada o etiqueta_quitada: los ids de las etiquetas que NO la disparan, como textos ("12", "15").' },
           { nombre: 'subtipo', tipo: 'string', max: 30, descripcion: 'con instagram, messenger, email_recibido o pago: el evento. Instagram: comentario, historia, dm, en_vivo, ref. Messenger: comentario, dm, ref, qr. Email: recibido. Pago: aprobado, rechazado, reembolsado, suscripcion_cancelada.' },
           { nombre: 'grupo', tipo: 'boolean', descripcion: 'con horario: además (o en vez) de la cohorte, le escribe al grupo de WhatsApp de MaKo del negocio.' },
+          // Ticket #17 de Leandro (28/10/2026): las palabras clave del CRON de comentario, como ManyChat.
+          { nombre: 'palabras', tipo: 'string[]', max: 20, descripcion: 'con subtipo comentario o en_vivo: arranca sólo si el comentario tiene una de estas palabras (sin mayúsculas ni acentos). Vacía = cualquier comentario.' },
+          { nombre: 'coincidencia', tipo: 'string', enum: ['contiene', 'exacta'], descripcion: 'con palabras: contiene (la palabra está en el comentario, default) o exacta (el comentario es la palabra).' },
           {
             nombre: 'cron', tipo: 'object', descripcion: 'opcional: el horario de un Recurrente. Con horario, el CRON no arranca por el evento: sale en cada ocurrencia, a los que están en la cohorte.',
             campos: [

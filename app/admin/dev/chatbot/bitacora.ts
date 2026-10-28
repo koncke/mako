@@ -3015,8 +3015,11 @@ FEEDBACK PROBAR:
       "Prendido, ese texto sale como respuesta al comentario, a la vista de todos. El mensaje privado de después sale igual.",
       "Va sólo texto, sin botones.",
       "MaKo también lo sabe hacer: «respondé en público el comentario y mandale el recurso por privado».",
+      "Y como en ManyChat, el disparador del comentario tiene palabras clave: arranca sólo si comentan «fiesta» o «guía» (sin importar mayúsculas ni acentos). Sin palabras, con cualquier comentario, como antes.",
     ],
     archivos: [
+      "lib/palabras-clave.ts y lib/disparadores.ts — las palabras clave del comentario",
+      "app/automations/EditorDisparadores.tsx — dónde se escriben",
       "lib/canal-social.ts — cuándo sale la respuesta pública",
       "lib/canal-zernio.ts y lib/zernio.ts — el envío por Zernio",
       "app/automations/EditorMensajeSocial.tsx — el interruptor",

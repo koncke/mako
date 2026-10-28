@@ -27,6 +27,34 @@ motor), una revisión adversarial (`wf_c1c0d3d3-ae3`: 43 hallazgos, 42 confirmad
 sus arreglos (`wf_92e4c306-856`). Entre corchetes, quién lo vio: la parte, o el id del hallazgo de
 la revisión.*
 
+## Las palabras clave del comentario: el PRIMER CRON se rearma de las columnas y perdía lo nuevo (28/10/2026, ticket #17)
+
+**El pedido** (Leandro, ws10, por audio): «cuando alguien comente la palabra fiesta o la palabra guía… que se responda el
+comentario», y «Tal cual como lo hace manychat». El CRON «comenta tu publicación o Reel» arrancaba con CUALQUIER comentario.
+
+**Lo hecho:** `palabras` y `coincidencia` («contiene» o «exacta») en el CRON de comentario de Instagram o Messenger
+(lib/palabras-clave.ts, puro): sin mayúsculas ni acentos, «contiene» es la palabra entera («guía» no está en «guiar»),
+vacía = cualquier comentario. Lo decide `disparaPorEvento` con el texto de ESE comentario (el webhook lo pasa por
+`hayQuienEscuche` y `dispararEventoSocial`), no el de cuando nació el lead: quien ya comentó vuelve a disparar con la palabra.
+La pantalla guarda al salir de la caja (no en cada tecla), y la API (`cambiar_crons_secuencia`) y MaKo por WhatsApp las ponen.
+
+**La trampa:** `disparadoresDe` rearma el PRIMER CRON desde las COLUMNAS y le devuelve de la lista sólo lo que nombra
+(`ignorar`, `subtipo`, `grupo`). Un campo nuevo del disparador que no se suma ahí se pierde en cada lectura del primero —el
+caso de casi toda automatización— sin un error. Es la quinta puerta de los pasos (`camposDelFlujo`), del lado del CRON.
+tests/palabras-clave-comentario.test.ts.
+
+**⚠️ Lo obvio era sólo la mitad** (medido el 28/10 leyendo su automatización 680 en producción, sin escribir): «no se puede
+responder en público» era cierto, pero su automatización «Comentario con 'pruebafm' en Instagram» no arrancaba NUNCA. Su
+filtro «pruebafm» era la CONDITION «Respuesta del formulario contiene» (`respuesta_contiene`, fuente: las respuestas de un
+formulario de Meta): quien comenta no tiene ninguna, la condición no se cumple y su «Si no» estaba vacío. Además está
+pausada. Con las palabras en el CRON, sin esa condición y «Enviado, mira tus mensajes» en el comentario, la prueba de punta
+a punta (lectura + las funciones de la app, sin mandar nada) da: arranca con «PruebaFM 🙌», no con «qué lindo video», se
+puede publicar, sale primero la respuesta pública y la privada sigue disponible para el DM del recurso.
+
+**Sin hacer:** «Crear con IA» no las pone (el modelo elige el CRON por su clave `dN`; sumarle palabras es otro campo de la
+salida y tokens contra el techo de Groq), y nada impide poner «Respuesta del formulario contiene» en una automatización de
+comentario (no se cumple nunca); no se probó con un comentario de verdad.
+
 ## «La activé para los que están en reactivación y no pasa nada»: mover de etapa NO es un hito (28/10/2026, Leila 2)
 
 **El síntoma** (Leila, ws11, 20/10 17:38): activó una automatización «llega a etapa» para los que ya estaban en

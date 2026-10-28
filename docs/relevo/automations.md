@@ -10,6 +10,9 @@
   mensaje de Instagram o Messenger; el interruptor se ofrece con un CRON de comentario; la IA del lienzo y la API
   (`cambiar_botones_mensaje`) lo prenden y apagan. Hito con `tickets: [17]`. Sin probar con un comentario de verdad. Cosecha
   en docs/hallazgos-chatbot.md.
+- **Ticket #17, segunda mitad: las palabras clave del comentario** («fiesta», «guía»; «contiene» o «exacta»; vacía = cualquiera),
+  como ManyChat. En el mismo hito. Su automatización 680 no arrancaba nunca (el filtro era la condición del FORMULARIO y
+  está pausada): el cambio que le falta está en «Para el Cerebro» de docs/relevo/automations-nube-2710.md.
 - **Leila 2: los que YA están en la etapa.** No entraban por la ventana de 90 días sobre el último hito (mover de etapa no
   es un hito). Al activar una «llega a etapa», la pantalla cuenta y ofrece «Incluirlas». Sin medir en la base de Leila.
 - Sigue, en este orden: Leila 1 (el `?ws=`, ya en el commit WIP 922af2d5d) y Mauricio (MAU-07 y MAU-08). El relevo de la

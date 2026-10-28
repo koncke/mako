@@ -51,6 +51,26 @@ re-verificaron lo aclaran. El registro completo de corridas está en
 
 ---
 
+## «Este lead no es de esta cuenta»: todo lo que sale al grupo lleva el `?ws=`, y el link de Leila era el del EJEMPLO (28/10/2026, Leila 1)
+
+**El síntoma** (Leila, ws11, 27/10): reenvió «Mira el resumen del lead: hola-mako.com/crm/482/resumen» y al abrirlo, «Este
+lead no es de esta cuenta».
+
+**Lo arreglado (922af2d5d, de la cuenta 5):** los dos envíos al grupo de un negocio (`enviarAlGrupoMaKo` y
+`enviarPartesAlGrupoMaKo`, lib/mako-grupo.ts) completan cada link a MaKo con el `?ws=` de ESE negocio (`linksConWs`,
+`partesConLinksDeWs`, lib/links-con-ws.ts): el texto y el pie de un archivo. Lo que arma el código ya lo llevaba desde el
+06/10 (`linkApp`); lo escrito a mano en una tarjeta («MaKo en WhatsApp», «Avisar al equipo») podía salir pelado.
+tests/links-con-ws.test.ts.
+
+**⚠️ Pero el diagnóstico obvio puede ser el equivocado:** `crm/482/resumen` sólo existe en los EJEMPLOS del catálogo de
+avisos (lib/avisos-catalogo.ts: la «REUNIÓN» con *Laura Gil*, ficticia por regla). El aviso de verdad arma el link con
+`linkResumenLead(leadId, ws)` (lib/lead-resumen.ts), con el `?ws=`. Si lo que Leila abrió fue un ejemplo (dibujado en la
+pantalla de los avisos, o una plantilla que nunca se editó y sale con el texto de fábrica), el lead 482 no es suyo y el
+`?ws=` no lo arregla. De dónde le salió ese texto no se midió: es leer su grupo en producción.
+
+**La regla que queda:** lo que sale al grupo de un negocio pasa por `linksConWs` en la salida; y un ejemplo de catálogo no
+lleva un link que se pueda abrir como si fuera de verdad (pendiente: ver arriba).
+
 ## MaKo en el grupo, fallas medidas del 20 al 27/10: decía hecho lo que no hizo, no veía fotos, no levantaba el ticket, no listaba y corría el modelo más flojo (27/10/2026)
 
 La lectura del Cerebro (sólo lectura de `mako_doer_conv`, `anthropic_usage` y el grupo Makito, contra main bbb459f33).

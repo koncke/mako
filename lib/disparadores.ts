@@ -38,6 +38,8 @@ import { claseDe, idDe, puertosDe, raicesSalida, indicePorId, type PasoGrafo, ty
 import { OP_AVISAR } from './flujo-legado';
 import { partesExplicitas, sanearPartes } from './mensaje-partes';
 import { TRIGGER_RECORDATORIO } from './recordatorio-automatizacion';
+// Las PALABRAS CLAVE del CRON de comentario (ticket #17 de Leandro, 28/10/2026, como ManyChat). Puro.
+import { sanearPalabras, esCoincidencia, comentarioDispara, textoDePalabras, type Coincidencia } from './palabras-clave';
 
 // ── Los tipos de disparador nuevos ──────────────────────────────────────────────────────────────
 
@@ -418,6 +420,13 @@ export type Disparador = {
   ignorar?: number[];
   /** Instagram / Messenger / Email: CUÁL de sus eventos (`EVENTOS_*`). */
   subtipo?: string | null;
+  /**
+   * Sólo el CRON de comentario de Instagram o Messenger (ticket #17, lib/palabras-clave.ts): arranca sólo si el comentario
+   * tiene una de estas palabras. Ausente o vacía = cualquier comentario, como siempre.
+   */
+  palabras?: string[];
+  /** Cómo se comparan las `palabras`: ausente = «contiene». */
+  coincidencia?: Coincidencia;
   /** Recurrente: cuándo (lib/cron-aviso.ts). Con horario, el disparador NO responde a eventos. */
   cron?: CronAviso | null;
   /** Recurrente: la próxima ocurrencia agendada (el ancla; ver lib/nutricion-agenda.ts). */
@@ -456,6 +465,10 @@ const CON_IGNORAR: ReadonlySet<string> = new Set([TRIGGER_ETIQUETA_AGREGADA, TRI
 /** Las que llevan `subtipo` (el evento de MaKo también: cuál de `EVENTOS_MAKO`). */
 const CON_SUBTIPO: ReadonlySet<string> = new Set([TRIGGER_INSTAGRAM, TRIGGER_MESSENGER, TRIGGER_EMAIL_RECIBIDO, TRIGGER_AVISO_MAKO, TRIGGER_PAGO]);
 
+/** ¿Este CRON lleva palabras clave? El comentario a una publicación o Reel (y al En vivo) de Instagram o Messenger. */
+export const conPalabras = (t: string, subtipo: string | null | undefined): boolean =>
+  (t === TRIGGER_INSTAGRAM || t === TRIGGER_MESSENGER) && (subtipo === 'comentario' || subtipo === 'en_vivo');
+
 /**
  * CADA DISPARADOR LLEVA SÓLO LOS CAMPOS DE SU TIPO. Un campo de otro tipo que sobrevive a un cambio
  * es un ámbito que nadie ve (la etiqueta vieja de un disparador que ahora es de etapa) — la misma
@@ -478,6 +491,14 @@ function higiene(d: Disparador): Disparador {
   if (t === TRIGGER_ETIQUETA) out.etiqueta_id = d.etiqueta_id ?? null;
   if (CON_IGNORAR.has(t)) out.ignorar = [...new Set((d.ignorar ?? []).filter((n) => idPositivo(n) != null))].slice(0, TOPE_IGNORAR);
   if (CON_SUBTIPO.has(t)) out.subtipo = d.subtipo ?? null;
+  // Las palabras clave, sólo en un CRON de comentario (ticket #17): en otro evento serían un filtro que nadie ve.
+  if (conPalabras(t, out.subtipo)) {
+    const palabras = sanearPalabras(d.palabras);
+    if (palabras.length) {
+      out.palabras = palabras;
+      if (d.coincidencia === 'exacta') out.coincidencia = 'exacta';
+    }
+  }
   if (d.cron) {
     out.cron = d.cron;
     out.cron_proxima_at = d.cron_proxima_at ?? null;
@@ -502,6 +523,8 @@ export function sanearDisparador(raw: unknown): Disparador | null {
     etiqueta_id: idPositivo(o.etiqueta_id),
     ignorar: Array.isArray(o.ignorar) ? o.ignorar.map(idPositivo).filter((n): n is number => n != null) : [],
     subtipo: typeof o.subtipo === 'string' && /^[a-z_]{1,30}$/.test(o.subtipo) ? o.subtipo : null,
+    palabras: sanearPalabras(o.palabras),
+    ...(esCoincidencia(o.coincidencia) ? { coincidencia: o.coincidencia } : {}),
     cron: o.cron == null ? null : sanearCron(o.cron),
     cron_proxima_at: fechaIso(o.cron_proxima_at),
     grupo: o.grupo === true,
@@ -582,7 +605,9 @@ export function disparadoresDe(row: FilaDisparadores): Disparador[] {
   const primero = higiene({
     ...cols,
     id: mismo ? g0.id : (g0 && !guardados.slice(1).some((d) => d.id === 'd1') ? 'd1' : nuevoIdDisparador(guardados.map((d) => d.id))),
-    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo } : {}),
+    // ⚠️ Y LAS PALABRAS CLAVE (ticket #17, 28/10/2026): el primero se rearma de las COLUMNAS, que no las tienen; sin
+    // esto, el CRON de comentario de una automatización con un solo CRON las perdía en cada lectura, sin un error.
+    ...(mismo ? { ignorar: g0.ignorar, subtipo: g0.subtipo, grupo: g0.grupo, palabras: g0.palabras, coincidencia: g0.coincidencia } : {}),
   });
   const resto = guardados.slice(1).filter((d) => d.id !== primero.id);
   return [primero, ...resto].slice(0, TOPE_DISPARADORES);
@@ -615,6 +640,8 @@ export function firmaDisparador(d: Disparador): string {
     h.trigger_tipo, DE_ETAPA.has(h.trigger_tipo) ? normalizarEtapas(h.etapas?.length ? h.etapas : [h.etapa ?? '']) : null,
     h.funnel_id ?? null, h.producto_id ?? null, h.etiqueta_id ?? null,
     [...(h.ignorar ?? [])].sort((a, b) => a - b), h.subtipo ?? null, firmaCron(h.cron), h.grupo === true,
+    // Las palabras clave (ticket #17): «fiesta» y «guía» no es el mismo CRON que cualquier comentario.
+    ...(h.palabras?.length ? [[...h.palabras].map((x) => x.toLowerCase()).sort(), h.coincidencia ?? 'contiene'] : []),
   ]);
 }
 
@@ -814,6 +841,12 @@ export const MOTIVO_EVENTO_RETIRADO = 'Ese evento se retiró: va en «Un Lead Ag
 export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | 'messenger' | 'email_recibido' | 'pago';
 
 /**
+ * Lo que el evento dice de sí para decidir: la etiqueta, el subtipo del canal y, de un comentario, lo que escribió la persona
+ * (`texto`: las palabras clave del CRON de comentario, ticket #17).
+ */
+export type CtxDisparo = { etiquetaId?: number | string | null; subtipo?: string | null; texto?: string | null };
+
+/**
  * ¿ESTE disparador arranca con ESTE evento? Es la pregunta fina del evento (la gruesa, qué
  * `trigger_tipo` mirar, la hace `TRIGGERS_POR_EVENTO` en lib/nutricion.ts).
  *
@@ -823,13 +856,14 @@ export type EventoDisparador = 'etiqueta' | 'etiqueta_quitada' | 'instagram' | '
  *   · «Se le puso «X»»: sólo X.
  *   · «Se agrega / se elimina etiqueta a un lead»: CUALQUIERA, salvo las de `ignorar` (CRON punto 3).
  *   · Instagram / Messenger: el MISMO evento (`subtipo`). Sin subtipo en el evento, nada: un webhook
- *     que no dice qué pasó no puede caer en «entonces todos».
+ *     que no dice qué pasó no puede caer en «entonces todos». Y el de comentario, con sus PALABRAS CLAVE si tiene
+ *     (`comentarioDispara`, lib/palabras-clave.ts): sin el texto del comentario, no arranca.
  *   · Email: el email recibido.
  */
 export function disparaPorEvento(
   d: Pick<Disparador, 'trigger_tipo'> & Partial<Disparador>,
   evento: EventoDisparador | string,
-  ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
+  ctx?: CtxDisparo | null,
 ): boolean {
   if (d.cron) return false;
   const t = d.trigger_tipo;
@@ -842,7 +876,9 @@ export function disparaPorEvento(
   }
   if (evento === 'instagram' || evento === 'messenger') {
     const sub = typeof ctx?.subtipo === 'string' ? ctx.subtipo : '';
-    return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub;
+    // Las PALABRAS CLAVE del comentario (ticket #17): con el texto de ESTE comentario, no el de cuando nació el lead.
+    return t === (evento === 'instagram' ? TRIGGER_INSTAGRAM : TRIGGER_MESSENGER) && !!sub && d.subtipo === sub
+      && comentarioDispara(ctx?.texto, conPalabras(t, sub) ? d.palabras : null, d.coincidencia);
   }
   if (evento === 'email_recibido') return t === TRIGGER_EMAIL_RECIBIDO;
   // Pagos: el MISMO evento (`subtipo`), como Instagram. Sin subtipo, nada: un aviso de la pasarela que no
@@ -927,7 +963,7 @@ export function unaPorSecuencia<T extends { id: number }>(vistas: readonly T[]):
 export function escuchaElEvento(
   secs: readonly SecuenciaConDisparo[],
   evento: EventoDisparador | string,
-  ctx?: { etiquetaId?: number | string | null; subtipo?: string | null } | null,
+  ctx?: CtxDisparo | null,
 ): boolean {
   return secs.some((s) => vistasPorDisparador(s).some((v) => disparaPorEvento(v.disparador, evento, ctx)));
 }
@@ -1067,7 +1103,9 @@ export function textoDeDisparador(d: Disparador, n: NombresDeDisparo): string {
   if (t === TRIGGER_ETIQUETA_QUITADA) return TEXTO_ETIQUETA_QUITADA;
   if (CON_SUBTIPO.has(t)) {
     const ev = eventosDe(claseDeDisparador({ trigger_tipo: t, cron: null })).find((e) => e.subtipo === d.subtipo);
-    return ev?.label ?? 'Elige el evento';
+    // Con las palabras clave del comentario (ticket #17): «El usuario comenta tu publicación o Reel con «fiesta» o «guía»».
+    const palabras = conPalabras(t, d.subtipo) ? textoDePalabras(d.palabras, d.coincidencia) : '';
+    return ev ? (palabras ? `${ev.label} ${palabras}` : ev.label) : 'Elige el evento';
   }
   // Un evento de antes se dice como es, SIN marca (revisión de las tarjetas, 23/10/2026, punto 12). «(de antes)» era
   // un estado interno pegado a la tarjeta, y la undécima tanda ya lo había rechazado: «Fuera (de antes)»

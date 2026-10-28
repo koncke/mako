@@ -245,7 +245,8 @@ export async function POST(req: NextRequest) {
           }
           if (!r.disparar) return;
           try {
-            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo));
+            // Con lo que escribió (ticket #17): las palabras clave de un CRON de comentario.
+            const n = await runWithWorkspace(wsFinal, () => dispararEventoSocial(leadId, canal, subtipo, ev.evento.texto));
             console.log(`[webhook:zernio] ${canal}/${subtipo} lead ${leadId} ws=${wsFinal}: ${n} automatización(es)`);
           } catch (e) {
             console.error(`[webhook:zernio] disparar ${canal}/${subtipo} lead ${leadId}: ${msg(e)}`);

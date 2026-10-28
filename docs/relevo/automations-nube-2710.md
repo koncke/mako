@@ -96,3 +96,25 @@ g) Mensajes al Cerebro por mensaje cruzado, cortos: qué quedó, sha, cómo se p
 
 ## Para el Cerebro
 (anotá acá lo que necesita producción o una decisión)
+- **28/10, claude4 (en la PC), lo que espera un sí de Martín:**
+  - **MAU-07, ws1 (Mauricio): «Si responde» → «Mover de etapa» a «seguimientos».** El código ya lo hace: una acción dentro
+    de «Si responde» corre por `ejecutarDesdeFlujo` con reclamo (no se repite), y «Mover de etapa» lleva el CRM de la etapa
+    (`embudoId`; tests/chat-mako-prueba-de-chats.test.ts, flujo-motor-grafo, motor-revision). Falta CONFIGURARLO en la
+    automatización del Sprint del ws1: abrirla, confirmar por sus PASOS que es la del Sprint (CRON = una etapa del CRM del
+    Sprint; tiene «Si responde»), y en el caso de «respondió» agregar ACTION «Mover de etapa» → «seguimientos» DEL CRM DEL
+    SPRINT (no el principal: con `embudoId` del Sprint, `ficha_secuencia_mensajes` lo muestra). Antes, probarlo en el ws3
+    (crear y activar una de prueba). Las dos cosas son escribir en producción: no las hice.
+  - **MAU-08, ws1: etiqueta «SPRINT 3 DÍAS».** Tampoco es código: una tarjeta TAG «Agregar SPRINT 3 DÍAS» justo después del
+    CRON de la automatización del Sprint, y el lote para los que ya pasaron (los leads con inscripción en esa automatización,
+    `inscripciones_lead` / `poner_etiqueta_lead`). Crear la etiqueta si no existe (`crear_etiqueta`). Escribir en el ws1: no lo hice.
+  - **Leila 1 (ws11):** el link que reenvió (`hola-mako.com/crm/482/resumen`) es el del EJEMPLO del catálogo de avisos (lead
+    ficticio «Laura Gil»); el aviso de verdad ya lleva el `?ws=`. De dónde le llegó ese texto no se midió: es leer su grupo.
+  - **Leila 2 (ws11):** no medí en su base cuántos de «reactivación» quedaban afuera (es leer producción). Al desplegar, si
+    ella pausa y vuelve a activar su automatización, MaKo le cuenta y le ofrece sumarlos.
+  - **Ticket #17 (Leandro, ws10), su automatización 680 (leída en producción, sin escribir):** no arrancaba nunca: su filtro
+    «pruebafm» es la CONDITION «Respuesta del formulario contiene» (mira un formulario, no el comentario) y está PAUSADA. Lo
+    que hay que cambiarle, después del despliegue (escribir en su negocio: no lo hice): en el CRON, palabras «pruebafm»
+    (o «fiesta», «guía»); sacar esa CONDITION (la tarjeta `nxwrr0r`); en «Enviado, mira tus mensajes» (`nifhef7`) prender
+    «Responder en público»; y activarla. La prueba de punta a punta, en memoria y sin mandar nada, da verde.
+  - **Ticket #17:** sin probar con un comentario de verdad. El #12 (mismo texto) no lleva hito: decidí vos si
+    se cierra con el mismo aviso.
