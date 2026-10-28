@@ -7,7 +7,7 @@
 // rama»): `en_comentario: true` DENTRO del paso de mensaje; ausente = un DM, lo de siempre.
 // Fija:
 //   · la decisión pura (lib/canal-social.ts): sale con un comentario guardado, SIN mirar la ventana de 24 h, los 7 días ni si
-//     la respuesta privada ya se usó; sin comentario no sale y es terminal;
+//     la respuesta privada ya se usó; sin comentario (o con uno de antes de entrar) no sale, se omite y el DM sigue;
 //   · el dato: sólo en un mensaje de Instagram o Messenger, sobrevive al guardado (`camposDelFlujo`, la quinta puerta) y
 //     Publicar frena una respuesta pública con botones o sin texto;
 //   · la pantalla: el interruptor se ofrece sólo con un CRON de comentario (`canalesConComentario`);
@@ -62,6 +62,24 @@ test('la decisión: con el comentario guardado sale, sin ventana, sin los 7 día
   assert.equal(decidirRespuestaPublica({ ...COMENTO, cuentaId: null }).via, null);
   const nada = decidirRespuestaPublica(null, 'messenger');
   assert.ok(nada.via === null && nada.terminal && /Messenger/.test(nada.motivo));
+});
+
+test('⚠️ sólo el comentario del DISPARO (o uno posterior): uno de antes de que entrara no se responde en público (la revisión, 28/10)', () => {
+  // Entró HOY por DM y comentó hace 10 días en otra publicación: antes salía una respuesta pública debajo de ese comentario.
+  const hoy = new Date(AHORA).toISOString();
+  const viejo = decidirRespuestaPublica(COMENTO, 'instagram', { inscriptoAt: hoy });
+  assert.ok(viejo.via === null && /de antes de que entrara/.test(viejo.motivo), JSON.stringify(viejo));
+  // El comentario que lo hizo entrar: el webhook lo guarda y después inscribe (segundos, hasta 15 min de margen).
+  const delDisparo = { ...COMENTO, comentarioAt: new Date(AHORA - 3_000).toISOString() };
+  assert.equal(decidirRespuestaPublica(delDisparo, 'instagram', { inscriptoAt: hoy }).via, 'publica');
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA - 14 * 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, 'publica');
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA - 16 * 60_000).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, null);
+  // Uno posterior (comentó otra vez mientras esperaba): de la misma persona, se responde.
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: new Date(AHORA + DIA).toISOString() }, 'instagram', { inscriptoAt: hoy }).via, 'publica');
+  // Sin la fecha del comentario, con la de la inscripción: no se responde a ciegas.
+  assert.equal(decidirRespuestaPublica({ ...COMENTO, comentarioAt: null }, 'instagram', { inscriptoAt: hoy }).via, null);
+  // Sin la inscripción (quien no la tiene, como «Si responde»), lo de siempre.
+  assert.equal(decidirRespuestaPublica(COMENTO, 'instagram').via, 'publica');
 });
 
 const M = (extra: Partial<PasoGrafo> = {}): PasoGrafo => ({ id: 'm1', canal: 'instagram', cuerpo: '¡Te lo mandé por mensaje!', siguiente: 'm2', en_comentario: true, ...extra } as PasoGrafo);
@@ -126,9 +144,17 @@ test('el envío: publica por Zernio ANTES de decidir el DM, y no gasta la respue
   assert.match(cuerpo, /decidirRespuestaPublica\(/);
   assert.match(cuerpo, /responderComentarioEnPublico\(ws, \{ accountId: pub\.cuentaId, postId: pub\.postId, commentId: pub\.comentarioId, texto, idempotencyKey: `\$\{idempotencia\}#publica` \}\)/);
   assert.doesNotMatch(cuerpo, /marcarComentarioRespondido/, 'la pública no gasta la privada');
-  assert.match(cuerpo, /esRechazoDelComentario\(e\)[\s\S]{0,120}terminal: true/, '403 y 422 no se reintentan');
+  // ⚠️ Lo que no puede salir se OMITE y el flujo sigue (la revisión, 28/10): antes era terminal y cerraba la inscripción, y el
+  // DM del recurso, que va después, no salía. 403 y 422 tampoco se reintentan.
+  assert.match(cuerpo, /esRechazoDelComentario\(e\)[\s\S]{0,120}omitir: true/, '403 y 422: se omite, no se reintenta ni cierra');
+  assert.match(cuerpo, /if \(pub\.via === null\) return \{ ok: false, salieron: 0, textos: \[\], destino, error: pub\.motivo, omitir: true \};/);
+  assert.doesNotMatch(cuerpo, /terminal: true/, 'nada de la pública cierra la inscripción');
+  assert.match(cuerpo, /decidirRespuestaPublica\(fila \? conversacionDeFila\(fila\) : null, canal, \{ inscriptoAt: input\.inscriptoAt \?\? null \}\)/);
   const n = leer('lib/nutricion.ts');
-  assert.equal((n.match(/\.\.\.\(respondeEnComentario\((paso|p)\) \? \{ enComentario: true \} : \{\}\)/g) ?? []).length, 2, 'la salida y «Si responde» lo pasan');
+  assert.equal((n.match(/\.\.\.\(respondeEnComentario\((paso|p)\) \? \{ enComentario: true(, inscriptoAt: insc\.inscripto_at \?\? null)? \} : \{\}\)/g) ?? []).length, 2, 'la salida y «Si responde» lo pasan');
+  assert.match(n, /\.\.\.\(respondeEnComentario\(paso\) \? \{ enComentario: true, inscriptoAt: insc\.inscripto_at \?\? null \} : \{\}\)/, 'la salida, con la fecha de la inscripción');
+  assert.match(n, /estado = r\.ok \? 'enviado' : r\.omitir \? 'omitido' : 'fallo';\s*if \(r\.omitir\) nota = r\.error;/, 'omitida: el flujo avanza');
+  assert.match(n, /\.select\('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at'\)/);
 });
 
 // ── La IA del lienzo y la API ──

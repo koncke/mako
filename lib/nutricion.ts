@@ -3548,6 +3548,8 @@ async function hechosDelCatalogo(
 type FilaCola = {
   id: number; lead_id: number; secuencia_id: number; paso_actual: number; nodo_actual: string | null;
   proximo_envio_at?: string | null; hilos?: unknown; hilos_rev?: number | null; h?: string | null;
+  /** Cuándo entró (la respuesta pública va sólo al comentario del disparo). Ausente = no se leyó. */
+  inscripto_at?: string | null;
   /**
    * Lo que se LEYÓ (undécima tanda, M4): 'activa', o 'respondio' con el carril del recordatorio vivo. Es el
    * compare-and-set de toda escritura de la posición, y una 'respondio' sigue en 'respondio' (`estadoAlEscribir`).
@@ -4527,7 +4529,8 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
     let q = supabase
       .from('nutricion_inscripciones')
       // `hilos, hilos_rev` (mig 0228, ANTES del deploy): sin la columna PostgREST rechaza la consulta entera.
-      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace')
+      // `inscripto_at`: la respuesta pública va sólo al comentario del disparo (`decidirRespuestaPublica`).
+      .select('id, lead_id, secuencia_id, paso_actual, nodo_actual, proximo_envio_at, hilos, hilos_rev, estado, desenlace, inscripto_at')
       // Y las 'respondio' con el carril del recordatorio vivo (undécima tanda, M4): `pausarPorRespuesta` les deja el
       // próximo envío SÓLO a ésas, y acá se mueven sólo sus tarjetas del carril (`seMueveEnLaCorrida`).
       .in('estado', ['activa', 'respondio'])
@@ -5322,7 +5325,7 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
             // tarjeta, y el toque vuelve por el webhook (`tocarBoton`).
             ...(botonesDe(paso).length ? { botones: { lista: botonesDe(paso), inscripcionId: insc.id, nodoId: idDe(paso, insc.paso_actual) } } : {}),
             // La respuesta PÚBLICA al comentario (ticket #17): debajo del comentario, no por DM.
-            ...(respondeEnComentario(paso) ? { enComentario: true } : {}),
+            ...(respondeEnComentario(paso) ? { enComentario: true, inscriptoAt: insc.inscripto_at ?? null } : {}),
           });
           // Un TOPE no se pierde (vuelve a salir con el backoff de su espera) y se cuenta para el aviso de la corrida.
           if (r.tope) topesSociales.push({ ...r.tope, canal: paso.canal });
@@ -5330,8 +5333,10 @@ export async function procesarEnvios(opts?: { durante?: DuranteDelArnes; ignorar
           partesSalidas = r.salieron;
           destinoSocial = r.destino;
           textoEnviado = r.textos.join('\n\n') || null; textoAutor = r.textos.length ? 'fijo' : null;
-          estado = r.ok ? 'enviado' : 'fallo';
-          if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
+          // `omitir`: la respuesta pública que no puede salir se anota 'omitido' y el flujo SIGUE (el DM de después sale).
+          estado = r.ok ? 'enviado' : r.omitir ? 'omitido' : 'fallo';
+          if (r.omitir) nota = r.error;
+          else if (!r.ok) { nota = r.error; backoffHoras = r.backoffHoras ?? 4; terminal = r.terminal === true; }
           else if (r.nota) nota = r.nota;
         }
       } else if (waOn && paso.canal === 'whatsapp' && paso.proveedor === 'no_oficial') {

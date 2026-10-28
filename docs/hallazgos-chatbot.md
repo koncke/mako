@@ -199,8 +199,19 @@ primer guardado lo borraba), Publicar (`problemasDeRespuestaPublica`: sin botone
 (`cambiar_botones_mensaje` con `en_comentario`). La pantalla ofrece el interruptor sólo con un CRON de comentario
 (`canalesConComentario`, lib/disparadores.ts). tests/instagram-respuesta-publica.test.ts, 11 roturas en rojo.
 
+**⚠️ «Terminal» cerraba más que la tarjeta (la revisión del Cerebro, 28/10):** la pública sin comentario, o rechazada por
+Meta (403/422), volvía `terminal`, y en el motor terminal es `estadoDeCierrePermanente`: la INSCRIPCIÓN entera se cerraba
+y el DM del recurso, que va después, no salía. Además respondía el ÚLTIMO comentario guardado, de cualquier edad: quien
+entraba hoy por DM (con un CRON de comentario y otro de DM en la misma automatización) recibía una respuesta pública
+debajo de un comentario de hace meses. Ahora: sólo el comentario del disparo o uno posterior (`inscriptoAt`, con 15 min de
+margen porque el webhook guarda y después inscribe), y lo que no puede salir vuelve `omitir`: el motor lo anota 'omitido'
+con su motivo y AVANZA. **La regla:** en un flujo lineal, un fallo «que reintentar no arregla» de UNA tarjeta no es lo
+mismo que «esta persona no puede recibir nada más»; terminal es lo segundo. Ojo que el mismo patrón vale para cualquier
+canal faltante (sin teléfono, sin email, ventana cerrada): ver «La difusión» más abajo.
+
 **Sin hacer:**
 - no se probó con un comentario de verdad (es mandar en producción a la cuenta de Leandro);
+- «Si responde» (la rama de un AI Step) no sabe la inscripción: su pública sigue yendo al último comentario guardado;
 - la tarjeta del lienzo no dice «en el comentario» (el alto de la tarjeta es fijo: `altoDeMensaje`); se ve al abrirla;
 - «Probar» no la simula aparte: la muestra como un DM.
 

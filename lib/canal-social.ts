@@ -109,13 +109,20 @@ export function decidirSalida(c: ConversacionSocial | null, ahoraMs: number, can
  *   · NO depende de la ventana de 24 h ni de los 7 días: es un comentario, no un mensaje privado.
  *   · NO GASTA la respuesta privada (Meta deja UNA por comentario): `comentarioRespondidoAt` no se mira ni se marca, así
  *     el DM de la tarjeta siguiente sale igual.
- *   · Sin un comentario guardado (la persona escribió por DM, no comentó), no sale y es terminal.
+ *   · Sin un comentario guardado (la persona escribió por DM, no comentó), no sale.
+ *   · ⚠️ SÓLO EL COMENTARIO DEL DISPARO, O UNO POSTERIOR (la revisión del Cerebro, 28/10/2026): con `inscriptoAt`, un
+ *     comentario de antes de que entrara (más de `VENTANA_COMENTARIO_DEL_DISPARO_MS`) no se responde. Sin esto, quien entraba
+ *     hoy por DM recibía una respuesta pública debajo de un comentario de hace 200 días, en otra publicación.
+ * Lo que no sale NO cierra el flujo: la tarjeta se omite y sigue la de después, el DM (`omitir`, lib/canal-zernio.ts).
  */
 export type SalidaPublica =
   | { via: 'publica'; comentarioId: string; postId: string; cuentaId: string }
   | { via: null; motivo: string; terminal: true };
 
-export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: CanalSocial = 'instagram'): SalidaPublica {
+/** Cuánto ANTES de la inscripción puede ser el comentario del disparo: el webhook guarda el comentario y después inscribe. */
+export const VENTANA_COMENTARIO_DEL_DISPARO_MS = 15 * 60_000;
+
+export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: CanalSocial = 'instagram', o: { inscriptoAt?: string | null } = {}): SalidaPublica {
   const nombre = NOMBRE_CANAL[canal];
   if (!c) return { via: null, motivo: `el lead no tiene una conversación por ${nombre}`, terminal: true };
   const cuenta = (c.cuentaId ?? '').trim();
@@ -123,6 +130,11 @@ export function decidirRespuestaPublica(c: ConversacionSocial | null, canal: Can
   const coment = (c.comentarioId ?? '').trim();
   const post = (c.comentarioPostId ?? '').trim();
   if (!coment || !post) return { via: null, motivo: `el lead no comentó una publicación: no hay comentario que responder en ${nombre}`, terminal: true };
+  const desde = ms(o.inscriptoAt ?? null);
+  const cuando = ms(c.comentarioAt);
+  if (Number.isFinite(desde) && !(Number.isFinite(cuando) && cuando >= desde - VENTANA_COMENTARIO_DEL_DISPARO_MS)) {
+    return { via: null, motivo: `el comentario que hay en ${nombre} es de antes de que entrara: no se responde en público uno viejo`, terminal: true };
+  }
   return { via: 'publica', comentarioId: coment, postId: post, cuentaId: cuenta };
 }
 

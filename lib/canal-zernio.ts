@@ -59,6 +59,12 @@ export type ResultadoSocial = {
   error?: string;
   /** Reintentar no lo arregla (Meta dijo que no, o no hay conversación). */
   terminal?: boolean;
+  /**
+   * ESTA TARJETA NO SALE Y EL FLUJO SIGUE (la revisión del Cerebro, 28/10/2026): la respuesta pública sin un comentario del
+   * disparo que responder, o rechazada por Meta. Antes era terminal y cerraba la inscripción: el DM de la tarjeta siguiente
+   * (el recurso) no salía nunca. El motor la anota 'omitido' con su motivo y avanza.
+   */
+  omitir?: boolean;
   backoffHoras?: number;
   /** Algo salió distinto de lo escrito (una respuesta privada lleva sólo texto). */
   nota?: string;
@@ -207,6 +213,8 @@ export async function enviarPasoSocial(input: {
    * del comentario que la persona dejó, no por DM (`decidirRespuestaPublica`, lib/canal-social.ts). Sólo texto y sin botones.
    */
   enComentario?: boolean;
+  /** Cuándo entró a la automatización: la respuesta pública sólo va al comentario del disparo o a uno posterior. */
+  inscriptoAt?: string | null;
 }): Promise<ResultadoSocial> {
   const { ws, leadId, canal, partes, vars, idempotencia } = input;
   const botones = input.botones?.lista.length ? aBotonesZernio(input.botones.lista, input.botones.inscripcionId, input.botones.nodoId) : [];
@@ -217,14 +225,18 @@ export async function enviarPasoSocial(input: {
   if (fila === undefined) return { ok: false, salieron: desde, textos: [], destino: null, error: `no pude leer la conversación de ${nombre}`, backoffHoras: 4 };
   const destino = fila ? (fila.username ? `@${fila.username}` : fila.igsid) : null;
   // Con la cuenta de la tarjeta y sin conversación con ESA cuenta: el motivo nombra la cuenta elegida (no cae a otra).
-  if (fila === null && cuenta) return { ok: false, salieron: desde, textos: [], destino: null, error: `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`, terminal: true, backoffHoras: 24 };
+  if (fila === null && cuenta) {
+    const error = `el lead no le escribió a la cuenta de ${nombre} elegida en la tarjeta`;
+    return input.enComentario ? { ok: false, salieron: 0, textos: [], destino: null, error, omitir: true } : { ok: false, salieron: desde, textos: [], destino: null, error, terminal: true, backoffHoras: 24 };
+  }
 
   // ── La respuesta PÚBLICA al comentario (ticket #17): UNA, sólo texto, sin ventana y sin gastar la privada ──
   if (input.enComentario) {
-    const pub = decidirRespuestaPublica(fila ? conversacionDeFila(fila) : null, canal);
-    if (pub.via === null) return { ok: false, salieron: 0, textos: [], destino, error: pub.motivo, terminal: true, backoffHoras: 24 };
+    // Lo que no puede salir se OMITE y el flujo sigue con el DM de después (`omitir`): nunca cierra la inscripción.
+    const pub = decidirRespuestaPublica(fila ? conversacionDeFila(fila) : null, canal, { inscriptoAt: input.inscriptoAt ?? null });
+    if (pub.via === null) return { ok: false, salieron: 0, textos: [], destino, error: pub.motivo, omitir: true };
     const texto = textoDeLasPartes(partes, vars);
-    if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'una respuesta en el comentario es de texto, y este mensaje no tiene', terminal: true, backoffHoras: 24 };
+    if (!texto) return { ok: false, salieron: 0, textos: [], destino, error: 'una respuesta en el comentario es de texto, y este mensaje no tiene', omitir: true };
     const dejaAfuera = partes.some((p) => p.tipo !== 'texto') || botones.length > 0;
     try {
       await responderComentarioEnPublico(ws, { accountId: pub.cuentaId, postId: pub.postId, commentId: pub.comentarioId, texto, idempotencyKey: `${idempotencia}#publica` });
@@ -233,7 +245,7 @@ export async function enviarPasoSocial(input: {
       // Un TOPE primero (28/10/2026): un 422 o un 403 de Meta por «muchos pedidos» no es un rechazo, pasa solo.
       const t = topeDe(e);
       if (t) return porTope(t, { salieron: 0, textos: [], destino }, e);
-      if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, terminal: true };
+      if (esRechazoDelComentario(e) || esLimiteDeMeta(e)) return { ok: false, salieron: 0, textos: [], destino, error: `${nombre}: ${msg(e)}`, omitir: true };
       return { ok: false, salieron: 0, textos: [], destino, error: msg(e), backoffHoras: 4 };
     }
   }
