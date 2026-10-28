@@ -127,9 +127,10 @@ const ARTICULO = String.raw`(?:(?:una|unas|un|unos|la|las|el|los|tu|tus|su|sus|m
  *  lo que se crea (una campaña, una tarea): eso es escribir. */
 // Sin «verificación» (la verificación de 8cb034a18): «He hecho la verificación de tu número» es una escritura.
 const LO_QUE_SE_HACE_PARA_LEER = String.raw`${ARTICULO}(?:b[uú]squedas?|cuentas?|revisi(?:ón|on|ones)|an[aá]lisis|consultas?|repasos?|res[uú]men(?:es)?|lecturas?|c[aá]lculos?|chequeos?|comparaci(?:ón|on|ones))(?!\p{L})`;
-/** Lo que también se CREA, dicho como creado: «nueva», «para el equipo», hasta dos palabras después y sin pasar un «y»
- *  («la campaña nueva», «el reporte del error para el equipo»; «el panel y hay 3 leads nuevos» no). */
-const LO_CREADO = String.raw`(?!(?:\s+(?!(?:y|e|o|que|pero)(?!\p{L}))[\p{L}\d]+){0,2}\s+(?:nuev[oa]s?|para\s+(?:el\s+equipo|soporte|el\s+cliente|tu\s+cliente|ti|todos))(?!\p{L}))`;
+/** Lo que también se CREA, dicho como creado: «nueva» PEGADO al objeto («la campaña nueva»), y «para el equipo» hasta dos
+ *  palabras después sin pasar un «y» («el reporte del error para el equipo»). «La planilla de clientes nuevos» se lee: los
+ *  nuevos son los clientes (la verificación de 9cef25dba). */
+const LO_CREADO = String.raw`(?!\s+nuev[oa]s?(?!\p{L}))(?!(?:\s+(?!(?:y|e|o|que|pero)(?!\p{L}))[\p{L}\d]+){0,2}\s+para\s+(?:el\s+equipo|soporte|el\s+cliente|tu\s+cliente|ti|todos)(?!\p{L}))`;
 /**
  * Lo que se ABRE para leer («la imagen», «el PDF», «tus campañas», «Google Calendar»): «abierto» o «abrí» con esto es leer.
  * La verificación de bb41ede4a: sin «imagen», la respuesta a la foto de Leila («He abierto la imagen y la cuota figura en USD

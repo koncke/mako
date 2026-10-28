@@ -247,7 +247,14 @@ test('quién la pidió va en el payload y sale al leerla: ni la bandeja lo muest
   assert.match(viejo, /enElGrupo: enElGrupo \? \{ pidio: target\.pidio \?\? null, confirma: enElGrupo\.quien, aMaKo: enElGrupo\.aMaKo \} : undefined,/);
   // El doer: quién escribe (nadie en un lote de varios) y si le habla a MaKo, al contexto y al runner.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /\{ quien: data\.loteDeVarios \? null : quienEnElGrupo\(key\?\.participant\) \?\? \(key\?\.fromMe \? 'fromMe' : null\), aMaKo: quien\.aMaKo \|\| nombraAMaKo\(textoDirecto\) \|\| nombraAMaKo\(texto\) \|\| \(await citaAMaKo\(instance, data\)\) \}/);
+  assert.match(doer, /quien: data\.loteDeVarios \? null : quienEnElGrupo\(key\?\.participant\) \?\? \(key\?\.fromMe \? 'fromMe' : null\),/);
+  // «Le habla a MaKo»: en un lote, el último de lo que queda (un audio no cuenta); suelto, el nombre, la @ (salvo en la línea del
+  // dueño, donde la @ es él) o la cita a un mensaje de MaKo por su id (la verificación de 9cef25dba).
+  assert.match(doer, /aMaKo: data\.paraQuien \? !!data\.paraQuien\.leHabla\n\s*: \(quien\.aMaKo && !lineaDelDueno\) \|\| nombraAMaKo\(textoDirecto\) \|\| nombraAMaKo\(texto\) \|\| \(await citaAMaKo\(data\)\),/);
+  assert.equal((doer.match(/leHabla: await leHablaAMaKo\(/g) ?? []).length, 2, 'un lote no dice si su último le habla a MaKo');
+  assert.match(doer, /async function citaAMaKo\(data: MsgIn\): Promise<boolean> \{\n\s*const \{ id \} = citaDe\([^\n]*\n\s*return !!id && \(await idsEnviados\(/);
+  assert.match(doer, /if \(msgId && enviados\.includes\(msgId\)\) return \{ engaged: false, skip: 'eco de mi propia respuesta' \};\n[^\n]*\n\s*await anotarLineaDelDueno\(instance\);/);
+  assert.match(doer, /sinElLlamadoAMaKo\(textoDirecto, lineaDelDueno \? null : await numeroDeLaLinea\(instance\)\)/);
   assert.match(doer, /mensajeUsuario: texto, enElGrupo,/);
   assert.match(doer, /crearRunnerAcciones\(wsData, jid, Date\.now\(\), texto, enElGrupo\)/);
 });

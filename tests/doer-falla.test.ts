@@ -206,3 +206,15 @@ test('10. el seguimiento de Leila con una palabra más sigue siendo la correcci�
   const r = laCorreccion({ intencion: 'capturar', dudosa: true, porque: 'sin señal clara' }, 'son 423, no 4235 por favor', foto);
   assert.deepEqual([r.veredicto.intencion, [...r.herramientas]], ['actuar', [...HERRAMIENTAS_CORRECCION]]);
 });
+
+test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la corrección, y «2024 no 2026 pesos» es plata', () => {
+  // La verificación de 9cef25dba: «son 423 no 4235, ¿lo podés cambiar?» y «cambialo ya» seguían sin verse, y con «pesos» pegado
+  // dos cifras cerca del año se leían como años.
+  const foto = '(en este mensaje mandé una imagen: la cuota de Nadia, USD 4235,29)';
+  for (const f of ['son 423 no 4235, ¿lo podés cambiar?', 'son 423 no 4235, ¿lo puedes cambiar?', 'son 423 no 4235, cambialo ya'])
+    assert.ok(corrigeUnMonto(f, foto, HOY), `«${f}» con la foto antes no se ve como corrección`);
+  assert.ok(corrigeUnMonto('cobrale 2024 no 2026 pesos', '', HOY));
+  assert.ok(corrigeUnMonto('la cuota es $2024 no $2026', '', HOY));
+  // Dos años sin moneda siguen siendo años.
+  assert.ok(!corrigeUnMonto('la cuota vence en 2026 no 2025', '', HOY));
+});

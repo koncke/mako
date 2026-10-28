@@ -165,3 +165,11 @@ test('9. lo que también se CREA (un reporte, una campaña, una planilla) con «
   for (const f of ['He abierto el panel y hay 3 leads nuevos.', 'Abrí la conversación con Juan y pidió la propuesta.', 'Le hice una búsqueda a Juan y está en Seguimiento.'])
     assert.equal(enElGrupo(f, false, false, true).texto, f, `«${f}»`);
 });
+
+test('10. «nuevo» cuenta como creado sólo PEGADO al objeto: «la planilla de clientes nuevos» se lee', () => {
+  // La verificación de 9cef25dba: con «nuevos» dos palabras después, una lectura salía como «Eso no lo llegué a hacer».
+  for (const f of ['Abrí la planilla de clientes nuevos y son 4.', 'He abierto el informe de leads nuevos: son 12.'])
+    assert.equal(enElGrupo(f, false, false, true).texto, f, `«${f}»`);
+  for (const f of ['He abierto la campaña nueva de Noviembre.', 'He abierto el reporte del error para el equipo.'])
+    for (const leyo of [false, true]) assert.ok(enElGrupo(f, false, false, leyo).texto.endsWith(SIN_HACER), `«${f}» (leyó: ${leyo})`);
+});

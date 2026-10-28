@@ -182,7 +182,8 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     «te/le abrí» nunca es leer; «te/le hice» sí.
   · ⚠️ **Un reporte, una campaña, un chat o una planilla también se CREAN** (la verificación de 8cb034a18): sumarlos a lo que
     se abre para leer perdonó «He abierto un reporte del error para el equipo», la misma mentira de Leila. Lo que distingue
-    es el determinante, no el sustantivo: con «un/una», «nuevo» o «para el equipo» (`LO_CREADO`) es escribir. Lo que MaKo
+    es el determinante, no el sustantivo: con «un/una», «nuevo» PEGADO al objeto («la campaña nueva»; «la planilla de clientes
+    nuevos» se lee) o «para el equipo» (`LO_CREADO`) es escribir. Lo que MaKo
     «dejó abierto» o «ya quedó abierto» nunca es lo que leyó. Y lo hecho PARA OTRO tampoco (`A_UN_TERCERO`): «Les hice un
     resumen a todos por mail», «Le hice una consulta al equipo de soporte». «He hecho la verificación de tu número» es
     escribir: «verificación» salió de la lista.
@@ -199,6 +200,10 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
     «listo, agendá a Juan el lunes» o «si entra un lead nuevo avisame» (el «si» condicional) se volvían «a otro» detrás de
     una mención, y quedaban con 👍 y silencio. Ahora es un acuse o una confirmación entera («sí», «dale, ya te lo mando»,
     «ok 👍»), sin nombrar a MaKo ni preguntar (`esRespuestaCorta`).
+  · ⚠️ **Y «entera» incluye la confirmación CON VERBO** (la verificación de 9cef25dba, ALTA): anclar la regex sacó «sí, hacelo»,
+    «dale, confirmalo» o «sí, mandalo», que detrás de «@Pedro ¿lo confirmo?» volvieron a entrar al turno y a ejecutar lo que le
+    llega a un tercero. **Regla: lo que cuenta como respuesta a otro acepta todo lo que la puerta acepta como confirmación**
+    (`confirmaAOtro`, lib/confirmacion-pura.ts, que es `confirmacionPura` más «confirmalo vos»), y «sí Pedro», «sí, ya lo vi».
   · **Y la escribe OTRA persona** (`conLasRespuestas`): Ana «@Leila mirá» y después Ana «sí» no se contesta a sí misma, ese
     «sí» es para MaKo. Lo que sigue a una respuesta va con ella aunque sea del mismo (Pedro «sí» y Pedro «dale»). Sin el
     autor, se toma como respuesta: es lo que no ejecuta nada.
@@ -218,6 +223,13 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       tapaba el «sí» del arranque en el clasificador. El llamado a MaKo no es contenido (`sinElLlamadoAMaKo`): se saca la @ de la
       línea y el «MaKo,» de delante de una confirmación, antes de clasificar.
     · En la línea del dueño, lo suyo llega `fromMe` y puede venir sin `participant`: cuenta como «fromMe».
+    · ⚠️ **En la línea del dueño, la línea ES el dueño** (la verificación de 9cef25dba): «@Dueño sí» o citar un mensaje suyo
+      contaban como «sí a MaKo» y ejecutaban la de plata. Ahora la línea se anota como del dueño al ver un `fromMe` que no es
+      eco (`esLineaDelDueno`, 7 días), y ahí la @ no se saca ni le habla a MaKo; la cita cuenta sólo por su id (`idsEnviados`).
+    · Sacar el llamado («MaKo,», la @) sólo si lo que queda es una confirmación: de «mako listo el reporte?» quedaba «listo…»,
+      que con una pendiente viva es un «sí».
+    · En un lote, «le habla a MaKo» es el ÚLTIMO de lo que queda (`leHabla`): con «alguno», el «mako, ¿cuántos leads?» de Ana le
+      daba paso al «sí» de Pedro, y un audio contaba como hablarle.
   · El sintético lleva el nombre y el autor del último mensaje que QUEDA, no del último de la cola.
 
 **El ticket automático en el grupo** (la regla de Martín del 27/10: «siempre que MaKo responda "No lo pude hacer" debe
@@ -236,6 +248,14 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
 
 **Sin hacer:**
+- **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor
+  se compara por el `participant` exacto, así que PN↔`@lid`, o el dueño con y sin `participant`, piden «sí, MaKo» aunque sea
+  quien la pidió (lib/confirmacion-pura.ts, `elSiEsDeQuienPidio`); en un lote, la cita a MaKo se pierde (el sintético no
+  lleva `contextInfo`). No medido en producción.
+- **Decisión de producto: cobros sin `plata: true`** quedan fuera de la regla del «sí» de plata: `marcar_pago_cobrado`,
+  `registrar_pago_suelto`, `quitar_cobro_landing`, `cambiar_cobro_partners`, `anular_link_pago`, `cortar_recordatorio_cuota`,
+  `estado_suscripcion_manual` (y `crear_link_pago` / `crear_link_cuota`, que son `aTerceros`). Marcarlas es del registro de
+  cada área.
 - **El RUTEO en el grupo:** `runTool` no frena lo que no viajó, así que la señal `ruteo` de la base no se arma acá.
 - ~~**La guía de conexión** todavía PROPONE su ticket~~: desde el 28/10/2026 lo abre sola cuando la guía no alcanza
   (`abrirTicketDeLaGuia`, causa «texto», uno por conversación), y nada queda esperando un «sí». Una oferta guardada antes se

@@ -79,14 +79,18 @@ function sonAnios(coincidencia: string, ahora: Date): boolean {
 }
 /** Las dos cifras enfrentadas que NO son años, todas las del texto. */
 const correcciones = (re: RegExp, t: string, ahora: Date): string[] =>
-  [...t.matchAll(new RegExp(re.source, `${re.flags}g`))].map((m) => m[0]).filter((m) => !sonAnios(m, ahora));
+  [...t.matchAll(new RegExp(re.source, `${re.flags}g`))]
+    // Con la moneda pegada («$2024», «2024 no 2026 pesos»), son plata aunque estén cerca del año (la verificación de 9cef25dba).
+    .filter((m) => /\$/.test(m[0]) || CON_MONEDA.test(t.slice((m.index ?? 0) + m[0].length)) || !sonAnios(m[0], ahora))
+    .map((m) => m[0]);
+const CON_MONEDA = /^\s*(?:pesos?|usd|d[oó]lares?|ars|mxn)(?!\p{L})/iu;
 /**
  * Con la plata sólo en lo de antes, el mensaje tiene que ser LA CORRECCIÓN: «son 423, no 4235», «pero son 423, no 4235,
  * corregilo», «son 423, no 4235 por favor», «debería ser 423 no 4235», «la de Nadia es 423, no 4235 👍». «son 120 no 150 leads»,
  * «el código postal es 3300 no 3301» u «oficina 302 no 303» hablan de otra cosa. (La verificación de 8cb034a18: sin el verbo de
  * corregir ni «por favor», el seguimiento de Leila con una palabra más volvía a perder la corrección.)
  */
-const SOLO_LA_CORRECCION = /^(?:(?:pero|son|es|era|eran|no|que|y|o|ojo|perd[oó]n|che|mako|digo|o sea|osea|bueno|en realidad|realmente|ah|eh|ser[ií]an?|deber[ií]an?(?: ser)?|me|deja|editar|cambiar|corregir|modificar|correg[ií]\p{L}*|corr[ií]g\p{L}*|c[aá]mbi\p{L}*|arr[eé]gl\p{L}*|modif[ií]c\p{L}*|por favor|porfa|plis|gracias|est[aá]n?|mal|(?:la|el) de \p{L}+|el|la|los|las|de|del|monto|cuota|total)\s*[,.!:;]?\s*)*$/iu;
+const SOLO_LA_CORRECCION = /^[\s,.!:;¿?]*(?:(?:pero|son|es|era|eran|no|que|y|o|ojo|perd[oó]n|che|mako|digo|o sea|osea|bueno|en realidad|realmente|ah|eh|ser[ií]an?|deber[ií]an?(?: ser)?|me|deja|editar|cambiar|corregir|modificar|correg[ií]\p{L}*|corr[ií]g\p{L}*|c[aá]mbi\p{L}*|arr[eé]gl\p{L}*|modif[ií]c\p{L}*|por favor|porfa|plis|gracias|lo|ya|pod[eé]s|puedes|est[aá]n?|mal|(?:la|el) de \p{L}+|el|la|los|las|de|del|monto|cuota|total)[\s,.!:;¿?]*)*$/iu;
 
 /** `antes`: lo último de la charla (lo que dijo la persona y lo que contestó MaKo), para el seguimiento que no nombra la plata. */
 export function corrigeUnMonto(texto: string, antes = '', ahora = new Date()): boolean {

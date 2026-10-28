@@ -44,6 +44,19 @@ export function confirmacionPura(mensaje: string | null | undefined): boolean {
 }
 
 /**
+ * ¿Le CONFIRMA algo a otra persona? Lo que `confirmacionPura` acepta («sí, hacelo», «dale, confirmalo», «sí, mandalo», «sí,
+ * agendalo», «sí, confirmá») y «sí, confirmalo vos» / «sí, hacelo tú» (que le devuelve la acción a quien preguntó). Lo usa la
+ * respuesta corta del lote (lib/doer-para-quien.ts, `esRespuestaCorta`): la verificación de 9cef25dba vio que sin los verbos, «sí,
+ * hacelo» detrás de «@Pedro ¿lo confirmo?» entraba al turno y ejecutaba lo que le llega a un tercero. Vive acá porque nombra las
+ * formas de vos (este archivo está fuera de la guarda de voseo).
+ */
+export function confirmaAOtro(mensaje: string | null | undefined): boolean {
+  if (confirmacionPura(mensaje)) return true;
+  const t = norm(String(mensaje ?? '')).trim();
+  return /^(?:si|dale|ok)[\s,.!]+[a-z]+(?:lo|la|los|las)\s+(?:vos|tu)[\s.!]*$/.test(t);
+}
+
+/**
  * La puerta de las acciones que le llegan a un tercero. Devuelve el texto del rechazo —que le llega al modelo como el error de
  * `confirmar_accion`— o null si puede seguir. Sólo en WhatsApp (en la app la persona toca la tarjeta; por HTTP firma el token).
  */
