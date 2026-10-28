@@ -3458,6 +3458,12 @@ Informe: `C:/dev/revisiones/2810-replicar-45a8e5234.md`. Cada uno con su test (1
   cualquier subdominio (`dominioBase`), pasa a «#» en todas las tarjetas, también las de respaldo
   (`sinEnlacesALaOriginal`). Se cuenta en el aviso. Sólo se lee el destino cuando la página la lee el NAVEGADOR: el
   server escribe «[BOTÓN] texto» sin destino.
+  **El dominio no alcanzaba (segunda pasada, 28/10):** su Calendly y su «wa.me/549…» no son de «competidor.com», y el
+  respaldo los armaba igual. La IA, además, los ve en un renglón que no es botón: «[CALENDARIO] Calendly (https://…)».
+  **Regla:** un enlace de la copia que APARECE en el texto de la original es de la competencia (`enlacesDeLaOriginal`:
+  host sin www y camino, sin consulta; uno dentro del otro también cuenta, porque la IA acorta). Un host pelado
+  («calendly.com») no alcanza, y lo que no estaba en la original (el Calendly del negocio) se queda. Corre sólo con las
+  mismas secciones, que es cuando el esquema ES el texto de la original.
 - **«Replicar y adaptar» por la API pagaba una IA más, ANTES del esquema.** Sin `partes`, el pedido viejo de adaptar
   pasa a tener ángulos. La API no trae la lectura, así que se bajaba la página y se llamaba a la IA por los ángulos (hasta
   60 s). Ese tiempo salía del plazo de las tandas: con la IA lenta, entraban menos tandas y quedaban más secciones con el
@@ -3485,6 +3491,13 @@ Lo que quedó SIN hacer:
 - La POSICIÓN de la imagen (a la izquierda o a la derecha) y las columnas de una grilla no se leen: el estilo guarda
   qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
   cajas.
+- De la revisión (los restos, de severidad baja): «Leer de nuevo» en Replicar.tsx vuelve a pagar los ángulos (no hay
+  caché por URL, y uno guardado no reintentaría la lectura que falló). Y sin la estructura, si la lectura volvió sin
+  ángulos, replicar.ts se los pide a la IA ANTES del esquema y ese tiempo sale del plazo de las tandas: ahí el esquema
+  sí los necesita, y correr t0 pasaría el maxDuration de 300 s.
+- Que Martín abra una copia del ws9 en PRODUCCIÓN con su sesión: el recorrido entero se vio con el build real (la #66
+  abre en el editor con sus 8 secciones), pero no en hola-mako.com, donde ningún navegador de esta máquina tiene su
+  sesión.
 
-Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 27 roturas, cada una caza), y los de Replicar
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 31 roturas, cada una caza), y los de Replicar
 que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).
