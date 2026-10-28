@@ -27,7 +27,14 @@ import { credDelCliente, credWsEstricta } from './credenciales';
 import { TAG } from './cache';
 import {
   aplicarContracargo, aplicarPagoAprobado, aplicarPagoFallido, aplicarReembolso, aplicarReembolsoFallido, aplicarSuscripcionCancelada, cobroDelAviso,
+  registrarVentaExterna,
 } from './cobros';
+import {
+  INTERRUPTOR_VENTAS_EXTERNAS, MOTIVO_APAGADO, esVentaExterna, filaDeVentaExterna, lineaCompraEnMeta, ventasExternasPrendidas,
+} from './cobros-externos-reglas';
+import { getSettingEstricto } from './settings';
+import { getTenantDb, wsSuperAdmin } from './workspace';
+import { logLeadEvent } from './leads';
 import type { Cobro } from './cobros-tipos';
 import { CUENTA_PRINCIPAL, claveDeCuenta } from './cuentas-integracion';
 import { textoContracargo } from './cobros-reglas';
@@ -37,7 +44,7 @@ import {
   type ClaveCobro, type EventoStripe, type NotificacionMp, type PlanPagoMp, type ResultadoEvento,
 } from './cobros-eventos';
 import {
-  facturaDePagoStripe, leerCargoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
+  facturaDePagoStripe, leerCargoStripe, leerCheckoutExternoStripe, leerCheckoutStripe, leerDisputaStripe, leerFacturaStripe, leerReembolsoStripe, leerSuscripcionStripe, modoDeClaveStripe,
 } from './stripe-api';
 import { leerCuotaSuscripcionMp, leerPagoMp, leerSuscripcionMp, type PagoMp } from './mercadopago-api';
 
@@ -85,9 +92,11 @@ const deOtraCuenta = (c: Cobro, q: QuienAvisa): boolean =>
   c.cuenta_ref ? c.cuenta_ref.trim() !== (q.ref ?? '').trim() : (c.cuenta ?? CUENTA_PRINCIPAL) !== q.cuenta;
 
 /** El cobro del aviso de Stripe, con el corte de modo (real/prueba) contra el del evento, y el de la cuenta. */
-async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento }> {
+async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, quien: QuienAvisa = PRINCIPAL_SIN_REF): Promise<{ cobro: Cobro } | { ignorar: ResultadoEvento; noEsDeMako?: true }> {
   const c = await cobroDelAviso(ws, { proveedor: 'stripe', ...buscar });
-  if (!c) return { ignorar: ignorado('no es un cobro de MaKo') };
+  // ⚠️ Se SUMA `noEsDeMako` y se conserva `ignorar` (el diseño, §1): todos los llamadores miran `'ignorar' in b`, y el respaldo por
+  // factura de un reembolso o una disputa de una cuota (también de la suscripción de MaKo) depende de esta forma.
+  if (!c) return { ignorar: ignorado('no es un cobro de MaKo'), noEsDeMako: true };
   if (deOtraCuenta(c, quien)) return { ignorar: ignorado('el cobro es de otra cuenta de Stripe del negocio', c.id) };
   if (!mismoModo(ev.livemode, c.modo)) {
     return { ignorar: ignorado(`el aviso es de modo ${nombreModo(ev.livemode!)} y el cobro de modo ${c.modo}`, c.id) };
@@ -96,24 +105,64 @@ async function cobroStripe(ws: number, ev: EventoStripe, buscar: ClaveCobro, qui
 }
 
 /**
- * La venta de un Payment Link propio del negocio: se relee la sesión y, si está pagada y vino de un link, va el Purchase por CAPI
- * (lib/meta-capi.ts, Zernio primero). El cobro en el CRM, todavía no (lo arma el chat de Pagos): el evento queda «ignorado» con lo que
- * se hizo en el motivo. Un fallo de Meta no se reintenta acá (sería otra compra si el id cambiara; con el mismo id, Meta deduplica).
+ * La venta de un Payment Link PROPIO del negocio (MAU-10, 27/10/2026, docs/diseno-venta-externa-stripe.md): no es un cobro de MaKo,
+ * pero es plata que entró. Se relee la sesión con su ítem y, si es una venta externa (`esVentaExterna`: nunca en la plataforma,
+ * nunca con metadata de MaKo, sólo desde un Payment Link, pagada y en el modo del aviso) y el negocio lo prendió, entra como un
+ * cobro externo ya pagado con su lead y su cuota (`registrarVentaExterna`, lib/cobros.ts). Después, la compra a Meta.
+ * Apagado, sólo la compra a Meta (lo que había antes de esto): sin lead no hay línea que la marque, y Meta deduplica por el id.
  */
-async function compraDeUnLinkPropio(ws: number, key: string, sesionId: string, ev: EventoStripe): Promise<ResultadoEvento> {
-  const s = await leerCheckoutStripe(key, sesionId);
-  if (!s.ok) throw errorDelProveedor('Stripe', 'la sesión de pago', s);
-  const { compraDeLaSesion, EVENTO_COMPRA } = await import('./meta-capi-payload');
+async function ventaExternaStripe(ws: number, key: string, sesionId: string, ev: EventoStripe, quien: QuienAvisa): Promise<ResultadoEvento> {
+  const r = await leerCheckoutExternoStripe(key, sesionId);
+  if (!r.ok) throw errorDelProveedor('Stripe', 'la sesión de pago', r);
+  const s = r.sesion;
+  const [plataforma, interruptor] = await Promise.all([wsSuperAdmin(), getSettingEstricto(INTERRUPTOR_VENTAS_EXTERNAS)]);
+  const d = esVentaExterna({ esPlataforma: ws === plataforma, prendido: ventasExternasPrendidas(interruptor), s, livemodeEvento: ev.livemode });
+  const { compraDeLaSesion } = await import('./meta-capi-payload');
+  // null en una venta de prueba: no entra al píxel como una compra de verdad.
   const compra = compraDeLaSesion(s);
-  if (!compra) return ignorado('no es un cobro de MaKo');
-  const { sendMetaCAPIEvent } = await import('./meta-capi');
-  const r = await sendMetaCAPIEvent({
-    eventName: EVENTO_COMPRA, email: compra.email, phone: compra.phone, eventId: compra.eventId,
-    eventTime: ev.creado ?? new Date(), customData: { value: compra.value, currency: compra.currency },
-    // Al píxel del sitio (no al conjunto de datos de CRM) y como evento de la página: así deduplica con el del navegador.
-    soloPixel: true, actionSource: 'website',
+  if (!d.ok) {
+    if (d.motivo === MOTIVO_APAGADO && compra) return ignorado(`${d.motivo}; ${await avisarCompraAMeta(compra, ev, null)}`.slice(0, 300));
+    return ignorado(d.motivo);
+  }
+  const f = filaDeVentaExterna(s, quien, ev.creado ?? new Date().toISOString());
+  if (!f.ok) return ignorado(f.motivo);
+  const v = await registrarVentaExterna(ws, {
+    fila: f.fila,
+    contacto: { email: s.email, telefono: s.telefono, nombre: s.nombre },
+    item: s.item ? { nombre: s.item.nombre, montoUsdLista: s.item.monedaLista === 'USD' ? s.item.montoLista : null, tipo: s.item.recurrente ? 'suscripcion' : 'unico' } : null,
   });
-  return ignorado(r.ok ? 'venta de un Payment Link propio: Purchase enviado a Meta' : `venta de un Payment Link propio: Meta no recibió el Purchase (${r.motivo})`);
+  invalidarLecturas();
+  // La compra, DESPUÉS de asentar la plata: un fallo de Meta no deshace la venta ni hace reintentar a Stripe.
+  const meta = compra ? await avisarCompraAMeta(compra, ev, v.leadId) : 'venta de prueba: no se le avisa a Meta';
+  return procesado(v.cobro.id, [v.aviso, meta].filter(Boolean).join('; ').slice(0, 300) || null);
+}
+
+/**
+ * La compra a Meta por CAPI (Zernio primero), al píxel del SITIO y como evento de la página: así deduplica con la del navegador, que
+ * manda el mismo `purchase:<cs_…>` (el Pixel de MaKo v28; el id lo decidió el Cerebro el 27/10/2026). Con lead, UNA vez: la línea
+ * fija del historial (`lineaCompraEnMeta`) la marca, y un reintento, el cron o el script no la repiten. Nunca tira.
+ */
+async function avisarCompraAMeta(
+  compra: { eventId: string; value: number; currency: string; email: string | null; phone: string | null }, ev: EventoStripe, leadId: number | null,
+): Promise<string> {
+  try {
+    const linea = lineaCompraEnMeta(compra.eventId);
+    if (leadId != null) {
+      const { data } = await (await getTenantDb()).from('lead_audit').select('id').eq('lead_id', leadId).eq('valor_nuevo', linea).limit(1);
+      if ((data ?? []).length) return 'la compra ya estaba en Meta';
+    }
+    const [{ EVENTO_COMPRA }, { sendMetaCAPIEvent }] = await Promise.all([import('./meta-capi-payload'), import('./meta-capi')]);
+    const r = await sendMetaCAPIEvent({
+      eventName: EVENTO_COMPRA, email: compra.email, phone: compra.phone, eventId: compra.eventId,
+      eventTime: ev.creado ?? new Date(), customData: { value: compra.value, currency: compra.currency },
+      // Al píxel del sitio (no al conjunto de datos de CRM) y como evento de la página: así deduplica con el del navegador.
+      soloPixel: true, actionSource: 'website',
+    });
+    if (leadId != null) await logLeadEvent(leadId, 'Meta', r.ok ? linea : `Meta no recibió la compra (${compra.eventId}): ${r.motivo}`, 'MaKo');
+    return r.ok ? 'compra enviada a Meta' : `Meta no recibió la compra (${r.motivo})`;
+  } catch (e) {
+    return `no pude avisarle la compra a Meta (${e instanceof Error ? e.name : 'error'})`;
+  }
 }
 
 /**
@@ -141,9 +190,9 @@ export async function procesarEventoStripe(ws: number, ev: EventoStripe, cuenta:
 
   if (objeto === 'checkout') {
     const b = await cobroStripe(ws, ev, aviso.buscar, quien);
-    // Una venta de un Payment Link armado en el Stripe del negocio (27/10/2026, MAU-10): no es un cobro de MaKo, pero ES una compra, y
-    // a Meta no le llegaba. Se le manda el Purchase con el id de la sesión (el mismo que manda el navegador en la página de gracias).
-    if ('ignorar' in b && b.ignorar.cobroId == null && b.ignorar.motivo === 'no es un cobro de MaKo') return compraDeUnLinkPropio(ws, key, id, ev);
+    // Una venta de un Payment Link armado en el Stripe del negocio (MAU-10, 27/10/2026): no es un cobro de MaKo, pero es plata que
+    // entró. Sólo el aprobado: un pago diferido que falló sin fila no tiene nada que registrar.
+    if ('ignorar' in b && b.noEsDeMako && aviso.accion === 'aprobado') return ventaExternaStripe(ws, key, id, ev, quien);
     if ('ignorar' in b) return b.ignorar;
     const c = b.cobro;
     const s = await leerCheckoutStripe(key, id);

@@ -27,13 +27,13 @@ import { buscarUsuarioPorEmail } from './usuarios';
 import { credDelCliente } from './credenciales';
 import { APP_BASE_URL, EMAIL_MAKO } from './app-url';
 import { avisarDePlataforma } from './invitaciones';
-import { getLead, logLeadEvent, setPipelineStage } from './leads';
+import { createLead, enriquecerLead, findLeadByContacto, getLead, logLeadEvent, setPipelineStage } from './leads';
 import { getPipelineStagesDeLead } from './funnels';
 import { etapaDeGanado } from './pipeline';
 import { listProductos } from './productos';
 import {
   TratoEnCursoError, cobroDelProducto, cuentasDelVinculoDelProducto, ganarEnElCrm, marcarBajaPorReembolso, otroCobroPagadoDelProducto, planesDadosDeBajaDelLead,
-  planesDevueltosDelLead, prepararTratoDelPago, type TratoDelPago,
+  planesDevueltosDelLead, prepararTratoDelPago, productosParaCobrar, vinculosDelNegocio, type TratoDelPago,
 } from './cobro-etapa-server';
 import { decidirBajaDelPlan, mismoCentavo, type PlanCongelado } from './cobro-etapa';
 import { getPagosByLead, registrarCobroDeProveedor, desmarcarCobroDeProveedor, remarcarCobroDeProveedor } from './pagos';
@@ -64,6 +64,8 @@ import { credMpDe, credStripeDe, cuentaDeIdentificador, cuentasDePago } from './
 import { guardarOrigenDeAlta } from './origen-cuenta-server';
 import { buscarPagosMp, cancelarSuscripcionMp, crearPreferenciaMp, crearSuscripcionMp, instanteMp, leerCuentaMp, leerSuscripcionMp, reembolsarMp, vencerPreferenciaMp } from './mercadopago-api';
 import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAKO, huellaMp, partesDeHuella, PREFIJO_PRUEBA_RECHAZADA, pruebaDeEmpezarYa } from './prueba-plan-reglas';
+import { productoDeMako } from './stripe-catalogo-reglas';
+import { esCobroExterno, PREFIJO_EXTERNO, type FilaVentaExterna } from './cobros-externos-reglas';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -1351,6 +1353,9 @@ export async function reembolsarCobro(ws: number, id: number, autor: string, mot
   if (!c) return { ok: false, resumen: 'No encontré ese cobro.' };
   if (c.estado === 'reembolsado') return { ok: false, resumen: 'Ese cobro ya estaba reembolsado.' };
   if (c.estado !== 'pagado' || !c.proveedor_pago_id) return { ok: false, resumen: 'Sólo se reembolsa un cobro pagado.' };
+  // Una venta de un link de pago armado en SU Stripe (MAU-10): MaKo no la cobró y no la devuelve; si Stripe la devuelve, el aviso
+  // la encuentra igual (por el pago) y la marca reembolsada.
+  if (esCobroExterno(c)) return { ok: false, resumen: 'Esta venta entró por un link de pago de tu Stripe: se reembolsa desde Stripe.' };
   // `pending` cuenta como hecha, como la cuenta Stripe (el cargo ya figura devuelto); si después falla, entra `refund.failed`.
   let enCurso = false;
   if (c.proveedor === 'stripe') {
@@ -1509,6 +1514,7 @@ export async function cancelarSuscripcionCobro(ws: number, id: number, autor: st
   const susId = c.proveedor_suscripcion_id ?? (c.proveedor === 'mercadopago' && c.tipo === 'suscripcion' ? c.proveedor_ref : null);
   if (c.tipo !== 'suscripcion' || !susId) return { ok: false, resumen: 'Ese cobro no es una suscripción activa.' };
   if (c.suscripcion_estado === 'cancelada') return { ok: false, resumen: 'Esa suscripción ya estaba cancelada.' };
+  if (esCobroExterno(c)) return { ok: false, resumen: 'Esta suscripción entró por un link de pago de tu Stripe: se cancela desde Stripe.' };
   if (c.proveedor === 'stripe') {
     const stripe = await credStripe(ws, await cuentaVivaDelCobro(ws, c));
     if (!stripe) return { ok: false, resumen: 'Stripe no está conectado.' };
@@ -1795,4 +1801,98 @@ export async function workspacesConPasarela(): Promise<number[]> {
   const { data, error } = await getSupabaseServer().from('webhook_routing').select('workspace_id').in('servicio', ['stripe', 'mercadopago']);
   if (error) throw new Error(`No pude leer los workspaces con pasarela: ${error.message}`);
   return [...new Set((data ?? []).map((r) => Number((r as { workspace_id: number }).workspace_id)).filter((n) => Number.isFinite(n)))];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// La venta de un Payment Link PROPIO del negocio (MAU-10, 27/10/2026, docs/diseno-venta-externa-stripe.md)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type VentaExterna = {
+  /** La fila del cobro (lib/cobros-externos-reglas.ts, `filaDeVentaExterna`): sin token, lead ni producto. */
+  fila: FilaVentaExterna;
+  /** El comprador, como lo dejó en el checkout. */
+  contacto: { email: string | null; telefono: string | null; nombre: string | null };
+  /** El primer ítem, para reconocer el producto de MaKo: por el nombre y el precio de LISTA (con descuento no daría el mismo). */
+  item: { nombre: string; montoUsdLista: number | null; tipo: TipoCobro } | null;
+};
+
+/** Cuánto espera un aviso que perdió el reclamo antes de tomar como abandonada una venta reclamada sin lead. */
+const RECLAMO_DE_VENTA_MS = 2 * 60_000;
+
+/**
+ * Asienta una venta de un Payment Link propio como un cobro EXTERNO ya pagado (el diseño, §2 a §4), en este orden:
+ *   1. se RECLAMA la venta insertando el cobro con su `cs_` (`cobros_ref_uk`): un segundo aviso, el cron o el script chocan acá
+ *      y no crean un segundo lead (`createLead` no es atómico: leads no tiene único por email);
+ *   2. el lead: el del EMAIL del recibo, si no el del teléfono, si no uno nuevo con casa = el CRM del vínculo del producto (así
+ *      `ganarLead` lo gana en el mismo pedido). ⚠️ El comprador más probable YA EXISTE: se completa lo vacío, nada más;
+ *   3. `aplicarPagoAprobado`: el trato del vínculo, la cuota, ganar al lead, el aviso «Entró un pago». Idempotente.
+ * Cada paso sigue desde lo que falte: un reintento con el cobro reclamado y sin lead, lo completa. ⚠️ NUNCA escribe en Stripe:
+ * la fila entra `pagado`, así `aplicarPagoAprobado` no la ve `nuevo` y no programa el plazo ni reabre nada.
+ */
+export async function registrarVentaExterna(ws: number, v: VentaExterna): Promise<{ cobro: Cobro; leadId: number | null; aviso: string | null }> {
+  if (ws === (await wsSuperAdmin())) throw new Error('La cuenta de MaKo no registra ventas externas.');
+  return runWithWorkspace(ws, async () => {
+    const db = await getTenantDb();
+    const autor = NOMBRE_PASARELA.stripe;
+
+    // 1. El reclamo. El producto se busca ANTES: si no se puede leer el catálogo, tira y Stripe reintenta sin nada escrito.
+    const productoId = v.item
+      ? productoDeMako({ nombre: v.item.nombre, montoUsd: v.item.montoUsdLista, tipo: v.item.tipo }, await productosParaCobrar()).id
+      : null;
+    let cobro: Cobro;
+    const ins = await db.from('cobros').insert({ ...v.fila, token: nuevoTokenCobro(), lead_id: null, producto_id: productoId }).select(COLS_COBRO).single();
+    if (ins.data) cobro = cobroDeFila(ins.data as Record<string, unknown>);
+    else if (ins.error?.code === '23505') {
+      const { data: ya, error: eYa } = await db.from('cobros').select(COLS_COBRO).eq('proveedor', 'stripe').eq('proveedor_ref', v.fila.proveedor_ref).maybeSingle();
+      if (eYa || !ya) throw new Error(`La venta ya estaba reclamada y no la pude releer: ${eYa?.message ?? 'sin fila'}`);
+      cobro = cobroDeFila(ya as Record<string, unknown>);
+      // Un cobro de MaKo con ese `cs_` no se toca (no debería existir: `cobroDelAviso` lo habría encontrado antes).
+      if (!esCobroExterno(cobro)) return { cobro, leadId: cobro.lead_id, aviso: 'la sesión ya es de un cobro de MaKo' };
+      // Otro aviso la reclamó hace un momento y todavía no tiene lead: lo está creando. Éste reintenta después (Stripe).
+      if (cobro.lead_id == null && Date.now() - Date.parse(cobro.created_at) < RECLAMO_DE_VENTA_MS) {
+        throw new Error('Otro aviso está registrando esta venta: se completa en el próximo intento.');
+      }
+    } else throw new Error(`No pude guardar la venta: ${ins.error?.message ?? 'sin respuesta'}`);
+
+    // 2. El lead.
+    let aviso: string | null = null;
+    if (cobro.lead_id == null) {
+      const { email, telefono, nombre } = v.contacto;
+      if (!email && !telefono) {
+        aviso = 'sin email ni teléfono del comprador: la venta quedó sin lead';
+        cobro = (await actualizar(ws, cobro.id, { motivo: 'Venta por un link de pago sin email ni teléfono del comprador: quedó sin lead.' })) ?? cobro;
+      } else {
+        const porEmail = email ? await findLeadByContacto(email, null) : null;
+        const porTel = !porEmail && telefono ? await findLeadByContacto(null, telefono) : null;
+        let leadId = porEmail?.id ?? porTel?.id ?? null;
+        if (leadId != null) {
+          // Lo cargado gana: sólo se completa lo vacío (`camposParaCompletar`, lib/leads-duplicados.ts).
+          const id = leadId;
+          await enriquecerLead(id, { nombre, email, telefono }, autor).catch((e) => console.warn(`[cobros] no pude completar el lead ${id} de la venta ${cobro.id}:`, e instanceof Error ? e.message : String(e)));
+        } else {
+          const casa = productoId != null ? (await vinculosDelNegocio()).find((x) => x.productoId === productoId)?.funnelId ?? null : null;
+          const nuevo = await createLead({
+            nombre: nombre || email?.split('@')[0] || telefono || 'Comprador', email, telefono, origen_lead: 'stripe', funnel_id: casa,
+            // Ya se buscó por email y por teléfono: un parecido por nombre no puede frenar una venta cobrada.
+            permitirDuplicado: true,
+          });
+          leadId = nuevo.id;
+          await logLeadEvent(leadId, 'Alta', `Compró por un link de pago de Stripe (${v.fila.creado_por.slice(PREFIJO_EXTERNO.length)}).`, autor);
+        }
+        // Atado sólo si nadie lo ató antes: con dos avisos a la vez, gana uno.
+        const { data: atado, error: eAt } = await db.from('cobros').update({ lead_id: leadId }).eq('id', cobro.id).is('lead_id', null).select(COLS_COBRO).maybeSingle();
+        if (eAt) throw new Error(`No pude atar la venta ${cobro.id} a su lead: ${eAt.message}`);
+        cobro = atado ? cobroDeFila(atado as Record<string, unknown>) : ((await getCobro(ws, cobro.id)) ?? cobro);
+      }
+    }
+
+    // 3. El pago: el trato, la cuota y ganar al lead. Sin lead, la fila queda pagada y dicha (no hay cuota sin lead).
+    if (cobro.lead_id != null) {
+      await aplicarPagoAprobado(cobro, {
+        proveedorPagoId: v.fila.proveedor_pago_id, suscripcionId: v.fila.proveedor_suscripcion_id, pagadoAt: v.fila.pagado_at, autor,
+      });
+      cobro = (await getCobro(ws, cobro.id)) ?? cobro;
+    }
+    return { cobro, leadId: cobro.lead_id, aviso };
+  });
 }
