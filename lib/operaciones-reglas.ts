@@ -588,7 +588,20 @@ export type TurnoChat = {
   local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null;
   /** Lo que Martín adjuntó en la app de Claude (cartero 1.17.0): sólo en un turno «yo». */
   adjuntos?: AdjuntoTurno[];
+  /** El ENCARGO con el que otra sesión abrió este chat (`esEncargoDeOtraSesion`): un `otro` del Cerebro que sí se dibuja,
+   *  plegado. Nunca es de Martín. */
+  encargo?: true;
+  /** El resumen del `wrap_up` del turno que CIERRA (cartero 1.21.0, 27/10/2026): lo que hizo, en dos o tres oraciones. El
+   *  «Completado» lo muestra primero (BloqueCompletado.tsx); el texto entero queda abajo, plegado. */
+  resumen?: string;
+  /** De qué RONDA del chat es este texto (cartero 1.21.0): el uuid del primero de la ronda. `fin`: es el que la cierra. Con
+   *  eso, un «Ya está» de a mitad de la ronda cede el «Completado» al cierre de esa ronda (lib/centro-chats.ts →
+   *  completadosDelChat). */
+  inicio?: string;
+  fin?: true;
 };
+/** Copia de `TOPE_RESUMEN` del cartero: un tope técnico, no de lectura. */
+export const TOPE_RESUMEN = 2000;
 
 // ── El Ops Center sólo muestra lo que es para Martín (22/10/2026) ─────────────────────────────────────────────────────
 // Martín, desde el teléfono y con captura: «me salen estos textos largos innecesarios en muchos chats... No los quiero». En
@@ -606,9 +619,22 @@ export type TurnoChat = {
 export const esResumenDeCompactacion = (texto: string): boolean =>
   /^\s*This session is being continued from a previous conversation/i.test(texto);
 
-/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no. */
-export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'>): boolean =>
-  t.rol !== 'otro' && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
+/**
+ * ¿Es el ENCARGO con el que otra sesión abrió este chat? (27/10/2026, Martín: «Yo NO envié ese mensaje confuso y largo».) El
+ * chat que el Cerebro abre con `start_session` arranca con un mensaje que en el transcript es del USUARIO («Background (from
+ * the session that started this one): … Task: …»), y el cartero lo sube como `yo`: se dibujaba como un mensaje de Martín, con
+ * su foto. Lo escribió el Cerebro. `sanearTurnos` lo vuelve un `otro` del Cerebro con `encargo`, al subir y al leer.
+ */
+export const esEncargoDeOtraSesion = (texto: string): boolean =>
+  /^\s*Background \(from the session that started this one\):/.test(texto);
+/** Lo que se le pidió en el encargo: su «Task:» (sin el «Background…» de arriba), o el texto sin el rótulo. */
+export const textoDelEncargo = (texto: string): string =>
+  /\n\s*Task:\s*\n?([\s\S]+)/.exec(texto)?.[1]?.trim() ?? texto.replace(/^\s*Background \(from the session that started this one\):\s*/, '').trim();
+
+/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no, salvo el
+ *  encargo con el que lo abrieron (va plegado: «Encargo del Cerebro»). */
+export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'> & { encargo?: boolean }): boolean =>
+  (t.rol !== 'otro' || t.encargo === true) && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
 
 // ── Lo que Martín adjunta DIRECTO en la app de Claude (20/10/2026, el punto 4 del 18/10; cartero 1.17.0) ──────────────
 // Martín: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center». En el transcript, una
@@ -673,11 +699,20 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (typeof o.texto !== 'string' || (!o.texto.trim() && !adjuntos.length)) continue;
     const at = typeof o.at === 'string' ? Date.parse(o.at) : NaN;
     if (!Number.isFinite(at)) continue;
+    // El encargo de otra sesión no es de Martín (`esEncargoDeOtraSesion`): es del Cerebro, y se dibuja plegado.
+    if (o.rol === 'yo' && !o.trabajo && esEncargoDeOtraSesion(o.texto)) {
+      out.push({ local: o.local, uuid: o.uuid, rol: 'otro', de: 'Cerebro', texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(), trabajo: null, encargo: true });
+      continue;
+    }
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
       texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
       ...(adjuntos.length ? { adjuntos } : {}),
+      ...(o.rol === 'otro' && o.encargo === true ? { encargo: true as const } : {}),
+      ...(o.rol === 'el' && typeof o.resumen === 'string' && o.resumen.trim() ? { resumen: o.resumen.trim().slice(0, TOPE_RESUMEN) } : {}),
+      ...(o.rol === 'el' && typeof o.inicio === 'string' && /^[\w-]{8,64}$/.test(o.inicio) ? { inicio: o.inicio } : {}),
+      ...(o.rol === 'el' && o.fin === true ? { fin: true as const } : {}),
     });
   }
   return out;

@@ -100,7 +100,13 @@ import { spawnSync } from 'node:child_process';
 //         que lo ejecute sea bug, pedido o pregunta, sin devolvérselo a Martín. La regla viene de MaKo como un NOMBRE, y sólo se
 //         usa si está en `REGLAS_CONOCIDAS`: de MaKo no se toma texto para el mensaje. Un servidor de antes no la manda (el
 //         texto de siempre).
-export const VERSION = '1.20.0';
+// 1.21.0: el cierre de un turno sube el RESUMEN de su `wrap_up` (27/10/2026, Martín: «Esa tarjeta de completado, la info no me
+//         dice nada... sin rodeos»). La app pide escribir el cierre DESPUÉS del wrap_up, así que el último texto del turno era el
+//         cierre y su resumen se perdía. Ahora `pendiente` se guarda el último `recap` del turno y `cierreDe` lo manda como
+//         `resumen` si el texto no lo trae. Y cada texto del chat dice de qué RONDA es (`inicio`: el uuid del primero) y el que
+//         la cierra lleva `fin`: un «Ya está probado…» de a mitad de la ronda ya no es el «Completado» (lo es el cierre). Un
+//         servidor de antes los ignora (`sanearTurnos` no los conoce).
+export const VERSION = '1.21.0';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -664,8 +670,10 @@ export function turnosDeLineas(lineas, pendiente = null) {
       if (!t || typeof o.uuid !== 'string') continue;
       const ultimo = { uuid: o.uuid, texto: t.slice(0, TOPE_TURNO), at: o.timestamp };
       // El primer texto del turno sale ya: «Voy a trabajar en…».
-      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null });
-      p = { primero: p?.primero ?? o.uuid, ultimo };
+      if (!p?.primero) turnos.push({ uuid: o.uuid, rol: 'el', de: null, texto: ultimo.texto, at: ultimo.at, trabajo: null, inicio: o.uuid });
+      // 1.21.0: el último resumen de un `wrap_up` del turno viaja con él hasta el cierre.
+      const recap = w?.recap || p?.recap || null;
+      p = { primero: p?.primero ?? o.uuid, ultimo, ...(recap ? { recap } : {}) };
       continue;
     }
     if (o.type === 'system' && o.subtype === 'stop_hook_summary') { cerrar(); continue; }
@@ -913,8 +921,14 @@ export async function subirAdjuntosDeTurnos(url, token, turnos) {
 /** El cierre de un turno: su último texto, si no es el mismo que ya salió como el primero. null = nada que sumar. */
 export function cierreDe(p) {
   const u = p?.ultimo;
-  return u && u.uuid !== p.primero ? { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null } : null;
+  if (!u || u.uuid === p.primero) return null;
+  // 1.21.0: el resumen del `wrap_up` del turno, si el cierre no lo trae adentro (se escribió después del wrap_up).
+  const resumen = typeof p.recap === 'string' && p.recap.trim() && !u.texto.includes(p.recap.trim()) ? p.recap.trim().slice(0, TOPE_RESUMEN) : null;
+  return { uuid: u.uuid, rol: 'el', de: null, texto: u.texto, at: u.at, trabajo: null, inicio: p.primero, fin: true, ...(resumen ? { resumen } : {}) };
 }
+/** Lo que mide un `recap` de wrap_up, como mucho (la app le pide ~300 caracteres; esto es un tope técnico). Copia de
+ *  `TOPE_RESUMEN` de lib/operaciones-reglas.ts. */
+export const TOPE_RESUMEN = 2000;
 
 /** Lo nuevo del transcript de un chat desde la vuelta anterior. Devuelve los turnos y la marca nueva (se guarda sólo si
  *  MaKo dice que entraron: `guardarMarcas`). Sin transcript, o sin nada nuevo, nada. */

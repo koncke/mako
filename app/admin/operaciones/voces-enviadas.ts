@@ -35,6 +35,12 @@ export function recordarVozEnviada(id: string, audio: Blob) {
   }).catch(() => null);
 }
 
+/** La nota de un mensaje que todavía está SALIENDO (27/10/2026): se escucha en el acto con el id local, sin subir nada (la
+ *  grabación tal cual; el MP3 sube con el id de verdad, `recordarVozEnviada`). */
+export function verVozLocal(id: string, audio: Blob) {
+  grabadas.set(id, URL.createObjectURL(audio));
+}
+
 /** El audio de una nota que ya se sabe sin preguntar (undefined = todavía no; null = el servidor no lo tiene). */
 export function vozYaLeida(id: string): string | null | undefined {
   const local = grabadas.get(id);
