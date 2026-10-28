@@ -34,7 +34,7 @@ import { MAKO_ACCION_TOOLS, NOMBRES_ACCION, crearRunnerAcciones } from '@/lib/ma
 import { porId, aToolDef } from '@/lib/api-mako/registro';
 import { errorParaTicket, type ErrorDelTurno } from '@/lib/tickets-reglas';
 import { actorDeWhatsApp, telefonoDelParticipante } from '@/lib/doer-ticket';
-import { esGuardaDeHerramienta, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, lineaCortaDelTicket, lineaDelTicket, LINEA_YA_AVISADO } from '@/lib/no-pude';
 import { cerrarSiVolvio, conTicketsDeMaKo, ticketDeNoPude, type DondeNoPude, type TicketNoPude } from '@/lib/no-pude-server';
 import { REGLA_NO_EXISTE } from '@/lib/no-existe';
 import { encolarTurno, esperarALaPc, pcDe, SinLaPersona, TopeDeTurnos, type Ejecutor } from '@/lib/ia-pc';
@@ -628,14 +628,19 @@ async function esLineaDelDueno(instance: string): Promise<boolean> {
   const ya = LINEA_DEL_DUENO.get(instance);
   if (ya && ya.hasta > Date.now()) return ya.es;
   // La línea PROPIA de MaKo (`instanciaVoz`) nunca (la verificación de 991abd4af): el eco de un aviso que no se anotaba la marcaba.
-  const deMaKo = (await instanciaVoz().catch(() => '')) === instance;
+  // Leída ESTRICTA (la de 96e7840e8): la otra convierte un error en «mako_ws1». Si no se pudo leer, decide la marca y no se guarda.
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  const deMaKo = voz === instance;
   const visto = deMaKo ? NaN : Date.parse((await runWithWorkspace(OWNER_WS, () => getSetting(KEY_LINEA_DEL_DUENO(instance))).catch(() => null)) ?? '');
   const es = Number.isFinite(visto) && Date.now() - visto < LINEA_DEL_DUENO_MS;
-  LINEA_DEL_DUENO.set(instance, { es, hasta: Date.now() + 10 * 60_000 });
+  if (voz !== null) LINEA_DEL_DUENO.set(instance, { es, hasta: Date.now() + 10 * 60_000 });
   return es;
 }
 async function anotarLineaDelDueno(instance: string): Promise<void> {
-  if (!instance || (await esLineaDelDueno(instance)) || (await instanciaVoz().catch(() => '')) === instance) return;
+  if (!instance || (await esLineaDelDueno(instance))) return;
+  // Sin saber cuál es la línea de MaKo (la voz no se pudo leer), no se anota nada.
+  const voz = await instanciaVoz({ estricto: true }).catch(() => null);
+  if (voz === null || voz === instance) return;
   LINEA_DEL_DUENO.set(instance, { es: true, hasta: Date.now() + 10 * 60_000 });
   await runWithWorkspace(OWNER_WS, () => setSetting(KEY_LINEA_DEL_DUENO(instance), new Date().toISOString())).catch(() => {});
 }
@@ -1601,14 +1606,17 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
      * nombra (`conLoQueQuedoPropuesto`, al mandar). Por id: el memo le devuelve la MISMA pendiente al intento siguiente.
      */
     const propuestasDelTurno = new Map<number, PropuestaDelTurno>();
-    /** Cuántas herramientas del turno devolvieron una GUARDA de MaKo (un 400, `esGuardaDeHerramienta`): el «no pude» es su regla
-     *  (base 7 de MaKo inteligente, el mismo conteo que el turno de la app, lib/mako-turno-app.ts). */
-    let guardasDelTurno = 0;
+    /** ¿La ÚLTIMA herramienta del turno devolvió una GUARDA de MaKo (un 400, `esGuardaDeHerramienta`)? y cuántas fallas se TRAGARON
+     *  (`esFallaTragadaDeHerramienta`): el «no pude» es la regla de la guarda sólo así (`esLaReglaDeUnaGuarda`, lib/no-pude.ts, el mismo del turno de la app). */
+    let ultimaFueGuarda = false;
+    let tragadasDelTurno = 0;
     const runTool = async (name: string, input: Record<string, unknown>) => {
       corridasDelTurno++;
       const previo = memo.previo(name);
       if (previo) {
         console.warn(`[mako-doer-in] ws=${wsData} ${name}: ya corrió en un intento anterior de este turno; se devuelve lo que dejó`);
+        // Lo repetido también es lo último que vio el modelo (como el turno de la app); sus tragadas ya se contaron al correr.
+        ultimaFueGuarda = esGuardaDeHerramienta(previo.out);
         return previo.out as Awaited<ReturnType<typeof runRegistro>>;
       }
       const out = await (PENDIENTES_POR_REGISTRO.has(name) ? runRegistro(name, input)
@@ -1623,7 +1631,8 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
       // Los ids que mostró, para el turno siguiente (lib/doer-hilo.ts): lo último de cada herramienta.
       const refs = referenciasDeLaSalida(name, out);
       if (refs) { const i = refsDelTurno.findIndex((r) => r.herramienta === name); if (i >= 0) refsDelTurno.splice(i, 1); refsDelTurno.push(refs); }
-      if (esGuardaDeHerramienta(out)) guardasDelTurno++;
+      ultimaFueGuarda = esGuardaDeHerramienta(out);
+      if (esFallaTragadaDeHerramienta(out)) tragadasDelTurno++;
       // El ticket mismo no cuenta como falla a reportar: si falló, registrarlo otra vez falla igual.
       if (name !== LEVANTAR_TICKET) {
         const errTicket = errorParaTicket(name, out);
@@ -2439,9 +2448,10 @@ async function procesarDoer(wsData: number, instance: string, data: MsgIn, opts:
     // conversación, nada. Los errores de las herramientas ya fueron por la huella global (arriba).
     if (respuesta && !avisoDeSistema && !linkBorrador && !linkLead) {
       // Si un error de herramienta ya dejó su ticket (registrarError, arriba), sólo se sacan las marcas: un ticket, una línea.
-      // Si una herramienta devolvió una GUARDA y nada falló de verdad, el «no pude» es esa regla, la diga o no el modelo (base 7).
-      // (El ruteo todavía no se arma en el grupo: docs/hallazgos-comunicacion.md, «Sin hacer».)
-      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno.length }, dondeDelGrupo(texto), {});
+      // Si la última herramienta devolvió una GUARDA y nada falló de verdad (ni un error ni una falla tragada), el «no pude» es esa
+      // regla, la diga o no el modelo (base 7). (El ruteo todavía no se arma en el grupo: docs/hallazgos-comunicacion.md.)
+      const regla = esLaReglaDeUnaGuarda({ ultimaFueGuarda, errores: erroresDelTurno.length, tragadas: tragadasDelTurno });
+      const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), {});
       respuesta = [np.texto, np.linea].filter(Boolean).join('\n\n');
     }
 

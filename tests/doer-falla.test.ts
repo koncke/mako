@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { bloqueDeLaFalla, causaDelCartel, clavesQueFallan, conLaLineaDelTicket, corrigeUnMonto, FUERA_DE_LA_CORRECCION, HERRAMIENTAS_CORRECCION, laCorreccion, pideVerAgenda, reportaFalla, TICKET_DE_LA_FALLA } from '../lib/doer-falla';
-import { sacarNoPude } from '../lib/no-pude';
+import { esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, sacarNoPude } from '../lib/no-pude';
 import type { EstadoSuClave } from '../lib/su-clave-reglas';
 import { RELEVANCIA_AGENDA, type VeredictoIntencion } from '../lib/mako-intencion';
 
@@ -170,9 +170,9 @@ test('9. el doer engancha la base: las marcas después del saneo, los cuatro car
   const iSaneo = doer.indexOf('const saneo = sanearSalida(');
   // Con un error de herramienta ya registrado (la huella), sólo se sacan las marcas: un ticket, una línea (la revisión del 28/10).
   // (Y con una guarda de herramienta, la regla: test 12.)
-  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno.length }, dondeDelGrupo(texto), {});');
+  const iMarcas = doer.indexOf('const np = await conTicketsDeMaKo(respuesta, { yaRegistrado: erroresDelTurno.length > 0, regla }, dondeDelGrupo(texto), {});');
   assert.ok(iSaneo > 0 && iMarcas > iSaneo, 'las marcas se sacan antes del saneo, o no se sacan');
-  assert.match(doer.slice(iMarcas - 500, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
+  assert.match(doer.slice(iMarcas - 800, iMarcas), /if \(respuesta && !avisoDeSistema && !linkBorrador && !linkLead\) \{/);
   assert.match(doer.slice(iMarcas, iMarcas + 300), /respuesta = \[np\.texto, np\.linea\]\.filter\(Boolean\)\.join\('\\n\\n'\);/);
   // Los cuatro carteles: el audio, la IA, «ningún proveedor» y la respuesta bloqueada.
   assert.match(doer, /const lineaAudio = await lineaDelCartel\(causaAudio, dondeDelGrupo\('\(nota de voz\)'\)/);
@@ -222,7 +222,30 @@ test('11. el seguimiento con «¿lo podés cambiar?» o «ya» también es la co
 
 test('12. la guarda de una herramienta del grupo es una regla y apaga el «no pude», como en el turno de la app (base 7)', () => {
   // MaKo inteligente, e6f58be78: un 400 de una herramienta (`esGuardaDeHerramienta`) cuenta como regla cuando nada falló de verdad.
+  // ⚠️ La verificación de 96e7840e8: con «hubo alguna guarda», una falla TRAGADA o un «no pude» de otra cosa quedaban sin ticket.
+  const guarda = JSON.stringify({ ok: false, error: 'Falta el monto de la venta.' });
+  const tragada = '❌ No se pudo aplicar (Error guardando la venta: duplicate key value violates unique constraint).';
+  const tragadaJson = JSON.stringify({ ok: false, error: 'No pude cargar la venta (Error guardando: timeout).' });
+  assert.ok(esGuardaDeHerramienta(guarda) && !esFallaTragadaDeHerramienta(guarda));
+  for (const t of [tragada, tragadaJson]) assert.ok(esFallaTragadaDeHerramienta(t) && !esGuardaDeHerramienta(t), t);
+  assert.ok(!esFallaTragadaDeHerramienta({ content: 'Error 500', isError: true }), 'un isError ya lo ve errorParaTicket');
+  // El turno: la regla sólo si la ÚLTIMA fue la guarda y nada falló de verdad.
+  const turno = (salidas: unknown[], errores = 0) => esLaReglaDeUnaGuarda({
+    ultimaFueGuarda: esGuardaDeHerramienta(salidas[salidas.length - 1]), errores, tragadas: salidas.filter(esFallaTragadaDeHerramienta).length,
+  });
+  assert.equal(turno([guarda]), true, 'la guarda sola es la regla');
+  assert.equal(turno([guarda, tragada]), false, 'la guarda + el reintento que se tragó el error de la base');
+  assert.equal(turno([guarda, tragadaJson]), false);
+  assert.equal(turno([tragada, guarda]), false, 'una falla tragada ANTES de la guarda: la guarda es la última, y la falla sigue');
+  assert.equal(turno([guarda, JSON.stringify({ ok: true, total: 3 })]), false, 'una guarda vieja y un «no pude» de otra cosa');
+  assert.equal(turno([guarda], 1), false, 'con un error del turno');
+  // El doer: cada salida actualiza la última y cuenta las tragadas, y la regla sale de la función. Los detectores son los de
+  // lib/no-pude.ts (MaKo inteligente, ae1660f9a: los mismos del turno de la app), sin copia en lib/doer-falla.ts.
   const doer = leer('lib/mako-doer-in.ts');
-  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*if \(esGuardaDeHerramienta\(out\)\) guardasDelTurno\+\+;/);
-  assert.match(doer, /conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla: guardasDelTurno > 0 && !erroresDelTurno\.length \}, dondeDelGrupo\(texto\), \{\}\)/);
+  assert.match(doer, /import \{ esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, [^}]*\} from '@\/lib\/no-pude';/);
+  assert.doesNotMatch(leer('lib/doer-falla.ts'), /esFallaTragadaDeHerramienta|esLaReglaDeUnaGuarda/, 'volvió la copia de los detectores');
+  // Lo repetido del memo también es lo último que vio el modelo.
+  assert.match(doer, /if \(previo\) \{[\s\S]{0,400}?ultimaFueGuarda = esGuardaDeHerramienta\(previo\.out\);\n\s*return previo\.out/);
+  assert.match(doer, /refsDelTurno\.push\(refs\); \}\n\s*ultimaFueGuarda = esGuardaDeHerramienta\(out\);\n\s*if \(esFallaTragadaDeHerramienta\(out\)\) tragadasDelTurno\+\+;/);
+  assert.match(doer, /const regla = esLaReglaDeUnaGuarda\(\{ ultimaFueGuarda, errores: erroresDelTurno\.length, tragadas: tragadasDelTurno \}\);\n\s*const np = await conTicketsDeMaKo\(respuesta, \{ yaRegistrado: erroresDelTurno\.length > 0, regla \}, dondeDelGrupo\(texto\), \{\}\);/);
 });

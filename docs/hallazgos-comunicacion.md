@@ -230,6 +230,10 @@ Vive en `lib/mako-doer-in.ts`, `lib/doer-salida.ts`, `lib/doer-falla.ts`, `lib/d
       991abd4af): los avisos, las insistencias, los flujos, el cierre de tickets y `enviarGrupoMaKo` salían por la línea de MaKo
       sin anotarse, y el eco del primer aviso la marcaba «del dueño» en todos los grupos. El anillo pasó a lib/mako-grupo.ts y
       se anota en cada envío; la línea de MaKo (`instanciaVoz`) nunca es la del dueño. La regla quedó en AGENTS.md.
+    · Y el anillo, con más escritores, necesita lo de cualquier contador compartido (la verificación de 96e7840e8): compare-and-set
+      con reintento (dos envíos a la vez perdían un id), lectura ESTRICTA (un error al leer era «anillo vacío» y pisaba los 39
+      anteriores), y entrar por el envío de más abajo (`enviarTextoVozMaKo`): el grupo SuperAdmin y la bienvenida quedaban afuera.
+      La voz se lee estricta también para decidir «es la línea de MaKo»: la otra convierte un error en «mako_ws1».
     · «Ok Borralo», «Dale Makito» o «Dale Meta» detrás de un @ a otro no son «sí» a una persona: con mayúscula no siempre es un
       nombre (`NO_ES_UN_NOMBRE`, por la raíz del verbo: «Leila» y «pausala» terminan igual). Y «@MaKo ok» / «mako listo» vuelven a
       ser un «ok» (la puerta de plata y terceros lo repregunta: no es puro).
@@ -255,6 +259,12 @@ levantar automáticamente un ticket»), sobre la base de MaKo inteligente (9f09f
   cierre solo del grupo pasa `ia:auto`: el doer no elige cuenta, así que no cierra el de una cuenta elegida en la app.
 - **Una guarda de herramienta es una regla** (base 7 de MaKo inteligente, e6f58be78): el grupo cuenta `esGuardaDeHerramienta` como el
   turno de la app, y con una guarda y nada fallado de verdad, el «no pude» es esa regla y no abre ticket.
+  · ⚠️ **«Nada fallado de verdad» incluye lo que un runner se TRAGÓ** (la verificación de 96e7840e8): `errorParaTicket` sólo mira
+    `isError`, y «falta el monto» + un reintento que devolvió «❌ No se pudo aplicar (Error guardando …)» quedaba sin ticket. Con
+    «hubo alguna guarda», una guarda vieja también le comía el ticket a un «no pude» de otra cosa. Ahora es la regla sólo si la
+    ÚLTIMA herramienta fue la guarda y no hubo errores ni fallas tragadas (`esLaReglaDeUnaGuarda` y `esFallaTragadaDeHerramienta`,
+    lib/no-pude.ts: MaKo inteligente los movió ahí en ae1660f9a y arregló igual el turno de la app). Lo repetido del memo también
+    cuenta como lo último que vio el modelo.
 
 **Sin hacer:**
 - **El «sí» de plata, lo que falla seguro (pide «sí, MaKo» de más):** «@MaKo sí» con una mención `@lid` no se reconoce; el autor

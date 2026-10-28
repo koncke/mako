@@ -10,7 +10,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  causaDelNoPude, esGuardaDeHerramienta, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
+  causaDelNoPude, esFallaTragadaDeHerramienta, esGuardaDeHerramienta, esLaReglaDeUnaGuarda, esReglaUOpinion, LINEA_YA_AVISADO, lineaCortaDelTicket, lineaDelTicket, refDeNoPude, REGLA_NO_PUDE, sacarNoPude, tituloDelNoPude,
 } from '../lib/no-pude';
 import { REGLA_NO_EXISTE, reglaNoExisteEn, sacarNoExiste } from '../lib/no-existe';
 import { esFallaTragada } from '../lib/no-pude-frases';
@@ -119,6 +119,26 @@ test('h. la guarda de una herramienta del turno (un 400, sin isError) es una reg
   assert.equal(causaDelNoPude({ regla: true, ruteo: true, noExiste: 'editar las cuotas' }), 'ruteo');
 });
 
+test('i. la guarda no le come el ticket a una falla TRAGADA ni a otro «no pude»: es regla sólo si fue lo ÚLTIMO y nada falló (verificación de 96e7840e8)', () => {
+  // Lo que un runner se tragó, en texto o en el JSON de un 400: es una falla, no una guarda.
+  for (const out of ['❌ No se pudo aplicar (Error guardando setting x: BOOM).', { content: '❌ No pude ejecutarlo (Error obteniendo lead 12: fetch failed).' },
+    JSON.stringify({ ok: false, error: 'No se pudo guardar (duplicate key value violates unique constraint).' })]) {
+    assert.ok(esFallaTragadaDeHerramienta(out), `${JSON.stringify(out)} no se ve como una falla tragada`);
+  }
+  for (const out of [JSON.stringify({ ok: false, error: 'Falta el monto.' }), '❌ No encontré ese lead.', JSON.stringify({ ok: true }), 'Listo.', null,
+    { content: '❌ No se pudo aplicar (Error guardando setting x: BOOM).', isError: true }]) {
+    assert.equal(esFallaTragadaDeHerramienta(out), false, `${JSON.stringify(out)} se tomó como una falla tragada`);
+  }
+  // El caso del grupo: «Falta el monto» (guarda), el reintento se traga un error de la base, y MaKo dice «no pude».
+  assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: false, errores: 0, tragadas: 1 }), false, 'la guarda se comió la falla tragada del reintento');
+  // La guarda fue lo último, pero antes algo se tragó una falla, o falló de verdad: decide la red de siempre.
+  assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: true, errores: 0, tragadas: 1 }), false);
+  assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: true, errores: 1, tragadas: 0 }), false);
+  // Una guarda vieja del turno y después otra herramienta: el «no pude» puede ser de otra cosa.
+  assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: false, errores: 0, tragadas: 0 }), false, 'una guarda vieja tapó otro «no pude»');
+  assert.equal(esLaReglaDeUnaGuarda({ ultimaFueGuarda: true, errores: 0, tragadas: 0 }), true);
+});
+
 // ── Probado rompiéndolo (27/10/2026) ─────────────────────────────────────────────────────────────────────────────────
 // Cada cambio a mano, corrido y restaurado (sha1 igual):
 //   1. `causaDelNoPude` sin la rama de `ruteo`                         → rojo el a.
@@ -130,3 +150,7 @@ test('h. la guarda de una herramienta del turno (un 400, sin isError) es una reg
 //   7. (28/10, base 7) la regla se come el «no existe» (`if (s.regla) return null`) → rojo el h.
 //   8. (28/10) la guarda sin mirar la falla tragada                        → rojo el h.
 //   9. (28/10) la guarda aunque traiga isError                            → rojo el h.
+//  10. (28/10, verificación de 96e7840e8) la regla sin mirar las tragadas     → rojo el i.
+//  11. la tragada sin mirar el JSON de un 400                               → rojo el i.
+//  12. una guarda vieja vale (sin `ultimaFueGuarda`)                         → rojo el i.
+//  13. la tragada aunque traiga isError                                      → rojo el i.
