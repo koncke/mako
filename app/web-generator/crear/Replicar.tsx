@@ -476,7 +476,13 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   propios?: readonly TemaPropio[];
 }) {
   const [texto, setTexto] = useState(urlInicial ?? '');
-  const [partes, setPartes] = useState<PartesReplica>(() => (adaptarInicial ? PARTES_ADAPTAR : partesDePedido(leerLocal<unknown>(CLAVE_PARTES, null)) ?? PARTES_INICIALES));
+  // Sin nada guardado, el caso de Martín. ⚠️ No `partesDePedido(null)`: para el server, un pedido SIN partes es el de
+  // siempre (todas), y la pantalla arrancaba con las cuatro prendidas (visto en la app, 28/10/2026).
+  const [partes, setPartes] = useState<PartesReplica>(() => {
+    if (adaptarInicial) return PARTES_ADAPTAR;
+    const guardadas = leerLocal<unknown>(CLAVE_PARTES, null);
+    return guardadas == null ? PARTES_INICIALES : partesDePedido(guardadas) ?? PARTES_INICIALES;
+  });
   // La «Página web» del link de la caja con partes que no son todas: arranca en «Landing» (la copia idéntica es TODO).
   const [formato, setFormato] = useState<FormatoReplicar>(() => (formatoInicial && formatoConPartes(formatoInicial, partes) ? formatoInicial : FORMATO_INICIAL));
   const [tema, setTema] = useState<string>(() => temaInicialDeReplica(propios, leerLocal<string | null>(CLAVE_TEMA, null)));

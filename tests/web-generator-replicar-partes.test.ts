@@ -152,6 +152,10 @@ test('3. las partes: el texto trae la estructura y los ángulos, nunca quedan la
   assert.deepEqual(partesDePedido('diseño, texto'), PARTES_TODAS);
   assert.deepEqual(partesDePedido({ estructura: true, angulos: true }), PARTES_INICIALES);
   assert.equal(partesDePedido([]), null);
+  // La pantalla, sin nada guardado, arranca en el caso de Martín: `partesDePedido(null)` es TODAS (el pedido viejo de la API),
+  // y así arrancaba con las cuatro prendidas (visto en la app, 28/10/2026).
+  assert.deepEqual(partesDePedido(null), PARTES_TODAS);
+  assert.match(fuente('app/web-generator/crear/Replicar.tsx'), /return guardadas == null \? PARTES_INICIALES : partesDePedido\(guardadas\) \?\? PARTES_INICIALES;/);
   assert.equal(partesDePedido(['marca']), null);
   // La copia idéntica es TODO.
   assert.equal(formatoConPartes('web', PARTES_TODAS), true);

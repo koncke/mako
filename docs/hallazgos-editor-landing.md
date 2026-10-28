@@ -3412,6 +3412,24 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
 - **Réplica «texto literal» con su tema, en el ws3 (#49 a #53):** Reportei 16/16 secciones · 39/39 títulos · 68/68 textos ·
   8/8 botones; Holo 12/12 · 20/20 · 223/224 · 3/3; MasterAds 7/7 · 19/19 · 72/72 · 11/11; Closermood 8/8 · 21/21 · 79/79 ·
   6/6; respond.io 8/8 · 26/26 · 82/82 · 3/3. El 100% de las palabras en las cinco (con los dos arreglos de arriba).
+- **Con «Tu oferta» (la de MaKo, en las palabras de su landing principal), en el ws9, #60 a #64**, antes → ahora:
+  menciones de la otra marca Reportei 11→3, respond.io 22→1, Closermood 4→0, Holo 2→0, MasterAds 2→0; frases iguales
+  a la original Reportei 27→9, Closermood 28→0, MasterAds 15→1. Las secciones, todas y en su orden (16, 12, 7, 8, 8).
+  El largo se respeta peor donde la página tiene decenas de renglones cortos (carruseles, sugerencias de un chat): Holo
+  53% y respond.io 65% de las palabras; MasterAds 140%. La forma de cada sección viaja en su nota; la IA (Gemini Flash
+  Lite) la sigue mejor en secciones de texto que en listas largas.
+- **Mirar una réplica sin la app:** `htmlDePagina` (render.ts) + `documentoExportable` (exportar-html.ts) son puros: con el
+  documento y el tema de la base dan la página como la publicaría MaKo. Servida en 127.0.0.1, se mide a 375 px y en
+  escritorio en el navegador del panel.
+- **En la app (build parcial + `next start`, sesión del ws3 firmada con `crearToken`):** el link de la caja abre la lectura
+  sola, «Qué replicar» arranca en el caso de Martín, y al replicar se ve armarse: las fases con su tilde, un punto por
+  sección y la lista que crece de a una (con el ws3 sin IA, las 8 secciones llegaron juntas a los 25 s y se mostraron en
+  1,6 s), y después se abre la copia. **Un bug que sólo se vio ahí:** arrancaba con las cuatro partes prendidas, porque
+  `partesDePedido(null)` es «todas» (el pedido viejo de la API) y el `?? PARTES_INICIALES` nunca entraba.
+- **Trampas del build parcial:** en `--debug-build-paths`, `[id]` es un patrón de caracteres (no matchea la carpeta
+  `[id]`) y la ruta no entra; con `app/web-generator/**` entra, pero ese build pide ~4 GB y el vigía lo mató a los 3,1.
+  La cookie de la sesión se pone desde una página de 127.0.0.1 en OTRO puerto (las cookies no miran el puerto), sin pasar
+  el token por ninguna herramienta.
 - **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
   llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
 
