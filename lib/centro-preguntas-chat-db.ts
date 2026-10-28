@@ -107,7 +107,8 @@ export async function leerPreguntas(locales: readonly string[]): Promise<Pregunt
 
 /**
  * Con los turnos NUEVOS de una vuelta: las preguntas de wrap_up que quedaron atrás se marcan superadas (Martín contestó en
- * la app, en la caja o por Remote Control). Lo llama `guardarTurnos`. Lee estricto: si no puede leer, no escribe.
+ * la app, en la caja o por Remote Control, o el chat siguió escribiendo: 27/10/2026). Lo llama `guardarTurnos`. Lee estricto:
+ * si no puede leer, no escribe.
  * Con `cadena`, también las de las OTRAS sesiones de cada chat (25/10/2026): la pregunta de la cuenta 2 que la conversación
  * dejó atrás en la cuenta 1 (`superarPreguntas`).
  */

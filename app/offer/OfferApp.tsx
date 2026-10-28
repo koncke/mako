@@ -968,6 +968,8 @@ export function OfferApp({ arbolInicial, sesionInicial, arbolFallo, opcionArmar,
   const caja: PropsCajaChat = {
     texto, onTexto: setTexto, onMandar: () => void enviarComposer(), ocupado, enterManda: true,
     placeholder: arranque?.placeholder ?? 'Escríbele a MaKo', tituloMandar: 'Mandar (Enter)', onErrorMic: setErrorChat,
+    // `sinAdjuntos` también a la caja (la revisión del 27/10/2026): si no, la caja adjuntaba SOLA y lo leído iba a la respuesta.
+    sinAdjuntos,
     adjuntos: sinAdjuntos ? undefined : adjuntosCaja, estado: estadoVista, bloqueo: arranque ? undefined : appEscritorio.bloqueo,
     voz: sinAdjuntos ? undefined : {
       onAudio: mandarAudio, onError: setErrorChat, rotuloEnviar: 'Enviar audio', apagada: ocupado,

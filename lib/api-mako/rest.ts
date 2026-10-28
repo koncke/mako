@@ -526,6 +526,7 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/landing/documentos/{id}/sitio', 'configurar_sitio_landing'],
   ['PUT', '/landing/documentos/{id}/tema', 'cambiar_tema_landing'],
   ['PATCH', '/landing/documentos/{id}/textos', 'cambiar_texto_landing'],
+  ['PATCH', '/landing/documentos/{id}/formato', 'dar_formato_texto_landing'],
   ['POST', '/landing/documentos/{id}/versiones', 'guardar_version_landing'],
   ['GET', '/landing/documentos/{id}/versiones/{version}', 'ver_version_landing'],
   ['POST', '/landing/documentos/{id}/vista-previa', 'compartir_borrador_landing'],

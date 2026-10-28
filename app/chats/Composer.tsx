@@ -501,6 +501,8 @@ export default function Composer({
           `rio-caja` la acomoda a la ventana y la tiñe en modo comentario. */}
       <div className={`co-caja rio-caja${enComentario ? ' rio-caja-nota' : ''}`}>
         <CajaChat
+          // Lo que se le manda a un LEAD viaja como archivo, nunca leído y pegado como texto (ticket #16, app/_chat/CajaChat.tsx).
+          sinAdjuntos
           texto={enComentario ? nota : texto}
           onTexto={enComentario ? setNota : setTexto}
           onMandar={() => { if (enComentario) void enviarNota(); else void enviarTexto(); }}

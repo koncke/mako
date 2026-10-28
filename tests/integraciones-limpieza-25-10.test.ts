@@ -69,10 +69,11 @@ test('3. `?abrir=<key>` de una sin tarjeta abre su modal suelto (es contrato)', 
   assert.match(board, /\{modalSuelto\}/, 'el modal suelto no está en el árbol');
 });
 
-test('4. «Tus cuentas de IA»: las cuatro claves con su nombre, el «?» de la computadora, y sin «Pronto»', () => {
+test('4. «Tus cuentas de IA»: las claves con su nombre, el «?» de la computadora, y sin «Pronto»', () => {
   const src = sinComentarios(leer('app/integraciones/TusCuentasIA.tsx'));
-  assert.match(src, /\{ key: 'anthropic', ia: 'claude' \}, \{ key: 'openai', ia: 'chatgpt' \}, \{ key: 'gemini' \}, \{ key: 'groq' \},/,
-    'las claves de API son Anthropic y OpenAI (con computadora) y Gemini y Groq (sin)');
+  // 27/10/2026 (Leila): Gemini queda al final y sólo cargada (tests/settings-llamadas-27-10.test.ts dice cómo).
+  assert.match(src, /const CLAVES_API = \['anthropic', 'openai', 'groq', 'gemini'\] as const;/,
+    'las claves de API son las de Anthropic, OpenAI, Groq y Gemini');
   assert.match(src, /DEFS_INTEGRACIONES\.find\(\(d\) => d\.key === key\)\?\.nombre/, 'el nombre de cada clave no sale del catálogo');
   assert.match(src, /const NO_ES_LO_MISMO = 'No es lo mismo que la clave:/);
   assert.match(src, /\{o\.que === 'pc' && <><span className="tci-ayuda" title=\{NO_ES_LO_MISMO\} aria-hidden>\?<\/span><span id=\{idAyuda\} hidden>\{NO_ES_LO_MISMO\}<\/span><\/>\}/,
@@ -83,7 +84,7 @@ test('4. «Tus cuentas de IA»: las cuatro claves con su nombre, el «?» de la 
   const bloque = src.slice(ini, src.indexOf('\n}\n', ini));
   assert.ok(ini > 0 && bloque.length > 200, 'no se encontró ClavesDeApi');
   assert.doesNotMatch(bloque, /Pronto/i, 'Gemini y Groq no llevan «Pronto»');
-  assert.match(bloque, /<BotonIntegracion key=\{c\.key\} servicio=\{c\.key\}/, 'Gemini y Groq abren directo el modal de su clave');
+  assert.match(bloque, /<BotonIntegracion key=\{key\} servicio=\{key\}/, 'cada fila abre directo el modal de su clave');
   // Siempre a la vista: con o sin computadora conectada (no colgado de `vacia`).
   assert.match(src, /\{\(estado \|\| leido\) && !eligiendo && !tutorial && <ClavesDeApi /);
 });

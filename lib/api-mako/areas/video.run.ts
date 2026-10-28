@@ -607,6 +607,7 @@ export const RUNNERS: Runners = {
   cortar_tramo_video: { ...enElEditor('cortar_tramo_video') },
   eliminar_muletillas_video: { ...enElEditor('eliminar_muletillas_video') },
   usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
+  borrar_silencios_video: { ...enElEditor('borrar_silencios_video') },
   agregar_motion_video: { ...enElEditor('agregar_motion_video') },
   editar_motion_video: { ...enElEditor('editar_motion_video') },
   // 27/10/2026: lo que el editor hacía a mano y el chat no.

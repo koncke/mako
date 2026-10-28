@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'; import { config } from 'dotenv'; import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl:'require', max:1 });
+const sql = postgres(urlDeLaBase(), { ssl:'require', max:1 });
 
 console.log('Antes — cash por mes:');
 for (const r of await sql`SELECT to_char(fecha_pago,'YYYY-MM') m, count(*)::int n, sum(monto_usd)::int t FROM pagos WHERE pagado=true GROUP BY 1 ORDER BY 1`) console.log(`  ${r.m}: ${r.n} pagos $${r.t}`);

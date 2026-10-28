@@ -315,8 +315,8 @@ export const QUERY_DE_SECCION: Partial<Record<IdSeccionMas, readonly string[]>> 
   offer: ['oferta', 'funnel', 'sesion'], // app/offer/page.tsx (el «Analizar oferta →» del CRM; `sesion`: «Seguir en Offer» del Ops Center, 20/10/2026)
   copywriting: ['tab'], // app/ads-writer/tabs.ts (anuncios · guiones · analizar)
   'api-mako': ['tab'], // app/api-mako/page.tsx (docs · tokens · registro)
-  curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Clients › Classroom)
-  comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Clients › Community; `?post=N` abre ESE post)
+  curso: ['producto'], // app/customer-success/curso/pantalla.tsx (Classroom)
+  comunidad: ['producto', 'post'], // app/customer-success/comunidad/pantalla.tsx (Classroom › Community; `?post=N` abre ESE post)
 };
 
 export type RolMovil = 'admin' | 'closer' | 'setter' | null;

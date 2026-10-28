@@ -387,7 +387,8 @@ test('el lector: el resumen tiene tope (60 señales, 6.000 caracteres) y la pág
 test('el lector: mira en cada paso de la bajada SIN esperas nuevas, manda el resumen en el estilo y sigue soltando el opener', () => {
   const js = JS_LECTOR;
   assert.ok(js.indexOf('try { window.opener = null; } catch (e) {}') > 0, 'el opener se sigue soltando al arrancar');
-  assert.match(js, /await esperar\(60\);\s*if \(alPaso\) alPaso\(\);/, 'getAnimations en cada paso que ya existía');
+  // (28/10/2026, la copia idéntica: con la foto se baja más despacio y se mira lo visible; SIN la foto, los mismos 60 ms)
+  assert.match(js, /await esperar\(conFoto \? 250 : 60\);\s*if \(conFoto\) mirarVisibles\(\);\s*if \(alPaso\) alPaso\(\);/, 'getAnimations en cada paso que ya existía');
   assert.match(js, /await bajarYSubir\(anim \? function \(\) \{ conAnim\(function \(x\) \{ x\.mirar\(\); \}\); \} : null\);/);
   const iDom = js.indexOf('x.delDom(); x.mirar(); x.vigilar(\'scroll\');');
   assert.ok(iDom > 0 && iDom < js.indexOf('await bajarYSubir('), 'lo del DOM, ANTES de bajar (lo de abajo todavía no se animó)');

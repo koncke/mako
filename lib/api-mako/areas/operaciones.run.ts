@@ -11,7 +11,7 @@ import { leerYaVistosDe, marcarYaVistoDe } from '@/lib/centro-ya-vistos-db';
 import { leerPreguntas } from '@/lib/centro-preguntas-chat-db';
 import {
   agruparAvances, chatsPorNombre, completadoSinVer, completadosDeLasCuentas, completadosSinVer, lineasDeConversacion, lineasParaLaApi, pedidoDelCompletado,
-  pedidosDelCompletado, piezaParaLaApi, sinMarkdown, yaEstaDelChat, type CompletadoDeChat, type LineaChat, type YaVistos,
+  pedidosDelCompletado, piezaParaLaApi, sinMarkdown, nodoDeCompletado, type CompletadoDeChat, type LineaChat, type YaVistos,
 } from '@/lib/centro-chats';
 import { ESTADOS, ROTULO, carteroVivo, type EstadoPedido, type TurnoChat } from '@/lib/operaciones-reglas';
 import { cierreComoClaude, listasEnRenglones } from '@/lib/respuesta-como-claude';
@@ -30,7 +30,7 @@ async function completados(): Promise<{ lista: CompletadoDeChat[]; vistos: YaVis
  *  respuesta ENTERA y su página. */
 function resumen(lineas: readonly LineaChat[], t: TurnoChat) {
   const instante = Date.parse(t.at);
-  const [n] = yaEstaDelChat([{ tipo: 'turno', instante, turno: t }]);
+  const n = nodoDeCompletado(t, instante);
   const p = pedidoDelCompletado(lineas, t);
   return {
     termino: new Date(instante).toISOString(),
@@ -145,7 +145,7 @@ export const RUNNERS: Runners = {
       const chat = typeof input.chat === 'string' ? input.chat.trim() : '';
       if (!chat) return { error: 'Falta el chat: el nombre del que dice «Completado».', faltan: ['chat'] };
       const leido = await completados();
-      if (!leido) return { error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.' };
+      if (!leido) return { error: 'No pude leer qué «Completado» ya viste. Vuelve a intentarlo en un rato.', falla: true };
       const c = elDe(leido.lista, chat);
       if (!c) return { error: `«${chat}» no dice «Completado».`, disponibles: leido.lista.map((x) => x.titulo) };
       return { payload: { clave: c.clave, instante: c.instante, chat: c.titulo }, resumen: `Dar por visto el «Completado» de ${c.titulo}.` };

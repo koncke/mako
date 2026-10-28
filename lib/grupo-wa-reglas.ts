@@ -406,6 +406,11 @@ export const TANDA_FICHAS = 40;
 /** Cuántos leads toma un lote de «Completar» del tablero: lo mismo que la extensión lee de una vez (extension/wa-fichas.js). */
 export const TOPE_LOTE_COMPLETAR = 5000;
 
+/** Los minutos de «Datos de empresa» por la extensión (27/10/2026): ~6 s por perfil (buscarlo, abrirlo, esperar sus datos, la pausa). */
+export function minutosDeLaPasada(perfiles: number): number {
+  return Math.max(1, Math.round((perfiles * 6) / 60));
+}
+
 /** Cuántos por DÍA y por línea, sumando todas las corridas de todas las pantallas. Cuida la línea de un baneo. */
 export const TOPE_PERFILES_DIA = 120;
 /** Lo que tarda cada consulta, medido: ~0,6 s de respuesta más la espera de 2 s entre una y otra. */

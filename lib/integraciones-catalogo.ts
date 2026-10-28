@@ -120,7 +120,9 @@ export const DEFS: Def[] = [
   { key: 'wistia', nombre: 'Wistia', categoria: 'Datos', descripcion: 'Tus videos de Wistia y cuántas veces los reproducen por día.', envs: ['WISTIA_TOKEN'] },
   { key: 'bunny', nombre: 'Bunny Stream', categoria: 'Datos', descripcion: 'Tus videos de Bunny Stream y cuántas veces los reproducen por día.', envs: ['BUNNY_STREAM_KEY', 'BUNNY_STREAM_LIBRARY'] },
   { key: 'cloudflare', nombre: 'Cloudflare Stream', categoria: 'Datos', descripcion: 'Tus videos de Cloudflare Stream, para elegirlos en tus páginas y tus cursos.', envs: ['CLOUDFLARE_STREAM_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'] },
-  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_API_KEY'] },
+  // Sin clave desde el 27/10/2026: el video del VSL alcanza (las vistas son públicas y MaKo las lee con su clave); el canal se
+  // conecta con el login de Zernio (lib/zernio-redes.ts).
+  { key: 'youtube', nombre: 'YouTube', categoria: 'Datos', descripcion: 'Views del VSL alojado en YouTube.', envs: ['YOUTUBE_VSL_VIDEO_ID'] },
   // Supabase NO va acá: es la infra de la plataforma, no una integración que el
   // cliente conecte (y su credencial no puede vivir dentro de la propia base).
   // Landing: no se mide por env ni por credencial — se mide por señal REAL (ver

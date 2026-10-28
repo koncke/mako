@@ -1266,3 +1266,86 @@ del `checkout.session.expired` :151-153) · `lib/stripe-api.ts` (`leerCheckoutSt
 - **Medido para el diseño:** la `post_pago` del ws1 está ARCHIVADA (a quien paga no le llega bienvenida); el ws10 también
   tiene Stripe conectado; los 12 checkouts del Sprint no traen ninguna atribución (`client_reference_id`, metadata y
   `marketing_attributions` en null) y son anteriores al Pixel en la página.
+
+## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
+
+Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan
+tampoco el $ en el total de la columna cuando es suscripción».
+
+- **Cada «no se puede» mandaba a hacer otra cosa antes**: una cobrada, «desmárcala primero»; con un recordatorio corriendo,
+  «córtalo para editarla»; con un link sin pagar, «anúlalo para cambiar el monto». Y en la pantalla el campo directamente no
+  aparecía (`montoEditable` / `fechaEditable` lo escondían por la protección). Ahora `editarCuota` (lib/pagos.ts) edita y
+  arregla lo que quedaba viejo DESPUÉS de guardar: corta el recordatorio (llevaba el monto y la fecha de antes; la cobranza la
+  vuelve a tomar con `olvidarAvisosDeCuotas`), anula el link si cambió el monto, y una cobrada A MANO se corrige en el lugar
+  (monto y día del pago) con lo cobrado del lead recalculado (`sincronizarTotalCobrado`). Lo único que no: lo que cobró la
+  PASARELA (es lo que entró), una devuelta y la de un cliente dado de baja.
+- **«Armar el plan» se escondía** con cuotas sueltas sin plan: ahora está siempre (salvo suscripción), y si no se puede armar
+  encima de lo que hay, el server lo dice en el mismo lugar.
+- **El total de Ganado no sumaba las suscripciones** (decisión del 12/10: «un total no puede mezclar una vez con por mes»).
+  Martín lo pidió al revés: ahora suma la mensualidad (la misma «/mes» de la tarjeta); sólo suscripciones, «$444/mes»; mezclado,
+  la suma y el `title` separa las dos (`app/crm/total-columna.ts`).
+
+- **El plan quincenal (ticket #13, Leila: «$300 cada quincena, los días 1 y 15»).** El plan uniforme es de 1 a 6 cuotas y UN
+  día del 1 al 28, y no por una regla de negocio: son los CHECK de la mig 0014 sobre las COLUMNAS del plan del lead. Las
+  cuotas son filas de `pagos` y no tienen ese tope. El plan LIBRE (cada mes, quincena o semana; días a elección; hasta 60) arma
+  la lista (`fechasDelPlan`, lib/pagos-campo.ts) y la guarda por `guardarCuotasAction` con las columnas del plan en lo que
+  entra (lo que no, vacío: `planComoEstaba` recorta igual). Sin migración. El plan uniforme sigue por `ajustarPlanAction`.
+
+**Sin hacer:** el plan libre no tiene Deshacer (el uniforme sí) · el editor del plan sigue escondido para una suscripción (el
+caso de Nadia, lead 2605: primero se pasa la venta a «Pago único») · editar una cobrada deja su línea en el historial como
+«vencimiento» (`lineasDeCuotas`).
+
+## La revisión de b335f972c (27/10/2026): el plan libre duplicaba deuda y editar una cobrada no preguntaba cuál se vio
+
+Revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-b335f972c.md), con las funciones reales del sha. Arreglado en la
+misma rama (chat «CRM y Chats», `claude4`); tests/pagos-revision-b335.test.ts, probado rompiéndolo.
+
+- **El plan libre se armaba DE CERO sobre un plan con cobros (alta).** Con el inicial de US$1.000 y 3 de 6 cuotas de US$500
+  cobradas, pasar la cantidad a 8 dejaba US$5.000 de deuda en vez de US$2.500: el formulario trae el inicial precargado y lo
+  mandaba otra vez con vencimiento HOY (la cobranza le recordaba al cliente plata que ya pagó), y las 8 cuotas entraban todas
+  nuevas. Y `guardarCuotasAction` va POR ID: sin ids, todo se inserta y una impaga con link o recordatorio queda AL LADO de
+  las nuevas, contada dos veces. Ahora `cuotasDelPlanLibre` (lib/pagos-campo.ts) aplica la regla del plan uniforme: el inicial
+  cobrado no se pide, la cantidad cuenta las cobradas del plan (la pantalla lo dice: «Ya cobrado: …»), y cada impaga que existe
+  toma un lugar de la lista por su id, las protegidas primero. Regla: **una lista que reemplaza cuotas se arma ENCIMA de lo que
+  hay, nunca de cero**; el total que se muestra no avisa nada, porque el uniforme muestra el mismo número contando lo cobrado.
+- **`editarCuota` elegía la columna por lo que LEYÓ (media).** La misma `fecha` es el vencimiento de una impaga y el día del
+  pago de una cobrada. MaKo confirma un `editar_cuota` hasta 120 min después de prepararlo, sin volver a mirar: si en el medio
+  la cobraron, el vencimiento nuevo se escribía como `fecha_pago` (el Cash de octubre pasaba a noviembre) y MaKo contestaba
+  «Listo». La guarda `.eq('pagado', false)` no servía: la rama ya se había elegido. Ahora quien llama dice qué vio (`espera`,
+  «impaga» por defecto) y si no coincide, tira. Regla: **cuando un mismo campo significa dos cosas según el estado, el estado
+  lo dice quien llama**, no la lectura.
+- **Un recordatorio cortado quedaba afuera de la cobranza (media).** Editar sólo el monto cortaba la corrida, pero el olvido
+  del dedup (`cuotasReprogramadas`) sólo mira las cuotas cuya FECHA cambió: `cuota:<id>` seguía «enviada» y el cron la
+  descartaba. El comentario prometía lo contrario. Ahora la cuota del recordatorio cortado se olvida siempre, y la ficha dice
+  «el recordatorio arranca de nuevo».
+- Bajos: el monto de una cobrada en otra moneda ya no se edita como «$» en la ficha (se leía en pesos) y, si llega por otro
+  lado, limpia la moneda y el monto original (lo último que se dijo manda, como en `cobrarCuota`); el Deshacer manda sólo lo
+  que cambió y dice si no se aplicó.
+- **Cómo se probó lo que lee la base:** `editarCuota` corrió REAL contra una base en memoria (el arnés del refutador,
+  adaptado: el `await import('./flujo-corridas')` va por ESM, así que el stub de `Module._load` no lo agarra y hace falta un
+  hook de `module.register`; y las claves del dedup salen de `keyEspaciado`, que las hashea). Sobre b335f972c aparecen los
+  tres defectos; con el arreglo, ninguno.
+
+## La revisión de 0b6d5b754 (27/10/2026): el arreglo del plan libre trajo dos de plata
+
+Segunda revisión adversarial del Cerebro (C:/dev/revisiones/2710-crm-0b6d5b754.md), con las funciones reales del sha. Arreglado
+en la misma rama; tests/pagos-revision-b335.test.ts (los casos de la revisión, probados rompiéndolos).
+
+- **El resto de un cobro por menos tomaba un lugar del plan (alta).** `cuotasDelPlanLibre` contaba las cobradas con
+  `esCuotaDelPlan` pero repartía los lugares entre TODAS las impagas: el resto (`resto_de`, lo crea `cobrar_cuota_con_resto`)
+  protegido se quedaba con el lugar de una cuota de US$500, que se borraba y nunca se cobraba (1.100 de deuda en vez de 1.600);
+  sin proteger, el resto se borraba en silencio. Ahora lo que no es del plan va APARTE, con su id, su monto y su fecha: se casa
+  sin cambio y no se borra. Regla: **una regla que separa «del plan» para contar tiene que separarlo también para repartir**;
+  el plan uniforme ya lo hacía (`lugarDe` sólo con `esCuotaDelPlan`).
+- **«Las protegidas primero» con las protecciones de la PANTALLA (media).** La ficha no las relee después de «Mandar link» ni
+  cuando la cobranza arranca un recordatorio, y una lectura fallida da «nada protegido». Al acortar el plan, la protegida quedaba
+  sin lugar y la deuda se contaba dos veces. Ahora el orden lo corrige el server con las protecciones que acaba de leer
+  (`protegidasPrimero` en `reconciliarCuotas`, modo 'porId'): una protegida sin lugar toma el de una sin proteger. Regla: **lo
+  que decide plata se decide con el dato del server, no con el de la pantalla**; la pantalla sólo propone.
+- Baja: cambiar el monto de una cuota con link anula el link, y el Deshacer devuelve el monto pero no el link. Ahora se dice en
+  los dos («el link anterior se anuló: manda uno nuevo»).
+- **La revisión de 1f02dd813 (media):** un #0 que tomó un lugar del plan libre sin inicial (una seña con link), una vez cobrado,
+  contaba como «inicial cobrado» y no como cuota: guardar el mismo plan después armaba una de más (cinco de 300 para un plan
+  de 4). Ahora la ficha le dice a `cuotasDelPlanLibre` si el plan GUARDADO tiene inicial (`planConInicial`); sin él, el #0 es
+  una cuota. Y lo de aparte va `quedaComoEsta`: el server lo casa sin cambiarlo y, si ya no existe, no lo inserta (un resto
+  quitado o cambiado en el medio revivía). El aviso del link anulado sale sólo si se anuló alguno.

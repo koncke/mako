@@ -44,6 +44,7 @@
 
 import { RUTA_DIAGNOSTICO, RUTA_PAGINA_DIAGNOSTICO } from './diagnostico';
 import { urlParaReplicar } from './replicar-reglas';
+import type { Instantanea } from './copia-identica';
 import { conWs, wsDeBusqueda } from '../ws-tab';
 import {
   PARAM_CAMINO, PARAM_FIRMA, PARAM_LECTOR, TIPO_MENSAJE_LECTURA,
@@ -56,7 +57,7 @@ export type MotivoSinLectura = 'bloqueadas' | 'cerrada' | 'tiempo' | 'error' | '
 
 export type ResultadoLectura =
   /** `lectura` va TAL CUAL al server (el `lectura` de ia «importar», del Diagnóstico y de Replicar). */
-  | { ok: true; lectura: LecturaDelServer; detalle: LecturaDetallada }
+  | { ok: true; lectura: LecturaDelServer; detalle: LecturaDetallada; foto?: Instantanea }
   | { ok: false; motivo: MotivoSinLectura; mensaje: string };
 
 export type OpcionesLectura = {
@@ -73,12 +74,16 @@ export type OpcionesLectura = {
    * se lee en ésa, con el mismo protocolo y la misma firma.
    */
   ventana?: Window;
+  /** La copia idéntica (28/10/2026): pedirle al lector la FOTO de la página ya armada (copia-identica-script.ts). */
+  foto?: boolean;
 };
 
 /** Hasta que la página saluda (cargar una app lenta incluido). */
 export const TOPE_LECTURA_MS = 25_000;
 /** Desde el saludo: el lector tiene su propio tope de 17 s adentro (lector-script.ts). */
 export const TOPE_DESDE_HOLA_MS = 21_000;
+/** Con la foto de la copia idéntica, el lector baja despacio (lo que se arma al verse mete su hoja): hasta 40 s. */
+export const TOPE_FOTO_DESDE_HOLA_MS = 45_000;
 /** Un bloqueador que deja abrir y cierra al instante: se mira antes de navegar. */
 const ESPERA_CIERRE_MS = 250;
 
@@ -220,14 +225,14 @@ export function leerEnNavegador(url: string, opciones: OpcionesLectura = {}): Pr
       const m = sanearMensajeLectura(ev.data, { id, url: pedida });
       if (!m || (ev.source === null && m.fase === 'hola')) return;
       if (m.fase === 'hola') {
-        if (!saludo) { saludo = true; limite = Math.max(limite, Date.now() + TOPE_DESDE_HOLA_MS); }
+        if (!saludo) { saludo = true; limite = Math.max(limite, Date.now() + (opciones.foto ? TOPE_FOTO_DESDE_HOLA_MS : TOPE_DESDE_HOLA_MS)); }
         // A un origen opaco («null», la ventana aislada) sólo se le puede escribir con '*': el destino ya
         // es ESA ventana, y lo que viaja es el id que ella misma mandó.
-        try { ventana.postMessage({ tipo: TIPO_MENSAJE_LECTURA, id, fase: 'dale' }, ev.origin === 'null' ? '*' : ev.origin); } catch { /* se cerró */ }
+        try { ventana.postMessage({ tipo: TIPO_MENSAJE_LECTURA, id, fase: 'dale', ...(opciones.foto ? { foto: true } : {}) }, ev.origin === 'null' ? '*' : ev.origin); } catch { /* se cerró */ }
         return;
       }
       if (m.fase === 'error') { terminar(falla('error', m.mensaje)); return; }
-      terminar({ ok: true, lectura: aLecturaDelServer(m.detalle), detalle: m.detalle });
+      terminar({ ok: true, lectura: aLecturaDelServer(m.detalle), detalle: m.detalle, ...(m.foto ? { foto: m.foto } : {}) });
     };
     window.addEventListener('message', alMensaje);
 

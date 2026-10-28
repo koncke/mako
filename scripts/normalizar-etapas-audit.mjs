@@ -4,10 +4,11 @@
 // El backfill de historial escribió etiquetas. Esto las normaliza a keys.
 // Uso: node scripts/normalizar-etapas-audit.mjs [--apply]
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 const APPLY = process.argv.includes('--apply');
 const norm = (s) => String(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\(derivada\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
 

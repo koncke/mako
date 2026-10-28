@@ -166,6 +166,9 @@ test('9: en WhatsApp entra lo que hace falta: la acción (y la lectura con refs)
   const texto = turno('en el proyecto Anuncio octubre cambiá el texto del gancho por «Esto lo cambia todo»', true);
   assert.ok(texto.includes('cambiar_texto_video') && texto.includes('ver_proyecto_video'), texto.join(', '));
   assert.ok(turno('quitale las muletillas al video de testimonio', true).includes('eliminar_muletillas_video'));
+  // Lo que Leila le pidió a MaKo en el editor (27/10/2026). Sin ref borra los de la pista principal: le alcanza el proyecto.
+  const silencios = turno('borrá los silencios del video de testimonio', true);
+  assert.ok(silencios.includes('borrar_silencios_video') && silencios.includes('listar_proyectos_video'), silencios.join(', '));
   const pregunta = turno('cuántos créditos me quedan para filmar el anuncio', false);
   assert.ok(!pregunta.some((n) => porId(n)?.tipo === 'accion'), 'en una pregunta no viaja ninguna acción');
   for (const n of ['ver_saldo_flow', 'ver_montaje_anuncio', 'listar_anuncios_video']) assert.ok(pregunta.includes(n), `${n} sigue entrando`);

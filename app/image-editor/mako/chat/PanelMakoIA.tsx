@@ -32,6 +32,8 @@ import { Check } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
 import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
+import { useNotaEnElActo } from '@/app/_chat/useNotaEnElActo';
+import { useAdjuntosDelChat } from '@/app/_chat/useAdjuntosDelChat';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
@@ -193,10 +195,14 @@ export function PanelMakoIA() {
     if (el) el.scrollTop = el.scrollHeight;
   }, [hilo.mensajes.length, hilo.corriendo]);
 
-  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal) => {
-    if (hilo.corriendo || !instruccion.trim() || !disenoId || appEscritorio.bloqueada) return;
-    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, intencion);
-    setTexto('');
+  /** `dejarCaja`: lo manda una nota de voz por detrás (lo que la persona esté escribiendo mientras tanto queda en la caja). */
+  // Fotos y PDF con el pedido (28/10/2026, las cajas unificadas): la ruta los lee y van aparte de la instrucción. Sólo los de la caja.
+  const [errorAdjunto, setErrorAdjunto] = useState<string | null>(null);
+  const adj = useAdjuntosDelChat({ puede: !hilo.corriendo && !!disenoId, onError: setErrorAdjunto });
+  const enviar = (instruccion: string, alc: AlcanceChat = alcanceReal, { dejarCaja = false, archivos = [] as readonly File[] } = {}) => {
+    if (hilo.corriendo || (!instruccion.trim() && !archivos.length) || !disenoId || appEscritorio.bloqueada) return;
+    void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT_IMAGEN.instruccion), alc, intencion, archivos);
+    if (!dejarCaja) setTexto('');
   };
 
   const sugerir = (s: Sugerencia) => {
@@ -215,6 +221,9 @@ export function PanelMakoIA() {
   };
 
   const visibles = (intencion === 'discutir' ? SUGERENCIAS_DISCUTIR : SUGERENCIAS).filter((s) => !s.necesitaSeleccion || elegidos > 0);
+  // La nota de voz sale en el acto (28/10/2026): se dibuja ya, se pasa a texto por detrás (app/_chat/useNotaEnElActo.ts) y sale por
+  // `enviar`, como lo escrito.
+  const nota = useNotaEnElActo({ clave: `imagen:${disenoId ?? ''}`, puede: !hilo.corriendo && !!disenoId && !appEscritorio.bloqueada, mandar: (t) => enviar(t, alcanceReal, { dejarCaja: true }) });
 
   // El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links, la
   // propuesta con «Original | Modificado»), en su hueco.
@@ -289,8 +298,9 @@ export function PanelMakoIA() {
             {/* La caja única (app/_chat/CajaChat.tsx). Los atajos del editor no miran lo que se escribe en un campo
                 (`isEditableTarget` de hooks/useKeyboardShortcuts.ts). */}
             <div className="co-caja">
-              <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-                apagado={!disenoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
+              <CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => { if (!adj.preparando) enviar(texto, alcanceReal, { archivos: adj.tomar() }); }} ocupado={hilo.corriendo || nota.pendientes}
+                apagado={!disenoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} onGrabada={nota.onGrabada}
+                adjuntos={adj.caja} estado={errorAdjunto} topeTexto={TOPES_CHAT_IMAGEN.instruccion} />
             </div>
           </div>
         }
@@ -305,8 +315,8 @@ export function PanelMakoIA() {
             {pildoras(visibles)}
           </>
         )}
-        <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-          tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+        <HiloMako items={nota.conNotas(items)} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+          tarjeta={null} onTarjeta={nada} onReintentar={nota.reintentar(nada)} onDescartar={nota.descartar} onRecargar={nada} enMensaje={enMensaje} />
         {/* Lo que está haciendo mientras la IA del negocio dibuja («Creando la imagen…», ./hilo.ts): tarda de 10 a 90 s. */}
         {hilo.corriendo && hilo.progreso ? (
           <p className={styles.progreso} role="status"><span className={styles.girando} aria-hidden="true" />{hilo.progreso}</p>

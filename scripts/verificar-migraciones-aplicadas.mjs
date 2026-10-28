@@ -25,6 +25,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { cierreDeParentesis, ID, ident, partirPrimerNivel, QNAME, sentencias, sinComentarios } from './sql-migraciones.mjs';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const ESQUEMA = 'public';
 const qn = (esq, nombre) => ({ esq: esq ? ident(esq) : ESQUEMA, nombre: ident(nombre) });
@@ -525,7 +526,7 @@ async function main(argv) {
   const an = analizarMigraciones(migraciones);
   const { desde } = args;
   console.log(`[verificar-migraciones] ${migraciones.length} migraciones leídas de ${dir} (la última: ${an.todas[an.todas.length - 1] ?? 'ninguna'})`);
-  const conn = process.env.DATABASE_URL;
+  const conn = urlDeLaBase();
   if (!conn) { console.error('Falta DATABASE_URL (corré con: node --env-file=C:/dev/mako-api/.env.local scripts/verificar-migraciones-aplicadas.mjs)'); return 1; }
   const { default: postgres } = await import('postgres');
   const sql = postgres(conn, { ssl: 'require', connect_timeout: 60, max: 1 });

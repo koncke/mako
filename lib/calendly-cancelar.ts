@@ -31,7 +31,7 @@ export class CalendlyCancelarError extends Error {
   constructor(message: string) { super(message); this.name = 'CalendlyCancelarError'; }
 }
 
-const SIN_TOKEN = 'Este negocio no tiene el token de Calendly cargado (Integraciones › Calendly).';
+const SIN_TOKEN = 'Este negocio no tiene el token de Calendly cargado (Settings › Integrations › Calendly).';
 
 async function pedir<T>(token: string, url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, { ...init, headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, cache: 'no-store' });

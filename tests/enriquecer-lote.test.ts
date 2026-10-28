@@ -264,7 +264,8 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   const ui = leer('app/crm/TraerDeGrupoWA.tsx');
   // Sin los admins si se pidió «Ignorar admins» (26/10/2026).
   assert.match(ui, /setSel\(new Set\(r\.participantes\.filter\(\(p\) => !p\.enElCrm && !\(sinAdminsAhora\.current && p\.admin\)\)\.map\(\(p\) => p\.telefono\)\)\);/, 'arranca con los que ya están tildados');
-  assert.match(ui, /return \[\.\.\.pasan\.filter\(\(p\) => !p\.enElCrm\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que ya están no van abajo');
+  // Y entre los nuevos, los que tienen nombre primero (27/10/2026): los que ya están siguen abajo.
+  assert.match(ui, /return \[\.\.\.nuevosAhora\.filter\(\(p\) => !!p\.nombre\), \.\.\.nuevosAhora\.filter\(\(p\) => !p\.nombre\), \.\.\.pasan\.filter\(\(p\) => p\.enElCrm\)\];/, 'los que ya están no van abajo');
   assert.match(ui, /const todos = nuevos\.length > 0 && nuevos\.every\(\(p\) => sel\.has\(p\.telefono\)\);/);
   assert.match(ui, /setSel\(todos \? new Set\(\) : new Set\(nuevos\.map\(\(p\) => p\.telefono\)\)\)/, '«tildar todos» tilda también a los que ya están');
   assert.match(ui, /if \(p\.enElCrm\) return; \/\/ ya está: no se trae, no se tilda/);
@@ -295,7 +296,7 @@ test('9. traer de un grupo: los que ya están NO se vuelven a cargar; van abajo,
   const modal = leer('app/crm/TraerDeGrupoWA.tsx');
   // Desde el 26/10/2026 los nombres van dentro de «Extraer»: el corte de los dos (traer y guardar) va al mismo resumen.
   assert.match(modal, /const corte = t\?\.corte \|\| a\?\.error \|\| \(a\?\.parado \? 'La paraste\.' : ''\);/, 'el corte de los nombres se borra al releer el grupo');
-  assert.match(modal, /setHecho\(`«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/);
+  assert.match(modal, /setHecho\(titular \? `\$\{resumen\}\.\$\{cola\}` : `«\$\{grupo\.nombre\}»: \$\{resumen\}\.\$\{cola\}`\);/);
   assert.doesNotMatch(modal, /if \(a\.error\) setErr\(a\.error\);/);
   assert.match(modal, /if \(r\.pendientes\.length >= tanda\.length\) \{ corte = 'WhatsApp está tardando\.'; break; \}/, 'el corte de «Extraer» va a err y se borra al releer');
   assert.match(modal, /corte \? ` \$\{corte\}\$\{t && t\.quedan > 0 \? ` Quedaron \$\{miles\(t\.quedan\)\}: vuelve a tocar «Extraer»\.` : ''\}` : '',/);

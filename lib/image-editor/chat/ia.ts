@@ -21,8 +21,11 @@ import { chatClaude } from '../../anthropic';
 import { chatCheapCascade, errorDeCascada } from '../../ai-cheap';
 import { renderPrompt } from '../../prompt-render';
 import { contenidoNoConfiable } from '../../prompt-render-pure';
+import { conLaLecturaAparte } from '../../mako-adjuntos';
 import { brandSystem } from '../../landing-writer';
 import { parseJsonObject } from '../../json-del-modelo';
+import { REGLA_NO_EXISTE, reglaNoExisteEn } from '../../no-existe';
+import { conPedidoDeNoExisteDeLaSesion } from '../../no-existe-server';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../../editor-landing/ia-reglas';
 import { FORMATO_CHAT_IMAGEN, TOPES_CHAT_IMAGEN, catalogoParaPrompt, salidaDeDiscutir, validarOperaciones, type OperacionImagen } from './catalogo';
 import { CHAT_IMAGEN_DISCUTIR_TEMPLATE, CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE, PROMPTS_CHAT_IMAGEN } from './prompts';
@@ -32,7 +35,7 @@ export const FEATURE_CHAT_IMAGEN = 'image-editor-ia';
 /** El chat espera hasta aquí a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; intencion?: unknown };
+export type PedidoChatImagen = { instruccion?: unknown; diseno?: unknown; alcance?: unknown; intencion?: unknown; /** Lo que el sistema leyó de las fotos o los PDF del pedido (28/10/2026): va aparte, como dato. */ archivos?: string };
 
 export type ResultadoChatImagen =
   | { ok: true; resumen: string; operaciones: OperacionImagen[]; descartes: string[] }
@@ -91,8 +94,9 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       diseno: contenidoNoConfiable(diseno, 'diseno'),
     });
     if (p.intencion === 'discutir') {
-      const sysD = await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.discutir.key, CHAT_IMAGEN_DISCUTIR_TEMPLATE, {}));
-      const salidaD = await chatClaude(sysD, [{ role: 'user', content: user }], {
+      // «Discutir» también dice lo que no existe y levanta el pedido (AGENTS.md, «Todo chat de MaKo dice lo que no existe»).
+      const sysD = `${await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.discutir.key, CHAT_IMAGEN_DISCUTIR_TEMPLATE, {}))}\n\n${REGLA_NO_EXISTE}`;
+      const salidaD = await chatClaude(sysD, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
         feature: FEATURE_CHAT_IMAGEN,
         motivo: 'Discutir el diseño con el chat',
         maxTokens: 800,
@@ -100,14 +104,17 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
       });
       // SIN operaciones, mande lo que mande el modelo: «Discutir» no cambia nada.
       const d = salidaDeDiscutir(salidaD);
-      return { ok: true, ...d, resumen: d.resumen || 'No tengo nada para sugerir sobre eso. Pregúntame de otra forma.' };
+      const ne = d.resumen ? await conPedidoDeNoExisteDeLaSesion(d.resumen, { chat: 'image-editor', ruta: '/image-editor', pedido: instruccion }) : null;
+      const texto = ne ? [ne.texto.trim(), ne.linea].filter(Boolean).join(' ') : '';
+      return { ok: true, ...d, resumen: texto || 'No tengo nada para sugerir sobre eso. Pregúntame de otra forma.' };
     }
-    const sys = await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.system.key, CHAT_IMAGEN_SYSTEM_TEMPLATE, {
+    // Lo que no existe en MaKo se dice y se marca en `resumen` (lib/no-existe.ts): abajo se saca y se levanta el pedido.
+    const sys = `${await brandSystem(await renderPrompt(PROMPTS_CHAT_IMAGEN.system.key, CHAT_IMAGEN_SYSTEM_TEMPLATE, {
       catalogo: catalogoParaPrompt(),
       formato: FORMATO_CHAT_IMAGEN,
-    }));
+    }))}\n\n${reglaNoExisteEn('resumen')}`;
     const hastaIA = t0 + PLAZO_IA_MS;
-    const salida = await chatClaude(sys, [{ role: 'user', content: user }], {
+    const salida = await chatClaude(sys, [{ role: 'user', content: conLaLecturaAparte(user, p.archivos) }], {
       feature: FEATURE_CHAT_IMAGEN,
       motivo: 'Editar el diseño con el chat',
       maxTokens: 4_000,
@@ -116,7 +123,10 @@ export async function editarImagen(p: PedidoChatImagen): Promise<ResultadoChatIm
     const raw = await objetoConUnaReparacion(salida, reparador(hastaIA));
     const { operaciones, descartes } = validarOperaciones(raw.operaciones);
     if (descartes.length) console.warn(`[image-editor:chat] descartes: ${descartes.slice(0, 20).join(' · ')}`);
-    const resumenModelo = typeof raw.resumen === 'string' ? raw.resumen.trim().split('\n')[0].slice(0, 300) : '';
+    // La marca de lo que no existe sale ANTES de quedarse con la primera línea, y el pedido va solo a la Ticketera (lo único
+    // que escribe esta función: el diseño, no).
+    const ne = typeof raw.resumen === 'string' ? await conPedidoDeNoExisteDeLaSesion(raw.resumen, { chat: 'image-editor', ruta: '/image-editor', pedido: instruccion }) : null;
+    const resumenModelo = ne ? [ne.texto.trim().split('\n')[0].slice(0, 300), ne.linea].filter(Boolean).join(' ') : '';
     return { ok: true, resumen: resumenModelo || (operaciones.length ? 'Listo.' : 'Sin cambios.'), operaciones, descartes };
   } catch (err) {
     return { ok: false, error: await falloIA(err), status: 502 };

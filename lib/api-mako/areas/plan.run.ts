@@ -1099,7 +1099,7 @@ export const RUNNERS: Runners = {
       try {
         ya = (await terminosDelGlosario()).find((k) => k.titulo.trim().toLowerCase() === termino.toLowerCase());
       } catch {
-        return { error: 'No pude leer el glosario de este negocio para ver si el término ya estaba. Intenta de nuevo en un momento.' };
+        return { error: 'No pude leer el glosario de este negocio para ver si el término ya estaba. Intenta de nuevo en un momento.', falla: true };
       }
       if (ya && ya.cuerpo.trim() === definicion) return { error: `«${termino}» ya está en el glosario con esa misma definición.` };
       // El resumen lleva la definición COMPLETA: lo que se confirma es lo que se escribe.

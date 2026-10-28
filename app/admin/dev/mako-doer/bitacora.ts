@@ -672,4 +672,27 @@ export const BITACORA: Hito[] = [
       'tests/doer-hilo.test.ts — 34 roturas, todas caen',
     ],
   },
+  {
+    fecha: '28 oct', hora: '10:50', chat: 'MaKo en WhatsApp: conexiones, ayuda y tickets', sesion: 'local_216acd59-4fee-4349-be06-08ebffa59932', cuenta: 'claude4',
+    actor: 'claude', tipo: 'correccion',
+    titulo: 'Las notas de voz del grupo se escuchan con Groq, nunca con Gemini, y la que no se escucha lo dice',
+    pedido: 'Martín, por Leandro: «Y falló Gemini cuando te pedí que deprequemos Gemini por los grupos de WhatsApp...».',
+    puntos: [
+      'Leandro mandó dos audios y MaKo no los escuchó: Gemini cortó por tiempo. Al primero le contestó sólo el texto de al lado, con un consejo inventado; al segundo, 👍 y nada más.',
+      '⚠️ **El aviso «no lo pude escuchar» ya existía**, pero sólo para el audio suelto: cuando llegaban varios mensajes juntos, el audio se tiraba sin decir nada.',
+      'Ahora la nota de voz de un grupo va primero al Groq de MaKo y nunca a Gemini. La que no se escucha, MaKo la pide por escrito y deja ticket.',
+      'Un pedido de una función («como lo hace ManyChat») ya no se contesta con un consejo: MaKo dice en qué anda su ticket, o abre uno.',
+      '**Cómo se prueba:** mandar una nota de voz al grupo de MaKo de un negocio; y otra junto con un texto. Las dos se contestan.',
+    ],
+    commits: [
+      { sha: '8caf3315d', msg: 'MaKo en WhatsApp: la nota de voz del grupo va a Groq y nunca a Gemini, la que no se escucha lo dice con su ticket, y un pedido de funcionalidad no se contesta con un consejo', lineas: 298, archivos: 7 },
+    ],
+    archivos: [
+      'lib/ai-cheap.ts — `notaDeVozDelGrupo`: el Groq de MaKo primero, Gemini nunca',
+      'lib/mako-doer-in.ts — `avisarAudioSinEscuchar`, una sola para el audio suelto y los lotes',
+      'lib/doer-falla-frases.ts — `pideUnaFuncionalidad`',
+      'tests/doer-falla.test.ts — el caso de Leandro, rojo-verde',
+    ],
+    tickets: [18],
+  },
 ];

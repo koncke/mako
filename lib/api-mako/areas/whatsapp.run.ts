@@ -702,7 +702,7 @@ export const RUNNERS: Runners = {
       // Por la línea en la que viene la charla con ese contacto: es el número que conoce.
       await crearBorrador({ leadId: lead?.id ?? null, telefono: tel, texto, chatJid: chat?.chatJid ?? `${tel}@s.whatsapp.net`, origen: 'mako', linea: chat?.linea ?? null });
       const creado = await borradorPendienteIgual(u10, texto);
-      if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.' };
+      if (creado == null) return { error: 'No pude dejar el borrador en la cola. No se envió nada.', falla: true };
       // `borradorId`: el link no lo lleva, y el chat lo necesita para retirarlo si MaKo pregunta en el mismo turno (1.9).
       return { id: String(creado), url, nueva: true, extra: { para: lead?.nombre ?? tel, nota: 'Quedó en la cola de borradores de /whatsapp: una persona lo manda con un clic. No se envió nada.', borradorId: creado } };
     },

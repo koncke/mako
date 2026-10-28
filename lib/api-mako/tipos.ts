@@ -367,6 +367,10 @@ export type Ctx = {
   mensajeUsuario?: string;
   /** quién confirma (email de la sesión), para el historial */
   actor?: string;
+  /** Sólo en un grupo de WhatsApp: quién escribe (el `participant`, lib/confirmacion-pura.ts `quienEnElGrupo`; null en un lote
+   *  de varios) y si el mensaje le habla a MaKo («sí, MaKo», «@MaKo», la respuesta citada a MaKo). Lo que se propone guarda quién
+   *  lo pidió, y una pendiente de plata sólo la confirma ésa persona o un «sí» a MaKo (`elSiEsDeQuienPidio`). */
+  enElGrupo?: { quien: string | null; aMaKo: boolean };
   /** Sólo en la app: la persona de la sesión que chatea (`usuarios.id` como `sub`). «Mi hoja» es la suya: el Dashboard
    *  y General leen el informe de quien chatea, como la pantalla, salvo que se nombre a otra persona (20/10/2026, Ops
    *  Center = lo principal, pieza 1.5). Se lee con `quienChatea(ctx)`, que lo ignora en otro canal. */
@@ -449,6 +453,14 @@ export type Preparado =
        *  otro; para un paso de un flujo (lib/api-mako/flujo.ts) es un éxito sin nada que hacer,
        *  y no le manda una alarma al dueño cada vez que el evento se repite. */
       yaEstaba?: boolean;
+      /** Es una GUARDA (un dato que falta, un pedido que MaKo no deja hacer). Desde el 28/10/2026 lo es TODO `error` de un
+       *  preparar sin `falla` (lib/api-mako/ejecutar.ts): son validaciones por construcción, y son cientos (la verificación de
+       *  692368a60: 734 reglas sin marca abrían ticket). Queda para quien la quiera explícita. */
+      guarda?: true;
+      /** Es una FALLA nuestra (una lectura que no anduvo: «No pude leer las pasarelas conectadas»), no una regla: el «no pude»
+       *  que la sigue abre ticket (lib/no-pude.ts, `esGuardaDeHerramienta`). La pone quien la produce; tests/guarda-por-defecto
+       *  pide que todo `return { error: 'No pude…' }` de un preparar la lleve. */
+      falla?: true;
     };
 
 /** Lo que devuelve la escritura REAL. NUNCA lanza: si algo falla, `ok: false` con
@@ -461,7 +473,8 @@ export type Preparado =
 export type Ejecutado = { ok: boolean; resumen: string; datos?: Record<string, unknown> & { bloque?: Bloque }; paraLaPersona?: string };
 
 /** `extra.bloque`: lo que la propuesta DIBUJA (va por `ctx.aDibujar`; el modelo recibe `extra` sin él). */
-export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string };
+/** `falla`: como en `Preparado`, el error de un proponer es una GUARDA salvo que sea una falla nuestra. */
+export type Propuesto = { id: string; url: string; nueva: boolean; extra?: Record<string, unknown> & { bloque?: unknown } } | { error: string; falla?: true };
 
 export type LecturaRun = {
   leer: (input: Record<string, unknown>, ctx: Ctx) => Promise<SalidaLectura>;
@@ -510,4 +523,5 @@ export type Resultado =
   | { ok: true; tipo: 'control'; resultado: string }
   /** `motivo`: lo que contestó la base cuando la pendiente no entró (va al rastro de un flujo, nunca a una persona ni por
    *  HTTP). `noCorrio`: se sabe que NO se ejecutó nada (la pendiente no existe): un flujo lo puede reintentar sin repetir. */
-  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta };
+  /** `guarda`: el 400 es una GUARDA de MaKo, no una falla (`Preparado`, la marca explícita). */
+  | { ok: false; error: string; faltan?: string[]; disponibles?: unknown; status: 400 | 404 | 500; yaEstaba?: boolean; motivo?: string; noCorrio?: true; falta?: Falta; guarda?: true };

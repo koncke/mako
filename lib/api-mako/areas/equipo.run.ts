@@ -22,7 +22,7 @@
 //  4. EL EQUIPO NO ES TENANT-SCOPED (ver equipo.helpers.ts): todo id de miembro se
 //     resuelve contra equipoDe(ctx.ws), en preparar Y en ejecutar.
 //  5. AVISOS_WA_EN_VIVO NO ES «LO QUE SE DISPARA». Es la lista CURADA que pinta
-//     Configuraciones › Notificaciones. El choke point (emitirAviso → avisoWaActivo)
+//     Settings › Notificaciones. El choke point (emitirAviso → avisoWaActivo)
 //     mira el interruptor de CUALQUIER tipo, y hoy salen avisos que no están en esa
 //     lista (reunion-recordatorio, lead-de-landing, meta-cuenta-frenada…). Por eso
 //     se lista y se deja silenciar todo el catálogo de voz, y la marca es
@@ -296,7 +296,7 @@ export const RUNNERS: Runners = {
         total: curados.length + resto.length,
         en_configuraciones: curados.length,
         avisos: [...curados, ...resto],
-        nota: 'Todos se pueden silenciar con configurar_aviso_whatsapp: el envío de cualquier aviso mira ese interruptor. en_configuraciones: false solo dice que no figura en la pantalla Configuraciones › Notificaciones; varios de esos llegan igual (recordatorio de reunión, lead de la landing, cuenta de Meta frenada o recuperada). Esta lista no sabe cuáles del catálogo todavía no tienen un evento que los dispare. Los reportes horario, diario y semanal no están aquí: van con configurar_reporte.',
+        nota: 'Todos se pueden silenciar con configurar_aviso_whatsapp: el envío de cualquier aviso mira ese interruptor. en_configuraciones: false solo dice que no figura en la pantalla Settings › Notificaciones; varios de esos llegan igual (recordatorio de reunión, lead de la landing, cuenta de Meta frenada o recuperada). Esta lista no sabe cuáles del catálogo todavía no tienen un evento que los dispare. Los reportes horario, diario y semanal no están aquí: van con configurar_reporte.',
       });
     },
   },
@@ -502,7 +502,7 @@ export const RUNNERS: Runners = {
         // El principal no sale por chat: cambiarlo mueve la apertura diaria y el número
         // del dueño, agregar_destinatario lo devuelve al FINAL (nunca vuelve a ser el
         // principal), y por WhatsApp cualquiera del grupo corre con rol admin.
-        if (i === 0) return { error: `${d.telefonos[0]} es el teléfono principal (a dónde llega la apertura diaria y con el que MaKo reconoce al dueño): no se quita desde aquí. Se cambia en Configuraciones › Notificaciones.` };
+        if (i === 0) return { error: `${d.telefonos[0]} es el teléfono principal (a dónde llega la apertura diaria y con el que MaKo reconoce al dueño): no se quita desde aquí. Se cambia en Settings › Notificaciones.` };
         partes.push(`sacar el teléfono ${d.telefonos[i]}`);
       }
       if (email) {
@@ -520,7 +520,7 @@ export const RUNNERS: Runners = {
       const tel = typeof payload.telefono === 'string' ? payload.telefono : null;
       const mail = typeof payload.email === 'string' ? payload.email : null;
       // Entre el «sí» y la propuesta el orden pudo cambiar: se vuelve a mirar.
-      if (tel && d.telefonos[0] && mismoTel(d.telefonos[0], tel)) return { ok: false, resumen: `${d.telefonos[0]} pasó a ser el teléfono principal: no se quita desde aquí. Se cambia en Configuraciones › Notificaciones.` };
+      if (tel && d.telefonos[0] && mismoTel(d.telefonos[0], tel)) return { ok: false, resumen: `${d.telefonos[0]} pasó a ser el teléfono principal: no se quita desde aquí. Se cambia en Settings › Notificaciones.` };
       const nuevo = {
         telefonos: tel ? d.telefonos.filter((t) => !mismoTel(t, tel)) : d.telefonos,
         emails: mail ? d.emails.filter((m) => !mismoMail(m, mail)) : d.emails,
@@ -789,7 +789,7 @@ export const RUNNERS: Runners = {
         // La zona DECIDE el instante: estricta. Un negocio sin zona guardada usa la de por defecto,
         // que es lo que ya ve en todas sus pantallas.
         const tz = await zonaDelNegocioEstricta(n.ws).catch(() => null);
-        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.` };
+        if (!tz) return { error: `No pude leer la zona horaria de «${n.nombre}»: sin ella no sé a qué hora es su plazo. Reintenta.`, falla: true };
         asignaciones.push({ ws: n.ws, desde: instanteDelPlazo(tz, fecha, hora)!.toISOString() });
       }
       const cambian = asignaciones.filter((a) => {
@@ -843,7 +843,7 @@ export const RUNNERS: Runners = {
     preparar: async (): Promise<Preparado> => {
       const e = await estadoPlantillaReporte();
       if (e.estado === 'approved' || e.estado === 'pending') return { error: `La plantilla «reporte_mako» ya está ${e.estado === 'approved' ? 'aprobada' : 'en revisión'}: no hace falta mandarla.` };
-      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).` };
+      if (e.estado === 'error') return { error: `No se pudo consultar Meta (${e.motivo ?? 'sin WhatsApp oficial conectado'}).`, falla: true };
       // enviarBorradorAMeta solo manda un borrador en `borrador` o `rejected`, y
       // upsertDraft no le resetea el status: si Meta ya no la tiene (o el rechazo no
       // se reconcilió) y acá quedó `pending`/`approved`, el envío falla siempre.

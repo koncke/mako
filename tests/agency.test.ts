@@ -237,7 +237,8 @@ test('las acciones las usa sólo el admin, y en un archivo use server sólo se e
   const acc = leer('app/agency/actions.ts');
   assert.match(acc, /^'use server';/);
   for (const m of acc.matchAll(/^export\s+(\S+\s+\S+)/gm)) assert.equal(m[1], 'async function', m[0]);
-  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 3, 'las tres acciones preguntan el admin');
+  // ⚠️ Cuatro desde el 27/10/2026: «Aplicar plantilla» (MAU-01) pregunta lo mismo, salvo el super admin.
+  assert.equal((acc.match(/await adminDeWorkspaceActual\(\)/g) ?? []).length, 4, 'las cuatro acciones preguntan el admin');
 });
 
 test('el CRM y la tab abren el MISMO modal, por portal, y un lead con cuenta no pide nada', () => {

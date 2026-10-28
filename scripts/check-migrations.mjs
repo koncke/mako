@@ -1,11 +1,12 @@
 // Solo-lectura: verifica qué migraciones están aplicadas inspeccionando el
 // catálogo de Postgres + algunos conteos. NO ejecuta DDL ni escribe nada.
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 
 config({ path: resolve(process.cwd(), '.env.local') });
-const conn = process.env.DATABASE_URL;
+const conn = urlDeLaBase();
 if (!conn) { console.error('Falta DATABASE_URL'); process.exit(1); }
 
 const sql = postgres(conn, { ssl: 'require', connect_timeout: 10, max: 1 });

@@ -37,6 +37,8 @@ import { marcarCerradaImagen, resolverEnServidorImagen } from './propuestas';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
+import { cuerpoConArchivos } from '@/app/_chat/useAdjuntosDelChat';
+import { ERROR_ADJUNTO, memoriaConArchivos } from '@/lib/mako-adjuntos';
 
 /** La ruta corta a 120 s; el pedido se corta un poco después. */
 const PLAZO_MS = 125_000;
@@ -44,6 +46,8 @@ const PLAZO_MS = 125_000;
 const PLAZO_IMAGEN_MS = 185_000;
 /** El lado más largo de la imagen que se manda para editar (el modelo devuelve de 1024 a 1536). */
 const LADO_REFERENCIA = 1024;
+/** Con fotos o PDF (28/10/2026): la ruta los lee antes (una foto con la visión, ~52 s) y su `maxDuration` es 300. */
+const PLAZO_CON_ARCHIVOS_MS = 245_000;
 /** Las fuentes que se le sugieren a la IA: las primeras del catálogo (orden = popularidad). */
 const SUGERIDAS = 30;
 
@@ -79,20 +83,18 @@ export { rotuloSeleccion };
 
 type Respuesta = { ok: true; resumen: string; operaciones: unknown[] } | { ok: false; error: string };
 
-async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
+async function pedirIA(cuerpo: Record<string, unknown>, senal: AbortSignal, archivos: readonly File[] = []): Promise<Respuesta | { ok: false; error: string; cortado: true }> {
   const plazo = new AbortController();
-  const t = setTimeout(() => plazo.abort(), PLAZO_MS);
+  const t = setTimeout(() => plazo.abort(), archivos.length ? PLAZO_CON_ARCHIVOS_MS : PLAZO_MS);
   const alCortar = () => plazo.abort();
   senal.addEventListener('abort', alCortar);
   try {
-    const res = await fetch('/api/image-editor/ia', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(cuerpo),
-      signal: plazo.signal,
-    });
+    const res = await fetch('/api/image-editor/ia', archivos.length
+      ? { method: 'POST', body: cuerpoConArchivos(cuerpo, archivos), signal: plazo.signal }
+      : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(cuerpo), signal: plazo.signal });
     const json = (await res.json().catch(() => null)) as Respuesta | null;
-    if (!json) return { ok: false, error: 'MaKo no respondió. Vuelve a intentar.' };
+    // El 413 de Vercel (archivos de más) llega en texto: no es JSON.
+    if (!json) return { ok: false, error: res.status === 413 ? ERROR_ADJUNTO.pesado : 'MaKo no respondió. Vuelve a intentar.' };
     return json;
   } catch {
     if (senal.aborted) return { ok: false, error: 'Detenido.', cortado: true };
@@ -228,18 +230,19 @@ async function imagenConIA(editor: EditorEngine, doc: unknown, op: OperacionDeIm
 
 /**
  * Manda una instrucción y deja en el hilo la respuesta: una PROPUESTA para revisar, o lo que no se pudo. Con
- * `intencion: 'discutir'`, sólo la respuesta de MaKo (nunca una propuesta).
+ * `intencion: 'discutir'`, sólo la respuesta de MaKo (nunca una propuesta). `archivos`: las fotos o los PDF del pedido
+ * (28/10/2026), que la ruta lee aparte de la instrucción.
  */
-export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, intencion: IntencionChatImagen = 'editar'): Promise<void> {
+export async function pedirEdicion(editor: EditorEngine, instruccion: string, alcance: AlcanceChat, intencion: IntencionChatImagen = 'editar', archivos: readonly File[] = []): Promise<void> {
   const disenoId = editor.designId;
   const texto = instruccion.trim();
-  if (!disenoId || !texto || leerHilo(disenoId).corriendo) return;
+  if (!disenoId || (!texto && !archivos.length) || leerHilo(disenoId).corriendo) return;
 
   const elegidosIds = editor.state.selection.ids.slice();
   const alcanceReal: AlcanceChat = alcance === 'seleccion' && elegidosIds.length ? 'seleccion' : 'diseno';
   cambiarHilo(disenoId, (h) => ({
     corriendo: true,
-    mensajes: [...h.mensajes, conId({ de: 'yo', texto, alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null })],
+    mensajes: [...h.mensajes, conId({ de: 'yo', texto: memoriaConArchivos(texto, archivos.map((f) => f.name)), alcance: alcanceReal === 'seleccion' ? rotuloSeleccion(elegidosIds.length) : null })],
   }));
   const corte = new AbortController();
   cortes.set(disenoId, corte);
@@ -258,7 +261,7 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
     return;
   }
   const discutir = intencion === 'discutir';
-  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal, intencion: discutir ? 'discutir' : 'editar' }, corte.signal);
+  const r = await pedirIA({ instruccion: texto, diseno: vista.json, alcance: alcanceReal, intencion: discutir ? 'discutir' : 'editar' }, corte.signal, archivos);
   if (!r.ok) {
     terminar({ de: 'mako', texto: r.error, error: !('cortado' in r) });
     return;

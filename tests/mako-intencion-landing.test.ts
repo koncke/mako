@@ -96,6 +96,11 @@ const PEDIDOS: Array<[string, string]> = [
   ['traducí mi landing al inglés', 'editar_landing_con_ia'],
   ['conectá mi dominio a la landing del curso', 'conectar_dominio_landing'],
   ['ya quedó, cambiá el tema de la landing del curso', 'cambiar_tema_landing'],
+  // El formato de un texto (27/10/2026: la barra «Texto» del editor, por prompt).
+  ['pon en negrita «Aprende a vender» en mi landing', 'dar_formato_texto_landing'],
+  ['subrayá «Agenda tu llamada» en la landing del webinar', 'dar_formato_texto_landing'],
+  ['centra el título de mi landing', 'dar_formato_texto_landing'],
+  ['cambia el color del botón Agenda ahora de mi landing a negro', 'configurar_boton_landing'],
 ];
 
 test('por WhatsApp, cada pedido sobre una landing llega con SU herramienta (con y sin voseo, con y sin tilde)', () => {
@@ -147,6 +152,9 @@ test('lo que NO es editar una landing no se lee como eso (corrección de la tand
     'cambia la foto de perfil de mi página de facebook',
     'sube un post a instagram sobre la landing',
     'mándale el link de la landing a Ana',
+    // Un formato de otra área (27/10/2026).
+    'tacha la tarea de la landing',
+    'pon en negrita el titular del anuncio',
   ];
   for (const f of casos) assert.equal(esPedidoDeLanding(f), null, f);
   for (const f of casos) for (const tool of ['cambiar_texto_landing', 'agregar_seccion_landing', 'cambiar_tema_landing']) {

@@ -179,6 +179,8 @@ export type OperacionChat =
   | { op: 'cortar_frase'; frase: string; vez?: number }
   | { op: 'cortar_tramo'; inicio: number; fin: number }
   | { op: 'eliminar_muletillas' }
+  /** Sin `ref`: cada clip con sonido de la pista principal (o los elegidos, con el alcance de la selección). */
+  | { op: 'borrar_silencios'; ref?: string }
   /** `medio`: la ref de un medio de Multimedia («m1»), de "medios" en la vista. */
   | { op: 'reemplazar_clip'; ref: string; medio: string }
   /** `textos`: hueco → texto; `clips`: hueco → ref de un medio. */
@@ -452,6 +454,11 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     op: 'eliminar_muletillas',
     forma: '{"op":"eliminar_muletillas"}',
     para: 'Saca del video todas las muletillas («eh», «este», «o sea»…) que se identifiquen en los subtítulos con tiempos por palabra. Se aplica al final, después de las demás.',
+  },
+  {
+    op: 'borrar_silencios',
+    forma: '{"op":"borrar_silencios","ref":"v1"}',
+    para: '«Borrar silencios», como el botón de la barra: escucha el sonido del clip, saca cada pausa de 0,4 s o más (deja 80 ms a cada lado) y pega lo que queda; lo que viene después en su pista se corre. Con "ref", ese video o audio; sin "ref", cada clip con sonido de la pista principal (con el alcance de la selección, los elegidos). No hace falta tener subtítulos. Se aplica al final, después de las demás; no lo combines con otros cortes (cortar_frase, cortar_tramo, eliminar_muletillas): pídelo aparte.',
   },
   {
     op: 'usar_plantilla',
@@ -1044,6 +1051,10 @@ export function validarOperacion(raw: unknown): Validada {
     }
     case 'eliminar_muletillas':
       return { ok: true, op: { op: 'eliminar_muletillas' } };
+    case 'borrar_silencios': {
+      if (ref !== undefined && !esRef(ref)) return { ok: false, motivo: 'un «borrar silencios» con un elemento que no es una ref' };
+      return { ok: true, op: { op: 'borrar_silencios', ...(ref !== undefined ? { ref } : {}) } };
+    }
     case 'reemplazar_clip': {
       if (!esRef(ref) || !esRefMedio(raw.medio)) return { ok: false, motivo: 'un reemplazo de clip sin clip o sin medio («m1», «m2»…)' };
       return { ok: true, op: { op: 'reemplazar_clip', ref, medio: raw.medio } };

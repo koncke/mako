@@ -29,11 +29,11 @@ test('el Image Editor: el panel único con la estrella de MaKo, la propuesta en 
   assert.match(imagen, /const QUIEN = \{ nombre: 'MaKo', aspecto: ASPECTO_MAKO \};/);
   assert.match(imagen, /<PanelDeChat\b/, 'el panel único, como el Web Generator');
   assert.match(imagen, /<SelectorIntencion valor=\{intencion\} onCambio=\{elegirIntencion\}/, '«Discutir | Editar», como el Web Generator');
-  assert.match(imagen, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(imagen, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(imagen);
   assert.match(h, /if \(!m \|\| m\.de !== 'mako'\) return null;/, 'lo de la persona no lleva propuesta');
   assert.match(h, /<RevisionPropuesta[\s\S]*onAceptar=\{\(\) => void aceptarPropuesta\(editorRef\.current, m\)\}/);
-  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => enviar\(texto\)\} ocupado=\{hilo\.corriendo\}/);
+  assert.match(imagen, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
   assert.doesNotMatch(imagen, /<textarea\b/);
 });
 
@@ -48,14 +48,14 @@ test('el Video Editor: el panel único con la estrella de MaKo, el foco del link
   assert.match(video, /const QUIEN = \{ nombre: "MaKo", aspecto: ASPECTO_MAKO \};/);
   assert.match(video, /<PanelDeChat\b/, 'el panel único, como el Web Generator');
   assert.match(video, /<SelectorIntencion valor=\{intencion\} onCambio=\{elegirIntencion\}/, '«Discutir | Editar», como el Web Generator');
-  assert.match(video, /<HiloMako items=\{items\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
+  assert.match(video, /<HiloMako items=\{nota\.conNotas\(items\)\} quien=\{QUIEN\} [^>]*enMensaje=\{enMensaje\} \/>/);
   const h = hueco(video);
   assert.match(h, /if \(!m \|\| m\.de !== "mako"\) return null;/);
   assert.match(h, /<div data-mensaje=\{m\.id\} [^>]*style=\{foco === m\.id \?/, 'el foco de `?propuesta=` busca el hueco');
   assert.match(h, /onAceptar=\{\(\) => void aceptar\(m\)\}/);
   assert.doesNotMatch(video, /<aside\b/, 'con <aside>, la barra de la agencia lo estira');
   assert.doesNotMatch(video, /--(surface|ink|primary):var\(--cc-/, 'las piezas otra vez con los tokens de CapCut: el chat sale oscuro en el editor claro');
-  assert.match(video, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => enviar\(texto\)\} ocupado=\{hilo\.corriendo\}/);
+  assert.match(video, /<CajaChat campo=\{inputRef\} texto=\{texto\} onTexto=\{setTexto\} onMandar=\{\(\) => \{ if \(!adj\.preparando\) enviar\(texto, alcanceReal, \{ archivos: adj\.tomar\(\) \}\); \}\} ocupado=\{hilo\.corriendo \|\| nota\.pendientes\}/);
   assert.doesNotMatch(video, /<textarea\b/);
 });
 
@@ -64,7 +64,7 @@ test('los dos cargan la hoja del Centro (sin ella, el hilo y la caja no tienen f
 });
 
 test('los dos siguen recortando lo que se pide a su tope (la caja única no tiene `maxLength`)', () => {
-  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, intencion\)/);
+  assert.match(imagen, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT_IMAGEN\.instruccion\), alc, intencion, archivos\)/);
   // El video con la intención de «Discutir | Editar» adentro de `op` (27/10/2026).
   assert.match(video, /pedirEdicion\(editorRef\.current, instruccion\.slice\(0, TOPES_CHAT\.instruccion\), alc, \{ \.\.\.op, intencion \}\)/);
 });

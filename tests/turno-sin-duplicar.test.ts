@@ -156,7 +156,7 @@ test('runTool consulta el memo ANTES de ejecutar y anota DESPUÉS', () => {
 
 test('los dos que crean pendientes desde el doer pasan el inicio del turno, y crearPendiente lo usa antes de insertar', () => {
   assert.match(sinComentarios(leer('lib/api-mako/acciones.ts')), /crearPendiente\(ctx\.ws, \{[\s\S]{0,300}mismoTurnoDesde: ctx\.turnStart,/);
-  assert.match(sinComentarios(leer('lib/mako-doer-acciones.ts')), /crearPendiente\(ws, \{[^}]*mismoTurnoDesde: turnStart \}\)/);
+  assert.match(sinComentarios(leer('lib/mako-doer-acciones.ts')), /crearPendiente\(ws, \{[^}]*mismoTurnoDesde: turnStart(?:, pidio: enElGrupo\?\.quien)? \}\)/);
   const lib = sinComentarios(leer('lib/mako-pendientes.ts'));
   const cuerpo = lib.slice(lib.indexOf('export async function crearPendiente('), lib.indexOf('async function vencerExpiradas'));
   const iRepetida = cuerpo.indexOf('pendienteRepetida(');

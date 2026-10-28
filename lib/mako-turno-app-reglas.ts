@@ -129,6 +129,7 @@ export function herramientasDelChat<T extends { name: string }>(p: EntradaTurno<
     tools: [...tools, ...conLectura],
     delRegistro: [...delRegistro, ...conLectura],
     instruccion: [turno.instruccion, sinCosa ? INSTRUCCION_QUITAR_SIN_OBJETO : null].filter(Boolean).join(' ') || null,
+    ofrecibles: (turno.ofrecibles ?? []).filter((n) => entraAlChat(n, p.vista)),
   };
 }
 

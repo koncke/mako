@@ -36,7 +36,8 @@ export const LARGO_SEGUIMIENTO = 180;
 const VERBO_CON_PRONOMBRE = /\b(?:paus|public|mand|cambi|pas|borr|sub|baj|pon|hac|agreg|muev|mov|cancel|archiv|duplic|envi|respond|contest|agend|reagend|activ|desactiv|prend|apag|renombr|edit|corrig|correg|arregl|elimin|quit|sac|copi|guard|program|reprogram|asign|marc|cerr|abr|mostr|muestr|dej|llam|escrib|reenvi|recuerd|record|avis|carg|actualiz|termin|complet|fij|resum|analiz|revis|mir|busc|despublic|repet|repit)[a-záéíóúñ]{0,4}(?:la|lo|le|las|los|les|me|nos|selo|sela|selos|selas|melo|mela)\b/i;
 
 /** Una referencia a algo de la charla: «la segunda», «la del webinar», «esa», «esos 5», «también», «de vuelta». */
-const REFERENCIA = /\b(?:(?:la|el|las|los|lo)\s+(?:primer[ao]?s?|segund[ao]s?|tercer[ao]?s?|cuart[ao]s?|[uú]ltim[ao]s?|otr[ao]s?|de|del|que|mism[ao]s?)|es[aeo]s?|aquel(?:la|lo)?s?|tambi[eé]n|de vuelta|otra vez|lo mismo)\b/i;
+// «¿cuáles son?», «¿quiénes?», «sus nombres» (27/10/2026, Código Inmobiliario): piden el detalle detrás del número de recién.
+const REFERENCIA = /\b(?:(?:la|el|las|los|lo)\s+(?:primer[ao]?s?|segund[ao]s?|tercer[ao]?s?|cuart[ao]s?|[uú]ltim[ao]s?|otr[ao]s?|de|del|que|mism[ao]s?)|es[aeo]s?|aquel(?:la|lo)?s?|tambi[eé]n|de vuelta|otra vez|lo mismo|(?:los|sus)\s+nombres|cu[aá]les(?:\s+son)?|qui[eé]nes(?:\s+son)?)(?![\p{L}])/iu;
 
 /** Una muletilla no es una respuesta: «mmm», «eh», «bueno», «ok» después de «¿Quieres que la pause?» no la pausan. */
 const MULETILLA = /^(?:m+|e+h*|a+h*|uh+|hmm+|bueno+|ok+|okey|ya|aj[aá]|ahí va|ah[ií] va)[\s.!…,]*$/i;
@@ -324,6 +325,20 @@ export function bloqueLoQueMostraste(guardado: string | null | undefined, ahoraM
     ...r.items.map((it, i) => `  ${i + 1}) ${it.id}${it.nombre ? ` «${it.nombre}»` : ''}`),
   ]);
   return ['LO QUE MOSTRARON TUS HERRAMIENTAS EN EL TURNO ANTERIOR (los ids, para resolver «esa», «la segunda», «esos 5», «descarta esa»: úsalos en vez de volver a buscar o preguntar; si la persona habla de otra cosa, ignóralo):', ...lineas].join('\n');
+}
+
+// ── LO QUE DICE UNA FOTO O UN PDF (27/10/2026) ──────────────────────────────────────────────────────────────────────
+
+/** Hasta cuánto de lo leído viaja al turno (es INPUT): una captura o un PDF corto entran enteros. */
+export const TOPE_LECTURA_ADJUNTO = 6000;
+
+/** Lo que leyó el código de una imagen o un PDF, como texto para el turno. Sin lectura, lo dice: el modelo no puede
+ *  inventar lo que no vio (la imagen nativa sólo la ve Claude). */
+export function textoDelAdjunto(leido: string | null | undefined, tipo: 'image' | 'document' | 'texto'): string {
+  const que = tipo === 'image' ? 'la imagen' : 'el archivo';
+  const t = (leido ?? '').trim();
+  if (!t) return `(No pude leer ${que} que mandaste: si es importante, escríbeme lo que dice.)`;
+  return `[Lo que dice ${que} que mandaste]\n${t.length > TOPE_LECTURA_ADJUNTO ? `${t.slice(0, TOPE_LECTURA_ADJUNTO)}…` : t}`;
 }
 
 /** La consulta al conocimiento del negocio (Second Brain): el mensaje y, si sigue un hilo, el pedido. «y eso?» solo no

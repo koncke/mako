@@ -45,7 +45,9 @@ import { filasDeModulos } from '@/lib/curso-modulos-datos';
 import { derivarModulos, type FilaModulo } from '@/lib/curso-modulos';
 import type { Progreso } from '@/lib/curso';
 import { clienteDelWorkspace, estadoGuardadoDe, marcarEstadoCliente } from './cs.helpers';
-import { carteraDeAgencia, esAgencia } from '@/lib/agencia';
+import { carteraDeAgencia, esAgencia, puedeEntrarAhora } from '@/lib/agencia';
+import { aplicarPlantillaACliente, aplicarPlantillaModelo } from '@/lib/plantillas-modelo';
+import { PLANTILLAS_MODELO, esModeloCliente } from '@/lib/plantillas-modelo-reglas';
 import { abrirCuentaDePartner, cuentasDePartner, leadParaPartners } from '@/lib/partners';
 import { estadoAgency, sumarseComoAgency } from '@/lib/agency';
 import { quienPagaDe, ROTULO_QUIEN_PAGA, TEXTO_NO_AGENCY } from '@/lib/agency-reglas';
@@ -89,7 +91,7 @@ const autorDe = (ctx: Ctx): string => ctx.actor?.trim() || POR_MAKO;
 /** preparar() no lanza: «no pude leer» se dice como lo que es, y no se escribe nada. */
 const revisando = (fn: (input: In, ctx: Ctx) => Promise<Preparado>) =>
   async (input: In, ctx: Ctx): Promise<Preparado> => {
-    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisarlo (${msgDe(e)}). Reintenta en un momento.` }; }
+    try { return await fn(input, ctx); } catch (e) { return { error: `No pude revisarlo (${msgDe(e)}). Reintenta en un momento.`, falla: true }; }
   };
 /** ejecutar() no lanza (tipos.ts): si algo falla, ok:false con el motivo. */
 const sinLanzar = (que: string, fn: (payload: In, ctx: Ctx) => Promise<Ejecutado>) =>
@@ -407,6 +409,34 @@ export const RUNNERS: Runners = {
     }),
     ejecutar: sinLanzar('abrir la cuenta', async (payload, ctx) =>
       abrirYContar(ctx, { nombre: String(payload.nombre ?? ''), email: String(payload.email ?? ''), leadId: null, paga: quienPagaDe(payload.paga) })),
+  },
+
+  // La plantilla de un modelo de negocio (MAU-01): ver cs.def.ts. Con `clienteWs`, la agencia sobre un cliente de su
+  // cartera (lo repregunta `aplicarPlantillaACliente` al ejecutar: entre la propuesta y el «sí» la cartera puede cambiar).
+  aplicar_plantilla_de_modelo: {
+    preparar: revisando(async (input, ctx) => {
+      const modelo = str(input, 'modelo');
+      if (!esModeloCliente(modelo)) return { error: 'Esa plantilla no existe: tienda-b2c, b2b-crm o manufactura.', faltan: ['modelo'] };
+      const clienteWs = num(input, 'clienteWs');
+      if (clienteWs != null) {
+        if (!(await esAgencia(ctx.ws))) return { error: 'Este negocio no es Agency: se suma desde Agency Dashboard.' };
+        if (!(await puedeEntrarAhora(ctx.ws, clienteWs))) return { error: 'Ese cliente no está en tu cartera.' };
+      }
+      const p = PLANTILLAS_MODELO[modelo];
+      return {
+        payload: { modelo, clienteWs },
+        resumen: `Aplicar la plantilla ${p.nombre} ${clienteWs != null ? `a la cuenta del cliente ${clienteWs}` : 'a este negocio'}: el funnel «${p.funnel.nombre}», el objetivo del trimestre con ${p.kpis.length} KPIs y la guía para cargar sus datos en su Plan. Lo que ya tenga con el mismo nombre no se duplica.`,
+      };
+    }),
+    ejecutar: sinLanzar('aplicar la plantilla', async (payload, ctx) => {
+      const modelo = payload.modelo;
+      if (!esModeloCliente(modelo)) return { ok: false, resumen: 'Esa plantilla no existe.' };
+      const clienteWs = typeof payload.clienteWs === 'number' ? payload.clienteWs : null;
+      const r = clienteWs != null
+        ? await aplicarPlantillaACliente({ agenciaWs: ctx.ws, superAdmin: false }, clienteWs, modelo, 'ia')
+        : await aplicarPlantillaModelo(modelo, 'ia');
+      return r.ok ? { ok: true, resumen: r.resumen, datos: { ...r.hecho } } : { ok: false, resumen: r.error };
+    }),
   },
 
   ver_avance_curso_cs: {

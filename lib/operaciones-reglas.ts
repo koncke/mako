@@ -374,6 +374,10 @@ export function sanearAbre(x: unknown): string[] {
 /** El cartero que abre chats (`abrir`): con uno de antes, el trabajo quedaría escrito para siempre. */
 export const VERSION_ABRIR = '1.11.1';
 export const aceptaAbrir = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ABRIR);
+/** El cartero que baja los adjuntos de un chat NUEVO y los nombra en su primer mensaje (28/10/2026). Uno de antes rechaza el
+ *  trabajo («un chat nuevo no lleva adjuntos»): la caja del chat nuevo los ofrece sólo con éste. */
+export const VERSION_ADJUNTOS_EN_NUEVO = '1.22.0';
+export const aceptaAdjuntosEnNuevo = (version: string | null | undefined): boolean => versionAlMenos(version, VERSION_ADJUNTOS_EN_NUEVO);
 
 export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 export const DESTINO_RE = /^(local|cli)_[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -437,10 +441,10 @@ export function leerFirmable(texto: string, ahora: number): Lectura {
   if (!nuevo && (typeof o.destino !== 'string' || !DESTINO_RE.test(o.destino))) return { ok: false, motivo: 'destino inválido' };
   if (o.cuenta !== null && (typeof o.cuenta !== 'string' || !CUENTA_RE.test(o.cuenta))) return { ok: false, motivo: 'cuenta inválida' };
   if (o.titulo !== null && typeof o.titulo !== 'string') return { ok: false, motivo: 'título inválido' };
-  // Un chat nuevo dice en qué cuenta y con qué nombre, y no lleva adjuntos (todavía no hay a quién dárselos).
+  // Un chat nuevo dice en qué cuenta y con qué nombre. Desde el cartero 1.22.0 (28/10/2026) también lleva adjuntos: los baja
+  // la PC antes de abrirlo (VERSION_ADJUNTOS_EN_NUEVO).
   if (nuevo && o.cuenta === null) return { ok: false, motivo: 'falta la cuenta' };
   if (nuevo) { const m = problemaDeNombreNuevo(o.titulo); if (m) return { ok: false, motivo: m }; }
-  if (nuevo && o.adjuntos !== undefined) return { ok: false, motivo: 'un chat nuevo no lleva adjuntos' };
   if (!(ALCANCES as readonly unknown[]).includes(o.alcance)) return { ok: false, motivo: 'alcance inválido' };
   if (o.modelo != null && !(MODELOS as readonly unknown[]).includes(o.modelo)) return { ok: false, motivo: 'modelo inválido' };
   if (o.esfuerzo != null && !(ESFUERZOS as readonly unknown[]).includes(o.esfuerzo)) return { ok: false, motivo: 'esfuerzo inválido' };
@@ -588,7 +592,23 @@ export type TurnoChat = {
   local: string; uuid: string; rol: 'yo' | 'el' | 'otro'; de: string | null; texto: string; at: string; trabajo: string | null;
   /** Lo que Martín adjuntó en la app de Claude (cartero 1.17.0): sólo en un turno «yo». */
   adjuntos?: AdjuntoTurno[];
+  /** El ENCARGO con el que otra sesión abrió este chat (`esEncargoDeOtraSesion`): un `otro` del Cerebro que sí se dibuja,
+   *  plegado. Nunca es de Martín. */
+  encargo?: true;
+  /** El resumen del `wrap_up` del turno que CIERRA (cartero 1.21.0, 27/10/2026): lo que hizo, en dos o tres oraciones. El
+   *  «Completado» lo muestra primero (BloqueCompletado.tsx); el texto entero queda abajo, plegado. */
+  resumen?: string;
+  /** De qué RONDA del chat es este texto (cartero 1.21.0): el uuid del primero de la ronda. `fin`: es el que la cierra. Con
+   *  eso, un «Ya está» de a mitad de la ronda cede el «Completado» al cierre de esa ronda (lib/centro-chats.ts →
+   *  completadosDelChat). */
+  inicio?: string;
+  fin?: true;
+  /** El turno terminó con trabajo de FONDO vivo (cartero 1.21.0: una tarea en segundo plano, un Monitor, un Workflow): no es un
+   *  «Completado» y el chat sigue «Trabajando» (Martín, 27/10 23:07: «El cuadro de COMPLETADO debe ser dopamínico»). */
+  fondo?: true;
 };
+/** Copia de `TOPE_RESUMEN` del cartero: un tope técnico, no de lectura. */
+export const TOPE_RESUMEN = 2000;
 
 // ── El Ops Center sólo muestra lo que es para Martín (22/10/2026) ─────────────────────────────────────────────────────
 // Martín, desde el teléfono y con captura: «me salen estos textos largos innecesarios en muchos chats... No los quiero». En
@@ -606,9 +626,22 @@ export type TurnoChat = {
 export const esResumenDeCompactacion = (texto: string): boolean =>
   /^\s*This session is being continued from a previous conversation/i.test(texto);
 
-/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no. */
-export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'>): boolean =>
-  t.rol !== 'otro' && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
+/**
+ * ¿Es el ENCARGO con el que otra sesión abrió este chat? (27/10/2026, Martín: «Yo NO envié ese mensaje confuso y largo».) El
+ * chat que el Cerebro abre con `start_session` arranca con un mensaje que en el transcript es del USUARIO («Background (from
+ * the session that started this one): … Task: …»), y el cartero lo sube como `yo`: se dibujaba como un mensaje de Martín, con
+ * su foto. Lo escribió el Cerebro. `sanearTurnos` lo vuelve un `otro` del Cerebro con `encargo`, al subir y al leer.
+ */
+export const esEncargoDeOtraSesion = (texto: string): boolean =>
+  /^\s*Background \(from the session that started this one\):/.test(texto);
+/** Lo que se le pidió en el encargo: su «Task:» (sin el «Background…» de arriba), o el texto sin el rótulo. */
+export const textoDelEncargo = (texto: string): string =>
+  /\n\s*Task:\s*\n?([\s\S]+)/.exec(texto)?.[1]?.trim() ?? texto.replace(/^\s*Background \(from the session that started this one\):\s*/, '').trim();
+
+/** ¿Este turno se le muestra a Martín? Lo suyo y lo que el chat le contesta, sí; lo que un chat le dice a otro, no, salvo el
+ *  encargo con el que lo abrieron (va plegado: «Encargo del Cerebro»). */
+export const esParaMartin = (t: Pick<TurnoChat, 'rol' | 'texto'> & { encargo?: boolean }): boolean =>
+  (t.rol !== 'otro' || t.encargo === true) && !(t.rol === 'yo' && esResumenDeCompactacion(t.texto));
 
 // ── Lo que Martín adjunta DIRECTO en la app de Claude (20/10/2026, el punto 4 del 18/10; cartero 1.17.0) ──────────────
 // Martín: «cuando envío imágenes por aquí o adjunto cosas también deberían aparecer en el Center». En el transcript, una
@@ -673,11 +706,21 @@ export function sanearTurnos(x: unknown): TurnoChat[] {
     if (typeof o.texto !== 'string' || (!o.texto.trim() && !adjuntos.length)) continue;
     const at = typeof o.at === 'string' ? Date.parse(o.at) : NaN;
     if (!Number.isFinite(at)) continue;
+    // El encargo de otra sesión no es de Martín (`esEncargoDeOtraSesion`): es del Cerebro, y se dibuja plegado.
+    if (o.rol === 'yo' && !o.trabajo && esEncargoDeOtraSesion(o.texto)) {
+      out.push({ local: o.local, uuid: o.uuid, rol: 'otro', de: 'Cerebro', texto: o.texto.slice(0, TOPE_TURNO), at: new Date(at).toISOString(), trabajo: null, encargo: true });
+      continue;
+    }
     out.push({
       local: o.local, uuid: o.uuid, rol: o.rol, de: o.rol === 'otro' ? corto(o.de, 60) || null : null,
       texto: o.texto.slice(0, o.rol === 'yo' ? TOPE_TURNO_YO : TOPE_TURNO), at: new Date(at).toISOString(),
       trabajo: typeof o.trabajo === 'string' && UUID_RE.test(o.trabajo) ? o.trabajo : null,
       ...(adjuntos.length ? { adjuntos } : {}),
+      ...(o.rol === 'otro' && o.encargo === true ? { encargo: true as const } : {}),
+      ...(o.rol === 'el' && typeof o.resumen === 'string' && o.resumen.trim() ? { resumen: o.resumen.trim().slice(0, TOPE_RESUMEN) } : {}),
+      ...(o.rol === 'el' && typeof o.inicio === 'string' && /^[\w-]{8,64}$/.test(o.inicio) ? { inicio: o.inicio } : {}),
+      ...(o.rol === 'el' && o.fin === true ? { fin: true as const } : {}),
+      ...(o.rol === 'el' && o.fondo === true ? { fondo: true as const } : {}),
     });
   }
   return out;
@@ -704,6 +747,17 @@ export function unirTurnos(antes: readonly TurnoChat[], nuevos: readonly TurnoCh
  *    abrirlo no había bloque ni ✓ que dar, y la fila dejaba de decirlo: su «Ya está» era del 23/10, de una sesión vieja, y sus
  *    6 sesiones juntas pasaban los 60 turnos. Al cerrarlo volvía a decir «Completado»: no había forma de darlo por visto.
  */
+/**
+ * El CIERRE de la ronda de un «Ya está» (cartero 1.21.0: `inicio` y `fin`), si el «Ya está» no la cierra él mismo. Es el que
+ * la conversación muestra como «Completado» (lib/centro-chats.ts → completadosDelChat): los recortes de la fila y de la
+ * conversación lo tienen que traer, o la fila, la API y el chat abierto eligen distinto (revisión de 928bdde0d, media).
+ */
+export function cierreDeLaRonda(turnos: readonly TurnoChat[], ya: TurnoChat): TurnoChat | null {
+  if (ya.fin) return null;
+  const ronda = ya.inicio ?? ya.uuid;
+  return turnos.find((t) => t.rol === 'el' && t.fin && t.inicio === ronda && Date.parse(t.at) >= Date.parse(ya.at)) ?? null;
+}
+
 export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto: string) => boolean): TurnoChat[] {
   const unidos = unirTurnos([], todos);
   const orden = [...new Map(todos.map((t) => [t.uuid, t])).values()].sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
@@ -716,7 +770,7 @@ export function turnosDeLaConversacion(todos: readonly TurnoChat[], esYa: (texto
   const tramo = antes.slice(ip + 1);
   const estan = new Set(unidos.map((t) => t.uuid));
   const faltan = new Map<string, TurnoChat>();
-  for (const t of [orden[iy], antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
+  for (const t of [orden[iy], cierreDeLaRonda(orden, orden[iy]), antes[ip], tramo.findLast(deMartin), tramo.findLast((x) => x.rol === 'otro'), antes.findLast(deMartin)]) {
     if (t && !estan.has(t.uuid)) faltan.set(t.uuid, t);
   }
   return faltan.size ? [...faltan.values(), ...unidos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at)) : unidos;
@@ -745,7 +799,12 @@ export function resumirTurnos(
   const orden = turnos.filter((t) => ahora - Date.parse(t.at) < ULTIMOS_VENTANA_MS).sort((a, b) => Date.parse(a.at) - Date.parse(b.at));
   const ultimos = orden.slice(-ULTIMOS_POR_CHAT);
   const ya = esYa ? [...orden].reverse().find((t) => t.rol === 'el' && esYa(t.texto)) : undefined;
-  return (ya && !ultimos.includes(ya) ? [ya, ...ultimos] : ultimos).map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO) }));
+  // Y el cierre de su ronda (revisión de 928bdde0d): es el «Completado» que la fila tiene que ofrecer y cerrar con su ✓.
+  const cierre = ya ? cierreDeLaRonda(orden, ya) : null;
+  const extra = [ya, cierre].filter((t): t is TurnoChat => !!t && !ultimos.includes(t));
+  // El resumen del wrap_up también va recortado: la lista viaja en cada refresco (revisión de 928bdde0d, baja).
+  return [...extra, ...ultimos].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+    .map((t) => ({ ...t, texto: t.texto.slice(0, ULTIMOS_TEXTO), ...(t.resumen ? { resumen: t.resumen.slice(0, ULTIMOS_TEXTO) } : {}) }));
 }
 
 /** El cierre de cuatro renglones (§3 del diseño): lo deja el chat al terminar. */

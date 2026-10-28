@@ -581,6 +581,8 @@ export async function procesarReunionesNuevas(ws: number, opts: { horas?: number
             // nombre es justo la clase de dato exacto que un modelo no transporta.
             dueno: mio ? undefined : f.quien,
             esDeOtro: mio ? undefined : true,
+            // Quien dijo la cita ES su dueño acá, y quién la dijo es la etiqueta del hablante, que Fathom cruza (27/10/2026).
+            duenoDudoso: true,
             recurrente: f.recurrente || undefined,
             cubeta: f.cubeta,
             porQue: `Lo encontró el criterio y no estaba en la lista${f.razon ? ` — ${f.razon}` : ''}\n«${f.cita}»`,

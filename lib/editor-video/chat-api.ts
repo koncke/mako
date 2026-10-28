@@ -198,6 +198,9 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
       texto('hueco', 'Hueco', 'El nombre del hueco de clip.', true, 40), texto('medio', 'Medio', 'La ref del medio («m1», «m2»…).', true, 6),
     ] },
   ] },
+  { op: 'borrar_silencios', id: 'borrar_silencios_video', titulo: 'Borrar los silencios', parametros: [
+    { nombre: 'ref', rotulo: 'Elemento', tipo: 'string', max: 6, descripcion: 'Opcional: la ref del video o el audio en la línea de tiempo (v1, a4…, de ver_proyecto_video). Sin ella, cada clip con sonido de la pista principal.' },
+  ] },
   // Los motion graphics (26/10/2026), al FINAL del área: no le sacan el lugar a las de antes en el presupuesto.
   { op: 'agregar_motion', id: 'agregar_motion_video', titulo: 'Agregar un motion graphic', parametros: [
     // El catálogo va en el PARÁMETRO, no en la descripción: la descripción puntúa por sus palabras contra el pedido.

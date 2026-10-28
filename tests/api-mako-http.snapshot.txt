@@ -72,6 +72,7 @@ borrar_plantilla_meta
 borrar_post_comunidad
 borrar_producto
 borrar_retro
+borrar_silencios_video
 borrar_tema_landing
 buscar_conocimiento
 buscar_en_comunidad
@@ -187,6 +188,7 @@ cuentas_cobro_etapa
 dar_acceso_curso
 dar_de_baja_mi_plan
 dar_estrella
+dar_formato_texto_landing
 decidir_recomendacion
 declarar_entradas_funnel
 desarchivar_secuencia

@@ -16,8 +16,9 @@
 // ⚠️ ARRASTRAR Y SOLTAR es del panel: toda la conversación es la zona (18/10/2026; sin esto el navegador abría el archivo en la
 //    pestaña). Lo soltado va a `adjuntos.onSumar`, lo mismo que el «+» de la caja.
 
-import { useEffect, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Icon } from '@/app/_components/icons';
+import { ContextoSoltar } from '@/app/_chat/soltar-en-la-caja';
 import type { Aspecto } from '@/lib/centro-munecos';
 import { alSoltar, traeArchivos, type AdjuntosDeCaja } from './AdjuntosCaja';
 import { Muneco, type Animo } from './Muneco';
@@ -114,12 +115,17 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
 }) {
   /** Se está arrastrando un archivo sobre la conversación: se dibuja dónde soltarlo (18/10/2026). */
   const [soltando, setSoltando] = useState(false);
+  // Lo soltado va a los adjuntos de la CAJA de adentro (los de la pantalla y los que ella lee, app/_chat/soltar-en-la-caja.ts):
+  // con los de la pantalla solos, un Word rebotaba en el Second Brain y donde no había ninguno no se podía soltar (ticket #16).
+  const enLaCaja = useRef<AdjuntosDeCaja | undefined>(undefined);
+  const destino = () => enLaCaja.current ?? adjuntos;
   return (
+    <ContextoSoltar.Provider value={enLaCaja}>
     <section className="co-panel" aria-label={`Conversación con ${cabecera.titulo}`} data-soltando={soltando || undefined}
-      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = adjuntos?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
+      onDragOver={(e) => { if (!traeArchivos(e.dataTransfer)) return; e.preventDefault(); e.dataTransfer.dropEffect = destino()?.puede ? 'copy' : 'none'; if (!soltando) setSoltando(true); }}
       onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setSoltando(false); }}
-      onDrop={(e) => { setSoltando(false); alSoltar(e, adjuntos); }}>
-      {soltando && <div className="co-soltar" aria-hidden>{adjuntos?.puede ? 'Suelta para adjuntar' : 'Este chat no recibe archivos'}</div>}
+      onDropCapture={() => setSoltando(false)} onDrop={(e) => { setSoltando(false); alSoltar(e, destino()); }}>
+      {soltando && <div className="co-soltar" aria-hidden>{destino()?.puede ? 'Suelta para adjuntar' : destino()?.espera ?? 'Este chat no recibe archivos'}</div>}
       <CabeceraDeChat {...cabecera} />
       <div className="co-cuerpo">
         <div className="co-conv">
@@ -135,5 +141,6 @@ export function PanelDeChat({ cabecera, adjuntos, hilo, arriba, despues, caja, e
         </div>
       </div>
     </section>
+    </ContextoSoltar.Provider>
   );
 }

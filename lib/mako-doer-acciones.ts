@@ -565,15 +565,19 @@ const pareceConfirmacion = (msg: string): boolean => {
   return CONFIRMACION_PELADA.test(t);
 };
 
-export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = ''): ToolRunner {
+/** `enElGrupo`: quién escribe y si le habla a MaKo (el mismo de `Ctx`): lo propuesto guarda quién lo pidió, y el «sí» de plata
+ *  pasa por `elSiEsDeQuienPidio` (lib/confirmacion-pura.ts). */
+export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0, mensajeUsuario = '', enElGrupo?: { quien: string | null; aMaKo: boolean }): ToolRunner {
   const proponer = async (tipo: string, payload: Record<string, unknown>, resumen: string): Promise<string> => {
     // Si el turno ya dejó una igual (el doer rotó de proveedor y volvió a correr), ésa.
     // Un paso de un flujo (lib/api-mako/flujo.ts) corre las heredadas por acá con la clave
     // `app:flujo:<origen>`: la fila lleva el flujo de origen, no «hola-mako».
     const origen = grupoJid.startsWith('app:flujo:') ? grupoJid.slice('app:'.length) : 'hola-mako';
-    const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart });
+    const c = await crearPendiente(ws, { grupoJid, tipo, payload, resumen, origen, ttlMin: TTL_MIN, mismoTurnoDesde: turnStart, pidio: enElGrupo?.quien });
     // El motivo va al log con la pendiente (`crearPendiente`); al modelo, sólo que no entró: no es algo que la persona arregle.
-    if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.' });
+    // `noCorrio`: es una falla NUESTRA (la verificación de 2cb1cf67e), no una guarda: el registro la vuelve un 500 con isError
+    // (`traducirLegado`, como `proponerChat`) y el doer también (`comoFallaSiNoCorrio`), así deja su ticket por la huella.
+    if ('error' in c) return JSON.stringify({ ok: false, error: 'No pude registrar la acción pendiente.', noCorrio: true });
     return JSON.stringify({ ok: true, pendiente_id: c.id, resumen, vence_en_min: TTL_MIN, instruccion: 'Diles qué vas a hacer y pide que confirmen con un "sí" para ejecutarlo.' });
   };
 
@@ -679,7 +683,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 
       case 'proponer_lead': {
         const nombre = str(input, 'nombre');
-        if (!nombre) return JSON.stringify({ ok: false, error: 'Falta el nombre. Pedíselo antes de proponer nada.' });
+        if (!nombre) return JSON.stringify({ ok: false, guarda: true, error: 'Falta el nombre. Pedíselo antes de proponer nada.' });
         const telefono = str(input, 'telefono').replace(/\D/g, '');
         const email = str(input, 'email');
         const empresa = str(input, 'empresa');
@@ -743,11 +747,11 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const leadId = num(input, 'leadId');
         const cual = str(input, 'cual').toUpperCase() === 'R2' ? 'R2' as const : 'R1' as const;
         const startIso = str(input, 'startIso');
-        if (leadId == null || !startIso) return JSON.stringify({ ok: false, error: 'Faltan leadId o startIso.' });
+        if (leadId == null || !startIso) return JSON.stringify({ ok: false, guarda: true, error: 'Faltan leadId o startIso.' });
 
         const lead = await runWithWorkspace(ws, () => getLead(leadId).catch(() => null));
-        if (!lead) return JSON.stringify({ ok: false, error: `No existe el lead #${leadId} en este workspace.` });
-        if (!lead.email) return JSON.stringify({ ok: false, error: `${lead.nombre} no tiene email cargado, y Calendly lo exige para reservar. Pídele el email antes.` });
+        if (!lead) return JSON.stringify({ ok: false, guarda: true, error: `No existe el lead #${leadId} en este workspace.` });
+        if (!lead.email) return JSON.stringify({ ok: false, guarda: true, error: `${lead.nombre} no tiene email cargado, y Calendly lo exige para reservar. Pídele el email antes.` });
 
         try {
           // El hueco se valida ANTES de pedirle el "sí" al dueño. Sin esto le
@@ -759,7 +763,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           });
           if (!huecos.some((h) => h.startIso === startIso)) {
             return JSON.stringify({
-              ok: false,
+              ok: false, guarda: true,
               error: 'Ese horario no está entre los libres de Calendly. Copia un startIso EXACTO de listar_horarios_reunion.',
               horarios_libres: huecos.slice(0, 6).map((h) => ({ startIso: h.startIso, cuando: fmtFecha(h.startIso, tz) })),
             });
@@ -774,7 +778,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
       case 'proponer_cambio_etapa': {
         const leadId = num(input, 'leadId');
         const etapa = str(input, 'etapa');
-        if (leadId == null || !etapa) return JSON.stringify({ ok: false, error: 'Faltan leadId o etapa.' });
+        if (leadId == null || !etapa) return JSON.stringify({ ok: false, guarda: true, error: 'Faltan leadId o etapa.' });
         const { lead, label, stages } = await runWithWorkspace(ws, async () => {
           const l = await getLead(leadId).catch(() => null);
           // DEL LEAD: la etiqueta y los requisitos que ve el dueño son los del
@@ -783,7 +787,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           const lbl = f?.stages?.find((s) => s.key === etapa)?.label ?? etapa;
           return { lead: l, label: lbl, stages: f?.stages ?? null };
         });
-        if (!lead) return JSON.stringify({ ok: false, error: `No existe el lead #${leadId} en este workspace.` });
+        if (!lead) return JSON.stringify({ ok: false, guarda: true, error: `No existe el lead #${leadId} en este workspace.` });
         const monto = num(input, 'monto');
         const motivo = str(input, 'motivo');
         // Los requisitos se chequean YA, al proponer: si falta el monto o el motivo,
@@ -796,7 +800,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
         const v = veredictoRequisitos(faltantesParaMover(lead, etapa, stages, { monto, motivo: motivo || null }));
         if (!v.ok) {
           return JSON.stringify({
-            ok: false,
+            ok: false, guarda: true,
             faltan: v.pedir.map((f) => f.label),
             error: `Para mover a "${label}" falta cargar: ${etiquetasDe(v.pedir)}. Pide ese dato antes de proponer el movimiento.`,
           });
@@ -813,10 +817,10 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
 
       case 'proponer_toggle_nutricion': {
         const secuenciaId = num(input, 'secuenciaId');
-        if (secuenciaId == null) return JSON.stringify({ ok: false, error: 'Falta secuenciaId.' });
+        if (secuenciaId == null) return JSON.stringify({ ok: false, guarda: true, error: 'Falta secuenciaId.' });
         const activa = Boolean((input as { activa?: unknown }).activa);
         const sec = await runWithWorkspace(ws, async () => (await getSecuenciasConStats()).find((s) => s.id === secuenciaId));
-        if (!sec) return JSON.stringify({ ok: false, error: `No existe la secuencia #${secuenciaId}.` });
+        if (!sec) return JSON.stringify({ ok: false, guarda: true, error: `No existe la secuencia #${secuenciaId}.` });
         // ⚠️ ACTIVAR SE VALIDA AL PROPONER, no sólo al confirmar (regla 3 de la API de MaKo): un flujo
         // que Publicar no dejaría guardar se sabe sin escribir. Validado sólo en `setSecuenciaActiva`,
         // el «sí» reclamaba la pendiente y después la rechazaba, y había que volver a pedirlo.
@@ -824,7 +828,7 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
           try {
             await runWithWorkspace(ws, () => validarActivacion(secuenciaId));
           } catch (e) {
-            if (e instanceof PasosInvalidosError) return JSON.stringify({ ok: false, error: e.message });
+            if (e instanceof PasosInvalidosError) return JSON.stringify({ ok: false, guarda: true, error: e.message });
             throw e;
           }
         }
@@ -838,14 +842,14 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
       case 'proponer_renombrar_campana': {
         const campaignId = str(input, 'campaignId');
         const nombre = str(input, 'nombre');
-        if (!/^\d+$/.test(campaignId) || !nombre) return JSON.stringify({ ok: false, error: 'campaignId (numérico) y nombre son obligatorios.' });
+        if (!/^\d+$/.test(campaignId) || !nombre) return JSON.stringify({ ok: false, guarda: true, error: 'campaignId (numérico) y nombre son obligatorios.' });
         return proponer('meta_nombre', { campaignId, nombre }, `Renombrar la campaña ${campaignId} → "${nombre}"`);
       }
 
       case 'proponer_estado_campana': {
         const campaignId = str(input, 'campaignId');
         const estado = str(input, 'estado').toUpperCase() === 'ACTIVE' ? 'ACTIVE' : 'PAUSED';
-        if (!/^\d+$/.test(campaignId)) return JSON.stringify({ ok: false, error: 'campaignId (numérico) es obligatorio.' });
+        if (!/^\d+$/.test(campaignId)) return JSON.stringify({ ok: false, guarda: true, error: 'campaignId (numérico) es obligatorio.' });
         return proponer('meta_estado', { campaignId, estado }, `${estado === 'ACTIVE' ? 'Activar' : 'Pausar'} la campaña ${campaignId}`);
       }
 
@@ -858,14 +862,14 @@ export function crearRunnerAcciones(ws: number, grupoJid: string, turnStart = 0,
             // que no está en el catálogo lo deja igual — ahí manda el Perro al aplicar.
             proyecto: x.proyecto ? canonNombre(String(x.proyecto).trim()).slice(0, 120) : undefined, deadline: typeof x.deadline === 'string' && x.deadline ? String(x.deadline) : undefined, detalle: typeof x.detalle === 'string' && x.detalle ? String(x.detalle).slice(0, 6000) : undefined }))
           .filter((t) => t.titulo);
-        if (!tareas.length) return JSON.stringify({ ok: false, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, escríbela en el "detalle" — no preguntes por aquí.' });
+        if (!tareas.length) return JSON.stringify({ ok: false, guarda: true, error: 'No hay ninguna tarea con título. Resuelve lo deducible con ver_plan; si falta info, escríbela en el "detalle" — no preguntes por aquí.' });
         // CANDADO: el mensaje era un "sí" pelado y no una lista → las tareas no salen
         // de lo que el dueño acaba de decir, salen de la memoria del modelo. Cortarlo acá
         // (no con una instrucción en el prompt) es lo único que evita que reviva
         // conversaciones viejas y duplique lo que ya está en el board.
         if (pareceConfirmacion(mensajeUsuario)) {
           return JSON.stringify({
-            ok: false,
+            ok: false, guarda: true,
             error: 'CONFIRMACIÓN SIN LISTA: el último mensaje es un "sí/dale" y no trae las tareas. NO inventes ni las saques del historial — pueden ser de otra conversación. Pregunta a QUÉ lista se refiere, o si venía de una reunión dile que entre al plan a confirmarla, o pídele que te la pegue.',
           });
         }
@@ -938,6 +942,7 @@ instruccion: `Armaste un BORRADOR con ${tareas.length} tarea${tareas.length === 
         // Misma puerta que lib/api-mako/acciones.ts: lo que le llega a un tercero se confirma con un «sí» y nada más.
         const rechazoATercero = rechazoSiNoEsConfirmacionPura({
           canal: 'whatsapp', aTerceros: defReg && esAccion(defReg) ? defReg.aTerceros : undefined, plata: defReg && esAccion(defReg) ? defReg.plata : undefined, mensaje: mensajeUsuario, titulo: defReg?.titulo ?? target.tipo, resumen: target.resumen,
+          enElGrupo: enElGrupo ? { pidio: target.pidio ?? null, confirma: enElGrupo.quien, aMaKo: enElGrupo.aMaKo } : undefined,
         });
         if (rechazoATercero) return rechazoATercero;
         if (!(await reclamarPendiente(ws, target.id))) {

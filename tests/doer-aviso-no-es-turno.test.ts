@@ -40,7 +40,8 @@ test('⚠️ EL CARTEL DE FALLO NO SE GUARDA COMO TURNO DE MaKo', () => {
     `el turno de MaKo se guarda sin mirar si es un cartel de plataforma:\n${alrededor}`);
   // Y el `user` se sigue guardando SIEMPRE: lo que la persona escribió es conversación
   // pase lo que pase, y sin eso el próximo turno arranca de cero.
-  assert.match(sinComentarios(SRC), /guardarTurno\(wsData, jid, 'user', texto, msgId\)/,
+  // (Desde el 27/10/2026 con lo leído de la foto o el PDF al lado: tests/doer-adjunto-leido.test.ts.)
+  assert.match(sinComentarios(SRC), /guardarTurno\(wsData, jid, 'user', (?:texto|\[texto, leidoDelAdjunto\]\.filter\(Boolean\)\.join\('\\n'\)), msgId\)/,
     'se dejó de guardar lo que escribió la persona');
 });
 

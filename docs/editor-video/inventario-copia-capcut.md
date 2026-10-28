@@ -68,7 +68,7 @@ Estado: ✓ hecho · ◐ a medias · ✗ falta y se puede copiar · ⊘ fuera.
 | Función | | Nota |
 |---|---|---|
 | Volumen · Fundidos · Normalizar · Filtros y personajes de voz (19) · Ritmos automáticos | ✓ | normalizar no vuelve a medir al recortar; ritmos topea en 10 min |
-| Reducir el ruido | ◐ | no es RNNoise: no saca un ruido que varía (`audio/dsp/ruido.ts`) |
+| Reducir el ruido | ✓ | RNNoise 0.2 (como CapCut) decide la ganancia por banda y se aplica sobre el original (`audio/dsp/ruido.ts`, 28/10) |
 | Tono y Timbre | ◐ | sin ◇ |
 | Ritmos › Alinear con los marcadores | ◐ | falta |
 | Grabar | ◐ | no compensa la latencia ni dibuja el clip que crece |

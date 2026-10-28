@@ -37,7 +37,9 @@ test('2. rápido primero (lo guardado o la base) y la completa aparte, guardada;
   assert.match(s, /await setSetting\(claveGrupos\(l\.linea\), JSON\.stringify\(\{ at: Date\.now\(\), grupos \}\)\)/, 'la completa no se guarda');
   assert.match(s, /ev\(`\/group\/fetchAllGroups\/\$\{inst\}\?getParticipants=false`, TOPE_GRUPOS_COMPLETO_MS\)/);
   const p = leer('app/crm/TraerDeGrupoWA.tsx');
-  assert.match(p, /if \(!r\.refrescar\) return;\s*setBuscandoTodos\(true\);\s*void gruposDeLineaAction\(linea, true\)/, 'la pantalla no pide la completa');
+  // Desde el 27/10/2026 (5178a7d46, «Están todos tus grupos · N»): la cuenta de «todos» se pone SÓLO con la lista completa —la
+  // que no pide refrescar, o la que llega por detrás—, nunca con la rápida que todavía va a cambiar.
+  assert.match(p, /if \(!r\.refrescar\) \{ setTodosGrupos\(r\.grupos\.length\); return; \}\s*setBuscandoTodos\(true\);\s*void gruposDeLineaAction\(linea, true\)\.then\(\(c\) => \{ if \(vivo && c\.ok\) \{ setGrupos\(c\.grupos\); setTodosGrupos\(c\.grupos\.length\); \} \}\)/, 'la pantalla no pide la completa (o dice «todos» con la lista rápida)');
 });
 
 test('3. traer de a cuatro, y los participantes en memoria entre tandas', () => {

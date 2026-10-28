@@ -106,7 +106,7 @@ test('3. la espera: los puntitos o «Analizando», nunca «Trabajando…»; lo q
 
 test('4. la caja única con la nota de voz, en la computadora y en el teléfono', async () => {
   const html = await dibujarChat();
-  assert.match(html, /<div class="co-caja-wrap" style="--good:var\(--ink\);--sobre-good:var\(--surface\)"><div class="co-caja"><div class="co-caja__fila">/);
+  assert.match(html, /<div class="co-caja-wrap" style="--good:var\(--ink\);--sobre-good:var\(--surface\)"><div class="co-caja"><div class="co-caja__fila"[^>]*>/);
   assert.match(html, /aria-label="Grabar una nota de voz"/, 'sin nada escrito, el micrófono GRABA');
   assert.doesNotMatch(html, /wa-composer|Escribe un mensaje…/, 'volvió la barra de WhatsApp');
 
@@ -119,7 +119,7 @@ test('4. la caja única con la nota de voz, en la computadora y en el teléfono'
     puedeAdjuntar: true, onAudio: () => {}, audioEnEspera: null, onReenviarAudio: () => {}, onDescartarAudio: () => {},
     onError: () => {}, onAltura: () => {},
   })));
-  assert.match(movil, /<div class="m-operaciones-caja"><div class="m-operaciones-caja__fila">/, 'la fila de la caja del teléfono del Ops Center');
+  assert.match(movil, /<div class="m-operaciones-caja"><div class="m-operaciones-caja__fila"[^>]*>/, 'la fila de la caja del teléfono del Ops Center');
   assert.match(movil, /aria-label="Grabar una nota de voz"/);
   assert.doesNotMatch(movil, /m-offer-campo|m-offer-mic/, 'volvió la caja propia del teléfono');
   // El «+» (Documento) toma lo que Offer lee y el .zip de una carpeta, como la computadora (hasta el 22/10 el teléfono no).

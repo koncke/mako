@@ -30,15 +30,15 @@ import { ESTILO_RESTABLECIDO, temaSugerido } from '@/lib/editor-landing/reglas-p
 import {
   NODO, TOPES, ATTRS_TARJETA_DEFAULT, DISENOS_TARJETA, ANCHOS_TARJETA, ALINEACIONES_TARJETA, ALTOS_TARJETA,
   FONDOS_TARJETA, DEGRADADOS, VARIANTES_BOTON, TIPOS_CAMPO, nuevoId, parrafo, titulo as nodoTitulo, docPagina,
-  tarjetaVacia, textoDe, textoDeHtmlEditable, tituloDeTarjeta, slugDe, rutaValida, esHex,
-  type JsonNodo, type LandingContenido, type Pagina, type DocPagina, type AttrsTarjeta, type TipoCampo,
+  tarjetaVacia, textoDe, textoDeHtmlEditable, tituloDeTarjeta, slugDe, rutaValida, esHex, COLORES_TEMA, TAMANOS_TEXTO,
+  type JsonNodo, type JsonMarca, type LandingContenido, type Pagina, type DocPagina, type AttrsTarjeta, type TipoCampo, type TamanoTexto,
 } from '@/lib/editor-landing/doc';
 // Puro (sin DOM): los textos de un «Diseño editable», cada uno en su lugar exacto del HTML (cambiar_texto_landing).
 import { conTextos, textosDeHtmlEditable } from '@/lib/editor-landing/html-editable-textos';
 // Puro (sin DOM): sus botones, imágenes y videos (configurar_boton_landing, poner_enlace_landing, cambiar_imagen_landing).
 import {
-  conEnlaceDeDiseno, conIconoDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable, iconosDeHtmlEditable,
-  type EnlaceDeDiseno, type ImagenDeDiseno, type VideoDeDiseno,
+  conEnlaceDeDiseno, conFormatoEnDiseno, conIconoDeDiseno, conImagenDeDiseno, conVideoDeDiseno, elementosDeHtmlEditable, iconosDeHtmlEditable,
+  type EnlaceDeDiseno, type FormatoDeTexto, type ImagenDeDiseno, type VideoDeDiseno,
 } from '@/lib/editor-landing/html-editable-elementos';
 // La biblioteca de íconos del editor (la del selector) y los diseños que siempre los muestran (cambiar_icono_landing).
 import { ICONOS, buscarIconos, existeIcono } from '@/lib/editor-landing/iconos';
@@ -107,6 +107,9 @@ const tituloSeccion = (t: JsonNodo): string => tituloDeTarjeta(t) || '(sin títu
 
 /** El aviso que cierra el resumen de todo cambio de contenido. */
 export const NOTA_VERSION = `Antes se guarda una versión «${MOTIVO_ANTES_DE_MAKO}» (se vuelve atrás con restaurar_version_landing). No publica.`;
+
+/** Un color en hex (#rgb o #rrggbb): lo que entra en el `style` de un diseño. */
+const RE_HEX_COLOR = /^#(?:[0-9a-f]{3}){1,2}$/i;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dónde está cada cosa
@@ -313,7 +316,12 @@ export function estructuraParaApi(id: number, c: LandingContenido, paginaId?: st
         const tx = corto(textoDe(b, ' ').replace(/\s+/g, ' ').trim(), TOPES_ESTRUCTURA.textoBloque);
         if (tx && usado + tx.length > TOPES_ESTRUCTURA.textoTotal) { sinTexto++; return { n: j + 1, tipo: nombreDeBloque(b) }; }
         usado += tx.length;
-        return { n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}), ...(b.type === NODO.htmlEditable && typeof b.attrs?.html === 'string' ? { elementos: elementosParaApi(b.attrs.html) } : {}) };
+        return {
+          n: j + 1, tipo: nombreDeBloque(b), ...(tx ? { texto: tx } : {}),
+          ...(b.type === NODO.htmlEditable && typeof b.attrs?.html === 'string' ? { elementos: elementosParaApi(b.attrs.html) } : {}),
+          // La imagen de un bloque se nombra por su dirección (cambiar_imagen_landing, 27/10/2026).
+          ...(b.type === NODO.imagen && typeof b.attrs?.src === 'string' && b.attrs.src ? { imagen: b.attrs.src } : {}),
+        };
       });
       return {
         n: k + 1,
@@ -674,6 +682,120 @@ export function planCambiarTexto(c: LandingContenido, e: { buscar?: unknown; ree
   };
 }
 
+/** El tamaño de cada escalón de la barra en un diseño (el mismo que acciones-diseno.ts del editor). */
+const TAM_DISENO: Record<TamanoTexto, string> = { xs: '0.75em', s: '0.875em', m: '1em', l: '1.125em', xl: '1.375em', '2xl': '1.75em' };
+const ALINEA_API: Record<string, 'left' | 'center' | 'right'> = { izquierda: 'left', centro: 'center', derecha: 'right' };
+
+/**
+ * `dar_formato_texto_landing` (27/10/2026, Martín: «si una persona quiere editar lo que sea debería poder. Con prompts en
+ * mako»): lo mismo que la barra «Texto» del editor sobre una frase EXACTA: negrita, cursiva, subrayado, tachado, color,
+ * tamaño y alineación. En un bloque son sus marcas (y la alineación de su párrafo); en un «Diseño editable», un `span`
+ * con su estilo y la alineación en su caja (html-editable-elementos.ts). La frase tiene que estar entera en UN pedazo de
+ * texto (como cambiar_texto_landing).
+ */
+export function planFormatoTexto(c: LandingContenido, e: {
+  buscar?: unknown; seccion?: unknown; todas?: unknown; negrita?: unknown; cursiva?: unknown; subrayado?: unknown; tachado?: unknown;
+  color?: unknown; tamano?: unknown; alinea?: unknown;
+}): PlanContenido | FallaPlan {
+  const buscar = typeof e.buscar === 'string' ? e.buscar.replace(/\r\n?/g, '\n') : '';
+  if (!buscar.trim()) return { error: 'Falta el texto al que se le da formato.', faltan: ['buscar'] };
+  const color = typeof e.color === 'string' && e.color.trim() ? e.color.trim() : null;
+  if (color && !RE_HEX_COLOR.test(color) && !(COLORES_TEMA as readonly string[]).includes(color)) return { error: 'El color va en hex (#e11d48) o es uno del tema (acento, texto, titulo, tenue, paleta-1…6).' };
+  const tamano = typeof e.tamano === 'string' && e.tamano ? e.tamano : null;
+  if (tamano && !(TAMANOS_TEXTO as readonly string[]).includes(tamano)) return { error: `El tamaño es uno de: ${TAMANOS_TEXTO.join(', ')}.` };
+  const alinea = typeof e.alinea === 'string' && e.alinea ? ALINEA_API[e.alinea] : undefined;
+  if (typeof e.alinea === 'string' && e.alinea && !alinea) return { error: 'La alineación es izquierda, centro o derecha.' };
+  const f = { negrita: e.negrita === true, cursiva: e.cursiva === true, subrayado: e.subrayado === true, tachado: e.tachado === true };
+  if (!f.negrita && !f.cursiva && !f.subrayado && !f.tachado && !color && !tamano && !alinea) return { error: 'Falta qué formato: negrita, cursiva, subrayado, tachado, color, tamano o alinea.' };
+  const seccion = typeof e.seccion === 'string' && e.seccion.trim() ? e.seccion.trim() : null;
+  const u = seccion ? ubicarSeccion(c, seccion) : null;
+  if (seccion && !u) return noEstaSeccion(c, seccion);
+
+  // En un diseño, un color del tema no existe (su hoja es la suya): ahí va en hex.
+  const formatoDiseno: FormatoDeTexto = { ...f, ...(color && color.startsWith('#') ? { color } : {}), ...(tamano ? { tamano: TAM_DISENO[tamano as TamanoTexto] } : {}), ...(alinea ? { alinea } : {}) };
+  const marcas: JsonMarca[] = [
+    ...(f.negrita ? [{ type: 'bold' }] : []), ...(f.cursiva ? [{ type: 'italic' }] : []),
+    ...(f.subrayado ? [{ type: 'underline' }] : []), ...(f.tachado ? [{ type: 'strike' }] : []),
+  ];
+  const conMarcas = (n: JsonNodo): JsonNodo => {
+    const tiene = new Set((n.marks ?? []).map((m) => m.type));
+    let ms = [...(n.marks ?? []), ...marcas.filter((m) => !tiene.has(m.type))];
+    if (color || tamano) {
+      const ts = ms.find((m) => m.type === 'textStyle');
+      const attrs = { ...(ts?.attrs ?? {}), ...(color ? { color } : {}), ...(tamano ? { tam: tamano } : {}) };
+      ms = [...ms.filter((m) => m.type !== 'textStyle'), { type: 'textStyle', attrs }];
+    }
+    return { ...n, marks: ms };
+  };
+
+  const enAlcance: { p: number; i: number; t: JsonNodo }[] = [];
+  c.paginas.forEach((pg, p) => (pg.doc.content ?? []).forEach((t, i) => {
+    if (t.type === NODO.tarjeta && (!u || (u.p === p && u.i === i))) enAlcance.push({ p, i, t });
+  }));
+  let enDisenoSinHex = false;
+  const veces = (n: JsonNodo): number => {
+    const html = htmlDeDiseno(n);
+    if (html !== null) {
+      const k = conFormatoEnDiseno(html, buscar, formatoDiseno).veces;
+      if (k && color && !color.startsWith('#')) enDisenoSinHex = true;
+      return k;
+    }
+    return n.type === 'text' ? contar(n.text ?? '', buscar) : (n.content ?? []).reduce((s, h) => s + veces(h), 0);
+  };
+  const conVeces = enAlcance.map((x) => ({ ...x, n: veces(x.t) })).filter((x) => x.n > 0);
+  const total = conVeces.reduce((s, x) => s + x.n, 0);
+  if (enDisenoSinHex) return { error: 'En una sección de diseño el color va en hex (#e11d48): sus colores no son los del tema.' };
+  if (!total) {
+    const partida = enAlcance.some((x) => textosEnLinea(x.t).some((t) => t.includes(buscar)));
+    return partida
+      ? { error: `«${corto(buscar)}» tiene formatos distintos en el medio: dale formato por partes.` }
+      : { error: `No encontré «${corto(buscar)}» ${u ? 'en esa sección' : 'en la landing'} (tal cual, con mayúsculas y tildes).` };
+  }
+  if (total > 1 && e.todas !== true) {
+    return {
+      error: `«${corto(buscar)}» aparece ${total} veces: pasa la sección («seccion») o todas:true.`,
+      disponibles: conVeces.slice(0, 20).map((x) => `${String(attrsDe(x.t).id ?? '')}: ${tituloSeccion(x.t)} (${x.n})`),
+    };
+  }
+  const cambiar = (n: JsonNodo): JsonNodo => {
+    const html = htmlDeDiseno(n);
+    if (html !== null) return { ...n, attrs: { ...n.attrs, html: conFormatoEnDiseno(html, buscar, formatoDiseno).html } };
+    if (!n.content) return n;
+    const hijos = n.content.flatMap((h): JsonNodo[] => {
+      if (h.type !== 'text' || !(h.text ?? '').includes(buscar)) return [cambiar(h)];
+      const piezas = (h.text ?? '').split(buscar);
+      return piezas.flatMap((pz, k) => [
+        ...(pz ? [{ ...h, text: pz }] : []),
+        ...(k < piezas.length - 1 ? [conMarcas({ ...h, text: buscar })] : []),
+      ]);
+    });
+    const tocado = n.content.some((h) => h.type === 'text' && (h.text ?? '').includes(buscar));
+    const attrs = tocado && alinea && (n.type === 'paragraph' || n.type === 'heading')
+      ? { ...n.attrs, textAlign: alinea === 'left' ? null : alinea }
+      : n.attrs;
+    return { ...n, ...(attrs ? { attrs } : {}), content: hijos };
+  };
+  let contenido = c;
+  const antes: JsonNodo[] = [];
+  const despues: JsonNodo[] = [];
+  for (const x of conVeces) {
+    const nueva = cambiar(x.t);
+    antes.push(x.t);
+    despues.push(nueva);
+    contenido = conSeccion(contenido, { p: x.p, i: x.i, tarjeta: x.t }, nueva);
+  }
+  const frena = frenaElSaneo(antes, despues);
+  if (frena) return frena;
+  const que = [f.negrita && 'negrita', f.cursiva && 'cursiva', f.subrayado && 'subrayado', f.tachado && 'tachado',
+    color && `color ${color}`, tamano && `tamaño ${tamano}`, alinea && (alinea === 'center' ? 'al centro' : alinea === 'right' ? 'a la derecha' : 'a la izquierda')].filter(Boolean).join(', ');
+  const donde = conVeces.length === 1 ? `en la sección «${corto(tituloSeccion(conVeces[0].t))}»` : `en ${conVeces.length} secciones`;
+  return {
+    contenido,
+    resumen: `Dar formato a «${corto(buscar)}» (${que})${total > 1 ? ` ${total} veces` : ''} ${donde}. ${NOTA_VERSION}`,
+    datos: { veces: total, secciones: conVeces.map((x) => String(attrsDe(x.t).id ?? '')) },
+  };
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Bloques
 // ─────────────────────────────────────────────────────────────────────────────
@@ -940,24 +1062,67 @@ export function planCambiarImagen(c: LandingContenido, e: { imagen?: unknown; ac
   const seccion = typeof e.seccion === 'string' && e.seccion.trim() ? e.seccion.trim() : null;
   const u = seccion ? ubicarSeccion(c, seccion) : null;
   if (seccion && !u) return noEstaSeccion(c, seccion);
-  const todas = disenosDe(c, u).flatMap((d) => elementosDeHtmlEditable(d.html).filter((x): x is ImagenDeDiseno => x.tipo === 'imagen').map((x) => ({ d, x })));
-  const hallados = todas.filter(({ x }) => x.src.includes(actual) || (x.alt ?? '') === actual);
-  const lista = () => [...new Set(todas.map(({ x }) => x.src.split('/').pop() ?? x.src))].slice(0, 20);
-  if (!hallados.length) return { error: `No encontré una imagen «${corto(actual)}» en ${u ? 'esa sección' : 'las secciones de diseño de la landing'}.`, disponibles: lista() };
+  // Las de un diseño y, desde el 27/10/2026, las de un bloque y las de un ítem de un «diseño optimizado» (el editor las
+  // cambia a mano; por la API sólo se podía agregar otra y borrar la vieja).
+  const todas: Array<{ src: string; alt: string | null; tarjeta: JsonNodo; diseno?: { d: DisenoUbicado; n: number }; bloque?: ImagenDeBloque }> = [
+    ...disenosDe(c, u).flatMap((d) => elementosDeHtmlEditable(d.html).filter((x): x is ImagenDeDiseno => x.tipo === 'imagen')
+      .map((x) => ({ src: x.src, alt: x.alt ?? null, tarjeta: d.tarjeta, diseno: { d, n: x.n } }))),
+    ...imagenesDeBloques(c, u).map((b) => ({ src: b.src, alt: b.alt, tarjeta: b.tarjeta, bloque: b })),
+  ];
+  const hallados = todas.filter((x) => x.src.includes(actual) || (x.alt ?? '') === actual);
+  const lista = () => [...new Set(todas.map((x) => x.src.split('/').pop() ?? x.src))].slice(0, 20);
+  if (!hallados.length) return { error: `No encontré una imagen «${corto(actual)}» en ${u ? 'esa sección' : 'la landing'}.`, disponibles: lista() };
   if (hallados.length > 1) return { error: `Hay ${hallados.length} imágenes con «${corto(actual)}»: pasa más de su dirección o la sección («seccion»).`, disponibles: lista() };
-  const { d, x } = hallados[0];
-  const donde = `la sección «${corto(tituloSeccion(d.tarjeta))}»`;
+  const x = hallados[0];
+  const donde = `la sección «${corto(tituloSeccion(x.tarjeta))}»`;
+  const datos = { seccion: String(attrsDe(x.tarjeta).id ?? '') };
   if (op.imagenPendiente) {
-    return { contenido: c, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde} por la de ese enlace (se copia a la biblioteca de la landing al confirmar). ${NOTA_VERSION}`, datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') } };
+    return { contenido: c, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde} por la de ese enlace (se copia a la biblioteca de la landing al confirmar). ${NOTA_VERSION}`, datos };
   }
   const src = srcImagen(e.imagen);
   if (!src) return { error: 'Esa imagen no está en la biblioteca de la landing.' };
   if (src === x.src) return { error: 'Esa imagen ya es esa.', yaEstaba: true };
-  const r = conDisenos(c, [{ d, cambio: (html: string) => conImagenDeDiseno(html, x.n, src) }]);
+  const resumen = `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde}. ${NOTA_VERSION}`;
+  if (x.bloque) {
+    const b = x.bloque;
+    const nueva = conNodoEn(b.tarjeta, b.ruta, (n) => ({ ...n, attrs: { ...n.attrs, [n.type === NODO.imagen ? 'src' : 'imagenSrc']: src } }));
+    const frena = frenaElSaneo([b.tarjeta], [nueva]);
+    if (frena) return frena;
+    return { contenido: conSeccion(c, { p: b.p, i: b.i, tarjeta: b.tarjeta }, nueva), resumen, datos };
+  }
+  const { d, n } = x.diseno!;
+  const r = conDisenos(c, [{ d, cambio: (html: string) => conImagenDeDiseno(html, n, src) }]);
   if ('error' in r) return r;
   const frena = frenaElSaneo(r.antes, r.despues);
   if (frena) return frena;
-  return { contenido: r.contenido, resumen: `Cambiar la imagen ${corto(x.src.split('/').pop() ?? x.src, 50)} de ${donde}. ${NOTA_VERSION}`, datos: { seccion: String(attrsDe(d.tarjeta).id ?? '') } };
+  return { contenido: r.contenido, resumen, datos };
+}
+
+/** Una imagen de un bloque (o de un ítem de un «diseño optimizado») de una sección, con su lugar en la tarjeta (`ruta`). */
+type ImagenDeBloque = { p: number; i: number; tarjeta: JsonNodo; ruta: number[]; src: string; alt: string | null };
+
+/** Las imágenes de bloque de la landing (o de UNA sección), a cualquier profundidad (columnas, recuadros), en orden. */
+function imagenesDeBloques(c: LandingContenido, u: SeccionUbicada | null): ImagenDeBloque[] {
+  const out: ImagenDeBloque[] = [];
+  c.paginas.forEach((pg, p) => (pg.doc.content ?? []).forEach((t, i) => {
+    if (t.type !== NODO.tarjeta || (u && (u.p !== p || u.i !== i))) return;
+    const ver = (n: JsonNodo, ruta: number[]) => {
+      const a = attrsDe(n);
+      const src = n.type === NODO.imagen ? a.src : n.type === NODO.optimizadoItem ? a.imagenSrc : null;
+      if (typeof src === 'string' && src) out.push({ p, i, tarjeta: t, ruta, src, alt: typeof a.alt === 'string' && a.alt ? a.alt : null });
+      (n.content ?? []).forEach((h, k) => ver(h, [...ruta, k]));
+    };
+    (t.content ?? []).forEach((h, k) => ver(h, [k]));
+  }));
+  return out;
+}
+
+/** El nodo con su descendiente en `ruta` cambiado por `f`. */
+function conNodoEn(n: JsonNodo, ruta: readonly number[], f: (n: JsonNodo) => JsonNodo): JsonNodo {
+  if (!ruta.length) return f(n);
+  const hijos = [...(n.content ?? [])];
+  hijos[ruta[0]] = conNodoEn(hijos[ruta[0]], ruta.slice(1), f);
+  return { ...n, content: hijos };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1206,7 +1371,7 @@ function seccionesCambiadas(a: LandingContenido, b: LandingContenido): { antes: 
  * `configurar_boton_landing`: el texto, el destino, el estilo y si abre en otra pestaña de UN botón, que se
  * nombra por su texto de hoy. El cobro no va acá: cobrar_producto_landing y quitar_cobro_landing.
  */
-export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; seccion?: unknown; todos?: unknown }): PlanContenido | FallaPlan {
+export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; seccion?: unknown; todos?: unknown; color?: unknown; colorTexto?: unknown }): PlanContenido | FallaPlan {
   const actual = typeof e.boton === 'string' ? e.boton.trim() : '';
   if (!actual) return { error: 'Falta el botón (su texto de hoy).', faltan: ['boton'] };
   // Los botones de un «Diseño editable» (25/10/2026: las páginas de MaKo son todas de diseño). Si el texto está SÓLO en
@@ -1226,6 +1391,8 @@ export function planConfigurarBoton(c: LandingContenido, e: { boton?: unknown; t
     return { ...elegido, disponibles: [...new Set([...deBloques, ...deDisenos].filter(Boolean))].slice(0, 30) };
   }
   if ('error' in elegido) return elegido;
+  // Un botón de bloque toma el color del tema; su `estilo` (primario, secundario, contorno) es lo que se elige.
+  if (e.color !== undefined || e.colorTexto !== undefined) return { error: 'Un botón de bloque toma el color del tema: cambia su estilo (primario, secundario o contorno) o el tema.' };
   const b = elegido.boton;
   const patchAttrs: Record<string, unknown> = {};
   const partes: string[] = [];
@@ -1270,17 +1437,25 @@ function planBotonDeDiseno(
   c: LandingContenido,
   hallados: ReadonlyArray<{ d: DisenoUbicado; x: EnlaceDeDiseno }>,
   actual: string,
-  e: { texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; todos?: unknown },
+  e: { texto?: unknown; destino?: unknown; estilo?: unknown; nuevaPestana?: unknown; todos?: unknown; color?: unknown; colorTexto?: unknown },
 ): PlanContenido | FallaPlan {
-  if (e.estilo !== undefined) return { error: 'El estilo de un botón de una sección de diseño es parte del diseño: se cambia en «Código», en el editor.' };
+  if (e.estilo !== undefined) return { error: 'Un botón de una sección de diseño no tiene estilos de bloque: cambia sus colores (color y colorTexto).' };
   if (hallados.length > 1 && e.todos !== true) {
     return {
       error: `Hay ${hallados.length} botones «${actual}»: pasa la sección («seccion») o todos:true para cambiarlos todos.`,
       disponibles: [...new Set(hallados.map((h) => `${String(attrsDe(h.d.tarjeta).id ?? '')}: ${tituloSeccion(h.d.tarjeta)}`))].slice(0, 20),
     };
   }
-  const cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string } = {};
+  const cambio: { destino?: string | null; nuevaPestana?: boolean; texto?: string; fondo?: string; colorTexto?: string } = {};
   const partes: string[] = [];
+  // Los colores (27/10/2026: lo mismo que «Botón» en el editor), en hex.
+  for (const [k, nombre] of [['color', 'color'], ['colorTexto', 'color del texto']] as const) {
+    if (e[k] === undefined) continue;
+    const v = typeof e[k] === 'string' ? (e[k] as string).trim() : '';
+    if (!RE_HEX_COLOR.test(v)) return { error: `El ${nombre} del botón va en hex (#2f6fed).` };
+    if (k === 'color') cambio.fondo = v.toLowerCase(); else cambio.colorTexto = v.toLowerCase();
+    partes.push(`${nombre}: ${v.toLowerCase()}`);
+  }
   if (e.destino !== undefined) {
     const d = typeof e.destino === 'string' ? e.destino.trim() : '';
     if (/^pago:/i.test(d)) return { error: 'Un botón de una sección de diseño no cobra: para cobrar, un «Botón de pago» (agregar_bloque_landing) y cobrar_producto_landing.' };
@@ -1299,7 +1474,7 @@ function planBotonDeDiseno(
     cambio.texto = t;
     partes.push(`texto: «${actual}» → «${t}»`);
   }
-  if (!partes.length) return { error: 'Falta qué cambiar: texto, destino o nuevaPestana.' };
+  if (!partes.length) return { error: 'Falta qué cambiar: texto, destino, nuevaPestana, color o colorTexto.' };
   const r = conDisenos(c, hallados.map(({ d, x }) => ({ d, cambio: (html: string) => conEnlaceDeDiseno(html, x.n, cambio) })));
   if ('error' in r) return r;
   if (JSON.stringify(r.contenido) === JSON.stringify(c)) return { error: `El botón «${actual}» ya está así.`, yaEstaba: true };

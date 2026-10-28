@@ -40,8 +40,8 @@ import { Icon } from '@/app/_components/icons';
 import { IconoMenu } from '@/app/_ui/iconos-menu';
 import { Markdown, conFormato } from '@/app/_components/Markdown';
 import {
-  CUERPO_PLEGABLE_EN_BLOQUE, DETALLE_PLEGABLE_EN_BLOQUE, completadosSinVer, cortadoPorLaPC, destinoDeReview, partesDeYaEsta, partirPendiente, pedidosDelCompletado,
-  sinMarkdown, yaEstaDelChat, type LineaChat,
+  CUERPO_PLEGABLE_EN_BLOQUE, DETALLE_PLEGABLE_EN_BLOQUE, completadosSinVer, cortadoPorLaPC, destinoDeReview, hechoDelCompletado, partesDeYaEsta, partirPendiente, pedidosDelCompletado,
+  sinMarkdown, nodoDeCompletado, type LineaChat,
 } from '@/lib/centro-chats';
 import { listasEnRenglones } from '@/lib/respuesta-como-claude';
 import { cuandoAR } from '@/lib/centro-fechas';
@@ -98,8 +98,24 @@ function Pedido({ texto, de, tope = PEDIDO_LARGO }: { texto: string; de: string 
 
 /** La respuesta: su título entero y el cuerpo, plegado a su resumen si es largo. Lo que sigue pendiente y cómo probarlo (la
  *  cola, `partirPendiente`) queda siempre a la vista, como en el hilo. Lo que la PC cortó al subir termina en «…». */
-function Respuesta({ t }: { t: TurnoChat }) {
+function Respuesta({ t, hecho }: { t: TurnoChat; hecho?: string | null }) {
   const [abierto, setAbierto] = useState(false);
+  // QUÉ SE HIZO, SIN RODEOS (27/10/2026, Martín: «Esa tarjeta de completado, la info no me dice nada... No sirve de nada si no
+  // sé en qué se trabajó claramente»): con el resumen del `wrap_up` del turno (cartero 1.21.0), eso arriba, en llano; la
+  // respuesta entera queda abajo, plegada, y se abre tocándola. Sin resumen (un cartero de antes), la respuesta como siempre.
+  // Sin resumen, lo que dejó en el cierre de su trabajo (`hechoDelCompletado`): también es lo terminado, sin «cosas en marcha».
+  const terminado = t.resumen || hecho;
+  if (terminado) {
+    return (
+      <div className="co-preg__ya-respuesta">
+        <div className="co-ya__md co-el__md co-ya__resumen"><Markdown text={listasEnRenglones(terminado)} enlaces aire /></div>
+        <SeAbreTocando abierto={abierto} abrir={() => setAbierto(true)}
+          clase={`co-ya__md co-el__md co-ya__detalle${abierto ? '' : ' co-ya__detalle--plegado'}`}>
+          <Markdown text={listasEnRenglones(t.texto)} enlaces aire />
+        </SeAbreTocando>
+      </div>
+    );
+  }
   const { titulo, cuerpo } = partesDeYaEsta(cortadoPorLaPC(t.texto) ? `${t.texto.trimEnd()}…` : t.texto);
   const partes = cuerpo.length > CUERPO_PLEGABLE_EN_BLOQUE
     ? partirPendiente(cuerpo, CUERPO_PLEGABLE_EN_BLOQUE, DETALLE_PLEGABLE_EN_BLOQUE) ?? { detalle: cuerpo, cola: '' } : null;
@@ -140,7 +156,7 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
   const i = Math.min(pos, todos.length - 1);
   const t = todos[i];
   const instante = Date.parse(t.at);
-  const [n] = yaEstaDelChat([{ tipo: 'turno', instante, turno: t }]);
+  const n = nodoDeCompletado(t, instante);
   // La tira es de un renglón y no dibuja formato: sin los asteriscos del Markdown (la regla de la lista, `sinMarkdown`).
   const titulo = n?.titulo && n.titulo !== 'Ya está' ? sinMarkdown(n.titulo) : 'Completado';
   if (plegado || (hayPreguntas && abiertoConPreguntas !== firma)) {
@@ -176,7 +192,7 @@ export function BloqueCompletado({ chat, lineas, yaVisto, onYaVisto, hayPregunta
           </div>
         )}
         <p className="co-preg__ya-de">{`Respuesta de ${chat.titulo}`}</p>
-        <Respuesta key={t.uuid} t={t} />
+        <Respuesta key={t.uuid} t={t} hecho={hechoDelCompletado(lineas, t)} />
       </div>
       {(destino || onResponderSobre || (onYaVisto && Number.isFinite(instante))) && (
         <div className="co-preg__ya-pie">

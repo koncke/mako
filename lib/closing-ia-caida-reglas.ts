@@ -23,7 +23,11 @@ export function falloDeSuCuenta(error: string | null | undefined): FalloDeSuCuen
 }
 
 /** Lo que queda anotado del incidente (app_settings del negocio, `KEY_IA_CAIDA`). */
-export type IaCaida = { motivo: FalloDeSuCuenta; desde: string; avisadoAt: string | null };
+export type IaCaida = {
+  motivo: FalloDeSuCuenta; desde: string; avisadoAt: string | null;
+  /** Las llamadas que esperaban la última vez que falló (las que se analizan solas cuando vuelva): lo dice la hoja. */
+  pendientes?: number;
+};
 
 export const KEY_IA_CAIDA = 'mako.closing.ia_caida';
 
@@ -34,7 +38,8 @@ export function leerIaCaida(raw: string | null | undefined): IaCaida | null {
     const o = JSON.parse(raw) as Partial<IaCaida>;
     const motivo = o.motivo === 'sin crédito' || o.motivo === 'clave inválida' || o.motivo === 'sin permiso' ? o.motivo : null;
     if (!motivo || typeof o.desde !== 'string' || !Number.isFinite(Date.parse(o.desde))) return null;
-    return { motivo, desde: o.desde, avisadoAt: typeof o.avisadoAt === 'string' ? o.avisadoAt : null };
+    const pendientes = Number.isSafeInteger(o.pendientes) && (o.pendientes as number) >= 0 ? (o.pendientes as number) : undefined;
+    return { motivo, desde: o.desde, avisadoAt: typeof o.avisadoAt === 'string' ? o.avisadoAt : null, ...(pendientes != null ? { pendientes } : {}) };
   } catch { return null; }
 }
 
@@ -63,7 +68,9 @@ export function resultadoDeLaPrueba(r: { texto: string } | { error: string; esCr
 
 /** Qué hacer, en una línea, por motivo (lo que lee la API y la pantalla; el aviso tiene su texto literal en su fila). */
 export function queHacerConSuIa(motivo: FalloDeSuCuenta): string {
-  if (motivo === 'sin crédito') return 'Cárgale crédito a tu cuenta de Claude (console.anthropic.com → Billing).';
+  // Con Claude Max: su crédito de API mensual va a la cuenta de la clave. La suscripción en sí NO sirve para el Closing:
+  // Anthropic no deja que otra app use sus tokens, y «Mi computadora» sólo contesta el chat (lib/conectar-ia-reglas.ts).
+  if (motivo === 'sin crédito') return 'Cárgale crédito a tu cuenta de Claude (console.anthropic.com → Billing); si tienes Claude Max, su crédito de API también sirve.';
   if (motivo === 'clave inválida') return 'Pega una clave nueva de Claude en Integraciones → Tus cuentas de IA.';
   return 'Tu cuenta de Claude no deja usar esa clave: revisa sus permisos o pega otra en Tus cuentas de IA.';
 }
@@ -81,4 +88,20 @@ export function datosIaCaida(p: { motivo: FalloDeSuCuenta; desdeDia: string; pen
     ia_caida_pendientes: n === 1 ? '1 llamada' : `${n} llamadas`,
     ia_caida_link: p.link,
   };
+}
+
+// ── Lo que dice la hoja «Closing» (27/10/2026, app/dashboard/aviso-closing.ts) ───────────────────────────────────────
+
+const CAUSA: Record<FalloDeSuCuenta, string> = {
+  'sin crédito': 'tu Claude se quedó sin crédito',
+  'clave inválida': 'tu clave de Claude dejó de funcionar',
+  'sin permiso': 'tu cuenta de Claude no deja usar tu clave',
+};
+
+/** «Tus llamadas no se analizan desde el 8 de octubre: tu Claude se quedó sin crédito. <qué hacer> Las 193 que esperan…» */
+export function avisoDeIaCaida(c: { motivo: FalloDeSuCuenta; desdeDia: string; pendientes?: number | null } | null): string | null {
+  if (!c) return null;
+  const n = c.pendientes ?? 0;
+  const esperan = n > 1 ? `Las ${n} llamadas que esperan se analizan solas` : n === 1 ? 'La llamada que espera se analiza sola' : 'Las llamadas que esperan se analizan solas';
+  return `Tus llamadas no se analizan desde el ${c.desdeDia}: ${CAUSA[c.motivo]}. ${queHacerConSuIa(c.motivo)} ${esperan} cuando vuelva.`;
 }

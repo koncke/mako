@@ -16,12 +16,12 @@
 // PURO y sin `server-only`: lo usan el script y tests/vigia-mako-grupos.test.ts.
 // =============================================================================
 
-import { promesasDe, groseriasDe } from './doer-salida';
+import { promesasDe, groseriasDe, SANEO_HECHO } from './doer-salida';
 
 export type FilaConv = { id: number; workspace_id: number; grupo_jid: string; role: string; content: string; created_at: string };
 export type FilaUso = { id: number; workspace_id: number; created_at: string; feature: string; model: string | null; provider: string | null; motivo: string | null };
 
-export type TipoIncidente = 'no-puede' | 'promesa' | 'queja' | 'voz' | 'sin-respuesta' | 'cartel' | 'saneo' | 'error-app';
+export type TipoIncidente = 'no-puede' | 'promesa' | 'queja' | 'voz' | 'sin-respuesta' | 'cartel' | 'saneo' | 'hecho-sin-accion' | 'vencida' | 'error-app';
 /**
  * Cómo se llama cada tipo cuando lo lee una PERSONA. Vive pegado a `TipoIncidente` y no en quien lo
  * dibuja: un rótulo copiado en la ruta y otro en la pantalla se desincronizan (una cosa, un lugar), y
@@ -35,6 +35,8 @@ export const ROTULO_INCIDENTE: Record<TipoIncidente, string> = {
   'sin-respuesta': 'MaKo no contestó',
   cartel: 'salió el cartel de «no pude»',
   saneo: 'se atajó lo que iba a mandar',
+  'hecho-sin-accion': 'dijo hecho algo que no hizo',
+  vencida: 'propuso algo y nadie lo confirmó',
   'error-app': 'error de la app',
 };
 
@@ -60,13 +62,18 @@ const norm = (s: string): string => (s || '').normalize('NFD').replace(/[̀-ͯ]/
 const recorte = (s: string, n = 400): string => { const t = (s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? `${t.slice(0, n)}…` : t; };
 
 /**
- * MaKo dice que no puede, que no tiene acceso, que algo falló o que falta conectar algo. Sobre el texto SIN tildes.
+ * MaKo dice que no puede, que no tiene acceso, que algo falló o que falta conectar algo. Sobre el texto SIN tildes. Y las
+ * evasivas (27/10/2026, P10): «no se lista nominalmente…», «puede deberse a un problema con la grabación».
  * Lo que NO es: «no puedo creer», «no te puedo decir que no» — por eso el verbo va pegado a lo que no puede.
  */
-const NO_PUEDE = /\b(?:no (?:(?:puedo|pude|podre)(?! (?:creer|imaginar|esperar|parar))|logro|logre|consigo|consegui|me deja|tengo (?:acceso|permiso|forma|como|manera|la herramienta|herramientas))|sin acceso|desde (?:este|aqui|aca) (?:chat |grupo |mensaje )?no|(?:hubo|tuve|tengo) un (?:error|problema|inconveniente)|(?:se|me) (?:cayo|colgo|trabo|rompio)|me colgue|primero (?:debes|tenes que|tienes que|hay que|necesitas) (?:activar|conectar|configurar|vincular)|no (?:esta|estan|tenes|tienes) (?:conectad|activad|habilitad|configurad|vinculad)|todavia no (?:puedo|se puede|tengo)|por (?:aqui|aca) no (?:puedo|se puede))/;
+const NO_PUEDE = /\b(?:no (?:(?:puedo|pude|podre)(?! (?:creer|imaginar|esperar|parar))|logro|logre|consigo|consegui|me deja|tengo (?:acceso|permiso|forma|como|manera|la herramienta|herramientas))|sin acceso|desde (?:este|aqui|aca) (?:chat |grupo |mensaje )?no|(?:hubo|tuve|tengo) un (?:error|problema|inconveniente)|(?:se|me) (?:cayo|colgo|trabo|rompio)|me colgue|primero (?:debes|tenes que|tienes que|hay que|necesitas) (?:activar|conectar|configurar|vincular)|no (?:esta|estan|tenes|tienes) (?:conectad|activad|habilitad|configurad|vinculad)|todavia no (?:puedo|se puede|tengo)|por (?:aqui|aca) no (?:puedo|se puede)|no se (?:lista|listan|detalla|detallan|desglosa)|no (?:cuento|contamos) con|no dispongo|(?:puede|podria) deberse a)/;
 
-/** La persona desmiente a MaKo o se queja. Sobre el texto SIN tildes. «otra vez» o «de nuevo» sueltos no: son pedidos. */
-const QUEJA = /\b(?:mentira|mentis|mentiste|me mentiste|malisimo|pesimo|horrible|desastre|no funciona|no anda|no sirve|no servis|no sirves|inutil|no hiciste|no lo hiciste|no hiciste nada|no cargaste|no agendaste|no (?:lo |la )?veo|no aparece|no me (?:respondes|contestas|respondiste|contestaste|entendes|entiendes|hiciste caso)|no entendiste|cualquier cosa|cualquiera|te equivocaste|estas mal|esta mal|no es asi|eso no es|no era eso|no te pedi|vendehumo|te limpio|sigue sin|todavia no (?:lo |la )?(?:veo|aparece|cargaste|hiciste)|ya esta conectad)\b/;
+/**
+ * La persona desmiente a MaKo o se queja. Sobre el texto SIN tildes. «otra vez» o «de nuevo» sueltos no: son pedidos.
+ * Las INDIRECTAS también (27/10/2026, P10: 4 incidentes en una semana con más de 20): «y tú eres el servicio técnico»,
+ * «no puede analizar la llamada de fathom tras 4 intentos», «Esto habla solo ? @joan».
+ */
+const QUEJA = /\b(?:mentira|mentis|mentiste|me mentiste|malisimo|pesimo|horrible|desastre|no funciona|no anda|no sirve|no servis|no sirves|inutil|no hiciste|no lo hiciste|no hiciste nada|no cargaste|no agendaste|no (?:lo |la )?veo|no aparece|no me (?:respondes|contestas|respondiste|contestaste|entendes|entiendes|hiciste caso)|no entendiste|cualquier cosa|cualquiera|te equivocaste|estas mal|esta mal|no es asi|eso no es|no era eso|no te pedi|vendehumo|te limpio|sigue sin|todavia no (?:lo |la )?(?:veo|aparece|cargaste|hiciste)|ya esta conectad|servicio tecnico|van \d+ veces|(?:tras|despues de) \d+ intentos|sigue igual|habla solo|no (?:puede|pudo|logra|sabe) (?:analizar|hacer|leer|ver|agendar|abrir|cargar|encontrar|mandar|enviar)|no me (?:dejo|deja) (?:agendar|cargar|hacer|abrir|ver)|ya te (?:lo )?(?:dije|pedi)|cuantas veces)\b/;
 
 /** Las marcas de NO_PUEDE que trae un texto. */
 export function noPuedeDe(texto: string): string[] {
@@ -129,12 +136,38 @@ export function incidentesDe(conv: FilaConv[], usos: FilaUso[], ahora: number): 
     // El `motivo` lo arma el doer: «ws18 · consultar · 3 keys · …». La fila va al ws del request (`wsDeProveedor` con un
     // proveedor que no es Claude), que es el del grupo; el del motivo manda igual, por si una corre sin contexto.
     const ws = Number(/^ws(\d+)\b/.exec(u.motivo ?? '')?.[1] ?? u.workspace_id);
+    // `saneo:hecho` (27/10/2026): MaKo iba a decir hecho algo que el turno no hizo; el doer lo sacó y dijo la verdad.
+    const tipo: TipoIncidente = u.feature === 'cartel-ia' ? 'cartel' : u.model === SANEO_HECHO ? 'hecho-sin-accion' : 'saneo';
     out.push({
-      clave: `uso:${u.id}`, tipos: [u.feature === 'cartel-ia' ? 'cartel' : 'saneo'], ws, grupo: null, at: u.created_at,
+      clave: `uso:${u.id}`, tipos: [tipo], ws, grupo: null, at: u.created_at,
       texto: recorte(u.motivo ?? ''), marcas: [u.model ?? ''].filter(Boolean), antes: null, antesAt: null,
     });
   }
   return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+
+/** El `like` de `grupo_jid` que deja sólo las propuestas hechas en un grupo de WhatsApp (`incidentesDeVencidas`). */
+export const SOLO_GRUPOS = '%@g.us';
+
+/** Una fila de `mako_acciones_pendientes` (mig 0085): lo que MaKo dejó esperando el «sí». */
+export type FilaPendiente = { id: number; workspace_id: number; grupo_jid: string; tipo: string; resumen: string; estado: string; vence_at: string; origen: string | null };
+
+/**
+ * Las propuestas que vencieron sin que nadie dijera «sí» (27/10/2026, P10): el ticket de Leila quedó propuesto y ella creyó
+ * que estaba levantado. `estado` 'vencida' lo pone `vencerExpiradas` recién cuando alguien lee el grupo, así que una
+ * 'pendiente' con `vence_at` pasado TAMBIÉN venció. Una por propuesta, a la hora en que venció.
+ * ⚠️ SÓLO LAS DE UN GRUPO (`…@g.us`): la misma tabla guarda las tarjetas del chat de la app (`app:<sesión>`), los pasos de
+ * una automatización (`app:flujo:…`) y la API (`api:<ws>`), y una tarjeta de la app que nadie tocó no es una falla de MaKo
+ * en WhatsApp (la revisión adversarial de 92d23e11d). La ruta del cron filtra igual en la consulta (`SOLO_GRUPOS`).
+ */
+export function incidentesDeVencidas(filas: readonly FilaPendiente[], ahora: number): Incidente[] {
+  return filas
+    .filter((p) => p.grupo_jid?.endsWith('@g.us'))
+    .filter((p) => (p.estado === 'pendiente' || p.estado === 'vencida') && Date.parse(p.vence_at) <= ahora)
+    .map((p) => ({
+      clave: `pend:${p.id}`, tipos: ['vencida'] as TipoIncidente[], ws: p.workspace_id, grupo: p.grupo_jid, at: p.vence_at,
+      texto: recorte(p.resumen), marcas: [p.tipo, p.origen ?? ''].filter(Boolean), antes: null, antesAt: null,
+    }));
 }
 
 /** Una fila de `errores_app` (mig 0313): un error de la app agrupado por huella (lib/errores-app.ts). */

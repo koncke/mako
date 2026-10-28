@@ -2671,6 +2671,12 @@ app recibía cambiar_imagen_landing y NO configurar_formulario_landing.
 `scripts/presupuesto-turno-app.mts "frase"` (posición, entra o no, largo, acumulado). Una palabra nueva en una descripción
 también MUEVE el orden. El margen es chico: el de WhatsApp quedó en 11.860 de 12.000 para «quítale la animación».
 
+**Las palabras que la eligen van en el TÍTULO (27/10/2026).** Una operación nueva con sus palabras sólo en la descripción
+suma 1 punto por palabra y empata con las ya declaradas. En un empate gana la declarada antes, así que queda afuera aunque
+la frase la nombre. Pasó con dar_formato_texto_landing y «pon en negrita… en mi landing». El id y el título pesan el doble.
+El registro limita el título a 3–6 palabras (tests/api-mako-registro.test.ts): entran las palabras de la frase, no un
+nombre largo. Medido con el turno que corre: tests/mako-intencion-landing.test.ts.
+
 ## `FallaPlan.disponibles` es `unknown`: los tests pasan y el pre-push frena (25/10/2026, claude5)
 
 `planConfigurarBoton` (lib/api-mako/areas/landing-contenido.helpers.ts) sumaba los botones de los diseños a la lista
@@ -2688,3 +2694,60 @@ tests no es un verde de tipos.
   No era el runner de vender un plan el que estaba mal.
 - **Regla:** en lib/api-mako/areas/cobros.run.ts, un runner nuevo va ANTES de `vender_plan_mako`. El bloque de Customers
   se movió ahí, con un comentario que lo dice.
+
+## Frenar «Customer Success» no frenaba los OTROS nombres viejos (27/10/2026, claude5)
+
+**Síntoma:** MaKo mandó a Leandro a una tab que ya no existe (ticket 874749710-19). tests/clients-nombre-en-mako.test.ts ya
+frenaba «Customer Success» en la API, y pasaba.
+
+**Lo obvio era el equivocado:** buscar la palabra. El test frenaba UN nombre; los caminos viejos seguían en otros lados y
+con otras palabras: «Clients › Classroom» (al revés: hoy es Classroom, con Clients adentro) en dos descripciones de la API,
+«Configuraciones › Notificaciones» (hoy es Settings) en tres de equipo, en los avisos agrupados, en el pie del mail y en la
+tarjeta de MaKo, y «Configuraciones › Integraciones» en los errores de Calendly.
+
+**La regla:** el freno no es una lista de nombres prohibidos sino la barra de HOY. tests/mako-nombres-de-tabs.test.ts toma los
+`label` de app/_components/nav.ts y exige que toda ruta «X › Y» del código (sin comentarios, fuera de las bitácoras) empiece por
+uno de ellos. Las rutas del sistema del teléfono o la PC («Ajustes › Safari») van en una lista con su porqué. Renombrar una tab
+en la barra pone en rojo cada texto que la nombra con el nombre de antes.
+
+**Ojo:** «Configuraciones» también es el panel de la tuerca de Automations, y ahí los tests prueban que MaKo NO lo nombre (lo
+muestra con el ícono). Esos textos de los tests no se tocan.
+
+## El error de un preparar ES una guarda; la falla se marca (28/10/2026, claude4, la verificación de 692368a60)
+
+**El síntoma:** «MaKo reembolsale a Juan el cobro 7» con el cobro sin pagar → MaKo explica la regla, marca `[[no-pude]]` y en
+el grupo del CLIENTE sale «Quedó el ticket #12 para el equipo de MaKo.». Lo mismo con un «sí» tardío («No hay ninguna acción
+pendiente vigente») y con «dale» sin lista en la app.
+
+**La causa:** la marca explícita de guarda (574107963) la ponía `ejecutar.ts` sólo si el preparar traía `guarda`, `faltan`,
+`yaEstaba` o `falta`, y ninguna área ponía `guarda` (grep: 0). De 1.200 `return { error }` en preparar/proponer, 890 quedaron sin
+marca, y unas 734 son reglas («Sólo se reembolsa un cobro pagado», «es un pago único», «No encuentro la tarea»). Los controles
+(`confirmar_accion`, `cancelar_accion`) devuelven su error como TEXTO de un control que «salió bien»: nunca pasaban por la marca.
+⚠️ **El obvio, «marcar las reglas», era el equivocado:** son cientos, y la próxima regla nace sin marca. Al revés son pocas.
+
+**La regla (lib/api-mako/ejecutar.ts):**
+- el `error` de un preparar o de un proponer de pantalla ES una guarda, salvo `falla: true` (`Preparado`, `Propuesto`);
+- lleva `falla: true` toda falla NUESTRA con forma de error: «No pude leer las pasarelas conectadas», y los envoltorios que
+  vuelven `error` lo que reventó (`revisando` de comunidad, cs y curso; `seguro` de negocio). Son 48;
+  tests/guarda-por-defecto.test.ts pide la marca en todo `return { error: 'No pude…' }` de un preparar;
+- lo que REVIENTA sigue siendo falla (el catch); la pendiente que no entró, también (`noCorrio`);
+- una lectura con `falta` (lo que falta conectar) es guarda, como en un preparar;
+- un helper que el preparar devuelve ENTERO lleva su `falla` (cobros.run.ts: `conPasarelaConectada`, y `cobroDe`, que con la
+  base caída decía «No existe el cobro» y MaKo le mentía al dueño);
+- `confirmar_accion` y `cancelar_accion` (mako.run.ts) marcan lo que no se confirma. La confirmada que falla también: ya dejó
+  SU ticket (`ticket`), o es una negativa del runner; el «no pude» que la sigue abría un SEGUNDO ticket. Sin ticket y con la
+  falla tragada (`esFallaTragada`: no se pudo abrir el suyo), no.
+
+**Medido con los runners reales** (C:/dev/revisiones/scratch-6923/A-refuta/caso.cts del Cerebro): T1, T2, T3 y T5 ya no abren
+ticket; T4 deja uno solo (el #12 de la ejecución). Los 36 casos de tren-t dan lo mismo.
+
+**Sin hacer:**
+- Los helpers que devuelven «No pude…» y su preparar PROPAGA con `{ error: x.error }` pierden la falla y quedan como guarda
+  (igual que en producción, donde todo `ok:false` era guarda): `arbolMeta`, `vocabularioParaEscribir` y `estadoVivoMeta`
+  (ads.helpers.ts), `fichaDelCrm`, `crmDeEtapas` y `vinculoDeCobro` (crm.run.ts), `servicioPedido` (cs.run.ts), `funnelPedido`
+  (general.run.ts), `conexionLista` (integraciones.run.ts), `copiarImagenes` (landing-editor.run.ts), `eventoValido`
+  (comunidad.run.ts). Se cierra pasando el objeto entero (o `falla`) en cada preparar que los usa.
+- Una lib que TIRA un mensaje legible va como 400 sin marca (ejecutar.ts, el catch): es falla aunque la lib describa un pedido
+  mal hecho. Ninguna regla se lo come.
+- `getLead(...).catch(() => null)` del runner viejo (mako-doer-acciones.ts, `proponer_agendar_reunion` y `proponer_cambio_etapa`)
+  vuelve «No existe el lead» con `guarda: true` cuando la base se cae (como en producción).

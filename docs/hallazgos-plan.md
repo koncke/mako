@@ -12,6 +12,26 @@ verificá contra el código.** Las marcadas ⚠️ estaban vivas la última vez 
 
 La regla que produce este documento está en [AGENTS.md](../AGENTS.md) → «La cosecha».
 
+## El dueño de una tarea no puede salir sólo de la etiqueta del hablante (27/10/2026)
+
+- **Síntoma:** el Plan puso «Comprar el certificado SSL» a nombre de Leandro (era de Martín), y el resumen de la
+  llamada con Aaron (876825880) invirtió quién cierra para quién. Tres borradores del ws9 quedaron con dueños mal.
+- **Causa:** Fathom cruza las etiquetas de quién habla (docs/hallazgos-closing.md → «Fathom puede cruzar quién
+  habla»). Cuando el modelo pone de dueño a quien la etiqueta dice que lo dijo («yo me encargo»), la única prueba es
+  esa etiqueta.
+- **Lo obvio que no alcanza:** pedirle al modelo que no le crea a la etiqueta. El prompt ya lo pedía (la prueba del
+  pronombre, `dichoPor`), pero «yo» es de quien habla, y quién habla es la etiqueta: no hay regla que la corrija.
+- **Regla (`lib/tarea-dueno.ts`, `duenoPorLaEtiqueta`):** dueño = `dichoPor`, en una reunión con dos voces o más
+  (`hablantesDelTexto`), viaja marcado (`duenoDudoso`). Lo que encontró el juez del criterio también (su dueño ES quien
+  dijo la cita). La pantalla pregunta «¿Es de X?» con un click para confirmarlo, cambiar el dueño también lo resuelve,
+  y en la tab de una persona no se envía ni se carga en su plan hasta que no quede ninguna marcada.
+- **Trampa:** la marca tiene que viajar por TODOS los caminos (el reparto del cron, la lectura en segundo plano, la
+  ruta del modal, `limpiarTarea` y los dos modales al guardar). Uno que la copie mal la borra en silencio en el
+  autosave siguiente: tests/plan-dueno-por-etiqueta.test.ts los mira a todos.
+- **Sin hacer:** los tres borradores pendientes del ws9 (propmvn5jk0zn4wsz, propmvpmpjspdh5oi, propmvq00r7ecld37) se
+  leyeron antes de esto: no traen la marca. Se corrigen a mano en el modal, o con «Volver a analizar» después del
+  deploy. El resumen de la reunión (el de Fathom) no se toca: lo escribe Fathom.
+
 ## Leer los proyectos del tablero por su NOMBRE pide `nucleo()`, y ampliar una tarea puede comerse su detalle (16/10/2026)
 
 Lo encontró la revisión del Plan adentro del Centro de Operaciones (docs/hallazgos-operaciones.md → «El Plan adentro de
@@ -7384,3 +7404,20 @@ código de antes reproduce el síntoma exacto) y 5 roturas.
 **Para diagnosticar el próximo:** el texto crudo de un dictado dice qué hizo el reconocedor. Un prefijo que crece es
 acumulado-tratado-como-pedazo; una frase entera repetida es el `onend` final pegado otra vez; palabras sueltas repetidas
 serían interinos sumados.
+
+## Un parte armado con el TABLERO dio por pendientes cuatro arreglos que ya estaban en producción (27/10/2026)
+
+- **Síntoma:** el parte del 18/10 para Código Inmobiliario (docs/feedback-18-10.md, punto 13) listó como «por hacer» #847,
+  #853, #863 y #882. Las cuatro tenían su commit el 17/10, un día antes. El 27/10 seguían «por hacer» nueve tarjetas de esa
+  reunión con el código en producción. El cruce entero está en
+  [codigo-inmobiliario-revision-16-10.md](codigo-inmobiliario-revision-16-10.md).
+- **Causa:** una tarjeta no se cierra cuando su commit llega a main. Se cierra cuando alguien escribe su «Ya está» en el
+  Plan, y los chats que arreglaron esas cuatro cerraron otras de la misma tanda y no éstas.
+- **Regla:** antes de decirle a un cliente qué falta, se cruza cada tarjeta con main y con lo que sirve producción:
+  - `git log origin/main --grep="#NNN"`. Cuatro de 36 commits no nombran su tarjeta (#843, #855, #885, #889): ésas se
+    buscan por lo que hacen;
+  - el despliegue que sirve el dominio: `vercel inspect hola-mako.com` da el id pero NO el commit. El commit sale de
+    `GET /v13/deployments/<id>` (`meta.githubCommitSha`, con el token de .env.local), y cada arreglo tiene que ser su
+    ancestro (`git merge-base --is-ancestor`);
+  - que el código siga vivo: los archivos del commit en ese sha. Si falta uno, se mira si lo borró un revert o un
+    reemplazo (`git log --diff-filter=DR -1 -- <archivo>`).

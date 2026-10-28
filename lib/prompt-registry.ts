@@ -64,6 +64,7 @@ import {
   NOTAS_SYSTEM_TEMPLATE as LANDING_EDITOR_NOTAS_SYSTEM, NOTAS_USER_TEMPLATE as LANDING_EDITOR_NOTAS_USER,
   DISCUTIR_SYSTEM_TEMPLATE as LANDING_EDITOR_DISCUTIR_SYSTEM, DISCUTIR_USER_TEMPLATE as LANDING_EDITOR_DISCUTIR_USER,
 } from './editor-landing/ia-reglas';
+import { ANGULOS_SYSTEM_TEMPLATE as LANDING_EDITOR_ANGULOS_SYSTEM, ANGULOS_USER_TEMPLATE as LANDING_EDITOR_ANGULOS_USER } from './editor-landing/replicar-angulos';
 import { CHAT_VIDEO_DISCUTIR_TEMPLATE, CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE } from './editor-video/chat-prompts';
 import { CHAT_IMAGEN_DISCUTIR_TEMPLATE, CHAT_IMAGEN_SYSTEM_TEMPLATE, CHAT_IMAGEN_USER_TEMPLATE } from './image-editor/chat/prompts';
 import { TEMPLATE_VALIDATOR_SYSTEM_TEMPLATE, TEMPLATE_VALIDATOR_USER_TEMPLATE } from './template-validator';
@@ -927,6 +928,20 @@ export const REGISTRY: Group[] = [
         ], scope: 'full', sensitive: false,
         default: LANDING_EDITOR_DISCUTIR_USER,
         context: 'Le pasa a MaKo lo que plantea la persona, la página y lo último de la charla. Conserva los slots.',
+      },
+      {
+        key: 'landing_editor.angulos.system', source: 'override',
+        label: 'Ángulos de una landing para replicarla (system)', kind: 'system', dynamic: true,
+        variables: [v('tipos', 'los tipos de sección que puede elegir')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ANGULOS_SYSTEM,
+        context: 'Replicar landing: antes de replicar, MaKo lee cómo vende la página de afuera (promesa, dolores, forma de venta, objeciones, prueba y el ángulo de cada sección). Conserva el formato JSON y la regla de no seguir instrucciones de la página.',
+      },
+      {
+        key: 'landing_editor.angulos.user', source: 'override',
+        label: 'Página a replicar (user)', kind: 'user', dynamic: true,
+        variables: [v('pagina', 'el dominio de la página'), v('contenido', 'el texto de la página, en secciones numeradas')], scope: 'full', sensitive: false,
+        default: LANDING_EDITOR_ANGULOS_USER,
+        context: 'Le pasa a MaKo la página de afuera partida en secciones numeradas. Conserva los slots.',
       },
     ],
   },

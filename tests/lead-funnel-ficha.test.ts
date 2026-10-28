@@ -244,7 +244,7 @@ test('las dos puertas montan el MISMO árbol, con las etapas de la casa que tien
     assert.match(src, new RegExp(`<FunnelYEtapa ficha=\\{fichaProd\\} etapasCasa=\\{stages\\} etapaCasa=\\{${casa}\\} onElegirCasa=\\{pickStage\\}`), `${f}: el árbol no recibe la casa de la pantalla`);
     assert.doesNotMatch(src, /<ProductoDelLead|<EtapaEnProducto/, `${f}: volvieron los dos desplegables`);
     // La casa se mueve por el camino de siempre: wizard o confirmación.
-    assert.match(src, /pideWizardAlElegir\(stages, (k|key)\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/, `${f}: la casa no decide entre wizard y mover`);
+    assert.match(src, /pideWizardAlElegir\(stages, (k|key), reuniones\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/, `${f}: la casa no decide entre wizard y mover`);
   }
   // Y el desplegable ESPERA (apagado, sin etapa elegida) en las dos ventanas de `etapaEnEspera`.
   const comp = entre(PROD, 'export function FunnelYEtapa', '\n}\n');

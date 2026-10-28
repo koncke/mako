@@ -421,6 +421,9 @@ export const CASCADA_DOCS: ProvName[] = ['gemini', 'openai'];
  * contesta 404 «no longer available to new users», y `gemini-2.0-flash` también. Solo
  * alias `-latest`, que es lo único que no envejece solo.
  */
+/** El `model` de la fila que anota que un modelo falló y el turno siguió con su respaldo (`chatCheapTools`). */
+export const PREFIJO_REBOTE = 'rebote:';
+
 const MODELOS_RESPALDO: Partial<Record<ProvName, string[]>> = {
   gemini: ['gemini-flash-lite-latest'],
 };
@@ -1470,6 +1473,11 @@ export async function chatCheapTools(
       // Un 429 que se cubrió con otro modelo no llega al que llama, así que se anota acá:
       // es lo que lee `ordenarPorCuota` para no volver a empezar por esa cuenta.
       if (tipo === 'cuota') void anotarRebote429(p.nombre, nroCuenta(p), model, detalle);
+      // ⚠️ BAJAR DE MODELO QUEDA ESCRITO (27/10/2026): 38 de 42 turnos de MaKo en WhatsApp con Gemini salieron con flash-lite,
+      // y el porqué (el 503 o el plazo de flash-latest) sólo estaba en los logs de Vercel. Una fila sin tokens, con el modelo
+      // que falló marcado `rebote:` y el motivo: se cuenta desde la base. Un 429 no: ya quedó escrito arriba (`rebote429:<modelo>`),
+      // y `plegarUso` (lib/ia-cuotas-calculo.ts) suma cada fila como un pedido del día: con las dos, el mismo pedido contaba doble.
+      if (tipo !== 'cuota' && paso.modelo && paso.modelo !== model) void recordUsage(opts.feature || 'ia-barata-tools', `${PREFIJO_REBOTE}${model}`, {}, `${detalle.slice(0, 200)} → ${paso.modelo}`, p.nombre, nroCuenta(p)).catch(() => {});
       console.warn(`[ai-cheap] chatCheapTools(${rotulo(p)}) ${model}: ${detalle.slice(0, 240)} → ${paso.accion}${paso.modelo && paso.modelo !== model ? ` a ${paso.modelo}` : ''}${paso.esperaMs ? ` en ${paso.esperaMs} ms` : ''}`);
       if (paso.esperaMs) await new Promise((r) => setTimeout(r, paso.esperaMs));
       model = paso.modelo || model;
@@ -1682,7 +1690,14 @@ export type SttOpts = { language?: string; prompt?: string; feature?: string; mo
   alEscuchar?: (quien: string) => void;
   /** No es una nota de voz (el audio de un anuncio): Groq no lo escucha, ni el del negocio ni el de la red (IA16: «Groq sólo
    *  para las notas de voz»; «la transcripción de anuncios pasa a Gemini»). */
-  sinGroq?: boolean };
+  sinGroq?: boolean;
+  /**
+   * La nota de voz de un GRUPO DE WHATSAPP de MaKo (Martín, 28/10/2026: «deprequemos Gemini por los grupos de WhatsApp»; y el
+   * 22/10, «Groq sólo para las notas de voz»). El Groq DE LA PLATAFORMA escucha PRIMERO (Whisper; no entrena con lo que recibe,
+   * así que vale con datos de clientes), después el Groq o el OpenAI del negocio, y Gemini NUNCA: ni el del negocio ni la red.
+   * Medido en el ws10 (Leandro, 28/10): Gemini cortó por tiempo y MaKo contestó sin el audio; Groq lo escuchó en segundos.
+   */
+  notaDeVozDelGrupo?: boolean };
 
 // Gemini manda el audio DENTRO del request (inline_data), así que hay un techo de
 // tamaño. Una nota de voz de WhatsApp pesa kilobytes; un audio largo se va a Whisper.
@@ -1839,6 +1854,25 @@ async function escucharCon(
   return null;
 }
 
+/**
+ * El Groq DE LA PLATAFORMA, para la nota de voz de un grupo (`notaDeVozDelGrupo`): sus cuentas, las del workspace SuperAdmin o
+ * las del entorno. Sin la puerta D6b ni el corte de la red para los negocios: es la decisión de Martín para las notas de voz
+ * (22/10 y 28/10/2026), y Groq no entrena con lo que recibe. Una cuenta repetida se prueba una vez.
+ */
+async function groqDeLaPlataforma(): Promise<Prov[]> {
+  const { wsSuperAdmin } = await import('./workspace');
+  const wsSA = await wsSuperAdmin().catch(() => null);
+  const out: Prov[] = [];
+  const vistas = new Set<string>();
+  for (const cl of clavesProv('groq')) {
+    const key = (wsSA != null ? await credWs(cl, wsSA).catch(() => null) : null) ?? (process.env[cl]?.trim() || null);
+    if (!key || vistas.has(key)) continue;
+    vistas.add(key);
+    out.push({ ...cfgDe('groq'), key, clave: cl });
+  }
+  return out;
+}
+
 /** El error de un STT que no pudo con NADA. `errores` son sólo los de las keys del negocio. */
 export class SttSinEscucha extends Error {
   constructor(public readonly errores: string[], public readonly erroresPlataforma: string[]) {
@@ -1871,11 +1905,28 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   const buf = Buffer.from(base64, 'base64');
   if (!buf.length) return '';
   // Proactivo: los que ya quemaron su cuota de hoy van al final (mismo criterio que el chat).
-  const stt = o.sinGroq ? CASCADA_STT.filter((x) => x !== 'groq') : CASCADA_STT;
+  // La nota de voz de un grupo, sin Gemini (`notaDeVozDelGrupo`).
+  const stt = CASCADA_STT.filter((x) => !(o.sinGroq && x === 'groq') && !(o.notaDeVozDelGrupo && x === 'gemini'));
   const orden = await ordenarPorCuota(stt.map(String)).catch(() => stt.map(String));
 
   const errores: string[] = [];
   let alguienEscuchó = false; // respondió OK pero sin texto → el audio está vacío, no falló nada
+
+  // ── 0. La nota de voz de un grupo: el Groq DE LA PLATAFORMA, antes que nada (`notaDeVozDelGrupo`) ──
+  // Sus errores van con los de la plataforma: si falla, el que no escuchó fue NUESTRO Groq, no una clave del negocio.
+  const erroresPlataforma: string[] = [];
+  if (o.notaDeVozDelGrupo && !o.sinGroq) {
+    for (const p of await groqDeLaPlataforma()) {
+      const oido = await escucharCon(p, base64, buf, mime, { ...o, motivo: `Groq de la plataforma (nota de voz del grupo) · ${o.motivo ?? ''}`.trim() }, erroresPlataforma);
+      if (!oido) continue;
+      // El mismo corte de bucles que las cuentas del negocio (lib/stt-degenerado.ts).
+      const enBucle = salidaDegenerada(oido.texto);
+      if (enBucle) { erroresPlataforma.push(`${rotulo(p)}: ${enBucle.motivo}`); continue; }
+      if (!oido.texto) return ''; // contestó vacío: el audio no traía voz entendible
+      o.alEscuchar?.(`${rotulo(p)} (plataforma)`);
+      return corregirMarca(oido.texto);
+    }
+  }
   // El nombre de la marca se corrige ACÁ, que es por donde entra mal: Whisper escucha "MaKo" y
   // escribe «Maco», esa cadena termina siendo el TÍTULO de una tarea y desde ahí el Perro la
   // repite en su razón y en el deadline. Ver `corregirMarca` en lib/mako-gramatica.ts.
@@ -1905,8 +1956,8 @@ export async function transcribirAudio(base64: string, mime: string, opts?: SttO
   }
   if (alguienEscuchó) return ''; // el audio no traía voz entendible
 
-  // ── 2. La red de plataforma ──
-  const erroresPlataforma: string[] = [];
+  // ── 2. La red de plataforma ── (la nota de voz de un grupo ya probó el Groq de la plataforma, y Gemini no va)
+  if (o.notaDeVozDelGrupo) throw new SttSinEscucha(errores, erroresPlataforma);
   const { wsSuperAdmin, getWorkspaceActual } = await import('./workspace');
   const wsSA = await wsSuperAdmin().catch(() => null);
   const wsActual = await getWorkspaceActual().catch(() => null);

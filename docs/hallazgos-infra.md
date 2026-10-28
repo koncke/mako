@@ -38,6 +38,39 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 
 ---
 
+## Orquestar desde el Cerebro: cuatro topes que no avisan antes (27/10/2026)
+
+- **Mensajes entre chats:** después de 10 `SendMessage` a otros chats sin un mensaje de Martín en el chat del
+  Cerebro, el resto se corta («Paused until your user's next message»). Al repartir mucho feedback: un solo mensaje
+  por chat, los de cliente roto primero, y lo que no salió anotado para el próximo turno de Martín.
+- **Abrir chats nuevos:** `start_session` «user_asked» se rechaza en un turno que arrancó por un evento automático (la
+  notificación de un Workflow): sólo queda proponerlos como tarjeta. Se abren en el turno de Martín.
+- **Pedirle a otro chat una lectura de producción** que ese chat tenía pendiente de aprobación lo niega el
+  clasificador («laundering»): no se le pide a un chat lo que a otro no se le aprobó.
+- **Subagentes de un Workflow:** casi todos los lectores recibieron una negación de «Production Reads» y siguieron por
+  otro camino; el de la Ticketera no pudo leer nada. Cada lector tiene que devolver qué no pudo leer.
+
+## «No pude saber qué despliegue sirve hola-mako.com» con el despliegue sano: salió una versión nueva del CLI de Vercel (27/10/2026)
+
+- **Síntoma:** el aviso Meta → Zernio (`scripts/avisar-arreglo-al-grupo.mts`) dio «vercel inspect no dio su url» en 4
+  de 5 negocios, y en el quinto se quedó sin tiempo. A mano, `npx --yes vercel@65.3.1 inspect hola-mako.com` andaba.
+- **Causa:** el script llamaba `npx --no-install vercel`, sin versión. npx busca la ÚLTIMA publicada; ese día salió la
+  65.4.0, que no estaba en la caché, y `--no-install` la rechaza con un error por stderr y nada útil por stdout. El
+  diagnóstico obvio («Vercel no responde» o «el deploy no está») era el equivocado.
+- **Regla:** todo llamado al CLI de Vercel desde un script va con la versión FIJA (`vercel@65.3.1`) y `--yes` de npx.
+- **Y `--scope` siempre (28/10/2026, Cerebro):** desde la 65.5.0, `npx vercel ls` o `inspect` sin `--scope` contesta
+  un JSON `{"status":"action_required","reason":"missing_scope"}` y nada más: ya no toma un equipo por defecto. La espera
+  del deploy de tren-u (un bucle que grepea «Ready») siguió callada 12 minutos con el deploy ya Ready. El script del aviso
+  ya pasaba `--scope`; el que faltaba era el comando a mano del tren. Va `--scope mbustos-4239s-projects` en TODO llamado.
+- **Y el tope:** el envío al ws1 tarda ~134 s en frío (el chequeo de Vercel recorre los commits de main); con 180 s por
+  negocio, el primero de la vuelta se cortaba sin decir nada (`rc=null`). Un tope por negocio de 300 s.
+
+## El host de `DATABASE_URL` es sólo IPv6, y una corrida larga se corta a mitad (27/10/2026)
+
+- Los lectores del 27/10 vieron ENOENT / ENETUNREACH a mitad de una corrida desde la PC de Martín: no es la base,
+  es la red IPv6 del host. Sin hacer: un respaldo por el pooler IPv4 en los scripts que leen la base (propuesto al
+  chat de Infra).
+
 ## Un rojo del tren que ya estaba en main (26/10/2026)
 
 - **Síntoma:** `tests-afectados` de tren-l dio rojo en cinco tests cuyos fuentes el tren no tocó: zernio-conectar-redes,
@@ -53,6 +86,12 @@ donde el rescate lo sabía, lo dice. El registro completo de las corridas está 
 - **Regla:** antes de culpar al tren por un rojo, mirar si el test y los fuentes que lee cambiaron en el tren
   (`git diff --quiet <base> HEAD -- <archivo>`). Si no cambiaron, el rojo es de main: va a su dueño y no frena el tren.
   Quien arregla tipos renombrando, busca el nombre viejo en tests/ (`git grep`) en el mismo commit.
+- **Volvió en tren-o (27/10/2026), y el culpable que se nombró era otro:** dashboard-en-blanco se atribuyó a la plantilla
+  Inmobiliaria (1e1106021), pero era un SEXTO rojo del mismo 32f430356 (`informe={informe}` en la caja en blanco de
+  EditorInforme), rojo en main desde el 24/10. Los otros seis de esa tanda fueron puntas que cambiaron el código y no su
+  test (5178a7d46 el deshacer de lote de a tandas y «Están todos tus grupos», 6da648600 el nombre de la adaptada,
+  07a4a1449 el aviso de Chrome primero, b11601685 el CLI de Vercel fijo, f78574342 una ruta nueva sin decidir en D6b).
+  Ninguno era una regresión. Para nombrar la punta: `git log -S '<lo que el test esperaba>' -- <fuente>`, no la del tren.
 - **Y el fin de línea:** en `C:/dev/wt-push-q` (core.autocrlf=true) los fuentes llegan en CRLF. Un test que lee un fuente
   sin normalizar `\r\n` a `\n` da rojo ahí y verde en el worktree de su autor (pasó con editor-web-punta-a-punta-26-10).
   Esta misma línea salió rota en tren-l: se escribió con un heredoc de Bash, que se come las barras invertidas. Un texto
@@ -5826,6 +5865,18 @@ dos horas después la 0199 ya no conectaba: la red cambió, el código no.
 - Se aplicó pasándole a `apply-migration.mjs` la URL del pooler sólo para ese proceso, armada a
   partir de `DATABASE_URL` sin imprimirla.
 
+**27/10/2026: el pooler es el camino de TODOS los scripts, no un arreglo a mano.** Aaron lo marcó como riesgo, y el
+síntoma era peor que «no conecta»: con la red de la PC entrando y saliendo de IPv6, un script largo conectaba y **moría a
+mitad de corrida, al reconectar** (`ENOENT` / `ENETUNREACH`), con la mitad del trabajo hecho. Medido el 27/10 desde esta PC:
+la directa da `lookup` v6 `ENOENT` y v4 `ENOTFOUND`; el pooler, 3 direcciones IPv4 y `select 1` en 2,4 s.
+- **La regla:** un script que abre Postgres lo hace con `postgres(urlDeLaBase(), …)` (`scripts/url-de-la-base.mjs`), que
+  deriva la URL del pooler de `DATABASE_URL` sin imprimirla. Se pasaron los 79 scripts que leían `DATABASE_URL`, y
+  `tests/url-de-la-base.test.ts` barre `scripts/` para que uno nuevo no vuelva a la directa (probado rompiéndolo).
+- `MAKO_DB_DIRECTA=1` vuelve a la directa para una corrida; `SUPABASE_POOLER_HOST` cambia el host si el cluster deja de ser
+  `aws-1`. Una `DATABASE_URL` que no es la directa de Supabase (una base local) pasa tal cual.
+- Los scripts que importan `postgres` por `createRequire` desde OTRO clon (`curso-aplicar-694`, `curso-marcar-por-area`)
+  importan el helper por ruta relativa al script: es puro y no depende del `node_modules` del clon.
+
 Y una menor del mismo rato: **`vercel ls` escribe la tabla de deploys en STDERR.** Un
 `npx vercel ls 2>/dev/null | grep …` contesta vacío sobre una lista llena, y un bucle que espera
 «Ready» así no termina nunca.
@@ -8335,6 +8386,9 @@ lanzamiento es el 25/10.
   «apagalo»**.
 - **n8n**: ningún uso en el código vivo.
 
+> **27/10/2026:** ya son 18 instancias y 1,05 M de mensajes. Lo que pesa en RAM, el techo y lo que cuesta escalar están en
+> «Evolution: TODOS los números en UN proceso de Node», más abajo.
+
 ### Las sesiones están persistidas, en DOS lugares — leído del código fuente, no supuesto
 
 `docs/rotacion-credenciales.md` dejaba abierto «comprobar que Evolution guarda las sesiones
@@ -8741,3 +8795,134 @@ consola de cada pedido: el `console.log`/`warn` de la función, en orden. Sirve 
 salió como salió sin reproducirlo (ej.: una réplica que dejó 17 de 20 secciones sin IA mostraba cada tanda con su
 error del proveedor). El token es `VERCEL_API_TOKEN` de `.env.local` y el equipo, `VERCEL_TEAM_SLUG`
 (`/v2/teams/<slug>` da el id; `/v9/projects` el del proyecto «mako»). Nunca imprimir el token.
+
+## Evolution: TODOS los números en UN proceso de Node — lo medido, el techo y lo que cuesta escalar (27/10/2026, Infra)
+
+Aaron (asesor técnico, llamada del 26/10): *«cada vez que tú conectas un número, se agrega al contenedor y va acaparando
+más la RAM»*. Medido en **sólo lectura**: lecturas a Evolution, el fuente de Evolution 2.3.7 y el de Baileys 7.0.0-rc.9
+(la versión que fija su `package.json`). No se cambió nada en Railway ni en las líneas. **La RAM no se pudo medir** (abajo):
+lo que sigue es una ESTIMACIÓN con los supuestos a la vista, y cuando haya métricas de Railway sólo se corrigen los números.
+
+**Lo que hay (27/10, ~17:30 ART):**
+- **18 instancias** (eran 16 el 23/10): 11 `open`, 2 `close` y **5 `connecting` que nunca se vincularon** — `ws3`, `ws15`,
+  `ws13_7ny3qw` y dos de «Agregar otro número» del 26/10 (`ws10_6dkz1i`, `ws1_rv347e`). `conectar({ nueva: true })` crea la
+  instancia antes del QR, y si nadie escanea queda ahí: no hay limpieza.
+- **1.046.927 mensajes, y 864.518 (82,6 %) son historial ANTERIOR al vínculo**: lo bajó `syncFullHistory: true`. `ws20`:
+  143.532 viejos y 1.413 nuevos en 6 días; `ws22`: 87.916 y 597. El tráfico vivo de toda la casa son ~180 mil mensajes en
+  tres meses (el más activo, `ws11`, ~890 por día). La base de Evolution es, sobre todo, el pasado de los teléfonos.
+- Grupos por línea: de 5 a 124 (`ws11` 124, `ws1` 97, `ws10` 69, `ws9` 61).
+
+**Lo que dice el fuente y no se ve en ningún panel:**
+1. **Un solo proceso para todas las líneas.** La imagen es `node:24-alpine` con `node dist/main`, sin
+   `--max-old-space-size`. Un OOM o un crash corta las 11 líneas juntas, y el reinicio las reconecta juntas.
+2. **El tope que manda es el heap de V8, no la RAM del contenedor.** Sin `--max-old-space-size`, Node le da al heap ~¼ de la
+   memoria que ve el proceso, con techo ~4 GB (medido en esta PC: 15,7 GB → `heap_size_limit` 4,19 GB, Node 24.17). Baileys es
+   JavaScript puro: casi todo lo que cuesta una línea vive ahí. En un contenedor de 8 GB (el máximo por réplica del plan
+   Hobby) son **~2 GB de heap para todas las líneas juntas**, aunque sobren 6 GB.
+3. **Una pérdida chica pero que no se libera.** La primera tanda de historial que recibe una línea desde que arrancó el
+   proceso lee TODAS sus claves (`message.findMany({ select: { key: true } })`) y guarda los ids en un `Set` dentro de
+   `chatwootImport`, que sólo lo borra al importar a Chatwoot — apagado acá —. Queda hasta el próximo reinicio. Medido en V8:
+   **12,8 MB con 169 mil mensajes, 78,5 MB si las 13 líneas con historial lo retienen**, más una copia de ese `Set` en cada
+   tanda siguiente. Para un número recién vinculado nace vacío (la base todavía no tiene nada): el que pesa es el que se arma
+   después de un reinicio, si a la línea le llega cualquier aviso de historial.
+4. **`syncFullHistory: true` apaga `groupsIgnore` en el socket.** `shouldIgnoreJid` devuelve `false` para todo grupo si
+   `syncFullHistory` está prendido, ANTES de mirar `groupsIgnore`. Baileys descifra cada mensaje de grupo (claves de grupo,
+   sesiones de cada participante) y recién `messages.upsert` lo tira. Se paga en CPU y memoria por cada grupo de cada línea.
+5. ⚠️ **Dos diagnósticos obvios que eran los equivocados.**
+   - *«`syncFullHistory` sólo pesa al vincular».* Lo dice el comentario de `setSettings` y es cierto para el historial
+     (`requireFullSync`, en `generateRegistrationNode`), pero Baileys también lo lee en `getWebInfo`, que arma el payload de
+     CADA login. Apagarlo en una línea ya vinculada cambia cómo se presenta el dispositivo en el próximo login: no es «sin
+     riesgo», y por eso no se tocó.
+   - *«Cada tanda del historial relee todas las claves de la línea»* (lo escribí yo en `4a322c36a`, leyendo un resumen del
+     fuente). Las lee UNA vez y las retiene (punto 3): es otra forma de costo, chica y permanente en vez de grande y pasajera.
+     Se corrigió leyendo el handler entero y `chatwoot-import-helper.ts`. **Un resumen de un archivo de 176 mil caracteres no
+     alcanza para afirmar cómo se comporta un bucle.**
+
+**La estimación** (supuestos; se corrige con Railway):
+
+| Pieza | Estimado | De dónde sale |
+|---|---|---|
+| Base del proceso (Nest, Prisma, protobuf de WhatsApp) | ~0,2-0,3 GB | plantillas de Railway: 0,5-0,8 GB en reposo con Postgres y Redis incluidos |
+| Por línea abierta | **80-150 MB** | piso: el único dato de campo hallado (80 MB por instancia, de un desarrollador; no queda claro que fuera Evolution); techo: lo que suma acá el `Set` (hasta 13 MB medido) y los grupos que se descifran. Los «200-500 MB» de proveedores son publicidad de la competencia y no se usaron |
+| Pico de vincular un número con ~150 mil mensajes | ~0,3-0,5 GB, pasajero | cada tanda llega decodificada, se copia a `messagesRaw` y se serializa entera para un `createMany` sin partir |
+
+**El techo:** `líneas = (heap − base − pico de vincular) / costo por línea`.
+
+| Heap | Techo estimado | Hoy (11 abiertas) |
+|---|---|---|
+| ~2 GB (contenedor de 8 GB) | **9-16 líneas** | ya en la zona: vincular otro número con mucho historial es el riesgo |
+| ~4 GB (contenedor de 16 GB o sin límite) | 22-41 líneas | margen |
+| 6 GB (`NODE_OPTIONS=--max-old-space-size=6144` en un contenedor de 8 GB) | 35-66 líneas | margen |
+
+Lo que manda es **qué límite tiene el contenedor** (`MEMORY_LIMIT_GB` en Railway). ⚠️ Subir `--max-old-space-size` acá SÍ
+es lo correcto, al revés que con el `tsc` de la PC (la sección del 13-14/10): en un contenedor dedicado nadie compite por esa
+RAM, y sin subirlo el proceso muere con 6 GB libres. Es un cambio en Railway: pide el sí de Martín.
+
+**Opciones para escalar** (Railway, leído el 27/10: RAM US$10/GB-mes, CPU US$20/vCPU-mes, volumen US$0,15/GB-mes). Una
+línea cuesta en RAM ~US$0,80-1,50 por mes: **el problema no es la plata, es que todo está en un proceso**.
+
+| Opción | Costo | Qué cambia | QR |
+|---|---|---|---|
+| Subir el heap (`NODE_OPTIONS`) | 0 | Una variable en Railway; corre el techo, no saca el punto único de falla | no |
+| Historial de N meses, o ninguno, para los números NUEVOS | 0 | Decisión de producto: el historial enseña la forma de escribir del dueño, da los nombres de los contactos y evita nutrir a quien ya se le hablaba (`lib/evolution.ts`, `setSettings`) | no |
+| 2-3 contenedores de Evolution con el mismo Postgres (`DATABASE_CONNECTION_CLIENT_NAME` distinto, según la doc de Evolution; verificar al armarlo) | ~US$3-5/mes cada uno de base, más la RAM de sus líneas | MaKo guarda en qué servidor vive cada línea (columna en `evolution_instancias` y `evFetch` por línea). Una caída corta un grupo, no todos | no para las nuevas; mudar una vieja es la receta sin QR de arriba |
+| Evolution Go (whatsmeow; su repositorio es de la organización de Evolution) | ~US$5-10/mes según su plantilla de Railway; menos RAM por línea (no medido) | API propia, no la de v2: reescribir `lib/evolution.ts` y el espejo (`findMessages`, `findContacts`, `findChats`, `getBase64FromMediaMessage`). Postgres opcional, sin las integraciones de la versión de Node | **sí: re-escanear las 11** |
+| API oficial (Cloud API) | por mensaje de plantilla | No reemplaza: ver «Las opciones, medidas» en la sección de Railway (grupos, historial, alta por link) | otro número |
+
+**La medición, lista para cuando haya sesión de Railway** (Martín entra con su clic de OAuth en el navegador integrado; un
+token NO se pega en un chat):
+1. Proyecto → servicio de Evolution → **Metrics**, 7 días, y además la pestaña **Usage** (lo que cuesta este mes).
+2. `read_network_requests` con filtro `graphql`: la consulta `metrics` que usa el panel se repite con 30 días y
+   `MEMORY_USAGE_GB` + `MEMORY_LIMIT_GB` + `CPU_USAGE`. Sólo lectura.
+3. Los momentos que dan los números (UTC, `createdAt` de cada instancia): vínculos de `ws18` 16/10 11:57, `ws21` 18/10
+   23:10, **`ws22` 21/10 18:25 y `ws20` 21/10 19:18** (dos historiales grandes en una hora: el pico de vincular), y el
+   reinicio de Evolution del **19/10 ~11:57** (la memoria antes y después es lo acumulado contra la base).
+4. Con eso: escalón de cada vínculo = costo por línea; pico del 21/10 = costo de vincular; `MEMORY_LIMIT_GB` = qué fila de
+   la tabla del techo es la verdadera. Se reemplazan los estimados de esta sección y nada más.
+
+**Sin hacer:**
+- La medición de arriba (espera el login de Martín).
+- `NODE_OPTIONS` en Railway y borrar las 5 instancias `connecting` sin dueño: cambios en producción, piden el sí de Martín.
+- Limpiar la instancia de un «Agregar otro número» que nadie escaneó: `conectar()` no lo hace.
+
+**Fuentes de afuera** (27/10): docs.railway.com/reference/pricing/plans · railway.com/deploy/evolution-go-whatsapp ·
+railway.com/deploy/multi-client-whatsapp-api-self-hosted-evolution--evolution-api-multi-instance ·
+tabnews.com.br (el dato de 80 MB por instancia).
+
+**Vive en:** `lib/evolution.ts` (`setSettings`, `permitirGruposEnInstancia`, `conectar`) · Evolution 2.3.7
+`src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) y
+`src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts` (`repositoryMessagesCache`) · Baileys 7.0.0-rc.9
+`src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*
+
+## tren-o: nueve errores de tipos que ninguna punta veía sola, y un JSDoc que rompió un test (27/10/2026, Cerebro)
+
+**Vive en:** el hook de pre-push (`scripts/tipos-respaldo-push.mjs`) · `scripts/operaciones/cartero.mjs`
+
+- **El síntoma:** 14 puntas «VERDE sin tipos», cada una con sus tests en verde. Al juntarlas, el hook frenó el push con
+  9 errores en 6 archivos. Lo esperado: es justo lo que hace el hook del tren.
+- ⚠️ **La trampa de un `.mjs` (allowJs):** `function mensajeTicket(numero, repo, regla = null)` hace que TypeScript le
+  dé a `regla` el tipo `null` para quien la llama desde un `.ts`, y un test que le pasa `'Leila'` no compila. Se
+  arregla con JSDoc. Pero la primera JSDoc (`@param {number} numero`) rompió OTRO test, el que le pasa `'12'` a
+  propósito para ver que el cartero lo rechace: el parámetro que la función valida adentro es `unknown`.
+- **Los otros errores:**
+  - un campo que el código lee y el tipo del cuerpo no declaraba (`aceptaCobro` en `app/api/zernio`);
+  - `duenoDudoso?: true` en un tipo y `boolean` en el otro, siendo dos tipos que viajan juntos;
+  - `urlDeLaBase()`, que devuelve `string | undefined`, en dos scripts `.ts` (llevan `!`, como los demás).
+- ⚠️ **El push espera RAM, y otro proceso se la puede comer:** con el hook esperando 5,4 GB, corría un
+  `tipos-por-tandas` sobre `C:/dev/wt-crm-chats-2710`. El chat de CRM no lo había lanzado (lo dijo y no quedó rastro
+  de quién fue). Antes de culpar a un chat, mirá el padre del proceso (`Win32_Process.ParentProcessId`). El método es
+  «VERDE sin tipos»: los tipos los chequea el hook, una vez, para todos.
+
+## Dos trampas del chequeo del tren en la madrugada del 28/10 (Cerebro)
+
+- **`tests-afectados --concurrencia 1 --compartir` muere con `spawn ENAMETOOLONG`:** con un solo proceso, las ~1.000
+  barredoras que sólo leen van en UNA línea de comando y Windows corta a 32 K. Las tandas pasan y el grupo compartido ni
+  arranca (`tests=2`). Con `--concurrencia 2` se parten en dos grupos y entra. Para bajar la RAM, se baja la tanda, no la
+  concurrencia del grupo compartido.
+- **Un `declare module 'opencut-wasm/…'` para que el tsc acotado no dé rojo NO va en una punta:** el clon no trae los
+  tipos generados de opencut-wasm, y el tsc acotado da 14 rojos en `app/video-editor/_opencut/**` que no son de nadie
+  (fps/utils.ts idéntico a main da los mismos). El chequeo completo del hook pasa sin la declaración. Una declaración
+  global de módulo los puede tapar también ahí. Se usa como archivo temporal, fuera del commit.
+- **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
+  CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
+  el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.

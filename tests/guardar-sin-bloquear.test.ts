@@ -170,7 +170,8 @@ test('con un funnel ilegible (DEFAULT_STAGES, sin kind) la reunión igual va al 
 test('CABLEADO: las dos fichas mueven con MoverEtapaConfirm, no con el wizard', () => {
   for (const f of ['../app/crm/LeadSheet.tsx', '../app/crm/[id]/LeadDetailBody.tsx']) {
     const src = leer(f);
-    assert.ok(/pideWizardAlElegir\(stages, (k|key)\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/.test(src),
+    // Con las reuniones del lead desde el 27/10/2026: la ya cargada a mano se mueve directo (tests/crm-feedback-27-10.test.ts).
+    assert.ok(/pideWizardAlElegir\(stages, (k|key), reuniones\)\) setMoveTo\((k|key)\); else setMoverDirecto\((k|key)\)/.test(src),
       `${f}: elegir etapa tiene que decidir entre wizard y mover directo`);
     assert.ok(src.includes('<MoverEtapaConfirm'), `${f}: falta la confirmación compartida`);
   }

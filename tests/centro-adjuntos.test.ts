@@ -264,9 +264,9 @@ test('la caja firma el hash que calculó ELLA, y no ofrece adjuntar hasta el car
   // Desde el 20/10/2026 la caja es UNA pieza (app/_chat/CajaChat.tsx): pegar y el «+» viven ahí, y las dos pantallas le
   // pasan sus adjuntos.
   const pieza = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(pieza, /alPegar\(e, p\.adjuntos\)/, 'la caja única: pegar una captura');
+  assert.match(pieza, /alPegar\(e, adjuntos\)/, 'la caja única: pegar una captura');
   // Desde el 17/10 (la B) adjuntar vive en el «+» de la caja, con «Importar archivo» e «Imagen» (AdjuntosCaja.tsx → MasCaja).
-  assert.match(pieza, /<MasCaja a=\{p\.adjuntos\}/, 'la caja única: el «+», que adjunta');
+  assert.match(pieza, /<MasCaja a=\{adjuntos\}/, 'la caja única: el «+», que adjunta');
   for (const f of ['app/admin/operaciones/Conversacion.tsx', 'app/m/operaciones/ChatsMovil.tsx']) {
     assert.match(sinComentarios(leer(f)), /<CajaChat [\s\S]{0,400}adjuntos=\{adjuntos\}/, `${f}: le pasa sus adjuntos a la caja única`);
   }

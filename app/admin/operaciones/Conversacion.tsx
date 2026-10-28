@@ -25,7 +25,7 @@ import { Modal } from '@/app/_ui';
 import { SIN_MARCAS, idDeLinea, type CambioMarca, type Cita, type MarcasChat } from '@/lib/centro-mensajes';
 import { BarraFijados, CitaCaja, ContextoWA, InfoMensaje, MenuMensajeWA, ReenviarA, type AccionesWA, type MenuAbiertoWA, type MensajeWA } from './MensajeWA';
 import { alternarTranscripcion } from './voces-enviadas';
-import type { NotaGrabada } from '@/app/_chat/nota-que-se-manda';
+import type { GrabacionLista } from '@/app/_chat/nota-que-se-manda';
 import type { TareaDelChat } from '@/lib/centro-plan-auto-reglas';
 import type { PasoDelTurno } from '@/lib/centro-pasos';
 import type { Aspecto } from '@/lib/centro-munecos';
@@ -58,7 +58,7 @@ export type WaDeConversacion = {
 };
 
 export function Conversacion({
-  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onNota, onCrearClave, onCopiarClave, onVolver,
+  chat, pedidos, trabajos, pushes, ahora, espera, envio, texto, onTexto, enviando, onMandar, onGrabada, onCrearClave, onCopiarClave, onVolver,
   aspecto, onMuneco, onRenombrar, preguntas, respuestas, responder, selectores, turnos = [], adjuntos, carteros,
   preguntasChat = [], onResponder, resumenEnvio = null, tareas = [], lineas: lineasDeFuera, wa, pasos, yaVisto = null, onYaVisto,
 }: {
@@ -113,8 +113,8 @@ export function Conversacion({
   onTexto: (t: string) => void;
   enviando: boolean;
   onMandar: () => void;
-  /** La nota de voz que grabó la caja, antes de que salga su transcripción: sale como nota (useCentro.ts → notaGrabada). */
-  onNota?: (n: NotaGrabada) => void;
+  /** La nota de voz recién grabada: sale en el acto y se transcribe por detrás (useCentro.ts → mandarNota, 27/10/2026). */
+  onGrabada?: (g: GrabacionLista) => void;
   onCrearClave: () => void;
   onCopiarClave: () => void;
   onVolver: () => void;
@@ -241,9 +241,11 @@ export function Conversacion({
           <div className="co-caja">
             {/* La caja ÚNICA (app/_chat/CajaChat.tsx, 20/10/2026): la misma en toda la app. Arriba, la cita del mensaje que se
                 responde (con su ✕, WhatsApp); en el «+», con qué corre y las tareas del chat. */}
-            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onNota={onNota} enviando={enviando}
+            <CajaChat texto={texto} onTexto={(v) => { setFaltaMic(null); onTexto(v); }} onMandar={onMandar} onGrabada={onGrabada} enviando={enviando}
               placeholder={`Escribe a ${chat.titulo}`} tituloMandar="Firmar y mandar (Enter)" enterManda
               adjuntos={adjuntos} campo={caja} seguir={seguirHilo} onErrorMic={setFaltaMic}
+              // La misma caja atiende todos los chats: lo que lee (un audio, un .pptx) es de SU chat (28/10/2026).
+              conversacion={chat.clave}
               arriba={wa?.cita ? <CitaCaja cita={wa.cita} onQuitar={() => wa.onCitar(null)} verTodo={verTodo} /> : null}
               mas={(cerrar) => <>{selectores}<TareasVinculadas tareas={tareas} onIr={(u) => { cerrar(); verTodo(); window.setTimeout(() => irAlTurno(u), 80); }} /></>} />
           </div>

@@ -31,7 +31,7 @@ type Salida = unknown;
 
 /** Una salida que dice que NO hizo nada (un error, un `ok:false`) no se guarda: el
  *  intento siguiente puede intentarlo de verdad. */
-function hizoAlgo(out: Salida): boolean {
+export function hizoAlgo(out: Salida): boolean {
   if (out && typeof out === 'object' && (out as { isError?: unknown }).isError) return false;
   if (typeof out !== 'string') return true;
   try {

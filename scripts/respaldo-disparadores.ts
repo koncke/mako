@@ -28,12 +28,13 @@ config({ path: resolve(process.cwd(), '.env.local') });
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 
 const MODO = process.argv[2];
 const WS = Number(process.argv[3] || 1);
 const ARCHIVO = resolve(process.cwd(), `.respaldo-disparadores-ws${WS}.json`);
 
-const sql = postgres(process.env.DATABASE_URL!, { ssl: 'require', max: 1 });
+const sql = postgres(urlDeLaBase()!, { ssl: 'require', max: 1 });
 
 type Fila = {
   id: number; clave: string; trigger_tipo: string | null; etapa: string | null;

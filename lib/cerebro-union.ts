@@ -50,6 +50,37 @@ export function unirTaxonomias(negocio: Taxonomia, obra: Taxonomia): Taxonomia {
   };
 }
 
+/**
+ * UNA CAPA MÁS para los CHATS, sin física (28/10/2026): sus nodos y sus aristas, su taxonomía, y una arista de la raíz del
+ * negocio a la carpeta madre de la capa (`raiz`), así sigue siendo UN cerebro. Un id que chocara con uno del negocio se
+ * prefija con el de la capa (hoy no choca ninguno: las funciones son `fn:` y `n1:funciones`). Lo usa `grafoParaChat`
+ * (lib/cerebro-para-chat.ts); el mapa que se DIBUJA sigue con `unirCerebros`, que además junta las posiciones.
+ */
+export function conCapa(base: Cerebro<string>, capa: Cerebro<string>, c: { id: string; nombre: string; raiz: string; motivo: string }): Cerebro<string> {
+  const ids = new Set(base.nodos.map((n) => n.id));
+  const id = (x: string) => (ids.has(x) ? `${c.id}:${x}` : x);
+  const tax = base.taxonomia ?? TAXONOMIA_NEGOCIO;
+  const suya = capa.taxonomia ?? { carpetas: [], areas: [] };
+  const raizBase = base.nodos.find((n) => n.id === 'raiz') ? 'raiz' : null;
+  return {
+    ...base,
+    nodos: [...base.nodos, ...capa.nodos.map((n) => ({ ...n, id: id(n.id) }))],
+    aristas: [
+      ...base.aristas, ...capa.aristas.map((a) => ({ ...a, de: id(a.de), a: id(a.a) })),
+      ...(raizBase ? [{ de: raizBase, a: id(c.raiz), motivo: c.motivo }] : []),
+    ],
+    taxonomia: {
+      carpetas: [...tax.carpetas, ...suya.carpetas],
+      areas: [...tax.areas, ...suya.areas],
+      capas: [
+        ...(tax.capas ?? [{ id: CAPA_NEGOCIO, nombre: 'Negocio', carpetas: tax.carpetas.map((x) => x.id) }]),
+        { id: c.id, nombre: c.nombre, carpetas: suya.carpetas.map((x) => x.id) },
+      ],
+    },
+    huella: undefined,
+  };
+}
+
 /** La arista que hace UNO del negocio y la construcción: la raíz del negocio y la carpeta madre de la construcción. */
 export const PUENTE_OBRA = 'Lo que construye MaKo, el producto con el que trabaja este negocio';
 export const PUENTE_ISLA = 'Es parte de tu negocio';

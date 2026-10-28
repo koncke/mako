@@ -66,7 +66,7 @@ test('el editor: mirando, no hay botón de MaKo en la barra (ni AI Analyst: lo h
 
 test('el panel le dice al server que edita, en qué modo y qué hoja', () => {
   assert.match(leer('app/dashboard/PanelEditarMako.tsx'),
-    /body: JSON\.stringify\(\{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \}\)/);
+    /const datos = \{ hoja: enviada, pedido: deEstaHoja, historial, informe, modo: 'editar', editando, hojaId: enviada\.id \};[\s\S]*?body: JSON\.stringify\(datos\)/);
 });
 
 test('el link «Probarlo» de Offer (un pedido de cambiar) entra editando', () => {

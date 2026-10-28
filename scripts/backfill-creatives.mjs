@@ -6,6 +6,7 @@
 // META_AD_ACCOUNT_ID.
 // =============================================================================
 import postgres from 'postgres';
+import { urlDeLaBase } from './url-de-la-base.mjs';
 import { resolve } from 'node:path';
 import { config } from 'dotenv';
 config({ path: resolve(process.cwd(), '.env.local') });
@@ -19,7 +20,7 @@ for (const k of need) if (!process.env[k]) { console.error(`Falta ${k} en .env.l
 const API = process.env.META_API_VERSION;
 const TOKEN = process.env.META_ACCESS_TOKEN;
 
-const sql = postgres(process.env.DATABASE_URL, { ssl: 'require', connect_timeout: 10, max: 1 });
+const sql = postgres(urlDeLaBase(), { ssl: 'require', connect_timeout: 10, max: 1 });
 
 const FIELDS =
   'creative{thumbnail_url,image_url,effective_object_story_id,instagram_permalink_url,' +

@@ -989,6 +989,8 @@ const FASES = [
 /** Lo que se dice mientras WhatsApp Web pide el QR (el worker espera cinco minutos con la pestaña al frente). */
 const TEXTO_QR = 'Escanea el QR en WhatsApp Web: en tu teléfono, WhatsApp › Dispositivos vinculados › Vincular un dispositivo. Te espero unos minutos y sigo sola.';
 const TEXTO_A_LA_VISTA = 'En tu WhatsApp Web, a la vista. No toques nada mientras tanto.';
+/** WhatsApp Web corre oculta (27/10/2026): Chrome la frena y la lista se arrastra (el «11 de 126»). */
+const TEXTO_OCULTA = 'Chrome quedó tapado por otra ventana y así va lento: tráelo al frente.';
 const MOTIVO = {
   sin_sesion: 'No se escaneó el QR de WhatsApp Web a tiempo. Escanéalo y vuelve a tocar «Extraer» en MaKo.',
   sin_respuesta_wa: 'WhatsApp Web no contestó. Recarga esa pestaña y vuelve a tocar «Extraer».',
@@ -1033,7 +1035,8 @@ function dibujarExtraccion(e) {
 
   if (estado === 'corriendo') {
     // Con el QR a la vista, la línea de abajo del título dice qué hacer (como «Inicia sesión en Google Flow»).
-    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : e.fase === 'perfiles' && e.ahora ? e.ahora : TEXTO_A_LA_VISTA;
+    // Con WhatsApp Web oculta (Chrome tapado), eso primero: es por qué se arrastra, y se arregla trayendo Chrome al frente.
+    a.tenue.textContent = e.fase === 'qr' ? TEXTO_QR : e.oculta ? TEXTO_OCULTA : e.fase === 'perfiles' && e.ahora ? e.ahora : TEXTO_A_LA_VISTA;
     const i = Math.max(0, FASES.findIndex((f) => f.pasos.includes(e.fase)));
     a.fases.forEach((li, j) => { li.className = j < i ? 'hecha' : j === i ? 'ahora' : ''; li.firstChild.textContent = j < i ? '✓' : ''; });
     if (e.fase === 'perfiles' && Number(e.perfilesTotal) > 0) {

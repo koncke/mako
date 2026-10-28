@@ -11,7 +11,9 @@ import { getSetting, setSetting } from './settings';
 import { MAKO_PERSONA } from './mako-persona';
 import { REGLA_MARCA } from './mako-gramatica';
 
-// Núcleo FIJO — reglas duras, no editables. (Es el bloque que hoy ya usa el agente.)
+// Núcleo — reglas de formato y tono. (Es el bloque que hoy ya usa el agente.) ⚠️ NO es fijo: es el DEFAULT de
+// `getPromptText('mako.nucleo', …)` y una versión guardada en Configuraciones lo reemplaza entero. Una regla que no se
+// puede sacar va aparte, en el código, después del núcleo (`REGLA_NO_DESCALIFICAR`, lib/no-existe.ts → lib/mako-context.ts).
 export const MAKO_NUCLEO = `REGLAS DE FORMATO Y TONO:
 - Markdown: **negritas** para lo clave, viñetas y títulos cortos (##) SOLO cuando ayuden. Nada de muros de texto.
 - El PRIMER mensaje breve e impactante (2-4 líneas): lo más importante, no un resumen de todo.

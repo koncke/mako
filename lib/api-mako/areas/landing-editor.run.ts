@@ -46,7 +46,7 @@ import {
   MOTIVO_ANTES_DE_MAKO, esFallaPlan, ubicarSeccion, ubicarPagina, seccionesDisponibles,
   estructuraParaApi, configuracionParaApi, temasParaApi, temaElegido, versionParaApi, dominioParaApi,
   registrosParaApi, registrosEnTexto, cobroParaApi, comentariosEquipoParaApi,
-  planAgregarSeccion, planCambiarTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
+  planAgregarSeccion, planCambiarTexto, planFormatoTexto, planAcomodarSeccion, planConfigurarSeccion, planAgregarBloque,
   planAcomodarBloque, planPonerEnlace, planConfigurarFormulario, planConfigurarBoton, planCambiarImagen, planCambiarIcono, planQuitarCobro, iconosDeBibliotecaParaApi,
   planAcomodarPagina, planTema, planConfigurarLanding, planAnimacion, planConfigurarSitio, planNavegacion, planTemaPropio, restaurarDeTema,
   pedidoGenerar, resumenGenerar, pedidoEnBlanco,
@@ -449,6 +449,7 @@ export const RUNNERS_EDITOR: Runners = {
   // ── Editar el contenido ──
   agregar_seccion_landing: { ...edicion({ que: 'agregar la sección', planear: (i, d) => planAgregarSeccion(d.contenido, i) }) },
   cambiar_texto_landing: { ...edicion({ que: 'cambiar el texto', planear: (i, d) => planCambiarTexto(d.contenido, i) }) },
+  dar_formato_texto_landing: { ...edicion({ que: 'dar formato al texto', planear: (i, d) => planFormatoTexto(d.contenido, i) }) },
   acomodar_seccion_landing: { ...edicion({ que: 'acomodar la sección', planear: (i, d) => planAcomodarSeccion(d.contenido, i) }) },
   configurar_seccion_landing: { ...edicion({
     que: 'cambiar el estilo de la sección', imagenes: ['imagen'],
@@ -525,7 +526,7 @@ export const RUNNERS_EDITOR: Runners = {
       const t = propios.find((p) => p.id === pedido);
       if (!t) return { error: `No hay un tema propio «ws:${pedido}» (búscalo con listar_temas_landing).`, disponibles: propios.map((p) => `ws:${p.id}`) };
       const l = await docsEditor.listar();
-      if (!l.ok) { siFallaNuestra(l); return { error: `No pude revisar qué landings lo usan (${l.error}).` }; }
+      if (!l.ok) { siFallaNuestra(l); return { error: `No pude revisar qué landings lo usan (${l.error}).`, falla: true }; }
       const usan = l.docs.filter((d) => d.tema === `ws:${t.id}`).length;
       return {
         payload: { tema: `ws:${t.id}` },
@@ -622,7 +623,7 @@ export const RUNNERS_EDITOR: Runners = {
       if (!f) return { error: noExisteCreada(id) };
       let dominio: string | null = null;
       try { dominio = ((await docsEditor.leerFilaDoc(ctx.ws, id, 'id, dominio')) as unknown as { dominio?: string | null } | null)?.dominio ?? null; } catch (e) {
-        return { error: `No pude leer el dominio (${mensaje(e)}).` };
+        return { error: `No pude leer el dominio (${mensaje(e)}).`, falla: true };
       }
       if (!dominio) return { error: `«${f.titulo}» no tiene dominio propio.`, yaEstaba: true };
       return { payload: { id }, resumen: `Quitar el dominio ${dominio} de «${f.titulo}»: deja de verse ahí (los links que apunten a ${dominio} quedan rotos) y se suelta de Vercel, con su www si lo sumó MaKo. Sigue en su dirección de MaKo.` };
@@ -792,7 +793,7 @@ export const RUNNERS_EDITOR: Runners = {
       const a = await abrirParaEditar(id, ctx);
       if ('error' in a) return { error: a.error };
       const l = await comentariosDelDiagnostico({ docId: id });
-      if (!l.ok) { siFallaNuestra(l); return { error: `No pude leer los comentarios (${l.error}).` }; }
+      if (!l.ok) { siFallaNuestra(l); return { error: `No pude leer los comentarios (${l.error}).`, falla: true }; }
       const orden = a.doc.contenido.paginas.flatMap((p) => tarjetasDe(p).map((t) => String(t.attrs?.id ?? '')));
       const { grupos, sinUbicar } = gruposParaAplicar(l.sugerencias, orden);
       if (!grupos.length) return { error: 'No hay comentarios pendientes que se puedan aplicar solos.', yaEstaba: true };
@@ -854,7 +855,7 @@ export const RUNNERS_EDITOR: Runners = {
       const a = await abrirParaEditar(id, ctx);
       if ('error' in a) return { error: a.error };
       const l = await comentariosDelDiagnostico({ url });
-      if (!l.ok) { siFallaNuestra(l); return { error: `No pude leer los comentarios de esa página (${l.error}).` }; }
+      if (!l.ok) { siFallaNuestra(l); return { error: `No pude leer los comentarios de esa página (${l.error}).`, falla: true }; }
       if (!l.sugerencias.length) return { error: `${url} no tiene comentarios de diagnóstico (se diagnostica con analizar_landing).` };
       const pendientes = l.sugerencias.filter((s) => s.estado === 'pendiente').length;
       const resolver = input.resolver === true;
