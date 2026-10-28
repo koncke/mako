@@ -11,8 +11,9 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
 - **Dónde vive la puerta:** `app/copywriter/acceso.ts` (`veCopywriter`, con `getSesionAdmin`), el molde de AI Avatar. La
   preguntan las dos páginas de escritorio, las dos del teléfono (`app/m/copywriter/puerta.ts`) y las dos rutas /api.
 - **Y la API de MaKo también:** su `gating.tab` mira la CAPA del negocio, y las capas `completo` y `agencia` ven todas las
-  tabs. Cada runner del Copywriter pregunta la misma puerta (`veCopywriterEnApi`). El día que Martín lo abra, se cambia
-  ESE archivo.
+  tabs. Cada runner del Copywriter pregunta `veCopywriterEnApi` (lib/copywriter/puerta-api.ts: sólo el negocio de la
+  plataforma). Va en lib y no en `acceso.ts` para que los runners no carguen `next/navigation`. El día que Martín lo
+  abra, se cambian LOS DOS archivos.
 - **La regla:** una tab que nace para el super admin lleva su `acceso.ts` desde el primer commit, y
   `tests/redirige-antes-del-loader.test.ts` (PUERTAS) tiene que conocer sus `require…`.
 
@@ -47,6 +48,33 @@ Lo que costó o sorprendió armando el Copywriter (mila.gg + Notion, 28/10/2026)
   disco cuando les toca (a los 13 minutos, con poca RAM). `lib/api-mako/areas/copywriter.run.ts` se escribió en el medio.
 - **La regla:** mientras corren los afectados, no se crean archivos en carpetas que barre un test (lib/api-mako/areas,
   app/m, app/api). Se escriben después, o en otro worktree.
+
+## MaKo escribía y las marcas de la propuesta no aparecían (28/10/2026)
+
+- **Síntoma (en la maqueta):** «Editar» construía el guion y la tarjeta decía «3 bloques nuevos, marcados», pero el
+  documento no marcaba ninguno.
+- **El diagnóstico obvio era el equivocado:** parecía la decoración de ProseMirror (el plugin, el CSS). La causa era que
+  cada pasada de las herramientas (`aplicarTodo` para el resultado, `cuadrosDeConstruccion` para la animación) llamaba a
+  `bloqueAJson`, que inventaba ids NUEVOS: los cuadros y el resultado no compartían un solo id, y las marcas buscaban
+  ids que no estaban.
+- **Cómo quedó:** el id de cada bloque lo pone `sanearOperaciones`, UNA vez; aplicar después es determinista.
+  `tests/copywriter-operaciones.test.ts` compara el último cuadro con el resultado con `deepEqual` (ids incluidos).
+- **La regla:** si dos caminos aplican la misma propuesta (mostrar y aceptar), lo que se inventa (ids, fechas) se fija
+  antes, no adentro de cada camino.
+
+## Capturas sin build: la maqueta con los componentes reales (28/10/2026)
+
+- `next build --debug-build-paths` de un editor TipTap pide ~4 GB (la sesión de replicar-landings lo vio morir a 3,1), y
+  con 9 chats abiertos no entra. Lo que anduvo: esbuild (el de node_modules del repo) sobre los componentes REALES, con
+  stubs para `next/navigation`, `next/dynamic`, `next/link`, `server-only`, lo de Node, y cada archivo `'use server'`
+  reemplazado por funciones que contestan «maqueta» (en Next son llamadas remotas; empaquetados, arrastran el server
+  entero). `globals.css` sin su `@import "tailwindcss"`. Un servidor FALSO en memoria con las funciones puras de
+  lib/copywriter. Capturas con Chrome sin ventana por CDP al tamaño real (el panel del navegador de Claude es de 800×500 y
+  recorta la emulación). Los scripts: side-session-notes/…/copywriter-maqueta/.
+- Lo que encontró que los tests no veían: el árbol se comía el documento a 800 px, el título del teléfono en 16 px, un
+  valor largo que empujaba la fila, el texto de la caja en dos renglones y las marcas de la propuesta.
+- ⚠️ **El `:is()` de app/m/m.css pesa (0,4,1)** (`[data-m] :is(input:not(…):not(…):not(…), textarea, select)`: un
+  `:is()` vale lo que su argumento MÁS fuerte). Una regla de pantalla sobre un campo del teléfono necesita más que eso.
 
 ## Qué quedó sin hacer
 

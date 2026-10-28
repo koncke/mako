@@ -78,7 +78,12 @@ export type PropsEditorGuion = {
   avisar: (texto: string) => void;
   /** El título y las propiedades de ahora, para el chat (que los manda con cada pedido aunque no se hayan guardado). */
   onVivo?: (v: { titulo: string; props: PropsGuion }) => void;
+  /** Lo que el chat puede cambiar de la página al ACEPTAR una propuesta de MaKo (el título y las propiedades). */
+  onApi?: (api: ApiPagina | null) => void;
 };
+
+/** Lo que el chat cambia de la página (no del cuerpo: el cuerpo lo escribe en el editor). */
+export type ApiPagina = { cambiarTitulo: (t: string) => void; cambiarProps: (c: Partial<PropsGuion>) => void };
 
 export function EditorGuion(p: PropsEditorGuion) {
   const { guion, catalogos, movil = false, pausa = false } = p;
@@ -160,14 +165,18 @@ export function EditorGuion(p: PropsEditorGuion) {
     return () => { vivo.current.onEditor?.(null); };
   }, [editor]);
 
-  // 4. La pausa de una propuesta: no se edita; al soltarla, lo pendiente sale.
+  // 4. La pausa de una propuesta: no se edita y se saca una foto. Al soltarla, si el cuerpo quedó distinto de la foto
+  //    (se ACEPTÓ), se guarda; si quedó igual (se descartó), no hay nada que guardar. Y lo pendiente de antes, sale.
+  const fotoPausa = useRef<string | null>(null);
   useEffect(() => {
     if (!editor || roto.current) return;
     editor.setEditable(!pausa);
-    if (!pausa && pendiente.current) {
-      timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
-    }
-  }, [pausa, editor, guardarAhora]);
+    if (pausa) { fotoPausa.current = JSON.stringify(editor.getJSON()); return; }
+    const foto = fotoPausa.current;
+    fotoPausa.current = null;
+    if (foto != null && JSON.stringify(editor.getJSON()) !== foto) { marcar({ contenido: editor.getJSON() as JsonNodo }); return; }
+    if (pendiente.current) timer.current = window.setTimeout(() => { void guardarAhora(); }, RESPIRO_MS);
+  }, [pausa, editor, guardarAhora, marcar]);
 
   // 1. Al ocultar la pestaña, al irse y al cerrar el guion: lo pendiente sale.
   useEffect(() => {
@@ -204,6 +213,16 @@ export function EditorGuion(p: PropsEditorGuion) {
 
   // Lo de ahora, para el chat.
   useEffect(() => { vivo.current.onVivo?.({ titulo: titulo.trim() || SIN_TITULO, props }); }, [titulo, props]);
+
+  // Lo que el chat cambia de la página al aceptar (por ref: siempre el estado de AHORA).
+  const cambiarPropsRef = useRef(cambiarProps);
+  cambiarPropsRef.current = cambiarProps;
+  const cambiarTituloRef = useRef(cambiarTitulo);
+  cambiarTituloRef.current = cambiarTitulo;
+  useEffect(() => {
+    vivo.current.onApi?.({ cambiarTitulo: (t) => cambiarTituloRef.current(t), cambiarProps: (c) => cambiarPropsRef.current(c) });
+    return () => { vivo.current.onApi?.(null); };
+  }, []);
 
   const { estructuras, propias } = estructurasDelTipo(catalogos, props.tipo);
   const estructura = catalogos.estructuras.find((e) => e.id === props.estructura) ?? null;
@@ -249,7 +268,7 @@ export function EditorGuion(p: PropsEditorGuion) {
               </span>
             ))}
           </nav>
-          <span className="nt-guardado" data-error={enError ? '' : undefined} role="status">{TEXTO_ESTADO[estado]}</span>
+          <span className="nt-guardado" data-error={enError ? '' : undefined} role="status">{pausa && !enError ? 'Sin guardar: propuesta de MaKo' : TEXTO_ESTADO[estado]}</span>
           <div style={{ position: 'relative' }} ref={refMenu}>
             <button type="button" className="nt-boton-ico" onClick={() => setMenuPagina((m) => !m)} aria-expanded={menuPagina} aria-haspopup="menu" aria-label="Más opciones del guion">⋯</button>
             {menuPagina && (

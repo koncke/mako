@@ -130,6 +130,9 @@ En el área `contenido`, archivo propio (`copywriter.def.ts` + `.run.ts`), al fi
 | `update_document` | `cambiar_documento_copywriter` | acción (pantalla) |
 | `delete_document` | `papelera_documento_copywriter` (+ `restaurar_documento_copywriter`) | acción (chat), reversible |
 
+Mientras la tab sea sólo del super admin, la API también: cada runner pregunta `veCopywriterEnApi`
+(lib/copywriter/puerta-api.ts: sólo el negocio de la plataforma). Se abre junto con la pantalla.
+
 Lo que escribe con IA (escribir un guion entero) NO va por la API en esta versión: lo hace el chat de la tab, que muestra
 la propuesta antes de aceptarla.
 

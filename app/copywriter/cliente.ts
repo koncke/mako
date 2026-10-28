@@ -47,5 +47,10 @@ export function pedirRestaurar(id: string): Arbol {
   return postJson(RUTA_COPY, { accion: 'restaurar', id }, PLAZO_COPY_MS) as Arbol;
 }
 
+/** Los archivos de El Archivero que se pueden citar con «@» (id y nombre). */
+export function pedirCitables() {
+  return postJson<{ ok: true; archivos: { id: string; nombre: string }[] }>(RUTA_COPY, { accion: 'citables' }, PLAZO_COPY_MS) as Promise<{ ok: true; archivos: { id: string; nombre: string }[] } | FallaCopy>;
+}
+
 /** Las rutas de la tab (escritorio): un guion se abre en /copywriter/<id>. */
 export const rutaGuion = (id: string) => `/copywriter/${id}`;

@@ -29,7 +29,7 @@ import { pedirCrear, pedirMover, pedirPapelera, pedirRenombrar, pedirRestaurar, 
 import { guardarPedido } from './pedido-guardado';
 import { Arbol } from './Arbol';
 import { Inicio } from './Inicio';
-import { EditorGuion } from './editor/EditorGuion';
+import { EditorGuion, type ApiPagina } from './editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from './PanelMaKo';
 
 /** Debajo de este ancho la barra de guiones arranca plegada (con la de MaKo y el documento no entran las tres). */
@@ -70,6 +70,10 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
   const vivoGuion = useRef<GuionVivo | null>(null);
   const leerVivo = useCallback(() => vivoGuion.current, []);
   const ponerVivo = useCallback((v: GuionVivo) => { vivoGuion.current = v; }, []);
+  // Lo que el chat cambia de la página al aceptar una propuesta (lo pone EditorGuion).
+  const apiPagina = useRef<ApiPagina | null>(null);
+  const leerApi = useCallback(() => apiPagina.current, []);
+  const ponerApi = useCallback((a: ApiPagina | null) => { apiPagina.current = a; }, []);
   const { toast, show, clear } = useToast();
   const avisar = useCallback((t: string, deshacer?: () => void, tono?: 'bad') => show(t, deshacer, tono), [show]);
 
@@ -140,14 +144,14 @@ export function Copywriter({ ws, paginas: iniciales, guion, error, catalogos, ba
 
   return (
     <div className="nt">
-      <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} campo={cajaMako} onPausa={setPausa} avisar={avisar} />
+      <PanelMaKo ws={ws} guion={guion} paginas={paginas} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={cajaMako} onPausa={setPausa} avisar={avisar} />
       <Arbol paginas={paginas} abierta={abierta} plegado={plegado} onPlegar={() => plegar(true)} onAbrir={abrir}
         onCrear={(t, padre) => void crear(t, padre)} onRenombrar={renombrar} onPapelera={(id) => void papelera(id)} onRestaurar={restaurar} onMover={mover} />
       {guion ? (
         <EditorGuion key={guion.pagina.id} guion={guion} paginas={paginas} catalogos={catalogos}
           onPaginaEnVivo={enVivo} onTitulo={(t) => renombrar(guion.pagina.id, t)} onEmoji={(e) => ponerEmoji(guion.pagina.id, e)}
           onAbrir={abrir} onPapelera={() => void papelera(guion.pagina.id)} onEditor={setEditor} onMako={alMako} pausa={pausa}
-          arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} avisar={avisar} onVivo={ponerVivo} />
+          arbolPlegado={plegado} onDesplegarArbol={() => plegar(false)} avisar={avisar} onVivo={ponerVivo} onApi={ponerApi} />
       ) : error ? (
         <div className="nt-doc"><div className="nt-inicio"><div className="nt-aviso" role="alert">{error}<ReportarASoporte /></div></div></div>
       ) : (

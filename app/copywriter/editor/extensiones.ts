@@ -26,6 +26,7 @@ import type { Node as NodoPM } from '@tiptap/pm/model';
 import { ExtensionBarra } from '@/app/web-generator/editor/extensiones/barra';
 import { BLOQUES_DE_PRIMER_NIVEL, EMOJI_DESTACADO, NODOS, bidNuevo } from '@/lib/copywriter/doc';
 import { buscarBloquesCopy } from './bloques';
+import { MarcasDePropuesta } from './propuesta';
 
 /** Los emojis que recorre el del Destacado al tocarlo (Notion abre su selector; acá, los de un guion). */
 export const EMOJIS_DESTACADO = [EMOJI_DESTACADO, '⚠️', '✅', '📌', '🔥', '🎯', '💬', '❗'] as const;
@@ -249,5 +250,7 @@ export function extensionesCopy(): Extensions {
     AtajosNotion,
     Placeholder.configure({ includeChildren: true, showOnlyCurrent: false, placeholder: placeholderDe }),
     ExtensionBarra.configure({ buscar: (q) => buscarBloquesCopy(q), atajos: false }),
+    // Lo que escribió MaKo y todavía no se aceptó, marcado (./propuesta.ts).
+    MarcasDePropuesta,
   ];
 }

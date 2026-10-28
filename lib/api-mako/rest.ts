@@ -605,6 +605,15 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['GET', '/contenido/limites-instagram/{formato}', 'limites_formato_instagram'],
   ['GET', '/contenido/siguientes-pasos', 'opciones_siguiente_paso_guion'],
   ['GET', '/contenido/tabs/{tab}/onboarding', 'estado_onboarding_contenido'],
+  // El Copywriter (28/10/2026): los documentos, con el juego del MCP de mila.gg. DELETE manda a la Papelera (no borra).
+  ['GET', '/contenido/documentos', 'listar_documentos_copywriter'],
+  ['POST', '/contenido/documentos', 'crear_documento_copywriter'],
+  ['GET', '/contenido/documentos/{documentoId}', 'leer_documento_copywriter'],
+  ['PATCH', '/contenido/documentos/{documentoId}', 'renombrar_documento_copywriter'],
+  ['DELETE', '/contenido/documentos/{documentoId}', 'papelera_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/bloques', 'agregar_al_documento_copywriter'],
+  ['PUT', '/contenido/documentos/{documentoId}/contenido', 'reemplazar_documento_copywriter'],
+  ['POST', '/contenido/documentos/{documentoId}/restauracion', 'restaurar_documento_copywriter'],
   // ── video ─────────────────────────────────────────────────────────────────
   ['GET', '/video/anuncios', 'listar_anuncios_video'],
   ['GET', '/video/anuncios/{planId}', 'ver_anuncio_video'],

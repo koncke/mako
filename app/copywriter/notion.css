@@ -181,13 +181,30 @@
 .nt-emojis button { width: 32px; height: 32px; padding: 0; border: 0; border-radius: 4px; background: transparent; font-size: 20px; cursor: pointer; }
 .nt-emojis button:hover { background: var(--nt-hover); }
 
+/* La propuesta de MaKo en el documento (Notion AI la marca hasta que se acepta): el fondo del azul de la casa, suave.
+   Y en el chat, su tarjeta: Aceptar (el botón azul) · Descartar · Reintentar. */
+.nt-cuerpo .ProseMirror > .nt-propuesta { background: var(--nt-azul-fondo); border-radius: 4px; box-shadow: -3px 0 0 var(--nt-azul); transition: background .2s ease; }
+.nt-propuesta-tarjeta { display: grid; gap: 8px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--nt-linea); border-radius: 12px; background: var(--nt-fondo); }
+.nt-propuesta-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.nt-propuesta-aviso { font-size: 12.5px; color: var(--warn, var(--nt-tenue)); }
+.nt-boton-primario { height: 30px; padding: 0 14px; border: 0; border-radius: 8px; background: var(--nt-azul); color: var(--on-primary); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.nt-boton-texto { height: 30px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--nt-tenue); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.nt-boton-texto:hover { background: var(--nt-hover); color: var(--nt-texto); }
+
+/* El «@» de la caja (mila.gg): la lista arriba de la caja y lo citado como chips. */
+.nt-mako .nt-ref-menu { position: static; width: auto; max-height: 260px; margin-bottom: 6px; }
+.nt-ref-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.nt-ref-chip { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 4px 0 10px; border-radius: 999px; background: var(--nt-azul-fondo); color: var(--nt-texto); font-size: 12.5px; font-weight: 500; }
+.nt-ref-chip button { width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--nt-tenue); font-size: 14px; line-height: 1; cursor: pointer; }
+.nt-ref-chip button:hover { background: var(--nt-hover); }
+
 /* El vacío: la caja grande del inicio de mila. */
 .nt-inicio { flex: 1; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .nt-inicio-caja { width: min(640px, 100%); display: grid; gap: 18px; text-align: center; }
 .nt-inicio-titulo { margin: 0; font-size: 34px; font-weight: 700; line-height: 1.2; color: var(--nt-texto); }
 .nt-inicio-campo { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 20px; border-radius: 16px; background: var(--nt-fondo); box-shadow: 0 0 0 1px var(--nt-linea), 0 8px 24px rgba(15, 15, 15, .08); }
 .nt-inicio-campo input { flex: 1; min-width: 0; height: 40px; border: 0; outline: none; background: transparent; color: var(--nt-texto); font: inherit; font-size: 17px; }
-.nt-inicio-ir { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--nt-azul); color: #fff; font-size: 18px; cursor: pointer; }
+.nt-inicio-ir { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; flex: none; border: 0; border-radius: 50%; background: var(--nt-azul); color: var(--on-primary); font-size: 18px; cursor: pointer; }
 .nt-inicio-ir:disabled { opacity: .45; cursor: default; }
 .nt-tipos { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .nt-tipo { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 1px solid var(--nt-linea); border-radius: 999px; background: var(--nt-fondo); color: var(--nt-tenue); font: inherit; font-size: 14px; cursor: pointer; }

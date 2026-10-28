@@ -9,6 +9,7 @@ adjuntar_grabaciones_fathom
 admitir_alumno_comunidad
 afinar_avatares
 agente_media_buyer
+agregar_al_documento_copywriter
 agregar_bloque_general
 agregar_bloque_landing
 agregar_capa_efecto_video
@@ -153,6 +154,7 @@ crear_clase_curso
 crear_contacto_chatwoot_lead
 crear_crm
 crear_diseno_imagen
+crear_documento_copywriter
 crear_etiqueta
 crear_evento_calendario
 crear_evento_comunidad
@@ -310,6 +312,7 @@ lead_insiste_con_lo_mismo
 lead_tiene_llamada
 leer_analisis_dashboard
 leer_conclusiones_dashboard
+leer_documento_copywriter
 leer_guion_anuncio
 leer_hoja_dashboard
 leer_resumen_objetivos
@@ -347,6 +350,7 @@ listar_cursos
 listar_dependencias_plan
 listar_disenos_imagen
 listar_disenos_landing
+listar_documentos_copywriter
 listar_etapas_email
 listar_etiquetas
 listar_etiquetas_whatsapp
@@ -449,6 +453,7 @@ ordenar_categorias_comunidad
 ordenar_etapas
 ordenar_modulos_curso
 panorama_closing
+papelera_documento_copywriter
 pasar_comentarios_a_copia_landing
 pausar_landing
 plan_retro
@@ -520,6 +525,7 @@ recuperar_del_segundo_cerebro
 reducir_ruido_video
 reembolsar_cobro
 reemplazar_clip_video
+reemplazar_documento_copywriter
 reemplazar_en_subtitulos_video
 reflejar_clip_video
 registrar_pago_suelto
@@ -527,6 +533,7 @@ registrar_valor_kpi
 reiniciar_personalidad
 remitente_email
 renombrar_curso
+renombrar_documento_copywriter
 renombrar_etapa
 renombrar_landing
 renombrar_modulo_curso
@@ -538,6 +545,7 @@ responder_pregunta_personalidad
 restablecer_informe_dashboard
 restaurar_clase_curso
 restaurar_curso
+restaurar_documento_copywriter
 restaurar_version_landing
 resumen_bandejas_confirmacion
 resumir_marketing_periodo

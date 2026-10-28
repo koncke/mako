@@ -19,6 +19,9 @@ export async function veCopywriter(): Promise<boolean> {
   return !!(await getSesionAdmin());
 }
 
+// La puerta de la API de MaKo (donde no hay sesión que preguntar) vive en lib/copywriter/puerta-api.ts: el día que se
+// abra la tab, se abren las DOS.
+
 /** El guard de las pantallas de escritorio. */
 export async function requireCopywriter(): Promise<void> {
   if (!(await veCopywriter())) redirect(await rutaConWs('/inicio'));

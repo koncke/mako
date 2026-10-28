@@ -16,7 +16,7 @@ import { SegmentadoM, useToastM } from '@/app/m/_ui';
 import { cambiarPagina } from '@/lib/copywriter/arbol';
 import type { GuionAbierto, PaginaCopy } from '@/lib/copywriter/tipos';
 import type { CatalogosCopy } from '@/lib/copywriter/catalogos';
-import { EditorGuion } from '@/app/copywriter/editor/EditorGuion';
+import { EditorGuion, type ApiPagina } from '@/app/copywriter/editor/EditorGuion';
 import { PanelMaKo, type GuionVivo } from '@/app/copywriter/PanelMaKo';
 import { pedirPapelera, pedirRenombrar } from '@/app/copywriter/cliente';
 
@@ -32,7 +32,11 @@ export function GuionM({ ws, guion, catalogos }: { ws: number | null; guion: Gui
   const caja = useRef<HTMLTextAreaElement | null>(null);
   const vivo = useRef<GuionVivo | null>(null);
   const leerVivo = useCallback(() => vivo.current, []);
+  const api = useRef<ApiPagina | null>(null);
+  const leerApi = useCallback(() => api.current, []);
   const avisar = useCallback((t: string) => toast(t), [toast]);
+  // Cuando MaKo empieza a escribir, se ve el guion construyéndose; su «Aceptar» queda en MaKo, con el número arriba.
+  const alPausar = useCallback((p: boolean) => { setPausa(p); if (p) setVista('guion'); }, []);
 
   const renombrar = (c: { titulo?: string; emoji?: string | null }) => {
     void pedirRenombrar(pagina.id, c).then((r) => { if (!r.ok) toast(`No se pudo guardar: ${r.error}`); });
@@ -41,7 +45,7 @@ export function GuionM({ ws, guion, catalogos }: { ws: number | null; guion: Gui
   return (
     <div className="m-copywriter">
       <div className="m-copywriter-seg">
-        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[{ id: 'guion', label: 'Guion' }, { id: 'mako', label: 'MaKo' }]} />
+        <SegmentadoM etiqueta="Vista" valor={vista} onCambio={setVista} opciones={[{ id: 'guion', label: 'Guion' }, { id: 'mako', label: 'MaKo', n: pausa ? 1 : null }]} />
       </div>
       <div className="nt" data-movil="">
         <div hidden={vista !== 'guion'} className="m-copywriter-vista">
@@ -50,10 +54,10 @@ export function GuionM({ ws, guion, catalogos }: { ws: number | null; guion: Gui
             onTitulo={(titulo) => renombrar({ titulo })} onEmoji={(emoji) => { setPagina((p) => ({ ...p, emoji })); renombrar({ emoji }); }}
             onAbrir={() => {}} onPapelera={() => void pedirPapelera(pagina.id).then((r) => { if (r.ok) router.push('/m/copywriter'); else toast(r.error); })}
             onEditor={setEditor} onMako={() => { setVista('mako'); window.setTimeout(() => caja.current?.focus(), 50); }}
-            avisar={avisar} onVivo={(v) => { vivo.current = v; }} />
+            avisar={avisar} onVivo={(v) => { vivo.current = v; }} onApi={(a) => { api.current = a; }} />
         </div>
         <div hidden={vista !== 'mako'} className="m-copywriter-vista">
-          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} campo={caja} onPausa={setPausa} avisar={avisar} />
+          <PanelMaKo ws={ws} guion={guion} paginas={[pagina]} editor={editor} leerVivo={leerVivo} leerApi={leerApi} catalogos={catalogos} campo={caja} onPausa={alPausar} avisar={avisar} />
         </div>
       </div>
     </div>

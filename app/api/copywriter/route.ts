@@ -14,6 +14,7 @@ import { soloAdminDeTab } from '@/lib/puerta-admin-tab';
 import { veCopywriter } from '@/app/copywriter/acceso';
 import { abrir, crear, guardar, listar, mover, papelera, renombrar, restaurar } from '@/lib/copywriter/server';
 import { esTipoGuion } from '@/lib/copywriter/tipos';
+import { listFiles } from '@/lib/archivero';
 
 export const dynamic = 'force-dynamic';
 
@@ -72,6 +73,15 @@ export async function POST(req: Request) {
         return responder(await papelera(texto(b.id)));
       case 'restaurar':
         return responder(await restaurar(texto(b.id)));
+      // Lo que se puede citar con «@» además de los guiones (que la pantalla ya tiene): los archivos de El Archivero.
+      // Sólo id y nombre; lo que El Archivero sacó de cada uno se lee al mandar (lib/copywriter/referencias.ts).
+      case 'citables': {
+        const archivos = await listFiles().then(
+          (fs) => ({ ok: true as const, archivos: fs.map((f) => ({ id: f.id, nombre: f.nombre })) }),
+          (e: unknown) => ({ ok: false as const, error: e instanceof Error ? e.message : String(e), status: 500 }),
+        );
+        return responder(archivos);
+      }
       default:
         return falla(400, 'Acción desconocida');
     }

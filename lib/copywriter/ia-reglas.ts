@@ -81,7 +81,7 @@ export const DISCUTIR_USER = `LO QUE PLANTEA LA PERSONA:
 EL GUION «{{titulo}}» ({{props}}), BLOQUE POR BLOQUE:
 {{guion}}
 
-{{charla}}{{negocio}}{{adjuntos}}`;
+{{charla}}{{referencias}}{{negocio}}{{adjuntos}}`;
 
 /** Las plantillas editables, con su clave (lib/prompt-registry.ts las lista en el grupo «Copywriter»). */
 export const PROMPTS_COPY = {
