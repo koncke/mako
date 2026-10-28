@@ -1614,7 +1614,11 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   de `procesarEventoStripe` (lib/cobros-webhook.ts, `compraDeUnLinkPropio`, el Purchase a Meta) corre sólo cuando el checkout
   NO es un cobro de MaKo, y el de una prueba ni llega ahí: `avisoStripe` ignora antes el `checkout.session.completed` con
   `no_payment_required` (tests/cobros-eventos.test.ts). Esa rama no le manda una compra a Meta por empezar una prueba, ni
-  mira el `invoice.paid` del día 8 (si otro camino, como el lead, le avisa a Meta del cobro, no está medido).
+  mira el `invoice.paid` del día 8 (si otro camino, como el lead, le avisa a Meta del cobro, no está medido). Al unir la punta
+  de Zernio (5a27268bc, la venta externa ya REGISTRA un cobro) la puerta también toma «un cobro externo a medias»
+  (`esCobroExterno`: `creado_por` empieza con `externo:stripe:`), y la prueba sigue afuera por tres lados: el aviso la ignora,
+  `esVentaExterna` corta la metadata de MaKo, y una prueba (`planes:<plan>:prueba`) nunca es externa ni al revés.
+  tests/prueba-stripe-no-es-venta-externa.test.ts lo fija.
 - **El cobro del día 8 con el aviso perdido, ahora lo recupera el cron (28/10).** El cron le preguntaba a Stripe por la SESIÓN
   del checkout, y la de una prueba queda `complete` / `no_payment_required` para siempre: lo que cobra el día 8 es una FACTURA
   de la suscripción. Si el `invoice.paid` se perdía, la plata entraba y el cobro seguía pendiente (sin cuota ni lead ganado);
