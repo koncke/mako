@@ -6,8 +6,8 @@
 //   1. un closer o un setter no recibe la plata del negocio (objetivos, KPIs, clientes ganados): se saca del grafo antes de
 //      recuperar, con sus aristas, porque el grafo en caché es del negocio y no de la persona;
 //   2. el bloque del system va sólo con una vista local: si la pregunta no nombra nada, no suma nada (ni el índice);
-//   3. el turno lo trae en paralelo con el system, lo pone justo después, con la plata filtrada por el rol, y no espera al
-//      grafo más que un rato ni se cae si el grafo falla.
+//   3. el turno lo trae en paralelo con el system (arranca antes de armarlo), lo pone al final del system, con la plata
+//      filtrada por el rol, y no espera al grafo más que un rato ni se cae si el grafo falla.
 //
 // Probado rompiéndolo (28/10/2026): al pie del archivo.
 // =============================================================================
@@ -62,12 +62,12 @@ test('2. el bloque va sólo con una vista local: una pregunta que no nombra nada
   assert.match(b, /Mentoría \[prod:1\] — La mentoría grupal de 12 semanas/);
 });
 
-test('3. el turno lo trae en paralelo, justo después del system, con la plata según el rol, sin esperar de más ni caerse', () => {
+test('3. el turno lo trae en paralelo, al final del system, con la plata según el rol, sin esperar de más ni caerse', () => {
   const t = fuente('lib/mako-turno-app.ts');
-  assert.match(t, /const sinPlata = persona\.rol !== 'admin';/);
-  assert.match(t, /const \[base, segundoCerebro\] = await Promise\.all\(\[\s*buildSystemPrompt\(\{[^\n]*sinNumerosDelNegocio: sinPlata \}\),\s*paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{ sinPlata \}\),\s*\]\);/,
-    'el Second Brain no viaja en el turno, o no lleva el filtro del rol');
-  assert.match(t, /const system = `\$\{base\}\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}\\n\\n\$\{VOZ_APP\}/, 'el bloque no va justo después del system');
+  // Arranca ANTES de armar el system (en paralelo) y se espera después: los dos a la vez.
+  assert.match(t, /const segundoCerebroP = paqueteParaElTurno\(textoPersona \|\| textoMemoria, \{ sinPlata: persona\.rol !== 'admin' \}\);\s*const base = await buildSystemPrompt\([^\n]*\);\s*const segundoCerebro = await segundoCerebroP;/,
+    'el Second Brain no viaja en el turno, no va en paralelo o no lleva el filtro del rol');
+  assert.match(t, /const system = `[^\n]*\$\{segundoCerebro \? `\\n\\n\$\{segundoCerebro\}` : ''\}`;/, 'el bloque no va en el system');
   const c = fuente('lib/cerebro-para-chat.ts');
   const p = c.slice(c.indexOf('export async function paqueteParaElTurno('), c.indexOf('async function armar('));
   assert.match(p, /Promise\.race\(\[\s*grafoParaChat\(\),\s*new Promise<null>\(\(r\) => setTimeout\(\(\) => r\(null\), ESPERA_GRAFO_TURNO_MS\)\),/, 'el turno espera al grafo sin tope');
