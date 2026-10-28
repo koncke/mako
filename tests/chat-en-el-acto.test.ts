@@ -40,6 +40,10 @@ const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 const leer = (r: string) => readFileSync(join(RAIZ, r), 'utf8').replace(/\r\n/g, '\n');
 const bloque = (src: string, desde: string) => { const i = src.indexOf(desde); assert.ok(i >= 0, `no está ${desde}`); const j = src.indexOf('\n  }\n', i); return src.slice(i, j + 4); };
 const LOCAL = 'local_9208f597-8883-41ae-943d-89f9d8040c08';
+// El cartero es JS: TypeScript infiere sus turnos como una unión de literales sin `resumen`, `fin` ni `fondo`. El test los lee
+// con el tipo que el servidor espera (los mismos campos que valida sanearTurnos).
+type TurnoLeido = { uuid: string; rol?: string; inicio?: string; fin?: boolean; resumen?: string; fondo?: boolean; [k: string]: unknown };
+type TurnosDeLineas = (lineas: string[]) => { turnos: TurnoLeido[] };
 
 // ── 1 · el «unexpected JSON» del audio ───────────────────────────────────────────────────────────────────────────────
 
@@ -220,7 +224,7 @@ test('5b. el cartero 1.21.0 sube el resumen del wrap_up con el cierre, y el serv
   const txt = (uuid: string, m: number, t: string) => JSON.stringify({ type: 'assistant', uuid, timestamp: at(m), message: { role: 'assistant', content: [{ type: 'text', text: t }] } });
   const wrap = JSON.stringify({ type: 'assistant', uuid: 'u-wrapup-01', timestamp: at(8), message: { role: 'assistant', content: [{ type: 'tool_use', id: 'toolu_w1', name: 'mcp__ccd_turn__wrap_up', input: { recap: 'Arreglé el CRM: ya no se rompe con un link viejo.' } }] } });
   const fin = JSON.stringify({ type: 'system', subtype: 'stop_hook_summary', uuid: 'fin-1', timestamp: at(10) });
-  const r = c.turnosDeLineas([yo, txt('u-el-voy-01', 1, 'Voy a mirar el CRM.'), wrap, txt('u-el-cierre-2', 9, 'Le pasé la punta al Cerebro.'), fin]);
+  const r = (c.turnosDeLineas as TurnosDeLineas)([yo, txt('u-el-voy-01', 1, 'Voy a mirar el CRM.'), wrap, txt('u-el-cierre-2', 9, 'Le pasé la punta al Cerebro.'), fin]);
   const cierre = r.turnos.find((t: { uuid: string }) => t.uuid === 'u-el-cierre-2');
   assert.equal(cierre?.resumen, 'Arreglé el CRM: ya no se rompe con un link viejo.', 'el resumen del wrap_up se pierde cuando el cierre viene después');
   // Y las marcas de ronda: el primero la abre, el cierre la cierra (lib/centro-chats.ts → completadosDelChat).
@@ -229,7 +233,7 @@ test('5b. el cartero 1.21.0 sube el resumen del wrap_up con el cierre, y el serv
   assert.equal(cierre?.inicio, 'u-el-voy-01');
   assert.equal(cierre?.fin, true, 'el cierre no dice que cierra');
   // El wrap_up como último mensaje ya trae el resumen en su texto: no se repite.
-  const r2 = c.turnosDeLineas([yo, txt('u-el-voy-01', 1, 'Voy a mirar el CRM.'), wrap, fin]);
+  const r2 = (c.turnosDeLineas as TurnosDeLineas)([yo, txt('u-el-voy-01', 1, 'Voy a mirar el CRM.'), wrap, fin]);
   assert.equal(r2.turnos.find((t: { uuid: string }) => t.uuid === 'u-wrapup-01')?.resumen, undefined);
   const [guardado] = sanearTurnos([{ ...cierre, local: LOCAL }]);
   assert.equal(guardado.resumen, 'Arreglé el CRM: ya no se rompe con un link viejo.', 'el servidor tira el resumen');
@@ -254,7 +258,7 @@ test('5c. un turno que termina con trabajo de fondo vivo no es Completado: sigue
   const lanzo = JSON.stringify({ type: 'user', uuid: 'u-res-fondo-1', timestamp: at(2), message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'toolu_x', content: 'Command running in background with ID: bgx123456. Output is being written to: C:/x.output' }] } });
   const fin = (m: number) => JSON.stringify({ type: 'system', subtype: 'stop_hook_summary', uuid: `fin-${m}`, timestamp: at(m) });
   const aviso = JSON.stringify({ type: 'user', uuid: 'u-aviso-fondo', timestamp: at(20), message: { role: 'user', content: '<task-notification>\n<task-id>bgx123456</task-id>\n<status>completed</status>\n</task-notification>' } });
-  const r = c.turnosDeLineas([yo, txt('u-el-fondo-01', 1, 'Voy a correr los tests.'), lanzo, txt('u-el-fondo-02', 3, 'Ya está: los tests corren por detrás.'), fin(4),
+  const r = (c.turnosDeLineas as TurnosDeLineas)([yo, txt('u-el-fondo-01', 1, 'Voy a correr los tests.'), lanzo, txt('u-el-fondo-02', 3, 'Ya está: los tests corren por detrás.'), fin(4),
     aviso, txt('u-el-fondo-03', 21, 'Miro cómo salieron.'), txt('u-el-fondo-04', 22, 'Ya está: los tests dieron verde.'), fin(23)]);
   const cierre = r.turnos.find((t: { uuid: string }) => t.uuid === 'u-el-fondo-02');
   assert.equal(cierre?.fondo, true, 'el turno que terminó con la tarea de fondo viva no lo dice');
