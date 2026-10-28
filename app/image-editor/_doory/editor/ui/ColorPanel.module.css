@@ -42,12 +42,12 @@
   padding: 0;
   border: 0;
   border-radius: 6px; /* Canva: baldosa de color con esquinas redondeadas */
-  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14);
+  box-shadow: inset 0 0 0 1px var(--cv-neutral-pressed);
   color: var(--cv-color-text);
   cursor: pointer;
 }
 .swatch:hover {
-  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px rgb(57 70 96 / 0.2);
+  box-shadow: inset 0 0 0 1px var(--cv-neutral-pressed), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-neutral-strong);
 }
 .swatch:focus-visible {
   outline: none;
@@ -55,7 +55,7 @@
 }
 .on,
 .on:hover {
-  box-shadow: inset 0 0 0 1px rgb(57 70 96 / 0.14), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-selection-color);
+  box-shadow: inset 0 0 0 1px var(--cv-neutral-pressed), 0 0 0 2px var(--cv-color-surface), 0 0 0 4px var(--cv-selection-color);
 }
 
 /* «Agregar un color nuevo»: la baldosa arcoíris de Canva con un «+» blanco */
@@ -68,7 +68,7 @@
 }
 
 .add {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
 }
 
 .none {

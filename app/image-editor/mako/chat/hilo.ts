@@ -35,7 +35,8 @@ export type Mensaje =
       propuesta?: Propuesta; cambios?: CambioImagen[]; descartes?: string[]; estado?: EstadoPropuesta; aviso?: string;
       /** Sólo en memoria: lo que hace falta para «Restaurar». */
       aplicada?: Aplicada;
-      propuestaApi?: { id: string; canal: string };
+      /** Llegó por la API de MaKo (./propuestas.ts): se cierra en la base al resolverla; `cerrada` = la base lo confirmó. */
+      propuestaApi?: { id: string; canal: string; version?: number; cerrada?: boolean };
       links?: Array<{ texto: string; href: string }>;
     };
 export type MensajeMako = Extract<Mensaje, { de: 'mako' }>;
@@ -46,7 +47,14 @@ export type MensajeNuevo = SinId<Mensaje>;
  * `progreso`: lo que se está haciendo mientras `corriendo` («Creando la imagen…» mientras la IA del negocio dibuja una
  * imagen, que tarda de 10 a 90 s). Sólo en memoria: no es un mensaje y no se guarda.
  */
-export type Hilo = { mensajes: Mensaje[]; corriendo: boolean; progreso?: string };
+export type Hilo = {
+  mensajes: Mensaje[]; corriendo: boolean; progreso?: string;
+  /**
+   * El mensaje al que tiene que bajar el panel (el de la propuesta del link `?propuesta=`, ./propuestas.ts). Sólo en
+   * memoria: el panel lo lee, baja hasta ese mensaje, lo resalta y lo limpia (`cambiarHilo(id, (h) => ({ ...h, foco: undefined }), { guardar: false })`).
+   */
+  foco?: string;
+};
 const HILO_VACIO: Hilo = { mensajes: [], corriendo: false };
 
 const hilos = new Map<string, Hilo>();

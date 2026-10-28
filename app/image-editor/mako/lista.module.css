@@ -1,0 +1,192 @@
+/*
+ * La lista de diseños de la tarjeta izquierda (./ListaDisenos.tsx): los valores de la lista de landings del Web Generator
+ * (app/web-generator/editor/paneles/PanelLandings.tsx, `.gma-ls-*`) con los tokens del editor, que son los de la app
+ * (../_doory/styles/tokens.css): se da vuelta sola con el tema oscuro.
+ */
+.lista {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+}
+
+.cab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px;
+}
+
+.busca {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--cv-color-border);
+  border-radius: 10px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: inherit;
+  font-size: 13px;
+}
+
+.busca::placeholder {
+  color: var(--cv-color-text-subtle);
+}
+
+.busca:focus-visible {
+  outline: none;
+  border-color: var(--cv-color-brand);
+  box-shadow: var(--cv-focus-ring);
+}
+
+.mako {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mako:hover {
+  background: var(--cv-neutral-hover);
+}
+
+.items {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+}
+
+/* Un renglón: la miniatura y el nombre; el que cede es el nombre (AGENTS.md, «declará quién CEDE»). */
+.item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--cv-color-text);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+.item:hover {
+  background: var(--cv-neutral-hover);
+}
+
+.item[aria-current='true'] {
+  background: var(--cv-selected-bg);
+  color: var(--cv-selected-text);
+  font-weight: 600;
+}
+
+.nombre {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nuevo {
+  margin-bottom: 4px;
+  border: 1px dashed var(--cv-color-border-strong);
+  color: var(--cv-color-text-muted);
+}
+
+.nuevo[aria-current='true'] {
+  border-style: solid;
+  border-color: transparent;
+}
+
+.icono,
+.mini {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+}
+
+.mini {
+  overflow: hidden;
+  background: var(--cv-color-bg-subtle);
+}
+
+.mini img {
+  max-width: 26px;
+  max-height: 26px;
+  object-fit: contain;
+}
+
+/* La hoja en blanco de un diseño sin miniatura: es CONTENIDO (la página), por eso blanca en los dos temas. */
+.hoja {
+  display: block;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px var(--cv-color-border);
+}
+
+.aviso {
+  padding: 12px;
+  font-size: 13px;
+  color: var(--cv-color-text-muted);
+}
+
+.reintentar {
+  margin-left: 4px;
+  padding: 2px 8px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: 8px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.pie {
+  flex: none;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--cv-color-border);
+}
+
+.verTodo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cv-color-text-muted);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.verTodo:hover {
+  color: var(--cv-color-text);
+  text-decoration: underline;
+}
+
+@media (pointer: coarse) {
+  .item {
+    min-height: 44px;
+  }
+}

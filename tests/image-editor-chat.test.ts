@@ -443,7 +443,9 @@ test('24: el botón redondo del riel abre el chat (ya no es «Próximamente»), 
   assert.match(barra, /p\.id === PANEL_IA/);
   assert.match(barra, /const tools = rail\.length > 0 \? \[\.\.\.rail, \.\.\.ia\] : all/);
   const registro = leer('app/image-editor/mako/registro.ts');
-  assert.match(registro, /id: PANEL_IA,[\s\S]*component: PanelMakoIA,[\s\S]*requires: \(\{ state \}\) => !state\.readOnly/);
+  // Desde el 27/10/2026 la hoja es la tarjeta entera (el chat, con la «←» a tus diseños): editor/TarjetaLateral.tsx.
+  assert.match(registro, /id: PANEL_IA,[\s\S]*component: TarjetaLateral,[\s\S]*requires: \(\{ state \}\) => !state\.readOnly/);
+  assert.match(leer('app/image-editor/editor/TarjetaLateral.tsx'), /return <PanelMakoIA \/>;/, 'sin la lista elegida, la tarjeta es el chat');
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

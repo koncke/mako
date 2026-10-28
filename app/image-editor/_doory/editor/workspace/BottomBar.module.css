@@ -59,12 +59,12 @@
 }
 .textBtn[aria-pressed='true'],
 .iconBtn[aria-pressed='true'] {
-  background: rgb(163 112 252 / 0.15); /* Canva: elegido #A370FC26 */
+  background: var(--cv-selected-bg); /* Canva: elegido #A370FC26 */
   color: var(--cv-violet-800); /* Canva: texto elegido #4A2E7E */
 }
 .textBtn[aria-pressed='true']:active,
 .iconBtn[aria-pressed='true']:active {
-  background: rgb(163 112 252 / 0.2); /* Canva: elegido presionado #A370FC33 */
+  background: var(--cv-selected-bg-pressed); /* Canva: elegido presionado #A370FC33 */
 }
 .textBtn:focus-visible,
 .iconBtn:focus-visible {
@@ -130,10 +130,10 @@
   box-shadow: var(--cv-shadow-sm);
 }
 .slider:active::-webkit-slider-thumb {
-  box-shadow: 0 0 0 4px #ebdcff;
+  box-shadow: 0 0 0 4px var(--cv-color-brand-soft);
 }
 .slider:active::-moz-range-thumb {
-  box-shadow: 0 0 0 4px #ebdcff;
+  box-shadow: 0 0 0 4px var(--cv-color-brand-soft);
 }
 .slider:focus-visible {
   outline: none;
@@ -160,7 +160,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
 }
 .percent:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar #1C213080 */
+  border-color: var(--cv-color-border-hover); /* Canva: borde de campo al pasar #1C213080 */
 }
 .percent[aria-expanded='true'] {
   border-color: var(--cv-selection-color);

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { useRouter } from "@/app/_ui/Link";
-import { rutaEditor } from "@/app/video-editor/ruta";
+import { useProyectoAbierto } from "@/app/video-editor/_opencut/inicio/proyecto-abierto";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
 import { useActionHandler } from "@/app/video-editor/_opencut/actions/use-action-handler";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
@@ -81,7 +80,7 @@ let colorMarcador = 0;
 
 export function useEditorActions() {
 	const editor = useEditor();
-	const router = useRouter();
+	const proyectoAbierto = useProyectoAbierto();
 	const { importar } = useImportarArchivos();
 	const { selectedElements, setElementSelection } = useElementSelection();
 	const { selectedKeyframes, clearKeyframeSelection } = useKeyframeSelection();
@@ -703,17 +702,12 @@ export function useEditorActions() {
 		undefined,
 	);
 
+	// El inicio EN EL LUGAR, sin navegar (27/10/2026, ../marco.tsx): al desmontarse, el editor guarda la miniatura y el
+	// último cambio (editor-page.tsx), lo que hacía «Exit project». El proyecto queda abierto para volver.
 	useActionHandler(
 		"volver-inicio",
-		async () => {
-			try {
-				await editor.project.prepareExit();
-			} catch (error) {
-				console.error("Failed to prepare project exit:", error);
-			} finally {
-				editor.project.closeProject();
-				router.push(rutaEditor("/video-editor"));
-			}
+		() => {
+			proyectoAbierto.verInicio();
 		},
 		undefined,
 	);

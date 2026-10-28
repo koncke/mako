@@ -5,8 +5,9 @@
 // =============================================================================
 // Pestañas «Diseños» y «Carpetas» (Carpetas: todavía no; ver hallazgos-editor-imagen.md). Cada
 // diseño se ve con su miniatura y su nombre; un clic guarda el actual y abre el
-// otro (`rutaDiseno`, con el `?ws=` de la pestaña). En Canva el clic AGREGA las
-// páginas de ese diseño al actual; acá abre, que es lo que pidió el plano de la tanda 2.
+// otro EN EL MISMO LUGAR (el estudio, ../editor/Estudio.tsx, 27/10/2026: antes recargaba en otra ruta). En Canva el clic
+// AGREGA las páginas de ese diseño al actual; acá abre, que es lo que pidió el plano de la tanda 2. En la pantalla chica
+// es la pestaña de la tira de abajo: ahí no está la tarjeta con la lista, y ésta es la lista.
 //
 // Los diseños son los del workspace de la pestaña, en la base (/api/image-editor/disenos,
 // mig 0278): el `?ws=` lo pone `WsFetch` en el pedido y el server decide con `getWorkspaceActual`.
@@ -16,6 +17,7 @@ import { useEditor, type EditorEngine } from '../_doory/editor/extensions';
 import type { ResumenDiseno } from '@/lib/image-editor/tipos';
 import { listarDisenos } from './nube';
 import { rutaDiseno } from '../ruta';
+import { useEstudio } from '../editor/estudio';
 import styles from './proyectos.module.css';
 
 type Pestana = 'disenos' | 'carpetas';
@@ -48,6 +50,7 @@ function Tarjeta({ d, abierto, abriendo, onAbrir }: { d: ResumenDiseno; abierto:
 }
 
 function Disenos({ editor }: { editor: EditorEngine }) {
+  const estudio = useEstudio();
   const [carga, setCarga] = useState<Carga>({ estado: 'cargando' });
   const [abriendo, setAbriendo] = useState<string | null>(null);
   const actual = editor.designId;
@@ -65,8 +68,13 @@ function Disenos({ editor }: { editor: EditorEngine }) {
   async function abrir(id: string): Promise<void> {
     if (id === actual || abriendo) return;
     setAbriendo(id);
+    // Desde el 27/10/2026, en el MISMO lugar (Martín: «que no cambie de ruta»): el estudio guarda lo pendiente y monta el
+    // otro diseño. Fuera del estudio (un banco de pruebas), como antes: guardar y recargar en la otra ruta.
+    if (estudio) {
+      estudio.abrir(id);
+      return;
+    }
     try {
-      // Lo que esté sin guardar se guarda antes de irse (la navegación recarga la página).
       await editor.persistence.saveNow();
     } catch {
       /* si no se pudo guardar, el aviso de «sin guardar» del navegador decide */

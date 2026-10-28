@@ -160,6 +160,36 @@ export function esPedidoDiseno(n: string): boolean {
   return PEDIDO_DISENO.test(t);
 }
 
+// ── EL PEDIDO DE EDITAR UN VIDEO O UN DISEÑO (el Video Editor y el Image Editor, 27/10/2026) ─────────────────────
+// Martín (27/10/2026): «si una persona quiere editar lo que sea debería poder. Con prompts en mako». Medido ese día con el
+// turno que CORRE (tests/editores-por-prompt.test.ts): por WhatsApp, «recorta el clip 2 segundos», «sube el volumen de la
+// música del video» o «voltea la imagen del diseño» salían `capturar` (se anotaban como idea, sin una herramienta), y sólo
+// pasaban los que arrancaban con un voseo de `ACCION_CUENTA_RE` («cambiá», «subí», «borrá»). Mismo molde que el diseño:
+// un verbo de EDITAR al arranque (tú o vos: el texto ya viene sin tildes) y una pieza del editor, sin un objeto de otra
+// área en el medio. Lleva el área (el pedido no siempre la nombra: «el motion», «el flyer») y la relevancia vacía: las
+// operaciones del editor se ordenan contra el texto, que nombra la que se pide.
+const VERBO_EDITAR = '(?:cambia|pon|pone|agrega|suma|saca|quita|borra|elimina|recorta|corta|divid[ei]|parti|parte|sub[ei]|baja|silencia|duplica|mueve|move|centra|alinea|gira|rota|voltea|oculta|esconde|agranda|achica|aplica|acelera|ralentiza|pasa|crea|genera|hace|haz|edita|manda|trae|deja|usa|reemplaza|ajusta|arregla|dibuja)(?:me|le|les|lo|la|los|las|nos|mela|melo|selo|sela)?';
+const QUIERE_EDITAR = '(?:(?:me\\s+)?(?:puedes|podes|podrias|quiero que|necesito que)\\s+(?:me\\s+|le\\s+)?)?';
+/** Las piezas del Video Editor (sin «audio», que es también un audio de WhatsApp, ni «reel», que es del calendario). */
+const PIEZA_VIDEO = /\b(?:videos?|clips?|subtitulos?|motion(?:s| graphics?)?|lienzo|transicion(?:es)?|musica|cancion|linea de tiempo|camara lenta)\b/;
+/** Las del Image Editor, y una imagen que se pide crear o editar con IA. */
+const PIEZA_DISENO = /\b(?:disenos?|flyers?|volantes?|banners?|ilustracion(?:es)?)\b|\b(?:imagen(?:es)?|fotos?)\s+(?:\S+\s+){0,5}?con ia\b|^(?:crea|genera|hace|haz|dibuja)(?:me|nos)?\s+(?:una?\s+)?(?:imagen|ilustracion|foto)\b/;
+/** Lo que es de otra área aunque nombre una pieza («una tarea para el video», «la reunión del flyer»). */
+const OTRA_AREA_EDITOR = /\b(?:tareas?|recordatorios?|notas?|reunion(?:es)?|llamadas?|citas?|eventos?|visitas?|automatizacion(?:es)?|flujos?|landing|leads?|anuncios?|campanas?|guion(?:es)?|avatar)\b/;
+const PEDIDO_EDITAR_PIEZA = new RegExp(`^${QUIERE_EDITAR}${VERBO_EDITAR}\\b`);
+
+/**
+ * ¿Le pide a MaKo que EDITE un video del Video Editor o un diseño del Image Editor? Devuelve el área, o null (sobre el
+ * texto normalizado: sin tildes y en minúsculas). Un diseño gana si nombra las dos piezas («poné el video en el flyer»).
+ */
+export function esPedidoDeEditar(n: string): 'video' | 'imagen' | null {
+  const t = n.replace(PRELUDIO, '').trim();
+  if (!t || t.length > 600 || ARRANCA_PREGUNTANDO.test(t) || !PEDIDO_EDITAR_PIEZA.test(t) || OTRA_AREA_EDITOR.test(t)) return null;
+  if (PIEZA_DISENO.test(t)) return 'imagen';
+  if (PIEZA_VIDEO.test(t)) return 'video';
+  return null;
+}
+
 // ── EL PEDIDO SOBRE UNA LANDING DEL WEB GENERATOR (por WhatsApp) ───────────────────────────────────
 // El BLOQUEANTE de la tanda 4 del editor (docs/hallazgos-editor-landing.md, «esPedidoDeLanding»): medido el 14/10/2026
 // con el turno que CORRE, «publicá la landing del webinar», «despublicá…», «sacá de internet…» y «creame una landing de
@@ -1253,6 +1283,17 @@ export function clasificarIntencion(
   //            default dudoso, sin herramientas. Lleva su área y su relevancia, como la automatización.
   if (esPedidoDiseno(nPersona)) {
     return { intencion: 'actuar', dudosa: false, porque: 'pedido de crear un diseño', areas: ['imagen'], relevancia: RELEVANCIA_DISENO };
+  }
+
+  // 6-bis-ter) Un pedido de EDITAR un video o un diseño (ver `esPedidoDeEditar`, 27/10/2026): por WhatsApp se anotaba como
+  //            idea. Lleva el área; en la app, además, lo de la familia y la búsqueda en todo el registro.
+  const editorPedido = esPedidoDeEditar(nPersona);
+  if (editorPedido) {
+    const areasApp = ctx.canal === 'app' && fam ? fam.areas : [];
+    return {
+      intencion: 'actuar', dudosa: false, ...deLaApp, porque: `pedido de editar ${editorPedido === 'video' ? 'un video' : 'un diseño'}`,
+      areas: [...new Set([editorPedido, ...areasApp])],
+    };
   }
 
   // 6-ter) Un pedido de agenda: crear, mover, cambiar o cancelar una reunión (ver

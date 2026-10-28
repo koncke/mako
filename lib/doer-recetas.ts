@@ -8,6 +8,7 @@
 
 import { EJEMPLO_BORRADOR, EJEMPLO_LEAD } from './respuesta-doer';
 import { OPERACIONES_API } from './editor-video/chat-api';
+import { OPERACIONES_API_IMAGEN } from './image-editor/chat/api';
 
 /**
  * ⚠️ LAS RECETAS VIAJAN CON SU HERRAMIENTA, NO SIEMPRE.
@@ -93,7 +94,7 @@ const RECETA_PLAN = `CUANDO TE PASA UNA LISTA DE TAREAS PARA EL PLAN (aunque ven
 // Cada una viaja con su herramienta: la del editor sólo con sus ESCRITURAS (en una pregunta, que
 // trae lecturas, no pesa), la del Generator con sus lecturas (el saldo y el puente son de ahí).
 
-/** Las 34 escrituras del Video Editor (lib/editor-video/chat-api.ts): todas dejan una PROPUESTA. */
+/** Las escrituras del Video Editor (lib/editor-video/chat-api.ts, una por operación de su chat): todas dejan una PROPUESTA. */
 export const ESCRITURAS_EDITOR_VIDEO: ReadonlySet<string> = new Set(OPERACIONES_API.map((o) => o.id));
 
 /** Lo del Video Generator y el puente a Flow. Un test exige que toda operación de video del registro esté en uno de estos grupos. */
@@ -103,21 +104,24 @@ export const OPERACIONES_GENERADOR_VIDEO: ReadonlySet<string> = new Set([
   'ver_saldo_flow', 'calcular_alcance_anuncio', 'ver_puente_flow', 'listar_trabajos_flow',
 ]);
 
-/** Las escrituras del Image Editor (lib/api-mako/areas/imagen.def.ts). */
-export const ESCRITURAS_IMAGEN: ReadonlySet<string> = new Set(['crear_diseno_imagen', 'cambiar_textos_diseno_imagen', 'duplicar_diseno_imagen', 'borrar_diseno_imagen']);
+/** Las escrituras del Image Editor (lib/api-mako/areas/imagen.def.ts), con las de su chat «MaKo IA» (27/10/2026, todas proponen). */
+export const ESCRITURAS_IMAGEN: ReadonlySet<string> = new Set([
+  'crear_diseno_imagen', 'cambiar_textos_diseno_imagen', 'duplicar_diseno_imagen', 'borrar_diseno_imagen',
+  ...OPERACIONES_API_IMAGEN.map((o) => o.id),
+]);
 
 const RECETA_VIDEO_EDITOR = `EL VIDEO EDITOR: el proyecto vive en el navegador de quien lo editó y tú lees una COPIA, que puede estar vieja. Antes de cualquier cambio usa 'listar_proyectos_video' y 'ver_proyecto_video'. Las refs (v1, t2), los medios (m1) y los ids de transiciones, filtros y fuentes se copian EXACTOS de esa vista: nunca los inventes.
 SI FALTA UN DATO QUE CAMBIA EL RESULTADO, PREGUNTA UNA SOLA COSA con 2 o 3 opciones sacadas de los datos reales (con 'preguntar_al_usuario' si la tienes) y no propongas nada hasta tener la respuesta:
 - Qué proyecto, si hay más de uno o te dicen «el video» sin nombre: ofrece los 3 más recientes.
 - Cuánto cortar y dónde, si no te lo dicen («corta el principio»): ofrece cortes concretos con los clips y sus tiempos.
 - Un texto que es un hecho (fecha, precio, dirección, hora): pídelo, nunca lo rellenes.
-Todo cambio queda PROPUESTO hasta que una persona lo acepta en el editor: ⛔ nunca digas «listo», «aplicado» ni «ya está». El link lo pone el sistema: no lo escribas. ⛔ No borres un proyecto: no hay papelera. Lo que el editor no puede por chat (quitar el fondo, borrar silencios, exportar, música de biblioteca) se DICE así, no se simula.`;
+Todo cambio queda PROPUESTO hasta que una persona lo acepta en el editor: ⛔ nunca digas «listo», «aplicado» ni «ya está». El link lo pone el sistema: no lo escribas. ⛔ No borres un proyecto: no hay papelera. Lo que el editor no puede por chat (borrar silencios, exportar, música de biblioteca, chroma key) se DICE así, no se simula.`;
 
 const RECETA_VIDEO_GENERADOR = `EL VIDEO GENERATOR: antes de prometer algo que genere, mira 'estado_onboarding_video', 'ver_contexto_video' y 'ver_puente_flow'. Antes de filmar, 'ver_saldo_flow' y 'calcular_alcance_anuncio': créditos null quiere decir que NUNCA se leyó, no que tenga cero; di la fecha de la lectura. El guion sale de Ads Writer ('listar_guiones_para_video') y va LITERAL: aquí no se escriben guiones. Qué guion, qué formato y qué lugar se preguntan con 2 o 3 opciones. ⛔ Filmar gasta créditos de Flow del cliente: una toma por vez, con el costo dicho («N créditos, te quedan M, leído el …»), nunca en lote, y una toma que falló no se reintenta sola. ⛔ Nunca muestres un prompt.`;
 
 const RECETA_AVATAR = `AI AVATAR: mira 'ver_avatares' antes de hablar de looks. Una cara o una voz se usan sólo con la autorización de su dueño, y no afirmes que la cara de marca es la del dueño. Antes de clonar una voz, el consentimiento explícito. ⛔ No digas que el avatar habla con la voz clonada: eso no está hecho. La voz usa el ElevenLabs del cliente, nunca el de la plataforma.`;
 
-const RECETA_IMAGEN = `EL IMAGE EDITOR: mira 'listar_disenos_imagen' y 'ver_diseno_imagen' antes de cambiar textos; 'listar_plantillas_imagen' trae primero las sugeridas para el negocio. Si falta qué diseño o el tamaño (post, story o banner), PREGUNTA UNA cosa con 2 o 3 opciones. Los textos que son hechos (fecha, precio, dirección) se piden, no se inventan, y si un hueco de la plantilla queda con el texto de ejemplo, DILO. No hay kit de marca (logo, colores): no lo prometas. Lo que el chat no puede (cambiar colores, poner el logo, descargar) se dice así. ⛔ Nunca metas datos de leads en un diseño.`;
+const RECETA_IMAGEN = `EL IMAGE EDITOR: mira 'listar_disenos_imagen' y 'ver_diseno_imagen' antes de cambiar algo; las refs de elementos y páginas (t3k, f0z, i7q, p…) se copian EXACTAS de su vista: nunca las inventes. 'listar_plantillas_imagen' trae primero las sugeridas para el negocio. Si falta qué diseño o el tamaño (post, story o banner), PREGUNTA UNA cosa con 2 o 3 opciones. Los textos que son hechos (fecha, precio, dirección) se piden, no se inventan, y si un hueco de la plantilla queda con el texto de ejemplo, DILO. Los cambios por ref quedan PROPUESTOS hasta que una persona los acepta en el editor: ⛔ nunca digas «listo» ni «aplicado». Crear o editar una imagen con IA se cobra en la cuenta del negocio: dilo antes. No hay kit de marca (logo): no lo prometas. Lo que el chat no puede (poner una foto de Subidos, quitar el fondo, descargar) se dice así. ⛔ Nunca metas datos de leads en un diseño.`;
 
 /**
  * Las recetas que viajan en ESTE turno: cada una sólo si viaja la herramienta que la usa.

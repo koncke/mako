@@ -40,8 +40,8 @@
 - **Closing Analyst** (`closing`): `panorama_closing` · `metricas_closers` · `factores_cierre` · `tendencia_score` · `embudo_closing` · `estado_analisis_lead` · `lead_tiene_llamada` · `analizar_llamadas_lead` · `adjuntar_grabaciones_fathom`
 - **El negocio (onboarding, Second Brain, conocimiento)** (`negocio`): `contexto_negocio` · `ver_perfil_negocio` · `ver_archivero` · `ver_diagnostico_fase` · `listar_preguntas_diagnostico_fase` · `ver_estado_onboarding` · `ver_mi_plan` · `dar_de_baja_mi_plan` · `ver_mi_prueba` · `empezar_mi_plan_ya` · `ver_mi_programa_partners` · `hacerme_partner` · `cambiar_cobro_partners` · `listar_tabs_por_configurar` · `listar_avatares_negocio` · `listar_lead_magnets` · `ver_personalidad_voz` · `buscar_en_segundo_cerebro` · `leer_segundo_cerebro_como_archivos` · `indice_segundo_cerebro` · `recuperar_del_segundo_cerebro` · `ver_glosario_negocio` · `buscar_conocimiento` · `buscar_tutorial` · `responder_pregunta_personalidad` · `guardar_campo_perfil` · `borrar_documento_archivero` · `guardar_diagnostico_fase` · `generar_avatares` · `afinar_avatares` · `editar_avatar_negocio` · `borrar_avatar_negocio` · `generar_lead_magnets` · `editar_lead_magnet` · `sugerir_productos` · `borrar_producto` · `guardar_muletillas_marca` · `reiniciar_personalidad` · `cerrar_paso_onboarding` · `marcar_paso_onboarding_tab`
 - **Content Machine** (`contenido`): `listar_anuncios_planteados` · `ver_anuncio_planteado` · `listar_guiones_anuncio` · `leer_guion_anuncio` · `cobertura_guiones_anuncio` · `catalogo_angulos_guion` · `catalogo_estructuras_guion` · `listar_formatos_creativo` · `opciones_siguiente_paso_guion` · `estado_contexto_contenido` · `estado_onboarding_contenido` · `limites_formato_instagram` · `mover_estado_guion_anuncio` · `elegir_formato_creativo_anuncio` · `escribir_guion_anuncio` · `editar_texto_guion_anuncio` · `borrar_guion_anuncio`
-- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `agregar_motion_video` · `editar_motion_video`
-- **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen`
+- **Video Generator** (`video`): `ver_puente_flow` · `listar_trabajos_flow` · `listar_anuncios_video` · `ver_anuncio_video` · `ver_montaje_anuncio` · `contar_escenarios_reusables` · `listar_guiones_para_video` · `listar_formatos_video` · `listar_lugares_grabacion` · `listar_plantillas_video` · `listar_proyectos_video` · `ver_proyecto_video` · `ver_contexto_video` · `ver_voz_cliente` · `ver_avatares` · `estado_onboarding_video` · `agregar_texto_video` · `cambiar_texto_video` · `reemplazar_clip_video` · `borrar_elementos_video` · `mover_elemento_video` · `cambiar_duracion_video` · `dividir_clip_video` · `recortar_clip_video` · `cambiar_volumen_video` · `silenciar_clip_video` · `poner_fundido_video` · `reducir_ruido_video` · `normalizar_audio_video` · `separar_audio_video` · `ocultar_elemento_video` · `cambiar_velocidad_video` · `poner_transicion_video` · `poner_animacion_video` · `poner_filtro_video` · `poner_efecto_video` · `agregar_capa_efecto_video` · `ajustar_color_video` · `cambiar_estilo_texto_video` · `transformar_elemento_video` · `reflejar_clip_video` · `revertir_clip_video` · `congelar_cuadro_video` · `reemplazar_en_subtitulos_video` · `resaltar_palabras_video` · `generar_subtitulos_video` · `cortar_frase_video` · `cortar_tramo_video` · `eliminar_muletillas_video` · `usar_plantilla_video` · `agregar_motion_video` · `editar_motion_video` · `duplicar_elemento_video` · `quitar_fondo_video` · `fondo_lienzo_video` · `formato_lienzo_video` · `agregar_medio_video`
+- **Image Editor (diseños)** (`imagen`): `listar_disenos_imagen` · `ver_diseno_imagen` · `listar_plantillas_imagen` · `crear_diseno_imagen` · `cambiar_textos_diseno_imagen` · `duplicar_diseno_imagen` · `borrar_diseno_imagen` · `estilo_texto_imagen` · `agregar_texto_imagen` · `mover_elemento_imagen` · `tamano_elemento_imagen` · `rotar_elemento_imagen` · `opacidad_elemento_imagen` · `color_elemento_imagen` · `borde_elemento_imagen` · `borrar_elementos_imagen` · `duplicar_elemento_imagen` · `capa_elemento_imagen` · `alinear_elementos_imagen` · `bloquear_elemento_imagen` · `fondo_pagina_imagen` · `agregar_pagina_imagen` · `borrar_pagina_imagen` · `agregar_forma_imagen` · `crear_imagen_ia` · `editar_imagen_ia` · `voltear_elemento_imagen` · `ocultar_elemento_imagen`
 - **Integraciones** (`integraciones`): `ver_integraciones` · `ver_integracion` · `probar_conexion_integracion` · `ver_estado_google_calendar` · `ver_cuotas_ia` · `ver_activacion_tab` · `ver_estado_agente_claude` · `ver_ia_del_negocio` · `como_conectar` · `ver_conexion_meta` · `elegir_cuenta_meta` · `elegir_pixel_meta` · `elegir_pagina_meta` · `probar_capi_meta` · `link_configurar_integracion`
 - **Cuenta, equipo y notificaciones** (`equipo`): `ver_workspace` · `ver_zona_horaria_workspace` · `ver_preferencias_notificaciones` · `listar_avisos_disponibles` · `esta_aviso_activo` · `ver_estado_plantilla_reporte` · `fijar_zona_horaria_workspace` · `configurar_reporte` · `configurar_seccion_reporte` · `configurar_aviso_whatsapp` · `asegurar_plantilla_reporte` · `ver_horario_envio` · `renombrar_negocio` · `configurar_horario_envio`
 - **Curso (módulos y clases)** (`curso`): `listar_cursos` · `ver_curso` · `ver_clase_curso` · `duplicar_curso` · `renombrar_curso` · `eliminar_curso` · `restaurar_curso` · `crear_modulo_curso` · `renombrar_modulo_curso` · `ordenar_modulos_curso` · `crear_clase_curso` · `editar_clase_curso` · `mover_clase_curso` · `borrar_clase_curso` · `restaurar_clase_curso` · `ver_acceso_curso` · `dar_acceso_curso` · `quitar_curso_del_acceso` · `cortar_acceso_curso` · `habilitar_acceso_curso` · `crear_alumno_curso`
@@ -14045,7 +14045,7 @@ curl -L \
 
 ## Video Generator — `video`
 
-Tab **Video Generator** (`/video-generator`). 16 lecturas · 36 acciones.
+Tab **Video Generator** (`/video-generator`). 16 lecturas · 41 acciones.
 
 ### `GET /api/v1/video/flow/conexion` — Conexión con Google Flow
 
@@ -15582,9 +15582,162 @@ curl -L \
   -d '{"ref":"REF","valores":[]}'
 ```
 
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/duplicar` — Duplicar un clip o elemento
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Hace una copia de un elemento, como «Duplicar» (Ctrl+D): en el mismo tramo, en una pista nueva arriba. La copia no tiene ref en este pedido.
+
+- **Ruta por operación:** `POST /api/v1/video/duplicar_elemento_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/duplicar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/quitar-fondo` — Eliminar el fondo de un clip
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Eliminar fondo» automático de un clip de video o imagen: deja sólo a la persona ("activo":true); false lo devuelve. Recorta personas, no objetos.
+
+- **Ruta por operación:** `POST /api/v1/video/quitar_fondo_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `ref` | string | sí | La ref del elemento en la línea de tiempo (v1, i2, t3, a4…), de ver_proyecto_video; o una nueva («n1») que otra operación de la MISMA propuesta agregó. |
+| `activo` | boolean | sí | true deja sólo a la persona; false le devuelve su fondo. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/quitar-fondo" \
+  -d '{"ref":"REF","activo":true}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/fondo-lienzo` — Fondo del lienzo: color o desenfoque
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Lo que se ve detrás de los clips que no llenan el cuadro (Básico › Lienzo): "color" (#RRGGBB), o "desenfoque" (1 a 4) para el mismo video desenfocado. Es del video entero ("lienzo" en la vista).
+
+- **Ruta por operación:** `POST /api/v1/video/fondo_lienzo_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `color` | string | no | Un color #RRGGBB. Va «color» o «desenfoque». |
+| `desenfoque` | number | no | De 1 a 4: el mismo video, desenfocado. Va «color» o «desenfoque». |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/fondo-lienzo"
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/formato-lienzo` — Relación vertical, cuadrada o apaisada
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. «Relación» del cuadro: "relacion" es "original", "16:9", "9:16", "1:1", "4:3", "3:4", "2:1", "2.35:1", "1.85:1", "5.8in" ("9:16" vertical para historias y reels, "1:1" cuadrado, "16:9" apaisado; "original" = la del primer clip). No mueve los clips.
+
+- **Ruta por operación:** `POST /api/v1/video/formato_lienzo_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `relacion` | string (original \\| 16:9 \\| 9:16 \\| 1:1 \\| 4:3 \\| 3:4 \\| 2:1 \\| 2.35:1 \\| 1.85:1 \\| 5.8in) | sí | 9:16 vertical, 1:1 cuadrado, 16:9 apaisado; original = la del primer clip. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/formato-lienzo" \
+  -d '{"relacion":"original"}'
+```
+
+### `POST /api/v1/video/proyectos/{proyecto}/propuestas/agregar-medio` — Agregar un medio de Multimedia
+
+PROPONE en un proyecto del Video Editor; NO lo aplica: el proyecto vive en el navegador de quien lo edita y se acepta en el editor, como un cambio de su chat «Editar con IA» (devuelve el link). Las refs, los medios y los nombres válidos salen de ver_proyecto_video, y lo que se propone en el mismo canal se junta en UNA propuesta. Pone en la línea de tiempo un video o una foto de "medios" ("medio": su ref), como el ⊕ de Multimedia: en el segundo "inicio", en la principal si ahí está libre y si no en una pista arriba. "duracion" opcional: una foto dura 5 s si no la pones; un video, lo que dura (no más). "ref" nueva opcional ("n1"…).
+
+- **Ruta por operación:** `POST /api/v1/video/agregar_medio_video`
+- **Token detallado:** permiso `video=write` (Lectura y escritura en «Video Generator»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/video-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del proyecto; la línea de tiempo la cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Requiere la tab:** video-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `proyecto` | string | sí | El proyecto: su nombre como se ve en el editor, o su id (de listar_proyectos_video). Si no se encuentra, la respuesta lista los proyectos. |
+| `medio` | string | sí | La ref del medio de Multimedia («m1», «m2»…), de "medios" en ver_proyecto_video. |
+| `inicio` | number | sí | En qué segundo empieza. |
+| `duracion` | number | no | Opcional: una foto dura 5 s; un video, lo que dura. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta la cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/video/proyectos/PROYECTO/propuestas/agregar-medio" \
+  -d '{"medio":"MEDIO","inicio":0}'
+```
+
 ## Image Editor (diseños) — `imagen`
 
-Tab **Image** (`/image-editor`). 3 lecturas · 4 acciones.
+Tab **Image** (`/image-editor`). 3 lecturas · 25 acciones.
 
 ### `GET /api/v1/imagen/disenos` — Ver los diseños del Image Editor
 
@@ -15612,7 +15765,7 @@ curl -L \
 
 ### `GET /api/v1/imagen/disenos/{disenoId}` — Ver los textos de un diseño
 
-Un diseño del Image Editor: título, tamaño y los TEXTOS de cada página, en orden (sin estilos ni posiciones), más el link para abrirlo. Úsala antes de cambiar_textos_diseno_imagen, para pasar los textos tal como están.
+Un diseño del Image Editor: título, tamaño, los TEXTOS de cada página en orden, el link para abrirlo y la VISTA que lee su chat: cada página y elemento con su ref (p… página, t texto, f forma, i imagen, l línea, g grupo), medidas en px, color, estilo y si está bloqueado u oculto. Úsala antes de cambiar_textos_diseno_imagen (los textos tal cual) y antes de proponer un cambio por ref.
 
 - **Ruta por operación:** `GET /api/v1/imagen/ver_diseno_imagen`
 - **Token detallado:** permiso `imagen=read` (Solo lectura en «Image Editor (diseños)»)
@@ -15775,6 +15928,715 @@ curl -L \
   -H "Authorization: Bearer <TU-TOKEN>" \
   -H "X-MaKo-Api-Version: 2026-10-08" \
   "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID"
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/estilo-texto` — Estilo de un texto del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Cambia el estilo de un texto: "fuente" (el nombre de una fuente; mejor una de "fuentes_sugeridas" o la que ya usa el diseño), "tamano" (px), "color" (#RRGGBB), "negrita", "cursiva", "subrayado" (true o false), "alineacion" (izquierda, centro, derecha, justificado), "mayusculas" (ninguno, mayusculas, minusculas, titulo, oracion), "interlineado" (0.5 a 4) y "espaciado" (-200 a 1000, entre letras). Sólo los que cambian. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/estilo_texto_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `fuente` | string | no | Opcional: el nombre de una fuente del editor. |
+| `tamano` | number | no | Opcional: en px, de 4 a 800. |
+| `color` | string | no | Opcional: #RRGGBB. |
+| `negrita` | boolean | no | Opcional. |
+| `cursiva` | boolean | no | Opcional. |
+| `subrayado` | boolean | no | Opcional. |
+| `alineacion` | string (izquierda \\| centro \\| derecha \\| justificado) | no | Opcional. |
+| `mayusculas` | string (ninguno \\| mayusculas \\| minusculas \\| titulo \\| oracion) | no | Opcional. |
+| `interlineado` | number | no | Opcional: de 0.5 a 4. |
+| `espaciado` | number | no | Opcional: entre letras, de -200 a 1000. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/estilo-texto" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/agregar-texto` — Agregar un texto al diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Agrega un texto nuevo. x, y es la esquina de ARRIBA A LA IZQUIERDA del elemento en px de la página (y crece hacia abajo); ancho y alto, en px (sin x/y va centrado; sin ancho, el 70 % de la página). Acepta los mismos campos de estilo que estilo_texto. "pagina" es la ref de una página (la de "paginas"); sin ella, la página abierta ("pagina_actual"). "ref" opcional: una nueva («n1», «n2»…) para cambiarlo después en este mismo pedido.
+
+- **Ruta por operación:** `POST /api/v1/imagen/agregar_texto_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `texto` | string | sí | Lo que dice, tal cual lo dicta la persona. |
+| `pagina` | string | no | Opcional: la ref de una página (p…) de ver_diseno_imagen; sin ella, la primera. |
+| `x` | number | no | Opcional: px desde el borde izquierdo de la página (la esquina de arriba a la izquierda). |
+| `y` | number | no | Opcional: px desde el borde de arriba (y crece hacia abajo). |
+| `ancho` | number | no | Opcional: en px. |
+| `fuente` | string | no | Opcional: el nombre de una fuente del editor. |
+| `tamano` | number | no | Opcional: en px, de 4 a 800. |
+| `color` | string | no | Opcional: #RRGGBB. |
+| `negrita` | boolean | no | Opcional. |
+| `cursiva` | boolean | no | Opcional. |
+| `subrayado` | boolean | no | Opcional. |
+| `alineacion` | string (izquierda \\| centro \\| derecha \\| justificado) | no | Opcional. |
+| `mayusculas` | string (ninguno \\| mayusculas \\| minusculas \\| titulo \\| oracion) | no | Opcional. |
+| `interlineado` | number | no | Opcional: de 0.5 a 4. |
+| `espaciado` | number | no | Opcional: entre letras, de -200 a 1000. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta lo cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/agregar-texto" \
+  -d '{"texto":"TEXTO"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/mover` — Mover un elemento del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Mueve un elemento. x, y es la esquina de ARRIBA A LA IZQUIERDA del elemento en px de la página (y crece hacia abajo); ancho y alto, en px. Sólo los que cambian. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/mover_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `x` | number | no | Opcional: px desde el borde izquierdo de la página (la esquina de arriba a la izquierda). |
+| `y` | number | no | Opcional: px desde el borde de arriba (y crece hacia abajo). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/mover" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/tamano` — Agrandar o achicar un elemento
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Cambia el tamaño de un elemento: "ancho" y/o "alto" en px, o "escala" en % (100 es como está; mantiene la proporción). La esquina de arriba a la izquierda queda donde estaba. En un texto, "ancho" es el de la caja (el texto se reacomoda) y "escala" agranda la letra. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/tamano_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `ancho` | number | no | Opcional: en px. |
+| `alto` | number | no | Opcional: en px. |
+| `escala` | number | no | Opcional: en %, mantiene la proporción (en vez de ancho y alto). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/tamano" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/rotar` — Girar un elemento del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Gira un elemento sobre su centro: "grados" es el ángulo final (-360 a 360; 0 lo endereza). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/rotar_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `grados` | number | sí | El ángulo final, de -360 a 360. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/rotar" \
+  -d '{"ref":"REF","grados":-360}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/opacidad` — Cambiar la transparencia de un elemento
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. La transparencia de un elemento, de 0 (invisible) a 100 (opaco). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/opacidad_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `opacidad` | number | sí | De 0 (invisible) a 100 (opaco). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/opacidad" \
+  -d '{"ref":"REF","opacidad":0}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/color` — Color de una forma o texto
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. El color de relleno de una forma o el color de un texto (#RRGGBB). Una línea cambia su trazo. No sirve para una imagen. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/color_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `color` | string | sí | Un color #RRGGBB. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/color" \
+  -d '{"ref":"REF","color":"COLOR"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/borde` — Cambiar el borde de una forma
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. El borde de una forma: "color" (#RRGGBB) y "grosor" en px (0 lo saca). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/borde_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `color` | string | no | Opcional: #RRGGBB. |
+| `grosor` | number | no | Opcional: en px (0 lo saca). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/borde" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/borrar` — Borrar elementos del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Borra elementos del diseño. "refs" son las de la vista. Se puede deshacer con «Restaurar» o Ctrl+Z.
+
+- **Ruta por operación:** `POST /api/v1/imagen/borrar_elementos_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `refs` | string[] | sí | Las refs de lo que se borra (t3k, f0z…). |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/borrar" \
+  -d '{"refs":[]}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/duplicar` — Duplicar un elemento del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Duplica un elemento, corrido "dx" y "dy" px (sin ellos, 20 y 20). "nueva": una ref nueva («n1»…) para cambiar la copia en este mismo pedido. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/duplicar_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `dx` | number | no | Opcional: px (20 si no va). |
+| `dy` | number | no | Opcional: px (20 si no va). |
+| `nueva` | string | no | Opcional: una ref nueva («n1»…) para cambiar la copia en la misma propuesta. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/duplicar" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/capa` — Traer adelante o mandar atrás
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Cambia el orden de un elemento: "a" es frente (arriba de todo), atras (abajo de todo), subir o bajar (uno). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/capa_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `a` | string (frente \\| atras \\| subir \\| bajar) | sí | Arriba de todo, abajo de todo, o un lugar. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/capa" \
+  -d '{"ref":"REF","a":"frente"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/alinear` — Centrar o alinear con la página
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Alinea elementos con la PÁGINA: "a" es izquierda, centro, derecha (horizontal) o arriba, medio, abajo (vertical). Cada uno por separado.
+
+- **Ruta por operación:** `POST /api/v1/imagen/alinear_elementos_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `refs` | string[] | sí | Las refs de lo que se alinea. |
+| `a` | string (izquierda \\| centro \\| derecha \\| arriba \\| medio \\| abajo) | sí | Con qué borde o centro de la página. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/alinear" \
+  -d '{"refs":[],"a":"izquierda"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/bloquear` — Bloquear un elemento
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Bloquea (true) o desbloquea (false) un elemento. Uno bloqueado no se cambia con otras operaciones: primero se desbloquea. "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/bloquear_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `bloqueado` | boolean | sí | true lo bloquea; false lo desbloquea. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/bloquear" \
+  -d '{"ref":"REF","bloqueado":true}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/fondo` — Color de fondo del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. El color de fondo de una página (#RRGGBB). "pagina" es la ref de una página (la de "paginas"); sin ella, la página abierta ("pagina_actual").
+
+- **Ruta por operación:** `POST /api/v1/imagen/fondo_pagina_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `pagina` | string | no | Opcional: la ref de una página (p…) de ver_diseno_imagen; sin ella, la primera. |
+| `color` | string | sí | Un color #RRGGBB. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/fondo" \
+  -d '{"color":"COLOR"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/agregar-pagina` — Agregar una página al diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Agrega una página después de "despues_de" (la ref de una página; sin ella, al final). Con "duplicar": true es una copia de esa página; si no, una en blanco.
+
+- **Ruta por operación:** `POST /api/v1/imagen/agregar_pagina_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `despues_de` | string | no | Opcional: la ref de la página tras la que va (sin ella, al final). |
+| `duplicar` | boolean | no | Opcional: true la hace copia de esa página. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/agregar-pagina"
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/borrar-pagina` — Borrar una página del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Borra una página con todo lo que tiene. Un diseño siempre se queda con al menos una.
+
+- **Ruta por operación:** `POST /api/v1/imagen/borrar_pagina_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `pagina` | string | sí | La ref de la página (p…) de ver_diseno_imagen. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/borrar-pagina" \
+  -d '{"pagina":"PAGINA"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/agregar-forma` — Agregar una forma al diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Agrega una forma: "forma" es rectangulo o circulo. x, y es la esquina de ARRIBA A LA IZQUIERDA del elemento en px de la página (y crece hacia abajo); ancho y alto, en px. "color" de relleno (#RRGGBB). "pagina" es la ref de una página (la de "paginas"); sin ella, la página abierta ("pagina_actual"). "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.
+
+- **Ruta por operación:** `POST /api/v1/imagen/agregar_forma_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `forma` | string (rectangulo \\| circulo) | sí | Rectángulo o círculo. |
+| `pagina` | string | no | Opcional: la ref de una página (p…) de ver_diseno_imagen; sin ella, la primera. |
+| `x` | number | sí | px desde el borde izquierdo de la página. |
+| `y` | number | sí | px desde el borde de arriba. |
+| `ancho` | number | sí | En px. |
+| `alto` | number | sí | En px. |
+| `color` | string | no | Opcional: el relleno, #RRGGBB. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta lo cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/agregar-forma" \
+  -d '{"forma":"rectangulo","x":-20000,"y":-20000,"ancho":1,"alto":1}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/crear-imagen` — Crear una imagen con IA
+
+PROPONE una imagen con la IA de imágenes del NEGOCIO, que SE COBRA EN SU CUENTA: se crea recién cuando una persona la acepta en el editor (devuelve el link). Las refs salen de ver_diseno_imagen. Crea una imagen NUEVA con IA y la pone en el diseño. La dibuja un modelo de imágenes con la IA del negocio y SE COBRA EN SU CUENTA: úsala sólo cuando la persona pide una imagen, foto o ilustración nueva, nunca para algo que hacen las otras operaciones. "prompt": la imagen descrita en detalle, en el idioma de la persona: qué se ve, el estilo (foto, ilustración, 3D…), los colores, la luz y el encuadre. No le pidas textos adentro de la imagen: el texto va aparte, con agregar_texto. x, y es la esquina de ARRIBA A LA IZQUIERDA del elemento en px de la página (y crece hacia abajo); ancho y alto, en px: la caja donde va (sin medidas, un cuadrado al centro de la página); la imagen sale con la proporción más parecida (cuadrada, apaisada o vertical) y entra entera en la caja. "pagina" es la ref de una página (la de "paginas"); sin ella, la página abierta ("pagina_actual"). "ref" opcional: una nueva («n1»…) para moverla o cambiarla después en este pedido. Como mucho 2 imágenes con IA por pedido.
+
+- **Ruta por operación:** `POST /api/v1/imagen/crear_imagen_ia`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `prompt` | string | sí | La imagen descrita en detalle, en el idioma de la persona. |
+| `pagina` | string | no | Opcional: la ref de una página (p…) de ver_diseno_imagen; sin ella, la primera. |
+| `x` | number | no | Opcional: px desde el borde izquierdo de la página (la esquina de arriba a la izquierda). |
+| `y` | number | no | Opcional: px desde el borde de arriba (y crece hacia abajo). |
+| `ancho` | number | no | Opcional: en px. |
+| `alto` | number | no | Opcional: en px. |
+| `ref` | string | no | Opcional: una ref nueva («n1», «n2»…) para que otra operación de la misma propuesta lo cambie. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/crear-imagen" \
+  -d '{"prompt":"PROMPT"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/editar-imagen` — Editar una foto con IA
+
+PROPONE una imagen con la IA de imágenes del NEGOCIO, que SE COBRA EN SU CUENTA: se crea recién cuando una persona la acepta en el editor (devuelve el link). Las refs salen de ver_diseno_imagen. Edita con IA una imagen que YA está en el diseño (un elemento «imagen» de la vista): el modelo de imágenes recibe esa imagen, la rehace según "prompt" y la nueva ocupa la misma caja. "prompt": qué cambiar y qué dejar igual, en detalle. SE COBRA EN LA CUENTA DEL NEGOCIO. Para mover, agrandar, girar o hacer transparente una imagen no hace falta: eso es mover, tamano, rotar u opacidad. "ref" es la de una imagen de la vista (i…), nunca una nueva de este pedido.
+
+- **Ruta por operación:** `POST /api/v1/imagen/editar_imagen_ia`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** gasta dinero, así que queda como **propuesta** (202) y la confirma una persona en la pantalla del link.
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** dinero
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref de una imagen del diseño (i…) de ver_diseno_imagen. |
+| `prompt` | string | sí | Qué cambiar y qué dejar igual, en detalle. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/editar-imagen" \
+  -d '{"ref":"REF","prompt":"PROMPT"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/voltear` — Voltear un elemento del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Espejo de un elemento, como «Voltear»: "horizontal" (izquierda ↔ derecha) y/o "vertical" (cabeza abajo); true lo deja volteado, false lo devuelve ("volteado" en la vista). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/voltear_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `horizontal` | boolean | no | Opcional: true lo voltea de lado; false lo devuelve. |
+| `vertical` | boolean | no | Opcional: true lo voltea de arriba abajo; false lo devuelve. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/voltear" \
+  -d '{"ref":"REF"}'
+```
+
+### `POST /api/v1/imagen/disenos/{disenoId}/propuestas/ocultar` — Ocultar un elemento del diseño
+
+PROPONE en un diseño del Image Editor; NO lo aplica: se acepta en el editor, como un cambio de su chat (devuelve el link). Las refs de elementos y páginas salen de ver_diseno_imagen (sin "pagina", la primera), y lo que se propone por el mismo canal se junta en UNA propuesta. Oculta (true) o vuelve a mostrar (false) un elemento sin borrarlo, como el ojo de «Capas» ("oculto" en la vista). "ref" es la de la vista del DISEÑO (t3k, f0z, i7q…; o una nueva «n1» que agregó una operación anterior de este mismo pedido).
+
+- **Ruta por operación:** `POST /api/v1/imagen/ocultar_elemento_imagen`
+- **Token detallado:** permiso `imagen=write` (Lectura y escritura en «Image Editor (diseños)»)
+- **Token clásico:** alcance mínimo proponer
+- **Con un token detallado:** lo hace **en el acto** (200, `{ ok, hecho, resumen }`).
+- **Con el token clásico:** deja una **propuesta** (202) y devuelve un **link** (/image-editor) a la pantalla donde una persona la revisa, la corrige y la confirma.
+- **Escribe:** deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta
+- **Reversible:** sí
+- **Costo:** gratis
+- **Solo el administrador del workspace.**
+- **Requiere la tab:** image-editor
+
+| Parámetro | Tipo | Obligatorio | Descripción |
+| --- | --- | --- | --- |
+| `disenoId` | string | sí | El id del diseño (de listar_disenos_imagen). |
+| `ref` | string | sí | La ref del elemento (t3k, f0z, i7q…) de ver_diseno_imagen; o una nueva («n1») que agregó otra operación de la MISMA propuesta. |
+| `oculto` | boolean | sí | true lo oculta; false lo vuelve a mostrar. |
+
+```bash
+curl -L \
+  -X POST \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer <TU-TOKEN>" \
+  -H "X-MaKo-Api-Version: 2026-10-08" \
+  -H "Content-Type: application/json" \
+  "https://hola-mako.com/api/v1/imagen/disenos/DISENO_ID/propuestas/ocultar" \
+  -d '{"ref":"REF","oculto":true}'
 ```
 
 ## Integraciones — `integraciones`

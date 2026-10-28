@@ -7,7 +7,8 @@
 //      inventa: lo que no encuentra lo devuelve;
 //   3. cada plantilla, cargada del lado del server, pasa la validación del guardado (si no, «crear desde una
 //      plantilla» fallaría con 422 recién al confirmar);
-//   4. las siete operaciones llevan el permiso de la tab (`image-editor`) y de admin, como toda tab.
+//   4. las siete operaciones (y desde el 27/10/2026 las del espejo del chat «MaKo IA», lib/image-editor/chat/api.ts:
+//      tests/editores-por-prompt.test.ts) llevan el permiso de la tab (`image-editor`) y de admin, como toda tab.
 //
 // PROBADO ROMPIÉNDOLO (15/10/2026): sin `rolMinimo` en GATING de imagen.def.ts, el 4 falla (0/1); con
 // `o.text = nuevo` en lugar del `caseSource` para las mayúsculas, el 2 falla (0/1).
@@ -19,6 +20,7 @@ import { join } from 'node:path';
 import { createBlankDocument } from '../app/image-editor/_doory/lib/document';
 import { cambiarTextos, documentoEnBlanco, resumirDoc, srcsLocales, textosDe, TOPE_DOC_BYTES } from '../lib/image-editor/reglas';
 import { DEFS } from '../lib/api-mako/areas/imagen.def';
+import { OPERACIONES_API_IMAGEN } from '../lib/image-editor/chat/api';
 import { catalogoPlantillas, documentoDePlantilla } from '../app/image-editor/mako/plantillas';
 
 const RAIZ = join(import.meta.dirname, '..');
@@ -77,14 +79,16 @@ test('3: cada plantilla, cargada del lado del server, se puede guardar como dise
 });
 
 test('4: las operaciones del área llevan el permiso de la tab y de admin, y la definición no arrastra el server', () => {
-  assert.equal(DEFS.length, 7);
+  assert.equal(DEFS.length, 7 + OPERACIONES_API_IMAGEN.length);
   for (const d of DEFS) {
     assert.equal(d.area, 'imagen');
     assert.deepEqual(d.gating, { tab: 'image-editor', rolMinimo: 'admin' }, `${d.id}: el permiso es el de la tab, como toda tab`);
   }
   const src = readFileSync(join(RAIZ, 'lib/api-mako/areas/imagen.def.ts'), 'utf8');
   const imports = [...src.matchAll(/^import .* from '([^']+)';$/gm)].map((m) => m[1]);
-  assert.deepEqual(imports.sort(), ['../tipos', '@/lib/image-editor/tamanos'], 'una .def.ts sólo importa tipos y datos sin dependencias');
+  // El espejo del chat (27/10/2026) es puro como la tabla del video (lib/editor-video/chat-api.ts): datos y validación.
+  assert.deepEqual(imports.sort(), ['../../image-editor/chat/api', '../tipos', '@/lib/image-editor/tamanos'], 'una .def.ts sólo importa tipos y datos sin dependencias');
+  assert.doesNotMatch(readFileSync(join(RAIZ, 'lib/image-editor/chat/api.ts'), 'utf8'), /^import 'server-only';/m);
 });
 
 test('5: por WhatsApp, un pedido de crear un diseño llega con las herramientas del editor, y no se roba otros pedidos', async () => {
@@ -142,5 +146,5 @@ test('7: el runner del área carga en un node suelto con --conditions=react-serv
   const salida = execFileSync(process.execPath, ['--conditions=react-server', '--import', 'tsx', '--input-type=module', '-e', `const m = await import(${href}); process.stdout.write(String(Object.keys(m.RUNNERS).length));`], {
     cwd: RAIZ, encoding: 'utf8', maxBuffer: 4 << 20,
   });
-  assert.equal(salida.trim(), '7');
+  assert.equal(salida.trim(), String(7 + OPERACIONES_API_IMAGEN.length));
 });

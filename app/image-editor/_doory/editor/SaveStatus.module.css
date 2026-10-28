@@ -43,12 +43,12 @@
 
 .warn {
   background: var(--cv-color-warning-soft);
-  color: #3e2a14; /* Canva: texto del aviso de advertencia suave */
+  color: var(--cv-color-on-soft); /* Canva: texto del aviso de advertencia suave */
 }
 
 .error {
   background: var(--cv-color-danger-soft);
-  color: #501b21; /* Canva: texto del aviso de error suave */
+  color: var(--cv-color-on-soft); /* Canva: texto del aviso de error suave */
 }
 
 .live {

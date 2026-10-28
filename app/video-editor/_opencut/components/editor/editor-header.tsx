@@ -15,15 +15,18 @@
 // Nuevo proyecto, Volver a la página de inicio (Ctrl+Alt+Q), Renombrar,
 // Eliminar el proyecto, Atajos y Exportar el marco fijo (el PNG del cuadro
 // actual). Ctrl+N no tiene atajo: Chrome no deja tomarlo (§13, decisión 4).
+//
+// Desde el 27/10/2026 (Martín: «que los "proyectos" se vean en la barra del costado, y que no cambie de ruta»), nada de
+// este menú navega: «Nuevo proyecto», «Volver a la página de inicio» y «Eliminar el proyecto» le piden al marco
+// (../../marco.tsx → inicio/proyecto-abierto.tsx) que cambie el proyecto o muestre el inicio EN EL LUGAR. Y sin el botón
+// «Editar con IA»: el chat de MaKo está siempre a la vista, en la tarjeta de la izquierda.
 
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon, ArrowDown01Icon, KeyboardIcon, Layout01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
-import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
+import { ArrowDown01Icon, KeyboardIcon, Layout01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
 import { IconoBorrar } from "@/app/_ui/BotonBorrar";
-import { useRouter } from "@/app/_ui/Link";
-import { rutaEditor } from "@/app/video-editor/ruta";
+import { useProyectoAbierto } from "@/app/video-editor/_opencut/inicio/proyecto-abierto";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -38,7 +41,6 @@ import { useKeybindingsStore } from "@/app/video-editor/_opencut/actions/keybind
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { isTypableDOMElement } from "@/app/video-editor/_opencut/utils/browser";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
-import { nombreProyectoNuevo } from "@/app/video-editor/_opencut/inicio/nombre";
 import { DISENOS, useDisenoStore } from "./diseno-paneles";
 import { ExportButton } from "./export-button";
 
@@ -64,7 +66,6 @@ export function EditorHeader() {
 				>
 					<HugeiconsIcon icon={KeyboardIcon} className="size-[18px]" />
 				</button>
-				<BotonChat />
 				<div className="ml-1.5">
 					<ExportButton />
 				</div>
@@ -74,67 +75,20 @@ export function EditorHeader() {
 	);
 }
 
-// ── Editar con IA ───────────────────────────────────────────────────────────
-// No es de CapCut: es el chat del Landing Generator traído al editor (pedido de Martín del
-// 15/10/2026). Abre y cierra la columna del chat (chat/PanelChat.tsx).
-
-function BotonChat() {
-	const abierto = useChatAbierto((s) => s.abierto);
-	const setAbierto = useChatAbierto((s) => s.setAbierto);
-	return (
-		<button
-			type="button"
-			onClick={() => setAbierto(!abierto)}
-			aria-pressed={abierto}
-			title="Editar con IA"
-			className="flex h-[27px] cursor-pointer items-center gap-1.5 rounded-[4px] px-2 text-[12px] text-(--cc-icon) hover:bg-(--cc-raised) aria-pressed:bg-(--cc-raised) aria-pressed:text-(--cc-accent)"
-		>
-			<HugeiconsIcon icon={AiMagicIcon} className="size-[16px]" />
-			Editar con IA
-		</button>
-	);
-}
-
 // ── Menú ▾ ──────────────────────────────────────────────────────────────────
 
 function MenuApp({ onRenombrar, onAtajos }: { onRenombrar: () => void; onAtajos: () => void }) {
 	const editor = useEditor();
-	const router = useRouter();
+	const proyectoAbierto = useProyectoAbierto();
 	const proyecto = useEditor((e) => e.project.getActiveOrNull());
 	const [borrar, setBorrar] = useState(false);
-	const saliendo = useRef(false);
 
-	/** Guarda la miniatura y el último cambio antes de soltar el proyecto (lo que hacía «Exit project»). */
-	const salir = async (destino: string) => {
-		if (saliendo.current) return;
-		saliendo.current = true;
-		try {
-			await editor.project.prepareExit();
-		} catch (error) {
-			console.error("[editor] no se pudo preparar la salida", error);
-		} finally {
-			editor.project.closeProject();
-			router.push(rutaEditor(destino));
-			saliendo.current = false;
-		}
-	};
+	// El inicio EN EL LUGAR (el marco): al desmontarse, el editor guarda la miniatura y el último cambio
+	// (editor-page.tsx), lo que hacía «Exit project». El proyecto queda abierto: volver al chat lo trae de vuelta.
+	const volverAlInicio = () => proyectoAbierto.verInicio();
 
-	const volverAlInicio = () => void salir("/video-editor");
-
-	const nuevoProyecto = async () => {
-		if (saliendo.current) return;
-		saliendo.current = true;
-		try {
-			await editor.project.prepareExit();
-			const id = await editor.project.createNewProject({ name: await nombreProyectoNuevo() });
-			router.push(rutaEditor(`/video-editor/${id}`));
-		} catch (error) {
-			console.error("[editor] no se pudo crear el proyecto", error);
-			toast.error("Algo salió mal. Intenta de nuevo.");
-		} finally {
-			saliendo.current = false;
-		}
-	};
+	// El marco guarda lo pendiente del abierto, crea el nuevo y lo abre en el lugar (sin navegar).
+	const nuevoProyecto = () => proyectoAbierto.crear();
 
 	const exportarMarcoFijo = async () => {
 		const r = await editor.renderer.saveSnapshot();
@@ -145,8 +99,10 @@ function MenuApp({ onRenombrar, onAtajos }: { onRenombrar: () => void; onAtajos:
 	const eliminar = async () => {
 		if (!proyecto) return;
 		setBorrar(false);
-		await editor.project.deleteProjects({ ids: [proyecto.metadata.id] });
-		router.push(rutaEditor("/video-editor"));
+		const id = proyecto.metadata.id;
+		await editor.project.deleteProjects({ ids: [id] });
+		// Sin navegar: el editor queda sin proyecto y en su lugar va el inicio, con la lista en la tarjeta.
+		proyectoAbierto.alBorrar([id]);
 	};
 
 	// Ctrl+Alt+Q: «Volver a la página de inicio» del preset CapCut. Mismas reglas
@@ -251,7 +207,7 @@ function NombreProyecto({ editando, onEditando }: { editando: boolean; onEditand
 			type="button"
 			onClick={() => onEditando(true)}
 			title="Renombrar"
-			className="h-[26px] max-w-[40vw] cursor-text truncate rounded-[4px] px-2 text-[13px] text-(--cc-text) hover:bg-(--cc-raised)"
+			className="h-[26px] max-w-[min(40vw,280px)] cursor-text truncate rounded-[4px] px-2 text-[13px] text-(--cc-text) hover:bg-(--cc-raised)"
 		>
 			{nombre}
 		</button>
@@ -290,7 +246,7 @@ function CampoNombre({ inicial, onFin }: { inicial: string; onFin: (nuevo: strin
 				}
 			}}
 			style={{ fieldSizing: "content" }}
-			className="h-[26px] max-w-[40vw] min-w-[80px] rounded-[4px] bg-(--cc-input) px-2 text-center text-[13px] text-(--cc-text) outline-none ring-1 ring-primary"
+			className="h-[26px] max-w-[min(40vw,280px)] min-w-[80px] rounded-[4px] bg-(--cc-input) px-2 text-center text-[13px] text-(--cc-text) outline-none ring-1 ring-primary"
 		/>
 	);
 }

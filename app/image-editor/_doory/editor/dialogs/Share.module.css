@@ -58,7 +58,7 @@
   font: 600 var(--cv-text-sm) / 1 var(--cv-font-sans);
 }
 .chipMuted {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
   color: var(--cv-color-text-muted);
 }
 .url {
@@ -67,7 +67,7 @@
   padding: 0 10px;
   border: 1px solid var(--cv-color-border-strong);
   border-radius: var(--cv-radius-sm);
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
   color: var(--cv-color-text);
   font: 400 var(--cv-text-sm) / 1 var(--cv-font-mono);
 }
@@ -80,7 +80,7 @@
   margin: 0;
   padding: var(--cv-space-4);
   border-radius: var(--cv-radius-lg);
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
   color: var(--cv-color-text-muted);
   font: 400 var(--cv-text-base) / 1.5 var(--cv-font-sans);
   text-align: center;
@@ -115,11 +115,11 @@
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
 }
 .quickItem:hover .quickIcon {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 .quickItem:focus-visible {
   outline: none;
@@ -147,7 +147,7 @@
   border-radius: var(--cv-radius-lg);
 }
 .version:hover {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
 }
 .versionThumb {
   flex: none;

@@ -15,6 +15,11 @@ function isEditableTarget(el: EventTarget | null): boolean {
   return false
 }
 
+/** The editor sits under something else (an `inert` ancestor): it is on the page but not the one being used. */
+export function isCovered(root: Element): boolean {
+  return root.closest('[inert]') !== null
+}
+
 /**
  * Global editor shortcuts, driven entirely by the command registry. Native text fields keep their own
  * shortcuts; Fabric's hidden text-editing textarea only receives commands flagged `whileEditing`.
@@ -25,6 +30,9 @@ export function useKeyboardShortcuts(engine: EditorEngine, rootRef: RefObject<HT
       const root = rootRef.current
       const target = e.target as HTMLElement | null
       if (!root || !target) return
+      // Un editor tapado (MaKo: la vista de crear va encima, con el editor `inert` debajo) no toma atajos: un Supr con el
+      // foco en <body> borraba lo elegido de un diseño que no se veía (editor/Estudio.tsx, 27/10/2026).
+      if (isCovered(root)) return
       const inside = root.contains(target) || target === document.body || target === document.documentElement
       if (!inside || e.defaultPrevented || engine.state.ui.dialog) return
       const fabricText = target.dataset?.fabric === 'textarea'
@@ -77,6 +85,7 @@ export function useClipboardEvents(engine: EditorEngine, rootRef: RefObject<HTML
       const root = rootRef.current
       const target = e.target as HTMLElement | null
       if (!root || !target || engine.state.ui.dialog || engine.state.selection.editing) return false
+      if (isCovered(root)) return false
       if (!(root.contains(target) || target === document.body)) return false
       return !isEditableTarget(target)
     }

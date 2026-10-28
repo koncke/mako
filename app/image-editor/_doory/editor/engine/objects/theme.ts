@@ -22,9 +22,17 @@ const FALLBACK: CanvasTheme = {
   workspace: '#ebe7f5',
 }
 
-export function readCanvasTheme(el: Element = document.documentElement): CanvasTheme {
-  if (typeof getComputedStyle !== 'function') return FALLBACK
-  const cs = getComputedStyle(el)
+/**
+ * Dónde viven los tokens: en MaKo, en la raíz `.cv` del editor (styles/tokens.css), no en <html>. Leídos de <html> salía
+ * SIEMPRE el respaldo de abajo (el violeta de Doory), y la selección del lienzo no seguía ni la marca ni el tema (27/10/2026).
+ */
+function themeRoot(): Element {
+  return document.querySelector('.cv') ?? document.documentElement
+}
+
+export function readCanvasTheme(el?: Element): CanvasTheme {
+  if (typeof getComputedStyle !== 'function' || typeof document === 'undefined') return FALLBACK
+  const cs = getComputedStyle(el ?? themeRoot())
   const get = (name: string, fallback: string): string => cs.getPropertyValue(name).trim() || fallback
   return {
     selection: get('--cv-selection-color', FALLBACK.selection),

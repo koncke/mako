@@ -16,8 +16,9 @@ import { loadFontAtlas } from "@/app/video-editor/_opencut/fonts/google-fonts";
 import { transcripcionDe } from "@/app/video-editor/_opencut/transcripcion/modelo";
 import { usePreferenciasSubtitulos } from "@/app/video-editor/_opencut/subtitles/estado";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
+import { relacionActual } from "@/app/video-editor/_opencut/canvas/sizes";
 import { disponiblesDelMotor, type Disponibles } from "./disponibles";
-import type { TranscripcionChat } from "./linea";
+import { textoFondoLienzo, type LienzoVista, type TranscripcionChat } from "./linea";
 
 /** Lo que el motor tiene con nombre. La lista de fuentes puede no cargar: entonces valen las del sistema y las del proyecto. */
 export async function disponiblesChat(editor: EditorCore): Promise<Disponibles> {
@@ -38,17 +39,26 @@ export async function disponiblesChat(editor: EditorCore): Promise<Disponibles> 
 
 /** El resto de lo que ven la vista y la revisión, de ESTA línea de tiempo. */
 export function datosDeLinea(editor: EditorCore, tracks: SceneTracks): {
-	lienzo: { ancho: number; alto: number } | null;
+	lienzo: LienzoVista | null;
 	mediosSinAudio: Set<string>;
 	transcripcion: TranscripcionChat;
 	conPalabras: boolean;
 	medios: MediaAsset[];
 } {
-	const canvas = editor.project.getActiveOrNull()?.settings.canvasSize;
+	const settings = editor.project.getActiveOrNull()?.settings;
+	const canvas = settings?.canvasSize;
 	const parrafos = transcripcionDe({ tracks, tps: TICKS_PER_SECOND });
 	const medios = editor.media.getAssets();
 	return {
-		lienzo: canvas ? { ancho: canvas.width, alto: canvas.height } : null,
+		// El fondo y la «Relación» (27/10/2026): fondo_lienzo y formato_lienzo se revisan contra esto.
+		lienzo: canvas && settings
+			? {
+					ancho: canvas.width,
+					alto: canvas.height,
+					fondo: textoFondoLienzo(settings.background),
+					...(relacionActual(settings) ? { relacion: relacionActual(settings)! } : {}),
+				}
+			: null,
 		mediosSinAudio: new Set(medios.filter((a) => a.hasAudio === false).map((a) => a.id)),
 		transcripcion: { parrafos, idioma: usePreferenciasSubtitulos.getState().idioma },
 		conPalabras: parrafos.some((p) => p.palabras.length > 0),

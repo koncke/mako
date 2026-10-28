@@ -152,10 +152,14 @@ test('video · la page lee las señales en el server y bajan hasta la pestaña P
 });
 
 test('imagen · la page lee las señales y bajan hasta el servicio de plantillas; el panel dibuja «Sugerido»', () => {
-  const pagina = leer('app', 'image-editor', '[diseno]', 'page.tsx');
-  assert.match(pagina, /senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
-  assert.match(pagina, /<ImageEditorCliente [^>]*senales=\{senales\} \/>/);
-  assert.match(leer('app', 'image-editor', 'ImageEditorCliente.tsx'), /<PantallaEditor [^>]*senales=\{senales\} \/>/);
+  // Desde el 27/10/2026 las DOS rutas montan el estudio (/image-editor sola abre el último diseño), así que las dos leen las
+  // señales; el estudio se las pasa al editor de cada diseño que abre.
+  for (const pagina of [leer('app', 'image-editor', '[diseno]', 'page.tsx'), leer('app', 'image-editor', 'page.tsx')]) {
+    assert.match(pagina, /senalesDelNegocio\(\)\.catch\(\(\) => null\)/);
+    assert.match(pagina, /<ImageEditorCliente [^>]*senales=\{senales\} \/>/);
+  }
+  assert.match(leer('app', 'image-editor', 'ImageEditorCliente.tsx'), /<Estudio [^>]*senales=\{senales\} \/>/);
+  assert.match(leer('app', 'image-editor', 'editor', 'Estudio.tsx'), /<PantallaEditor [^>]*senales=\{senales\} [^>]*\/>/);
   assert.match(leer('app', 'image-editor', 'editor', 'PantallaEditor.tsx'), /crearAdaptadorNube\(\{[\s\S]*?\bsenales,\s*\}\), \[[^\]]*\bsenales\]\)/);
   assert.match(leer('app', 'image-editor', 'mako', 'adaptadorNube.ts'), /const nube = serviciosCatalogo\(o\.senales\);/);
   assert.match(leer('app', 'image-editor', 'mako', 'servicios.ts'), /templates: servicioPlantillas\(senales\),/);

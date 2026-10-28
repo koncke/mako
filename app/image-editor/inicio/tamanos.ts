@@ -62,7 +62,9 @@ export const TIPO = Object.fromEntries(TIPOS.map((t) => [t.id, t])) as Record<Ti
 
 /** Canva: el acceso «Video» (lleva al Video Editor) y el gris de «Elegir el tamaño». */
 export const COLOR_VIDEO = '#E950F7';
-export const COLOR_ELEGIR = '#F2F3F5';
+// El gris de «Elegir el tamaño» es CROMO, no una marca de tipo: va con el tema (con #F2F3F5 fijo, en el oscuro el ícono
+// claro quedaba sobre gris claro).
+export const COLOR_ELEGIR = 'var(--cv-color-bg-muted)';
 
 /** La miniatura de YouTube (grupo `video` de Doory) vive con las redes, como en Canva. */
 const DE_GRUPO: Record<SizePreset['group'], Tipo> = {

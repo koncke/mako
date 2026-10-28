@@ -1,0 +1,108 @@
+/*
+ * El estudio del Image Editor (./Estudio.tsx) y el marco sin diseño (./Marco.tsx). Los colores son los tokens del editor,
+ * que son los de la app (../_doory/styles/tokens.css): claro, oscuro y los Nord, sin una regla propia.
+ */
+
+/* La pantalla: el área (el editor, o la vista de crear encima) y el crédito de Doory al pie, SIEMPRE visible. */
+.pantalla {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--cv-chrome);
+}
+
+.area {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* El editor montado. Con la vista de crear encima queda oculto (visibility, no display: el lienzo conserva su tamaño y
+   no se reacomoda al volver). */
+.capa {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Lo que va EN LUGAR del editor: la vista de crear o «Abriendo…», tapándolo entero. */
+.encima {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  background: var(--cv-chrome);
+}
+
+/* La tarjeta de la izquierda sin diseño: la misma `.chat` de EditorApp; en la pantalla chica no está (como el chat fijo). */
+@media (max-width: 1023px) {
+  .tarjeta {
+    display: none;
+  }
+}
+
+/* A la derecha de la tarjeta: la vista de crear, en una superficie que llena el alto y scrollea sola. */
+.lugar {
+  background: var(--cv-color-surface);
+}
+
+@media (min-width: 1024px) {
+  .lugar {
+    margin: 8px;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 0 0 0.8px rgb(0 0 0 / 0.06);
+  }
+}
+
+.crear {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* «Volver al diseño»: la X de Canva arriba a la derecha (en el teléfono es la única vuelta: no hay tarjeta). */
+.cerrar {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 9999px;
+  background: var(--cv-color-surface);
+  color: var(--cv-color-text);
+  box-shadow: var(--cv-shadow-sm);
+  cursor: pointer;
+}
+
+.cerrar:hover {
+  background: var(--cv-neutral-hover);
+}
+
+.cerrar:focus-visible {
+  outline: none;
+  box-shadow: var(--cv-focus-ring);
+}
+
+.aviso {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+  color: var(--cv-color-text-muted);
+  text-align: center;
+}

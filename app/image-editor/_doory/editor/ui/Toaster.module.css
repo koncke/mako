@@ -25,7 +25,7 @@
   border: 0;
   border-radius: var(--cv-radius-sm);
   background: var(--cv-tooltip-bg);
-  color: #fff;
+  color: var(--cv-tooltip-text);
   box-shadow: var(--cv-shadow-lg);
   font: 400 var(--cv-text-base) / 1.4 var(--cv-font-sans);
   animation: toast-in var(--cv-duration-slow) var(--cv-ease-out);
@@ -33,7 +33,7 @@
 
 .icon {
   display: inline-flex;
-  color: #a370fc; /* Canva: violeta del tema oscuro */
+  color: var(--cv-island-accent); /* el azul de la app que se lee sobre la isla oscura */
 }
 .success .icon {
   color: #3fc451; /* Canva: verde legible sobre fondo oscuro */
@@ -50,7 +50,7 @@
 .action {
   border: 0;
   background: transparent;
-  color: #a370fc;
+  color: var(--cv-island-accent);
   font: 600 var(--cv-text-base) / 1 var(--cv-font-sans);
   cursor: pointer;
   padding: 8px;
@@ -71,7 +71,7 @@
 }
 .close:hover {
   background: rgb(255 255 255 / 0.07);
-  color: #fff;
+  color: var(--cv-tooltip-text);
 }
 
 .action:focus-visible,

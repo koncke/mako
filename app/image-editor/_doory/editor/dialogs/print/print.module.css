@@ -81,13 +81,13 @@
   font: 400 var(--cv-text-sm) / 1.3 var(--cv-font-sans);
 }
 .chip:hover {
-  border-color: rgb(28 33 48 / 0.5);
+  border-color: var(--cv-color-border-hover);
 }
 /* Canva «elegido»: borde violeta y fondo violeta translúcido */
 .chipOn,
 .chipOn:hover {
   border-color: var(--cv-color-brand);
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-selected-bg);
   box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .chip:has(input:focus-visible) {
@@ -207,7 +207,7 @@
   padding: 10px 12px;
   border-radius: var(--cv-radius-sm);
   background: var(--cv-color-danger-soft);
-  color: #501b21; /* Canva: texto sobre el aviso de error suave */
+  color: var(--cv-color-on-soft); /* Canva: texto sobre el aviso de error suave */
   font: 600 var(--cv-text-base) / 1.4 var(--cv-font-sans);
 }
 .problem p {

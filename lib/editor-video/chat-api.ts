@@ -21,7 +21,8 @@
 
 import type { Parametro } from '../api-mako/tipos';
 import {
-  AJUSTES_COLOR, MEZCLAS, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, TIPO_CAMPO_MOTION, TOPES_CHAT, catalogoMotionCompacto, validarOperacion,
+  AJUSTES_COLOR, MEZCLAS, NIVELES_DESENFOQUE_LIENZO, OBJETIVOS_NORMALIZAR, OPERACIONES_CHAT, RELACIONES_LIENZO, TIPO_CAMPO_MOTION, TOPES_CHAT,
+  catalogoMotionCompacto, validarOperacion,
   type IdOperacion, type OperacionChat,
 } from './chat-catalogo';
 import { PLANTILLAS } from './plantillas';
@@ -207,6 +208,22 @@ export const OPERACIONES_API: readonly OperacionApi[] = [
     REF_NUEVA,
   ] },
   { op: 'editar_motion', id: 'editar_motion_video', titulo: 'Editar un motion graphic', parametros: [REF, VALORES_MOTION(true)] },
+  // 27/10/2026 («toda acción que se puede hacer a mano, por prompt»), al FINAL del área.
+  { op: 'duplicar', id: 'duplicar_elemento_video', titulo: 'Duplicar un clip o elemento', parametros: [REF] },
+  { op: 'quitar_fondo', id: 'quitar_fondo_video', titulo: 'Eliminar el fondo de un clip', parametros: [REF, si('activo', 'Activo', 'true deja sólo a la persona; false le devuelve su fondo.')] },
+  { op: 'fondo_lienzo', id: 'fondo_lienzo_video', titulo: 'Fondo del lienzo: color o desenfoque', parametros: [
+    texto('color', 'Color', 'Un color #RRGGBB. Va «color» o «desenfoque».', false, 7),
+    { nombre: 'desenfoque', rotulo: 'Desenfoque', tipo: 'number', entero: true, minimo: 1, maximo: NIVELES_DESENFOQUE_LIENZO.length, descripcion: `De 1 a ${NIVELES_DESENFOQUE_LIENZO.length}: el mismo video, desenfocado. Va «color» o «desenfoque».` },
+  ] },
+  { op: 'formato_lienzo', id: 'formato_lienzo_video', titulo: 'Relación vertical, cuadrada o apaisada', parametros: [
+    elegir('relacion', 'Relación', RELACIONES_LIENZO, '9:16 vertical, 1:1 cuadrado, 16:9 apaisado; original = la del primer clip.'),
+  ] },
+  { op: 'agregar_medio', id: 'agregar_medio_video', titulo: 'Agregar un medio de Multimedia', parametros: [
+    texto('medio', 'Medio', 'La ref del medio de Multimedia («m1», «m2»…), de "medios" en ver_proyecto_video.', true, 6),
+    seg('inicio', 'Inicio', 'En qué segundo empieza.'),
+    seg('duracion', 'Duración', 'Opcional: una foto dura 5 s; un video, lo que dura.', false, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax),
+    REF_NUEVA,
+  ] },
 ];
 
 /** Lo de la API que acompaña al `para` del chat. */

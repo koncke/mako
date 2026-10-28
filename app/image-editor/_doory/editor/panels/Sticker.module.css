@@ -14,7 +14,7 @@
     box-shadow var(--ed-dur) var(--ed-ease);
 }
 .search:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar */
+  border-color: var(--cv-color-border-hover); /* Canva: borde de campo al pasar */
 }
 .search:focus-within {
   border-color: var(--cv-color-brand);
@@ -207,7 +207,7 @@
   background: var(--cv-color-bg-muted);
 }
 .cell:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 .cell:focus-visible {
   outline: none;

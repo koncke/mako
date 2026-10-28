@@ -106,7 +106,7 @@ export function LineasGuia({
 				{trazo}
 				{arrastrada ? (
 					<span
-						className="absolute rounded-sm bg-[var(--cc-accent)] px-1 text-[10px] leading-4 text-black tabular-nums"
+						className="absolute rounded-sm bg-[var(--cc-accent)] px-1 text-[10px] leading-4 text-(--cc-on-accent) tabular-nums"
 						style={horizontal ? { left: 4, top: -14 } : { top: 4, left: 6 }}
 					>
 						{Math.round(guia.fraccion * largoDelEje(guia.eje, lienzo))}

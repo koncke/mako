@@ -24,16 +24,37 @@
 // «Original | Modificado» va en el hueco `enMensaje` de la respuesta que la trajo. Las piezas toman los colores de CapCut:
 // `CSS_CHAT` redefine sus tokens (--surface, --ink…) con los `--cc-*` bajo `.cc-chat` (AGENTS.md, «Una pantalla oscura se
 // hace redefiniendo TOKENS»). El alcance sigue en sus chips arriba de la caja; en el hilo ya no se repite en la burbuja.
+//
+// EL PANEL ÚNICO, FIJO A LA IZQUIERDA, CON LOS COLORES DE MaKo (27/10/2026; Martín: «adaptar las tabs de video e imagen
+// con el chat que tenemos de MaKo, para que se pueda editar con prompting, algo similar a lo que hicimos con Web
+// Generator, que este al costado... Tambien ponle los colores de MaKo a esas tabs»). Copiado del agente del Web
+// Generator (app/web-generator/editor/paneles/PanelAgente.tsx + ChatAgente.tsx) y de lo que ya hizo el Image Editor en
+// esta rama (app/image-editor/mako/chat/PanelMakoIA.tsx):
+//   · `PanelDeChat` (app/admin/operaciones/PanelChat.tsx): la cabecera con la estrella de MaKo y «en línea», el
+//     arrastrar y soltar, la columna del hilo y el lugar de la caja. Ya no tiene «Cerrar el panel»: el chat no se cierra.
+//     Su «←» da vuelta la MISMA tarjeta a la lista de proyectos, sin navegar (../inicio/PanelProyectos.tsx);
+//   · arriba de la caja, «Discutir | Editar» (app/_chat/SelectorIntencion.tsx, la preferencia compartida con Automations
+//     y el Web Generator): Discutir contesta y sugiere sin tocar nada; Editar arma el cambio. Los chips del alcance
+//     («Todo el video» o lo elegido) van sólo con Editar;
+//   · el saludo es la burbuja de MaKo con sus sugerencias en píldoras, como el agente del Web Generator.
+// Los colores ya no se redefinen acá: adentro de `.ce` los tokens de MaKo (--surface, --ink…) son los de la app, en
+// claro u oscuro (capcut-theme.css). `CSS_CHAT` sólo trae las medidas del agente del Web Generator.
+// Lo que NO cambió: el motor (`pedirEdicion`, más abajo, y ./aplicar.ts), la propuesta con «Original | Modificado» en el
+// hueco de la respuesta, Aceptar / Descartar / Restaurar, el foco de un link `?propuesta=`, el hilo guardado, la caja
+// quieta sin la app de escritorio y lo que no es del proyecto abierto como burbuja con su link (./pedidos.ts).
 // =============================================================================
 
 import "@/app/admin/operaciones/centro.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CajaChat } from "@/app/_chat/CajaChat";
 import { HiloMako, type EnMensaje } from "@/app/_chat/HiloMako";
+import { SelectorIntencion, useIntencion } from "@/app/_chat/SelectorIntencion";
 import type { ItemHilo } from "@/app/m/mako/chat-ui";
+import { PanelDeChat } from "@/app/admin/operaciones/PanelChat";
+import { ASPECTO_MAKO } from "@/lib/centro-munecos";
 import { toast } from "sonner";
 import { HugeiconsIcon } from "@hugeicons/react";
-import { AiMagicIcon, Cancel01Icon, Tick02Icon } from "@hugeicons/core-free-icons";
+import { Tick02Icon, Video01Icon } from "@hugeicons/core-free-icons";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { TICKS_PER_SECOND } from "@/app/video-editor/_opencut/wasm";
@@ -122,7 +143,9 @@ async function pedirIA(cuerpo: object, senal: AbortSignal): Promise<Respuesta | 
  * de la respuesta, con su link (chat/pedidos.ts). Sin nada del proyecto abierto, no se llama a la IA. `interpretar:
  * false` = un pedido NUESTRO (una sugerencia), que es de edición por definición y no gasta la vuelta.
  */
-async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean } = {}): Promise<void> {
+// `op.intencion` (27/10/2026): «Discutir | Editar» del panel. La lee el motor (lo cablea el chat de la API y los motores:
+// con «discutir», MaKo contesta sin armar una propuesta); hasta entonces viaja y no cambia nada (todo pasa por «Aceptar»).
+async function pedirEdicion(editor: EditorCore, instruccion: string, alcance: "video" | "seleccion", op: { interpretar?: boolean; intencion?: "editar" | "discutir" } = {}): Promise<void> {
 	const proyecto = editor.project.getActiveOrNull();
 	const escena = editor.scenes.getActiveSceneOrNull();
 	const texto = instruccion.trim();
@@ -282,8 +305,9 @@ function RevisionPropuesta({
 								<span
 									className="shrink-0 rounded-[3px] px-1.5 py-px text-[10px] font-semibold"
 									style={{
-										background: c.tipo === "agrega" ? "color-mix(in srgb, var(--cc-accent) 22%, transparent)" : c.tipo === "quita" ? "color-mix(in srgb, var(--destructive) 22%, transparent)" : "var(--cc-raised)",
-										color: c.tipo === "agrega" ? "var(--cc-accent)" : c.tipo === "quita" ? "var(--destructive)" : "var(--cc-text-2)",
+										// Los pares de MaKo que pasan AA en claro y en oscuro (un azul al 22 % con el azul encima daba 3,5:1 en claro).
+										background: c.tipo === "agrega" ? "var(--primary-bg)" : c.tipo === "quita" ? "color-mix(in srgb, var(--destructive) 14%, transparent)" : "var(--cc-raised)",
+										color: c.tipo === "agrega" ? "var(--primary-strong)" : c.tipo === "quita" ? "var(--destructive)" : "var(--cc-text-2)",
 									}}
 								>
 									{ETIQUETA_CAMBIO[c.tipo]}
@@ -319,7 +343,7 @@ function RevisionPropuesta({
 				{estado === "pendiente" && (
 					<>
 						<button type="button" onClick={onDescartar} className={`${boton} text-(--cc-text-2) hover:bg-(--cc-raised)`}>Descartar</button>
-						<button type="button" onClick={onAceptar} className={`${boton} bg-(--cc-accent) text-black hover:brightness-110`}>Aceptar</button>
+						<button type="button" onClick={onAceptar} className={`${boton} bg-(--cc-accent) text-(--cc-on-accent) hover:brightness-110`}>Aceptar</button>
 					</>
 				)}
 				{estado === "aplicando" && <span className="mr-auto size-4 animate-spin rounded-full border-2 border-(--cc-text-3) border-t-transparent" aria-label="Aplicando" />}
@@ -361,8 +385,19 @@ const SUGERENCIAS: Sugerencia[] = [
 	{ rotulo: "Silencia los videos", instruccion: "Silencia el sonido original de los videos." },
 	{ rotulo: "Alarga los textos", instruccion: "Haz que cada texto dure un segundo más, sin pisar a los demás." },
 ];
+/** Con «Discutir»: preguntas, no pedidos de cambio (como el Image Editor y el Web Generator). */
+const SUGERENCIAS_DISCUTIR: Sugerencia[] = [
+	{ rotulo: "¿Qué mejorarías?", instruccion: "¿Qué mejorarías de este video para que retenga más?" },
+	{ rotulo: "¿El inicio engancha?", instruccion: "¿Los primeros 3 segundos enganchan? ¿Qué cambiarías?" },
+	{ rotulo: "Ideas de título", instruccion: "Dame tres ideas de título para el inicio de este video." },
+];
 
-export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
+/**
+ * El chat de MaKo en la tarjeta de la izquierda (../marco.tsx). `onProyectos` es la «←» de la cabecera: la misma tarjeta
+ * pasa a la lista de proyectos, sin navegar. `onVerEditor`: en el teléfono (< 768 px), la tarjeta ocupa todo y este botón
+ * de la cabecera la cambia por el editor (en una pantalla más ancha no se ve: capcut-theme.css, `.ce-solo-angosta`).
+ */
+export function PanelChat({ onProyectos, onVerEditor }: { onProyectos: () => void; onVerEditor?: () => void }) {
 	const editor = useEditor();
 	const proyectoId = useEditor((e) => e.project.getActiveOrNull()?.metadata.id ?? "");
 	const tracksVivos = useEditor((e) => e.scenes.getActiveSceneOrNull()?.tracks ?? null);
@@ -372,6 +407,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	const [texto, setTexto] = useState("");
 	// Sin la app de escritorio no se escribe (25/10/2026, Martín: «En ningun chat, no solo en Ops Center»): app/_chat/useAppDeEscritorio.tsx.
 	const appEscritorio = useAppDeEscritorio();
+	// «Discutir | Editar», la preferencia compartida con los otros chats de MaKo (app/_chat/SelectorIntencion.tsx).
+	const [intencion, elegirIntencion] = useIntencion();
 	const [alcance, setAlcance] = useState<"video" | "seleccion">("video");
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const hiloRef = useRef<HTMLDivElement>(null);
@@ -410,7 +447,8 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 
 	const enviar = (instruccion: string, alc: "video" | "seleccion" = alcanceReal, op: { interpretar?: boolean } = {}) => {
 		if (hilo.corriendo || !instruccion.trim() || !proyectoId || appEscritorio.bloqueada) return;
-		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, op);
+		// La intención viaja al motor: con «Discutir» MaKo contesta y sugiere, sin armar una propuesta.
+		void pedirEdicion(editorRef.current, instruccion.slice(0, TOPES_CHAT.instruccion), alc, { ...op, intencion });
 		setTexto("");
 	};
 
@@ -466,9 +504,14 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	};
 
 	const detener = () => cortes.get(proyectoId)?.abort();
-	const visibles = SUGERENCIAS.filter((s) => !s.necesitaSeleccion || seleccion.length > 0);
-	const pildora = "cursor-pointer rounded-full bg-(--cc-raised) px-3 py-1.5 text-left text-[12px] text-(--cc-text) hover:brightness-125 disabled:cursor-default disabled:opacity-50";
-	const chip = "flex h-[26px] min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-full border px-2.5 text-[11.5px] font-medium";
+	const visibles = (intencion === "discutir" ? SUGERENCIAS_DISCUTIR : SUGERENCIAS).filter((s) => !s.necesitaSeleccion || seleccion.length > 0);
+	const pildoras = (lista: Sugerencia[]) => (
+		<div className="cc-chat-pildoras">
+			{lista.map((s) => (
+				<button key={s.rotulo} type="button" className="cc-chat-pildora" onClick={() => sugerir(s)} disabled={hilo.corriendo || !proyectoId}>{s.rotulo}</button>
+			))}
+		</div>
+	);
 
 	// El hilo del Ops Center: cada mensaje con su id y su hora; lo de MaKo que el hilo no sabe dibujar (el error, los links
 	// de otro proyecto, la propuesta con «Original | Modificado»), en su hueco. El foco de un link (`?propuesta=`) busca ese
@@ -488,7 +531,7 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 					{m.links && m.links.length > 0 && (
 						<div className="flex flex-wrap gap-1.5 self-start">
 							{m.links.map((l) => (
-								<Link key={l.href} href={l.href} className="rounded-full bg-(--cc-raised) px-3 py-1.5 text-[12px] text-(--cc-accent) hover:brightness-125">
+								<Link key={l.href} href={l.href} className="cc-chat-pildora">
 									{l.texto}
 								</Link>
 							))}
@@ -521,91 +564,115 @@ export function PanelChat({ onCerrar }: { onCerrar: () => void }) {
 	};
 
 	return (
-		// Un <section> y no un <aside>: con la barra de la agencia, `[data-barra-agencia] aside` (app/globals.css) le fuerza a todo <aside> el alto de la ventana, y la caja quedaba fuera de la vista (medido el 22/10/2026).
-		<section role="complementary" className="cc-chat flex size-full min-h-0 flex-col bg-(--cc-panel)" aria-label="Editar con IA">
+		// La tarjeta es el <section> del marco (../marco.tsx); acá adentro, el panel único (otro <section>, nunca un <aside>:
+		// con la barra de la agencia, `[data-barra-agencia] aside` le fuerza el alto de la ventana y la caja queda afuera).
+		<div className="cc-chat" data-testid="ve-chat-mako">
 			<style href="cc-chat" precedence="medium">{CSS_CHAT}</style>
-			<header className="flex h-10 shrink-0 items-center gap-2 bg-(--cc-panel-head) pr-1.5 pl-3">
-				<HugeiconsIcon icon={AiMagicIcon} className="size-4 text-(--cc-accent)" />
-				<span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-(--cc-text)">Editar con IA</span>
-				<button
-					type="button"
-					onClick={onCerrar}
-					title="Cerrar el panel"
-					aria-label="Cerrar el panel"
-					className="flex size-7 cursor-pointer items-center justify-center rounded-[4px] text-(--cc-icon) hover:bg-(--cc-raised)"
-				>
-					<HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
-				</button>
-			</header>
-
-			<div ref={hiloRef} className="co-hilo" style={{ padding: "12px" }} aria-live="polite">
-				<div className="co-hilo__col">
-					{hilo.mensajes.length === 0 && (
+			<PanelDeChat
+				hilo={hiloRef}
+				estado=""
+				cabecera={{
+					clave: `video:${proyectoId}`, titulo: "MaKo", criatura: "MaKo", aspecto: ASPECTO_MAKO,
+					animo: hilo.corriendo ? "trabajando" : "despierto",
+					// La «←» da vuelta la MISMA tarjeta a la lista de proyectos, sin navegar (como la del Web Generator).
+					antes: (
+						<button type="button" className="cc-chat-icono" onClick={onProyectos} title="Ver tus proyectos" aria-label="Ver tus proyectos">
+							←
+						</button>
+					),
+					// Sin «Cerrar el panel»: el chat no se cierra nunca.
+					acciones: (
 						<>
-							<div className="self-start rounded-[12px] bg-(--cc-raised) px-3 py-2 text-[12.5px] leading-[1.5] text-(--cc-text)">
-								Pídeme que edite lo que quieras del video.
-							</div>
-							<div className="flex flex-wrap gap-1.5">
-								{visibles.map((s) => (
-									<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)} disabled={hilo.corriendo}>{s.rotulo}</button>
-								))}
-							</div>
+							<span className="cc-chat-estado">{hilo.corriendo ? "escribiendo…" : "en línea"}</span>
+							{onVerEditor && (
+								<button type="button" className="cc-chat-icono ce-solo-angosta" onClick={onVerEditor} title="Ver el editor" aria-label="Ver el editor">
+									<HugeiconsIcon icon={Video01Icon} className="size-4" />
+								</button>
+							)}
 						</>
-					)}
-					<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
-						tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
-					{hilo.corriendo && (
-						<button type="button" onClick={detener} className="cursor-pointer self-start text-[12px] text-(--cc-text-3) hover:text-(--cc-text)">
-							Detener generación
-						</button>
-					)}
-					{hilo.mensajes.length > 0 && !hilo.corriendo && (
-						<div className="flex flex-wrap gap-1.5">
-							{visibles.slice(0, 4).map((s) => (
-								<button key={s.rotulo} type="button" className={pildora} onClick={() => sugerir(s)}>{s.rotulo}</button>
-							))}
+					),
+				}}
+				caja={
+					<div className="cc-chat-pie">
+						{/* «Discutir | Editar», como en el Web Generator, el Image Editor y Automations. */}
+						<SelectorIntencion valor={intencion} onCambio={elegirIntencion} deshabilitado={hilo.corriendo} />
+						{intencion === "editar" && (
+							<div className="cc-chat-chips" role="group" aria-label="Alcance">
+								<button type="button" className="cc-chat-chip" aria-pressed={alcanceReal === "video"} onClick={() => setAlcance("video")}>
+									Todo el video
+								</button>
+								{seleccion.length > 0 && (
+									<button type="button" className="cc-chat-chip" aria-pressed={alcanceReal === "seleccion"} onClick={() => setAlcance("seleccion")}>
+										<span>{rotuloSeleccion(seleccion.length)}</span>
+									</button>
+								)}
+							</div>
+						)}
+						{/* La caja única (app/_chat/CajaChat.tsx). */}
+						<div className="co-caja">
+							<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
+								apagado={!proyectoId} placeholder="Escribe a MaKo" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
 						</div>
-					)}
-				</div>
-			</div>
-
-			<footer className="grid shrink-0 gap-2 px-3 pt-2 pb-3">
-				<div className="flex min-w-0 gap-1.5" role="group" aria-label="Alcance">
-					<button
-						type="button"
-						aria-pressed={alcanceReal === "video"}
-						onClick={() => setAlcance("video")}
-						className={`${chip} border-(--cc-btn-2) text-(--cc-text-3) aria-pressed:border-(--cc-accent) aria-pressed:text-(--cc-accent)`}
-					>
-						Todo el video
+					</div>
+				}
+			>
+				{hilo.mensajes.length === 0 && (
+					<>
+						<div className="cc-chat-burbuja">
+							{!proyectoId
+								? "Crea o abre un proyecto y pídeme lo que quieras del video."
+								: intencion === "discutir"
+									? "Pregúntame lo que quieras de tu video: te digo qué cambiaría, sin tocar nada."
+									: "Pídeme que edite lo que quieras del video."}
+						</div>
+						{proyectoId ? pildoras(visibles) : null}
+					</>
+				)}
+				<HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
+					tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+				{hilo.corriendo && (
+					<button type="button" className="cc-chat-detener" onClick={detener}>
+						Detener generación
 					</button>
-					{seleccion.length > 0 && (
-						<button
-							type="button"
-							aria-pressed={alcanceReal === "seleccion"}
-							onClick={() => setAlcance("seleccion")}
-							className={`${chip} border-(--cc-btn-2) text-(--cc-text-3) aria-pressed:border-(--cc-accent) aria-pressed:text-(--cc-accent)`}
-						>
-							<span className="truncate">{rotuloSeleccion(seleccion.length)}</span>
-						</button>
-					)}
-				</div>
-				{/* La caja única (app/_chat/CajaChat.tsx), con los colores de CapCut (`CSS_CHAT`). */}
-				<div className="co-caja">
-					<CajaChat campo={inputRef} texto={texto} onTexto={setTexto} onMandar={() => enviar(texto)} ocupado={hilo.corriendo}
-						apagado={!proyectoId} placeholder="Envía un mensaje al agente…" tituloMandar="Enviar" enterManda bloqueo={appEscritorio.bloqueo} />
-				</div>
-			</footer>
-		</section>
+				)}
+				{hilo.mensajes.length > 0 && !hilo.corriendo && pildoras(visibles.slice(0, 4))}
+			</PanelDeChat>
+		</div>
 	);
 }
 
-/** Quien contesta en el hilo: la criatura de la tab (la misma que la nombra en el Ops Center). */
-const QUIEN = { nombre: "Video Editor" };
+/** Quien contesta en el hilo: la estrella de MaKo, como en el Web Generator y el Image Editor (antes, la criatura de la tab). */
+const QUIEN = { nombre: "MaKo", aspecto: ASPECTO_MAKO };
 const nada = () => {};
 
-/** Los tokens de las piezas del Ops Center con los colores de CapCut, sólo adentro del panel. */
+/**
+ * Las medidas del agente del Web Generator (`CSS_AGENTE` de app/web-generator/editor/paneles/PanelAgente.tsx): la cabecera
+ * de 48 con la estrella, la burbuja gris de MaKo, las píldoras celestes y la caja. Los COLORES son los tokens de MaKo, que
+ * adentro de `.ce` valen lo mismo que en la app y siguen su claro u oscuro (capcut-theme.css): ya no se redefinen acá.
+ */
 const CSS_CHAT = `
-.cc-chat{--surface:var(--cc-raised);--surface-2:var(--cc-sunken);--bg:var(--cc-panel);--border:var(--cc-btn-2);--border-strong:var(--cc-btn-2);--ink:var(--cc-text);--dim:var(--cc-text-3);--faint:var(--cc-text-3);--primary:var(--cc-accent);--primary-weak:var(--cc-accent);--on-primary:#000;--velo-hover:var(--cc-raised);--focus-ring:0 0 0 2px var(--cc-accent)}
-.cc-chat .co-caja{background:var(--cc-input)}
+.cc-chat{display:flex;flex:1;flex-direction:column;min-height:0;background:var(--surface);color:var(--ink);font-size:14px;line-height:1.45}
+.cc-chat>.co-panel{flex:1;min-height:0;background:transparent}
+.cc-chat .co-cab{min-height:48px;padding:0 8px 0 12px;gap:8px}
+.cc-chat .co-hilo{padding:8px 12px 12px}
+.cc-chat .co-hilo__col{gap:10px}
+.cc-chat .co-caja-wrap{padding:0}
+.cc-chat .co-caja textarea::placeholder{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cc-chat-estado{font-size:12px;color:var(--faint);white-space:nowrap}
+.cc-chat-icono{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;flex:none;padding:0;border:0;border-radius:6px;background:transparent;color:var(--dim);cursor:pointer;font-size:16px;line-height:1}
+.cc-chat-icono:hover{background:var(--velo-hover);color:var(--ink)}
+.cc-chat-icono:focus-visible,.cc-chat-pildora:focus-visible,.cc-chat-chip:focus-visible{outline:none;box-shadow:var(--focus-ring)}
+.cc-chat-pie{display:grid;gap:8px;padding:8px 12px 12px}
+.cc-chat-burbuja{align-self:flex-start;max-width:100%;padding:10px 14px;border-radius:14px;background:var(--surface-2);color:var(--ink);font-size:13.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere}
+.cc-chat-pildoras{display:flex;flex-wrap:wrap;gap:6px}
+.cc-chat-pildora{padding:6px 12px;border:0;border-radius:999px;background:var(--primary-bg);color:var(--primary-strong);font:inherit;font-size:12.5px;font-weight:500;text-align:left;text-decoration:none;cursor:pointer;transition:background .15s ease}
+.cc-chat-pildora:hover:not(:disabled){background:color-mix(in srgb,var(--primary) 18%,var(--surface))}
+.cc-chat-pildora:disabled{opacity:.5;cursor:default}
+.cc-chat-chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+.cc-chat-chip{display:inline-flex;align-items:center;gap:5px;min-width:0;max-width:100%;height:26px;padding:0 10px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface);color:var(--dim);font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.cc-chat-chip>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cc-chat-chip[aria-pressed="true"]{border-color:var(--primary-weak);background:var(--primary-bg);color:var(--primary-strong)}
+.cc-chat-detener{align-self:flex-start;padding:0;border:0;background:none;font:inherit;font-size:12px;color:var(--faint);cursor:pointer}
+.cc-chat-detener:hover{color:var(--ink)}
+@media (prefers-reduced-motion:reduce){.cc-chat-pildora{transition:none}}
 `;

@@ -68,7 +68,7 @@
 /* Canva: «elegido» = fondo violeta suave y texto violeta oscuro */
 .pressed,
 .pressed:hover:not(:disabled) {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-selected-bg);
   color: var(--cv-violet-800);
 }
 
@@ -453,7 +453,7 @@
   cursor: default;
 }
 .menuItem[aria-checked='true'] {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-selected-bg);
   color: var(--cv-violet-800);
   font-weight: 600;
 }
@@ -492,7 +492,7 @@
   background: var(--cv-color-bg-muted);
 }
 .presetBtn:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 .presetBtn:focus-visible {
   outline: none;
@@ -558,7 +558,7 @@
   box-shadow: var(--cv-focus-ring);
 }
 .shapeBtn.on {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-selected-bg);
   box-shadow: inset 0 0 0 1px var(--cv-color-brand);
   color: var(--cv-violet-800);
 }

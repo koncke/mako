@@ -19,7 +19,7 @@
 // Correr: node --import tsx --test tests/image-editor-integracion.test.ts
 // PROBADO ROMPIÉNDOLO (14/10/2026, de a una y restaurando; corrido con --test-name-pattern):
 //   R1 (14/10, cuando era sólo del super admin) sin `adminOnly` → 1a: 0/1. Desde el 15/10 ver 1a y 1c.
-//   R2 PantallaEditor sin `<CreditoDoory />`               → 2:  0/1
+//   R2 PantallaEditor sin `<CreditoDoory />`               → 2:  0/1 (desde el 27/10, Estudio.tsx con `key`; ver el pie)
 //   R3 un `import NextLink from 'next/link'` en Inicio.tsx  → 3:  0/1
 // Restaurado: 5/0.
 // =============================================================================
@@ -93,7 +93,9 @@ test('2: el crédito de Doory se dibuja en el editor y la licencia viaja con el 
   assert.match(credito, /Siam/);
   assert.match(credito, /Creator and maintainer of Doory/);
   assert.match(credito, /https:\/\/github\.com\/shaongitbd\/doory/);
-  assert.match(sinLineas(leer('app/image-editor/editor/PantallaEditor.tsx')), /<CreditoDoory \/>/, 'PantallaEditor no monta el crédito');
+  // Desde el 27/10/2026 lo dibuja el estudio (una pantalla para todos los diseños, sin cambiar de ruta), al pie, con `key`
+  // = el diseño abierto: si se cierra, vuelve al abrir OTRO (la licencia lo pide «each time … launched»).
+  assert.match(sinLineas(leer('app/image-editor/editor/Estudio.tsx')), /<CreditoDoory key=\{abierto \?\? 'sin-diseno'\} \/>/, 'el estudio no monta el crédito, o no lo vuelve a mostrar al abrir otro diseño');
   for (const f of ['LICENSE-DOORY', 'NOTICE-DOORY', 'COMMIT-DOORY']) {
     assert.ok(existsSync(join(RAIZ, 'app/image-editor/_doory', f)), `falta _doory/${f}`);
   }

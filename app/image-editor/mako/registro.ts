@@ -17,7 +17,9 @@ import { createElement } from 'react';
 import { FolderOpen, Sparkles } from 'lucide-react';
 import { PANEL_IA, registerPanel, strings } from '../_doory/editor/extensions';
 import { ProyectosPanel } from './ProyectosPanel';
-import { PanelMakoIA } from './chat/PanelMakoIA';
+// La hoja del chat en la pantalla chica es la MISMA tarjeta que la fija de la computadora: el chat de MaKo, con la «←» a
+// tus diseños (27/10/2026).
+import { TarjetaLateral } from '../editor/TarjetaLateral';
 
 /** Entre «Herramientas» (60) y «Apps» (80) de builtins/panels.tsx, como en Canva. */
 const ORDEN_PROYECTOS = 70;
@@ -50,7 +52,7 @@ registerPanel({
   icon: createElement(Sparkles, { size: 18, 'aria-hidden': true }),
   order: ORDEN_IA,
   placement: 'sidebar',
-  component: PanelMakoIA,
+  component: TarjetaLateral,
   // Proponer cambios es editar: con un enlace para ver o comentar, no hay chat. Y en escritorio el chat está FIJO a la
   // izquierda (EditorApp → `chatLateral`, 26/10/2026): este panel sólo existe en la pantalla chica (la hoja de la tira).
   requires: ({ state }) => !state.readOnly && state.ui.compact,

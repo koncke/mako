@@ -22,6 +22,7 @@
 // =============================================================================
 
 import { OPERACIONES_API } from '../editor-video/chat-api';
+import { OPERACIONES_API_IMAGEN } from '../image-editor/chat/api';
 
 export type MetodoRest = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export type RutaRest = readonly [MetodoRest, string, string];
@@ -36,6 +37,8 @@ export const RUTAS_REST: readonly RutaRest[] = [
   ['PATCH', '/imagen/disenos/{disenoId}/textos', 'cambiar_textos_diseno_imagen'],
   ['POST', '/imagen/disenos/{disenoId}/copias', 'duplicar_diseno_imagen'],
   ['GET', '/imagen/plantillas', 'listar_plantillas_imagen'],
+  // Las operaciones del chat «MaKo IA» (27/10/2026): cada una deja una PROPUESTA en el diseño (lib/image-editor/chat/api.ts).
+  ...OPERACIONES_API_IMAGEN.map((o): RutaRest => ['POST', `/imagen/disenos/{disenoId}/propuestas/${o.op.replace(/_/g, '-')}`, o.id]),
   // ── calendario (13/10/2026) ─────────────────────────────────────────────────
   ['GET', '/calendario/eventos', 'listar_eventos_calendario'],
   ['POST', '/calendario/eventos', 'crear_evento_calendario'],

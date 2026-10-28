@@ -18,10 +18,16 @@
 // Lo que NO cambió (las reglas de «Un chat que edita lo abierto», AGENTS.md): la respuesta es un CAMBIO PROPUESTO con
 // «Original | Modificado» que se acepta o se descarta entero; después de aceptar, «Restaurar» lo vuelve atrás
 // (./acciones.ts); el alcance en chips (todo el diseño o lo elegido); el hilo por diseño, guardado por persona (./hilo.ts).
+// Y desde el 27/10/2026 (Martín: «que los "proyectos" se vean en la barra del costado, y que no cambie de ruta»):
+//   · la «←» de la cabecera (`antes:`, como `PanelAgente` del Web Generator) pasa la MISMA tarjeta a tus diseños
+//     (../ListaDisenos.tsx), sin navegar;
+//   · mientras la IA del negocio crea o edita una imagen (10 a 90 s), el hilo dice qué está haciendo (`Hilo.progreso`);
+//   · un error con su arreglo («conecta OpenAI») trae el link a la integración, que abre SU modal acá
+//     (`LinkIntegracion`), y «Reportar a soporte».
 // =============================================================================
 
 import '@/app/admin/operaciones/centro.css';
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { Check } from 'lucide-react';
 import { CajaChat } from '@/app/_chat/CajaChat';
 import { HiloMako, type EnMensaje } from '@/app/_chat/HiloMako';
@@ -29,8 +35,9 @@ import { SelectorIntencion, useIntencion } from '@/app/_chat/SelectorIntencion';
 import type { ItemHilo } from '@/app/m/mako/chat-ui';
 import { PanelDeChat } from '@/app/admin/operaciones/PanelChat';
 import { ASPECTO_MAKO } from '@/lib/centro-munecos';
-import Link from '@/app/_ui/Link';
+import { LinkIntegracion } from '@/app/_components/ConectarIntegracion';
 import { useEditor, useEditorState, type EditorEngine } from '../../_doory/editor/extensions';
+import { useEstudio } from '../../editor/estudio';
 import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
 import { resumenDeCambios, type CambioImagen } from '@/lib/image-editor/chat/aplicar';
 import { cambiarMensaje, cargarHilo, leerHilo, suscribir, type EstadoPropuesta, type Hilo, type MensajeMako } from './hilo';
@@ -48,6 +55,15 @@ const nada = () => {};
 const iso = (ms: number): string | null => (Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null);
 
 const ETIQUETA_CAMBIO: Record<CambioImagen['tipo'], string> = { cambia: 'Cambia', agrega: 'Nuevo', quita: 'Se quita' };
+
+/**
+ * El link al arreglo, como píldora. `LinkIntegracion` dibuja el botón de una integración «como texto» con estilo EN LÍNEA
+ * (sin fondo, borde ni relleno), que le gana a cualquier clase: la forma va acá, con los tokens del editor.
+ */
+const PILDORA_LINK: CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', padding: '6px 12px', border: '1px solid var(--cv-color-border)',
+  borderRadius: 9999, background: 'var(--cv-color-surface)', color: 'var(--cv-color-brand)', font: '500 12px / 1.3 var(--cv-font-sans)',
+};
 const MAX_FILAS = 8;
 
 /** La miniatura de una imagen nueva o cambiada (la que creó la IA), si la fila la trae. */
@@ -146,6 +162,7 @@ const SUGERENCIAS_DISCUTIR: Sugerencia[] = [
 
 export function PanelMakoIA() {
   const editor = useEditor();
+  const estudio = useEstudio();
   const disenoId = editor.designId;
   const titulo = useEditorState((s) => s.title);
   const docVersion = useEditorState((s) => s.docVersion);
@@ -209,11 +226,13 @@ export function PanelMakoIA() {
     const m = hilo.mensajes.find((y) => y.id === x.id);
     if (!m || m.de !== 'mako') return null;
     return {
-      arriba: m.error ? <p className={styles.error}>{m.texto}</p> : null,
+      // Un error dice qué pasó y deja reportarlo (la casa: todo aviso de error lleva `ReportarASoporte`).
+      arriba: m.error ? <p className={styles.error} role="alert">{m.texto}<ReportarASoporte error={m.texto} /></p> : null,
       abajo: <>
+        {/* El arreglo, si lo hay («conecta OpenAI»): una integración abre SU modal acá mismo, sin salir del editor. */}
         {m.links && m.links.length > 0 && (
           <div className={styles.links}>
-            {m.links.map((l) => <Link key={l.href} href={l.href} className={styles.link}>{l.texto}</Link>)}
+            {m.links.map((l) => <LinkIntegracion key={l.href} href={l.href} className={styles.link} style={PILDORA_LINK}>{l.texto}</LinkIntegracion>)}
           </div>
         )}
         {m.propuesta && m.cambios && m.estado ? (
@@ -247,6 +266,10 @@ export function PanelMakoIA() {
         cabecera={{
           clave: `imagen:${disenoId}`, titulo: 'MaKo', criatura: 'MaKo', aspecto: ASPECTO_MAKO,
           animo: hilo.corriendo ? 'trabajando' : 'despierto',
+          // La «←» a tus diseños, en la MISMA tarjeta y sin navegar (el `antes:` de PanelAgente del Web Generator).
+          antes: estudio ? (
+            <button type="button" className={styles.volverLista} onClick={estudio.verDisenos} title="Ver tus diseños" aria-label="Ver tus diseños">←</button>
+          ) : undefined,
           acciones: <span className={styles.enLinea}>{hilo.corriendo ? 'escribiendo…' : 'en línea'}</span>,
         }}
         caja={
@@ -284,6 +307,10 @@ export function PanelMakoIA() {
         )}
         <HiloMako items={items} quien={QUIEN} ahora={Date.now()} escribiendo={hilo.corriendo ? { segs: 0 } : null}
           tarjeta={null} onTarjeta={nada} onReintentar={nada} onRecargar={nada} enMensaje={enMensaje} />
+        {/* Lo que está haciendo mientras la IA del negocio dibuja («Creando la imagen…», ./hilo.ts): tarda de 10 a 90 s. */}
+        {hilo.corriendo && hilo.progreso ? (
+          <p className={styles.progreso} role="status"><span className={styles.girando} aria-hidden="true" />{hilo.progreso}</p>
+        ) : null}
         {hilo.corriendo && (
           <button type="button" className={styles.secundario} onClick={() => detener(disenoId)}>Detener</button>
         )}

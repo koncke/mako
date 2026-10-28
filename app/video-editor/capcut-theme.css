@@ -20,9 +20,20 @@
    de MaKo.
 
    Este archivo lo importa app/globals.css (las directivas @theme/@custom-variant/
-   @utility sólo valen dentro de la entrada de Tailwind). */
+   @utility sólo valen dentro de la entrada de Tailwind).
 
-@custom-variant dark (&:where(.ce, .ce *));
+   ── LOS COLORES DE MaKo (27/10/2026) ───────────────────────────────────────
+   Martín: «Tambien ponle los colores de MaKo a esas tabs». La tab del escritorio
+   lleva además `.ce-mako` (VideoEditorCliente.tsx), y ahí (al final de este
+   archivo) los `--cc-*` SALEN de los tokens de la app (--bg, --surface, --ink,
+   --primary…), que cambian solos con `[data-tema="oscuro"]` y con los Nord
+   (`[data-tema-candidato]`): el editor es claro u oscuro según lo que eligió la
+   persona, como el resto de MaKo, y ya no se fuerza el oscuro con <TemaOscuro/>.
+   El `.ce` a secas sigue siendo el CapCut oscuro medido: lo usa el editor del
+   TELÉFONO (app/m/video-editor/, «oscuro como CapCut»), que no entra en el pedido.
+   `dark:` vale en el `.ce` de CapCut y en el de MaKo sólo con MaKo en oscuro. */
+
+@custom-variant dark (&:where(.ce:not(.ce-mako), .ce:not(.ce-mako) *, [data-tema="oscuro"] .ce-mako, [data-tema="oscuro"] .ce-mako *));
 
 @theme inline {
   --color-background: var(--background);
@@ -104,6 +115,7 @@
   --cc-line: #09090b;
   --cc-line-2: #353535;
   --cc-accent: #00c1cd;       /* EL cian: Exportar, pestaña activa, tiempo actual */
+  --cc-on-accent: #000000;    /* lo que se lee SOBRE el cian (las medidas de las guías, «Aceptar» del chat) */
   --cc-text: #e0e0e0;
   --cc-text-2: #bababa;
   --cc-text-3: #929292;
@@ -170,6 +182,8 @@
   --border-strong: #4a4a4a;
   --on-primary: #ffffff;
   --focus-ring: 0 0 0 2px var(--cc-accent);
+  /* El velo del hover sobre el oscuro de CapCut ACLARA (el de la app, en claro, oscurece y no se vería). */
+  --velo-hover: rgb(255 255 255 / 0.07);
 
   --ce-text-xs: 0.72rem;
   --ce-text-sm: 0.79rem;
@@ -203,3 +217,336 @@
 
 /* Los portales de radix (menús, popovers, diálogos) se montan en <body>, FUERA
    de `.ce`: llevan la misma clase en su contenedor (ver VideoEditorCliente). */
+
+/* =============================================================================
+   `.ce-mako` — el editor del escritorio con los colores de MaKo (27/10/2026)
+   =============================================================================
+   AGENTS.md, «Una pantalla oscura se hace redefiniendo TOKENS, no reglas»: los
+   ~600 usos de `--cc-*` del motor no se tocan; cambia lo que valen.
+
+   ⚠️ NO SE PUEDE ESCRIBIR `--cc-accent: var(--primary)` SOBRE EL `.ce` DE ARRIBA:
+   ahí `--primary` vale `var(--cc-accent)` (el nombre de shadcn) y los dos quedan
+   en ciclo, o sea INVÁLIDOS, sin un solo error (se dibuja transparente). Lo mismo
+   `--border`, `--surface`, `--ink`… que el `.ce` de CapCut pisa. Por eso esos
+   nombres vuelven primero a su valor de la app con `inherit` (lo que vale en el
+   padre, o sea en <html>, con el claro/oscuro y el Nord ya resueltos) y recién
+   ahí los `--cc-*` los leen.
+   ⚠️ Los que lee un <canvas> con getComputedStyle (las reglas: --cc-sunken,
+   --cc-panel, --cc-line-2, --cc-ruler, --cc-text-3; guides/reglas.tsx) van como
+   `var()` LISO, nunca `color-mix()`: lo que le llega al canvas es el texto ya
+   sustituido, y un `fillStyle` que no entiende se ignora en silencio.
+
+   Contraste (AA de texto): los tres niveles de texto son los de la app, medidos
+   ahí sobre --surface, --surface-2 y --bg (app/globals.css). El «elevado»
+   (`--cc-raised`, el hover y el segmento elegido) es un 4 % de tinta en claro y
+   `--surface-2` en oscuro: con más, el texto terciario (--faint) quedaba por
+   debajo de 4,5:1 encima de él (calculado: 6 % daba 4,4:1).
+
+   Lo que NO sale de la app, a propósito:
+   · los colores de los CLIPS (--cc-clip-*): son de CapCut, medianos y saturados,
+     con texto blanco encima (≥ 7:1 en los dos temas), y se distinguen por TIPO;
+   · el fondo del reproductor: es el video, va negro;
+   · los colores de los marcadores (los elige la persona). */
+.ce.ce-mako {
+  --bg: inherit;
+  --surface: inherit;
+  --surface-2: inherit;
+  --ink: inherit;
+  --dim: inherit;
+  --faint: inherit;
+  --border: inherit;
+  --border-strong: inherit;
+  --primary: inherit;
+  --on-primary: inherit;
+  --focus-ring: inherit;
+  --velo-hover: inherit;
+
+  /* La ventana es el fondo de la app; los paneles, sus tarjetas. */
+  --cc-app: var(--bg);
+  --cc-panel: var(--surface);
+  --cc-panel-head: var(--surface-2);
+  --cc-raised: color-mix(in srgb, var(--ink) 4%, var(--surface));
+  --cc-input: var(--surface-2);
+  --cc-sunken: var(--bg);
+  --cc-btn-2: var(--border-strong);
+  --cc-scroll: var(--border-strong);
+  --cc-track-head: var(--surface);
+  --cc-track: var(--surface-2);
+  --cc-track-active: color-mix(in srgb, var(--primary) 9%, var(--surface));
+  --cc-line: var(--border-strong);
+  --cc-line-2: var(--border);
+  /* EL cian de CapCut pasa a ser el azul de acción de MaKo («AZUL → vos actuás»). */
+  --cc-accent: var(--primary);
+  --cc-on-accent: var(--on-primary);
+  --cc-text: var(--ink);
+  --cc-text-2: var(--dim);
+  --cc-text-3: var(--faint);
+  --cc-ruler: var(--border-strong);
+  --cc-icon: var(--dim);
+  --cc-icon-off: color-mix(in srgb, var(--faint) 55%, var(--surface));
+  --cc-track-icon: var(--faint);
+  /* El borde del clip elegido y el cabezal: la tinta (casi negra en claro, casi blanca en oscuro, como en CapCut). */
+  --cc-select: var(--ink);
+  --cc-playhead: var(--ink);
+  /* El inicio (crear y todos los proyectos): el fondo de la app con un resplandor del azul arriba. */
+  --cc-home: var(--bg);
+  --cc-home-glow: color-mix(in srgb, var(--primary) 12%, var(--bg));
+  --cc-home-btn: var(--surface);
+  --cc-create-from: var(--primary);
+  --cc-create-to: var(--primary-strong);
+  --cc-on-create: var(--on-primary);
+
+  /* Los nombres de shadcn que el `.ce` de CapCut fija con hex. */
+  --popover: var(--surface);
+  --primary-foreground: var(--on-primary);
+  --secondary-border: var(--border-strong);
+  /* El rojo de la app con un poco de tinta: --bad sobre su fondo da 3,7:1 en claro (calculado); así pasa AA como
+     texto (5,2:1 sobre --bad-bg) y sigue siendo un relleno con el blanco encima. En oscuro aclara. */
+  --destructive: color-mix(in srgb, var(--bad) 78%, var(--ink));
+  --destructive-foreground: var(--on-primary);
+  --constructive: var(--good);
+  --constructive-foreground: var(--on-primary);
+  --caution: var(--warn);
+  --caution-foreground: var(--on-primary);
+
+  color-scheme: light;
+}
+[data-tema="oscuro"] .ce.ce-mako {
+  /* En oscuro las superficies SUBEN: lo elevado es --surface-2, y el menú también (sobre --surface no se despega). */
+  --cc-raised: var(--surface-2);
+  --popover: var(--surface-2);
+  color-scheme: dark;
+}
+.ce.ce-mako ::selection {
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
+}
+
+/* ── El marco: la tarjeta de MaKo a la izquierda y el editor a su derecha (_opencut/marco.tsx) ──────────────
+   Copiado de `.gma-cuerpo` / `.gma-izq` del Web Generator (app/web-generator/gamma.css): la tarjeta FLOTA con
+   8 px de aire, radio 12 y el borde suave, mide 340 (lo mismo que la del Web Generator y la del Image Editor:
+   ir de uno al otro no salta), y de punta a punta; el editor estira con flex (nada de `height: 100%`). */
+.ce-marco {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: row;
+  background: var(--cc-app);
+}
+.ce-izq {
+  flex: none;
+  width: 340px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  margin: 8px 0 8px 8px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05), 0 0 0 0.8px var(--border);
+}
+.ce-izq > * {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.ce-der {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Lo que sólo va en el teléfono: el «Ver el editor» de la cabecera del chat y la estrella para volver. */
+.ce .ce-solo-angosta,
+.ce-volver-mako {
+  display: none;
+}
+.ce-volver-mako {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  /* Encima de las capas de la línea de tiempo (llegan a 40) y debajo de los menús (50). */
+  z-index: 45;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.18), 0 0 0 0.8px var(--border);
+  cursor: pointer;
+}
+/* EL TELÉFONO (< 768 px, el mismo corte que `useAngosta` en marco.tsx): no entran los dos. Va la tarjeta a todo el
+   ancho (el chat se usa igual) y «Ver el editor» la cambia por el editor; la estrella de abajo vuelve. */
+@media (max-width: 767px) {
+  .ce-marco {
+    flex-direction: column;
+  }
+  .ce-izq {
+    width: auto;
+    flex: 1;
+    margin: 8px;
+  }
+  .ce-marco[data-movil="chat"] > .ce-der,
+  .ce-marco[data-movil="editor"] > .ce-izq {
+    display: none;
+  }
+  .ce .ce-solo-angosta {
+    display: inline-flex;
+  }
+  .ce-marco[data-movil="editor"] .ce-volver-mako {
+    display: grid;
+  }
+}
+
+/* ── La lista de proyectos en la tarjeta (_opencut/inicio/PanelProyectos.tsx) ───────────────────────────────
+   Copiada de `.gma-ls` del Web Generator (app/web-generator/editor/paneles/PanelLandings.tsx), con los tokens
+   de MaKo. */
+.ce-ls {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.ce-ls-cab {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 12px 8px;
+}
+.ce-ls-busca {
+  flex: 1;
+  min-width: 0;
+  height: 34px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font: inherit;
+  font-size: 13px;
+  color: var(--ink);
+  outline: none;
+}
+.ce-ls-busca::placeholder {
+  color: var(--faint);
+}
+.ce-ls-busca:focus-visible {
+  box-shadow: var(--focus-ring);
+}
+.ce-ls-mako {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+}
+.ce-ls-mako:hover {
+  background: var(--velo-hover);
+}
+/* Una lista que crece SÍ scrollea: es contenido, no la navegación de la app (AGENTS.md, «Dos reglas de layout»). */
+.ce-ls-lista {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+}
+.ce-ls-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.ce-ls-item:hover {
+  background: var(--velo-hover);
+}
+.ce-ls-item:focus-visible,
+.ce-ls-mako:focus-visible,
+.ce-volver-mako:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.ce-ls-item[aria-current="true"] {
+  background: var(--primary-bg);
+  color: var(--primary-strong);
+  font-weight: 600;
+}
+.ce-ls-item > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ce-ls-nueva {
+  margin-bottom: 4px;
+  border: 1px dashed var(--border-strong);
+  color: var(--dim);
+}
+.ce-ls-nueva[aria-current="true"] {
+  border-style: solid;
+  border-color: transparent;
+}
+/* La miniatura del proyecto (su primer cuadro), o el ícono si todavía no tiene. */
+.ce-ls-mini {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface-2);
+  color: var(--faint);
+}
+.ce-ls-aviso {
+  margin: 0;
+  padding: 12px;
+  font-size: 13px;
+  color: var(--dim);
+}
+.ce-ls-pie {
+  flex: none;
+  padding: 8px 12px 12px;
+  border-top: 0.8px solid var(--border);
+}
+.ce-ls-pie button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  color: var(--dim);
+  cursor: pointer;
+}
+.ce-ls-pie button:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}

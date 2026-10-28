@@ -16,7 +16,12 @@
 //
 // Correr: node --import tsx --test tests/video-editor-chat-motion.test.ts
 //
-// ⚠️ SIN PROBAR ROMPIÉNDOLO todavía (26/10/2026, la tanda se suspendió antes): ver docs/relevo/motion-imagen.md.
+// PROBADO ROMPIÉNDOLO (27/10/2026, base 13/0, cada rotura restaurada de memoria):
+//   · agregar deja los textos de ejemplo de la plantilla (`valoresAlAgregar`)      -> 11/2 (M5, M8)
+//   · motion sin la validación ESTRICTA de `normalizarMotion`                      -> 9/4 (M2, M3, M7, M12)
+//   · `!alAgregar && !claves.length` INVERTIDO                                      -> 13/0: NO lo ve ningún test, y no
+//     puede: un editar_motion sin valores ya lo rechaza la forma (`valoresMotionDeForma`) antes de llegar ahí, y un
+//     agregar sin valores lo rechaza el obligatorio. Esa rama es una red de más, no una regla.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -195,10 +200,13 @@ test('M10: el catálogo que lee la IA enseña las plantillas y las reglas, y «n
   const renglon = txt.split('\n- ').find((l) => l.includes('"op":"agregar_motion"'))!;
   for (const p of PLANTILLAS_MOTION) assert.match(renglon, new RegExp(`\\n  · ${p} — `), p);
   assert.match(renglon, /TAL CUAL/);
-  assert.match(renglon, /nunca los inventes/);
+  assert.match(renglon, /nunca se inventan/);
   assert.match(renglon, /UN "tono"/);
   assert.match(NO_SE_PUEDE_CHAT, /un motion graphic, sí: agregar_motion/);
-  assert.deepEqual(OPERACIONES_CHAT.slice(-2).map((o) => o.op), ['agregar_motion', 'editar_motion'], 'al final del catálogo');
+  // Después de todas las de antes (27/10/2026 se sumaron otras DESPUÉS: duplicar, quitar_fondo, fondo_lienzo…).
+  const ids = OPERACIONES_CHAT.map((o) => o.op);
+  assert.ok(ids.indexOf('agregar_motion') > ids.indexOf('usar_plantilla'), 'después de las de antes');
+  assert.equal(ids.indexOf('editar_motion'), ids.indexOf('agregar_motion') + 1);
 });
 
 test('M11: la API: una lista [{campo, valor}] que vuelve a {campo: valor} con su tipo, y la descripción con las plantillas', () => {
@@ -256,8 +264,3 @@ test('M13: aplicar usa el comando de la biblioteca (agregar) y el `updateElement
   assert.doesNotMatch(sinComentarios(leer('app/video-editor/_opencut/chat/comandos.ts')), /"agregar_motion"[^\n]*LARGAS|LARGAS[^\n]*"agregar_motion"/, 'agregar va en el lote, no después');
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PENDIENTE: PROBARLO ROMPIÉNDOLO
-// ─────────────────────────────────────────────────────────────────────────────
-// La tanda se suspendió el 26/10/2026 antes de hacerlo. Y M10 está en rojo: su regex busca «nunca los inventes» y la
-// descripción quedó «nunca se inventan» (cambiar la regex).

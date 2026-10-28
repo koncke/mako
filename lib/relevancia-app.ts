@@ -110,7 +110,9 @@ const SIN_COSA: ReadonlySet<string> = new Set([
 const SINONIMOS: Readonly<Record<string, readonly string[]>> = {
   landing: ['sitio', 'pagina', 'web'], componente: ['grafico', 'tabla', 'elemento', 'widget', 'torta', 'barras', 'indicador'], hoja: ['pestana'], miembro: ['persona', 'closer', 'setter', 'equipo'],
   entidad: ['campana', 'conjunto', 'anuncio'], borrador: ['mensaje'], chat: ['conversacion'], reunion: ['llamada', 'cita', 'visita'],
-  etiqueta: ['tag'], destinatario: ['reporte', 'aviso'], cliente: ['alumno', 'baja'], secuencia: ['automatizacion', 'nutricion', 'flujo'], broadcast: ['difusion'], elementos: ['clip', 'capa'],
+  etiqueta: ['tag'], destinatario: ['reporte', 'aviso'], cliente: ['alumno', 'baja'], secuencia: ['automatizacion', 'nutricion', 'flujo'], broadcast: ['difusion'],
+  // Un elemento de un editor se nombra por lo que ES (27/10/2026: «borrá el logo del video», «ocultá el logo del diseño»).
+  elementos: ['clip', 'capa', 'logo', 'sticker', 'forma', 'rectangulo', 'circulo'], elemento: ['clip', 'capa', 'logo', 'sticker', 'forma', 'rectangulo', 'circulo'],
   cobro: ['pago'],
 };
 

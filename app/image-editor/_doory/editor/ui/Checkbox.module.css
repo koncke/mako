@@ -10,7 +10,7 @@
 }
 
 .disabled {
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-text-disabled);
   cursor: not-allowed;
 }
 
@@ -30,7 +30,7 @@
   justify-content: center;
   width: 18px;
   height: 18px;
-  border: 1px solid rgb(28 33 48 / 0.5);
+  border: 1px solid var(--cv-color-border-hover);
   border-radius: 4px;
   background: var(--cv-color-surface);
   color: transparent;
@@ -45,7 +45,7 @@
 .input:indeterminate + .box {
   border-color: var(--cv-color-brand);
   background: var(--cv-color-brand);
-  color: #fff;
+  color: var(--cv-color-on-brand); /* la tilde sobre el azul: en el oscuro el azul es claro y la tilde va oscura */
 }
 
 .row:hover .input:checked + .box,
@@ -59,8 +59,8 @@
 }
 
 .input:disabled + .box {
-  border-color: rgb(57 70 96 / 0.14);
-  background: rgb(64 79 109 / 0.06);
+  border-color: var(--cv-neutral-pressed);
+  background: var(--cv-neutral-hover);
 }
 
 .text {

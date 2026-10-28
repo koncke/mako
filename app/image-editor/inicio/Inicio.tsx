@@ -22,7 +22,13 @@
 //
 // Los diseños son los de ESTE workspace, en la base (/api/image-editor/disenos, mig 0278). Al
 // entrar, lo que haya quedado en el navegador de la etapa 1 sube solo (../mako/mudanza.ts).
-// Crear = guardar un documento en blanco y navegar a /image-editor/<id> con el `?ws=`.
+// Crear = guardar un documento en blanco y abrirlo.
+//
+// Desde el 27/10/2026 ya no es una página: es la VISTA DE CREAR del estudio (../editor/Estudio.tsx), que va EN LUGAR del
+// editor con «Nuevo diseño», «Inicio» o «Ver todo», y sola cuando no hay ningún diseño (Martín: «que no cambie de ruta»).
+// Conserva TODO lo que tenía: buscar tamaños y diseños, «Mis diseños», «Plantillas», los tipos, «Elegir el tamaño»,
+// los recientes en cuadrícula o en lista y eliminar. Abrir y crear NO navegan: avisan al estudio (`onAbrir`,
+// `onCreado`), que monta el diseño en el mismo lugar. Sin esos avisos (montada sola), navega como antes.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Folder, LayoutGrid, LayoutTemplate, List, Proportions, Search, Sparkles, Video, X } from 'lucide-react';
@@ -120,9 +126,9 @@ function Miniatura({ d, lado }: { d: FilaLista; lado: number }) {
   );
 }
 
-function TarjetaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => void; onBorrar: () => void }) {
+function TarjetaDiseno({ d, abierto, onAbrir, onBorrar }: { d: FilaLista; abierto: boolean; onAbrir: () => void; onBorrar: () => void }) {
   return (
-    <div className={styles.tarjeta}>
+    <div className={styles.tarjeta} data-abierto={abierto || undefined}>
       <button type="button" className={styles.miniatura} onClick={onAbrir} aria-label={`Abrir «${d.title}»`}>
         <Miniatura d={d} lado={136} />
       </button>
@@ -135,10 +141,10 @@ function TarjetaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => 
   );
 }
 
-function FilaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => void; onBorrar: () => void }) {
+function FilaDiseno({ d, abierto, onAbrir, onBorrar }: { d: FilaLista; abierto: boolean; onAbrir: () => void; onBorrar: () => void }) {
   const tamano = tamanoPorMedidas(d.width, d.height);
   return (
-    <li className={styles.fila}>
+    <li className={styles.fila} data-abierto={abierto || undefined}>
       <button type="button" className={styles.abrir} onClick={onAbrir} title={d.title}>
         <span className={styles.mini}><Miniatura d={d} lado={36} /></span>
         <span className={styles.nombreFila}>{d.title}</span>
@@ -150,12 +156,24 @@ function FilaDiseno({ d, onAbrir, onBorrar }: { d: FilaLista; onAbrir: () => voi
   );
 }
 
-export function Inicio({ ws }: { ws: number | null }) {
+export function Inicio({ ws, ambitoInicial = 'todo', abierto = null, onAbrir, onCreado, onBorrado }: {
+  ws: number | null;
+  /** Dónde arranca el buscador: «Ver todo» de la tarjeta la abre en «Mis diseños». */
+  ambitoInicial?: Ambito;
+  /** El diseño que el estudio tiene abierto (se marca en los recientes). */
+  abierto?: string | null;
+  /** Abrir un diseño en el lugar (el estudio). Sin esto, navega a /image-editor/<id>. */
+  onAbrir?: (id: string) => void;
+  /** Lo recién creado, para abrirlo en el lugar. Sin esto, navega. */
+  onCreado?: (id: string) => void;
+  /** Se eliminó un diseño (el estudio refresca su lista y, si era el abierto, lo cierra). */
+  onBorrado?: (id: string) => void;
+}) {
   const router = useRouter();
   const { confirm, confirmNode } = useConfirm();
   const [disenos, setDisenos] = useState<FilaLista[] | null>(null);
   const [busqueda, setBusqueda] = useState('');
-  const [ambito, setAmbito] = useState<Ambito>('todo');
+  const [ambito, setAmbito] = useState<Ambito>(ambitoInicial);
   const [tipoAbierto, setTipoAbierto] = useState<Tipo | null>(null);
   const [dialogo, setDialogo] = useState<VistaCrear | null>(null);
   const [vista, setVista] = useState<Vista>(leerVista);
@@ -186,20 +204,22 @@ export function Inicio({ ws }: { ws: number | null }) {
         doc: createBlankDocument(nuevo.ancho, nuevo.alto, { unit: nuevo.unidad, presetId: nuevo.presetId }),
       });
       if (!r.ok) throw new Error(r.error);
-      // `creando` queda prendido: la pantalla se va, y un segundo clic no crea otro.
-      router.push(rutaDiseno(r.id));
+      // `creando` queda prendido: la vista se va (el estudio abre el diseño en el lugar), y un segundo clic no crea otro.
+      if (onCreado) onCreado(r.id);
+      else router.push(rutaDiseno(r.id));
     } catch {
       setError('No se pudo crear el diseño.');
       setCreando(false);
     }
   }
 
-  const abrir = (d: FilaLista) => router.push(rutaDiseno(d.id));
+  const abrir = (d: FilaLista) => (onAbrir ? onAbrir(d.id) : router.push(rutaDiseno(d.id)));
 
   async function borrar(d: FilaLista) {
     if (!(await confirm(`Se elimina «${d.title}».`, { title: 'Eliminar diseño' }))) return;
     const r = await borrarDiseno(d.id);
     if (!r.ok) setError('No se pudo eliminar.');
+    else onBorrado?.(d.id);
     cargar();
   }
 
@@ -373,7 +393,7 @@ export function Inicio({ ws }: { ws: number | null }) {
             ) : vista === 'cuadricula' ? (
               <div className={styles.grilla}>
                 {recientes.map((d) => (
-                  <TarjetaDiseno key={d.id} d={d} onAbrir={() => abrir(d)} onBorrar={() => void borrar(d)} />
+                  <TarjetaDiseno key={d.id} d={d} abierto={d.id === abierto} onAbrir={() => abrir(d)} onBorrar={() => void borrar(d)} />
                 ))}
               </div>
             ) : (
@@ -386,7 +406,7 @@ export function Inicio({ ws }: { ws: number | null }) {
                 </div>
                 <ul className={styles.lista}>
                   {recientes.map((d) => (
-                    <FilaDiseno key={d.id} d={d} onAbrir={() => abrir(d)} onBorrar={() => void borrar(d)} />
+                    <FilaDiseno key={d.id} d={d} abierto={d.id === abierto} onAbrir={() => abrir(d)} onBorrar={() => void borrar(d)} />
                   ))}
                 </ul>
               </div>

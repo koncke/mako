@@ -1,7 +1,8 @@
 // =============================================================================
 // POST /api/video-editor/ia — el chat del Video Editor
 // =============================================================================
-// POST json {instruccion, linea, alcance} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// POST json {instruccion, linea, alcance, intencion?} → { ok, resumen, operaciones, descartes } | { ok:false, error }
+// `intencion: 'discutir'` contesta y sugiere SIN operaciones (lib/editor-video/ia.ts); sin ella, editar.
 //
 // El panel «Editar con IA» (app/video-editor/_opencut/chat/PanelChat.tsx) manda lo que pidió
 // la persona y la vista de la línea de tiempo; vuelve una PROPUESTA (operaciones del catálogo,
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
   if (!body || typeof body !== 'object') return fallo('Pedido inválido.', 400);
 
   return runWithWorkspace(p.ws, async () => {
-    const r = await editarVideo({ instruccion: body.instruccion, linea: body.linea, alcance: body.alcance });
+    const r = await editarVideo({ instruccion: body.instruccion, linea: body.linea, alcance: body.alcance, intencion: body.intencion });
     if (!r.ok) return fallo(r.error, r.status);
     return Response.json(r, { headers: { 'cache-control': 'no-store' } });
   });

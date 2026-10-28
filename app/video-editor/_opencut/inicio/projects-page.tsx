@@ -16,6 +16,12 @@
 //
 // El nombre de un proyecto nuevo es la fecha MMDD, como CapCut (./nombre.ts).
 // La vista elegida se recuerda en este navegador (./store.ts).
+//
+// DESDE EL 27/10/2026 NO ES UNA PÁGINA: es el inicio EMBEBIDO en el lugar del editor (../marco.tsx), como «¿Qué vas a
+// crear hoy?» del Web Generator (Martín: «que los "proyectos" se vean en la barra del costado, y que no cambie de ruta»).
+// Aparece con «Nuevo proyecto» de la lista de la tarjeta, con «Volver a la página de inicio» del Menú o cuando no hay
+// ningún proyecto. Abrir, crear y borrar NO navegan: se los pide al marco (./proyecto-abierto.tsx), que cambia el
+// proyecto en el lugar. Y no es lo que abre `/video-editor`: esa ruta abre el último proyecto que se tocó.
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -30,15 +36,12 @@ import {
 	Video01Icon,
 } from "@hugeicons/core-free-icons";
 import { IconoBorrar } from "@/app/_ui/BotonBorrar";
-import Link, { useRouter } from "@/app/_ui/Link";
-import { rutaEditor } from "@/app/video-editor/ruta";
 import type { EditorCore } from "@/app/video-editor/_opencut/core";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import type { TProjectMetadata } from "@/app/video-editor/_opencut/project/types";
 import { MigrationDialog } from "@/app/video-editor/_opencut/project/components/migration-dialog";
 import { DeleteProjectDialog } from "@/app/video-editor/_opencut/project/components/delete-project-dialog";
 import { RenameProjectDialog } from "@/app/video-editor/_opencut/project/components/rename-project-dialog";
-import { StoragePersistenceDialog } from "@/app/video-editor/_opencut/services/storage/components/storage-persistence-dialog";
 import {
 	ContextMenu,
 	ContextMenuContent,
@@ -55,7 +58,8 @@ import {
 } from "@/app/video-editor/_opencut/components/ui/dropdown-menu";
 import { cn } from "@/app/video-editor/_opencut/utils/ui";
 import { useProjectsStore, type ProjectsViewMode } from "./store";
-import { nombreLibre, nombreProyectoNuevo } from "./nombre";
+import { nombreLibre } from "./nombre";
+import { useProyectoAbierto } from "./proyecto-abierto";
 import { formatoDuracionTarjeta, formatoPeso, useTamanoProyecto } from "./tamano";
 
 const VISTAS: { modo: ProjectsViewMode; etiqueta: string; icono: typeof GridViewIcon }[] = [
@@ -81,13 +85,15 @@ export function ProjectsPage() {
 
 	return (
 		<div
-			className="min-h-full bg-(--cc-home)"
-			// El resplandor verde azulado de arriba del inicio de CapCut, que se apaga a los ~260 px.
+			// Estira con flex y scrollea ÉL (es un hijo de la columna del editor, ../marco.tsx): `min-h-full` contra un alto
+			// que sale de `flex: 1` no resuelve en Safari (AGENTS.md, «Dos reglas de layout»).
+			className="min-h-0 flex-1 overflow-y-auto bg-(--cc-home)"
+			// El resplandor de arriba del inicio de CapCut, que se apaga a los ~260 px (con el azul de MaKo).
 			style={{ backgroundImage: "linear-gradient(to bottom, var(--cc-home-glow), var(--cc-home) 260px)" }}
 		>
+			{/* El permiso de almacenamiento lo pide el marco, una vez (no dos diálogos). */}
 			<MigrationDialog />
-			<StoragePersistenceDialog />
-			<main className="mx-auto flex w-full max-w-[1240px] flex-col gap-7 px-8 pt-7 pb-10">
+			<main className="mx-auto flex w-full max-w-[1240px] flex-col gap-7 px-4 pt-7 pb-10 sm:px-8">
 				<CrearProyecto />
 				<section className="flex flex-col gap-4">
 					<BarraProyectos />
@@ -107,19 +113,16 @@ export function ProjectsPage() {
 // ── «⊞ Crear proyecto» ──────────────────────────────────────────────────────
 
 function CrearProyecto() {
-	const editor = useEditor();
-	const router = useRouter();
+	const proyectoAbierto = useProyectoAbierto();
 	const [creando, setCreando] = useState(false);
 
+	// El marco guarda lo pendiente del abierto, crea el nuevo y lo abre EN EL LUGAR (sin navegar); si falla, lo avisa él.
 	const crear = async () => {
 		if (creando) return;
 		setCreando(true);
 		try {
-			const id = await editor.project.createNewProject({ name: await nombreProyectoNuevo() });
-			router.push(rutaEditor(`/video-editor/${id}`));
-		} catch (error) {
-			console.error("[inicio] no se pudo crear el proyecto", error);
-			toast.error("Algo salió mal. Intenta de nuevo.");
+			await proyectoAbierto.crear();
+		} finally {
 			setCreando(false);
 		}
 	};
@@ -271,19 +274,20 @@ async function duplicar(editor: EditorCore, proyecto: TProjectMetadata) {
 
 function Proyecto({ proyecto, vista }: { proyecto: TProjectMetadata; vista: ProjectsViewMode }) {
 	const editor = useEditor();
-	const router = useRouter();
+	const proyectoAbierto = useProyectoAbierto();
 	const bytes = useTamanoProyecto(proyecto);
 	const [menu, setMenu] = useState(false);
 	const [renombrar, setRenombrar] = useState(false);
 	const [borrar, setBorrar] = useState(false);
-	const href = rutaEditor(`/video-editor/${proyecto.id}`);
 	const peso = bytes === null ? "—" : formatoPeso(bytes);
 	const duracion = formatoDuracionTarjeta(proyecto.duration);
+	// Abrir NO navega: el marco lo abre en el lugar y la URL lo acompaña (../marco.tsx).
+	const abrir = () => void proyectoAbierto.abrir(proyecto.id);
 
 	// Los diálogos se abren una vuelta después del onSelect del menú: abrir un
 	// Dialog de radix mientras el menú se cierra deja `pointer-events: none` en <body>.
 	const acciones = {
-		abrir: () => router.push(href),
+		abrir,
 		renombrar: () => setTimeout(() => setRenombrar(true), 0),
 		duplicar: () =>
 			void duplicar(editor, proyecto).catch(() => toast.error("Algo salió mal. Intenta de nuevo.")),
@@ -327,24 +331,31 @@ function Proyecto({ proyecto, vista }: { proyecto: TProjectMetadata; vista: Proj
 				<ContextMenuTrigger asChild>
 					{vista === "grid" ? (
 						<div className="group relative flex min-w-0 flex-col gap-1.5">
-							<Link
-								href={href}
-								className="block rounded-[8px] ring-primary ring-offset-2 ring-offset-(--cc-home) outline-none group-hover:ring-2 focus-visible:ring-2"
+							<button
+								type="button"
+								onClick={abrir}
+								aria-label={`Abrir ${proyecto.name}`}
+								className="block w-full cursor-pointer rounded-[8px] ring-primary ring-offset-2 ring-offset-(--cc-home) outline-none group-hover:ring-2 focus-visible:ring-2"
 							>
 								{miniatura("aspect-square w-full rounded-[8px]", "size-8")}
-							</Link>
+							</button>
 							{botonMenu}
-							<Link href={href} className="truncate text-[12px] text-(--cc-text)" title={proyecto.name}>
+							<button
+								type="button"
+								onClick={abrir}
+								className="cursor-pointer truncate text-left text-[12px] text-(--cc-text)"
+								title={proyecto.name}
+							>
 								{proyecto.name}
-							</Link>
+							</button>
 							<span className="text-[11px] text-(--cc-text-3) tabular-nums">{`${peso} | ${duracion}`}</span>
 						</div>
 					) : (
 						<div className="group grid h-12 grid-cols-[minmax(0,1fr)_90px_90px_150px_36px] items-center gap-3 border-b border-(--cc-line-2)/60 px-2 text-[12px] hover:bg-(--cc-home-btn)">
-							<Link href={href} className="flex min-w-0 items-center gap-3">
+							<button type="button" onClick={abrir} className="flex min-w-0 cursor-pointer items-center gap-3 text-left">
 								{miniatura("size-9 shrink-0 rounded-[4px]", "size-4")}
 								<span className="truncate text-(--cc-text)">{proyecto.name}</span>
-							</Link>
+							</button>
 							<span className="text-(--cc-text-3) tabular-nums">{peso}</span>
 							<span className="text-(--cc-text-3) tabular-nums">{duracion}</span>
 							<span className="text-(--cc-text-3) tabular-nums">{fechaCorta(proyecto.updatedAt)}</span>
@@ -380,6 +391,8 @@ function Proyecto({ proyecto, vista }: { proyecto: TProjectMetadata; vista: Proj
 				onConfirm={async () => {
 					setBorrar(false);
 					await editor.project.deleteProjects({ ids: [proyecto.id] });
+					// Si era el abierto, el editor queda sin proyecto (y el inicio sigue en su lugar).
+					proyectoAbierto.alBorrar([proyecto.id]);
 				}}
 			/>
 		</>

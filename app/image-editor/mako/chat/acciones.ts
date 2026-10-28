@@ -21,6 +21,9 @@
 //     verdad y «Aceptar» no vuelve a pagar. Antes de pedirla se revisa que se pueda aplicar (`destinoDeImagen`): lo que
 //     se iba a descartar no se paga. Una que falla se descarta con el motivo del proveedor (de quién fue y qué hacer).
 //   · «DISCUTIR» (`intencion: 'discutir'`) contesta y sugiere: nunca arma una propuesta, aunque el server mandara algo.
+//   · UNA PROPUESTA DE LA API (27/10/2026, ./propuestas.ts) se acepta con ESTE «Aceptar» y se cierra en la base con las
+//     operaciones como se MOSTRARON. Si trae una imagen con IA, la imagen se crea AQUÍ (la persona tocó «Aceptar»: se
+//     cobra en la cuenta del negocio) y queda en memoria por mensaje: un segundo «Aceptar» tras un fallo no vuelve a pagar.
 // =============================================================================
 
 import type { EditorEngine } from '../../_doory/editor/extensions';
@@ -29,6 +32,8 @@ import {
   type OperacionDeImagenIA, type OperacionImagen, type OperacionInterna,
 } from '@/lib/image-editor/chat/catalogo';
 import { aplicarOperaciones, destinoDeImagen, type RefsDeVista } from '@/lib/image-editor/chat/aplicar';
+import { claveDeOperacion } from '@/lib/image-editor/chat/propuestas';
+import { marcarCerradaImagen, resolverEnServidorImagen } from './propuestas';
 import { familiaDe, tipoDe, vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import { FUENTES } from '../fuentes';
 import { cambiarHilo, cambiarMensaje, conId, leerHilo, type MensajeMako, type MensajeNuevo, type Propuesta } from './hilo';
@@ -321,28 +326,73 @@ export async function pedirEdicion(editor: EditorEngine, instruccion: string, al
   });
 }
 
+/** Las imágenes con IA ya creadas de una propuesta de la API, por mensaje y operación: un reintento no vuelve a pagar. */
+const generadas = new Map<string, OperacionInterna>();
+
+/**
+ * Las imágenes con IA de una propuesta de la API (crear_imagen, editar_imagen sin generar): se crean AHORA, una por vez,
+ * y se cambian por las que se aplican. Lo que falla se dice con el motivo del proveedor.
+ */
+async function imagenesDeLaPropuesta(editor: EditorEngine, disenoId: string, m: MensajeMako, p: Propuesta): Promise<{ operaciones: OperacionImagen[]; descartes: string[]; links: Array<{ texto: string; href: string }> }> {
+  const operaciones: OperacionImagen[] = [];
+  const descartes: string[] = [];
+  const links: Array<{ texto: string; href: string }> = [];
+  const corte = new AbortController();
+  cortes.set(disenoId, corte);
+  const doc = editor.getDocument();
+  const ctx = { vista: refsDe(p), activePageId: p.paginaId ?? editor.state.activePageId, soloRefs: null };
+  try {
+    for (const [i, op] of p.operaciones.entries()) {
+      if (!esOperacionDeImagenIA(op)) { operaciones.push(op); continue; }
+      const clave = `${m.id}:${i}:${claveDeOperacion(op)}`;
+      const ya = generadas.get(clave);
+      if (ya) { operaciones.push(ya); continue; }
+      if (corte.signal.aborted) { descartes.push('Detenido antes de crear la imagen.'); continue; }
+      cambiarHilo(disenoId, (h) => ({ ...h, progreso: op.op === 'crear_imagen' ? 'Creando la imagen…' : 'Editando la imagen…' }), { guardar: false });
+      const lista = await imagenConIA(editor, doc, op, ctx, corte.signal);
+      if (lista.ok) { generadas.set(clave, lista.op); operaciones.push(lista.op); continue; }
+      descartes.push(lista.motivo);
+      if (lista.link && !links.some((l) => l.href === lista.link!.href)) links.push(lista.link);
+    }
+  } finally {
+    cortes.delete(disenoId);
+    cambiarHilo(disenoId, (h) => ({ ...h, progreso: undefined }), { guardar: false });
+  }
+  return { operaciones, descartes, links };
+}
+
 /**
  * «Aceptar»: aplica la propuesta sobre el documento de AHORA, en un paso de deshacer. Devuelve lo que no se pudo (un
- * elemento que ya no está, uno que se bloqueó en el medio).
+ * elemento que ya no está, uno que se bloqueó en el medio). Una de la API se cierra en la base al aplicarla.
  */
 export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Promise<void> {
   const disenoId = editor.designId;
   const p = m.propuesta;
   if (!p || !disenoId || m.estado !== 'pendiente') return;
   cambiarMensaje(disenoId, m.id, { estado: 'aplicando', aviso: undefined });
+  // Las imágenes con IA (sólo en una propuesta de la API): se crean ahora, con la persona mirando.
+  let operaciones = p.operaciones;
+  const deImagenes: string[] = [];
+  if (operaciones.some(esOperacionDeImagenIA)) {
+    const g = await imagenesDeLaPropuesta(editor, disenoId, m, p);
+    operaciones = g.operaciones;
+    deImagenes.push(...g.descartes);
+    if (g.links.length) cambiarMensaje(disenoId, m.id, { links: g.links });
+  }
   const probar = () => {
     const doc = editor.getDocument();
     return {
       doc,
       r: aplicarOperaciones({
-        doc, operaciones: p.operaciones, vista: refsDe(p), nuevoId: nuevoIdObjeto, activePageId: p.paginaId ?? editor.state.activePageId,
+        doc, operaciones, vista: refsDe(p), nuevoId: nuevoIdObjeto, activePageId: p.paginaId ?? editor.state.activePageId,
         soloRefs: p.alcance === 'seleccion' ? new Set(p.elegidos) : null, fuente: fuenteDelEditor(doc),
       }),
     };
   };
   let { doc, r } = probar();
   if (!r.aplicadas) {
-    cambiarMensaje(disenoId, m.id, { estado: 'pendiente', aviso: `Ya no se puede aplicar: ${r.descartes.slice(0, 2).join(' · ') || 'el diseño cambió'}` });
+    const por = [...deImagenes, ...r.descartes.filter((d) => !/imagen con IA que no se llegó a crear/.test(d))];
+    cambiarMensaje(disenoId, m.id, { estado: 'pendiente', aviso: `Ya no se puede aplicar: ${por.slice(0, 2).join(' · ') || 'el diseño cambió'}` });
     return;
   }
   // Las fuentes, antes: el motor mide el texto con la que esté cargada.
@@ -355,12 +405,35 @@ export async function aceptarPropuesta(editor: EditorEngine, m: MensajeMako): Pr
   }
   editor.stopEditingText();
   editor.applyDocument(r.doc as unknown as Parameters<EditorEngine['applyDocument']>[0], { label: 'MaKo IA', ...(r.pagina ? { activePageId: r.pagina } : {}) });
+  const descartes = [...deImagenes, ...r.descartes];
   cambiarMensaje(disenoId, m.id, {
     estado: 'aplicada',
     aplicada: { version: editor.state.docVersion },
-    descartes: r.descartes.length ? r.descartes : m.descartes,
+    descartes: descartes.length ? descartes : m.descartes,
   });
   editor.toast('Cambio aplicado', 'success');
+  // Una de la API: se cierran en la base EXACTAMENTE las operaciones que mostró el mensaje (con la crear_imagen, no la
+  // imagen ya creada). Si no llega, ./propuestas.ts lo vuelve a mandar en la próxima búsqueda.
+  if (m.propuestaApi) {
+    void resolverEnServidorImagen(m.propuestaApi.id, 'aplicada', descartes, p.operaciones).then((c) => {
+      if (c.cerrada) marcarCerradaImagen(disenoId, m.id);
+    });
+  }
+}
+
+/**
+ * «Descartar»: la propuesta queda descartada en el hilo y, si llegó por la API, se cierra en la base (si no llega, la
+ * próxima búsqueda lo vuelve a mandar). Una pantalla que sólo marca el mensaje como descartado también se cierra así.
+ */
+export function descartarPropuesta(editor: EditorEngine, m: MensajeMako): void {
+  const disenoId = editor.designId;
+  if (!disenoId || m.estado !== 'pendiente') return;
+  cambiarMensaje(disenoId, m.id, { estado: 'descartada', aviso: undefined });
+  if (m.propuestaApi) {
+    void resolverEnServidorImagen(m.propuestaApi.id, 'descartada', [], m.propuesta?.operaciones ?? []).then((c) => {
+      if (c.cerrada) marcarCerradaImagen(disenoId, m.id);
+    });
+  }
 }
 
 /** «Restaurar»: el deshacer de ESE paso, si nada cambió después. Si no, se avisa que es Ctrl+Z. */

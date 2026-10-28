@@ -47,6 +47,7 @@ import type { MediaAsset } from "@/app/video-editor/_opencut/media/types";
 import {
 	AJUSTES_COLOR,
 	MEZCLAS,
+	NIVELES_DESENFOQUE_LIENZO,
 	OBJETIVOS_NORMALIZAR,
 	TOPES_CHAT,
 	colorHex,
@@ -71,6 +72,7 @@ import {
 	PARAM_RESALTAR_COLOR,
 } from "@/app/video-editor/_opencut/params/extra/subtitulos";
 import { REFLEJO_HORIZONTAL, REFLEJO_VERTICAL } from "@/app/video-editor/_opencut/params/extra/reflejo";
+import { FONDO_AUTOMATICO } from "@/app/video-editor/_opencut/params/extra/fondo";
 import { ID_NINGUNO, presetAnimacion, type CategoriaAnimacion } from "@/app/video-editor/_opencut/animaciones/catalogo";
 import { cambiosAlElegir, cambiosDeDuracion, duracionMaximaAnimacion } from "@/app/video-editor/_opencut/animaciones/elegir";
 import {
@@ -147,7 +149,15 @@ export type EstadoElemento = {
 	fotogramas?: string[];
 	/** Un motion graphic: su plantilla y sus valores de ahora. */
 	motion?: MotionLeido;
+	/** Video e imagen: «Eliminar fondo» automático prendido. */
+	fondoQuitado?: boolean;
 };
+
+/**
+ * El lienzo como lo ve la IA: su tamaño en píxeles, su fondo («#000000» o «desenfoque 2») y su «Relación» («9:16»). Lo
+ * arma chat/contexto.ts (datosDeLinea) con los ajustes del proyecto; fondo_lienzo y formato_lienzo se revisan contra él.
+ */
+export type LienzoVista = { ancho: number; alto: number; fondo?: string; relacion?: string };
 
 export type RefElemento = {
 	ref: string;
@@ -204,7 +214,7 @@ export type VistaLinea = {
 	/** Las refs de lo elegido en la línea de tiempo al mandar. */
 	elegidos: string[];
 	disponibles: Disponibles;
-	lienzo: { ancho: number; alto: number } | null;
+	lienzo: LienzoVista | null;
 };
 
 /** Sin lo del motor: todo nombre se descarta («no existe…»). Los tests y un editor sin cargar. */
@@ -395,6 +405,7 @@ function leerEstado(el: TimelineElement, tipo: TipoRef, tps: number, mediosSinAu
 			if (v !== 0) e.ajustes[clave] = v;
 		}
 		e.reflejo = { horizontal: p[REFLEJO_HORIZONTAL] === true, vertical: p[REFLEJO_VERTICAL] === true };
+		if (p[FONDO_AUTOMATICO] === true) e.fondoQuitado = true;
 	}
 	if (VISUALES.has(tipo)) {
 		e.anim = {};
@@ -486,6 +497,7 @@ function estadoJson(r: RefElemento, d: Disponibles, estiloSubtitulos: string | n
 	const rf = e.reflejo;
 	if (rf && (rf.horizontal || rf.vertical)) o.reflejo = { ...(rf.horizontal ? { horizontal: true } : {}), ...(rf.vertical ? { vertical: true } : {}) };
 	if (e.revertido) o.revertido = true;
+	if (e.fondoQuitado) o.fondo_quitado = true;
 	if (e.audioSeparado) o.audio_separado = true;
 	if (e.sinAudio) o.sin_audio = true;
 	if (e.fundidos && (e.fundidos.entrada > 0 || e.fundidos.salida > 0)) o.fundido = e.fundidos;
@@ -582,8 +594,8 @@ export function vistaDeLinea({
 	/** Multimedia (editor.media.getAssets()): se listan los videos y las fotos, sin los ocultos. */
 	medios?: ReadonlyArray<MedioVista>;
 	disponibles?: Disponibles;
-	/** El tamaño del lienzo en píxeles (para que la IA ubique con «transformar»). */
-	lienzo?: { ancho: number; alto: number } | null;
+	/** El tamaño del lienzo en píxeles (para que la IA ubique con «transformar»), su fondo y su relación. */
+	lienzo?: LienzoVista | null;
 	/** Los medios que no tienen sonido (no se separa ni se normaliza su audio). */
 	mediosSinAudio?: ReadonlySet<string>;
 	/** Hay subtítulos con tiempos por palabra (cortar_frase, eliminar_muletillas). */
@@ -767,7 +779,14 @@ export type OperacionResuelta =
 	| { op: "normalizar"; el: RefElemento; objetivo: string }
 	| { op: "generar_subtitulos" }
 	/** Sola, con la línea de tiempo vacía. `medios`: hueco → id del medio de Multimedia. */
-	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> };
+	| { op: "usar_plantilla"; plantilla: string; textos: Record<string, string>; medios: Record<string, string> }
+	// 27/10/2026.
+	/** «Duplicar»: DuplicateElementsCommand, la copia en una pista nueva arriba. */
+	| { op: "duplicar"; el: RefElemento }
+	/** Los ajustes del proyecto: el fondo del lienzo y/o su relación (UpdateProjectSettingsCommand, el tamaño se calcula al ejecutar). */
+	| { op: "lienzo"; fondo?: { type: "color"; color: string } | { type: "blur"; blurIntensity: number }; relacion?: string }
+	/** Un medio de Multimedia a la línea de tiempo (el ⊕ de la biblioteca), con su duración ya resuelta. */
+	| { op: "agregar_medio"; mediaId: string; tipo: "video" | "imagen"; nombre: string; inicio: number; duracion: number; ref?: string };
 
 export type Revision = { resueltas: OperacionResuelta[]; cambios: CambioChat[]; descartes: string[] };
 
@@ -880,7 +899,7 @@ export function revisarOperaciones({
 	transcripcion,
 }: {
 	operaciones: readonly OperacionChat[];
-	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles" | "medios">>;
+	vista: Pick<VistaLinea, "refs" | "elegidos"> & Partial<Pick<VistaLinea, "disponibles" | "medios" | "lienzo">>;
 	alcance: "video" | "seleccion";
 	/** Los subtítulos con tiempos por palabra (cortar_frase, eliminar_muletillas). */
 	transcripcion?: TranscripcionChat;
@@ -898,6 +917,8 @@ export function revisarOperaciones({
 		estado.set(r.ref, { inicio: r.inicio, fin: r.fin, borrado: false, texto: r.texto, volumenDb: r.volumenDb, silenciado: r.silenciado, oculto: r.oculto, muestra: r.muestra, e: JSON.parse(JSON.stringify(r.estado)) as EstadoElemento });
 	for (const r of refs.values()) simular(r);
 	const elegidos = new Set(vista.elegidos);
+	// El lienzo de la simulación: fondo_lienzo y formato_lienzo lo cambian (dos seguidos no se pisan).
+	const lienzo: { fondo?: string; relacion?: string } = { fondo: vista.lienzo?.fondo, relacion: vista.lienzo?.relacion };
 
 	/** usar_plantilla, con sus medios resueltos (lo que no sirve queda con su muestra, y se dice). */
 	const resolverPlantilla = (op: Extract<OperacionChat, { op: "usar_plantilla" }>) => {
@@ -1158,6 +1179,43 @@ export function revisarOperaciones({
 			cambios.push({ tipo: "agrega", titulo: op.tipo === "filtro" ? "Capa de filtro" : "Capa de efecto", antes: "", despues: `${opcion.nombre} · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + op.duracion)}` });
 			continue;
 		}
+		if (op.op === "fondo_lienzo" || op.op === "formato_lienzo") {
+			// Del video entero (los ajustes del proyecto), como Básico › Lienzo y «Relación». Lo que ya está así no cambia nada.
+			if (op.op === "fondo_lienzo") {
+				const fondo = op.color
+					? { type: "color" as const, color: op.color }
+					: { type: "blur" as const, blurIntensity: NIVELES_DESENFOQUE_LIENZO[(op.desenfoque ?? 1) - 1] };
+				const nuevo = textoFondoLienzo(fondo);
+				if (nuevo === lienzo.fondo) continue;
+				cambios.push({ tipo: "cambia", titulo: "Fondo del lienzo", antes: lienzo.fondo ?? "el de ahora", despues: nuevo });
+				lienzo.fondo = nuevo;
+				resueltas.push({ op: "lienzo", fondo });
+				continue;
+			}
+			if (op.relacion === lienzo.relacion) continue;
+			cambios.push({ tipo: "cambia", titulo: "Relación del lienzo", antes: lienzo.relacion ?? (vista.lienzo ? `${vista.lienzo.ancho} × ${vista.lienzo.alto}` : "la de ahora"), despues: op.relacion === "original" ? "la del primer clip" : op.relacion });
+			lienzo.relacion = op.relacion;
+			resueltas.push({ op: "lienzo", relacion: op.relacion });
+			continue;
+		}
+		if (op.op === "agregar_medio") {
+			// Como el ⊕ de Multimedia (assets.tsx, agregarMedioEnCabezal): un video dura lo que dura; una foto, 5 s.
+			const m = medios.get(op.medio);
+			if (!m) { descartes.push(`no encontré el medio «${corto(op.medio, 20)}» en Multimedia`); continue; }
+			const largo = m.tipo === "video" ? (m.duracion ?? 0) : null;
+			if (largo !== null && op.duracion !== undefined && op.duracion > largo + 0.005) {
+				descartes.push(`«${corto(m.nombre, 40)}» dura ${textoSegundos(largo)}: no se puede poner ${textoSegundos(op.duracion)}`);
+				continue;
+			}
+			const duracion = op.duracion ?? largo ?? 5;
+			if (duracion < LARGO_MINIMO) { descartes.push(`«${corto(m.nombre, 40)}» no tiene duración`); continue; }
+			const tipo: TipoRef = m.tipo === "video" ? "video" : "imagen";
+			const estadoNuevo: EstadoElemento = { anim: {}, transform: leerTransform({}) };
+			if (!registrarNuevo(op.ref, tipo, corto(m.nombre, 40), op.inicio, op.inicio + duracion, estadoNuevo)) continue;
+			resueltas.push({ op: "agregar_medio", mediaId: m.mediaId, tipo: m.tipo, nombre: m.nombre, inicio: op.inicio, duracion, ...(op.ref ? { ref: op.ref } : {}) });
+			cambios.push({ tipo: "agrega", titulo: m.tipo === "video" ? "Video" : "Foto", antes: "", despues: `${corto(m.nombre, 60)} · de ${textoSegundos(op.inicio)} a ${textoSegundos(op.inicio + duracion)}` });
+			continue;
+		}
 		if (op.op === "borrar") {
 			const els: RefElemento[] = [];
 			for (const ref of op.refs) {
@@ -1194,6 +1252,19 @@ export function revisarOperaciones({
 		};
 
 		switch (op.op) {
+			case "duplicar": {
+				// Como Ctrl+D (DuplicateElementsCommand): el mismo tramo, en una pista nueva arriba.
+				resueltas.push({ op: "duplicar", el });
+				cambios.push({ tipo: "agrega", titulo: `Copia de ${el.titulo}`, antes: "", despues: `de ${textoSegundos(st.inicio)} a ${textoSegundos(st.fin)}, en una pista nueva arriba` });
+				break;
+			}
+			case "quitar_fondo": {
+				if (!solo(CLIPS, "es un clip de video o imagen")) break;
+				if ((e.fondoQuitado ?? false) === op.activo) break;
+				e.fondoQuitado = op.activo;
+				escribir({ [FONDO_AUTOMATICO]: op.activo }, { tipo: "cambia", titulo: el.titulo, antes: op.activo ? "con su fondo" : "sin fondo (sólo la persona)", despues: op.activo ? "sin fondo (sólo la persona)" : "con su fondo" });
+				break;
+			}
 			case "cambiar_texto": {
 				if (el.tipo === "motion") { descartes.push(`${el.titulo} es un motion graphic: sus textos se cambian con editar_motion`); break; }
 				if (el.tipo !== "texto") { descartes.push(`${el.titulo} no es un texto`); break; }
@@ -1739,6 +1810,15 @@ export function revisarOperaciones({
 		cambios.push({ tipo: "agrega", titulo: "Cuadro congelado", antes: "", despues: `3 s de ${el.titulo} en ${textoSegundos(op.en)} (lo que sigue se corre)` });
 	}
 	return { resueltas, cambios, descartes };
+}
+
+/** El fondo del lienzo en palabras, como lo ve la IA en "lienzo": «#1e3a8a» o «desenfoque 2». Lo usa chat/contexto.ts. */
+export function textoFondoLienzo(fondo: { type: "color"; color: string } | { type: "blur"; blurIntensity: number }): string {
+	if (fondo.type === "color") return colorHex(fondo.color) ?? (fondo.color.includes("gradient(") ? "diseño" : fondo.color);
+	// El nivel más cercano de los cuatro de CapCut.
+	const niveles = NIVELES_DESENFOQUE_LIENZO as readonly number[];
+	const i = niveles.reduce((mejor, n, j) => (Math.abs(n - fondo.blurIntensity) < Math.abs(niveles[mejor] - fondo.blurIntensity) ? j : mejor), 0);
+	return `desenfoque ${i + 1}`;
 }
 
 /** «3 cambios», «1 texto nuevo y 2 cambios»: la cabecera de la revisión. */

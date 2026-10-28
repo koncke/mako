@@ -609,6 +609,12 @@ export const RUNNERS: Runners = {
   usar_plantilla_video: { ...enElEditor('usar_plantilla_video') },
   agregar_motion_video: { ...enElEditor('agregar_motion_video') },
   editar_motion_video: { ...enElEditor('editar_motion_video') },
+  // 27/10/2026: lo que el editor hacía a mano y el chat no.
+  duplicar_elemento_video: { ...enElEditor('duplicar_elemento_video') },
+  quitar_fondo_video: { ...enElEditor('quitar_fondo_video') },
+  fondo_lienzo_video: { ...enElEditor('fondo_lienzo_video') },
+  formato_lienzo_video: { ...enElEditor('formato_lienzo_video') },
+  agregar_medio_video: { ...enElEditor('agregar_medio_video') },
 
   ver_contexto_video: {
     leer: async () => {

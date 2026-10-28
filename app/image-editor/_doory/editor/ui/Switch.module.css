@@ -40,7 +40,7 @@
   width: 40px;
   height: 24px;
   border-radius: 99px;
-  background: rgb(36 44 61 / 0.4); /* Canva: neutro «más fuerte» #242C3D66 */
+  background: var(--cv-color-border-hover); /* Canva: neutro «más fuerte» #242C3D66 */
   transition: background var(--cv-duration-base) var(--cv-ease-out);
 }
 

@@ -29,6 +29,12 @@
 //                                              (motion/components/biblioteca-motion.tsx)
 //   editar un motion graphic                   UpdateElementsCommand con sus params («params»),
 //                                              como `updateElements` del panel (graphic-tab.tsx)
+//   duplicar (27/10/2026)                      DuplicateElementsCommand, el de Ctrl+D
+//   eliminar el fondo                          UpdateElementsCommand con `fondo.automatico` («params»)
+//   fondo y relación del lienzo                UpdateProjectSettingsCommand, el de Básico › Lienzo y
+//                                              «Relación» (el tamaño, con tamanoDeRelacion al ejecutar)
+//   agregar un medio de Multimedia             InsertElementCommand(buildElementFromMedia), el ⊕
+//                                              (assets.tsx → agregarMedioEnCabezal)
 //
 // Todo va en UN BatchCommand (chat/aplicar.ts). Los comandos que dependen de cómo quedó
 // el elemento después de los anteriores del lote (los efectos se REEMPLAZAN como lista, los
@@ -46,6 +52,7 @@ import { Command, type CommandResult } from "@/app/video-editor/_opencut/command
 import {
 	AddClipEffectCommand,
 	DeleteElementsCommand,
+	DuplicateElementsCommand,
 	InsertElementCommand,
 	RemoveClipEffectCommand,
 	SplitElementsCommand,
@@ -62,7 +69,10 @@ import { CortarTramosCommand } from "@/app/video-editor/_opencut/commands/timeli
 import { paramsConTexto, ReemplazarSubtitulosCommand } from "@/app/video-editor/_opencut/subtitles/editar";
 import { conLoVinculado } from "@/app/video-editor/_opencut/ripple/iman";
 import { useTimelineStore } from "@/app/video-editor/_opencut/timeline/timeline-store";
-import { buildEffectElement, buildGraphicElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { buildEffectElement, buildElementFromMedia, buildGraphicElement, buildTextElement } from "@/app/video-editor/_opencut/timeline/element-utils";
+import { UpdateProjectSettingsCommand } from "@/app/video-editor/_opencut/commands/project/update-project-settings";
+import { esIdRelacion, tamanoDeRelacion } from "@/app/video-editor/_opencut/canvas/sizes";
+import type { TProjectSettings } from "@/app/video-editor/_opencut/project/types";
 import { idDefinicionMotion } from "@/app/video-editor/_opencut/graphics/definitions/motion";
 import { PLANTILLAS as DEF_MOTION } from "@/lib/motion/plantillas";
 import { findTrackInSceneTracks } from "@/app/video-editor/_opencut/timeline/track-element-update";
@@ -184,6 +194,40 @@ export function armarLote(resueltas: readonly OperacionResuelta[], { idioma }: {
 				comandos.push(insercion);
 				break;
 			}
+			case "agregar_medio": {
+				// El ⊕ de Multimedia (assets.tsx, agregarMedioEnCabezal) en el segundo pedido, con la duración resuelta.
+				const insercion = new InsertElementCommand({
+					element: buildElementFromMedia({
+						mediaId: r.mediaId,
+						mediaType: r.tipo === "video" ? "video" : "image",
+						name: r.nombre,
+						duration: segundos(r.duracion),
+						startTime: segundos(r.inicio),
+					}),
+					placement: { mode: "auto" },
+				});
+				if (r.ref) nuevos.set(r.ref, insercion);
+				comandos.push(insercion);
+				break;
+			}
+			case "duplicar":
+				comandos.push(sobre(r.el, (o) => new DuplicateElementsCommand({ elements: [o] })));
+				break;
+			case "lienzo":
+				// Los ajustes de ESE momento: el tamaño de una relación sale del lienzo actual (como el menú «Relación»).
+				comandos.push(
+					new Diferido(() => {
+						const settings = EditorCore.getInstance().project.getActiveOrNull()?.settings;
+						if (!settings) return null;
+						const cambios: Partial<TProjectSettings> = {};
+						if (r.fondo) cambios.background = r.fondo;
+						if (r.relacion && esIdRelacion(r.relacion)) {
+							Object.assign(cambios, { canvasSize: tamanoDeRelacion({ id: r.relacion, settings }), canvasSizeMode: "preset", relacion: r.relacion });
+						}
+						return Object.keys(cambios).length ? new UpdateProjectSettingsCommand(cambios) : null;
+					}),
+				);
+				break;
 			case "capa_efecto": {
 				// El ⊕ de la biblioteca (effects/capas.ts, agregarCapaEfecto) en el tramo pedido.
 				const insercion = new InsertElementCommand({

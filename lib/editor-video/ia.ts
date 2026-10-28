@@ -18,6 +18,10 @@
 // (lib/editor-video/chat-catalogo.ts). Las referencias (v1, t2…) las mira el editor, que es
 // el único que tiene la línea de tiempo: los proyectos viven en el navegador (decisión 5 de
 // docs/diseno-editor-video.md).
+//
+// «DISCUTIR» (27/10/2026, `intencion: 'discutir'`, como el Image Editor: lib/image-editor/chat/ia.ts): otro system
+// (contesta y sugiere sobre ESTE video, en texto) y SIEMPRE `operaciones: []`, mande lo que mande el modelo
+// (`salidaDeDiscutir`). Sin `intencion` (o con otra cosa) es «editar», lo de siempre.
 // =============================================================================
 
 import 'server-only';
@@ -28,8 +32,8 @@ import { contenidoNoConfiable } from '../prompt-render-pure';
 import { brandSystem } from '../landing-writer';
 import { parseJsonObject } from '../json-del-modelo';
 import { objetoConUnaReparacion, SalidaInvalida, SYSTEM_REPARAR_JSON } from '../editor-landing/ia-reglas';
-import { FORMATO_CHAT, TOPES_CHAT, catalogoParaPrompt, validarOperaciones, type OperacionChat } from './chat-catalogo';
-import { CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDEO } from './chat-prompts';
+import { FORMATO_CHAT, TOPES_CHAT, catalogoParaPrompt, salidaDeDiscutir, validarOperaciones, type OperacionChat } from './chat-catalogo';
+import { CHAT_VIDEO_DISCUTIR_TEMPLATE, CHAT_VIDEO_SYSTEM_TEMPLATE, CHAT_VIDEO_USER_TEMPLATE, PROMPTS_CHAT_VIDEO } from './chat-prompts';
 import { senalesDelNegocio } from '../plantillas-sugeridas-server';
 
 export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
@@ -37,7 +41,7 @@ export const FEATURE_CHAT_VIDEO = 'video-editor-ia';
 /** El chat espera hasta acá a la IA; la ruta corta a 120 s. */
 const PLAZO_IA_MS = 90_000;
 
-export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown };
+export type PedidoChatVideo = { instruccion?: unknown; linea?: unknown; alcance?: unknown; intencion?: unknown };
 
 export type ResultadoChatVideo =
   | { ok: true; resumen: string; operaciones: OperacionChat[]; descartes: string[] }
@@ -101,6 +105,18 @@ export async function editarVideo(p: PedidoChatVideo): Promise<ResultadoChatVide
         linea: contenidoNoConfiable(linea, 'linea_de_tiempo'),
       }),
     ]);
+    if (p.intencion === 'discutir') {
+      const sysD = await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.discutir.key, CHAT_VIDEO_DISCUTIR_TEMPLATE, {}));
+      const salidaD = await chatClaude(sysD, [{ role: 'user', content: user }], {
+        feature: FEATURE_CHAT_VIDEO,
+        motivo: 'Discutir el video con el chat',
+        maxTokens: 800,
+        hastaMs: t0 + PLAZO_IA_MS,
+      });
+      // SIN operaciones, mande lo que mande el modelo: «Discutir» no cambia nada.
+      const d = salidaDeDiscutir(salidaD);
+      return { ok: true, ...d, resumen: d.resumen || 'No tengo nada para sugerir sobre eso. Pregúntame de otra forma.' };
+    }
     const sys = await brandSystem(await renderPrompt(PROMPTS_CHAT_VIDEO.system.key, CHAT_VIDEO_SYSTEM_TEMPLATE, {
       catalogo: catalogoParaPrompt(senales),
       formato: FORMATO_CHAT,

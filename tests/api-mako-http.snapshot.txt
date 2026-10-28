@@ -16,15 +16,20 @@ agregar_dependencia_plan
 agregar_escenario_secuencia
 agregar_etapa
 agregar_filtro_dashboard
+agregar_forma_imagen
 agregar_grafico_dashboard
 agregar_link_fathom
+agregar_medio_video
 agregar_motion_video
 agregar_nota_lead
 agregar_objetivo_custom
+agregar_pagina_imagen
 agregar_seccion_landing
+agregar_texto_imagen
 agregar_texto_video
 ajustar_color_video
 ajustar_comunidad
+alinear_elementos_imagen
 analisis_negocio
 analizar_cuenta_media_buyer
 analizar_hoja_dashboard
@@ -43,6 +48,8 @@ audios_requeridos
 automatizacion_media_buyer
 avisar_al_equipo
 baja_del_cliente
+bloquear_elemento_imagen
+borde_elemento_imagen
 borrar_agente_media_buyer
 borrar_analisis_landing
 borrar_avatar_negocio
@@ -53,12 +60,14 @@ borrar_clase_curso
 borrar_comentario_comunidad
 borrar_diseno_imagen
 borrar_documento_archivero
+borrar_elementos_imagen
 borrar_elementos_video
 borrar_evento_comunidad
 borrar_guion_anuncio
 borrar_hoja_dashboard
 borrar_landing
 borrar_landing_creada
+borrar_pagina_imagen
 borrar_plantilla_meta
 borrar_post_comunidad
 borrar_producto
@@ -101,6 +110,7 @@ cancelar_accion
 cancelar_analisis_dashboard
 cancelar_programacion_broadcast
 cancelar_suscripcion
+capa_elemento_imagen
 catalogo_angulos_guion
 catalogo_estructuras_guion
 catalogo_metricas_experimento
@@ -113,6 +123,7 @@ cobertura_datos_retro
 cobertura_guiones_anuncio
 cobranza_lead
 cobrar_producto_landing
+color_elemento_imagen
 columna_nutricion_crm
 comentar_clase_comunidad
 comentar_post_comunidad
@@ -160,6 +171,7 @@ crear_evento_comunidad
 crear_experimento
 crear_hoja_dashboard
 crear_hoja_general
+crear_imagen_ia
 crear_landing_desde_diseno
 crear_landing_en_blanco
 crear_lead_magnet
@@ -196,6 +208,8 @@ dividir_clip_video
 duplicados_lead
 duplicar_curso
 duplicar_diseno_imagen
+duplicar_elemento_imagen
+duplicar_elemento_video
 duplicar_hoja_dashboard
 duplicar_landing
 editar_about_comunidad
@@ -213,6 +227,7 @@ editar_grafico_dashboard
 editar_hoja_con_ia_dashboard
 editar_hoja_dashboard
 editar_hoja_general_con_ia
+editar_imagen_ia
 editar_lead_magnet
 editar_meta_secuencia_email
 editar_motion_video
@@ -258,6 +273,7 @@ estado_onboarding_contenido
 estado_onboarding_video
 estado_plantillas_meta
 estado_suscripcion_manual
+estilo_texto_imagen
 etapa_inbox_de_lead
 etapas_para_secuencia
 etiquetas_lead
@@ -272,6 +288,9 @@ ficha_secuencia_email
 ficha_secuencia_mensajes
 fijar_post_comunidad
 fijar_zona_horaria_workspace
+fondo_lienzo_video
+fondo_pagina_imagen
+formato_lienzo_video
 generar_avatares
 generar_conclusiones_dashboard
 generar_lead_magnets
@@ -435,16 +454,19 @@ modo_media_buyer
 mover_a_nutricion_manual
 mover_clase_curso
 mover_componente_dashboard
+mover_elemento_imagen
 mover_elemento_video
 mover_estado_guion_anuncio
 mover_tarea_plan
 nombrar_niveles_comunidad
 nombrar_video
 normalizar_audio_video
+ocultar_elemento_imagen
 ocultar_elemento_video
 ocultar_video
 oferta_del_lead
 olvidar_nombre_video
+opacidad_elemento_imagen
 opciones_siguiente_paso_guion
 ordenar_categorias_comunidad
 ordenar_etapas
@@ -511,6 +533,7 @@ quitar_curso_del_acceso
 quitar_dependencia_plan
 quitar_estrella
 quitar_filtro_dashboard
+quitar_fondo_video
 r2_sin_lead
 reabrir_decision_media_buyer
 reabrir_onboarding_chatbot
@@ -547,6 +570,7 @@ reuniones_proximas
 reuniones_recientes
 revertir_clip_video
 revisar_direccion_landing
+rotar_elemento_imagen
 sacar_alumno_comunidad
 sacar_etiqueta_lead
 seguimiento_ultima_retro
@@ -558,6 +582,7 @@ snapshot_funnel_experimentos
 sugerencias_crm
 sugerir_kpis
 sugerir_productos
+tamano_elemento_imagen
 tendencia_score
 tipos_de_crm
 topes_media_buyer
@@ -689,5 +714,6 @@ verificar_pagina_pixel
 vincular_cobro_etapa
 vincular_evento_etapa
 vista_experimentos
+voltear_elemento_imagen
 volver_a_mostrar_sugerencia
 votar_encuesta_comunidad

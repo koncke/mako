@@ -136,7 +136,7 @@
   background: var(--cv-color-bg-muted);
 }
 .tile:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 .tile:focus-visible {
   outline: none;
@@ -205,7 +205,7 @@
   background: var(--cv-color-bg-muted);
 }
 .textStyle:active {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 .textStyle:focus-visible {
   outline: none;
@@ -631,19 +631,19 @@
 }
 .sky {
   background: var(--cv-pastel-sky);
-  color: #182c59; /* Canva: texto de aviso info */
+  color: var(--cv-color-on-soft); /* Canva: texto de aviso info */
 }
 .mint {
   background: var(--cv-pastel-mint);
-  color: #133416; /* Canva: texto de aviso éxito */
+  color: var(--cv-color-on-soft); /* Canva: texto de aviso éxito */
 }
 .pink {
   background: var(--cv-pastel-pink);
-  color: #501b21; /* Canva: texto de aviso error */
+  color: var(--cv-color-on-soft); /* Canva: texto de aviso error */
 }
 .butter {
-  background: #ffd9ad; /* Canva: aviso de advertencia, fondo suave */
-  color: #3e2a14;
+  background: var(--cv-color-warning-soft); /* Canva: aviso de advertencia, fondo suave */
+  color: var(--cv-color-on-soft);
 }
 
 @keyframes spin {

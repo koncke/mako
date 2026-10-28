@@ -1,108 +1,135 @@
 /*
- * Tokens del Image Editor — la paleta de CANVA, medida (docs/editor-imagen/relevamiento-canva-armazon.md §1.2–1.4).
+ * Tokens del Image Editor — los NOMBRES son los de Doory (prefijados `--cv-` en el port, para no pisar los namespaces de
+ * Tailwind 4); la ESTRUCTURA es la de Canva (docs/editor-imagen/relevamiento-canva-armazon.md); los VALORES, desde el
+ * 27/10/2026, son los TOKENS DE LA APP (app/globals.css: --bg, --surface, --ink, --primary…).
  *
- * Los NOMBRES son los de Doory (prefijados `--cv-` en el port, para no pisar los namespaces de Tailwind 4); los
- * VALORES son los de Canva: el violeta #8B3DFF de acción y selección, el gris #F6F7F8 del cromo de 2025–26 (riel, área
- * del lienzo, barra inferior), superficies blancas, bordes y textos del sistema de diseño de Canva, sus sombras y su
- * escala tipográfica (14/22 el texto general, 11 los rótulos del riel). Los valores se copiaron a mano: el CSS de
- * `@canva/app-ui-kit` no se copia (su licencia lo limita a apps dentro de Canva).
+ * Martín, 27/10/2026: «Tambien ponle los colores de MaKo a esas tabs». El 26/10 se habían copiado a mano los valores del
+ * Web Generator, en claro; con los tokens de la app el editor sigue el tema de cada persona como el resto de MaKo: claro,
+ * oscuro (`[data-tema="oscuro"]` en <html>) y las variantes Nord (`[data-tema-candidato]`), sin una regla propia
+ * (AGENTS.md: «Una pantalla oscura se hace redefiniendo TOKENS, no reglas»). Un color de CROMO nuevo va acá como
+ * `var(--token-de-la-app)`, nunca un hex: tests/image-editor-estudio.test.ts lo barre.
  *
- * Los componentes usan estas variables y nunca un color suelto. Un solo tema: claro (el default de Canva).
+ * Lo que NO sigue el tema, a propósito, porque es CONTENIDO o un escenario y no cromo: la hoja en blanco (`--cv-paper`),
+ * la pantalla de presentación (`--cv-color-stage`), las guías magenta sobre el lienzo y el degradado del botón de la IA.
+ * La página del diseño (la mesa de trabajo) tampoco: su fondo es el del documento.
+ *
+ * ⚠️ Lo que lee JavaScript (engine/objects/theme.ts, workspace/Rulers.tsx) tiene que ser un color que un <canvas>
+ * entienda: un `var()` que termine en hex, NUNCA un `color-mix()` (la propiedad personalizada devuelve el texto tal cual).
+ * Los `color-mix()` de abajo son sólo para CSS.
  */
 .cv {
-  /* Violeta de Canva (acción, selección, foco de campo) */
-  --cv-violet-50: #f3ecff;
-  --cv-violet-100: #f1eaff;
-  --cv-violet-200: #e7dbff;
-  --cv-violet-300: #d4bfff;
-  --cv-violet-400: #a370fc;
-  --cv-violet-500: #8b3dff;
-  --cv-violet-600: #7630d7;
-  --cv-violet-700: #612dae;
-  --cv-violet-800: #4a2e7e;
-  --cv-violet-900: #352459;
-  --cv-violet-950: #1d1340;
+  /* La escala «violeta» de Doory/Canva, con el AZUL de la app: los módulos la usan para lo elegido. */
+  --cv-violet-50: var(--primary-bg);
+  --cv-violet-100: var(--primary-bg);
+  --cv-violet-200: var(--primary-bg);
+  --cv-violet-300: var(--primary-weak);
+  --cv-violet-400: var(--primary-weak);
+  --cv-violet-500: var(--primary);
+  --cv-violet-600: var(--primary-strong);
+  --cv-violet-700: var(--primary-strong);
+  --cv-violet-800: var(--primary-strong);
+  --cv-violet-900: var(--primary-strong);
+  --cv-violet-950: var(--ink);
 
-  /* Tinta y acentos (nombres de Doory; valores de Canva) */
-  --cv-ink: #0e1318;
+  /* Tinta y acentos (nombres de Doory) */
+  --cv-ink: var(--ink);
+  /* La hoja en blanco de un diseño sin miniatura: CONTENIDO, blanca en todo tema (como la página). */
   --cv-paper: #ffffff;
-  --cv-pastel-lilac: #e7dbff;
-  --cv-pastel-pink: #ffd6d8;
-  --cv-pastel-blush: #ffd6d8;
-  --cv-pastel-butter: #f1eaff;
-  --cv-pastel-mint: #c3eac4;
-  --cv-pastel-sky: #cce1ff;
+  --cv-pastel-lilac: var(--primary-bg);
+  --cv-pastel-pink: var(--bad-bg);
+  --cv-pastel-blush: var(--bad-bg);
+  --cv-pastel-butter: var(--mako-bg);
+  --cv-pastel-mint: var(--good-bg);
+  --cv-pastel-sky: var(--primary-bg);
 
-  /* Semántica — claro. Desde el 26/10/2026 con los colores de MaKo (los del Web Generator, app/web-generator/gamma.css):
-     Martín, «que se parezcan un poco más a MaKo en el diseño». La ESTRUCTURA sigue siendo la de Canva; la marca, la de
-     la casa (AGENTS.md: «se copia la estructura, no la marca»). Azul de acción = --gma-primario, selección =
-     --gma-seleccion, neutros = la escala --gma-t*. */
-  --cv-color-brand: #0540ad;
-  --cv-color-brand-hover: #0740df;
-  --cv-color-brand-active: #0b2e79;
-  --cv-color-brand-soft: #ebf3fe;
-  --cv-color-brand-soft-hover: #d0e6fe;
-  --cv-color-on-brand: #ffffff;
-  --cv-accent-lilac: #8131dc;
+  /* Acción: el azul de la app */
+  --cv-color-brand: var(--primary);
+  --cv-color-brand-hover: var(--primary-strong);
+  --cv-color-brand-active: var(--primary-strong);
+  --cv-color-brand-soft: var(--primary-bg);
+  --cv-color-brand-soft-hover: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  --cv-color-on-brand: var(--on-primary);
+  --cv-accent-lilac: var(--primary);
 
-  /* Botón primario: el azul lleno de «Compartir» del Web Generator */
-  --cv-color-cta: #0540ad;
-  --cv-color-cta-hover: #0740df;
-  --cv-color-on-cta: #ffffff;
+  /* Botón primario: el azul lleno («Compartir») */
+  --cv-color-cta: var(--primary);
+  --cv-color-cta-hover: var(--primary-strong);
+  --cv-color-on-cta: var(--on-primary);
   --cv-color-cta-shadow: transparent;
 
-  --cv-color-bg: #f5f5f6;
-  --cv-color-bg-subtle: #f5f5f6;
-  --cv-color-bg-muted: #ececed;
-  --cv-color-surface: #ffffff;
-  --cv-color-surface-raised: #ffffff;
-  --cv-color-canvas-workspace: #f5f5f6; /* el área del lienzo (también riel y barra inferior) */
-  --cv-color-border: #dfdfe0;
-  --cv-color-border-strong: #cacacb;
-  --cv-color-text: #38383c;
-  --cv-color-text-muted: #66666b;
-  --cv-color-text-subtle: #8b8b90;
-  --cv-color-overlay: rgb(36 44 61 / 0.4);
+  /* Superficies, bordes y texto */
+  --cv-color-bg: var(--bg);
+  --cv-color-bg-subtle: var(--surface-2);
+  --cv-color-bg-muted: var(--border);
+  --cv-color-surface: var(--surface);
+  --cv-color-surface-raised: var(--surface);
+  --cv-color-canvas-workspace: var(--bg); /* el área del lienzo (también riel y barra inferior) */
+  --cv-color-border: var(--border-strong);
+  --cv-color-border-strong: color-mix(in srgb, var(--border-strong) 65%, var(--faint));
+  --cv-color-text: var(--ink);
+  --cv-color-text-muted: var(--dim);
+  --cv-color-text-subtle: var(--faint);
+  --cv-color-overlay: var(--scrim);
   /* La pantalla de presentación es negra en todo tema: es una pantalla proyectada, no cromo. */
   --cv-color-stage: #000000;
   --cv-color-on-stage: #ffffff;
 
-  --cv-color-success: #008009;
-  --cv-color-success-soft: #c3eac4;
-  --cv-color-warning: #ad5a00;
-  --cv-color-warning-soft: #ffd9ad;
-  --cv-color-danger: #db142c;
-  --cv-color-danger-soft: #ffd6d8;
-  --cv-color-info: #1a62ff;
-  --cv-color-info-soft: #cce1ff;
+  /* Estados. El texto verde y el naranja se oscurecen un poco hacia la tinta: el --good de la app sobre blanco da 3,4:1 y
+     --warn sobre su fondo suave 4,46:1; mezclados con la tinta pasan 4,5 en claro, y en oscuro (tinta clara) aclaran. */
+  --cv-color-success: color-mix(in srgb, var(--good) 72%, var(--ink));
+  --cv-color-success-soft: var(--good-bg);
+  --cv-color-warning: color-mix(in srgb, var(--warn) 85%, var(--ink));
+  --cv-color-warning-soft: var(--warn-bg);
+  --cv-color-danger: var(--bad);
+  --cv-color-danger-soft: var(--bad-bg);
+  --cv-color-info: var(--primary);
+  --cv-color-info-soft: var(--primary-bg);
+  /* El texto sobre un aviso suave: Canva traía uno oscuro por color (#3E2A14, #501B21…), ilegible en el oscuro. */
+  --cv-color-on-soft: var(--ink);
 
-  --cv-focus-ring: 0 0 0 2px #2c88f7;
-  --cv-selection-color: #2c88f7; /* marco de selección, tiradores y miniatura elegida (--gma-seleccion) */
-  --cv-guide-color: #ff4fd8; /* guías de alineación: rosa/magenta (sin medir en vivo, §13 del relevamiento) */
+  /* Los neutros de Canva (velos sobre la superficie): hover, presionado, el borde de un campo al pasar y lo apagado. Eran
+     negros con transparencia escritos en cada módulo: en el oscuro no se veían. Ahora salen de la tinta del tema. */
+  --cv-neutral-hover: var(--velo-hover);
+  --cv-neutral-pressed: color-mix(in srgb, var(--ink) 12%, transparent);
+  --cv-neutral-strong: color-mix(in srgb, var(--ink) 18%, transparent);
+  --cv-color-border-hover: color-mix(in srgb, var(--ink) 45%, transparent);
+  --cv-color-text-disabled: color-mix(in srgb, var(--ink) 45%, transparent);
+  /* Lo elegido (Canva: violeta al 15 %): el fondo azul suave de la app y su texto. */
+  --cv-selected-bg: var(--primary-bg);
+  --cv-selected-bg-pressed: color-mix(in srgb, var(--primary) 22%, var(--surface));
+  --cv-selected-text: var(--primary-strong);
 
-  /* La barra de arriba: la de MaKo (blanca, borde suave, texto fuerte), como la del Web Generator. El degradado de
-     Canva queda sólo en el botón de la IA (`--cv-ai-gradient`). */
-  --cv-header-gradient: #ffffff;
-  --cv-header-text: #38383c;
-  --cv-header-hover: #ececed;
-  --cv-header-pressed: #dfdfe0;
-  --cv-header-button-bg: #ffffff;
-  --cv-header-button-border: #dfdfe0;
-  --cv-header-border: rgb(0 0 0 / 0.06);
-  --cv-header-title: #38383c;
-  --cv-header-sep: #dfdfe0;
-  --cv-header-share-bg: #0540ad;
-  --cv-header-share-bg-hover: #0740df;
-  --cv-header-share-text: #ffffff;
+  /* El foco: el anillo de la app (con su halo del color de la superficie) */
+  --cv-focus-ring: var(--focus-ring);
+  --cv-focus-color: var(--primary);
+  --cv-selection-color: var(--primary); /* marco de selección, tiradores y miniatura elegida (lo lee engine/objects/theme.ts) */
+  --cv-guide-color: #ff4fd8; /* guías de alineación sobre el CONTENIDO: magenta en todo tema */
+
+  /* La barra de arriba: la de MaKo (la superficie, borde suave, texto fuerte), como la del Web Generator. El degradado de
+     Canva queda sólo en el botón de la IA (`--cv-ai-gradient`, decorativo). */
+  --cv-header-gradient: var(--surface);
+  --cv-header-text: var(--ink);
+  --cv-header-hover: var(--velo-hover);
+  --cv-header-pressed: var(--border);
+  --cv-header-button-bg: var(--surface);
+  --cv-header-button-border: var(--border-strong);
+  --cv-header-border: var(--border);
+  --cv-header-title: var(--ink);
+  --cv-header-sep: var(--border-strong);
+  --cv-header-share-bg: var(--primary);
+  --cv-header-share-bg-hover: var(--primary-strong);
+  --cv-header-share-text: var(--on-primary);
   --cv-ai-gradient: linear-gradient(90deg, #02c4cc 0%, #4e97d5 30%, #6e5ae0 70%, #7d2ae8 100%);
-  --cv-chrome: #f5f5f6;
-  --cv-rail-active-bg: #ffffff;
+  --cv-chrome: var(--bg);
+  --cv-rail-active-bg: var(--surface);
   --cv-panel-radius: 14px;
-  --cv-tooltip-bg: #0f1015;
-  --cv-tooltip-text: #ffffff;
+  /* El tooltip y el aviso son ISLAS oscuras en los dos temas, como en la app: el color de la barra lateral. */
+  --cv-tooltip-bg: var(--sidebar);
+  --cv-tooltip-text: var(--on-sidebar);
+  /* El acento sobre esa isla (el ícono y la acción de un aviso): un azul CLARO en los dos temas. */
+  --cv-island-accent: var(--primary-weak);
 
-  /* Tipografía: Canva Sans no se copia; Noto Sans es el respaldo de su propia pila (métricas pensadas para él) */
-  /* La letra de la app (Geist, app/layout.tsx), como el resto de MaKo; Noto Sans queda de respaldo. */
+  /* Tipografía: la letra de la app (Geist, app/layout.tsx), como el resto de MaKo; Noto Sans queda de respaldo. */
   --cv-font-sans: var(--cv-font-ui, 'Geist'), 'Geist', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --cv-font-display: var(--cv-font-sans);
   --cv-font-hand: 'Caveat', 'Segoe Print', 'Bradley Hand', cursive;
@@ -132,7 +159,8 @@
   --cv-space-16: 64px;
   --cv-space-24: 96px;
 
-  /* Forma y profundidad (radio estándar 12, agudo 10, píldora) */
+  /* Forma y profundidad (radio estándar 12, agudo 10, píldora). Las sombras son negras con transparencia: valen en los dos
+     temas (en el oscuro casi no se ven, y ahí separa el escalón de superficie). */
   --cv-radius-sm: 8px;
   --cv-radius-md: 10px;
   --cv-radius-lg: 12px;
@@ -163,6 +191,14 @@
   --cv-z-toast: 400;
 
   color-scheme: light;
+}
+
+/* Con el tema oscuro de la persona, los controles nativos (barras de scroll, campos) también. Los colores ya se dieron
+   vuelta solos: son los tokens de la app. */
+[data-tema='oscuro'] .cv {
+  color-scheme: dark;
+  /* En oscuro --primary-weak es un azul apagado (#4B6693): sobre la isla, el claro es --primary. */
+  --cv-island-accent: var(--primary);
 }
 
 @media (prefers-reduced-motion: reduce) {

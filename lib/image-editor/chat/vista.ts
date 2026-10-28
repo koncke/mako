@@ -114,6 +114,7 @@ function elementoJson(o: Obj, ref: string, tipo: TipoElemento): Obj {
   if (opacidad !== 100) e.opacidad = opacidad;
   if (o.locked === true) e.bloqueado = true;
   if (o.visible === false) e.oculto = true;
+  if (o.flipX === true || o.flipY === true) e.volteado = { ...(o.flipX === true ? { horizontal: true } : {}), ...(o.flipY === true ? { vertical: true } : {}) };
   if (tipo === 'texto') {
     const texto = String(o.text ?? '');
     e.texto = texto.slice(0, TOPES_VISTA.texto);

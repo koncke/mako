@@ -107,7 +107,12 @@ test('el link de la API y la página usan el MISMO parámetro', () => {
 });
 
 test('el id llega hasta el editor y arranca las propuestas con ese foco', () => {
-  assert.match(sinComentarios(leer('app', 'video-editor', 'VideoEditorCliente.tsx')), /<EditorPage projectId=\{proyectoId\} propuesta=\{propuesta\} \/>/);
+  // Desde el 27/10/2026 pasa por el marco (el chat fijo y los proyectos sin cambiar de ruta, _opencut/marco.tsx): el
+  // `?propuesta=` es del proyecto con que se entró y se suelta al abrir otro (tests/video-editor-marco.test.ts).
+  assert.match(sinComentarios(leer('app', 'video-editor', 'VideoEditorCliente.tsx')), /<MarcoEditor proyectoId=\{proyectoDeRuta\} propuesta=\{propuesta\} \/>/);
+  const marco = sinComentarios(leer('app', 'video-editor', '_opencut', 'marco.tsx'));
+  assert.match(marco, /const \[propuestaViva, setPropuestaViva\] = useState\(propuesta\);/);
+  assert.match(marco, /<EditorPage\s+projectId=\{abierto\}\s+propuesta=\{propuestaViva\}/);
   assert.match(sinComentarios(leer('app', 'video-editor', '_opencut', 'editor-page.tsx')), /iniciarPropuestas\(editor, \{ foco: propuesta, proyecto: projectId \}\), \[editor, propuesta, projectId\]/);
 });
 

@@ -8,7 +8,12 @@
 
 import 'server-only';
 import { randomUUID } from 'node:crypto';
-import type { Runners, Preparado, Ejecutado } from '../tipos';
+import type { Ctx, Propuesto, Runners, Preparado, Ejecutado } from '../tipos';
+import { OPERACIONES_API_IMAGEN, operacionDesdeInputImagen, type OperacionApiImagen } from '@/lib/image-editor/chat/api';
+import { proponerOperacionImagen } from '@/lib/image-editor/chat/propuestas-server';
+import { bloqueDePropuestaImagen, rutaDePropuestaImagen } from '@/lib/image-editor/chat/propuestas';
+import { TOPES_CHAT_IMAGEN } from '@/lib/image-editor/chat/catalogo';
+import { vistaDeDiseno } from '@/lib/image-editor/chat/vista';
 import type { BloqueCreado } from '@/lib/chat-bloques';
 import { linkApp } from '@/lib/app-url';
 import { borrarDiseno, crearDiseno, duplicarDiseno, guardarDiseno, leerDiseno, listarDisenos } from '@/lib/image-editor/server';
@@ -73,6 +78,46 @@ function cambiosDe(input: Record<string, unknown>): { actual: string; nuevo: str
   return out;
 }
 
+/** Lo que acompaña a cada propuesta del editor: no está aplicada, y dónde se acepta. */
+const NOTA_PROPUESTA =
+  'Quedó PROPUESTO, no aplicado: se acepta en el editor, en su chat «MaKo IA» (el link lo abre ahí). Lo que se pida por este mismo canal en este rato se suma a la misma propuesta.';
+const NOTA_DINERO = ' La imagen con IA se crea recién al aceptar, con la IA del negocio, y se cobra en su cuenta.';
+
+/**
+ * Una operación del chat «MaKo IA», propuesta por la API (27/10/2026): la forma la valida la MISMA función que al chat
+ * (`operacionDesdeInputImagen`), se prueba contra el diseño guardado, y queda en la propuesta abierta del canal.
+ */
+async function proponerEnElDiseno(o: OperacionApiImagen, input: Record<string, unknown>, ctx: Ctx): Promise<Propuesto> {
+  const disenoId = str(input, 'disenoId') ?? '';
+  if (!uuidValido(disenoId)) return { error: 'Falta el id del diseño (de listar_disenos_imagen).' };
+  const v = operacionDesdeInputImagen(o, input);
+  if (!v.ok) return { error: `No se puede proponer: ${v.motivo}.` };
+  const r = await proponerOperacionImagen({ ws: ctx.ws, canal: ctx.canal, canalKey: ctx.canalKey, actor: ctx.actor ?? null, disenoId, titulo: o.titulo, op: v.op });
+  if (!r.ok) {
+    if ('motivo' in r) return { error: `No se puede proponer: ${r.motivo}.` };
+    return { error: r.sinTabla ? 'Las propuestas del Image Editor todavía no se guardan en MaKo.' : 'No se pudo dejar la propuesta.' };
+  }
+  // La tarjeta «Original | Modificado» (bloque G4, lib/chat-bloques.ts) con «Aceptar en el editor» en ESA propuesta. La arma
+  // el código con el diseño guardado, nunca el modelo. En WhatsApp no se dibuja: ahí sólo serían tokens de más.
+  const bloque = ctx.canal === 'whatsapp' ? null : bloqueDePropuestaImagen({ disenoId, titulo: r.titulo, id: r.id, filas: r.filas, total: r.total });
+  return {
+    id: r.id,
+    url: linkApp(rutaDePropuestaImagen(disenoId, r.id), ctx.ws),
+    nueva: r.nueva,
+    extra: { cambios: r.lineas, nota: `${NOTA_PROPUESTA}${o.dinero ? NOTA_DINERO : ''}`, ...(bloque ? { bloque } : {}) },
+  };
+}
+
+/** El runner de una operación del editor: propone; `ejecutar` existe porque el tipo lo pide, y se niega. */
+function enElEditor(id: string) {
+  const o = OPERACIONES_API_IMAGEN.find((x) => x.id === id);
+  if (!o) throw new Error(`api-mako: «${id}» no es una operación del Image Editor (lib/image-editor/chat/api.ts)`);
+  return {
+    proponer: (input: Record<string, unknown>, ctx: Ctx) => proponerEnElDiseno(o, input, ctx),
+    ejecutar: async (): Promise<Ejecutado> => ({ ok: false, resumen: 'Este cambio se acepta en el editor, con el link de la propuesta: no por aquí.' }),
+  };
+}
+
 export const RUNNERS: Runners = {
   listar_disenos_imagen: {
     leer: async (input, ctx) => {
@@ -96,7 +141,12 @@ export const RUNNERS: Runners = {
       const r = await leerDiseno(ctx.ws, id);
       if (!r.ok) return JSON.stringify({ error: r.error });
       const d = r.diseno;
-      return JSON.stringify({ id: d.id, titulo: d.titulo, ancho: d.ancho, alto: d.alto, actualizado: d.actualizado, paginas: textosDe(d.doc), link: link(d.id, ctx.ws) });
+      // La vista del chat (27/10/2026): las refs con que se proponen los cambios. Muy grande, se dice (los textos van igual).
+      const vista = vistaDeDiseno(d.doc);
+      const conVista = vista.json.length <= TOPES_CHAT_IMAGEN.vistaMax
+        ? { vista: JSON.parse(vista.json) as unknown }
+        : { vista: null, aviso: 'El diseño es muy grande para leerlo entero aquí: sus cambios se piden en el chat del editor.' };
+      return JSON.stringify({ id: d.id, titulo: d.titulo, ancho: d.ancho, alto: d.alto, actualizado: d.actualizado, paginas: textosDe(d.doc), link: link(d.id, ctx.ws), ...conVista });
     },
   },
 
@@ -189,4 +239,27 @@ export const RUNNERS: Runners = {
       return { ok: true, resumen: 'Eliminado.', datos: { disenoId: str(payload, 'disenoId') } };
     },
   },
+
+  // Las operaciones del chat «MaKo IA» (27/10/2026): proponen en el diseño y se aceptan en el editor.
+  estilo_texto_imagen: { ...enElEditor('estilo_texto_imagen') },
+  agregar_texto_imagen: { ...enElEditor('agregar_texto_imagen') },
+  mover_elemento_imagen: { ...enElEditor('mover_elemento_imagen') },
+  tamano_elemento_imagen: { ...enElEditor('tamano_elemento_imagen') },
+  rotar_elemento_imagen: { ...enElEditor('rotar_elemento_imagen') },
+  opacidad_elemento_imagen: { ...enElEditor('opacidad_elemento_imagen') },
+  color_elemento_imagen: { ...enElEditor('color_elemento_imagen') },
+  borde_elemento_imagen: { ...enElEditor('borde_elemento_imagen') },
+  borrar_elementos_imagen: { ...enElEditor('borrar_elementos_imagen') },
+  duplicar_elemento_imagen: { ...enElEditor('duplicar_elemento_imagen') },
+  capa_elemento_imagen: { ...enElEditor('capa_elemento_imagen') },
+  alinear_elementos_imagen: { ...enElEditor('alinear_elementos_imagen') },
+  bloquear_elemento_imagen: { ...enElEditor('bloquear_elemento_imagen') },
+  fondo_pagina_imagen: { ...enElEditor('fondo_pagina_imagen') },
+  agregar_pagina_imagen: { ...enElEditor('agregar_pagina_imagen') },
+  borrar_pagina_imagen: { ...enElEditor('borrar_pagina_imagen') },
+  agregar_forma_imagen: { ...enElEditor('agregar_forma_imagen') },
+  crear_imagen_ia: { ...enElEditor('crear_imagen_ia') },
+  editar_imagen_ia: { ...enElEditor('editar_imagen_ia') },
+  voltear_elemento_imagen: { ...enElEditor('voltear_elemento_imagen') },
+  ocultar_elemento_imagen: { ...enElEditor('ocultar_elemento_imagen') },
 };

@@ -47,7 +47,7 @@ export function TextView() {
 					name={TEXTO_PREDETERMINADO}
 					preview={
 						<div className="flex size-full items-center justify-center bg-[var(--cc-sunken)] p-2">
-							<span className="text-center text-[13px] leading-tight font-semibold text-white select-none">
+							<span className="text-center text-[13px] leading-tight font-semibold text-(--cc-text) select-none">
 								{TEXTO_PREDETERMINADO}
 							</span>
 						</div>

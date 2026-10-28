@@ -34,10 +34,14 @@ const HEADER_MIN_WIDTH = 372
 /** El título de una página, como el resto de los nombres del editor. */
 const TITLE_MAX = 60
 
-/** The header spans the artboard; on a page narrower than the minimum it overhangs both sides equally, so the slot stays as wide as the page. */
+/**
+ * The header spans the artboard; on a page narrower than the minimum it overhangs both sides equally, so the slot stays as
+ * wide as the page. El mínimo nunca pasa el ancho de la pantalla menos 8 px por lado: en un teléfono de 360–390 px los
+ * 372 desbordaban y los íconos de la página quedaban afuera (27/10/2026). En la computadora `100vw` sobra y queda en 372.
+ */
 const headerStyle = (width: number, height: number): CSSProperties => {
-  const headerWidth = Math.max(width, HEADER_MIN_WIDTH)
-  return { height, width: headerWidth, marginInline: (width - headerWidth) / 2 }
+  const headerWidth = `max(${width}px, min(${HEADER_MIN_WIDTH}px, 100vw - 16px))`
+  return { height, width: headerWidth, marginInline: `calc((${width}px - ${headerWidth}) / 2)` }
 }
 
 function backgroundCss(page: DocPage): string | undefined {

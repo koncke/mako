@@ -11,10 +11,17 @@
 // Todas llevan `tab: 'image-editor'` y `rolMinimo: 'admin'`: es el requireRolWs([], { nav: 'image-editor' }) de la
 // página (app/image-editor/acceso.ts). SIN server-only: lo importan los tests y el generador de la referencia.
 // Español neutro (lo lee el cliente).
+//
+// LAS OPERACIONES DEL CHAT «MaKo IA» (27/10/2026, lib/image-editor/chat/api.ts; Martín: «si una persona quiere editar lo
+// que sea debería poder. Con prompts en mako»): una por operación del chat, al FINAL del área. PROPONEN en el diseño
+// (`confirmacion: 'pantalla'`, pantalla /image-editor) y una persona acepta en el editor, como el Video Editor. Las que
+// dibuja la IA de imágenes del negocio (crear_imagen_ia, editar_imagen_ia) son `costo: 'dinero'`: se cobran en SU cuenta
+// y la imagen se crea recién al aceptar. No corren en un flujo (lib/api-mako/flujo.ts → enElEditor).
 // =============================================================================
 
 import type { OperacionDef, Gating } from '../tipos';
 import { TAMANOS_API } from '@/lib/image-editor/tamanos';
+import { OPERACIONES_API_IMAGEN, PARAM_DISENO, descripcionApiImagen } from '../../image-editor/chat/api';
 
 const GATING: Gating = { tab: 'image-editor', rolMinimo: 'admin' };
 const TODOS = ['whatsapp', 'app', 'http'] as const;
@@ -33,7 +40,7 @@ export const DEFS: readonly OperacionDef[] = [
   {
     id: 'ver_diseno_imagen', area: 'imagen', tipo: 'lectura',
     titulo: 'Ver los textos de un diseño',
-    descripcion: 'Un diseño del Image Editor: título, tamaño y los TEXTOS de cada página, en orden (sin estilos ni posiciones), más el link para abrirlo. Úsala antes de cambiar_textos_diseno_imagen, para pasar los textos tal como están.',
+    descripcion: 'Un diseño del Image Editor: título, tamaño, los TEXTOS de cada página en orden, el link para abrirlo y la VISTA que lee su chat: cada página y elemento con su ref (p… página, t texto, f forma, i imagen, l línea, g grupo), medidas en px, color, estilo y si está bloqueado u oculto. Úsala antes de cambiar_textos_diseno_imagen (los textos tal cual) y antes de proponer un cambio por ref.',
     parametros: [ID],
     salida: 'json', canales: TODOS, costo: 'gratis', gating: GATING,
   },
@@ -95,4 +102,13 @@ export const DEFS: readonly OperacionDef[] = [
     reversible: false,
     escribe: 'marca borrado_at en image_disenos',
   },
+  // Las operaciones del chat «MaKo IA»: PROPONEN en un diseño y se aceptan en el editor (ver la cabecera).
+  ...OPERACIONES_API_IMAGEN.map((o): OperacionDef => ({
+    id: o.id, area: 'imagen', tipo: 'accion', confirmacion: 'pantalla', pantalla: '/image-editor', reversible: true,
+    titulo: o.titulo,
+    descripcion: descripcionApiImagen(o),
+    escribe: 'deja el cambio en una propuesta del diseño; el diseño lo cambia el editor cuando una persona la acepta',
+    parametros: [PARAM_DISENO, ...o.parametros],
+    canales: [...TODOS], costo: o.dinero ? 'dinero' : 'gratis', gating: GATING,
+  })),
 ];

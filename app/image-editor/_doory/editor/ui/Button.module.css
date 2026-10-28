@@ -34,7 +34,7 @@
 
 /* Canva: deshabilitado = texto gris al 50 %, sin opacidad sobre el botón entero */
 .btn:disabled {
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-text-disabled);
   cursor: not-allowed;
 }
 
@@ -62,29 +62,29 @@
   border-color: var(--cv-color-border-strong);
 }
 .default:hover:not(:disabled) {
-  background: rgb(64 79 109 / 0.06); /* Canva: #404F6D0F */
+  background: var(--cv-neutral-hover); /* Canva: #404F6D0F */
 }
 .default:active:not(:disabled) {
-  background: rgb(57 70 96 / 0.14); /* Canva: #39466024 */
+  background: var(--cv-neutral-pressed); /* Canva: #39466024 */
 }
 .default:disabled {
-  border-color: rgb(57 70 96 / 0.14);
+  border-color: var(--cv-neutral-pressed);
 }
 
 /* Terciario de Canva (sin borde) */
 .ghost:hover:not(:disabled) {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
 }
 .ghost:active:not(:disabled) {
-  background: rgb(57 70 96 / 0.14);
+  background: var(--cv-neutral-pressed);
 }
 
 .soft {
-  background: rgb(163 112 252 / 0.15); /* Canva «elegido»: #A370FC26 */
+  background: var(--cv-selected-bg); /* Canva «elegido»: #A370FC26 */
   color: var(--cv-violet-800);
 }
 .soft:hover:not(:disabled) {
-  background: rgb(163 112 252 / 0.2);
+  background: var(--cv-selected-bg-pressed);
 }
 
 /* Primario de Canva */
@@ -99,7 +99,7 @@
   background: var(--cv-color-brand-active);
 }
 .primary:disabled {
-  background: rgb(64 79 109 / 0.06);
+  background: var(--cv-neutral-hover);
 }
 
 .danger {
@@ -112,9 +112,9 @@
 /* Canva «elegido»: violeta translúcido y texto violeta oscuro */
 .pressed,
 .ghost.pressed:hover:not(:disabled) {
-  background: rgb(163 112 252 / 0.15);
+  background: var(--cv-selected-bg);
   color: var(--cv-violet-800);
 }
 .pressed:active:not(:disabled) {
-  background: rgb(163 112 252 / 0.2);
+  background: var(--cv-selected-bg-pressed);
 }

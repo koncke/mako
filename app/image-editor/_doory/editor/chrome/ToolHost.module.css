@@ -69,7 +69,7 @@
   color: var(--cv-color-text);
 }
 .close:active {
-  background: rgb(57 70 96 / 0.14); /* Canva: terciario presionado */
+  background: var(--cv-neutral-pressed); /* Canva: terciario presionado */
 }
 .close:focus-visible {
   outline: none;

@@ -1,11 +1,4 @@
-.pantalla {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  background: var(--cv-chrome);
-}
-
+/* El editor de un diseño (./PantallaEditor.tsx). La pantalla entera y el crédito al pie son del estudio (./estudio.module.css). */
 .editor {
   flex: 1;
   min-height: 0;
@@ -21,17 +14,28 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
+  padding: 24px;
   color: var(--cv-color-text-muted);
+  text-align: center;
 }
 
 .volver {
-  font-weight: 600;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid var(--cv-color-border-strong);
+  border-radius: var(--cv-radius-sm);
+  background: var(--cv-color-surface);
   color: var(--cv-color-text);
+  font-weight: 600;
 }
 
-/* «‹ Inicio» en la barra superior: texto blanco sobre el degradado, como los botones de la barra de Canva
-   (alto 40, radio 8, velo blanco al pasar). Sin el logo de Canva. Colgado de `.editor` para ganarle al
-   `.cv :where(a)` de _doory/styles/global.css (misma especificidad: decidiría el orden de carga). */
+.volver:hover {
+  background: var(--cv-neutral-hover);
+}
+
+/* «‹ Inicio» en la barra superior, como los botones de la barra de Canva (alto 40, radio 8, velo al pasar), con los colores
+   de la barra (tokens `--cv-header-*`). Sin el logo de Canva. Desde el 27/10/2026 es un BOTÓN (abre la vista de crear sin
+   navegar); sigue colgado de `.editor` para ganarle a los `:where()` de _doory/styles/global.css. */
 .editor .inicio {
   display: inline-flex;
   align-items: center;

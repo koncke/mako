@@ -7,17 +7,18 @@
 // editor roto, un aviso con dos salidas: volver, o entrar igual (se recuerda en
 // este navegador). Sin el «Roadmap» de OpenCut, que llevaba a una página que en
 // MaKo no existe.
+//
+// Desde el 27/10/2026 el aviso va a la derecha de la tarjeta de MaKo (../../../marco.tsx) y «Atrás» NO navega: lo decide
+// el marco (en el teléfono vuelve a la tarjeta del chat; en una tablet, al inicio en el lugar). El chat se usa igual con
+// el aviso puesto: el proyecto se carga por fuera (editor-page.tsx).
 
 import { useState } from "react";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { ArrowLeft01Icon, ComputerIcon } from "@hugeicons/core-free-icons";
-import { useRouter } from "@/app/_ui/Link";
-import { rutaEditor } from "@/app/video-editor/ruta";
 
 const STORAGE_KEY = "mobile-acknowledged";
 
-export function MobileGate({ children }: { children: React.ReactNode }) {
-	const router = useRouter();
+export function MobileGate({ children, onAtras }: { children: React.ReactNode; onAtras?: () => void }) {
 	// El editor se monta sólo en el navegador (VideoEditorCliente, `ssr: false`):
 	// `window` y `localStorage` existen ya en el primer dibujo.
 	const [show, setShow] = useState(() => {
@@ -42,15 +43,17 @@ export function MobileGate({ children }: { children: React.ReactNode }) {
 	};
 
 	return (
-		<div className="relative flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
-			<button
-				type="button"
-				onClick={() => router.push(rutaEditor("/video-editor"))}
-				className="absolute top-5 left-4 flex cursor-pointer items-center gap-1 text-[13px] text-(--cc-text-2)"
-			>
-				<HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
-				Atrás
-			</button>
+		<div className="relative flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-(--cc-app)">
+			{onAtras && (
+				<button
+					type="button"
+					onClick={onAtras}
+					className="absolute top-5 left-4 flex cursor-pointer items-center gap-1 text-[13px] text-(--cc-text-2)"
+				>
+					<HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+					Atrás
+				</button>
+			)}
 
 			<div className="flex flex-1 flex-col justify-center gap-5 px-6">
 				<HugeiconsIcon icon={ComputerIcon} className="size-10 text-primary" />

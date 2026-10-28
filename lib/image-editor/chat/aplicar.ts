@@ -319,6 +319,8 @@ export function aplicarOperaciones(p: {
         if (tipo === 'imagen' || tipo === 'grupo') { descartes.push(`${e.titulo} no tiene un color que cambiar`); break; }
         const clave = tipo === 'linea' ? 'stroke' : 'fill';
         const antes = String(e.o[clave] ?? '');
+        // Lo que ya es de ese color no es un cambio (27/10/2026: la propuesta de la API lo rechaza con este motivo).
+        if (antes.toLowerCase() === op.color) { descartes.push(`${e.titulo} ya es ${op.color}`); break; }
         e.o[clave] = op.color;
         hecho({ tipo: 'cambia', titulo: `Color de ${e.titulo}`, antes, despues: op.color });
         break;
@@ -459,6 +461,29 @@ export function aplicarOperaciones(p: {
         const antes = typeof e.o.src === 'string' && /^https:\/\//.test(e.o.src) ? e.o.src : undefined;
         cubrirCaja(e.o, op.src, op.natural, op.asset);
         hecho({ tipo: 'cambia', titulo: `Imagen ${e.titulo}`, antes: 'la imagen de ahora', despues: op.descripcion.slice(0, 160) || 'la imagen nueva', imagen: op.src, ...(antes ? { imagenAntes: antes } : {}) });
+        break;
+      }
+      case 'voltear': {
+        // Como «Voltear» del motor con un elemento (engine/api/arrange.ts → flip): flipX / flipY en su lugar.
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        const antes = { h: e.o.flipX === true, v: e.o.flipY === true };
+        const despues = { h: op.horizontal ?? antes.h, v: op.vertical ?? antes.v };
+        if (antes.h === despues.h && antes.v === despues.v) { descartes.push(`${e.titulo} ya está así`); break; }
+        e.o.flipX = despues.h;
+        e.o.flipY = despues.v;
+        const texto = (x: { h: boolean; v: boolean }) => (x.h && x.v ? 'volteado de lado y de arriba abajo' : x.h ? 'volteado de lado' : x.v ? 'volteado de arriba abajo' : 'sin voltear');
+        hecho({ tipo: 'cambia', titulo: e.titulo, antes: texto(antes), despues: texto(despues) });
+        break;
+      }
+      case 'ocultar': {
+        // El ojo de «Capas» (engine/api/arrange.ts → setVisible). Un bloqueado no se toca, como las demás.
+        const e = elemento(op.ref);
+        if (typeof e === 'string') { descartes.push(e); break; }
+        const oculto = e.o.visible === false;
+        if (oculto === op.oculto) { descartes.push(`${e.titulo} ya está ${op.oculto ? 'oculto' : 'a la vista'}`); break; }
+        e.o.visible = !op.oculto;
+        hecho({ tipo: 'cambia', titulo: e.titulo, antes: oculto ? 'oculto' : 'a la vista', despues: op.oculto ? 'oculto' : 'a la vista' });
         break;
       }
       case 'agregar_forma': {

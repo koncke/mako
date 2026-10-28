@@ -20,9 +20,10 @@
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   isolation: isolate;
+  /* El relleno «tinta» de Doory: con la tinta del tema (los marrones de Doory, escritos a mano, quedaban oscuros sobre oscuro). */
   --cv-color-brand-fill: var(--cv-ink);
-  --cv-color-brand-fill-hover: #4a3530;
-  --cv-color-brand-fill-active: #160e0b;
+  --cv-color-brand-fill-hover: color-mix(in srgb, var(--cv-ink) 85%, var(--surface));
+  --cv-color-brand-fill-active: var(--cv-ink);
   --cv-color-brand-strong: var(--cv-ink);
 }
 

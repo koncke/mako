@@ -40,8 +40,11 @@ export type MensajeGuardado =
   | {
       id: string; c: number; t: number; de: 'mako'; texto: string; error?: boolean;
       cambios?: CambioImagen[]; descartes?: string[]; estado?: EstadoPropuesta; aviso?: string; propuesta?: PropuestaGuardada;
-      /** Llegó por la API de MaKo: se cierra en la base al resolverla. */
-      propuestaApi?: { id: string; canal: string };
+      /**
+       * Llegó por la API de MaKo: se cierra en la base al resolverla. `cerrada`: la base confirmó el cierre (no se vuelve
+       * a mandar); `version`, la de la fila cuando se leyó (dato).
+       */
+      propuestaApi?: { id: string; canal: string; version?: number; cerrada?: boolean };
       /** Una burbuja de un pedido que no es del diseño abierto: sus links, de adentro de la app. */
       links?: Array<{ texto: string; href: string }>;
     };
@@ -89,10 +92,11 @@ const pares = (x: unknown): Array<[string, string]> =>
     .slice(0, TOPES_HILO.refs)
     .filter((p): p is [string, string] => Array.isArray(p) && p.length === 2 && typeof p[0] === 'string' && typeof p[1] === 'string' && p[0].length <= 20 && p[1].length <= 100);
 
-function propuesta(x: unknown): PropuestaGuardada | undefined {
+function propuesta(x: unknown, iaPendiente = false): PropuestaGuardada | undefined {
   if (!esObjeto(x)) return undefined;
   // Las de la propuesta: las del catálogo y las internas de las imágenes con IA (ya generadas), que la IA no puede escribir.
-  const { operaciones } = validarOperacionesDePropuesta(x.operaciones);
+  // Una de la API de MaKo guarda sus imágenes con IA SIN generar (se crean al aceptar): `iaPendiente`.
+  const { operaciones } = validarOperacionesDePropuesta(x.operaciones, { iaPendiente });
   if (!operaciones.length) return undefined;
   const elegidos = (Array.isArray(x.elegidos) ? x.elegidos : []).filter((r): r is string => typeof r === 'string' && r.length <= 20).slice(0, TOPES_HILO.refs);
   return {
@@ -123,12 +127,18 @@ function mensaje(x: unknown): MensajeGuardado | null {
   if (cs) m.cambios = cs;
   const ds = descartes(x.descartes);
   if (ds) m.descartes = ds;
-  const p = propuesta(x.propuesta);
+  const p = propuesta(x.propuesta, !!(x.propuestaApi && typeof (x.propuestaApi as { id?: unknown }).id === 'string'));
   if (p) m.propuesta = p;
   if (ESTADOS.includes(x.estado as EstadoPropuesta)) m.estado = x.estado as EstadoPropuesta;
   if (typeof x.aviso === 'string' && x.aviso) m.aviso = x.aviso.slice(0, 500);
-  const api = x.propuestaApi as { id?: unknown; canal?: unknown } | undefined;
-  if (api && typeof api.id === 'string' && UUID.test(api.id) && typeof api.canal === 'string') m.propuestaApi = { id: api.id, canal: api.canal.slice(0, 20) };
+  const api = x.propuestaApi as { id?: unknown; canal?: unknown; version?: unknown; cerrada?: unknown } | undefined;
+  if (api && typeof api.id === 'string' && UUID.test(api.id) && typeof api.canal === 'string') {
+    m.propuestaApi = {
+      id: api.id, canal: api.canal.slice(0, 20),
+      ...(typeof api.version === 'number' && Number.isInteger(api.version) && api.version >= 0 ? { version: api.version } : {}),
+      ...(api.cerrada === true ? { cerrada: true } : {}),
+    };
+  }
   // Los links de una burbuja: sólo de ADENTRO de la app (`/algo`, nunca `//otro.com` ni `javascript:`), pocos y cortos.
   const links = (Array.isArray(x.links) ? x.links : []).slice(0, 4).flatMap((l) => {
     const o = l as { texto?: unknown; href?: unknown };

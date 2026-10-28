@@ -56,7 +56,7 @@
   background: var(--cv-color-bg-muted);
 }
 .tab:active {
-  background: rgb(57 70 96 / 0.14); /* Canva: botón terciario presionado */
+  background: var(--cv-neutral-pressed); /* Canva: botón terciario presionado */
 }
 .tab[aria-expanded='true'] {
   background: var(--cv-rail-active-bg);

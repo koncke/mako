@@ -18,12 +18,12 @@
   height: 120px;
   margin-bottom: 6px;
   border-radius: var(--cv-radius-lg);
-  background: #f2f3f5; /* Canva: el gris de las miniaturas del Inicio */
+  background: var(--cv-color-bg-subtle); /* Canva: el gris de las miniaturas del Inicio */
   transition: background var(--cv-duration-fast) var(--cv-ease-out);
 }
 
 .tarjeta:hover .fondo {
-  background: #e9eaee; /* Canva: el mismo gris, un paso más oscuro al pasar el cursor */
+  background: var(--cv-color-bg-muted); /* Canva: el mismo gris, un paso más oscuro al pasar el cursor */
 }
 
 .tarjeta:disabled {

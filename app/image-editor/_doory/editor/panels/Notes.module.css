@@ -76,7 +76,7 @@
   color: var(--cv-color-text-subtle);
 }
 .text:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde de campo al pasar #1C213080 */
+  border-color: var(--cv-color-border-hover); /* Canva: borde de campo al pasar #1C213080 */
 }
 /* Canva: el campo con foco lleva el borde violeta #8B3DFF */
 .text:focus-visible,

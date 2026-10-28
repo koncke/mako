@@ -279,7 +279,8 @@ export type LecturaDef = Base & {
 
 /** Dónde se revisa una propuesta. Cerrado: cada pantalla existe en app/. `/video-editor` es el editor mismo: lo que la
  *  API propone en un proyecto se acepta en su chat «Editar con IA» (lib/editor-video/propuestas.ts). */
-export type RutaPantalla = '/crm/revisar' | '/plan/revisar' | '/mako/revisar' | '/whatsapp' | '/video-editor';
+/** `/image-editor` (27/10/2026): las operaciones del chat «MaKo IA» del Image Editor proponen y se aceptan en el editor. */
+export type RutaPantalla = '/crm/revisar' | '/plan/revisar' | '/mako/revisar' | '/whatsapp' | '/video-editor' | '/image-editor';
 
 export type AccionDef = Base & {
   tipo: 'accion';

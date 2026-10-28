@@ -12,6 +12,8 @@
 // Puro y sin `server-only`: lo leen el panel, la ruta de la IA, la API y los tests.
 // =============================================================================
 
+import { TOPE_DISCUTIR, textoDeDiscutir } from '../../chat-discutir';
+
 export const TOPES_CHAT_IMAGEN = {
   operaciones: 40,
   texto: 1000,
@@ -63,6 +65,9 @@ export type OperacionImagen =
   // (/api/image-editor/imagen) y las cambia por las de abajo, que son las que se guardan y se aplican.
   | { op: 'crear_imagen'; prompt: string; pagina?: string; x?: number; y?: number; ancho?: number; alto?: number; ref?: string }
   | { op: 'editar_imagen'; ref: string; prompt: string }
+  // 27/10/2026 («toda acción que se puede hacer a mano, por prompt»): «Voltear» y el ojo de «Capas».
+  | { op: 'voltear'; ref: string; horizontal?: boolean; vertical?: boolean }
+  | { op: 'ocultar'; ref: string; oculto: boolean }
   // INTERNAS: nunca las escribe la IA (no están en el catálogo y `validarOperacion` las rechaza). `src` es la URL estable de
   // «Subidos» que devolvió la ruta; `natural`, los píxeles de la imagen; `asset`, el id de su fila de «Subidos».
   | { op: 'agregar_imagen'; src: string; natural: { ancho: number; alto: number }; x: number; y: number; ancho: number; alto: number; pagina?: string; ref?: string; asset?: string; descripcion: string }
@@ -102,6 +107,9 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
   { op: 'agregar_forma', forma: '{"op":"agregar_forma","forma":"rectangulo","x":0,"y":900,"ancho":1080,"alto":180,"color":"#141414","ref":"n2"}', para: `Agrega una forma: "forma" es rectangulo o circulo. ${MEDIDAS}. "color" de relleno (#RRGGBB). ${PAGINA}. "ref" opcional: una nueva («n1»…) para seguir cambiándola en este pedido.` },
   { op: 'crear_imagen', forma: '{"op":"crear_imagen","prompt":"Foto de una taza de café humeante sobre una mesa de madera clara, luz natural de mañana, fondo desenfocado, tonos cálidos","x":90,"y":240,"ancho":900,"alto":600,"ref":"n3"}', para: `Crea una imagen NUEVA con IA y la pone en el diseño. La dibuja un modelo de imágenes con la IA del negocio y SE COBRA EN SU CUENTA: úsala sólo cuando la persona pide una imagen, foto o ilustración nueva, nunca para algo que hacen las otras operaciones. "prompt": la imagen descrita en detalle, en el idioma de la persona: qué se ve, el estilo (foto, ilustración, 3D…), los colores, la luz y el encuadre. No le pidas textos adentro de la imagen: el texto va aparte, con agregar_texto. ${MEDIDAS}: la caja donde va (sin medidas, un cuadrado al centro de la página); la imagen sale con la proporción más parecida (cuadrada, apaisada o vertical) y entra entera en la caja. ${PAGINA}. "ref" opcional: una nueva («n1»…) para moverla o cambiarla después en este pedido. Como mucho ${TOPES_CHAT_IMAGEN.imagenes} imágenes con IA por pedido.` },
   { op: 'editar_imagen', forma: '{"op":"editar_imagen","ref":"i7q","prompt":"Cambia el fondo por una playa al atardecer; la persona y su ropa quedan igual"}', para: `Edita con IA una imagen que YA está en el diseño (un elemento «imagen» de la vista): el modelo de imágenes recibe esa imagen, la rehace según "prompt" y la nueva ocupa la misma caja. "prompt": qué cambiar y qué dejar igual, en detalle. SE COBRA EN LA CUENTA DEL NEGOCIO. Para mover, agrandar, girar o hacer transparente una imagen no hace falta: eso es mover, tamano, rotar u opacidad. "ref" es la de una imagen de la vista (i…), nunca una nueva de este pedido.` },
+  // 27/10/2026, al FINAL (una operación nueva no le saca el lugar a las de antes).
+  { op: 'voltear', forma: '{"op":"voltear","ref":"i7q","horizontal":true}', para: `Espejo de un elemento, como «Voltear»: "horizontal" (izquierda ↔ derecha) y/o "vertical" (cabeza abajo); true lo deja volteado, false lo devuelve ("volteado" en la vista). ${REF}.` },
+  { op: 'ocultar', forma: '{"op":"ocultar","ref":"f0z","oculto":true}', para: `Oculta (true) o vuelve a mostrar (false) un elemento sin borrarlo, como el ojo de «Capas» ("oculto" en la vista). ${REF}.` },
 ];
 
 /**
@@ -109,7 +117,7 @@ export const OPERACIONES_CHAT_IMAGEN: Array<{ op: IdOperacionImagen; forma: stri
  * en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT_IMAGEN =
-  'agregar fotos, íconos o gráficos de la biblioteca o de Subidos (una imagen NUEVA, sí: con crear_imagen); quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; y lo que va adentro de un grupo («grupo» en la vista)';
+  'agregar fotos, íconos o gráficos de la biblioteca o de Subidos (una imagen NUEVA, sí: con crear_imagen); quitar el fondo de una foto; recortar una foto o cambiar su encuadre; filtros y ajustes de foto; degradados; animaciones; agrupar o desagrupar; cambiar el tamaño del diseño (Redimensionar); usar una plantilla; tablas, gráficos de datos y códigos QR; los efectos de texto (sombra, contorno, neón, curvar), redondear esquinas, el estilo del borde (punteado) y las flechas de una línea; distribuir, reordenar o renombrar páginas y capas; un vínculo; descargar o exportar; y lo que va adentro de un grupo («grupo» en la vista)';
 
 const IDS = new Set<string>(OPERACIONES_CHAT_IMAGEN.map((o) => o.op));
 
@@ -206,6 +214,8 @@ const VALIDAS: Record<IdOperacionImagen, readonly string[]> = {
   agregar_forma: ['forma', 'pagina', 'x', 'y', 'ancho', 'alto', 'color', 'ref'],
   crear_imagen: ['prompt', 'pagina', 'x', 'y', 'ancho', 'alto', 'ref'],
   editar_imagen: ['ref', 'prompt'],
+  voltear: ['ref', 'horizontal', 'vertical'],
+  ocultar: ['ref', 'oculto'],
 };
 
 /** Lo que describe una imagen: no vacío y dentro del tope (más largo se RECHAZA, no se corta). */
@@ -384,6 +394,17 @@ export function validarOperacion(raw: unknown): Validada {
       if (!prompt) return { ok: false, motivo: `una edición de imagen sin descripción o de más de ${TOPES_CHAT_IMAGEN.prompt} caracteres` };
       return { ok: true, op: { op, ref, prompt } };
     }
+    case 'voltear': {
+      const h = raw.horizontal;
+      const v = raw.vertical;
+      if (!esRef(ref) || (h === undefined && v === undefined)) return { ok: false, motivo: 'un voltear sin elemento o sin sentido (horizontal o vertical)' };
+      if ((h !== undefined && typeof h !== 'boolean') || (v !== undefined && typeof v !== 'boolean')) return { ok: false, motivo: 'un voltear que no es true o false' };
+      return { ok: true, op: { op, ref, ...(h !== undefined ? { horizontal: h } : {}), ...(v !== undefined ? { vertical: v } : {}) } };
+    }
+    case 'ocultar': {
+      if (!esRef(ref) || typeof raw.oculto !== 'boolean') return { ok: false, motivo: 'un ocultar incompleto' };
+      return { ok: true, op: { op, ref, oculto: raw.oculto } };
+    }
   }
 }
 
@@ -433,8 +454,12 @@ const natural = (x: unknown): { ancho: number; alto: number } | null => {
 const descripcionDe = (x: unknown): string => (typeof x === 'string' ? x.trim().slice(0, TOPES_CHAT_IMAGEN.prompt) : '');
 const assetValido = (x: unknown) => x === undefined || (typeof x === 'string' && UUID_RE.test(x));
 
-/** Una operación de una propuesta: las del catálogo (salvo las que piden una imagen, que ya se cambiaron) y las internas. */
-export function validarOperacionDePropuesta(raw: unknown): Validada {
+/**
+ * Una operación de una propuesta: las del catálogo (salvo las que piden una imagen, que ya se cambiaron) y las internas.
+ * `iaPendiente`: una propuesta de la API de MaKo (27/10/2026) guarda crear_imagen y editar_imagen SIN generar: la imagen
+ * se crea (y se cobra) recién cuando una persona la acepta en el editor.
+ */
+export function validarOperacionDePropuesta(raw: unknown, { iaPendiente = false }: { iaPendiente?: boolean } = {}): Validada {
   if (esObjeto(raw) && raw.op === 'agregar_imagen') {
     const extra = sobrante(raw, ['src', 'natural', 'x', 'y', 'ancho', 'alto', 'pagina', 'ref', 'asset', 'descripcion']);
     if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_imagen` };
@@ -463,17 +488,17 @@ export function validarOperacionDePropuesta(raw: unknown): Validada {
     return { ok: true, op: { op: 'reemplazar_imagen', ref: raw.ref, src: raw.src, natural: n, ...(raw.asset !== undefined ? { asset: raw.asset as string } : {}), descripcion: descripcionDe(raw.descripcion) } };
   }
   const v = validarOperacion(raw);
-  if (v.ok && esOperacionDeImagenIA(v.op)) return { ok: false, motivo: 'una imagen con IA que no se llegó a crear' };
+  if (v.ok && esOperacionDeImagenIA(v.op) && !iaPendiente) return { ok: false, motivo: 'una imagen con IA que no se llegó a crear' };
   return v;
 }
 
-/** Las de una propuesta, como `validarOperaciones` (mismo tope). */
-export function validarOperacionesDePropuesta(raw: unknown): { operaciones: OperacionImagen[]; descartes: string[] } {
+/** Las de una propuesta, como `validarOperaciones` (mismo tope). `iaPendiente`: ver `validarOperacionDePropuesta`. */
+export function validarOperacionesDePropuesta(raw: unknown, op: { iaPendiente?: boolean } = {}): { operaciones: OperacionImagen[]; descartes: string[] } {
   const operaciones: OperacionImagen[] = [];
   const descartes: string[] = [];
   for (const r of Array.isArray(raw) ? raw : []) {
     if (operaciones.length >= TOPES_CHAT_IMAGEN.operaciones) { descartes.push(`más de ${TOPES_CHAT_IMAGEN.operaciones} cambios de una vez`); break; }
-    const v = validarOperacionDePropuesta(r);
+    const v = validarOperacionDePropuesta(r, op);
     if (v.ok) operaciones.push(v.op);
     else descartes.push(v.motivo);
   }
@@ -489,24 +514,15 @@ export function catalogoParaPrompt(): string {
   ].join('\n');
 }
 
-/** Lo más largo que se muestra de una respuesta de «Discutir». */
-export const TOPE_DISCUTIR = 1_500;
+export { TOPE_DISCUTIR };
 
 /**
  * «Discutir»: lo que contestó el modelo, como texto para la persona y SIN operaciones, mande lo que mande (el modo no
- * cambia nada; si el modelo igual armó un JSON con operaciones, se usa sólo su texto). Texto plano, corto.
+ * cambia nada; si el modelo igual armó un JSON con operaciones, se usa sólo su texto). Texto plano, corto. El texto lo
+ * saca lib/chat-discutir.ts, el mismo del chat del Video Editor.
  */
 export function salidaDeDiscutir(salida: unknown): { resumen: string; operaciones: OperacionImagen[]; descartes: string[] } {
-  let t = typeof salida === 'string' ? salida.trim() : '';
-  t = t.replace(/^```(?:json|text)?\s*/i, '').replace(/\s*```$/, '').trim();
-  if (t.startsWith('{')) {
-    try {
-      const o = JSON.parse(t) as Record<string, unknown>;
-      const texto = [o.respuesta, o.resumen, o.texto].find((x) => typeof x === 'string' && x.trim());
-      t = typeof texto === 'string' ? texto.trim() : '';
-    } catch { /* no era JSON: va como texto */ }
-  }
-  return { resumen: t.slice(0, TOPE_DISCUTIR), operaciones: [], descartes: [] };
+  return { resumen: textoDeDiscutir(salida), operaciones: [], descartes: [] };
 }
 
 /** Forma del JSON de respuesta (va en el slot {{formato}}). */

@@ -37,6 +37,6 @@
   background: var(--cv-color-border-strong);
 }
 .add:focus-visible {
-  outline: 2px solid #3d8bff; /* Canva: borde de foco de teclado */
+  outline: 2px solid var(--cv-focus-color); /* Canva: borde de foco de teclado */
   outline-offset: 2px;
 }

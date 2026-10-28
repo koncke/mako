@@ -76,6 +76,7 @@ import { aFila, plano } from '@/lib/bandeja-filas';
 import { descartarPropuesta, getPropuesta, propuestasPendientesDelChat } from '@/lib/propuestas';
 import { descartarPropuesta as descartarBorradorDelPlan } from '@/lib/plan-propuesta';
 import { resolverPropuesta as resolverPropuestaDeVideo } from '@/lib/editor-video/propuestas-server';
+import { resolverPropuestaImagen } from '@/lib/image-editor/chat/propuestas-server';
 import { descartarBorrador } from '@/lib/evolution-envio';
 import { getPendiente, resolverPendiente } from '@/lib/mako-pendientes';
 import { PREGUNTAR, TOOL_PREGUNTAR, ERROR_TRAS_PREGUNTAR, crearGuardiaDePregunta, retirar } from '@/lib/chat-pregunta';
@@ -988,7 +989,11 @@ async function retirarEnSuPantalla(ws: number, r: ReturnType<typeof aRetirar>): 
   try {
     if (r.clase === 'accion' || r.clase === 'lead') await descartarPropuesta(r.id);
     else if (r.clase === 'borrador') await descartarBorradorDelPlan(r.id);
-    else if (r.clase === 'editor') await resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+    else if (r.clase === 'editor') {
+      // El id es de UNA de las dos tablas (video o Image Editor, 27/10/2026): si no está abierta en la del video, en la otra.
+      const v = await resolverPropuestaDeVideo({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+      if (!v.ok && ('yaResuelta' in v || ('sinTabla' in v && v.sinTabla))) await resolverPropuestaImagen({ ws, id: r.id, estado: 'descartada', persona: 'MaKo', descartes: [] });
+    }
     else await descartarBorrador(Number(r.id));
   } catch (e) {
     console.error(`[mako-turno-app] ws=${ws} no pude retirar ${r.clase} ${r.id}:`, e instanceof Error ? e.message : String(e));

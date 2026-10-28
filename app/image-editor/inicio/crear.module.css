@@ -75,8 +75,8 @@
 }
 
 .categoria[aria-current='true'] {
-  background: #f3ecff; /* Canva: ítem elegido de «Crear un diseño» */
-  color: #5100a8;
+  background: var(--cv-selected-bg); /* Canva: ítem elegido de «Crear un diseño» */
+  color: var(--cv-selected-text);
   font-weight: 600;
 }
 
@@ -99,7 +99,7 @@
 }
 
 .iconoGris {
-  background: #f2f3f5; /* Canva: el gris de «Elegir el tamaño» */
+  background: var(--cv-color-bg-subtle); /* Canva: el gris de «Elegir el tamaño» */
   color: var(--cv-color-text);
 }
 
@@ -127,9 +127,9 @@
   min-width: 0;
   height: 40px;
   padding: 0 var(--cv-space-3);
-  border: 1px solid #e1e4e7; /* Canva: borde del buscador del diálogo */
+  border: 1px solid var(--cv-color-border); /* Canva: borde del buscador del diálogo */
   border-radius: var(--cv-radius-md);
-  background: #fbfbfc; /* Canva: fondo del buscador del diálogo */
+  background: var(--cv-color-bg-subtle); /* Canva: fondo del buscador del diálogo */
   color: var(--cv-color-text-muted);
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out);
 }
@@ -243,7 +243,7 @@
 }
 
 .entrada:hover {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: campo, borde al pasar el cursor */
+  border-color: var(--cv-color-border-hover); /* Canva: campo, borde al pasar el cursor */
 }
 
 .campo .entrada:focus-visible {
@@ -282,7 +282,7 @@
 
 .primario:disabled {
   background: var(--cv-color-bg-muted); /* Canva: deshabilitado, fondo #404F6D0F y texto #1C213080 */
-  color: rgb(28 33 48 / 0.5);
+  color: var(--cv-color-text-disabled);
 }
 
 /* ── Teléfono: categorías arriba, en una fila que se desliza ────────────── */

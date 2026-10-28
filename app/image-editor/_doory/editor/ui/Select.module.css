@@ -19,7 +19,7 @@
   transition: border-color var(--cv-duration-fast) var(--cv-ease-out), box-shadow var(--cv-duration-fast) var(--cv-ease-out);
 }
 .select:hover:not(:disabled) {
-  border-color: rgb(28 33 48 / 0.5); /* Canva: borde del campo al pasar el mouse */
+  border-color: var(--cv-color-border-hover); /* Canva: borde del campo al pasar el mouse */
 }
 .select:focus-visible {
   outline: none;
@@ -27,8 +27,8 @@
   box-shadow: 0 0 0 1px var(--cv-color-brand);
 }
 .select:disabled {
-  color: rgb(28 33 48 / 0.5);
-  background: rgb(64 79 109 / 0.06);
+  color: var(--cv-color-text-disabled);
+  background: var(--cv-neutral-hover);
   cursor: not-allowed;
 }
 .chevron {

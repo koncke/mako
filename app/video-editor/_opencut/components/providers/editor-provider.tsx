@@ -1,9 +1,8 @@
 "use client";
 
-import { rutaEditor } from "@/app/video-editor/ruta";
-import { useEffect, useState } from "react";
-import { useRouter } from "@/app/_ui/Link";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { useProyectoAbierto } from "@/app/video-editor/_opencut/inicio/proyecto-abierto";
 import { EditorCore } from "@/app/video-editor/_opencut/core";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
 import { useKeybindingsListener } from "@/app/video-editor/_opencut/actions/use-keybindings";
@@ -27,7 +26,13 @@ interface EditorProviderProps {
 
 export function EditorProvider({ projectId, propuesta = null, children }: EditorProviderProps) {
 	const activeProject = useEditor((e) => e.project.getActiveOrNull());
-	const router = useRouter();
+	// Un id que no existe abre uno nuevo EN EL LUGAR (../../marco.tsx), sin navegar. Por ref: el efecto de carga no se
+	// vuelve a disparar porque el marco re-dibujó.
+	const proyectoAbierto = useProyectoAbierto();
+	const abrirRef = useRef(proyectoAbierto.abrir);
+	useLayoutEffect(() => {
+		abrirRef.current = proyectoAbierto.abrir;
+	});
 	const [isLoading, setIsLoading] = useState(true);
 	const [error, setError] = useState<string | null>(null);
 	const { setLoadingProject } = useKeybindingsStore();
@@ -43,6 +48,8 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 		const loadProject = async () => {
 			try {
 				setIsLoading(true);
+				// El marco cambia de proyecto SIN desmontar esto (../../marco.tsx): el error del anterior no es de éste.
+				setError(null);
 				await initializeGpuRenderer();
 				editor.renderer.setDegraded(!isGpuAvailable());
 				await editor.project.loadProject({ id: projectId });
@@ -71,7 +78,8 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 						const newProjectId = await editor.project.createNewProject({
 							name: await nombreProyectoNuevo(),
 						});
-						router.replace(rutaEditor(`/video-editor/${newProjectId}`));
+						if (cancelled) return;
+						void abrirRef.current(newProjectId);
 					} catch (_createErr) {
 						setError("No se pudo abrir el proyecto");
 						setIsLoading(false);
@@ -97,11 +105,11 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 		return () => {
 			cancelled = true;
 		};
-	}, [projectId, propuesta, router]);
+	}, [projectId, propuesta]);
 
 	if (error) {
 		return (
-			<div className="bg-background flex h-screen w-screen items-center justify-center">
+			<div className="bg-background flex min-h-0 w-full flex-1 items-center justify-center">
 				<div className="flex flex-col items-center gap-4">
 					<p className="text-destructive text-sm">{error}</p>
 				</div>
@@ -111,7 +119,7 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 
 	if (isLoading) {
 		return (
-			<div className="bg-background flex h-screen w-screen items-center justify-center">
+			<div className="bg-background flex min-h-0 w-full flex-1 items-center justify-center">
 				<div className="flex flex-col items-center gap-4">
 					<Loader2 className="text-muted-foreground size-8 animate-spin" />
 					<p className="text-muted-foreground text-sm">Cargando…</p>
@@ -122,7 +130,7 @@ export function EditorProvider({ projectId, propuesta = null, children }: Editor
 
 	if (!activeProject) {
 		return (
-			<div className="bg-background flex h-screen w-screen items-center justify-center">
+			<div className="bg-background flex min-h-0 w-full flex-1 items-center justify-center">
 				<div className="flex flex-col items-center gap-4">
 					<Loader2 className="text-muted-foreground size-8 animate-spin" />
 					<p className="text-muted-foreground text-sm">Cargando…</p>

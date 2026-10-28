@@ -112,7 +112,8 @@ export function Rulers({ scrollRef, artboards }: RulersProps) {
     const ro = new ResizeObserver(schedule)
     ro.observe(scroller)
     const mo = new MutationObserver(schedule)
-    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] })
+    // El tema de MaKo es `data-tema` (y `data-tema-candidato`, los Nord) en <html>: las reglas se redibujan con él.
+    mo.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'data-tema', 'data-tema-candidato', 'class'] })
     return () => {
       scroller.removeEventListener('scroll', schedule)
       ro.disconnect()

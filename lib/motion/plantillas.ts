@@ -167,7 +167,7 @@ export const PLANTILLAS: Record<IdPlantilla, DefPlantilla> = {
 /** Todos los campos de una plantilla: los suyos y, después, los comunes. */
 export function camposDe(id: IdPlantilla): CampoMotion[] {
   const def = PLANTILLAS[id];
-  return [...def.campos, ...COMUNES.map((c) => (c.clave === 'conFondo' && def.sinFondo ? { ...c, porDefecto: false } : c))];
+  return [...def.campos, ...COMUNES.map((c): CampoMotion => (c.clave === 'conFondo' && def.sinFondo && c.tipo === 'si-no' ? { ...c, porDefecto: false } : c))];
 }
 
 export function valoresPorDefecto(id: IdPlantilla): ValoresMotion {

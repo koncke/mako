@@ -126,6 +126,11 @@ export function despuesDe(op: OperacionChat, els: Map<string, Elemento> = new Ma
       return `Motion ${comillas(def.nombre)}${campos ? ` (${campos})` : ''} ${entre(op.inicio, op.inicio + (op.duracion ?? def.duracionMs / 1000))}`;
     }
     case 'editar_motion': return textoValoresMotion(op.valores) || 'Sin cambios';
+    case 'duplicar': return 'Con una copia en una pista nueva arriba';
+    case 'quitar_fondo': return op.activo ? 'Sin fondo (sólo la persona)' : 'Con su fondo';
+    case 'fondo_lienzo': return op.color ? `Fondo del lienzo ${op.color}` : op.desenfoque ? `Fondo del lienzo desenfocado (${op.desenfoque} de 4)` : 'Con otro fondo del lienzo';
+    case 'formato_lienzo': return !op.relacion ? 'Con otra relación' : op.relacion === 'original' ? 'La relación del primer clip' : `Relación ${op.relacion}`;
+    case 'agregar_medio': return `${els.get(op.medio)?.nombre ?? op.medio} desde ${tiempo(op.inicio)}${op.duracion !== undefined ? `, ${segundos(op.duracion)}` : ''}`;
     default: {
       const nunca: never = op;
       return String((nunca as { op?: unknown }).op ?? '');
@@ -139,8 +144,8 @@ export function antesDe(op: OperacionChat, els: Map<string, Elemento> = new Map(
   if (op.op === 'cortar_frase') return comillas(op.frase);
   if (op.op === 'borrar') return op.refs.map((r) => comoEsta(r, els)).join('; ');
   const ref = (op as { ref?: unknown }).ref;
-  // agregar_texto, capa_efecto y agregar_motion llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
-  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion') return comoEsta(ref, els);
+  // agregar_texto, capa_efecto, agregar_motion y agregar_medio llevan `ref` para NOMBRAR lo nuevo, no algo que exista.
+  if (typeof ref === 'string' && op.op !== 'agregar_texto' && op.op !== 'capa_efecto' && op.op !== 'agregar_motion' && op.op !== 'agregar_medio') return comoEsta(ref, els);
   return '—';
 }
 

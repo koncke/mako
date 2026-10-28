@@ -246,6 +246,8 @@ const TENANT_TABLES = new Set<string>([
   'image_disenos', 'image_subidos',
   // El hilo del chat «MaKo IA» del Image Editor (mig 0303): una fila por persona y diseño, N por workspace.
   'image_editor_chats',
+  // Lo que la API de MaKo propone en un diseño del Image Editor (mig 0340, 27/10/2026): N por workspace.
+  'image_editor_propuestas',
   // El hilo del chat «Editar con IA» del Video Editor (mig 0298): una fila por persona y proyecto,
   // N por workspace. Sin esta línea un negocio podría leer el hilo de otro con el mismo proyecto.
   'video_editor_chats',

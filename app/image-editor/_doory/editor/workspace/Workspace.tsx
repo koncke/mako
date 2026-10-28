@@ -25,6 +25,12 @@ import styles from './Workspace.module.css'
 const TOOLBAR_BAND = 64
 /** 72 px sobre la primera página (la franja de la barra + 8); el encabezado de página («Página 1 - Agregar título de página») va siempre, también con una sola página, como en Canva. */
 const METRICS: StackMetrics = { ...DEFAULT_METRICS, padding: TOOLBAR_BAND + 8 }
+/**
+ * En la pantalla chica, 16 px a los costados y no 64: «Ajustar» deja la página 48 px adentro de cada borde (engine/zoom.ts),
+ * así que con 64 el contenido medía 32 px MÁS que la pantalla y en 390 px el renglón «Página 1 - Agregar título…» quedaba
+ * cortado a la derecha, con un scroll de costado (medido en la captura del 26/10/2026).
+ */
+const METRICS_COMPACT: StackMetrics = { ...METRICS, sidePadding: 16 }
 /** El botón ancho «+ Agregar página» nunca es más angosto que esto, por chica que se vea la última página. */
 const ADD_PAGE_MIN_WIDTH = 240
 const BLEED = 56
@@ -82,7 +88,8 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
   const panning = spaceDown || tool === 'hand'
   usePresenceTracking(scrollRef, artboards)
 
-  const metrics = METRICS
+  const compact = useEditorState((s) => s.ui.compact)
+  const metrics = compact ? METRICS_COMPACT : METRICS
   const layout = useMemo(
     () => computeStack(doc.pages.map((p) => ({ id: p.id, ...pageSize(doc, p) })), zoom, metrics),
     [doc, zoom, metrics],
@@ -415,7 +422,7 @@ export function Workspace({ stripOpen, onToggleStrip }: WorkspaceProps) {
             if (e.target === e.currentTarget) e.preventDefault()
           }}
         >
-          <div className={styles.content} data-workspace-bg style={{ minWidth: `max(100%, ${layout.contentWidth}px)`, paddingTop: metrics.padding, paddingBottom: metrics.padding + 56 }}>
+          <div className={styles.content} data-workspace-bg style={{ minWidth: `max(100%, ${layout.contentWidth}px)`, paddingTop: metrics.padding, paddingBottom: metrics.padding + 56, paddingInline: metrics.sidePadding }}>
             {doc.pages.map((page, index) => {
               const slot = layout.slots[index]
               return (

@@ -217,6 +217,8 @@ export function linksDeUnaAccion(nombre: string, input: Record<string, unknown>,
   // (`/video-editor/<p>?propuesta=<id>`) y el borrador de WhatsApp (`/whatsapp?…&chat=…`) no pasan por /revisar/.
   if (def && esAccion(def) && def.confirmacion === 'pantalla' && url) {
     if (def.pantalla === '/video-editor' && rutaDeEscritorio(url).startsWith('/video-editor/')) res.push({ clase: 'editor', url, operacion: nombre, nueva });
+    // 27/10/2026: la propuesta del Image Editor (`/image-editor/<d>?propuesta=<id>`, lib/image-editor/chat/api.ts), igual.
+    if (def.pantalla === '/image-editor' && rutaDeEscritorio(url).startsWith('/image-editor/')) res.push({ clase: 'editor', url, operacion: nombre, nueva });
     if (def.pantalla === '/whatsapp' && rutaDeEscritorio(url) === '/whatsapp') {
       const borrador = typeof j.borradorId === 'number' && Number.isInteger(j.borradorId) && j.borradorId > 0 ? j.borradorId : null;
       res.push({ clase: 'whatsapp', url, operacion: nombre, nueva, ...(typeof j.para === 'string' && j.para.trim() ? { nombre: j.para.trim() } : {}), ...(borrador ? { borrador } : {}) });

@@ -54,9 +54,22 @@ import {
   PLANTILLAS as DEF_MOTION, ROTULO_TONO, camposDe, catalogoMotionParaPrompt, esPlantilla, normalizarMotion, valoresPorDefecto,
 } from '../motion/plantillas';
 import { PLANTILLAS_MOTION, type CampoMotion, type IdPlantilla, type Tono, type ValoresMotion } from '../motion/tipos';
+import { textoDeDiscutir } from '../chat-discutir';
 
 /** Entrada · Salida · Combinado (video e imagen) · Bucle (texto, sticker y forma). */
 export type CategoriaAnimChat = 'entrada' | 'salida' | 'combinado' | 'bucle';
+
+/**
+ * «Relación» del reproductor (canvas/sizes.ts, `RELACIONES` del motor, que este módulo no puede importar). Lo fija el
+ * test contra el motor.
+ */
+export const RELACIONES_LIENZO = ['original', '16:9', '9:16', '1:1', '4:3', '3:4', '2:1', '2.35:1', '1.85:1', '5.8in'] as const;
+export type RelacionLienzo = (typeof RELACIONES_LIENZO)[number];
+/**
+ * Los cuatro niveles de «Desenfocar» del lienzo (properties/video/basico.tsx, NIVELES_DESENFOQUE: 0,0625 · 0,375 · 0,75 ·
+ * 1 del «Heavy» del motor). El chat dice 1 a 4; el motor guarda la intensidad. Lo fija el test.
+ */
+export const NIVELES_DESENFOQUE_LIENZO = [30, 190, 375, 500] as const;
 export type ObjetivoNormalizar = 'predeterminado' | 'tiktok' | 'youtube';
 
 /**
@@ -176,7 +189,18 @@ export type OperacionChat =
    */
   | { op: 'agregar_motion'; plantilla: IdPlantilla; valores: ValoresMotion; inicio: number; duracion?: number; ref?: string }
   /** Campos de un motion graphic que ya está (la plantilla no se cambia). */
-  | { op: 'editar_motion'; ref: string; valores: ValoresMotion };
+  | { op: 'editar_motion'; ref: string; valores: ValoresMotion }
+  // Lo que se sumó el 27/10/2026 («toda acción que se puede hacer a mano, por prompt»), al FINAL.
+  /** «Duplicar» (Ctrl+D): la copia, en el mismo tramo y en una pista nueva arriba. */
+  | { op: 'duplicar'; ref: string }
+  /** «Eliminar fondo» › «Eliminación automática» de un clip de video o imagen (la persona recortada en el navegador). */
+  | { op: 'quitar_fondo'; ref: string; activo: boolean }
+  /** El fondo del LIENZO (Video › Básico › Lienzo): un color, o desenfocar el propio video (nivel 1 a 4, como CapCut). */
+  | { op: 'fondo_lienzo'; color?: string; desenfoque?: number }
+  /** «Relación» del reproductor: la forma del lienzo. */
+  | { op: 'formato_lienzo'; relacion: RelacionLienzo }
+  /** Un medio de Multimedia («m1») a la línea de tiempo, como el ⊕ de la biblioteca. */
+  | { op: 'agregar_medio'; medio: string; inicio: number; duracion?: number; ref?: string };
 
 export type IdOperacion = OperacionChat['op'];
 
@@ -445,6 +469,33 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
     forma: '{"op":"editar_motion","ref":"g1","valores":{"titulo":"…"}}',
     para: 'Cambia lo que dice (el título, el nombre, la cifra…), el tono, los colores o la fuente de un motion graphic que ya está ("tipo":"motion", con sus "valores" de ahora): "valores" {campo: valor} sólo con lo que cambia, con los campos y topes de SU plantilla (vacío saca uno que no es obligatorio). La plantilla no se cambia.',
   },
+  // 27/10/2026: lo que el editor hacía a mano y el chat no. Al FINAL (una operación nueva no le saca el lugar a las de
+  // antes), y las descripciones no repiten las palabras de las otras: puntúan contra el pedido en la API.
+  {
+    op: 'duplicar',
+    forma: '{"op":"duplicar","ref":"t1"}',
+    para: 'Hace una copia de un elemento, como «Duplicar» (Ctrl+D): en el mismo tramo, en una pista nueva arriba. La copia no tiene ref en este pedido.',
+  },
+  {
+    op: 'quitar_fondo',
+    forma: '{"op":"quitar_fondo","ref":"v1","activo":true}',
+    para: '«Eliminar fondo» automático de un clip de video o imagen: deja sólo a la persona ("activo":true); false lo devuelve. Recorta personas, no objetos.',
+  },
+  {
+    op: 'fondo_lienzo',
+    forma: '{"op":"fondo_lienzo","color":"#1E3A8A"}',
+    para: `Lo que se ve detrás de los clips que no llenan el cuadro (Básico › Lienzo): "color" (#RRGGBB), o "desenfoque" (1 a ${NIVELES_DESENFOQUE_LIENZO.length}) para el mismo video desenfocado. Es del video entero ("lienzo" en la vista).`,
+  },
+  {
+    op: 'formato_lienzo',
+    forma: '{"op":"formato_lienzo","relacion":"9:16"}',
+    para: `«Relación» del cuadro: "relacion" es ${RELACIONES_LIENZO.map((r) => `"${r}"`).join(', ')} ("9:16" vertical para historias y reels, "1:1" cuadrado, "16:9" apaisado; "original" = la del primer clip). No mueve los clips.`,
+  },
+  {
+    op: 'agregar_medio',
+    forma: '{"op":"agregar_medio","medio":"m2","inicio":12,"ref":"n1"}',
+    para: 'Pone en la línea de tiempo un video o una foto de "medios" ("medio": su ref), como el ⊕ de Multimedia: en el segundo "inicio", en la principal si ahí está libre y si no en una pista arriba. "duracion" opcional: una foto dura 5 s si no la pones; un video, lo que dura (no más). "ref" nueva opcional ("n1"…).',
+  },
 ];
 
 /**
@@ -452,7 +503,7 @@ export const OPERACIONES_CHAT: Array<{ op: IdOperacion; forma: string; para: str
  * para que la IA lo DIGA en el resumen en vez de simularlo con otra operación.
  */
 export const NO_SE_PUEDE_CHAT =
-  'agregar a la línea de tiempo videos, imágenes, música, sonidos, stickers o formas de la biblioteca (sustituir el archivo de un clip que ya está, sí: reemplazar_clip; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; quitar el fondo o chroma key; recortar el encuadre del cuadro; el fondo del lienzo; las plantillas de estilo de texto o de subtítulos; resaltar palabras CLAVE de los subtítulos; duplicar o copiar elementos; pegar atributos; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
+  'agregar a la línea de tiempo música, sonidos, stickers o formas de la biblioteca (un video o una foto de "medios", sí: agregar_medio; sustituir el archivo de un clip, sí: reemplazar_clip; un motion graphic, sí: agregar_motion); importar archivos a Multimedia (sólo se usan los de "medios"); usar una plantilla de anuncio en un proyecto que ya tiene algo (desde la pestaña Plantillas, «Utilizar plantilla» la arma en un proyecto nuevo); voz en off o texto a voz; avatar de IA; fotogramas clave (animar la posición o la escala en el tiempo); máscaras; chroma key; recortar el ENCUADRE del cuadro (recortar acorta el clip en el tiempo); las plantillas de estilo de texto o de subtítulos; resaltar palabras CLAVE de los subtítulos; pegar atributos; exportar o descargar el video; y cambiar una propiedad que tiene fotogramas clave ("fotogramas" en el elemento)';
 
 const IDS_OP = new Set<string>(OPERACIONES_CHAT.map((o) => o.op));
 
@@ -467,6 +518,14 @@ export function catalogoParaPrompt(senales?: SenalesNegocio | null): string {
     '',
     `NO SE PUEDE DESDE EL CHAT (dilo en el resumen, no lo simules): ${NO_SE_PUEDE_CHAT}.`,
   ].join('\n');
+}
+
+/**
+ * «Discutir» (27/10/2026, como el Image Editor): lo que contestó el modelo, como texto para la persona y SIN operaciones,
+ * mande lo que mande (el modo no cambia nada). El texto lo saca lib/chat-discutir.ts.
+ */
+export function salidaDeDiscutir(salida: unknown): { resumen: string; operaciones: OperacionChat[]; descartes: string[] } {
+  return { resumen: textoDeDiscutir(salida), operaciones: [], descartes: [] };
 }
 
 /** Forma del JSON de respuesta (va en el slot {{formato}}). */
@@ -1014,6 +1073,52 @@ export function validarOperacion(raw: unknown): Validada {
       return {
         ok: true,
         op: { op: 'agregar_motion', plantilla, valores: v.valores, inicio: centesima(inicio), ...(duracion != null ? { duracion: centesima(duracion) } : {}), ...(ref ? { ref } : {}) },
+      };
+    }
+    case 'duplicar': {
+      const extra = sobrantes(raw, []);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de duplicar` };
+      if (!esRef(ref)) return { ok: false, motivo: 'un duplicar sin elemento' };
+      return { ok: true, op: { op: 'duplicar', ref } };
+    }
+    case 'quitar_fondo': {
+      if (!esRef(ref) || typeof raw.activo !== 'boolean') return { ok: false, motivo: 'un «eliminar fondo» incompleto' };
+      return { ok: true, op: { op: 'quitar_fondo', ref, activo: raw.activo } };
+    }
+    case 'fondo_lienzo': {
+      const extra = sobrantes(raw, ['color', 'desenfoque']) ?? (ref !== undefined ? 'ref' : null);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo del fondo del lienzo` };
+      if ((raw.color === undefined) === (raw.desenfoque === undefined)) return { ok: false, motivo: 'un fondo del lienzo va con "color" o con "desenfoque" (uno de los dos)' };
+      if (raw.color !== undefined) {
+        const c = colorHex(raw.color);
+        if (!c) return { ok: false, motivo: 'un fondo del lienzo con un color que no es #RRGGBB' };
+        return { ok: true, op: { op: 'fondo_lienzo', color: c } };
+      }
+      const n = numero(raw.desenfoque);
+      if (n === null || !Number.isInteger(n) || n < 1 || n > NIVELES_DESENFOQUE_LIENZO.length) {
+        return { ok: false, motivo: `un desenfoque del lienzo que no es de 1 a ${NIVELES_DESENFOQUE_LIENZO.length}` };
+      }
+      return { ok: true, op: { op: 'fondo_lienzo', desenfoque: n } };
+    }
+    case 'formato_lienzo': {
+      const extra = sobrantes(raw, ['relacion']) ?? (ref !== undefined ? 'ref' : null);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de la relación del lienzo` };
+      const r = String(raw.relacion ?? '').trim().toLowerCase();
+      if (!(RELACIONES_LIENZO as readonly string[]).includes(r)) return { ok: false, motivo: `«${r.slice(0, 12)}» no es una relación (son: ${RELACIONES_LIENZO.join(', ')})` };
+      return { ok: true, op: { op: 'formato_lienzo', relacion: r as RelacionLienzo } };
+    }
+    case 'agregar_medio': {
+      const extra = sobrantes(raw, ['medio', 'inicio', 'duracion']);
+      if (extra) return { ok: false, motivo: `«${extra.slice(0, 30)}» no es algo de agregar_medio` };
+      if (!esRefMedio(raw.medio)) return { ok: false, motivo: 'un medio nuevo sin la ref de "medios" («m1», «m2»…)' };
+      const inicio = numero(raw.inicio);
+      const duracion = raw.duracion === undefined ? undefined : numero(raw.duracion);
+      if (!enRango(inicio, 0, TOPES_CHAT.tiempoMax)) return { ok: false, motivo: 'un medio nuevo sin inicio válido' };
+      if (duracion !== undefined && !enRango(duracion, TOPES_CHAT.duracionMin, TOPES_CHAT.duracionMax)) return { ok: false, motivo: 'un medio nuevo sin duración válida' };
+      if (ref !== undefined && !esRefNueva(ref)) return { ok: false, motivo: 'un medio nuevo con una ref que no es «n1», «n2»…' };
+      return {
+        ok: true,
+        op: { op: 'agregar_medio', medio: raw.medio, inicio: centesima(inicio), ...(duracion != null ? { duracion: centesima(duracion) } : {}), ...(ref ? { ref } : {}) },
       };
     }
     case 'editar_motion': {

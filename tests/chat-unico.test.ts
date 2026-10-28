@@ -166,7 +166,9 @@ const PANEL: Record<string, 'panel único' | `pieza de ${string}` | `pendiente, 
   'app/dashboard/PanelEditarMako.tsx': 'panel único',
   'app/offer/ChatOffer.tsx': 'pendiente, de Offer',
   'app/web-generator/editor/paneles/ChatAgente.tsx': 'panel único',
-  'app/video-editor/_opencut/chat/PanelChat.tsx': 'pendiente, de Video Editor',
+  // 27/10/2026: el chat del Video Editor fijo a la izquierda (el marco, app/video-editor/_opencut/marco.tsx), con el panel
+  // único, como el Web Generator y el Image Editor (tests/video-editor-marco.test.ts fija el resto).
+  'app/video-editor/_opencut/chat/PanelChat.tsx': 'panel único',
   // 26/10/2026: el chat del Image Editor fijo a la izquierda, con el panel único, como el Web Generator.
   'app/image-editor/mako/chat/PanelMakoIA.tsx': 'panel único',
   'app/_components/MakoChat.tsx': 'panel único',
@@ -203,3 +205,5 @@ test('7. un chat de MaKo nuevo en la computadora no arma su propio marco: dibuja
 //   · MakoAnalystLead.tsx sin `<PanelDeChat` (su marco de antes)          → 6/1 (6)
 //   · una pantalla nueva con `<HiloMako` y sin el panel                   → 6/1 (7)
 //   · ChatSoporte.tsx sin el panel (su pieza queda colgando)              → 6/1 (6)
+// Y el 27/10/2026 (el Video Editor pasa a 'panel único', base 7/0): PanelChat.tsx sin `<PanelDeChat` → 6/1 (6); la lista
+// otra vez en 'pendiente, de Video Editor' con el panel ya dibujado → 6/1 (6).

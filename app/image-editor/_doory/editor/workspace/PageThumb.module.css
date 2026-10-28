@@ -46,7 +46,7 @@
   outline-color: var(--cv-color-border-strong);
 }
 .thumb:focus-visible {
-  outline-color: #3d8bff; /* Canva: borde de foco de teclado */
+  outline-color: var(--cv-focus-color); /* Canva: borde de foco de teclado */
 }
 .thumb img {
   display: block;

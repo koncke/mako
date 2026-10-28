@@ -225,7 +225,7 @@ test('12: el editor la muestra como un cambio más del chat, la acepta con el mi
 test('13: una automatización no las ofrece ni las corre: se aceptan en el editor, y un flujo corre sin nadie mirando', () => {
   const f = leer('lib', 'api-mako', 'flujo.ts');
   assert.match(f, /export const enElEditorDeVideo = \(d: AccionDef\): boolean => d\.pantalla === '\/video-editor';/);
-  assert.match(f, /!NO_EN_FLUJOS\.has\(d\.id\) && !enElEditorDeVideo\(d\)\)/, 'fuera de la lista de «⚡ Acción»');
+  assert.match(f, /!NO_EN_FLUJOS\.has\(d\.id\) && !enElEditorDeVideo\(d\)( && !enElEditorDeImagen\(d\))?\)/, 'fuera de la lista de «⚡ Acción»');
   assert.match(f, /if \(enElEditorDeVideo\(def\)\) return \{ ok: false,/, 'y un paso viejo no la corre');
 });
 

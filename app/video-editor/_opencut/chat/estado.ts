@@ -1,6 +1,9 @@
-// Si el panel «Editar con IA» está abierto. Lo abre el botón de la barra superior
-// (components/editor/editor-header.tsx) y lo dibuja editor-page.tsx al costado de los
-// paneles de CapCut. No se recuerda entre sesiones: el editor abre como CapCut, sin el chat.
+// Lo que muestra la tarjeta de MaKo a la izquierda del editor (_opencut/marco.tsx): el chat (`abierto`) o la lista de
+// proyectos. Desde el 27/10/2026 el chat es el PANEL ÚNICO de MaKo, fijo y SIEMPRE a la vista como el del Web Generator
+// (Martín: «adaptar las tabs de video e imagen con el chat que tenemos de MaKo... que este al costado, que los
+// "proyectos" se vean en la barra del costado»): ya no se cierra. `abierto: false` es la lista de proyectos en la MISMA
+// tarjeta (la «←» del chat), y `setAbierto(true)` la devuelve al chat (la estrella de la lista, una propuesta nueva, el
+// link `?propuesta=`). Arranca en el chat.
 
 import { create } from "zustand";
 
@@ -13,7 +16,7 @@ export const useChatAbierto = create<{
 	foco: string | null;
 	setFoco: (id: string | null) => void;
 }>()((set) => ({
-	abierto: false,
+	abierto: true,
 	setAbierto: (abierto) => set({ abierto }),
 	foco: null,
 	setFoco: (foco) => set({ foco }),

@@ -42,8 +42,6 @@ import { usePasteMedia } from "@/app/video-editor/_opencut/media/use-paste-media
 import { MobileGate } from "@/app/video-editor/_opencut/components/editor/mobile-gate";
 import { tamanosDe, useDisenoStore } from "@/app/video-editor/_opencut/components/editor/diseno-paneles";
 import { useEditor } from "@/app/video-editor/_opencut/editor/use-editor";
-import { PanelChat } from "@/app/video-editor/_opencut/chat/PanelChat";
-import { useChatAbierto } from "@/app/video-editor/_opencut/chat/estado";
 import { iniciarEspejo } from "@/app/video-editor/_opencut/chat/espejo";
 import { iniciarPropuestas } from "@/app/video-editor/_opencut/chat/propuestas";
 import { conEspacio } from "@/app/video-editor/espacio";
@@ -59,7 +57,18 @@ import {
 	getBookmarkPreviewOverlaySource,
 } from "@/app/video-editor/_opencut/timeline/bookmarks/index";
 
-export function EditorPage({ projectId, propuesta = null }: { projectId: string; propuesta?: string | null }) {
+/**
+ * El editor de UN proyecto, a la derecha de la tarjeta de MaKo (./marco.tsx, desde el 27/10/2026). El marco le cambia
+ * `projectId` para abrir otro sin navegar: el EditorProvider lo recarga en el lugar. `soloCarga` (el teléfono con la
+ * tarjeta a la vista) carga el proyecto para el chat sin dibujar el editor; `onAtras` es el «Atrás» del aviso de pantalla
+ * chica.
+ */
+export function EditorPage({ projectId, propuesta = null, soloCarga = false, onAtras }: {
+	projectId: string;
+	propuesta?: string | null;
+	soloCarga?: boolean;
+	onAtras?: () => void;
+}) {
 	const editor = useEditor();
 	// Salir por «atrás» del navegador (y no por «Volver a la página de inicio»)
 	// también deja la miniatura del primer cuadro y el último cambio guardados:
@@ -94,28 +103,32 @@ export function EditorPage({ projectId, propuesta = null }: { projectId: string;
 	// Con `?propuesta=` (el «Aceptar en el editor» del Ops Center), el chat abre en ÉSA.
 	useEffect(() => iniciarPropuestas(editor, { foco: propuesta, proyecto: projectId }), [editor, propuesta, projectId]);
 
+	// El proyecto se carga AFUERA del aviso de pantalla chica: el chat de la tarjeta lo necesita abierto aunque el editor
+	// no se dibuje (el teléfono). El chat ya no va acá: es la tarjeta del marco, a la izquierda (./marco.tsx).
 	return (
-		<MobileGate>
-			<EditorProvider projectId={projectId} propuesta={propuesta}>
-				<div className="flex h-full w-full flex-col overflow-hidden bg-(--cc-app)">
-					<AvisoRenderDegradado />
-					<EditorHeader />
-					{/* Los paneles van en una caja `absolute inset-0`: un `size-full` contra el alto
-					    de un hijo flex no resuelve en Safari y el editor quedaría en cero (AGENTS.md). */}
-					<div className="flex min-h-0 min-w-0 flex-1 gap-2 px-[10px] pb-[10px]">
-						<div className="relative min-h-0 min-w-0 flex-1">
-							<div className="absolute inset-0">
-								<EditorLayout />
+		<EditorProvider projectId={projectId} propuesta={propuesta}>
+			{soloCarga ? null : (
+				<MobileGate onAtras={onAtras}>
+					{/* Estira con flex, no con `h-full`: contra el alto de un hijo flex, Safari da cero (AGENTS.md, «Dos reglas de layout»). */}
+					<div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden bg-(--cc-app)">
+						<AvisoRenderDegradado />
+						<EditorHeader />
+						{/* Los paneles van en una caja `absolute inset-0`: un `size-full` contra el alto
+						    de un hijo flex no resuelve en Safari y el editor quedaría en cero (AGENTS.md). */}
+						<div className="flex min-h-0 min-w-0 flex-1 gap-2 px-[10px] pb-[10px]">
+							<div className="relative min-h-0 min-w-0 flex-1">
+								<div className="absolute inset-0">
+									<EditorLayout />
+								</div>
 							</div>
 						</div>
-						<ColumnaChat />
+						<MigrationDialog />
+						{/* «Reemplazar el clip» / «Sustituir» (reemplazo/): uno solo, lo abre la línea de tiempo. */}
+						<DialogoReemplazar />
 					</div>
-					<MigrationDialog />
-					{/* «Reemplazar el clip» / «Sustituir» (reemplazo/): uno solo, lo abre la línea de tiempo. */}
-					<DialogoReemplazar />
-				</div>
-			</EditorProvider>
-		</MobileGate>
+				</MobileGate>
+			)}
+		</EditorProvider>
 	);
 }
 
@@ -146,34 +159,23 @@ function AvisoRenderDegradado() {
 }
 
 /**
- * «Editar con IA» (chat/PanelChat.tsx): una columna AFUERA de la distribución de CapCut, a la
- * derecha y de alto entero, para que abrirla no cambie las proporciones medidas de los cuatro
- * paneles (sólo se angostan). Cerrada no ocupa nada.
+ * El redondeado alrededor de cada panel. Con los colores de MaKo (27/10/2026) el panel es la superficie de la app sobre
+ * el fondo, con el mismo borde suave de la tarjeta del chat: en claro, blanco sobre gris como las tarjetas del Web
+ * Generator.
  */
-function ColumnaChat() {
-	const abierto = useChatAbierto((s) => s.abierto);
-	const setAbierto = useChatAbierto((s) => s.setAbierto);
-	if (!abierto) return null;
+function Marco({ children }: { children: React.ReactNode }) {
 	return (
-		<div className="relative w-[320px] shrink-0">
-			<div className="absolute inset-0">
-				<Marco>
-					<PanelChat onCerrar={() => setAbierto(false)} />
-				</Marco>
-			</div>
+		<div className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel) shadow-[0_0_0_0.8px_var(--border)]">
+			{children}
 		</div>
 	);
 }
 
-/** El redondeado y el fondo de CapCut alrededor de cada panel. */
-function Marco({ children }: { children: React.ReactNode }) {
-	return <div className="size-full min-h-0 min-w-0 overflow-hidden rounded-[7px] bg-(--cc-panel)">{children}</div>;
-}
-
-/** Los divisores son las separaciones de 8 px (7 px entre arriba y la línea de tiempo), sin línea. */
-const DIVISOR_VERTICAL = "w-2 shrink-0 bg-transparent after:w-2 hover:bg-white/5";
+/** Los divisores son las separaciones de 8 px (7 px entre arriba y la línea de tiempo), sin línea. El hover es el velo
+ *  de MaKo (`--velo-hover`): un blanco translúcido no se ve sobre el fondo claro. */
+const DIVISOR_VERTICAL = "w-2 shrink-0 bg-transparent after:w-2 hover:bg-(--velo-hover)";
 const DIVISOR_HORIZONTAL =
-	"data-[panel-group-direction=vertical]:h-[7px] data-[panel-group-direction=vertical]:after:h-[7px] hover:bg-white/5";
+	"data-[panel-group-direction=vertical]:h-[7px] data-[panel-group-direction=vertical]:after:h-[7px] hover:bg-(--velo-hover)";
 
 function EditorLayout() {
 	usePasteMedia();
