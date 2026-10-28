@@ -729,7 +729,7 @@ const detalleEv = detalleEvolution;
  *     (lib/doer-equipo.ts), NUNCA como turno de MaKo: un «sí» del dueño a una pregunta del equipo no es una confirmación;
  *   · null: quien llama ya lo guarda (lib/avisos.ts, con sus partes).
  */
-export type MemoriaDelEnvio = 'mako' | 'equipo' | null;
+export type MemoriaDelEnvio = 'mako' | 'equipo' | { de: 'equipo'; ticket: number } | null;
 
 /** Manda un texto al grupo de MaKo del workspace (para el ruteo de avisos). */
 export async function enviarAlGrupoMaKo(ws: number, texto: string, memoria: MemoriaDelEnvio): Promise<EnvioGrupo> {
@@ -753,19 +753,22 @@ export async function enviarAlGrupoMaKo(ws: number, texto: string, memoria: Memo
     const { guardarTurno } = await import('./mako-doer-conv');
     await guardarTurno(ws, jid, 'assistant', texto, id || undefined)
       .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude guardarlo en la conversación: ${e instanceof Error ? e.message : String(e)}`));
-  } else if (memoria === 'equipo') {
-    await anotarLoDelEquipo(ws, texto, id)
+  } else if (memoria === 'equipo' || (memoria && typeof memoria === 'object')) {
+    await anotarLoDelEquipo(ws, texto, id, typeof memoria === 'object' ? memoria.ticket : undefined)
       .catch((e) => console.error(`[mako-grupo] ws${ws}: salió y no pude anotarlo como del equipo: ${e instanceof Error ? e.message : String(e)}`));
   }
   return { ok: true, id };
 }
 
-/** Lo que el equipo escribió en el grupo del negocio, a su anillo (lib/doer-equipo.ts). */
-async function anotarLoDelEquipo(ws: number, texto: string, id: string): Promise<void> {
+/**
+ * Lo que el equipo escribió en el grupo del negocio, a su anillo (lib/doer-equipo.ts). La llaman `enviarAlGrupoMaKo` y el doer
+ * con el ECO de un mensaje firmado por el equipo (lo que escribe desde el panel o el teléfono, que no pasa por acá).
+ */
+export async function anotarLoDelEquipo(ws: number, texto: string, id: string, ticket?: number): Promise<void> {
   const { CLAVE_EQUIPO_EN_EL_GRUPO, conElNuevo } = await import('./doer-equipo');
   await runWithWorkspace(ws, async () => {
     const antes = await getSetting(CLAVE_EQUIPO_EN_EL_GRUPO);
-    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conElNuevo(antes, { at: new Date().toISOString(), texto, ...(id ? { id } : {}) })));
+    await setSetting(CLAVE_EQUIPO_EN_EL_GRUPO, JSON.stringify(conElNuevo(antes, { at: new Date().toISOString(), texto, ...(id ? { id } : {}), ...(ticket ? { ticket } : {}) })));
   });
 }
 

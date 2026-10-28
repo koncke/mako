@@ -365,7 +365,8 @@ export async function sumarAlPedidoDelNegocio(ws: number, id: number, texto: str
   const { data: tk } = await db.from(T).select('id, estado').eq('id', id).eq('workspace_id', ws).maybeSingle();
   if (!tk || CERRADOS.includes(tk.estado as EstadoTicket)) return false;
   await anotar(id, 'cliente', 'comentario', `Por el grupo de WhatsApp: ${t}`);
-  await db.from(T).update({ updated_at: new Date().toISOString() }).eq('id', id);
+  // Si el equipo le había preguntado, la respuesta lo devuelve a la bandeja (como `comentarComoCliente`).
+  await db.from(T).update({ estado: tk.estado === 'esperando_cliente' ? 'esperando_decision' : tk.estado, updated_at: new Date().toISOString() }).eq('id', id);
   return true;
 }
 

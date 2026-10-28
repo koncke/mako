@@ -11686,3 +11686,28 @@ a qué referirlo; su pedido ya estaba EN CURSO y MaKo habría abierto un duplica
 - `conTicketsDeMaKo` no compara un [[no-existe]] con los títulos abiertos si el modelo no marca [[ya-pedido]]: el duplicado
   sigue posible si el modelo no lo reconoce.
 - F2e (quién escribe en la memoria y el texto citado) y F2f (MaKo no sabe el estado de sus propias claves).
+
+## La respuesta al EQUIPO no es para MaKo (28/10/2026, claude4, Leila, ws11)
+
+**El síntoma:** el equipo le preguntó a Leila en su grupo, firmado, cuántas quincenas eran y en qué moneda. Leila contestó
+«Nadia es su proporcional en mxn son 6 meses de 12000 y luego a 10000», y MaKo le puso 👍 y le contestó una cuenta («eso suma
+72,000 MXN… dime y lo hacemos juntos»). Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa».
+
+**La causa:** el equipo escribe por la línea de MaKo (el panel, el teléfono): su mensaje vuelve como ECO y el doer lo
+descartaba sin anotarlo. Nada distinguía una respuesta al equipo de un mensaje para MaKo.
+
+**La regla (lib/doer-equipo.ts, `respuestaAlEquipo`; lib/mako-doer-in.ts, antes del 👍 y de la cola):**
+- el eco de un mensaje FIRMADO por el equipo entra a su anillo (también lo que no sale por `enviarAlGrupoMaKo`);
+- es respuesta al equipo si CITA un mensaje del equipo (uno del anillo, o uno firmado), o si es un texto que llega después de
+  una PREGUNTA del equipo, dentro de 6 h y antes de que MaKo vuelva a hablar. Nombrar a MaKo gana; un audio o un archivo sin
+  citar es para MaKo;
+- la respuesta al equipo no lleva 👍 (dice «MaKo lo tomó»), no entra a la cola, y queda para el equipo: en su ticket si el
+  mensaje del equipo lo tenía (la respuesta a un ticket, lib/tickets-cierre.ts; vuelve a la bandeja), y si no, un aviso al
+  grupo de SuperAdmin.
+- ⚠️ **La trampa: el aviso a SuperAdmin citaba la pregunta CON la firma.** Su eco en el grupo de Martín se anotaba como
+  mensaje del equipo, y una pregunta ahí callaba a Martín 6 horas en su propio grupo. La firma cuenta sólo AL PRINCIPIO
+  (`esFirmaDelEquipo`) y el aviso la saca de la cita (`sinFirmaDelEquipo`).
+
+**Sin hacer:** dentro de la ventana, TODO lo que la persona escriba sin nombrar a MaKo se toma por respuesta al equipo hasta que
+MaKo hable (si contesta en tres mensajes, bien; si después le pide algo a MaKo sin nombrarla, no le contesta). Un audio sin
+citar que le contesta al equipo va a MaKo.

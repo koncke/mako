@@ -13,6 +13,7 @@
 // =============================================================================
 
 import { cuando } from './doer-hilo';
+import { esFirmaDelEquipo } from './aviso-arreglo-reglas';
 
 /** El anillo del negocio (app_settings del ws): los últimos `TOPE_GUARDADOS` mensajes del equipo en su grupo. */
 export const CLAVE_EQUIPO_EN_EL_GRUPO = 'mako.equipo.grupo';
@@ -21,7 +22,8 @@ export const DIAS_DEL_EQUIPO = 7;
 export const MAX_EN_EL_BLOQUE = 6;
 export const LARGO_DEL_EQUIPO = 300;
 
-export type DelEquipo = { at: string; texto: string; id?: string };
+/** `ticket`: el ticket al que pertenece (la respuesta del equipo a un ticket, lib/tickets-cierre.ts). */
+export type DelEquipo = { at: string; texto: string; id?: string; ticket?: number };
 
 function leer(guardado: string | null | undefined): DelEquipo[] {
   try {
@@ -32,8 +34,14 @@ function leer(guardado: string | null | undefined): DelEquipo[] {
 
 /** El anillo con el nuevo al final, sin pasar del tope (lo más viejo se va). */
 export function conElNuevo(guardado: string | null | undefined, nuevo: DelEquipo): DelEquipo[] {
-  return [...leer(guardado), { ...nuevo, texto: nuevo.texto.slice(0, 1000) }].slice(-TOPE_GUARDADOS);
+  const antes = leer(guardado);
+  // El mismo mensaje entra dos veces: al mandarlo (`enviarAlGrupoMaKo` con 'equipo') y por su eco. Se queda el primero.
+  if (nuevo.id && antes.some((d) => d.id === nuevo.id)) return antes;
+  return [...antes, { ...nuevo, texto: nuevo.texto.slice(0, 1000) }].slice(-TOPE_GUARDADOS);
 }
+
+/** Lo del equipo, para quien lo necesita entero (la respuesta al equipo). */
+export const delEquipo = (guardado: string | null | undefined): DelEquipo[] => leer(guardado);
 
 const enUnaLinea = (s: string, max: number): string => {
   const t = s.replace(/\s+/g, ' ').trim();
@@ -49,4 +57,59 @@ export function bloqueDelEquipo(guardado: string | null | undefined, ahora: Date
     `LO QUE EL EQUIPO DE MaKo ESCRIBIÓ EN ESTE GRUPO (últimos ${DIAS_DEL_EQUIPO} días; lo escribió el equipo que desarrolla MaKo, no tú). Si la persona contesta a esto, el contexto está acá: no lo contradigas.`,
     ...vivos.map((d) => `- ${cuando(d.at, ahora, tz)} — «${enUnaLinea(d.texto, LARGO_DEL_EQUIPO)}»`),
   ].join('\n');
+}
+
+// ── LA RESPUESTA AL EQUIPO NO ES PARA MaKo (28/10/2026, Leila, ws11) ───────────────────────────────────────────────────────
+// El equipo le preguntó en el grupo cuántas quincenas eran y en qué moneda; Leila contestó «Nadia es su proporcional en mxn son
+// 6 meses de 12000 y luego a 10000», y MaKo le puso 👍 y le contestó una cuenta («eso suma 72,000 MXN… dime y lo hacemos
+// juntos»). Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa».
+// Es respuesta al equipo si CITA un mensaje del equipo (con su firma, o uno del anillo), o si es un texto que llega después de
+// una PREGUNTA del equipo, dentro de `VENTANA_RESPUESTA_AL_EQUIPO_MS` y antes de que MaKo vuelva a hablar. Nombrar a MaKo gana:
+// «mako, ¿y los leads?» es para MaKo aunque el equipo haya preguntado algo.
+
+export const VENTANA_RESPUESTA_AL_EQUIPO_MS = 6 * 60 * 60 * 1000;
+
+export type EntradaAlEquipo = {
+  /** El mensaje citado (responder a): su id y su texto, si los trae. */
+  citado: { id: string | null; texto: string | null } | null;
+  /** El anillo del equipo de este negocio. */
+  anillo: readonly DelEquipo[];
+  /** Cuándo habló MaKo por última vez en este grupo (`ultimaDeMaKo`), o null. */
+  ultimaDeMaKo: string | null;
+  ahora: Date;
+  nombraAMaKo: boolean;
+  /** Sólo un texto cuenta por la ventana: un audio o un adjunto sin citar es deliberado, para MaKo. */
+  esTexto: boolean;
+};
+
+/** El mensaje del equipo al que contesta, o null si es para MaKo (o no se sabe). */
+export function respuestaAlEquipo(e: EntradaAlEquipo): DelEquipo | null {
+  if (e.nombraAMaKo) return null;
+  if (e.citado && (e.citado.id || e.citado.texto)) {
+    const delAnillo = e.citado.id ? e.anillo.find((d) => d.id === e.citado!.id) : undefined;
+    if (delAnillo) return delAnillo;
+    if (esFirmaDelEquipo(e.citado.texto)) return { at: e.ahora.toISOString(), texto: e.citado.texto ?? '', ...(e.citado.id ? { id: e.citado.id } : {}) };
+    return null;
+  }
+  if (!e.esTexto) return null;
+  const pregunta = [...e.anillo].reverse().find((d) => d.texto.includes('?'));
+  if (!pregunta) return null;
+  const at = Date.parse(pregunta.at);
+  if (!Number.isFinite(at) || e.ahora.getTime() - at > VENTANA_RESPUESTA_AL_EQUIPO_MS) return null;
+  // MaKo no tiene que haber hablado después de la pregunta: si habló, lo que sigue puede ser para ella.
+  if (e.ultimaDeMaKo && Date.parse(e.ultimaDeMaKo) > at) return null;
+  return pregunta;
+}
+
+/** El texto citado de un mensaje de WhatsApp (responder a), si lo trae. */
+export function textoCitado(message: Record<string, unknown> | undefined): string | null {
+  const ctx = (message?.extendedTextMessage as { contextInfo?: { quotedMessage?: Record<string, unknown> } } | undefined)?.contextInfo
+    ?? (message?.contextInfo as { quotedMessage?: Record<string, unknown> } | undefined);
+  const q = ctx?.quotedMessage;
+  if (!q) return null;
+  const t = (q.conversation as string | undefined)
+    ?? (q.extendedTextMessage as { text?: string } | undefined)?.text
+    ?? (q.imageMessage as { caption?: string } | undefined)?.caption
+    ?? (q.videoMessage as { caption?: string } | undefined)?.caption;
+  return typeof t === 'string' && t.trim() ? t : null;
 }

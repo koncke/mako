@@ -52,7 +52,7 @@ test('1. F2a: lo que se manda al grupo queda donde corresponde; lo del equipo NU
   const grupo = sinComentarios(leer('lib/mako-grupo.ts'));
   assert.match(grupo, /export async function enviarAlGrupoMaKo\(ws: number, texto: string, memoria: MemoriaDelEnvio\): Promise<EnvioGrupo> \{/, 'la memoria volvió a ser opcional');
   assert.match(leer('lib/aviso-arreglo.ts'), /enviarAlGrupoMaKo\(p\.ws, t\.texto, 'equipo'\)/);
-  assert.match(leer('lib/tickets-cierre.ts'), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, 'equipo'\)/, 'la respuesta del equipo a un ticket quedó como turno de MaKo');
+  assert.match(leer('lib/tickets-cierre.ts'), /enviarAlGrupoMaKo\(ws, sanearSalida\(texto, \{ corrioHerramientas: true \}\)\.texto, \{ de: 'equipo', ticket: Number\(f\.id\) \}\)/, 'la respuesta del equipo a un ticket quedó como turno de MaKo');
   assert.match(leer('lib/insistencias.ts'), /enviarAlGrupoMaKo\(ws, row\.texto, 'mako'\)/);
   assert.equal((leer('lib/flujos.ts').match(/enviarAlGrupoMaKo\([^\n]*, 'mako'\)/g) ?? []).length, 4, 'una salida de una automatización sin su memoria');
   assert.match(leer('lib/avisos.ts'), /enviarAlGrupoMaKo\(ws, texto, null\)/);

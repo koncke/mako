@@ -56,7 +56,9 @@ import { esPreguntaDeGastoMeta } from '@/lib/gasto-meta';
 import { estadoDeSusClaves } from '@/lib/su-clave';
 import { bloqueLoQueMostraste, bloqueYaSeHablo, CLAVE_REFS, conElHilo, consultaDelTurno, DIAS_DE_HECHOS, enElGrupoSinSenal, pedidoDelHilo, referenciasDeLaSalida, textoDelAdjunto, unirRefs, type RefDelTurno } from '@/lib/doer-hilo';
 import { conElNegocio } from '@/lib/nucleo-grupo';
-import { bloqueDelEquipo, CLAVE_EQUIPO_EN_EL_GRUPO } from '@/lib/doer-equipo';
+import { bloqueDelEquipo, CLAVE_EQUIPO_EN_EL_GRUPO, delEquipo, respuestaAlEquipo, textoCitado, type DelEquipo } from '@/lib/doer-equipo';
+import { esFirmaDelEquipo, sinFirmaDelEquipo } from '@/lib/aviso-arreglo-reglas';
+import { ultimaDeMaKo } from '@/lib/mako-doer-conv';
 import { bloqueDePedidos, sacarYaPedido, type PedidoDelNegocio } from '@/lib/pedidos-del-negocio';
 import { sumarAlPedidoDelNegocio, ticketsDelNegocio } from '@/lib/tickets-db';
 import { linksConWs } from '@/lib/links-con-ws';
@@ -67,7 +69,7 @@ import { buildSystemPrompt } from '@/lib/mako-context';
 import { reaccionarMensaje, enviarAGrupoJid, KEY_GRUPO_JID, KEY_GRUPO_SUPERADMIN, idsEnviadosAlGrupo, anotarEnviadosConTope, instanciaVoz } from '@/lib/mako-grupo';
 import { enviarPresencia, fetchMediaBase64EnInstancia, numeroDeInstancia } from '@/lib/evolution';
 import { getSetting, setSetting } from '@/lib/settings';
-import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno } from '@/lib/workspace';
+import { wsSuperAdmin, runWithWorkspace, OWNER_WS, esWorkspaceDueno, getWorkspace } from '@/lib/workspace';
 import { informeParaRango } from '@/lib/informe-congelado';
 import { getSupabaseServer } from '@/lib/supabase';
 import { APP_BASE_URL as APP_URL, linkApp } from '@/lib/app-url';
@@ -792,6 +794,36 @@ async function enganchaElTexto(wsData: number, jid: string, texto: string, quien
   return engancha && !(await noEsParaMaKoAhora(wsData, jid, texto, quien, pendientes));
 }
 
+/**
+ * ¿El mensaje le contesta al EQUIPO? (lib/doer-equipo.ts, `respuestaAlEquipo`). Lo barato primero: nombrar a MaKo gana; sin
+ * cita y sin una pregunta del equipo en el anillo no se lee nada más. Sin poder leer cuándo habló MaKo, es para MaKo (como hoy).
+ */
+async function contestaAlEquipo(wsData: number, instance: string, jid: string, data: MsgIn, texto: string, esTexto: boolean): Promise<DelEquipo | null> {
+  if (nombraAMaKo(texto) || (await mencionadosEn(instance, data)).aMaKo) return null;
+  const message = data.message as Record<string, unknown> | undefined;
+  const cita = citaDe(message);
+  const citadoTexto = textoCitado(message);
+  const citado = cita.id || citadoTexto ? { id: cita.id, texto: citadoTexto } : null;
+  if (!citado && !esTexto) return null;
+  const anillo = delEquipo(await runWithWorkspace(wsData, () => getSetting(CLAVE_EQUIPO_EN_EL_GRUPO)).catch(() => null));
+  if (!citado && !anillo.some((d) => d.texto.includes('?'))) return null;
+  let ultima: string | null = null;
+  if (!citado) {
+    try { ultima = await ultimaDeMaKo(wsData, jid); } catch { return null; }
+  }
+  return respuestaAlEquipo({ citado, anillo, ultimaDeMaKo: ultima, ahora: new Date(), nombraAMaKo: false, esTexto });
+}
+
+/** Que la respuesta al equipo no se pierda: a su ticket si el mensaje del equipo lo tenía; si no, al grupo de SuperAdmin. */
+async function registrarRespuestaAlEquipo(wsData: number, data: MsgIn, texto: string, a: DelEquipo): Promise<void> {
+  const quien = data.pushName?.trim() || 'Alguien del negocio';
+  if (a.ticket && (await sumarAlPedidoDelNegocio(wsData, a.ticket, `${quien}: ${texto}`).catch(() => false))) return;
+  const negocio = (await getWorkspace(wsData).catch(() => null))?.nombre ?? `ws${wsData}`;
+  const { enviarAlGrupoSuperAdmin } = await import('@/lib/mako-grupo');
+  const r = await enviarAlGrupoSuperAdmin(`👨‍💻 Respuesta al equipo — ${negocio} (ws${wsData}), ${quien}:\n«${texto.slice(0, 600)}»\n\nContesta a: «${sinFirmaDelEquipo(a.texto).replace(/\s+/g, ' ').slice(0, 200)}»`);
+  if (!r.ok) throw new Error(r.error ?? 'no salió');
+}
+
 /** Lo que dejó el acuse del que ganó el candado: si ya dijo la frase de espera (el 👍 falló y el pedido se sabía largo). */
 type Acuse = Promise<{ dijoEspera: boolean }>;
 
@@ -862,7 +894,24 @@ async function bufferearYResponder(wsData: number, instance: string, data: MsgIn
   // El eco de nuestra propia respuesta no entra a la cola (si no, MaKo se contesta sola). Va ANTES del 👍: MaKo no se
   // reacciona a sí misma (medido el 24/10/2026 en el store de Evolution: 1 de 120 reacciones fue a un mensaje suyo).
   if (await esEcoDeMaKoAhora(instance, jid, data.key)) {
+    // Lo que el EQUIPO escribió por la línea de MaKo (el panel, el teléfono): a su anillo, aunque no haya salido por
+    // `enviarAlGrupoMaKo`. Sin esto, la respuesta al equipo (abajo) no sabe que el equipo preguntó.
+    if (esFirmaDelEquipo(texto)) {
+      const { anotarLoDelEquipo } = await import('@/lib/mako-grupo');
+      await anotarLoDelEquipo(wsData, texto, msgId).catch((e) => console.error(`[mako-doer-in] ws=${wsData} no pude anotar lo del equipo: ${e instanceof Error ? e.message : String(e)}`));
+    }
     return { engaged: false, skip: 'eco de mi propia respuesta' };
+  }
+
+  // ── LA RESPUESTA AL EQUIPO NO ES PARA MaKo (28/10/2026, Leila, ws11; lib/doer-equipo.ts) ────────────────────────────
+  // Martín: «Leila respondió al desarrollador y MaKo saltó a decirle cualquier cosa». Sin 👍 (dice «MaKo lo tomó»), sin turno,
+  // y queda para el equipo: en su ticket si lo tenía, o un aviso al grupo de SuperAdmin. Va antes de la cola: no entra a ningún
+  // lote ni al cron.
+  const alEquipo = await contestaAlEquipo(wsData, instance, jid, data, texto, !audio && !adjunto);
+  if (alEquipo) {
+    await registrarRespuestaAlEquipo(wsData, data, texto || '(una nota de voz o un archivo)', alEquipo)
+      .catch((e) => console.error(`[mako-doer-in] ws=${wsData} la respuesta al equipo no quedó registrada: ${e instanceof Error ? e.message : String(e)}`));
+    return { engaged: false, skip: 'respuesta al equipo' };
   }
 
   // Si el mensaje era SÓLO la clave, no queda nada que contestar: no se encola. Y el aviso, sólo si la clave estaba en lo
