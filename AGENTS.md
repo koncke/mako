@@ -6801,6 +6801,34 @@ escrita (cliente roto > plata > traba a Martín > features).
 - **Y cuando una pregunta sí corresponde, es UNA**, con opciones concretas y excluyentes, nunca una lista en
   prosa ni varias preguntas juntas.
 
+# Todo «no pude» de MaKo abre un ticket SOLO (Martín, 27/10/2026)
+
+Martín: «Siempre que MaKo responda algo como "No lo pude hacer" debe levantar automáticamente un ticket». Lo que gobierna
+código nuevo (el porqué y lo medido: docs/hallazgos-ticketera.md y docs/hallazgos-ia.md, 27/10):
+
+- **Una superficie de MaKo que pueda contestar un fracaso engancha el ticket automático con su `causa`.** Vale para un
+  chat, un editor, WhatsApp o una acción confirmada que falla. Ofrecer la tarjeta no alcanza. Las negativas legítimas
+  (cobros, borrados, permisos o rol) no abren ticket.
+- **Un chat con catálogo de operaciones nombra en su «no se puede» lo que sólo existe como BOTÓN, y dónde está.** «No
+  puedo» con el botón ahí al lado fue el caso de Leila con «Borrar silencios».
+- **Antes de que un «no existe» se tickee, la causa se busca en el clasificador y en el catálogo de esa superficie.** Ni
+  uno de los 10 «no puedo» de Leila era algo que no existía.
+
+# En todo chat de MaKo, lo que la persona manda se ve EN EL ACTO; lo que tarda corre por detrás (Martín, 27/10/2026)
+
+Martín, desde el Ops Center: «Apenas envío el audio, en todos los chats de todo MaKo, se debe enviar automáticamente; yo
+puedo reproducirlo. Si tarda unos segundos después en leerlo, eso es un proceso interno». Y también: «Los procesos siempre
+se tienen que ejecutar en segundo plano: el usuario debe poder navegar por el resto de la aplicación mientras hay procesos
+ejecutándose, como la transcripción».
+
+- **Un audio, una foto o un mensaje aparecen en el chat al soltarlos, con su tilde.** Transcribir, subir, firmar o leer
+  van DESPUÉS y no frenan el envío.
+- **Un proceso no depende de que la pantalla siga abierta.** Si la persona cambia de chat o de tab, el audio igual llega.
+  Una transcripción atada al componente montado se pierde al volver atrás: le pasó a Martín el 27/10 con el Cerebro.
+- **Mientras el chat trabaja, MaKo «escribe»** (los 3 puntos).
+- **Un error dice qué falló.** «Unexpected error» de un `.json()` sobre una respuesta que no es JSON no le dice nada a
+  nadie.
+
 # A la Ticketera va lo que DECIDE Martín, no lo que a vos te falta decidir
 
 ⚠️ **Desde el 17/10/2026 esto vale para el mazo de las PREGUNTAS DE LOS CHATS** (`?ticketera=tarjetas`), que deja la

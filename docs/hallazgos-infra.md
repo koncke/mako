@@ -8889,3 +8889,22 @@ tabnews.com.br (el dato de 80 MB por instancia).
 `src/api/integrations/channel/whatsapp/whatsapp.baileys.service.ts` (`shouldIgnoreJid`, `messaging-history.set`) y
 `src/api/integrations/chatbot/chatwoot/utils/chatwoot-import-helper.ts` (`repositoryMessagesCache`) · Baileys 7.0.0-rc.9
 `src/Utils/validate-connection.ts` · *27/10/2026, chat «Infra» (claude5)*
+
+## tren-o: nueve errores de tipos que ninguna punta veía sola, y un JSDoc que rompió un test (27/10/2026, Cerebro)
+
+**Vive en:** el hook de pre-push (`scripts/tipos-respaldo-push.mjs`) · `scripts/operaciones/cartero.mjs`
+
+- **El síntoma:** 14 puntas «VERDE sin tipos», cada una con sus tests en verde. Al juntarlas, el hook frenó el push con
+  9 errores en 6 archivos. Lo esperado: es justo lo que hace el hook del tren.
+- ⚠️ **La trampa de un `.mjs` (allowJs):** `function mensajeTicket(numero, repo, regla = null)` hace que TypeScript le
+  dé a `regla` el tipo `null` para quien la llama desde un `.ts`, y un test que le pasa `'Leila'` no compila. Se
+  arregla con JSDoc. Pero la primera JSDoc (`@param {number} numero`) rompió OTRO test, el que le pasa `'12'` a
+  propósito para ver que el cartero lo rechace: el parámetro que la función valida adentro es `unknown`.
+- **Los otros errores:**
+  - un campo que el código lee y el tipo del cuerpo no declaraba (`aceptaCobro` en `app/api/zernio`);
+  - `duenoDudoso?: true` en un tipo y `boolean` en el otro, siendo dos tipos que viajan juntos;
+  - `urlDeLaBase()`, que devuelve `string | undefined`, en dos scripts `.ts` (llevan `!`, como los demás).
+- ⚠️ **El push espera RAM, y otro proceso se la puede comer:** con el hook esperando 5,4 GB, corría un
+  `tipos-por-tandas` sobre `C:/dev/wt-crm-chats-2710`. El chat de CRM no lo había lanzado (lo dijo y no quedó rastro
+  de quién fue). Antes de culpar a un chat, mirá el padre del proceso (`Win32_Process.ParentProcessId`). El método es
+  «VERDE sin tipos»: los tipos los chequea el hook, una vez, para todos.
