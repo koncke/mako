@@ -90,7 +90,7 @@ export function tieneEditables(paginas: ReadonlyArray<{ doc?: { content?: JsonNo
  * Más `.gm-libre-seccion { display: contents }`: el header pegajoso tiene que tener a la PÁGINA como
  * contenedor (una caja por sección lo dejaría pegado sólo a su propio alto).
  */
-export const CSS_BASE_LIBRE = [
+const CSS_PREFLIGHT_LIBRE = [
   '@layer gm-libre-base {',
   '.gm-libre, .gm-libre *, .gm-libre ::after, .gm-libre ::before, .gm-libre ::backdrop { box-sizing: border-box; margin: 0; padding: 0; border: 0 solid; }',
   '.gm-libre { line-height: 1.5; -webkit-text-size-adjust: 100%; tab-size: 4; -webkit-tap-highlight-color: transparent; }',
@@ -115,10 +115,51 @@ export const CSS_BASE_LIBRE = [
   '.gm-libre :is(button, input:where([type="button"], [type="reset"], [type="submit"])) { appearance: button; }',
   '.gm-libre [hidden]:where(:not([hidden="until-found"])) { display: none !important; }',
   '}',
+];
+
+/** Lo que una página libre necesita SIEMPRE (también la copia de una página, que no lleva la base de Tailwind). */
+const CSS_ESTRUCTURA_LIBRE = [
   '.gm-libre-seccion { display: contents; }',
   // El ancla de una sección de diseño (render.ts): una caja de alto 0, con el mismo aire arriba que una de bloques.
   '.gm-libre-seccion > .gm-ancla-seccion { display: block; height: 0; scroll-margin-top: 5em; }',
-].join('\n');
+];
+
+export const CSS_BASE_LIBRE = [...CSS_PREFLIGHT_LIBRE, ...CSS_ESTRUCTURA_LIBRE].join('\n');
+
+/**
+ * La base de una página libre según su hoja: la COPIA de una página (`config.diseno.sinBase`, copia-identica.ts) va sin
+ * el preflight de Tailwind. La página original se apoyaba en los márgenes y tamaños del navegador donde su hoja no dice
+ * nada (un h1 con su tamaño, una lista con viñetas), y el preflight se los sacaba.
+ */
+export const baseLibre = (sinBase?: boolean): string => (sinBase ? CSS_ESTRUCTURA_LIBRE.join('\n') : CSS_BASE_LIBRE);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Los envoltorios de una copia
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cuántas etiquetas pueden envolver una sección, y lo que mide cada una (con su clase y su estilo en línea). */
+export const TOPES_ENVOLTORIOS = { cantidad: 14, caracteres: 6_000 } as const;
+/** Las etiquetas que pueden envolver: cajas, nada que cargue o haga algo. */
+const ENVOLTORIOS_PERMITIDOS = new Set(['div', 'section', 'main', 'article', 'header', 'footer', 'nav', 'aside', 'span', 'ul', 'ol', 'li', 'figure']);
+const RE_APERTURA = /^<([a-z][a-z0-9]*)(?:\s[^<>]*)?>$/i;
+
+/** Los envoltorios de una sección, con forma (`<tag …>`, sólo cajas, con sus topes). null si no hay o no sirven. */
+export function envoltoriosValidos(raw: unknown): string[] | null {
+  if (!Array.isArray(raw) || !raw.length || raw.length > TOPES_ENVOLTORIOS.cantidad) return null;
+  const out: string[] = [];
+  for (const e of raw) {
+    if (typeof e !== 'string' || e.length > TOPES_ENVOLTORIOS.caracteres) return null;
+    const m = RE_APERTURA.exec(e.trim());
+    if (!m || !ENVOLTORIOS_PERMITIDOS.has(m[1].toLowerCase())) return null;
+    out.push(e.trim());
+  }
+  return out;
+}
+
+/** La etiqueta que cierra un envoltorio (`<main class="x">` → `</main>`). */
+export const cierreDe = (apertura: string): string => `</${(RE_APERTURA.exec(apertura)?.[1] ?? 'div').toLowerCase()}>`;
+/** La marca de la caja que el editor edita (adentro de los envoltorios): lo de afuera no se guarda con la sección. */
+export const ATTR_RAIZ_EDITABLE = 'data-gm-raiz';
 
 /**
  * Los enlaces «a otra página» de un diseño (`href="pagina:<id>"`, el selector de destino) a la dirección de esa página, al
@@ -144,13 +185,25 @@ export function conEnlacesDePaginas(html: string, resolver?: (href: string) => s
 export function medioPermitido(raw: string): boolean {
   const v = raw.trim();
   if (/^data:image\/(png|jpe?g|gif|webp|avif);/i.test(v)) return true;
+  // Un SVG en base64 (el logo de una copia, copia-identica-server.ts): como imagen o fondo no corre nada ni carga nada.
+  if (/^data:image\/svg\+xml;base64,[A-Za-z0-9+/=]+$/i.test(v)) return true;
   if (!/^https:\/\//i.test(v)) return false;
   try {
-    const ruta = decodeURIComponent(new URL(v).pathname).replace(/\/+/g, '/').toLowerCase();
+    const u = new URL(v);
+    // La ruta /api/ sólo importa en NUESTROS dominios (la cookie de MaKo); la de otro sitio no lleva nada nuestro (28/10/2026:
+    // respond.io sirve sus imágenes desde assets1-proxy.respond.io/api/v1/image/…).
+    if (!esDominioPropio(u.hostname)) return true;
+    const ruta = decodeURIComponent(u.pathname).replace(/\/+/g, '/').toLowerCase();
     return !ruta.startsWith('/api/') && ruta !== '/api';
   } catch {
     return false;
   }
+}
+
+/** ¿Un host de MaKo (la app, las landings publicadas, sus despliegues)? Ahí una ruta /api/ va con la sesión. */
+export function esDominioPropio(host: string): boolean {
+  const h = host.toLowerCase().replace(/\.$/, '');
+  return /(^|\.)hola-mako\.(com|site)$/.test(h) || /(^|\.)makodigital\.app$/.test(h) || h.endsWith('.vercel.app') || h === 'localhost';
 }
 
 /** Lo único que puede importar la hoja del diseño: una fuente de Google Fonts. */
@@ -189,11 +242,11 @@ export function cssDisenoLimpio(raw: unknown): string {
  * después de cualquier regla no vale y el navegador lo ignora sin avisar (medido el 23/10/2026: con la base
  * primero, la Geist de la landing no cargaba en hola-mako.site y todos los textos salían más angostos).
  */
-export function hojaDeDiseno(css: string): string {
+export function hojaDeDiseno(css: string, op: { sinBase?: boolean } = {}): string {
   const limpia = cssDisenoLimpio(css);
   const imports: string[] = [];
   const resto = limpia.replace(RE_IMPORT, (todo: string) => { imports.push(todo.trim()); return ''; });
-  return [...imports, CSS_BASE_LIBRE, resto.trim()].filter(Boolean).join('\n');
+  return [...imports, baseLibre(op.sinBase), resto.trim()].filter(Boolean).join('\n');
 }
 
 /**
@@ -201,17 +254,37 @@ export function hojaDeDiseno(css: string): string {
  * Sin scripts: el iframe va con `sandbox` sin `allow-scripts`. La base y la hoja del diseño adelante,
  * el HTML de la sección adentro de `.gm-libre` (la misma raíz que en la página publicada).
  */
-export function documentoEditable(html: string, css: string): string {
+export function documentoEditable(html: string, css: string, op: { envoltorios?: readonly string[] | null; sinBase?: boolean } = {}): string {
+  // Los envoltorios de una copia alrededor de la sección; el de más adentro lleva la marca de la raíz que se edita.
+  const env = envoltoriosValidos(op.envoltorios) ?? [];
+  const abre = env.map((e, i) => (i === env.length - 1 ? e.replace(/\s*>$/, ' ' + ATTR_RAIZ_EDITABLE + '>') : e)).join('');
+  const cierra = [...env].reverse().map(cierreDe).join('');
+  // La copia de una página (`sinBase`): su `vh`, contra una ventana fija (ver `conVhFijo`).
+  const fijo = (t: string) => (op.sinBase ? conVhFijo(t) : t);
   return [
     '<!doctype html><html><head><meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     '<style>html,body{margin:0;padding:0;background:transparent}</style>',
-    '<style>' + CSS_BASE_LIBRE + '</style>',
-    css ? '<style>' + cssDisenoLimpio(css) + '</style>' : '',
+    '<style>' + baseLibre(op.sinBase) + '</style>',
+    css ? '<style>' + fijo(cssDisenoLimpio(css)) + '</style>' : '',
     '</head><body><div class="' + CLASE_LIBRE + '">',
-    html,
+    abre + (op.sinBase ? html.replace(/(\sstyle=")([^"]*)(")/gi, (_t, a: string, v: string, c: string) => a + conVhFijo(v) + c) : html) + cierra,
     '</div></body></html>',
   ].join('');
+}
+
+/** La ventana contra la que se mide un `vh` de una copia en el iframe del editor: 1vh = 9 px (una ventana de 900). */
+export const PX_POR_VH_EDITOR = 9;
+
+/**
+ * En el iframe del editor un `vh` es el alto del IFRAME, que el editor ajusta a su contenido: una sección de `110vh` lo
+ * agrandaba, el iframe crecía, el `vh` también, y así sin fin (closermood.com, 28/10/2026: 16.000 px). Ahí cada `vh`
+ * (y `svh`, `lvh`, `dvh`) de una declaración se mide contra una ventana fija. La página publicada usa el `vh` real.
+ * Sólo en VALORES: en un selector un `vh` va adentro de una clase escapada de Tailwind (`.h-\[100vh\]`,
+ * `.h-\[calc\(100vh-2rem\)\]`), con un corchete o una barra delante, y ése queda como está.
+ */
+export function conVhFijo(css: string): string {
+  return css.replace(/(?<![\w\\[.#-])(?<!\\.)(-?\d*\.?\d+)(?:s|l|d)?vh\b/g, (_t: string, n: string) => `calc(${n} * ${PX_POR_VH_EDITOR}px)`);
 }
 
 /** ¿El HTML lleva una agenda de Calendly del diseño (`data-calendly`)? La política de la página la deja cargar. */

@@ -54,7 +54,7 @@ import { EstilosG2, Flotante, Icono, SelectorDestino, VAR_COLOR, eliminarBloqueC
 import { SelectorIcono } from '../SelectorIcono';
 import { PanelInsertar } from './InsertadoVista';
 import { COLORES_TEMA, NODO, TOPES, esHex } from '@/lib/editor-landing/doc';
-import { CLASE_LIBRE, documentoEditable } from '@/lib/editor-landing/html-editable';
+import { ATTR_RAIZ_EDITABLE, CLASE_LIBRE, documentoEditable, envoltoriosValidos } from '@/lib/editor-landing/html-editable';
 import { srcVideo } from '@/lib/editor-landing/especificacion';
 import { svgIcono } from '@/lib/editor-landing/iconos';
 import { varsDeTema } from '@/lib/editor-landing/temas';
@@ -147,6 +147,10 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   const ctx = useEditorLanding();
   const html = typeof node.attrs.html === 'string' ? node.attrs.html : '';
   const css = ctx.config.diseno?.css ?? '';
+  // La copia de una página (copia-identica.ts): sin la base de Tailwind, y la sección adentro de sus envoltorios.
+  const sinBase = ctx.config.diseno?.sinBase === true;
+  const envoltorios = envoltoriosValidos(node.attrs.envoltorios);
+  const claveEnv = envoltorios ? envoltorios.join('') : '';
   const marco = useRef<HTMLIFrameElement | null>(null);
   const emitido = useRef<string>(html);
   const [fuente, setFuente] = useState(html);
@@ -194,10 +198,13 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   useEffect(() => {
     if (html !== emitido.current) { emitido.current = html; setFuente(html); }
   }, [html]);
-  const doc = useMemo(() => documentoEditable(fuente, css), [fuente, css]);
+  const doc = useMemo(() => documentoEditable(fuente, css, { envoltorios, sinBase }), [fuente, css, claveEnv, sinBase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const documento = () => marco.current?.contentDocument ?? null;
-  const raiz = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
+  // Lo que se edita y se guarda: adentro de los envoltorios de una copia (los de afuera no son de la sección).
+  const raiz = () => documento()?.querySelector('[' + ATTR_RAIZ_EDITABLE + ']') ?? documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
+  /** La caja entera que se ve (con los envoltorios): su alto es el del iframe. */
+  const cajaLibre = () => documento()?.querySelector('.' + CLASE_LIBRE) ?? null;
 
   // Las capas vivas, con su lugar de ahora (se mueven si el diseño cambia de alto o de ancho).
   const medirVivos = useCallback(() => {
@@ -213,7 +220,7 @@ export function HtmlEditableVista(props: ReactNodeViewProps) {
   // landings de MaKo), y una que se achicaba al cargar sus fuentes dejaba la diferencia. La raíz (`flow-root`) mide lo que
   // ocupa; su `scrollHeight` suma lo que se sale de ella.
   const medir = useCallback(() => {
-    const r = raiz() as HTMLElement | null;
+    const r = cajaLibre() as HTMLElement | null;
     if (!r) return;
     const caja = r.getBoundingClientRect();
     const h = Math.max(40, Math.ceil(Math.max(caja.bottom, caja.top + r.scrollHeight)));

@@ -43,6 +43,8 @@
 import { CAMINOS_LECTURA, idLecturaValido, type CaminoLectura } from './lector';
 // Las animaciones (tanda 8): las listas que el lector comparte con el server (puro, sin DOM).
 import { NOMBRES_ANIMATE, RE_CODIGO_SCROLL, RE_SCRIPT_SCROLL, SEL_SCROLL } from './replicar-animaciones';
+// La foto de la copia idéntica (28/10/2026): la misma función que corre el arnés de medición.
+import { JS_ANTES_DE_BAJAR, JS_INSTANTANEA, JS_MIRAR_VISIBLES } from './copia-identica-script';
 
 /** El parámetro de `/m.js` que pide el lector en vez del Pixel (lo arma el Pixel, lib/landing-token.ts). */
 export const PARAM_LECTOR_CARGADOR = 'leer';
@@ -337,6 +339,7 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   var TOPE = 17000, QUIETO = 800, TOPE_QUIETO = 10000, TOPE_TOQUES = 7000;
   var MAX_DESP = 40, MAX_CLICS = 25, MAX_PIEZAS = 480, MAX_CHARS = 58000, MAX_NODOS = 25000;
   var dale = false, enviado = false, tocando = false, quietoOk = false, empezado = false, navego = false;
+  var conFoto = false, foto = null;
   var inicioToques = 0, pendiente = null, botonActual = null;
   var anotado = new Map(), despues = new Map(), hechos = new WeakSet(), cargados = new WeakSet();
   var consumidos = new WeakSet(), consumidosIds = {}, agendaVista = {}, pestanasOriginales = new Map();
@@ -362,7 +365,8 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   window.addEventListener('message', function (ev) {
     var d = ev.data;
     if (d && d.tipo === 'mako-lectura' && d.id === id && d.fase === 'dale') {
-      if (ev.source === abre && ev.origin === origenMako && !dale) { dale = true; listo(arrancar); }
+      // foto (28/10/2026, la copia idéntica): MaKo pide además la FOTO de la página ya armada (copia-identica-script.ts).
+      if (ev.source === abre && ev.origin === origenMako && !dale) { dale = true; conFoto = d.foto === true; if (conFoto) TOPE = 40000; listo(arrancar); }
       return;
     }
     try { if (ev.origin && RE_AGENDA.test(ev.origin)) agendaVista[proveedor(ev.origin)] = 1; } catch (e) {}
@@ -502,15 +506,21 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
   }
   // alPaso (tanda 8): lo que se mira en cada paso, con la página quieta en esa altura (las animaciones de entrada).
   async function bajarYSubir(alPaso) {
-    var paso = Math.max(300, Math.floor(window.innerHeight * 0.85)), y = 0;
-    for (var n = 0; n < 40 && !tarde(); n++) {
+    // Con la foto, más despacio: lo que se arma al verse (una isla de Astro, un bloque de Builder.io) mete SU hoja recién
+    // ahí. Medido el 28/10/2026 en respond.io: a 60 ms por paso la foto traía 120 de sus 208 hojas.
+    var paso = Math.max(300, Math.floor(window.innerHeight * (conFoto ? 0.7 : 0.85))), y = 0;
+    // La foto: la cara visible de lo que está en pantalla, en cada paso (JS_MIRAR_VISIBLES).
+    if (conFoto) mirarVisibles();
+    for (var n = 0; n < (conFoto ? 90 : 40) && !tarde(); n++) {
       y += paso;
       var h = Math.max(document.documentElement.scrollHeight, document.body ? document.body.scrollHeight : 0);
       if (y >= h) break;
       irA(y);
-      await esperar(60);
+      await esperar(conFoto ? 250 : 60);
+      if (conFoto) mirarVisibles();
       if (alPaso) alPaso();
     }
+    if (conFoto) await esperar(1000);
     irA(0);
   }
   async function scrollQuieto() {
@@ -520,6 +530,8 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
 
   // ── Apagar los rastreadores antes de tocar nada (JS_APAGAR_RASTREADORES, arriba) ──
   var apagarRastreadores = ` + JS_APAGAR_RASTREADORES + String.raw`;
+  // La copia idéntica: lo que se ve en cada paso de la bajada (copia-identica-script.ts).
+  var mirarVisibles = ` + JS_MIRAR_VISIBLES + String.raw`;
 
   // ── Tocar y mirar ──
   function visible(el) {
@@ -956,7 +968,9 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
     try { piezas = construir(); } catch (e) {}
     var estilo = estiloLeido;
     if (!estilo) { try { estilo = leerEstilo(); } catch (e) { estilo = null; } }
-    mandar({ fase: 'fin', camino: camino, titulo: String(document.title || '').slice(0, 200), piezas: piezas, ms: ahora(), quieto: quietoOk, parcial: !!parcial || tarde(), estilo: estilo });
+    var final = { fase: 'fin', camino: camino, titulo: String(document.title || '').slice(0, 200), piezas: piezas, ms: ahora(), quieto: quietoOk, parcial: !!parcial || tarde(), estilo: estilo };
+    if (foto) final.foto = foto;
+    mandar(final);
     setTimeout(function () { try { window.close(); } catch (e) {} }, 300);
   }
 
@@ -972,6 +986,8 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       // los cambios de style mientras se baja y en el rato quieto de después. Sin esperas nuevas: sólo la prueba
       // del scroll (120 ms), y sólo si algo cambió bajando.
       conAnim(function (x) { x.delDom(); x.mirar(); x.vigilar('scroll'); });
+      // La copia idéntica: la cara de cada elemento ANTES de bajar (lo fijo o pegajoso cambia al bajar).
+      if (conFoto) { try { (` + JS_ANTES_DE_BAJAR + String.raw`)(); } catch (e) {} }
       await bajarYSubir(anim ? function () { conAnim(function (x) { x.mirar(); }); } : null);
       conAnim(function (x) { x.vigilar('quieto'); });
       await esperarQuieto(300, 1500);
@@ -979,6 +995,13 @@ export const JS_LECTOR = String.raw`function (id, camino, origenMako) {
       conAnim(function (x) { x.vigilar('fin'); });
       try { estiloLeido = leerEstilo(); } catch (e) {}
       mirarAgendas(null, null);
+      // La copia idéntica: la foto ANTES de tocar nada (abrir un desplegable o apretar un botón cambia lo que se ve), y sin
+      // los toques, que la copia no usa.
+      if (conFoto) {
+        try { foto = (` + JS_INSTANTANEA + String.raw`)(); } catch (e) { foto = null; }
+        terminar(false);
+        return;
+      }
       tocando = true;
       inicioToques = ahora();
       await leerDesplegables();

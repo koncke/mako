@@ -486,7 +486,7 @@ const textoVisible = (html: string): string =>
   decodificar(html.replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1\s*>/gi, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 const RE_MEDIO = /<(img|picture|video|iframe|svg|canvas|form|input|button|select|textarea)\b/i;
 /** Una parte que sola no se ve (un espaciador, un ancla vacía): viaja pegada a la que sigue. */
-const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
+export const esChica = (html: string): boolean => textoVisible(html).length < 15 && !RE_MEDIO.test(html);
 
 /**
  * Baja por los envoltorios de UN solo hijo (`body > div#app > main`) hasta el primer nivel con varias

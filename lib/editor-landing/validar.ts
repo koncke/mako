@@ -758,7 +758,8 @@ export function sanearConfig(raw: unknown): { config: ConfigLanding; descartes: 
   const dis = obj(r.diseno);
   if (typeof dis.css === 'string' && dis.css.trim()) {
     const css = cssDisenoLimpio(dis.css);
-    if (css) config.diseno = { css };
+    // `sinBase`: la copia de una página va sin la base de Tailwind (html-editable.ts, `baseLibre`).
+    if (css) config.diseno = { css, ...(dis.sinBase === true ? { sinBase: true } : {}) };
     else d.push(`la hoja del diseño pasa el tope de ${TOPES.cssDiseno} caracteres: se quita`);
   }
 

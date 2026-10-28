@@ -21,13 +21,13 @@ import 'server-only';
 import sanitizeHtml from 'sanitize-html';
 import { embedDe } from '../embeds';
 import { NODO, TOPES, type JsonNodo, type LandingContenido } from './doc';
-import { medioPermitido } from './html-editable';
+import { envoltoriosValidos, medioPermitido } from './html-editable';
 
 const ETIQUETAS = [
   // cajas y texto
   'div', 'section', 'header', 'footer', 'nav', 'main', 'article', 'aside', 'figure', 'figcaption', 'span', 'p', 'a',
   'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'strong', 'b', 'em', 'i', 'u', 's', 'small', 'mark', 'sub', 'sup', 'br', 'hr',
-  'blockquote', 'code', 'pre', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'details', 'summary', 'abbr', 'time', 'label',
+  'blockquote', 'code', 'pre', 'ul', 'ol', 'li', 'dl', 'dt', 'dd', 'details', 'summary', 'dialog', 'abbr', 'time', 'label',
   'table', 'thead', 'tbody', 'tfoot', 'tr', 'th', 'td', 'caption', 'colgroup', 'col',
   // medios
   'img', 'picture', 'source', 'video', 'canvas', 'iframe', 'button',
@@ -44,9 +44,10 @@ const SVG_ATTRS = [
   'preserveAspectRatio', 'mask', 'text-anchor', 'dominant-baseline', 'font-size', 'font-weight', 'font-family', 'letter-spacing',
 ];
 
-const COMUNES = ['class', 'id', 'style', 'title', 'role', 'hidden', 'tabindex', 'lang', 'dir', 'data-*', 'aria-*'];
+const COMUNES = ['class', 'id', 'style', 'title', 'role', 'hidden', 'popover', 'tabindex', 'lang', 'dir', 'data-*', 'aria-*'];
 
-const OPCIONES: sanitizeHtml.IOptions = {
+// `allowedEmptyAttributes` existe en sanitize-html 2.18 (lo usa: medido), pero sus tipos todavía no lo declaran.
+const OPCIONES: sanitizeHtml.IOptions & { allowedEmptyAttributes?: string[] } = {
   allowedTags: ETIQUETAS,
   allowedAttributes: {
     '*': COMUNES,
@@ -58,7 +59,7 @@ const OPCIONES: sanitizeHtml.IOptions = {
     iframe: ['src', 'allow', 'allowfullscreen', 'loading', 'referrerpolicy', 'frameborder', 'width', 'height', 'name'],
     button: ['type', 'disabled'],
     td: ['colspan', 'rowspan'], th: ['colspan', 'rowspan', 'scope'], col: ['span'], colgroup: ['span'],
-    time: ['datetime'], details: ['open'],
+    time: ['datetime'], details: ['open'], dialog: ['open'],
     svg: SVG_ATTRS, g: SVG_ATTRS, path: SVG_ATTRS, circle: SVG_ATTRS, ellipse: SVG_ATTRS, rect: SVG_ATTRS, line: SVG_ATTRS,
     polyline: SVG_ATTRS, polygon: SVG_ATTRS, defs: SVG_ATTRS, lineargradient: SVG_ATTRS, radialgradient: SVG_ATTRS,
     stop: SVG_ATTRS, clippath: SVG_ATTRS, mask: SVG_ATTRS, text: SVG_ATTRS, tspan: SVG_ATTRS,
@@ -69,6 +70,9 @@ const OPCIONES: sanitizeHtml.IOptions = {
   allowedSchemesByTag: { a: ['http', 'https', 'mailto', 'tel', 'pagina'], img: ['https', 'data'], source: ['https'], video: ['https'], iframe: ['https'] },
   allowedSchemesAppliedToAttributes: ['href', 'src', 'poster', 'srcset'],
   allowProtocolRelative: false,
+  // VACÍOS que valen (28/10/2026): sanitize-html borra por defecto un `hidden=""` o un `popover=""` (los tiene por no
+  // booleanos), y lo que la página escondía aparecía en la copia (el menú de idiomas de respond.io, abierto).
+  allowedEmptyAttributes: ['alt', 'hidden', 'popover', 'open'],
   // Comentarios y el texto de lo que no pasa (un <script>) se van; el de una etiqueta desconocida queda.
   disallowedTagsMode: 'discard',
   nonTextTags: ['script', 'style', 'textarea', 'option', 'noscript', 'template'],
@@ -131,10 +135,32 @@ export function sanearHtmlEditable(html: unknown): string {
   return endurecer(sanitizeHtml(html, OPCIONES)).trim();
 }
 
+/**
+ * Los envoltorios de una copia (copia-identica.ts), saneados con la MISMA lista que el HTML: cada etiqueta pasa por
+ * sanitize-html con su cierre y queda su apertura. Si una no pasa, ninguna (una pila a medias cambia la página). null si no hay.
+ */
+export function sanearEnvoltorios(raw: unknown): string[] | null {
+  const env = envoltoriosValidos(raw);
+  if (!env) return null;
+  const out: string[] = [];
+  for (const e of env) {
+    const tag = (/^<([a-z][a-z0-9]*)/i.exec(e)?.[1] ?? '').toLowerCase();
+    const limpio = endurecer(sanitizeHtml(`${e}</${tag}>`, OPCIONES)).trim();
+    const m = new RegExp(`^<${tag}\\b[^<>]*>`, 'i').exec(limpio);
+    if (!tag || !m) return null;
+    out.push(m[0]);
+  }
+  return out;
+}
+
 /** El contenido con cada «Diseño editable» saneado (no muta: devuelve otro). */
 export function sanearEditablesDe(c: LandingContenido): LandingContenido {
   const nodo = (n: JsonNodo): JsonNodo => {
-    if (n.type === NODO.htmlEditable) return { ...n, attrs: { ...(n.attrs ?? {}), html: sanearHtmlEditable(n.attrs?.html) } };
+    if (n.type === NODO.htmlEditable) {
+      const { envoltorios: _crudos, ...resto } = (n.attrs ?? {}) as Record<string, unknown>;
+      const envoltorios = sanearEnvoltorios(_crudos);
+      return { ...n, attrs: { ...resto, html: sanearHtmlEditable(n.attrs?.html), ...(envoltorios ? { envoltorios } : {}) } };
+    }
     return n.content ? { ...n, content: n.content.map(nodo) } : n;
   };
   return { ...c, paginas: c.paginas.map((p) => ({ ...p, doc: { ...p.doc, content: p.doc.content.map(nodo) } })) };

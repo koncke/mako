@@ -64,7 +64,7 @@ export type ConfigLanding = {
    * La usan las secciones `htmlEditable` del documento, en el editor y en la página publicada. Sin el campo
    * (todo lo de antes), no hay hoja: `sanearConfig` sólo lo escribe si trae algo.
    */
-  diseno?: { css: string };
+  diseno?: { css: string; sinBase?: boolean };
   /** Lo que MaKo usó para generarla (para «Ver instrucción de origen»). */
   origen?: { modo: 'cero' | 'ia' | 'plantilla' | 'importar' | 'generador'; pedido?: string; objetivo?: ObjetivoLanding; basadoEnUrl?: string | null; plantilla?: string };
 };

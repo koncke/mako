@@ -634,6 +634,42 @@ export function hostsDeIframes(): string[] {
   return out;
 }
 
+/** Los orígenes de donde un diseño carga sus imágenes, sus fuentes y sus videos (sólo https, con su tope). */
+export type OrigenesDeMedios = { imagenes: string[]; fuentes: string[]; videos: string[] };
+/** Cuántos orígenes por directiva: una copia real usa 2-6 (su CDN, el de imágenes, Google). */
+export const TOPE_ORIGENES_MEDIOS = 24;
+
+/**
+ * De dónde carga un diseño lo que muestra: las imágenes (src, srcset y poster del HTML, y los url() de la hoja y de los
+ * estilos en línea), las fuentes (los url() de un @font-face) y los videos (el src de un <video>). PURO. Sólo orígenes
+ * https (`https://host`): un data: ya está permitido, y lo que no es https no entra.
+ */
+export function origenesDeMedios(html: string, css: string): OrigenesDeMedios {
+  const imagenes = new Set<string>();
+  const fuentes = new Set<string>();
+  const videos = new Set<string>();
+  const origen = (u: string): string | null => {
+    try { const x = new URL(u.trim().replace(/&amp;/g, '&')); return x.protocol === 'https:' ? x.origin : null; } catch { return null; }
+  };
+  const sumar = (set: Set<string>, u: string) => { const o = origen(u); if (o && set.size < TOPE_ORIGENES_MEDIOS) set.add(o); };
+  const urlsDe = (t: string) => [...t.matchAll(/url\(\s*(["']?)(https:[^"')\s]+)\1\s*\)/gi)].map((m) => m[2]);
+  const RE_FUENTE = /@font-face\s*\{[^}]*\}/gi;
+  for (const m of css.matchAll(RE_FUENTE)) for (const u of urlsDe(m[0])) sumar(fuentes, u);
+  for (const u of urlsDe(css.replace(RE_FUENTE, ''))) sumar(imagenes, u);
+  for (const m of html.matchAll(/<(img|source|video)\b[^>]*>/gi)) {
+    const tag = m[1].toLowerCase();
+    for (const a of m[0].matchAll(/\s(src|poster|srcset)\s*=\s*"([^"]*)"/gi)) {
+      const nombre = a[1].toLowerCase();
+      const valores = nombre === 'srcset' ? a[2].split(/,\s+/).map((c) => c.trim().split(/\s+/)[0] ?? '') : [a[2]];
+      // El src de un <video> (o de su <source> con un archivo de video) es un video; un poster o un srcset, una imagen.
+      const esVideo = nombre === 'src' && (tag === 'video' || (tag === 'source' && /\.(mp4|webm|mov|m3u8)(\?|$)/i.test(a[2])));
+      for (const v of valores) sumar(esVideo ? videos : imagenes, v);
+    }
+  }
+  for (const m of html.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)) for (const u of urlsDe(m[1].replace(/&quot;/g, '"'))) sumar(imagenes, u);
+  return { imagenes: [...imagenes], fuentes: [...fuentes], videos: [...videos] };
+}
+
 export type OpcionesPolitica = {
   entorno: Entorno;
   /** Hashes de los scripts inline (sin el del script de la página, que va siempre). */
@@ -649,6 +685,11 @@ export type OpcionesPolitica = {
   conDiseno?: boolean;
   /** El diseño embebe la agenda de Calendly con su widget (`data-calendly`). */
   conCalendly?: boolean;
+  /**
+   * La copia idéntica de una página (copia-identica.ts, 28/10/2026): sus imágenes, sus fuentes y sus videos siguen en SU
+   * sitio (por su URL), así que sus orígenes entran en img-src, font-src y media-src (`origenesDeMedios`).
+   */
+  medios?: OrigenesDeMedios;
 };
 
 /**
@@ -677,9 +718,9 @@ export function politicaDeContenido(o: OpcionesPolitica): string {
       ...(o.conCalendly ? ['https://assets.calendly.com'] : []),
     ]],
     ['style-src', ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', ...(o.conCalendly ? ['https://assets.calendly.com'] : [])]],
-    ['font-src', ["'self'", 'https://fonts.gstatic.com', 'data:']],
-    ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : [])]],
-    ['media-src', ["'self'", ...(bucket ? [bucket] : []), ...(o.conDiseno && app ? [app] : [])]],
+    ['font-src', ["'self'", 'https://fonts.gstatic.com', 'data:', ...(o.medios?.fuentes ?? [])]],
+    ['img-src', ["'self'", 'data:', ...(app ? [app] : []), ...(bucket ? [bucket] : []), ...(o.conMeta ? ['https://www.facebook.com'] : []), ...(o.medios?.imagenes ?? [])]],
+    ['media-src', ["'self'", ...(bucket ? [bucket] : []), ...(o.conDiseno && app ? [app] : []), ...(o.medios?.videos ?? [])]],
     ['connect-src', ["'self'", ...(o.conPixel && app ? [app] : []), ...(o.conMeta ? ['https://www.facebook.com', 'https://connect.facebook.net'] : [])]],
     // 'self': el «HTML personalizado» se sirve desde /l/html/<doc>/<bloque> del MISMO host (T6).
     ['frame-src', ["'self'", ...hostsDeIframes()]],
@@ -728,6 +769,7 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
     conMeta: !!meta,
     conDiseno: !!cssDiseno,
     conCalendly: !!cssDiseno && usaCalendly(e.html),
+    ...(cssDiseno ? { medios: origenesDeMedios(e.html, cssDiseno) } : {}),
   });
 
   const a = escaparHtml;

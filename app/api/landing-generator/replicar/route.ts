@@ -5,7 +5,9 @@
 // de afuera, «Replicar en el editor». Desde la tanda 6 (decisión de Martín, 14/10/2026) con FORMATO:
 //   { url, formato: 'presentacion' }  diapositivas 16:9 con el texto condensado;
 //   { url, formato: 'landing' }       secciones editables con el texto tal cual;
-//   { url, formato: 'web' }           la copia idéntica (su HTML y sus estilos en «HTML personalizado»).
+//   { url, formato: 'web', foto }     la copia idéntica EDITABLE (28/10/2026): la foto de la página que sacó el lector en el
+//                                     navegador de la persona → secciones «Diseño editable» (lib/editor-landing/copia-identica.ts);
+//   { url, formato: 'web' }           sin foto (la API de MaKo), la de antes: su HTML y sus estilos en «HTML personalizado».
 // Presentación y Landing aceptan además `lectura` (la página leída en el navegador de la persona,
 // lib/editor-landing/lectura-tipos.ts) o `texto` (pegado): cualquiera de los dos reemplaza la bajada.
 // El pedido VIEJO `{ url, modo: 'bloques' | 'fiel' }` se sigue aceptando mientras dure un deploy (una
@@ -57,7 +59,7 @@ export async function POST(req: Request) {
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
 
-  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown; partes?: unknown; tema?: unknown; angulos?: unknown; oferta?: unknown; enVivo?: unknown };
+  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown; partes?: unknown; tema?: unknown; angulos?: unknown; oferta?: unknown; foto?: unknown; enVivo?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }
   if (!body || typeof body !== 'object') return falla(400, 'body inválido');
 
@@ -69,7 +71,7 @@ export async function POST(req: Request) {
         const enviar = (e: EventoReplica) => { try { ctrl.enqueue(enc.encode(lineaDeEvento(e))); } catch { /* se cerró del otro lado */ } };
         let respuesta: RespuestaReplicar;
         try {
-          const r = await replicar({ url: b.url, formato: b.formato, modo: b.modo, lectura: b.lectura, texto: b.texto, partes: b.partes, tema: b.tema, angulos: b.angulos, oferta: b.oferta, adaptar: b.adaptar }, enviar);
+          const r = await replicar({ url: b.url, formato: b.formato, modo: b.modo, lectura: b.lectura, texto: b.texto, partes: b.partes, tema: b.tema, angulos: b.angulos, oferta: b.oferta, adaptar: b.adaptar, foto: b.foto }, enviar);
           respuesta = respuestaDe(r);
         } catch (err) {
           console.error('[landing-generator/replicar] en vivo:', err instanceof Error ? err.message : err);
@@ -83,7 +85,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto, partes: body.partes, tema: body.tema, angulos: body.angulos, adaptar: body.adaptar });
+    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto, partes: body.partes, tema: body.tema, angulos: body.angulos, adaptar: body.adaptar, foto: body.foto });
     // `probar` (verificación de la tanda 6): el formato que sí puede andar, si el error lo propone; la pantalla
     // lo ofrece como botón («Replicar como Landing»).
     if (!r.ok) {

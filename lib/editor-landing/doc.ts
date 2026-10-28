@@ -322,7 +322,17 @@ export type AttrsHtmlLibre = { id: string | null; html: string; alto: (typeof AL
  * un diseño a medida, sin JavaScript (lo saca el saneo del server). Su hoja es la del documento
  * (`config.diseno.css`). Se publica en la página, sin iframe: lib/editor-landing/html-editable.ts.
  */
-export type AttrsHtmlEditable = { id: string | null; html: string };
+export type AttrsHtmlEditable = {
+  id: string | null;
+  html: string;
+  /**
+   * La copia idéntica de una página (copia-identica.ts, 28/10/2026): las etiquetas que la envolvían en la página
+   * original, de afuera hacia adentro (`<main class="…">`). La página publicada las abre UNA vez alrededor de las
+   * secciones seguidas que las comparten (render.ts), así el `gap` y el `main > section` del original siguen valiendo; el
+   * editor las pone alrededor de la sección en su iframe y edita sólo lo de adentro. Sin copia, no está.
+   */
+  envoltorios?: string[];
+};
 
 /** Topes que el server aplica al guardar (y la IA respeta al generar). */
 export const TOPES = {
@@ -336,7 +346,9 @@ export const TOPES = {
   // Una sección de un diseño a medida (la más pesada de la landing de MaKo, la grilla de funcionalidades,
   // mide ~45 KB) y la hoja propia del documento (la de la landing, ~25 KB con la base).
   htmlEditable: 200_000,
-  cssDiseno: 200_000,
+  // 600 KB (28/10/2026): la hoja de la COPIA de una página, ya podada (copia-identica.ts), mide 80-240 KB (respond.io,
+  // reportei.com); la de la landing de MaKo, ~25 KB.
+  cssDiseno: 600_000,
   camposFormulario: 10,
   categoriasGrafico: 24,
   seriesGrafico: 8,
