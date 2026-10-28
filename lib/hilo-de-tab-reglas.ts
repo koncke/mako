@@ -7,6 +7,7 @@
 // de docs/diseno-chats-de-mako.md («Un almacén»), con la clave `<tab>:<entidad>`:
 //   · `dashboard:<hoja>` — «Editar con MaKo» de esa hoja (los chats de cada gráfico son `dashboard:<hoja>:<gráfico>`).
 //   · `landing:<id>` — el agente del Web Generator de esa landing.
+//   · `copywriter:<id>` — MaKo en ese guion del Copywriter (28/10/2026).
 // El Ops Center las lista solas como «de antes» (`chatsDeAntes`, lib/chat-mako-indice.ts): una clave sin prefijo de
 // persona es del workspace y la ve el admin; la de un closer o un setter va con su persona (lib/chart-chats-reglas.ts).
 //
@@ -17,7 +18,7 @@
 // =============================================================================
 
 /** Los prefijos de las claves que se guardan por esta vía (una tab de edición cada uno). */
-export const PREFIJOS_HILO_DE_TAB = ['dashboard', 'landing'] as const;
+export const PREFIJOS_HILO_DE_TAB = ['dashboard', 'landing', 'copywriter'] as const;
 export type PrefijoHiloDeTab = (typeof PREFIJOS_HILO_DE_TAB)[number];
 
 /** Un mensaje como se guarda: quién y qué dijo (lo que el Ops Center sabe dibujar). */
@@ -42,6 +43,8 @@ const ENTIDAD = /^[A-Za-z0-9_.-]{1,80}$/;
 export const claveDeHoja = (hojaId: string): string => `dashboard:${hojaId}`;
 /** La clave del agente del Web Generator de una landing. */
 export const claveDeLanding = (id: number | string): string => `landing:${id}`;
+/** La clave del chat de MaKo de un guion del Copywriter (28/10/2026, docs/diseno-copywriter.md). */
+export const claveDeGuion = (id: string): string => `copywriter:${id}`;
 
 /** La clave si es una de las de esta vía, o null (otra tab, otra persona, un formato raro). */
 export function claveDeTab(raw: unknown): string | null {

@@ -44,6 +44,7 @@ const PERMITIDOS: Record<string, string[]> = {
   'landing-writer': ['app/web-generator/', 'app/landing-generator/', 'app/admin/', 'lib/'],
   setting: ['app/automations/', 'app/m/automations/', 'app/admin/', 'lib/'],
   chats: ['app/chats/', 'app/m/chats/', 'app/admin/', 'lib/'],
+  copywriter: ['app/copywriter/', 'app/m/copywriter/', 'app/admin/', 'lib/'],
 };
 
 function archivos(dir: string): string[] {

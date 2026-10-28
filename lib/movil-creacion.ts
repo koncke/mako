@@ -84,6 +84,9 @@ export const RUTAS_CREACION: readonly RutaCreacion[] = [
   { base: '/carousels' },
   // Copy Method (Copywriting › Method), la herramienta del super admin: su carpeta es app/m/admin/copywriting.
   { base: '/admin/copywriting' },
+  // El Copywriter (28/10/2026, docs/diseno-copywriter.md): la lista y cada guion (/copywriter/<id>). Sólo el super admin
+  // hasta que Martín lo valide (app/m/copywriter/puerta.ts); sin fila oculta, como AI Avatar: More la arma desde la barra.
+  { base: '/copywriter', sub: '*' },
 ];
 
 const conQuery = (path: string, q: URLSearchParams, claves: readonly string[] | undefined): string => {

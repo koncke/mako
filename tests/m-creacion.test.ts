@@ -135,9 +135,10 @@ test('la barra de secciones de cada tab: las de escritorio, con la regla del Sid
   assert.deepEqual(seccionesDeTabM('image', CLIENTE).map((s) => [s.id, !!s.pronto]), [
     ['image-editor', false], ['image-generator', true], ['thumbnails', true], ['carousels', false],
   ]);
-  // Copywriting: el super admin ve también Copy Method (su herramienta, `adminOnly`); a un cliente le queda sólo Ads
-  // Writer (y con una sección la barra no se dibuja).
-  assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
+  // Copywriting: el super admin ve también el Copywriter (28/10/2026, `adminOnly` hasta que Martín lo valide) y Copy Method
+  // (su herramienta); a un cliente le queda sólo Ads Writer (y con una sección la barra no se dibuja).
+  assert.deepEqual(keys(seccionesDeTabM('copywriting', SUPER)), ['copywriter', 'ideas', 'ads-writer', 'youtube-writer', 'stories', 'admin-copywriting']);
+  assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'copywriter')?.href, '/m/copywriter');
   assert.equal(seccionesDeTabM('copywriting', SUPER).find((s) => s.id === 'admin-copywriting')?.href, '/m/admin/copywriting');
   assert.deepEqual(keys(seccionesDeTabM('copywriting', CLIENTE)), ['ads-writer']);
   assert.deepEqual(keys(seccionesDeTabM('ai-avatar', SUPER)), ['ai-avatar-crear', 'ai-avatar-avatares', 'ai-avatar-voces', 'ai-avatar-plantillas']);
