@@ -302,6 +302,28 @@ test('la caja de la conversación nueva tiene UNA clave: lo que la caja lee no q
   assert.match(leer('app/tickets/soporte/useSoporte.ts'), /clave: claveNotas,/);
 });
 
+test('el ticket ESPERA lo que la caja está leyendo (un .pptx, un audio mandado con Enter): no se levanta sin ese mensaje', async (t) => {
+  // La verificación de 1d586a686 (F2L): «Mandárselo al equipo» con la caja leyendo levantaba el ticket SIN ese mensaje; el texto
+  // quedaba en el campo del ticket nuevo y los archivos en la conversación siguiente.
+  const p = await pantalla(t);
+  const s = p.hastaLaTarjeta('No me deja guardar el lead en el CRM, sale un error rojo');
+  s.onLeyendo(true);
+  let ahora = p.r();
+  assert.equal(ahora.leyendoCaja, true);
+  await ahora.mandarTicket();
+  assert.equal(p.e.levantados.length, 0, 'el ticket salió mientras la caja leía el mensaje');
+  ahora.onLeyendo(false);
+  ahora = p.r();
+  await ahora.mandarTicket();
+  assert.equal(p.e.levantados.length, 1, 'terminada la lectura, el ticket sale');
+  // La tarjeta lo dice, y la caja le avisa a Soporte (también si se va en el medio).
+  const piezas = leer('app/tickets/soporte/PiezasSoporte.tsx');
+  assert.match(piezas, /disabled=\{s\.mandando \|\| s\.notasPendientes \|\| s\.leyendoCaja\}/);
+  assert.match(piezas, /s\.leyendoCaja \? 'Leyendo lo que adjuntaste…'/);
+  assert.match(piezas, /onLeyendo=\{s\.onLeyendo\}/);
+  assert.match(leer('app/_chat/CajaChat.tsx'), /if \(!leidos\.leyendo\) return;\n\s*avisarLeyendo\.current\?\.\(true\);\n\s*return \(\) => avisarLeyendo\.current\?\.\(false\);/);
+});
+
 test('el tope del día por negocio: lo cuenta la ruta en el bucket y lo dice en texto', () => {
   assert.equal(problemaDelDiaTicket([], [{ size: 10 }]), null);
   assert.match(problemaDelDiaTicket(Array.from({ length: TOPE_DIA_ARCHIVOS_TICKET }, () => ({ bytes: 1 })), [{ size: 1 }]) ?? '', /tope es 30 por día/);

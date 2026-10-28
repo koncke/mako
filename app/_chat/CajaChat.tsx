@@ -67,6 +67,9 @@ export type PropsCajaChat = {
   /** De qué conversación es lo que la caja lee, en una pantalla con varias y UNA caja (Soporte, 28/10/2026): lo de cada una se
    *  guarda aparte, y lo que se leía al cambiar no sale en la otra (./adjuntos-que-se-leen.ts). */
   conversacion?: string;
+  /** La caja está leyendo lo que se mandó con el mensaje (un .pptx, un audio): la pantalla que manda otra cosa por fuera de la
+   *  caja lo espera (Soporte: el ticket no sale sin ese mensaje, 28/10/2026). */
+  onLeyendo?: (leyendo: boolean) => void;
   /** Lo de abajo del «+» (la cuenta, el modelo, las tareas): como función recibe `cerrar`. */
   mas?: ReactNode | ((cerrar: () => void) => ReactNode);
   /** Lo que va arriba de las miniaturas: la cita de un mensaje, un texto largo pegado. */
@@ -144,6 +147,14 @@ function Caja({ p, grabacion, nota = null }: { p: PropsCajaChat; grabacion: Grab
   const leidos = useAdjuntosQueSeLeen({ activo: !p.sinAdjuntos, texto, onTexto, onMandar: p.onMandar, onError: p.onErrorMic, tope: p.topeTexto, conversacion: p.conversacion });
   const deLaCaja = juntarAdjuntos(p.adjuntos, p.sinAdjuntos ? undefined : leidos.adjuntos);
   const onMandar = leidos.mandar;
+  // La pantalla sabe que la caja está leyendo (y que dejó de leer, también si la caja se va en el medio).
+  const avisarLeyendo = useRef(p.onLeyendo);
+  avisarLeyendo.current = p.onLeyendo;
+  useEffect(() => {
+    if (!leidos.leyendo) return;
+    avisarLeyendo.current?.(true);
+    return () => avisarLeyendo.current?.(false);
+  }, [leidos.leyendo]);
   // Pasando a texto una nota de voz, o leyendo lo adjuntado: la caja está saliendo (el botón gira y no se escribe encima).
   const transcribiendo = !!nota?.transcribiendo;
   const enviando = !!p.enviando || transcribiendo || leidos.leyendo;

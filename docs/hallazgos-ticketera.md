@@ -767,6 +767,10 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   que la caja lee sola (.pptx, .md, audio, video) seguía pasando de un ticket a otro, y lo que se leía al cambiar de ticket salía
   en el otro. Ahora la caja también lo guarda por conversación (`conversacion={s.claveCaja}`, PiezasSoporte.tsx): ver
   hallazgos-chat.md, «La caja QUIETA».
+- **El ticket espera lo que la caja lee (la verificación de 1d586a686):** la tarjeta se apagaba sólo con las notas y el envío
+  del ticket, y `mandarTicket` esperaba las SUBIDAS pero no la lectura de la caja. «Mandárselo al equipo» con un .pptx o un audio
+  leyéndose levantaba el ticket sin ese mensaje. Ahora la caja avisa (`onLeyendo`) y la tarjeta dice «Leyendo lo que
+  adjuntaste…» (`leyendoCaja` en useSoporte.ts).
 
 **La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
 - «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los
