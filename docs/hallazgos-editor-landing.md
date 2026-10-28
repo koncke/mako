@@ -3349,8 +3349,8 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
   `scripts/presupuesto-turno-app.mts`), recortando la descripción.
 - **`quitarPruebaInventada` deja pasar justo lo de la competencia** en una réplica reescrita: sus testimonios y sus
   cifras «están en el material» (el material ES la página de otro). La red en código es `quitarPruebaDeLaOriginal`
-  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números (3 dígitos o más: «3 pasos» no es
-  de nadie) se vacían, y las frases iguales a la original se cuentan en el log y en el aviso.
+  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números se vacían, y las frases iguales a
+  la original se cuentan en el log y en el aviso. Los números se comparan ENTEROS (ver la revisión, más abajo).
 - **Mirar la pantalla sin build:** con ~10 chats, el vigía mató el `next build --debug-build-paths` de `/web-generator`
   dos veces (2,3 y 3,4 GB privados, con 0,7 GB libres). Lo que anduvo: renderizar los componentes REALES con
   `renderToStaticMarkup` (tsx, `NODE_PATH` al `node_modules` del worktree y `import React`), con las hojas del Panel
@@ -3437,6 +3437,46 @@ el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para S
 - **El gasto de IA de una réplica en el ws9: US$0.** Gemini Flash Lite con las claves gratis del negocio: entre 4 y 11
   llamadas y 22 a 47 mil tokens por landing. La lectura de ángulos tardó 55 s porque Gemini estaba saturada.
 
+### La revisión adversarial de 45a8e5234 (Cerebro, 28/10/2026): siete defectos, todos arreglados
+
+Informe: `C:/dev/revisiones/2810-replicar-45a8e5234.md`. Cada uno con su test (10a a 10d) y su rotura (R16 a R27).
+
+- **El tope en el lugar equivocado colapsaba la página entera.** `nivelDeSeccion` bajaba de h1 a h2 «mientras no pase
+  del tope de 20». Una página con un h1 en el hero y otro en el cierre (Webflow, Framer) y 19 h2 o más quedaba en DOS
+  secciones, la primera con todo adentro; con 1 h1 y los mismos 20 h2 daba 20. **Regla:** el nivel de corte no mira el
+  tope. Lo que sobra lo junta `juntarHasta`, que ya estaba para eso. Un tope que decide QUÉ nivel usar en vez de cuánto
+  juntar convierte «una sección de más» en «18 secciones de menos».
+- **Comparar números como texto vacía cifras propias.** `quitarPruebaDeLaOriginal` buscaba cada número con `includes`
+  sobre la página ajena: «100%» del negocio se vaciaba porque «100» está dentro de «2.100», y «24/7» porque «24» y «7»
+  están en cualquier página. Y el aviso le echaba la culpa a la original. **Regla:** los números van como tokens enteros
+  («2.100» es 2100, con límites a los dos lados). Una cifra es de la otra si TODOS sus números están entre los de la
+  otra, y al menos uno tiene 3 cifras o más y no es redondo (100, 1000).
+- **Los botones de la copia mandaban a la competencia.** Venía de antes de esta rama: «Replicar y adaptar» ya lo hacía.
+  Ahora es el camino por defecto, y el destino no se ve en el texto del editor. La IA veía «[BOTÓN] Probar → https://
+  app.competidor.com/signup» en su tanda, y el respaldo sin IA armaba el botón con ese href. **Regla:** con el texto
+  escrito de nuevo, la tanda no ve los destinos (`sinDestinoDeBoton`). Todo enlace al dominio de la original, con
+  cualquier subdominio (`dominioBase`), pasa a «#» en todas las tarjetas, también las de respaldo
+  (`sinEnlacesALaOriginal`). Se cuenta en el aviso. Sólo se lee el destino cuando la página la lee el NAVEGADOR: el
+  server escribe «[BOTÓN] texto» sin destino.
+- **«Replicar y adaptar» por la API pagaba una IA más, ANTES del esquema.** Sin `partes`, el pedido viejo de adaptar
+  pasa a tener ángulos. La API no trae la lectura, así que se bajaba la página y se llamaba a la IA por los ángulos (hasta
+  60 s). Ese tiempo salía del plazo de las tandas: con la IA lenta, entraban menos tandas y quedaban más secciones con el
+  texto de la competencia. **El diagnóstico obvio («correrlos en paralelo») no hacía falta:** con la estructura, el
+  esquema no los usa, y el texto de la original ya trae los ángulos sección por sección. Ahora se leen ahí sólo SIN la
+  estructura, que es cuando el esquema los necesita.
+- **En una Presentación, la «original» del chequeo era el esquema que ya había escrito la IA.** Se vaciaban cifras
+  propias, se contaban frases «iguales» contra texto propio, y el aviso decía «quedó con el texto de la original». Ahora
+  `adaptar` (el chequeo y ese aviso) va sólo con las MISMAS secciones (Landing con estructura).
+- **La lectura y la réplica cortaban distinto un texto pegado con títulos.** La lectura usaba `esquemaDeReplica` y la
+  réplica el `esquemaConservado` de «Pegar». Se perdía el final, y el ángulo de la «sección 3» caía en otra sección.
+  Ahora el pedido de esquema lleva `corte: 'pagina'` (ia.ts). El «Pegar texto» del editor no cambia.
+- **La «Página web» de la caja pagaba ángulos al abrir y se pasaba sola a «Landing».** Ahora arranca con las cuatro
+  partes, y su lectura va sin ángulos (`angulos: false` en /leer, `conAngulos` en `leerParaReplicar`). La copia
+  idéntica no los usa.
+- **El tsc acotado de estos archivos trae 14 errores que no son de ellos:** `app/video-editor/_opencut` no resuelve
+  `opencut-wasm/opencut_wasm_bg.js` (TS7016) y de ahí salen los TS2305. Antes de creerle a un rojo del acotado, mirar si
+  el archivo es tuyo.
+
 Lo que quedó SIN hacer:
 - Leer una SPA en la ventana del clic DENTRO de la app (el camino del lector con la ventana aislada): se midió el mismo
   lector por CDP (MasterAds), no el ida y vuelta de la ventana. Y la réplica con IA en vivo dentro de la app (en el ws3
@@ -3446,5 +3486,5 @@ Lo que quedó SIN hacer:
   qué imágenes tiene cada parte, no dónde están. Saldría de la lectura del navegador (lector-script.ts), midiendo las
   cajas.
 
-Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: siete roturas, cada una caza), y los de Replicar
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 27 roturas, cada una caza), y los de Replicar
 que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).

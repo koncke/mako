@@ -45,11 +45,13 @@ export function palabrasDe(linea: string): number {
 
 /**
  * El nivel de título en el que la página corta sus SECCIONES. El más alto (h1 antes que h2) que aparece al menos dos
- * veces: un h1 solo es el del hero, y las secciones van en h2. Si ése es el h1 y deja menos de 4 secciones, se baja
- * mientras no pase del tope (un sitio que usa h1 en tres bloques y h2 en el resto). null = la página no trae títulos
- * que corten (se usa el corte de siempre).
+ * veces: un h1 solo es el del hero, y las secciones van en h2. Si ése es el h1 y deja menos de 4 secciones, se baja al
+ * nivel siguiente que tenga títulos (un sitio que usa h1 en el hero y en el cierre, y h2 para el resto), AUNQUE pase el
+ * tope: lo que sobra lo junta `juntarHasta`. ⚠️ Con «mientras no pase del tope» (revisión del 28/10/2026), 2 h1 y 20 h2
+ * daban DOS secciones (la primera con 20 subtítulos) y 1 h1 con 20 h2 daba 20: el salto pasaba al cruzar el tope. null =
+ * la página no trae títulos que corten (se usa el corte de siempre).
  */
-export function nivelDeSeccion(lineas: readonly string[], tope = MAX_SECCIONES): number | null {
+export function nivelDeSeccion(lineas: readonly string[]): number | null {
   const porNivel = [0, 0, 0, 0, 0, 0, 0];
   for (const l of lineas) {
     const m = RE_TITULO.exec(l);
@@ -62,7 +64,7 @@ export function nivelDeSeccion(lineas: readonly string[], tope = MAX_SECCIONES):
   if (!nivel) return null;
   // Sólo con h1: un sitio que usa h1 en dos o tres bloques y h2 para el resto. Con h2 o más adentro, pocas secciones
   // son pocas secciones (las tarjetas de adentro no se sueltan).
-  if (nivel === 1) for (let n = 2; n <= 6 && hasta(nivel) < 4; n++) if (porNivel[n] && hasta(n) <= tope) nivel = n;
+  if (nivel === 1) for (let n = 2; n <= 6 && hasta(nivel) < 4; n++) if (porNivel[n]) nivel = n;
   return nivel;
 }
 

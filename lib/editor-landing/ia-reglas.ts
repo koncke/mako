@@ -730,11 +730,18 @@ export function quitarPruebaDeLaOriginal(t: JsonNodo, original: string): { tarje
     const c = normalizar(texto);
     return c.length >= minimo && fuente.includes(c.slice(0, 40));
   };
+  // Los números de la original como NÚMEROS ENTEROS («2.100» es 2100), no como subcadenas: con `includes`, «100%» del
+  // negocio se vaciaba porque «100» está adentro de «2.100», y «24/7» porque «24» y «7» aparecen sueltos en cualquier página
+  // (revisión del 28/10/2026). Una cifra es de la original si TODOS sus números están entre los de la original y al menos uno
+  // tiene 3 cifras o más y no es un número redondo de cualquier página (100, 1000).
+  const numerosDe = (t: string) => (String(t ?? '').match(/(?<![\d.,])\d+(?:[.,]\d{3})*(?:[.,]\d+)?(?![\d])/g) ?? []).map((d) => d.replace(/[.,]/g, ''));
+  const deLaOriginal = new Set(numerosDe(original));
+  const GENERICOS = new Set(['100', '1000']);
   const cifraAjena = (valor: string) => {
     if (/\[[^\]]*\]/.test(valor)) return false;
-    const nums = String(valor ?? '').match(/\d+(?:[.,]\d+)*/g);
-    if (!nums || nums.join('').replace(/\D/g, '').length < 3) return false;
-    return nums.every((d) => fuente.includes(d) || fuente.includes(d.replace(/[.,]/g, '')));
+    const nums = numerosDe(valor);
+    if (!nums.length || !nums.some((d) => d.length >= 3 && !GENERICOS.has(d))) return false;
+    return nums.every((d) => deLaOriginal.has(d));
   };
   const caminar = (n: JsonNodo, enCitas: boolean, enCifras: boolean): JsonNodo => {
     if (n.type === 'blockquote' || (enCitas && n.type === NODO.optimizadoItem)) {

@@ -47,6 +47,8 @@ const PLAZO_ANGULOS_MS = 75_000;
 
 /** De dónde sale la página: la bajada del server, la lectura del navegador o el texto pegado. */
 export type FuenteReplica = { url: unknown; lectura?: unknown; texto?: unknown };
+/** `conAngulos: false`: la lectura sin la llamada de IA (la «Página web» de la caja: la copia idéntica no los usa). */
+export type PedidoLectura = FuenteReplica & { conAngulos?: boolean };
 
 export type TextoDePagina =
   | { ok: true; url: string; texto: string; titulo: string; lectura: unknown | null; pegado: boolean }
@@ -122,7 +124,7 @@ export function disenoDeEstilo(e: EstiloOriginal | null): DisenoLeido | null {
 export type ResultadoLectura = ({ ok: true; lectura: LecturaReplica } | ({ ok: false; error: string } & Partial<SeLeeEnNavegador>)) & { status?: number };
 
 /** La lectura entera: el texto, y en paralelo los ángulos (IA) y el diseño (la página o la lectura del navegador). */
-export async function leerParaReplicar(p: FuenteReplica): Promise<ResultadoLectura> {
+export async function leerParaReplicar(p: PedidoLectura): Promise<ResultadoLectura> {
   const t0 = Date.now();
   const t = await textoDePagina(p);
   if (!t.ok) return t;
@@ -130,7 +132,8 @@ export async function leerParaReplicar(p: FuenteReplica): Promise<ResultadoLectu
   if (!esq.secciones.length) return { ok: false, error: 'No encontré secciones en esa página.', status: 422 };
   const estiloP: Promise<EstiloOriginal | null> = t.pegado ? Promise.resolve(null) : t.lectura ? Promise.resolve(estiloDeLectura(t.lectura)) : estiloDeLaPagina(t.url);
   const perfilP = import('../onboarding').then((m) => m.perfilNegocioTexto()).catch(() => '');
-  const [ang, estilo, perfil] = await Promise.all([angulosDePagina(esq, t.url), estiloP, perfilP]);
+  const angP: Promise<{ angulos: Angulos | null; error?: string }> = p.conAngulos === false ? Promise.resolve({ angulos: null }) : angulosDePagina(esq, t.url);
+  const [ang, estilo, perfil] = await Promise.all([angP, estiloP, perfilP]);
   console.log(`[editor-landing/replicar-lectura] ${t.url}${t.pegado ? ' (texto pegado)' : t.lectura ? ' (leída en el navegador)' : ''}: ${esq.secciones.length} secciones, ángulos ${ang.angulos ? `${ang.angulos.secciones.length} por sección` : 'no'}, diseño ${estilo ? 'sí' : 'no'}, ${Math.round((Date.now() - t0) / 1000)} s`);
   return {
     ok: true,

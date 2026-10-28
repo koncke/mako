@@ -325,8 +325,9 @@ test('Replicar: 3 formatos con su ícono, `{ url, formato, lectura?, texto? }`, 
   assert.match(src, /<FallaReplicar\s+error=\{estado\.error\}\s+probar=\{estado\.probar\}\s+onProbar=\{\(f\) => \{ setFormato\(f\); replicarLeida\(f\); \}\}/);
   assert.match(src, /\{probar && \(\s*<button type="button" className="gp-btn gp-btn-contorno"[^>]*onClick=\{\(\) => onProbar\(probar\)\}>/);
   // 28/10/2026: el lector (o el texto pegado) vuelve a LEER la página; la réplica sale después, de lo leído.
-  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l \}\)\}/);
-  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t \}\)\}/);
+  // Con la «Página web» de la caja, sin pagar los ángulos (revisión de 45a8e5234, 28/10/2026).
+  assert.match(src, /onLectura=\{\(l\) => void leer\(lectura\.url, \{ lectura: l, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
+  assert.match(src, /onTexto=\{\(t\) => void leer\(lectura\.url, \{ texto: t, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)\}/);
   // Desde el link de la caja arranca solo, UNA vez (el ref sobrevive al doble montaje: la lectura se paga).
   assert.match(src, /if \(arrancado\.current\) return;\s*arrancado\.current = true;/);
   const dg = fuente(PANEL_DG);

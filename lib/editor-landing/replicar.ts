@@ -81,7 +81,7 @@ import { colorDeRelleno, temaPorId } from './temas';
 import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
 import {
   ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, TOPE_OFERTA, formatoConPartes, instruccionDePartes, listaDePartes, marcaDeUrl, mencionesDe,
-  nombreDeCopia, partesDePedido, recetaDePartes, type PartesReplica,
+  nombreDeCopia, partesDePedido, recetaDePartes, sinDestinoDeBoton, sinEnlacesALaOriginal, type PartesReplica,
 } from './replicar-partes';
 import {
   acomodoDeSeccion, esquemaDeReplica, fidelidadDeEstructura, imagenesPorSeccion, lineaDeFidelidad, moldeDeEsquema, notaDeSeccion,
@@ -211,12 +211,14 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const usaEstilo = partes.diseno || (partes.estructura && !partes.texto && recetaFormato.formato === 'landing');
   const leido = usaEstilo ? estiloDeLectura(entrada.lectura) : null;
   const estiloP: Promise<EstiloOriginal | null> = !usaEstilo ? Promise.resolve(null) : leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
-  // Los ÁNGULOS (cuando el texto se escribe de nuevo): los de la lectura que vio la persona, o se leen ahora. Si la IA no
-  // los lee, la réplica sigue: con la estructura, el texto de la original ya los trae sección por sección.
+  // Los ÁNGULOS (cuando el texto se escribe de nuevo): los de la lectura que vio la persona. Se leen acá SÓLO sin la
+  // estructura, porque ahí el esquema los necesita (la IA no ve la página). Con la estructura, el texto de la original ya
+  // los trae sección por sección: leerlos acá era una llamada de IA más, ANTES del esquema y comiéndose el plazo de las
+  // tandas («Replicar y adaptar» por la API, que no trae la lectura; revisión del 28/10/2026).
   let angulos: Angulos | null = null;
   if (partes.angulos && !partes.texto) {
     angulos = sanearAngulos(entrada.angulos);
-    if (!angulos) {
+    if (!angulos && !partes.estructura) {
       const t = await textoDePagina({ url, lectura: entrada.lectura, texto: entrada.texto });
       if (!t.ok) return { ok: false, error: t.error, status: t.status, ...(t.enNavegador && t.motivo ? seLeeEnNavegador(t.motivo) : {}) };
       angulos = (await angulosDePagina(esquemaDeReplica(t.texto, t.titulo), url, t0 + PLAZO_ANGULOS_MS)).angulos;
@@ -232,7 +234,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const e = inicial.esquema === 'generar'
     ? await pedirEsquema({ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params })
     : entrada.texto
-      ? await pedirEsquema({ modo: 'pegar', texto: entrada.texto, params })
+      ? await pedirEsquema({ modo: 'pegar', texto: entrada.texto, params, corte: 'pagina' })
       : await pedirEsquema({ modo: 'importar', url, lectura: entrada.lectura, params });
   if (!e.ok) {
     // `enNavegador` viaja tal cual: la pantalla ofrece el lector o pegar el texto y vuelve con eso.
@@ -261,14 +263,24 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
       return notaDeSeccion(m, acomodos[i], a ? `${NOMBRE_TIPO_SECCION[a.tipo]}${a.angulo ? `: ${a.angulo}` : ''}` : '');
     })
     : null;
-  const esqTandas: Esquema = notas ? { ...esq, secciones: esq.secciones.map((s, i) => ({ ...s, nota: notas[i] })) } : esq;
+  // Con el texto escrito de nuevo, la IA no ve a dónde llevaban los botones de la otra (los copiaba como destino).
+  const esqTandas: Esquema = {
+    ...esq,
+    secciones: esq.secciones.map((s, i) => ({
+      ...s,
+      ...(partes.texto ? {} : { puntos: s.puntos.map(sinDestinoDeBoton) }),
+      ...(notas ? { nota: notas[i] } : {}),
+    })),
+  };
   const instruccionSecciones = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined, oferta: entrada.oferta, marca: marca ?? undefined });
   // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
   const { adaptar: _adaptarDelFormato, ...delFormato } = recetaFormato;
   void _adaptarDelFormato;
   const receta: ConfigReplica = {
     ...delFormato,
-    ...(partes.estructura && !partes.texto ? { adaptar: true as const } : {}),
+    // Sólo con las MISMAS secciones (Landing): en una Presentación el esquema ya lo escribió la IA para el negocio, y ni el
+    // chequeo de lo copiado ni el aviso de «el texto de la original» tienen sentido contra él.
+    ...(mismasSecciones && !partes.texto ? { adaptar: true as const } : {}),
     paramsSecciones: recetaDePartes(recetaFormato.formato, base, partes, { esquema: instruccionEsquema, secciones: instruccionSecciones }).paramsSecciones,
   };
   const estilo = partes.diseno ? estiloLeido : null;
@@ -314,7 +326,8 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const original = receta.adaptar ? esq.secciones.flatMap((s) => [s.titulo, ...s.puntos]).join(' ') : '';
   let pruebaQuitada = 0;
   let frasesIguales = 0;
-  const tarjetas = esq.secciones.map((s, i) => {
+  let enlacesAjenos = 0;
+  const tarjetasCrudas = esq.secciones.map((s, i) => {
     const t = porIndice.get(i);
     if (t) {
       if (!original) return t;
@@ -326,6 +339,11 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     sinIA++;
     avisar({ fase: 'seccion', indice: i, titulo: s.titulo, respaldo: true });
     return tarjetaDesdeEsquema(s, i === 0);
+  });
+  const tarjetas = partes.texto ? tarjetasCrudas : tarjetasCrudas.map((t) => {
+    const r = sinEnlacesALaOriginal(t, url);
+    enlacesAjenos += r.cambiados;
+    return r.tarjeta;
   });
   avisar({ fase: 'diseno' });
   // La marca de la original que quedó nombrada en una copia escrita de nuevo: se cuenta y se dice (no se adivina el reemplazo).
@@ -364,7 +382,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
   const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}, oferta ${entrada.oferta ? 'sí' : 'no'}, menciones de ${marca ?? '?'} ${menciones}, enlaces a la original ${enlacesAjenos}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
@@ -377,6 +395,7 @@ async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, pa
     pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
     frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     menciones ? `${marca} quedó nombrada ${menciones === 1 ? 'una vez' : `${menciones} veces`}: cámbialo por lo tuyo.` : '',
+    enlacesAjenos ? (enlacesAjenos === 1 ? 'Un botón llevaba a la página de la original: ahora va a «#», ponle tu enlace.' : `${enlacesAjenos} botones llevaban a la página de la original: ahora van a «#», ponles tu enlace.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);
   return {

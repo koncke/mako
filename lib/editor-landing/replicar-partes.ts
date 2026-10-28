@@ -24,6 +24,7 @@
 // =============================================================================
 
 import type { ParamsGeneracion } from './api-tipos';
+import type { JsonNodo } from './doc';
 import type { FormatoReplicar } from './replicar-reglas';
 
 export const PARTES_REPLICA = ['diseno', 'estructura', 'angulos', 'texto'] as const;
@@ -134,6 +135,46 @@ export function mencionesDe(texto: string, marca: string | null): number {
   }
   return n;
 }
+
+/**
+ * El dominio de una dirección sin sus subdominios: «app.competidor.com» → «competidor.com», «www.tienda.com.ar» →
+ * «tienda.com.ar» (los de país con «com», «co», «org»… adelante se quedan con tres partes). Sin dirección válida, ''.
+ */
+export function dominioBase(urlOHost: string): string {
+  let host = '';
+  try { host = new URL(/^https?:\/\//i.test(urlOHost) ? urlOHost : `https://${urlOHost}`).hostname.toLowerCase(); } catch { return ''; }
+  const p = host.split('.').filter(Boolean);
+  if (p.length <= 2) return p.join('.');
+  const dePais = p[p.length - 1].length === 2 && /^(com|co|org|net|gob|gov|edu|ac)$/.test(p[p.length - 2]);
+  return p.slice(dePais ? -3 : -2).join('.');
+}
+
+/**
+ * Los enlaces que llevan a la ORIGINAL (su dominio, con cualquier subdominio: la landing en «competidor.com» y el botón a
+ * «app.competidor.com/signup»), en una copia escrita para el negocio: pasan a «#» (revisión del 28/10/2026: publicada, la
+ * landing le mandaba los leads a la competencia, y el destino no se ve en el texto del editor). Los botones (`href`) y los
+ * enlaces de un texto (la marca `link`). `cambiados`: cuántos, para el aviso. Puro: no muta.
+ */
+export function sinEnlacesALaOriginal(t: JsonNodo, urlOriginal: string): { tarjeta: JsonNodo; cambiados: number } {
+  const base = dominioBase(urlOriginal);
+  if (!base) return { tarjeta: t, cambiados: 0 };
+  let cambiados = 0;
+  const ajeno = (href: unknown): boolean => typeof href === 'string' && /^https?:\/\//i.test(href) && dominioBase(href) === base;
+  const caminar = (n: JsonNodo): JsonNodo => {
+    let nodo = n;
+    const attrs = (n.attrs ?? {}) as Record<string, unknown>;
+    if (ajeno(attrs.href)) { cambiados++; nodo = { ...nodo, attrs: { ...attrs, href: '#', ...('nuevaPestana' in attrs ? { nuevaPestana: false } : {}) } }; }
+    if (n.marks?.some((m) => m.type === 'link' && ajeno((m.attrs ?? {}).href))) {
+      cambiados++;
+      nodo = { ...nodo, marks: n.marks.map((m) => (m.type === 'link' && ajeno((m.attrs ?? {}).href) ? { ...m, attrs: { ...(m.attrs ?? {}), href: '#' } } : m)) };
+    }
+    return nodo.content ? { ...nodo, content: nodo.content.map(caminar) } : nodo;
+  };
+  return { tarjeta: caminar(t), cambiados };
+}
+
+/** Un renglón leído sin el destino de su botón («[BOTÓN] Probar → https://otro.com» → «[BOTÓN] Probar»): lo que ve la IA. */
+export const sinDestinoDeBoton = (renglon: string): string => renglon.replace(/^(\[BOT[ÓO]N\][^→]*?)\s*→[\s\S]*$/i, '$1');
 
 /** El tope de `instrucciones` en ia.ts (MAX_INSTRUCCIONES). La instrucción entera tiene que entrar: un corte se llevaría datos. */
 export const TOPE_INSTRUCCION = 5_000;

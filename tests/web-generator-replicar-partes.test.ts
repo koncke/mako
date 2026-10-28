@@ -23,7 +23,7 @@ import {
 } from '../lib/editor-landing/replicar-estructura';
 import {
   PARTES_ADAPTAR, PARTES_INICIALES, PARTES_TODAS, TOPE_INSTRUCCION, alternarParte, formatoConPartes, instruccionDePartes,
-  marcaDeUrl, mencionesDe, nombreDeCopia, partesDePedido, recetaDePartes,
+  dominioBase, marcaDeUrl, mencionesDe, nombreDeCopia, partesDePedido, recetaDePartes, sinDestinoDeBoton, sinEnlacesALaOriginal,
 } from '../lib/editor-landing/replicar-partes';
 import { ANGULOS_SYSTEM_TEMPLATE, ANGULOS_USER_TEMPLATE, sanearAngulos, seccionesParaAngulos, textoDeAngulos } from '../lib/editor-landing/replicar-angulos';
 import { MAX_SECCIONES, esquemaDelPedido, pedidoDeTanda, quitarPruebaDeLaOriginal, slotsDe, tarjetaDesdeEsquema } from '../lib/editor-landing/ia-reglas';
@@ -65,6 +65,19 @@ const renglonesDe = (e: { secciones: { titulo: string; puntos: string[] }[] }) =
 //   R13 la tanda sin la nota ...................................... 12 / 1 (2c)
 //   R14 el saneo del pedido tira la nota .......................... 12 / 1 (2c)
 //   R15 replicar.ts manda el esquema sin notas .................... 12 / 1 (2b)
+// Y con los 10a-10d de la revisión de 45a8e5234 (base 21 / 0):
+//   R16 nivelDeSeccion vuelve a «mientras no pase del tope» ....... 20 / 1 (10a)
+//   R17 cifraAjena vuelve a comparar por subcadena ................ 20 / 1 (10b)
+//   R18 los enlaces: sólo el host exacto, sin subdominios ......... 20 / 1 (10c)
+//   R19 replicar.ts sin pasar los enlaces a «#» ................... 20 / 1 (10d)
+//   R20 la IA ve el destino de los botones ........................ 20 / 1 (10d)
+//   R21 la API lee los ángulos aunque tenga la estructura ......... 20 / 1 (10d)
+//   R22 adaptar también en Presentación ........................... 20 / 1 (10d)
+//   R23 el texto pegado sin el corte de la página ................. 20 / 1 (10d)
+//   R24 ia.ts sin `corte` ......................................... 20 / 1 (6)
+//   R25 la «Página web» arranca en las partes de siempre .......... 20 / 1 (10d)
+//   R26 la lectura paga los ángulos siempre ....................... 20 / 1 (10d)
+//   R27 el «#» sigue abriendo otra pestaña ........................ 20 / 1 (10c)
 test('1. la estructura: se corta en el nivel de sección, lo de adentro queda como subtítulo y no se pierde nada', () => {
   const texto = paginaLarga();
   const h3 = texto.split('\n').filter((l) => l.startsWith('### ')).length;
@@ -329,7 +342,7 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   const leer = fuente('app/api/landing-generator/replicar/leer/route.ts');
   assert.match(leer, /if \(rol !== 'admin'\) return falla\(403/);
   assert.match(leer, /tabEnCapa\('landing-writer'/);
-  assert.match(leer, /leerParaReplicar\(\{ url: body\.url, lectura: body\.lectura, texto: body\.texto \}\)/);
+  assert.match(leer, /leerParaReplicar\(\{ url: body\.url, lectura: body\.lectura, texto: body\.texto, conAngulos: body\.angulos !== false \}\)/);
   const rep = fuente('lib/editor-landing/replicar.ts');
   assert.match(rep, /const partes = partesDePedido\(p\.partes, p\.adaptar === true\);/);
   assert.match(rep, /if \(!formatoConPartes\(formato, partes\)\) return falla\(ERROR_WEB_PARCIAL, 400, 'landing'\);/);
@@ -338,7 +351,7 @@ test('6. los enchufes: la ruta, replicar(), la lectura y el esquema importado', 
   assert.match(rep, /pedirEsquema\(\{ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params \}\)/);
   assert.match(rep, /crearLanding\(nombreDeCopia\(partes, hostDe\(url\), esq\.titulo\), contenido, config\)/);
   const ia = fuente('lib/editor-landing/ia.ts');
-  assert.match(ia, /p\.modo === 'importar' \? esquemaDeReplica\(texto, tituloFallback\) : esquemaConservado\(texto, tituloFallback\)/);
+  assert.match(ia, /p\.modo === 'importar' \|\| p\.corte === 'pagina' \? esquemaDeReplica\(texto, tituloFallback\) : esquemaConservado\(texto, tituloFallback\)/);
 });
 
 // AGENTS.md, «Lo que MaKo construye se ve CONSTRUYÉNDOSE» (28/10/2026): la réplica manda una línea por cosa armada.
@@ -401,4 +414,76 @@ test('9. en vivo: la ruta manda el flujo y replicar.ts avisa lo que armó, sin f
   assert.match(rep, /avisar\(\{ fase: 'esquema', secciones: esq\.secciones\.map\(\(s\) => s\.titulo\) \}\);/);
   assert.match(rep, /porIndice\.set\(indices\[k\], t\); avisar\(\{ fase: 'seccion', indice: indices\[k\]/, 'una sección se avisa cuando su tanda VOLVIÓ');
   assert.match(rep, /avisar\(\{ fase: 'seccion', indice: i, titulo: s\.titulo, respaldo: true \}\);/);
+});
+
+// La revisión adversarial de 45a8e5234 (Cerebro, 28/10/2026, C:/dev/revisiones/2810-replicar-45a8e5234.md): sus siete
+// defectos, cada uno con su caso.
+test('10a. dos o tres h1 con muchos h2 no colapsan la página en dos secciones (revisión, 1)', () => {
+  // Webflow o Framer: un h1 en el hero y otro en el cierre. Con 19 h2 o más, el corte se quedaba en h1: 2 secciones.
+  for (const [h1, h2] of [[2, 20], [3, 25], [2, 19]] as const) {
+    const r: string[] = ['# Hero de la página', 'Bajada del hero.'];
+    for (let i = 1; i <= h2; i++) r.push(`## Sección ${i}`, `Párrafo de la sección ${i}.`);
+    for (let i = 2; i <= h1; i++) r.push(`# Cierre ${i}`, 'Último empujón.');
+    const texto = r.join('\n');
+    assert.equal(nivelDeSeccion(texto.split('\n')), 2, `${h1} h1 + ${h2} h2: el nivel es h2`);
+    const e = esquemaDeReplica(texto, 'x');
+    assert.equal(e.secciones.length, MAX_SECCIONES, `${h1} h1 + ${h2} h2: tantas secciones como entran`);
+    assert.equal(renglonesDe(e), renglones(texto), 'sin tirar un renglón');
+    assert.match(JSON.stringify(e.secciones.at(-1)), new RegExp(`Cierre ${h1}`), 'el cierre llega');
+  }
+  // El caso que ya andaba sigue igual: un h1 solo es el hero.
+  assert.equal(nivelDeSeccion(['# a', '## b', '## c', '### d']), 2);
+});
+
+test('10b. las cifras de la original se comparan como números enteros, no como pedazos (revisión, 2)', () => {
+  const original = 'Más de 2.100 agencias y 41.450 reportes enviados. Soporte 24 horas, 7 días. Desde $100.000 por mes.';
+  const item = (valor: string) => ({ type: 'optimizadoItem', attrs: { valor }, content: [{ type: 'paragraph', content: [{ type: 'text', text: 'x' }] }] });
+  const valores = ['100%', '+500', '24/7', '8 semanas', '+2.100', '41.450', '1000+'];
+  const t = { type: 'tarjeta', content: [{ type: 'optimizado', attrs: { variante: 'numeros-grandes' }, content: valores.map(item) }] };
+  const r = quitarPruebaDeLaOriginal(t as never, original);
+  const quedan = (r.tarjeta.content?.[0].content ?? []).map((n) => n.attrs?.valor);
+  assert.deepEqual(quedan, ['100%', '+500', '24/7', '8 semanas', '', '', '1000+'], 'sólo se vacían las cifras de la otra');
+  assert.equal(r.quitados, 2);
+});
+
+test('10c. la copia escrita para el negocio no manda a la página de la original (revisión, 3)', () => {
+  assert.equal(dominioBase('https://www.competidor.com/es'), 'competidor.com');
+  assert.equal(dominioBase('app.competidor.com'), 'competidor.com');
+  assert.equal(dominioBase('https://www.tienda.com.ar/x'), 'tienda.com.ar');
+  assert.equal(dominioBase('no es una url'), '');
+  // La IA no ve a dónde llevaba el botón; un renglón que no es botón queda igual.
+  assert.equal(sinDestinoDeBoton('[BOTÓN] Probar gratis → https://app.competidor.com/signup'), '[BOTÓN] Probar gratis');
+  assert.equal(sinDestinoDeBoton('[BOTÓN] Ver planes'), '[BOTÓN] Ver planes');
+  assert.equal(sinDestinoDeBoton('Antes → después'), 'Antes → después');
+  // El respaldo sin IA armaba el botón con el destino ajeno.
+  const respaldo = tarjetaDesdeEsquema({ titulo: 'Empieza', puntos: ['[BOTÓN] Probar gratis → https://app.competidor.com/signup', '[BOTÓN] Agenda → https://calendly.com/mi-negocio'] }, false);
+  const texto = { type: 'paragraph', content: [{ type: 'text', text: 'precios', marks: [{ type: 'bold' }, { type: 'link', attrs: { href: 'https://competidor.com/precios' } }] }, { type: 'text', text: 'ancla', marks: [{ type: 'link', attrs: { href: '#planes' } }] }] };
+  const t = { ...respaldo, content: [...(respaldo.content ?? []), texto] };
+  const r = sinEnlacesALaOriginal(t, 'https://www.competidor.com/es');
+  assert.equal(r.cambiados, 2, 'el botón al signup y el enlace del texto');
+  const json = JSON.stringify(r.tarjeta);
+  assert.doesNotMatch(json, /competidor\.com/);
+  assert.match(json, /"href":"https:\/\/calendly\.com\/mi-negocio"/, 'lo que no es de la original se queda');
+  assert.match(json, /"href":"#planes"/);
+  assert.match(json, /"href":"#","variante":"primario","nuevaPestana":false/, 'un «#» no abre otra pestaña');
+  assert.match(JSON.stringify(t), /app\.competidor\.com\/signup/, 'puro: no toca la tarjeta que recibe');
+});
+
+test('10d. los enchufes de la revisión: la API no paga ángulos que no usa, Presentación, el texto pegado, la «Página web» (4 a 7)', () => {
+  const rep = fuente('lib/editor-landing/replicar.ts');
+  // 4. Con la estructura, el esquema no usa los ángulos: no se leen antes de él (la API no trae la lectura).
+  assert.match(rep, /angulos = sanearAngulos\(entrada\.angulos\);\n\s*if \(!angulos && !partes\.estructura\) \{/);
+  // 5. `adaptar` (el chequeo de lo copiado y el aviso de «el texto de la original») sólo con las mismas secciones.
+  assert.match(rep, /\.\.\.\(mismasSecciones && !partes\.texto \? \{ adaptar: true as const \} : \{\}\),/);
+  // 3. La IA no ve el destino, y los enlaces a la original pasan a «#» en todas las tarjetas, las de respaldo también.
+  assert.match(rep, /\.\.\.\(partes\.texto \? \{\} : \{ puntos: s\.puntos\.map\(sinDestinoDeBoton\) \}\),/);
+  assert.match(rep, /const tarjetas = partes\.texto \? tarjetasCrudas : tarjetasCrudas\.map\(\(t\) => \{\n\s*const r = sinEnlacesALaOriginal\(t, url\);/);
+  // 6. El texto pegado se corta como la lectura que vio la persona.
+  assert.match(rep, /pedirEsquema\(\{ modo: 'pegar', texto: entrada\.texto, params, corte: 'pagina' \}\)/);
+  // 7. La «Página web» de la caja: arranca con todo y la lectura no paga los ángulos.
+  const pantalla = fuente('app/web-generator/crear/Replicar.tsx');
+  assert.match(pantalla, /if \(formatoInicial === 'web'\) return PARTES_TODAS;/);
+  assert.match(pantalla, /void leer\(u, \{ ventana, \.\.\.\(formatoInicial === 'web' \? \{ sinAngulos: true \} : \{\}\) \}\)/);
+  assert.match(pantalla, /\.\.\.\(sinAngulos \? \{ angulos: false \} : \{\}\)/);
+  assert.match(fuente('lib/editor-landing/replicar-lectura.ts'), /p\.conAngulos === false \? Promise\.resolve\(\{ angulos: null \}\) : angulosDePagina\(esq, t\.url\)/);
 });

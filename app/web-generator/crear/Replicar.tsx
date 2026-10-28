@@ -53,7 +53,7 @@ import type { Lectura } from '@/lib/editor-landing/lectura-tipos';
 import type { TemaPropio } from '@/lib/editor-landing/api-tipos';
 import { TEMAS } from '@/lib/editor-landing/temas';
 import {
-  NOMBRE_PARTE, PARTES_ADAPTAR, PARTES_INICIALES, PARTES_REPLICA, alternarParte, formatoConPartes, listaDePartes, partesDePedido,
+  NOMBRE_PARTE, PARTES_ADAPTAR, PARTES_INICIALES, PARTES_REPLICA, PARTES_TODAS, alternarParte, formatoConPartes, listaDePartes, partesDePedido,
   type ParteReplica, type PartesReplica,
 } from '@/lib/editor-landing/replicar-partes';
 import { resumenDeMolde } from '@/lib/editor-landing/replicar-estructura';
@@ -412,13 +412,13 @@ export type EstadoLectura =
  */
 export function useLeerParaReplicar(): {
   estado: EstadoLectura;
-  leer: (url: string, extra?: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string }) => Promise<void>;
+  leer: (url: string, extra?: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean }) => Promise<void>;
 } {
   const [estado, setEstado] = useState<EstadoLectura>({ fase: 'quieta' });
   const montado = useRef(true);
   useEffect(() => { montado.current = true; return () => { montado.current = false; }; }, []);
-  const leer = useCallback(async (url: string, extra: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string } = {}) => {
-    const { ventana = null, ...dato } = extra;
+  const leer = useCallback(async (url: string, extra: { ventana?: VentanaDelClic | null; lectura?: Lectura; texto?: string; sinAngulos?: boolean } = {}) => {
+    const { ventana = null, sinAngulos = false, ...dato } = extra;
     const usaVentana = !dato.lectura && !dato.texto;
     if (ventana && ventana !== 'bloqueada' && !usaVentana) cerrarVentana(ventana);
     setEstado({ fase: 'leyendo' });
@@ -427,7 +427,7 @@ export function useLeerParaReplicar(): {
       ventana: usaVentana ? ventana : null,
       pedir: (leida) => {
         if (leida) setEstado({ fase: 'leyendo' });
-        return postJson<RespuestaLectura>('/api/landing-generator/replicar/leer', { url, ...dato, ...(leida ? { lectura: leida } : {}) }, PLAZO_LECTURA_MS);
+        return postJson<RespuestaLectura>('/api/landing-generator/replicar/leer', { url, ...dato, ...(leida ? { lectura: leida } : {}), ...(sinAngulos ? { angulos: false } : {}) }, PLAZO_LECTURA_MS);
       },
       pideNavegador: (x) => !x.ok && (x as { enNavegador?: boolean }).enNavegador === true,
       alLeer: () => setEstado({ fase: 'leyendo', enVentana: true }),
@@ -480,6 +480,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   // siempre (todas), y la pantalla arrancaba con las cuatro prendidas (visto en la app, 28/10/2026).
   const [partes, setPartes] = useState<PartesReplica>(() => {
     if (adaptarInicial) return PARTES_ADAPTAR;
+    // La «Página web» elegida en la caja es la copia idéntica: todo (revisión del 28/10/2026: arrancaba en «Landing»).
+    if (formatoInicial === 'web') return PARTES_TODAS;
     const guardadas = leerLocal<unknown>(CLAVE_PARTES, null);
     return guardadas == null ? PARTES_INICIALES : partesDePedido(guardadas) ?? PARTES_INICIALES;
   });
@@ -508,7 +510,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
   const ocupado = leyendo || replicando;
 
   /** Leer `u`. `ventana`: la que se abrió EN EL CLIC (el submit) o la que reservó el ↑ de la caja (el arranque). */
-  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => { void leer(u, { ventana }); }, [leer]);
+  // Con la «Página web» de la caja, la lectura no paga los ángulos (la copia idéntica no los usa).
+  const leerPagina = useCallback((u: string, ventana: VentanaDelClic | null) => { void leer(u, { ventana, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) }); }, [leer, formatoInicial]);
 
   // El ref sobrevive al doble montaje del modo estricto: la lectura se paga una sola vez (y la ventana se toma una).
   const arrancado = useRef(false);
@@ -580,8 +583,8 @@ export function ReplicarUnaPagina({ url: urlInicial, formato: formatoInicial, ad
           ocupado={false}
           accionTexto="Leer este texto"
           salida={lectura.salida}
-          onLectura={(l) => void leer(lectura.url, { lectura: l })}
-          onTexto={(t) => void leer(lectura.url, { texto: t })}
+          onLectura={(l) => void leer(lectura.url, { lectura: l, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) })}
+          onTexto={(t) => void leer(lectura.url, { texto: t, ...(formatoInicial === 'web' ? { sinAngulos: true } : {}) })}
         />
       ) : lectura.fase === 'falla' ? (
         <p className="gp-error" role="alert">{lectura.error}<ReportarASoporte /></p>

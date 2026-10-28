@@ -28,12 +28,13 @@ export async function POST(req: Request) {
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
 
-  let body: { url?: unknown; lectura?: unknown; texto?: unknown };
+  let body: { url?: unknown; lectura?: unknown; texto?: unknown; angulos?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }
   if (!body || typeof body !== 'object') return falla(400, 'body inválido');
 
   try {
-    const r: ResultadoLectura = await leerParaReplicar({ url: body.url, lectura: body.lectura, texto: body.texto });
+    // `angulos: false`: sin la llamada de IA (la «Página web» de la caja no los usa).
+    const r: ResultadoLectura = await leerParaReplicar({ url: body.url, lectura: body.lectura, texto: body.texto, conAngulos: body.angulos !== false });
     if (!r.ok) {
       return falla(r.status ?? 400, r.error, r.enNavegador && r.motivo ? { pegable: true, enNavegador: true, motivo: r.motivo } : {});
     }
