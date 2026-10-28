@@ -30,6 +30,8 @@ import { proponerChat, proponerPantallaGenerica, TTL_PENDIENTE_MIN, RUTA_BANDEJA
 import { esAccion, esControl, esLectura, type Ctx, type Falta, type Resultado } from './tipos';
 import { conexion } from '@/lib/conexiones-catalogo';
 import { sanearBloque } from '@/lib/chat-bloques';
+import { tzDeWorkspace, TZ_DEFAULT } from '@/lib/timezone';
+import { conHorasDelNegocio } from './horas-del-negocio';
 
 export { vistaDe };
 
@@ -192,9 +194,17 @@ export function faltaParaElModelo(f: Falta, ctx: Pick<Ctx, 'aFalta' | 'ws'>): Re
 
 export function runnerDelRegistro(ctx: Ctx) {
   let vista: Vista | null = null;
+  // La zona del negocio, una vez por conversación del modelo: las lecturas le llegan con sus horas ahí (./horas-del-negocio.ts).
+  let tz: string | null = null;
   return async (name: string, input: Record<string, unknown>): Promise<string | { content: string; isError?: boolean }> => {
     vista ??= await vistaDe(ctx);
     const r = await ejecutarOperacion(name, input, ctx, 'json', vista);
+    // Lo que LEE el modelo, con las horas en la zona del negocio y el día de cada fecha (28/10/2026, «20:00 hs» que eran las
+    // 17:00 y «lunes 27/10» que era martes). La API HTTP no pasa por acá: recibe los datos crudos.
+    if (r.ok && r.tipo === 'lectura') {
+      tz ??= await tzDeWorkspace(ctx.ws).catch(() => TZ_DEFAULT);
+      return conHorasDelNegocio(r.resultado, tz);
+    }
     if (!r.ok) {
       const cuerpo: Record<string, unknown> = { ok: false, error: r.error };
       if (r.faltan) cuerpo.faltan = r.faltan;
@@ -205,7 +215,7 @@ export function runnerDelRegistro(ctx: Ctx) {
       // texto, igual que hoy, para que el modelo pida lo que falta.
       return r.status === 400 ? JSON.stringify(cuerpo) : { content: JSON.stringify(cuerpo), isError: true };
     }
-    if (r.tipo === 'lectura' || r.tipo === 'control') return r.resultado;
+    if (r.tipo === 'control') return r.resultado;
     if (r.tipo === 'pendiente') {
       // Heredada: la salida vieja, textual, con su `instruccion` de siempre.
       if (r.crudo) return r.crudo;

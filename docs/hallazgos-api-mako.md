@@ -2712,3 +2712,36 @@ en la barra pone en rojo cada texto que la nombra con el nombre de antes.
 
 **Ojo:** «Configuraciones» también es el panel de la tuerca de Automations, y ahí los tests prueban que MaKo NO lo nombre (lo
 muestra con el ícono). Esos textos de los tests no se tocan.
+
+## Las horas y los totales que lee el modelo: en la zona del negocio, con su día, y ya sumados (28/10/2026, claude4)
+
+**El síntoma** (el diagnóstico de MaKo en WhatsApp, C:/dev/revisiones/2810-diagnostico-mako-whatsapp.md, F3), en Código
+Inmobiliario:
+- el 26/10, «Francisco Piñeiro Negri - Horario: 20:00 hs» cuando era a las 17:00, y «lunes 27/10» cuando era martes;
+- para el mismo período, 25 no-shows y 14 sin marcar, y once minutos después, 28 y 10.
+
+**La causa:**
+- `reuniones_proximas` daba la hora como el instante de Calendly en UTC, y las fechas sin su día de la semana. El modelo no
+  convertía, o convertía mal, y calculaba el día a mano. No era sólo esa herramienta: casi todas las lecturas dan instantes en
+  UTC (`created_at`, `at`) y fechas sin día.
+- `metricas_negocio` trae una fila TOTAL, pero al final de una tabla de 24 columnas, y sin las reuniones 1 y 2 juntas. El modelo
+  sumaba los meses a mano, distinto cada vez. Ni el doer ni el runner recortan la salida: no es que la fila no llegara.
+
+**El diagnóstico obvio era el equivocado:** arreglar `reuniones_proximas` (crm.run.ts) y pedirle al prompt que no convierta.
+Son decenas de lecturas en todas las áreas, y las nuevas nacerían con el mismo defecto.
+
+**La regla:**
+- Lo que LEE el modelo pasa por UN lugar: `runnerDelRegistro` (ejecutar.ts) → `conHorasDelNegocio` (horas-del-negocio.ts). Un
+  instante con zona sale como «2026-10-27 17:00» en la hora del negocio, y toda fecha o instante suma `<campo>_dia_semana`, con
+  la zona y una nota que le dice al modelo que no convierta. La fecha sola NO cambia: el modelo la pasa tal cual a otra
+  herramienta.
+- NO en `ejecutarOperacion`: por ahí pasan la API HTTP (un programa, que recibe los datos crudos) y el código que lee el JSON
+  (centro-plan, flujo).
+- Un número que el modelo tiene que decir «del período» lo suma el código y va ARRIBA (`totalesDelPeriodo`, metricas-modelo.ts),
+  con lo que se pregunta junto («no-shows» son las reuniones 1 y 2).
+
+**Sin hacer:** las lecturas que devuelven TEXTO con fechas adentro (no JSON) siguen igual; y `resumenLead`
+(lib/mako-tools.ts) y las herramientas viejas del doer que no pasan por el registro.
+
+**Vive en:** lib/api-mako/horas-del-negocio.ts · lib/api-mako/ejecutar.ts (`runnerDelRegistro`) · lib/metricas-modelo.ts ·
+tests/horas-del-negocio.test.ts
