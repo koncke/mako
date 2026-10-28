@@ -188,7 +188,8 @@ test('Importar: baja la URL TAL CUAL, acepta la lectura del navegador y contesta
 
 test('Replicar: el formato y la lectura llegan a replicar(), y la copia idéntica baja la URL tal cual', () => {
   const ruta = sinComentarios(leer('app/api/landing-generator/replicar/route.ts'));
-  assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto, adaptar: body\.adaptar \}\)/);
+  // 28/10/2026: y lo de replicar por partes (tests/web-generator-replicar-partes.test.ts).
+  assert.match(ruta, /replicar\(\{ url: body\.url, formato: body\.formato, modo: body\.modo, lectura: body\.lectura, texto: body\.texto, partes: body\.partes, tema: body\.tema, angulos: body\.angulos, adaptar: body\.adaptar \}\)/);
   const rep = sinComentarios(leer('lib/editor-landing/replicar.ts'));
   assert.match(rep, /htmlDePagina\(url, \{ talCual: true \}\)/);
   assert.match(rep, /configDeReplica\(formato, url, \{ adaptar: p\.adaptar === true \}\)/);

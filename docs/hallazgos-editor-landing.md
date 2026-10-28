@@ -3306,3 +3306,67 @@ ya lo avisa `AVISO_SCROLL`. **Sin medir:** sendipro.com, la página del ticket, 
 sin www, medido el 27/10), y una búsqueda tampoco la encuentra. Falta la dirección exacta para ver qué no se copió.
 
 Tests: tests/web-generator-replicar-adaptar.test.ts y tests/editor-landing-replicar.test.ts. Probados rompiéndolos.
+
+## Replicar por partes: diseño, estructura, ángulos y texto, y la estructura que perdía secciones (28/10/2026, claude4)
+
+Martín: «una cosa es replicar el branding, otra cosa es replicar la estructura, otra cosa es replicar los ángulos de
+comunicación, los copies». «Replicar landing» lee primero la página y muestra su estructura, sus ángulos y su diseño.
+Después pregunta QUÉ replicar con cuatro partes combinables: Diseño · Estructura · Ángulos · Texto literal. El default es
+el caso de Martín: estructura + ángulos, con SU tema y el texto escrito para SU oferta. Vive en
+`lib/editor-landing/replicar-partes.ts` (las reglas), `replicar-estructura.ts`, `replicar-angulos.ts`,
+`replicar-lectura.ts` (POST `/api/landing-generator/replicar/leer`) y `app/web-generator/crear/Replicar.tsx`.
+
+- **El diagnóstico obvio era el equivocado: «la réplica tiene las mismas secciones» no era cierto en una landing larga.**
+  «Conservar» (`esquemaConservado`, el de «Pegar texto») cortaba en CADA `#`, `##` y `###` y se quedaba con las primeras
+  20 (`MAX_SECCIONES`), sin avisar. Medido el 28/10 con el HTML real y el respaldo sin IA: 100ads.ai llegaba con 965 de
+  2.148 palabras (45%), 3 de 8 botones y SIN la garantía, las preguntas ni el cierre; gohighlevel 79%, kommo 68%,
+  hotmart 83%, leadsales 90%. Y cada tarjeta de una grilla (un `###` adentro de un `##`) salía como sección suelta.
+  **Regla:** una página LEÍDA se corta en su NIVEL DE SECCIÓN (el título más alto que aparece dos veces; un h1 solo es
+  el hero), lo de adentro queda como subtítulo `### …`, y si sobran secciones se JUNTAN las vecinas más chicas: nunca se
+  tira texto (`esquemaDeReplica`). Ahora: 100% de las palabras y de los botones en las cinco. Lo usa también «Importar»
+  con «Conservar» (ia.ts); lo pegado por la persona sigue como antes.
+- **El respaldo sin IA escribía el `###` como texto.** `tarjetaDesdeEsquema` ahora lo dibuja como subtítulo
+  (`RE_SUBTITULO_LEIDO`, ia-reglas.ts).
+- **El ws3 no tiene NINGUNA IA** (0 filas en `credenciales`), y el crédito de Claude para `landing-editor` está
+  habilitado sólo en el espacio de MaKo (`CREDITO_HABILITADO_PARA`, `soloLaPlataforma`). La cascada barata de la
+  plataforma no contestó. En el ws3 sólo se puede medir lo que no usa IA: la lectura de la estructura y del diseño, y la
+  réplica «texto literal» con el respaldo. Los ángulos y la reescritura necesitan otro negocio con IA.
+- **Medir desde un script, sin levantar la app:** `runWithWorkspace(3, …)` (lib/workspace.ts) fija el negocio. `crear` llama
+  a `cookies()` para el autor: fuera de un pedido tira «`cookies` was called outside a request scope». En el script se
+  reemplaza `next/headers` con un `Module._load` que devuelve un almacén vacío (el autor queda null). Se corre con
+  `node --env-file=<.env.local> --conditions=react-server --require <stub> --import tsx`.
+- **La instrucción de la réplica va con las REGLAS primero y los datos al final** (el molde de cada sección y los
+  ángulos), y con el tope de `instrucciones` (5.000): si algo no entra, se recorta un dato, nunca «no copies frases».
+- **Los ángulos son una lectura aparte del Landing Analyst**: el Analyst diagnostica una página PROPIA contra su tráfico
+  (veredicto, puntajes, hallazgos) y guarda una fila en `landing_analyses`; para replicar hace falta CÓMO vende una página
+  AJENA (promesa, dolores, forma de venta, objeciones, tipo de prueba y el ángulo de cada sección). No se guarda: viaja en
+  la pantalla y vuelve con el pedido de la réplica (no se paga dos veces). Su prompt es editable
+  (`landing_editor.angulos.*` en lib/prompt-registry.ts).
+- **100ads.ai cambia su h1 entre una bajada y otra** («100 anuncios en lo que dura un café» / «en lo que tardás en hacer
+  uno» / «Lo que te lleva horas, listo en 10 minutos»): prueba A/B de su portada. Medir dos veces la misma página puede
+  dar dos títulos; la estructura no cambia.
+- **El presupuesto del turno de la app:** `replicar_landing` sumó `partes` y quedó MÁS CHICA (2.464 → 2.437 caracteres,
+  `scripts/presupuesto-turno-app.mts`), recortando la descripción.
+- **`quitarPruebaInventada` deja pasar justo lo de la competencia** en una réplica reescrita: sus testimonios y sus
+  cifras «están en el material» (el material ES la página de otro). La red en código es `quitarPruebaDeLaOriginal`
+  (ia-reglas.ts): una cita TEXTUAL de la original o una cifra con sus mismos números (3 dígitos o más: «3 pasos» no es
+  de nadie) se vacían, y las frases iguales a la original se cuentan en el log y en el aviso.
+- **Mirar la pantalla sin build:** con ~10 chats, el vigía mató el `next build --debug-build-paths` de `/web-generator`
+  dos veces (2,3 y 3,4 GB privados, con 0,7 GB libres). Lo que anduvo: renderizar los componentes REALES con
+  `renderToStaticMarkup` (tsx, `NODE_PATH` al `node_modules` del worktree y `import React`), con las hojas del Panel
+  (`CSS_GP`, `CSS_PANEL`, `CSS_TIPO`, `CSS_REPLICAR`) y los datos medidos, servirlo con `python -m http.server` en
+  127.0.0.1 (un `file://` el panel del navegador lo muestra como foto y no deja medir) y medirlo a 375 px y en
+  escritorio. Encontró dos cosas: la grilla de temas compartida pide 180 px por columna y en un teléfono son seis
+  tarjetas altas antes de «Replicar» (en Replicar va de a dos), y un chip con `--gp-azul-50` no cambia en el modo
+  oscuro (va con los tokens `activo`).
+
+Lo que quedó SIN hacer:
+- Medir los ángulos y la reescritura con IA de verdad: el ws3 no tiene (pregunta hecha al Cerebro, 28/10).
+- Recorrer el flujo entero en la app (leer en la ventana del clic una SPA como adcreative.ai/es, replicar, abrir el
+  editor): no entró el build en la RAM; queda para cuando haya memoria o en producción en el ws3.
+- «Cómo está acomodado» (el layout de cada sección: tarjetas en fila, imagen a un costado) todavía no viaja como molde:
+  la IA ve el texto de la sección y elige el diseño. La lectura del navegador trae las cajas de cada parte
+  (`estilo.secciones`): de ahí saldría.
+
+Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: siete roturas, cada una caza), y los de Replicar
+que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).

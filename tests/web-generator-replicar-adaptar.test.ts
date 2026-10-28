@@ -65,8 +65,11 @@ test('2. el cuadro de crear: «Replica y adapta» en la pastilla del link, y via
   const caja = fuente('app/web-generator/CajaCrear.tsx');
   assert.match(caja, /\{ valor: 'replicar', texto: 'Replica esta landing'/);
   assert.match(caja, /\{ valor: 'adaptar', texto: 'Replica y adapta a tu oferta'/);
+  // 28/10/2026: el panel ya no tiene «Tal cual | Adaptada»: tiene QUÉ replicar por partes (replicar-partes.ts), y «adapta»
+  // arranca con diseño + estructura + ángulos (el texto, escrito para la oferta).
   const panel = fuente('app/web-generator/crear/Replicar.tsx');
-  assert.match(panel, /\[false, 'Tal cual', 'copiar'\], \[true, 'Adaptada a tu oferta', 'varita'\]/);
+  assert.match(panel, /useState<PartesReplica>\(\(\) => \(adaptarInicial \? PARTES_ADAPTAR : /);
+  assert.match(panel, /<SelectorPartes partes=\{partes\} onCambio=\{cambiarPartes\}/);
   assert.match(fuente('app/web-generator/Inicio.tsx'), /<ReplicarUnaPagina [^>]*adaptar=\{derecha\.adaptar\}/);
 });
 

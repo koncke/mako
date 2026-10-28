@@ -10,6 +10,8 @@
 // lib/editor-landing/lectura-tipos.ts) o `texto` (pegado): cualquiera de los dos reemplaza la bajada.
 // El pedido VIEJO `{ url, modo: 'bloques' | 'fiel' }` se sigue aceptando mientras dure un deploy (una
 // pestaña abierta con la pantalla anterior): 'bloques' = Landing, 'fiel' = Página web.
+// 28/10/2026: `partes` (qué se replica: diseño, estructura, ángulos, texto), `tema` (el de la persona, sin el diseño de la
+// original) y `angulos` (los de la lectura que vio la persona, ./leer). Sin `partes`, lo de siempre.
 //
 // Contesta `RespuestaReplicar` (lib/editor-landing/replicar-reglas.ts): `{ ok, id, titulo, secciones,
 // formato, aviso?, animaciones?, avisoScroll? }` (las dos últimas, tanda 8: las animaciones copiadas como Landing
@@ -41,12 +43,12 @@ export async function POST(req: Request) {
   if (rol !== 'admin') return falla(403, 'Sólo el admin de la cuenta');
   if (!tabEnCapa('landing-writer', await getCapaActual())) return falla(404, 'No existe');
 
-  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown };
+  let body: { url?: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown; partes?: unknown; tema?: unknown; angulos?: unknown };
   try { body = await req.json(); } catch { return falla(400, 'body inválido'); }
   if (!body || typeof body !== 'object') return falla(400, 'body inválido');
 
   try {
-    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto, adaptar: body.adaptar });
+    const r = await replicar({ url: body.url, formato: body.formato, modo: body.modo, lectura: body.lectura, texto: body.texto, partes: body.partes, tema: body.tema, angulos: body.angulos, adaptar: body.adaptar });
     // `probar` (verificación de la tanda 6): el formato que sí puede andar, si el error lo propone; la pantalla
     // lo ofrece como botón («Replicar como Landing»).
     if (!r.ok) {

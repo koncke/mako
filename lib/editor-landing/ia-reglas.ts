@@ -440,6 +440,8 @@ export function tarjetaDesdeEsquema(s: SeccionEsquema, esPrimera: boolean): Json
  */
 const RE_BOTON_LEIDO = /^\[BOT[ÓO]N\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
 const RE_DESPLEGABLE_LEIDO = /^\[(?:DESPLEGABLE|PESTAÑA)\]\s*(.+?)(?:\s*→\s*(.*))?$/i;
+/** Un subtítulo adentro de la sección (`### …`: las tarjetas de una grilla, los pasos; replicar-estructura.ts, 28/10/2026). */
+const RE_SUBTITULO_LEIDO = /^#{1,6}\s+(.+)$/;
 /** La viñeta que el lector pone adelante de un renglón de lista. */
 const RE_VINETA_LEIDA = /^[•▪]\s+/;
 /** Hasta cuántos botones van en una fila (los mismos que deja la IA: nodoBotones de ia-bloques.ts). */
@@ -456,6 +458,8 @@ export function hrefDeDestinoLeido(d: string | undefined): string {
 
 /** El bloque de un renglón con marca; 'sumado' si se sumó al bloque anterior (un botón más en la fila); null si no tiene. */
 function bloqueDeMarca(p: string, anterior: JsonNodo | undefined): JsonNodo | 'sumado' | null {
+  const sub = RE_SUBTITULO_LEIDO.exec(p.trim());
+  if (sub) return titulo(sub[1].trim().slice(0, MAX_TITULO_SECCION), 3);
   const b = RE_BOTON_LEIDO.exec(p.trim());
   if (b) {
     const href = hrefDeDestinoLeido(b[2]);
@@ -698,6 +702,50 @@ export function quitarPruebaInventada(t: JsonNodo, material: string): { tarjeta:
     return nodo.content ? { ...nodo, content: nodo.content.map((c) => caminar(c, citas, cifras)) } : nodo;
   };
   return { tarjeta: caminar(t, false, false), quitados };
+}
+
+/**
+ * La otra cara, para una RÉPLICA cuyo texto se escribe de nuevo para el negocio (28/10/2026, replicar-partes.ts): ahí el
+ * material ES la página de OTRO negocio, así que `quitarPruebaInventada` deja pasar justo lo que no puede pasar (sus
+ * testimonios y sus cifras «están en el material»). La regla «de la referencia no pasa nada propio» va en el prompt; lo
+ * que se puede chequear en código, acá:
+ *   · una cita cuyo arranque es TEXTUAL de la original → se vacía (queda el bloque con su placeholder);
+ *   · el `valor` de un ítem de estadísticas con los MISMOS números que la original (de 3 dígitos o más: «3 pasos» no
+ *     es una cifra de nadie) → se vacía el valor;
+ *   · `copiadas`: los renglones de 8 palabras o más que quedaron iguales a la original (no se tocan: sin estructura no
+ *     se sabe qué poner; se cuentan para el log y el aviso).
+ */
+export function quitarPruebaDeLaOriginal(t: JsonNodo, original: string): { tarjeta: JsonNodo; quitados: number; copiadas: number } {
+  const fuente = normalizar(original) + ' ' + String(original ?? '').replace(/\s+/g, ' ');
+  let quitados = 0;
+  let copiadas = 0;
+  const textual = (texto: string, minimo: number) => {
+    if (/\[[^\]]{2,}\]/.test(texto)) return false;
+    const c = normalizar(texto);
+    return c.length >= minimo && fuente.includes(c.slice(0, 40));
+  };
+  const cifraAjena = (valor: string) => {
+    if (/\[[^\]]*\]/.test(valor)) return false;
+    const nums = String(valor ?? '').match(/\d+(?:[.,]\d+)*/g);
+    if (!nums || nums.join('').replace(/\D/g, '').length < 3) return false;
+    return nums.every((d) => fuente.includes(d) || fuente.includes(d.replace(/[.,]/g, '')));
+  };
+  const caminar = (n: JsonNodo, enCitas: boolean, enCifras: boolean): JsonNodo => {
+    if (n.type === 'blockquote' || (enCitas && n.type === NODO.optimizadoItem)) {
+      if (textual(textoDe(n, ' '), 12)) { quitados++; return vaciar(n); }
+    }
+    if ((n.type === 'paragraph' || n.type === 'heading') && textoDe(n, ' ').split(/\s+/).filter(Boolean).length >= 8 && textual(textoDe(n, ' '), 30)) copiadas++;
+    let nodo = n;
+    if (enCifras && n.type === NODO.optimizadoItem) {
+      const valor = String((n.attrs ?? {}).valor ?? '');
+      if (valor && cifraAjena(valor)) { quitados++; nodo = { ...n, attrs: { ...n.attrs, valor: '' } }; }
+    }
+    const variante = n.type === NODO.optimizado ? String((n.attrs ?? {}).variante ?? '') : '';
+    const citas = enCitas || VARIANTES_CITA.has(variante);
+    const cifras = enCifras || VARIANTES_CIFRA.has(variante);
+    return nodo.content ? { ...nodo, content: nodo.content.map((c) => caminar(c, citas, cifras)) } : nodo;
+  };
+  return { tarjeta: caminar(t, false, false), quitados, copiadas };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

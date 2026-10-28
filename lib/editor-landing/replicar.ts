@@ -47,6 +47,17 @@
 //   · Página web: el HTML ya trae lo suyo; lo atado al scroll no corre en la copia y se avisa (`scrollDeLaPagina`);
 //   · Presentación: nada (las diapositivas no se recorren con el scroll).
 // Si la original seguía al scroll, el resultado lo dice en UNA línea (`AVISO_SCROLL`, en `aviso` y `avisoScroll`).
+//
+// 28/10/2026 (Martín: «una cosa es replicar el branding, otra cosa es replicar la estructura, otra cosa es replicar los
+// ángulos de comunicación, los copies»): QUÉ se replica, por PARTES (replicar-partes.ts): diseño, estructura, ángulos y
+// texto. `partes` en el pedido; sin el campo, lo de siempre (`adaptar` → diseño + estructura + ángulos; si no, todo).
+//   · sin el diseño: ni el tema de la original, ni sus imágenes, ni sus animaciones: la landing nace con el TEMA que
+//     eligió la persona (`tema`: uno del catálogo o uno propio del negocio; `temaDeLaPersona`);
+//   · con la estructura y sin el texto: el esquema es el de la página y la tanda de secciones lo escribe de nuevo con el
+//     MOLDE de cada sección (la cantidad de títulos, párrafos, viñetas y botones) y los ÁNGULOS;
+//   · sin la estructura: la IA arma el esquema para la oferta del negocio, con los ángulos si se pidieron;
+//   · los ángulos llegan de la lectura que vio la persona (`angulos`, replicar-lectura.ts) o se leen acá.
+// La fidelidad de la estructura (las secciones, los títulos y los párrafos contra la original) va al log.
 // =============================================================================
 
 import 'server-only';
@@ -55,7 +66,7 @@ import { getWorkspaceActual } from '../workspace';
 import { conMemoriaDelPedido } from '../ia-saturacion';
 import { crear, guardarTema, temasPropiosDe } from './server';
 import { esquema as pedirEsquema, secciones as pedirSecciones } from './ia';
-import { tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
+import { quitarPruebaDeLaOriginal, tandasDe, tarjetaDesdeEsquema } from './ia-reglas';
 import { nuevoId, type JsonNodo, type LandingContenido } from './doc';
 import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
@@ -68,9 +79,19 @@ import { TOPES_IMAGENES_REPLICA, aplicarEstilo, asignarSecciones, imagenesParaSu
 import { bajarHoja, estiloDeLaPagina, subirImagenes } from './estilo-server';
 import { colorDeRelleno, temaPorId } from './temas';
 import { AVISO_SCROLL, animacionesDeReplica, conAnimaciones, scrollEnCss, scrollEnHtml } from './replicar-animaciones';
+import {
+  ERROR_WEB_PARCIAL, PEDIDO_SIN_ESTRUCTURA, formatoConPartes, instruccionDePartes, listaDePartes, nombreDeCopia, partesDePedido,
+  recetaDePartes, type PartesReplica,
+} from './replicar-partes';
+import { esquemaDeReplica, fidelidadDeEstructura, lineaDeFidelidad, moldeDeEsquema, textoDeMolde } from './replicar-estructura';
+import { sanearAngulos, textoDeAngulos, type Angulos } from './replicar-angulos';
+import { angulosDePagina, textoDePagina } from './replicar-lectura';
+import { TEMAS } from './temas';
 
 export type ResultadoReplicar = RespuestaReplicar & { status?: number };
 
+/** Lo que se espera a los ángulos cuando no vinieron con el pedido (la lectura de la pantalla ya los trae). */
+const PLAZO_ANGULOS_MS = 60_000;
 /** Plazo total por bloques: por debajo del `maxDuration` de la ruta (300 s), con aire para crear. */
 const PLAZO_BLOQUES_MS = 240_000;
 /** Lo que tarda como mucho una tanda (`PLAZOS.secciones.total` de ia.ts, 57 s, con margen). */
@@ -92,7 +113,11 @@ const falla = (error: string, status = 400, probar?: FormatoReplicar): Resultado
  * Lo que llega del pedido, sin forma confiable. `formato` manda; sin él, el `modo` viejo (tanda 2).
  * `lectura` / `texto` reemplazan la bajada (sólo por bloques).
  */
-export type EntradaReplicar = { url: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown };
+export type EntradaReplicar = {
+  url: unknown; formato?: unknown; modo?: unknown; lectura?: unknown; texto?: unknown; adaptar?: unknown;
+  /** 28/10/2026: qué se replica (replicar-partes.ts); el tema de la persona cuando el diseño no se copia; los ángulos ya leídos. */
+  partes?: unknown; tema?: unknown; angulos?: unknown;
+};
 
 /** Replica la landing de `url` en una landing nueva del workspace de la sesión. */
 export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
@@ -102,12 +127,15 @@ export async function replicar(p: EntradaReplicar): Promise<ResultadoReplicar> {
   if (!formato) return falla('Elige el formato: Presentación, Landing o Página web.');
   // «Replicar y adaptar» (27/10/2026): sólo por bloques; la copia idéntica ofrece «Landing».
   if (p.adaptar === true && formato === 'web') return falla(ERROR_ADAPTAR_WEB, 400, 'landing');
+  const partes = partesDePedido(p.partes, p.adaptar === true);
+  if (!partes) return falla('Elige qué replicar: diseño, estructura, ángulos o texto.');
+  if (!formatoConPartes(formato, partes)) return falla(ERROR_WEB_PARCIAL, 400, 'landing');
   const receta = configDeReplica(formato, url, { adaptar: p.adaptar === true });
   if (receta.via === 'fiel') return replicarFiel(url, receta);
   const texto = typeof p.texto === 'string' ? p.texto.trim().slice(0, MAX_TEXTO) : '';
   // Con memoria de cuelgues PROPIA (lib/ia-saturacion.ts): el modelo que se colgó en una tanda va al final de la lista en las
   // tandas que siguen y en la segunda vuelta de ESTA réplica, sin degradar a ningún otro pedido.
-  return conMemoriaDelPedido(() => replicarComoBloques(url, receta, { lectura: p.lectura, texto }));
+  return conMemoriaDelPedido(() => replicarComoBloques(url, receta, partes, { lectura: p.lectura, texto, angulos: p.angulos, tema: p.tema }));
 }
 
 /** El dominio de la página, sin `www.` (el nombre de una copia adaptada). */
@@ -158,22 +186,59 @@ async function replicarFiel(url: string, receta: ConfigReplica): Promise<Resulta
 // Presentación y Landing (por bloques)
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: { lectura: unknown; texto: string }): Promise<ResultadoReplicar> {
+/** Lo que llega del pedido para armar la réplica por bloques (lo pegado, la lectura del navegador, lo de las partes). */
+type EntradaBloques = { lectura: unknown; texto: string; angulos?: unknown; tema?: unknown };
+
+async function replicarComoBloques(url: string, recetaFormato: ConfigReplica, partes: PartesReplica, entrada: EntradaBloques): Promise<ResultadoReplicar> {
   const t0 = Date.now();
-  const params = receta.params ?? {};
-  // El estilo de la original, EN PARALELO con el esquema: el de la lectura del navegador si vino (los
-  // estilos computados de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira.
-  const leido = estiloDeLectura(entrada.lectura);
-  const estiloP: Promise<EstiloOriginal | null> = leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
-  // El texto pegado entra como «Pegar texto»; la lectura del navegador, como «Importar» sin bajar nada.
-  const e = entrada.texto
-    ? await pedirEsquema({ modo: 'pegar', texto: entrada.texto, params })
-    : await pedirEsquema({ modo: 'importar', url, lectura: entrada.lectura, params });
+  const base = recetaFormato.params ?? {};
+  // El estilo de la original, EN PARALELO con el esquema y SÓLO si se pidió el diseño: el de la lectura del navegador si
+  // vino (los estilos computados de la página armada), o el del HTML y sus hojas. `estiloDeLaPagina` nunca tira.
+  const leido = partes.diseno ? estiloDeLectura(entrada.lectura) : null;
+  const estiloP: Promise<EstiloOriginal | null> = !partes.diseno ? Promise.resolve(null) : leido ? Promise.resolve(leido) : estiloDeLaPagina(url);
+  // Los ÁNGULOS (cuando el texto se escribe de nuevo): los de la lectura que vio la persona, o se leen ahora. Si la IA no
+  // los lee, la réplica sigue: con la estructura, el texto de la original ya los trae sección por sección.
+  let angulos: Angulos | null = null;
+  if (partes.angulos && !partes.texto) {
+    angulos = sanearAngulos(entrada.angulos);
+    if (!angulos) {
+      const t = await textoDePagina({ url, lectura: entrada.lectura, texto: entrada.texto });
+      if (!t.ok) return { ok: false, error: t.error, status: t.status, ...(t.enNavegador && t.motivo ? seLeeEnNavegador(t.motivo) : {}) };
+      angulos = (await angulosDePagina(esquemaDeReplica(t.texto, t.titulo), url, t0 + PLAZO_ANGULOS_MS)).angulos;
+    }
+  }
+  // La receta por partes: la del esquema va sin el molde (sale del esquema); la de las secciones se completa después.
+  const instruccionEsquema = instruccionDePartes(partes, { angulos: angulos ? textoDeAngulos(angulos) : undefined });
+  const inicial = recetaDePartes(recetaFormato.formato, base, partes, { esquema: instruccionEsquema, secciones: instruccionEsquema });
+  const params = inicial.paramsEsquema;
+  // El esquema: con la estructura, el de la página (lo pegado entra como «Pegar texto»; la lectura del navegador, como
+  // «Importar» sin bajar nada); sin ella, el que arma la IA para la oferta del negocio.
+  const e = inicial.esquema === 'generar'
+    ? await pedirEsquema({ modo: 'generar', prompt: PEDIDO_SIN_ESTRUCTURA, params })
+    : entrada.texto
+      ? await pedirEsquema({ modo: 'pegar', texto: entrada.texto, params })
+      : await pedirEsquema({ modo: 'importar', url, lectura: entrada.lectura, params });
   if (!e.ok) {
     // `enNavegador` viaja tal cual: la pantalla ofrece el lector o pegar el texto y vuelve con eso.
     return { ok: false, error: e.error, status: e.status, ...(e.enNavegador && e.motivo ? seLeeEnNavegador(e.motivo) : {}) };
   }
   const esq: Esquema = e.esquema;
+  // Con la estructura de una Landing, la réplica tiene las MISMAS secciones que la página: el molde de cada una y su
+  // ángulo van en la tanda de secciones. `adaptar`: la sección que no pasa por la IA queda con el texto de la ORIGINAL.
+  const mismasSecciones = partes.estructura && recetaFormato.formato === 'landing';
+  const moldes = mismasSecciones ? moldeDeEsquema(esq) : null;
+  const instruccionSecciones = instruccionDePartes(partes, {
+    molde: moldes ? textoDeMolde(moldes) : undefined,
+    angulos: angulos ? textoDeAngulos(angulos, { esquema: esq, porSeccion: mismasSecciones }) : undefined,
+  });
+  // El `adaptar` del formato (el pedido viejo) no manda: lo deciden las partes.
+  const { adaptar: _adaptarDelFormato, ...delFormato } = recetaFormato;
+  void _adaptarDelFormato;
+  const receta: ConfigReplica = {
+    ...delFormato,
+    ...(partes.estructura && !partes.texto ? { adaptar: true as const } : {}),
+    paramsSecciones: recetaDePartes(recetaFormato.formato, base, partes, { esquema: instruccionEsquema, secciones: instruccionSecciones }).paramsSecciones,
+  };
   const estilo = await estiloP;
   // Qué sección de la réplica es cuál de la original (por el título), y la primera imagen de cada una
   // a NUESTRO bucket mientras la IA arma las secciones.
@@ -212,9 +277,21 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
   const faltan = tandas.map((t) => t.filter((i) => !porIndice.has(i))).filter((t) => t.length > 0);
   if (faltan.length) await correr(faltan, '2ª vuelta');
 
+  // Con el texto escrito de nuevo, lo que la IA dejó TEXTUAL de la original (sus citas y sus cifras) se vacía, y las frases
+  // iguales se cuentan (28/10/2026, `quitarPruebaDeLaOriginal`): «de la referencia no pasa nada propio» no es sólo un prompt.
+  const original = receta.adaptar ? esq.secciones.flatMap((s) => [s.titulo, ...s.puntos]).join('
+') : '';
+  let pruebaQuitada = 0;
+  let frasesIguales = 0;
   const tarjetas = esq.secciones.map((s, i) => {
     const t = porIndice.get(i);
-    if (t) return t;
+    if (t) {
+      if (!original) return t;
+      const f = quitarPruebaDeLaOriginal(t, original);
+      pruebaQuitada += f.quitados;
+      frasesIguales += f.copiadas;
+      return f.tarjeta;
+    }
     sinIA++;
     return tarjetaDesdeEsquema(s, i === 0);
   });
@@ -229,13 +306,15 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
     for (const u of faltan) intentadas.add(u);
     if (faltan.length) for (const [k, v] of await subirImagenes(faltan, ws, t0 + PLAZO_IMAGENES_MS)) subidas.set(k, v);
   }
-  const tema = await temaParaLaCopia(estilo, url);
+  // Sin el diseño de la original, el tema que eligió la persona (el suyo); con él, el tema propio armado con su estilo.
+  const tema = partes.diseno ? await temaParaLaCopia(estilo, url) : { ok: false as const, error: 'sin el diseño de la original' };
+  const temaPersona = partes.diseno ? null : await temaDeLaPersona(entrada.tema);
   // Las animaciones de la original (tanda 8), SÓLO como «Landing»: el estilo de la landing y el efecto propio de las
   // secciones que no siguen ese estilo (por el título, como las imágenes: `asig`). La Presentación no: sus
   // diapositivas pasan con Presentar, no con el scroll. Sin señales, `estilo` null y nada propio (queda el default).
   const anim = receta.formato === 'landing' && estilo ? animacionesDeReplica(estilo.animaciones, partesDeCadaSeccion(asig, estilo.secciones.length)) : null;
   const config: Partial<ConfigLanding> = {
-    ...(tema.ok ? { ...receta.config, tema: `ws:${tema.tema.id}` } : receta.config),
+    ...(tema.ok ? { ...receta.config, tema: `ws:${tema.tema.id}` } : temaPersona ? { ...receta.config, tema: temaPersona } : receta.config),
     ...(anim?.estilo ? { pagina: { ...CONFIG_DEFAULT.pagina, estiloAnimacion: anim.estilo } } : {}),
   };
   // El fondo de la tarjeta del tema que quedó (el guardado: si la persona ya lo había tocado, el suyo).
@@ -244,12 +323,13 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
   const animadas = anim ? conAnimaciones(puesto.tarjetas, anim.porSeccion) : { tarjetas: puesto.tarjetas, propias: 0 };
 
   const contenido: LandingContenido = { v: 1, paginas: [{ id: nuevoId('p'), titulo: 'Inicio', ruta: '', doc: { type: 'doc', content: animadas.tarjetas } }] };
-  // Adaptada, ya no es la de la original: no lleva su nombre.
-  const creada = await crearLanding(receta.adaptar ? `Adaptada de ${hostDe(url)}` : esq.titulo, contenido, config);
+  // Sin el texto de la original ya no es la de la original: no lleva su nombre («Adaptada de …», «Basada en …»).
+  const creada = await crearLanding(nombreDeCopia(partes, hostDe(url), esq.titulo), contenido, config);
   if ('ok' in creada) return creada;
+  const fidelidad = moldes ? `, fidelidad: ${lineaDeFidelidad(fidelidadDeEstructura(moldes, tarjetas))}` : '';
   const noCopiadas = Math.max(0, intentadas.size - subidas.size);
   const resumenAnim = anim ? `${anim.estilo ?? 'sin estilo'} + ${animadas.propias} propias${anim.avisoScroll ? ', con scroll' : ''}` : 'no';
-  console.log(`[editor-landing/replicar] ${receta.formato}${receta.adaptar ? ' adaptada' : ''} ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ${Math.round((Date.now() - t0) / 1000)} s)`);
+  console.log(`[editor-landing/replicar] ${receta.formato} [${listaDePartes(partes).join('+')}] ${url}${entrada.texto ? ' (texto pegado)' : entrada.lectura ? ' (leída en el navegador)' : ''} → #${creada.id} (${tarjetas.length} secciones, ${sinIA} sin IA, estilo ${estilo ? (leido ? 'del navegador' : 'del HTML') : 'no'}, tema ${tema.ok ? tema.tema.id : tema.error}, ${puesto.imagenes} imágenes y ${puesto.fondos} fondos de la original, ${noCopiadas} sin copiar, animaciones ${resumenAnim}, ángulos ${angulos ? 'sí' : 'no'}${original ? `, ${pruebaQuitada} citas o cifras de la original vaciadas, ${frasesIguales} frases iguales` : ''}${fidelidad}, ${Math.round((Date.now() - t0) / 1000)} s)`);
   const una = terminoTarjeta(receta.config);
   const varias = terminoTarjeta(receta.config, { plural: true });
   const avisos = [
@@ -257,16 +337,37 @@ async function replicarComoBloques(url: string, receta: ConfigReplica, entrada: 
     sinIA && receta.adaptar
       ? (sinIA === 1 ? `Una ${una} quedó con el texto de la original: adáptala con MaKo.` : `${sinIA} ${varias} quedaron con el texto de la original: adáptalas con MaKo.`)
       : sinIA ? (sinIA === 1 ? `Una ${una} quedó sin diseño.` : `${sinIA} ${varias} quedaron sin diseño.`) : '',
-    !estilo ? 'Sin el estilo de la original.' : !tema.ok && tema.tope ? 'Llegaste al tope de temas.' : '',
+    partes.diseno && !estilo ? 'Sin el estilo de la original.' : !tema.ok && 'tope' in tema && tema.tope ? 'Llegaste al tope de temas.' : '',
     noCopiadas ? (noCopiadas === 1 ? 'Una imagen no se copió.' : `${noCopiadas} imágenes no se copiaron.`) : '',
+    pruebaQuitada ? (pruebaQuitada === 1 ? 'Una cita o cifra de la original quedó vacía: pon la tuya.' : `${pruebaQuitada} citas o cifras de la original quedaron vacías: pon las tuyas.`) : '',
+    frasesIguales ? (frasesIguales === 1 ? 'Una frase quedó igual a la original: revísala.' : `${frasesIguales} frases quedaron iguales a la original: revísalas.`) : '',
     anim?.avisoScroll ? AVISO_SCROLL : '',
   ].filter(Boolean);
   return {
-    ok: true, id: creada.id, titulo: creada.titulo, secciones: tarjetas.length, formato: receta.formato,
+    ok: true, id: creada.id, titulo: creada.titulo, secciones: tarjetas.length, formato: receta.formato, partes: listaDePartes(partes),
     ...(avisos.length ? { aviso: avisos.join(' ') } : {}),
     ...(anim && (anim.estilo || animadas.propias) ? { animaciones: { estilo: anim.estilo, propias: animadas.propias } } : {}),
     ...(anim?.avisoScroll ? { avisoScroll: true as const } : {}),
   };
+}
+
+/**
+ * El tema que eligió la persona para la réplica SIN el diseño de la original (28/10/2026: «yo tengo definido un estilo de
+ * diseño de landing»): uno del catálogo (`pewter`) o uno propio del negocio (`ws:<id>`, que tiene que existir en ESTE
+ * workspace). Nunca tira: null = el de fábrica.
+ */
+async function temaDeLaPersona(raw: unknown): Promise<string | null> {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const id = raw.trim();
+  if (TEMAS.some((t) => t.id === id)) return id;
+  if (!id.startsWith('ws:')) return null;
+  try {
+    const ws = await getWorkspaceActual();
+    if (ws == null) return null;
+    return (await temasPropiosDe(ws)).some((t) => `ws:${t.id}` === id) ? id : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

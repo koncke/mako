@@ -543,7 +543,7 @@ export function Inicio(props: PropsInicio) {
       />
     );
   } else if (derecha.tipo === 'replicar') {
-    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} />;
+    contenido = <ReplicarUnaPagina key={derecha.url ?? ''} url={derecha.url} formato={derecha.formato} adaptar={derecha.adaptar} auto={derecha.auto} propios={props.propios} />;
   } else if (derecha.tipo === 'plantillas') {
     contenido = (
       <>
