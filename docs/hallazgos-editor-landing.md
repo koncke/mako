@@ -3501,3 +3501,19 @@ Lo que quedó SIN hacer:
 
 Tests: tests/web-generator-replicar-partes.test.ts (probado rompiéndolo: 31 roturas, cada una caza), y los de Replicar
 que fijaban el flujo viejo (la ventana del clic ahora la usa la LECTURA, y la réplica sale de lo leído sin abrir otra).
+
+## La copia fiel deja ciego al chat del editor, y pasarla a «Diseño editable» le saca el diseño (28/10/2026, Cerebro)
+
+**Vive en:** `lib/editor-landing/doc.ts:333-407` · `html-editable-seguro.ts:11-13` · `ia.ts:676` · `ia-reglas.ts:692-724`
+
+- **El síntoma:** Martín revisó la réplica de respond.io en producción: «esta horriblemente mal, no solo el diseño no se
+  parece en nada, sino que tampoco los copy». Quiere primero una copia IDÉNTICA y después pedirle cambios por prompt.
+- **Lo que hay que saber antes de tocarlo:**
+  - la copia fiel (`htmlLibre`) es invisible para Editar y Discutir: `textoDe` devuelve '' y Discutir recibe «Sección N:
+    (sin texto)». Ningún pedido por prompt puede leerla;
+  - pasarla a `htmlEditable` para que se pueda editar pierde el diseño: el saneo saca `style`, `link` y `meta`, y el
+    bloque se publica sin iframe. El CSS de la original tiene que ir a `config.diseno.css` (tope 200k, contra 400k de
+    `htmlLibre`);
+  - `quitarPruebaInventada` y `quitarPruebaDeLaOriginal` no miran el HTML de un diseño editable.
+- **La regla:** la fidelidad se mide con capturas lado a lado (1440 y 390) y el diff del texto visible, ANTES de elegir el
+  formato del bloque.

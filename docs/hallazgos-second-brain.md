@@ -2853,3 +2853,28 @@ corta la propagación): el panel lo apaga en `onDropCapture`. tests/chat-adjunto
 **Sin hacer:** lo subido para leer que nunca se lee (pestaña cerrada) queda en archivero/<ws>/chat-leer: no hay purga. La visión
 de una foto va a la Gemini del negocio antes que a su GPT (lib/ai-cheap.ts, `VISION_CASCADE`): ya pasaba en producción con el
 chat principal y Offer; arreglarlo aparte en `leerDocumentoIA` con el orden de `PROVS_SU_IA`.
+
+## «Todos los chats usan el Second Brain» era falso: lo que los prompts llaman así es el RAG (28/10/2026, Cerebro)
+
+**Vive en:** `lib/cerebro-recuperar.ts` · `lib/mako-context.ts` (`buildSystemPrompt`) · `lib/mako-doer-in.ts:1289` · `lib/editor-landing/landing-writer.ts:160-184` · `lib/mako-capacidades.ts`
+
+- **El pedido:** Martín, 28/10: «Supongo que todos los chats ya extraen data del second brain, si no lo hacen está mal... y que
+  sea eficiente justamente, por eso tenemos tipo grafo». Y que el del SuperAdmin conozca todas las funciones de MaKo.
+- ⚠️ **El diagnóstico obvio era el equivocado.** Ningún chat de la app lee el GRAFO. Lo que el código llama «Second Brain»
+  en los prompts (el comentario de mako-doer-in.ts:1289) es el RAG de `mako_knowledge` (`searchKnowledge`). La
+  recuperación barata del grafo existe (índice de ~300 tokens; vista local medida en 118-190), pero sólo la exponen dos
+  herramientas de la API, y el selector casi nunca las deja pasar.
+- **Lo que gasta hoy:** el turno de MaKo manda `buildSystemPrompt` entero (~2,3k tokens fijos más los datos del negocio)
+  en CADA paso del loop, hasta 8. «Buscar con MaKo» del mapa le manda hasta 250 nodos a la IA barata (~15k por búsqueda).
+- **El grafo no se guarda:** `construirCerebro()` lo arma en cada pedido (21 lecturas y un layout de d3 de 400 ticks), sin caché.
+- **Las funciones de MaKo no las ve ningún chat:** viven en la capa Construcción (`dev:<slug>`, app/admin/dev/areas.ts), que
+  sólo se DIBUJA. CAPACIDADES (la herramienta `listar_capacidades_mako`) sí llega a los chats, pero tiene 20 entradas, le
+  faltan Chats, Calendar, Classroom y los editores, y usa nombres de tab viejos.
+- **Por eso el chat del Web Generator no sabe qué hacen los Chats:** recibe funnel, perfil y 4 resultados del RAG, sin el área
+  'producto', y no tiene herramientas.
+- **La regla:** un chat trae del grafo SÓLO los nodos que necesita, pre-recuperados por el servidor con el mensaje, con un
+  presupuesto de tokens por chat. Las funciones de MaKo salen de UN catálogo (`lib/funciones-mako.ts`, con su test contra el
+  nav) que alimenta el grafo del SuperAdmin y también CAPACIDADES. Ojo: `recuperar` con profundidad 1 corta el detalle a
+  220 caracteres; el cuerpo (Hace / No hace) sólo viaja con profundidad 0.
+- **Sin hacer (al 28/10):** todo lo anterior. Lo lleva el chat «MaKo inteligente». El informe completo, con la tabla de cada
+  chat, sus tokens y la crítica de completitud, está en C:/dev/revisiones/2810-second-brain-relevamiento.md.
