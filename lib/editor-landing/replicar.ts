@@ -71,7 +71,7 @@ import { TOPES, nuevoId, textoDe, type JsonNodo, type LandingContenido } from '.
 import { sanearEnvoltorios, sanearHtmlEditable } from './html-editable-seguro';
 import { textoDeHtmlEditable } from './html-editable';
 import {
-  clasesDe, contenidoDeCopiaIdentica, fichasDeHtml, hojaDeLaFoto, partirParaCopia, podarCss, sanearInstantanea,
+  clasesDe, contenidoDeCopiaIdentica, fichasDeHtml, hojaDeLaFoto, partirParaCopia, podarCss, sanearInstantanea, sinDestinosAjenos,
 } from './copia-identica';
 import { CONFIG_DEFAULT, terminoTarjeta, type ConfigLanding, type Esquema, type TemaPropio } from './api-tipos';
 import { motivoDeError, seLeeEnNavegador } from './lectura-reglas';
@@ -229,10 +229,16 @@ async function replicarIdentica(url: string, fotoCruda: unknown, receta: ConfigR
   const hoja = await hojaDeLaFoto(foto, bajarHoja);
   const crudas = partirParaCopia(foto);
   // Una sección que pasa el tope de un «Diseño editable» no entra entera: se dice, no se corta a medias.
-  const secciones = crudas.map((s) => ({
-    html: s.html.length > TOPES.htmlEditable ? '' : sanearHtmlEditable(s.html),
-    envoltorios: sanearEnvoltorios(s.envoltorios) ?? [],
-  }));
+  // Y lo que llevaría a la otra (sus enlaces, su agenda) pasa a «#» o se va (`sinDestinosAjenos`, verificación de 5004dba08).
+  let enlacesAjenos = 0;
+  let agendasAjenas = 0;
+  const secciones = crudas.map((s) => {
+    const limpio = s.html.length > TOPES.htmlEditable ? '' : sanearHtmlEditable(s.html);
+    const d = sinDestinosAjenos(limpio);
+    enlacesAjenos += d.enlaces;
+    agendasAjenas += d.agendas;
+    return { html: d.html, envoltorios: sanearEnvoltorios(s.envoltorios) ?? [] };
+  });
   const fuera = secciones.filter((s) => !s.html).length;
   const quedan = secciones.filter((s) => s.html);
   if (!quedan.length) return falla('La página pesa demasiado para copiarla tal cual.', 422);
@@ -251,6 +257,8 @@ async function replicarIdentica(url: string, fotoCruda: unknown, receta: ConfigR
   const avisos = [
     fuera ? (fuera === 1 ? 'Una sección pesaba demasiado y no se copió.' : `${fuera} secciones pesaban demasiado y no se copiaron.`) : '',
     m.campos ? 'Los formularios se copiaron como dibujo: no envían nada. Pon el tuyo.' : '',
+    enlacesAjenos ? (enlacesAjenos === 1 ? 'Un enlace llevaba a la original: ahora va a «#», pon el tuyo.' : `${enlacesAjenos} enlaces llevaban a la original: ahora van a «#», pon los tuyos.`) : '',
+    agendasAjenas ? 'La agenda de la original se sacó (quedó su lugar vacío): pon la tuya.' : '',
     hoja.fallidas.length ? 'Una hoja de estilos de la original no se pudo bajar: algo puede verse distinto.' : '',
   ].filter(Boolean);
   return {

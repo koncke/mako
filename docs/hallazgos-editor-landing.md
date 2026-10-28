@@ -3593,9 +3593,50 @@ Las trampas, en el orden en que aparecieron (cada una con su test en tests/web-g
   publicada suma «Hecho con MaKo». Y un componente que rota solo (el «Capture / Convert» de respond.io) sale en otro estado
   en la captura que en la foto. Leer el diff con eso en la cabeza.
 
+### La verificación de 5004dba08 (Cerebro): el HTML AJENO en el MISMO origen
+
+Informe: `C:/dev/revisiones/2810-verificacion-5004dba08.md`, con sus cargas en `C:/dev/revisiones/scratch-5004/`. El
+rojo-verde de esas cargas da 1 de 23 seguras antes y 23 de 23 después (`rojo-antes.txt`, `verde-despues.txt`). Su batería
+`ataques.ts` daba 4 casos con hallazgos de 37 y ahora da 0.
+
+- **El filtro de url() era ciego a cómo lee CSS el navegador.** El iframe del editor es del MISMO origen que la app
+  (`allow-same-origin`, para poder editar), y lo que pide sale con la sesión de quien edita. La CSP de la app no tiene
+  img-src. `medioPermitido` miraba el literal `url(`, pero el navegador lee `\75 rl(` y `u\rl(` como `url(` y
+  `@\69mport` como `@import`. Y `image-set`, `cross-fade` y `src()` piden un STRING como dirección. Pasaban un GET a
+  `/api/ads-manager/ad-aprobacion`, que manda un WhatsApp, y `mask`, `fill` y `clip-path` de un SVG. **Regla:** el CSS se
+  mira sin escapes ni comentarios, declaración por declaración (`cssSinCargasAjenas`), y la que pide algo no permitido se
+  va entera. También se va la que arma la dirección con `var()`, `attr()` o `env()`, porque no se puede saber a dónde va.
+  Vale para la hoja, los `style`, los envoltorios y los atributos de SVG. **La segunda capa:** el iframe de una COPIA
+  lleva su propia política (`politicaDelEditor`), con sus orígenes y NUNCA los nuestros, antes de cualquier cosa que
+  cargue. Aunque algo se escape del filtro, el navegador no lo pide.
+- **El filtro viejo, de paso, rompía lo legítimo.** Un `url(#grad)` de un SVG, que no pide nada, quedaba en `url()`. Los
+  íconos en `data:image/svg+xml,%3Csvg…` y las fuentes de íconos en `data:application/font-woff;base64` también se
+  perdían: respond.io, reportei.com y closermood.com las usan. Un SVG o una fuente como recurso de CSS no corre código ni
+  carga nada. Medido sobre las hojas de las 5 copias, el filtro nuevo no saca ni una declaración legítima.
+- **`target="_BLANK"` con `rel="opener"` se colaba.** El guardia comparaba `=== '_blank'`, pero el navegador no distingue
+  mayúsculas, y un nombre (`target="pwn"`) también abre otra pestaña. **Regla:** con CUALQUIER target va
+  `rel="noopener noreferrer"`.
+- **La copia le avisaba al sitio original de cada visita.** Sus imágenes y fuentes se piden a SU sitio (la política de la
+  publicada deja pasar sus orígenes) con el Referer del dominio del cliente. Ahora la publicada de una copia y el iframe
+  del editor van con `referrer: no-referrer`. El IP del visitante igual le llega, así que lo que falta es el bucket o un
+  proxy (sin hacer).
+- **Una agenda de la página copiada con `position:fixed` y 12.000 px** se dibujaba en la app encima de TODO el lienzo, y
+  los clics iban a la agenda: `vivosDe` medía la caja entera. Ahora la capa se recorta a la caja del iframe.
+- **Un origen con `;` partía la política.** El parser de URL acepta `;` en el host (`https://a;script-src.example`). Ahora
+  un origen entra sólo con un host de letras, dígitos, punto y guion.
+- **La copia idéntica mandaba los leads a la otra.** Su Calendly o su HubSpot embebidos, y sus enlaces al registro o al
+  WhatsApp. **Regla:** en una copia idéntica todo enlace que no sea un ancla de la misma página pasa a «#». La agenda
+  embebida se reemplaza por una caja vacía del mismo tamaño, marcada (`data-gm-agenda-original`), y un `data-calendly`
+  se va. El aviso lo dice.
+- **Un `data-gm-raiz` que venga en el HTML** cambiaba qué guardaba el editor. El saneo lo saca, y el editor también.
+
 Lo que quedó SIN hacer:
 - Copiar las imágenes y las fuentes al bucket: hoy quedan en el sitio de la original (si la otra las cambia o bloquea el
   enlace, la copia lo sufre). Pide sumar fuentes, SVG y avif a `landing-imagenes` (una migración) o un bucket aparte.
+  Mientras tanto la original ve el IP de cada visitante y cada `:hover` que pide una imagen. Con el bucket o un proxy de
+  MaKo, eso se termina.
+- La política propia del iframe va sólo en las COPIAS. Un diseño de MaKo usa imágenes de la app (`/vsl-assets`), y
+  queda cubierto sólo por el filtro.
 - Lo que hace el JavaScript de la original: un carrusel queda en su primera diapositiva, un menú del teléfono no abre, un
   acordeón queda como estaba. Los formularios se ven pero no envían (copiados tal cual en nuestro dominio serían phishing).
 - El Pixel no mide por sección en una copia: sus secciones van sin `.gm-libre-seccion` (alcance-secciones.ts y el Pixel

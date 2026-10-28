@@ -6,7 +6,10 @@ import 'server-only';
 // El bloque `htmlEditable` (html-editable.ts) se publica EN LA PÁGINA, sin iframe: lo que pase acá llega
 // tal cual al HTML de hola-mako.site (y, para las landings de MaKo, al de hola-mako.com). Por eso este
 // saneo es la primera capa y la política de la página publicada (pagina-publica.ts: scripts sólo por hash)
-// la segunda. En el editor y en las miniaturas el bloque va en un iframe sin scripts ni mismo origen.
+// la segunda. En las miniaturas el bloque va en un iframe sin scripts y de origen opaco (`sandbox=""`); en el EDITOR, sin
+// scripts pero del MISMO origen que la app (`allow-same-origin`, para poder editarlo): lo que pida a nuestros dominios sale
+// con la sesión de quien edita. Por eso los medios y el CSS se miran como los lee el navegador (html-editable.ts,
+// `cssSinCargasAjenas`), y el iframe de una copia lleva su propia política (verificación de 5004dba08, 28/10/2026).
 //
 // LISTA BLANCA (como lib/html-seguro.ts, pero para MAQUETA y no para texto rico): pasan las etiquetas de
 // un diseño (cajas, texto, listas, tablas, imágenes, video, canvas, SVG en línea, botones) con `class`,
@@ -21,7 +24,7 @@ import 'server-only';
 import sanitizeHtml from 'sanitize-html';
 import { embedDe } from '../embeds';
 import { NODO, TOPES, type JsonNodo, type LandingContenido } from './doc';
-import { envoltoriosValidos, medioPermitido } from './html-editable';
+import { RE_ATTR_RAIZ, cssSinCargasAjenas, envoltoriosValidos, medioPermitido, regionCssSegura } from './html-editable';
 
 const ETIQUETAS = [
   // cajas y texto
@@ -83,7 +86,9 @@ const OPCIONES: sanitizeHtml.IOptions & { allowedEmptyAttributes?: string[] } = 
       const a = { ...attribs };
       // Un `pagina:` que no es un id de página no pasa (queda el enlace sin destino).
       if (typeof a.href === 'string' && /^\s*pagina:/i.test(a.href) && !RE_PAGINA.test(a.href.trim())) delete a.href;
-      if (a.target === '_blank') a.rel = 'noopener noreferrer';
+      // Con CUALQUIER target (`_BLANK`, `_Blank` o un nombre abren otra pestaña igual: el navegador no distingue mayúsculas),
+      // sin el opener: si no, la página abierta puede mandar la pestaña del cliente a un phishing (verificación de 5004dba08).
+      if (typeof a.target === 'string') a.rel = 'noopener noreferrer';
       return { tagName: tag, attribs: a };
     },
     // LO QUE ESCRIBE CHROME (26/10/2026): el tachado de `execCommand` sin `styleWithCSS` es un `<strike>` (y un pegado
@@ -118,12 +123,19 @@ const desescapar = (v: string) => v.replace(/&quot;/g, '"').replace(/&#x27;|&#39
 
 /** Saca de un estilo los `url()` que no son un medio permitido (quedan `url()`, que no carga nada). */
 function estiloSeguro(estilo: string): string {
-  return estilo.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) ? todo : 'url()'));
+  // El literal primero, y después lo que el patrón no ve: escapes, image-set, cross-fade (html-editable.ts, `cssSinCargasAjenas`).
+  return cssSinCargasAjenas(estilo.replace(/url\(\s*(["']?)(.*?)\1\s*\)/gi, (todo: string, _c: string, url: string) => (medioPermitido(url) || /^\s*#[\w-]*\s*$/.test(url) ? todo : 'url()')));
 }
+
+/** Los atributos de presentación de un SVG que piden algo con url() (`mask="url(/api/x)"`): sólo un fragmento o un medio permitido. */
+const ATTRS_SVG_CON_URL = /\s(fill|stroke|mask|clip-path|filter|marker-start|marker-mid|marker-end|cursor)="([^"]*)"/gi;
 
 /** La segunda pasada sobre lo que dejó sanitize-html: los medios y los url() de los estilos (ver `medioPermitido`). */
 function endurecer(html: string): string {
   return html
+    // La marca de la raíz del editor la pone sólo el editor (html-editable.ts, `documentoEditable`).
+    .replace(RE_ATTR_RAIZ, '')
+    .replace(ATTRS_SVG_CON_URL, (todo: string, _a: string, v: string) => (regionCssSegura(desescapar(v)) ? todo : ''))
     .replace(/\s(src|poster)="([^"]*)"/g, (todo: string, _a: string, v: string) => (medioPermitido(desescapar(v)) ? todo : ''))
     .replace(/\ssrcset="([^"]*)"/g, (todo: string, v: string) => (desescapar(v).split(',').every((c) => medioPermitido(c.trim().split(/\s+/)[0] ?? '')) ? todo : ''))
     .replace(/\sstyle="([^"]*)"/g, (_t: string, v: string) => ` style="${estiloSeguro(desescapar(v)).replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`);

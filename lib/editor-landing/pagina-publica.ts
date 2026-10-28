@@ -80,7 +80,9 @@
 import { createHash } from 'node:crypto';
 import { CONFIG_DEFAULT, type ConfigLanding } from './api-tipos';
 import { CSS_CONTENIDO } from './css';
-import { SCRIPT_DISENO, usaCalendly } from './html-editable';
+import { SCRIPT_DISENO, hayMediosAjenos, origenesDeMedios, usaCalendly, type OrigenesDeMedios } from './html-editable';
+// `origenesDeMedios` vive en html-editable.ts (lo usa también el iframe del editor, que es del navegador).
+export { TOPE_ORIGENES_MEDIOS, origenesDeMedios, type OrigenesDeMedios } from './html-editable';
 import { PREFIJO_PUBLICO, rutaInternaL, rutaValida, slugValido } from './doc';
 import { origenImagenes } from './especificacion';
 import { CORTE_CELULAR, ESTILOS_PAGINA, efectoPorId, sanearEstilo, type DefEstilo } from './animaciones';
@@ -634,42 +636,6 @@ export function hostsDeIframes(): string[] {
   return out;
 }
 
-/** Los orígenes de donde un diseño carga sus imágenes, sus fuentes y sus videos (sólo https, con su tope). */
-export type OrigenesDeMedios = { imagenes: string[]; fuentes: string[]; videos: string[] };
-/** Cuántos orígenes por directiva: una copia real usa 2-6 (su CDN, el de imágenes, Google). */
-export const TOPE_ORIGENES_MEDIOS = 24;
-
-/**
- * De dónde carga un diseño lo que muestra: las imágenes (src, srcset y poster del HTML, y los url() de la hoja y de los
- * estilos en línea), las fuentes (los url() de un @font-face) y los videos (el src de un <video>). PURO. Sólo orígenes
- * https (`https://host`): un data: ya está permitido, y lo que no es https no entra.
- */
-export function origenesDeMedios(html: string, css: string): OrigenesDeMedios {
-  const imagenes = new Set<string>();
-  const fuentes = new Set<string>();
-  const videos = new Set<string>();
-  const origen = (u: string): string | null => {
-    try { const x = new URL(u.trim().replace(/&amp;/g, '&')); return x.protocol === 'https:' ? x.origin : null; } catch { return null; }
-  };
-  const sumar = (set: Set<string>, u: string) => { const o = origen(u); if (o && set.size < TOPE_ORIGENES_MEDIOS) set.add(o); };
-  const urlsDe = (t: string) => [...t.matchAll(/url\(\s*(["']?)(https:[^"')\s]+)\1\s*\)/gi)].map((m) => m[2]);
-  const RE_FUENTE = /@font-face\s*\{[^}]*\}/gi;
-  for (const m of css.matchAll(RE_FUENTE)) for (const u of urlsDe(m[0])) sumar(fuentes, u);
-  for (const u of urlsDe(css.replace(RE_FUENTE, ''))) sumar(imagenes, u);
-  for (const m of html.matchAll(/<(img|source|video)\b[^>]*>/gi)) {
-    const tag = m[1].toLowerCase();
-    for (const a of m[0].matchAll(/\s(src|poster|srcset)\s*=\s*"([^"]*)"/gi)) {
-      const nombre = a[1].toLowerCase();
-      const valores = nombre === 'srcset' ? a[2].split(/,\s+/).map((c) => c.trim().split(/\s+/)[0] ?? '') : [a[2]];
-      // El src de un <video> (o de su <source> con un archivo de video) es un video; un poster o un srcset, una imagen.
-      const esVideo = nombre === 'src' && (tag === 'video' || (tag === 'source' && /\.(mp4|webm|mov|m3u8)(\?|$)/i.test(a[2])));
-      for (const v of valores) sumar(esVideo ? videos : imagenes, v);
-    }
-  }
-  for (const m of html.matchAll(/\sstyle\s*=\s*"([^"]*)"/gi)) for (const u of urlsDe(m[1].replace(/&quot;/g, '"'))) sumar(imagenes, u);
-  return { imagenes: [...imagenes], fuentes: [...fuentes], videos: [...videos] };
-}
-
 export type OpcionesPolitica = {
   entorno: Entorno;
   /** Hashes de los scripts inline (sin el del script de la página, que va siempre). */
@@ -762,6 +728,7 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
   const token = publico && typeof e.tokenPixel === 'string' && FORMA_TOKEN.test(e.tokenPixel) ? e.tokenPixel : null;
   const meta = publico ? codigoMetaPixel(idMetaPixel(cfg)) : null;
   const cssDiseno = typeof e.cssDiseno === 'string' && e.cssDiseno.trim() ? e.cssDiseno : '';
+  const medios = cssDiseno ? origenesDeMedios(e.html, cssDiseno) : null;
   const politica = politicaDeContenido({
     entorno,
     hashesExtra: [...(meta ? [hashScript(meta.script)] : []), ...(cssDiseno ? [HASH_SCRIPT_DISENO] : [])],
@@ -769,13 +736,16 @@ export function armarDocumento(e: EntradaDocumento & { tokenPixel?: string | nul
     conMeta: !!meta,
     conDiseno: !!cssDiseno,
     conCalendly: !!cssDiseno && usaCalendly(e.html),
-    ...(cssDiseno ? { medios: origenesDeMedios(e.html, cssDiseno) } : {}),
+    ...(medios ? { medios } : {}),
   });
 
   const a = escaparHtml;
   const head: string[] = [
     '<meta charset="utf-8">',
     `<meta http-equiv="Content-Security-Policy" content="${a(politica)}">`,
+    // La copia de una página carga imágenes y fuentes de SU sitio (verificación de 5004dba08, 28/10/2026): sin referrer, el
+    // sitio original no se entera de qué página (ni de qué dominio del cliente) viene cada visitante.
+    ...(medios && hayMediosAjenos(medios) ? ['<meta name="referrer" content="no-referrer">'] : []),
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     `<title>${a(titulo)}</title>`,
   ];

@@ -122,9 +122,18 @@ type Vivo = { clave: string; tipo: 'embed' | 'red'; src: string; titulo: string;
 /** Lo vivo del documento, con su lugar (en px del iframe, que es el del marco). */
 function vivosDe(d: Document): Vivo[] {
   const out: Vivo[] = [];
+  // Recortado a la caja del iframe (verificación de 5004dba08, 28/10/2026): una agenda de una página copiada con
+  // `position:fixed` y 12.000 px se dibujaba en la app encima de TODO el lienzo, y los clics iban a la agenda.
+  const recortarALaCaja = (r: DOMRect) => {
+    const ancho = d.documentElement.clientWidth;
+    const alto = d.documentElement.clientHeight;
+    const x = Math.max(0, r.left);
+    const y = Math.max(0, r.top);
+    return { x, y, w: Math.min(ancho, r.right) - x, h: Math.min(alto, r.bottom) - y };
+  };
   const lugar = (el: Element) => {
-    const r = el.getBoundingClientRect();
-    return r.width < 8 || r.height < 8 ? null : { x: Math.round(r.left), y: Math.round(r.top), w: Math.round(r.width), h: Math.round(r.height) };
+    const r = recortarALaCaja(el.getBoundingClientRect());
+    return r.w < 8 || r.h < 8 ? null : { x: Math.round(r.x), y: Math.round(r.y), w: Math.round(r.w), h: Math.round(r.h) };
   };
   const sumar = (el: Element, texto: string, i: number) => {
     const e = embedDe(texto);
