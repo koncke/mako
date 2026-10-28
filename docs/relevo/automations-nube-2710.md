@@ -123,3 +123,10 @@ g) Mensajes al Cerebro por mensaje cruzado, cortos: qué quedó, sha, cómo se p
     exista su fila prendida en el ws 9: después del deploy, `scripts/mudanza-avisos-plataforma.mts --aplicar --eventos=social_tope`
     (escribir en producción). Que no se pierdan los mensajes anda sin la fila. El #12 (mismo texto) no lleva hito: decidí vos si
     se cierra con el mismo aviso.
+  - **Ticket #19 (Leandro, ws10), leído el 28/10 sin escribir:** la 680 estuvo activa de 20:51 a 20:58 UTC; sus dos cuentas
+    (leads 5425 @aliensfilms y 5426 @martin.koncke) quedaron 'completada' y la 680 es «Una sola vez». Después del deploy y con
+    el «dale»: `configurar-680.mts --aplicar` y «Volver a probar» en esos dos leads (Leandro lo puede hacer solo desde la ficha).
+    La prueba de punta a punta, con la cuenta de Fiesta Music y «pruebafm», nunca a un seguidor real.
+  - **La difusión (Leila):** el botón «Mandar mensaje» y la selección del tablero son del CRM: tiene que montar
+    `<HojaDifusion abierta seleccion onCerrar onCreada />` (app/automations/difusion/HojaDifusion.tsx). No se probó mandando.
+  - **Elegir la publicación o el Reel en el CRON de comentario (Leandro):** tanda siguiente (el campo, el selector y la firma).
