@@ -4,7 +4,43 @@
 > la campaña del Sprint: qué quedó arreglado, cómo se probó en el ws3 y qué falta, con los pasos que mandan WhatsApp
 > de verdad escritos para correrlos cuando Martín conecte el chip.
 
-## LO ÚLTIMO: 28/10/2026, cuenta 4 (claude4), en la PC, rama `aut-2510` (con main mezclado)
+## LO ÚLTIMO: 28/10/2026 noche, cuenta 4 (claude4), en la PC, worktree C:/dev/wt-aut-2510, rama `aut-2510` (main mezclado en 072639610)
+
+**Lo pedido** (el Cerebro, reenviado tras la caída de las 18:34, en este orden): (1) arreglar lo que sobrevivió a su
+refutador sobre 7f7e404d9 (C:/dev/revisiones/2810-verificacion-automations-ig.md y -anuncio.md): el ALTA «una palabra clave
+de sólo emoji o signos se descarta y el CRON queda para CUALQUIER comentario», 4 medias y 3 bajas; (2) el ticket de Leandro
+(#19, y el #20 que MaKo levantó solo con lo mismo): «solo cuando el comentario contiene X», y dos preguntas verificadas; (3)
+avisar ANTES del tope de Instagram (ya hecho en c6f78deb4 y 0c121ab4b); (4) el primer DM va en el VERDE nuevo; y el pedido
+nuevo de Martín por Leila: «seleccionando a toda una columna o una cantidad de leads específicos en el CRM y apretar mandar
+mensaje de difusión … WhatsApp, email, Instagram … y configurar ahí mismo el goteo o la cantidad de mensajes diarios por una
+cuestión de baneo». Todo junto en un VERDE por SendMessage; lo pesado con `node C:/dev/con-turno.mjs …`.
+
+**Lo hecho** (rama `aut-2510`, cada uno probado rompiéndolo; la cosecha en docs/hallazgos-chatbot.md y -comunicacion.md):
+- ef1c248b4 — ALTA: «?» o «...» se rechazan con aviso (ruta, API y caja); el resumen de `cambiar_crons_secuencia` nombra las
+  palabras (baja). ef429e3e7 (antes) hizo que el emoji cuente.
+- e90bae7d1 + 31c3fbf70 + 077f2913f — ticket #19/#20: «Volver a probar» por lead (ficha del CRM y
+  `volver_a_probar_lead_secuencia`); hito con `tickets: [19, 20]`. Las respuestas (a) y (b) ya se las mandó el Cerebro a Leandro.
+- 330b7a218 — media: un pedido de cambio en voseo («poné», «subí») vuelve a editar en «Editar».
+- 8c56ddbf3 — medias y baja: Crear con IA ofrece el anuncio; «¿Qué hace esta automatización?» encuentra el CRON del anuncio;
+  Messenger recupera «enlace de referencia».
+- 7dac2d5cc — media: la respuesta pública sólo al comentario del disparo; si no puede salir, se omite y el DM sale igual.
+- 51a37db8b — baja: el recordatorio diario de cuenta frenada sale de 9 a 21 en la zona del negocio.
+- 4cc29df29 — la DIFUSIÓN: `HojaDifusion` (app/automations/difusion/), lib/difusion.ts y -reglas.ts, `difundir_a_leads`.
+- 1ca902867 — «Para el Cerebro» de docs/relevo/automations-nube-2710.md al día.
+
+**Falta verificar:** tests afectados (`--base origin/main --rapido`) y los tipos de los archivos de la difusión: estaban
+esperando turno en la PC (salidas en el scratchpad de la sesión: afectados-072.txt, tsc-dif.txt). Los tipos de los 35
+archivos anteriores dieron limpio (sólo los 14 de `_opencut` y 2 de `Compartir.tsx`). Después, el VERDE al Cerebro.
+
+**A medias / sin hacer:** el botón «Mandar mensaje» y la selección del tablero son del CRM (el Cerebro le pasó la interfaz);
+la difusión no se probó mandando; elegir la publicación o el Reel en el CRON de comentario (tanda siguiente); «Crear con IA»
+no pone palabras clave en el CRON (fue lo que rompió la 680: usó la CONDITION del formulario).
+
+**Espera a Martín / al Cerebro:** después del deploy, con el «dale»: configurar la 680 (scratchpad configurar-680.mts
+--aplicar; activar con otro «dale») y la prueba de punta a punta con Fiesta Music y «pruebafm»; la fila del ws 9 del aviso
+`social_tope` (escribir en producción); MAU-07/MAU-08 y la prueba A/B del ws3 esperan su sí.
+
+## 28/10/2026 tarde, cuenta 4 (claude4), en la PC, rama `aut-2510` (con main mezclado)
 
 - **Ticket #17 de Leandro (el #12 es el mismo texto): responder EN PÚBLICO el comentario.** `en_comentario: true` en el
   mensaje de Instagram o Messenger; el interruptor se ofrece con un CRON de comentario; la IA del lienzo y la API
