@@ -18,7 +18,7 @@ import { esAcusePuro } from '../lib/doer-para-quien';
 import { rutearDoer } from '../lib/mako-router';
 import type { Vista } from '../lib/api-mako/registro';
 
-export type CasoBanco = { n: string; origen: string; texto: string; makoPregunto?: boolean };
+export type CasoBanco = { n: string; origen: string; texto: string; makoPregunto?: boolean; hayPendientes?: boolean };
 
 export const BANCO: CasoBanco[] = [
   { n: '1', origen: 'Leandro 28/10 10:21', texto: 'Tal cual como lo hace manychat' },
@@ -45,6 +45,9 @@ export const BANCO: CasoBanco[] = [
   { n: 'G1a', origen: 'Brigitte 23/10 20:02', texto: 'ya lo contacte' },
   { n: 'G1b', origen: 'Leandro 28/10', texto: 'yo lo que quería era que se puedan responder los comentarios de Instagram' },
   { n: 'G1c', origen: 'Leila 26/10', texto: 'Fabi Pedraza no aparece en el SRM' },
+  // El «sí» a una PENDIENTE viva (la pregunta del Cerebro sobre 43ac63cc3): entra por la confirmación, antes del default.
+  { n: 'P1', origen: 'una pendiente de plata viva', texto: 'Si', hayPendientes: true },
+  { n: 'P2', origen: 'una pendiente viva', texto: 'dale', hayPendientes: true },
 ];
 
 /** Las herramientas del plan: si un turno lleva SÓLO éstas, el modelo no puede mirar ni reportar nada (G1). */
@@ -62,14 +65,15 @@ export const HAY_CAMINO_BARATO = /if \(ruta\.tier === 'cheap' && !mediaBlocks &&
 export function correrBanco(deSiempre: Array<{ name: string }>, clasificar: (t: string, ctx: Parameters<typeof clasificarIntencion>[1]) => VeredictoIntencion = clasificarIntencion): FilaBanco[] {
   const vista: Vista = { canal: 'whatsapp', alcance: 'ejecutar', ws: 13, rol: 'admin', tabs: null };
   return BANCO.map((c) => {
-    const v = enElGrupoSinSenal(clasificar(c.texto, { makoPregunto: !!c.makoPregunto }), c.texto);
+    const v = enElGrupoSinSenal(clasificar(c.texto, { makoPregunto: !!c.makoPregunto, hayPendientes: !!c.hayPendientes }), c.texto);
     const ruta = rutearDoer(c.texto, {});
-    const t = herramientasDelTurno({ veredicto: v, texto: c.texto, agendaAbierta: false, deSiempre, vista, hayPendientes: false, contextoDelSi: null });
+    const t = herramientasDelTurno({ veredicto: v, texto: c.texto, agendaAbierta: false, deSiempre, vista, hayPendientes: !!c.hayPendientes, contextoDelSi: null });
     const tools = t.tools.map((x) => x.name);
     // La condición del doer (lib/mako-doer-in.ts, `pideHerramientas`): lo barato va con charla o con una duda.
     const barato = HAY_CAMINO_BARATO && ruta.tier === 'cheap' && !(v.intencion !== 'charlar' && !v.dudosa);
     return {
-      n: c.n, origen: c.origen, texto: c.texto, pulgar: !c.makoPregunto && esAcusePuro(c.texto), intencion: v.intencion, dudosa: !!v.dudosa, porque: v.porque, tier: ruta.tier,
+      // Con algo pendiente o una pregunta de MaKo, el acuse llega al turno (lib/doer-para-quien.ts, `noEsParaMaKo`).
+      n: c.n, origen: c.origen, texto: c.texto, pulgar: !c.makoPregunto && !c.hayPendientes && esAcusePuro(c.texto), intencion: v.intencion, dudosa: !!v.dudosa, porque: v.porque, tier: ruta.tier,
       barato, tools, soloPlan: tools.length > 0 && tools.every((x) => SOLO_PLAN.has(x)),
     };
   });

@@ -29,6 +29,7 @@ import { conElHilo, enElGrupoSinSenal } from '../lib/doer-hilo';
 import { esAcusePuro } from '../lib/doer-para-quien';
 import { aFormatoWhatsapp } from '../lib/doer-salida';
 import { NUCLEO_GRUPO, conElNegocio } from '../lib/nucleo-grupo';
+import { rechazoSiNoEsConfirmacionPura } from '../lib/confirmacion-pura';
 
 const leer = (r: string) => readFileSync(new URL(`../${r}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
 const sinComentarios = (s: string) => s.replace(/^[ \t]*\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -90,6 +91,24 @@ test('1-ter. G1: el default va DESPUÉS del hilo: «pausala» sigue el pedido vi
   assert.equal(enElGrupoSinSenal(h.veredicto, 'pausala'), h.veredicto, 'el default pisó el hilo');
   const doer = sinComentarios(leer('lib/mako-doer-in.ts'));
   assert.match(doer, /const correccion = laCorreccion\(conHilo\.veredicto, sinPrefijoDeLote\(texto\), loDeAntes\);\n\s*const intencion = enElGrupoSinSenal\(correccion\.veredicto, texto, pedidoDelHilo\(historial\)\?\.areas \?\? \[\]\);/);
+});
+
+test('1-quater. el «sí» a una pendiente viva sigue entrando por la confirmación; la de plata, sólo de quien la pidió', () => {
+  // La pregunta del Cerebro sobre 43ac63cc3: el default del grupo no toca el «sí» a una pendiente (es la regla 1, no el default).
+  for (const n of ['P1', 'P2']) {
+    const f = fila(n);
+    assert.equal(f.pulgar, false, `${n}: un «sí» con una pendiente viva se tomó por acuse`);
+    assert.equal(f.intencion, 'confirmar', `${n} «${f.texto}»: ${f.intencion} (${f.porque})`);
+    assert.ok(f.tools.includes('confirmar_accion') && f.tools.includes('cancelar_accion'), `${n}: sin confirmar_accion`);
+  }
+  // Y quién confirma una de PLATA en el grupo (lib/confirmacion-pura.ts, lo usa `confirmarPendiente`): quien la pidió, sí.
+  const plata = (confirma: string, aMaKo = false) => rechazoSiNoEsConfirmacionPura({
+    canal: 'whatsapp', aTerceros: false, plata: true, mensaje: 'Si', titulo: 'Pausar una campaña', resumen: 'Pausar «Webinar»',
+    enElGrupo: { pidio: 'Ana', confirma, aMaKo },
+  });
+  assert.equal(plata('Ana'), null, 'el «Si» de quien la pidió no la confirma');
+  assert.match(plata('Pedro') ?? '', /NO la confirmes/, 'el «Si» de otra persona confirmó la de plata');
+  assert.equal(plata('Pedro', true), null, '«sí, MaKo» de otra persona no la confirma');
 });
 
 test('2. F1: el system REAL del grupo empieza por NUCLEO_GRUPO, sin el dashboard; tampoco con overrides; la app, igual', () => {
