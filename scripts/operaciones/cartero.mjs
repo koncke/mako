@@ -113,7 +113,11 @@ import { spawnSync } from 'node:child_process';
 //         las fotos y los documentos del primer mensaje bajan en `ciclo`, con las mismas tres llaves de siempre (tamaño, sha256
 //         firmado y tipo por los bytes), y `abrir` los vuelve a mirar antes de nombrar sus rutas en el primer mensaje. Uno de
 //         antes rechaza el trabajo («un chat nuevo no lleva adjuntos»): la caja del chat nuevo los ofrece sólo con éste.
-export const VERSION = '1.22.0';
+// 1.22.1: el pedido dice CÓMO se escribe el cierre (28/10/2026, Martín: «Muy feas las respuestas que das por el ops Center...
+//         más claro, más directo, menos técnico, más texto formateado»). Lo lee en el teléfono: en sus palabras, sin jerga
+//         interna, un punto por renglón con viñeta y lo clave en negrita. Antes decía «en cuatro renglones» y salían cuatro
+//         párrafos densos con «tren-u», shas y versiones. Sólo cambia el texto: el servidor no lo lee.
+export const VERSION = '1.22.1';
 const HOME = os.homedir();
 const DIR = process.env.CARTERO_DIR || path.join(HOME, '.claude', 'operaciones');
 const APP = process.env.CARTERO_APP_DIR || path.join(process.env.APPDATA || path.join(HOME, 'AppData', 'Roaming'), 'Claude', 'claude-code-sessions');
@@ -1368,7 +1372,10 @@ export function mensaje(p, rutas = []) {
     // Las fotos y los PDF que mandó con el trabajo, ya en esta PC (1.9.0): el chat los abre con Read.
     ...(rutas.length ? [...lineasDeAdjuntos(rutas), ''] : []),
     regla,
-    '— Al terminar, dejá el cierre en cuatro renglones (y la prueba, si la hay: un commit, un deploy, una medición):',
+    '— Al terminar, dejá el cierre. Martín lo lee en el TELÉFONO: escribile claro, directo y en sus palabras (qué cambia para él o',
+    '  para sus clientes), sin jerga interna: nada de nombres de tren, shas, versiones, refutadores, tests ni rutas de archivos.',
+    '  En cada campo, un punto por renglón con viñeta y lo clave en negrita («- **Soporte:** ya no pierde los archivos»).',
+    '  Lo técnico (un commit, un deploy, una medición) va sólo en --prueba:',
     `node "${ESTE}" cierre ${p.id} --decidido "…" --hecho "…" --comprobado "…" --sigue "…" --prueba "…"`,
     '— Si dejaste algo para mirar en MaKo, sumá --revisar con su ruta (por ejemplo --revisar "/crm?lead=12"): Martín lo revisa desde el Centro.',
   ].join('\n');

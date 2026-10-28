@@ -1604,6 +1604,17 @@ código nuevo:
   - `cartero.mjs cierre` igual: `--hecho` nombra lo TERMINADO. Un pedido que todavía no tiene nada terminado no se cierra:
     se cierra cuando aterriza, con lo que aterrizó.
 
+- **TODO LO QUE LE LLEGA A MARTÍN AL CENTRO SE ESCRIBE EN SUS PALABRAS, SIN JERGA Y FORMATEADO** (28/10/2026; Martín, con dos
+  capturas del teléfono: «Muy feas las respuestas que das por el ops Center... Por favor que sea más claro, más directo, menos
+  técnico, más texto formateado»). Lo lee en el teléfono. Vale para el cierre (`cartero.mjs cierre`) y para CADA texto del chat,
+  porque el Centro muestra los mensajes de la ronda como «Avance» y el último como «Completado»:
+  - qué cambia para él o para sus clientes, en castellano llano. Nada de nombres de tren, shas, versiones del cartero,
+    «refutador», cantidad de tests, rutas de archivos ni nombres de cuenta (claude4): eso va sólo en `--prueba`;
+  - un punto por renglón, con viñeta y lo clave en negrita (`- **Soporte:** ya no pierde los archivos`). Nunca un párrafo
+    de tres ideas con punto y coma;
+  - lo que necesita de él, en una lista numerada aparte, con la acción concreta y dónde se hace;
+  - nada de narrar en tercera persona («Martín pregunta cómo va todo»): o se le contesta, o no se escribe.
+  El pedido que baja el cartero lo recuerda desde la 1.22.1 (`mensaje` en scripts/operaciones/cartero.mjs).
 - **«NUEVO CHAT» NUNCA ABRE UN MODAL NI PIDE NOMBRE ANTES** (17/10/2026; Martín: «jamás debe abrir un modal, eso es lo más
   contraintuitivo y contra IA que existe... que simplemente abra el chat y que al comenzar a escribir la IA vaya entendiendo dónde
   lo debe colocar, si debe ser un jefe o un empleado, qué nombre ponerle»). Abre un chat vacío con su caja (ChatNuevo.tsx, la misma
