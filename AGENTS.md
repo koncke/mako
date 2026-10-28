@@ -838,6 +838,9 @@ fuera un hecho. Va en las DOS direcciones, y la segunda es la que no se nota:
   número después de recorrer `git worktree list` y listar cada `supabase/migrations/`. Si
   renumerás, borrá el archivo viejo del clon: un `0190_secuencia_cron.sql` huérfano en otro
   worktree se aplica solo el día que alguien corre las migraciones en orden.
+  ⚠️ **Y el barrido va también por las ETIQUETAS** (`respaldo/*`, `nube/*`: el trabajo de un chat cortado o en la nube vive
+  ahí, y `git branch -a` no las lista) **y por las ramas que no están en el tren.** El 28/10/2026 la 0340 «verificada libre»
+  mirando tren-o y main era de `motion-imagen-2610`: docs/hallazgos-infra.md, «Un número de migración "verificado libre"».
   ⚠️ **Y hay números RESERVADOS que no están en ningún árbol.** El 16/10/2026 la 0303 estaba libre en todas las ramas y
   todos los worktrees, y era del Image Editor (0303-0304, reservadas por el coordinador). Con un coordinador
   («Cerebro»), el número se le pide a él antes de nombrar el archivo; el barrido sólo confirma.

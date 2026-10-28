@@ -1610,6 +1610,11 @@ rechazó, «No se puede continuar con este pago. La cuenta del vendedor es de ot
   sabe): lo leen /planes, /planes/<plan> y la compra, nunca el formulario. Pedir MP desde México con Stripe disponible contesta
   «¿Con qué quieres pagar?» con Stripe, no «no cobramos en línea». Las landings (app/page.tsx, /vsl) NO leen el país: ahí
   «Empezar» sale si alguna pasarela cobra, y el país se aplica al entrar al plan.
+- **La venta por un Payment Link propio (MAU-10, en main desde el 27/10) no ve las pruebas** (medido al mezclar, 28/10): su rama
+  de `procesarEventoStripe` (lib/cobros-webhook.ts, `compraDeUnLinkPropio`, el Purchase a Meta) corre sólo cuando el checkout
+  NO es un cobro de MaKo, y el de una prueba ni llega ahí: `avisoStripe` ignora antes el `checkout.session.completed` con
+  `no_payment_required` (tests/cobros-eventos.test.ts). Esa rama no le manda una compra a Meta por empezar una prueba, ni
+  mira el `invoice.paid` del día 8 (si otro camino, como el lead, le avisa a Meta del cobro, no está medido).
 
 **Sin hacer:** el cron no recupera el cobro del día 8 de una prueba de Stripe si se pierde el `invoice.paid` (lee la sesión, que
 queda en `no_payment_required`; MP sí, buscando el pago por referencia). «Empezar mi plan ya» en Stripe abre otra suscripción

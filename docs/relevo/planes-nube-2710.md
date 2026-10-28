@@ -105,3 +105,11 @@ AL TERMINAR: respondé corto con el sha final, qué quedó verde, qué falta, y 
 
 ## Para el Cerebro
 (anotá acá lo que necesita producción o una decisión)
+
+28/10, el chat de Planes en la PC (claude4), después de mezclar origin/main 506877517:
+- **La migración ahora es 0341** (`0341_partner_codigo_editable.sql`): la 0340 ya era de `motion-imagen-2610` (`0340_image_editor_propuestas`). Barrí ramas, remotas, etiquetas y worktrees: del 0340 en adelante sólo están esas dos. Si el tren suma otra antes, renumerar (el número aparece en lib/partners-programa.ts, lib/tablas-de-inquilino.ts, tests/partners-codigo-editable.test.ts y docs/hallazgos-partners.md).
+- **La 0341 va ANTES del deploy y con el sí de Martín en el chat:** `partner_codigos_anteriores` ya está en TABLAS_DE_INQUILINO, y sin la tabla el reset del cliente de prueba y el borrado de un negocio dan error. Sin ella, «Cambiar» el código dice «todavía no se puede».
+- **Sin medir en producción:** si Stripe está conectada y en modo REAL en el ws9. Con claves de prueba, sólo el super admin ve Stripe: fuera de Argentina el plan se PIDE (nombre, email y WhatsApp), no se cobra en línea.
+- **Sin hacer (plata, no de esta tanda):** si se pierde el `invoice.paid` del día 8 de una prueba de Stripe, el cron no lo recupera (MP sí). Detalle en docs/hallazgos-planes-y-cobro.md.
+- **Sin mirar en pantalla:** /planes, /planes/<plan>, /partners y /m/partners. Pide build parcial + copiar node_modules (recorrer-local-build-parcial); no lo arranqué sin preguntarte si la PC aguanta.
+- **Decisiones de Martín que siguen abiertas:** precio del Acelerador (1.500 en 3 cuotas vs 2.000 en 4 con un año de Pro), segundo nivel de Partners (10 % desde el 2º mes), y grabar los audios y videos para Partners (lista en docs/hallazgos-partners.md).

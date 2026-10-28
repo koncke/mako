@@ -8922,3 +8922,16 @@ tabnews.com.br (el dato de 80 MB por instancia).
 - **Un test que lee el fuente tiene que normalizar CRLF:** con `core.autocrlf` en Windows, el worktree del Cerebro tiene
   CRLF y `indexOf('\n}\n')` no encuentra el cierre de una función (tests/crm-ticket-14 daba «no está fathomDeFila»). En
   el worktree del chat, con LF, pasaba. `readFileSync(…).replace(/\r\n/g, '\n')`.
+
+## Un número de migración «verificado libre» que no lo estaba: el barrido va también por las ETIQUETAS (28/10/2026, Planes)
+
+- **El síntoma:** el relevo de Planes del 27/10 daba la 0340 «libre (verificado): tren-o llega a 0339 y ninguna otra rama
+  tiene 0340». Al ir a commitearla, la 0340 ya era de `motion-imagen-2610` (`0340_image_editor_propuestas.sql`, rama del
+  26/10 que no estaba en ningún tren) y de su copia `respaldo/motion-2710-nube`. La del código de Partners pasó a 0341.
+- **La causa:** se miró el tren y main, no todas las refs. Y desde que los chats se cortan y siguen en la nube, el trabajo
+  vive también en ETIQUETAS (`respaldo/*`, `nube/*`), que `git branch -a` no lista.
+- **La regla:** el número se elige al commitear, barriendo ramas, remotas, etiquetas y worktrees:
+  `for b in $(git for-each-ref --format='%(refname:short)' refs/heads refs/remotes refs/tags); do git ls-tree --name-only "$b" supabase/migrations/ | sed "s#^#$b: #"; done | sort -u -k2 | tail -8`
+  y `git worktree list` + `ls supabase/migrations` de cada uno (lo sin commitear). El número final lo confirma el Cerebro.
+
+**Vive en:** AGENTS.md (la regla del número de migración, con este caso) · supabase/migrations/.
