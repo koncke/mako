@@ -294,6 +294,8 @@ export function useSoporte({ tickets: deAfuera, inicial = 'nuevo', movil = false
     notasPendientes: nota.pendientes,
     /** Los 3 puntos de MaKo, sólo en la conversación nueva. */
     escribiendo: escribiendo > 0 && !ticket ? { segs: 0 } : null,
+    /** De qué conversación es lo de la caja (también lo que la caja lee: CajaChat → `conversacion`). */
+    claveCaja,
     /** La caja ofrece adjuntar: capturas, fotos, PDF y documentos (lib/tickets-adjuntos.ts). */
     adjuntosCaja: { items: adjuntos, puede: !(ticket && !ticket.puedeResponder), onSumar: sumarAdjuntos, onQuitar: quitarAdjunto, accept: ACCEPT_TICKET },
     errorAdjunto,

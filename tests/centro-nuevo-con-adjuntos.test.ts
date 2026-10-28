@@ -26,6 +26,8 @@
 // Y la verificación de tren-t (28/10/2026, base de 43 con ticketera-subidas): con ChatNuevo.tsx, juntar-adjuntos.ts, CajaChat.tsx,
 // PanelChat.tsx o centro.css de e4d04e7fa, rojo (el 10 o el 11); y lo devuelto sin vista previa nueva → el 11; la caja quieta
 // que dice que toma, sin avisar lo soltado o descartando la captura → el 10.
+// Y la verificación de 05d7c3187: con juntar-adjuntos.ts o CajaChat.tsx de 05d7c3187, rojo (el 10); la caja apagada que dice
+// «Espera», la que pisa el motivo de la pantalla o el aviso que no se borra al apagarse → el 10.
 // =============================================================================
 
 import test from 'node:test';
@@ -347,13 +349,29 @@ test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma 
   const tocados: string[] = [];
   const a = { items: [{ id: 'x' }], puede: true, onSumar: () => { tocados.push('sumar'); }, onQuitar: () => { tocados.push('quitar'); } } as unknown as Parameters<typeof adjuntosQuietos>[0] & object;
   const enEspera: string[] = [];
-  const quieta = adjuntosQuietos(a, true, () => enEspera.push('espera'))!;
+  const onEspera = () => { enEspera.push('espera'); };
+  const quieta = adjuntosQuietos(a, { quieta: true, saliendo: true, onEspera })!;
   quieta.onSumar([new File([PNG], 'nuevo.png')]);
   quieta.onQuitar('x');
   assert.deepEqual(tocados, [], 'ni entra ni se quita nada');
   assert.equal(quieta.items, a.items, 'lo adjuntado se sigue viendo');
-  assert.equal(adjuntosQuietos(a, false), a, 'con la caja libre, los de siempre');
-  assert.equal(adjuntosQuietos(undefined, true), undefined);
+  assert.equal(adjuntosQuietos(a, { quieta: false, saliendo: false, onEspera }), a, 'con la caja libre, los de siempre');
+  assert.equal(adjuntosQuietos(undefined, { quieta: true, saliendo: true, onEspera }), undefined);
+  // Apagada o bloqueada (sin diseño, sin la app, un ticket cerrado): nada va a terminar, así que no dice «Espera» (la
+  // verificación de 05d7c3187): no toma, y el panel dice lo de siempre.
+  const apagada = adjuntosQuietos(a, { quieta: true, saliendo: false, onEspera })!;
+  assert.equal(apagada.puede, false);
+  assert.equal(apagada.espera, undefined, 'una caja apagada no tiene nada que esperar');
+  assert.equal(apagada.onNoPuede, undefined, 'y lo soltado no dice «Espera»');
+  // La pantalla ya dice que no por su motivo (un Runner sin 1.22.0, «Ya juntaste el máximo»): gana su motivo, también saliendo.
+  const avisosPantalla: string[] = [];
+  const conMotivo = { ...a, puede: false, onNoPuede: () => { avisosPantalla.push('pantalla'); } };
+  const conMotivoQuieta = adjuntosQuietos(conMotivo, { quieta: true, saliendo: true, onEspera })!;
+  assert.equal(conMotivoQuieta.espera, undefined, 'la caja pisó el motivo de la pantalla');
+  conMotivoQuieta.onNoPuede?.();
+  assert.deepEqual(avisosPantalla, ['pantalla'], 'su aviso, no «Espera a que termine»');
+  conMotivoQuieta.onSumar([new File([PNG], 'otro.png')]);
+  assert.deepEqual(tocados, [], 'y no entra');
   // No se traga nada callada (la verificación de tren-t): dice que no toma y por qué, y lo soltado avisa.
   const { ESPERA_PARA_ADJUNTAR } = await import('../app/_chat/juntar-adjuntos');
   assert.equal(quieta.puede, false, 'el panel no ofrece «Suelta para adjuntar»');
@@ -367,7 +385,9 @@ test('10. la caja QUIETA (saliendo, apagada o bloqueada) no deja quitar ni toma 
   assert.deepEqual(tocados, [], 'y no entra');
   // La caja única la usa con su `quieto` (el soltar y el aviso al panel pasan por `adjuntos`), y la ✕ se apaga.
   const caja = sinComentarios(leer('app/_chat/CajaChat.tsx'));
-  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;[\s\S]{0,400}?const adjuntos = adjuntosQuietos\(deLaCaja, quieto, avisarEspera\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  assert.match(caja, /const quieto = enviando \|\| apagado \|\| !!p\.bloqueo;[\s\S]{0,500}?const adjuntos = adjuntosQuietos\(deLaCaja, \{ quieta: quieto, saliendo: enviando, onEspera: avisarEspera \}\);\s*useAvisarAdjuntos\(adjuntos\);/);
+  // La espera es sólo de la caja que sale: apagada o bloqueada, el aviso de la caja no queda.
+  assert.match(caja, /if \(enEspera && !enviando\) setEnEspera\(false\);/);
   assert.match(caja, /const avisarEspera = \(\) => \{ if \(p\.onErrorMic\) p\.onErrorMic\(ESPERA_PARA_ADJUNTAR\); else setEnEspera\(true\); \};/, 'lo dice la pantalla, o la caja');
   assert.match(caja, /\{enEspera && <p className="co-caja__estado" aria-live="polite">\{ESPERA_PARA_ADJUNTAR\}<\/p>\}/);
   assert.match(caja, /<ListaAdjuntos a=\{adjuntos\} apagado=\{quieto\} \/>/);

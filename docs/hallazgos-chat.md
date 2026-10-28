@@ -125,3 +125,28 @@ bien: lee con la IA del negocio, con la sesión y el negocio de la sesión, y a 
 - **Sin hacer:** las sugerencias (las píldoras) no esperan a las notas pendientes; y una nota grabada antes de cambiar de sesión
   queda en la sesión donde se grabó (sale al volver a ella; si no se vuelve, no sale).
 
+## La caja QUIETA: qué dice, y lo que la caja lee es de SU conversación (28/10/2026)
+
+La caja única no toca lo adjuntado mientras está quieta (saliendo, apagada o bloqueada): `adjuntosQuietos`
+(app/_chat/juntar-adjuntos.ts). Las verificaciones del Cerebro de e4d04e7fa y 05d7c3187 (C:/dev/revisiones/) encontraron qué
+decía mal, y un hueco que venía de antes:
+
+- **«Espera a que termine para adjuntar» sólo si algo va a terminar.** La primera versión ponía la espera en CUALQUIER caja
+  quieta, y `quieto` incluye `apagado` y `bloqueo`: un ticket cerrado, el Image Editor sin diseño o una caja sin la app de
+  escritorio decían «Espera» cuando esperar no servía de nada. **La regla:** la espera es de la caja que SALE (`saliendo`:
+  manda, lee o pasa una nota a texto); la apagada o bloqueada no toma y el panel dice lo de siempre («Este chat no recibe
+  archivos»).
+- **El motivo de la pantalla gana.** Si la pantalla ya dice `puede: false` por lo suyo (un Runner sin 1.22.0, «Ya juntaste el
+  máximo», «Sin conexión»), la caja quieta no pisa su `onNoPuede` ni su cartel.
+- **Lo que la caja LEE va por conversación** (`conversacion` de CajaChat → `useAdjuntosQueSeLeen`). Una pantalla con varias
+  conversaciones y una caja (Soporte) guardaba lo de la pantalla por conversación, pero lo que la caja lee sola (.pptx, .md,
+  audio, video) era UNA lista: el .pptx del ticket 7 aparecía en el 8 cerrado y salía con el próximo mensaje del 9.
+- **El diagnóstico obvio era el equivocado:** «`key={claveCaja}` en la caja de Soporte». Remonta la caja, pero lo leído se pierde
+  al cambiar de ticket, y una lectura en curso igual termina: llama al `onTexto` de la pantalla, que es UNO para todos los
+  tickets, y lo leído del 7 queda en la caja del 9. **La regla:** lo leído se guarda por conversación, y una lectura que
+  termina con OTRA conversación a la vista no escribe ni manda nada: queda en la suya, para mandarla desde ahí (salía como
+  respuesta al ticket equivocado, por el `onMandar` del último dibujo).
+- **Vive en:** app/_chat/juntar-adjuntos.ts (`adjuntosQuietos`) · CajaChat.tsx · adjuntos-que-se-leen.ts · tests/caja-lee-por-conversacion.test.ts ·
+  tests/centro-nuevo-con-adjuntos.test.ts (el 10).
+- **Sin hacer:** en Soporte, lo ESCRITO sigue siendo uno para todas las conversaciones (lo que se escribe en el ticket 7 se ve
+  en el 9). Es así desde antes; no lo tocó esta tanda.

@@ -758,6 +758,10 @@ respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara
   Si la persona levanta el ticket y le quedó algo sin mandar, no lo ve en el ticket: lo encuentra en la conversación nueva.
 - **Vive en:** app/tickets/soporte/useSoporte.ts (`claveCaja`, `adjuntosPor`, `otraConversacion`) ·
   tests/ticketera-subidas.test.ts («lo adjuntado es de SU conversación»).
+- **Y lo que la caja LEE (la verificación de 05d7c3187):** lo de arriba cubría lo que toma la pantalla (fotos, PDF, Office); lo
+  que la caja lee sola (.pptx, .md, audio, video) seguía pasando de un ticket a otro, y lo que se leía al cambiar de ticket salía
+  en el otro. Ahora la caja también lo guarda por conversación (`conversacion={s.claveCaja}`, PiezasSoporte.tsx): ver
+  hallazgos-chat.md, «La caja QUIETA».
 
 **La verificación del 28/10/2026 (claude4): cada arreglo se pasó de largo una vez.**
 - «Sólo el catch abre ticket» dejaba sin ticket las fallas REALES: muchos runners se tragan la excepción y devuelven ok:false (los

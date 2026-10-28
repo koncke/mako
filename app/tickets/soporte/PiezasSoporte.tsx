@@ -134,6 +134,8 @@ export function CajaSoporte({ s, movil = false, campo, seguir }: {
       arriba={hayClave(s.texto) ? <AvisoClave /> : undefined}
       // Capturas, fotos, PDF y documentos (28/10/2026, Martín: «solamente permite emojis»): lib/tickets-adjuntos.ts.
       adjuntos={s.adjuntosCaja} estado={s.errorAdjunto}
+      // Lo que la caja LEE (un .pptx, un audio) también es de su conversación, como lo adjuntado (la verificación de 05d7c3187).
+      conversacion={s.claveCaja}
       // La nota de voz sale en el acto y se pasa a texto por detrás (useSoporte.ts → `nota`).
       onGrabada={s.onGrabada}
       {...(movil ? { fila: 'm-operaciones-caja__fila' } : {})} />

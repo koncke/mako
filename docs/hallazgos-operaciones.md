@@ -3310,6 +3310,7 @@ reglas que sirven para cualquier caja:
 - **Una caja que no toma lo dice.** `adjuntosQuietos` anulaba `onSumar` pero dejaba `puede` en true: el panel ofrecía «Suelta
   para adjuntar», el archivo no entraba y nadie avisaba. Ahora la caja quieta dice `puede: false` y por qué (`espera`, que el panel
   muestra al arrastrar), y lo soltado avisa «Espera a que termine para adjuntar» (por `onErrorMic` de la pantalla, o en la caja).
+  Afinado después (hallazgos-chat.md, «La caja QUIETA»): la espera es sólo de la caja que SALE, y el motivo de la pantalla gana.
   Lo mismo con «Pegar la captura»: con la caja quieta ni se dibuja ni se resuelve. Antes, tocarla la anotaba como vista sin
   pegarla, y no se volvía a ofrecer nunca.
 - **Lo que vuelve a la caja después de un `await` necesita vistas previas NUEVAS.** Si la pantalla se desmontó en el medio (se
