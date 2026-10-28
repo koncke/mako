@@ -34,9 +34,13 @@ test('cobroStripe conserva `ignorar` y SUMA `noEsDeMako` sólo cuando no hay nin
 test('la venta externa se alcanza sólo desde la rama de checkout, sin cobro de MaKo y con el pago aprobado', () => {
   const p = cuerpo(W, 'export async function procesarEventoStripe(');
   const llamadas = p.match(/ventaExternaStripe\(/g) ?? [];
-  assert.equal(llamadas.length, 1, 'una sola puerta');
+  assert.equal(llamadas.length, 2, 'dos puertas, las dos en el checkout aprobado');
   // Sin cobro de MaKo, o con un cobro EXTERNO que un aviso cortado dejó a medias (28/10/2026): nunca con un cobro de MaKo.
   assert.match(p, /if \(aviso\.accion === 'aprobado' && \('ignorar' in b \? b\.noEsDeMako === true : esCobroExterno\(b\.cobro\)\)\) return ventaExternaStripe\(ws, key, id, ev, quien\);/);
+  // Y la del CRUCE (28/10/2026, la verificación de 3ca2d8328): el cobro de MaKo se encontró por un token que trajo la referencia
+  // de un Payment Link. Va a la venta externa SÓLO si la sesión no es de MaKo (`ajena`), y nunca toca el cobro de MaKo.
+  assert.match(p, /const suya = sesionDelCobro\(c, s\);\n\s*if \(!suya\.ok\) \{\n\s*if \(suya\.ajena && aviso\.accion === 'aprobado'\) return ventaExternaStripe\(ws, key, id, ev, quien\);/);
+  assert.ok(p.indexOf('sesionDelCobro(c, s)') < p.indexOf('confirmarCheckout('), 'la sesión se mira antes de confirmar nada del cobro');
   const checkout = p.slice(p.indexOf("if (objeto === 'checkout') {"), p.indexOf("if (objeto === 'factura') {"));
   assert.ok(checkout.includes('ventaExternaStripe('), 'la puerta está en la rama de checkout');
   assert.ok(!p.slice(p.indexOf("if (objeto === 'factura') {")).includes('ventaExternaStripe('), 'ni la factura, ni la baja, ni el cargo, ni la disputa');
@@ -70,8 +74,9 @@ test('un cobro externo no se reembolsa ni se cancela desde MaKo: se corta antes 
 
 test('la compra a Meta va después de asentar la plata, una vez por lead y sin poder tirar', () => {
   const v = cuerpo(W, 'async function ventaExternaStripe(');
-  assert.ok(v.indexOf('registrarVentaExterna(') < v.indexOf('avisarCompraAMeta(compra, ev, v.leadId)'));
-  const a = cuerpo(W, 'async function avisarCompraAMeta(');
+  assert.ok(v.indexOf('registrarVentaExterna(') < v.indexOf('avisarCompraAMeta(compra, ev.creado, v.leadId)'));
+  // Desde el 28/10/2026 vive en lib/cobros-externos-meta.ts: la manda también el cron (`compraExternaQueFalto`).
+  const a = cuerpo(sinComentarios(leer('../lib/cobros-externos-meta.ts')), 'export async function avisarCompraAMeta(');
   assert.ok(a.indexOf("from('lead_audit')") > 0 && a.indexOf("from('lead_audit')") < a.indexOf('sendMetaCAPIEvent('), 'mira la marca antes de mandar');
   assert.match(a, /soloPixel: true, actionSource: 'website',/);
   assert.match(a, /\} catch \(e\) \{\n\s*return `no pude avisarle la compra a Meta/);

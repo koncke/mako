@@ -36,10 +36,13 @@ test('el webhook manda el Purchase SÓLO para la venta que no es de MaKo, y con 
   const rama = w.slice(w.indexOf("if (objeto === 'checkout') {"), w.indexOf("if (objeto === 'factura') {"));
   // Antes de devolver «ignorado», y sólo cuando el aviso no es de ningún cobro de MaKo (desde la pieza 1: `noEsDeMako`).
   assert.ok(rama.indexOf('b.noEsDeMako') > 0 && rama.indexOf('b.noEsDeMako') < rama.indexOf("if ('ignorar' in b) return b.ignorar;"));
-  const v = w.slice(w.indexOf('async function ventaExternaStripe('), w.indexOf('async function avisarCompraAMeta('));
+  const v = w.slice(w.indexOf('async function ventaExternaStripe('), w.indexOf('export async function procesarEventoStripe('));
   const iRelee = v.indexOf('leerCheckoutExternoStripe(key, sesionId)');
   assert.ok(iRelee > 0 && iRelee < v.indexOf('compraDeLaSesion(s)'), 'el Purchase sale de la sesión RELEÍDA, no del evento');
-  const f = w.slice(w.indexOf('async function avisarCompraAMeta('), w.indexOf('export async function procesarEventoStripe('));
+  // La compra a Meta vive en lib/cobros-externos-meta.ts desde el 28/10/2026: la manda también el cron.
+  const m = leer('../lib/cobros-externos-meta.ts');
+  const f = m.slice(m.indexOf('export async function avisarCompraAMeta('), m.indexOf('export async function compraExternaQueFalto('));
+  assert.ok(f.length > 0, 'avisarCompraAMeta está en lib/cobros-externos-meta.ts');
   assert.match(f, /eventName: EVENTO_COMPRA[\s\S]*eventId: compra\.eventId[\s\S]*customData: \{ value: compra\.value, currency: compra\.currency \}/);
   // Al píxel del sitio, nunca al conjunto de datos de CRM, y como evento de la página (deduplica con el del navegador).
   assert.match(f, /soloPixel: true, actionSource: 'website',/);

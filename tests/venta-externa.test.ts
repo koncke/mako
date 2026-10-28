@@ -35,6 +35,19 @@
 //   · T2 sin la guardia de quien pagó                                                             → 21 / 1
 //   · `sesionExternaDe` sin pasar el email a minúsculas                                           → 20 / 2
 //   · `filaDeVentaExterna`: la suscripción con el `pi_` en vez del `in_`                          → 21 / 1
+// Y los arreglos de la verificación de 3ca2d8328 (28/10/2026), con este test, venta-externa-no-toca-mako, cobros-externos-reglas,
+// cobros-eventos y compra-payment-link (55 pases y 0 fallos con el código como está). Rota:
+//   · la rama de MaKo sin `sesionDelCobro` (el cruce del client_reference_id)                     → 52 / 3
+//   · la sesión ajena no va a la venta externa                                                    → 53 / 2
+//   · `sesionDelCobro` sin el corte del Payment Link                                              → 53 / 2
+//   · `sesionDelCobro` sin exigir la marca de MaKo                                                → 54 / 1
+//   · `sesionDelCobro` sin comparar el monto                                                      → 53 / 2
+//   · `sesionDelCobro` sin la moneda de origen (Adaptive Pricing)                                 → 53 / 2
+//   · `leerCheckoutStripe` sin leer `currency_conversion`                                         → 54 / 1
+//   · el reclamo vuelve a tirar sin status (la ruta contesta 200)                                 → 54 / 1
+//   · el cron sin la compra que faltó                                                             → 53 / 2
+//   · el cron sin mirar si ya la intentó (una línea por pasada)                                   → 54 / 1
+//   · `compraDelCobroExterno` acepta un cobro en modo prueba                                      → 54 / 1
 //
 // Correr: node --import tsx --test tests/venta-externa.test.ts
 
@@ -59,7 +72,7 @@ const sinNada = (x: { cobros: unknown[]; leads: unknown[]; cuotas: unknown[]; hi
 
 test('el hijo corrió entero, sin salir a la red ni escribir en Stripe', () => {
   assert.equal(R.tiro, undefined, String(R.tiro));
-  for (const k of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm']) {
+  for (const k of ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n1', 'n2', 'n3', 'o', 'p']) {
     assert.deepEqual(R[k].red, [], `${k}: salió a la red`);
     assert.deepEqual(R[k].escriturasStripe, [], `${k}: escribió en el Stripe del negocio`);
   }
@@ -161,8 +174,12 @@ test('una suscripción por un Payment Link va con su factura y su sub_, y gana a
 
 test('un aviso cortado después de reclamar la venta se COMPLETA en el reintento (lead, cuota y compra)', () => {
   const l = R.l;
-  assert.match(l.corte, /^tira: /, 'el primer aviso se cortó');
+  assert.match(l.corte, /^503 tira: /, 'el primer aviso se cortó en la red: la ruta contesta 503 y Stripe reintenta');
   assert.deepEqual(l.trasElCorte, { cobros: 1, leads: 0, meta: 0 }, 'quedó la venta reclamada, sin lead');
+  // ⚠️ El reintento ENSEGUIDA, dentro de los 2 minutos del reclamo (la verificación de 3ca2d8328): era un 200 («otro aviso la
+  // está registrando») y Stripe no volvía nunca. Tiene que ser un 503, y no escribir nada.
+  assert.match(l.enseguida, /^503 tira: /, 'el reintento dentro del reclamo contesta 503, no 200');
+  assert.deepEqual(l.trasEnseguida, { cobros: 1, leads: 0, meta: 0 });
   assert.match(l.r, /^procesado/);
   assert.equal(l.cobros.length, 1);
   assert.equal(l.leads.length, 1, 'el reintento creó el lead');
@@ -170,4 +187,46 @@ test('un aviso cortado después de reclamar la venta se COMPLETA en el reintento
   assert.equal(l.leads[0].estado_lead, 'ganado');
   assert.equal(l.cuotas.length, 1);
   assert.deepEqual(l.meta.map((m: { event_id: string }) => m.event_id), ['purchase:cs_live_L']);
+});
+
+test('EL CRUCE: un Payment Link con el token de un cobro de MaKo en la referencia no lo marca pagado; entra como venta del negocio', () => {
+  // La verificación de 3ca2d8328: una venta de US$1 por un Payment Link abierto con ?client_reference_id=<token> marcaba PAGADO
+  // un cobro de MaKo de US$1.500 (cuota de 1.500, lead ganado), con el interruptor apagado o prendido.
+  for (const k of ['n1', 'n2', 'n3']) {
+    assert.deepEqual(R[k].cobro77, { estado: 'pendiente', pago: null, lead41: 'abierto', cuotas41: 0 }, `${k}: tocó el cobro de MaKo`);
+  }
+  // Prendido: la venta de US$1 entra como lo que es, una venta externa de US$1.
+  const ext = R.n1.cobros.filter((c: { creado_por: string | null }) => (c.creado_por ?? '').startsWith('externo:stripe:'));
+  assert.deepEqual(ext.map((c: { proveedor_ref: string; monto: number; estado: string }) => [c.proveedor_ref, c.monto, c.estado]), [['cs_live_UNDOLAR', 1, 'pagado']]);
+  // Apagado: nada se registra.
+  assert.equal(R.n2.cobros.filter((c: { creado_por: string | null }) => (c.creado_por ?? '').startsWith('externo:')).length, 0);
+  assert.match(R.n2.r, /apagado en este negocio/);
+  // Un pago diferido que falló en el link: no marca fallido el cobro de MaKo.
+  assert.match(R.n3.r, /^ignorado: .*Payment Link/);
+});
+
+test('la sesión que MaKo armó para el cobro sí lo cobra, también en otra moneda con la conversión de Stripe; por otro monto, no', () => {
+  assert.match(R.n4.r, /^procesado/);
+  assert.deepEqual(R.n4.cobro77, { estado: 'pagado', pago: 'pi_live_MAKO77', lead41: 'ganado', cuotas41: 1 });
+  assert.match(R.n5.r, /^procesado/, 'pagada en MXN con currency_conversion desde USD: es la del cobro');
+  assert.equal(R.n5.cobro77.estado, 'pagado');
+  assert.match(R.n6.r, /^ignorado: la sesión cobró 1 USD y el cobro es de 1500 USD$/);
+  assert.deepEqual(R.n6.cobro77, { estado: 'pendiente', pago: null, lead41: 'abierto', cuotas41: 0 });
+});
+
+test('una venta cortada en la cuota: el cron la repara y la compra a Meta sale, una sola vez', () => {
+  const o = R.o;
+  assert.match(o.corte, /^200 tira: /, 'un CHECK no se arregla reintentando: la ruta contesta 200 y Stripe no vuelve');
+  assert.deepEqual(o.trasLaCuota, { cobros: 1, leads: 1, cuotas: 0, meta: 0 });
+  assert.equal(o.trasElCron.cuotas, 1, 'el cron repara la cuota');
+  assert.deepEqual(o.trasElCron.meta, ['purchase:cs_live_O'], 'y la compra a Meta que faltaba');
+  assert.deepEqual(o.meta.map((m: { event_id: string }) => m.event_id), ['purchase:cs_live_O'], 'la segunda pasada del cron no la repite');
+  assert.equal(o.historial.filter((h: string) => /\|Meta\|/.test(h)).length, 1);
+});
+
+test('sin píxel, el cron intenta la compra UNA vez: no deja una línea por cada pasada', () => {
+  const p = R.p;
+  assert.deepEqual(p.meta, []);
+  assert.equal(p.cuotas.length, 1);
+  assert.deepEqual(p.historial.filter((h: string) => /\|Meta\|/.test(h)).map((h: string) => h.replace(/^\d+\|/, '')), ['Meta|Meta no recibió la compra (purchase:cs_live_P): sin_pixel']);
 });

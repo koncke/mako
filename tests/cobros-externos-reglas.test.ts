@@ -9,8 +9,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  esCobroExterno, esVentaExterna, filaDeVentaExterna, lineaCompraEnMeta, MOTIVO_APAGADO, sesionExternaDe, ventasExternasPrendidas,
-  type SesionExterna,
+  compraDelCobroExterno, esCobroExterno, esVentaExterna, filaDeVentaExterna, lineaCompraEnMeta, MOTIVO_APAGADO, sesionExternaDe,
+  ventasExternasPrendidas, type SesionExterna,
 } from '../lib/cobros-externos-reglas';
 import { planLeadAuto, AUTO_UMBRALES, type AutoLead } from '../lib/crm-auto-plan';
 
@@ -108,4 +108,14 @@ test('T2 no le escribe «no agendaste» a quien ya pagó', () => {
   assert.deepEqual(planLeadAuto(lead({ total_cobrado_usd: 0 }), HOY, NOW).map((a) => a.regla), ['T2']);
   assert.deepEqual(planLeadAuto(lead({ total_cobrado_usd: null }), HOY, NOW).map((a) => a.regla), ['T2']);
   assert.deepEqual(planLeadAuto(lead({ total_cobrado_usd: 270 }), HOY, NOW).map((a) => a.regla), []);
+});
+
+test('la compra de un cobro externo ya guardado (la que manda el cron): el mismo id que el aviso, sólo real y pagado', () => {
+  const C = { creado_por: 'externo:stripe:plink_1Sprint', modo: 'real' as const, estado: 'pagado', proveedor_ref: 'cs_live_a1', monto: 270, moneda: 'USD', email: 'ana@mail.test' };
+  assert.deepEqual(compraDelCobroExterno(C), { eventId: 'purchase:cs_live_a1', value: 270, currency: 'USD', email: 'ana@mail.test', phone: null });
+  assert.equal(compraDelCobroExterno({ ...C, creado_por: null }), null, 'un cobro de MaKo no');
+  assert.equal(compraDelCobroExterno({ ...C, modo: 'prueba' }), null, 'una venta de prueba no entra al píxel');
+  assert.equal(compraDelCobroExterno({ ...C, estado: 'reembolsado' }), null);
+  assert.equal(compraDelCobroExterno({ ...C, proveedor_ref: 'pi_x' }), null, 'sin la sesión no hay el id que comparte el navegador');
+  assert.equal(compraDelCobroExterno({ ...C, monto: 0 }), null);
 });

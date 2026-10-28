@@ -294,8 +294,15 @@ bienvenida: la `post_pago` del ws1 está archivada.
   camino de los cobros de MaKo, que decía «ya estaba pagado» y dejaba la venta sin lead, sin cuota y sin la compra a Meta
   para siempre. Lo mostró tests/venta-externa.test.ts (caso «un aviso cortado…»), en rojo antes del arreglo.
 - **El Purchase no se reintenta solo:** sale una vez, después de asentar la plata, y con lead queda la línea fija o la de
-  «Meta no recibió la compra (…)». Un fallo de Meta en el primer aviso no vuelve (Stripe recibió 200 y el cron no mira
-  ventas externas). Ni `eventSourceUrl` (el `success_url`) ni `externalId` (el `visitor_id`) viajan todavía.
+  «Meta no recibió la compra (…)». Un fallo de Meta en el primer aviso no vuelve (Stripe recibió 200). Ni `eventSourceUrl`
+  (el `success_url`) ni `externalId` (el `visitor_id`) viajan todavía. **Desde el 28/10:** si la venta se cortó antes de la
+  compra (en la cuota, por ejemplo) y el cron la repara, el cron manda la compra que faltó (`compraExternaQueFalto`,
+  lib/cobros-externos-meta.ts), una vez por venta.
+- ⚠️ **§1 suponía mal que «si es un token real, `cobroDelAviso` ya lo encontró» era seguro** (la verificación de 3ca2d8328,
+  28/10): el token es público y un Payment Link acepta `?client_reference_id=<token>`, y una venta de US$1 marcaba pagado un
+  cobro de MaKo de US$1.500. La rama de MaKo exige ahora que la sesión sea la del cobro (`sesionDelCobro`,
+  lib/cobros-eventos.ts: la metadata `mako_cobro`, sin Payment Link, el mismo monto o el de origen); si no lo es, va a la venta
+  externa. Y el «otro aviso la está registrando» del §2 va con status 503: sin él la ruta contestaba 200 y Stripe no volvía.
 - **Apagado, la compra a Meta sale igual** (sin lead ni cobro): es lo que hacía 749086da2 antes de esto.
 - **Cómo se probó sin modo prueba:** tests/venta-externa.test.ts corre `procesarEventoStripe` REAL sobre la base, Stripe y
   Meta de mentira (los casos a–j del paso 4, más el corte a mitad y una suscripción). El ensayo de sólo lectura sobre los

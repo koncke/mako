@@ -14,6 +14,7 @@
 
 import { deUnidadMinima } from './pasarela-moneda';
 import { CUENTA_PRINCIPAL } from './cuentas-integracion';
+import { eventIdCompra } from './meta-capi-payload';
 
 /** La setting del negocio (app_settings) que lo prende: '1'. Apagado por defecto: lo prende MaKo, no el usuario. */
 export const INTERRUPTOR_VENTAS_EXTERNAS = 'cobros.ventas_externas';
@@ -28,6 +29,23 @@ export const MOTIVO_APAGADO = 'venta de un Payment Link propio: el registro de v
 
 /** La línea fija del historial del lead cuando Meta recibió la compra: con ella, la compra no se vuelve a mandar. */
 export const lineaCompraEnMeta = (eventId: string): string => `Meta recibió la compra (${eventId})`;
+
+/** Lo que va a Meta como compra (lib/cobros-externos-meta.ts). */
+export type CompraExterna = { eventId: string; value: number; currency: string; email: string | null; phone: string | null };
+
+/**
+ * La compra de un cobro externo YA GUARDADO, para el cron (28/10/2026, la verificación de 3ca2d8328): la venta que se cortó en la
+ * cuota la repara `reconciliarCobros`, y la compra a Meta, que el aviso mandaba recién al final, no salía nunca. Sale del cobro
+ * (no de la sesión): el mismo `purchase:<cs_>` que manda el aviso, así Meta deduplica. Sólo una venta REAL y pagada; el teléfono
+ * lo pone quien llama (el cobro no lo guarda).
+ */
+export function compraDelCobroExterno(c: {
+  creado_por?: string | null; modo: 'real' | 'prueba'; estado: string; proveedor_ref: string | null; monto: number; moneda: string; email: string | null;
+}): CompraExterna | null {
+  if (!esCobroExterno(c) || c.modo !== 'real' || c.estado !== 'pagado') return null;
+  if (!c.proveedor_ref || !c.proveedor_ref.startsWith('cs_') || !(Number(c.monto) > 0) || !/^[A-Z]{3}$/.test(c.moneda)) return null;
+  return { eventId: eventIdCompra(c.proveedor_ref), value: Number(c.monto), currency: c.moneda, email: c.email, phone: null };
+}
 
 type Json = Record<string, unknown>;
 const obj = (v: unknown): Json => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Json) : {});

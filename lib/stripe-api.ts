@@ -284,6 +284,12 @@ export type SesionStripe = {
   paymentLink?: string | null;
   /** El teléfono que dejó el comprador (`customer_details.phone`), si Stripe lo pidió. */
   telefono?: string | null;
+  /**
+   * Lo cobrado en la moneda de ORIGEN si Stripe la convirtió (`currency_conversion`, Adaptive Pricing: el comprador paga en la
+   * suya). Con eso se compara el cobro de MaKo (`sesionDelCobro`, lib/cobros-eventos.ts). Sin conversión, null.
+   */
+  montoOrigen?: number | null;
+  monedaOrigen?: string | null;
 };
 
 const metadataDe = (v: unknown): Record<string, string> => {
@@ -298,6 +304,9 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
   const b = r.body;
   const moneda = str(b.currency)?.toUpperCase() ?? null;
   const total = Number(b.amount_total);
+  const cc = obj(b.currency_conversion);
+  const monedaOrigen = str(cc.source_currency)?.toUpperCase() ?? null;
+  const totalOrigen = Number(cc.amount_total);
   return {
     ok: true,
     id: str(b.id) ?? id,
@@ -314,6 +323,8 @@ export async function leerCheckoutStripe(key: string, id: string): Promise<R<Ses
     metadata: metadataDe(b.metadata),
     modo: b.livemode === true ? 'real' : 'prueba',
     referencia: str(b.client_reference_id),
+    montoOrigen: monedaOrigen && cc.amount_total != null && Number.isFinite(totalOrigen) ? deUnidadMinima(totalOrigen, monedaOrigen) : null,
+    monedaOrigen,
   };
 }
 

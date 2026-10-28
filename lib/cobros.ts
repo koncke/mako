@@ -67,6 +67,7 @@ import { compartenHuella, diaDelCobro, esPruebaDePlan, FILTRO_SUSCRIPCION_DE_MAK
 import { PRUEBA_DIAS } from './planes-mako';
 import { productoDeMako } from './stripe-catalogo-reglas';
 import { esCobroExterno, PREFIJO_EXTERNO, type FilaVentaExterna } from './cobros-externos-reglas';
+import { compraExternaQueFalto } from './cobros-externos-meta';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Links y credenciales
@@ -1716,15 +1717,19 @@ export async function reconciliarCobros(ws: number, opts: { dias?: number } = {}
     await cerrarPruebaAlEmpezarYa(c);
     const faltaCuota = !!c.lead_id && c.monto_usd != null && !!c.proveedor_pago_id && !conCuota.has(c.id);
     const faltaAlta = !!c.alta_capa && c.alta_estado !== 'hecha' && c.alta_estado !== 'ya_tenia_cuenta';
-    if (!faltaCuota && !faltaAlta) continue;
-    try {
-      if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
-      else await runWithWorkspace(ws, () => altaSiCorresponde(c));
-      cambiados++;
-    } catch (e) {
-      errores++;
-      console.error(`[cobros] reparar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+    if (faltaCuota || faltaAlta) {
+      try {
+        if (c.proveedor_pago_id) await aplicarPagoAprobado(c, { proveedorPagoId: c.proveedor_pago_id, pagadoAt: c.pagado_at });
+        else await runWithWorkspace(ws, () => altaSiCorresponde(c));
+        cambiados++;
+      } catch (e) {
+        errores++;
+        console.error(`[cobros] reparar cobro ${c.id}:`, e instanceof Error ? e.message : String(e));
+      }
     }
+    // La compra a Meta de una VENTA EXTERNA que no salió (28/10/2026, la verificación de 3ca2d8328): el aviso la mandaba recién
+    // al final, y una venta cortada en la cuota la perdía aunque este cron reparara la cuota. Una vez por venta; nunca tira.
+    if (esCobroExterno(c)) await compraExternaQueFalto(c);
   }
 
   for (const c of pendientes) {
@@ -1907,13 +1912,16 @@ export async function registrarVentaExterna(ws: number, v: VentaExterna): Promis
     if (ins.data) cobro = cobroDeFila(ins.data as Record<string, unknown>);
     else if (ins.error?.code === '23505') {
       const { data: ya, error: eYa } = await db.from('cobros').select(COLS_COBRO).eq('proveedor', 'stripe').eq('proveedor_ref', v.fila.proveedor_ref).maybeSingle();
-      if (eYa || !ya) throw new Error(`La venta ya estaba reclamada y no la pude releer: ${eYa?.message ?? 'sin fila'}`);
+      // ⚠️ Los dos «todavía no» de abajo van con status 503 (28/10/2026, la verificación de 3ca2d8328): sin status,
+      // `esErrorTransitorio` los daba por definitivos, la ruta contestaba 200 y Stripe no volvía NUNCA. El reintento enseguida de
+      // un aviso cortado (un «Reenviar» desde el panel de Stripe, o su primer reintento) dejaba la venta sin lead para siempre.
+      if (eYa || !ya) throw Object.assign(new Error(`La venta ya estaba reclamada y no la pude releer: ${eYa?.message ?? 'sin fila'}`), { status: 503 });
       cobro = cobroDeFila(ya as Record<string, unknown>);
       // Un cobro de MaKo con ese `cs_` no se toca (no debería existir: `cobroDelAviso` lo habría encontrado antes).
       if (!esCobroExterno(cobro)) return { cobro, leadId: cobro.lead_id, aviso: 'la sesión ya es de un cobro de MaKo' };
-      // Otro aviso la reclamó hace un momento y todavía no tiene lead: lo está creando. Éste reintenta después (Stripe).
+      // Otro aviso la reclamó hace un momento y todavía no tiene lead: lo está creando. Éste vuelve después (503: Stripe reintenta).
       if (cobro.lead_id == null && Date.now() - Date.parse(cobro.created_at) < RECLAMO_DE_VENTA_MS) {
-        throw new Error('Otro aviso está registrando esta venta: se completa en el próximo intento.');
+        throw Object.assign(new Error('Otro aviso está registrando esta venta: se completa en el próximo intento.'), { status: 503 });
       }
     } else throw new Error(`No pude guardar la venta: ${ins.error?.message ?? 'sin respuesta'}`);
 

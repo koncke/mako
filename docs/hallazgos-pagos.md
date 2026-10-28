@@ -1302,6 +1302,37 @@ tests/venta-externa-no-toca-mako.test.ts.
   de Mauricio lleve `?session_id={CHECKOUT_SESSION_ID}` (se cambia en SU Stripe); con el interruptor apagado a mitad, el
   reintento de una venta ya reclamada no la completa.
 
+### Lo que encontró la verificación de la rama unida con Planes (3ca2d8328, 28/10/2026)
+
+Informe del Cerebro: C:/dev/revisiones/2810-verificacion-3ca2d8328.md, «La venta externa». Lo arregló este chat en
+`lib/cobros-webhook.ts`, `lib/cobros-eventos.ts` (`sesionDelCobro`), `lib/stripe-api.ts`, `lib/cobros.ts` y el módulo nuevo
+`lib/cobros-externos-meta.ts`; lo prueban tests/venta-externa.test.ts (casos n, o, p y el reintento de l) y
+tests/cobros-eventos.test.ts.
+
+- ⚠️ **EL CRUCE (alto, ANTERIOR a MAU-10, estaba en producción): una venta de US$1 marcaba PAGADO un cobro de MaKo de
+  US$1.500.** El token del cobro es público (viaja en el link /pagar/<token>), un Payment Link acepta
+  `?client_reference_id=<token>` en la URL (el sitio de Mauricio lo copia del query a cada link), y el aviso buscaba el cobro
+  también por esa referencia. `esDelCobro` aceptaba la referencia sola y `confirmarCheckout` no miraba ni el monto ni el link.
+  El diseño lo daba por seguro («si es un token real, `cobroDelAviso` ya lo encontró»): **encontrar el cobro no prueba que la
+  sesión sea la suya.** La regla: la sesión de un cobro de MaKo se reconoce por la METADATA (`mako_cobro`; sólo el dueño de la
+  cuenta la escribe y MaKo la pone en todo checkout desde el 11/10), nunca por `client_reference_id`; nunca es un Payment Link;
+  y cobra lo mismo, en su moneda o en la de ORIGEN si Stripe la convirtió (`currency_conversion`, Adaptive Pricing: comparar
+  sólo `amount_total` rechazaría un pago legítimo en pesos). Si no es de MaKo, es una venta del negocio y va como tal. Un pago
+  diferido fallido en ese link tampoco marca fallido el cobro.
+- **Trampa para cualquier doble de Stripe:** un `data.object` recortado (sin `client_reference_id`) esconde toda búsqueda por
+  la referencia. El evento real trae la sesión ENTERA; el doble también.
+- ⚠️ **«Todavía no, reintentá» sin status es un 200.** El error del reclamo («otro aviso está registrando esta venta») no
+  llevaba status, `esErrorTransitorio` lo daba por definitivo, la ruta contestaba 200 y Stripe no volvía NUNCA: un «Reenviar»
+  desde el panel de Stripe dentro de los 2 minutos dejaba la venta sin lead para siempre. Ahora va con status 503. **Regla:
+  todo error que signifique «volvé más tarde» lleva su status transitorio.** Y el test del corte probaba la puerta llamando a
+  `procesarEventoStripe` con un error que la ruta NO reintenta (un XX000): un test de «el reintento lo completa» tiene que mirar
+  qué contestaría la ruta (`esErrorTransitorio`), no sólo llamar a la función.
+- **La compra a Meta de una venta cortada en la cuota** la manda ahora también el cron (`reconciliarCobros` →
+  `compraExternaQueFalto`), una sola vez por venta: si el historial ya dice algo de esa compra, no la repite (sin píxel, no
+  deja una línea por pasada).
+- **Sigue sin hacer:** una venta externa pagada y SIN lead (un error permanente al crear el lead, o el corte pasado el tope de
+  8 s, cuando la ruta ya contestó 200) no la completa nadie: el cron sólo repara pagados con lead.
+
 ## «No tiene LIBERTAD» (27/10/2026): editar una cuota sin trámites, y la suscripción en el total de la columna
 
 Chat «CRM y Chats» (`claude5`), rama `crm-chats-2710`. Martín: «Los pagos funcionan mal, no tiene LIBERTAD... No se cargan

@@ -20,7 +20,7 @@ import assert from 'node:assert/strict';
 import {
   acctDelWebhook, avisoStripe, buscarDePagoMp, claveEventoMp, confirmarCargo, confirmarCheckout, confirmarFactura,
   conPresupuesto, esDelCobro, eventoStripe, mismoModo, motivoRechazoMp, motivoSinDatos, notificacionMp, planDePagoMp,
-  suscripcionMpCancelada, tokenReleido, type AvisoStripe,
+  sesionDelCobro, suscripcionMpCancelada, tokenReleido, type AvisoStripe,
 } from '../lib/cobros-eventos';
 
 const TOKEN = 'AbCdEfGhIjKlMnOpQrStUvWxYz012345'; // 32 base64url, como nuevoTokenCobro
@@ -187,6 +187,37 @@ test('modo y pertenencia: otro modo u otro token no se aplican', () => {
   assert.equal(tokenReleido({ referencia: 'no-es-un-token' }), null);
   assert.equal(esDelCobro(TOKEN, OTRO), false);
   assert.equal(esDelCobro(TOKEN, null), true, 'una renovación no siempre trae el token');
+});
+
+test('la sesión de un cobro de MaKo es la que MaKo armó: su marca, sin Payment Link y por lo mismo (28/10/2026, el cruce)', () => {
+  // ⚠️ El cruce que encontró la verificación de 3ca2d8328: un Payment Link del negocio abierto con `?client_reference_id=<token>`
+  // (el token viaja en el link /pagar/<token>) se encontraba por esa referencia, y una venta de US$1 marcaba PAGADO un cobro de
+  // MaKo de US$1.500. `esDelCobro` acepta la referencia sola; para el checkout hace falta la marca que pone MaKo.
+  const C = { token: TOKEN, monto: 1500, moneda: 'USD' };
+  const S = { paymentLink: null, metadata: { mako_cobro: TOKEN }, monto: 1500, moneda: 'USD', montoOrigen: null, monedaOrigen: null };
+  assert.deepEqual(sesionDelCobro(C, S), { ok: true });
+  // El ataque: un Payment Link con la referencia y sin la marca, por menos.
+  const cruce = sesionDelCobro(C, { ...S, paymentLink: 'plink_DONACION', metadata: {}, monto: 1 });
+  assert.ok(!cruce.ok && cruce.ajena, 'un Payment Link nunca es la sesión de un cobro de MaKo: es una venta del negocio');
+  // Aunque el link cobre lo mismo y alguien le copie la marca: MaKo nunca arma un Payment Link.
+  const conMarca = sesionDelCobro(C, { ...S, paymentLink: 'plink_X' });
+  assert.ok(!conMarca.ok && conMarca.ajena);
+  // Un checkout propio del negocio con la referencia y sin la marca: tampoco es de MaKo.
+  const sinMarca = sesionDelCobro(C, { ...S, metadata: {} });
+  assert.ok(!sinMarca.ok && sinMarca.ajena);
+  // La marca de OTRO cobro de MaKo: no se aplica, y no es una venta del negocio.
+  const otro = sesionDelCobro(C, { ...S, metadata: { mako_cobro: OTRO } });
+  assert.ok(!otro.ok && !otro.ajena && /otro cobro/.test(otro.motivo));
+  // Con la marca pero por otro monto u otra moneda: no se aplica (el cron relee la sesión del cobro, no ésta).
+  for (const x of [{ monto: 1 }, { monto: 1499.99 }, { moneda: 'MXN' }, { monto: null }]) {
+    const r = sesionDelCobro(C, { ...S, ...x });
+    assert.ok(!r.ok && !r.ajena, JSON.stringify(x));
+  }
+  // Con la conversión de Stripe (Adaptive Pricing), el comprador paga en su moneda y el monto del cobro es el de ORIGEN.
+  assert.deepEqual(sesionDelCobro(C, { ...S, monto: 26_850.5, moneda: 'MXN', montoOrigen: 1500, monedaOrigen: 'USD' }), { ok: true });
+  assert.ok(!sesionDelCobro(C, { ...S, monto: 26_850.5, moneda: 'MXN', montoOrigen: 1, monedaOrigen: 'USD' }).ok);
+  // Un centavo de redondeo no es otro monto (`mismoCentavo`).
+  assert.deepEqual(sesionDelCobro({ ...C, monto: 99.9 }, { ...S, monto: 99.9 }), { ok: true });
 });
 
 // ── Mercado Pago ──────────────────────────────────────────────────────────────

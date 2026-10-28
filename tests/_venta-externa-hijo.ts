@@ -34,8 +34,10 @@ const meta: Array<{ pixel: string; eventos: Array<Record<string, unknown>> }> = 
 let sesiones: Record<string, Record<string, unknown>> = {};
 /** Escrituras a Stripe (POST/DELETE): una venta externa nunca escribe en el Stripe del negocio. */
 const escriturasStripe: string[] = [];
-/** Cuántas altas de lead más contestan 500 (el aviso que se corta después de reclamar la venta). */
+/** Cuántas altas de lead más se cortan en la red (el aviso que se corta después de reclamar la venta). */
 let fallarAltaDeLead = 0;
+/** Cuántas cuotas más chocan con un CHECK (un error que reintentar no arregla: la ruta contesta 200 y Stripe no vuelve). */
+let fallarCuota = 0;
 
 const json = (status: number, body: unknown) =>
   new Response(body === undefined ? null : JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -46,8 +48,16 @@ globalThis.fetch = (async (entrada: RequestInfo | URL, init: RequestInit = {}) =
   if (u.host === 'supa.test') {
     if (fallarAltaDeLead > 0 && metodo === 'POST' && u.pathname.endsWith('/leads')) {
       fallarAltaDeLead -= 1;
-      return json(500, { code: 'XX000', message: 'la base no contesta', details: null, hint: null });
+      // Lo que tira undici cuando la base no contesta: `esErrorTransitorio` lo da por transitorio y la ruta contesta 503.
+      throw new TypeError('fetch failed');
     }
+    if (fallarCuota > 0 && metodo === 'POST' && u.pathname.endsWith('/pagos')) {
+      fallarCuota -= 1;
+      return json(400, { code: '23514', message: 'new row for relation "pagos" violates check constraint "pagos_monto_check"', details: null, hint: null });
+    }
+    // El cron lee los pagados con un `or` (pagado hace poco, o un alta sin terminar) que la base de mentira no entiende: acá todos
+    // los cobros son de hoy, así que sacarlo no deja a ninguno afuera.
+    if (metodo === 'GET' && u.pathname.endsWith('/cobros') && (u.searchParams.get('or') ?? '').startsWith('(pagado_at.gte.')) u.searchParams.delete('or');
     return pg.responder(u, init);
   }
   if (u.host === 'api.stripe.com') {
@@ -89,7 +99,8 @@ async function main() {
   const { cifrar } = await import('../lib/cripto-credenciales');
   const { runWithWorkspace } = await import('../lib/workspace');
   const { procesarEventoStripe } = await import('../lib/cobros-webhook');
-  const { reembolsarCobro, cancelarSuscripcionCobro } = await import('../lib/cobros');
+  const { reembolsarCobro, cancelarSuscripcionCobro, reconciliarCobros } = await import('../lib/cobros');
+  const { esErrorTransitorio } = await import('../lib/calendly-error');
 
   const cred = (ws: number, clave: string, valor: string) => db.credenciales.push({ workspace_id: ws, clave, valor_enc: cifrar(valor, ws, clave), servicio: 'x' });
   function reset(o: { prendido?: boolean; pixel?: boolean; key?: string } = {}) {
@@ -107,6 +118,16 @@ async function main() {
       if (o.pixel !== false) { cred(ws, 'META_PIXEL_ID', '111222333'); cred(ws, 'META_CAPI_TOKEN', 'EAAtokenDelPixel'); }
     }
   }
+  /** Lo que haría la ruta con lo que tira el aviso (app/api/webhooks/stripe/route.ts): 503 si es transitorio (Stripe reintenta),
+   *  200 si no (Stripe no vuelve). */
+  const conRespuesta = async (ev: Record<string, unknown>) => {
+    try {
+      const r = await runWithWorkspace(WS, () => procesarEventoStripe(WS, ev as never, 'principal', 'acct_NEGOCIO'));
+      return `200 ${r.estado}: ${r.motivo ?? ''}`;
+    } catch (e) {
+      return `${esErrorTransitorio(e) ? 503 : 200} tira: ${e instanceof Error ? e.message : String(e)}`;
+    }
+  };
   const aviso = async (ev: Record<string, unknown>, ws = WS) => {
     try {
       const r = await runWithWorkspace(ws, () => procesarEventoStripe(ws, ev as never, 'principal', 'acct_NEGOCIO'));
@@ -199,14 +220,23 @@ async function main() {
   // (l) El aviso se corta DESPUÉS de reclamar la venta y antes del lead (la base falla al crearlo; en Vercel, el tope de 8 s):
   //     el reintento de Stripe encuentra el cobro externo y tiene que COMPLETARLO (lead, cuota y compra a Meta), no tratarlo
   //     como un cobro de MaKo «ya pagado» y dejarlo sin lead para siempre.
+  //     ⚠️ Y EL REINTENTO ENSEGUIDA (la verificación de 3ca2d8328): dentro de los 2 minutos del reclamo, «otro aviso la está
+  //     registrando» tiene que ser un 503, no un 200: con un 200 Stripe no vuelve y la venta quedaba sin lead para siempre.
   reset();
   sesiones.cs_live_L = sesion('cs_live_L');
   fallarAltaDeLead = 1;
-  const corte = await aviso(evento('cs_live_L', 13));
+  const corte = await conRespuesta(evento('cs_live_L', 13));
   const trasElCorte = foto();
+  const enseguida = await conRespuesta(evento('cs_live_L', 13));
+  const trasEnseguida = foto();
   // Pasó el rato del reclamo (`RECLAMO_DE_VENTA_MS`): el reintento ya no lo toma como «otro aviso lo está registrando».
   for (const c of db.cobros) c.created_at = new Date(Date.now() - 10 * 60_000).toISOString();
-  out.l = { corte, trasElCorte: { cobros: trasElCorte.cobros.length, leads: trasElCorte.leads.length, meta: trasElCorte.meta.length }, r: await aviso(evento('cs_live_L', 14)), ...foto() };
+  out.l = {
+    corte, enseguida,
+    trasElCorte: { cobros: trasElCorte.cobros.length, leads: trasElCorte.leads.length, meta: trasElCorte.meta.length },
+    trasEnseguida: { cobros: trasEnseguida.cobros.length, leads: trasEnseguida.leads.length, meta: trasEnseguida.meta.length },
+    r: await aviso(evento('cs_live_L', 14)), ...foto(),
+  };
 
   // (m) Una SUSCRIPCIÓN por un Payment Link: va con su factura (`in_`) y su `sub_`, sin escribir en Stripe, y no se cancela
   //     desde MaKo.
@@ -218,6 +248,85 @@ async function main() {
   await aviso(evento('cs_live_M', 15));
   const idM = Number((db.cobros[0] as Fila | undefined)?.id ?? 0);
   out.m = { cancelar: await runWithWorkspace(WS, () => cancelarSuscripcionCobro(WS, idM, 'test')).catch((e) => ({ tira: String(e) })), ...foto() };
+
+  // (n) EL CRUCE (la verificación de 3ca2d8328): un cobro de MaKo de US$1.500 pendiente, y una venta de US$1 por un Payment Link
+  //     del negocio abierto con `?client_reference_id=<el token del cobro>` (el token viaja en el link /pagar/<token>). El aviso
+  //     encuentra el cobro por esa referencia. NO puede marcarlo pagado: es una venta del negocio, y entra como tal.
+  const T = 'TokTokTokTokTokTokTokTokTokTok77';
+  const conCobroDeMako = (o: { prendido?: boolean } = {}) => {
+    reset(o);
+    db.leads.push({ id: 41, workspace_id: WS, nombre: 'Leo del Programa', email: 'leo@mail.test', telefono: null, estado_lead: 'abierto', pipeline_stage: 'lead', created_at: '2026-09-01T00:00:00Z' });
+    db.cobros.push({
+      id: 77, workspace_id: WS, lead_id: 41, token: T, proveedor: 'stripe', modo: 'real', tipo: 'unico', concepto: 'Programa', monto: 1500,
+      moneda: 'USD', monto_usd: 1500, estado: 'pendiente', proveedor_ref: 'cs_live_MAKO77', cuenta: null, cuenta_ref: 'acct_NEGOCIO',
+      creado_por: null, motivo: null, created_at: AHORA, updated_at: AHORA,
+    });
+  };
+  const donacion = (x: Record<string, unknown> = {}) => sesion('cs_live_UNDOLAR', {
+    payment_link: 'plink_DONACION', amount_total: 100, client_reference_id: T,
+    line_items: { object: 'list', data: [{ description: 'Donación', price: { currency: 'usd', unit_amount: 100, recurring: null } }] }, ...x,
+  });
+  // El evento real trae la sesión ENTERA en `data.object`, con el client_reference_id: un objeto recortado esconde el cruce.
+  const eventoDe = (s: Record<string, unknown>, n: number, tipo = 'checkout.session.completed') => ({
+    ...evento(String(s.id), n), tipo, objeto: { ...s, line_items: undefined },
+  });
+  const delCobro77 = () => {
+    const c = db.cobros.find((x) => x.id === 77);
+    const l = db.leads.find((x) => x.id === 41);
+    return { estado: c?.estado, pago: c?.proveedor_pago_id ?? null, lead41: l?.estado_lead, cuotas41: db.pagos.filter((x) => x.lead_id === 41).length };
+  };
+  conCobroDeMako();
+  sesiones.cs_live_UNDOLAR = donacion();
+  out.n1 = { r: await aviso(eventoDe(sesiones.cs_live_UNDOLAR, 20)), cobro77: delCobro77(), ...foto() };
+  conCobroDeMako({ prendido: false });
+  sesiones.cs_live_UNDOLAR = donacion();
+  out.n2 = { r: await aviso(eventoDe(sesiones.cs_live_UNDOLAR, 21)), cobro77: delCobro77(), ...foto() };
+  // Un pago diferido que FALLÓ en ese link: tampoco toca el cobro de MaKo (antes lo marcaba fallido).
+  conCobroDeMako();
+  sesiones.cs_live_UNDOLAR = donacion({ payment_status: 'unpaid' });
+  out.n3 = { r: await aviso(eventoDe(sesiones.cs_live_UNDOLAR, 22, 'checkout.session.async_payment_failed')), cobro77: delCobro77(), ...foto() };
+  // Los controles: la sesión que MaKo armó para el cobro 77 sí lo cobra, también pagada en pesos con la conversión de Stripe.
+  const deMako = (x: Record<string, unknown> = {}) => sesion('cs_live_MAKO77', {
+    payment_link: null, payment_intent: 'pi_live_MAKO77', amount_total: 150000, client_reference_id: T,
+    metadata: { mako_cobro: T, mako_ws: String(WS), mako_cobro_id: '77' }, ...x,
+  });
+  conCobroDeMako();
+  sesiones.cs_live_MAKO77 = deMako();
+  out.n4 = { r: await aviso(eventoDe(sesiones.cs_live_MAKO77, 23)), cobro77: delCobro77() };
+  conCobroDeMako();
+  sesiones.cs_live_MAKO77 = deMako({ currency: 'mxn', amount_total: 2685050, currency_conversion: { amount_total: 150000, amount_subtotal: 150000, fx_rate: '17.9003', source_currency: 'usd' } });
+  out.n5 = { r: await aviso(eventoDe(sesiones.cs_live_MAKO77, 24)), cobro77: delCobro77() };
+  // La sesión de MaKo por OTRO monto (alguien la tocó en el Stripe del negocio): no se aplica.
+  conCobroDeMako();
+  sesiones.cs_live_MAKO77 = deMako({ amount_total: 100 });
+  out.n6 = { r: await aviso(eventoDe(sesiones.cs_live_MAKO77, 25)), cobro77: delCobro77() };
+
+  // (o) La venta se corta en la CUOTA con un error que reintentar no arregla (la ruta contesta 200 y Stripe no vuelve): el cron
+  //     repara la cuota, y la compra a Meta, que se mandaba sólo al final del aviso, tiene que salir también. Una vez.
+  reset();
+  sesiones.cs_live_O = sesion('cs_live_O');
+  fallarCuota = 1;
+  const enLaCuota = await conRespuesta(evento('cs_live_O', 30));
+  const trasLaCuota = foto();
+  const cron = await reconciliarCobros(WS);
+  const trasElCron = foto();
+  const cron2 = await reconciliarCobros(WS);
+  out.o = {
+    corte: enLaCuota, cron, cron2,
+    trasLaCuota: { cobros: trasLaCuota.cobros.length, leads: trasLaCuota.leads.length, cuotas: trasLaCuota.cuotas.length, meta: trasLaCuota.meta.length },
+    trasElCron: { cuotas: trasElCron.cuotas.length, meta: trasElCron.meta.map((m) => m.event_id) },
+    ...foto(),
+  };
+
+  // (p) Lo mismo en un negocio SIN píxel: la compra no sale, y el cron lo intenta UNA vez (no una línea por pasada).
+  reset({ pixel: false });
+  sesiones.cs_live_P = sesion('cs_live_P');
+  fallarCuota = 1;
+  await conRespuesta(evento('cs_live_P', 31));
+  await reconciliarCobros(WS);
+  await reconciliarCobros(WS);
+  await reconciliarCobros(WS);
+  out.p = foto();
 
   process.stdout.write(`\n@@RESULTADO@@${JSON.stringify(out)}`);
 }
