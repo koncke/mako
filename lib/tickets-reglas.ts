@@ -23,6 +23,8 @@
 // ⚠️ EN LA DUDA, DECIDE MARTÍN. El arreglo automático sale sólo con confianza ALTA: un pedido disfrazado de bug que se
 // «arregla» solo es una feature que nadie decidió. Lo contrario (un bug que espera a Martín) cuesta un clic.
 
+import { lineaDeAdjuntos } from './tickets-adjuntos';
+
 /** Los tres tipos, con las palabras de la pantalla (las mismas en el formulario y en la bandeja de Martín). */
 export const TIPOS = [
   { clave: 'bug', rotulo: 'Algo no anda', corto: 'Bug' },
@@ -487,12 +489,21 @@ export function historialDelTicket(t: FilaParaCliente): PasoDelTicket[] {
 }
 type EventoParaCliente = { at: string; actor: string; tipo: string; texto: string | null; datos?: Record<string, unknown> | null };
 
+/** Lo que la persona escribió y, si mandó archivos, sus nombres («📎 captura.png»; nunca un link): si no, al responder con texto
+ *  y una captura, la captura desaparecía de su vista y la volvía a mandar (revisión de 046d9e028). */
+function textoConSusArchivos(texto: string, datos: Record<string, unknown> | null | undefined): string {
+  const lista = Array.isArray(datos?.adjuntos) ? (datos!.adjuntos as unknown[]) : [];
+  const nombres = lista.map((a) => (a && typeof a === 'object' && typeof (a as { nombre?: unknown }).nombre === 'string' ? (a as { nombre: string }).nombre : '')).filter(Boolean);
+  const linea = lineaDeAdjuntos(nombres);
+  return linea && !texto.includes(linea) ? `${texto}\n${linea}` : texto;
+}
+
 export function paraElCliente(t: FilaParaCliente, eventos: readonly EventoParaCliente[] = []): TicketCliente {
   const estado = estadoParaElCliente(t.estado);
   const lineas: LineaCliente[] = [{ at: t.created_at, quien: 'tu', texto: t.descripcion || t.titulo }];
   if (t.despacho === 'runner') lineas.push({ at: t.created_at, quien: 'equipo', texto: 'Lo vimos como algo que debería andar: ya se está arreglando.' });
   for (const e of eventos) {
-    if (e.tipo === 'comentario' && e.texto) lineas.push({ at: e.at, quien: e.actor === 'cliente' ? 'tu' : 'equipo', texto: e.texto });
+    if (e.tipo === 'comentario' && e.texto) lineas.push({ at: e.at, quien: e.actor === 'cliente' ? 'tu' : 'equipo', texto: e.actor === 'cliente' ? textoConSusArchivos(e.texto, e.datos) : e.texto });
     if (e.tipo === 'decidido') {
       const d = (e.datos as { decision?: string } | null)?.decision;
       if (e.texto) lineas.push({ at: e.at, quien: 'equipo', texto: e.texto });

@@ -621,6 +621,29 @@ permite emojis, no permite adjuntar ni archivos ni capturas ni documentos».
 - **El Cerebro los ve** con `scripts/tickets.ts ver <n>` (la sección ADJUNTOS, con un link firmado de 1 hora), y el triage los
   nombra en su «porque».
 
-**Sin hacer:** «Reintentar» una respuesta que falló la manda sin sus archivos (el turno guarda el texto, no los `File`); y en la
-conversación nueva, si se levanta el ticket antes de que terminen de subir, el ticket sale sin ellos. Viven en
-app/tickets/soporte/useSoporte.ts.
+### La revisión de 046d9e028: la foto se iba con el ticket SIGUIENTE, y el reintento grababa un «📎» falso (28/10/2026)
+
+La revisión del Cerebro (C:/dev/revisiones/2810-ticketera-046d9e028.md) corrió el hook real con la subida en pausa. Lo que se
+había anotado como «sin hacer» era peor de lo que decía:
+
+- **El síntoma:** en la conversación nueva, el ticket que se levanta mientras una foto sube salía SIN la foto, y la descripción
+  igual decía «📎 foto.jpg». Y la subida que terminaba después se sumaba a la conversación siguiente: la foto se iba con el
+  próximo ticket de esa persona. **La causa:** `mandar()` metía la línea «📎» al relato en el acto y subía con un `.then` suelto
+  que escribía en `delTicket` sin saber de qué conversación era; `mandarTicket` leía `delTicket` en el clic. **La regla:** el
+  mensaje con archivos se ve ya («Enviando…») pero entra al relato recién cuando subió; el ticket ESPERA las subidas en curso
+  («Subiendo archivos…»); una subida que termina en otra conversación (`ref.current` cambió) se descarta.
+- **El reintento:** el turno guardaba el texto VISTO («📎 captura.png»), y «Reintentar» lo mandaba como texto de la persona y sin
+  el archivo; en el historial del equipo no se distingue de un envío real. **La regla:** el turno guarda lo dicho, sus `File` y,
+  si ya subieron, sus referencias (`dicho`, `archivos`, `subidos` en `Turno`): el reintento manda lo mismo y no sube dos veces.
+- **Trampa al arreglarlo:** después de `await` de las subidas, React todavía no volvió a dibujar, así que la tarjeta «de ahora»
+  (un ref sincronizado en un efecto) puede estar vieja. La descripción se completa con los nombres de lo que va con el ticket.
+- **De paso:** el tope es POR TICKET en la conversación nueva (el alta recortaba el sexto en silencio; ahora la caja y las
+  acciones lo dicen); la persona ve sus archivos en el ticket aunque haya escrito algo (`paraElCliente`, sólo nombres); y la
+  ruta pone un tope por día por negocio (30 archivos o 50 MB), contado en el bucket y no en memoria (vale en todas las
+  instancias; si listar falla, no traba).
+- **Cómo se prueba:** `tests/ticketera-subidas.test.ts` arma el hook REAL con esbuild, un mini runtime de hooks (los efectos
+  corren después de cada dibujo) y la subida en pausa. Sirve de molde para probar otro hook sin levantar la app.
+
+**Sin hacer:** el barrido de los archivos huérfanos de `archivero/<ws>/tickets` (una conversación que no se levanta, una
+respuesta que falla después de subir, el 1 de 3 que subió antes de que fallara el 2). `barrerMiniaturasViejas`
+(lib/operaciones-adjuntos.ts) sólo recorre las carpetas del Ops Center.

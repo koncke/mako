@@ -13,7 +13,10 @@ import { tabEnCapa } from '@/lib/capas';
 import { comentarComoCliente, crearTicket, identidadDe, misTickets, miTicket } from '@/lib/tickets-db';
 import { paraElCliente, sanearAlta, type TicketCliente } from '@/lib/tickets-reglas';
 import { contextoDeSoporte } from '@/lib/soporte-chat';
-import { sanearAdjuntosTicket } from '@/lib/tickets-adjuntos';
+import { TOPE_ADJUNTOS_TICKET, sanearAdjuntosTicket } from '@/lib/tickets-adjuntos';
+
+/** Más archivos que el tope: se dice, nunca se recorta en silencio (revisión de 046d9e028). */
+const deMas = (x: unknown) => Array.isArray(x) && x.length > TOPE_ADJUNTOS_TICKET;
 
 type Yo = { ws: number; email: string; nombre: string };
 async function yo(): Promise<Yo | null> {
@@ -39,6 +42,7 @@ export async function levantarDesdeSoporteAction(entrada: {
 }): Promise<{ ok: true; id: number } | { ok: false; error: string }> {
   const quien = await yo();
   if (!quien) return { ok: false, error: SIN_SESION };
+  if (deMas(entrada.adjuntos)) return { ok: false, error: `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por ticket.` };
   const a = sanearAlta({ tipo: entrada.elegido ? entrada.tipo : null, titulo: entrada.titulo, descripcion: entrada.descripcion });
   if (!a.ok) return { ok: false, error: a.motivo };
   const ref = typeof entrada.ref === 'string' && /^[A-Za-z0-9-]{8,80}$/.test(entrada.ref) ? `soporte-chat:${entrada.ref}` : null;
@@ -79,6 +83,7 @@ export async function contestarTicketAction(id: number, texto: string, adjuntos?
   const quien = await yo();
   if (!quien) return { ok: false, error: SIN_SESION };
   if (!Number.isInteger(id) || id <= 0) return { ok: false, error: 'No encuentro ese ticket' };
+  if (deMas(adjuntos)) return { ok: false, error: `Hasta ${TOPE_ADJUNTOS_TICKET} archivos por mensaje.` };
   const r = await comentarComoCliente(quien.ws, quien.email, id, texto, sanearAdjuntosTicket(adjuntos, quien.ws));
   if (!r.ok) return r;
   const t = await miTicket(quien.ws, quien.email, id);

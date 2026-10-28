@@ -60,7 +60,7 @@ export function TarjetaTicket({ s }: { s: Soporte }) {
       {s.errorTarjeta && <p className="ch-tarjeta__nota sp-tarjeta__error" role="status">{s.errorTarjeta}</p>}
       <div className="ch-tarjeta__botones">
         <button type="button" className="co-chip co-chip--primario" disabled={s.mandando} onClick={() => void s.mandarTicket()}>
-          {s.mandando ? 'Mandando…' : 'Mandárselo al equipo'}
+          {s.subiendo ? 'Subiendo archivos…' : s.mandando ? 'Mandando…' : 'Mandárselo al equipo'}
         </button>
         <span className="ch-tarjeta__nota">Como «{rotuloTipo(tipo)}». Te aviso aquí cuando conteste.</span>
       </div>
